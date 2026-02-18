@@ -212,19 +212,19 @@ fn read_entry_compressed(z : ZipReader, e : ZipEntry) -> Bytes raise Error {
   if data_end > b.length() {
     raise ZipError("zip: file data out of range")
   }
-  println("zip entry = " + e.name)
-  println(
-    "  method=" +
-    e.comp_method.to_string() +
-    " flags=" +
-    e.gp_flags.to_string() +
-    " comp_size=" +
-    e.comp_size.to_string() +
-    " uncomp_size=" +
-    e.uncomp_size.to_string() +
-    " data_start=" +
-    data_start.to_string(),
-  )
+  //println("zip entry = " + e.name)
+  //println(
+  //  "  method=" +
+  //  e.comp_method.to_string() +
+  //  " flags=" +
+  //  e.gp_flags.to_string() +
+  //  " comp_size=" +
+  //  e.comp_size.to_string() +
+  //  " uncomp_size=" +
+  //  e.uncomp_size.to_string() +
+  //  " data_start=" +
+  //  data_start.to_string(),
+  //)
 
   slice_bytes(b, data_start, data_end)
 }

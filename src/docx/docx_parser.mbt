@@ -13,16 +13,13 @@ pub fn parse_docx(
   }
 
   let zip = open_docx(path)
-  let names = zip.zip.list_entries()
-  println("entries count = " + names.length().to_string())
-  println(names.filter(fn(s) { s == "word/document.xml" }).length().to_string())
 
   // 1) 读正文 xml
   let doc_xml = zip.read_text_required("word/document.xml")
 
   // 2) 读关系表（图片 rId -> media/xxx）
   let rels_xml = zip.read_text_optional("word/_rels/document.xml.rels")
-  println("document.xml chars = " + doc_xml.length().to_string())
+  //println("document.xml chars = " + doc_xml.length().to_string())
 
   let rels = parse_rels(rels_xml)
 
