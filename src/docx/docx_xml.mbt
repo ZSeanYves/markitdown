@@ -20,33 +20,6 @@ fn find_sub(chars : Array[Char], from : Int, pat : String) -> Int {
 }
 
 ///|
-fn find_tag_tc(chars : Array[Char], from : Int) -> Int {
-  // 找 "<w:tc" 且后一个字符不是字母（排除 <w:tcW / <w:tcPr 等）
-  let mut i = from
-  while true {
-    let p = find_sub(chars, i, "<w:tc")
-    if p < 0 {
-      return -1
-    }
-
-    let next = p + 5 // "<w:tc".length() == 5
-    if next >= chars.length() {
-      return p
-    }
-
-    let c = chars[next]
-    // 真正的 tc 标签：<w:tc> 或 <w:tc ... 或 <w:tc/>
-    if c == ' ' || c == '>' || c == '/' {
-      return p
-    }
-
-    // 否则就是 <w:tcW / <w:tcPr...，跳过继续找
-    i = next
-  }
-  -1
-}
-
-///|
 fn read_attr_value(block : String, attr_pat : String) -> String? {
   // 在 block 字符串里找 attr_pat（比如 "<w:pStyle w:val=\"" 或 "r:embed=\"")
   // 找到则返回引号中的内容
@@ -66,29 +39,52 @@ fn read_attr_value(block : String, attr_pat : String) -> String? {
 }
 
 
-fn collect_all_text(block: String) -> String {
+///|
+fn is_delim_for_tag(c : Char) -> Bool {
+  c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
+}
+
+// 只匹配真正的 "<w:t" 标签：后面必须是分隔符（空格 / > / /）
+///|
+fn find_wt_open(chars : Array[Char], from : Int) -> Int {
+  let mut i = from
+  while true {
+    let p = find_sub(chars, i, "<w:t")
+    if p < 0 {
+      return -1
+    }
+
+    // "<w:t" 长度是 4
+    if p + 4 < chars.length() && is_delim_for_tag(chars[p + 4]) {
+      return p
+    }
+
+    i = p + 4
+  }
+  -1
+}
+
+///|
+fn collect_wt_text(block : String) -> String {
   let chars = block.to_array()
   let mut i = 0
   let mut out = ""
 
   while true {
-    let p1 = find_sub(chars, i, "<w:t")
+    let p1 = find_wt_open(chars, i)
     if p1 < 0 { break }
 
-    // 找到 <w:t ...> 的 >
     let p2 = find_sub(chars, p1, ">")
     if p2 < 0 { break }
 
-    // 严格要求闭合 </w:t>
     let p3 = find_sub(chars, p2 + 1, "</w:t>")
     if p3 < 0 {
-      // 没闭合就跳过这个 <w:t ...>，继续往后找
       i = p2 + 1
       continue
     }
 
     out = out + @cor.slice_to_string(chars, p2 + 1, p3)
-    i = p3 + 6  // "</w:t>".length() == 6
+    i = p3 + 6
   }
 
   @cor.trim_string(out)
@@ -133,7 +129,7 @@ fn scan_paragraph(
   }
 
   // 3) 段落文本
-  let text = collect_all_text(p_xml)
+  let text = collect_wt_text(p_xml)
   if !@cor.is_blank(text) {
     if level > 0 && level <= max_heading {
       @cor.push(doc, @cor.Heading(level, text))
@@ -145,79 +141,93 @@ fn scan_paragraph(
 
 
 
+fn is_delim(c: Char) -> Bool {
+  c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
+}
+
+fn find_tc_open(chars: Array[Char], from: Int) -> Int {
+  // 只匹配真正的 "<w:tc ...>"，排除 "<w:tcW", "<w:tcPr", "<w:tcMar" ...
+  let mut i = from
+  while true {
+    let p = find_sub(chars, i, "<w:tc")
+    if p < 0 { return -1 }
+
+    // "<w:tc" 长度是 5，后面必须是分隔符才算 cell 开始
+    if p + 5 < chars.length() && is_delim(chars[p + 5]) {
+      return p
+    }
+
+    i = p + 5
+  }
+  -1
+}
+
 ///|
 fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
   let chars = tbl_xml.to_array()
   let mut i = 0
   let rows : Array[Array[String]] = []
 
-  let tr_close_tag = "</w:tr>"
-  let tc_close_tag = "</w:tc>"
-
   while true {
     let tr1 = find_sub(chars, i, "<w:tr")
     if tr1 < 0 {
       break
     }
-
     let tr2 = find_sub(chars, tr1, ">")
     if tr2 < 0 {
       break
     }
-
-    let tr3 = find_sub(chars, tr2 + 1, tr_close_tag)
+    let tr3 = find_sub(chars, tr2 + 1, "</w:tr>")
     if tr3 < 0 {
       break
     }
 
-    // 只取 tr 内部（不含 <w:tr ...> 与 </w:tr>）
     let tr_inner = @cor.slice_to_string(chars, tr2 + 1, tr3)
     let tr_chars = tr_inner.to_array()
 
-    let cells : Array[String] = []
     let mut j = 0
+    let cells : Array[String] = []
 
     while true {
-      // 关键：只找真正的 <w:tc（排除 tcW/tcPr）
-      let tc_start = find_tag_tc(tr_chars, j)
-      if tc_start < 0 {
+      let tc1 = find_tc_open(tr_chars, j)
+      if tc1 < 0 {
         break
       }
 
-      // 找 <w:tc ...> 的 '>'
-      let tc_open_end = find_sub(tr_chars, tc_start, ">")
-      if tc_open_end < 0 {
+      let tc2 = find_sub(tr_chars, tc1, ">")
+      if tc2 < 0 {
         break
       }
 
-      // 找 </w:tc>
-      let tc_close = find_sub(tr_chars, tc_open_end + 1, tc_close_tag)
-      if tc_close < 0 {
+      let tc3 = find_sub(tr_chars, tc2 + 1, "</w:tc>")
+      if tc3 < 0 {
         break
       }
 
-      // tc_inner：单元格内容区域
-      let tc_inner = @cor.slice_to_string(tr_chars, tc_open_end + 1, tc_close)
+      let tc_inner = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
 
-      // 只抽取 w:t 文本（不会有任何 XML）
-      let txt = collect_all_text(tc_inner)
-      cells.push(txt)
-      println("cell=" + txt)
+      // 只从 tc_inner 里抽 w:t
+      let cell_text = collect_wt_text(tc_inner)
+      println("[DBG] cell_text=" + cell_text)
+      println("[DBG] cell_len=" + cell_text.length().to_string())
 
+      cells.push(cell_text)
 
-      // 推进到 </w:tc> 后继续
-      j = tc_close + tc_close_tag.length()
+      // 游标推进："</w:tc>" 长度 7
+      j = tc3 + 7
     }
 
     if cells.length() > 0 {
       rows.push(cells)
     }
 
-    i = tr3 + tr_close_tag.length()
+    // "</w:tr>" 长度 7
+    i = tr3 + 7
   }
 
   rows
 }
+
 
 
 
