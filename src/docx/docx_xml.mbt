@@ -20,6 +20,33 @@ fn find_sub(chars : Array[Char], from : Int, pat : String) -> Int {
 }
 
 ///|
+fn find_tag_tc(chars : Array[Char], from : Int) -> Int {
+  // 找 "<w:tc" 且后一个字符不是字母（排除 <w:tcW / <w:tcPr 等）
+  let mut i = from
+  while true {
+    let p = find_sub(chars, i, "<w:tc")
+    if p < 0 {
+      return -1
+    }
+
+    let next = p + 5 // "<w:tc".length() == 5
+    if next >= chars.length() {
+      return p
+    }
+
+    let c = chars[next]
+    // 真正的 tc 标签：<w:tc> 或 <w:tc ... 或 <w:tc/>
+    if c == ' ' || c == '>' || c == '/' {
+      return p
+    }
+
+    // 否则就是 <w:tcW / <w:tcPr...，跳过继续找
+    i = next
+  }
+  -1
+}
+
+///|
 fn read_attr_value(block : String, attr_pat : String) -> String? {
   // 在 block 字符串里找 attr_pat（比如 "<w:pStyle w:val=\"" 或 "r:embed=\"")
   // 找到则返回引号中的内容
@@ -38,31 +65,36 @@ fn read_attr_value(block : String, attr_pat : String) -> String? {
   Some(String::from_array(buf.val))
 }
 
-///|
-fn collect_all_text(block : String) -> String {
-  // 收集所有 <w:t>...</w:t>
+
+fn collect_all_text(block: String) -> String {
   let chars = block.to_array()
   let mut i = 0
   let mut out = ""
+
   while true {
     let p1 = find_sub(chars, i, "<w:t")
-    if p1 < 0 {
-      break
-    }
+    if p1 < 0 { break }
+
+    // 找到 <w:t ...> 的 >
     let p2 = find_sub(chars, p1, ">")
-    if p2 < 0 {
-      break
-    }
+    if p2 < 0 { break }
+
+    // 严格要求闭合 </w:t>
     let p3 = find_sub(chars, p2 + 1, "</w:t>")
     if p3 < 0 {
-      break
+      // 没闭合就跳过这个 <w:t ...>，继续往后找
+      i = p2 + 1
+      continue
     }
-    let txt = @cor.slice_to_string(chars, p2 + 1, p3)
-    out = out + txt
-    i = p3 + 6
+
+    out = out + @cor.slice_to_string(chars, p2 + 1, p3)
+    i = p3 + 6  // "</w:t>".length() == 6
   }
+
   @cor.trim_string(out)
 }
+
+
 
 ///|
 fn scan_paragraph(
@@ -111,60 +143,83 @@ fn scan_paragraph(
   }
 }
 
+
+
 ///|
 fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
-  // 扫 w:tr / w:tc 内的 w:t
   let chars = tbl_xml.to_array()
   let mut i = 0
-  let rows : Ref[Array[Array[String]]] = { val: [] }
+  let rows : Array[Array[String]] = []
+
+  let tr_close_tag = "</w:tr>"
+  let tc_close_tag = "</w:tc>"
 
   while true {
     let tr1 = find_sub(chars, i, "<w:tr")
     if tr1 < 0 {
       break
     }
+
     let tr2 = find_sub(chars, tr1, ">")
     if tr2 < 0 {
       break
     }
-    let tr3 = find_sub(chars, tr2 + 1, "</w:tr>")
+
+    let tr3 = find_sub(chars, tr2 + 1, tr_close_tag)
     if tr3 < 0 {
       break
     }
 
-    let tr_xml = @cor.slice_to_string(chars, tr2 + 1, tr3)
+    // 只取 tr 内部（不含 <w:tr ...> 与 </w:tr>）
+    let tr_inner = @cor.slice_to_string(chars, tr2 + 1, tr3)
+    let tr_chars = tr_inner.to_array()
 
-    // 解析这一行的 cell
-    let tr_chars = tr_xml.to_array()
+    let cells : Array[String] = []
     let mut j = 0
-    let cells : Ref[Array[String]] = { val: [] }
 
     while true {
-      let tc1 = find_sub(tr_chars, j, "<w:tc")
-      if tc1 < 0 {
-        break
-      }
-      let tc2 = find_sub(tr_chars, tc1, ">")
-      if tc2 < 0 {
-        break
-      }
-      let tc3 = find_sub(tr_chars, tc2 + 1, "</w:tc>")
-      if tc3 < 0 {
+      // 关键：只找真正的 <w:tc（排除 tcW/tcPr）
+      let tc_start = find_tag_tc(tr_chars, j)
+      if tc_start < 0 {
         break
       }
 
-      let tc_xml = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
-      let cell_text = collect_all_text(tc_xml)
-      cells.val.push(cell_text)
-      j = tc3 + 7
+      // 找 <w:tc ...> 的 '>'
+      let tc_open_end = find_sub(tr_chars, tc_start, ">")
+      if tc_open_end < 0 {
+        break
+      }
+
+      // 找 </w:tc>
+      let tc_close = find_sub(tr_chars, tc_open_end + 1, tc_close_tag)
+      if tc_close < 0 {
+        break
+      }
+
+      // tc_inner：单元格内容区域
+      let tc_inner = @cor.slice_to_string(tr_chars, tc_open_end + 1, tc_close)
+
+      // 只抽取 w:t 文本（不会有任何 XML）
+      let txt = collect_all_text(tc_inner)
+      cells.push(txt)
+      println("cell=" + txt)
+
+
+      // 推进到 </w:tc> 后继续
+      j = tc_close + tc_close_tag.length()
     }
 
-    rows.val.push(cells.val)
-    i = tr3 + 7
+    if cells.length() > 0 {
+      rows.push(cells)
+    }
+
+    i = tr3 + tr_close_tag.length()
   }
 
-  rows.val
+  rows
 }
+
+
 
 ///|
 pub fn scan_document_xml(

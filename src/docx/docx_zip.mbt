@@ -13,20 +13,6 @@ pub fn open_docx(path : String) -> DocxZip raise @fs.IOError {
 }
 
 ///|
-pub fn DocxZip::read_text(z : DocxZip, entry_path : String) -> String raise {
-  let b = z.zip.read_entry_bytes(entry_path) catch {
-    _ => return "" // docx 某些文件可能不存在（比如没图片就没 rels/media）
-  }
-  // docx xml 都是 utf-8
-  @cor.utf8_bytes_to_string(b) catch {
-    e =>
-      raise @cor.Utf8DecodeError(
-        "utf8 decode failed for " + entry_path + ": " + e.to_string(),
-      )
-  }
-}
-
-///|
 pub fn DocxZip::read_text_optional(
   z : DocxZip,
   entry_path : String,
