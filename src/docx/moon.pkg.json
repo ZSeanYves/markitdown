@@ -1,0 +1,16 @@
+{
+    "import": [
+        {
+            "path":"ZSeanYves/markitdown/src/core",
+            "alias":"cor"
+        },
+        {   
+            "path": "moonbitlang/x/fs",
+            "alias": "fs"
+        },
+        {
+            "path": "mizchi/zlib",
+            "alias": "z"
+        }
+    ]
+}

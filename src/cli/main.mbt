@@ -58,26 +58,40 @@ fn cmd_convert(
   out_dir : String?,
   max_heading : Int,
 ) -> Unit {
-  // 目前 parser 还没做，这里先给可预期的行为
-  // 你之后实现 parsers.docx / parsers.pdf 后，
-  // 只需要在这里根据后缀 dispatch -> parse -> emit -> write
+  let out_root = match out_dir {
+    Some(d) => d
+    None => "out"
+  }
 
-  println("convert 尚未实现：")
-  println("  input = " + input)
+  // 确保 out_root 存在
+  if !@fs.path_exists(out_root) {
+    @fs.create_dir(out_root) catch {
+      e => {
+        exit_error(e.to_string())
+        return
+      }
+    }
+  }
+
+  let doc = @doc.parse_docx(input, out_root, max_heading) catch {
+    e => {
+      exit_error("parse_docx failed: " + e.to_string())
+      return
+    }
+  }
+
+  let md = @cor.emit_markdown(doc)
+
   match output {
-    Some(o) => println("  output = " + o)
-    None => ()
+    Some(p) =>
+      @fs.write_string_to_file(p, md, encoding="utf8") catch {
+        e => exit_error("write output failed: " + e.to_string())
+      }
+    None => println(md)
   }
-  match out_dir {
-    Some(d) => println("  out-dir = " + d)
-    None => ()
-  }
-  println("  max-heading = " + max_heading.to_string())
-  println("")
-  println(
-    "你可以先运行：markitdown-mb demo 来验证 core 是否正常。",
-  )
 }
+
+
 
 ///|
 fn parse_int_or_default(sopt : String?, default : Int) -> Int {

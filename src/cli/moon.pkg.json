@@ -6,8 +6,16 @@
             "alias":"cor"
         },
         {
+            "path":"ZSeanYves/markitdown/src/docx",
+            "alias":"doc"
+        },
+        {
             "path":"moonbitlang/x/sys",
             "alias": "sys"
+        },
+        {
+            "path":"moonbitlang/x/fs",
+            "alias": "fs"
         },
         {
             "path":"TheWaWaR/clap",
