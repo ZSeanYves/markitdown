@@ -1,0 +1,17 @@
+{
+    "is-main": true,
+    "import": [
+        {
+            "path":"ZSeanYves/markitdown/src/core",
+            "alias":"cor"
+        },
+        {
+            "path":"moonbitlang/x/sys",
+            "alias": "sys"
+        },
+        {
+            "path":"TheWaWaR/clap",
+            "alias": "clap"
+        }
+    ]
+}
