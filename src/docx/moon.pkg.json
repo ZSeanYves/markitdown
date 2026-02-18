@@ -12,5 +12,6 @@
             "path": "mizchi/zlib",
             "alias": "z"
         }
-    ]
+    ],
+    "preferred-target": "native"
 }

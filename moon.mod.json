@@ -4,8 +4,10 @@
   "deps": {
     "moonbitlang/x": "0.4.40",
     "TheWaWaR/clap": "0.2.6",
-    "mizchi/zlib": "0.3.3"
+    "mizchi/zlib": "0.3.3",
+    "moonbitlang/async": "0.16.6"
   },
+  "preferred-target": "native",
   "readme": "README.mbt.md",
   "repository": "https://github.com/ZSeanYves/markitdown.git",
   "license": "Apache-2.0",

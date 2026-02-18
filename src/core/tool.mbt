@@ -105,3 +105,49 @@ pub fn utf8_bytes_to_string(b: Bytes) -> String raise Utf8DecodeError {
 
   result
 }
+
+
+///|
+/// 段落最后做一次清理：多空格折叠 + trim
+pub fn finalize_paragraph(s : String) -> String {
+  let t = s.trim()
+  if t == "" {
+    return ""
+  }
+
+  // 折叠连续空格（不引入 regex，手写）
+  let mut out = ""
+  let mut prev_space = false
+  for ch in @utf8.encode(t) {
+    if ch == 32 { // ' '
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + ch.to_string() // 若你的 String 没 from_char，见下方替代
+      prev_space = false
+    }
+  }
+  out.trim().to_string()
+}
+
+///|
+/// buf 是否以 ASCII '-' 结尾
+pub fn ends_with_hyphen(s : String) -> Bool {
+  let bs = @utf8.encode(s)
+  if bs.length() == 0 {
+    return false
+  }
+  bs[bs.length() - 1] == 45 // '-'
+}
+
+///|
+/// 删除最后一个字符（按字节删，适用于 ASCII '-'）
+pub fn drop_last_char(s : String) -> String raise Error {
+  let bs = @utf8.encode(s)
+  if bs.length() == 0 {
+    return s
+  }
+  s[:bs.length() - 1].to_string()
+}

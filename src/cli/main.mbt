@@ -1,17 +1,66 @@
-// TODO： 后序为“—” 等做规范化，先原样返回
-// TODO：拓展兼容 "--out=xxx"
 ///|
-fn normalize_cli_args(args : Array[String]) -> Array[String] {
+/// 返回第一个 '=' 的位置（按字节扫描），找不到返回 None
+fn find_first_eq(s : String) -> Int? {
+  let bs = @utf8.encode(s)
+  let n = bs.length()
+  let mut i = 0
+  while i < n {
+    if bs[i] == 61 { // '='
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+/// TODO： 后序为“—” 等做规范化，先原样返回
+/// 支持：--out=xxx / --output=xxx / --max-heading=3 这类写法（转成 ["--out", "xxx"]）
+fn normalize_cli_args(args : Array[String]) -> Array[String] raise{
   let out : Array[String] = []
   if args.length() <= 1 {
     return out
   }
+
   for i in 1..<args.length() {
-    out.push(args[i].trim().to_string())
+    let a = args[i].trim().to_string()
+
+    if a.has_prefix("--") {
+      let eq = find_first_eq(a)
+      match eq {
+        Some(pos) => {
+          // --key=value  ->  ["--key", "value"]
+          let k = a[:pos].to_string()
+          let v = a[pos + 1:].to_string()
+          out.push(k)
+          out.push(v)
+          continue
+        }
+        None => ()
+      }
+    }
+
+    out.push(a)
   }
+
   out
 }
 
+///|
+fn normalize_cli_args_safe(args : Array[String]) -> Array[String] {
+  normalize_cli_args(args) catch {
+    _ => {
+      let out : Array[String] = []
+      if args.length() <= 1 {
+        return out
+      }
+      for i in 1..<args.length() {
+        out.push(args[i].trim().to_string())
+      }
+      out
+    }
+  }
+}
 
 
 ///|
@@ -52,7 +101,7 @@ fn cmd_demo() -> Unit {
 }
 
 ///|
-fn cmd_convert(
+async fn cmd_convert(
   input : String,
   output : String?,
   out_dir : String?,
@@ -73,9 +122,16 @@ fn cmd_convert(
     }
   }
 
-  let doc = @doc.parse_docx(input, out_root, max_heading) catch {
-    e => {
-      exit_error("parse_docx failed: " + e.to_string())
+  let opts : @pdf.ConvertOptions = {
+    out_dir: Some(out_root),
+    max_heading: Some(max_heading),
+  }
+
+  let doc_res = @pdf.parse_to_ir(input, opts) 
+  let doc = match doc_res {
+    Ok(d) => d
+    Err(e) => {
+      exit_error("parse failed: " + e.to_string())
       return
     }
   }
@@ -150,7 +206,7 @@ fn parse_int_or_default(sopt : String?, default : Int) -> Int {
 
 
 ///|
-fn main {
+async fn main {
   let args = @sys.get_cli_args()
 
   let parser = @clap.Parser::new(
@@ -186,16 +242,16 @@ fn main {
 
   let help_msg = parser.gen_help_message(["markitdown-mb"], {})
 
-  let cli_args : Array[String] = normalize_cli_args(args)
+  let cli_args : Array[String] = normalize_cli_args_safe(args)
   if cli_args.length() == 0 {
     println(help_msg)
     return
   }
 
   let value = @clap.SimpleValue::new("markitdown-mb")
-  println("raw args  = \{args}")
-  let cli_args : Array[String] = normalize_cli_args(args)
-  println("norm args = \{cli_args}")
+  //println("raw args  = \{args}")
+  let cli_args : Array[String] = normalize_cli_args_safe(args)
+  //println("norm args = \{cli_args}")
 
   let subcmd_help = parser.parse(value, cli_args[:]) catch {
     e => {

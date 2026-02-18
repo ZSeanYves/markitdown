@@ -6,8 +6,8 @@
             "alias":"cor"
         },
         {
-            "path":"ZSeanYves/markitdown/src/docx",
-            "alias":"doc"
+            "path":"ZSeanYves/markitdown/src/pdf",
+            "alias":"pdf"
         },
         {
             "path":"moonbitlang/x/sys",
@@ -20,6 +20,14 @@
         {
             "path":"TheWaWaR/clap",
             "alias": "clap"
+        },
+        {
+            "path": "moonbitlang/core/encoding/utf8",
+            "alias": "utf8"
+        },
+        {
+            "path": "moonbitlang/async"
         }
-    ]
+    ],
+    "preferred-target": "native"
 }
