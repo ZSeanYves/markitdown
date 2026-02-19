@@ -1,70 +1,114 @@
 # markitdown-mb (MoonBit)
 
-A MoonBit (markitdown-like) implementation that converts **.docx / .pdf** into structured **Markdown**.
+A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf** into structured **Markdown**.
 
-> Current focus: first get the minimal **docx → IR → Markdown** pipeline working end-to-end; PDF parsing will be added later.
+> Current goal: ship a minimal end-to-end pipeline (**docx / pdf → IR → Markdown**) and validate it with sample-based regression tests.
 
 ---
 
-## Repository Structure (Current)
+## Features
 
-* `src/cli/`: CLI entrypoint (`demo` / `convert`)
-* `src/core/`: core IR + Markdown emitter
+* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references
+* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight paragraphing
+* ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
-  * `ir.mbt`: IR definitions such as `Document` / `Block` / `Inline`
+> Note: This project intentionally avoids unstable/untrusted third-party PDF parsing libraries. The PDF MVP uses “external text extraction + internal normalization”.
+
+---
+
+## Repository Layout (current)
+
+* `src/cli/`: CLI entry (`demo` / `convert`)
+* `src/core/`: core layer (IR + emitter + dispatcher + utilities)
+
+  * `ir.mbt`: IR definitions (`Document` / `Block`, etc.)
   * `emitter_markdown.mbt`: IR → Markdown
-  * `dispatcher.mbt`: dispatch parsers by file extension (currently mainly docx)
-  * `errors.mbt` / `tool.mbt`: shared utilities
-* `src/docx/`: docx parsing (main track)
+  * `errors.mbt` / `tool.mbt`: shared errors & utilities
+* `src/docx/`: docx parsing
 
-  * `zip_min.mbt`: a **pure MoonBit** minimal ZIP reader (used to read entries inside docx)
+  * `zip_min.mbt`: a **pure MoonBit** minimal ZIP reader (for reading docx internal entries)
   * `docx_zip.mbt`: docx ZIP wrapper (reads `word/document.xml` / rels / media)
-  * `rels.mbt`: parse `document.xml.rels` (rId → Target)
-  * `docx_xml.mbt`: scan `document.xml` and build IR (paragraphs/headings/images/tables)
-  * `docx_parser.mbt`: the composed workflow `parse_docx()`
-* `src/pdf/`: placeholder (`pdf_parser.mbt`, to be implemented)
-* `samples/`: test samples (e.g. `golden.docx`)
-* `out/`: output directory (markdown + assets)
+  * `rels.mbt`: parses `document.xml.rels` (rId → Target)
+  * `docx_xml.mbt`: scans `document.xml` and produces IR (paragraphs/headings/images/tables)
+  * `docx_parser.mbt`: the orchestrated `parse_docx()` pipeline
+* `src/pdf/`: PDF parsing
+
+  * `dispatcher.mbt`: dispatches by extension to docx/pdf parsers
+  * `pdf_parser.mbt`: PDF text extraction + paragraphing (MVP)
+* `samples/`: sample files & regression scripts
+
+  * `pdf/`: PDF samples (e.g., `text_simple.pdf`)
+  * `expected/`: golden Markdown outputs
+  * `diff.sh`: regression script (writes outputs to `.tmp_pdf_out/` and diffs against `samples/expected/`)
 
 ---
 
-## Completed / Currently Working
+## What Works (current)
 
-### ✅ Core layer
+### ✅ Core
 
 * IR definitions and `push` work as expected
-* Markdown emitter is usable (headings, paragraphs, tables, image references)
+* Markdown emitter supports: headings / paragraphs / tables / image references
 
-### ✅ Docx minimal pipeline is working
+### ✅ Minimal Docx Pipeline
 
-* Can read from a `.docx`:
+* Reads from `.docx`:
 
   * `word/document.xml`
   * `word/_rels/document.xml.rels`
   * `word/media/*` (images)
-* Can export images to `out/assets/` and reference them in Markdown as `![image](assets/xxx.png)`
+* Exports images to `out/assets/` and references them in Markdown like `![image](assets/xxx.png)`
 
-### ✅ Deflate decompression works
+### ✅ ZIP/Deflate Decompression
 
-* In `zip_min`, deflate decompression is currently implemented via `mizchi/zlib` (`deflate_decompress`) and works on real docx files.
+* Deflate decompression in `zip_min` is implemented via `mizchi/zlib` (`deflate_decompress`) and verified with real docx files.
 
-  * The earlier `zipc/deflate` path failed to decompress real docx reliably, so it has been switched.
+### ✅ PDF (text-based) MVP
+
+* Extracts text via external tools (tries multiple candidates) and selects the output that best matches reading order using a scoring function:
+
+  * `pdftotext` (Poppler): default / `-layout` / `-raw`
+  * fallback: `mutool draw -F txt` (MuPDF)
+* Applies lightweight normalization:
+
+  * normalize line endings
+  * split paragraphs by blank lines (and merge hard wraps)
+  * use `---` as a page separator for multi-page PDFs (MVP)
+
+> Note: `mutool` may print progress info to stderr (e.g., `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
 ---
 
-## How to Run
+## External Dependencies (PDF)
 
-### 1) `demo`: validate the core
+The PDF MVP relies on at least one of the following command-line tools installed on your system:
+
+* `pdftotext` (Poppler)
+* `mutool` (MuPDF toolset)
+
+If neither is available, the program will show a unified error message:
+
+> “pdftotext (Poppler) or mutool (MuPDF) not found. Please install and try again ...”
+
+Install examples:
+
+* macOS (Homebrew): `brew install poppler mupdf`
+* Ubuntu/Debian: `sudo apt-get install poppler-utils mupdf-tools`
+* Arch: `sudo pacman -S poppler mupdf-tools`
+
+---
+
+## Usage
+
+### 1) `demo`: sanity-check the core pipeline
 
 ```bash
 moon run src/cli -- demo
 ```
 
-Prints a demo Markdown document (no docx required).
+Prints a demo Markdown document (no docx/pdf input required).
 
-### 2) `convert`: convert docx → Markdown
-
-Preparation: put a test docx into `samples/` (e.g. `samples/golden.docx`).
+### 2) `convert`: convert docx/pdf → Markdown
 
 ```bash
 moon run --target native src/cli -- \
@@ -74,42 +118,79 @@ moon run --target native src/cli -- \
   --max-heading 3
 ```
 
-* `-o out/golden.md`: output Markdown path
-* `--out-dir out`: export images and other assets to `out/assets/`
-* `--max-heading 3`: maximum heading level (1–6)
+Options:
 
-> Note: currently `out-dir` must exist or be created by the program (auto-creation for `out/assets` is supported).
+* `-o out/golden.md`: output Markdown path (default: stdout)
+* `--out-dir out`: asset output directory (docx images go to `out/assets/`)
+* `--max-heading 3`: maximum heading level (1–6). **Currently supports up to level 3.**
+
+PDF example:
+
+```bash
+moon run --target native src/cli -- \
+  convert samples/text_simple.pdf \
+  -o out/text_simple.md \
+  --out-dir out
+```
 
 ---
 
-## Recommended Test Docx
+## Regression Tests (samples)
 
-It’s best to prepare a “golden” docx that includes:
+The script writes conversion outputs to **`.tmp_pdf_out/`** and diffs against `samples/expected/`.
 
-* Heading 1/2/3
-* Normal paragraphs (mixed Chinese/English, punctuation, line breaks)
-* One image (`word/media/image1.png`)
-* One table (3 columns × 4–5 rows)
+```bash
+chmod +x samples/diff.sh
+rm -rf .tmp_pdf_out
+./samples/diff.sh
+```
 
-A main test sample has already been prepared containing: headings + paragraphs + image + table.
+If you update the implementation and confirm the new output is correct, refresh the golden outputs:
+
+```bash
+rm -rf samples/expected
+mkdir -p samples/expected
+cp .tmp_pdf_out/text_simple.md    samples/expected/text_simple.md
+cp .tmp_pdf_out/text_hardwrap.md  samples/expected/text_hardwrap.md
+cp .tmp_pdf_out/text_multipage.md samples/expected/text_multipage.md
+./samples/diff.sh
+```
+
+---
+
+## Recommended Test Samples (this repo ships 4 golden test cases)
+
+### Docx (`golden.docx`) should include
+
+* Heading levels 1/2/3
+* Mixed Chinese/English paragraphs (with punctuation and line breaks)
+* At least 1 image (`word/media/image1.png`)
+* At least 1 table (3 columns × 4–5 rows)
+
+### PDF (`text_*.pdf`) should cover
+
+* `text_simple.pdf`: multi-paragraph (CN/EN/mixed)
+* `text_hardwrap.pdf`: hard wraps (line breaks every few words)
+* `text_multipage.pdf`: multi-page separator handling
 
 ---
 
 ## Roadmap
 
-### Near-term (docx)
+### Near-term (Docx)
 
-1. Support more heading styles (e.g. `Title` / `Subtitle` / `Heading4..6`)
-2. Images: support multiple images, different rIds, and a dedup strategy for repeated references
+1. Support more heading styles (e.g., `Title` / `Subtitle` / `Heading4..6`)
+2. Images: support multiple images, multiple rIds, and de-duplication for repeated references
 
-### Mid-term (pdf)
+### Mid-term (PDF)
 
-* Start with text-based PDFs: extract text → paragraphs
-* Then handle scanned PDFs: OCR + layout (likely integrating external tools first, then gradually porting to MoonBit)
+1. Improve paragraphing and line-wrap rules (more stable reading order / pagination / lists)
+2. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first, then progressively MoonBit-ified
 
 ---
 
-## Status Summary
+## Status
 
-* ✅ **Minimal docx pipeline is working end-to-end**: read docx, export images, generate Markdown
-* ✅ ZIP/deflate is stable on real docx using pure MoonBit + `mizchi/zlib`
+* ✅ docx: minimal end-to-end pipeline works
+* ✅ pdf (text-based): MVP works (depends on external extractors)
+* ✅ samples regression script works (output directory: `.tmp_pdf_out/`)

@@ -11,6 +11,6 @@
   "readme": "README.mbt.md",
   "repository": "https://github.com/ZSeanYves/markitdown.git",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": ["markdown", "pdf", "docx"],
   "description": ""
 }

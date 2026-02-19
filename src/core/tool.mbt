@@ -258,3 +258,44 @@ pub fn is_cjk(c : Char) -> Bool {
 }
 
 
+pub fn pick_best_extracted_text(cands : Array[String]) -> String {
+  let mut best = cands[0]
+  let mut best_score = score_extracted_text(best)
+
+  for i in 1..<cands.length() {
+    let t = cands[i]
+    let sc = score_extracted_text(t)
+    if sc > best_score {
+      best = t
+      best_score = sc
+    }
+  }
+  best
+}
+
+// 分数越高越好
+fn score_extracted_text(text : String) -> Int {
+  let s = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  let mut total = 0
+  let mut blank = 0
+  let mut short = 0
+  let mut sum_len = 0
+
+  for sv in s.split("\n") {
+    let line = sv.to_string().trim().to_string()
+    total = total + 1
+    if line == "" {
+      blank = blank + 1
+      continue
+    }
+    let len = line.to_array().length()
+    sum_len = sum_len + len
+    if len <= 2 { short = short + 1 }
+  }
+
+  let nonblank = total - blank
+  let avg_len = if nonblank <= 0 { 0 } else { sum_len / nonblank }
+
+  // 惩罚碎片化：短行、空行；奖励平均行长
+  avg_len * 10 - blank * 3 - short * 5
+}

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
-OUT_DIR="$ROOT/.tmp_test_out"
+OUT_DIR="$ROOT/.tmp_pdf_out"
 
 mkdir -p "$EXP_DIR"
 rm -rf "$OUT_DIR"
