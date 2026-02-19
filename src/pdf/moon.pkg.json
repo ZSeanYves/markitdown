@@ -1,0 +1,21 @@
+{
+    "import": [
+      {
+        "path": "ZSeanYves/markitdown/src/core",
+        "alias": "cor"
+      },
+      {
+        "path": "moonbitlang/x/fs",
+        "alias": "fs"
+      },
+      {
+        "path": "ZSeanYves/markitdown/src/docx",
+        "alias": "doc"
+      },
+      {
+        "path": "moonbitlang/async/process",
+        "alias": "proc"
+      }
+    ],
+    "preferred-target": "native"
+}

@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/src/core"
+
+// Values
+pub fn emit_markdown(Document) -> String
+
+pub fn escape_pipes(String) -> String
+
+pub fn is_blank(String) -> Bool
+
+pub fn new_document() -> Document
+
+pub fn normalize_cell(String) -> String
+
+pub fn push(Document, Block) -> Unit
+
+pub fn trim_string(String) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum Block {
+  Heading(Int, String)
+  Paragraph(String)
+  Table(Array[Array[String]])
+  Image(String, String)
+  BlankLine
+}
+
+pub struct Document {
+  blocks : Ref[Array[Block]]
+}
+
+// Type aliases
+
+// Traits
+
