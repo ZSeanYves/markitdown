@@ -156,6 +156,10 @@ pub fn is_cjkish(c : Char) -> Bool {
   c == '？'
 }
 
+///|
+pub fn normalize_text(s : String) -> String {
+  s.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+}
 
 ///|
 /// 段落最后做一次清理：多空格折叠 + trim（字符级，不走 bytes）
@@ -252,4 +256,5 @@ pub fn is_cjk(c : Char) -> Bool {
   (x >= 0xF900 && x <= 0xFAFF) ||
   (x >= 0xFF00 && x <= 0xFFEF)
 }
+
 
