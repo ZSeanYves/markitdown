@@ -4,5 +4,5 @@ target/
 target
 .mooncakes/
 .moonagent/
-.tmp_test_out/
+.tmp_pdf_out/
 out/
