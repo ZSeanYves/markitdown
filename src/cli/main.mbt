@@ -207,16 +207,18 @@ async fn main {
 
   let parser = @clap.Parser::new(
     prog="markitdown-mb",
-    description="Convert documents (docx/pdf) to Markdown (MoonBit, markitdown-like)",
+    description="Convert documents (docx/pdf/xlsx) to Markdown (MoonBit, markitdown-like)",
     subcmds={
       "demo": @clap.SubCommand::new(
         help="Print a demo Markdown document (tests core/ir + emitter)",
         args={},
       ),
       "convert": @clap.SubCommand::new(
-        help="Convert a .docx/.pdf file to Markdown (MVP: parser TODO)",
+        help="Convert a .docx/.pdf/.xlsx file to Markdown",
         args={
-          "input": @clap.Arg::positional(help="Path to input file (.docx/.pdf)"),
+          "input": @clap.Arg::positional(
+            help="Path to input file (.docx/.pdf/.xlsx)",
+          ),
           "output": @clap.Arg::named(
             short='o',
             nargs=@clap.Nargs::AtMost(1),

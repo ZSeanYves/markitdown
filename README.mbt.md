@@ -112,7 +112,7 @@ Prints a demo Markdown document (no docx/pdf input required).
 
 ```bash
 moon run --target native src/cli -- \
-  convert samples/golden.docx \
+  convert samples/docx/golden.docx \
   -o out/golden.md \
   --out-dir out \
   --max-heading 3
@@ -128,7 +128,7 @@ PDF example:
 
 ```bash
 moon run --target native src/cli -- \
-  convert samples/text_simple.pdf \
+  convert samples/pdf/text_simple.pdf \
   -o out/text_simple.md \
   --out-dir out
 ```
@@ -137,22 +137,33 @@ moon run --target native src/cli -- \
 
 ## Regression Tests (samples)
 
-The script writes conversion outputs to **`.tmp_pdf_out/`** and diffs against `samples/expected/`.
+The script writes conversion outputs to **`.tmp_test_out/`** (grouped by format) and diffs against `samples/expected/<format>/`.
 
 ```bash
 chmod +x samples/diff.sh
-rm -rf .tmp_pdf_out
+rm -rf .tmp_test_out
 ./samples/diff.sh
 ```
 
-If you update the implementation and confirm the new output is correct, refresh the golden outputs:
+If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
+
+Example: refresh PDF golden outputs:
 
 ```bash
-rm -rf samples/expected
-mkdir -p samples/expected
-cp .tmp_pdf_out/text_simple.md    samples/expected/text_simple.md
-cp .tmp_pdf_out/text_hardwrap.md  samples/expected/text_hardwrap.md
-cp .tmp_pdf_out/text_multipage.md samples/expected/text_multipage.md
+cp .tmp_test_out/pdf/text_simple.md     samples/expected/pdf/text_simple.md
+cp .tmp_test_out/pdf/text_hardwrap.md   samples/expected/pdf/text_hardwrap.md
+cp .tmp_test_out/pdf/text_multipage.md  samples/expected/pdf/text_multipage.md
+```
+
+Example: refresh one XLSX golden file:
+
+```bash
+cp .tmp_test_out/xlsx/sheet_simple.md samples/expected/xlsx/sheet_simple.md
+```
+
+Then re-run:
+
+```bash
 ./samples/diff.sh
 ```
 
