@@ -44,4 +44,3 @@ pub fn emit_markdown(doc : Document) -> String {
   }
   out
 }
-

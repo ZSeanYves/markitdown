@@ -20,9 +20,11 @@ pub struct ZipReader {
   entries : Map[String, ZipEntry]
 }
 
+///|
 pub(all) suberror ZipError {
   ZipError(String)
 }
+
 ///|
 pub impl Show for ZipError with to_string(self : ZipError) -> String {
   match self {
@@ -38,6 +40,7 @@ pub impl Show for ZipError with output(self : ZipError, logger : &Logger) -> Uni
 }
 
 // ---------- little-endian readers ----------
+
 ///|
 fn b2u(x : Byte) -> Int {
   let mut v = x.to_int()
@@ -69,7 +72,6 @@ fn u32le(b : Bytes, off : Int) -> Int raise {
   x0 | (x1 << 8) | (x2 << 16) | (x3 << 24)
 }
 
-
 ///|
 fn slice_bytes(b : Bytes, l : Int, r : Int) -> Bytes raise {
   if l < 0 || r < l || r > b.length() {
@@ -79,6 +81,7 @@ fn slice_bytes(b : Bytes, l : Int, r : Int) -> Bytes raise {
 }
 
 // Bytes -> ASCII/UTF8 string (ZIP 文件名一般是 UTF-8；docx 基本都可按 UTF-8 读)
+
 ///|
 fn bytes_to_string_utf8_lossy(b : Bytes) -> String {
   let arr = b.to_array()
@@ -93,12 +96,18 @@ fn bytes_to_string_utf8_lossy(b : Bytes) -> String {
   String::from_array(chars)
 }
 
-
 // ---------- find EOCD ----------
-const SIG_EOCD : Int = 0x06054b50
-const SIG_CEN  : Int = 0x02014b50
-const SIG_LOC  : Int = 0x04034b50
 
+///|
+const SIG_EOCD : Int = 0x06054b50
+
+///|
+const SIG_CEN : Int = 0x02014b50
+
+///|
+const SIG_LOC : Int = 0x04034b50
+
+///|
 fn find_eocd_offset(b : Bytes) -> Int raise {
   // EOCD 在文件尾部 64KB+22 范围内
   let n = b.length()
@@ -109,7 +118,9 @@ fn find_eocd_offset(b : Bytes) -> Int raise {
     // compare signature bytes: 50 4b 05 06
     if i + 3 < n {
       let s = u32le(b, i) catch { _ => -1 }
-      if s == SIG_EOCD { return i }
+      if s == SIG_EOCD {
+        return i
+      }
     }
     i -= 1
   }
@@ -117,6 +128,8 @@ fn find_eocd_offset(b : Bytes) -> Int raise {
 }
 
 // ---------- parse central directory ----------
+
+///|
 fn parse_entries(b : Bytes) -> Map[String, ZipEntry] raise {
   let eocd = find_eocd_offset(b)
 
@@ -127,7 +140,7 @@ fn parse_entries(b : Bytes) -> Map[String, ZipEntry] raise {
   // 16: central dir offset (4)
   let total = u16le(b, eocd + 10)
   let cd_size = u32le(b, eocd + 12)
-  let cd_off  = u32le(b, eocd + 16)
+  let cd_off = u32le(b, eocd + 16)
 
   // basic sanity
   if cd_off < 0 || cd_off + cd_size > b.length() {
@@ -142,21 +155,25 @@ fn parse_entries(b : Bytes) -> Map[String, ZipEntry] raise {
   while p + 46 <= b.length() && count < total {
     let sig = u32le(b, p)
     if sig != SIG_CEN {
-      raise ZipError("zip: invalid central directory signature at " + p.to_string())
+      raise ZipError(
+        "zip: invalid central directory signature at " + p.to_string(),
+      )
     }
 
     let gp_flags = u16le(b, p + 8)
-    let comp_method   = u16le(b, p + 10)
-    let comp_sz  = u32le(b, p + 20)
-    let uncomp_sz= u32le(b, p + 24)
+    let comp_method = u16le(b, p + 10)
+    let comp_sz = u32le(b, p + 20)
+    let uncomp_sz = u32le(b, p + 24)
     let name_len = u16le(b, p + 28)
-    let extra_len= u16le(b, p + 30)
-    let cmt_len  = u16le(b, p + 32)
-    let lho      = u32le(b, p + 42)
+    let extra_len = u16le(b, p + 30)
+    let cmt_len = u16le(b, p + 32)
+    let lho = u32le(b, p + 42)
 
     let name_start = p + 46
-    let name_end   = name_start + name_len
-    if name_end > b.length() { raise ZipError("zip: filename out of range") }
+    let name_end = name_start + name_len
+    if name_end > b.length() {
+      raise ZipError("zip: filename out of range")
+    }
 
     let name_bytes = slice_bytes(b, name_start, name_end)
     let name = bytes_to_string_utf8_lossy(name_bytes)
@@ -188,6 +205,7 @@ pub fn open_zip(path : String) -> ZipReader raise @fs.IOError {
 }
 
 // ---------- read entry raw bytes ----------
+
 ///|
 fn read_entry_compressed(z : ZipReader, e : ZipEntry) -> Bytes raise Error {
   let b = z.bytes
@@ -258,9 +276,6 @@ pub fn ZipReader::read_entry_bytes(
     }
   }
 }
-
-
-
 
 ///|
 pub fn ZipReader::has_entry(z : ZipReader, name : String) -> Bool {

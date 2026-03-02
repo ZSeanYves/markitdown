@@ -38,13 +38,13 @@ fn read_attr_value(block : String, attr_pat : String) -> String? {
   Some(String::from_array(buf.val))
 }
 
-
 ///|
 fn is_delim_for_tag(c : Char) -> Bool {
   c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
 }
 
 // 只匹配真正的 "<w:t" 标签：后面必须是分隔符（空格 / > / /）
+
 ///|
 fn find_wt_open(chars : Array[Char], from : Int) -> Int {
   let mut i = from
@@ -72,10 +72,14 @@ fn collect_wt_text(block : String) -> String {
 
   while true {
     let p1 = find_wt_open(chars, i)
-    if p1 < 0 { break }
+    if p1 < 0 {
+      break
+    }
 
     let p2 = find_sub(chars, p1, ">")
-    if p2 < 0 { break }
+    if p2 < 0 {
+      break
+    }
 
     let p3 = find_sub(chars, p2 + 1, "</w:t>")
     if p3 < 0 {
@@ -89,8 +93,6 @@ fn collect_wt_text(block : String) -> String {
 
   @cor.trim_string(out)
 }
-
-
 
 ///|
 fn scan_paragraph(
@@ -139,18 +141,20 @@ fn scan_paragraph(
   }
 }
 
-
-
-fn is_delim(c: Char) -> Bool {
+///|
+fn is_delim(c : Char) -> Bool {
   c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
 }
 
-fn find_tc_open(chars: Array[Char], from: Int) -> Int {
+///|
+fn find_tc_open(chars : Array[Char], from : Int) -> Int {
   // 只匹配真正的 "<w:tc ...>"，排除 "<w:tcW", "<w:tcPr", "<w:tcMar" ...
   let mut i = from
   while true {
     let p = find_sub(chars, i, "<w:tc")
-    if p < 0 { return -1 }
+    if p < 0 {
+      return -1
+    }
 
     // "<w:tc" 长度是 5，后面必须是分隔符才算 cell 开始
     if p + 5 < chars.length() && is_delim(chars[p + 5]) {
@@ -227,9 +231,6 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
 
   rows
 }
-
-
-
 
 ///|
 pub fn scan_document_xml(

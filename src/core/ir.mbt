@@ -1,3 +1,4 @@
+///|
 pub(all) enum Block {
   Heading(Int, String)
   Paragraph(String)
@@ -6,15 +7,17 @@ pub(all) enum Block {
   BlankLine
 }
 
+///|
 pub struct Document {
   blocks : Ref[Array[Block]]
 }
 
+///|
 pub fn new_document() -> Document {
   { blocks: { val: [] } }
 }
 
-pub fn push(doc: Document, b: Block) -> Unit {
+///|
+pub fn push(doc : Document, b : Block) -> Unit {
   doc.blocks.val.push(b)
 }
-

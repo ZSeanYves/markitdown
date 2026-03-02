@@ -30,19 +30,20 @@ pub fn slice_to_string(chars : Array[Char], l : Int, r : Int) -> String {
   String::from_array(buf.val)
 }
 
-
 ///|
-pub fn basename(path: String) -> String {
+pub fn basename(path : String) -> String {
   let chars = path.to_array()
   let mut last = -1
   for i in 0..<chars.length() {
-    if chars[i] == '/' { last = i }
+    if chars[i] == '/' {
+      last = i
+    }
   }
   if last < 0 {
     path
   } else {
     // 取 last+1 到末尾
-    let buf: Array[Char] = []
+    let buf : Array[Char] = []
     for j in (last + 1)..<chars.length() {
       buf.push(chars[j])
     }
@@ -50,7 +51,8 @@ pub fn basename(path: String) -> String {
   }
 }
 
-pub fn utf8_bytes_to_string(b: Bytes) -> String raise Utf8DecodeError {
+///|
+pub fn utf8_bytes_to_string(b : Bytes) -> String raise Utf8DecodeError {
   let mut result = ""
   let mut i = 0
   let data = b.to_array()
@@ -61,40 +63,55 @@ pub fn utf8_bytes_to_string(b: Bytes) -> String raise Utf8DecodeError {
     if byte < 0x80 {
       result = result + Int::unsafe_to_char(byte).to_string()
       i += 1
-    } else if (byte >> 5) == 0x6 { // 2-byte
+    } else if byte >> 5 == 0x6 { // 2-byte
       if i + 1 >= len {
-        raise Utf8DecodeError("Invalid UTF-8: Unexpected end at 2-byte sequence")
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Unexpected end at 2-byte sequence",
+        )
       }
-      let byte2 = data[i+1].to_int()
-      if (byte2 >> 6) != 0x2 {
-        raise Utf8DecodeError("Invalid UTF-8: Bad continuation byte at 2-byte sequence")
+      let byte2 = data[i + 1].to_int()
+      if byte2 >> 6 != 0x2 {
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Bad continuation byte at 2-byte sequence",
+        )
       }
       let cp = ((byte & 0x1F) << 6) | (byte2 & 0x3F)
       result = result + Int::unsafe_to_char(cp).to_string()
       i += 2
-    } else if (byte >> 4) == 0xE { // 3-byte
+    } else if byte >> 4 == 0xE { // 3-byte
       if i + 2 >= len {
-        raise Utf8DecodeError("Invalid UTF-8: Unexpected end at 3-byte sequence")
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Unexpected end at 3-byte sequence",
+        )
       }
-      let byte2 = data[i+1].to_int()
-      let byte3 = data[i+2].to_int()
-      if (byte2 >> 6) != 0x2 || (byte3 >> 6) != 0x2 {
-        raise Utf8DecodeError("Invalid UTF-8: Bad continuation bytes at 3-byte sequence")
+      let byte2 = data[i + 1].to_int()
+      let byte3 = data[i + 2].to_int()
+      if byte2 >> 6 != 0x2 || byte3 >> 6 != 0x2 {
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Bad continuation bytes at 3-byte sequence",
+        )
       }
       let cp = ((byte & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F)
       result = result + Int::unsafe_to_char(cp).to_string()
       i += 3
-    } else if (byte >> 3) == 0x1E { // 4-byte
+    } else if byte >> 3 == 0x1E { // 4-byte
       if i + 3 >= len {
-        raise Utf8DecodeError("Invalid UTF-8: Unexpected end at 4-byte sequence")
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Unexpected end at 4-byte sequence",
+        )
       }
-      let byte2 = data[i+1].to_int()
-      let byte3 = data[i+2].to_int()
-      let byte4 = data[i+3].to_int()
-      if (byte2 >> 6) != 0x2 || (byte3 >> 6) != 0x2 || (byte4 >> 6) != 0x2 {
-        raise Utf8DecodeError("Invalid UTF-8: Bad continuation bytes at 4-byte sequence")
+      let byte2 = data[i + 1].to_int()
+      let byte3 = data[i + 2].to_int()
+      let byte4 = data[i + 3].to_int()
+      if byte2 >> 6 != 0x2 || byte3 >> 6 != 0x2 || byte4 >> 6 != 0x2 {
+        raise Utf8DecodeError(
+          "Invalid UTF-8: Bad continuation bytes at 4-byte sequence",
+        )
       }
-      let cp = ((byte & 0x07) << 18) | ((byte2 & 0x3F) << 12) | ((byte3 & 0x3F) << 6) | (byte4 & 0x3F)
+      let cp = ((byte & 0x07) << 18) |
+        ((byte2 & 0x3F) << 12) |
+        ((byte3 & 0x3F) << 6) |
+        (byte4 & 0x3F)
       result = result + Int::unsafe_to_char(cp).to_string()
       i += 4
     } else {
@@ -224,15 +241,19 @@ pub fn glue_between(left : String, right : String) -> String {
   let lc = last_char(left)
   let rc = first_char(right)
   match (lc, rc) {
-    (Some(a), Some(b)) =>
-      if is_cjk(a) && is_cjk(b) { "" } else { " " }
+    (Some(a), Some(b)) => if is_cjk(a) && is_cjk(b) { "" } else { " " }
     _ => " "
   }
 }
 
+///|
 pub fn first_char(s : String) -> Char? {
   let arr = s.trim().to_array()
-  if arr.length() == 0 { None } else { Some(arr[0]) }
+  if arr.length() == 0 {
+    None
+  } else {
+    Some(arr[0])
+  }
 }
 
 ///|
@@ -257,7 +278,7 @@ pub fn is_cjk(c : Char) -> Bool {
   (x >= 0xFF00 && x <= 0xFFEF)
 }
 
-
+///|
 pub fn pick_best_extracted_text(cands : Array[String]) -> String {
   let mut best = cands[0]
   let mut best_score = score_extracted_text(best)
@@ -274,6 +295,8 @@ pub fn pick_best_extracted_text(cands : Array[String]) -> String {
 }
 
 // 分数越高越好
+
+///|
 fn score_extracted_text(text : String) -> Int {
   let s = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
   let mut total = 0
@@ -290,7 +313,9 @@ fn score_extracted_text(text : String) -> Int {
     }
     let len = line.to_array().length()
     sum_len = sum_len + len
-    if len <= 2 { short = short + 1 }
+    if len <= 2 {
+      short = short + 1
+    }
   }
 
   let nonblank = total - blank

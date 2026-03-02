@@ -13,10 +13,7 @@ pub fn open_docx(path : String) -> DocxZip raise @fs.IOError {
 }
 
 ///|
-pub fn DocxZip::read_text_optional(
-  z : DocxZip,
-  entry_path : String,
-) -> String  {
+pub fn DocxZip::read_text_optional(z : DocxZip, entry_path : String) -> String {
   let b = z.zip.read_entry_bytes(entry_path) catch { _ => return "" }
   @cor.utf8_bytes_to_string(b) catch {
     _ => return ""
@@ -36,7 +33,6 @@ pub fn DocxZip::read_text_required(
   }
 }
 
-
 ///|
 pub fn DocxZip::extract_prefix(
   z : DocxZip,
@@ -50,11 +46,15 @@ pub fn DocxZip::extract_prefix(
   // 遍历 central directory 的 entry 名单
   let names = z.zip.list_entries()
   for p in names {
-    if !p.has_prefix(prefix) { continue }
+    if !p.has_prefix(prefix) {
+      continue
+    }
 
     // 取文件名（避免 split/iter 问题）
     let name = @cor.basename(p)
-    if name == "" { continue }
+    if name == "" {
+      continue
+    }
 
     let dest = out_dir + "/" + name
 
