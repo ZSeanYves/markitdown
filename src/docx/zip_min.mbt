@@ -252,6 +252,74 @@ pub fn ZipReader::read_entry_bytes(
   z : ZipReader,
   name : String,
 ) -> Bytes raise Error {
+
+  // ---- debug helper: print local header derived offsets ----
+  fn dump_zip_debug(z : ZipReader, e : ZipEntry, name : String) -> Unit {
+    let b = z.bytes
+    let off = e.local_header_offset
+
+    println("[zipdbg] entry=" + name)
+    println(
+      "  method=" +
+      e.comp_method.to_string() +
+      " flags=" +
+      e.gp_flags.to_string(),
+    )
+    println(
+      "  comp_size=" +
+      e.comp_size.to_string() +
+      " uncomp_size=" +
+      e.uncomp_size.to_string(),
+    )
+    println(
+      "  local_header_offset=" +
+      off.to_string() +
+      " zip_len=" +
+      b.length().to_string(),
+    )
+
+    let sig = u32le(b, off) catch { _ => -1 }
+    println("  local_sig=" + sig.to_string())
+
+    let name_len = u16le(b, off + 26) catch { _ => -1 }
+    let extra_len = u16le(b, off + 28) catch { _ => -1 }
+    println(
+      "  name_len=" +
+      name_len.to_string() +
+      " extra_len=" +
+      extra_len.to_string(),
+    )
+
+    let data_start = off + 30 + name_len + extra_len
+    let data_end = data_start + e.comp_size
+    println(
+      "  data_start=" +
+      data_start.to_string() +
+      " data_end=" +
+      data_end.to_string(),
+    )
+
+    // Print first up to 8 bytes of compressed payload as unsigned decimals
+    if data_start >= 0 && data_start < b.length() {
+      let n = if data_start + 8 <= b.length() {
+        8
+      } else {
+        b.length() - data_start
+      }
+      let mut s = ""
+      let mut i = 0
+      while i < n {
+        let v = b2u(b[data_start + i])
+        s = s + v.to_string()
+        if i + 1 < n {
+          s = s + " "
+        }
+        i = i + 1
+      }
+      println("  comp_prefix_u8=" + s)
+    }
+  }
+
   match z.entries.get(name) {
     None => raise ZipError("zip: entry not found: " + name)
     Some(e) => {
@@ -261,13 +329,56 @@ pub fn ZipReader::read_entry_bytes(
         // stored
         comp
       } else if e.comp_method == 8 {
-        // ZIP deflate = raw deflate stream
-        @z.deflate_decompress(comp) catch {
-          err =>
-            raise ZipError(
-              "zip: deflate decompress failed: " + name + ": " + err.to_string(),
+        // ZIP method=8 is typically RAW deflate stream (RFC1951).
+        // However, some producers store zlib-wrapped deflate (RFC1950).
+        // Try raw first; if it fails, fallback to zlib wrapper.
+
+        let out = @z.deflate_decompress(comp) catch {
+          raw_err => {
+            println(
+              "!! zip: raw deflate failed for " +
+              name +
+              ": " +
+              raw_err.to_string(),
             )
+            dump_zip_debug(z, e, name)
+
+            // fallback: try zlib wrapper
+            @z.zlib_decompress(comp) catch {
+              z_err => {
+                println(
+                  "!! zip: zlib wrapper failed for " +
+                  name +
+                  ": " +
+                  z_err.to_string(),
+                )
+                // keep the combined error as before
+                raise ZipError(
+                  "zip: deflate decompress failed: " +
+                  name +
+                  " (raw=" +
+                  raw_err.to_string() +
+                  ", zlib=" +
+                  z_err.to_string() +
+                  ")",
+                )
+              }
+            }
+          }
         }
+
+        // optional sanity check: size mismatch often indicates wrong offset/format
+        if e.uncomp_size >= 0 && out.length() != e.uncomp_size {
+          println("!! zip: size mismatch after decompress: " + name)
+          println(
+            "   expect=" +
+            e.uncomp_size.to_string() +
+            " got=" +
+            out.length().to_string(),
+          )
+        }
+
+        out
       } else {
         raise ZipError(
           "zip: unsupported compression method: " + e.comp_method.to_string(),

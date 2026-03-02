@@ -132,7 +132,14 @@ moon run --target native src/cli -- \
   -o out/text_simple.md \
   --out-dir out
 ```
+XLSX example:
 
+```bash
+moon run --target native src/cli -- \
+  convert samples/xlsx/sheet_simple.xlsx \
+  -o out/sheet_simple.md \
+  --out-dir out
+```
 ---
 
 ## Regression Tests (samples)
