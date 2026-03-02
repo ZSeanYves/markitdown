@@ -324,3 +324,28 @@ fn score_extracted_text(text : String) -> Int {
   // 惩罚碎片化：短行、空行；奖励平均行长
   avg_len * 10 - blank * 3 - short * 5
 }
+
+///|
+fn b64_index(c : Char) -> Int {
+  if c >= 'A' && c <= 'Z' {
+    return c.to_int() - 'A'.to_int()
+  }
+  if c >= 'a' && c <= 'z' {
+    return c.to_int() - 'a'.to_int() + 26
+  }
+  if c >= '0' && c <= '9' {
+    return c.to_int() - '0'.to_int() + 52
+  }
+  if c == '+' {
+    return 62
+  }
+  if c == '/' {
+    return 63
+  }
+  -1
+}
+
+///|
+fn is_ws(c : Char) -> Bool {
+  c == ' ' || c == '\n' || c == '\r' || c == '\t'
+}

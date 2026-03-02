@@ -1,6 +1,5 @@
 import {
   "ZSeanYves/markitdown/src/core" @cor,
-  "ZSeanYves/markitdown/src/docx" @doc,
 }
 
 options(

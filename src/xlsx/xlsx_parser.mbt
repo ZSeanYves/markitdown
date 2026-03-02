@@ -8,13 +8,13 @@
 /// - no styles, no formula evaluation
 /// - merged cells ignored
 /// - inlineStr not handled yet (only sharedStrings "t=s" and numeric/default)
-pub fn parse_xlsx(
+pub async fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
   // 1) open zip
-  let z = @doc.open_zip(input_path) catch {
+  let z = @cor.open_zip(input_path) catch {
     e => raise @cor.AppError("xlsx: open zip failed: " + e.to_string())
   }
 
@@ -23,7 +23,7 @@ pub fn parse_xlsx(
   let rels_xml = read_zip_utf8(z, "xl/_rels/workbook.xml.rels")
 
   // 3) sharedStrings.xml is optional
-  let shared : Array[String] = if @doc.ZipReader::has_entry(
+  let shared : Array[String] = if @cor.ZipReader::has_entry(
       z, "xl/sharedStrings.xml",
     ) {
     let ss_xml = read_zip_utf8(z, "xl/sharedStrings.xml")
@@ -56,7 +56,7 @@ pub fn parse_xlsx(
       "xl/" + sh.target
     }
 
-    if !@doc.ZipReader::has_entry(z, sheet_path) {
+    if !@cor.ZipReader::has_entry(z, sheet_path) {
       @cor.push(
         doc,
         @cor.Block::Paragraph("(missing sheet xml: " + sheet_path + ")"),
@@ -96,8 +96,8 @@ pub(all) struct SheetInfo {
 // ============================
 
 ///|
-fn read_zip_utf8(z : @doc.ZipReader, name : String) -> String raise {
-  let bs = @doc.ZipReader::read_entry_bytes(z, name) catch {
+async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String raise {
+  let bs = @cor.ZipReader::read_entry_bytes(z, name) catch {
     e =>
       raise @cor.AppError(
         "xlsx: read zip entry failed: " + name + ": " + e.to_string(),

@@ -1,19 +1,22 @@
 ///|
 pub struct DocxZip {
   path : String
-  zip : ZipReader
+  zip : @cor.ZipReader
 }
 
 ///|
 pub fn open_docx(path : String) -> DocxZip raise @fs.IOError {
-  let z = open_zip(path) catch {
+  let z = @cor.open_zip(path) catch {
     e => raise @fs.IOError("open_zip failed: " + e.to_string())
   }
   { path, zip: z }
 }
 
 ///|
-pub fn DocxZip::read_text_optional(z : DocxZip, entry_path : String) -> String {
+pub async fn DocxZip::read_text_optional(
+  z : DocxZip,
+  entry_path : String,
+) -> String {
   let b = z.zip.read_entry_bytes(entry_path) catch { _ => return "" }
   @cor.utf8_bytes_to_string(b) catch {
     _ => return ""
@@ -21,10 +24,10 @@ pub fn DocxZip::read_text_optional(z : DocxZip, entry_path : String) -> String {
 }
 
 ///|
-pub fn DocxZip::read_text_required(
+pub async fn DocxZip::read_text_required(
   z : DocxZip,
   entry_path : String,
-) -> String raise {
+) -> String {
   let b = z.zip.read_entry_bytes(entry_path) catch {
     e => fail("read_entry_bytes failed: " + entry_path + " : " + e.to_string())
   }
@@ -34,7 +37,7 @@ pub fn DocxZip::read_text_required(
 }
 
 ///|
-pub fn DocxZip::extract_prefix(
+pub async fn DocxZip::extract_prefix(
   z : DocxZip,
   prefix : String,
   out_dir : String,

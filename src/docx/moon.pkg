@@ -1,7 +1,6 @@
 import {
   "ZSeanYves/markitdown/src/core" @cor,
   "moonbitlang/x/fs" @fs,
-  "mizchi/zlib" @z,
 }
 
 options(

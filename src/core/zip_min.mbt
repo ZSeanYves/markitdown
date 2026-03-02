@@ -15,8 +15,8 @@ pub struct ZipEntry {
 
 ///|
 pub struct ZipReader {
+  path : String
   bytes : Bytes
-  // name -> entry
   entries : Map[String, ZipEntry]
 }
 
@@ -201,7 +201,7 @@ pub fn open_zip(path : String) -> ZipReader raise @fs.IOError {
   let entries = parse_entries(bytes) catch {
     e => raise @fs.IOError("zip: parse failed: " + e.to_string())
   }
-  { bytes, entries }
+  { path, bytes, entries }
 }
 
 // ---------- read entry raw bytes ----------
@@ -248,7 +248,7 @@ fn read_entry_compressed(z : ZipReader, e : ZipEntry) -> Bytes raise Error {
 }
 
 ///|
-pub fn ZipReader::read_entry_bytes(
+pub async fn ZipReader::read_entry_bytes(
   z : ZipReader,
   name : String,
 ) -> Bytes raise Error {
@@ -329,10 +329,6 @@ pub fn ZipReader::read_entry_bytes(
         // stored
         comp
       } else if e.comp_method == 8 {
-        // ZIP method=8 is typically RAW deflate stream (RFC1951).
-        // However, some producers store zlib-wrapped deflate (RFC1950).
-        // Try raw first; if it fails, fallback to zlib wrapper.
-
         let out = @z.deflate_decompress(comp) catch {
           raw_err => {
             println(
@@ -343,41 +339,27 @@ pub fn ZipReader::read_entry_bytes(
             )
             dump_zip_debug(z, e, name)
 
-            // fallback: try zlib wrapper
-            @z.zlib_decompress(comp) catch {
-              z_err => {
-                println(
-                  "!! zip: zlib wrapper failed for " +
-                  name +
-                  ": " +
-                  z_err.to_string(),
-                )
-                // keep the combined error as before
-                raise ZipError(
-                  "zip: deflate decompress failed: " +
-                  name +
-                  " (raw=" +
-                  raw_err.to_string() +
-                  ", zlib=" +
-                  z_err.to_string() +
-                  ")",
-                )
-              }
+            // external fallback (cross-platform)
+            let out = @z.deflate_decompress(comp) catch {
+              raw_err =>
+                // external fallback returns Result, must unwrap here
+                match external_read_entry_bytes(z.path, name) {
+                  Ok(bs) => bs
+                  Err(ext_err) =>
+                    raise ZipError(
+                      "zip: deflate decompress failed: " +
+                      name +
+                      " (raw=" +
+                      raw_err.to_string() +
+                      ", ext=" +
+                      ext_err.to_string() +
+                      ")",
+                    )
+                }
             }
+            out
           }
         }
-
-        // optional sanity check: size mismatch often indicates wrong offset/format
-        if e.uncomp_size >= 0 && out.length() != e.uncomp_size {
-          println("!! zip: size mismatch after decompress: " + name)
-          println(
-            "   expect=" +
-            e.uncomp_size.to_string() +
-            " got=" +
-            out.length().to_string(),
-          )
-        }
-
         out
       } else {
         raise ZipError(
@@ -400,4 +382,164 @@ pub fn ZipReader::list_entries(z : ZipReader) -> Array[String] {
     out.push(kv.0)
   }
   out
+}
+
+///|
+/// Capture stdout as Bytes (binary-safe).
+async fn run_and_capture_bytes(
+  cmd : String,
+  args : Array[String],
+) -> Result[Bytes, ZipError] {
+  let res = @proc.collect_output(cmd, args[:]) catch {
+    e => return Err(ZipError("spawn failed: " + e.to_string()))
+  }
+
+  let (status, out_data, err_data) = res
+
+  if status != 0 {
+    let stderr : String = err_data.text() catch { _ => "" }
+    return Err(
+      ZipError("Command failed: " + cmd + " " + args.join(" ") + "\n" + stderr),
+    )
+  }
+
+  Ok(out_data.binary())
+}
+
+///|
+/// Try external tools to read a zip entry when internal deflate fails.
+/// Order:
+/// 1) unzip -p (macOS/Linux; may exist on Windows too)
+/// 2) powershell + .NET ZipArchive -> Base64 (Windows)
+async fn external_read_entry_bytes(
+  zip_path : String,
+  entry : String,
+) -> Result[Bytes, ZipError] {
+  // 1) unzip -p <zip> <entry>  (binary)
+  match run_and_capture_bytes("unzip", ["-p", zip_path, entry]) {
+    Ok(bs) => return Ok(bs)
+    Err(_) => ()
+  }
+
+  // 2) Windows PowerShell: output base64 text, then decode
+  let script = ps_read_entry_base64_script(zip_path, entry)
+  let b64_res = run_and_capture("powershell", [
+    "-NoProfile", "-NonInteractive", "-Command", script,
+  ])
+  match b64_res {
+    Err(e) => Err(e)
+    Ok(b64) => {
+      let bs = base64_decode(b64) catch { e => return Err(e) }
+      Ok(bs)
+    }
+  }
+}
+
+///|
+/// Capture stdout as UTF-8 text.
+async fn run_and_capture(
+  cmd : String,
+  args : Array[String],
+) -> Result[String, ZipError] {
+  let res = @proc.collect_output(cmd, args[:]) catch {
+    e => return Err(ZipError("spawn failed: " + e.to_string()))
+  }
+
+  let (status, out_data, err_data) = res
+
+  let stdout : String = out_data.text() catch {
+    _ => return Err(ZipError("invalid utf-8 stdout"))
+  }
+  let stderr : String = err_data.text() catch { _ => "" }
+
+  if status != 0 {
+    return Err(
+      ZipError("Command failed: " + cmd + " " + args.join(" ") + "\n" + stderr),
+    )
+  }
+
+  Ok(stdout)
+}
+
+///|
+/// Decode base64 string into raw bytes.
+/// - ignores whitespace
+/// - supports '=' padding
+fn base64_decode(s0 : String) -> Bytes raise ZipError {
+  // 1) strip whitespace
+  let chars0 = s0.trim().to_string().to_array()
+  let chars : Array[Char] = []
+  for c in chars0 {
+    if !is_ws(c) {
+      chars.push(c)
+    }
+  }
+
+  if chars.length() == 0 {
+    return Bytes::from_array([])
+  }
+  if chars.length() % 4 != 0 {
+    raise ZipError("base64: invalid length")
+  }
+
+  let out : Array[Byte] = []
+  let mut i = 0
+  while i < chars.length() {
+    let c0 = chars[i]
+    let c1 = chars[i + 1]
+    let c2 = chars[i + 2]
+    let c3 = chars[i + 3]
+
+    let v0 = b64_index(c0)
+    let v1 = b64_index(c1)
+    if v0 < 0 || v1 < 0 {
+      raise ZipError("base64: invalid char")
+    }
+
+    let v2 = if c2 == '=' { -2 } else { b64_index(c2) }
+    let v3 = if c3 == '=' { -2 } else { b64_index(c3) }
+    if v2 == -1 || v3 == -1 {
+      raise ZipError("base64: invalid char")
+    }
+
+    let b0 = (v0 << 2) | (v1 >> 4)
+    out.push(b0.to_byte())
+
+    if v2 != -2 {
+      let b1 = ((v1 & 0x0F) << 4) | (v2 >> 2)
+      out.push(b1.to_byte())
+    }
+
+    if v3 != -2 && v2 != -2 {
+      let b2 = ((v2 & 0x03) << 6) | v3
+      out.push(b2.to_byte())
+    }
+
+    i = i + 4
+  }
+
+  Bytes::from_array(out)
+}
+
+///|
+/// PowerShell script: read one entry and print Base64 to stdout.
+fn ps_read_entry_base64_script(zip_path : String, entry : String) -> String {
+  fn esc(s : String) -> String {
+    s.replace(old="'", new="''")
+  }
+  let zp = esc(zip_path)
+  let en = esc(entry)
+
+  "Add-Type -AssemblyName System.IO.Compression.FileSystem; " +
+  "$z=[System.IO.Compression.ZipFile]::OpenRead('" +
+  zp +
+  "'); " +
+  "try { " +
+  "$e=$z.Entries | Where-Object { $_.FullName -eq '" +
+  en +
+  "' } | Select-Object -First 1; " +
+  "if ($null -eq $e) { exit 2 }; " +
+  "$s=$e.Open(); $ms=New-Object System.IO.MemoryStream; $s.CopyTo($ms); $s.Dispose(); " +
+  "[Convert]::ToBase64String($ms.ToArray()); " +
+  "} finally { $z.Dispose() }"
 }

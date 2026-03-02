@@ -1,9 +1,9 @@
 ///|
-pub fn parse_docx(
+pub async fn parse_docx(
   path : String,
   out_root : String,
   max_heading : Int,
-) -> @cor.Document raise {
+) -> @cor.Document {
   if !@fs.path_exists(out_root) {
     @fs.create_dir(out_root)
   }
