@@ -59,7 +59,6 @@ async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
   Ok(@cor.pick_best_extracted_text(cands))
 }
 
-
 ///|
 fn missing_tools_hint() -> String {
   "未找到 pdftotext（Poppler）或 mutool（MuPDF），请安装后重试。\n" +
@@ -107,10 +106,6 @@ async fn run_and_capture(
 
   Ok(stdout)
 }
-
-
-
-
 
 ///|
 /// Convert plain text into IR.
@@ -228,7 +223,3 @@ pub fn split_paragraphs_smart(page : String) -> Array[String] {
 
   paras
 }
-
-
-
-

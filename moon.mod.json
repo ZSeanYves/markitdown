@@ -7,10 +7,14 @@
     "mizchi/zlib": "0.3.3",
     "moonbitlang/async": "0.16.6"
   },
-  "preferred-target": "native",
   "readme": "README.mbt.md",
   "repository": "https://github.com/ZSeanYves/markitdown.git",
   "license": "Apache-2.0",
-  "keywords": ["markdown", "pdf", "docx"],
-  "description": ""
+  "keywords": [
+    "markdown",
+    "pdf",
+    "docx"
+  ],
+  "description": "",
+  "preferred-target": "native"
 }

@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/src/core" @cor,
+  "moonbitlang/x/fs" @fs,
+  "ZSeanYves/markitdown/src/docx" @doc,
+  "moonbitlang/async/process" @proc,
+  "ZSeanYves/markitdown/src/xlsx" @xlsx,
+}
+
+options(
+  "preferred-target": "native",
+)

@@ -5,4 +5,4 @@ target
 .mooncakes/
 .moonagent/
 .tmp_test_out/
-.out/
+out/

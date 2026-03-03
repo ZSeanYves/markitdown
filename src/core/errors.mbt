@@ -2,6 +2,7 @@
 pub(all) suberror Utf8DecodeError {
   Utf8DecodeError(String)
 }
+
 ///|
 pub(all) suberror AppError {
   AppError(String)
@@ -24,7 +25,6 @@ pub impl Show for Utf8DecodeError with output(
   }
 }
 
-
 ///|
 pub impl Show for AppError with to_string(self : AppError) -> String {
   match self {
@@ -33,10 +33,7 @@ pub impl Show for AppError with to_string(self : AppError) -> String {
 }
 
 ///|
-pub impl Show for AppError with output(
-  self : AppError,
-  logger : &Logger,
-) -> Unit {
+pub impl Show for AppError with output(self : AppError, logger : &Logger) -> Unit {
   match self {
     AppError(msg) => logger.write_string(msg)
   }

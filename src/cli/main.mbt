@@ -16,7 +16,7 @@ fn find_first_eq(s : String) -> Int? {
 ///|
 /// TODO： 后序为“—” 等做规范化，先原样返回
 /// 支持：--out=xxx / --output=xxx / --max-heading=3 这类写法（转成 ["--out", "xxx"]）
-fn normalize_cli_args(args : Array[String]) -> Array[String] raise{
+fn normalize_cli_args(args : Array[String]) -> Array[String] raise {
   let out : Array[String] = []
   if args.length() <= 1 {
     return out
@@ -61,7 +61,6 @@ fn normalize_cli_args_safe(args : Array[String]) -> Array[String] {
     }
   }
 }
-
 
 ///|
 fn exit_error(msg : String) -> Unit {
@@ -127,7 +126,7 @@ async fn cmd_convert(
     max_heading: Some(max_heading),
   }
 
-  let doc_res = @pdf.parse_to_ir(input, opts) 
+  let doc_res = @pdf.parse_to_ir(input, opts)
   let doc = match doc_res {
     Ok(d) => d
     Err(e) => {
@@ -146,8 +145,6 @@ async fn cmd_convert(
     None => println(md)
   }
 }
-
-
 
 ///|
 fn parse_int_or_default(sopt : String?, default : Int) -> Int {
@@ -204,23 +201,24 @@ fn parse_int_or_default(sopt : String?, default : Int) -> Int {
   }
 }
 
-
 ///|
 async fn main {
   let args = @sys.get_cli_args()
 
   let parser = @clap.Parser::new(
     prog="markitdown-mb",
-    description="Convert documents (docx/pdf) to Markdown (MoonBit, markitdown-like)",
+    description="Convert documents (docx/pdf/xlsx) to Markdown (MoonBit, markitdown-like)",
     subcmds={
       "demo": @clap.SubCommand::new(
         help="Print a demo Markdown document (tests core/ir + emitter)",
         args={},
       ),
       "convert": @clap.SubCommand::new(
-        help="Convert a .docx/.pdf file to Markdown (MVP: parser TODO)",
+        help="Convert a .docx/.pdf/.xlsx file to Markdown",
         args={
-          "input": @clap.Arg::positional(help="Path to input file (.docx/.pdf)"),
+          "input": @clap.Arg::positional(
+            help="Path to input file (.docx/.pdf/.xlsx)",
+          ),
           "output": @clap.Arg::named(
             short='o',
             nargs=@clap.Nargs::AtMost(1),
