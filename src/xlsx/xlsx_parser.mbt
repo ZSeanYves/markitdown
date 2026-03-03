@@ -268,7 +268,7 @@ fn parse_sheet_table(
 
   let mut pos = 0
   while true {
-    let c0 = find_sub(sheet_xml, "<c", pos)
+    let c0 = find_sub(sheet_xml, "<c ", pos)
     match c0 {
       None => break
       Some(i0) => {
@@ -311,17 +311,21 @@ fn parse_sheet_table(
                     max_c = cc
                   }
 
-                    let text = if t == "s" {
-                      // shared string index in <v>
-                      let idx = parse_int(val)
-                      if idx >= 0 && idx < shared.length() { shared[idx] } else { "" }
-                    } else if t == "inlineStr" {
-                      // inline string: <is><t>...</t></is> (may contain multiple <t>)
-                      parse_inline_str(inner)
+                  let text = if t == "s" {
+                    // shared string index in <v>
+                    let idx = parse_int(val)
+                    if idx >= 0 && idx < shared.length() {
+                      shared[idx]
                     } else {
-                      // numeric / other types: use <v>
-                      xml_unescape(val)
+                      ""
                     }
+                  } else if t == "inlineStr" {
+                    // inline string: <is><t>...</t></is> (may contain multiple <t>)
+                    parse_inline_str(inner)
+                  } else {
+                    // numeric / other types: use <v>
+                    xml_unescape(val)
+                  }
 
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
                 }
