@@ -80,7 +80,8 @@ fn slice_bytes(b : Bytes, l : Int, r : Int) -> Bytes raise {
   b[l:r].to_bytes()
 }
 
-// Bytes -> ASCII/UTF8 string 
+// Bytes -> ASCII/UTF8 string
+
 ///|
 fn bytes_to_string_utf8_lossy(b : Bytes) -> String {
   let arr = b.to_array()
@@ -262,24 +263,24 @@ pub async fn ZipReader::read_entry_bytes(
       } else if e.comp_method == 8 {
         @z.deflate_decompress(comp) catch {
           raw_err => {
-            println(
-              "!! zip: raw deflate failed for " +
-              name +
-              ": " +
-              raw_err.to_string(),
-            )
+            //println(
+            //  "!! zip: raw deflate failed for " +
+            //  name +
+            //  ": " +
+            //  raw_err.to_string(),
+            //)
 
             let ext = external_read_entry_bytes(z.path, name)
             match ext {
-              Ok(bs) => {
-                println(
-                  "!! zip: external fallback OK for " +
-                  name +
-                  ", bytes=" +
-                  bs.length().to_string(),
-                )
+              Ok(bs) => //{
+                //println(
+                //  "!! zip: external fallback OK for " +
+                //  name +
+                //  ", bytes=" +
+                //  bs.length().to_string(),
+                //)
                 bs
-              }
+              //}
               Err(ext_err) =>
                 raise ZipError(
                   "zip: deflate decompress failed: " +
@@ -343,6 +344,7 @@ async fn run_and_capture_bytes(
 /// Order:
 /// 1) unzip -p (macOS/Linux; may exist on Windows too)
 /// 2) powershell + .NET ZipArchive -> Base64 (Windows)
+
 ///|
 /// Try external tools to read a zip entry when internal deflate fails.
 /// Order:
@@ -352,38 +354,36 @@ async fn external_read_entry_bytes(
   zip_path : String,
   entry : String,
 ) -> Result[Bytes, ZipError] {
-  println(".. zip: external fallback start: " + entry)
+  //println(".. zip: external fallback start: " + entry)
 
   // 1) unzip -p <zip> <entry>  (binary)
-  println(".. zip: try unzip -p")
+  //println(".. zip: try unzip -p")
   let unzip_res = run_and_capture_bytes("unzip", ["-p", zip_path, entry])
   match unzip_res {
-    Ok(bs) => {
-      println(".. zip: unzip OK, bytes=" + bs.length().to_string())
+    Ok(bs) =>
+      //println(".. zip: unzip OK, bytes=" + bs.length().to_string())
       if bs.length() == 0 {
         // 有些环境 unzip 可能输出空但 status=0，这里兜一下
-        println(".. zip: unzip returned empty, continue fallback")
+        //println(".. zip: unzip returned empty, continue fallback")
       } else {
         return Ok(bs)
       }
-    }
     Err(e) => println(".. zip: unzip failed: " + e.to_string())
   }
 
   // 2) Windows PowerShell: output base64 text, then decode
-  println(".. zip: try powershell base64")
+  //println(".. zip: try powershell base64")
   let script = ps_read_entry_base64_script(zip_path, entry)
   let b64_res = run_and_capture("powershell", [
     "-NoProfile", "-NonInteractive", "-Command", script,
   ])
 
   match b64_res {
-    Err(e) => {
-      println(".. zip: powershell failed: " + e.to_string())
+    Err(e) =>
+      //println(".. zip: powershell failed: " + e.to_string())
       Err(e)
-    }
     Ok(b64) => {
-      println(".. zip: powershell OK, base64_len=" + b64.length().to_string())
+      //println(".. zip: powershell OK, base64_len=" + b64.length().to_string())
 
       let bs_res : Result[Bytes, ZipError] = Ok(
         base64_decode(b64) catch {
@@ -392,14 +392,12 @@ async fn external_read_entry_bytes(
       )
 
       match bs_res {
-        Ok(bs) => {
-          println(".. zip: base64 decode OK, bytes=" + bs.length().to_string())
+        Ok(bs) =>
+          //println(".. zip: base64 decode OK, bytes=" + bs.length().to_string())
           Ok(bs)
-        }
-        Err(e) => {
-          println(".. zip: base64 decode failed: " + e.to_string())
+        Err(e) =>
+          //println(".. zip: base64 decode failed: " + e.to_string())
           Err(e)
-        }
       }
     }
   }

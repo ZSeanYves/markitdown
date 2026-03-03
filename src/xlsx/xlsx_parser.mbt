@@ -12,7 +12,7 @@ pub async fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise {
+) -> @cor.Document {
   // 1) open zip
   let z = @cor.open_zip(input_path) catch {
     e => raise @cor.AppError("xlsx: open zip failed: " + e.to_string())
@@ -50,7 +50,11 @@ pub async fn parse_xlsx(
 
     let target0 = sh.target.trim().to_string()
     let target = if target0.has_prefix("/") { target0[1:] } else { target0 }
-    let sheet_path = if target.has_prefix("xl/") { target.to_string() } else { "xl/" + target.to_string() }
+    let sheet_path = if target.has_prefix("xl/") {
+      target.to_string()
+    } else {
+      "xl/" + target.to_string()
+    }
 
     if !@cor.ZipReader::has_entry(z, sheet_path) {
       @cor.push(
@@ -93,7 +97,7 @@ pub(all) struct SheetInfo {
 
 ///|
 async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
-  println(".. xlsx: reading " + name)
+  //println(".. xlsx: reading " + name)
   let bs = @cor.ZipReader::read_entry_bytes(z, name) catch {
     e =>
       raise @cor.AppError(
@@ -307,17 +311,17 @@ fn parse_sheet_table(
                     max_c = cc
                   }
 
-                  let text = if t == "s" {
-                    let idx = parse_int(val)
-                    if idx >= 0 && idx < shared.length() {
-                      shared[idx]
+                    let text = if t == "s" {
+                      // shared string index in <v>
+                      let idx = parse_int(val)
+                      if idx >= 0 && idx < shared.length() { shared[idx] } else { "" }
+                    } else if t == "inlineStr" {
+                      // inline string: <is><t>...</t></is> (may contain multiple <t>)
+                      parse_inline_str(inner)
                     } else {
-                      ""
+                      // numeric / other types: use <v>
+                      xml_unescape(val)
                     }
-                  } else {
-                    // Note: could also be boolean/date/formula cached value etc.
-                    xml_unescape(val)
-                  }
 
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
                 }
@@ -345,6 +349,40 @@ fn parse_sheet_table(
     table.push(row)
   }
   table
+}
+
+///|
+fn parse_inline_str(inner : String) -> String raise {
+  // Collect all <t>...</t> inside the cell inner xml
+  let mut tpos = 0
+  let mut acc = ""
+
+  while true {
+    let t0 = find_sub(inner, "<t", tpos)
+    match t0 {
+      None => break
+      Some(t_start) => {
+        let ttag_end = find_sub(inner, ">", t_start)
+        match ttag_end {
+          None => break
+          Some(t_end_tag) => {
+            let content_start = t_end_tag + 1
+            let t1 = find_sub(inner, "</t>", content_start)
+            match t1 {
+              None => break
+              Some(t_end) => {
+                let content = inner[content_start:t_end].to_string()
+                acc = acc + content
+                tpos = t_end + 4
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  xml_unescape(acc)
 }
 
 // ============================
@@ -467,12 +505,107 @@ fn get_attr(tag : String, key : String) -> String? raise {
   }
 }
 
+fn xml_unescape(s : String) -> String raise{
+  let t = s
+    .replace(old="&lt;", new="<")
+    .replace(old="&gt;", new=">")
+    .replace(old="&amp;", new="&")
+    .replace(old="&quot;", new="\"")
+    .replace(old="&apos;", new="'")
+
+  decode_numeric_entities(t)
+}
+
 ///|
-fn xml_unescape(s : String) -> String {
-  s
-  .replace(old="&lt;", new="<")
-  .replace(old="&gt;", new=">")
-  .replace(old="&amp;", new="&")
-  .replace(old="&quot;", new="\"")
-  .replace(old="&apos;", new="'")
+/// Decode numeric character references: &#1234; and &#x1F600;
+fn decode_numeric_entities(s : String) -> String raise{
+  let n = s.length()
+  let mut out = ""
+  let mut i = 0
+
+  while i < n {
+    // find "&#"
+    if i + 1 < n && s[i] == '&' && s[i + 1] == '#' {
+      // find ';'
+      let mut j = i + 2
+      while j < n && s[j] != ';' {
+        j = j + 1
+      }
+      if j < n && s[j] == ';' {
+        // content between "&#" and ";"
+        let body = s[i + 2:j].to_string()
+        let body_trim = body.trim().to_string()
+
+        // parse decimal or hex
+        let cp_opt = if body_trim.has_prefix("x") || body_trim.has_prefix("X") {
+          parse_hex_int(body_trim[1:].to_string())
+        } else {
+          parse_dec_int(body_trim)
+        }
+
+        match cp_opt {
+          Some(cp) => {
+            // append decoded char
+            out = out + Int::unsafe_to_char(cp).to_string()
+            i = j + 1
+            continue
+          }
+          None => 
+            // fallthrough: not a valid numeric entity, keep original text
+              ()
+        }
+      }
+    }
+
+    // normal char
+    out = out + s[i].to_string()
+    i = i + 1
+  }
+
+  out
+}
+
+fn parse_dec_int(s : String) -> Int? {
+  if s == "" { return None }
+  let chars = s.to_array()
+  let mut i = 0
+  let mut acc = 0
+  let mut has = false
+  while i < chars.length() {
+    let c = chars[i]
+    if c >= '0' && c <= '9' {
+      has = true
+      acc = acc * 10 + (c.to_int() - '0'.to_int())
+      i = i + 1
+    } else {
+      return None
+    }
+  }
+  if !has { None } else { Some(acc) }
+}
+
+fn hex_val(c : Char) -> Int? {
+  if c >= '0' && c <= '9' { return Some(c.to_int() - '0'.to_int()) }
+  if c >= 'a' && c <= 'f' { return Some(c.to_int() - 'a'.to_int() + 10) }
+  if c >= 'A' && c <= 'F' { return Some(c.to_int() - 'A'.to_int() + 10) }
+  None
+}
+
+fn parse_hex_int(s : String) -> Int? {
+  if s == "" { return None }
+  let chars = s.to_array()
+  let mut i = 0
+  let mut acc = 0
+  let mut has = false
+  while i < chars.length() {
+    match hex_val(chars[i]) {
+      None => return None
+      Some(v) => {
+        has = true
+        acc = (acc << 4) | v
+        i = i + 1
+      }
+    }
+  }
+  if !has { None } else { Some(acc) }
 }
