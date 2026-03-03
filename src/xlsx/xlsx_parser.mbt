@@ -518,51 +518,51 @@ fn xml_unescape(s : String) -> String raise{
 
 ///|
 /// Decode numeric character references: &#1234; and &#x1F600;
-fn decode_numeric_entities(s : String) -> String raise{
+fn decode_numeric_entities(s : String) -> String raise {
   let n = s.length()
-  let mut out = ""
+  let out : Array[Char] = []
   let mut i = 0
 
   while i < n {
-    // find "&#"
+    // try "&#...;"
     if i + 1 < n && s[i] == '&' && s[i + 1] == '#' {
       // find ';'
       let mut j = i + 2
       while j < n && s[j] != ';' {
         j = j + 1
       }
-      if j < n && s[j] == ';' {
-        // content between "&#" and ";"
-        let body = s[i + 2:j].to_string()
-        let body_trim = body.trim().to_string()
 
-        // parse decimal or hex
-        let cp_opt = if body_trim.has_prefix("x") || body_trim.has_prefix("X") {
-          parse_hex_int(body_trim[1:].to_string())
+      if j < n && s[j] == ';' {
+        let body = s[i + 2:j].to_string().trim().to_string()
+
+        let cp_opt = if body.has_prefix("x") || body.has_prefix("X") {
+          parse_hex_int(body[1:].to_string())
         } else {
-          parse_dec_int(body_trim)
+          parse_dec_int(body)
         }
 
         match cp_opt {
           Some(cp) => {
-            // append decoded char
-            out = out + Int::unsafe_to_char(cp).to_string()
+            out.push(Int::unsafe_to_char(cp))
             i = j + 1
             continue
           }
-          None => 
-            // fallthrough: not a valid numeric entity, keep original text
-              ()
+          None => () // fallthrough
         }
       }
     }
 
-    // normal char
-    out = out + s[i].to_string()
+    // normal char: push char directly (DO NOT use to_string here)
+    out.push(
+      match s[i].to_char() {
+        None => '_' // should not happen for valid UTF-8
+        Some(c) => c
+      },
+    )
     i = i + 1
   }
 
-  out
+  String::from_array(out)
 }
 
 fn parse_dec_int(s : String) -> Int? {
@@ -570,18 +570,16 @@ fn parse_dec_int(s : String) -> Int? {
   let chars = s.to_array()
   let mut i = 0
   let mut acc = 0
-  let mut has = false
   while i < chars.length() {
     let c = chars[i]
     if c >= '0' && c <= '9' {
-      has = true
       acc = acc * 10 + (c.to_int() - '0'.to_int())
       i = i + 1
     } else {
       return None
     }
   }
-  if !has { None } else { Some(acc) }
+  Some(acc)
 }
 
 fn hex_val(c : Char) -> Int? {
@@ -596,16 +594,14 @@ fn parse_hex_int(s : String) -> Int? {
   let chars = s.to_array()
   let mut i = 0
   let mut acc = 0
-  let mut has = false
   while i < chars.length() {
     match hex_val(chars[i]) {
       None => return None
       Some(v) => {
-        has = true
         acc = (acc << 4) | v
         i = i + 1
       }
     }
   }
-  if !has { None } else { Some(acc) }
+  Some(acc)
 }
