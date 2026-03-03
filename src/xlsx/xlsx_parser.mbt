@@ -48,13 +48,9 @@ pub async fn parse_xlsx(
     let sh = sheets[i]
     @cor.push(doc, @cor.Block::Heading(clamp_heading(2, max_heading), sh.name))
 
-    let sheet_path = if sh.target.has_prefix("/") {
-      // uncommon
-      sh.target.trim().to_string()
-    } else {
-      // usually: "worksheets/sheet1.xml"
-      "xl/" + sh.target
-    }
+    let target0 = sh.target.trim().to_string()
+    let target = if target0.has_prefix("/") { target0[1:] } else { target0 }
+    let sheet_path = if target.has_prefix("xl/") { target.to_string() } else { "xl/" + target.to_string() }
 
     if !@cor.ZipReader::has_entry(z, sheet_path) {
       @cor.push(
@@ -96,7 +92,8 @@ pub(all) struct SheetInfo {
 // ============================
 
 ///|
-async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String raise {
+async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
+  println(".. xlsx: reading " + name)
   let bs = @cor.ZipReader::read_entry_bytes(z, name) catch {
     e =>
       raise @cor.AppError(

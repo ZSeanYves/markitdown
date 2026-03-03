@@ -80,8 +80,7 @@ fn slice_bytes(b : Bytes, l : Int, r : Int) -> Bytes raise {
   b[l:r].to_bytes()
 }
 
-// Bytes -> ASCII/UTF8 string (ZIP 文件名一般是 UTF-8；docx 基本都可按 UTF-8 读)
-
+// Bytes -> ASCII/UTF8 string 
 ///|
 fn bytes_to_string_utf8_lossy(b : Bytes) -> String {
   let arr = b.to_array()
@@ -252,74 +251,6 @@ pub async fn ZipReader::read_entry_bytes(
   z : ZipReader,
   name : String,
 ) -> Bytes raise Error {
-
-  // ---- debug helper: print local header derived offsets ----
-  fn dump_zip_debug(z : ZipReader, e : ZipEntry, name : String) -> Unit {
-    let b = z.bytes
-    let off = e.local_header_offset
-
-    println("[zipdbg] entry=" + name)
-    println(
-      "  method=" +
-      e.comp_method.to_string() +
-      " flags=" +
-      e.gp_flags.to_string(),
-    )
-    println(
-      "  comp_size=" +
-      e.comp_size.to_string() +
-      " uncomp_size=" +
-      e.uncomp_size.to_string(),
-    )
-    println(
-      "  local_header_offset=" +
-      off.to_string() +
-      " zip_len=" +
-      b.length().to_string(),
-    )
-
-    let sig = u32le(b, off) catch { _ => -1 }
-    println("  local_sig=" + sig.to_string())
-
-    let name_len = u16le(b, off + 26) catch { _ => -1 }
-    let extra_len = u16le(b, off + 28) catch { _ => -1 }
-    println(
-      "  name_len=" +
-      name_len.to_string() +
-      " extra_len=" +
-      extra_len.to_string(),
-    )
-
-    let data_start = off + 30 + name_len + extra_len
-    let data_end = data_start + e.comp_size
-    println(
-      "  data_start=" +
-      data_start.to_string() +
-      " data_end=" +
-      data_end.to_string(),
-    )
-
-    // Print first up to 8 bytes of compressed payload as unsigned decimals
-    if data_start >= 0 && data_start < b.length() {
-      let n = if data_start + 8 <= b.length() {
-        8
-      } else {
-        b.length() - data_start
-      }
-      let mut s = ""
-      let mut i = 0
-      while i < n {
-        let v = b2u(b[data_start + i])
-        s = s + v.to_string()
-        if i + 1 < n {
-          s = s + " "
-        }
-        i = i + 1
-      }
-      println("  comp_prefix_u8=" + s)
-    }
-  }
-
   match z.entries.get(name) {
     None => raise ZipError("zip: entry not found: " + name)
     Some(e) => {
@@ -329,7 +260,7 @@ pub async fn ZipReader::read_entry_bytes(
         // stored
         comp
       } else if e.comp_method == 8 {
-        let out = @z.deflate_decompress(comp) catch {
+        @z.deflate_decompress(comp) catch {
           raw_err => {
             println(
               "!! zip: raw deflate failed for " +
@@ -337,30 +268,31 @@ pub async fn ZipReader::read_entry_bytes(
               ": " +
               raw_err.to_string(),
             )
-            dump_zip_debug(z, e, name)
 
-            // external fallback (cross-platform)
-            let out = @z.deflate_decompress(comp) catch {
-              raw_err =>
-                // external fallback returns Result, must unwrap here
-                match external_read_entry_bytes(z.path, name) {
-                  Ok(bs) => bs
-                  Err(ext_err) =>
-                    raise ZipError(
-                      "zip: deflate decompress failed: " +
-                      name +
-                      " (raw=" +
-                      raw_err.to_string() +
-                      ", ext=" +
-                      ext_err.to_string() +
-                      ")",
-                    )
-                }
+            let ext = external_read_entry_bytes(z.path, name)
+            match ext {
+              Ok(bs) => {
+                println(
+                  "!! zip: external fallback OK for " +
+                  name +
+                  ", bytes=" +
+                  bs.length().to_string(),
+                )
+                bs
+              }
+              Err(ext_err) =>
+                raise ZipError(
+                  "zip: deflate decompress failed: " +
+                  name +
+                  " (raw=" +
+                  raw_err.to_string() +
+                  ", ext=" +
+                  ext_err.to_string() +
+                  ")",
+                )
             }
-            out
           }
         }
-        out
       } else {
         raise ZipError(
           "zip: unsupported compression method: " + e.comp_method.to_string(),
@@ -411,26 +343,64 @@ async fn run_and_capture_bytes(
 /// Order:
 /// 1) unzip -p (macOS/Linux; may exist on Windows too)
 /// 2) powershell + .NET ZipArchive -> Base64 (Windows)
+///|
+/// Try external tools to read a zip entry when internal deflate fails.
+/// Order:
+/// 1) unzip -p (macOS/Linux; may exist on Windows too)
+/// 2) powershell + .NET ZipArchive -> Base64 (Windows)
 async fn external_read_entry_bytes(
   zip_path : String,
   entry : String,
 ) -> Result[Bytes, ZipError] {
+  println(".. zip: external fallback start: " + entry)
+
   // 1) unzip -p <zip> <entry>  (binary)
-  match run_and_capture_bytes("unzip", ["-p", zip_path, entry]) {
-    Ok(bs) => return Ok(bs)
-    Err(_) => ()
+  println(".. zip: try unzip -p")
+  let unzip_res = run_and_capture_bytes("unzip", ["-p", zip_path, entry])
+  match unzip_res {
+    Ok(bs) => {
+      println(".. zip: unzip OK, bytes=" + bs.length().to_string())
+      if bs.length() == 0 {
+        // 有些环境 unzip 可能输出空但 status=0，这里兜一下
+        println(".. zip: unzip returned empty, continue fallback")
+      } else {
+        return Ok(bs)
+      }
+    }
+    Err(e) => println(".. zip: unzip failed: " + e.to_string())
   }
 
   // 2) Windows PowerShell: output base64 text, then decode
+  println(".. zip: try powershell base64")
   let script = ps_read_entry_base64_script(zip_path, entry)
   let b64_res = run_and_capture("powershell", [
     "-NoProfile", "-NonInteractive", "-Command", script,
   ])
+
   match b64_res {
-    Err(e) => Err(e)
+    Err(e) => {
+      println(".. zip: powershell failed: " + e.to_string())
+      Err(e)
+    }
     Ok(b64) => {
-      let bs = base64_decode(b64) catch { e => return Err(e) }
-      Ok(bs)
+      println(".. zip: powershell OK, base64_len=" + b64.length().to_string())
+
+      let bs_res : Result[Bytes, ZipError] = Ok(
+        base64_decode(b64) catch {
+          e => return Err(e)
+        },
+      )
+
+      match bs_res {
+        Ok(bs) => {
+          println(".. zip: base64 decode OK, bytes=" + bs.length().to_string())
+          Ok(bs)
+        }
+        Err(e) => {
+          println(".. zip: base64 decode failed: " + e.to_string())
+          Err(e)
+        }
+      }
     }
   }
 }
