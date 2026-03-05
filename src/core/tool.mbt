@@ -20,6 +20,11 @@ pub fn is_blank(s : String) -> Bool {
 }
 
 ///|
+pub fn normalize_text(s : String) -> String {
+  s.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+}
+
+///|
 pub fn slice_to_string(chars : Array[Char], l : Int, r : Int) -> String {
   let buf : Ref[Array[Char]] = { val: [] }
   let mut i = l
@@ -173,10 +178,7 @@ pub fn is_cjkish(c : Char) -> Bool {
   c == '？'
 }
 
-///|
-pub fn normalize_text(s : String) -> String {
-  s.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
-}
+
 
 ///|
 /// 段落最后做一次清理：多空格折叠 + trim（字符级，不走 bytes）

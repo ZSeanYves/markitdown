@@ -112,282 +112,7 @@ async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
   }
 }
 
-// ============================
-// Workbook + rels parsing
-// ============================
 
-///|
-fn parse_workbook_sheets(
-  wb_xml : String,
-  rels_xml : String,
-) -> Array[SheetInfo] raise {
-  let rel_map = parse_rels_id_to_target(rels_xml)
-  let out : Array[SheetInfo] = []
-
-  let mut pos = 0
-  while true {
-    let idx = find_sub(wb_xml, "<sheet", pos)
-    match idx {
-      None => break
-      Some(i0) => {
-        let j = find_sub(wb_xml, ">", i0)
-        match j {
-          None => break
-          Some(i1) => {
-            let tag = wb_xml[i0:i1 + 1].to_string()
-            let name = get_attr(tag, "name").unwrap_or("Sheet")
-            let rid = get_attr(tag, "r:id").unwrap_or("")
-            if rid != "" {
-              let target = rel_map.get(rid).unwrap_or("")
-              out.push({ name, rid, target })
-            }
-            pos = i1 + 1
-          }
-        }
-      }
-    }
-  }
-
-  out
-}
-
-// <Relationship Id="rId1" Target="worksheets/sheet1.xml" .../>
-
-///|
-fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String] raise {
-  let m : Map[String, String] = Map::new()
-  let mut pos = 0
-
-  while true {
-    let idx = find_sub(rels_xml, "<Relationship", pos)
-    match idx {
-      None => break
-      Some(i0) => {
-        let j = find_sub(rels_xml, ">", i0)
-        match j {
-          None => break
-          Some(i1) => {
-            let tag = rels_xml[i0:i1 + 1].to_string()
-            let id = get_attr(tag, "Id").unwrap_or("")
-            let target = get_attr(tag, "Target").unwrap_or("")
-            if id != "" && target != "" {
-              m.set(id, target)
-            }
-            pos = i1 + 1
-          }
-        }
-      }
-    }
-  }
-
-  m
-}
-
-// ============================
-// sharedStrings.xml parsing
-// ============================
-//
-// Common:
-// <si><t>hello</t></si>
-// Rich text:
-// <si><r><t>he</t></r><r><t>llo</t></r></si>
-// MVP: concat all <t> contents inside <si>
-
-///|
-fn parse_shared_strings(ss_xml : String) -> Array[String] raise {
-  let out : Array[String] = []
-  let mut pos = 0
-
-  while true {
-    let si0 = find_sub(ss_xml, "<si", pos)
-    match si0 {
-      None => break
-      Some(si_start) => {
-        let si_end0 = find_sub(ss_xml, "</si>", si_start)
-        match si_end0 {
-          None => break
-          Some(si_end) => {
-            let chunk = ss_xml[si_start:si_end].to_string()
-
-            let mut tpos = 0
-            let mut acc = ""
-            while true {
-              let t0 = find_sub(chunk, "<t", tpos)
-              match t0 {
-                None => break
-                Some(t_start) => {
-                  let ttag_end = find_sub(chunk, ">", t_start)
-                  match ttag_end {
-                    None => break
-                    Some(t_end_tag) => {
-                      let content_start = t_end_tag + 1
-                      let t1 = find_sub(chunk, "</t>", content_start)
-                      match t1 {
-                        None => break
-                        Some(t_end) => {
-                          let content = chunk[content_start:t_end].to_string()
-                          acc = acc + content
-                          tpos = t_end + 4
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            out.push(xml_unescape(acc))
-            pos = si_end + 5
-          }
-        }
-      }
-    }
-  }
-
-  out
-}
-
-// ============================
-// sheet xml -> table
-// ============================
-//
-// Scan for cells:
-// <c r="A1" t="s"><v>0</v></c>
-// - r: cell reference
-// - t="s": sharedStrings index in <v>
-// - otherwise: <v> literal (usually number)
-
-///|
-fn parse_sheet_table(
-  sheet_xml : String,
-  shared : Array[String],
-) -> Array[Array[String]] raise {
-  let cells : Map[String, String] = Map::new()
-  let mut max_r = 0
-  let mut max_c = 0
-
-  let mut pos = 0
-  while true {
-    let c0 = find_sub(sheet_xml, "<c ", pos)
-    match c0 {
-      None => break
-      Some(i0) => {
-        let ctag_end0 = find_sub(sheet_xml, ">", i0)
-        match ctag_end0 {
-          None => break
-          Some(i1) => {
-            let ctag = sheet_xml[i0:i1 + 1].to_string()
-
-            let rref = get_attr(ctag, "r").unwrap_or("")
-            let t = get_attr(ctag, "t").unwrap_or("") // "s" for shared string
-
-            let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
-            match c_end0 {
-              None => break
-              Some(c_end) => {
-                let inner = sheet_xml[i1 + 1:c_end].to_string()
-
-                // first <v>...</v>
-                let mut val = ""
-                let v0 = find_sub(inner, "<v>", 0)
-                match v0 {
-                  None => ()
-                  Some(v_start0) => {
-                    let vs = v_start0 + 3
-                    let v1 = find_sub(inner, "</v>", vs)
-                    match v1 {
-                      None => ()
-                      Some(v_end) => val = inner[vs:v_end].to_string()
-                    }
-                  }
-                }
-
-                let (rr, cc) = cell_ref_to_rc(rref)
-                if rr > 0 && cc > 0 {
-                  if rr > max_r {
-                    max_r = rr
-                  }
-                  if cc > max_c {
-                    max_c = cc
-                  }
-
-                  let text = if t == "s" {
-                    // shared string index in <v>
-                    let idx = parse_int(val)
-                    if idx >= 0 && idx < shared.length() {
-                      shared[idx]
-                    } else {
-                      ""
-                    }
-                  } else if t == "inlineStr" {
-                    // inline string: <is><t>...</t></is> (may contain multiple <t>)
-                    parse_inline_str(inner)
-                  } else {
-                    // numeric / other types: use <v>
-                    xml_unescape(val)
-                  }
-
-                  cells.set(rr.to_string() + "," + cc.to_string(), text)
-                }
-
-                pos = c_end + 4
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  if max_r == 0 || max_c == 0 {
-    return []
-  }
-
-  let table : Array[Array[String]] = []
-  for r in 1..<(max_r + 1) {
-    let row : Array[String] = []
-    for c in 1..<(max_c + 1) {
-      let k = r.to_string() + "," + c.to_string()
-      row.push(cells.get(k).unwrap_or(""))
-    }
-    table.push(row)
-  }
-  table
-}
-
-///|
-fn parse_inline_str(inner : String) -> String raise {
-  // Collect all <t>...</t> inside the cell inner xml
-  let mut tpos = 0
-  let mut acc = ""
-
-  while true {
-    let t0 = find_sub(inner, "<t", tpos)
-    match t0 {
-      None => break
-      Some(t_start) => {
-        let ttag_end = find_sub(inner, ">", t_start)
-        match ttag_end {
-          None => break
-          Some(t_end_tag) => {
-            let content_start = t_end_tag + 1
-            let t1 = find_sub(inner, "</t>", content_start)
-            match t1 {
-              None => break
-              Some(t_end) => {
-                let content = inner[content_start:t_end].to_string()
-                acc = acc + content
-                tpos = t_end + 4
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  xml_unescape(acc)
-}
 
 // ============================
 // Utilities
@@ -509,7 +234,8 @@ fn get_attr(tag : String, key : String) -> String? raise {
   }
 }
 
-fn xml_unescape(s : String) -> String raise{
+///|
+fn xml_unescape(s : String) -> String raise {
   let t = s
     .replace(old="&lt;", new="<")
     .replace(old="&gt;", new=">")
@@ -569,8 +295,11 @@ fn decode_numeric_entities(s : String) -> String raise {
   String::from_array(out)
 }
 
+///|
 fn parse_dec_int(s : String) -> Int? {
-  if s == "" { return None }
+  if s == "" {
+    return None
+  }
   let chars = s.to_array()
   let mut i = 0
   let mut acc = 0
@@ -586,15 +315,25 @@ fn parse_dec_int(s : String) -> Int? {
   Some(acc)
 }
 
+///|
 fn hex_val(c : Char) -> Int? {
-  if c >= '0' && c <= '9' { return Some(c.to_int() - '0'.to_int()) }
-  if c >= 'a' && c <= 'f' { return Some(c.to_int() - 'a'.to_int() + 10) }
-  if c >= 'A' && c <= 'F' { return Some(c.to_int() - 'A'.to_int() + 10) }
+  if c >= '0' && c <= '9' {
+    return Some(c.to_int() - '0'.to_int())
+  }
+  if c >= 'a' && c <= 'f' {
+    return Some(c.to_int() - 'a'.to_int() + 10)
+  }
+  if c >= 'A' && c <= 'F' {
+    return Some(c.to_int() - 'A'.to_int() + 10)
+  }
   None
 }
 
+///|
 fn parse_hex_int(s : String) -> Int? {
-  if s == "" { return None }
+  if s == "" {
+    return None
+  }
   let chars = s.to_array()
   let mut i = 0
   let mut acc = 0
