@@ -429,6 +429,10 @@ async fn run_and_capture(
   Ok(stdout)
 }
 
+// ============================
+// Utilities
+// ============================
+
 ///|
 /// Decode base64 string into raw bytes.
 /// - ignores whitespace
@@ -487,6 +491,31 @@ fn base64_decode(s0 : String) -> Bytes raise ZipError {
   }
 
   Bytes::from_array(out)
+}
+
+///|
+fn b64_index(c : Char) -> Int {
+  if c >= 'A' && c <= 'Z' {
+    return c.to_int() - 'A'.to_int()
+  }
+  if c >= 'a' && c <= 'z' {
+    return c.to_int() - 'a'.to_int() + 26
+  }
+  if c >= '0' && c <= '9' {
+    return c.to_int() - '0'.to_int() + 52
+  }
+  if c == '+' {
+    return 62
+  }
+  if c == '/' {
+    return 63
+  }
+  -1
+}
+
+///|
+fn is_ws(c : Char) -> Bool {
+  c == ' ' || c == '\n' || c == '\r' || c == '\t'
 }
 
 ///|

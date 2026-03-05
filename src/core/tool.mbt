@@ -5,12 +5,12 @@ pub fn trim_string(s : String) -> String {
 }
 
 ///|
-pub fn escape_pipes(s : String) -> String {
+fn escape_pipes(s : String) -> String {
   s.replace(old="|", new="\\|")
 }
 
 ///|
-pub fn normalize_cell(s : String) -> String {
+fn normalize_cell(s : String) -> String {
   trim_string(escape_pipes(s))
 }
 
@@ -128,226 +128,104 @@ pub fn utf8_bytes_to_string(b : Bytes) -> String raise Utf8DecodeError {
 }
 
 ///|
-/// 去掉中文/全角符号之间的“字间空格”
-pub fn remove_cjk_inner_spaces(s : String) -> String {
-  let cs = s.to_array()
-  let n = cs.length()
-  if n == 0 {
-    return s
-  }
-
-  let mut out = ""
+/// Decode numeric character references: &#1234; and &#x1F600;
+pub fn decode_numeric_entities(s : String) -> String raise {
+  let n = s.length()
+  let out : Array[Char] = []
   let mut i = 0
-  while i < n {
-    let c = cs[i]
 
-    if c == ' ' {
-      if i > 0 && i + 1 < n {
-        let prev = cs[i - 1]
-        let next = cs[i + 1]
-        if is_cjkish(prev) && is_cjkish(next) {
-          i = i + 1
-          continue
+  while i < n {
+    // try "&#...;"
+    if i + 1 < n && s[i] == '&' && s[i + 1] == '#' {
+      // find ';'
+      let mut j = i + 2
+      while j < n && s[j] != ';' {
+        j = j + 1
+      }
+
+      if j < n && s[j] == ';' {
+        let body = s[i + 2:j].to_string().trim().to_string()
+
+        let cp_opt = if body.has_prefix("x") || body.has_prefix("X") {
+          parse_hex_int(body[1:].to_string())
+        } else {
+          parse_dec_int(body)
+        }
+
+        match cp_opt {
+          Some(cp) => {
+            out.push(Int::unsafe_to_char(cp))
+            i = j + 1
+            continue
+          }
+          None => () // fallthrough
         }
       }
-      out = out + " "
-      i = i + 1
-      continue
     }
 
-    out = out + c.to_string()
+    // normal char: push char directly (DO NOT use to_string here)
+    out.push(
+      match s[i].to_char() {
+        None => '_' // should not happen for valid UTF-8
+        Some(c) => c
+      },
+    )
     i = i + 1
   }
 
-  out
+  String::from_array(out)
 }
 
 ///|
-/// 粗略判断“中文相关字符”：CJK 汉字,全角区（含中文标点）,常见中文标点
-pub fn is_cjkish(c : Char) -> Bool {
-  let x = c.to_int()
-  (x >= 0x4E00 && x <= 0x9FFF) || // CJK Unified
-  (x >= 0x3400 && x <= 0x4DBF) || // Extension A
-  (x >= 0xF900 && x <= 0xFAFF) || // Compatibility
-  (x >= 0xFF00 && x <= 0xFFEF) || // Half/Full width
-  c == '，' ||
-  c == '。' ||
-  c == '；' ||
-  c == '：' ||
-  c == '！' ||
-  c == '？'
-}
-
-
-
-///|
-/// 段落最后做一次清理：多空格折叠 + trim（字符级，不走 bytes）
-pub fn finalize_paragraph(s : String) -> String {
-  let t = s.trim()
-  if t == "" {
-    return ""
+fn parse_dec_int(s : String) -> Int? {
+  if s == "" {
+    return None
   }
-
-  let mut out = ""
-  let mut prev_space = false
-  for c in t.to_array() {
-    if c == ' ' {
-      if !prev_space {
-        out = out + " "
-        prev_space = true
-      }
+  let chars = s.to_array()
+  let mut i = 0
+  let mut acc = 0
+  while i < chars.length() {
+    let c = chars[i]
+    if c >= '0' && c <= '9' {
+      acc = acc * 10 + (c.to_int() - '0'.to_int())
+      i = i + 1
     } else {
-      out = out + c.to_string()
-      prev_space = false
+      return None
     }
   }
-
-  remove_cjk_inner_spaces(out.trim().to_string())
+  Some(acc)
 }
 
 ///|
-/// buf 是否以 ASCII '-' 结尾
-pub fn ends_with_hyphen(s : String) -> Bool {
-  let bs = @utf8.encode(s)
-  if bs.length() == 0 {
-    return false
-  }
-  bs[bs.length() - 1] == 45 // '-'
-}
-
-///|
-/// 删除最后一个字符（按字节删，适用于 ASCII '-'）
-pub fn drop_last_char(s : String) -> String raise Error {
-  let bs = @utf8.encode(s)
-  if bs.length() == 0 {
-    return s
-  }
-  s[:bs.length() - 1].to_string()
-}
-
-///|
-/// “短行”判断：<=2 个字符（对付中文被切成单字/两字的情况）
-pub fn is_short(s : String) -> Bool {
-  let t = s.trim()
-  if t == "" {
-    return true
-  }
-  t.to_array().length() <= 2
-}
-
-///|
-/// 决定拼接时加不加空格：
-/// - CJK + CJK：不加空格（中文不应该被强行加空格）
-/// - 其他情况：加一个空格
-pub fn glue_between(left : String, right : String) -> String {
-  let lc = last_char(left)
-  let rc = first_char(right)
-  match (lc, rc) {
-    (Some(a), Some(b)) => if is_cjk(a) && is_cjk(b) { "" } else { " " }
-    _ => " "
-  }
-}
-
-///|
-pub fn first_char(s : String) -> Char? {
-  let arr = s.trim().to_array()
-  if arr.length() == 0 {
-    None
-  } else {
-    Some(arr[0])
-  }
-}
-
-///|
-pub fn last_char(s : String) -> Char? {
-  let arr = s.trim().to_array()
-  let n = arr.length()
-  if n == 0 {
-    None
-  } else {
-    Some(arr[n - 1])
-  }
-}
-
-///|
-/// 粗略 CJK 判定（足够 MVP）
-/// 覆盖：CJK Unified / Extensions / 常用全角符号区
-pub fn is_cjk(c : Char) -> Bool {
-  let x = c.to_int()
-  (x >= 0x4E00 && x <= 0x9FFF) ||
-  (x >= 0x3400 && x <= 0x4DBF) ||
-  (x >= 0xF900 && x <= 0xFAFF) ||
-  (x >= 0xFF00 && x <= 0xFFEF)
-}
-
-///|
-pub fn pick_best_extracted_text(cands : Array[String]) -> String {
-  let mut best = cands[0]
-  let mut best_score = score_extracted_text(best)
-
-  for i in 1..<cands.length() {
-    let t = cands[i]
-    let sc = score_extracted_text(t)
-    if sc > best_score {
-      best = t
-      best_score = sc
-    }
-  }
-  best
-}
-
-// 分数越高越好
-
-///|
-fn score_extracted_text(text : String) -> Int {
-  let s = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
-  let mut total = 0
-  let mut blank = 0
-  let mut short = 0
-  let mut sum_len = 0
-
-  for sv in s.split("\n") {
-    let line = sv.to_string().trim().to_string()
-    total = total + 1
-    if line == "" {
-      blank = blank + 1
-      continue
-    }
-    let len = line.to_array().length()
-    sum_len = sum_len + len
-    if len <= 2 {
-      short = short + 1
-    }
-  }
-
-  let nonblank = total - blank
-  let avg_len = if nonblank <= 0 { 0 } else { sum_len / nonblank }
-
-  // 惩罚碎片化：短行、空行；奖励平均行长
-  avg_len * 10 - blank * 3 - short * 5
-}
-
-///|
-fn b64_index(c : Char) -> Int {
-  if c >= 'A' && c <= 'Z' {
-    return c.to_int() - 'A'.to_int()
-  }
-  if c >= 'a' && c <= 'z' {
-    return c.to_int() - 'a'.to_int() + 26
-  }
+fn hex_val(c : Char) -> Int? {
   if c >= '0' && c <= '9' {
-    return c.to_int() - '0'.to_int() + 52
+    return Some(c.to_int() - '0'.to_int())
   }
-  if c == '+' {
-    return 62
+  if c >= 'a' && c <= 'f' {
+    return Some(c.to_int() - 'a'.to_int() + 10)
   }
-  if c == '/' {
-    return 63
+  if c >= 'A' && c <= 'F' {
+    return Some(c.to_int() - 'A'.to_int() + 10)
   }
-  -1
+  None
 }
 
 ///|
-fn is_ws(c : Char) -> Bool {
-  c == ' ' || c == '\n' || c == '\r' || c == '\t'
+fn parse_hex_int(s : String) -> Int? {
+  if s == "" {
+    return None
+  }
+  let chars = s.to_array()
+  let mut i = 0
+  let mut acc = 0
+  while i < chars.length() {
+    match hex_val(chars[i]) {
+      None => return None
+      Some(v) => {
+        acc = (acc << 4) | v
+        i = i + 1
+      }
+    }
+  }
+  Some(acc)
 }

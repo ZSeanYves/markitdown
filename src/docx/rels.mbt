@@ -1,38 +1,4 @@
 ///|
-fn find_next_from(chars : Array[Char], start : Int, pat : String) -> Int {
-  let p = pat.to_array()
-  let plen = p.length()
-  let n = chars.length()
-  let mut i = start
-  while i + plen <= n {
-    let mut ok = true
-    for k in 0..<plen {
-      if chars[i + k] != p[k] {
-        ok = false
-        break
-      }
-    }
-    if ok {
-      return i
-    }
-    i += 1
-  }
-  -1
-}
-
-///|
-fn read_quoted(chars : Array[Char], start : Int) -> String {
-  // start 指向引号后第一个字符
-  let mut j = start
-  let buf : Ref[Array[Char]] = { val: [] }
-  while j < chars.length() && chars[j] != '"' {
-    buf.val.push(chars[j])
-    j += 1
-  }
-  String::from_array(buf.val)
-}
-
-///|
 pub fn parse_rels(rels_xml : String) -> Map[String, String] {
   let m : Map[String, String] = Map::new()
   let chars = rels_xml.to_array()
@@ -64,4 +30,42 @@ pub fn parse_rels(rels_xml : String) -> Map[String, String] {
 ///|
 pub fn rid_to_asset_path(target : String) -> String {
   "assets/" + @cor.basename(target)
+}
+
+// ============================
+// Utilities
+// ============================
+
+///|
+fn find_next_from(chars : Array[Char], start : Int, pat : String) -> Int {
+  let p = pat.to_array()
+  let plen = p.length()
+  let n = chars.length()
+  let mut i = start
+  while i + plen <= n {
+    let mut ok = true
+    for k in 0..<plen {
+      if chars[i + k] != p[k] {
+        ok = false
+        break
+      }
+    }
+    if ok {
+      return i
+    }
+    i += 1
+  }
+  -1
+}
+
+///|
+fn read_quoted(chars : Array[Char], start : Int) -> String {
+  // start 指向引号后第一个字符
+  let mut j = start
+  let buf : Ref[Array[Char]] = { val: [] }
+  while j < chars.length() && chars[j] != '"' {
+    buf.val.push(chars[j])
+    j += 1
+  }
+  String::from_array(buf.val)
 }
