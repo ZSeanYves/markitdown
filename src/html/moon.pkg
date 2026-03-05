@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/src/core" @cor,
   "moonbitlang/x/fs" @fs,
+  "moonbitlang/core/encoding/utf8" @utf8,
 }
 
 options(

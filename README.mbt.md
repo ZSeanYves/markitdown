@@ -1,8 +1,8 @@
 # markitdown-mb (MoonBit)
 
-A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf** into structured **Markdown**.
+A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf / .xlsx / .pptx / .html** into structured **Markdown**.
 
-> Current goal: ship a minimal end-to-end pipeline (**docx / pdf → IR → Markdown**) and validate it with sample-based regression tests.
+> Current goal: ship a minimal end-to-end pipeline (**docx / pdf / xlsx / pptx / html → IR → Markdown**) and validate it with sample-based regression tests.
 
 ---
 
@@ -10,6 +10,9 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight paragraphing
+* ✅ **XLSX → Markdown** (MVP): extract sheet text and emit one table per sheet
+* ✅ **PPTX → Markdown** (MVP): extract slide text and emit one section per slide
+* ✅ **HTML → Markdown** (MVP): extract headings/paragraphs/list items and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
 > Note: This project intentionally avoids unstable/untrusted third-party PDF parsing libraries. The PDF MVP uses “external text extraction + internal normalization”.
@@ -24,22 +27,30 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
   * `ir.mbt`: IR definitions (`Document` / `Block`, etc.)
   * `emitter_markdown.mbt`: IR → Markdown
   * `errors.mbt` / `tool.mbt`: shared errors & utilities
+  * `zip_min.mbt`: minimal ZIP reader used by Office formats (docx/xlsx/pptx)
 * `src/docx/`: docx parsing
 
-  * `zip_min.mbt`: a **pure MoonBit** minimal ZIP reader (for reading docx internal entries)
   * `docx_zip.mbt`: docx ZIP wrapper (reads `word/document.xml` / rels / media)
   * `rels.mbt`: parses `document.xml.rels` (rId → Target)
   * `docx_xml.mbt`: scans `document.xml` and produces IR (paragraphs/headings/images/tables)
   * `docx_parser.mbt`: the orchestrated `parse_docx()` pipeline
 * `src/pdf/`: PDF parsing
 
-  * `dispatcher.mbt`: dispatches by extension to docx/pdf parsers
   * `pdf_parser.mbt`: PDF text extraction + paragraphing (MVP)
+* `src/xlsx/`: XLSX parsing (MVP)
+
+  * `xlsx_parser.mbt`: reads workbook + sheets and emits tables
+* `src/pptx/`: PPTX parsing (MVP)
+
+  * `pptx_parser.mbt`: reads slides and emits slide sections
+* `src/html/`: HTML parsing (MVP)
+
+  * `html_parser.mbt`: lightweight HTML extraction (bytes-based to avoid UTF-8 indexing issues)
 * `samples/`: sample files & regression scripts
 
-  * `pdf/`: PDF samples (e.g., `text_simple.pdf`)
-  * `expected/`: golden Markdown outputs
-  * `diff.sh`: regression script (writes outputs to `.tmp_pdf_out/` and diffs against `samples/expected/`)
+  * `docx/` / `pdf/` / `xlsx/` / `pptx/` / `html/`: format-specific samples
+  * `expected/<format>/`: golden Markdown outputs
+  * `diff.sh`: regression script (writes outputs to `.tmp_test_out/<format>/` and diffs against `samples/expected/<format>/`)
 
 ---
 
@@ -61,7 +72,9 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 ### ✅ ZIP/Deflate Decompression
 
-* Deflate decompression in `zip_min` is implemented via `mizchi/zlib` (`deflate_decompress`) and verified with real docx files.
+* ZIP reading is implemented in `zip_min`.
+* Deflate decompression is implemented via `mizchi/zlib` (`deflate_decompress`).
+* For some Office-produced ZIP entries, deflate fallback may be needed (platform tools) depending on environment.
 
 ### ✅ PDF (text-based) MVP
 
@@ -77,6 +90,21 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 > Note: `mutool` may print progress info to stderr (e.g., `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
+### ✅ XLSX (MVP)
+
+* Parses workbook + sheet XML and emits one Markdown table per sheet
+* Supports numeric cells and inline strings; decodes XML entities (including numeric entities)
+
+### ✅ PPTX (MVP)
+
+* Extracts slide text runs and emits one section per slide
+* Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
+
+### ✅ HTML (MVP)
+
+* Bytes-based parsing to avoid UTF-8 indexing issues
+* Extracts headings/paragraphs/list items; decodes entities (including numeric entities)
+
 ---
 
 ## External Dependencies (PDF)
@@ -86,9 +114,7 @@ The PDF MVP relies on at least one of the following command-line tools installed
 * `pdftotext` (Poppler)
 * `mutool` (MuPDF toolset)
 
-If neither is available, the program will show a unified error message:
-
-> “pdftotext (Poppler) or mutool (MuPDF) not found. Please install and try again ...”
+If neither is available, the program will show a unified error message.
 
 Install examples:
 
@@ -106,9 +132,11 @@ Install examples:
 moon run src/cli -- demo
 ```
 
-Prints a demo Markdown document (no docx/pdf input required).
+Prints a demo Markdown document (no input required).
 
-### 2) `convert`: convert docx/pdf → Markdown
+### 2) `convert`: convert documents → Markdown
+
+Docx example:
 
 ```bash
 moon run --target native src/cli -- \
@@ -118,12 +146,6 @@ moon run --target native src/cli -- \
   --max-heading 3
 ```
 
-Options:
-
-* `-o out/golden.md`: output Markdown path (default: stdout)
-* `--out-dir out`: asset output directory (docx images go to `out/assets/`)
-* `--max-heading 3`: maximum heading level (1–6). **Currently supports up to level 3.**
-
 PDF example:
 
 ```bash
@@ -132,6 +154,7 @@ moon run --target native src/cli -- \
   -o out/text_simple.md \
   --out-dir out
 ```
+
 XLSX example:
 
 ```bash
@@ -140,6 +163,7 @@ moon run --target native src/cli -- \
   -o out/sheet_simple.md \
   --out-dir out
 ```
+
 PPTX example:
 
 ```bash
@@ -148,6 +172,7 @@ moon run --target native src/cli -- \
   -o out/pptx_simple.md \
   --out-dir out
 ```
+
 HTML example:
 
 ```bash
@@ -155,6 +180,14 @@ moon run --target native src/cli -- \
   convert samples/html/html_simple.html \
   -o out/html_simple.md \
   --out-dir out
+```
+
+Options:
+
+* `-o out/xxx.md`: output Markdown path (default: stdout)
+* `--out-dir out`: asset output directory (docx images go to `out/assets/`)
+* `--max-heading N`: maximum heading level (1–6)
+
 ---
 
 ## Regression Tests (samples)
@@ -191,34 +224,18 @@ Then re-run:
 
 ---
 
-## Recommended Test Samples (this repo ships 4 golden test cases)
-
-### Docx (`golden.docx`) should include
-
-* Heading levels 1/2/3
-* Mixed Chinese/English paragraphs (with punctuation and line breaks)
-* At least 1 image (`word/media/image1.png`)
-* At least 1 table (3 columns × 4–5 rows)
-
-### PDF (`text_*.pdf`) should cover
-
-* `text_simple.pdf`: multi-paragraph (CN/EN/mixed)
-* `text_hardwrap.pdf`: hard wraps (line breaks every few words)
-* `text_multipage.pdf`: multi-page separator handling
-
----
-
 ## Roadmap
 
-### Near-term (Docx)
+### Near-term
 
-1. Support more heading styles (e.g., `Title` / `Subtitle` / `Heading4..6`)
-2. Images: support multiple images, multiple rIds, and de-duplication for repeated references
+1. Improve PPTX ordering by `ppt/presentation.xml` + rels (match real slide order)
+2. HTML: add minimal table extraction (`<table>` → IR Table)
+3. XLSX: support more cell types (sharedStrings-rich text, booleans)
 
-### Mid-term (PDF)
+### Mid-term
 
-1. Improve paragraphing and line-wrap rules (more stable reading order / pagination / lists)
-2. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first, then progressively MoonBit-ified
+1. PDF: improve paragraphing and line-wrap rules (more stable reading order / lists)
+2. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first
 
 ---
 
@@ -226,4 +243,7 @@ Then re-run:
 
 * ✅ docx: minimal end-to-end pipeline works
 * ✅ pdf (text-based): MVP works (depends on external extractors)
-* ✅ samples regression script works (output directory: `.tmp_pdf_out/`)
+* ✅ xlsx: MVP works
+* ✅ pptx: MVP works
+* ✅ html: MVP works
+* ✅ samples regression script works (output directory: `.tmp_test_out/`)
