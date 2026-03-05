@@ -268,7 +268,7 @@ fn parse_sheet_table(
 
   let mut pos = 0
   while true {
-    let c0 = find_sub(sheet_xml, "<c", pos)
+    let c0 = find_sub(sheet_xml, "<c ", pos)
     match c0 {
       None => break
       Some(i0) => {
@@ -311,17 +311,21 @@ fn parse_sheet_table(
                     max_c = cc
                   }
 
-                    let text = if t == "s" {
-                      // shared string index in <v>
-                      let idx = parse_int(val)
-                      if idx >= 0 && idx < shared.length() { shared[idx] } else { "" }
-                    } else if t == "inlineStr" {
-                      // inline string: <is><t>...</t></is> (may contain multiple <t>)
-                      parse_inline_str(inner)
+                  let text = if t == "s" {
+                    // shared string index in <v>
+                    let idx = parse_int(val)
+                    if idx >= 0 && idx < shared.length() {
+                      shared[idx]
                     } else {
-                      // numeric / other types: use <v>
-                      xml_unescape(val)
+                      ""
                     }
+                  } else if t == "inlineStr" {
+                    // inline string: <is><t>...</t></is> (may contain multiple <t>)
+                    parse_inline_str(inner)
+                  } else {
+                    // numeric / other types: use <v>
+                    xml_unescape(val)
+                  }
 
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
                 }
@@ -505,7 +509,8 @@ fn get_attr(tag : String, key : String) -> String? raise {
   }
 }
 
-fn xml_unescape(s : String) -> String raise{
+///|
+fn xml_unescape(s : String) -> String raise {
   let t = s
     .replace(old="&lt;", new="<")
     .replace(old="&gt;", new=">")
@@ -513,95 +518,7 @@ fn xml_unescape(s : String) -> String raise{
     .replace(old="&quot;", new="\"")
     .replace(old="&apos;", new="'")
 
-  decode_numeric_entities(t)
+  @cor.decode_numeric_entities(t)
 }
 
 ///|
-/// Decode numeric character references: &#1234; and &#x1F600;
-fn decode_numeric_entities(s : String) -> String raise {
-  let n = s.length()
-  let out : Array[Char] = []
-  let mut i = 0
-
-  while i < n {
-    // try "&#...;"
-    if i + 1 < n && s[i] == '&' && s[i + 1] == '#' {
-      // find ';'
-      let mut j = i + 2
-      while j < n && s[j] != ';' {
-        j = j + 1
-      }
-
-      if j < n && s[j] == ';' {
-        let body = s[i + 2:j].to_string().trim().to_string()
-
-        let cp_opt = if body.has_prefix("x") || body.has_prefix("X") {
-          parse_hex_int(body[1:].to_string())
-        } else {
-          parse_dec_int(body)
-        }
-
-        match cp_opt {
-          Some(cp) => {
-            out.push(Int::unsafe_to_char(cp))
-            i = j + 1
-            continue
-          }
-          None => () // fallthrough
-        }
-      }
-    }
-
-    // normal char: push char directly (DO NOT use to_string here)
-    out.push(
-      match s[i].to_char() {
-        None => '_' // should not happen for valid UTF-8
-        Some(c) => c
-      },
-    )
-    i = i + 1
-  }
-
-  String::from_array(out)
-}
-
-fn parse_dec_int(s : String) -> Int? {
-  if s == "" { return None }
-  let chars = s.to_array()
-  let mut i = 0
-  let mut acc = 0
-  while i < chars.length() {
-    let c = chars[i]
-    if c >= '0' && c <= '9' {
-      acc = acc * 10 + (c.to_int() - '0'.to_int())
-      i = i + 1
-    } else {
-      return None
-    }
-  }
-  Some(acc)
-}
-
-fn hex_val(c : Char) -> Int? {
-  if c >= '0' && c <= '9' { return Some(c.to_int() - '0'.to_int()) }
-  if c >= 'a' && c <= 'f' { return Some(c.to_int() - 'a'.to_int() + 10) }
-  if c >= 'A' && c <= 'F' { return Some(c.to_int() - 'A'.to_int() + 10) }
-  None
-}
-
-fn parse_hex_int(s : String) -> Int? {
-  if s == "" { return None }
-  let chars = s.to_array()
-  let mut i = 0
-  let mut acc = 0
-  while i < chars.length() {
-    match hex_val(chars[i]) {
-      None => return None
-      Some(v) => {
-        acc = (acc << 4) | v
-        i = i + 1
-      }
-    }
-  }
-  Some(acc)
-}

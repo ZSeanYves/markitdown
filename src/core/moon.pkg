@@ -1,6 +1,9 @@
 import {
-  "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/x/fs" @fs,
   "mizchi/zlib" @z,
   "moonbitlang/async/process" @proc,
 }
+
+options(
+  "preferred-target": "native",
+)
