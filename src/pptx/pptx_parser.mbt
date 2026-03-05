@@ -139,6 +139,27 @@ fn extract_slide_paragraphs_bytes(xml : Bytes) -> Array[String] raise {
                           let s = @cor.utf8_bytes_to_string(seg) catch {
                             _ => ""
                           }
+                          //if s.contains("emoji") {
+                          //  println(
+                          //    ".. pptx: seg len=" + seg.length().to_string(),
+                          //  )
+                          // 打印前 32 个字节的 unsigned 值
+                          //  let arr = seg.to_array()
+                          //  let mut k = 0
+                          //  let mut line = ""
+                          //  while k < arr.length() && k < 32 {
+                          //    let mut v = arr[k].to_int()
+                          //    if v < 0 {
+                          //      v = v + 256
+                          //    }
+                          //   line = line + v.to_string() + " "
+                          //    k = k + 1
+                          //  }
+                          //  println(
+                          //    ".. pptx: seg prefix u8=" +
+                          //    line.trim().to_string(),
+                          //  )
+                          //}
                           acc = acc + s
                           tpos = t1i + close_t.length()
                         }
