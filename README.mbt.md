@@ -148,6 +148,13 @@ moon run --target native src/cli -- \
   -o out/pptx_simple.md \
   --out-dir out
 ```
+HTML example:
+
+```bash
+moon run --target native src/cli -- \
+  convert samples/html/html_simple.html \
+  -o out/html_simple.md \
+  --out-dir out
 ---
 
 ## Regression Tests (samples)

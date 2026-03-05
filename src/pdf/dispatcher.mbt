@@ -22,6 +22,8 @@ pub async fn parse_to_ir(
     "pdf" => parse_pdf(input_path, PdfParseOptions::{ out_dir: opts.out_dir })
     "xlsx" => Ok(@xlsx.parse_xlsx(input_path, out_dir_str, max_h))
     "pptx" => Ok(@pptx.parse_pptx(input_path, out_dir_str, max_h))
+    "html" => Ok(@html.parse_html(input_path, out_dir_str, max_h))
+    "htm" => Ok(@html.parse_html(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
 }

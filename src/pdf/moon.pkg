@@ -5,6 +5,7 @@ import {
   "moonbitlang/async/process" @proc,
   "ZSeanYves/markitdown/src/xlsx" @xlsx,
   "ZSeanYves/markitdown/src/pptx" @pptx,
+  "ZSeanYves/markitdown/src/html" @html,
 }
 
 options(
