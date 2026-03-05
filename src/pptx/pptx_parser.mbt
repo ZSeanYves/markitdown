@@ -1,8 +1,9 @@
+///|
 pub async fn parse_pptx(
-  input_path: String,
-  out_dir: String,
-  max_heading: Int,
-) -> @cor.Document raise {
+  input_path : String,
+  out_dir : String,
+  max_heading : Int,
+) -> @cor.Document {
   parse_pptx_impl(input_path, out_dir, max_heading) catch {
     e => raise @cor.AppError("pptx: crashed: " + e.to_string())
   }
@@ -44,10 +45,10 @@ pub async fn parse_pptx_impl(
         "Slide " + idx.to_string(),
       ),
     )
-    println(".. pptx: reading " + path)
-    let xml = read_zip_utf8(z, path)
-    println(".. pptx: read ok, len=" + xml.length().to_string())
-    let paras = extract_slide_paragraphs(xml)
+    //println(".. pptx: reading " + path)
+    let xml = read_zip_bytes(z, path)
+    //println(".. pptx: read ok, len=" + xml.length().to_string())
+    let paras = extract_slide_paragraphs_bytes(xml)
     if paras.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
     } else {
@@ -80,70 +81,78 @@ fn list_slide_entries(z : @cor.ZipReader) -> Array[String] {
 }
 
 ///|
-async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
-  let bs = @cor.ZipReader::read_entry_bytes(z, name) catch {
+async fn read_zip_bytes(z : @cor.ZipReader, name : String) -> Bytes {
+  @cor.ZipReader::read_entry_bytes(z, name) catch {
     e =>
       raise @cor.AppError(
         "pptx: read zip entry failed: " + name + ": " + e.to_string(),
       )
   }
-  @cor.utf8_bytes_to_string(bs) catch {
-    e =>
-      raise @cor.AppError(
-        "pptx: invalid utf8 in " + name + ": " + e.to_string(),
-      )
-  }
 }
 
 ///|
-/// Extract paragraphs by scanning <a:p> ... </a:p> and collecting <a:t>...</a:t>
-fn extract_slide_paragraphs(xml : String) -> Array[String] raise {
+fn extract_slide_paragraphs_bytes(xml : Bytes) -> Array[String] raise {
   let out : Array[String] = []
-  let open_p = "<a:p"
-  let close_p = "</a:p>"
-  let mut pos = 0
 
+  let open_p = pat("<a:p")
+  let close_p = pat("</a:p>")
+  let open_t = pat("<a:t>")
+  let close_t = pat("</a:t>")
+
+  let mut pos = 0
   while true {
-    let p0 = find_sub(xml, open_p, pos)
+    let p0 = find_bytes(xml, open_p, pos)
     match p0 {
       None => break
       Some(i0) => {
-        // find end of opening tag ">"
-        let gt0 = find_sub(xml, ">", i0)
-        println(".. pptx: found <a:p at " + i0.to_string())
-        match gt0 {
+        // find '>' end of <a:p ...>
+        let gt = find_bytes(xml, pat(">"), i0)
+        match gt {
           None => break
-          Some(gt) => {
-            println(".. pptx: a:p at " + i0.to_string())
-            let inner_start = gt + 1
-            let p_end0 = find_sub(xml, close_p, inner_start)
-            match p_end0 {
+          Some(gt0) => {
+            let inner_start = gt0 + 1
+            let p_end = find_bytes(xml, close_p, inner_start)
+            match p_end {
               None => break
-              Some(p_end) => {
-                // ✅ safety check to avoid InvalidIndex
-                let n = xml.length()
-                if inner_start < 0 || inner_start > p_end || p_end > n {
-                  println(
-                    "!! pptx: bad slice range: inner_start=" +
-                    inner_start.to_string() +
-                    " p_end=" +
-                    p_end.to_string() +
-                    " len=" +
-                    n.to_string(),
-                  )
-                  // move forward a bit to avoid infinite loop
-                  pos = i0 + 3
-                  continue
+              Some(p_end0) => {
+                // scan inner for <a:t>...</a:t>
+                let mut tpos = inner_start
+                let mut acc = ""
+                while tpos < p_end0 {
+                  let t0 = find_bytes(xml, open_t, tpos)
+                  match t0 {
+                    None => break
+                    Some(t0i) => {
+                      if t0i >= p_end0 {
+                        break
+                      }
+                      let content_start = t0i + open_t.length()
+                      let t1 = find_bytes(xml, close_t, content_start)
+                      match t1 {
+                        None => break
+                        Some(t1i) => {
+                          if t1i > p_end0 {
+                            break
+                          }
+                          let seg = xml[content_start:t1i].to_bytes()
+                          // decode UTF-8 content bytes -> String
+                          let s = @cor.utf8_bytes_to_string(seg) catch {
+                            _ => ""
+                          }
+                          acc = acc + s
+                          tpos = t1i + close_t.length()
+                        }
+                      }
+                    }
+                  }
                 }
 
-                let inner = xml[inner_start:p_end].to_string()
-                let text = collect_all_a_t(inner)
-                let t = xml_unescape(text).trim().to_string()
-                if t != "" {
-                  out.push(t)
+                let line = xml_unescape(acc).trim().to_string()
+                if line != "" {
+                  out.push(line)
                 }
 
-                pos = p_end + close_p.length()
+                pos = p_end0 + close_p.length()
               }
             }
           }
@@ -155,36 +164,46 @@ fn extract_slide_paragraphs(xml : String) -> Array[String] raise {
   out
 }
 
-fn collect_all_a_t(s : String) -> String raise{
-  let open_t = "<a:t>"
-  let close_t = "</a:t>"
-  let mut pos = 0
-  let mut acc = ""
-
-  while true {
-    let t0 = find_sub(s, open_t, pos)
-    match t0 {
-      None => break
-      Some(i0) => {
-        let start = i0 + open_t.length()
-        let t1 = find_sub(s, close_t, start)
-        match t1 {
-          None => break
-          Some(j) => {
-            acc = acc + s[start:j].to_string()
-            pos = j + close_t.length()
-          }
-        }
-      }
-    }
-  }
-
-  acc
-}
-
 // ============================
 // Utilities
 // ============================
+// ASCII patterns as bytes
+
+///|
+fn pat(s : String) -> Bytes {
+  @utf8.encode(s)
+}
+
+///|
+fn find_bytes(hay : Bytes, needle : Bytes, start : Int) -> Int? {
+  let n = hay.length()
+  let m = needle.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start > n - m {
+    return None
+  }
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    // compare bytes
+    let mut ok = true
+    let mut j = 0
+    while j < m {
+      if hay[i + j] != needle[j] {
+        ok = false
+        break
+      }
+      j = j + 1
+    }
+    if ok {
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
 
 ///|
 fn clamp_heading(level : Int, max_h : Int) -> Int {
@@ -195,23 +214,6 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
   } else {
     level
   }
-}
-
-fn find_sub(s : String, pat : String, start : Int) -> Int? raise{
-  let n = s.length()
-  let m = pat.length()
-  if m == 0 { return Some(start) }
-  if start < 0 { return None }
-  if start > n - m { return None } // ✅ start==n 也安全：直接 None
-  let last = n - m
-  let mut i = start
-  while i <= last {
-    if s[i:i + m] == pat {
-      return Some(i)
-    }
-    i = i + 1
-  }
-  None
 }
 
 ///|
