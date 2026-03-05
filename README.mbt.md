@@ -140,6 +140,14 @@ moon run --target native src/cli -- \
   -o out/sheet_simple.md \
   --out-dir out
 ```
+PPTX example:
+
+```bash
+moon run --target native src/cli -- \
+  convert samples/pptx/pptx_simple.pptx \
+  -o out/pptx_simple.md \
+  --out-dir out
+```
 ---
 
 ## Regression Tests (samples)

@@ -1,3 +1,13 @@
+pub async fn parse_pptx(
+  input_path: String,
+  out_dir: String,
+  max_heading: Int,
+) -> @cor.Document raise {
+  parse_pptx_impl(input_path, out_dir, max_heading) catch {
+    e => raise @cor.AppError("pptx: crashed: " + e.to_string())
+  }
+}
+
 ///|
 /// PPTX MVP parser
 /// Strategy:
@@ -5,7 +15,7 @@
 /// - read each slide xml
 /// - extract text runs <a:t>...</a:t>
 /// - output as Heading + Paragraphs
-pub async fn parse_pptx(
+pub async fn parse_pptx_impl(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
@@ -34,7 +44,9 @@ pub async fn parse_pptx(
         "Slide " + idx.to_string(),
       ),
     )
+    println(".. pptx: reading " + path)
     let xml = read_zip_utf8(z, path)
+    println(".. pptx: read ok, len=" + xml.length().to_string())
     let paras = extract_slide_paragraphs(xml)
     if paras.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
@@ -87,28 +99,51 @@ async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
 /// Extract paragraphs by scanning <a:p> ... </a:p> and collecting <a:t>...</a:t>
 fn extract_slide_paragraphs(xml : String) -> Array[String] raise {
   let out : Array[String] = []
+  let open_p = "<a:p"
+  let close_p = "</a:p>"
   let mut pos = 0
 
   while true {
-    let p0 = find_sub(xml, "<a:p", pos)
+    let p0 = find_sub(xml, open_p, pos)
     match p0 {
       None => break
       Some(i0) => {
-        let p_tag_end = find_sub(xml, ">", i0)
-        match p_tag_end {
+        // find end of opening tag ">"
+        let gt0 = find_sub(xml, ">", i0)
+        println(".. pptx: found <a:p at " + i0.to_string())
+        match gt0 {
           None => break
-          Some(i1) => {
-            let p_end0 = find_sub(xml, "</a:p>", i1 + 1)
+          Some(gt) => {
+            println(".. pptx: a:p at " + i0.to_string())
+            let inner_start = gt + 1
+            let p_end0 = find_sub(xml, close_p, inner_start)
             match p_end0 {
               None => break
               Some(p_end) => {
-                let inner = xml[i1 + 1:p_end].to_string()
+                // ✅ safety check to avoid InvalidIndex
+                let n = xml.length()
+                if inner_start < 0 || inner_start > p_end || p_end > n {
+                  println(
+                    "!! pptx: bad slice range: inner_start=" +
+                    inner_start.to_string() +
+                    " p_end=" +
+                    p_end.to_string() +
+                    " len=" +
+                    n.to_string(),
+                  )
+                  // move forward a bit to avoid infinite loop
+                  pos = i0 + 3
+                  continue
+                }
+
+                let inner = xml[inner_start:p_end].to_string()
                 let text = collect_all_a_t(inner)
                 let t = xml_unescape(text).trim().to_string()
                 if t != "" {
                   out.push(t)
                 }
-                pos = p_end + 6
+
+                pos = p_end + close_p.length()
               }
             }
           }
@@ -120,27 +155,30 @@ fn extract_slide_paragraphs(xml : String) -> Array[String] raise {
   out
 }
 
-///|
-fn collect_all_a_t(s : String) -> String raise {
+fn collect_all_a_t(s : String) -> String raise{
+  let open_t = "<a:t>"
+  let close_t = "</a:t>"
   let mut pos = 0
   let mut acc = ""
+
   while true {
-    let t0 = find_sub(s, "<a:t>", pos)
+    let t0 = find_sub(s, open_t, pos)
     match t0 {
       None => break
       Some(i0) => {
-        let start = i0 + 5
-        let t1 = find_sub(s, "</a:t>", start)
+        let start = i0 + open_t.length()
+        let t1 = find_sub(s, close_t, start)
         match t1 {
           None => break
           Some(j) => {
             acc = acc + s[start:j].to_string()
-            pos = j + 6
+            pos = j + close_t.length()
           }
         }
       }
     }
   }
+
   acc
 }
 
@@ -159,27 +197,19 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
   }
 }
 
-///|
-fn find_sub(s : String, pat : String, start : Int) -> Int? raise {
+fn find_sub(s : String, pat : String, start : Int) -> Int? raise{
   let n = s.length()
   let m = pat.length()
-  if m == 0 {
-    return Some(start)
-  }
-  if start < 0 || start >= n {
-    return None
-  }
-  if n < m {
-    return None
-  }
-
+  if m == 0 { return Some(start) }
+  if start < 0 { return None }
+  if start > n - m { return None } // ✅ start==n 也安全：直接 None
   let last = n - m
   let mut i = start
   while i <= last {
     if s[i:i + m] == pat {
       return Some(i)
     }
-    i += 1
+    i = i + 1
   }
   None
 }
