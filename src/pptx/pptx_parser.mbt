@@ -9,7 +9,7 @@ pub async fn parse_pptx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise{
+) -> @cor.Document {
   let z = @cor.open_zip(input_path) catch {
     e => raise @cor.AppError("pptx: open zip failed: " + e.to_string())
   }
@@ -39,35 +39,33 @@ pub async fn parse_pptx(
     if blocks.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
     } else {
-let mut prev_was_list = false
+      let mut prev_was_list = false
 
-for b in blocks {
-  match b {
-    PptxBlock::Heading(text) => {
-      if prev_was_list {
-        @cor.push(doc, @cor.Block::BlankLine)
+      for b in blocks {
+        match b {
+          PptxBlock::Heading(text) => {
+            if prev_was_list {
+              @cor.push(doc, @cor.Block::BlankLine)
+            }
+            @cor.push(
+              doc,
+              @cor.Block::Heading(clamp_heading(3, max_heading), text),
+            )
+            prev_was_list = false
+          }
+          PptxBlock::Paragraph(text) => {
+            if prev_was_list {
+              @cor.push(doc, @cor.Block::BlankLine)
+            }
+            @cor.push(doc, @cor.Block::Paragraph(text))
+            prev_was_list = false
+          }
+          PptxBlock::ListItem(text) => {
+            @cor.push(doc, @cor.Block::ListItem(text))
+            prev_was_list = true
+          }
+        }
       }
-      @cor.push(
-        doc,
-        @cor.Block::Heading(clamp_heading(3, max_heading), text),
-      )
-      prev_was_list = false
-    }
-
-    PptxBlock::Paragraph(text) => {
-      if prev_was_list {
-        @cor.push(doc, @cor.Block::BlankLine)
-      }
-      @cor.push(doc, @cor.Block::Paragraph(text))
-      prev_was_list = false
-    }
-
-    PptxBlock::ListItem(text) => {
-      @cor.push(doc, @cor.Block::ListItem(text))
-      prev_was_list = true
-    }
-  }
-}
     }
 
     @cor.push(doc, @cor.Block::BlankLine)

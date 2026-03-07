@@ -5,21 +5,8 @@ fn scan_paragraph(
   rels : Map[String, String],
   max_heading : Int,
 ) -> Unit {
-  // 1) 标题级别：更精确地匹配段落样式 <w:pStyle w:val="Heading1">
-  let mut level = 0
-  match read_attr_value(p_xml, "<w:pStyle w:val=\"") {
-    Some(v) =>
-      if v == "Heading1" {
-        level = 1
-      } else if v == "Heading2" {
-        level = 2
-      } else if v == "Heading3" {
-        level = 3
-      } else {
-        level = 0
-      }
-    None => ()
-  }
+  // 1) 标题级别
+  let level = read_heading_level(p_xml, max_heading)
 
   // 2) 图片 embed（常见：<a:blip r:embed="rId5">，直接找 r:embed="）
   match read_attr_value(p_xml, "r:embed=\"") {
@@ -36,12 +23,52 @@ fn scan_paragraph(
 
   // 3) 段落文本
   let text = collect_wt_text(p_xml)
-  if !@cor.is_blank(text) {
-    if level > 0 && level <= max_heading {
-      @cor.push(doc, @cor.Heading(level, text))
-    } else {
-      @cor.push(doc, @cor.Paragraph(text))
+  if @cor.is_blank(text) {
+    return
+  }
+
+  if level > 0 {
+    @cor.push(doc, @cor.Block::Heading(level, text))
+    return
+  }
+
+  if paragraph_is_list_item(p_xml) {
+    @cor.push(doc, @cor.Block::ListItem(text))
+    return
+  }
+
+  @cor.push(doc, @cor.Block::Paragraph(text))
+}
+
+///|
+fn read_heading_level(p_xml : String, max_heading : Int) -> Int {
+  match read_attr_value(p_xml, "<w:pStyle w:val=\"") {
+    Some(v) => {
+      let level = if v == "Heading1" {
+        1
+      } else if v == "Heading2" {
+        2
+      } else if v == "Heading3" {
+        3
+      } else if v == "Heading4" {
+        4
+      } else if v == "Heading5" {
+        5
+      } else if v == "Heading6" {
+        6
+      } else {
+        0
+      }
+
+      if level < 1 {
+        0
+      } else if level > max_heading {
+        max_heading
+      } else {
+        level
+      }
     }
+    None => 0
   }
 }
 
@@ -109,4 +136,12 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
   }
 
   rows
+}
+
+///|
+/// MVP: 只要段落里出现 numPr / ilvl / numId，就先视为列表项
+fn paragraph_is_list_item(p_xml : String) -> Bool {
+  p_xml.contains("<w:numPr") ||
+  p_xml.contains("<w:ilvl") ||
+  p_xml.contains("<w:numId")
 }
