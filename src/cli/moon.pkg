@@ -1,11 +1,12 @@
 import {
   "ZSeanYves/markitdown/src/core" @cor,
-  "ZSeanYves/markitdown/src/pdf" @pdf,
+  "ZSeanYves/markitdown/src/convert" @conv,
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/async",
+
 }
 
 options(

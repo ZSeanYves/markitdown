@@ -27,5 +27,5 @@ pub async fn parse_docx(
   zip.extract_prefix("word/media/", assets_dir)
 
   // 4) 扫描 xml 生成 IR
-  scan_document_xml(doc_xml, rels, max_heading)
+  scan_document(doc_xml, rels, max_heading)
 }
