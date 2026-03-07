@@ -1,10 +1,11 @@
 ///|
 fn scan_paragraph(
-  doc : @cor.Document,
   p_xml : String,
   rels : Map[String, String],
   max_heading : Int,
-) -> Unit {
+) -> Array[@cor.Block] {
+  let out : Array[@cor.Block] = []
+
   // 1) 标题级别
   let level = read_heading_level(p_xml, max_heading)
 
@@ -14,7 +15,7 @@ fn scan_paragraph(
       match rels.get(rid) {
         Some(target) => {
           let asset = rid_to_asset_path(target)
-          @cor.push(doc, @cor.Image("image", asset))
+          out.push(@cor.Block::Image("image", asset))
         }
         None => ()
       }
@@ -24,37 +25,38 @@ fn scan_paragraph(
   // 3) 段落文本
   let text = collect_wt_text(p_xml)
   if @cor.is_blank(text) {
-    return
+    return out
   }
 
   if level > 0 {
-    @cor.push(doc, @cor.Block::Heading(level, text))
-    return
+    out.push(@cor.Block::Heading(level, text))
+    return out
   }
 
   if paragraph_is_list_item(p_xml) {
-    @cor.push(doc, @cor.Block::ListItem(text))
-    return
+    out.push(@cor.Block::ListItem(text))
+    return out
   }
 
-  @cor.push(doc, @cor.Block::Paragraph(text))
+  out.push(@cor.Block::Paragraph(text))
+  out
 }
 
 ///|
 fn read_heading_level(p_xml : String, max_heading : Int) -> Int {
   match read_attr_value(p_xml, "<w:pStyle w:val=\"") {
     Some(v) => {
-      let level = if v == "Heading1" {
+      let level = if v == "Heading1" || v == "2" {
         1
-      } else if v == "Heading2" {
+      } else if v == "Heading2" || v == "3" {
         2
-      } else if v == "Heading3" {
+      } else if v == "Heading3" || v == "4" {
         3
-      } else if v == "Heading4" {
+      } else if v == "Heading4" || v == "5" {
         4
-      } else if v == "Heading5" {
+      } else if v == "Heading5" || v == "6" {
         5
-      } else if v == "Heading6" {
+      } else if v == "Heading6" || v == "7" {
         6
       } else {
         0

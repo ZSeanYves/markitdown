@@ -7,9 +7,9 @@ pub fn scan_document(
   let doc = @cor.new_document()
   let chars = doc_xml.to_array()
   let mut i = 0
+  let mut prev_was_list = false
 
   while i < chars.length() {
-    // 优先表格（避免表格内部段落被当成普通段落重复解析）
     let p_tbl = find_sub(chars, i, "<w:tbl")
     let p_p = find_sub(chars, i, "<w:p")
 
@@ -26,8 +26,13 @@ pub fn scan_document(
       let tbl_xml = @cor.slice_to_string(chars, t2 + 1, t3)
       let rows = scan_table_block(tbl_xml)
       if rows.length() > 0 {
-        @cor.push(doc, @cor.Table(rows))
+        if prev_was_list {
+          @cor.push(doc, @cor.Block::BlankLine)
+        }
+        @cor.push(doc, @cor.Block::Table(rows))
+        prev_was_list = false
       }
+
       i = t3 + 8
       continue
     }
@@ -43,7 +48,22 @@ pub fn scan_document(
       }
 
       let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
-      scan_paragraph(doc, p_xml, rels, max_heading)
+      let blocks = scan_paragraph(p_xml, rels, max_heading)
+
+      for b in blocks {
+        let cur_is_list = match b {
+          @cor.Block::ListItem(_) => true
+          _ => false
+        }
+
+        if prev_was_list && !cur_is_list {
+          @cor.push(doc, @cor.Block::BlankLine)
+        }
+
+        @cor.push(doc, b)
+        prev_was_list = cur_is_list
+      }
+
       i = p3 + 6
       continue
     }
