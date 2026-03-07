@@ -4,19 +4,17 @@
 /// - list entries under ppt/slides/slide*.xml
 /// - read each slide xml
 /// - extract text runs <a:t>...</a:t>
-/// - output as Heading + Paragraphs
+/// - classify slide paragraphs into heading / list item / paragraph
 pub async fn parse_pptx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document {
+) -> @cor.Document raise{
   let z = @cor.open_zip(input_path) catch {
     e => raise @cor.AppError("pptx: open zip failed: " + e.to_string())
   }
 
-  // find slides
   let slides = list_slide_entries(z)
-
   let doc = @cor.new_document()
 
   if slides.length() == 0 {
@@ -33,19 +31,29 @@ pub async fn parse_pptx(
         "Slide " + idx.to_string(),
       ),
     )
-    //println(".. pptx: reading " + path)
+
     let xml = read_zip_bytes(z, path)
-    //println(".. pptx: read ok, len=" + xml.length().to_string())
     let paras = extract_slide_paragraphs(xml)
-    if paras.length() == 0 {
+    let blocks = classify_slide_paragraphs(paras)
+
+    if blocks.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
     } else {
-      for p in paras {
-        if p.trim() != "" {
-          @cor.push(doc, @cor.Block::Paragraph(p))
+      for b in blocks {
+        match b {
+          PptxBlock::Heading(text) =>
+            @cor.push(
+              doc,
+              @cor.Block::Heading(clamp_heading(3, max_heading), text),
+            )
+          PptxBlock::Paragraph(text) =>
+            @cor.push(doc, @cor.Block::Paragraph(text))
+          PptxBlock::ListItem(text) =>
+            @cor.push(doc, @cor.Block::ListItem(text))
         }
       }
     }
+
     @cor.push(doc, @cor.Block::BlankLine)
     idx = idx + 1
   }
