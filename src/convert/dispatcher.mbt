@@ -19,7 +19,7 @@ pub async fn parse_to_ir(
 
   match ext {
     "docx" => Ok(@doc.parse_docx(input_path, out_dir_str, max_h))
-    "pdf" => Ok(@pdf.parse_pdf(input_path,out_dir_str, max_h))
+    "pdf" => Ok(@pdf.parse_pdf(input_path, out_dir_str, max_h))
     "xlsx" => Ok(@xlsx.parse_xlsx(input_path, out_dir_str, max_h))
     "pptx" => Ok(@pptx.parse_pptx(input_path, out_dir_str, max_h))
     "html" => Ok(@html.parse_html(input_path, out_dir_str, max_h))

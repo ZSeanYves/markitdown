@@ -1,22 +1,23 @@
 ///|
 /// Convert plain text into IR.
-/// Strategy (MVP):
+/// Strategy:
 /// - Normalize line endings
-/// - Split by blank lines into paragraphs
-/// - Insert a horizontal rule between pages if extractor outputs formfeed \f
-fn text_to_ir_document(text0 : String) -> @cor.Document{
+/// - Split pages by formfeed \f
+/// - Use split_blocks_smart() to detect headings / paragraphs
+/// - Insert a page separator between non-empty pages
+fn text_to_ir_document(text0 : String) -> @cor.Document {
   let text = @cor.normalize_text(text0)
   let doc = @cor.new_document()
 
   let mut first_page = true
 
-  for page_sv in text.split("\f") { // Iter[StringView]
-    let page0 = page_sv.to_string()
-    if page0.trim() == "" {
+  for page_sv in text.split("\f") {
+    let page = page_sv.to_string()
+    if page.trim() == "" {
       continue
     }
+
     if !first_page {
-      // page separator: blank line + "---" + blank line（更像 markdown）
       @cor.push(doc, @cor.Block::BlankLine)
       @cor.push(doc, @cor.Block::Paragraph("---"))
       @cor.push(doc, @cor.Block::BlankLine)
@@ -24,14 +25,17 @@ fn text_to_ir_document(text0 : String) -> @cor.Document{
       first_page = false
     }
 
-    let page = page_sv.to_string()
-
-    for t in split_paragraphs_smart(page) {
-      if t == "" {
-        continue
+    for b in split_blocks_smart(page) {
+      match b {
+        PdfBlock::Heading(level, text) => {
+          @cor.push(doc, @cor.Block::Heading(level, text))
+          @cor.push(doc, @cor.Block::BlankLine)
+        }
+        PdfBlock::Paragraph(text) => {
+          @cor.push(doc, @cor.Block::Paragraph(text))
+          @cor.push(doc, @cor.Block::BlankLine)
+        }
       }
-      @cor.push(doc, @cor.Block::Paragraph(t))
-      @cor.push(doc, @cor.Block::BlankLine)
     }
   }
 
