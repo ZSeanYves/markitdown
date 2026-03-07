@@ -86,6 +86,7 @@ pub fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
   out
 }
+
 ///|
 fn append_line(buf : String, cur : String) -> String {
   if buf == "" {
@@ -139,13 +140,18 @@ fn guess_heading_level(text : String) -> Int {
 
   0
 }
+
 ///|
 fn guess_numbered_heading_level(s : String) -> Int {
   let t = s.trim().to_string()
 
-  if t.has_prefix("第一章") || t.has_prefix("第二章") || t.has_prefix("第三章") ||
-    t.has_prefix("第四章") || t.has_prefix("第五章") ||
-    t.has_prefix("Chapter ") || t.has_prefix("CHAPTER ") {
+  if t.has_prefix("第一章") ||
+    t.has_prefix("第二章") ||
+    t.has_prefix("第三章") ||
+    t.has_prefix("第四章") ||
+    t.has_prefix("第五章") ||
+    t.has_prefix("Chapter ") ||
+    t.has_prefix("CHAPTER ") {
     return 1
   }
 
@@ -161,12 +167,17 @@ fn guess_numbered_heading_level(s : String) -> Int {
     return 1
   }
 
-  if t.has_prefix("一、") || t.has_prefix("二、") || t.has_prefix("三、") ||
-    t.has_prefix("四、") || t.has_prefix("五、") {
+  if t.has_prefix("一、") ||
+    t.has_prefix("二、") ||
+    t.has_prefix("三、") ||
+    t.has_prefix("四、") ||
+    t.has_prefix("五、") {
     return 1
   }
 
-  if t.has_prefix("（一）") || t.has_prefix("（二）") || t.has_prefix("（三）") {
+  if t.has_prefix("（一）") ||
+    t.has_prefix("（二）") ||
+    t.has_prefix("（三）") {
     return 2
   }
 
@@ -198,7 +209,11 @@ fn count_prefix_dots_in_heading_number(s : String) -> Int {
     break
   }
 
-  if saw_digit { dots } else { 0 }
+  if saw_digit {
+    dots
+  } else {
+    0
+  }
 }
 
 ///|
@@ -237,9 +252,16 @@ fn ends_like_sentence(s : String) -> Bool {
   }
   match last_char(t) {
     Some(c) =>
-      c == '。' || c == '！' || c == '？' ||
-      c == '.' || c == '!' || c == '?' ||
-      c == '；' || c == ';' || c == '：' || c == ':'
+      c == '。' ||
+      c == '！' ||
+      c == '？' ||
+      c == '.' ||
+      c == '!' ||
+      c == '?' ||
+      c == '；' ||
+      c == ';' ||
+      c == '：' ||
+      c == ':'
     None => false
   }
 }
@@ -262,6 +284,7 @@ fn looks_like_heading_marker(s : String) -> Bool {
   t.has_prefix("（三）") ||
   starts_with_numbered_heading(t)
 }
+
 ///|
 fn looks_like_english_title(s : String) -> Bool {
   let t = s.trim().to_string()
@@ -292,10 +315,7 @@ fn looks_like_english_title(s : String) -> Bool {
     if starts_with_latin(w) {
       latin_words += 1
       match first_char(w) {
-        Some(c) =>
-          if c >= 'A' && c <= 'Z' {
-            good_caps += 1
-          }
+        Some(c) => if c >= 'A' && c <= 'Z' { good_caps += 1 }
         None => ()
       }
     }
@@ -303,6 +323,7 @@ fn looks_like_english_title(s : String) -> Bool {
 
   latin_words >= 2 && good_caps >= 2
 }
+
 ///|
 fn starts_with_numbered_heading(s : String) -> Bool {
   let cs = s.to_array()
@@ -408,6 +429,7 @@ fn drop_last_char(s : String) -> String {
   }
   String::from_array(cs[:n - 1].to_array())
 }
+
 ///|
 /// 段落最后做一次清理：多空格折叠 + trim（字符级，不走 bytes）
 fn finalize_paragraph(s : String) -> String {
@@ -456,6 +478,7 @@ fn finalize_heading(s : String) -> String {
 
   out.trim().to_string()
 }
+
 ///|
 /// 去掉中文/全角符号之间的“字间空格”
 fn remove_cjk_inner_spaces(s : String) -> String {

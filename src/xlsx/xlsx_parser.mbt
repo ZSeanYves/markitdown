@@ -37,7 +37,6 @@ pub async fn parse_xlsx(
 
   // 5) build IR
   let doc = @cor.new_document()
-  @cor.push(doc, @cor.Block::Heading(clamp_heading(1, max_heading), "XLSX"))
 
   if sheets.length() == 0 {
     @cor.push(doc, @cor.Block::Paragraph("(no sheets found)"))

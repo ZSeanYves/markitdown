@@ -1,10 +1,10 @@
-Page 1 This is page one.
+This is page one.
 
 
 
 ---
 
 
-Page 2 This is page two.
+This is page two.
 
 

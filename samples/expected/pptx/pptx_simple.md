@@ -1,5 +1,3 @@
-# PPTX
-
 ## Slide 1
 
 PPTX MVP 测试

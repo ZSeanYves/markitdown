@@ -14,7 +14,6 @@ pub fn parse_html(
   }
 
   let doc = @cor.new_document()
-  @cor.push(doc, @cor.Block::Heading(clamp_heading(1, max_heading), "HTML"))
 
   let nodes = scan_html_nodes(bs)
   let blocks = nodes_to_blocks(nodes, max_heading)

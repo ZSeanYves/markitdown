@@ -18,7 +18,6 @@ pub async fn parse_pptx(
   let slides = list_slide_entries(z)
 
   let doc = @cor.new_document()
-  @cor.push(doc, @cor.Block::Heading(clamp_heading(1, max_heading), "PPTX"))
 
   if slides.length() == 0 {
     @cor.push(doc, @cor.Block::Paragraph("(no slides found)"))

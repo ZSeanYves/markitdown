@@ -3,8 +3,9 @@ pub enum HtmlNode {
   Heading(Int, String)
   Paragraph(String)
   ListItem(String)
+  BlockQuote(String)
+  CodeBlock(String)
 }
-
 ///|
 fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
@@ -14,6 +15,8 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
 
   let close_p = pat("</p>")
   let close_li = pat("</li>")
+  let close_blockquote = pat("</blockquote>")
+  let close_pre = pat("</pre>")
 
   let close_script = pat("</script>")
   let close_style = pat("</style>")
@@ -73,6 +76,40 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
               }
             }
 
+            if tag.has_prefix("<blockquote") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_blockquote, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let text = html_text_from_bytes(inner)
+                  if text.trim() != "" {
+                    out.push(HtmlNode::BlockQuote(text))
+                  }
+                  pos = end + close_blockquote.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<pre") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_pre, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let text = html_pre_text_from_bytes(inner)
+                  if text.trim() != "" {
+                    out.push(HtmlNode::CodeBlock(text))
+                  }
+                  pos = end + close_pre.length()
+                  continue
+                }
+              }
+            }
+
             if tag.has_prefix("<p") {
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_p, inner_start)
@@ -115,4 +152,18 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   }
 
   out
+}
+
+///|
+/// <pre> inner bytes -> code-like text
+/// keep newlines as much as possible, only strip tags and unescape
+fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
+  let text_bs = strip_tags_bytes(inner)
+  let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
+
+  html_unescape(
+    s0
+      .replace(old="\r\n", new="\n")
+      .replace(old="\r", new="\n")
+  ).trim().to_string()
 }
