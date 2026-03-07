@@ -2,6 +2,9 @@
 pub(all) enum Block {
   Heading(Int, String)
   Paragraph(String)
+  ListItem(String)
+  BlockQuote(String)
+  CodeBlock(String)
   Table(Array[Array[String]])
   Image(String, String) // alt, path
   BlankLine

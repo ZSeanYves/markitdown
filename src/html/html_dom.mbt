@@ -6,6 +6,7 @@ pub enum HtmlNode {
   BlockQuote(String)
   CodeBlock(String)
 }
+
 ///|
 fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
@@ -161,9 +162,7 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
   let text_bs = strip_tags_bytes(inner)
   let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
 
-  html_unescape(
-    s0
-      .replace(old="\r\n", new="\n")
-      .replace(old="\r", new="\n")
-  ).trim().to_string()
+  html_unescape(s0.replace(old="\r\n", new="\n").replace(old="\r", new="\n"))
+  .trim()
+  .to_string()
 }

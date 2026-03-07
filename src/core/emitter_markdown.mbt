@@ -2,6 +2,7 @@
 pub fn emit_markdown(doc : Document) -> String {
   let mut out = ""
   let blocks = doc.blocks.val
+
   for b in blocks {
     match b {
       Heading(level, text) => {
@@ -15,6 +16,38 @@ pub fn emit_markdown(doc : Document) -> String {
         let t = trim_string(text)
         if t != "" {
           out = out + t + "\n\n"
+        }
+      }
+      ListItem(text) => {
+        let t = trim_string(text)
+        if t != "" {
+          out = out + "- " + t + "\n"
+        }
+      }
+      BlockQuote(text) => {
+        let t = text
+          .replace(old="\r\n", new="\n")
+          .replace(old="\r", new="\n")
+          .trim()
+          .to_string()
+
+        if t != "" {
+          for sv in t.split("\n") {
+            let line = sv.to_string()
+            out = out + "> " + line + "\n"
+          }
+          out = out + "\n"
+        }
+      }
+      CodeBlock(text) => {
+        let t = text
+          .replace(old="\r\n", new="\n")
+          .replace(old="\r", new="\n")
+          .trim()
+          .to_string()
+
+        if t != "" {
+          out = out + "```\n" + t + "\n```\n\n"
         }
       }
       Image(alt, path) => {
@@ -42,5 +75,6 @@ pub fn emit_markdown(doc : Document) -> String {
       BlankLine => out = out + "\n"
     }
   }
+
   out
 }
