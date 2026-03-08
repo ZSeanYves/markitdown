@@ -2,13 +2,14 @@
 priv enum PptxBlock {
   Heading(String)
   Paragraph(String)
-  ListItem(String)
+  ListItem(Int, String)
 }
 
 ///|
 priv struct SlideParagraph {
   text : String
   is_bullet : Bool
+  level : Int
   from_title_shape : Bool
   from_body_shape : Bool
 }
@@ -93,11 +94,13 @@ fn extract_shape_paragraphs(
                   .to_string()
 
                 let is_bullet = paragraph_has_bullet(xml, inner_start, p_end0)
+                let level = paragraph_level(xml, inner_start, p_end0)
 
                 if text != "" {
                   out.push({
                     text,
                     is_bullet,
+                    level,
                     from_title_shape,
                     from_body_shape,
                   })
@@ -113,6 +116,40 @@ fn extract_shape_paragraphs(
   }
 
   out
+}
+
+///|
+/// read paragraph level from <a:pPr ... lvl="N">
+/// default to 0 if absent / invalid
+fn paragraph_level(xml : Bytes, start : Int, end_ : Int) -> Int raise {
+  let ppr_pat = pat("<a:pPr")
+  let gt_pat = pat(">")
+
+  let ppr0 = find_bytes(xml, ppr_pat, start)
+  match ppr0 {
+    None => 0
+    Some(i0) => {
+      if i0 >= end_ {
+        return 0
+      }
+
+      let gt = find_bytes(xml, gt_pat, i0)
+      match gt {
+        None => 0
+        Some(gt0) => {
+          if gt0 >= end_ {
+            return 0
+          }
+
+          let tag = xml[i0:gt0 + 1].to_bytes()
+          match read_attr_value_in_tag_bytes(tag, "lvl") {
+            Some(v) => parse_nonneg_int(v)
+            None => 0
+          }
+        }
+      }
+    }
+  }
 }
 
 ///|
@@ -137,7 +174,8 @@ fn classify_slide_paragraphs(
     }
 
     if para.is_bullet || is_bullet_like(p) {
-      out.push(PptxBlock::ListItem(strip_bullet_prefix(p)))
+      let level = if para.level >= 0 { para.level } else { 0 }
+      out.push(PptxBlock::ListItem(level, strip_bullet_prefix(p)))
       continue
     }
 
@@ -169,10 +207,10 @@ fn compact_slide_paragraphs(
     if is_empty_bullet_shell(text) {
       continue
     }
-
     let cur : SlideParagraph = {
       text,
       is_bullet: para.is_bullet,
+      level: para.level,
       from_title_shape: para.from_title_shape,
       from_body_shape: para.from_body_shape,
     }
@@ -378,5 +416,33 @@ fn slide_para_score(p : SlideParagraph) -> Int {
   if p.is_bullet {
     sc += 1
   }
+  if p.level > 0 {
+    sc += 1
+  }
   sc
+}
+
+///|
+fn parse_nonneg_int(s : String) -> Int {
+  let t = s.trim().to_string()
+  if t == "" {
+    return 0
+  }
+
+  let mut n = 0
+  let mut ok = false
+  for c in t.to_array() {
+    if c >= '0' && c <= '9' {
+      n = n * 10 + (c.to_int() - '0'.to_int())
+      ok = true
+    } else {
+      return 0
+    }
+  }
+
+  if ok {
+    n
+  } else {
+    0
+  }
 }
