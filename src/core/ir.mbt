@@ -2,7 +2,7 @@
 pub(all) enum Block {
   Heading(Int, String)
   Paragraph(String)
-  ListItem(String)
+  ListItem(Bool, Int, String) // ordered, level, text
   BlockQuote(String)
   CodeBlock(String)
   Table(Array[Array[String]])

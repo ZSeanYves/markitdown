@@ -54,7 +54,7 @@ fn scan_document(
 
       for b in blocks {
         let cur_is_list = match b {
-          @cor.Block::ListItem(_) => true
+          @cor.Block::ListItem(_, _, _) => true
           _ => false
         }
 

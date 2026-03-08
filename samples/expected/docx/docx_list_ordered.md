@@ -2,9 +2,9 @@
 
 This is a normal paragraph before the ordered list.
 
-- first item
-- second item
-- third item
+1. first item
+1. second item
+1. third item
 
 ## Sub Section
 

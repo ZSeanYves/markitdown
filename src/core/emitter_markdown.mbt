@@ -18,10 +18,13 @@ pub fn emit_markdown(doc : Document) -> String {
           out = out + t + "\n\n"
         }
       }
-      ListItem(text) => {
+      ListItem(ordered, level, text) => {
         let t = trim_string(text)
         if t != "" {
-          out = out + "- " + t + "\n"
+          let lvl = if level < 0 { 0 } else { level }
+          let indent = "  ".repeat(lvl)
+          let marker = if ordered { "1. " } else { "- " }
+          out = out + indent + marker + t + "\n"
         }
       }
       BlockQuote(text) => {

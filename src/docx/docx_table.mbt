@@ -38,8 +38,14 @@ fn scan_paragraph(
   match read_paragraph_list_info(p_xml) {
     Some(info) =>
       match resolve_list_kind(numbering, info) {
-        Some(_) => {
-          out.push(@cor.Block::ListItem(text))
+        Some(kind) => {
+          let ordered = match kind {
+            Bullet => false
+            Ordered => true
+          }
+
+          let list_level = if info.ilvl < 0 { 0 } else { info.ilvl }
+          out.push(@cor.Block::ListItem(ordered, list_level, text))
           return out
         }
         None => ()
@@ -49,7 +55,7 @@ fn scan_paragraph(
 
   // numbering.xml 缺失或未命中时，仍保留旧兜底
   if paragraph_is_list_item(p_xml) {
-    out.push(@cor.Block::ListItem(text))
+    out.push(@cor.Block::ListItem(false, 0, text))
     return out
   }
 
@@ -198,4 +204,3 @@ fn legacy_heading_level(v : String) -> Int {
     0
   }
 }
-

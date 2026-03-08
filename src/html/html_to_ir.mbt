@@ -12,7 +12,7 @@ fn nodes_to_blocks(nodes : Array[HtmlNode], max_h : Int) -> Array[@cor.Block] {
         out.push(@cor.Block::Paragraph(text))
         out.push(@cor.Block::BlankLine)
       }
-      HtmlNode::ListItem(text) => out.push(@cor.Block::ListItem(text))
+      HtmlNode::ListItem(text) => out.push(@cor.Block::ListItem(false, 0, text))
       HtmlNode::BlockQuote(text) => out.push(@cor.Block::BlockQuote(text))
       HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
     }
