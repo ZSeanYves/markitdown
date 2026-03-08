@@ -5,6 +5,7 @@ priv enum HtmlNode {
   ListItem(String)
   BlockQuote(String)
   CodeBlock(String)
+  Table(Array[Array[String]])
 }
 
 ///|
@@ -18,6 +19,10 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let close_li = pat("</li>")
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
+  let close_table = pat("</table>")
+  let close_tr = pat("</tr>")
+  let close_td = pat("</td>")
+  let close_th = pat("</th>")
 
   let close_script = pat("</script>")
   let close_style = pat("</style>")
@@ -144,6 +149,22 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 }
               }
             }
+            if tag.has_prefix("<table") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_table, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let rows = html_table_from_bytes(inner)
+                  if rows.length() > 0 {
+                    out.push(HtmlNode::Table(rows))
+                  }
+                  pos = end + close_table.length()
+                  continue
+                }
+              }
+            }
 
             pos = q + 1
           }
@@ -165,4 +186,127 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
   html_unescape(s0.replace(old="\r\n", new="\n").replace(old="\r", new="\n"))
   .trim()
   .to_string()
+}
+
+///|
+/// inner bytes -> visible text (strip tags + unescape)
+fn html_text_from_bytes(inner : Bytes) -> String raise {
+  // handle <br> variants (MVP: turn into space)
+  let bs0 = replace_bytes(inner, pat("<br>"), pat(" "))
+  let bs1 = replace_bytes(bs0, pat("<br/>"), pat(" "))
+  let bs2 = replace_bytes(bs1, pat("<br />"), pat(" "))
+
+  let text_bs = strip_tags_bytes(bs2)
+  let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
+  html_unescape(s0).trim().to_string()
+}
+
+///|
+fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]] raise {
+  let out : Array[Array[String]] = []
+
+  let open_tr = pat("<tr")
+  let close_tr = pat("</tr>")
+  let gt_pat = pat(">")
+
+  let mut pos = 0
+  while true {
+    let tr0 = find_bytes(inner, open_tr, pos)
+    match tr0 {
+      None => break
+      Some(i0) => {
+        let gt0 = find_bytes(inner, gt_pat, i0)
+        match gt0 {
+          None => break
+          Some(q0) => {
+            let row_start = q0 + 1
+            let end0 = find_bytes(inner, close_tr, row_start)
+            match end0 {
+              None => break
+              Some(end) => {
+                let tr_inner = inner[row_start:end].to_bytes()
+                let cells = html_table_row_from_bytes(tr_inner)
+                if cells.length() > 0 {
+                  out.push(cells)
+                }
+                pos = end + close_tr.length()
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
+  let out : Array[String] = []
+
+  let open_td = pat("<td")
+  let close_td = pat("</td>")
+  let open_th = pat("<th")
+  let close_th = pat("</th>")
+  let gt_pat = pat(">")
+
+  let mut pos = 0
+  let n = tr_inner.length()
+
+  while pos < n {
+    let td0 = find_bytes(tr_inner, open_td, pos)
+    let th0 = find_bytes(tr_inner, open_th, pos)
+
+    let next =
+      match (td0, th0) {
+        (Some(a), Some(b)) => {
+          if a < b {
+            Some((a, false))
+          } else {
+            Some((b, true))
+          }
+        }
+        (Some(a), None) => Some((a, false))
+        (None, Some(b)) => Some((b, true))
+        (None, None) => None
+      }
+
+    match next {
+      None => break
+      Some((i0, is_th)) => {
+        let gt0 = find_bytes(tr_inner, gt_pat, i0)
+        match gt0 {
+          None => break
+          Some(q0) => {
+            let cell_start = q0 + 1
+            let end0 =
+              if is_th {
+                find_bytes(tr_inner, close_th, cell_start)
+              } else {
+                find_bytes(tr_inner, close_td, cell_start)
+              }
+
+            match end0 {
+              None => break
+              Some(end) => {
+                let cell_inner = tr_inner[cell_start:end].to_bytes()
+                let text = html_text_from_bytes(cell_inner).trim().to_string()
+                out.push(text)
+
+                pos =
+                  if is_th {
+                    end + close_th.length()
+                  } else {
+                    end + close_td.length()
+                  }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
 }

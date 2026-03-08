@@ -121,15 +121,3 @@ fn html_unescape(s : String) -> String raise {
   @cor.decode_numeric_entities(t)
 }
 
-///|
-/// inner bytes -> visible text (strip tags + unescape)
-fn html_text_from_bytes(inner : Bytes) -> String raise {
-  // handle <br> variants (MVP: turn into space)
-  let bs0 = replace_bytes(inner, pat("<br>"), pat(" "))
-  let bs1 = replace_bytes(bs0, pat("<br/>"), pat(" "))
-  let bs2 = replace_bytes(bs1, pat("<br />"), pat(" "))
-
-  let text_bs = strip_tags_bytes(bs2)
-  let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
-  html_unescape(s0).trim().to_string()
-}
