@@ -8,5 +8,3 @@
 | error | #DIV/0! |
 | number | 42 |
 | inline | inline ok |
-
-

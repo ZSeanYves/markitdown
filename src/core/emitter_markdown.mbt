@@ -1,4 +1,3 @@
-///|
 pub fn emit_markdown(doc : Document) -> String {
   let mut out = ""
   let blocks = doc.blocks.val
@@ -79,5 +78,33 @@ pub fn emit_markdown(doc : Document) -> String {
     }
   }
 
-  out
+  normalize_markdown_tail(out)
+}
+
+///|
+/// normalize final markdown tail:
+/// - remove trailing blank lines
+/// - keep exactly one trailing newline for non-empty output
+fn normalize_markdown_tail(s : String) -> String {
+  if s == "" {
+    return ""
+  }
+
+  let cs = s.to_array()
+  let mut end = cs.length()
+
+  while end > 0 {
+    let c = cs[end - 1]
+    if c == '\n' || c == '\r' {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+
+  if end == 0 {
+    return ""
+  }
+
+  String::from_array(cs[:end].to_array()) + "\n"
 }

@@ -17,5 +17,3 @@ Beta
 ### Second
 
 Gamma
-
-

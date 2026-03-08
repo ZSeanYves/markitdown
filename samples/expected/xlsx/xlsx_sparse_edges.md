@@ -1,6 +1,4 @@
-# HTML Table Test
-
-This is a table below.
+## SparseEdges
 
 | Name | Score |
 | --- | --- |

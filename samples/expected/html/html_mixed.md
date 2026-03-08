@@ -9,4 +9,3 @@ This is a paragraph.
 ```
 let x = 1
 ```
-
