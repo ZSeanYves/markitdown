@@ -9,13 +9,13 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 ## Features
 
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and style/numbering-driven list structure recovery
-* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization
+* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization and page-noise cleanup
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, and basic cell-type support
-* ✅ **PPTX → Markdown**: extract slide text, preserve real slide order via `presentation.xml`, and emit one section per slide
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, and restore bullet lists with nesting levels
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
-> Note: This project intentionally avoids unstable/untrusted third-party 、parsing libraries. 
+> Note: This project intentionally avoids unstable or untrusted third-party parsing libraries where possible, and keeps format handling in small MoonBit packages with explicit heuristics.
 
 ---
 
@@ -82,9 +82,6 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * `xlsx_sheet.mbt`: sheet-level extraction
   * `xlsx_xml.mbt`: XML scanning helpers
   * `moon.pkg`: package definition
-
-Each subpackage also contains generated interface artifacts such as `pkg.generated.mbti`.
-
 * `samples/`: sample files & regression scripts
 
   * `docx/` / `pdf/` / `xlsx/` / `pptx/` / `html/`: format-specific samples
@@ -133,19 +130,19 @@ Each subpackage also contains generated interface artifacts such as `pkg.generat
 * Deflate decompression is implemented via `mizchi/zlib` (`deflate_decompress`)
 * For some Office-produced ZIP entries, deflate fallback may be needed (platform tools) depending on environment
 
-### ✅ PDF (text-based) MVP
+### ✅ PDF (text-based) MVP+
 
 * Extracts text via external tools and selects the output that best matches reading order using a scoring function:
 
   * `pdftotext` (Poppler): default / `-layout` / `-raw`
   * fallback: `mutool draw -F txt` (MuPDF)
-* Applies lightweight normalization:
+* Applies lightweight normalization and structure recovery:
 
   * normalize line endings
   * split paragraphs by blank lines (and merge hard wraps)
   * recover basic headings under current heuristic rules
-  * filter simple page-number noise under current sample set
-  * use `---` as a page separator for multi-page PDFs (MVP)
+  * filter page-number noise and repeated page-header/page-footer noise under the current sample set
+  * keep page boundaries internal to normalization instead of emitting page separators in final Markdown
 
 > Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
@@ -159,9 +156,12 @@ Each subpackage also contains generated interface artifacts such as `pkg.generat
 
 ### ✅ PPTX
 
-* Extracts slide text runs and emits one section per slide
+* Extracts slide text by shape (`<p:sp>`) and emits one section per slide
 * Resolves real slide order through `ppt/presentation.xml` + `presentation.xml.rels`, instead of relying only on slide file name order
-* Supports simple title / bullet recovery under the current heuristic MVP
+* Prefers title placeholders for slide headings, with text heuristic fallback when needed
+* Uses paragraph bullet properties before text-prefix heuristics for list detection
+* Restores list nesting from `<a:pPr lvl="N">`
+* Removes empty paragraphs, bullet-only shells, and adjacent duplicate text
 * Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
 
 ### ✅ HTML
@@ -176,7 +176,7 @@ Each subpackage also contains generated interface artifacts such as `pkg.generat
 
 ## External Dependencies (PDF)
 
-The PDF MVP relies on at least one of the following command-line tools installed on your system:
+The PDF pipeline relies on at least one of the following command-line tools installed on your system:
 
 * `pdftotext` (Poppler)
 * `mutool` (MuPDF toolset)
@@ -276,11 +276,20 @@ Recent regression coverage includes:
   * nested lists
   * mixed lists
   * images / tables / general golden sample
+* **PDF**
+
+  * simple text
+  * hard-wrap recovery (English / Chinese)
+  * heading recovery
+  * short-sentence non-heading cases
+  * multi-page text
 * **PPTX**
 
   * basic slides
   * title + bullets
   * presentation-order slide sequence sample
+  * shape-aware title/body handling
+  * bullet levels / cleanup behavior
 * **HTML**
 
   * simple content
@@ -325,8 +334,8 @@ Then re-run:
 
 ### Near-term
 
-1. Continue tightening PDF paragraph / heading / pagination heuristics
-2. Improve PPTX title/body separation and bullet fidelity
+1. Continue tightening PDF paragraph / heading / page-noise heuristics
+2. Continue improving PPTX fallback behavior for non-standard title/body layouts
 3. Expand HTML structure robustness around mixed block content and table edge cases
 4. Explore additional XLSX policies such as date handling / empty-sheet behavior
 5. Extend DOCX style-driven block recovery beyond headings/lists (for example quote/code-like paragraph styles)
@@ -342,9 +351,8 @@ Then re-run:
 ## Status
 
 * ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
-* ✅ pdf (text-based): MVP works with first-round quality improvements (depends on external extractors)
+* ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, and page-noise filtering
 * ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types and multi-sheet samples
-* ✅ pptx: MVP+ works with real presentation-order slide traversal
+* ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, bullet detection, and nested list levels
 * ✅ html: MVP+ works with lists / quotes / code blocks / tables
 * ✅ IR + Markdown emitter support structured lists and shared block-level output across formats
-* ✅ samples regression script works (output directory: `.tmp_test_out/`)
