@@ -3,6 +3,7 @@ fn scan_paragraph(
   p_xml : String,
   rels : Map[String, String],
   styles : DocxStyles,
+  numbering : DocxNumbering,
   max_heading : Int,
 ) -> Array[@cor.Block] {
   let out : Array[@cor.Block] = []
@@ -34,6 +35,19 @@ fn scan_paragraph(
     return out
   }
 
+  match read_paragraph_list_info(p_xml) {
+    Some(info) =>
+      match resolve_list_kind(numbering, info) {
+        Some(_) => {
+          out.push(@cor.Block::ListItem(text))
+          return out
+        }
+        None => ()
+      }
+    None => ()
+  }
+
+  // numbering.xml 缺失或未命中时，仍保留旧兜底
   if paragraph_is_list_item(p_xml) {
     out.push(@cor.Block::ListItem(text))
     return out
@@ -184,3 +198,4 @@ fn legacy_heading_level(v : String) -> Int {
     0
   }
 }
+

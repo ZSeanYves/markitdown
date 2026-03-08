@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/src/docx"
+
+import {
+  "ZSeanYves/markitdown/src/core",
+}
+
+// Values
+pub async fn parse_docx(String, String, Int) -> @core.Document
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

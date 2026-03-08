@@ -73,3 +73,12 @@ async fn DocxZip::load_styles(z : DocxZip) -> DocxStyles {
   }
   parse_styles_xml(xml)
 }
+
+///|
+async fn DocxZip::load_numbering(z : DocxZip) -> DocxNumbering {
+  let xml = z.read_text_optional("word/numbering.xml")
+  if xml == "" {
+    return empty_numbering()
+  }
+  parse_numbering_xml(xml)
+}

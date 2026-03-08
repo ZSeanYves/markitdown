@@ -24,9 +24,12 @@ pub async fn parse_docx(
   // 3) 读 styles.xml（标题样式映射）
   let styles = zip.load_styles()
 
-  // 4) 导出图片到 out_root/assets
+  // 4) 读 numbering.xml（列表类型映射）
+  let numbering = zip.load_numbering()
+
+  // 5) 导出图片到 out_root/assets
   zip.extract_prefix("word/media/", assets_dir)
 
-  // 5) 扫描 xml 生成 IR
-  scan_document(doc_xml, rels, styles, max_heading)
+  // 6) 扫描 xml 生成 IR
+  scan_document(doc_xml, rels, styles, numbering, max_heading)
 }

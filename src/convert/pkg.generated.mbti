@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/src/convert"
+
+import {
+  "ZSeanYves/markitdown/src/core",
+}
+
+// Values
+pub async fn parse_to_ir(String, ConvertOptions) -> Result[@core.Document, @core.AppError]
+
+// Errors
+
+// Types and methods
+pub(all) struct ConvertOptions {
+  out_dir : String?
+  max_heading : Int?
+}
+
+// Type aliases
+
+// Traits
+
