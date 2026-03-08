@@ -7,7 +7,8 @@
 /// Limitations (MVP):
 /// - no styles, no formula evaluation
 /// - merged cells ignored
-/// - inlineStr not handled yet (only sharedStrings "t=s" and numeric/default)
+/// - date/time formatting not interpreted yet
+/// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
 pub async fn parse_xlsx(
   input_path : String,
   _out_dir : String,

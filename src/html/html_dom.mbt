@@ -258,19 +258,17 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
     let td0 = find_bytes(tr_inner, open_td, pos)
     let th0 = find_bytes(tr_inner, open_th, pos)
 
-    let next =
-      match (td0, th0) {
-        (Some(a), Some(b)) => {
-          if a < b {
-            Some((a, false))
-          } else {
-            Some((b, true))
-          }
+    let next = match (td0, th0) {
+      (Some(a), Some(b)) =>
+        if a < b {
+          Some((a, false))
+        } else {
+          Some((b, true))
         }
-        (Some(a), None) => Some((a, false))
-        (None, Some(b)) => Some((b, true))
-        (None, None) => None
-      }
+      (Some(a), None) => Some((a, false))
+      (None, Some(b)) => Some((b, true))
+      (None, None) => None
+    }
 
     match next {
       None => break
@@ -280,12 +278,11 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
           None => break
           Some(q0) => {
             let cell_start = q0 + 1
-            let end0 =
-              if is_th {
-                find_bytes(tr_inner, close_th, cell_start)
-              } else {
-                find_bytes(tr_inner, close_td, cell_start)
-              }
+            let end0 = if is_th {
+              find_bytes(tr_inner, close_th, cell_start)
+            } else {
+              find_bytes(tr_inner, close_td, cell_start)
+            }
 
             match end0 {
               None => break
@@ -294,12 +291,11 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
                 let text = html_text_from_bytes(cell_inner).trim().to_string()
                 out.push(text)
 
-                pos =
-                  if is_th {
-                    end + close_th.length()
-                  } else {
-                    end + close_td.length()
-                  }
+                pos = if is_th {
+                  end + close_th.length()
+                } else {
+                  end + close_td.length()
+                }
               }
             }
           }

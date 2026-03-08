@@ -120,4 +120,3 @@ fn html_unescape(s : String) -> String raise {
     .replace(old="&apos;", new="'")
   @cor.decode_numeric_entities(t)
 }
-

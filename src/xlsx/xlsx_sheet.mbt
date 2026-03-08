@@ -61,22 +61,7 @@ fn parse_sheet_table(
                   if cc > max_c {
                     max_c = cc
                   }
-
-                  let text = if t == "s" {
-                    // shared string index in <v>
-                    let idx = parse_int(val)
-                    if idx >= 0 && idx < shared.length() {
-                      shared[idx]
-                    } else {
-                      ""
-                    }
-                  } else if t == "inlineStr" {
-                    // inline string: <is><t>...</t></is> (may contain multiple <t>)
-                    parse_inline_str(inner)
-                  } else {
-                    // numeric / other types: use <v>
-                    xml_unescape(val)
-                  }
+                  let text = resolve_cell_text(t, inner, val, shared)
 
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
                 }
@@ -111,6 +96,46 @@ fn parse_sheet_table(
 // ============================
 // Utilities
 // ============================
+
+///|
+fn resolve_cell_text(
+  t : String,
+  inner : String,
+  val : String,
+  shared : Array[String],
+) -> String raise {
+  if t == "s" {
+    let idx = parse_int(val)
+    if idx >= 0 && idx < shared.length() {
+      shared[idx]
+    } else {
+      ""
+    }
+  } else if t == "inlineStr" {
+    parse_inline_str(inner)
+  } else if t == "b" {
+    let v = @cor.trim_string(val)
+    if v == "1" {
+      "TRUE"
+    } else if v == "0" {
+      "FALSE"
+    } else {
+      xml_unescape(v)
+    }
+  } else if t == "str" {
+    xml_unescape(val)
+  } else if t == "e" {
+    let v = @cor.trim_string(val)
+    if v == "" {
+      "#ERROR!"
+    } else {
+      v
+    }
+  } else {
+    // numeric / formula cached result / other types
+    xml_unescape(val)
+  }
+}
 
 ///|
 fn parse_inline_str(inner : String) -> String raise {
