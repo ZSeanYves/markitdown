@@ -94,16 +94,18 @@ fn parse_sheet_table(
     return []
   }
 
-  let table : Array[Array[String]] = []
+  let table0 : Array[Array[String]] = []
   for r in 1..<(max_r + 1) {
     let row : Array[String] = []
     for c in 1..<(max_c + 1) {
       let k = r.to_string() + "," + c.to_string()
       row.push(cells.get(k).unwrap_or(""))
     }
-    table.push(row)
+    table0.push(trim_row_right(row))
   }
-  table
+
+  let table1 = trim_table_bottom(table0)
+  normalize_table_width(table1)
 }
 
 // ============================
@@ -201,4 +203,92 @@ fn parse_int(s : String) -> Int {
     }
   }
   acc
+}
+
+///|
+fn trim_row_right(row : Array[String]) -> Array[String] {
+  let mut end = row.length()
+
+  while end > 0 {
+    if @cor.trim_string(row[end - 1]) == "" {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+
+  let out : Array[String] = []
+  for i in 0..<end {
+    out.push(row[i])
+  }
+  out
+}
+
+///|
+fn trim_table_bottom(table : Array[Array[String]]) -> Array[Array[String]] {
+  let mut end = table.length()
+
+  while end > 0 {
+    if row_is_blank(table[end - 1]) {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+
+  let out : Array[Array[String]] = []
+  for i in 0..<end {
+    out.push(table[i])
+  }
+  out
+}
+
+///|
+fn row_is_blank(row : Array[String]) -> Bool {
+  for cell in row {
+    if @cor.trim_string(cell) != "" {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn rightmost_nonblank_col(row : Array[String]) -> Int {
+  let mut end = row.length()
+  while end > 0 {
+    if @cor.trim_string(row[end - 1]) == "" {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+  end
+}
+
+///|
+fn normalize_table_width(table : Array[Array[String]]) -> Array[Array[String]] {
+  let mut width = 0
+
+  for row in table {
+    let w = rightmost_nonblank_col(row)
+    if w > width {
+      width = w
+    }
+  }
+
+  let out : Array[Array[String]] = []
+  for row in table {
+    let trimmed = trim_row_right(row)
+    let new_row : Array[String] = []
+    for cell in trimmed {
+      new_row.push(cell)
+    }
+    while new_row.length() < width {
+      new_row.push("")
+    }
+    out.push(new_row)
+  }
+
+  out
 }
