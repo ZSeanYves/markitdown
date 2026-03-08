@@ -1,0 +1,118 @@
+///|
+/// 返回第一个 '=' 的位置（按字节扫描），找不到返回 None
+fn find_first_eq(s : String) -> Int? {
+  let bs = @utf8.encode(s)
+  let n = bs.length()
+  let mut i = 0
+  while i < n {
+    if bs[i] == 61 { // '='
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+/// TODO： 后序为“—” 等做规范化，先原样返回
+/// 支持：--out=xxx / --output=xxx / --max-heading=3 这类写法（转成 ["--out", "xxx"]）
+fn normalize_cli_args(args : Array[String]) -> Array[String] raise {
+  let out : Array[String] = []
+  if args.length() <= 1 {
+    return out
+  }
+
+  for i in 1..<args.length() {
+    let a = args[i].trim().to_string()
+
+    if a.has_prefix("--") {
+      let eq = find_first_eq(a)
+      match eq {
+        Some(pos) => {
+          // --key=value  ->  ["--key", "value"]
+          let k = a[:pos].to_string()
+          let v = a[pos + 1:].to_string()
+          out.push(k)
+          out.push(v)
+          continue
+        }
+        None => ()
+      }
+    }
+
+    out.push(a)
+  }
+
+  out
+}
+
+///|
+fn normalize_cli_args_safe(args : Array[String]) -> Array[String] {
+  normalize_cli_args(args) catch {
+    _ => {
+      let out : Array[String] = []
+      if args.length() <= 1 {
+        return out
+      }
+      for i in 1..<args.length() {
+        out.push(args[i].trim().to_string())
+      }
+      out
+    }
+  }
+}
+
+///|
+fn parse_int_or_default(sopt : String?, default : Int) -> Int {
+  match sopt {
+    None => default
+    Some(s0) => {
+      let s = @cor.trim_string(s0)
+      if s == "" {
+        return default
+      }
+
+      let chars = s.to_array()
+      let len = chars.length()
+      let i : Ref[Int] = { val: 0 }
+
+      // 处理符号
+      let mut sign = 1
+      if i.val < len {
+        if chars[i.val] == '-' {
+          sign = -1
+          i.val += 1
+        } else if chars[i.val] == '+' {
+          i.val += 1
+        }
+      }
+
+      if i.val >= len {
+        return default
+      }
+
+      let mut acc : Int = 0
+      let mut has_digit = false
+
+      while i.val < len {
+        let c = chars[i.val]
+        if c >= '0' && c <= '9' {
+          has_digit = true
+          let digit = c.to_int() - '0'.to_int()
+          // 简单累加（MVP 不做溢出检测）
+          acc = acc * 10 + digit
+          i.val += 1
+        } else {
+          // 遇到非数字就停止（例如 "3\n" / "3 "）
+          break
+        }
+      }
+
+      if !has_digit {
+        default
+      } else {
+        acc * sign
+      }
+    }
+  }
+}

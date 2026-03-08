@@ -19,7 +19,6 @@ for fmt in "${FORMATS[@]}"; do
   exp_dir="$EXP_DIR/$fmt"
   out_dir="$OUT_DIR/$fmt"
 
-  # 没有该格式目录就跳过
   if [[ ! -d "$in_dir" ]]; then
     continue
   fi
@@ -27,7 +26,6 @@ for fmt in "${FORMATS[@]}"; do
   mkdir -p "$exp_dir"
   mkdir -p "$out_dir"
 
-  # 选择该格式的文件匹配规则（bash 3.2 兼容）
   case "$fmt" in
     docx)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.docx" -print)
@@ -42,7 +40,6 @@ for fmt in "${FORMATS[@]}"; do
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
       ;;
     html)
-      # html 支持 .html/.htm
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.html" -o -name "*.htm" \) -print)
       ;;
     *)
@@ -59,7 +56,7 @@ for fmt in "${FORMATS[@]}"; do
     exp="$exp_dir/$name.md"
 
     echo "==> converting $fmt/$base"
-    moon run "$ROOT/src/cli" -- convert "$f" -o "$out"
+    moon run "$ROOT/src/cli" -- convert "$f" -o "$out" --max-heading 6
 
     if [[ ! -f "$exp" ]]; then
       echo "!! expected missing: $exp"

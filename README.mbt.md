@@ -8,11 +8,11 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 ## Features
 
-* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references
+* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and list structure recovery
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight paragraphing
 * ✅ **XLSX → Markdown** (MVP): extract sheet text and emit one table per sheet
 * ✅ **PPTX → Markdown** (MVP): extract slide text and emit one section per slide
-* ✅ **HTML → Markdown** (MVP): extract headings/paragraphs/list items and decode entities
+* ✅ **HTML → Markdown** (MVP): extract headings / paragraphs / list items and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
 > Note: This project intentionally avoids unstable/untrusted third-party PDF parsing libraries. The PDF MVP uses “external text extraction + internal normalization”.
@@ -21,31 +21,70 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 ## Repository Layout (current)
 
-* `src/cli/`: CLI entry (`demo` / `convert`)
-* `src/core/`: core layer (IR + emitter + dispatcher + utilities)
+The source tree is organized into small MoonBit packages, with conversion logic split by format and shared infrastructure kept in `core`.
 
-  * `ir.mbt`: IR definitions (`Document` / `Block`, etc.)
-  * `emitter_markdown.mbt`: IR → Markdown
-  * `errors.mbt` / `tool.mbt`: shared errors & utilities
-  * `zip_min.mbt`: minimal ZIP reader used by Office formats (docx/xlsx/pptx)
-* `src/docx/`: docx parsing
+* `src/cli/`: command-line entry package
 
-  * `docx_zip.mbt`: docx ZIP wrapper (reads `word/document.xml` / rels / media)
-  * `rels.mbt`: parses `document.xml.rels` (rId → Target)
-  * `docx_xml.mbt`: scans `document.xml` and produces IR (paragraphs/headings/images/tables)
-  * `docx_parser.mbt`: the orchestrated `parse_docx()` pipeline
-* `src/pdf/`: PDF parsing
+  * `cli_app.mbt`: top-level CLI app flow
+  * `cli_args.mbt`: argument parsing / option decoding
+  * `main.mbt`: executable entry
+  * `moon.pkg`: package definition
+* `src/convert/`: conversion dispatch package
 
-  * `pdf_parser.mbt`: PDF text extraction + paragraphing (MVP)
-* `src/xlsx/`: XLSX parsing (MVP)
+  * `dispatcher.mbt`: routes input files to the correct parser by format / extension
+  * `moon.pkg`: package definition
+* `src/core/`: shared core infrastructure
 
-  * `xlsx_parser.mbt`: reads workbook + sheets and emits tables
-* `src/pptx/`: PPTX parsing (MVP)
+  * `ir.mbt`: shared IR definitions (`Document` / `Block`)
+  * `emitter_markdown.mbt`: IR → Markdown emission
+  * `errors.mbt`: shared error definitions
+  * `tool.mbt`: shared utilities
+  * `zip_min.mbt`: minimal ZIP reader used by Office-family formats
+  * `moon.pkg`: package definition
+* `src/docx/`: DOCX parsing package
 
-  * `pptx_parser.mbt`: reads slides and emits slide sections
-* `src/html/`: HTML parsing (MVP)
+  * `docx_package.mbt`: DOCX package/ZIP access helpers
+  * `docx_parser.mbt`: orchestrated `parse_docx()` entry
+  * `docx_document.mbt`: document-level scan / assembly into IR
+  * `docx_xml.mbt`: lower-level XML scanning helpers
+  * `docx_table.mbt`: table extraction logic
+  * `docx_rels.mbt`: relationship parsing (`rId → Target`)
+  * `docx_styles.mbt`: `word/styles.xml` parsing for heading-level resolution
+  * `docx_numbering.mbt`: `word/numbering.xml` parsing for ordered / unordered / nested lists
+  * `moon.pkg`: package definition
+* `src/html/`: HTML parsing package
 
-  * `html_parser.mbt`: lightweight HTML extraction (bytes-based to avoid UTF-8 indexing issues)
+  * `html_parser.mbt`: top-level HTML parse entry
+  * `html_bytes.mbt`: byte-level HTML traversal helpers
+  * `html_dom.mbt`: lightweight DOM-style intermediate structure
+  * `html_to_ir.mbt`: HTML structure → shared IR
+  * `moon.pkg`: package definition
+* `src/pdf/`: PDF parsing package
+
+  * `pdf_parser.mbt`: top-level PDF parse entry
+  * `pdf_extract.mbt`: external-tool text extraction orchestration
+  * `pdf_normalize.mbt`: normalization / paragraphing / lightweight structure recovery
+  * `pdf_to_ir.mbt`: normalized PDF text → shared IR
+  * `moon.pkg`: package definition
+* `src/pptx/`: PPTX parsing package
+
+  * `pptx_parser.mbt`: top-level PPTX parse entry
+  * `pptx_package.mbt`: PPTX package/ZIP access helpers
+  * `pptx_bytes.mbt`: byte / XML scanning helpers
+  * `pptx_slide.mbt`: slide-level extraction
+  * `pptx_text.mbt`: text-run extraction helpers
+  * `moon.pkg`: package definition
+* `src/xlsx/`: XLSX parsing package
+
+  * `xlsx_parser.mbt`: top-level XLSX parse entry
+  * `xlsx_package.mbt`: XLSX package/ZIP access helpers
+  * `xlsx_shared_strings.mbt`: shared strings parsing
+  * `xlsx_sheet.mbt`: sheet-level extraction
+  * `xlsx_xml.mbt`: XML scanning helpers
+  * `moon.pkg`: package definition
+
+Each subpackage also contains generated interface artifacts such as `pkg.generated.mbti`.
+
 * `samples/`: sample files & regression scripts
 
   * `docx/` / `pdf/` / `xlsx/` / `pptx/` / `html/`: format-specific samples
@@ -59,26 +98,44 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 ### ✅ Core
 
 * IR definitions and `push` work as expected
-* Markdown emitter supports: headings / paragraphs / tables / image references
+* Markdown emitter supports:
 
-### ✅ Minimal Docx Pipeline
+  * headings
+  * paragraphs
+  * ordered / unordered list items
+  * nested list indentation
+  * block quotes
+  * code blocks
+  * tables
+  * image references
+
+### ✅ Docx Pipeline
 
 * Reads from `.docx`:
 
   * `word/document.xml`
   * `word/_rels/document.xml.rels`
+  * `word/styles.xml`
+  * `word/numbering.xml`
   * `word/media/*` (images)
 * Exports images to `out/assets/` and references them in Markdown like `![image](assets/xxx.png)`
+* Resolves heading levels through style mapping instead of only hard-coded style names
+* Recovers list structure using numbering metadata:
+
+  * unordered lists
+  * ordered lists
+  * nested lists
+  * mixed list structures (current Markdown emission preserves level + ordered/unordered shape)
 
 ### ✅ ZIP/Deflate Decompression
 
-* ZIP reading is implemented in `zip_min`.
-* Deflate decompression is implemented via `mizchi/zlib` (`deflate_decompress`).
-* For some Office-produced ZIP entries, deflate fallback may be needed (platform tools) depending on environment.
+* ZIP reading is implemented in `zip_min`
+* Deflate decompression is implemented via `mizchi/zlib` (`deflate_decompress`)
+* For some Office-produced ZIP entries, deflate fallback may be needed (platform tools) depending on environment
 
 ### ✅ PDF (text-based) MVP
 
-* Extracts text via external tools (tries multiple candidates) and selects the output that best matches reading order using a scoring function:
+* Extracts text via external tools and selects the output that best matches reading order using a scoring function:
 
   * `pdftotext` (Poppler): default / `-layout` / `-raw`
   * fallback: `mutool draw -F txt` (MuPDF)
@@ -86,24 +143,30 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
   * normalize line endings
   * split paragraphs by blank lines (and merge hard wraps)
+  * recover basic headings under current heuristic rules
   * use `---` as a page separator for multi-page PDFs (MVP)
 
-> Note: `mutool` may print progress info to stderr (e.g., `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
+> Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
 ### ✅ XLSX (MVP)
 
 * Parses workbook + sheet XML and emits one Markdown table per sheet
-* Supports numeric cells and inline strings; decodes XML entities (including numeric entities)
+* Supports numeric cells and inline strings
+* Trims sparse trailing empty rows / columns in current MVP samples
+* Decodes XML entities (including numeric entities)
 
 ### ✅ PPTX (MVP)
 
 * Extracts slide text runs and emits one section per slide
+* Supports simple title / bullet recovery under the current heuristic MVP
 * Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
 
 ### ✅ HTML (MVP)
 
 * Bytes-based parsing to avoid UTF-8 indexing issues
-* Extracts headings/paragraphs/list items; decodes entities (including numeric entities)
+* Extracts headings / paragraphs / list items
+* Supports block quotes and preformatted/code blocks in the current MVP
+* Decodes entities (including numeric entities)
 
 ---
 
@@ -186,7 +249,7 @@ Options:
 
 * `-o out/xxx.md`: output Markdown path (default: stdout)
 * `--out-dir out`: asset output directory (docx images go to `out/assets/`)
-* `--max-heading N`: maximum heading level (1–6)
+* `--max-heading N`: maximum heading level (`1–6`)
 
 ---
 
@@ -200,7 +263,24 @@ rm -rf .tmp_test_out
 ./samples/diff.sh
 ```
 
+Recent DOCX regression coverage includes:
+
+* heading levels
+* basic lists
+* ordered lists
+* nested lists
+* mixed lists
+* images / tables / general golden sample
+
 If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
+
+Example: refresh DOCX list golden outputs:
+
+```bash
+cp .tmp_test_out/docx/docx_list_ordered.md samples/expected/docx/docx_list_ordered.md
+cp .tmp_test_out/docx/docx_list_nested.md  samples/expected/docx/docx_list_nested.md
+cp .tmp_test_out/docx/docx_list_mixed.md   samples/expected/docx/docx_list_mixed.md
+```
 
 Example: refresh PDF golden outputs:
 
@@ -208,12 +288,6 @@ Example: refresh PDF golden outputs:
 cp .tmp_test_out/pdf/text_simple.md     samples/expected/pdf/text_simple.md
 cp .tmp_test_out/pdf/text_hardwrap.md   samples/expected/pdf/text_hardwrap.md
 cp .tmp_test_out/pdf/text_multipage.md  samples/expected/pdf/text_multipage.md
-```
-
-Example: refresh one XLSX golden file:
-
-```bash
-cp .tmp_test_out/xlsx/sheet_simple.md samples/expected/xlsx/sheet_simple.md
 ```
 
 Then re-run:
@@ -230,20 +304,23 @@ Then re-run:
 
 1. Improve PPTX ordering by `ppt/presentation.xml` + rels (match real slide order)
 2. HTML: add minimal table extraction (`<table>` → IR Table)
-3. XLSX: support more cell types (sharedStrings-rich text, booleans)
+3. XLSX: support more cell types (for example booleans / richer shared strings)
+4. Continue tightening DOCX list fidelity (future emitter / parser refinements if needed)
 
 ### Mid-term
 
 1. PDF: improve paragraphing and line-wrap rules (more stable reading order / lists)
-2. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first
+2. Expand DOCX style-driven block recovery beyond headings (for example quote / code-like paragraph styles)
+3. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first
 
 ---
 
 ## Status
 
-* ✅ docx: minimal end-to-end pipeline works
+* ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
 * ✅ pdf (text-based): MVP works (depends on external extractors)
 * ✅ xlsx: MVP works
 * ✅ pptx: MVP works
 * ✅ html: MVP works
+* ✅ IR + Markdown emitter support structured lists better than the initial MVP
 * ✅ samples regression script works (output directory: `.tmp_test_out/`)
