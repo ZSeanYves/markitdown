@@ -122,7 +122,9 @@ fn classify_slide_paragraphs(
   let out : Array[PptxBlock] = []
   let mut seen_heading = false
 
-  for para in paras {
+  let compacted = compact_slide_paragraphs(paras)
+
+  for para in compacted {
     let p = para.text.trim().to_string()
     if p == "" {
       continue
@@ -146,6 +148,49 @@ fn classify_slide_paragraphs(
     }
 
     out.push(PptxBlock::Paragraph(p))
+  }
+
+  out
+}
+
+///|
+/// drop empty / shell-only paras, and dedupe adjacent duplicates
+fn compact_slide_paragraphs(
+  paras : Array[SlideParagraph],
+) -> Array[SlideParagraph] raise {
+  let out : Array[SlideParagraph] = []
+
+  for para in paras {
+    let text = normalize_slide_text(para.text)
+    if text == "" {
+      continue
+    }
+
+    if is_empty_bullet_shell(text) {
+      continue
+    }
+
+    let cur : SlideParagraph = {
+      text,
+      is_bullet: para.is_bullet,
+      from_title_shape: para.from_title_shape,
+      from_body_shape: para.from_body_shape,
+    }
+
+    if out.length() == 0 {
+      out.push(cur)
+      continue
+    }
+
+    let last = out[out.length() - 1]
+    if same_slide_para_text(last.text, cur.text) {
+      if prefer_slide_para(cur, last) {
+        out[out.length() - 1] = cur
+      }
+      continue
+    }
+
+    out.push(cur)
   }
 
   out
@@ -272,4 +317,66 @@ fn parse_presentation_rels(xml : String) -> Map[String, String] raise {
   }
 
   out
+}
+
+///|
+fn is_empty_bullet_shell(s : String) -> Bool raise {
+  let t = strip_bullet_prefix(normalize_slide_text(s))
+  if t == "" {
+    return true
+  }
+
+  let cs = t.to_array()
+  if cs.length() == 0 {
+    return true
+  }
+
+  let mut all_shell = true
+  for c in cs {
+    let is_space = c == ' '
+    let is_sym = c == '-' ||
+      c == '*' ||
+      c == '•' ||
+      c == '·' ||
+      c == '.' ||
+      c == ')' ||
+      c == '）' ||
+      c == '、'
+    let is_digit = c >= '0' && c <= '9'
+
+    if !(is_space || is_sym || is_digit) {
+      all_shell = false
+      break
+    }
+  }
+
+  all_shell
+}
+
+///|
+fn same_slide_para_text(a : String, b : String) -> Bool {
+  normalize_slide_text(a) == normalize_slide_text(b)
+}
+
+///|
+/// choose the more informative paragraph when duplicated
+fn prefer_slide_para(a : SlideParagraph, b : SlideParagraph) -> Bool {
+  let sa = slide_para_score(a)
+  let sb = slide_para_score(b)
+  sa > sb
+}
+
+///|
+fn slide_para_score(p : SlideParagraph) -> Int {
+  let mut sc = 0
+  if p.from_title_shape {
+    sc += 4
+  }
+  if p.from_body_shape {
+    sc += 2
+  }
+  if p.is_bullet {
+    sc += 1
+  }
+  sc
 }

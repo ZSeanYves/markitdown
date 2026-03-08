@@ -270,6 +270,30 @@ fn normalize_ppt_target(target : String) -> String raise {
 }
 
 ///|
+fn normalize_slide_text(s : String) -> String {
+  let t = s.trim()
+  if t == "" {
+    return ""
+  }
+
+  let mut out = ""
+  let mut prev_space = false
+  for c in t.to_array() {
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + c.to_string()
+      prev_space = false
+    }
+  }
+
+  out.trim().to_string()
+}
+
+///|
 fn contains_bytes(hay : Bytes, needle : Bytes) -> Bool {
   match find_bytes(hay, needle, 0) {
     Some(_) => true
