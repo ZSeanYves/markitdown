@@ -14,6 +14,8 @@ fn parse_sheet_table(
   shared : Array[String],
 ) -> Array[Array[String]] raise {
   let cells : Map[String, String] = Map::new()
+  let mut min_r = 0
+  let mut min_c = 0
   let mut max_r = 0
   let mut max_c = 0
 
@@ -30,7 +32,7 @@ fn parse_sheet_table(
             let ctag = sheet_xml[i0:i1 + 1].to_string()
 
             let rref = get_attr(ctag, "r").unwrap_or("")
-            let t = get_attr(ctag, "t").unwrap_or("") // "s" for shared string
+            let t = get_attr(ctag, "t").unwrap_or("")
 
             let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
             match c_end0 {
@@ -38,7 +40,6 @@ fn parse_sheet_table(
               Some(c_end) => {
                 let inner = sheet_xml[i1 + 1:c_end].to_string()
 
-                // first <v>...</v>
                 let mut val = ""
                 let v0 = find_sub(inner, "<v>", 0)
                 match v0 {
@@ -55,15 +56,23 @@ fn parse_sheet_table(
 
                 let (rr, cc) = cell_ref_to_rc(rref)
                 if rr > 0 && cc > 0 {
-                  if rr > max_r {
-                    max_r = rr
-                  }
-                  if cc > max_c {
-                    max_c = cc
-                  }
                   let text = resolve_cell_text(t, inner, val, shared)
-
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
+
+                  if @cor.trim_string(text) != "" {
+                    if min_r == 0 || rr < min_r {
+                      min_r = rr
+                    }
+                    if min_c == 0 || cc < min_c {
+                      min_c = cc
+                    }
+                    if rr > max_r {
+                      max_r = rr
+                    }
+                    if cc > max_c {
+                      max_c = cc
+                    }
+                  }
                 }
 
                 pos = c_end + 4
@@ -80,9 +89,9 @@ fn parse_sheet_table(
   }
 
   let table0 : Array[Array[String]] = []
-  for r in 1..<(max_r + 1) {
+  for r in min_r..<(max_r + 1) {
     let row : Array[String] = []
-    for c in 1..<(max_c + 1) {
+    for c in min_c..<(max_c + 1) {
       let k = r.to_string() + "," + c.to_string()
       row.push(cells.get(k).unwrap_or(""))
     }
