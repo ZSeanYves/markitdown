@@ -140,7 +140,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_bytes()
-                  let text = html_text_from_bytes(inner)
+                  let text = html_li_text_from_bytes(inner)
                   if text.trim() != "" {
                     out.push(HtmlNode::ListItem(text))
                   }
@@ -333,4 +333,71 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
   }
 
   out
+}
+
+///|
+fn html_li_text_from_bytes(inner : Bytes) -> String raise {
+  let inner0 = strip_nested_list_blocks(inner)
+  html_text_from_bytes(inner0)
+}
+
+///|
+/// remove nested <ul>...</ul> / <ol>...</ol> blocks from a <li> inner region
+/// so parent list item text does not swallow child list text
+fn strip_nested_list_blocks(inner : Bytes) -> Bytes {
+  let out : Array[Byte] = []
+
+  let lt = pat("<")
+  let gt = pat(">")
+
+  let open_ul = pat("<ul")
+  let open_ol = pat("<ol")
+  let close_ul = pat("</ul>")
+  let close_ol = pat("</ol>")
+
+  let mut pos = 0
+  let n = inner.length()
+
+  while pos < n {
+    let ul0 = find_bytes(inner, open_ul, pos)
+    let ol0 = find_bytes(inner, open_ol, pos)
+
+    let next = match (ul0, ol0) {
+      (Some(a), Some(b)) =>
+        if a < b {
+          Some((a, true))
+        } else {
+          Some((b, false))
+        }
+      (Some(a), None) => Some((a, true))
+      (None, Some(b)) => Some((b, false))
+      (None, None) => None
+    }
+
+    match next {
+      None => {
+        for b in inner[pos:].to_array() {
+          out.push(b)
+        }
+        break
+      }
+      Some((i0, is_ul)) => {
+        // copy bytes before nested list block
+        for b in inner[pos:i0].to_array() {
+          out.push(b)
+        }
+
+        let close_pat = if is_ul { close_ul } else { close_ol }
+        let end0 = find_bytes(inner, close_pat, i0)
+        match end0 {
+          None =>
+            // malformed HTML: stop at nested list start
+            break
+          Some(end) => pos = end + close_pat.length()
+        }
+      }
+    }
+  }
+
+  Bytes::from_iter(out.iter())
 }
