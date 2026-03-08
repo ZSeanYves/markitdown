@@ -268,3 +268,23 @@ fn normalize_ppt_target(target : String) -> String raise {
     "ppt/" + target
   }
 }
+
+///|
+fn contains_bytes(hay : Bytes, needle : Bytes) -> Bool {
+  match find_bytes(hay, needle, 0) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn shape_is_title_like(xml : Bytes) -> Bool {
+  contains_bytes(xml, pat("type=\"title\"")) ||
+  contains_bytes(xml, pat("type=\"ctrTitle\"")) ||
+  contains_bytes(xml, pat("type=\"subTitle\""))
+}
+
+///|
+fn shape_is_body_like(xml : Bytes) -> Bool {
+  contains_bytes(xml, pat("type=\"body\""))
+}

@@ -9,11 +9,64 @@ priv enum PptxBlock {
 priv struct SlideParagraph {
   text : String
   is_bullet : Bool
+  from_title_shape : Bool
+  from_body_shape : Bool
 }
 
 ///|
-/// scan slide xml, extract each <a:p> as one paragraph with simple bullet info
+
+///|
+/// scan slide xml by shape (<p:sp>), then extract each <a:p>
+/// with simple shape context (title/body)
 fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
+  let out : Array[SlideParagraph] = []
+
+  let open_sp = pat("<p:sp")
+  let close_sp = pat("</p:sp>")
+  let gt_pat = pat(">")
+
+  let mut pos = 0
+  while true {
+    let s0 = find_bytes(xml, open_sp, pos)
+    match s0 {
+      None => break
+      Some(i0) => {
+        let gt = find_bytes(xml, gt_pat, i0)
+        match gt {
+          None => break
+          Some(_gt0) => {
+            let sp_end = find_bytes(xml, close_sp, i0)
+            match sp_end {
+              None => break
+              Some(sp_end0) => {
+                let sp_xml = xml[i0:sp_end0 + close_sp.length()].to_bytes()
+                let is_title = shape_is_title_like(sp_xml)
+                let is_body = shape_is_body_like(sp_xml)
+
+                let paras = extract_shape_paragraphs(sp_xml, is_title, is_body)
+                for para in paras {
+                  out.push(para)
+                }
+
+                pos = sp_end0 + close_sp.length()
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+/// scan one <p:sp> shape xml, extract each <a:p> as one paragraph
+fn extract_shape_paragraphs(
+  xml : Bytes,
+  from_title_shape : Bool,
+  from_body_shape : Bool,
+) -> Array[SlideParagraph] raise {
   let out : Array[SlideParagraph] = []
 
   let open_p = pat("<a:p")
@@ -42,7 +95,12 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
                 let is_bullet = paragraph_has_bullet(xml, inner_start, p_end0)
 
                 if text != "" {
-                  out.push({ text, is_bullet })
+                  out.push({
+                    text,
+                    is_bullet,
+                    from_title_shape,
+                    from_body_shape,
+                  })
                 }
 
                 pos = p_end0 + close_p.length()
@@ -70,12 +128,18 @@ fn classify_slide_paragraphs(
       continue
     }
 
+    if para.from_title_shape && !seen_heading {
+      out.push(PptxBlock::Heading(p))
+      seen_heading = true
+      continue
+    }
+
     if para.is_bullet || is_bullet_like(p) {
       out.push(PptxBlock::ListItem(strip_bullet_prefix(p)))
       continue
     }
 
-    if !seen_heading && looks_like_slide_title(p) {
+    if !seen_heading && !para.from_body_shape && looks_like_slide_title(p) {
       out.push(PptxBlock::Heading(p))
       seen_heading = true
       continue

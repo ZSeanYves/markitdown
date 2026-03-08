@@ -10,13 +10,8 @@
 实现 docx、pdf、xlsx、pptx、html 到 Markdown 的统一转换。
 
 
-
----
-
-
 # 第二章 技术路线
 
 
 系统采用统一 IR 作为中间表示。
-
 

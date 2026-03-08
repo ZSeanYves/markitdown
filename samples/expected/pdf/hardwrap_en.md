@@ -6,4 +6,3 @@ This project aims to build a unified document conversion pipeline for docx, pdf,
 
 The parser should support international text processing and preserve semantic structure whenever possible.
 
-
