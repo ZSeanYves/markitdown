@@ -210,3 +210,61 @@ fn find_numbered_bullet_end(s : String) -> Int {
 
   -1
 }
+
+///|
+fn bytes_slice_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
+  let len = end_ - start
+  if len <= 0 {
+    return ""
+  }
+  @cor.utf8_bytes_to_string(bs[start:end_].to_bytes())
+}
+
+///|
+fn read_attr_value_in_tag_bytes(
+  tag : Bytes,
+  attr_name : String,
+) -> String? raise {
+  let p1 = pat(attr_name + "=\"")
+  let p2 = pat(attr_name + "='")
+
+  match find_bytes(tag, p1, 0) {
+    Some(i0) => {
+      let start = i0 + p1.length()
+      let mut i = start
+      while i < tag.length() {
+        if tag[i] == '"'.to_int().to_byte() {
+          return Some(bytes_slice_to_string(tag, start, i))
+        }
+        i += 1
+      }
+      None
+    }
+    None =>
+      match find_bytes(tag, p2, 0) {
+        Some(i0) => {
+          let start = i0 + p2.length()
+          let mut i = start
+          while i < tag.length() {
+            if tag[i] == '\''.to_int().to_byte() {
+              return Some(bytes_slice_to_string(tag, start, i))
+            }
+            i += 1
+          }
+          None
+        }
+        None => None
+      }
+  }
+}
+
+///|
+fn normalize_ppt_target(target : String) -> String raise {
+  if target.has_prefix("ppt/") {
+    target
+  } else if target.has_prefix("/") {
+    target[1:].to_string()
+  } else {
+    "ppt/" + target
+  }
+}

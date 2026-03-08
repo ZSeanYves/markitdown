@@ -205,8 +205,7 @@ Docx example:
 moon run --target native src/cli -- \
   convert samples/docx/golden.docx \
   -o out/golden.md \
-  --out-dir out \
-  --max-heading 3
+  --out-dir out 
 ```
 
 PDF example:
