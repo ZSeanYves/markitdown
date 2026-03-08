@@ -177,6 +177,34 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
 }
 
 ///|
+fn normalize_table_rows(rows : Array[Array[String]]) -> Array[Array[String]] {
+  let mut max_cols = 0
+  for row in rows {
+    if row.length() > max_cols {
+      max_cols = row.length()
+    }
+  }
+
+  if max_cols == 0 {
+    return rows
+  }
+
+  let out : Array[Array[String]] = []
+  for row in rows {
+    let r : Array[String] = []
+    for cell in row {
+      r.push(cell)
+    }
+    while r.length() < max_cols {
+      r.push("")
+    }
+    out.push(r)
+  }
+
+  out
+}
+
+///|
 /// <pre> inner bytes -> code-like text
 /// keep newlines as much as possible, only strip tags and unescape
 fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
@@ -238,7 +266,7 @@ fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]] raise {
     }
   }
 
-  out
+  normalize_table_rows(out)
 }
 
 ///|
