@@ -219,12 +219,8 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
 ///|
 /// inner bytes -> visible text (strip tags + unescape)
 fn html_text_from_bytes(inner : Bytes) -> String raise {
-  // handle <br> variants (MVP: turn into space)
-  let bs0 = replace_bytes(inner, pat("<br>"), pat(" "))
-  let bs1 = replace_bytes(bs0, pat("<br/>"), pat(" "))
-  let bs2 = replace_bytes(bs1, pat("<br />"), pat(" "))
-
-  let text_bs = strip_tags_bytes(bs2)
+  let bs0 = normalize_html_breaks(inner)
+  let text_bs = strip_tags_bytes(bs0)
   let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
   html_unescape(s0).trim().to_string()
 }
@@ -394,6 +390,62 @@ fn strip_nested_list_blocks(inner : Bytes) -> Bytes {
             // malformed HTML: stop at nested list start
             break
           Some(end) => pos = end + close_pat.length()
+        }
+      }
+    }
+  }
+
+  Bytes::from_iter(out.iter())
+}
+
+///|
+/// replace any <br...> tag (case-insensitive) with one space
+fn normalize_html_breaks(inner : Bytes) -> Bytes {
+  let out : Array[Byte] = []
+
+  let lt = pat("<")
+  let gt = pat(">")
+
+  let mut pos = 0
+  let n = inner.length()
+
+  while pos < n {
+    let lt0 = find_bytes(inner, lt, pos)
+    match lt0 {
+      None => {
+        for b in inner[pos:].to_array() {
+          out.push(b)
+        }
+        break
+      }
+      Some(i0) => {
+        for b in inner[pos:i0].to_array() {
+          out.push(b)
+        }
+
+        let gt0 = find_bytes(inner, gt, i0)
+        match gt0 {
+          None => {
+            for b in inner[i0:].to_array() {
+              out.push(b)
+            }
+            break
+          }
+          Some(j0) => {
+            let tag_bs = inner[i0:j0 + 1].to_bytes()
+            let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+            let tag = tag0.to_lower()
+
+            if tag.has_prefix("<br") {
+              out.push(' '.to_int().to_byte())
+            } else {
+              for b in tag_bs.to_array() {
+                out.push(b)
+              }
+            }
+
+            pos = j0 + 1
+          }
         }
       }
     }
