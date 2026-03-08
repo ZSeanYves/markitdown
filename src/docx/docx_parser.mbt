@@ -19,13 +19,14 @@ pub async fn parse_docx(
 
   // 2) 读关系表（图片 rId -> media/xxx）
   let rels_xml = zip.read_text_optional("word/_rels/document.xml.rels")
-  //println("document.xml chars = " + doc_xml.length().to_string())
-
   let rels = parse_rels(rels_xml)
 
-  // 3) 导出图片到 out_root/assets
+  // 3) 读 styles.xml（标题样式映射）
+  let styles = zip.load_styles()
+
+  // 4) 导出图片到 out_root/assets
   zip.extract_prefix("word/media/", assets_dir)
 
-  // 4) 扫描 xml 生成 IR
-  scan_document(doc_xml, rels, max_heading)
+  // 5) 扫描 xml 生成 IR
+  scan_document(doc_xml, rels, styles, max_heading)
 }

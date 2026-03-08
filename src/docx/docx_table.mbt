@@ -2,14 +2,15 @@
 fn scan_paragraph(
   p_xml : String,
   rels : Map[String, String],
+  styles : DocxStyles,
   max_heading : Int,
 ) -> Array[@cor.Block] {
   let out : Array[@cor.Block] = []
 
-  // 1) 标题级别
-  let level = read_heading_level(p_xml, max_heading)
+  // 1) 标题级别：优先 styles.xml，失败再 fallback
+  let level = read_heading_level(p_xml, styles, max_heading)
 
-  // 2) 图片 embed（常见：<a:blip r:embed="rId5">，直接找 r:embed="）
+  // 2) 图片 embed（常见：<a:blip r:embed="rId5">）
   match read_attr_value(p_xml, "r:embed=\"") {
     Some(rid) =>
       match rels.get(rid) {
@@ -43,31 +44,26 @@ fn scan_paragraph(
 }
 
 ///|
-fn read_heading_level(p_xml : String, max_heading : Int) -> Int {
-  match read_attr_value(p_xml, "<w:pStyle w:val=\"") {
+fn read_heading_level(
+  p_xml : String,
+  styles : DocxStyles,
+  max_heading : Int,
+) -> Int {
+  match read_pstyle_value(p_xml) {
     Some(v) => {
-      let level = if v == "Heading1" || v == "2" {
-        1
-      } else if v == "Heading2" || v == "3" {
-        2
-      } else if v == "Heading3" || v == "4" {
-        3
-      } else if v == "Heading4" || v == "5" {
-        4
-      } else if v == "Heading5" || v == "6" {
-        5
-      } else if v == "Heading6" || v == "7" {
-        6
-      } else {
-        0
+      let level = heading_level_of(styles, v, max_heading)
+      if level > 0 {
+        return level
       }
 
-      if level < 1 {
+      // fallback：兼容旧样例 / styles.xml 缺失
+      let legacy = legacy_heading_level(v)
+      if legacy < 1 {
         0
-      } else if level > max_heading {
+      } else if legacy > max_heading {
         max_heading
       } else {
-        level
+        legacy
       }
     }
     None => 0
@@ -146,4 +142,45 @@ fn paragraph_is_list_item(p_xml : String) -> Bool {
   p_xml.contains("<w:numPr") ||
   p_xml.contains("<w:ilvl") ||
   p_xml.contains("<w:numId")
+}
+
+///|
+fn read_pstyle_value(p_xml : String) -> String? {
+  let chars = p_xml.to_array()
+
+  let p1 = find_sub(chars, 0, "<w:pStyle")
+  if p1 < 0 {
+    return None
+  }
+
+  let p2 = find_sub(chars, p1, ">")
+  if p2 < 0 {
+    return None
+  }
+
+  let tag = @cor.slice_to_string(chars, p1, p2 + 1)
+
+  match read_attr_value_in_tag(tag, "w:val") {
+    Some(v) => Some(v)
+    None => None
+  }
+}
+
+///|
+fn legacy_heading_level(v : String) -> Int {
+  if v == "Heading1" || v == "2" {
+    1
+  } else if v == "Heading2" || v == "3" {
+    2
+  } else if v == "Heading3" || v == "4" {
+    3
+  } else if v == "Heading4" || v == "5" {
+    4
+  } else if v == "Heading5" || v == "6" {
+    5
+  } else if v == "Heading6" || v == "7" {
+    6
+  } else {
+    0
+  }
 }

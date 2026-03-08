@@ -1,12 +1,12 @@
 ///|
-pub(all) enum PptxBlock {
+priv enum PptxBlock {
   Heading(String)
   Paragraph(String)
   ListItem(String)
 }
 
 ///|
-pub(all) struct SlideParagraph {
+priv struct SlideParagraph {
   text : String
   is_bullet : Bool
 }

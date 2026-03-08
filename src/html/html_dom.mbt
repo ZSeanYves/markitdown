@@ -1,5 +1,5 @@
 ///|
-pub enum HtmlNode {
+priv enum HtmlNode {
   Heading(Int, String)
   Paragraph(String)
   ListItem(String)

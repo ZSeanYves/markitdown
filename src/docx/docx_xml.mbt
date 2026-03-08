@@ -118,3 +118,49 @@ fn find_tc_open(chars : Array[Char], from : Int) -> Int {
   }
   -1
 }
+
+///|
+fn ascii_lower(s : String) -> String {
+  let out = StringBuilder::new()
+  for ch in s {
+    if ch >= 'A' && ch <= 'Z' {
+      out.write_char(Int::unsafe_to_char(ch.to_int() + 32))
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn parse_int_default(s : String, fallback : Int) -> Int {
+  if s == "" {
+    return fallback
+  }
+
+  let chars = s.to_array()
+  let mut i = 0
+  let mut n = 0
+
+  while i < chars.length() {
+    let c = chars[i]
+    let k = c.to_int()
+    if k < 48 || k > 57 {
+      return fallback
+    }
+    n = n * 10 + (k - 48)
+    i = i + 1
+  }
+
+  n
+}
+
+///|
+/// 从单个 tag 中读属性，兼容：
+/// <w:style w:type="paragraph" w:styleId="Heading1">
+fn read_attr_value_in_tag(tag : String, attr_name : String) -> String? {
+  match read_attr_value(tag, attr_name + "=\"") {
+    Some(v) => Some(v)
+    None => read_attr_value(tag, attr_name + "='")
+  }
+}

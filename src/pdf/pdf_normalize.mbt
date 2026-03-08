@@ -1,11 +1,11 @@
 ///|
-pub(all) enum PdfBlock {
+priv enum PdfBlock {
   Heading(Int, String)
   Paragraph(String)
 }
 
 ///|
-pub fn split_blocks_smart(page : String) -> Array[PdfBlock] {
+fn split_blocks_smart(page : String) -> Array[PdfBlock] {
   let s = page
     .replace(old="\r\n", new="\n")
     .replace(old="\r", new="\n")
@@ -531,20 +531,10 @@ fn is_cjkish(c : Char) -> Bool {
 }
 
 ///|
-/// “短行”判断：<=2 个字符（对付中文被切成单字/两字的情况）
-pub fn is_short(s : String) -> Bool {
-  let t = s.trim()
-  if t == "" {
-    return true
-  }
-  t.to_array().length() <= 2
-}
-
-///|
 /// 决定拼接时加不加空格：
 /// - CJK + CJK：不加空格（中文不应该被强行加空格）
 /// - 其他情况：加一个空格
-pub fn glue_between(left : String, right : String) -> String {
+fn glue_between(left : String, right : String) -> String {
   let lc = last_char(left)
   let rc = first_char(right)
   match (lc, rc) {

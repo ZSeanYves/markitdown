@@ -1,5 +1,5 @@
 ///|
-pub fn parse_rels(rels_xml : String) -> Map[String, String] {
+fn parse_rels(rels_xml : String) -> Map[String, String] {
   let m : Map[String, String] = Map::new()
   let chars = rels_xml.to_array()
   let len = chars.length()
@@ -28,7 +28,7 @@ pub fn parse_rels(rels_xml : String) -> Map[String, String] {
 }
 
 ///|
-pub fn rid_to_asset_path(target : String) -> String {
+fn rid_to_asset_path(target : String) -> String {
   "assets/" + @cor.basename(target)
 }
 

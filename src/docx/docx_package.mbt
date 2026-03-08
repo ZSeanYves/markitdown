@@ -1,11 +1,11 @@
 ///|
-pub struct DocxZip {
+priv struct DocxZip {
   path : String
   zip : @cor.ZipReader
 }
 
 ///|
-pub fn open_docx(path : String) -> DocxZip raise @fs.IOError {
+fn open_docx(path : String) -> DocxZip raise @fs.IOError {
   let z = @cor.open_zip(path) catch {
     e => raise @fs.IOError("open_zip failed: " + e.to_string())
   }
@@ -13,7 +13,7 @@ pub fn open_docx(path : String) -> DocxZip raise @fs.IOError {
 }
 
 ///|
-pub async fn DocxZip::read_text_optional(
+async fn DocxZip::read_text_optional(
   z : DocxZip,
   entry_path : String,
 ) -> String {
@@ -24,7 +24,7 @@ pub async fn DocxZip::read_text_optional(
 }
 
 ///|
-pub async fn DocxZip::read_text_required(
+async fn DocxZip::read_text_required(
   z : DocxZip,
   entry_path : String,
 ) -> String {
@@ -37,7 +37,7 @@ pub async fn DocxZip::read_text_required(
 }
 
 ///|
-pub async fn DocxZip::extract_prefix(
+async fn DocxZip::extract_prefix(
   z : DocxZip,
   prefix : String,
   out_dir : String,
@@ -46,24 +46,30 @@ pub async fn DocxZip::extract_prefix(
     @fs.create_dir(out_dir)
   }
 
-  // 遍历 central directory 的 entry 名单
   let names = z.zip.list_entries()
   for p in names {
     if !p.has_prefix(prefix) {
       continue
     }
 
-    // 取文件名（避免 split/iter 问题）
     let name = @cor.basename(p)
     if name == "" {
       continue
     }
 
     let dest = out_dir + "/" + name
-
-    // 读取 entry bytes（已自动解压）
     let b = z.zip.read_entry_bytes(p) catch { _ => continue }
 
     @fs.write_bytes_to_file(dest, b)
   }
+}
+
+///|
+/// 读取 word/styles.xml；缺失时返回空样式映射
+async fn DocxZip::load_styles(z : DocxZip) -> DocxStyles {
+  let xml = z.read_text_optional("word/styles.xml")
+  if xml == "" {
+    return empty_styles()
+  }
+  parse_styles_xml(xml)
 }

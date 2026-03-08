@@ -3,7 +3,7 @@
 // ============================
 
 ///|
-pub struct SheetInfo {
+priv struct SheetInfo {
   name : String
   rid : String
   target : String
