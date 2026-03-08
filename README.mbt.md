@@ -8,14 +8,14 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 ## Features
 
-* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and list structure recovery
-* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight paragraphing
-* ✅ **XLSX → Markdown** (MVP): extract sheet text and emit one table per sheet
-* ✅ **PPTX → Markdown** (MVP): extract slide text and emit one section per slide
-* ✅ **HTML → Markdown** (MVP): extract headings / paragraphs / list items and decode entities
+* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and style/numbering-driven list structure recovery
+* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization
+* ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, and basic cell-type support
+* ✅ **PPTX → Markdown**: extract slide text, preserve real slide order via `presentation.xml`, and emit one section per slide
+* ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
-> Note: This project intentionally avoids unstable/untrusted third-party PDF parsing libraries. The PDF MVP uses “external text extraction + internal normalization”.
+> Note: This project intentionally avoids unstable/untrusted third-party 、parsing libraries. 
 
 ---
 
@@ -144,28 +144,32 @@ Each subpackage also contains generated interface artifacts such as `pkg.generat
   * normalize line endings
   * split paragraphs by blank lines (and merge hard wraps)
   * recover basic headings under current heuristic rules
+  * filter simple page-number noise under current sample set
   * use `---` as a page separator for multi-page PDFs (MVP)
 
 > Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
-### ✅ XLSX (MVP)
+### ✅ XLSX
 
 * Parses workbook + sheet XML and emits one Markdown table per sheet
-* Supports numeric cells and inline strings
-* Trims sparse trailing empty rows / columns in current MVP samples
+* Supports shared strings, inline strings, numeric/default cells, booleans (`t="b"`), string results (`t="str"`), and error cells (`t="e"`)
+* Supports multi-sheet output
+* Trims sparse trailing empty rows / columns in current regression samples
 * Decodes XML entities (including numeric entities)
 
-### ✅ PPTX (MVP)
+### ✅ PPTX
 
 * Extracts slide text runs and emits one section per slide
+* Resolves real slide order through `ppt/presentation.xml` + `presentation.xml.rels`, instead of relying only on slide file name order
 * Supports simple title / bullet recovery under the current heuristic MVP
 * Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
 
-### ✅ HTML (MVP)
+### ✅ HTML
 
 * Bytes-based parsing to avoid UTF-8 indexing issues
 * Extracts headings / paragraphs / list items
-* Supports block quotes and preformatted/code blocks in the current MVP
+* Supports block quotes and preformatted/code blocks
+* Supports basic HTML table extraction (`<table>` → IR `Table` → Markdown table)
 * Decodes entities (including numeric entities)
 
 ---
@@ -205,7 +209,7 @@ Docx example:
 moon run --target native src/cli -- \
   convert samples/docx/golden.docx \
   -o out/golden.md \
-  --out-dir out 
+  --out-dir out
 ```
 
 PDF example:
@@ -262,14 +266,34 @@ rm -rf .tmp_test_out
 ./samples/diff.sh
 ```
 
-Recent DOCX regression coverage includes:
+Recent regression coverage includes:
 
-* heading levels
-* basic lists
-* ordered lists
-* nested lists
-* mixed lists
-* images / tables / general golden sample
+* **DOCX**
+
+  * heading levels
+  * basic lists
+  * ordered lists
+  * nested lists
+  * mixed lists
+  * images / tables / general golden sample
+* **PPTX**
+
+  * basic slides
+  * title + bullets
+  * presentation-order slide sequence sample
+* **HTML**
+
+  * simple content
+  * mixed block content
+  * block quotes
+  * pre/code blocks
+  * basic tables
+* **XLSX**
+
+  * simple sheet
+  * sparse trimming
+  * cell types
+  * multi-sheet mixed workbook
 
 If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
 
@@ -281,12 +305,12 @@ cp .tmp_test_out/docx/docx_list_nested.md  samples/expected/docx/docx_list_neste
 cp .tmp_test_out/docx/docx_list_mixed.md   samples/expected/docx/docx_list_mixed.md
 ```
 
-Example: refresh PDF golden outputs:
+Example: refresh one HTML / XLSX / PPTX golden file:
 
 ```bash
-cp .tmp_test_out/pdf/text_simple.md     samples/expected/pdf/text_simple.md
-cp .tmp_test_out/pdf/text_hardwrap.md   samples/expected/pdf/text_hardwrap.md
-cp .tmp_test_out/pdf/text_multipage.md  samples/expected/pdf/text_multipage.md
+cp .tmp_test_out/html/html_table_basic.md         samples/expected/html/html_table_basic.md
+cp .tmp_test_out/xlsx/xlsx_multi_sheet_mixed.md   samples/expected/xlsx/xlsx_multi_sheet_mixed.md
+cp .tmp_test_out/pptx/pptx_slide_order.md         samples/expected/pptx/pptx_slide_order.md
 ```
 
 Then re-run:
@@ -301,15 +325,16 @@ Then re-run:
 
 ### Near-term
 
-1. Improve PPTX ordering by `ppt/presentation.xml` + rels (match real slide order)
-2. HTML: add minimal table extraction (`<table>` → IR Table)
-3. XLSX: support more cell types (for example booleans / richer shared strings)
-4. Continue tightening DOCX list fidelity (future emitter / parser refinements if needed)
+1. Continue tightening PDF paragraph / heading / pagination heuristics
+2. Improve PPTX title/body separation and bullet fidelity
+3. Expand HTML structure robustness around mixed block content and table edge cases
+4. Explore additional XLSX policies such as date handling / empty-sheet behavior
+5. Extend DOCX style-driven block recovery beyond headings/lists (for example quote/code-like paragraph styles)
 
 ### Mid-term
 
-1. PDF: improve paragraphing and line-wrap rules (more stable reading order / lists)
-2. Expand DOCX style-driven block recovery beyond headings (for example quote / code-like paragraph styles)
+1. Unify more structure-aware behavior across formats through the shared IR
+2. Improve PDF handling for more difficult layouts
 3. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first
 
 ---
@@ -317,9 +342,9 @@ Then re-run:
 ## Status
 
 * ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
-* ✅ pdf (text-based): MVP works (depends on external extractors)
-* ✅ xlsx: MVP works
-* ✅ pptx: MVP works
-* ✅ html: MVP works
-* ✅ IR + Markdown emitter support structured lists better than the initial MVP
+* ✅ pdf (text-based): MVP works with first-round quality improvements (depends on external extractors)
+* ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types and multi-sheet samples
+* ✅ pptx: MVP+ works with real presentation-order slide traversal
+* ✅ html: MVP+ works with lists / quotes / code blocks / tables
+* ✅ IR + Markdown emitter support structured lists and shared block-level output across formats
 * ✅ samples regression script works (output directory: `.tmp_test_out/`)
