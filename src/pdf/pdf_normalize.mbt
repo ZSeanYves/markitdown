@@ -59,6 +59,23 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
     if buf == "" {
       buf = cur
+    } else if starts_like_new_block(cur) && !ends_like_sentence(buf) {
+      let raw = buf.trim().to_string()
+      if raw != "" {
+        let level = guess_heading_level(raw)
+        if level > 0 {
+          let text = finalize_heading(raw)
+          if text != "" {
+            out.push(PdfBlock::Heading(level, text))
+          }
+        } else {
+          let text = finalize_paragraph(raw)
+          if text != "" {
+            out.push(PdfBlock::Paragraph(text))
+          }
+        }
+      }
+      buf = cur
     } else {
       buf = append_line(buf, cur)
     }
@@ -85,6 +102,24 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
   }
 
   out
+}
+
+///|
+fn starts_like_new_block(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if guess_numbered_heading_level(t) > 0 {
+    return true
+  }
+
+  if looks_like_heading_marker(t) && !ends_like_sentence(t) {
+    return true
+  }
+
+  false
 }
 
 ///|
@@ -122,6 +157,7 @@ fn guess_heading_level(text : String) -> Int {
     return numbered
   }
 
+  // explicit title-like forms should stay strong
   if looks_like_english_title(t) {
     return 1
   }
@@ -130,15 +166,56 @@ fn guess_heading_level(text : String) -> Int {
     return if n <= 14 { 1 } else { 2 }
   }
 
-  if n <= 10 {
+  // short compact plain titles (especially Chinese) fallback
+  if looks_like_short_plain_title(t) {
     return 1
   }
 
-  if n <= 22 {
+  let sc = heading_score(t)
+  if sc >= 6 {
+    return 1
+  }
+  if sc >= 4 {
     return 2
   }
-
   0
+}
+
+///|
+fn heading_score(s : String) -> Int {
+  let t = s.trim().to_string()
+  if t == "" {
+    return 0
+  }
+
+  let n = t.to_array().length()
+  let mut sc = 0
+
+  if n <= 30 {
+    sc += 2
+  } else if n <= 50 {
+    sc += 1
+  } else if n > 80 {
+    sc -= 2
+  }
+
+  if looks_like_heading_marker(t) {
+    sc += 2
+  }
+
+  if looks_like_english_title(t) {
+    sc += 2
+  }
+
+  if contains_sentence_punct_inside(t) {
+    sc -= 2
+  }
+
+  if looks_like_list_item_sentence(t) {
+    sc -= 2
+  }
+
+  sc
 }
 
 ///|
@@ -267,6 +344,45 @@ fn ends_like_sentence(s : String) -> Bool {
 }
 
 ///|
+/// short plain title fallback:
+/// useful for short Chinese section titles like:
+/// - 研究内容
+/// - 技术路线
+/// while trying to avoid ordinary short sentences
+fn looks_like_short_plain_title(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if ends_like_sentence(t) {
+    return false
+  }
+
+  if contains_sentence_punct_inside(t) {
+    return false
+  }
+
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
+  let n = t.to_array().length()
+
+  // very short title-like text, no spaces
+  if n <= 8 && !t.contains(" ") {
+    return true
+  }
+
+  // a slightly longer compact title, still without spaces
+  if n <= 14 && !t.contains(" ") && !starts_with_latin(t) {
+    return true
+  }
+
+  false
+}
+
+///|
 fn looks_like_heading_marker(s : String) -> Bool {
   let t = s.trim().to_string()
   t.has_prefix("第") ||
@@ -326,7 +442,8 @@ fn looks_like_english_title(s : String) -> Bool {
 
 ///|
 fn starts_with_numbered_heading(s : String) -> Bool {
-  let cs = s.to_array()
+  let t = s.trim().to_string()
+  let cs = t.to_array()
   let n = cs.length()
   if n == 0 {
     return false
@@ -334,6 +451,7 @@ fn starts_with_numbered_heading(s : String) -> Bool {
 
   let mut i = 0
   let mut has_digit = false
+
   while i < n {
     let c = cs[i]
     if c >= '0' && c <= '9' {
@@ -348,7 +466,20 @@ fn starts_with_numbered_heading(s : String) -> Bool {
     break
   }
 
-  has_digit && i < n
+  if !has_digit || i >= n {
+    return false
+  }
+
+  let c = cs[i]
+  if c == ' ' || c == '、' || c == ')' || c == '）' {
+    return true
+  }
+
+  if c == '.' && i + 1 < n && cs[i + 1] == ' ' {
+    return true
+  }
+
+  false
 }
 
 ///|
@@ -573,4 +704,59 @@ fn is_cjk(c : Char) -> Bool {
   (x >= 0x3400 && x <= 0x4DBF) ||
   (x >= 0xF900 && x <= 0xFAFF) ||
   (x >= 0xFF00 && x <= 0xFFEF)
+}
+
+///|
+fn contains_sentence_punct_inside(s : String) -> Bool {
+  for c in s.to_array() {
+    if c == '，' ||
+      c == '。' ||
+      c == '；' ||
+      c == '：' ||
+      c == ',' ||
+      c == ';' ||
+      c == ':' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn looks_like_list_item_sentence(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if t.has_prefix("- ") || t.has_prefix("* ") || t.has_prefix("• ") {
+    return true
+  }
+
+  let cs = t.to_array()
+  let n = cs.length()
+  if n == 0 {
+    return false
+  }
+
+  let mut i = 0
+  let mut has_digit = false
+  while i < n {
+    let c = cs[i]
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if has_digit && i + 1 < n {
+    let c = cs[i]
+    if (c == '.' || c == '、' || c == ')' || c == '）') && cs[i + 1] == ' ' {
+      return true
+    }
+  }
+
+  false
 }

@@ -9,10 +9,10 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 ## Features
 
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and style/numbering-driven list structure recovery
-* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization and page-noise cleanup
-* ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, and basic cell-type support
-* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, and restore bullet lists with nesting levels
-* ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables and decode entities
+* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization, page-noise cleanup, repeated header/footer removal, and heuristic heading/paragraph boundary recovery
+* ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, and basic cell-type support
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, and clean up empty / duplicate paragraph noise
+* ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, normalize common `<br>` variants, avoid swallowing nested list text in parent items, and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
 > Note: This project intentionally avoids unstable or untrusted third-party parsing libraries where possible, and keeps format handling in small MoonBit packages with explicit heuristics.
@@ -105,6 +105,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * code blocks
   * tables
   * image references
+* Markdown output tail is normalized consistently across formats (non-empty output ends with a single trailing newline)
 
 ### ✅ Docx Pipeline
 
@@ -141,6 +142,8 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * normalize line endings
   * split paragraphs by blank lines (and merge hard wraps)
   * recover basic headings under current heuristic rules
+  * reduce short-line false positives in heading detection
+  * avoid merging obvious new blocks into the previous paragraph
   * filter page-number noise and repeated page-header/page-footer noise under the current sample set
   * keep page boundaries internal to normalization instead of emitting page separators in final Markdown
 
@@ -151,7 +154,9 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Parses workbook + sheet XML and emits one Markdown table per sheet
 * Supports shared strings, inline strings, numeric/default cells, booleans (`t="b"`), string results (`t="str"`), and error cells (`t="e"`)
 * Supports multi-sheet output
+* Emits `(empty sheet)` for empty worksheets
 * Trims sparse trailing empty rows / columns in current regression samples
+* Crops sparse sheets to the minimal non-empty bounding box before Markdown emission
 * Decodes XML entities (including numeric entities)
 
 ### ✅ PPTX
@@ -170,6 +175,9 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Extracts headings / paragraphs / list items
 * Supports block quotes and preformatted/code blocks
 * Supports basic HTML table extraction (`<table>` → IR `Table` → Markdown table)
+* Normalizes common `<br>` variants before text extraction
+* Prevents parent `<li>` text from swallowing nested list text in current regression cases
+* Normalizes ragged table rows to stable Markdown table widths
 * Decodes entities (including numeric entities)
 
 ---
@@ -283,12 +291,15 @@ Recent regression coverage includes:
   * heading recovery
   * short-sentence non-heading cases
   * multi-page text
+  * repeated header/footer cleanup
+  * page-noise cleanup
 * **PPTX**
 
   * basic slides
   * title + bullets
   * presentation-order slide sequence sample
   * shape-aware title/body handling
+  * bullet-property list detection
   * bullet levels / cleanup behavior
 * **HTML**
 
@@ -297,12 +308,17 @@ Recent regression coverage includes:
   * block quotes
   * pre/code blocks
   * basic tables
+  * `<br>` variants
+  * nested list parent-item handling
+  * ragged table rows
 * **XLSX**
 
   * simple sheet
   * sparse trimming
   * cell types
   * multi-sheet mixed workbook
+  * empty sheet behavior
+  * sparse-edge / bounding-box trimming
 
 If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
 
@@ -314,12 +330,13 @@ cp .tmp_test_out/docx/docx_list_nested.md  samples/expected/docx/docx_list_neste
 cp .tmp_test_out/docx/docx_list_mixed.md   samples/expected/docx/docx_list_mixed.md
 ```
 
-Example: refresh one HTML / XLSX / PPTX golden file:
+Example: refresh one HTML / XLSX / PPTX / PDF golden file:
 
 ```bash
-cp .tmp_test_out/html/html_table_basic.md         samples/expected/html/html_table_basic.md
-cp .tmp_test_out/xlsx/xlsx_multi_sheet_mixed.md   samples/expected/xlsx/xlsx_multi_sheet_mixed.md
-cp .tmp_test_out/pptx/pptx_slide_order.md         samples/expected/pptx/pptx_slide_order.md
+cp .tmp_test_out/html/html_table_basic.md              samples/expected/html/html_table_basic.md
+cp .tmp_test_out/xlsx/xlsx_multi_sheet_mixed.md        samples/expected/xlsx/xlsx_multi_sheet_mixed.md
+cp .tmp_test_out/pptx/pptx_slide_order.md              samples/expected/pptx/pptx_slide_order.md
+cp .tmp_test_out/pdf/pdf_page_noise_cleanup.md         samples/expected/pdf/pdf_page_noise_cleanup.md
 ```
 
 Then re-run:
@@ -351,8 +368,8 @@ Then re-run:
 ## Status
 
 * ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
-* ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, and page-noise filtering
-* ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types and multi-sheet samples
-* ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, bullet detection, and nested list levels
-* ✅ html: MVP+ works with lists / quotes / code blocks / tables
+* ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, repeated header/footer removal, page-noise filtering, and heuristic boundary recovery
+* ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types, multi-sheet samples, empty-sheet handling, and sparse bounding-box trimming
+* ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, bullet detection, nested list levels, and paragraph cleanup
+* ✅ html: MVP+ works with lists / quotes / code blocks / tables, plus `<br>` normalization, nested-list parent-item protection, and ragged-row table normalization
 * ✅ IR + Markdown emitter support structured lists and shared block-level output across formats

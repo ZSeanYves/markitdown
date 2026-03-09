@@ -13,8 +13,11 @@
   "keywords": [
     "markdown",
     "pdf",
-    "docx"
+    "docx",
+    "xlsx",
+    "pptx",
+    "html"
   ],
-  "description": "",
+  "description": "A MoonBit (markitdown-like) document conversion tool that turns .docx / .pdf / .xlsx / .pptx / .html into structured Markdown",
   "preferred-target": "native"
 }
