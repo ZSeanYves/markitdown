@@ -1,3 +1,4 @@
+///|
 pub fn emit_markdown(doc : Document) -> String {
   let mut out = ""
   let blocks = doc.blocks.val

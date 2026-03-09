@@ -20,9 +20,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
-  let close_tr = pat("</tr>")
-  let close_td = pat("</td>")
-  let close_th = pat("</th>")
+  let _close_tr = pat("</tr>")
+  let _close_td = pat("</td>")
+  let _close_th = pat("</th>")
 
   let close_script = pat("</script>")
   let close_style = pat("</style>")
@@ -132,20 +132,39 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 }
               }
             }
-
             if tag.has_prefix("<li") {
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_li, inner_start)
               match end0 {
                 None => ()
                 Some(end) => {
-                  let inner = bs[inner_start:end].to_bytes()
-                  let text = html_li_text_from_bytes(inner)
-                  if text.trim() != "" {
-                    out.push(HtmlNode::ListItem(text))
+                  let nested0 = find_nested_list_start_in_range(
+                    bs, inner_start, end,
+                  )
+
+                  match nested0 {
+                    Some(nested_start) => {
+                      // parent <li> text only: keep text before nested <ul>/<ol>
+                      let head = bs[inner_start:nested_start].to_bytes()
+                      let text = html_text_from_bytes(head)
+                      if text.trim() != "" {
+                        out.push(HtmlNode::ListItem(text))
+                      }
+
+                      // do not skip child list items; continue scanning from nested list start
+                      pos = nested_start
+                      continue
+                    }
+                    None => {
+                      let inner = bs[inner_start:end].to_bytes()
+                      let text = html_text_from_bytes(inner)
+                      if text.trim() != "" {
+                        out.push(HtmlNode::ListItem(text))
+                      }
+                      pos = end + close_li.length()
+                      continue
+                    }
                   }
-                  pos = end + close_li.length()
-                  continue
                 }
               }
             }
@@ -329,73 +348,6 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
   }
 
   out
-}
-
-///|
-fn html_li_text_from_bytes(inner : Bytes) -> String raise {
-  let inner0 = strip_nested_list_blocks(inner)
-  html_text_from_bytes(inner0)
-}
-
-///|
-/// remove nested <ul>...</ul> / <ol>...</ol> blocks from a <li> inner region
-/// so parent list item text does not swallow child list text
-fn strip_nested_list_blocks(inner : Bytes) -> Bytes {
-  let out : Array[Byte] = []
-
-  let lt = pat("<")
-  let gt = pat(">")
-
-  let open_ul = pat("<ul")
-  let open_ol = pat("<ol")
-  let close_ul = pat("</ul>")
-  let close_ol = pat("</ol>")
-
-  let mut pos = 0
-  let n = inner.length()
-
-  while pos < n {
-    let ul0 = find_bytes(inner, open_ul, pos)
-    let ol0 = find_bytes(inner, open_ol, pos)
-
-    let next = match (ul0, ol0) {
-      (Some(a), Some(b)) =>
-        if a < b {
-          Some((a, true))
-        } else {
-          Some((b, false))
-        }
-      (Some(a), None) => Some((a, true))
-      (None, Some(b)) => Some((b, false))
-      (None, None) => None
-    }
-
-    match next {
-      None => {
-        for b in inner[pos:].to_array() {
-          out.push(b)
-        }
-        break
-      }
-      Some((i0, is_ul)) => {
-        // copy bytes before nested list block
-        for b in inner[pos:i0].to_array() {
-          out.push(b)
-        }
-
-        let close_pat = if is_ul { close_ul } else { close_ol }
-        let end0 = find_bytes(inner, close_pat, i0)
-        match end0 {
-          None =>
-            // malformed HTML: stop at nested list start
-            break
-          Some(end) => pos = end + close_pat.length()
-        }
-      }
-    }
-  }
-
-  Bytes::from_iter(out.iter())
 }
 
 ///|

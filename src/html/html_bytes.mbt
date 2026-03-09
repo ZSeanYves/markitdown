@@ -34,23 +34,6 @@ fn find_bytes(hay : Bytes, needle : Bytes, start : Int) -> Int? {
 }
 
 ///|
-fn starts_with_bytes(hay : Bytes, pos : Int, needle : Bytes) -> Bool {
-  let n = hay.length()
-  let m = needle.length()
-  if pos < 0 || pos + m > n {
-    return false
-  }
-  let mut j = 0
-  while j < m {
-    if hay[pos + j] != needle[j] {
-      return false
-    }
-    j = j + 1
-  }
-  true
-}
-
-///|
 /// remove <...> tags from a byte slice (keep text bytes)
 fn strip_tags_bytes(inner : Bytes) -> Bytes {
   let out : Array[Byte] = []
@@ -87,30 +70,6 @@ fn strip_tags_bytes(inner : Bytes) -> Bytes {
 }
 
 ///|
-fn replace_bytes(hay : Bytes, from : Bytes, to : Bytes) -> Bytes {
-  let out : Array[Byte] = []
-  let mut i = 0
-  let n = hay.length()
-  let m = from.length()
-
-  while i < n {
-    let hit = m > 0 && i <= n - m && starts_with_bytes(hay, i, from)
-    if hit {
-      let arr = to.to_array()
-      for b in arr {
-        out.push(b)
-      }
-      i = i + m
-    } else {
-      out.push(hay[i])
-      i = i + 1
-    }
-  }
-
-  Bytes::from_array(out)
-}
-
-///|
 fn html_unescape(s : String) -> String raise {
   let t = s
     .replace(old="&lt;", new="<")
@@ -119,4 +78,26 @@ fn html_unescape(s : String) -> String raise {
     .replace(old="&quot;", new="\"")
     .replace(old="&apos;", new="'")
   @cor.decode_numeric_entities(t)
+}
+
+///|
+/// find first nested <ul...> / <ol...> between [start, end_)
+fn find_nested_list_start_in_range(bs : Bytes, start : Int, end_ : Int) -> Int? {
+  let open_ul = pat("<ul")
+  let open_ol = pat("<ol")
+
+  let ul0 = find_bytes(bs, open_ul, start)
+  let ol0 = find_bytes(bs, open_ol, start)
+
+  let pick = match (ul0, ol0) {
+    (Some(a), Some(b)) => if a < b { Some(a) } else { Some(b) }
+    (Some(a), None) => Some(a)
+    (None, Some(b)) => Some(b)
+    (None, None) => None
+  }
+
+  match pick {
+    None => None
+    Some(i) => if i < end_ { Some(i) } else { None }
+  }
 }

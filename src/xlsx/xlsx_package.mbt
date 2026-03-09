@@ -5,7 +5,7 @@
 ///|
 priv struct SheetInfo {
   name : String
-  rid : String
+  _rid : String
   target : String
 }
 
@@ -57,7 +57,7 @@ fn parse_workbook_sheets(
             let rid = get_attr(tag, "r:id").unwrap_or("")
             if rid != "" {
               let target = rel_map.get(rid).unwrap_or("")
-              out.push({ name, rid, target })
+              out.push({ name, _rid: rid, target })
             }
             pos = i1 + 1
           }

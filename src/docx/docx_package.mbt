@@ -1,6 +1,6 @@
 ///|
 priv struct DocxZip {
-  path : String
+  _path : String
   zip : @cor.ZipReader
 }
 
@@ -9,7 +9,7 @@ fn open_docx(path : String) -> DocxZip raise @fs.IOError {
   let z = @cor.open_zip(path) catch {
     e => raise @fs.IOError("open_zip failed: " + e.to_string())
   }
-  { path, zip: z }
+  { _path: path, zip: z }
 }
 
 ///|
