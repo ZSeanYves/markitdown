@@ -144,13 +144,15 @@ fn extract_shape_paragraphs(
     return []
   }
 
-  [{
-    text: merged_parts.join(" "),
-    bullet_kind: None,
-    level: 0,
-    from_title_shape: true,
-    from_body_shape,
-  }]
+  [
+    {
+      text: merged_parts.join(" "),
+      bullet_kind: None,
+      level: 0,
+      from_title_shape: true,
+      from_body_shape,
+    },
+  ]
 }
 
 ///|

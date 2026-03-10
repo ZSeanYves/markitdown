@@ -101,3 +101,122 @@ fn find_nested_list_start_in_range(bs : Bytes, start : Int, end_ : Int) -> Int? 
     Some(i) => if i < end_ { Some(i) } else { None }
   }
 }
+
+///|
+/// find matching close tag for a list block starting at `start_open`
+/// tag_name must be "ul" or "ol"
+fn find_matching_list_end(
+  bs : Bytes,
+  start_open : Int,
+  tag_name : String,
+) -> Int? {
+  let open_pat = pat("<" + tag_name)
+  let close_pat = pat("</" + tag_name + ">")
+  let gt_pat = pat(">")
+
+  let mut depth = 0
+  let mut pos = start_open
+  let n = bs.length()
+
+  while pos < n {
+    let open0 = find_bytes(bs, open_pat, pos)
+    let close0 = find_bytes(bs, close_pat, pos)
+
+    match (open0, close0) {
+      (None, None) => return None
+      (Some(i), None) => {
+        let gt0 = find_bytes(bs, gt_pat, i)
+        match gt0 {
+          None => return None
+          Some(gt) => {
+            depth = depth + 1
+            pos = gt + 1
+          }
+        }
+      }
+      (None, Some(j)) => {
+        depth = depth - 1
+        if depth == 0 {
+          return Some(j)
+        }
+        pos = j + close_pat.length()
+      }
+      (Some(i), Some(j)) =>
+        if i < j {
+          let gt0 = find_bytes(bs, gt_pat, i)
+          match gt0 {
+            None => return None
+            Some(gt) => {
+              depth = depth + 1
+              pos = gt + 1
+            }
+          }
+        } else {
+          depth = depth - 1
+          if depth == 0 {
+            return Some(j)
+          }
+          pos = j + close_pat.length()
+        }
+    }
+  }
+
+  None
+}
+
+///|
+/// find matching </li> for a <li ...> starting at start_open
+fn find_matching_li_end(bs : Bytes, start_open : Int) -> Int? {
+  let open_li = pat("<li")
+  let close_li = pat("</li>")
+  let gt_pat = pat(">")
+
+  let mut depth = 0
+  let mut pos = start_open
+  let n = bs.length()
+
+  while pos < n {
+    let open0 = find_bytes(bs, open_li, pos)
+    let close0 = find_bytes(bs, close_li, pos)
+
+    match (open0, close0) {
+      (None, None) => return None
+      (Some(i), None) => {
+        let gt0 = find_bytes(bs, gt_pat, i)
+        match gt0 {
+          None => return None
+          Some(gt) => {
+            depth = depth + 1
+            pos = gt + 1
+          }
+        }
+      }
+      (None, Some(j)) => {
+        depth = depth - 1
+        if depth == 0 {
+          return Some(j)
+        }
+        pos = j + close_li.length()
+      }
+      (Some(i), Some(j)) =>
+        if i < j {
+          let gt0 = find_bytes(bs, gt_pat, i)
+          match gt0 {
+            None => return None
+            Some(gt) => {
+              depth = depth + 1
+              pos = gt + 1
+            }
+          }
+        } else {
+          depth = depth - 1
+          if depth == 0 {
+            return Some(j)
+          }
+          pos = j + close_li.length()
+        }
+    }
+  }
+
+  None
+}

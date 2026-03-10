@@ -1,4 +1,4 @@
 - Parent
-- Child A
-- Child B
+  - Child A
+  - Child B
 - Sibling

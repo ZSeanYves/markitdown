@@ -7,7 +7,8 @@ fn nodes_to_blocks(nodes : Array[HtmlNode], max_h : Int) -> Array[@cor.Block] {
       HtmlNode::Heading(level, text) =>
         out.push(@cor.Block::Heading(clamp_heading(level, max_h), text))
       HtmlNode::Paragraph(text) => out.push(@cor.Block::Paragraph(text))
-      HtmlNode::ListItem(text) => out.push(@cor.Block::ListItem(false, 0, text))
+      HtmlNode::ListItem(ordered, level, text) =>
+        out.push(@cor.Block::ListItem(ordered, level, text))
       HtmlNode::BlockQuote(text) => out.push(@cor.Block::BlockQuote(text))
       HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
       HtmlNode::Table(rows) => out.push(@cor.Block::Table(rows))

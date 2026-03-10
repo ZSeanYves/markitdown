@@ -2,7 +2,7 @@
 priv enum HtmlNode {
   Heading(Int, String)
   Paragraph(String)
-  ListItem(String)
+  ListItem(Bool, Int, String) // ordered, level, text
   BlockQuote(String)
   CodeBlock(String)
   Table(Array[Array[String]])
@@ -16,7 +16,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let gt = pat(">")
 
   let close_p = pat("</p>")
-  let close_li = pat("</li>")
+  let _close_li = pat("</li>")
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
@@ -132,40 +132,27 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 }
               }
             }
-            if tag.has_prefix("<li") {
-              let inner_start = q + 1
-              let end0 = find_bytes(bs, close_li, inner_start)
-              match end0 {
-                None => ()
+            if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
+              let is_ol = tag.has_prefix("<ol")
+              let list_name = if is_ol { "ol" } else { "ul" }
+
+              match find_matching_list_end(bs, p, list_name) {
                 Some(end) => {
-                  let nested0 = find_nested_list_start_in_range(
-                    bs, inner_start, end,
+                  let close_len = ("</" + list_name + ">").length()
+                  let inner_start = q + 1
+                  let inner_end = end
+
+                  let items = scan_list_nodes(
+                    bs, inner_start, inner_end, is_ol, 0,
                   )
-
-                  match nested0 {
-                    Some(nested_start) => {
-                      // parent <li> text only: keep text before nested <ul>/<ol>
-                      let head = bs[inner_start:nested_start].to_bytes()
-                      let text = html_text_from_bytes(head)
-                      if text.trim() != "" {
-                        out.push(HtmlNode::ListItem(text))
-                      }
-
-                      // do not skip child list items; continue scanning from nested list start
-                      pos = nested_start
-                      continue
-                    }
-                    None => {
-                      let inner = bs[inner_start:end].to_bytes()
-                      let text = html_text_from_bytes(inner)
-                      if text.trim() != "" {
-                        out.push(HtmlNode::ListItem(text))
-                      }
-                      pos = end + close_li.length()
-                      continue
-                    }
+                  for item in items {
+                    out.push(item)
                   }
+
+                  pos = end + close_len
+                  continue
                 }
+                None => ()
               }
             }
             if tag.has_prefix("<table") {
@@ -186,6 +173,130 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
             }
 
             pos = q + 1
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+/// scan one <ul>/<ol> block body and emit list items with ordered/level
+fn scan_list_nodes(
+  bs : Bytes,
+  start : Int,
+  end_ : Int,
+  ordered : Bool,
+  level : Int,
+) -> Array[HtmlNode] raise {
+  let out : Array[HtmlNode] = []
+
+  let open_li = pat("<li")
+  let close_li = pat("</li>")
+  let gt_pat = pat(">")
+
+  let mut pos = start
+  while pos < end_ {
+    let li0 = find_bytes(bs, open_li, pos)
+    match li0 {
+      None => break
+      Some(i0) => {
+        if i0 >= end_ {
+          break
+        }
+
+        let gt0 = find_bytes(bs, gt_pat, i0)
+        match gt0 {
+          None => break
+          Some(q0) => {
+            if q0 >= end_ {
+              break
+            }
+
+            let inner_start = q0 + 1
+
+            // 关键修复：找“当前 li”的匹配闭合位置，而不是第一个 </li>
+            let end_li0 = find_matching_li_end(bs, i0)
+            match end_li0 {
+              None => break
+              Some(li_end) => {
+                if li_end > end_ {
+                  break
+                }
+
+                let nested0 = find_nested_list_start_in_range(
+                  bs, inner_start, li_end,
+                )
+
+                match nested0 {
+                  Some(nested_start) => {
+                    let head = bs[inner_start:nested_start].to_bytes()
+                    let text = html_text_from_bytes(head)
+                    if text.trim() != "" {
+                      out.push(HtmlNode::ListItem(ordered, level, text))
+                    }
+
+                    let nested_tag_end0 = find_bytes(bs, gt_pat, nested_start)
+                    match nested_tag_end0 {
+                      None => ()
+                      Some(nested_gt) => {
+                        let tag_bs = bs[nested_start:nested_gt + 1].to_bytes()
+                        let tag = (@cor.utf8_bytes_to_string(tag_bs) catch {
+                          _ => ""
+                        }).to_lower()
+
+                        let nested_is_ol = tag.has_prefix("<ol")
+                        let nested_is_ul = tag.has_prefix("<ul")
+
+                        if nested_is_ol || nested_is_ul {
+                          let nested_name = if nested_is_ol {
+                            "ol"
+                          } else {
+                            "ul"
+                          }
+                          match
+                            find_matching_list_end(
+                              bs, nested_start, nested_name,
+                            ) {
+                            Some(nested_end) => {
+                              let _nested_close_len = ("</" + nested_name + ">").length()
+                              let nested_inner_start = nested_gt + 1
+
+                              let nested_nodes = scan_list_nodes(
+                                bs,
+                                nested_inner_start,
+                                nested_end,
+                                nested_is_ol,
+                                level + 1,
+                              )
+                              for node in nested_nodes {
+                                out.push(node)
+                              }
+
+                              pos = li_end + close_li.length()
+                              continue
+                            }
+                            None => ()
+                          }
+                        }
+                      }
+                    }
+
+                    pos = li_end + close_li.length()
+                  }
+                  None => {
+                    let inner = bs[inner_start:li_end].to_bytes()
+                    let text = html_text_from_bytes(inner)
+                    if text.trim() != "" {
+                      out.push(HtmlNode::ListItem(ordered, level, text))
+                    }
+                    pos = li_end + close_li.length()
+                  }
+                }
+              }
+            }
           }
         }
       }
