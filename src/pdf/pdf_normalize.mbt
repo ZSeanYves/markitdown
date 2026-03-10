@@ -48,30 +48,26 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
         }
         prev_was_page_break = false
       }
-
-      PdfLine::PageBreak => {
+      PdfLine::PageBreak =>
         // 先记住跨页，不立即 flush；
         // 是否续段交给下一条正文判断
         prev_was_page_break = true
-      }
-
-      PdfLine::Text(cur) => {
+      PdfLine::Text(cur) =>
         if buf == "" {
           buf = cur
           prev_was_page_break = false
-} else if should_start_new_block(buf, cur, prev_was_page_break) {
-  flush_pdf_block(out, buf)
-  buf = cur
-  prev_was_page_break = false
-} else if should_flush_buf_before_appending(buf, cur) {
-  flush_pdf_block(out, buf)
-  buf = cur
-  prev_was_page_break = false
-} else {
-  buf = append_line(buf, cur)
-  prev_was_page_break = false
-}
-      }
+        } else if should_start_new_block(buf, cur, prev_was_page_break) {
+          flush_pdf_block(out, buf)
+          buf = cur
+          prev_was_page_break = false
+        } else if should_flush_buf_before_appending(buf, cur) {
+          flush_pdf_block(out, buf)
+          buf = cur
+          prev_was_page_break = false
+        } else {
+          buf = append_line(buf, cur)
+          prev_was_page_break = false
+        }
     }
 
     i = i + 1
@@ -142,6 +138,7 @@ fn should_start_new_block(
 
   false
 }
+
 ///|
 fn should_merge_across_page_break(left : String, right : String) -> Bool {
   let l = left.trim().to_string()
@@ -161,6 +158,12 @@ fn should_merge_across_page_break(left : String, right : String) -> Bool {
 
   if looks_like_figure_or_table_caption(r) {
     return false
+  }
+
+  // if right starts with lowercase latin, it is very likely a continuation
+  match first_char(r) {
+    Some(c) => if c >= 'a' && c <= 'z' { return true }
+    None => ()
   }
 
   // if the previous page ends with a sentence terminator,
@@ -206,6 +209,7 @@ fn starts_like_new_block(s : String) -> Bool {
 
   false
 }
+
 ///|
 /// Strong heading candidate for block decisions.
 /// This must stay conservative.
@@ -265,6 +269,7 @@ fn looks_like_figure_or_table_caption(s : String) -> Bool {
   t.has_prefix("图") ||
   t.has_prefix("表 ")
 }
+
 ///|
 fn looks_like_intro_phrase(s : String) -> Bool {
   let t = s.trim().to_string()
@@ -277,6 +282,7 @@ fn looks_like_intro_phrase(s : String) -> Bool {
   t == "Moreover," ||
   t == "Nevertheless,"
 }
+
 ///|
 fn looks_like_list_intro_line(s : String) -> Bool {
   let t = s.trim().to_string()
@@ -297,6 +303,7 @@ fn looks_like_list_intro_line(s : String) -> Bool {
 
   false
 }
+
 ///|
 fn append_line(buf : String, cur : String) -> String {
   if buf == "" {
@@ -310,6 +317,7 @@ fn append_line(buf : String, cur : String) -> String {
   buf + glue_between(buf, cur) + cur
 }
 
+///|
 fn guess_heading_level(text : String) -> Int {
   let t = text.trim().to_string()
   if t == "" {
@@ -398,6 +406,7 @@ fn heading_score(s : String) -> Int {
 
   sc
 }
+
 ///|
 /// very conservative compact CJK heading fallback
 fn looks_like_compact_cjk_heading(s : String) -> Bool {
@@ -450,6 +459,7 @@ fn looks_like_compact_cjk_heading(s : String) -> Bool {
 
   true
 }
+
 ///|
 fn guess_numbered_heading_level(s : String) -> Int {
   let t = s.trim().to_string()
@@ -575,7 +585,6 @@ fn ends_like_sentence(s : String) -> Bool {
   }
 }
 
-
 ///|
 fn looks_like_heading_marker(s : String) -> Bool {
   let t = s.trim().to_string()
@@ -650,6 +659,7 @@ fn looks_like_english_title(s : String) -> Bool {
 
   latin_words >= 2 && good_caps >= 2
 }
+
 ///|
 fn starts_with_numbered_heading(s : String) -> Bool {
   let t = s.trim().to_string()
@@ -1021,24 +1031,25 @@ fn looks_like_list_item_sentence(s : String) -> Bool {
   false
 }
 
-
 ///|
 /// Heuristic for document-level title.
 /// Used to restore old PDF samples where the first main title should be H1.
 fn looks_like_document_title(s : String) -> Bool {
   let t = s.trim().to_string()
   let words : Array[String] = []
-for sv in t.split(" ") {
-  let w = sv.to_string().trim().to_string()
-  if w != "" {
-    words.push(w)
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      words.push(w)
+    }
   }
-}
-
-// single-word English title is more likely a section title than document title
-if words.length() == 1 && starts_with_latin(words[0]) {
-  return false
-}
+  if t.has_suffix(" Section") {
+    return false
+  }
+  // single-word English title is more likely a section title than document title
+  if words.length() == 1 && starts_with_latin(words[0]) {
+    return false
+  }
   if t == "" {
     return false
   }
@@ -1146,17 +1157,16 @@ fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
   }
 
   // a single list item should not absorb following prose
-  if looks_like_list_item_sentence(b) &&
-    !looks_like_list_item_sentence(t) {
+  if looks_like_list_item_sentence(b) && !looks_like_list_item_sentence(t) {
     return true
   }
   if ends_like_sentence(b) && looks_like_figure_or_table_caption(t) {
-  return true
-}
+    return true
+  }
 
-if ends_like_sentence(b) && looks_like_intro_phrase(t) {
-  return true
-}
+  if ends_like_sentence(b) && looks_like_intro_phrase(t) {
+    return true
+  }
 
   false
 }

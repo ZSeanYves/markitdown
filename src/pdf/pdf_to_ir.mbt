@@ -26,14 +26,41 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
   let (head_keys, tail_keys) = detect_repeated_page_noise(pages)
 
   let clean_pages : Array[String] = []
+  let mut page_idx = 0
   for page in pages {
     let clean_page = strip_page_noise(page, head_keys, tail_keys)
     if clean_page.trim() != "" {
       clean_pages.push(clean_page)
+
+      println("[pdf-cross-debug] clean page " + page_idx.to_string())
+      let mut shown = 0
+      for sv in clean_page.split("\n") {
+        let line = sv.to_string().trim().to_string()
+        if line != "" {
+          println("[pdf-cross-debug]   " + line)
+          shown += 1
+          if shown >= 8 {
+            break
+          }
+        }
+      }
     }
+    page_idx += 1
   }
 
   let merged = merge_clean_pages_with_breaks(clean_pages)
+  println("[pdf-cross-debug] merged preview")
+  let mut shown = 0
+  for sv in merged.split("\n") {
+    let line = sv.to_string().trim().to_string()
+    if line != "" {
+      println("[pdf-cross-debug]   " + line)
+      shown += 1
+      if shown >= 15 {
+        break
+      }
+    }
+  }
 
   let mut first_block = true
   for b in split_blocks_smart(merged) {
@@ -46,20 +73,18 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     match b {
       PdfBlock::Heading(level, text) =>
         @cor.push(doc, @cor.Block::Heading(level, text))
-      PdfBlock::Paragraph(text) =>
-        @cor.push(doc, @cor.Block::Paragraph(text))
+      PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
     }
   }
 
   doc
 }
+
 ///|
 /// Internal marker inserted between cleaned pages.
 /// split_blocks_smart() should recognize this marker later.
 const PDF_PAGE_BREAK_MARKER = "__PDF_PAGE_BREAK__"
-///|
-/// Merge cleaned pages into one text stream,
-/// while preserving page boundaries with an internal marker.
+
 fn merge_clean_pages_with_breaks(pages : Array[String]) -> String {
   if pages.length() == 0 {
     return ""
@@ -75,14 +100,13 @@ fn merge_clean_pages_with_breaks(pages : Array[String]) -> String {
     }
 
     if i + 1 < n {
-      out.push("")
       out.push(PDF_PAGE_BREAK_MARKER)
-      out.push("")
     }
   }
 
   out.join("\n")
 }
+
 ///|
 /// 检测跨页重复页眉/页脚
 fn detect_repeated_page_noise(

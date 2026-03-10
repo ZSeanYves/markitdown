@@ -1,6 +1,7 @@
 ///|
 /// temporary local debug switch for PDF extractor selection
 const PDF_EXTRACT_DEBUG = false
+
 ///|
 fn debug_print_candidate(label : String, text : String) -> Unit {
   if !PDF_EXTRACT_DEBUG {
@@ -49,11 +50,13 @@ fn debug_print_selected(label : String, score : Int) -> Unit {
   }
   println("[pdf-debug] selected=" + label + " score=" + score.to_string())
 }
+
 ///|
 priv struct PdfExtractCandidate {
   label : String
   text : String
 }
+
 ///|
 /// Try multiple external backends to avoid vendor lock-in.
 async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
@@ -200,6 +203,7 @@ fn pick_best_extracted_text(
 
   (best_label, best_text, best_score)
 }
+
 ///|
 fn score_extracted_text(text : String) -> Int {
   let s = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
