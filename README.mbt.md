@@ -8,11 +8,11 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 ## Features
 
-* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and style/numbering-driven list structure recovery
+* ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, style/numbering-driven list structure recovery, paragraph line-break preservation, and code-like paragraph recovery under the current heuristic rules
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
-* ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, and basic cell-type support
-* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, and clean up empty / duplicate paragraph noise
-* ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, normalize common `<br>` variants, avoid swallowing nested list text in parent items, and decode entities
+* ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, basic cell-type support, and lightweight date/time formatting for style-marked numeric cells
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, and clean up empty / duplicate paragraph noise
+* ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, normalize common `<br>` variants, preserve ordered / unordered / nested list structure, avoid swallowing nested list text in parent items, and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
 > Note: This project intentionally avoids unstable or untrusted third-party parsing libraries where possible, and keeps format handling in small MoonBit packages with explicit heuristics.
@@ -49,7 +49,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * `docx_xml.mbt`: lower-level XML scanning helpers
   * `docx_table.mbt`: table extraction logic
   * `docx_rels.mbt`: relationship parsing (`rId → Target`)
-  * `docx_styles.mbt`: `word/styles.xml` parsing for heading-level resolution
+  * `docx_styles.mbt`: `word/styles.xml` parsing for heading-level resolution and paragraph-style name lookup
   * `docx_numbering.mbt`: `word/numbering.xml` parsing for ordered / unordered / nested lists
   * `moon.pkg`: package definition
 * `src/html/`: HTML parsing package
@@ -86,6 +86,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * `xlsx_package.mbt`: XLSX package/ZIP access helpers
   * `xlsx_shared_strings.mbt`: shared strings parsing
   * `xlsx_sheet.mbt`: sheet-level extraction
+  * `xlsx_styles.mbt`: `xl/styles.xml` parsing for `numFmtId` / `formatCode`-driven lightweight date/time interpretation
   * `xlsx_xml.mbt`: XML scanning helpers
   * `moon.pkg`: package definition
 * `samples/`: sample files & regression scripts
@@ -130,6 +131,15 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * ordered lists
   * nested lists
   * mixed list structures (current Markdown emission preserves level + ordered/unordered shape)
+* Preserves paragraph-level manual line breaks into Markdown-friendly output
+* Preserves table-cell internal manual line breaks into Markdown-friendly `<br>` output
+* Recovers code-like paragraphs under the current conservative rules:
+
+  * paragraph-style name match when available
+  * fallback: multi-line text plus explicit code-like token patterns
+* Keeps a style-driven blockquote recovery entry point in the parser
+
+> Note: DOCX blockquote recovery is wired into the parsing pipeline, but **real DOCX blockquote-style samples have not been validated yet**. Current list / heading / table / code-like paragraph coverage is backed by regression samples; blockquote-style recovery is not yet backed by a true source-document sample.
 
 ### ✅ ZIP/Deflate Decompression
 
@@ -178,6 +188,13 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Trims sparse trailing empty rows / columns in current regression samples
 * Crops sparse sheets to the minimal non-empty bounding box before Markdown emission
 * Decodes XML entities (including numeric entities)
+* Interprets style-marked numeric date/time-like cells through `xl/styles.xml`:
+
+  * built-in date/time-like `numFmtId` handling
+  * custom `formatCode`-driven lightweight date/time-like detection
+  * stable output formatting for date / time / datetime cells under the current regression samples
+
+> Note: XLSX date/time support is currently validated against **custom `formatCode`-based samples**. Built-in Excel `numFmtId` cases such as **14 / 20 / 22** are implemented in the lightweight formatter, but **have not yet been validated with real workbook samples**.
 
 ### ✅ PPTX
 
@@ -185,7 +202,9 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Resolves real slide order through `ppt/presentation.xml` + `presentation.xml.rels`, instead of relying only on slide file name order
 * Prefers title placeholders for slide headings, with text heuristic fallback when needed
 * Uses paragraph bullet properties before text-prefix heuristics for list detection
+* Restores unordered and ordered list semantics from bullet properties / numbering-aware bullet metadata
 * Restores list nesting from `<a:pPr lvl="N">`
+* Merges multi-paragraph title-shape text into one heading under the current heuristic rules
 * Removes empty paragraphs, bullet-only shells, and adjacent duplicate text
 * Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
 
@@ -196,6 +215,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Supports block quotes and preformatted/code blocks
 * Supports basic HTML table extraction (`<table>` → IR `Table` → Markdown table)
 * Normalizes common `<br>` variants before text extraction
+* Preserves ordered / unordered / nested list structure under current regression coverage
 * Prevents parent `<li>` text from swallowing nested list text in current regression cases
 * Normalizes ragged table rows to stable Markdown table widths
 * Decodes entities (including numeric entities)
@@ -303,6 +323,9 @@ Recent regression coverage includes:
   * ordered lists
   * nested lists
   * mixed lists
+  * paragraph manual line breaks
+  * table-cell manual line breaks
+  * code-like paragraph positive / negative cases
   * images / tables / general golden sample
 * **PDF**
 
@@ -323,7 +346,9 @@ Recent regression coverage includes:
   * presentation-order slide sequence sample
   * shape-aware title/body handling
   * bullet-property list detection
+  * ordered-list recovery from numbering-aware bullet properties
   * bullet levels / cleanup behavior
+  * multi-paragraph title-shape merge behavior
 * **HTML**
 
   * simple content
@@ -332,7 +357,9 @@ Recent regression coverage includes:
   * pre/code blocks
   * basic tables
   * `<br>` variants
-  * nested list parent-item handling
+  * ordered lists
+  * nested lists
+  * mixed nested ordered/unordered lists
   * ragged table rows
 * **XLSX**
 
@@ -342,6 +369,7 @@ Recent regression coverage includes:
   * multi-sheet mixed workbook
   * empty sheet behavior
   * sparse-edge / bounding-box trimming
+  * custom-format date / time / datetime cells
 
 If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
 
@@ -376,9 +404,9 @@ Then re-run:
 
 1. Unify output spacing / blank-line style across formats after the current parser work stabilizes
 2. Continue improving PPTX fallback behavior for non-standard title/body layouts
-3. Expand HTML structure robustness around mixed block content and table edge cases
-4. Explore additional XLSX policies such as date handling / empty-sheet behavior
-5. Extend DOCX style-driven block recovery beyond headings/lists (for example quote/code-like paragraph styles)
+3. Expand HTML structure robustness around mixed block content and `<br>` semantics
+4. Extend XLSX validation coverage for built-in date/time `numFmtId` cases
+5. Extend DOCX style-driven block recovery beyond headings/lists with true source-document validation for quote-like styles
 
 ### Mid-term
 
@@ -390,9 +418,9 @@ Then re-run:
 
 ## Status
 
-* ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
+* ✅ docx: upgraded minimal pipeline works, including style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, and conservative code-like paragraph recovery
 * ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
-* ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types, multi-sheet samples, empty-sheet handling, and sparse bounding-box trimming
-* ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, bullet detection, nested list levels, and paragraph cleanup
-* ✅ html: MVP+ works with lists / quotes / code blocks / tables, plus `<br>` normalization, nested-list parent-item protection, and ragged-row table normalization
+* ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types, multi-sheet samples, empty-sheet handling, sparse bounding-box trimming, and lightweight style-driven date/time interpretation
+* ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, and paragraph cleanup
+* ✅ html: MVP+ works with lists / quotes / code blocks / tables, plus `<br>` normalization, ordered/nested-list structure recovery, parent-item protection, and ragged-row table normalization
 * ✅ IR + Markdown emitter support structured lists and shared block-level output across formats
