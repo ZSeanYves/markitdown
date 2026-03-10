@@ -59,6 +59,11 @@ fn scan_paragraph(
     return out
   }
 
+  if paragraph_is_blockquote(p_xml, styles) {
+    out.push(@cor.Block::BlockQuote(text))
+    return out
+  }
+
   out.push(@cor.Block::Paragraph(text))
   out
 }
@@ -203,4 +208,71 @@ fn legacy_heading_level(v : String) -> Int {
   } else {
     0
   }
+}
+
+///|
+/// v1: 仅按段落样式判断是否为引用块，尽量保守，避免误判正文
+fn paragraph_is_blockquote(p_xml : String, styles : DocxStyles) -> Bool {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) => style_is_blockquote(styles, style_id)
+    None => false
+  }
+}
+
+///|
+/// 根据 styleId / style name 判断是否属于 quote-like 段落
+fn style_is_blockquote(styles : DocxStyles, style_id : String) -> Bool {
+  if quote_name_like(style_id) {
+    return true
+  }
+
+  match style_name_of(styles, style_id) {
+    Some(name) => quote_name_like(name)
+    None => false
+  }
+}
+
+///|
+/// 只匹配比较明确的引用类命名；先保守一点，后面再扩
+fn quote_name_like(s : String) -> Bool {
+  let t = ascii_lower(trim_ascii_spaces(s))
+
+  t == "quote" ||
+  t == "blockquote" ||
+  t == "block quote" ||
+  t == "citation" ||
+  t == "epigraph" ||
+  t.contains("quote") ||
+  t.contains("blockquote") ||
+  t.contains("citation") ||
+  t.contains("epigraph") ||
+  s.contains("引文") ||
+  s.contains("引用")
+}
+
+///|
+fn trim_ascii_spaces(s : String) -> String {
+  let cs = s.to_array()
+  let mut l = 0
+  let mut r = cs.length()
+
+  while l < r {
+    let c = cs[l]
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      l = l + 1
+    } else {
+      break
+    }
+  }
+
+  while r > l {
+    let c = cs[r - 1]
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      r = r - 1
+    } else {
+      break
+    }
+  }
+
+  String::from_array(cs[l:r].to_array())
 }

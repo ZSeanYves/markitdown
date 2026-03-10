@@ -1,11 +1,12 @@
 ///|
 priv struct DocxStyles {
   heading_by_style : Map[String, Int]
+  name_by_style : Map[String, String]
 }
 
 ///|
 fn empty_styles() -> DocxStyles {
-  { heading_by_style: {} }
+  { heading_by_style: {}, name_by_style: {} }
 }
 
 ///|
@@ -28,9 +29,18 @@ fn heading_level_of(
 }
 
 ///|
-/// 解析 word/styles.xml，建立 styleId -> heading level 映射
+/// 读取某个 styleId 对应的样式名（若存在）
+fn style_name_of(styles : DocxStyles, style_id : String) -> String? {
+  styles.name_by_style.get(style_id)
+}
+
+///|
+/// 解析 word/styles.xml，建立：
+/// - styleId -> heading level
+/// - styleId -> style name
 fn parse_styles_xml(xml : String) -> DocxStyles {
   let heading_by_style : Map[String, Int] = {}
+  let name_by_style : Map[String, String] = {}
 
   let chars = xml.to_array()
   let mut i = 0
@@ -60,6 +70,11 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
     if is_paragraph {
       match read_attr_value_in_tag(open_tag, "w:styleId") {
         Some(style_id) => {
+          match read_style_name(inner) {
+            Some(name) => name_by_style[style_id] = name
+            None => ()
+          }
+
           let level = detect_heading_level(style_id, inner)
           if level > 0 {
             heading_by_style[style_id] = level
@@ -73,7 +88,7 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
     i = s3 + 10
   }
 
-  { heading_by_style, }
+  { heading_by_style, name_by_style }
 }
 
 ///|
@@ -85,7 +100,7 @@ fn detect_heading_level(style_id : String, inner : String) -> Int {
   }
 
   // 再看样式名
-  match read_attr_value(inner, "<w:name w:val=\"") {
+  match read_style_name(inner) {
     Some(name) => {
       let by_name = heading_level_from_name(name)
       if by_name > 0 {
@@ -107,6 +122,15 @@ fn detect_heading_level(style_id : String, inner : String) -> Int {
   }
 
   0
+}
+
+///|
+/// 读取样式名，兼容双引号 / 单引号属性
+fn read_style_name(inner : String) -> String? {
+  match read_attr_value(inner, "<w:name w:val=\"") {
+    Some(name) => Some(name)
+    None => read_attr_value(inner, "<w:name w:val='")
+  }
 }
 
 ///|
