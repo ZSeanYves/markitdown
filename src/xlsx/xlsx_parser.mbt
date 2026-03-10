@@ -4,10 +4,10 @@
 /// - XML parsing: lightweight string scanning (good enough for MVP)
 /// - Output: Heading + Table per sheet
 ///
-/// Limitations (MVP):
-/// - no styles, no formula evaluation
+/// Limitations:
+/// - no formula evaluation
 /// - merged cells ignored
-/// - date/time formatting not interpreted yet
+/// - lightweight date/time formatting support for common built-in Excel numFmtIds
 /// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
 pub async fn parse_xlsx(
   input_path : String,
@@ -33,10 +33,18 @@ pub async fn parse_xlsx(
     []
   }
 
-  // 4) parse sheets
+  // 4) styles.xml is optional
+  let styles = if @cor.ZipReader::has_entry(z, "xl/styles.xml") {
+    let styles_xml = read_zip_utf8(z, "xl/styles.xml")
+    parse_styles_xml(styles_xml)
+  } else {
+    empty_styles()
+  }
+
+  // 5) parse sheets
   let sheets = parse_workbook_sheets(wb_xml, rels_xml)
 
-  // 5) build IR
+  // 6) build IR
   let doc = @cor.new_document()
 
   if sheets.length() == 0 {
@@ -66,7 +74,7 @@ pub async fn parse_xlsx(
     }
 
     let sh_xml = read_zip_utf8(z, sheet_path)
-    let table = parse_sheet_table(sh_xml, shared)
+    let table = parse_sheet_table(sh_xml, shared, styles)
 
     if table.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty sheet)"))

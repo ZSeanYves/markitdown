@@ -12,6 +12,7 @@
 fn parse_sheet_table(
   sheet_xml : String,
   shared : Array[String],
+  styles : XlsxStyles,
 ) -> Array[Array[String]] raise {
   let cells : Map[String, String] = Map::new()
   let mut min_r = 0
@@ -33,6 +34,8 @@ fn parse_sheet_table(
 
             let rref = get_attr(ctag, "r").unwrap_or("")
             let t = get_attr(ctag, "t").unwrap_or("")
+            let s = get_attr(ctag, "s").unwrap_or("")
+            let style_idx = parse_int(s)
 
             let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
             match c_end0 {
@@ -56,7 +59,9 @@ fn parse_sheet_table(
 
                 let (rr, cc) = cell_ref_to_rc(rref)
                 if rr > 0 && cc > 0 {
-                  let text = resolve_cell_text(t, inner, val, shared)
+                  let text = resolve_cell_text(
+                    t, inner, val, shared, styles, style_idx,
+                  )
                   cells.set(rr.to_string() + "," + cc.to_string(), text)
 
                   if @cor.trim_string(text) != "" {
@@ -101,7 +106,6 @@ fn parse_sheet_table(
   let table1 = trim_table_bottom(table0)
   normalize_table_width(table1)
 }
-
 // ============================
 // Utilities
 // ============================
@@ -112,6 +116,8 @@ fn resolve_cell_text(
   inner : String,
   val : String,
   shared : Array[String],
+  styles : XlsxStyles,
+  style_idx : Int,
 ) -> String raise {
   if t == "s" {
     let idx = parse_int(val)
@@ -142,7 +148,14 @@ fn resolve_cell_text(
     }
   } else {
     // numeric / formula cached result / other types
-    xml_unescape(val)
+    let raw = xml_unescape(val)
+    let num_fmt_id = style_index_numfmt(styles, style_idx)
+
+    if numfmt_is_datetime_like(num_fmt_id) {
+      format_excel_datetime(raw, num_fmt_id)
+    } else {
+      raw
+    }
   }
 }
 
