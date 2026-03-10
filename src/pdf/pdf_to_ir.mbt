@@ -7,7 +7,7 @@
 /// - Strip page-level noise page by page
 /// - Merge cleaned pages with an internal page-break marker
 /// - Recover blocks once on the merged text
-fn text_to_ir_document(text0 : String) -> @cor.Document {
+fn text_to_ir_document(text0 : String) -> @cor.Document raise {
   let text = @cor.normalize_text(text0)
   let doc = @cor.new_document()
 
@@ -32,12 +32,12 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     if clean_page.trim() != "" {
       clean_pages.push(clean_page)
 
-      println("[pdf-cross-debug] clean page " + page_idx.to_string())
+      //println("[pdf-cross-debug] clean page " + page_idx.to_string())
       let mut shown = 0
       for sv in clean_page.split("\n") {
         let line = sv.to_string().trim().to_string()
         if line != "" {
-          println("[pdf-cross-debug]   " + line)
+          //println("[pdf-cross-debug]   " + line)
           shown += 1
           if shown >= 8 {
             break
@@ -49,12 +49,12 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
   }
 
   let merged = merge_clean_pages_with_breaks(clean_pages)
-  println("[pdf-cross-debug] merged preview")
+  //println("[pdf-cross-debug] merged preview")
   let mut shown = 0
   for sv in merged.split("\n") {
     let line = sv.to_string().trim().to_string()
     if line != "" {
-      println("[pdf-cross-debug]   " + line)
+      //println("[pdf-cross-debug]   " + line)
       shown += 1
       if shown >= 15 {
         break
@@ -74,6 +74,8 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
       PdfBlock::Heading(level, text) =>
         @cor.push(doc, @cor.Block::Heading(level, text))
       PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
+      PdfBlock::ListItem(ordered, level, text) =>
+        @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
     }
   }
 

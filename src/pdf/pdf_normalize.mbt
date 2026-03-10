@@ -1,9 +1,8 @@
-///|
 priv enum PdfBlock {
   Heading(Int, String)
   Paragraph(String)
+  ListItem(Bool, Int, String) // ordered, level, text
 }
-
 ///|
 priv enum PdfLine {
   Blank
@@ -12,7 +11,7 @@ priv enum PdfLine {
 }
 
 ///|
-fn split_blocks_smart(page : String) -> Array[PdfBlock] {
+fn split_blocks_smart(page : String) -> Array[PdfBlock] raise{
   let s = page
     .replace(old="\r\n", new="\n")
     .replace(old="\r", new="\n")
@@ -81,10 +80,21 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 }
 
 ///|
-fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit {
+fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit raise{
   let raw = buf.trim().to_string()
   if raw == "" {
     return
+  }
+
+  match parse_pdf_list_item(raw) {
+    Some((ordered, level, text)) => {
+      let t = trim_string_for_pdf_block(text)
+      if t != "" {
+        out.push(PdfBlock::ListItem(ordered, level, t))
+      }
+      return
+    }
+    None => ()
   }
 
   let level = guess_heading_level(raw)
@@ -100,7 +110,29 @@ fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit {
     }
   }
 }
+///|
+fn trim_string_for_pdf_block(s : String) -> String {
+  let t = s.trim()
+  if t == "" {
+    return ""
+  }
 
+  let mut out = ""
+  let mut prev_space = false
+  for c in t.to_array() {
+    if c == ' ' {
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + c.to_string()
+      prev_space = false
+    }
+  }
+
+  out.trim().to_string()
+}
 ///|
 fn should_start_new_block(
   buf : String,
@@ -1169,4 +1201,84 @@ fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
   }
 
   false
+}
+
+
+///|
+fn is_pdf_list_item(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if t.has_prefix("• ") || t.has_prefix("- ") || t.has_prefix("* ") {
+    return true
+  }
+
+  let cs = t.to_array()
+  let n = cs.length()
+  if n == 0 {
+    return false
+  }
+
+  let mut i = 0
+  let mut has_digit = false
+  while i < n {
+    let c = cs[i]
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if has_digit && i + 1 < n {
+    let c = cs[i]
+    if (c == '.' || c == ')' || c == '）' || c == '、') && cs[i + 1] == ' ' {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
+fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? raise{
+  let t = s.trim().to_string()
+  if t == "" {
+    return None
+  }
+
+  if t.has_prefix("• ") || t.has_prefix("- ") || t.has_prefix("* ") {
+    return Some((false, 0, t[2:].trim().to_string()))
+  }
+
+  let cs = t.to_array()
+  let n = cs.length()
+  if n == 0 {
+    return None
+  }
+
+  let mut i = 0
+  let mut has_digit = false
+  while i < n {
+    let c = cs[i]
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if has_digit && i + 1 < n {
+    let c = cs[i]
+    if (c == '.' || c == ')' || c == '）' || c == '、') && cs[i + 1] == ' ' {
+      let text = String::from_array(cs[i + 2:].to_array()).trim().to_string()
+      return Some((true, 0, text))
+    }
+  }
+
+  None
 }
