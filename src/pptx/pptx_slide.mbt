@@ -69,12 +69,13 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
 
 ///|
 /// scan one <p:sp> shape xml, extract each <a:p> as one paragraph
+/// - for title-like shapes, merge consecutive non-empty paragraphs into one
 fn extract_shape_paragraphs(
   xml : Bytes,
   from_title_shape : Bool,
   from_body_shape : Bool,
 ) -> Array[SlideParagraph] raise {
-  let out : Array[SlideParagraph] = []
+  let paras : Array[SlideParagraph] = []
 
   let open_p = pat("<a:p")
   let close_p = pat("</a:p>")
@@ -105,7 +106,7 @@ fn extract_shape_paragraphs(
                 let level = paragraph_level(xml, inner_start, p_end0)
 
                 if text != "" {
-                  out.push({
+                  paras.push({
                     text,
                     bullet_kind,
                     level,
@@ -123,7 +124,33 @@ fn extract_shape_paragraphs(
     }
   }
 
-  out
+  if !from_title_shape {
+    return paras
+  }
+
+  if paras.length() <= 1 {
+    return paras
+  }
+
+  let merged_parts : Array[String] = []
+  for para in paras {
+    let t = normalize_slide_text(para.text)
+    if t != "" {
+      merged_parts.push(t)
+    }
+  }
+
+  if merged_parts.length() == 0 {
+    return []
+  }
+
+  [{
+    text: merged_parts.join(" "),
+    bullet_kind: None,
+    level: 0,
+    from_title_shape: true,
+    from_body_shape,
+  }]
 }
 
 ///|
