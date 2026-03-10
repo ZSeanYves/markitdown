@@ -63,15 +63,18 @@ fn find_wt_open(chars : Array[Char], from : Int) -> Int {
   }
   -1
 }
-
 ///|
-fn collect_wt_text(block : String) -> String {
-  let chars = block.to_array()
+/// 从单元格内部提取文本：
+/// - 按 <w:p> 分段
+/// - 每个段落内部仍用 collect_wt_text
+/// - 多段落之间用 '\n' 连接
+fn collect_tc_text(tc_inner : String) -> String {
+  let chars = tc_inner.to_array()
   let mut i = 0
-  let mut out = ""
+  let parts : Array[String] = []
 
   while true {
-    let p1 = find_wt_open(chars, i)
+    let p1 = find_sub(chars, i, "<w:p")
     if p1 < 0 {
       break
     }
@@ -81,14 +84,92 @@ fn collect_wt_text(block : String) -> String {
       break
     }
 
-    let p3 = find_sub(chars, p2 + 1, "</w:t>")
+    let p3 = find_sub(chars, p2 + 1, "</w:p>")
     if p3 < 0 {
+      break
+    }
+
+    let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
+    let text = collect_wt_text(p_xml)
+
+    if !@cor.is_blank(text) {
+      parts.push(text)
+    }
+
+    i = p3 + 6
+  }
+
+  if parts.length() == 0 {
+    // 兜底：有些奇怪单元格里可能没有标准 <w:p>，仍退回旧逻辑
+    collect_wt_text(tc_inner)
+  } else {
+    parts.join("\n")
+  }
+}
+///|
+fn collect_wt_text(block : String) -> String {
+  let chars = block.to_array()
+  let mut i = 0
+  let mut out = ""
+
+  while i < chars.length() {
+    let p_t = find_wt_open(chars, i)
+    let p_br = find_sub(chars, i, "<w:br")
+    let p_tab = find_sub(chars, i, "<w:tab")
+
+    let mut p = -1
+    let mut kind = 0 // 1 = w:t, 2 = w:br, 3 = w:tab
+
+    if p_t >= 0 {
+      p = p_t
+      kind = 1
+    }
+    if p_br >= 0 && (p < 0 || p_br < p) {
+      p = p_br
+      kind = 2
+    }
+    if p_tab >= 0 && (p < 0 || p_tab < p) {
+      p = p_tab
+      kind = 3
+    }
+
+    if p < 0 {
+      break
+    }
+
+    if kind == 1 {
+      let p2 = find_sub(chars, p, ">")
+      if p2 < 0 {
+        break
+      }
+
+      let p3 = find_sub(chars, p2 + 1, "</w:t>")
+      if p3 < 0 {
+        i = p2 + 1
+        continue
+      }
+
+      out = out + @cor.slice_to_string(chars, p2 + 1, p3)
+      i = p3 + 6
+      continue
+    }
+
+    if kind == 2 {
+      let p2 = find_sub(chars, p, ">")
+      if p2 < 0 {
+        break
+      }
+      out = out + "\n"
       i = p2 + 1
       continue
     }
 
-    out = out + @cor.slice_to_string(chars, p2 + 1, p3)
-    i = p3 + 6
+    let p2 = find_sub(chars, p, ">")
+    if p2 < 0 {
+      break
+    }
+    out = out + "\t"
+    i = p2 + 1
   }
 
   @cor.trim_string(out)

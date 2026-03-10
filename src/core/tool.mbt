@@ -11,7 +11,13 @@ fn escape_pipes(s : String) -> String {
 
 ///|
 fn normalize_cell(s : String) -> String {
-  trim_string(escape_pipes(s))
+  let t = normalize_text(s)
+  let parts = t
+    .split("\n")
+    .map(fn(x) { trim_string(escape_pipes(x.to_string())) })
+    .filter(fn(x) { x != "" })
+
+  parts.join("<br>")
 }
 
 ///|

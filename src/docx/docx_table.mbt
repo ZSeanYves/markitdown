@@ -140,7 +140,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
       let tc_inner = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
 
       // 只从 tc_inner 里抽 w:t
-      let cell_text = collect_wt_text(tc_inner)
+      let cell_text = collect_tc_text(tc_inner)
       //println("[DBG] cell_text=" + cell_text)
       //println("[DBG] cell_len=" + cell_text.length().to_string())
 
