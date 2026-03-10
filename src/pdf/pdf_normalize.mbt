@@ -59,14 +59,18 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
         if buf == "" {
           buf = cur
           prev_was_page_break = false
-        } else if should_start_new_block(buf, cur, prev_was_page_break) {
-          flush_pdf_block(out, buf)
-          buf = cur
-          prev_was_page_break = false
-        } else {
-          buf = append_line(buf, cur)
-          prev_was_page_break = false
-        }
+} else if should_start_new_block(buf, cur, prev_was_page_break) {
+  flush_pdf_block(out, buf)
+  buf = cur
+  prev_was_page_break = false
+} else if should_flush_buf_before_appending(buf, cur) {
+  flush_pdf_block(out, buf)
+  buf = cur
+  prev_was_page_break = false
+} else {
+  buf = append_line(buf, cur)
+  prev_was_page_break = false
+}
       }
     }
 
@@ -1023,6 +1027,18 @@ fn looks_like_list_item_sentence(s : String) -> Bool {
 /// Used to restore old PDF samples where the first main title should be H1.
 fn looks_like_document_title(s : String) -> Bool {
   let t = s.trim().to_string()
+  let words : Array[String] = []
+for sv in t.split(" ") {
+  let w = sv.to_string().trim().to_string()
+  if w != "" {
+    words.push(w)
+  }
+}
+
+// single-word English title is more likely a section title than document title
+if words.length() == 1 && starts_with_latin(words[0]) {
+  return false
+}
   if t == "" {
     return false
   }
@@ -1107,6 +1123,40 @@ fn looks_like_section_title(s : String) -> Bool {
   if looks_like_heading_marker(t) {
     return true
   }
+
+  false
+}
+
+///|
+/// If the current buffer already looks like a complete standalone block,
+/// do not keep appending normal body text to it.
+fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
+  let b = buf.trim().to_string()
+  let t = cur.trim().to_string()
+
+  if b == "" || t == "" {
+    return false
+  }
+
+  // a heading candidate should usually stand alone
+  if is_strong_heading_candidate(b) &&
+    !is_strong_heading_candidate(t) &&
+    !looks_like_list_item_sentence(t) {
+    return true
+  }
+
+  // a single list item should not absorb following prose
+  if looks_like_list_item_sentence(b) &&
+    !looks_like_list_item_sentence(t) {
+    return true
+  }
+  if ends_like_sentence(b) && looks_like_figure_or_table_caption(t) {
+  return true
+}
+
+if ends_like_sentence(b) && looks_like_intro_phrase(t) {
+  return true
+}
 
   false
 }
