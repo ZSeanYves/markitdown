@@ -3,7 +3,8 @@ pub fn emit_markdown(doc : Document) -> String {
   let mut out = ""
   let blocks = doc.blocks.val
 
-  for b in blocks {
+  for i in 0..<blocks.length() {
+    let b = blocks[i]
     match b {
       Heading(level, text) => {
         let lvl = if level < 1 { 1 } else if level > 6 { 6 } else { level }
@@ -41,6 +42,14 @@ pub fn emit_markdown(doc : Document) -> String {
           let indent = "  ".repeat(lvl)
           let marker = if ordered { "1. " } else { "- " }
           out = out + indent + marker + t + "\n"
+
+          if i + 1 < blocks.length() {
+            match blocks[i + 1] {
+              ListItem(_, _, _) => ()
+              BlankLine => ()
+              _ => out = out + "\n"
+            }
+          }
         }
       }
       BlockQuote(text) => {
