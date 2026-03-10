@@ -63,6 +63,7 @@ fn find_wt_open(chars : Array[Char], from : Int) -> Int {
   }
   -1
 }
+
 ///|
 /// 从单元格内部提取文本：
 /// - 按 <w:p> 分段
@@ -106,6 +107,7 @@ fn collect_tc_text(tc_inner : String) -> String {
     parts.join("\n")
   }
 }
+
 ///|
 fn collect_wt_text(block : String) -> String {
   let chars = block.to_array()

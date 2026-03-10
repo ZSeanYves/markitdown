@@ -64,6 +64,11 @@ fn scan_paragraph(
     return out
   }
 
+  if paragraph_is_codeblock(p_xml, styles, text) {
+    out.push(@cor.Block::CodeBlock(text))
+    return out
+  }
+
   out.push(@cor.Block::Paragraph(text))
   out
 }
@@ -160,7 +165,92 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
 
   rows
 }
+///|
+/// code-like paragraph v1:
+/// 1) 优先按段落样式识别
+/// 2) 否则在“多行 + 明显代码 token”时保守识别
+fn paragraph_is_codeblock(
+  p_xml : String,
+  styles : DocxStyles,
+  text : String,
+) -> Bool {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) =>
+      if style_is_code_like(styles, style_id) {
+        true
+      } else {
+        text_is_code_like(text)
+      }
+    None => text_is_code_like(text)
+  }
+}
 
+///|
+fn style_is_code_like(styles : DocxStyles, style_id : String) -> Bool {
+  if code_name_like(style_id) {
+    return true
+  }
+
+  match style_name_of(styles, style_id) {
+    Some(name) => code_name_like(name)
+    None => false
+  }
+}
+
+///|
+/// 只匹配比较明确的 code-like 命名
+fn code_name_like(s : String) -> Bool {
+  let raw = trim_ascii_spaces(s)
+  let t = ascii_lower(raw)
+
+  t == "code" ||
+  t == "codeblock" ||
+  t == "code block" ||
+  t == "source" ||
+  t == "sourcecode" ||
+  t == "source code" ||
+  t == "preformatted" ||
+  t == "pre" ||
+  t == "programlisting" ||
+  t.contains("code") ||
+  t.contains("source") ||
+  t.contains("preformatted") ||
+  t.contains("programlisting") ||
+  raw.contains("代码") ||
+  raw.contains("源码")
+}
+
+///|
+/// fallback：只有在“多行 + 明显代码 token”时才认
+fn text_is_code_like(text : String) -> Bool {
+  let t = text
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+
+  if !t.contains("\n") {
+    return false
+  }
+
+  let lower = ascii_lower(t)
+
+  t.contains("{") ||
+  t.contains("}") ||
+  t.contains("(") ||
+  t.contains(")") ||
+  t.contains(";") ||
+  t.contains("=>") ||
+  t.contains("->") ||
+  t.contains(" = ") ||
+  lower.contains("let ") ||
+  lower.contains("fn ") ||
+  lower.contains("if ") ||
+  lower.contains("else") ||
+  lower.contains("return") ||
+  lower.contains("const ") ||
+  lower.contains("var ") ||
+  lower.contains("class ") ||
+  lower.contains("def ")
+}
 ///|
 /// MVP: 只要段落里出现 numPr / ilvl / numId，就先视为列表项
 fn paragraph_is_list_item(p_xml : String) -> Bool {
