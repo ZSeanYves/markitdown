@@ -1,10 +1,12 @@
 ///|
 /// Convert plain text into IR.
-/// Strategy:
+/// New strategy:
 /// - Normalize line endings
 /// - Split pages by formfeed \f
 /// - Detect repeated header/footer noise across pages
-/// - Use split_blocks_smart() to detect headings / paragraphs
+/// - Strip page-level noise page by page
+/// - Merge cleaned pages with an internal page-break marker
+/// - Recover blocks once on the merged text
 fn text_to_ir_document(text0 : String) -> @cor.Document {
   let text = @cor.normalize_text(text0)
   let doc = @cor.new_document()
@@ -17,31 +19,70 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     }
   }
 
+  if pages.length() == 0 {
+    return doc
+  }
+
   let (head_keys, tail_keys) = detect_repeated_page_noise(pages)
 
-  let mut first_block = true
-
+  let clean_pages : Array[String] = []
   for page in pages {
     let clean_page = strip_page_noise(page, head_keys, tail_keys)
+    if clean_page.trim() != "" {
+      clean_pages.push(clean_page)
+    }
+  }
 
-    for b in split_blocks_smart(clean_page) {
-      if !first_block {
-        @cor.push(doc, @cor.Block::BlankLine)
-      } else {
-        first_block = false
-      }
+  let merged = merge_clean_pages_with_breaks(clean_pages)
 
-      match b {
-        PdfBlock::Heading(level, text) =>
-          @cor.push(doc, @cor.Block::Heading(level, text))
-        PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
-      }
+  let mut first_block = true
+  for b in split_blocks_smart(merged) {
+    if !first_block {
+      @cor.push(doc, @cor.Block::BlankLine)
+    } else {
+      first_block = false
+    }
+
+    match b {
+      PdfBlock::Heading(level, text) =>
+        @cor.push(doc, @cor.Block::Heading(level, text))
+      PdfBlock::Paragraph(text) =>
+        @cor.push(doc, @cor.Block::Paragraph(text))
     }
   }
 
   doc
 }
+///|
+/// Internal marker inserted between cleaned pages.
+/// split_blocks_smart() should recognize this marker later.
+const PDF_PAGE_BREAK_MARKER = "__PDF_PAGE_BREAK__"
+///|
+/// Merge cleaned pages into one text stream,
+/// while preserving page boundaries with an internal marker.
+fn merge_clean_pages_with_breaks(pages : Array[String]) -> String {
+  if pages.length() == 0 {
+    return ""
+  }
 
+  let out : Array[String] = []
+  let n = pages.length()
+
+  for i in 0..<n {
+    let page = pages[i].trim().to_string()
+    if page != "" {
+      out.push(page)
+    }
+
+    if i + 1 < n {
+      out.push("")
+      out.push(PDF_PAGE_BREAK_MARKER)
+      out.push("")
+    }
+  }
+
+  out.join("\n")
+}
 ///|
 /// 检测跨页重复页眉/页脚
 fn detect_repeated_page_noise(
