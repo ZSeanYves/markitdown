@@ -26,7 +26,7 @@ fn text_to_ir_document(text0 : String) -> @cor.Document raise {
   let (head_keys, tail_keys) = detect_repeated_page_noise(pages)
 
   let clean_pages : Array[String] = []
-  let mut page_idx = 0
+  let mut _page_idx = 0
   for page in pages {
     let clean_page = strip_page_noise(page, head_keys, tail_keys)
     if clean_page.trim() != "" {
@@ -45,7 +45,7 @@ fn text_to_ir_document(text0 : String) -> @cor.Document raise {
         }
       }
     }
-    page_idx += 1
+    _page_idx += 1
   }
 
   let merged = merge_clean_pages_with_breaks(clean_pages)

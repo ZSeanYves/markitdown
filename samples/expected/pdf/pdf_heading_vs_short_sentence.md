@@ -16,11 +16,9 @@ Figure 1. System overview.
 Key points:
 
 
-• First item
+- First item
 
-
-• Second item
-
+- Second item
 
 In conclusion,
 

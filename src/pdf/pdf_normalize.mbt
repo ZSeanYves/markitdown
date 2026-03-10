@@ -741,13 +741,15 @@ fn is_probable_page_number(s : String) -> Bool {
     return false
   }
 
-  if t.has_prefix("Page ") ||
-    t.has_prefix("page ") ||
-    (t.contains("第") && t.contains("页")) {
+  if looks_like_fraction_page_number(t) {
     return true
   }
 
-  if looks_like_fraction_page_number(t) {
+  if looks_like_page_number_phrase(t) {
+    return true
+  }
+
+  if t.contains("第") && t.contains("页") {
     return true
   }
 
@@ -760,6 +762,46 @@ fn is_probable_page_number(s : String) -> Bool {
     }
   }
   all_digit
+}
+///|
+/// match phrases like:
+/// - Page 2
+/// - page 2
+/// - Page 2 of 3
+/// - page 2 / 3
+fn looks_like_page_number_phrase(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
+    return false
+  }
+
+  let rest =
+    if t.has_prefix("Page ") {
+      String::from_array(t.to_array()[5:].to_array()).trim().to_string()
+    } else {
+      String::from_array(t.to_array()[5:].to_array()).trim().to_string()
+    }
+
+  if rest == "" {
+    return false
+  }
+
+  // rest must only contain digits / spaces / slash / "of"
+  for c in rest.to_array() {
+    let ok =
+      (c >= '0' && c <= '9') ||
+      c == ' ' ||
+      c == '/' ||
+      c == 'o' ||
+      c == 'f' ||
+      c == 'O' ||
+      c == 'F'
+    if !ok {
+      return false
+    }
+  }
+
+  true
 }
 
 ///|
@@ -1203,45 +1245,6 @@ fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
   false
 }
 
-
-///|
-fn is_pdf_list_item(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  if t.has_prefix("• ") || t.has_prefix("- ") || t.has_prefix("* ") {
-    return true
-  }
-
-  let cs = t.to_array()
-  let n = cs.length()
-  if n == 0 {
-    return false
-  }
-
-  let mut i = 0
-  let mut has_digit = false
-  while i < n {
-    let c = cs[i]
-    if c >= '0' && c <= '9' {
-      has_digit = true
-      i += 1
-      continue
-    }
-    break
-  }
-
-  if has_digit && i + 1 < n {
-    let c = cs[i]
-    if (c == '.' || c == ')' || c == '）' || c == '、') && cs[i + 1] == ' ' {
-      return true
-    }
-  }
-
-  false
-}
 
 ///|
 fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? raise{
