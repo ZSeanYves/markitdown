@@ -346,13 +346,12 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
   .to_string()
 }
 
-///|
-/// inner bytes -> visible text (strip tags + unescape)
 fn html_text_from_bytes(inner : Bytes) -> String raise {
   let bs0 = normalize_html_breaks(inner)
   let text_bs = strip_tags_bytes(bs0)
   let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
-  html_unescape(s0).trim().to_string()
+  let s1 = replace_all(html_unescape(s0), "@@HTML_BR@@", "<br>")
+  s1.trim().to_string()
 }
 
 ///|
@@ -462,12 +461,14 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] raise {
 }
 
 ///|
-/// replace any <br...> tag (case-insensitive) with one space
+/// replace any <br...> tag (case-insensitive) with sentinel text
 fn normalize_html_breaks(inner : Bytes) -> Bytes {
   let out : Array[Byte] = []
 
   let lt = pat("<")
   let gt = pat(">")
+
+  let br_bytes = @utf8.encode("@@HTML_BR@@")
 
   let mut pos = 0
   let n = inner.length()
@@ -500,7 +501,9 @@ fn normalize_html_breaks(inner : Bytes) -> Bytes {
             let tag = tag0.to_lower()
 
             if tag.has_prefix("<br") {
-              out.push(' '.to_int().to_byte())
+              for b in br_bytes {
+                out.push(b)
+              }
             } else {
               for b in tag_bs.to_array() {
                 out.push(b)
@@ -515,4 +518,12 @@ fn normalize_html_breaks(inner : Bytes) -> Bytes {
   }
 
   Bytes::from_iter(out.iter())
+}
+
+fn replace_all(s : String, old : String, new_ : String) -> String {
+  let mut cur = s
+  while cur.contains(old) {
+    cur = cur.replace(old=old, new=new_)
+  }
+  cur
 }
