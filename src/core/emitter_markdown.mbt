@@ -13,9 +13,25 @@ pub fn emit_markdown(doc : Document) -> String {
         }
       }
       Paragraph(text) => {
-        let t = trim_string(text)
+        let t = text
+          .replace(old="\r\n", new="\n")
+          .replace(old="\r", new="\n")
+          .trim()
+          .to_string()
+
         if t != "" {
-          out = out + t + "\n\n"
+          let lines : Array[String] = t
+            .split("\n")
+            .map(fn(x) { trim_string(x.to_string()) })
+            .filter(fn(x) { x != "" })
+            .iter()
+            .collect()
+
+          let body = if lines.length() == 0 { "" } else { lines.join("<br>") }
+
+          if body != "" {
+            out = out + body + "\n\n"
+          }
         }
       }
       ListItem(ordered, level, text) => {
