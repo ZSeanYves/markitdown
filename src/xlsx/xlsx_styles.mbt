@@ -174,37 +174,75 @@ fn numfmt_is_datetime_builtin(num_fmt_id : Int) -> Bool {
 }
 
 ///|
-/// very lightweight formatCode classifier:
-/// - remove quoted literals and escaped chars roughly
-/// - if contains y/m/d/h/s tokens, treat as datetime-like
-fn numfmt_code_is_datetime_like(code : String) -> Bool {
+/// rough datetime token scan for custom Excel formatCode
+/// rule:
+/// - y / d => definitely date-like
+/// - h / s => definitely time-like
+/// - m is ambiguous:
+///   * if y or d exists, treat m as month/date token
+///   * else if h or s exists, treat m as minute/time token
+fn scan_numfmt_datetime_flags(code : String) -> (Bool, Bool) {
   let t = normalize_numfmt_code(code)
-  let has_date = t.contains("y") || t.contains("m") || t.contains("d")
-  let has_time = t.contains("h") || t.contains("s")
+  let cs = t.to_array()
+
+  let mut has_y = false
+  let mut has_d = false
+  let mut has_h = false
+  let mut has_s = false
+  let mut has_m = false
+
+  for c in cs {
+    if c == 'y' {
+      has_y = true
+    } else if c == 'd' {
+      has_d = true
+    } else if c == 'h' {
+      has_h = true
+    } else if c == 's' {
+      has_s = true
+    } else if c == 'm' {
+      has_m = true
+    }
+  }
+
+  let mut has_date = has_y || has_d
+  let mut has_time = has_h || has_s
+
+  if has_m {
+    if has_date {
+      has_date = true
+    } else if has_time {
+      has_time = true
+    } else {
+      // ambiguous bare "m" -> lean date-like
+      has_date = true
+    }
+  }
+
+  (has_date, has_time)
+}
+
+///|
+fn numfmt_code_is_datetime_like(code : String) -> Bool {
+  let (has_date, has_time) = scan_numfmt_datetime_flags(code)
   has_date || has_time
 }
 
 ///|
 fn numfmt_code_is_date_only(code : String) -> Bool {
-  let t = normalize_numfmt_code(code)
-  let has_date = t.contains("y") || t.contains("m") || t.contains("d")
-  let has_time = t.contains("h") || t.contains("s")
+  let (has_date, has_time) = scan_numfmt_datetime_flags(code)
   has_date && !has_time
 }
 
 ///|
 fn numfmt_code_is_time_only(code : String) -> Bool {
-  let t = normalize_numfmt_code(code)
-  let has_date = t.contains("y") || t.contains("m") || t.contains("d")
-  let has_time = t.contains("h") || t.contains("s")
+  let (has_date, has_time) = scan_numfmt_datetime_flags(code)
   !has_date && has_time
 }
 
 ///|
 fn numfmt_code_is_datetime(code : String) -> Bool {
-  let t = normalize_numfmt_code(code)
-  let has_date = t.contains("y") || t.contains("m") || t.contains("d")
-  let has_time = t.contains("h") || t.contains("s")
+  let (has_date, has_time) = scan_numfmt_datetime_flags(code)
   has_date && has_time
 }
 

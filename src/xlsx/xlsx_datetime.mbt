@@ -37,7 +37,7 @@ fn format_excel_datetime(
       }
 
       if is_datetime {
-        let data_time_str = pad4(y) +
+        let data_part_str = pad4(y) +
           "-" +
           pad2(m) +
           "-" +
@@ -48,12 +48,12 @@ fn format_excel_datetime(
           pad2(mm) +
           ":" +
           pad2(ss)
-        return data_time_str
+        return data_part_str
       }
 
-      // fallback: datetime-like but ambiguous -> prefer full datetime if frac exists, else date
+      // fallback: datetime-like but ambiguous
       if frac_num != 0 {
-        let data_time_str = pad4(y) +
+        let data_part_str = pad4(y) +
           "-" +
           pad2(m) +
           "-" +
@@ -64,7 +64,7 @@ fn format_excel_datetime(
           pad2(mm) +
           ":" +
           pad2(ss)
-        return data_time_str
+        return data_part_str
       } else {
         return pad4(y) + "-" + pad2(m) + "-" + pad2(d)
       }
@@ -77,6 +77,8 @@ fn format_excel_datetime(
 /// 45292
 /// 45292.5
 /// 0.75
+///
+/// keep at most 6 fractional digits, which is enough for second precision.
 /// return (days, frac_num, frac_den)
 fn parse_excel_serial(s : String) -> (Int, Int, Int)? {
   let t = @cor.trim_string(s)
@@ -122,13 +124,17 @@ fn parse_excel_serial(s : String) -> (Int, Int, Int)? {
 
   let mut frac_num = 0
   let mut frac_den = 1
+  let mut frac_digits = 0
   let mut has_frac = false
 
   while i < n {
     let ch = cs[i]
     if ch >= '0' && ch <= '9' {
-      frac_num = frac_num * 10 + (ch.to_int() - '0'.to_int())
-      frac_den = frac_den * 10
+      if frac_digits < 6 {
+        frac_num = frac_num * 10 + (ch.to_int() - '0'.to_int())
+        frac_den = frac_den * 10
+        frac_digits = frac_digits + 1
+      }
       has_frac = true
       i += 1
     } else {
@@ -145,24 +151,42 @@ fn parse_excel_serial(s : String) -> (Int, Int, Int)? {
 
 ///|
 /// return (day_carry, hh, mm, ss)
+/// compute progressively to avoid integer overflow
 fn frac_to_hms(frac_num : Int, frac_den : Int) -> (Int, Int, Int, Int) {
-  if frac_den <= 0 {
+  if frac_den <= 0 || frac_num <= 0 {
     return (0, 0, 0, 0)
   }
 
-  let mut total_seconds = (frac_num * 86400 + frac_den / 2) / frac_den
+  // hours
+  let hh = frac_num * 24 / frac_den
+  let rem_h = frac_num * 24 % frac_den
+
+  // minutes
+  let mm = rem_h * 60 / frac_den
+  let rem_m = rem_h * 60 % frac_den
+
+  // seconds, rounded
+  let mut ss = (rem_m * 60 + frac_den / 2) / frac_den
+  let mut hh2 = hh
+  let mut mm2 = mm
   let mut carry = 0
 
-  if total_seconds >= 86400 {
-    total_seconds = total_seconds - 86400
+  if ss >= 60 {
+    ss = ss - 60
+    mm2 = mm2 + 1
+  }
+
+  if mm2 >= 60 {
+    mm2 = mm2 - 60
+    hh2 = hh2 + 1
+  }
+
+  if hh2 >= 24 {
+    hh2 = hh2 - 24
     carry = 1
   }
 
-  let hh = total_seconds / 3600
-  let mm = total_seconds % 3600 / 60
-  let ss = total_seconds % 60
-
-  (carry, hh, mm, ss)
+  (carry, hh2, mm2, ss)
 }
 
 ///|
