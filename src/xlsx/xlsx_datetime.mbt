@@ -1,5 +1,9 @@
 ///|
-fn format_excel_datetime(raw : String, num_fmt_id : Int) -> String {
+fn format_excel_datetime(
+  raw : String,
+  num_fmt_id : Int,
+  custom_code : String?,
+) -> String {
   let parsed = parse_excel_serial(raw)
   match parsed {
     None => raw
@@ -7,18 +11,33 @@ fn format_excel_datetime(raw : String, num_fmt_id : Int) -> String {
       let (carry, hh, mm, ss) = frac_to_hms(frac_num, frac_den)
       let serial_day = days + carry
 
-      if numfmt_is_time_only(num_fmt_id) {
+      let is_date_only = match custom_code {
+        Some(code) => numfmt_code_is_date_only(code)
+        None => numfmt_is_date_only_builtin(num_fmt_id)
+      }
+
+      let is_time_only = match custom_code {
+        Some(code) => numfmt_code_is_time_only(code)
+        None => numfmt_is_time_only_builtin(num_fmt_id)
+      }
+
+      let is_datetime = match custom_code {
+        Some(code) => numfmt_code_is_datetime(code)
+        None => numfmt_is_datetime_builtin(num_fmt_id)
+      }
+
+      if is_time_only {
         return pad2(hh) + ":" + pad2(mm) + ":" + pad2(ss)
       }
 
       let (y, m, d) = excel_serial_to_ymd(serial_day)
 
-      if numfmt_is_date_only(num_fmt_id) {
+      if is_date_only {
         return pad4(y) + "-" + pad2(m) + "-" + pad2(d)
       }
 
-      if numfmt_is_datetime(num_fmt_id) {
-        let date_part = pad4(y) +
+      if is_datetime {
+        let data_time_str = pad4(y) +
           "-" +
           pad2(m) +
           "-" +
@@ -29,10 +48,26 @@ fn format_excel_datetime(raw : String, num_fmt_id : Int) -> String {
           pad2(mm) +
           ":" +
           pad2(ss)
-        return date_part
+        return data_time_str
       }
 
-      raw
+      // fallback: datetime-like but ambiguous -> prefer full datetime if frac exists, else date
+      if frac_num != 0 {
+        let data_time_str = pad4(y) +
+          "-" +
+          pad2(m) +
+          "-" +
+          pad2(d) +
+          " " +
+          pad2(hh) +
+          ":" +
+          pad2(mm) +
+          ":" +
+          pad2(ss)
+        return data_time_str
+      } else {
+        return pad4(y) + "-" + pad2(m) + "-" + pad2(d)
+      }
     }
   }
 }
@@ -53,7 +88,6 @@ fn parse_excel_serial(s : String) -> (Int, Int, Int)? {
   let mut i = 0
   let n = cs.length()
 
-  // disallow sign in v1
   if i < n && (cs[i] == '-' || cs[i] == '+') {
     return None
   }
@@ -116,7 +150,6 @@ fn frac_to_hms(frac_num : Int, frac_den : Int) -> (Int, Int, Int, Int) {
     return (0, 0, 0, 0)
   }
 
-  // round to nearest second
   let mut total_seconds = (frac_num * 86400 + frac_den / 2) / frac_den
   let mut carry = 0
 
@@ -149,12 +182,7 @@ fn excel_serial_to_ymd(serial : Int) -> (Int, Int, Int) {
   let mut m = 1
   let mut d = 1
 
-  let mut days_left = if serial < 60 {
-    serial - 1
-  } else {
-    // skip Excel's fake 1900-02-29
-    serial - 2
-  }
+  let mut days_left = if serial < 60 { serial - 1 } else { serial - 2 }
 
   while true {
     let diy = if is_leap_year(y) { 366 } else { 365 }

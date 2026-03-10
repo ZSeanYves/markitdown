@@ -7,7 +7,7 @@
 /// Limitations:
 /// - no formula evaluation
 /// - merged cells ignored
-/// - lightweight date/time formatting support for common built-in Excel numFmtIds
+/// - lightweight date/time formatting support for common built-in/custom Excel numFmt
 /// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
 pub async fn parse_xlsx(
   input_path : String,

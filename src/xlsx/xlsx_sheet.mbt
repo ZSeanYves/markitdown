@@ -151,10 +151,18 @@ fn resolve_cell_text(
     let raw = xml_unescape(val)
     let num_fmt_id = style_index_numfmt(styles, style_idx)
 
-    if numfmt_is_datetime_like(num_fmt_id) {
-      format_excel_datetime(raw, num_fmt_id)
+    if numfmt_is_builtin_datetime_like(num_fmt_id) {
+      format_excel_datetime(raw, num_fmt_id, None)
     } else {
-      raw
+      match custom_numfmt_code(styles, num_fmt_id) {
+        Some(code) =>
+          if numfmt_code_is_datetime_like(code) {
+            format_excel_datetime(raw, num_fmt_id, Some(code))
+          } else {
+            raw
+          }
+        None => raw
+      }
     }
   }
 }
