@@ -9,7 +9,7 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 ## Features
 
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, and style/numbering-driven list structure recovery
-* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), then apply lightweight heading/paragraph normalization, page-noise cleanup, repeated header/footer removal, and heuristic heading/paragraph boundary recovery
+* ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, and basic cell-type support
 * ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, and clean up empty / duplicate paragraph noise
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, normalize common `<br>` variants, avoid swallowing nested list text in parent items, and decode entities
@@ -63,8 +63,14 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
   * `pdf_parser.mbt`: top-level PDF parse entry
   * `pdf_extract.mbt`: external-tool text extraction orchestration
-  * `pdf_normalize.mbt`: normalization / paragraphing / lightweight structure recovery
-  * `pdf_to_ir.mbt`: normalized PDF text → shared IR
+  * `pdf_extract_score.mbt`: extractor candidate scoring and best-output selection
+  * `pdf_page.mbt`: page splitting / page-break marker / cleaned-page merging helpers
+  * `pdf_noise.mbt`: page-number detection, repeated header/footer detection, and page-noise stripping
+  * `pdf_block.mbt`: block splitting and block-level recovery flow
+  * `pdf_heading.mbt`: heading heuristics and heading-level inference
+  * `pdf_list.mbt`: PDF list-item detection and list-item parsing helpers
+  * `pdf_text.mbt`: shared PDF text utilities and normalization helpers
+  * `pdf_to_ir.mbt`: PDF pipeline orchestration and shared IR mapping
   * `moon.pkg`: package definition
 * `src/pptx/`: PPTX parsing package
 
@@ -133,19 +139,33 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
 ### ✅ PDF (text-based) MVP+
 
-* Extracts text via external tools and selects the output that best matches reading order using a scoring function:
+* Extracts text via external tools and selects the output that best matches reading order / text integrity using a scoring function:
 
   * `pdftotext` (Poppler): default / `-layout` / `-raw`
   * fallback: `mutool draw -F txt` (MuPDF)
 * Applies lightweight normalization and structure recovery:
 
   * normalize line endings
-  * split paragraphs by blank lines (and merge hard wraps)
+  * split pages by form-feed and keep page boundaries internal to normalization
+  * split paragraphs by blank lines and merge hard wraps
   * recover basic headings under current heuristic rules
   * reduce short-line false positives in heading detection
   * avoid merging obvious new blocks into the previous paragraph
+  * recover basic bullet-list items into shared IR list blocks
   * filter page-number noise and repeated page-header/page-footer noise under the current sample set
-  * keep page boundaries internal to normalization instead of emitting page separators in final Markdown
+  * merge cross-page paragraph continuations when the next page starts with continuation text rather than a new block
+* Current regression coverage includes:
+
+  * simple text
+  * hard-wrap recovery (English / Chinese)
+  * heading recovery
+  * short-sentence non-heading cases
+  * multi-page text
+  * repeated header/footer cleanup
+  * page-noise cleanup
+  * cross-page paragraph merging
+  * heading-vs-short-sentence boundary recovery
+  * repeated header/footer variants
 
 > Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
@@ -293,6 +313,9 @@ Recent regression coverage includes:
   * multi-page text
   * repeated header/footer cleanup
   * page-noise cleanup
+  * cross-page paragraph merging
+  * heading-vs-short-sentence boundary recovery
+  * repeated header/footer variants
 * **PPTX**
 
   * basic slides
@@ -351,7 +374,7 @@ Then re-run:
 
 ### Near-term
 
-1. Continue tightening PDF paragraph / heading / page-noise heuristics
+1. Unify output spacing / blank-line style across formats after the current parser work stabilizes
 2. Continue improving PPTX fallback behavior for non-standard title/body layouts
 3. Expand HTML structure robustness around mixed block content and table edge cases
 4. Explore additional XLSX policies such as date handling / empty-sheet behavior
@@ -368,7 +391,7 @@ Then re-run:
 ## Status
 
 * ✅ docx: upgraded minimal pipeline works, including style-driven headings and numbering-driven lists
-* ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, repeated header/footer removal, page-noise filtering, and heuristic boundary recovery
+* ✅ pdf (text-based): MVP+ works with extractor selection, heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
 * ✅ xlsx: MVP+ works for common table-oriented workbooks, including multiple cell types, multi-sheet samples, empty-sheet handling, and sparse bounding-box trimming
 * ✅ pptx: MVP+ works with real presentation-order traversal, shape-aware title recovery, bullet detection, nested list levels, and paragraph cleanup
 * ✅ html: MVP+ works with lists / quotes / code blocks / tables, plus `<br>` normalization, nested-list parent-item protection, and ragged-row table normalization
