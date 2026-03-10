@@ -165,6 +165,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
 
   rows
 }
+
 ///|
 /// code-like paragraph v1:
 /// 1) 优先按段落样式识别
@@ -223,9 +224,7 @@ fn code_name_like(s : String) -> Bool {
 ///|
 /// fallback：只有在“多行 + 明显代码 token”时才认
 fn text_is_code_like(text : String) -> Bool {
-  let t = text
-    .replace(old="\r\n", new="\n")
-    .replace(old="\r", new="\n")
+  let t = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
 
   if !t.contains("\n") {
     return false
@@ -251,6 +250,7 @@ fn text_is_code_like(text : String) -> Bool {
   lower.contains("class ") ||
   lower.contains("def ")
 }
+
 ///|
 /// MVP: 只要段落里出现 numPr / ilvl / numId，就先视为列表项
 fn paragraph_is_list_item(p_xml : String) -> Bool {

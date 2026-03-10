@@ -60,8 +60,8 @@ pub async fn parse_pptx(
             @cor.push(doc, @cor.Block::Paragraph(text))
             prev_was_list = false
           }
-          PptxBlock::ListItem(level, text) => {
-            @cor.push(doc, @cor.Block::ListItem(false, level, text))
+          PptxBlock::ListItem(ordered, level, text) => {
+            @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
             prev_was_list = true
           }
         }

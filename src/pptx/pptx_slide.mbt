@@ -2,16 +2,22 @@
 priv enum PptxBlock {
   Heading(String)
   Paragraph(String)
-  ListItem(Int, String)
+  ListItem(Bool, Int, String) // ordered, level, text
 }
 
 ///|
 priv struct SlideParagraph {
   text : String
-  is_bullet : Bool
+  bullet_kind : BulletKind?
   level : Int
   from_title_shape : Bool
   from_body_shape : Bool
+}
+
+///|
+priv enum BulletKind {
+  Unordered
+  Ordered
 }
 
 ///|
@@ -93,13 +99,15 @@ fn extract_shape_paragraphs(
                   .trim()
                   .to_string()
 
-                let is_bullet = paragraph_has_bullet(xml, inner_start, p_end0)
+                let bullet_kind = paragraph_bullet_kind(
+                  xml, inner_start, p_end0,
+                )
                 let level = paragraph_level(xml, inner_start, p_end0)
 
                 if text != "" {
                   out.push({
                     text,
-                    is_bullet,
+                    bullet_kind,
                     level,
                     from_title_shape,
                     from_body_shape,
@@ -173,9 +181,23 @@ fn classify_slide_paragraphs(
       continue
     }
 
-    if para.is_bullet || is_bullet_like(p) {
+    match para.bullet_kind {
+      Some(kind) => {
+        let level = if para.level >= 0 { para.level } else { 0 }
+        let ordered = match kind {
+          BulletKind::Unordered => false
+          BulletKind::Ordered => true
+        }
+        out.push(PptxBlock::ListItem(ordered, level, strip_bullet_prefix(p)))
+        continue
+      }
+      None => ()
+    }
+
+    if is_bullet_like(p) {
       let level = if para.level >= 0 { para.level } else { 0 }
-      out.push(PptxBlock::ListItem(level, strip_bullet_prefix(p)))
+      let ordered = starts_with_numbered_bullet(p)
+      out.push(PptxBlock::ListItem(ordered, level, strip_bullet_prefix(p)))
       continue
     }
 
@@ -209,7 +231,7 @@ fn compact_slide_paragraphs(
     }
     let cur : SlideParagraph = {
       text,
-      is_bullet: para.is_bullet,
+      bullet_kind: para.bullet_kind,
       level: para.level,
       from_title_shape: para.from_title_shape,
       from_body_shape: para.from_body_shape,
@@ -235,7 +257,7 @@ fn compact_slide_paragraphs(
 }
 
 ///|
-fn paragraph_has_bullet(xml : Bytes, start : Int, end_ : Int) -> Bool {
+fn paragraph_bullet_kind(xml : Bytes, start : Int, end_ : Int) -> BulletKind? {
   let bu_char = pat("<a:buChar")
   let bu_auto = pat("<a:buAutoNum")
   let bu_blip = pat("<a:buBlip")
@@ -246,15 +268,7 @@ fn paragraph_has_bullet(xml : Bytes, start : Int, end_ : Int) -> Bool {
     None => false
   }
   if has_bu_none {
-    return false
-  }
-
-  let has_bu_char = match find_bytes(xml, bu_char, start) {
-    Some(i) => i < end_
-    None => false
-  }
-  if has_bu_char {
-    return true
+    return None
   }
 
   let has_bu_auto = match find_bytes(xml, bu_auto, start) {
@@ -262,7 +276,15 @@ fn paragraph_has_bullet(xml : Bytes, start : Int, end_ : Int) -> Bool {
     None => false
   }
   if has_bu_auto {
-    return true
+    return Some(BulletKind::Ordered)
+  }
+
+  let has_bu_char = match find_bytes(xml, bu_char, start) {
+    Some(i) => i < end_
+    None => false
+  }
+  if has_bu_char {
+    return Some(BulletKind::Unordered)
   }
 
   let has_bu_blip = match find_bytes(xml, bu_blip, start) {
@@ -270,10 +292,10 @@ fn paragraph_has_bullet(xml : Bytes, start : Int, end_ : Int) -> Bool {
     None => false
   }
   if has_bu_blip {
-    return true
+    return Some(BulletKind::Unordered)
   }
 
-  false
+  None
 }
 
 ///|
@@ -413,8 +435,9 @@ fn slide_para_score(p : SlideParagraph) -> Int {
   if p.from_body_shape {
     sc += 2
   }
-  if p.is_bullet {
-    sc += 1
+  match p.bullet_kind {
+    Some(_) => sc += 1
+    None => ()
   }
   if p.level > 0 {
     sc += 1
