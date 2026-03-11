@@ -29,8 +29,13 @@ fn is_noise_candidate(sp : LayoutShape, slide_w : Int, slide_h : Int) -> Bool {
   let corner = is_corner_shape(sp, slide_w, slide_h)
   let small = is_small_shape(sp, slide_w, slide_h)
   let near_bottom = is_bottom_edge_shape(sp, slide_h)
-
   if looks_like_page_number_text(text) && near_bottom && small {
+    println("[pptx-noise] drop explicit page-like: " + text)
+    return true
+  }
+
+  if is_small_plain_page_number(sp, slide_w, slide_h, text) {
+    println("[pptx-noise] drop plain page number: " + text)
     return true
   }
 
@@ -128,17 +133,12 @@ fn looks_like_page_number_text(s : String) -> Bool {
     return false
   }
 
-  if is_all_digits(t) {
-    return true
-  }
-
   let lower = ascii_lower(t)
 
   lower.has_prefix("page ") ||
   lower.has_prefix("p. ") ||
   lower.has_prefix("p ") ||
   lower.has_prefix("slide ") ||
-  lower.has_suffix(" /") ||
   looks_like_page_x_of_y(t)
 }
 
@@ -229,4 +229,36 @@ fn is_bottom_edge_shape(sp : LayoutShape, slide_h : Int) -> Bool {
 fn looks_like_corner_label_text(s : String) -> Bool {
   let t = ascii_lower(normalize_noise_text(s))
   t == "draft" || t == "internal" || t == "confidential"
+}
+
+///|
+fn is_small_plain_page_number(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+  text : String,
+) -> Bool {
+  let t = normalize_noise_text(text)
+  if !is_all_digits(t) {
+    return false
+  }
+
+  let n = parse_nonneg_int(t)
+  if n <= 0 || n > 30 {
+    return false
+  }
+
+  if !is_small_shape(sp, slide_w, slide_h) {
+    return false
+  }
+
+  if !is_bottom_edge_shape(sp, slide_h) {
+    return false
+  }
+
+  if !is_corner_shape(sp, slide_w, slide_h) {
+    return false
+  }
+
+  true
 }

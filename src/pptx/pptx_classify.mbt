@@ -139,9 +139,8 @@ fn is_empty_bullet_shell(s : String) -> Bool {
       c == ')' ||
       c == '）' ||
       c == '、'
-    let is_digit = c >= '0' && c <= '9'
 
-    if !(is_space || is_sym || is_digit) {
+    if !(is_space || is_sym) {
       all_shell = false
       break
     }

@@ -18,6 +18,7 @@ priv struct LayoutShape {
   center_y : Int
 }
 
+///|
 priv enum ShapeGroupKind {
   Normal
   CaptionLike
@@ -31,6 +32,7 @@ priv struct ShapeGroup {
   left : Int
   kind : ShapeGroupKind
 }
+
 ///|
 priv struct SlideParagraph {
   text : String
@@ -47,7 +49,7 @@ priv enum BulletKind {
 }
 
 ///|
-const PPTX_SLIDE_DEBUG = false
+const PPTX_SLIDE_DEBUG = true
 
 ///|
 /// scan slide xml by shape (<p:sp>), collect shapes first,
@@ -99,6 +101,44 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
   }
 
   out
+}
+
+///|
+fn extract_table_like_regions(
+  shapes : Array[LayoutShape],
+) -> (Array[Array[LayoutShape]], Array[LayoutShape]) {
+  if shapes.length() == 0 {
+    return ([], [])
+  }
+
+  let candidates = filter_table_like_candidates(shapes)
+  if candidates.length() < 4 {
+    return ([], shapes)
+  }
+
+  let candidate_groups = cluster_table_like_candidate_shapes(candidates)
+
+  let table_regions : Array[Array[LayoutShape]] = []
+  let used : Array[LayoutShape] = []
+
+  for g in candidate_groups {
+    let sorted = sort_layout_shapes_simple(g)
+    if shapes_form_grid_like_region(sorted) {
+      table_regions.push(sorted)
+      for sp in sorted {
+        used.push(sp)
+      }
+    }
+  }
+
+  let rest : Array[LayoutShape] = []
+  for sp in shapes {
+    if !layout_shape_in_array(sp, used) {
+      rest.push(sp)
+    }
+  }
+
+  (table_regions, rest)
 }
 
 ///|
@@ -584,6 +624,118 @@ fn is_table_like_shape_candidate(
 }
 
 ///|
+fn table_group_accepts_shape(
+  group : Array[LayoutShape],
+  sp : LayoutShape,
+) -> Bool {
+  for item in group {
+    if should_link_table_like_shapes(item, sp) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cluster_table_like_candidate_shapes(
+  shapes : Array[LayoutShape],
+) -> Array[Array[LayoutShape]] {
+  let groups : Array[Array[LayoutShape]] = []
+  let sorted = sort_layout_shapes_simple(shapes)
+
+  for sp in sorted {
+    let hits : Array[Int] = []
+
+    for i in 0..<groups.length() {
+      if table_group_accepts_shape(groups[i], sp) {
+        hits.push(i)
+      }
+    }
+
+    if hits.length() == 0 {
+      groups.push([sp])
+      continue
+    }
+
+    if hits.length() == 1 {
+      groups[hits[0]].push(sp)
+      continue
+    }
+
+    // 命中多个组：合并这些组再放入 sp
+    let merged : Array[LayoutShape] = []
+    let keep : Array[Array[LayoutShape]] = []
+
+    for i in 0..<groups.length() {
+      let mut selected = false
+      for h in hits {
+        if i == h {
+          selected = true
+          break
+        }
+      }
+
+      if selected {
+        for item in groups[i] {
+          merged.push(item)
+        }
+      } else {
+        keep.push(groups[i])
+      }
+    }
+
+    merged.push(sp)
+    keep.push(merged)
+
+    groups.clear()
+    for g in keep {
+      groups.push(g)
+    }
+  }
+
+  groups
+}
+
+///|
+fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
+  let hgap = horizontal_gap(a, b)
+  let vgap = vertical_gap(a, b)
+  let hoverlap = horizontal_overlap(a, b)
+  let voverlap = vertical_overlap(a, b)
+
+  let maxw = max_int(a.shape.w, b.shape.w)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  // 同列相邻：横向有重叠，纵向距离不大
+  if hoverlap > 0 && vgap <= maxh * 2 {
+    return true
+  }
+
+  // 同行相邻：纵向有重叠，横向距离不大
+  if voverlap > 0 && hgap <= maxw * 2 {
+    return true
+  }
+
+  false
+}
+
+///|
+fn filter_table_like_candidates(
+  shapes : Array[LayoutShape],
+) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
+
+  for sp in shapes {
+    if is_table_like_shape_candidate(sp, slide_w, slide_h) {
+      out.push(sp)
+    }
+  }
+
+  out
+}
+
+///|
 fn average_shape_w(shapes : Array[LayoutShape]) -> Int {
   if shapes.length() == 0 {
     return 0
@@ -614,15 +766,12 @@ fn quantize_coord(v : Int, step : Int) -> Int {
   if step <= 0 {
     v
   } else {
-    (v / step) * step
+    v / step * step
   }
 }
 
 ///|
-fn count_distinct_bucketed_x(
-  shapes : Array[LayoutShape],
-  step : Int,
-) -> Int {
+fn count_distinct_bucketed_x(shapes : Array[LayoutShape], step : Int) -> Int {
   let seen : Array[Int] = []
 
   for sp in shapes {
@@ -643,10 +792,7 @@ fn count_distinct_bucketed_x(
 }
 
 ///|
-fn count_distinct_bucketed_y(
-  shapes : Array[LayoutShape],
-  step : Int,
-) -> Int {
+fn count_distinct_bucketed_y(shapes : Array[LayoutShape], step : Int) -> Int {
   let seen : Array[Int] = []
 
   for sp in shapes {
@@ -671,9 +817,7 @@ fn count_distinct_bucketed_y(
 /// - at least 4 shapes
 /// - most shapes are short/small candidates
 /// - at least 2 rows and 2 columns after rough bucketing
-fn shapes_form_grid_like_region(
-  shapes : Array[LayoutShape],
-) -> Bool {
+fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
   if shapes.length() < 4 {
     return false
   }
@@ -780,6 +924,7 @@ fn extract_table_like_region_shapes(
     ([], shapes)
   }
 }
+
 ///|
 fn horizontal_gap(a : LayoutShape, b : LayoutShape) -> Int {
   if a.right < b.shape.x {
@@ -911,15 +1056,17 @@ fn group_body_shapes_for_layout(
     return groups
   }
 
-  let (table_like_shapes, rest_shapes) = extract_table_like_region_shapes(shapes)
+  let (table_regions, rest_shapes) = extract_table_like_regions(shapes)
 
-  if table_like_shapes.length() > 0 {
-    groups.push(
-      make_shape_group_with_kind(
-        table_like_shapes,
-        ShapeGroupKind::TableLike,
-      ),
-    )
+  for region in table_regions {
+    groups.push(make_shape_group_with_kind(region, ShapeGroupKind::TableLike))
+
+    println("[pptx-table] region size=" + region.length().to_string())
+    for sp in region {
+      println(
+        "[pptx-table] cell=" + normalize_shape_text_for_title(sp.shape.xml),
+      )
+    }
   }
 
   if rest_shapes.length() == 0 {
@@ -939,7 +1086,7 @@ fn group_body_shapes_for_layout(
           i += 1
           continue
         }
-        ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike => {
+        ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
           if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
             let merged : Array[LayoutShape] = []
             for old in groups[i].shapes {
@@ -957,7 +1104,6 @@ fn group_body_shapes_for_layout(
             placed = true
             break
           }
-        }
       }
 
       i += 1
@@ -975,28 +1121,30 @@ fn group_body_shapes_for_layout(
 
   sort_shape_groups(groups)
 }
+
 ///|
-fn flatten_shape_groups(
-  groups : Array[ShapeGroup],
-) -> Array[LayoutShape] {
+fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
 
   for g in groups {
     match g.kind {
       ShapeGroupKind::TableLike => {
         let rows = cluster_shapes_into_rows(g.shapes)
+        println("[pptx-table] flatten table-like")
         append_rows(out, rows)
       }
-      ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike => {
+      ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
         for sp in g.shapes {
+          println("[pptx-table] flatten caption-like")
+          println("[pptx-table] flatten normal")
           out.push(sp)
         }
-      }
     }
   }
 
   out
 }
+
 ///|
 fn append_rows(
   out : Array[LayoutShape],
@@ -1008,6 +1156,7 @@ fn append_rows(
     }
   }
 }
+
 ///|
 fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
   let dy = abs_int(a.center_y - b.center_y)
@@ -1045,7 +1194,13 @@ fn cluster_shapes_into_rows(
     let row = rows[i]
     rows[i] = sort_layout_shapes_by_x(row)
   }
-
+  println("[pptx-table] row count=" + rows.length().to_string())
+  for i in 0..<rows.length() {
+    println("[pptx-table] row " + i.to_string())
+    for sp in rows[i] {
+      println("  - " + normalize_shape_text_for_title(sp.shape.xml))
+    }
+  }
   sort_rows_by_top(rows)
 }
 
@@ -1169,6 +1324,7 @@ fn row_left(row : Array[LayoutShape]) -> Int {
   }
   v
 }
+
 ///|
 /// flatten title shapes and body shapes into final reading order:
 /// - titles first
@@ -1434,4 +1590,23 @@ fn parse_nonneg_int(s : String) -> Int {
   } else {
     0
   }
+}
+
+///|
+fn same_layout_shape(a : LayoutShape, b : LayoutShape) -> Bool {
+  a.shape.x == b.shape.x &&
+  a.shape.y == b.shape.y &&
+  a.shape.w == b.shape.w &&
+  a.shape.h == b.shape.h &&
+  a.shape.xml == b.shape.xml
+}
+
+///|
+fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
+  for item in arr {
+    if same_layout_shape(sp, item) {
+      return true
+    }
+  }
+  false
 }
