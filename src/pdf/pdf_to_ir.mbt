@@ -7,7 +7,7 @@
 /// - Strip page-level noise page by page
 /// - Merge cleaned pages with an internal page-break marker
 /// - Recover blocks once on the merged text
-fn text_to_ir_document(text0 : String) -> @cor.Document raise {
+fn text_to_ir_document(text0 : String) -> @cor.Document{
   let text = @cor.normalize_text(text0)
   let doc = @cor.new_document()
 

@@ -29,7 +29,7 @@ pub async fn parse_to_ir(
 }
 
 ///|
-fn file_ext_lower(path : String) -> String raise {
+fn file_ext_lower(path : String) -> String{
   let n = path.length()
   if n == 0 {
     return ""

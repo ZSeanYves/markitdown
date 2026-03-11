@@ -1,5 +1,5 @@
 ///|
-fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? raise {
+fn parse_pdf_list_item(s : String) -> (Bool, Int, String)?{
   let t = s.trim().to_string()
   if t == "" {
     return None

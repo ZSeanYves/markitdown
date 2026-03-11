@@ -9,7 +9,7 @@
 // MVP: concat all <t> contents inside <si>
 
 ///|
-fn parse_shared_strings(ss_xml : String) -> Array[String] raise {
+fn parse_shared_strings(ss_xml : String) -> Array[String]{
   let out : Array[String] = []
   let mut pos = 0
 

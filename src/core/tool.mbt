@@ -140,7 +140,7 @@ pub fn utf8_bytes_to_string(b : Bytes) -> String raise Utf8DecodeError {
 
 ///|
 /// Decode numeric character references: &#1234; and &#x1F600;
-pub fn decode_numeric_entities(s : String) -> String raise {
+pub fn decode_numeric_entities(s : String) -> String{
   let n = s.length()
   let out : Array[Char] = []
   let mut i = 0

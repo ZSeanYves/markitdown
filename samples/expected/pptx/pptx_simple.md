@@ -1,6 +1,6 @@
 ## Slide 1
 
-### PPTX MVP 测试
+PPTX MVP 测试
 
 第一段：Hello, 世界 ✅
 
@@ -11,7 +11,7 @@
 
 ## Slide 2
 
-### 第二页标题：Data Overview
+第二页标题：Data Overview
 
 段落 A：这是一段普通文本。
 

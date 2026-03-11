@@ -13,7 +13,7 @@ priv enum PdfLine {
 }
 
 ///|
-fn split_blocks_smart(page : String) -> Array[PdfBlock] raise {
+fn split_blocks_smart(page : String) -> Array[PdfBlock]{
   let s = page
     .replace(old="\r\n", new="\n")
     .replace(old="\r", new="\n")
@@ -82,7 +82,7 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] raise {
 }
 
 ///|
-fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit raise {
+fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit{
   let raw = buf.trim().to_string()
   if raw == "" {
     return

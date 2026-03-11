@@ -1,6 +1,6 @@
 ///|
 /// extract all <a:t>...</a:t> text within xml[start:end_]
-fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String raise {
+fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String{
   let open_t = pat("<a:t>")
   let close_t = pat("</a:t>")
 

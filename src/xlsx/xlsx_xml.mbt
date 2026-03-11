@@ -10,7 +10,7 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
 }
 
 ///|
-fn find_sub(s : String, pat : String, start : Int) -> Int? raise {
+fn find_sub(s : String, pat : String, start : Int) -> Int?{
   let n = s.length()
   let m = pat.length()
   if m == 0 {
@@ -37,7 +37,7 @@ fn find_sub(s : String, pat : String, start : Int) -> Int? raise {
 // parse attr="value" (double quotes only, MVP)
 
 ///|
-fn get_attr(tag : String, key : String) -> String? raise {
+fn get_attr(tag : String, key : String) -> String?{
   let pat = key + "=\""
   let i0 = find_sub(tag, pat, 0)
   match i0 {
@@ -54,7 +54,7 @@ fn get_attr(tag : String, key : String) -> String? raise {
 }
 
 ///|
-fn xml_unescape(s : String) -> String raise {
+fn xml_unescape(s : String) -> String{
   let t = s
     .replace(old="&lt;", new="<")
     .replace(old="&gt;", new=">")
