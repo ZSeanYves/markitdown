@@ -1,8 +1,3 @@
-///|
-priv struct DocxStyles {
-  heading_by_style : Map[String, Int]
-  name_by_style : Map[String, String]
-}
 
 ///|
 fn empty_styles() -> DocxStyles {

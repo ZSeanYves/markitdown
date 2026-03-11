@@ -1,0 +1,211 @@
+///|
+fn shape_group_bounds(shapes : Array[LayoutShape]) -> (Int, Int, Int, Int) {
+  if shapes.length() == 0 {
+    return (0, 0, 0, 0)
+  }
+
+  let mut top = shapes[0].shape.y
+  let mut left = shapes[0].shape.x
+  let mut right = shapes[0].right
+  let mut bottom = shapes[0].bottom
+
+  for i in 1..<shapes.length() {
+    let sp = shapes[i]
+    if sp.shape.y < top {
+      top = sp.shape.y
+    }
+    if sp.shape.x < left {
+      left = sp.shape.x
+    }
+    if sp.right > right {
+      right = sp.right
+    }
+    if sp.bottom > bottom {
+      bottom = sp.bottom
+    }
+  }
+
+  (top, left, right, bottom)
+}
+
+///|
+fn group_caption_like_flag(
+  shapes : Array[LayoutShape],
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if shapes.length() == 0 {
+    return false
+  }
+
+  let mut cnt = 0
+  for sp in shapes {
+    if is_caption_like_shape(sp, slide_w, slide_h) {
+      cnt += 1
+    }
+  }
+
+  cnt * 2 >= shapes.length()
+}
+
+///|
+fn make_shape_group_with_kind(
+  shapes : Array[LayoutShape],
+  kind : ShapeGroupKind,
+) -> ShapeGroup {
+  let sorted = sort_layout_shapes_simple(shapes)
+  let (top, left, _right, _bottom) = shape_group_bounds(sorted)
+  { shapes: sorted, top, left, kind }
+}
+
+///|
+fn should_group_nearby_shapes(
+  a : LayoutShape,
+  b : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  let a_ok = is_caption_like_shape(a, slide_w, slide_h)
+  let b_ok = is_caption_like_shape(b, slide_w, slide_h)
+
+  if !(a_ok && b_ok) {
+    return false
+  }
+
+  let hgap = horizontal_gap(a, b)
+  let vgap = vertical_gap(a, b)
+  let hoverlap = horizontal_overlap(a, b)
+  let voverlap = vertical_overlap(a, b)
+
+  if hoverlap > 0 && vgap <= max_int(a.shape.h, b.shape.h) {
+    return true
+  }
+
+  if voverlap > 0 && hgap <= max_int(a.shape.w, b.shape.w) {
+    return true
+  }
+
+  false
+}
+
+///|
+fn group_accepts_shape(
+  g : ShapeGroup,
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  for item in g.shapes {
+    if should_group_nearby_shapes(item, sp, slide_w, slide_h) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
+  if a.top != b.top {
+    return a.top < b.top
+  }
+  a.left < b.left
+}
+
+///|
+fn sort_shape_groups(groups : Array[ShapeGroup]) -> Array[ShapeGroup] {
+  let out : Array[ShapeGroup] = []
+
+  for g in groups {
+    let mut inserted = false
+    let mut i = 0
+    while i < out.length() {
+      if shape_group_before(g, out[i]) {
+        out.insert(i, g)
+        inserted = true
+        break
+      }
+      i += 1
+    }
+    if !inserted {
+      out.push(g)
+    }
+  }
+
+  out
+}
+
+///|
+fn group_body_shapes_for_layout(
+  shapes : Array[LayoutShape],
+) -> Array[ShapeGroup] {
+  let groups : Array[ShapeGroup] = []
+  if shapes.length() == 0 {
+    return groups
+  }
+
+  let (table_regions, rest_shapes) = extract_table_like_regions(shapes)
+
+  for region in table_regions {
+    groups.push(make_shape_group_with_kind(region, ShapeGroupKind::TableLike))
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table] region size=" + region.length().to_string())
+      for sp in region {
+        println(
+          "[pptx-table] cell=" + normalize_shape_text_for_title(sp.shape.xml),
+        )
+      }
+    }
+  }
+
+  if rest_shapes.length() == 0 {
+    return sort_shape_groups(groups)
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(rest_shapes)
+  let sorted = sort_layout_shapes_simple(rest_shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < groups.length() {
+      match groups[i].kind {
+        ShapeGroupKind::TableLike => {
+          i += 1
+          continue
+        }
+        ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
+          if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
+            let merged : Array[LayoutShape] = []
+            for old in groups[i].shapes {
+              merged.push(old)
+            }
+            merged.push(sp)
+
+            let kind = if group_caption_like_flag(merged, slide_w, slide_h) {
+              ShapeGroupKind::CaptionLike
+            } else {
+              ShapeGroupKind::Normal
+            }
+
+            groups[i] = make_shape_group_with_kind(merged, kind)
+            placed = true
+            break
+          }
+      }
+
+      i += 1
+    }
+
+    if !placed {
+      let kind = if is_caption_like_shape(sp, slide_w, slide_h) {
+        ShapeGroupKind::CaptionLike
+      } else {
+        ShapeGroupKind::Normal
+      }
+      groups.push(make_shape_group_with_kind([sp], kind))
+    }
+  }
+
+  sort_shape_groups(groups)
+}

@@ -1,11 +1,4 @@
 ///|
-priv enum PptxBlock {
-  Heading(String)
-  Paragraph(String)
-  ListItem(Bool, Int, String) // ordered, level, text
-}
-
-///|
 fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] {
   let out : Array[PptxBlock] = []
   let mut seen_heading = false

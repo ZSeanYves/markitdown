@@ -2,7 +2,7 @@
 
 A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf / .xlsx / .pptx / .html** into structured **Markdown**.
 
-> Current status: the project has moved beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**.
+> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**.
 
 ---
 
@@ -11,7 +11,7 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, style/numbering-driven list structure recovery, paragraph line-break preservation, and code-like paragraph recovery under the current heuristic rules
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, basic cell-type support, and lightweight date/time formatting for style-marked numeric cells
-* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, support conservative title fallback, and keep note-like / table-like text regions more stable in output order
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, and stabilize local table-like / grid-like text regions before Markdown emission
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, normalize common `<br>` variants, preserve ordered / unordered / nested list structure, avoid swallowing nested list text in parent items, and decode entities
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
@@ -29,7 +29,8 @@ Current state:
 * ✅ **Sample-based regression suite** is in place and used as the primary behavior guardrail
 * ✅ **DOCX / XLSX / HTML** are already at relatively high completeness for the current project scope
 * ✅ **PDF / PPTX** have moved beyond simple text extraction and now include structure-oriented recovery heuristics
-* ✅ **PPTX** has become the most actively enhanced layout-oriented pipeline, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, and table-like/grid-like text-region stabilization
+* ✅ **PPTX** has become the most actively enhanced layout-oriented pipeline, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, two-column-aware reading-order recovery, and local table-like/grid-like text-region stabilization
+* ✅ **Recent package cleanup**: DOCX and PPTX source layout has been reorganized into smaller MoonBit modules so the format-specific logic is easier to maintain and extend
 
 ---
 
@@ -57,14 +58,15 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * `moon.pkg`: package definition
 * `src/docx/`: DOCX parsing package
 
-  * `docx_package.mbt`: DOCX package/ZIP access helpers
   * `docx_parser.mbt`: orchestrated `parse_docx()` entry
   * `docx_document.mbt`: document-level scan / assembly into IR
-  * `docx_xml.mbt`: lower-level XML scanning helpers
-  * `docx_table.mbt`: table extraction logic
+  * `docx_package.mbt`: DOCX package/ZIP access helpers
   * `docx_rels.mbt`: relationship parsing (`rId → Target`)
   * `docx_styles.mbt`: `word/styles.xml` parsing for heading-level resolution and paragraph-style name lookup
   * `docx_numbering.mbt`: `word/numbering.xml` parsing for ordered / unordered / nested lists
+  * `docx_table.mbt`: table extraction logic
+  * `docx_xml.mbt`: lower-level XML scanning helpers
+  * `docx_types.mbt`: DOCX-local shared types used across document / numbering / styles / table logic
   * `moon.pkg`: package definition
 * `src/html/`: HTML parsing package
 
@@ -90,13 +92,21 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
   * `pptx_parser.mbt`: top-level PPTX parse entry
   * `pptx_package.mbt`: PPTX package/ZIP access helpers
-  * `pptx_rels.mbt`: presentation/relationship helpers
+  * `pptx_rels.mbt`: presentation / relationship helpers
   * `pptx_bytes.mbt`: byte / XML scanning helpers
-  * `pptx_shape.mbt`: shape collection, layout analysis, title fallback, grouping, and table-like region handling
-  * `pptx_slide.mbt`: slide-level paragraph extraction
-  * `pptx_classify.mbt`: paragraph classification into title/body/list-like output structures
-  * `pptx_noise.mbt`: conservative page-number / corner-label noise filtering
   * `pptx_text.mbt`: text-run extraction helpers
+  * `pptx_types.mbt`: PPTX-local shared types (`SlideShape` / `LayoutShape` / group / paragraph metadata)
+  * `pptx_geom.mbt`: shared shape-geometry helpers (gap / overlap / min-max utilities)
+  * `pptx_shape_collect.mbt`: `<p:sp>` collection, geometry extraction, and layout-shape enrichment
+  * `pptx_layout_base.mbt`: baseline layout helpers, title-shape split, fallback title promotion, and simple geometric ordering
+  * `pptx_group_candidates.mbt`: candidate heuristics for small grouping / caption-like / table-like shape selection
+  * `pptx_table_like.mbt`: local table-like / grid-like region detection and stabilization
+  * `pptx_grouping.mbt`: body-shape grouping into normal / caption-like / table-like regions
+  * `pptx_reading_order.mbt`: reading-order orchestration, two-column handling, row clustering, and final shape-order flattening
+  * `pptx_paragraph_meta.mbt`: paragraph-level metadata parsing such as bullet-kind and nesting-level extraction
+  * `pptx_slide.mbt`: shape-level paragraph extraction
+  * `pptx_classify.mbt`: paragraph classification into heading / paragraph / list-like output structures
+  * `pptx_noise.mbt`: conservative page-number / corner-label noise filtering
   * `moon.pkg`: package definition
 * `src/xlsx/`: XLSX parsing package
 
@@ -157,6 +167,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * paragraph-style name match when available
   * fallback: multi-line text plus explicit code-like token patterns
 * Keeps a style-driven blockquote recovery entry point in the parser
+* Uses a local DOCX types module to reduce coupling between document / numbering / styles / table logic
 
 > Note: DOCX blockquote recovery is wired into the parsing pipeline, but **real DOCX blockquote-style samples have not been validated yet**. Current list / heading / table / code-like paragraph coverage is backed by regression samples; blockquote-style recovery is not yet backed by a true source-document sample.
 
@@ -240,6 +251,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * corner short-label filtering (`Draft` / `Internal` / `Confidential`-like cases)
 * Groups local note-like / caption-like small text shapes to keep them from being fragmented by the main body flow
 * Detects simple table-like / grid-like text regions and keeps them stable as one body region during output ordering
+* Uses a more explicit internal module split for shape collection, layout base logic, grouping candidates, table-like region detection, grouping, reading-order recovery, and paragraph metadata parsing
 
 > Note: PPTX support is no longer just a basic text-dump path. It now includes shape-order recovery, title/body heuristics, paragraph cleanup, note-like grouping, and table-like text-region stabilization. Like XLSX, parts of the current PPTX package/decompression path still rely on external system-tool behavior where the current internal decompressed-result representation conflicts with the parser’s preferred working form.
 
@@ -395,6 +407,7 @@ Recent regression coverage includes:
   * top-title + multi-box layout behavior
   * note-like grouping behavior
   * table-like/grid-like text-region stabilization
+  * local table-like region behavior with surrounding body text
   * page-number / corner-label cleanup behavior
 * **HTML**
 
@@ -467,9 +480,9 @@ Then re-run:
 
 ## Status
 
-* ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, and conservative code-like paragraph recovery
+* ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, conservative code-like paragraph recovery, and a cleaner local package split with shared DOCX types
 * ✅ **pdf (text-based)**: stable extractor-selection pipeline with heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
 * ✅ **xlsx**: stable table-oriented workbook conversion with multiple cell types, multi-sheet support, empty-sheet handling, sparse bounding-box trimming, and lightweight style-driven date/time interpretation
-* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, and table-like text-region stabilization
+* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, and table-like text-region stabilization, now backed by a more maintainable internal module split
 * ✅ **html**: stable bytes-based HTML conversion with lists / quotes / code blocks / tables, `<br>` normalization, ordered/nested-list structure recovery, parent-item protection, and ragged-row table normalization
 * ✅ **IR + Markdown emitter**: shared structured output path across formats

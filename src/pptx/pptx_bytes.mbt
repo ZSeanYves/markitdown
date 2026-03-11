@@ -147,3 +147,12 @@ fn shape_is_title_like(xml : Bytes) -> Bool {
 fn shape_is_body_like(xml : Bytes) -> Bool {
   contains_bytes(xml, pat("type=\"body\""))
 }
+
+///|
+fn abs_int(n : Int) -> Int {
+  if n < 0 {
+    -n
+  } else {
+    n
+  }
+}
