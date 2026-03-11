@@ -346,6 +346,7 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String raise {
   .to_string()
 }
 
+///|
 fn html_text_from_bytes(inner : Bytes) -> String raise {
   let bs0 = normalize_html_breaks(inner)
   let text_bs = strip_tags_bytes(bs0)
@@ -520,10 +521,11 @@ fn normalize_html_breaks(inner : Bytes) -> Bytes {
   Bytes::from_iter(out.iter())
 }
 
+///|
 fn replace_all(s : String, old : String, new_ : String) -> String {
   let mut cur = s
   while cur.contains(old) {
-    cur = cur.replace(old=old, new=new_)
+    cur = cur.replace(old~, new=new_)
   }
   cur
 }
