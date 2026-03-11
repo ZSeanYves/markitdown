@@ -18,16 +18,19 @@ priv struct LayoutShape {
   center_y : Int
 }
 
+priv enum ShapeGroupKind {
+  Normal
+  CaptionLike
+  TableLike
+}
+
 ///|
 priv struct ShapeGroup {
   shapes : Array[LayoutShape]
   top : Int
   left : Int
-  _right : Int
-  _bottom : Int
-  _caption_like : Bool
+  kind : ShapeGroupKind
 }
-
 ///|
 priv struct SlideParagraph {
   text : String
@@ -546,6 +549,165 @@ fn is_caption_like_shape(
 }
 
 ///|
+fn is_table_like_shape_candidate(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if sp.shape.is_title {
+    return false
+  }
+
+  let text = normalize_shape_text_for_title(sp.shape.xml)
+  if text == "" {
+    return false
+  }
+
+  if is_bullet_like(text) {
+    return false
+  }
+
+  if ends_like_sentence(text) {
+    return false
+  }
+
+  let n = text.to_array().length()
+  if n > 30 {
+    return false
+  }
+
+  if !is_small_shape_for_grouping(sp, slide_w, slide_h) {
+    return false
+  }
+
+  true
+}
+
+///|
+fn average_shape_w(shapes : Array[LayoutShape]) -> Int {
+  if shapes.length() == 0 {
+    return 0
+  }
+
+  let mut sum = 0
+  for sp in shapes {
+    sum += sp.shape.w
+  }
+  sum / shapes.length()
+}
+
+///|
+fn average_shape_h(shapes : Array[LayoutShape]) -> Int {
+  if shapes.length() == 0 {
+    return 0
+  }
+
+  let mut sum = 0
+  for sp in shapes {
+    sum += sp.shape.h
+  }
+  sum / shapes.length()
+}
+
+///|
+fn quantize_coord(v : Int, step : Int) -> Int {
+  if step <= 0 {
+    v
+  } else {
+    (v / step) * step
+  }
+}
+
+///|
+fn count_distinct_bucketed_x(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
+  let seen : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.shape.x, step)
+    let mut exists = false
+    for v in seen {
+      if v == q {
+        exists = true
+        break
+      }
+    }
+    if !exists {
+      seen.push(q)
+    }
+  }
+
+  seen.length()
+}
+
+///|
+fn count_distinct_bucketed_y(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
+  let seen : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.shape.y, step)
+    let mut exists = false
+    for v in seen {
+      if v == q {
+        exists = true
+        break
+      }
+    }
+    if !exists {
+      seen.push(q)
+    }
+  }
+
+  seen.length()
+}
+
+///|
+/// conservative grid/table-like region detection:
+/// - at least 4 shapes
+/// - most shapes are short/small candidates
+/// - at least 2 rows and 2 columns after rough bucketing
+fn shapes_form_grid_like_region(
+  shapes : Array[LayoutShape],
+) -> Bool {
+  if shapes.length() < 4 {
+    return false
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
+
+  let mut candidate_cnt = 0
+  for sp in shapes {
+    if is_table_like_shape_candidate(sp, slide_w, slide_h) {
+      candidate_cnt += 1
+    }
+  }
+
+  if candidate_cnt * 2 < shapes.length() {
+    return false
+  }
+
+  let avgw = average_shape_w(shapes)
+  let avgh = average_shape_h(shapes)
+
+  let x_step = if avgw > 0 { avgw / 2 } else { 1 }
+  let y_step = if avgh > 0 { avgh / 2 } else { 1 }
+
+  let cols = count_distinct_bucketed_x(shapes, x_step)
+  let rows = count_distinct_bucketed_y(shapes, y_step)
+
+  if cols < 2 || rows < 2 {
+    return false
+  }
+
+  true
+}
+
+///|
 fn shape_group_bounds(shapes : Array[LayoutShape]) -> (Int, Int, Int, Int) {
   if shapes.length() == 0 {
     return (0, 0, 0, 0)
@@ -596,25 +758,42 @@ fn group_caption_like_flag(
 }
 
 ///|
+fn make_shape_group_with_kind(
+  shapes : Array[LayoutShape],
+  kind : ShapeGroupKind,
+) -> ShapeGroup {
+  let sorted = sort_layout_shapes_simple(shapes)
+  let (top, left, _right, _bottom) = shape_group_bounds(sorted)
+  { shapes: sorted, top, left, kind }
+}
+
+///|
 fn make_shape_group(
   shapes : Array[LayoutShape],
   slide_w : Int,
   slide_h : Int,
 ) -> ShapeGroup {
-  let sorted = sort_layout_shapes_simple(shapes)
-  let (top, left, right, bottom) = shape_group_bounds(sorted)
-  let caption_like = group_caption_like_flag(sorted, slide_w, slide_h)
-
-  {
-    shapes: sorted,
-    top,
-    left,
-    _right: right,
-    _bottom: bottom,
-    _caption_like: caption_like,
+  let kind = if group_caption_like_flag(shapes, slide_w, slide_h) {
+    ShapeGroupKind::CaptionLike
+  } else {
+    ShapeGroupKind::Normal
   }
+  make_shape_group_with_kind(shapes, kind)
 }
 
+///|
+/// first version:
+/// if the whole body region already looks grid-like,
+/// lift it as one table-like group; otherwise keep all shapes in rest.
+fn extract_table_like_region_shapes(
+  shapes : Array[LayoutShape],
+) -> (Array[LayoutShape], Array[LayoutShape]) {
+  if shapes_form_grid_like_region(shapes) {
+    (shapes, [])
+  } else {
+    ([], shapes)
+  }
+}
 ///|
 fn horizontal_gap(a : LayoutShape, b : LayoutShape) -> Int {
   if a.right < b.shape.x {
@@ -746,46 +925,264 @@ fn group_body_shapes_for_layout(
     return groups
   }
 
-  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
-  let sorted = sort_layout_shapes_simple(shapes)
+  let (table_like_shapes, rest_shapes) = extract_table_like_region_shapes(shapes)
+
+  if table_like_shapes.length() > 0 {
+    groups.push(
+      make_shape_group_with_kind(
+        table_like_shapes,
+        ShapeGroupKind::TableLike,
+      ),
+    )
+  }
+
+  if rest_shapes.length() == 0 {
+    return sort_shape_groups(groups)
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(rest_shapes)
+  let sorted = sort_layout_shapes_simple(rest_shapes)
 
   for sp in sorted {
     let mut placed = false
     let mut i = 0
 
     while i < groups.length() {
-      if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
-        let merged : Array[LayoutShape] = []
-        for old in groups[i].shapes {
-          merged.push(old)
+      match groups[i].kind {
+        ShapeGroupKind::TableLike => {
+          i += 1
+          continue
         }
-        merged.push(sp)
-        groups[i] = make_shape_group(merged, slide_w, slide_h)
-        placed = true
-        break
+        ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike => {
+          if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
+            let merged : Array[LayoutShape] = []
+            for old in groups[i].shapes {
+              merged.push(old)
+            }
+            merged.push(sp)
+
+            let kind = if group_caption_like_flag(merged, slide_w, slide_h) {
+              ShapeGroupKind::CaptionLike
+            } else {
+              ShapeGroupKind::Normal
+            }
+
+            groups[i] = make_shape_group_with_kind(merged, kind)
+            placed = true
+            break
+          }
+        }
       }
+
       i += 1
     }
 
     if !placed {
-      groups.push(make_shape_group([sp], slide_w, slide_h))
+      let kind = if is_caption_like_shape(sp, slide_w, slide_h) {
+        ShapeGroupKind::CaptionLike
+      } else {
+        ShapeGroupKind::Normal
+      }
+      groups.push(make_shape_group_with_kind([sp], kind))
     }
   }
 
   sort_shape_groups(groups)
 }
-
 ///|
-fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
+fn flatten_shape_groups(
+  groups : Array[ShapeGroup],
+) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
+
   for g in groups {
-    for sp in g.shapes {
+    match g.kind {
+      ShapeGroupKind::TableLike => {
+        let rows = cluster_shapes_into_rows(g.shapes)
+        append_rows(out, rows)
+      }
+      ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike => {
+        for sp in g.shapes {
+          out.push(sp)
+        }
+      }
+    }
+  }
+
+  out
+}
+///|
+fn append_rows(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  for row in rows {
+    for sp in row {
       out.push(sp)
     }
   }
+}
+///|
+fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
+  let dy = abs_int(a.center_y - b.center_y)
+  dy <= row_threshold_for(a, b)
+}
+
+///|
+/// cluster shapes into visual rows; rows are ordered top-to-bottom,
+/// and shapes inside each row are ordered left-to-right
+fn cluster_shapes_into_rows(
+  shapes : Array[LayoutShape],
+) -> Array[Array[LayoutShape]] {
+  let rows : Array[Array[LayoutShape]] = []
+  let sorted = sort_layout_shapes_simple(shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < rows.length() {
+      if row_accepts_shape(rows[i], sp) {
+        rows[i].push(sp)
+        placed = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !placed {
+      rows.push([sp])
+    }
+  }
+
+  for i in 0..<rows.length() {
+    let row = rows[i]
+    rows[i] = sort_layout_shapes_by_x(row)
+  }
+
+  sort_rows_by_top(rows)
+}
+
+///|
+fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
+  if row.length() == 0 {
+    return true
+  }
+
+  for item in row {
+    if same_visual_row(item, sp) {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
+fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in shapes {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if layout_shape_before_x(sp, out[i]) {
+        out.insert(i, sp)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(sp)
+    }
+  }
+
   out
 }
 
+///|
+fn layout_shape_before_x(a : LayoutShape, b : LayoutShape) -> Bool {
+  if a.shape.x != b.shape.x {
+    return a.shape.x < b.shape.x
+  }
+  if a.shape.y != b.shape.y {
+    return a.shape.y < b.shape.y
+  }
+  false
+}
+
+///|
+fn sort_rows_by_top(
+  rows : Array[Array[LayoutShape]],
+) -> Array[Array[LayoutShape]] {
+  let out : Array[Array[LayoutShape]] = []
+
+  for row in rows {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if row_before(row, out[i]) {
+        out.insert(i, row)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(row)
+    }
+  }
+
+  out
+}
+
+///|
+fn row_before(a : Array[LayoutShape], b : Array[LayoutShape]) -> Bool {
+  let ay = row_top(a)
+  let by = row_top(b)
+  if ay != by {
+    return ay < by
+  }
+
+  let ax = row_left(a)
+  let bx = row_left(b)
+  ax < bx
+}
+
+///|
+fn row_top(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut v = row[0].shape.y
+  for i in 1..<row.length() {
+    if row[i].shape.y < v {
+      v = row[i].shape.y
+    }
+  }
+  v
+}
+
+///|
+fn row_left(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut v = row[0].shape.x
+  for i in 1..<row.length() {
+    if row[i].shape.x < v {
+      v = row[i].shape.x
+    }
+  }
+  v
+}
 ///|
 /// flatten title shapes and body shapes into final reading order:
 /// - titles first

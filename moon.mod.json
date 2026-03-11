@@ -18,6 +18,6 @@
     "pptx",
     "html"
   ],
-  "description": "A MoonBit (markitdown-like) document conversion tool that turns .docx / .pdf / .xlsx / .pptx / .html into structured Markdown",
+  "description": "A Moonbit tool similar to Markitdown(Microsoft) synthesized using Codex",
   "preferred-target": "native"
 }
