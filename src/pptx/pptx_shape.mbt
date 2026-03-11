@@ -23,9 +23,9 @@ priv struct ShapeGroup {
   shapes : Array[LayoutShape]
   top : Int
   left : Int
-  right : Int
-  bottom : Int
-  caption_like : Bool
+  _right : Int
+  _bottom : Int
+  _caption_like : Bool
 }
 
 ///|
@@ -44,6 +44,9 @@ priv enum BulletKind {
 }
 
 ///|
+const PPTX_SLIDE_DEBUG = false
+
+///|
 /// scan slide xml by shape (<p:sp>), collect shapes first,
 /// recover a more stable reading order by:
 /// - separating title shapes
@@ -56,6 +59,29 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
   let out : Array[SlideParagraph] = []
 
   let shapes = collect_slide_shapes(xml)
+  if PPTX_SLIDE_DEBUG {
+    for sp in shapes {
+      let text = normalize_slide_text(
+        extract_text_runs(sp.xml, 0, sp.xml.length()),
+      )
+      println(
+        "[pptx-shape] text=" +
+        text +
+        " | is_title=" +
+        sp.is_title.to_string() +
+        " | is_body=" +
+        sp.is_body.to_string() +
+        " | x=" +
+        sp.x.to_string() +
+        " | y=" +
+        sp.y.to_string() +
+        " | w=" +
+        sp.w.to_string() +
+        " | h=" +
+        sp.h.to_string(),
+      )
+    }
+  }
   let enriched = enrich_layout_shapes(shapes)
   let (title_shapes, body_shapes) = split_title_shapes(enriched)
   let filtered_bodies = filter_noise_shapes(body_shapes)
@@ -269,13 +295,13 @@ fn find_promotable_title_candidate(shapes : Array[LayoutShape]) -> Int? {
     return None
   }
 
-  let (_, slide_h) = estimate_layout_bounds(shapes)
+  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
 
   let mut best_idx = -1
   let mut best_score = -1
   for i in 0..<shapes.length() {
     let sp = shapes[i]
-    if is_promotable_title_candidate(sp, slide_h) {
+    if is_promotable_title_candidate(sp, slide_h, slide_w) {
       let sc = promotable_title_score(sp, slide_h)
       if sc > best_score {
         best_score = sc
@@ -292,7 +318,11 @@ fn find_promotable_title_candidate(shapes : Array[LayoutShape]) -> Int? {
 }
 
 ///|
-fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
+fn is_promotable_title_candidate(
+  sp : LayoutShape,
+  slide_h : Int,
+  slide_w : Int,
+) -> Bool {
   let text = normalize_shape_text_for_title(sp.shape.xml)
   if text == "" {
     return false
@@ -302,11 +332,8 @@ fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
     return false
   }
 
-  if sp.shape.is_body {
-    return false
-  }
-
-  if slide_h > 0 && sp.shape.y > slide_h / 4 {
+  // must appear near top area
+  if slide_h > 0 && sp.shape.y > slide_h / 5 {
     return false
   }
 
@@ -331,7 +358,13 @@ fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
     return false
   }
 
+  // too small is suspicious
   if sp.shape.h < 100000 {
+    return false
+  }
+
+  // width should not be too narrow
+  if slide_w > 0 && sp.shape.w < slide_w / 4 {
     return false
   }
 
@@ -454,168 +487,6 @@ fn row_threshold_for(a : LayoutShape, b : LayoutShape) -> Int {
 }
 
 ///|
-fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
-  let dy = abs_int(a.center_y - b.center_y)
-  dy <= row_threshold_for(a, b)
-}
-
-///|
-/// cluster shapes into visual rows; rows are ordered top-to-bottom,
-/// and shapes inside each row are ordered left-to-right
-fn cluster_shapes_into_rows(
-  shapes : Array[LayoutShape],
-) -> Array[Array[LayoutShape]] {
-  let rows : Array[Array[LayoutShape]] = []
-  let sorted = sort_layout_shapes_simple(shapes)
-
-  for sp in sorted {
-    let mut placed = false
-    let mut i = 0
-
-    while i < rows.length() {
-      if row_accepts_shape(rows[i], sp) {
-        rows[i].push(sp)
-        placed = true
-        break
-      }
-      i = i + 1
-    }
-
-    if !placed {
-      rows.push([sp])
-    }
-  }
-
-  for i in 0..<rows.length() {
-    let row = rows[i]
-    rows[i] = sort_layout_shapes_by_x(row)
-  }
-
-  sort_rows_by_top(rows)
-}
-
-///|
-fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
-  if row.length() == 0 {
-    return true
-  }
-
-  for item in row {
-    if same_visual_row(item, sp) {
-      return true
-    }
-  }
-
-  false
-}
-
-///|
-fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
-  let out : Array[LayoutShape] = []
-
-  for sp in shapes {
-    let mut inserted = false
-    let mut i = 0
-
-    while i < out.length() {
-      if layout_shape_before_x(sp, out[i]) {
-        out.insert(i, sp)
-        inserted = true
-        break
-      }
-      i = i + 1
-    }
-
-    if !inserted {
-      out.push(sp)
-    }
-  }
-
-  out
-}
-
-///|
-fn layout_shape_before_x(a : LayoutShape, b : LayoutShape) -> Bool {
-  if a.shape.x != b.shape.x {
-    return a.shape.x < b.shape.x
-  }
-  if a.shape.y != b.shape.y {
-    return a.shape.y < b.shape.y
-  }
-  false
-}
-
-///|
-fn sort_rows_by_top(
-  rows : Array[Array[LayoutShape]],
-) -> Array[Array[LayoutShape]] {
-  let out : Array[Array[LayoutShape]] = []
-
-  for row in rows {
-    let mut inserted = false
-    let mut i = 0
-
-    while i < out.length() {
-      if row_before(row, out[i]) {
-        out.insert(i, row)
-        inserted = true
-        break
-      }
-      i = i + 1
-    }
-
-    if !inserted {
-      out.push(row)
-    }
-  }
-
-  out
-}
-
-///|
-fn row_before(a : Array[LayoutShape], b : Array[LayoutShape]) -> Bool {
-  let ay = row_top(a)
-  let by = row_top(b)
-  if ay != by {
-    return ay < by
-  }
-
-  let ax = row_left(a)
-  let bx = row_left(b)
-  ax < bx
-}
-
-///|
-fn row_top(row : Array[LayoutShape]) -> Int {
-  if row.length() == 0 {
-    return 0
-  }
-
-  let mut v = row[0].shape.y
-  for i in 1..<row.length() {
-    if row[i].shape.y < v {
-      v = row[i].shape.y
-    }
-  }
-  v
-}
-
-///|
-fn row_left(row : Array[LayoutShape]) -> Int {
-  if row.length() == 0 {
-    return 0
-  }
-
-  let mut v = row[0].shape.x
-  for i in 1..<row.length() {
-    if row[i].shape.x < v {
-      v = row[i].shape.x
-    }
-  }
-  v
-}
-
-///|
 fn is_small_shape_for_grouping(
   sp : LayoutShape,
   slide_w : Int,
@@ -630,7 +501,7 @@ fn is_small_shape_for_grouping(
 
   let narrow = w <= slide_w / 3
   let low = h <= slide_h / 6
-  let small_area = w * h <= (slide_w * slide_h) / 20
+  let small_area = w * h <= slide_w * slide_h / 20
 
   (narrow && low) || small_area
 }
@@ -675,9 +546,7 @@ fn is_caption_like_shape(
 }
 
 ///|
-fn shape_group_bounds(
-  shapes : Array[LayoutShape],
-) -> (Int, Int, Int, Int) {
+fn shape_group_bounds(shapes : Array[LayoutShape]) -> (Int, Int, Int, Int) {
   if shapes.length() == 0 {
     return (0, 0, 0, 0)
   }
@@ -736,7 +605,14 @@ fn make_shape_group(
   let (top, left, right, bottom) = shape_group_bounds(sorted)
   let caption_like = group_caption_like_flag(sorted, slide_w, slide_h)
 
-  { shapes: sorted, top, left, right, bottom, caption_like }
+  {
+    shapes: sorted,
+    top,
+    left,
+    _right: right,
+    _bottom: bottom,
+    _caption_like: caption_like,
+  }
 }
 
 ///|
@@ -839,9 +715,7 @@ fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
 }
 
 ///|
-fn sort_shape_groups(
-  groups : Array[ShapeGroup],
-) -> Array[ShapeGroup] {
+fn sort_shape_groups(groups : Array[ShapeGroup]) -> Array[ShapeGroup] {
   let out : Array[ShapeGroup] = []
 
   for g in groups {
@@ -902,9 +776,7 @@ fn group_body_shapes_for_layout(
 }
 
 ///|
-fn flatten_shape_groups(
-  groups : Array[ShapeGroup],
-) -> Array[LayoutShape] {
+fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
   for g in groups {
     for sp in g.shapes {
