@@ -49,7 +49,7 @@ priv enum BulletKind {
 }
 
 ///|
-const PPTX_SLIDE_DEBUG = true
+const PPTX_SLIDE_DEBUG = false
 
 ///|
 /// scan slide xml by shape (<p:sp>), collect shapes first,
@@ -107,10 +107,23 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
 fn extract_table_like_regions(
   shapes : Array[LayoutShape],
 ) -> (Array[Array[LayoutShape]], Array[LayoutShape]) {
-  if shapes.length() == 0 {
-    return ([], [])
-  }
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-extract-table] input n=" + shapes.length().to_string())
 
+    let candidates = filter_table_like_candidates(shapes)
+    println(
+      "[pptx-extract-table] candidates n=" + candidates.length().to_string(),
+    )
+    for sp in candidates {
+      println(
+        "[pptx-extract-table] candidate=" +
+        normalize_shape_text_for_title(sp.shape.xml),
+      )
+    }
+    if shapes.length() == 0 {
+      return ([], [])
+    }
+  }
   let candidates = filter_table_like_candidates(shapes)
   if candidates.length() < 4 {
     return ([], shapes)
@@ -594,129 +607,91 @@ fn is_table_like_shape_candidate(
   slide_w : Int,
   slide_h : Int,
 ) -> Bool {
-  if sp.shape.is_title {
-    return false
-  }
-
   let text = normalize_shape_text_for_title(sp.shape.xml)
-  if text == "" {
-    return false
-  }
-
-  if is_bullet_like(text) {
-    return false
-  }
-
-  if ends_like_sentence(text) {
-    return false
-  }
-
+  let small = is_small_shape_for_grouping(sp, slide_w, slide_h)
+  let bullet = is_bullet_like(text)
+  let sent = ends_like_sentence(text)
   let n = text.to_array().length()
-  if n > 30 {
-    return false
-  }
 
-  if !is_small_shape_for_grouping(sp, slide_w, slide_h) {
-    return false
+  let ok = !sp.shape.is_title &&
+    text != "" &&
+    !bullet &&
+    !sent &&
+    n <= 30 &&
+    small
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-candidate-check] " +
+      text +
+      " | small=" +
+      small.to_string() +
+      " | bullet=" +
+      bullet.to_string() +
+      " | sent=" +
+      sent.to_string() +
+      " | len=" +
+      n.to_string() +
+      " | ok=" +
+      ok.to_string(),
+    )
   }
-
-  true
-}
-
-///|
-fn table_group_accepts_shape(
-  group : Array[LayoutShape],
-  sp : LayoutShape,
-) -> Bool {
-  for item in group {
-    if should_link_table_like_shapes(item, sp) {
-      return true
-    }
-  }
-  false
+  ok
 }
 
 ///|
 fn cluster_table_like_candidate_shapes(
   shapes : Array[LayoutShape],
 ) -> Array[Array[LayoutShape]] {
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-cluster-enter] n=" + shapes.length().to_string())
+    for sp in shapes {
+      println(
+        "[pptx-cluster-shape] " + normalize_shape_text_for_title(sp.shape.xml),
+      )
+    }
+  }
   let groups : Array[Array[LayoutShape]] = []
+
+  if shapes.length() == 0 {
+    return groups
+  }
+
   let sorted = sort_layout_shapes_simple(shapes)
+  let visited : Array[Bool] = []
+  for _ in 0..<sorted.length() {
+    visited.push(false)
+  }
 
-  for sp in sorted {
-    let hits : Array[Int] = []
-
-    for i in 0..<groups.length() {
-      if table_group_accepts_shape(groups[i], sp) {
-        hits.push(i)
-      }
-    }
-
-    if hits.length() == 0 {
-      groups.push([sp])
+  for i in 0..<sorted.length() {
+    if visited[i] {
       continue
     }
 
-    if hits.length() == 1 {
-      groups[hits[0]].push(sp)
-      continue
-    }
+    let comp : Array[LayoutShape] = []
+    let stack : Array[Int] = [i]
+    visited[i] = true
 
-    // 命中多个组：合并这些组再放入 sp
-    let merged : Array[LayoutShape] = []
-    let keep : Array[Array[LayoutShape]] = []
+    while stack.length() > 0 {
+      let last = stack.length() - 1
+      let cur = stack[last]
+      ignore(stack.pop())
+      comp.push(sorted[cur])
 
-    for i in 0..<groups.length() {
-      let mut selected = false
-      for h in hits {
-        if i == h {
-          selected = true
-          break
+      for j in 0..<sorted.length() {
+        if visited[j] {
+          continue
+        }
+        if should_link_table_like_shapes(sorted[cur], sorted[j]) {
+          visited[j] = true
+          stack.push(j)
         }
       }
-
-      if selected {
-        for item in groups[i] {
-          merged.push(item)
-        }
-      } else {
-        keep.push(groups[i])
-      }
     }
 
-    merged.push(sp)
-    keep.push(merged)
-
-    groups.clear()
-    for g in keep {
-      groups.push(g)
-    }
+    groups.push(sort_layout_shapes_simple(comp))
   }
 
   groups
-}
-
-///|
-fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
-  let hgap = horizontal_gap(a, b)
-  let vgap = vertical_gap(a, b)
-  let hoverlap = horizontal_overlap(a, b)
-  let voverlap = vertical_overlap(a, b)
-
-  let maxw = max_int(a.shape.w, b.shape.w)
-  let maxh = max_int(a.shape.h, b.shape.h)
-
-  // 同列相邻：横向有重叠，纵向距离不大
-  if hoverlap > 0 && vgap <= maxh * 2 {
-    return true
-  }
-
-  // 同行相邻：纵向有重叠，横向距离不大
-  if voverlap > 0 && hgap <= maxw * 2 {
-    return true
-  }
-
-  false
 }
 
 ///|
@@ -727,7 +702,25 @@ fn filter_table_like_candidates(
   let (slide_w, slide_h) = estimate_layout_bounds(shapes)
 
   for sp in shapes {
-    if is_table_like_shape_candidate(sp, slide_w, slide_h) {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    let ok = is_table_like_shape_candidate(sp, slide_w, slide_h)
+    if PPTX_SLIDE_DEBUG {
+      println(
+        "[pptx-table-candidate] " +
+        text +
+        " | ok=" +
+        ok.to_string() +
+        " | x=" +
+        sp.shape.x.to_string() +
+        " | y=" +
+        sp.shape.y.to_string() +
+        " | w=" +
+        sp.shape.w.to_string() +
+        " | h=" +
+        sp.shape.h.to_string(),
+      )
+    }
+    if ok {
       out.push(sp)
     }
   }
@@ -912,20 +905,6 @@ fn make_shape_group_with_kind(
 }
 
 ///|
-/// first version:
-/// if the whole body region already looks grid-like,
-/// lift it as one table-like group; otherwise keep all shapes in rest.
-fn extract_table_like_region_shapes(
-  shapes : Array[LayoutShape],
-) -> (Array[LayoutShape], Array[LayoutShape]) {
-  if shapes_form_grid_like_region(shapes) {
-    (shapes, [])
-  } else {
-    ([], shapes)
-  }
-}
-
-///|
 fn horizontal_gap(a : LayoutShape, b : LayoutShape) -> Int {
   if a.right < b.shape.x {
     b.shape.x - a.right
@@ -969,6 +948,58 @@ fn vertical_overlap(a : LayoutShape, b : LayoutShape) -> Int {
   } else {
     0
   }
+}
+
+///|
+fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
+  //println("[pptx-link-enter]")
+  let hgap = horizontal_gap(a, b)
+  let vgap = vertical_gap(a, b)
+  let hoverlap = horizontal_overlap(a, b)
+  let voverlap = vertical_overlap(a, b)
+
+  let maxw = max_int(a.shape.w, b.shape.w)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  let ta = normalize_shape_text_for_title(a.shape.xml)
+  let tb = normalize_shape_text_for_title(b.shape.xml)
+
+  if (
+      (ta == "Revenue" && tb == "Cost") ||
+      (ta == "Cost" && tb == "Revenue") ||
+      (ta == "Revenue" && tb == "120") ||
+      (ta == "120" && tb == "Revenue")
+    ) &&
+    PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-link] " +
+      ta +
+      " <-> " +
+      tb +
+      " | hgap=" +
+      hgap.to_string() +
+      " | vgap=" +
+      vgap.to_string() +
+      " | hoverlap=" +
+      hoverlap.to_string() +
+      " | voverlap=" +
+      voverlap.to_string() +
+      " | maxw=" +
+      maxw.to_string() +
+      " | maxh=" +
+      maxh.to_string(),
+    )
+  }
+
+  if hoverlap > 0 && vgap <= maxh * 2 {
+    return true
+  }
+
+  if voverlap > 0 && hgap <= maxw * 2 {
+    return true
+  }
+
+  false
 }
 
 ///|
@@ -1060,12 +1091,13 @@ fn group_body_shapes_for_layout(
 
   for region in table_regions {
     groups.push(make_shape_group_with_kind(region, ShapeGroupKind::TableLike))
-
-    println("[pptx-table] region size=" + region.length().to_string())
-    for sp in region {
-      println(
-        "[pptx-table] cell=" + normalize_shape_text_for_title(sp.shape.xml),
-      )
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table] region size=" + region.length().to_string())
+      for sp in region {
+        println(
+          "[pptx-table] cell=" + normalize_shape_text_for_title(sp.shape.xml),
+        )
+      }
     }
   }
 
@@ -1130,13 +1162,13 @@ fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
     match g.kind {
       ShapeGroupKind::TableLike => {
         let rows = cluster_shapes_into_rows(g.shapes)
-        println("[pptx-table] flatten table-like")
+        //println("[pptx-table] flatten table-like")
         append_rows(out, rows)
       }
       ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
         for sp in g.shapes {
-          println("[pptx-table] flatten caption-like")
-          println("[pptx-table] flatten normal")
+          //println("[pptx-table] flatten caption-like")
+          //println("[pptx-table] flatten normal")
           out.push(sp)
         }
     }
@@ -1194,11 +1226,13 @@ fn cluster_shapes_into_rows(
     let row = rows[i]
     rows[i] = sort_layout_shapes_by_x(row)
   }
-  println("[pptx-table] row count=" + rows.length().to_string())
-  for i in 0..<rows.length() {
-    println("[pptx-table] row " + i.to_string())
-    for sp in rows[i] {
-      println("  - " + normalize_shape_text_for_title(sp.shape.xml))
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-table] row count=" + rows.length().to_string())
+    for i in 0..<rows.length() {
+      println("[pptx-table] row " + i.to_string())
+      for sp in rows[i] {
+        println("  - " + normalize_shape_text_for_title(sp.shape.xml))
+      }
     }
   }
   sort_rows_by_top(rows)
@@ -1326,10 +1360,6 @@ fn row_left(row : Array[LayoutShape]) -> Int {
 }
 
 ///|
-/// flatten title shapes and body shapes into final reading order:
-/// - titles first
-/// - body in two columns if detected
-/// - within each body region, nearby small caption-like shapes may be grouped
 fn flatten_shapes_in_reading_order(
   title_shapes : Array[LayoutShape],
   body_shapes : Array[LayoutShape],
@@ -1341,6 +1371,29 @@ fn flatten_shapes_in_reading_order(
   }
 
   if body_shapes.length() == 0 {
+    return out
+  }
+
+  // 先整体做一次 body grouping，优先保住 table-like / caption-like 区域
+  let whole_groups = group_body_shapes_for_layout(body_shapes)
+
+  // 如果已经识别出 table-like 区域，就不要再按两栏硬切
+  let mut has_table_like = false
+  for g in whole_groups {
+    match g.kind {
+      ShapeGroupKind::TableLike => {
+        has_table_like = true
+        break
+      }
+      _ => ()
+    }
+  }
+
+  if has_table_like {
+    let flat = flatten_shape_groups(whole_groups)
+    for sp in flat {
+      out.push(sp)
+    }
     return out
   }
 
@@ -1363,8 +1416,7 @@ fn flatten_shapes_in_reading_order(
     return out
   }
 
-  let groups = group_body_shapes_for_layout(body_shapes)
-  let flat = flatten_shape_groups(groups)
+  let flat = flatten_shape_groups(whole_groups)
   for sp in flat {
     out.push(sp)
   }

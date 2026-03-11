@@ -30,12 +30,12 @@ fn is_noise_candidate(sp : LayoutShape, slide_w : Int, slide_h : Int) -> Bool {
   let small = is_small_shape(sp, slide_w, slide_h)
   let near_bottom = is_bottom_edge_shape(sp, slide_h)
   if looks_like_page_number_text(text) && near_bottom && small {
-    println("[pptx-noise] drop explicit page-like: " + text)
+    //("[pptx-noise] drop explicit page-like: " + text)
     return true
   }
 
   if is_small_plain_page_number(sp, slide_w, slide_h, text) {
-    println("[pptx-noise] drop plain page number: " + text)
+    //println("[pptx-noise] drop plain page number: " + text)
     return true
   }
 
