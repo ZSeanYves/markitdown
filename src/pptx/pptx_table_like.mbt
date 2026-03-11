@@ -141,53 +141,13 @@ fn quantize_coord(v : Int, step : Int) -> Int {
 }
 
 ///|
-fn count_distinct_bucketed_x(shapes : Array[LayoutShape], step : Int) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.shape.x, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
-}
-
-///|
-fn count_distinct_bucketed_y(shapes : Array[LayoutShape], step : Int) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.shape.y, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
-}
-
-///|
 /// conservative grid/table-like region detection:
 /// - at least 4 shapes
 /// - most shapes are short/small candidates
 /// - at least 2 rows and 2 columns after rough bucketing
 /// - not just sparse 2d points: need repeated occupancy on both axes
+/// - need multiple non-trivial rows/cols rather than only one repeated row/col
+/// - need moderate fill density in the implied grid
 fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
   if shapes.length() < 4 {
     return false
@@ -211,19 +171,29 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
   let x_step = if avgw > 0 { max_int(1, avgw / 2) } else { 1 }
   let y_step = if avgh > 0 { max_int(1, avgh / 2) } else { 1 }
-
-  let cols = count_distinct_bucketed_x(shapes, x_step)
-  let rows = count_distinct_bucketed_y(shapes, y_step)
-
+  let cols = count_distinct_bucketed_center_x(shapes, x_step)
+  let rows = count_distinct_bucketed_center_y(shapes, y_step)
   if cols < 2 || rows < 2 {
     return false
   }
-
-  let max_col_pop = max_bucket_population_x(shapes, x_step)
-  let max_row_pop = max_bucket_population_y(shapes, y_step)
+  let max_col_pop = max_bucket_population_center_x(shapes, x_step)
+  let max_row_pop = max_bucket_population_center_y(shapes, y_step)
 
   // 至少要有一列里出现 2+，且一行里出现 2+
   if max_col_pop < 2 || max_row_pop < 2 {
+    return false
+  }
+
+  let rich_cols = count_bucketed_center_x_with_min_population(shapes, x_step, 2)
+  let rich_rows = count_bucketed_center_y_with_min_population(shapes, y_step, 2)
+
+  // 不能只有“某一行/某一列”碰巧重复；需要多行多列都像 grid
+  if rich_cols + rich_rows < 4 {
+    return false
+  }
+
+  // implied grid density: avoid very sparse pseudo-2d layouts
+  if shapes.length() * 2 < rows * cols {
     return false
   }
 
@@ -302,11 +272,62 @@ fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
 }
 
 ///|
-fn max_bucket_population_x(shapes : Array[LayoutShape], step : Int) -> Int {
+fn count_distinct_bucketed_center_x(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
+  let seen : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_x, step)
+    let mut exists = false
+    for v in seen {
+      if v == q {
+        exists = true
+        break
+      }
+    }
+    if !exists {
+      seen.push(q)
+    }
+  }
+
+  seen.length()
+}
+
+///|
+fn count_distinct_bucketed_center_y(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
+  let seen : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_y, step)
+    let mut exists = false
+    for v in seen {
+      if v == q {
+        exists = true
+        break
+      }
+    }
+    if !exists {
+      seen.push(q)
+    }
+  }
+
+  seen.length()
+}
+
+///|
+fn max_bucket_population_center_x(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
   let buckets : Array[(Int, Int)] = []
 
   for sp in shapes {
-    let q = quantize_coord(sp.shape.x, step)
+    let q = quantize_coord(sp.center_x, step)
     let mut found = false
     for i in 0..<buckets.length() {
       let (k, v) = buckets[i]
@@ -332,11 +353,14 @@ fn max_bucket_population_x(shapes : Array[LayoutShape], step : Int) -> Int {
 }
 
 ///|
-fn max_bucket_population_y(shapes : Array[LayoutShape], step : Int) -> Int {
+fn max_bucket_population_center_y(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Int {
   let buckets : Array[(Int, Int)] = []
 
   for sp in shapes {
-    let q = quantize_coord(sp.shape.y, step)
+    let q = quantize_coord(sp.center_y, step)
     let mut found = false
     for i in 0..<buckets.length() {
       let (k, v) = buckets[i]
@@ -359,4 +383,72 @@ fn max_bucket_population_y(shapes : Array[LayoutShape], step : Int) -> Int {
     }
   }
   best
+}
+
+///|
+fn count_bucketed_center_x_with_min_population(
+  shapes : Array[LayoutShape],
+  step : Int,
+  min_pop : Int,
+) -> Int {
+  let buckets : Array[(Int, Int)] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_x, step)
+    let mut found = false
+    for i in 0..<buckets.length() {
+      let (k, v) = buckets[i]
+      if k == q {
+        buckets[i] = (k, v + 1)
+        found = true
+        break
+      }
+    }
+    if !found {
+      buckets.push((q, 1))
+    }
+  }
+
+  let mut cnt = 0
+  for i in 0..<buckets.length() {
+    let (_, v) = buckets[i]
+    if v >= min_pop {
+      cnt += 1
+    }
+  }
+  cnt
+}
+
+///|
+fn count_bucketed_center_y_with_min_population(
+  shapes : Array[LayoutShape],
+  step : Int,
+  min_pop : Int,
+) -> Int {
+  let buckets : Array[(Int, Int)] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_y, step)
+    let mut found = false
+    for i in 0..<buckets.length() {
+      let (k, v) = buckets[i]
+      if k == q {
+        buckets[i] = (k, v + 1)
+        found = true
+        break
+      }
+    }
+    if !found {
+      buckets.push((q, 1))
+    }
+  }
+
+  let mut cnt = 0
+  for i in 0..<buckets.length() {
+    let (_, v) = buckets[i]
+    if v >= min_pop {
+      cnt += 1
+    }
+  }
+  cnt
 }
