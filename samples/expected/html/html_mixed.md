@@ -1,6 +1,6 @@
-# HTML Mixed Test
+# HTML Test
 
-Hello world.
+This is a paragraph.
 
 - item 1
 - item 2
@@ -8,6 +8,5 @@ Hello world.
 > quoted text
 
 ```
-code block
+let x = 1
 ```
-

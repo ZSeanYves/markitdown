@@ -194,7 +194,6 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * custom `formatCode`-driven lightweight date/time-like detection
   * stable output formatting for date / time / datetime cells under the current regression samples
 
-> Note: XLSX date/time support is currently validated against **custom `formatCode`-based samples**. Built-in Excel `numFmtId` cases such as **14 / 20 / 22** are implemented in the lightweight formatter, but **have not yet been validated with real workbook samples**.
 
 ### ✅ PPTX
 
