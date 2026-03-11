@@ -1,4 +1,3 @@
-
 ///|
 fn empty_styles() -> DocxStyles {
   { heading_by_style: {}, name_by_style: {} }

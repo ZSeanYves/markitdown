@@ -95,6 +95,77 @@ fn is_table_like_shape_candidate(
 }
 
 ///|
+fn approx_same_row(a : LayoutShape, b : LayoutShape) -> Bool {
+  let cy_diff = abs_int(a.center_y - b.center_y)
+  let maxh = max_int(a.shape.h, b.shape.h)
+  cy_diff <= max_int(8, maxh / 2)
+}
+
+///|
+fn approx_same_col(a : LayoutShape, b : LayoutShape) -> Bool {
+  let cx_diff = abs_int(a.center_x - b.center_x)
+  let maxw = max_int(a.shape.w, b.shape.w)
+  cx_diff <= max_int(12, maxw / 2)
+}
+
+///|
+fn is_near_row_neighbor(a : LayoutShape, b : LayoutShape) -> Bool {
+  if !approx_same_row(a, b) {
+    return false
+  }
+
+  let gap = horizontal_gap(a, b)
+  let maxw = max_int(a.shape.w, b.shape.w)
+
+  gap <= max_int(24, maxw)
+}
+
+///|
+fn is_near_col_neighbor(a : LayoutShape, b : LayoutShape) -> Bool {
+  if !approx_same_col(a, b) {
+    return false
+  }
+
+  let gap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  gap <= max_int(16, maxh)
+}
+
+///|
+fn has_table_like_neighbor_support(
+  sp : LayoutShape,
+  shapes : Array[LayoutShape],
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  let mut row_neighbors = 0
+  let mut col_neighbors = 0
+
+  for other in shapes {
+    if same_layout_shape(sp, other) {
+      continue
+    }
+
+    if !is_table_like_shape_candidate(other, slide_w, slide_h) {
+      continue
+    }
+
+    if is_near_row_neighbor(sp, other) {
+      row_neighbors += 1
+    }
+
+    if is_near_col_neighbor(sp, other) {
+      col_neighbors += 1
+    }
+  }
+
+  // 有横向或纵向局部支撑即可先进入 candidate，
+  // 真正是不是 table-like，交给 region 检测再收紧
+  row_neighbors + col_neighbors >= 1
+}
+
+///|
 fn filter_table_like_candidates(
   shapes : Array[LayoutShape],
 ) -> Array[LayoutShape] {
@@ -103,11 +174,22 @@ fn filter_table_like_candidates(
 
   for sp in shapes {
     let text = normalize_shape_text_for_title(sp.shape.xml)
-    let ok = is_table_like_shape_candidate(sp, slide_w, slide_h)
+    let base_ok = is_table_like_shape_candidate(sp, slide_w, slide_h)
+    let support_ok = if base_ok {
+      has_table_like_neighbor_support(sp, shapes, slide_w, slide_h)
+    } else {
+      false
+    }
+    let ok = base_ok && support_ok
+
     if PPTX_SLIDE_DEBUG {
       println(
         "[pptx-table-candidate] " +
         text +
+        " | base_ok=" +
+        base_ok.to_string() +
+        " | support_ok=" +
+        support_ok.to_string() +
         " | ok=" +
         ok.to_string() +
         " | x=" +
@@ -120,6 +202,7 @@ fn filter_table_like_candidates(
         sp.shape.h.to_string(),
       )
     }
+
     if ok {
       out.push(sp)
     }
