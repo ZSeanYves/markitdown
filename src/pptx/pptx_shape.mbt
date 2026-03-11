@@ -3,10 +3,19 @@ priv struct SlideShape {
   xml : Bytes
   x : Int
   y : Int
-  _cx : Int
-  _cy : Int
+  w : Int
+  h : Int
   is_title : Bool
   is_body : Bool
+}
+
+///|
+priv struct LayoutShape {
+  shape : SlideShape
+  right : Int
+  bottom : Int
+  center_x : Int
+  center_y : Int
 }
 
 ///|
@@ -26,14 +35,22 @@ priv enum BulletKind {
 
 ///|
 /// scan slide xml by shape (<p:sp>), collect shapes first,
-/// sort by lightweight reading order, then extract each <a:p>
+/// recover a more stable reading order by:
+/// - separating title shapes
+/// - clustering body shapes into visual rows
+/// - detecting simple two-column layout
+/// then extract each shape's <a:p> in that order
 fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
   let out : Array[SlideParagraph] = []
-  let shapes = collect_slide_shapes(xml)
-  let sorted = sort_slide_shapes(shapes)
 
-  for sp in sorted {
-    let paras = extract_shape_paragraphs(sp.xml, sp.is_title, sp.is_body)
+  let shapes = collect_slide_shapes(xml)
+  let enriched = enrich_layout_shapes(shapes)
+  let (title_shapes, body_shapes) = split_title_shapes(enriched)
+  let ordered = flatten_shapes_in_reading_order(title_shapes, body_shapes)
+
+  for sp in ordered {
+    let raw = sp.shape
+    let paras = extract_shape_paragraphs(raw.xml, raw.is_title, raw.is_body)
     for para in paras {
       out.push(para)
     }
@@ -68,14 +85,14 @@ fn collect_slide_shapes(xml : Bytes) -> Array[SlideShape] raise {
                 let sp_xml = xml[i0:sp_end0 + close_sp.length()].to_bytes()
                 let is_title = shape_is_title_like(sp_xml)
                 let is_body = shape_is_body_like(sp_xml)
-                let (x, y, cx, cy) = read_shape_bounds(sp_xml)
+                let (x, y, w, h) = read_shape_bounds(sp_xml)
 
                 out.push({
                   xml: sp_xml,
                   x,
                   y,
-                  _cx: cx,
-                  _cy: cy,
+                  w,
+                  h,
                   is_title,
                   is_body,
                 })
@@ -94,7 +111,7 @@ fn collect_slide_shapes(xml : Bytes) -> Array[SlideShape] raise {
 
 ///|
 /// read shape bounds from <a:xfrm>
-/// returns (x, y, cx, cy), defaults to 0 when absent
+/// returns (x, y, w, h), defaults to 0 when absent
 fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
   let xfrm_pat = pat("<a:xfrm")
   let off_pat = pat("<a:off")
@@ -103,16 +120,16 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
 
   let mut x = 0
   let mut y = 0
-  let mut cx = 0
-  let mut cy = 0
+  let mut w = 0
+  let mut h = 0
 
   let xfrm0 = find_bytes(xml, xfrm_pat, 0)
   match xfrm0 {
-    None => (x, y, cx, cy)
+    None => (x, y, w, h)
     Some(xfrm_i0) => {
       let xfrm_gt = find_bytes(xml, gt_pat, xfrm_i0)
       match xfrm_gt {
-        None => (x, y, cx, cy)
+        None => (x, y, w, h)
         Some(_xfrm_gt0) => {
           match find_bytes(xml, off_pat, xfrm_i0) {
             Some(off_i0) => {
@@ -142,11 +159,11 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
                 Some(ext_gt0) => {
                   let tag = xml[ext_i0:ext_gt0 + 1].to_bytes()
                   match read_attr_value_in_tag_bytes(tag, "cx") {
-                    Some(v) => cx = parse_nonneg_int(v)
+                    Some(v) => w = parse_nonneg_int(v)
                     None => ()
                   }
                   match read_attr_value_in_tag_bytes(tag, "cy") {
-                    Some(v) => cy = parse_nonneg_int(v)
+                    Some(v) => h = parse_nonneg_int(v)
                     None => ()
                   }
                 }
@@ -156,7 +173,7 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
             None => ()
           }
 
-          (x, y, cx, cy)
+          (x, y, w, h)
         }
       }
     }
@@ -164,19 +181,55 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
 }
 
 ///|
-/// sort shapes by lightweight reading order:
-/// - title-like shapes first
-/// - then top-to-bottom
+fn enrich_layout_shapes(shapes : Array[SlideShape]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in shapes {
+    out.push({
+      shape: sp,
+      right: sp.x + sp.w,
+      bottom: sp.y + sp.h,
+      center_x: sp.x + sp.w / 2,
+      center_y: sp.y + sp.h / 2,
+    })
+  }
+
+  out
+}
+
+///|
+/// split title shapes from other shapes;
+/// titles are sorted with a simple top-to-bottom, left-to-right order
+fn split_title_shapes(
+  shapes : Array[LayoutShape]
+) -> (Array[LayoutShape], Array[LayoutShape]) {
+  let titles : Array[LayoutShape] = []
+  let bodies : Array[LayoutShape] = []
+
+  for sp in shapes {
+    if sp.shape.is_title {
+      titles.push(sp)
+    } else {
+      bodies.push(sp)
+    }
+  }
+
+  (sort_layout_shapes_simple(titles), bodies)
+}
+
+///|
+/// simple geometric sort:
+/// - top-to-bottom
 /// - if roughly same row, left-to-right
-fn sort_slide_shapes(shapes : Array[SlideShape]) -> Array[SlideShape] {
-  let out : Array[SlideShape] = []
+fn sort_layout_shapes_simple(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
 
   for sp in shapes {
     let mut inserted = false
     let mut i = 0
 
     while i < out.length() {
-      if shape_before(sp, out[i]) {
+      if layout_shape_before_simple(sp, out[i]) {
         out.insert(i, sp)
         inserted = true
         break
@@ -193,42 +246,342 @@ fn sort_slide_shapes(shapes : Array[SlideShape]) -> Array[SlideShape] {
 }
 
 ///|
-fn shape_before(a : SlideShape, b : SlideShape) -> Bool {
-  if a.is_title != b.is_title {
-    return a.is_title
-  }
+fn layout_shape_before_simple(a : LayoutShape, b : LayoutShape) -> Bool {
+  let row_threshold = row_threshold_for(a, b)
 
-  let row_threshold = 200000
-
-  let dy = abs_int(a.y - b.y)
+  let dy = abs_int(a.center_y - b.center_y)
   if dy <= row_threshold {
-    if a.x != b.x {
-      return a.x < b.x
+    if a.shape.x != b.shape.x {
+      return a.shape.x < b.shape.x
     }
-    if a.y != b.y {
-      return a.y < b.y
+    if a.shape.y != b.shape.y {
+      return a.shape.y < b.shape.y
     }
     return false
   }
 
-  if a.y != b.y {
-    return a.y < b.y
+  if a.shape.y != b.shape.y {
+    return a.shape.y < b.shape.y
   }
 
-  if a.x != b.x {
-    return a.x < b.x
+  if a.shape.x != b.shape.x {
+    return a.shape.x < b.shape.x
   }
 
   false
 }
 
 ///|
-fn abs_int(n : Int) -> Int {
-  if n < 0 {
-    -n
-  } else {
-    n
+fn row_threshold_for(a : LayoutShape, b : LayoutShape) -> Int {
+  let ah = if a.shape.h > 0 { a.shape.h } else { 1 }
+  let bh = if b.shape.h > 0 { b.shape.h } else { 1 }
+  let hmin = if ah < bh { ah } else { bh }
+  let t = hmin / 2
+  if t < 1 { 1 } else { t }
+}
+
+///|
+fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
+  let dy = abs_int(a.center_y - b.center_y)
+  dy <= row_threshold_for(a, b)
+}
+
+///|
+/// cluster shapes into visual rows; rows are ordered top-to-bottom,
+/// and shapes inside each row are ordered left-to-right
+fn cluster_shapes_into_rows(
+  shapes : Array[LayoutShape]
+) -> Array[Array[LayoutShape]] {
+  let rows : Array[Array[LayoutShape]] = []
+  let sorted = sort_layout_shapes_simple(shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < rows.length() {
+      if row_accepts_shape(rows[i], sp) {
+        rows[i].push(sp)
+        placed = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !placed {
+      rows.push([sp])
+    }
   }
+
+  for i in 0..<rows.length() {
+    let row = rows[i]
+    rows[i] = sort_layout_shapes_by_x(row)
+  }
+
+  sort_rows_by_top(rows)
+}
+
+///|
+fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
+  if row.length() == 0 {
+    return true
+  }
+
+  for item in row {
+    if same_visual_row(item, sp) {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
+fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in shapes {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if layout_shape_before_x(sp, out[i]) {
+        out.insert(i, sp)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(sp)
+    }
+  }
+
+  out
+}
+
+///|
+fn layout_shape_before_x(a : LayoutShape, b : LayoutShape) -> Bool {
+  if a.shape.x != b.shape.x {
+    return a.shape.x < b.shape.x
+  }
+  if a.shape.y != b.shape.y {
+    return a.shape.y < b.shape.y
+  }
+  false
+}
+
+///|
+fn sort_rows_by_top(
+  rows : Array[Array[LayoutShape]]
+) -> Array[Array[LayoutShape]] {
+  let out : Array[Array[LayoutShape]] = []
+
+  for row in rows {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if row_before(row, out[i]) {
+        out.insert(i, row)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(row)
+    }
+  }
+
+  out
+}
+
+///|
+fn row_before(a : Array[LayoutShape], b : Array[LayoutShape]) -> Bool {
+  let ay = row_top(a)
+  let by = row_top(b)
+  if ay != by {
+    return ay < by
+  }
+
+  let ax = row_left(a)
+  let bx = row_left(b)
+  ax < bx
+}
+
+///|
+fn row_top(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut v = row[0].shape.y
+  for i in 1..<row.length() {
+    if row[i].shape.y < v {
+      v = row[i].shape.y
+    }
+  }
+  v
+}
+
+///|
+fn row_left(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut v = row[0].shape.x
+  for i in 1..<row.length() {
+    if row[i].shape.x < v {
+      v = row[i].shape.x
+    }
+  }
+  v
+}
+
+///|
+/// flatten title shapes and body shapes into final reading order:
+/// - titles first
+/// - body in two columns if detected
+/// - otherwise body by visual rows
+fn flatten_shapes_in_reading_order(
+  title_shapes : Array[LayoutShape],
+  body_shapes : Array[LayoutShape]
+) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in title_shapes {
+    out.push(sp)
+  }
+
+  if body_shapes.length() == 0 {
+    return out
+  }
+
+  if is_two_columns(body_shapes) {
+    let (left, right) = split_two_columns(body_shapes)
+
+    let left_rows = cluster_shapes_into_rows(left)
+    let right_rows = cluster_shapes_into_rows(right)
+
+    append_rows(out, left_rows)
+    append_rows(out, right_rows)
+    return out
+  }
+
+  let rows = cluster_shapes_into_rows(body_shapes)
+  append_rows(out, rows)
+  out
+}
+
+///|
+fn append_rows(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]]
+) -> Unit {
+  for row in rows {
+    for sp in row {
+      out.push(sp)
+    }
+  }
+}
+
+///|
+fn find_body_mid_x(shapes : Array[LayoutShape]) -> Int {
+  if shapes.length() == 0 {
+    return 0
+  }
+
+  let mut minx = shapes[0].shape.x
+  let mut maxr = shapes[0].right
+
+  for i in 1..<shapes.length() {
+    let sp = shapes[i]
+    if sp.shape.x < minx {
+      minx = sp.shape.x
+    }
+    if sp.right > maxr {
+      maxr = sp.right
+    }
+  }
+
+  (minx + maxr) / 2
+}
+
+///|
+fn split_two_columns(
+  shapes : Array[LayoutShape]
+) -> (Array[LayoutShape], Array[LayoutShape]) {
+  let midx = find_body_mid_x(shapes)
+  let left : Array[LayoutShape] = []
+  let right : Array[LayoutShape] = []
+
+  for sp in shapes {
+    if sp.center_x < midx {
+      left.push(sp)
+    } else {
+      right.push(sp)
+    }
+  }
+
+  (
+    sort_layout_shapes_simple(left),
+    sort_layout_shapes_simple(right),
+  )
+}
+
+///|
+/// conservative two-column detection:
+/// - need enough shapes
+/// - both sides need at least 2 shapes
+/// - left region should be clearly before right region
+fn is_two_columns(shapes : Array[LayoutShape]) -> Bool {
+  if shapes.length() < 4 {
+    return false
+  }
+
+  let (left, right) = split_two_columns(shapes)
+  if left.length() < 2 || right.length() < 2 {
+    return false
+  }
+
+  let left_max_r = max_right(left)
+  let right_min_l = min_x(right)
+
+  left_max_r < right_min_l
+}
+
+///|
+fn max_right(shapes : Array[LayoutShape]) -> Int {
+  if shapes.length() == 0 {
+    return 0
+  }
+
+  let mut v = shapes[0].right
+  for i in 1..<shapes.length() {
+    if shapes[i].right > v {
+      v = shapes[i].right
+    }
+  }
+  v
+}
+
+///|
+fn min_x(shapes : Array[LayoutShape]) -> Int {
+  if shapes.length() == 0 {
+    return 0
+  }
+
+  let mut v = shapes[0].shape.x
+  for i in 1..<shapes.length() {
+    if shapes[i].shape.x < v {
+      v = shapes[i].shape.x
+    }
+  }
+  v
 }
 
 ///|
@@ -305,6 +658,15 @@ fn paragraph_bullet_kind(xml : Bytes, start : Int, end_ : Int) -> BulletKind? {
   }
 
   None
+}
+
+///|
+fn abs_int(n : Int) -> Int {
+  if n < 0 {
+    -n
+  } else {
+    n
+  }
 }
 
 ///|
