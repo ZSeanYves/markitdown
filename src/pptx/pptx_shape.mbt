@@ -19,6 +19,16 @@ priv struct LayoutShape {
 }
 
 ///|
+priv struct ShapeGroup {
+  shapes : Array[LayoutShape]
+  top : Int
+  left : Int
+  right : Int
+  bottom : Int
+  caption_like : Bool
+}
+
+///|
 priv struct SlideParagraph {
   text : String
   bullet_kind : BulletKind?
@@ -37,7 +47,9 @@ priv enum BulletKind {
 /// scan slide xml by shape (<p:sp>), collect shapes first,
 /// recover a more stable reading order by:
 /// - separating title shapes
-/// - clustering body shapes into visual rows
+/// - conservative title fallback promotion
+/// - filtering obvious body noise
+/// - grouping nearby small caption-like body shapes
 /// - detecting simple two-column layout
 /// then extract each shape's <a:p> in that order
 fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
@@ -286,17 +298,14 @@ fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
     return false
   }
 
-  // already handled by real title placeholders
   if sp.shape.is_title {
     return false
   }
 
-  // body placeholder usually should stay as body
   if sp.shape.is_body {
     return false
   }
 
-  // should appear near top area
   if slide_h > 0 && sp.shape.y > slide_h / 4 {
     return false
   }
@@ -318,12 +327,10 @@ fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
     return false
   }
 
-  // avoid very tiny corner labels or page marks
   if sp.shape.w <= 0 || sp.shape.h <= 0 {
     return false
   }
 
-  // too small is suspicious
   if sp.shape.h < 100000 {
     return false
   }
@@ -339,7 +346,6 @@ fn promotable_title_score(sp : LayoutShape, slide_h : Int) -> Int {
 
   let mut sc = 0
 
-  // upper position preferred
   if slide_h > 0 {
     let top_bonus = slide_h - sp.shape.y
     if top_bonus > 0 {
@@ -347,13 +353,8 @@ fn promotable_title_score(sp : LayoutShape, slide_h : Int) -> Int {
     }
   }
 
-  // shorter text preferred
   sc += 50 - n
-
-  // larger width mildly preferred
   sc += sp.shape.w / 100000
-
-  // smaller y strongly preferred
   sc += 1000000 / (sp.shape.y + 1)
 
   sc
@@ -615,10 +616,309 @@ fn row_left(row : Array[LayoutShape]) -> Int {
 }
 
 ///|
+fn is_small_shape_for_grouping(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if slide_w <= 0 || slide_h <= 0 {
+    return false
+  }
+
+  let w = sp.shape.w
+  let h = sp.shape.h
+
+  let narrow = w <= slide_w / 3
+  let low = h <= slide_h / 6
+  let small_area = w * h <= (slide_w * slide_h) / 20
+
+  (narrow && low) || small_area
+}
+
+///|
+fn is_caption_like_shape(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if sp.shape.is_title {
+    return false
+  }
+
+  let text = normalize_shape_text_for_title(sp.shape.xml)
+  if text == "" {
+    return false
+  }
+
+  if is_bullet_like(text) {
+    return false
+  }
+
+  if ends_like_sentence(text) {
+    return false
+  }
+
+  let n = text.to_array().length()
+  if n > 40 {
+    return false
+  }
+
+  if slide_h > 0 && sp.shape.y <= slide_h / 5 {
+    return false
+  }
+
+  if !is_small_shape_for_grouping(sp, slide_w, slide_h) {
+    return false
+  }
+
+  true
+}
+
+///|
+fn shape_group_bounds(
+  shapes : Array[LayoutShape],
+) -> (Int, Int, Int, Int) {
+  if shapes.length() == 0 {
+    return (0, 0, 0, 0)
+  }
+
+  let mut top = shapes[0].shape.y
+  let mut left = shapes[0].shape.x
+  let mut right = shapes[0].right
+  let mut bottom = shapes[0].bottom
+
+  for i in 1..<shapes.length() {
+    let sp = shapes[i]
+    if sp.shape.y < top {
+      top = sp.shape.y
+    }
+    if sp.shape.x < left {
+      left = sp.shape.x
+    }
+    if sp.right > right {
+      right = sp.right
+    }
+    if sp.bottom > bottom {
+      bottom = sp.bottom
+    }
+  }
+
+  (top, left, right, bottom)
+}
+
+///|
+fn group_caption_like_flag(
+  shapes : Array[LayoutShape],
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if shapes.length() == 0 {
+    return false
+  }
+
+  let mut cnt = 0
+  for sp in shapes {
+    if is_caption_like_shape(sp, slide_w, slide_h) {
+      cnt += 1
+    }
+  }
+
+  cnt * 2 >= shapes.length()
+}
+
+///|
+fn make_shape_group(
+  shapes : Array[LayoutShape],
+  slide_w : Int,
+  slide_h : Int,
+) -> ShapeGroup {
+  let sorted = sort_layout_shapes_simple(shapes)
+  let (top, left, right, bottom) = shape_group_bounds(sorted)
+  let caption_like = group_caption_like_flag(sorted, slide_w, slide_h)
+
+  { shapes: sorted, top, left, right, bottom, caption_like }
+}
+
+///|
+fn horizontal_gap(a : LayoutShape, b : LayoutShape) -> Int {
+  if a.right < b.shape.x {
+    b.shape.x - a.right
+  } else if b.right < a.shape.x {
+    a.shape.x - b.right
+  } else {
+    0
+  }
+}
+
+///|
+fn vertical_gap(a : LayoutShape, b : LayoutShape) -> Int {
+  if a.bottom < b.shape.y {
+    b.shape.y - a.bottom
+  } else if b.bottom < a.shape.y {
+    a.shape.y - b.bottom
+  } else {
+    0
+  }
+}
+
+///|
+fn horizontal_overlap(a : LayoutShape, b : LayoutShape) -> Int {
+  let l = max_int(a.shape.x, b.shape.x)
+  let r = min_int(a.right, b.right)
+  let d = r - l
+  if d > 0 {
+    d
+  } else {
+    0
+  }
+}
+
+///|
+fn vertical_overlap(a : LayoutShape, b : LayoutShape) -> Int {
+  let t = max_int(a.shape.y, b.shape.y)
+  let bt = min_int(a.bottom, b.bottom)
+  let d = bt - t
+  if d > 0 {
+    d
+  } else {
+    0
+  }
+}
+
+///|
+fn should_group_nearby_shapes(
+  a : LayoutShape,
+  b : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  let a_ok = is_caption_like_shape(a, slide_w, slide_h)
+  let b_ok = is_caption_like_shape(b, slide_w, slide_h)
+
+  if !(a_ok && b_ok) {
+    return false
+  }
+
+  let hgap = horizontal_gap(a, b)
+  let vgap = vertical_gap(a, b)
+  let hoverlap = horizontal_overlap(a, b)
+  let voverlap = vertical_overlap(a, b)
+
+  if hoverlap > 0 && vgap <= max_int(a.shape.h, b.shape.h) {
+    return true
+  }
+
+  if voverlap > 0 && hgap <= max_int(a.shape.w, b.shape.w) {
+    return true
+  }
+
+  false
+}
+
+///|
+fn group_accepts_shape(
+  g : ShapeGroup,
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  for item in g.shapes {
+    if should_group_nearby_shapes(item, sp, slide_w, slide_h) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
+  if a.top != b.top {
+    return a.top < b.top
+  }
+  a.left < b.left
+}
+
+///|
+fn sort_shape_groups(
+  groups : Array[ShapeGroup],
+) -> Array[ShapeGroup] {
+  let out : Array[ShapeGroup] = []
+
+  for g in groups {
+    let mut inserted = false
+    let mut i = 0
+    while i < out.length() {
+      if shape_group_before(g, out[i]) {
+        out.insert(i, g)
+        inserted = true
+        break
+      }
+      i += 1
+    }
+    if !inserted {
+      out.push(g)
+    }
+  }
+
+  out
+}
+
+///|
+fn group_body_shapes_for_layout(
+  shapes : Array[LayoutShape],
+) -> Array[ShapeGroup] {
+  let groups : Array[ShapeGroup] = []
+  if shapes.length() == 0 {
+    return groups
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
+  let sorted = sort_layout_shapes_simple(shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < groups.length() {
+      if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
+        let merged : Array[LayoutShape] = []
+        for old in groups[i].shapes {
+          merged.push(old)
+        }
+        merged.push(sp)
+        groups[i] = make_shape_group(merged, slide_w, slide_h)
+        placed = true
+        break
+      }
+      i += 1
+    }
+
+    if !placed {
+      groups.push(make_shape_group([sp], slide_w, slide_h))
+    }
+  }
+
+  sort_shape_groups(groups)
+}
+
+///|
+fn flatten_shape_groups(
+  groups : Array[ShapeGroup],
+) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+  for g in groups {
+    for sp in g.shapes {
+      out.push(sp)
+    }
+  }
+  out
+}
+
+///|
 /// flatten title shapes and body shapes into final reading order:
 /// - titles first
 /// - body in two columns if detected
-/// - otherwise body by visual rows
+/// - within each body region, nearby small caption-like shapes may be grouped
 fn flatten_shapes_in_reading_order(
   title_shapes : Array[LayoutShape],
   body_shapes : Array[LayoutShape],
@@ -636,29 +936,29 @@ fn flatten_shapes_in_reading_order(
   if is_two_columns(body_shapes) {
     let (left, right) = split_two_columns(body_shapes)
 
-    let left_rows = cluster_shapes_into_rows(left)
-    let right_rows = cluster_shapes_into_rows(right)
+    let left_groups = group_body_shapes_for_layout(left)
+    let right_groups = group_body_shapes_for_layout(right)
 
-    append_rows(out, left_rows)
-    append_rows(out, right_rows)
+    let left_flat = flatten_shape_groups(left_groups)
+    let right_flat = flatten_shape_groups(right_groups)
+
+    for sp in left_flat {
+      out.push(sp)
+    }
+    for sp in right_flat {
+      out.push(sp)
+    }
+
     return out
   }
 
-  let rows = cluster_shapes_into_rows(body_shapes)
-  append_rows(out, rows)
-  out
-}
-
-///|
-fn append_rows(
-  out : Array[LayoutShape],
-  rows : Array[Array[LayoutShape]],
-) -> Unit {
-  for row in rows {
-    for sp in row {
-      out.push(sp)
-    }
+  let groups = group_body_shapes_for_layout(body_shapes)
+  let flat = flatten_shape_groups(groups)
+  for sp in flat {
+    out.push(sp)
   }
+
+  out
 }
 
 ///|
@@ -751,6 +1051,24 @@ fn min_x(shapes : Array[LayoutShape]) -> Int {
     }
   }
   v
+}
+
+///|
+fn min_int(a : Int, b : Int) -> Int {
+  if a < b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn max_int(a : Int, b : Int) -> Int {
+  if a > b {
+    a
+  } else {
+    b
+  }
 }
 
 ///|
