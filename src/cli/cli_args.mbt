@@ -16,7 +16,7 @@ fn find_first_eq(s : String) -> Int? {
 ///|
 /// TODO： 后序为“—” 等做规范化，先原样返回
 /// 支持：--out=xxx / --output=xxx / --max-heading=3 这类写法（转成 ["--out", "xxx"]）
-fn normalize_cli_args(args : Array[String]) -> Array[String]{
+fn normalize_cli_args(args : Array[String]) -> Array[String] {
   let out : Array[String] = []
   if args.length() <= 1 {
     return out

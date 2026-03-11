@@ -46,7 +46,8 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
   let shapes = collect_slide_shapes(xml)
   let enriched = enrich_layout_shapes(shapes)
   let (title_shapes, body_shapes) = split_title_shapes(enriched)
-  let ordered = flatten_shapes_in_reading_order(title_shapes, body_shapes)
+  let filtered_bodies = filter_noise_shapes(body_shapes)
+  let ordered = flatten_shapes_in_reading_order(title_shapes, filtered_bodies)
 
   for sp in ordered {
     let raw = sp.shape
@@ -87,15 +88,7 @@ fn collect_slide_shapes(xml : Bytes) -> Array[SlideShape] raise {
                 let is_body = shape_is_body_like(sp_xml)
                 let (x, y, w, h) = read_shape_bounds(sp_xml)
 
-                out.push({
-                  xml: sp_xml,
-                  x,
-                  y,
-                  w,
-                  h,
-                  is_title,
-                  is_body,
-                })
+                out.push({ xml: sp_xml, x, y, w, h, is_title, is_body })
 
                 pos = sp_end0 + close_sp.length()
               }
@@ -200,8 +193,10 @@ fn enrich_layout_shapes(shapes : Array[SlideShape]) -> Array[LayoutShape] {
 ///|
 /// split title shapes from other shapes;
 /// titles are sorted with a simple top-to-bottom, left-to-right order
+/// if no real title placeholder exists, conservatively promote one
+/// top title-like shape from bodies.
 fn split_title_shapes(
-  shapes : Array[LayoutShape]
+  shapes : Array[LayoutShape],
 ) -> (Array[LayoutShape], Array[LayoutShape]) {
   let titles : Array[LayoutShape] = []
   let bodies : Array[LayoutShape] = []
@@ -214,7 +209,180 @@ fn split_title_shapes(
     }
   }
 
-  (sort_layout_shapes_simple(titles), bodies)
+  if titles.length() > 0 {
+    return (sort_layout_shapes_simple(titles), bodies)
+  }
+
+  let promoted = find_promotable_title_candidate(bodies)
+  match promoted {
+    None => (titles, bodies)
+    Some(idx) => {
+      let out_titles : Array[LayoutShape] = []
+      let out_bodies : Array[LayoutShape] = []
+
+      for i in 0..<bodies.length() {
+        if i == idx {
+          let sp = bodies[i]
+          let promoted_shape : SlideShape = {
+            xml: sp.shape.xml,
+            x: sp.shape.x,
+            y: sp.shape.y,
+            w: sp.shape.w,
+            h: sp.shape.h,
+            is_title: true,
+            is_body: sp.shape.is_body,
+          }
+          let promoted_layout : LayoutShape = {
+            shape: promoted_shape,
+            right: sp.right,
+            bottom: sp.bottom,
+            center_x: sp.center_x,
+            center_y: sp.center_y,
+          }
+          out_titles.push(promoted_layout)
+        } else {
+          out_bodies.push(bodies[i])
+        }
+      }
+
+      (sort_layout_shapes_simple(out_titles), out_bodies)
+    }
+  }
+}
+
+///|
+/// pick at most one conservative title candidate from body shapes
+fn find_promotable_title_candidate(shapes : Array[LayoutShape]) -> Int? {
+  if shapes.length() == 0 {
+    return None
+  }
+
+  let (_, slide_h) = estimate_layout_bounds(shapes)
+
+  let mut best_idx = -1
+  let mut best_score = -1
+  for i in 0..<shapes.length() {
+    let sp = shapes[i]
+    if is_promotable_title_candidate(sp, slide_h) {
+      let sc = promotable_title_score(sp, slide_h)
+      if sc > best_score {
+        best_score = sc
+        best_idx = i
+      }
+    }
+  }
+
+  if best_idx >= 0 {
+    Some(best_idx)
+  } else {
+    None
+  }
+}
+
+///|
+fn is_promotable_title_candidate(sp : LayoutShape, slide_h : Int) -> Bool {
+  let text = normalize_shape_text_for_title(sp.shape.xml)
+  if text == "" {
+    return false
+  }
+
+  // already handled by real title placeholders
+  if sp.shape.is_title {
+    return false
+  }
+
+  // body placeholder usually should stay as body
+  if sp.shape.is_body {
+    return false
+  }
+
+  // should appear near top area
+  if slide_h > 0 && sp.shape.y > slide_h / 4 {
+    return false
+  }
+
+  let n = text.to_array().length()
+  if n > 40 {
+    return false
+  }
+
+  if is_bullet_like(text) {
+    return false
+  }
+
+  if ends_like_sentence(text) {
+    return false
+  }
+
+  if is_probable_slide_number(text) {
+    return false
+  }
+
+  // avoid very tiny corner labels or page marks
+  if sp.shape.w <= 0 || sp.shape.h <= 0 {
+    return false
+  }
+
+  // too small is suspicious
+  if sp.shape.h < 100000 {
+    return false
+  }
+
+  true
+}
+
+///|
+/// higher score = more likely to be a fallback title
+fn promotable_title_score(sp : LayoutShape, slide_h : Int) -> Int {
+  let text = normalize_shape_text_for_title(sp.shape.xml)
+  let n = text.to_array().length()
+
+  let mut sc = 0
+
+  // upper position preferred
+  if slide_h > 0 {
+    let top_bonus = slide_h - sp.shape.y
+    if top_bonus > 0 {
+      sc += top_bonus / 100000
+    }
+  }
+
+  // shorter text preferred
+  sc += 50 - n
+
+  // larger width mildly preferred
+  sc += sp.shape.w / 100000
+
+  // smaller y strongly preferred
+  sc += 1000000 / (sp.shape.y + 1)
+
+  sc
+}
+
+///|
+fn normalize_shape_text_for_title(xml : Bytes) -> String {
+  normalize_slide_text(extract_text_runs(xml, 0, xml.length()))
+}
+
+///|
+fn estimate_layout_bounds(shapes : Array[LayoutShape]) -> (Int, Int) {
+  if shapes.length() == 0 {
+    return (0, 0)
+  }
+
+  let mut max_right = 0
+  let mut max_bottom = 0
+
+  for sp in shapes {
+    if sp.right > max_right {
+      max_right = sp.right
+    }
+    if sp.bottom > max_bottom {
+      max_bottom = sp.bottom
+    }
+  }
+
+  (max_right, max_bottom)
 }
 
 ///|
@@ -277,7 +445,11 @@ fn row_threshold_for(a : LayoutShape, b : LayoutShape) -> Int {
   let bh = if b.shape.h > 0 { b.shape.h } else { 1 }
   let hmin = if ah < bh { ah } else { bh }
   let t = hmin / 2
-  if t < 1 { 1 } else { t }
+  if t < 1 {
+    1
+  } else {
+    t
+  }
 }
 
 ///|
@@ -290,7 +462,7 @@ fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
 /// cluster shapes into visual rows; rows are ordered top-to-bottom,
 /// and shapes inside each row are ordered left-to-right
 fn cluster_shapes_into_rows(
-  shapes : Array[LayoutShape]
+  shapes : Array[LayoutShape],
 ) -> Array[Array[LayoutShape]] {
   let rows : Array[Array[LayoutShape]] = []
   let sorted = sort_layout_shapes_simple(shapes)
@@ -374,7 +546,7 @@ fn layout_shape_before_x(a : LayoutShape, b : LayoutShape) -> Bool {
 
 ///|
 fn sort_rows_by_top(
-  rows : Array[Array[LayoutShape]]
+  rows : Array[Array[LayoutShape]],
 ) -> Array[Array[LayoutShape]] {
   let out : Array[Array[LayoutShape]] = []
 
@@ -449,7 +621,7 @@ fn row_left(row : Array[LayoutShape]) -> Int {
 /// - otherwise body by visual rows
 fn flatten_shapes_in_reading_order(
   title_shapes : Array[LayoutShape],
-  body_shapes : Array[LayoutShape]
+  body_shapes : Array[LayoutShape],
 ) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
 
@@ -480,7 +652,7 @@ fn flatten_shapes_in_reading_order(
 ///|
 fn append_rows(
   out : Array[LayoutShape],
-  rows : Array[Array[LayoutShape]]
+  rows : Array[Array[LayoutShape]],
 ) -> Unit {
   for row in rows {
     for sp in row {
@@ -513,7 +685,7 @@ fn find_body_mid_x(shapes : Array[LayoutShape]) -> Int {
 
 ///|
 fn split_two_columns(
-  shapes : Array[LayoutShape]
+  shapes : Array[LayoutShape],
 ) -> (Array[LayoutShape], Array[LayoutShape]) {
   let midx = find_body_mid_x(shapes)
   let left : Array[LayoutShape] = []
@@ -527,10 +699,7 @@ fn split_two_columns(
     }
   }
 
-  (
-    sort_layout_shapes_simple(left),
-    sort_layout_shapes_simple(right),
-  )
+  (sort_layout_shapes_simple(left), sort_layout_shapes_simple(right))
 }
 
 ///|

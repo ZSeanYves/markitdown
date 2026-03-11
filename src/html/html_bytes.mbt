@@ -70,7 +70,7 @@ fn strip_tags_bytes(inner : Bytes) -> Bytes {
 }
 
 ///|
-fn html_unescape(s : String) -> String{
+fn html_unescape(s : String) -> String {
   let t = s
     .replace(old="&lt;", new="<")
     .replace(old="&gt;", new=">")

@@ -38,7 +38,7 @@ async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
 fn parse_workbook_sheets(
   wb_xml : String,
   rels_xml : String,
-) -> Array[SheetInfo]{
+) -> Array[SheetInfo] {
   let rel_map = parse_rels_id_to_target(rels_xml)
   let out : Array[SheetInfo] = []
 
@@ -74,7 +74,7 @@ fn parse_workbook_sheets(
 // <Relationship Id="rId1" Target="worksheets/sheet1.xml" .../>
 
 ///|
-fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String]{
+fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String] {
   let m : Map[String, String] = Map::new()
   let mut pos = 0
 

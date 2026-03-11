@@ -46,7 +46,7 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
 }
 
 ///|
-fn xml_unescape(s : String) -> String{
+fn xml_unescape(s : String) -> String {
   // 先基础实体，再数字实体（复用你 xlsx 的实现）
   let t = s
     .replace(old="&lt;", new="<")

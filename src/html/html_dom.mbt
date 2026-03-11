@@ -337,7 +337,7 @@ fn normalize_table_rows(rows : Array[Array[String]]) -> Array[Array[String]] {
 ///|
 /// <pre> inner bytes -> code-like text
 /// keep newlines as much as possible, only strip tags and unescape
-fn html_pre_text_from_bytes(inner : Bytes) -> String{
+fn html_pre_text_from_bytes(inner : Bytes) -> String {
   let text_bs = strip_tags_bytes(inner)
   let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
 
@@ -356,7 +356,7 @@ fn html_text_from_bytes(inner : Bytes) -> String {
 }
 
 ///|
-fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]]{
+fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]] {
   let out : Array[Array[String]] = []
 
   let open_tr = pat("<tr")
@@ -396,7 +396,7 @@ fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]]{
 }
 
 ///|
-fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String]{
+fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] {
   let out : Array[String] = []
 
   let open_td = pat("<td")

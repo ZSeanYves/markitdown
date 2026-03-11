@@ -13,7 +13,7 @@ fn parse_sheet_table(
   sheet_xml : String,
   shared : Array[String],
   styles : XlsxStyles,
-) -> Array[Array[String]]{
+) -> Array[Array[String]] {
   let cells : Map[String, String] = Map::new()
   let mut min_r = 0
   let mut min_c = 0
@@ -118,7 +118,7 @@ fn resolve_cell_text(
   shared : Array[String],
   styles : XlsxStyles,
   style_idx : Int,
-) -> String{
+) -> String {
   if t == "s" {
     let idx = parse_int(val)
     if idx >= 0 && idx < shared.length() {
@@ -168,7 +168,7 @@ fn resolve_cell_text(
 }
 
 ///|
-fn parse_inline_str(inner : String) -> String{
+fn parse_inline_str(inner : String) -> String {
   // Collect all <t>...</t> inside the cell inner xml
   let mut tpos = 0
   let mut acc = ""
