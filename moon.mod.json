@@ -1,6 +1,6 @@
 {
   "name": "ZSeanYves/markitdown",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "deps": {
     "moonbitlang/x": "0.4.40",
     "TheWaWaR/clap": "0.2.6",

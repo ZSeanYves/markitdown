@@ -768,20 +768,6 @@ fn make_shape_group_with_kind(
 }
 
 ///|
-fn make_shape_group(
-  shapes : Array[LayoutShape],
-  slide_w : Int,
-  slide_h : Int,
-) -> ShapeGroup {
-  let kind = if group_caption_like_flag(shapes, slide_w, slide_h) {
-    ShapeGroupKind::CaptionLike
-  } else {
-    ShapeGroupKind::Normal
-  }
-  make_shape_group_with_kind(shapes, kind)
-}
-
-///|
 /// first version:
 /// if the whole body region already looks grid-like,
 /// lift it as one table-like group; otherwise keep all shapes in rest.
