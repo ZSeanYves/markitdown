@@ -9,7 +9,7 @@ priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])
   ListItem(Bool, Int, Array[HtmlInline]) // ordered, level, text
-  BlockQuote(Array[HtmlInline])
+  BlockQuote(Array[HtmlNode])
   CodeBlock(String)
   Table(Array[Array[Array[HtmlInline]]])
 }
@@ -38,17 +38,17 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
     match lt0 {
       None => {
         let tail = bs[pos:n].to_bytes()
-        let xs = html_inlines_from_bytes(tail)
+        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
         if !inlines_is_blank(xs) {
           out.push(HtmlNode::Paragraph(xs))
         }
         break
       }
       Some(p) => {
-        // 顶层裸文本补出
+        // 顶层裸文本补出，并去掉源码缩进空白
         if p > pos {
           let head = bs[pos:p].to_bytes()
-          let xs = html_inlines_from_bytes(head)
+          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
           if !inlines_is_blank(xs) {
             out.push(HtmlNode::Paragraph(xs))
           }
@@ -58,7 +58,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
         match gt0 {
           None => {
             let tail = bs[p:n].to_bytes()
-            let xs = html_inlines_from_bytes(tail)
+            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
             if !inlines_is_blank(xs) {
               out.push(HtmlNode::Paragraph(xs))
             }
@@ -124,9 +124,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_bytes()
-                  let xs = html_inlines_from_bytes(inner)
-                  if !inlines_is_blank(xs) {
-                    out.push(HtmlNode::BlockQuote(xs))
+                  let children = scan_html_nodes_in_container(inner)
+                  if !quote_children_is_blank(children) {
+                    out.push(HtmlNode::BlockQuote(children))
                   }
                   pos = end + close_blockquote.length()
                   continue
@@ -342,6 +342,179 @@ fn scan_list_nodes(
 }
 
 ///|
+fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
+  let out : Array[HtmlNode] = []
+
+  let lt = pat("<")
+  let gt = pat(">")
+
+  let close_p = pat("</p>")
+  let close_blockquote = pat("</blockquote>")
+  let close_pre = pat("</pre>")
+  let close_table = pat("</table>")
+
+  let mut pos = 0
+  let n = bs.length()
+
+  while pos < n {
+    let lt0 = find_bytes(bs, lt, pos)
+    match lt0 {
+      None => {
+        let tail = bs[pos:n].to_bytes()
+        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        if !inlines_is_blank(xs) {
+          out.push(HtmlNode::Paragraph(xs))
+        }
+        break
+      }
+      Some(p) => {
+        if p > pos {
+          let head = bs[pos:p].to_bytes()
+          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          if !inlines_is_blank(xs) {
+            out.push(HtmlNode::Paragraph(xs))
+          }
+        }
+
+        let gt0 = find_bytes(bs, gt, p)
+        match gt0 {
+          None => {
+            let tail = bs[p:n].to_bytes()
+            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            if !inlines_is_blank(xs) {
+              out.push(HtmlNode::Paragraph(xs))
+            }
+            break
+          }
+          Some(q) => {
+            let tag_bs = bs[p:q + 1].to_bytes()
+            let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
+
+            if tag.has_prefix("<h") && tag.length() >= 3 {
+              let lvl_ch = tag[2]
+              if lvl_ch >= '1' && lvl_ch <= '6' {
+                let lvl = lvl_ch.to_int() - '0'.to_int()
+                let close_h = pat("</h" + lvl.to_string() + ">")
+                let inner_start = q + 1
+                let end0 = find_bytes(bs, close_h, inner_start)
+                match end0 {
+                  None => ()
+                  Some(end) => {
+                    let inner = bs[inner_start:end].to_bytes()
+                    let xs = html_inlines_from_bytes(inner)
+                    if !inlines_is_blank(xs) {
+                      out.push(HtmlNode::Heading(lvl, xs))
+                    }
+                    pos = end + close_h.length()
+                    continue
+                  }
+                }
+              }
+            }
+
+            if tag.has_prefix("<blockquote") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_blockquote, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let children = scan_html_nodes_in_container(inner)
+                  if !quote_children_is_blank(children) {
+                    out.push(HtmlNode::BlockQuote(children))
+                  }
+                  pos = end + close_blockquote.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<pre") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_pre, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let text = html_pre_text_from_bytes(inner)
+                  if text.trim() != "" {
+                    out.push(HtmlNode::CodeBlock(text))
+                  }
+                  pos = end + close_pre.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<p") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_p, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let xs = html_inlines_from_bytes(inner)
+                  if !inlines_is_blank(xs) {
+                    out.push(HtmlNode::Paragraph(xs))
+                  }
+                  pos = end + close_p.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
+              let is_ol = tag.has_prefix("<ol")
+              let list_name = if is_ol { "ol" } else { "ul" }
+
+              match find_matching_list_end(bs, p, list_name) {
+                Some(end) => {
+                  let close_len = ("</" + list_name + ">").length()
+                  let inner_start = q + 1
+                  let inner_end = end
+
+                  let items = scan_list_nodes(
+                    bs, inner_start, inner_end, is_ol, 0,
+                  )
+                  for item in items {
+                    out.push(item)
+                  }
+
+                  pos = end + close_len
+                  continue
+                }
+                None => ()
+              }
+            }
+
+            if tag.has_prefix("<table") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_table, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let rows = html_table_from_bytes(inner)
+                  if rows.length() > 0 {
+                    out.push(HtmlNode::Table(rows))
+                  }
+                  pos = end + close_table.length()
+                  continue
+                }
+              }
+            }
+
+            pos = q + 1
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
 fn normalize_table_rows(
   rows : Array[Array[Array[HtmlInline]]],
 ) -> Array[Array[Array[HtmlInline]]] {
@@ -486,10 +659,21 @@ fn inlines_is_blank(xs : Array[HtmlInline]) -> Bool {
 }
 
 ///|
-fn html_text_from_bytes(inner : Bytes) -> String {
-  render_inlines(html_inlines_from_bytes(inner)).trim().to_string()
+fn quote_children_is_blank(xs : Array[HtmlNode]) -> Bool {
+  xs.length() == 0
 }
 
+///|
+/// for raw text segments between tags:
+/// trim leading/trailing whitespace introduced by source indentation
+fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
+  let s = render_inlines(xs).trim().to_string()
+  if s == "" {
+    []
+  } else {
+    [HtmlInline::Text(s)]
+  }
+}
 ///|
 fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
   let out : Array[Array[Array[HtmlInline]]] = []
@@ -596,71 +780,3 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
   out
 }
 
-///|
-/// replace any <br...> tag (case-insensitive) with sentinel text
-fn normalize_html_breaks(inner : Bytes) -> Bytes {
-  let out : Array[Byte] = []
-
-  let lt = pat("<")
-  let gt = pat(">")
-
-  let br_bytes = @utf8.encode("@@HTML_BR@@")
-
-  let mut pos = 0
-  let n = inner.length()
-
-  while pos < n {
-    let lt0 = find_bytes(inner, lt, pos)
-    match lt0 {
-      None => {
-        for b in inner[pos:].to_array() {
-          out.push(b)
-        }
-        break
-      }
-      Some(i0) => {
-        for b in inner[pos:i0].to_array() {
-          out.push(b)
-        }
-
-        let gt0 = find_bytes(inner, gt, i0)
-        match gt0 {
-          None => {
-            for b in inner[i0:].to_array() {
-              out.push(b)
-            }
-            break
-          }
-          Some(j0) => {
-            let tag_bs = inner[i0:j0 + 1].to_bytes()
-            let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
-            let tag = tag0.to_lower()
-
-            if tag.has_prefix("<br") {
-              for b in br_bytes {
-                out.push(b)
-              }
-            } else {
-              for b in tag_bs.to_array() {
-                out.push(b)
-              }
-            }
-
-            pos = j0 + 1
-          }
-        }
-      }
-    }
-  }
-
-  Bytes::from_iter(out.iter())
-}
-
-///|
-fn replace_all(s : String, old : String, new_ : String) -> String {
-  let mut cur = s
-  while cur.contains(old) {
-    cur = cur.replace(old~, new=new_)
-  }
-  cur
-}
