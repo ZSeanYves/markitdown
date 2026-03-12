@@ -1,11 +1,17 @@
 ///|
+priv enum HtmlInline {
+  Text(String)
+  Break
+}
+
+///|
 priv enum HtmlNode {
-  Heading(Int, String)
-  Paragraph(String)
-  ListItem(Bool, Int, String) // ordered, level, text
-  BlockQuote(String)
+  Heading(Int, Array[HtmlInline])
+  Paragraph(Array[HtmlInline])
+  ListItem(Bool, Int, Array[HtmlInline]) // ordered, level, text
+  BlockQuote(Array[HtmlInline])
   CodeBlock(String)
-  Table(Array[Array[String]])
+  Table(Array[Array[Array[HtmlInline]]])
 }
 
 ///|
@@ -16,16 +22,13 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let gt = pat(">")
 
   let close_p = pat("</p>")
-  let _close_li = pat("</li>")
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
-  let _close_tr = pat("</tr>")
-  let _close_td = pat("</td>")
-  let _close_th = pat("</th>")
 
   let close_script = pat("</script>")
   let close_style = pat("</style>")
+  let close_head = pat("</head>")
 
   let mut pos = 0
   let n = bs.length()
@@ -33,11 +36,34 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   while pos < n {
     let lt0 = find_bytes(bs, lt, pos)
     match lt0 {
-      None => break
+      None => {
+        let tail = bs[pos:n].to_bytes()
+        let xs = html_inlines_from_bytes(tail)
+        if !inlines_is_blank(xs) {
+          out.push(HtmlNode::Paragraph(xs))
+        }
+        break
+      }
       Some(p) => {
+        // 顶层裸文本补出
+        if p > pos {
+          let head = bs[pos:p].to_bytes()
+          let xs = html_inlines_from_bytes(head)
+          if !inlines_is_blank(xs) {
+            out.push(HtmlNode::Paragraph(xs))
+          }
+        }
+
         let gt0 = find_bytes(bs, gt, p)
         match gt0 {
-          None => break
+          None => {
+            let tail = bs[p:n].to_bytes()
+            let xs = html_inlines_from_bytes(tail)
+            if !inlines_is_blank(xs) {
+              out.push(HtmlNode::Paragraph(xs))
+            }
+            break
+          }
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_bytes()
             let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
@@ -60,6 +86,15 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
               continue
             }
 
+            if tag.has_prefix("<head") {
+              let j0 = find_bytes(bs, close_head, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_head.length()
+              }
+              continue
+            }
+
             if tag.has_prefix("<h") && tag.length() >= 3 {
               let lvl_ch = tag[2]
               if lvl_ch >= '1' && lvl_ch <= '6' {
@@ -71,9 +106,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                   None => ()
                   Some(end) => {
                     let inner = bs[inner_start:end].to_bytes()
-                    let text = html_text_from_bytes(inner)
-                    if text.trim() != "" {
-                      out.push(HtmlNode::Heading(lvl, text))
+                    let xs = html_inlines_from_bytes(inner)
+                    if !inlines_is_blank(xs) {
+                      out.push(HtmlNode::Heading(lvl, xs))
                     }
                     pos = end + close_h.length()
                     continue
@@ -89,9 +124,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_bytes()
-                  let text = html_text_from_bytes(inner)
-                  if text.trim() != "" {
-                    out.push(HtmlNode::BlockQuote(text))
+                  let xs = html_inlines_from_bytes(inner)
+                  if !inlines_is_blank(xs) {
+                    out.push(HtmlNode::BlockQuote(xs))
                   }
                   pos = end + close_blockquote.length()
                   continue
@@ -123,15 +158,16 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_bytes()
-                  let text = html_text_from_bytes(inner)
-                  if text.trim() != "" {
-                    out.push(HtmlNode::Paragraph(text))
+                  let xs = html_inlines_from_bytes(inner)
+                  if !inlines_is_blank(xs) {
+                    out.push(HtmlNode::Paragraph(xs))
                   }
                   pos = end + close_p.length()
                   continue
                 }
               }
             }
+
             if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
               let is_ol = tag.has_prefix("<ol")
               let list_name = if is_ol { "ol" } else { "ul" }
@@ -155,6 +191,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
               }
             }
+
             if tag.has_prefix("<table") {
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_table, inner_start)
@@ -217,7 +254,6 @@ fn scan_list_nodes(
 
             let inner_start = q0 + 1
 
-            // 关键修复：找“当前 li”的匹配闭合位置，而不是第一个 </li>
             let end_li0 = find_matching_li_end(bs, i0)
             match end_li0 {
               None => break
@@ -233,9 +269,9 @@ fn scan_list_nodes(
                 match nested0 {
                   Some(nested_start) => {
                     let head = bs[inner_start:nested_start].to_bytes()
-                    let text = html_text_from_bytes(head)
-                    if text.trim() != "" {
-                      out.push(HtmlNode::ListItem(ordered, level, text))
+                    let xs = html_inlines_from_bytes(head)
+                    if !inlines_is_blank(xs) {
+                      out.push(HtmlNode::ListItem(ordered, level, xs))
                     }
 
                     let nested_tag_end0 = find_bytes(bs, gt_pat, nested_start)
@@ -261,7 +297,6 @@ fn scan_list_nodes(
                               bs, nested_start, nested_name,
                             ) {
                             Some(nested_end) => {
-                              let _nested_close_len = ("</" + nested_name + ">").length()
                               let nested_inner_start = nested_gt + 1
 
                               let nested_nodes = scan_list_nodes(
@@ -288,9 +323,9 @@ fn scan_list_nodes(
                   }
                   None => {
                     let inner = bs[inner_start:li_end].to_bytes()
-                    let text = html_text_from_bytes(inner)
-                    if text.trim() != "" {
-                      out.push(HtmlNode::ListItem(ordered, level, text))
+                    let xs = html_inlines_from_bytes(inner)
+                    if !inlines_is_blank(xs) {
+                      out.push(HtmlNode::ListItem(ordered, level, xs))
                     }
                     pos = li_end + close_li.length()
                   }
@@ -307,7 +342,9 @@ fn scan_list_nodes(
 }
 
 ///|
-fn normalize_table_rows(rows : Array[Array[String]]) -> Array[Array[String]] {
+fn normalize_table_rows(
+  rows : Array[Array[Array[HtmlInline]]],
+) -> Array[Array[Array[HtmlInline]]] {
   let mut max_cols = 0
   for row in rows {
     if row.length() > max_cols {
@@ -319,14 +356,14 @@ fn normalize_table_rows(rows : Array[Array[String]]) -> Array[Array[String]] {
     return rows
   }
 
-  let out : Array[Array[String]] = []
+  let out : Array[Array[Array[HtmlInline]]] = []
   for row in rows {
-    let r : Array[String] = []
+    let r : Array[Array[HtmlInline]] = []
     for cell in row {
       r.push(cell)
     }
     while r.length() < max_cols {
-      r.push("")
+      r.push([])
     }
     out.push(r)
   }
@@ -347,17 +384,115 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String {
 }
 
 ///|
-fn html_text_from_bytes(inner : Bytes) -> String {
-  let bs0 = normalize_html_breaks(inner)
-  let text_bs = strip_tags_bytes(bs0)
-  let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
-  let s1 = replace_all(html_unescape(s0), "@@HTML_BR@@", "<br>")
-  s1.trim().to_string()
+fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
+  let out : Array[HtmlInline] = []
+
+  let lt = pat("<")
+  let gt = pat(">")
+  let mut pos = 0
+  let n = inner.length()
+
+  while pos < n {
+    let lt0 = find_bytes(inner, lt, pos)
+    match lt0 {
+      None => {
+        let tail = inner[pos:n].to_bytes()
+        push_text_inline(out, tail)
+        break
+      }
+      Some(i0) => {
+        if i0 > pos {
+          let head = inner[pos:i0].to_bytes()
+          push_text_inline(out, head)
+        }
+
+        let gt0 = find_bytes(inner, gt, i0)
+        match gt0 {
+          None => {
+            let tail = inner[i0:n].to_bytes()
+            push_text_inline(out, tail)
+            break
+          }
+          Some(j0) => {
+            let tag_bs = inner[i0:j0 + 1].to_bytes()
+            let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+            let tag = tag0.to_lower()
+
+            if tag.has_prefix("<br") {
+              out.push(HtmlInline::Break)
+            }
+
+            pos = j0 + 1
+          }
+        }
+      }
+    }
+  }
+
+  merge_adjacent_text_inlines(out)
 }
 
 ///|
-fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]] {
-  let out : Array[Array[String]] = []
+fn push_text_inline(out : Array[HtmlInline], bs : Bytes) -> Unit {
+  if bs.length() == 0 {
+    return
+  }
+  let s0 = @cor.utf8_bytes_to_string(bs) catch { _ => "" }
+  let s1 = html_unescape(s0)
+  if s1 != "" {
+    out.push(HtmlInline::Text(s1))
+  }
+}
+
+///|
+fn merge_adjacent_text_inlines(xs : Array[HtmlInline]) -> Array[HtmlInline] {
+  let out : Array[HtmlInline] = []
+  for x in xs {
+    match x {
+      HtmlInline::Text(s) =>
+        if s == "" {
+          ()
+        } else {
+          match out.pop() {
+            Some(HtmlInline::Text(prev)) => out.push(HtmlInline::Text(prev + s))
+            Some(last) => {
+              out.push(last)
+              out.push(HtmlInline::Text(s))
+            }
+            None => out.push(HtmlInline::Text(s))
+          }
+        }
+      HtmlInline::Break => out.push(HtmlInline::Break)
+    }
+  }
+  out
+}
+
+///|
+fn render_inlines(xs : Array[HtmlInline]) -> String {
+  let mut s = ""
+  for x in xs {
+    match x {
+      HtmlInline::Text(t) => if t != "" { s = s + t }
+      HtmlInline::Break => s = s + "<br>"
+    }
+  }
+  s
+}
+
+///|
+fn inlines_is_blank(xs : Array[HtmlInline]) -> Bool {
+  render_inlines(xs).trim() == ""
+}
+
+///|
+fn html_text_from_bytes(inner : Bytes) -> String {
+  render_inlines(html_inlines_from_bytes(inner)).trim().to_string()
+}
+
+///|
+fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
+  let out : Array[Array[Array[HtmlInline]]] = []
 
   let open_tr = pat("<tr")
   let close_tr = pat("</tr>")
@@ -396,8 +531,8 @@ fn html_table_from_bytes(inner : Bytes) -> Array[Array[String]] {
 }
 
 ///|
-fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] {
-  let out : Array[String] = []
+fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
+  let out : Array[Array[HtmlInline]] = []
 
   let open_td = pat("<td")
   let close_td = pat("</td>")
@@ -442,8 +577,8 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[String] {
               None => break
               Some(end) => {
                 let cell_inner = tr_inner[cell_start:end].to_bytes()
-                let text = html_text_from_bytes(cell_inner).trim().to_string()
-                out.push(text)
+                let xs = html_inlines_from_bytes(cell_inner)
+                out.push(xs)
 
                 pos = if is_th {
                   end + close_th.length()
