@@ -1,7 +1,7 @@
 ///|
-/// PPTX MVP parser
+/// PPTX parser
 /// Strategy:
-/// - list entries under ppt/slides/slide*.xml
+/// - resolve slide order from ppt/presentation.xml + rels
 /// - read each slide xml
 /// - extract text runs <a:t>...</a:t>
 /// - classify slide paragraphs into heading / list item / paragraph
@@ -14,7 +14,7 @@ pub async fn parse_pptx(
     e => raise @cor.AppError("pptx: open zip failed: " + e.to_string())
   }
 
-  let slides = list_slide_entries(z)
+  let slides = list_slide_entries_in_presentation_order(z)
   let doc = @cor.new_document()
 
   if slides.length() == 0 {
@@ -60,8 +60,8 @@ pub async fn parse_pptx(
             @cor.push(doc, @cor.Block::Paragraph(text))
             prev_was_list = false
           }
-          PptxBlock::ListItem(text) => {
-            @cor.push(doc, @cor.Block::ListItem(false, 0, text))
+          PptxBlock::ListItem(ordered, level, text) => {
+            @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
             prev_was_list = true
           }
         }

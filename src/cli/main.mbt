@@ -37,7 +37,7 @@ async fn main {
 
   let help_msg = parser.gen_help_message(["markitdown-mb"], {})
 
-  let cli_args : Array[String] = normalize_cli_args_safe(args)
+  let cli_args : Array[String] = normalize_cli_args(args)
   if cli_args.length() == 0 {
     println(help_msg)
     return
@@ -45,7 +45,7 @@ async fn main {
 
   let value = @clap.SimpleValue::new("markitdown-mb")
   //println("raw args  = \{args}")
-  let cli_args : Array[String] = normalize_cli_args_safe(args)
+  let cli_args : Array[String] = normalize_cli_args(args)
   //println("norm args = \{cli_args}")
 
   let subcmd_help = parser.parse(value, cli_args[:]) catch {

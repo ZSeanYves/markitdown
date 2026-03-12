@@ -5,7 +5,7 @@
 ///|
 priv struct SheetInfo {
   name : String
-  rid : String
+  _rid : String
   target : String
 }
 
@@ -38,7 +38,7 @@ async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
 fn parse_workbook_sheets(
   wb_xml : String,
   rels_xml : String,
-) -> Array[SheetInfo] raise {
+) -> Array[SheetInfo] {
   let rel_map = parse_rels_id_to_target(rels_xml)
   let out : Array[SheetInfo] = []
 
@@ -57,7 +57,7 @@ fn parse_workbook_sheets(
             let rid = get_attr(tag, "r:id").unwrap_or("")
             if rid != "" {
               let target = rel_map.get(rid).unwrap_or("")
-              out.push({ name, rid, target })
+              out.push({ name, _rid: rid, target })
             }
             pos = i1 + 1
           }
@@ -74,7 +74,7 @@ fn parse_workbook_sheets(
 // <Relationship Id="rId1" Target="worksheets/sheet1.xml" .../>
 
 ///|
-fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String] raise {
+fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String] {
   let m : Map[String, String] = Map::new()
   let mut pos = 0
 

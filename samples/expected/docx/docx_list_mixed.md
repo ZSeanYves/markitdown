@@ -10,4 +10,3 @@ This is a normal paragraph before the mixed list.
 ## Sub Section
 
 Another paragraph after the mixed list.
-

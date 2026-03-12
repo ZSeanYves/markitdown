@@ -1,20 +1,12 @@
 ///|
-priv enum PptxBlock {
-  Heading(String)
-  Paragraph(String)
-  ListItem(String)
-}
-
-///|
-priv struct SlideParagraph {
-  text : String
-  is_bullet : Bool
-}
-
-///|
-/// scan slide xml, extract each <a:p> as one paragraph with simple bullet info
-fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
-  let out : Array[SlideParagraph] = []
+/// scan one <p:sp> shape xml, extract each <a:p> as one paragraph
+/// - for title-like shapes, merge consecutive non-empty paragraphs into one
+fn extract_shape_paragraphs(
+  xml : Bytes,
+  from_title_shape : Bool,
+  from_body_shape : Bool,
+) -> Array[SlideParagraph] raise {
+  let paras : Array[SlideParagraph] = []
 
   let open_p = pat("<a:p")
   let close_p = pat("</a:p>")
@@ -39,10 +31,19 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
                   .trim()
                   .to_string()
 
-                let is_bullet = paragraph_has_bullet(xml, inner_start, p_end0)
+                let bullet_kind = paragraph_bullet_kind(
+                  xml, inner_start, p_end0,
+                )
+                let level = paragraph_level(xml, inner_start, p_end0)
 
                 if text != "" {
-                  out.push({ text, is_bullet })
+                  paras.push({
+                    text,
+                    bullet_kind,
+                    level,
+                    from_title_shape,
+                    from_body_shape,
+                  })
                 }
 
                 pos = p_end0 + close_p.length()
@@ -54,77 +55,33 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
     }
   }
 
-  out
-}
+  if !from_title_shape {
+    return paras
+  }
 
-///|
-fn classify_slide_paragraphs(
-  paras : Array[SlideParagraph],
-) -> Array[PptxBlock] raise {
-  let out : Array[PptxBlock] = []
-  let mut seen_heading = false
+  if paras.length() <= 1 {
+    return paras
+  }
 
+  let merged_parts : Array[String] = []
   for para in paras {
-    let p = para.text.trim().to_string()
-    if p == "" {
-      continue
+    let t = normalize_slide_text(para.text)
+    if t != "" {
+      merged_parts.push(t)
     }
-
-    if para.is_bullet || is_bullet_like(p) {
-      out.push(PptxBlock::ListItem(strip_bullet_prefix(p)))
-      continue
-    }
-
-    if !seen_heading && looks_like_slide_title(p) {
-      out.push(PptxBlock::Heading(p))
-      seen_heading = true
-      continue
-    }
-
-    out.push(PptxBlock::Paragraph(p))
   }
 
-  out
-}
-
-///|
-fn paragraph_has_bullet(xml : Bytes, start : Int, end_ : Int) -> Bool {
-  let bu_char = pat("<a:buChar")
-  let bu_auto = pat("<a:buAutoNum")
-  let bu_blip = pat("<a:buBlip")
-  let bu_none = pat("<a:buNone")
-
-  let has_bu_none = match find_bytes(xml, bu_none, start) {
-    Some(i) => i < end_
-    None => false
-  }
-  if has_bu_none {
-    return false
+  if merged_parts.length() == 0 {
+    return []
   }
 
-  let has_bu_char = match find_bytes(xml, bu_char, start) {
-    Some(i) => i < end_
-    None => false
-  }
-  if has_bu_char {
-    return true
-  }
-
-  let has_bu_auto = match find_bytes(xml, bu_auto, start) {
-    Some(i) => i < end_
-    None => false
-  }
-  if has_bu_auto {
-    return true
-  }
-
-  let has_bu_blip = match find_bytes(xml, bu_blip, start) {
-    Some(i) => i < end_
-    None => false
-  }
-  if has_bu_blip {
-    return true
-  }
-
-  false
+  [
+    {
+      text: merged_parts.join(" "),
+      bullet_kind: None,
+      level: 0,
+      from_title_shape: true,
+      from_body_shape,
+    },
+  ]
 }

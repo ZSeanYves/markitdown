@@ -5,5 +5,3 @@
 | Alice | 20 | Beijing |
 | Bob | 21 |  |
 | Carol |  | Shanghai |
-
-

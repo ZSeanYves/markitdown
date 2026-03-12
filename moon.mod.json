@@ -1,6 +1,6 @@
 {
   "name": "ZSeanYves/markitdown",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "deps": {
     "moonbitlang/x": "0.4.40",
     "TheWaWaR/clap": "0.2.6",
@@ -13,8 +13,11 @@
   "keywords": [
     "markdown",
     "pdf",
-    "docx"
+    "docx",
+    "xlsx",
+    "pptx",
+    "html"
   ],
-  "description": "",
+  "description": "A Moonbit tool similar to Markitdown(Microsoft) synthesized using Codex",
   "preferred-target": "native"
 }

@@ -10,4 +10,3 @@ This is a normal paragraph before the nested list.
 ## Sub Section
 
 Another paragraph after the nested list.
-

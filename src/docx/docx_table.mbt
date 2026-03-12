@@ -59,6 +59,16 @@ fn scan_paragraph(
     return out
   }
 
+  if paragraph_is_blockquote(p_xml, styles) {
+    out.push(@cor.Block::BlockQuote(text))
+    return out
+  }
+
+  if paragraph_is_codeblock(p_xml, styles, text) {
+    out.push(@cor.Block::CodeBlock(text))
+    return out
+  }
+
   out.push(@cor.Block::Paragraph(text))
   out
 }
@@ -135,7 +145,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
       let tc_inner = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
 
       // 只从 tc_inner 里抽 w:t
-      let cell_text = collect_wt_text(tc_inner)
+      let cell_text = collect_tc_text(tc_inner)
       //println("[DBG] cell_text=" + cell_text)
       //println("[DBG] cell_len=" + cell_text.length().to_string())
 
@@ -154,6 +164,91 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
   }
 
   rows
+}
+
+///|
+/// code-like paragraph v1:
+/// 1) 优先按段落样式识别
+/// 2) 否则在“多行 + 明显代码 token”时保守识别
+fn paragraph_is_codeblock(
+  p_xml : String,
+  styles : DocxStyles,
+  text : String,
+) -> Bool {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) =>
+      if style_is_code_like(styles, style_id) {
+        true
+      } else {
+        text_is_code_like(text)
+      }
+    None => text_is_code_like(text)
+  }
+}
+
+///|
+fn style_is_code_like(styles : DocxStyles, style_id : String) -> Bool {
+  if code_name_like(style_id) {
+    return true
+  }
+
+  match style_name_of(styles, style_id) {
+    Some(name) => code_name_like(name)
+    None => false
+  }
+}
+
+///|
+/// 只匹配比较明确的 code-like 命名
+fn code_name_like(s : String) -> Bool {
+  let raw = trim_ascii_spaces(s)
+  let t = ascii_lower(raw)
+
+  t == "code" ||
+  t == "codeblock" ||
+  t == "code block" ||
+  t == "source" ||
+  t == "sourcecode" ||
+  t == "source code" ||
+  t == "preformatted" ||
+  t == "pre" ||
+  t == "programlisting" ||
+  t.contains("code") ||
+  t.contains("source") ||
+  t.contains("preformatted") ||
+  t.contains("programlisting") ||
+  raw.contains("代码") ||
+  raw.contains("源码")
+}
+
+///|
+/// fallback：只有在“多行 + 明显代码 token”时才认
+fn text_is_code_like(text : String) -> Bool {
+  let t = text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+
+  if !t.contains("\n") {
+    return false
+  }
+
+  let lower = ascii_lower(t)
+
+  t.contains("{") ||
+  t.contains("}") ||
+  t.contains("(") ||
+  t.contains(")") ||
+  t.contains(";") ||
+  t.contains("=>") ||
+  t.contains("->") ||
+  t.contains(" = ") ||
+  lower.contains("let ") ||
+  lower.contains("fn ") ||
+  lower.contains("if ") ||
+  lower.contains("else") ||
+  lower.contains("return") ||
+  lower.contains("const ") ||
+  lower.contains("var ") ||
+  lower.contains("class ") ||
+  lower.contains("def ")
 }
 
 ///|
@@ -203,4 +298,71 @@ fn legacy_heading_level(v : String) -> Int {
   } else {
     0
   }
+}
+
+///|
+/// v1: 仅按段落样式判断是否为引用块，尽量保守，避免误判正文
+fn paragraph_is_blockquote(p_xml : String, styles : DocxStyles) -> Bool {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) => style_is_blockquote(styles, style_id)
+    None => false
+  }
+}
+
+///|
+/// 根据 styleId / style name 判断是否属于 quote-like 段落
+fn style_is_blockquote(styles : DocxStyles, style_id : String) -> Bool {
+  if quote_name_like(style_id) {
+    return true
+  }
+
+  match style_name_of(styles, style_id) {
+    Some(name) => quote_name_like(name)
+    None => false
+  }
+}
+
+///|
+/// 只匹配比较明确的引用类命名；先保守一点，后面再扩
+fn quote_name_like(s : String) -> Bool {
+  let t = ascii_lower(trim_ascii_spaces(s))
+
+  t == "quote" ||
+  t == "blockquote" ||
+  t == "block quote" ||
+  t == "citation" ||
+  t == "epigraph" ||
+  t.contains("quote") ||
+  t.contains("blockquote") ||
+  t.contains("citation") ||
+  t.contains("epigraph") ||
+  s.contains("引文") ||
+  s.contains("引用")
+}
+
+///|
+fn trim_ascii_spaces(s : String) -> String {
+  let cs = s.to_array()
+  let mut l = 0
+  let mut r = cs.length()
+
+  while l < r {
+    let c = cs[l]
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      l = l + 1
+    } else {
+      break
+    }
+  }
+
+  while r > l {
+    let c = cs[r - 1]
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      r = r - 1
+    } else {
+      break
+    }
+  }
+
+  String::from_array(cs[l:r].to_array())
 }

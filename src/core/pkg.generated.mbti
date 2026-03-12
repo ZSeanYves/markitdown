@@ -2,13 +2,14 @@
 package "ZSeanYves/markitdown/src/core"
 
 import {
+  "moonbitlang/core/ref",
   "moonbitlang/x/fs",
 }
 
 // Values
 pub fn basename(String) -> String
 
-pub fn decode_numeric_entities(String) -> String raise
+pub fn decode_numeric_entities(String) -> String
 
 pub fn emit_markdown(Document) -> String
 
@@ -48,7 +49,7 @@ pub impl Show for ZipError
 pub(all) enum Block {
   Heading(Int, String)
   Paragraph(String)
-  ListItem(String)
+  ListItem(Bool, Int, String)
   BlockQuote(String)
   CodeBlock(String)
   Table(Array[Array[String]])
@@ -57,7 +58,7 @@ pub(all) enum Block {
 }
 
 pub struct Document {
-  blocks : Ref[Array[Block]]
+  blocks : @ref.Ref[Array[Block]]
 }
 
 pub struct ZipEntry {
