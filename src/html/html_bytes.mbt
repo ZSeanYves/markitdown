@@ -81,28 +81,6 @@ fn html_unescape(s : String) -> String {
 }
 
 ///|
-/// find first nested <ul...> / <ol...> between [start, end_)
-fn find_nested_list_start_in_range(bs : Bytes, start : Int, end_ : Int) -> Int? {
-  let open_ul = pat("<ul")
-  let open_ol = pat("<ol")
-
-  let ul0 = find_bytes(bs, open_ul, start)
-  let ol0 = find_bytes(bs, open_ol, start)
-
-  let pick = match (ul0, ol0) {
-    (Some(a), Some(b)) => if a < b { Some(a) } else { Some(b) }
-    (Some(a), None) => Some(a)
-    (None, Some(b)) => Some(b)
-    (None, None) => None
-  }
-
-  match pick {
-    None => None
-    Some(i) => if i < end_ { Some(i) } else { None }
-  }
-}
-
-///|
 /// find matching close tag for a list block starting at `start_open`
 /// tag_name must be "ul" or "ol"
 fn find_matching_list_end(
