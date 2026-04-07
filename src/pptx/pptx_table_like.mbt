@@ -31,7 +31,18 @@ fn extract_table_like_regions(
 
   for g in candidate_groups {
     let sorted = sort_layout_shapes_simple(g)
-    if shapes_form_grid_like_region(sorted) {
+    let ok = shapes_form_grid_like_region(sorted)
+
+    if PPTX_SLIDE_DEBUG {
+      println(
+        "[pptx-table-region-decision] size=" +
+        sorted.length().to_string() +
+        " | ok=" +
+        ok.to_string(),
+      )
+    }
+
+    if ok {
       table_regions.push(sorted)
       for sp in sorted {
         used.push(sp)
@@ -141,28 +152,89 @@ fn quantize_coord(v : Int, step : Int) -> Int {
 }
 
 ///|
+/// implied grid density as a rational pair:
+/// actual cells = shapes.length()
+/// implied cells = rows * cols
+fn grid_density_numer_denom(
+  shape_count : Int,
+  rows : Int,
+  cols : Int,
+) -> (Int, Int) {
+  let denom = rows * cols
+  if denom <= 0 {
+    (0, 1)
+  } else {
+    (shape_count, denom)
+  }
+}
+
+///|
+fn debug_print_grid_region_stats(
+  shapes : Array[LayoutShape],
+  rows : Int,
+  cols : Int,
+  rich_rows : Int,
+  rich_cols : Int,
+  max_row_pop : Int,
+  max_col_pop : Int,
+  density_num : Int,
+  density_den : Int,
+) -> Unit {
+  if !PPTX_SLIDE_DEBUG {
+    return
+  }
+
+  println(
+    "[pptx-grid-region] n=" +
+    shapes.length().to_string() +
+    " rows=" +
+    rows.to_string() +
+    " cols=" +
+    cols.to_string() +
+    " rich_rows=" +
+    rich_rows.to_string() +
+    " rich_cols=" +
+    rich_cols.to_string() +
+    " max_row_pop=" +
+    max_row_pop.to_string() +
+    " max_col_pop=" +
+    max_col_pop.to_string() +
+    " density=" +
+    density_num.to_string() +
+    "/" +
+    density_den.to_string(),
+  )
+
+  for sp in shapes {
+    println(
+      "[pptx-grid-region-shape] " +
+      normalize_shape_text_for_title(sp.shape.xml) +
+      " | x=" +
+      sp.shape.x.to_string() +
+      " y=" +
+      sp.shape.y.to_string() +
+      " w=" +
+      sp.shape.w.to_string() +
+      " h=" +
+      sp.shape.h.to_string() +
+      " cx=" +
+      sp.center_x.to_string() +
+      " cy=" +
+      sp.center_y.to_string(),
+    )
+  }
+}
+
+///|
 /// conservative grid/table-like region detection:
 /// - at least 4 shapes
-/// - most shapes are short/small candidates
+/// - input is already a candidate cluster from filter_table_like_candidates(...)
 /// - at least 2 rows and 2 columns after rough bucketing
 /// - not just sparse 2d points: need repeated occupancy on both axes
-/// - need multiple non-trivial rows/cols rather than only one repeated row/col
+/// - need multiple non-trivial rows and multiple non-trivial cols
 /// - need moderate fill density in the implied grid
 fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
   if shapes.length() < 4 {
-    return false
-  }
-
-  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
-
-  let mut candidate_cnt = 0
-  for sp in shapes {
-    if is_table_like_shape_candidate(sp, slide_w, slide_h) {
-      candidate_cnt += 1
-    }
-  }
-
-  if candidate_cnt * 2 < shapes.length() {
     return false
   }
 
@@ -171,29 +243,68 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
   let x_step = if avgw > 0 { max_int(1, avgw / 2) } else { 1 }
   let y_step = if avgh > 0 { max_int(1, avgh / 2) } else { 1 }
+
   let cols = count_distinct_bucketed_center_x(shapes, x_step)
   let rows = count_distinct_bucketed_center_y(shapes, y_step)
   if cols < 2 || rows < 2 {
+    if PPTX_SLIDE_DEBUG {
+      debug_print_grid_region_stats(shapes, rows, cols, 0, 0, 0, 0, 0, 1)
+    }
     return false
   }
+
   let max_col_pop = max_bucket_population_center_x(shapes, x_step)
   let max_row_pop = max_bucket_population_center_y(shapes, y_step)
 
   // 至少要有一列里出现 2+，且一行里出现 2+
   if max_col_pop < 2 || max_row_pop < 2 {
+    if PPTX_SLIDE_DEBUG {
+      debug_print_grid_region_stats(
+        shapes,
+        rows,
+        cols,
+        0,
+        0,
+        max_row_pop,
+        max_col_pop,
+        0,
+        1,
+      )
+    }
     return false
   }
 
   let rich_cols = count_bucketed_center_x_with_min_population(shapes, x_step, 2)
   let rich_rows = count_bucketed_center_y_with_min_population(shapes, y_step, 2)
 
-  // 不能只有“某一行/某一列”碰巧重复；需要多行多列都像 grid
-  if rich_cols + rich_rows < 4 {
+  let (density_num, density_den) = grid_density_numer_denom(
+    shapes.length(),
+    rows,
+    cols,
+  )
+
+  if PPTX_SLIDE_DEBUG {
+    debug_print_grid_region_stats(
+      shapes,
+      rows,
+      cols,
+      rich_rows,
+      rich_cols,
+      max_row_pop,
+      max_col_pop,
+      density_num,
+      density_den,
+    )
+  }
+
+  // 不能只有“某一行”或“某一列”碰巧重复；
+  // 需要至少两行、两列都具备非平凡 occupancy
+  if rich_cols < 2 || rich_rows < 2 {
     return false
   }
 
   // implied grid density: avoid very sparse pseudo-2d layouts
-  if shapes.length() * 2 < rows * cols {
+  if density_num * 2 < density_den {
     return false
   }
 
