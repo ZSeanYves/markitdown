@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate table-like PPTX sample files into a target directory.
+"""Generate table-like PPTX sample files and matching markdown expectations.
 
 Usage:
     python tools/gen_pptx_table_like_samples.py <output_dir>
@@ -21,6 +21,112 @@ from pptx.util import Inches, Pt
 
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+MD_CONTENT: dict[str, str] = {
+    "pptx_table_like_strong_2x3.md": """## Slide 1
+
+### Result Matrix
+
+Metric
+
+Value
+
+Latency
+
+120ms
+
+Accuracy
+
+91%
+""",
+    "pptx_table_like_strong_3x3_header.md": """## Slide 1
+
+### Quarter Overview
+
+Quarter
+
+Revenue
+
+Profit
+
+Q1
+
+120
+
+40
+
+Q2
+
+140
+
+55
+""",
+    "pptx_table_like_local_edge_cell.md": """## Slide 1
+
+### Local Metrics
+
+CPU
+
+65%
+
+Memory
+
+72%
+
+Snapshot taken this morning.
+""",
+    "pptx_table_like_negative_cards_2x2.md": """## Slide 1
+
+### Capabilities
+
+Search
+
+Fast retrieval
+
+Vision
+
+Image parsing
+
+Speech
+
+Audio input
+
+Agents
+
+Task execution
+""",
+    "pptx_table_like_negative_two_column_explainer.md": """## Slide 1
+
+### Launch Stages
+
+Plan
+
+Set scope and owners
+
+Build
+
+Implement and test
+
+Launch
+
+Ship and monitor
+""",
+    "pptx_table_like_local_with_side_note.md": """## Slide 1
+
+### Benchmark Snapshot
+
+Model
+
+Score
+
+A
+
+91
+
+Best result highlighted.
+""",
+}
 
 
 def add_textbox(
@@ -232,14 +338,30 @@ def generate_all(output_dir: Path) -> list[Path]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate table-like PPTX sample files.")
     parser.add_argument("output_dir", type=Path, help="Output directory for generated .pptx files")
+    parser.add_argument(
+        "--expected-md-dir",
+        type=Path,
+        default=Path("samples/expected/pptx"),
+        help="Directory for generated expected .md files (default: samples/expected/pptx)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     generated = generate_all(args.output_dir)
+    ensure_dir(args.expected_md_dir)
+    generated_md: list[Path] = []
+    for md_name, content in MD_CONTENT.items():
+        md_path = args.expected_md_dir / md_name
+        md_path.write_text(content, encoding="utf-8")
+        generated_md.append(md_path)
+
     print("Generated files:")
     for p in generated:
+        print(f"- {p}")
+    print("Generated expected markdown files:")
+    for p in generated_md:
         print(f"- {p}")
 
 
