@@ -313,6 +313,63 @@ fn debug_print_grid_region_stats(
 }
 
 ///|
+fn text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn count_digit_like_cells(shapes : Array[LayoutShape]) -> Int {
+  let mut cnt = 0
+
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    if text_contains_digit(text) {
+      cnt += 1
+    }
+  }
+
+  cnt
+}
+
+///|
+/// conservative suppression for layouts like:
+/// top row = short headers
+/// second row = short descriptions
+/// visually grid-like, but semantically closer to cards than tables
+fn looks_like_two_row_header_cards(
+  shapes : Array[LayoutShape],
+  rows : Int,
+  cols : Int,
+) -> Bool {
+  if rows != 2 || cols < 3 {
+    return false
+  }
+
+  // current strong table-like positives all have clearer value-like / numeric cells.
+  // if a 2-row wide grid has no numeric signal at all, it is more likely cards.
+  let digit_like = count_digit_like_cells(shapes)
+  if digit_like > 0 {
+    return false
+  }
+
+  // also keep it conservative: all cells should remain short.
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    let n = text.to_array().length()
+    if n > 40 {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
 /// conservative grid/table-like region detection:
 /// - at least 4 shapes
 /// - input is already a candidate cluster from filter_table_like_candidates(...)
@@ -392,6 +449,10 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
   // implied grid density: avoid very sparse pseudo-2d layouts
   if density_num * 2 < density_den {
+    return false
+  }
+
+  if looks_like_two_row_header_cards(shapes, rows, cols) {
     return false
   }
 
