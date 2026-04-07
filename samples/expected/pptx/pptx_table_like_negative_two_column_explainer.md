@@ -4,12 +4,12 @@
 
 Plan
 
-Set scope and owners
-
 Build
 
-Implement and test
-
 Launch
+
+Set scope and owners
+
+Implement and test
 
 Ship and monitor

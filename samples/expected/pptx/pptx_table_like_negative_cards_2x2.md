@@ -6,13 +6,13 @@ Search
 
 Fast retrieval
 
-Vision
-
-Image parsing
-
 Speech
 
 Audio input
+
+Vision
+
+Image parsing
 
 Agents
 
