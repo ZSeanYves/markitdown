@@ -313,7 +313,6 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
 ///|
 fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
-  //println("[pptx-link-enter]")
   let hgap = horizontal_gap(a, b)
   let vgap = vertical_gap(a, b)
   let hoverlap = horizontal_overlap(a, b)
@@ -322,21 +321,22 @@ fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
   let maxw = max_int(a.shape.w, b.shape.w)
   let maxh = max_int(a.shape.h, b.shape.h)
 
+  let same_row = approx_same_row(a, b)
+  let same_col = approx_same_col(a, b)
+
   let ta = normalize_shape_text_for_title(a.shape.xml)
   let tb = normalize_shape_text_for_title(b.shape.xml)
 
-  if (
-      (ta == "Revenue" && tb == "Cost") ||
-      (ta == "Cost" && tb == "Revenue") ||
-      (ta == "Revenue" && tb == "120") ||
-      (ta == "120" && tb == "Revenue")
-    ) &&
-    PPTX_SLIDE_DEBUG {
+  if PPTX_SLIDE_DEBUG {
     println(
       "[pptx-link] " +
       ta +
       " <-> " +
       tb +
+      " | same_row=" +
+      same_row.to_string() +
+      " | same_col=" +
+      same_col.to_string() +
       " | hgap=" +
       hgap.to_string() +
       " | vgap=" +
@@ -352,11 +352,17 @@ fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
     )
   }
 
-  if hoverlap > 0 && vgap <= maxh * 2 {
+  // row-wise link:
+  // must really look like the same visual row,
+  // and the horizontal gap should still be locally reasonable.
+  if same_row && voverlap > 0 && hgap <= max_int(24, maxw * 2) {
     return true
   }
 
-  if voverlap > 0 && hgap <= maxw * 2 {
+  // col-wise link:
+  // must really look like the same visual column,
+  // and the vertical gap should still be locally reasonable.
+  if same_col && hoverlap > 0 && vgap <= max_int(16, maxh * 2) {
     return true
   }
 
