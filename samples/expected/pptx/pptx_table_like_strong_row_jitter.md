@@ -2,20 +2,20 @@
 
 ### Row Jitter Matrix
 
-Metric
+Quarter
+
+Revenue
+
+Profit
 
 Q1
 
-Q2
-
-Latency
-
 120
 
-110
+40
 
-Accuracy
+Q2
 
-91
+140
 
-93
+55

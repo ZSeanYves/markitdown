@@ -151,12 +151,6 @@ fn append_rows(
 }
 
 ///|
-fn same_visual_row(a : LayoutShape, b : LayoutShape) -> Bool {
-  let dy = abs_int(a.center_y - b.center_y)
-  dy <= row_threshold_for(a, b)
-}
-
-///|
 /// cluster shapes into visual rows; rows are ordered top-to-bottom,
 /// and shapes inside each row are ordered left-to-right
 fn cluster_shapes_into_rows(
@@ -246,12 +240,21 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
     return true
   }
 
+  // first: if the new shape vertically overlaps with any existing item
+  // in the row, it is very likely still the same visual row.
+  for item in row {
+    if vertical_overlap(item, sp) > 0 {
+      return true
+    }
+  }
+
+  // fallback: row-center band check
   let row_cy = row_center_y(row)
   let row_h = row_max_shape_h(row)
   let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
 
   let maxh = max_int(row_h, sp_h)
-  let threshold = max_int(8, maxh / 2)
+  let threshold = max_int(12, maxh)
 
   let dy = abs_int(row_cy - sp.center_y)
   if dy > threshold {
@@ -259,9 +262,7 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   }
 
   true
-}
-
-///|
+}///|
 fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
 

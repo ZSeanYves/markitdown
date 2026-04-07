@@ -34,22 +34,31 @@ def build_strong_row_jitter_sample() -> None:
 
     col_x = [700000, 3200000, 5200000]
     row_y = [1200000, 2200000, 3200000]
-    # subtle per-cell jitter (EMU)
+
+    # keep header row stable; apply only mild jitter to lower rows
     jitter = [
-        [0, 10000, -8000],
-        [8000, -10000, 0],
-        [-6000, 6000, -8000],
+        [0, 0, 0],
+        [2000, -2000, 1000],
+        [-1000, 1000, -2000],
     ]
+
     cells = [
-        ["Metric", "Q1", "Q2"],
-        ["Latency", "120", "110"],
-        ["Accuracy", "91", "93"],
+        ["Quarter", "Revenue", "Profit"],
+        ["Q1", "120", "40"],
+        ["Q2", "140", "55"],
     ]
 
     w, h = 1800000, 500000
     for r in range(3):
         for c in range(3):
-            add_textbox(slide, col_x[c], row_y[r] + jitter[r][c], w, h, cells[r][c])
+            add_textbox(
+                slide,
+                col_x[c],
+                row_y[r] + jitter[r][c],
+                w,
+                h,
+                cells[r][c],
+            )
 
     out = SAMPLES / "pptx_table_like_strong_row_jitter.pptx"
     prs.save(out)
@@ -60,23 +69,23 @@ def build_strong_row_jitter_sample() -> None:
 
 ### Row Jitter Matrix
 
-Metric
+Quarter
+
+Revenue
+
+Profit
 
 Q1
 
-Q2
-
-Latency
-
 120
 
-110
+40
 
-Accuracy
+Q2
 
-91
+140
 
-93
+55
 """,
         encoding="utf-8",
     )
