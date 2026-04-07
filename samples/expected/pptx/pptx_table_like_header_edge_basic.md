@@ -1,6 +1,6 @@
 ## Slide 1
 
-### Row Jitter Matrix
+### Header Edge Matrix
 
 Quarter
 
