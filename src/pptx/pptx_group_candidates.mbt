@@ -160,10 +160,10 @@ fn has_table_like_neighbor_support(
     }
   }
 
+  let total_neighbors = row_neighbors + col_neighbors
   let ok =
     (row_neighbors >= 1 && col_neighbors >= 1) ||
-    row_neighbors >= 2 ||
-    col_neighbors >= 2
+    total_neighbors >= 2
 
   if PPTX_SLIDE_DEBUG {
     println(
@@ -173,6 +173,8 @@ fn has_table_like_neighbor_support(
       row_neighbors.to_string() +
       " | col_neighbors=" +
       col_neighbors.to_string() +
+      " | total_neighbors=" +
+      total_neighbors.to_string() +
       " | ok=" +
       ok.to_string(),
     )
