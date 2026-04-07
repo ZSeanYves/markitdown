@@ -160,9 +160,25 @@ fn has_table_like_neighbor_support(
     }
   }
 
-  // 有横向或纵向局部支撑即可先进入 candidate，
-  // 真正是不是 table-like，交给 region 检测再收紧
-  row_neighbors + col_neighbors >= 1
+  let ok =
+    (row_neighbors >= 1 && col_neighbors >= 1) ||
+    row_neighbors >= 2 ||
+    col_neighbors >= 2
+
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-neighbor-support] " +
+      normalize_shape_text_for_title(sp.shape.xml) +
+      " | row_neighbors=" +
+      row_neighbors.to_string() +
+      " | col_neighbors=" +
+      col_neighbors.to_string() +
+      " | ok=" +
+      ok.to_string(),
+    )
+  }
+
+  ok
 }
 
 ///|
