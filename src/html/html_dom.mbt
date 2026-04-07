@@ -324,7 +324,7 @@ fn scan_li_children(
     match lt0 {
       None => {
         let tail = bs[pos:end_].to_bytes()
-        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        let xs = html_inlines_from_bytes(tail)
         if !inlines_is_blank(xs) {
           append_inlines(pending_para, xs)
         }
@@ -334,7 +334,7 @@ fn scan_li_children(
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_bytes()
-          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          let xs = html_inlines_from_bytes(head)
           if !inlines_is_blank(xs) {
             append_inlines(pending_para, xs)
           }
@@ -349,7 +349,7 @@ fn scan_li_children(
         match gt0 {
           None => {
             let tail = bs[p:end_].to_bytes()
-            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            let xs = html_inlines_from_bytes(tail)
             if !inlines_is_blank(xs) {
               append_inlines(pending_para, xs)
             }
@@ -359,7 +359,7 @@ fn scan_li_children(
           Some(q) => {
             if q >= end_ {
               let tail = bs[p:end_].to_bytes()
-              let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+              let xs = html_inlines_from_bytes(tail)
               if !inlines_is_blank(xs) {
                 append_inlines(pending_para, xs)
               }
@@ -519,7 +519,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
     match lt0 {
       None => {
         let tail = bs[pos:n].to_bytes()
-        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        let xs = html_inlines_from_bytes(tail)
         if !inlines_is_blank(xs) {
           append_inlines(pending_para, xs)
         }
@@ -529,7 +529,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_bytes()
-          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          let xs = html_inlines_from_bytes(head)
           if !inlines_is_blank(xs) {
             append_inlines(pending_para, xs)
           }
@@ -539,7 +539,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
         match gt0 {
           None => {
             let tail = bs[p:n].to_bytes()
-            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            let xs = html_inlines_from_bytes(tail)
             if !inlines_is_blank(xs) {
               append_inlines(pending_para, xs)
             }
@@ -886,11 +886,26 @@ fn append_inlines(dst : Array[HtmlInline], src : Array[HtmlInline]) -> Unit {
 }
 
 ///|
+/// trim one pending paragraph as a whole:
+/// - preserve internal spaces between raw text fragments
+/// - strip only leading/trailing whitespace introduced by source indentation
+fn normalize_pending_paragraph(
+  xs : Array[HtmlInline],
+) -> Array[HtmlInline] {
+  let s = render_inlines(merge_adjacent_text_inlines(xs)).trim().to_string()
+  if s == "" {
+    []
+  } else {
+    [HtmlInline::Text(s)]
+  }
+}
+
+///|
 fn flush_pending_paragraph(
   out : Array[HtmlNode],
   pending : Array[HtmlInline],
 ) -> Unit {
-  let xs = merge_adjacent_text_inlines(pending)
+  let xs = normalize_pending_paragraph(pending)
   if !inlines_is_blank(xs) {
     out.push(HtmlNode::Paragraph(xs))
   }

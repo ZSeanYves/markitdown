@@ -1,5 +1,5 @@
 - alpha
 
-> quoted
+quoted
 
 gamma
