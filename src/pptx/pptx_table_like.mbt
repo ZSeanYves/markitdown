@@ -43,8 +43,9 @@ fn extract_table_like_regions(
     }
 
     if ok {
-      table_regions.push(sorted)
-      for sp in sorted {
+      let expanded = expand_table_like_region_members(sorted, candidates)
+      table_regions.push(expanded)
+      for sp in expanded {
         used.push(sp)
       }
     }
@@ -152,6 +153,92 @@ fn quantize_coord(v : Int, step : Int) -> Int {
 }
 
 ///|
+fn int_in_array(xs : Array[Int], v : Int) -> Bool {
+  for x in xs {
+    if x == v {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn collect_bucketed_center_x(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_x, step)
+    if !int_in_array(out, q) {
+      out.push(q)
+    }
+  }
+
+  out
+}
+
+///|
+fn collect_bucketed_center_y(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_y, step)
+    if !int_in_array(out, q) {
+      out.push(q)
+    }
+  }
+
+  out
+}
+
+///|
+/// after a table-like region is accepted, try to absorb extra candidate shapes
+/// that align with both an existing row bucket and an existing column bucket.
+/// this is mainly for edge/header cells that were missed by the initial cluster.
+fn expand_table_like_region_members(
+  region : Array[LayoutShape],
+  candidates : Array[LayoutShape],
+) -> Array[LayoutShape] {
+  if region.length() == 0 {
+    return region
+  }
+
+  let avgw = average_shape_w(region)
+  let avgh = average_shape_h(region)
+
+  let x_step = if avgw > 0 { max_int(1, avgw / 2) } else { 1 }
+  let y_step = if avgh > 0 { max_int(1, avgh / 2) } else { 1 }
+
+  let col_buckets = collect_bucketed_center_x(region, x_step)
+  let row_buckets = collect_bucketed_center_y(region, y_step)
+
+  let out : Array[LayoutShape] = []
+  for sp in region {
+    out.push(sp)
+  }
+
+  for sp in candidates {
+    if layout_shape_in_array(sp, out) {
+      continue
+    }
+
+    let qx = quantize_coord(sp.center_x, x_step)
+    let qy = quantize_coord(sp.center_y, y_step)
+
+    if int_in_array(col_buckets, qx) && int_in_array(row_buckets, qy) {
+      out.push(sp)
+    }
+  }
+
+  sort_layout_shapes_simple(out)
+}
+
+///|
 /// implied grid density as a rational pair:
 /// actual cells = shapes.length()
 /// implied cells = rows * cols
@@ -223,6 +310,63 @@ fn debug_print_grid_region_stats(
       sp.center_y.to_string(),
     )
   }
+}
+
+///|
+fn text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn count_digit_like_cells(shapes : Array[LayoutShape]) -> Int {
+  let mut cnt = 0
+
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    if text_contains_digit(text) {
+      cnt += 1
+    }
+  }
+
+  cnt
+}
+
+///|
+/// conservative suppression for layouts like:
+/// top row = short headers
+/// second row = short descriptions
+/// visually grid-like, but semantically closer to cards than tables
+fn looks_like_two_row_header_cards(
+  shapes : Array[LayoutShape],
+  rows : Int,
+  cols : Int,
+) -> Bool {
+  if rows != 2 || cols < 3 {
+    return false
+  }
+
+  // current strong table-like positives all have clearer value-like / numeric cells.
+  // if a 2-row wide grid has no numeric signal at all, it is more likely cards.
+  let digit_like = count_digit_like_cells(shapes)
+  if digit_like > 0 {
+    return false
+  }
+
+  // also keep it conservative: all cells should remain short.
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    let n = text.to_array().length()
+    if n > 40 {
+      return false
+    }
+  }
+
+  true
 }
 
 ///|
@@ -305,6 +449,10 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
   // implied grid density: avoid very sparse pseudo-2d layouts
   if density_num * 2 < density_den {
+    return false
+  }
+
+  if looks_like_two_row_header_cards(shapes, rows, cols) {
     return false
   }
 
@@ -393,23 +541,7 @@ fn count_distinct_bucketed_center_x(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_x, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
+  collect_bucketed_center_x(shapes, step).length()
 }
 
 ///|
@@ -417,23 +549,7 @@ fn count_distinct_bucketed_center_y(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_y, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
+  collect_bucketed_center_y(shapes, step).length()
 }
 
 ///|
