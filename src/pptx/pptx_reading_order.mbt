@@ -190,7 +190,12 @@ fn cluster_shapes_into_rows(
   if PPTX_SLIDE_DEBUG {
     println("[pptx-table] row count=" + rows.length().to_string())
     for i in 0..<rows.length() {
-      println("[pptx-table] row " + i.to_string())
+      println(
+        "[pptx-table] row " +
+        i.to_string() +
+        " center_y=" +
+        row_center_y(rows[i]).to_string(),
+      )
       for sp in rows[i] {
         println("  - " + normalize_shape_text_for_title(sp.shape.xml))
       }
@@ -200,18 +205,60 @@ fn cluster_shapes_into_rows(
 }
 
 ///|
+fn row_center_y(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut sum = 0
+  for sp in row {
+    sum += sp.center_y
+  }
+
+  sum / row.length()
+}
+
+///|
+fn row_max_shape_h(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 1
+  }
+
+  let mut v = row[0].shape.h
+  if v <= 0 {
+    v = 1
+  }
+
+  for i in 1..<row.length() {
+    let h = row[i].shape.h
+    let hv = if h > 0 { h } else { 1 }
+    if hv > v {
+      v = hv
+    }
+  }
+
+  v
+}
+
+///|
 fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   if row.length() == 0 {
     return true
   }
 
-  for item in row {
-    if same_visual_row(item, sp) {
-      return true
-    }
+  let row_cy = row_center_y(row)
+  let row_h = row_max_shape_h(row)
+  let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
+
+  let maxh = max_int(row_h, sp_h)
+  let threshold = max_int(8, maxh / 2)
+
+  let dy = abs_int(row_cy - sp.center_y)
+  if dy > threshold {
+    return false
   }
 
-  false
+  true
 }
 
 ///|
