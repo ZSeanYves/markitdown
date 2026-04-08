@@ -390,8 +390,6 @@ fn append_rows(
 }
 
 ///|
-/// cluster shapes into visual rows; rows are ordered top-to-bottom,
-/// and shapes inside each row are ordered left-to-right
 fn cluster_shapes_into_rows(
   shapes : Array[LayoutShape],
 ) -> Array[Array[LayoutShape]] {
@@ -399,20 +397,49 @@ fn cluster_shapes_into_rows(
   let sorted = sort_layout_shapes_simple(shapes)
 
   for sp in sorted {
+    if PPTX_SLIDE_DEBUG {
+      println(
+        "[row-cluster] try shape='" +
+        normalize_shape_text_for_title(sp.shape.xml) +
+        "' y=" + sp.shape.y.to_string() +
+        " h=" + sp.shape.h.to_string() +
+        " bottom=" + sp.bottom.to_string() +
+        " cy=" + sp.center_y.to_string(),
+      )
+    }
+
     let mut placed = false
     let mut i = 0
 
     while i < rows.length() {
+      if PPTX_SLIDE_DEBUG {
+        println(
+          "[row-cluster]   against row " +
+          i.to_string() +
+          " row_cy=" +
+          row_center_y(rows[i]).to_string() +
+          " row_top=" +
+          row_top(rows[i]).to_string(),
+        )
+      }
+
       if row_accepts_shape(rows[i], sp) {
         rows[i].push(sp)
         placed = true
+        if PPTX_SLIDE_DEBUG {
+          println("[row-cluster]   => accepted by row " + i.to_string())
+        }
         break
       }
+
       i = i + 1
     }
 
     if !placed {
       rows.push([sp])
+      if PPTX_SLIDE_DEBUG {
+        println("[row-cluster]   => create new row")
+      }
     }
   }
 
@@ -420,6 +447,7 @@ fn cluster_shapes_into_rows(
     let row = rows[i]
     rows[i] = sort_layout_shapes_by_x(row)
   }
+
   if PPTX_SLIDE_DEBUG {
     println("[pptx-table] row count=" + rows.length().to_string())
     for i in 0..<rows.length() {
@@ -434,6 +462,7 @@ fn cluster_shapes_into_rows(
       }
     }
   }
+
   sort_rows_by_top(rows)
 }
 
@@ -481,7 +510,13 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
 
   let mut overlap_count = 0
   for item in row {
-    if vertical_overlap(item, sp) > 0 {
+    let ov = vertical_overlap(item, sp)
+    let item_h = if item.shape.h > 0 { item.shape.h } else { 1 }
+    let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
+    let maxh = max_int(item_h, sp_h)
+    let cy_diff = abs_int(item.center_y - sp.center_y)
+
+    if ov > 0 && cy_diff <= max_int(12, maxh / 2) {
       overlap_count += 1
     }
   }
@@ -501,7 +536,7 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
 
   let maxh = max_int(row_h, sp_h)
-  let threshold = max_int(12, maxh)
+  let threshold = max_int(12, maxh / 2)
 
   let dy = abs_int(row_cy - sp.center_y)
   if dy > threshold {
@@ -509,7 +544,7 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   }
 
   true
-} ///|
+}
 
 ///|
 fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {

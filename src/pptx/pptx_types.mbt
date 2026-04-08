@@ -56,7 +56,7 @@ priv enum BulletKind {
 }
 
 ///|
-const PPTX_SLIDE_DEBUG = true
+const PPTX_SLIDE_DEBUG = false
 
 ///|
 impl Eq for ShapeGroupKind with equal(
