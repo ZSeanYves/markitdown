@@ -103,8 +103,8 @@ fn flatten_shapes_in_reading_order(
   }
 
   let body_rows = cluster_shapes_into_rows(body_shapes)
-  if looks_like_header_cards_rows(body_rows) {
-    append_two_row_cards_by_columns(out, body_rows)
+  if looks_like_card_pair_rows(body_rows) {
+    append_card_pair_rows_by_columns(out, body_rows)
     return out
   }
 
@@ -528,6 +528,55 @@ fn looks_like_header_cards_rows(rows : Array[Array[LayoutShape]]) -> Bool {
 }
 
 ///|
+fn row_pair_looks_like_cards(
+  top : Array[LayoutShape],
+  bottom : Array[LayoutShape],
+) -> Bool {
+  if top.length() == 0 || top.length() != bottom.length() {
+    return false
+  }
+
+  for i in 0..<top.length() {
+    let top_text = normalize_shape_text_for_title(top[i].shape.xml)
+    let bottom_text = normalize_shape_text_for_title(bottom[i].shape.xml)
+
+    let top_n = top_text.to_array().length()
+    let bottom_n = bottom_text.to_array().length()
+
+    if top_text == "" || top_n > 24 || text_contains_digit(top_text) {
+      return false
+    }
+
+    if bottom_text == "" || text_contains_digit(bottom_text) {
+      return false
+    }
+
+    if !(text_contains_space(bottom_text) || bottom_n >= top_n + 4) {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn looks_like_card_pair_rows(rows : Array[Array[LayoutShape]]) -> Bool {
+  if rows.length() < 2 || rows.length() % 2 != 0 {
+    return false
+  }
+
+  let mut i = 0
+  while i < rows.length() {
+    if !row_pair_looks_like_cards(rows[i], rows[i + 1]) {
+      return false
+    }
+    i += 2
+  }
+
+  true
+}
+
+///|
 fn append_two_row_cards_by_columns(
   out : Array[LayoutShape],
   rows : Array[Array[LayoutShape]],
@@ -561,5 +610,42 @@ fn append_two_row_cards_by_columns(
     for i in n..<bottom.length() {
       out.push(bottom[i])
     }
+  }
+}
+
+///|
+fn append_card_pair_rows_by_columns(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  let mut i = 0
+  while i < rows.length() {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    let n = if top.length() < bottom.length() {
+      top.length()
+    } else {
+      bottom.length()
+    }
+
+    for j in 0..<n {
+      out.push(top[j])
+      out.push(bottom[j])
+    }
+
+    if top.length() > n {
+      for j in n..<top.length() {
+        out.push(top[j])
+      }
+    }
+
+    if bottom.length() > n {
+      for j in n..<bottom.length() {
+        out.push(bottom[j])
+      }
+    }
+
+    i += 2
   }
 }
