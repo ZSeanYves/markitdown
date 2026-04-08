@@ -479,15 +479,23 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
     return true
   }
 
-  // first: if the new shape vertically overlaps with any existing item
-  // in the row, it is very likely still the same visual row.
+  let mut overlap_count = 0
   for item in row {
     if vertical_overlap(item, sp) > 0 {
+      overlap_count += 1
+    }
+  }
+
+  if row.length() == 1 {
+    if overlap_count >= 1 {
+      return true
+    }
+  } else {
+    if overlap_count >= 2 {
       return true
     }
   }
 
-  // fallback: row-center band check
   let row_cy = row_center_y(row)
   let row_h = row_max_shape_h(row)
   let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
