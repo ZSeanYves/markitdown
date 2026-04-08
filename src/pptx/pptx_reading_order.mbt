@@ -184,6 +184,7 @@ fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
   false
 }
 
+
 ///|
 fn normalize_callout_pair_for_output(
   a : LayoutShape,

@@ -451,16 +451,6 @@ fn same_layout_shape(a : LayoutShape, b : LayoutShape) -> Bool {
 }
 
 ///|
-fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
-  for item in arr {
-    if same_layout_shape(sp, item) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn count_distinct_bucketed_center_x(
   shapes : Array[LayoutShape],
   step : Int,
