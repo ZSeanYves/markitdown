@@ -283,6 +283,84 @@ def build_pptx_negative_caption_scatter(output_dir: Path) -> str:
     return filename
 
 
+def build_pptx_table_like_negative_cards_2x3_dense(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Dense Capability Cards")
+
+    cards = [
+        (650000, 1220000, "C1", "Desc C1"),
+        (3200000, 1220000, "C2", "Desc C2"),
+        (5750000, 1220000, "C3", "Desc C3"),
+        (650000, 2480000, "C4", "Desc C4"),
+        (3200000, 2480000, "C5", "Desc C5"),
+        (5750000, 2480000, "C6", "Desc C6"),
+    ]
+
+    for left, top, title, description in cards:
+        add_card_pair(
+            slide,
+            left=left,
+            top=top,
+            title=title,
+            description=description,
+            card_width=2050000,
+            title_height=330000,
+            description_height=330000,
+            inner_gap=4000,
+            title_size=20,
+            description_size=17,
+        )
+
+    filename = "pptx_table_like_negative_cards_2x3_dense.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
+def build_pptx_table_like_negative_cards_with_badge(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Cards With Badge")
+
+    cards = [
+        (900000, 1320000, "Plan", "Starter tier"),
+        (4000000, 1320000, "Scale", "Team rollout"),
+        (900000, 2680000, "Observe", "Track quality"),
+        (4000000, 2680000, "Optimize", "Tune latency"),
+    ]
+
+    for left, top, title, description in cards:
+        add_card_pair(
+            slide,
+            left=left,
+            top=top,
+            title=title,
+            description=description,
+            card_width=2300000,
+            title_height=360000,
+            description_height=360000,
+            inner_gap=8000,
+            title_size=21,
+            description_size=17,
+        )
+
+    add_textbox(
+        slide,
+        left=6420000,
+        top=2780000,
+        width=1200000,
+        height=300000,
+        text="beta",
+        font_size=14,
+    )
+
+    filename = "pptx_table_like_negative_cards_with_badge.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate selected PPTX card-like regression samples.",
@@ -313,6 +391,8 @@ if __name__ == "__main__":
         build_pptx_card_pairs_two_rows_three_cols(out_dir),
         build_pptx_card_pairs_two_groups(out_dir),
         build_pptx_negative_caption_scatter(out_dir),
+        build_pptx_table_like_negative_cards_2x3_dense(out_dir),
+        build_pptx_table_like_negative_cards_with_badge(out_dir),
     ]
 
     for name in generated:
