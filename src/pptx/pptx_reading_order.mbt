@@ -508,17 +508,26 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
     return true
   }
 
+  let use_strict = row_looks_like_staggered_callout_band(row)
+
   let mut overlap_count = 0
   for item in row {
     let ov = vertical_overlap(item, sp)
-    let item_h = if item.shape.h > 0 { item.shape.h } else { 1 }
-    let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
-    let maxh = max_int(item_h, sp_h)
-    let cy_diff = abs_int(item.center_y - sp.center_y)
-
-    if ov > 0 && cy_diff <= max_int(12, maxh / 2) {
-      overlap_count += 1
+    if ov <= 0 {
+      continue
     }
+
+    if use_strict {
+      let item_h = if item.shape.h > 0 { item.shape.h } else { 1 }
+      let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
+      let maxh = max_int(item_h, sp_h)
+      let cy_diff = abs_int(item.center_y - sp.center_y)
+      if cy_diff > max_int(12, maxh / 2) {
+        continue
+      }
+    }
+
+    overlap_count += 1
   }
 
   if row.length() == 1 {
@@ -536,7 +545,7 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
 
   let maxh = max_int(row_h, sp_h)
-  let threshold = max_int(12, maxh / 2)
+  let threshold = if use_strict { max_int(12, maxh / 2) } else { max_int(12, maxh) }
 
   let dy = abs_int(row_cy - sp.center_y)
   if dy > threshold {
@@ -544,6 +553,39 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   }
 
   true
+}
+
+///|
+fn row_looks_like_staggered_callout_band(row : Array[LayoutShape]) -> Bool {
+  if row.length() < 2 {
+    return false
+  }
+
+  let row_h = row_max_shape_h(row)
+  let spread = row_center_y_spread(row)
+  spread > max_int(12, row_h / 3)
+}
+
+///|
+fn row_center_y_spread(row : Array[LayoutShape]) -> Int {
+  if row.length() == 0 {
+    return 0
+  }
+
+  let mut min_cy = row[0].center_y
+  let mut max_cy = row[0].center_y
+
+  for i in 1..<row.length() {
+    let cy = row[i].center_y
+    if cy < min_cy {
+      min_cy = cy
+    }
+    if cy > max_cy {
+      max_cy = cy
+    }
+  }
+
+  max_cy - min_cy
 }
 
 ///|
