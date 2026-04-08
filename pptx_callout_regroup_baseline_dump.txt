@@ -1,0 +1,1216 @@
+# 1. 当前基线说明
+
+当前仓库已处于“用户手动回退到上一次提交后的稳定基线”语境下进行信息整理。本次仅做信息收集，不做修复。
+
+- 当前 HEAD（自动读取）: `7745ad0814c7b1ce4b3dde620f107683b174f060`
+- 若以你的流程定义为准：基线由你手动回退到上一次提交
+- 当前基线下已知：
+  - 用户明确指出多数既有 PPTX 样例为绿（未在本轮逐个重跑）
+  - 两个新样例为挂：
+    - `pptx_callout_blocks_basic`
+    - `pptx_caption_scatter_one_real_pair`
+
+说明：本环境缺少 `moon` 命令，无法在本轮自动重跑全量并机器确认“全部绿/全部红”清单。
+
+# 2. 当前失败样例清单
+
+当前已知失败样例（按你要求明确列出）：
+
+- `pptx_callout_blocks_basic`
+- `pptx_caption_scatter_one_real_pair`
+
+其他 PPTX 失败样例：
+
+- 本轮无法自动确认（`moon` 不可用，无法执行 `moon test` 或 `./samples/diff.sh` 完整判定）
+
+# 3. src/pptx/pptx_grouping.mbt 相关完整代码
+
+```mbt
+///|
+fn shape_group_bounds(shapes : Array[LayoutShape]) -> (Int, Int, Int, Int) {
+  if shapes.length() == 0 {
+    return (0, 0, 0, 0)
+  }
+
+  let mut top = shapes[0].shape.y
+  let mut left = shapes[0].shape.x
+  let mut right = shapes[0].right
+  let mut bottom = shapes[0].bottom
+
+  for i in 1..<shapes.length() {
+    let sp = shapes[i]
+    if sp.shape.y < top {
+      top = sp.shape.y
+    }
+    if sp.shape.x < left {
+      left = sp.shape.x
+    }
+    if sp.right > right {
+      right = sp.right
+    }
+    if sp.bottom > bottom {
+      bottom = sp.bottom
+    }
+  }
+
+  (top, left, right, bottom)
+}
+
+///|
+fn group_caption_like_flag(
+  shapes : Array[LayoutShape],
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if shapes.length() == 0 {
+    return false
+  }
+
+  let mut cnt = 0
+  for sp in shapes {
+    if is_caption_like_shape(sp, slide_w, slide_h) {
+      cnt += 1
+    }
+  }
+
+  cnt * 2 >= shapes.length()
+}
+
+///|
+fn make_shape_group_with_kind(
+  shapes : Array[LayoutShape],
+  kind : ShapeGroupKind,
+) -> ShapeGroup {
+  let sorted = sort_layout_shapes_simple(shapes)
+  let (top, left, _right, _bottom) = shape_group_bounds(sorted)
+  { shapes: sorted, top, left, kind }
+}
+
+///|
+fn should_group_nearby_shapes(
+  a : LayoutShape,
+  b : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  let a_ok = is_caption_like_shape(a, slide_w, slide_h)
+  let b_ok = is_caption_like_shape(b, slide_w, slide_h)
+
+  if !(a_ok && b_ok) {
+    return false
+  }
+
+  let hgap = horizontal_gap(a, b)
+  let vgap = vertical_gap(a, b)
+  let hoverlap = horizontal_overlap(a, b)
+  let voverlap = vertical_overlap(a, b)
+
+  if looks_like_callout_pair(a, b) {
+    return true
+  }
+
+  if hoverlap > 0 && vgap <= max_int(a.shape.h, b.shape.h) {
+    return true
+  }
+
+  if voverlap > 0 && hgap <= max_int(a.shape.w, b.shape.w) {
+    return true
+  }
+
+  false
+}
+
+///|
+fn callout_text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn callout_text_contains_space(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch == ' ' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn looks_like_callout_title_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" || n > 24 {
+    return false
+  }
+
+  if callout_text_contains_digit(t.to_string()) {
+    return false
+  }
+
+  if t.contains(".") || t.contains("!") || t.contains("?") {
+    return false
+  }
+
+  true
+}
+
+///|
+fn looks_like_callout_desc_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" {
+    return false
+  }
+
+  if callout_text_contains_digit(t.to_string()) {
+    return false
+  }
+
+  if callout_text_contains_space(t.to_string()) {
+    return true
+  }
+
+  n >= 16
+}
+
+///|
+fn looks_like_callout_pair(a : LayoutShape, b : LayoutShape) -> Bool {
+  let at = normalize_shape_text_for_title(a.shape.xml)
+  let bt = normalize_shape_text_for_title(b.shape.xml)
+
+  let a_title = looks_like_callout_title_text(at)
+  let b_title = looks_like_callout_title_text(bt)
+  let a_desc = looks_like_callout_desc_text(at)
+  let b_desc = looks_like_callout_desc_text(bt)
+
+  if !((a_title && b_desc) || (b_title && a_desc)) {
+    return false
+  }
+
+  let hoverlap = horizontal_overlap(a, b)
+  if hoverlap <= 0 {
+    return false
+  }
+
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  if vgap > max_int(maxh, 180000) {
+    return false
+  }
+
+  true
+}
+
+///|
+fn group_has_callout_core(shapes : Array[LayoutShape]) -> Bool {
+  if shapes.length() < 2 {
+    return false
+  }
+
+  for i in 0..<shapes.length() {
+    for j in (i + 1)..<shapes.length() {
+      if looks_like_callout_pair(shapes[i], shapes[j]) {
+        return true
+      }
+    }
+  }
+
+  false
+}
+
+///|
+fn is_strong_vertical_neighbor(a : LayoutShape, b : LayoutShape) -> Bool {
+  let hoverlap = horizontal_overlap(a, b)
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  hoverlap > 0 && vgap <= max_int(maxh, 180000)
+}
+
+///|
+fn group_accepts_shape(
+  g : ShapeGroup,
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if g.kind == ShapeGroupKind::CaptionLike && g.shapes.length() >= 2 &&
+    group_has_callout_core(g.shapes) {
+    for item in g.shapes {
+      if looks_like_callout_pair(item, sp) {
+        return true
+      }
+    }
+
+    let mut linked = 0
+    for item in g.shapes {
+      if is_strong_vertical_neighbor(item, sp) {
+        linked += 1
+      }
+    }
+
+    return linked >= 2
+  }
+
+  for item in g.shapes {
+    if should_group_nearby_shapes(item, sp, slide_w, slide_h) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
+  if a.top != b.top {
+    return a.top < b.top
+  }
+  a.left < b.left
+}
+
+///|
+fn sort_shape_groups(groups : Array[ShapeGroup]) -> Array[ShapeGroup] {
+  let out : Array[ShapeGroup] = []
+
+  for g in groups {
+    let mut inserted = false
+    let mut i = 0
+    while i < out.length() {
+      if shape_group_before(g, out[i]) {
+        out.insert(i, g)
+        inserted = true
+        break
+      }
+      i += 1
+    }
+    if !inserted {
+      out.push(g)
+    }
+  }
+
+  out
+}
+
+///|
+fn group_body_shapes_for_layout(
+  shapes : Array[LayoutShape],
+) -> Array[ShapeGroup] {
+  let groups : Array[ShapeGroup] = []
+  if shapes.length() == 0 {
+    return groups
+  }
+
+  let (table_regions, rest_shapes) = extract_table_like_regions(shapes)
+
+  for region in table_regions {
+    groups.push(make_shape_group_with_kind(region, ShapeGroupKind::TableLike))
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table] region size=" + region.length().to_string())
+      for sp in region {
+        println(
+          "[pptx-table] cell=" + normalize_shape_text_for_title(sp.shape.xml),
+        )
+      }
+    }
+  }
+
+  if rest_shapes.length() == 0 {
+    return sort_shape_groups(groups)
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(rest_shapes)
+  let sorted = sort_layout_shapes_simple(rest_shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < groups.length() {
+      match groups[i].kind {
+        ShapeGroupKind::TableLike => {
+          i += 1
+          continue
+        }
+        ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
+          if group_accepts_shape(groups[i], sp, slide_w, slide_h) {
+            let merged : Array[LayoutShape] = []
+            for old in groups[i].shapes {
+              merged.push(old)
+            }
+            merged.push(sp)
+
+            let kind = if group_caption_like_flag(merged, slide_w, slide_h) {
+              ShapeGroupKind::CaptionLike
+            } else {
+              ShapeGroupKind::Normal
+            }
+
+            groups[i] = make_shape_group_with_kind(merged, kind)
+            placed = true
+            break
+          }
+      }
+
+      i += 1
+    }
+
+    if !placed {
+      let kind = if is_caption_like_shape(sp, slide_w, slide_h) {
+        ShapeGroupKind::CaptionLike
+      } else {
+        ShapeGroupKind::Normal
+      }
+      groups.push(make_shape_group_with_kind([sp], kind))
+    }
+  }
+
+  sort_shape_groups(groups)
+}
+```
+
+# 4. src/pptx/pptx_reading_order.mbt 相关完整代码
+
+```mbt
+fn flatten_shapes_in_reading_order(
+  title_shapes : Array[LayoutShape],
+  body_shapes : Array[LayoutShape],
+) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in title_shapes {
+    out.push(sp)
+  }
+
+  if body_shapes.length() == 0 {
+    return out
+  }
+
+  let whole_groups = group_body_shapes_for_layout(body_shapes)
+
+  let mut has_table_like = false
+  for g in whole_groups {
+    match g.kind {
+      ShapeGroupKind::TableLike => {
+        has_table_like = true
+        break
+      }
+      _ => ()
+    }
+  }
+
+  if has_table_like {
+    // allow card-like pair flatten even when the layout was grouped
+    // as a single table-like region.
+    if whole_groups.length() == 1 {
+      let g = whole_groups[0]
+      match g.kind {
+        ShapeGroupKind::TableLike => {
+          let rows = cluster_shapes_into_rows(g.shapes)
+          if looks_like_card_pair_rows(rows) {
+            append_card_pair_rows_by_columns(out, rows)
+            return out
+          }
+        }
+        _ => ()
+      }
+    }
+
+    let flat = flatten_shape_groups(whole_groups)
+    for sp in flat {
+      out.push(sp)
+    }
+    return out
+  }
+
+  let body_rows = cluster_shapes_into_rows(body_shapes)
+  if looks_like_card_pair_rows(body_rows) {
+    append_card_pair_rows_by_columns(out, body_rows)
+    return out
+  }
+
+  if is_two_columns(body_shapes) {
+    let (left, right) = split_two_columns(body_shapes)
+
+    let left_groups = group_body_shapes_for_layout(left)
+    let right_groups = group_body_shapes_for_layout(right)
+
+    let left_flat = flatten_shape_groups(left_groups)
+    let right_flat = flatten_shape_groups(right_groups)
+
+    for sp in left_flat {
+      out.push(sp)
+    }
+    for sp in right_flat {
+      out.push(sp)
+    }
+
+    return out
+  }
+
+  let flat = flatten_shape_groups(whole_groups)
+  for sp in flat {
+    out.push(sp)
+  }
+
+  out
+}
+
+///|
+fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for g in groups {
+    match g.kind {
+      ShapeGroupKind::TableLike => {
+        let rows = cluster_shapes_into_rows(g.shapes)
+        if looks_like_card_pair_rows(rows) {
+          append_card_pair_rows_by_columns(out, rows)
+        } else {
+          append_rows(out, rows)
+        }
+      }
+      ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
+        for sp in g.shapes {
+          out.push(sp)
+        }
+    }
+  }
+
+  out
+}
+
+///|
+fn cluster_shapes_into_rows(
+  shapes : Array[LayoutShape],
+) -> Array[Array[LayoutShape]] {
+  let rows : Array[Array[LayoutShape]] = []
+  let sorted = sort_layout_shapes_simple(shapes)
+
+  for sp in sorted {
+    let mut placed = false
+    let mut i = 0
+
+    while i < rows.length() {
+      if row_accepts_shape(rows[i], sp) {
+        rows[i].push(sp)
+        placed = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !placed {
+      rows.push([sp])
+    }
+  }
+
+  for i in 0..<rows.length() {
+    let row = rows[i]
+    rows[i] = sort_layout_shapes_by_x(row)
+  }
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-table] row count=" + rows.length().to_string())
+    for i in 0..<rows.length() {
+      println(
+        "[pptx-table] row " +
+        i.to_string() +
+        " center_y=" +
+        row_center_y(rows[i]).to_string(),
+      )
+      for sp in rows[i] {
+        println("  - " + normalize_shape_text_for_title(sp.shape.xml))
+      }
+    }
+  }
+  sort_rows_by_top(rows)
+}
+
+///|
+fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
+  if row.length() == 0 {
+    return true
+  }
+
+  // first: if the new shape vertically overlaps with any existing item
+  // in the row, it is very likely still the same visual row.
+  for item in row {
+    if vertical_overlap(item, sp) > 0 {
+      return true
+    }
+  }
+
+  // fallback: row-center band check
+  let row_cy = row_center_y(row)
+  let row_h = row_max_shape_h(row)
+  let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
+
+  let maxh = max_int(row_h, sp_h)
+  let threshold = max_int(12, maxh)
+
+  let dy = abs_int(row_cy - sp.center_y)
+  if dy > threshold {
+    return false
+  }
+
+  true
+} ///|
+
+///|
+fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
+  let out : Array[LayoutShape] = []
+
+  for sp in shapes {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if layout_shape_before_x(sp, out[i]) {
+        out.insert(i, sp)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(sp)
+    }
+  }
+
+  out
+}
+
+///|
+fn sort_rows_by_top(
+  rows : Array[Array[LayoutShape]],
+) -> Array[Array[LayoutShape]] {
+  let out : Array[Array[LayoutShape]] = []
+
+  for row in rows {
+    let mut inserted = false
+    let mut i = 0
+
+    while i < out.length() {
+      if row_before(row, out[i]) {
+        out.insert(i, row)
+        inserted = true
+        break
+      }
+      i = i + 1
+    }
+
+    if !inserted {
+      out.push(row)
+    }
+  }
+
+  out
+}
+
+///|
+fn looks_like_card_pair_rows(
+  rows : Array[Array[LayoutShape]],
+) -> Bool {
+  if rows.length() < 2 {
+    return false
+  }
+
+  // allow:
+  // - pure card pairs: 2, 4, 6, ...
+  // - card pairs + one trailing singleton note row: 3, 5, 7, ...
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      let tail = rows[rows.length() - 1]
+      if tail.length() != 1 {
+        return false
+      }
+      rows.length() - 1
+    }
+
+  if pair_row_count < 2 {
+    return false
+  }
+
+  let mut i = 0
+  while i < pair_row_count {
+    if !row_pair_looks_like_cards(rows[i], rows[i + 1]) {
+      return false
+    }
+    i += 2
+  }
+
+  true
+}
+
+///|
+fn append_card_pair_rows_by_columns(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  if rows_look_like_two_separated_card_groups(rows) {
+    append_two_separated_card_groups(out, rows)
+    return
+  }
+
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
+  let mut i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    let n = if top.length() < bottom.length() { top.length() } else { bottom.length() }
+
+    for j in 0..<n {
+      out.push(top[j])
+      out.push(bottom[j])
+    }
+
+    if top.length() > n {
+      for j in n..<top.length() {
+        out.push(top[j])
+      }
+    }
+
+    if bottom.length() > n {
+      for j in n..<bottom.length() {
+        out.push(bottom[j])
+      }
+    }
+
+    i += 2
+  }
+
+  // trailing singleton note row
+  if rows.length() % 2 != 0 {
+    let tail = rows[rows.length() - 1]
+    for sp in tail {
+      out.push(sp)
+    }
+  }
+}
+
+///|
+fn row_pair_looks_like_cards(
+  top : Array[LayoutShape],
+  bottom : Array[LayoutShape],
+) -> Bool {
+  if top.length() == 0 || top.length() != bottom.length() {
+    return false
+  }
+
+  for i in 0..<top.length() {
+    let top_text = normalize_shape_text_for_title(top[i].shape.xml)
+    let bottom_text = normalize_shape_text_for_title(bottom[i].shape.xml)
+
+    let top_n = top_text.to_array().length()
+    let bottom_n = bottom_text.to_array().length()
+
+    if top_text == "" || top_n > 24 || text_contains_digit(top_text) {
+      return false
+    }
+
+    if bottom_text == "" || text_contains_digit(bottom_text) {
+      return false
+    }
+
+    if !(text_contains_space(bottom_text) || bottom_n >= top_n + 4) {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn rows_look_like_two_separated_card_groups(
+  rows : Array[Array[LayoutShape]],
+) -> Bool {
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
+  if pair_row_count < 4 {
+    return false
+  }
+
+  let mut left_max_r = 0
+  let mut right_min_l = 0
+  let mut overall_left = 0
+  let mut overall_right = 0
+  let mut first = true
+
+  let mut i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() != 2 || bottom.length() != 2 {
+      return false
+    }
+
+    let cur_left_max_r = max_int(top[0].right, bottom[0].right)
+    let cur_right_min_l = min_int(top[1].shape.x, bottom[1].shape.x)
+
+    let cur_left = min_int(
+      min_int(top[0].shape.x, bottom[0].shape.x),
+      min_int(top[1].shape.x, bottom[1].shape.x),
+    )
+    let cur_right = max_int(
+      max_int(top[0].right, bottom[0].right),
+      max_int(top[1].right, bottom[1].right),
+    )
+
+    if first {
+      left_max_r = cur_left_max_r
+      right_min_l = cur_right_min_l
+      overall_left = cur_left
+      overall_right = cur_right
+      first = false
+    } else {
+      if cur_left_max_r > left_max_r {
+        left_max_r = cur_left_max_r
+      }
+      if cur_right_min_l < right_min_l {
+        right_min_l = cur_right_min_l
+      }
+      if cur_left < overall_left {
+        overall_left = cur_left
+      }
+      if cur_right > overall_right {
+        overall_right = cur_right
+      }
+    }
+
+    i += 2
+  }
+
+  let gap = right_min_l - left_max_r
+  let span = overall_right - overall_left
+
+  // Use a relative threshold against the total horizontal span.
+  // This is much more tolerant than the previous per-pair x-alignment checks.
+  gap > max_int(120000, span / 5)
+}
+
+///|
+fn append_two_separated_card_groups(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
+  // first emit the left group across all card rows
+  let mut i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() > 0 {
+      out.push(top[0])
+    }
+    if bottom.length() > 0 {
+      out.push(bottom[0])
+    }
+
+    i += 2
+  }
+
+  // then emit the right group across all card rows
+  i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() > 1 {
+      out.push(top[1])
+    }
+    if bottom.length() > 1 {
+      out.push(bottom[1])
+    }
+
+    i += 2
+  }
+
+  // trailing singleton note row
+  if rows.length() % 2 != 0 {
+    let tail = rows[rows.length() - 1]
+    for sp in tail {
+      out.push(sp)
+    }
+  }
+}
+```
+
+# 5. src/pptx/pptx_group_candidates.mbt 相关完整代码
+
+```mbt
+///|
+fn is_small_shape_for_grouping(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if slide_w <= 0 || slide_h <= 0 {
+    return false
+  }
+
+  let w = sp.shape.w
+  let h = sp.shape.h
+
+  let narrow = w <= slide_w / 3
+  let low = h <= slide_h / 6
+  let small_area = w * h <= slide_w * slide_h / 20
+
+  (narrow && low) || small_area
+}
+
+///|
+fn is_caption_like_shape(
+  sp : LayoutShape,
+  slide_w : Int,
+  slide_h : Int,
+) -> Bool {
+  if sp.shape.is_title {
+    return false
+  }
+
+  let text = normalize_shape_text_for_title(sp.shape.xml)
+  if text == "" {
+    return false
+  }
+
+  if is_bullet_like(text) {
+    return false
+  }
+
+  if ends_like_sentence(text) {
+    return false
+  }
+
+  let n = text.to_array().length()
+  if n > 40 {
+    return false
+  }
+
+  if slide_h > 0 && sp.shape.y <= slide_h / 5 {
+    return false
+  }
+
+  if !is_small_shape_for_grouping(sp, slide_w, slide_h) {
+    return false
+  }
+
+  true
+}
+```
+
+# 6. src/pptx/pptx_types.mbt 相关类型定义
+
+```mbt
+///|
+priv struct SlideShape {
+  xml : Bytes
+  x : Int
+  y : Int
+  w : Int
+  h : Int
+  is_title : Bool
+  is_body : Bool
+}
+
+///|
+priv struct LayoutShape {
+  shape : SlideShape
+  right : Int
+  bottom : Int
+  center_x : Int
+  center_y : Int
+}
+
+///|
+priv enum ShapeGroupKind {
+  Normal
+  CaptionLike
+  TableLike
+}
+
+///|
+priv struct ShapeGroup {
+  shapes : Array[LayoutShape]
+  top : Int
+  left : Int
+  kind : ShapeGroupKind
+}
+```
+
+# 7. 新样例生成脚本：pptx_callout_blocks_basic
+
+```python
+def add_textbox(
+    slide,
+    left: EMU,
+    top: EMU,
+    width: EMU,
+    height: EMU,
+    text: str,
+    font_size: int = 20,
+):
+    tb = slide.shapes.add_textbox(left, top, width, height)
+    tf = tb.text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+    p.text = text
+    p.font.size = Pt(font_size)
+    return tb
+
+
+def add_title(slide, text: str) -> None:
+    add_textbox(
+        slide,
+        left=700000,
+        top=180000,
+        width=7800000,
+        height=500000,
+        text=text,
+        font_size=32,
+    )
+
+
+def build_pptx_callout_blocks_basic(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Release Notes")
+
+    callouts = [
+        (850000, 1550000, "Security", "Secure by default"),
+        (3400000, 1700000, "Sharing", "Team access controls"),
+        (5950000, 1500000, "Export", "Markdown and PDF output"),
+    ]
+
+    for left, top, heading, description in callouts:
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=2250000,
+            height=360000,
+            text=heading,
+            font_size=23,
+        )
+        add_textbox(
+            slide,
+            left=left,
+            top=top + 390000,
+            width=2350000,
+            height=360000,
+            text=description,
+            font_size=18,
+        )
+
+    filename = "pptx_callout_blocks_basic.pptx"
+    prs.save(output_dir / filename)
+    return filename
+```
+
+# 8. 新样例生成脚本：pptx_caption_scatter_one_real_pair
+
+```python
+def add_textbox(
+    slide,
+    left: EMU,
+    top: EMU,
+    width: EMU,
+    height: EMU,
+    text: str,
+    font_size: int = 20,
+):
+    tb = slide.shapes.add_textbox(left, top, width, height)
+    tf = tb.text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+    p.text = text
+    p.font.size = Pt(font_size)
+    return tb
+
+
+def add_title(slide, text: str) -> None:
+    add_textbox(
+        slide,
+        left=700000,
+        top=180000,
+        width=7800000,
+        height=500000,
+        text=text,
+        font_size=32,
+    )
+
+
+def build_pptx_caption_scatter_one_real_pair(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Labels")
+
+    labels = [
+        (1050000, 1350000, "Search"),
+        (4900000, 1450000, "Ranking"),
+        (2400000, 2450000, "Safety"),
+        (6000000, 2500000, "Vision"),
+        (6150000, 2860000, "Fast setup"),
+        (1350000, 3450000, "Internal only"),
+    ]
+
+    for left, top, text in labels:
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=1750000,
+            height=340000,
+            text=text,
+            font_size=20,
+        )
+
+    filename = "pptx_caption_scatter_one_real_pair.pptx"
+    prs.save(output_dir / filename)
+    return filename
+```
+
+# 9. 失败样例的 expected / actual 全文
+
+## 9.1 pptx_callout_blocks_basic
+
+expected:
+
+```text
+## Slide 1
+
+### Release Notes
+
+Security
+
+Secure by default
+
+Sharing
+
+Team access controls
+
+Export
+
+Markdown and PDF output
+```
+
+actual:
+
+```text
+当前环境无法生成 actual：
+- `moon` 命令不可用（`moon: command not found`）
+- 因此无法执行 `moon test` / `moon run` / `./samples/diff.sh` 产出 `.tmp_test_out/pptx/pptx_callout_blocks_basic.md`
+```
+
+## 9.2 pptx_caption_scatter_one_real_pair
+
+expected:
+
+```text
+## Slide 1
+
+### Labels
+
+Search
+
+Ranking
+
+Safety
+
+Vision
+
+Fast setup
+
+Internal only
+```
+
+actual:
+
+```text
+当前环境无法生成 actual：
+- `moon` 命令不可用（`moon: command not found`）
+- 因此无法执行 `moon test` / `moon run` / `./samples/diff.sh` 产出 `.tmp_test_out/pptx/pptx_caption_scatter_one_real_pair.md`
+```
+
+# 10. 一个不能被破坏的参照正例
+
+样例：`pptx_table_like_region_local_with_intro_outro`
+
+expected:
+
+```text
+## Slide 1
+
+### Experiment Summary
+
+The following table summarizes the main results.
+
+Model
+
+Score
+
+A
+
+91
+
+B
+
+88
+
+Model A performs best overall.
+```
+
+actual:
+
+```text
+未在本轮执行自动重跑；按你给出的“回退到稳定基线”前提，当前应为通过。
+由于环境缺少 `moon`，本轮无法生成实际 `.tmp_test_out` 文件进行机器比对。
+```
+
+# 11. 当前是否还存在未使用但残留的旧辅助函数
+
+- `append_caption_group_as_callout_pairs(...)`
+  - 当前代码中未检索到该函数定义
+  - 当前是否仍被调用：否（未检索到）
+
+- callout/card pair 相关当前存在函数：
+  - `looks_like_card_pair_rows(...)`：存在，且被调用
+  - `append_card_pair_rows_by_columns(...)`：存在，且被调用
+  - `row_pair_looks_like_cards(...)`：存在，被 `looks_like_card_pair_rows(...)` 调用
+  - `rows_look_like_two_separated_card_groups(...)`：存在，被 `append_card_pair_rows_by_columns(...)` 调用
+  - `append_two_separated_card_groups(...)`：存在，被 `append_card_pair_rows_by_columns(...)` 调用
+
+- `shape_group_before(...)` 旧变体：
+  - 当前 `src/pptx/pptx_grouping.mbt` 仅有一个 `shape_group_before(...)` 定义
+  - 当前是否仍被调用：是（`sort_shape_groups(...)` 内调用）
