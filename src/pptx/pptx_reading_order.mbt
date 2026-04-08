@@ -813,7 +813,7 @@ fn text_digit_signature(s : String) -> String {
       out.push(ch)
     }
   }
-  String::from_char_array(out)
+  return out.to_string()
 }
 
 
