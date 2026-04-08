@@ -149,14 +149,222 @@ fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
           append_rows(out, rows)
         }
       }
-      ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
+      ShapeGroupKind::Normal =>
         for sp in g.shapes {
           out.push(sp)
+        }
+      ShapeGroupKind::CaptionLike =>
+        if !append_caption_group_as_full_callout_pairs(out, g.shapes) {
+          for sp in g.shapes {
+            out.push(sp)
+          }
         }
     }
   }
 
   out
+}
+
+///|
+fn layout_shape_eq(a : LayoutShape, b : LayoutShape) -> Bool {
+  a.shape.x == b.shape.x &&
+  a.shape.y == b.shape.y &&
+  a.shape.w == b.shape.w &&
+  a.shape.h == b.shape.h &&
+  a.shape.xml == b.shape.xml
+}
+
+///|
+fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
+  for item in arr {
+    if layout_shape_eq(sp, item) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn normalize_callout_pair_for_output(
+  a : LayoutShape,
+  b : LayoutShape,
+) -> (LayoutShape, LayoutShape) {
+  let at = normalize_shape_text_for_title(a.shape.xml)
+  let bt = normalize_shape_text_for_title(b.shape.xml)
+
+  let a_has_space = callout_text_contains_space(at)
+  let b_has_space = callout_text_contains_space(bt)
+
+  if !a_has_space && b_has_space {
+    return (a, b)
+  }
+
+  if !b_has_space && a_has_space {
+    return (b, a)
+  }
+
+  let a_title = looks_like_callout_title_text(at)
+  let b_title = looks_like_callout_title_text(bt)
+  let a_desc = looks_like_callout_desc_text(at)
+  let b_desc = looks_like_callout_desc_text(bt)
+
+  if a_title && b_desc {
+    return (a, b)
+  }
+
+  if b_title && a_desc {
+    return (b, a)
+  }
+
+  if a.shape.y <= b.shape.y {
+    (a, b)
+  } else {
+    (b, a)
+  }
+}
+
+///|
+fn callout_pair_left(p : (LayoutShape, LayoutShape)) -> Int {
+  let (a, b) = p
+  min_int(a.shape.x, b.shape.x)
+}
+
+///|
+fn callout_pair_top(p : (LayoutShape, LayoutShape)) -> Int {
+  let (a, b) = p
+  min_int(a.shape.y, b.shape.y)
+}
+
+///|
+fn callout_pair_same_visual_row(
+  a : (LayoutShape, LayoutShape),
+  b : (LayoutShape, LayoutShape),
+) -> Bool {
+  let ay = callout_pair_top(a)
+  let by = callout_pair_top(b)
+  let dy = abs_int(ay - by)
+
+  let (a1, a2) = a
+  let (b1, b2) = b
+  let a_max_h = max_int(a1.shape.h, a2.shape.h)
+  let b_max_h = max_int(b1.shape.h, b2.shape.h)
+  let threshold = max_int(12, max_int(a_max_h, b_max_h))
+
+  dy <= threshold
+}
+
+///|
+fn callout_pair_before(
+  a : (LayoutShape, LayoutShape),
+  b : (LayoutShape, LayoutShape),
+) -> Bool {
+  if callout_pair_same_visual_row(a, b) {
+    return callout_pair_left(a) < callout_pair_left(b)
+  }
+
+  callout_pair_top(a) < callout_pair_top(b)
+}
+
+///|
+fn sort_callout_pairs(
+  pairs : Array[(LayoutShape, LayoutShape)],
+) -> Array[(LayoutShape, LayoutShape)] {
+  let out : Array[(LayoutShape, LayoutShape)] = []
+
+  for p in pairs {
+    let mut inserted = false
+    let mut i = 0
+    while i < out.length() {
+      if callout_pair_before(p, out[i]) {
+        out.insert(i, p)
+        inserted = true
+        break
+      }
+      i += 1
+    }
+
+    if !inserted {
+      out.push(p)
+    }
+  }
+
+  out
+}
+
+///|
+fn collect_full_callout_pairs(
+  shapes : Array[LayoutShape],
+) -> (Array[(LayoutShape, LayoutShape)], Array[LayoutShape]) {
+  let sorted = sort_layout_shapes_simple(shapes)
+  let used : Array[LayoutShape] = []
+  let pairs : Array[(LayoutShape, LayoutShape)] = []
+
+  for i in 0..<sorted.length() {
+    let a = sorted[i]
+    if layout_shape_in_array(a, used) {
+      continue
+    }
+
+    let mut best_j = -1
+    let mut best_gap = 0
+
+    for j in 0..<sorted.length() {
+      if i == j {
+        continue
+      }
+
+      let b = sorted[j]
+      if layout_shape_in_array(b, used) {
+        continue
+      }
+
+      if !looks_like_callout_pair(a, b) {
+        continue
+      }
+
+      let vgap = vertical_gap(a, b)
+      if best_j == -1 || vgap < best_gap {
+        best_j = j
+        best_gap = vgap
+      }
+    }
+
+    if best_j != -1 {
+      let b = sorted[best_j]
+      used.push(a)
+      used.push(b)
+      pairs.push(normalize_callout_pair_for_output(a, b))
+    }
+  }
+
+  let rest : Array[LayoutShape] = []
+  for sp in sorted {
+    if !layout_shape_in_array(sp, used) {
+      rest.push(sp)
+    }
+  }
+
+  (pairs, rest)
+}
+
+///|
+fn append_caption_group_as_full_callout_pairs(
+  out : Array[LayoutShape],
+  shapes : Array[LayoutShape],
+) -> Bool {
+  let (pairs, rest) = collect_full_callout_pairs(shapes)
+  if pairs.length() < 2 || rest.length() != 0 {
+    return false
+  }
+
+  let sorted_pairs = sort_callout_pairs(pairs)
+  for pair in sorted_pairs {
+    let (first, second) = pair
+    out.push(first)
+    out.push(second)
+  }
+
+  true
 }
 
 ///|
