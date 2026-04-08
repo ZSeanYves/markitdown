@@ -260,10 +260,28 @@ fn callout_pair_before(
   b : (LayoutShape, LayoutShape),
 ) -> Bool {
   if callout_pair_same_visual_row(a, b) {
-    return callout_pair_left(a) < callout_pair_left(b)
+    let al = callout_pair_left(a)
+    let bl = callout_pair_left(b)
+
+    if al != bl {
+      return al < bl
+    }
+
+    let at = callout_pair_top(a)
+    let bt = callout_pair_top(b)
+    return at < bt
   }
 
-  callout_pair_top(a) < callout_pair_top(b)
+  let at = callout_pair_top(a)
+  let bt = callout_pair_top(b)
+
+  if at != bt {
+    return at < bt
+  }
+
+  let al = callout_pair_left(a)
+  let bl = callout_pair_left(b)
+  al < bl
 }
 
 ///|
