@@ -65,10 +65,8 @@ fn flatten_shapes_in_reading_order(
     return out
   }
 
-  // 先整体做一次 body grouping，优先保住 table-like / caption-like 区域
   let whole_groups = group_body_shapes_for_layout(body_shapes)
 
-  // 如果已经识别出 table-like 区域，就不要再按两栏硬切
   let mut has_table_like = false
   for g in whole_groups {
     match g.kind {
@@ -81,13 +79,15 @@ fn flatten_shapes_in_reading_order(
   }
 
   if has_table_like {
+    // allow card-like pair flatten even when the layout was grouped
+    // as a single table-like region.
     if whole_groups.length() == 1 {
       let g = whole_groups[0]
       match g.kind {
         ShapeGroupKind::TableLike => {
           let rows = cluster_shapes_into_rows(g.shapes)
-          if looks_like_header_cards_rows(rows) {
-            append_two_row_cards_by_columns(out, rows)
+          if looks_like_card_pair_rows(rows) {
+            append_card_pair_rows_by_columns(out, rows)
             return out
           }
         }
@@ -143,13 +143,14 @@ fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
     match g.kind {
       ShapeGroupKind::TableLike => {
         let rows = cluster_shapes_into_rows(g.shapes)
-        //println("[pptx-table] flatten table-like")
-        append_rows(out, rows)
+        if looks_like_card_pair_rows(rows) {
+          append_card_pair_rows_by_columns(out, rows)
+        } else {
+          append_rows(out, rows)
+        }
       }
       ShapeGroupKind::Normal | ShapeGroupKind::CaptionLike =>
         for sp in g.shapes {
-          //println("[pptx-table] flatten caption-like")
-          //println("[pptx-table] flatten normal")
           out.push(sp)
         }
     }
@@ -487,45 +488,6 @@ fn text_contains_space(s : String) -> Bool {
   false
 }
 
-///|
-fn looks_like_header_cards_rows(rows : Array[Array[LayoutShape]]) -> Bool {
-  if rows.length() != 2 {
-    return false
-  }
-
-  let top = rows[0]
-  let bottom = rows[1]
-
-  if top.length() < 3 || top.length() != bottom.length() {
-    return false
-  }
-
-  // top row should look like short headers
-  for sp in top {
-    let text = normalize_shape_text_for_title(sp.shape.xml)
-    let n = text.to_array().length()
-    if text == "" ||
-      n > 20 ||
-      text_contains_digit(text) ||
-      text_contains_space(text) {
-      return false
-    }
-  }
-
-  // bottom row should look more like per-card descriptions
-  for sp in bottom {
-    let text = normalize_shape_text_for_title(sp.shape.xml)
-    let n = text.to_array().length()
-    if text == "" || text_contains_digit(text) {
-      return false
-    }
-    if !(text_contains_space(text) || n >= 12) {
-      return false
-    }
-  }
-
-  true
-}
 
 ///|
 fn row_pair_looks_like_cards(
@@ -560,13 +522,33 @@ fn row_pair_looks_like_cards(
 }
 
 ///|
-fn looks_like_card_pair_rows(rows : Array[Array[LayoutShape]]) -> Bool {
-  if rows.length() < 2 || rows.length() % 2 != 0 {
+fn looks_like_card_pair_rows(
+  rows : Array[Array[LayoutShape]],
+) -> Bool {
+  if rows.length() < 2 {
+    return false
+  }
+
+  // allow:
+  // - pure card pairs: 2, 4, 6, ...
+  // - card pairs + one trailing singleton note row: 3, 5, 7, ...
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      let tail = rows[rows.length() - 1]
+      if tail.length() != 1 {
+        return false
+      }
+      rows.length() - 1
+    }
+
+  if pair_row_count < 2 {
     return false
   }
 
   let mut i = 0
-  while i < rows.length() {
+  while i < pair_row_count {
     if !row_pair_looks_like_cards(rows[i], rows[i + 1]) {
       return false
     }
@@ -577,57 +559,23 @@ fn looks_like_card_pair_rows(rows : Array[Array[LayoutShape]]) -> Bool {
 }
 
 ///|
-fn append_two_row_cards_by_columns(
-  out : Array[LayoutShape],
-  rows : Array[Array[LayoutShape]],
-) -> Unit {
-  if rows.length() != 2 {
-    append_rows(out, rows)
-    return
-  }
-
-  let top = rows[0]
-  let bottom = rows[1]
-
-  let n = if top.length() < bottom.length() {
-    top.length()
-  } else {
-    bottom.length()
-  }
-
-  for i in 0..<n {
-    out.push(top[i])
-    out.push(bottom[i])
-  }
-
-  if top.length() > n {
-    for i in n..<top.length() {
-      out.push(top[i])
-    }
-  }
-
-  if bottom.length() > n {
-    for i in n..<bottom.length() {
-      out.push(bottom[i])
-    }
-  }
-}
-
-///|
 fn append_card_pair_rows_by_columns(
   out : Array[LayoutShape],
   rows : Array[Array[LayoutShape]],
 ) -> Unit {
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
   let mut i = 0
-  while i < rows.length() {
+  while i < pair_row_count {
     let top = rows[i]
     let bottom = rows[i + 1]
 
-    let n = if top.length() < bottom.length() {
-      top.length()
-    } else {
-      bottom.length()
-    }
+    let n = if top.length() < bottom.length() { top.length() } else { bottom.length() }
 
     for j in 0..<n {
       out.push(top[j])
@@ -647,5 +595,13 @@ fn append_card_pair_rows_by_columns(
     }
 
     i += 2
+  }
+
+  // trailing singleton note row
+  if rows.length() % 2 != 0 {
+    let tail = rows[rows.length() - 1]
+    for sp in tail {
+      out.push(sp)
+    }
   }
 }
