@@ -93,6 +93,88 @@ def build_pptx_callout_blocks_basic(output_dir: Path) -> str:
     return filename
 
 
+def build_pptx_callout_blocks_row_jitter(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Callout Row Jitter")
+
+    callouts = [
+        (800000, 1450000, 1835000, "Title1", "Desc1"),
+        (3350000, 1465000, 1860000, "Title2", "Desc2"),
+        (5900000, 1435000, 1840000, "Title3", "Desc3"),
+    ]
+    desc_y_jitter = [390000, 405000, 375000]
+
+    for i, (left, top, width, title, desc) in enumerate(callouts):
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=width,
+            height=340000,
+            text=title,
+            font_size=22,
+        )
+        add_textbox(
+            slide,
+            left=left,
+            top=top + desc_y_jitter[i],
+            width=width + 140000,
+            height=360000,
+            text=desc,
+            font_size=18,
+        )
+
+    filename = "pptx_callout_blocks_row_jitter.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
+def build_pptx_callout_blocks_mixed_widths(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Callout Mixed Widths")
+
+    callouts = [
+        (700000, 1500000, 1450000, 1880000, "Narrow", "Compact summary"),
+        (
+            3050000,
+            1480000,
+            1800000,
+            2750000,
+            "Wide",
+            "This description intentionally spans wider width",
+        ),
+        (6200000, 1515000, 1320000, 1700000, "Medium", "Balanced note"),
+    ]
+
+    for left, top, title_w, desc_w, title, desc in callouts:
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=title_w,
+            height=340000,
+            text=title,
+            font_size=22,
+        )
+        add_textbox(
+            slide,
+            left=left,
+            top=top + 390000,
+            width=desc_w,
+            height=380000,
+            text=desc,
+            font_size=18,
+        )
+
+    filename = "pptx_callout_blocks_mixed_widths.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
 def build_pptx_two_note_clusters(output_dir: Path) -> str:
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -173,6 +255,77 @@ def build_pptx_caption_scatter_one_real_pair(output_dir: Path) -> str:
     return filename
 
 
+def build_pptx_caption_scatter_two_real_pairs(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Scatter Pairs")
+
+    items = [
+        (850000, 1300000, 1700000, "Alpha", 21),
+        (850000, 1670000, 2550000, "Alpha detail", 17),
+        (4500000, 1480000, 1700000, "Beta", 21),
+        (4500000, 1850000, 2550000, "Beta detail", 17),
+        (2600000, 2420000, 2000000, "Orphan tag", 20),
+        (5850000, 2740000, 2400000, "Loose note", 18),
+    ]
+
+    for left, top, width, text, size in items:
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=width,
+            height=340000,
+            text=text,
+            font_size=size,
+        )
+
+    filename = "pptx_caption_scatter_two_real_pairs.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
+def build_pptx_caption_scatter_pair_plus_footer_note(output_dir: Path) -> str:
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+    add_title(slide, "Scatter With Footer")
+
+    top_region = [
+        (1000000, 1350000, 1700000, "Signal", 21),
+        (1000000, 1720000, 2300000, "Signal detail", 17),
+        (4700000, 1490000, 1700000, "Noise", 21),
+        (4700000, 1860000, 2300000, "Noise detail", 17),
+        (2950000, 2520000, 2200000, "Standalone", 19),
+    ]
+
+    for left, top, width, text, size in top_region:
+        add_textbox(
+            slide,
+            left=left,
+            top=top,
+            width=width,
+            height=340000,
+            text=text,
+            font_size=size,
+        )
+
+    add_textbox(
+        slide,
+        left=900000,
+        top=4720000,
+        width=7300000,
+        height=360000,
+        text="Footer note: validate boundary handling.",
+        font_size=16,
+    )
+
+    filename = "pptx_caption_scatter_pair_plus_footer_note.pptx"
+    prs.save(output_dir / filename)
+    return filename
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate PPTX caption-like / note-cluster regression samples.",
@@ -198,8 +351,12 @@ if __name__ == "__main__":
 
     generated = [
         build_pptx_callout_blocks_basic(out_dir),
+        build_pptx_callout_blocks_row_jitter(out_dir),
+        build_pptx_callout_blocks_mixed_widths(out_dir),
         build_pptx_two_note_clusters(out_dir),
         build_pptx_caption_scatter_one_real_pair(out_dir),
+        build_pptx_caption_scatter_two_real_pairs(out_dir),
+        build_pptx_caption_scatter_pair_plus_footer_note(out_dir),
     ]
 
     for name in generated:
