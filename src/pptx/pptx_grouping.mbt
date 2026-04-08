@@ -77,6 +77,10 @@ fn should_group_nearby_shapes(
   let hoverlap = horizontal_overlap(a, b)
   let voverlap = vertical_overlap(a, b)
 
+  if looks_like_callout_pair(a, b) {
+    return true
+  }
+
   if hoverlap > 0 && vgap <= max_int(a.shape.h, b.shape.h) {
     return true
   }
@@ -89,12 +93,145 @@ fn should_group_nearby_shapes(
 }
 
 ///|
+fn callout_text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn callout_text_contains_space(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch == ' ' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn looks_like_callout_title_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" || n > 24 {
+    return false
+  }
+
+  if callout_text_contains_digit(t) {
+    return false
+  }
+
+  if t.contains(".") || t.contains("!") || t.contains("?") {
+    return false
+  }
+
+  true
+}
+
+///|
+fn looks_like_callout_desc_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" {
+    return false
+  }
+
+  if callout_text_contains_digit(t) {
+    return false
+  }
+
+  if callout_text_contains_space(t) {
+    return true
+  }
+
+  n >= 16
+}
+
+///|
+fn looks_like_callout_pair(a : LayoutShape, b : LayoutShape) -> Bool {
+  let at = normalize_shape_text_for_title(a.shape.xml)
+  let bt = normalize_shape_text_for_title(b.shape.xml)
+
+  let a_title = looks_like_callout_title_text(at)
+  let b_title = looks_like_callout_title_text(bt)
+  let a_desc = looks_like_callout_desc_text(at)
+  let b_desc = looks_like_callout_desc_text(bt)
+
+  if !((a_title && b_desc) || (b_title && a_desc)) {
+    return false
+  }
+
+  let hoverlap = horizontal_overlap(a, b)
+  if hoverlap <= 0 {
+    return false
+  }
+
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  if vgap > max_int(maxh, 180000) {
+    return false
+  }
+
+  true
+}
+
+///|
+fn group_has_callout_core(shapes : Array[LayoutShape]) -> Bool {
+  if shapes.length() < 2 {
+    return false
+  }
+
+  for i in 0..<shapes.length() {
+    for j in (i + 1)..<shapes.length() {
+      if looks_like_callout_pair(shapes[i], shapes[j]) {
+        return true
+      }
+    }
+  }
+
+  false
+}
+
+///|
+fn is_strong_vertical_neighbor(a : LayoutShape, b : LayoutShape) -> Bool {
+  let hoverlap = horizontal_overlap(a, b)
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  hoverlap > 0 && vgap <= max_int(maxh, 180000)
+}
+
+///|
 fn group_accepts_shape(
   g : ShapeGroup,
   sp : LayoutShape,
   slide_w : Int,
   slide_h : Int,
 ) -> Bool {
+  if g.kind == ShapeGroupKind::CaptionLike && g.shapes.length() >= 2 &&
+    group_has_callout_core(g.shapes) {
+    for item in g.shapes {
+      if looks_like_callout_pair(item, sp) {
+        return true
+      }
+    }
+
+    let mut linked = 0
+    for item in g.shapes {
+      if is_strong_vertical_neighbor(item, sp) {
+        linked += 1
+      }
+    }
+
+    return linked >= 2
+  }
+
   for item in g.shapes {
     if should_group_nearby_shapes(item, sp, slide_w, slide_h) {
       return true
