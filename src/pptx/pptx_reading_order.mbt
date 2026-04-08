@@ -241,17 +241,8 @@ fn callout_pair_same_visual_row(
   a : (LayoutShape, LayoutShape),
   b : (LayoutShape, LayoutShape),
 ) -> Bool {
-  let ay = callout_pair_top(a)
-  let by = callout_pair_top(b)
-  let dy = abs_int(ay - by)
-
-  let (a1, a2) = a
-  let (b1, b2) = b
-  let a_max_h = max_int(a1.shape.h, a2.shape.h)
-  let b_max_h = max_int(b1.shape.h, b2.shape.h)
-  let threshold = max_int(12, max_int(a_max_h, b_max_h))
-
-  dy <= threshold
+  let dy = abs_int(callout_pair_top(a) - callout_pair_top(b))
+  dy <= 260000
 }
 
 ///|
