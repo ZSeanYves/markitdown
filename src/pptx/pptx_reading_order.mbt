@@ -327,10 +327,76 @@ fn sort_callout_pairs(
 }
 
 ///|
+fn is_callout_pair_debug_target(shapes : Array[LayoutShape]) -> Bool {
+  let mut has_row_jitter = false
+  let mut has_mixed_widths = false
+
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    if text.contains("Title1") ||
+      text.contains("Title2") ||
+      text.contains("Title3") ||
+      text.contains("Desc1") ||
+      text.contains("Desc2") ||
+      text.contains("Desc3") {
+      has_row_jitter = true
+    }
+    if text.contains("Narrow") ||
+      text.contains("Wide") ||
+      text.contains("Medium") ||
+      text.contains("Compact summary") ||
+      text.contains("Balanced note") {
+      has_mixed_widths = true
+    }
+  }
+
+  has_row_jitter || has_mixed_widths
+}
+
+///|
+fn looks_like_relaxed_callout_pair(
+  a : LayoutShape,
+  b : LayoutShape,
+) -> Bool {
+  let at = normalize_shape_text_for_title(a.shape.xml)
+  let bt = normalize_shape_text_for_title(b.shape.xml)
+  let a_title = looks_like_callout_title_text(at)
+  let b_title = looks_like_callout_title_text(bt)
+  let a_desc = looks_like_callout_desc_text(at)
+  let b_desc = looks_like_callout_desc_text(bt)
+
+  if !((a_title && b_desc) || (b_title && a_desc)) {
+    return false
+  }
+
+  let hoverlap = horizontal_overlap(a, b)
+  if hoverlap <= 0 {
+    return false
+  }
+
+  let xdelta = abs_int(a.shape.x - b.shape.x)
+  let x_tol = max_int(min_int(a.shape.w, b.shape.w) / 3, 140000)
+  if xdelta > x_tol {
+    return false
+  }
+
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+  vgap <= max_int(maxh, 260000)
+}
+
+///|
 fn collect_full_callout_pairs(
   shapes : Array[LayoutShape],
 ) -> (Array[(LayoutShape, LayoutShape)], Array[LayoutShape]) {
   let sorted = sort_layout_shapes_simple(shapes)
+  let debug_target = is_callout_pair_debug_target(sorted)
+  if debug_target {
+    println("[callout-pair] input texts:")
+    for sp in sorted {
+      println("[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml))
+    }
+  }
   let used : Array[LayoutShape] = []
   let pairs : Array[(LayoutShape, LayoutShape)] = []
 
@@ -353,14 +419,65 @@ fn collect_full_callout_pairs(
         continue
       }
 
-      if !looks_like_callout_pair(a, b) {
+      let is_pair = looks_like_callout_pair(a, b)
+      if debug_target {
+        println(
+          "[callout-pair] try (" +
+          normalize_shape_text_for_title(a.shape.xml) +
+          ", " +
+          normalize_shape_text_for_title(b.shape.xml) +
+          ") strict=" +
+          is_pair.to_string(),
+        )
+      }
+      if !is_pair {
         continue
       }
 
       let vgap = vertical_gap(a, b)
+      if debug_target {
+        println("[callout-pair]   strict vgap=" + vgap.to_string())
+      }
       if best_j == -1 || vgap < best_gap {
         best_j = j
         best_gap = vgap
+      }
+    }
+
+    if best_j == -1 {
+      for j in 0..<sorted.length() {
+        if i == j {
+          continue
+        }
+
+        let b = sorted[j]
+        if layout_shape_in_array(b, used) {
+          continue
+        }
+
+        let relaxed = looks_like_relaxed_callout_pair(a, b)
+        if debug_target {
+          println(
+            "[callout-pair] try (" +
+            normalize_shape_text_for_title(a.shape.xml) +
+            ", " +
+            normalize_shape_text_for_title(b.shape.xml) +
+            ") relaxed=" +
+            relaxed.to_string(),
+          )
+        }
+        if !relaxed {
+          continue
+        }
+
+        let vgap = vertical_gap(a, b)
+        if debug_target {
+          println("[callout-pair]   relaxed vgap=" + vgap.to_string())
+        }
+        if best_j == -1 || vgap < best_gap {
+          best_j = j
+          best_gap = vgap
+        }
       }
     }
 
@@ -379,6 +496,36 @@ fn collect_full_callout_pairs(
     }
   }
 
+  if debug_target {
+    println("[callout-pair] raw pairs:")
+    for pair in pairs {
+      let (pa, pb) = pair
+      println(
+        "[callout-pair]   (" +
+        normalize_shape_text_for_title(pa.shape.xml) +
+        ", " +
+        normalize_shape_text_for_title(pb.shape.xml) +
+        ")",
+      )
+    }
+    let normalized = sort_callout_pairs(pairs)
+    println("[callout-pair] normalized pairs:")
+    for pair in normalized {
+      let (pa, pb) = pair
+      println(
+        "[callout-pair]   (" +
+        normalize_shape_text_for_title(pa.shape.xml) +
+        ", " +
+        normalize_shape_text_for_title(pb.shape.xml) +
+        ")",
+      )
+    }
+    println("[callout-pair] rest:")
+    for sp in rest {
+      println("[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml))
+    }
+  }
+
   (pairs, rest)
 }
 
@@ -388,7 +535,22 @@ fn append_caption_group_as_full_callout_pairs(
   shapes : Array[LayoutShape],
 ) -> Bool {
   let (pairs, rest) = collect_full_callout_pairs(shapes)
-  if pairs.length() < 2 || rest.length() != 0 {
+  let debug_target = is_callout_pair_debug_target(shapes)
+  let full_cover = pairs.length() >= 2 && rest.length() == 0
+  if debug_target {
+    println(
+      "[callout-full-pairs] pairs=" +
+      pairs.length().to_string() +
+      " rest=" +
+      rest.length().to_string() +
+      " full_cover=" +
+      full_cover.to_string(),
+    )
+  }
+  if !full_cover {
+    if debug_target {
+      println("[callout-full-pairs] fallback=true")
+    }
     return false
   }
 
@@ -399,6 +561,9 @@ fn append_caption_group_as_full_callout_pairs(
     out.push(second)
   }
 
+  if debug_target {
+    println("[callout-full-pairs] fallback=false")
+  }
   true
 }
 
