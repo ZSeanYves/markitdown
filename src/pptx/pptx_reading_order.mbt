@@ -81,10 +81,30 @@ fn flatten_shapes_in_reading_order(
   }
 
   if has_table_like {
+    if whole_groups.length() == 1 {
+      let g = whole_groups[0]
+      match g.kind {
+        ShapeGroupKind::TableLike => {
+          let rows = cluster_shapes_into_rows(g.shapes)
+          if looks_like_header_cards_rows(rows) {
+            append_two_row_cards_by_columns(out, rows)
+            return out
+          }
+        }
+        _ => ()
+      }
+    }
+
     let flat = flatten_shape_groups(whole_groups)
     for sp in flat {
       out.push(sp)
     }
+    return out
+  }
+
+  let body_rows = cluster_shapes_into_rows(body_shapes)
+  if looks_like_header_cards_rows(body_rows) {
+    append_two_row_cards_by_columns(out, body_rows)
     return out
   }
 
@@ -262,7 +282,9 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   }
 
   true
-}///|
+} ///|
+
+///|
 fn sort_layout_shapes_by_x(shapes : Array[LayoutShape]) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
 
@@ -443,4 +465,101 @@ fn max_right(shapes : Array[LayoutShape]) -> Int {
     }
   }
   v
+}
+
+///|
+fn text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn text_contains_space(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch == ' ' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn looks_like_header_cards_rows(rows : Array[Array[LayoutShape]]) -> Bool {
+  if rows.length() != 2 {
+    return false
+  }
+
+  let top = rows[0]
+  let bottom = rows[1]
+
+  if top.length() < 3 || top.length() != bottom.length() {
+    return false
+  }
+
+  // top row should look like short headers
+  for sp in top {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    let n = text.to_array().length()
+    if text == "" ||
+      n > 20 ||
+      text_contains_digit(text) ||
+      text_contains_space(text) {
+      return false
+    }
+  }
+
+  // bottom row should look more like per-card descriptions
+  for sp in bottom {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    let n = text.to_array().length()
+    if text == "" || text_contains_digit(text) {
+      return false
+    }
+    if !(text_contains_space(text) || n >= 12) {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn append_two_row_cards_by_columns(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  if rows.length() != 2 {
+    append_rows(out, rows)
+    return
+  }
+
+  let top = rows[0]
+  let bottom = rows[1]
+
+  let n = if top.length() < bottom.length() {
+    top.length()
+  } else {
+    bottom.length()
+  }
+
+  for i in 0..<n {
+    out.push(top[i])
+    out.push(bottom[i])
+  }
+
+  if top.length() > n {
+    for i in n..<top.length() {
+      out.push(top[i])
+    }
+  }
+
+  if bottom.length() > n {
+    for i in n..<bottom.length() {
+      out.push(bottom[i])
+    }
+  }
 }

@@ -4,6 +4,7 @@ priv enum HtmlInline {
   Break
 }
 
+///|
 priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])
@@ -377,7 +378,7 @@ fn scan_li_children(
               let end0 = find_bytes(bs, close_p, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let xs = html_inlines_from_bytes(inner)
@@ -387,7 +388,6 @@ fn scan_li_children(
                     pos = end + close_p.length()
                     continue
                   }
-                }
               }
             }
 
@@ -398,7 +398,7 @@ fn scan_li_children(
               let end0 = find_bytes(bs, close_blockquote, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let children = scan_html_nodes_in_container(inner)
@@ -408,7 +408,6 @@ fn scan_li_children(
                     pos = end + close_blockquote.length()
                     continue
                   }
-                }
               }
             }
 
@@ -419,7 +418,7 @@ fn scan_li_children(
               let end0 = find_bytes(bs, close_pre, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let text = html_pre_text_from_bytes(inner)
@@ -429,7 +428,6 @@ fn scan_li_children(
                     pos = end + close_pre.length()
                     continue
                   }
-                }
               }
             }
 
@@ -440,7 +438,7 @@ fn scan_li_children(
               let end0 = find_bytes(bs, close_table, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let rows = html_table_from_bytes(inner)
@@ -450,7 +448,6 @@ fn scan_li_children(
                     pos = end + close_table.length()
                     continue
                   }
-                }
               }
             }
 
@@ -459,20 +456,16 @@ fn scan_li_children(
               let list_name = if is_ol { "ol" } else { "ul" }
 
               match find_matching_list_end(bs, p, list_name) {
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     flush_pending_paragraph(out, pending_para)
 
-                    let close_len = ("</" + list_name + ">" ).length()
+                    let close_len = ("</" + list_name + ">").length()
                     let inner_start = q + 1
                     let inner_end = end
 
                     let items = scan_list_nodes(
-                      bs,
-                      inner_start,
-                      inner_end,
-                      is_ol,
-                      next_level,
+                      bs, inner_start, inner_end, is_ol, next_level,
                     )
                     for item in items {
                       out.push(item)
@@ -481,7 +474,6 @@ fn scan_li_children(
                     pos = end + close_len
                     continue
                   }
-                }
                 None => ()
               }
             }
@@ -639,7 +631,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 Some(end) => {
                   flush_pending_paragraph(out, pending_para)
 
-                  let close_len = ("</" + list_name + ">" ).length()
+                  let close_len = ("</" + list_name + ">").length()
                   let inner_start = q + 1
                   let inner_end = end
 
@@ -889,9 +881,7 @@ fn append_inlines(dst : Array[HtmlInline], src : Array[HtmlInline]) -> Unit {
 /// trim one pending paragraph as a whole:
 /// - preserve internal spaces between raw text fragments
 /// - strip only leading/trailing whitespace introduced by source indentation
-fn normalize_pending_paragraph(
-  xs : Array[HtmlInline],
-) -> Array[HtmlInline] {
+fn normalize_pending_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
   let s = render_inlines(merge_adjacent_text_inlines(xs)).trim().to_string()
   if s == "" {
     []
@@ -926,6 +916,7 @@ fn quote_children_is_blank(xs : Array[HtmlNode]) -> Bool {
 fn list_item_children_is_blank(xs : Array[HtmlNode]) -> Bool {
   xs.length() == 0
 }
+
 ///|
 /// for raw text segments between tags:
 /// trim leading/trailing whitespace introduced by source indentation
@@ -937,6 +928,7 @@ fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
     [HtmlInline::Text(s)]
   }
 }
+
 ///|
 fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
   let out : Array[Array[Array[HtmlInline]]] = []
@@ -1042,4 +1034,3 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
 
   out
 }
-

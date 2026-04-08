@@ -161,9 +161,7 @@ fn has_table_like_neighbor_support(
   }
 
   let total_neighbors = row_neighbors + col_neighbors
-  let ok =
-    (row_neighbors >= 1 && col_neighbors >= 1) ||
-    total_neighbors >= 2
+  let ok = (row_neighbors >= 1 && col_neighbors >= 1) || total_neighbors >= 2
 
   if PPTX_SLIDE_DEBUG {
     println(
