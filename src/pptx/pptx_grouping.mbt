@@ -121,7 +121,7 @@ fn looks_like_callout_title_text(s : String) -> Bool {
     return false
   }
 
-  if callout_text_contains_digit(t) {
+  if callout_text_contains_digit(t.to_string()) {
     return false
   }
 
@@ -141,11 +141,11 @@ fn looks_like_callout_desc_text(s : String) -> Bool {
     return false
   }
 
-  if callout_text_contains_digit(t) {
+  if callout_text_contains_digit(t.to_string()) {
     return false
   }
 
-  if callout_text_contains_space(t) {
+  if callout_text_contains_space(t.to_string()) {
     return true
   }
 
