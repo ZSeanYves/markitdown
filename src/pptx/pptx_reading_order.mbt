@@ -796,17 +796,6 @@ fn max_right(shapes : Array[LayoutShape]) -> Int {
   v
 }
 
-///|
-fn text_contains_digit(s : String) -> Bool {
-  for ch in s.to_array() {
-    if ch >= '0' && ch <= '9' {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn text_contains_space(s : String) -> Bool {
   for ch in s.to_array() {
     if ch == ' ' {
@@ -814,6 +803,17 @@ fn text_contains_space(s : String) -> Bool {
     }
   }
   false
+}
+
+///|
+fn text_digit_signature(s : String) -> String {
+  let out : Array[Char] = []
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      out.push(ch)
+    }
+  }
+  String::from_char_array(out)
 }
 
 
@@ -832,17 +832,30 @@ fn row_pair_looks_like_cards(
 
     let top_n = top_text.to_array().length()
     let bottom_n = bottom_text.to_array().length()
+    let top_digits = text_digit_signature(top_text)
+    let bottom_digits = text_digit_signature(bottom_text)
+    let top_has_digit = top_digits != ""
+    let bottom_has_digit = bottom_digits != ""
 
-    if top_text == "" || top_n > 24 || text_contains_digit(top_text) {
+    if top_text == "" || top_n > 24 {
       return false
     }
 
-    if bottom_text == "" || text_contains_digit(bottom_text) {
+    if bottom_text == "" {
       return false
     }
 
     if !(text_contains_space(bottom_text) || bottom_n >= top_n + 4) {
       return false
+    }
+
+    if top_has_digit || bottom_has_digit {
+      if !top_has_digit || !bottom_has_digit {
+        return false
+      }
+      if top_digits != bottom_digits {
+        return false
+      }
     }
   }
 
