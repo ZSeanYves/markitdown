@@ -108,7 +108,8 @@ fn flatten_shapes_in_reading_order(
     return out
   }
 
-  if is_two_columns(body_shapes) {
+  if is_two_columns(body_shapes) &&
+    !looks_like_partial_callout_caption_scatter(body_shapes) {
     let (left, right) = split_two_columns(body_shapes)
 
     let left_groups = group_body_shapes_for_layout(left)
@@ -133,6 +134,30 @@ fn flatten_shapes_in_reading_order(
   }
 
   out
+}
+
+///|
+fn looks_like_partial_callout_caption_scatter(
+  shapes : Array[LayoutShape],
+) -> Bool {
+  if shapes.length() < 4 {
+    return false
+  }
+
+  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
+  let mut caption_like_count = 0
+  for sp in shapes {
+    if is_caption_like_shape(sp, slide_w, slide_h) {
+      caption_like_count += 1
+    }
+  }
+
+  if caption_like_count * 2 < shapes.length() {
+    return false
+  }
+
+  let (pairs, rest) = collect_full_callout_pairs(shapes)
+  pairs.length() == 1 && rest.length() >= 2
 }
 
 ///|
