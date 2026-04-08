@@ -563,6 +563,11 @@ fn append_card_pair_rows_by_columns(
   out : Array[LayoutShape],
   rows : Array[Array[LayoutShape]],
 ) -> Unit {
+  if rows_look_like_two_separated_card_groups(rows) {
+    append_two_separated_card_groups(out, rows)
+    return
+  }
+
   let pair_row_count =
     if rows.length() % 2 == 0 {
       rows.length()
@@ -592,6 +597,131 @@ fn append_card_pair_rows_by_columns(
       for j in n..<bottom.length() {
         out.push(bottom[j])
       }
+    }
+
+    i += 2
+  }
+
+  // trailing singleton note row
+  if rows.length() % 2 != 0 {
+    let tail = rows[rows.length() - 1]
+    for sp in tail {
+      out.push(sp)
+    }
+  }
+}
+///|
+fn rows_look_like_two_separated_card_groups(
+  rows : Array[Array[LayoutShape]],
+) -> Bool {
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
+  if pair_row_count < 4 {
+    return false
+  }
+
+  let mut left_max_r = 0
+  let mut right_min_l = 0
+  let mut overall_left = 0
+  let mut overall_right = 0
+  let mut first = true
+
+  let mut i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() != 2 || bottom.length() != 2 {
+      return false
+    }
+
+    let cur_left_max_r = max_int(top[0].right, bottom[0].right)
+    let cur_right_min_l = min_int(top[1].shape.x, bottom[1].shape.x)
+
+    let cur_left = min_int(
+      min_int(top[0].shape.x, bottom[0].shape.x),
+      min_int(top[1].shape.x, bottom[1].shape.x),
+    )
+    let cur_right = max_int(
+      max_int(top[0].right, bottom[0].right),
+      max_int(top[1].right, bottom[1].right),
+    )
+
+    if first {
+      left_max_r = cur_left_max_r
+      right_min_l = cur_right_min_l
+      overall_left = cur_left
+      overall_right = cur_right
+      first = false
+    } else {
+      if cur_left_max_r > left_max_r {
+        left_max_r = cur_left_max_r
+      }
+      if cur_right_min_l < right_min_l {
+        right_min_l = cur_right_min_l
+      }
+      if cur_left < overall_left {
+        overall_left = cur_left
+      }
+      if cur_right > overall_right {
+        overall_right = cur_right
+      }
+    }
+
+    i += 2
+  }
+
+  let gap = right_min_l - left_max_r
+  let span = overall_right - overall_left
+
+  // Use a relative threshold against the total horizontal span.
+  // This is much more tolerant than the previous per-pair x-alignment checks.
+  gap > max_int(120000, span / 5)
+}
+///|
+fn append_two_separated_card_groups(
+  out : Array[LayoutShape],
+  rows : Array[Array[LayoutShape]],
+) -> Unit {
+  let pair_row_count =
+    if rows.length() % 2 == 0 {
+      rows.length()
+    } else {
+      rows.length() - 1
+    }
+
+  // first emit the left group across all card rows
+  let mut i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() > 0 {
+      out.push(top[0])
+    }
+    if bottom.length() > 0 {
+      out.push(bottom[0])
+    }
+
+    i += 2
+  }
+
+  // then emit the right group across all card rows
+  i = 0
+  while i < pair_row_count {
+    let top = rows[i]
+    let bottom = rows[i + 1]
+
+    if top.length() > 1 {
+      out.push(top[1])
+    }
+    if bottom.length() > 1 {
+      out.push(bottom[1])
     }
 
     i += 2
