@@ -113,6 +113,11 @@ fn callout_text_contains_space(s : String) -> Bool {
 }
 
 ///|
+fn looks_like_desc_prefix_text(s : String) -> Bool {
+  s.contains("Desc") || s.contains("desc")
+}
+
+///|
 fn looks_like_callout_title_text(s : String) -> Bool {
   let t = s.trim()
   let n = t.to_array().length()
@@ -122,7 +127,12 @@ fn looks_like_callout_title_text(s : String) -> Bool {
   }
 
   if callout_text_contains_digit(t.to_string()) {
-    return false
+    // allow compact digit-suffixed labels like "Title1" / "C1",
+    // but keep desc-like short labels out of title slot.
+    if callout_text_contains_space(t.to_string()) ||
+      looks_like_desc_prefix_text(t.to_string()) {
+      return false
+    }
   }
 
   if t.contains(".") || t.contains("!") || t.contains("?") {
@@ -142,7 +152,9 @@ fn looks_like_callout_desc_text(s : String) -> Bool {
   }
 
   if callout_text_contains_digit(t.to_string()) {
-    return false
+    // allow compact desc labels like "Desc1" / "Desc C1".
+    return callout_text_contains_space(t.to_string()) ||
+    looks_like_desc_prefix_text(t.to_string())
   }
 
   if callout_text_contains_space(t.to_string()) {
