@@ -1,4 +1,3 @@
-///|
 fn extract_table_like_regions(
   shapes : Array[LayoutShape],
 ) -> (Array[Array[LayoutShape]], Array[LayoutShape]) {
@@ -17,9 +16,9 @@ fn extract_table_like_regions(
         " | h=" +
         sp.shape.h.to_string() +
         " | right=" +
-        sp.shape.right.to_string() +
+        sp.right.to_string() +
         " | bottom=" +
-        sp.shape.bottom.to_string() +
+        sp.bottom.to_string() +
         " | cx=" +
         sp.center_x.to_string() +
         " | cy=" +
