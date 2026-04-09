@@ -3,6 +3,7 @@ pub async fn parse_pdf(
   path : String,
   _out_dir : String,
   _max_heading : Int,
+  enhance_mode : String?,
 ) -> @cor.Document {
   if !@fs.path_exists(path) {
     raise @cor.AppError("PDF file not found: " + path)
@@ -13,5 +14,8 @@ pub async fn parse_pdf(
     Err(e) => raise e
   }
 
-  text_to_ir_document(text)
+  let mode = parse_pdf_enhance_mode(enhance_mode)
+  let enhanced_text = apply_pdf_enhancement(text, mode)
+
+  text_to_ir_document(enhanced_text)
 }
