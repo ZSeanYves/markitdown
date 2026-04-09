@@ -21,19 +21,19 @@ fn read_sample_bytes(path : String) -> Bytes raise {
 }
 
 ///|
-fn open_sample_zip(path : String) -> ZipArchive raise {
+fn open_sample_zip(path : String) -> @zip.ZipArchive raise {
   let bytes = read_sample_bytes(path)
-  open_zip(bytes) catch {
+  @zip.open_zip(bytes) catch {
     e => fail("open_zip failed for sample: " + path + " : " + e.to_string())
   }
 }
 
 ///|
 fn assert_entry_readable(
-  archive : ZipArchive,
+  archive : @zip.ZipArchive,
   entry_path : String,
 ) -> Unit raise {
-  let data = read_entry(archive, entry_path) catch {
+  let data = @zip.read_entry(archive, entry_path) catch {
     e => fail("read_entry failed: " + entry_path + " : " + e.to_string())
   }
   if data.length() == 0 {
@@ -44,7 +44,7 @@ fn assert_entry_readable(
 ///|
 test "zip reader can list and read docx core entry" {
   let z = open_sample_zip("samples/docx/golden.docx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("docx entries should not be empty")
   }
@@ -54,7 +54,7 @@ test "zip reader can list and read docx core entry" {
 ///|
 test "zip reader can list and read xlsx core entry" {
   let z = open_sample_zip("samples/xlsx/sheet_simple.xlsx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("xlsx entries should not be empty")
   }
@@ -64,7 +64,7 @@ test "zip reader can list and read xlsx core entry" {
 ///|
 test "zip reader can list and read pptx core entry" {
   let z = open_sample_zip("samples/pptx/pptx_simple.pptx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("pptx entries should not be empty")
   }

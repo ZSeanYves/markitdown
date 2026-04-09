@@ -13,31 +13,34 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
-fn open_sample_package(path : String) -> OoxmlPackage raise {
+fn open_sample_package(path : String) -> @ox.OoxmlPackage raise {
   let resolved = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(resolved) catch {
     e => fail("read sample failed: " + resolved + " : " + e.to_string())
   }
 
-  open_ooxml_package(bytes) catch {
+  @ox.open_ooxml_package(bytes) catch {
     e => fail("open_ooxml_package failed: " + e.to_string())
   }
 }
 
 ///|
-fn assert_core_readable(pkg : OoxmlPackage, part_name : String) -> Unit raise {
-  if !has_part(pkg, part_name) {
+fn assert_core_readable(
+  pkg : @ox.OoxmlPackage,
+  part_name : String,
+) -> Unit raise {
+  if !@ox.has_part(pkg, part_name) {
     fail("part should exist: " + part_name)
   }
 
-  let bytes = read_part_bytes(pkg, part_name) catch {
+  let bytes = @ox.read_part_bytes(pkg, part_name) catch {
     e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
   }
   if bytes.length() == 0 {
     fail("part bytes should not be empty: " + part_name)
   }
 
-  let content_type = lookup_content_type(pkg, part_name) catch {
+  let content_type = @ox.lookup_content_type(pkg, part_name) catch {
     e =>
       fail("lookup_content_type failed: " + part_name + " : " + e.to_string())
   }
@@ -53,14 +56,14 @@ test "ooxml package phase-1 works on docx sample" {
 
   assert_core_readable(pkg, "word/document.xml")
 
-  let root_rels = read_package_relationships(pkg) catch {
+  let root_rels = @ox.read_package_relationships(pkg) catch {
     e => fail("read_package_relationships failed: " + e.to_string())
   }
   if root_rels.length() == 0 {
     fail("package relationships should not be empty")
   }
 
-  let rels = read_part_relationships(pkg, "word/document.xml") catch {
+  let rels = @ox.read_part_relationships(pkg, "word/document.xml") catch {
     e => fail("read_part_relationships failed: " + e.to_string())
   }
   ignore(rels)
@@ -72,7 +75,7 @@ test "ooxml package phase-1 works on xlsx sample" {
 
   assert_core_readable(pkg, "xl/workbook.xml")
 
-  let root_rels = read_package_relationships(pkg) catch {
+  let root_rels = @ox.read_package_relationships(pkg) catch {
     e => fail("read_package_relationships failed: " + e.to_string())
   }
   if root_rels.length() == 0 {
@@ -80,7 +83,7 @@ test "ooxml package phase-1 works on xlsx sample" {
   }
 
   let office_rel_id = root_rels[0].id
-  let resolved = resolve_relationship(pkg, "", office_rel_id) catch {
+  let resolved = @ox.resolve_relationship(pkg, "", office_rel_id) catch {
     e => fail("resolve_relationship failed: " + e.to_string())
   }
   if resolved == "" {
@@ -94,14 +97,14 @@ test "ooxml package phase-1 works on pptx sample" {
 
   assert_core_readable(pkg, "ppt/presentation.xml")
 
-  let root_rels = read_package_relationships(pkg) catch {
+  let root_rels = @ox.read_package_relationships(pkg) catch {
     e => fail("read_package_relationships failed: " + e.to_string())
   }
   if root_rels.length() == 0 {
     fail("package relationships should not be empty")
   }
 
-  let rels = read_part_relationships(pkg, "ppt/presentation.xml") catch {
+  let rels = @ox.read_part_relationships(pkg, "ppt/presentation.xml") catch {
     e => fail("read_part_relationships failed: " + e.to_string())
   }
   ignore(rels)

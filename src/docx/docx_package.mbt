@@ -18,7 +18,7 @@ fn open_docx(path : String) -> DocxPackage raise @fs.IOError {
 }
 
 ///|
-async fn DocxPackage::read_text_optional(
+fn DocxPackage::read_text_optional(
   p : DocxPackage,
   part_name : String,
 ) -> String {
@@ -29,10 +29,10 @@ async fn DocxPackage::read_text_optional(
 }
 
 ///|
-async fn DocxPackage::read_text_required(
+fn DocxPackage::read_text_required(
   p : DocxPackage,
   part_name : String,
-) -> String {
+) -> String raise {
   let b = @ox.read_part_bytes(p.pkg, part_name) catch {
     e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
   }
@@ -42,7 +42,7 @@ async fn DocxPackage::read_text_required(
 }
 
 ///|
-async fn DocxPackage::read_document_relationships(
+fn DocxPackage::read_document_relationships(
   p : DocxPackage,
 ) -> Map[String, String] {
   let rels = @ox.read_part_relationships(p.pkg, "word/document.xml") catch {
@@ -52,7 +52,7 @@ async fn DocxPackage::read_document_relationships(
 }
 
 ///|
-async fn DocxPackage::extract_media_by_relationships(
+fn DocxPackage::extract_media_by_relationships(
   p : DocxPackage,
   rels : Map[String, String],
   out_dir : String,
@@ -63,7 +63,8 @@ async fn DocxPackage::extract_media_by_relationships(
 
   let exported : Map[String, Bool] = Map::new()
 
-  for (_, target) in rels {
+  for entry in rels {
+    let (_, target) = entry
     let normalized = normalize_doc_part_target(target)
     if !normalized.has_prefix("word/media/") {
       continue
@@ -81,7 +82,7 @@ async fn DocxPackage::extract_media_by_relationships(
 }
 
 ///|
-async fn DocxPackage::load_styles(p : DocxPackage) -> DocxStyles {
+fn DocxPackage::load_styles(p : DocxPackage) -> DocxStyles {
   let xml = p.read_text_optional("word/styles.xml")
   if xml == "" {
     return empty_styles()
@@ -90,7 +91,7 @@ async fn DocxPackage::load_styles(p : DocxPackage) -> DocxStyles {
 }
 
 ///|
-async fn DocxPackage::load_numbering(p : DocxPackage) -> DocxNumbering {
+fn DocxPackage::load_numbering(p : DocxPackage) -> DocxNumbering {
   let xml = p.read_text_optional("word/numbering.xml")
   if xml == "" {
     return empty_numbering()

@@ -1,5 +1,7 @@
 ///|
-fn rels_to_target_map(rels : Array[@ox.OoxmlRelationship]) -> Map[String, String] {
+fn rels_to_target_map(
+  rels : Array[@ox.OoxmlRelationship],
+) -> Map[String, String] {
   let m : Map[String, String] = Map::new()
   for rel in rels {
     m.set(rel.id, rel.target)
