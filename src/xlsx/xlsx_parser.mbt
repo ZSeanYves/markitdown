@@ -13,7 +13,7 @@ pub fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise{
+) -> @cor.Document raise {
   // 1) open package
   let p = open_xlsx(input_path) catch {
     e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())

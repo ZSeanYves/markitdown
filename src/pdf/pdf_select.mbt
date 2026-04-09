@@ -10,7 +10,9 @@ priv struct PdfSelectDecision {
 }
 
 ///|
-fn select_pdf_backend_result(results : Array[PdfBackendResult]) -> PdfSelectDecision {
+fn select_pdf_backend_result(
+  results : Array[PdfBackendResult],
+) -> PdfSelectDecision {
   let successful : Array[PdfBackendResult] = []
   for r in results {
     if r.exit_status == 0 {
@@ -39,7 +41,10 @@ fn select_pdf_backend_result(results : Array[PdfBackendResult]) -> PdfSelectDeci
 
   if acceptable.length() > 0 {
     let best = pick_best_backend_by_score(acceptable)
-    debug_print_selected(best.backend_name, best.quality.map(fn(q) { q.score }).unwrap_or(0))
+    debug_print_selected(
+      best.backend_name,
+      best.quality.map(fn(q) { q.score }).unwrap_or(0),
+    )
     return { selected: Some(best), accepted: true, attempted: results }
   }
 
@@ -52,7 +57,9 @@ fn select_pdf_backend_result(results : Array[PdfBackendResult]) -> PdfSelectDeci
 }
 
 ///|
-fn pick_best_backend_by_score(cands : Array[PdfBackendResult]) -> PdfBackendResult {
+fn pick_best_backend_by_score(
+  cands : Array[PdfBackendResult],
+) -> PdfBackendResult {
   let first = cands[0]
   let mut best = first
   let mut best_score = first.quality.map(fn(q) { q.score }).unwrap_or(-999999)
@@ -100,16 +107,25 @@ fn debug_print_backend_result(r : PdfBackendResult) -> Unit {
   let status = r.exit_status.to_string()
   let qscore = r.quality.map(fn(q) { q.score.to_string() }).unwrap_or("n/a")
   println(
-    "[pdf-debug] backend=" + r.backend_name + " status=" + status + " score=" + qscore,
+    "[pdf-debug] backend=" +
+    r.backend_name +
+    " status=" +
+    status +
+    " score=" +
+    qscore,
   )
 
   match r.quality {
     Some(q) =>
       println(
-        "[pdf-debug] quality: empty=" + q.effectively_empty.to_string() +
-        " low_signal=" + q.low_signal.to_string() +
-        " fragmented=" + q.fragmented.to_string() +
-        " ocr_garbage=" + q.ocr_garbage.to_string(),
+        "[pdf-debug] quality: empty=" +
+        q.effectively_empty.to_string() +
+        " low_signal=" +
+        q.low_signal.to_string() +
+        " fragmented=" +
+        q.fragmented.to_string() +
+        " ocr_garbage=" +
+        q.ocr_garbage.to_string(),
       )
     None => ()
   }

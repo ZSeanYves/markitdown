@@ -10,12 +10,16 @@ priv struct PdfExtractResult {
 
 ///|
 async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
-  let picked = extract_pdf_text_result(path)?
-  Ok(picked.text)
+  match extract_pdf_text_result(path) {
+    Ok(picked) => Ok(picked.text)
+    Err(e) => Err(e)
+  }
 }
 
 ///|
-async fn extract_pdf_text_result(path : String) -> Result[PdfExtractResult, @cor.AppError] {
+async fn extract_pdf_text_result(
+  path : String,
+) -> Result[PdfExtractResult, @cor.AppError] {
   let all_results = collect_pdf_backend_results(path)
   let decision = select_pdf_backend_result(all_results)
 
@@ -31,14 +35,15 @@ async fn extract_pdf_text_result(path : String) -> Result[PdfExtractResult, @cor
         text: cleanup_pdf_text(sel.text),
         exit_status: sel.exit_status,
         stderr: sel.stderr,
-        quality: quality,
+        quality,
         quality_accepted: decision.accepted,
       })
     }
-    None => Err(
-      @cor.AppError(
-        "No PDF text extractor available. Please install `pdftotext` (poppler) or `mutool` (mupdf).",
-      ),
-    )
+    None =>
+      Err(
+        @cor.AppError(
+          "No PDF text extractor available. Please install `pdftotext` (poppler) or `mutool` (mupdf).",
+        ),
+      )
   }
 }

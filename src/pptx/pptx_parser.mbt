@@ -9,7 +9,7 @@ pub fn parse_pptx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise{
+) -> @cor.Document raise {
   let p = open_pptx(input_path) catch {
     e => raise @cor.AppError("pptx: open package failed: " + e.to_string())
   }

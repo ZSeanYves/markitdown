@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/src/zip"
+
+// Values
+pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int) -> Bytes raise CodecError
+
+pub fn list_entries(ZipArchive) -> Array[ZipEntryMeta]
+
+pub fn open_zip(Bytes) -> ZipArchive raise ZipError
+
+pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
+
+// Errors
+pub(all) suberror CodecError {
+  UnsupportedCompressionMethod(Int)
+  DecodeFailed(String)
+  OutputTooLarge(Int, Int)
+}
+pub impl Show for CodecError
+
+pub(all) suberror ZipError {
+  UnexpectedEOF(String)
+  InvalidSignature(String, Int, Int)
+  InvalidStructure(String)
+  UnsupportedCompressionMethod(Int)
+  EntryNotFound(String)
+  DecodeFailed(String)
+}
+pub impl Show for ZipError
+
+// Types and methods
+pub(all) enum CompressionMethod {
+  Store
+  DeflateRaw
+  Unsupported(Int)
+} derive(Eq)
+
+pub struct ZipArchive {
+  bytes : Bytes
+  entries : Array[ZipEntryMeta]
+  entry_index : Map[String, Int]
+}
+
+pub struct ZipEntryMeta {
+  name : String
+  compression_method : CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  local_header_offset : Int
+  crc32 : Int
+  flags : Int
+}
+
+// Type aliases
+
+// Traits
+

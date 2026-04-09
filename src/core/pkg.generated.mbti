@@ -3,7 +3,6 @@ package "ZSeanYves/markitdown/src/core"
 
 import {
   "moonbitlang/core/ref",
-  "moonbitlang/x/fs",
 }
 
 // Values
@@ -18,8 +17,6 @@ pub fn is_blank(String) -> Bool
 pub fn new_document() -> Document
 
 pub fn normalize_text(String) -> String
-
-pub fn open_zip(String) -> ZipReader raise @fs.IOError
 
 pub fn push(Document, Block) -> Unit
 
@@ -40,11 +37,6 @@ pub(all) suberror Utf8DecodeError {
 }
 pub impl Show for Utf8DecodeError
 
-pub(all) suberror ZipError {
-  ZipError(String)
-}
-pub impl Show for ZipError
-
 // Types and methods
 pub(all) enum Block {
   Heading(Int, String)
@@ -60,24 +52,6 @@ pub(all) enum Block {
 pub struct Document {
   blocks : @ref.Ref[Array[Block]]
 }
-
-pub struct ZipEntry {
-  name : String
-  comp_method : Int
-  gp_flags : Int
-  comp_size : Int
-  uncomp_size : Int
-  local_header_offset : Int
-}
-
-pub struct ZipReader {
-  path : String
-  bytes : Bytes
-  entries : Map[String, ZipEntry]
-}
-pub fn ZipReader::has_entry(Self, String) -> Bool
-pub fn ZipReader::list_entries(Self) -> Array[String]
-pub async fn ZipReader::read_entry_bytes(Self, String) -> Bytes
 
 // Type aliases
 

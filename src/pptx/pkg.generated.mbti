@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub async fn parse_pptx(String, String, Int) -> @core.Document
+pub fn parse_pptx(String, String, Int) -> @core.Document raise
 
 // Errors
 

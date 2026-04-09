@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub async fn parse_pdf(String, String, Int) -> @core.Document
+pub async fn parse_pdf(String, String, Int, String?) -> @core.Document
 
 // Errors
 

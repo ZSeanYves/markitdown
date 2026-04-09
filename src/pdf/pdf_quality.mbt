@@ -73,26 +73,25 @@ fn analyze_pdf_text_quality(text : String) -> PdfTextQuality {
 
   let nonblank = total - blank
   let avg_len = if nonblank <= 0 { 0 } else { sum_len / nonblank }
-  let fragmented =
-    if nonblank <= 0 {
-      true
-    } else {
-      short * 100 >= nonblank * 60 || suspicious_short_alpha * 100 >= nonblank * 25
-    }
+  let fragmented = if nonblank <= 0 {
+    true
+  } else {
+    short * 100 >= nonblank * 60 ||
+    suspicious_short_alpha * 100 >= nonblank * 25
+  }
   let low_signal = signal_chars < 20
   let effectively_empty = trimmed == "" || low_signal
-  let ocr_garbage =
-    nonblank > 0 &&
+  let ocr_garbage = nonblank > 0 &&
     suspicious_short_alpha * 100 >= nonblank * 35 &&
     avg_len <= 6
 
   {
-    effectively_empty: effectively_empty,
-    low_signal: low_signal,
-    fragmented: fragmented,
-    ocr_garbage: ocr_garbage,
+    effectively_empty,
+    low_signal,
+    fragmented,
+    ocr_garbage,
     score: avg_len * 10 - blank * 3 - short * 5 - suspicious_short_alpha * 25,
-    signal_chars: signal_chars,
+    signal_chars,
     total_lines: total,
     nonblank_lines: nonblank,
     short_lines: short,
