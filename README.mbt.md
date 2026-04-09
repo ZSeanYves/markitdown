@@ -491,6 +491,197 @@ Then re-run:
 
 ---
 
+
+## Progress Dashboard (snapshot: 2026-04-09)
+
+### Repository-level quantitative snapshot
+
+* Total MoonBit source files (`*.mbt` under `src/`): **55**
+* Package split:
+
+  * `src/cli`: 3
+  * `src/convert`: 1
+  * `src/core`: 5
+  * `src/docx`: 9
+  * `src/pdf`: 9
+  * `src/xlsx`: 7
+  * `src/pptx`: 17
+  * `src/html`: 4
+* Tooling helpers:
+
+  * `tools/`: 3 Python generators (all for PPTX sample generation)
+* Regression assets under `samples/`:
+
+  * input files total: **113**
+  * expected markdown total: **115**
+  * input/expected parity by format:
+
+    * `docx`: 12 input / 13 expected (`docx_blockquote_basic` currently expected-only)
+    * `pdf`: 12 / 12
+    * `xlsx`: 12 / 12
+    * `pptx`: 45 / 46 (`pptx_right_side_notes` currently expected-only)
+    * `html`: 32 / 32
+
+### Coverage completion interpretation (current)
+
+* **DOCX**: high completion for heading/list/table/code-like paragraph and line-break behavior; quote-style validation still needs a true source sample.
+* **PDF**: robust text-PDF path with extractor arbitration + noise cleanup + block recovery; still intentionally not OCR/scanned-PDF scope.
+* **XLSX**: stable worksheet-table extraction with style-guided date/time handling; broad enough for common export/report workbooks.
+* **PPTX**: most actively expanded area in recent history; now has dense positive/negative layout heuristics and broad sample-backed reading-order stabilization.
+* **HTML**: from flat text extraction upgraded to local container + inline modeling; nested structures and `<br>` variants are well covered.
+
+## Sample Catalog (what each sample validates)
+
+> Rule of thumb: filename = assertion target. Each sample is a regression contract for one behavior boundary.
+
+### DOCX samples
+
+* `golden`: end-to-end comprehensive baseline (paragraph/list/table/image mix).
+* `docx_heading_levels`: heading level mapping from styles.
+* `docx_list_basic`: unordered list recovery.
+* `docx_list_ordered`: ordered list recovery.
+* `docx_list_nested`: nested list levels.
+* `docx_list_mixed`: mixed ordered/unordered nesting.
+* `docx_paragraph_linebreak`: in-paragraph manual line breaks.
+* `docx_paragraph_tab`: tab behavior normalization.
+* `docx_table_multiline_cell`: multiline cell rendering with `<br>`.
+* `docx_codeblock_basic`: code-like paragraph detection (positive case).
+* `docx_not_code_steps`: prevent false-positive code block (step-like text).
+* `docx_not_code_multiline`: prevent false-positive code block (multiline normal text).
+* `docx_blockquote_basic` (expected-only): reserved contract for quote-style output validation.
+
+### PDF samples
+
+* `text_simple`: basic block extraction.
+* `text_hardwrap`: hard-wrap merge baseline.
+* `hardwrap_en`: English hard-wrap merge boundary.
+* `hardwrap_zh`: Chinese hard-wrap merge boundary.
+* `heading_basic`: heading recognition baseline.
+* `not_heading_sentence`: avoid treating short sentence as heading.
+* `text_multipage`: multi-page continuity baseline.
+* `pdf_repeated_header_footer`: repeated header/footer cleanup baseline.
+* `pdf_repeated_header_footer_variants`: repeated header/footer variant robustness.
+* `pdf_page_noise_cleanup`: page-number / noise cleanup.
+* `pdf_cross_page_paragraph`: paragraph continuation across page breaks.
+* `pdf_heading_vs_short_sentence`: heading-vs-normal-short-line decision boundary.
+
+### XLSX samples
+
+* `sheet_simple`: one-sheet baseline table extraction.
+* `xlsx_multi_sheet_mixed`: multi-sheet ordering and emission.
+* `xlsx_cell_types`: cell type matrix (string/number/bool/error/etc.).
+* `xlsx_empty_sheet`: explicit empty-sheet output.
+* `xlsx_trim_sparse`: sparse trailing row/column trimming.
+* `xlsx_sparse_edges`: minimal non-empty bounding-box crop.
+* `xlsx_date_basic`: custom-format date output.
+* `xlsx_time_basic`: custom-format time output.
+* `xlsx_datetime_basic`: custom-format datetime output.
+* `xlsx_builtin_date_14`: built-in date `numFmtId` path.
+* `xlsx_builtin_time_20`: built-in time `numFmtId` path.
+* `xlsx_builtin_datetime_22`: built-in datetime `numFmtId` path.
+
+### HTML samples
+
+* `html_simple`: baseline heading/paragraph/list extraction.
+* `html_mixed`: mixed block composition baseline.
+* `html_quote`: blockquote baseline.
+* `html_pre`: pre/code block baseline.
+* `html_table_basic`: basic table extraction.
+* `html_table_ragged_rows`: ragged-row normalization.
+* `html_br_variants`: `<br>` variant normalization.
+* `html_br_double`: consecutive `<br>` behavior.
+* `html_br_table`: `<br>` inside table context.
+* `html_br_blockquote`: `<br>` inside blockquote context.
+* `html_blockquote_list_basic`: list inside blockquote.
+* `html_blockquote_multi_paragraph`: multi-paragraph blockquote container.
+* `html_blockquote_nested_blockquote`: nested blockquote handling.
+* `html_blockquote_mixed_text_and_paragraph`: mixed text + paragraph in blockquote.
+* `html_blockquote_mixed_tail`: blockquote tail text handling.
+* `html_blockquote_br_inside_paragraph`: `<br>` in blockquote paragraph.
+* `html_ordered_list`: ordered list baseline.
+* `html_nested_list_basic`: nested list baseline.
+* `html_nested_list_mixed`: mixed ordered/unordered nesting.
+* `html_listitem_multi_paragraph`: multi-paragraph list item.
+* `html_listitem_mixed_text_and_paragraph`: list item mixed inline/block text.
+* `html_listitem_with_blockquote`: blockquote embedded in list item.
+* `html_list_item_mixed_tail`: list item tail text boundary.
+* `html_list_item_inline_split_noise`: inline split/noise robustness in list item.
+* `html_inline_mixed_paragraph`: inline span mixing inside paragraph.
+* `html_inline_mixed_list`: inline span mixing inside list item.
+* `html_inline_mixed_table`: inline span mixing inside table cell.
+* `html_inline_boundary_paragraph`: inline boundary normalization for paragraph.
+* `html_block_boundary_pre`: block boundary around pre/code.
+* `html_block_boundary_quote`: block boundary around blockquote.
+* `html_block_boundary_table`: block boundary around table.
+* `html_block_boundary_paragraph_list`: paragraph/list boundary behavior.
+
+### PPTX samples
+
+#### Core structure / reading-order
+
+* `pptx_simple`: single-slide baseline.
+* `pptx_slide_order`: real presentation order vs filename order.
+* `pptx_title_multiline`: multi-paragraph title merge.
+* `pptx_title_bullets`: title + bullet body baseline.
+* `pptx_title_body_split`: title/body segmentation.
+* `pptx_top_title_multi_boxes`: top-title with multi-box body order.
+* `pptx_two_columns`: two-column reading-order behavior.
+* `pptx_two_body_left_right`: left-right two-body layout.
+* `pptx_two_body_top_bottom`: top-bottom two-body layout.
+* `pptx_two_note_clusters`: multiple note clusters ordering.
+* `pptx_small_grouped_notes`: small note-like grouping behavior.
+* `pptx_right_side_notes` (expected-only): right-side note-region stabilization contract.
+
+#### Lists / bullets / numbering
+
+* `pptx_bullet_levels`: nested bullet level recovery.
+* `pptx_bullet_property`: bullet-property-driven classification.
+* `pptx_ordered_list`: ordered list recovery from numbering metadata.
+
+#### Callout / caption / scatter layouts
+
+* `pptx_callout_blocks_basic`: regular callout block grouping.
+* `pptx_callout_blocks_mixed_widths`: uneven-width callout rows.
+* `pptx_callout_blocks_row_jitter`: row jitter tolerance for callouts.
+* `pptx_caption_scatter_one_real_pair`: sparse caption scatter with one true pair.
+* `pptx_caption_scatter_two_real_pairs`: scatter with two true pairs.
+* `pptx_caption_scatter_pair_plus_footer_note`: scatter pair plus footer-note separation.
+* `pptx_negative_caption_scatter`: negative sample for scatter mis-detection.
+
+#### Table-like / grid-like region heuristics
+
+* `pptx_table_like_region_basic`: table-like region baseline.
+* `pptx_table_like_region_local_basic`: local table-like region baseline.
+* `pptx_table_like_region_local_with_intro_outro`: local region with intro/outro text.
+* `pptx_table_like_local_with_side_note`: local table-like with side note.
+* `pptx_table_like_local_edge_cell`: edge-cell absorption behavior.
+* `pptx_table_like_header_edge_basic`: header-edge candidate inclusion baseline.
+* `pptx_table_like_header_edge_with_note`: header-edge with note interference.
+* `pptx_table_like_strong_2x3`: strong positive 2x3 grid.
+* `pptx_table_like_strong_3x3_header`: strong positive 3x3+header grid.
+* `pptx_table_like_negative_keyword_grid`: keyword wall should not be table.
+* `pptx_table_like_negative_icon_caption_grid`: icon-caption card grid negative case.
+* `pptx_table_like_negative_header_cards`: header + cards negative case.
+* `pptx_table_like_negative_cards_with_badge`: badge cards negative case.
+* `pptx_table_like_negative_cards_2x2`: dense card matrix negative 2x2.
+* `pptx_table_like_negative_cards_2x3_dense`: dense card matrix negative 2x3.
+* `pptx_table_like_negative_two_column_explainer`: two-column explainer negative case.
+* `pptx_table_like_negative_two_column_labels`: short two-column labels negative case.
+* `pptx_table_like_negative_timeline`: timeline layout negative case.
+
+#### Card/group pattern heuristics
+
+* `pptx_card_pairs_basic`: basic card-pair grouping.
+* `pptx_card_pairs_two_groups`: multi-group card pairs.
+* `pptx_card_pairs_two_rows_three_cols`: dense card pairs in 2-row/3-col layout.
+* `pptx_card_pairs_with_side_note`: card pairs with side-note interference.
+* `pptx_negative_dense_keyword_wall`: dense keyword wall negative grouping case.
+
+#### Noise filtering
+
+* `pptx_footer_page_number`: page-number/footer noise filtering.
+
+
 ## Roadmap
 
 ### Near-term
