@@ -10,11 +10,11 @@ pub async fn parse_pptx(
   _out_dir : String,
   max_heading : Int,
 ) -> @cor.Document {
-  let z = @cor.open_zip(input_path) catch {
-    e => raise @cor.AppError("pptx: open zip failed: " + e.to_string())
+  let p = open_pptx(input_path) catch {
+    e => raise @cor.AppError("pptx: open package failed: " + e.to_string())
   }
 
-  let slides = list_slide_entries_in_presentation_order(z)
+  let slides = list_slide_entries_in_presentation_order(p)
   let doc = @cor.new_document()
 
   if slides.length() == 0 {
@@ -32,7 +32,8 @@ pub async fn parse_pptx(
       ),
     )
 
-    let xml = read_zip_bytes(z, path)
+    let _ = build_slide_rel_context(p, path)
+    let xml = p.read_bytes_required(path)
     let paras = extract_slide_paragraphs(xml)
     let blocks = classify_slide_paragraphs(paras)
 
