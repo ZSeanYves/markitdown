@@ -13,6 +13,28 @@ pub(all) suberror CodecError {
 }
 
 ///|
+pub impl Show for CodecError with to_string(self : CodecError) -> String {
+  match self {
+    UnsupportedCompressionMethod(code) =>
+      "unsupported compression method: " + code.to_string()
+    DecodeFailed(msg) => "codec decode failed: " + msg
+    OutputTooLarge(limit, actual) =>
+      "decoded output too large: limit=" +
+      limit.to_string() +
+      ", actual=" +
+      actual.to_string()
+  }
+}
+
+///|
+pub impl Show for CodecError with output(
+  self : CodecError,
+  logger : &Logger,
+) -> Unit {
+  logger.write_string(self.to_string())
+}
+
+///|
 pub fn decompress(
   compression_method : CompressionMethod,
   compressed : Bytes,
