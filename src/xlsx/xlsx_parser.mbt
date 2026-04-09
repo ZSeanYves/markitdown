@@ -9,11 +9,11 @@
 /// - merged cells ignored
 /// - lightweight date/time formatting support for common built-in/custom Excel numFmt
 /// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
-pub async fn parse_xlsx(
+pub fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document {
+) -> @cor.Document raise{
   // 1) open package
   let p = open_xlsx(input_path) catch {
     e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())
