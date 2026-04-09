@@ -1,6 +1,5 @@
 import {
   "bikallem/compress/flate" @flate,
-  "moonbitlang/x/fs" @fs,
 }
 
 options(

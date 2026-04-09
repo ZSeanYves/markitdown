@@ -56,7 +56,7 @@ fn list_slide_entries(p : PptxPackage) -> Array[String] {
 ///|
 fn list_slide_entries_in_presentation_order(
   p : PptxPackage,
-) -> Array[String] {
+) -> Array[String] raise{
   let pres_xml = p.read_text_optional("ppt/presentation.xml")
 
   if pres_xml == "" {

@@ -3,7 +3,7 @@ pub(all) enum CompressionMethod {
   Store
   DeflateRaw
   Unsupported(Int)
-} derive(Eq, Show)
+} derive(Eq)
 
 ///|
 pub(all) suberror CodecError {

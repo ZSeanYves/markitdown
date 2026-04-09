@@ -5,11 +5,11 @@
 /// - read each slide xml
 /// - extract text runs <a:t>...</a:t>
 /// - classify slide paragraphs into heading / list item / paragraph
-pub async fn parse_pptx(
+pub fn parse_pptx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-) -> @cor.Document {
+) -> @cor.Document raise{
   let p = open_pptx(input_path) catch {
     e => raise @cor.AppError("pptx: open package failed: " + e.to_string())
   }
