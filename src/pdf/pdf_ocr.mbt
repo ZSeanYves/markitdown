@@ -1,32 +1,9 @@
 ///|
-/// OCR fallback should remain optional-first:
-/// - only used by experimental mode
-/// - only used when extracted text is effectively empty
 async fn ocr_backend_available() -> Bool raise Error {
-  match run_and_capture("ocrmypdf", ["--version"]) {
-    Ok(_) => true
+  match run_command_capture("ocrmypdf", ["--version"]) {
+    Ok((status, _, _)) => status == 0
     Err(_) => false
   }
-}
-
-///|
-fn is_effectively_empty_pdf_text(text : String) -> Bool {
-  let trimmed = text.trim().to_string()
-  if trimmed == "" {
-    return true
-  }
-
-  let mut signal_chars = 0
-  for c in trimmed.to_array() {
-    if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
-      signal_chars += 1
-      if signal_chars >= 20 {
-        return false
-      }
-    }
-  }
-
-  true
 }
 
 ///|
@@ -37,22 +14,23 @@ async fn try_ocr_pdf_to_text(path : String) -> String? {
 
   let sidecar = make_ocr_sidecar_path(path)
 
-  // best-effort cleanup before run
-  let _ = run_and_capture("rm", ["-f", sidecar])
+  let _ = run_command_capture("rm", ["-f", sidecar])
 
-  // Primary command form recommended by OCRmyPDF docs for sidecar capture.
-  let primary = run_and_capture("ocrmypdf", [
+  let primary = run_command_capture("ocrmypdf", [
     "--skip-text", "--sidecar", sidecar, "--output-type", "none", path, "-",
   ])
 
-  // Some environments still prefer a file path output even with output-type none.
   match primary {
-    Ok(_) => ()
+    Ok((status, _, _)) =>
+      if status != 0 {
+        let _ = run_command_capture("ocrmypdf", [
+          "--skip-text", "--sidecar", sidecar, "--output-type", "none", path, "/dev/null",
+        ])
+      }
     Err(_) => {
-      let _ = run_and_capture("ocrmypdf", [
+      let _ = run_command_capture("ocrmypdf", [
         "--skip-text", "--sidecar", sidecar, "--output-type", "none", path, "/dev/null",
       ])
-      ()
     }
   }
 
@@ -65,13 +43,15 @@ async fn try_ocr_pdf_to_text(path : String) -> String? {
     _ => ""
   }
 
-  let _ = run_and_capture("rm", ["-f", sidecar])
+  let _ = run_command_capture("rm", ["-f", sidecar])
 
-  let normalized = text.trim().to_string()
-  if normalized == "" {
+  let cleaned = cleanup_pdf_text(text)
+  let quality = analyze_pdf_text_quality(cleaned)
+
+  if is_quality_failure_for_normal_text(quality) {
     None
   } else {
-    Some(text)
+    Some(cleaned)
   }
 }
 

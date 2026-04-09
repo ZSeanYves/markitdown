@@ -9,28 +9,28 @@ pub async fn parse_pdf(
     raise @cor.AppError("PDF file not found: " + path)
   }
 
-  let text = match extract_pdf_text(path) {
-    Ok(t) => t
+  let extracted = match extract_pdf_text_result(path) {
+    Ok(res) => res
     Err(e) => raise e
   }
 
   let mode = parse_pdf_enhance_mode(enhance_mode)
 
   let enhanced_text = match mode {
-    PdfEnhanceMode::TextOnly => apply_pdf_enhancement(text, mode)
+    PdfEnhanceMode::TextOnly => apply_pdf_enhancement(extracted.text, mode)
     PdfEnhanceMode::Experimental =>
-      if is_effectively_empty_pdf_text(text) {
+      if !extracted.quality_accepted {
         match try_ocr_pdf_to_text(path) {
-          Some(ocr_text) =>
-            if is_effectively_empty_pdf_text(ocr_text) {
+          Some(ocr_text) => apply_pdf_enhancement(ocr_text, mode)
+          None =>
+            if is_effectively_empty_pdf_text(extracted.text) {
               apply_experimental_empty_text_fallback(path)
             } else {
-              apply_pdf_enhancement(ocr_text, mode)
+              apply_pdf_enhancement(extracted.text, mode)
             }
-          None => apply_experimental_empty_text_fallback(path)
         }
       } else {
-        apply_pdf_enhancement(text, mode)
+        apply_pdf_enhancement(extracted.text, mode)
       }
   }
 
