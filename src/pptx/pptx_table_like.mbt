@@ -386,6 +386,42 @@ fn debug_print_grid_region_stats(
 }
 
 ///|
+fn row_pair_looks_like_callout_blocks(
+  top : Array[LayoutShape],
+  bottom : Array[LayoutShape],
+) -> Bool {
+  if top.length() < 2 || top.length() != bottom.length() {
+    return false
+  }
+
+  for i in 0..<top.length() {
+    let strict = looks_like_callout_pair(top[i], bottom[i])
+    let relaxed = if strict {
+      true
+    } else {
+      looks_like_relaxed_callout_pair(top[i], bottom[i])
+    }
+    if !relaxed {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn looks_like_two_row_callout_blocks(
+  shapes : Array[LayoutShape],
+) -> Bool {
+  let rows = cluster_shapes_into_rows(shapes)
+  if rows.length() != 2 {
+    return false
+  }
+
+  row_pair_looks_like_callout_blocks(rows[0], rows[1])
+}
+
+///|
 /// conservative grid/table-like region detection:
 /// - at least 4 shapes
 /// - input is already a candidate cluster from filter_table_like_candidates(...)
@@ -522,6 +558,14 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
   if density_num * 2 < density_den {
     if PPTX_SLIDE_DEBUG {
       println("[pptx-table-grid] decision=false")
+    }
+    return false
+  }
+
+  // avoid swallowing narrow two-row callout blocks into table-like flow.
+  if looks_like_two_row_callout_blocks(shapes) {
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table-grid] decision=false (two-row callout-like)")
     }
     return false
   }
