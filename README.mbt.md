@@ -2,7 +2,7 @@
 
 A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf / .xlsx / .pptx / .html** into structured **Markdown**.
 
-> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**.
+> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**. Recent PPTX work has also completed a full round of layout-oriented heuristic stabilization plus new regression-sample expansion, and the full suite is currently green.
 
 ---
 
@@ -11,7 +11,7 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, style/numbering-driven list structure recovery, paragraph line-break preservation, and code-like paragraph recovery under the current heuristic rules
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, basic cell-type support, and lightweight date/time formatting for style-marked numeric cells
-* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, stabilize local table-like / grid-like text regions before Markdown emission, use tighter table-like candidate heuristics backed by both positive and negative regression samples, and let accepted table-like regions absorb aligned edge/header candidate cells through existing row/column buckets
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, stabilize local table-like / grid-like text regions before Markdown emission, use tighter table-like candidate heuristics backed by both positive and negative regression samples, let accepted table-like regions absorb aligned edge/header candidate cells through existing row/column buckets, and now cover callout / scatter / negative-card / row-jitter layout boundaries through expanded PPTX regression samples
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, preserve common `<br>` variants, preserve ordered / unordered / nested list structure, avoid swallowing nested list text in parent items, add lightweight inline modeling for HTML text spans and explicit break semantics, and recover multi-block structure inside block quotes and list items
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
 
@@ -29,8 +29,8 @@ Current state:
 * ✅ **Sample-based regression suite** is in place and used as the primary behavior guardrail
 * ✅ **DOCX / XLSX / HTML** are already at relatively high completeness for the current project scope
 * ✅ **PDF / PPTX** have moved beyond simple text extraction and now include structure-oriented recovery heuristics
-* ✅ **PPTX** has become the most actively enhanced layout-oriented pipeline, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, two-column-aware reading-order recovery, local table-like/grid-like text-region stabilization, tighter table-like candidate filtering now checked by both positive and negative samples, and conservative accepted-region expansion for missed edge/header table-like candidate cells
-* ✅ **HTML** has recently moved beyond a flat text-only block model and now includes lightweight inline modeling plus local container recovery for block quotes and list items
+* ✅ **PPTX** has completed a major round of layout-oriented stabilization, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, two-column-aware reading-order recovery, local table-like/grid-like text-region stabilization, tighter table-like candidate filtering checked by both positive and negative samples, conservative accepted-region expansion for missed edge/header table-like candidate cells, and new regression-backed coverage for callout / scatter / negative-card / row-jitter layouts
+* ✅ **HTML** has moved beyond a flat text-only block model and now includes lightweight inline modeling plus local container recovery for block quotes and list items
 * ✅ **Recent package cleanup**: DOCX and PPTX source layout has been reorganized into smaller MoonBit modules so the format-specific logic is easier to maintain and extend
 
 ---
@@ -254,10 +254,17 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Detects simple table-like / grid-like text regions and keeps them stable as one body region during output ordering
 * Tightens table-like candidate detection with local neighbor-support checks so isolated short text boxes are less likely to be misclassified as table-like regions
 * Accepted table-like regions now run a conservative stabilization pass that absorbs aligned edge/header candidate cells using existing row/column buckets
-* Regression coverage for PPTX table-like handling now includes stronger positives, local positives, and stronger false-positive negatives
+* Regression coverage for PPTX now includes stronger positives, stronger negatives, and newer layout-oriented boundaries such as:
+
+  * callout blocks
+  * mixed-width callout layouts
+  * row-jitter callout layouts
+  * scatter caption layouts
+  * negative card layouts
+  * dense negative card grids
 * Uses a more explicit internal module split for shape collection, layout base logic, grouping candidates, table-like region detection, grouping, reading-order recovery, and paragraph metadata parsing
 
-> Note: PPTX support is no longer just a basic text-dump path. It now includes shape-order recovery, title/body heuristics, paragraph cleanup, note-like grouping, table-like text-region stabilization, and negative-sample-backed tightening around table-like candidate selection. Like XLSX, parts of the current PPTX package/decompression path still rely on external system-tool behavior where the current internal decompressed-result representation conflicts with the parser’s preferred working form.
+> Note: PPTX support is no longer just a basic text-dump path. It now includes shape-order recovery, title/body heuristics, paragraph cleanup, note-like grouping, table-like text-region stabilization, negative-sample-backed tightening around table-like candidate selection, and a broader regression-backed layout heuristic set around callout / scatter / dense-card boundaries. Like XLSX, parts of the current PPTX package/decompression path still rely on external system-tool behavior where the current internal decompressed-result representation conflicts with the parser’s preferred working form.
 
 ### ✅ HTML
 
@@ -271,7 +278,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Uses a lightweight HTML-local inline model so text spans and explicit breaks are no longer carried only as flat strings
 * Recovers block-quote containers as local child-block structures instead of flattening them immediately into one text blob
 * Recovers list-item containers as local child-block structures so multi-paragraph items, mixed text, and nested lists are handled more conservatively
-* Normalizes ragged table rows to stable Markdown table widths
+* Normalizes ragged table rows
 * Decodes entities (including numeric entities)
 
 ---
@@ -422,9 +429,16 @@ Recent regression coverage includes:
   * negative keyword-grid layout
   * negative icon-caption-card-grid layout
   * `pptx_table_like_negative_cards_2x2`
+  * `pptx_table_like_negative_cards_2x3_dense`
   * `pptx_table_like_negative_two_column_explainer`
   * negative short two-column label layout
   * page-number / corner-label cleanup behavior
+  * `pptx_callout_blocks_basic`
+  * `pptx_callout_blocks_mixed_widths`
+  * `pptx_callout_blocks_row_jitter`
+  * `pptx_caption_scatter_one_real_pair`
+  * `pptx_caption_scatter_two_real_pairs`
+  * `pptx_caption_scatter_pair_plus_footer_note`
 * **HTML**
 
   * simple content
@@ -481,11 +495,11 @@ Then re-run:
 
 ### Near-term
 
-1. Continue strengthening PPTX table-like / grid-like region handling and explore whether parts of those regions should later be upgraded from stable block-order recovery into richer structural output
-2. Continue improving PPTX fallback behavior for difficult non-standard layout cases without regressing stable current heuristics
-3. Improve HTML body-scope handling and continue tightening local container rendering around block quotes / list items without regressing current behavior
-4. Extend XLSX validation coverage for built-in date/time `numFmtId` cases and more real-world workbook samples
-5. Extend DOCX style-driven block recovery beyond headings/lists with true source-document validation for quote-like styles
+1. Shift the next round of work from PPTX to **HTML mixed block content / `<br>` semantics**
+2. Continue strengthening HTML body-scope handling and local container rendering around block quotes / list items without regressing current behavior
+3. Extend XLSX validation coverage for built-in date/time `numFmtId` cases and more real-world workbook samples
+4. Extend DOCX style-driven block recovery beyond headings/lists with true source-document validation for quote-like styles
+5. Continue widening PDF validation coverage for difficult but still text-based layouts
 
 ### Mid-term
 
@@ -501,6 +515,6 @@ Then re-run:
 * ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, conservative code-like paragraph recovery, and a cleaner local package split with shared DOCX types
 * ✅ **pdf (text-based)**: stable extractor-selection pipeline with heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
 * ✅ **xlsx**: stable table-oriented workbook conversion with multiple cell types, multi-sheet support, empty-sheet handling, sparse bounding-box trimming, and lightweight style-driven date/time interpretation
-* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, table-like text-region stabilization, and tighter candidate filtering now guarded by both positive and negative layout samples
+* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, table-like text-region stabilization, tighter candidate filtering guarded by positive/negative layout samples, and a broader regression-backed layout heuristic set around callout / scatter / dense-card boundaries
 * ✅ **html**: stable bytes-based HTML conversion with lists / quotes / code blocks / tables, explicit `<br>` break preservation, lightweight inline modeling, local blockquote/list-item container recovery, ordered/nested-list structure recovery, parent-item protection, and ragged-row table normalization
 * ✅ **IR + Markdown emitter**: shared structured output path across formats
