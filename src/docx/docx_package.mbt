@@ -1,73 +1,88 @@
 ///|
-priv struct DocxZip {
+priv struct DocxPackage {
   _path : String
-  zip : @cor.ZipReader
+  pkg : @ox.OoxmlPackage
 }
 
 ///|
-fn open_docx(path : String) -> DocxZip raise @fs.IOError {
-  let z = @cor.open_zip(path) catch {
-    e => raise @fs.IOError("open_zip failed: " + e.to_string())
+fn open_docx(path : String) -> DocxPackage raise @fs.IOError {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => raise @fs.IOError("read docx failed: " + path + " : " + e.to_string())
   }
-  { _path: path, zip: z }
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => raise @fs.IOError("open_ooxml_package failed: " + e.to_string())
+  }
+
+  { _path: path, pkg }
 }
 
 ///|
-async fn DocxZip::read_text_optional(
-  z : DocxZip,
-  entry_path : String,
+async fn DocxPackage::read_text_optional(
+  p : DocxPackage,
+  part_name : String,
 ) -> String {
-  let b = z.zip.read_entry_bytes(entry_path) catch { _ => return "" }
+  let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
   @cor.utf8_bytes_to_string(b) catch {
     _ => return ""
   }
 }
 
 ///|
-async fn DocxZip::read_text_required(
-  z : DocxZip,
-  entry_path : String,
+async fn DocxPackage::read_text_required(
+  p : DocxPackage,
+  part_name : String,
 ) -> String {
-  let b = z.zip.read_entry_bytes(entry_path) catch {
-    e => fail("read_entry_bytes failed: " + entry_path + " : " + e.to_string())
+  let b = @ox.read_part_bytes(p.pkg, part_name) catch {
+    e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
   }
   @cor.utf8_bytes_to_string(b) catch {
-    e => fail("utf8 decode failed: " + entry_path + " : " + e.to_string())
+    e => fail("utf8 decode failed: " + part_name + " : " + e.to_string())
   }
 }
 
 ///|
-async fn DocxZip::extract_prefix(
-  z : DocxZip,
-  prefix : String,
+async fn DocxPackage::read_document_relationships(
+  p : DocxPackage,
+) -> Map[String, String] {
+  let rels = @ox.read_part_relationships(p.pkg, "word/document.xml") catch {
+    _ => return Map::new()
+  }
+  rels_to_target_map(rels)
+}
+
+///|
+async fn DocxPackage::extract_media_by_relationships(
+  p : DocxPackage,
+  rels : Map[String, String],
   out_dir : String,
 ) -> Unit raise @fs.IOError {
   if !@fs.path_exists(out_dir) {
     @fs.create_dir(out_dir)
   }
 
-  let names = z.zip.list_entries()
-  for p in names {
-    if !p.has_prefix(prefix) {
+  let exported : Map[String, Bool] = Map::new()
+
+  for (_, target) in rels {
+    let normalized = normalize_doc_part_target(target)
+    if !normalized.has_prefix("word/media/") {
       continue
     }
 
-    let name = @cor.basename(p)
-    if name == "" {
+    let name = @cor.basename(normalized)
+    if name == "" || exported.contains(name) {
       continue
     }
 
-    let dest = out_dir + "/" + name
-    let b = z.zip.read_entry_bytes(p) catch { _ => continue }
-
-    @fs.write_bytes_to_file(dest, b)
+    let data = @ox.read_part_bytes(p.pkg, normalized) catch { _ => continue }
+    @fs.write_bytes_to_file(out_dir + "/" + name, data)
+    exported.set(name, true)
   }
 }
 
 ///|
-/// 读取 word/styles.xml；缺失时返回空样式映射
-async fn DocxZip::load_styles(z : DocxZip) -> DocxStyles {
-  let xml = z.read_text_optional("word/styles.xml")
+async fn DocxPackage::load_styles(p : DocxPackage) -> DocxStyles {
+  let xml = p.read_text_optional("word/styles.xml")
   if xml == "" {
     return empty_styles()
   }
@@ -75,8 +90,8 @@ async fn DocxZip::load_styles(z : DocxZip) -> DocxStyles {
 }
 
 ///|
-async fn DocxZip::load_numbering(z : DocxZip) -> DocxNumbering {
-  let xml = z.read_text_optional("word/numbering.xml")
+async fn DocxPackage::load_numbering(p : DocxPackage) -> DocxNumbering {
+  let xml = p.read_text_optional("word/numbering.xml")
   if xml == "" {
     return empty_numbering()
   }
