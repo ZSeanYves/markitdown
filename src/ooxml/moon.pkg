@@ -1,5 +1,5 @@
 import {
-  "bikallem/compress/flate" @flate,
+  "ZSeanYves/markitdown/src/zip" @zip,
   "moonbitlang/x/fs" @fs,
 }
 

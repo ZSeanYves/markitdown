@@ -8,15 +8,31 @@ const CD_FILE_HEADER_SIG : Int = 0x02014b50
 const LOCAL_FILE_HEADER_SIG : Int = 0x04034b50
 
 ///|
+const ZIP64_U16_SENTINEL : Int = 0xFFFF
+
+///|
+const ZIP64_U32_SENTINEL : Int = 0xFFFFFFFF
+
+///|
+const GP_FLAG_ENCRYPTED : Int = 0x0001
+
+///|
+const GP_FLAG_DATA_DESCRIPTOR : Int = 0x0008
+
+
+///|
 pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
-  let (cd_offset, _cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
-  let entries = parse_cd_entries(bytes, cd_offset, entry_count)
+  let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
+  let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
   let index : Map[String, Int] = Map::new()
 
   let mut i = 0
   while i < entries.length() {
     let entry = entries[i]
+    if index.contains(entry.name) {
+      raise InvalidStructure("duplicate entry name in central directory: " + entry.name)
+    }
     index.set(entry.name, i)
     i = i + 1
   }
@@ -39,6 +55,8 @@ pub fn read_entry(
     Some(idx) => archive.entries[idx]
     None => raise EntryNotFound(path)
   }
+
+  validate_entry_supported_flags(entry.flags, entry.name)
 
   let local_offset = entry.local_header_offset
   let sig = read_u32_le(
@@ -71,12 +89,7 @@ pub fn read_entry(
     "local file header extra length",
   )
 
-  if (flags & 0x01) != 0 {
-    raise InvalidStructure("encrypted zip is not supported")
-  }
-  if (flags & 0x08) != 0 {
-    raise InvalidStructure("data descriptor is not supported in phase-1")
-  }
+  validate_entry_supported_flags(flags, entry.name)
 
   let local_method = compression_method_from_code(method_code)
   if local_method != entry.compression_method {
@@ -85,7 +98,33 @@ pub fn read_entry(
     )
   }
 
-  let data_start = local_offset + 30 + name_len + extra_len
+  if flags != entry.flags {
+    raise InvalidStructure(
+      "central/local flags mismatch for entry: " + entry.name,
+    )
+  }
+
+  let local_name_start = local_offset + 30
+  let local_name_end = local_name_start + name_len
+  let local_name_bytes = subview(
+    archive.bytes,
+    local_name_start,
+    local_name_end,
+    "local file header name",
+  )
+  let local_name = bytes_to_string(local_name_bytes)
+
+  if local_name != entry.name {
+    raise InvalidStructure(
+      "central/local filename mismatch: central=`" +
+      entry.name +
+      "`, local=`" +
+      local_name +
+      "`",
+    )
+  }
+
+  let data_start = local_name_end + extra_len
   let data_end = data_start + entry.compressed_size
   let compressed = subview(archive.bytes, data_start, data_end, "entry data")
 
@@ -101,6 +140,18 @@ pub fn read_entry(
         ", actual=" +
         actual.to_string(),
       )
+  }
+}
+
+///|
+fn validate_entry_supported_flags(flags : Int, entry_name : String) -> Unit raise ZipError {
+  if (flags & GP_FLAG_ENCRYPTED) != 0 {
+    raise InvalidStructure("encrypted zip is not supported: " + entry_name)
+  }
+  if (flags & GP_FLAG_DATA_DESCRIPTOR) != 0 {
+    raise InvalidStructure(
+      "data descriptor is not supported in phase-1: " + entry_name,
+    )
   }
 }
 
@@ -142,12 +193,24 @@ fn parse_eocd(
   let total_entries = read_u16_le(bytes, eocd_offset + 10, "EOCD total entries")
   let cd_size = read_u32_le(bytes, eocd_offset + 12, "EOCD cd size")
   let cd_offset = read_u32_le(bytes, eocd_offset + 16, "EOCD cd offset")
+  let comment_len = read_u16_le(bytes, eocd_offset + 20, "EOCD comment length")
 
   if disk_no != 0 || cd_start_disk != 0 {
     raise InvalidStructure("multi-disk zip is not supported")
   }
   if disk_entries != total_entries {
     raise InvalidStructure("inconsistent EOCD entry counts")
+  }
+
+  if total_entries == ZIP64_U16_SENTINEL ||
+    cd_size == ZIP64_U32_SENTINEL ||
+    cd_offset == ZIP64_U32_SENTINEL {
+    raise InvalidStructure("ZIP64 is not supported in phase-1")
+  }
+
+  let eocd_end = eocd_offset + 22 + comment_len
+  if eocd_end != bytes.length() {
+    raise InvalidStructure("EOCD comment length mismatch")
   }
 
   let cd_end = cd_offset + cd_size
@@ -162,19 +225,27 @@ fn parse_eocd(
 fn parse_cd_entries(
   bytes : Bytes,
   cd_offset : Int,
+  cd_size : Int,
   entry_count : Int,
 ) -> Array[ZipEntryMeta] raise ZipError {
   let entries : Array[ZipEntryMeta] = []
   let mut cursor = cd_offset
+  let cd_end = cd_offset + cd_size
   let mut i = 0
 
   while i < entry_count {
+    if cursor + 46 > cd_end {
+      raise UnexpectedEOF("central directory entry header")
+    }
+
     let sig = read_u32_le(bytes, cursor, "central directory signature")
     if sig != CD_FILE_HEADER_SIG {
       raise InvalidSignature("central directory entry", CD_FILE_HEADER_SIG, sig)
     }
 
     let flags = read_u16_le(bytes, cursor + 8, "central directory flags")
+    validate_entry_supported_flags(flags, "(central directory entry)")
+
     let method_code = read_u16_le(
       bytes,
       cursor + 10,
@@ -212,10 +283,24 @@ fn parse_cd_entries(
       "central directory local header offset",
     )
 
+    if compressed_size == ZIP64_U32_SENTINEL ||
+      uncompressed_size == ZIP64_U32_SENTINEL ||
+      local_header_offset == ZIP64_U32_SENTINEL {
+      raise InvalidStructure("ZIP64 central directory entry is not supported in phase-1")
+    }
+
     let name_start = cursor + 46
     let name_end = name_start + name_len
+    let entry_end = name_end + extra_len + comment_len
+    if entry_end > cd_end {
+      raise UnexpectedEOF("central directory entry payload")
+    }
+
     let name_bytes = subview(bytes, name_start, name_end, "entry name")
     let name = bytes_to_string(name_bytes)
+    if name == "" {
+      raise InvalidStructure("empty entry name in central directory")
+    }
 
     let compression_method = compression_method_from_code(method_code)
 
@@ -229,8 +314,12 @@ fn parse_cd_entries(
       flags,
     })
 
-    cursor = name_end + extra_len + comment_len
+    cursor = entry_end
     i = i + 1
+  }
+
+  if cursor != cd_end {
+    raise InvalidStructure("central directory trailing bytes mismatch")
   }
 
   entries
