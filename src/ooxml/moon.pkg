@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/src/zip" @zip,
+  "moonbitlang/x/fs" @fs,
+}
+
+options(
+  "preferred-target": "native",
+)
