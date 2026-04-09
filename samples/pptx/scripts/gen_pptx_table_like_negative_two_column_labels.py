@@ -44,14 +44,23 @@ def main() -> None:
     # row-like alignment but no table shape/grid/borders.
     left_x = Inches(1.0)
     right_x = Inches(5.8)
-    row_tops = [Inches(2.0), Inches(3.1), Inches(4.2)]
+    row_tops = [Inches(2.0), Inches(3.2), Inches(4.4)]
+    pair_jitter = Inches(0.08)
 
     left_labels = ["Sales", "Ops", "Triage"]
     right_labels = ["Support", "Forecasting", "Monitoring"]
 
     for y, left, right in zip(row_tops, left_labels, right_labels):
         add_textbox(slide, left_x, y, Inches(3.0), Inches(0.8), left, font_size=24)
-        add_textbox(slide, right_x, y, Inches(3.2), Inches(0.8), right, font_size=24)
+        add_textbox(
+            slide,
+            right_x,
+            y + pair_jitter,
+            Inches(3.2),
+            Inches(0.8),
+            right,
+            font_size=24,
+        )
 
     prs.save(OUT_PATH)
     print(f"Wrote {OUT_PATH}")

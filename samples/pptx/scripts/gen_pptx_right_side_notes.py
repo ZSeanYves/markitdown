@@ -40,15 +40,15 @@ def main() -> None:
     add_textbox(
         slide,
         Inches(0.8),
-        Inches(2.1),
-        Inches(6.0),
+        Inches(1.7),
+        Inches(6.9),
         Inches(1.0),
         "Main flow",
         font_size=26,
     )
 
     # Right-side note-like cluster.
-    notes = slide.shapes.add_textbox(Inches(8.0), Inches(1.9), Inches(2.1), Inches(3.0))
+    notes = slide.shapes.add_textbox(Inches(8.4), Inches(2.5), Inches(1.6), Inches(2.6))
     tf = notes.text_frame
     tf.clear()
 
