@@ -4,6 +4,28 @@ fn extract_table_like_regions(
 ) -> (Array[Array[LayoutShape]], Array[LayoutShape]) {
   if PPTX_SLIDE_DEBUG {
     println("[pptx-extract-table] input n=" + shapes.length().to_string())
+    for sp in shapes {
+      println(
+        "[pptx-extract-table] shape=" +
+        normalize_shape_text_for_title(sp.shape.xml) +
+        " | x=" +
+        sp.shape.x.to_string() +
+        " | y=" +
+        sp.shape.y.to_string() +
+        " | w=" +
+        sp.shape.w.to_string() +
+        " | h=" +
+        sp.shape.h.to_string() +
+        " | right=" +
+        sp.right.to_string() +
+        " | bottom=" +
+        sp.bottom.to_string() +
+        " | cx=" +
+        sp.center_x.to_string() +
+        " | cy=" +
+        sp.center_y.to_string(),
+      )
+    }
 
     let candidates = filter_table_like_candidates(shapes)
     println(
@@ -31,9 +53,27 @@ fn extract_table_like_regions(
 
   for g in candidate_groups {
     let sorted = sort_layout_shapes_simple(g)
-    if shapes_form_grid_like_region(sorted) {
-      table_regions.push(sorted)
+    let ok = shapes_form_grid_like_region(sorted)
+
+    if PPTX_SLIDE_DEBUG {
+      let region_texts : Array[String] = []
       for sp in sorted {
+        region_texts.push(normalize_shape_text_for_title(sp.shape.xml))
+      }
+      println(
+        "[pptx-table-region-decision] size=" +
+        sorted.length().to_string() +
+        " | texts=" +
+        region_texts.join("|") +
+        " | ok=" +
+        ok.to_string(),
+      )
+    }
+
+    if ok {
+      let expanded = expand_table_like_region_members(sorted, candidates)
+      table_regions.push(expanded)
+      for sp in expanded {
         used.push(sp)
       }
     }
@@ -54,10 +94,11 @@ fn cluster_table_like_candidate_shapes(
   shapes : Array[LayoutShape],
 ) -> Array[Array[LayoutShape]] {
   if PPTX_SLIDE_DEBUG {
-    println("[pptx-cluster-enter] n=" + shapes.length().to_string())
+    println("[pptx-table-cluster] input n=" + shapes.length().to_string())
     for sp in shapes {
       println(
-        "[pptx-cluster-shape] " + normalize_shape_text_for_title(sp.shape.xml),
+        "[pptx-table-cluster] shape=" +
+        normalize_shape_text_for_title(sp.shape.xml),
       )
     }
   }
@@ -102,6 +143,27 @@ fn cluster_table_like_candidate_shapes(
     groups.push(sort_layout_shapes_simple(comp))
   }
 
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-table-cluster] groups n=" + groups.length().to_string())
+    for i in 0..<groups.length() {
+      let g = groups[i]
+      println(
+        "[pptx-table-cluster] group " +
+        i.to_string() +
+        " size=" +
+        g.length().to_string(),
+      )
+      for sp in g {
+        println(
+          "[pptx-table-cluster] group " +
+          i.to_string() +
+          " member=" +
+          normalize_shape_text_for_title(sp.shape.xml),
+        )
+      }
+    }
+  }
+
   groups
 }
 
@@ -141,28 +203,244 @@ fn quantize_coord(v : Int, step : Int) -> Int {
 }
 
 ///|
-/// conservative grid/table-like region detection:
-/// - at least 4 shapes
-/// - most shapes are short/small candidates
-/// - at least 2 rows and 2 columns after rough bucketing
-/// - not just sparse 2d points: need repeated occupancy on both axes
-/// - need multiple non-trivial rows/cols rather than only one repeated row/col
-/// - need moderate fill density in the implied grid
-fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
-  if shapes.length() < 4 {
-    return false
+fn int_in_array(xs : Array[Int], v : Int) -> Bool {
+  for x in xs {
+    if x == v {
+      return true
+    }
   }
+  false
+}
 
-  let (slide_w, slide_h) = estimate_layout_bounds(shapes)
+///|
+fn collect_bucketed_center_x(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
 
-  let mut candidate_cnt = 0
   for sp in shapes {
-    if is_table_like_shape_candidate(sp, slide_w, slide_h) {
-      candidate_cnt += 1
+    let q = quantize_coord(sp.center_x, step)
+    if !int_in_array(out, q) {
+      out.push(q)
     }
   }
 
-  if candidate_cnt * 2 < shapes.length() {
+  out
+}
+
+///|
+fn collect_bucketed_center_y(
+  shapes : Array[LayoutShape],
+  step : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
+
+  for sp in shapes {
+    let q = quantize_coord(sp.center_y, step)
+    if !int_in_array(out, q) {
+      out.push(q)
+    }
+  }
+
+  out
+}
+
+///|
+/// after a table-like region is accepted, try to absorb extra candidate shapes
+/// that align with both an existing row bucket and an existing column bucket.
+/// this is mainly for edge/header cells that were missed by the initial cluster.
+fn expand_table_like_region_members(
+  region : Array[LayoutShape],
+  candidates : Array[LayoutShape],
+) -> Array[LayoutShape] {
+  if region.length() == 0 {
+    return region
+  }
+
+  let avgw = average_shape_w(region)
+  let avgh = average_shape_h(region)
+
+  let x_step = if avgw > 0 { max_int(1, avgw / 2) } else { 1 }
+  let y_step = if avgh > 0 { max_int(1, avgh / 2) } else { 1 }
+
+  let col_buckets = collect_bucketed_center_x(region, x_step)
+  let row_buckets = collect_bucketed_center_y(region, y_step)
+
+  let out : Array[LayoutShape] = []
+  for sp in region {
+    out.push(sp)
+  }
+
+  if PPTX_SLIDE_DEBUG {
+    let region_texts_before : Array[String] = []
+    for sp in region {
+      region_texts_before.push(normalize_shape_text_for_title(sp.shape.xml))
+    }
+    println(
+      "[pptx-table-expand] region before=" + region_texts_before.join("|"),
+    )
+  }
+
+  for sp in candidates {
+    if layout_shape_in_array(sp, out) {
+      continue
+    }
+
+    let qx = quantize_coord(sp.center_x, x_step)
+    let qy = quantize_coord(sp.center_y, y_step)
+
+    if int_in_array(col_buckets, qx) && int_in_array(row_buckets, qy) {
+      out.push(sp)
+      if PPTX_SLIDE_DEBUG {
+        println(
+          "[pptx-table-expand] added=" +
+          normalize_shape_text_for_title(sp.shape.xml),
+        )
+      }
+    }
+  }
+
+  let sorted = sort_layout_shapes_simple(out)
+  if PPTX_SLIDE_DEBUG {
+    let region_texts_after : Array[String] = []
+    for sp in sorted {
+      region_texts_after.push(normalize_shape_text_for_title(sp.shape.xml))
+    }
+    println("[pptx-table-expand] region after=" + region_texts_after.join("|"))
+  }
+  sorted
+}
+
+///|
+/// implied grid density as a rational pair:
+/// actual cells = shapes.length()
+/// implied cells = rows * cols
+fn grid_density_numer_denom(
+  shape_count : Int,
+  rows : Int,
+  cols : Int,
+) -> (Int, Int) {
+  let denom = rows * cols
+  if denom <= 0 {
+    (0, 1)
+  } else {
+    (shape_count, denom)
+  }
+}
+
+///|
+fn debug_print_grid_region_stats(
+  shapes : Array[LayoutShape],
+  rows : Int,
+  cols : Int,
+  rich_rows : Int,
+  rich_cols : Int,
+  max_row_pop : Int,
+  max_col_pop : Int,
+  density_num : Int,
+  density_den : Int,
+) -> Unit {
+  if !PPTX_SLIDE_DEBUG {
+    return
+  }
+
+  println(
+    "[pptx-grid-region] n=" +
+    shapes.length().to_string() +
+    " rows=" +
+    rows.to_string() +
+    " cols=" +
+    cols.to_string() +
+    " rich_rows=" +
+    rich_rows.to_string() +
+    " rich_cols=" +
+    rich_cols.to_string() +
+    " max_row_pop=" +
+    max_row_pop.to_string() +
+    " max_col_pop=" +
+    max_col_pop.to_string() +
+    " density=" +
+    density_num.to_string() +
+    "/" +
+    density_den.to_string(),
+  )
+
+  for sp in shapes {
+    println(
+      "[pptx-grid-region-shape] " +
+      normalize_shape_text_for_title(sp.shape.xml) +
+      " | x=" +
+      sp.shape.x.to_string() +
+      " y=" +
+      sp.shape.y.to_string() +
+      " w=" +
+      sp.shape.w.to_string() +
+      " h=" +
+      sp.shape.h.to_string() +
+      " cx=" +
+      sp.center_x.to_string() +
+      " cy=" +
+      sp.center_y.to_string(),
+    )
+  }
+}
+
+///|
+fn row_pair_looks_like_callout_blocks(
+  top : Array[LayoutShape],
+  bottom : Array[LayoutShape],
+) -> Bool {
+  if top.length() < 2 || top.length() != bottom.length() {
+    return false
+  }
+
+  for i in 0..<top.length() {
+    let strict = looks_like_callout_pair(top[i], bottom[i])
+    let relaxed = if strict {
+      true
+    } else {
+      looks_like_relaxed_callout_pair(top[i], bottom[i])
+    }
+    if !relaxed {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn looks_like_two_row_callout_blocks(shapes : Array[LayoutShape]) -> Bool {
+  let rows = cluster_shapes_into_rows(shapes)
+  if rows.length() != 2 {
+    return false
+  }
+
+  row_pair_looks_like_callout_blocks(rows[0], rows[1])
+}
+
+///|
+/// conservative grid/table-like region detection:
+/// - at least 4 shapes
+/// - input is already a candidate cluster from filter_table_like_candidates(...)
+/// - at least 2 rows and 2 columns after rough bucketing
+/// - not just sparse 2d points: need repeated occupancy on both axes
+/// - need multiple non-trivial rows and multiple non-trivial cols
+/// - need moderate fill density in the implied grid
+fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
+  if PPTX_SLIDE_DEBUG {
+    let shape_texts : Array[String] = []
+    for sp in shapes {
+      shape_texts.push(normalize_shape_text_for_title(sp.shape.xml))
+    }
+    println("[pptx-table-grid] shapes=" + shape_texts.join("|"))
+  }
+
+  if shapes.length() < 4 {
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table-grid] decision=false")
+    }
     return false
   }
 
@@ -171,38 +449,134 @@ fn shapes_form_grid_like_region(shapes : Array[LayoutShape]) -> Bool {
 
   let x_step = if avgw > 0 { max_int(1, avgw / 2) } else { 1 }
   let y_step = if avgh > 0 { max_int(1, avgh / 2) } else { 1 }
+
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-grid] avgw=" +
+      avgw.to_string() +
+      " | avgh=" +
+      avgh.to_string() +
+      " | x_step=" +
+      x_step.to_string() +
+      " | y_step=" +
+      y_step.to_string(),
+    )
+  }
+
   let cols = count_distinct_bucketed_center_x(shapes, x_step)
   let rows = count_distinct_bucketed_center_y(shapes, y_step)
+
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-grid] rows=" +
+      rows.to_string() +
+      " | cols=" +
+      cols.to_string(),
+    )
+  }
+
   if cols < 2 || rows < 2 {
+    if PPTX_SLIDE_DEBUG {
+      debug_print_grid_region_stats(shapes, rows, cols, 0, 0, 0, 0, 0, 1)
+      println("[pptx-table-grid] decision=false")
+    }
     return false
   }
+
   let max_col_pop = max_bucket_population_center_x(shapes, x_step)
   let max_row_pop = max_bucket_population_center_y(shapes, y_step)
 
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-grid] max_row_pop=" +
+      max_row_pop.to_string() +
+      " | max_col_pop=" +
+      max_col_pop.to_string(),
+    )
+  }
+
   // 至少要有一列里出现 2+，且一行里出现 2+
   if max_col_pop < 2 || max_row_pop < 2 {
+    if PPTX_SLIDE_DEBUG {
+      debug_print_grid_region_stats(
+        shapes, rows, cols, 0, 0, max_row_pop, max_col_pop, 0, 1,
+      )
+      println("[pptx-table-grid] decision=false")
+    }
     return false
   }
 
   let rich_cols = count_bucketed_center_x_with_min_population(shapes, x_step, 2)
   let rich_rows = count_bucketed_center_y_with_min_population(shapes, y_step, 2)
 
-  // 不能只有“某一行/某一列”碰巧重复；需要多行多列都像 grid
-  if rich_cols + rich_rows < 4 {
+  let (density_num, density_den) = grid_density_numer_denom(
+    shapes.length(),
+    rows,
+    cols,
+  )
+
+  if PPTX_SLIDE_DEBUG {
+    println(
+      "[pptx-table-grid] rich_rows=" +
+      rich_rows.to_string() +
+      " | rich_cols=" +
+      rich_cols.to_string(),
+    )
+    println(
+      "[pptx-table-grid] density=" +
+      density_num.to_string() +
+      "/" +
+      density_den.to_string(),
+    )
+    for sp in shapes {
+      println(
+        "[pptx-table-grid] bucket=" +
+        normalize_shape_text_for_title(sp.shape.xml) +
+        " | qx=" +
+        quantize_coord(sp.center_x, x_step).to_string() +
+        " | qy=" +
+        quantize_coord(sp.center_y, y_step).to_string(),
+      )
+    }
+    debug_print_grid_region_stats(
+      shapes, rows, cols, rich_rows, rich_cols, max_row_pop, max_col_pop, density_num,
+      density_den,
+    )
+  }
+
+  // 不能只有“某一行”或“某一列”碰巧重复；
+  // 需要至少两行、两列都具备非平凡 occupancy
+  if rich_cols < 2 || rich_rows < 2 {
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table-grid] decision=false")
+    }
     return false
   }
 
   // implied grid density: avoid very sparse pseudo-2d layouts
-  if shapes.length() * 2 < rows * cols {
+  if density_num * 2 < density_den {
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table-grid] decision=false")
+    }
     return false
   }
 
+  // avoid swallowing narrow two-row callout blocks into table-like flow.
+  if looks_like_two_row_callout_blocks(shapes) {
+    if PPTX_SLIDE_DEBUG {
+      println("[pptx-table-grid] decision=false (two-row callout-like)")
+    }
+    return false
+  }
+
+  if PPTX_SLIDE_DEBUG {
+    println("[pptx-table-grid] decision=true")
+  }
   true
 }
 
 ///|
 fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
-  //println("[pptx-link-enter]")
   let hgap = horizontal_gap(a, b)
   let vgap = vertical_gap(a, b)
   let hoverlap = horizontal_overlap(a, b)
@@ -211,21 +585,22 @@ fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
   let maxw = max_int(a.shape.w, b.shape.w)
   let maxh = max_int(a.shape.h, b.shape.h)
 
+  let same_row = approx_same_row(a, b)
+  let same_col = approx_same_col(a, b)
+
   let ta = normalize_shape_text_for_title(a.shape.xml)
   let tb = normalize_shape_text_for_title(b.shape.xml)
 
-  if (
-      (ta == "Revenue" && tb == "Cost") ||
-      (ta == "Cost" && tb == "Revenue") ||
-      (ta == "Revenue" && tb == "120") ||
-      (ta == "120" && tb == "Revenue")
-    ) &&
-    PPTX_SLIDE_DEBUG {
+  if PPTX_SLIDE_DEBUG {
     println(
       "[pptx-link] " +
       ta +
       " <-> " +
       tb +
+      " | same_row=" +
+      same_row.to_string() +
+      " | same_col=" +
+      same_col.to_string() +
       " | hgap=" +
       hgap.to_string() +
       " | vgap=" +
@@ -241,11 +616,17 @@ fn should_link_table_like_shapes(a : LayoutShape, b : LayoutShape) -> Bool {
     )
   }
 
-  if hoverlap > 0 && vgap <= maxh * 2 {
+  // row-wise link:
+  // must really look like the same visual row,
+  // and the horizontal gap should still be locally reasonable.
+  if same_row && voverlap > 0 && hgap <= max_int(24, maxw * 2) {
     return true
   }
 
-  if voverlap > 0 && hgap <= maxw * 2 {
+  // col-wise link:
+  // must really look like the same visual column,
+  // and the vertical gap should still be locally reasonable.
+  if same_col && hoverlap > 0 && vgap <= max_int(16, maxh * 2) {
     return true
   }
 
@@ -262,37 +643,11 @@ fn same_layout_shape(a : LayoutShape, b : LayoutShape) -> Bool {
 }
 
 ///|
-fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
-  for item in arr {
-    if same_layout_shape(sp, item) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn count_distinct_bucketed_center_x(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_x, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
+  collect_bucketed_center_x(shapes, step).length()
 }
 
 ///|
@@ -300,23 +655,7 @@ fn count_distinct_bucketed_center_y(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let seen : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_y, step)
-    let mut exists = false
-    for v in seen {
-      if v == q {
-        exists = true
-        break
-      }
-    }
-    if !exists {
-      seen.push(q)
-    }
-  }
-
-  seen.length()
+  collect_bucketed_center_y(shapes, step).length()
 }
 
 ///|

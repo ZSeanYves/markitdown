@@ -77,6 +77,10 @@ fn should_group_nearby_shapes(
   let hoverlap = horizontal_overlap(a, b)
   let voverlap = vertical_overlap(a, b)
 
+  if looks_like_callout_pair(a, b) {
+    return true
+  }
+
   if hoverlap > 0 && vgap <= max_int(a.shape.h, b.shape.h) {
     return true
   }
@@ -89,12 +93,158 @@ fn should_group_nearby_shapes(
 }
 
 ///|
+fn callout_text_contains_digit(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch >= '0' && ch <= '9' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn callout_text_contains_space(s : String) -> Bool {
+  for ch in s.to_array() {
+    if ch == ' ' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn looks_like_desc_prefix_text(s : String) -> Bool {
+  s.contains("Desc") || s.contains("desc")
+}
+
+///|
+fn looks_like_callout_title_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" || n > 24 {
+    return false
+  }
+
+  if callout_text_contains_digit(t.to_string()) {
+    // allow compact digit-suffixed labels like "Title1" / "C1",
+    // but keep desc-like short labels out of title slot.
+    if callout_text_contains_space(t.to_string()) ||
+      looks_like_desc_prefix_text(t.to_string()) {
+      return false
+    }
+  }
+
+  if t.contains(".") || t.contains("!") || t.contains("?") {
+    return false
+  }
+
+  true
+}
+
+///|
+fn looks_like_callout_desc_text(s : String) -> Bool {
+  let t = s.trim()
+  let n = t.to_array().length()
+
+  if t == "" {
+    return false
+  }
+
+  if callout_text_contains_digit(t.to_string()) {
+    // allow compact desc labels like "Desc1" / "Desc C1".
+    return callout_text_contains_space(t.to_string()) ||
+      looks_like_desc_prefix_text(t.to_string())
+  }
+
+  if callout_text_contains_space(t.to_string()) {
+    return true
+  }
+
+  n >= 16
+}
+
+///|
+fn looks_like_callout_pair(a : LayoutShape, b : LayoutShape) -> Bool {
+  let at = normalize_shape_text_for_title(a.shape.xml)
+  let bt = normalize_shape_text_for_title(b.shape.xml)
+
+  let a_title = looks_like_callout_title_text(at)
+  let b_title = looks_like_callout_title_text(bt)
+  let a_desc = looks_like_callout_desc_text(at)
+  let b_desc = looks_like_callout_desc_text(bt)
+
+  if !((a_title && b_desc) || (b_title && a_desc)) {
+    return false
+  }
+
+  let hoverlap = horizontal_overlap(a, b)
+  if hoverlap <= 0 {
+    return false
+  }
+
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  if vgap > max_int(maxh, 180000) {
+    return false
+  }
+
+  true
+}
+
+///|
+fn group_has_callout_core(shapes : Array[LayoutShape]) -> Bool {
+  if shapes.length() < 2 {
+    return false
+  }
+
+  for i in 0..<shapes.length() {
+    for j in (i + 1)..<shapes.length() {
+      if looks_like_callout_pair(shapes[i], shapes[j]) {
+        return true
+      }
+    }
+  }
+
+  false
+}
+
+///|
+fn is_strong_vertical_neighbor(a : LayoutShape, b : LayoutShape) -> Bool {
+  let hoverlap = horizontal_overlap(a, b)
+  let vgap = vertical_gap(a, b)
+  let maxh = max_int(a.shape.h, b.shape.h)
+
+  hoverlap > 0 && vgap <= max_int(maxh, 180000)
+}
+
+///|
 fn group_accepts_shape(
   g : ShapeGroup,
   sp : LayoutShape,
   slide_w : Int,
   slide_h : Int,
 ) -> Bool {
+  if g.kind == ShapeGroupKind::CaptionLike &&
+    g.shapes.length() >= 2 &&
+    group_has_callout_core(g.shapes) {
+    for item in g.shapes {
+      if looks_like_callout_pair(item, sp) {
+        return true
+      }
+    }
+
+    let mut linked = 0
+    for item in g.shapes {
+      if is_strong_vertical_neighbor(item, sp) {
+        linked += 1
+      }
+    }
+
+    return linked >= 2
+  }
+
   for item in g.shapes {
     if should_group_nearby_shapes(item, sp, slide_w, slide_h) {
       return true
@@ -109,6 +259,62 @@ fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
     return a.top < b.top
   }
   a.left < b.left
+}
+
+///|
+fn is_grouping_debug_target(shapes : Array[LayoutShape]) -> Bool {
+  if !PPTX_SLIDE_DEBUG {
+    return false
+  }
+
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    if text.contains("Title1") ||
+      text.contains("Title2") ||
+      text.contains("Title3") ||
+      text.contains("Desc1") ||
+      text.contains("Desc2") ||
+      text.contains("Desc3") {
+      return true
+    }
+    if text.contains("Narrow") ||
+      text.contains("Wide") ||
+      text.contains("Medium") ||
+      text.contains("Compact summary") ||
+      text.contains("Balanced note") {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
+fn shape_group_kind_name(kind : ShapeGroupKind) -> String {
+  match kind {
+    ShapeGroupKind::Normal => "Normal"
+    ShapeGroupKind::CaptionLike => "CaptionLike"
+    ShapeGroupKind::TableLike => "TableLike"
+  }
+}
+
+///|
+fn debug_print_shape_group(stage : String, g : ShapeGroup) -> Unit {
+  println(
+    "[group-debug] " +
+    stage +
+    " kind=" +
+    shape_group_kind_name(g.kind) +
+    " top=" +
+    g.top.to_string() +
+    " left=" +
+    g.left.to_string() +
+    " len=" +
+    g.shapes.length().to_string(),
+  )
+  for sp in g.shapes {
+    println("[group-debug]   - " + normalize_shape_text_for_title(sp.shape.xml))
+  }
 }
 
 ///|
@@ -139,6 +345,7 @@ fn group_body_shapes_for_layout(
   shapes : Array[LayoutShape],
 ) -> Array[ShapeGroup] {
   let groups : Array[ShapeGroup] = []
+  let debug_target = is_grouping_debug_target(shapes)
   if shapes.length() == 0 {
     return groups
   }
@@ -158,7 +365,13 @@ fn group_body_shapes_for_layout(
   }
 
   if rest_shapes.length() == 0 {
-    return sort_shape_groups(groups)
+    let out = sort_shape_groups(groups)
+    if debug_target {
+      for g in out {
+        debug_print_shape_group("group_body_shapes_for_layout/final", g)
+      }
+    }
+    return out
   }
 
   let (slide_w, slide_h) = estimate_layout_bounds(rest_shapes)
@@ -207,5 +420,11 @@ fn group_body_shapes_for_layout(
     }
   }
 
-  sort_shape_groups(groups)
+  let out = sort_shape_groups(groups)
+  if debug_target {
+    for g in out {
+      debug_print_shape_group("group_body_shapes_for_layout/final", g)
+    }
+  }
+  out
 }

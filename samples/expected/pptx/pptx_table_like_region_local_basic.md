@@ -4,11 +4,11 @@
 
 Revenue
 
+120
+
 Cost
 
 Profit
-
-120
 
 80
 

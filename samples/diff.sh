@@ -9,6 +9,8 @@ OUT_DIR="$ROOT/.tmp_test_out"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
+"$SAMPLES_DIR/check_samples.sh"
+
 fail=0
 found=0
 

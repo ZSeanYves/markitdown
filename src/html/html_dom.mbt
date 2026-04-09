@@ -4,6 +4,7 @@ priv enum HtmlInline {
   Break
 }
 
+///|
 priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])
@@ -294,6 +295,7 @@ fn scan_li_children(
   next_level : Int,
 ) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
+  let pending_para : Array[HtmlInline] = []
 
   // fast path:
   // if this <li> body has no block-like tags, treat the whole body
@@ -323,22 +325,24 @@ fn scan_li_children(
     match lt0 {
       None => {
         let tail = bs[pos:end_].to_bytes()
-        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        let xs = html_inlines_from_bytes(tail)
         if !inlines_is_blank(xs) {
-          out.push(HtmlNode::Paragraph(xs))
+          append_inlines(pending_para, xs)
         }
+        flush_pending_paragraph(out, pending_para)
         break
       }
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_bytes()
-          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          let xs = html_inlines_from_bytes(head)
           if !inlines_is_blank(xs) {
-            out.push(HtmlNode::Paragraph(xs))
+            append_inlines(pending_para, xs)
           }
         }
 
         if p >= end_ {
+          flush_pending_paragraph(out, pending_para)
           break
         }
 
@@ -346,19 +350,21 @@ fn scan_li_children(
         match gt0 {
           None => {
             let tail = bs[p:end_].to_bytes()
-            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            let xs = html_inlines_from_bytes(tail)
             if !inlines_is_blank(xs) {
-              out.push(HtmlNode::Paragraph(xs))
+              append_inlines(pending_para, xs)
             }
+            flush_pending_paragraph(out, pending_para)
             break
           }
           Some(q) => {
             if q >= end_ {
               let tail = bs[p:end_].to_bytes()
-              let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+              let xs = html_inlines_from_bytes(tail)
               if !inlines_is_blank(xs) {
-                out.push(HtmlNode::Paragraph(xs))
+                append_inlines(pending_para, xs)
               }
+              flush_pending_paragraph(out, pending_para)
               break
             }
 
@@ -366,11 +372,13 @@ fn scan_li_children(
             let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
 
             if tag.has_prefix("<p") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_p, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let xs = html_inlines_from_bytes(inner)
@@ -380,16 +388,17 @@ fn scan_li_children(
                     pos = end + close_p.length()
                     continue
                   }
-                }
               }
             }
 
             if tag.has_prefix("<blockquote") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_blockquote, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let children = scan_html_nodes_in_container(inner)
@@ -399,16 +408,17 @@ fn scan_li_children(
                     pos = end + close_blockquote.length()
                     continue
                   }
-                }
               }
             }
 
             if tag.has_prefix("<pre") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_pre, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let text = html_pre_text_from_bytes(inner)
@@ -418,16 +428,17 @@ fn scan_li_children(
                     pos = end + close_pre.length()
                     continue
                   }
-                }
               }
             }
 
             if tag.has_prefix("<table") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_table, inner_start)
               match end0 {
                 None => ()
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_bytes()
                     let rows = html_table_from_bytes(inner)
@@ -437,7 +448,6 @@ fn scan_li_children(
                     pos = end + close_table.length()
                     continue
                   }
-                }
               }
             }
 
@@ -446,18 +456,16 @@ fn scan_li_children(
               let list_name = if is_ol { "ol" } else { "ul" }
 
               match find_matching_list_end(bs, p, list_name) {
-                Some(end) => {
+                Some(end) =>
                   if end <= end_ {
+                    flush_pending_paragraph(out, pending_para)
+
                     let close_len = ("</" + list_name + ">").length()
                     let inner_start = q + 1
                     let inner_end = end
 
                     let items = scan_list_nodes(
-                      bs,
-                      inner_start,
-                      inner_end,
-                      is_ol,
-                      next_level,
+                      bs, inner_start, inner_end, is_ol, next_level,
                     )
                     for item in items {
                       out.push(item)
@@ -466,7 +474,6 @@ fn scan_li_children(
                     pos = end + close_len
                     continue
                   }
-                }
                 None => ()
               }
             }
@@ -479,12 +486,14 @@ fn scan_li_children(
     }
   }
 
+  flush_pending_paragraph(out, pending_para)
   out
 }
 
 ///|
 fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
+  let pending_para : Array[HtmlInline] = []
 
   let lt = pat("<")
   let gt = pat(">")
@@ -502,18 +511,19 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
     match lt0 {
       None => {
         let tail = bs[pos:n].to_bytes()
-        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        let xs = html_inlines_from_bytes(tail)
         if !inlines_is_blank(xs) {
-          out.push(HtmlNode::Paragraph(xs))
+          append_inlines(pending_para, xs)
         }
+        flush_pending_paragraph(out, pending_para)
         break
       }
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_bytes()
-          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          let xs = html_inlines_from_bytes(head)
           if !inlines_is_blank(xs) {
-            out.push(HtmlNode::Paragraph(xs))
+            append_inlines(pending_para, xs)
           }
         }
 
@@ -521,10 +531,11 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
         match gt0 {
           None => {
             let tail = bs[p:n].to_bytes()
-            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            let xs = html_inlines_from_bytes(tail)
             if !inlines_is_blank(xs) {
-              out.push(HtmlNode::Paragraph(xs))
+              append_inlines(pending_para, xs)
             }
+            flush_pending_paragraph(out, pending_para)
             break
           }
           Some(q) => {
@@ -534,6 +545,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
             if tag.has_prefix("<h") && tag.length() >= 3 {
               let lvl_ch = tag[2]
               if lvl_ch >= '1' && lvl_ch <= '6' {
+                flush_pending_paragraph(out, pending_para)
+
                 let lvl = lvl_ch.to_int() - '0'.to_int()
                 let close_h = pat("</h" + lvl.to_string() + ">")
                 let inner_start = q + 1
@@ -554,6 +567,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
             }
 
             if tag.has_prefix("<blockquote") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_blockquote, inner_start)
               match end0 {
@@ -571,6 +586,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
             }
 
             if tag.has_prefix("<pre") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_pre, inner_start)
               match end0 {
@@ -588,6 +605,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
             }
 
             if tag.has_prefix("<p") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_p, inner_start)
               match end0 {
@@ -610,6 +629,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
 
               match find_matching_list_end(bs, p, list_name) {
                 Some(end) => {
+                  flush_pending_paragraph(out, pending_para)
+
                   let close_len = ("</" + list_name + ">").length()
                   let inner_start = q + 1
                   let inner_end = end
@@ -629,6 +650,8 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
             }
 
             if tag.has_prefix("<table") {
+              flush_pending_paragraph(out, pending_para)
+
               let inner_start = q + 1
               let end0 = find_bytes(bs, close_table, inner_start)
               match end0 {
@@ -652,8 +675,10 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
     }
   }
 
+  flush_pending_paragraph(out, pending_para)
   out
 }
+
 ///|
 /// whether there is any block-like tag inside [start, end_)
 /// used by <li> fast path to distinguish:
@@ -846,6 +871,38 @@ fn render_inlines(xs : Array[HtmlInline]) -> String {
 }
 
 ///|
+fn append_inlines(dst : Array[HtmlInline], src : Array[HtmlInline]) -> Unit {
+  for x in src {
+    dst.push(x)
+  }
+}
+
+///|
+/// trim one pending paragraph as a whole:
+/// - preserve internal spaces between raw text fragments
+/// - strip only leading/trailing whitespace introduced by source indentation
+fn normalize_pending_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
+  let s = render_inlines(merge_adjacent_text_inlines(xs)).trim().to_string()
+  if s == "" {
+    []
+  } else {
+    [HtmlInline::Text(s)]
+  }
+}
+
+///|
+fn flush_pending_paragraph(
+  out : Array[HtmlNode],
+  pending : Array[HtmlInline],
+) -> Unit {
+  let xs = normalize_pending_paragraph(pending)
+  if !inlines_is_blank(xs) {
+    out.push(HtmlNode::Paragraph(xs))
+  }
+  pending.clear()
+}
+
+///|
 fn inlines_is_blank(xs : Array[HtmlInline]) -> Bool {
   render_inlines(xs).trim() == ""
 }
@@ -859,6 +916,7 @@ fn quote_children_is_blank(xs : Array[HtmlNode]) -> Bool {
 fn list_item_children_is_blank(xs : Array[HtmlNode]) -> Bool {
   xs.length() == 0
 }
+
 ///|
 /// for raw text segments between tags:
 /// trim leading/trailing whitespace introduced by source indentation
@@ -870,6 +928,7 @@ fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
     [HtmlInline::Text(s)]
   }
 }
+
 ///|
 fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
   let out : Array[Array[Array[HtmlInline]]] = []
@@ -975,4 +1034,3 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
 
   out
 }
-
