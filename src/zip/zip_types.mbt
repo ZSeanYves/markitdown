@@ -9,6 +9,30 @@ pub(all) suberror ZipError {
 }
 
 ///|
+pub impl Show for ZipError with to_string(self : ZipError) -> String {
+  match self {
+    UnexpectedEOF(context) => "unexpected EOF: " + context
+    InvalidSignature(context, expected, actual) =>
+      "invalid signature at " +
+      context +
+      ": expected=" +
+      expected.to_string() +
+      ", actual=" +
+      actual.to_string()
+    InvalidStructure(msg) => "invalid zip structure: " + msg
+    UnsupportedCompressionMethod(code) =>
+      "unsupported compression method: " + code.to_string()
+    EntryNotFound(path) => "entry not found: " + path
+    DecodeFailed(msg) => "decode failed: " + msg
+  }
+}
+
+///|
+pub impl Show for ZipError with output(self : ZipError, logger : &Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
+///|
 pub struct ZipEntryMeta {
   name : String
   compression_method : CompressionMethod
