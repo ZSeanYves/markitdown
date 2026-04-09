@@ -261,6 +261,58 @@ fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
 }
 
 ///|
+fn is_grouping_debug_target(shapes : Array[LayoutShape]) -> Bool {
+  for sp in shapes {
+    let text = normalize_shape_text_for_title(sp.shape.xml)
+    if text.contains("Title1") ||
+      text.contains("Title2") ||
+      text.contains("Title3") ||
+      text.contains("Desc1") ||
+      text.contains("Desc2") ||
+      text.contains("Desc3") {
+      return true
+    }
+    if text.contains("Narrow") ||
+      text.contains("Wide") ||
+      text.contains("Medium") ||
+      text.contains("Compact summary") ||
+      text.contains("Balanced note") {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
+fn shape_group_kind_name(kind : ShapeGroupKind) -> String {
+  match kind {
+    ShapeGroupKind::Normal => "Normal"
+    ShapeGroupKind::CaptionLike => "CaptionLike"
+    ShapeGroupKind::TableLike => "TableLike"
+  }
+}
+
+///|
+fn debug_print_shape_group(stage : String, g : ShapeGroup) -> Unit {
+  println(
+    "[group-debug] " +
+    stage +
+    " kind=" +
+    shape_group_kind_name(g.kind) +
+    " top=" +
+    g.top.to_string() +
+    " left=" +
+    g.left.to_string() +
+    " len=" +
+    g.shapes.length().to_string(),
+  )
+  for sp in g.shapes {
+    println("[group-debug]   - " + normalize_shape_text_for_title(sp.shape.xml))
+  }
+}
+
+///|
 fn sort_shape_groups(groups : Array[ShapeGroup]) -> Array[ShapeGroup] {
   let out : Array[ShapeGroup] = []
 
@@ -288,6 +340,7 @@ fn group_body_shapes_for_layout(
   shapes : Array[LayoutShape],
 ) -> Array[ShapeGroup] {
   let groups : Array[ShapeGroup] = []
+  let debug_target = is_grouping_debug_target(shapes)
   if shapes.length() == 0 {
     return groups
   }
@@ -307,7 +360,13 @@ fn group_body_shapes_for_layout(
   }
 
   if rest_shapes.length() == 0 {
-    return sort_shape_groups(groups)
+    let out = sort_shape_groups(groups)
+    if debug_target {
+      for g in out {
+        debug_print_shape_group("group_body_shapes_for_layout/final", g)
+      }
+    }
+    return out
   }
 
   let (slide_w, slide_h) = estimate_layout_bounds(rest_shapes)
@@ -356,5 +415,11 @@ fn group_body_shapes_for_layout(
     }
   }
 
-  sort_shape_groups(groups)
+  let out = sort_shape_groups(groups)
+  if debug_target {
+    for g in out {
+      debug_print_shape_group("group_body_shapes_for_layout/final", g)
+    }
+  }
+  out
 }
