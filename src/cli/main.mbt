@@ -29,6 +29,10 @@ async fn main {
             nargs=@clap.Nargs::AtMost(1),
             help="Max heading level to emit (default: 3)",
           ),
+          "pdf-mode": @clap.Arg::named(
+            nargs=@clap.Nargs::AtMost(1),
+            help="PDF enhancement mode: text|experimental (default: text)",
+          ),
         },
       ),
       "help": @clap.SubCommand::new(help="Display help message"),
@@ -89,6 +93,11 @@ async fn main {
                 None => None
               }
 
+              let pdf_mode_opt : String? = match sub.args.get("pdf-mode") {
+                Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
+                None => None
+              }
+
               let mh0 = parse_int_or_default(max_heading_opt, 3)
               let max_heading = if mh0 < 1 {
                 1
@@ -97,7 +106,7 @@ async fn main {
               } else {
                 mh0
               }
-              cmd_convert(input, output_opt, out_dir_opt, max_heading)
+              cmd_convert(input, output_opt, out_dir_opt, max_heading, pdf_mode_opt)
             }
             "help" => println(help_msg)
             _ => println(help_msg)
