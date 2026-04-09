@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/src/common" @common,
+}
+
+options(
+  "preferred-target": "native",
+)
