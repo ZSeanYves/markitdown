@@ -2,7 +2,7 @@
 
 A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf / .xlsx / .pptx / .html** into structured **Markdown**.
 
-> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**. Recent PPTX work has also completed a full round of layout-oriented heuristic stabilization plus new regression-sample expansion, and the full suite is currently green.
+> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**. Recent PPTX work has also completed a full round of layout-oriented heuristic stabilization plus new regression-sample expansion, and the full suite is currently green. In addition, the PDF path now has an **experimental scanned-PDF/OCR fallback path** available through external tools.
 
 ---
 
@@ -10,6 +10,7 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 
 * ✅ **Docx → Markdown**: headings, paragraphs, tables, image extraction & references, style/numbering-driven list structure recovery, paragraph line-break preservation, and code-like paragraph recovery under the current heuristic rules
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
+* ✅ **PDF (scanned, experimental OCR fallback)**: when the PDF has no usable text layer, the pipeline can attempt OCR-based fallback through external tools (`OCRmyPDF` + `Tesseract`) under `--pdf-mode experimental`; this path is currently functional but still lower-confidence than the text-PDF path and accuracy depends strongly on scan quality / document noise
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, basic cell-type support, and lightweight date/time formatting for style-marked numeric cells
 * ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, stabilize local table-like / grid-like text regions before Markdown emission, use tighter table-like candidate heuristics backed by both positive and negative regression samples, let accepted table-like regions absorb aligned edge/header candidate cells through existing row/column buckets, and now cover callout / scatter / negative-card / row-jitter layout boundaries through expanded PPTX regression samples
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, preserve common `<br>` variants, preserve ordered / unordered / nested list structure, avoid swallowing nested list text in parent items, add lightweight inline modeling for HTML text spans and explicit break semantics, and recover multi-block structure inside block quotes and list items
@@ -32,6 +33,7 @@ Current state:
 * ✅ **PPTX** has completed a major round of layout-oriented stabilization, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, two-column-aware reading-order recovery, local table-like/grid-like text-region stabilization, tighter table-like candidate filtering checked by both positive and negative samples, conservative accepted-region expansion for missed edge/header table-like candidate cells, and new regression-backed coverage for callout / scatter / negative-card / row-jitter layouts
 * ✅ **HTML** has moved beyond a flat text-only block model and now includes lightweight inline modeling plus local container recovery for block quotes and list items
 * ✅ **Recent package cleanup**: DOCX and PPTX source layout has been reorganized into smaller MoonBit modules so the format-specific logic is easier to maintain and extend
+* ⚠️ **Experimental scanned-PDF support**: OCR fallback for scanned PDFs is now wired through external tools in experimental mode and has been manually validated on at least one real scanned/fax-style sample; however, output quality is currently best-effort and notably weaker than the text-PDF path
 
 ---
 
@@ -213,6 +215,27 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
 > Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
 
+### ⚠️ PDF (scanned, experimental OCR fallback)
+
+* When the PDF text layer is empty, the pipeline can attempt an OCR-based fallback under `--pdf-mode experimental`
+* The current scanned-PDF path is designed as a pragmatic external-tool integration rather than an in-project OCR engine
+* Intended toolchain:
+
+  * `OCRmyPDF`
+  * `Tesseract`
+* Current validation state:
+
+  * manually verified on at least one real scanned/fax-style PDF
+  * pipeline fallback is functioning end-to-end when OCR dependencies are installed
+  * output quality is currently **best-effort** and clearly below the text-based PDF path
+  * structured fields / short lines may recover reasonably, but noisy footer/legal text and degraded fax-style scans can show noticeable recognition errors
+* Current scope expectation:
+
+  * useful as an experimental fallback path
+  * not yet treated as a high-accuracy or regression-hardened primary PDF mode
+
+> Note: scanned-PDF support should currently be described as **experimental**. The project has validated that the fallback path exists and runs, but OCR quality remains strongly dependent on source-document quality and external-tool behavior.
+
 ### ✅ XLSX
 
 * Parses workbook + sheet XML and emits one Markdown table per sheet
@@ -285,7 +308,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
 ## External Dependencies
 
-### PDF
+### PDF (text-based)
 
 The PDF pipeline relies on at least one of the following command-line tools installed on your system:
 
@@ -299,6 +322,28 @@ Install examples:
 * macOS (Homebrew): `brew install poppler mupdf`
 * Ubuntu/Debian: `sudo apt-get install poppler-utils mupdf-tools`
 * Arch: `sudo pacman -S poppler mupdf-tools`
+
+### PDF (scanned / OCR fallback, experimental)
+
+If you want to use OCR fallback for scanned PDFs, install:
+
+* `ocrmypdf`
+* `tesseract`
+
+Optional but commonly needed for non-English scans:
+
+* extra Tesseract language data (for example Chinese language packs)
+
+Install examples on macOS (Homebrew):
+
+```bash
+brew install ocrmypdf
+brew install tesseract
+# optional, depending on your environment / language needs
+brew install tesseract-lang
+```
+
+> Note: the scanned-PDF path is only intended for `--pdf-mode experimental` right now. If these OCR dependencies are missing and the PDF has no usable text layer, conversion will fail with an OCR-fallback-related error.
 
 ### XLSX / PPTX
 
@@ -338,6 +383,16 @@ moon run --target native src/cli -- \
   --out-dir out
 ```
 
+PDF scanned / OCR example (experimental):
+
+```bash
+moon run --target native src/cli -- \
+  convert samples/pdf/82092117.pdf \
+  -o out/82092117.md \
+  --out-dir out \
+  --pdf-mode experimental
+```
+
 XLSX example:
 
 ```bash
@@ -370,6 +425,7 @@ Options:
 * `-o out/xxx.md`: output Markdown path (default: stdout)
 * `--out-dir out`: asset output directory (docx images go to `out/assets/`)
 * `--max-heading N`: maximum heading level (`1–6`)
+* `--pdf-mode experimental`: enable experimental PDF handling paths, including scanned-PDF OCR fallback when available
 
 ---
 
@@ -408,6 +464,7 @@ Recent regression coverage includes:
   * cross-page paragraph merging
   * heading-vs-short-sentence boundary recovery
   * repeated header/footer variants
+  * initial manual validation for one scanned/fax-style OCR fallback sample in experimental mode
 * **PPTX**
 
   * basic slides
@@ -491,211 +548,33 @@ Then re-run:
 
 ---
 
-
 ## Progress Dashboard (snapshot: 2026-04-09)
-
-### Repository-level quantitative snapshot
-
-* Total MoonBit source files (`*.mbt` under `src/`): **55**
-* Package split:
-
-  * `src/cli`: 3
-  * `src/convert`: 1
-  * `src/core`: 5
-  * `src/docx`: 9
-  * `src/pdf`: 9
-  * `src/xlsx`: 7
-  * `src/pptx`: 17
-  * `src/html`: 4
-
-* Regression assets under `samples/`:
-
-  * input files total: **113**
-  * expected markdown total: **115**
-  * input/expected parity by format:
-
-    * `docx`: 12 input / 13 expected (`docx_blockquote_basic` currently expected-only)
-    * `pdf`: 12 / 12
-    * `xlsx`: 12 / 12
-    * `pptx`: 45 / 46 (`pptx_right_side_notes` currently expected-only)
-    * `html`: 32 / 32
 
 ### Coverage completion interpretation (current)
 
 * **DOCX**: high completion for heading/list/table/code-like paragraph and line-break behavior; quote-style validation still needs a true source sample.
-* **PDF**: robust text-PDF path with extractor arbitration + noise cleanup + block recovery; still intentionally not OCR/scanned-PDF scope.
+* **PDF (text-based)**: robust text-PDF path with extractor arbitration + noise cleanup + block recovery.
+* **PDF (scanned / OCR fallback)**: experimentally validated on at least one real scanned sample; fallback exists and can run, but current OCR quality is still moderate and should be treated as best-effort.
 * **XLSX**: stable worksheet-table extraction with style-guided date/time handling; broad enough for common export/report workbooks.
 * **PPTX**: most actively expanded area in recent history; now has dense positive/negative layout heuristics and broad sample-backed reading-order stabilization.
 * **HTML**: from flat text extraction upgraded to local container + inline modeling; nested structures and `<br>` variants are well covered.
-
-## Sample Catalog (what each sample validates)
-
-> Rule of thumb: filename = assertion target. Each sample is a regression contract for one behavior boundary.
-
-### DOCX samples
-
-* `golden`: end-to-end comprehensive baseline (paragraph/list/table/image mix).
-* `docx_heading_levels`: heading level mapping from styles.
-* `docx_list_basic`: unordered list recovery.
-* `docx_list_ordered`: ordered list recovery.
-* `docx_list_nested`: nested list levels.
-* `docx_list_mixed`: mixed ordered/unordered nesting.
-* `docx_paragraph_linebreak`: in-paragraph manual line breaks.
-* `docx_paragraph_tab`: tab behavior normalization.
-* `docx_table_multiline_cell`: multiline cell rendering with `<br>`.
-* `docx_codeblock_basic`: code-like paragraph detection (positive case).
-* `docx_not_code_steps`: prevent false-positive code block (step-like text).
-* `docx_not_code_multiline`: prevent false-positive code block (multiline normal text).
-* `docx_blockquote_basic` (expected-only): reserved contract for quote-style output validation.
-
-### PDF samples
-
-* `text_simple`: basic block extraction.
-* `text_hardwrap`: hard-wrap merge baseline.
-* `hardwrap_en`: English hard-wrap merge boundary.
-* `hardwrap_zh`: Chinese hard-wrap merge boundary.
-* `heading_basic`: heading recognition baseline.
-* `not_heading_sentence`: avoid treating short sentence as heading.
-* `text_multipage`: multi-page continuity baseline.
-* `pdf_repeated_header_footer`: repeated header/footer cleanup baseline.
-* `pdf_repeated_header_footer_variants`: repeated header/footer variant robustness.
-* `pdf_page_noise_cleanup`: page-number / noise cleanup.
-* `pdf_cross_page_paragraph`: paragraph continuation across page breaks.
-* `pdf_heading_vs_short_sentence`: heading-vs-normal-short-line decision boundary.
-
-### XLSX samples
-
-* `sheet_simple`: one-sheet baseline table extraction.
-* `xlsx_multi_sheet_mixed`: multi-sheet ordering and emission.
-* `xlsx_cell_types`: cell type matrix (string/number/bool/error/etc.).
-* `xlsx_empty_sheet`: explicit empty-sheet output.
-* `xlsx_trim_sparse`: sparse trailing row/column trimming.
-* `xlsx_sparse_edges`: minimal non-empty bounding-box crop.
-* `xlsx_date_basic`: custom-format date output.
-* `xlsx_time_basic`: custom-format time output.
-* `xlsx_datetime_basic`: custom-format datetime output.
-* `xlsx_builtin_date_14`: built-in date `numFmtId` path.
-* `xlsx_builtin_time_20`: built-in time `numFmtId` path.
-* `xlsx_builtin_datetime_22`: built-in datetime `numFmtId` path.
-
-### HTML samples
-
-* `html_simple`: baseline heading/paragraph/list extraction.
-* `html_mixed`: mixed block composition baseline.
-* `html_quote`: blockquote baseline.
-* `html_pre`: pre/code block baseline.
-* `html_table_basic`: basic table extraction.
-* `html_table_ragged_rows`: ragged-row normalization.
-* `html_br_variants`: `<br>` variant normalization.
-* `html_br_double`: consecutive `<br>` behavior.
-* `html_br_table`: `<br>` inside table context.
-* `html_br_blockquote`: `<br>` inside blockquote context.
-* `html_blockquote_list_basic`: list inside blockquote.
-* `html_blockquote_multi_paragraph`: multi-paragraph blockquote container.
-* `html_blockquote_nested_blockquote`: nested blockquote handling.
-* `html_blockquote_mixed_text_and_paragraph`: mixed text + paragraph in blockquote.
-* `html_blockquote_mixed_tail`: blockquote tail text handling.
-* `html_blockquote_br_inside_paragraph`: `<br>` in blockquote paragraph.
-* `html_ordered_list`: ordered list baseline.
-* `html_nested_list_basic`: nested list baseline.
-* `html_nested_list_mixed`: mixed ordered/unordered nesting.
-* `html_listitem_multi_paragraph`: multi-paragraph list item.
-* `html_listitem_mixed_text_and_paragraph`: list item mixed inline/block text.
-* `html_listitem_with_blockquote`: blockquote embedded in list item.
-* `html_list_item_mixed_tail`: list item tail text boundary.
-* `html_list_item_inline_split_noise`: inline split/noise robustness in list item.
-* `html_inline_mixed_paragraph`: inline span mixing inside paragraph.
-* `html_inline_mixed_list`: inline span mixing inside list item.
-* `html_inline_mixed_table`: inline span mixing inside table cell.
-* `html_inline_boundary_paragraph`: inline boundary normalization for paragraph.
-* `html_block_boundary_pre`: block boundary around pre/code.
-* `html_block_boundary_quote`: block boundary around blockquote.
-* `html_block_boundary_table`: block boundary around table.
-* `html_block_boundary_paragraph_list`: paragraph/list boundary behavior.
-
-### PPTX samples
-
-#### Core structure / reading-order
-
-* `pptx_simple`: single-slide baseline.
-* `pptx_slide_order`: real presentation order vs filename order.
-* `pptx_title_multiline`: multi-paragraph title merge.
-* `pptx_title_bullets`: title + bullet body baseline.
-* `pptx_title_body_split`: title/body segmentation.
-* `pptx_top_title_multi_boxes`: top-title with multi-box body order.
-* `pptx_two_columns`: two-column reading-order behavior.
-* `pptx_two_body_left_right`: left-right two-body layout.
-* `pptx_two_body_top_bottom`: top-bottom two-body layout.
-* `pptx_two_note_clusters`: multiple note clusters ordering.
-* `pptx_small_grouped_notes`: small note-like grouping behavior.
-* `pptx_right_side_notes` (expected-only): right-side note-region stabilization contract.
-
-#### Lists / bullets / numbering
-
-* `pptx_bullet_levels`: nested bullet level recovery.
-* `pptx_bullet_property`: bullet-property-driven classification.
-* `pptx_ordered_list`: ordered list recovery from numbering metadata.
-
-#### Callout / caption / scatter layouts
-
-* `pptx_callout_blocks_basic`: regular callout block grouping.
-* `pptx_callout_blocks_mixed_widths`: uneven-width callout rows.
-* `pptx_callout_blocks_row_jitter`: row jitter tolerance for callouts.
-* `pptx_caption_scatter_one_real_pair`: sparse caption scatter with one true pair.
-* `pptx_caption_scatter_two_real_pairs`: scatter with two true pairs.
-* `pptx_caption_scatter_pair_plus_footer_note`: scatter pair plus footer-note separation.
-* `pptx_negative_caption_scatter`: negative sample for scatter mis-detection.
-
-#### Table-like / grid-like region heuristics
-
-* `pptx_table_like_region_basic`: table-like region baseline.
-* `pptx_table_like_region_local_basic`: local table-like region baseline.
-* `pptx_table_like_region_local_with_intro_outro`: local region with intro/outro text.
-* `pptx_table_like_local_with_side_note`: local table-like with side note.
-* `pptx_table_like_local_edge_cell`: edge-cell absorption behavior.
-* `pptx_table_like_header_edge_basic`: header-edge candidate inclusion baseline.
-* `pptx_table_like_header_edge_with_note`: header-edge with note interference.
-* `pptx_table_like_strong_2x3`: strong positive 2x3 grid.
-* `pptx_table_like_strong_3x3_header`: strong positive 3x3+header grid.
-* `pptx_table_like_negative_keyword_grid`: keyword wall should not be table.
-* `pptx_table_like_negative_icon_caption_grid`: icon-caption card grid negative case.
-* `pptx_table_like_negative_header_cards`: header + cards negative case.
-* `pptx_table_like_negative_cards_with_badge`: badge cards negative case.
-* `pptx_table_like_negative_cards_2x2`: dense card matrix negative 2x2.
-* `pptx_table_like_negative_cards_2x3_dense`: dense card matrix negative 2x3.
-* `pptx_table_like_negative_two_column_explainer`: two-column explainer negative case.
-* `pptx_table_like_negative_two_column_labels`: short two-column labels negative case.
-* `pptx_table_like_negative_timeline`: timeline layout negative case.
-
-#### Card/group pattern heuristics
-
-* `pptx_card_pairs_basic`: basic card-pair grouping.
-* `pptx_card_pairs_two_groups`: multi-group card pairs.
-* `pptx_card_pairs_two_rows_three_cols`: dense card pairs in 2-row/3-col layout.
-* `pptx_card_pairs_with_side_note`: card pairs with side-note interference.
-* `pptx_negative_dense_keyword_wall`: dense keyword wall negative grouping case.
-
-#### Noise filtering
-
-* `pptx_footer_page_number`: page-number/footer noise filtering.
-
 
 ## Roadmap
 
 ### Near-term
 
-1. Shift the next round of work from PPTX to **HTML mixed block content / `<br>` semantics**
+1. Continue strengthening the **experimental scanned-PDF OCR path**, especially around evaluation discipline, sample accumulation, and output-quality characterization
 2. Continue strengthening HTML body-scope handling and local container rendering around block quotes / list items without regressing current behavior
 3. Extend XLSX validation coverage for built-in date/time `numFmtId` cases and more real-world workbook samples
 4. Extend DOCX style-driven block recovery beyond headings/lists with true source-document validation for quote-like styles
-5. Continue widening PDF validation coverage for difficult but still text-based layouts
+5. Continue widening PDF validation coverage for difficult layouts, including both text-based and scanned-document boundaries where practical
 
 ### Mid-term
 
 1. Unify more structure-aware behavior across formats through the shared IR
 2. Improve PDF handling for more difficult layouts
 3. Revisit Office-package extraction unification once the internal decompressed-result representation can better match parser needs for XLSX / PPTX
-4. Later: scanned PDFs (OCR + basic layout recovery), likely still via external tools first
+4. Improve scanned-PDF support from “experimental OCR fallback” toward more stable evaluation-backed behavior, likely still via external tools first
 
 ---
 
@@ -703,6 +582,7 @@ Then re-run:
 
 * ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, conservative code-like paragraph recovery, and a cleaner local package split with shared DOCX types
 * ✅ **pdf (text-based)**: stable extractor-selection pipeline with heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
+* ⚠️ **pdf (scanned / OCR fallback, experimental)**: functional fallback path for no-text-layer PDFs through external OCR tools, manually validated on a real scanned sample, but current recognition quality is still moderate and not yet at the same stability level as text-based PDFs
 * ✅ **xlsx**: stable table-oriented workbook conversion with multiple cell types, multi-sheet support, empty-sheet handling, sparse bounding-box trimming, and lightweight style-driven date/time interpretation
 * ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, table-like text-region stabilization, tighter candidate filtering guarded by positive/negative layout samples, and a broader regression-backed layout heuristic set around callout / scatter / dense-card boundaries
 * ✅ **html**: stable bytes-based HTML conversion with lists / quotes / code blocks / tables, explicit `<br>` break preservation, lightweight inline modeling, local blockquote/list-item container recovery, ordered/nested-list structure recovery, parent-item protection, and ragged-row table normalization
