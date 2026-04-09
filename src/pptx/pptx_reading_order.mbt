@@ -56,6 +56,7 @@ fn flatten_shapes_in_reading_order(
   body_shapes : Array[LayoutShape],
 ) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
+  let debug_target = is_callout_pair_debug_target(body_shapes)
 
   for sp in title_shapes {
     out.push(sp)
@@ -128,6 +129,9 @@ fn flatten_shapes_in_reading_order(
     return out
   }
 
+  if debug_target {
+    println("[flatten] fallback to row clustering avoided, use grouped flatten")
+  }
   let flat = flatten_shape_groups(whole_groups)
   for sp in flat {
     out.push(sp)
@@ -163,27 +167,69 @@ fn looks_like_partial_callout_caption_scatter(
 ///|
 fn flatten_shape_groups(groups : Array[ShapeGroup]) -> Array[LayoutShape] {
   let out : Array[LayoutShape] = []
+  let mut debug_target = false
+  for g in groups {
+    if is_callout_pair_debug_target(g.shapes) {
+      debug_target = true
+      break
+    }
+  }
 
   for g in groups {
+    if debug_target {
+      println(
+        "[flatten] group kind=" +
+        shape_group_kind_name(g.kind) +
+        " top=" +
+        g.top.to_string() +
+        " left=" +
+        g.left.to_string() +
+        " len=" +
+        g.shapes.length().to_string(),
+      )
+      for sp in g.shapes {
+        println("[flatten]   - " + normalize_shape_text_for_title(sp.shape.xml))
+      }
+    }
     match g.kind {
       ShapeGroupKind::TableLike => {
+        if debug_target {
+          println("[flatten] branch=TableLike")
+        }
         let rows = cluster_shapes_into_rows(g.shapes)
         if looks_like_card_pair_rows(rows) {
+          if debug_target {
+            println("[flatten] table-like uses card-pair rows")
+          }
           append_card_pair_rows_by_columns(out, rows)
         } else {
+          if debug_target {
+            println("[flatten] table-like fallback to append_rows")
+          }
           append_rows(out, rows)
         }
       }
-      ShapeGroupKind::Normal =>
+      ShapeGroupKind::Normal => {
+        if debug_target {
+          println("[flatten] branch=Normal")
+        }
         for sp in g.shapes {
           out.push(sp)
         }
-      ShapeGroupKind::CaptionLike =>
+      }
+      ShapeGroupKind::CaptionLike => {
+        if debug_target {
+          println("[flatten] branch=CaptionLike; try full-callout-pairs")
+        }
         if !append_caption_group_as_full_callout_pairs(out, g.shapes) {
+          if debug_target {
+            println("[flatten] caption-like fallback to raw shape order")
+          }
           for sp in g.shapes {
             out.push(sp)
           }
         }
+      }
     }
   }
 
