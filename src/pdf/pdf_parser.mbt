@@ -18,7 +18,7 @@ pub async fn parse_pdf(
 
   let enhanced_text = match mode {
     PdfEnhanceMode::TextOnly => apply_pdf_enhancement(text, mode)
-    PdfEnhanceMode::Experimental => {
+    PdfEnhanceMode::Experimental =>
       if is_effectively_empty_pdf_text(text) {
         match try_ocr_pdf_to_text(path) {
           Some(ocr_text) =>
@@ -32,7 +32,6 @@ pub async fn parse_pdf(
       } else {
         apply_pdf_enhancement(text, mode)
       }
-    }
   }
 
   text_to_ir_document(enhanced_text)

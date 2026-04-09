@@ -507,9 +507,7 @@ Then re-run:
   * `src/xlsx`: 7
   * `src/pptx`: 17
   * `src/html`: 4
-* Tooling helpers:
 
-  * `tools/`: 3 Python generators (all for PPTX sample generation)
 * Regression assets under `samples/`:
 
   * input files total: **113**

@@ -2,7 +2,7 @@
 /// OCR fallback should remain optional-first:
 /// - only used by experimental mode
 /// - only used when extracted text is effectively empty
-fn ocr_backend_available() -> Bool {
+async fn ocr_backend_available() -> Bool raise Error {
   match run_and_capture("ocrmypdf", ["--version"]) {
     Ok(_) => true
     Err(_) => false
@@ -42,37 +42,26 @@ async fn try_ocr_pdf_to_text(path : String) -> String? {
 
   // Primary command form recommended by OCRmyPDF docs for sidecar capture.
   let primary = run_and_capture("ocrmypdf", [
-    "--skip-text",
-    "--sidecar",
-    sidecar,
-    "--output-type",
-    "none",
-    path,
-    "-",
+    "--skip-text", "--sidecar", sidecar, "--output-type", "none", path, "-",
   ])
 
   // Some environments still prefer a file path output even with output-type none.
-  let _ = match primary {
-    Ok(_) => Ok(())
-    Err(_) =>
-      run_and_capture("ocrmypdf", [
-        "--skip-text",
-        "--sidecar",
-        sidecar,
-        "--output-type",
-        "none",
-        path,
-        "/dev/null",
+  match primary {
+    Ok(_) => ()
+    Err(_) => {
+      let _ = run_and_capture("ocrmypdf", [
+        "--skip-text", "--sidecar", sidecar, "--output-type", "none", path, "/dev/null",
       ])
+      ()
+    }
   }
 
   if !@fs.path_exists(sidecar) {
     return None
   }
 
-  let text = @fs.read_file_to_bytes(sidecar) |> fn(bs) {
-    bs.text() catch { _ => "" }
-  } catch {
+  let text = (@fs.read_file_to_bytes(sidecar)
+  |> fn(bs) { @cor.utf8_bytes_to_string(bs) catch { _ => "" } }) catch {
     _ => ""
   }
 
@@ -89,32 +78,9 @@ async fn try_ocr_pdf_to_text(path : String) -> String? {
 ///|
 fn make_ocr_sidecar_path(path : String) -> String {
   let name = @cor.basename(path)
-  "/tmp/markitdown_ocr_sidecar_" + name + "_" + path.length().to_string() + ".txt"
-}
-
-///|
-async fn run_and_capture(
-  cmd : String,
-  args : Array[String],
-) -> Result[String, @cor.AppError] {
-  let res = @proc.collect_output(cmd, args[:]) catch {
-    e => return Err(@cor.AppError("spawn failed: " + e.to_string()))
-  }
-
-  let (status, out_data, err_data) = res
-
-  let stdout : String = out_data.text() catch {
-    _ => return Err(@cor.AppError("invalid utf-8 stdout"))
-  }
-  let stderr : String = err_data.text() catch { _ => "" }
-
-  if status != 0 {
-    return Err(
-      @cor.AppError(
-        "Command failed: " + cmd + " " + args.join(" ") + "\n" + stderr,
-      ),
-    )
-  }
-
-  Ok(stdout)
+  "/tmp/markitdown_ocr_sidecar_" +
+  name +
+  "_" +
+  path.length().to_string() +
+  ".txt"
 }

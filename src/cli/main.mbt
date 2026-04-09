@@ -106,7 +106,9 @@ async fn main {
               } else {
                 mh0
               }
-              cmd_convert(input, output_opt, out_dir_opt, max_heading, pdf_mode_opt)
+              cmd_convert(
+                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt,
+              )
             }
             "help" => println(help_msg)
             _ => println(help_msg)
