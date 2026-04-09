@@ -15,7 +15,25 @@ pub async fn parse_pdf(
   }
 
   let mode = parse_pdf_enhance_mode(enhance_mode)
-  let enhanced_text = apply_pdf_enhancement(text, mode)
+
+  let enhanced_text = match mode {
+    PdfEnhanceMode::TextOnly => apply_pdf_enhancement(text, mode)
+    PdfEnhanceMode::Experimental => {
+      if is_effectively_empty_pdf_text(text) {
+        match try_ocr_pdf_to_text(path) {
+          Some(ocr_text) =>
+            if is_effectively_empty_pdf_text(ocr_text) {
+              apply_experimental_empty_text_fallback(path)
+            } else {
+              apply_pdf_enhancement(ocr_text, mode)
+            }
+          None => apply_experimental_empty_text_fallback(path)
+        }
+      } else {
+        apply_pdf_enhancement(text, mode)
+      }
+    }
+  }
 
   text_to_ir_document(enhanced_text)
 }
