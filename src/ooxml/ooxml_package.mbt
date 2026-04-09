@@ -49,7 +49,7 @@ pub fn read_part_bytes(
 pub fn lookup_content_type(
   pkg : OoxmlPackage,
   part_name : String,
-) -> Option[String] raise OoxmlError {
+) -> String? raise OoxmlError {
   let normalized = normalize_part_name(part_name)
   let override_key = "/" + normalized
 
@@ -189,7 +189,8 @@ fn collect_start_tags(xml : String, local_name : String) -> Array[String] {
       continue
     }
 
-    if i + 1 < n && (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
+    if i + 1 < n &&
+      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
       i = i + 1
       continue
     }
@@ -228,9 +229,9 @@ fn start_tag_local_name(tag : String) -> String {
 
   let mut j = i
   while j < chars.length() &&
-    !is_space(chars[j]) &&
-    chars[j] != '/' &&
-    chars[j] != '>' {
+        !is_space(chars[j]) &&
+        chars[j] != '/' &&
+        chars[j] != '>' {
     j = j + 1
   }
 
@@ -353,11 +354,13 @@ fn normalize_part_name(part_name : String) -> String raise OoxmlError {
     raise InvalidPartPath(part_name)
   }
 
-  normalize_relative_path(t)
+  normalize_relative_path(t.to_string())
 }
 
 ///|
-fn normalize_source_part_for_resolve(source_part : String) -> String raise OoxmlError {
+fn normalize_source_part_for_resolve(
+  source_part : String,
+) -> String raise OoxmlError {
   let t = source_part.trim().to_string()
   if t == "" || t == "/" {
     ""

@@ -15,18 +15,12 @@ pub impl Show for OoxmlError with to_string(self : OoxmlError) -> String {
     InvalidXml(msg) => "invalid OOXML xml: " + msg
     InvalidPartPath(path) => "invalid OOXML part path: " + path
     RelationshipNotFound(source_part, rel_id) =>
-      "relationship not found: source=" +
-      source_part +
-      ", rel_id=" +
-      rel_id
+      "relationship not found: source=" + source_part + ", rel_id=" + rel_id
   }
 }
 
 ///|
-pub impl Show for OoxmlError with output(
-  self : OoxmlError,
-  logger : &Logger,
-) -> Unit {
+pub impl Show for OoxmlError with output(self : OoxmlError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

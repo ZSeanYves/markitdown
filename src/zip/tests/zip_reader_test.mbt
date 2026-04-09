@@ -1,5 +1,5 @@
 ///|
-fn resolve_sample_path(path : String) -> String {
+fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
@@ -13,7 +13,7 @@ fn resolve_sample_path(path : String) -> String {
 }
 
 ///|
-fn read_sample_bytes(path : String) -> Bytes {
+fn read_sample_bytes(path : String) -> Bytes raise {
   let resolved = resolve_sample_path(path)
   @fs.read_file_to_bytes(resolved) catch {
     e => fail("failed to read sample: " + resolved + " : " + e.to_string())
@@ -21,16 +21,19 @@ fn read_sample_bytes(path : String) -> Bytes {
 }
 
 ///|
-fn open_sample_zip(path : String) -> ZipArchive {
+fn open_sample_zip(path : String) -> @zip.ZipArchive raise {
   let bytes = read_sample_bytes(path)
-  open_zip(bytes) catch {
+  @zip.open_zip(bytes) catch {
     e => fail("open_zip failed for sample: " + path + " : " + e.to_string())
   }
 }
 
 ///|
-fn assert_entry_readable(archive : ZipArchive, entry_path : String) -> Unit {
-  let data = read_entry(archive, entry_path) catch {
+fn assert_entry_readable(
+  archive : @zip.ZipArchive,
+  entry_path : String,
+) -> Unit raise {
+  let data = @zip.read_entry(archive, entry_path) catch {
     e => fail("read_entry failed: " + entry_path + " : " + e.to_string())
   }
   if data.length() == 0 {
@@ -41,7 +44,7 @@ fn assert_entry_readable(archive : ZipArchive, entry_path : String) -> Unit {
 ///|
 test "zip reader can list and read docx core entry" {
   let z = open_sample_zip("samples/docx/golden.docx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("docx entries should not be empty")
   }
@@ -51,7 +54,7 @@ test "zip reader can list and read docx core entry" {
 ///|
 test "zip reader can list and read xlsx core entry" {
   let z = open_sample_zip("samples/xlsx/sheet_simple.xlsx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("xlsx entries should not be empty")
   }
@@ -61,7 +64,7 @@ test "zip reader can list and read xlsx core entry" {
 ///|
 test "zip reader can list and read pptx core entry" {
   let z = open_sample_zip("samples/pptx/pptx_simple.pptx")
-  let entries = list_entries(z)
+  let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("pptx entries should not be empty")
   }

@@ -3,7 +3,7 @@ pub(all) enum CompressionMethod {
   Store
   DeflateRaw
   Unsupported(Int)
-} derive(Eq, Show)
+} derive(Eq)
 
 ///|
 pub(all) suberror CodecError {
@@ -27,10 +27,7 @@ pub impl Show for CodecError with to_string(self : CodecError) -> String {
 }
 
 ///|
-pub impl Show for CodecError with output(
-  self : CodecError,
-  logger : &Logger,
-) -> Unit {
+pub impl Show for CodecError with output(self : CodecError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

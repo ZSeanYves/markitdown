@@ -9,24 +9,44 @@ priv struct SheetInfo {
   target : String
 }
 
-// ============================
-// ZIP -> UTF8 string
-// ============================
+///|
+priv struct XlsxPackage {
+  _path : String
+  pkg : @ox.OoxmlPackage
+}
 
 ///|
-async fn read_zip_utf8(z : @cor.ZipReader, name : String) -> String {
-  //println(".. xlsx: reading " + name)
-  let bs = @cor.ZipReader::read_entry_bytes(z, name) catch {
-    e =>
-      raise @cor.AppError(
-        "xlsx: read zip entry failed: " + name + ": " + e.to_string(),
-      )
+fn open_xlsx(path : String) -> XlsxPackage raise @fs.IOError {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => raise @fs.IOError("read xlsx failed: " + path + " : " + e.to_string())
   }
-  @cor.utf8_bytes_to_string(bs) catch {
-    e =>
-      raise @cor.AppError(
-        "xlsx: invalid utf8 in " + name + ": " + e.to_string(),
-      )
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => raise @fs.IOError("open_ooxml_package failed: " + e.to_string())
+  }
+  { _path: path, pkg }
+}
+
+///|
+fn XlsxPackage::read_text_optional(
+  p : XlsxPackage,
+  part_name : String,
+) -> String {
+  let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
+  @cor.utf8_bytes_to_string(b) catch {
+    _ => return ""
+  }
+}
+
+///|
+fn XlsxPackage::read_text_required(
+  p : XlsxPackage,
+  part_name : String,
+) -> String raise {
+  let b = @ox.read_part_bytes(p.pkg, part_name) catch {
+    e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
+  }
+  @cor.utf8_bytes_to_string(b) catch {
+    e => fail("utf8 decode failed: " + part_name + " : " + e.to_string())
   }
 }
 
@@ -67,6 +87,26 @@ fn parse_workbook_sheets(
   }
 
   out
+}
+
+///|
+fn normalize_sheet_part_target(target : String) -> String {
+  let target0 = target.trim().to_string()
+  if target0 == "" {
+    return ""
+  }
+
+  let without_leading = if target0.has_prefix("/") {
+    target0[1:]
+  } else {
+    target0
+  }
+
+  if without_leading.has_prefix("xl/") {
+    without_leading.to_string()
+  } else {
+    "xl/" + without_leading.to_string()
+  }
 }
 // ============================
 // Utilities

@@ -1,5 +1,7 @@
 import {
   "ZSeanYves/markitdown/src/core" @cor,
+  "ZSeanYves/markitdown/src/ooxml" @ox,
+  "moonbitlang/x/fs" @fs,
 }
 
 options(

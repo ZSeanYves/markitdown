@@ -1,7 +1,4 @@
 import {
+  "moonbitlang/x/fs" @fs,
   "ZSeanYves/markitdown/src/zip" @zip,
-}
-
-options(
-  "preferred-target": "native",
-)
+} for "test"

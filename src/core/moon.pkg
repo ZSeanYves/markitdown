@@ -1,9 +1,3 @@
-import {
-  "moonbitlang/x/fs" @fs,
-  "mizchi/zlib" @z,
-  "moonbitlang/async/process" @proc,
-}
-
 options(
   "preferred-target": "native",
 )
