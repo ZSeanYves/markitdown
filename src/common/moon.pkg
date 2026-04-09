@@ -1,0 +1,7 @@
+import {
+  "bikallem/compress/flate" @flate,
+}
+
+options(
+  "preferred-target": "native",
+)
