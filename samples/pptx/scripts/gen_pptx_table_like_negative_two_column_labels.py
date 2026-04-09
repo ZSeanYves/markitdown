@@ -42,20 +42,20 @@ def main() -> None:
 
     # Two-column labels (negative case for table-like detection):
     # row-like alignment but no table shape/grid/borders.
-    left_x = Inches(1.0)
-    right_x = Inches(5.8)
-    row_tops = [Inches(2.0), Inches(3.2), Inches(4.4)]
-    pair_jitter = Inches(0.08)
+    col_gap = Inches(4.8)
+    row_pairs = [
+        (Inches(2.0), Inches(1.00), "Sales", "Support"),
+        (Inches(3.45), Inches(1.18), "Ops", "Forecasting"),
+        (Inches(4.90), Inches(0.92), "Triage", "Monitoring"),
+    ]
 
-    left_labels = ["Sales", "Ops", "Triage"]
-    right_labels = ["Support", "Forecasting", "Monitoring"]
-
-    for y, left, right in zip(row_tops, left_labels, right_labels):
+    for y, left_x, left, right in row_pairs:
+        right_x = left_x + col_gap
         add_textbox(slide, left_x, y, Inches(3.0), Inches(0.8), left, font_size=24)
         add_textbox(
             slide,
             right_x,
-            y + pair_jitter,
+            y,
             Inches(3.2),
             Inches(0.8),
             right,
