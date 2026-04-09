@@ -170,7 +170,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 * Keeps a style-driven blockquote recovery entry point in the parser
 * Uses a local DOCX types module to reduce coupling between document / numbering / styles / table logic
 
-> Note: DOCX blockquote recovery is wired into the parsing pipeline, but **real DOCX blockquote-style samples have not been validated yet**. Current list / heading / table / code-like paragraph coverage is backed by regression samples; blockquote-style recovery is not yet backed by a true source-document sample.
+> Note: DOCX blockquote recovery is wired into the parsing pipeline. Current list / heading / table / code-like paragraph coverage is backed by regression samples; blockquote-style recovery is not yet backed by a true source-document sample.
 
 ### ✅ ZIP / Office-package handling
 
