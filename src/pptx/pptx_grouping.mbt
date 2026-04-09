@@ -154,7 +154,7 @@ fn looks_like_callout_desc_text(s : String) -> Bool {
   if callout_text_contains_digit(t.to_string()) {
     // allow compact desc labels like "Desc1" / "Desc C1".
     return callout_text_contains_space(t.to_string()) ||
-    looks_like_desc_prefix_text(t.to_string())
+      looks_like_desc_prefix_text(t.to_string())
   }
 
   if callout_text_contains_space(t.to_string()) {
@@ -226,7 +226,8 @@ fn group_accepts_shape(
   slide_w : Int,
   slide_h : Int,
 ) -> Bool {
-  if g.kind == ShapeGroupKind::CaptionLike && g.shapes.length() >= 2 &&
+  if g.kind == ShapeGroupKind::CaptionLike &&
+    g.shapes.length() >= 2 &&
     group_has_callout_core(g.shapes) {
     for item in g.shapes {
       if looks_like_callout_pair(item, sp) {

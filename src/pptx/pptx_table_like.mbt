@@ -1,3 +1,4 @@
+///|
 fn extract_table_like_regions(
   shapes : Array[LayoutShape],
 ) -> (Array[Array[LayoutShape]], Array[LayoutShape]) {
@@ -410,9 +411,7 @@ fn row_pair_looks_like_callout_blocks(
 }
 
 ///|
-fn looks_like_two_row_callout_blocks(
-  shapes : Array[LayoutShape],
-) -> Bool {
+fn looks_like_two_row_callout_blocks(shapes : Array[LayoutShape]) -> Bool {
   let rows = cluster_shapes_into_rows(shapes)
   if rows.length() != 2 {
     return false

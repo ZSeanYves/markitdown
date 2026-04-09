@@ -255,7 +255,6 @@ fn layout_shape_in_array(sp : LayoutShape, arr : Array[LayoutShape]) -> Bool {
   false
 }
 
-
 ///|
 fn normalize_callout_pair_for_output(
   a : LayoutShape,
@@ -404,10 +403,7 @@ fn is_callout_pair_debug_target(shapes : Array[LayoutShape]) -> Bool {
 }
 
 ///|
-fn looks_like_relaxed_callout_pair(
-  a : LayoutShape,
-  b : LayoutShape,
-) -> Bool {
+fn looks_like_relaxed_callout_pair(a : LayoutShape, b : LayoutShape) -> Bool {
   let at = normalize_shape_text_for_title(a.shape.xml)
   let bt = normalize_shape_text_for_title(b.shape.xml)
   let a_title = looks_like_callout_title_text(at)
@@ -444,7 +440,9 @@ fn collect_full_callout_pairs(
   if debug_target {
     println("[callout-pair] input texts:")
     for sp in sorted {
-      println("[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml))
+      println(
+        "[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml),
+      )
     }
   }
   let used : Array[LayoutShape] = []
@@ -572,7 +570,9 @@ fn collect_full_callout_pairs(
     }
     println("[callout-pair] rest:")
     for sp in rest {
-      println("[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml))
+      println(
+        "[callout-pair]   - " + normalize_shape_text_for_title(sp.shape.xml),
+      )
     }
   }
 
@@ -641,10 +641,14 @@ fn cluster_shapes_into_rows(
       println(
         "[row-cluster] try shape='" +
         normalize_shape_text_for_title(sp.shape.xml) +
-        "' y=" + sp.shape.y.to_string() +
-        " h=" + sp.shape.h.to_string() +
-        " bottom=" + sp.bottom.to_string() +
-        " cy=" + sp.center_y.to_string(),
+        "' y=" +
+        sp.shape.y.to_string() +
+        " h=" +
+        sp.shape.h.to_string() +
+        " bottom=" +
+        sp.bottom.to_string() +
+        " cy=" +
+        sp.center_y.to_string(),
       )
     }
 
@@ -774,10 +778,8 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
     if overlap_count >= 1 {
       return true
     }
-  } else {
-    if overlap_count >= 2 {
-      return true
-    }
+  } else if overlap_count >= 2 {
+    return true
   }
 
   let row_cy = row_center_y(row)
@@ -785,7 +787,11 @@ fn row_accepts_shape(row : Array[LayoutShape], sp : LayoutShape) -> Bool {
   let sp_h = if sp.shape.h > 0 { sp.shape.h } else { 1 }
 
   let maxh = max_int(row_h, sp_h)
-  let threshold = if use_strict { max_int(12, maxh / 2) } else { max_int(12, maxh) }
+  let threshold = if use_strict {
+    max_int(12, maxh / 2)
+  } else {
+    max_int(12, maxh)
+  }
 
   let dy = abs_int(row_cy - sp.center_y)
   if dy > threshold {
@@ -1011,6 +1017,7 @@ fn max_right(shapes : Array[LayoutShape]) -> Int {
   v
 }
 
+///|
 fn text_contains_space(s : String) -> Bool {
   for ch in s.to_array() {
     if ch == ' ' {
@@ -1030,7 +1037,6 @@ fn text_digit_signature(s : String) -> String {
   }
   return out.to_string()
 }
-
 
 ///|
 fn row_pair_looks_like_cards(
@@ -1078,9 +1084,7 @@ fn row_pair_looks_like_cards(
 }
 
 ///|
-fn looks_like_card_pair_rows(
-  rows : Array[Array[LayoutShape]],
-) -> Bool {
+fn looks_like_card_pair_rows(rows : Array[Array[LayoutShape]]) -> Bool {
   if rows.length() < 2 {
     return false
   }
@@ -1088,16 +1092,15 @@ fn looks_like_card_pair_rows(
   // allow:
   // - pure card pairs: 2, 4, 6, ...
   // - card pairs + one trailing singleton note row: 3, 5, 7, ...
-  let pair_row_count =
-    if rows.length() % 2 == 0 {
-      rows.length()
-    } else {
-      let tail = rows[rows.length() - 1]
-      if tail.length() != 1 {
-        return false
-      }
-      rows.length() - 1
+  let pair_row_count = if rows.length() % 2 == 0 {
+    rows.length()
+  } else {
+    let tail = rows[rows.length() - 1]
+    if tail.length() != 1 {
+      return false
     }
+    rows.length() - 1
+  }
 
   if pair_row_count < 2 {
     return false
@@ -1124,19 +1127,22 @@ fn append_card_pair_rows_by_columns(
     return
   }
 
-  let pair_row_count =
-    if rows.length() % 2 == 0 {
-      rows.length()
-    } else {
-      rows.length() - 1
-    }
+  let pair_row_count = if rows.length() % 2 == 0 {
+    rows.length()
+  } else {
+    rows.length() - 1
+  }
 
   let mut i = 0
   while i < pair_row_count {
     let top = rows[i]
     let bottom = rows[i + 1]
 
-    let n = if top.length() < bottom.length() { top.length() } else { bottom.length() }
+    let n = if top.length() < bottom.length() {
+      top.length()
+    } else {
+      bottom.length()
+    }
 
     for j in 0..<n {
       out.push(top[j])
@@ -1166,16 +1172,16 @@ fn append_card_pair_rows_by_columns(
     }
   }
 }
+
 ///|
 fn rows_look_like_two_separated_card_groups(
   rows : Array[Array[LayoutShape]],
 ) -> Bool {
-  let pair_row_count =
-    if rows.length() % 2 == 0 {
-      rows.length()
-    } else {
-      rows.length() - 1
-    }
+  let pair_row_count = if rows.length() % 2 == 0 {
+    rows.length()
+  } else {
+    rows.length() - 1
+  }
 
   if pair_row_count < 4 {
     return false
@@ -1239,17 +1245,17 @@ fn rows_look_like_two_separated_card_groups(
   // This is much more tolerant than the previous per-pair x-alignment checks.
   gap > max_int(120000, span / 5)
 }
+
 ///|
 fn append_two_separated_card_groups(
   out : Array[LayoutShape],
   rows : Array[Array[LayoutShape]],
 ) -> Unit {
-  let pair_row_count =
-    if rows.length() % 2 == 0 {
-      rows.length()
-    } else {
-      rows.length() - 1
-    }
+  let pair_row_count = if rows.length() % 2 == 0 {
+    rows.length()
+  } else {
+    rows.length() - 1
+  }
 
   // first emit the left group across all card rows
   let mut i = 0
