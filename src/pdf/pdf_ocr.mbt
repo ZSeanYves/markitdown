@@ -91,30 +91,3 @@ fn make_ocr_sidecar_path(path : String) -> String {
   let name = @cor.basename(path)
   "/tmp/markitdown_ocr_sidecar_" + name + "_" + path.length().to_string() + ".txt"
 }
-
-///|
-async fn run_and_capture(
-  cmd : String,
-  args : Array[String],
-) -> Result[String, @cor.AppError] {
-  let res = @proc.collect_output(cmd, args[:]) catch {
-    e => return Err(@cor.AppError("spawn failed: " + e.to_string()))
-  }
-
-  let (status, out_data, err_data) = res
-
-  let stdout : String = out_data.text() catch {
-    _ => return Err(@cor.AppError("invalid utf-8 stdout"))
-  }
-  let stderr : String = err_data.text() catch { _ => "" }
-
-  if status != 0 {
-    return Err(
-      @cor.AppError(
-        "Command failed: " + cmd + " " + args.join(" ") + "\n" + stderr,
-      ),
-    )
-  }
-
-  Ok(stdout)
-}

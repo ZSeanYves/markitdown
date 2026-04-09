@@ -117,7 +117,14 @@ async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
 }
 
 ///|
-fn missing_tools_hint() -> String {
+fn missing_tools_hint(cmd : String) -> String {
+  if cmd == "ocrmypdf" {
+    return
+      "未找到 ocrmypdf，请安装后重试。\n" +
+      "macOS: brew install ocrmypdf tesseract\n" +
+      "Ubuntu/Debian: sudo apt-get install ocrmypdf tesseract-ocr\n"
+  }
+
   "未找到 pdftotext（Poppler）或 mutool（MuPDF），请安装后重试。\n" +
   "macOS: brew install poppler mupdf-tools\n" +
   "Ubuntu/Debian: sudo apt-get install poppler-utils mupdf-tools\n" +
@@ -135,7 +142,7 @@ async fn run_and_capture(
       let msg = e.to_string()
       // 统一缺命令错误信息
       if msg.contains("No such file or directory") || msg.contains("not found") {
-        return Err(@cor.AppError(missing_tools_hint()))
+        return Err(@cor.AppError(missing_tools_hint(cmd)))
       }
       return Err(@cor.AppError("spawn failed: " + msg))
     }
@@ -152,7 +159,7 @@ async fn run_and_capture(
     // 有些情况下（权限/参数）也可能输出 not found，
     if stderr.contains("No such file or directory") ||
       stderr.contains("not found") {
-      return Err(@cor.AppError(missing_tools_hint()))
+      return Err(@cor.AppError(missing_tools_hint(cmd)))
     }
     return Err(
       @cor.AppError(
