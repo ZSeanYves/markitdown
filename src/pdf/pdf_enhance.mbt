@@ -32,6 +32,14 @@ fn apply_pdf_enhancement(text : String, mode : PdfEnhanceMode) -> String {
 }
 
 ///|
+fn apply_experimental_empty_text_fallback(path : String) -> String {
+  "[markitdown] PDF text layer is empty and OCR fallback did not succeed.\n" +
+  "Install OCRmyPDF + Tesseract, then run again with --pdf-mode experimental.\n" +
+  "File: " +
+  path
+}
+
+///|
 fn apply_experimental_pdf_enhancement(text : String) -> String {
   // current minimal implementation is intentionally no-op so existing
   // regression behavior stays stable.
