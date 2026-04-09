@@ -33,7 +33,7 @@ pub fn list_entries(archive : ZipArchive) -> Array[ZipEntryMeta] {
 pub fn read_entry(
   archive : ZipArchive,
   path : String,
-  max_output_size~ : Int = 128 * 1024 * 1024,
+  max_output_size? : Int = 128 * 1024 * 1024,
 ) -> Bytes raise ZipError {
   let entry = match archive.entry_index.get(path) {
     Some(idx) => archive.entries[idx]
@@ -41,16 +41,20 @@ pub fn read_entry(
   }
 
   let local_offset = entry.local_header_offset
-  let sig = read_u32_le(archive.bytes, local_offset, "local file header signature")
+  let sig = read_u32_le(
+    archive.bytes,
+    local_offset,
+    "local file header signature",
+  )
   if sig != LOCAL_FILE_HEADER_SIG {
-    raise InvalidSignature(
-      "local file header",
-      LOCAL_FILE_HEADER_SIG,
-      sig,
-    )
+    raise InvalidSignature("local file header", LOCAL_FILE_HEADER_SIG, sig)
   }
 
-  let flags = read_u16_le(archive.bytes, local_offset + 6, "local file header flags")
+  let flags = read_u16_le(
+    archive.bytes,
+    local_offset + 6,
+    "local file header flags",
+  )
   let method_code = read_u16_le(
     archive.bytes,
     local_offset + 8,
@@ -85,16 +89,12 @@ pub fn read_entry(
   let data_end = data_start + entry.compressed_size
   let compressed = subview(archive.bytes, data_start, data_end, "entry data")
 
-  @common.decompress(
-    entry.compression_method,
-    compressed,
-    max_output_size=max_output_size,
-  ) catch {
-    @common.UnsupportedCompressionMethod(code) =>
+  decompress(entry.compression_method, compressed, max_output_size~) catch {
+    UnsupportedCompressionMethod(code) =>
       raise UnsupportedCompressionMethod(code)
-    @common.DecodeFailed(msg) =>
+    DecodeFailed(msg) =>
       raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
-    @common.OutputTooLarge(max, actual) =>
+    OutputTooLarge(max, actual) =>
       raise InvalidStructure(
         "decoded entry exceeds max_output_size: max=" +
         max.to_string() +
@@ -175,7 +175,11 @@ fn parse_cd_entries(
     }
 
     let flags = read_u16_le(bytes, cursor + 8, "central directory flags")
-    let method_code = read_u16_le(bytes, cursor + 10, "central directory method")
+    let method_code = read_u16_le(
+      bytes,
+      cursor + 10,
+      "central directory method",
+    )
     let crc32 = read_u32_le(bytes, cursor + 16, "central directory crc32")
     let compressed_size = read_u32_le(
       bytes,
@@ -187,8 +191,16 @@ fn parse_cd_entries(
       cursor + 24,
       "central directory uncompressed size",
     )
-    let name_len = read_u16_le(bytes, cursor + 28, "central directory name length")
-    let extra_len = read_u16_le(bytes, cursor + 30, "central directory extra length")
+    let name_len = read_u16_le(
+      bytes,
+      cursor + 28,
+      "central directory name length",
+    )
+    let extra_len = read_u16_le(
+      bytes,
+      cursor + 30,
+      "central directory extra length",
+    )
     let comment_len = read_u16_le(
       bytes,
       cursor + 32,
@@ -225,18 +237,22 @@ fn parse_cd_entries(
 }
 
 ///|
-fn compression_method_from_code(code : Int) -> @common.CompressionMethod {
+fn compression_method_from_code(code : Int) -> CompressionMethod {
   if code == 0 {
-    @common.Store
+    Store
   } else if code == 8 {
-    @common.DeflateRaw
+    DeflateRaw
   } else {
-    @common.Unsupported(code)
+    Unsupported(code)
   }
 }
 
 ///|
-fn read_u16_le(bytes : Bytes, offset : Int, context : String) -> Int raise ZipError {
+fn read_u16_le(
+  bytes : Bytes,
+  offset : Int,
+  context : String,
+) -> Int raise ZipError {
   let tail = offset + 2
   if offset < 0 || tail > bytes.length() {
     raise UnexpectedEOF(context)
@@ -246,7 +262,11 @@ fn read_u16_le(bytes : Bytes, offset : Int, context : String) -> Int raise ZipEr
 }
 
 ///|
-fn read_u32_le(bytes : Bytes, offset : Int, context : String) -> Int raise ZipError {
+fn read_u32_le(
+  bytes : Bytes,
+  offset : Int,
+  context : String,
+) -> Int raise ZipError {
   let tail = offset + 4
   if offset < 0 || tail > bytes.length() {
     raise UnexpectedEOF(context)
@@ -283,5 +303,9 @@ fn bytes_to_string(bytes : Bytes) -> String {
 ///|
 fn byte_to_int(b : Byte) -> Int {
   let v = b.to_int()
-  if v >= 0 { v } else { v + 256 }
+  if v >= 0 {
+    v
+  } else {
+    v + 256
+  }
 }

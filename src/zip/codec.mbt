@@ -9,20 +9,20 @@ pub(all) enum CompressionMethod {
 pub(all) suberror CodecError {
   UnsupportedCompressionMethod(Int)
   DecodeFailed(String)
-  OutputTooLarge(max : Int, actual : Int)
+  OutputTooLarge(Int, Int)
 }
 
 ///|
 pub fn decompress(
-  method : CompressionMethod,
+  compression_method : CompressionMethod,
   compressed : Bytes,
-  max_output_size~ : Int = 128 * 1024 * 1024,
+  max_output_size? : Int = 128 * 1024 * 1024,
 ) -> Bytes raise CodecError {
   if max_output_size < 0 {
     raise OutputTooLarge(max_output_size, 0)
   }
 
-  let out = match method {
+  let out = match compression_method {
     Store => compressed
     DeflateRaw => decompress_deflate_raw_backend(compressed)
     Unsupported(code) => raise UnsupportedCompressionMethod(code)

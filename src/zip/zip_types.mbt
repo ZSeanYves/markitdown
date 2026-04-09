@@ -1,7 +1,7 @@
 ///|
 pub(all) suberror ZipError {
-  UnexpectedEOF(context : String)
-  InvalidSignature(context : String, expected : Int, actual : Int)
+  UnexpectedEOF(String)
+  InvalidSignature(String, Int, Int)
   InvalidStructure(String)
   UnsupportedCompressionMethod(Int)
   EntryNotFound(String)
@@ -11,7 +11,7 @@ pub(all) suberror ZipError {
 ///|
 pub struct ZipEntryMeta {
   name : String
-  compression_method : @common.CompressionMethod
+  compression_method : CompressionMethod
   compressed_size : Int
   uncompressed_size : Int
   local_header_offset : Int

@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/src/common" @common,
+  "bikallem/compress/flate" @flate,
 }
 
 options(
