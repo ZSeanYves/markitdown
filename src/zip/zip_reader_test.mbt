@@ -1,5 +1,5 @@
 ///|
-fn resolve_sample_path(path : String) -> String raise{
+fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
@@ -13,7 +13,7 @@ fn resolve_sample_path(path : String) -> String raise{
 }
 
 ///|
-fn read_sample_bytes(path : String) -> Bytes raise{
+fn read_sample_bytes(path : String) -> Bytes raise {
   let resolved = resolve_sample_path(path)
   @fs.read_file_to_bytes(resolved) catch {
     e => fail("failed to read sample: " + resolved + " : " + e.to_string())
@@ -21,7 +21,7 @@ fn read_sample_bytes(path : String) -> Bytes raise{
 }
 
 ///|
-fn open_sample_zip(path : String) -> ZipArchive raise{
+fn open_sample_zip(path : String) -> ZipArchive raise {
   let bytes = read_sample_bytes(path)
   open_zip(bytes) catch {
     e => fail("open_zip failed for sample: " + path + " : " + e.to_string())
@@ -29,7 +29,10 @@ fn open_sample_zip(path : String) -> ZipArchive raise{
 }
 
 ///|
-fn assert_entry_readable(archive : ZipArchive, entry_path : String) -> Unit raise{
+fn assert_entry_readable(
+  archive : ZipArchive,
+  entry_path : String,
+) -> Unit raise {
   let data = read_entry(archive, entry_path) catch {
     e => fail("read_entry failed: " + entry_path + " : " + e.to_string())
   }

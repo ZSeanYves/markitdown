@@ -19,7 +19,6 @@ const GP_FLAG_ENCRYPTED : Int = 0x0001
 ///|
 const GP_FLAG_DATA_DESCRIPTOR : Int = 0x0008
 
-
 ///|
 pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
@@ -31,7 +30,9 @@ pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   while i < entries.length() {
     let entry = entries[i]
     if index.contains(entry.name) {
-      raise InvalidStructure("duplicate entry name in central directory: " + entry.name)
+      raise InvalidStructure(
+        "duplicate entry name in central directory: " + entry.name,
+      )
     }
     index.set(entry.name, i)
     i = i + 1
@@ -144,7 +145,10 @@ pub fn read_entry(
 }
 
 ///|
-fn validate_entry_supported_flags(flags : Int, entry_name : String) -> Unit raise ZipError {
+fn validate_entry_supported_flags(
+  flags : Int,
+  entry_name : String,
+) -> Unit raise ZipError {
   if (flags & GP_FLAG_ENCRYPTED) != 0 {
     raise InvalidStructure("encrypted zip is not supported: " + entry_name)
   }
@@ -286,7 +290,9 @@ fn parse_cd_entries(
     if compressed_size == ZIP64_U32_SENTINEL ||
       uncompressed_size == ZIP64_U32_SENTINEL ||
       local_header_offset == ZIP64_U32_SENTINEL {
-      raise InvalidStructure("ZIP64 central directory entry is not supported in phase-1")
+      raise InvalidStructure(
+        "ZIP64 central directory entry is not supported in phase-1",
+      )
     }
 
     let name_start = cursor + 46

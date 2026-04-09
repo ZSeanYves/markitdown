@@ -1,5 +1,5 @@
 ///|
-fn resolve_sample_path(path : String) -> String {
+fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
@@ -13,7 +13,7 @@ fn resolve_sample_path(path : String) -> String {
 }
 
 ///|
-fn open_sample_package(path : String) -> OoxmlPackage {
+fn open_sample_package(path : String) -> OoxmlPackage raise {
   let resolved = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(resolved) catch {
     e => fail("read sample failed: " + resolved + " : " + e.to_string())
@@ -25,7 +25,7 @@ fn open_sample_package(path : String) -> OoxmlPackage {
 }
 
 ///|
-fn assert_core_readable(pkg : OoxmlPackage, part_name : String) -> Unit {
+fn assert_core_readable(pkg : OoxmlPackage, part_name : String) -> Unit raise {
   if !has_part(pkg, part_name) {
     fail("part should exist: " + part_name)
   }
@@ -38,7 +38,8 @@ fn assert_core_readable(pkg : OoxmlPackage, part_name : String) -> Unit {
   }
 
   let content_type = lookup_content_type(pkg, part_name) catch {
-    e => fail("lookup_content_type failed: " + part_name + " : " + e.to_string())
+    e =>
+      fail("lookup_content_type failed: " + part_name + " : " + e.to_string())
   }
   match content_type {
     Some(_) => ()
