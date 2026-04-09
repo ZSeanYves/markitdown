@@ -374,6 +374,10 @@ fn sort_callout_pairs(
 
 ///|
 fn is_callout_pair_debug_target(shapes : Array[LayoutShape]) -> Bool {
+  if !PPTX_SLIDE_DEBUG {
+    return false
+  }
+
   let mut has_row_jitter = false
   let mut has_mixed_widths = false
 

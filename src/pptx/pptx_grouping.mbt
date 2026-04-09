@@ -262,6 +262,10 @@ fn shape_group_before(a : ShapeGroup, b : ShapeGroup) -> Bool {
 
 ///|
 fn is_grouping_debug_target(shapes : Array[LayoutShape]) -> Bool {
+  if !PPTX_SLIDE_DEBUG {
+    return false
+  }
+
   for sp in shapes {
     let text = normalize_shape_text_for_title(sp.shape.xml)
     if text.contains("Title1") ||
