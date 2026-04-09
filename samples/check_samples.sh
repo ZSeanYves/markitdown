@@ -11,6 +11,15 @@ fail=0
 
 echo "==> sample integrity check"
 
+is_noise_file() {
+  local base="$1"
+  [[ "$base" == .* ]] && return 0
+  [[ "$base" == *~ ]] && return 0
+  [[ "$base" == *.swp ]] && return 0
+  [[ "$base" == *.tmp ]] && return 0
+  return 1
+}
+
 for fmt in "${FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
   exp_dir="$EXP_DIR/$fmt"
@@ -24,6 +33,9 @@ for fmt in "${FORMATS[@]}"; do
 
   input_bases="$(find "$in_dir" -maxdepth 1 -type f | sort | while read -r path; do
     base="$(basename "$path")"
+    if is_noise_file "$base"; then
+      continue
+    fi
     name="${base%.*}"
     ext="${base##*.}"
     ext_lc="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
@@ -37,6 +49,9 @@ for fmt in "${FORMATS[@]}"; do
 
   all_sample_bases="$(find "$in_dir" -maxdepth 1 -type f | sort | while read -r path; do
     base="$(basename "$path")"
+    if is_noise_file "$base"; then
+      continue
+    fi
     echo "${base%.*}"
   done | sort -u)"
 
@@ -77,6 +92,9 @@ for fmt in "${FORMATS[@]}"; do
   reference_files=0
   while IFS= read -r path; do
     base="$(basename "$path")"
+    if is_noise_file "$base"; then
+      continue
+    fi
     ext="${base##*.}"
     ext_lc="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
 
