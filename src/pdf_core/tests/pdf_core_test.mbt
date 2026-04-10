@@ -646,8 +646,7 @@ test "pdf phase4 parse basic ToUnicode cmap" {
 ///|
 test "pdf phase7b missing ToUnicode uses WinAnsi fallback for simple font" {
   let bs = build_pdf_with_font_and_contents(
-    "BT\n/F1 12 Tf\n<9620> Tj\nET\n",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "BT\n/F1 12 Tf\n<9620> Tj\nET\n", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
   )
   let doc = @pdfc.open_pdf(bs)
   let text = @pdfc.extract_text_from_document(doc)
