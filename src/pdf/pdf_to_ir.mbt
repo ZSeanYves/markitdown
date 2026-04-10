@@ -132,15 +132,8 @@ fn text_to_ir_document_with_debug(
     )
   }
 
-  let mut first_block = true
   let mut seen_h1 = false
   for b in blocks_after_merge {
-    if !first_block {
-      @cor.push(doc, @cor.Block::BlankLine)
-    } else {
-      first_block = false
-    }
-
     match b {
       PdfBlock::Heading(level, text) => {
         let out_level = normalize_heading_level_after_first_h1(
@@ -240,8 +233,25 @@ fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
     return false
   }
 
+  if should_veto_short_independent_line_merge(p, c) {
+    return false
+  }
+
+  if should_veto_lead_in_line_merge(p) {
+    return false
+  }
+
   // narrow scope: only heal obvious hard-wrap style splits.
   if ends_like_sentence(p) {
+    return false
+  }
+
+  // continuation guard: label-token starts are usually new blocks,
+  // but allow label-token inline references to merge back.
+  if looks_like_label_token_line_start(c) {
+    if should_allow_label_token_continuation_merge(p, c) {
+      return true
+    }
     return false
   }
 
@@ -251,6 +261,113 @@ fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
     return false
   }
 
+  true
+}
+
+///|
+fn should_allow_label_token_continuation_merge(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+
+  if ends_like_sentence(p) {
+    return false
+  }
+
+  // hanging-tail continuation is expected to be non-terminated prose.
+  match last_char(p) {
+    Some(ch) =>
+      if ch == ',' || ch == ':' || ch == ';' || ch == '，' || ch == '：' ||
+        ch == '；' {
+        return false
+      }
+    None => return false
+  }
+
+  let parts : Array[String] = c
+    .split(" ")
+    .map(fn(sv) { sv.to_string().trim().to_string() })
+    .filter(fn(x) { x != "" })
+    .iter()
+    .collect()
+  if parts.length() < 2 {
+    return false
+  }
+
+  let tail = parts[1]
+  match first_char(tail) {
+    Some(ch) =>
+      if !(ch >= 'a' && ch <= 'z') {
+        return false
+      }
+    None => return false
+  }
+
+  // short "LABEL-token + continuation" lines are likely inline references.
+  parts.length() <= 6 && c.to_array().length() <= 42
+}
+
+///|
+fn should_veto_short_independent_line_merge(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+
+  // keep short standalone emphasis/interjection lines (e.g. "OK") isolated.
+  if p.contains(" ") || p.to_array().length() > 8 {
+    return false
+  }
+
+  let mut has_alpha = false
+  for ch in p.to_array() {
+    if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+      has_alpha = true
+      continue
+    }
+    // avoid over-blocking normal token continuations like "e.g."
+    return false
+  }
+
+  if !has_alpha {
+    return false
+  }
+
+  !starts_like_new_block(c)
+}
+
+///|
+fn should_veto_lead_in_line_merge(prev : String) -> Bool {
+  let p = prev.trim().to_string()
+  if p == "" {
+    return false
+  }
+
+  let cs = p.to_array()
+  let n = cs.length()
+  if n < 4 || n > 40 {
+    return false
+  }
+
+  let last = cs[n - 1]
+  if last != ',' && last != ':' {
+    return false
+  }
+
+  let mut words = 0
+  for sv in p.split(" ") {
+    if sv.to_string().trim() != "" {
+      words += 1
+    }
+  }
+  if words > 4 {
+    return false
+  }
+
+  // short lead-ins are likely discourse transition labels, not wrapped prose.
   true
 }
 
