@@ -14,19 +14,6 @@ fn precheck_pdf_native_candidate(path : String) -> PdfPrecheckDecision {
       reason_code: PdfDecisionReasonCode::REJECT_ENCRYPTED,
     }
   }
-  if contains_ascii(bytes, "/Type/XRef") || contains_ascii(bytes, "/Type /XRef") {
-    return {
-      accepted: false,
-      reason_code: PdfDecisionReasonCode::REJECT_XREF_STREAM,
-    }
-  }
-  if contains_ascii(bytes, "/Type/ObjStm") ||
-    contains_ascii(bytes, "/Type /ObjStm") {
-    return {
-      accepted: false,
-      reason_code: PdfDecisionReasonCode::REJECT_OBJECT_STREAM,
-    }
-  }
 
   let doc = @pdfc.open_pdf(bytes) catch {
     _ =>
