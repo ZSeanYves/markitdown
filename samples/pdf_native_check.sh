@@ -7,6 +7,7 @@ OUT_ROOT="${1:-$ROOT/.tmp_pdf_native_out}"
 RUN_DIR="$OUT_ROOT/run"
 LOG_DIR="$OUT_ROOT/log"
 EXP_DIR="$FIXTURE_DIR"
+GEN_SCRIPT="$FIXTURE_DIR/generate_phase7_native_fixtures.py"
 
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
@@ -22,6 +23,10 @@ CASES=(
   "pdf_native_real_text_multipage"
   "pdf_native_real_tounicode_basic"
   "pdf_native_real_header_footer_simple"
+  "pdf_native_real_xref_stream_simple"
+  "pdf_native_real_objstm_simple"
+  "pdf_native_real_xref_objstm_simple_text"
+  "pdf_native_real_simple_font_fallback"
 )
 
 # 允许 unsupported 的样例（当前批次默认空，全部必须通过）
@@ -48,6 +53,10 @@ failed=0
 printf '==> pdf-native acceptance check\n'
 printf '    fixture dir: %s\n' "$FIXTURE_DIR"
 printf '    output dir : %s\n\n' "$OUT_ROOT"
+
+if [[ -f "$GEN_SCRIPT" ]]; then
+  python3 "$GEN_SCRIPT"
+fi
 
 for name in "${CASES[@]}"; do
   pdf="$FIXTURE_DIR/$name.pdf"

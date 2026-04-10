@@ -45,6 +45,41 @@ fn all_hex_between_angles(line : String) -> Array[String] {
 }
 
 ///|
+pub fn infer_cmap_code_widths(stream : Bytes) -> Array[Int] raise {
+  let text = @utf8.decode(stream)
+  let has_width : Map[Int, Bool] = Map::new()
+  for sv in text.split("\n") {
+    let line = sv.to_string().trim().to_string()
+    let hs = all_hex_between_angles(line)
+    if hs.length() == 0 {
+      continue
+    }
+    let src = hs[0]
+    if src.length() % 2 == 0 {
+      let w = src.length() / 2
+      if w >= 1 && w <= 4 {
+        has_width.set(w, true)
+      }
+    }
+  }
+
+  let out : Array[Int] = []
+  let mut w = 4
+  while w >= 1 {
+    match has_width.get(w) {
+      Some(true) => out.push(w)
+      _ => ()
+    }
+    w = w - 1
+  }
+  if out.length() == 0 {
+    [1]
+  } else {
+    out
+  }
+}
+
+///|
 fn decode_utf16be_hex(hex : String) -> String raise {
   if hex.length() % 4 != 0 {
     return ""

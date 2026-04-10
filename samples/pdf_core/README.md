@@ -5,7 +5,7 @@ These fixtures are dedicated to low-level PDF native parsing checks.
 ## Generate fixtures
 
 ```bash
-python3 src/pdf_core/tests/test_file/generate_phase5_native_test_files.py
+python3 samples/pdf_core/generate_phase7_native_fixtures.py
 ```
 
 This generates:
@@ -15,5 +15,9 @@ This generates:
 - `pdf_native_real_text_multipage.pdf`
 - `pdf_native_real_tounicode_basic.pdf`
 - `pdf_native_real_header_footer_simple.pdf`
+- `pdf_native_real_xref_stream_simple.pdf`
+- `pdf_native_real_objstm_simple.pdf`
+- `pdf_native_real_xref_objstm_simple_text.pdf`
+- `pdf_native_real_simple_font_fallback.pdf`
 
 and corresponding `*.expected.md` files in the same directory.
