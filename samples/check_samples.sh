@@ -4,12 +4,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
+PDF_GEN_SCRIPT="$SAMPLES_DIR/tools/gen_phase15_pdf_samples.py"
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
 fail=0
+pdf_phase15_generated=0
 
 echo "==> sample integrity check"
+
+if [[ -f "$PDF_GEN_SCRIPT" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$PDF_GEN_SCRIPT"
+    pdf_phase15_generated=1
+  else
+    echo "[warn] python3 not found, skip phase-1.5 pdf sample generation"
+  fi
+fi
 
 is_noise_file() {
   local base="$1"
@@ -68,6 +79,14 @@ for fmt in "${FORMATS[@]}"; do
   if [[ -n "$missing_input" ]]; then
     while IFS= read -r base; do
       [[ -z "$base" ]] && continue
+
+      if [[ "$fmt" == "pdf" && "$base" == *_phase15 && $pdf_phase15_generated -eq 0 ]]; then
+        echo "  [warn] expected exists but generated phase-1.5 input is unavailable:"
+        echo "    - $base"
+        echo "    hint: run python3 samples/tools/gen_phase15_pdf_samples.py"
+        continue
+      fi
+
       if printf '%s\n' "$all_sample_bases" | grep -Fxq "$base"; then
         echo "  [error] expected exists but only non-enrolled input extension found:"
         echo "    - $base"

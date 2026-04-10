@@ -33,6 +33,10 @@ async fn main {
             nargs=@clap.Nargs::AtMost(1),
             help="PDF enhancement mode: text|experimental (default: text)",
           ),
+          "pdf-extract-debug": @clap.Arg::named(
+            nargs=@clap.Nargs::AtMost(1),
+            help="Enable concise PDF extractor decision logs (default: off). Accepts: 1/true/on/yes",
+          ),
         },
       ),
       "help": @clap.SubCommand::new(help="Display help message"),
@@ -106,8 +110,25 @@ async fn main {
               } else {
                 mh0
               }
+
+              let pdf_extract_debug = match
+                sub.args.get("pdf-extract-debug") {
+                Some(arr) =>
+                  if arr.length() == 0 {
+                    true
+                  } else {
+                    let v = arr[0].trim().to_string().to_lower()
+                    v == "1" || v == "true" || v == "on" || v == "yes"
+                  }
+                None => false
+              }
               cmd_convert(
-                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt,
+                input,
+                output_opt,
+                out_dir_opt,
+                max_heading,
+                pdf_mode_opt,
+                pdf_extract_debug,
               )
             }
             "help" => println(help_msg)
