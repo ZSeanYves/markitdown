@@ -296,6 +296,16 @@ fn parse_content_literal_string(
         out = out + "\u000C"
       } else if n == '\\'.to_int().to_byte() {
         out = out + "\\"
+        i = i + 2
+        if i < stream.length() && stream[i] == '\n'.to_int().to_byte() {
+          i = i + 1
+        } else if i < stream.length() && stream[i] == '\r'.to_int().to_byte() {
+          i = i + 1
+          if i < stream.length() && stream[i] == '\n'.to_int().to_byte() {
+            i = i + 1
+          }
+        }
+        continue
       } else if n == '('.to_int().to_byte() {
         out = out + "("
       } else if n == ')'.to_int().to_byte() {
