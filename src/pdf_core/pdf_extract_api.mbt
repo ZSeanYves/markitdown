@@ -1,6 +1,7 @@
 ///|
 pub struct PdfTextEvent {
   font_name : String?
+  font_size : Double?
   text : String
 }
 
@@ -140,6 +141,7 @@ pub fn extract_text_events_from_page(
   }
   let events : Array[PdfTextEvent] = []
   let mut current_font : String? = None
+  let mut current_font_size : Double? = None
   let mut in_text = false
 
   for stream in streams {
@@ -164,9 +166,16 @@ pub fn extract_text_events_from_page(
       }
 
       if op.op == "Tf" {
-        if op.operands.length() >= 1 {
-          match op.operands[0] {
-            PdfContentOperand::Name(name) => current_font = Some(name)
+        if op.operands.length() >= 2 {
+          match (op.operands[0], op.operands[1]) {
+            (PdfContentOperand::Name(name), PdfContentOperand::Number(size)) => {
+              if name.has_prefix("/") {
+                current_font = Some(name[1:].to_string())
+              } else {
+                current_font = Some(name)
+              }
+              current_font_size = Some(size)
+            }
             _ => ()
           }
         }
@@ -187,7 +196,11 @@ pub fn extract_text_events_from_page(
           _ => ""
         }
         if text != "" {
-          events.push({ font_name: current_font, text })
+          events.push({
+            font_name: current_font,
+            font_size: current_font_size,
+            text,
+          })
         }
       }
 
@@ -200,7 +213,11 @@ pub fn extract_text_events_from_page(
           _ => ("", [])
         }
         if text != "" {
-          events.push({ font_name: current_font, text })
+          events.push({
+            font_name: current_font,
+            font_size: current_font_size,
+            text,
+          })
         }
       }
     }

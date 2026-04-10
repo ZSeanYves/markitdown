@@ -95,6 +95,7 @@ pub struct PdfIndirectObject {
 
 pub struct PdfTextEvent {
   font_name : String?
+  font_size : Double?
   text : String
 }
 
