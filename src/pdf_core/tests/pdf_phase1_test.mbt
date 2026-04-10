@@ -130,3 +130,18 @@ test "pdf phase1 can open find pages and read content stream" {
   let obj4_text = @cor.utf8_bytes_to_string(obj4_stream)
   assert_eq(obj4_text.contains("Hello PDF"), true)
 }
+
+///|
+test "pdf phase2 can extract plain text from content stream" {
+  let bs = build_min_pdf()
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let streams = @pdfc.get_page_content_stream_bytes(doc, page_obj, page_gen)
+
+  let text = @pdfc.extract_plain_text_from_page_stream(streams[0])
+  assert_eq(text, "Hello PDF")
+
+  let ops = @pdfc.extract_text_ops_from_page_stream(streams[0])
+  assert_eq(ops.length() >= 3, true)
+}
