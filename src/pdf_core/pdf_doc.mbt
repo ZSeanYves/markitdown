@@ -26,6 +26,20 @@ pub fn get_indirect_object(
   if !entry.in_use {
     raise ObjectNotFound(obj_num, gen)
   }
+  if entry.entry_type == 2 {
+    let objstm = match entry.objstm_obj {
+      Some(v) => v.to_string()
+      None => "?"
+    }
+    raise UnsupportedFeature(
+      "object stream object is not supported yet: obj=" +
+      obj_num.to_string() +
+      " gen=" +
+      gen.to_string() +
+      " objstm=" +
+      objstm,
+    )
+  }
   let obj = parse_indirect_object_at(doc.bytes, entry.offset)
   normalize_stream_length_by_dict(doc, obj)
 }

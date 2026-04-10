@@ -75,9 +75,12 @@ pub struct PdfIndirectObject {
 
 ///|
 pub struct PdfXrefEntry {
+  entry_type : Int
   offset : Int
   gen : Int
   in_use : Bool
+  objstm_obj : Int?
+  objstm_index : Int?
 }
 
 ///|

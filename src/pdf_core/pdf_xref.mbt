@@ -33,12 +33,7 @@ fn parse_xref_and_trailer(
 ) -> (PdfXrefTable, Map[String, PdfValue]) raise {
   let i = skip_ws_and_comment(bytes, xref_offset)
   if !starts_with_at(bytes, i, "xref") {
-    if starts_with_at(bytes, i, "0") {
-      raise PdfNativeError::UnsupportedFeature(
-        "xref stream is not supported yet",
-      )
-    }
-    raise InvalidStructure("xref table not found at startxref")
+    return parse_xref_stream_at(bytes, i)
   }
 
   let entries : Map[String, PdfXrefEntry] = Map::new()
@@ -93,7 +88,14 @@ fn parse_xref_and_trailer(
       let in_use = filtered[2] == "n"
 
       let key = make_obj_key(obj_start + idx, gen)
-      entries.set(key, { offset: off, gen, in_use })
+      entries.set(key, {
+        entry_type: if in_use { 1 } else { 0 },
+        offset: off,
+        gen,
+        in_use,
+        objstm_obj: None,
+        objstm_index: None,
+      })
 
       p = line_end
       while p < bytes.length() && (bytes[p] == b'\n' || bytes[p] == b'\r') {
