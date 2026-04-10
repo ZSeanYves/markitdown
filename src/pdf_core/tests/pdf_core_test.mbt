@@ -228,8 +228,12 @@ fn build_pdf_with_two_fonts(stream_data : String) -> Bytes {
     stream_data +
     "endstream\nendobj\n",
   )
-  add_obj("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
-  add_obj("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj\n")
+  add_obj(
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  )
+  add_obj(
+    "6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj\n",
+  )
   let xref_offset = cur
   add("xref\n0 7\n0000000000 65535 f \n")
   for off in offsets {
@@ -398,8 +402,7 @@ test "pdf phase4 parse basic ToUnicode cmap" {
 
 ///|
 test "pdf phase5 tracks Tf state across Tj and TJ text events" {
-  let stream_data =
-    "BT\n/F1 12 Tf\n(A) Tj\n/F2 10 Tf\n[(B) 120 (C)] TJ\n/F1 12 Tf\n(D) Tj\nET\n"
+  let stream_data = "BT\n/F1 12 Tf\n(A) Tj\n/F2 10 Tf\n[(B) 120 (C)] TJ\n/F1 12 Tf\n(D) Tj\nET\n"
   let bs = build_pdf_with_two_fonts(stream_data)
   let doc = @pdfc.open_pdf(bs)
   let pages = @pdfc.list_page_refs(doc)
