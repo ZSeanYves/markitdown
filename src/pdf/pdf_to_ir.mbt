@@ -8,6 +8,16 @@
 /// - Merge cleaned pages with an internal page-break marker
 /// - Recover blocks once on the merged text
 fn text_to_ir_document(text0 : String) -> @cor.Document {
+  text_to_ir_document_with_debug("", "", text0, false)
+}
+
+///|
+fn text_to_ir_document_with_debug(
+  input_path : String,
+  out_dir : String,
+  text0 : String,
+  pipeline_debug : Bool,
+) -> @cor.Document {
   let text = @cor.normalize_text(text0)
   let doc = @cor.new_document()
 
@@ -23,7 +33,31 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     return doc
   }
 
+  if pipeline_debug {
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "01_page_split",
+      render_debug_pages("page_split", pages),
+    )
+  }
+
   let (head_keys, tail_keys) = detect_repeated_page_noise(pages)
+
+  if pipeline_debug {
+    let repeated_clean_pages : Array[String] = []
+    for page in pages {
+      repeated_clean_pages.push(
+        strip_page_repeated_noise_only(page, head_keys, tail_keys),
+      )
+    }
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "02_repeated_cleanup",
+      render_debug_pages("repeated_cleanup", repeated_clean_pages),
+    )
+  }
 
   let clean_pages : Array[String] = []
   let mut _page_idx = 0
@@ -48,6 +82,30 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     _page_idx += 1
   }
 
+  if pipeline_debug {
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "03_page_noise_cleanup",
+      render_debug_pages("page_noise_cleanup", clean_pages),
+    )
+  }
+
+  let blocks_before_merge : Array[PdfBlock] = []
+  for page in clean_pages {
+    for b in split_blocks_smart(page) {
+      blocks_before_merge.push(b)
+    }
+  }
+  if pipeline_debug {
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "04_blocks_before_cross_page_merge",
+      render_pdf_blocks(blocks_before_merge),
+    )
+  }
+
   let merged = merge_clean_pages_with_breaks(clean_pages)
   //println("[pdf-cross-debug] merged preview")
   let mut shown = 0
@@ -62,8 +120,19 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     }
   }
 
+  let blocks_after_merge = split_blocks_smart(merged)
+  if pipeline_debug {
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "05_blocks_after_cross_page_merge",
+      render_pdf_blocks(blocks_after_merge),
+    )
+  }
+
   let mut first_block = true
-  for b in split_blocks_smart(merged) {
+  let mut seen_h1 = false
+  for b in blocks_after_merge {
     if !first_block {
       @cor.push(doc, @cor.Block::BlankLine)
     } else {
@@ -71,8 +140,17 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
     }
 
     match b {
-      PdfBlock::Heading(level, text) =>
-        @cor.push(doc, @cor.Block::Heading(level, text))
+      PdfBlock::Heading(level, text) => {
+        let out_level = normalize_heading_level_after_first_h1(
+          seen_h1,
+          level,
+          text,
+        )
+        if out_level == 1 {
+          seen_h1 = true
+        }
+        @cor.push(doc, @cor.Block::Heading(out_level, text))
+      }
       PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
       PdfBlock::ListItem(ordered, level, text) =>
         @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
@@ -80,4 +158,66 @@ fn text_to_ir_document(text0 : String) -> @cor.Document {
   }
 
   doc
+}
+
+///|
+fn normalize_heading_level_after_first_h1(
+  seen_h1 : Bool,
+  level : Int,
+  text : String,
+) -> Int {
+  if level != 1 {
+    return level
+  }
+
+  if !seen_h1 {
+    return 1
+  }
+
+  // after first H1, avoid promoting page-start title-like lines to H1
+  // unless there is explicit top-level chapter-like signal.
+  if guess_numbered_heading_level(text) == 1 || looks_like_heading_marker(text) {
+    return 1
+  }
+
+  2
+}
+
+///|
+fn render_debug_pages(title : String, pages : Array[String]) -> String {
+  let out : Array[String] = []
+  out.push("# " + title)
+  let mut i = 0
+  for page in pages {
+    i += 1
+    out.push("")
+    out.push("## page " + i.to_string())
+    out.push(page)
+  }
+  out.join("\n")
+}
+
+///|
+fn render_pdf_blocks(blocks : Array[PdfBlock]) -> String {
+  let out : Array[String] = []
+  let mut i = 0
+  for b in blocks {
+    i += 1
+    match b {
+      PdfBlock::Heading(level, text) =>
+        out.push(i.to_string() + ". Heading(" + level.to_string() + "): " + text)
+      PdfBlock::Paragraph(text) => out.push(i.to_string() + ". Paragraph: " + text)
+      PdfBlock::ListItem(ordered, level, text) =>
+        out.push(
+          i.to_string() +
+          ". ListItem(" +
+          (if ordered { "ordered" } else { "unordered" }) +
+          ", level=" +
+          level.to_string() +
+          "): " +
+          text,
+        )
+    }
+  }
+  out.join("\n")
 }
