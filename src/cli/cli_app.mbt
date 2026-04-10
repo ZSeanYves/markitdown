@@ -5,6 +5,7 @@ async fn cmd_convert(
   out_dir : String?,
   max_heading : Int,
   pdf_mode : String?,
+  pdf_extract_debug : Bool,
 ) -> Unit {
   let out_root = match out_dir {
     Some(d) => d
@@ -25,6 +26,7 @@ async fn cmd_convert(
     out_dir: Some(out_root),
     max_heading: Some(max_heading),
     pdf_enhance_mode: pdf_mode,
+    pdf_extract_debug,
   }
 
   let doc_res = @conv.parse_to_ir(input, opts)

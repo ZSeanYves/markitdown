@@ -4,12 +4,13 @@ pub async fn parse_pdf(
   _out_dir : String,
   _max_heading : Int,
   enhance_mode : String?,
+  extract_debug : Bool,
 ) -> @cor.Document {
   if !@fs.path_exists(path) {
     raise @cor.AppError("PDF file not found: " + path)
   }
 
-  let extracted = match extract_pdf_text_result(path) {
+  let extracted = match extract_pdf_text_result(path, debug=extract_debug) {
     Ok(res) => res
     Err(e) => raise e
   }
