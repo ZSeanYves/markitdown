@@ -77,24 +77,49 @@ pub fn decode_text_operand(
   font_ref : PdfFontRef,
   operand : PdfContentOperand,
 ) -> String raise {
-  let cmap : Map[Int, String] = match
+  let (cmap, code_widths) = match
     (font_ref.to_unicode_obj, font_ref.to_unicode_gen) {
     (Some(obj), Some(gen)) => {
       let o = get_indirect_object(doc, obj, gen)
       match o.stream {
-        Some(bs) => parse_tounicode_cmap(bs)
-        None => Map::new()
+        Some(bs) => (parse_tounicode_cmap(bs), infer_cmap_code_widths(bs))
+        None => (Map::new(), [1])
       }
     }
-    _ => Map::new()
+    _ => (Map::new(), [1])
   }
 
   let decode_bytes = fn(bs : Bytes) -> String raise {
     let mut out = ""
-    for b in bs {
-      match cmap.get(b.to_int()) {
-        Some(ch) => out = out + ch
-        None => out = out + @utf8.decode([b])
+    let mut i = 0
+    let n = bs.length()
+    while i < n {
+      let mut matched = false
+      for w in code_widths {
+        if matched {
+          continue
+        }
+        if w <= 0 || i + w > n {
+          continue
+        }
+        let mut code = 0
+        let mut j = 0
+        while j < w {
+          code = code * 256 + bs[i + j].to_int()
+          j = j + 1
+        }
+        match cmap.get(code) {
+          Some(ch) => {
+            out = out + ch
+            i = i + w
+            matched = true
+          }
+          None => ()
+        }
+      }
+      if !matched {
+        out = out + @utf8.decode([bs[i]])
+        i = i + 1
       }
     }
     out
@@ -116,6 +141,66 @@ pub fn decode_text_operand(
       out
     }
     _ => ""
+  }
+}
+
+///|
+fn all_hex_between_angles_local(line : String) -> Array[String] {
+  let out : Array[String] = []
+  let mut i = 0
+  while i < line.length() {
+    let mut l = i
+    while l < line.length() && line[l] != '<' {
+      l = l + 1
+    }
+    if l >= line.length() {
+      break
+    }
+    let mut r = l + 1
+    while r < line.length() && line[r] != '>' {
+      r = r + 1
+    }
+    if r >= line.length() {
+      break
+    }
+    out.push(line[l + 1:r].to_string())
+    i = r + 1
+  }
+  out
+}
+
+///|
+fn infer_cmap_code_widths(stream : Bytes) -> Array[Int] raise {
+  let text = @utf8.decode(stream)
+  let has_width : Map[Int, Bool] = Map::new()
+  for sv in text.split("\n") {
+    let line = sv.to_string().trim().to_string()
+    let hs = all_hex_between_angles_local(line)
+    if hs.length() == 0 {
+      continue
+    }
+    let src = hs[0]
+    if src.length() % 2 == 0 {
+      let w = src.length() / 2
+      if w >= 1 && w <= 4 {
+        has_width.set(w, true)
+      }
+    }
+  }
+
+  let out : Array[Int] = []
+  let mut w = 4
+  while w >= 1 {
+    match has_width.get(w) {
+      Some(true) => out.push(w)
+      _ => ()
+    }
+    w = w - 1
+  }
+  if out.length() == 0 {
+    [1]
+  } else {
+    out
   }
 }
 
@@ -258,10 +343,7 @@ pub fn extract_text_from_page(
   let events = extract_text_events_from_page(doc, page_obj, page_gen) catch {
     e => raise e
   }
-  let mut out = ""
-  for ev in events {
-    out = out + ev.text
-  }
+  let out = merge_native_page_events(events)
   normalize_native_page_text(out)
 }
 
@@ -291,6 +373,61 @@ fn bytes_to_text_fallback(bs : Bytes) -> String raise {
     out = out + @utf8.decode([b])
   }
   out
+}
+
+///|
+fn merge_native_page_events(events : Array[PdfTextEvent]) -> String {
+  let mut out = ""
+  let mut prev_text = ""
+  let mut prev_was_text = false
+  for ev in events {
+    let cur = ev.text
+    if cur == "" {
+      continue
+    }
+    if cur == "\n\n" {
+      out = out + cur
+      prev_was_text = false
+      prev_text = ""
+      continue
+    }
+
+    if prev_was_text && !out.has_suffix("\n") &&
+      should_insert_event_paragraph_gap(prev_text, cur) {
+      out = out + "\n\n"
+    }
+
+    out = out + cur
+    prev_text = cur
+    prev_was_text = true
+  }
+  out
+}
+
+///|
+fn should_insert_event_paragraph_gap(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+  if p.to_array().length() < 24 || c.to_array().length() < 12 {
+    return false
+  }
+  ends_with_sentence_punct(p)
+}
+
+///|
+fn ends_with_sentence_punct(s : String) -> Bool {
+  if s == "" {
+    return false
+  }
+  s.has_suffix(".") ||
+  s.has_suffix("!") ||
+  s.has_suffix("?") ||
+  s.has_suffix("。") ||
+  s.has_suffix("！") ||
+  s.has_suffix("？")
 }
 
 ///|

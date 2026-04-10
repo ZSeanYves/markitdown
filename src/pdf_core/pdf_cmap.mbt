@@ -46,17 +46,19 @@ fn all_hex_between_angles(line : String) -> Array[String] {
 
 ///|
 fn decode_utf16be_hex(hex : String) -> String raise {
-  let bytes = @utf8.encode(hex)
-  if bytes.length() % 4 != 0 {
+  if hex.length() % 4 != 0 {
     return ""
   }
   let mut out = ""
   let mut i = 0
-  while i + 3 < bytes.length() {
+  while i + 3 < hex.length() {
     let cp_hex = hex[i:i + 4].to_string()
     let cp = parse_hex_int(cp_hex)
-    if cp <= 0x7F {
-      out = out + @utf8.decode([cp.to_byte()])
+    if cp >= 0xD800 && cp <= 0xDFFF {
+      return ""
+    }
+    if cp >= 0 && cp <= 0x10FFFF {
+      out = out + Int::unsafe_to_char(cp).to_string()
     }
     i = i + 4
   }
@@ -96,8 +98,8 @@ pub fn parse_tounicode_cmap(stream : Bytes) -> Map[Int, String] raise {
         let mut i = 0
         while start + i <= end_ {
           let cp = dst_start + i
-          if cp <= 0x7F {
-            out.set(start + i, @utf8.decode([cp.to_byte()]))
+          if cp >= 0 && cp <= 0x10FFFF {
+            out.set(start + i, Int::unsafe_to_char(cp).to_string())
           }
           i = i + 1
         }
