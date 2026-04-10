@@ -248,6 +248,118 @@ fn build_pdf_with_two_fonts(stream_data : String) -> Bytes {
 }
 
 ///|
+fn append_be(out : Array[Int], value : Int, width : Int) -> Unit {
+  let mut i = width - 1
+  while i >= 0 {
+    let shift = i * 8
+    out.push((value >> shift) & 0xFF)
+    i = i - 1
+  }
+}
+
+///|
+fn xref_row_bytes(t : Int, f1 : Int, f2 : Int) -> Array[Int] {
+  let out : Array[Int] = []
+  out.push(t & 0xFF)
+  append_be(out, f1, 2)
+  out.push(f2 & 0xFF)
+  out
+}
+
+///|
+fn ints_to_ctrl_string(xs : Array[Int]) -> String {
+  let bs : Bytes = xs.map(fn(x) { x.to_byte() })
+  @utf8.decode(bs)
+}
+
+///|
+fn build_pdf_with_xref_stream(
+  with_index? : Bool = false,
+  with_type2_entry? : Bool = false,
+) -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.5\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+  )
+  add_obj("4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  let stream_data = "BT\n/F1 12 Tf\n(Hello XRefStream) Tj\nET\n"
+  add_obj(
+    "5 0 obj\n<< /Length " +
+    byte_len(stream_data).to_string() +
+    " >>\nstream\n" +
+    stream_data +
+    "endstream\nendobj\n",
+  )
+
+  let xref_obj_num = 6
+  let xref_offset = cur
+
+  let rows : Array[Int] = []
+  for b in xref_row_bytes(0, 0, 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[0], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[1], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[2], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[3], 0) {
+    rows.push(b)
+  }
+  if with_type2_entry {
+    for b in xref_row_bytes(2, 9, 3) {
+      rows.push(b)
+    }
+  } else {
+    for b in xref_row_bytes(1, offsets[4], 0) {
+      rows.push(b)
+    }
+  }
+  for b in xref_row_bytes(1, xref_offset, 0) {
+    rows.push(b)
+  }
+  let xref_stream = ints_to_ctrl_string(rows)
+
+  let index_part = if with_index {
+    "/Index [0 7] "
+  } else {
+    ""
+  }
+  add_obj(
+    "6 0 obj\n<< /Type /XRef /Size 7 " +
+    index_part +
+    "/W [1 2 1] /Root 1 0 R /Length " +
+    byte_len(xref_stream).to_string() +
+    " >>\nstream\n" +
+    xref_stream +
+    "endstream\nendobj\n",
+  )
+
+  add("startxref\n")
+  add(xref_offset.to_string() + "\n")
+  add("%%EOF\n")
+  @utf8.encode(chunks.join(""))
+}
+
+///|
 test "pdf phase1 can open find pages and read content stream" {
   let bs = build_min_pdf()
   let doc = @pdfc.open_pdf(bs)
@@ -417,4 +529,39 @@ test "pdf phase5 tracks Tf state across Tj and TJ text events" {
   assert_eq(events[2].text, "D")
   let page_text = @pdfc.extract_text_from_page(doc, page_obj, page_gen)
   assert_eq(page_text, "ABCD")
+}
+
+///|
+test "pdf phase7a step1 xref stream minimal parse works" {
+  let bs = build_pdf_with_xref_stream()
+  let doc = @pdfc.open_pdf(bs)
+  assert_eq(@pdfc.count_pages(doc), 1)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text.contains("Hello XRefStream"), true)
+}
+
+///|
+test "pdf phase7a step1 xref stream supports W and Index decode" {
+  let bs = build_pdf_with_xref_stream(with_index=true)
+  let doc = @pdfc.open_pdf(bs)
+  let obj4 = @pdfc.get_indirect_object(doc, 4, 0)
+  let dict = match obj4.value {
+    @pdfc.PdfValue::Dict(d) => d
+    _ => Map::new()
+  }
+  let is_font = match dict.get("Type") {
+    Some(@pdfc.PdfValue::Name(v)) => v == "Font"
+    _ => false
+  }
+  assert_eq(is_font, true)
+}
+
+///|
+test "pdf phase7a step1 xref stream keeps type2 entry and blocks object stream access" {
+  let bs = build_pdf_with_xref_stream(with_index=true, with_type2_entry=true)
+  let doc = @pdfc.open_pdf(bs)
+  let blocked = (@pdfc.get_indirect_object(doc, 5, 0); false) catch {
+    e => e.to_string().contains("object stream object is not supported yet")
+  }
+  assert_eq(blocked, true)
 }
