@@ -242,6 +242,25 @@ Useful options:
 - `--max-heading <1..6>`: heading clamp in Markdown output
 - `--pdf-extract-debug [1|true|on|yes]`: show PDF extraction backend scoring logs
 
+### Native PDF backend (incremental)
+
+Use explicit native backend switch:
+
+```bash
+moon run --target native src/cli -- \
+  convert samples/pdf/text_simple.pdf \
+  -o out/text_simple.native.md \
+  --pdf-backend pdf-native
+```
+
+Recommended current use cases:
+
+- real-world **simple text PDFs** (single-page / multi-page)
+- quick native-path regression checks for `Tf + Tj/TJ` and basic ToUnicode cases
+
+The native backend is still in incremental expansion and is **not** a full-spec parser.  
+See `docs/pdf_native_supported_subset.md` for the current supported/unsupported/degraded scope.
+
 ---
 
 ## Regression Workflow
