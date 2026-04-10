@@ -202,6 +202,48 @@ fn build_pdf_with_indirect_length() -> Bytes {
 }
 
 ///|
+fn build_pdf_with_two_fonts(stream_data : String) -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.4\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+  )
+  add_obj(
+    "4 0 obj\n<< /Length " +
+    byte_len(stream_data).to_string() +
+    " >>\nstream\n" +
+    stream_data +
+    "endstream\nendobj\n",
+  )
+  add_obj("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  add_obj("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj\n")
+  let xref_offset = cur
+  add("xref\n0 7\n0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add(
+    "trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n" +
+    xref_offset.to_string() +
+    "\n%%EOF\n",
+  )
+  @utf8.encode(chunks.join(""))
+}
+
+///|
 test "pdf phase1 can open find pages and read content stream" {
   let bs = build_min_pdf()
   let doc = @pdfc.open_pdf(bs)
@@ -352,4 +394,24 @@ test "pdf phase4 parse basic ToUnicode cmap" {
   assert_eq(cmap.get(0x41).unwrap_or(""), "A")
   assert_eq(cmap.get(0x42).unwrap_or(""), "B")
   assert_eq(cmap.get(0x43).unwrap_or(""), "C")
+}
+
+///|
+test "pdf phase5 tracks Tf state across Tj and TJ text events" {
+  let stream_data =
+    "BT\n/F1 12 Tf\n(A) Tj\n/F2 10 Tf\n[(B) 120 (C)] TJ\n/F1 12 Tf\n(D) Tj\nET\n"
+  let bs = build_pdf_with_two_fonts(stream_data)
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let events = @pdfc.extract_text_events_from_page(doc, page_obj, page_gen)
+  assert_eq(events.length(), 3)
+  assert_eq(events[0].font_name.unwrap_or(""), "F1")
+  assert_eq(events[0].text, "A")
+  assert_eq(events[1].font_name.unwrap_or(""), "F2")
+  assert_eq(events[1].text, "BC")
+  assert_eq(events[2].font_name.unwrap_or(""), "F1")
+  assert_eq(events[2].text, "D")
+  let page_text = @pdfc.extract_text_from_page(doc, page_obj, page_gen)
+  assert_eq(page_text, "ABCD")
 }
