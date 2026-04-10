@@ -3,6 +3,8 @@ pub struct PdfFontRef {
   resource_name : String
   obj_num : Int
   gen : Int
+  subtype : String?
+  encoding : String?
   to_unicode_obj : Int?
   to_unicode_gen : Int?
 }
@@ -12,6 +14,34 @@ fn as_dict(v : PdfValue, ctx : String) -> Map[String, PdfValue] raise {
   match v {
     PdfValue::Dict(dict) => dict
     _ => raise TypeMismatch(ctx + " must be dictionary")
+  }
+}
+
+///|
+fn resolve_encoding_name(
+  doc : PdfDocument,
+  font_dict : Map[String, PdfValue],
+) -> String? raise {
+  match font_dict.get("Encoding") {
+    Some(PdfValue::Name(name)) => Some(name)
+    Some(PdfValue::Dict(d)) =>
+      match d.get("BaseEncoding") {
+        Some(PdfValue::Name(name)) => Some(name)
+        _ => None
+      }
+    Some(PdfValue::Ref(obj, gen)) => {
+      let enc_obj = get_indirect_object(doc, obj, gen)
+      match enc_obj.value {
+        PdfValue::Name(name) => Some(name)
+        PdfValue::Dict(d) =>
+          match d.get("BaseEncoding") {
+            Some(PdfValue::Name(name)) => Some(name)
+            _ => None
+          }
+        _ => None
+      }
+    }
+    _ => None
   }
 }
 
@@ -78,11 +108,18 @@ pub fn resolve_page_fonts(
   for name in candidate_names {
     match font_map.get(name) {
       Some(PdfValue::Ref(obj, gen)) => {
+        let mut subtype : String? = None
+        let mut encoding : String? = None
         let mut to_unicode_obj : Int? = None
         let mut to_unicode_gen : Int? = None
         let font_obj = get_indirect_object(doc, obj, gen)
         match font_obj.value {
-          PdfValue::Dict(fd) =>
+          PdfValue::Dict(fd) => {
+            match fd.get("Subtype") {
+              Some(PdfValue::Name(v)) => subtype = Some(v)
+              _ => ()
+            }
+            encoding = resolve_encoding_name(doc, fd)
             match fd.get("ToUnicode") {
               Some(PdfValue::Ref(cobj, cgen)) => {
                 to_unicode_obj = Some(cobj)
@@ -90,12 +127,15 @@ pub fn resolve_page_fonts(
               }
               _ => ()
             }
+          }
           _ => ()
         }
         out.set(name, {
           resource_name: name,
           obj_num: obj,
           gen,
+          subtype,
+          encoding,
           to_unicode_obj,
           to_unicode_gen,
         })
