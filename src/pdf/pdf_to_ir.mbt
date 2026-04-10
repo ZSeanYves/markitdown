@@ -120,7 +120,9 @@ fn text_to_ir_document_with_debug(
     }
   }
 
-  let blocks_after_merge = coalesce_loose_paragraph_blocks(split_blocks_smart(merged))
+  let blocks_after_merge = coalesce_loose_paragraph_blocks(
+    split_blocks_smart(merged),
+  )
   if pipeline_debug {
     dump_pdf_debug_stage(
       input_path,
@@ -142,9 +144,7 @@ fn text_to_ir_document_with_debug(
     match b {
       PdfBlock::Heading(level, text) => {
         let out_level = normalize_heading_level_after_first_h1(
-          seen_h1,
-          level,
-          text,
+          seen_h1, level, text,
         )
         if out_level == 1 {
           seen_h1 = true
@@ -276,8 +276,11 @@ fn render_pdf_blocks(blocks : Array[PdfBlock]) -> String {
     i += 1
     match b {
       PdfBlock::Heading(level, text) =>
-        out.push(i.to_string() + ". Heading(" + level.to_string() + "): " + text)
-      PdfBlock::Paragraph(text) => out.push(i.to_string() + ". Paragraph: " + text)
+        out.push(
+          i.to_string() + ". Heading(" + level.to_string() + "): " + text,
+        )
+      PdfBlock::Paragraph(text) =>
+        out.push(i.to_string() + ". Paragraph: " + text)
       PdfBlock::ListItem(ordered, level, text) =>
         out.push(
           i.to_string() +

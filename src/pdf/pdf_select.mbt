@@ -8,7 +8,7 @@ priv struct PdfSelectDecision {
 ///|
 fn select_pdf_backend_result(
   results : Array[PdfBackendResult],
-  debug~ : Bool = false,
+  debug? : Bool = false,
 ) -> PdfSelectDecision {
   let successful : Array[PdfBackendResult] = []
   for r in results {
@@ -19,7 +19,7 @@ fn select_pdf_backend_result(
 
   if successful.length() == 0 {
     let decision = { selected: None, accepted: false, attempted: results }
-    debug_print_backend_decision(decision, debug=debug)
+    debug_print_backend_decision(decision, debug~)
     return decision
   }
 
@@ -41,7 +41,7 @@ fn select_pdf_backend_result(
   if acceptable.length() > 0 {
     let best = pick_best_backend_by_score(acceptable)
     let decision = { selected: Some(best), accepted: true, attempted: results }
-    debug_print_backend_decision(decision, debug=debug)
+    debug_print_backend_decision(decision, debug~)
     return decision
   }
 
@@ -51,7 +51,7 @@ fn select_pdf_backend_result(
     accepted: false,
     attempted: results,
   }
-  debug_print_backend_decision(decision, debug=debug)
+  debug_print_backend_decision(decision, debug~)
   decision
 }
 
@@ -92,15 +92,15 @@ fn pick_best_backend_by_score(
 ///|
 fn debug_print_backend_decision(
   decision : PdfSelectDecision,
-  debug~ : Bool = false,
+  debug? : Bool = false,
 ) -> Unit {
   if !debug {
     return
   }
 
-  let selected_name = decision.selected.map(fn(s) { s.backend_name }).unwrap_or(
-    "",
-  )
+  let selected_name = decision.selected
+    .map(fn(s) { s.backend_name })
+    .unwrap_or("")
 
   for r in decision.attempted {
     let status_ok = r.exit_status == 0

@@ -19,10 +19,10 @@ async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
 ///|
 async fn extract_pdf_text_result(
   path : String,
-  debug~ : Bool = false,
+  debug? : Bool = false,
 ) -> Result[PdfExtractResult, @cor.AppError] {
   let all_results = collect_pdf_backend_results(path)
-  let decision = select_pdf_backend_result(all_results, debug=debug)
+  let decision = select_pdf_backend_result(all_results, debug~)
 
   match decision.selected {
     Some(sel) => {

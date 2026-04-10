@@ -385,7 +385,7 @@ fn looks_like_page_start_title_line(s : String) -> Bool {
     return false
   }
   match first_char(words[0]) {
-    Some(c) => (c >= 'A' && c <= 'Z')
+    Some(c) => c >= 'A' && c <= 'Z'
     None => false
   }
 }

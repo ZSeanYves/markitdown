@@ -119,8 +119,7 @@ async fn main {
                 mh0
               }
 
-              let pdf_extract_debug = match
-                sub.args.get("pdf-extract-debug") {
+              let pdf_extract_debug = match sub.args.get("pdf-extract-debug") {
                 Some(arr) =>
                   if arr.length() == 0 {
                     true
@@ -143,7 +142,8 @@ async fn main {
                 None => false
               }
 
-              let pdf_pipeline_debug = match sub.args.get("pdf-pipeline-debug") {
+              let pdf_pipeline_debug = match
+                sub.args.get("pdf-pipeline-debug") {
                 Some(arr) =>
                   if arr.length() == 0 {
                     true
@@ -154,14 +154,8 @@ async fn main {
                 None => false
               }
               cmd_convert(
-                input,
-                output_opt,
-                out_dir_opt,
-                max_heading,
-                pdf_mode_opt,
-                pdf_extract_debug,
-                pdf_dump_selected_raw,
-                pdf_pipeline_debug,
+                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_extract_debug,
+                pdf_dump_selected_raw, pdf_pipeline_debug,
               )
             }
             "help" => println(help_msg)

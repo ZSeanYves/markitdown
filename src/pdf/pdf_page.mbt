@@ -49,9 +49,7 @@ fn strip_page_noise(
   }
 
   let raw_lines_after_repeated = strip_page_repeated_noise_only_as_lines(
-    raw_lines,
-    head_keys,
-    tail_keys,
+    raw_lines, head_keys, tail_keys,
   )
   cleanup_page_noise_lines(raw_lines_after_repeated)
 }
@@ -73,7 +71,9 @@ fn strip_page_repeated_noise_only(
     raw_lines.push(sv.to_string())
   }
 
-  let lines = strip_page_repeated_noise_only_as_lines(raw_lines, head_keys, tail_keys)
+  let lines = strip_page_repeated_noise_only_as_lines(
+    raw_lines, head_keys, tail_keys,
+  )
   lines.join("\n")
 }
 
