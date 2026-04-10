@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FIXTURE_DIR="$ROOT/src/pdf_core"
+FIXTURE_DIR="$ROOT/samples/pdf_core"
 OUT_ROOT="${1:-$ROOT/.tmp_pdf_native_out}"
 RUN_DIR="$OUT_ROOT/run"
 LOG_DIR="$OUT_ROOT/log"
