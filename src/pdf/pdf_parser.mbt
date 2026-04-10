@@ -18,7 +18,7 @@ pub async fn parse_pdf(
     extract_pdf_text_result(
       path,
       backend~,
-      backend_policy=backend_policy,
+      backend_policy~,
       debug=extract_debug,
     ) {
     Ok(res) => res

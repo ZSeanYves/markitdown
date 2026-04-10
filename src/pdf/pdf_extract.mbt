@@ -174,7 +174,7 @@ async fn select_pdf_backend_by_policy(
       precheck.reason_code,
       debug~,
     )
-    return extract_pdf_text_native(path, debug=false)
+    return extract_pdf_text_native(path, debug~)
   }
 
   if policy_mode == "native-gated" {
@@ -186,7 +186,7 @@ async fn select_pdf_backend_by_policy(
         precheck.reason_code,
         debug~,
       )
-      return extract_pdf_text_native(path, debug=false)
+      return extract_pdf_text_native(path, debug~)
     }
     debug_print_policy_decision(
       "native-gated",
@@ -194,7 +194,7 @@ async fn select_pdf_backend_by_policy(
       precheck.reason_code,
       debug~,
     )
-    return extract_pdf_text_external(path, debug=false)
+    return extract_pdf_text_external(path, debug~)
   }
 
   debug_print_policy_decision(

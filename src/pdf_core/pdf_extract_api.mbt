@@ -392,7 +392,8 @@ fn merge_native_page_events(events : Array[PdfTextEvent]) -> String {
       continue
     }
 
-    if prev_was_text && !out.has_suffix("\n") &&
+    if prev_was_text &&
+      !out.has_suffix("\n") &&
       should_insert_event_paragraph_gap(prev_text, cur) {
       out = out + "\n\n"
     }

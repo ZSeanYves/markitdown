@@ -9,7 +9,10 @@ fn precheck_pdf_native_candidate(path : String) -> PdfPrecheckDecision {
   }
 
   if contains_ascii(bytes, "/Encrypt") {
-    return { accepted: false, reason_code: PdfDecisionReasonCode::REJECT_ENCRYPTED }
+    return {
+      accepted: false,
+      reason_code: PdfDecisionReasonCode::REJECT_ENCRYPTED,
+    }
   }
   if contains_ascii(bytes, "/Type/XRef") || contains_ascii(bytes, "/Type /XRef") {
     return {
@@ -17,31 +20,35 @@ fn precheck_pdf_native_candidate(path : String) -> PdfPrecheckDecision {
       reason_code: PdfDecisionReasonCode::REJECT_XREF_STREAM,
     }
   }
-  if contains_ascii(bytes, "/Type/ObjStm") || contains_ascii(bytes, "/Type /ObjStm") {
+  if contains_ascii(bytes, "/Type/ObjStm") ||
+    contains_ascii(bytes, "/Type /ObjStm") {
     return {
       accepted: false,
       reason_code: PdfDecisionReasonCode::REJECT_OBJECT_STREAM,
     }
   }
 
-  let doc = @pdfc.open_pdf(bytes) catch { _ =>
-    return {
-      accepted: false,
-      reason_code: PdfDecisionReasonCode::UNSURE_PRECHECK_ERROR,
-    }
+  let doc = @pdfc.open_pdf(bytes) catch {
+    _ =>
+      return {
+        accepted: false,
+        reason_code: PdfDecisionReasonCode::UNSURE_PRECHECK_ERROR,
+      }
   }
 
-  let pages = @pdfc.list_page_refs(doc) catch { _ =>
-    return {
-      accepted: false,
-      reason_code: PdfDecisionReasonCode::UNSURE_PRECHECK_ERROR,
-    }
+  let pages = @pdfc.list_page_refs(doc) catch {
+    _ =>
+      return {
+        accepted: false,
+        reason_code: PdfDecisionReasonCode::UNSURE_PRECHECK_ERROR,
+      }
   }
 
-  for (page_obj, page_gen) in pages {
+  for e in pages {
+    let (page_obj, page_gen) = e
+
     let streams = @pdfc.get_page_content_stream_bytes(doc, page_obj, page_gen) catch {
-      e =>
-        return classify_precheck_failure(e)
+      e => return classify_precheck_failure(e)
     }
     if streams.length() == 0 {
       return {
@@ -50,8 +57,8 @@ fn precheck_pdf_native_candidate(path : String) -> PdfPrecheckDecision {
       }
     }
 
-    let fonts = @pdfc.resolve_page_fonts(doc, page_obj, page_gen) catch { e =>
-      return classify_precheck_failure(e)
+    let fonts = @pdfc.resolve_page_fonts(doc, page_obj, page_gen) catch {
+      e => return classify_precheck_failure(e)
     }
     if fonts.length() == 0 {
       return {
@@ -60,12 +67,15 @@ fn precheck_pdf_native_candidate(path : String) -> PdfPrecheckDecision {
       }
     }
 
-    @pdfc.extract_text_events_from_page(doc, page_obj, page_gen) catch { e =>
-      return classify_precheck_failure(e)
+    let _ = @pdfc.extract_text_events_from_page(doc, page_obj, page_gen) catch {
+      e => return classify_precheck_failure(e)
     }
   }
 
-  { accepted: true, reason_code: PdfDecisionReasonCode::ACCEPT_NATIVE_PRECHECK_PASS }
+  {
+    accepted: true,
+    reason_code: PdfDecisionReasonCode::ACCEPT_NATIVE_PRECHECK_PASS,
+  }
 }
 
 ///|
@@ -78,9 +88,15 @@ fn classify_precheck_failure(e : Error) -> PdfPrecheckDecision {
       }
     @pdfc.PdfParseError::UnsupportedFeature(msg) =>
       if msg.contains("xref stream") {
-        { accepted: false, reason_code: PdfDecisionReasonCode::REJECT_XREF_STREAM }
+        {
+          accepted: false,
+          reason_code: PdfDecisionReasonCode::REJECT_XREF_STREAM,
+        }
       } else if msg.contains("ObjStm") || msg.contains("object stream") {
-        { accepted: false, reason_code: PdfDecisionReasonCode::REJECT_OBJECT_STREAM }
+        {
+          accepted: false,
+          reason_code: PdfDecisionReasonCode::REJECT_OBJECT_STREAM,
+        }
       } else {
         {
           accepted: false,

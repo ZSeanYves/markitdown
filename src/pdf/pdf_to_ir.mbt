@@ -156,7 +156,9 @@ fn text_to_ir_document_with_debug(
 }
 
 ///|
-fn guard_single_short_heading_block(blocks : Array[PdfBlock]) -> Array[PdfBlock] {
+fn guard_single_short_heading_block(
+  blocks : Array[PdfBlock],
+) -> Array[PdfBlock] {
   if blocks.length() != 1 {
     return blocks
   }
