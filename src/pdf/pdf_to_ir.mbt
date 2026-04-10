@@ -131,6 +131,7 @@ fn text_to_ir_document_with_debug(
   }
 
   let mut first_block = true
+  let mut seen_h1 = false
   for b in blocks_after_merge {
     if !first_block {
       @cor.push(doc, @cor.Block::BlankLine)
@@ -139,8 +140,17 @@ fn text_to_ir_document_with_debug(
     }
 
     match b {
-      PdfBlock::Heading(level, text) =>
-        @cor.push(doc, @cor.Block::Heading(level, text))
+      PdfBlock::Heading(level, text) => {
+        let out_level = normalize_heading_level_after_first_h1(
+          seen_h1,
+          level,
+          text,
+        )
+        if out_level == 1 {
+          seen_h1 = true
+        }
+        @cor.push(doc, @cor.Block::Heading(out_level, text))
+      }
       PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
       PdfBlock::ListItem(ordered, level, text) =>
         @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
@@ -148,6 +158,29 @@ fn text_to_ir_document_with_debug(
   }
 
   doc
+}
+
+///|
+fn normalize_heading_level_after_first_h1(
+  seen_h1 : Bool,
+  level : Int,
+  text : String,
+) -> Int {
+  if level != 1 {
+    return level
+  }
+
+  if !seen_h1 {
+    return 1
+  }
+
+  // after first H1, avoid promoting page-start title-like lines to H1
+  // unless there is explicit top-level chapter-like signal.
+  if guess_numbered_heading_level(text) == 1 || looks_like_heading_marker(text) {
+    return 1
+  }
+
+  2
 }
 
 ///|

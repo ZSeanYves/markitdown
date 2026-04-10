@@ -22,15 +22,17 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
   let lines : Array[PdfLine] = []
   for sv in s.split("\n") {
-    let raw = sv.to_string()
-    let line = raw.trim().to_string()
+    let raw0 = sv.to_string()
+    for raw in split_compound_pseudo_column_line(raw0) {
+      let line = raw.trim().to_string()
 
-    if line == PDF_PAGE_BREAK_MARKER {
-      lines.push(PdfLine::PageBreak)
-    } else if line == "" {
-      lines.push(PdfLine::Blank)
-    } else if !is_noise_line(line) {
-      lines.push(PdfLine::Text(line))
+      if line == PDF_PAGE_BREAK_MARKER {
+        lines.push(PdfLine::PageBreak)
+      } else if line == "" {
+        lines.push(PdfLine::Blank)
+      } else if !is_noise_line(line) {
+        lines.push(PdfLine::Text(line))
+      }
     }
   }
 
@@ -240,6 +242,10 @@ fn should_start_new_block(
     return true
   }
 
+  if should_break_numbered_sentence_and_emphasis(buf, t) {
+    return true
+  }
+
   false
 }
 
@@ -374,7 +380,106 @@ fn should_flush_buf_before_appending(
     return true
   }
 
+  if looks_like_uppercase_emphasis_line(b) &&
+    !looks_like_uppercase_emphasis_line(t) {
+    return true
+  }
+
   false
+}
+
+///|
+fn should_break_numbered_sentence_and_emphasis(buf : String, cur : String) -> Bool {
+  let b = buf.trim().to_string()
+  let t = cur.trim().to_string()
+  looks_like_numbered_sentence_prefix(b) && looks_like_uppercase_emphasis_line(t)
+}
+
+///|
+fn looks_like_numbered_sentence_prefix(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let cs = t.to_array()
+  let n = cs.length()
+  if n < 4 {
+    return false
+  }
+
+  let mut i = 0
+  let mut has_digit = false
+  while i < n {
+    let c = cs[i]
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if !has_digit || i + 1 >= n {
+    return false
+  }
+
+  (cs[i] == '.' || cs[i] == ')') && cs[i + 1] == ' '
+}
+
+///|
+fn looks_like_uppercase_emphasis_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  if n < 8 || n > 80 {
+    return false
+  }
+
+  let mut alpha = 0
+  let mut upper = 0
+  for c in t.to_array() {
+    if c >= 'A' && c <= 'Z' {
+      alpha += 1
+      upper += 1
+    } else if c >= 'a' && c <= 'z' {
+      alpha += 1
+    }
+  }
+
+  alpha >= 6 && upper * 10 >= alpha * 7
+}
+
+///|
+fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
+  let t = raw.trim().to_string()
+  if !t.contains("LEFT-") || !t.contains("RIGHT-") {
+    return [raw]
+  }
+
+  let cs = raw.to_array()
+  let mut i = 0
+  let n = cs.length()
+  let mut split_at = -1
+  while i + 5 < n {
+    if cs[i] == 'R' &&
+      cs[i + 1] == 'I' &&
+      cs[i + 2] == 'G' &&
+      cs[i + 3] == 'H' &&
+      cs[i + 4] == 'T' &&
+      cs[i + 5] == '-' {
+      split_at = i
+      break
+    }
+    i += 1
+  }
+
+  if split_at <= 0 {
+    return [raw]
+  }
+
+  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
+  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
+  if left == "" || right == "" {
+    return [raw]
+  }
+
+  [left, right]
 }
 
 ///|

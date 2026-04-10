@@ -254,6 +254,10 @@ fn looks_like_artifact_page_noise(s : String) -> Bool {
     return false
   }
 
+  if t == "页" {
+    return true
+  }
+
   // common PDF extraction artifact char U+FFFC shown as "￼"
   if t.contains("￼") {
     let mut non_noise = 0
@@ -270,6 +274,23 @@ fn looks_like_artifact_page_noise(s : String) -> Bool {
       }
     }
     return non_noise == 0
+  }
+
+  // narrow guard for standalone page-tail fragments like "页", "1/3", "页/3"
+  let mut only_noise = true
+  let mut has_pageish = false
+  for c in t.to_array() {
+    let ok = c == '页' || c == '/' || (c >= '0' && c <= '9') || c == ' '
+    if !ok {
+      only_noise = false
+      break
+    }
+    if c == '页' || c == '/' || (c >= '0' && c <= '9') {
+      has_pageish = true
+    }
+  }
+  if only_noise && has_pageish {
+    return true
   }
 
   false
