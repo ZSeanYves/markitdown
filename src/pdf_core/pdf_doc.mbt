@@ -26,7 +26,8 @@ pub fn get_indirect_object(
   if !entry.in_use {
     raise ObjectNotFound(obj_num, gen)
   }
-  parse_indirect_object_at(doc.bytes, entry.offset)
+  let obj = parse_indirect_object_at(doc.bytes, entry.offset)
+  normalize_stream_length_by_dict(doc, obj)
 }
 
 ///|
@@ -138,6 +139,46 @@ fn read_stream_required(doc : PdfDocument, obj : Int, gen : Int) -> Bytes raise 
       raise TypeMismatch(
         "object is not a stream: " + obj.to_string() + " " + gen.to_string(),
       )
+  }
+}
+
+///|
+fn normalize_stream_length_by_dict(
+  doc : PdfDocument,
+  obj : PdfIndirectObject,
+) -> PdfIndirectObject raise {
+  let stream = match obj.stream {
+    Some(bs) => bs
+    None => return obj
+  }
+
+  let expected_len = match obj.value {
+    PdfValue::Dict(dict) =>
+      match dict.get("Length") {
+        Some(PdfValue::Int(v)) => Some(v)
+        Some(PdfValue::Ref(lobj, lgen)) => resolve_length_ref(doc, lobj, lgen)
+        _ => None
+      }
+    _ => None
+  }
+
+  match expected_len {
+    Some(v) =>
+      if v >= 0 && v <= stream.length() {
+        { ..obj, stream: Some(stream[:v].to_bytes()) }
+      } else {
+        obj
+      }
+    None => obj
+  }
+}
+
+///|
+fn resolve_length_ref(doc : PdfDocument, obj_num : Int, gen : Int) -> Int? raise {
+  let o = get_indirect_object(doc, obj_num, gen)
+  match o.value {
+    PdfValue::Int(v) => Some(v)
+    _ => None
   }
 }
 

@@ -4,6 +4,7 @@ pub async fn parse_pdf(
   out_dir : String,
   _max_heading : Int,
   enhance_mode : String?,
+  backend : String?,
   extract_debug : Bool,
   dump_selected_raw : Bool,
   pipeline_debug : Bool,
@@ -12,7 +13,7 @@ pub async fn parse_pdf(
     raise @cor.AppError("PDF file not found: " + path)
   }
 
-  let extracted = match extract_pdf_text_result(path, debug=extract_debug) {
+  let extracted = match extract_pdf_text_result(path, backend~, debug=extract_debug) {
     Ok(res) => res
     Err(e) => raise e
   }

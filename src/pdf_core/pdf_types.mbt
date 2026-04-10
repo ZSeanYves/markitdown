@@ -9,6 +9,12 @@ pub suberror PdfParseError {
 }
 
 ///|
+pub suberror PdfNativeError {
+  UnsupportedFeature(String)
+  ExtractionFailed(String)
+}
+
+///|
 pub impl Show for PdfParseError with to_string(self : PdfParseError) -> String {
   match self {
     UnexpectedEOF(ctx) => "unexpected EOF: " + ctx
@@ -19,6 +25,22 @@ pub impl Show for PdfParseError with to_string(self : PdfParseError) -> String {
       "pdf object not found: " + obj.to_string() + " " + gen.to_string() + " R"
     TypeMismatch(msg) => "pdf type mismatch: " + msg
   }
+}
+
+///|
+pub impl Show for PdfNativeError with to_string(self : PdfNativeError) -> String {
+  match self {
+    UnsupportedFeature(msg) => "pdf native unsupported: " + msg
+    ExtractionFailed(msg) => "pdf native extraction failed: " + msg
+  }
+}
+
+///|
+pub impl Show for PdfNativeError with output(
+  self : PdfNativeError,
+  logger : &Logger,
+) -> Unit {
+  logger.write_string(self.to_string())
 }
 
 ///|
