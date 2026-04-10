@@ -1,1 +1,1 @@
-pdf-native parser_error: invalid structure: failed to extract text ops from page stream: unsupported pdf feature in phase-1: hex string operand in content stream is not supported yet
+[pdf-debug] selected backend=pdf-native (forced)

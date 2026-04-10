@@ -110,4 +110,11 @@ Warning: [0006]
     │   ─┬  
     │    ╰── Warning (unused_constructor): Variant 'Gt' is never read
 ────╯
+Warning: [0006]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf_core/pdf_types.mbt:6:3 ]
+   │
+ 6 │   UnsupportedFeature(String)
+   │   ─────────┬────────  
+   │            ╰────────── Warning (unused_constructor): Variant 'UnsupportedFeature' is never constructed
+───╯
 [pdf-debug] selected backend=pdf-native (forced)

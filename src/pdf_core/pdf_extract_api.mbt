@@ -23,7 +23,7 @@ fn decode_with_font(
 }
 
 ///|
-fn text_from_operand_fallback(v : PdfContentOperand) -> String {
+fn text_from_operand_fallback(v : PdfContentOperand) -> String raise {
   match v {
     PdfContentOperand::String(s) => s
     PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)
@@ -101,14 +101,14 @@ pub fn decode_text_operand(
   }
 
   match operand {
-    PdfContentOperand::String(s) => decode_bytes(@utf8.encode(s).to_bytes())
+    PdfContentOperand::String(s) => decode_bytes(@utf8.encode(s))
     PdfContentOperand::HexString(bs) => decode_bytes(bs)
     PdfContentOperand::Array(items) => {
       let mut out = ""
       for item in items {
         match item {
           PdfContentOperand::String(s) =>
-            out = out + decode_bytes(@utf8.encode(s).to_bytes())
+            out = out + decode_bytes(@utf8.encode(s))
           PdfContentOperand::HexString(bs) => out = out + decode_bytes(bs)
           _ => ()
         }
@@ -285,7 +285,7 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
 }
 
 ///|
-fn bytes_to_text_fallback(bs : Bytes) -> String {
+fn bytes_to_text_fallback(bs : Bytes) -> String raise {
   let mut out = ""
   for b in bs {
     out = out + @utf8.decode([b])

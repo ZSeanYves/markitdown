@@ -389,7 +389,7 @@ fn parse_content_hex_string(stream : Bytes, pos : Int) -> (Bytes, Int) raise {
         Some(high) => out.push(((high << 4) & 0xFF).to_byte())
         None => ()
       }
-      return (out.to_bytes(), i + 1)
+      return (Bytes::from_array(out), i + 1)
     }
     if is_ws(ch) {
       i = i + 1
@@ -450,7 +450,7 @@ fn is_octal_digit(ch : Byte) -> Bool {
 }
 
 ///|
-fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String {
+fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String raise {
   if operands.length() == 0 {
     return ""
   }
@@ -458,7 +458,9 @@ fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String {
 }
 
 ///|
-fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
+fn text_from_tj_array_operands(
+  operands : Array[PdfContentOperand],
+) -> String raise {
   if operands.length() == 0 {
     return ""
   }
@@ -479,7 +481,7 @@ fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
 }
 
 ///|
-fn text_from_operand(v : PdfContentOperand) -> String {
+fn text_from_operand(v : PdfContentOperand) -> String raise {
   match v {
     PdfContentOperand::String(s) => s
     PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)
@@ -497,15 +499,6 @@ fn text_from_operand(v : PdfContentOperand) -> String {
     }
     _ => ""
   }
-}
-
-///|
-fn bytes_to_text_fallback(bs : Bytes) -> String {
-  let mut out = ""
-  for b in bs {
-    out = out + @utf8.decode([b])
-  }
-  out
 }
 
 ///|

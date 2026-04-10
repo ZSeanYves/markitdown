@@ -1,3 +1,5 @@
-# # MarkItDown MoonBit MVP Test (Simple)
+# MarkItDown MoonBit MVP Test (Simple)
 
-First paragraph for simple PDF extraction baseline. Second paragraph in English.
+First paragraph for simple PDF extraction baseline.
+
+Second paragraph in English.
