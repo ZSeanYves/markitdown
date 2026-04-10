@@ -2,14 +2,29 @@
 package "ZSeanYves/markitdown/src/pdf_core"
 
 // Values
-pub fn open_pdf(Bytes) -> PdfDocument raise PdfParseError
-pub fn pdf_version(PdfDocument) -> String
-pub fn get_indirect_object(PdfDocument, Int, Int) -> PdfIndirectObject raise PdfParseError
+pub fn count_pages(PdfDocument) -> Int raise
+
+pub fn extract_plain_text_from_page_stream(Bytes) -> String raise
+
+pub fn extract_plain_text_from_page_streams(Array[Bytes]) -> String raise
+
+pub fn extract_text_ops_from_page_stream(Bytes) -> Array[PdfTextOp] raise
+
 pub fn get_catalog_ref(PdfDocument) -> (Int, Int) raise PdfParseError
-pub fn get_page_tree_root_ref(PdfDocument) -> (Int, Int) raise PdfParseError
-pub fn count_pages(PdfDocument) -> Int raise PdfParseError
-pub fn list_page_refs(PdfDocument) -> Array[(Int, Int)] raise PdfParseError
-pub fn get_page_content_stream_bytes(PdfDocument, Int, Int) -> Array[Bytes] raise PdfParseError
+
+pub fn get_indirect_object(PdfDocument, Int, Int) -> PdfIndirectObject raise
+
+pub fn get_page_content_stream_bytes(PdfDocument, Int, Int) -> Array[Bytes] raise
+
+pub fn get_page_tree_root_ref(PdfDocument) -> (Int, Int) raise
+
+pub fn list_page_refs(PdfDocument) -> Array[(Int, Int)] raise
+
+pub fn open_pdf(Bytes) -> PdfDocument raise
+
+pub fn parse_page_content_tokens(Bytes) -> Array[PdfContentToken] raise
+
+pub fn pdf_version(PdfDocument) -> String
 
 // Errors
 pub suberror PdfParseError {
@@ -20,8 +35,44 @@ pub suberror PdfParseError {
   ObjectNotFound(Int, Int)
   TypeMismatch(String)
 }
+pub impl Show for PdfParseError
 
 // Types and methods
+pub enum PdfContentOperand {
+  Number(Double)
+  Name(String)
+  String(String)
+  Array(Array[PdfContentOperand])
+}
+
+pub enum PdfContentToken {
+  Number(Double)
+  Name(String)
+  String(String)
+  Array(Array[PdfContentOperand])
+  Operator(String)
+}
+
+pub struct PdfDocument {
+  bytes : Bytes
+  version : String
+  startxref : Int
+  trailer : Map[String, PdfValue]
+  xref : PdfXrefTable
+}
+
+pub struct PdfIndirectObject {
+  obj_num : Int
+  gen : Int
+  value : PdfValue
+  stream : Bytes?
+}
+
+pub struct PdfTextOp {
+  op : String
+  operands : Array[PdfContentOperand]
+}
+
 pub enum PdfValue {
   Null
   Bool(Bool)
@@ -35,13 +86,6 @@ pub enum PdfValue {
   Ref(Int, Int)
 }
 
-pub struct PdfIndirectObject {
-  obj_num : Int
-  gen : Int
-  value : PdfValue
-  stream : Bytes?
-}
-
 pub struct PdfXrefEntry {
   offset : Int
   gen : Int
@@ -52,10 +96,7 @@ pub struct PdfXrefTable {
   entries : Map[String, PdfXrefEntry]
 }
 
-pub struct PdfDocument {
-  bytes : Bytes
-  version : String
-  startxref : Int
-  trailer : Map[String, PdfValue]
-  xref : PdfXrefTable
-}
+// Type aliases
+
+// Traits
+

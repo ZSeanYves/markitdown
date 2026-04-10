@@ -15,11 +15,16 @@ fn byte_len(s : String) -> Int {
 
 ///|
 fn build_min_pdf() -> Bytes {
-  build_pdf_with_contents("4 0 R", ["BT\n/F1 12 Tf\n72 120 Td\n(Hello PDF) Tj\nET\n"])
+  build_pdf_with_contents("4 0 R", [
+    "BT\n/F1 12 Tf\n72 120 Td\n(Hello PDF) Tj\nET\n",
+  ])
 }
 
 ///|
-fn build_pdf_with_contents(contents_ref : String, stream_datas : Array[String]) -> Bytes {
+fn build_pdf_with_contents(
+  contents_ref : String,
+  stream_datas : Array[String],
+) -> Bytes {
   let chunks : Array[String] = []
   let offsets : Array[Int] = []
   let mut cur = 0
@@ -153,8 +158,9 @@ test "pdf phase2 can extract plain text from content stream" {
 
 ///|
 test "pdf phase2.5 parse escaped and nested string literal in Tj" {
-  let stream = @utf8
-    .encode("BT\n(Hello \\(PDF\\) \\(v1\\)\\040OK) Tj\n(outer(inner)) Tj\nET\n")
+  let stream = @utf8.encode(
+    "BT\n(Hello \\(PDF\\) \\(v1\\)\\040OK) Tj\n(outer(inner)) Tj\nET\n",
+  )
   let text = @pdfc.extract_plain_text_from_page_stream(stream)
   assert_eq(text, "Hello (PDF) (v1) OKouter(inner)")
 }
@@ -168,13 +174,9 @@ test "pdf phase2.5 can extract text from TJ array" {
 
 ///|
 test "pdf phase2.5 can extract text from multiple content streams" {
-  let bs = build_pdf_with_contents(
-    "[4 0 R 5 0 R]",
-    [
-      "BT\n/F1 12 Tf\n72 120 Td\n(Hello) Tj\nET\n",
-      "BT\n/F1 12 Tf\n72 100 Td\n[( ) 20 (PDF)] TJ\nET\n",
-    ],
-  )
+  let bs = build_pdf_with_contents("[4 0 R 5 0 R]", [
+    "BT\n/F1 12 Tf\n72 120 Td\n(Hello) Tj\nET\n", "BT\n/F1 12 Tf\n72 100 Td\n[( ) 20 (PDF)] TJ\nET\n",
+  ])
   let doc = @pdfc.open_pdf(bs)
   let pages = @pdfc.list_page_refs(doc)
   let (page_obj, page_gen) = pages[0]

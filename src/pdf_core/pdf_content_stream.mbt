@@ -111,11 +111,13 @@ pub fn extract_plain_text_from_page_stream(stream : Bytes) -> String raise {
     }
   }
 
-  out.trim().to_string()
+  trim_surrounding_line_breaks(out)
 }
 
 ///|
-pub fn extract_plain_text_from_page_streams(streams : Array[Bytes]) -> String raise {
+pub fn extract_plain_text_from_page_streams(
+  streams : Array[Bytes],
+) -> String raise {
   let mut out = ""
   for s in streams {
     let t = extract_plain_text_from_page_stream(s)
@@ -329,7 +331,7 @@ fn parse_content_literal_string(
 }
 
 ///|
-fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) {
+fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) raise {
   let mut i = pos
   let mut count = 0
   let mut v = 0
@@ -368,11 +370,32 @@ fn text_from_operand(v : PdfContentOperand) -> String {
 
 ///|
 fn append_line_break(s : String) -> String {
-  if s == "" || s.ends_with("\n") {
+  if s == "" || s.has_suffix("\n") {
     return s
   }
   s + "\n"
 }
+
+///|
+fn is_line_break_u16(ch : UInt16) -> Bool {
+  ch == 10 || ch == 13
+}
+
+///|
+fn trim_surrounding_line_breaks(s : String) -> String {
+  let mut start = 0
+  let mut end = s.length()
+
+  while start < end && is_line_break_u16(s[start]) {
+    start = start + 1
+  }
+  while end > start && is_line_break_u16(s[end - 1]) {
+    end = end - 1
+  }
+  s[start:end].to_string()
+}
+
+
 
 ///|
 fn is_num_start(ch : Byte) -> Bool {
