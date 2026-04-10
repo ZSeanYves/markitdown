@@ -26,11 +26,14 @@ fn decode_with_font(
 fn text_from_operand_fallback(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(s) => s
+    PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)
     PdfContentOperand::Array(items) => {
       let mut out = ""
       for item in items {
         match item {
           PdfContentOperand::String(s) => out = out + s
+          PdfContentOperand::HexString(bs) =>
+            out = out + bytes_to_text_fallback(bs)
           _ => ()
         }
       }
@@ -55,6 +58,9 @@ fn parse_tj_with_hook(
           PdfContentOperand::String(s) =>
             out = out +
               decode_with_font(doc, font_ref, PdfContentOperand::String(s))
+          PdfContentOperand::HexString(bs) =>
+            out = out +
+              decode_with_font(doc, font_ref, PdfContentOperand::HexString(bs))
           PdfContentOperand::Number(v) => spacing.push(v)
           _ => ()
         }
@@ -83,9 +89,9 @@ pub fn decode_text_operand(
     _ => Map::new()
   }
 
-  let decode_string = fn(s : String) -> String raise {
+  let decode_bytes = fn(bs : Bytes) -> String raise {
     let mut out = ""
-    for b in @utf8.encode(s) {
+    for b in bs {
       match cmap.get(b.to_int()) {
         Some(ch) => out = out + ch
         None => out = out + @utf8.decode([b])
@@ -95,12 +101,15 @@ pub fn decode_text_operand(
   }
 
   match operand {
-    PdfContentOperand::String(s) => decode_string(s)
+    PdfContentOperand::String(s) => decode_bytes(@utf8.encode(s).to_bytes())
+    PdfContentOperand::HexString(bs) => decode_bytes(bs)
     PdfContentOperand::Array(items) => {
       let mut out = ""
       for item in items {
         match item {
-          PdfContentOperand::String(s) => out = out + decode_string(s)
+          PdfContentOperand::String(s) =>
+            out = out + decode_bytes(@utf8.encode(s).to_bytes())
+          PdfContentOperand::HexString(bs) => out = out + decode_bytes(bs)
           _ => ()
         }
       }
@@ -188,7 +197,7 @@ pub fn extract_text_events_from_page(
           events.push({
             font_name: current_font,
             font_size: current_font_size,
-            text: "\n",
+            text: "\n\n",
           })
         }
         continue
@@ -253,7 +262,7 @@ pub fn extract_text_from_page(
   for ev in events {
     out = out + ev.text
   }
-  out
+  normalize_native_page_text(out)
 }
 
 ///|
@@ -273,4 +282,43 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
     }
   }
   out
+}
+
+///|
+fn bytes_to_text_fallback(bs : Bytes) -> String {
+  let mut out = ""
+  for b in bs {
+    out = out + @utf8.decode([b])
+  }
+  out
+}
+
+///|
+fn normalize_native_page_text(s : String) -> String {
+  let lines : Array[String] = []
+  for sv in s.split("\n") {
+    lines.push(strip_markdown_heading_marker(sv.to_string()))
+  }
+  lines.join("\n")
+}
+
+///|
+fn strip_markdown_heading_marker(s : String) -> String {
+  let chars = s.to_array()
+  let n = chars.length()
+  let mut i = 0
+  while i < n && chars[i] == '#' {
+    i = i + 1
+  }
+  if i == 0 || i > 6 {
+    return s
+  }
+  if i < n && (chars[i] == ' ' || chars[i] == '\t') {
+    let mut j = i
+    while j < n && (chars[j] == ' ' || chars[j] == '\t') {
+      j = j + 1
+    }
+    return s[j:n].to_string()
+  }
+  s
 }
