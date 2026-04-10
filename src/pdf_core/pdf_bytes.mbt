@@ -5,12 +5,12 @@ fn b(s : String) -> Bytes {
 
 ///|
 fn is_ws(ch : Byte) -> Bool {
-  ch == 0.to_byte() ||
-  ch == 9.to_byte() ||
-  ch == 10.to_byte() ||
-  ch == 12.to_byte() ||
-  ch == 13.to_byte() ||
-  ch == 32.to_byte()
+  ch == b'\x00' ||
+  ch == b'\x09' ||
+  ch == b'\x0A' ||
+  ch == b'\x0C' ||
+  ch == b'\x0D' ||
+  ch == b'\x20'
 }
 
 ///|
@@ -33,7 +33,7 @@ fn is_delim(ch : Byte) -> Bool {
 }
 
 ///|
-fn bytes_to_string(bs : Bytes, start : Int, end_ : Int) -> String {
+fn bytes_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise{
   if end_ <= start {
     return ""
   }
@@ -68,7 +68,7 @@ fn skip_ws_and_comment(bs : Bytes, pos : Int) -> Int {
     }
     if ch == '%'.to_int().to_byte() {
       i = i + 1
-      while i < n && bs[i] != 10.to_byte() && bs[i] != 13.to_byte() {
+      while i < n && bs[i] != b'\x0A' && bs[i] != b'\x0D' {
         i = i + 1
       }
       continue

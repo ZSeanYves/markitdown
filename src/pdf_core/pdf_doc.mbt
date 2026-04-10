@@ -1,5 +1,5 @@
 ///|
-pub fn open_pdf(bytes : Bytes) -> PdfDocument raise PdfParseError {
+pub fn open_pdf(bytes : Bytes) -> PdfDocument raise  {
   let version = parse_pdf_header(bytes)
   let startxref = find_startxref(bytes)
   let (xref, trailer) = parse_xref_and_trailer(bytes, startxref)
@@ -16,7 +16,7 @@ pub fn get_indirect_object(
   doc : PdfDocument,
   obj_num : Int,
   gen : Int,
-) -> PdfIndirectObject raise PdfParseError {
+) -> PdfIndirectObject raise {
   let key = make_obj_key(obj_num, gen)
   let entry = match doc.xref.entries.get(key) {
     Some(e) => e
@@ -39,7 +39,7 @@ pub fn get_catalog_ref(doc : PdfDocument) -> (Int, Int) raise PdfParseError {
 }
 
 ///|
-pub fn get_page_tree_root_ref(doc : PdfDocument) -> (Int, Int) raise PdfParseError {
+pub fn get_page_tree_root_ref(doc : PdfDocument) -> (Int, Int) raise  {
   let (catalog_obj, catalog_gen) = get_catalog_ref(doc)
   let catalog = get_indirect_object(doc, catalog_obj, catalog_gen)
   let dict = as_dict(catalog.value, "catalog")
@@ -51,7 +51,7 @@ pub fn get_page_tree_root_ref(doc : PdfDocument) -> (Int, Int) raise PdfParseErr
 }
 
 ///|
-pub fn count_pages(doc : PdfDocument) -> Int raise PdfParseError {
+pub fn count_pages(doc : PdfDocument) -> Int raise  {
   let (pages_obj, pages_gen) = get_page_tree_root_ref(doc)
   let pages = get_indirect_object(doc, pages_obj, pages_gen)
   let dict = as_dict(pages.value, "page tree root")
@@ -62,7 +62,7 @@ pub fn count_pages(doc : PdfDocument) -> Int raise PdfParseError {
 }
 
 ///|
-pub fn list_page_refs(doc : PdfDocument) -> Array[(Int, Int)] raise PdfParseError {
+pub fn list_page_refs(doc : PdfDocument) -> Array[(Int, Int)] raise  {
   let (root_obj, root_gen) = get_page_tree_root_ref(doc)
   collect_page_refs(doc, root_obj, root_gen)
 }
@@ -72,7 +72,7 @@ pub fn get_page_content_stream_bytes(
   doc : PdfDocument,
   page_obj : Int,
   page_gen : Int,
-) -> Array[Bytes] raise PdfParseError {
+) -> Array[Bytes] raise  {
   let page = get_indirect_object(doc, page_obj, page_gen)
   let dict = as_dict(page.value, "page")
 
@@ -98,7 +98,7 @@ fn collect_page_refs(
   doc : PdfDocument,
   node_obj : Int,
   node_gen : Int,
-) -> Array[(Int, Int)] raise PdfParseError {
+) -> Array[(Int, Int)] raise  {
   let node = get_indirect_object(doc, node_obj, node_gen)
   let dict = as_dict(node.value, "page tree node")
 
@@ -130,7 +130,7 @@ fn read_stream_required(
   doc : PdfDocument,
   obj : Int,
   gen : Int,
-) -> Bytes raise PdfParseError {
+) -> Bytes raise  {
   let o = get_indirect_object(doc, obj, gen)
   match o.stream {
     Some(b) => b

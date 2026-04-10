@@ -5,12 +5,12 @@ fn parse_stream_bounds(
   stream_kw_pos : Int,
 ) -> (Int, Int) raise PdfParseError {
   let mut start = stream_kw_pos + 6
-  if start < bytes.length() && bytes[start] == 13.to_byte() {
+  if start < bytes.length() && bytes[start] == b'\x0D' {
     start = start + 1
-    if start < bytes.length() && bytes[start] == 10.to_byte() {
+    if start < bytes.length() && bytes[start] == b'\x0A' {
       start = start + 1
     }
-  } else if start < bytes.length() && bytes[start] == 10.to_byte() {
+  } else if start < bytes.length() && bytes[start] == b'\x0A' {
     start = start + 1
   }
 
@@ -27,7 +27,7 @@ fn parse_stream_bounds(
       let mut i = start
       while i + 9 <= bytes.length() {
         if starts_with_at(bytes, i, "endstream") {
-          let end_ = if i > start && bytes[i - 1] == 10.to_byte() { i - 1 } else { i }
+          let end_ = if i > start && bytes[i - 1] == b'\x0A' { i - 1 } else { i }
           return (start, end_)
         }
         i = i + 1

@@ -14,7 +14,7 @@ priv enum PdfToken {
 }
 
 ///|
-fn read_token(bs : Bytes, pos : Int) -> (PdfToken, Int)? {
+fn read_token(bs : Bytes, pos : Int) -> (PdfToken, Int)? raise{
   let i = skip_ws_and_comment(bs, pos)
   if i >= bs.length() {
     return None

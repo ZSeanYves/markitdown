@@ -1,5 +1,5 @@
 ///|
-fn parse_pdf_value(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_pdf_value(bs : Bytes, pos : Int) -> (PdfValue, Int) raise{
   let (tok, next) = match read_token(bs, pos) {
     Some(v) => v
     None => raise UnexpectedEOF("value")
@@ -36,17 +36,17 @@ fn parse_number_or_ref(
   bs : Bytes,
   raw : String,
   next : Int,
-) -> (PdfValue, Int) raise PdfParseError {
+) -> (PdfValue, Int) raise {
   let s = skip_ws_and_comment(bs, next)
   match read_token(bs, s) {
     Some((PdfToken::Number(raw2), next2)) => {
       let s2 = skip_ws_and_comment(bs, next2)
       match read_token(bs, s2) {
         Some((PdfToken::Keyword(k), next3)) if k == "R" => {
-          let obj = raw.to_int() catch {
+          let obj = @string.parse_int(raw) catch {
             _ => raise InvalidStructure("invalid ref obj num: " + raw)
           }
-          let gen = raw2.to_int() catch {
+          let gen = @string.parse_int(raw2) catch {
             _ => raise InvalidStructure("invalid ref gen: " + raw2)
           }
           return (PdfValue::Ref(obj, gen), next3)
@@ -58,12 +58,12 @@ fn parse_number_or_ref(
   }
 
   if raw.contains(".") {
-    let v = raw.to_double() catch {
+    let v = @string.parse_double(raw) catch {
       _ => raise InvalidStructure("invalid real: " + raw)
     }
     (PdfValue::Real(v), next)
   } else {
-    let v = raw.to_int() catch {
+    let v = @string.parse_int(raw) catch {
       _ => raise InvalidStructure("invalid int: " + raw)
     }
     (PdfValue::Int(v), next)
@@ -71,13 +71,16 @@ fn parse_number_or_ref(
 }
 
 ///|
-fn parse_array(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_array(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   let arr : Array[PdfValue] = []
   let mut i = pos
-  loop {
+
+  while true {
     let j = skip_ws_and_comment(bs, i)
     match read_token(bs, j) {
-      Some((PdfToken::RArray, next)) => return (PdfValue::Array(arr), next)
+      Some((PdfToken::RArray, next)) => {
+        break (PdfValue::Array(arr), next)
+      }
       Some(_) => {
         let (v, n) = parse_pdf_value(bs, j)
         arr.push(v)
@@ -85,17 +88,22 @@ fn parse_array(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
       }
       None => raise UnexpectedEOF("array")
     }
+  } nobreak {
+    raise UnexpectedEOF("array")
   }
 }
 
 ///|
-fn parse_dict(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_dict(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   let dict : Map[String, PdfValue] = Map::new()
   let mut i = pos
-  loop {
+
+  while true {
     let j = skip_ws_and_comment(bs, i)
     match read_token(bs, j) {
-      Some((PdfToken::RDict, next)) => return (PdfValue::Dict(dict), next)
+      Some((PdfToken::RDict, next)) => {
+        break (PdfValue::Dict(dict), next)
+      }
       Some((PdfToken::Name(name), n1)) => {
         let (v, n2) = parse_pdf_value(bs, n1)
         dict.set(name, v)
@@ -104,11 +112,12 @@ fn parse_dict(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
       Some(_) => raise InvalidStructure("dictionary key must be /Name")
       None => raise UnexpectedEOF("dictionary")
     }
+  } nobreak {
+    raise UnexpectedEOF("dictionary")
   }
 }
-
 ///|
-fn parse_literal_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_literal_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   let mut depth = 1
   let mut i = pos
   let mut out = ""
@@ -170,7 +179,7 @@ fn parse_hex_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseErro
 fn parse_indirect_object_at(
   bytes : Bytes,
   offset : Int,
-) -> PdfIndirectObject raise PdfParseError {
+) -> PdfIndirectObject raise  {
   let (obj_num, p1) = match read_int_ascii(bytes, skip_ws_and_comment(bytes, offset)) {
     Some(v) => v
     None => raise InvalidStructure("invalid indirect object number")
@@ -185,7 +194,8 @@ fn parse_indirect_object_at(
   }
 
   let body_start = p3 + 3
-  let (value, mut body_next) = parse_pdf_value(bytes, body_start)
+  let (value, body_next_old) = parse_pdf_value(bytes, body_start)
+  let mut body_next = body_next_old
   body_next = skip_ws_and_comment(bytes, body_next)
 
   let mut stream : Bytes? = None

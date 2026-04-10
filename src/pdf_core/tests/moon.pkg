@@ -1,4 +1,5 @@
 import {
   "ZSeanYves/markitdown/src/pdf_core" @pdfc,
   "ZSeanYves/markitdown/src/core" @cor,
+  "moonbitlang/core/encoding/utf8" @utf8,
 } for "test"

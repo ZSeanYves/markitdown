@@ -1,5 +1,5 @@
 ///|
-fn parse_pdf_header(bytes : Bytes) -> String raise PdfParseError {
+fn parse_pdf_header(bytes : Bytes) -> String raise  {
   if bytes.length() < 8 {
     raise InvalidHeader("too short")
   }
@@ -7,7 +7,7 @@ fn parse_pdf_header(bytes : Bytes) -> String raise PdfParseError {
     raise InvalidHeader("missing %PDF- prefix")
   }
   let mut i = 5
-  while i < bytes.length() && bytes[i] != 10.to_byte() && bytes[i] != 13.to_byte() {
+  while i < bytes.length() && bytes[i] != b'\x0A' && bytes[i] != b'\x0D' {
     i = i + 1
   }
   bytes_to_string(bytes, 5, i)
@@ -30,7 +30,7 @@ fn find_startxref(bytes : Bytes) -> Int raise PdfParseError {
 fn parse_xref_and_trailer(
   bytes : Bytes,
   xref_offset : Int,
-) -> (PdfXrefTable, Map[String, PdfValue]) raise PdfParseError {
+) -> (PdfXrefTable, Map[String, PdfValue]) raise {
   let i = skip_ws_and_comment(bytes, xref_offset)
   if !starts_with_at(bytes, i, "xref") {
     if starts_with_at(bytes, i, "0") {
@@ -40,17 +40,16 @@ fn parse_xref_and_trailer(
   }
 
   let entries : Map[String, PdfXrefEntry] = Map::new()
-  let mut p = skip_ws_and_comment(bytes, i + 4)
+  let mut state = skip_ws_and_comment(bytes, i + 4)
 
-  loop {
-    p = skip_ws_and_comment(bytes, p)
-    if starts_with_at(bytes, p, "trailer") {
-      let (trailer, tnext) = parse_trailer(bytes, p)
-      ignore(tnext)
-      return ({ entries }, trailer)
+  while true {
+    let p0 = skip_ws_and_comment(bytes, state)
+    if starts_with_at(bytes, p0, "trailer") {
+      let (trailer, _tnext) = parse_trailer(bytes, p0)
+      break ({ entries, }, trailer)
     }
 
-    let (obj_start, p1) = match read_int_ascii(bytes, p) {
+    let (obj_start, p1) = match read_int_ascii(bytes, p0) {
       Some(v) => v
       None => raise InvalidStructure("invalid xref subsection start")
     }
@@ -59,41 +58,50 @@ fn parse_xref_and_trailer(
       None => raise InvalidStructure("invalid xref subsection count")
     }
 
-    p = skip_ws_and_comment(bytes, p2)
+    let mut p = skip_ws_and_comment(bytes, p2)
     let mut idx = 0
     while idx < count {
       let line_start = p
       let mut line_end = line_start
-      while line_end < bytes.length() && bytes[line_end] != 10.to_byte() && bytes[line_end] != 13.to_byte() {
+      while line_end < bytes.length() &&
+            bytes[line_end] != b'\n' &&
+            bytes[line_end] != b'\r' {
         line_end = line_end + 1
       }
+
       let line = bytes_to_string(bytes, line_start, line_end).trim().to_string()
       let parts = line.split(" ")
       let filtered : Array[String] = []
       for s in parts {
         if s != "" {
-          filtered.push(s)
+          filtered.push(s.to_string())
         }
       }
       if filtered.length() < 3 {
         raise InvalidStructure("malformed xref entry line")
       }
-      let off = filtered[0].to_int() catch {
+
+      let off = @string.parse_int(filtered[0]) catch {
         _ => raise InvalidStructure("bad xref entry offset")
       }
-      let gen = filtered[1].to_int() catch {
+      let gen = @string.parse_int(filtered[1]) catch {
         _ => raise InvalidStructure("bad xref entry generation")
       }
       let in_use = filtered[2] == "n"
+
       let key = make_obj_key(obj_start + idx, gen)
       entries.set(key, { offset: off, gen, in_use })
 
       p = line_end
-      while p < bytes.length() && (bytes[p] == 10.to_byte() || bytes[p] == 13.to_byte()) {
+      while p < bytes.length() && (bytes[p] == b'\n' || bytes[p] == b'\r') {
         p = p + 1
       }
       idx = idx + 1
     }
+
+    state = p
+  } nobreak {
+    raise InvalidStructure("unterminated xref table")
   }
 }
 
@@ -101,7 +109,7 @@ fn parse_xref_and_trailer(
 fn parse_trailer(
   bytes : Bytes,
   trailer_pos : Int,
-) -> (Map[String, PdfValue], Int) raise PdfParseError {
+) -> (Map[String, PdfValue], Int) raise  {
   let p = skip_ws_and_comment(bytes, trailer_pos + 7)
   let (v, next) = parse_pdf_value(bytes, p)
   match v {
