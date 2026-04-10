@@ -1,1 +1,113 @@
+Warning: [0007]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_backend.mbt:11:3 ]
+    │
+ 11 │   cmd : String
+    │   ─┬─  
+    │    ╰─── Warning (unused_field): Field 'cmd' is never read
+────╯
+Warning: [0007]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_backend.mbt:12:3 ]
+    │
+ 12 │   args : Array[String]
+    │   ──┬─  
+    │     ╰─── Warning (unused_field): Field 'args' is never read
+────╯
+Warning: [0007]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_backend.mbt:17:3 ]
+    │
+ 17 │   spawn_error : String?
+    │   ─────┬─────  
+    │        ╰─────── Warning (unused_field): Field 'spawn_error' is never read
+────╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_extract.mbt:3:3 ]
+   │
+ 3 │   backend_name : String
+   │   ──────┬─────  
+   │         ╰─────── Warning (unused_field): Field 'backend_name' is never read
+───╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_extract.mbt:5:3 ]
+   │
+ 5 │   exit_status : Int
+   │   ─────┬─────  
+   │        ╰─────── Warning (unused_field): Field 'exit_status' is never read
+───╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_extract.mbt:6:3 ]
+   │
+ 6 │   stderr : String
+   │   ───┬──  
+   │      ╰──── Warning (unused_field): Field 'stderr' is never read
+───╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_extract.mbt:7:3 ]
+   │
+ 7 │   quality : PdfTextQuality
+   │   ───┬───  
+   │      ╰───── Warning (unused_field): Field 'quality' is never read
+───╯
+Warning: [0001]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_extract.mbt:12:10 ]
+    │
+ 12 │ async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
+    │          ────────┬───────  
+    │                  ╰───────── Warning (unused_value): Unused function 'extract_pdf_text'
+────╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_quality.mbt:8:3 ]
+   │
+ 8 │   signal_chars : Int
+   │   ──────┬─────  
+   │         ╰─────── Warning (unused_field): Field 'signal_chars' is never read
+───╯
+Warning: [0007]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_quality.mbt:9:3 ]
+   │
+ 9 │   total_lines : Int
+   │   ─────┬─────  
+   │        ╰─────── Warning (unused_field): Field 'total_lines' is never read
+───╯
+Warning: [0007]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_quality.mbt:10:3 ]
+    │
+ 10 │   nonblank_lines : Int
+    │   ───────┬──────  
+    │          ╰──────── Warning (unused_field): Field 'nonblank_lines' is never read
+────╯
+Warning: [0007]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_quality.mbt:12:3 ]
+    │
+ 12 │   suspicious_short_alpha_lines : Int
+    │   ──────────────┬─────────────  
+    │                 ╰─────────────── Warning (unused_field): Field 'suspicious_short_alpha_lines' is never read
+────╯
+Warning: [0001]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf/pdf_to_ir.mbt:10:4 ]
+    │
+ 10 │ fn text_to_ir_document(text0 : String) -> @cor.Document {
+    │    ─────────┬─────────  
+    │             ╰─────────── Warning (unused_value): Unused function 'text_to_ir_document'
+────╯
+Warning: [0001]
+   ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf_core/pdf_extract_api.mbt:9:4 ]
+   │
+ 9 │ fn map_parse_error(_e : PdfParseError) -> PdfNativeError {
+   │    ───────┬───────  
+   │           ╰───────── Warning (unused_value): Unused function 'map_parse_error'
+───╯
+Warning: [0006]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf_core/pdf_lexer.mbt:11:3 ]
+    │
+ 11 │   RParen
+    │   ───┬──  
+    │      ╰──── Warning (unused_constructor): Variant 'RParen' is never read
+────╯
+Warning: [0006]
+    ╭─[ /Users/winter/Documents/Moonbit/markitdown/src/pdf_core/pdf_lexer.mbt:13:3 ]
+    │
+ 13 │   Gt
+    │   ─┬  
+    │    ╰── Warning (unused_constructor): Variant 'Gt' is never read
+────╯
 [pdf-debug] selected backend=pdf-native (forced)

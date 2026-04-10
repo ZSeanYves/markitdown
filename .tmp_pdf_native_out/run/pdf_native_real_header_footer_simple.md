@@ -1,3 +1,11 @@
-# HeaderThis is the first page body.Footer
+## Header
 
-HeaderThis is the second page body.Footer
+This is the first page body.
+
+## Footer
+
+## Header
+
+This is the second page body.
+
+## Footer

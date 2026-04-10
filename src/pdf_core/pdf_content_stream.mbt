@@ -134,7 +134,7 @@ fn parse_content_token(
 ) -> (PdfContentToken, Int) raise {
   let ch = stream[pos]
   if ch == '<'.to_int().to_byte() {
-    raise UnsupportedFeature(
+    raise PdfParseError::UnsupportedFeature(
       "hex string operand in content stream is not supported yet",
     )
   }
@@ -243,7 +243,7 @@ fn parse_content_operand(
 ) -> (PdfContentOperand, Int) raise {
   let ch = stream[pos]
   if ch == '<'.to_int().to_byte() {
-    raise UnsupportedFeature(
+    raise PdfParseError::UnsupportedFeature(
       "hex string operand in content stream is not supported yet",
     )
   }
