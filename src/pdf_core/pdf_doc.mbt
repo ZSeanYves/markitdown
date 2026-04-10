@@ -27,21 +27,26 @@ pub fn get_indirect_object(
     raise ObjectNotFound(obj_num, gen)
   }
   if entry.entry_type == 2 {
-    let objstm = match entry.objstm_obj {
-      Some(v) => v.to_string()
-      None => "?"
-    }
-    raise PdfNativeError::UnsupportedFeature(
-      "object stream object is not supported yet: obj=" +
-      obj_num.to_string() +
-      " gen=" +
-      gen.to_string() +
-      " objstm=" +
-      objstm,
-    )
+    return resolve_object_stream_entry(doc, obj_num, gen, entry)
   }
   let obj = parse_indirect_object_at(doc.bytes, entry.offset)
   normalize_stream_length_by_dict(doc, obj)
+}
+
+///|
+fn resolve_object_stream_entry(
+  doc : PdfDocument,
+  obj_num : Int,
+  gen : Int,
+  entry : PdfXrefEntry,
+) -> PdfIndirectObject raise {
+  let objstm_obj_num = match entry.objstm_obj {
+    Some(v) => v
+    None => raise InvalidStructure("xref type-2 entry is missing ObjStm object")
+  }
+  let objstm = get_indirect_object(doc, objstm_obj_num, 0)
+  let value = resolve_objstm_embedded_value(objstm, obj_num, entry.objstm_index)
+  { obj_num, gen, value, stream: None }
 }
 
 ///|
