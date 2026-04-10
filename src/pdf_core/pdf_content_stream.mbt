@@ -462,6 +462,7 @@ fn is_num_start(ch : Byte) -> Bool {
 fn is_min_text_operator(op : String) -> Bool {
   op == "BT" ||
   op == "ET" ||
+  op == "Tf" ||
   op == "Tj" ||
   op == "TJ" ||
   op == "Td" ||
