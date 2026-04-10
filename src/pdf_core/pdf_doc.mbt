@@ -174,21 +174,14 @@ fn normalize_stream_length_by_dict(
 }
 
 ///|
-fn resolve_length_ref(doc : PdfDocument, obj_num : Int, gen : Int) -> Int? raise {
+fn resolve_length_ref(
+  doc : PdfDocument,
+  obj_num : Int,
+  gen : Int,
+) -> Int? raise {
   let o = get_indirect_object(doc, obj_num, gen)
   match o.value {
     PdfValue::Int(v) => Some(v)
     _ => None
-  }
-}
-
-///|
-fn as_dict(
-  v : PdfValue,
-  ctx : String,
-) -> Map[String, PdfValue] raise PdfParseError {
-  match v {
-    PdfValue::Dict(dict) => dict
-    _ => raise TypeMismatch(ctx + " must be dictionary")
   }
 }

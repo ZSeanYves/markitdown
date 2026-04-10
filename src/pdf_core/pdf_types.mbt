@@ -9,7 +9,7 @@ pub suberror PdfParseError {
 }
 
 ///|
-pub suberror PdfNativeError {
+pub(all) suberror PdfNativeError {
   UnsupportedFeature(String)
   ExtractionFailed(String)
 }

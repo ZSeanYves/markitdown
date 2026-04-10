@@ -60,10 +60,10 @@ fn map_native_error(e : @pdfc.PdfNativeError) -> @cor.AppError {
 }
 
 ///|
-async fn extract_pdf_text_native(
+fn extract_pdf_text_native(
   path : String,
 ) -> Result[PdfExtractResult, @cor.AppError] {
-  let bytes = @fs.read_bytes(path) catch {
+  let bytes = @fs.read_file_to_bytes(path) catch {
     e => return Err(@cor.AppError("read pdf failed: " + e.to_string()))
   }
 
@@ -85,10 +85,12 @@ async fn extract_pdf_text_native(
       )
   }
 
-  let quality = analyze_pdf_text_quality(text)
+  let cleaned = cleanup_pdf_text(text)
+  let quality = analyze_pdf_text_quality(cleaned)
+
   Ok({
     backend_name: "pdf-native",
-    text: cleanup_pdf_text(text),
+    text: cleaned,
     exit_status: 0,
     stderr: "",
     quality,

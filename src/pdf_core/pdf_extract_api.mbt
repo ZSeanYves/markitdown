@@ -51,9 +51,9 @@ fn parse_tj_with_hook(
       let spacing : Array[Double] = []
       for item in items {
         match item {
-          PdfContentOperand::String(s) => {
-            out = out + decode_with_font(doc, font_ref, PdfContentOperand::String(s))
-          }
+          PdfContentOperand::String(s) =>
+            out = out +
+              decode_with_font(doc, font_ref, PdfContentOperand::String(s))
           PdfContentOperand::Number(v) => spacing.push(v)
           _ => ()
         }
@@ -70,7 +70,8 @@ pub fn decode_text_operand(
   font_ref : PdfFontRef,
   operand : PdfContentOperand,
 ) -> String raise {
-  let cmap : Map[Int, String] = match (font_ref.to_unicode_obj, font_ref.to_unicode_gen) {
+  let cmap : Map[Int, String] = match
+    (font_ref.to_unicode_obj, font_ref.to_unicode_gen) {
     (Some(obj), Some(gen)) => {
       let o = get_indirect_object(doc, obj, gen)
       match o.stream {
@@ -81,7 +82,7 @@ pub fn decode_text_operand(
     _ => Map::new()
   }
 
-  let decode_string = fn(s : String) -> String {
+  let decode_string = fn(s : String) -> String raise {
     let mut out = ""
     for b in @utf8.encode(s) {
       match cmap.get(b.to_int()) {
@@ -115,19 +116,38 @@ pub fn extract_text_events_from_page(
   page_gen : Int,
 ) -> Array[PdfTextEvent] raise {
   let fonts = resolve_page_fonts(doc, page_obj, page_gen) catch {
-    e => raise map_parse_error(e)
-  }
-  let streams = get_page_content_stream_bytes(doc, page_obj, page_gen) catch {
-    e => raise map_parse_error(e)
+    e =>
+      raise InvalidStructure(
+        "failed to resolve page fonts for page " +
+        page_obj.to_string() +
+        " " +
+        page_gen.to_string() +
+        ": " +
+        e.to_string(),
+      )
   }
 
+  let streams = get_page_content_stream_bytes(doc, page_obj, page_gen) catch {
+    e =>
+      raise InvalidStructure(
+        "failed to get page content streams for page " +
+        page_obj.to_string() +
+        " " +
+        page_gen.to_string() +
+        ": " +
+        e.to_string(),
+      )
+  }
   let events : Array[PdfTextEvent] = []
   let mut current_font : String? = None
   let mut in_text = false
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      e => raise map_parse_error(e)
+      e =>
+        raise InvalidStructure(
+          "failed to extract text ops from page stream: " + e.to_string(),
+        )
     }
 
     for op in ops {
@@ -159,7 +179,11 @@ pub fn extract_text_events_from_page(
       }
 
       if op.op == "Tj" && op.operands.length() >= 1 {
-        let text = decode_with_font(doc, font_ref, op.operands[op.operands.length() - 1]) catch {
+        let text = decode_with_font(
+          doc,
+          font_ref,
+          op.operands[op.operands.length() - 1],
+        ) catch {
           _ => ""
         }
         if text != "" {
@@ -204,13 +228,12 @@ pub fn extract_text_from_page(
 ///|
 pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
   let pages = list_page_refs(doc) catch {
-    e => raise map_parse_error(e)
+    e => raise InvalidStructure("list_page_refs failed: " + e.to_string())
   }
   let mut out = ""
-  for (obj, gen) in pages {
-    let t = extract_text_from_page(doc, obj, gen) catch {
-      e => raise e
-    }
+  for e in pages {
+    let (obj, gen) = e
+    let t = extract_text_from_page(doc, obj, gen) catch { e => raise e }
     if t != "" {
       if out != "" {
         out = out + "\n"

@@ -45,7 +45,7 @@ fn all_hex_between_angles(line : String) -> Array[String] {
 }
 
 ///|
-fn decode_utf16be_hex(hex : String) -> String {
+fn decode_utf16be_hex(hex : String) -> String raise {
   let bytes = @utf8.encode(hex)
   if bytes.length() % 4 != 0 {
     return ""
@@ -64,7 +64,7 @@ fn decode_utf16be_hex(hex : String) -> String {
 }
 
 ///|
-pub fn parse_tounicode_cmap(stream : Bytes) -> Map[Int, String] {
+pub fn parse_tounicode_cmap(stream : Bytes) -> Map[Int, String] raise {
   let text = @utf8.decode(stream)
   let out : Map[Int, String] = Map::new()
   let lines = text.split("\n")

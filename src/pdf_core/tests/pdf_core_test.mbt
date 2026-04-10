@@ -135,17 +135,26 @@ fn build_pdf_with_inherited_resources_page() -> Bytes {
   )
   let stream_data = "BT\n/F1 12 Tf\n(Hello Inherited) Tj\nET\n"
   add_obj(
-    "4 0 obj\n<< /Length " + byte_len(stream_data).to_string() + " >>\nstream\n" +
-    stream_data + "endstream\nendobj\n",
+    "4 0 obj\n<< /Length " +
+    byte_len(stream_data).to_string() +
+    " >>\nstream\n" +
+    stream_data +
+    "endstream\nendobj\n",
   )
-  add_obj("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  add_obj(
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  )
 
   let xref_offset = cur
   add("xref\n0 6\n0000000000 65535 f \n")
   for off in offsets {
     add(zpad(off, 10) + " 00000 n \n")
   }
-  add("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xref_offset.to_string() + "\n%%EOF\n")
+  add(
+    "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" +
+    xref_offset.to_string() +
+    "\n%%EOF\n",
+  )
   @utf8.encode(chunks.join(""))
 }
 
@@ -171,16 +180,24 @@ fn build_pdf_with_indirect_length() -> Bytes {
     "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 6 0 R >> >> /Contents 4 0 R >>\nendobj\n",
   )
   add_obj(
-    "4 0 obj\n<< /Length 5 0 R >>\nstream\n" + stream_data + "endstream\nendobj\n",
+    "4 0 obj\n<< /Length 5 0 R >>\nstream\n" +
+    stream_data +
+    "endstream\nendobj\n",
   )
   add_obj("5 0 obj\n" + byte_len(stream_data).to_string() + "\nendobj\n")
-  add_obj("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  add_obj(
+    "6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  )
   let xref_offset = cur
   add("xref\n0 7\n0000000000 65535 f \n")
   for off in offsets {
     add(zpad(off, 10) + " 00000 n \n")
   }
-  add("trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n" + xref_offset.to_string() + "\n%%EOF\n")
+  add(
+    "trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n" +
+    xref_offset.to_string() +
+    "\n%%EOF\n",
+  )
   @utf8.encode(chunks.join(""))
 }
 
@@ -318,7 +335,11 @@ test "pdf phase4 missing ToUnicode falls back to string bytes" {
   }
   assert_eq(has_f1, true)
   let f1 = fonts.get("F1").unwrap()
-  let text = @pdfc.decode_text_operand(doc, f1, @pdfc.PdfContentOperand::String("ABC"))
+  let text = @pdfc.decode_text_operand(
+    doc,
+    f1,
+    @pdfc.PdfContentOperand::String("ABC"),
+  )
   assert_eq(text, "ABC")
 }
 

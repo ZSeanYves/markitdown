@@ -1,5 +1,5 @@
 ///|
-pub enum PdfContentOperand {
+pub(all) enum PdfContentOperand {
   Number(Double)
   Name(String)
   String(String)
@@ -376,7 +376,6 @@ fn is_octal_digit(ch : Byte) -> Bool {
   ch >= '0'.to_int().to_byte() && ch <= '7'.to_int().to_byte()
 }
 
-
 ///|
 fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String {
   if operands.length() == 0 {
@@ -394,7 +393,8 @@ fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
   let mut idx = operands.length() - 1
   while true {
     match operands[idx] {
-      PdfContentOperand::Array(items) => return text_from_operand(PdfContentOperand::Array(items))
+      PdfContentOperand::Array(items) =>
+        return text_from_operand(PdfContentOperand::Array(items))
       _ => ()
     }
     if idx == 0 {
@@ -449,8 +449,6 @@ fn trim_surrounding_line_breaks(s : String) -> String {
   }
   s[start:end].to_string()
 }
-
-
 
 ///|
 fn is_num_start(ch : Byte) -> Bool {

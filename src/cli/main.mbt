@@ -113,7 +113,8 @@ async fn main {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
                 None => None
               }
-              let pdf_backend_opt : String? = match sub.args.get("pdf-backend") {
+              let pdf_backend_opt : String? = match
+                sub.args.get("pdf-backend") {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
                 None => None
               }
@@ -162,8 +163,8 @@ async fn main {
                 None => false
               }
               cmd_convert(
-                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt, pdf_extract_debug,
-                pdf_dump_selected_raw, pdf_pipeline_debug,
+                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt,
+                pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug,
               )
             }
             "help" => println(help_msg)
