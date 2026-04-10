@@ -1,0 +1,7 @@
+--- /Users/winter/Documents/Moonbit/markitdown/src/pdf_core/tests/test_file/pdf_native_real_text_multipage.expected.md	2026-04-10 21:17:19
++++ /Users/winter/Documents/Moonbit/markitdown/.tmp_pdf_native_out/run/pdf_native_real_text_multipage.md	2026-04-10 21:50:35
+@@ -1,3 +1 @@
+-This is page one.
+-
+-This is page two.
++This is page one. This is page two.

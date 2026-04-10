@@ -55,8 +55,14 @@ async fn extract_pdf_text_result(
 }
 
 ///|
-fn map_native_error(e : @pdfc.PdfNativeError) -> @cor.AppError {
-  @cor.AppError("PDF native backend failed: " + e.to_string())
+fn map_native_error(e : Error) -> @cor.AppError {
+  match e {
+    @pdfc.PdfNativeError::UnsupportedFeature(msg) =>
+      @cor.AppError("pdf-native unsupported: " + msg)
+    @pdfc.ExtractionFailed(msg) =>
+      @cor.AppError("pdf-native extraction failed: " + msg)
+    _ => @cor.AppError("pdf-native error: " + e.to_string())
+  }
 }
 
 ///|
@@ -68,9 +74,7 @@ fn extract_pdf_text_native(
     e => return Err(@cor.AppError("read pdf failed: " + e.to_string()))
   }
 
-  let doc = @pdfc.open_pdf(bytes) catch {
-    e => return Err(map_native_error(e))
-  }
+  let doc = @pdfc.open_pdf(bytes) catch { e => return Err(map_native_error(e)) }
 
   let text = @pdfc.extract_text_from_document(doc) catch {
     e => return Err(map_native_error(e))
