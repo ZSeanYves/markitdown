@@ -250,6 +250,10 @@ fn should_start_new_block(
     return true
   }
 
+  if should_break_numbered_sentence_and_emphasis(buf, t) {
+    return true
+  }
+
   false
 }
 
@@ -385,6 +389,11 @@ fn should_flush_buf_before_appending(
   }
 
   if ends_like_sentence(b) && looks_like_intro_phrase(t) {
+    return true
+  }
+
+  if looks_like_uppercase_emphasis_line(b) &&
+    !looks_like_uppercase_emphasis_line(t) {
     return true
   }
 
