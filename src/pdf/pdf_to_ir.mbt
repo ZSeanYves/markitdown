@@ -120,7 +120,7 @@ fn text_to_ir_document_with_debug(
     }
   }
 
-  let blocks_after_merge = split_blocks_smart(merged)
+  let blocks_after_merge = coalesce_loose_paragraph_blocks(split_blocks_smart(merged))
   if pipeline_debug {
     dump_pdf_debug_stage(
       input_path,
@@ -207,6 +207,51 @@ fn looks_like_repeated_page_template_title(s : String) -> Bool {
     }
   }
   has_digit
+}
+
+///|
+fn coalesce_loose_paragraph_blocks(blocks : Array[PdfBlock]) -> Array[PdfBlock] {
+  let out : Array[PdfBlock] = []
+  for b in blocks {
+    if out.length() == 0 {
+      out.push(b)
+      continue
+    }
+
+    let last_idx = out.length() - 1
+    match (out[last_idx], b) {
+      (PdfBlock::Paragraph(p), PdfBlock::Paragraph(c)) =>
+        if can_soft_merge_paragraphs(p, c) {
+          out[last_idx] = PdfBlock::Paragraph(append_line(p, c))
+        } else {
+          out.push(b)
+        }
+      _ => out.push(b)
+    }
+  }
+  out
+}
+
+///|
+fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+
+  // narrow scope: only heal obvious hard-wrap style splits.
+  if ends_like_sentence(p) {
+    return false
+  }
+
+  if looks_like_list_item_sentence(c) ||
+    looks_like_side_marker_label_line(c) ||
+    is_probable_page_number(c) {
+    return false
+  }
+
+  true
 }
 
 ///|

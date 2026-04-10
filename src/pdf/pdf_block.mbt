@@ -227,6 +227,10 @@ fn should_start_new_block(
     return true
   }
 
+  if looks_like_label_token_line_start(t) {
+    return true
+  }
+
   // 强标题候选通常开新块
   if is_strong_heading_candidate(t) {
     return true
@@ -273,6 +277,10 @@ fn starts_like_new_block(s : String) -> Bool {
   }
 
   if looks_like_heading_marker(t) && !ends_like_sentence(t) {
+    return true
+  }
+
+  if looks_like_label_token_line_start(t) {
     return true
   }
 
@@ -393,22 +401,99 @@ fn should_flush_buf_before_appending(
 }
 
 ///|
-fn should_break_numbered_sentence_and_emphasis(buf : String, cur : String) -> Bool {
-  let b = buf.trim().to_string()
-  let t = cur.trim().to_string()
-  looks_like_numbered_sentence_prefix(b) && looks_like_uppercase_emphasis_line(t)
+fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
+  let t = raw.trim().to_string()
+  if !t.contains("LEFT-") || !t.contains("RIGHT-") {
+    return [raw]
+  }
+
+  let cs = raw.to_array()
+  let mut i = 0
+  let n = cs.length()
+  let mut split_at = -1
+  while i + 5 < n {
+    if cs[i] == 'R' &&
+      cs[i + 1] == 'I' &&
+      cs[i + 2] == 'G' &&
+      cs[i + 3] == 'H' &&
+      cs[i + 4] == 'T' &&
+      cs[i + 5] == '-' {
+      split_at = i
+      break
+    }
+    i += 1
+  }
+
+  if split_at <= 0 {
+    return [raw]
+  }
+
+  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
+  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
+  if left == "" || right == "" {
+    return [raw]
+  }
+
+  [left, right]
 }
 
 ///|
-fn looks_like_numbered_sentence_prefix(s : String) -> Bool {
+fn looks_like_label_token_line_start(s : String) -> Bool {
   let t = s.trim().to_string()
-  let cs = t.to_array()
+  if t == "" || !t.contains("-") || !t.contains(" ") {
+    return false
+  }
+
+  let mut first = ""
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      first = w
+      break
+    }
+  }
+  if first == "" {
+    return false
+  }
+
+  if first.has_prefix("LEFT-") || first.has_prefix("RIGHT-") {
+    return true
+  }
+
+  // generic marker like ABC-12 / ABC-A3
+  let cs = first.to_array()
   let n = cs.length()
   if n < 4 {
     return false
   }
 
   let mut i = 0
+  let mut has_upper_prefix = false
+  while i < n {
+    let c = cs[i]
+    if c >= 'A' && c <= 'Z' {
+      has_upper_prefix = true
+      i += 1
+      continue
+    }
+    break
+  }
+  if !has_upper_prefix || i >= n || cs[i] != '-' {
+    return false
+  }
+  i += 1
+  if i >= n {
+    return false
+  }
+
+  // optional single uppercase letter after '-'
+  if cs[i] >= 'A' && cs[i] <= 'Z' {
+    i += 1
+    if i >= n {
+      return false
+    }
+  }
+
   let mut has_digit = false
   while i < n {
     let c = cs[i]
@@ -417,156 +502,10 @@ fn looks_like_numbered_sentence_prefix(s : String) -> Bool {
       i += 1
       continue
     }
-    break
-  }
-
-  if !has_digit || i + 1 >= n {
     return false
   }
 
-  (cs[i] == '.' || cs[i] == ')') && cs[i + 1] == ' '
-}
-
-///|
-fn looks_like_uppercase_emphasis_line(s : String) -> Bool {
-  let t = s.trim().to_string()
-  let n = t.to_array().length()
-  if n < 8 || n > 80 {
-    return false
-  }
-
-  let mut alpha = 0
-  let mut upper = 0
-  for c in t.to_array() {
-    if c >= 'A' && c <= 'Z' {
-      alpha += 1
-      upper += 1
-    } else if c >= 'a' && c <= 'z' {
-      alpha += 1
-    }
-  }
-
-  alpha >= 6 && upper * 10 >= alpha * 7
-}
-
-///|
-fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
-  let t = raw.trim().to_string()
-  if !t.contains("LEFT-") || !t.contains("RIGHT-") {
-    return [raw]
-  }
-
-  let cs = raw.to_array()
-  let mut i = 0
-  let n = cs.length()
-  let mut split_at = -1
-  while i + 5 < n {
-    if cs[i] == 'R' &&
-      cs[i + 1] == 'I' &&
-      cs[i + 2] == 'G' &&
-      cs[i + 3] == 'H' &&
-      cs[i + 4] == 'T' &&
-      cs[i + 5] == '-' {
-      split_at = i
-      break
-    }
-    i += 1
-  }
-
-  if split_at <= 0 {
-    return [raw]
-  }
-
-  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
-  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
-  if left == "" || right == "" {
-    return [raw]
-  }
-
-  [left, right]
-}
-
-///|
-fn should_continue_previous_list_item(prev : String, cur : String) -> Bool {
-  let p = prev.trim().to_string()
-  let t = cur.trim().to_string()
-  if !looks_like_list_item_sentence(p) || t == "" {
-    return false
-  }
-
-  if looks_like_list_item_sentence(t) ||
-    is_strong_heading_candidate(t) ||
-    guess_numbered_heading_level(t) > 0 ||
-    looks_like_section_marker_like(t) {
-    return false
-  }
-
-  // wrapped continuation line often starts lowercase and is not sentence-ended
-  // (e.g. "be attached to previous page paragraph.")
-  !starts_like_new_block(t)
-}
-
-///|
-fn looks_like_page_leading_heading(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  if is_strong_heading_candidate(t) {
-    return true
-  }
-
-  if guess_numbered_heading_level(t) > 0 {
-    return true
-  }
-
-  if looks_like_section_marker_like(t) {
-    return true
-  }
-
-  if looks_like_document_title(t) {
-    return true
-  }
-
-  false
-}
-
-///|
-fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
-  let t = raw.trim().to_string()
-  if !t.contains("LEFT-") || !t.contains("RIGHT-") {
-    return [raw]
-  }
-
-  let cs = raw.to_array()
-  let mut i = 0
-  let n = cs.length()
-  let mut split_at = -1
-  while i + 5 < n {
-    if cs[i] == 'R' &&
-      cs[i + 1] == 'I' &&
-      cs[i + 2] == 'G' &&
-      cs[i + 3] == 'H' &&
-      cs[i + 4] == 'T' &&
-      cs[i + 5] == '-' {
-      split_at = i
-      break
-    }
-    i += 1
-  }
-
-  if split_at <= 0 {
-    return [raw]
-  }
-
-  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
-  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
-  if left == "" || right == "" {
-    return [raw]
-  }
-
-  [left, right]
+  has_digit
 }
 
 ///|
