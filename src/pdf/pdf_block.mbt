@@ -36,6 +36,7 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
   let out : Array[PdfBlock] = []
   let mut buf = ""
+  let mut buf_is_page_lead = false
   let mut prev_was_page_break = false
 
   let n = lines.length()
@@ -56,17 +57,21 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
       PdfLine::Text(cur) =>
         if buf == "" {
           buf = cur
+          buf_is_page_lead = prev_was_page_break || out.length() == 0
           prev_was_page_break = false
         } else if should_start_new_block(buf, cur, prev_was_page_break) {
           flush_pdf_block(out, buf)
           buf = cur
+          buf_is_page_lead = prev_was_page_break
           prev_was_page_break = false
-        } else if should_flush_buf_before_appending(buf, cur) {
+        } else if should_flush_buf_before_appending(buf, cur, buf_is_page_lead) {
           flush_pdf_block(out, buf)
           buf = cur
+          buf_is_page_lead = prev_was_page_break
           prev_was_page_break = false
         } else {
           buf = append_line(buf, cur)
+          buf_is_page_lead = false
           prev_was_page_break = false
         }
     }
@@ -223,7 +228,19 @@ fn should_merge_across_page_break(left : String, right : String) -> Bool {
     return false
   }
 
+  if looks_like_section_marker_like(r) {
+    return false
+  }
+
   if looks_like_list_item_sentence(r) {
+    return false
+  }
+
+  if guess_numbered_heading_level(r) > 0 {
+    return false
+  }
+
+  if looks_like_short_uppercase_title_like(r) {
     return false
   }
 
@@ -249,12 +266,28 @@ fn should_merge_across_page_break(left : String, right : String) -> Bool {
 ///|
 /// If the current buffer already looks like a complete standalone block,
 /// do not keep appending normal body text to it.
-fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
+fn should_flush_buf_before_appending(
+  buf : String,
+  cur : String,
+  buf_is_page_lead : Bool,
+) -> Bool {
   let b = buf.trim().to_string()
   let t = cur.trim().to_string()
 
   if b == "" || t == "" {
     return false
+  }
+
+  // page-leading heading-like lines should stay standalone;
+  // avoid being absorbed by following paragraph lines.
+  if buf_is_page_lead && looks_like_page_leading_heading(b) &&
+    !looks_like_list_item_sentence(t) {
+    return true
+  }
+
+  // pseudo two-column labels should not be linearized into one big paragraph.
+  if looks_like_pseudo_column_line(b) && looks_like_pseudo_column_line(t) {
+    return true
   }
 
   // a heading candidate should usually stand alone
@@ -277,4 +310,97 @@ fn should_flush_buf_before_appending(buf : String, cur : String) -> Bool {
   }
 
   false
+}
+
+///|
+fn looks_like_page_leading_heading(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if is_strong_heading_candidate(t) {
+    return true
+  }
+
+  if guess_numbered_heading_level(t) > 0 {
+    return true
+  }
+
+  if looks_like_section_marker_like(t) {
+    return true
+  }
+
+  false
+}
+
+///|
+fn looks_like_short_uppercase_title_like(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let cs = t.to_array()
+  let n = cs.length()
+  if n < 4 || n > 48 {
+    return false
+  }
+
+  let mut alpha = 0
+  let mut upper = 0
+  for c in cs {
+    if c >= 'A' && c <= 'Z' {
+      alpha += 1
+      upper += 1
+    } else if c >= 'a' && c <= 'z' {
+      alpha += 1
+    }
+  }
+
+  alpha >= 4 && upper * 10 >= alpha * 8
+}
+
+///|
+fn looks_like_section_marker_like(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t.has_prefix("page ") ||
+    t.has_prefix("Page ") ||
+    t.has_prefix("section ") ||
+    t.has_prefix("Section ") ||
+    t.has_prefix("part ") ||
+    t.has_prefix("Part ") ||
+    t.has_prefix("chapter ") ||
+    t.has_prefix("Chapter ") {
+    return true
+  }
+  looks_like_heading_marker(t)
+}
+
+///|
+fn looks_like_pseudo_column_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t.to_array().length() < 6 || !t.contains("-") || !t.contains(" ") {
+    return false
+  }
+
+  let mut head = ""
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      head = w
+      break
+    }
+  }
+  if head == "" || !head.contains("-") {
+    return false
+  }
+
+  let mut has_upper = false
+  for c in head.to_array() {
+    let ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+    if !ok {
+      return false
+    }
+    if c >= 'A' && c <= 'Z' {
+      has_upper = true
+    }
+  }
+  has_upper
 }

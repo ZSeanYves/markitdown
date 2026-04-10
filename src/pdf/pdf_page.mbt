@@ -77,7 +77,9 @@ fn strip_page_noise(
   for idx in head_pos {
     let t = raw_lines[idx].trim().to_string()
     let key = normalize_noise_key(t)
-    if key != "" && contains_string(head_keys, key) {
+    if key != "" &&
+      contains_string(head_keys, key) &&
+      !should_preserve_short_page_edge_block(t) {
       raw_lines[idx] = ""
     }
   }
@@ -86,7 +88,9 @@ fn strip_page_noise(
   for idx in tail_pos {
     let t = raw_lines[idx].trim().to_string()
     let key = normalize_noise_key(t)
-    if key != "" && contains_string(tail_keys, key) {
+    if key != "" &&
+      contains_string(tail_keys, key) &&
+      !should_preserve_short_page_edge_block(t) {
       raw_lines[idx] = ""
     }
   }
@@ -114,6 +118,15 @@ fn strip_page_noise(
   }
 
   out.join("\n")
+}
+
+///|
+/// Protect short real content from repeated-header/footer cleanup.
+/// Keep this narrow: only very short non-page-number lines are preserved.
+fn should_preserve_short_page_edge_block(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  n > 0 && n <= 6 && !is_probable_page_number(t)
 }
 
 ///|
