@@ -48,8 +48,44 @@ fn strip_page_noise(
     return ""
   }
 
+  let raw_lines_after_repeated = strip_page_repeated_noise_only_as_lines(
+    raw_lines,
+    head_keys,
+    tail_keys,
+  )
+  cleanup_page_noise_lines(raw_lines_after_repeated)
+}
+
+///|
+fn strip_page_repeated_noise_only(
+  page : String,
+  head_keys : Array[String],
+  tail_keys : Array[String],
+) -> String {
+  let s = page
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+    .replace(old="\u00A0", new=" ")
+    .replace(old="\t", new=" ")
+
+  let raw_lines : Array[String] = []
+  for sv in s.split("\n") {
+    raw_lines.push(sv.to_string())
+  }
+
+  let lines = strip_page_repeated_noise_only_as_lines(raw_lines, head_keys, tail_keys)
+  lines.join("\n")
+}
+
+///|
+fn strip_page_repeated_noise_only_as_lines(
+  raw_lines : Array[String],
+  head_keys : Array[String],
+  tail_keys : Array[String],
+) -> Array[String] {
   // 找到前两个非空行的位置
   let head_pos : Array[Int] = []
+  let n = raw_lines.length()
   let mut i = 0
   while i < n && head_pos.length() < 2 {
     let t = raw_lines[i].trim().to_string()
@@ -77,7 +113,9 @@ fn strip_page_noise(
   for idx in head_pos {
     let t = raw_lines[idx].trim().to_string()
     let key = normalize_noise_key(t)
-    if key != "" && contains_string(head_keys, key) {
+    if key != "" &&
+      contains_string(head_keys, key) &&
+      !should_preserve_short_page_edge_block(t) {
       raw_lines[idx] = ""
     }
   }
@@ -86,11 +124,18 @@ fn strip_page_noise(
   for idx in tail_pos {
     let t = raw_lines[idx].trim().to_string()
     let key = normalize_noise_key(t)
-    if key != "" && contains_string(tail_keys, key) {
+    if key != "" &&
+      contains_string(tail_keys, key) &&
+      !should_preserve_short_page_edge_block(t) {
       raw_lines[idx] = ""
     }
   }
 
+  raw_lines
+}
+
+///|
+fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // 只清理噪声行，但保留原始空行结构
   let out : Array[String] = []
   let mut prev_blank = false
@@ -117,13 +162,30 @@ fn strip_page_noise(
 }
 
 ///|
+/// Protect short real content from repeated-header/footer cleanup.
+/// Keep this narrow: only very short non-page-number lines are preserved.
+fn should_preserve_short_page_edge_block(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  n > 0 && n <= 6 && !is_probable_page_number(t)
+}
+
+///|
 fn is_probable_page_number(s : String) -> Bool {
   let t = s.trim().to_string()
   if t == "" {
     return false
   }
 
+  if looks_like_artifact_page_noise(t) {
+    return true
+  }
+
   if looks_like_fraction_page_number(t) {
+    return true
+  }
+
+  if looks_like_spaced_page_number(t) {
     return true
   }
 
@@ -144,6 +206,73 @@ fn is_probable_page_number(s : String) -> Bool {
     }
   }
   all_digit
+}
+
+///|
+fn looks_like_spaced_page_number(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  let tokens : Array[String] = []
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      tokens.push(w)
+    }
+  }
+
+  if tokens.length() != 2 {
+    return false
+  }
+
+  let mut ok = true
+  for tok in tokens {
+    let n = tok.to_array().length()
+    if n == 0 || n > 3 {
+      ok = false
+      break
+    }
+    for c in tok.to_array() {
+      if !(c >= '0' && c <= '9') {
+        ok = false
+        break
+      }
+    }
+    if !ok {
+      break
+    }
+  }
+  ok
+}
+
+///|
+fn looks_like_artifact_page_noise(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  // common PDF extraction artifact char U+FFFC shown as "￼"
+  if t.contains("￼") {
+    let mut non_noise = 0
+    for c in t.to_array() {
+      let ok = c == '￼' ||
+        c == ' ' ||
+        c == '/' ||
+        c == '-' ||
+        c == '_' ||
+        c == '页' ||
+        (c >= '0' && c <= '9')
+      if !ok {
+        non_noise += 1
+      }
+    }
+    return non_noise == 0
+  }
+
+  false
 }
 
 ///|
