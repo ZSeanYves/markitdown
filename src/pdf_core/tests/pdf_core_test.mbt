@@ -273,12 +273,17 @@ fn build_pdf_with_xref_stream(
   with_index? : Bool = false,
   with_type2_entry? : Bool = false,
 ) -> Bytes {
-  let chunks : Array[String] = []
+  let out : Array[Byte] = []
   let offsets : Array[Int] = []
   let mut cur = 0
+  let add_bytes = fn(bs : Bytes) {
+    for b in bs {
+      out.push(b)
+    }
+    cur = cur + bs.length()
+  }
   let add = fn(s : String) {
-    chunks.push(s)
-    cur = cur + byte_len(s)
+    add_bytes(@utf8.encode(s))
   }
   let add_obj = fn(s : String) {
     offsets.push(cur)
@@ -332,27 +337,27 @@ fn build_pdf_with_xref_stream(
   for b in xref_row_bytes(1, xref_offset, 0) {
     rows.push(b)
   }
-  let xref_stream = rows.to_string()
-
   let index_part = if with_index {
     "/Index [0 7] "
   } else {
     ""
   }
-  add_obj(
+  offsets.push(cur)
+  add(
     "6 0 obj\n<< /Type /XRef /Size 7 " +
     index_part +
     "/W [1 2 1] /Root 1 0 R /Length " +
-    byte_len(xref_stream).to_string() +
+    rows.length().to_string() +
     " >>\nstream\n" +
-    xref_stream +
-    "endstream\nendobj\n",
+    "",
   )
+  add_bytes(Bytes::from_array(rows))
+  add("\nendstream\nendobj\n")
 
   add("startxref\n")
   add(xref_offset.to_string() + "\n")
   add("%%EOF\n")
-  @utf8.encode(chunks.join(""))
+  Bytes::from_array(out)
 }
 
 ///|
