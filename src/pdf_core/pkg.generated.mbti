@@ -59,6 +59,7 @@ pub enum PdfContentOperand {
   Number(Double)
   Name(String)
   String(String)
+  HexString(Bytes)
   Array(Array[PdfContentOperand])
 }
 
@@ -66,6 +67,7 @@ pub enum PdfContentToken {
   Number(Double)
   Name(String)
   String(String)
+  HexString(Bytes)
   Array(Array[PdfContentOperand])
   Operator(String)
 }

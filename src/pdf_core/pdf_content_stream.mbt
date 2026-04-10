@@ -3,6 +3,7 @@ pub(all) enum PdfContentOperand {
   Number(Double)
   Name(String)
   String(String)
+  HexString(Bytes)
   Array(Array[PdfContentOperand])
 }
 
@@ -11,6 +12,7 @@ pub enum PdfContentToken {
   Number(Double)
   Name(String)
   String(String)
+  HexString(Bytes)
   Array(Array[PdfContentOperand])
   Operator(String)
 }
@@ -61,6 +63,8 @@ pub fn extract_text_ops_from_page_stream(
       PdfContentToken::Number(v) => operands.push(PdfContentOperand::Number(v))
       PdfContentToken::Name(v) => operands.push(PdfContentOperand::Name(v))
       PdfContentToken::String(v) => operands.push(PdfContentOperand::String(v))
+      PdfContentToken::HexString(v) =>
+        operands.push(PdfContentOperand::HexString(v))
       PdfContentToken::Array(v) => operands.push(PdfContentOperand::Array(v))
       PdfContentToken::Operator(op) => {
         if is_min_text_operator(op) {
@@ -134,9 +138,16 @@ fn parse_content_token(
 ) -> (PdfContentToken, Int) raise {
   let ch = stream[pos]
   if ch == '<'.to_int().to_byte() {
-    raise PdfParseError::UnsupportedFeature(
-      "hex string operand in content stream is not supported yet",
-    )
+    if pos + 1 < stream.length() && stream[pos + 1] == '<'.to_int().to_byte() {
+      return (PdfContentToken::Operator("<<"), pos + 2)
+    }
+    let (v, n) = parse_content_hex_string(stream, pos + 1)
+    return (PdfContentToken::HexString(v), n)
+  }
+  if ch == '>'.to_int().to_byte() &&
+    pos + 1 < stream.length() &&
+    stream[pos + 1] == '>'.to_int().to_byte() {
+    return (PdfContentToken::Operator(">>"), pos + 2)
   }
   if ch == '/'.to_int().to_byte() {
     let (v, n) = parse_content_name(stream, pos + 1)
@@ -243,9 +254,8 @@ fn parse_content_operand(
 ) -> (PdfContentOperand, Int) raise {
   let ch = stream[pos]
   if ch == '<'.to_int().to_byte() {
-    raise PdfParseError::UnsupportedFeature(
-      "hex string operand in content stream is not supported yet",
-    )
+    let (v, n) = parse_content_hex_string(stream, pos + 1)
+    return (PdfContentOperand::HexString(v), n)
   }
   if ch == '/'.to_int().to_byte() {
     let (v, n) = parse_content_name(stream, pos + 1)
@@ -367,6 +377,59 @@ fn parse_content_literal_string(
 }
 
 ///|
+fn parse_content_hex_string(stream : Bytes, pos : Int) -> (Bytes, Int) raise {
+  let out : Array[Byte] = []
+  let mut i = pos
+  let mut nibble : Int? = None
+
+  while i < stream.length() {
+    let ch = stream[i]
+    if ch == '>'.to_int().to_byte() {
+      match nibble {
+        Some(high) => out.push(((high << 4) & 0xFF).to_byte())
+        None => ()
+      }
+      return (out.to_bytes(), i + 1)
+    }
+    if is_ws(ch) {
+      i = i + 1
+      continue
+    }
+    let v = hex_digit_value(ch) catch {
+      _ =>
+        raise InvalidStructure(
+          "invalid hex string digit in content stream: " +
+          bytes_to_string(stream, i, i + 1),
+        )
+    }
+    match nibble {
+      Some(high) => {
+        out.push((((high << 4) | v) & 0xFF).to_byte())
+        nibble = None
+      }
+      None => nibble = Some(v)
+    }
+    i = i + 1
+  }
+
+  raise UnexpectedEOF("content stream hex string")
+}
+
+///|
+fn hex_digit_value(ch : Byte) -> Int raise {
+  if ch >= '0'.to_int().to_byte() && ch <= '9'.to_int().to_byte() {
+    return ch.to_int() - '0'.to_int()
+  }
+  if ch >= 'A'.to_int().to_byte() && ch <= 'F'.to_int().to_byte() {
+    return ch.to_int() - 'A'.to_int() + 10
+  }
+  if ch >= 'a'.to_int().to_byte() && ch <= 'f'.to_int().to_byte() {
+    return ch.to_int() - 'a'.to_int() + 10
+  }
+  raise InvalidStructure("invalid hex digit")
+}
+
+///|
 fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) raise {
   let mut i = pos
   let mut count = 0
@@ -419,11 +482,14 @@ fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
 fn text_from_operand(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(s) => s
+    PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)
     PdfContentOperand::Array(items) => {
       let mut out = ""
       for item in items {
         match item {
           PdfContentOperand::String(s) => out = out + s
+          PdfContentOperand::HexString(bs) =>
+            out = out + bytes_to_text_fallback(bs)
           _ => ()
         }
       }
@@ -431,6 +497,15 @@ fn text_from_operand(v : PdfContentOperand) -> String {
     }
     _ => ""
   }
+}
+
+///|
+fn bytes_to_text_fallback(bs : Bytes) -> String {
+  let mut out = ""
+  for b in bs {
+    out = out + @utf8.decode([b])
+  }
+  out
 }
 
 ///|
