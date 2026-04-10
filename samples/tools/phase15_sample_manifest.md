@@ -25,5 +25,5 @@ Generated files:
 
 Notes:
 
+- Text-PDF phase-1.5 samples are enrolled in regression via `samples/check_samples.sh` + `samples/diff.sh` (the PDFs are generated on demand by the Python script).
 - OCR baseline PDFs are intentionally stored under `samples/ocr_pdf` and are not enrolled in `samples/diff.sh` by default.
-- For text-PDF samples, add matching expected files under `samples/expected/pdf/*.md` after generating PDFs and reviewing converter output.
