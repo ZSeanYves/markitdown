@@ -52,12 +52,17 @@ class PdfWriter:
 
 # --- helpers -----------------------------------------------------------------
 
+
 def _stream_obj(stream_data: bytes) -> bytes:
     return (
         f"<< /Length {len(stream_data)} >>\nstream\n".encode("ascii")
         + stream_data
         + b"\nendstream"
     )
+
+
+def _escape_pdf_literal(s: str) -> str:
+    return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _ascii_single_or_multi_page_pdf(pages: list[list[str]]) -> bytes:
@@ -73,7 +78,7 @@ def _ascii_single_or_multi_page_pdf(pages: list[list[str]]) -> bytes:
         parts = ["BT", "/F1 12 Tf"]
         y = 760
         for line in lines:
-            esc = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            esc = _escape_pdf_literal(line)
             parts.append(f"1 0 0 1 56 {y} Tm")
             parts.append(f"({esc}) Tj")
             y -= 20
@@ -121,7 +126,15 @@ def _tounicode_pdf(hex_lines: list[bytes], bfchar: list[tuple[int, str]]) -> byt
     ]
     for code, ch in bfchar:
         cmap_lines.append(f"<{code:02X}> <{ord(ch):04X}>".encode("ascii"))
-    cmap_lines.extend([b"endbfchar", b"endcmap", b"CMapName currentdict /CMap defineresource pop", b"end", b"end"])
+    cmap_lines.extend(
+        [
+            b"endbfchar",
+            b"endcmap",
+            b"CMapName currentdict /CMap defineresource pop",
+            b"end",
+            b"end",
+        ]
+    )
     cmap_id = writer.add_object(_stream_obj(b"\n".join(cmap_lines)))
 
     descendant_id = writer.add_object(
@@ -160,23 +173,42 @@ def _tounicode_pdf(hex_lines: list[bytes], bfchar: list[tuple[int, str]]) -> byt
     return writer.build(root_obj_id=catalog_id)
 
 
+def _build_simple_tounicode_text_fixture(name: str, markdown_text: str) -> PdfFixture:
+    """Generate a Type0+ToUnicode PDF whose visible text exactly matches markdown_text."""
+    chars = list(markdown_text)
+    bfchar = [(i + 1, ch) for i, ch in enumerate(chars)]
+    hex_line = "".join(f"{i + 1:02X}" for i in range(len(chars))).encode("ascii")
+    return PdfFixture(
+        name=name,
+        pdf_bytes=_tounicode_pdf([hex_line], bfchar),
+        expected_markdown=markdown_text,
+    )
+
+
 def build_fixtures() -> list[PdfFixture]:
     en_text = [
         "# MarkItDown MoonBit MVP Test (Simple)",
         "First paragraph for simple PDF extraction baseline.",
         "Second paragraph in English.",
     ]
+
     zh_expected = "# 研究内容\n\n本项目主要研究多格式文档到 Markdown 的统一转换问题。\n"
 
     fixtures = [
         PdfFixture(
             name="pdf_native_real_en_single_page",
             pdf_bytes=_ascii_single_or_multi_page_pdf([en_text]),
-            expected_markdown="# MarkItDown MoonBit MVP Test (Simple)\n\nFirst paragraph for simple PDF extraction baseline.\n\nSecond paragraph in English.\n",
+            expected_markdown=(
+                "# MarkItDown MoonBit MVP Test (Simple)\n\n"
+                "First paragraph for simple PDF extraction baseline.\n\n"
+                "Second paragraph in English.\n"
+            ),
         ),
         PdfFixture(
             name="pdf_native_real_text_multipage",
-            pdf_bytes=_ascii_single_or_multi_page_pdf([["This is page one."], ["This is page two."]]),
+            pdf_bytes=_ascii_single_or_multi_page_pdf(
+                [["This is page one."], ["This is page two."]]
+            ),
             expected_markdown="This is page one.\n\nThis is page two.\n",
         ),
         PdfFixture(
@@ -197,30 +229,9 @@ def build_fixtures() -> list[PdfFixture]:
             ),
             expected_markdown="Hello\n",
         ),
-        PdfFixture(
-            name="pdf_native_real_zh_single_page",
-            pdf_bytes=_tounicode_pdf(
-                [b"0102030405060708090A0B0C0D0E0F10"],
-                [
-                    (0x01, "#"),
-                    (0x02, " "),
-                    (0x03, "研"),
-                    (0x04, "究"),
-                    (0x05, "内"),
-                    (0x06, "容"),
-                    (0x07, "\n"),
-                    (0x08, "\n"),
-                    (0x09, "本"),
-                    (0x0A, "项"),
-                    (0x0B, "目"),
-                    (0x0C, "测"),
-                    (0x0D, "试"),
-                    (0x0E, "中"),
-                    (0x0F, "文"),
-                    (0x10, "。"),
-                ],
-            ),
-            expected_markdown=zh_expected,
+        _build_simple_tounicode_text_fixture(
+            "pdf_native_real_zh_single_page",
+            zh_expected,
         ),
     ]
     return fixtures
