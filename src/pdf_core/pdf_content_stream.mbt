@@ -133,6 +133,11 @@ fn parse_content_token(
   pos : Int,
 ) -> (PdfContentToken, Int) raise {
   let ch = stream[pos]
+  if ch == '<'.to_int().to_byte() {
+    raise UnsupportedFeature(
+      "hex string operand in content stream is not supported yet",
+    )
+  }
   if ch == '/'.to_int().to_byte() {
     let (v, n) = parse_content_name(stream, pos + 1)
     return (PdfContentToken::Name(v), n)
@@ -237,6 +242,11 @@ fn parse_content_operand(
   pos : Int,
 ) -> (PdfContentOperand, Int) raise {
   let ch = stream[pos]
+  if ch == '<'.to_int().to_byte() {
+    raise UnsupportedFeature(
+      "hex string operand in content stream is not supported yet",
+    )
+  }
   if ch == '/'.to_int().to_byte() {
     let (v, n) = parse_content_name(stream, pos + 1)
     return (PdfContentOperand::Name(v), n)

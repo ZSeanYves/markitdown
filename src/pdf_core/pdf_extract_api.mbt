@@ -143,6 +143,7 @@ pub fn extract_text_events_from_page(
   let mut current_font : String? = None
   let mut current_font_size : Double? = None
   let mut in_text = false
+  let mut has_emitted_text = false
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
@@ -182,6 +183,17 @@ pub fn extract_text_events_from_page(
         continue
       }
 
+      if op.op == "Td" || op.op == "TD" || op.op == "Tm" || op.op == "T*" {
+        if has_emitted_text {
+          events.push({
+            font_name: current_font,
+            font_size: current_font_size,
+            text: "\n",
+          })
+        }
+        continue
+      }
+
       let font_ref = match current_font {
         Some(name) => fonts.get(name)
         None => None
@@ -201,6 +213,7 @@ pub fn extract_text_events_from_page(
             font_size: current_font_size,
             text,
           })
+          has_emitted_text = true
         }
       }
 
@@ -218,6 +231,7 @@ pub fn extract_text_events_from_page(
             font_size: current_font_size,
             text,
           })
+          has_emitted_text = true
         }
       }
     }
@@ -253,7 +267,7 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
     let t = extract_text_from_page(doc, obj, gen) catch { e => raise e }
     if t != "" {
       if out != "" {
-        out = out + "\n"
+        out = out + "\f"
       }
       out = out + t
     }
