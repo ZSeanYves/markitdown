@@ -185,3 +185,21 @@ test "pdf phase2.5 can extract text from multiple content streams" {
   let text = @pdfc.extract_plain_text_from_page_streams(streams)
   assert_eq(text, "Hello\n PDF")
 }
+
+///|
+test "pdf phase3 parses richer literal string escapes and line breaks" {
+  let stream = @utf8.encode(
+    "BT\n(One\\nTwo\\rThree\\tTab\\050L\\051\\134\\\\\nKeep\\\r\nGoing\rNext\nLine) Tj\nET\n",
+  )
+  let text = @pdfc.extract_plain_text_from_page_stream(stream)
+  assert_eq(text, "One\nTwo\rThree\tTab(L)\\\\KeepGoing\nNext\nLine")
+}
+
+///|
+test "pdf phase3 uses nearest Tj or TJ operands" {
+  let stream = @utf8.encode(
+    "BT\n/F1 12 Tf\n(Hello) Tj\n/F1 12 Tf [(A) 20 (B)] TJ\nET\n",
+  )
+  let text = @pdfc.extract_plain_text_from_page_stream(stream)
+  assert_eq(text, "HelloAB")
+}

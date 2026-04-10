@@ -94,15 +94,11 @@ pub fn extract_plain_text_from_page_stream(stream : Bytes) -> String raise {
     }
 
     if op.op == "Tj" {
-      if op.operands.length() >= 1 {
-        out = out + text_from_operand(op.operands[0])
-      }
+      out = out + text_from_tj_operands(op.operands)
       continue
     }
     if op.op == "TJ" {
-      if op.operands.length() >= 1 {
-        out = out + text_from_operand(op.operands[0])
-      }
+      out = out + text_from_tj_array_operands(op.operands)
       continue
     }
     if op.op == "Td" || op.op == "TD" || op.op == "Tm" || op.op == "T*" {
@@ -298,6 +294,12 @@ fn parse_content_literal_string(
         out = out + "\b"
       } else if n == 'f'.to_int().to_byte() {
         out = out + "\u000C"
+      } else if n == '\\'.to_int().to_byte() {
+        out = out + "\\"
+      } else if n == '('.to_int().to_byte() {
+        out = out + "("
+      } else if n == ')'.to_int().to_byte() {
+        out = out + ")"
       } else if is_octal_digit(n) {
         let (oct, next_idx) = parse_octal_escape_min(stream, i + 1)
         out = out + oct
@@ -307,6 +309,20 @@ fn parse_content_literal_string(
         out = out + bytes_to_string(stream, i + 1, i + 2)
       }
       i = i + 2
+      continue
+    }
+    if ch == '\r'.to_int().to_byte() {
+      if i + 1 < stream.length() && stream[i + 1] == '\n'.to_int().to_byte() {
+        i = i + 2
+      } else {
+        i = i + 1
+      }
+      out = out + "\n"
+      continue
+    }
+    if ch == '\n'.to_int().to_byte() {
+      out = out + "\n"
+      i = i + 1
       continue
     }
     if ch == '('.to_int().to_byte() {
@@ -348,6 +364,35 @@ fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) raise {
 ///|
 fn is_octal_digit(ch : Byte) -> Bool {
   ch >= '0'.to_int().to_byte() && ch <= '7'.to_int().to_byte()
+}
+
+
+///|
+fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String {
+  if operands.length() == 0 {
+    return ""
+  }
+  text_from_operand(operands[operands.length() - 1])
+}
+
+///|
+fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
+  if operands.length() == 0 {
+    return ""
+  }
+
+  let mut idx = operands.length() - 1
+  while true {
+    match operands[idx] {
+      PdfContentOperand::Array(items) => return text_from_operand(PdfContentOperand::Array(items))
+      _ => ()
+    }
+    if idx == 0 {
+      break
+    }
+    idx = idx - 1
+  }
+  ""
 }
 
 ///|
