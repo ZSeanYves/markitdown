@@ -27,7 +27,7 @@ async fn extract_pdf_text_result(
     None => ""
   }
   if backend_mode == "pdf-native" || backend_mode == "native" {
-    return extract_pdf_text_native(path)
+    return extract_pdf_text_native(path, debug~)
   }
 
   let all_results = collect_pdf_backend_results(path)
@@ -62,31 +62,25 @@ fn map_native_error(e : @pdfc.PdfNativeError) -> @cor.AppError {
 ///|
 fn extract_pdf_text_native(
   path : String,
+  debug? : Bool = false,
 ) -> Result[PdfExtractResult, @cor.AppError] {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => return Err(@cor.AppError("read pdf failed: " + e.to_string()))
   }
 
   let doc = @pdfc.open_pdf(bytes) catch {
-    _ =>
-      return Err(
-        map_native_error(
-          @pdfc.PdfNativeError::ExtractionFailed("unable to open pdf"),
-        ),
-      )
+    e => return Err(map_native_error(e))
   }
 
   let text = @pdfc.extract_text_from_document(doc) catch {
-    _ =>
-      return Err(
-        map_native_error(
-          @pdfc.PdfNativeError::ExtractionFailed("unable to extract text"),
-        ),
-      )
+    e => return Err(map_native_error(e))
   }
 
   let cleaned = cleanup_pdf_text(text)
   let quality = analyze_pdf_text_quality(cleaned)
+  if debug {
+    println("[pdf-debug] selected backend=pdf-native (forced)")
+  }
 
   Ok({
     backend_name: "pdf-native",
