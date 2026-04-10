@@ -378,9 +378,7 @@ fn build_pdf_with_xref_stream_objstm() -> Bytes {
   add_obj(
     "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 5 0 R >> >> /Contents 8 0 R >>\nendobj\n",
   )
-  add_obj(
-    "4 0 obj\n<< /Producer (objstm-min) >>\nendobj\n",
-  )
+  add_obj("4 0 obj\n<< /Producer (objstm-min) >>\nendobj\n")
 
   let objstm_header = "5 0 "
   let embedded_obj = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"

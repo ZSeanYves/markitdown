@@ -46,11 +46,13 @@ fn parse_objstm_header_pairs(
   let mut p = 0
   let mut i = 0
   while i < n {
-    let (obj_num, p1) = match read_int_ascii(stream, skip_ws_and_comment(stream, p)) {
+    let (obj_num, p1) = match
+      read_int_ascii(stream, skip_ws_and_comment(stream, p)) {
       Some(v) => v
       None => raise InvalidStructure("ObjStm header object number is invalid")
     }
-    let (off, p2) = match read_int_ascii(stream, skip_ws_and_comment(stream, p1)) {
+    let (off, p2) = match
+      read_int_ascii(stream, skip_ws_and_comment(stream, p1)) {
       Some(v) => v
       None => raise InvalidStructure("ObjStm header object offset is invalid")
     }
@@ -83,11 +85,14 @@ fn resolve_objstm_embedded_value(
   let pairs = parse_objstm_header_pairs(stream, n, first)
 
   let mut resolved : (Int, Int)? = None
-  if let Some(idx) = target_index {
-    if idx < 0 || idx >= pairs.length() {
-      raise InvalidStructure("ObjStm index out of range")
+  match target_index {
+    Some(idx) => {
+      if idx < 0 || idx >= pairs.length() {
+        raise InvalidStructure("ObjStm index out of range")
+      }
+      resolved = Some(pairs[idx])
     }
-    resolved = Some(pairs[idx])
+    None => ()
   }
 
   let mut found_pair : (Int, Int)? = None
@@ -100,20 +105,15 @@ fn resolve_objstm_embedded_value(
 
   let (obj_num, rel_off) = match found_pair {
     Some(v) => v
-    None =>
-      raise ObjectNotFound(
-        target_obj_num,
-        0,
-      )
+    None => raise ObjectNotFound(target_obj_num, 0)
   }
-
-  if let Some((idx_obj_num, _)) = resolved {
-    if idx_obj_num != obj_num {
+  match resolved {
+    Some((idx_obj_num, _)) if idx_obj_num != obj_num =>
       raise InvalidStructure(
-        "ObjStm xref index/object-number mismatch for object " +
+        "ObjStm header index/object-number mismatch for object " +
         target_obj_num.to_string(),
       )
-    }
+    _ => ()
   }
 
   let body_start = first + rel_off
