@@ -266,8 +266,6 @@ fn xref_row_bytes(t : Int, f1 : Int, f2 : Int) -> Array[Int] {
   out
 }
 
-
-
 ///|
 fn build_pdf_with_xref_stream(
   with_index? : Bool = false,
@@ -282,9 +280,7 @@ fn build_pdf_with_xref_stream(
     }
     cur = cur + bs.length()
   }
-  let add = fn(s : String) {
-    add_bytes(@utf8.encode(s))
-  }
+  let add = fn(s : String) { add_bytes(@utf8.encode(s)) }
   let add_obj = fn(s : String) {
     offsets.push(cur)
     add(s)
@@ -296,7 +292,9 @@ fn build_pdf_with_xref_stream(
   add_obj(
     "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
   )
-  add_obj("4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  add_obj(
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  )
   let stream_data = "BT\n/F1 12 Tf\n(Hello XRefStream) Tj\nET\n"
   add_obj(
     "5 0 obj\n<< /Length " +
@@ -337,11 +335,7 @@ fn build_pdf_with_xref_stream(
   for b in xref_row_bytes(1, xref_offset, 0) {
     rows.push(b)
   }
-  let index_part = if with_index {
-    "/Index [0 7] "
-  } else {
-    ""
-  }
+  let index_part = if with_index { "/Index [0 7] " } else { "" }
   offsets.push(cur)
   add(
     "6 0 obj\n<< /Type /XRef /Size 7 " +
@@ -351,7 +345,8 @@ fn build_pdf_with_xref_stream(
     " >>\nstream\n" +
     "",
   )
-  add_bytes(Bytes::from_array(rows))
+  let row_bytes = rows.map(fn(x) { x.to_byte() })
+  add_bytes(Bytes::from_array(row_bytes))
   add("\nendstream\nendobj\n")
 
   add("startxref\n")
@@ -558,16 +553,16 @@ test "pdf phase7a step1 xref stream supports W and Index decode" {
 }
 
 ///|
+
 ///|
 test "pdf phase7a step1 xref stream keeps type2 entry and blocks object stream access" {
   let bs = build_pdf_with_xref_stream(with_index=true, with_type2_entry=true)
   let doc = @pdfc.open_pdf(bs)
-  let blocked =
-    try {
-      ignore(@pdfc.get_indirect_object(doc, 5, 0))
-      false
-    } catch {
-      e => e.to_string().contains("object stream object is not supported yet")
-    }
+  let blocked = try {
+    ignore(@pdfc.get_indirect_object(doc, 5, 0))
+    false
+  } catch {
+    e => e.to_string().contains("object stream object is not supported yet")
+  }
   assert_eq(blocked, true)
 }

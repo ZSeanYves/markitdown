@@ -89,7 +89,11 @@ fn parse_xref_and_trailer(
 
       let key = make_obj_key(obj_start + idx, gen)
       entries.set(key, {
-        entry_type: if in_use { 1 } else { 0 },
+        entry_type: if in_use {
+          1
+        } else {
+          0
+        },
         offset: off,
         gen,
         in_use,

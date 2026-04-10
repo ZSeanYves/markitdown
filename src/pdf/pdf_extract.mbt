@@ -31,7 +31,12 @@ priv struct PdfPrecheckDecision {
 ///|
 async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
   match
-    extract_pdf_text_result(path, backend=None, backend_policy=None, debug=false) {
+    extract_pdf_text_result(
+      path,
+      backend=None,
+      backend_policy=None,
+      debug=false,
+    ) {
     Ok(picked) => Ok(picked.text)
     Err(e) => Err(e)
   }
@@ -164,7 +169,8 @@ async fn select_pdf_backend_by_policy(
       )
       return Err(
         @cor.AppError(
-          "pdf-native precheck blocked: " + reason_code_to_string(precheck.reason_code),
+          "pdf-native precheck blocked: " +
+          reason_code_to_string(precheck.reason_code),
         ),
       )
     }

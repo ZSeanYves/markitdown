@@ -63,7 +63,7 @@ pub enum PdfValue {
   Array(Array[PdfValue])
   Dict(Map[String, PdfValue])
   Ref(Int, Int)
-} derive(Eq,Show)
+} derive(Eq, Show)
 
 ///|
 pub struct PdfIndirectObject {
