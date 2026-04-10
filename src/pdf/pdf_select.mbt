@@ -1,8 +1,4 @@
 ///|
-/// temporary local debug switch for PDF extractor selection
-const PDF_EXTRACT_DEBUG = false
-
-///|
 priv struct PdfSelectDecision {
   selected : PdfBackendResult?
   accepted : Bool
@@ -12,6 +8,7 @@ priv struct PdfSelectDecision {
 ///|
 fn select_pdf_backend_result(
   results : Array[PdfBackendResult],
+  debug~ : Bool = false,
 ) -> PdfSelectDecision {
   let successful : Array[PdfBackendResult] = []
   for r in results {
@@ -21,7 +18,9 @@ fn select_pdf_backend_result(
   }
 
   if successful.length() == 0 {
-    return { selected: None, accepted: false, attempted: results }
+    let decision = { selected: None, accepted: false, attempted: results }
+    debug_print_backend_decision(decision, debug=debug)
+    return decision
   }
 
   let acceptable : Array[PdfBackendResult] = []
@@ -41,19 +40,19 @@ fn select_pdf_backend_result(
 
   if acceptable.length() > 0 {
     let best = pick_best_backend_by_score(acceptable)
-    debug_print_selected(
-      best.backend_name,
-      best.quality.map(fn(q) { q.score }).unwrap_or(0),
-    )
-    return { selected: Some(best), accepted: true, attempted: results }
+    let decision = { selected: Some(best), accepted: true, attempted: results }
+    debug_print_backend_decision(decision, debug=debug)
+    return decision
   }
 
   let best_degraded = pick_best_backend_by_score(degraded)
-  debug_print_selected(
-    best_degraded.backend_name,
-    best_degraded.quality.map(fn(q) { q.score }).unwrap_or(0),
-  )
-  { selected: Some(best_degraded), accepted: false, attempted: results }
+  let decision = {
+    selected: Some(best_degraded),
+    accepted: false,
+    attempted: results,
+  }
+  debug_print_backend_decision(decision, debug=debug)
+  decision
 }
 
 ///|
@@ -91,42 +90,69 @@ fn pick_best_backend_by_score(
 }
 
 ///|
-fn debug_print_selected(label : String, score : Int) -> Unit {
-  if !PDF_EXTRACT_DEBUG {
-    return
-  }
-  println("[pdf-debug] selected=" + label + " score=" + score.to_string())
-}
-
-///|
-fn debug_print_backend_result(r : PdfBackendResult) -> Unit {
-  if !PDF_EXTRACT_DEBUG {
+fn debug_print_backend_decision(
+  decision : PdfSelectDecision,
+  debug~ : Bool = false,
+) -> Unit {
+  if !debug {
     return
   }
 
-  let status = r.exit_status.to_string()
-  let qscore = r.quality.map(fn(q) { q.score.to_string() }).unwrap_or("n/a")
-  println(
-    "[pdf-debug] backend=" +
-    r.backend_name +
-    " status=" +
-    status +
-    " score=" +
-    qscore,
+  let selected_name = decision.selected.map(fn(s) { s.backend_name }).unwrap_or(
+    "",
   )
 
-  match r.quality {
-    Some(q) =>
+  for r in decision.attempted {
+    let status_ok = r.exit_status == 0
+    let text_len = r.text.length()
+    let selected = r.backend_name == selected_name
+    match r.quality {
+      Some(q) =>
+        println(
+          "[pdf-debug] backend=" +
+          r.backend_name +
+          " ok=" +
+          status_ok.to_string() +
+          " len=" +
+          text_len.to_string() +
+          " empty=" +
+          q.effectively_empty.to_string() +
+          " key={score:" +
+          q.score.to_string() +
+          ",low_signal:" +
+          q.low_signal.to_string() +
+          ",fragmented:" +
+          q.fragmented.to_string() +
+          ",short_lines:" +
+          q.short_lines.to_string() +
+          "} selected=" +
+          selected.to_string(),
+        )
+      None =>
+        println(
+          "[pdf-debug] backend=" +
+          r.backend_name +
+          " ok=" +
+          status_ok.to_string() +
+          " len=" +
+          text_len.to_string() +
+          " empty=n/a key={score:n/a} selected=" +
+          selected.to_string(),
+        )
+    }
+  }
+
+  match decision.selected {
+    Some(sel) =>
       println(
-        "[pdf-debug] quality: empty=" +
-        q.effectively_empty.to_string() +
-        " low_signal=" +
-        q.low_signal.to_string() +
-        " fragmented=" +
-        q.fragmented.to_string() +
-        " ocr_garbage=" +
-        q.ocr_garbage.to_string(),
+        "[pdf-debug] final=" +
+        sel.backend_name +
+        " accepted=" +
+        decision.accepted.to_string(),
       )
-    None => ()
+    None =>
+      println(
+        "[pdf-debug] final=none accepted=" + decision.accepted.to_string(),
+      )
   }
 }
