@@ -1,0 +1,4 @@
+import {
+  "ZSeanYves/markitdown/src/pdf_core" @pdfc,
+  "ZSeanYves/markitdown/src/core" @cor,
+} for "test"
