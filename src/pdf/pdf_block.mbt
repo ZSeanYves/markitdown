@@ -179,6 +179,10 @@ fn looks_like_short_page_start_section_title(s : String) -> Bool {
     return false
   }
 
+  if looks_like_side_marker_label_line(t) {
+    return false
+  }
+
   let n = t.to_array().length()
   n >= 6 && n <= 40
 }
@@ -443,6 +447,89 @@ fn looks_like_uppercase_emphasis_line(s : String) -> Bool {
   }
 
   alpha >= 6 && upper * 10 >= alpha * 7
+}
+
+///|
+fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
+  let t = raw.trim().to_string()
+  if !t.contains("LEFT-") || !t.contains("RIGHT-") {
+    return [raw]
+  }
+
+  let cs = raw.to_array()
+  let mut i = 0
+  let n = cs.length()
+  let mut split_at = -1
+  while i + 5 < n {
+    if cs[i] == 'R' &&
+      cs[i + 1] == 'I' &&
+      cs[i + 2] == 'G' &&
+      cs[i + 3] == 'H' &&
+      cs[i + 4] == 'T' &&
+      cs[i + 5] == '-' {
+      split_at = i
+      break
+    }
+    i += 1
+  }
+
+  if split_at <= 0 {
+    return [raw]
+  }
+
+  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
+  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
+  if left == "" || right == "" {
+    return [raw]
+  }
+
+  [left, right]
+}
+
+///|
+fn should_continue_previous_list_item(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let t = cur.trim().to_string()
+  if !looks_like_list_item_sentence(p) || t == "" {
+    return false
+  }
+
+  if looks_like_list_item_sentence(t) ||
+    is_strong_heading_candidate(t) ||
+    guess_numbered_heading_level(t) > 0 ||
+    looks_like_section_marker_like(t) {
+    return false
+  }
+
+  // wrapped continuation line often starts lowercase and is not sentence-ended
+  // (e.g. "be attached to previous page paragraph.")
+  !starts_like_new_block(t)
+}
+
+///|
+fn looks_like_page_leading_heading(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if is_strong_heading_candidate(t) {
+    return true
+  }
+
+  if guess_numbered_heading_level(t) > 0 {
+    return true
+  }
+
+  if looks_like_section_marker_like(t) {
+    return true
+  }
+
+  if looks_like_document_title(t) {
+    return true
+  }
+
+  false
 }
 
 ///|

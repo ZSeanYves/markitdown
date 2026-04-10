@@ -11,6 +11,10 @@ fn guess_heading_level(text : String) -> Int {
     return 0
   }
 
+  if looks_like_side_marker_label_line(t) {
+    return 0
+  }
+
   // very short tokens are almost always noise/inline text, not headings
   if n <= 3 {
     return 0
@@ -314,6 +318,10 @@ fn looks_like_document_title(s : String) -> Bool {
     return false
   }
 
+  if looks_like_side_marker_label_line(t) {
+    return false
+  }
+
   let n = t.to_array().length()
 
   // short / medium title-like line
@@ -408,6 +416,10 @@ fn looks_like_section_title(s : String) -> Bool {
   }
 
   if looks_like_list_item_sentence(t) {
+    return false
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -519,4 +531,41 @@ fn starts_with_numbered_heading(s : String) -> Bool {
   }
 
   false
+}
+
+///|
+fn looks_like_side_marker_label_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" || !t.contains(" ") || !t.contains("-") {
+    return false
+  }
+
+  let mut first = ""
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      first = w
+      break
+    }
+  }
+  if first == "" {
+    return false
+  }
+
+  if first.has_prefix("LEFT-") || first.has_prefix("RIGHT-") {
+    return true
+  }
+
+  // generic SIDE-LABEL token like ABC-12
+  let mut has_upper = false
+  for c in first.to_array() {
+    let ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+    if !ok {
+      return false
+    }
+    if c >= 'A' && c <= 'Z' {
+      has_upper = true
+    }
+  }
+  has_upper && first.contains("-")
 }

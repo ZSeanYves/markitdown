@@ -174,13 +174,39 @@ fn normalize_heading_level_after_first_h1(
     return 1
   }
 
-  // after first H1, avoid promoting page-start title-like lines to H1
-  // unless there is explicit top-level chapter-like signal.
+  // only narrow repeated page-template titles on later pages.
+  // do not globally demote normal document headings.
   if guess_numbered_heading_level(text) == 1 || looks_like_heading_marker(text) {
     return 1
   }
 
-  2
+  if looks_like_repeated_page_template_title(text) {
+    return 2
+  }
+
+  1
+}
+
+///|
+fn looks_like_repeated_page_template_title(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  if n < 8 || n > 36 {
+    return false
+  }
+
+  if !(t.contains("page ") || t.contains("Page ")) {
+    return false
+  }
+
+  let mut has_digit = false
+  for c in t.to_array() {
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      break
+    }
+  }
+  has_digit
 }
 
 ///|
