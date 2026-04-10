@@ -177,9 +177,13 @@ fn apply_native_cleanup_guard(pages : Array[String]) -> Array[String] {
     return pages
   }
 
+  if pages.length() < 2 {
+    return pages
+  }
+
   let edge_count : Map[String, Int] = Map::new()
   for page in pages {
-    let lines = non_empty_trimmed_lines(page)
+    let lines = edge_non_empty_lines(page)
     if lines.length() == 0 {
       continue
     }
@@ -195,28 +199,54 @@ fn apply_native_cleanup_guard(pages : Array[String]) -> Array[String] {
 
   let out : Array[String] = []
   for page in pages {
-    let lines = non_empty_trimmed_lines(page)
-    if lines.length() == 0 {
+    let edge_lines = edge_non_empty_lines(page)
+    if edge_lines.length() == 0 {
       out.push(page)
       continue
     }
 
-    let filtered : Array[String] = []
-    let last_idx = lines.length() - 1
-    let mut idx = 0
-    while idx <= last_idx {
-      let line = lines[idx]
-      let repeated_edge = (idx == 0 || idx == last_idx) &&
-        edge_count.get(line).unwrap_or(0) >= 2 &&
-        is_short_plain_text_guard_candidate(line)
-      if repeated_edge {
-        idx = idx + 1
-        continue
-      }
-      filtered.push(line)
-      idx = idx + 1
+    let first = edge_lines[0]
+    let last = edge_lines[edge_lines.length() - 1]
+    let drop_first = edge_count.get(first).unwrap_or(0) >= 2 &&
+      is_short_plain_text_guard_candidate(first)
+    let drop_last = edge_count.get(last).unwrap_or(0) >= 2 &&
+      is_short_plain_text_guard_candidate(last) &&
+      last != first
+
+    if !drop_first && !drop_last {
+      out.push(page)
+      continue
     }
 
+    let raw_lines : Array[String] = []
+    for sv in page.split("\n") {
+      raw_lines.push(sv.to_string())
+    }
+
+    let mut first_idx = -1
+    let mut last_idx = -1
+    let mut i = 0
+    while i < raw_lines.length() {
+      let t = raw_lines[i].trim().to_string()
+      if t != "" {
+        if first_idx < 0 {
+          first_idx = i
+        }
+        last_idx = i
+      }
+      i = i + 1
+    }
+
+    let filtered : Array[String] = []
+    let mut j = 0
+    while j < raw_lines.length() {
+      if (drop_first && j == first_idx) || (drop_last && j == last_idx) {
+        j = j + 1
+        continue
+      }
+      filtered.push(raw_lines[j])
+      j = j + 1
+    }
     out.push(filtered.join("\n"))
   }
 
@@ -224,7 +254,7 @@ fn apply_native_cleanup_guard(pages : Array[String]) -> Array[String] {
 }
 
 ///|
-fn non_empty_trimmed_lines(page : String) -> Array[String] {
+fn edge_non_empty_lines(page : String) -> Array[String] {
   let lines : Array[String] = []
   for sv in page.split("\n") {
     let t = sv.to_string().trim().to_string()

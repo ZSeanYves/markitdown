@@ -343,10 +343,7 @@ pub fn extract_text_from_page(
   let events = extract_text_events_from_page(doc, page_obj, page_gen) catch {
     e => raise e
   }
-  let mut out = ""
-  for ev in events {
-    out = out + ev.text
-  }
+  let out = merge_native_page_events(events)
   normalize_native_page_text(out)
 }
 
@@ -376,6 +373,61 @@ fn bytes_to_text_fallback(bs : Bytes) -> String raise {
     out = out + @utf8.decode([b])
   }
   out
+}
+
+///|
+fn merge_native_page_events(events : Array[PdfTextEvent]) -> String {
+  let mut out = ""
+  let mut prev_text = ""
+  let mut prev_was_text = false
+  for ev in events {
+    let cur = ev.text
+    if cur == "" {
+      continue
+    }
+    if cur == "\n\n" {
+      out = out + cur
+      prev_was_text = false
+      prev_text = ""
+      continue
+    }
+
+    if prev_was_text && !out.has_suffix("\n") &&
+      should_insert_event_paragraph_gap(prev_text, cur) {
+      out = out + "\n\n"
+    }
+
+    out = out + cur
+    prev_text = cur
+    prev_was_text = true
+  }
+  out
+}
+
+///|
+fn should_insert_event_paragraph_gap(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+  if p.to_array().length() < 24 || c.to_array().length() < 12 {
+    return false
+  }
+  ends_with_sentence_punct(p)
+}
+
+///|
+fn ends_with_sentence_punct(s : String) -> Bool {
+  if s == "" {
+    return false
+  }
+  s.has_suffix(".") ||
+  s.has_suffix("!") ||
+  s.has_suffix("?") ||
+  s.has_suffix("。") ||
+  s.has_suffix("！") ||
+  s.has_suffix("？")
 }
 
 ///|
