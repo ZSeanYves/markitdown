@@ -40,6 +40,9 @@ is_allowed_unsupported() {
 passed=0
 unsupported=0
 tolerated_unsupported=0
+parser_error=0
+decode_error=0
+unexpected_crash=0
 failed=0
 
 printf '==> pdf-native acceptance check\n'
@@ -76,7 +79,7 @@ for name in "${CASES[@]}"; do
       failed=$((failed + 1))
     fi
   else
-    if grep -qi "pdf native unsupported" "$log"; then
+    if grep -Eqi "pdf native unsupported|pdf-native unsupported" "$log"; then
       unsupported=$((unsupported + 1))
       if is_allowed_unsupported "$name"; then
         echo "  [UNSUPPORTED-ALLOWED] $name"
@@ -85,8 +88,21 @@ for name in "${CASES[@]}"; do
         echo "  [FAIL] unsupported not allowed for required case"
         failed=$((failed + 1))
       fi
+    elif grep -Eqi "pdf-native parser_error|invalid pdf|invalid structure|unexpected eof|type mismatch|object not found" "$log"; then
+      parser_error=$((parser_error + 1))
+      echo "  [FAIL] parser_error"
+      failed=$((failed + 1))
+    elif grep -Eqi "pdf-native decode_error|decode failed|tounicode|cmap decode" "$log"; then
+      decode_error=$((decode_error + 1))
+      echo "  [FAIL] decode_error"
+      failed=$((failed + 1))
+    elif grep -Eqi "pdf-native unexpected_crash|pdf native extraction failed|panic|stack trace" "$log"; then
+      unexpected_crash=$((unexpected_crash + 1))
+      echo "  [FAIL] unexpected_crash"
+      failed=$((failed + 1))
     else
-      echo "  [FAIL] execution failed"
+      unexpected_crash=$((unexpected_crash + 1))
+      echo "  [FAIL] unexpected_crash (unclassified)"
       failed=$((failed + 1))
     fi
   fi
@@ -97,6 +113,9 @@ printf '==> summary\n'
 printf '    passed: %d\n' "$passed"
 printf '    unsupported: %d\n' "$unsupported"
 printf '    unsupported(allowed): %d\n' "$tolerated_unsupported"
+printf '    parser_error: %d\n' "$parser_error"
+printf '    decode_error: %d\n' "$decode_error"
+printf '    unexpected_crash: %d\n' "$unexpected_crash"
 printf '    failed: %d\n' "$failed"
 
 if [[ "$failed" -ne 0 ]]; then

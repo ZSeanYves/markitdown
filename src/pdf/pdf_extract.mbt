@@ -60,7 +60,25 @@ fn map_native_error(e : Error) -> @cor.AppError {
     @pdfc.PdfNativeError::UnsupportedFeature(msg) =>
       @cor.AppError("pdf-native unsupported: " + msg)
     @pdfc.ExtractionFailed(msg) =>
-      @cor.AppError("pdf-native extraction failed: " + msg)
+      @cor.AppError("pdf-native unexpected_crash: " + msg)
+    @pdfc.PdfParseError::InvalidHeader(msg) =>
+      @cor.AppError("pdf-native parser_error: invalid header: " + msg)
+    @pdfc.PdfParseError::InvalidStructure(msg) =>
+      @cor.AppError("pdf-native parser_error: invalid structure: " + msg)
+    @pdfc.PdfParseError::UnexpectedEOF(msg) =>
+      @cor.AppError("pdf-native parser_error: unexpected eof: " + msg)
+    @pdfc.PdfParseError::ObjectNotFound(obj, gen) =>
+      @cor.AppError(
+        "pdf-native parser_error: object not found: " +
+        obj.to_string() +
+        " " +
+        gen.to_string() +
+        " R",
+      )
+    @pdfc.PdfParseError::TypeMismatch(msg) =>
+      @cor.AppError("pdf-native parser_error: type mismatch: " + msg)
+    @pdfc.PdfParseError::UnsupportedFeature(msg) =>
+      @cor.AppError("pdf-native unsupported: " + msg)
     _ => @cor.AppError("pdf-native error: " + e.to_string())
   }
 }
