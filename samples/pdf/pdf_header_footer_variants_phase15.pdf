@@ -1,0 +1,96 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [5 0 R 7 0 R 9 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 329 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 56 820 Tm
+(Sample Report - Internal Use Only) Tj
+1 0 0 1 56 804 Tm
+(Page 1) Tj
+1 0 0 1 56 760 Tm
+(Body paragraph page 1) Tj
+1 0 0 1 56 744 Tm
+() Tj
+1 0 0 1 56 728 Tm
+(The core text should be preserved while noisy repeat lines are filtered.) Tj
+1 0 0 1 56 70 Tm
+(Confidential Footer - Do Not Distribute) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 329 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 56 820 Tm
+(Sample Report - Internal Use Only) Tj
+1 0 0 1 56 804 Tm
+(Page 2) Tj
+1 0 0 1 56 760 Tm
+(Body paragraph page 2) Tj
+1 0 0 1 56 744 Tm
+() Tj
+1 0 0 1 56 728 Tm
+(The core text should be preserved while noisy repeat lines are filtered.) Tj
+1 0 0 1 56 70 Tm
+(Confidential Footer - Do Not Distribute) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 329 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 56 820 Tm
+(Sample Report - Internal Use Only) Tj
+1 0 0 1 56 804 Tm
+(Page 3) Tj
+1 0 0 1 56 760 Tm
+(Body paragraph page 3) Tj
+1 0 0 1 56 744 Tm
+() Tj
+1 0 0 1 56 728 Tm
+(The core text should be preserved while noisy repeat lines are filtered.) Tj
+1 0 0 1 56 70 Tm
+(Confidential Footer - Do Not Distribute) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000577 00000 n 
+0000000703 00000 n 
+0000001083 00000 n 
+0000001209 00000 n 
+0000001589 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1715
+%%EOF

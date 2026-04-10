@@ -1,0 +1,52 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [5 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 628 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 56 790 Tm
+(Pseudo two-column negative sample) Tj
+1 0 0 1 56 742 Tm
+(LEFT-A1 This paragraph belongs to the left column only.) Tj
+1 0 0 1 320 742 Tm
+(RIGHT-B1 This paragraph is independent on the right side.) Tj
+1 0 0 1 56 706 Tm
+(LEFT-A2 It should stay before LEFT-A3 and LEFT-A4.) Tj
+1 0 0 1 320 706 Tm
+(RIGHT-B2 It should not merge into LEFT-A4.) Tj
+1 0 0 1 56 670 Tm
+(LEFT-A3 Do not stitch with RIGHT-B1 lines.) Tj
+1 0 0 1 320 670 Tm
+(RIGHT-B3 Keep local order inside right column.) Tj
+1 0 0 1 56 634 Tm
+(LEFT-A4 End of left column block.) Tj
+1 0 0 1 320 634 Tm
+(RIGHT-B4 End of right column block.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000864 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+990
+%%EOF

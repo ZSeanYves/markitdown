@@ -23,7 +23,11 @@ fn default_pdf_backend_specs(path : String) -> Array[PdfBackendSpec] {
     { name: "pdftotext-default", cmd: "pdftotext", args: [path, "-"] },
     { name: "pdftotext-layout", cmd: "pdftotext", args: ["-layout", path, "-"] },
     { name: "pdftotext-raw", cmd: "pdftotext", args: ["-raw", path, "-"] },
-    { name: "mutool-draw-txt", cmd: "mutool", args: ["draw", "-F", "txt", path] },
+    {
+      name: "mutool-draw-txt",
+      cmd: "mutool",
+      args: ["draw", "-F", "txt", path],
+    },
   ]
 }
 
@@ -49,12 +53,11 @@ async fn run_pdf_backend(spec : PdfBackendSpec) -> PdfBackendResult {
 
   let stdout : String = out_data.text() catch { _ => "" }
   let stderr : String = err_data.text() catch { _ => "" }
-  let quality =
-    if status == 0 {
-      Some(analyze_pdf_text_quality(stdout))
-    } else {
-      None
-    }
+  let quality = if status == 0 {
+    Some(analyze_pdf_text_quality(stdout))
+  } else {
+    None
+  }
 
   {
     backend_name: spec.name,
@@ -62,8 +65,8 @@ async fn run_pdf_backend(spec : PdfBackendSpec) -> PdfBackendResult {
     args: spec.args,
     text: stdout,
     exit_status: status,
-    stderr: stderr,
-    quality: quality,
+    stderr,
+    quality,
     spawn_error: None,
   }
 }

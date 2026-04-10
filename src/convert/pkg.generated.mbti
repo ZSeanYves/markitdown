@@ -14,9 +14,13 @@ pub async fn parse_to_ir(String, ConvertOptions) -> Result[@core.Document, @core
 pub(all) struct ConvertOptions {
   out_dir : String?
   max_heading : Int?
+  pdf_enhance_mode : String?
+  pdf_backend : String?
+  pdf_extract_debug : Bool
+  pdf_dump_selected_raw : Bool
+  pdf_pipeline_debug : Bool
 }
 
 // Type aliases
 
 // Traits
-

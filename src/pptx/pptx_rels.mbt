@@ -32,4 +32,3 @@ fn parse_presentation_slide_rids(xml : String) -> Array[String] raise {
 
   out
 }
-

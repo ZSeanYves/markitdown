@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/src/ooxml"
+
+import {
+  "ZSeanYves/markitdown/src/zip",
+}
+
+// Values
+pub fn has_part(OoxmlPackage, String) -> Bool
+
+pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
+
+pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
+
+pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
+
+pub fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
+
+// Errors
+pub(all) suberror OoxmlError {
+  ZipError(String)
+  MissingPart(String)
+  InvalidXml(String)
+  InvalidPartPath(String)
+  RelationshipNotFound(String, String)
+}
+pub impl Show for OoxmlError
+
+// Types and methods
+pub struct OoxmlPackage {
+  archive : @zip.ZipArchive
+  part_index : Map[String, Int]
+  content_types_default : Map[String, String]
+  content_types_override : Map[String, String]
+}
+
+pub struct OoxmlRelationship {
+  id : String
+  rel_type : String
+  target : String
+  target_mode : String
+  resolved_target : String
+}
+
+// Type aliases
+
+// Traits
+

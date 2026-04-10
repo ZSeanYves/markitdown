@@ -56,7 +56,7 @@ fn list_slide_entries(p : PptxPackage) -> Array[String] {
 ///|
 fn list_slide_entries_in_presentation_order(
   p : PptxPackage,
-) -> Array[String] raise{
+) -> Array[String] raise {
   let pres_xml = p.read_text_optional("ppt/presentation.xml")
 
   if pres_xml == "" {
@@ -77,13 +77,12 @@ fn list_slide_entries_in_presentation_order(
 
   for rid in rid_order {
     match rels_by_id.get(rid) {
-      Some(rel) => {
+      Some(rel) =>
         if rel.rel_type.has_suffix("/slide") &&
           rel.resolved_target.has_prefix("ppt/slides/slide") &&
           rel.resolved_target.has_suffix(".xml") {
           out.push(rel.resolved_target)
         }
-      }
       None => ()
     }
   }

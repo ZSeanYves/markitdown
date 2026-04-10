@@ -17,8 +17,9 @@ fn detect_repeated_page_noise(
     let tail_take = if n >= 2 { 2 } else { 1 }
 
     for i in 0..<head_take {
-      let key = normalize_noise_key(lines[i])
-      if key != "" {
+      let line = lines[i]
+      let key = normalize_noise_key(line)
+      if key != "" && is_repeated_noise_candidate_line(line) {
         let old = head_count.get(key) |> Option::unwrap_or(0)
         head_count.set(key, old + 1)
       }
@@ -26,8 +27,9 @@ fn detect_repeated_page_noise(
 
     for i in 0..<tail_take {
       let idx = n - tail_take + i
-      let key = normalize_noise_key(lines[idx])
-      if key != "" {
+      let line = lines[idx]
+      let key = normalize_noise_key(line)
+      if key != "" && is_repeated_noise_candidate_line(line) {
         let old = tail_count.get(key) |> Option::unwrap_or(0)
         tail_count.set(key, old + 1)
       }
@@ -55,6 +57,45 @@ fn detect_repeated_page_noise(
   }
 
   (heads, tails)
+}
+
+///|
+fn is_repeated_noise_candidate_line(line : String) -> Bool {
+  let t = line.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if is_probable_page_number(t) {
+    return true
+  }
+
+  let n = t.to_array().length()
+  let words = count_words(t)
+
+  // protect long/body-like sentences from repeated-cleanup deletion
+  if n > 60 {
+    return false
+  }
+  if words >= 10 {
+    return false
+  }
+  if ends_like_sentence(t) && words >= 8 {
+    return false
+  }
+
+  true
+}
+
+///|
+fn count_words(s : String) -> Int {
+  let mut n = 0
+  for sv in s.split(" ") {
+    if sv.to_string().trim().to_string() != "" {
+      n += 1
+    }
+  }
+  n
 }
 
 ///|

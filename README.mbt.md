@@ -2,7 +2,7 @@
 
 A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .pdf / .xlsx / .pptx / .html** into structured **Markdown**.
 
-> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**. Recent PPTX work has also completed a full round of layout-oriented heuristic stabilization plus new regression-sample expansion, and the full suite is currently green. In addition, the PDF path now has an **experimental scanned-PDF/OCR fallback path** available through external tools.
+> Current status: the project has moved well beyond the initial MVP stage and now provides a stable multi-format **document → IR → Markdown** pipeline with sample-based regression coverage across **docx / pdf / xlsx / pptx / html**. A major recent milestone is the completion of a first substantial **OOXML infrastructure refactor**: the project now owns its ZIP container and OOXML package layer directly, and **DOCX / XLSX / PPTX have all been migrated** onto the new shared foundation.
 
 ---
 
@@ -12,9 +12,10 @@ A **MoonBit** (markitdown-like) document conversion tool that turns **.docx / .p
 * ✅ **PDF (text-based) → Markdown**: extract text via external tools (Poppler / MuPDF), select the best candidate output heuristically, then apply page-noise cleanup, repeated header/footer removal, heading/paragraph boundary recovery, cross-page paragraph merging, and basic list-item recovery
 * ✅ **PDF (scanned, experimental OCR fallback)**: when the PDF has no usable text layer, the pipeline can attempt OCR-based fallback through external tools (`OCRmyPDF` + `Tesseract`) under `--pdf-mode experimental`; this path is currently functional but still lower-confidence than the text-PDF path and accuracy depends strongly on scan quality / document noise
 * ✅ **XLSX → Markdown**: extract workbook sheets as Markdown tables, with multi-sheet output, sparse-table trimming, minimal non-empty bounding-box cropping, empty-sheet handling, basic cell-type support, and lightweight date/time formatting for style-marked numeric cells
-* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, stabilize local table-like / grid-like text regions before Markdown emission, use tighter table-like candidate heuristics backed by both positive and negative regression samples, let accepted table-like regions absorb aligned edge/header candidate cells through existing row/column buckets, and now cover callout / scatter / negative-card / row-jitter layout boundaries through expanded PPTX regression samples
+* ✅ **PPTX → Markdown**: extract slide text by shape, preserve real slide order via `presentation.xml`, recover title/body structure, restore bullet lists with nesting levels, restore ordered lists from numbering-aware bullet properties, merge multi-paragraph title shapes, clean up empty / duplicate paragraph noise, apply shape-layout reading-order recovery, keep note-like / caption-like text regions more stable in output order, and stabilize local table-like / grid-like text regions before Markdown emission
 * ✅ **HTML → Markdown**: extract headings / paragraphs / list items / block quotes / code blocks / tables, preserve common `<br>` variants, preserve ordered / unordered / nested list structure, avoid swallowing nested list text in parent items, add lightweight inline modeling for HTML text spans and explicit break semantics, and recover multi-block structure inside block quotes and list items
 * ✅ **IR (Intermediate Representation) + Markdown emitter**: a unified output structure that makes future format/layout extensions easier
+* ✅ **Shared OOXML foundation**: the Office-family path now runs through a shared in-project chain of **`bytes -> ZipArchive -> OoxmlPackage -> format parser`**
 
 > Note: this project intentionally avoids unstable or opaque parsing dependencies where practical, keeps format handling in small MoonBit packages with explicit heuristics, and uses external system tools when that is the most reliable current engineering trade-off.
 
@@ -28,18 +29,74 @@ Current state:
 
 * ✅ **Unified multi-format pipeline**: **docx / pdf / xlsx / pptx / html → IR → Markdown** is implemented and regression-tested
 * ✅ **Sample-based regression suite** is in place and used as the primary behavior guardrail
-* ✅ **DOCX / XLSX / HTML** are already at relatively high completeness for the current project scope
-* ✅ **PDF / PPTX** have moved beyond simple text extraction and now include structure-oriented recovery heuristics
-* ✅ **PPTX** has completed a major round of layout-oriented stabilization, including shape-order recovery, conservative title fallback, noise cleanup, note-like grouping, two-column-aware reading-order recovery, local table-like/grid-like text-region stabilization, tighter table-like candidate filtering checked by both positive and negative samples, conservative accepted-region expansion for missed edge/header table-like candidate cells, and new regression-backed coverage for callout / scatter / negative-card / row-jitter layouts
-* ✅ **HTML** has moved beyond a flat text-only block model and now includes lightweight inline modeling plus local container recovery for block quotes and list items
-* ✅ **Recent package cleanup**: DOCX and PPTX source layout has been reorganized into smaller MoonBit modules so the format-specific logic is easier to maintain and extend
-* ⚠️ **Experimental scanned-PDF support**: OCR fallback for scanned PDFs is now wired through external tools in experimental mode and has been manually validated on at least one real scanned/fax-style sample; however, output quality is currently best-effort and notably weaker than the text-PDF path
+* ✅ **OOXML infrastructure refactor (phase-1)** is complete at the shared foundation level
+* ✅ **Self-managed ZIP container phase-1** is complete
+* ✅ **Self-managed OOXML package phase-1** is complete
+* ✅ **DOCX / XLSX / PPTX have all been migrated** to the new shared OOXML foundation
+* ✅ **Old zipmin / external-path helper dependencies have been removed** from the Office-family path
+* ✅ **DOCX** is at high completeness for the current project scope and now runs on the new OOXML layer
+* ✅ **XLSX** is at high completeness for the current project scope and now runs on the new OOXML layer
+* ✅ **PPTX** is at high completeness and still under active heuristic enhancement, now also running on the new OOXML layer
+* ✅ **HTML** is at relatively high completeness for the current project scope
+* ⚠️ **PDF** remains the largest current technical-debt area because text extraction still depends on external tools
+* ⚠️ **Experimental scanned-PDF support** exists through external OCR tools, but quality remains best-effort and below the text-PDF path
+
+A major architecture change in the current stage is that the OOXML path is now much cleaner and more internally controlled:
+
+* previous Office-family helper logic that depended on older `zipmin` / external-path flows has been removed
+* ZIP container logic is now managed directly inside the project
+* OOXML package logic is now managed directly inside the project
+* Office-family parsers now share the same lower-level package chain instead of format-by-format ad hoc access paths
+
+---
+
+## OOXML Foundation (current)
+
+The shared Office-family stack now looks like this:
+
+```text
+bytes -> ZipArchive -> OoxmlPackage -> format parser
+```
+
+This is now the common base for:
+
+* `docx`
+* `xlsx`
+* `pptx`
+
+### ZIP container phase-1
+
+Current ZIP container support includes:
+
+* EOCD discovery
+* central directory parsing
+* entry indexing
+* local header validation
+* reading entry bytes by path
+
+Current ZIP method support:
+
+* `Store`
+* `DeflateRaw`
+
+### OOXML package phase-1
+
+Current OOXML package support includes:
+
+* part existence check
+* part bytes reading
+* `[Content_Types].xml` lookup
+* package relationships reading
+* part relationships reading
+* relationship target resolution
+
+> Note: this layer is intentionally project-driven. It is designed to support the current document-conversion pipeline well, rather than to act as a fully general OOXML SDK.
 
 ---
 
 ## Repository Layout (current)
 
-The source tree is organized into small MoonBit packages, with conversion logic split by format and shared infrastructure kept in `core`.
+The source tree is organized into small MoonBit packages, with conversion logic split by format and shared infrastructure kept in `core` and OOXML support packages.
 
 * `src/cli/`: command-line entry package
 
@@ -57,70 +114,33 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * `emitter_markdown.mbt`: IR → Markdown emission
   * `errors.mbt`: shared error definitions
   * `tool.mbt`: shared utilities
-  * `zip_min.mbt`: minimal ZIP reader / ZIP helpers used by Office-family handling
   * `moon.pkg`: package definition
+* `src/ooxml/`: shared OOXML infrastructure
+
+  * ZIP container handling
+  * OOXML package handling
+  * shared relationship / package resolution helpers
 * `src/docx/`: DOCX parsing package
 
-  * `docx_parser.mbt`: orchestrated `parse_docx()` entry
-  * `docx_document.mbt`: document-level scan / assembly into IR
-  * `docx_package.mbt`: DOCX package/ZIP access helpers
-  * `docx_rels.mbt`: relationship parsing (`rId → Target`)
-  * `docx_styles.mbt`: `word/styles.xml` parsing for heading-level resolution and paragraph-style name lookup
-  * `docx_numbering.mbt`: `word/numbering.xml` parsing for ordered / unordered / nested lists
-  * `docx_table.mbt`: table extraction logic
-  * `docx_xml.mbt`: lower-level XML scanning helpers
-  * `docx_types.mbt`: DOCX-local shared types used across document / numbering / styles / table logic
-  * `moon.pkg`: package definition
+  * DOCX parser / document assembly
+  * styles / numbering / tables / relationships / XML helpers
+  * built on the shared OOXML foundation
 * `src/html/`: HTML parsing package
 
-  * `html_parser.mbt`: top-level HTML parse entry
-  * `html_bytes.mbt`: byte-level HTML traversal helpers
-  * `html_dom.mbt`: lightweight HTML structure / inline / local-container recovery layer
-  * `html_to_ir.mbt`: HTML structure → shared IR
-  * `moon.pkg`: package definition
+  * HTML parser / bytes traversal / local DOM-like recovery / HTML → IR
 * `src/pdf/`: PDF parsing package
 
-  * `pdf_parser.mbt`: top-level PDF parse entry
-  * `pdf_extract.mbt`: external-tool text extraction orchestration
-  * `pdf_extract_score.mbt`: extractor candidate scoring and best-output selection
-  * `pdf_page.mbt`: page splitting / page-break marker / cleaned-page merging helpers
-  * `pdf_noise.mbt`: page-number detection, repeated header/footer detection, and page-noise stripping
-  * `pdf_block.mbt`: block splitting and block-level recovery flow
-  * `pdf_heading.mbt`: heading heuristics and heading-level inference
-  * `pdf_list.mbt`: PDF list-item detection and list-item parsing helpers
-  * `pdf_text.mbt`: shared PDF text utilities and normalization helpers
-  * `pdf_to_ir.mbt`: PDF pipeline orchestration and shared IR mapping
-  * `moon.pkg`: package definition
+  * external-tool extraction orchestration
+  * extractor scoring
+  * page cleanup / noise removal / heading/list/block recovery / PDF → IR
 * `src/pptx/`: PPTX parsing package
 
-  * `pptx_parser.mbt`: top-level PPTX parse entry
-  * `pptx_package.mbt`: PPTX package/ZIP access helpers
-  * `pptx_rels.mbt`: presentation / relationship helpers
-  * `pptx_bytes.mbt`: byte / XML scanning helpers
-  * `pptx_text.mbt`: text-run extraction helpers
-  * `pptx_types.mbt`: PPTX-local shared types (`SlideShape` / `LayoutShape` / group / paragraph metadata)
-  * `pptx_geom.mbt`: shared shape-geometry helpers (gap / overlap / min-max utilities)
-  * `pptx_shape_collect.mbt`: `<p:sp>` collection, geometry extraction, and layout-shape enrichment
-  * `pptx_layout_base.mbt`: baseline layout helpers, title-shape split, fallback title promotion, and simple geometric ordering
-  * `pptx_group_candidates.mbt`: candidate heuristics for small grouping / caption-like / table-like shape selection
-  * `pptx_table_like.mbt`: local table-like / grid-like region detection and stabilization
-  * `pptx_grouping.mbt`: body-shape grouping into normal / caption-like / table-like regions
-  * `pptx_reading_order.mbt`: reading-order orchestration, two-column handling, row clustering, and final shape-order flattening
-  * `pptx_paragraph_meta.mbt`: paragraph-level metadata parsing such as bullet-kind and nesting-level extraction
-  * `pptx_slide.mbt`: shape-level paragraph extraction
-  * `pptx_classify.mbt`: paragraph classification into heading / paragraph / list-like output structures
-  * `pptx_noise.mbt`: conservative page-number / corner-label noise filtering
-  * `moon.pkg`: package definition
+  * PPTX parser / relationships / shape collection / layout recovery / grouping / reading order / paragraph metadata
+  * built on the shared OOXML foundation
 * `src/xlsx/`: XLSX parsing package
 
-  * `xlsx_parser.mbt`: top-level XLSX parse entry
-  * `xlsx_package.mbt`: XLSX package/ZIP access helpers
-  * `xlsx_shared_strings.mbt`: shared strings parsing
-  * `xlsx_sheet.mbt`: sheet-level extraction
-  * `xlsx_styles.mbt`: `xl/styles.xml` parsing for style-index / `numFmtId` / `formatCode`-driven lightweight date/time interpretation
-  * `xlsx_datetime.mbt`: shared date / time / datetime formatting helpers used by style-driven XLSX cell interpretation
-  * `xlsx_xml.mbt`: XML scanning helpers
-  * `moon.pkg`: package definition
+  * XLSX parser / shared strings / sheet extraction / styles / datetime helpers / XML helpers
+  * built on the shared OOXML foundation
 * `samples/`: sample files & regression scripts
 
   * `docx/` / `pdf/` / `xlsx/` / `pptx/` / `html/`: format-specific samples
@@ -133,7 +153,7 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
 ### ✅ Core
 
-* IR definitions and `push` work as expected
+* IR definitions and push flow work as expected
 * Markdown emitter supports:
 
   * headings
@@ -146,15 +166,35 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * image references
 * Markdown output tail is normalized consistently across formats (non-empty output ends with a single trailing newline)
 
+### ✅ Shared ZIP / OOXML package handling
+
+The project now owns the Office-family package foundation directly.
+
+Current shared behavior includes:
+
+* ZIP archive opening from bytes
+* central directory indexing and entry lookup
+* path-based entry reading
+* OOXML part lookup through package paths
+* package-level relationship loading
+* part-level relationship loading
+* relationship-target resolution for Office-family parsing
+
+Current architectural status:
+
+* **DOCX / XLSX / PPTX all use the shared OOXML path**
+* older helper logic depending on previous `zipmin` / external-path behavior has been removed
+* the dependency graph for Office-family parsing is now cleaner and more self-contained
+
 ### ✅ Docx Pipeline
 
-* Reads from `.docx`:
+* Reads from `.docx` package parts such as:
 
-  * `word/document.xml`
-  * `word/_rels/document.xml.rels`
-  * `word/styles.xml`
-  * `word/numbering.xml`
-  * `word/media/*` (images)
+  * document XML
+  * relationships
+  * styles
+  * numbering
+  * media assets
 * Exports images to `out/assets/` and references them in Markdown like `![image](assets/xxx.png)`
 * Resolves heading levels through style mapping instead of only hard-coded style names
 * Recovers list structure using numbering metadata:
@@ -162,26 +202,13 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * unordered lists
   * ordered lists
   * nested lists
-  * mixed list structures (current Markdown emission preserves level + ordered/unordered shape)
+  * mixed list structures
 * Preserves paragraph-level manual line breaks into Markdown-friendly output
 * Preserves table-cell internal manual line breaks into Markdown-friendly `<br>` output
-* Recovers code-like paragraphs under the current conservative rules:
-
-  * paragraph-style name match when available
-  * fallback: multi-line text plus explicit code-like token patterns
-* Keeps a style-driven blockquote recovery entry point in the parser
-* Uses a local DOCX types module to reduce coupling between document / numbering / styles / table logic
+* Recovers code-like paragraphs under the current conservative rules
+* Now runs entirely on the shared OOXML foundation
 
 > Note: DOCX blockquote recovery is wired into the parsing pipeline. Current list / heading / table / code-like paragraph coverage is backed by regression samples; blockquote-style recovery is not yet backed by a true source-document sample.
-
-### ✅ ZIP / Office-package handling
-
-* A minimal ZIP reader/helper layer is kept in the project for Office-family package access
-* The current Office-family handling is intentionally pragmatic:
-
-  * **DOCX** currently works through the in-project package path already used by the parser
-  * **XLSX** and **PPTX** currently rely on **external system tools / system unzip behavior** in the current implementation path where needed, because the current decompressed-result shape conflicts with the representation the parser wants to consume directly
-* This is an implementation trade-off rather than a long-term architectural preference; future cleanup may further unify Office-package handling once the internal package/decompression representation is aligned with parser needs
 
 ### ✅ PDF (text-based)
 
@@ -200,20 +227,8 @@ The source tree is organized into small MoonBit packages, with conversion logic 
   * recover basic bullet-list items into shared IR list blocks
   * filter page-number noise and repeated page-header/page-footer noise under the current sample set
   * merge cross-page paragraph continuations when the next page starts with continuation text rather than a new block
-* Current regression coverage includes:
 
-  * simple text
-  * hard-wrap recovery (English / Chinese)
-  * heading recovery
-  * short-sentence non-heading cases
-  * multi-page text
-  * repeated header/footer cleanup
-  * page-noise cleanup
-  * cross-page paragraph merging
-  * heading-vs-short-sentence boundary recovery
-  * repeated header/footer variants
-
-> Note: `mutool` may print progress info to stderr (for example `page ...`). This project separates stdout/stderr to avoid contaminating extracted text.
+> Note: PDF remains one of the main technical-debt areas because text extraction still depends on external tools and difficult layouts still require heuristics.
 
 ### ⚠️ PDF (scanned, experimental OCR fallback)
 
@@ -223,71 +238,39 @@ The source tree is organized into small MoonBit packages, with conversion logic 
 
   * `OCRmyPDF`
   * `Tesseract`
-* Current validation state:
-
-  * manually verified on at least one real scanned/fax-style PDF
-  * pipeline fallback is functioning end-to-end when OCR dependencies are installed
-  * output quality is currently **best-effort** and clearly below the text-based PDF path
-  * structured fields / short lines may recover reasonably, but noisy footer/legal text and degraded fax-style scans can show noticeable recognition errors
 * Current scope expectation:
 
   * useful as an experimental fallback path
   * not yet treated as a high-accuracy or regression-hardened primary PDF mode
 
-> Note: scanned-PDF support should currently be described as **experimental**. The project has validated that the fallback path exists and runs, but OCR quality remains strongly dependent on source-document quality and external-tool behavior.
-
 ### ✅ XLSX
 
 * Parses workbook + sheet XML and emits one Markdown table per sheet
-* Supports shared strings, inline strings, numeric/default cells, booleans (`t="b"`), string results (`t="str"`), and error cells (`t="e"`)
+* Supports shared strings, inline strings, numeric/default cells, booleans, string results, and error cells
 * Supports multi-sheet output
 * Emits `(empty sheet)` for empty worksheets
 * Trims sparse trailing empty rows / columns in current regression samples
 * Crops sparse sheets to the minimal non-empty bounding box before Markdown emission
-* Decodes XML entities (including numeric entities)
-* Interprets style-marked numeric date/time-like cells through `xl/styles.xml`:
-
-  * built-in date/time-like `numFmtId` handling
-  * custom `formatCode`-driven lightweight date/time-like detection
-  * stable output formatting for date / time / datetime cells under the current regression samples
-
-> Note: XLSX support is already stable at the current project scope, but the package/decompression path still uses external system-tool behavior in the current implementation where the internal decompressed-result representation does not yet match the parser’s preferred input shape.
+* Interprets style-marked numeric date/time-like cells through workbook styles
+* Now runs entirely on the shared OOXML foundation
 
 ### ✅ PPTX
 
-* Extracts slide text by shape (`<p:sp>`) and emits one section per slide
-* Resolves real slide order through `ppt/presentation.xml` + `presentation.xml.rels`, instead of relying only on slide file name order
+* Extracts slide text by shape and emits one section per slide
+* Resolves real slide order through presentation relationships instead of only relying on slide file name order
 * Prefers title placeholders for slide headings, with conservative fallback when needed
 * Uses paragraph bullet properties before text-prefix heuristics for list detection
 * Restores unordered and ordered list semantics from bullet properties / numbering-aware bullet metadata
-* Restores list nesting from `<a:pPr lvl="N">`
+* Restores list nesting from paragraph level metadata
 * Merges multi-paragraph title-shape text into one heading under the current heuristic rules
 * Removes empty paragraphs, bullet-only shells, and adjacent duplicate text
-* Decodes XML entities; non-BMP characters are normalized consistently via the shared entity decode path
-* Recovers shape-level reading order using layout heuristics:
-
-  * default row-first reading order
-  * conservative two-column detection with column-first traversal when appropriate
-  * conservative fallback title promotion for non-placeholder top title-like shapes
-* Applies conservative PPTX-specific noise filtering:
-
-  * bottom page-number removal
-  * corner short-label filtering (`Draft` / `Internal` / `Confidential`-like cases)
+* Recovers shape-level reading order using layout heuristics
+* Applies conservative PPTX-specific noise filtering
 * Groups local note-like / caption-like small text shapes to keep them from being fragmented by the main body flow
 * Detects simple table-like / grid-like text regions and keeps them stable as one body region during output ordering
-* Tightens table-like candidate detection with local neighbor-support checks so isolated short text boxes are less likely to be misclassified as table-like regions
-* Accepted table-like regions now run a conservative stabilization pass that absorbs aligned edge/header candidate cells using existing row/column buckets
-* Regression coverage for PPTX now includes stronger positives, stronger negatives, and newer layout-oriented boundaries such as:
+* Now runs entirely on the shared OOXML foundation
 
-  * callout blocks
-  * mixed-width callout layouts
-  * row-jitter callout layouts
-  * scatter caption layouts
-  * negative card layouts
-  * dense negative card grids
-* Uses a more explicit internal module split for shape collection, layout base logic, grouping candidates, table-like region detection, grouping, reading-order recovery, and paragraph metadata parsing
-
-> Note: PPTX support is no longer just a basic text-dump path. It now includes shape-order recovery, title/body heuristics, paragraph cleanup, note-like grouping, table-like text-region stabilization, negative-sample-backed tightening around table-like candidate selection, and a broader regression-backed layout heuristic set around callout / scatter / dense-card boundaries. Like XLSX, parts of the current PPTX package/decompression path still rely on external system-tool behavior where the current internal decompressed-result representation conflicts with the parser’s preferred working form.
+> Note: PPTX support is already at high completeness for the current scope, but complex slide layouts still depend on heuristics rather than exact semantic recovery.
 
 ### ✅ HTML
 
@@ -344,12 +327,6 @@ brew install tesseract-lang
 ```
 
 > Note: the scanned-PDF path is only intended for `--pdf-mode experimental` right now. If these OCR dependencies are missing and the PDF has no usable text layer, conversion will fail with an OCR-fallback-related error.
-
-### XLSX / PPTX
-
-The current XLSX / PPTX implementation path may also rely on **system unzip / package-extraction behavior** in the working environment.
-
-This is a pragmatic temporary choice: the current in-project decompressed-result representation conflicts with the parser’s preferred internal working shape for these formats, so the implementation currently uses external system-tool behavior where appropriate instead of forcing an unnatural intermediate representation.
 
 ---
 
@@ -426,6 +403,7 @@ Options:
 * `--out-dir out`: asset output directory (docx images go to `out/assets/`)
 * `--max-heading N`: maximum heading level (`1–6`)
 * `--pdf-mode experimental`: enable experimental PDF handling paths, including scanned-PDF OCR fallback when available
+* `--pdf-extract-debug [1|true|on|yes]`: print concise PDF extractor scoring/selection logs (default: off)
 
 ---
 
@@ -439,7 +417,7 @@ rm -rf .tmp_test_out
 ./samples/diff.sh
 ```
 
-Recent regression coverage includes:
+Current regression coverage includes:
 
 * **DOCX**
 
@@ -479,23 +457,7 @@ Recent regression coverage includes:
   * note-like grouping behavior
   * table-like/grid-like text-region stabilization
   * local table-like region behavior with surrounding body text
-  * `pptx_table_like_local_edge_cell`
-  * `pptx_table_like_local_with_side_note`
-  * `pptx_table_like_strong_2x3`
-  * `pptx_table_like_strong_3x3_header`
-  * negative keyword-grid layout
-  * negative icon-caption-card-grid layout
-  * `pptx_table_like_negative_cards_2x2`
-  * `pptx_table_like_negative_cards_2x3_dense`
-  * `pptx_table_like_negative_two_column_explainer`
-  * negative short two-column label layout
-  * page-number / corner-label cleanup behavior
-  * `pptx_callout_blocks_basic`
-  * `pptx_callout_blocks_mixed_widths`
-  * `pptx_callout_blocks_row_jitter`
-  * `pptx_caption_scatter_one_real_pair`
-  * `pptx_caption_scatter_two_real_pairs`
-  * `pptx_caption_scatter_pair_plus_footer_note`
+  * stronger positive and negative layout samples for table-like boundary control
 * **HTML**
 
   * simple content
@@ -521,69 +483,67 @@ Recent regression coverage includes:
   * custom-format date / time / datetime cells
   * built-in date/time-like style handling under current sample coverage
 
-If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format.
-
-Example: refresh DOCX list golden outputs:
-
-```bash
-cp .tmp_test_out/docx/docx_list_ordered.md samples/expected/docx/docx_list_ordered.md
-cp .tmp_test_out/docx/docx_list_nested.md  samples/expected/docx/docx_list_nested.md
-cp .tmp_test_out/docx/docx_list_mixed.md   samples/expected/docx/docx_list_mixed.md
-```
-
-Example: refresh one HTML / XLSX / PPTX / PDF golden file:
-
-```bash
-cp .tmp_test_out/html/html_table_basic.md              samples/expected/html/html_table_basic.md
-cp .tmp_test_out/xlsx/xlsx_multi_sheet_mixed.md        samples/expected/xlsx/xlsx_multi_sheet_mixed.md
-cp .tmp_test_out/pptx/pptx_slide_order.md              samples/expected/pptx/pptx_slide_order.md
-cp .tmp_test_out/pdf/pdf_page_noise_cleanup.md         samples/expected/pdf/pdf_page_noise_cleanup.md
-```
-
-Then re-run:
-
-```bash
-./samples/diff.sh
-```
+If you update the implementation and confirm the new output is correct, refresh the golden outputs for the corresponding format and re-run the regression script.
 
 ---
 
-## Progress Dashboard (snapshot: 2026-04-09)
+## Progress Dashboard (snapshot: 2026-04-10)
 
 ### Coverage completion interpretation (current)
 
-* **DOCX**: high completion for heading/list/table/code-like paragraph and line-break behavior; quote-style validation still needs a true source sample.
-* **PDF (text-based)**: robust text-PDF path with extractor arbitration + noise cleanup + block recovery.
-* **PDF (scanned / OCR fallback)**: experimentally validated on at least one real scanned sample; fallback exists and can run, but current OCR quality is still moderate and should be treated as best-effort.
-* **XLSX**: stable worksheet-table extraction with style-guided date/time handling; broad enough for common export/report workbooks.
-* **PPTX**: most actively expanded area in recent history; now has dense positive/negative layout heuristics and broad sample-backed reading-order stabilization.
-* **HTML**: from flat text extraction upgraded to local container + inline modeling; nested structures and `<br>` variants are well covered.
+* **DOCX**: high completion and now fully migrated onto the new shared OOXML foundation.
+* **PDF (text-based)**: robust text-PDF path with extractor arbitration + noise cleanup + block recovery, but still externally dependent.
+* **PDF (scanned / OCR fallback)**: experimentally validated fallback exists and can run, but current OCR quality is still moderate and should be treated as best-effort.
+* **XLSX**: high completion and now fully migrated onto the new shared OOXML foundation.
+* **PPTX**: high completion and still the most actively refined layout-heuristic area; now fully migrated onto the new shared OOXML foundation.
+* **HTML**: high completion with local container + inline modeling.
+* **OOXML foundation**: a major phase-1 milestone is complete; ZIP container and package handling are now internally controlled and shared by Office-family parsers.
+
+---
 
 ## Roadmap
 
 ### Near-term
 
 1. Continue strengthening the **experimental scanned-PDF OCR path**, especially around evaluation discipline, sample accumulation, and output-quality characterization
-2. Continue strengthening HTML body-scope handling and local container rendering around block quotes / list items without regressing current behavior
-3. Extend XLSX validation coverage for built-in date/time `numFmtId` cases and more real-world workbook samples
-4. Extend DOCX style-driven block recovery beyond headings/lists with true source-document validation for quote-like styles
-5. Continue widening PDF validation coverage for difficult layouts, including both text-based and scanned-document boundaries where practical
+2. Continue widening PDF validation coverage for difficult layouts, since PDF remains the most important technical-debt area
+3. Continue refining PPTX structure recovery around difficult layouts without regressing the now-stable OOXML migration
+4. Extend DOCX style-driven block recovery with true source-document validation for quote-like styles
+5. Extend XLSX validation coverage with more real-world workbook samples
 
 ### Mid-term
 
 1. Unify more structure-aware behavior across formats through the shared IR
 2. Improve PDF handling for more difficult layouts
-3. Revisit Office-package extraction unification once the internal decompressed-result representation can better match parser needs for XLSX / PPTX
-4. Improve scanned-PDF support from “experimental OCR fallback” toward more stable evaluation-backed behavior, likely still via external tools first
+3. Extend the ZIP / OOXML foundation beyond current phase-1 scope where project needs justify it
+4. Potentially strengthen the OOXML package layer further, while keeping it project-oriented rather than trying to become a general-purpose OOXML SDK
+
+---
+
+## Limitations
+
+This project is already stable for its current scope, but several limits remain explicit and important:
+
+* **PDF still depends on external extraction tools**
+* **Complex PDF and PPTX structure recovery still depends on heuristics**
+* **ZIP container phase-1 currently targets ordinary OOXML samples**, and does **not** yet fully cover:
+
+  * ZIP64
+  * encrypted ZIP
+  * multi-disk ZIP
+  * full data-descriptor support
+* **The OOXML package layer is project-oriented**, not a fully general or complete OOXML SDK
+* **Experimental scanned-PDF OCR fallback** remains best-effort and is still clearly weaker than the text-PDF pipeline
 
 ---
 
 ## Status
 
-* ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, conservative code-like paragraph recovery, and a cleaner local package split with shared DOCX types
-* ✅ **pdf (text-based)**: stable extractor-selection pipeline with heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery
+* ✅ **docx**: stable structured conversion with style-driven headings, numbering-driven lists, paragraph/table-cell line-break preservation, image export, conservative code-like paragraph recovery, and full migration onto the shared OOXML foundation
+* ⚠️ **pdf (text-based)**: stable extractor-selection pipeline with heading/paragraph cleanup, list-item recovery, repeated header/footer removal, page-noise filtering, cross-page paragraph merging, and heuristic block-boundary recovery, but still externally dependent
 * ⚠️ **pdf (scanned / OCR fallback, experimental)**: functional fallback path for no-text-layer PDFs through external OCR tools, manually validated on a real scanned sample, but current recognition quality is still moderate and not yet at the same stability level as text-based PDFs
-* ✅ **xlsx**: stable table-oriented workbook conversion with multiple cell types, multi-sheet support, empty-sheet handling, sparse bounding-box trimming, and lightweight style-driven date/time interpretation
-* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, table-like text-region stabilization, tighter candidate filtering guarded by positive/negative layout samples, and a broader regression-backed layout heuristic set around callout / scatter / dense-card boundaries
+* ✅ **xlsx**: stable table-oriented workbook conversion with multiple cell types, multi-sheet support, empty-sheet handling, sparse bounding-box trimming, lightweight style-driven date/time interpretation, and full migration onto the shared OOXML foundation
+* ✅ **pptx**: stable shape-oriented conversion with real presentation-order traversal, title/body handling, ordered/unordered list recovery, nested list levels, multi-paragraph title merge, paragraph cleanup, layout-based reading-order recovery, conservative noise filtering, note-like grouping, table-like text-region stabilization, and full migration onto the shared OOXML foundation
 * ✅ **html**: stable bytes-based HTML conversion with lists / quotes / code blocks / tables, explicit `<br>` break preservation, lightweight inline modeling, local blockquote/list-item container recovery, ordered/nested-list structure recovery, parent-item protection, and ragged-row table normalization
 * ✅ **IR + Markdown emitter**: shared structured output path across formats
+* ✅ **shared ZIP / OOXML foundation**: self-managed ZIP container phase-1 and OOXML package phase-1 are complete, with DOCX / XLSX / PPTX already unified on top of them
