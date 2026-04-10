@@ -15,6 +15,11 @@ fn byte_len(s : String) -> Int {
 
 ///|
 fn build_min_pdf() -> Bytes {
+  build_pdf_with_contents("4 0 R", ["BT\n/F1 12 Tf\n72 120 Td\n(Hello PDF) Tj\nET\n"])
+}
+
+///|
+fn build_pdf_with_contents(contents_ref : String, stream_datas : Array[String]) -> Bytes {
   let chunks : Array[String] = []
   let offsets : Array[Int] = []
   let mut cur = 0
@@ -31,6 +36,8 @@ fn build_min_pdf() -> Bytes {
 
   add("%PDF-1.4\n")
 
+  let font_obj_num = 4 + stream_datas.length()
+
   // 1 0 obj: catalog
   add_obj("1 0 obj\n" + "<< /Type /Catalog /Pages 2 0 R >>\n" + "endobj\n")
 
@@ -45,48 +52,53 @@ fn build_min_pdf() -> Bytes {
     "<< /Type /Page\n" +
     "   /Parent 2 0 R\n" +
     "   /MediaBox [0 0 200 200]\n" +
-    "   /Resources << /Font << /F1 5 0 R >> >>\n" +
-    "   /Contents 4 0 R\n" +
+    "   /Resources << /Font << /F1 " +
+    font_obj_num.to_string() +
+    " 0 R >> >>\n" +
+    "   /Contents " +
+    contents_ref +
+    "\n" +
     ">>\n" +
     "endobj\n",
   )
 
-  // 4 0 obj: content stream
-  let stream_data = "BT\n" +
-    "/F1 12 Tf\n" +
-    "72 120 Td\n" +
-    "(Hello PDF) Tj\n" +
-    "ET\n"
-  let stream_len = byte_len(stream_data)
+  // 4..N obj: content streams
+  let mut obj_num = 4
+  for stream_data in stream_datas {
+    let stream_len = byte_len(stream_data)
+    add_obj(
+      obj_num.to_string() +
+      " 0 obj\n" +
+      "<< /Length " +
+      stream_len.to_string() +
+      " >>\n" +
+      "stream\n" +
+      stream_data +
+      "endstream\n" +
+      "endobj\n",
+    )
+    obj_num = obj_num + 1
+  }
 
+  // N+1 0 obj: font
   add_obj(
-    "4 0 obj\n" +
-    "<< /Length " +
-    stream_len.to_string() +
-    " >>\n" +
-    "stream\n" +
-    stream_data +
-    "endstream\n" +
-    "endobj\n",
-  )
-
-  // 5 0 obj: font
-  add_obj(
-    "5 0 obj\n" +
+    font_obj_num.to_string() +
+    " 0 obj\n" +
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n" +
     "endobj\n",
   )
 
   let xref_offset = cur
   add("xref\n")
-  add("0 6\n")
+  let total_objects = font_obj_num
+  add("0 " + (total_objects + 1).to_string() + "\n")
   add("0000000000 65535 f \n")
   for off in offsets {
     add(zpad(off, 10) + " 00000 n \n")
   }
 
   add("trailer\n")
-  add("<< /Size 6 /Root 1 0 R >>\n")
+  add("<< /Size " + (total_objects + 1).to_string() + " /Root 1 0 R >>\n")
   add("startxref\n")
   add(xref_offset.to_string() + "\n")
   add("%%EOF\n")
@@ -137,4 +149,37 @@ test "pdf phase2 can extract plain text from content stream" {
 
   let ops = @pdfc.extract_text_ops_from_page_stream(streams[0])
   assert_eq(ops.length() >= 3, true)
+}
+
+///|
+test "pdf phase2.5 parse escaped and nested string literal in Tj" {
+  let stream = @utf8
+    .encode("BT\n(Hello \\(PDF\\) \\(v1\\)\\040OK) Tj\n(outer(inner)) Tj\nET\n")
+  let text = @pdfc.extract_plain_text_from_page_stream(stream)
+  assert_eq(text, "Hello (PDF) (v1) OKouter(inner)")
+}
+
+///|
+test "pdf phase2.5 can extract text from TJ array" {
+  let stream = @utf8.encode("BT\n[(Hello) 120 ( ) -40 (PDF)] TJ\nET\n")
+  let text = @pdfc.extract_plain_text_from_page_stream(stream)
+  assert_eq(text, "Hello PDF")
+}
+
+///|
+test "pdf phase2.5 can extract text from multiple content streams" {
+  let bs = build_pdf_with_contents(
+    "[4 0 R 5 0 R]",
+    [
+      "BT\n/F1 12 Tf\n72 120 Td\n(Hello) Tj\nET\n",
+      "BT\n/F1 12 Tf\n72 100 Td\n[( ) 20 (PDF)] TJ\nET\n",
+    ],
+  )
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let streams = @pdfc.get_page_content_stream_bytes(doc, page_obj, page_gen)
+  assert_eq(streams.length(), 2)
+  let text = @pdfc.extract_plain_text_from_page_streams(streams)
+  assert_eq(text, "Hello\n PDF")
 }
