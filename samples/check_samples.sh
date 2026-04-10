@@ -4,21 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
-PDF_GEN_SCRIPT="$SAMPLES_DIR/tools/gen_phase15_pdf_samples.py"
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
 fail=0
 
 echo "==> sample integrity check"
-
-if [[ -f "$PDF_GEN_SCRIPT" ]]; then
-  if command -v python3 >/dev/null 2>&1; then
-    python3 "$PDF_GEN_SCRIPT"
-  else
-    echo "[warn] python3 not found, skip phase-1.5 pdf sample generation"
-  fi
-fi
 
 is_noise_file() {
   local base="$1"
