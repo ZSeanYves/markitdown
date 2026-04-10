@@ -37,6 +37,10 @@ async fn main {
             nargs=@clap.Nargs::AtMost(1),
             help="PDF backend: external|pdf-native (default: external)",
           ),
+          "pdf-backend-policy": @clap.Arg::named(
+            nargs=@clap.Nargs::AtMost(1),
+            help="PDF backend policy: external|native-strict|native-gated (default: external)",
+          ),
           "pdf-extract-debug": @clap.Arg::named(
             nargs=@clap.Nargs::AtMost(1),
             help="Enable concise PDF extractor decision logs (default: off). Accepts: 1/true/on/yes",
@@ -113,7 +117,13 @@ async fn main {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
                 None => None
               }
-              let pdf_backend_opt : String? = match sub.args.get("pdf-backend") {
+              let pdf_backend_opt : String? = match
+                sub.args.get("pdf-backend") {
+                Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
+                None => None
+              }
+              let pdf_backend_policy_opt : String? = match
+                sub.args.get("pdf-backend-policy") {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
                 None => None
               }
@@ -162,8 +172,9 @@ async fn main {
                 None => false
               }
               cmd_convert(
-                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt, pdf_extract_debug,
-                pdf_dump_selected_raw, pdf_pipeline_debug,
+                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt,
+                pdf_backend_policy_opt, pdf_extract_debug, pdf_dump_selected_raw,
+                pdf_pipeline_debug,
               )
             }
             "help" => println(help_msg)

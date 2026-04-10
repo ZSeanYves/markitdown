@@ -45,6 +45,8 @@ fn lookup_page_resources_dict(
       }
       _ => return None
     }
+  } nobreak {
+    None
   }
 }
 

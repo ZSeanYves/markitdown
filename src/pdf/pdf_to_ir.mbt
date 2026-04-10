@@ -81,18 +81,19 @@ fn text_to_ir_document_with_debug(
     }
     _page_idx += 1
   }
+  let guarded_pages = apply_native_cleanup_guard(clean_pages)
 
   if pipeline_debug {
     dump_pdf_debug_stage(
       input_path,
       out_dir,
       "03_page_noise_cleanup",
-      render_debug_pages("page_noise_cleanup", clean_pages),
+      render_debug_pages("page_noise_cleanup", guarded_pages),
     )
   }
 
   let blocks_before_merge : Array[PdfBlock] = []
-  for page in clean_pages {
+  for page in guarded_pages {
     for b in split_blocks_smart(page) {
       blocks_before_merge.push(b)
     }
@@ -106,7 +107,7 @@ fn text_to_ir_document_with_debug(
     )
   }
 
-  let merged = merge_clean_pages_with_breaks(clean_pages)
+  let merged = merge_clean_pages_with_breaks(guarded_pages)
   //println("[pdf-cross-debug] merged preview")
   let mut shown = 0
   for sv in merged.split("\n") {
@@ -123,17 +124,18 @@ fn text_to_ir_document_with_debug(
   let blocks_after_merge = coalesce_loose_paragraph_blocks(
     split_blocks_smart(merged),
   )
+  let guarded_blocks = guard_single_short_heading_block(blocks_after_merge)
   if pipeline_debug {
     dump_pdf_debug_stage(
       input_path,
       out_dir,
       "05_blocks_after_cross_page_merge",
-      render_pdf_blocks(blocks_after_merge),
+      render_pdf_blocks(guarded_blocks),
     )
   }
 
   let mut seen_h1 = false
-  for b in blocks_after_merge {
+  for b in guarded_blocks {
     match b {
       PdfBlock::Heading(level, text) => {
         let out_level = normalize_heading_level_after_first_h1(
@@ -151,6 +153,150 @@ fn text_to_ir_document_with_debug(
   }
 
   doc
+}
+
+///|
+fn guard_single_short_heading_block(blocks : Array[PdfBlock]) -> Array[PdfBlock] {
+  if blocks.length() != 1 {
+    return blocks
+  }
+  match blocks[0] {
+    PdfBlock::Heading(_, text) =>
+      if is_short_plain_text_guard_candidate(text) {
+        [PdfBlock::Paragraph(text)]
+      } else {
+        blocks
+      }
+    _ => blocks
+  }
+}
+
+///|
+fn apply_native_cleanup_guard(pages : Array[String]) -> Array[String] {
+  if pages.length() == 0 {
+    return pages
+  }
+
+  if pages.length() < 2 {
+    return pages
+  }
+
+  let edge_count : Map[String, Int] = Map::new()
+  for page in pages {
+    let lines = edge_non_empty_lines(page)
+    if lines.length() == 0 {
+      continue
+    }
+    let first = lines[0]
+    let last = lines[lines.length() - 1]
+    if is_short_plain_text_guard_candidate(first) {
+      edge_count.set(first, edge_count.get(first).unwrap_or(0) + 1)
+    }
+    if is_short_plain_text_guard_candidate(last) {
+      edge_count.set(last, edge_count.get(last).unwrap_or(0) + 1)
+    }
+  }
+
+  let out : Array[String] = []
+  for page in pages {
+    let edge_lines = edge_non_empty_lines(page)
+    if edge_lines.length() == 0 {
+      out.push(page)
+      continue
+    }
+
+    let first = edge_lines[0]
+    let last = edge_lines[edge_lines.length() - 1]
+    let drop_first = edge_count.get(first).unwrap_or(0) >= 2 &&
+      is_short_plain_text_guard_candidate(first)
+    let drop_last = edge_count.get(last).unwrap_or(0) >= 2 &&
+      is_short_plain_text_guard_candidate(last) &&
+      last != first
+
+    if !drop_first && !drop_last {
+      out.push(page)
+      continue
+    }
+
+    let raw_lines : Array[String] = []
+    for sv in page.split("\n") {
+      raw_lines.push(sv.to_string())
+    }
+
+    let mut first_idx = -1
+    let mut last_idx = -1
+    let mut i = 0
+    while i < raw_lines.length() {
+      let t = raw_lines[i].trim().to_string()
+      if t != "" {
+        if first_idx < 0 {
+          first_idx = i
+        }
+        last_idx = i
+      }
+      i = i + 1
+    }
+
+    let filtered : Array[String] = []
+    let mut j = 0
+    while j < raw_lines.length() {
+      if (drop_first && j == first_idx) || (drop_last && j == last_idx) {
+        j = j + 1
+        continue
+      }
+      filtered.push(raw_lines[j])
+      j = j + 1
+    }
+    out.push(filtered.join("\n"))
+  }
+
+  out
+}
+
+///|
+fn edge_non_empty_lines(page : String) -> Array[String] {
+  let lines : Array[String] = []
+  for sv in page.split("\n") {
+    let t = sv.to_string().trim().to_string()
+    if t != "" {
+      lines.push(t)
+    }
+  }
+  lines
+}
+
+///|
+fn is_short_plain_text_guard_candidate(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  if n == 0 || n > 24 {
+    return false
+  }
+  if t.contains("http://") || t.contains("https://") {
+    return false
+  }
+  if looks_like_heading_marker(t) || guess_numbered_heading_level(t) > 0 {
+    return false
+  }
+  if is_probable_page_number(t) || ends_like_sentence(t) {
+    return false
+  }
+
+  let mut has_alpha = false
+  for c in t.to_array() {
+    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+      has_alpha = true
+      continue
+    }
+    if (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '_' {
+      continue
+    }
+    if c.to_int() > 127 {
+      continue
+    }
+    return false
+  }
+  has_alpha
 }
 
 ///|

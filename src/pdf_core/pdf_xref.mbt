@@ -34,7 +34,9 @@ fn parse_xref_and_trailer(
   let i = skip_ws_and_comment(bytes, xref_offset)
   if !starts_with_at(bytes, i, "xref") {
     if starts_with_at(bytes, i, "0") {
-      raise UnsupportedFeature("xref stream is not supported yet")
+      raise PdfNativeError::UnsupportedFeature(
+        "xref stream is not supported yet",
+      )
     }
     raise InvalidStructure("xref table not found at startxref")
   }
