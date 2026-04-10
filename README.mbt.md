@@ -403,6 +403,7 @@ Options:
 * `--out-dir out`: asset output directory (docx images go to `out/assets/`)
 * `--max-heading N`: maximum heading level (`1–6`)
 * `--pdf-mode experimental`: enable experimental PDF handling paths, including scanned-PDF OCR fallback when available
+* `--pdf-extract-debug [1|true|on|yes]`: print concise PDF extractor scoring/selection logs (default: off)
 
 ---
 

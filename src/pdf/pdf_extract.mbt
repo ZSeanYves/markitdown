@@ -10,7 +10,7 @@ priv struct PdfExtractResult {
 
 ///|
 async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
-  match extract_pdf_text_result(path) {
+  match extract_pdf_text_result(path, debug=false) {
     Ok(picked) => Ok(picked.text)
     Err(e) => Err(e)
   }
@@ -19,13 +19,10 @@ async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
 ///|
 async fn extract_pdf_text_result(
   path : String,
+  debug~ : Bool = false,
 ) -> Result[PdfExtractResult, @cor.AppError] {
   let all_results = collect_pdf_backend_results(path)
-  let decision = select_pdf_backend_result(all_results)
-
-  for r in decision.attempted {
-    debug_print_backend_result(r)
-  }
+  let decision = select_pdf_backend_result(all_results, debug=debug)
 
   match decision.selected {
     Some(sel) => {
