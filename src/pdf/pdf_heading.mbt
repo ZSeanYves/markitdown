@@ -11,6 +11,11 @@ fn guess_heading_level(text : String) -> Int {
     return 0
   }
 
+  // very short tokens are almost always noise/inline text, not headings
+  if n <= 3 {
+    return 0
+  }
+
   if ends_like_sentence(t) {
     return 0
   }
@@ -316,6 +321,17 @@ fn looks_like_document_title(s : String) -> Bool {
     return false
   }
 
+  // avoid over-promoting very short fragments like "OK"
+  if n <= 3 {
+    return false
+  }
+
+  // page-start style mixed-case title (e.g. "Cross-page should merge")
+  // should still be considered document title candidate.
+  if looks_like_page_start_title_line(t) {
+    return true
+  }
+
   // English title
   if looks_like_english_title(t) {
     return true
@@ -327,6 +343,43 @@ fn looks_like_document_title(s : String) -> Bool {
   }
 
   false
+}
+
+///|
+fn looks_like_page_start_title_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" || ends_like_sentence(t) || is_probable_page_number(t) {
+    return false
+  }
+
+  if looks_like_list_item_sentence(t) || looks_like_figure_or_table_caption(t) {
+    return false
+  }
+
+  let n = t.to_array().length()
+  if n < 8 || n > 50 {
+    return false
+  }
+
+  let words : Array[String] = []
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      words.push(w)
+    }
+  }
+  if words.length() < 2 || words.length() > 8 {
+    return false
+  }
+
+  // require latin-leading and first word title-ish
+  if !starts_with_latin(words[0]) {
+    return false
+  }
+  match first_char(words[0]) {
+    Some(c) => (c >= 'A' && c <= 'Z')
+    None => false
+  }
 }
 
 ///|

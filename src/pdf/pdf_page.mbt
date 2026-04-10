@@ -177,7 +177,15 @@ fn is_probable_page_number(s : String) -> Bool {
     return false
   }
 
+  if looks_like_artifact_page_noise(t) {
+    return true
+  }
+
   if looks_like_fraction_page_number(t) {
+    return true
+  }
+
+  if looks_like_spaced_page_number(t) {
     return true
   }
 
@@ -198,6 +206,73 @@ fn is_probable_page_number(s : String) -> Bool {
     }
   }
   all_digit
+}
+
+///|
+fn looks_like_spaced_page_number(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  let tokens : Array[String] = []
+  for sv in t.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      tokens.push(w)
+    }
+  }
+
+  if tokens.length() != 2 {
+    return false
+  }
+
+  let mut ok = true
+  for tok in tokens {
+    let n = tok.to_array().length()
+    if n == 0 || n > 3 {
+      ok = false
+      break
+    }
+    for c in tok.to_array() {
+      if !(c >= '0' && c <= '9') {
+        ok = false
+        break
+      }
+    }
+    if !ok {
+      break
+    }
+  }
+  ok
+}
+
+///|
+fn looks_like_artifact_page_noise(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  // common PDF extraction artifact char U+FFFC shown as "￼"
+  if t.contains("￼") {
+    let mut non_noise = 0
+    for c in t.to_array() {
+      let ok = c == '￼' ||
+        c == ' ' ||
+        c == '/' ||
+        c == '-' ||
+        c == '_' ||
+        c == '页' ||
+        (c >= '0' && c <= '9')
+      if !ok {
+        non_noise += 1
+      }
+    }
+    return non_noise == 0
+  }
+
+  false
 }
 
 ///|

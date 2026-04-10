@@ -298,7 +298,9 @@ fn should_flush_buf_before_appending(
   }
 
   // a single list item should not absorb following prose
-  if looks_like_list_item_sentence(b) && !looks_like_list_item_sentence(t) {
+  if looks_like_list_item_sentence(b) &&
+    !looks_like_list_item_sentence(t) &&
+    !should_continue_previous_list_item(b, t) {
     return true
   }
   if ends_like_sentence(b) && looks_like_figure_or_table_caption(t) {
@@ -310,6 +312,26 @@ fn should_flush_buf_before_appending(
   }
 
   false
+}
+
+///|
+fn should_continue_previous_list_item(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let t = cur.trim().to_string()
+  if !looks_like_list_item_sentence(p) || t == "" {
+    return false
+  }
+
+  if looks_like_list_item_sentence(t) ||
+    is_strong_heading_candidate(t) ||
+    guess_numbered_heading_level(t) > 0 ||
+    looks_like_section_marker_like(t) {
+    return false
+  }
+
+  // wrapped continuation line often starts lowercase and is not sentence-ended
+  // (e.g. "be attached to previous page paragraph.")
+  !starts_like_new_block(t)
 }
 
 ///|
@@ -328,6 +350,10 @@ fn looks_like_page_leading_heading(s : String) -> Bool {
   }
 
   if looks_like_section_marker_like(t) {
+    return true
+  }
+
+  if looks_like_document_title(t) {
     return true
   }
 
