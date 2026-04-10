@@ -26,6 +26,8 @@ pub fn get_page_content_stream_bytes(PdfDocument, Int, Int) -> Array[Bytes] rais
 
 pub fn get_page_tree_root_ref(PdfDocument) -> (Int, Int) raise
 
+pub fn infer_cmap_code_widths(Bytes) -> Array[Int] raise
+
 pub fn list_page_refs(PdfDocument) -> Array[(Int, Int)] raise
 
 pub fn open_pdf(Bytes) -> PdfDocument raise
@@ -84,6 +86,8 @@ pub struct PdfFontRef {
   resource_name : String
   obj_num : Int
   gen : Int
+  subtype : String?
+  encoding : String?
   to_unicode_obj : Int?
   to_unicode_gen : Int?
 }

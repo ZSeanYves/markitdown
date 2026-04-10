@@ -248,6 +248,50 @@ fn build_pdf_with_two_fonts(stream_data : String) -> Bytes {
 }
 
 ///|
+fn build_pdf_with_font_and_contents(
+  stream_data : String,
+  font_dict_src : String,
+) -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.4\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+  )
+  add_obj(
+    "4 0 obj\n<< /Length " +
+    byte_len(stream_data).to_string() +
+    " >>\nstream\n" +
+    stream_data +
+    "endstream\nendobj\n",
+  )
+  add_obj("5 0 obj\n" + font_dict_src + "\nendobj\n")
+  let xref_offset = cur
+  add("xref\n0 6\n0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add(
+    "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" +
+    xref_offset.to_string() +
+    "\n%%EOF\n",
+  )
+  @utf8.encode(chunks.join(""))
+}
+
+///|
 fn append_be(out : Array[Int], value : Int, width : Int) -> Unit {
   let mut i = width - 1
   while i >= 0 {
@@ -597,6 +641,42 @@ test "pdf phase4 parse basic ToUnicode cmap" {
   assert_eq(cmap.get(0x41).unwrap_or(""), "A")
   assert_eq(cmap.get(0x42).unwrap_or(""), "B")
   assert_eq(cmap.get(0x43).unwrap_or(""), "C")
+}
+
+///|
+test "pdf phase7b missing ToUnicode uses WinAnsi fallback for simple font" {
+  let bs = build_pdf_with_font_and_contents(
+    "BT\n/F1 12 Tf\n<9620> Tj\nET\n",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+  )
+  let doc = @pdfc.open_pdf(bs)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text, "– ")
+}
+
+///|
+test "pdf phase7b basic multibyte ToUnicode decode works" {
+  let cmap_stream = @utf8.encode(
+    "2 beginbfchar\n<8140> <4F60>\n<8141> <597D>\nendbfchar\n",
+  )
+  let cmap = @pdfc.parse_tounicode_cmap(cmap_stream)
+  let widths = @pdfc.infer_cmap_code_widths(cmap_stream)
+  assert_eq(widths.length() >= 1, true)
+  assert_eq(widths[0], 2)
+  assert_eq(cmap.get(0x8140).unwrap_or(""), "你")
+  assert_eq(cmap.get(0x8141).unwrap_or(""), "好")
+}
+
+///|
+test "pdf phase7b ToUnicode decode path keeps phase4 behavior" {
+  let cmap_stream = @utf8.encode(
+    "2 beginbfchar\n<41> <0041>\n<42> <0042>\nendbfchar\n",
+  )
+  let cmap = @pdfc.parse_tounicode_cmap(cmap_stream)
+  let widths = @pdfc.infer_cmap_code_widths(cmap_stream)
+  assert_eq(widths[0], 1)
+  assert_eq(cmap.get(0x41).unwrap_or(""), "A")
+  assert_eq(cmap.get(0x42).unwrap_or(""), "B")
 }
 
 ///|
