@@ -32,17 +32,11 @@ fn build_min_pdf() -> Bytes {
   add("%PDF-1.4\n")
 
   // 1 0 obj: catalog
-  add_obj(
-    "1 0 obj\n" +
-    "<< /Type /Catalog /Pages 2 0 R >>\n" +
-    "endobj\n",
-  )
+  add_obj("1 0 obj\n" + "<< /Type /Catalog /Pages 2 0 R >>\n" + "endobj\n")
 
   // 2 0 obj: pages
   add_obj(
-    "2 0 obj\n" +
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n" +
-    "endobj\n",
+    "2 0 obj\n" + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n" + "endobj\n",
   )
 
   // 3 0 obj: page
@@ -58,8 +52,7 @@ fn build_min_pdf() -> Bytes {
   )
 
   // 4 0 obj: content stream
-  let stream_data =
-    "BT\n" +
+  let stream_data = "BT\n" +
     "/F1 12 Tf\n" +
     "72 120 Td\n" +
     "(Hello PDF) Tj\n" +

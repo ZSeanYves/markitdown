@@ -1,5 +1,5 @@
 ///|
-fn parse_pdf_value(bs : Bytes, pos : Int) -> (PdfValue, Int) raise{
+fn parse_pdf_value(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   let (tok, next) = match read_token(bs, pos) {
     Some(v) => v
     None => raise UnexpectedEOF("value")
@@ -18,7 +18,10 @@ fn parse_pdf_value(bs : Bytes, pos : Int) -> (PdfValue, Int) raise{
 }
 
 ///|
-fn parse_keyword_value(k : String, next : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_keyword_value(
+  k : String,
+  next : Int,
+) -> (PdfValue, Int) raise PdfParseError {
   if k == "null" {
     return (PdfValue::Null, next)
   }
@@ -78,9 +81,7 @@ fn parse_array(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   while true {
     let j = skip_ws_and_comment(bs, i)
     match read_token(bs, j) {
-      Some((PdfToken::RArray, next)) => {
-        break (PdfValue::Array(arr), next)
-      }
+      Some((PdfToken::RArray, next)) => break (PdfValue::Array(arr), next)
       Some(_) => {
         let (v, n) = parse_pdf_value(bs, j)
         arr.push(v)
@@ -101,9 +102,7 @@ fn parse_dict(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   while true {
     let j = skip_ws_and_comment(bs, i)
     match read_token(bs, j) {
-      Some((PdfToken::RDict, next)) => {
-        break (PdfValue::Dict(dict), next)
-      }
+      Some((PdfToken::RDict, next)) => break (PdfValue::Dict(dict), next)
       Some((PdfToken::Name(name), n1)) => {
         let (v, n2) = parse_pdf_value(bs, n1)
         dict.set(name, v)
@@ -116,6 +115,7 @@ fn parse_dict(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
     raise UnexpectedEOF("dictionary")
   }
 }
+
 ///|
 fn parse_literal_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
   let mut depth = 1
@@ -164,7 +164,10 @@ fn parse_literal_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise {
 }
 
 ///|
-fn parse_hex_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseError {
+fn parse_hex_string(
+  bs : Bytes,
+  pos : Int,
+) -> (PdfValue, Int) raise PdfParseError {
   let mut i = pos
   while i < bs.length() {
     if bs[i] == '>'.to_int().to_byte() {
@@ -179,8 +182,9 @@ fn parse_hex_string(bs : Bytes, pos : Int) -> (PdfValue, Int) raise PdfParseErro
 fn parse_indirect_object_at(
   bytes : Bytes,
   offset : Int,
-) -> PdfIndirectObject raise  {
-  let (obj_num, p1) = match read_int_ascii(bytes, skip_ws_and_comment(bytes, offset)) {
+) -> PdfIndirectObject raise {
+  let (obj_num, p1) = match
+    read_int_ascii(bytes, skip_ws_and_comment(bytes, offset)) {
     Some(v) => v
     None => raise InvalidStructure("invalid indirect object number")
   }

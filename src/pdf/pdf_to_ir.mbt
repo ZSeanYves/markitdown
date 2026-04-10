@@ -265,7 +265,10 @@ fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
 }
 
 ///|
-fn should_allow_label_token_continuation_merge(prev : String, cur : String) -> Bool {
+fn should_allow_label_token_continuation_merge(
+  prev : String,
+  cur : String,
+) -> Bool {
   let p = prev.trim().to_string()
   let c = cur.trim().to_string()
   if p == "" || c == "" {
@@ -279,7 +282,11 @@ fn should_allow_label_token_continuation_merge(prev : String, cur : String) -> B
   // hanging-tail continuation is expected to be non-terminated prose.
   match last_char(p) {
     Some(ch) =>
-      if ch == ',' || ch == ':' || ch == ';' || ch == '，' || ch == '：' ||
+      if ch == ',' ||
+        ch == ':' ||
+        ch == ';' ||
+        ch == '，' ||
+        ch == '：' ||
         ch == '；' {
         return false
       }
@@ -298,10 +305,7 @@ fn should_allow_label_token_continuation_merge(prev : String, cur : String) -> B
 
   let tail = parts[1]
   match first_char(tail) {
-    Some(ch) =>
-      if !(ch >= 'a' && ch <= 'z') {
-        return false
-      }
+    Some(ch) => if !(ch >= 'a' && ch <= 'z') { return false }
     None => return false
   }
 
@@ -310,7 +314,10 @@ fn should_allow_label_token_continuation_merge(prev : String, cur : String) -> B
 }
 
 ///|
-fn should_veto_short_independent_line_merge(prev : String, cur : String) -> Bool {
+fn should_veto_short_independent_line_merge(
+  prev : String,
+  cur : String,
+) -> Bool {
   let p = prev.trim().to_string()
   let c = cur.trim().to_string()
   if p == "" || c == "" {

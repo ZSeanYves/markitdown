@@ -27,7 +27,11 @@ fn parse_stream_bounds(
       let mut i = start
       while i + 9 <= bytes.length() {
         if starts_with_at(bytes, i, "endstream") {
-          let end_ = if i > start && bytes[i - 1] == b'\x0A' { i - 1 } else { i }
+          let end_ = if i > start && bytes[i - 1] == b'\x0A' {
+            i - 1
+          } else {
+            i
+          }
           return (start, end_)
         }
         i = i + 1

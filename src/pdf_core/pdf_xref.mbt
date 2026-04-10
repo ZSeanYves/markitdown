@@ -1,5 +1,5 @@
 ///|
-fn parse_pdf_header(bytes : Bytes) -> String raise  {
+fn parse_pdf_header(bytes : Bytes) -> String raise {
   if bytes.length() < 8 {
     raise InvalidHeader("too short")
   }
@@ -53,7 +53,8 @@ fn parse_xref_and_trailer(
       Some(v) => v
       None => raise InvalidStructure("invalid xref subsection start")
     }
-    let (count, p2) = match read_int_ascii(bytes, skip_ws_and_comment(bytes, p1)) {
+    let (count, p2) = match
+      read_int_ascii(bytes, skip_ws_and_comment(bytes, p1)) {
       Some(v) => v
       None => raise InvalidStructure("invalid xref subsection count")
     }
@@ -109,7 +110,7 @@ fn parse_xref_and_trailer(
 fn parse_trailer(
   bytes : Bytes,
   trailer_pos : Int,
-) -> (Map[String, PdfValue], Int) raise  {
+) -> (Map[String, PdfValue], Int) raise {
   let p = skip_ws_and_comment(bytes, trailer_pos + 7)
   let (v, next) = parse_pdf_value(bytes, p)
   match v {
