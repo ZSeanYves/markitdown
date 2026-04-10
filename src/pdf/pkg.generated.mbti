@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
+pub async fn parse_pdf(String, String, Int, String?, String?, Bool, Bool, Bool) -> @core.Document
 
 // Errors
 
@@ -15,4 +15,3 @@ pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.
 // Type aliases
 
 // Traits
-

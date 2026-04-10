@@ -112,6 +112,79 @@ fn build_pdf_with_contents(
 }
 
 ///|
+fn build_pdf_with_inherited_resources_page() -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.4\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj(
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
+  )
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>\nendobj\n",
+  )
+  let stream_data = "BT\n/F1 12 Tf\n(Hello Inherited) Tj\nET\n"
+  add_obj(
+    "4 0 obj\n<< /Length " + byte_len(stream_data).to_string() + " >>\nstream\n" +
+    stream_data + "endstream\nendobj\n",
+  )
+  add_obj("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+
+  let xref_offset = cur
+  add("xref\n0 6\n0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xref_offset.to_string() + "\n%%EOF\n")
+  @utf8.encode(chunks.join(""))
+}
+
+///|
+fn build_pdf_with_indirect_length() -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+  let stream_data = "BT\n(Hello LenRef) Tj\nET\n"
+
+  add("%PDF-1.4\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 6 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+  )
+  add_obj(
+    "4 0 obj\n<< /Length 5 0 R >>\nstream\n" + stream_data + "endstream\nendobj\n",
+  )
+  add_obj("5 0 obj\n" + byte_len(stream_data).to_string() + "\nendobj\n")
+  add_obj("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+  let xref_offset = cur
+  add("xref\n0 7\n0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add("trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n" + xref_offset.to_string() + "\n%%EOF\n")
+  @utf8.encode(chunks.join(""))
+}
+
+///|
 test "pdf phase1 can open find pages and read content stream" {
   let bs = build_min_pdf()
   let doc = @pdfc.open_pdf(bs)
@@ -202,4 +275,60 @@ test "pdf phase3 uses nearest Tj or TJ operands" {
   )
   let text = @pdfc.extract_plain_text_from_page_stream(stream)
   assert_eq(text, "HelloAB")
+}
+
+///|
+test "pdf phase4 supports stream length indirect reference" {
+  let bs = build_pdf_with_indirect_length()
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let streams = @pdfc.get_page_content_stream_bytes(doc, page_obj, page_gen)
+  assert_eq(streams.length(), 1)
+  let text = @pdfc.extract_plain_text_from_page_stream(streams[0])
+  assert_eq(text, "Hello LenRef")
+}
+
+///|
+test "pdf phase4 inherited page resources can resolve fonts" {
+  let bs = build_pdf_with_inherited_resources_page()
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let fonts = @pdfc.resolve_page_fonts(doc, page_obj, page_gen)
+  let has_f1 = match fonts.get("F1") {
+    Some(_) => true
+    None => false
+  }
+  assert_eq(has_f1, true)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text.contains("Hello Inherited"), true)
+}
+
+///|
+test "pdf phase4 missing ToUnicode falls back to string bytes" {
+  let bs = build_min_pdf()
+  let doc = @pdfc.open_pdf(bs)
+  let pages = @pdfc.list_page_refs(doc)
+  let (page_obj, page_gen) = pages[0]
+  let fonts = @pdfc.resolve_page_fonts(doc, page_obj, page_gen)
+  let has_f1 = match fonts.get("F1") {
+    Some(_) => true
+    None => false
+  }
+  assert_eq(has_f1, true)
+  let f1 = fonts.get("F1").unwrap()
+  let text = @pdfc.decode_text_operand(doc, f1, @pdfc.PdfContentOperand::String("ABC"))
+  assert_eq(text, "ABC")
+}
+
+///|
+test "pdf phase4 parse basic ToUnicode cmap" {
+  let cmap_stream = @utf8.encode(
+    "1 beginbfchar\n<41> <0041>\nendbfchar\n1 beginbfrange\n<42> <43> <0042>\nendbfrange\n",
+  )
+  let cmap = @pdfc.parse_tounicode_cmap(cmap_stream)
+  assert_eq(cmap.get(0x41).unwrap_or(""), "A")
+  assert_eq(cmap.get(0x42).unwrap_or(""), "B")
+  assert_eq(cmap.get(0x43).unwrap_or(""), "C")
 }

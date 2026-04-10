@@ -4,9 +4,17 @@ package "ZSeanYves/markitdown/src/pdf_core"
 // Values
 pub fn count_pages(PdfDocument) -> Int raise
 
+pub fn decode_text_operand(PdfDocument, PdfFontRef, PdfContentOperand) -> String raise
+
 pub fn extract_plain_text_from_page_stream(Bytes) -> String raise
 
 pub fn extract_plain_text_from_page_streams(Array[Bytes]) -> String raise
+
+pub fn extract_text_events_from_page(PdfDocument, Int, Int) -> Array[PdfTextEvent] raise
+
+pub fn extract_text_from_document(PdfDocument) -> String raise
+
+pub fn extract_text_from_page(PdfDocument, Int, Int) -> String raise
 
 pub fn extract_text_ops_from_page_stream(Bytes) -> Array[PdfTextOp] raise
 
@@ -22,9 +30,13 @@ pub fn list_page_refs(PdfDocument) -> Array[(Int, Int)] raise
 
 pub fn open_pdf(Bytes) -> PdfDocument raise
 
+pub fn parse_tounicode_cmap(Bytes) -> Map[Int, String]
+
 pub fn parse_page_content_tokens(Bytes) -> Array[PdfContentToken] raise
 
 pub fn pdf_version(PdfDocument) -> String
+
+pub fn resolve_page_fonts(PdfDocument, Int, Int) -> Map[String, PdfFontRef] raise
 
 // Errors
 pub suberror PdfParseError {
@@ -36,6 +48,11 @@ pub suberror PdfParseError {
   TypeMismatch(String)
 }
 pub impl Show for PdfParseError
+pub suberror PdfNativeError {
+  UnsupportedFeature(String)
+  ExtractionFailed(String)
+}
+pub impl Show for PdfNativeError
 
 // Types and methods
 pub enum PdfContentOperand {
@@ -61,11 +78,24 @@ pub struct PdfDocument {
   xref : PdfXrefTable
 }
 
+pub struct PdfFontRef {
+  resource_name : String
+  obj_num : Int
+  gen : Int
+  to_unicode_obj : Int?
+  to_unicode_gen : Int?
+}
+
 pub struct PdfIndirectObject {
   obj_num : Int
   gen : Int
   value : PdfValue
   stream : Bytes?
+}
+
+pub struct PdfTextEvent {
+  font_name : String?
+  text : String
 }
 
 pub struct PdfTextOp {
@@ -99,4 +129,3 @@ pub struct PdfXrefTable {
 // Type aliases
 
 // Traits
-
