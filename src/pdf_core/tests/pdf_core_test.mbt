@@ -356,6 +356,99 @@ fn build_pdf_with_xref_stream(
 }
 
 ///|
+fn build_pdf_with_xref_stream_objstm() -> Bytes {
+  let out : Array[Byte] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+  let add_bytes = fn(bs : Bytes) {
+    for b in bs {
+      out.push(b)
+    }
+    cur = cur + bs.length()
+  }
+  let add = fn(s : String) { add_bytes(@utf8.encode(s)) }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.5\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 5 0 R >> >> /Contents 8 0 R >>\nendobj\n",
+  )
+  add_obj(
+    "4 0 obj\n<< /Producer (objstm-min) >>\nendobj\n",
+  )
+
+  let objstm_header = "5 0 "
+  let embedded_obj = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+  let objstm_stream = objstm_header + embedded_obj
+  add_obj(
+    "7 0 obj\n<< /Type /ObjStm /N 1 /First " +
+    byte_len(objstm_header).to_string() +
+    " /Length " +
+    byte_len(objstm_stream).to_string() +
+    " >>\nstream\n" +
+    objstm_stream +
+    "\nendstream\nendobj\n",
+  )
+
+  let page_stream = "BT\n/F1 12 Tf\n(Hello ObjStm) Tj\nET\n"
+  add_obj(
+    "8 0 obj\n<< /Length " +
+    byte_len(page_stream).to_string() +
+    " >>\nstream\n" +
+    page_stream +
+    "endstream\nendobj\n",
+  )
+
+  let xref_offset = cur
+  let rows : Array[Int] = []
+  for b in xref_row_bytes(0, 0, 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[0], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[1], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[2], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[3], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(2, 7, 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, xref_offset, 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[4], 0) {
+    rows.push(b)
+  }
+  for b in xref_row_bytes(1, offsets[5], 0) {
+    rows.push(b)
+  }
+
+  add_obj(
+    "6 0 obj\n<< /Type /XRef /Size 9 /W [1 2 1] /Index [0 9] /Root 1 0 R /Length " +
+    rows.length().to_string() +
+    " >>\nstream\n",
+  )
+  let row_bytes = rows.map(fn(x) { x.to_byte() })
+  add_bytes(Bytes::from_array(row_bytes))
+  add("\nendstream\nendobj\n")
+  add("startxref\n")
+  add(xref_offset.to_string() + "\n")
+  add("%%EOF\n")
+  Bytes::from_array(out)
+}
+
+///|
 test "pdf phase1 can open find pages and read content stream" {
   let bs = build_min_pdf()
   let doc = @pdfc.open_pdf(bs)
@@ -555,14 +648,26 @@ test "pdf phase7a step1 xref stream supports W and Index decode" {
 ///|
 
 ///|
-test "pdf phase7a step1 xref stream keeps type2 entry and blocks object stream access" {
-  let bs = build_pdf_with_xref_stream(with_index=true, with_type2_entry=true)
+test "pdf phase7a step2 objstm minimal resolve embedded object" {
+  let bs = build_pdf_with_xref_stream_objstm()
   let doc = @pdfc.open_pdf(bs)
-  let blocked = try {
-    ignore(@pdfc.get_indirect_object(doc, 5, 0))
-    false
-  } catch {
-    e => e.to_string().contains("object stream object is not supported yet")
+  let obj5 = @pdfc.get_indirect_object(doc, 5, 0)
+  let dict = match obj5.value {
+    @pdfc.PdfValue::Dict(d) => d
+    _ => Map::new()
   }
-  assert_eq(blocked, true)
+  let is_font = match dict.get("Type") {
+    Some(@pdfc.PdfValue::Name(v)) => v == "Font"
+    _ => false
+  }
+  assert_eq(is_font, true)
+}
+
+///|
+test "pdf phase7a step2 xref type2 entry can resolve through objstm" {
+  let bs = build_pdf_with_xref_stream_objstm()
+  let doc = @pdfc.open_pdf(bs)
+  assert_eq(@pdfc.count_pages(doc), 1)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text.contains("Hello ObjStm"), true)
 }
