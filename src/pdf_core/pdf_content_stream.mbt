@@ -111,7 +111,22 @@ pub fn extract_plain_text_from_page_stream(stream : Bytes) -> String raise {
     }
   }
 
-  out.trim().to_string()
+  trim_surrounding_line_breaks(out)
+}
+
+///|
+pub fn extract_plain_text_from_page_streams(streams : Array[Bytes]) -> String raise {
+  let mut out = ""
+  for s in streams {
+    let t = extract_plain_text_from_page_stream(s)
+    if t != "" {
+      if out != "" {
+        out = out + "\n"
+      }
+      out = out + t
+    }
+  }
+  out
 }
 
 ///|
@@ -259,6 +274,18 @@ fn parse_content_literal_string(
         raise UnexpectedEOF("content stream literal string escape")
       }
       let n = stream[i + 1]
+      if n == '\n'.to_int().to_byte() {
+        i = i + 2
+        continue
+      }
+      if n == '\r'.to_int().to_byte() {
+        if i + 2 < stream.length() && stream[i + 2] == '\n'.to_int().to_byte() {
+          i = i + 3
+          continue
+        }
+        i = i + 2
+        continue
+      }
       if n == 'n'.to_int().to_byte() {
         out = out + "\n"
       } else if n == 'r'.to_int().to_byte() {
@@ -269,6 +296,11 @@ fn parse_content_literal_string(
         out = out + "\b"
       } else if n == 'f'.to_int().to_byte() {
         out = out + "\u000C"
+      } else if is_octal_digit(n) {
+        let (oct, next_idx) = parse_octal_escape_min(stream, i + 1)
+        out = out + oct
+        i = next_idx
+        continue
       } else {
         out = out + bytes_to_string(stream, i + 1, i + 2)
       }
@@ -297,6 +329,26 @@ fn parse_content_literal_string(
 }
 
 ///|
+fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) {
+  let mut i = pos
+  let mut count = 0
+  let mut v = 0
+
+  while i < stream.length() && count < 3 && is_octal_digit(stream[i]) {
+    v = v * 8 + (stream[i].to_int() - '0'.to_int())
+    i = i + 1
+    count = count + 1
+  }
+  let b = (v & 0xFF).to_byte()
+  (@utf8.decode([b]), i)
+}
+
+///|
+fn is_octal_digit(ch : Byte) -> Bool {
+  ch >= '0'.to_int().to_byte() && ch <= '7'.to_int().to_byte()
+}
+
+///|
 fn text_from_operand(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(s) => s
@@ -320,6 +372,25 @@ fn append_line_break(s : String) -> String {
     return s
   }
   s + "\n"
+}
+
+///|
+fn trim_surrounding_line_breaks(s : String) -> String {
+  let mut start = 0
+  let mut end = s.length()
+
+  while start < end && is_line_break_char(s[start]) {
+    start = start + 1
+  }
+  while end > start && is_line_break_char(s[end - 1]) {
+    end = end - 1
+  }
+  s.substring(start, end)
+}
+
+///|
+fn is_line_break_char(ch : Char) -> Bool {
+  ch == '\n' || ch == '\r'
 }
 
 ///|
