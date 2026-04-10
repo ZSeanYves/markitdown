@@ -1,10 +1,10 @@
 .DS_Store
 _build/
 target/
-target
 .mooncakes/
 .moonagent/
 .tmp_test_out/
+.tmp_pdf_native_gate_out/
+.tmp_pdf_native_out/
 out/
 dataset/
-.tmp_pdf_native_out/

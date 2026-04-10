@@ -266,11 +266,7 @@ fn xref_row_bytes(t : Int, f1 : Int, f2 : Int) -> Array[Int] {
   out
 }
 
-///|
-fn ints_to_ctrl_string(xs : Array[Int]) -> String {
-  let bs : Bytes = xs.map(fn(x) { x.to_byte() })
-  @utf8.decode(bs)
-}
+
 
 ///|
 fn build_pdf_with_xref_stream(
@@ -336,7 +332,7 @@ fn build_pdf_with_xref_stream(
   for b in xref_row_bytes(1, xref_offset, 0) {
     rows.push(b)
   }
-  let xref_stream = ints_to_ctrl_string(rows)
+  let xref_stream = rows.to_string()
 
   let index_part = if with_index {
     "/Index [0 7] "
@@ -557,11 +553,16 @@ test "pdf phase7a step1 xref stream supports W and Index decode" {
 }
 
 ///|
+///|
 test "pdf phase7a step1 xref stream keeps type2 entry and blocks object stream access" {
   let bs = build_pdf_with_xref_stream(with_index=true, with_type2_entry=true)
   let doc = @pdfc.open_pdf(bs)
-  let blocked = (@pdfc.get_indirect_object(doc, 5, 0); false) catch {
-    e => e.to_string().contains("object stream object is not supported yet")
-  }
+  let blocked =
+    try {
+      ignore(@pdfc.get_indirect_object(doc, 5, 0))
+      false
+    } catch {
+      e => e.to_string().contains("object stream object is not supported yet")
+    }
   assert_eq(blocked, true)
 }

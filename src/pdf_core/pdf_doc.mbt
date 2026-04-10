@@ -31,7 +31,7 @@ pub fn get_indirect_object(
       Some(v) => v.to_string()
       None => "?"
     }
-    raise UnsupportedFeature(
+    raise PdfNativeError::UnsupportedFeature(
       "object stream object is not supported yet: obj=" +
       obj_num.to_string() +
       " gen=" +

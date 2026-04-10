@@ -10,7 +10,7 @@ fn parse_xref_stream_at(
   }
   match dict.get("Type") {
     Some(PdfValue::Name(t)) if t == "XRef" => ()
-    _ => raise UnsupportedFeature("startxref does not point to xref table/stream")
+    _ => raise PdfParseError::UnsupportedFeature("startxref does not point to xref table/stream")
   }
 
   let stream = match obj.stream {
@@ -29,19 +29,19 @@ fn parse_xref_stream_at(
 fn parse_xref_stream_w(dict : Map[String, PdfValue]) -> (Int, Int, Int) raise {
   let w = match dict.get("W") {
     Some(PdfValue::Array(arr)) => arr
-    _ => raise UnsupportedFeature("xref stream /W must be an integer array")
+    _ => raise PdfParseError::UnsupportedFeature("xref stream /W must be an integer array")
   }
   if w.length() != 3 {
-    raise UnsupportedFeature("xref stream /W must have 3 integers")
+    raise PdfParseError::UnsupportedFeature("xref stream /W must have 3 integers")
   }
   let w0 = as_int_value(w[0], "xref stream /W[0]")
   let w1 = as_int_value(w[1], "xref stream /W[1]")
   let w2 = as_int_value(w[2], "xref stream /W[2]")
   if w0 < 0 || w1 < 0 || w2 < 0 {
-    raise UnsupportedFeature("xref stream /W contains negative width")
+    raise PdfParseError::UnsupportedFeature("xref stream /W contains negative width")
   }
   if w0 + w1 + w2 <= 0 {
-    raise UnsupportedFeature("xref stream /W width sum is zero")
+    raise PdfParseError::UnsupportedFeature("xref stream /W width sum is zero")
   }
   (w0, w1, w2)
 }
@@ -53,7 +53,7 @@ fn parse_xref_stream_index(
   match dict.get("Index") {
     Some(PdfValue::Array(items)) => {
       if items.length() % 2 != 0 {
-        raise UnsupportedFeature("xref stream /Index should have even length")
+        raise PdfParseError::UnsupportedFeature("xref stream /Index should have even length")
       }
       let out : Array[(Int, Int)] = []
       let mut i = 0
@@ -61,21 +61,21 @@ fn parse_xref_stream_index(
         let start = as_int_value(items[i], "xref stream /Index start")
         let count = as_int_value(items[i + 1], "xref stream /Index count")
         if start < 0 || count < 0 {
-          raise UnsupportedFeature("xref stream /Index has negative value")
+          raise PdfParseError::UnsupportedFeature("xref stream /Index has negative value")
         }
         out.push((start, count))
         i = i + 2
       }
       out
     }
-    Some(_) => raise UnsupportedFeature("xref stream /Index must be an array")
+    Some(_) => raise PdfParseError::UnsupportedFeature("xref stream /Index must be an array")
     None => {
       let size = match dict.get("Size") {
         Some(PdfValue::Int(v)) => v
-        _ => raise UnsupportedFeature("xref stream /Size must be integer")
+        _ => raise PdfParseError::UnsupportedFeature("xref stream /Size must be integer")
       }
       if size < 0 {
-        raise UnsupportedFeature("xref stream /Size is negative")
+        raise PdfParseError::UnsupportedFeature("xref stream /Size is negative")
       }
       [(0, size)]
     }
@@ -91,7 +91,7 @@ fn parse_xref_stream_entries(
   let (w0, w1, w2) = widths
   let row = w0 + w1 + w2
   if row <= 0 {
-    raise UnsupportedFeature("invalid xref stream row width")
+    raise PdfParseError::UnsupportedFeature("invalid xref stream row width")
   }
   let entries : Map[String, PdfXrefEntry] = Map::new()
 
@@ -101,7 +101,7 @@ fn parse_xref_stream_entries(
     let mut idx = 0
     while idx < count {
       if p + row > stream.length() {
-        raise InvalidStructure("xref stream bytes truncated")
+        raise PdfParseError::InvalidStructure("xref stream bytes truncated")
       }
       let t = read_be_int_or_default(stream, p, w0, 1)
       let f1 = read_be_int_or_default(stream, p + w0, w1, 0)
@@ -137,7 +137,7 @@ fn parse_xref_stream_entries(
           objstm_index: Some(f2),
         })
       } else {
-        raise UnsupportedFeature(
+        raise PdfParseError::UnsupportedFeature(
           "xref stream entry type is unsupported: " + t.to_string(),
         )
       }
@@ -173,6 +173,6 @@ fn read_be_int_or_default(
 fn as_int_value(v : PdfValue, ctx : String) -> Int raise {
   match v {
     PdfValue::Int(i) => i
-    _ => raise UnsupportedFeature(ctx + " must be integer")
+    _ => raise PdfParseError::UnsupportedFeature(ctx + " must be integer")
   }
 }
