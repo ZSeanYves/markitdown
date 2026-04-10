@@ -1,6 +1,5 @@
 # Heading false-positive negative
 
-
 OK
 
 ALL CAPS SENTENCE BUT ACTUALLY BODY TEXT, NOT A TITLE.
