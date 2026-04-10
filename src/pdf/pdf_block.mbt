@@ -60,7 +60,14 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
           buf_is_page_lead = prev_was_page_break || out.length() == 0
           prev_was_page_break = false
         } else if should_start_new_block(buf, cur, prev_was_page_break) {
-          flush_pdf_block(out, buf)
+          let promote_page_start_heading = buf_is_page_lead &&
+            looks_like_list_item_sentence(cur.trim().to_string()) &&
+            looks_like_short_page_start_section_title(buf)
+          flush_pdf_block_with_hint(
+            out,
+            buf,
+            promote_page_start_heading,
+          )
           buf = cur
           buf_is_page_lead = prev_was_page_break
           prev_was_page_break = false
@@ -88,6 +95,15 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
 ///|
 fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit {
+  flush_pdf_block_with_hint(out, buf, false)
+}
+
+///|
+fn flush_pdf_block_with_hint(
+  out : Array[PdfBlock],
+  buf : String,
+  prefer_heading : Bool,
+) -> Unit {
   let raw = buf.trim().to_string()
   if raw == "" {
     return
@@ -95,13 +111,25 @@ fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit {
 
   match parse_pdf_list_item(raw) {
     Some((ordered, level, text)) => {
-      let t = trim_string_for_pdf_block(text)
-      if t != "" {
-        out.push(PdfBlock::ListItem(ordered, level, t))
+      if ordered && !should_accept_ordered_list_item(out, raw) {
+        // keep it as paragraph-like text instead of forcing ordered list
+      } else {
+        let t = trim_string_for_pdf_block(text)
+        if t != "" {
+          out.push(PdfBlock::ListItem(ordered, level, t))
+        }
+        return
       }
-      return
     }
     None => ()
+  }
+
+  if prefer_heading {
+    let h = finalize_heading(raw)
+    if h != "" {
+      out.push(PdfBlock::Heading(2, h))
+    }
+    return
   }
 
   let level = guess_heading_level(raw)
@@ -116,6 +144,41 @@ fn flush_pdf_block(out : Array[PdfBlock], buf : String) -> Unit {
       out.push(PdfBlock::Paragraph(text))
     }
   }
+}
+
+///|
+fn should_accept_ordered_list_item(out : Array[PdfBlock], raw : String) -> Bool {
+  let t = raw.trim().to_string()
+  if !looks_like_list_item_sentence(t) {
+    return false
+  }
+
+  if out.length() == 0 {
+    return false
+  }
+
+  match out[out.length() - 1] {
+    PdfBlock::ListItem(true, _, _) => return true
+    PdfBlock::Heading(_, _) => return true
+    _ => ()
+  }
+
+  false
+}
+
+///|
+fn looks_like_short_page_start_section_title(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" || ends_like_sentence(t) || is_probable_page_number(t) {
+    return false
+  }
+
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
+  let n = t.to_array().length()
+  n >= 6 && n <= 40
 }
 
 ///|
