@@ -240,8 +240,21 @@ fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
     return false
   }
 
+  if should_veto_short_independent_line_merge(p, c) {
+    return false
+  }
+
+  if should_veto_lead_in_line_merge(p) {
+    return false
+  }
+
   // narrow scope: only heal obvious hard-wrap style splits.
   if ends_like_sentence(p) {
+    return false
+  }
+
+  // continuation guard: label-token starts should be new blocks.
+  if looks_like_label_token_line_start(c) {
     return false
   }
 
@@ -251,6 +264,68 @@ fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
     return false
   }
 
+  true
+}
+
+///|
+fn should_veto_short_independent_line_merge(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+
+  // keep short standalone emphasis/interjection lines (e.g. "OK") isolated.
+  if p.contains(" ") || p.to_array().length() > 8 {
+    return false
+  }
+
+  let mut has_alpha = false
+  for ch in p.to_array() {
+    if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+      has_alpha = true
+      continue
+    }
+    // avoid over-blocking normal token continuations like "e.g."
+    return false
+  }
+
+  if !has_alpha {
+    return false
+  }
+
+  !starts_like_new_block(c)
+}
+
+///|
+fn should_veto_lead_in_line_merge(prev : String) -> Bool {
+  let p = prev.trim().to_string()
+  if p == "" {
+    return false
+  }
+
+  let cs = p.to_array()
+  let n = cs.length()
+  if n < 4 || n > 40 {
+    return false
+  }
+
+  let last = cs[n - 1]
+  if last != ',' && last != ':' {
+    return false
+  }
+
+  let mut words = 0
+  for sv in p.split(" ") {
+    if sv.to_string().trim() != "" {
+      words += 1
+    }
+  }
+  if words > 4 {
+    return false
+  }
+
+  // short lead-ins are likely discourse transition labels, not wrapped prose.
   true
 }
 
