@@ -1,0 +1,60 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [5 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 649 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 56 780 Tm
+(Heading false-positive negative) Tj
+1 0 0 1 56 764 Tm
+() Tj
+1 0 0 1 56 748 Tm
+(OK) Tj
+1 0 0 1 56 732 Tm
+() Tj
+1 0 0 1 56 716 Tm
+(ALL CAPS SENTENCE BUT ACTUALLY BODY TEXT, NOT A TITLE.) Tj
+1 0 0 1 56 700 Tm
+() Tj
+1 0 0 1 56 684 Tm
+(1. this is a numbered sentence inside paragraph context.) Tj
+1 0 0 1 56 668 Tm
+() Tj
+1 0 0 1 56 652 Tm
+(2\) another numbered item that should not force heading level.) Tj
+1 0 0 1 56 636 Tm
+() Tj
+1 0 0 1 56 620 Tm
+(Q4 RESULTS REMAIN STABLE ACROSS THE SAME METHOD.) Tj
+1 0 0 1 56 604 Tm
+() Tj
+1 0 0 1 56 588 Tm
+(This is the real paragraph continuation after short/noisy lead lines.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000885 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1011
+%%EOF
