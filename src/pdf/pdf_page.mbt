@@ -48,8 +48,44 @@ fn strip_page_noise(
     return ""
   }
 
+  let raw_lines_after_repeated = strip_page_repeated_noise_only_as_lines(
+    raw_lines,
+    head_keys,
+    tail_keys,
+  )
+  cleanup_page_noise_lines(raw_lines_after_repeated)
+}
+
+///|
+fn strip_page_repeated_noise_only(
+  page : String,
+  head_keys : Array[String],
+  tail_keys : Array[String],
+) -> String {
+  let s = page
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+    .replace(old="\u00A0", new=" ")
+    .replace(old="\t", new=" ")
+
+  let raw_lines : Array[String] = []
+  for sv in s.split("\n") {
+    raw_lines.push(sv.to_string())
+  }
+
+  let lines = strip_page_repeated_noise_only_as_lines(raw_lines, head_keys, tail_keys)
+  lines.join("\n")
+}
+
+///|
+fn strip_page_repeated_noise_only_as_lines(
+  raw_lines : Array[String],
+  head_keys : Array[String],
+  tail_keys : Array[String],
+) -> Array[String] {
   // 找到前两个非空行的位置
   let head_pos : Array[Int] = []
+  let n = raw_lines.length()
   let mut i = 0
   while i < n && head_pos.length() < 2 {
     let t = raw_lines[i].trim().to_string()
@@ -95,6 +131,11 @@ fn strip_page_noise(
     }
   }
 
+  raw_lines
+}
+
+///|
+fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // 只清理噪声行，但保留原始空行结构
   let out : Array[String] = []
   let mut prev_blank = false
