@@ -4,217 +4,149 @@ fn convert_pages_to_blocks(
 ) -> Array[Array[PdfConvertBlock]] {
   let out : Array[Array[PdfConvertBlock]] = []
   for page in pages {
-    out.push(native_page_lines_to_blocks(page.page_index, page.lines))
+    out.push(page_lines_to_blocks(page))
   }
   out
 }
 
 ///|
-fn native_page_lines_to_blocks(
-  page_index : Int,
-  lines : Array[PdfConvertLine],
-) -> Array[PdfConvertBlock] {
+fn page_lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let blocks : Array[PdfConvertBlock] = []
   let para_lines : Array[String] = []
   let mut para_start = -1
   let mut para_end = -1
 
-  let mut i = 0
-  while i < lines.length() {
-    let line = lines[i]
-    let text = line.text.trim().to_string()
+  for line in page.lines {
+    let text = normalize_line_text(line.text)
     if line.is_explicit_break || text == "" {
-      if para_lines.length() > 0 {
-        let para_text = para_lines.join(" ").trim().to_string()
-        if para_text != "" {
-          blocks.push({
-            kind: PdfConvertBlockKind::Paragraph,
-            text: para_text,
-            page_index,
-            line_start: para_start,
-            line_end: para_end,
-            line_count: para_end - para_start + 1,
-            char_count: text_len(para_text),
-            is_heading_candidate: false,
-            is_list_candidate: false,
-            is_noise_candidate: false,
-            is_cross_page_continuation_candidate: false,
-          })
-        }
-        para_lines.clear()
-        para_start = -1
-        para_end = -1
-      }
-      i = i + 1
+      flush_paragraph_block(blocks, page.page_index, para_lines, para_start, para_end)
+      para_lines.clear()
+      para_start = -1
+      para_end = -1
       continue
     }
 
-    if should_be_standalone_line(lines, i) {
-      if para_lines.length() > 0 {
-        let para_text = para_lines.join(" ").trim().to_string()
-        if para_text != "" {
-          blocks.push({
-            kind: PdfConvertBlockKind::Paragraph,
-            text: para_text,
-            page_index,
-            line_start: para_start,
-            line_end: para_end,
-            line_count: para_end - para_start + 1,
-            char_count: text_len(para_text),
-            is_heading_candidate: false,
-            is_list_candidate: false,
-            is_noise_candidate: false,
-            is_cross_page_continuation_candidate: false,
-          })
-        }
-        para_lines.clear()
-        para_start = -1
-        para_end = -1
-      }
-      blocks.push({
-        kind: PdfConvertBlockKind::StandaloneLine,
+    if should_be_heading_line(text, para_lines.length() == 0) {
+      flush_paragraph_block(blocks, page.page_index, para_lines, para_start, para_end)
+      para_lines.clear()
+      para_start = -1
+      para_end = -1
+
+      blocks.push(make_block(
+        PdfConvertBlockKind::Heading,
         text,
-        page_index,
-        line_start: i,
-        line_end: i,
-        line_count: 1,
-        char_count: text_len(text),
-        is_heading_candidate: false,
-        is_list_candidate: false,
-        is_noise_candidate: false,
-        is_cross_page_continuation_candidate: false,
-      })
-      i = i + 1
+        page.page_index,
+        line.line_index,
+        line.line_index,
+      ))
       continue
     }
 
     if para_start < 0 {
-      para_start = i
+      para_start = line.line_index
     }
-    para_end = i
+    para_end = line.line_index
     para_lines.push(text)
-    i = i + 1
   }
 
-  if para_lines.length() > 0 {
-    let para_text = para_lines.join(" ").trim().to_string()
-    if para_text != "" {
-      blocks.push({
-        kind: PdfConvertBlockKind::Paragraph,
-        text: para_text,
-        page_index,
-        line_start: para_start,
-        line_end: para_end,
-        line_count: para_end - para_start + 1,
-        char_count: text_len(para_text),
-        is_heading_candidate: false,
-        is_list_candidate: false,
-        is_noise_candidate: false,
-        is_cross_page_continuation_candidate: false,
-      })
-    }
-  }
+  flush_paragraph_block(blocks, page.page_index, para_lines, para_start, para_end)
   blocks
 }
 
 ///|
-fn should_be_standalone_line(lines : Array[PdfConvertLine], i : Int) -> Bool {
-  if i < 0 || i >= lines.length() {
-    return false
+fn flush_paragraph_block(
+  blocks : Array[PdfConvertBlock],
+  page_index : Int,
+  para_lines : Array[String],
+  line_start : Int,
+  line_end : Int,
+) -> Unit {
+  if para_lines.length() == 0 || line_start < 0 || line_end < 0 {
+    return
   }
-  let text = lines[i].text.trim().to_string()
+
+  let text = para_lines.join(" ") |> normalize_inline_spaces
   if text == "" {
-    return false
+    return
   }
 
-  let cur_len = text_len(text)
-  if cur_len == 0 {
-    return false
-  }
-
-  if cur_len <= 36 && looks_like_section_marker_line(text) {
-    return true
-  }
-
-  if cur_len <= 8 && !looks_like_sentence_line(text) {
-    return true
-  }
-
-  if cur_len > 20 {
-    return false
-  }
-
-  let prev_len = prev_non_break_line_len(lines, i)
-  let next_len = next_non_break_line_len(lines, i)
-  let long_neighbor = if prev_len > next_len { prev_len } else { next_len }
-  long_neighbor >= 36 &&
-  long_neighbor >= cur_len * 2 &&
-  !looks_like_sentence_line(text)
+  blocks.push(make_block(
+    PdfConvertBlockKind::Paragraph,
+    text,
+    page_index,
+    line_start,
+    line_end,
+  ))
 }
 
 ///|
-fn prev_non_break_line_len(lines : Array[PdfConvertLine], i : Int) -> Int {
-  let mut j = i - 1
-  while j >= 0 {
-    let line = lines[j]
-    let t = line.text.trim().to_string()
-    if !line.is_explicit_break && t != "" {
-      return text_len(t)
-    }
-    if j == 0 {
-      break
-    }
-    j = j - 1
+fn make_block(
+  kind : PdfConvertBlockKind,
+  text : String,
+  page_index : Int,
+  line_start : Int,
+  line_end : Int,
+) -> PdfConvertBlock {
+  let t = text.trim().to_string()
+  {
+    kind,
+    text: t,
+    page_index,
+    line_start,
+    line_end,
+    char_count: t.to_array().length(),
+    is_noise: false,
+    is_cross_page_continuation_candidate: false,
   }
-  0
 }
 
 ///|
-fn next_non_break_line_len(lines : Array[PdfConvertLine], i : Int) -> Int {
-  let mut j = i + 1
-  while j < lines.length() {
-    let line = lines[j]
-    let t = line.text.trim().to_string()
-    if !line.is_explicit_break && t != "" {
-      return text_len(t)
-    }
-    j = j + 1
+fn should_be_heading_line(text : String, at_block_start : Bool) -> Bool {
+  if !at_block_start {
+    return false
   }
-  0
+
+  let t = text.trim().to_string()
+  let n = t.to_array().length()
+  if n < 3 || n > 64 {
+    return false
+  }
+
+  if ends_like_sentence(t) {
+    return false
+  }
+
+  looks_like_heading_marker(t) || looks_like_short_title_case_line(t)
 }
 
 ///|
-fn looks_like_section_marker_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+fn normalize_line_text(s : String) -> String {
+  s
+  .replace(old="\u00A0", new=" ")
+  .replace(old="\t", new=" ")
+  .trim()
+  .to_string()
+}
+
+///|
+fn normalize_inline_spaces(s : String) -> String {
+  let t = s.trim()
   if t == "" {
-    return false
+    return ""
   }
-  (t.contains("第") && (t.contains("章") || t.contains("节"))) ||
-  t.contains("Chapter") ||
-  t.contains("CHAPTER") ||
-  t.contains("Section") ||
-  t.contains("SECTION") ||
-  t.contains("、") ||
-  t.contains(")")
-}
 
-///|
-fn looks_like_sentence_line(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
+  let mut out = ""
+  let mut prev_space = false
+  for c in t.to_array() {
+    if c == ' ' {
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + c.to_string()
+      prev_space = false
+    }
   }
-  t.contains("。") ||
-  t.contains("！") ||
-  t.contains("？") ||
-  t.contains(".") ||
-  t.contains("!") ||
-  t.contains("?") ||
-  t.contains("，") ||
-  t.contains(",")
-}
-
-///|
-fn text_len(s : String) -> Int {
-  s.to_array().length()
+  out
 }
