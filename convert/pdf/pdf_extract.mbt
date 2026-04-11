@@ -33,7 +33,8 @@ fn extract_pdf_native_document(
   if native.is_fatal {
     return Err(
       @cor.AppError(
-        "pdf-native fatal extraction: " + native.fatal_reason.unwrap_or("unknown_reason"),
+        "pdf-native fatal extraction: " +
+        native.fatal_reason.unwrap_or("unknown_reason"),
       ),
     )
   }

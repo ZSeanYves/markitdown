@@ -1,5 +1,7 @@
 ///|
-fn native_document_to_pages(native : @pdfc.PdfNativeDocumentResult) -> Array[PdfConvertPage] {
+fn native_document_to_pages(
+  native : @pdfc.PdfNativeDocumentResult,
+) -> Array[PdfConvertPage] {
   let out : Array[PdfConvertPage] = []
   for page in native.pages {
     out.push({
@@ -11,97 +13,69 @@ fn native_document_to_pages(native : @pdfc.PdfNativeDocumentResult) -> Array[Pdf
 }
 
 ///|
+/// 这一版先走最保守策略：
+/// - 不跨 event 聚合
+/// - 每个非空 event 先作为一条 line
+/// - 只把 explicit paragraph break 映射成 paragraph_break
+///
+/// 目的：
+/// 先把“结构边界”重新放出来，避免再次整页 blob。
 fn events_to_lines(
   page_index : Int,
   events : Array[@pdfc.PdfTextEvent],
 ) -> Array[PdfConvertLine] {
   let lines : Array[PdfConvertLine] = []
 
-  let mut cur = ""
-  let mut start = -1
-  let mut end = -1
-
   let mut i = 0
   while i < events.length() {
     let ev = events[i]
-    let text = ev.text
+    let text = normalize_line_text(ev.text)
 
     if text != "" {
-      if cur == "" {
-        start = i
-      }
-      cur = cur + text
-      end = i
+      lines.push({
+        text,
+        page_index,
+        line_index: lines.length(),
+        source_event_start: i,
+        source_event_end: i,
+        is_paragraph_break: false,
+      })
     }
 
-    let has_line_break = has_explicit_line_break(ev.break_kind, text)
-    let has_paragraph_break = has_explicit_paragraph_break(ev.break_kind, text)
-
-    if has_line_break || has_paragraph_break {
-      flush_line(lines, page_index, cur, start, end, has_paragraph_break)
-      cur = ""
-      start = -1
-      end = -1
+    if has_explicit_paragraph_break(ev.break_kind, ev.text) {
+      lines.push({
+        text: "",
+        page_index,
+        line_index: lines.length(),
+        source_event_start: i,
+        source_event_end: i,
+        is_paragraph_break: true,
+      })
     }
 
     i = i + 1
   }
 
-  flush_line(lines, page_index, cur, start, end, false)
   lines
 }
 
 ///|
-fn flush_line(
-  lines : Array[PdfConvertLine],
-  page_index : Int,
+fn has_explicit_line_break(
+  kind : @pdfc.PdfTextBreakKind,
   text : String,
-  start : Int,
-  end : Int,
-  paragraph_break : Bool,
-) -> Unit {
-  let t = normalize_line_text(text)
-
-  if t == "" {
-    if paragraph_break {
-      lines.push({
-        text: "",
-        page_index,
-        line_index: lines.length(),
-        source_event_start: start,
-        source_event_end: end,
-        is_paragraph_break: true,
-      })
-    }
-    return
-  }
-
-  lines.push({
-    text: t,
-    page_index,
-    line_index: lines.length(),
-    source_event_start: start,
-    source_event_end: end,
-    is_paragraph_break: paragraph_break,
-  })
-}
-
-///|
-fn has_explicit_line_break(kind : @pdfc.PdfTextBreakKind, text : String) -> Bool {
+) -> Bool {
   kind == @pdfc.PdfTextBreakKind::ExplicitLine || text == "\n"
 }
 
 ///|
-fn has_explicit_paragraph_break(kind : @pdfc.PdfTextBreakKind, text : String) -> Bool {
+fn has_explicit_paragraph_break(
+  kind : @pdfc.PdfTextBreakKind,
+  text : String,
+) -> Bool {
   kind == @pdfc.PdfTextBreakKind::ExplicitParagraph || text == "\n\n"
 }
 
 ///|
 fn normalize_line_text(text : String) -> String {
-  text
-  .replace(old="\u00A0", new=" ")
-  .replace(old="\t", new=" ")
-  .replace(old="\n", new=" ")
-  .trim()
-  .to_string()
+  normalize_pdf_text_fragment(text)
 }

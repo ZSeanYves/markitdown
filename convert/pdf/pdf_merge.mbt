@@ -26,17 +26,35 @@ fn merge_blocks(pages : Array[Array[PdfConvertBlock]]) -> Array[PdfConvertBlock]
 }
 
 ///|
+/// 这一轮别恢复同页 merge。
+/// 继续只保留保守的跨页续段。
+///|
 fn should_merge(a : PdfConvertBlock, b : PdfConvertBlock) -> Bool {
   if a.kind != PdfConvertBlockKind::Paragraph || b.kind != PdfConvertBlockKind::Paragraph {
     return false
   }
 
-  if a.page_index == b.page_index {
-    return true
+  if a.is_noise || b.is_noise {
+    return false
   }
 
-  a.page_index + 1 == b.page_index &&
-  a.is_cross_page_continuation_candidate &&
+  if a.page_index == b.page_index {
+    return false
+  }
+
+  if a.page_index + 1 != b.page_index {
+    return false
+  }
+
+  if !a.is_cross_page_continuation_candidate {
+    return false
+  }
+
+  // 下一块如果已经很像标题，就不要跨页吞并
+  if detect_heading_level(b.text, 0) > 0 {
+    return false
+  }
+
   starts_with_continuation(b.text)
 }
 
@@ -54,6 +72,7 @@ fn merge_two(a : PdfConvertBlock, b : PdfConvertBlock) -> PdfConvertBlock {
     is_cross_page_continuation_candidate: false,
     list_ordered: false,
     list_level: 0,
+    heading_level: 0,
   }
 }
 
@@ -83,7 +102,11 @@ fn join_paragraph_text(a : String, b : String) -> String {
 ///|
 fn starts_with_continuation(text : String) -> Bool {
   let t = text.trim().to_string()
-  if t == "" || is_heading_line(t) {
+  if t == "" {
+    return false
+  }
+
+  if detect_heading_level(t, 0) > 0 {
     return false
   }
 

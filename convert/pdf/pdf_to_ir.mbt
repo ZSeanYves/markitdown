@@ -10,9 +10,24 @@ fn pipeline_to_ir(
 ) -> @cor.Document {
   if pipeline_debug {
     dump_pdf_debug_stage(input_path, out_dir, "lines", render_lines(pages))
-    dump_pdf_debug_stage(input_path, out_dir, "blocks_raw", render_blocks(raw_blocks))
-    dump_pdf_debug_stage(input_path, out_dir, "blocks_classified", render_blocks(classified_blocks))
-    dump_pdf_debug_stage(input_path, out_dir, "blocks_merged", render_blocks([merged_blocks]))
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "blocks_raw",
+      render_blocks(raw_blocks),
+    )
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "blocks_classified",
+      render_blocks(classified_blocks),
+    )
+    dump_pdf_debug_stage(
+      input_path,
+      out_dir,
+      "blocks_merged",
+      render_blocks([merged_blocks]),
+    )
   }
 
   let doc = @cor.new_document()
@@ -23,12 +38,27 @@ fn pipeline_to_ir(
     }
 
     match b.kind {
-      PdfConvertBlockKind::Heading => @cor.push(doc, @cor.Block::Heading(2, t))
-      PdfConvertBlockKind::ListItem => @cor.push(doc, @cor.Block::ListItem(b.list_ordered, b.list_level, t))
+      PdfConvertBlockKind::Heading => {
+        let level = clamp_heading_level(b.heading_level)
+        @cor.push(doc, @cor.Block::Heading(level, t))
+      }
+      PdfConvertBlockKind::ListItem =>
+        @cor.push(doc, @cor.Block::ListItem(b.list_ordered, b.list_level, t))
       PdfConvertBlockKind::Paragraph => @cor.push(doc, @cor.Block::Paragraph(t))
     }
   }
   doc
+}
+
+///|
+fn clamp_heading_level(level : Int) -> Int {
+  if level <= 0 {
+    1
+  } else if level > 6 {
+    6
+  } else {
+    level
+  }
 }
 
 ///|
@@ -62,7 +92,8 @@ fn render_blocks(pages : Array[Array[PdfConvertBlock]]) -> String {
     out.push("## page " + page_blocks[0].page_index.to_string())
     for b in page_blocks {
       let kind = match b.kind {
-        PdfConvertBlockKind::Heading => "heading"
+        PdfConvertBlockKind::Heading =>
+          "heading(h" + b.heading_level.to_string() + ")"
         PdfConvertBlockKind::ListItem => "list"
         PdfConvertBlockKind::Paragraph => "paragraph"
       }

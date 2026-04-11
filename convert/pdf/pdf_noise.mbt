@@ -65,6 +65,12 @@ fn is_edge_repeated_noise(
 }
 
 ///|
+/// 放宽页码识别：
+/// - Page 2
+/// - 第 2 页
+/// - 3/10
+/// - - 2 -
+/// - 2
 fn is_probable_page_number(s : String) -> Bool {
   let t = s.trim().to_string()
   if t == "" {
@@ -97,10 +103,36 @@ fn is_probable_page_number(s : String) -> Bool {
   if slash > 0 && slash + 1 < cs.length() {
     let left = String::from_array(cs[:slash].to_array()).trim().to_string()
     let right = String::from_array(cs[slash + 1:].to_array()).trim().to_string()
-    return is_digits_only(left) && is_digits_only(right)
+    if is_digits_only(left) && is_digits_only(right) {
+      return true
+    }
   }
 
-  false
+  is_symbolic_page_number(t)
+}
+
+///|
+fn is_symbolic_page_number(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" || t.to_array().length() > 12 {
+    return false
+  }
+
+  let mut has_digit = false
+  for c in t.to_array() {
+    if c >= '0' && c <= '9' {
+      has_digit = true
+      continue
+    }
+
+    if c == ' ' || c == '-' || c == '–' || c == '—' || c == '(' || c == ')' {
+      continue
+    }
+
+    return false
+  }
+
+  has_digit
 }
 
 ///|

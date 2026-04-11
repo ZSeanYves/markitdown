@@ -31,6 +31,9 @@ priv struct PdfConvertBlock {
   is_noise : Bool
   noise_reason : String?
   is_cross_page_continuation_candidate : Bool
+
   list_ordered : Bool
   list_level : Int
+
+  heading_level : Int
 }

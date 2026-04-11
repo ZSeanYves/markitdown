@@ -22,7 +22,9 @@ pub async fn parse_pdf(
   let classified = classify_blocks(pages, raw_blocks)
   let merged = merge_blocks(classified)
 
-  pipeline_to_ir(path, out_dir, pages, raw_blocks, classified, merged, pipeline_debug)
+  pipeline_to_ir(
+    path, out_dir, pages, raw_blocks, classified, merged, pipeline_debug,
+  )
 }
 
 ///|
