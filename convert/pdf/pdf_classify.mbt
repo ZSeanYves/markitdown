@@ -403,22 +403,6 @@ fn looks_like_numbered_sentence(s : String) -> Bool {
   words.length() >= 5 || rest.to_array().length() >= 28
 }
 
-///|
-fn is_heading_line(t : String) -> Bool {
-  detect_heading_level(t, 0) > 0
-}
-
-///|
-fn ends_like_sentence(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  let cs = t.to_array()
-  let c = cs[cs.length() - 1]
-  c == '。' || c == '！' || c == '？' || c == '.' || c == '!' || c == '?'
-}
 
 ///|
 fn ends_with_soft_punct(s : String) -> Bool {

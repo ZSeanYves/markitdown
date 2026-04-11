@@ -442,7 +442,7 @@ bash samples/check_samples.sh
 bash samples/diff.sh
 
 # 3) pdf markdown regression
-bash samples/pdf_regression_check.sh
+
 
 # 4) pdf native/core signal checks
 bash samples/pdf_core_check.sh

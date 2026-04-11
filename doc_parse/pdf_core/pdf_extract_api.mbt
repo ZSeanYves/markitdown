@@ -502,12 +502,13 @@ fn extract_page_text_with_stats(
   }
 
   let coalesced_events = coalesce_text_events(events)
-  let text = merge_page_events_low_level(coalesced_events)
+  let events_with_inferred_breaks = annotate_inferred_break_kind(coalesced_events)
+  let text = merge_page_events_low_level(events_with_inferred_breaks)
   let pretty_text = text
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
   PdfPageExtractResult::{
-    events: coalesced_events,
+    events: events_with_inferred_breaks,
     stream_count,
     success_streams,
     failed_streams,
@@ -671,6 +672,43 @@ fn recover_structural_breaks_from_events(
 }
 
 ///|
+fn annotate_inferred_break_kind(
+  events : Array[PdfTextEvent],
+) -> Array[PdfTextEvent] {
+  if events.length() <= 1 {
+    return events
+  }
+  let out : Array[PdfTextEvent] = []
+  let mut prev_text : String? = None
+  for ev in events {
+    let cur_text = ev.text
+    if cur_text == "" {
+      out.push(ev)
+      continue
+    }
+    if cur_text == "\n" || cur_text == "\n\n" {
+      out.push(ev)
+      prev_text = None
+      continue
+    }
+
+    let break_kind = match prev_text {
+      Some(prev) =>
+        if ev.break_kind == PdfTextBreakKind::None &&
+          infer_structural_break_between_events(prev, cur_text) != None {
+          PdfTextBreakKind::Inferred
+        } else {
+          ev.break_kind
+        }
+      None => ev.break_kind
+    }
+    out.push({ ..ev, break_kind })
+    prev_text = Some(cur_text)
+  }
+  out
+}
+
+///|
 fn recover_structural_breaks_in_text(s : String) -> String {
   if s == "\n" || s == "\n\n" || s == "" {
     return s
@@ -712,11 +750,14 @@ fn infer_structural_break_between_events(
   if p == "" || c == "" {
     return None
   }
-  if ends_with_sentence_punct(p) && starts_like_new_block(c) {
-    return Some("\n\n")
-  }
-  if starts_like_new_block(c) && p.to_array().length() >= 16 {
+  if looks_like_heading_boundary(p, c) {
     return Some("\n")
+  }
+  if ends_with_sentence_punct(p) &&
+    starts_like_new_block(c) &&
+    p.to_array().length() >= 32 &&
+    c.to_array().length() >= 16 {
+    return Some("\n\n")
   }
   None
 }
@@ -735,6 +776,27 @@ fn starts_like_new_block(s : String) -> Bool {
     return true
   }
   first == '(' || first == '（' || first == '[' || first == '【'
+}
+
+///|
+fn looks_like_heading_boundary(prev : String, cur : String) -> Bool {
+  if !starts_like_new_block(cur) {
+    return false
+  }
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+  if ends_with_sentence_punct(p) {
+    return false
+  }
+  let pn = p.to_array().length()
+  let cn = c.to_array().length()
+  if pn < 3 || pn > 40 || cn < 12 {
+    return false
+  }
+  !p.contains("  ")
 }
 
 ///|
