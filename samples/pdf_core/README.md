@@ -13,6 +13,7 @@ This generates:
 - `pdf_native_real_en_single_page.pdf`
 - `pdf_native_real_zh_single_page.pdf`
 - `pdf_native_real_text_multipage.pdf`
+- `pdf_native_real_normal_multipage_current_boundary.pdf`
 - `pdf_native_real_tounicode_basic.pdf`
 - `pdf_native_real_header_footer_simple.pdf`
 - `pdf_native_real_xref_stream_simple.pdf`
