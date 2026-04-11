@@ -16,8 +16,17 @@ fn classify_convert_blocks(
     while i < blocks.length() {
       let block = blocks[i]
       let t = block.text.trim().to_string()
-      let noise = is_probable_page_number(t) ||
-        is_repeated_edge_noise(t, i, blocks.length(), head_keys, tail_keys)
+      let noise_reason = classify_noise_reason(
+        t,
+        i,
+        blocks.length(),
+        head_keys,
+        tail_keys,
+      )
+      let noise = match noise_reason {
+        Some(_) => true
+        None => false
+      }
 
       let continuation = !noise &&
         block.kind == PdfConvertBlockKind::Paragraph &&
@@ -33,6 +42,7 @@ fn classify_convert_blocks(
         line_end: block.line_end,
         char_count: block.char_count,
         is_noise: noise,
+        noise_reason,
         is_cross_page_continuation_candidate: continuation,
       })
 
@@ -44,6 +54,30 @@ fn classify_convert_blocks(
   }
 
   out
+}
+
+///|
+fn classify_noise_reason(
+  text : String,
+  idx : Int,
+  page_len : Int,
+  head_keys : Array[String],
+  tail_keys : Array[String],
+) -> String? {
+  let t = text.trim().to_string()
+  if t == "" {
+    return Some("empty")
+  }
+
+  if is_probable_page_number(t) {
+    return Some("page_number")
+  }
+
+  if is_high_confidence_repeated_edge_noise(t, idx, page_len, head_keys, tail_keys) {
+    return Some("repeated_edge")
+  }
+
+  None
 }
 
 ///|

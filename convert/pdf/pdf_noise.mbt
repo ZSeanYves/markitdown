@@ -44,13 +44,22 @@ fn detect_repeated_block_noise_keys(
 }
 
 ///|
-fn is_repeated_edge_noise(
+fn is_high_confidence_repeated_edge_noise(
   s : String,
   idx : Int,
   page_len : Int,
   head_keys : Array[String],
   tail_keys : Array[String],
 ) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if !is_short_noise_like_text(t) {
+    return false
+  }
+
   let key = normalize_noise_key(s)
   if key == "" {
     return false
@@ -61,6 +70,27 @@ fn is_repeated_edge_noise(
   }
 
   idx == page_len - 1 && contains_string(tail_keys, key)
+}
+
+///|
+fn is_short_noise_like_text(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+
+  if n <= 4 {
+    return true
+  }
+
+  if n > 40 {
+    return false
+  }
+
+  if ends_like_sentence(t) {
+    return false
+  }
+
+  // repeated header/footer candidates should be short and low-complexity.
+  count_words(t) <= 6
 }
 
 ///|
@@ -169,4 +199,15 @@ fn is_digits_only(s : String) -> Bool {
     }
   }
   true
+}
+
+///|
+fn count_words(s : String) -> Int {
+  let mut n = 0
+  for sv in s.split(" ") {
+    if sv.to_string().trim().to_string() != "" {
+      n = n + 1
+    }
+  }
+  n
 }

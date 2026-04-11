@@ -37,5 +37,6 @@ priv struct PdfConvertBlock {
   line_end : Int
   char_count : Int
   is_noise : Bool
+  noise_reason : String?
   is_cross_page_continuation_candidate : Bool
 }
