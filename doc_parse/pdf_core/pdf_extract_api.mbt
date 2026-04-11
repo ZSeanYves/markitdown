@@ -6,25 +6,25 @@ pub struct PdfTextEvent {
 }
 
 ///|
-enum PdfFragmentBoundaryKind {
+priv enum PdfFragmentBoundaryKind {
   EventText
   SyntheticInlineGap
-}
+}derive(Eq)
 
 ///|
-struct PdfPageFragment {
+priv struct PdfPageFragment {
   text : String
-  source_event_index : Int
-  font_name : String?
-  font_size : Double?
-  gap_from_prev : Double
+  _source_event_index : Int
+  _font_name : String?
+  _font_size : Double?
+  _gap_from_prev : Double
   boundary_kind : PdfFragmentBoundaryKind
 }
 
 ///|
-struct PdfPageLine {
-  line_index : Int
-  baseline_y : Double?
+priv struct PdfPageLine {
+  _line_index : Int
+  _baseline_y : Double?
   fragments : Array[PdfPageFragment]
 }
 
@@ -506,7 +506,7 @@ fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
 
 ///|
 fn build_page_lines_from_events(events : Array[PdfTextEvent]) -> Array[PdfPageLine] {
-  let lines : Array[PdfPageLine] = [{ line_index: 0, baseline_y: None, fragments: [] }]
+  let lines : Array[PdfPageLine] = [{ _line_index: 0, _baseline_y: None, fragments: [] }]
   let mut current_line = 0
   let mut prev_text = ""
   let mut prev_was_text = false
@@ -542,19 +542,19 @@ fn build_page_lines_from_events(events : Array[PdfTextEvent]) -> Array[PdfPageLi
     if prev_was_text && should_insert_event_inline_space(prev_text, cur) {
       lines[current_line].fragments.push({
         text: " ",
-        source_event_index: event_index,
-        font_name: event.font_name,
-        font_size: event.font_size,
-        gap_from_prev: 1.0,
+        _source_event_index: event_index,
+        _font_name: event.font_name,
+        _font_size: event.font_size,
+        _gap_from_prev: 1.0,
         boundary_kind: PdfFragmentBoundaryKind::SyntheticInlineGap,
       })
     }
     lines[current_line].fragments.push({
       text: cur,
-      source_event_index: event_index,
-      font_name: event.font_name,
-      font_size: event.font_size,
-      gap_from_prev: 0.0,
+      _source_event_index: event_index,
+      _font_name: event.font_name,
+      _font_size: event.font_size,
+      _gap_from_prev: 0.0,
       boundary_kind: PdfFragmentBoundaryKind::EventText,
     })
     prev_text = cur
@@ -568,7 +568,7 @@ fn build_page_lines_from_events(events : Array[PdfTextEvent]) -> Array[PdfPageLi
 fn ensure_next_line(lines : Array[PdfPageLine], current_line : Int) -> Int {
   let next_index = current_line + 1
   if next_index >= lines.length() {
-    lines.push({ line_index: next_index, baseline_y: None, fragments: [] })
+    lines.push({ _line_index: next_index, _baseline_y: None, fragments: [] })
   }
   next_index
 }
