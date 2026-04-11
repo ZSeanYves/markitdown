@@ -1,10 +1,18 @@
 ///|
+priv struct PdfExtractResult {
+  _backend_name : String
+  text : String
+  quality_accepted : Bool
+  _native_stats : @pdfc.PdfNativeDocumentResult?
+}
+
+///|
 priv struct PdfConvertLine {
   text : String
+  page_index : Int
+  line_index : Int
   source_event_start : Int
   source_event_end : Int
-  font_name : String?
-  font_size : Double?
   is_explicit_break : Bool
 }
 
@@ -16,7 +24,7 @@ priv struct PdfConvertPage {
 
 ///|
 priv enum PdfConvertBlockKind {
-  StandaloneLine
+  Heading
   Paragraph
 }
 
@@ -27,10 +35,8 @@ priv struct PdfConvertBlock {
   page_index : Int
   line_start : Int
   line_end : Int
-  line_count : Int
   char_count : Int
-  is_heading_candidate : Bool
-  is_list_candidate : Bool
-  is_noise_candidate : Bool
+  is_noise : Bool
+  noise_reason : String?
   is_cross_page_continuation_candidate : Bool
 }
