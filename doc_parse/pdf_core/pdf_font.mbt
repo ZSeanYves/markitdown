@@ -102,12 +102,10 @@ pub fn resolve_page_fonts(
     _ => return out
   }
 
-  let candidate_names = [
-    "F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "TT0", "TT1",
-  ]
-  for name in candidate_names {
-    match font_map.get(name) {
-      Some(PdfValue::Ref(obj, gen)) => {
+  for entry in font_map {
+    let (name, font_val) = entry
+    match font_val {
+      PdfValue::Ref(obj, gen) => {
         let mut subtype : String? = None
         let mut encoding : String? = None
         let mut to_unicode_obj : Int? = None
