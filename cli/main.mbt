@@ -101,11 +101,7 @@ async fn main {
               }
 
               let ocr_enabled = parse_bool_flag(sub.args.get("ocr"))
-              let pdf_mode_opt = if ocr_enabled {
-                Some("ocr")
-              } else {
-                None
-              }
+              let pdf_mode_opt = if ocr_enabled { Some("ocr") } else { None }
               let pdf_backend_opt : String? = match
                 sub.args.get("pdf-backend") {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
@@ -126,8 +122,9 @@ async fn main {
                 mh0
               }
 
-              let (pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug) =
-                parse_debug_modes(sub.args.get("debug"))
+              let (pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug) = parse_debug_modes(
+                sub.args.get("debug"),
+              )
               cmd_convert(
                 input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt,
                 pdf_backend_policy_opt, pdf_extract_debug, pdf_dump_selected_raw,

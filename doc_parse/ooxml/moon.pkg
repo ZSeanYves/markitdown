@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/src/zip" @zip,
+  "ZSeanYves/markitdown/doc_parse/zip" @zip,
 }
 
 options(

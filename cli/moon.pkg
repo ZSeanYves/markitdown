@@ -1,6 +1,6 @@
 import {
-  "ZSeanYves/markitdown/src/core" @cor,
-  "ZSeanYves/markitdown/src/convert" @conv,
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/convert" @conv,
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,

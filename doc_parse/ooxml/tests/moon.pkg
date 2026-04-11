@@ -1,4 +1,4 @@
 import {
   "moonbitlang/x/fs" @fs,
-  "ZSeanYves/markitdown/src/ooxml" @ox,
+  "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
 } for "test"

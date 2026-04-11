@@ -1,4 +1,4 @@
 import {
   "moonbitlang/x/fs" @fs,
-  "ZSeanYves/markitdown/src/zip" @zip,
+  "ZSeanYves/markitdown/doc_parse/zip" @zip,
 } for "test"

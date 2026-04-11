@@ -57,6 +57,7 @@ async fn cmd_convert(
   }
 }
 
+///|
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
 }
