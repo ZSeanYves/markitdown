@@ -85,19 +85,17 @@ moon run cli -- convert samples/html/html_simple.html -o out/html_simple.md --ou
 - `--out-dir <dir>`：资源输出目录
 - `--max-heading <1..6>`：限制标题级别
 - `--ocr [1|true|on|yes]`：PDF 启用 OCR 增强
-- `--pdf-backend <...>`：指定 PDF 后端
-- `--pdf-backend-policy native-gated`：启用 gated 策略
 - `--debug <extract|dump-raw|pipeline|all>`：调试输出
 
 ---
 
-## 4. PDF：hybrid 现状
+## 4. PDF：native-only 主流程
 
-PDF 目前采用 hybrid 方案：
+PDF 当前主流程为 native-only：
 
-- 外部后端仍是主生产路径；
-- native 能力持续扩展中，并已接入主流程的一部分分支；
-- native-gated 决策用于逐步把可控样例切向 native。
+- PDF 文本提取仅走 `doc_parse/pdf_core`；
+- external backend 选路与 gate 逻辑已移除；
+- OCR 作为可选增强分支保留。
 
 ### 当前 native 已覆盖的基础能力（摘要）
 
@@ -129,27 +127,16 @@ bash samples/diff.sh
 ### 5.2 PDF native 专项
 
 ```bash
-# native 能力回归（PDF -> Markdown，与 expected 对比）
-bash samples/pdf_native_check.sh
-
-# gate 决策回归（检查 selected/reason，不做 expected diff）
-bash samples/pdf_native_gate_check.sh
+# PDF 主流程回归（PDF -> Markdown，与 expected 对比）
+bash samples/pdf_regression_check.sh
 ```
 
 ### 5.3 `samples/pdf_core/` 分层约定
 
-- `samples/pdf_core/expected/`：native 黄金输出（`*.expected.md`）
-- `samples/pdf_core/native/`：native 能力验证 PDF（`pdf_native_real_*.pdf`）
-- `samples/pdf_core/gate/`：gate 决策样例 PDF（`gated_should_use_*.pdf`）
+- `samples/pdf_core/expected/`：PDF 主流程黄金输出（`*.expected.md`）
+- `samples/pdf_core/native/`：PDF 主流程验证样例（`pdf_native_real_*.pdf`）
 
-该分层用于避免：
-
-- native 内容正确性验证 与
-- gate 策略正确性验证
-
-在样例与脚本上的职责混杂。
-
-另外，`samples/pdf_core/native/` 与 `samples/pdf_core/gate/` 的 PDF 由 `generate_phase7_native_fixtures.py` 按需生成，仓库不再提交 PDF 原件。
+`native/` 与 `expected/` 的样例可由 `generate_phase7_native_fixtures.py` 按需生成。
 
 ---
 
@@ -172,27 +159,24 @@ moon test --update
 
 ---
 
-## 7. 外部依赖说明（PDF）
+## 7. OCR 依赖说明（PDF 可选增强）
 
-PDF 外部路径通常依赖以下工具之一：
+若启用 OCR 增强（`--ocr`），通常依赖：
 
-- `pdftotext`（Poppler）
-- `mutool`（MuPDF）
+- `ocrmypdf`
+- `tesseract`
 
 安装示例：
 
-- macOS: `brew install poppler mupdf`
-- Ubuntu/Debian: `sudo apt-get install poppler-utils mupdf-tools`
-- Arch: `sudo pacman -S poppler mupdf-tools`
+- macOS: `brew install ocrmypdf tesseract`
+- Ubuntu/Debian: `sudo apt-get install ocrmypdf tesseract-ocr`
 
 ---
 
 ## 8. 维护建议
 
 - 目录重构后，所有脚本与文档避免再引用 `src/cli`；统一使用 `cli` package 路径。
-- 新增 PDF native 样例时，优先明确其归属：
-  - 若验证提取质量：放 `native/` + `expected/`
-  - 若验证 gated 决策：放 `gate/`
+- 新增 PDF 样例时，优先放入 `native/` + `expected/` 作为主流程回归。
 - 如果新增可程序化生成的 fixture，优先收敛到：
   - `samples/pdf_core/generate_phase7_native_fixtures.py`
 

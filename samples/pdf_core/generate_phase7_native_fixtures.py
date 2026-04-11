@@ -4,7 +4,6 @@ from pathlib import Path
 
 FIXTURE_ROOT = Path(__file__).resolve().parent
 NATIVE_DIR = FIXTURE_ROOT / "native"
-GATE_DIR = FIXTURE_ROOT / "gate"
 EXPECTED_DIR = FIXTURE_ROOT / "expected"
 
 
@@ -295,39 +294,11 @@ def main() -> None:
         "pdf_native_real_mixed_language_simple": "Hello 你好 simple\n",
     }
 
-    gate_names = [
-        "gated_should_use_native_en_single_page",
-        "gated_should_use_native_tounicode_basic",
-        "gated_should_use_native_normal_multipage_current_boundary",
-        "gated_should_use_native_xref_stream_simple",
-        "gated_should_use_native_xref_stream_multipage",
-        "gated_should_use_native_objstm_simple",
-        "gated_should_use_native_objstm_multipage",
-        "gated_should_use_native_xref_objstm_simple_text",
-        "gated_should_use_native_xref_objstm_multipage",
-        "gated_should_use_native_simple_font_fallback",
-    ]
-
-    gate_bytes = {
-        "gated_should_use_native_en_single_page": fixtures_native["pdf_native_real_en_single_page"],
-        "gated_should_use_native_tounicode_basic": fixtures_native["pdf_native_real_tounicode_basic"],
-        "gated_should_use_native_normal_multipage_current_boundary": fixtures_native["pdf_native_real_normal_multipage_current_boundary"],
-        "gated_should_use_native_xref_stream_simple": fixtures_native["pdf_native_real_xref_stream_simple"],
-        "gated_should_use_native_xref_stream_multipage": fixtures_native["pdf_native_real_xref_stream_multipage"],
-        "gated_should_use_native_objstm_simple": fixtures_native["pdf_native_real_objstm_simple"],
-        "gated_should_use_native_objstm_multipage": fixtures_native["pdf_native_real_objstm_multipage"],
-        "gated_should_use_native_xref_objstm_simple_text": fixtures_native["pdf_native_real_xref_objstm_simple_text"],
-        "gated_should_use_native_xref_objstm_multipage": fixtures_native["pdf_native_real_xref_objstm_multipage"],
-        "gated_should_use_native_simple_font_fallback": fixtures_native["pdf_native_real_simple_font_fallback"],
-        "gated_should_use_external_encrypted_marker": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Encrypt 9 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\nxref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n127\n%%EOF\n",
-    }
-
     for name, data in fixtures_native.items():
         write(NATIVE_DIR / f"{name}.pdf", data)
     for name, text in expected.items():
         write_text(EXPECTED_DIR / f"{name}.expected.md", text)
-    for name in gate_names + ["gated_should_use_external_encrypted_marker"]:
-        write(GATE_DIR / f"{name}.pdf", gate_bytes[name])
+
 
 
 if __name__ == "__main__":
