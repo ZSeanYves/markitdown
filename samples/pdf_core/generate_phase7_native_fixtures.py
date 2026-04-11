@@ -284,13 +284,13 @@ def main() -> None:
     expected = {
         "pdf_native_real_en_single_page": "Hello native english\n",
         "pdf_native_real_tounicode_basic": "Cafe ToUnicode\n",
-        "pdf_native_real_normal_multipage_current_boundary": "Page one normal\n\nPage two normal\n",
+        "pdf_native_real_normal_multipage_current_boundary": "Page one normal\fPage two normal\n",
         "pdf_native_real_xref_stream_simple": "Hello xref stream\n",
-        "pdf_native_real_xref_stream_multipage": "Xref page one\n\nXref page two\n",
+        "pdf_native_real_xref_stream_multipage": "Xref page one\fXref page two\n",
         "pdf_native_real_objstm_simple": "Hello objstm\n",
-        "pdf_native_real_objstm_multipage": "Objstm page one\n\nObjstm page two\n",
+        "pdf_native_real_objstm_multipage": "Objstm page one\fObjstm page two\n",
         "pdf_native_real_xref_objstm_simple_text": "Hello xref plus objstm\n",
-        "pdf_native_real_xref_objstm_multipage": "Xref objstm page one\n\nXref objstm page two\n",
+        "pdf_native_real_xref_objstm_multipage": "Xref objstm page one\fXref objstm page two\n",
         "pdf_native_real_simple_font_fallback": "Dash - fallback\n",
         "pdf_native_real_mixed_language_simple": "Hello 你好 simple\n",
     }
