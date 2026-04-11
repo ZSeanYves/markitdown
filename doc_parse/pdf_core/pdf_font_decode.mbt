@@ -147,6 +147,21 @@ pub fn decode_text_operand_with_font(
   font_ref : PdfFontRef,
   operand : PdfContentOperand,
 ) -> String raise {
+  let string_to_pdf_bytes = fn(s : String) -> Bytes {
+    let out : Array[Byte] = []
+    for ch in s.to_array() {
+      let cp = ch.to_int()
+      if cp <= 0xFF {
+        out.push(cp.to_byte())
+      } else {
+        for b in @utf8.encode(ch.to_string()) {
+          out.push(b)
+        }
+      }
+    }
+    Bytes::from_array(out)
+  }
+
   let (cmap, code_widths) = load_tounicode(doc, font_ref)
 
   let decode_bytes = fn(bs : Bytes) -> String {
@@ -200,14 +215,14 @@ pub fn decode_text_operand_with_font(
   }
 
   match operand {
-    PdfContentOperand::String(s) => decode_bytes(@utf8.encode(s))
+    PdfContentOperand::String(s) => decode_bytes(string_to_pdf_bytes(s))
     PdfContentOperand::HexString(bs) => decode_bytes(bs)
     PdfContentOperand::Array(items) => {
       let mut out = ""
       for item in items {
         match item {
           PdfContentOperand::String(s) =>
-            out = out + decode_bytes(@utf8.encode(s))
+            out = out + decode_bytes(string_to_pdf_bytes(s))
           PdfContentOperand::HexString(bs) => out = out + decode_bytes(bs)
           _ => ()
         }
