@@ -6,6 +6,29 @@ pub struct PdfTextEvent {
 }
 
 ///|
+enum PdfFragmentBoundaryKind {
+  EventText
+  SyntheticInlineGap
+}
+
+///|
+struct PdfPageFragment {
+  text : String
+  source_event_index : Int
+  font_name : String?
+  font_size : Double?
+  gap_from_prev : Double
+  boundary_kind : PdfFragmentBoundaryKind
+}
+
+///|
+struct PdfPageLine {
+  line_index : Int
+  baseline_y : Double?
+  fragments : Array[PdfPageFragment]
+}
+
+///|
 pub struct PdfPageExtractStats {
   page_index : Int
   page_obj : Int
@@ -476,46 +499,120 @@ fn merge_page_events_low_level(events : Array[PdfTextEvent]) -> String {
 }
 
 fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
-  let mut out = ""
+  let lines = build_page_lines_from_events(events)
+  let joined = join_page_line_fragments(lines)
+  render_pretty_page_text(joined)
+}
+
+///|
+fn build_page_lines_from_events(events : Array[PdfTextEvent]) -> Array[PdfPageLine] {
+  let lines : Array[PdfPageLine] = [{ line_index: 0, baseline_y: None, fragments: [] }]
+  let mut current_line = 0
   let mut prev_text = ""
   let mut prev_was_text = false
-  for ev in events {
-    let mut cur = ev.text
+  let mut event_index = 0
+  while event_index < events.length() {
+    let event = events[event_index]
+    let cur = event.text
     if cur == "" {
+      event_index = event_index + 1
       continue
     }
     if cur == "\n\n" {
-      out = out + cur
-      prev_was_text = false
+      current_line = ensure_next_line(lines, current_line)
+      current_line = ensure_next_line(lines, current_line)
       prev_text = ""
+      prev_was_text = false
+      event_index = event_index + 1
       continue
     }
-
-    if prev_was_text &&
-      !out.has_suffix("\n") &&
-      should_insert_event_paragraph_gap(prev_text, cur) {
-      out = out + "\n\n"
+    if cur == "\n" {
+      current_line = ensure_next_line(lines, current_line)
+      prev_text = ""
+      prev_was_text = false
+      event_index = event_index + 1
+      continue
     }
-
-    let join_boundary = prev_was_text &&
-      !out.has_suffix("\n") &&
-      should_join_event_boundary(prev_text, cur)
-    if join_boundary {
-      out = trim_right_inline_space(out)
-      cur = trim_left_inline_space(cur)
+    if prev_was_text && should_insert_event_paragraph_gap(prev_text, cur) {
+      current_line = ensure_next_line(lines, current_line)
+      current_line = ensure_next_line(lines, current_line)
+      prev_text = ""
+      prev_was_text = false
     }
-
-    if prev_was_text &&
-      !out.has_suffix("\n") &&
-      should_insert_event_inline_space(prev_text, cur) {
-      out = out + " "
+    if prev_was_text && should_insert_event_inline_space(prev_text, cur) {
+      lines[current_line].fragments.push({
+        text: " ",
+        source_event_index: event_index,
+        font_name: event.font_name,
+        font_size: event.font_size,
+        gap_from_prev: 1.0,
+        boundary_kind: PdfFragmentBoundaryKind::SyntheticInlineGap,
+      })
     }
-
-    out = out + cur
+    lines[current_line].fragments.push({
+      text: cur,
+      source_event_index: event_index,
+      font_name: event.font_name,
+      font_size: event.font_size,
+      gap_from_prev: 0.0,
+      boundary_kind: PdfFragmentBoundaryKind::EventText,
+    })
     prev_text = cur
     prev_was_text = true
+    event_index = event_index + 1
+  }
+  lines
+}
+
+///|
+fn ensure_next_line(lines : Array[PdfPageLine], current_line : Int) -> Int {
+  let next_index = current_line + 1
+  if next_index >= lines.length() {
+    lines.push({ line_index: next_index, baseline_y: None, fragments: [] })
+  }
+  next_index
+}
+
+///|
+fn join_page_line_fragments(lines : Array[PdfPageLine]) -> Array[PdfPageLine] {
+  let out : Array[PdfPageLine] = []
+  for line in lines {
+    let joined : Array[PdfPageFragment] = []
+    let n = line.fragments.length()
+    let mut i = 0
+    while i < n {
+      let frag = line.fragments[i]
+      if frag.boundary_kind == PdfFragmentBoundaryKind::SyntheticInlineGap &&
+        frag.text == " " &&
+        i > 0 &&
+        joined.length() > 0 &&
+        i + 1 < n {
+        let left = joined[joined.length() - 1]
+        let right = line.fragments[i + 1]
+        if should_join_fragments_within_line(left.text, right.text) {
+          i = i + 1
+          continue
+        }
+      }
+      joined.push(frag)
+      i = i + 1
+    }
+    out.push({ ..line, fragments: joined })
   }
   out
+}
+
+///|
+fn render_pretty_page_text(lines : Array[PdfPageLine]) -> String {
+  let texts : Array[String] = []
+  for line in lines {
+    let mut line_text = ""
+    for frag in line.fragments {
+      line_text = line_text + frag.text
+    }
+    texts.push(trim_right_inline_space(line_text))
+  }
+  texts.join("\n")
 }
 
 ///|
@@ -541,9 +638,6 @@ fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
   if p == "" || c == "" {
     return false
   }
-  if should_join_event_boundary(p, c) {
-    return false
-  }
   if p.has_suffix("-") || p.has_suffix("—") || p.has_suffix("–") {
     return false
   }
@@ -558,9 +652,9 @@ fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
 }
 
 ///|
-fn should_join_event_boundary(prev : String, cur : String) -> Bool {
-  let p = prev.trim().to_string()
-  let c = cur.trim().to_string()
+fn should_join_fragments_within_line(left : String, right : String) -> Bool {
+  let p = trim_right_inline_space(left).trim().to_string()
+  let c = trim_left_inline_space(right).trim().to_string()
   if p == "" || c == "" {
     return false
   }
