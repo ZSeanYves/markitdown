@@ -12,7 +12,7 @@ pub struct PdfTextEvent {
 }
 
 ///|
-pub enum PdfTextBreakKind {
+pub(all) enum PdfTextBreakKind {
   None
   ExplicitLine
   ExplicitParagraph

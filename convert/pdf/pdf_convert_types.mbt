@@ -19,7 +19,7 @@ priv enum PdfConvertBlockKind {
   Heading
   ListItem
   Paragraph
-}
+} derive(Eq)
 
 ///|
 priv struct PdfConvertBlock {
