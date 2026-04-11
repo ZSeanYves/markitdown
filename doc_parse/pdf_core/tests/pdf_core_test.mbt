@@ -928,3 +928,86 @@ test "pdf phase7b multipage current boundary extracts both pages" {
   assert_eq(text.contains("Page One"), true)
   assert_eq(text.contains("Page Two"), true)
 }
+
+///|
+test "pdf native result smoke single page success stats" {
+  let bs = build_min_pdf()
+  let doc = @pdfc.open_pdf(bs)
+  let res = @pdfc.extract_text_from_document_result(doc)
+  assert_eq(res.page_count, 1)
+  assert_eq(res.success_pages, 1)
+  assert_eq(res.failed_pages, 0)
+  assert_eq(res.is_empty, false)
+  assert_eq(res.is_fatal, false)
+}
+
+///|
+test "pdf native result smoke multipage and stream containers" {
+  let two_pages = @pdfc.extract_text_from_document_result(
+    @pdfc.open_pdf(build_pdf_with_two_pages()),
+  )
+  assert_eq(two_pages.page_count, 2)
+  assert_eq(two_pages.success_pages, 2)
+  assert_eq(two_pages.failed_pages, 0)
+  assert_eq(two_pages.is_fatal, false)
+
+  let xref = @pdfc.extract_text_from_document_result(
+    @pdfc.open_pdf(build_pdf_with_xref_stream()),
+  )
+  assert_eq(xref.page_count, 1)
+  assert_eq(xref.is_empty, false)
+  assert_eq(xref.is_fatal, false)
+
+  let objstm = @pdfc.extract_text_from_document_result(
+    @pdfc.open_pdf(build_pdf_with_xref_stream_objstm()),
+  )
+  assert_eq(objstm.page_count, 1)
+  assert_eq(objstm.is_empty, false)
+  assert_eq(objstm.is_fatal, false)
+}
+
+///|
+test "pdf native result smoke simple font fallback reports non-empty" {
+  let bs = build_pdf_with_font_and_contents(
+    "BT\n/F1 12 Tf\n<9620> Tj\nET\n", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+  )
+  let res = @pdfc.extract_text_from_document_result(@pdfc.open_pdf(bs))
+  assert_eq(res.page_count, 1)
+  assert_eq(res.non_whitespace_chars > 0, true)
+  assert_eq(res.is_empty, false)
+  assert_eq(res.is_fatal, false)
+}
+
+///|
+test "pdf native result marks page stream all-fail as fatal empty" {
+  let broken = Bytes::from_array([
+    'B'.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    '{'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    '('.to_int().to_byte(),
+    'B'.to_int().to_byte(),
+    'r'.to_int().to_byte(),
+    'o'.to_int().to_byte(),
+    'k'.to_int().to_byte(),
+    'e'.to_int().to_byte(),
+    'n'.to_int().to_byte(),
+    ')'.to_int().to_byte(),
+    ' '.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    'j'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    'E'.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+  ])
+  let bs = build_pdf_with_contents_bytes("4 0 R", [broken])
+  let res = @pdfc.extract_text_from_document_result(@pdfc.open_pdf(bs))
+  assert_eq(res.page_count, 1)
+  assert_eq(res.failed_pages, 1)
+  assert_eq(res.failed_streams, 1)
+  assert_eq(res.is_empty, true)
+  assert_eq(res.is_fatal, true)
+  assert_eq(res.fatal_reason.unwrap_or(""), "empty_text_with_pages")
+}

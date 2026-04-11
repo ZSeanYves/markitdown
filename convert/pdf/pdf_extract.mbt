@@ -6,6 +6,7 @@ priv struct PdfExtractResult {
   stderr : String
   quality : PdfTextQuality
   quality_accepted : Bool
+  native_stats : @pdfc.PdfDocumentExtractResult?
 }
 
 ///|
@@ -64,14 +65,78 @@ fn extract_pdf_text_native(
 
   let doc = @pdfc.open_pdf(bytes) catch { e => return Err(map_native_error(e)) }
 
-  let text = @pdfc.extract_text_from_document(doc) catch {
+  let native = @pdfc.extract_text_from_document_result(doc) catch {
     e => return Err(map_native_error(e))
   }
+  let text = native.text
 
   let cleaned = cleanup_pdf_text(text)
   let quality = analyze_pdf_text_quality(cleaned)
   if debug {
     println("[pdf-debug] selected backend=pdf-native")
+    println(
+      "[pdf-debug] native_stats pages=" +
+      native.page_count.to_string() +
+      " success_pages=" +
+      native.success_pages.to_string() +
+      " failed_pages=" +
+      native.failed_pages.to_string() +
+      " success_streams=" +
+      native.success_streams.to_string() +
+      " failed_streams=" +
+      native.failed_streams.to_string() +
+      " events=" +
+      native.event_count.to_string() +
+      " non_ws_chars=" +
+      native.non_whitespace_chars.to_string() +
+      " empty=" +
+      native.is_empty.to_string() +
+      " low_signal=" +
+      native.is_low_signal.to_string() +
+      " fatal=" +
+      native.is_fatal.to_string(),
+    )
+    for p in native.page_stats {
+      println(
+        "[pdf-debug] page[" +
+        p.page_index.to_string() +
+        "] streams=" +
+        p.stream_count.to_string() +
+        " ok=" +
+        p.success_streams.to_string() +
+        " fail=" +
+        p.failed_streams.to_string() +
+        " events=" +
+        p.event_count.to_string() +
+        " text_len=" +
+        p.text_length.to_string() +
+        " failed=" +
+        p.is_failed.to_string(),
+      )
+    }
+  }
+
+  if native.is_fatal {
+    return Err(
+      @cor.AppError(
+        "pdf-native fatal extraction: " +
+        native.fatal_reason.unwrap_or("unknown_reason"),
+      ),
+    )
+  }
+  if native.is_low_signal {
+    return Err(
+      @cor.AppError(
+        "pdf-native low-signal extraction: pages=" +
+        native.page_count.to_string() +
+        " failed_pages=" +
+        native.failed_pages.to_string() +
+        " events=" +
+        native.event_count.to_string() +
+        " non_ws_chars=" +
+        native.non_whitespace_chars.to_string(),
+      ),
+    )
   }
 
   Ok({
@@ -81,5 +146,6 @@ fn extract_pdf_text_native(
     stderr: "",
     quality,
     quality_accepted: !is_quality_failure_for_normal_text(quality),
+    native_stats: Some(native),
   })
 }
