@@ -19,6 +19,21 @@ pub async fn parse_pdf(
 
   let mode = parse_pdf_enhance_mode(enhance_mode)
 
+  match mode {
+    PdfEnhanceMode::TextOnly =>
+      match extracted._native_stats {
+        Some(native) =>
+          return native_document_events_to_ir_document_with_debug(
+            path,
+            out_dir,
+            native,
+            pipeline_debug,
+          )
+        None => ()
+      }
+    PdfEnhanceMode::Experimental => ()
+  }
+
   let selected_raw = match mode {
     PdfEnhanceMode::TextOnly => extracted.text
     PdfEnhanceMode::Experimental =>
