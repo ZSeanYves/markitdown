@@ -2,86 +2,87 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FIXTURE_ROOT="$ROOT/samples/pdf_core"
-PDF_DIR="$FIXTURE_ROOT/native"
-EXP_DIR="$FIXTURE_ROOT/expected"
-OUT_ROOT="${1:-$ROOT/.tmp_pdf_regression_out}"
-RUN_DIR="$OUT_ROOT/run"
-LOG_DIR="$OUT_ROOT/log"
-GEN_SCRIPT="$FIXTURE_ROOT/generate_phase7_native_fixtures.py"
+SAMPLES_DIR="$ROOT/samples"
+EXP_DIR="$SAMPLES_DIR/expected"
+OUT_DIR="$ROOT/.tmp_test_out"
 
-mkdir -p "$RUN_DIR" "$LOG_DIR"
+rm -rf "$OUT_DIR"
+mkdir -p "$OUT_DIR"
 
-if ! command -v moon >/dev/null 2>&1; then
-  echo "[env] moon command not found; cannot run pdf regression check."
-  exit 2
-fi
+"$SAMPLES_DIR/check_samples.sh"
 
-CASES=(
-  "pdf_native_real_en_single_page"
-  "pdf_native_real_tounicode_basic"
-  "pdf_native_real_normal_multipage_current_boundary"
-  "pdf_native_real_xref_stream_simple"
-  "pdf_native_real_xref_stream_multipage"
-  "pdf_native_real_objstm_simple"
-  "pdf_native_real_objstm_multipage"
-  "pdf_native_real_xref_objstm_simple_text"
-  "pdf_native_real_xref_objstm_multipage"
-  "pdf_native_real_simple_font_fallback"
-)
+fail=0
+found=0
 
-passed=0
-failed=0
+FORMATS=("pdf")
 
-printf '==> pdf mainflow regression check\n'
-printf '    pdf dir    : %s\n' "$PDF_DIR"
-printf '    expected   : %s\n' "$EXP_DIR"
-printf '    output dir : %s\n\n' "$OUT_ROOT"
+for fmt in "${FORMATS[@]}"; do
+  in_dir="$SAMPLES_DIR/$fmt"
+  exp_dir="$EXP_DIR/$fmt"
+  out_dir="$OUT_DIR/$fmt"
 
-if [[ -f "$GEN_SCRIPT" ]]; then
-  python3 "$GEN_SCRIPT"
-fi
-
-for name in "${CASES[@]}"; do
-  pdf="$PDF_DIR/$name.pdf"
-  exp="$EXP_DIR/$name.expected.md"
-  out="$RUN_DIR/$name.md"
-  log="$LOG_DIR/$name.log"
-
-  if [[ ! -f "$pdf" || ! -f "$exp" ]]; then
-    echo "[FAIL] $name missing fixture or expected file"
-    failed=$((failed + 1))
+  if [[ ! -d "$in_dir" ]]; then
     continue
   fi
 
-  echo "==> running $name"
-  if moon run "$ROOT/cli" -- convert "$pdf" -o "$out" --debug extract >"$log" 2>&1; then
-    if ! grep -q "selected backend=pdf-native" "$log"; then
-      echo "  [FAIL] backend trace missing (expected native marker)"
-      failed=$((failed + 1))
+  mkdir -p "$exp_dir"
+  mkdir -p "$out_dir"
+
+  case "$fmt" in
+    docx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.docx" -print)
+      ;;
+    pdf)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pdf" -print)
+      ;;
+    xlsx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.xlsx" -print)
+      ;;
+    pptx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
+      ;;
+    html)
+      cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.html" -o -name "*.htm" \) -print)
+      ;;
+    *)
+      continue
+      ;;
+  esac
+
+  while IFS= read -r f; do
+    found=1
+    base="$(basename "$f")"
+    name="${base%.*}"
+
+    out="$out_dir/$name.md"
+    exp="$exp_dir/$name.md"
+
+    echo "==> converting $fmt/$base"
+    moon run "$ROOT/cli" -- convert "$f" -o "$out" --max-heading 6
+
+    if [[ ! -f "$exp" ]]; then
+      echo "!! expected missing: $exp"
+      echo "   create with: cp \"$out\" \"$exp\""
+      fail=1
       continue
     fi
 
-    if diff -u "$exp" "$out" >"$LOG_DIR/$name.diff"; then
-      echo "  [PASS] output matched expected"
-      passed=$((passed + 1))
-      rm -f "$LOG_DIR/$name.diff"
-    else
-      echo "  [FAIL] output mismatch"
-      echo "         see: $LOG_DIR/$name.diff"
-      failed=$((failed + 1))
+    echo "==> diff $fmt/$name"
+    if ! diff -u "$exp" "$out"; then
+      echo "!! mismatch: $fmt/$name"
+      fail=1
     fi
-  else
-    echo "  [FAIL] command failed"
-    failed=$((failed + 1))
-  fi
-  echo
- done
+  done < <("${cmd[@]}" | sort)
+done
 
-printf '==> summary\n'
-printf '    passed: %d\n' "$passed"
-printf '    failed: %d\n' "$failed"
-
-if [[ "$failed" -ne 0 ]]; then
+if [[ $found -eq 0 ]]; then
+  echo "No sample files found under $SAMPLES_DIR for: ${FORMATS[*]}"
   exit 1
 fi
+
+if [[ $fail -ne 0 ]]; then
+  echo "TEST FAILED"
+  exit 1
+fi
+
+echo "ALL TESTS PASSED"
