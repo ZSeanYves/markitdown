@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/src/zip" @zip,
-}
-
-options(
-  "preferred-target": "native",
-)

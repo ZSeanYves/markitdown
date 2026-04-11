@@ -1,4 +1,0 @@
-import {
-  "moonbitlang/x/fs" @fs,
-  "ZSeanYves/markitdown/src/zip" @zip,
-} for "test"

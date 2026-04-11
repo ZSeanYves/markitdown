@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/zip" @zip,
+}
+
+options(
+  "preferred-target": "native",
+)
