@@ -169,40 +169,20 @@ fn maybe_decode_stream_by_filter(dict_value : PdfValue, stream : Bytes) -> Bytes
   }
   match dict.get("Filter") {
     Some(PdfValue::Name("FlateDecode")) => {
-      @flate.decompress(stream) catch {
-        e =>
-          raise InvalidStructure(
-            "failed to FlateDecode stream: " + e.to_string(),
-          )
-      }
+      decode_pdf_flate_stream(stream)
     }
     Some(PdfValue::Name("Fl")) => {
-      @flate.decompress(stream) catch {
-        e =>
-          raise InvalidStructure(
-            "failed to FlateDecode stream: " + e.to_string(),
-          )
-      }
+      decode_pdf_flate_stream(stream)
     }
     Some(PdfValue::Array(filters)) => {
       let mut out = stream
       for f in filters {
         match f {
           PdfValue::Name("FlateDecode") => {
-            out = @flate.decompress(out) catch {
-              e =>
-                raise InvalidStructure(
-                  "failed to FlateDecode stream: " + e.to_string(),
-                )
-            }
+            out = decode_pdf_flate_stream(out)
           }
           PdfValue::Name("Fl") => {
-            out = @flate.decompress(out) catch {
-              e =>
-                raise InvalidStructure(
-                  "failed to FlateDecode stream: " + e.to_string(),
-                )
-            }
+            out = decode_pdf_flate_stream(out)
           }
           _ => return stream
         }
@@ -211,6 +191,39 @@ fn maybe_decode_stream_by_filter(dict_value : PdfValue, stream : Bytes) -> Bytes
     }
     _ => stream
   }
+}
+
+///|
+fn decode_pdf_flate_stream(stream : Bytes) -> Bytes raise {
+  let mut last_err = ""
+
+  // PDF FlateDecode is usually zlib-wrapped deflate (CMF/FLG + Adler32).
+  if stream.length() >= 6 {
+    let wrapped_body = stream[2:stream.length() - 4].to_bytes()
+    let raw_try = @zip.decompress(
+      @zip.CompressionMethod::DeflateRaw,
+      wrapped_body,
+    ) catch {
+      e => {
+        last_err = e.to_string()
+        Bytes::from_array([])
+      }
+    }
+    if raw_try.length() > 0 || wrapped_body.length() == 0 {
+      return raw_try
+    }
+  }
+
+  // Fallback: some producers may already provide raw-deflate-like payload.
+  let raw = @zip.decompress(@zip.CompressionMethod::DeflateRaw, stream) catch {
+    e => {
+      last_err = e.to_string()
+      raise InvalidStructure(
+        "failed to FlateDecode stream with zip backend: " + last_err,
+      )
+    }
+  }
+  raw
 }
 
 ///|
