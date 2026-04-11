@@ -475,13 +475,12 @@ fn merge_page_events_low_level(events : Array[PdfTextEvent]) -> String {
   out
 }
 
-///|
 fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
   let mut out = ""
   let mut prev_text = ""
   let mut prev_was_text = false
   for ev in events {
-    let cur = ev.text
+    let mut cur = ev.text
     if cur == "" {
       continue
     }
@@ -496,6 +495,14 @@ fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
       !out.has_suffix("\n") &&
       should_insert_event_paragraph_gap(prev_text, cur) {
       out = out + "\n\n"
+    }
+
+    let join_boundary = prev_was_text &&
+      !out.has_suffix("\n") &&
+      should_join_event_boundary(prev_text, cur)
+    if join_boundary {
+      out = trim_right_inline_space(out)
+      cur = trim_left_inline_space(cur)
     }
 
     if prev_was_text &&
@@ -528,11 +535,13 @@ fn is_large_text_step(op : PdfTextOp, font_size : Double?) -> Bool {
   false
 }
 
-///|
 fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
   let p = prev.trim().to_string()
   let c = cur.trim().to_string()
   if p == "" || c == "" {
+    return false
+  }
+  if should_join_event_boundary(p, c) {
     return false
   }
   if p.has_suffix("-") || p.has_suffix("—") || p.has_suffix("–") {
@@ -546,6 +555,161 @@ fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
   let l = pa[pa.length() - 1]
   let r = ca[0]
   is_ascii_word_like(l) && is_ascii_word_like(r)
+}
+
+///|
+fn should_join_event_boundary(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+  let pa = p.to_array()
+  let ca = c.to_array()
+  if pa.length() == 0 || ca.length() == 0 {
+    return false
+  }
+  let l = pa[pa.length() - 1]
+  let r = ca[0]
+  if is_cjk_join_char(l) && is_cjk_join_char(r) {
+    return true
+  }
+  if !is_ascii_letter(l) || !is_ascii_letter(r) {
+    return false
+  }
+  let left = trailing_ascii_letters(p)
+  let right = leading_ascii_letters(c)
+  should_join_ascii_fragments(left, right)
+}
+
+///|
+fn should_join_ascii_fragments(left : String, right : String) -> Bool {
+  if !is_ascii_lower_word(left) || !is_ascii_lower_word(right) {
+    return false
+  }
+  if left.length() > 10 || right.length() > 10 {
+    return false
+  }
+  if is_ligature_chunk(left) || is_ligature_chunk(right) {
+    return true
+  }
+  ends_with_ligature_chunk(left) && right.length() <= 5
+}
+
+///|
+fn trailing_ascii_letters(s : String) -> String {
+  let chars = s.to_array()
+  let n = chars.length()
+  let mut i = n - 1
+  while i >= 0 && is_ascii_letter(chars[i]) {
+    i = i - 1
+  }
+  s[i + 1:n].to_string()
+}
+
+///|
+fn leading_ascii_letters(s : String) -> String {
+  let chars = s.to_array()
+  let n = chars.length()
+  let mut i = 0
+  while i < n && is_ascii_letter(chars[i]) {
+    i = i + 1
+  }
+  s[0:i].to_string()
+}
+
+///|
+fn is_ligature_chunk(s : String) -> Bool {
+  s == "fi" || s == "fl" || s == "ff" || s == "ffi" || s == "ffl"
+}
+
+///|
+fn ends_with_ligature_chunk(s : String) -> Bool {
+  s.has_suffix("fi") ||
+  s.has_suffix("fl") ||
+  s.has_suffix("ff") ||
+  s.has_suffix("ffi") ||
+  s.has_suffix("ffl")
+}
+
+///|
+fn is_ascii_lower_word(s : String) -> Bool {
+  if s == "" {
+    return false
+  }
+  for c in s.to_array() {
+    if !is_ascii_lower(c) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn is_ascii_letter(c : Char) -> Bool {
+  is_ascii_lower(c) || is_ascii_upper(c)
+}
+
+///|
+fn is_ascii_lower(c : Char) -> Bool {
+  let v = c.to_int()
+  v >= 'a'.to_int() && v <= 'z'.to_int()
+}
+
+///|
+fn is_ascii_upper(c : Char) -> Bool {
+  let v = c.to_int()
+  v >= 'A'.to_int() && v <= 'Z'.to_int()
+}
+
+///|
+fn is_cjk_join_char(c : Char) -> Bool {
+  is_cjk_ideograph(c) || is_cjk_compat_kangxi_radical(c)
+}
+
+///|
+fn is_cjk_compat_kangxi_radical(c : Char) -> Bool {
+  let v = c.to_int()
+  v >= 0x2F00 && v <= 0x2FDF
+}
+
+///|
+fn is_cjk_ideograph(c : Char) -> Bool {
+  let v = c.to_int()
+  (v >= 0x3400 && v <= 0x4DBF) ||
+  (v >= 0x4E00 && v <= 0x9FFF) ||
+  (v >= 0xF900 && v <= 0xFAFF) ||
+  (v >= 0x20000 && v <= 0x2A6DF) ||
+  (v >= 0x2A700 && v <= 0x2B73F) ||
+  (v >= 0x2B740 && v <= 0x2B81F) ||
+  (v >= 0x2B820 && v <= 0x2CEAF) ||
+  (v >= 0x2CEB0 && v <= 0x2EBEF) ||
+  (v >= 0x30000 && v <= 0x3134F)
+}
+
+///|
+fn trim_left_inline_space(s : String) -> String {
+  let chars = s.to_array()
+  let n = chars.length()
+  let mut i = 0
+  while i < n && (chars[i] == ' ' || chars[i] == '\t') {
+    i = i + 1
+  }
+  s[i:n].to_string()
+}
+
+///|
+fn trim_right_inline_space(s : String) -> String {
+  let chars = s.to_array()
+  let n = chars.length()
+  if n == 0 {
+    return s
+  }
+  let mut i = n - 1
+  while i >= 0 && (chars[i] == ' ' || chars[i] == '\t') {
+    i = i - 1
+  }
+  s[0:i + 1].to_string()
 }
 
 ///|
