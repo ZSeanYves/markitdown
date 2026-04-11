@@ -36,6 +36,17 @@ pub struct PdfDocumentExtractResult {
 }
 
 ///|
+struct PdfPageExtractResult {
+  events : Array[PdfTextEvent]
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  text : String
+  text_length : Int
+  is_failed : Bool
+}
+
+///|
 fn map_parse_error(_e : PdfParseError) -> PdfNativeError {
   PdfNativeError::ExtractionFailed("native extraction failed")
 }
@@ -125,15 +136,7 @@ fn extract_page_text_with_stats(
   doc : PdfDocument,
   page_obj : Int,
   page_gen : Int,
-) -> {
-  events : Array[PdfTextEvent]
-  stream_count : Int
-  success_streams : Int
-  failed_streams : Int
-  text : String
-  text_length : Int
-  is_failed : Bool
-} raise {
+) -> PdfPageExtractResult raise {
   let fonts = resolve_page_fonts(doc, page_obj, page_gen) catch {
     e =>
       raise InvalidStructure(
@@ -262,7 +265,7 @@ fn extract_page_text_with_stats(
   let text = normalize_native_page_text(merge_native_page_events(events))
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
-  {
+  PdfPageExtractResult::{
     events,
     stream_count,
     success_streams,
