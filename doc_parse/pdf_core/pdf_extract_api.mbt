@@ -180,8 +180,8 @@ fn extract_page_text_with_stats(
   let stream_count = streams.length()
   let mut success_streams = 0
   let mut failed_streams = 0
-  let current_font : String? = None
-  let current_font_size : Double? = None
+  let mut current_font : String? = None
+  let mut current_font_size : Double? = None
   let mut _in_text = false
   let mut _has_emitted_text = false
 
@@ -212,6 +212,18 @@ fn extract_page_text_with_stats(
 
     for op in ops {
       if op.op == "Tf" {
+        if op.operands.length() >= 2 {
+          let font_operand = op.operands[op.operands.length() - 2]
+          let size_operand = op.operands[op.operands.length() - 1]
+          match font_operand {
+            PdfContentOperand::Name(name) => current_font = Some(name)
+            _ => ()
+          }
+          match size_operand {
+            PdfContentOperand::Number(size) => current_font_size = Some(size)
+            _ => ()
+          }
+        }
         if trace_this_page {
           println(
             "[pdf-native-trace] Tf current_font=" +

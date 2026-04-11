@@ -153,11 +153,63 @@ fn collect_page_refs(
 fn read_stream_required(doc : PdfDocument, obj : Int, gen : Int) -> Bytes raise {
   let o = get_indirect_object(doc, obj, gen)
   match o.stream {
-    Some(b) => b
+    Some(b) => maybe_decode_stream_by_filter(o.value, b)
     None =>
       raise TypeMismatch(
         "object is not a stream: " + obj.to_string() + " " + gen.to_string(),
       )
+  }
+}
+
+///|
+fn maybe_decode_stream_by_filter(dict_value : PdfValue, stream : Bytes) -> Bytes raise {
+  let dict = match dict_value {
+    PdfValue::Dict(d) => d
+    _ => return stream
+  }
+  match dict.get("Filter") {
+    Some(PdfValue::Name("FlateDecode")) => {
+      @flate.decompress(stream) catch {
+        e =>
+          raise InvalidStructure(
+            "failed to FlateDecode stream: " + e.to_string(),
+          )
+      }
+    }
+    Some(PdfValue::Name("Fl")) => {
+      @flate.decompress(stream) catch {
+        e =>
+          raise InvalidStructure(
+            "failed to FlateDecode stream: " + e.to_string(),
+          )
+      }
+    }
+    Some(PdfValue::Array(filters)) => {
+      let mut out = stream
+      for f in filters {
+        match f {
+          PdfValue::Name("FlateDecode") => {
+            out = @flate.decompress(out) catch {
+              e =>
+                raise InvalidStructure(
+                  "failed to FlateDecode stream: " + e.to_string(),
+                )
+            }
+          }
+          PdfValue::Name("Fl") => {
+            out = @flate.decompress(out) catch {
+              e =>
+                raise InvalidStructure(
+                  "failed to FlateDecode stream: " + e.to_string(),
+                )
+            }
+          }
+          _ => return stream
+        }
+      }
+      out
+    }
+    _ => stream
   }
 }
 
