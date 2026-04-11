@@ -23,10 +23,19 @@ pub struct PdfTextOp {
   operands : Array[PdfContentOperand]
 }
 
+let mut _last_token_debug = ""
+let mut _last_token_start = -1
+let mut _last_token_end = -1
+let mut _current_stream_len = 0
+
 ///|
 pub fn parse_page_content_tokens(
   stream : Bytes,
 ) -> Array[PdfContentToken] raise {
+  _last_token_debug = ""
+  _last_token_start = -1
+  _last_token_end = -1
+  _current_stream_len = stream.length()
   let out : Array[PdfContentToken] = []
   let mut i = 0
   while true {
@@ -35,10 +44,25 @@ pub fn parse_page_content_tokens(
       break
     }
     let (tok, n) = parse_content_token(stream, p)
+    _last_token_debug = debug_token_label(tok)
+    _last_token_start = p
+    _last_token_end = n
     out.push(tok)
     i = n
   }
   out
+}
+
+///|
+fn debug_token_label(tok : PdfContentToken) -> String {
+  match tok {
+    PdfContentToken::Number(_) => "Number"
+    PdfContentToken::Name(v) => "Name(" + v + ")"
+    PdfContentToken::String(_) => "String"
+    PdfContentToken::HexString(_) => "HexString"
+    PdfContentToken::Array(_) => "Array"
+    PdfContentToken::Operator(op) => "Operator(" + op + ")"
+  }
 }
 
 ///|
@@ -196,9 +220,93 @@ fn parse_content_keyword(stream : Bytes, pos : Int) -> (String, Int) raise {
     i = i + 1
   }
   if i <= pos {
+    let ch = stream[pos]
+    let lo = if pos - 16 >= 0 { pos - 16 } else { 0 }
+    let hi = if pos + 16 < stream.length() {
+      pos + 16
+    } else {
+      stream.length() - 1
+    }
+    let prev = if _last_token_start >= 0 {
+      _last_token_debug +
+      "@" +
+      _last_token_start.to_string() +
+      "-" +
+      _last_token_end.to_string()
+    } else {
+      "<none>"
+    }
+    println(
+      "[pdf-content-debug] empty keyword at pos=" +
+      pos.to_string() +
+      " byte=" +
+      ch.to_int().to_string() +
+      " printable=" +
+      debug_printable_byte(ch) +
+      " window_ascii=" +
+      debug_window_ascii(stream, lo, hi + 1) +
+      " window_hex=" +
+      debug_window_hex(stream, lo, hi + 1) +
+      " prev_token=" +
+      prev +
+      " stream_len=" +
+      _current_stream_len.to_string(),
+    )
     raise InvalidStructure("empty operator token in content stream")
   }
   (bytes_to_string(stream, pos, i), i)
+}
+
+///|
+fn debug_printable_byte(ch : Byte) -> String {
+  let v = ch.to_int()
+  if v >= 32 && v <= 126 {
+    "'" + Int::unsafe_to_char(v).to_string() + "'"
+  } else {
+    "."
+  }
+}
+
+///|
+fn debug_window_ascii(stream : Bytes, start : Int, end_ : Int) -> String {
+  let mut out = ""
+  let mut i = start
+  while i < end_ {
+    let v = stream[i].to_int()
+    if v >= 32 && v <= 126 {
+      out = out + Int::unsafe_to_char(v).to_string()
+    } else {
+      out = out + "."
+    }
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn debug_hex_nibble(v : Int) -> String {
+  if v < 10 {
+    Int::unsafe_to_char('0'.to_int() + v).to_string()
+  } else {
+    Int::unsafe_to_char('a'.to_int() + v - 10).to_string()
+  }
+}
+
+///|
+fn debug_window_hex(stream : Bytes, start : Int, end_ : Int) -> String {
+  let mut out = ""
+  let mut i = start
+  while i < end_ {
+    let v = stream[i].to_int() & 0xFF
+    let hi = v / 16
+    let lo = v % 16
+    if out != "" {
+      out = out + " "
+    }
+    out = out + debug_hex_nibble(hi) + debug_hex_nibble(lo)
+    i = i + 1
+  }
+  out
 }
 
 ///|
