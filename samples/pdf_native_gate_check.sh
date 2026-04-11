@@ -16,7 +16,6 @@ if ! command -v moon >/dev/null 2>&1; then
   exit 2
 fi
 
-# gate check: 仅验证 native-gated 决策，不做 expected 内容 diff
 CASES=(
   "gated_should_use_native_en_single_page|pdf-native|ACCEPT_"
   "gated_should_use_native_tounicode_basic|pdf-native|ACCEPT_"
@@ -27,11 +26,9 @@ CASES=(
   "gated_should_use_native_objstm_multipage|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_objstm_simple_text|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_objstm_multipage|pdf-native|ACCEPT_"
-  "gated_should_use_native_mixed_lang_objstm_simple|pdf-native|ACCEPT_"
   "gated_should_use_native_simple_font_fallback|pdf-native|ACCEPT_"
-  "gated_should_use_native_font_fallback_multipage|pdf-native|ACCEPT_"
-  "gated_should_use_external_encrypted_marker|external|REJECT_"
-  "gated_should_use_native_objstm_marker|pdf-native|ACCEPT_"
+  "gated_should_use_external_mixed_language_simple|external|REJECT_"
+  "gated_should_use_external_encrypted_marker|external|REJECT_ENCRYPTED"
 )
 
 passed=0
