@@ -3,6 +3,17 @@ pub struct PdfTextEvent {
   font_name : String?
   font_size : Double?
   text : String
+  source_stream_index : Int
+  source_op_index : Int
+  break_kind : PdfTextBreakKind
+}
+
+///|
+pub enum PdfTextBreakKind {
+  None
+  ExplicitLine
+  ExplicitParagraph
+  Inferred
 }
 
 ///|
@@ -252,25 +263,32 @@ fn extract_page_text_with_stats(
     )
   }
 
-  for stream in streams {
+  let mut stream_index = 0
+  while stream_index < streams.length() {
+    let stream = streams[stream_index]
     let ops = extract_text_ops_from_page_stream(stream) catch {
       e => {
         if trace_this_page {
           println("[pdf-native-trace] stream_parse_failed err=" + e.to_string())
         }
         failed_streams = failed_streams + 1
+        stream_index = stream_index + 1
         continue
       }
     }
     success_streams = success_streams + 1
 
-    for op in ops {
+    let mut op_index = 0
+    while op_index < ops.length() {
+      let op = ops[op_index]
       if op.op == "BT" {
         _in_text = true
+        op_index = op_index + 1
         continue
       }
       if op.op == "ET" {
         _in_text = false
+        op_index = op_index + 1
         continue
       }
 
@@ -317,9 +335,17 @@ fn extract_page_text_with_stats(
                 font_name: current_font,
                 font_size: current_font_size,
                 text: break_text,
+                source_stream_index: stream_index,
+                source_op_index: op_index,
+                break_kind: if break_text == "\n\n" {
+                  PdfTextBreakKind::ExplicitParagraph
+                } else {
+                  PdfTextBreakKind::ExplicitLine
+                },
               })
             }
           }
+          op_index = op_index + 1
           continue
         }
       }
@@ -349,6 +375,9 @@ fn extract_page_text_with_stats(
             font_name: current_font,
             font_size: current_font_size,
             text,
+            source_stream_index: stream_index,
+            source_op_index: op_index,
+            break_kind: PdfTextBreakKind::None,
           })
           _has_emitted_text = true
         }
@@ -367,11 +396,16 @@ fn extract_page_text_with_stats(
             font_name: current_font,
             font_size: current_font_size,
             text,
+            source_stream_index: stream_index,
+            source_op_index: op_index,
+            break_kind: PdfTextBreakKind::None,
           })
           _has_emitted_text = true
         }
       }
+      op_index = op_index + 1
     }
+    stream_index = stream_index + 1
   }
 
   let coalesced_events = coalesce_text_events(events)
@@ -407,6 +441,9 @@ fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
         font_name: current.font_name,
         font_size: current.font_size,
         text: current.text + events[index].text,
+        source_stream_index: current.source_stream_index,
+        source_op_index: current.source_op_index,
+        break_kind: PdfTextBreakKind::None,
       }
       index = index + 1
     }
@@ -432,7 +469,57 @@ fn should_coalesce_text_events(left : PdfTextEvent, right : PdfTextEvent) -> Boo
   if left.font_size != right.font_size {
     return false
   }
+  if left.break_kind != PdfTextBreakKind::None ||
+    right.break_kind != PdfTextBreakKind::None {
+    return false
+  }
+  if left.source_stream_index != right.source_stream_index {
+    return false
+  }
+  if right.source_op_index != left.source_op_index + 1 {
+    return false
+  }
+
+  let left_len = event_effective_text_len(left.text)
+  let right_len = event_effective_text_len(right.text)
+  if left_len == 0 || right_len == 0 {
+    return false
+  }
+
+  if left_len >= 24 || right_len >= 24 {
+    return false
+  }
+
+  if left_len + right_len > 32 {
+    return false
+  }
+
+  if !looks_like_short_fragment(left.text) && !looks_like_short_fragment(right.text) {
+    return false
+  }
+
   true
+}
+
+///|
+fn event_effective_text_len(s : String) -> Int {
+  s.trim().to_string().to_array().length()
+}
+
+///|
+fn looks_like_short_fragment(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  if n == 0 {
+    return false
+  }
+  if n <= 2 {
+    return true
+  }
+  if n <= 8 && !t.contains(" ") {
+    return true
+  }
+  false
 }
 
 ///|
@@ -450,12 +537,22 @@ fn recover_structural_breaks_from_events(
       font_name: ev.font_name,
       font_size: ev.font_size,
       text: normalized_text,
+      source_stream_index: ev.source_stream_index,
+      source_op_index: ev.source_op_index,
+      break_kind: ev.break_kind,
     }
     match prev_text {
       Some(prev) => {
         match infer_structural_break_between_events(prev, normalized_event.text) {
           Some(break_text) =>
-            out.push({ font_name: None, font_size: None, text: break_text })
+            out.push({
+              font_name: None,
+              font_size: None,
+              text: break_text,
+              source_stream_index: ev.source_stream_index,
+              source_op_index: ev.source_op_index,
+              break_kind: PdfTextBreakKind::Inferred,
+            })
           None => ()
         }
       }
