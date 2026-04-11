@@ -57,39 +57,6 @@ async fn cmd_convert(
   }
 }
 
-///|
-fn cmd_demo() -> Unit {
-  let doc = @cor.new_document()
-
-  @cor.push(doc, @cor.Heading(1, "项目申报书（Demo）"))
-  @cor.push(
-    doc,
-    @cor.Paragraph(
-      "这是一个用于验证 core/ir + emitter 的最小 demo。",
-    ),
-  )
-  @cor.push(doc, @cor.Heading(2, "1. 研究内容"))
-  @cor.push(
-    doc,
-    @cor.Paragraph("（1）目标：把 docx/pdf 转为结构化 Markdown。"),
-  )
-
-  let rows : Array[Array[String]] = [
-    ["模块", "状态", "说明"],
-    ["core/ir", "完成", "IR 定义与 push"],
-    ["core/emitter", "完成", "Markdown 输出"],
-    ["parsers/docx", "TODO", "下一步实现"],
-    ["parsers/pdf", "TODO", "下一步实现"],
-  ]
-  @cor.push(doc, @cor.Table(rows))
-
-  @cor.push(doc, @cor.Image("logo", "assets/logo.png"))
-
-  let md = @cor.emit_markdown(doc)
-  println(md)
-}
-
-///|
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
 }
