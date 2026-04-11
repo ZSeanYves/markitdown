@@ -201,12 +201,6 @@ Install examples:
 
 ## Usage
 
-### Demo
-
-```bash
-moon run src/cli -- demo
-```
-
 ### Convert
 
 ```bash
@@ -240,7 +234,8 @@ Useful options:
 - `-o <path>`: output Markdown file (default: stdout)
 - `--out-dir <dir>`: asset output directory (DOCX images go to `assets/` under this directory)
 - `--max-heading <1..6>`: heading clamp in Markdown output
-- `--pdf-extract-debug [1|true|on|yes]`: show PDF extraction backend scoring logs
+- `--ocr [1|true|on|yes]`: enable OCR enhancement for PDF
+- `--debug <extract|dump-raw|pipeline|all>`: enable PDF debug modes (supports comma-separated values)
 
 ### Native PDF backend (incremental)
 
@@ -250,7 +245,8 @@ Use explicit native backend switch:
 moon run --target native src/cli -- \
   convert samples/pdf/text_simple.pdf \
   -o out/text_simple.native.md \
-  --pdf-backend pdf-native
+  --pdf-backend pdf-native \
+  --ocr
 ```
 
 Recommended current use cases:
