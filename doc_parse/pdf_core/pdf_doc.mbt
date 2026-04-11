@@ -162,28 +162,23 @@ fn read_stream_required(doc : PdfDocument, obj : Int, gen : Int) -> Bytes raise 
 }
 
 ///|
-fn maybe_decode_stream_by_filter(dict_value : PdfValue, stream : Bytes) -> Bytes raise {
+fn maybe_decode_stream_by_filter(
+  dict_value : PdfValue,
+  stream : Bytes,
+) -> Bytes raise {
   let dict = match dict_value {
     PdfValue::Dict(d) => d
     _ => return stream
   }
   match dict.get("Filter") {
-    Some(PdfValue::Name("FlateDecode")) => {
-      decode_pdf_flate_stream(stream)
-    }
-    Some(PdfValue::Name("Fl")) => {
-      decode_pdf_flate_stream(stream)
-    }
+    Some(PdfValue::Name("FlateDecode")) => decode_pdf_flate_stream(stream)
+    Some(PdfValue::Name("Fl")) => decode_pdf_flate_stream(stream)
     Some(PdfValue::Array(filters)) => {
       let mut out = stream
       for f in filters {
         match f {
-          PdfValue::Name("FlateDecode") => {
-            out = decode_pdf_flate_stream(out)
-          }
-          PdfValue::Name("Fl") => {
-            out = decode_pdf_flate_stream(out)
-          }
+          PdfValue::Name("FlateDecode") => out = decode_pdf_flate_stream(out)
+          PdfValue::Name("Fl") => out = decode_pdf_flate_stream(out)
           _ => return stream
         }
       }

@@ -37,9 +37,7 @@ async fn main {
       ),
       "debug-pdf-events": @clap.SubCommand::new(
         help="Debug PDF text-op -> event -> pretty text layers",
-        args={
-          "input": @clap.Arg::positional(help="Path to input .pdf file"),
-        },
+        args={ "input": @clap.Arg::positional(help="Path to input .pdf file") },
       ),
       "help": @clap.SubCommand::new(help="Display help message"),
     },

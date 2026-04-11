@@ -23,7 +23,6 @@ pub struct PdfTextOp {
   operands : Array[PdfContentOperand]
 }
 
-
 ///|
 pub fn parse_page_content_tokens(
   stream : Bytes,
@@ -185,7 +184,8 @@ fn parse_content_token(
   if is_delim(ch) {
     if ch == '{'.to_int().to_byte() || ch == '}'.to_int().to_byte() {
       raise InvalidStructure(
-        "invalid delimiter in content stream: " + bytes_to_string(stream, pos, pos + 1),
+        "invalid delimiter in content stream: " +
+        bytes_to_string(stream, pos, pos + 1),
       )
     }
     return (
@@ -213,7 +213,7 @@ fn parse_content_name(stream : Bytes, pos : Int) -> (String, Int) {
 ///|
 fn parse_content_keyword(stream : Bytes, pos : Int) -> (String, Int) raise {
   let mut i = pos
-    let mut _last_token_debug = ""
+  let mut _last_token_debug = ""
   let mut _last_token_start = -1
   let mut _last_token_end = -1
   let mut _current_stream_len = 0
@@ -282,15 +282,6 @@ fn debug_window_ascii(stream : Bytes, start : Int, end_ : Int) -> String {
     i = i + 1
   }
   out
-}
-
-///|
-fn debug_hex_nibble(v : Int) -> String {
-  if v < 10 {
-    Int::unsafe_to_char('0'.to_int() + v).to_string()
-  } else {
-    Int::unsafe_to_char('a'.to_int() + v - 10).to_string()
-  }
 }
 
 ///|

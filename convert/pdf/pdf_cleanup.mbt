@@ -1,8 +1,9 @@
 ///|
 /// Keep cleanup isolated from quality judgement.
 fn cleanup_pdf_text(text : String) -> String {
-  let canonical_newline =
-    text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  let canonical_newline = text
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
   normalize_pdf_decoded_text(canonical_newline)
 }
 

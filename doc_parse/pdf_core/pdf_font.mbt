@@ -80,6 +80,7 @@ fn lookup_page_resources_dict(
   }
 }
 
+///|
 pub fn resolve_page_fonts(
   doc : PdfDocument,
   page_obj : Int,

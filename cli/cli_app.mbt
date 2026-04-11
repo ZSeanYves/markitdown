@@ -59,7 +59,7 @@ fn exit_error(msg : String) -> Unit {
 }
 
 ///|
-fn cmd_debug_pdf_events(input : String) -> Unit {
+fn cmd_debug_pdf_events(input : String) -> Unit raise {
   if !@fs.path_exists(input) {
     exit_error("PDF file not found: " + input)
     return
@@ -91,14 +91,11 @@ fn cmd_debug_pdf_events(input : String) -> Unit {
   println("pages: " + pages.length().to_string())
   println("")
 
-  pages.eachi(fn(i, p) {
+  pages.eachi((i, p) => {
     let (page_obj, page_gen) = p
     println(
       @pdfc.debug_dump_pdf_page_text_ops_events_pretty(
-        doc,
-        page_obj,
-        page_gen,
-        i,
+        doc, page_obj, page_gen, i,
       ),
     )
   })

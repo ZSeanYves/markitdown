@@ -9,7 +9,7 @@ pub struct PdfTextEvent {
 priv enum PdfFragmentBoundaryKind {
   EventText
   SyntheticInlineGap
-}derive(Eq)
+} derive(Eq)
 
 ///|
 priv struct PdfPageFragment {
@@ -58,8 +58,10 @@ pub struct PdfDocumentExtractResult {
   page_stats : Array[PdfPageExtractStats]
 }
 
+///|
 const PDF_NATIVE_TRACE_C1 = false
 
+///|
 fn debug_operand_kind(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(_) => "String"
@@ -70,6 +72,7 @@ fn debug_operand_kind(v : PdfContentOperand) -> String {
   }
 }
 
+///|
 fn debug_font_keys(fonts : Map[String, PdfFontRef]) -> String {
   let ks : Array[String] = []
   for entry in fonts {
@@ -224,9 +227,7 @@ fn extract_page_text_with_stats(
     let ops = extract_text_ops_from_page_stream(stream) catch {
       e => {
         if trace_this_page {
-          println(
-            "[pdf-native-trace] stream_parse_failed err=" + e.to_string(),
-          )
+          println("[pdf-native-trace] stream_parse_failed err=" + e.to_string())
         }
         failed_streams = failed_streams + 1
         continue
@@ -259,8 +260,7 @@ fn extract_page_text_with_stats(
         }
         if trace_this_page {
           println(
-            "[pdf-native-trace] Tf current_font=" +
-            current_font.unwrap_or(""),
+            "[pdf-native-trace] Tf current_font=" + current_font.unwrap_or(""),
           )
         }
       }
@@ -270,28 +270,29 @@ fn extract_page_text_with_stats(
         None => None
       }
 
-      if _in_text && (op.op == "Td" || op.op == "TD" || op.op == "Tm" || op.op == "T*") {
-        let line_break_text = if is_large_text_step(op, current_font_size) {
-          "\n\n"
-        } else {
-          "\n"
-        }
-        if _has_emitted_text {
-          let should_emit = if events.length() == 0 {
-            true
-          } else {
-            let last_ev = events[events.length() - 1]
-            last_ev.text != "\n" && last_ev.text != "\n\n"
+      if _in_text {
+        let line_break_text = infer_line_break_text_from_position_op(
+          op, current_font_size,
+        )
+        if line_break_text != None {
+          let break_text = line_break_text.unwrap_or("")
+          if _has_emitted_text {
+            let should_emit = if events.length() == 0 {
+              true
+            } else {
+              let last_ev = events[events.length() - 1]
+              last_ev.text != "\n" && last_ev.text != "\n\n"
+            }
+            if should_emit {
+              events.push({
+                font_name: current_font,
+                font_size: current_font_size,
+                text: break_text,
+              })
+            }
           }
-          if should_emit {
-            events.push({
-              font_name: current_font,
-              font_size: current_font_size,
-              text: line_break_text,
-            })
-          }
+          continue
         }
-        continue
       }
 
       if op.op == "Tj" && op.operands.length() >= 1 {
@@ -301,13 +302,7 @@ fn extract_page_text_with_stats(
           Some(_) => true
           None => false
         }
-        let text = decode_with_font(
-          doc,
-          font_ref,
-          operand,
-        ) catch {
-          _ => ""
-        }
+        let text = decode_with_font(doc, font_ref, operand) catch { _ => "" }
         if trace_this_page {
           println(
             "[pdf-native-trace] Tj font=" +
@@ -477,9 +472,7 @@ pub fn debug_dump_pdf_page_text_ops_events_pretty(
           Some(name) => fonts.get(name)
           None => None
         }
-        let decoded = decode_with_font(doc, font_ref, operand) catch {
-          _ => ""
-        }
+        let decoded = decode_with_font(doc, font_ref, operand) catch { _ => "" }
         lines.push(
           "[" +
           op_index.to_string() +
@@ -679,16 +672,15 @@ fn debug_opt_double(v : Double?) -> String {
 fn debug_string_compact(s : String) -> String {
   let mut out = ""
   for c in s.to_array() {
-    out = out + (
-      match c {
+    out = out +
+      (match c {
         '\\' => "\\\\"
         '\n' => "\\n"
         '\r' => "\\r"
         '\t' => "\\t"
         '"' => "\\\""
         _ => c.to_string()
-      }
-    )
+      })
   }
   out
 }
@@ -741,6 +733,7 @@ fn debug_hex_nibble(v : Int) -> String {
   }
 }
 
+///|
 fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
   let lines = build_page_lines_from_events(events)
   let joined = join_page_line_fragments(lines)
@@ -748,8 +741,12 @@ fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
 }
 
 ///|
-fn build_page_lines_from_events(events : Array[PdfTextEvent]) -> Array[PdfPageLine] {
-  let lines : Array[PdfPageLine] = [{ _line_index: 0, _baseline_y: None, fragments: [] }]
+fn build_page_lines_from_events(
+  events : Array[PdfTextEvent],
+) -> Array[PdfPageLine] {
+  let lines : Array[PdfPageLine] = [
+    { _line_index: 0, _baseline_y: None, fragments: [] },
+  ]
   let mut current_line = 0
   let mut prev_text = ""
   let mut prev_was_text = false
@@ -875,6 +872,57 @@ fn is_large_text_step(op : PdfTextOp, font_size : Double?) -> Bool {
   false
 }
 
+///|
+fn infer_line_break_text_from_position_op(
+  op : PdfTextOp,
+  font_size : Double?,
+) -> String? {
+  if op.op == "T*" {
+    return Some("\n")
+  }
+
+  if op.op == "TD" {
+    if is_large_text_step(op, font_size) {
+      return Some("\n\n")
+    }
+    return Some("\n")
+  }
+
+  if op.op == "Td" {
+    let abs_ty = text_step_abs_ty(op)
+    if abs_ty <= 0.01 {
+      return None
+    }
+    let fs = match font_size {
+      Some(v) => if v > 0.0 { v } else { 12.0 }
+      None => 12.0
+    }
+    if abs_ty >= fs * 1.8 {
+      return Some("\n\n")
+    }
+    if abs_ty >= fs * 0.6 {
+      return Some("\n")
+    }
+    return None
+  }
+
+  None
+}
+
+///|
+fn text_step_abs_ty(op : PdfTextOp) -> Double {
+  if (op.op == "Td" || op.op == "TD") && op.operands.length() >= 1 {
+    let last = op.operands[op.operands.length() - 1]
+    match last {
+      PdfContentOperand::Number(v) => if v < 0.0 { -v } else { v }
+      _ => 0.0
+    }
+  } else {
+    0.0
+  }
+}
+
+///|
 fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
   let p = prev.trim().to_string()
   let c = cur.trim().to_string()
@@ -925,8 +973,8 @@ fn should_join_fragments_within_line(left : String, right : String) -> Bool {
 fn normalize_fragment_text_for_join(s : String) -> String {
   let mut out = ""
   for c in s.to_array() {
-    out = out + (
-      match c {
+    out = out +
+      (match c {
         'ﬀ' => "ff"
         'ﬁ' => "fi"
         'ﬂ' => "fl"
@@ -943,8 +991,7 @@ fn normalize_fragment_text_for_join(s : String) -> String {
         '⽣' => "生"
         '⾏' => "行"
         _ => c.to_string()
-      }
-    )
+      })
   }
   out
 }
