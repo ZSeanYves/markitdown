@@ -1,6 +1,0 @@
-# generated fixtures (not committed)
-native/*.pdf
-gate/*.pdf
-
-# local python cache
-__pycache__/
