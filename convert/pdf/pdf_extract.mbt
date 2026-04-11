@@ -6,7 +6,7 @@ priv struct PdfExtractResult {
   _stderr : String
   _quality : PdfTextQuality
   quality_accepted : Bool
-  _native_stats : @pdfc.PdfDocumentExtractResult?
+  _native_stats : @pdfc.PdfNativeDocumentResult?
 }
 
 ///|
@@ -57,12 +57,10 @@ fn extract_pdf_text_native(
 
   let doc = @pdfc.open_pdf(bytes) catch { e => return Err(map_native_error(e)) }
 
-  let native = @pdfc.extract_text_from_document_result(doc) catch {
+  let native = @pdfc.extract_document_events_result(doc) catch {
     e => return Err(map_native_error(e))
   }
-  let text = @pdfc.extract_pretty_text_from_document(doc) catch {
-    e => return Err(map_native_error(e))
-  }
+  let text = flatten_native_document_events_to_text(native)
 
   let cleaned = cleanup_pdf_text(text)
   let quality = analyze_pdf_text_quality(cleaned)
@@ -90,7 +88,7 @@ fn extract_pdf_text_native(
       " fatal=" +
       native.is_fatal.to_string(),
     )
-    for p in native.page_stats {
+    for p in native.pages {
       println(
         "[pdf-debug] page[" +
         p.page_index.to_string() +
@@ -101,7 +99,7 @@ fn extract_pdf_text_native(
         " fail=" +
         p.failed_streams.to_string() +
         " events=" +
-        p.event_count.to_string() +
+        p.events.length().to_string() +
         " text_len=" +
         p.text_length.to_string() +
         " failed=" +
@@ -142,4 +140,23 @@ fn extract_pdf_text_native(
     quality_accepted: !is_quality_failure_for_normal_text(quality),
     _native_stats: Some(native),
   })
+}
+
+///|
+fn flatten_native_document_events_to_text(
+  native : @pdfc.PdfNativeDocumentResult,
+) -> String {
+  let pages : Array[String] = []
+  for page in native.pages {
+    let mut page_text = ""
+    for ev in page.events {
+      if ev.text != "" {
+        page_text = page_text + ev.text
+      }
+    }
+    if page_text != "" {
+      pages.push(page_text)
+    }
+  }
+  pages.join("\f")
 }

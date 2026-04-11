@@ -8,6 +8,8 @@ pub fn decode_text_operand(PdfDocument, PdfFontRef, PdfContentOperand) -> String
 
 pub fn debug_dump_pdf_page_text_ops_events_pretty(PdfDocument, Int, Int, Int) -> String raise
 
+pub fn extract_document_events_result(PdfDocument) -> PdfNativeDocumentResult raise
+
 pub fn extract_plain_text_from_page_stream(Bytes) -> String raise
 
 pub fn extract_plain_text_from_page_streams(Array[Bytes]) -> String raise
@@ -135,6 +137,33 @@ pub struct PdfDocumentExtractResult {
   is_fatal : Bool
   fatal_reason : String?
   page_stats : Array[PdfPageExtractStats]
+}
+
+pub struct PdfNativePageResult {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  events : Array[PdfTextEvent]
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+pub struct PdfNativeDocumentResult {
+  pages : Array[PdfNativePageResult]
+  page_count : Int
+  success_pages : Int
+  failed_pages : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  non_whitespace_chars : Int
+  is_empty : Bool
+  is_low_signal : Bool
+  is_fatal : Bool
+  fatal_reason : String?
 }
 
 pub struct PdfTextOp {
