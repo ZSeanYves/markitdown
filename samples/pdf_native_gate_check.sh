@@ -55,7 +55,7 @@ for item in "${CASES[@]}"; do
   fi
 
   echo "==> running $name"
-  moon run "$ROOT/src/cli" -- convert "$pdf" -o "$out" \
+  moon run "$ROOT/cli" -- convert "$pdf" -o "$out" \
     --pdf-backend-policy native-gated \
     --debug extract >"$log" 2>&1 || true
 
