@@ -4,7 +4,6 @@
   "deps": {
     "moonbitlang/x": "0.4.40",
     "TheWaWaR/clap": "0.2.6",
-    "mizchi/zlib": "0.3.3",
     "moonbitlang/async": "0.16.6",
     "bikallem/compress": "0.3.4"
   },
