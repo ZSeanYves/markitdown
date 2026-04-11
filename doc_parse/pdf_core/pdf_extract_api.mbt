@@ -205,7 +205,12 @@ fn extract_page_text_with_stats(
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      _ => {
+      e => {
+        if trace_this_page {
+          println(
+            "[pdf-native-trace] stream_parse_failed err=" + e.to_string(),
+          )
+        }
         failed_streams = failed_streams + 1
         continue
       }
