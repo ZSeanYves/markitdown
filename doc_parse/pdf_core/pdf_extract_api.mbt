@@ -35,7 +35,7 @@ pub struct PdfDocumentExtractResult {
   page_stats : Array[PdfPageExtractStats]
 }
 
-const PDF_NATIVE_TRACE_C1 = true
+const PDF_NATIVE_TRACE_C1 = false
 
 fn debug_operand_kind(v : PdfContentOperand) -> String {
   match v {
@@ -211,6 +211,15 @@ fn extract_page_text_with_stats(
     success_streams = success_streams + 1
 
     for op in ops {
+      if op.op == "BT" {
+        _in_text = true
+        continue
+      }
+      if op.op == "ET" {
+        _in_text = false
+        continue
+      }
+
       if op.op == "Tf" {
         if op.operands.length() >= 2 {
           let font_operand = op.operands[op.operands.length() - 2]
@@ -235,6 +244,30 @@ fn extract_page_text_with_stats(
       let font_ref = match current_font {
         Some(name) => fonts.get(name)
         None => None
+      }
+
+      if _in_text && (op.op == "Td" || op.op == "TD" || op.op == "Tm" || op.op == "T*") {
+        let line_break_text = if is_large_text_step(op, current_font_size) {
+          "\n\n"
+        } else {
+          "\n"
+        }
+        if _has_emitted_text {
+          let should_emit = if events.length() == 0 {
+            true
+          } else {
+            let last_ev = events[events.length() - 1]
+            last_ev.text != "\n" && last_ev.text != "\n\n"
+          }
+          if should_emit {
+            events.push({
+              font_name: current_font,
+              font_size: current_font_size,
+              text: line_break_text,
+            })
+          }
+        }
+        continue
       }
 
       if op.op == "Tj" && op.operands.length() >= 1 {
@@ -450,11 +483,62 @@ fn merge_native_page_events(events : Array[PdfTextEvent]) -> String {
       out = out + "\n\n"
     }
 
+    if prev_was_text &&
+      !out.has_suffix("\n") &&
+      should_insert_event_inline_space(prev_text, cur) {
+      out = out + " "
+    }
+
     out = out + cur
     prev_text = cur
     prev_was_text = true
   }
   out
+}
+
+///|
+fn is_large_text_step(op : PdfTextOp, font_size : Double?) -> Bool {
+  if op.op == "TD" && op.operands.length() >= 1 {
+    let last = op.operands[op.operands.length() - 1]
+    let abs_ty = match last {
+      PdfContentOperand::Number(v) => if v < 0 { -v } else { v }
+      _ => 0.0
+    }
+    let threshold = match font_size {
+      Some(fs) => if fs > 0.0 { fs * 1.6 } else { 18.0 }
+      None => 18.0
+    }
+    return abs_ty >= threshold
+  }
+  false
+}
+
+///|
+fn should_insert_event_inline_space(prev : String, cur : String) -> Bool {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return false
+  }
+  if p.has_suffix("-") || p.has_suffix("—") || p.has_suffix("–") {
+    return false
+  }
+  let pa = p.to_array()
+  let ca = c.to_array()
+  if pa.length() == 0 || ca.length() == 0 {
+    return false
+  }
+  let l = pa[pa.length() - 1]
+  let r = ca[0]
+  is_ascii_word_like(l) && is_ascii_word_like(r)
+}
+
+///|
+fn is_ascii_word_like(c : Char) -> Bool {
+  let v = c.to_int()
+  (v >= '0'.to_int() && v <= '9'.to_int()) ||
+  (v >= 'A'.to_int() && v <= 'Z'.to_int()) ||
+  (v >= 'a'.to_int() && v <= 'z'.to_int())
 }
 
 ///|
