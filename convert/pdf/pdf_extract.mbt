@@ -262,7 +262,7 @@ fn native_page_lines_to_blocks(
           blocks.push({
             kind: PdfConvertBlockKind::Paragraph,
             text: para_text,
-            page_index: page_index,
+            page_index,
             line_start: para_start,
             line_end: para_end,
           })
@@ -282,7 +282,7 @@ fn native_page_lines_to_blocks(
           blocks.push({
             kind: PdfConvertBlockKind::Paragraph,
             text: para_text,
-            page_index: page_index,
+            page_index,
             line_start: para_start,
             line_end: para_end,
           })
@@ -293,8 +293,8 @@ fn native_page_lines_to_blocks(
       }
       blocks.push({
         kind: PdfConvertBlockKind::StandaloneLine,
-        text: text,
-        page_index: page_index,
+        text,
+        page_index,
         line_start: i,
         line_end: i,
       })
@@ -316,7 +316,7 @@ fn native_page_lines_to_blocks(
       blocks.push({
         kind: PdfConvertBlockKind::Paragraph,
         text: para_text,
-        page_index: page_index,
+        page_index,
         line_start: para_start,
         line_end: para_end,
       })
@@ -397,7 +397,7 @@ fn looks_like_section_marker_line(s : String) -> Bool {
   if t == "" {
     return false
   }
-  t.contains("第") && (t.contains("章") || t.contains("节")) ||
+  (t.contains("第") && (t.contains("章") || t.contains("节"))) ||
   t.contains("Chapter") ||
   t.contains("CHAPTER") ||
   t.contains("Section") ||

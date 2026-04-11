@@ -204,7 +204,9 @@ fn run_pdf_core_sample_check(path : String) -> Bool {
   }
   let native = @pdfc.extract_document_events_result(doc) catch {
     e => {
-      println("  [error] extract_document_events_result failed: " + e.to_string())
+      println(
+        "  [error] extract_document_events_result failed: " + e.to_string(),
+      )
       return false
     }
   }
@@ -230,26 +232,18 @@ fn get_pdf_core_check_samples(group : String) -> Array[String] {
   match group {
     "smoke" =>
       [
-        "samples/pdf/text_simple.pdf",
-        "samples/pdf/text_multipage.pdf",
-        "samples/pdf/hardwrap_en.pdf",
-        "samples/pdf/hardwrap_zh.pdf",
-        "samples/pdf/heading_basic.pdf",
+        "samples/pdf/text_simple.pdf", "samples/pdf/text_multipage.pdf", "samples/pdf/hardwrap_en.pdf",
+        "samples/pdf/hardwrap_zh.pdf", "samples/pdf/heading_basic.pdf",
       ]
     "decode" =>
       [
-        "samples/pdf/text_simple.pdf",
-        "samples/pdf/hardwrap_en.pdf",
-        "samples/pdf/hardwrap_zh.pdf",
-        "samples/pdf/pdf_heading_false_positive_phase15.pdf",
-        "samples/pdf/pdf_two_column_negative_phase15.pdf",
+        "samples/pdf/text_simple.pdf", "samples/pdf/hardwrap_en.pdf", "samples/pdf/hardwrap_zh.pdf",
+        "samples/pdf/pdf_heading_false_positive_phase15.pdf", "samples/pdf/pdf_two_column_negative_phase15.pdf",
       ]
     "signal" =>
       [
-        "samples/pdf/heading_basic.pdf",
-        "samples/pdf/pdf_heading_vs_short_sentence.pdf",
-        "samples/pdf/pdf_cross_page_paragraph.pdf",
-        "samples/pdf/pdf_repeated_header_footer_variants.pdf",
+        "samples/pdf/heading_basic.pdf", "samples/pdf/pdf_heading_vs_short_sentence.pdf",
+        "samples/pdf/pdf_cross_page_paragraph.pdf", "samples/pdf/pdf_repeated_header_footer_variants.pdf",
       ]
     _ => []
   }
@@ -289,12 +283,17 @@ fn print_pdf_core_page_summary(page : @pdfc.PdfNativePageResult) -> Unit {
   println("  is_failed: " + page.is_failed.to_string())
   print_pdf_core_event_samples(page.events, 8)
   println(
-    "  merged_preview: \"" + preview_text(join_event_text(page.events), 180) + "\"",
+    "  merged_preview: \"" +
+    preview_text(join_event_text(page.events), 180) +
+    "\"",
   )
 }
 
 ///|
-fn print_pdf_core_event_samples(events : Array[@pdfc.PdfTextEvent], limit : Int) -> Unit {
+fn print_pdf_core_event_samples(
+  events : Array[@pdfc.PdfTextEvent],
+  limit : Int,
+) -> Unit {
   println("  events_preview:")
   let mut i = 0
   while i < events.length() && i < limit {

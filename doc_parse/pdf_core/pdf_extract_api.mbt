@@ -14,7 +14,7 @@ pub enum PdfTextBreakKind {
   ExplicitLine
   ExplicitParagraph
   Inferred
-}
+} derive(Eq)
 
 ///|
 priv enum PdfFragmentBoundaryKind {
@@ -436,7 +436,7 @@ fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
     let mut current = events[index]
     index = index + 1
     while index < events.length() &&
-      should_coalesce_text_events(current, events[index]) {
+          should_coalesce_text_events(current, events[index]) {
       current = {
         font_name: current.font_name,
         font_size: current.font_size,
@@ -453,7 +453,10 @@ fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
 }
 
 ///|
-fn should_coalesce_text_events(left : PdfTextEvent, right : PdfTextEvent) -> Bool {
+fn should_coalesce_text_events(
+  left : PdfTextEvent,
+  right : PdfTextEvent,
+) -> Bool {
   if left.text == "" || right.text == "" {
     return false
   }
@@ -494,7 +497,8 @@ fn should_coalesce_text_events(left : PdfTextEvent, right : PdfTextEvent) -> Boo
     return false
   }
 
-  if !looks_like_short_fragment(left.text) && !looks_like_short_fragment(right.text) {
+  if !looks_like_short_fragment(left.text) &&
+    !looks_like_short_fragment(right.text) {
     return false
   }
 
@@ -542,8 +546,9 @@ fn recover_structural_breaks_from_events(
       break_kind: ev.break_kind,
     }
     match prev_text {
-      Some(prev) => {
-        match infer_structural_break_between_events(prev, normalized_event.text) {
+      Some(prev) =>
+        match
+          infer_structural_break_between_events(prev, normalized_event.text) {
           Some(break_text) =>
             out.push({
               font_name: None,
@@ -555,7 +560,6 @@ fn recover_structural_breaks_from_events(
             })
           None => ()
         }
-      }
       None => ()
     }
     out.push(normalized_event)
@@ -597,7 +601,10 @@ fn recover_structural_breaks_in_text(s : String) -> String {
 }
 
 ///|
-fn infer_structural_break_between_events(prev : String, cur : String) -> String? {
+fn infer_structural_break_between_events(
+  prev : String,
+  cur : String,
+) -> String? {
   let p = prev.trim().to_string()
   let c = cur.trim().to_string()
   if p == "" || c == "" {
