@@ -29,6 +29,7 @@ CASES=(
   "gated_should_use_native_simple_font_fallback|$FIXTURE_DIR/pdf_native_real_simple_font_fallback.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_font_fallback_multipage|$FIXTURE_DIR/pdf_native_real_font_fallback_multipage.pdf|pdf-native|ACCEPT_"
   "gated_should_use_external_encrypted_marker|$FIXTURE_DIR/gated_should_use_external_encrypted_marker.pdf|external|REJECT_"
+  "gated_should_use_external_objstm_marker|$FIXTURE_DIR/gated_should_use_external_objstm_marker.pdf|external|REJECT_"
 )
 
 passed=0
