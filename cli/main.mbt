@@ -39,6 +39,14 @@ async fn main {
         help="Debug PDF text-op -> event -> pretty text layers",
         args={ "input": @clap.Arg::positional(help="Path to input .pdf file") },
       ),
+      "check-pdf-core": @clap.SubCommand::new(
+        help="Check pdf_core extraction signals for one PDF",
+        args={ "input": @clap.Arg::positional(help="Path to input .pdf file") },
+      ),
+      "check-pdf-core-set": @clap.SubCommand::new(
+        help="Run grouped pdf_core signal checks: smoke|decode|signal",
+        args={ "group": @clap.Arg::positional(help="Check group name") },
+      ),
       "help": @clap.SubCommand::new(help="Display help message"),
     },
   )
@@ -122,6 +130,22 @@ async fn main {
                 return
               }
               cmd_debug_pdf_events(positional[0])
+            }
+            "check-pdf-core" => {
+              if positional.length() == 0 {
+                exit_error("missing input argument")
+                println(help_msg)
+                return
+              }
+              cmd_check_pdf_core(positional[0])
+            }
+            "check-pdf-core-set" => {
+              if positional.length() == 0 {
+                exit_error("missing group argument")
+                println(help_msg)
+                return
+              }
+              cmd_check_pdf_core_set(positional[0])
             }
             "help" => println(help_msg)
             _ => println(help_msg)

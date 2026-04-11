@@ -26,6 +26,21 @@ priv struct PdfConvertPage {
 }
 
 ///|
+priv enum PdfConvertBlockKind {
+  StandaloneLine
+  Paragraph
+}
+
+///|
+priv struct PdfConvertBlock {
+  kind : PdfConvertBlockKind
+  text : String
+  page_index : Int
+  line_start : Int
+  line_end : Int
+}
+
+///|
 fn extract_pdf_text_result(
   path : String,
   debug? : Bool = false,
@@ -77,7 +92,8 @@ fn extract_pdf_text_native(
     e => return Err(map_native_error(e))
   }
   let convert_pages = native_document_events_to_pages(native)
-  let text = flatten_native_document_events_to_text(native)
+  let convert_blocks = native_document_events_to_blocks(native)
+  let text = pdf_convert_blocks_to_text(convert_blocks)
 
   let cleaned = cleanup_pdf_text(text)
   let quality = analyze_pdf_text_quality(cleaned)
@@ -151,6 +167,18 @@ fn extract_pdf_text_native(
         shown = shown + 1
       }
     }
+    for page_blocks in convert_blocks {
+      if page_blocks.length() == 0 {
+        continue
+      }
+      let page_index = page_blocks[0].page_index
+      println(
+        "[pdf-debug] convert_page_blocks[" +
+        page_index.to_string() +
+        "] block_count=" +
+        page_blocks.length().to_string(),
+      )
+    }
   }
 
   if native.is_fatal {
@@ -188,14 +216,6 @@ fn extract_pdf_text_native(
 }
 
 ///|
-fn flatten_native_document_events_to_text(
-  native : @pdfc.PdfNativeDocumentResult,
-) -> String {
-  let pages = native_document_events_to_pages(native)
-  pdf_convert_pages_to_text(pages)
-}
-
-///|
 fn native_document_events_to_pages(
   native : @pdfc.PdfNativeDocumentResult,
 ) -> Array[PdfConvertPage] {
@@ -207,6 +227,204 @@ fn native_document_events_to_pages(
     })
   }
   out
+}
+
+///|
+fn native_document_events_to_blocks(
+  native : @pdfc.PdfNativeDocumentResult,
+) -> Array[Array[PdfConvertBlock]] {
+  let pages = native_document_events_to_pages(native)
+  let out : Array[Array[PdfConvertBlock]] = []
+  for page in pages {
+    out.push(native_page_lines_to_blocks(page.page_index, page.lines))
+  }
+  out
+}
+
+///|
+fn native_page_lines_to_blocks(
+  page_index : Int,
+  lines : Array[PdfConvertLine],
+) -> Array[PdfConvertBlock] {
+  let blocks : Array[PdfConvertBlock] = []
+  let para_lines : Array[String] = []
+  let mut para_start = -1
+  let mut para_end = -1
+
+  let mut i = 0
+  while i < lines.length() {
+    let line = lines[i]
+    let text = line.text.trim().to_string()
+    if line.is_explicit_break || text == "" {
+      if para_lines.length() > 0 {
+        let para_text = para_lines.join(" ").trim().to_string()
+        if para_text != "" {
+          blocks.push({
+            kind: PdfConvertBlockKind::Paragraph,
+            text: para_text,
+            page_index: page_index,
+            line_start: para_start,
+            line_end: para_end,
+          })
+        }
+        para_lines.clear()
+        para_start = -1
+        para_end = -1
+      }
+      i = i + 1
+      continue
+    }
+
+    if should_be_standalone_line(lines, i) {
+      if para_lines.length() > 0 {
+        let para_text = para_lines.join(" ").trim().to_string()
+        if para_text != "" {
+          blocks.push({
+            kind: PdfConvertBlockKind::Paragraph,
+            text: para_text,
+            page_index: page_index,
+            line_start: para_start,
+            line_end: para_end,
+          })
+        }
+        para_lines.clear()
+        para_start = -1
+        para_end = -1
+      }
+      blocks.push({
+        kind: PdfConvertBlockKind::StandaloneLine,
+        text: text,
+        page_index: page_index,
+        line_start: i,
+        line_end: i,
+      })
+      i = i + 1
+      continue
+    }
+
+    if para_start < 0 {
+      para_start = i
+    }
+    para_end = i
+    para_lines.push(text)
+    i = i + 1
+  }
+
+  if para_lines.length() > 0 {
+    let para_text = para_lines.join(" ").trim().to_string()
+    if para_text != "" {
+      blocks.push({
+        kind: PdfConvertBlockKind::Paragraph,
+        text: para_text,
+        page_index: page_index,
+        line_start: para_start,
+        line_end: para_end,
+      })
+    }
+  }
+  blocks
+}
+
+///|
+fn should_be_standalone_line(lines : Array[PdfConvertLine], i : Int) -> Bool {
+  if i < 0 || i >= lines.length() {
+    return false
+  }
+  let text = lines[i].text.trim().to_string()
+  if text == "" {
+    return false
+  }
+
+  let cur_len = text_len(text)
+  if cur_len == 0 {
+    return false
+  }
+
+  if cur_len <= 36 && looks_like_section_marker_line(text) {
+    return true
+  }
+
+  if cur_len <= 8 && !looks_like_sentence_line(text) {
+    return true
+  }
+
+  if cur_len > 20 {
+    return false
+  }
+
+  let prev_len = prev_non_break_line_len(lines, i)
+  let next_len = next_non_break_line_len(lines, i)
+  let long_neighbor = if prev_len > next_len { prev_len } else { next_len }
+  long_neighbor >= 36 &&
+  long_neighbor >= cur_len * 2 &&
+  !looks_like_sentence_line(text)
+}
+
+///|
+fn prev_non_break_line_len(lines : Array[PdfConvertLine], i : Int) -> Int {
+  let mut j = i - 1
+  while j >= 0 {
+    let line = lines[j]
+    let t = line.text.trim().to_string()
+    if !line.is_explicit_break && t != "" {
+      return text_len(t)
+    }
+    if j == 0 {
+      break
+    }
+    j = j - 1
+  }
+  0
+}
+
+///|
+fn next_non_break_line_len(lines : Array[PdfConvertLine], i : Int) -> Int {
+  let mut j = i + 1
+  while j < lines.length() {
+    let line = lines[j]
+    let t = line.text.trim().to_string()
+    if !line.is_explicit_break && t != "" {
+      return text_len(t)
+    }
+    j = j + 1
+  }
+  0
+}
+
+///|
+fn looks_like_section_marker_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+  t.contains("第") && (t.contains("章") || t.contains("节")) ||
+  t.contains("Chapter") ||
+  t.contains("CHAPTER") ||
+  t.contains("Section") ||
+  t.contains("SECTION") ||
+  t.contains("、") ||
+  t.contains(")")
+}
+
+///|
+fn looks_like_sentence_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+  t.contains("。") ||
+  t.contains("！") ||
+  t.contains("？") ||
+  t.contains(".") ||
+  t.contains("!") ||
+  t.contains("?") ||
+  t.contains("，") ||
+  t.contains(",")
+}
+
+///|
+fn text_len(s : String) -> Int {
+  s.to_array().length()
 }
 
 ///|
@@ -300,20 +518,17 @@ fn native_page_events_to_lines(
 }
 
 ///|
-fn pdf_convert_pages_to_text(pages : Array[PdfConvertPage]) -> String {
+fn pdf_convert_blocks_to_text(pages : Array[Array[PdfConvertBlock]]) -> String {
   let page_texts : Array[String] = []
-  for page in pages {
-    let raw_lines : Array[String] = []
-    for line in page.lines {
-      if line.is_explicit_break {
-        raw_lines.push("")
-      } else {
-        raw_lines.push(line.text)
+  for page_blocks in pages {
+    let block_texts : Array[String] = []
+    for block in page_blocks {
+      if block.text.trim() != "" {
+        block_texts.push(block.text)
       }
     }
-    let page_text = raw_lines.join("\n")
-    if page_text != "" {
-      page_texts.push(page_text)
+    if block_texts.length() > 0 {
+      page_texts.push(block_texts.join("\n\n"))
     }
   }
   page_texts.join("\f")
