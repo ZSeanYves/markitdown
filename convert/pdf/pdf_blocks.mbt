@@ -156,6 +156,7 @@ fn should_flush_paragraph_after_line(
   if para_line_count >= 10 && ends_like_sentence(cur) {
     return true
   }
+}
 
   if total_chars >= 600 && ends_like_sentence(cur) {
     return true
