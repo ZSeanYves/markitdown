@@ -153,12 +153,77 @@ fn collect_page_refs(
 fn read_stream_required(doc : PdfDocument, obj : Int, gen : Int) -> Bytes raise {
   let o = get_indirect_object(doc, obj, gen)
   match o.stream {
-    Some(b) => b
+    Some(b) => maybe_decode_stream_by_filter(o.value, b)
     None =>
       raise TypeMismatch(
         "object is not a stream: " + obj.to_string() + " " + gen.to_string(),
       )
   }
+}
+
+///|
+fn maybe_decode_stream_by_filter(dict_value : PdfValue, stream : Bytes) -> Bytes raise {
+  let dict = match dict_value {
+    PdfValue::Dict(d) => d
+    _ => return stream
+  }
+  match dict.get("Filter") {
+    Some(PdfValue::Name("FlateDecode")) => {
+      decode_pdf_flate_stream(stream)
+    }
+    Some(PdfValue::Name("Fl")) => {
+      decode_pdf_flate_stream(stream)
+    }
+    Some(PdfValue::Array(filters)) => {
+      let mut out = stream
+      for f in filters {
+        match f {
+          PdfValue::Name("FlateDecode") => {
+            out = decode_pdf_flate_stream(out)
+          }
+          PdfValue::Name("Fl") => {
+            out = decode_pdf_flate_stream(out)
+          }
+          _ => return stream
+        }
+      }
+      out
+    }
+    _ => stream
+  }
+}
+
+///|
+fn decode_pdf_flate_stream(stream : Bytes) -> Bytes raise {
+  let mut last_err = ""
+
+  // PDF FlateDecode is usually zlib-wrapped deflate (CMF/FLG + Adler32).
+  if stream.length() >= 6 {
+    let wrapped_body = stream[2:stream.length() - 4].to_bytes()
+    let raw_try = @zip.decompress(
+      @zip.CompressionMethod::DeflateRaw,
+      wrapped_body,
+    ) catch {
+      e => {
+        last_err = e.to_string()
+        Bytes::from_array([])
+      }
+    }
+    if raw_try.length() > 0 || wrapped_body.length() == 0 {
+      return raw_try
+    }
+  }
+
+  // Fallback: some producers may already provide raw-deflate-like payload.
+  let raw = @zip.decompress(@zip.CompressionMethod::DeflateRaw, stream) catch {
+    e => {
+      last_err = e.to_string()
+      raise InvalidStructure(
+        "failed to FlateDecode stream with zip backend: " + last_err,
+      )
+    }
+  }
+  raw
 }
 
 ///|

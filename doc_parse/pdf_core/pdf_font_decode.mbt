@@ -7,7 +7,10 @@ fn load_tounicode(
     (Some(obj), Some(gen)) => {
       let o = get_indirect_object(doc, obj, gen)
       match o.stream {
-        Some(bs) => (parse_tounicode_cmap(bs), infer_cmap_code_widths(bs))
+        Some(bs) => {
+          let decoded = maybe_decode_stream_by_filter(o.value, bs)
+          (parse_tounicode_cmap(decoded), infer_cmap_code_widths(decoded))
+        }
         None => (Map::new(), [1])
       }
     }
