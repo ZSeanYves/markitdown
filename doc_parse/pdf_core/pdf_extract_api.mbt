@@ -59,6 +59,35 @@ pub struct PdfDocumentExtractResult {
 }
 
 ///|
+pub struct PdfNativePageResult {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  events : Array[PdfTextEvent]
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+///|
+pub struct PdfNativeDocumentResult {
+  pages : Array[PdfNativePageResult]
+  page_count : Int
+  success_pages : Int
+  failed_pages : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  non_whitespace_chars : Int
+  is_empty : Bool
+  is_low_signal : Bool
+  is_fatal : Bool
+  fatal_reason : String?
+}
+
+///|
 const PDF_NATIVE_TRACE_C1 = false
 
 ///|
@@ -346,10 +375,8 @@ fn extract_page_text_with_stats(
   }
 
   let coalesced_events = coalesce_text_events(events)
-  let structured_events = recover_structural_breaks_from_events(coalesced_events)
   let text = merge_page_events_low_level(coalesced_events)
-  let pretty_text =
-    normalize_native_page_text(merge_page_events_pretty(structured_events))
+  let pretty_text = text
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
   PdfPageExtractResult::{
@@ -527,7 +554,8 @@ pub fn extract_pretty_text_from_page(
   page_gen : Int,
 ) -> String raise {
   let page = extract_page_text_with_stats(doc, page_obj, page_gen)
-  page.pretty_text
+  let structured_events = recover_structural_breaks_from_events(page.events)
+  normalize_native_page_text(merge_page_events_pretty(structured_events))
 }
 
 ///|
@@ -550,12 +578,12 @@ pub fn extract_pretty_text_from_document(doc : PdfDocument) -> String raise {
   let mut out = ""
   pages.each(fn(e) raise {
     let (obj, gen) = e
-    let page = extract_page_text_with_stats(doc, obj, gen)
-    if page.text != "" {
+    let text = extract_pretty_text_from_page(doc, obj, gen)
+    if text != "" {
       if out != "" {
         out = out + "\f"
       }
-      out = out + page.pretty_text
+      out = out + text
     }
   })
   out
@@ -786,6 +814,94 @@ pub fn extract_text_from_document_result(
     is_fatal,
     fatal_reason,
     page_stats,
+  }
+}
+
+///|
+pub fn extract_document_events_result(
+  doc : PdfDocument,
+) -> PdfNativeDocumentResult raise {
+  let pages = list_page_refs(doc) catch {
+    e => raise InvalidStructure("list_page_refs failed: " + e.to_string())
+  }
+  let page_count = pages.length()
+  let mut success_pages = 0
+  let mut failed_pages = 0
+  let mut success_streams = 0
+  let mut failed_streams = 0
+  let mut event_count = 0
+  let pages_result : Array[PdfNativePageResult] = []
+  let mut combined_text = ""
+  pages.eachi(fn(i, e) raise {
+    let (obj, gen) = e
+    let page = extract_page_text_with_stats(doc, obj, gen)
+    let page_event_count = page.events.length()
+    event_count = event_count + page_event_count
+    success_streams = success_streams + page.success_streams
+    failed_streams = failed_streams + page.failed_streams
+    if page.is_failed {
+      failed_pages = failed_pages + 1
+    } else {
+      success_pages = success_pages + 1
+    }
+    pages_result.push({
+      page_index: i,
+      page_obj: obj,
+      page_gen: gen,
+      events: page.events,
+      stream_count: page.stream_count,
+      success_streams: page.success_streams,
+      failed_streams: page.failed_streams,
+      text_length: page.text_length,
+      is_failed: page.is_failed,
+    })
+
+    if page.text != "" {
+      if combined_text != "" {
+        combined_text = combined_text + "\f"
+      }
+      combined_text = combined_text + page.text
+    }
+  })
+
+  let non_whitespace_chars = count_non_whitespace_chars(combined_text)
+  let is_empty = non_whitespace_chars == 0
+  let too_low_events = event_count <= 1
+  let too_low_text = non_whitespace_chars < 8
+  let severe_page_failure = page_count > 1 && failed_pages * 2 >= page_count
+  let is_low_signal = page_count > 0 &&
+    (
+      (too_low_events && too_low_text) ||
+      (non_whitespace_chars < 16 && failed_pages > 0) ||
+      (severe_page_failure && non_whitespace_chars < 32)
+    )
+  let all_pages_failed = page_count > 0 && failed_pages == page_count
+  let is_fatal = (page_count > 0 && is_empty) ||
+    all_pages_failed ||
+    (severe_page_failure && non_whitespace_chars < 8)
+  let fatal_reason = if page_count > 0 && is_empty {
+    Some("empty_text_with_pages")
+  } else if all_pages_failed {
+    Some("all_pages_failed")
+  } else if severe_page_failure && non_whitespace_chars < 8 {
+    Some("severe_page_failure_low_text")
+  } else {
+    None
+  }
+
+  {
+    pages: pages_result,
+    page_count,
+    success_pages,
+    failed_pages,
+    success_streams,
+    failed_streams,
+    event_count,
+    non_whitespace_chars,
+    is_empty,
+    is_low_signal,
+    is_fatal,
+    fatal_reason,
   }
 }
 
