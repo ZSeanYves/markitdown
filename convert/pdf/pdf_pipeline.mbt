@@ -3,7 +3,7 @@ fn native_document_events_to_blocks(
   native : @pdfc.PdfNativeDocumentResult,
 ) -> Array[Array[PdfConvertBlock]] {
   let pages = native_document_events_to_convert_pages(native)
-  convert_pages_to_blocks(pages)
+  classify_convert_blocks(pages, convert_pages_to_blocks(pages))
 }
 
 ///|
@@ -14,7 +14,7 @@ fn native_document_events_to_ir_document_with_debug(
   pipeline_debug : Bool,
 ) -> @cor.Document {
   let pages = native_document_events_to_convert_pages(native)
-  let blocks = convert_pages_to_blocks(pages)
+  let blocks = classify_convert_blocks(pages, convert_pages_to_blocks(pages))
   convert_blocks_to_ir_document_with_debug(input_path, out_dir, blocks, pipeline_debug)
 }
 
@@ -70,6 +70,14 @@ fn render_native_convert_blocks(pages : Array[Array[PdfConvertBlock]]) -> String
         PdfConvertBlockKind::Paragraph => "Paragraph"
         PdfConvertBlockKind::StandaloneLine => "StandaloneLine"
       }
+      let flags = "h=" +
+        block.is_heading_candidate.to_string() +
+        " list=" +
+        block.is_list_candidate.to_string() +
+        " noise=" +
+        block.is_noise_candidate.to_string() +
+        " xpage=" +
+        block.is_cross_page_continuation_candidate.to_string()
       out.push(
         i.to_string() +
         ". " +
@@ -79,6 +87,8 @@ fn render_native_convert_blocks(pages : Array[Array[PdfConvertBlock]]) -> String
         "-" +
         block.line_end.to_string() +
         "] " +
+        flags +
+        " " +
         block.text,
       )
     }

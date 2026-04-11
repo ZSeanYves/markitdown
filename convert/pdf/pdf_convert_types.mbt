@@ -27,4 +27,10 @@ priv struct PdfConvertBlock {
   page_index : Int
   line_start : Int
   line_end : Int
+  line_count : Int
+  char_count : Int
+  is_heading_candidate : Bool
+  is_list_candidate : Bool
+  is_noise_candidate : Bool
+  is_cross_page_continuation_candidate : Bool
 }

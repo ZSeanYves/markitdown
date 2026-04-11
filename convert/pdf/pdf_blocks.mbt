@@ -33,6 +33,12 @@ fn native_page_lines_to_blocks(
             page_index,
             line_start: para_start,
             line_end: para_end,
+            line_count: para_end - para_start + 1,
+            char_count: text_len(para_text),
+            is_heading_candidate: false,
+            is_list_candidate: false,
+            is_noise_candidate: false,
+            is_cross_page_continuation_candidate: false,
           })
         }
         para_lines.clear()
@@ -53,6 +59,12 @@ fn native_page_lines_to_blocks(
             page_index,
             line_start: para_start,
             line_end: para_end,
+            line_count: para_end - para_start + 1,
+            char_count: text_len(para_text),
+            is_heading_candidate: false,
+            is_list_candidate: false,
+            is_noise_candidate: false,
+            is_cross_page_continuation_candidate: false,
           })
         }
         para_lines.clear()
@@ -65,6 +77,12 @@ fn native_page_lines_to_blocks(
         page_index,
         line_start: i,
         line_end: i,
+        line_count: 1,
+        char_count: text_len(text),
+        is_heading_candidate: false,
+        is_list_candidate: false,
+        is_noise_candidate: false,
+        is_cross_page_continuation_candidate: false,
       })
       i = i + 1
       continue
@@ -87,6 +105,12 @@ fn native_page_lines_to_blocks(
         page_index,
         line_start: para_start,
         line_end: para_end,
+        line_count: para_end - para_start + 1,
+        char_count: text_len(para_text),
+        is_heading_candidate: false,
+        is_list_candidate: false,
+        is_noise_candidate: false,
+        is_cross_page_continuation_candidate: false,
       })
     }
   }

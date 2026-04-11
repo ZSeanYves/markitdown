@@ -61,7 +61,10 @@ fn extract_pdf_text_native(
     e => return Err(map_native_error(e))
   }
   let convert_pages = native_document_events_to_convert_pages(native)
-  let convert_blocks = convert_pages_to_blocks(convert_pages)
+  let convert_blocks = classify_convert_blocks(
+    convert_pages,
+    convert_pages_to_blocks(convert_pages),
+  )
   let text = pdf_convert_blocks_to_text_fallback(convert_blocks)
 
   let cleaned = cleanup_pdf_text(text)
