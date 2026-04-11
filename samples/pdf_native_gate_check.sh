@@ -18,10 +18,16 @@ fi
 CASES=(
   "gated_should_use_native_en_single_page|$FIXTURE_DIR/pdf_native_real_en_single_page.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_tounicode_basic|$FIXTURE_DIR/pdf_native_real_tounicode_basic.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_normal_multipage_current_boundary|$FIXTURE_DIR/pdf_native_real_normal_multipage_current_boundary.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_stream_simple|$FIXTURE_DIR/pdf_native_real_xref_stream_simple.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_stream_multipage|$FIXTURE_DIR/pdf_native_real_xref_stream_multipage.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_objstm_simple|$FIXTURE_DIR/pdf_native_real_objstm_simple.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_objstm_multipage|$FIXTURE_DIR/pdf_native_real_objstm_multipage.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_objstm_simple_text|$FIXTURE_DIR/pdf_native_real_xref_objstm_simple_text.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_objstm_multipage|$FIXTURE_DIR/pdf_native_real_xref_objstm_multipage.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_mixed_lang_objstm_simple|$FIXTURE_DIR/pdf_native_real_mixed_lang_objstm_simple.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_simple_font_fallback|$FIXTURE_DIR/pdf_native_real_simple_font_fallback.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_font_fallback_multipage|$FIXTURE_DIR/pdf_native_real_font_fallback_multipage.pdf|pdf-native|ACCEPT_"
   "gated_should_use_external_encrypted_marker|$FIXTURE_DIR/gated_should_use_external_encrypted_marker.pdf|external|REJECT_"
 )
 
