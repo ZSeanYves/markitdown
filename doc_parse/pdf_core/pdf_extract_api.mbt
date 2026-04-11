@@ -377,6 +377,16 @@ pub fn extract_text_from_page(
 }
 
 ///|
+pub fn extract_pretty_text_from_page(
+  doc : PdfDocument,
+  page_obj : Int,
+  page_gen : Int,
+) -> String raise {
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
+  page.pretty_text
+}
+
+///|
 pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
   let result = extract_text_from_document_result(doc)
   if result.is_fatal {
@@ -386,6 +396,25 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
     )
   }
   result.text
+}
+
+///|
+pub fn extract_pretty_text_from_document(doc : PdfDocument) -> String raise {
+  let pages = list_page_refs(doc) catch {
+    e => raise InvalidStructure("list_page_refs failed: " + e.to_string())
+  }
+  let mut out = ""
+  pages.each(fn(e) raise {
+    let (obj, gen) = e
+    let page = extract_page_text_with_stats(doc, obj, gen)
+    if page.text != "" {
+      if out != "" {
+        out = out + "\f"
+      }
+      out = out + page.pretty_text
+    }
+  })
+  out
 }
 
 ///|
@@ -429,12 +458,11 @@ pub fn extract_text_from_document_result(
       is_failed: page.is_failed,
     })
     let t = page.text
-    let pretty_t = page.pretty_text
     if t != "" {
       if out != "" {
         out = out + "\f"
       }
-      out = out + pretty_t
+      out = out + t
     }
   })
   let non_whitespace_chars = count_non_whitespace_chars(out)

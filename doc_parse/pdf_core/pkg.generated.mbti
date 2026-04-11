@@ -10,6 +10,10 @@ pub fn extract_plain_text_from_page_stream(Bytes) -> String raise
 
 pub fn extract_plain_text_from_page_streams(Array[Bytes]) -> String raise
 
+pub fn extract_pretty_text_from_document(PdfDocument) -> String raise
+
+pub fn extract_pretty_text_from_page(PdfDocument, Int, Int) -> String raise
+
 pub fn extract_text_events_from_page(PdfDocument, Int, Int) -> Array[PdfTextEvent] raise
 
 pub fn extract_text_from_document(PdfDocument) -> String raise

@@ -60,7 +60,9 @@ fn extract_pdf_text_native(
   let native = @pdfc.extract_text_from_document_result(doc) catch {
     e => return Err(map_native_error(e))
   }
-  let text = native.text
+  let text = @pdfc.extract_pretty_text_from_document(doc) catch {
+    e => return Err(map_native_error(e))
+  }
 
   let cleaned = cleanup_pdf_text(text)
   let quality = analyze_pdf_text_quality(cleaned)
