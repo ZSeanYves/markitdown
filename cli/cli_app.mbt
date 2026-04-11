@@ -303,9 +303,7 @@ fn print_pdf_core_event_samples(
       i.to_string() +
       "] text=\"" +
       preview_text(ev.text, 48) +
-      "\" page=" +
-      ev.page_index.to_string() +
-      " font=" +
+      "\" font=" +
       ev.font_name.unwrap_or("<none>") +
       " size=" +
       ev.font_size.map(fn(v) { v.to_string() }).unwrap_or("<none>") +
@@ -314,11 +312,7 @@ fn print_pdf_core_event_samples(
       " op=" +
       ev.source_op_index.to_string() +
       " break=" +
-      debug_break_kind(ev.break_kind) +
-      " coalesced=" +
-      ev.is_coalesced.to_string() +
-      " coalesced_count=" +
-      ev.coalesced_count.to_string(),
+      debug_break_kind(ev.break_kind),
     )
     i = i + 1
   }

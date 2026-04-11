@@ -1,14 +1,11 @@
 ///|
 pub struct PdfTextEvent {
-  page_index : Int
   font_name : String?
   font_size : Double?
   text : String
   source_stream_index : Int
   source_op_index : Int
   break_kind : PdfTextBreakKind
-  is_coalesced : Bool
-  coalesced_count : Int
 }
 
 ///|
@@ -213,7 +210,7 @@ pub fn extract_text_events_from_page(
   page_obj : Int,
   page_gen : Int,
 ) -> Array[PdfTextEvent] raise {
-  let page = extract_page_text_with_stats(doc, page_obj, page_gen, -1)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
   page.events
 }
 
@@ -222,7 +219,6 @@ fn extract_page_text_with_stats(
   doc : PdfDocument,
   page_obj : Int,
   page_gen : Int,
-  page_index : Int,
 ) -> PdfPageExtractResult raise {
   let fonts = resolve_page_fonts(doc, page_obj, page_gen) catch {
     e =>
@@ -336,7 +332,6 @@ fn extract_page_text_with_stats(
             }
             if should_emit {
               events.push({
-                page_index,
                 font_name: current_font,
                 font_size: current_font_size,
                 text: break_text,
@@ -347,8 +342,6 @@ fn extract_page_text_with_stats(
                 } else {
                   PdfTextBreakKind::ExplicitLine
                 },
-                is_coalesced: false,
-                coalesced_count: 1,
               })
             }
           }
@@ -379,15 +372,12 @@ fn extract_page_text_with_stats(
         }
         if text != "" {
           events.push({
-            page_index,
             font_name: current_font,
             font_size: current_font_size,
             text,
             source_stream_index: stream_index,
             source_op_index: op_index,
             break_kind: PdfTextBreakKind::None,
-            is_coalesced: false,
-            coalesced_count: 1,
           })
           _has_emitted_text = true
         }
@@ -403,95 +393,12 @@ fn extract_page_text_with_stats(
         }
         if text != "" {
           events.push({
-            page_index,
             font_name: current_font,
             font_size: current_font_size,
             text,
             source_stream_index: stream_index,
             source_op_index: op_index,
             break_kind: PdfTextBreakKind::None,
-            is_coalesced: false,
-            coalesced_count: 1,
-          })
-          _has_emitted_text = true
-        }
-      }
-
-      if op.op == "'" && op.operands.length() >= 1 {
-        if _has_emitted_text {
-          let should_emit = if events.length() == 0 {
-            true
-          } else {
-            let last_ev = events[events.length() - 1]
-            last_ev.text != "\n" && last_ev.text != "\n\n"
-          }
-          if should_emit {
-            events.push({
-              page_index,
-              font_name: current_font,
-              font_size: current_font_size,
-              text: "\n",
-              source_stream_index: stream_index,
-              source_op_index: op_index,
-              break_kind: PdfTextBreakKind::ExplicitLine,
-              is_coalesced: false,
-              coalesced_count: 1,
-            })
-          }
-        }
-        let operand = op.operands[op.operands.length() - 1]
-        let text = decode_with_font(doc, font_ref, operand) catch { _ => "" }
-        if text != "" {
-          events.push({
-            page_index,
-            font_name: current_font,
-            font_size: current_font_size,
-            text,
-            source_stream_index: stream_index,
-            source_op_index: op_index,
-            break_kind: PdfTextBreakKind::None,
-            is_coalesced: false,
-            coalesced_count: 1,
-          })
-          _has_emitted_text = true
-        }
-      }
-
-      if op.op == "\"" && op.operands.length() >= 3 {
-        if _has_emitted_text {
-          let should_emit = if events.length() == 0 {
-            true
-          } else {
-            let last_ev = events[events.length() - 1]
-            last_ev.text != "\n" && last_ev.text != "\n\n"
-          }
-          if should_emit {
-            events.push({
-              page_index,
-              font_name: current_font,
-              font_size: current_font_size,
-              text: "\n",
-              source_stream_index: stream_index,
-              source_op_index: op_index,
-              break_kind: PdfTextBreakKind::ExplicitLine,
-              is_coalesced: false,
-              coalesced_count: 1,
-            })
-          }
-        }
-        let operand = op.operands[op.operands.length() - 1]
-        let text = decode_with_font(doc, font_ref, operand) catch { _ => "" }
-        if text != "" {
-          events.push({
-            page_index,
-            font_name: current_font,
-            font_size: current_font_size,
-            text,
-            source_stream_index: stream_index,
-            source_op_index: op_index,
-            break_kind: PdfTextBreakKind::None,
-            is_coalesced: false,
-            coalesced_count: 1,
           })
           _has_emitted_text = true
         }
@@ -531,15 +438,12 @@ fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
     while index < events.length() &&
           should_coalesce_text_events(current, events[index]) {
       current = {
-        page_index: current.page_index,
         font_name: current.font_name,
         font_size: current.font_size,
         text: current.text + events[index].text,
         source_stream_index: current.source_stream_index,
         source_op_index: current.source_op_index,
         break_kind: PdfTextBreakKind::None,
-        is_coalesced: true,
-        coalesced_count: current.coalesced_count + events[index].coalesced_count,
       }
       index = index + 1
     }
@@ -634,15 +538,12 @@ fn recover_structural_breaks_from_events(
       continue
     }
     let normalized_event = {
-      page_index: ev.page_index,
       font_name: ev.font_name,
       font_size: ev.font_size,
       text: normalized_text,
       source_stream_index: ev.source_stream_index,
       source_op_index: ev.source_op_index,
       break_kind: ev.break_kind,
-      is_coalesced: ev.is_coalesced,
-      coalesced_count: ev.coalesced_count,
     }
     match prev_text {
       Some(prev) =>
@@ -650,15 +551,12 @@ fn recover_structural_breaks_from_events(
           infer_structural_break_between_events(prev, normalized_event.text) {
           Some(break_text) =>
             out.push({
-              page_index: ev.page_index,
               font_name: None,
               font_size: None,
               text: break_text,
               source_stream_index: ev.source_stream_index,
               source_op_index: ev.source_op_index,
               break_kind: PdfTextBreakKind::Inferred,
-              is_coalesced: false,
-              coalesced_count: 1,
             })
           None => ()
         }
@@ -749,7 +647,7 @@ pub fn extract_text_from_page(
   page_obj : Int,
   page_gen : Int,
 ) -> String raise {
-  let page = extract_page_text_with_stats(doc, page_obj, page_gen, -1)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
   page.text
 }
 
@@ -759,7 +657,7 @@ pub fn extract_pretty_text_from_page(
   page_obj : Int,
   page_gen : Int,
 ) -> String raise {
-  let page = extract_page_text_with_stats(doc, page_obj, page_gen, -1)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
   let structured_events = recover_structural_breaks_from_events(page.events)
   normalize_native_page_text(merge_page_events_pretty(structured_events))
 }
@@ -804,7 +702,7 @@ pub fn debug_dump_pdf_page_text_ops_events_pretty(
 ) -> String raise {
   let fonts = resolve_page_fonts(doc, page_obj, page_gen)
   let streams = get_page_content_stream_bytes(doc, page_obj, page_gen)
-  let page = extract_page_text_with_stats(doc, page_obj, page_gen, page_index)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
 
   let lines : Array[String] = []
   lines.push(
@@ -951,7 +849,7 @@ pub fn extract_text_from_document_result(
   let page_stats : Array[PdfPageExtractStats] = []
   pages.eachi(fn(i, e) raise {
     let (obj, gen) = e
-    let page = extract_page_text_with_stats(doc, obj, gen, i) catch {
+    let page = extract_page_text_with_stats(doc, obj, gen) catch {
       e => raise e
     }
     let page_event_count = page.events.length()
@@ -1040,7 +938,7 @@ pub fn extract_document_events_result(
   let mut combined_text = ""
   pages.eachi(fn(i, e) raise {
     let (obj, gen) = e
-    let page = extract_page_text_with_stats(doc, obj, gen, i)
+    let page = extract_page_text_with_stats(doc, obj, gen)
     let page_event_count = page.events.length()
     event_count = event_count + page_event_count
     success_streams = success_streams + page.success_streams
