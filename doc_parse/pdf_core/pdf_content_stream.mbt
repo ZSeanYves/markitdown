@@ -23,18 +23,15 @@ pub struct PdfTextOp {
   operands : Array[PdfContentOperand]
 }
 
-let mut _last_token_debug = ""
-let mut _last_token_start = -1
-let mut _last_token_end = -1
-let mut _current_stream_len = 0
 
 ///|
 pub fn parse_page_content_tokens(
   stream : Bytes,
 ) -> Array[PdfContentToken] raise {
-  _last_token_debug = ""
-  _last_token_start = -1
-  _last_token_end = -1
+  let mut _last_token_debug = ""
+  let mut _last_token_start = -1
+  let mut _last_token_end = -1
+  let mut _current_stream_len = 0
   _current_stream_len = stream.length()
   let out : Array[PdfContentToken] = []
   let mut i = 0
@@ -216,6 +213,10 @@ fn parse_content_name(stream : Bytes, pos : Int) -> (String, Int) {
 ///|
 fn parse_content_keyword(stream : Bytes, pos : Int) -> (String, Int) raise {
   let mut i = pos
+    let mut _last_token_debug = ""
+  let mut _last_token_start = -1
+  let mut _last_token_end = -1
+  let mut _current_stream_len = 0
   while i < stream.length() && !is_ws(stream[i]) && !is_delim(stream[i]) {
     i = i + 1
   }
