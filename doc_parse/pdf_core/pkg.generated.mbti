@@ -1,18 +1,28 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/pdf_core"
+package "ZSeanYves/markitdown/doc_parse/pdf_core"
+
+import {
+  "moonbitlang/core/debug",
+}
 
 // Values
 pub fn count_pages(PdfDocument) -> Int raise
 
+pub fn debug_dump_pdf_page_text_ops_events_pretty(PdfDocument, Int, Int, Int) -> String raise
+
 pub fn decode_text_operand(PdfDocument, PdfFontRef, PdfContentOperand) -> String raise
 
-pub fn debug_dump_pdf_page_text_ops_events_pretty(PdfDocument, Int, Int, Int) -> String raise
+pub fn decode_text_operand_with_font(PdfDocument, PdfFontRef, PdfContentOperand) -> String raise
 
 pub fn extract_document_events_result(PdfDocument) -> PdfNativeDocumentResult raise
 
 pub fn extract_plain_text_from_page_stream(Bytes) -> String raise
 
 pub fn extract_plain_text_from_page_streams(Array[Bytes]) -> String raise
+
+pub fn extract_pretty_text_from_document(PdfDocument) -> String raise
+
+pub fn extract_pretty_text_from_page(PdfDocument, Int, Int) -> String raise
 
 pub fn extract_text_events_from_page(PdfDocument, Int, Int) -> Array[PdfTextEvent] raise
 
@@ -38,15 +48,21 @@ pub fn list_page_refs(PdfDocument) -> Array[(Int, Int)] raise
 
 pub fn open_pdf(Bytes) -> PdfDocument raise
 
-pub fn parse_tounicode_cmap(Bytes) -> Map[Int, String]
-
 pub fn parse_page_content_tokens(Bytes) -> Array[PdfContentToken] raise
+
+pub fn parse_tounicode_cmap(Bytes) -> Map[Int, String] raise
 
 pub fn pdf_version(PdfDocument) -> String
 
 pub fn resolve_page_fonts(PdfDocument, Int, Int) -> Map[String, PdfFontRef] raise
 
 // Errors
+pub(all) suberror PdfNativeError {
+  UnsupportedFeature(String)
+  ExtractionFailed(String)
+}
+pub impl Show for PdfNativeError
+
 pub suberror PdfParseError {
   UnexpectedEOF(String)
   InvalidHeader(String)
@@ -56,14 +72,9 @@ pub suberror PdfParseError {
   TypeMismatch(String)
 }
 pub impl Show for PdfParseError
-pub suberror PdfNativeError {
-  UnsupportedFeature(String)
-  ExtractionFailed(String)
-}
-pub impl Show for PdfNativeError
 
 // Types and methods
-pub enum PdfContentOperand {
+pub(all) enum PdfContentOperand {
   Number(Double)
   Name(String)
   String(String)
@@ -88,54 +99,6 @@ pub struct PdfDocument {
   xref : PdfXrefTable
 }
 
-pub struct PdfFontRef {
-  resource_name : String
-  obj_num : Int
-  gen : Int
-  subtype : String?
-  encoding : String?
-  to_unicode_obj : Int?
-  to_unicode_gen : Int?
-}
-
-pub struct PdfIndirectObject {
-  obj_num : Int
-  gen : Int
-  value : PdfValue
-  stream : Bytes?
-}
-
-pub struct PdfTextEvent {
-  page_index : Int
-  font_name : String?
-  font_size : Double?
-  text : String
-  source_stream_index : Int
-  source_op_index : Int
-  break_kind : PdfTextBreakKind
-  is_coalesced : Bool
-  coalesced_count : Int
-}
-
-pub enum PdfTextBreakKind {
-  None
-  ExplicitLine
-  ExplicitParagraph
-  Inferred
-}
-
-pub struct PdfPageExtractStats {
-  page_index : Int
-  page_obj : Int
-  page_gen : Int
-  stream_count : Int
-  success_streams : Int
-  failed_streams : Int
-  event_count : Int
-  text_length : Int
-  is_failed : Bool
-}
-
 pub struct PdfDocumentExtractResult {
   text : String
   page_count : Int
@@ -152,17 +115,22 @@ pub struct PdfDocumentExtractResult {
   page_stats : Array[PdfPageExtractStats]
 }
 
-pub struct PdfNativePageResult {
-  page_index : Int
-  page_obj : Int
-  page_gen : Int
-  events : Array[PdfTextEvent]
-  stream_count : Int
-  success_streams : Int
-  failed_streams : Int
-  text_length : Int
-  is_failed : Bool
+pub struct PdfFontRef {
+  resource_name : String
+  obj_num : Int
+  gen : Int
+  subtype : String?
+  encoding : String?
+  to_unicode_obj : Int?
+  to_unicode_gen : Int?
 }
+
+pub struct PdfIndirectObject {
+  obj_num : Int
+  gen : Int
+  value : PdfValue
+  stream : Bytes?
+} derive(Eq, @debug.Debug)
 
 pub struct PdfNativeDocumentResult {
   pages : Array[PdfNativePageResult]
@@ -177,6 +145,49 @@ pub struct PdfNativeDocumentResult {
   is_low_signal : Bool
   is_fatal : Bool
   fatal_reason : String?
+}
+
+pub struct PdfNativePageResult {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  events : Array[PdfTextEvent]
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+pub struct PdfPageExtractStats {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+pub enum PdfTextBreakKind {
+  None
+  ExplicitLine
+  ExplicitParagraph
+  Inferred
+} derive(Eq)
+
+pub struct PdfTextEvent {
+  page_index : Int
+  font_name : String?
+  font_size : Double?
+  text : String
+  source_stream_index : Int
+  source_op_index : Int
+  break_kind : PdfTextBreakKind
+  is_coalesced : Bool
+  coalesced_count : Int
 }
 
 pub struct PdfTextOp {
@@ -195,7 +206,7 @@ pub enum PdfValue {
   Array(Array[PdfValue])
   Dict(Map[String, PdfValue])
   Ref(Int, Int)
-}
+} derive(Eq, @debug.Debug)
 
 pub struct PdfXrefEntry {
   entry_type : Int
@@ -213,3 +224,4 @@ pub struct PdfXrefTable {
 // Type aliases
 
 // Traits
+

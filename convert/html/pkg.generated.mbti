@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/html"
+package "ZSeanYves/markitdown/convert/html"
 
 import {
-  "ZSeanYves/markitdown/src/core",
+  "ZSeanYves/markitdown/core",
 }
 
 // Values

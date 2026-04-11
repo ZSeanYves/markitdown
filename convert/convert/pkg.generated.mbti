@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/convert"
+package "ZSeanYves/markitdown/convert/convert"
 
 import {
-  "ZSeanYves/markitdown/src/core",
+  "ZSeanYves/markitdown/core",
 }
 
 // Values
@@ -23,3 +23,4 @@ pub(all) struct ConvertOptions {
 // Type aliases
 
 // Traits
+
