@@ -18,22 +18,32 @@ pub async fn parse_pdf(
   }
 
   let mode = parse_pdf_enhance_mode(enhance_mode)
-
-  match mode {
-    PdfEnhanceMode::TextOnly =>
-      match extracted._native_stats {
-        Some(native) =>
-          return native_document_events_to_ir_document_with_debug(
-            path,
-            out_dir,
-            native,
-            pipeline_debug,
-          )
-        None => ()
-      }
-    PdfEnhanceMode::Experimental => ()
+  let selected_raw = select_pdf_debug_raw_text(path, extracted, mode)
+  if dump_selected_raw || pipeline_debug {
+    dump_pdf_debug_stage(path, out_dir, "selected_raw", selected_raw)
   }
 
+  match extracted._native_stats {
+    Some(native) =>
+      native_document_to_ir_document_with_debug(path, out_dir, native, pipeline_debug)
+    None => {
+      // should not happen with current native extractor, keep a clear guard.
+      let doc = @cor.new_document()
+      let t = selected_raw.trim().to_string()
+      if t != "" {
+        @cor.push(doc, @cor.Block::Paragraph(t))
+      }
+      doc
+    }
+  }
+}
+
+///|
+fn select_pdf_debug_raw_text(
+  path : String,
+  extracted : PdfExtractResult,
+  mode : PdfEnhanceMode,
+) -> String {
   let selected_raw = match mode {
     PdfEnhanceMode::TextOnly => extracted.text
     PdfEnhanceMode::Experimental =>
@@ -51,14 +61,7 @@ pub async fn parse_pdf(
         extracted.text
       }
   }
-
-  let enhanced_text = apply_pdf_enhancement(selected_raw, mode)
-
-  if dump_selected_raw || pipeline_debug {
-    dump_pdf_debug_stage(path, out_dir, "selected_raw", selected_raw)
-  }
-
-  text_to_ir_document_with_debug(path, out_dir, enhanced_text, pipeline_debug)
+  apply_pdf_enhancement(selected_raw, mode)
 }
 
 ///|
