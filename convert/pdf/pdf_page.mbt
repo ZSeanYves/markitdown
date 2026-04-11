@@ -138,6 +138,7 @@ fn strip_page_repeated_noise_only_as_lines(
 fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // 只清理噪声行，但保留原始空行结构
   let out : Array[String] = []
+  let non_noise_lines : Array[String] = []
   let mut prev_blank = false
 
   for line in raw_lines {
@@ -154,11 +155,25 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
       }
     } else {
       out.push(t)
+      non_noise_lines.push(t)
       prev_blank = false
     }
   }
 
-  out.join("\n")
+  let cleaned = out.join("\n")
+  if cleaned.trim() != "" {
+    return cleaned
+  }
+
+  // Conservative fallback:
+  // if page-level cleanup cleared the whole page, but we still have non-noise
+  // lines after repeated header/footer cleanup, keep them to avoid deleting
+  // short real-content pages in multipage documents.
+  if non_noise_lines.length() > 0 {
+    return non_noise_lines.join("\n")
+  }
+
+  cleaned
 }
 
 ///|
