@@ -1,147 +1,97 @@
 ///|
-fn merge_classified_blocks(
-  pages : Array[Array[PdfConvertBlock]],
-) -> Array[PdfConvertBlock] {
-  let out : Array[PdfConvertBlock] = []
+fn merge_blocks(pages : Array[Array[PdfConvertBlock]]) -> Array[PdfConvertBlock] {
+  let merged : Array[PdfConvertBlock] = []
 
   for page_blocks in pages {
-    let kept = filter_page_blocks_with_content_guard(page_blocks)
-    for block in kept {
-
-      if out.length() == 0 {
-        out.push(block)
+    for block in page_blocks {
+      if block.is_noise {
         continue
       }
 
-      let prev = out[out.length() - 1]
-      if should_merge_cross_page_blocks(prev, block) {
-        out[out.length() - 1] = merge_cross_page_blocks(prev, block)
+      if merged.length() == 0 {
+        merged.push(block)
+        continue
+      }
+
+      let prev = merged[merged.length() - 1]
+      if should_merge(prev, block) {
+        merged[merged.length() - 1] = merge_two(prev, block)
       } else {
-        out.push(block)
+        merged.push(block)
       }
     }
   }
 
-  out
+  merged
 }
 
 ///|
-fn filter_page_blocks_with_content_guard(
-  page_blocks : Array[PdfConvertBlock],
-) -> Array[PdfConvertBlock] {
-  let kept : Array[PdfConvertBlock] = []
-  for block in page_blocks {
-    if !block.is_noise {
-      kept.push(block)
-    }
+fn should_merge(a : PdfConvertBlock, b : PdfConvertBlock) -> Bool {
+  if a.kind != PdfConvertBlockKind::Paragraph || b.kind != PdfConvertBlockKind::Paragraph {
+    return false
   }
 
-  if kept.length() > 0 || page_blocks.length() == 0 {
-    return kept
+  if a.page_index == b.page_index {
+    return true
   }
 
-  // Safety guard: never drop a whole page.
-  let rescued = pick_rescue_block(page_blocks)
-  kept.push({
-    kind: rescued.kind,
-    text: rescued.text,
-    page_index: rescued.page_index,
-    line_start: rescued.line_start,
-    line_end: rescued.line_end,
-    char_count: rescued.char_count,
-    is_noise: false,
-    noise_reason: Some("rescued_page_content_guard"),
-    is_cross_page_continuation_candidate: false,
-  })
-  kept
+  a.page_index + 1 == b.page_index &&
+  a.is_cross_page_continuation_candidate &&
+  starts_with_continuation(b.text)
 }
 
 ///|
-fn pick_rescue_block(page_blocks : Array[PdfConvertBlock]) -> PdfConvertBlock {
-  let mut best = page_blocks[0]
-  for block in page_blocks {
-    let t = block.text.trim().to_string()
-    let cur_ok = !is_probable_page_number(t) && t.to_array().length() > 4
-    let best_ok = !is_probable_page_number(best.text.trim().to_string()) &&
-      best.text.trim().to_string().to_array().length() > 4
-
-    if cur_ok && !best_ok {
-      best = block
-      continue
-    }
-
-    if cur_ok == best_ok && block.char_count > best.char_count {
-      best = block
-    }
-  }
-  best
-}
-
-///|
-fn should_merge_cross_page_blocks(
-  prev : PdfConvertBlock,
-  next : PdfConvertBlock,
-) -> Bool {
-  prev.page_index + 1 == next.page_index &&
-  prev.kind == PdfConvertBlockKind::Paragraph &&
-  next.kind == PdfConvertBlockKind::Paragraph &&
-  prev.is_cross_page_continuation_candidate &&
-  starts_with_continuation(next.text)
-}
-
-///|
-fn merge_cross_page_blocks(
-  prev : PdfConvertBlock,
-  next : PdfConvertBlock,
-) -> PdfConvertBlock {
-  let merged_text = append_pdf_text(prev.text, next.text) |> normalize_inline_spaces
-
+fn merge_two(a : PdfConvertBlock, b : PdfConvertBlock) -> PdfConvertBlock {
+  let text = join_paragraph_text(a.text, b.text)
   {
     kind: PdfConvertBlockKind::Paragraph,
-    text: merged_text,
-    page_index: prev.page_index,
-    line_start: prev.line_start,
-    line_end: prev.line_end,
-    char_count: merged_text.to_array().length(),
+    text,
+    page_index: a.page_index,
+    line_start: a.line_start,
+    line_end: b.line_end,
     is_noise: false,
     noise_reason: None,
     is_cross_page_continuation_candidate: false,
+    list_ordered: false,
+    list_level: 0,
   }
 }
 
 ///|
-fn starts_with_continuation(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
+fn join_paragraph_text(a : String, b : String) -> String {
+  let left = a.trim().to_string()
+  let right = b.trim().to_string()
+
+  if left == "" {
+    return right
+  }
+  if right == "" {
+    return left
   }
 
-  if looks_like_heading_marker(t) {
-    return false
+  if left.has_suffix("-") && starts_with_latin(right) {
+    return drop_last_char(left) + right
   }
 
-  match first_char(t) {
-    Some(c) =>
-      (c >= 'a' && c <= 'z') ||
-      (c >= '0' && c <= '9') ||
-      is_cjkish(c)
-    None => false
-  }
-}
-
-///|
-fn is_cjkish(c : Char) -> Bool {
-  let code = c.to_int()
-  (code >= 0x3400 && code <= 0x9FFF) ||
-  (code >= 0xF900 && code <= 0xFAFF)
-}
-
-///|
-fn first_char(s : String) -> Char? {
-  let cs = s.to_array()
-  if cs.length() == 0 {
-    None
+  if should_join_without_space(left, right) {
+    left + right
   } else {
-    Some(cs[0])
+    left + " " + right
   }
+}
+
+///|
+fn starts_with_continuation(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" || is_heading_line(t) {
+    return false
+  }
+
+  let cs = t.to_array()
+  if cs.length() == 0 {
+    return false
+  }
+
+  let c = cs[0]
+  (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || is_cjkish(c)
 }

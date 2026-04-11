@@ -1,84 +1,107 @@
 ///|
-fn native_document_events_to_convert_pages(
-  native : @pdfc.PdfNativeDocumentResult,
-) -> Array[PdfConvertPage] {
+fn native_document_to_pages(native : @pdfc.PdfNativeDocumentResult) -> Array[PdfConvertPage] {
   let out : Array[PdfConvertPage] = []
   for page in native.pages {
     out.push({
       page_index: page.page_index,
-      lines: native_page_events_to_lines(page.page_index, page.events),
+      lines: events_to_lines(page.page_index, page.events),
     })
   }
   out
 }
 
 ///|
-fn native_page_events_to_lines(
+fn events_to_lines(
   page_index : Int,
   events : Array[@pdfc.PdfTextEvent],
 ) -> Array[PdfConvertLine] {
   let lines : Array[PdfConvertLine] = []
-  let mut cur_text = ""
-  let mut cur_start = -1
-  let mut cur_end = -1
+
+  let mut cur = ""
+  let mut start = -1
+  let mut end = -1
 
   let mut i = 0
   while i < events.length() {
     let ev = events[i]
-    let t = ev.text
+    let text = ev.text
 
-    if t == "" {
-      i = i + 1
-      continue
-    }
-
-    if t == "\n" || t == "\n\n" {
-      if cur_text != "" {
-        lines.push({
-          text: cur_text,
-          page_index,
-          line_index: lines.length(),
-          source_event_start: cur_start,
-          source_event_end: cur_end,
-          is_explicit_break: false,
-        })
-        cur_text = ""
-        cur_start = -1
-        cur_end = -1
+    if text != "" {
+      if cur == "" {
+        start = i
       }
-
-      if t == "\n\n" {
-        lines.push({
-          text: "",
-          page_index,
-          line_index: lines.length(),
-          source_event_start: i,
-          source_event_end: i,
-          is_explicit_break: true,
-        })
-      }
-      i = i + 1
-      continue
+      cur = cur + text
+      end = i
     }
 
-    if cur_text == "" {
-      cur_start = i
+    let has_line_break = has_explicit_line_break(ev.break_kind, text)
+    let has_paragraph_break = has_explicit_paragraph_break(ev.break_kind, text)
+
+    if has_line_break || has_paragraph_break {
+      flush_line(lines, page_index, cur, start, end, has_paragraph_break)
+      cur = ""
+      start = -1
+      end = -1
     }
-    cur_text = cur_text + t
-    cur_end = i
+
     i = i + 1
   }
 
-  if cur_text != "" {
-    lines.push({
-      text: cur_text,
-      page_index,
-      line_index: lines.length(),
-      source_event_start: cur_start,
-      source_event_end: cur_end,
-      is_explicit_break: false,
-    })
+  flush_line(lines, page_index, cur, start, end, false)
+  lines
+}
+
+///|
+fn flush_line(
+  lines : Array[PdfConvertLine],
+  page_index : Int,
+  text : String,
+  start : Int,
+  end : Int,
+  paragraph_break : Bool,
+) -> Unit {
+  let t = normalize_line_text(text)
+
+  if t == "" {
+    if paragraph_break {
+      lines.push({
+        text: "",
+        page_index,
+        line_index: lines.length(),
+        source_event_start: start,
+        source_event_end: end,
+        is_paragraph_break: true,
+      })
+    }
+    return
   }
 
-  lines
+  lines.push({
+    text: t,
+    page_index,
+    line_index: lines.length(),
+    source_event_start: start,
+    source_event_end: end,
+    is_paragraph_break: paragraph_break,
+  })
+}
+
+///|
+fn has_explicit_line_break(kind : @pdfc.PdfTextBreakKind, text : String) -> Bool {
+  kind == @pdfc.PdfTextBreakKind::ExplicitLine || text == "\n"
+}
+
+///|
+fn has_explicit_paragraph_break(kind : @pdfc.PdfTextBreakKind, text : String) -> Bool {
+  kind == @pdfc.PdfTextBreakKind::ExplicitParagraph || text == "\n\n"
+}
+
+///|
+fn normalize_line_text(text : String) -> String {
+  text
+  .replace(old="\u00A0", new=" ")
+  .replace(old="\t", new=" ")
+  .replace(old="\n", new=" ")
+  .trim()
+  .to_string()
 }

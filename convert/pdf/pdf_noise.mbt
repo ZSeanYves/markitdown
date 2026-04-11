@@ -1,5 +1,5 @@
 ///|
-fn detect_repeated_block_noise_keys(
+fn detect_repeated_edge_noise(
   pages : Array[Array[PdfConvertBlock]],
 ) -> (Array[String], Array[String]) {
   let head_count = Map::new()
@@ -27,14 +27,15 @@ fn detect_repeated_block_noise_keys(
   let heads : Array[String] = []
   let tails : Array[String] = []
 
-  for entry in head_count {
-    let (k, v) = entry
+  for e in head_count {
+    let (k, v) = e
     if v >= threshold {
       heads.push(k)
     }
   }
-  for entry in tail_count {
-    let (k, v) = entry
+
+  for e in tail_count {
+    let (k, v) = e
     if v >= threshold {
       tails.push(k)
     }
@@ -44,23 +45,14 @@ fn detect_repeated_block_noise_keys(
 }
 
 ///|
-fn is_high_confidence_repeated_edge_noise(
-  s : String,
+fn is_edge_repeated_noise(
+  text : String,
   idx : Int,
   page_len : Int,
   head_keys : Array[String],
   tail_keys : Array[String],
 ) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  if !is_short_noise_like_text(t) {
-    return false
-  }
-
-  let key = normalize_noise_key(s)
+  let key = normalize_noise_key(text)
   if key == "" {
     return false
   }
@@ -70,71 +62,6 @@ fn is_high_confidence_repeated_edge_noise(
   }
 
   idx == page_len - 1 && contains_string(tail_keys, key)
-}
-
-///|
-fn is_short_noise_like_text(s : String) -> Bool {
-  let t = s.trim().to_string()
-  let n = t.to_array().length()
-
-  if n <= 4 {
-    return true
-  }
-
-  if n > 40 {
-    return false
-  }
-
-  if ends_like_sentence(t) {
-    return false
-  }
-
-  // repeated header/footer candidates should be short and low-complexity.
-  count_words(t) <= 6
-}
-
-///|
-fn normalize_noise_key(s : String) -> String {
-  let t = s.trim()
-  if t == "" {
-    return ""
-  }
-
-  let mut out = ""
-  let mut prev_space = false
-  for c in t.to_array() {
-    let ch = if c >= 'A' && c <= 'Z' {
-      Int::unsafe_to_char(c.to_int() + 32)
-    } else if c >= '0' && c <= '9' {
-      '#'
-    } else if c == ' ' || c == '\t' {
-      ' '
-    } else {
-      c
-    }
-
-    if ch == ' ' {
-      if !prev_space {
-        out = out + " "
-        prev_space = true
-      }
-    } else {
-      out = out + ch.to_string()
-      prev_space = false
-    }
-  }
-
-  out.trim().to_string()
-}
-
-///|
-fn contains_string(xs : Array[String], x : String) -> Bool {
-  for s in xs {
-    if s == x {
-      return true
-    }
-  }
-  false
 }
 
 ///|
@@ -152,38 +79,62 @@ fn is_probable_page_number(s : String) -> Bool {
     return true
   }
 
-  let cs = t.to_array()
-  let n = cs.length()
-
-  let mut all_digit = true
-  for c in cs {
-    if c < '0' || c > '9' {
-      all_digit = false
-      break
-    }
-  }
-  if all_digit {
+  if is_digits_only(t) {
     return true
   }
 
-  // 12 / 314
-  let mut slash_idx = -1
+  let cs = t.to_array()
+  let mut slash = -1
   let mut i = 0
-  while i < n {
+  while i < cs.length() {
     if cs[i] == '/' {
-      slash_idx = i
+      slash = i
       break
     }
     i = i + 1
   }
 
-  if slash_idx > 0 && slash_idx + 1 < n {
-    let left = String::from_array(cs[:slash_idx].to_array()).trim().to_string()
-    let right = String::from_array(cs[slash_idx + 1:].to_array()).trim().to_string()
+  if slash > 0 && slash + 1 < cs.length() {
+    let left = String::from_array(cs[:slash].to_array()).trim().to_string()
+    let right = String::from_array(cs[slash + 1:].to_array()).trim().to_string()
     return is_digits_only(left) && is_digits_only(right)
   }
 
   false
+}
+
+///|
+fn normalize_noise_key(text : String) -> String {
+  let t = text.trim()
+  if t == "" {
+    return ""
+  }
+
+  let mut out = ""
+  let mut prev_space = false
+  for c in t.to_array() {
+    let mapped = if c >= 'A' && c <= 'Z' {
+      Int::unsafe_to_char(c.to_int() + 32)
+    } else if c >= '0' && c <= '9' {
+      '#'
+    } else if c == ' ' || c == '\t' {
+      ' '
+    } else {
+      c
+    }
+
+    if mapped == ' ' {
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + mapped.to_string()
+      prev_space = false
+    }
+  }
+
+  out.trim().to_string()
 }
 
 ///|
@@ -202,12 +153,11 @@ fn is_digits_only(s : String) -> Bool {
 }
 
 ///|
-fn count_words(s : String) -> Int {
-  let mut n = 0
-  for sv in s.split(" ") {
-    if sv.to_string().trim().to_string() != "" {
-      n = n + 1
+fn contains_string(xs : Array[String], x : String) -> Bool {
+  for v in xs {
+    if v == x {
+      return true
     }
   }
-  n
+  false
 }

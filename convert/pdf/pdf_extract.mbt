@@ -1,8 +1,8 @@
 ///|
-fn extract_pdf_text_result(
+fn extract_pdf_native_document(
   path : String,
   debug? : Bool = false,
-) -> Result[PdfExtractResult, @cor.AppError] {
+) -> Result[@pdfc.PdfNativeDocumentResult, @cor.AppError] {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => return Err(@cor.AppError("read pdf failed: " + e.to_string()))
   }
@@ -14,9 +14,8 @@ fn extract_pdf_text_result(
   }
 
   if debug {
-    println("[pdf-debug] selected backend=pdf-native")
     println(
-      "[pdf-debug] native_stats pages=" +
+      "[pdf-debug] pages=" +
       native.page_count.to_string() +
       " success_pages=" +
       native.success_pages.to_string() +
@@ -26,8 +25,6 @@ fn extract_pdf_text_result(
       native.event_count.to_string() +
       " non_ws_chars=" +
       native.non_whitespace_chars.to_string() +
-      " empty=" +
-      native.is_empty.to_string() +
       " low_signal=" +
       native.is_low_signal.to_string(),
     )
@@ -41,48 +38,7 @@ fn extract_pdf_text_result(
     )
   }
 
-  if native.is_low_signal {
-    return Err(
-      @cor.AppError(
-        "pdf-native low-signal extraction: pages=" +
-        native.page_count.to_string() +
-        " failed_pages=" +
-        native.failed_pages.to_string() +
-        " events=" +
-        native.event_count.to_string(),
-      ),
-    )
-  }
-
-  let fallback_text = native_document_to_debug_text(native)
-  Ok({
-    _backend_name: "pdf-native",
-    text: fallback_text,
-    quality_accepted: !native.is_empty && !native.is_low_signal,
-    _native_stats: Some(native),
-  })
-}
-
-///|
-fn native_document_to_debug_text(native : @pdfc.PdfNativeDocumentResult) -> String {
-  let pages = native_document_events_to_convert_pages(native)
-  let out : Array[String] = []
-
-  for page in pages {
-    let lines : Array[String] = []
-    for line in page.lines {
-      let t = line.text.trim().to_string()
-      if t != "" {
-        lines.push(t)
-      }
-    }
-
-    if lines.length() > 0 {
-      out.push(lines.join("\n"))
-    }
-  }
-
-  out.join("\n\n")
+  Ok(native)
 }
 
 ///|
@@ -111,15 +67,5 @@ fn map_native_error(e : Error) -> @cor.AppError {
     @pdfc.PdfParseError::UnsupportedFeature(msg) =>
       @cor.AppError("pdf-native unsupported: " + msg)
     _ => @cor.AppError("pdf-native error: " + e.to_string())
-  }
-}
-
-///|
-fn debug_line_preview(s : String) -> String {
-  let t = s.replace(old="\n", new="\\n").replace(old="\r", new="\\r")
-  if t.to_array().length() <= 80 {
-    t
-  } else {
-    t[:80].to_string() + "..."
   }
 }
