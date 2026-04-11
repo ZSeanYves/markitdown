@@ -284,13 +284,13 @@ def main() -> None:
     expected = {
         "pdf_native_real_en_single_page": "Hello native english\n",
         "pdf_native_real_tounicode_basic": "Cafe ToUnicode\n",
-        "pdf_native_real_normal_multipage_current_boundary": "Page one normal\n\nPage two normal\n",
+        "pdf_native_real_normal_multipage_current_boundary": "Page one normal\fPage two normal\n",
         "pdf_native_real_xref_stream_simple": "Hello xref stream\n",
-        "pdf_native_real_xref_stream_multipage": "Xref page one\n\nXref page two\n",
+        "pdf_native_real_xref_stream_multipage": "Xref page one\fXref page two\n",
         "pdf_native_real_objstm_simple": "Hello objstm\n",
-        "pdf_native_real_objstm_multipage": "Objstm page one\n\nObjstm page two\n",
+        "pdf_native_real_objstm_multipage": "Objstm page one\fObjstm page two\n",
         "pdf_native_real_xref_objstm_simple_text": "Hello xref plus objstm\n",
-        "pdf_native_real_xref_objstm_multipage": "Xref objstm page one\n\nXref objstm page two\n",
+        "pdf_native_real_xref_objstm_multipage": "Xref objstm page one\fXref objstm page two\n",
         "pdf_native_real_simple_font_fallback": "Dash - fallback\n",
         "pdf_native_real_mixed_language_simple": "Hello 你好 simple\n",
     }
@@ -306,7 +306,7 @@ def main() -> None:
         "gated_should_use_native_xref_objstm_simple_text",
         "gated_should_use_native_xref_objstm_multipage",
         "gated_should_use_native_simple_font_fallback",
-        "gated_should_use_native_mixed_language_simple",
+        "gated_should_use_external_mixed_language_simple",
     ]
 
     gate_bytes = {
@@ -320,7 +320,7 @@ def main() -> None:
         "gated_should_use_native_xref_objstm_simple_text": fixtures_native["pdf_native_real_xref_objstm_simple_text"],
         "gated_should_use_native_xref_objstm_multipage": fixtures_native["pdf_native_real_xref_objstm_multipage"],
         "gated_should_use_native_simple_font_fallback": fixtures_native["pdf_native_real_simple_font_fallback"],
-        "gated_should_use_native_mixed_language_simple": fixtures_native["pdf_native_real_mixed_language_simple"],
+        "gated_should_use_external_mixed_language_simple": fixtures_native["pdf_native_real_mixed_language_simple"],
         "gated_should_use_external_encrypted_marker": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Encrypt 9 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\nxref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n127\n%%EOF\n",
     }
 
