@@ -155,7 +155,6 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
       }
     } else {
       out.push(t)
-      non_noise_lines.push(t)
       prev_blank = false
     }
 
