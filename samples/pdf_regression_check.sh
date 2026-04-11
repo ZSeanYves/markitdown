@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURE_ROOT="$ROOT/samples/pdf_core"
-NATIVE_DIR="$FIXTURE_ROOT/native"
+PDF_DIR="$FIXTURE_ROOT/native"
 EXP_DIR="$FIXTURE_ROOT/expected"
-OUT_ROOT="${1:-$ROOT/.tmp_pdf_native_out}"
+OUT_ROOT="${1:-$ROOT/.tmp_pdf_regression_out}"
 RUN_DIR="$OUT_ROOT/run"
 LOG_DIR="$OUT_ROOT/log"
 GEN_SCRIPT="$FIXTURE_ROOT/generate_phase7_native_fixtures.py"
@@ -13,7 +13,7 @@ GEN_SCRIPT="$FIXTURE_ROOT/generate_phase7_native_fixtures.py"
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
 if ! command -v moon >/dev/null 2>&1; then
-  echo "[env] moon command not found; cannot run native acceptance."
+  echo "[env] moon command not found; cannot run pdf regression check."
   exit 2
 fi
 
@@ -33,17 +33,17 @@ CASES=(
 passed=0
 failed=0
 
-printf '==> pdf-native acceptance check\n'
-printf '    native dir: %s\n' "$NATIVE_DIR"
-printf '    expected  : %s\n' "$EXP_DIR"
-printf '    output dir: %s\n\n' "$OUT_ROOT"
+printf '==> pdf mainflow regression check\n'
+printf '    pdf dir    : %s\n' "$PDF_DIR"
+printf '    expected   : %s\n' "$EXP_DIR"
+printf '    output dir : %s\n\n' "$OUT_ROOT"
 
 if [[ -f "$GEN_SCRIPT" ]]; then
   python3 "$GEN_SCRIPT"
 fi
 
 for name in "${CASES[@]}"; do
-  pdf="$NATIVE_DIR/$name.pdf"
+  pdf="$PDF_DIR/$name.pdf"
   exp="$EXP_DIR/$name.expected.md"
   out="$RUN_DIR/$name.md"
   log="$LOG_DIR/$name.log"
@@ -55,9 +55,9 @@ for name in "${CASES[@]}"; do
   fi
 
   echo "==> running $name"
-  if moon run "$ROOT/cli" -- convert "$pdf" -o "$out" --pdf-backend pdf-native --debug extract >"$log" 2>&1; then
+  if moon run "$ROOT/cli" -- convert "$pdf" -o "$out" --debug extract >"$log" 2>&1; then
     if ! grep -q "selected backend=pdf-native" "$log"; then
-      echo "  [FAIL] backend trace missing (expected forced native marker)"
+      echo "  [FAIL] backend trace missing (expected native marker)"
       failed=$((failed + 1))
       continue
     fi
