@@ -14,6 +14,8 @@ pub fn extract_text_events_from_page(PdfDocument, Int, Int) -> Array[PdfTextEven
 
 pub fn extract_text_from_document(PdfDocument) -> String raise
 
+pub fn extract_text_from_document_result(PdfDocument) -> PdfDocumentExtractResult raise
+
 pub fn extract_text_from_page(PdfDocument, Int, Int) -> String raise
 
 pub fn extract_text_ops_from_page_stream(Bytes) -> Array[PdfTextOp] raise
@@ -103,6 +105,34 @@ pub struct PdfTextEvent {
   font_name : String?
   font_size : Double?
   text : String
+}
+
+pub struct PdfPageExtractStats {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+pub struct PdfDocumentExtractResult {
+  text : String
+  page_count : Int
+  success_pages : Int
+  failed_pages : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  non_whitespace_chars : Int
+  is_empty : Bool
+  is_low_signal : Bool
+  is_fatal : Bool
+  fatal_reason : String?
+  page_stats : Array[PdfPageExtractStats]
 }
 
 pub struct PdfTextOp {

@@ -6,6 +6,47 @@ pub struct PdfTextEvent {
 }
 
 ///|
+pub struct PdfPageExtractStats {
+  page_index : Int
+  page_obj : Int
+  page_gen : Int
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  text_length : Int
+  is_failed : Bool
+}
+
+///|
+pub struct PdfDocumentExtractResult {
+  text : String
+  page_count : Int
+  success_pages : Int
+  failed_pages : Int
+  success_streams : Int
+  failed_streams : Int
+  event_count : Int
+  non_whitespace_chars : Int
+  is_empty : Bool
+  is_low_signal : Bool
+  is_fatal : Bool
+  fatal_reason : String?
+  page_stats : Array[PdfPageExtractStats]
+}
+
+///|
+struct PdfPageExtractResult {
+  events : Array[PdfTextEvent]
+  stream_count : Int
+  success_streams : Int
+  failed_streams : Int
+  text : String
+  text_length : Int
+  is_failed : Bool
+}
+
+///|
 fn map_parse_error(_e : PdfParseError) -> PdfNativeError {
   PdfNativeError::ExtractionFailed("native extraction failed")
 }
@@ -86,6 +127,16 @@ pub fn extract_text_events_from_page(
   page_obj : Int,
   page_gen : Int,
 ) -> Array[PdfTextEvent] raise {
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
+  page.events
+}
+
+///|
+fn extract_page_text_with_stats(
+  doc : PdfDocument,
+  page_obj : Int,
+  page_gen : Int,
+) -> PdfPageExtractResult raise {
   let fonts = resolve_page_fonts(doc, page_obj, page_gen) catch {
     e =>
       raise InvalidStructure(
@@ -110,6 +161,9 @@ pub fn extract_text_events_from_page(
       )
   }
   let events : Array[PdfTextEvent] = []
+  let stream_count = streams.length()
+  let mut success_streams = 0
+  let mut failed_streams = 0
   let mut current_font : String? = None
   let mut current_font_size : Double? = None
   let mut in_text = false
@@ -117,8 +171,12 @@ pub fn extract_text_events_from_page(
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      _ => []
+      _ => {
+        failed_streams = failed_streams + 1
+        continue
+      }
     }
+    success_streams = success_streams + 1
 
     for op in ops {
       if op.op == "BT" {
@@ -204,7 +262,18 @@ pub fn extract_text_events_from_page(
     }
   }
 
-  events
+  let text = normalize_native_page_text(merge_native_page_events(events))
+  let text_length = text.to_array().length()
+  let is_failed = stream_count > 0 && success_streams == 0
+  PdfPageExtractResult::{
+    events,
+    stream_count,
+    success_streams,
+    failed_streams,
+    text,
+    text_length,
+    is_failed,
+  }
 }
 
 ///|
@@ -213,22 +282,61 @@ pub fn extract_text_from_page(
   page_obj : Int,
   page_gen : Int,
 ) -> String raise {
-  let events = extract_text_events_from_page(doc, page_obj, page_gen) catch {
-    e => raise e
-  }
-  let out = merge_native_page_events(events)
-  normalize_native_page_text(out)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
+  page.text
 }
 
 ///|
 pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
+  let result = extract_text_from_document_result(doc)
+  if result.is_fatal {
+    raise InvalidStructure(
+      "native text extraction marked fatal: " +
+      result.fatal_reason.unwrap_or("unknown reason"),
+    )
+  }
+  result.text
+}
+
+///|
+pub fn extract_text_from_document_result(
+  doc : PdfDocument,
+) -> PdfDocumentExtractResult raise {
   let pages = list_page_refs(doc) catch {
     e => raise InvalidStructure("list_page_refs failed: " + e.to_string())
   }
   let mut out = ""
-  for e in pages {
+  let page_count = pages.length()
+  let mut success_pages = 0
+  let mut failed_pages = 0
+  let mut success_streams = 0
+  let mut failed_streams = 0
+  let mut event_count = 0
+  let page_stats : Array[PdfPageExtractStats] = []
+  for i, e in pages.eachi() {
     let (obj, gen) = e
-    let t = extract_text_from_page(doc, obj, gen) catch { e => raise e }
+    let page = extract_page_text_with_stats(doc, obj, gen) catch { e => raise e }
+    let page_event_count = page.events.length()
+    event_count = event_count + page_event_count
+    success_streams = success_streams + page.success_streams
+    failed_streams = failed_streams + page.failed_streams
+    if page.is_failed {
+      failed_pages = failed_pages + 1
+    } else {
+      success_pages = success_pages + 1
+    }
+    page_stats.push({
+      page_index: i,
+      page_obj: obj,
+      page_gen: gen,
+      stream_count: page.stream_count,
+      success_streams: page.success_streams,
+      failed_streams: page.failed_streams,
+      event_count: page_event_count,
+      text_length: page.text_length,
+      is_failed: page.is_failed,
+    })
+    let t = page.text
     if t != "" {
       if out != "" {
         out = out + "\f"
@@ -236,7 +344,45 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
       out = out + t
     }
   }
-  out
+  let non_whitespace_chars = count_non_whitespace_chars(out)
+  let is_empty = non_whitespace_chars == 0
+  let too_low_events = event_count <= 1
+  let too_low_text = non_whitespace_chars < 8
+  let severe_page_failure = page_count > 1 && failed_pages * 2 >= page_count
+  let is_low_signal = page_count > 0 &&
+    (
+      (too_low_events && too_low_text) ||
+      (non_whitespace_chars < 16 && failed_pages > 0) ||
+      (severe_page_failure && non_whitespace_chars < 32)
+    )
+  let all_pages_failed = page_count > 0 && failed_pages == page_count
+  let is_fatal = (page_count > 0 && is_empty) ||
+    all_pages_failed ||
+    (severe_page_failure && non_whitespace_chars < 8)
+  let fatal_reason = if page_count > 0 && is_empty {
+    Some("empty_text_with_pages")
+  } else if all_pages_failed {
+    Some("all_pages_failed")
+  } else if severe_page_failure && non_whitespace_chars < 8 {
+    Some("severe_page_failure_low_text")
+  } else {
+    None
+  }
+  {
+    text: out,
+    page_count,
+    success_pages,
+    failed_pages,
+    success_streams,
+    failed_streams,
+    event_count,
+    non_whitespace_chars,
+    is_empty,
+    is_low_signal,
+    is_fatal,
+    fatal_reason,
+    page_stats,
+  }
 }
 
 ///|
@@ -332,4 +478,19 @@ fn strip_markdown_heading_marker(s : String) -> String {
     return s[j:n].to_string()
   }
   s
+}
+
+///|
+fn count_non_whitespace_chars(s : String) -> Int {
+  let mut out = 0
+  for c in s.to_array() {
+    if c != ' ' &&
+      c != '\t' &&
+      c != '\n' &&
+      c != '\r' &&
+      c != '\f' {
+      out = out + 1
+    }
+  }
+  out
 }
