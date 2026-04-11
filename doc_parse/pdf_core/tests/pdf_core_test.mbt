@@ -112,6 +112,65 @@ fn build_pdf_with_contents(
 }
 
 ///|
+fn build_pdf_with_two_pages() -> Bytes {
+  let chunks : Array[String] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+
+  let add = fn(s : String) {
+    chunks.push(s)
+    cur = cur + byte_len(s)
+  }
+  let add_obj = fn(s : String) {
+    offsets.push(cur)
+    add(s)
+  }
+
+  add("%PDF-1.4\n")
+  add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+  add_obj(
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+  )
+  add_obj(
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+  )
+  add_obj(
+    "4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>\nendobj\n",
+  )
+  let s1 = "BT\n/F1 12 Tf\n(Page One) Tj\nET\n"
+  add_obj(
+    "5 0 obj\n<< /Length " +
+    byte_len(s1).to_string() +
+    " >>\nstream\n" +
+    s1 +
+    "endstream\nendobj\n",
+  )
+  let s2 = "BT\n/F1 12 Tf\n(Page Two) Tj\nET\n"
+  add_obj(
+    "6 0 obj\n<< /Length " +
+    byte_len(s2).to_string() +
+    " >>\nstream\n" +
+    s2 +
+    "endstream\nendobj\n",
+  )
+  add_obj(
+    "7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  )
+
+  let xref_offset = cur
+  add("xref\n0 8\n0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add(
+    "trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n" +
+    xref_offset.to_string() +
+    "\n%%EOF\n",
+  )
+  @utf8.encode(chunks.join(""))
+}
+
+///|
 fn build_pdf_with_inherited_resources_page() -> Bytes {
   let chunks : Array[String] = []
   let offsets : Array[Int] = []
@@ -723,8 +782,6 @@ test "pdf phase7a step1 xref stream supports W and Index decode" {
 }
 
 ///|
-
-///|
 test "pdf phase7a step2 objstm minimal resolve embedded object" {
   let bs = build_pdf_with_xref_stream_objstm()
   let doc = @pdfc.open_pdf(bs)
@@ -747,4 +804,14 @@ test "pdf phase7a step2 xref type2 entry can resolve through objstm" {
   assert_eq(@pdfc.count_pages(doc), 1)
   let text = @pdfc.extract_text_from_document(doc)
   assert_eq(text.contains("Hello ObjStm"), true)
+}
+
+///|
+test "pdf phase7b multipage current boundary extracts both pages" {
+  let bs = build_pdf_with_two_pages()
+  let doc = @pdfc.open_pdf(bs)
+  assert_eq(@pdfc.count_pages(doc), 2)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text.contains("Page One"), true)
+  assert_eq(text.contains("Page Two"), true)
 }
