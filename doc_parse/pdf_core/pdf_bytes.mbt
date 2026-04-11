@@ -37,7 +37,13 @@ fn bytes_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
   if end_ <= start {
     return ""
   }
-  @cor.utf8_bytes_to_string(bs[start:end_].to_bytes())
+  let mut out = ""
+  let mut i = start
+  while i < end_ {
+    out = out + Int::unsafe_to_char(bs[i].to_int()).to_string()
+    i = i + 1
+  }
+  out
 }
 
 ///|

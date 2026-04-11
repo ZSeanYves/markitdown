@@ -441,7 +441,7 @@ fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) raise {
     count = count + 1
   }
   let b = (v & 0xFF).to_byte()
-  (@utf8.decode([b]), i)
+  (Int::unsafe_to_char(b.to_int()).to_string(), i)
 }
 
 ///|

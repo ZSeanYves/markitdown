@@ -117,10 +117,7 @@ pub fn extract_text_events_from_page(
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      e =>
-        raise InvalidStructure(
-          "failed to extract text ops from page stream: " + e.to_string(),
-        )
+      _ => []
     }
 
     for op in ops {
@@ -246,7 +243,7 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
 fn bytes_to_text_fallback(bs : Bytes) -> String raise {
   let mut out = ""
   for b in bs {
-    out = out + @utf8.decode([b])
+    out = out + Int::unsafe_to_char(b.to_int()).to_string()
   }
   out
 }
