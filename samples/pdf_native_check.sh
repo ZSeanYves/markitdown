@@ -77,7 +77,7 @@ for name in "${CASES[@]}"; do
   fi
 
   echo "==> running $name"
-  if moon run "$ROOT/src/cli" -- convert "$pdf" -o "$out" --pdf-backend pdf-native --pdf-extract-debug true >"$log" 2>&1; then
+  if moon run "$ROOT/src/cli" -- convert "$pdf" -o "$out" --pdf-backend pdf-native --debug extract >"$log" 2>&1; then
     if ! grep -q "selected backend=pdf-native" "$log"; then
       echo "  [FAIL] backend trace missing (expected forced native marker)"
       failed=$((failed + 1))

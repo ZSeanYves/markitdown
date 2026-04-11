@@ -57,7 +57,7 @@ for item in "${CASES[@]}"; do
   echo "==> running $name"
   moon run "$ROOT/src/cli" -- convert "$pdf" -o "$out" \
     --pdf-backend-policy native-gated \
-    --pdf-extract-debug true >"$log" 2>&1 || true
+    --debug extract >"$log" 2>&1 || true
 
   if ! grep -q "policy=native-gated selected=$expect_backend reason=$expect_reason_prefix" "$log"; then
     echo "  [FAIL] unexpected gate decision (expect selected=$expect_backend reason=$expect_reason_prefix*)"
