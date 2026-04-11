@@ -106,12 +106,15 @@ pub struct PdfIndirectObject {
 }
 
 pub struct PdfTextEvent {
+  page_index : Int
   font_name : String?
   font_size : Double?
   text : String
   source_stream_index : Int
   source_op_index : Int
   break_kind : PdfTextBreakKind
+  is_coalesced : Bool
+  coalesced_count : Int
 }
 
 pub enum PdfTextBreakKind {
