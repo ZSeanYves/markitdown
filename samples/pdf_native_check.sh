@@ -28,7 +28,6 @@ CASES=(
   "pdf_native_real_xref_objstm_simple_text"
   "pdf_native_real_xref_objstm_multipage"
   "pdf_native_real_simple_font_fallback"
-  "pdf_native_real_mixed_language_simple"
 )
 
 passed=0

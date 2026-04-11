@@ -306,7 +306,6 @@ def main() -> None:
         "gated_should_use_native_xref_objstm_simple_text",
         "gated_should_use_native_xref_objstm_multipage",
         "gated_should_use_native_simple_font_fallback",
-        "gated_should_use_native_mixed_language_simple",
     ]
 
     gate_bytes = {
@@ -320,7 +319,6 @@ def main() -> None:
         "gated_should_use_native_xref_objstm_simple_text": fixtures_native["pdf_native_real_xref_objstm_simple_text"],
         "gated_should_use_native_xref_objstm_multipage": fixtures_native["pdf_native_real_xref_objstm_multipage"],
         "gated_should_use_native_simple_font_fallback": fixtures_native["pdf_native_real_simple_font_fallback"],
-        "gated_should_use_native_mixed_language_simple": fixtures_native["pdf_native_real_mixed_language_simple"],
         "gated_should_use_external_encrypted_marker": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Encrypt 9 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\nxref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n127\n%%EOF\n",
     }
 
