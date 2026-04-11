@@ -812,6 +812,5 @@ test "pdf phase7b multipage current boundary extracts both pages" {
   let doc = @pdfc.open_pdf(bs)
   assert_eq(@pdfc.count_pages(doc), 2)
   let text = @pdfc.extract_text_from_document(doc)
-  assert_eq(text.contains("Page One"), true)
-  assert_eq(text.contains("Page Two"), true)
+  assert_eq(text, "Page One\n\nPage Two")
 }

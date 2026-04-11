@@ -234,7 +234,7 @@ pub fn extract_text_from_document(doc : PdfDocument) -> String raise {
     let t = extract_text_from_page(doc, obj, gen) catch { e => raise e }
     if t != "" {
       if out != "" {
-        out = out + "\f"
+        out = out + "\n\n"
       }
       out = out + t
     }
