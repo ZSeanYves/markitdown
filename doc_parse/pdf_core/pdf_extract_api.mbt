@@ -117,10 +117,7 @@ pub fn extract_text_events_from_page(
 
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      e =>
-        raise InvalidStructure(
-          "failed to extract text ops from page stream: " + e.to_string(),
-        )
+      _ => []
     }
 
     for op in ops {

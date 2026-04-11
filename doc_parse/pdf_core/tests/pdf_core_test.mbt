@@ -112,6 +112,90 @@ fn build_pdf_with_contents(
 }
 
 ///|
+fn build_pdf_with_contents_bytes(
+  contents_ref : String,
+  stream_datas : Array[Bytes],
+) -> Bytes {
+  let out : Array[Byte] = []
+  let offsets : Array[Int] = []
+  let mut cur = 0
+
+  let add_bytes = fn(bs : Bytes) {
+    for b in bs {
+      out.push(b)
+    }
+    cur = cur + bs.length()
+  }
+
+  let add = fn(s : String) { add_bytes(@utf8.encode(s)) }
+
+  let add_obj = fn(obj_src : String) {
+    offsets.push(cur)
+    add(obj_src)
+  }
+
+  add("%PDF-1.4\n")
+
+  let font_obj_num = 4 + stream_datas.length()
+
+  add_obj("1 0 obj\n" + "<< /Type /Catalog /Pages 2 0 R >>\n" + "endobj\n")
+  add_obj(
+    "2 0 obj\n" + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n" + "endobj\n",
+  )
+  add_obj(
+    "3 0 obj\n" +
+    "<< /Type /Page\n" +
+    "   /Parent 2 0 R\n" +
+    "   /MediaBox [0 0 200 200]\n" +
+    "   /Resources << /Font << /F1 " +
+    font_obj_num.to_string() +
+    " 0 R >> >>\n" +
+    "   /Contents " +
+    contents_ref +
+    "\n" +
+    ">>\n" +
+    "endobj\n",
+  )
+
+  let mut obj_num = 4
+  for stream_data in stream_datas {
+    add_obj(
+      obj_num.to_string() +
+      " 0 obj\n" +
+      "<< /Length " +
+      stream_data.length().to_string() +
+      " >>\n" +
+      "stream\n",
+    )
+    add_bytes(stream_data)
+    add("\nendstream\nendobj\n")
+    obj_num = obj_num + 1
+  }
+
+  add_obj(
+    font_obj_num.to_string() +
+    " 0 obj\n" +
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n" +
+    "endobj\n",
+  )
+
+  let xref_offset = cur
+  add("xref\n")
+  let total_objects = font_obj_num
+  add("0 " + (total_objects + 1).to_string() + "\n")
+  add("0000000000 65535 f \n")
+  for off in offsets {
+    add(zpad(off, 10) + " 00000 n \n")
+  }
+  add("trailer\n")
+  add("<< /Size " + (total_objects + 1).to_string() + " /Root 1 0 R >>\n")
+  add("startxref\n")
+  add(xref_offset.to_string() + "\n")
+  add("%%EOF\n")
+  Bytes::from_array(out)
+}
+
+///|
 fn build_pdf_with_two_pages() -> Bytes {
   let chunks : Array[String] = []
   let offsets : Array[Int] = []
@@ -620,6 +704,46 @@ test "pdf phase2.5 can extract text from multiple content streams" {
   assert_eq(streams.length(), 2)
   let text = @pdfc.extract_plain_text_from_page_streams(streams)
   assert_eq(text, "Hello\n PDF")
+}
+
+///|
+test "pdf phase2.5 native page extraction skips malformed content stream bytes" {
+  let broken = Bytes::from_array([
+    'B'.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    '/'.to_int().to_byte(),
+    'F'.to_int().to_byte(),
+    0xFF.to_byte(),
+    '1'.to_int().to_byte(),
+    ' '.to_int().to_byte(),
+    '1'.to_int().to_byte(),
+    '2'.to_int().to_byte(),
+    ' '.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    'f'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    '('.to_int().to_byte(),
+    'B'.to_int().to_byte(),
+    'r'.to_int().to_byte(),
+    'o'.to_int().to_byte(),
+    'k'.to_int().to_byte(),
+    'e'.to_int().to_byte(),
+    'n'.to_int().to_byte(),
+    ')'.to_int().to_byte(),
+    ' '.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    'j'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+    'E'.to_int().to_byte(),
+    'T'.to_int().to_byte(),
+    '\n'.to_int().to_byte(),
+  ])
+  let good = @utf8.encode("BT\n/F1 12 Tf\n(Recovered) Tj\nET\n")
+  let bs = build_pdf_with_contents_bytes("[4 0 R 5 0 R]", [broken, good])
+  let doc = @pdfc.open_pdf(bs)
+  let text = @pdfc.extract_text_from_document(doc)
+  assert_eq(text, "Recovered")
 }
 
 ///|
