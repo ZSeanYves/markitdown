@@ -9,7 +9,7 @@ fn cleanup_pdf_text(text : String) -> String {
 ///|
 /// PDF native text normalization entry:
 /// 1) Unicode compatibility normalization (minimal fallback map)
-/// 2) PDF extraction specific post-fixes (word join / CJK space collapse)
+/// 2) Minimal residual compatibility fixes only (no token join here)
 fn normalize_pdf_decoded_text(text : String) -> String {
   let unicode_normalized = normalize_unicode_compat(text)
   normalize_pdf_text_special_cases(unicode_normalized)
