@@ -18,6 +18,7 @@ fi
 CASES=(
   "gated_should_use_native_en_single_page|$FIXTURE_DIR/pdf_native_real_en_single_page.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_tounicode_basic|$FIXTURE_DIR/pdf_native_real_tounicode_basic.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_normal_multipage_current_boundary|$FIXTURE_DIR/pdf_native_real_normal_multipage_current_boundary.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_stream_simple|$FIXTURE_DIR/pdf_native_real_xref_stream_simple.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_objstm_simple|$FIXTURE_DIR/pdf_native_real_objstm_simple.pdf|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_objstm_simple_text|$FIXTURE_DIR/pdf_native_real_xref_objstm_simple_text.pdf|pdf-native|ACCEPT_"

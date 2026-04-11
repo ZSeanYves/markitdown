@@ -21,6 +21,7 @@ CASES=(
   "pdf_native_real_en_single_page"
   "pdf_native_real_zh_single_page"
   "pdf_native_real_text_multipage"
+  "pdf_native_real_normal_multipage_current_boundary"
   "pdf_native_real_tounicode_basic"
   "pdf_native_real_header_footer_simple"
   "pdf_native_real_xref_stream_simple"
