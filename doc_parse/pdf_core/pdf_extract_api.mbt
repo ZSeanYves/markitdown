@@ -345,12 +345,15 @@ fn extract_page_text_with_stats(
     }
   }
 
-  let text = merge_page_events_low_level(events)
-  let pretty_text = normalize_native_page_text(merge_page_events_pretty(events))
+  let coalesced_events = coalesce_text_events(events)
+  let structured_events = recover_structural_breaks_from_events(coalesced_events)
+  let text = merge_page_events_low_level(coalesced_events)
+  let pretty_text =
+    normalize_native_page_text(merge_page_events_pretty(structured_events))
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
   PdfPageExtractResult::{
-    events,
+    events: coalesced_events,
     stream_count,
     success_streams,
     failed_streams,
@@ -359,6 +362,152 @@ fn extract_page_text_with_stats(
     text_length,
     is_failed,
   }
+}
+
+///|
+fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
+  if events.length() <= 1 {
+    return events
+  }
+  let out : Array[PdfTextEvent] = []
+  let mut index = 0
+  while index < events.length() {
+    let mut current = events[index]
+    index = index + 1
+    while index < events.length() &&
+      should_coalesce_text_events(current, events[index]) {
+      current = {
+        font_name: current.font_name,
+        font_size: current.font_size,
+        text: current.text + events[index].text,
+      }
+      index = index + 1
+    }
+    out.push(current)
+  }
+  out
+}
+
+///|
+fn should_coalesce_text_events(left : PdfTextEvent, right : PdfTextEvent) -> Bool {
+  if left.text == "" || right.text == "" {
+    return false
+  }
+  if left.text == "\n" || left.text == "\n\n" {
+    return false
+  }
+  if right.text == "\n" || right.text == "\n\n" {
+    return false
+  }
+  if left.font_name != right.font_name {
+    return false
+  }
+  if left.font_size != right.font_size {
+    return false
+  }
+  true
+}
+
+///|
+fn recover_structural_breaks_from_events(
+  events : Array[PdfTextEvent],
+) -> Array[PdfTextEvent] {
+  let out : Array[PdfTextEvent] = []
+  let mut prev_text : String? = None
+  for ev in events {
+    let normalized_text = recover_structural_breaks_in_text(ev.text)
+    if normalized_text == "" {
+      continue
+    }
+    let normalized_event = {
+      font_name: ev.font_name,
+      font_size: ev.font_size,
+      text: normalized_text,
+    }
+    match prev_text {
+      Some(prev) => {
+        match infer_structural_break_between_events(prev, normalized_event.text) {
+          Some(break_text) =>
+            out.push({ font_name: None, font_size: None, text: break_text })
+          None => ()
+        }
+      }
+      None => ()
+    }
+    out.push(normalized_event)
+    prev_text = Some(normalized_event.text)
+  }
+  out
+}
+
+///|
+fn recover_structural_breaks_in_text(s : String) -> String {
+  if s == "\n" || s == "\n\n" || s == "" {
+    return s
+  }
+  let chars = s.to_array()
+  let mut out = ""
+  let mut index = 0
+  while index < chars.length() {
+    let c = chars[index]
+    if c == ' ' {
+      let mut run_end = index + 1
+      while run_end < chars.length() && chars[run_end] == ' ' {
+        run_end = run_end + 1
+      }
+      let run_len = run_end - index
+      if run_len >= 3 {
+        out = out + "\n\n"
+      } else if run_len == 2 {
+        out = out + "\n"
+      } else {
+        out = out + " "
+      }
+      index = run_end
+      continue
+    }
+    out = out + c.to_string()
+    index = index + 1
+  }
+  out
+}
+
+///|
+fn infer_structural_break_between_events(prev : String, cur : String) -> String? {
+  let p = prev.trim().to_string()
+  let c = cur.trim().to_string()
+  if p == "" || c == "" {
+    return None
+  }
+  if ends_with_sentence_punct(p) && starts_like_new_block(c) {
+    return Some("\n\n")
+  }
+  if starts_like_new_block(c) && p.to_array().length() >= 16 {
+    return Some("\n")
+  }
+  None
+}
+
+///|
+fn starts_like_new_block(s : String) -> Bool {
+  let chars = s.to_array()
+  if chars.length() == 0 {
+    return false
+  }
+  let first = chars[0]
+  if is_ascii_upper(first) || is_cjk_join_char(first) {
+    return true
+  }
+  if is_ascii_digit(first) {
+    return true
+  }
+  first == '(' || first == '（' || first == '[' || first == '【'
+}
+
+///|
+fn is_ascii_digit(c : Char) -> Bool {
+  let v = c.to_int()
+  v >= '0'.to_int() && v <= '9'.to_int()
 }
 
 ///|
