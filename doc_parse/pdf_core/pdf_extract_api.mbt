@@ -35,10 +35,8 @@ pub struct PdfDocumentExtractResult {
   page_stats : Array[PdfPageExtractStats]
 }
 
-///|
 const PDF_NATIVE_TRACE_C1 = true
 
-///|
 fn debug_operand_kind(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(_) => "String"
@@ -49,7 +47,6 @@ fn debug_operand_kind(v : PdfContentOperand) -> String {
   }
 }
 
-///|
 fn debug_font_keys(fonts : Map[String, PdfFontRef]) -> String {
   let ks : Array[String] = []
   for entry in fonts {
@@ -183,16 +180,12 @@ fn extract_page_text_with_stats(
   let stream_count = streams.length()
   let mut success_streams = 0
   let mut failed_streams = 0
-  let mut current_font : String? = None
-  let mut current_font_size : Double? = None
-  let mut in_text = false
-  let mut has_emitted_text = false
+  let current_font : String? = None
+  let current_font_size : Double? = None
+  let mut _in_text = false
+  let mut _has_emitted_text = false
 
-  let trace_this_page = PDF_NATIVE_TRACE_C1 &&
-    (match fonts.get("C1") {
-      Some(_) => true
-      None => false
-    })
+  let trace_this_page = PDF_NATIVE_TRACE_C1
   if trace_this_page {
     println(
       "[pdf-native-trace] page=" +
@@ -207,7 +200,9 @@ fn extract_page_text_with_stats(
     let ops = extract_text_ops_from_page_stream(stream) catch {
       e => {
         if trace_this_page {
-          println("[pdf-native-trace] stream_parse_failed err=" + e.to_string())
+          println(
+            "[pdf-native-trace] stream_parse_failed err=" + e.to_string(),
+          )
         }
         failed_streams = failed_streams + 1
         continue
@@ -216,50 +211,13 @@ fn extract_page_text_with_stats(
     success_streams = success_streams + 1
 
     for op in ops {
-      if op.op == "BT" {
-        in_text = true
-        continue
-      }
-      if op.op == "ET" {
-        in_text = false
-        continue
-      }
-      if !in_text {
-        continue
-      }
-
       if op.op == "Tf" {
-        if op.operands.length() >= 2 {
-          match (op.operands[0], op.operands[1]) {
-            (PdfContentOperand::Name(name), PdfContentOperand::Number(size)) => {
-              if name.has_prefix("/") {
-                current_font = Some(name[1:].to_string())
-              } else {
-                current_font = Some(name)
-              }
-              current_font_size = Some(size)
-              if trace_this_page {
-                println(
-                  "[pdf-native-trace] Tf current_font=" +
-                  current_font.unwrap_or(""),
-                )
-              }
-            }
-            _ => ()
-          }
+        if trace_this_page {
+          println(
+            "[pdf-native-trace] Tf current_font=" +
+            current_font.unwrap_or(""),
+          )
         }
-        continue
-      }
-
-      if op.op == "Td" || op.op == "TD" || op.op == "Tm" || op.op == "T*" {
-        if has_emitted_text {
-          events.push({
-            font_name: current_font,
-            font_size: current_font_size,
-            text: "\n\n",
-          })
-        }
-        continue
       }
 
       let font_ref = match current_font {
@@ -274,7 +232,13 @@ fn extract_page_text_with_stats(
           Some(_) => true
           None => false
         }
-        let text = decode_with_font(doc, font_ref, operand) catch { _ => "" }
+        let text = decode_with_font(
+          doc,
+          font_ref,
+          operand,
+        ) catch {
+          _ => ""
+        }
         if trace_this_page {
           println(
             "[pdf-native-trace] Tj font=" +
@@ -293,7 +257,7 @@ fn extract_page_text_with_stats(
             font_size: current_font_size,
             text,
           })
-          has_emitted_text = true
+          _has_emitted_text = true
         }
       }
 
@@ -311,7 +275,7 @@ fn extract_page_text_with_stats(
             font_size: current_font_size,
             text,
           })
-          has_emitted_text = true
+          _has_emitted_text = true
         }
       }
     }

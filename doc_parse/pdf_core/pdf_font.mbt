@@ -80,7 +80,6 @@ fn lookup_page_resources_dict(
   }
 }
 
-///|
 pub fn resolve_page_fonts(
   doc : PdfDocument,
   page_obj : Int,
@@ -102,12 +101,10 @@ pub fn resolve_page_fonts(
     _ => return out
   }
 
-  let candidate_names = [
-    "F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "TT0", "TT1",
-  ]
-  for name in candidate_names {
-    match font_map.get(name) {
-      Some(PdfValue::Ref(obj, gen)) => {
+  for entry in font_map {
+    let (name, font_val) = entry
+    match font_val {
+      PdfValue::Ref(obj, gen) => {
         let mut subtype : String? = None
         let mut encoding : String? = None
         let mut to_unicode_obj : Int? = None
@@ -134,6 +131,33 @@ pub fn resolve_page_fonts(
           resource_name: name,
           obj_num: obj,
           gen,
+          subtype,
+          encoding,
+          to_unicode_obj,
+          to_unicode_gen,
+        })
+      }
+      PdfValue::Dict(fd) => {
+        let mut subtype : String? = None
+        let mut encoding : String? = None
+        let mut to_unicode_obj : Int? = None
+        let mut to_unicode_gen : Int? = None
+        match fd.get("Subtype") {
+          Some(PdfValue::Name(v)) => subtype = Some(v)
+          _ => ()
+        }
+        encoding = resolve_encoding_name(doc, fd)
+        match fd.get("ToUnicode") {
+          Some(PdfValue::Ref(cobj, cgen)) => {
+            to_unicode_obj = Some(cobj)
+            to_unicode_gen = Some(cgen)
+          }
+          _ => ()
+        }
+        out.set(name, {
+          resource_name: name,
+          obj_num: -1,
+          gen: 0,
           subtype,
           encoding,
           to_unicode_obj,

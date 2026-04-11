@@ -161,6 +161,12 @@ fn parse_content_token(
     let (arr, n) = parse_content_array(stream, pos + 1)
     return (PdfContentToken::Array(arr), n)
   }
+  if is_delim(ch) {
+    return (
+      PdfContentToken::Operator(bytes_to_string(stream, pos, pos + 1)),
+      pos + 1,
+    )
+  }
   if is_num_start(ch) {
     let (v, n) = parse_content_number(stream, pos)
     return (PdfContentToken::Number(v), n)
@@ -273,7 +279,8 @@ fn parse_content_operand(
     let (v, n) = parse_content_number(stream, pos)
     return (PdfContentOperand::Number(v), n)
   }
-  raise InvalidStructure("unsupported operand token in content stream")
+  let (kw, n) = parse_content_keyword(stream, pos)
+  (PdfContentOperand::Name(kw), n)
 }
 
 ///|
