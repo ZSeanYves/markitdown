@@ -3,72 +3,43 @@ fn classify_convert_blocks(
   pages : Array[PdfConvertPage],
   page_blocks : Array[Array[PdfConvertBlock]],
 ) -> Array[Array[PdfConvertBlock]] {
-  let out : Array[Array[PdfConvertBlock]] = []
+  let (head_keys, tail_keys) = detect_repeated_block_noise_keys(page_blocks)
 
+  let out : Array[Array[PdfConvertBlock]] = []
   let mut p = 0
   while p < page_blocks.length() {
-    let blocks = page_blocks[p]
     let page = pages[p]
-    let classified_page : Array[PdfConvertBlock] = []
+    let blocks = page_blocks[p]
+    let page_out : Array[PdfConvertBlock] = []
 
     let mut i = 0
     while i < blocks.length() {
       let block = blocks[i]
       let t = block.text.trim().to_string()
-      let prev_char_count = previous_block_char_count(blocks, i)
-      let next_char_count = next_block_char_count(blocks, i)
+      let noise = is_probable_page_number(t) ||
+        is_repeated_edge_noise(t, i, blocks.length(), head_keys, tail_keys)
 
-      let is_list_candidate = match parse_pdf_list_item(t) {
-        Some(_) => true
-        None => false
-      }
-
-      let is_noise_candidate = is_probable_page_number(t) ||
-        (is_noise_line(t) && block.char_count <= 40)
-
-      let heading_like_short_block =
-        block.char_count <= 40 &&
-        block.line_count <= 2 &&
-        !looks_like_sentence_line(t)
-
-      let has_length_contrast =
-        (prev_char_count >= block.char_count * 2 && prev_char_count >= 24) ||
-        (next_char_count >= block.char_count * 2 && next_char_count >= 24)
-
-      let is_heading_candidate = !is_noise_candidate && !is_list_candidate &&
-        (is_strong_heading_candidate(t) ||
-        looks_like_section_marker_line(t) ||
-        (heading_like_short_block && has_length_contrast) ||
-        (match block.kind {
-          PdfConvertBlockKind::StandaloneLine => heading_like_short_block
-          PdfConvertBlockKind::Paragraph => false
-        }))
-
-      let is_cross_page_continuation_candidate = !is_noise_candidate &&
-        !is_heading_candidate &&
-        !is_list_candidate &&
+      let continuation = !noise &&
+        block.kind == PdfConvertBlockKind::Paragraph &&
+        i == blocks.length() - 1 &&
         is_block_near_page_end(page, block) &&
-        !ends_like_sentence(t) &&
-        starts_with_continuation_token(next_page_first_text(page_blocks, p))
+        !ends_like_sentence(t)
 
-      classified_page.push({
+      page_out.push({
         kind: block.kind,
         text: block.text,
         page_index: block.page_index,
         line_start: block.line_start,
         line_end: block.line_end,
-        line_count: block.line_count,
         char_count: block.char_count,
-        is_heading_candidate,
-        is_list_candidate,
-        is_noise_candidate,
-        is_cross_page_continuation_candidate,
+        is_noise: noise,
+        is_cross_page_continuation_candidate: continuation,
       })
 
       i = i + 1
     }
 
-    out.push(classified_page)
+    out.push(page_out)
     p = p + 1
   }
 
@@ -76,78 +47,118 @@ fn classify_convert_blocks(
 }
 
 ///|
-fn previous_block_char_count(blocks : Array[PdfConvertBlock], i : Int) -> Int {
-  let mut j = i - 1
-  while j >= 0 {
-    let n = blocks[j].char_count
-    if n > 0 {
-      return n
-    }
-    if j == 0 {
-      break
-    }
-    j = j - 1
-  }
-  0
-}
-
-///|
-fn next_block_char_count(blocks : Array[PdfConvertBlock], i : Int) -> Int {
-  let mut j = i + 1
-  while j < blocks.length() {
-    let n = blocks[j].char_count
-    if n > 0 {
-      return n
-    }
-    j = j + 1
-  }
-  0
-}
-
-///|
 fn is_block_near_page_end(page : PdfConvertPage, block : PdfConvertBlock) -> Bool {
   let total = page.lines.length()
-  if total == 0 {
-    return false
-  }
-  block.line_end >= total - 2
+  total > 0 && block.line_end >= total - 2
 }
 
 ///|
-fn next_page_first_text(page_blocks : Array[Array[PdfConvertBlock]], p : Int) -> String {
-  let next_idx = p + 1
-  if next_idx >= page_blocks.length() {
-    return ""
-  }
-
-  for block in page_blocks[next_idx] {
-    let t = block.text.trim().to_string()
-    if t != "" {
-      return t
-    }
-  }
-
-  ""
-}
-
-///|
-fn starts_with_continuation_token(s : String) -> Bool {
+fn ends_like_sentence(s : String) -> Bool {
   let t = s.trim().to_string()
   if t == "" {
     return false
   }
 
-  if is_strong_heading_candidate(t) ||
-    looks_like_section_marker_line(t) ||
-    looks_like_list_item_sentence(t) {
+  match last_char(t) {
+    Some(c) =>
+      c == '。' ||
+      c == '！' ||
+      c == '？' ||
+      c == '.' ||
+      c == '!' ||
+      c == '?' ||
+      c == '；' ||
+      c == ';' ||
+      c == ':' ||
+      c == '：'
+    None => false
+  }
+}
+
+///|
+fn last_char(s : String) -> Char? {
+  let cs = s.to_array()
+  let n = cs.length()
+  if n == 0 {
+    None
+  } else {
+    Some(cs[n - 1])
+  }
+}
+
+///|
+fn looks_like_heading_marker(s : String) -> Bool {
+  let t = s.trim().to_string()
+  t.has_prefix("第") ||
+  t.has_prefix("Chapter") ||
+  t.has_prefix("CHAPTER") ||
+  t.has_prefix("Section") ||
+  t.has_prefix("SECTION") ||
+  t.has_prefix("一、") ||
+  t.has_prefix("二、") ||
+  t.has_prefix("三、") ||
+  starts_with_numbered_heading(t)
+}
+
+///|
+fn starts_with_numbered_heading(s : String) -> Bool {
+  let cs = s.to_array()
+  let n = cs.length()
+  if n < 3 {
     return false
   }
 
-  match first_char(t) {
-    Some(c) =>
-      (c >= 'a' && c <= 'z') ||
-      (c >= '0' && c <= '9') ||
-      is_cjkish(c)
-    None => false
+  let mut i = 0
+  while i < n && cs[i] >= '0' && cs[i] <= '9' {
+    i = i + 1
   }
+
+  if i == 0 || i >= n {
+    return false
+  }
+
+  let c = cs[i]
+  c == '.' || c == '、' || c == ')' || c == '）' || c == ' '
+}
+
+///|
+fn looks_like_short_title_case_line(s : String) -> Bool {
+  let t = s.trim().to_string()
+  let n = t.to_array().length()
+  if n < 3 || n > 42 {
+    return false
+  }
+
+  if t.contains("，") || t.contains(",") {
+    return false
+  }
+
+  if t.contains(" ") {
+    let ws : Array[String] = []
+    for sv in t.split(" ") {
+      let w = sv.to_string().trim().to_string()
+      if w != "" {
+        ws.push(w)
+      }
+    }
+
+    if ws.length() == 0 || ws.length() > 8 {
+      return false
+    }
+
+    let mut good = 0
+    for w in ws {
+      let cs = w.to_array()
+      if cs.length() > 0 {
+        let c = cs[0]
+        if c >= 'A' && c <= 'Z' {
+          good = good + 1
+        }
+      }
+    }
+    return good * 2 >= ws.length()
+  }
+
+  // short compact CJK line can still be a title
+  n <= 20
 }
