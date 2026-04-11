@@ -27,7 +27,7 @@ CASES=(
   "gated_should_use_native_xref_objstm_simple_text|pdf-native|ACCEPT_"
   "gated_should_use_native_xref_objstm_multipage|pdf-native|ACCEPT_"
   "gated_should_use_native_simple_font_fallback|pdf-native|ACCEPT_"
-  "gated_should_use_native_mixed_language_simple|pdf-native|ACCEPT_"
+  "gated_should_use_external_mixed_language_simple|external|REJECT_UNSUPPORTED_FONT_DECODE_PATH"
   "gated_should_use_external_encrypted_marker|external|REJECT_ENCRYPTED"
 )
 
