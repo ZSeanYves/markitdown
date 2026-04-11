@@ -35,6 +35,12 @@ async fn main {
           ),
         },
       ),
+      "debug-pdf-events": @clap.SubCommand::new(
+        help="Debug PDF text-op -> event -> pretty text layers",
+        args={
+          "input": @clap.Arg::positional(help="Path to input .pdf file"),
+        },
+      ),
       "help": @clap.SubCommand::new(help="Display help message"),
     },
   )
@@ -110,6 +116,14 @@ async fn main {
                 input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_extract_debug,
                 pdf_dump_selected_raw, pdf_pipeline_debug,
               )
+            }
+            "debug-pdf-events" => {
+              if positional.length() == 0 {
+                exit_error("missing input argument")
+                println(help_msg)
+                return
+              }
+              cmd_debug_pdf_events(positional[0])
             }
             "help" => println(help_msg)
             _ => println(help_msg)

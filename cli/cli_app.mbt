@@ -57,3 +57,49 @@ async fn cmd_convert(
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
 }
+
+///|
+fn cmd_debug_pdf_events(input : String) -> Unit {
+  if !@fs.path_exists(input) {
+    exit_error("PDF file not found: " + input)
+    return
+  }
+
+  let bytes = @fs.read_file_to_bytes(input) catch {
+    e => {
+      exit_error("read pdf failed: " + e.to_string())
+      return
+    }
+  }
+
+  let doc = @pdfc.open_pdf(bytes) catch {
+    e => {
+      exit_error("open pdf failed: " + e.to_string())
+      return
+    }
+  }
+
+  let pages = @pdfc.list_page_refs(doc) catch {
+    e => {
+      exit_error("list pages failed: " + e.to_string())
+      return
+    }
+  }
+
+  println("== pdf debug ==")
+  println("file: " + input)
+  println("pages: " + pages.length().to_string())
+  println("")
+
+  pages.eachi(fn(i, p) {
+    let (page_obj, page_gen) = p
+    println(
+      @pdfc.debug_dump_pdf_page_text_ops_events_pretty(
+        doc,
+        page_obj,
+        page_gen,
+        i,
+      ),
+    )
+  })
+}

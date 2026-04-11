@@ -418,6 +418,147 @@ pub fn extract_pretty_text_from_document(doc : PdfDocument) -> String raise {
 }
 
 ///|
+pub fn debug_dump_pdf_page_text_ops_events_pretty(
+  doc : PdfDocument,
+  page_obj : Int,
+  page_gen : Int,
+  page_index : Int,
+) -> String raise {
+  let fonts = resolve_page_fonts(doc, page_obj, page_gen)
+  let streams = get_page_content_stream_bytes(doc, page_obj, page_gen)
+  let page = extract_page_text_with_stats(doc, page_obj, page_gen)
+
+  let lines : Array[String] = []
+  lines.push(
+    "== page " +
+    page_index.to_string() +
+    " (obj=" +
+    page_obj.to_string() +
+    " gen=" +
+    page_gen.to_string() +
+    ") ==",
+  )
+  lines.push("[text ops]")
+
+  let mut op_index = 0
+  let mut stream_index = 0
+  for stream in streams {
+    let ops = extract_text_ops_from_page_stream(stream) catch {
+      e => {
+        lines.push(
+          "[stream " +
+          stream_index.to_string() +
+          "] parse_error=" +
+          e.to_string(),
+        )
+        stream_index = stream_index + 1
+        continue
+      }
+    }
+    let mut current_font : String? = None
+    let mut current_font_size : Double? = None
+    for op in ops {
+      if op.op == "Tf" && op.operands.length() >= 2 {
+        let font_operand = op.operands[op.operands.length() - 2]
+        let size_operand = op.operands[op.operands.length() - 1]
+        match font_operand {
+          PdfContentOperand::Name(name) => current_font = Some(name)
+          _ => ()
+        }
+        match size_operand {
+          PdfContentOperand::Number(size) => current_font_size = Some(size)
+          _ => ()
+        }
+      }
+
+      if op.op == "Tj" && op.operands.length() >= 1 {
+        let operand = op.operands[op.operands.length() - 1]
+        let font_ref = match current_font {
+          Some(name) => fonts.get(name)
+          None => None
+        }
+        let decoded = decode_with_font(doc, font_ref, operand) catch {
+          _ => ""
+        }
+        lines.push(
+          "[" +
+          op_index.to_string() +
+          "] page=" +
+          page_index.to_string() +
+          " kind=Tj stream=" +
+          stream_index.to_string() +
+          " font=" +
+          current_font.unwrap_or("") +
+          " size=" +
+          debug_opt_double(current_font_size) +
+          " raw=" +
+          debug_operand_compact(operand) +
+          " decoded=\"" +
+          debug_string_compact(decoded) +
+          "\"",
+        )
+        op_index = op_index + 1
+        continue
+      }
+
+      if op.op == "TJ" && op.operands.length() >= 1 {
+        let operand = op.operands[op.operands.length() - 1]
+        let font_ref = match current_font {
+          Some(name) => fonts.get(name)
+          None => None
+        }
+        let (decoded, spacing) = parse_tj_with_hook(doc, font_ref, operand) catch {
+          _ => ("", [])
+        }
+        lines.push(
+          "[" +
+          op_index.to_string() +
+          "] page=" +
+          page_index.to_string() +
+          " kind=TJ stream=" +
+          stream_index.to_string() +
+          " font=" +
+          current_font.unwrap_or("") +
+          " size=" +
+          debug_opt_double(current_font_size) +
+          " raw=" +
+          debug_operand_compact(operand) +
+          " spacing=" +
+          debug_spacing_compact(spacing) +
+          " decoded=\"" +
+          debug_string_compact(decoded) +
+          "\"",
+        )
+        op_index = op_index + 1
+      }
+    }
+    stream_index = stream_index + 1
+  }
+
+  lines.push("")
+  lines.push("[events]")
+  page.events.eachi(fn(i, ev) {
+    lines.push(
+      "[" +
+      i.to_string() +
+      "] font=" +
+      ev.font_name.unwrap_or("") +
+      " size=" +
+      debug_opt_double(ev.font_size) +
+      " text=\"" +
+      debug_string_compact(ev.text) +
+      "\"",
+    )
+  })
+
+  lines.push("")
+  lines.push("[pretty]")
+  lines.push("\"" + debug_string_compact(page.pretty_text) + "\"")
+  lines.push("")
+  lines.join("\n")
+}
+
+///|
 pub fn extract_text_from_document_result(
   doc : PdfDocument,
 ) -> PdfDocumentExtractResult raise {
@@ -524,6 +665,80 @@ fn merge_page_events_low_level(events : Array[PdfTextEvent]) -> String {
     }
   }
   out
+}
+
+///|
+fn debug_opt_double(v : Double?) -> String {
+  match v {
+    Some(x) => x.to_string()
+    None => "none"
+  }
+}
+
+///|
+fn debug_string_compact(s : String) -> String {
+  let mut out = ""
+  for c in s.to_array() {
+    out = out + (
+      match c {
+        '\\' => "\\\\"
+        '\n' => "\\n"
+        '\r' => "\\r"
+        '\t' => "\\t"
+        '"' => "\\\""
+        _ => c.to_string()
+      }
+    )
+  }
+  out
+}
+
+///|
+fn debug_operand_compact(op : PdfContentOperand) -> String {
+  match op {
+    PdfContentOperand::Number(v) => v.to_string()
+    PdfContentOperand::Name(v) => "/" + v
+    PdfContentOperand::String(v) => "(" + debug_string_compact(v) + ")"
+    PdfContentOperand::HexString(bs) => "<" + debug_hex_bytes(bs) + ">"
+    PdfContentOperand::Array(items) => {
+      let parts : Array[String] = []
+      for item in items {
+        parts.push(debug_operand_compact(item))
+      }
+      "[" + parts.join(" ") + "]"
+    }
+  }
+}
+
+///|
+fn debug_spacing_compact(xs : Array[Double]) -> String {
+  if xs.length() == 0 {
+    return "[]"
+  }
+  let parts : Array[String] = []
+  for v in xs {
+    parts.push(v.to_string())
+  }
+  "[" + parts.join(", ") + "]"
+}
+
+///|
+fn debug_hex_bytes(bs : Bytes) -> String {
+  let mut out = ""
+  for b in bs {
+    out = out + debug_hex_nibble((b.to_int() >> 4) & 0xF)
+    out = out + debug_hex_nibble(b.to_int() & 0xF)
+  }
+  out
+}
+
+///|
+fn debug_hex_nibble(v : Int) -> String {
+  if v < 10 {
+    Int::unsafe_to_char('0'.to_int() + v).to_string()
+  } else {
+    Int::unsafe_to_char('A'.to_int() + (v - 10)).to_string()
+  }
 }
 
 fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
