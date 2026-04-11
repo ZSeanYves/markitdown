@@ -2,11 +2,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FIXTURE_DIR="$ROOT/samples/pdf_core"
+FIXTURE_ROOT="$ROOT/samples/pdf_core"
+GATE_DIR="$FIXTURE_ROOT/gate"
 OUT_ROOT="${1:-$ROOT/.tmp_pdf_native_gate_out}"
 RUN_DIR="$OUT_ROOT/run"
 LOG_DIR="$OUT_ROOT/log"
-GEN_SCRIPT="$FIXTURE_DIR/generate_phase7_native_fixtures.py"
+GEN_SCRIPT="$FIXTURE_ROOT/generate_phase7_native_fixtures.py"
 
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
@@ -15,36 +16,38 @@ if ! command -v moon >/dev/null 2>&1; then
   exit 2
 fi
 
+# gate check: 仅验证 native-gated 决策，不做 expected 内容 diff
 CASES=(
-  "gated_should_use_native_en_single_page|$FIXTURE_DIR/pdf_native_real_en_single_page.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_tounicode_basic|$FIXTURE_DIR/pdf_native_real_tounicode_basic.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_normal_multipage_current_boundary|$FIXTURE_DIR/pdf_native_real_normal_multipage_current_boundary.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_xref_stream_simple|$FIXTURE_DIR/pdf_native_real_xref_stream_simple.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_xref_stream_multipage|$FIXTURE_DIR/pdf_native_real_xref_stream_multipage.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_objstm_simple|$FIXTURE_DIR/pdf_native_real_objstm_simple.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_objstm_multipage|$FIXTURE_DIR/pdf_native_real_objstm_multipage.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_xref_objstm_simple_text|$FIXTURE_DIR/pdf_native_real_xref_objstm_simple_text.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_xref_objstm_multipage|$FIXTURE_DIR/pdf_native_real_xref_objstm_multipage.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_mixed_lang_objstm_simple|$FIXTURE_DIR/pdf_native_real_mixed_lang_objstm_simple.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_simple_font_fallback|$FIXTURE_DIR/pdf_native_real_simple_font_fallback.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_native_font_fallback_multipage|$FIXTURE_DIR/pdf_native_real_font_fallback_multipage.pdf|pdf-native|ACCEPT_"
-  "gated_should_use_external_encrypted_marker|$FIXTURE_DIR/gated_should_use_external_encrypted_marker.pdf|external|REJECT_"
-  "gated_should_use_native_objstm_marker|$FIXTURE_DIR/gated_should_use_native_objstm_marker.pdf|pdf-native|ACCEPT_"
+  "gated_should_use_native_en_single_page|pdf-native|ACCEPT_"
+  "gated_should_use_native_tounicode_basic|pdf-native|ACCEPT_"
+  "gated_should_use_native_normal_multipage_current_boundary|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_stream_simple|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_stream_multipage|pdf-native|ACCEPT_"
+  "gated_should_use_native_objstm_simple|pdf-native|ACCEPT_"
+  "gated_should_use_native_objstm_multipage|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_objstm_simple_text|pdf-native|ACCEPT_"
+  "gated_should_use_native_xref_objstm_multipage|pdf-native|ACCEPT_"
+  "gated_should_use_native_mixed_lang_objstm_simple|pdf-native|ACCEPT_"
+  "gated_should_use_native_simple_font_fallback|pdf-native|ACCEPT_"
+  "gated_should_use_native_font_fallback_multipage|pdf-native|ACCEPT_"
+  "gated_should_use_external_encrypted_marker|external|REJECT_"
+  "gated_should_use_native_objstm_marker|pdf-native|ACCEPT_"
 )
 
 passed=0
 failed=0
 
 printf '==> pdf-native gate decision check\n'
-printf '    fixture dir: %s\n' "$FIXTURE_DIR"
-printf '    output dir : %s\n\n' "$OUT_ROOT"
+printf '    gate dir  : %s\n' "$GATE_DIR"
+printf '    output dir: %s\n\n' "$OUT_ROOT"
 
 if [[ -f "$GEN_SCRIPT" ]]; then
   python3 "$GEN_SCRIPT"
 fi
 
 for item in "${CASES[@]}"; do
-  IFS='|' read -r name pdf expect_backend expect_reason_prefix <<<"$item"
+  IFS='|' read -r name expect_backend expect_reason_prefix <<<"$item"
+  pdf="$GATE_DIR/$name.pdf"
   out="$RUN_DIR/$name.md"
   log="$LOG_DIR/$name.log"
 
@@ -55,7 +58,7 @@ for item in "${CASES[@]}"; do
   fi
 
   echo "==> running $name"
-  moon run "$ROOT/src/cli" -- convert "$pdf" -o "$out" \
+  moon run "$ROOT/cli" -- convert "$pdf" -o "$out" \
     --pdf-backend-policy native-gated \
     --debug extract >"$log" 2>&1 || true
 

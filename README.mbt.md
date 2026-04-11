@@ -1,8 +1,8 @@
 # markitdown-mb (MoonBit)
 
-`markitdown-mb` is a MoonBit document-to-Markdown converter.
+`markitdown-mb` 是一个基于 MoonBit 的多格式文档转 Markdown 工具。
 
-Supported input formats:
+支持输入格式：
 
 - `.docx`
 - `.pdf`
@@ -10,281 +10,189 @@ Supported input formats:
 - `.pptx`
 - `.html`
 
-The project is no longer in MVP stage. The main pipeline is stable and runs as:
+---
+
+## 1. 总览
+
+主流程：
 
 ```text
 document -> parser -> IR -> Markdown
 ```
 
-Regression behavior is maintained with sample-based golden outputs.
+项目已经历结构重构：目录从过去的 `src/*` 迁移为顶层 package（例如 `cli/`, `convert/`, `core/`, `doc_parse/*`）。
 
----
+CLI 入口 package 当前路径为：
 
-## Current Architecture
+- `cli`
 
-The codebase is organized around a shared core plus format-specific parsers.
+因此命令行调用应使用：
 
-### Core
-
-- IR model
-- Markdown emitter
-
-### Format parsers
-
-- DOCX parser
-- PDF parser
-- XLSX parser
-- PPTX parser
-- HTML parser
-
-### Shared OOXML lower layer (in use)
-
-- ZIP reader
-- OOXML package reader
-
-Shared execution chain:
-
-```text
-bytes -> ZipArchive -> OoxmlPackage -> format parser
+```bash
+moon run cli -- <args>
 ```
 
-### PDF native lower layer (early, in use)
+---
 
-- PDF document/container and object access
-- page references and page count
-- content stream access
-- minimal native text extraction path
+## 2. 当前目录结构（重构后）
 
-The PDF path is currently hybrid:
-
-- external text-extraction backend remains the primary production path
-- native backend foundation is integrated and being expanded incrementally
+- `cli/`：命令行入口、参数解析、应用编排
+- `convert/`：按格式分发转换流程
+  - `convert/docx/`
+  - `convert/pdf/`
+  - `convert/xlsx/`
+  - `convert/pptx/`
+  - `convert/html/`
+- `core/`：共享 IR 与 Markdown 生成
+- `doc_parse/`：底层解析能力
+  - `doc_parse/ooxml/`：OOXML 包与结构读取
+  - `doc_parse/zip/`：ZIP 基础能力
+  - `doc_parse/pdf_core/`：PDF 原生底层解析能力
+- `samples/`：回归输入样例与黄金输出
 
 ---
 
-## Project Status
+## 3. 快速开始
 
-### Mainline status
+### 3.1 转换命令
 
-- Multi-format mainline is stable: `document -> parser -> IR -> Markdown`.
-- Sample-based regression is continuously runnable.
-- OOXML shared lower layer is completed at phase-1 and in production use.
-- PDF moved from “external-only” toward a hybrid model (external + early native).
+```bash
+moon run cli -- convert <input-file> -o out/output.md --out-dir out
+```
 
-### OOXML status (phase-1 complete)
+示例：
 
-- Self-managed ZIP container phase-1: completed.
-- Self-managed OOXML package phase-1: completed.
-- `docx / xlsx / pptx` are fully migrated to the shared OOXML lower layer.
-- Old `zipmin` / external path-helper dependencies have been removed from the Office-family pipeline.
-- Dependency direction is cleaner: container/package logic is now controlled inside this repository.
+```bash
+# DOCX
+moon run cli -- convert samples/docx/golden.docx -o out/golden.md --out-dir out
 
-### PDF status (hybrid)
+# PDF
+moon run cli -- convert samples/pdf/text_simple.pdf -o out/text_simple.md --out-dir out
 
-Primary path (current):
+# XLSX
+moon run cli -- convert samples/xlsx/sheet_simple.xlsx -o out/sheet_simple.md --out-dir out
 
-- External PDF text extraction backend is still the main flow.
+# PPTX
+moon run cli -- convert samples/pptx/pptx_simple.pptx -o out/pptx_simple.md --out-dir out
 
-Native backend foundation (current):
+# HTML
+moon run cli -- convert samples/html/html_simple.html -o out/html_simple.md --out-dir out
+```
 
-- PDF container/object access
-- page refs/page count
-- content stream access
-- minimal content-stream text extraction
-- `/Length` indirect-reference support
-- inherited page resources lookup
-- basic ToUnicode CMap parsing
-- fallback behavior when ToUnicode is missing
+### 3.2 常用选项
 
-Scope note:
-
-- Native backend is already wired into part of mainline, but still in gradual coverage expansion.
-- It is not yet a full replacement for external backends.
+- `-o <path>`：输出 Markdown 文件（默认 stdout）
+- `--out-dir <dir>`：资源输出目录
+- `--max-heading <1..6>`：限制标题级别
+- `--ocr [1|true|on|yes]`：PDF 启用 OCR 增强
+- `--pdf-backend <...>`：指定 PDF 后端
+- `--pdf-backend-policy native-gated`：启用 gated 策略
+- `--debug <extract|dump-raw|pipeline|all>`：调试输出
 
 ---
 
-## Format Coverage Snapshot
+## 4. PDF：hybrid 现状
 
-### DOCX
+PDF 目前采用 hybrid 方案：
 
-- High completion for current project scope.
-- Fully migrated to shared OOXML lower layer.
-- Stable behavior includes headings, paragraphs, lists, tables, images, manual line breaks, and code-like paragraph recovery.
+- 外部后端仍是主生产路径；
+- native 能力持续扩展中，并已接入主流程的一部分分支；
+- native-gated 决策用于逐步把可控样例切向 native。
 
-### XLSX
+### 当前 native 已覆盖的基础能力（摘要）
 
-- High completion for current project scope.
-- Fully migrated to shared OOXML lower layer.
-- Stable behavior includes multi-sheet output, sparse trimming, basic cell types, and basic date/time/datetime formatting.
+- PDF 对象/容器访问
+- 页面引用与页数
+- 内容流读取
+- 基础文本提取路径
+- 部分 ToUnicode 相关能力
+- 部分字体兜底场景
 
-### PPTX
+### 仍在持续完善的方向（摘要）
 
-- High completion with ongoing heuristic refinement.
-- Fully migrated to shared OOXML lower layer.
-- Current capabilities include title/body split, reading-order recovery, and note-like/caption-like/table-like/grouping behavior.
-
-### PDF
-
-- Hybrid status.
-- External backend remains primary.
-- Native backend provides early parser foundation with page/content-stream-level minimal text extraction.
-- PDF remains one of the highest-complexity, highest-limitation areas in the project.
-
-### HTML
-
-- High completion for current project scope.
-- Covered behavior includes headings, paragraphs, lists, block quotes, code blocks, tables, `<br>` handling, nested lists, and ragged-row table normalization.
+- 加密 PDF
+- 更完整的 xref/object stream 变体
+- 更完整字体系统
+- 复杂阅读顺序（多栏、交错布局）
 
 ---
 
-## Limitations
+## 5. 回归测试体系
 
-This project intentionally stays project-oriented and does not claim full-spec parser coverage.
+### 5.1 全格式样例回归
 
-### OOXML limitations
+```bash
+bash samples/check_samples.sh
+bash samples/diff.sh
+```
 
-Current ZIP/OOXML package layer is targeted to project needs and does not fully cover:
+### 5.2 PDF native 专项
 
-- ZIP64
-- encrypted ZIP
-- multi-disk ZIP
-- full data-descriptor support
+```bash
+# native 能力回归（PDF -> Markdown，与 expected 对比）
+bash samples/pdf_native_check.sh
 
-### PDF limitations
+# gate 决策回归（检查 selected/reason，不做 expected diff）
+bash samples/pdf_native_gate_check.sh
+```
 
-Native PDF backend is early-stage and project-oriented. It should not be described as a complete PDF parser.
+### 5.3 `samples/pdf_core/` 分层约定
 
-Not fully covered at this stage:
+- `samples/pdf_core/expected/`：native 黄金输出（`*.expected.md`）
+- `samples/pdf_core/native/`：native 能力验证 PDF（`pdf_native_real_*.pdf`）
+- `samples/pdf_core/gate/`：gate 决策样例 PDF（`gated_should_use_*.pdf`）
 
-- encryption
-- full xref-stream/object-stream coverage
-- full font system coverage
-- full ToUnicode/CMap ecosystem coverage
-- complete multi-column reading-order reconstruction
-- image-only/OCR replacement for external pipeline
+该分层用于避免：
 
-Known difficult cases remain, including pseudo two-column and interleaved text-order PDFs.
+- native 内容正确性验证 与
+- gate 策略正确性验证
 
----
+在样例与脚本上的职责混杂。
 
-## Repository Layout
-
-- `src/cli/`: CLI entry and option handling
-- `src/convert/`: format dispatch
-- `src/core/`: shared IR and Markdown emitter
-- `src/ooxml/`: shared ZIP + OOXML package lower layer
-- `src/docx/`: DOCX parser (on shared OOXML)
-- `src/xlsx/`: XLSX parser (on shared OOXML)
-- `src/pptx/`: PPTX parser (on shared OOXML)
-- `src/pdf/`: PDF parser (hybrid external/native)
-- `src/html/`: HTML parser
-- `samples/`: input samples + expected markdown outputs
+另外，`samples/pdf_core/native/` 与 `samples/pdf_core/gate/` 的 PDF 由 `generate_phase7_native_fixtures.py` 按需生成，仓库不再提交 PDF 原件。
 
 ---
 
-## External Dependencies
+## 6. 开发与质量命令
 
-### PDF text extraction (primary path)
+建议在提交前执行：
 
-At least one backend should be available:
+```bash
+moon info
+moon fmt
+moon check
+moon test
+```
 
-- `pdftotext` (Poppler)
-- `mutool` (MuPDF)
+当行为预期变化导致快照差异时：
 
-Install examples:
+```bash
+moon test --update
+```
 
-- macOS (Homebrew): `brew install poppler mupdf`
+---
+
+## 7. 外部依赖说明（PDF）
+
+PDF 外部路径通常依赖以下工具之一：
+
+- `pdftotext`（Poppler）
+- `mutool`（MuPDF）
+
+安装示例：
+
+- macOS: `brew install poppler mupdf`
 - Ubuntu/Debian: `sudo apt-get install poppler-utils mupdf-tools`
 - Arch: `sudo pacman -S poppler mupdf-tools`
 
 ---
 
-## Usage
+## 8. 维护建议
 
-### Convert
+- 目录重构后，所有脚本与文档避免再引用 `src/cli`；统一使用 `cli` package 路径。
+- 新增 PDF native 样例时，优先明确其归属：
+  - 若验证提取质量：放 `native/` + `expected/`
+  - 若验证 gated 决策：放 `gate/`
+- 如果新增可程序化生成的 fixture，优先收敛到：
+  - `samples/pdf_core/generate_phase7_native_fixtures.py`
 
-```bash
-moon run --target native src/cli -- \
-  convert <input-file> \
-  -o out/output.md \
-  --out-dir out
-```
-
-Examples:
-
-```bash
-# DOCX
-moon run --target native src/cli -- convert samples/docx/golden.docx -o out/golden.md --out-dir out
-
-# PDF
-moon run --target native src/cli -- convert samples/pdf/text_simple.pdf -o out/text_simple.md --out-dir out
-
-# XLSX
-moon run --target native src/cli -- convert samples/xlsx/sheet_simple.xlsx -o out/sheet_simple.md --out-dir out
-
-# PPTX
-moon run --target native src/cli -- convert samples/pptx/pptx_simple.pptx -o out/pptx_simple.md --out-dir out
-
-# HTML
-moon run --target native src/cli -- convert samples/html/html_simple.html -o out/html_simple.md --out-dir out
-```
-
-Useful options:
-
-- `-o <path>`: output Markdown file (default: stdout)
-- `--out-dir <dir>`: asset output directory (DOCX images go to `assets/` under this directory)
-- `--max-heading <1..6>`: heading clamp in Markdown output
-- `--ocr [1|true|on|yes]`: enable OCR enhancement for PDF
-- `--debug <extract|dump-raw|pipeline|all>`: enable PDF debug modes (supports comma-separated values)
-
-### Native PDF backend (incremental)
-
-Use explicit native backend switch:
-
-```bash
-moon run --target native src/cli -- \
-  convert samples/pdf/text_simple.pdf \
-  -o out/text_simple.native.md \
-  --pdf-backend pdf-native \
-  --ocr
-```
-
-Recommended current use cases:
-
-- real-world **simple text PDFs** (single-page / multi-page)
-- quick native-path regression checks for `Tf + Tj/TJ` and basic ToUnicode cases
-
-The native backend is still in incremental expansion and is **not** a full-spec parser.  
-See `docs/pdf_native_supported_subset.md` for the current supported/unsupported/degraded scope.
-
----
-
-## Regression Workflow
-
-Run sample regression:
-
-```bash
-chmod +x samples/diff.sh
-rm -rf .tmp_test_out
-./samples/diff.sh
-```
-
-The script writes outputs to `.tmp_test_out/` and diffs against `samples/expected/<format>/`.
-
----
-
-## Development Status and Roadmap
-
-Current development phase:
-
-- main pipeline stable
-- shared lower layers in place
-- robustness hardening (phase-1.5 style)
-- native PDF backend incremental expansion
-
-Roadmap priorities:
-
-1. Expand native PDF backend coverage on real-world simple text PDFs.
-2. Continue robustness hardening with negative/boundary samples.
-3. Deliver small lower-layer refinements without reopening architecture.
-4. Keep the hybrid PDF strategy while native support matures.
