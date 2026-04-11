@@ -25,9 +25,14 @@ CASES=(
   "pdf_native_real_tounicode_basic"
   "pdf_native_real_header_footer_simple"
   "pdf_native_real_xref_stream_simple"
+  "pdf_native_real_xref_stream_multipage"
   "pdf_native_real_objstm_simple"
+  "pdf_native_real_objstm_multipage"
   "pdf_native_real_xref_objstm_simple_text"
+  "pdf_native_real_xref_objstm_multipage"
+  "pdf_native_real_mixed_lang_objstm_simple"
   "pdf_native_real_simple_font_fallback"
+  "pdf_native_real_font_fallback_multipage"
 )
 
 # 允许 unsupported 的样例（当前批次默认空，全部必须通过）
