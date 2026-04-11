@@ -63,6 +63,7 @@ priv struct PdfPageExtractResult {
   success_streams : Int
   failed_streams : Int
   text : String
+  pretty_text : String
   text_length : Int
   is_failed : Bool
 }
@@ -326,7 +327,8 @@ fn extract_page_text_with_stats(
     }
   }
 
-  let text = normalize_native_page_text(merge_native_page_events(events))
+  let text = merge_page_events_low_level(events)
+  let pretty_text = normalize_native_page_text(merge_page_events_pretty(events))
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
   PdfPageExtractResult::{
@@ -335,6 +337,7 @@ fn extract_page_text_with_stats(
     success_streams,
     failed_streams,
     text,
+    pretty_text,
     text_length,
     is_failed,
   }
@@ -403,11 +406,12 @@ pub fn extract_text_from_document_result(
       is_failed: page.is_failed,
     })
     let t = page.text
+    let pretty_t = page.pretty_text
     if t != "" {
       if out != "" {
         out = out + "\f"
       }
-      out = out + t
+      out = out + pretty_t
     }
   })
   let non_whitespace_chars = count_non_whitespace_chars(out)
@@ -461,7 +465,18 @@ fn bytes_to_text_fallback(bs : Bytes) -> String {
 }
 
 ///|
-fn merge_native_page_events(events : Array[PdfTextEvent]) -> String {
+fn merge_page_events_low_level(events : Array[PdfTextEvent]) -> String {
+  let mut out = ""
+  for ev in events {
+    if ev.text != "" {
+      out = out + ev.text
+    }
+  }
+  out
+}
+
+///|
+fn merge_page_events_pretty(events : Array[PdfTextEvent]) -> String {
   let mut out = ""
   let mut prev_text = ""
   let mut prev_was_text = false
