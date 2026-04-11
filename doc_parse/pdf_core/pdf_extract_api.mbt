@@ -345,12 +345,14 @@ fn extract_page_text_with_stats(
     }
   }
 
-  let text = merge_page_events_low_level(events)
-  let pretty_text = normalize_native_page_text(merge_page_events_pretty(events))
+  let coalesced_events = coalesce_text_events(events)
+  let text = merge_page_events_low_level(coalesced_events)
+  let pretty_text =
+    normalize_native_page_text(merge_page_events_pretty(coalesced_events))
   let text_length = text.to_array().length()
   let is_failed = stream_count > 0 && success_streams == 0
   PdfPageExtractResult::{
-    events,
+    events: coalesced_events,
     stream_count,
     success_streams,
     failed_streams,
@@ -359,6 +361,50 @@ fn extract_page_text_with_stats(
     text_length,
     is_failed,
   }
+}
+
+///|
+fn coalesce_text_events(events : Array[PdfTextEvent]) -> Array[PdfTextEvent] {
+  if events.length() <= 1 {
+    return events
+  }
+  let out : Array[PdfTextEvent] = []
+  let mut index = 0
+  while index < events.length() {
+    let mut current = events[index]
+    index = index + 1
+    while index < events.length() &&
+      should_coalesce_text_events(current, events[index]) {
+      current = {
+        font_name: current.font_name,
+        font_size: current.font_size,
+        text: current.text + events[index].text,
+      }
+      index = index + 1
+    }
+    out.push(current)
+  }
+  out
+}
+
+///|
+fn should_coalesce_text_events(left : PdfTextEvent, right : PdfTextEvent) -> Bool {
+  if left.text == "" || right.text == "" {
+    return false
+  }
+  if left.text == "\n" || left.text == "\n\n" {
+    return false
+  }
+  if right.text == "\n" || right.text == "\n\n" {
+    return false
+  }
+  if left.font_name != right.font_name {
+    return false
+  }
+  if left.font_size != right.font_size {
+    return false
+  }
+  true
 }
 
 ///|
