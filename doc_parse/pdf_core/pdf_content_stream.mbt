@@ -170,7 +170,7 @@ fn parse_content_token(
 }
 
 ///|
-fn parse_content_name(stream : Bytes, pos : Int) -> (String, Int) raise {
+fn parse_content_name(stream : Bytes, pos : Int) -> (String, Int) {
   let mut i = pos
   while i < stream.length() && !is_ws(stream[i]) && !is_delim(stream[i]) {
     i = i + 1
@@ -430,7 +430,7 @@ fn hex_digit_value(ch : Byte) -> Int raise {
 }
 
 ///|
-fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) raise {
+fn parse_octal_escape_min(stream : Bytes, pos : Int) -> (String, Int) {
   let mut i = pos
   let mut count = 0
   let mut v = 0
@@ -450,7 +450,7 @@ fn is_octal_digit(ch : Byte) -> Bool {
 }
 
 ///|
-fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String raise {
+fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String {
   if operands.length() == 0 {
     return ""
   }
@@ -458,9 +458,7 @@ fn text_from_tj_operands(operands : Array[PdfContentOperand]) -> String raise {
 }
 
 ///|
-fn text_from_tj_array_operands(
-  operands : Array[PdfContentOperand],
-) -> String raise {
+fn text_from_tj_array_operands(operands : Array[PdfContentOperand]) -> String {
   if operands.length() == 0 {
     return ""
   }
@@ -481,7 +479,7 @@ fn text_from_tj_array_operands(
 }
 
 ///|
-fn text_from_operand(v : PdfContentOperand) -> String raise {
+fn text_from_operand(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(s) => s
     PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)

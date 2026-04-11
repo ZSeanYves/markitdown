@@ -1,24 +1,16 @@
 ///|
 priv struct PdfExtractResult {
-  backend_name : String
+  _backend_name : String
   text : String
-  exit_status : Int
-  stderr : String
-  quality : PdfTextQuality
+  _exit_status : Int
+  _stderr : String
+  _quality : PdfTextQuality
   quality_accepted : Bool
-  native_stats : @pdfc.PdfDocumentExtractResult?
+  _native_stats : @pdfc.PdfDocumentExtractResult?
 }
 
 ///|
-async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
-  match extract_pdf_text_result(path, debug=false) {
-    Ok(picked) => Ok(picked.text)
-    Err(e) => Err(e)
-  }
-}
-
-///|
-async fn extract_pdf_text_result(
+fn extract_pdf_text_result(
   path : String,
   debug? : Bool = false,
 ) -> Result[PdfExtractResult, @cor.AppError] {
@@ -140,12 +132,12 @@ fn extract_pdf_text_native(
   }
 
   Ok({
-    backend_name: "pdf-native",
+    _backend_name: "pdf-native",
     text: cleaned,
-    exit_status: 0,
-    stderr: "",
-    quality,
+    _exit_status: 0,
+    _stderr: "",
+    _quality: quality,
     quality_accepted: !is_quality_failure_for_normal_text(quality),
-    native_stats: Some(native),
+    _native_stats: Some(native),
   })
 }

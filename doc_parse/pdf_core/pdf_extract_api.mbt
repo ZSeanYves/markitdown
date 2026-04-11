@@ -36,7 +36,7 @@ pub struct PdfDocumentExtractResult {
 }
 
 ///|
-struct PdfPageExtractResult {
+priv struct PdfPageExtractResult {
   events : Array[PdfTextEvent]
   stream_count : Int
   success_streams : Int
@@ -44,11 +44,6 @@ struct PdfPageExtractResult {
   text : String
   text_length : Int
   is_failed : Bool
-}
-
-///|
-fn map_parse_error(_e : PdfParseError) -> PdfNativeError {
-  PdfNativeError::ExtractionFailed("native extraction failed")
 }
 
 ///|
@@ -64,7 +59,7 @@ fn decode_with_font(
 }
 
 ///|
-fn text_from_operand_fallback(v : PdfContentOperand) -> String raise {
+fn text_from_operand_fallback(v : PdfContentOperand) -> String {
   match v {
     PdfContentOperand::String(s) => s
     PdfContentOperand::HexString(bs) => bytes_to_text_fallback(bs)
@@ -313,9 +308,11 @@ pub fn extract_text_from_document_result(
   let mut failed_streams = 0
   let mut event_count = 0
   let page_stats : Array[PdfPageExtractStats] = []
-  for i, e in pages.eachi() {
+  pages.eachi(fn(i, e) raise {
     let (obj, gen) = e
-    let page = extract_page_text_with_stats(doc, obj, gen) catch { e => raise e }
+    let page = extract_page_text_with_stats(doc, obj, gen) catch {
+      e => raise e
+    }
     let page_event_count = page.events.length()
     event_count = event_count + page_event_count
     success_streams = success_streams + page.success_streams
@@ -343,7 +340,7 @@ pub fn extract_text_from_document_result(
       }
       out = out + t
     }
-  }
+  })
   let non_whitespace_chars = count_non_whitespace_chars(out)
   let is_empty = non_whitespace_chars == 0
   let too_low_events = event_count <= 1
@@ -386,7 +383,7 @@ pub fn extract_text_from_document_result(
 }
 
 ///|
-fn bytes_to_text_fallback(bs : Bytes) -> String raise {
+fn bytes_to_text_fallback(bs : Bytes) -> String {
   let mut out = ""
   for b in bs {
     out = out + Int::unsafe_to_char(b.to_int()).to_string()
@@ -484,11 +481,7 @@ fn strip_markdown_heading_marker(s : String) -> String {
 fn count_non_whitespace_chars(s : String) -> Int {
   let mut out = 0
   for c in s.to_array() {
-    if c != ' ' &&
-      c != '\t' &&
-      c != '\n' &&
-      c != '\r' &&
-      c != '\f' {
+    if c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' {
       out = out + 1
     }
   }

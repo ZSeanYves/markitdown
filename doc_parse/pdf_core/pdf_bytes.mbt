@@ -33,7 +33,7 @@ fn is_delim(ch : Byte) -> Bool {
 }
 
 ///|
-fn bytes_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
+fn bytes_to_string(bs : Bytes, start : Int, end_ : Int) -> String {
   if end_ <= start {
     return ""
   }

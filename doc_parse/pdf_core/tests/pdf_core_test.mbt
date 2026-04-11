@@ -489,7 +489,7 @@ fn build_pdf_with_xref_stream(
     "endstream\nendobj\n",
   )
 
-  let xref_obj_num = 6
+  let _xref_obj_num = 6
   let xref_offset = cur
 
   let rows : Array[Int] = []

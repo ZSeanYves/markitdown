@@ -80,7 +80,7 @@ pub fn infer_cmap_code_widths(stream : Bytes) -> Array[Int] raise {
 }
 
 ///|
-fn decode_utf16be_hex(hex : String) -> String raise {
+fn decode_utf16be_hex(hex : String) -> String {
   if hex.length() % 4 != 0 {
     return ""
   }

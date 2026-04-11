@@ -69,8 +69,8 @@ fn make_ocr_sidecar_path(path : String) -> String {
 fn missing_ocr_tool_hint(cmd : String) -> String {
   if cmd == "ocrmypdf" {
     return "未找到 ocrmypdf，请安装后重试。\n" +
-    "macOS: brew install ocrmypdf tesseract\n" +
-    "Ubuntu/Debian: sudo apt-get install ocrmypdf tesseract-ocr\n"
+      "macOS: brew install ocrmypdf tesseract\n" +
+      "Ubuntu/Debian: sudo apt-get install ocrmypdf tesseract-ocr\n"
   }
   "spawn failed: missing command: " + cmd
 }

@@ -1,7 +1,6 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/pdf_core" @pdfc,
-  "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/x/fs" @fs,
   "moonbitlang/async/process" @proc,
 }
