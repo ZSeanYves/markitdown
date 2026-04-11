@@ -162,6 +162,11 @@ fn parse_content_token(
     return (PdfContentToken::Array(arr), n)
   }
   if is_delim(ch) {
+    if ch == '{'.to_int().to_byte() || ch == '}'.to_int().to_byte() {
+      raise InvalidStructure(
+        "invalid delimiter in content stream: " + bytes_to_string(stream, pos, pos + 1),
+      )
+    }
     return (
       PdfContentToken::Operator(bytes_to_string(stream, pos, pos + 1)),
       pos + 1,
