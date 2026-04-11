@@ -1,192 +1,69 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
+import shutil
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
+NATIVE_DIR = ROOT / "native"
+GATE_DIR = ROOT / "gate"
 
+NATIVE_PDFS: dict[str, str] = {
+    "pdf_native_real_en_single_page": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFs1IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggMjA2ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKCMgTWFya0l0RG93biBNb29uQml0IE1WUCBUZXN0IFwoU2ltcGxlXCkpIFRqCjEgMCAwIDEgNTYgNzQwIFRtCihGaXJzdCBwYXJhZ3JhcGggZm9yIHNpbXBsZSBQREYgZXh0cmFjdGlvbiBiYXNlbGluZS4pIFRqCjEgMCAwIDEgNTYgNzIwIFRtCihTZWNvbmQgcGFyYWdyYXBoIGluIEVuZ2xpc2guKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSAzIDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDE4NSAwMDAwMCBuIAowMDAwMDAwNDQyIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNTY4CiUlRU9GCg==",
+    "pdf_native_real_font_fallback_multipage": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiA0IDAgUl0gL0NvdW50IDIgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMjAgMjIwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMjAgMjIwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNyAwIFIgPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago2IDAgb2JqCjw8IC9MZW5ndGggNTAgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooXDIyNiBmYWxsYmFjayBwYXJhZ3JhcGggb25lLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago3IDAgb2JqCjw8IC9MZW5ndGggNTAgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooXDIyNiBmYWxsYmFjayBwYXJhZ3JhcGggdHdvLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago4IDAgb2JqCjw8IC9UeXBlIC9YUmVmIC9TaXplIDkgL1cgWzEgMiAxXSAvUm9vdCAxIDAgUiAvTGVuZ3RoIDM2ID4+CnN0cmVhbQoAAAAAAQAJAAEAOgABAHkAAQD3AAEBdQABAbsAAQIeAAECgQAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKNjQxCiUlRU9GCg==",
+    "pdf_native_real_header_footer_simple": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAyIC9LaWRzIFs1IDAgUiA3IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggMTI3ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKEhlYWRlcikgVGoKMSAwIDAgMSA1NiA3NDAgVG0KKFRoaXMgaXMgdGhlIGZpcnN0IHBhZ2UgYm9keS4pIFRqCjEgMCAwIDEgNTYgNzIwIFRtCihGb290ZXIpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDU5NSA4NDJdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDMgMCBSID4+ID4+IC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDEyOCA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjEgMCAwIDEgNTYgNzYwIFRtCihIZWFkZXIpIFRqCjEgMCAwIDEgNTYgNzQwIFRtCihUaGlzIGlzIHRoZSBzZWNvbmQgcGFnZSBib2R5LikgVGoKMSAwIDAgMSA1NiA3MjAgVG0KKEZvb3RlcikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago3IDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNTk1IDg0Ml0gL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgMyAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iagp4cmVmCjAgOAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTIxIDAwMDAwIG4gCjAwMDAwMDAxOTEgMDAwMDAgbiAKMDAwMDAwMDM2OSAwMDAwMCBuIAowMDAwMDAwNDk1IDAwMDAwIG4gCjAwMDAwMDA2NzQgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA4IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo4MDAKJSVFT0YK",
+    "pdf_native_real_mixed_lang_objstm_simple": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1Byb2R1Y2VyIChvYmpzdG0tbXVsdGlwYWdlKSA+PgplbmRvYmoKMyAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDIyMCAyMjBdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+IC9Db250ZW50cyA5IDAgUiA+PgplbmRvYmoKOCAwIG9iago8PCAvVHlwZSAvT2JqU3RtIC9OIDEgL0ZpcnN0IDQgL0xlbmd0aCA1OCA+PgpzdHJlYW0KNiAwIDw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRzdHJlYW0KZW5kb2JqCjkgMCBvYmoKPDwgL0xlbmd0aCA1MSA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCihOYXRpdmUgbWl4ZWQgRU4tMTIzIGJhc2VsaW5lLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago3IDAgb2JqCjw8IC9UeXBlIC9YUmVmIC9TaXplIDEwIC9XIFsxIDIgMV0gL1Jvb3QgMSAwIFIgL0xlbmd0aCA0MCA+PgpzdHJlYW0KAAAAAAEACQABADoAAQClAAAAAAABAHMAAgAIAAECDwABASMAAQGrAAplbmRzdHJlYW0KZW5kb2JqCnN0YXJ0eHJlZgo1MjcKJSVFT0YK",
+    "pdf_native_real_normal_multipage_current_boundary": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAyIC9LaWRzIFs1IDAgUiA3IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNTYgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxIDAgMCAxIDU2IDc2MCBUbQooVGhpcyBpcyBwYWdlIG9uZS4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDU5NSA4NDJdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDMgMCBSID4+ID4+IC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDU2ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKFRoaXMgaXMgcGFnZSB0d28uKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSAzIDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDE5MSAwMDAwMCBuIAowMDAwMDAwMjk3IDAwMDAwIG4gCjAwMDAwMDA0MjMgMDAwMDAgbiAKMDAwMDAwMDUyOSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDggL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjY1NQolJUVPRgo=",
+    "pdf_native_real_objstm_multipage": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiA0IDAgUl0gL0NvdW50IDIgPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1Byb2R1Y2VyIChvYmpzdG0tbXVsdGlwYWdlKSA+PgplbmRvYmoKMyAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDIyMCAyMjBdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+IC9Db250ZW50cyA5IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDIyMCAyMjBdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+IC9Db250ZW50cyAxMCAwIFIgPj4KZW5kb2JqCjggMCBvYmoKPDwgL1R5cGUgL09ialN0bSAvTiAxIC9GaXJzdCA0IC9MZW5ndGggNTggPj4Kc3RyZWFtCjYgMCA8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kc3RyZWFtCmVuZG9iago5IDAgb2JqCjw8IC9MZW5ndGggNDggPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooT2JqU3RtIG11bHRpcGFnZSBwYWdlIG9uZS4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKMTAgMCBvYmoKPDwgL0xlbmd0aCA0OCA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCihPYmpTdG0gbXVsdGlwYWdlIHBhZ2UgdHdvLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago3IDAgb2JqCjw8IC9UeXBlIC9YUmVmIC9TaXplIDExIC9XIFsxIDIgMV0gL1Jvb3QgMSAwIFIgL0xlbmd0aCA0NCA+PgpzdHJlYW0KAAAAAAEACQABADoAAQCrAAEBKQABAHkAAgAIAAEC8wABAagAAQIwAAECkQAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKNzU1CiUlRU9GCg==",
+    "pdf_native_real_objstm_simple": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMjAwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgOCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1Byb2R1Y2VyIChvYmpzdG0tbWluKSA+PgplbmRvYmoKNyAwIG9iago8PCAvVHlwZSAvT2JqU3RtIC9OIDEgL0ZpcnN0IDQgL0xlbmd0aCA1OCA+PgpzdHJlYW0KNSAwIDw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRzdHJlYW0KZW5kb2JqCjggMCBvYmoKPDwgL0xlbmd0aCAzOSA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCihIZWxsbyBPYmpTdG0gR2F0ZSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9YUmVmIC9TaXplIDkgL1cgWzEgMiAxXSAvUm9vdCAxIDAgUiAvTGVuZ3RoIDM2ID4+CnN0cmVhbQoAAAAAAQAJAAEAOgABAHMAAQDxAAIABwABAf0AAQEdAAEBpQAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKNTA5CiUlRU9GCg==",
+    "pdf_native_real_simple_font_fallback": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMjAwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyNiA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjw5NjIwPiBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjQxMwolJUVPRgo=",
+    "pdf_native_real_text_multipage": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAyIC9LaWRzIFs1IDAgUiA3IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNTYgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxIDAgMCAxIDU2IDc2MCBUbQooVGhpcyBpcyBwYWdlIG9uZS4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDU5NSA4NDJdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDMgMCBSID4+ID4+IC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDU2ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKFRoaXMgaXMgcGFnZSB0d28uKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSAzIDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDE5MSAwMDAwMCBuIAowMDAwMDAwMjk3IDAwMDAwIG4gCjAwMDAwMDA0MjMgMDAwMDAgbiAKMDAwMDAwMDUyOSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDggL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjY1NQolJUVPRgo=",
+    "pdf_native_real_tounicode_basic": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFs3IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL0xlbmd0aCAzNzggPj4Kc3RyZWFtCi9DSURJbml0IC9Qcm9jU2V0IGZpbmRyZXNvdXJjZSBiZWdpbgoxMiBkaWN0IGJlZ2luCmJlZ2luY21hcAovQ0lEU3lzdGVtSW5mbyA8PCAvUmVnaXN0cnkgKEFkb2JlKSAvT3JkZXJpbmcgKElkZW50aXR5KSAvU3VwcGxlbWVudCAwID4+IGRlZgovQ01hcE5hbWUgL0N1c3RvbS1VVEYxNiBkZWYKL0NNYXBUeXBlIDIgZGVmCjEgYmVnaW5jb2Rlc3BhY2VyYW5nZQo8MDA+IDxGRj4KZW5kY29kZXNwYWNlcmFuZ2UKNSBiZWdpbmJmY2hhcgo8MDE+IDwwMDQ4Pgo8MDI+IDwwMDY1Pgo8MDM+IDwwMDZDPgo8MDQ+IDwwMDZDPgo8MDU+IDwwMDZGPgplbmRiZmNoYXIKZW5kY21hcApDTWFwTmFtZSBjdXJyZW50ZGljdCAvQ01hcCBkZWZpbmVyZXNvdXJjZSBwb3AKZW5kCmVuZAplbmRzdHJlYW0KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL0NJREZvbnRUeXBlMiAvQmFzZUZvbnQgL0R1bW15Q0lEIC9DSURTeXN0ZW1JbmZvIDw8IC9SZWdpc3RyeSAoQWRvYmUpIC9PcmRlcmluZyAoSWRlbnRpdHkpIC9TdXBwbGVtZW50IDAgPj4gPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUwIC9CYXNlRm9udCAvRHVtbXlUeXBlMCAvRW5jb2RpbmcgL0lkZW50aXR5LUggL0Rlc2NlbmRhbnRGb250cyBbNCAwIFJdIC9Ub1VuaWNvZGUgMyAwIFIgPj4KZW5kb2JqCjYgMCBvYmoKPDwgL0xlbmd0aCA0OSA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjEgMCAwIDEgNTYgNzYwIFRtCjwwMTAyMDMwNDA1PiBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDU0NCAwMDAwMCBuIAowMDAwMDAwNjk0IDAwMDAwIG4gCjAwMDAwMDA4MjkgMDAwMDAgbiAKMDAwMDAwMDkyOCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDggL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjEwNTQKJSVFT0YK",
+    "pdf_native_real_xref_objstm_multipage": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiA0IDAgUl0gL0NvdW50IDIgPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1Byb2R1Y2VyIChvYmpzdG0tbXVsdGlwYWdlKSA+PgplbmRvYmoKMyAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDIyMCAyMjBdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+IC9Db250ZW50cyA5IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDIyMCAyMjBdIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+IC9Db250ZW50cyAxMCAwIFIgPj4KZW5kb2JqCjggMCBvYmoKPDwgL1R5cGUgL09ialN0bSAvTiAxIC9GaXJzdCA0IC9MZW5ndGggNTggPj4Kc3RyZWFtCjYgMCA8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kc3RyZWFtCmVuZG9iago5IDAgb2JqCjw8IC9MZW5ndGggNTMgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooWFJlZiBPYmpTdG0gbXVsdGlwYWdlIHBhZ2Ugb25lLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoxMCAwIG9iago8PCAvTGVuZ3RoIDUzID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKKFhSZWYgT2JqU3RtIG11bHRpcGFnZSBwYWdlIHR3by4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNyAwIG9iago8PCAvVHlwZSAvWFJlZiAvU2l6ZSAxMSAvVyBbMSAyIDFdIC9JbmRleCBbMCAxMV0gL1Jvb3QgMSAwIFIgL0xlbmd0aCA0NCA+PgpzdHJlYW0KAAAAAAEACQABADoAAQCrAAEBKQABAHkAAgAIAAEC/QABAagAAQIwAAEClgAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKNzY1CiUlRU9GCg==",
+    "pdf_native_real_xref_objstm_simple_text": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMjAwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgOCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1Byb2R1Y2VyIChvYmpzdG0tbWluKSA+PgplbmRvYmoKNyAwIG9iago8PCAvVHlwZSAvT2JqU3RtIC9OIDEgL0ZpcnN0IDQgL0xlbmd0aCA1OCA+PgpzdHJlYW0KNSAwIDw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRzdHJlYW0KZW5kb2JqCjggMCBvYmoKPDwgL0xlbmd0aCA0NCA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCihIZWxsbyBYUmVmIE9ialN0bSBHYXRlKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjYgMCBvYmoKPDwgL1R5cGUgL1hSZWYgL1NpemUgOSAvVyBbMSAyIDFdIC9JbmRleCBbMCA5XSAvUm9vdCAxIDAgUiAvTGVuZ3RoIDM2ID4+CnN0cmVhbQoAAAAAAQAJAAEAOgABAHMAAQDxAAIABwABAgIAAQEdAAEBpQAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKNTE0CiUlRU9GCg==",
+    "pdf_native_real_xref_stream_multipage": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiA0IDAgUl0gL0NvdW50IDIgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMjAgMjIwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMjAgMjIwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNyAwIFIgPj4KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago2IDAgb2JqCjw8IC9MZW5ndGggNDYgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooWFJlZiBtdWx0aXBhZ2UgcGFnZSBvbmUuKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwgL0xlbmd0aCA0NiA+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCihYUmVmIG11bHRpcGFnZSBwYWdlIHR3by4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKOCAwIG9iago8PCAvVHlwZSAvWFJlZiAvU2l6ZSA5IC9XIFsxIDIgMV0gL1Jvb3QgMSAwIFIgL0xlbmd0aCAzNiA+PgpzdHJlYW0KAAAAAAEACQABADoAAQB5AAEA9wABAXUAAQG7AAECGgABAnkACmVuZHN0cmVhbQplbmRvYmoKc3RhcnR4cmVmCjYzMwolJUVPRgo=",
+    "pdf_native_real_xref_stream_simple": "JVBERi0xLjUKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMjAwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggMzcgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgooSGVsbG8gWFJlZiBHYXRlKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjYgMCBvYmoKPDwgL1R5cGUgL1hSZWYgL1NpemUgNyAvVyBbMSAyIDFdIC9Sb290IDEgMCBSIC9MZW5ndGggMjggPj4Kc3RyZWFtCgAAAAABAAkAAQA6AAEAcwABAPEAAQE3AAEBjQAKZW5kc3RyZWFtCmVuZG9iagpzdGFydHhyZWYKMzk3CiUlRU9GCg==",
+    "pdf_native_real_zh_single_page": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFs3IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL0xlbmd0aCA3OTkgPj4Kc3RyZWFtCi9DSURJbml0IC9Qcm9jU2V0IGZpbmRyZXNvdXJjZSBiZWdpbgoxMiBkaWN0IGJlZ2luCmJlZ2luY21hcAovQ0lEU3lzdGVtSW5mbyA8PCAvUmVnaXN0cnkgKEFkb2JlKSAvT3JkZXJpbmcgKElkZW50aXR5KSAvU3VwcGxlbWVudCAwID4+IGRlZgovQ01hcE5hbWUgL0N1c3RvbS1VVEYxNiBkZWYKL0NNYXBUeXBlIDIgZGVmCjEgYmVnaW5jb2Rlc3BhY2VyYW5nZQo8MDA+IDxGRj4KZW5kY29kZXNwYWNlcmFuZ2UKNDAgYmVnaW5iZmNoYXIKPDAxPiA8MDAyMz4KPDAyPiA8MDAyMD4KPDAzPiA8NzgxND4KPDA0PiA8N0E3Nj4KPDA1PiA8NTE4NT4KPDA2PiA8NUJCOT4KPDA3PiA8MDAwQT4KPDA4PiA8MDAwQT4KPDA5PiA8NjcyQz4KPDBBPiA8OTg3OT4KPDBCPiA8NzZFRT4KPDBDPiA8NEUzQj4KPDBEPiA8ODk4MT4KPDBFPiA8NzgxND4KPDBGPiA8N0E3Nj4KPDEwPiA8NTkxQT4KPDExPiA8NjgzQz4KPDEyPiA8NUYwRj4KPDEzPiA8NjU4Nz4KPDE0PiA8Njg2Mz4KPDE1PiA8NTIzMD4KPDE2PiA8MDAyMD4KPDE3PiA8MDA0RD4KPDE4PiA8MDA2MT4KPDE5PiA8MDA3Mj4KPDFBPiA8MDA2Qj4KPDFCPiA8MDA2ND4KPDFDPiA8MDA2Rj4KPDFEPiA8MDA3Nz4KPDFFPiA8MDA2RT4KPDFGPiA8MDAyMD4KPDIwPiA8NzY4ND4KPDIxPiA8N0VERj4KPDIyPiA8NEUwMD4KPDIzPiA8OEY2Qz4KPDI0PiA8NjM2Mj4KPDI1PiA8OTVFRT4KPDI2PiA8OTg5OD4KPDI3PiA8MzAwMj4KPDI4PiA8MDAwQT4KZW5kYmZjaGFyCmVuZGNtYXAKQ01hcE5hbWUgY3VycmVudGRpY3QgL0NNYXAgZGVmaW5lcmVzb3VyY2UgcG9wCmVuZAplbmQKZW5kc3RyZWFtCmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9DSURGb250VHlwZTIgL0Jhc2VGb250IC9EdW1teUNJRCAvQ0lEU3lzdGVtSW5mbyA8PCAvUmVnaXN0cnkgKEFkb2JlKSAvT3JkZXJpbmcgKElkZW50aXR5KSAvU3VwcGxlbWVudCAwID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMCAvQmFzZUZvbnQgL0R1bW15VHlwZTAgL0VuY29kaW5nIC9JZGVudGl0eS1IIC9EZXNjZW5kYW50Rm9udHMgWzQgMCBSXSAvVG9Vbmljb2RlIDMgMCBSID4+CmVuZG9iago2IDAgb2JqCjw8IC9MZW5ndGggMTE5ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KPDAxMDIwMzA0MDUwNjA3MDgwOTBBMEIwQzBEMEUwRjEwMTExMjEzMTQxNTE2MTcxODE5MUExQjFDMUQxRTFGMjAyMTIyMjMyNDI1MjYyNzI4PiBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNiAwIFIgPj4KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDk2NSAwMDAwMCBuIAowMDAwMDAxMTE1IDAwMDAwIG4gCjAwMDAwMDEyNTAgMDAwMDAgbiAKMDAwMDAwMTQyMCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDggL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjE1NDYKJSVFT0YK",
+}
 
-def _append_obj(parts: list[bytes], obj_no: int, body: bytes) -> None:
-    parts.append(f"{obj_no} 0 obj\n".encode("latin1"))
-    parts.append(body)
-    if not body.endswith(b"\n"):
-        parts.append(b"\n")
-    parts.append(b"endobj\n")
+GATE_MARKER_PDFS: dict[str, str] = {
+    "gated_should_use_external_encrypted_marker": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFs1IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggMjA2ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKCMgTWFya0l0RG93biBNb29uQml0IE1WUCBUZXN0IFwoU2ltcGxlXCkpIFRqCjEgMCAwIDEgNTYgNzQwIFRtCihGaXJzdCBwYXJhZ3JhcGggZm9yIHNpbXBsZSBQREYgZXh0cmFjdGlvbiBiYXNlbGluZS4pIFRqCjEgMCAwIDEgNTYgNzIwIFRtCihTZWNvbmQgcGFyYWdyYXBoIGluIEVuZ2xpc2guKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSAzIDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDE4NSAwMDAwMCBuIAowMDAwMDAwNDQyIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNTY4CiUlRU9GCgolIC9FbmNyeXB0Cg==",
+    "gated_should_use_native_objstm_marker": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFs1IDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggMjA2ID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKMSAwIDAgMSA1NiA3NjAgVG0KKCMgTWFya0l0RG93biBNb29uQml0IE1WUCBUZXN0IFwoU2ltcGxlXCkpIFRqCjEgMCAwIDEgNTYgNzQwIFRtCihGaXJzdCBwYXJhZ3JhcGggZm9yIHNpbXBsZSBQREYgZXh0cmFjdGlvbiBiYXNlbGluZS4pIFRqCjEgMCAwIDEgNTYgNzIwIFRtCihTZWNvbmQgcGFyYWdyYXBoIGluIEVuZ2xpc2guKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSAzIDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDE4NSAwMDAwMCBuIAowMDAwMDAwNDQyIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNTY4CiUlRU9GCgolIC9UeXBlIC9PYmpTdG0K",
+}
 
+GATE_FROM_NATIVE = {
+    "gated_should_use_native_en_single_page": "pdf_native_real_en_single_page",
+    "gated_should_use_native_tounicode_basic": "pdf_native_real_tounicode_basic",
+    "gated_should_use_native_normal_multipage_current_boundary": "pdf_native_real_normal_multipage_current_boundary",
+    "gated_should_use_native_xref_stream_simple": "pdf_native_real_xref_stream_simple",
+    "gated_should_use_native_xref_stream_multipage": "pdf_native_real_xref_stream_multipage",
+    "gated_should_use_native_objstm_simple": "pdf_native_real_objstm_simple",
+    "gated_should_use_native_objstm_multipage": "pdf_native_real_objstm_multipage",
+    "gated_should_use_native_xref_objstm_simple_text": "pdf_native_real_xref_objstm_simple_text",
+    "gated_should_use_native_xref_objstm_multipage": "pdf_native_real_xref_objstm_multipage",
+    "gated_should_use_native_mixed_lang_objstm_simple": "pdf_native_real_mixed_lang_objstm_simple",
+    "gated_should_use_native_simple_font_fallback": "pdf_native_real_simple_font_fallback",
+    "gated_should_use_native_font_fallback_multipage": "pdf_native_real_font_fallback_multipage",
+}
 
-def _text_stream(text: bytes) -> bytes:
-    return b"<< /Length %d >>\nstream\n%sendstream\n" % (len(text), text)
-
-
-def _simple_text_ops(text: str) -> bytes:
-    return f"BT\n/F1 12 Tf\n({text}) Tj\nET\n".encode("latin1")
-
-
-def _build_xref_stream_pdf(
-    objs: list[tuple[int, bytes]], root_obj: int, xref_obj: int, extra_dict: bytes = b""
-) -> bytes:
-    parts: list[bytes] = [b"%PDF-1.5\n"]
-    offsets: dict[int, int] = {0: 0}
-    for obj_no, body in objs:
-        offsets[obj_no] = sum(len(x) for x in parts)
-        _append_obj(parts, obj_no, body)
-
-    offsets[xref_obj] = sum(len(x) for x in parts)
-    size = max(offsets) + 1
-
-    stream = bytearray()
-    for i in range(size):
-        if i == 0:
-            t, f2, f3 = 0, 0, 0
-        else:
-            t, f2, f3 = 1, offsets[i], 0
-        stream.extend(bytes([t]))
-        stream.extend(f2.to_bytes(2, "big"))
-        stream.extend(bytes([f3]))
-
-    xref_dict = b"<< /Type /XRef /Size %d /W [1 2 1] /Root %d 0 R %s/Length %d >>\n" % (
-        size,
-        root_obj,
-        extra_dict,
-        len(stream),
-    )
-    _append_obj(parts, xref_obj, xref_dict + b"stream\n" + bytes(stream) + b"\nendstream\n")
-    parts.append(b"startxref\n" + str(offsets[xref_obj]).encode("ascii") + b"\n%%EOF\n")
-    return b"".join(parts)
-
-
-def _build_objstm_pdf(page_texts: list[str], with_index: bool) -> bytes:
-    page_count = len(page_texts)
-    page_objs = list(range(3, 3 + page_count))
-    content_objs = list(range(9, 9 + page_count))
-    kids = " ".join(f"{x} 0 R" for x in page_objs)
-
-    objs: list[tuple[int, bytes]] = [
-        (1, b"<< /Type /Catalog /Pages 2 0 R >>\n"),
-        (2, f"<< /Type /Pages /Kids [{kids}] /Count {page_count} >>\n".encode("latin1")),
-        (5, b"<< /Producer (objstm-multipage) >>\n"),
-    ]
-
-    for page_obj, content_obj in zip(page_objs, content_objs):
-        page = (
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 220] "
-            f"/Resources << /Font << /F1 6 0 R >> >> /Contents {content_obj} 0 R >>\n"
-        )
-        objs.append((page_obj, page.encode("latin1")))
-
-    objstm_payload = b"6 0 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-    objs.append(
-        (
-            8,
-            b"<< /Type /ObjStm /N 1 /First 4 /Length %d >>\nstream\n%s\nendstream\n"
-            % (len(objstm_payload), objstm_payload),
-        )
-    )
-
-    for content_obj, text in zip(content_objs, page_texts):
-        objs.append((content_obj, _text_stream(_simple_text_ops(text))))
-
-    parts: list[bytes] = [b"%PDF-1.5\n"]
-    offsets: dict[int, int] = {0: 0}
-    for obj_no, body in objs:
-        offsets[obj_no] = sum(len(x) for x in parts)
-        _append_obj(parts, obj_no, body)
-
-    xref_obj = 7
-    offsets[xref_obj] = sum(len(x) for x in parts)
-    size = max(max(offsets), 6) + 1
-
-    stream = bytearray()
-    for i in range(size):
-        if i == 0:
-            t, f2, f3 = 0, 0, 0
-        elif i == 6:
-            t, f2, f3 = 2, 8, 0
-        elif i in offsets:
-            t, f2, f3 = 1, offsets[i], 0
-        else:
-            t, f2, f3 = 0, 0, 0
-        stream.extend(bytes([t]))
-        stream.extend(f2.to_bytes(2, "big"))
-        stream.extend(bytes([f3]))
-
-    extra = f"/Index [0 {size}] ".encode("ascii") if with_index else b""
-    xref_dict = b"<< /Type /XRef /Size %d /W [1 2 1] %s/Root 1 0 R /Length %d >>\n" % (
-        size,
-        extra,
-        len(stream),
-    )
-    _append_obj(parts, xref_obj, xref_dict + b"stream\n" + bytes(stream) + b"\nendstream\n")
-    parts.append(b"startxref\n" + str(offsets[xref_obj]).encode("ascii") + b"\n%%EOF\n")
-    return b"".join(parts)
-
-
-def _write_pdf(name: str, data: bytes) -> None:
-    (ROOT / f"{name}.pdf").write_bytes(data)
-
+def _write_pdf(path: Path, encoded: str) -> None:
+    path.write_bytes(base64.b64decode(encoded))
 
 def generate() -> None:
-    xref_multipage = _build_xref_stream_pdf(
-        [
-            (1, b"<< /Type /Catalog /Pages 2 0 R >>\n"),
-            (2, b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\n"),
-            (
-                3,
-                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 220] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>\n",
-            ),
-            (
-                4,
-                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 220] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>\n",
-            ),
-            (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n"),
-            (6, _text_stream(_simple_text_ops("XRef multipage page one."))),
-            (7, _text_stream(_simple_text_ops("XRef multipage page two."))),
-        ],
-        root_obj=1,
-        xref_obj=8,
-    )
-    _write_pdf("pdf_native_real_xref_stream_multipage", xref_multipage)
+    NATIVE_DIR.mkdir(parents=True, exist_ok=True)
+    GATE_DIR.mkdir(parents=True, exist_ok=True)
 
-    _write_pdf(
-        "pdf_native_real_objstm_multipage",
-        _build_objstm_pdf(["ObjStm multipage page one.", "ObjStm multipage page two."], with_index=False),
-    )
-    _write_pdf(
-        "pdf_native_real_xref_objstm_multipage",
-        _build_objstm_pdf(
-            ["XRef ObjStm multipage page one.", "XRef ObjStm multipage page two."], with_index=True
-        ),
-    )
-    _write_pdf(
-        "pdf_native_real_mixed_lang_objstm_simple",
-        _build_objstm_pdf(["Native mixed EN-123 baseline."], with_index=False),
-    )
+    for name, encoded in NATIVE_PDFS.items():
+        _write_pdf(NATIVE_DIR / f"{name}.pdf", encoded)
 
-    fallback_multipage = _build_xref_stream_pdf(
-        [
-            (1, b"<< /Type /Catalog /Pages 2 0 R >>\n"),
-            (2, b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\n"),
-            (
-                3,
-                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 220] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>\n",
-            ),
-            (
-                4,
-                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 220] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>\n",
-            ),
-            (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n"),
-            (6, _text_stream(b"BT\n/F1 12 Tf\n(\\226 fallback paragraph one.) Tj\nET\n")),
-            (7, _text_stream(b"BT\n/F1 12 Tf\n(\\226 fallback paragraph two.) Tj\nET\n")),
-        ],
-        root_obj=1,
-        xref_obj=8,
-    )
-    _write_pdf("pdf_native_real_font_fallback_multipage", fallback_multipage)
+    for gate_name, native_name in GATE_FROM_NATIVE.items():
+        src = NATIVE_DIR / f"{native_name}.pdf"
+        dst = GATE_DIR / f"{gate_name}.pdf"
+        shutil.copyfile(src, dst)
 
-    src = ROOT / "pdf_native_real_text_multipage.pdf"
-    dst = ROOT / "pdf_native_real_normal_multipage_current_boundary.pdf"
-    dst.write_bytes(src.read_bytes())
+    for name, encoded in GATE_MARKER_PDFS.items():
+        _write_pdf(GATE_DIR / f"{name}.pdf", encoded)
 
 
 if __name__ == "__main__":

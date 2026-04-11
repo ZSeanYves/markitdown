@@ -2,12 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FIXTURE_DIR="$ROOT/samples/pdf_core"
+FIXTURE_ROOT="$ROOT/samples/pdf_core"
+NATIVE_DIR="$FIXTURE_ROOT/native"
+EXP_DIR="$FIXTURE_ROOT/expected"
 OUT_ROOT="${1:-$ROOT/.tmp_pdf_native_out}"
 RUN_DIR="$OUT_ROOT/run"
 LOG_DIR="$OUT_ROOT/log"
-EXP_DIR="$FIXTURE_DIR"
-GEN_SCRIPT="$FIXTURE_DIR/generate_phase7_native_fixtures.py"
+GEN_SCRIPT="$FIXTURE_ROOT/generate_phase7_native_fixtures.py"
 
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
@@ -16,7 +17,7 @@ if ! command -v moon >/dev/null 2>&1; then
   exit 2
 fi
 
-# 第一批 native acceptance: phase-5 真实简单样例
+# native acceptance: 验证 pdf-native 提取能力（输出必须和 expected 对齐）
 CASES=(
   "pdf_native_real_en_single_page"
   "pdf_native_real_zh_single_page"
@@ -57,15 +58,16 @@ unexpected_crash=0
 failed=0
 
 printf '==> pdf-native acceptance check\n'
-printf '    fixture dir: %s\n' "$FIXTURE_DIR"
-printf '    output dir : %s\n\n' "$OUT_ROOT"
+printf '    native dir: %s\n' "$NATIVE_DIR"
+printf '    expected  : %s\n' "$EXP_DIR"
+printf '    output dir: %s\n\n' "$OUT_ROOT"
 
 if [[ -f "$GEN_SCRIPT" ]]; then
   python3 "$GEN_SCRIPT"
 fi
 
 for name in "${CASES[@]}"; do
-  pdf="$FIXTURE_DIR/$name.pdf"
+  pdf="$NATIVE_DIR/$name.pdf"
   exp="$EXP_DIR/$name.expected.md"
   out="$RUN_DIR/$name.md"
   log="$LOG_DIR/$name.log"
