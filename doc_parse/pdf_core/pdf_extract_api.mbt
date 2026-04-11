@@ -36,6 +36,30 @@ pub struct PdfDocumentExtractResult {
 }
 
 ///|
+const PDF_NATIVE_TRACE_C1 = true
+
+///|
+fn debug_operand_kind(v : PdfContentOperand) -> String {
+  match v {
+    PdfContentOperand::String(_) => "String"
+    PdfContentOperand::HexString(_) => "HexString"
+    PdfContentOperand::Array(_) => "Array"
+    PdfContentOperand::Name(_) => "Name"
+    PdfContentOperand::Number(_) => "Number"
+  }
+}
+
+///|
+fn debug_font_keys(fonts : Map[String, PdfFontRef]) -> String {
+  let ks : Array[String] = []
+  for entry in fonts {
+    let (k, _) = entry
+    ks.push(k)
+  }
+  ks.join(",")
+}
+
+///|
 priv struct PdfPageExtractResult {
   events : Array[PdfTextEvent]
   stream_count : Int
@@ -164,9 +188,27 @@ fn extract_page_text_with_stats(
   let mut in_text = false
   let mut has_emitted_text = false
 
+  let trace_this_page = PDF_NATIVE_TRACE_C1 &&
+    (match fonts.get("C1") {
+      Some(_) => true
+      None => false
+    })
+  if trace_this_page {
+    println(
+      "[pdf-native-trace] page=" +
+      page_obj.to_string() +
+      " fonts={" +
+      debug_font_keys(fonts) +
+      "}",
+    )
+  }
+
   for stream in streams {
     let ops = extract_text_ops_from_page_stream(stream) catch {
-      _ => {
+      e => {
+        if trace_this_page {
+          println("[pdf-native-trace] stream_parse_failed err=" + e.to_string())
+        }
         failed_streams = failed_streams + 1
         continue
       }
@@ -196,6 +238,12 @@ fn extract_page_text_with_stats(
                 current_font = Some(name)
               }
               current_font_size = Some(size)
+              if trace_this_page {
+                println(
+                  "[pdf-native-trace] Tf current_font=" +
+                  current_font.unwrap_or(""),
+                )
+              }
             }
             _ => ()
           }
@@ -220,12 +268,24 @@ fn extract_page_text_with_stats(
       }
 
       if op.op == "Tj" && op.operands.length() >= 1 {
-        let text = decode_with_font(
-          doc,
-          font_ref,
-          op.operands[op.operands.length() - 1],
-        ) catch {
-          _ => ""
+        let operand = op.operands[op.operands.length() - 1]
+        let operand_kind = debug_operand_kind(operand)
+        let font_hit = match font_ref {
+          Some(_) => true
+          None => false
+        }
+        let text = decode_with_font(doc, font_ref, operand) catch { _ => "" }
+        if trace_this_page {
+          println(
+            "[pdf-native-trace] Tj font=" +
+            current_font.unwrap_or("") +
+            " hit=" +
+            font_hit.to_string() +
+            " operand=" +
+            operand_kind +
+            " decode_len=" +
+            text.to_array().length().to_string(),
+          )
         }
         if text != "" {
           events.push({
