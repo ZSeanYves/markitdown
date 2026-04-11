@@ -307,9 +307,25 @@ fn print_pdf_core_event_samples(events : Array[@pdfc.PdfTextEvent], limit : Int)
       "\" font=" +
       ev.font_name.unwrap_or("<none>") +
       " size=" +
-      ev.font_size.map(fn(v) { v.to_string() }).unwrap_or("<none>"),
+      ev.font_size.map(fn(v) { v.to_string() }).unwrap_or("<none>") +
+      " stream=" +
+      ev.source_stream_index.to_string() +
+      " op=" +
+      ev.source_op_index.to_string() +
+      " break=" +
+      debug_break_kind(ev.break_kind),
     )
     i = i + 1
+  }
+}
+
+///|
+fn debug_break_kind(kind : @pdfc.PdfTextBreakKind) -> String {
+  match kind {
+    @pdfc.PdfTextBreakKind::None => "none"
+    @pdfc.PdfTextBreakKind::ExplicitLine => "explicit_line"
+    @pdfc.PdfTextBreakKind::ExplicitParagraph => "explicit_para"
+    @pdfc.PdfTextBreakKind::Inferred => "inferred"
   }
 }
 
