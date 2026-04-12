@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/zip"
+package "ZSeanYves/markitdown/doc_parse/zip"
 
 // Values
 pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int) -> Bytes raise CodecError

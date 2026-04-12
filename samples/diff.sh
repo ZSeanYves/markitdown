@@ -58,7 +58,7 @@ for fmt in "${FORMATS[@]}"; do
     exp="$exp_dir/$name.md"
 
     echo "==> converting $fmt/$base"
-    moon run "$ROOT/cli" -- convert "$f" -o "$out" --max-heading 6
+    moon run "$ROOT/cli" -- normal "$f" "$out"
 
     if [[ ! -f "$exp" ]]; then
       echo "!! expected missing: $exp"

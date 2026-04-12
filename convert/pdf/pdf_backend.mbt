@@ -8,13 +8,13 @@ priv struct PdfBackendSpec {
 ///|
 priv struct PdfBackendResult {
   backend_name : String
-  cmd : String
-  args : Array[String]
+  _cmd : String
+  _args : Array[String]
   text : String
   exit_status : Int
   stderr : String
   quality : PdfTextQuality?
-  spawn_error : String?
+  _spawn_error : String?
 }
 
 ///|
@@ -38,13 +38,13 @@ async fn run_pdf_backend(spec : PdfBackendSpec) -> PdfBackendResult {
       let msg = e.to_string()
       return {
         backend_name: spec.name,
-        cmd: spec.cmd,
-        args: spec.args,
+        _cmd: spec.cmd,
+        _args: spec.args,
         text: "",
         exit_status: -1,
         stderr: "",
         quality: None,
-        spawn_error: Some(normalize_spawn_error(spec.cmd, msg)),
+        _spawn_error: Some(normalize_spawn_error(spec.cmd, msg)),
       }
     }
   }
@@ -61,13 +61,13 @@ async fn run_pdf_backend(spec : PdfBackendSpec) -> PdfBackendResult {
 
   {
     backend_name: spec.name,
-    cmd: spec.cmd,
-    args: spec.args,
+    _cmd: spec.cmd,
+    _args: spec.args,
     text: stdout,
     exit_status: status,
     stderr,
     quality,
-    spawn_error: None,
+    _spawn_error: None,
   }
 }
 

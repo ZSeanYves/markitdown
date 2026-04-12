@@ -1,19 +1,11 @@
 ///|
 priv struct PdfExtractResult {
-  backend_name : String
+  _backend_name : String
   text : String
-  exit_status : Int
-  stderr : String
-  quality : PdfTextQuality
+  _exit_status : Int
+  _stderr : String
+  _quality : PdfTextQuality
   quality_accepted : Bool
-}
-
-///|
-async fn extract_pdf_text(path : String) -> Result[String, @cor.AppError] {
-  match extract_pdf_text_result(path, debug=false) {
-    Ok(picked) => Ok(picked.text)
-    Err(e) => Err(e)
-  }
 }
 
 ///|
@@ -28,11 +20,11 @@ async fn extract_pdf_text_result(
     Some(sel) => {
       let quality = sel.quality.unwrap_or(analyze_pdf_text_quality(sel.text))
       Ok({
-        backend_name: sel.backend_name,
+        _backend_name: sel.backend_name,
         text: cleanup_pdf_text(sel.text),
-        exit_status: sel.exit_status,
-        stderr: sel.stderr,
-        quality,
+        _exit_status: sel.exit_status,
+        _stderr: sel.stderr,
+        _quality: quality,
         quality_accepted: decision.accepted,
       })
     }

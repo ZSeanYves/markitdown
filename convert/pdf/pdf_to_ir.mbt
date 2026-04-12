@@ -7,9 +7,6 @@
 /// - Strip page-level noise page by page
 /// - Merge cleaned pages with an internal page-break marker
 /// - Recover blocks once on the merged text
-fn text_to_ir_document(text0 : String) -> @cor.Document {
-  text_to_ir_document_with_debug("", "", text0, false)
-}
 
 ///|
 fn text_to_ir_document_with_debug(

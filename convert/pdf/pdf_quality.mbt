@@ -5,11 +5,11 @@ priv struct PdfTextQuality {
   fragmented : Bool
   ocr_garbage : Bool
   score : Int
-  signal_chars : Int
-  total_lines : Int
-  nonblank_lines : Int
+  _signal_chars : Int
+  _total_lines : Int
+  _nonblank_lines : Int
   short_lines : Int
-  suspicious_short_alpha_lines : Int
+  _suspicious_short_alpha_lines : Int
 }
 
 ///|
@@ -30,11 +30,11 @@ fn analyze_pdf_text_quality(text : String) -> PdfTextQuality {
       fragmented: true,
       ocr_garbage: true,
       score: -9999,
-      signal_chars: 0,
-      total_lines: 0,
-      nonblank_lines: 0,
+      _signal_chars: 0,
+      _total_lines: 0,
+      _nonblank_lines: 0,
       short_lines: 0,
-      suspicious_short_alpha_lines: 0,
+      _suspicious_short_alpha_lines: 0,
     }
   }
 
@@ -91,11 +91,11 @@ fn analyze_pdf_text_quality(text : String) -> PdfTextQuality {
     fragmented,
     ocr_garbage,
     score: avg_len * 10 - blank * 3 - short * 5 - suspicious_short_alpha * 25,
-    signal_chars,
-    total_lines: total,
-    nonblank_lines: nonblank,
+    _signal_chars: signal_chars,
+    _total_lines: total,
+    _nonblank_lines: nonblank,
     short_lines: short,
-    suspicious_short_alpha_lines: suspicious_short_alpha,
+    _suspicious_short_alpha_lines: suspicious_short_alpha,
   }
 }
 

@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/convert"
+package "ZSeanYves/markitdown/convert/convert"
 
 import {
-  "ZSeanYves/markitdown/src/core",
+  "ZSeanYves/markitdown/core",
 }
 
 // Values
@@ -15,8 +15,6 @@ pub(all) struct ConvertOptions {
   out_dir : String?
   max_heading : Int?
   pdf_enhance_mode : String?
-  pdf_backend : String?
-  pdf_backend_policy : String?
   pdf_extract_debug : Bool
   pdf_dump_selected_raw : Bool
   pdf_pipeline_debug : Bool
@@ -25,3 +23,4 @@ pub(all) struct ConvertOptions {
 // Type aliases
 
 // Traits
+

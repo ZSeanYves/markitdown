@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/src/core"
+package "ZSeanYves/markitdown/core"
 
 import {
   "moonbitlang/core/ref",

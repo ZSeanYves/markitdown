@@ -28,9 +28,7 @@ async fn main {
           "scope": @clap.Arg::positional(
             help="Debug scope: all|extract|raw|pipeline",
           ),
-          "input": @clap.Arg::positional(
-            help="Path to input file",
-          ),
+          "input": @clap.Arg::positional(help="Path to input file"),
         },
       ),
     },
@@ -101,7 +99,9 @@ async fn main {
             }
             "debug" => {
               if positional.length() < 2 || positional.length() > 3 {
-                exit_error("usage: debug <all|extract|raw|pipeline> <input> [output]")
+                exit_error(
+                  "usage: debug <all|extract|raw|pipeline> <input> [output]",
+                )
                 print_cli_usage()
                 return
               }
@@ -114,20 +114,22 @@ async fn main {
                 None
               }
 
-              let (pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug) =
-                match scope {
-                  "all" => (true, true, true)
-                  "extract" => (true, false, false)
-                  "raw" => (false, true, false)
-                  "pipeline" => (false, false, true)
-                  _ => {
-                    exit_error(
-                      "invalid debug scope: " + scope + " (expected: all|extract|raw|pipeline)",
-                    )
-                    print_cli_usage()
-                    return
-                  }
+              let (pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug) = match
+                scope {
+                "all" => (true, true, true)
+                "extract" => (true, false, false)
+                "raw" => (false, true, false)
+                "pipeline" => (false, false, true)
+                _ => {
+                  exit_error(
+                    "invalid debug scope: " +
+                    scope +
+                    " (expected: all|extract|raw|pipeline)",
+                  )
+                  print_cli_usage()
+                  return
                 }
+              }
 
               cmd_convert(
                 input,
