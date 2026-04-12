@@ -13,6 +13,7 @@ fn text_to_ir_document_with_debug(
   input_path : String,
   out_dir : String,
   text0 : String,
+  page_images : Array[PdfPageImage],
   pipeline_debug : Bool,
 ) -> @cor.Document {
   let text = @cor.normalize_text(text0)
@@ -27,6 +28,9 @@ fn text_to_ir_document_with_debug(
   }
 
   if pages.length() == 0 {
+    for img in page_images {
+      @cor.push(doc, @cor.Block::Image(img.alt, img.path))
+    }
     return doc
   }
 
@@ -60,9 +64,9 @@ fn text_to_ir_document_with_debug(
   let mut _page_idx = 0
   for page in pages {
     let clean_page = strip_page_noise(page, head_keys, tail_keys)
-    if clean_page.trim() != "" {
-      clean_pages.push(clean_page)
+    clean_pages.push(clean_page)
 
+    if clean_page.trim() != "" {
       //println("[pdf-cross-debug] clean page " + page_idx.to_string())
       let mut shown = 0
       for sv in clean_page.split("\n") {
@@ -88,8 +92,10 @@ fn text_to_ir_document_with_debug(
     )
   }
 
+  let clean_pages_with_images = inject_page_image_markers(clean_pages, page_images)
+
   let blocks_before_merge : Array[PdfBlock] = []
-  for page in clean_pages {
+  for page in clean_pages_with_images {
     for b in split_blocks_smart(page) {
       blocks_before_merge.push(b)
     }
@@ -103,7 +109,7 @@ fn text_to_ir_document_with_debug(
     )
   }
 
-  let merged = merge_clean_pages_with_breaks(clean_pages)
+  let merged = merge_clean_pages_with_breaks(clean_pages_with_images)
   //println("[pdf-cross-debug] merged preview")
   let mut shown = 0
   for sv in merged.split("\n") {
@@ -144,6 +150,7 @@ fn text_to_ir_document_with_debug(
       PdfBlock::Paragraph(text) => @cor.push(doc, @cor.Block::Paragraph(text))
       PdfBlock::ListItem(ordered, level, text) =>
         @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
+      PdfBlock::Image(alt, path) => @cor.push(doc, @cor.Block::Image(alt, path))
     }
   }
 

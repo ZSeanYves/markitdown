@@ -3,12 +3,14 @@ priv enum PdfBlock {
   Heading(Int, String)
   Paragraph(String)
   ListItem(Bool, Int, String) // ordered, level, text
+  Image(String, String) // alt, path
 }
 
 ///|
 priv enum PdfLine {
   Blank
   PageBreak
+  Image(String, String)
   Text(String)
 }
 
@@ -28,10 +30,16 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
       if line == PDF_PAGE_BREAK_MARKER {
         lines.push(PdfLine::PageBreak)
-      } else if line == "" {
-        lines.push(PdfLine::Blank)
-      } else if !is_noise_line(line) {
-        lines.push(PdfLine::Text(line))
+      } else {
+        match parse_pdf_image_marker(line) {
+          Some(img) => lines.push(PdfLine::Image(img.alt, img.path))
+          None =>
+            if line == "" {
+              lines.push(PdfLine::Blank)
+            } else if !is_noise_line(line) {
+              lines.push(PdfLine::Text(line))
+            }
+        }
       }
     }
   }
@@ -56,6 +64,15 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
         // 先记住跨页，不立即 flush；
         // 是否续段交给下一条正文判断
         prev_was_page_break = true
+      PdfLine::Image(alt, path) => {
+        if buf != "" {
+          flush_pdf_block(out, buf)
+          buf = ""
+        }
+        out.push(PdfBlock::Image(alt, path))
+        buf_is_page_lead = false
+        prev_was_page_break = false
+      }
       PdfLine::Text(cur) =>
         if buf == "" {
           buf = cur

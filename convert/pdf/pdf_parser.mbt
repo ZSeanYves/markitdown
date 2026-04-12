@@ -18,6 +18,7 @@ pub async fn parse_pdf(
   }
 
   let mode = parse_pdf_enhance_mode(enhance_mode)
+  let image_export = export_pdf_page_images(path, out_dir)
 
   let selected_raw = match mode {
     PdfEnhanceMode::TextOnly => extracted.text
@@ -43,7 +44,20 @@ pub async fn parse_pdf(
     dump_pdf_debug_stage(path, out_dir, "selected_raw", selected_raw)
   }
 
-  text_to_ir_document_with_debug(path, out_dir, enhanced_text, pipeline_debug)
+  if extract_debug {
+    match image_export.warning {
+      Some(msg) => dump_pdf_debug_stage(path, out_dir, "image_extract", msg)
+      None => ()
+    }
+  }
+
+  text_to_ir_document_with_debug(
+    path,
+    out_dir,
+    enhanced_text,
+    image_export.images,
+    pipeline_debug,
+  )
 }
 
 ///|
