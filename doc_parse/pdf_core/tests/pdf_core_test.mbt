@@ -128,9 +128,7 @@ fn build_pdf_with_two_pages() -> Bytes {
 
   add("%PDF-1.4\n")
   add_obj("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-  add_obj(
-    "2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
-  )
+  add_obj("2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n")
   add_obj(
     "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>\nendobj\n",
   )

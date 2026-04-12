@@ -139,6 +139,7 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // 只清理噪声行，但保留原始空行结构
   let out : Array[String] = []
   let original_non_empty_lines : Array[String] = []
+  let non_noise_lines : Array[String] = []
   let mut prev_blank = false
 
   for line in raw_lines {
@@ -173,6 +174,10 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // if page-level cleanup cleared the whole page, but page had non-empty lines
   // before cleanup, keep original lines to avoid deleting
   // short real-content pages in multipage documents.
+  if non_noise_lines.length() > 0 {
+    return non_noise_lines.join("\n")
+  }
+
   if original_non_empty_lines.length() > 0 {
     return original_non_empty_lines.join("\n")
   }
