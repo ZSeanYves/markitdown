@@ -138,8 +138,6 @@ fn strip_page_repeated_noise_only_as_lines(
 fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   // 只清理噪声行，但保留原始空行结构
   let out : Array[String] = []
-  let original_non_empty_lines : Array[String] = []
-  let non_noise_lines : Array[String] = []
   let mut prev_blank = false
 
   for line in raw_lines {
@@ -156,33 +154,11 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
       }
     } else {
       out.push(t)
-      non_noise_lines.push(t)
       prev_blank = false
     }
-
-    if t != "" {
-      original_non_empty_lines.push(t)
-    }
   }
 
-  let cleaned = out.join("\n")
-  if cleaned.trim() != "" {
-    return cleaned
-  }
-
-  // Conservative fallback:
-  // if page-level cleanup cleared the whole page, but page had non-empty lines
-  // before cleanup, keep original lines to avoid deleting
-  // short real-content pages in multipage documents.
-  if non_noise_lines.length() > 0 {
-    return non_noise_lines.join("\n")
-  }
-
-  if original_non_empty_lines.length() > 0 {
-    return original_non_empty_lines.join("\n")
-  }
-
-  cleaned
+  out.join("\n")
 }
 
 ///|
@@ -342,51 +318,20 @@ fn looks_like_page_number_phrase(s : String) -> Bool {
     return false
   }
 
-  let tokens : Array[String] = []
-  for sv in rest.split(" ") {
-    let w = sv.to_string().trim().to_string()
-    if w != "" {
-      tokens.push(w)
-    }
-  }
-
-  if tokens.length() == 1 {
-    let only = tokens[0]
-    if is_ascii_digits_word(only) {
-      return true
-    }
-    if looks_like_fraction_page_number(only) {
-      return true
-    }
-    return false
-  }
-
-  if tokens.length() == 3 {
-    if !is_ascii_digits_word(tokens[0]) {
-      return false
-    }
-    let sep = tokens[1]
-    if !(sep == "of" || sep == "OF" || sep == "Of" || sep == "oF" || sep == "/") {
-      return false
-    }
-    return is_ascii_digits_word(tokens[2])
-  }
-
-  false
-}
-
-///|
-fn is_ascii_digits_word(s : String) -> Bool {
-  let t = s.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  for c in t.to_array() {
-    if !(c >= '0' && c <= '9') {
+  // rest must only contain digits / spaces / slash / "of"
+  for c in rest.to_array() {
+    let ok = (c >= '0' && c <= '9') ||
+      c == ' ' ||
+      c == '/' ||
+      c == 'o' ||
+      c == 'f' ||
+      c == 'O' ||
+      c == 'F'
+    if !ok {
       return false
     }
   }
+
   true
 }
 

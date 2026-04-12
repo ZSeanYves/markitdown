@@ -6,6 +6,10 @@ async fn main {
     prog="markitdown-mb",
     description="Convert documents (docx/pdf/xlsx/pptx/html) to Markdown (MoonBit, markitdown-like)",
     subcmds={
+      "demo": @clap.SubCommand::new(
+        help="Print a demo Markdown document (tests core/ir + emitter)",
+        args={},
+      ),
       "convert": @clap.SubCommand::new(
         help="Convert a .docx/.pdf/.xlsx/.pptx/.html file to Markdown",
         args={
@@ -25,21 +29,21 @@ async fn main {
             nargs=@clap.Nargs::AtMost(1),
             help="Max heading level to emit (default: 3)",
           ),
-          "ocr": @clap.Arg::named(
+          "pdf-mode": @clap.Arg::named(
             nargs=@clap.Nargs::AtMost(1),
-            help="Enable OCR enhancement for PDF (default: off). Accepts: 1/true/on/yes",
+            help="PDF enhancement mode: text|experimental (default: text)",
           ),
-          "pdf-backend": @clap.Arg::named(
+          "pdf-extract-debug": @clap.Arg::named(
             nargs=@clap.Nargs::AtMost(1),
-            help="PDF backend: external|pdf-native (default: external)",
+            help="Enable concise PDF extractor decision logs (default: off). Accepts: 1/true/on/yes",
           ),
-          "pdf-backend-policy": @clap.Arg::named(
+          "pdf-dump-selected-raw": @clap.Arg::named(
             nargs=@clap.Nargs::AtMost(1),
-            help="PDF backend policy: external|native-strict|native-gated (default: external)",
+            help="Dump selected PDF backend raw text into --out-dir (default: off). Accepts: 1/true/on/yes",
           ),
-          "debug": @clap.Arg::named(
+          "pdf-pipeline-debug": @clap.Arg::named(
             nargs=@clap.Nargs::AtMost(1),
-            help="Debug modes: extract|dump-raw|pipeline|all (comma-separated supported)",
+            help="Dump staged PDF post-processing artifacts into --out-dir (default: off). Accepts: 1/true/on/yes",
           ),
         },
       ),
@@ -100,15 +104,7 @@ async fn main {
                 None => None
               }
 
-              let ocr_enabled = parse_bool_flag(sub.args.get("ocr"))
-              let pdf_mode_opt = if ocr_enabled { Some("ocr") } else { None }
-              let pdf_backend_opt : String? = match
-                sub.args.get("pdf-backend") {
-                Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
-                None => None
-              }
-              let pdf_backend_policy_opt : String? = match
-                sub.args.get("pdf-backend-policy") {
+              let pdf_mode_opt : String? = match sub.args.get("pdf-mode") {
                 Some(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
                 None => None
               }
@@ -122,13 +118,43 @@ async fn main {
                 mh0
               }
 
-              let (pdf_extract_debug, pdf_dump_selected_raw, pdf_pipeline_debug) = parse_debug_modes(
-                sub.args.get("debug"),
-              )
+              let pdf_extract_debug = match sub.args.get("pdf-extract-debug") {
+                Some(arr) =>
+                  if arr.length() == 0 {
+                    true
+                  } else {
+                    let v = arr[0].trim().to_string().to_lower()
+                    v == "1" || v == "true" || v == "on" || v == "yes"
+                  }
+                None => false
+              }
+
+              let pdf_dump_selected_raw = match
+                sub.args.get("pdf-dump-selected-raw") {
+                Some(arr) =>
+                  if arr.length() == 0 {
+                    true
+                  } else {
+                    let v = arr[0].trim().to_string().to_lower()
+                    v == "1" || v == "true" || v == "on" || v == "yes"
+                  }
+                None => false
+              }
+
+              let pdf_pipeline_debug = match
+                sub.args.get("pdf-pipeline-debug") {
+                Some(arr) =>
+                  if arr.length() == 0 {
+                    true
+                  } else {
+                    let v = arr[0].trim().to_string().to_lower()
+                    v == "1" || v == "true" || v == "on" || v == "yes"
+                  }
+                None => false
+              }
               cmd_convert(
-                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_backend_opt,
-                pdf_backend_policy_opt, pdf_extract_debug, pdf_dump_selected_raw,
-                pdf_pipeline_debug,
+                input, output_opt, out_dir_opt, max_heading, pdf_mode_opt, pdf_extract_debug,
+                pdf_dump_selected_raw, pdf_pipeline_debug,
               )
             }
             "help" => println(help_msg)
@@ -138,64 +164,4 @@ async fn main {
         None => println(help_msg)
       }
   }
-}
-
-///|
-fn parse_bool_flag(raw : Array[String]?) -> Bool {
-  match raw {
-    None => false
-    Some(arr) =>
-      if arr.length() == 0 {
-        true
-      } else {
-        let v = arr[0].trim().to_string().to_lower()
-        v == "1" || v == "true" || v == "on" || v == "yes"
-      }
-  }
-}
-
-///|
-fn parse_debug_modes(raw : Array[String]?) -> (Bool, Bool, Bool) {
-  let mut extract = false
-  let mut dump_raw = false
-  let mut pipeline = false
-
-  let arg = match raw {
-    None => ""
-    Some(arr) =>
-      if arr.length() == 0 {
-        "all"
-      } else {
-        arr[0].trim().to_string().to_lower()
-      }
-  }
-
-  if arg == "" {
-    return (false, false, false)
-  }
-
-  let parts = arg.split(",")
-  for p in parts {
-    let mode = p.trim().to_string()
-    if mode == "all" {
-      extract = true
-      dump_raw = true
-      pipeline = true
-      continue
-    }
-    if mode == "extract" {
-      extract = true
-      continue
-    }
-    if mode == "dump-raw" || mode == "dump_raw" || mode == "dumpraw" {
-      dump_raw = true
-      continue
-    }
-    if mode == "pipeline" {
-      pipeline = true
-      continue
-    }
-  }
-
-  (extract, dump_raw, pipeline)
 }
