@@ -13,7 +13,7 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
     }
 
     if para.from_title_shape && !seen_heading {
-      out.push(PptxBlock::Heading(p))
+      out.push(PptxBlock::Heading(p, para.inlines))
       seen_heading = true
       continue
     }
@@ -25,7 +25,14 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
           BulletKind::Unordered => false
           BulletKind::Ordered => true
         }
-        out.push(PptxBlock::ListItem(ordered, level, strip_bullet_prefix(p)))
+        out.push(
+          PptxBlock::ListItem(
+            ordered,
+            level,
+            strip_bullet_prefix(p),
+            para.inlines,
+          ),
+        )
         continue
       }
       None => ()
@@ -34,7 +41,14 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
     if is_bullet_like(p) {
       let level = if para.level >= 0 { para.level } else { 0 }
       let ordered = starts_with_numbered_bullet(p)
-      out.push(PptxBlock::ListItem(ordered, level, strip_bullet_prefix(p)))
+      out.push(
+        PptxBlock::ListItem(
+          ordered,
+          level,
+          strip_bullet_prefix(p),
+          para.inlines,
+        ),
+      )
       continue
     }
 
@@ -52,7 +66,7 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
           }
 
           if compacted.length() == 1 || (i == 0 && next_is_body) {
-            out.push(PptxBlock::Heading(p))
+            out.push(PptxBlock::Heading(p, para.inlines))
             seen_heading = true
             continue
           }
@@ -60,7 +74,7 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
       }
     }
 
-    out.push(PptxBlock::Paragraph(p))
+    out.push(PptxBlock::Paragraph(p, para.inlines))
   }
 
   out
@@ -83,7 +97,9 @@ fn compact_slide_paragraphs(
       continue
     }
     let cur : SlideParagraph = {
+      source_para_id: para.source_para_id,
       text,
+      inlines: para.inlines,
       bullet_kind: para.bullet_kind,
       level: para.level,
       from_title_shape: para.from_title_shape,

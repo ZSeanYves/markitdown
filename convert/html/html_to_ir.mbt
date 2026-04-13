@@ -199,25 +199,49 @@ fn export_local_html_image(
     return ctx.by_src.get(src0)
   }
 
-  let abs_path = join_dir_and_rel(ctx.input_dir, src0)
-  if !@fs.path_exists(abs_path) {
+  let abs_path_opt = resolve_html_local_image_path(ctx.input_dir, src0)
+  match abs_path_opt {
+    None => return None
+    Some(abs_path) => {
+      let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
+      let ext = image_ext_from_src(src0)
+      let rel_out = @cor.next_image_asset_rel_path_unique(
+        ctx.next_idx,
+        ext,
+        ctx.out_dir,
+      )
+      let dst = ctx.out_dir + "/" + rel_out
+      @fs.write_bytes_to_file(dst, data) catch {
+        _ => return None
+      }
+
+      ctx.by_src.set(src0, rel_out)
+      Some(rel_out)
+    }
+  }
+}
+
+///|
+/// Resolve local HTML image path conservatively.
+/// Prefer same-directory relative paths; if missing, allow a narrow fallback
+/// to module-style sample layout where assets live under sibling `image/`.
+fn resolve_html_local_image_path(input_dir : String, src0 : String) -> String? {
+  let direct = join_dir_and_rel(input_dir, src0)
+  if @fs.path_exists(direct) {
+    return Some(direct)
+  }
+
+  let parent = dirname_of_path(input_dir)
+  if parent == "" || parent == input_dir {
     return None
   }
 
-  let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
-  let ext = image_ext_from_src(src0)
-  let rel_out = @cor.next_image_asset_rel_path_unique(
-    ctx.next_idx,
-    ext,
-    ctx.out_dir,
-  )
-  let dst = ctx.out_dir + "/" + rel_out
-  @fs.write_bytes_to_file(dst, data) catch {
-    _ => return None
+  let sibling_image = join_dir_and_rel(join_dir_and_rel(parent, "image"), src0)
+  if @fs.path_exists(sibling_image) {
+    return Some(sibling_image)
   }
 
-  ctx.by_src.set(src0, rel_out)
-  Some(rel_out)
+  None
 }
 
 ///|

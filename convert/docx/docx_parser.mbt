@@ -41,14 +41,16 @@ pub fn parse_docx(
     @cor.basename(path),
   )
   let src = @cor.basename(path)
+  let mut asset_idx = 0
   for entry in asset_by_target {
     let (_target, rel_path) = entry
+    asset_idx += 1
     @cor.set_asset_origin(doc, rel_path, {
       source_name: Some(src),
       page: None,
       slide: None,
       sheet: None,
-      origin_id: None,
+      origin_id: Some("docx-asset-" + asset_idx.to_string()),
       nearby_caption: None,
     })
   }

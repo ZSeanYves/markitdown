@@ -7,8 +7,12 @@
 /// - grouping nearby small caption-like body shapes
 /// - detecting simple two-column layout
 /// then extract each shape's <a:p> in that order
-fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
+fn extract_slide_paragraphs(
+  xml : Bytes,
+  hyperlinks : Map[String, String],
+) -> Array[SlideParagraph] raise {
   let out : Array[SlideParagraph] = []
+  let para_seq : Ref[Int] = { val: 0 }
 
   let shapes = collect_slide_shapes(xml)
   if PPTX_SLIDE_DEBUG {
@@ -41,7 +45,13 @@ fn extract_slide_paragraphs(xml : Bytes) -> Array[SlideParagraph] raise {
 
   for sp in ordered {
     let raw = sp.shape
-    let paras = extract_shape_paragraphs(raw.xml, raw.is_title, raw.is_body)
+    let paras = extract_shape_paragraphs(
+      raw.xml,
+      raw.is_title,
+      raw.is_body,
+      hyperlinks,
+      para_seq,
+    )
     for para in paras {
       out.push(para)
     }

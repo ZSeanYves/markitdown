@@ -1,8 +1,8 @@
 ///|
 priv enum PptxBlock {
-  Heading(String)
-  Paragraph(String)
-  ListItem(Bool, Int, String) // ordered, level, text
+  Heading(String, Array[@cor.Inline])
+  Paragraph(String, Array[@cor.Inline])
+  ListItem(Bool, Int, String, Array[@cor.Inline]) // ordered, level, text, inlines
 }
 
 ///|
@@ -42,7 +42,9 @@ priv struct ShapeGroup {
 
 ///|
 priv struct SlideParagraph {
+  source_para_id : Int
   text : String
+  inlines : Array[@cor.Inline]
   bullet_kind : BulletKind?
   level : Int
   from_title_shape : Bool

@@ -430,7 +430,8 @@ fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
       cs[i + 2] == 'G' &&
       cs[i + 3] == 'H' &&
       cs[i + 4] == 'T' &&
-      cs[i + 5] == '-' {
+      cs[i + 5] == '-' &&
+      is_pseudo_column_split_boundary(cs, i) {
       split_at = i
       break
     }
@@ -448,6 +449,64 @@ fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
   }
 
   [left, right]
+}
+
+///|
+/// conservative guard for pseudo two-column negative case:
+/// only split when RIGHT-* starts after a clear column-like gap,
+/// not after a normal single inline space (e.g. "... with RIGHT-B1 lines.").
+fn is_pseudo_column_split_boundary(cs : Array[Char], idx : Int) -> Bool {
+  if idx <= 0 || idx >= cs.length() {
+    return false
+  }
+
+  let prev = cs[idx - 1]
+  if prev != ' ' && prev != '\t' {
+    return false
+  }
+
+  let right = String::from_array(cs[idx:].to_array()).trim().to_string()
+  if !looks_like_label_token_line_start(right) {
+    return false
+  }
+
+  let tokens : Array[String] = []
+  for sv in right.split(" ") {
+    let w = sv.to_string().trim().to_string()
+    if w != "" {
+      tokens.push(w)
+    }
+  }
+  if tokens.length() < 2 {
+    return false
+  }
+
+  let next = tokens[1]
+  let starts_like_new_sentence = match first_char(next) {
+    Some(ch) =>
+      (ch >= 'A' && ch <= 'Z') ||
+      (ch >= '0' && ch <= '9') ||
+      is_cjk(ch)
+    None => false
+  }
+  if !starts_like_new_sentence {
+    return false
+  }
+
+  // tab before RIGHT-* is usually a layout gap
+  if prev == '\t' {
+    return true
+  }
+
+  // two consecutive spaces are a strong pseudo-column boundary signal.
+  if idx >= 2 && cs[idx - 1] == ' ' && cs[idx - 2] == ' ' {
+    return true
+  }
+
+  // allow single-space split only when right side clearly looks like a
+  // standalone labeled sentence; this avoids inline references such as
+  // "... with RIGHT-B1 lines."
+  prev == ' '
 }
 
 ///|

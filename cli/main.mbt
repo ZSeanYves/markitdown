@@ -25,10 +25,9 @@ async fn main {
       "debug": @clap.SubCommand::new(
         help="Debug conversion: debug <all|extract|raw|pipeline> <input> [output]",
         args={
-          "scope": @clap.Arg::positional(
-            help="Debug scope: all|extract|raw|pipeline",
+          "input": @clap.Arg::positional(
+            help="Arguments: <all|extract|raw|pipeline> <input> [output]",
           ),
-          "input": @clap.Arg::positional(help="Path to input file"),
         },
       ),
     },

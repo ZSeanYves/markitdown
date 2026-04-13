@@ -193,6 +193,10 @@ fn is_probable_page_number(s : String) -> Bool {
     return true
   }
 
+  if looks_like_zh_page_number_phrase(t) {
+    return true
+  }
+
   if t.contains("第") && t.contains("页") {
     return true
   }
@@ -206,6 +210,47 @@ fn is_probable_page_number(s : String) -> Bool {
     }
   }
   all_digit
+}
+
+///|
+/// match conservative standalone Chinese page-number lines like:
+/// - 第 2 页
+/// - 第2页
+/// - 第 2 ⻚
+fn looks_like_zh_page_number_phrase(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  let cs = t.to_array()
+  let n = cs.length()
+  if n < 3 {
+    return false
+  }
+
+  if cs[0] != '第' {
+    return false
+  }
+
+  let last = cs[n - 1]
+  if !(last == '页' || last == '⻚') {
+    return false
+  }
+
+  let mut has_digit = false
+  for i in 1..<(n - 1) {
+    let c = cs[i]
+    let ok = (c >= '0' && c <= '9') || c == ' '
+    if !ok {
+      return false
+    }
+    if c >= '0' && c <= '9' {
+      has_digit = true
+    }
+  }
+
+  has_digit
 }
 
 ///|

@@ -4,6 +4,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="$ROOT/.tmp_assets_test"
 
+extract_asset_refs() {
+  local dir="$1"
+  if command -v rg >/dev/null 2>&1; then
+    rg -o --no-filename "assets/[A-Za-z0-9_./-]+" "$dir" -g '*.md' | sort -u || true
+    return
+  fi
+
+  find "$dir" -type f -name '*.md' -print0 \
+    | xargs -0 grep -hoE "assets/[A-Za-z0-9_./-]+" \
+    | sort -u || true
+}
+
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
@@ -18,20 +30,20 @@ run_group() {
   mkdir -p "$group_dir"
 
   for f in "${files[@]}"; do
-    local in="$ROOT/samples/$format/$f"
+    local in="$ROOT/samples/image/$f"
     local stem="${f%.*}"
     local out="$group_dir"
     local expected_md="$group_dir/${stem}.md"
 
     moon run "$ROOT/cli" -- normal "$in" "$out"
     if [[ ! -f "$expected_md" ]]; then
-      echo "missing markdown output for $format: $expected_md"a
+      echo "missing markdown output for $format: $expected_md"
       return 1
     fi
   done
 
   local refs
-  refs="$(rg -o --no-filename "assets/[A-Za-z0-9_./-]+" "$group_dir" -g '*.md' | sort -u || true)"
+  refs="$(extract_asset_refs "$group_dir")"
 
   if [[ -z "${refs//[$'\t\r\n ']}" ]]; then
     echo "no asset refs found in generated markdown for $format"

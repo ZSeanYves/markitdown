@@ -12,6 +12,8 @@
 - OCR is a dedicated path, not the default normal flow
 - more complex layouts still depend mainly on heuristic post-processing
 - the main path is not yet based on a full event -> line -> block native recovery chain
+- current PDF mainflow depends on external extractors
+- some extreme pseudo two-column negative cases may still suffer extractor-level truncation before post-processing
 
 ## PPTX
 

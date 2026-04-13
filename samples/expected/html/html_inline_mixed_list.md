@@ -1,1 +1,1 @@
-- Read the docs first
+- Read [the docs](x) first

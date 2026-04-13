@@ -5,6 +5,8 @@ fn extract_shape_paragraphs(
   xml : Bytes,
   from_title_shape : Bool,
   from_body_shape : Bool,
+  hyperlinks : Map[String, String],
+  para_seq : Ref[Int],
 ) -> Array[SlideParagraph] raise {
   let paras : Array[SlideParagraph] = []
 
@@ -27,9 +29,13 @@ fn extract_shape_paragraphs(
             match p_end {
               None => break
               Some(p_end0) => {
-                let text = extract_text_runs(xml, inner_start, p_end0)
-                  .trim()
-                  .to_string()
+                let inlines = extract_text_inlines(
+                  xml,
+                  inner_start,
+                  p_end0,
+                  hyperlinks,
+                )
+                let text = render_plain_text_inlines(inlines).trim().to_string()
 
                 let bullet_kind = paragraph_bullet_kind(
                   xml, inner_start, p_end0,
@@ -37,8 +43,11 @@ fn extract_shape_paragraphs(
                 let level = paragraph_level(xml, inner_start, p_end0)
 
                 if text != "" {
+                  para_seq.val = para_seq.val + 1
                   paras.push({
+                    source_para_id: para_seq.val,
                     text,
+                    inlines,
                     bullet_kind,
                     level,
                     from_title_shape,
@@ -75,9 +84,14 @@ fn extract_shape_paragraphs(
     return []
   }
 
+  para_seq.val = para_seq.val + 1
+  let merged_para_id = para_seq.val
+
   [
     {
+      source_para_id: merged_para_id,
       text: merged_parts.join(" "),
+      inlines: [@cor.Inline::Text(merged_parts.join(" "))],
       bullet_kind: None,
       level: 0,
       from_title_shape: true,

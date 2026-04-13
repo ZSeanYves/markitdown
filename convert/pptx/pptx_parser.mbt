@@ -44,16 +44,27 @@ pub fn parse_pptx(
 
     let xml = p.read_bytes_required(path)
     let _ = build_slide_rel_context(p, path)
+    let hyperlinks = slide_hyperlink_map(p, path)
     let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
+    let paras = extract_slide_paragraphs(xml, hyperlinks)
+    let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
+      images,
+      paras,
+    )
+    let blocks = classify_slide_paragraphs(
+      drop_consumed_caption_paras(paras, consumed_caption_para_ids),
+    )
 
-    for img in images {
+    for i in 0..<images.length() {
+      let img = images[i]
+      let nearby_caption = image_captions[i]
       @cor.push_with_origin(
         doc,
         @cor.Block::ImageBlock({
           path: img._path,
           alt_text: Some(img._alt),
           title: None,
-          caption: None,
+          caption: nearby_caption,
           origin: Some({
             source_name: Some(src),
             page: None,
@@ -77,13 +88,10 @@ pub fn parse_pptx(
         page: None,
         slide: Some(idx),
         sheet: None,
-        origin_id: None,
-        nearby_caption: None,
+        origin_id: Some("slide-" + idx.to_string() + "-image-" + (i + 1).to_string()),
+        nearby_caption,
       })
     }
-
-    let paras = extract_slide_paragraphs(xml)
-    let blocks = classify_slide_paragraphs(paras)
 
     if blocks.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
@@ -92,13 +100,18 @@ pub fn parse_pptx(
 
       for b in blocks {
         match b {
-          PptxBlock::Heading(text) => {
+          PptxBlock::Heading(text, inlines) => {
             if prev_was_list {
               @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
             }
+            let heading = if has_link_inline(inlines) {
+              @cor.Block::RichHeading(clamp_heading(3, max_heading), inlines)
+            } else {
+              @cor.Block::Heading(clamp_heading(3, max_heading), text)
+            }
             @cor.push_with_origin(
               doc,
-              @cor.Block::Heading(clamp_heading(3, max_heading), text),
+              heading,
               Some({
                 source_name: Some(src),
                 page: None,
@@ -110,13 +123,18 @@ pub fn parse_pptx(
             )
             prev_was_list = false
           }
-          PptxBlock::Paragraph(text) => {
+          PptxBlock::Paragraph(text, inlines) => {
             if prev_was_list {
               @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
             }
+            let para = if has_link_inline(inlines) {
+              @cor.Block::RichParagraph(inlines)
+            } else {
+              @cor.Block::Paragraph(text)
+            }
             @cor.push_with_origin(
               doc,
-              @cor.Block::Paragraph(text),
+              para,
               Some({
                 source_name: Some(src),
                 page: None,
@@ -128,10 +146,15 @@ pub fn parse_pptx(
             )
             prev_was_list = false
           }
-          PptxBlock::ListItem(ordered, level, text) => {
+          PptxBlock::ListItem(ordered, level, text, inlines) => {
+            let item = if has_link_inline(inlines) {
+              @cor.Block::RichListItem(ordered, level, inlines)
+            } else {
+              @cor.Block::ListItem(ordered, level, text)
+            }
             @cor.push_with_origin(
               doc,
-              @cor.Block::ListItem(ordered, level, text),
+              item,
               Some({
                 source_name: Some(src),
                 page: None,
@@ -152,4 +175,86 @@ pub fn parse_pptx(
   }
 
   doc
+}
+
+///|
+fn has_link_inline(xs : Array[@cor.Inline]) -> Bool {
+  for x in xs {
+    match x {
+      @cor.Inline::Link(_, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn infer_slide_image_captions(
+  images : Array[PptxSlideImage],
+  paras : Array[SlideParagraph],
+) -> (Array[String?], Map[Int, Bool]) {
+  let out : Array[String?] = []
+  let consumed : Map[Int, Bool] = Map::new()
+  for _ in images {
+    out.push(None)
+  }
+
+  if images.length() != 1 {
+    return (out, consumed)
+  }
+
+  let candidates : Array[(Int, String)] = []
+  for para in paras {
+    let t = para.text.trim().to_string()
+    let is_non_bullet = match para.bullet_kind {
+      None => true
+      Some(_) => false
+    }
+    if !para.from_title_shape && is_non_bullet && is_caption_like_text(t) {
+      candidates.push((para.source_para_id, t))
+    }
+  }
+
+  if candidates.length() == 1 {
+    let (para_id, caption) = candidates[0]
+    out[0] = Some(caption)
+    consumed.set(para_id, true)
+  }
+  (out, consumed)
+}
+
+///|
+fn is_caption_like_text(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t == "" || t.to_array().length() > 120 {
+    return false
+  }
+
+  let lower = t.to_lower()
+  lower.has_prefix("figure ") ||
+  lower.has_prefix("fig.") ||
+  lower.has_prefix("fig ") ||
+  lower.has_prefix("image ") ||
+  lower.has_prefix("caption:") ||
+  t.has_prefix("图") ||
+  t.has_prefix("图：") ||
+  t.has_prefix("图 ") ||
+  t.has_prefix("图片")
+}
+
+///|
+fn drop_consumed_caption_paras(
+  paras : Array[SlideParagraph],
+  consumed_caption_para_ids : Map[Int, Bool],
+) -> Array[SlideParagraph] {
+  if consumed_caption_para_ids.length() == 0 {
+    return paras
+  }
+  let out : Array[SlideParagraph] = []
+  for para in paras {
+    if !consumed_caption_para_ids.contains(para.source_para_id) {
+      out.push(para)
+    }
+  }
+  out
 }
