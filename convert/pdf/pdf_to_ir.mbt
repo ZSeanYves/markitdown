@@ -92,7 +92,9 @@ fn text_to_ir_document_with_debug(
     )
   }
 
-  let clean_pages_with_images = inject_page_image_markers(clean_pages, page_images)
+  let clean_pages_with_images = inject_page_image_markers(
+    clean_pages, page_images,
+  )
 
   let blocks_before_merge : Array[PdfBlock] = []
   for page in clean_pages_with_images {
@@ -419,6 +421,8 @@ fn render_pdf_blocks(blocks : Array[PdfBlock]) -> String {
           "): " +
           text,
         )
+      PdfBlock::Image(alt, path) =>
+        out.push(i.to_string() + ". Image(" + alt + "): " + path)
     }
   }
   out.join("\n")

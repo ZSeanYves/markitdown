@@ -6,3 +6,4 @@ target/
 .tmp_test_out/
 out/
 dataset/
+.tmp_assets_test/

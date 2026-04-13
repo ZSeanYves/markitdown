@@ -8,14 +8,14 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 FILES=(
-  "pdf_image_single_page_single_image.pdf"
-  "pdf_image_single_page_mixed.pdf"
-  "pdf_image_multi_page.pdf"
+  "pptx_image_single.pptx"
+  "pptx_image_mixed.pptx"
+  "pptx_image_multi.pptx"
 )
 
 for f in "${FILES[@]}"; do
-  in="$ROOT/samples/pdf/$f"
-  out="$OUT_DIR/${f%.pdf}.md"
+  in="$ROOT/samples/pptx/$f"
+  out="$OUT_DIR/${f%.pptx}.md"
   moon run "$ROOT/cli" -- normal "$in" "$out"
 
 done
@@ -34,4 +34,4 @@ if [[ $missing -ne 0 ]]; then
   exit 1
 fi
 
-echo "pdf asset extraction check passed"
+echo "pptx asset extraction check passed"

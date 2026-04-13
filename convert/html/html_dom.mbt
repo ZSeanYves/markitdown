@@ -2,6 +2,7 @@
 priv enum HtmlInline {
   Text(String)
   Break
+  Image(String, String) // alt, src
 }
 
 ///|
@@ -810,6 +811,15 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
 
             if tag.has_prefix("<br") {
               out.push(HtmlInline::Break)
+            } else if tag.has_prefix("<img") {
+              let src = read_html_attr_value(tag0, "src")
+                .unwrap_or("")
+                .trim()
+                .to_string()
+              if src != "" {
+                let alt = read_html_attr_value(tag0, "alt").unwrap_or("")
+                out.push(HtmlInline::Image(alt, src))
+              }
             }
 
             pos = j0 + 1
@@ -853,6 +863,7 @@ fn merge_adjacent_text_inlines(xs : Array[HtmlInline]) -> Array[HtmlInline] {
           }
         }
       HtmlInline::Break => out.push(HtmlInline::Break)
+      HtmlInline::Image(alt, src) => out.push(HtmlInline::Image(alt, src))
     }
   }
   out
@@ -865,9 +876,79 @@ fn render_inlines(xs : Array[HtmlInline]) -> String {
     match x {
       HtmlInline::Text(t) => if t != "" { s = s + t }
       HtmlInline::Break => s = s + "<br>"
+      HtmlInline::Image(alt, _src) =>
+        if alt.trim() != "" {
+          s = s + alt
+        } else {
+          s = s + "image"
+        }
     }
   }
   s
+}
+
+///|
+fn read_html_attr_value(tag : String, attr_name : String) -> String? {
+  let lower = tag.to_lower()
+  let key = attr_name.to_lower()
+  let n = tag.length()
+  let mut i = 0
+
+  while i < n {
+    let mut j = i
+    while j < n && (lower[j] == ' ' || lower[j] == '\n' || lower[j] == '\t') {
+      j += 1
+    }
+
+    if j + key.length() >= n {
+      break
+    }
+
+    if lower[j:j + key.length()].to_string() != key {
+      i = j + 1
+      continue
+    }
+
+    let mut k = j + key.length()
+    while k < n && (lower[k] == ' ' || lower[k] == '\n' || lower[k] == '\t') {
+      k += 1
+    }
+    if k >= n || lower[k] != '=' {
+      i = j + 1
+      continue
+    }
+    k += 1
+    while k < n && (lower[k] == ' ' || lower[k] == '\n' || lower[k] == '\t') {
+      k += 1
+    }
+    if k >= n {
+      return None
+    }
+
+    if tag[k] == '"' || tag[k] == '\'' {
+      let q = tag[k]
+      let mut e = k + 1
+      while e < n && tag[e] != q {
+        e += 1
+      }
+      if e <= n {
+        return Some(tag[k + 1:e].to_string())
+      }
+      return None
+    }
+
+    let mut e = k
+    while e < n {
+      let c = tag[e]
+      if c == ' ' || c == '\n' || c == '\t' || c == '>' {
+        break
+      }
+      e += 1
+    }
+    return Some(tag[k:e].to_string())
+  }
+
+  None
 }
 
 ///|

@@ -7,7 +7,7 @@
 /// - classify slide paragraphs into heading / list item / paragraph
 pub fn parse_pptx(
   input_path : String,
-  _out_dir : String,
+  out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
   let p = open_pptx(input_path) catch {
@@ -32,8 +32,14 @@ pub fn parse_pptx(
       ),
     )
 
-    let _ = build_slide_rel_context(p, path)
     let xml = p.read_bytes_required(path)
+    let _ = build_slide_rel_context(p, path)
+    let images = export_slide_images(p, path, xml, out_dir, idx)
+
+    for img in images {
+      @cor.push(doc, @cor.Block::Image(img._alt, img._path))
+    }
+
     let paras = extract_slide_paragraphs(xml)
     let blocks = classify_slide_paragraphs(paras)
 

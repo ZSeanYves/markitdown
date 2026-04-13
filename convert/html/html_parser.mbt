@@ -2,7 +2,7 @@
 /// HTML parser entry
 pub fn parse_html(
   input_path : String,
-  _out_dir : String,
+  out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
   if !@fs.path_exists(input_path) {
@@ -16,7 +16,7 @@ pub fn parse_html(
   let doc = @cor.new_document()
 
   let nodes = scan_html_nodes(bs)
-  let blocks = nodes_to_blocks(nodes, max_heading)
+  let blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
 
   for b in blocks {
     @cor.push(doc, b)

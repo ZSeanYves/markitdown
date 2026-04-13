@@ -85,7 +85,10 @@ fn inject_page_image_markers(
 }
 
 ///|
-fn export_pdf_page_images(path : String, out_dir : String) -> PdfImageExportResult {
+async fn export_pdf_page_images(
+  path : String,
+  out_dir : String,
+) -> PdfImageExportResult {
   if out_dir == "" {
     return { images: [], warning: None }
   }
@@ -107,7 +110,11 @@ fn export_pdf_page_images(path : String, out_dir : String) -> PdfImageExportResu
     Ok(v) => v
   }
   if status != 0 {
-    let msg = if err_msg.trim() == "" { "pdfimages -list failed" } else { err_msg }
+    let msg = if err_msg.trim() == "" {
+      "pdfimages -list failed"
+    } else {
+      err_msg
+    }
     return { images: [], warning: Some(msg) }
   }
 
@@ -116,7 +123,9 @@ fn export_pdf_page_images(path : String, out_dir : String) -> PdfImageExportResu
     return { images: [], warning: None }
   }
 
-  let prefix = out_dir + "/.pdf_img_tmp_" + sanitize_pdf_asset_base(@cor.basename(path))
+  let prefix = out_dir +
+    "/.pdf_img_tmp_" +
+    sanitize_pdf_asset_base(@cor.basename(path))
   let _ = run_command_capture("rm", ["-rf", prefix])
   let _ = run_command_capture("mkdir", ["-p", prefix])
 
@@ -129,10 +138,15 @@ fn export_pdf_page_images(path : String, out_dir : String) -> PdfImageExportResu
     }
 
     let page_prefix = prefix + "/page_" + pad2(page_no) + "_img"
-    let extract_res = run_command_capture(
-      "pdfimages",
-      ["-f", page_no.to_string(), "-l", page_no.to_string(), "-png", path, page_prefix],
-    )
+    let extract_res = run_command_capture("pdfimages", [
+      "-f",
+      page_no.to_string(),
+      "-l",
+      page_no.to_string(),
+      "-png",
+      path,
+      page_prefix,
+    ])
     let (st, _, se) = match extract_res {
       Err(e) => {
         let _ = run_command_capture("rm", ["-rf", prefix])
@@ -154,10 +168,16 @@ fn export_pdf_page_images(path : String, out_dir : String) -> PdfImageExportResu
       }
 
       emitted += 1
-      let out_name = "pdf_page_" + pad2(page_no) + "_img_" + pad2(emitted) + ".png"
+      let out_name = "pdf_page_" +
+        pad2(page_no) +
+        "_img_" +
+        pad2(emitted) +
+        ".png"
       let dst = assets_dir + "/" + out_name
       let bs = @fs.read_file_to_bytes(src) catch { _ => continue }
-      @fs.write_bytes_to_file(dst, bs) catch { _ => continue }
+      @fs.write_bytes_to_file(dst, bs) catch {
+        _ => continue
+      }
 
       exported.push({
         page: page_no,
@@ -256,7 +276,11 @@ fn sanitize_pdf_asset_base(s : String) -> String {
 
 ///|
 fn pad2(n : Int) -> String {
-  if n < 10 { "0" + n.to_string() } else { n.to_string() }
+  if n < 10 {
+    "0" + n.to_string()
+  } else {
+    n.to_string()
+  }
 }
 
 ///|
