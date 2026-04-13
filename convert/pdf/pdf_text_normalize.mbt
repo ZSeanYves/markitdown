@@ -69,6 +69,24 @@ fn normalize_pdf_char(c : Char) -> String {
     return "ffl"
   }
 
+  // 样例驱动：最小 CJK compatibility glyph 归一化
+  // 第⼀段 / ⽂本 / 本项⽬ / 统⼀ / ⾸先 / ⽀持
+  if c == '⼀' {
+    return "一"
+  }
+  if c == '⽂' {
+    return "文"
+  }
+  if c == '⽬' {
+    return "目"
+  }
+  if c == '⾸' {
+    return "首"
+  }
+  if c == '⽀' {
+    return "支"
+  }
+
   c.to_string()
 }
 
@@ -141,11 +159,8 @@ fn looks_like_broken_ascii_word(a : String, b : String) -> Bool {
   let ln = lw.to_array().length()
   let rn = rw.to_array().length()
 
-  if ln <= 3 || rn <= 3 {
-    return true
-  }
-
-  if ln <= 4 && rn <= 4 {
+  // 保守：只在至少一侧很短时允许无空格拼接
+  if (ln <= 3 && rn <= 6) || (rn <= 3 && ln <= 6) {
     return true
   }
 

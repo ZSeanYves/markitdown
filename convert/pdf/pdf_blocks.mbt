@@ -9,9 +9,8 @@ fn pages_to_blocks(pages : Array[PdfConvertPage]) -> Array[Array[PdfConvertBlock
 
 ///|
 /// 第一阶段：
-/// - block 层负责“最小断块”
-/// - 不做最终语义裁决
-/// - 重点避免把 heading / list / page-number 再吞回正文
+/// - block 层只做“最小断块”
+/// - 不做 heading/list/noise/cross-page 解释
 fn lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let out : Array[PdfConvertBlock] = []
 
@@ -75,22 +74,16 @@ fn flush_paragraph(
   }
 
   out.push({
-    kind: PdfConvertBlockKind::Paragraph,
+    kind: detect_block_kind(t),
     text: t,
     page_index,
     line_start,
     line_end,
-    is_noise: false,
-    noise_reason: None,
-    is_cross_page_continuation_candidate: false,
-    list_ordered: false,
-    list_level: 0,
-    heading_level: 0,
+    heading_level: detect_heading_level_minimal(t),
   })
 }
 
 ///|
-/// 这里只做“最小断块”，不要做最终 heading/list 判定。
 fn should_break_before_line(prev : String, cur : String) -> Bool {
   let a = prev.trim().to_string()
   let b = cur.trim().to_string()
@@ -99,57 +92,12 @@ fn should_break_before_line(prev : String, cur : String) -> Bool {
     return false
   }
 
-  if should_force_single_line_block(a) {
-    return true
-  }
-
-  if starts_like_heading_or_list(b) {
-    return true
-  }
-
-  if looks_like_page_number_line(b) {
-    return true
-  }
-
+  // 最保守：上一行明显句末，且下一行看起来是新句开头时断块
   if ends_like_sentence(a) && starts_like_new_paragraph(b) {
     return true
   }
 
   false
-}
-
-///|
-fn should_force_single_line_block(text : String) -> Bool {
-  let t = text.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  if detect_heading_level(t, 0) > 0 {
-    return true
-  }
-
-  match parse_list_marker(t) {
-    Some(_) => true
-    None => looks_like_page_number_line(t)
-  }
-}
-
-///|
-fn starts_like_heading_or_list(text : String) -> Bool {
-  let t = text.trim().to_string()
-  if t == "" {
-    return false
-  }
-
-  if detect_heading_level(t, 0) > 0 {
-    return true
-  }
-
-  match parse_list_marker(t) {
-    Some(_) => true
-    None => false
-  }
 }
 
 ///|
@@ -175,13 +123,42 @@ fn starts_like_new_paragraph(text : String) -> Bool {
 }
 
 ///|
-fn looks_like_page_number_line(text : String) -> Bool {
+fn detect_block_kind(text : String) -> PdfConvertBlockKind {
+  if detect_heading_level_minimal(text) > 0 {
+    PdfConvertBlockKind::Heading
+  } else {
+    PdfConvertBlockKind::Paragraph
+  }
+}
+
+///|
+fn detect_heading_level_minimal(text : String) -> Int {
   let t = text.trim().to_string()
   if t == "" {
-    return false
+    return 0
   }
 
-  is_probable_page_number(t)
+  if t.has_prefix("### ") {
+    return 3
+  }
+  if t.has_prefix("## ") {
+    return 2
+  }
+  if t.has_prefix("# ") {
+    return 1
+  }
+
+  if t.has_prefix("第") && t.contains("章") {
+    return 1
+  }
+  if t.has_prefix("第") && t.contains("节") {
+    return 2
+  }
+  if t.has_prefix("Chapter ") || t.has_prefix("CHAPTER ") {
+    return 1
+  }
+
+  0
 }
 
 ///|
