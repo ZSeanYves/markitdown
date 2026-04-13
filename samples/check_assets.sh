@@ -25,7 +25,7 @@ run_group() {
 
     moon run "$ROOT/cli" -- normal "$in" "$out"
     if [[ ! -f "$expected_md" ]]; then
-      echo "missing markdown output for $format: $expected_md"
+      echo "missing markdown output for $format: $expected_md"a
       return 1
     fi
   done

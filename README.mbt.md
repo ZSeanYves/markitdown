@@ -2,6 +2,8 @@
 
 A document conversion tool implemented in **MoonBit**, inspired by Microsoft **markitdown**, for converting **DOCX / PDF / XLSX / PPTX / HTML** into structured **Markdown** with extracted assets.
 
+Supports **macOS** and **Linux**.
+
 The project is built around a unified:
 
 **document -> IR -> Markdown**
@@ -18,21 +20,28 @@ pipeline, with format-specific parsers and sample-based regression coverage.
 
 ## Environment Setup
 
-### Required
+### External dependencies
 
-* MoonBit
-* Python 3
+#### macOS (Homebrew)
 
-### Optional but recommended
+```bash
+brew install poppler mupdf-tools ocrmypdf
+```
 
-#### PDF text extraction
+#### Linux (Ubuntu / Debian)
 
-* `pdftotext`
-* `mutool`
+```bash
+sudo apt update
+sudo apt install -y poppler-utils mupdf-tools ocrmypdf
+```
 
-#### OCR
+#### Verify
 
-* `ocrmypdf`
+```bash
+pdftotext -v
+mutool -v
+ocrmypdf --version
+```
 
 ## Usage
 
@@ -72,4 +81,4 @@ moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
 
 * PDF on `main` currently uses an **external text-first pipeline**
 * OCR is a **dedicated path**, not the default normal flow
-* Detailed format behavior, coverage, and boundaries are documented in the files linked above
+* Detailed format behavior, coverage, and boundaries are documented in the files linke
