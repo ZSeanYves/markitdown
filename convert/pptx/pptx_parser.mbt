@@ -93,7 +93,7 @@ pub fn parse_pptx(
       })
     }
 
-    if blocks.length() == 0 {
+    if blocks.length() == 0 && images.length() == 0 {
       @cor.push(doc, @cor.Block::Paragraph("(empty)"))
     } else {
       let mut prev_was_list = false
@@ -210,7 +210,7 @@ fn infer_slide_image_captions(
       None => true
       Some(_) => false
     }
-    if !para.from_title_shape && is_non_bullet && is_caption_like_text(t) {
+    if is_non_bullet && is_caption_like_text(t) {
       candidates.push((para.source_para_id, t))
     }
   }

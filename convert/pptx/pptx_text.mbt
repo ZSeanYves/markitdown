@@ -102,8 +102,8 @@ fn extract_text_inlines(
     }
 
     let run = xml[p:close + close_pat.length()].to_bytes()
-    let text = extract_text_runs(run, 0, run.length()).trim().to_string()
-    if text != "" {
+    let text = extract_text_runs(run, 0, run.length())
+    if text.trim() != "" {
       let rid = run_hyperlink_rid(run)
       let link = match rid {
         Some(id) =>
@@ -127,8 +127,8 @@ fn extract_text_inlines(
   if out.length() > 0 {
     return out
   }
-  let fallback = extract_text_runs(xml, start, end_).trim().to_string()
-  if fallback == "" {
+  let fallback = extract_text_runs(xml, start, end_)
+  if fallback.trim() == "" {
     []
   } else {
     [@cor.Inline::Text(fallback)]
