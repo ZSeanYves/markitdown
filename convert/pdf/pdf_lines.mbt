@@ -89,7 +89,7 @@ fn events_to_lines(
   }
 
   flush_line(lines, page_index, cur, start, end, false)
-  lines
+  filter_minimal_line_noise(lines)
 }
 
 ///|
@@ -129,7 +129,11 @@ fn should_attach_to_current_line(
   }
 
   let op_gap = cur_op - prev_op
-  if op_gap < 0 || op_gap > 2 {
+  if op_gap < 0 || op_gap > 1 {
+    return false
+  }
+
+  if looks_like_heading_then_body(cur_line, next_text) {
     return false
   }
 
@@ -179,25 +183,7 @@ fn starts_like_hard_block_boundary(text : String) -> Bool {
 
 ///|
 fn append_event_text(prev : String, cur : String) -> String {
-  let left = prev.trim().to_string()
-  let right = cur.trim().to_string()
-
-  if left == "" {
-    return right
-  }
-  if right == "" {
-    return left
-  }
-
-  if left.has_suffix("-") && starts_with_ascii_letter(right) {
-    return drop_last_char_local(left) + right
-  }
-
-  if should_join_without_space_event(left, right) {
-    return left + right
-  }
-
-  left + " " + right
+  join_pdf_text_fragments(prev, cur)
 }
 
 ///|
@@ -254,6 +240,146 @@ fn has_explicit_paragraph_break(
 ///|
 fn normalize_line_text(text : String) -> String {
   normalize_pdf_text_fragment(text)
+}
+
+///|
+fn filter_minimal_line_noise(lines : Array[PdfConvertLine]) -> Array[PdfConvertLine] {
+  let out : Array[PdfConvertLine] = []
+  for line in lines {
+    let t = line.text.trim().to_string()
+    let idx = line.line_index
+    let is_edge = idx == 0 || idx + 1 == lines.length()
+    if is_edge && is_isolated_numeric_noise(t) {
+      continue
+    }
+
+    out.push({
+      text: line.text,
+      page_index: line.page_index,
+      line_index: out.length(),
+      source_event_start: line.source_event_start,
+      source_event_end: line.source_event_end,
+      is_paragraph_break: line.is_paragraph_break,
+    })
+  }
+  out
+}
+
+///|
+fn is_isolated_numeric_noise(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" {
+    return false
+  }
+  if t.to_array().length() > 2 {
+    return false
+  }
+  is_digits_only(t)
+}
+
+///|
+fn looks_like_heading_then_body(cur_line : String, next_text : String) -> Bool {
+  if !is_heading_like_short_line(cur_line) {
+    return false
+  }
+  starts_like_body_sentence(next_text)
+}
+
+///|
+fn is_heading_like_short_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  let n = t.to_array().length()
+  if t == "" || n > 32 {
+    return false
+  }
+
+  if t.has_prefix("#") {
+    return true
+  }
+  if t.has_prefix("第") && (t.contains("章") || t.contains("节") || t.contains("路线")) {
+    return true
+  }
+  if t.has_prefix("Chapter ") || t.has_prefix("CHAPTER ") {
+    return true
+  }
+
+  // 全标题式短句（Hard Wrap Test / Document Conversion Pipeline）
+  let words = split_words_simple(t)
+  if words.length() >= 2 && words.length() <= 6 && !ends_like_sentence(t) {
+    let mut titleish = 0
+    for w in words {
+      match first_char_local(w) {
+        Some(c) =>
+          if (c >= 'A' && c <= 'Z') || is_all_caps_word_event(w) {
+            titleish = titleish + 1
+          }
+        None => ()
+      }
+    }
+    return titleish * 2 >= words.length()
+  }
+
+  false
+}
+
+///|
+fn starts_like_body_sentence(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if starts_with_titlecase_word_event(t) || starts_with_cjk_event(t) {
+    return true
+  }
+
+  starts_with_lowercase_word_event(t)
+}
+
+///|
+fn starts_with_titlecase_word_event(s : String) -> Bool {
+  match first_char_local(s) {
+    Some(c) => c >= 'A' && c <= 'Z'
+    None => false
+  }
+}
+
+///|
+fn starts_with_lowercase_word_event(s : String) -> Bool {
+  match first_char_local(s) {
+    Some(c) => c >= 'a' && c <= 'z'
+    None => false
+  }
+}
+
+///|
+fn starts_with_cjk_event(s : String) -> Bool {
+  match first_char_local(s) {
+    Some(c) => is_cjkish(c)
+    None => false
+  }
+}
+
+///|
+fn is_all_caps_word_event(s : String) -> Bool {
+  let cs = s.to_array()
+  if cs.length() == 0 {
+    return false
+  }
+
+  let mut has_alpha = false
+  for c in cs {
+    if c >= 'A' && c <= 'Z' {
+      has_alpha = true
+      continue
+    }
+    if c >= '0' && c <= '9' {
+      continue
+    }
+    return false
+  }
+
+  has_alpha
 }
 
 ///|
@@ -337,7 +463,7 @@ fn looks_like_broken_ascii_word_event(left : String, right : String) -> Bool {
   let ln = lw.to_array().length()
   let rn = rw.to_array().length()
 
-  (ln <= 3 && rn <= 5) || (ln <= 4 && rn <= 3)
+  (ln <= 3 && rn <= 6) || (rn <= 3 && ln <= 6)
 }
 
 ///|
