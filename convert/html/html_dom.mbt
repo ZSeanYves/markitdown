@@ -2,13 +2,15 @@
 priv enum HtmlInline {
   Text(String)
   Break
-  Image(String, String) // alt, src
+  Image(String, String?, String) // alt, title, src
+  Link(String, String) // text, href
 }
 
 ///|
 priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])
+  Figure(HtmlInline, Array[HtmlInline]) // image, figcaption inlines
   ListItem(Bool, Int, Array[HtmlNode]) // ordered, level, children
   BlockQuote(Array[HtmlNode])
   CodeBlock(String)
@@ -164,6 +166,28 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                     out.push(HtmlNode::Paragraph(xs))
                   }
                   pos = end + close_p.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<figure") {
+              let close_figure = pat("</figure>")
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_figure, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_bytes()
+                  let fig_img = find_figure_image_inline(inner)
+                  match fig_img {
+                    Some(img) => {
+                      let caption = find_figure_caption_inlines(inner)
+                      out.push(HtmlNode::Figure(img, caption))
+                    }
+                    None => ()
+                  }
+                  pos = end + close_figure.length()
                   continue
                 }
               }
@@ -811,6 +835,30 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
 
             if tag.has_prefix("<br") {
               out.push(HtmlInline::Break)
+            } else if tag.has_prefix("<a") {
+              let href = read_html_attr_value(tag0, "href")
+                .unwrap_or("")
+                .trim()
+                .to_string()
+              if href != "" {
+                let close_a = pat("</a>")
+                let inner_start = j0 + 1
+                let a_end0 = find_bytes(inner, close_a, inner_start)
+                match a_end0 {
+                  Some(a_end) => {
+                    let inner_bs = inner[inner_start:a_end].to_bytes()
+                    let text = render_inlines(html_inlines_from_bytes(inner_bs))
+                      .trim()
+                      .to_string()
+                    if text != "" {
+                      out.push(HtmlInline::Link(text, href))
+                    }
+                    pos = a_end + close_a.length()
+                    continue
+                  }
+                  None => ()
+                }
+              }
             } else if tag.has_prefix("<img") {
               let src = read_html_attr_value(tag0, "src")
                 .unwrap_or("")
@@ -818,7 +866,8 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
                 .to_string()
               if src != "" {
                 let alt = read_html_attr_value(tag0, "alt").unwrap_or("")
-                out.push(HtmlInline::Image(alt, src))
+                let title = read_html_attr_value(tag0, "title")
+                out.push(HtmlInline::Image(alt, title, src))
               }
             }
 
@@ -863,7 +912,9 @@ fn merge_adjacent_text_inlines(xs : Array[HtmlInline]) -> Array[HtmlInline] {
           }
         }
       HtmlInline::Break => out.push(HtmlInline::Break)
-      HtmlInline::Image(alt, src) => out.push(HtmlInline::Image(alt, src))
+      HtmlInline::Image(alt, title, src) =>
+        out.push(HtmlInline::Image(alt, title, src))
+      HtmlInline::Link(text, href) => out.push(HtmlInline::Link(text, href))
     }
   }
   out
@@ -876,15 +927,79 @@ fn render_inlines(xs : Array[HtmlInline]) -> String {
     match x {
       HtmlInline::Text(t) => if t != "" { s = s + t }
       HtmlInline::Break => s = s + "<br>"
-      HtmlInline::Image(alt, _src) =>
+      HtmlInline::Image(alt, _title, _src) =>
         if alt.trim() != "" {
           s = s + alt
         } else {
           s = s + "image"
         }
+      HtmlInline::Link(text, href) => {
+        let t = text.trim().to_string()
+        let h = href.trim().to_string()
+        if t == "" || h == "" {
+          s = s + t
+        } else {
+          s = s + "[" + t + "](" + h + ")"
+        }
+      }
     }
   }
   s
+}
+
+///|
+fn find_figure_image_inline(inner : Bytes) -> HtmlInline? {
+  let open_img = pat("<img")
+  let gt_pat = pat(">")
+  let p0 = find_bytes(inner, open_img, 0)
+  match p0 {
+    None => None
+    Some(i0) => {
+      let gt = find_bytes(inner, gt_pat, i0)
+      match gt {
+        None => None
+        Some(gt0) => {
+          let tag_bs = inner[i0:gt0 + 1].to_bytes()
+          let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+          let src = read_html_attr_value(tag0, "src")
+            .unwrap_or("")
+            .trim()
+            .to_string()
+          if src == "" {
+            return None
+          }
+          let alt = read_html_attr_value(tag0, "alt").unwrap_or("")
+          let title = read_html_attr_value(tag0, "title")
+          Some(HtmlInline::Image(alt, title, src))
+        }
+      }
+    }
+  }
+}
+
+///|
+fn find_figure_caption_inlines(inner : Bytes) -> Array[HtmlInline] {
+  let open_cap = pat("<figcaption")
+  let close_cap = pat("</figcaption>")
+  let gt_pat = pat(">")
+  let c0 = find_bytes(inner, open_cap, 0)
+  match c0 {
+    None => []
+    Some(i0) => {
+      let gt = find_bytes(inner, gt_pat, i0)
+      match gt {
+        None => []
+        Some(gt0) => {
+          let start = gt0 + 1
+          let c1 = find_bytes(inner, close_cap, start)
+          match c1 {
+            None => []
+            Some(end) => html_inlines_from_bytes(inner[start:end].to_bytes())
+          }
+        }
+      }
+    }
+  }
 }
 
 ///|

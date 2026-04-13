@@ -23,14 +23,23 @@ pub fn parse_pptx(
   }
 
   let image_idx : Ref[Int] = { val: 0 }
+  let src = @cor.basename(input_path)
   let mut idx = 1
   for path in slides {
-    @cor.push(
+    @cor.push_with_origin(
       doc,
       @cor.Block::Heading(
         clamp_heading(2, max_heading),
         "Slide " + idx.to_string(),
       ),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: Some(idx),
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+      }),
     )
 
     let xml = p.read_bytes_required(path)
@@ -38,7 +47,39 @@ pub fn parse_pptx(
     let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
 
     for img in images {
-      @cor.push(doc, @cor.Block::Image(img._alt, img._path))
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::ImageBlock({
+          path: img._path,
+          alt_text: Some(img._alt),
+          title: None,
+          caption: None,
+          origin: Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(idx),
+            sheet: None,
+            block_index: None,
+            heading_path: None,
+          }),
+        }),
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: Some(idx),
+          sheet: None,
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
+      )
+      @cor.set_asset_origin(doc, img._path, {
+        source_name: Some(src),
+        page: None,
+        slide: Some(idx),
+        sheet: None,
+        origin_id: None,
+        nearby_caption: None,
+      })
     }
 
     let paras = extract_slide_paragraphs(xml)
@@ -53,30 +94,60 @@ pub fn parse_pptx(
         match b {
           PptxBlock::Heading(text) => {
             if prev_was_list {
-              @cor.push(doc, @cor.Block::BlankLine)
+              @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
             }
-            @cor.push(
+            @cor.push_with_origin(
               doc,
               @cor.Block::Heading(clamp_heading(3, max_heading), text),
+              Some({
+                source_name: Some(src),
+                page: None,
+                slide: Some(idx),
+                sheet: None,
+                block_index: Some(doc.blocks.val.length()),
+                heading_path: None,
+              }),
             )
             prev_was_list = false
           }
           PptxBlock::Paragraph(text) => {
             if prev_was_list {
-              @cor.push(doc, @cor.Block::BlankLine)
+              @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
             }
-            @cor.push(doc, @cor.Block::Paragraph(text))
+            @cor.push_with_origin(
+              doc,
+              @cor.Block::Paragraph(text),
+              Some({
+                source_name: Some(src),
+                page: None,
+                slide: Some(idx),
+                sheet: None,
+                block_index: Some(doc.blocks.val.length()),
+                heading_path: None,
+              }),
+            )
             prev_was_list = false
           }
           PptxBlock::ListItem(ordered, level, text) => {
-            @cor.push(doc, @cor.Block::ListItem(ordered, level, text))
+            @cor.push_with_origin(
+              doc,
+              @cor.Block::ListItem(ordered, level, text),
+              Some({
+                source_name: Some(src),
+                page: None,
+                slide: Some(idx),
+                sheet: None,
+                block_index: Some(doc.blocks.val.length()),
+                heading_path: None,
+              }),
+            )
             prev_was_list = true
           }
         }
       }
     }
 
-    @cor.push(doc, @cor.Block::BlankLine)
+    @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
     idx = idx + 1
   }
 

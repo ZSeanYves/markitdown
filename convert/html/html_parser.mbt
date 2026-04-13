@@ -17,9 +17,42 @@ pub fn parse_html(
 
   let nodes = scan_html_nodes(bs)
   let blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
+  let src = @cor.basename(input_path)
 
-  for b in blocks {
-    @cor.push(doc, b)
+  for i in 0..<blocks.length() {
+    match blocks[i] {
+      @cor.Block::Image(_alt, path) =>
+        @cor.set_asset_origin(doc, path, {
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: None,
+          origin_id: None,
+          nearby_caption: None,
+        })
+      @cor.Block::ImageBlock(img) =>
+        @cor.set_asset_origin(doc, img.path, {
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: None,
+          origin_id: None,
+          nearby_caption: img.caption,
+        })
+      _ => ()
+    }
+    @cor.push_with_origin(
+      doc,
+      blocks[i],
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(i),
+        heading_path: None,
+      }),
+    )
   }
 
   doc

@@ -6,6 +6,7 @@ fn scan_document(
   styles : DocxStyles,
   numbering : DocxNumbering,
   max_heading : Int,
+  source_name : String,
 ) -> @cor.Document {
   let doc = @cor.new_document()
   let chars = doc_xml.to_array()
@@ -30,9 +31,31 @@ fn scan_document(
       let rows = scan_table_block(tbl_xml)
       if rows.length() > 0 {
         if prev_was_list {
-          @cor.push(doc, @cor.Block::BlankLine)
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::BlankLine,
+            Some({
+              source_name: Some(source_name),
+              page: None,
+              slide: None,
+              sheet: None,
+              block_index: None,
+              heading_path: None,
+            }),
+          )
         }
-        @cor.push(doc, @cor.Block::Table(rows))
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::Table(rows),
+          Some({
+            source_name: Some(source_name),
+            page: None,
+            slide: None,
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: None,
+          }),
+        )
         prev_was_list = false
       }
 
@@ -52,12 +75,7 @@ fn scan_document(
 
       let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
       let blocks = scan_paragraph(
-        p_xml,
-        rels,
-        asset_by_target,
-        styles,
-        numbering,
-        max_heading,
+        p_xml, rels, asset_by_target, styles, numbering, max_heading,
       )
 
       for b in blocks {
@@ -67,10 +85,32 @@ fn scan_document(
         }
 
         if prev_was_list && !cur_is_list {
-          @cor.push(doc, @cor.Block::BlankLine)
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::BlankLine,
+            Some({
+              source_name: Some(source_name),
+              page: None,
+              slide: None,
+              sheet: None,
+              block_index: None,
+              heading_path: None,
+            }),
+          )
         }
 
-        @cor.push(doc, b)
+        @cor.push_with_origin(
+          doc,
+          b,
+          Some({
+            source_name: Some(source_name),
+            page: None,
+            slide: None,
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: None,
+          }),
+        )
         prev_was_list = cur_is_list
       }
 

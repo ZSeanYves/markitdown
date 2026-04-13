@@ -13,6 +13,13 @@ pub fn emit_markdown(doc : Document) -> String {
           out = out + "#".repeat(lvl) + " " + t + "\n\n"
         }
       }
+      RichHeading(level, inlines) => {
+        let lvl = if level < 1 { 1 } else if level > 6 { 6 } else { level }
+        let t = render_inlines(inlines)
+        if t != "" {
+          out = out + "#".repeat(lvl) + " " + t + "\n\n"
+        }
+      }
       Paragraph(text) => {
         let t = text
           .replace(old="\r\n", new="\n")
@@ -35,6 +42,12 @@ pub fn emit_markdown(doc : Document) -> String {
           }
         }
       }
+      RichParagraph(inlines) => {
+        let body = render_inlines(inlines)
+        if body != "" {
+          out = out + body + "\n\n"
+        }
+      }
       ListItem(ordered, level, text) => {
         let t = trim_string(text)
         if t != "" {
@@ -46,6 +59,24 @@ pub fn emit_markdown(doc : Document) -> String {
           if i + 1 < blocks.length() {
             match blocks[i + 1] {
               ListItem(_, _, _) => ()
+              BlankLine => ()
+              _ => out = out + "\n"
+            }
+          }
+        }
+      }
+      RichListItem(ordered, level, inlines) => {
+        let t = render_inlines(inlines)
+        if t != "" {
+          let lvl = if level < 0 { 0 } else { level }
+          let indent = "  ".repeat(lvl)
+          let marker = if ordered { "1. " } else { "- " }
+          out = out + indent + marker + t + "\n"
+
+          if i + 1 < blocks.length() {
+            match blocks[i + 1] {
+              ListItem(_, _, _) => ()
+              RichListItem(_, _, _) => ()
               BlankLine => ()
               _ => out = out + "\n"
             }
@@ -83,6 +114,27 @@ pub fn emit_markdown(doc : Document) -> String {
         let a = if a0 == "" { "image" } else { a0 }
         let p = trim_string(path)
         out = out + "![" + a + "](" + p + ")\n\n"
+      }
+      ImageBlock(img) => {
+        let a = img.alt_text.unwrap_or("").trim().to_string()
+        let alt = if a == "" { "image" } else { a }
+        let p = trim_string(img.path)
+        out = out + "![" + alt + "](" + p + ")\n"
+        match img.title {
+          Some(t) =>
+            if t.trim() != "" {
+              out = out + "*" + t.trim().to_string() + "*\n"
+            }
+          None => ()
+        }
+        match img.caption {
+          Some(c) =>
+            if c.trim() != "" {
+              out = out + c.trim().to_string() + "\n"
+            }
+          None => ()
+        }
+        out = out + "\n"
       }
       Table(rows) =>
         if rows.length() > 0 {
@@ -133,4 +185,34 @@ fn normalize_markdown_tail(s : String) -> String {
   }
 
   String::from_array(cs[:end].to_array()) + "\n"
+}
+
+///|
+fn escape_inline_text(s : String) -> String {
+  s
+  .replace(old="[", new="\\[")
+  .replace(old="]", new="\\]")
+  .replace(old="(", new="\\(")
+  .replace(old=")", new="\\)")
+}
+
+///|
+fn render_inlines(xs : Array[Inline]) -> String {
+  let mut out = ""
+  for x in xs {
+    match x {
+      Text(t) => out = out + t
+      Break => out = out + "<br>"
+      Link(text, url) => {
+        let t0 = text.trim().to_string()
+        let u0 = url.trim().to_string()
+        if t0 == "" || u0 == "" {
+          out = out + t0
+        } else {
+          out = out + "[" + escape_inline_text(t0) + "](" + u0 + ")"
+        }
+      }
+    }
+  }
+  out.trim().to_string()
 }

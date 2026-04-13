@@ -178,6 +178,108 @@ fn collect_wt_text(block : String) -> String {
 }
 
 ///|
+fn collect_wt_inlines(
+  block : String,
+  rels : Map[String, String],
+) -> Array[@cor.Inline] {
+  let chars = block.to_array()
+  let mut i = 0
+  let out : Array[@cor.Inline] = []
+
+  while i < chars.length() {
+    let p_h = find_sub(chars, i, "<w:hyperlink")
+    let p_t = find_wt_open(chars, i)
+    let p_br = find_sub(chars, i, "<w:br")
+    let p_tab = find_sub(chars, i, "<w:tab")
+
+    let mut p = -1
+    let mut kind = 0 // 1 = hyperlink, 2 = w:t, 3 = w:br, 4 = w:tab
+
+    if p_h >= 0 {
+      p = p_h
+      kind = 1
+    }
+    if p_t >= 0 && (p < 0 || p_t < p) {
+      p = p_t
+      kind = 2
+    }
+    if p_br >= 0 && (p < 0 || p_br < p) {
+      p = p_br
+      kind = 3
+    }
+    if p_tab >= 0 && (p < 0 || p_tab < p) {
+      p = p_tab
+      kind = 4
+    }
+
+    if p < 0 {
+      break
+    }
+
+    if kind == 1 {
+      let p2 = find_sub(chars, p, ">")
+      if p2 < 0 {
+        break
+      }
+      let p3 = find_sub(chars, p2 + 1, "</w:hyperlink>")
+      if p3 < 0 {
+        i = p2 + 1
+        continue
+      }
+
+      let open_tag = @cor.slice_to_string(chars, p, p2 + 1)
+      let inner = @cor.slice_to_string(chars, p2 + 1, p3)
+      let text = collect_wt_text(inner).trim().to_string()
+      let rid = read_attr_value_in_tag(open_tag, "r:id").unwrap_or("")
+      let url = rels.get(rid).unwrap_or("")
+
+      if text != "" {
+        if url.trim() == "" {
+          out.push(@cor.Inline::Text(text))
+        } else {
+          out.push(@cor.Inline::Link(text, url.trim().to_string()))
+        }
+      }
+      i = p3 + "</w:hyperlink>".length()
+      continue
+    }
+
+    if kind == 2 {
+      let p2 = find_sub(chars, p, ">")
+      if p2 < 0 {
+        break
+      }
+
+      let p3 = find_sub(chars, p2 + 1, "</w:t>")
+      if p3 < 0 {
+        i = p2 + 1
+        continue
+      }
+
+      let text = @cor.slice_to_string(chars, p2 + 1, p3)
+      if text != "" {
+        out.push(@cor.Inline::Text(text))
+      }
+      i = p3 + 6
+      continue
+    }
+
+    let p2 = find_sub(chars, p, ">")
+    if p2 < 0 {
+      break
+    }
+    if kind == 3 {
+      out.push(@cor.Inline::Break)
+    } else {
+      out.push(@cor.Inline::Text("\t"))
+    }
+    i = p2 + 1
+  }
+
+  out
+}
+
+///|
 fn is_delim(c : Char) -> Bool {
   c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
 }

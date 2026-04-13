@@ -31,5 +31,26 @@ pub fn parse_docx(
   pkg.extract_media_by_relationships(rels, asset_by_target, assets_dir)
 
   // 6) 扫描 xml 生成 IR
-  scan_document(doc_xml, rels, asset_by_target, styles, numbering, max_heading)
+  let doc = scan_document(
+    doc_xml,
+    rels,
+    asset_by_target,
+    styles,
+    numbering,
+    max_heading,
+    @cor.basename(path),
+  )
+  let src = @cor.basename(path)
+  for entry in asset_by_target {
+    let (_target, rel_path) = entry
+    @cor.set_asset_origin(doc, rel_path, {
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: None,
+      origin_id: None,
+      nearby_caption: None,
+    })
+  }
+  doc
 }

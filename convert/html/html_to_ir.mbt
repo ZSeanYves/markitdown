@@ -20,7 +20,10 @@ fn nodes_to_blocks(
     match node {
       HtmlNode::Heading(level, xs) =>
         out.push(
-          @cor.Block::Heading(clamp_heading(level, max_h), render_inlines(xs)),
+          @cor.Block::RichHeading(
+            clamp_heading(level, max_h),
+            html_inlines_to_ir(xs),
+          ),
         )
       HtmlNode::Paragraph(xs) => {
         let blocks = paragraph_inlines_to_blocks(xs, ctx)
@@ -28,6 +31,11 @@ fn nodes_to_blocks(
           out.push(b)
         }
       }
+      HtmlNode::Figure(img, caption) =>
+        match figure_to_image_block(img, caption, ctx) {
+          Some(b) => out.push(b)
+          None => ()
+        }
       HtmlNode::ListItem(ordered, level, children) =>
         out.push(
           @cor.Block::ListItem(
@@ -64,18 +72,21 @@ fn paragraph_inlines_to_blocks(
   ctx : HtmlImageExportCtx,
 ) -> Array[@cor.Block] {
   let out : Array[@cor.Block] = []
-  let mut buf = ""
+  let mut buf : Array[@cor.Inline] = []
 
   for x in xs {
     match x {
-      HtmlInline::Text(t) => buf = buf + t
-      HtmlInline::Break => buf = buf + "<br>"
-      HtmlInline::Image(alt, src) => {
-        let t = buf.trim().to_string()
-        if t != "" {
-          out.push(@cor.Block::Paragraph(t))
+      HtmlInline::Text(t) => buf.push(@cor.Inline::Text(t))
+      HtmlInline::Break => buf.push(@cor.Inline::Break)
+      HtmlInline::Link(text, href) =>
+        buf.push(
+          @cor.Inline::Link(text.trim().to_string(), href.trim().to_string()),
+        )
+      HtmlInline::Image(alt, _title, src) => {
+        if render_ir_inlines(buf).trim() != "" {
+          out.push(@cor.Block::RichParagraph(buf))
         }
-        buf = ""
+        buf = []
 
         match export_local_html_image(ctx, src) {
           Some(path) => {
@@ -99,11 +110,46 @@ fn paragraph_inlines_to_blocks(
     }
   }
 
-  let tail = buf.trim().to_string()
-  if tail != "" {
-    out.push(@cor.Block::Paragraph(tail))
+  if render_ir_inlines(buf).trim() != "" {
+    out.push(@cor.Block::RichParagraph(buf))
   }
 
+  out
+}
+
+///|
+fn html_inlines_to_ir(xs : Array[HtmlInline]) -> Array[@cor.Inline] {
+  let out : Array[@cor.Inline] = []
+  for x in xs {
+    match x {
+      HtmlInline::Text(t) => out.push(@cor.Inline::Text(t))
+      HtmlInline::Break => out.push(@cor.Inline::Break)
+      HtmlInline::Link(text, href) => out.push(@cor.Inline::Link(text, href))
+      HtmlInline::Image(alt, _title, _src) =>
+        out.push(
+          @cor.Inline::Text(
+            if alt.trim() == "" {
+              "image"
+            } else {
+              alt.trim().to_string()
+            },
+          ),
+        )
+    }
+  }
+  out
+}
+
+///|
+fn render_ir_inlines(xs : Array[@cor.Inline]) -> String {
+  let mut out = ""
+  for x in xs {
+    match x {
+      @cor.Inline::Text(t) => out = out + t
+      @cor.Inline::Break => out = out + "<br>"
+      @cor.Inline::Link(text, href) => out = out + text + href
+    }
+  }
   out
 }
 
@@ -315,6 +361,7 @@ fn list_item_child_to_text(node : HtmlNode, max_h : Int) -> String {
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
     HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Figure(_img, caption) => render_inlines(caption)
   }
 }
 
@@ -369,6 +416,32 @@ fn quote_node_to_text(node : HtmlNode, max_h : Int) -> String {
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
     HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Figure(_img, caption) => render_inlines(caption)
+  }
+}
+
+///|
+fn figure_to_image_block(
+  img : HtmlInline,
+  caption : Array[HtmlInline],
+  ctx : HtmlImageExportCtx,
+) -> @cor.Block? {
+  match img {
+    HtmlInline::Image(alt, title, src) =>
+      match export_local_html_image(ctx, src) {
+        Some(path) =>
+          Some(
+            @cor.Block::ImageBlock({
+              path,
+              alt_text: Some(alt.trim().to_string()),
+              title,
+              caption: Some(render_inlines(caption).trim().to_string()),
+              origin: None,
+            }),
+          )
+        None => None
+      }
+    _ => None
   }
 }
 

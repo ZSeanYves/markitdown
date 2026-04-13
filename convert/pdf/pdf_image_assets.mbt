@@ -170,9 +170,7 @@ async fn export_pdf_page_images(
 
       emitted += 1
       let rel_out = @cor.next_image_asset_rel_path_unique(
-        next_image_idx,
-        "png",
-        out_dir,
+        next_image_idx, "png", out_dir,
       )
       let dst = out_dir + "/" + rel_out
       let bs = @fs.read_file_to_bytes(src) catch { _ => continue }

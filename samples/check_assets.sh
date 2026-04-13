@@ -20,9 +20,14 @@ run_group() {
   for f in "${files[@]}"; do
     local in="$ROOT/samples/$format/$f"
     local stem="${f%.*}"
-    local out="$group_dir/${stem}.md"
+    local out="$group_dir"
+    local expected_md="$group_dir/${stem}.md"
 
     moon run "$ROOT/cli" -- normal "$in" "$out"
+    if [[ ! -f "$expected_md" ]]; then
+      echo "missing markdown output for $format: $expected_md"
+      return 1
+    fi
   done
 
   local refs

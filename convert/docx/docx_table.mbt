@@ -28,13 +28,18 @@ fn scan_paragraph(
   }
 
   // 3) 段落文本
+  let inlines = collect_wt_inlines(p_xml, rels)
   let text = collect_wt_text(p_xml)
   if @cor.is_blank(text) {
     return out
   }
 
   if level > 0 {
-    out.push(@cor.Block::Heading(level, text))
+    if inlines.length() > 0 {
+      out.push(@cor.Block::RichHeading(level, inlines))
+    } else {
+      out.push(@cor.Block::Heading(level, text))
+    }
     return out
   }
 
@@ -48,7 +53,11 @@ fn scan_paragraph(
           }
 
           let list_level = if info.ilvl < 0 { 0 } else { info.ilvl }
-          out.push(@cor.Block::ListItem(ordered, list_level, text))
+          if inlines.length() > 0 {
+            out.push(@cor.Block::RichListItem(ordered, list_level, inlines))
+          } else {
+            out.push(@cor.Block::ListItem(ordered, list_level, text))
+          }
           return out
         }
         None => ()
@@ -72,7 +81,11 @@ fn scan_paragraph(
     return out
   }
 
-  out.push(@cor.Block::Paragraph(text))
+  if inlines.length() > 0 {
+    out.push(@cor.Block::RichParagraph(inlines))
+  } else {
+    out.push(@cor.Block::Paragraph(text))
+  }
   out
 }
 

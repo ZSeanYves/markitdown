@@ -63,7 +63,10 @@ pub fn basename(path : String) -> String {
 }
 
 ///|
-pub fn next_image_asset_rel_path(next_idx : Ref[Int], ext_raw : String) -> String {
+pub fn next_image_asset_rel_path(
+  next_idx : Ref[Int],
+  ext_raw : String,
+) -> String {
   let ext = normalize_image_ext(ext_raw)
   let idx = next_idx.val + 1
   next_idx.val = idx

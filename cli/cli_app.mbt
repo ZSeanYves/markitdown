@@ -86,11 +86,19 @@ fn looks_like_output_dir(path : String) -> Bool {
   if path.has_suffix("/") || path.has_suffix("\\") {
     return true
   }
-  if !@fs.path_exists(path) {
+
+  let base = @cor.basename(path)
+  let base_lower = base.to_lower()
+  if base_lower.has_suffix(".md") || base_lower.has_suffix(".markdown") {
     return false
   }
-  let base = @cor.basename(path)
-  !(base.has_suffix(".md") || base.has_suffix(".markdown"))
+
+  if !@fs.path_exists(path) {
+    // 对于不存在的路径，默认按目录处理，便于 `normal A/B.pdf C` 产出 `C/B.md`
+    return true
+  }
+
+  true
 }
 
 ///|
