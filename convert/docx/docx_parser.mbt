@@ -19,6 +19,7 @@ pub fn parse_docx(
 
   // 2) 读关系表（图片 rId -> media/xxx）
   let rels = pkg.read_document_relationships()
+  let asset_by_target = build_docx_asset_path_map(rels)
 
   // 3) 读 styles.xml（标题样式映射）
   let styles = pkg.load_styles()
@@ -27,8 +28,8 @@ pub fn parse_docx(
   let numbering = pkg.load_numbering()
 
   // 5) 导出图片到 out_root/assets
-  pkg.extract_media_by_relationships(rels, assets_dir)
+  pkg.extract_media_by_relationships(rels, asset_by_target, assets_dir)
 
   // 6) 扫描 xml 生成 IR
-  scan_document(doc_xml, rels, styles, numbering, max_heading)
+  scan_document(doc_xml, rels, asset_by_target, styles, numbering, max_heading)
 }

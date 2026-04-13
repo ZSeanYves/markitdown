@@ -27,6 +27,62 @@ fn normalize_doc_part_target(target : String) -> String {
 }
 
 ///|
-fn rid_to_asset_path(target : String) -> String {
-  "assets/" + @cor.basename(target)
+fn build_docx_asset_path_map(rels : Map[String, String]) -> Map[String, String] {
+  let media_targets : Array[String] = []
+  for entry in rels {
+    let (_, target) = entry
+    let normalized = normalize_doc_part_target(target)
+    if normalized.has_prefix("word/media/") {
+      media_targets.push(normalized)
+    }
+  }
+  media_targets.sort()
+
+  let out : Map[String, String] = Map::new()
+  let next_idx : Ref[Int] = { val: 0 }
+  for target in media_targets {
+    if out.contains(target) {
+      continue
+    }
+    let ext = image_ext_from_target(target)
+    let rel_out = @cor.next_image_asset_rel_path(next_idx, ext)
+    out.set(target, rel_out)
+  }
+  out
+}
+
+///|
+fn rid_to_asset_path(
+  target : String,
+  asset_by_target : Map[String, String],
+) -> String {
+  let normalized = normalize_doc_part_target(target)
+  asset_by_target.get(normalized).unwrap_or("")
+}
+
+///|
+fn image_ext_from_target(target : String) -> String {
+  let b = @cor.basename(target).to_lower()
+  if b.has_suffix(".png") {
+    return "png"
+  }
+  if b.has_suffix(".jpg") {
+    return "jpg"
+  }
+  if b.has_suffix(".jpeg") {
+    return "jpeg"
+  }
+  if b.has_suffix(".gif") {
+    return "gif"
+  }
+  if b.has_suffix(".bmp") {
+    return "bmp"
+  }
+  if b.has_suffix(".tif") || b.has_suffix(".tiff") {
+    return "tiff"
+  }
+  if b.has_suffix(".webp") {
+    return "webp"
+  }
+  "img"
 }

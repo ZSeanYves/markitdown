@@ -2,6 +2,7 @@
 fn scan_document(
   doc_xml : String,
   rels : Map[String, String],
+  asset_by_target : Map[String, String],
   styles : DocxStyles,
   numbering : DocxNumbering,
   max_heading : Int,
@@ -50,7 +51,14 @@ fn scan_document(
       }
 
       let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
-      let blocks = scan_paragraph(p_xml, rels, styles, numbering, max_heading)
+      let blocks = scan_paragraph(
+        p_xml,
+        rels,
+        asset_by_target,
+        styles,
+        numbering,
+        max_heading,
+      )
 
       for b in blocks {
         let cur_is_list = match b {

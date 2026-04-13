@@ -2,6 +2,7 @@
 fn scan_paragraph(
   p_xml : String,
   rels : Map[String, String],
+  asset_by_target : Map[String, String],
   styles : DocxStyles,
   numbering : DocxNumbering,
   max_heading : Int,
@@ -16,8 +17,10 @@ fn scan_paragraph(
     Some(rid) =>
       match rels.get(rid) {
         Some(target) => {
-          let asset = rid_to_asset_path(target)
-          out.push(@cor.Block::Image("image", asset))
+          let asset = rid_to_asset_path(target, asset_by_target)
+          if asset != "" {
+            out.push(@cor.Block::Image("image", asset))
+          }
         }
         None => ()
       }

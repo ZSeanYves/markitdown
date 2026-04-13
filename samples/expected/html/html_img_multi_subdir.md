@@ -1,7 +1,7 @@
 Intro text.
 
-![first-image](assets/html_img_01.png)
+![first-image](assets/image01.jpg)
 
-![image](assets/html_img_02.png)
+![image](assets/image02.jpg)
 
 Tail text.

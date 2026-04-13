@@ -11,6 +11,7 @@ fn export_slide_images(
   slide_xml : Bytes,
   out_dir : String,
   slide_no : Int,
+  next_idx : Ref[Int],
 ) -> Array[PptxSlideImage] raise {
   if out_dir == "" {
     return []
@@ -52,19 +53,15 @@ fn export_slide_images(
 
     let data = @ox.read_part_bytes(p.pkg, target) catch { _ => continue }
     img_idx += 1
-    let out_name = "pptx_slide_" +
-      pad2(slide_no) +
-      "_img_" +
-      pad2(img_idx) +
-      "." +
-      ext
-    @fs.write_bytes_to_file(assets_dir + "/" + out_name, data) catch {
+    let rel_out = @cor.next_image_asset_rel_path(next_idx, ext)
+    let dst = out_dir + "/" + rel_out
+    @fs.write_bytes_to_file(dst, data) catch {
       _ => continue
     }
 
     out.push({
       _alt: "slide-" + slide_no.to_string() + "-image-" + img_idx.to_string(),
-      _path: "assets/" + out_name,
+      _path: rel_out,
     })
   }
 
@@ -122,8 +119,11 @@ fn image_ext_from_target(target : String) -> String {
   if b.has_suffix(".png") {
     return "png"
   }
-  if b.has_suffix(".jpg") || b.has_suffix(".jpeg") {
+  if b.has_suffix(".jpg") {
     return "jpg"
+  }
+  if b.has_suffix(".jpeg") {
+    return "jpeg"
   }
   if b.has_suffix(".gif") {
     return "gif"
@@ -139,13 +139,4 @@ fn image_ext_from_target(target : String) -> String {
   }
 
   ""
-}
-
-///|
-fn pad2(n : Int) -> String {
-  if n < 10 {
-    "0" + n.to_string()
-  } else {
-    n.to_string()
-  }
 }

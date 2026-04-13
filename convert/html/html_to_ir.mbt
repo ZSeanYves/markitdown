@@ -160,11 +160,7 @@ fn export_local_html_image(
 
   let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
   let ext = image_ext_from_src(src0)
-  let idx = ctx.next_idx.val + 1
-  ctx.next_idx.val = idx
-
-  let out_name = "html_img_" + pad2(idx) + "." + ext
-  let rel_out = "assets/" + out_name
+  let rel_out = @cor.next_image_asset_rel_path(ctx.next_idx, ext)
   let dst = ctx.out_dir + "/" + rel_out
   @fs.write_bytes_to_file(dst, data) catch {
     _ => return None
@@ -231,8 +227,11 @@ fn image_ext_from_src(src : String) -> String {
   if lower.has_suffix(".png") {
     return "png"
   }
-  if lower.has_suffix(".jpg") || lower.has_suffix(".jpeg") {
+  if lower.has_suffix(".jpg") {
     return "jpg"
+  }
+  if lower.has_suffix(".jpeg") {
+    return "jpeg"
   }
   if lower.has_suffix(".gif") {
     return "gif"
@@ -247,15 +246,6 @@ fn image_ext_from_src(src : String) -> String {
     return "tiff"
   }
   "img"
-}
-
-///|
-fn pad2(n : Int) -> String {
-  if n < 10 {
-    "0" + n.to_string()
-  } else {
-    n.to_string()
-  }
 }
 
 ///|

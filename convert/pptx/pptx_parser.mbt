@@ -22,6 +22,7 @@ pub fn parse_pptx(
     return doc
   }
 
+  let image_idx : Ref[Int] = { val: 0 }
   let mut idx = 1
   for path in slides {
     @cor.push(
@@ -34,7 +35,7 @@ pub fn parse_pptx(
 
     let xml = p.read_bytes_required(path)
     let _ = build_slide_rel_context(p, path)
-    let images = export_slide_images(p, path, xml, out_dir, idx)
+    let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
 
     for img in images {
       @cor.push(doc, @cor.Block::Image(img._alt, img._path))
