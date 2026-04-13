@@ -27,7 +27,10 @@ fn normalize_doc_part_target(target : String) -> String {
 }
 
 ///|
-fn build_docx_asset_path_map(rels : Map[String, String]) -> Map[String, String] {
+fn build_docx_asset_path_map(
+  rels : Map[String, String],
+  out_root : String,
+) -> Map[String, String] {
   let media_targets : Array[String] = []
   for entry in rels {
     let (_, target) = entry
@@ -45,7 +48,7 @@ fn build_docx_asset_path_map(rels : Map[String, String]) -> Map[String, String] 
       continue
     }
     let ext = image_ext_from_target(target)
-    let rel_out = @cor.next_image_asset_rel_path(next_idx, ext)
+    let rel_out = @cor.next_image_asset_rel_path_unique(next_idx, ext, out_root)
     out.set(target, rel_out)
   }
   out

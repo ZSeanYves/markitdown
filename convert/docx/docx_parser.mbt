@@ -19,7 +19,7 @@ pub fn parse_docx(
 
   // 2) 读关系表（图片 rId -> media/xxx）
   let rels = pkg.read_document_relationships()
-  let asset_by_target = build_docx_asset_path_map(rels)
+  let asset_by_target = build_docx_asset_path_map(rels, out_root)
 
   // 3) 读 styles.xml（标题样式映射）
   let styles = pkg.load_styles()

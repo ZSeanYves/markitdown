@@ -53,7 +53,7 @@ fn export_slide_images(
 
     let data = @ox.read_part_bytes(p.pkg, target) catch { _ => continue }
     img_idx += 1
-    let rel_out = @cor.next_image_asset_rel_path(next_idx, ext)
+    let rel_out = @cor.next_image_asset_rel_path_unique(next_idx, ext, out_dir)
     let dst = out_dir + "/" + rel_out
     @fs.write_bytes_to_file(dst, data) catch {
       _ => continue
