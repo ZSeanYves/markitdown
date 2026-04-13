@@ -174,14 +174,7 @@ fn starts_like_hard_block_boundary(text : String) -> Bool {
     return false
   }
 
-  if is_probable_page_number(t) {
-    return true
-  }
-
-  match parse_list_marker(t) {
-    Some(_) => true
-    None => false
-  }
+  is_probable_page_number(t)
 }
 
 ///|
