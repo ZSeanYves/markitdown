@@ -86,6 +86,9 @@ fn looks_like_output_dir(path : String) -> Bool {
   if path.has_suffix("/") || path.has_suffix("\\") {
     return true
   }
+  if !@fs.path_exists(path) {
+    return false
+  }
   let base = @cor.basename(path)
   !(base.has_suffix(".md") || base.has_suffix(".markdown"))
 }
