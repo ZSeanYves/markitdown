@@ -79,7 +79,7 @@ fn normalize_image_ext(ext_raw : String) -> String {
   if t.has_prefix(".") {
     t[1:].to_string()
   } else {
-    t
+    t.to_string()
   }
 }
 
