@@ -1,5 +1,5 @@
 This is before image
 
-![blue-chart](assets/html_img_01.jpg)
+![blue-chart](assets/image01.jpg)
 
 and this is after image.

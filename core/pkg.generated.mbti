@@ -16,6 +16,8 @@ pub fn is_blank(String) -> Bool
 
 pub fn new_document() -> Document
 
+pub fn next_image_asset_rel_path(@ref.Ref[Int], String) -> String
+
 pub fn normalize_text(String) -> String
 
 pub fn push(Document, Block) -> Unit
@@ -56,4 +58,3 @@ pub struct Document {
 // Type aliases
 
 // Traits
-

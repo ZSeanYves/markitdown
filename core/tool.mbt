@@ -63,6 +63,36 @@ pub fn basename(path : String) -> String {
 }
 
 ///|
+pub fn next_image_asset_rel_path(next_idx : Ref[Int], ext_raw : String) -> String {
+  let ext = normalize_image_ext(ext_raw)
+  let idx = next_idx.val + 1
+  next_idx.val = idx
+  "assets/" + "image" + pad_image_index(idx) + "." + ext
+}
+
+///|
+fn normalize_image_ext(ext_raw : String) -> String {
+  let t = ext_raw.trim().to_lower()
+  if t == "" {
+    return "img"
+  }
+  if t.has_prefix(".") {
+    t[1:].to_string()
+  } else {
+    t
+  }
+}
+
+///|
+fn pad_image_index(n : Int) -> String {
+  if n < 10 {
+    "0" + n.to_string()
+  } else {
+    n.to_string()
+  }
+}
+
+///|
 pub fn utf8_bytes_to_string(b : Bytes) -> String raise Utf8DecodeError {
   let mut result = ""
   let mut i = 0

@@ -130,6 +130,7 @@ async fn export_pdf_page_images(
   let _ = run_command_capture("mkdir", ["-p", prefix])
 
   let exported : Array[PdfPageImage] = []
+  let next_image_idx : Ref[Int] = { val: 0 }
 
   for entry in page_counts {
     let (page_no, img_count) = entry
@@ -168,12 +169,8 @@ async fn export_pdf_page_images(
       }
 
       emitted += 1
-      let out_name = "pdf_page_" +
-        pad2(page_no) +
-        "_img_" +
-        pad2(emitted) +
-        ".png"
-      let dst = assets_dir + "/" + out_name
+      let rel_out = @cor.next_image_asset_rel_path(next_image_idx, "png")
+      let dst = out_dir + "/" + rel_out
       let bs = @fs.read_file_to_bytes(src) catch { _ => continue }
       @fs.write_bytes_to_file(dst, bs) catch {
         _ => continue
@@ -182,7 +179,7 @@ async fn export_pdf_page_images(
       exported.push({
         page: page_no,
         alt: "page-" + page_no.to_string() + "-image-" + emitted.to_string(),
-        path: "assets/" + out_name,
+        path: rel_out,
       })
     }
   }
