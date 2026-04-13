@@ -12,6 +12,7 @@ priv struct PdfConvertLine {
   source_event_start : Int
   source_event_end : Int
   is_paragraph_break : Bool
+  strong_break_after : Bool
 }
 
 ///|

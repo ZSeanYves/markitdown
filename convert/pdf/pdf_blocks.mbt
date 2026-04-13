@@ -18,6 +18,7 @@ fn lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let mut start = -1
   let mut end = -1
   let mut prev_text = ""
+  let mut prev_strong_break_after = false
 
   for line in page.lines {
     if line.is_paragraph_break {
@@ -26,12 +27,22 @@ fn lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
       start = -1
       end = -1
       prev_text = ""
+      prev_strong_break_after = false
       continue
     }
 
     let t = normalize_spaces(line.text)
     if t == "" {
+      prev_strong_break_after = line.strong_break_after
       continue
+    }
+
+    if prev_strong_break_after {
+      flush_paragraph(out, page.page_index, buf, start, end)
+      buf = ""
+      start = -1
+      end = -1
+      prev_text = ""
     }
 
     if start < 0 {
@@ -39,6 +50,7 @@ fn lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
       end = line.line_index
       buf = t
       prev_text = t
+      prev_strong_break_after = line.strong_break_after
       continue
     }
 
@@ -48,12 +60,14 @@ fn lines_to_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
       start = line.line_index
       end = line.line_index
       prev_text = t
+      prev_strong_break_after = line.strong_break_after
       continue
     }
 
     buf = append_line(buf, t)
     end = line.line_index
     prev_text = t
+    prev_strong_break_after = line.strong_break_after
   }
 
   flush_paragraph(out, page.page_index, buf, start, end)

@@ -42,52 +42,104 @@ fn events_to_lines(
 
     let line_break = has_explicit_line_break(ev.break_kind, ev.text)
     let para_break = has_explicit_paragraph_break(ev.break_kind, ev.text)
+    debug_log_event(i, page_index, ev, text)
 
     if text != "" {
       if cur == "" {
         cur = text
         start = i
         end = i
-      } else if should_flush_line_before_appending(
-        cur,
-        text,
-        prev_stream,
-        prev_op,
-        ev.source_stream_index,
-        ev.source_op_index,
-      ) {
-        flush_line(lines, page_index, cur, start, end, false)
-        cur = text
-        start = i
-        end = i
-      } else if should_attach_to_current_line(
-        cur,
-        text,
-        prev_stream,
-        prev_op,
-        ev.source_stream_index,
-        ev.source_op_index,
-        prev_font_name,
-        prev_font_size,
-        cur_font_name,
-        cur_font_size,
-        line_break,
-        para_break,
-        ev.is_coalesced,
-        ev.coalesced_count,
-      ) {
-        cur = append_event_text(cur, text)
-        end = i
       } else {
-        flush_line(lines, page_index, cur, start, end, false)
-        cur = text
-        start = i
-        end = i
+        let heading_like_cur = is_heading_like_short_line(cur)
+        let cur_has_boundary_punct = has_boundary_punct_event(cur)
+        let next_starts_like_body = starts_like_body_sentence(text)
+        let next_is_heading_like = is_conservative_heading_like_next_event(text)
+        let stream_changed = prev_stream != ev.source_stream_index
+        let op_changed = ev.source_op_index > prev_op
+        let should_flush_before_append = should_flush_line_before_appending(
+          cur,
+          text,
+          prev_stream,
+          prev_op,
+          ev.source_stream_index,
+          ev.source_op_index,
+        )
+        debug_log_append_decision(
+          cur,
+          text,
+          should_flush_before_append,
+          heading_like_cur,
+          cur_has_boundary_punct,
+          next_starts_like_body,
+          next_is_heading_like,
+          stream_changed,
+          op_changed,
+        )
+
+        if should_flush_before_append {
+          flush_line(
+            lines,
+            page_index,
+            cur,
+            start,
+            end,
+            false,
+            "heading_like_before_body",
+          )
+          cur = text
+          start = i
+          end = i
+        } else if should_attach_to_current_line(
+          cur,
+          text,
+          prev_stream,
+          prev_op,
+          ev.source_stream_index,
+          ev.source_op_index,
+          prev_font_name,
+          prev_font_size,
+          cur_font_name,
+          cur_font_size,
+          line_break,
+          para_break,
+          ev.is_coalesced,
+          ev.coalesced_count,
+        ) {
+          cur = append_event_text(cur, text)
+          end = i
+        } else {
+          flush_line(
+            lines,
+            page_index,
+            cur,
+            start,
+            end,
+            false,
+            infer_flush_reason_on_attach_reject(
+              cur,
+              text,
+              prev_stream,
+              prev_op,
+              ev.source_stream_index,
+              ev.source_op_index,
+              line_break,
+              para_break,
+            ),
+          )
+          cur = text
+          start = i
+          end = i
+        }
       }
     }
 
     if line_break || para_break {
-      flush_line(lines, page_index, cur, start, end, para_break)
+      let reason = if para_break {
+        "explicit_paragraph_break"
+      } else {
+        "explicit_line_break"
+      }
+      flush_line(lines, page_index, cur, start, end, para_break, reason)
       cur = ""
       start = -1
       end = -1
@@ -100,7 +152,7 @@ fn events_to_lines(
     i = i + 1
   }
 
-  flush_line(lines, page_index, cur, start, end, false)
+  flush_line(lines, page_index, cur, start, end, false, "page_end")
   filter_minimal_line_noise(lines)
 }
 
@@ -122,7 +174,7 @@ fn should_flush_line_before_appending(
   if !is_heading_like_short_line(cur) || has_boundary_punct_event(cur) {
     return false
   }
-  if is_heading_like_short_line(next) || !starts_like_body_sentence(next) {
+  if is_conservative_heading_like_next_event(next) || !starts_like_body_sentence(next) {
     return false
   }
 
@@ -236,8 +288,10 @@ fn flush_line(
   start : Int,
   end : Int,
   paragraph_break : Bool,
+  reason : String,
 ) -> Unit {
   let t = normalize_line_text(text)
+  debug_log_flush(reason, t, start, end, paragraph_break)
 
   if t == "" {
     if paragraph_break {
@@ -248,6 +302,7 @@ fn flush_line(
         source_event_start: start,
         source_event_end: end,
         is_paragraph_break: true,
+        strong_break_after: false,
       })
     }
     return
@@ -260,6 +315,7 @@ fn flush_line(
     source_event_start: start,
     source_event_end: end,
     is_paragraph_break: paragraph_break,
+    strong_break_after: strong_break_after_from_flush_reason(reason),
   })
 }
 
@@ -302,6 +358,7 @@ fn filter_minimal_line_noise(lines : Array[PdfConvertLine]) -> Array[PdfConvertL
       source_event_start: line.source_event_start,
       source_event_end: line.source_event_end,
       is_paragraph_break: line.is_paragraph_break,
+      strong_break_after: line.strong_break_after,
     })
   }
   out
@@ -345,6 +402,14 @@ fn is_heading_like_short_line(text : String) -> Bool {
     return true
   }
 
+  if looks_like_compact_cjk_heading_line(t) {
+    return true
+  }
+
+  if looks_like_full_mixed_script_heading_line(t) {
+    return true
+  }
+
   // 全标题式短句（Hard Wrap Test / Document Conversion Pipeline）
   let words = split_words_simple(t)
   if words.length() >= 2 && words.length() <= 6 && !ends_like_sentence(t) {
@@ -361,6 +426,119 @@ fn is_heading_like_short_line(text : String) -> Bool {
     return titleish * 2 >= words.length()
   }
 
+  false
+}
+
+///|
+fn looks_like_compact_cjk_heading_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" || t.contains(" ") || ends_like_sentence(t) {
+    return false
+  }
+
+  let n = t.to_array().length()
+  if n < 4 || n > 8 {
+    return false
+  }
+
+  if !is_mostly_cjkish(t) {
+    return false
+  }
+
+  !starts_with_cjk_function_char_event(t)
+}
+
+///|
+fn looks_like_full_mixed_script_heading_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" || ends_like_sentence(t) {
+    return false
+  }
+
+  let n = t.to_array().length()
+  if n < 14 || n > 48 {
+    return false
+  }
+
+  if !contains_cjk_char_event(t) || !contains_ascii_letter_event(t) {
+    return false
+  }
+
+  if starts_with_cjk_function_char_event(t) {
+    return false
+  }
+
+  let words = split_words_simple(t)
+  let mut ascii_words = 0
+  let mut titleish_ascii = 0
+  for w in words {
+    if is_ascii_word_event(w) {
+      ascii_words = ascii_words + 1
+      match first_char_local(w) {
+        Some(c) =>
+          if (c >= 'A' && c <= 'Z') || is_all_caps_word_event(w) {
+            titleish_ascii = titleish_ascii + 1
+          }
+        None => ()
+      }
+    }
+  }
+
+  ascii_words >= 2 &&
+  titleish_ascii * 2 >= ascii_words &&
+  (ascii_words >= 3 || t.contains("（") || t.contains("("))
+}
+
+///|
+fn is_conservative_heading_like_next_event(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  if t.has_prefix("#") {
+    return true
+  }
+  if t.has_prefix("第") && (t.contains("章") || t.contains("节")) {
+    return true
+  }
+  if t.has_prefix("Chapter ") || t.has_prefix("CHAPTER ") {
+    return true
+  }
+
+  // 对 next event 保守：只允许非常明确、且足够长的完整混合标题
+  looks_like_full_mixed_script_heading_line(t)
+}
+
+///|
+fn starts_with_cjk_function_char_event(text : String) -> Bool {
+  match first_char_local(text) {
+    Some(c) =>
+      c == '于' || c == '在' || c == '对' || c == '将' || c == '并' ||
+      c == '与' || c == '及' || c == '和' || c == '把' || c == '由' ||
+      c == '为' || c == '以' || c == '从' || c == '向' || c == '按' ||
+      c == '就' || c == '被'
+    None => false
+  }
+}
+
+///|
+fn contains_ascii_letter_event(text : String) -> Bool {
+  for c in text.to_array() {
+    if is_ascii_letter_local(c) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn contains_cjk_char_event(text : String) -> Bool {
+  for c in text.to_array() {
+    if is_cjkish(c) {
+      return true
+    }
+  }
   false
 }
 
@@ -647,4 +825,152 @@ fn drop_last_char_local(s : String) -> String {
     return s
   }
   String::from_array(cs[:n - 1].to_array())
+}
+
+///|
+fn debug_log_event(
+  event_index : Int,
+  page_index : Int,
+  ev : @pdfc.PdfTextEvent,
+  normalized_text : String,
+) -> Unit {
+  println(
+    "[pdf-lines][event] idx=" +
+    event_index.to_string() +
+    " page=" +
+    page_index.to_string() +
+    " stream=" +
+    ev.source_stream_index.to_string() +
+    " op=" +
+    ev.source_op_index.to_string() +
+    " break=" +
+    debug_break_kind_local(ev.break_kind) +
+    " normalized=\"" +
+    debug_preview_text(normalized_text) +
+    "\"",
+  )
+}
+
+///|
+fn debug_log_append_decision(
+  current_line : String,
+  next_text : String,
+  should_flush_before_append : Bool,
+  heading_like_cur : Bool,
+  cur_has_boundary_punct : Bool,
+  next_starts_like_body : Bool,
+  next_is_heading_like : Bool,
+  stream_changed : Bool,
+  op_changed : Bool,
+) -> Unit {
+  println(
+    "[pdf-lines][append-decision] cur=\"" +
+    debug_preview_text(current_line) +
+    "\" next=\"" +
+    debug_preview_text(next_text) +
+    "\" should_flush_before_append=" +
+    should_flush_before_append.to_string(),
+  )
+  if !should_flush_before_append {
+    println(
+      "[pdf-lines][append-decision][sub] heading_like_cur=" +
+      heading_like_cur.to_string() +
+      " cur_has_boundary_punct=" +
+      cur_has_boundary_punct.to_string() +
+      " next_starts_like_body=" +
+      next_starts_like_body.to_string() +
+      " next_is_heading_like=" +
+      next_is_heading_like.to_string() +
+      " stream_changed=" +
+      stream_changed.to_string() +
+      " op_changed=" +
+      op_changed.to_string(),
+    )
+  }
+}
+
+///|
+fn debug_log_flush(
+  reason : String,
+  text : String,
+  start : Int,
+  end : Int,
+  paragraph_break : Bool,
+) -> Unit {
+  println(
+    "[pdf-lines][flush] reason=" +
+    reason +
+    " paragraph_break=" +
+    paragraph_break.to_string() +
+    " source_range=" +
+    start.to_string() +
+    "-" +
+    end.to_string() +
+    " line=\"" +
+    debug_preview_text(text) +
+    "\"",
+  )
+}
+
+///|
+fn infer_flush_reason_on_attach_reject(
+  cur_line : String,
+  next_text : String,
+  prev_stream : Int,
+  prev_op : Int,
+  cur_stream : Int,
+  cur_op : Int,
+  line_break : Bool,
+  para_break : Bool,
+) -> String {
+  if para_break {
+    return "explicit_paragraph_break"
+  }
+  if line_break {
+    return "explicit_line_break"
+  }
+  if prev_stream != cur_stream {
+    return "source_boundary"
+  }
+
+  let op_gap = cur_op - prev_op
+  if op_gap < 0 || op_gap > 1 {
+    return "source_boundary"
+  }
+  if starts_like_hard_block_boundary(next_text) {
+    return "hard_block_boundary"
+  }
+  if looks_like_heading_then_body(cur_line, next_text) {
+    return "heading_like_before_body_attach_path"
+  }
+
+  "attach_rejected_other"
+}
+
+///|
+fn debug_break_kind_local(kind : @pdfc.PdfTextBreakKind) -> String {
+  match kind {
+    @pdfc.PdfTextBreakKind::None => "none"
+    @pdfc.PdfTextBreakKind::ExplicitLine => "explicit_line"
+    @pdfc.PdfTextBreakKind::ExplicitParagraph => "explicit_paragraph"
+    @pdfc.PdfTextBreakKind::Inferred => "inferred"
+  }
+}
+
+///|
+fn debug_preview_text(s : String) -> String {
+  let t = s
+    .replace(old="\n", new="\\n")
+    .replace(old="\r", new="\\r")
+    .replace(old="\t", new="\\t")
+  if t.to_array().length() <= 80 {
+    t
+  } else {
+    t[:80].to_string() + "..."
+  }
+}
+
+///|
+fn strong_break_after_from_flush_reason(reason : String) -> Bool {
+  reason == "heading_like_before_body"
 }
