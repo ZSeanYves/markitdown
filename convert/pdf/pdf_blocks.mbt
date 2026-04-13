@@ -92,12 +92,209 @@ fn should_break_before_line(prev : String, cur : String) -> Bool {
     return false
   }
 
+  if should_split_heading_like_lead_line(a, b) {
+    return true
+  }
+
   // 最保守：上一行明显句末，且下一行看起来是新句开头时断块
   if ends_like_sentence(a) && starts_like_new_paragraph(b) {
     return true
   }
 
   false
+}
+
+///|
+fn should_split_heading_like_lead_line(cur : String, next : String) -> Bool {
+  let a = cur.trim().to_string()
+  let b = next.trim().to_string()
+  if a == "" || b == "" {
+    return false
+  }
+
+  if has_strong_end_punct(a) {
+    return false
+  }
+
+  if !is_heading_like_lead_line(a) {
+    return false
+  }
+
+  if is_heading_like_lead_line(b) {
+    return false
+  }
+
+  if !is_body_like_start_line(b) {
+    return false
+  }
+
+  let na = a.to_array().length()
+  let nb = b.to_array().length()
+  nb >= 20 && (na <= 18 || nb >= na + 8)
+}
+
+///|
+fn is_heading_like_lead_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  let n = t.to_array().length()
+  if t == "" || n > 36 {
+    return false
+  }
+
+  if detect_heading_level_minimal(t) > 0 {
+    return true
+  }
+
+  if looks_like_short_cjk_title_line(t) {
+    return true
+  }
+
+  looks_like_short_titlecase_english_line(t)
+}
+
+///|
+fn is_body_like_start_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  let n = t.to_array().length()
+  if t == "" {
+    return false
+  }
+
+  if has_strong_end_punct(t) {
+    return true
+  }
+
+  let ws = split_words_simple(t)
+  if ws.length() >= 6 {
+    return true
+  }
+
+  if n >= 24 && ws.length() >= 4 {
+    return true
+  }
+
+  // 中文长句正文形态
+  n >= 16 && is_mostly_cjk_line(t)
+}
+
+///|
+fn looks_like_short_cjk_title_line(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t.contains(" ") {
+    return false
+  }
+
+  let n = t.to_array().length()
+  if n < 2 || n > 10 {
+    return false
+  }
+
+  !has_strong_end_punct(t) && is_mostly_cjk_line(t)
+}
+
+///|
+fn looks_like_short_titlecase_english_line(text : String) -> Bool {
+  let ws = split_words_simple(text)
+  if ws.length() < 2 || ws.length() > 6 {
+    return false
+  }
+
+  let mut titleish = 0
+  for w in ws {
+    let w0 = trim_simple_punct(w)
+    match first_char(w0) {
+      Some(c) =>
+        if (c >= 'A' && c <= 'Z') || is_all_caps_ascii_word(w0) {
+          titleish = titleish + 1
+        }
+      None => ()
+    }
+  }
+
+  titleish * 2 >= ws.length()
+}
+
+///|
+fn has_strong_end_punct(text : String) -> Bool {
+  let t = text.trim().to_string()
+  if t == "" {
+    return false
+  }
+
+  match last_char(t) {
+    Some(c) =>
+      c == '。' || c == '！' || c == '？' ||
+      c == '.' || c == '!' || c == '?' ||
+      c == ':' || c == '：' || c == ';' || c == '；'
+    None => false
+  }
+}
+
+///|
+fn is_mostly_cjk_line(text : String) -> Bool {
+  let cs = text.to_array()
+  if cs.length() == 0 {
+    return false
+  }
+
+  let mut cjk = 0
+  for c in cs {
+    if is_cjkish(c) {
+      cjk = cjk + 1
+    }
+  }
+  cjk * 3 >= text.to_array().length() * 2
+}
+
+
+///|
+fn trim_simple_punct(s : String) -> String {
+  let mut t = s.trim().to_string()
+  while t != "" {
+    match first_char(t) {
+      Some(c) =>
+        if c == '"' || c == '\'' || c == '(' || c == '[' {
+          t = String::from_array(t.to_array()[1:].to_array()).trim().to_string()
+          continue
+        }
+      None => ()
+    }
+    break
+  }
+  while t != "" {
+    match last_char(t) {
+      Some(c) =>
+        if c == '"' || c == '\'' || c == ')' || c == ']' || c == ',' || c == '.' || c == ':' || c == ';' {
+          let cs = t.to_array()
+          t = String::from_array(cs[:cs.length() - 1].to_array()).trim().to_string()
+          continue
+        }
+      None => ()
+    }
+    break
+  }
+  t
+}
+
+///|
+fn is_all_caps_ascii_word(s : String) -> Bool {
+  let cs = s.to_array()
+  if cs.length() == 0 {
+    return false
+  }
+
+  let mut has_alpha = false
+  for c in cs {
+    if c >= 'A' && c <= 'Z' {
+      has_alpha = true
+      continue
+    }
+    if c >= '0' && c <= '9' {
+      continue
+    }
+    return false
+  }
+  has_alpha
 }
 
 ///|

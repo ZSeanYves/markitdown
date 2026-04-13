@@ -48,6 +48,18 @@ fn events_to_lines(
         cur = text
         start = i
         end = i
+      } else if should_flush_line_before_appending(
+        cur,
+        text,
+        prev_stream,
+        prev_op,
+        ev.source_stream_index,
+        ev.source_op_index,
+      ) {
+        flush_line(lines, page_index, cur, start, end, false)
+        cur = text
+        start = i
+        end = i
       } else if should_attach_to_current_line(
         cur,
         text,
@@ -90,6 +102,36 @@ fn events_to_lines(
 
   flush_line(lines, page_index, cur, start, end, false)
   filter_minimal_line_noise(lines)
+}
+
+///|
+fn should_flush_line_before_appending(
+  current_line : String,
+  next_text : String,
+  prev_stream : Int,
+  prev_op : Int,
+  cur_stream : Int,
+  cur_op : Int,
+) -> Bool {
+  let cur = current_line.trim().to_string()
+  let next = next_text.trim().to_string()
+  if cur == "" || next == "" {
+    return false
+  }
+
+  if !is_heading_like_short_line(cur) || has_boundary_punct_event(cur) {
+    return false
+  }
+  if is_heading_like_short_line(next) || !starts_like_body_sentence(next) {
+    return false
+  }
+
+  if prev_stream != cur_stream {
+    return true
+  }
+
+  // 同 stream 但进入新 op：如果上一段像短标题，下一段像正文，先断行
+  cur_op > prev_op
 }
 
 ///|

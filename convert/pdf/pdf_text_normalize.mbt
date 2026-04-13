@@ -86,6 +86,12 @@ fn normalize_pdf_char(c : Char) -> String {
   if c == '⽀' {
     return "支"
   }
+  if c == '⾏' {
+    return "行"
+  }
+  if c == '⽤' {
+    return "用"
+  }
 
   c.to_string()
 }
