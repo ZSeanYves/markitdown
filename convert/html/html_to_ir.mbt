@@ -160,7 +160,11 @@ fn export_local_html_image(
 
   let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
   let ext = image_ext_from_src(src0)
-  let rel_out = @cor.next_image_asset_rel_path(ctx.next_idx, ext)
+  let rel_out = @cor.next_image_asset_rel_path_unique(
+    ctx.next_idx,
+    ext,
+    ctx.out_dir,
+  )
   let dst = ctx.out_dir + "/" + rel_out
   @fs.write_bytes_to_file(dst, data) catch {
     _ => return None

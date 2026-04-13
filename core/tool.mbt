@@ -71,6 +71,26 @@ pub fn next_image_asset_rel_path(next_idx : Ref[Int], ext_raw : String) -> Strin
 }
 
 ///|
+pub fn next_image_asset_rel_path_unique(
+  next_idx : Ref[Int],
+  ext_raw : String,
+  out_dir : String,
+) -> String {
+  let ext = normalize_image_ext(ext_raw)
+  let mut idx = next_idx.val
+  while true {
+    idx += 1
+    let rel = "assets/" + "image" + pad_image_index(idx) + "." + ext
+    let abs = out_dir + "/" + rel
+    if !@fs.path_exists(abs) {
+      next_idx.val = idx
+      return rel
+    }
+  }
+  ""
+}
+
+///|
 fn normalize_image_ext(ext_raw : String) -> String {
   let t = ext_raw.trim().to_lower()
   if t == "" {
