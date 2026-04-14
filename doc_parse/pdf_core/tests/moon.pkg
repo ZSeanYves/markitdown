@@ -1,5 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/pdf_core" @pdfc,
-  "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8" @utf8,
-} for "test"
