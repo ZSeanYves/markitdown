@@ -45,7 +45,7 @@ fn extract_text_inlines(
   start : Int,
   end_ : Int,
   hyperlinks : Map[String, String],
-) -> Array[@cor.Inline] raise{
+) -> Array[@cor.Inline] raise {
   let out : Array[@cor.Inline] = []
   let mut pos = start
 
@@ -136,7 +136,7 @@ fn extract_text_inlines(
 }
 
 ///|
-fn run_hyperlink_rid(run : Bytes) -> String? raise{
+fn run_hyperlink_rid(run : Bytes) -> String? raise {
   let open_h = pat("<a:hlinkClick")
   let gt_pat = pat(">")
   let p0 = find_bytes(run, open_h, 0).unwrap_or(-1)

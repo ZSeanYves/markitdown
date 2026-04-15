@@ -4,4 +4,4 @@
 
 # 技术路线
 
-首先完成统一 IR，然后逐步支持 docx、pdf、xlsx、 pptx 和 html。
+首先完成统一 IR，然后逐步支持 docx、pdf、xlsx、pptx 和 html。

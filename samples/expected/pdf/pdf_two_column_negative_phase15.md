@@ -1,6 +1,5 @@
 # Pseudo two-column negative sample
 
-
 LEFT-A1 This paragraph belongs to the left column only.
 
 RIGHT-B1 This paragraph is independent on the right side.

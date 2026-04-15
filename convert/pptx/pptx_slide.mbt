@@ -30,10 +30,7 @@ fn extract_shape_paragraphs(
               None => break
               Some(p_end0) => {
                 let inlines = extract_text_inlines(
-                  xml,
-                  inner_start,
-                  p_end0,
-                  hyperlinks,
+                  xml, inner_start, p_end0, hyperlinks,
                 )
                 let text = render_plain_text_inlines(inlines).trim().to_string()
 

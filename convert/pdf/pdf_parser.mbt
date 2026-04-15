@@ -1,78 +1,50 @@
 ///|
 pub async fn parse_pdf(
-  path : String,
-  out_dir : String,
-  _max_heading : Int,
-  enhance_mode : String?,
-  extract_debug : Bool,
-  dump_selected_raw : Bool,
+  input_path : String,
+  _out_dir : String,
+  max_heading : Int,
+  _enhance_mode : String?,
+  _extract_debug : Bool,
+  _dump_selected_raw : Bool,
   pipeline_debug : Bool,
 ) -> @cor.Document {
-  if !@fs.path_exists(path) {
-    raise @cor.AppError("PDF file not found: " + path)
+  if !@fs.path_exists(input_path) {
+    raise @cor.AppError("pdf: file not found: " + input_path)
   }
 
-  let extracted = match extract_pdf_text_result(path, debug=extract_debug) {
-    Ok(res) => res
-    Err(e) => raise e
-  }
-
-  let mode = parse_pdf_enhance_mode(enhance_mode)
-  let image_export = export_pdf_page_images(path, out_dir)
-
-  let selected_raw = match mode {
-    PdfEnhanceMode::TextOnly => extracted.text
-    PdfEnhanceMode::Experimental =>
-      if !extracted.quality_accepted {
-        match try_ocr_pdf_to_text(path) {
-          Some(ocr_text) => ocr_text
-          None =>
-            if is_effectively_empty_pdf_text(extracted.text) {
-              apply_experimental_empty_text_fallback(path)
-            } else {
-              extracted.text
-            }
-        }
-      } else {
-        extracted.text
-      }
-  }
-
-  let enhanced_text = apply_pdf_enhancement(selected_raw, mode)
-
-  if dump_selected_raw || pipeline_debug {
-    dump_pdf_debug_stage(path, out_dir, "selected_raw", selected_raw)
-  }
-
-  if extract_debug {
-    match image_export.warning {
-      Some(msg) => dump_pdf_debug_stage(path, out_dir, "image_extract", msg)
-      None => ()
+  if pipeline_debug {
+    let cfg = @api.default_pdf_core_config()
+    match @api.extract_document_block_debug(input_path, cfg) {
+      Ok(s) => println(s)
+      Err(e) => println("pdf_core/debug error: " + e.to_string())
     }
   }
 
-  text_to_ir_document_with_debug(
-    path,
-    out_dir,
-    enhanced_text,
-    image_export.images,
-    pipeline_debug,
-  )
-}
+  let core_doc = extract_pdf_core_document(input_path)
 
-///|
-fn dump_pdf_debug_stage(
-  input_path : String,
-  out_dir : String,
-  stage : String,
-  content : String,
-) -> Unit {
-  if out_dir == "" {
-    return
+  let doc0 = build_convert_lines(core_doc)
+  let doc1 = build_convert_blocks(doc0)
+
+  if pipeline_debug {
+    println(debug_convert_document_summary(doc1))
+
+    for page in doc1.pages {
+      debug_print_convert_lines(page)
+      debug_print_convert_blocks(page)
+    }
+
+    debug_print_page_edge_blocks(doc1)
+    debug_print_repeated_edge_texts(doc1)
+    debug_print_header_footer_like_blocks(doc1)
   }
-  let base = @cor.basename(input_path)
-  let out = out_dir + "/" + base + ".pdf_debug." + stage + ".txt"
-  @fs.write_string_to_file(out, content, encoding="utf8") catch {
-    _ => ()
+
+  let doc2 = classify_convert_blocks(doc1, max_heading)
+  let doc3 = filter_noise_blocks(doc2)
+  let doc4 = merge_convert_blocks(doc3)
+
+  if pipeline_debug {
+    println(debug_convert_document_summary(doc4))
   }
+
+  convert_pdf_blocks_to_ir(doc4, max_heading)
 }

@@ -48,8 +48,7 @@ pub fn parse_pptx(
     let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
     let paras = extract_slide_paragraphs(xml, hyperlinks)
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
-      images,
-      paras,
+      images, paras,
     )
     let blocks = classify_slide_paragraphs(
       drop_consumed_caption_paras(paras, consumed_caption_para_ids),
@@ -88,7 +87,9 @@ pub fn parse_pptx(
         page: None,
         slide: Some(idx),
         sheet: None,
-        origin_id: Some("slide-" + idx.to_string() + "-image-" + (i + 1).to_string()),
+        origin_id: Some(
+          "slide-" + idx.to_string() + "-image-" + (i + 1).to_string(),
+        ),
         nearby_caption,
       })
     }

@@ -6,7 +6,8 @@
     "TheWaWaR/clap": "0.2.6",
     "mizchi/zlib": "0.3.3",
     "moonbitlang/async": "0.16.6",
-    "bikallem/compress": "0.3.4"
+    "bikallem/compress": "0.3.4",
+    "bobzhang/mbtpdf": "0.1.2"
   },
   "readme": "README.mbt.md",
   "repository": "https://github.com/ZSeanYves/markitdown.git",
