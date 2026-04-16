@@ -12,6 +12,8 @@ Current capabilities include:
 * code-like paragraph recovery
 * line-break handling in paragraphs and table cells
 * hyperlink recovery in paragraph / heading / list contexts
+* lightweight block-level origin metadata on document output
+* lightweight image asset origin metadata on exported assets
 
 Current boundaries:
 
@@ -40,6 +42,8 @@ Current capabilities include:
 * cross-page paragraph merging
 * hardwrap recovery
 * conservative pseudo two-column negative protection
+* lightweight page-level block origin metadata
+* lightweight image asset origin metadata
 
 Current boundaries:
 
@@ -60,6 +64,7 @@ Current capabilities include:
 * sparse-edge bounding-box tightening
 * built-in and custom datetime formatting
 * table-width normalization
+* lightweight sheet-level block origin metadata
 
 Current boundaries:
 
@@ -82,6 +87,8 @@ Current capabilities include:
 * table-like / grid-like region detection and stabilization
 * conservative page-number / corner-label noise filtering
 * hyperlink recovery for run-level links and basic shape-level links
+* lightweight slide-level block origin metadata
+* lightweight slide-level asset origin metadata
 
 Current boundaries:
 
@@ -104,6 +111,8 @@ Current capabilities include:
 * local structure recovery inside list-item containers
 * local structure recovery inside blockquote containers
 * hyperlink recovery for paragraph / heading / list-item / blockquote inline text
+* lightweight document-level block origin metadata
+* lightweight image/figure asset origin metadata
 
 Current boundaries:
 

@@ -39,7 +39,7 @@ fn scan_document(
               page: None,
               slide: None,
               sheet: None,
-              block_index: None,
+              block_index: Some(doc.blocks.val.length()),
               heading_path: None,
             }),
           )
@@ -93,7 +93,7 @@ fn scan_document(
               page: None,
               slide: None,
               sheet: None,
-              block_index: None,
+              block_index: Some(doc.blocks.val.length()),
               heading_path: None,
             }),
           )

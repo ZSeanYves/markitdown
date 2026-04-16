@@ -95,7 +95,18 @@ pub fn parse_pptx(
     }
 
     if blocks.length() == 0 && images.length() == 0 {
-      @cor.push(doc, @cor.Block::Paragraph("(empty)"))
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::Paragraph("(empty)"),
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: Some(idx),
+          sheet: None,
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
+      )
     } else {
       let mut prev_was_list = false
 
@@ -103,7 +114,18 @@ pub fn parse_pptx(
         match b {
           PptxBlock::Heading(text, inlines) => {
             if prev_was_list {
-              @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
+              @cor.push_with_origin(
+                doc,
+                @cor.Block::BlankLine,
+                Some({
+                  source_name: Some(src),
+                  page: None,
+                  slide: Some(idx),
+                  sheet: None,
+                  block_index: Some(doc.blocks.val.length()),
+                  heading_path: None,
+                }),
+              )
             }
             let heading = if has_link_inline(inlines) {
               @cor.Block::RichHeading(clamp_heading(3, max_heading), inlines)
@@ -126,7 +148,18 @@ pub fn parse_pptx(
           }
           PptxBlock::Paragraph(text, inlines) => {
             if prev_was_list {
-              @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
+              @cor.push_with_origin(
+                doc,
+                @cor.Block::BlankLine,
+                Some({
+                  source_name: Some(src),
+                  page: None,
+                  slide: Some(idx),
+                  sheet: None,
+                  block_index: Some(doc.blocks.val.length()),
+                  heading_path: None,
+                }),
+              )
             }
             let para = if has_link_inline(inlines) {
               @cor.Block::RichParagraph(inlines)
@@ -171,7 +204,18 @@ pub fn parse_pptx(
       }
     }
 
-    @cor.push_with_origin(doc, @cor.Block::BlankLine, None)
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::BlankLine,
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: Some(idx),
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+      }),
+    )
     idx = idx + 1
   }
 

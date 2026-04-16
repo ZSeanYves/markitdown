@@ -7,6 +7,10 @@ import {
   "ZSeanYves/markitdown/convert/html" @html,
 }
 
+import {
+  "moonbitlang/x/fs" @fs,
+} for "test"
+
 options(
   "preferred-target": "native",
 )
