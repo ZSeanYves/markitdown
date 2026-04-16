@@ -167,7 +167,7 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 }
 
 ///|
-test "origin metadata minimal closure for html and docx" {
+test "origin_metadata/html_docx_minimal_closure" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/html")
@@ -203,7 +203,7 @@ test "origin metadata minimal closure for html and docx" {
 }
 
 ///|
-test "html image context fields should preserve alt/title/figcaption conservatively" {
+test "image_context/html_alt_title_figcaption" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/html-context")
@@ -280,7 +280,7 @@ test "html image context fields should preserve alt/title/figcaption conservativ
 }
 
 ///|
-test "origin metadata minimal closure for pptx and xlsx" {
+test "origin_metadata/pptx_xlsx_minimal_closure" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/pptx")
@@ -325,7 +325,7 @@ test "origin metadata minimal closure for pptx and xlsx" {
   assert_sheet_level_origins(xlsx_doc)
 }
 
-async test "origin metadata minimal closure for pdf" {
+async test "origin_metadata/pdf_minimal_closure" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/pdf")
@@ -357,7 +357,35 @@ async test "origin metadata minimal closure for pdf" {
 }
 
 ///|
-async test "pdf image nearby-caption context should remain lightweight" {
+test "image_context/pptx_caption_association" {
+  let out_dir = "tmp-origin-tests"
+  ensure_dir(out_dir)
+  ensure_dir(out_dir + "/pptx-image-context")
+
+  let doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/pptx/pptx_image_single_caption_like.pptx"),
+    out_dir + "/pptx-image-context",
+    6,
+  )
+  match first_image_block(doc) {
+    Some(img) => {
+      assert_eq(img.caption, Some("Figure 1. Revenue trend"))
+      match img.origin {
+        Some(origin) => assert_eq(origin.slide, Some(1))
+        None => fail("pptx image origin should exist")
+      }
+      match doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) =>
+          assert_eq(asset_origin.nearby_caption, Some("Figure 1. Revenue trend"))
+        None => fail("pptx image asset origin should exist")
+      }
+    }
+    None => fail("expected one pptx image block")
+  }
+}
+
+///|
+async test "image_context/pdf_caption_like" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/pdf-context")

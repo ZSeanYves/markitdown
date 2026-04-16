@@ -4,8 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
-GEN_SCRIPT="$SAMPLES_DIR/generate_hyperlink_binaries.py"
-GEN_PPTX_IMAGE_CONTEXT_SCRIPT="$SAMPLES_DIR/generate_image_context_pptx_samples.py"
+GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
@@ -13,19 +12,6 @@ fail=0
 
 echo "==> sample integrity check"
 
-if [[ -f "$GEN_SCRIPT" ]]; then
-  echo "==> generate binary hyperlink samples"
-  if ! python3 "$GEN_SCRIPT"; then
-    echo "[warn] binary sample generation failed; integrity check may fail for generated cases"
-  fi
-fi
-
-if [[ -f "$GEN_PPTX_IMAGE_CONTEXT_SCRIPT" ]]; then
-  echo "==> generate pptx image-context samples"
-  if ! python3 "$GEN_PPTX_IMAGE_CONTEXT_SCRIPT"; then
-    echo "[warn] pptx image-context sample generation failed; integrity check may fail for generated cases"
-  fi
-fi
 
 is_noise_file() {
   local base="$1"
@@ -75,6 +61,12 @@ for fmt in "${FORMATS[@]}"; do
     base="$(basename "$path")"
     echo "${base%.md}"
   done | sort -u)"
+
+  if [[ "$fmt" == "pptx" && $GEN_PPTX_IMAGE_CONTEXT_FAILED -eq 1 ]]; then
+    generated_only_bases=$'pptx_image_caption_basic\npptx_image_caption_near_basic\npptx_image_multiple_caption_ambiguous_negative'
+    input_bases="$(comm -23 <(printf '%s\n' "$input_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
+    expected_bases="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
+  fi
 
   printf '\n[%s]\n' "$fmt"
 
