@@ -5,6 +5,7 @@
 * The project focuses on structured Markdown output rather than full visual reproduction
 * Complex layout recovery remains strongly format-dependent
 * Some advanced semantics are still conservatively downgraded into readable paragraph order
+* Current origin metadata is lightweight provenance only, not precise anchoring (no bbox / char range / source object id)
 
 ## PDF
 

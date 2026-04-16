@@ -182,20 +182,50 @@ fn emit_text_block_to_ir(
 
       match role {
         PdfIrHeadingRole::NotHeading =>
-          @cor.push(out, @cor.Block::Paragraph(heading_text))
+          @cor.push_with_origin(
+            out,
+            @cor.Block::Paragraph(heading_text),
+            Some({
+              source_name: None,
+              page: Some(_page_index + 1),
+              slide: None,
+              sheet: None,
+              block_index: Some(out.blocks.val.length()),
+              heading_path: None,
+            }),
+          )
         PdfIrHeadingRole::DocumentTitle =>
-          @cor.push(
+          @cor.push_with_origin(
             out,
             @cor.Block::Heading(
               clamp_heading_level(1, max_heading),
               heading_text,
             ),
+            Some({
+              source_name: None,
+              page: Some(_page_index + 1),
+              slide: None,
+              sheet: None,
+              block_index: Some(out.blocks.val.length()),
+              heading_path: None,
+            }),
           )
         PdfIrHeadingRole::SectionHeading => {
           let level = map_section_depth_to_heading_level_for_ir(
             depth, has_document_title, max_heading,
           )
-          @cor.push(out, @cor.Block::Heading(level, heading_text))
+          @cor.push_with_origin(
+            out,
+            @cor.Block::Heading(level, heading_text),
+            Some({
+              source_name: None,
+              page: Some(_page_index + 1),
+              slide: None,
+              sheet: None,
+              block_index: Some(out.blocks.val.length()),
+              heading_path: None,
+            }),
+          )
         }
       }
     }
@@ -203,8 +233,31 @@ fn emit_text_block_to_ir(
       let pt = text.trim().to_string()
       match try_parse_bullet_list_item_for_ir(pt) {
         Some(item_text) =>
-          @cor.push(out, @cor.Block::ListItem(false, 0, item_text))
-        None => @cor.push(out, @cor.Block::Paragraph(pt))
+          @cor.push_with_origin(
+            out,
+            @cor.Block::ListItem(false, 0, item_text),
+            Some({
+              source_name: None,
+              page: Some(_page_index + 1),
+              slide: None,
+              sheet: None,
+              block_index: Some(out.blocks.val.length()),
+              heading_path: None,
+            }),
+          )
+        None =>
+          @cor.push_with_origin(
+            out,
+            @cor.Block::Paragraph(pt),
+            Some({
+              source_name: None,
+              page: Some(_page_index + 1),
+              slide: None,
+              sheet: None,
+              block_index: Some(out.blocks.val.length()),
+              heading_path: None,
+            }),
+          )
       }
     }
   }

@@ -44,24 +44,67 @@ pub fn parse_xlsx(
 
   // 6) build IR
   let doc = @cor.new_document()
+  let src = @cor.basename(input_path)
 
   if sheets.length() == 0 {
-    @cor.push(doc, @cor.Block::Paragraph("(no sheets found)"))
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Paragraph("(no sheets found)"),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+      }),
+    )
     return doc
   }
 
   for i in 0..<sheets.length() {
     let sh = sheets[i]
-    @cor.push(doc, @cor.Block::Heading(clamp_heading(2, max_heading), sh.name))
+    let sheet_name = sh.name
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Heading(clamp_heading(2, max_heading), sheet_name),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet_name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+      }),
+    )
 
     let sheet_path = normalize_sheet_part_target(sh.target)
 
     if sheet_path == "" || !@ox.has_part(p.pkg, sheet_path) {
-      @cor.push(
+      @cor.push_with_origin(
         doc,
         @cor.Block::Paragraph("(missing sheet xml: " + sheet_path + ")"),
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: Some(sheet_name),
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
       )
-      @cor.push(doc, @cor.Block::BlankLine)
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::BlankLine,
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: Some(sheet_name),
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
+      )
       continue
     }
 
@@ -69,12 +112,45 @@ pub fn parse_xlsx(
     let table = parse_sheet_table(sh_xml, shared, styles)
 
     if table.length() == 0 {
-      @cor.push(doc, @cor.Block::Paragraph("(empty sheet)"))
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::Paragraph("(empty sheet)"),
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: Some(sheet_name),
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
+      )
     } else {
-      @cor.push(doc, @cor.Block::Table(table))
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::Table(table),
+        Some({
+          source_name: Some(src),
+          page: None,
+          slide: None,
+          sheet: Some(sheet_name),
+          block_index: Some(doc.blocks.val.length()),
+          heading_path: None,
+        }),
+      )
     }
 
-    @cor.push(doc, @cor.Block::BlankLine)
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::BlankLine,
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet_name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+      }),
+    )
   }
 
   doc

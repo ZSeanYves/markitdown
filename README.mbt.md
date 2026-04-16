@@ -24,6 +24,15 @@ The repository now provides a stable workflow built around:
 
 **multi-format input -> unified IR -> Markdown output -> sample-based regression validation**
 
+## Origin Metadata (Lightweight Provenance)
+
+The unified IR now includes a lightweight origin metadata layer for both blocks and exported assets:
+
+* `Document.block_origins`: minimal block-level provenance (e.g., source name, page/slide/sheet, block index)
+* `Document.asset_origins`: minimal asset-level provenance (e.g., source name, page/slide/sheet, origin id, nearby caption)
+
+Current scope is intentionally lightweight traceability rather than precise anchoring (no bbox / char range / source object id yet), and does **not** change the Markdown main output behavior.
+
 ## Quick Links
 
 * [Architecture](./docs/architecture.md)
