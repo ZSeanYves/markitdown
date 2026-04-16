@@ -1,6 +1,6 @@
 # markitdown-mb
 
-A document conversion tool implemented in **MoonBit**, inspired by Microsoft **markitdown**, for converting **DOCX / PDF / XLSX / PPTX / HTML** into structured **Markdown** with extracted assets.
+A document conversion tool implemented in **MoonBit**, inspired by Microsoft **markitdown**, for converting **DOCX / PDF / XLSX / PPTX / HTML** into structured **Markdown** with extracted assets when needed.
 
 Supports **macOS** and **Linux**.
 
@@ -8,38 +8,54 @@ The project is built around a unified:
 
 **document -> IR -> Markdown**
 
-pipeline, with format-specific parsers and sample-based regression coverage.
+pipeline, with format-specific parsers, structure-recovery stages, and sample-based regression coverage.
+
+## Current Status
+
+The project is no longer in an early MVP stage. The current `main` branch already provides a fairly complete multi-format mainflow:
+
+* **DOCX**: heading, list, table, image, blockquote, and code-like paragraph recovery
+* **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction
+* **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
+* **PPTX**: reading-order recovery, title/body separation, list recovery, and table-like / caption-like / callout-like region handling
+* **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery
+
+The repository now provides a stable workflow built around:
+
+**multi-format input -> unified IR -> Markdown output -> sample-based regression validation**
 
 ## Quick Links
 
-* [Format Support](./docs/format-support.md)
 * [Architecture](./docs/architecture.md)
-* [Sample Coverage](./docs/sample-coverage.md)
+* [Format Support](./docs/format-support.md)
 * [Known Limitations](./docs/limitations.md)
+* [Sample Coverage](./docs/sample-coverage.md)
 * [Development Guide](./docs/development.md)
 
 ## Environment Setup
 
 ### External dependencies
 
+The normal conversion mainflow no longer depends on `pdftotext` or `mutool`.
+
+External dependencies are currently only required for the OCR plugin path.
+
 #### macOS (Homebrew)
 
 ```bash
-brew install poppler mupdf-tools ocrmypdf
+brew install ocrmypdf
 ```
 
 #### Linux (Ubuntu / Debian)
 
 ```bash
 sudo apt update
-sudo apt install -y poppler-utils mupdf-tools ocrmypdf
+sudo apt install -y ocrmypdf
 ```
 
-#### Verify
+### Verify
 
 ```bash
-pdftotext -v
-mutool -v
 ocrmypdf --version
 ```
 
@@ -77,8 +93,33 @@ moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
 ./samples/diff.sh
 ```
 
+### Run PDF-focused regression
+
+```bash
+./samples/pdf_regression_check.sh
+```
+
+## PDF Mainflow
+
+The PDF description on `main` should now be understood as follows:
+
+* The default PDF mainflow is **fully native**, not “native-first” and not “external text-first”
+* The normal path no longer depends on `pdftotext` or `mutool`
+* The current PDF mainflow includes:
+
+  * span normalization
+  * line recovery
+  * block classification
+  * repeated header/footer cleanup
+  * heading / paragraph boundary recovery
+  * hardwrap recovery
+  * pseudo two-column negative protection
+* OCR remains a **plugin-style path** and is not the default `normal` flow
+* External tooling is currently retained only for the OCR plugin path
+
 ## Notes
 
-* PDF on `main` currently uses an **external text-first pipeline**
-* OCR is a **dedicated path**, not the default normal flow
-* Detailed format behavior, coverage, and boundaries are documented in the files linke
+* The goal of the project is **structured Markdown output**, not pixel-perfect visual reproduction
+* The PDF mainflow on `main` has already been fully replaced by native recovery logic, but complex layouts remain an active area of ongoing improvement
+* PPTX, HTML, and PDF are still being improved in terms of structural precision and boundary handling
+* Structural changes should always be validated through regression samples before being merged

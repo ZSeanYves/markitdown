@@ -154,7 +154,7 @@ pub fn line_text(line : PdfTextLine) -> String {
 }
 
 ///|
-fn glue_between_spans(left : String, right : String) -> String {
+pub fn glue_between_spans(left : String, right : String) -> String {
   let l = left.trim()
   let r = right.trim()
 

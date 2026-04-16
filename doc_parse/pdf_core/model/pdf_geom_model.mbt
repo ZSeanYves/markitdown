@@ -16,7 +16,7 @@ pub(all) struct PdfRect {
 
 ///|
 /// 四边形，后续如果要支持旋转文本、高亮区域、annotation quadpoints 会有用。
-pub struct PdfQuad {
+pub(all) struct PdfQuad {
   p1 : PdfPoint
   p2 : PdfPoint
   p3 : PdfPoint
@@ -25,7 +25,7 @@ pub struct PdfQuad {
 
 ///|
 /// RGB 颜色；后续如要支持 CMYK/Gray，可再扩 enum。
-pub struct PdfColor {
+pub(all) struct PdfColor {
   r : Int
   g : Int
   b : Int

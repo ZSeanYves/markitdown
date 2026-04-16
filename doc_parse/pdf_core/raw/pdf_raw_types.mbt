@@ -1,6 +1,6 @@
 ///|
 /// 底层 PDF 对象引用。
-pub struct RawPdfRef {
+pub(all) struct RawPdfRef {
   obj_num : Int
   gen_num : Int
 }
@@ -55,7 +55,7 @@ pub struct RawDecodedGlyph {
 
 ///|
 /// 原始文本操作类型。
-pub enum RawTextOpKind {
+pub(all) enum RawTextOpKind {
   ShowText // Tj
   ShowTextArray // TJ
   MoveText // Td / TD
@@ -93,7 +93,7 @@ pub struct RawTextOp {
 
 ///|
 /// 原始图片信息。
-pub struct RawImageInfo {
+pub(all) struct RawImageInfo {
   id : String
   page_index : Int
   object_ref : RawPdfRef?
@@ -110,7 +110,7 @@ pub struct RawImageInfo {
 
 ///|
 /// 原始注释信息。
-pub struct RawAnnotationInfo {
+pub(all) struct RawAnnotationInfo {
   id : String
   page_index : Int
   object_ref : RawPdfRef?

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The current main pipeline of the repository is:
+The current repository mainflow is:
 
 **docx / pdf / xlsx / pptx / html -> IR -> Markdown**
 
@@ -11,6 +11,8 @@ Core flow:
 * `convert/convert/dispatcher.mbt` dispatches files by extension
 * `core/ir.mbt` defines the unified Intermediate Representation (IR)
 * `core/emitter_markdown.mbt` emits Markdown from IR
+
+For PDF, the `main` branch should no longer be described as using an external text-first path. The normal PDF path has already been **fully replaced by a native structural recovery pipeline**, while OCR is kept as a separate plugin-driven path.
 
 ## Repository Layout
 
@@ -39,7 +41,7 @@ Shared infrastructure.
 
 ### `convert/docx/`
 
-DOCX parsing pipeline.
+DOCX parsing and structure recovery.
 
 Main modules include:
 
@@ -55,17 +57,38 @@ Main modules include:
 
 ### `convert/pdf/`
 
-PDF parsing pipeline.
+PDF native mainflow.
+
+The PDF path on `main` should now be described as a native structural recovery chain rather than an external text-first pipeline.
 
 Main modules include:
 
 * `pdf_parser.mbt`
-* `pdf_backend.mbt`
+* `pdf_to_ir.mbt`
+* `pdf_noise.mbt`
+* `pdf_classify.mbt`
+* `pdf_convert_lines.mbt`
+* `pdf_convert_blocks.mbt`
+* `pdf_types.mbt`
+
+If compatibility or auxiliary modules are still retained in the tree, they may also be listed where relevant:
+
 * `pdf_extract.mbt`
 * `pdf_select.mbt`
 * `pdf_ocr.mbt`
 * `pdf_enhance.mbt`
-* `pdf_to_ir.mbt`
+
+### `doc_parse/pdf_core/`
+
+Low-level PDF parsing and recovery infrastructure.
+
+This layer is worth documenting explicitly because it now matters directly to the normal PDF mainflow. Its responsibilities include:
+
+* low-level character / span / line / block modeling
+* text normalization
+* visual-line recovery
+* same-line / paragraph / edge-noise related rules
+* providing higher-level structural inputs to `convert/pdf/`
 
 ### `convert/xlsx/`
 
@@ -83,7 +106,7 @@ Main modules include:
 
 ### `convert/pptx/`
 
-PPTX parsing pipeline.
+PPTX parsing and layout recovery.
 
 Main modules include:
 
@@ -115,13 +138,6 @@ Main modules include:
 * `html_dom.mbt`
 * `html_to_ir.mbt`
 * `html_bytes.mbt`
-
-### `doc_parse/`
-
-Low-level document parsing support.
-
-* `doc_parse/ooxml/`
-* `doc_parse/zip/`
 
 ## IR and Markdown Emitter
 

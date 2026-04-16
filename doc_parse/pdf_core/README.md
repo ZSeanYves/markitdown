@@ -1,55 +1,103 @@
 # pdf_core
 
-`pdf_core` 是 `markitdown-mb` 中面向 PDF 的底层结构恢复模块。
+`pdf_core` is the low-level PDF structural recovery package inside `markitdown-mb`.
 
-它的职责不是直接把 PDF 转成最终 Markdown，而是先把底层 PDF 内容解析、归一化并恢复成更稳定的中间结构，供后续 `convert/pdf` 消费。换句话说，`pdf_core` 解决的是“**如何把 PDF 这种天然不稳定、偏渲染导向的格式，恢复成更接近文档语义的结构化表示**”这个问题。
+Its responsibility is **not** to emit final Markdown directly. Instead, it parses, normalizes, and reconstructs PDF content into a stable structural document model that can be consumed by upper layers.
 
-当前阶段，`pdf_core` 的核心定位是：
+In practical terms, `pdf_core` solves the problem of:
 
-* 面向 **text-based PDF** 的底层结构恢复
-* 优先完成 **text-first** 的可解释中间层建模
-* 为更上层的 Markdown 转换、标题识别、段落恢复、页码清洗、阅读顺序优化提供基础
+> how to recover a PDF — a rendering-oriented and structurally unstable format — into a document-like, structured representation that is suitable for further conversion.
 
----
+## Current Role in the Repository
 
-## 设计目标
+On the current `main` branch, the normal PDF path has already been **fully replaced by a native structural recovery mainflow**.
 
-PDF 与 docx / html 这类格式不同，它不是天然按“标题、段落、列表、表格”存储内容，而更接近“页面上的绘制指令”。因此，PDF 转换要想得到稳定结果，不能只依赖外部工具直接抽纯文本，而需要补上一层“结构恢复”。
+That means:
 
-`pdf_core` 的设计目标就是补上这层能力。
+* the normal PDF path is no longer described as an external text-first pipeline
+* `pdf_core` is no longer just an experimental extraction layer
+* `convert/pdf` now consumes the recovered native structural model
+* OCR remains a **plugin-style path** driven by external tooling and is not the default normal flow
 
-更具体地说，它希望做到：
+So the role of `pdf_core` today is:
 
-1. **保留底层来源信息**
-
-   * 文本来自哪一页
-   * 来自哪个 content stream
-   * 来自哪个 text object / op
-   * 是否存在显式 break 信号
-   * glyph 的原始解码信息是什么
-
-2. **把底层碎片逐层恢复成更高层结构**
-
-   * glyph → char
-   * char → span
-   * span → line
-   * line → block
-
-3. **尽可能用可解释规则，而不是黑盒猜测**
-
-   * 当前 line / block 恢复主要依赖启发式规则
-   * 但这些规则尽量保持可命名、可调试、可回归验证
-
-4. **为 convert 层提供比“纯文本抽取”更强的输入**
-
-   * convert 层不再直接面对碎裂的 glyph / op 流
-   * 而是面对已经恢复过的 heading / paragraph 候选 block
+* provide the native low-level recovery backbone for text-based PDFs
+* expose stable page / block / line / span structures to upper layers
+* support heading / paragraph / noise / layout-related recovery before Markdown emission
 
 ---
 
-## 当前整体链路
+## What `pdf_core` Outputs
 
-当前 `pdf_core` 主链路如下：
+The primary outward-facing result is a structured PDF document model rather than flat extracted text.
+
+Current output is centered around:
+
+* `PdfDocumentModel`
+* `PdfPageModel`
+* `PdfTextBlock`
+* `PdfTextLine`
+* `PdfTextSpan`
+
+and lower-layer provenance / geometry / font metadata that is preserved during recovery.
+
+The main recovery chain is:
+
+```text
+raw -> chars -> spans -> lines -> blocks -> PdfDocumentModel
+```
+
+This is the key point:
+
+* upper layers no longer need to consume only plain extracted text
+* upper layers can consume recovered structural units
+* heading candidates, paragraph-like blocks, and noise-related candidates are already surfaced in the native model
+
+---
+
+## Main Output Interface
+
+### `PdfDocumentModel`
+
+`PdfDocumentModel` is the primary output interface currently intended for higher-level consumers.
+
+Its pages contain recovered text blocks rather than loose extraction placeholders.
+
+Conceptually, upper layers receive:
+
+* document-level pages
+* page-level text blocks
+* block-level lines
+* line-level spans
+* preserved geometry / font / source metadata where available
+
+This makes `PdfDocumentModel` the native structural input for `convert/pdf`.
+
+### Structural granularity currently exposed
+
+The current outward model already provides usable structure at the following levels:
+
+* page
+* block
+* line
+* span
+
+Lower layers still preserve provenance and source-order information where relevant.
+
+Current block-level semantics already include candidate distinctions such as:
+
+* heading-like block candidates
+* normal text blocks
+* page-number-like or removable-noise candidates
+
+So `pdf_core` is already more than a text extraction package:
+it now provides a practical **native structural recovery interface**.
+
+---
+
+## Recovery Pipeline
+
+The native PDF recovery chain currently follows this general structure:
 
 ```text
 MBTPDF adapter
@@ -61,423 +109,259 @@ MBTPDF adapter
 -> PdfDocumentModel
 ```
 
-每一层的职责如下。
+### 1. Adapter layer
 
-### 1. MBTPDF adapter
+The current low-level adapter reads PDF content and extracts factual text-related information.
 
-当前底层接入的是 `Bobzhang/MBTPDF`。
+Its responsibilities include:
 
-adapter 的职责是：
+* iterating pages and content streams
+* decoding glyph/text content
+* extracting font and source information
+* building the raw-layer containers
 
-* 遍历 PDF 页面及内容流
-* 解析文本相关 operators
-* 解码 glyph / text
-* 提取最小字体与来源信息
-* 生成 `raw` 层数据结构
+This layer tries to stay factual rather than semantic.
 
-这一层尽量只做“事实抽取”，不做复杂结构猜测。
+### 2. Raw layer
 
-### 2. raw 层
+The raw layer provides a normalized low-level container for upstream recovery.
 
-`raw` 层是 adapter 向上游提供的统一原始容器，当前主要包括：
+Typical responsibilities include:
 
-* `RawPdfDocumentExtract`
-* `RawPdfPageExtract`
-* `RawTextOp`
-* `RawDecodedGlyph`
-* `RawSourceRef`
-* 以及图片 / 注释等原始对象容器
+* preserving decoded text/glyph results
+* preserving source references
+* preserving break signals
+* preserving low-level PDF extraction traces
 
-这一层的特点是：
+This layer still reflects the low-level nature of PDF, but in a structured internal form.
 
-* 仍然保留了明显的 PDF 底层痕迹
-* 但已经把底层对象整理成可以继续构建 chars / spans 的统一输入
+### 3. Character layer
 
-当前 `RawTextOp` 中还会携带：
+The character layer maps raw glyph-level content into structured character records.
 
-* `break_before`
-* `break_reason`
+Typical fields include:
 
-用于把显式文本边界信号继续往上游透传。
+* decoded text
+* unicode
+* bbox / origin
+* font name / font size
+* ligature / compatibility-glyph hints
+* decode confidence
+* source references
+* break-before / break-reason
 
-### 3. chars 层
+This is where the package enters character-level structured representation.
 
-chars 层负责把 raw glyph 映射成 `PdfChar`。
+### 4. Span layer
 
-这一层的主要内容包括：
+The span layer groups consecutive characters into `PdfTextSpan`.
 
-* `decoded_text`
-* `unicode`
-* `bbox / origin`
-* `font_name / font_size`
-* `fill_color`
-* `rotation`
-* `is_ligature`
-* `is_compat_glyph`
-* `decode_confidence`
-* `source`
-* `break_before / break_reason`
+This grouping is intentionally local and conservative. It mainly relies on:
 
-也就是说，从 chars 层开始，`pdf_core` 已经进入“字符级结构化表示”。
+* source continuity
+* font consistency
+* break propagation
 
-### 4. spans 层
+The goal is not to infer final document semantics here, but to create workable text fragments.
 
-spans 层负责把连续 chars 聚合成 `PdfTextSpan`。
+### 5. Line layer
 
-当前 Phase-1 规则下，span 聚合主要基于：
+The line layer is one of the most important parts of `pdf_core`.
 
-* source group 一致
-* font name / font size 一致
-* break 信号透传
+Its responsibilities include:
 
-这一层的目标不是恢复最终语义，而是先把离散字符聚成更可操作的文本片段。
+* recovering human-readable text lines from spans
+* correcting common PDF fragmentation problems
+* supporting hardwrap recovery
+* distinguishing conservative heading/body boundaries
+* carrying geometry and layout signals upward
 
-### 5. lines 层
+Current line recovery already includes practical handling for:
 
-lines 层是当前 `pdf_core` 中最关键的一层之一。
+* Chinese hardwrap
+* English hardwrap
+* fragmented English words
+* compatibility glyph normalization
+* same-line vs new-chunk decisions
+* conservative page-number-like filtering
 
-它的职责是：
+### 6. Block layer
 
-* 从 spans 恢复“更像人类阅读时看到的文本行”
-* 修正 PDF 中常见的硬换行、碎片化、兼容字形问题
-* 为 block 层提供更稳定的 line 输入
+The block layer lifts recovered lines into stable block units.
 
-当前已实现的能力包括：
+The current strategy remains intentionally conservative:
 
-#### 文本归一化
+* heading candidate line -> standalone block
+* page-number or removable-noise candidate -> standalone candidate block
+* normal body line -> standalone paragraph-like block
 
-* 常见 CJK compatibility glyph 归一化
+This provides a stable baseline for upper layers and avoids amplifying errors too early.
 
-  * 例如 `⽂ -> 文`、`⼀ -> 一`、`⽤ -> 用` 等
-* 常见英文 ligature 归一化
+### 7. Document model layer
 
-  * 例如 `ﬁ -> fi`
-* 英文断词换行修复
+The final native output is exposed as `PdfDocumentModel`.
 
-  * 例如 `inter- national -> international`
-
-#### line 恢复
-
-* 从 span 构建最小 line
-* 对中文 hard wrap 做最小恢复
-* 对英文 hard wrap 做最小恢复
-* 对标题与正文关系做启发式区分
-* 对页码样式短行做候选过滤
-
-#### 当前规则风格
-
-当前 lines 恢复使用的是“**保守的、可解释的启发式**”，而不是试图一次性完成复杂版面理解。其设计理念是：
-
-* 宁可先得到稳定、可解释的 line
-* 再逐步往 block / convert 层增加语义
-* 不在这一层做过多高风险推断
-
-### 6. blocks 层
-
-blocks 层是当前阶段的第二个关键层。
-
-在经过 line 恢复后，`pdf_core` 现在会进一步把 line 提升为 block。
-
-当前 Phase-1 block 策略是：
-
-* heading candidate line → 单独成 block
-* page number candidate line → 单独成 block
-* 普通正文 line → 单独 paragraph block
-
-这一层当前不会激进地跨行合并 paragraph，而是优先输出稳定、清晰的 block 基线。
-
-这样做的好处是：
-
-* 结果更稳定
-* 回归更容易
-* 后续 convert 层更容易消费
-* 不会在 block 层再次放大 line 层残余误差
-
-### 7. PdfDocumentModel
-
-当前 `pdf_core_api` 已经把对外输出切到了 `blocks` 层。
-
-也就是说，当前 `extract_document_model(...)` 返回的 `PdfDocumentModel`，其 `page.text_blocks` 已经直接使用恢复后的 block 结果，而不是早期阶段那种临时占位结构。
-
-这意味着 `pdf_core` 现在已经具备了“对上游提供结构化 PDF 文本模型”的能力，而不再只是一个实验性抽字层。
+This means `pdf_core` is now capable of providing a structured PDF text model to upper layers, rather than only acting as a raw extraction experiment.
 
 ---
 
-## 当前 Phase-1 已完成能力
+## What Is Currently Supported
 
-下面总结一下截至当前阶段已经完成并通过样例验证的能力。
+`pdf_core` currently focuses on **text-based PDF** recovery.
 
-### 1. text-based PDF 的底层抽取链路已经跑通
+### Current supported scope
 
-已经具备：
+The native chain already provides useful, regression-backed support for:
 
-* MBTPDF 接入
-* raw 抽取
-* chars / spans / lines / blocks 分层恢复
-* PdfDocumentModel 对外输出
+* native text extraction into structured document models
+* char / span / line / block reconstruction
+* text normalization
+* common CJK compatibility glyph normalization
+* common ligature normalization
+* fragmented English word recovery
+* English and Chinese hardwrap recovery
+* heading candidate surfacing
+* paragraph-like block recovery
+* page-noise and repeated-header/footer related support
+* conservative pseudo two-column negative protection
 
-### 2. 文本归一化链路已经具备实用价值
+### Typical sample-backed cases already covered
 
-已经覆盖：
+Current regression-backed behavior includes stable handling of:
 
-* CJK compatibility glyph 的最小归一化
-* ligature 归一化
-* 英文断词换行修复
+* simple text PDFs
+* English hardwrap recovery
+* Chinese hardwrap recovery
+* heading vs body boundary recovery
+* repeated header/footer cleanup support
+* heading false-positive negative cases
+* pseudo two-column negative cases
 
-这对 PDF 中常见的：
-
-* 中文兼容字形
-* `ﬁ`
-* `inter- national`
-
-等问题已经有明显效果。
-
-### 3. hard wrap 样例已经可以稳定恢复
-
-对以下典型样例已经能够恢复出合理结构：
-
-* `text_simple`
-* `hardwrap_en`
-* `hardwrap_zh`
-
-当前结果能够稳定得到：
-
-* heading block
-* paragraph block
-* 多段正文的分离
-* 页码样式短行的清理
-
-### 4. block 语义候选已经进入模型
-
-当前 block 层已经能标注：
-
-* `HeadingCandidate`
-* `Text`
-* `PageNumberCandidate`（候选）
-
-虽然还不是完整语义模型，但已经足够支撑 convert 层的下一步接入。
+In practice, `pdf_core` already supports stable structural recovery for simple and moderately complex text-oriented PDFs.
 
 ---
 
-## 当前 smoke / regression 状态
+## What `pdf_core` Does Not Do Directly
 
-当前阶段的 smoke test 已经覆盖：
+`pdf_core` does not try to be:
 
-* raw 可读性
-* chars / spans / lines / blocks 可构建性
-* page model 最小可用性
-* block 数量断言
-* heading candidate 数量断言
-* 最小内容断言
+* a final Markdown emitter
+* a full semantic document engine
+* a pixel-perfect visual reconstruction system
+* a browser-style layout engine for PDF
 
-现阶段样例的目标状态大致如下：
+Its role is to provide a strong native structural intermediate layer.
 
-### `hardwrap_en`
-
-恢复为：
-
-1. heading
-2. 第一段正文
-3. 第二段正文
-
-### `hardwrap_zh`
-
-恢复为：
-
-1. `研究内容`
-2. 正文
-3. `技术路线`
-4. 正文
-
-### `text_simple`
-
-恢复为：
-
-1. 标题
-2. 第一段
-3. 第二段
-4. 第三段
-
-这说明 `pdf_core` 当前已经具备“**稳定恢复简单文本型 PDF 基本结构**”的能力。
+Final Markdown shaping still belongs to upper layers such as `convert/pdf` and the shared IR / emitter stack.
 
 ---
 
-## 当前的边界与限制
+## OCR Position
 
-尽管当前阶段已经取得了可用结果，但 `pdf_core` 目前仍然明确属于 **Phase-1 text-first**。
+OCR is **not** part of the normal native PDF mainflow.
 
-下面这些问题当前还没有被完整解决，或者只做了非常有限的处理：
+Current OCR behavior should be understood as:
 
-### 1. 复杂版面布局
+* a plugin-style path
+* externally driven
+* dependent on external tooling
+* separate from the default normal PDF path
 
-当前还没有系统化处理：
+In the repository today:
 
-* 双栏 / 多栏阅读顺序
-* 浮动文本块
-* 跨列内容误并
-* 复杂页面层叠顺序
+* normal PDF conversion is fully native
+* OCR remains optional and externally powered
 
-### 2. 表格、caption、footnote 等结构
+---
 
-当前 block 层还没有完整建模：
+## Current Limitations
 
-* table cell
-* caption
-* footnote
-* header/footer
-* marginal note
+Although the native mainflow is now in place, `pdf_core` still has clear boundaries.
 
-虽然模型里已经预留了候选字段，但尚未真正进入稳定恢复阶段。
+### 1. Complex layout understanding is still limited
 
-### 3. 几何驱动能力仍然较弱
+The package does not yet fully solve all difficult layout problems such as:
 
-虽然 chars / spans / lines / blocks 模型中已经预留或携带了部分几何字段，但当前启发式仍然以 **text-first** 为主。
+* full multi-column reading-order reconstruction
+* floating text blocks
+* advanced cross-column interaction
+* complex page-layer ordering
+* full table / caption / footnote semantic reconstruction
 
-也就是说，当前系统还没有大规模利用：
+### 2. Layout semantics are still heuristic-heavy
 
-* bbox 邻接关系
-* baseline / line gap
-* font size 层级
-* 页面边缘位置
-* alignment / indentation
+The current system uses geometry, font, spacing, and source-order signals, but many decisions are still based on conservative heuristics rather than full layout-semantic reasoning.
 
-来驱动更强的结构恢复。
+### 3. Non-text object integration is still incomplete
 
-### 4. 非文本对象链路还不完整
-
-当前 `PdfDocumentModel` 中虽然预留了：
+The package may already preserve or prepare room for non-text objects such as:
 
 * images
-  n- vectors
+* vectors
 * annotations
 * forms
 * outlines
 
-但当前主推进重点仍然是 text 主链，这些对象还未系统接入上层语义恢复链。
+But the current main focus remains the text recovery chain.
 
-### 5. 启发式规则仍可能存在漏洞
+### 4. Some extreme PDFs may still lose information before later recovery stages
 
-当前 lines / blocks 的恢复依赖启发式规则，因此天然会存在：
+This is especially true for:
 
-* 规则冲突
-* 误切 / 误并
-* 样例外场景不稳
-* 复杂真实 PDF 下的边界情况
-
-不过当前阶段的策略是：
-
-* 保持规则可解释
-* 尽量保守
-* 用 regression 样例集约束漂移
-* 不在 Phase-1 过早追求复杂布局猜测
+* extreme layout anomalies
+* extractor-level decoding oddities
+* difficult pseudo two-column cases
+* heavily fragmented or semantically ambiguous content streams
 
 ---
 
-## 当前设计原则
+## Design Principles
 
-当前 `pdf_core` 主要遵循以下设计原则。
+The current package follows a few core principles.
 
-### 1. 分层恢复
+### 1. Layered recovery
 
-尽量把问题拆分到不同层解决：
+Problems are solved at the most appropriate layer:
 
-* raw：事实抽取
-* chars：字符结构化
-* spans：局部聚合
-* lines：文本连续性恢复
-* blocks：初步语义恢复
-* model：统一对外表示
+* raw: factual extraction
+* chars: character structuring
+* spans: local grouping
+* lines: textual continuity recovery
+* blocks: early semantic stabilization
+* model: unified outward representation
 
-### 2. 可解释启发式
+### 2. Explainable heuristics
 
-当前大量逻辑确实是启发式，但尽量保持：
+Rules are intentionally kept:
 
-* 函数名语义清晰
-* 规则触发原因可解释
-* 可以通过样例和 debug 输出验证
+* understandable
+* testable
+* debuggable
+* regression-friendly
 
-### 3. 保守优先
+### 3. Conservative before aggressive
 
-在 PDF 恢复里，过度激进的规则很容易把不同结构错误粘连。当前更偏向：
+In PDF recovery, aggressive rules can easily fuse unrelated structures.
+The package prefers to establish a stable baseline first and expand from there.
 
-* 先得到稳定可用的 baseline
-* 再逐步扩展更复杂语义
+### 4. Native structure first
 
-### 4. 先 text-first，再逐步几何增强
-
-当前阶段优先解决：
-
-* 文本归一化
-* hard wrap
-* heading / paragraph 恢复
-
-后续再引入：
-
-* 更强的 bbox / baseline / font / alignment 信号
+The normal PDF path is now built on native structure recovery itself, not on a flat-text-first fallback description.
 
 ---
 
-## 为什么当前选择 text-first Phase-1
+## Why `pdf_core` Matters Now
 
-这是一个刻意的设计取舍。
+A short summary of the current stage:
 
-如果一开始就试图做：
+> `pdf_core` is no longer just a low-level PDF text extraction experiment.
+> It is now the native structural recovery backbone of the PDF normal path on `main`.
 
-* 完整阅读顺序
-* 全页面版面恢复
-* 双栏/表格/caption/页眉页脚统一判定
+More concretely:
 
-那么系统很容易在底层信号还不够稳定时就陷入过早复杂化。
+* it no longer merely “gets text out of a PDF”
+* it now actively reconstructs structure
+* it already outputs a usable document model for upper layers
+* it serves as the native foundation for the current `convert/pdf` mainflow
 
-因此当前先做的是：
-
-* 把 raw 文本链路做通
-* 让 line 恢复稳定
-* 让 block 恢复可用
-* 让 model 能正式承载这些结构
-
-等这条链真正稳住后，再继续增强几何和复杂布局能力。
-
----
-
-## 下一步路线
-
-当前阶段完成后，下一步最自然的推进方向主要有两个。
-
-### 方向 A：继续增强 `pdf_core`
-
-可能包括：
-
-* 引入更强几何信号参与 lines / blocks 恢复
-* 提升标题识别、段落恢复、页眉页脚候选能力
-* 开始建模 caption / table / artifact / header-footer
-* 把 images / annotations / outlines 等对象逐步接入统一模型
-
-### 方向 B：接入 `convert/pdf`
-
-这也是当前最值得推进的方向之一。
-
-即：
-
-* 让 `convert/pdf` 直接消费 `PdfDocumentModel`
-* 将 heading candidate / paragraph block 落地为 Markdown 结构
-* 逐步减少旧路径中依赖“纯文本抽取 + 后处理”的部分
-
-当前 `pdf_core` 的状态已经足以支撑这件事开始发生。
-
----
-
-## 当前状态总结
-
-一句话总结当前阶段：
-
-> `pdf_core` 已经从“底层抽字实验链”进入“可稳定输出 heading / paragraph blocks 的 PDF text-first 结构恢复模块”阶段，并可作为后续 `convert/pdf` 接入的基础。
-
-如果再展开一点说，就是：
-
-* 它已经不只是“把 PDF 文字拿出来”
-* 而是开始真正承担“结构恢复”的职责
-* 虽然还远不是完整 PDF 引擎
-* 但已经具备了一个清晰、稳定、可继续扩展的核心骨架
-
-这也是当前阶段最重要的成果。
+That is the most important status change to reflect in this README.

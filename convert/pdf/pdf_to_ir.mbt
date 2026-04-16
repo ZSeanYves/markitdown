@@ -320,7 +320,7 @@ fn looks_like_section_heading_role_for_ir(
   text : String,
   block : PdfConvertBlock,
   prev : PdfConvertBlock?,
-  next : PdfConvertBlock?,
+  _next : PdfConvertBlock?,
 ) -> Bool {
   let t = text.trim().to_string()
   if t == "" {

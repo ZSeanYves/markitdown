@@ -18,9 +18,15 @@ pub fn new_document() -> Document
 
 pub fn next_image_asset_rel_path(@ref.Ref[Int], String) -> String
 
+pub fn next_image_asset_rel_path_unique(@ref.Ref[Int], String, String) -> String
+
 pub fn normalize_text(String) -> String
 
 pub fn push(Document, Block) -> Unit
+
+pub fn push_with_origin(Document, Block, Origin?) -> Unit
+
+pub fn set_asset_origin(Document, String, AssetOrigin) -> Unit
 
 pub fn slice_to_string(Array[Char], Int, Int) -> String
 
@@ -40,21 +46,60 @@ pub(all) suberror Utf8DecodeError {
 pub impl Show for Utf8DecodeError
 
 // Types and methods
+pub(all) struct AssetOrigin {
+  source_name : String?
+  page : Int?
+  slide : Int?
+  sheet : String?
+  origin_id : String?
+  nearby_caption : String?
+}
+
 pub(all) enum Block {
   Heading(Int, String)
+  RichHeading(Int, Array[Inline])
   Paragraph(String)
+  RichParagraph(Array[Inline])
   ListItem(Bool, Int, String)
+  RichListItem(Bool, Int, Array[Inline])
   BlockQuote(String)
   CodeBlock(String)
   Table(Array[Array[String]])
   Image(String, String)
+  ImageBlock(ImageData)
   BlankLine
 }
 
 pub struct Document {
   blocks : @ref.Ref[Array[Block]]
+  block_origins : @ref.Ref[Array[Origin?]]
+  asset_origins : @ref.Ref[Map[String, AssetOrigin]]
+}
+
+pub(all) struct ImageData {
+  path : String
+  alt_text : String?
+  title : String?
+  caption : String?
+  origin : Origin?
+}
+
+pub(all) enum Inline {
+  Text(String)
+  Break
+  Link(String, String)
+}
+
+pub(all) struct Origin {
+  source_name : String?
+  page : Int?
+  slide : Int?
+  sheet : String?
+  block_index : Int?
+  heading_path : Array[String]?
 }
 
 // Type aliases
 
 // Traits
+

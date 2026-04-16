@@ -286,7 +286,7 @@ fn assert_page_heading_candidate_at_least(
 }
 
 ///|
-fn print_structure_counts(
+fn _print_structure_counts(
   label : String,
   raw : @raw.RawPdfDocumentExtract,
 ) -> Unit raise {
@@ -318,7 +318,7 @@ fn print_structure_counts(
 }
 
 ///|
-fn print_span_sources(
+fn _print_span_sources(
   label : String,
   doc_spans : @text.PdfDocumentSpans,
 ) -> Unit {
@@ -366,7 +366,7 @@ fn print_span_sources(
 }
 
 ///|
-fn print_line_sources(
+fn _print_line_sources(
   label : String,
   doc_lines : @text.PdfDocumentLines,
 ) -> Unit {
@@ -440,9 +440,9 @@ async test "pdf core smoke works on text_simple sample" {
     fail("text_simple page 0 blocks length should be > 0")
   }
 
-  print_structure_counts("text_simple", raw)
-  print_span_sources("text_simple", doc_spans)
-  print_line_sources("text_simple", doc_lines)
+  //print_structure_counts("text_simple", raw)
+  //print_span_sources("text_simple", doc_spans)
+  //print_line_sources("text_simple", doc_lines)
 
   let doc = open_pdf_model("samples/pdf/text_simple.pdf")
   assert_model_readable(doc)
@@ -484,9 +484,9 @@ async test "pdf core smoke works on hardwrap_en sample" {
     fail("hardwrap_en page 0 blocks length should be > 0")
   }
 
-  print_structure_counts("hardwrap_en", raw)
-  print_span_sources("hardwrap_en", doc_spans)
-  print_line_sources("hardwrap_en", doc_lines)
+  //print_structure_counts("hardwrap_en", raw)
+  //print_span_sources("hardwrap_en", doc_spans)
+  //print_line_sources("hardwrap_en", doc_lines)
 
   let doc = open_pdf_model("samples/pdf/hardwrap_en.pdf")
   assert_model_readable(doc)
@@ -529,9 +529,9 @@ async test "pdf core smoke works on hardwrap_zh sample" {
     fail("hardwrap_zh page 0 blocks length should be > 0")
   }
 
-  print_structure_counts("hardwrap_zh", raw)
-  print_span_sources("hardwrap_zh", doc_spans)
-  print_line_sources("hardwrap_zh", doc_lines)
+  //print_structure_counts("hardwrap_zh", raw)
+  //print_span_sources("hardwrap_zh", doc_spans)
+  //print_line_sources("hardwrap_zh", doc_lines)
 
   let doc = open_pdf_model("samples/pdf/hardwrap_zh.pdf")
   assert_model_readable(doc)

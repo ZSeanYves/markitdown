@@ -1,15 +1,15 @@
 ///|
-fn zero_point() -> PdfPoint {
+fn zero_point() -> @model.PdfPoint {
   { x: 0, y: 0 }
 }
 
 ///|
-fn zero_rect() -> PdfRect {
+fn zero_rect() -> @model.PdfRect {
   { x0: 0, y0: 0, x1: 0, y1: 0 }
 }
 
 ///|
-fn dummy_source_ref() -> PdfSourceRef {
+fn dummy_source_ref() -> @model.PdfSourceRef {
   {
     page_index: 0,
     source_stream_index: 0,
@@ -21,7 +21,7 @@ fn dummy_source_ref() -> PdfSourceRef {
 }
 
 ///|
-fn make_span(text : String) -> PdfTextSpan {
+fn make_span(text : String) -> @model.PdfTextSpan {
   {
     id: "s",
     bbox: zero_rect(),
@@ -39,7 +39,7 @@ fn make_span(text : String) -> PdfTextSpan {
     word_spacing: None,
     text_rise: None,
     scale_x: None,
-    writing_direction: PdfWritingDirection::LeftToRight,
+    writing_direction: @model.PdfWritingDirection::LeftToRight,
     language_hint: None,
     chars: [],
     source_refs: [dummy_source_ref()],
@@ -49,7 +49,7 @@ fn make_span(text : String) -> PdfTextSpan {
 }
 
 ///|
-fn make_line(spans : Array[PdfTextSpan]) -> PdfTextLine {
+fn make_line(spans : Array[@model.PdfTextSpan]) -> @model.PdfTextLine {
   {
     id: "l",
     bbox: zero_rect(),
@@ -70,16 +70,16 @@ fn make_line(spans : Array[PdfTextSpan]) -> PdfTextLine {
 }
 
 ///|
-fn make_block(lines : Array[PdfTextLine]) -> PdfTextBlock {
+fn make_block(lines : Array[@model.PdfTextLine]) -> @model.PdfTextBlock {
   {
     id: "b",
     bbox: zero_rect(),
-    kind: PdfTextBlockKind::Text,
+    kind: @model.PdfTextBlockKind::Text,
     rotation: None,
     dominant_font_name: None,
     dominant_font_size: None,
     dominant_language: None,
-    writing_direction: PdfWritingDirection::LeftToRight,
+    writing_direction: @model.PdfWritingDirection::LeftToRight,
     z_index: None,
     lines,
     is_heading_candidate: false,
@@ -93,17 +93,17 @@ fn make_block(lines : Array[PdfTextLine]) -> PdfTextBlock {
 }
 
 ///|
-fn debug_case(label : String, left : String, right : String) -> Unit {
-  let glue = glue_between_spans(left, right)
+fn debug_case(_label : String, left : String, right : String) -> Unit {
+  let _glue = @model.glue_between_spans(left, right)
   let line = make_line([make_span(left), make_span(right)])
-  let line_final = line_text(line)
-  let block_final = block_text(make_block([line]))
+  let _line_final = @model.line_text(line)
+  let _block_final = @model.block_text(make_block([line]))
 
-  println("== token: " + label + " ==")
-  println("raw span text: [\"" + left + "\", \"" + right + "\"]")
-  println("glue 后: \"" + (left + glue + right) + "\" (glue=\"" + glue + "\")")
-  println("line text 最终值: \"" + line_final + "\"")
-  println("block text 最终值: \"" + block_final + "\"")
+  //println("== token: " + label + " ==")
+  //println("raw span text: [\"" + left + "\", \"" + right + "\"]")
+  //println("glue 后: \"" + (left + glue + right) + "\" (glue=\"" + glue + "\")")
+  //println("line text 最终值: \"" + line_final + "\"")
+  //println("block text 最终值: \"" + block_final + "\"")
 }
 
 ///|

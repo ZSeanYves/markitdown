@@ -1,6 +1,6 @@
 ///|
 /// 图片对象。
-pub struct PdfImageObject {
+pub(all) struct PdfImageObject {
   id : String
   bbox : PdfRect
   width_px : Int
@@ -16,7 +16,7 @@ pub struct PdfImageObject {
 
 ///|
 /// 矢量对象。
-pub enum PdfVectorKind {
+pub(all) enum PdfVectorKind {
   Line
   Rect
   Curve
@@ -27,7 +27,7 @@ pub enum PdfVectorKind {
 }
 
 ///|
-pub struct PdfVectorObject {
+pub(all) struct PdfVectorObject {
   id : String
   bbox : PdfRect
   kind : PdfVectorKind
@@ -40,7 +40,7 @@ pub struct PdfVectorObject {
 
 ///|
 /// 注释对象。
-pub struct PdfAnnotationObject {
+pub(all) struct PdfAnnotationObject {
   id : String
   subtype : String
   bbox : PdfRect
@@ -56,7 +56,7 @@ pub struct PdfAnnotationObject {
 
 ///|
 /// 表单字段对象。
-pub struct PdfFormField {
+pub(all) struct PdfFormField {
   id : String
   field_type : String
   field_name : String?
@@ -101,7 +101,7 @@ pub(all) struct PdfDocumentMetadata {
 
 ///|
 /// 目录/书签项。
-pub struct PdfOutlineItem {
+pub(all) struct PdfOutlineItem {
   title : String
   page_index : Int?
   dest : String?

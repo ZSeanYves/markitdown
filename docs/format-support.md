@@ -21,27 +21,31 @@ Current boundaries:
 
 ## PDF
 
-The current PDF pipeline on `main` is still:
+The PDF mainflow on `main` is now:
 
-**external text-first**
+**fully native structural recovery**
+
+The normal PDF path has been fully replaced by the native recovery chain rather than an external text-first pipeline.
 
 Current capabilities include:
 
-* multi-backend text extraction and selection
+* native character / span / line / block recovery
+* text normalization and fragmented-English-word recovery
 * page-noise cleanup
 * repeated header/footer cleanup
 * heading / short-sentence boundary recovery
 * paragraph / block recovery
-* basic list-item recovery
+* basic bullet / list-item recovery
 * cross-page paragraph merging
 * hardwrap recovery
-* conservative handling of pseudo two-column negative cases
+* conservative pseudo two-column negative protection
 
 Current boundaries:
 
-* the main path is still text-first rather than an event/line/block-native structure-recovery chain
-* OCR is not the default normal path
-* more complex layouts still depend mainly on heuristic post-processing
+* OCR is still not the default normal path
+* OCR currently works as a plugin path driven by external tooling
+* more complex multi-column, mixed graphic-text, and extreme extractor-level anomalies are still being improved
+* some complex layouts still rely on heuristic rules rather than full layout-semantic reconstruction
 
 ---
 
@@ -59,7 +63,7 @@ Current capabilities include:
 Current boundaries:
 
 * no formula evaluation
-* merged cells are not yet treated as richer structural recovery targets
+* merged cells are not yet upgraded into richer structural recovery targets
 
 ---
 
@@ -79,8 +83,8 @@ Current capabilities include:
 
 Current boundaries:
 
-* negative cases are still conservatively downgraded to ordered paragraphs
-* table-like stabilization currently focuses more on region/order recovery than full table-level IR semantics
+* negative cases may still be conservatively downgraded to ordered paragraphs
+* table-like stabilization currently focuses more on region / order recovery than on full table-level IR semantics
 
 ---
 
@@ -100,5 +104,5 @@ Current capabilities include:
 
 Current boundaries:
 
-* still a lightweight DOM-like model rather than a browser-grade full HTML semantic model
+* the current model is still lightweight and DOM-like rather than browser-grade HTML semantics
 * more complex containers and deeply nested cases are still handled conservatively
