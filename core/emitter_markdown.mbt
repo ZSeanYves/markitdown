@@ -98,6 +98,19 @@ pub fn emit_markdown(doc : Document) -> String {
           out = out + "\n"
         }
       }
+      RichBlockQuote(inlines) => {
+        let t = render_inlines(inlines)
+          .replace(old="<br>", new="\n")
+          .trim()
+          .to_string()
+        if t != "" {
+          for sv in t.split("\n") {
+            let line = sv.to_string()
+            out = out + "> " + line + "\n"
+          }
+          out = out + "\n"
+        }
+      }
       CodeBlock(text) => {
         let t = text
           .replace(old="\r\n", new="\n")

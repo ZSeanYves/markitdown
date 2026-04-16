@@ -4,12 +4,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
+GEN_SCRIPT="$SAMPLES_DIR/generate_hyperlink_binaries.py"
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
 fail=0
 
 echo "==> sample integrity check"
+
+if [[ -f "$GEN_SCRIPT" ]]; then
+  echo "==> generate binary hyperlink samples"
+  if ! python3 "$GEN_SCRIPT"; then
+    echo "[warn] binary sample generation failed; integrity check may fail for generated cases"
+  fi
+fi
 
 is_noise_file() {
   local base="$1"

@@ -11,6 +11,7 @@ Current capabilities include:
 * blockquote detection
 * code-like paragraph recovery
 * line-break handling in paragraphs and table cells
+* hyperlink recovery in paragraph / heading / list contexts
 
 Current boundaries:
 
@@ -80,6 +81,7 @@ Current capabilities include:
 * note-like / caption-like / callout-like grouping
 * table-like / grid-like region detection and stabilization
 * conservative page-number / corner-label noise filtering
+* hyperlink recovery for run-level links and basic shape-level links
 
 Current boundaries:
 
@@ -101,8 +103,10 @@ Current capabilities include:
 * lightweight inline model
 * local structure recovery inside list-item containers
 * local structure recovery inside blockquote containers
+* hyperlink recovery for paragraph / heading / list-item / blockquote inline text
 
 Current boundaries:
 
 * the current model is still lightweight and DOM-like rather than browser-grade HTML semantics
 * more complex containers and deeply nested cases are still handled conservatively
+* table cell hyperlink currently stays on string-render path (not yet rich-inline IR)
