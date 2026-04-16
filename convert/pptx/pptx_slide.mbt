@@ -33,11 +33,11 @@ fn extract_shape_paragraphs(
                 let inlines0 = extract_text_inlines(
                   xml, inner_start, p_end0, hyperlinks,
                 )
-                let text = render_plain_text_inlines(inlines0).trim().to_string()
+                let text = render_plain_text_inlines(inlines0)
+                  .trim()
+                  .to_string()
                 let inlines = apply_shape_level_link_if_needed(
-                  inlines0,
-                  text,
-                  shape_link,
+                  inlines0, text, shape_link,
                 )
 
                 let bullet_kind = paragraph_bullet_kind(

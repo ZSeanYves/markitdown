@@ -59,6 +59,7 @@ pub fn emit_markdown(doc : Document) -> String {
           if i + 1 < blocks.length() {
             match blocks[i + 1] {
               ListItem(_, _, _) => ()
+              RichListItem(_, _, _) => ()
               BlankLine => ()
               _ => out = out + "\n"
             }
@@ -99,16 +100,9 @@ pub fn emit_markdown(doc : Document) -> String {
         }
       }
       RichBlockQuote(inlines) => {
-        let t = render_inlines(inlines)
-          .replace(old="<br>", new="\n")
-          .trim()
-          .to_string()
+        let t = render_inlines(inlines).trim().to_string()
         if t != "" {
-          for sv in t.split("\n") {
-            let line = sv.to_string()
-            out = out + "> " + line + "\n"
-          }
-          out = out + "\n"
+          out = out + "> " + t + "\n\n"
         }
       }
       CodeBlock(text) => {

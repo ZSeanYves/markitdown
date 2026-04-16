@@ -360,56 +360,42 @@ fn list_item_children_to_inlines(
   children : Array[HtmlNode],
   max_h : Int,
 ) -> Array[@cor.Inline]? {
-  let out : Array[@cor.Inline] = []
-  let mut first = true
-
-  for node in children {
-    match list_item_child_to_inlines(node, max_h) {
-      Some(xs) =>
-        if xs.length() > 0 {
-          if !first {
-            out.push(@cor.Inline::Break)
-          }
-          for x in xs {
-            out.push(x)
-          }
-          first = false
-        }
-      None => return None
-    }
+  let _ = max_h
+  // RichListItem is only safe for inline-only simple list items.
+  // Any multi-child or block-mixed structure must keep legacy block semantics.
+  if children.length() != 1 {
+    return None
   }
-
-  if render_ir_inlines(out).trim() == "" {
-    None
-  } else {
-    Some(out)
+  match children[0] {
+    HtmlNode::Paragraph(xs) =>
+      if html_inlines_are_simple_inline_only(xs) {
+        let out = html_inlines_to_ir(xs)
+        if render_ir_inlines(out).trim() == "" {
+          None
+        } else {
+          Some(out)
+        }
+      } else {
+        None
+      }
+    _ => None
   }
 }
 
 ///|
-fn list_item_child_to_inlines(
-  node : HtmlNode,
-  max_h : Int,
-) -> Array[@cor.Inline]? {
-  match node {
-    HtmlNode::Paragraph(xs) => Some(html_inlines_to_ir(xs))
-    HtmlNode::Heading(level, xs) => {
-      let h = clamp_heading(level, max_h)
-      let mut prefix = ""
-      let mut i = 0
-      while i < h {
-        prefix = prefix + "#"
-        i = i + 1
-      }
-      let out : Array[@cor.Inline] = [@cor.Inline::Text(prefix + " ")]
-      let rest = html_inlines_to_ir(xs)
-      for x in rest {
-        out.push(x)
-      }
-      Some(out)
-    }
-    _ => None
+fn html_inlines_are_simple_inline_only(xs : Array[HtmlInline]) -> Bool {
+  if xs.length() == 0 {
+    return false
   }
+  for x in xs {
+    match x {
+      HtmlInline::Text(_) => ()
+      HtmlInline::Break => ()
+      HtmlInline::Link(_, _) => ()
+      HtmlInline::Image(_, _, _) => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -480,55 +466,23 @@ fn quote_children_to_inlines(
   children : Array[HtmlNode],
   max_h : Int,
 ) -> Array[@cor.Inline]? {
-  let out : Array[@cor.Inline] = []
-  let mut first = true
-
-  for node in children {
-    match quote_node_to_inlines(node, max_h) {
-      Some(xs) =>
-        if xs.length() > 0 {
-          if !first {
-            out.push(@cor.Inline::Break)
-            out.push(@cor.Inline::Break)
-          }
-          for x in xs {
-            out.push(x)
-          }
-          first = false
+  let _ = max_h
+  // RichBlockQuote is only safe for single-paragraph inline-only blockquote.
+  if children.length() != 1 {
+    return None
+  }
+  match children[0] {
+    HtmlNode::Paragraph(xs) =>
+      if html_inlines_are_simple_inline_only(xs) {
+        let out = html_inlines_to_ir(xs)
+        if render_ir_inlines(out).trim() == "" {
+          None
+        } else {
+          Some(out)
         }
-      None => return None
-    }
-  }
-
-  if render_ir_inlines(out).trim() == "" {
-    None
-  } else {
-    Some(out)
-  }
-}
-
-///|
-fn quote_node_to_inlines(
-  node : HtmlNode,
-  max_h : Int,
-) -> Array[@cor.Inline]? {
-  match node {
-    HtmlNode::Paragraph(xs) => Some(html_inlines_to_ir(xs))
-    HtmlNode::Heading(level, xs) => {
-      let h = clamp_heading(level, max_h)
-      let mut prefix = ""
-      let mut i = 0
-      while i < h {
-        prefix = prefix + "#"
-        i = i + 1
+      } else {
+        None
       }
-      let out : Array[@cor.Inline] = [@cor.Inline::Text(prefix + " ")]
-      let rest = html_inlines_to_ir(xs)
-      for x in rest {
-        out.push(x)
-      }
-      Some(out)
-    }
     _ => None
   }
 }
