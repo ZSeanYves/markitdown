@@ -30,7 +30,7 @@ pub(all) struct Origin {
   sheet : String?
   block_index : Int?
   heading_path : Array[String]?
-}
+} derive(Eq, Show)
 
 ///|
 pub(all) struct ImageData {

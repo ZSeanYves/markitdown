@@ -91,21 +91,23 @@ fn paragraph_inlines_to_blocks(
         buf.push(
           @cor.Inline::Link(text.trim().to_string(), href.trim().to_string()),
         )
-      HtmlInline::Image(alt, _title, src) => {
+      HtmlInline::Image(alt, title, src) => {
         if render_ir_inlines(buf).trim() != "" {
           out.push(@cor.Block::RichParagraph(buf))
         }
         buf = []
 
         match export_local_html_image(ctx, src) {
-          Some(path) => {
-            let a = if alt.trim() == "" {
-              "image"
-            } else {
-              alt.trim().to_string()
-            }
-            out.push(@cor.Block::Image(a, path))
-          }
+          Some(path) =>
+            out.push(
+              @cor.Block::ImageBlock({
+                path,
+                alt_text: normalized_optional_text(alt),
+                title: normalize_optional_html_attr(title),
+                caption: None,
+                origin: None,
+              }),
+            )
           None => {
             let fallback = if alt.trim() == "" {
               "image"
@@ -535,15 +537,33 @@ fn figure_to_image_block(
           Some(
             @cor.Block::ImageBlock({
               path,
-              alt_text: Some(alt.trim().to_string()),
-              title,
-              caption: Some(render_inlines(caption).trim().to_string()),
+              alt_text: normalized_optional_text(alt),
+              title: normalize_optional_html_attr(title),
+              caption: normalized_optional_text(render_inlines(caption)),
               origin: None,
             }),
           )
         None => None
       }
     _ => None
+  }
+}
+
+///|
+fn normalized_optional_text(s : String) -> String? {
+  let t = s.trim().to_string()
+  if t == "" {
+    None
+  } else {
+    Some(t)
+  }
+}
+
+///|
+fn normalize_optional_html_attr(s : String?) -> String? {
+  match s {
+    Some(raw) => normalized_optional_text(raw)
+    None => None
   }
 }
 

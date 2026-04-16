@@ -29,6 +29,8 @@ fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
+    let page_image_captions = infer_page_image_nearby_captions(page)
+    let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {
         PdfConvertPageObject::TextBlock(block) => {
@@ -49,6 +51,12 @@ fn convert_pdf_blocks_to_ir(
           if image.path.trim() == "" {
             continue
           }
+          let nearby_caption = if page_image_idx < page_image_captions.length() {
+            page_image_captions[page_image_idx]
+          } else {
+            None
+          }
+          page_image_idx += 1
 
           let origin : @cor.Origin = {
             source_name: None,
@@ -65,7 +73,7 @@ fn convert_pdf_blocks_to_ir(
               path: image.path,
               alt_text: image.alt_text,
               title: None,
-              caption: image.caption,
+              caption: nearby_caption,
               origin: Some(origin),
             }),
             Some(origin),
@@ -77,11 +85,40 @@ fn convert_pdf_blocks_to_ir(
             slide: None,
             sheet: None,
             origin_id: Some(image.source_image_id),
-            nearby_caption: image.caption,
+            nearby_caption,
           })
         }
       }
     }
+  }
+
+  out
+}
+
+///|
+fn infer_page_image_nearby_captions(page : PdfConvertPage) -> Array[String?] {
+  let out : Array[String?] = []
+  for _ in page.images {
+    out.push(None)
+  }
+
+  if page.images.length() != 1 {
+    return out
+  }
+
+  let candidates : Array[String] = []
+  for block in page.blocks {
+    let t = block.text.trim().to_string()
+    if t == "" {
+      continue
+    }
+    if looks_like_figure_or_table_caption_for_ir(t) {
+      candidates.push(t)
+    }
+  }
+
+  if candidates.length() == 1 {
+    out[0] = Some(candidates[0])
   }
 
   out

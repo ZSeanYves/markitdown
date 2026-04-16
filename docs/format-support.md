@@ -44,6 +44,7 @@ Current capabilities include:
 * conservative pseudo two-column negative protection
 * lightweight page-level block origin metadata
 * lightweight image asset origin metadata
+* conservative nearby-caption attachment for images when a page has a single high-confidence caption-like text
 
 Current boundaries:
 
@@ -87,6 +88,7 @@ Current capabilities include:
 * table-like / grid-like region detection and stabilization
 * conservative page-number / corner-label noise filtering
 * hyperlink recovery for run-level links and basic shape-level links
+* conservative image caption-like attachment for single-image slides
 * lightweight slide-level block origin metadata
 * lightweight slide-level asset origin metadata
 
@@ -113,9 +115,11 @@ Current capabilities include:
 * hyperlink recovery for paragraph / heading / list-item / blockquote inline text
 * lightweight document-level block origin metadata
 * lightweight image/figure asset origin metadata
+* image context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
 
 Current boundaries:
 
 * the current model is still lightweight and DOM-like rather than browser-grade HTML semantics
 * more complex containers and deeply nested cases are still handled conservatively
 * table cell hyperlink currently stays on string-render path (not yet rich-inline IR)
+* remote / unsupported image sources are still handled conservatively and are not force-exported

@@ -19,12 +19,20 @@
 * table-like regions are currently stabilized mainly at the reading-order / grouping level
 * not all high-confidence grid-like regions are upgraded into richer table semantics
 * negative layouts are often conservatively preserved as readable ordered paragraphs
+* image-to-caption matching remains conservative; ambiguous multi-image/multi-caption scenes are intentionally left unmatched
 
 ## HTML
 
 * the parser is intentionally lightweight
 * there is no browser-grade rendering model
 * complex deeply nested semantic containers are still handled conservatively
+* remote images are not force-exported as local assets
+
+## PDF image context
+
+* image context remains lightweight and conservative
+* nearby caption attachment is currently only attempted for single-image + single high-confidence caption-like cases
+* no precise bbox graph matching between images and text blocks yet
 
 ## XLSX
 

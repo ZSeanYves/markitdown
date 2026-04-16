@@ -49,6 +49,32 @@ fn assert_image_assets_are_indexed(doc : @cor.Document) -> Unit raise {
 }
 
 ///|
+fn first_image_block(doc : @cor.Document) -> @cor.ImageData? {
+  for b in doc.blocks.val {
+    match b {
+      @cor.Block::ImageBlock(img) => return Some(img)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn assert_asset_origin_has_min_source(
+  doc : @cor.Document,
+  path : String,
+) -> Unit raise {
+  match doc.asset_origins.val.get(path) {
+    None => fail("missing asset origin for path: " + path)
+    Some(origin) =>
+      match origin.source_name {
+        Some(_) => ()
+        None => fail("asset origin source_name should be present: " + path)
+      }
+  }
+}
+
+///|
 fn assert_doc_level_origins(doc : @cor.Document) -> Unit raise {
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
@@ -156,6 +182,16 @@ test "origin metadata minimal closure for html and docx" {
   assert_block_origin_alignment(html_doc)
   assert_doc_level_origins(html_doc)
   assert_image_assets_are_indexed(html_doc)
+  match first_image_block(html_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, Some("single"))
+      assert_eq(img.title, None)
+      assert_eq(img.caption, None)
+      assert_eq(img.origin, None)
+      assert_asset_origin_has_min_source(html_doc, img.path)
+    }
+    None => fail("expected one html image block")
+  }
 
   let docx_doc = @doc.parse_docx(
     resolve_sample_path("samples/docx/golden.docx"),
@@ -175,13 +211,34 @@ test "origin metadata minimal closure for pptx and xlsx" {
   ensure_dir(out_dir + "/xlsx")
 
   let pptx_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/image/pptx_image_single.pptx"),
+    resolve_sample_path("samples/pptx/pptx_image_single_caption_like.pptx"),
     out_dir + "/pptx",
     6,
   )
   assert_block_origin_alignment(pptx_doc)
   assert_slide_level_origins(pptx_doc)
   assert_image_assets_are_indexed(pptx_doc)
+  match first_image_block(pptx_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, Some("slide-1-image-1"))
+      assert_eq(img.title, None)
+      assert_eq(img.caption, Some("Figure 1. Revenue trend"))
+      match img.origin {
+        Some(origin) => assert_eq(origin.slide, Some(1))
+        None => fail("pptx image origin should exist")
+      }
+      assert_asset_origin_has_min_source(pptx_doc, img.path)
+      match pptx_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) =>
+          assert_eq(
+            asset_origin.nearby_caption,
+            Some("Figure 1. Revenue trend"),
+          )
+        None => fail("pptx asset origin should exist")
+      }
+    }
+    None => fail("expected one pptx image block")
+  }
 
   let xlsx_doc = @xlsx.parse_xlsx(
     resolve_sample_path("samples/xlsx/sheet_simple.xlsx"),
@@ -210,4 +267,16 @@ async test "origin metadata minimal closure for pdf" {
   assert_block_origin_alignment(pdf_doc)
   assert_page_level_origins(pdf_doc)
   assert_image_assets_are_indexed(pdf_doc)
+  match first_image_block(pdf_doc) {
+    Some(img) => {
+      assert_eq(img.title, None)
+      assert_eq(img.caption, None)
+      match img.origin {
+        Some(origin) => assert_eq(origin.page, Some(1))
+        None => fail("pdf image origin should exist")
+      }
+      assert_asset_origin_has_min_source(pdf_doc, img.path)
+    }
+    None => fail("expected one pdf image block")
+  }
 }

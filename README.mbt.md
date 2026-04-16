@@ -28,10 +28,10 @@ The project is no longer in an early MVP stage. The current `main` branch alread
 Current capabilities include:
 
 * **DOCX**: heading, list, table, image, blockquote, and code-like paragraph recovery, plus hyperlink recovery in paragraphs, headings, and list items
-* **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction
+* **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction, with lightweight page-level image origin and conservative nearby-caption attachment in single-caption-like cases
 * **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
-* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, plus basic run-level and shape-level hyperlink recovery
-* **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery and inline hyperlink recovery
+* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, basic image-caption attachment for conservative single-image cases, plus basic run-level and shape-level hyperlink recovery
+* **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery, inline hyperlink recovery, and image context retention (`alt`, `title`, `figure` / `figcaption`)
 
 The repository now provides a stable workflow built around:
 

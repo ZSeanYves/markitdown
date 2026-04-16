@@ -264,6 +264,32 @@ fn infer_slide_image_captions(
     let (para_id, caption) = candidates[0]
     out[0] = Some(caption)
     consumed.set(para_id, true)
+    return (out, consumed)
+  }
+
+  // conservative nearby-caption fallback:
+  // only for a single-image slide with exactly one short non-bullet paragraph.
+  let nearby_candidates : Array[(Int, String)] = []
+  for para in paras {
+    let t = para.text.trim().to_string()
+    if t == "" {
+      continue
+    }
+    let is_non_bullet = match para.bullet_kind {
+      None => true
+      Some(_) => false
+    }
+    if is_non_bullet &&
+      t.to_array().length() <= 60 &&
+      !looks_like_sentence_like_body_text(t) {
+      nearby_candidates.push((para.source_para_id, t))
+    }
+  }
+
+  if nearby_candidates.length() == 1 && paras.length() <= 2 {
+    let (para_id, caption) = nearby_candidates[0]
+    out[0] = Some(caption)
+    consumed.set(para_id, true)
   }
   (out, consumed)
 }
@@ -285,6 +311,21 @@ fn is_caption_like_text(s : String) -> Bool {
   t.has_prefix("图：") ||
   t.has_prefix("图 ") ||
   t.has_prefix("图片")
+}
+
+///|
+fn looks_like_sentence_like_body_text(s : String) -> Bool {
+  let t = s.trim().to_string()
+  if t.to_array().length() < 16 {
+    return false
+  }
+
+  t.contains("，") ||
+  t.contains("。") ||
+  t.contains(",") ||
+  t.contains(". ") ||
+  t.contains(";") ||
+  t.contains("；")
 }
 
 ///|
