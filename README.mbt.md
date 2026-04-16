@@ -1,37 +1,63 @@
 # markitdown-mb
 
-A document conversion tool implemented in **MoonBit**, inspired by Microsoft **markitdown**, for converting **DOCX / PDF / XLSX / PPTX / HTML** into structured **Markdown** with extracted assets when needed.
+A **MoonBit-based content processing infrastructure project**, originally inspired by Microsoft **markitdown**.
+
+It is no longer best described as just a “document-to-Markdown conversion tool”. Instead, it is evolving into a reusable foundation for:
+
+* multi-format content parsing
+* structural recovery
+* unified IR modeling
+* asset extraction and indexing
+* lightweight provenance tracking
+* downstream content workflows built on top of a stable intermediate representation
+
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML** and can turn them into structured content with extracted assets when needed.
 
 Supports **macOS** and **Linux**.
 
-The project is built around a unified:
+The project is built around a unified pipeline:
 
-**document -> IR -> Markdown**
+**multi-format content -> unified IR -> Markdown / assets / provenance**
 
-pipeline, with format-specific parsers, structure-recovery stages, and sample-based regression coverage.
+This means the repository should be understood not only as a converter, but as a general-purpose base for content engineering workflows.
 
 ## Current Status
 
-The project is no longer in an early MVP stage. The current `main` branch already provides a fairly complete multi-format mainflow:
+The project is no longer in an early MVP stage. The current `main` branch already provides a fairly complete multi-format mainflow and is steadily moving from a “conversion utility” toward a **general-purpose content engineering foundation**.
 
-* **DOCX**: heading, list, table, image, blockquote, code-like paragraph recovery, and paragraph/heading/list hyperlink recovery
+Current capabilities include:
+
+* **DOCX**: heading, list, table, image, blockquote, and code-like paragraph recovery, plus hyperlink recovery in paragraphs, headings, and list items
 * **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction
 * **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
-* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, and basic run/shape hyperlink recovery
+* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, plus basic run-level and shape-level hyperlink recovery
 * **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery and inline hyperlink recovery
 
 The repository now provides a stable workflow built around:
 
-**multi-format input -> unified IR -> Markdown output -> sample-based regression validation**
+**multi-format input -> unified IR -> Markdown output / asset extraction / regression validation**
 
 ## Origin Metadata (Lightweight Provenance)
 
-The unified IR now includes a lightweight origin metadata layer for both blocks and exported assets:
+The unified IR now includes a lightweight provenance layer for both blocks and exported assets:
 
-* `Document.block_origins`: minimal block-level provenance (e.g., source name, page/slide/sheet, block index)
-* `Document.asset_origins`: minimal asset-level provenance (e.g., source name, page/slide/sheet, origin id, nearby caption)
+* `Document.block_origins`: minimal block-level provenance (for example source name, page / slide / sheet, and block index)
+* `Document.asset_origins`: minimal asset-level provenance (for example source name, page / slide / sheet, origin id, and nearby caption)
 
-Current scope is intentionally lightweight traceability rather than precise anchoring (no bbox / char range / source object id yet), and does **not** change the Markdown main output behavior.
+The current scope is intentionally lightweight traceability rather than precise anchoring. It does **not** yet include bbox / char range / source object id level metadata, and it does **not** change the Markdown main output behavior.
+
+## Why This Project Exists
+
+From an engineering perspective, `markitdown-mb` is increasingly suitable as a foundation for:
+
+* multi-format content ingestion
+* structured Markdown generation
+* asset extraction and management
+* RAG / chunking preprocessing
+* lightweight provenance-aware content pipelines
+* future JSON / chunk / index / audit style downstream outputs
+
+In other words, the project is not trying to be a pixel-perfect visual reproduction engine. Its goal is to become a **reusable, testable, and extensible content processing foundation**.
 
 ## Quick Links
 
@@ -108,7 +134,7 @@ moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
 ./samples/check_assets.sh
 ```
 
-> Note: some hyperlink regression inputs are binary (DOCX/PPTX) and are generated by
+> Note: some hyperlink regression inputs are binary (DOCX / PPTX) and are generated by
 > `./samples/generate_hyperlink_binaries.py` (also auto-invoked by `check_samples.sh`).
 
 ## PDF Mainflow
@@ -131,8 +157,14 @@ The PDF description on `main` should now be understood as follows:
 
 ## Notes
 
-* The goal of the project is **structured Markdown output**, not pixel-perfect visual reproduction
+* The goal of the project is **structured content recovery and unified representation**, not pixel-perfect visual reproduction
 * The PDF mainflow on `main` has already been fully replaced by native recovery logic, but complex layouts remain an active area of ongoing improvement
 * Hyperlink support now covers HTML / DOCX / PPTX, where PPTX currently provides run-level plus basic single-link shape-level handling
 * PPTX, HTML, and PDF are still being improved in terms of structural precision and boundary handling
 * Structural changes should always be validated through regression samples before being merged
+
+## Suggested Positioning
+
+If the repository needs a one-line positioning statement, the most accurate one would be:
+
+> **A unified-IR-driven, multi-format content processing infrastructure project.**

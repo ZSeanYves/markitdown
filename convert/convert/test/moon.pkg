@@ -1,12 +1,10 @@
 import {
+  "moonbitlang/x/fs" @fs,
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/pdf" @pdf,
   "ZSeanYves/markitdown/convert/docx" @doc,
   "ZSeanYves/markitdown/convert/xlsx" @xlsx,
   "ZSeanYves/markitdown/convert/pptx" @pptx,
   "ZSeanYves/markitdown/convert/html" @html,
-}
-
-options(
-  "preferred-target": "native",
-)
+  "moonbitlang/async",
+} for "test"

@@ -1,5 +1,4 @@
 ///|
-/// HTML parser entry
 pub fn parse_html(
   input_path : String,
   out_dir : String,
@@ -22,7 +21,7 @@ pub fn parse_html(
 
   for i in 0..<blocks.length() {
     match blocks[i] {
-      @cor.Block::Image(_alt, path) =>
+      @cor.Block::Image(_alt, path) => {
         asset_idx = asset_idx + 1
         @cor.set_asset_origin(doc, path, {
           source_name: Some(src),
@@ -32,7 +31,8 @@ pub fn parse_html(
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: None,
         })
-      @cor.Block::ImageBlock(img) =>
+      }
+      @cor.Block::ImageBlock(img) => {
         asset_idx = asset_idx + 1
         @cor.set_asset_origin(doc, img.path, {
           source_name: Some(src),
@@ -42,8 +42,10 @@ pub fn parse_html(
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: img.caption,
         })
+      }
       _ => ()
     }
+
     @cor.push_with_origin(
       doc,
       blocks[i],

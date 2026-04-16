@@ -20,7 +20,7 @@ fn ensure_dir(path : String) -> Unit raise {
 }
 
 ///|
-fn assert_block_origin_alignment(doc : @cor.Document) -> Unit {
+fn assert_block_origin_alignment(doc : @cor.Document) -> Unit raise {
   if doc.blocks.val.length() != doc.block_origins.val.length() {
     fail(
       "block/origin length mismatch: blocks=" +
@@ -32,37 +32,37 @@ fn assert_block_origin_alignment(doc : @cor.Document) -> Unit {
 }
 
 ///|
-fn assert_image_assets_are_indexed(doc : @cor.Document) -> Unit {
+fn assert_image_assets_are_indexed(doc : @cor.Document) -> Unit raise {
   for b in doc.blocks.val {
     match b {
-      @cor.Block::Image(_, path) => {
+      @cor.Block::Image(_, path) =>
         if !doc.asset_origins.val.contains(path) {
           fail("missing asset origin for image path: " + path)
         }
-      }
-      @cor.Block::ImageBlock(img) => {
+      @cor.Block::ImageBlock(img) =>
         if !doc.asset_origins.val.contains(img.path) {
           fail("missing asset origin for image path: " + img.path)
         }
-      }
       _ => ()
     }
   }
 }
 
 ///|
-fn assert_doc_level_origins(doc : @cor.Document) -> Unit {
+fn assert_doc_level_origins(doc : @cor.Document) -> Unit raise {
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
       None => fail("block origin should not be None at index: " + i.to_string())
       Some(origin) => {
         match origin.source_name {
           Some(_) => ()
-          None => fail("source_name should be present at index: " + i.to_string())
+          None =>
+            fail("source_name should be present at index: " + i.to_string())
         }
         match origin.block_index {
           Some(_) => ()
-          None => fail("block_index should be present at index: " + i.to_string())
+          None =>
+            fail("block_index should be present at index: " + i.to_string())
         }
       }
     }
@@ -70,7 +70,7 @@ fn assert_doc_level_origins(doc : @cor.Document) -> Unit {
 }
 
 ///|
-fn assert_slide_level_origins(doc : @cor.Document) -> Unit {
+fn assert_slide_level_origins(doc : @cor.Document) -> Unit raise {
   let mut has_slide_origin = false
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
@@ -82,7 +82,8 @@ fn assert_slide_level_origins(doc : @cor.Document) -> Unit {
         }
         match origin.block_index {
           Some(_) => ()
-          None => fail("block_index should be present at index: " + i.to_string())
+          None =>
+            fail("block_index should be present at index: " + i.to_string())
         }
       }
     }
@@ -93,7 +94,7 @@ fn assert_slide_level_origins(doc : @cor.Document) -> Unit {
 }
 
 ///|
-fn assert_sheet_level_origins(doc : @cor.Document) -> Unit {
+fn assert_sheet_level_origins(doc : @cor.Document) -> Unit raise {
   let mut has_sheet_origin = false
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
@@ -105,7 +106,8 @@ fn assert_sheet_level_origins(doc : @cor.Document) -> Unit {
         }
         match origin.block_index {
           Some(_) => ()
-          None => fail("block_index should be present at index: " + i.to_string())
+          None =>
+            fail("block_index should be present at index: " + i.to_string())
         }
       }
     }
@@ -116,7 +118,7 @@ fn assert_sheet_level_origins(doc : @cor.Document) -> Unit {
 }
 
 ///|
-fn assert_page_level_origins(doc : @cor.Document) -> Unit {
+fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
   let mut has_page_origin = false
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
@@ -128,7 +130,8 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit {
         }
         match origin.block_index {
           Some(_) => ()
-          None => fail("block_index should be present at index: " + i.to_string())
+          None =>
+            fail("block_index should be present at index: " + i.to_string())
         }
       }
     }
@@ -190,7 +193,7 @@ test "origin metadata minimal closure for pptx and xlsx" {
 }
 
 ///|
-test "origin metadata minimal closure for pdf" {
+async test "origin metadata minimal closure for pdf" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
   ensure_dir(out_dir + "/pdf")
