@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples"
 EXP_DIR="$SAMPLES_DIR/expected"
 GEN_SCRIPT="$SAMPLES_DIR/generate_hyperlink_binaries.py"
+GEN_PPTX_IMAGE_CONTEXT_SCRIPT="$SAMPLES_DIR/generate_image_context_pptx_samples.py"
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
@@ -16,6 +17,13 @@ if [[ -f "$GEN_SCRIPT" ]]; then
   echo "==> generate binary hyperlink samples"
   if ! python3 "$GEN_SCRIPT"; then
     echo "[warn] binary sample generation failed; integrity check may fail for generated cases"
+  fi
+fi
+
+if [[ -f "$GEN_PPTX_IMAGE_CONTEXT_SCRIPT" ]]; then
+  echo "==> generate pptx image-context samples"
+  if ! python3 "$GEN_PPTX_IMAGE_CONTEXT_SCRIPT"; then
+    echo "[warn] pptx image-context sample generation failed; integrity check may fail for generated cases"
   fi
 fi
 

@@ -59,7 +59,6 @@ fn first_image_block(doc : @cor.Document) -> @cor.ImageData? {
   None
 }
 
-///|
 fn assert_asset_origin_has_min_source(
   doc : @cor.Document,
   path : String,
@@ -204,6 +203,83 @@ test "origin metadata minimal closure for html and docx" {
 }
 
 ///|
+test "html image context fields should preserve alt/title/figcaption conservatively" {
+  let out_dir = "tmp-origin-tests"
+  ensure_dir(out_dir)
+  ensure_dir(out_dir + "/html-context")
+
+  let html_alt_doc = @html.parse_html(
+    resolve_sample_path("samples/html/html_img_alt_basic.html"),
+    out_dir + "/html-context",
+    6,
+  )
+  match first_image_block(html_alt_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, Some("red diagram"))
+      assert_eq(img.title, None)
+      assert_eq(img.caption, None)
+      assert_eq(img.origin, None)
+      match html_alt_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => assert_eq(asset_origin.nearby_caption, None)
+        None => fail("html alt sample asset origin should exist")
+      }
+    }
+    None => fail("expected one html image block for alt sample")
+  }
+
+  let html_title_doc = @html.parse_html(
+    resolve_sample_path("samples/html/html_img_title_basic.html"),
+    out_dir + "/html-context",
+    6,
+  )
+  match first_image_block(html_title_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, Some("red diagram"))
+      assert_eq(img.title, Some("Figure title text"))
+      assert_eq(img.caption, None)
+      assert_eq(img.origin, None)
+      assert_asset_origin_has_min_source(html_title_doc, img.path)
+    }
+    None => fail("expected one html image block for title sample")
+  }
+
+  let html_fig_doc = @html.parse_html(
+    resolve_sample_path("samples/html/html_figure_figcaption_basic.html"),
+    out_dir + "/html-context",
+    6,
+  )
+  match first_image_block(html_fig_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, Some("figure image"))
+      assert_eq(img.title, Some("Figure title"))
+      assert_eq(img.caption, Some("Figure caption text."))
+      assert_eq(img.origin, None)
+      match html_fig_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) =>
+          assert_eq(asset_origin.nearby_caption, Some("Figure caption text."))
+        None => fail("html figure sample asset origin should exist")
+      }
+    }
+    None => fail("expected one html image block for figure sample")
+  }
+
+  let html_missing_alt_doc = @html.parse_html(
+    resolve_sample_path("samples/html/html_img_missing_alt_negative.html"),
+    out_dir + "/html-context",
+    6,
+  )
+  match first_image_block(html_missing_alt_doc) {
+    Some(img) => {
+      assert_eq(img.alt_text, None)
+      assert_eq(img.title, None)
+      assert_eq(img.caption, None)
+      assert_asset_origin_has_min_source(html_missing_alt_doc, img.path)
+    }
+    None => fail("expected one html image block for missing-alt sample")
+  }
+}
+
+///|
 test "origin metadata minimal closure for pptx and xlsx" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
@@ -249,7 +325,6 @@ test "origin metadata minimal closure for pptx and xlsx" {
   assert_sheet_level_origins(xlsx_doc)
 }
 
-///|
 async test "origin metadata minimal closure for pdf" {
   let out_dir = "tmp-origin-tests"
   ensure_dir(out_dir)
@@ -278,5 +353,61 @@ async test "origin metadata minimal closure for pdf" {
       assert_asset_origin_has_min_source(pdf_doc, img.path)
     }
     None => fail("expected one pdf image block")
+  }
+}
+
+///|
+async test "pdf image nearby-caption context should remain lightweight" {
+  let out_dir = "tmp-origin-tests"
+  ensure_dir(out_dir)
+  ensure_dir(out_dir + "/pdf-context")
+
+  let single_caption_doc = @pdf.parse_pdf(
+    resolve_sample_path("samples/pdf/pdf_image_single_caption_like.pdf"),
+    out_dir + "/pdf-context",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  match first_image_block(single_caption_doc) {
+    Some(img) => {
+      assert_eq(img.caption, Some("Figure 1. PDF caption"))
+      match img.origin {
+        Some(origin) => assert_eq(origin.page, Some(1))
+        None => fail("pdf single-caption image origin should exist")
+      }
+      match single_caption_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) =>
+          assert_eq(asset_origin.nearby_caption, Some("Figure 1. PDF caption"))
+        None => fail("pdf single-caption asset origin should exist")
+      }
+    }
+    None => fail("expected one image block for pdf caption sample")
+  }
+
+  let no_caption_doc = @pdf.parse_pdf(
+    resolve_sample_path("samples/pdf/pdf_image_no_caption_negative.pdf"),
+    out_dir + "/pdf-context",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  match first_image_block(no_caption_doc) {
+    Some(img) => {
+      assert_eq(img.caption, None)
+      match img.origin {
+        Some(origin) => assert_eq(origin.page, Some(1))
+        None => fail("pdf no-caption image origin should exist")
+      }
+      match no_caption_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => assert_eq(asset_origin.nearby_caption, None)
+        None => fail("pdf no-caption asset origin should exist")
+      }
+    }
+    None => fail("expected one image block for pdf no-caption sample")
   }
 }

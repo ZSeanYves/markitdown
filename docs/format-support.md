@@ -45,6 +45,7 @@ Current capabilities include:
 * lightweight page-level block origin metadata
 * lightweight image asset origin metadata
 * conservative nearby-caption attachment for images when a page has a single high-confidence caption-like text
+* page-level image asset origin is retained for exported PDF image assets
 
 Current boundaries:
 
@@ -89,6 +90,8 @@ Current capabilities include:
 * conservative page-number / corner-label noise filtering
 * hyperlink recovery for run-level links and basic shape-level links
 * conservative image caption-like attachment for single-image slides
+* conservative nearby short-text attachment for single-image slides when one clear nearby candidate exists
+* ambiguous multi-image / multi-caption scenes intentionally stay unmatched
 * lightweight slide-level block origin metadata
 * lightweight slide-level asset origin metadata
 
@@ -116,6 +119,10 @@ Current capabilities include:
 * lightweight document-level block origin metadata
 * lightweight image/figure asset origin metadata
 * image context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
+* `<img alt>` -> `ImageData.alt_text`
+* `<img title>` -> `ImageData.title`
+* `<figcaption>` -> `ImageData.caption`
+* local image export remains unchanged; remote / unsupported image sources are still conservative
 
 Current boundaries:
 

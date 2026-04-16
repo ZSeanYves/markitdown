@@ -32,6 +32,7 @@
 
 * image context remains lightweight and conservative
 * nearby caption attachment is currently only attempted for single-image + single high-confidence caption-like cases
+* page-level origin is retained for image assets, but there is still no fine-grained layout relation graph
 * no precise bbox graph matching between images and text blocks yet
 
 ## XLSX
