@@ -807,3 +807,63 @@ async test "pdf core raw xobject image carries payload" {
     )
   }
 }
+
+///|
+async test "pdf core xobject image has placement bbox" {
+  let doc = open_pdf_model("samples/image/pdf_image_xobject.pdf")
+  assert_page_image_count_at_least(doc.pages[0], 1, "xobject bbox sample")
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image &&
+      image.bbox.x1 > image.bbox.x0 &&
+      image.bbox.y1 > image.bbox.y0 {
+      found = true
+      break
+    }
+  }
+
+  if !found {
+    fail("xobject image sample should contain at least one non-empty bbox")
+  }
+}
+
+///|
+async test "pdf core inline image has placement bbox" {
+  let doc = open_pdf_model("samples/image/pdf_image_inline.pdf")
+  assert_page_inline_image_count_at_least(doc.pages[0], 1, "inline bbox sample")
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if image.inline_image &&
+      image.bbox.x1 > image.bbox.x0 &&
+      image.bbox.y1 > image.bbox.y0 {
+      found = true
+      break
+    }
+  }
+
+  if !found {
+    fail("inline image sample should contain at least one non-empty bbox")
+  }
+}
+
+///|
+async test "pdf core form xobject image has placement bbox" {
+  let doc = open_pdf_model("samples/image/pdf_image_form_xobject.pdf")
+  assert_page_image_count_at_least(doc.pages[0], 1, "form bbox sample")
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image &&
+      image.bbox.x1 > image.bbox.x0 &&
+      image.bbox.y1 > image.bbox.y0 {
+      found = true
+      break
+    }
+  }
+
+  if !found {
+    fail("form xobject image sample should contain at least one non-empty bbox")
+  }
+}

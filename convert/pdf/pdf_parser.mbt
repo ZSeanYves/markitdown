@@ -22,7 +22,7 @@ pub async fn parse_pdf(
 
   let core_doc = extract_pdf_core_document(input_path)
 
-  let doc0 = build_convert_lines(core_doc)
+  let doc0 = build_convert_lines(core_doc, _out_dir)
   let doc1 = build_convert_blocks(doc0)
 
   if pipeline_debug {

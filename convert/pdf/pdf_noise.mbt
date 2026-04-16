@@ -42,8 +42,13 @@ pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
           }
       }
     }
-
-    pages.push({ page_index: page.page_index, lines: page.lines, blocks: kept })
+    pages.push({
+      page_index: page.page_index,
+      lines: page.lines,
+      blocks: kept,
+      images: page.images,
+      objects: page.objects,
+    })
   }
 
   { pages, }

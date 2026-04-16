@@ -71,6 +71,8 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
       page_index: prev_page.page_index,
       lines: prev_page.lines,
       blocks: merged_prev,
+      images: prev_page.images,
+      objects: prev_page.objects,
     }
 
     // 写入当前页
@@ -78,6 +80,8 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
       page_index: cur_page.page_index,
       lines: cur_page.lines,
       blocks: merged_cur,
+      images: cur_page.images,
+      objects: cur_page.objects,
     })
   }
 

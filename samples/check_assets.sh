@@ -65,6 +65,10 @@ run_group() {
 
   echo "$format asset extraction check passed"
 }
+run_group pdf \
+  "pdf_image_form_xobject.pdf" \
+  "pdf_image_xobject.pdf" \
+  "pdf_image_inline.pdf" \
 
 run_group pptx \
   "pptx_image_single.pptx" \

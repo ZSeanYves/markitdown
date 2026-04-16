@@ -17,90 +17,143 @@ pub fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
-    for i = 0; i < page.blocks.length(); i = i + 1 {
-      let block = page.blocks[i]
-      let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
-      let next = if i + 1 < page.blocks.length() {
-        Some(page.blocks[i + 1])
-      } else {
-        None
-      }
-
-      let text = block.text.trim().to_string()
-      if text == "" {
-        continue
-      }
-      if DEBUG_TO_IR {
-        println(
-          "[to-ir/input] page=" +
-          page.page_index.to_string() +
-          " block=" +
-          block.block_index.to_string() +
-          " kind=" +
-          debug_block_kind_for_ir(block.kind) +
-          " heading_candidate=" +
-          block.is_heading_candidate.to_string() +
-          " text=\"" +
-          text +
-          "\"",
-        )
-      }
-
-      match block.kind {
-        PdfConvertBlockKind::Noise => ()
-        PdfConvertBlockKind::Heading => {
-          let heading_text = normalize_heading_text_for_ir(text)
-          let (role, depth) = decide_heading_role_and_depth_for_ir(
-            heading_text, block, prev, next,
+    for obj in page.objects {
+      match obj {
+        PdfConvertPageObject::TextBlock(block) =>
+          emit_text_block_to_ir(
+            out, page, block, has_document_title, max_heading,
           )
-          if DEBUG_TO_IR {
-            println(
-              "[to-ir/heading] page=" +
-              page.page_index.to_string() +
-              " block=" +
-              block.block_index.to_string() +
-              " role=" +
-              debug_heading_role_for_ir(role) +
-              " depth=" +
-              depth.to_string() +
-              " text=\"" +
-              heading_text +
-              "\"",
-            )
+        PdfConvertPageObject::Image(image) => {
+          if image.path.trim() == "" {
+            continue
           }
 
-          match role {
-            PdfIrHeadingRole::NotHeading =>
-              @cor.push(out, @cor.Block::Paragraph(heading_text))
-            PdfIrHeadingRole::DocumentTitle =>
-              @cor.push(
-                out,
-                @cor.Block::Heading(
-                  clamp_heading_level(1, max_heading),
-                  heading_text,
-                ),
-              )
-            PdfIrHeadingRole::SectionHeading => {
-              let level = map_section_depth_to_heading_level_for_ir(
-                depth, has_document_title, max_heading,
-              )
-              @cor.push(out, @cor.Block::Heading(level, heading_text))
-            }
+          let origin : @cor.Origin = {
+            source_name: None,
+            page: Some(page.page_index + 1),
+            slide: None,
+            sheet: None,
+            block_index: Some(out.blocks.val.length()),
+            heading_path: None,
           }
-        }
-        PdfConvertBlockKind::Paragraph => {
-          let pt = text.trim().to_string()
-          match try_parse_bullet_list_item_for_ir(pt) {
-            Some(item_text) =>
-              @cor.push(out, @cor.Block::ListItem(false, 0, item_text))
-            None => @cor.push(out, @cor.Block::Paragraph(pt))
-          }
+
+          @cor.push_with_origin(
+            out,
+            @cor.Block::ImageBlock({
+              path: image.path,
+              alt_text: image.alt_text,
+              title: None,
+              caption: image.caption,
+              origin: Some(origin),
+            }),
+            Some(origin),
+          )
+
+          @cor.set_asset_origin(out, image.path, {
+            source_name: None,
+            page: Some(page.page_index + 1),
+            slide: None,
+            sheet: None,
+            origin_id: Some(image.source_image_id),
+            nearby_caption: image.caption,
+          })
         }
       }
     }
   }
 
   out
+}
+
+///|
+fn emit_text_block_to_ir(
+  out : @cor.Document,
+  page : PdfConvertPage,
+  block : PdfConvertBlock,
+  has_document_title : Bool,
+  max_heading : Int,
+) -> Unit {
+  let i = block.block_index
+  let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
+  let next = if i + 1 < page.blocks.length() {
+    Some(page.blocks[i + 1])
+  } else {
+    None
+  }
+
+  let text = block.text.trim().to_string()
+  if text == "" {
+    return
+  }
+
+  if DEBUG_TO_IR {
+    println(
+      "[to-ir/input] page=" +
+      page.page_index.to_string() +
+      " block=" +
+      block.block_index.to_string() +
+      " kind=" +
+      debug_block_kind_for_ir(block.kind) +
+      " heading_candidate=" +
+      block.is_heading_candidate.to_string() +
+      " text=\"" +
+      text +
+      "\"",
+    )
+  }
+
+  match block.kind {
+    PdfConvertBlockKind::Noise => ()
+    PdfConvertBlockKind::Heading => {
+      let heading_text = normalize_heading_text_for_ir(text)
+      let (role, depth) = decide_heading_role_and_depth_for_ir(
+        heading_text, block, prev, next,
+      )
+
+      if DEBUG_TO_IR {
+        println(
+          "[to-ir/heading] page=" +
+          page.page_index.to_string() +
+          " block=" +
+          block.block_index.to_string() +
+          " role=" +
+          debug_heading_role_for_ir(role) +
+          " depth=" +
+          depth.to_string() +
+          " text=\"" +
+          heading_text +
+          "\"",
+        )
+      }
+
+      match role {
+        PdfIrHeadingRole::NotHeading =>
+          @cor.push(out, @cor.Block::Paragraph(heading_text))
+        PdfIrHeadingRole::DocumentTitle =>
+          @cor.push(
+            out,
+            @cor.Block::Heading(
+              clamp_heading_level(1, max_heading),
+              heading_text,
+            ),
+          )
+        PdfIrHeadingRole::SectionHeading => {
+          let level = map_section_depth_to_heading_level_for_ir(
+            depth, has_document_title, max_heading,
+          )
+          @cor.push(out, @cor.Block::Heading(level, heading_text))
+        }
+      }
+    }
+    PdfConvertBlockKind::Paragraph => {
+      let pt = text.trim().to_string()
+      match try_parse_bullet_list_item_for_ir(pt) {
+        Some(item_text) =>
+          @cor.push(out, @cor.Block::ListItem(false, 0, item_text))
+        None => @cor.push(out, @cor.Block::Paragraph(pt))
+      }
+    }
+  }
 }
 
 ///|

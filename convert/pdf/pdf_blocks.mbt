@@ -11,13 +11,7 @@ pub fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 }
 
 ///|
-/// 从单页 convert lines 构建 convert blocks。
-///
-/// 第一阶段非常保守：
-/// - 一条 line 先映成一个 block
-/// - heading candidate -> Heading
-/// - page number candidate -> Noise
-/// - 其他 -> Paragraph
+/// 从单页 convert lines 构建 convert blocks，并与图片按 bbox 混排。
 pub fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
   let blocks = Array::new()
 
@@ -25,7 +19,15 @@ pub fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
     blocks.push(make_block_from_line(page.page_index, i, page.lines[i]))
   }
 
-  { page_index: page.page_index, lines: page.lines, blocks }
+  let objects = build_page_objects(blocks, page.images)
+
+  {
+    page_index: page.page_index,
+    lines: page.lines,
+    blocks,
+    images: page.images,
+    objects,
+  }
 }
 
 ///|
@@ -54,8 +56,114 @@ fn make_block_from_line(
     bbox: line.bbox,
     dominant_font_size: line.font_size,
     dominant_font_name: line.font_name,
-    top_y: line.bbox.y0,
+    top_y: line.bbox.y1,
     left_x: line.bbox.x0,
     line_count: 1,
+  }
+}
+
+///|
+fn build_page_objects(
+  blocks : Array[PdfConvertBlock],
+  images : Array[PdfConvertImage],
+) -> Array[PdfConvertPageObject] {
+  let out : Array[PdfConvertPageObject] = []
+
+  for block in blocks {
+    insert_page_object_sorted(out, PdfConvertPageObject::TextBlock(block))
+  }
+
+  for image in images {
+    insert_page_object_sorted(out, PdfConvertPageObject::Image(image))
+  }
+
+  out
+}
+
+///|
+fn insert_page_object_sorted(
+  out : Array[PdfConvertPageObject],
+  obj : PdfConvertPageObject,
+) -> Unit {
+  let inserted = Array::new()
+  let mut placed = false
+
+  for existing in out {
+    if !placed && compare_page_object_layout(obj, existing) < 0 {
+      inserted.push(obj)
+      placed = true
+    }
+    inserted.push(existing)
+  }
+
+  if !placed {
+    inserted.push(obj)
+  }
+
+  out.clear()
+  for x in inserted {
+    out.push(x)
+  }
+}
+
+///|
+/// 返回：
+/// -1 => a 在前
+///  0 => 相近
+///  1 => b 在前
+///
+/// 规则：
+/// - 先按 top_y 从大到小（PDF 坐标系里越大越靠上）
+/// - 若 vertical 距离很小，按 left_x 从小到大
+fn compare_page_object_layout(
+  a : PdfConvertPageObject,
+  b : PdfConvertPageObject,
+) -> Int {
+  let ay = page_object_top_y(a)
+  let by = page_object_top_y(b)
+
+  let dy = abs_f64(ay - by)
+  if dy > 8.0 {
+    if ay > by {
+      return -1
+    } else {
+      return 1
+    }
+  }
+
+  let ax = page_object_left_x(a)
+  let bx = page_object_left_x(b)
+  if ax < bx {
+    return -1
+  }
+  if ax > bx {
+    return 1
+  }
+
+  0
+}
+
+///|
+fn page_object_top_y(obj : PdfConvertPageObject) -> Double {
+  match obj {
+    PdfConvertPageObject::TextBlock(block) => block.top_y
+    PdfConvertPageObject::Image(image) => image.top_y
+  }
+}
+
+///|
+fn page_object_left_x(obj : PdfConvertPageObject) -> Double {
+  match obj {
+    PdfConvertPageObject::TextBlock(block) => block.left_x
+    PdfConvertPageObject::Image(image) => image.left_x
+  }
+}
+
+///|
+fn abs_f64(v : Double) -> Double {
+  if v < 0.0 {
+    -v
+  } else {
+    v
   }
 }

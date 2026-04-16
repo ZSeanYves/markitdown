@@ -7,7 +7,7 @@ pub struct PdfConvertLine {
   is_heading_candidate : Bool
   is_page_number_candidate : Bool
 
-  // 新增：版面信号
+  // 版面信号
   bbox : @model.PdfRect
   font_size : Double?
   font_name : String?
@@ -34,7 +34,7 @@ pub struct PdfConvertBlock {
   is_heading_candidate : Bool
   is_noise_candidate : Bool
 
-  // 新增：块级版面信号
+  // 块级版面信号
   bbox : @model.PdfRect
   dominant_font_size : Double?
   dominant_font_name : String?
@@ -44,10 +44,33 @@ pub struct PdfConvertBlock {
 }
 
 ///|
+pub struct PdfConvertImage {
+  page_index : Int
+  image_index : Int
+  path : String
+  alt_text : String?
+  caption : String?
+  bbox : @model.PdfRect
+  top_y : Double
+  left_x : Double
+  width_px : Int
+  height_px : Int
+  source_image_id : String
+}
+
+///|
+pub enum PdfConvertPageObject {
+  TextBlock(PdfConvertBlock)
+  Image(PdfConvertImage)
+}
+
+///|
 pub struct PdfConvertPage {
   page_index : Int
   lines : Array[PdfConvertLine]
   blocks : Array[PdfConvertBlock]
+  images : Array[PdfConvertImage]
+  objects : Array[PdfConvertPageObject]
 }
 
 ///|

@@ -172,7 +172,14 @@ fn extract_raw_page_from_page(
     0,
   )
 
-  let images = collect_images_from_ops(pdf, page.resources, ops, page_index, 0)
+  let images = collect_images_from_ops(
+    pdf,
+    page.resources,
+    ops,
+    page_index,
+    0,
+    identity_matrix(),
+  )
 
   {
     page_index,
@@ -656,15 +663,20 @@ fn collect_text_ops_from_ops(
 /// 从 operator 流里收集页面图片：
 /// - OpDo(name) -> XObject /Image
 /// - InlineImage(...) -> inline image
+/// - 维护 q/Q/cm 的 graphics state，给图片估算 placement bbox
 fn collect_images_from_ops(
   pdf : @pdf.Pdf,
   resources : @pdf.PdfObject,
   ops : Array[@pdfops.Op],
   page_index : Int,
   source_stream_index : Int,
+  initial_ctm : @pdftransform.TransformMatrix,
 ) -> Array[RawImageInfo] raise {
   let out : Array[RawImageInfo] = Array::new()
   let visited_forms : Map[Int, Bool] = Map::new()
+
+  let image_ctm = Ref::new(initial_ctm)
+  let image_ctm_stack : Array[@pdftransform.TransformMatrix] = Array::new()
 
   fn mark_form_visited(obj_num : Int?) -> Bool {
     match obj_num {
@@ -752,6 +764,73 @@ fn collect_images_from_ops(
     }
   }
 
+  fn mul_matrix_image(
+    left : @pdftransform.TransformMatrix,
+    right : @pdftransform.TransformMatrix,
+  ) -> @pdftransform.TransformMatrix {
+    @pdftransform.TransformMatrix::{
+      a: left.a * right.a + left.b * right.c,
+      b: left.a * right.b + left.b * right.d,
+      c: left.c * right.a + left.d * right.c,
+      d: left.c * right.b + left.d * right.d,
+      e: left.e * right.a + left.f * right.c + right.e,
+      f: left.e * right.b + left.f * right.d + right.f,
+    }
+  }
+
+  fn apply_matrix_to_point_image(
+    m : @pdftransform.TransformMatrix,
+    x : Double,
+    y : Double,
+  ) -> @model.PdfPoint {
+    { x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }
+  }
+
+  fn min4(a : Double, b : Double, c : Double, d : Double) -> Double {
+    let mut m = a
+    if b < m {
+      m = b
+    }
+    if c < m {
+      m = c
+    }
+    if d < m {
+      m = d
+    }
+    m
+  }
+
+  fn max4(a : Double, b : Double, c : Double, d : Double) -> Double {
+    let mut m = a
+    if b > m {
+      m = b
+    }
+    if c > m {
+      m = c
+    }
+    if d > m {
+      m = d
+    }
+    m
+  }
+
+  ///|
+  /// 用当前 CTM 估算图片在页面上的放置 bbox。
+  /// 将单位图像空间 [0,0]-[1,1] 变换到页面坐标，再取外接矩形。
+  fn image_bbox_from_current_ctm() -> @model.PdfRect {
+    let p0 = apply_matrix_to_point_image(image_ctm.val, 0.0, 0.0)
+    let p1 = apply_matrix_to_point_image(image_ctm.val, 1.0, 0.0)
+    let p2 = apply_matrix_to_point_image(image_ctm.val, 0.0, 1.0)
+    let p3 = apply_matrix_to_point_image(image_ctm.val, 1.0, 1.0)
+
+    {
+      x0: min4(p0.x, p1.x, p2.x, p3.x),
+      y0: min4(p0.y, p1.y, p2.y, p3.y),
+      x1: max4(p0.x, p1.x, p2.x, p3.x),
+      y1: max4(p0.y, p1.y, p2.y, p3.y),
+    }
+  }
+
   fn stream_dict_and_bytes(
     obj : @pdf.PdfObject,
   ) -> (@pdf.PdfObject, @pdfio.MutableBytes)? {
@@ -822,65 +901,77 @@ fn collect_images_from_ops(
       _ => None
     }
   }
+  fn filter_name_list_from_dict(dict : @pdf.PdfObject) -> Array[String] {
+    let out : Array[String] = []
+    match pdf.lookup_direct_orelse("/Filter", "/F", dict) {
+      Some(@pdf.PdfObject::Name(name)) => out.push(name.to_string_bytes())
+      Some(@pdf.PdfObject::Array(items)) =>
+        for item in items {
+          match item {
+            @pdf.PdfObject::Name(name) => out.push(name.to_string_bytes())
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+    out
+  }
 
   fn xobject_image_payload(xobj : @pdf.PdfObject) -> RawImagePayload? {
-    let direct = pdf.direct(xobj)
+    let staged = pdf.direct(xobj)
 
-    fn try_direct_payload(obj : @pdf.PdfObject) -> RawImagePayload? {
+    fn try_exportable_payload(obj : @pdf.PdfObject) -> RawImagePayload? {
       match stream_dict_and_bytes(obj) {
-        Some((dict, bytes)) =>
-          match image_filter_kind_from_dict(dict) {
-            Some("jpeg") => Some(RawImagePayload::Jpeg(bytes))
-            Some("jp2") => Some(RawImagePayload::Jpeg2000(bytes))
-            Some("jbig2") =>
-              Some(RawImagePayload::Jbig2(bytes, lookup_jbig2_globals(dict)))
-            _ => None
+        Some((dict, bytes)) => {
+          let filters = filter_name_list_from_dict(dict)
+          let kind = image_filter_kind_from_dict(dict)
+
+          // 只有“单层最终图片 filter”时，才能直接把 bytes 当文件内容导出
+          if filters.length() == 1 {
+            match kind {
+              Some("jpeg") => return Some(RawImagePayload::Jpeg(bytes))
+              Some("jp2") => return Some(RawImagePayload::Jpeg2000(bytes))
+              Some("jbig2") =>
+                return Some(
+                  RawImagePayload::Jbig2(bytes, lookup_jbig2_globals(dict)),
+                )
+              _ => ()
+            }
           }
+
+          None
+        }
         None => None
       }
     }
 
-    match try_direct_payload(direct) {
+    // 先尝试当前对象是否已经是“可直接导出”的最终图像流
+    match try_exportable_payload(staged) {
       Some(payload) => return Some(payload)
       None => ()
     }
 
-    // 尝试逐层去掉外层包装 filter（比如 ASCII85 / ASCIIHex），
-    // 保留最终图片 filter 对应的数据。
-    let staged = direct
-    for _ in 0..<3 {
-      match try_direct_payload(staged) {
-        Some(payload) => return Some(payload)
-        None => ()
-      }
-
+    // 如果外面还有 ASCII85 / ASCIIHex 等包装，就逐层解开
+    for _i = 0; _i < 4; _i = _i + 1 {
       @pdfcodec.PdfCodec::new().decode_pdfstream_onestage(pdf, staged) catch {
         _ => break
       }
+
+      match try_exportable_payload(staged) {
+        Some(payload) => return Some(payload)
+        None => ()
+      }
     }
 
-    match try_direct_payload(staged) {
-      Some(payload) => return Some(payload)
-      None => ()
-    }
-
+    // 最后再 fallback 到完全解码成像素
     Some(
       raw_payload_from_pdfimage(
         @pdfimage.Image::get_image_24bpp(pdf, resources, staged),
       ),
     ) catch {
-      err => {
-        println("[pdf-image-debug] xobject decode failed: " + err.to_string())
-        match stream_dict_and_bytes(staged) {
-          Some((dict, _)) =>
-            println("[pdf-image-debug] xobject dict=" + dict.to_string())
-          None => println("[pdf-image-debug] xobject dict=<unavailable>")
-        }
-        None
-      }
+      _ => None
     }
   }
-
   fn inline_image_payload(
     dict : @pdf.PdfObject,
     data : @pdfio.MutableBytes,
@@ -936,7 +1027,7 @@ fn collect_images_from_ops(
           id,
           page_index,
           object_ref,
-          bbox: None,
+          bbox: Some(image_bbox_from_current_ctm()),
           width_px,
           height_px,
           colorspace: lookup_colorspace_text(dict),
@@ -1000,7 +1091,12 @@ fn collect_images_from_ops(
                   pdf, xresources, xstreams,
                 )
                 let nested = collect_images_from_ops(
-                  pdf, xresources, xops, page_index, source_stream_index,
+                  pdf,
+                  xresources,
+                  xops,
+                  page_index,
+                  source_stream_index,
+                  image_ctm.val,
                 )
                 for image in nested {
                   out.push(image)
@@ -1015,6 +1111,13 @@ fn collect_images_from_ops(
 
   for i = 0; i < ops.length(); i = i + 1 {
     match ops[i] {
+      @pdfops.Op::Opq => image_ctm_stack.push(image_ctm.val)
+      @pdfops.Op::OpQ =>
+        if !image_ctm_stack.is_empty() {
+          image_ctm.val = image_ctm_stack[image_ctm_stack.length() - 1]
+          let _ = image_ctm_stack.pop()
+        }
+      @pdfops.Op::Opcm(m) => image_ctm.val = mul_matrix_image(image_ctm.val, m)
       @pdfops.Op::OpDo(name) => recurse_xobject(name, i)
       @pdfops.Op::InlineImage((dict, _, data)) => {
         let payload = inline_image_payload(dict, data)
