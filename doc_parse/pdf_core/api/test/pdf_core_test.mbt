@@ -143,6 +143,58 @@ fn assert_model_readable(doc : @model.PdfDocumentModel) -> Unit raise {
 }
 
 ///|
+fn page_image_count(page : @model.PdfPageModel) -> Int {
+  page.images.length()
+}
+
+///|
+fn page_inline_image_count(page : @model.PdfPageModel) -> Int {
+  let mut total = 0
+  for image in page.images {
+    if image.inline_image {
+      total = total + 1
+    }
+  }
+  total
+}
+
+///|
+fn assert_page_image_count_at_least(
+  page : @model.PdfPageModel,
+  expected_min : Int,
+  label : String,
+) -> Unit raise {
+  let actual = page_image_count(page)
+  if actual < expected_min {
+    fail(
+      label +
+      " image count too small: expected_at_least=" +
+      expected_min.to_string() +
+      " actual=" +
+      actual.to_string(),
+    )
+  }
+}
+
+///|
+fn assert_page_inline_image_count_at_least(
+  page : @model.PdfPageModel,
+  expected_min : Int,
+  label : String,
+) -> Unit raise {
+  let actual = page_inline_image_count(page)
+  if actual < expected_min {
+    fail(
+      label +
+      " inline image count too small: expected_at_least=" +
+      expected_min.to_string() +
+      " actual=" +
+      actual.to_string(),
+    )
+  }
+}
+
+///|
 /// chars 总数。
 fn document_char_count(doc_chars : @text.PdfDocumentChars) -> Int {
   let mut total = 0
@@ -542,5 +594,216 @@ async test "pdf core smoke works on hardwrap_zh sample" {
   let text = page_joined_text(doc.pages[0])
   if !text.contains("研究") && !text.contains("技术") {
     fail("hardwrap_zh page text should contain Chinese content")
+  }
+}
+
+///|
+/// 普通 XObject 图片：
+/// - raw 层应能看到 images
+/// - model 层应能看到 images
+/// - 至少一张不是 inline image
+async test "pdf core collects xobject images" {
+  let raw = open_raw_pdf("samples/image/pdf_image_xobject.pdf")
+  if raw.pages.is_empty() {
+    fail("xobject image sample raw pages should not be empty")
+  }
+  if raw.pages[0].images.length() <= 0 {
+    fail("raw page 0 should contain at least one image")
+  }
+
+  let doc = open_pdf_model("samples/image/pdf_image_xobject.pdf")
+  assert_model_readable(doc)
+
+  assert_page_image_count_at_least(doc.pages[0], 1, "xobject image sample")
+
+  let mut non_inline_found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image {
+      non_inline_found = true
+    }
+    if image.width_px <= 0 || image.height_px <= 0 {
+      fail("xobject image should have positive width/height")
+    }
+  }
+  if !non_inline_found {
+    fail("xobject image sample should contain at least one non-inline image")
+  }
+}
+
+///|
+/// Inline image：
+/// - model 层至少一张 inline image
+async test "pdf core collects inline images" {
+  let raw = open_raw_pdf("samples/image/pdf_image_inline.pdf")
+  if raw.pages.is_empty() {
+    fail("inline image sample raw pages should not be empty")
+  }
+  if raw.pages[0].images.length() <= 0 {
+    fail("raw page 0 should contain at least one image")
+  }
+
+  let doc = open_pdf_model("samples/image/pdf_image_inline.pdf")
+  assert_model_readable(doc)
+
+  assert_page_image_count_at_least(doc.pages[0], 1, "inline image sample")
+  assert_page_inline_image_count_at_least(
+    doc.pages[0],
+    1,
+    "inline image sample",
+  )
+
+  for image in doc.pages[0].images {
+    if image.inline_image {
+      if image.width_px <= 0 || image.height_px <= 0 {
+        fail("inline image should have positive width/height")
+      }
+      return
+    }
+  }
+
+  fail("inline image sample should contain at least one inline image")
+}
+
+///|
+/// Form XObject 内嵌图片：
+/// - 应能通过 form 递归抓到图片
+/// - 通常应为非 inline image
+async test "pdf core collects form xobject images" {
+  let raw = open_raw_pdf("samples/image/pdf_image_form_xobject.pdf")
+  if raw.pages.is_empty() {
+    fail("form xobject image sample raw pages should not be empty")
+  }
+  if raw.pages[0].images.length() <= 0 {
+    fail("raw page 0 should contain at least one image")
+  }
+
+  let doc = open_pdf_model("samples/image/pdf_image_form_xobject.pdf")
+  assert_model_readable(doc)
+
+  assert_page_image_count_at_least(doc.pages[0], 1, "form xobject image sample")
+
+  let mut non_inline_found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image {
+      non_inline_found = true
+    }
+    if image.width_px <= 0 || image.height_px <= 0 {
+      fail("form xobject image should have positive width/height")
+    }
+  }
+
+  if !non_inline_found {
+    fail(
+      "form xobject image sample should contain at least one non-inline image",
+    )
+  }
+}
+
+///|
+async test "pdf core xobject image carries payload" {
+  let doc = open_pdf_model("samples/image/pdf_image_xobject.pdf")
+  assert_page_image_count_at_least(doc.pages[0], 1, "xobject payload sample")
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image {
+      match image.payload {
+        Some(_) => {
+          found = true
+          break
+        }
+        None => ()
+      }
+    }
+  }
+
+  if !found {
+    fail(
+      "xobject image sample should contain at least one payload-bearing image",
+    )
+  }
+}
+
+///|
+async test "pdf core inline image carries payload" {
+  let doc = open_pdf_model("samples/image/pdf_image_inline.pdf")
+  assert_page_inline_image_count_at_least(
+    doc.pages[0],
+    1,
+    "inline payload sample",
+  )
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if image.inline_image {
+      match image.payload {
+        Some(_) => {
+          found = true
+          break
+        }
+        None => ()
+      }
+    }
+  }
+
+  if !found {
+    fail(
+      "inline image sample should contain at least one payload-bearing inline image",
+    )
+  }
+}
+
+///|
+async test "pdf core form xobject image carries payload" {
+  let doc = open_pdf_model("samples/image/pdf_image_form_xobject.pdf")
+  assert_page_image_count_at_least(doc.pages[0], 1, "form payload sample")
+
+  let mut found = false
+  for image in doc.pages[0].images {
+    if !image.inline_image {
+      match image.payload {
+        Some(_) => {
+          found = true
+          break
+        }
+        None => ()
+      }
+    }
+  }
+
+  if !found {
+    fail(
+      "form xobject image sample should contain at least one payload-bearing image",
+    )
+  }
+}
+
+///|
+async test "pdf core raw xobject image carries payload" {
+  let raw = open_raw_pdf("samples/image/pdf_image_xobject.pdf")
+  if raw.pages.is_empty() {
+    fail("raw pages should not be empty")
+  }
+  if raw.pages[0].images.is_empty() {
+    fail("raw page 0 should contain at least one image")
+  }
+
+  let mut found = false
+  for image in raw.pages[0].images {
+    if !image.inline_image {
+      match image.payload {
+        Some(_) => {
+          found = true
+          break
+        }
+        None => ()
+      }
+    }
+  }
+
+  if !found {
+    fail(
+      "raw xobject image sample should contain at least one payload-bearing image",
+    )
   }
 }

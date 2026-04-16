@@ -120,6 +120,8 @@ pub async fn extract_document_block_debug(
           page.page_index.to_string() +
           "] text_blocks=" +
           page.text_blocks.length().to_string() +
+          " images=" +
+          page.images.length().to_string() +
           "\n"
 
         for i = 0; i < page.text_blocks.length(); i = i + 1 {
@@ -180,6 +182,28 @@ pub async fn extract_document_block_debug(
               rect_str(line.bbox) +
               "\n"
           }
+          for k = 0; k < page.images.length(); k = k + 1 {
+            let image = page.images[k]
+            out = out +
+              "  [image " +
+              k.to_string() +
+              "] " +
+              "id=" +
+              image.id +
+              ", width=" +
+              image.width_px.to_string() +
+              ", height=" +
+              image.height_px.to_string() +
+              ", inline=" +
+              image.inline_image.to_string() +
+              ", filter=" +
+              opt_str_or_none(image.image_filter) +
+              ", object_ref=" +
+              opt_str_or_none(image.object_ref) +
+              ", bbox=" +
+              rect_str(image.bbox) +
+              "\n"
+          }
         }
       }
 
@@ -188,6 +212,14 @@ pub async fn extract_document_block_debug(
     Err(err) => Err(err)
   }
 }
+
+///|
+fn opt_str_or_none(v : String?) -> String {
+  match v {
+    Some(s) => s
+    None => "None"
+  }
+} ///|
 
 ///|
 fn core_block_kind_str(kind : @model.PdfTextBlockKind) -> String {
@@ -328,13 +360,90 @@ fn build_page_model_from_blocks(
       art_box: None,
     },
     text_blocks: blocks,
-    images: [],
+    images: build_page_images_from_raw(raw_page.images),
     vectors: [],
     annotations: [],
     forms: [],
     reading_order_candidates: [],
     artifact_candidates: [],
     raw_content_stream_refs: raw_page.raw_content_stream_refs,
+  }
+}
+
+///|
+/// 从 raw images 构建 page model images。
+fn build_page_images_from_raw(
+  raw_images : Array[@raw.RawImageInfo],
+) -> Array[@model.PdfImageObject] {
+  let out : Array[@model.PdfImageObject] = Array::new()
+
+  for raw_image in raw_images {
+    let image : @model.PdfImageObject = {
+      id: raw_image.id,
+      bbox: match raw_image.bbox {
+        Some(b) => b
+        None => default_rect()
+      },
+      width_px: raw_image.width_px,
+      height_px: raw_image.height_px,
+      colorspace: raw_image.colorspace,
+      bits_per_component: raw_image.bits_per_component,
+      image_filter: raw_image.image_filter,
+      object_ref: raw_pdf_ref_to_string(raw_image.object_ref),
+      alt_text: raw_image.alt_text,
+      inline_image: raw_image.inline_image,
+      payload: map_image_payload_from_raw(raw_image.payload),
+      source_refs: build_source_refs_from_raw(raw_image.source_refs),
+    }
+    out.push(image)
+  }
+
+  out
+}
+
+///|
+fn map_image_payload_from_raw(
+  payload : @raw.RawImagePayload?,
+) -> @model.PdfImagePayload? {
+  match payload {
+    Some(@raw.RawImagePayload::Jpeg(bytes)) =>
+      Some(@model.PdfImagePayload::Jpeg(bytes))
+    Some(@raw.RawImagePayload::Jpeg2000(bytes)) =>
+      Some(@model.PdfImagePayload::Jpeg2000(bytes))
+    Some(@raw.RawImagePayload::Jbig2(bytes, globals)) =>
+      Some(@model.PdfImagePayload::Jbig2(bytes, globals))
+    Some(@raw.RawImagePayload::RawRgb24(bytes)) =>
+      Some(@model.PdfImagePayload::RawRgb24(bytes))
+    None => None
+  }
+}
+
+///|
+fn build_source_refs_from_raw(
+  refs : Array[@raw.RawSourceRef],
+) -> Array[@model.PdfSourceRef] {
+  let out : Array[@model.PdfSourceRef] = Array::new()
+
+  for _ref in refs {
+    let source_ref : @model.PdfSourceRef = {
+      page_index: _ref.page_index,
+      source_stream_index: _ref.source_stream_index,
+      source_op_index: _ref.source_op_index,
+      text_object_id: _ref.text_object_id,
+      content_order_index: _ref.content_order_index,
+      source_object_ref: raw_pdf_ref_to_string(_ref.source_object_ref),
+    }
+    out.push(source_ref)
+  }
+
+  out
+}
+
+///|
+fn raw_pdf_ref_to_string(raw_ref : @raw.RawPdfRef?) -> String? {
+  match raw_ref {
+    Some(r) => Some(r.obj_num.to_string() + " " + r.gen_num.to_string() + " R")
+    None => None
   }
 }
 

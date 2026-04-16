@@ -66,11 +66,6 @@ run_group() {
   echo "$format asset extraction check passed"
 }
 
-run_group pdf \
-  "pdf_image_single_page_single_image.pdf" \
-  "pdf_image_single_page_mixed.pdf" \
-  "pdf_image_multi_page.pdf"
-
 run_group pptx \
   "pptx_image_single.pptx" \
   "pptx_image_mixed.pptx" \

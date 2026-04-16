@@ -6,4 +6,7 @@ import {
   "bobzhang/mbtpdf/graphics/pdfops" @pdfops,
   "bobzhang/mbtpdf/text/pdftext" @pdftext,
   "bobzhang/mbtpdf/core/pdftransform" @pdftransform,
+  "bobzhang/mbtpdf/core/pdfio" @pdfio,
+  "bobzhang/mbtpdf/graphics/pdfimage" @pdfimage,
+  "bobzhang/mbtpdf/codec/pdfcodec" @pdfcodec,
 }

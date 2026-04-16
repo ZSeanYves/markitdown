@@ -1,4 +1,16 @@
 ///|
+/// 图片负载类型。
+
+///|
+/// 图片负载类型。
+pub(all) enum PdfImagePayload {
+  Jpeg(@pdfio.MutableBytes)
+  Jpeg2000(@pdfio.MutableBytes)
+  Jbig2(@pdfio.MutableBytes, Int?)
+  RawRgb24(@pdfio.MutableBytes)
+}
+
+///|
 /// 图片对象。
 pub(all) struct PdfImageObject {
   id : String
@@ -11,6 +23,7 @@ pub(all) struct PdfImageObject {
   object_ref : String?
   alt_text : String?
   inline_image : Bool
+  payload : PdfImagePayload?
   source_refs : Array[PdfSourceRef]
 }
 

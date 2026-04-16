@@ -172,11 +172,13 @@ fn extract_raw_page_from_page(
     0,
   )
 
+  let images = collect_images_from_ops(pdf, page.resources, ops, page_index, 0)
+
   {
     page_index,
     raw_page_ref: None,
     text_ops,
-    images: [],
+    images,
     annotations: [],
     raw_content_stream_refs: [],
   }
@@ -642,6 +644,388 @@ fn collect_text_ops_from_ops(
       @pdfops.Op::OpDo(name) => {
         debug_op("Do name=" + name)
         recurse_form_xobject(name, i)
+      }
+      _ => ()
+    }
+  }
+
+  out
+}
+
+///|
+/// 从 operator 流里收集页面图片：
+/// - OpDo(name) -> XObject /Image
+/// - InlineImage(...) -> inline image
+fn collect_images_from_ops(
+  pdf : @pdf.Pdf,
+  resources : @pdf.PdfObject,
+  ops : Array[@pdfops.Op],
+  page_index : Int,
+  source_stream_index : Int,
+) -> Array[RawImageInfo] raise {
+  let out : Array[RawImageInfo] = Array::new()
+  let visited_forms : Map[Int, Bool] = Map::new()
+
+  fn mark_form_visited(obj_num : Int?) -> Bool {
+    match obj_num {
+      Some(i) =>
+        match visited_forms.get(i) {
+          Some(true) => false
+          _ => {
+            visited_forms.set(i, true)
+            true
+          }
+        }
+      None => true
+    }
+  }
+
+  fn lookup_image_int(
+    obj : @pdf.PdfObject,
+    long_key : String,
+    short_key : String,
+  ) -> Int? {
+    match pdf.lookup_direct_orelse(long_key, short_key, obj) {
+      Some(@pdf.PdfObject::Integer(v)) => Some(v)
+      _ => None
+    }
+  }
+
+  fn lookup_bits_per_component(obj : @pdf.PdfObject) -> Int? {
+    match pdf.lookup_direct_orelse("/BitsPerComponent", "/BPC", obj) {
+      Some(@pdf.PdfObject::Integer(v)) => Some(v)
+      _ => None
+    }
+  }
+
+  fn lookup_colorspace_text(obj : @pdf.PdfObject) -> String? {
+    match pdf.lookup_direct_orelse("/ColorSpace", "/CS", obj) {
+      Some(v) => Some(v.to_string())
+      None => None
+    }
+  }
+
+  fn lookup_filter_text_from_dict(obj : @pdf.PdfObject) -> String? {
+    match pdf.lookup_direct_orelse("/Filter", "/F", obj) {
+      Some(@pdf.PdfObject::Name(name)) => Some(name.to_string_bytes())
+      Some(@pdf.PdfObject::Array(items)) => {
+        let names = Array::new()
+        for item in items {
+          match item {
+            @pdf.PdfObject::Name(name) => names.push(name.to_string_bytes())
+            _ => ()
+          }
+        }
+        if names.is_empty() {
+          None
+        } else {
+          Some(names.join(","))
+        }
+      }
+      _ => None
+    }
+  }
+
+  fn make_image_source_refs(
+    source_op_index : Int,
+    object_ref : RawPdfRef?,
+  ) -> Array[RawSourceRef] {
+    [
+      {
+        page_index,
+        source_stream_index,
+        source_op_index,
+        text_object_id: None,
+        content_order_index: None,
+        source_object_ref: object_ref,
+      },
+    ]
+  }
+
+  fn raw_payload_from_pdfimage(image : @pdfimage.Image) -> RawImagePayload {
+    match image {
+      @pdfimage.Image::JPEG(bytes, _) => RawImagePayload::Jpeg(bytes)
+      @pdfimage.Image::JPEG2000(bytes, _) => RawImagePayload::Jpeg2000(bytes)
+      @pdfimage.Image::JBIG2(bytes, _, globals) =>
+        RawImagePayload::Jbig2(bytes, globals)
+      @pdfimage.Image::Raw(_, _, _, bytes) => RawImagePayload::RawRgb24(bytes)
+    }
+  }
+
+  fn stream_dict_and_bytes(
+    obj : @pdf.PdfObject,
+  ) -> (@pdf.PdfObject, @pdfio.MutableBytes)? {
+    let s = pdf.direct(obj)
+    s.getstream() catch {
+      _ => return None
+    }
+
+    match s {
+      @pdf.PdfObject::Stream(r) =>
+        match r.val {
+          (dict, @pdf.Stream::Got(bytes)) => Some((dict, bytes))
+          _ => None
+        }
+      _ => None
+    }
+  }
+
+  fn image_filter_kind_from_dict(dict : @pdf.PdfObject) -> String? {
+    match pdf.lookup_direct_orelse("/Filter", "/F", dict) {
+      Some(@pdf.PdfObject::Name(name)) => {
+        let s = name.to_string_bytes()
+        if s == "/DCTDecode" || s == "/DCT" {
+          Some("jpeg")
+        } else if s == "/JPXDecode" {
+          Some("jp2")
+        } else if s == "/JBIG2Decode" {
+          Some("jbig2")
+        } else {
+          None
+        }
+      }
+      Some(@pdf.PdfObject::Array(items)) => {
+        let names = Array::new()
+        for item in items {
+          match item {
+            @pdf.PdfObject::Name(name) => names.push(name.to_string_bytes())
+            _ => ()
+          }
+        }
+        if names.is_empty() {
+          return None
+        }
+
+        let last = names[names.length() - 1]
+        if last == "/DCTDecode" || last == "/DCT" {
+          Some("jpeg")
+        } else if last == "/JPXDecode" {
+          Some("jp2")
+        } else if last == "/JBIG2Decode" {
+          Some("jbig2")
+        } else {
+          None
+        }
+      }
+      _ => None
+    }
+  }
+
+  fn lookup_jbig2_globals(dict : @pdf.PdfObject) -> Int? {
+    match pdf.lookup_direct("/DecodeParms", dict) {
+      Some(@pdf.PdfObject::Dictionary(parms)) =>
+        match
+          @pdf.PdfObject::Dictionary(parms).lookup_immediate("/JBIG2Globals") {
+          Some(@pdf.PdfObject::Indirect(i)) => Some(i)
+          _ => None
+        }
+      _ => None
+    }
+  }
+
+  fn xobject_image_payload(xobj : @pdf.PdfObject) -> RawImagePayload? {
+    let direct = pdf.direct(xobj)
+
+    fn try_direct_payload(obj : @pdf.PdfObject) -> RawImagePayload? {
+      match stream_dict_and_bytes(obj) {
+        Some((dict, bytes)) =>
+          match image_filter_kind_from_dict(dict) {
+            Some("jpeg") => Some(RawImagePayload::Jpeg(bytes))
+            Some("jp2") => Some(RawImagePayload::Jpeg2000(bytes))
+            Some("jbig2") =>
+              Some(RawImagePayload::Jbig2(bytes, lookup_jbig2_globals(dict)))
+            _ => None
+          }
+        None => None
+      }
+    }
+
+    match try_direct_payload(direct) {
+      Some(payload) => return Some(payload)
+      None => ()
+    }
+
+    // 尝试逐层去掉外层包装 filter（比如 ASCII85 / ASCIIHex），
+    // 保留最终图片 filter 对应的数据。
+    let staged = direct
+    for _ in 0..<3 {
+      match try_direct_payload(staged) {
+        Some(payload) => return Some(payload)
+        None => ()
+      }
+
+      @pdfcodec.PdfCodec::new().decode_pdfstream_onestage(pdf, staged) catch {
+        _ => break
+      }
+    }
+
+    match try_direct_payload(staged) {
+      Some(payload) => return Some(payload)
+      None => ()
+    }
+
+    Some(
+      raw_payload_from_pdfimage(
+        @pdfimage.Image::get_image_24bpp(pdf, resources, staged),
+      ),
+    ) catch {
+      err => {
+        println("[pdf-image-debug] xobject decode failed: " + err.to_string())
+        match stream_dict_and_bytes(staged) {
+          Some((dict, _)) =>
+            println("[pdf-image-debug] xobject dict=" + dict.to_string())
+          None => println("[pdf-image-debug] xobject dict=<unavailable>")
+        }
+        None
+      }
+    }
+  }
+
+  fn inline_image_payload(
+    dict : @pdf.PdfObject,
+    data : @pdfio.MutableBytes,
+  ) -> RawImagePayload? {
+    match image_filter_kind_from_dict(dict) {
+      Some("jpeg") => return Some(RawImagePayload::Jpeg(data))
+      Some("jp2") => return Some(RawImagePayload::Jpeg2000(data))
+      Some("jbig2") =>
+        return Some(RawImagePayload::Jbig2(data, lookup_jbig2_globals(dict)))
+      _ => ()
+    }
+
+    match
+      (
+        lookup_image_int(dict, "/Width", "/W"),
+        lookup_image_int(dict, "/Height", "/H"),
+      ) {
+      (Some(width_px), Some(height_px)) =>
+        Some(
+          raw_payload_from_pdfimage(
+            @pdfimage.Image::from_stream_data(
+              pdf, resources, width_px, height_px, dict, data,
+            ),
+          ),
+        ) catch {
+          err => {
+            println(
+              "[pdf-image-debug] inline decode failed: " + err.to_string(),
+            )
+            println("[pdf-image-debug] inline dict=" + dict.to_string())
+            None
+          }
+        }
+      _ => None
+    }
+  }
+
+  fn append_image_from_dict(
+    id : String,
+    dict : @pdf.PdfObject,
+    object_ref : RawPdfRef?,
+    inline_image : Bool,
+    payload : RawImagePayload?,
+    source_op_index : Int,
+  ) -> Unit {
+    match
+      (
+        lookup_image_int(dict, "/Width", "/W"),
+        lookup_image_int(dict, "/Height", "/H"),
+      ) {
+      (Some(width_px), Some(height_px)) => {
+        let image : RawImageInfo = {
+          id,
+          page_index,
+          object_ref,
+          bbox: None,
+          width_px,
+          height_px,
+          colorspace: lookup_colorspace_text(dict),
+          bits_per_component: lookup_bits_per_component(dict),
+          image_filter: lookup_filter_text_from_dict(dict),
+          alt_text: None,
+          inline_image,
+          payload,
+          source_refs: make_image_source_refs(source_op_index, object_ref),
+        }
+        out.push(image)
+      }
+      _ => ()
+    }
+  }
+
+  fn recurse_xobject(name : String, source_op_index : Int) -> Unit raise {
+    match pdf.lookup_direct("/XObject", resources) {
+      Some(@pdf.PdfObject::Dictionary(entries)) =>
+        if entries.search_by(pair => pair.0 == name) is Some(idx) {
+          let obj_ref = entries[idx].1
+          let raw_ref : RawPdfRef? = if obj_ref is @pdf.PdfObject::Indirect(i) {
+            Some({ obj_num: i, gen_num: 0 })
+          } else {
+            None
+          }
+
+          let xobj = pdf.direct(obj_ref)
+
+          match pdf.lookup_direct("/Subtype", xobj) {
+            Some(@pdf.PdfObject::Name(n)) if n.equal_string_bytes("/Image") => {
+              let id = match raw_ref {
+                Some(r) => "xobj-image-" + r.obj_num.to_string()
+                None =>
+                  "xobj-image-p" +
+                  page_index.to_string() +
+                  "-op" +
+                  source_op_index.to_string()
+              }
+              let payload = xobject_image_payload(xobj)
+              let image_dict = match stream_dict_and_bytes(xobj) {
+                Some((dict, _)) => dict
+                None => xobj
+              }
+              append_image_from_dict(
+                id, image_dict, raw_ref, false, payload, source_op_index,
+              )
+            }
+            Some(@pdf.PdfObject::Name(n)) if n.equal_string_bytes("/Form") =>
+              if mark_form_visited(
+                  match raw_ref {
+                    Some(r) => Some(r.obj_num)
+                    None => None
+                  },
+                ) {
+                let xresources = pdf
+                  .lookup_direct("/Resources", xobj)
+                  .unwrap_or(resources)
+                let xstreams : Array[@pdf.PdfObject] = [xobj]
+                let xops = @pdfops.Op::parse_operators(
+                  pdf, xresources, xstreams,
+                )
+                let nested = collect_images_from_ops(
+                  pdf, xresources, xops, page_index, source_stream_index,
+                )
+                for image in nested {
+                  out.push(image)
+                }
+              }
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+
+  for i = 0; i < ops.length(); i = i + 1 {
+    match ops[i] {
+      @pdfops.Op::OpDo(name) => recurse_xobject(name, i)
+      @pdfops.Op::InlineImage((dict, _, data)) => {
+        let payload = inline_image_payload(dict, data)
+        append_image_from_dict(
+          "inline-image-p" + page_index.to_string() + "-op" + i.to_string(),
+          dict,
+          None,
+          true,
+          payload,
+          i,
+        )
       }
       _ => ()
     }

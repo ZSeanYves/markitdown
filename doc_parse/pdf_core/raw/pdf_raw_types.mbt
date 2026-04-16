@@ -92,6 +92,18 @@ pub struct RawTextOp {
 }
 
 ///|
+/// 原始图片负载类型。
+
+///|
+/// 原始图片负载类型。
+pub(all) enum RawImagePayload {
+  Jpeg(@pdfio.MutableBytes)
+  Jpeg2000(@pdfio.MutableBytes)
+  Jbig2(@pdfio.MutableBytes, Int?)
+  RawRgb24(@pdfio.MutableBytes)
+}
+
+///|
 /// 原始图片信息。
 pub(all) struct RawImageInfo {
   id : String
@@ -105,6 +117,7 @@ pub(all) struct RawImageInfo {
   image_filter : String?
   alt_text : String?
   inline_image : Bool
+  payload : RawImagePayload?
   source_refs : Array[RawSourceRef]
 }
 
