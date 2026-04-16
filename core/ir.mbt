@@ -7,6 +7,7 @@ pub(all) enum Block {
   ListItem(Bool, Int, String) // ordered, level, text
   RichListItem(Bool, Int, Array[Inline]) // ordered, level, inlines
   BlockQuote(String)
+  RichBlockQuote(Array[Inline])
   CodeBlock(String)
   Table(Array[Array[String]])
   Image(String, String) // alt, path

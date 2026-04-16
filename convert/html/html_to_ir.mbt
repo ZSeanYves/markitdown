@@ -37,17 +37,26 @@ fn nodes_to_blocks(
           None => ()
         }
       HtmlNode::ListItem(ordered, level, children) =>
-        out.push(
-          @cor.Block::ListItem(
-            ordered,
-            level,
-            list_item_children_to_text(children, max_h),
-          ),
-        )
+        match list_item_children_to_inlines(children, max_h) {
+          Some(inlines) =>
+            out.push(@cor.Block::RichListItem(ordered, level, inlines))
+          None =>
+            out.push(
+              @cor.Block::ListItem(
+                ordered,
+                level,
+                list_item_children_to_text(children, max_h),
+              ),
+            )
+        }
       HtmlNode::BlockQuote(children) =>
-        out.push(
-          @cor.Block::BlockQuote(quote_children_to_text(children, max_h)),
-        )
+        match quote_children_to_inlines(children, max_h) {
+          Some(inlines) => out.push(@cor.Block::RichBlockQuote(inlines))
+          None =>
+            out.push(
+              @cor.Block::BlockQuote(quote_children_to_text(children, max_h)),
+            )
+        }
       HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
       HtmlNode::Table(rows) => {
         let out_rows : Array[Array[String]] = []
@@ -347,6 +356,63 @@ fn list_item_children_to_text(
 }
 
 ///|
+fn list_item_children_to_inlines(
+  children : Array[HtmlNode],
+  max_h : Int,
+) -> Array[@cor.Inline]? {
+  let out : Array[@cor.Inline] = []
+  let mut first = true
+
+  for node in children {
+    match list_item_child_to_inlines(node, max_h) {
+      Some(xs) =>
+        if xs.length() > 0 {
+          if !first {
+            out.push(@cor.Inline::Break)
+          }
+          for x in xs {
+            out.push(x)
+          }
+          first = false
+        }
+      None => return None
+    }
+  }
+
+  if render_ir_inlines(out).trim() == "" {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn list_item_child_to_inlines(
+  node : HtmlNode,
+  max_h : Int,
+) -> Array[@cor.Inline]? {
+  match node {
+    HtmlNode::Paragraph(xs) => Some(html_inlines_to_ir(xs))
+    HtmlNode::Heading(level, xs) => {
+      let h = clamp_heading(level, max_h)
+      let mut prefix = ""
+      let mut i = 0
+      while i < h {
+        prefix = prefix + "#"
+        i = i + 1
+      }
+      let out : Array[@cor.Inline] = [@cor.Inline::Text(prefix + " ")]
+      let rest = html_inlines_to_ir(xs)
+      for x in rest {
+        out.push(x)
+      }
+      Some(out)
+    }
+    _ => None
+  }
+}
+
+///|
 fn is_list_item_node(node : HtmlNode) -> Bool {
   match node {
     HtmlNode::ListItem(_, _, _) => true
@@ -407,6 +473,64 @@ fn quote_children_to_text(children : Array[HtmlNode], max_h : Int) -> String {
   }
 
   out
+}
+
+///|
+fn quote_children_to_inlines(
+  children : Array[HtmlNode],
+  max_h : Int,
+) -> Array[@cor.Inline]? {
+  let out : Array[@cor.Inline] = []
+  let mut first = true
+
+  for node in children {
+    match quote_node_to_inlines(node, max_h) {
+      Some(xs) =>
+        if xs.length() > 0 {
+          if !first {
+            out.push(@cor.Inline::Break)
+            out.push(@cor.Inline::Break)
+          }
+          for x in xs {
+            out.push(x)
+          }
+          first = false
+        }
+      None => return None
+    }
+  }
+
+  if render_ir_inlines(out).trim() == "" {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn quote_node_to_inlines(
+  node : HtmlNode,
+  max_h : Int,
+) -> Array[@cor.Inline]? {
+  match node {
+    HtmlNode::Paragraph(xs) => Some(html_inlines_to_ir(xs))
+    HtmlNode::Heading(level, xs) => {
+      let h = clamp_heading(level, max_h)
+      let mut prefix = ""
+      let mut i = 0
+      while i < h {
+        prefix = prefix + "#"
+        i = i + 1
+      }
+      let out : Array[@cor.Inline] = [@cor.Inline::Text(prefix + " ")]
+      let rest = html_inlines_to_ir(xs)
+      for x in rest {
+        out.push(x)
+      }
+      Some(out)
+    }
+    _ => None
+  }
 }
 
 ///|

@@ -7,3 +7,6 @@ target/
 out/
 dataset/
 .tmp_assets_test/
+samples/docx/docx_hyperlink_missing_rel_negative.docx
+samples/pptx/pptx_hyperlink_shape_basic.pptx
+samples/pptx/pptx_hyperlink_shape_negative_empty_target.pptx

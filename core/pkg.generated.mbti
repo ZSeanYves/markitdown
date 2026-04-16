@@ -63,6 +63,7 @@ pub(all) enum Block {
   ListItem(Bool, Int, String)
   RichListItem(Bool, Int, Array[Inline])
   BlockQuote(String)
+  RichBlockQuote(Array[Inline])
   CodeBlock(String)
   Table(Array[Array[String]])
   Image(String, String)
@@ -102,4 +103,3 @@ pub(all) struct Origin {
 // Type aliases
 
 // Traits
-
