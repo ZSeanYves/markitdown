@@ -9,6 +9,18 @@ enum PdfIrHeadingRole {
 const DEBUG_TO_IR = false
 
 ///|
+fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
+  let objects = build_page_objects(page.blocks, page.images)
+  {
+    page_index: page.page_index,
+    lines: page.lines,
+    blocks: page.blocks,
+    images: page.images,
+    objects,
+  }
+}
+
+///|
 pub fn convert_pdf_blocks_to_ir(
   doc : PdfConvertDocument,
   max_heading : Int,
@@ -17,12 +29,22 @@ pub fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
-    for obj in page.objects {
-      match obj {
-        PdfConvertPageObject::TextBlock(block) =>
+    for i = 0; i < page.objects.length(); i = i + 1 {
+      match page.objects[i] {
+        PdfConvertPageObject::TextBlock(block) => {
+          let prev = find_prev_text_block_in_objects(page.objects, i)
+          let next = find_next_text_block_in_objects(page.objects, i)
+
           emit_text_block_to_ir(
-            out, page, block, has_document_title, max_heading,
+            out,
+            page.page_index,
+            block,
+            prev,
+            next,
+            has_document_title,
+            max_heading,
           )
+        }
         PdfConvertPageObject::Image(image) => {
           if image.path.trim() == "" {
             continue
@@ -66,21 +88,53 @@ pub fn convert_pdf_blocks_to_ir(
 }
 
 ///|
+fn find_prev_text_block_in_objects(
+  objects : Array[PdfConvertPageObject],
+  index : Int,
+) -> PdfConvertBlock? {
+  let mut i = index - 1
+  while i >= 0 {
+    match objects[i] {
+      PdfConvertPageObject::TextBlock(block) => return Some(block)
+      PdfConvertPageObject::Image(_) => ()
+    }
+
+    if i == 0 {
+      break
+    }
+    i = i - 1
+  }
+
+  None
+}
+
+///|
+fn find_next_text_block_in_objects(
+  objects : Array[PdfConvertPageObject],
+  index : Int,
+) -> PdfConvertBlock? {
+  let mut i = index + 1
+  while i < objects.length() {
+    match objects[i] {
+      PdfConvertPageObject::TextBlock(block) => return Some(block)
+      PdfConvertPageObject::Image(_) => ()
+    }
+    i = i + 1
+  }
+
+  None
+}
+
+///|
 fn emit_text_block_to_ir(
   out : @cor.Document,
-  page : PdfConvertPage,
+  page_index : Int,
   block : PdfConvertBlock,
+  prev : PdfConvertBlock?,
+  next : PdfConvertBlock?,
   has_document_title : Bool,
   max_heading : Int,
 ) -> Unit {
-  let i = block.block_index
-  let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
-  let next = if i + 1 < page.blocks.length() {
-    Some(page.blocks[i + 1])
-  } else {
-    None
-  }
-
   let text = block.text.trim().to_string()
   if text == "" {
     return
@@ -89,7 +143,7 @@ fn emit_text_block_to_ir(
   if DEBUG_TO_IR {
     println(
       "[to-ir/input] page=" +
-      page.page_index.to_string() +
+      page_index.to_string() +
       " block=" +
       block.block_index.to_string() +
       " kind=" +
@@ -113,7 +167,7 @@ fn emit_text_block_to_ir(
       if DEBUG_TO_IR {
         println(
           "[to-ir/heading] page=" +
-          page.page_index.to_string() +
+          page_index.to_string() +
           " block=" +
           block.block_index.to_string() +
           " role=" +

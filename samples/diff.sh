@@ -10,6 +10,7 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 "$SAMPLES_DIR/check_samples.sh"
+"$SAMPLES_DIR/check_assets.sh"
 
 fail=0
 found=0

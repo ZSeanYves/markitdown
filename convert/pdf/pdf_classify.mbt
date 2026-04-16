@@ -42,13 +42,13 @@ fn classify_convert_page_blocks(
     )
   }
 
-  {
+  rebuild_page_objects({
     page_index: page.page_index,
     lines: page.lines,
     blocks,
     images: page.images,
     objects: page.objects,
-  }
+  })
 }
 
 ///|

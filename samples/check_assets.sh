@@ -36,6 +36,7 @@ run_group() {
     local expected_md="$group_dir/${stem}.md"
 
     moon run "$ROOT/cli" -- normal "$in" "$out"
+
     if [[ ! -f "$expected_md" ]]; then
       echo "missing markdown output for $format: $expected_md"
       return 1
@@ -65,10 +66,11 @@ run_group() {
 
   echo "$format asset extraction check passed"
 }
+
 run_group pdf \
   "pdf_image_form_xobject.pdf" \
   "pdf_image_xobject.pdf" \
-  "pdf_image_inline.pdf" \
+  "pdf_image_inline.pdf"
 
 run_group pptx \
   "pptx_image_single.pptx" \

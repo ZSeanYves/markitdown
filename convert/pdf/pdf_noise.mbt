@@ -2,13 +2,17 @@
 /// 第一阶段 noise 过滤：
 /// 1. 先删已经标成 Noise 的 block
 /// 2. 再删跨页重复出现的页首/页尾短块
+
+///|
+/// 第一阶段 noise 过滤：
+/// 1. 先删已经标成 Noise 的 block
+/// 2. 再删跨页重复出现的页首/页尾短块
 pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc
   }
 
   let (repeated_heads, repeated_tails) = detect_repeated_edge_noise(doc)
-
   let pages = Array::new()
 
   for page in doc.pages {
@@ -25,15 +29,6 @@ pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
           if should_drop_repeated_edge_block(
               page, i, block, repeated_heads, repeated_tails,
             ) {
-            //println(
-            //  "[drop-repeated-edge] page=" +
-            //  page.page_index.to_string() +
-            //  " block=" +
-            //  i.to_string() +
-            //  " text=\"" +
-            //  text +
-            //  "\"",
-            //)
             ()
           } else if text == "" {
             ()
@@ -42,13 +37,16 @@ pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
           }
       }
     }
-    pages.push({
+
+    let rebuilt = rebuild_page_objects({
       page_index: page.page_index,
       lines: page.lines,
       blocks: kept,
       images: page.images,
-      objects: page.objects,
+      objects: [],
     })
+
+    pages.push(rebuilt)
   }
 
   { pages, }
