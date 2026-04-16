@@ -1,12 +1,12 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/convert/pdf"
+package "ZSeanYves/markitdown/convert/pdf/ocr"
 
 import {
   "ZSeanYves/markitdown/core",
 }
 
 // Values
-pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
+pub async fn parse_pdf_via_ocr(String, String, Int, Bool) -> @core.Document
 
 // Errors
 

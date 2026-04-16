@@ -3,13 +3,22 @@ pub async fn parse_pdf(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
-  _enhance_mode : String?,
+  enhance_mode : String?,
   _extract_debug : Bool,
   _dump_selected_raw : Bool,
   pipeline_debug : Bool,
 ) -> @cor.Document {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("pdf: file not found: " + input_path)
+  }
+
+  let ocr_mode = parse_pdf_ocr_mode(enhance_mode)
+
+  // 强制 OCR：直接走 OCR 子包
+  if ocr_mode == PdfOcrMode::Force {
+    return @ocr.parse_pdf_via_ocr(
+      input_path, _out_dir, max_heading, pipeline_debug,
+    )
   }
 
   if pipeline_debug {
@@ -21,6 +30,14 @@ pub async fn parse_pdf(
   }
 
   let core_doc = extract_pdf_core_document(input_path)
+
+  // 自动 OCR fallback：native 近似空时走 OCR 子包
+  if ocr_mode == PdfOcrMode::AutoFallback &&
+    is_effectively_empty_core_doc(core_doc) {
+    return @ocr.parse_pdf_via_ocr(
+      input_path, _out_dir, max_heading, pipeline_debug,
+    )
+  }
 
   let doc0 = build_convert_lines(core_doc, _out_dir)
   let doc1 = build_convert_blocks(doc0)
@@ -47,4 +64,54 @@ pub async fn parse_pdf(
   }
 
   convert_pdf_blocks_to_ir(doc4, max_heading)
+}
+
+///|
+priv enum PdfOcrMode {
+  Disabled
+  AutoFallback
+  Force
+} derive(Eq)
+
+///|
+fn parse_pdf_ocr_mode(mode : String?) -> PdfOcrMode {
+  match mode {
+    None => PdfOcrMode::Disabled
+    Some(raw) => {
+      let m = raw.trim().to_lower()
+      if m == "ocr" {
+        PdfOcrMode::Force
+      } else if m == "ocr-auto" || m == "auto-ocr" {
+        PdfOcrMode::AutoFallback
+      } else {
+        PdfOcrMode::Disabled
+      }
+    }
+  }
+}
+
+///|
+/// 判断 native pdf_core 结果是否几乎没有可用文本。
+fn is_effectively_empty_core_doc(doc : @model.PdfDocumentModel) -> Bool {
+  let mut signal_chars = 0
+
+  for page in doc.pages {
+    for block in page.text_blocks {
+      let t = @model.block_text(block).trim().to_string()
+      if t == "" {
+        continue
+      }
+
+      for ch in t.to_array() {
+        if ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' {
+          signal_chars = signal_chars + 1
+          if signal_chars >= 24 {
+            return false
+          }
+        }
+      }
+    }
+  }
+
+  true
 }

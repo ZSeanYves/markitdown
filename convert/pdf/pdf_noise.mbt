@@ -7,7 +7,7 @@
 /// 第一阶段 noise 过滤：
 /// 1. 先删已经标成 Noise 的 block
 /// 2. 再删跨页重复出现的页首/页尾短块
-pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc
   }
@@ -39,7 +39,7 @@ pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     }
 
     let rebuilt = rebuild_page_objects({
-      page_index: page.page_index,
+      _page_index: page._page_index,
       lines: page.lines,
       blocks: kept,
       images: page.images,

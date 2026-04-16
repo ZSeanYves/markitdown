@@ -93,10 +93,10 @@ moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
 ./samples/diff.sh
 ```
 
-### Run PDF-focused regression
+### Run image regression
 
 ```bash
-./samples/pdf_regression_check.sh
+./samples/check_assets.sh
 ```
 
 ## PDF Mainflow

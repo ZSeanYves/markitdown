@@ -1,31 +1,31 @@
 ///|
-pub struct PdfConvertLine {
-  page_index : Int
+priv struct PdfConvertLine {
+  _page_index : Int
   line_index : Int
   text : String
-  source_block_index : Int
+  _source_block_index : Int
   is_heading_candidate : Bool
   is_page_number_candidate : Bool
 
   // 版面信号
-  bbox : @model.PdfRect
+  _bbox : @model.PdfRect
   font_size : Double?
   font_name : String?
   indent_left : Double?
   line_gap_before : Double?
-  line_gap_after : Double?
+  _line_gap_after : Double?
 }
 
 ///|
-pub enum PdfConvertBlockKind {
+priv enum PdfConvertBlockKind {
   Heading
   Paragraph
   Noise
 } derive(Eq)
 
 ///|
-pub struct PdfConvertBlock {
-  page_index : Int
+priv struct PdfConvertBlock {
+  _page_index : Int
   block_index : Int
   kind : PdfConvertBlockKind
   text : String
@@ -35,7 +35,7 @@ pub struct PdfConvertBlock {
   is_noise_candidate : Bool
 
   // 块级版面信号
-  bbox : @model.PdfRect
+  _bbox : @model.PdfRect
   dominant_font_size : Double?
   dominant_font_name : String?
   top_y : Double
@@ -44,29 +44,29 @@ pub struct PdfConvertBlock {
 }
 
 ///|
-pub struct PdfConvertImage {
-  page_index : Int
-  image_index : Int
+priv struct PdfConvertImage {
+  _page_index : Int
+  _image_index : Int
   path : String
   alt_text : String?
   caption : String?
-  bbox : @model.PdfRect
+  _bbox : @model.PdfRect
   top_y : Double
   left_x : Double
-  width_px : Int
-  height_px : Int
+  _width_px : Int
+  _height_px : Int
   source_image_id : String
 }
 
 ///|
-pub enum PdfConvertPageObject {
+priv enum PdfConvertPageObject {
   TextBlock(PdfConvertBlock)
   Image(PdfConvertImage)
 }
 
 ///|
-pub struct PdfConvertPage {
-  page_index : Int
+priv struct PdfConvertPage {
+  _page_index : Int
   lines : Array[PdfConvertLine]
   blocks : Array[PdfConvertBlock]
   images : Array[PdfConvertImage]
@@ -74,6 +74,6 @@ pub struct PdfConvertPage {
 }
 
 ///|
-pub struct PdfConvertDocument {
+priv struct PdfConvertDocument {
   pages : Array[PdfConvertPage]
 }

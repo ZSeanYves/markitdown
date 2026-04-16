@@ -1,6 +1,6 @@
 ///|
 /// 从 pdf_core 的 PdfDocumentModel 构建 convert line 文档。
-pub fn build_convert_lines(
+fn build_convert_lines(
   doc : @model.PdfDocumentModel,
   out_dir : String,
 ) -> PdfConvertDocument {
@@ -15,7 +15,7 @@ pub fn build_convert_lines(
 }
 
 ///|
-pub fn build_convert_page_lines(
+fn build_convert_page_lines(
   page : @model.PdfPageModel,
   out_dir : String,
   next_image_idx : Ref[Int],
@@ -49,14 +49,14 @@ pub fn build_convert_page_lines(
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
 
-  { page_index: page.page_index, lines, blocks: [], images, objects: [] }
+  { _page_index: page.page_index, lines, blocks: [], images, objects: [] }
 }
 
 ///|
 fn core_line_to_convert_line(
-  page_index : Int,
+  _page_index : Int,
   line_index : Int,
-  source_block_index : Int,
+  _source_block_index : Int,
   block : @model.PdfTextBlock,
   line : @model.PdfTextLine,
 ) -> PdfConvertLine {
@@ -64,18 +64,18 @@ fn core_line_to_convert_line(
   let text = raw_text.trim().to_string()
 
   {
-    page_index,
+    _page_index,
     line_index,
     text,
-    source_block_index,
+    _source_block_index,
     is_heading_candidate: block.is_heading_candidate,
     is_page_number_candidate: block.is_page_number_candidate,
-    bbox: line.bbox,
+    _bbox: line.bbox,
     font_size: pick_line_font_size(line),
     font_name: pick_line_font_name(line),
     indent_left: line.indent_left,
     line_gap_before: line.line_gap_before,
-    line_gap_after: line.line_gap_after,
+    _line_gap_after: line.line_gap_after,
   }
 }
 
@@ -126,25 +126,25 @@ fn export_convert_page_images(
     }
   }
 
-  let mut image_index = 0
+  let mut _image_index = 0
   for image in page.images {
     let _export = export_single_pdf_image(image, out_dir, next_image_idx)
     match _export {
       Some(path) => {
         out.push({
-          page_index: page.page_index,
-          image_index,
+          _page_index: page.page_index,
+          _image_index,
           path,
           alt_text: image.alt_text,
           caption: None,
-          bbox: image.bbox,
+          _bbox: image.bbox,
           top_y: image.bbox.y1,
           left_x: image.bbox.x0,
-          width_px: image.width_px,
-          height_px: image.height_px,
+          _width_px: image.width_px,
+          _height_px: image.height_px,
           source_image_id: image.id,
         })
-        image_index = image_index + 1
+        _image_index = _image_index + 1
       }
       None => ()
     }

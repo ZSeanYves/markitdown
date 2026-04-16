@@ -1,5 +1,5 @@
 ///|
-pub async fn extract_pdf_core_document(
+async fn extract_pdf_core_document(
   input_path : String,
 ) -> @model.PdfDocumentModel {
   let cfg = @api.default_pdf_core_config()

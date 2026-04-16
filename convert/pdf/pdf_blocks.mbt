@@ -1,6 +1,6 @@
 ///|
 /// 从 convert line 文档构建 convert block 文档。
-pub fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   let pages = Array::new()
 
   for page in doc.pages {
@@ -11,18 +11,18 @@ pub fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 }
 
 ///|
-/// 从单页 convert lines 构建 convert blocks，并与图片按 bbox 混排。
-pub fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
+/// 从单页 convert lines 构建 convert blocks，并与图片按 _bbox 混排。
+fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
   let blocks = Array::new()
 
   for i = 0; i < page.lines.length(); i = i + 1 {
-    blocks.push(make_block_from_line(page.page_index, i, page.lines[i]))
+    blocks.push(make_block_from_line(page._page_index, i, page.lines[i]))
   }
 
   let objects = build_page_objects(blocks, page.images)
 
   {
-    page_index: page.page_index,
+    _page_index: page._page_index,
     lines: page.lines,
     blocks,
     images: page.images,
@@ -32,7 +32,7 @@ pub fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
 
 ///|
 fn make_block_from_line(
-  page_index : Int,
+  _page_index : Int,
   block_index : Int,
   line : PdfConvertLine,
 ) -> PdfConvertBlock {
@@ -45,7 +45,7 @@ fn make_block_from_line(
   }
 
   {
-    page_index,
+    _page_index,
     block_index,
     kind,
     text: line.text,
@@ -53,11 +53,11 @@ fn make_block_from_line(
     line_end: line.line_index,
     is_heading_candidate: line.is_heading_candidate,
     is_noise_candidate: line.is_page_number_candidate,
-    bbox: line.bbox,
+    _bbox: line._bbox,
     dominant_font_size: line.font_size,
     dominant_font_name: line.font_name,
-    top_y: line.bbox.y1,
-    left_x: line.bbox.x0,
+    top_y: line._bbox.y1,
+    left_x: line._bbox.x0,
     line_count: 1,
   }
 }

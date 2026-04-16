@@ -1,9 +1,9 @@
 ///|
-enum PdfIrHeadingRole {
+priv enum PdfIrHeadingRole {
   DocumentTitle
   SectionHeading
   NotHeading
-} derive(Eq)
+}
 
 ///|
 const DEBUG_TO_IR = false
@@ -12,7 +12,7 @@ const DEBUG_TO_IR = false
 fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
   let objects = build_page_objects(page.blocks, page.images)
   {
-    page_index: page.page_index,
+    _page_index: page._page_index,
     lines: page.lines,
     blocks: page.blocks,
     images: page.images,
@@ -21,7 +21,7 @@ fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
 }
 
 ///|
-pub fn convert_pdf_blocks_to_ir(
+fn convert_pdf_blocks_to_ir(
   doc : PdfConvertDocument,
   max_heading : Int,
 ) -> @cor.Document {
@@ -37,7 +37,7 @@ pub fn convert_pdf_blocks_to_ir(
 
           emit_text_block_to_ir(
             out,
-            page.page_index,
+            page._page_index,
             block,
             prev,
             next,
@@ -52,7 +52,7 @@ pub fn convert_pdf_blocks_to_ir(
 
           let origin : @cor.Origin = {
             source_name: None,
-            page: Some(page.page_index + 1),
+            page: Some(page._page_index + 1),
             slide: None,
             sheet: None,
             block_index: Some(out.blocks.val.length()),
@@ -73,7 +73,7 @@ pub fn convert_pdf_blocks_to_ir(
 
           @cor.set_asset_origin(out, image.path, {
             source_name: None,
-            page: Some(page.page_index + 1),
+            page: Some(page._page_index + 1),
             slide: None,
             sheet: None,
             origin_id: Some(image.source_image_id),
@@ -128,7 +128,7 @@ fn find_next_text_block_in_objects(
 ///|
 fn emit_text_block_to_ir(
   out : @cor.Document,
-  page_index : Int,
+  _page_index : Int,
   block : PdfConvertBlock,
   prev : PdfConvertBlock?,
   next : PdfConvertBlock?,
@@ -143,7 +143,7 @@ fn emit_text_block_to_ir(
   if DEBUG_TO_IR {
     println(
       "[to-ir/input] page=" +
-      page_index.to_string() +
+      _page_index.to_string() +
       " block=" +
       block.block_index.to_string() +
       " kind=" +
@@ -167,7 +167,7 @@ fn emit_text_block_to_ir(
       if DEBUG_TO_IR {
         println(
           "[to-ir/heading] page=" +
-          page_index.to_string() +
+          _page_index.to_string() +
           " block=" +
           block.block_index.to_string() +
           " role=" +
@@ -390,7 +390,7 @@ fn looks_like_document_title_role_for_ir(
   }
 
   // 必须在首页前部
-  if block.page_index != 0 || block.block_index > 2 {
+  if block._page_index != 0 || block.block_index > 2 {
     return false
   }
 

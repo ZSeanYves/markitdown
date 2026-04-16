@@ -119,7 +119,15 @@ pub(all) struct PdfImageObject {
   object_ref : String?
   alt_text : String?
   inline_image : Bool
+  payload : PdfImagePayload?
   source_refs : Array[PdfSourceRef]
+}
+
+pub(all) enum PdfImagePayload {
+  Jpeg(Array[Byte])
+  Jpeg2000(Array[Byte])
+  Jbig2(Array[Byte], Int?)
+  RawRgb24(Array[Byte])
 }
 
 pub(all) struct PdfOutlineItem {

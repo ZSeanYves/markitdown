@@ -3,7 +3,7 @@
 /// - 保住高置信 heading
 /// - 把明显误判 heading 降回 paragraph
 /// - 使用页内前后文提升 precision
-pub fn classify_convert_blocks(
+fn classify_convert_blocks(
   doc : PdfConvertDocument,
   max_heading : Int,
 ) -> PdfConvertDocument {
@@ -43,7 +43,7 @@ fn classify_convert_page_blocks(
   }
 
   rebuild_page_objects({
-    page_index: page.page_index,
+    _page_index: page._page_index,
     lines: page.lines,
     blocks,
     images: page.images,
@@ -203,7 +203,7 @@ fn copy_block_with_kind(
   kind : PdfConvertBlockKind,
 ) -> PdfConvertBlock {
   {
-    page_index: block.page_index,
+    _page_index: block._page_index,
     block_index: block.block_index,
     kind,
     text: block.text,
@@ -211,7 +211,7 @@ fn copy_block_with_kind(
     line_end: block.line_end,
     is_heading_candidate: block.is_heading_candidate,
     is_noise_candidate: block.is_noise_candidate,
-    bbox: block.bbox,
+    _bbox: block._bbox,
     dominant_font_size: block.dominant_font_size,
     dominant_font_name: block.dominant_font_name,
     top_y: block.top_y,

@@ -77,7 +77,15 @@ pub(all) struct RawImageInfo {
   image_filter : String?
   alt_text : String?
   inline_image : Bool
+  payload : RawImagePayload?
   source_refs : Array[RawSourceRef]
+}
+
+pub(all) enum RawImagePayload {
+  Jpeg(Array[Byte])
+  Jpeg2000(Array[Byte])
+  Jbig2(Array[Byte], Int?)
+  RawRgb24(Array[Byte])
 }
 
 pub struct RawPdfDocumentExtract {

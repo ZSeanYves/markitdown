@@ -1,5 +1,5 @@
 ///|
-pub fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
+fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
   let mut page_count = 0
   let mut line_count = 0
   let mut block_count = 0
@@ -23,10 +23,10 @@ pub fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
 }
 
 ///|
-pub fn debug_print_convert_lines(page : PdfConvertPage) -> Unit {
+fn debug_print_convert_lines(page : PdfConvertPage) -> Unit {
   println(
     "pdf_lines/debug page=" +
-    page.page_index.to_string() +
+    page._page_index.to_string() +
     " convert_lines=" +
     page.lines.length().to_string(),
   )
@@ -46,17 +46,17 @@ pub fn debug_print_convert_lines(page : PdfConvertPage) -> Unit {
       opt_f64(line.indent_left) +
       " gap_before=" +
       opt_f64(line.line_gap_before) +
-      " bbox=" +
-      rect_str(line.bbox),
+      " _bbox=" +
+      rect_str(line._bbox),
     )
   }
 }
 
 ///|
-pub fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
+fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
   println(
     "pdf_blocks/debug page=" +
-    page.page_index.to_string() +
+    page._page_index.to_string() +
     " convert_blocks=" +
     page.blocks.length().to_string(),
   )
@@ -78,8 +78,8 @@ pub fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
       block.top_y.to_string() +
       " left_x=" +
       block.left_x.to_string() +
-      " bbox=" +
-      rect_str(block.bbox),
+      " _bbox=" +
+      rect_str(block._bbox),
     )
   }
 }
@@ -124,11 +124,11 @@ fn block_kind_str(kind : PdfConvertBlockKind) -> String {
 
 ///|
 /// 调试：打印每页首块/尾块，观察 repeated header/footer 候选。
-pub fn debug_print_page_edge_blocks(doc : PdfConvertDocument) -> Unit {
+fn debug_print_page_edge_blocks(doc : PdfConvertDocument) -> Unit {
   println("pdf_edges/debug pages=" + doc.pages.length().to_string())
 
   for page in doc.pages {
-    println("  [page " + page.page_index.to_string() + "]")
+    println("  [page " + page._page_index.to_string() + "]")
 
     if page.blocks.is_empty() {
       println("    first=<none>")
@@ -169,14 +169,14 @@ fn edge_block_debug_str(block : PdfConvertBlock) -> String {
   block.left_x.to_string() +
   ", line_count=" +
   block.line_count.to_string() +
-  ", bbox=" +
-  rect_str(block.bbox) +
+  ", _bbox=" +
+  rect_str(block._bbox) +
   "}"
 }
 
 ///|
 /// 调试：统计跨页重复出现的首尾块完整文本。
-pub fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
+fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
   let edge_texts = Array::new()
 
   for page in doc.pages {
@@ -227,11 +227,11 @@ pub fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
 
 ///|
 /// 调试：打印看起来像 header/footer 的块。
-pub fn debug_print_header_footer_like_blocks(doc : PdfConvertDocument) -> Unit {
+fn debug_print_header_footer_like_blocks(doc : PdfConvertDocument) -> Unit {
   println("pdf_header_footer/debug")
 
   for page in doc.pages {
-    println("  [page " + page.page_index.to_string() + "]")
+    println("  [page " + page._page_index.to_string() + "]")
 
     for block in page.blocks {
       if looks_like_debug_edge_noise_candidate(block) {

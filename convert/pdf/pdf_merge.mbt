@@ -1,7 +1,7 @@
 ///|
 /// 第一阶段最小 cross-page merge：
 /// - 只处理“上一页最后段 + 下一页第一段”的高置信续段
-pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc
   }
@@ -38,7 +38,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
       // 更新上一页最后一个 block
       merged_prev[merged_prev.length() - 1] = {
-        page_index: prev_last.page_index,
+        _page_index: prev_last._page_index,
         block_index: prev_last.block_index,
         kind: prev_last.kind,
         text: merged_text,
@@ -48,7 +48,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
         is_noise_candidate: false,
 
         // 跨页 block 第一阶段保留上一页末块的几何锚点
-        bbox: prev_last.bbox,
+        _bbox: prev_last._bbox,
         dominant_font_size: merged_font_size,
         dominant_font_name: merged_font_name,
         top_y: prev_last.top_y,
@@ -68,7 +68,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     // 回写上一页
     pages[pages.length() - 1] = rebuild_page_objects({
-      page_index: prev_page.page_index,
+      _page_index: prev_page._page_index,
       lines: prev_page.lines,
       blocks: merged_prev,
       images: prev_page.images,
@@ -78,7 +78,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     // 写入当前页
     pages.push(
       rebuild_page_objects({
-        page_index: cur_page.page_index,
+        _page_index: cur_page._page_index,
         lines: cur_page.lines,
         blocks: merged_cur,
         images: cur_page.images,
