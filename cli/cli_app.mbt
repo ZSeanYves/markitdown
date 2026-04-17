@@ -8,6 +8,7 @@ async fn cmd_convert(
   pdf_extract_debug : Bool,
   pdf_dump_selected_raw : Bool,
   pdf_pipeline_debug : Bool,
+  with_metadata : Bool,
 ) -> Unit {
   let resolved_output = resolve_output_path(input, output)
 
@@ -51,14 +52,46 @@ async fn cmd_convert(
   let md = @cor.emit_markdown(doc)
 
   match resolved_output {
-    Some(p) =>
+    Some(p) => {
       @fs.write_string_to_file(p, md, encoding="utf8") catch {
-        e => exit_error("write output failed: " + e.to_string())
+        e => {
+          exit_error("write output failed: " + e.to_string())
+          return
+        }
       }
+
+      if with_metadata {
+        let format = detect_input_format(input)
+        let markdown_file = @cor.basename(p)
+        let metadata_json = @cor.emit_metadata_json(
+          doc,
+          @cor.basename(input),
+          format,
+          markdown_file,
+        )
+        let metadata_path = metadata_output_path(p)
+        let metadata_dir = dirname_of_path(metadata_path)
+
+        if !@fs.path_exists(metadata_dir) {
+          @fs.create_dir(metadata_dir) catch {
+            e => {
+              exit_error("create metadata dir failed: " + e.to_string())
+              return
+            }
+          }
+        }
+
+        @fs.write_string_to_file(metadata_path, metadata_json, encoding="utf8") catch {
+          e => {
+            exit_error("write metadata failed: " + e.to_string())
+            return
+          }
+        }
+      }
+    }
     None => println(md)
   }
 }
-
 ///|
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
@@ -139,5 +172,44 @@ fn input_stem(path : String) -> String {
     base
   } else {
     base[:dot].to_string()
+  }
+}
+
+///|
+fn metadata_output_path(markdown_path : String) -> String {
+  let base = @cor.basename(markdown_path)
+  let dir = dirname_of_path(markdown_path)
+
+  let mut dot = -1
+  for i in 0..<base.length() {
+    if base[i] == '.' {
+      dot = i
+    }
+  }
+
+  let stem = if dot <= 0 {
+    base
+  } else {
+    base[:dot].to_string()
+  }
+
+  join_path(join_path(dir, "metadata"), stem + ".metadata.json")
+}
+
+///|
+fn detect_input_format(path : String) -> String {
+  let base = @cor.basename(path).to_lower()
+  if base.has_suffix(".docx") {
+    "docx"
+  } else if base.has_suffix(".pdf") {
+    "pdf"
+  } else if base.has_suffix(".xlsx") {
+    "xlsx"
+  } else if base.has_suffix(".pptx") {
+    "pptx"
+  } else if base.has_suffix(".html") || base.has_suffix(".htm") {
+    "html"
+  } else {
+    "unknown"
   }
 }

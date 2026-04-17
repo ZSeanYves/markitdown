@@ -1,0 +1,77 @@
+{
+  "version": "1",
+  "source_name": "pptx_image_single_caption_like.pptx",
+  "format": "pptx",
+  "markdown_file": "pptx_image_single_caption_like.md",
+  "summary": {
+    "block_count": 3,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "Slide 1",
+      "origin": {
+        "source_name": "pptx_image_single_caption_like.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "image",
+      "text": "Figure 1. Revenue trend",
+      "origin": {
+        "source_name": "pptx_image_single_caption_like.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image02.png",
+        "alt_text": "slide-1-image-1",
+        "title": null,
+        "caption": "Figure 1. Revenue trend"
+      }
+    },
+    {
+      "block_index": 2,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "source_name": "pptx_image_single_caption_like.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image02.png",
+      "asset_type": "image",
+      "alt_text": "slide-1-image-1",
+      "title": null,
+      "caption": "Figure 1. Revenue trend",
+      "origin": {
+        "source_name": "pptx_image_single_caption_like.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "origin_id": "slide-1-image-1",
+        "nearby_caption": "Figure 1. Revenue trend"
+      },
+      "nearby_caption": "Figure 1. Revenue trend"
+    }
+  ]
+}

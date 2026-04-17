@@ -1,0 +1,49 @@
+{
+  "version": "1",
+  "source_name": "pdf_image_single_caption_like.pdf",
+  "format": "pdf",
+  "markdown_file": "pdf_image_single_caption_like.md",
+  "summary": {
+    "block_count": 1,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "image",
+      "text": "Figure 1. PDF caption",
+      "origin": {
+        "source_name": "pdf_image_single_caption_like.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image01.jpg",
+        "alt_text": null,
+        "title": null,
+        "caption": "Figure 1. PDF caption"
+      }
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image01.jpg",
+      "asset_type": "image",
+      "alt_text": null,
+      "title": null,
+      "caption": "Figure 1. PDF caption",
+      "origin": {
+        "source_name": "pdf_image_single_caption_like.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "xobj-image-3",
+        "nearby_caption": "Figure 1. PDF caption"
+      },
+      "nearby_caption": "Figure 1. PDF caption"
+    }
+  ]
+}

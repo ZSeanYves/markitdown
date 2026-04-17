@@ -7,24 +7,33 @@ async fn main {
     description="Convert documents to Markdown",
     subcmds={
       "normal": @clap.SubCommand::new(
-        help="Normal conversion: normal <input> [output]",
+        help="Normal conversion: normal [--with-metadata] <input> [output]",
         args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json next to markdown output",
+          ),
           "input": @clap.Arg::positional(
             help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html)",
           ),
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="OCR conversion for scanned/image PDFs: ocr <input> [output]",
+        help="OCR conversion for scanned/image PDFs: ocr [--with-metadata] <input> [output]",
         args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json next to markdown output",
+          ),
           "input": @clap.Arg::positional(
             help="Path to input file (.pdf preferred)",
           ),
         },
       ),
       "debug": @clap.SubCommand::new(
-        help="Debug conversion: debug <all|extract|raw|pipeline> <input> [output]",
+        help="Debug conversion: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
         args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json next to markdown output",
+          ),
           "input": @clap.Arg::positional(
             help="Arguments: <all|extract|raw|pipeline> <input> [output]",
           ),
@@ -58,10 +67,12 @@ async fn main {
       match value.subcmd {
         Some(sub) => {
           let positional = sub.positional_args
+          let with_metadata = sub.flags.contains("with-metadata")
+
           match sub.name {
             "normal" => {
               if positional.length() < 1 || positional.length() > 2 {
-                exit_error("usage: normal <input> [output]")
+                exit_error("usage: normal [--with-metadata] <input> [output]")
                 print_cli_usage()
                 return
               }
@@ -71,11 +82,21 @@ async fn main {
               } else {
                 None
               }
-              cmd_convert(input, output_opt, None, 6, None, false, false, false)
+              cmd_convert(
+                input,
+                output_opt,
+                None,
+                6,
+                None,
+                false,
+                false,
+                false,
+                with_metadata,
+              )
             }
             "ocr" => {
               if positional.length() < 1 || positional.length() > 2 {
-                exit_error("usage: ocr <input> [output]")
+                exit_error("usage: ocr [--with-metadata] <input> [output]")
                 print_cli_usage()
                 return
               }
@@ -94,12 +115,13 @@ async fn main {
                 false,
                 false,
                 false,
+                with_metadata,
               )
             }
             "debug" => {
               if positional.length() < 2 || positional.length() > 3 {
                 exit_error(
-                  "usage: debug <all|extract|raw|pipeline> <input> [output]",
+                  "usage: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
                 )
                 print_cli_usage()
                 return
@@ -139,6 +161,7 @@ async fn main {
                 pdf_extract_debug,
                 pdf_dump_selected_raw,
                 pdf_pipeline_debug,
+                with_metadata,
               )
             }
             _ => {
@@ -158,7 +181,9 @@ async fn main {
 ///|
 fn print_cli_usage() -> Unit {
   println("Usage:")
-  println("  moon run cli -- normal <input> [output]")
-  println("  moon run cli -- ocr <input> [output]")
-  println("  moon run cli -- debug <all|extract|raw|pipeline> <input> [output]")
+  println("  moon run cli -- normal [--with-metadata] <input> [output]")
+  println("  moon run cli -- ocr [--with-metadata] <input> [output]")
+  println(
+    "  moon run cli -- debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
+  )
 }

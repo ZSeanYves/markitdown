@@ -1,0 +1,49 @@
+{
+  "version": "1",
+  "source_name": "html_figure_figcaption_basic.html",
+  "format": "html",
+  "markdown_file": "html_figure_figcaption_basic.md",
+  "summary": {
+    "block_count": 1,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "image",
+      "text": "Figure caption text.",
+      "origin": {
+        "source_name": "html_figure_figcaption_basic.html",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image02.jpg",
+        "alt_text": "figure image",
+        "title": "Figure title",
+        "caption": "Figure caption text."
+      }
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image02.jpg",
+      "asset_type": "image",
+      "alt_text": "figure image",
+      "title": "Figure title",
+      "caption": "Figure caption text.",
+      "origin": {
+        "source_name": "html_figure_figcaption_basic.html",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "html-asset-1",
+        "nearby_caption": "Figure caption text."
+      },
+      "nearby_caption": "Figure caption text."
+    }
+  ]
+}
