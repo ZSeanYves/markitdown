@@ -1,36 +1,45 @@
-# Known Limitations
+# Sample Coverage
 
-## General
+## Regression sets vs. demo set
 
-* The project focuses on structured Markdown output rather than full visual reproduction
-* Complex layout recovery remains format-dependent
-* Some advanced semantics are still conservatively downgraded to readable paragraph order
+The repository has two different sample roles:
 
-## PDF
+1. **Full regression sets** (for engineering stability)
+   - `samples/main_process`
+   - `samples/metadata`
+   - `samples/assets`
+2. **Acceptance demo set** (for quick showcase)
+   - `samples/test`
 
-* `main` currently uses an external text-first pipeline
-* OCR is a dedicated path, not the default normal flow
-* more complex layouts still depend mainly on heuristic post-processing
-* the main path is not yet based on a full event -> line -> block native recovery chain
+`samples/test` is a compact five-format demonstration set. It is **not** a replacement for full regression coverage.
 
-## PPTX
+## Why regression is split into 3 independent chains
 
-* table-like regions are currently stabilized mainly as reading-order / grouping problems
-* not all high-confidence grid-like regions are upgraded into richer table semantics
-* negative layouts are often conservatively preserved as readable ordered paragraphs
+- `main_process`: validate structure recovery and Markdown main output quality.
+- `metadata`: validate origin / image-context / caption / nearby-caption semantics.
+- `assets`: validate extracted assets and Markdown asset reference validity.
 
-## HTML
+This split improves explainability:
 
-* the parser is intentionally lightweight
-* no browser-grade rendering model
-* complex deeply nested semantic containers are handled conservatively
+- failures are easier to localize,
+- acceptance evidence maps clearly to completion/quality/explainability/UX,
+- regression noise is reduced.
 
-## XLSX
+## Scripts
 
-* no formula evaluation
-* merged cells are not yet reconstructed as richer semantic structures
+- `samples/check_samples.sh`: enrollment integrity check for main_process set.
+- `samples/diff.sh`: main process regression entry (and invokes assets checks).
+- `samples/check_metadata.sh`: metadata-focused regression.
+- `samples/check_assets.sh`: assets extraction/reference regression.
 
-## DOCX
+## Acceptance demo coverage (`samples/test`)
 
-* quote-like / code-like detection still depends partly on conservative heuristics
-* non-standard or multilingual style naming may reduce structural precision
+Current demo files cover five formats:
+
+- DOCX: `samples/test/golden.md`
+- HTML: `samples/test/html_figure_figcaption_basic.md`
+- PDF: `samples/test/pdf_image_single_caption_like.md`
+- PPTX: `samples/test/pptx_image_single_caption_like.md`
+- XLSX: `samples/test/xlsx_builtin_datetime_22.md`
+
+And include metadata/assets examples for acceptance walkthrough.

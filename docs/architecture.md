@@ -1,157 +1,206 @@
-# Architecture
+# Architecture Overview
 
-## Overview
+## 1) Overview
 
-The current repository mainflow is:
+The current repository follows a layered unified pipeline:
 
-**docx / pdf / xlsx / pptx / html -> IR -> Markdown**
+**CLI -> Dispatcher -> Upper-level Structural Recovery Layer (`convert/*`) -> Lower-level Parsing Infrastructure (`doc_parse/*`) -> Unified IR -> Markdown Emitter / Metadata Emitter / Asset Export**
 
-Core flow:
+In this structure:
 
-* `convert/convert/dispatcher.mbt` dispatches files by extension
-* `core/ir.mbt` defines the unified Intermediate Representation (IR)
-* `core/emitter_markdown.mbt` emits Markdown from IR
+- `convert/*` is responsible for structure recovery and semantic mapping for specific formats
+- `doc_parse/*` provides low-level parsing capabilities (such as ZIP / OOXML / native PDF parsing infrastructure)
+- `core/*` is responsible for the unified IR and output contracts
 
-For PDF, the `main` branch should no longer be described as using an external text-first path. The normal PDF path has already been **fully replaced by a native structural recovery pipeline**, while OCR is kept as a separate plugin-driven path.
+The design goal is not merely “to make a single conversion run”, but to ensure that:
 
-## Repository Layout
+- results are regression-verifiable
+- the processing flow is explainable
+- the produced artifacts are suitable for engineering consumption
 
-### `cli/`
+## 2) Layered Responsibilities and Boundaries
 
-Command-line entry layer.
+### 2.1 CLI Layer (`cli/`)
 
-* `main.mbt`: CLI entry
-* `cli_app.mbt`: command orchestration
-* `cli_args.mbt`: argument normalization helpers
+Responsibilities:
 
-### `convert/convert/`
+- Parse `normal / ocr / debug` and `--with-metadata`
+- Handle output paths (file vs. directory semantics)
+- Coordinate whether Markdown and sidecar outputs should be written
 
-Format dispatch layer.
+Boundaries:
 
-* `dispatcher.mbt`: unified cross-format entry
+- Does not perform format-level structural analysis
+- Does not perform format-level semantic recovery
 
-### `core/`
+### 2.2 Dispatcher Layer (`convert/convert/dispatcher.mbt`)
 
-Shared infrastructure.
+Responsibilities:
 
-* `ir.mbt`: unified IR definitions
-* `emitter_markdown.mbt`: Markdown emission
-* `tool.mbt`: common helpers
-* `errors.mbt`: shared errors
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html`)
 
-### `convert/docx/`
+Boundaries:
 
-DOCX parsing and structure recovery.
+- Only performs dispatch
+- Does not contain format-specific strategy
 
-Main modules include:
+### 2.3 Upper-level Structural Recovery Layer (`convert/*`)
 
-* `docx_parser.mbt`
-* `docx_document.mbt`
-* `docx_table.mbt`
-* `docx_styles.mbt`
-* `docx_numbering.mbt`
-* `docx_package.mbt`
-* `docx_rels.mbt`
-* `docx_xml.mbt`
-* `docx_types.mbt`
+Responsibilities:
 
-### `convert/pdf/`
+- Perform structural recovery and semantic mapping for specific input formats
+- Build unified IR based on lower-level parsing results
+- Attach additional semantics such as `origin` and `image-context` within the current capability boundary
 
-PDF native mainflow.
+Boundaries:
 
-The PDF path on `main` should now be described as a native structural recovery chain rather than an external text-first pipeline.
+- Does not reimplement low-level container parsing or raw format decoding
+- Does not directly define the sidecar schema
+- Does not directly handle CLI filesystem policy
 
-Main modules include:
+### 2.4 Lower-level Parsing Infrastructure (`doc_parse/*`)
 
-* `pdf_parser.mbt`
-* `pdf_to_ir.mbt`
-* `pdf_noise.mbt`
-* `pdf_classify.mbt`
-* `pdf_convert_lines.mbt`
-* `pdf_convert_blocks.mbt`
-* `pdf_types.mbt`
+Responsibilities:
 
-If compatibility or auxiliary modules are still retained in the tree, they may also be listed where relevant:
+- Provide low-level parsing infrastructure for document formats
+- Support ZIP / OOXML parsing foundations
+- Support native PDF parsing foundations
+- Provide reusable low-level data inputs for upper-level structural recovery
 
-* `pdf_extract.mbt`
-* `pdf_select.mbt`
-* `pdf_ocr.mbt`
-* `pdf_enhance.mbt`
+Typical current components include:
 
-### `doc_parse/pdf_core/`
+- `doc_parse/zip`: ZIP container handling
+- `doc_parse/ooxml`: shared OOXML parsing infrastructure
+- `doc_parse/pdf_core`: native PDF parsing foundations
 
-Low-level PDF parsing and recovery infrastructure.
+Role:
 
-This layer is worth documenting explicitly because it now matters directly to the normal PDF mainflow. Its responsibilities include:
+- This layer serves as the parsing substrate beneath the upper-level recovery logic
+- It allows the project to distinguish between “raw format parsing problems” and “structure recovery / semantic reconstruction problems”
 
-* low-level character / span / line / block modeling
-* text normalization
-* visual-line recovery
-* same-line / paragraph / edge-noise related rules
-* providing higher-level structural inputs to `convert/pdf/`
+Boundaries:
 
-### `convert/xlsx/`
+- Does not directly define final Markdown semantics
+- Does not directly serve as the user-facing conversion layer
+- Its outputs are mainly consumed by upper-level `convert/*` modules
 
-XLSX parsing pipeline.
+### 2.5 Unified IR Layer (`core/ir.mbt`)
 
-Main modules include:
+Responsibilities:
 
-* `xlsx_parser.mbt`
-* `xlsx_sheet.mbt`
-* `xlsx_styles.mbt`
-* `xlsx_datetime.mbt`
-* `xlsx_package.mbt`
-* `xlsx_shared_strings.mbt`
-* `xlsx_xml.mbt`
+- Abstract `Document / Block / Inline`
+- Maintain `block_origins / asset_origins / ImageData`
 
-### `convert/pptx/`
+Role:
 
-PPTX parsing and layout recovery.
+- Serves as the unified “explanatory intermediate layer” across formats
+- Separates “parsing problems” from “output problems” for easier diagnosis
+- Provides a unified input contract for Markdown, metadata sidecars, and future engineering-oriented outputs
 
-Main modules include:
+### 2.6 Markdown Emitter (`core/emitter_markdown.mbt`)
 
-* `pptx_parser.mbt`
-* `pptx_reading_order.mbt`
-* `pptx_table_like.mbt`
-* `pptx_grouping.mbt`
-* `pptx_group_candidates.mbt`
-* `pptx_noise.mbt`
-* `pptx_slide.mbt`
-* `pptx_text.mbt`
+Responsibilities:
 
-Local layout-recovery modules include:
+- Render IR into stable Markdown main output (for reading)
 
-* `pptx_types.mbt`
-* `pptx_geom.mbt`
-* `pptx_shape_collect.mbt`
-* `pptx_layout_base.mbt`
-* `pptx_paragraph_meta.mbt`
-* `pptx_classify.mbt`
+Boundaries:
 
-### `convert/html/`
+- Does not rewrite parsing strategy
+- Does not perform provenance rule decisions
 
-HTML parsing pipeline.
+### 2.7 Metadata Emitter (`core/metadata.mbt`)
 
-Main modules include:
+Responsibilities:
 
-* `html_parser.mbt`
-* `html_dom.mbt`
-* `html_to_ir.mbt`
-* `html_bytes.mbt`
+- Serialize IR + origin / asset information into `*.metadata.json` (for engineering consumption)
 
-## IR and Markdown Emitter
+Boundaries:
 
-The unified IR is the shared structural backbone of the project.
+- Does not rewrite the Markdown main body
+- Does not participate in upstream structural recovery strategy
 
-Current major block types include:
+### 2.8 Asset Export (parser output + CLI output directory coordination)
 
-* `Heading`
-* `Paragraph`
-* `ListItem`
-* `BlockQuote`
-* `CodeBlock`
-* `Table`
-* `Image`
-* `BlankLine`
+Responsibilities:
 
-The Markdown emitter converges final output behavior across formats.
+- Export asset files
+- Produce valid references in Markdown
+- Together with the metadata sidecar, form a complete output closure of “main text + resources + traceable information”
+
+## 3) Why the Validation System Is Split into `main_process / metadata / assets`
+
+These three validation chains correspond to three different quality dimensions:
+
+- `main_process`: whether structural recovery is correct
+- `metadata`: whether provenance and context are stable
+- `assets`: whether asset export and references are usable
+
+Benefits of this split:
+
+- Failures can be diagnosed quickly without being masked by mixed failure modes
+- Acceptance materials become more intuitive: completion, engineering quality, explainability, and user experience can be evidenced separately
+- It helps treat “structural problems”, “metadata problems”, and “asset problems” as different failure surfaces, rather than collapsing them all into a vague “parsing failure”
+
+## 4) Why Metadata Sidecar Is Not Embedded into Markdown Main Content
+
+- The Markdown main body serves the **reading experience**, while the sidecar serves **engineering consumption**
+- Mixing sidecar data into the main body would reduce readability and couple the data contract to rendering strategy
+- A sidecar file can evolve independently (for example, by adding fields) without breaking the stability of the Markdown output
+
+## 5) Why Metadata Logic Should Not Pollute Main Classification Logic
+
+- The primary goal of the main classification logic is stable structural recovery (headings / paragraphs / lists / tables / image blocks)
+- Metadata belongs to the explanation and provenance layer; it is auxiliary engineering information
+- If the two are tightly coupled, classification becomes less stable and regression cost increases
+
+## 6) Why a Separate `doc_parse/*` Layer Is Needed
+
+Introducing a dedicated `doc_parse/*` layer is especially important for explainability:
+
+- It allows the project to separate “low-level raw format parsing problems” from “upper-level structural recovery problems”
+- When a conversion fails, it becomes much easier to determine:
+  - whether the issue occurred in the ZIP / OOXML / PDF raw parsing stage
+  - or whether it came from the recovery and semantic reconstruction rules in `convert/*`
+- This avoids collapsing all failures into a vague and undifferentiated “parser problem”
+
+In other words, `doc_parse/*` makes both issue diagnosis and architectural explanation much clearer.
+
+## 7) Example of a Single Conversion Data Flow
+
+Using the command:
+
+```bash
+moon run cli -- normal --with-metadata ./samples/metadata/pdf/pdf_image_single_caption_like.pdf ./out/demo.md
+````
+
+the data flow is as follows:
+
+1. The CLI parses the command arguments and recognizes `normal` and `--with-metadata`
+2. The Dispatcher routes `.pdf` input to the PDF parser
+3. The upper-level PDF recovery module invokes lower-level capabilities such as `doc_parse/pdf_core` to obtain raw parsing results
+4. `convert/*` performs structural recovery on top of those results and builds unified IR (including available origin / asset information)
+5. The Markdown emitter writes `./out/demo.md`
+6. The metadata emitter writes `./out/metadata/demo.metadata.json`
+7. If assets are exported, they are written to `./out/assets/*`, and Markdown references that directory
+
+## 8) Current Phase Boundaries (Architectural View)
+
+* Completed:
+
+  * unified IR
+  * multi-format mainflow
+  * three validation chains
+  * engineering-oriented sidecar output
+  * the layered structure between `doc_parse/*` and `convert/*`
+* Still being consolidated:
+
+  * complex PDF layouts
+  * ambiguous multi-image / multi-caption scenarios
+  * richer cross-format metadata consistency
+* Future stage:
+
+  * deeper advanced OOXML semantics
+  * fine-grained anchoring such as bbox / char-range / object-id
+  * semantic reconstruction for more complex layouts
+
+```
