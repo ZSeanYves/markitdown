@@ -43,7 +43,7 @@ fn assert_entry_readable(
 
 ///|
 test "zip reader can list and read docx core entry" {
-  let z = open_sample_zip("samples/docx/golden.docx")
+  let z = open_sample_zip("samples/main_process/docx/golden.docx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("docx entries should not be empty")
@@ -53,7 +53,7 @@ test "zip reader can list and read docx core entry" {
 
 ///|
 test "zip reader can list and read xlsx core entry" {
-  let z = open_sample_zip("samples/xlsx/sheet_simple.xlsx")
+  let z = open_sample_zip("samples/main_process/xlsx/sheet_simple.xlsx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("xlsx entries should not be empty")
@@ -63,7 +63,7 @@ test "zip reader can list and read xlsx core entry" {
 
 ///|
 test "zip reader can list and read pptx core entry" {
-  let z = open_sample_zip("samples/pptx/pptx_simple.pptx")
+  let z = open_sample_zip("samples/main_process/pptx/pptx_simple.pptx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
     fail("pptx entries should not be empty")

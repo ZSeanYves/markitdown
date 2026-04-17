@@ -24,6 +24,7 @@ fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
 fn convert_pdf_blocks_to_ir(
   doc : PdfConvertDocument,
   max_heading : Int,
+  source_name : String,
 ) -> @cor.Document {
   let out = @cor.new_document()
   let has_document_title = detect_document_title_presence_for_ir(doc)
@@ -39,6 +40,7 @@ fn convert_pdf_blocks_to_ir(
 
           emit_text_block_to_ir(
             out,
+            source_name,
             page._page_index,
             block,
             prev,
@@ -59,7 +61,7 @@ fn convert_pdf_blocks_to_ir(
           page_image_idx += 1
 
           let origin : @cor.Origin = {
-            source_name: None,
+            source_name: Some(source_name),
             page: Some(page._page_index + 1),
             slide: None,
             sheet: None,
@@ -80,7 +82,7 @@ fn convert_pdf_blocks_to_ir(
           )
 
           @cor.set_asset_origin(out, image.path, {
-            source_name: None,
+            source_name: Some(source_name),
             page: Some(page._page_index + 1),
             slide: None,
             sheet: None,
@@ -165,6 +167,7 @@ fn find_next_text_block_in_objects(
 ///|
 fn emit_text_block_to_ir(
   out : @cor.Document,
+  source_name : String,
   _page_index : Int,
   block : PdfConvertBlock,
   prev : PdfConvertBlock?,
@@ -223,7 +226,7 @@ fn emit_text_block_to_ir(
             out,
             @cor.Block::Paragraph(heading_text),
             Some({
-              source_name: None,
+              source_name: Some(source_name),
               page: Some(_page_index + 1),
               slide: None,
               sheet: None,
@@ -239,7 +242,7 @@ fn emit_text_block_to_ir(
               heading_text,
             ),
             Some({
-              source_name: None,
+              source_name: Some(source_name),
               page: Some(_page_index + 1),
               slide: None,
               sheet: None,
@@ -255,7 +258,7 @@ fn emit_text_block_to_ir(
             out,
             @cor.Block::Heading(level, heading_text),
             Some({
-              source_name: None,
+              source_name: Some(source_name),
               page: Some(_page_index + 1),
               slide: None,
               sheet: None,
@@ -274,7 +277,7 @@ fn emit_text_block_to_ir(
             out,
             @cor.Block::ListItem(false, 0, item_text),
             Some({
-              source_name: None,
+              source_name: Some(source_name),
               page: Some(_page_index + 1),
               slide: None,
               sheet: None,
@@ -287,7 +290,7 @@ fn emit_text_block_to_ir(
             out,
             @cor.Block::Paragraph(pt),
             Some({
-              source_name: None,
+              source_name: Some(source_name),
               page: Some(_page_index + 1),
               slide: None,
               sheet: None,

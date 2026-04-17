@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ASSETS_DIR="$ROOT/samples/assets"
+EXP_DIR="$ASSETS_DIR/expected"
 OUT_DIR="$ROOT/.tmp_assets_test"
 
 extract_asset_refs() {
@@ -19,67 +21,100 @@ extract_asset_refs() {
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-run_group() {
-  local format="$1"
-  shift
-  local files=("$@")
+fail=0
+found=0
 
-  echo "==> checking ${format} assets"
+FORMATS=("pdf" "pptx" "html")
 
-  local group_dir="$OUT_DIR/$format"
-  mkdir -p "$group_dir"
+for fmt in "${FORMATS[@]}"; do
+  in_dir="$ASSETS_DIR/$fmt"
+  exp_dir="$EXP_DIR/$fmt"
+  out_dir="$OUT_DIR/$fmt"
 
-  for f in "${files[@]}"; do
-    local in="$ROOT/samples/image/$f"
-    local stem="${f%.*}"
-    local out="$group_dir"
-    local expected_md="$group_dir/${stem}.md"
-
-    moon run "$ROOT/cli" -- normal "$in" "$out"
-
-    if [[ ! -f "$expected_md" ]]; then
-      echo "missing markdown output for $format: $expected_md"
-      return 1
-    fi
-  done
-
-  local refs
-  refs="$(extract_asset_refs "$group_dir")"
-
-  if [[ -z "${refs//[$'\t\r\n ']}" ]]; then
-    echo "no asset refs found in generated markdown for $format"
-    return 1
+  if [[ ! -d "$in_dir" ]]; then
+    continue
   fi
 
-  local missing=0
-  while IFS= read -r ref; do
-    [[ -z "$ref" ]] && continue
-    if [[ ! -f "$group_dir/$ref" ]]; then
-      echo "missing asset for $format: $group_dir/$ref"
-      missing=1
+  mkdir -p "$exp_dir"
+  mkdir -p "$out_dir"
+
+  case "$fmt" in
+    pdf)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pdf" -print)
+      ;;
+    pptx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
+      ;;
+    html)
+      cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.html" -o -name "*.htm" \) -print)
+      ;;
+    *)
+      continue
+      ;;
+  esac
+
+  echo "==> checking ${fmt} assets"
+
+  while IFS= read -r f; do
+    found=1
+    base="$(basename "$f")"
+    name="${base%.*}"
+
+    sample_out_dir="$out_dir/$name"
+    rm -rf "$sample_out_dir"
+    mkdir -p "$sample_out_dir"
+
+    out_md="$sample_out_dir/$name.md"
+    exp_md="$exp_dir/$name.md"
+
+    echo "==> converting assets/$fmt/$base"
+    moon run "$ROOT/cli" -- normal "$f" "$sample_out_dir"
+
+    if [[ ! -f "$out_md" ]]; then
+      echo "missing markdown output for assets/$fmt: $out_md"
+      fail=1
+      continue
     fi
-  done <<< "$refs"
 
-  if [[ $missing -ne 0 ]]; then
-    return 1
-  fi
+    if [[ ! -f "$exp_md" ]]; then
+      echo "!! expected missing: $exp_md"
+      echo "   create with: cp \"$out_md\" \"$exp_md\""
+      fail=1
+      continue
+    fi
 
-  echo "$format asset extraction check passed"
-}
+    echo "==> diff assets/$fmt/$name"
+    if ! diff -u "$exp_md" "$out_md"; then
+      echo "!! mismatch: assets/$fmt/$name"
+      fail=1
+    fi
 
-run_group pdf \
-  "pdf_image_form_xobject.pdf" \
-  "pdf_image_xobject.pdf" \
-  "pdf_image_inline.pdf"
+    refs="$(extract_asset_refs "$sample_out_dir")"
+    if [[ -n "${refs//[$'\t\r\n ']}" ]]; then
+      missing=0
+      while IFS= read -r ref; do
+        [[ -z "$ref" ]] && continue
+        if [[ ! -f "$sample_out_dir/$ref" ]]; then
+          echo "missing asset for assets/$fmt/$name: $sample_out_dir/$ref"
+          missing=1
+        fi
+      done <<< "$refs"
 
-run_group pptx \
-  "pptx_image_single.pptx" \
-  "pptx_image_mixed.pptx" \
-  "pptx_image_multi.pptx"
+      if [[ $missing -ne 0 ]]; then
+        fail=1
+      fi
+    fi
+  done < <("${cmd[@]}" | sort)
+done
 
-run_group html \
-  "html_img_single.html" \
-  "html_img_mixed.html" \
-  "html_img_multi_subdir.html"
+if [[ $found -eq 0 ]]; then
+  echo "No asset sample files found under $ASSETS_DIR for: ${FORMATS[*]}"
+  exit 1
+fi
 
-echo "all asset extraction checks passed"
+if [[ $fail -ne 0 ]]; then
+  echo "ASSET TEST FAILED"
+  exit 1
+fi
+
+echo "ALL ASSET TESTS PASSED"

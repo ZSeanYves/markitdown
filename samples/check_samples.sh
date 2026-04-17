@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SAMPLES_DIR="$ROOT/samples"
+SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 

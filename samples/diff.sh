@@ -2,15 +2,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SAMPLES_DIR="$ROOT/samples"
+SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
 OUT_DIR="$ROOT/.tmp_test_out"
 
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-"$SAMPLES_DIR/check_samples.sh"
-"$SAMPLES_DIR/check_assets.sh"
+"$ROOT/samples/check_samples.sh"
+"$ROOT/samples/check_assets.sh"
 
 fail=0
 found=0
@@ -58,7 +58,7 @@ for fmt in "${FORMATS[@]}"; do
     out="$out_dir/$name.md"
     exp="$exp_dir/$name.md"
 
-    echo "==> converting $fmt/$base"
+    echo "==> converting main_process/$fmt/$base"
     moon run "$ROOT/cli" -- normal "$f" "$out"
 
     if [[ ! -f "$exp" ]]; then
@@ -68,9 +68,9 @@ for fmt in "${FORMATS[@]}"; do
       continue
     fi
 
-    echo "==> diff $fmt/$name"
+    echo "==> diff main_process/$fmt/$name"
     if ! diff -u "$exp" "$out"; then
-      echo "!! mismatch: $fmt/$name"
+      echo "!! mismatch: main_process/$fmt/$name"
       fail=1
     fi
   done < <("${cmd[@]}" | sort)

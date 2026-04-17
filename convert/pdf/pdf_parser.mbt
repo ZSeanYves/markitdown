@@ -63,7 +63,8 @@ pub async fn parse_pdf(
     println(debug_convert_document_summary(doc4))
   }
 
-  convert_pdf_blocks_to_ir(doc4, max_heading)
+  let src = @cor.basename(input_path)
+  convert_pdf_blocks_to_ir(doc4, max_heading, src)
 }
 
 ///|

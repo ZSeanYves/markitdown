@@ -20,6 +20,40 @@ fn ensure_dir(path : String) -> Unit raise {
 }
 
 ///|
+/// 递归删除目录；目录不存在时直接返回。
+fn remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+
+  @fs.remove_dir(path)
+}
+
+///|
+/// 重新创建一个干净目录。
+fn recreate_clean_dir(path : String) -> Unit raise {
+  if @fs.path_exists(path) {
+    remove_dir_recursive(path)
+  }
+  @fs.create_dir(path)
+}
+
+///|
+/// defer 用的清理函数：吞掉删除错误，保证自己不 raise。
+fn cleanup_temp_dir(path : String) -> Unit {
+  ignore(try? remove_dir_recursive(path))
+}
+
+///|
 fn assert_block_origin_alignment(doc : @cor.Document) -> Unit raise {
   if doc.blocks.val.length() != doc.block_origins.val.length() {
     fail(
@@ -59,6 +93,7 @@ fn first_image_block(doc : @cor.Document) -> @cor.ImageData? {
   None
 }
 
+///|
 fn assert_asset_origin_has_min_source(
   doc : @cor.Document,
   path : String,
@@ -168,13 +203,18 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 
 ///|
 test "origin_metadata/html_docx_minimal_closure" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/html_docx_minimal_closure"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/html")
   ensure_dir(out_dir + "/docx")
 
   let html_doc = @html.parse_html(
-    resolve_sample_path("samples/image/html_img_single.html"),
+    resolve_sample_path("samples/assets/html/html_img_single.html"),
     out_dir + "/html",
     6,
   )
@@ -193,7 +233,7 @@ test "origin_metadata/html_docx_minimal_closure" {
   }
 
   let docx_doc = @doc.parse_docx(
-    resolve_sample_path("samples/docx/golden.docx"),
+    resolve_sample_path("samples/main_process/docx/golden.docx"),
     out_dir + "/docx",
     6,
   )
@@ -204,12 +244,17 @@ test "origin_metadata/html_docx_minimal_closure" {
 
 ///|
 test "image_context/html_alt_title_figcaption" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/image_context_html_alt_title_figcaption"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/html-context")
 
   let html_alt_doc = @html.parse_html(
-    resolve_sample_path("samples/html/html_img_alt_basic.html"),
+    resolve_sample_path("samples/metadata/html/html_img_alt_basic.html"),
     out_dir + "/html-context",
     6,
   )
@@ -228,7 +273,7 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_title_doc = @html.parse_html(
-    resolve_sample_path("samples/html/html_img_title_basic.html"),
+    resolve_sample_path("samples/metadata/html/html_img_title_basic.html"),
     out_dir + "/html-context",
     6,
   )
@@ -244,7 +289,7 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_fig_doc = @html.parse_html(
-    resolve_sample_path("samples/html/html_figure_figcaption_basic.html"),
+    resolve_sample_path("samples/metadata/html/html_figure_figcaption_basic.html"),
     out_dir + "/html-context",
     6,
   )
@@ -264,7 +309,7 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_missing_alt_doc = @html.parse_html(
-    resolve_sample_path("samples/html/html_img_missing_alt_negative.html"),
+    resolve_sample_path("samples/metadata/html/html_img_missing_alt_negative.html"),
     out_dir + "/html-context",
     6,
   )
@@ -281,13 +326,18 @@ test "image_context/html_alt_title_figcaption" {
 
 ///|
 test "origin_metadata/pptx_xlsx_minimal_closure" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/pptx_xlsx_minimal_closure"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/pptx")
   ensure_dir(out_dir + "/xlsx")
 
   let pptx_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/pptx/pptx_image_single_caption_like.pptx"),
+    resolve_sample_path("samples/metadata/pptx/pptx_image_single_caption_like.pptx"),
     out_dir + "/pptx",
     6,
   )
@@ -317,7 +367,7 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   }
 
   let xlsx_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/xlsx/sheet_simple.xlsx"),
+    resolve_sample_path("samples/main_process/xlsx/sheet_simple.xlsx"),
     out_dir + "/xlsx",
     6,
   )
@@ -325,13 +375,19 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   assert_sheet_level_origins(xlsx_doc)
 }
 
+///|
 async test "origin_metadata/pdf_minimal_closure" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/pdf_minimal_closure"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/pdf")
 
   let pdf_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/image/pdf_image_xobject.pdf"),
+    resolve_sample_path("samples/assets/pdf/pdf_image_xobject.pdf"),
     out_dir + "/pdf",
     6,
     None,
@@ -358,12 +414,17 @@ async test "origin_metadata/pdf_minimal_closure" {
 
 ///|
 test "image_context/pptx_caption_association" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/image_context_pptx_caption_association"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/pptx-image-context")
 
   let doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/pptx/pptx_image_single_caption_like.pptx"),
+    resolve_sample_path("samples/metadata/pptx/pptx_image_single_caption_like.pptx"),
     out_dir + "/pptx-image-context",
     6,
   )
@@ -376,7 +437,10 @@ test "image_context/pptx_caption_association" {
       }
       match doc.asset_origins.val.get(img.path) {
         Some(asset_origin) =>
-          assert_eq(asset_origin.nearby_caption, Some("Figure 1. Revenue trend"))
+          assert_eq(
+            asset_origin.nearby_caption,
+            Some("Figure 1. Revenue trend"),
+          )
         None => fail("pptx image asset origin should exist")
       }
     }
@@ -386,12 +450,17 @@ test "image_context/pptx_caption_association" {
 
 ///|
 async test "image_context/pdf_caption_like" {
-  let out_dir = "tmp-origin-tests"
-  ensure_dir(out_dir)
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/image_context_pdf_caption_like"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
   ensure_dir(out_dir + "/pdf-context")
 
   let single_caption_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/pdf/pdf_image_single_caption_like.pdf"),
+    resolve_sample_path("samples/metadata/pdf/pdf_image_single_caption_like.pdf"),
     out_dir + "/pdf-context",
     6,
     None,
@@ -416,7 +485,7 @@ async test "image_context/pdf_caption_like" {
   }
 
   let no_caption_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/pdf/pdf_image_no_caption_negative.pdf"),
+    resolve_sample_path("samples/metadata/pdf/pdf_image_no_caption_negative.pdf"),
     out_dir + "/pdf-context",
     6,
     None,

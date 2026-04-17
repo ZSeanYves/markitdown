@@ -2,17 +2,79 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+META_DIR="$ROOT/samples/metadata"
+EXP_DIR="$META_DIR/expected"
+OUT_DIR="$ROOT/.tmp_metadata_test"
 
-echo "==> metadata integrity check"
-echo "==> repo root: $ROOT"
+rm -rf "$OUT_DIR"
+mkdir -p "$OUT_DIR"
 
-echo "==> [1/3] generate required binary samples"
-"$ROOT/samples/check_samples.sh"
+fail=0
+found=0
 
-echo "==> [2/3] run origin metadata tests"
-moon test "$ROOT/convert/convert/test" --filter "origin_metadata/"
+FORMATS=("image" "html" "pdf" "pptx")
 
-echo "==> [3/3] run image context tests"
-moon test "$ROOT/convert/convert/test" --filter "image_context/"
+for fmt in "${FORMATS[@]}"; do
+  in_dir="$META_DIR/$fmt"
+  exp_dir="$EXP_DIR/$fmt"
+  out_dir="$OUT_DIR/$fmt"
 
-echo "metadata integrity check passed"
+  if [[ ! -d "$in_dir" ]]; then
+    continue
+  fi
+
+  mkdir -p "$exp_dir"
+  mkdir -p "$out_dir"
+
+  case "$fmt" in
+    image|html)
+      cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.html" -o -name "*.htm" \) -print)
+      ;;
+    pdf)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pdf" -print)
+      ;;
+    pptx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
+      ;;
+    *)
+      continue
+      ;;
+  esac
+
+  while IFS= read -r f; do
+    found=1
+    base="$(basename "$f")"
+    name="${base%.*}"
+
+    out="$out_dir/$name.md"
+    exp="$exp_dir/$name.md"
+
+    echo "==> converting metadata/$fmt/$base"
+    moon run "$ROOT/cli" -- normal "$f" "$out"
+
+    if [[ ! -f "$exp" ]]; then
+      echo "!! expected missing: $exp"
+      echo "   create with: cp \"$out\" \"$exp\""
+      fail=1
+      continue
+    fi
+
+    echo "==> diff metadata/$fmt/$name"
+    if ! diff -u "$exp" "$out"; then
+      echo "!! mismatch: metadata/$fmt/$name"
+      fail=1
+    fi
+  done < <("${cmd[@]}" | sort)
+done
+
+if [[ $found -eq 0 ]]; then
+  echo "No metadata sample files found under $META_DIR for: ${FORMATS[*]}"
+  exit 1
+fi
+
+if [[ $fail -ne 0 ]]; then
+  echo "METADATA TEST FAILED"
+  exit 1
+fi
+
+echo "ALL METADATA TESTS PASSED"

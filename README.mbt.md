@@ -134,11 +134,6 @@ moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
 ./samples/check_assets.sh
 ```
 
-> Note: some regression inputs are generated binaries:
-> - hyperlink cases via `./samples/generate_hyperlink_binaries.py`
-> - PPTX image-context cases via `./samples/generate_image_context_pptx_samples.py`
->
-> Both generators are auto-invoked by `check_samples.sh` when present.
 
 ## PDF Mainflow
 
@@ -166,8 +161,3 @@ The PDF description on `main` should now be understood as follows:
 * PPTX, HTML, and PDF are still being improved in terms of structural precision and boundary handling
 * Structural changes should always be validated through regression samples before being merged
 
-## Suggested Positioning
-
-If the repository needs a one-line positioning statement, the most accurate one would be:
-
-> **A unified-IR-driven, multi-format content processing infrastructure project.**
