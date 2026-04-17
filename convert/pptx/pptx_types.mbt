@@ -49,6 +49,7 @@ priv struct SlideParagraph {
   level : Int
   from_title_shape : Bool
   from_body_shape : Bool
+  associated_with_image_caption : Bool
 }
 
 ///|

@@ -50,8 +50,13 @@ pub fn parse_pptx(
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
       images, paras,
     )
+    let marked_paras = mark_image_caption_associated_paras(
+      paras,
+      consumed_caption_para_ids,
+      consumed_caption_texts(image_captions),
+    )
     let blocks = classify_slide_paragraphs(
-      drop_consumed_caption_paras(paras, consumed_caption_para_ids),
+      drop_consumed_caption_paras(marked_paras, consumed_caption_para_ids),
     )
 
     for i in 0..<images.length() {
@@ -326,6 +331,50 @@ fn looks_like_sentence_like_body_text(s : String) -> Bool {
   t.contains(". ") ||
   t.contains(";") ||
   t.contains("；")
+}
+
+///|
+fn mark_image_caption_associated_paras(
+  paras : Array[SlideParagraph],
+  consumed_caption_para_ids : Map[Int, Bool],
+  _consumed_caption_texts : Map[String, Bool],
+) -> Array[SlideParagraph] {
+  if consumed_caption_para_ids.length() == 0 {
+    return paras
+  }
+  let out : Array[SlideParagraph] = []
+  for para in paras {
+    out.push({
+      source_para_id: para.source_para_id,
+      text: para.text,
+      inlines: para.inlines,
+      bullet_kind: para.bullet_kind,
+      level: para.level,
+      from_title_shape: para.from_title_shape,
+      from_body_shape: para.from_body_shape,
+      associated_with_image_caption: consumed_caption_para_ids.contains(
+        para.source_para_id,
+      ),
+    })
+  }
+  out
+}
+
+///|
+fn consumed_caption_texts(image_captions : Array[String?]) -> Map[String, Bool] {
+  let out : Map[String, Bool] = Map::new()
+  for caption in image_captions {
+    match caption {
+      Some(text) => {
+        let normalized = normalize_slide_text(text)
+        if normalized != "" {
+          out.set(normalized, true)
+        }
+      }
+      None => ()
+    }
+  }
+  out
 }
 
 ///|

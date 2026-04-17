@@ -55,6 +55,7 @@ fn extract_shape_paragraphs(
                     level,
                     from_title_shape,
                     from_body_shape,
+                    associated_with_image_caption: false,
                   })
                 }
 
@@ -99,6 +100,7 @@ fn extract_shape_paragraphs(
       level: 0,
       from_title_shape: true,
       from_body_shape,
+      associated_with_image_caption: false,
     },
   ]
 }

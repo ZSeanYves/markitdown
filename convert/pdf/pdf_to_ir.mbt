@@ -30,11 +30,15 @@ fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
-    let page_image_captions = infer_page_image_nearby_captions(page)
+    let (page_image_captions, consumed_caption_block_indices) =
+      infer_page_image_nearby_captions(page)
     let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {
         PdfConvertPageObject::TextBlock(block) => {
+          if consumed_caption_block_indices.contains(block.block_index) {
+            continue
+          }
           let prev = find_prev_text_block_in_objects(page.objects, i)
           let next = find_next_text_block_in_objects(page.objects, i)
 
@@ -98,32 +102,37 @@ fn convert_pdf_blocks_to_ir(
 }
 
 ///|
-fn infer_page_image_nearby_captions(page : PdfConvertPage) -> Array[String?] {
+fn infer_page_image_nearby_captions(
+  page : PdfConvertPage,
+) -> (Array[String?], Map[Int, Bool]) {
   let out : Array[String?] = []
+  let consumed_block_indices : Map[Int, Bool] = Map::new()
   for _ in page.images {
     out.push(None)
   }
 
   if page.images.length() != 1 {
-    return out
+    return (out, consumed_block_indices)
   }
 
-  let candidates : Array[String] = []
+  let candidates : Array[(Int, String)] = []
   for block in page.blocks {
     let t = block.text.trim().to_string()
     if t == "" {
       continue
     }
     if looks_like_figure_or_table_caption_for_ir(t) {
-      candidates.push(t)
+      candidates.push((block.block_index, t))
     }
   }
 
   if candidates.length() == 1 {
-    out[0] = Some(candidates[0])
+    let (block_index, caption) = candidates[0]
+    out[0] = Some(caption)
+    consumed_block_indices.set(block_index, true)
   }
 
-  out
+  (out, consumed_block_indices)
 }
 
 ///|

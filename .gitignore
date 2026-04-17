@@ -8,3 +8,4 @@ out/
 dataset/
 .tmp_assets_test/
 .tmp_metadata_test/
+tmp-origin-tests/
