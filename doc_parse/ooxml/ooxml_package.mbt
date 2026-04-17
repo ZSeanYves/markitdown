@@ -1,4 +1,12 @@
 ///|
+/// OOXML package infrastructure built on top of zip reader.
+///
+/// Responsibility:
+/// - normalize/read package parts and relationships
+/// - expose content-type and rel resolution helpers
+///
+/// Non-goal:
+/// - no DOCX/PPTX/XLSX final block recovery in this layer
 pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
   let archive = @zip.open_zip(bytes) catch {
     e => raise ZipError(e.to_string())

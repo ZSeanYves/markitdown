@@ -1,5 +1,12 @@
 ///|
-/// Metadata sidecar contract v1:
+/// Metadata sidecar contract v1 for engineering consumption.
+///
+/// Positioning:
+/// - sidecar is optional companion output to markdown, not a replacement
+/// - markdown remains human-readable primary output
+/// - sidecar carries structured provenance/image context for machine workflows
+///
+/// Stable contract (current stage):
 /// - ImageBlock(ImageData) is the only semantic image entry.
 /// - ImageData.caption is the primary caption value.
 /// - asset nearby_caption is only a mirrored index value.
@@ -17,7 +24,9 @@ priv struct DocumentMetadata {
   format : String
   markdown_file : String
   summary : MetadataSummary
+  // Block-oriented view: aligns with markdown/IR order.
   blocks : Array[MetadataBlock]
+  // Asset-oriented view: aligns with asset index and external retrieval needs.
   assets : Array[MetadataAsset]
 }
 
@@ -29,10 +38,13 @@ priv struct MetadataSummary {
 
 ///|
 priv struct MetadataBlock {
+  // Stable ordinal in IR emission order.
   block_index : Int
   block_type : String
   text : String
+  // Lightweight provenance, mirrors IR Origin boundary.
   origin : MetadataOrigin?
+  // Only present for image blocks.
   image : MetadataImageBlock?
 }
 
@@ -41,6 +53,7 @@ priv struct MetadataImageBlock {
   path : String
   alt_text : String?
   title : String?
+  // Primary semantic caption used by downstream consumers.
   caption : String?
 }
 
@@ -50,8 +63,10 @@ priv struct MetadataAsset {
   asset_type : String
   alt_text : String?
   title : String?
+  // Canonical caption for this asset (if confidently recovered).
   caption : String?
   origin : MetadataAssetOrigin?
+  // Mirrored convenience value for asset-first indexing.
   nearby_caption : String?
 }
 
@@ -159,6 +174,8 @@ fn build_metadata_assets(doc : Document) -> Array[MetadataAsset] {
           None => None
         }
 
+        // Asset view reuses ImageBlock data when available.
+        // This keeps `assets[]` and `blocks[]` image semantics consistent.
         let caption = match img {
           Some(v) => v.caption
           None => None

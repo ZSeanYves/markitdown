@@ -1,4 +1,10 @@
 ///|
+/// HTML node -> unified IR projection.
+///
+/// Design boundaries:
+/// - figure/figcaption/img alt/title are mapped as structured image context
+/// - remote images are not force-downloaded/exported; local export is best-effort
+/// - container reconstruction is conservative to avoid speculative DOM semantics
 priv struct HtmlImageExportCtx {
   input_dir : String
   out_dir : String

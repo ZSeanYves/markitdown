@@ -1,4 +1,10 @@
 ///|
+/// HTML converter entrypoint.
+///
+/// Model boundary:
+/// - uses a lightweight DOM-like semantic scan (not browser layout engine)
+/// - focuses on robust structural blocks for markdown + metadata sidecar
+/// - keeps provenance lightweight at block/asset level
 pub fn parse_html(
   input_path : String,
   out_dir : String,

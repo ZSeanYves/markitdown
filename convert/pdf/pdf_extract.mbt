@@ -1,4 +1,7 @@
 ///|
+/// Bridge from converter layer to `doc_parse/pdf_core`.
+/// This function intentionally only maps errors and keeps no recovery heuristic,
+/// so extraction capability boundaries remain owned by pdf_core.
 async fn extract_pdf_core_document(
   input_path : String,
 ) -> @model.PdfDocumentModel {

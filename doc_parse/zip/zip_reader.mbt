@@ -1,4 +1,8 @@
 ///|
+/// ZIP low-level reader used as raw parsing infrastructure for OOXML families.
+///
+/// This layer only guarantees container integrity + entry byte access.
+/// It intentionally does NOT perform document semantics recovery.
 const EOCD_SIG : Int = 0x06054b50
 
 ///|

@@ -1,5 +1,13 @@
 ///|
-/// 从 pdf_core 的 PdfDocumentModel 构建 convert line 文档。
+/// Convert-stage line builder.
+///
+/// Intent:
+/// - map pdf_core text blocks into normalized line units
+/// - preserve enough geometry/font hints for later heading/paragraph heuristics
+/// - keep this stage free from semantic classification decisions
+///
+/// This separation is crucial for explainability: downstream block/classify
+/// heuristics can be reasoned about without reopening raw extraction details.
 fn build_convert_lines(
   doc : @model.PdfDocumentModel,
   out_dir : String,

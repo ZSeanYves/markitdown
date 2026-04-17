@@ -7,6 +7,10 @@
 /// - Strip page-level noise page by page
 /// - Merge cleaned pages with an internal page-break marker
 /// - Recover blocks once on the merged text
+///
+/// OCR path is kept independent from native PDF path because source signals differ:
+/// OCR delivers flattened text with weaker geometry; reusing native heuristics
+/// directly would reduce explainability and increase false structural recovery.
 
 ///|
 fn dump_ocr_debug_stage(

@@ -5,6 +5,11 @@
 /// - read each slide xml
 /// - extract text runs <a:t>...</a:t>
 /// - classify slide paragraphs into heading / list item / paragraph
+///
+/// Explainability boundary:
+/// - this module orchestrates per-slide flow and provenance wiring
+/// - fine-grained reading-order and classification heuristics live in submodules
+/// - image-caption pairing is kept conservative and isolated from text classification
 pub fn parse_pptx(
   input_path : String,
   out_dir : String,

@@ -1,4 +1,13 @@
 ///|
+/// Unified IR contract used by every converter in this repository.
+///
+/// Why this layer exists:
+/// - converter-specific parsing is inherently heterogeneous (PDF layout, OOXML trees, HTML DOM-like nodes)
+/// - downstream flows (markdown emitter, metadata sidecar, regression checks) need a stable shared shape
+///
+/// Design boundary:
+/// - this is a semantic intermediate layer, not a byte-level parser output
+/// - provenance fields are lightweight provenance for engineering consumption, not fine-grained anchors
 pub(all) enum Block {
   Heading(Int, String)
   RichHeading(Int, Array[Inline])
@@ -10,12 +19,16 @@ pub(all) enum Block {
   RichBlockQuote(Array[Inline])
   CodeBlock(String)
   Table(Array[Array[String]])
+  // Legacy image shape kept for backward compatibility with old emitters/tests.
+  // New pipelines should prefer ImageBlock(ImageData).
   Image(String, String) // alt, path
+  // Canonical image block carrying structured image context.
   ImageBlock(ImageData)
   BlankLine
 }
 
 ///|
+/// Inline-level IR shared by rich heading/paragraph/list/quote blocks.
 pub(all) enum Inline {
   Text(String)
   Break
@@ -23,6 +36,15 @@ pub(all) enum Inline {
 }
 
 ///|
+/// Lightweight provenance attached to text blocks.
+///
+/// Semantics:
+/// - source_name/page/slide/sheet indicate coarse document position
+/// - block_index points to block ordinal within the emitted IR stream
+/// - heading_path is optional context for hierarchical consumers
+///
+/// Non-goal:
+/// - not a pixel/range level anchor
 pub(all) struct Origin {
   source_name : String?
   page : Int?
@@ -33,6 +55,12 @@ pub(all) struct Origin {
 } derive(Eq)
 
 ///|
+/// Canonical image payload in unified IR.
+///
+/// Field boundary:
+/// - caption: primary semantic caption, only filled when confidence is high enough
+/// - origin: optional lightweight provenance for the image block itself
+/// - alt_text/title: source-native hints preserved for engineering consumption
 pub(all) struct ImageData {
   path : String
   alt_text : String?
@@ -42,6 +70,10 @@ pub(all) struct ImageData {
 }
 
 ///|
+/// Asset-level provenance index keyed by relative asset path.
+///
+/// `nearby_caption` is a mirrored convenience value for asset-oriented lookup.
+/// It is expected to stay aligned with `ImageData.caption` when both exist.
 pub(all) struct AssetOrigin {
   source_name : String?
   page : Int?
@@ -52,6 +84,14 @@ pub(all) struct AssetOrigin {
 }
 
 ///|
+/// In-memory document container.
+///
+/// Dual-index design:
+/// - blocks + block_origins: block-oriented reading/markdown workflows
+/// - asset_origins: asset-oriented indexing workflows
+///
+/// We keep these indices side-by-side so metadata sidecar can expose both views
+/// (`blocks[]` and `assets[]`) without forcing every converter to rebuild joins.
 pub struct Document {
   blocks : Ref[Array[Block]]
   block_origins : Ref[Array[Origin?]]

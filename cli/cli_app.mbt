@@ -1,4 +1,13 @@
 ///|
+/// CLI conversion orchestration layer.
+///
+/// Responsibility split:
+/// - parse/validate runtime IO choices (output file vs stdout, metadata switch)
+/// - call converter dispatcher and emit markdown
+/// - optionally emit metadata sidecar
+///
+/// Non-goal:
+/// - does not implement format-specific parsing strategy
 async fn cmd_convert(
   input : String,
   output : String?,
@@ -60,6 +69,8 @@ async fn cmd_convert(
         }
       }
 
+      // metadata sidecar is explicit opt-in to keep default UX simple and
+      // avoid additional files unless users request machine-readable output.
       if with_metadata {
         let format = detect_input_format(input)
         let markdown_file = @cor.basename(p)
@@ -89,6 +100,8 @@ async fn cmd_convert(
         }
       }
     }
+    // stdout mode is intentionally markdown-only:
+    // sidecar needs a deterministic on-disk path and should not mix with text stream.
     None => println(md)
   }
 }
@@ -190,6 +203,8 @@ fn metadata_output_path(markdown_path : String) -> String {
 
   let stem = if dot <= 0 { base } else { base[:dot].to_string() }
 
+  // Keep sidecar under `metadata/` subdir to avoid cluttering markdown dirs and
+  // to make metadata/main_process/assets chain collection easier in CI scripts.
   join_path(join_path(dir, "metadata"), stem + ".metadata.json")
 }
 
