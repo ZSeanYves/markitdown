@@ -7,6 +7,10 @@
 /// - grouping nearby small caption-like body shapes
 /// - detecting simple two-column layout
 /// then extract each shape's <a:p> in that order
+///
+/// This is a layout recovery heuristic layer (not a full renderer):
+/// we prefer stable, conservative order reconstruction over aggressive guessing.
+/// When the layout is ambiguous, fallback keeps near-source order.
 fn extract_slide_paragraphs(
   xml : Bytes,
   hyperlinks : Map[String, String],

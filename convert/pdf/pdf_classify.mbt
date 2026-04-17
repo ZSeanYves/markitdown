@@ -3,6 +3,10 @@
 /// - 保住高置信 heading
 /// - 把明显误判 heading 降回 paragraph
 /// - 使用页内前后文提升 precision
+///
+/// 这是启发式恢复层，不追求“全召回”：
+/// - 歧义场景优先保守降级到 paragraph，避免错误结构污染主链路
+/// - heading 误判的代价通常高于漏判（会影响章节结构与后续消费）
 fn classify_convert_blocks(
   doc : PdfConvertDocument,
   max_heading : Int,

@@ -1,4 +1,11 @@
 ///|
+/// Final PDF stage: project convert blocks/images into unified IR.
+///
+/// Important contract notes:
+/// - text blocks and image blocks are emitted in page object reading order
+/// - `Origin` / `AssetOrigin` are lightweight provenance only
+/// - image nearby caption recovery is conservative; ambiguous matches are skipped
+///   rather than forcing low-confidence pairings
 priv enum PdfIrHeadingRole {
   DocumentTitle
   SectionHeading
@@ -30,6 +37,8 @@ fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
+    // Caption inference is performed page-local on mixed text/image objects.
+    // We keep consumed caption indices to avoid duplicating caption text as paragraph.
     let (page_image_captions, consumed_caption_block_indices) = infer_page_image_nearby_captions(
       page,
     )

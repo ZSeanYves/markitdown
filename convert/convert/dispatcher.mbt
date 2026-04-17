@@ -1,4 +1,6 @@
 ///|
+/// Cross-format dispatcher options.
+/// This struct intentionally carries only orchestration toggles shared by CLI.
 pub(all) struct ConvertOptions {
   out_dir : String?
   max_heading : Int?
@@ -9,6 +11,15 @@ pub(all) struct ConvertOptions {
 }
 
 ///|
+/// Dispatch by file extension to format-specific parser.
+///
+/// Why dispatcher is isolated:
+/// - keeps extension routing independent from format recovery heuristics
+/// - makes new format onboarding explicit (single entry to register)
+/// - improves explainability in acceptance reviews: "where does parsing start?"
+///
+/// Non-goal:
+/// - no format fallback / repair strategy here; those belong inside each converter.
 pub async fn parse_to_ir(
   input_path : String,
   opts : ConvertOptions,

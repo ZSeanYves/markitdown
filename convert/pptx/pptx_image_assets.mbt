@@ -1,4 +1,13 @@
 ///|
+/// Extract embedded slide images into output assets directory.
+///
+/// Scope:
+/// - export package-embedded image blobs only
+/// - assign deterministic relative asset paths
+///
+/// Non-goal:
+/// - no caption inference here (kept in slide-level pairing step)
+/// - no remote/image-link fetching
 priv struct PptxSlideImage {
   _alt : String
   _path : String

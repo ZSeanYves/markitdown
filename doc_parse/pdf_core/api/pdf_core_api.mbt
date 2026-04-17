@@ -1,4 +1,10 @@
 ///|
+/// Public API for `doc_parse/pdf_core`.
+///
+/// Position in architecture:
+/// - provides raw-PDF-to-model extraction infrastructure
+/// - output is parser-facing model, not end-user markdown/IR
+/// - higher converter layers own heading/caption/noise semantics
 /// pdf_core 对外错误。
 pub enum PdfCoreError {
   AdapterFailed(String)

@@ -1,4 +1,11 @@
 ///|
+/// CLI entrypoint exposing three operational profiles:
+/// - normal: default production path
+/// - ocr: force OCR-oriented PDF path for scanned/image-heavy PDFs
+/// - debug: keep normal parsing but enable scoped PDF debug artifacts/logging
+///
+/// Keeping these as explicit subcommands improves explainability for acceptance:
+/// users can map behavior differences to command intent without reading internals.
 async fn main {
   let args = @sys.get_cli_args()
 

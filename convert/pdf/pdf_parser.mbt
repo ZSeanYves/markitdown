@@ -1,4 +1,11 @@
 ///|
+/// PDF converter orchestration pipeline:
+/// event/model extraction -> line staging -> block staging -> classify -> noise filter -> merge -> unified IR.
+///
+/// Layering intent:
+/// - keep each stage locally explainable and testable
+/// - allow conservative rollback/downgrade in intermediate stages
+/// - isolate OCR path as an explicit alternative pipeline
 pub async fn parse_pdf(
   input_path : String,
   _out_dir : String,
@@ -14,7 +21,7 @@ pub async fn parse_pdf(
 
   let ocr_mode = parse_pdf_ocr_mode(enhance_mode)
 
-  // 强制 OCR：直接走 OCR 子包
+  // Force mode is an explicit user decision: bypass native extraction entirely.
   if ocr_mode == PdfOcrMode::Force {
     return @ocr.parse_pdf_via_ocr(
       input_path, _out_dir, max_heading, pipeline_debug,
@@ -31,7 +38,8 @@ pub async fn parse_pdf(
 
   let core_doc = extract_pdf_core_document(input_path)
 
-  // 自动 OCR fallback：native 近似空时走 OCR 子包
+  // AutoFallback is conservative degradation: only fallback when native result
+  // is effectively empty, to avoid mixing two extraction semantics by default.
   if ocr_mode == PdfOcrMode::AutoFallback &&
     is_effectively_empty_core_doc(core_doc) {
     return @ocr.parse_pdf_via_ocr(

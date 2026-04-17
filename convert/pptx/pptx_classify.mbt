@@ -1,4 +1,10 @@
 ///|
+/// Paragraph -> semantic block classification for PPTX text stream.
+///
+/// Design choice:
+/// - caption-like snippets are intentionally not promoted to headings
+/// - heading recovery is conservative (first high-confidence title wins)
+/// - ambiguous text remains paragraph to protect main_process stability
 fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] {
   let out : Array[PptxBlock] = []
   let mut seen_heading = false

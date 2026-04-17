@@ -2,11 +2,11 @@
 /// 第一阶段 noise 过滤：
 /// 1. 先删已经标成 Noise 的 block
 /// 2. 再删跨页重复出现的页首/页尾短块
-
-///|
-/// 第一阶段 noise 过滤：
-/// 1. 先删已经标成 Noise 的 block
-/// 2. 再删跨页重复出现的页首/页尾短块
+///
+/// Why at this stage (before merge/to_ir):
+/// - repeated header/footer noise can distort paragraph/heading boundaries
+/// - removing them early improves downstream block merge stability
+/// - policy is conservative to reduce accidental deletion in multi-column/short pages
 fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc

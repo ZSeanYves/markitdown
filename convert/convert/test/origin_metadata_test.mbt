@@ -1,4 +1,10 @@
 ///|
+/// Cross-format provenance/metadata regression suite.
+///
+/// Why this suite exists:
+/// - validates unified IR lightweight provenance contract
+/// - guards metadata-sidecar image context mirrors (caption vs nearby_caption)
+/// - checks asset indexing invariants shared by main_process / metadata / assets chains
 /// 已做了内容删除，在测试结束后不会保留内容，但会残留测试目录
 fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
@@ -55,6 +61,8 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+/// Guard rail for the main_process chain:
+/// every emitted block must have a same-index origin slot (Some/None allowed).
 fn assert_block_origin_alignment(doc : @cor.Document) -> Unit raise {
   if doc.blocks.val.length() != doc.block_origins.val.length() {
     fail(
@@ -67,6 +75,8 @@ fn assert_block_origin_alignment(doc : @cor.Document) -> Unit raise {
 }
 
 ///|
+/// Guard rail for assets chain:
+/// every emitted image block must be discoverable from asset_origins.
 fn assert_image_assets_are_indexed(doc : @cor.Document) -> Unit raise {
   for b in doc.blocks.val {
     match b {
@@ -110,6 +120,8 @@ fn assert_asset_origin_has_min_source(
 }
 
 ///|
+/// Guard rail for metadata chain:
+/// ImageData.caption should mirror asset nearby_caption when pairing is made.
 fn assert_image_caption_mirrors_asset_origin(doc : @cor.Document) -> Unit raise {
   for b in doc.blocks.val {
     match b {
@@ -218,6 +230,9 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 }
 
 ///|
+/// Regression intent:
+/// - HTML/DOCX minimal closure should satisfy block+asset provenance invariants
+/// - catches accidental decoupling between IR emission and origin metadata wiring
 test "origin_metadata/html_docx_minimal_closure" {
   let root_dir = "tmp-origin-tests"
   ensure_dir(root_dir)
@@ -260,6 +275,9 @@ test "origin_metadata/html_docx_minimal_closure" {
 }
 
 ///|
+/// Regression intent:
+/// validates HTML image context mapping boundary:
+/// alt/title/figcaption are mapped, while missing fields remain None.
 test "image_context/html_alt_title_figcaption" {
   let root_dir = "tmp-origin-tests"
   ensure_dir(root_dir)

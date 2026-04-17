@@ -1,4 +1,7 @@
 ///|
+/// CLI argument normalization helper.
+/// Converts `--key=value` form into `--key value` so downstream clap config can
+/// stay simple and consistent across subcommands.
 /// 返回第一个 '=' 的位置（按字节扫描），找不到返回 None
 fn find_first_eq(s : String) -> Int? {
   let bs = @utf8.encode(s)

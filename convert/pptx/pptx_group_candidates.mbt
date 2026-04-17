@@ -1,4 +1,9 @@
 ///|
+/// Heuristic shape selectors used by reading-order grouping.
+///
+/// These checks intentionally bias toward precision:
+/// if a shape may be body/table/callout but confidence is low, we avoid forcing
+/// a grouping label and let downstream keep plain paragraph behavior.
 fn is_small_shape_for_grouping(
   sp : LayoutShape,
   slide_w : Int,
