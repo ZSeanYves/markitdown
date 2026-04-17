@@ -12,6 +12,8 @@ pub fn decode_numeric_entities(String) -> String
 
 pub fn emit_markdown(Document) -> String
 
+pub fn emit_metadata_json(Document, String, String, String) -> String
+
 pub fn is_blank(String) -> Bool
 
 pub fn new_document() -> Document
@@ -98,8 +100,10 @@ pub(all) struct Origin {
   sheet : String?
   block_index : Int?
   heading_path : Array[String]?
-}
+} derive(Eq)
+pub impl Show for Origin
 
 // Type aliases
 
 // Traits
+
