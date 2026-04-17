@@ -1,4 +1,5 @@
 ///|
+/// 已做了内容删除，在测试结束后不会保留内容，但会残留测试目录
 fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path

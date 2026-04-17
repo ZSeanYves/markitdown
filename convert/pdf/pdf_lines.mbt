@@ -136,7 +136,7 @@ fn export_convert_page_images(
           _image_index,
           path,
           alt_text: image.alt_text,
-          caption: None,
+          _caption: None,
           _bbox: image.bbox,
           top_y: image.bbox.y1,
           left_x: image.bbox.x0,

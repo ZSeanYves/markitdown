@@ -92,6 +92,7 @@ async fn cmd_convert(
     None => println(md)
   }
 }
+
 ///|
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
@@ -187,11 +188,7 @@ fn metadata_output_path(markdown_path : String) -> String {
     }
   }
 
-  let stem = if dot <= 0 {
-    base
-  } else {
-    base[:dot].to_string()
-  }
+  let stem = if dot <= 0 { base } else { base[:dot].to_string() }
 
   join_path(join_path(dir, "metadata"), stem + ".metadata.json")
 }

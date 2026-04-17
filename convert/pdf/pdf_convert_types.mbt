@@ -49,7 +49,7 @@ priv struct PdfConvertImage {
   _image_index : Int
   path : String
   alt_text : String?
-  caption : String?
+  _caption : String?
   _bbox : @model.PdfRect
   top_y : Double
   left_x : Double
