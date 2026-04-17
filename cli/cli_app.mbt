@@ -5,15 +5,19 @@ async fn cmd_convert(
   out_dir : String?,
   max_heading : Int,
   pdf_mode : String?,
-  pdf_backend : String?,
-  pdf_backend_policy : String?,
   pdf_extract_debug : Bool,
   pdf_dump_selected_raw : Bool,
   pdf_pipeline_debug : Bool,
 ) -> Unit {
+  let resolved_output = resolve_output_path(input, output)
+
   let out_root = match out_dir {
     Some(d) => d
-    None => "out"
+    None =>
+      match resolved_output {
+        Some(p) => dirname_of_path(p)
+        None => "out"
+      }
   }
 
   // 确保 out_root 存在
@@ -30,8 +34,6 @@ async fn cmd_convert(
     out_dir: Some(out_root),
     max_heading: Some(max_heading),
     pdf_enhance_mode: pdf_mode,
-    pdf_backend,
-    pdf_backend_policy,
     pdf_extract_debug,
     pdf_dump_selected_raw,
     pdf_pipeline_debug,
@@ -48,7 +50,7 @@ async fn cmd_convert(
 
   let md = @cor.emit_markdown(doc)
 
-  match output {
+  match resolved_output {
     Some(p) =>
       @fs.write_string_to_file(p, md, encoding="utf8") catch {
         e => exit_error("write output failed: " + e.to_string())
@@ -60,4 +62,82 @@ async fn cmd_convert(
 ///|
 fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
+}
+
+///|
+fn resolve_output_path(input : String, output : String?) -> String? {
+  match output {
+    None => None
+    Some(raw) => {
+      let out = raw.trim().to_string()
+      if out == "" {
+        None
+      } else if looks_like_output_dir(out) {
+        Some(join_path(out, input_stem(input) + ".md"))
+      } else {
+        Some(out)
+      }
+    }
+  }
+}
+
+///|
+fn looks_like_output_dir(path : String) -> Bool {
+  if path.has_suffix("/") || path.has_suffix("\\") {
+    return true
+  }
+
+  let base = @cor.basename(path)
+  let base_lower = base.to_lower()
+  if base_lower.has_suffix(".md") || base_lower.has_suffix(".markdown") {
+    return false
+  }
+
+  if !@fs.path_exists(path) {
+    // 对于不存在的路径，默认按目录处理，便于 `normal A/B.pdf C` 产出 `C/B.md`
+    return true
+  }
+
+  true
+}
+
+///|
+fn dirname_of_path(path : String) -> String {
+  let chars = path.to_array()
+  let mut last = -1
+  for i in 0..<chars.length() {
+    if chars[i] == '/' {
+      last = i
+    }
+  }
+  if last <= 0 {
+    "."
+  } else {
+    path[:last].to_string()
+  }
+}
+
+///|
+fn join_path(dir : String, file : String) -> String {
+  if dir.has_suffix("/") {
+    dir + file
+  } else {
+    dir + "/" + file
+  }
+}
+
+///|
+fn input_stem(path : String) -> String {
+  let base = @cor.basename(path)
+  let mut dot = -1
+  for i in 0..<base.length() {
+    if base[i] == '.' {
+      dot = i
+    }
+  }
+  if dot <= 0 {
+    base
+  } else {
+    base[:dot].to_string()
+  }
 }

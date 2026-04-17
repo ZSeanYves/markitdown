@@ -1,3 +1,7 @@
+import {
+  "moonbitlang/x/fs" @fs,
+}
+
 options(
   "preferred-target": "native",
 )

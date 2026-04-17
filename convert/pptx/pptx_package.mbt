@@ -116,6 +116,23 @@ fn build_slide_rel_context(
 }
 
 ///|
+fn slide_hyperlink_map(
+  p : PptxPackage,
+  slide_part : String,
+) -> Map[String, String] {
+  let out : Map[String, String] = Map::new()
+  let rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
+    _ => return out
+  }
+  for rel in rels {
+    if rel.rel_type.has_suffix("/hyperlink") && rel.resolved_target.trim() != "" {
+      out.set(rel.id, rel.resolved_target.trim().to_string())
+    }
+  }
+  out
+}
+
+///|
 fn rels_by_id(
   rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, @ox.OoxmlRelationship] {

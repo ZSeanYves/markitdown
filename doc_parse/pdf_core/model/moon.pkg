@@ -1,0 +1,7 @@
+import {
+  "bobzhang/mbtpdf/core/pdfio" @pdfio,
+}
+
+options(
+  "preferred-target": "native",
+)

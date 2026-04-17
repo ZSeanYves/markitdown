@@ -2,14 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SAMPLES_DIR="$ROOT/samples"
+SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
+GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
 
 fail=0
 
 echo "==> sample integrity check"
+
 
 is_noise_file() {
   local base="$1"
@@ -59,6 +61,12 @@ for fmt in "${FORMATS[@]}"; do
     base="$(basename "$path")"
     echo "${base%.md}"
   done | sort -u)"
+
+  if [[ "$fmt" == "pptx" && $GEN_PPTX_IMAGE_CONTEXT_FAILED -eq 1 ]]; then
+    generated_only_bases=$'pptx_image_caption_basic\npptx_image_caption_near_basic\npptx_image_multiple_caption_ambiguous_negative'
+    input_bases="$(comm -23 <(printf '%s\n' "$input_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
+    expected_bases="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
+  fi
 
   printf '\n[%s]\n' "$fmt"
 

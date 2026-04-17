@@ -1,198 +1,163 @@
-# markitdown-mb (MoonBit)
+# markitdown-mb
 
-`markitdown-mb` 是一个基于 MoonBit 的多格式文档转 Markdown 工具。
+A **MoonBit-based content processing infrastructure project**, originally inspired by Microsoft **markitdown**.
 
-支持输入格式：
+It is no longer best described as just a “document-to-Markdown conversion tool”. Instead, it is evolving into a reusable foundation for:
 
-- `.docx`
-- `.pdf`
-- `.xlsx`
-- `.pptx`
-- `.html`
+* multi-format content parsing
+* structural recovery
+* unified IR modeling
+* asset extraction and indexing
+* lightweight provenance tracking
+* downstream content workflows built on top of a stable intermediate representation
 
----
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML** and can turn them into structured content with extracted assets when needed.
 
-## 1. 总览
+Supports **macOS** and **Linux**.
 
-主流程：
+The project is built around a unified pipeline:
 
-```text
-document -> parser -> IR -> Markdown
-```
+**multi-format content -> unified IR -> Markdown / assets / provenance**
 
-项目已经历结构重构：目录从过去的 `src/*` 迁移为顶层 package（例如 `cli/`, `convert/`, `core/`, `doc_parse/*`）。
+This means the repository should be understood not only as a converter, but as a general-purpose base for content engineering workflows.
 
-CLI 入口 package 当前路径为：
+## Current Status
 
-- `cli`
+The project is no longer in an early MVP stage. The current `main` branch already provides a fairly complete multi-format mainflow and is steadily moving from a “conversion utility” toward a **general-purpose content engineering foundation**.
 
-因此命令行调用应使用：
+Current capabilities include:
 
-```bash
-moon run cli -- <args>
-```
+* **DOCX**: heading, list, table, image, blockquote, and code-like paragraph recovery, plus hyperlink recovery in paragraphs, headings, and list items
+* **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction, with lightweight page-level image origin and conservative nearby-caption attachment in single-caption-like cases
+* **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
+* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, conservative caption-like/nearby text attachment for single-image slides (ambiguous multi-image scenes stay unmatched), plus basic run-level and shape-level hyperlink recovery
+* **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery, inline hyperlink recovery, and image context retention (`<img alt>`, `<img title>`, `<figure>`, `<figcaption>`)
 
----
+The repository now provides a stable workflow built around:
 
-## 2. 当前目录结构（重构后）
+**multi-format input -> unified IR -> Markdown output / asset extraction / regression validation**
 
-- `cli/`：命令行入口、参数解析、应用编排
-- `convert/`：按格式分发转换流程
-  - `convert/docx/`
-  - `convert/pdf/`
-  - `convert/xlsx/`
-  - `convert/pptx/`
-  - `convert/html/`
-- `core/`：共享 IR 与 Markdown 生成
-- `doc_parse/`：底层解析能力
-  - `doc_parse/ooxml/`：OOXML 包与结构读取
-  - `doc_parse/zip/`：ZIP 基础能力
-  - `doc_parse/pdf_core/`：PDF 原生底层解析能力
-- `samples/`：回归输入样例与黄金输出
+## Origin Metadata (Lightweight Provenance)
 
----
+The unified IR now includes a lightweight provenance layer for both blocks and exported assets:
 
-## 3. 快速开始
+* `Document.block_origins`: minimal block-level provenance (for example source name, page / slide / sheet, and block index)
+* `Document.asset_origins`: minimal asset-level provenance (for example source name, page / slide / sheet, origin id, and nearby caption)
 
-### 3.1 转换命令
+The current scope is intentionally lightweight traceability rather than precise anchoring. It does **not** yet include bbox / char range / source object id level metadata, and it does **not** change the Markdown main output behavior.
 
-```bash
-moon run cli -- convert <input-file> -o out/output.md --out-dir out
-```
+## Why This Project Exists
 
-示例：
+From an engineering perspective, `markitdown-mb` is increasingly suitable as a foundation for:
 
-```bash
-# DOCX
-moon run cli -- convert samples/docx/golden.docx -o out/golden.md --out-dir out
+* multi-format content ingestion
+* structured Markdown generation
+* asset extraction and management
+* RAG / chunking preprocessing
+* lightweight provenance-aware content pipelines
+* future JSON / chunk / index / audit style downstream outputs
 
-# PDF
-moon run cli -- convert samples/pdf/text_simple.pdf -o out/text_simple.md --out-dir out
+In other words, the project is not trying to be a pixel-perfect visual reproduction engine. Its goal is to become a **reusable, testable, and extensible content processing foundation**.
 
-# XLSX
-moon run cli -- convert samples/xlsx/sheet_simple.xlsx -o out/sheet_simple.md --out-dir out
+## Quick Links
 
-# PPTX
-moon run cli -- convert samples/pptx/pptx_simple.pptx -o out/pptx_simple.md --out-dir out
+* [Architecture](./docs/architecture.md)
+* [Format Support](./docs/format-support.md)
+* [Known Limitations](./docs/limitations.md)
+* [Sample Coverage](./docs/sample-coverage.md)
+* [Development Guide](./docs/development.md)
 
-# HTML
-moon run cli -- convert samples/html/html_simple.html -o out/html_simple.md --out-dir out
-```
+## Environment Setup
 
-### 3.2 常用选项
+### External dependencies
 
-- `-o <path>`：输出 Markdown 文件（默认 stdout）
-- `--out-dir <dir>`：资源输出目录
-- `--max-heading <1..6>`：限制标题级别
-- `--ocr [1|true|on|yes]`：PDF 启用 OCR 增强
-- `--pdf-backend <...>`：指定 PDF 后端
-- `--pdf-backend-policy native-gated`：启用 gated 策略
-- `--debug <extract|dump-raw|pipeline|all>`：调试输出
+The normal conversion mainflow no longer depends on `pdftotext` or `mutool`.
 
----
+External dependencies are currently only required for the OCR plugin path.
 
-## 4. PDF：hybrid 现状
-
-PDF 目前采用 hybrid 方案：
-
-- 外部后端仍是主生产路径；
-- native 能力持续扩展中，并已接入主流程的一部分分支；
-- native-gated 决策用于逐步把可控样例切向 native。
-
-### 当前 native 已覆盖的基础能力（摘要）
-
-- PDF 对象/容器访问
-- 页面引用与页数
-- 内容流读取
-- 基础文本提取路径
-- 部分 ToUnicode 相关能力
-- 部分字体兜底场景
-
-### 仍在持续完善的方向（摘要）
-
-- 加密 PDF
-- 更完整的 xref/object stream 变体
-- 更完整字体系统
-- 复杂阅读顺序（多栏、交错布局）
-
----
-
-## 5. 回归测试体系
-
-### 5.1 全格式样例回归
+#### macOS (Homebrew)
 
 ```bash
-bash samples/check_samples.sh
-bash samples/diff.sh
+brew install ocrmypdf
 ```
 
-### 5.2 PDF native 专项
+#### Linux (Ubuntu / Debian)
 
 ```bash
-# native 能力回归（PDF -> Markdown，与 expected 对比）
-bash samples/pdf_native_check.sh
-
-# gate 决策回归（检查 selected/reason，不做 expected diff）
-bash samples/pdf_native_gate_check.sh
+sudo apt update
+sudo apt install -y ocrmypdf
 ```
 
-### 5.3 `samples/pdf_core/` 分层约定
-
-- `samples/pdf_core/expected/`：native 黄金输出（`*.expected.md`）
-- `samples/pdf_core/native/`：native 能力验证 PDF（`pdf_native_real_*.pdf`）
-- `samples/pdf_core/gate/`：gate 决策样例 PDF（`gated_should_use_*.pdf`）
-
-该分层用于避免：
-
-- native 内容正确性验证 与
-- gate 策略正确性验证
-
-在样例与脚本上的职责混杂。
-
-另外，`samples/pdf_core/native/` 与 `samples/pdf_core/gate/` 的 PDF 由 `generate_phase7_native_fixtures.py` 按需生成，仓库不再提交 PDF 原件。
-
----
-
-## 6. 开发与质量命令
-
-建议在提交前执行：
+### Verify
 
 ```bash
-moon info
-moon fmt
-moon check
-moon test
+ocrmypdf --version
 ```
 
-当行为预期变化导致快照差异时：
+## Usage
+
+### Normal conversion
 
 ```bash
-moon test --update
+moon run cli -- normal <input> [output]
 ```
 
----
+### OCR conversion
 
-## 7. 外部依赖说明（PDF）
+```bash
+moon run cli -- ocr <input> [output]
+```
 
-PDF 外部路径通常依赖以下工具之一：
+### Debug
 
-- `pdftotext`（Poppler）
-- `mutool`（MuPDF）
+```bash
+moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
+```
 
-安装示例：
+## Regression
 
-- macOS: `brew install poppler mupdf`
-- Ubuntu/Debian: `sudo apt-get install poppler-utils mupdf-tools`
-- Arch: `sudo pacman -S poppler mupdf-tools`
+### Check sample enrollment
 
----
+```bash
+./samples/check_samples.sh
+```
 
-## 8. 维护建议
+### Run full regression
 
-- 目录重构后，所有脚本与文档避免再引用 `src/cli`；统一使用 `cli` package 路径。
-- 新增 PDF native 样例时，优先明确其归属：
-  - 若验证提取质量：放 `native/` + `expected/`
-  - 若验证 gated 决策：放 `gate/`
-- 如果新增可程序化生成的 fixture，优先收敛到：
-  - `samples/pdf_core/generate_phase7_native_fixtures.py`
+```bash
+./samples/diff.sh
+```
+
+### Run image regression
+
+```bash
+./samples/check_assets.sh
+```
+
+
+## PDF Mainflow
+
+The PDF description on `main` should now be understood as follows:
+
+* The default PDF mainflow is **fully native**, not “native-first” and not “external text-first”
+* The normal path no longer depends on `pdftotext` or `mutool`
+* The current PDF mainflow includes:
+
+  * span normalization
+  * line recovery
+  * block classification
+  * repeated header/footer cleanup
+  * heading / paragraph boundary recovery
+  * hardwrap recovery
+  * pseudo two-column negative protection
+* OCR remains a **plugin-style path** and is not the default `normal` flow
+* External tooling is currently retained only for the OCR plugin path
+
+## Notes
+
+* The goal of the project is **structured content recovery and unified representation**, not pixel-perfect visual reproduction
+* The PDF mainflow on `main` has already been fully replaced by native recovery logic, but complex layouts remain an active area of ongoing improvement
+* Hyperlink support now covers HTML / DOCX / PPTX, where PPTX currently provides run-level plus basic single-link shape-level handling
+* PPTX, HTML, and PDF are still being improved in terms of structural precision and boundary handling
+* Structural changes should always be validated through regression samples before being merged
 

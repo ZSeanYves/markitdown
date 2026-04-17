@@ -52,7 +52,7 @@ fn assert_core_readable(
 
 ///|
 test "ooxml package phase-1 works on docx sample" {
-  let pkg = open_sample_package("samples/docx/golden.docx")
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
 
   assert_core_readable(pkg, "word/document.xml")
 
@@ -71,7 +71,7 @@ test "ooxml package phase-1 works on docx sample" {
 
 ///|
 test "ooxml package phase-1 works on xlsx sample" {
-  let pkg = open_sample_package("samples/xlsx/sheet_simple.xlsx")
+  let pkg = open_sample_package("samples/main_process/xlsx/sheet_simple.xlsx")
 
   assert_core_readable(pkg, "xl/workbook.xml")
 
@@ -93,7 +93,7 @@ test "ooxml package phase-1 works on xlsx sample" {
 
 ///|
 test "ooxml package phase-1 works on pptx sample" {
-  let pkg = open_sample_package("samples/pptx/pptx_simple.pptx")
+  let pkg = open_sample_package("samples/main_process/pptx/pptx_simple.pptx")
 
   assert_core_readable(pkg, "ppt/presentation.xml")
 

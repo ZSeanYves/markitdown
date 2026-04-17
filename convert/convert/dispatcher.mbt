@@ -3,8 +3,6 @@ pub(all) struct ConvertOptions {
   out_dir : String?
   max_heading : Int?
   pdf_enhance_mode : String?
-  pdf_backend : String?
-  pdf_backend_policy : String?
   pdf_extract_debug : Bool
   pdf_dump_selected_raw : Bool
   pdf_pipeline_debug : Bool
@@ -32,8 +30,6 @@ pub async fn parse_to_ir(
           out_dir_str,
           max_h,
           opts.pdf_enhance_mode,
-          opts.pdf_backend,
-          opts.pdf_backend_policy,
           opts.pdf_extract_debug,
           opts.pdf_dump_selected_raw,
           opts.pdf_pipeline_debug,

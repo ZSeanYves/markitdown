@@ -1,72 +1,118 @@
 ///|
 pub async fn parse_pdf(
-  path : String,
-  out_dir : String,
-  _max_heading : Int,
+  input_path : String,
+  _out_dir : String,
+  max_heading : Int,
   enhance_mode : String?,
-  backend : String?,
-  backend_policy : String?,
-  extract_debug : Bool,
-  dump_selected_raw : Bool,
+  _extract_debug : Bool,
+  _dump_selected_raw : Bool,
   pipeline_debug : Bool,
 ) -> @cor.Document {
-  if !@fs.path_exists(path) {
-    raise @cor.AppError("PDF file not found: " + path)
+  if !@fs.path_exists(input_path) {
+    raise @cor.AppError("pdf: file not found: " + input_path)
   }
 
-  let extracted = match
-    extract_pdf_text_result(
-      path,
-      backend~,
-      backend_policy~,
-      debug=extract_debug,
-    ) {
-    Ok(res) => res
-    Err(e) => raise e
+  let ocr_mode = parse_pdf_ocr_mode(enhance_mode)
+
+  // 强制 OCR：直接走 OCR 子包
+  if ocr_mode == PdfOcrMode::Force {
+    return @ocr.parse_pdf_via_ocr(
+      input_path, _out_dir, max_heading, pipeline_debug,
+    )
   }
 
-  let mode = parse_pdf_enhance_mode(enhance_mode)
-
-  let selected_raw = match mode {
-    PdfEnhanceMode::TextOnly => extracted.text
-    PdfEnhanceMode::Experimental =>
-      if !extracted.quality_accepted {
-        match try_ocr_pdf_to_text(path) {
-          Some(ocr_text) => ocr_text
-          None =>
-            if is_effectively_empty_pdf_text(extracted.text) {
-              apply_experimental_empty_text_fallback(path)
-            } else {
-              extracted.text
-            }
-        }
-      } else {
-        extracted.text
-      }
+  if pipeline_debug {
+    let cfg = @api.default_pdf_core_config()
+    match @api.extract_document_block_debug(input_path, cfg) {
+      Ok(s) => println(s)
+      Err(e) => println("pdf_core/debug error: " + e.to_string())
+    }
   }
 
-  let enhanced_text = apply_pdf_enhancement(selected_raw, mode)
+  let core_doc = extract_pdf_core_document(input_path)
 
-  if dump_selected_raw || pipeline_debug {
-    dump_pdf_debug_stage(path, out_dir, "selected_raw", selected_raw)
+  // 自动 OCR fallback：native 近似空时走 OCR 子包
+  if ocr_mode == PdfOcrMode::AutoFallback &&
+    is_effectively_empty_core_doc(core_doc) {
+    return @ocr.parse_pdf_via_ocr(
+      input_path, _out_dir, max_heading, pipeline_debug,
+    )
   }
 
-  text_to_ir_document_with_debug(path, out_dir, enhanced_text, pipeline_debug)
+  let doc0 = build_convert_lines(core_doc, _out_dir)
+  let doc1 = build_convert_blocks(doc0)
+
+  if pipeline_debug {
+    println(debug_convert_document_summary(doc1))
+
+    for page in doc1.pages {
+      debug_print_convert_lines(page)
+      debug_print_convert_blocks(page)
+    }
+
+    debug_print_page_edge_blocks(doc1)
+    debug_print_repeated_edge_texts(doc1)
+    debug_print_header_footer_like_blocks(doc1)
+  }
+
+  let doc2 = classify_convert_blocks(doc1, max_heading)
+  let doc3 = filter_noise_blocks(doc2)
+  let doc4 = merge_convert_blocks(doc3)
+
+  if pipeline_debug {
+    println(debug_convert_document_summary(doc4))
+  }
+
+  let src = @cor.basename(input_path)
+  convert_pdf_blocks_to_ir(doc4, max_heading, src)
 }
 
 ///|
-fn dump_pdf_debug_stage(
-  input_path : String,
-  out_dir : String,
-  stage : String,
-  content : String,
-) -> Unit {
-  if out_dir == "" {
-    return
+priv enum PdfOcrMode {
+  Disabled
+  AutoFallback
+  Force
+} derive(Eq)
+
+///|
+fn parse_pdf_ocr_mode(mode : String?) -> PdfOcrMode {
+  match mode {
+    None => PdfOcrMode::Disabled
+    Some(raw) => {
+      let m = raw.trim().to_lower()
+      if m == "ocr" {
+        PdfOcrMode::Force
+      } else if m == "ocr-auto" || m == "auto-ocr" {
+        PdfOcrMode::AutoFallback
+      } else {
+        PdfOcrMode::Disabled
+      }
+    }
   }
-  let base = @cor.basename(input_path)
-  let out = out_dir + "/" + base + ".pdf_debug." + stage + ".txt"
-  @fs.write_string_to_file(out, content, encoding="utf8") catch {
-    _ => ()
+}
+
+///|
+/// 判断 native pdf_core 结果是否几乎没有可用文本。
+fn is_effectively_empty_core_doc(doc : @model.PdfDocumentModel) -> Bool {
+  let mut signal_chars = 0
+
+  for page in doc.pages {
+    for block in page.text_blocks {
+      let t = @model.block_text(block).trim().to_string()
+      if t == "" {
+        continue
+      }
+
+      for ch in t.to_array() {
+        if ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' {
+          signal_chars = signal_chars + 1
+          if signal_chars >= 24 {
+            return false
+          }
+        }
+      }
+    }
   }
+
+  true
 }

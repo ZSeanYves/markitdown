@@ -1,9 +1,0 @@
-import {
-  "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/core/string" @string,
-}
-
-options(
-  "preferred-target": "native",
-)

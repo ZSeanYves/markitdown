@@ -1,0 +1,90 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf_core/text"
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf_core/model",
+  "ZSeanYves/markitdown/doc_parse/pdf_core/raw",
+}
+
+// Values
+pub fn build_blocks_from_lines(Int, Array[@model.PdfTextLine]) -> Array[@model.PdfTextBlock]
+
+pub fn build_char_from_glyph(@raw.RawDecodedGlyph, Bool, String?) -> @model.PdfChar
+
+pub fn build_chars_from_text_op(@raw.RawTextOp) -> Array[@model.PdfChar]
+
+pub fn build_document_blocks(PdfDocumentLines) -> PdfDocumentBlocks
+
+pub fn build_document_chars(@raw.RawPdfDocumentExtract) -> PdfDocumentChars
+
+pub fn build_document_lines(PdfDocumentSpans) -> PdfDocumentLines
+
+pub fn build_document_spans(PdfDocumentChars) -> PdfDocumentSpans
+
+pub fn build_lines_from_spans(Int, Array[@model.PdfTextSpan]) -> Array[@model.PdfTextLine]
+
+pub fn build_page_blocks(PdfPageLines) -> PdfPageBlocks
+
+pub fn build_page_chars(@raw.RawPdfPageExtract) -> PdfPageChars
+
+pub fn build_page_lines(PdfPageSpans) -> PdfPageLines
+
+pub fn build_page_spans(PdfPageChars) -> PdfPageSpans
+
+pub fn build_spans_from_chars(Array[@model.PdfChar]) -> Array[@model.PdfTextSpan]
+
+pub fn looks_like_figure_or_table_caption(String) -> Bool
+
+pub fn looks_like_intro_phrase(String) -> Bool
+
+pub fn make_line_from_spans(Int, Int, Array[@model.PdfTextSpan]) -> @model.PdfTextLine
+
+pub fn make_span_from_chars(Array[@model.PdfChar], Int) -> @model.PdfTextSpan
+
+pub fn normalize_unicode_compat(String) -> String
+
+pub fn word_count(String) -> Int
+
+// Errors
+
+// Types and methods
+pub struct PdfDocumentBlocks {
+  pages : Array[PdfPageBlocks]
+}
+
+pub struct PdfDocumentChars {
+  pages : Array[PdfPageChars]
+}
+
+pub struct PdfDocumentLines {
+  pages : Array[PdfPageLines]
+}
+
+pub struct PdfDocumentSpans {
+  pages : Array[PdfPageSpans]
+}
+
+pub struct PdfPageBlocks {
+  page_index : Int
+  blocks : Array[@model.PdfTextBlock]
+}
+
+pub struct PdfPageChars {
+  page_index : Int
+  chars : Array[@model.PdfChar]
+}
+
+pub struct PdfPageLines {
+  page_index : Int
+  lines : Array[@model.PdfTextLine]
+}
+
+pub struct PdfPageSpans {
+  page_index : Int
+  spans : Array[@model.PdfTextSpan]
+}
+
+// Type aliases
+
+// Traits
+

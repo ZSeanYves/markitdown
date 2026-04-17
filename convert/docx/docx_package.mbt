@@ -55,13 +55,12 @@ fn DocxPackage::read_document_relationships(
 fn DocxPackage::extract_media_by_relationships(
   p : DocxPackage,
   rels : Map[String, String],
+  asset_by_target : Map[String, String],
   out_dir : String,
 ) -> Unit raise @fs.IOError {
   if !@fs.path_exists(out_dir) {
     @fs.create_dir(out_dir)
   }
-
-  let exported : Map[String, Bool] = Map::new()
 
   for entry in rels {
     let (_, target) = entry
@@ -69,15 +68,14 @@ fn DocxPackage::extract_media_by_relationships(
     if !normalized.has_prefix("word/media/") {
       continue
     }
-
-    let name = @cor.basename(normalized)
-    if name == "" || exported.contains(name) {
+    let rel_out = asset_by_target.get(normalized).unwrap_or("")
+    if rel_out == "" || !rel_out.has_prefix("assets/") {
       continue
     }
+    let name = rel_out["assets/".length():].to_string()
 
     let data = @ox.read_part_bytes(p.pkg, normalized) catch { _ => continue }
     @fs.write_bytes_to_file(out_dir + "/" + name, data)
-    exported.set(name, true)
   }
 }
 
