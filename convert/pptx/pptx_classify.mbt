@@ -19,10 +19,6 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
     }
 
     if para.from_title_shape && !seen_heading {
-      if para.associated_with_image_caption {
-        out.push(PptxBlock::Paragraph(p, para.inlines))
-        continue
-      }
       out.push(PptxBlock::Heading(p, para.inlines))
       seen_heading = true
       continue
@@ -66,10 +62,6 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
       !para.from_body_shape &&
       para.level == 0 &&
       looks_like_slide_title(p) {
-      if para.associated_with_image_caption {
-        out.push(PptxBlock::Paragraph(p, para.inlines))
-        continue
-      }
       match para.bullet_kind {
         Some(_) => ()
         None => {

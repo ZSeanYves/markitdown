@@ -30,8 +30,9 @@ fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
-    let (page_image_captions, consumed_caption_block_indices) =
-      infer_page_image_nearby_captions(page)
+    let (page_image_captions, consumed_caption_block_indices) = infer_page_image_nearby_captions(
+      page,
+    )
     let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {

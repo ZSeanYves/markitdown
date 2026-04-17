@@ -109,6 +109,21 @@ fn assert_asset_origin_has_min_source(
 }
 
 ///|
+fn assert_image_caption_mirrors_asset_origin(doc : @cor.Document) -> Unit raise {
+  for b in doc.blocks.val {
+    match b {
+      @cor.Block::ImageBlock(img) =>
+        match doc.asset_origins.val.get(img.path) {
+          Some(asset_origin) =>
+            assert_eq(asset_origin.nearby_caption, img.caption)
+          None => fail("missing asset origin for image path: " + img.path)
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn assert_doc_level_origins(doc : @cor.Document) -> Unit raise {
   for i in 0..<doc.block_origins.val.length() {
     match doc.block_origins.val[i] {
@@ -221,6 +236,7 @@ test "origin_metadata/html_docx_minimal_closure" {
   assert_block_origin_alignment(html_doc)
   assert_doc_level_origins(html_doc)
   assert_image_assets_are_indexed(html_doc)
+  assert_image_caption_mirrors_asset_origin(html_doc)
   match first_image_block(html_doc) {
     Some(img) => {
       assert_eq(img.alt_text, Some("single"))
@@ -289,7 +305,9 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_fig_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_figure_figcaption_basic.html"),
+    resolve_sample_path(
+      "samples/metadata/html/html_figure_figcaption_basic.html",
+    ),
     out_dir + "/html-context",
     6,
   )
@@ -309,7 +327,9 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_missing_alt_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_img_missing_alt_negative.html"),
+    resolve_sample_path(
+      "samples/metadata/html/html_img_missing_alt_negative.html",
+    ),
     out_dir + "/html-context",
     6,
   )
@@ -337,13 +357,16 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   ensure_dir(out_dir + "/xlsx")
 
   let pptx_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_single_caption_like.pptx"),
+    resolve_sample_path(
+      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+    ),
     out_dir + "/pptx",
     6,
   )
   assert_block_origin_alignment(pptx_doc)
   assert_slide_level_origins(pptx_doc)
   assert_image_assets_are_indexed(pptx_doc)
+  assert_image_caption_mirrors_asset_origin(pptx_doc)
   match first_image_block(pptx_doc) {
     Some(img) => {
       assert_eq(img.alt_text, Some("slide-1-image-1"))
@@ -398,6 +421,7 @@ async test "origin_metadata/pdf_minimal_closure" {
   assert_block_origin_alignment(pdf_doc)
   assert_page_level_origins(pdf_doc)
   assert_image_assets_are_indexed(pdf_doc)
+  assert_image_caption_mirrors_asset_origin(pdf_doc)
   match first_image_block(pdf_doc) {
     Some(img) => {
       assert_eq(img.title, None)
@@ -424,7 +448,9 @@ test "image_context/pptx_caption_association" {
   ensure_dir(out_dir + "/pptx-image-context")
 
   let doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_single_caption_like.pptx"),
+    resolve_sample_path(
+      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+    ),
     out_dir + "/pptx-image-context",
     6,
   )
@@ -460,7 +486,9 @@ async test "image_context/pdf_caption_like" {
   ensure_dir(out_dir + "/pdf-context")
 
   let single_caption_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/metadata/pdf/pdf_image_single_caption_like.pdf"),
+    resolve_sample_path(
+      "samples/metadata/pdf/pdf_image_single_caption_like.pdf",
+    ),
     out_dir + "/pdf-context",
     6,
     None,
@@ -485,7 +513,9 @@ async test "image_context/pdf_caption_like" {
   }
 
   let no_caption_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/metadata/pdf/pdf_image_no_caption_negative.pdf"),
+    resolve_sample_path(
+      "samples/metadata/pdf/pdf_image_no_caption_negative.pdf",
+    ),
     out_dir + "/pdf-context",
     6,
     None,
