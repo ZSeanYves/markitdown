@@ -25,12 +25,55 @@ pub impl Show for OoxmlError with output(self : OoxmlError, logger : &Logger) ->
 }
 
 ///|
+/// Relationship target mode in OOXML `.rels` parts.
+pub(all) enum OoxmlTargetMode {
+  Internal
+  External
+} derive(Eq)
+
+///|
 pub struct OoxmlRelationship {
   id : String
   rel_type : String
   target : String
-  target_mode : String
+  target_mode : OoxmlTargetMode
   resolved_target : String
+}
+
+///|
+pub struct OoxmlAssetRef {
+  source_part : String
+  rel_id : String
+  rel_type : String
+}
+
+///|
+pub struct OoxmlAsset {
+  part_name : String
+  content_type : String?
+  ext : String
+  size : Int
+  referenced_by : Array[OoxmlAssetRef]
+}
+
+///|
+pub struct OoxmlCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  description : String?
+  keywords : String?
+  created : String?
+  modified : String?
+}
+
+///|
+pub struct OoxmlAppProperties {
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
 }
 
 ///|
