@@ -23,11 +23,59 @@ priv struct DocumentMetadata {
   source_name : String
   format : String
   markdown_file : String
+  document : MetadataDocumentProperties?
   summary : MetadataSummary
   // Block-oriented view: aligns with markdown/IR order.
   blocks : Array[MetadataBlock]
   // Asset-oriented view: aligns with asset index and external retrieval needs.
   assets : Array[MetadataAsset]
+}
+
+///|
+pub struct MetadataDocumentProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  description : String?
+  keywords : String?
+  created : String?
+  modified : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+///|
+pub fn metadata_document_properties(
+  title : String?,
+  subject : String?,
+  creator : String?,
+  description : String?,
+  keywords : String?,
+  created : String?,
+  modified : String?,
+  application : String?,
+  pages : String?,
+  words : String?,
+  slides : String?,
+  sheets : String?,
+) -> MetadataDocumentProperties {
+  {
+    title,
+    subject,
+    creator,
+    description,
+    keywords,
+    created,
+    modified,
+    application,
+    pages,
+    words,
+    slides,
+    sheets,
+  }
 }
 
 ///|
@@ -96,6 +144,7 @@ fn build_document_metadata(
   source_name : String,
   format : String,
   markdown_file : String,
+  document : MetadataDocumentProperties?,
 ) -> DocumentMetadata {
   let blocks = build_metadata_blocks(doc)
   let assets = build_metadata_assets(doc)
@@ -105,6 +154,7 @@ fn build_document_metadata(
     source_name,
     format,
     markdown_file,
+    document,
     summary: { block_count: blocks.length(), asset_count: assets.length() },
     blocks,
     assets,
@@ -320,7 +370,26 @@ pub fn emit_metadata_json(
   format : String,
   markdown_file : String,
 ) -> String {
-  let meta = build_document_metadata(doc, source_name, format, markdown_file)
+  emit_metadata_json_with_document_properties(
+    doc,
+    source_name,
+    format,
+    markdown_file,
+    None,
+  )
+}
+
+///|
+pub fn emit_metadata_json_with_document_properties(
+  doc : Document,
+  source_name : String,
+  format : String,
+  markdown_file : String,
+  document : MetadataDocumentProperties?,
+) -> String {
+  let meta = build_document_metadata(
+    doc, source_name, format, markdown_file, document,
+  )
   serialize_document_metadata(meta)
 }
 
@@ -339,6 +408,9 @@ fn serialize_document_metadata(meta : DocumentMetadata) -> String {
   "  \"markdown_file\": " +
   json_string(meta.markdown_file) +
   ",\n" +
+  "  \"document\": " +
+  serialize_document_properties_opt(meta.document) +
+  ",\n" +
   "  \"summary\": " +
   serialize_summary(meta.summary) +
   ",\n" +
@@ -349,6 +421,38 @@ fn serialize_document_metadata(meta : DocumentMetadata) -> String {
   serialize_assets(meta.assets) +
   "\n" +
   "}"
+}
+
+///|
+fn serialize_document_properties_opt(
+  document : MetadataDocumentProperties?,
+) -> String {
+  match document {
+    None => "null"
+    Some(v) => serialize_document_properties(v)
+  }
+}
+
+///|
+fn serialize_document_properties(
+  document : MetadataDocumentProperties,
+) -> String {
+  let fields : Array[String] = []
+
+  fields.push("\"title\": " + json_string_opt(document.title))
+  fields.push("\"subject\": " + json_string_opt(document.subject))
+  fields.push("\"creator\": " + json_string_opt(document.creator))
+  fields.push("\"description\": " + json_string_opt(document.description))
+  fields.push("\"keywords\": " + json_string_opt(document.keywords))
+  fields.push("\"created\": " + json_string_opt(document.created))
+  fields.push("\"modified\": " + json_string_opt(document.modified))
+  fields.push("\"application\": " + json_string_opt(document.application))
+  fields.push("\"pages\": " + json_string_opt(document.pages))
+  fields.push("\"words\": " + json_string_opt(document.words))
+  fields.push("\"slides\": " + json_string_opt(document.slides))
+  fields.push("\"sheets\": " + json_string_opt(document.sheets))
+
+  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
 }
 
 ///|

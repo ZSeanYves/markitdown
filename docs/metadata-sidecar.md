@@ -42,11 +42,41 @@ Top level:
 * `source_name`
 * `format`
 * `markdown_file`
+* `document` (document-level properties object or `null`)
 * `summary` (`block_count` / `asset_count`)
 * `blocks[]`
 * `assets[]`
 
-### 4.1 Role of `blocks[]`
+### 4.1 Role of `document`
+
+`document` represents file-level document properties. It is deliberately kept at
+the top level and is not mixed into `summary`, `origin`, `blocks[]`, or
+`assets[]`.
+
+For OOXML inputs (`docx` / `pptx` / `xlsx`), the CLI sidecar path reads
+`docProps/core.xml` and `docProps/app.xml` through the shared OOXML package
+layer. If the input is not OOXML, or if document properties cannot be read, the
+field is `null`.
+
+Current fields:
+
+* `title`
+* `subject`
+* `creator`
+* `description`
+* `keywords`
+* `created`
+* `modified`
+* `application`
+* `pages`
+* `words`
+* `slides`
+* `sheets`
+
+All fields are optional strings and may be `null` even when `document` is
+present.
+
+### 4.2 Role of `blocks[]`
 
 `blocks[]` represents engineering information from the **content-block perspective**:
 
@@ -56,7 +86,7 @@ Top level:
 * `origin`: provenance information (optional)
 * `image`: extra image-block information (only for image blocks)
 
-### 4.2 Role of `assets[]`
+### 4.3 Role of `assets[]`
 
 `assets[]` represents engineering information from the **asset-level perspective**:
 
@@ -82,6 +112,7 @@ The current contract is:
   "source_name": "demo.pdf",
   "format": "pdf",
   "markdown_file": "demo.md",
+  "document": null,
   "summary": { "block_count": 3, "asset_count": 1 },
   "blocks": [
     {
@@ -113,7 +144,8 @@ The current contract is:
 The following can currently be treated as stable and safe to rely on:
 
 * the sidecar naming and directory rule (`metadata/<stem>.metadata.json`)
-* top-level key fields: `version/source_name/format/markdown_file/summary/blocks/assets`
+* top-level key fields: `version/source_name/format/markdown_file/document/summary/blocks/assets`
+* `document` as the dedicated file-level metadata area, with `null` used when unavailable
 * the dual-view separation between `blocks[]` and `assets[]`
 * the relationship between the primary image caption field and the mirrored `nearby_caption`
 

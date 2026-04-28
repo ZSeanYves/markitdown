@@ -6,11 +6,39 @@ import {
 }
 
 // Values
+pub fn dump_media_assets_summary(OoxmlPackage) -> String
+
+pub fn dump_ooxml_package(OoxmlPackage) -> String
+
+pub fn dump_package_summary(OoxmlPackage) -> String
+
+pub fn dump_properties_summary(OoxmlPackage) -> String
+
+pub fn dump_relationships_summary(OoxmlPackage) -> String
+
+pub fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
+
+pub fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
+
 pub fn has_part(OoxmlPackage, String) -> Bool
+
+pub fn has_relationships_part(OoxmlPackage, String) -> Bool
+
+pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
+
+pub fn list_parts(OoxmlPackage) -> Array[String]
+
+pub fn list_parts_by_content_type(OoxmlPackage, String) -> Array[String] raise OoxmlError
+
+pub fn list_parts_by_prefix(OoxmlPackage, String) -> Array[String]
 
 pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
 
 pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
+
+pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
+
+pub fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties
 
 pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
 
@@ -31,6 +59,38 @@ pub(all) suberror OoxmlError {
 pub impl Show for OoxmlError
 
 // Types and methods
+pub struct OoxmlAppProperties {
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+pub struct OoxmlAsset {
+  part_name : String
+  content_type : String?
+  ext : String
+  size : Int
+  referenced_by : Array[OoxmlAssetRef]
+}
+
+pub struct OoxmlAssetRef {
+  source_part : String
+  rel_id : String
+  rel_type : String
+}
+
+pub struct OoxmlCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  description : String?
+  keywords : String?
+  created : String?
+  modified : String?
+}
+
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, Int]
@@ -42,9 +102,14 @@ pub struct OoxmlRelationship {
   id : String
   rel_type : String
   target : String
-  target_mode : String
+  target_mode : OoxmlTargetMode
   resolved_target : String
 }
+
+pub(all) enum OoxmlTargetMode {
+  Internal
+  External
+} derive(Eq)
 
 // Type aliases
 
