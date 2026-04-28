@@ -56,10 +56,10 @@ fn XlsxPackage::read_text_required(
 
 ///|
 fn parse_workbook_sheets(
+  pkg : @ox.OoxmlPackage,
   wb_xml : String,
-  rels_xml : String,
 ) -> Array[SheetInfo] {
-  let rel_map = parse_rels_id_to_target(rels_xml)
+  let rels = @ox.read_part_relationships(pkg, "xl/workbook.xml") catch { _ => [] }
   let out : Array[SheetInfo] = []
 
   let mut pos = 0
@@ -76,7 +76,10 @@ fn parse_workbook_sheets(
             let name = get_attr(tag, "name").unwrap_or("Sheet")
             let rid = get_attr(tag, "r:id").unwrap_or("")
             if rid != "" {
-              let target = rel_map.get(rid).unwrap_or("")
+              let target = match @ox.find_relationship_by_id(rels, rid) {
+                Some(rel) => rel.resolved_target
+                None => ""
+              }
               out.push({ name, _rid: rid, target })
             }
             pos = i1 + 1
@@ -96,49 +99,9 @@ fn normalize_sheet_part_target(target : String) -> String {
     return ""
   }
 
-  let without_leading = if target0.has_prefix("/") {
+  if target0.has_prefix("/") {
     target0[1:]
   } else {
     target0
   }
-
-  if without_leading.has_prefix("xl/") {
-    without_leading.to_string()
-  } else {
-    "xl/" + without_leading.to_string()
-  }
-}
-// ============================
-// Utilities
-// ============================
-// <Relationship Id="rId1" Target="worksheets/sheet1.xml" .../>
-
-///|
-fn parse_rels_id_to_target(rels_xml : String) -> Map[String, String] {
-  let m : Map[String, String] = Map::new()
-  let mut pos = 0
-
-  while true {
-    let idx = find_sub(rels_xml, "<Relationship", pos)
-    match idx {
-      None => break
-      Some(i0) => {
-        let j = find_sub(rels_xml, ">", i0)
-        match j {
-          None => break
-          Some(i1) => {
-            let tag = rels_xml[i0:i1 + 1].to_string()
-            let id = get_attr(tag, "Id").unwrap_or("")
-            let target = get_attr(tag, "Target").unwrap_or("")
-            if id != "" && target != "" {
-              m.set(id, target)
-            }
-            pos = i1 + 1
-          }
-        }
-      }
-    }
-  }
-
-  m
 }

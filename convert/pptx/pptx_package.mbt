@@ -71,12 +71,10 @@ fn list_slide_entries_in_presentation_order(
   let rels = @ox.read_part_relationships(p.pkg, "ppt/presentation.xml") catch {
     _ => return list_slide_entries(p)
   }
-  let rels_by_id = rels_by_id(rels)
-
   let out : Array[String] = []
 
   for rid in rid_order {
-    match rels_by_id.get(rid) {
+    match @ox.find_relationship_by_id(rels, rid) {
       Some(rel) =>
         if rel.rel_type.has_suffix("/slide") &&
           rel.resolved_target.has_prefix("ppt/slides/slide") &&
@@ -102,14 +100,14 @@ fn build_slide_rel_context(
   let slide_rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
     _ => return (None, None)
   }
-  let slide_layout = find_first_rel_target(slide_rels, "/slideLayout")
+  let slide_layout = rel_target_by_type_suffix(slide_rels, "/slideLayout")
   match slide_layout {
     None => (None, None)
     Some(layout_part) => {
       let layout_rels = @ox.read_part_relationships(p.pkg, layout_part) catch {
         _ => return (Some(layout_part), None)
       }
-      let slide_master = find_first_rel_target(layout_rels, "/slideMaster")
+      let slide_master = rel_target_by_type_suffix(layout_rels, "/slideMaster")
       (Some(layout_part), slide_master)
     }
   }
@@ -133,18 +131,7 @@ fn slide_hyperlink_map(
 }
 
 ///|
-fn rels_by_id(
-  rels : Array[@ox.OoxmlRelationship],
-) -> Map[String, @ox.OoxmlRelationship] {
-  let out : Map[String, @ox.OoxmlRelationship] = {}
-  for rel in rels {
-    out[rel.id] = rel
-  }
-  out
-}
-
-///|
-fn find_first_rel_target(
+fn rel_target_by_type_suffix(
   rels : Array[@ox.OoxmlRelationship],
   type_suffix : String,
 ) -> String? {

@@ -21,7 +21,6 @@ pub fn parse_xlsx(
 
   // 2) read workbook.xml + rels
   let wb_xml = p.read_text_required("xl/workbook.xml")
-  let rels_xml = p.read_text_required("xl/_rels/workbook.xml.rels")
 
   // 3) sharedStrings.xml is optional
   let shared : Array[String] = if @ox.has_part(p.pkg, "xl/sharedStrings.xml") {
@@ -40,7 +39,7 @@ pub fn parse_xlsx(
   }
 
   // 5) parse sheets
-  let sheets = parse_workbook_sheets(wb_xml, rels_xml)
+  let sheets = parse_workbook_sheets(p.pkg, wb_xml)
 
   // 6) build IR
   let doc = @cor.new_document()
