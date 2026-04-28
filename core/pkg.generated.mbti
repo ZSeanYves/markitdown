@@ -14,7 +14,11 @@ pub fn emit_markdown(Document) -> String
 
 pub fn emit_metadata_json(Document, String, String, String) -> String
 
+pub fn emit_metadata_json_with_document_properties(Document, String, String, String, MetadataDocumentProperties?) -> String
+
 pub fn is_blank(String) -> Bool
+
+pub fn metadata_document_properties(String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?) -> MetadataDocumentProperties
 
 pub fn new_document() -> Document
 
@@ -91,6 +95,21 @@ pub(all) enum Inline {
   Text(String)
   Break
   Link(String, String)
+}
+
+pub struct MetadataDocumentProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  description : String?
+  keywords : String?
+  created : String?
+  modified : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
 }
 
 pub(all) struct Origin {

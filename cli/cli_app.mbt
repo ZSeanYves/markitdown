@@ -74,11 +74,13 @@ async fn cmd_convert(
       if with_metadata {
         let format = detect_input_format(input)
         let markdown_file = @cor.basename(p)
-        let metadata_json = @cor.emit_metadata_json(
+        let document = read_ooxml_document_properties(input, format)
+        let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
           @cor.basename(input),
           format,
           markdown_file,
+          document,
         )
         let metadata_path = metadata_output_path(p)
         let metadata_dir = dirname_of_path(metadata_path)
@@ -206,6 +208,38 @@ fn metadata_output_path(markdown_path : String) -> String {
   // Keep sidecar under `metadata/` subdir to avoid cluttering markdown dirs and
   // to make metadata/main_process/assets chain collection easier in CI scripts.
   join_path(join_path(dir, "metadata"), stem + ".metadata.json")
+}
+
+///|
+fn read_ooxml_document_properties(
+  input : String,
+  format : String,
+) -> @cor.MetadataDocumentProperties? {
+  if !(format == "docx" || format == "pptx" || format == "xlsx") {
+    return None
+  }
+
+  let bytes = @fs.read_file_to_bytes(input) catch { _ => return None }
+  let pkg = @ox.open_ooxml_package(bytes) catch { _ => return None }
+  let core = @ox.read_core_properties(pkg)
+  let app = @ox.read_app_properties(pkg)
+
+  Some(
+    @cor.metadata_document_properties(
+      core.title,
+      core.subject,
+      core.creator,
+      core.description,
+      core.keywords,
+      core.created,
+      core.modified,
+      app.application,
+      app.pages,
+      app.words,
+      app.slides,
+      app.sheets,
+    ),
+  )
 }
 
 ///|

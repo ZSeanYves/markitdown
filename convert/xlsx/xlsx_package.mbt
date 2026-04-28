@@ -58,8 +58,8 @@ fn XlsxPackage::read_text_required(
 fn parse_workbook_sheets(
   pkg : @ox.OoxmlPackage,
   wb_xml : String,
-) -> Array[SheetInfo] {
-  let rels = @ox.read_part_relationships(pkg, "xl/workbook.xml") catch { _ => [] }
+) -> Array[SheetInfo] raise {
+  let _ = @ox.read_part_relationships(pkg, "xl/workbook.xml") catch { _ => [] }
   let out : Array[SheetInfo] = []
 
   let mut pos = 0
@@ -76,7 +76,8 @@ fn parse_workbook_sheets(
             let name = get_attr(tag, "name").unwrap_or("Sheet")
             let rid = get_attr(tag, "r:id").unwrap_or("")
             if rid != "" {
-              let target = match @ox.find_relationship_by_id(rels, rid) {
+              let target = match
+                @ox.find_relationship_by_id(pkg, "xl/workbook.xml", rid) {
                 Some(rel) => rel.resolved_target
                 None => ""
               }
@@ -100,7 +101,7 @@ fn normalize_sheet_part_target(target : String) -> String {
   }
 
   if target0.has_prefix("/") {
-    target0[1:]
+    target0[1:].to_string()
   } else {
     target0
   }

@@ -110,7 +110,6 @@ test "ooxml package phase-1 works on pptx sample" {
   ignore(rels)
 }
 
-
 ///|
 test "ooxml package phase-2 can list and query parts" {
   let pkg = open_sample_package("samples/main_process/docx/golden.docx")
@@ -126,8 +125,7 @@ test "ooxml package phase-2 can list and query parts" {
   }
 
   let docs = @ox.list_parts_by_content_type(
-    pkg,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+    pkg, "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
   ) catch {
     e => fail("list_parts_by_content_type failed: " + e.to_string())
   }
@@ -154,10 +152,7 @@ test "ooxml package phase-2 can find relationships by id and type" {
   }
 
   match found {
-    Some(rel) =>
-      if rel.id != rel0.id {
-        fail("relationship id mismatch")
-      }
+    Some(rel) => if rel.id != rel0.id { fail("relationship id mismatch") }
     None => fail("relationship should be found by id")
   }
 
@@ -197,4 +192,72 @@ test "ooxml package phase-2 can read document properties safely" {
 
   ignore(core)
   ignore(app)
+}
+
+///|
+fn assert_dump_has_debug_sections(dump : String) -> Unit raise {
+  if dump == "" {
+    fail("dump should not be empty")
+  }
+  if !dump.contains("[Content_Types]") {
+    fail("dump should contain [Content_Types]")
+  }
+  if !dump.contains("relationships") {
+    fail("dump should contain relationships")
+  }
+  if !dump.contains("media") {
+    fail("dump should contain media")
+  }
+  if !dump.contains("properties") {
+    fail("dump should contain properties")
+  }
+}
+
+///|
+test "ooxml package phase-2.2 can dump docx sample" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let dump = @ox.dump_ooxml_package(pkg)
+
+  assert_dump_has_debug_sections(dump)
+  if !dump.contains("part count") {
+    fail("dump should contain part count")
+  }
+}
+
+///|
+test "ooxml package phase-2.2 can dump pptx sample" {
+  let pkg = open_sample_package("samples/main_process/pptx/pptx_simple.pptx")
+  let dump = @ox.dump_ooxml_package(pkg)
+
+  assert_dump_has_debug_sections(dump)
+  if !dump.contains("root relationships") {
+    fail("dump should contain root relationships")
+  }
+}
+
+///|
+test "ooxml package phase-2.2 can dump xlsx sample" {
+  let pkg = open_sample_package("samples/main_process/xlsx/sheet_simple.xlsx")
+  let dump = @ox.dump_ooxml_package(pkg)
+
+  assert_dump_has_debug_sections(dump)
+  if !dump.contains("content type defaults") {
+    fail("dump should contain content type defaults")
+  }
+}
+
+///|
+test "ooxml package phase-2.2 dump handles missing media and docProps" {
+  let pkg = open_sample_package(
+    "samples/main_process/docx/docx_blockquote_basic.docx",
+  )
+  let dump = @ox.dump_ooxml_package(pkg)
+
+  assert_dump_has_debug_sections(dump)
+  if !dump.contains("media asset count: 0") {
+    fail("dump should report empty media assets")
+  }
+  if !dump.contains("title=(none)") {
+    fail("dump should report missing core properties")
+  }
 }

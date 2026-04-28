@@ -68,13 +68,13 @@ fn list_slide_entries_in_presentation_order(
     return list_slide_entries(p)
   }
 
-  let rels = @ox.read_part_relationships(p.pkg, "ppt/presentation.xml") catch {
+  let _ = @ox.read_part_relationships(p.pkg, "ppt/presentation.xml") catch {
     _ => return list_slide_entries(p)
   }
   let out : Array[String] = []
 
   for rid in rid_order {
-    match @ox.find_relationship_by_id(rels, rid) {
+    match @ox.find_relationship_by_id(p.pkg, "ppt/presentation.xml", rid) {
       Some(rel) =>
         if rel.rel_type.has_suffix("/slide") &&
           rel.resolved_target.has_prefix("ppt/slides/slide") &&

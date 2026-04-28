@@ -107,10 +107,7 @@ pub fn list_parts_by_content_type(
   let out : Array[String] = []
   for name in list_parts(pkg) {
     match lookup_content_type(pkg, name) {
-      Some(ct) =>
-        if ct == content_type {
-          out.push(name)
-        }
+      Some(ct) => if ct == content_type { out.push(name) }
       None => ()
     }
   }
@@ -118,10 +115,7 @@ pub fn list_parts_by_content_type(
 }
 
 ///|
-pub fn has_relationships_part(
-  pkg : OoxmlPackage,
-  source_part : String,
-) -> Bool {
+pub fn has_relationships_part(pkg : OoxmlPackage, source_part : String) -> Bool {
   let source = normalize_source_part_for_resolve(source_part) catch {
     _ => return false
   }
@@ -169,7 +163,8 @@ pub fn find_relationships_by_type(
 
   let out : Array[OoxmlRelationship] = []
   for rel in rels {
-    if rel.rel_type.has_suffix(rel_type_suffix) || rel.rel_type == rel_type_suffix {
+    if rel.rel_type.has_suffix(rel_type_suffix) ||
+      rel.rel_type == rel_type_suffix {
       out.push(rel)
     }
   }
@@ -268,11 +263,11 @@ fn parse_relationships_xml(
     let id = get_required_attr(attrs, "Id")
     let rel_type = get_required_attr(attrs, "Type")
     let target = get_required_attr(attrs, "Target")
-let target_mode_raw = get_optional_attr(attrs, "TargetMode")
-let target_mode = parse_target_mode(target_mode_raw)
-let resolved_target = resolve_target(source_part, target, target_mode)
+    let target_mode_raw = get_optional_attr(attrs, "TargetMode")
+    let target_mode = parse_target_mode(target_mode_raw)
+    let resolved_target = resolve_target(source_part, target, target_mode)
 
-rels.push({ id, rel_type, target, target_mode, resolved_target })
+    rels.push({ id, rel_type, target, target_mode, resolved_target })
   }
 
   rels
@@ -490,6 +485,7 @@ fn rels_part_name_for_source(source_part : String) -> String {
   }
 }
 
+///|
 fn resolve_target(
   source_part : String,
   target : String,
@@ -519,6 +515,7 @@ fn resolve_target(
     normalize_relative_path(source_dir + "/" + target0)
   }
 }
+
 ///|
 fn parse_target_mode(value : String) -> OoxmlTargetMode {
   if value == "External" {
@@ -611,9 +608,10 @@ fn byte_to_int(b : Byte) -> Int {
   }
 }
 
-
 ///|
-pub fn list_media_assets(pkg : OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError {
+pub fn list_media_assets(
+  pkg : OoxmlPackage,
+) -> Array[OoxmlAsset] raise OoxmlError {
   let out : Array[OoxmlAsset] = []
 
   for part in list_parts(pkg) {
@@ -675,11 +673,7 @@ fn collect_asset_refs(
     let rels = read_part_relationships(pkg, source) catch { _ => continue }
     for rel in rels {
       if rel.target_mode == Internal && rel.resolved_target == media_part {
-        out.push({
-          source_part: source,
-          rel_id: rel.id,
-          rel_type: rel.rel_type,
-        })
+        out.push({ source_part: source, rel_id: rel.id, rel_type: rel.rel_type })
       }
     }
   }
@@ -731,7 +725,8 @@ fn tag_text(xml : String, local_name : String) -> String? {
       continue
     }
 
-    if i + 1 < n && (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
+    if i + 1 < n &&
+      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
       i = i + 1
       continue
     }
@@ -748,21 +743,21 @@ fn tag_text(xml : String, local_name : String) -> String? {
     let name = start_tag_local_name(start_tag)
 
     if name == local_name {
-      let close = "</" + local_name + ">"
-      let close_prefixed = "</"
       let content_start = tag_end + 1
 
-      let end1 = find_sub(xml, close, content_start)
-      match end1 {
-        Some(pos) => return Some(xml_entity_decode(xml[content_start:pos].to_string().trim().to_string()))
-        None => {
-          // fallback: find next closing tag and trust local-name match loosely
-          let end2 = find_sub(xml, close_prefixed, content_start)
-          match end2 {
-            Some(pos2) => return Some(xml_entity_decode(xml[content_start:pos2].to_string().trim().to_string()))
-            None => ()
-          }
-        }
+      if start_tag_is_self_closing(start_tag) {
+        return None
+      }
+
+      let end = find_closing_tag_by_local_name(xml, local_name, content_start)
+      match end {
+        Some(pos) =>
+          return Some(
+            xml_entity_decode(
+              xml[content_start:pos].to_string().trim().to_string(),
+            ),
+          )
+        None => ()
       }
     }
 
@@ -773,32 +768,97 @@ fn tag_text(xml : String, local_name : String) -> String? {
 }
 
 ///|
-fn find_sub(s : String, needle : String, start : Int) -> Int? {
-  let n = s.length()
-  let m = needle.length()
-  if m == 0 {
-    return Some(start)
+fn start_tag_is_self_closing(tag : String) -> Bool {
+  let chars = tag.to_array()
+  let mut i = chars.length() - 2
+  while i >= 0 {
+    if is_space(chars[i]) {
+      i = i - 1
+      continue
+    }
+    return chars[i] == '/'
   }
-  if start < 0 || start >= n {
-    return None
-  }
+  false
+}
 
+///|
+fn find_closing_tag_by_local_name(
+  xml : String,
+  local_name : String,
+  start : Int,
+) -> Int? {
+  let chars = xml.to_array()
+  let n = chars.length()
   let mut i = start
-  while i + m <= n {
-    if s[i:i + m].to_string() == needle {
+
+  while i < n {
+    if chars[i] != '<' || i + 1 >= n || chars[i + 1] != '/' {
+      i = i + 1
+      continue
+    }
+
+    let mut tag_end = i + 2
+    while tag_end < n && chars[tag_end] != '>' {
+      tag_end = tag_end + 1
+    }
+    if tag_end >= n {
+      return None
+    }
+
+    let tag = xml[i:tag_end + 1].to_string()
+    if end_tag_local_name(tag) == local_name {
       return Some(i)
     }
+
+    i = tag_end + 1
+  }
+
+  None
+}
+
+///|
+fn end_tag_local_name(tag : String) -> String {
+  let chars = tag.to_array()
+  if chars.length() < 4 {
+    return ""
+  }
+
+  let mut i = 2
+  while i < chars.length() && is_space(chars[i]) {
     i = i + 1
   }
-  None
+
+  let mut j = i
+  while j < chars.length() && !is_space(chars[j]) && chars[j] != '>' {
+    j = j + 1
+  }
+
+  if j <= i {
+    return ""
+  }
+
+  let raw_name = tag[i:j].to_string()
+  let raw_chars = raw_name.to_array()
+  let mut colon = -1
+  for k in 0..<raw_chars.length() {
+    if raw_chars[k] == ':' {
+      colon = k
+    }
+  }
+
+  if colon < 0 {
+    raw_name
+  } else {
+    raw_name[colon + 1:].to_string()
+  }
 }
 
 ///|
 fn xml_entity_decode(s : String) -> String {
   s
-    .replace(old = "&amp;", new = "&")
-    .replace(old = "&lt;", new = "<")
-    .replace(old = "&gt;", new = ">")
-    .replace(old = "&quot;", new = "\"")
-    .replace(old = "&apos;", new = "'")
+  .replace(old="&amp;", new="&")
+  .replace(old="&lt;", new="<")
+  .replace(old="&gt;", new=">")
+  .replace(old="&quot;", new="\"")
+  .replace(old="&apos;", new="'")
 }

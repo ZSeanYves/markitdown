@@ -61,6 +61,53 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+fn read_ooxml_metadata_document_properties(
+  path : String,
+) -> @cor.MetadataDocumentProperties? raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read OOXML sample failed: " + e.to_string())
+  }
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open OOXML sample failed: " + e.to_string())
+  }
+  let core = @ox.read_core_properties(pkg)
+  let app = @ox.read_app_properties(pkg)
+
+  Some(
+    @cor.metadata_document_properties(
+      core.title,
+      core.subject,
+      core.creator,
+      core.description,
+      core.keywords,
+      core.created,
+      core.modified,
+      app.application,
+      app.pages,
+      app.words,
+      app.slides,
+      app.sheets,
+    ),
+  )
+}
+
+///|
+fn assert_metadata_has_document_object(
+  json : String,
+  format : String,
+) -> Unit raise {
+  if !json.contains("\"format\": \"" + format + "\"") {
+    fail("metadata should contain format: " + format)
+  }
+  if !json.contains("\"document\": {") {
+    fail("metadata should contain document object for: " + format)
+  }
+  if !json.contains("\"application\"") {
+    fail("metadata document should contain application field: " + format)
+  }
+}
+
+///|
 /// Guard rail for the main_process chain:
 /// every emitted block must have a same-index origin slot (Some/None allowed).
 fn assert_block_origin_alignment(doc : @cor.Document) -> Unit raise {
@@ -415,6 +462,87 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   )
   assert_block_origin_alignment(xlsx_doc)
   assert_sheet_level_origins(xlsx_doc)
+}
+
+///|
+test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
+  let root_dir = "tmp-origin-tests"
+  ensure_dir(root_dir)
+
+  let out_dir = root_dir + "/metadata_sidecar_document_properties"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/docx")
+  ensure_dir(out_dir + "/pptx")
+  ensure_dir(out_dir + "/xlsx")
+  ensure_dir(out_dir + "/html")
+
+  let docx_path = resolve_sample_path("samples/main_process/docx/golden.docx")
+  let docx_doc = @doc.parse_docx(docx_path, out_dir + "/docx", 6)
+  let docx_json = @cor.emit_metadata_json_with_document_properties(
+    docx_doc,
+    "golden.docx",
+    "docx",
+    "golden.md",
+    read_ooxml_metadata_document_properties(docx_path),
+  )
+  assert_metadata_has_document_object(docx_json, "docx")
+
+  let pptx_path = resolve_sample_path(
+    "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+  )
+  let pptx_doc = @pptx.parse_pptx(pptx_path, out_dir + "/pptx", 6)
+  let pptx_json = @cor.emit_metadata_json_with_document_properties(
+    pptx_doc,
+    "pptx_image_single_caption_like.pptx",
+    "pptx",
+    "pptx_image_single_caption_like.md",
+    read_ooxml_metadata_document_properties(pptx_path),
+  )
+  assert_metadata_has_document_object(pptx_json, "pptx")
+
+  let xlsx_path = resolve_sample_path(
+    "samples/main_process/xlsx/sheet_simple.xlsx",
+  )
+  let xlsx_doc = @xlsx.parse_xlsx(xlsx_path, out_dir + "/xlsx", 6)
+  let xlsx_json = @cor.emit_metadata_json_with_document_properties(
+    xlsx_doc,
+    "sheet_simple.xlsx",
+    "xlsx",
+    "sheet_simple.md",
+    read_ooxml_metadata_document_properties(xlsx_path),
+  )
+  assert_metadata_has_document_object(xlsx_json, "xlsx")
+
+  let missing_docprops_path = resolve_sample_path(
+    "samples/main_process/docx/docx_blockquote_basic.docx",
+  )
+  let missing_docprops_doc = @doc.parse_docx(
+    missing_docprops_path,
+    out_dir + "/docx",
+    6,
+  )
+  let missing_docprops_json = @cor.emit_metadata_json_with_document_properties(
+    missing_docprops_doc,
+    "docx_blockquote_basic.docx",
+    "docx",
+    "docx_blockquote_basic.md",
+    read_ooxml_metadata_document_properties(missing_docprops_path),
+  )
+  assert_metadata_has_document_object(missing_docprops_json, "docx")
+
+  let html_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_img_alt_basic.html"),
+    out_dir + "/html",
+    6,
+  )
+  let html_json = @cor.emit_metadata_json(
+    html_doc, "html_img_alt_basic.html", "html", "html_img_alt_basic.md",
+  )
+  if !html_json.contains("\"document\": null") {
+    fail("non-OOXML metadata should keep document null")
+  }
 }
 
 ///|
