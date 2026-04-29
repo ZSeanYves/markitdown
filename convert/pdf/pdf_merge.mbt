@@ -44,8 +44,24 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
         text: merged_text,
         line_start: prev_last.line_start,
         line_end: cur_first.line_end,
+        source_block_index: prev_last.source_block_index,
+        source_block_line_count: prev_last.source_block_line_count,
+        source_block_kind: prev_last.source_block_kind,
+        source_block_bbox: prev_last.source_block_bbox,
+        source_block_dominant_font_size: prev_last.source_block_dominant_font_size,
+        source_block_dominant_font_name: prev_last.source_block_dominant_font_name,
         is_heading_candidate: false,
         is_noise_candidate: false,
+        is_header_footer_candidate: prev_last.is_header_footer_candidate &&
+        cur_first.is_header_footer_candidate,
+        is_artifact_candidate: prev_last.is_artifact_candidate ||
+        cur_first.is_artifact_candidate,
+        is_caption_candidate: prev_last.is_caption_candidate ||
+        cur_first.is_caption_candidate,
+        is_table_cell_candidate: prev_last.is_table_cell_candidate ||
+        cur_first.is_table_cell_candidate,
+        dominant_language: prev_last.dominant_language,
+        writing_direction: prev_last.writing_direction,
 
         // 跨页 block 第一阶段保留上一页末块的几何锚点
         _bbox: prev_last._bbox,
@@ -54,6 +70,22 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
         top_y: prev_last.top_y,
         left_x: prev_last.left_x,
         line_count: prev_last.line_count + cur_first.line_count,
+        first_indent_left: prev_last.first_indent_left,
+        last_indent_left: cur_first.last_indent_left,
+        first_indent_right: prev_last.first_indent_right,
+        last_indent_right: cur_first.last_indent_right,
+        first_alignment_hint: prev_last.first_alignment_hint,
+        last_alignment_hint: cur_first.last_alignment_hint,
+        first_line_gap_before: prev_last.first_line_gap_before,
+        last_line_gap_after: cur_first.last_line_gap_after,
+        first_line_height: prev_last.first_line_height,
+        last_line_height: cur_first.last_line_height,
+        first_baseline_y: prev_last.first_baseline_y,
+        last_baseline_y: cur_first.last_baseline_y,
+        first_is_wrapped_candidate: prev_last.first_is_wrapped_candidate,
+        last_is_wrapped_candidate: cur_first.last_is_wrapped_candidate,
+        first_is_same_paragraph_with_prev_candidate: prev_last.first_is_same_paragraph_with_prev_candidate,
+        last_is_same_paragraph_with_prev_candidate: cur_first.last_is_same_paragraph_with_prev_candidate,
       }
 
       // 当前页跳过第一个 block，其余保留
@@ -69,6 +101,8 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     // 回写上一页
     pages[pages.length() - 1] = rebuild_page_objects({
       _page_index: prev_page._page_index,
+      media_box: prev_page.media_box,
+      crop_box: prev_page.crop_box,
       lines: prev_page.lines,
       blocks: merged_prev,
       images: prev_page.images,
@@ -79,6 +113,8 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     pages.push(
       rebuild_page_objects({
         _page_index: cur_page._page_index,
+        media_box: cur_page.media_box,
+        crop_box: cur_page.crop_box,
         lines: cur_page.lines,
         blocks: merged_cur,
         images: cur_page.images,
@@ -102,35 +138,80 @@ fn should_merge_page_boundary(
   let left = prev_page.blocks[prev_page.blocks.length() - 1]
   let right = cur_page.blocks[0]
 
+  if has_cross_page_merge_hard_blocker(left, right) {
+    return false
+  }
+
+  if !has_positive_text_continuation(left, right) {
+    return false
+  }
+
+  has_layout_compatibility(left, right) ||
+  has_core_continuation_support(left, right)
+}
+
+///|
+fn has_cross_page_merge_hard_blocker(
+  left : PdfConvertBlock,
+  right : PdfConvertBlock,
+) -> Bool {
   if left.kind != PdfConvertBlockKind::Paragraph ||
     right.kind != PdfConvertBlockKind::Paragraph {
-    return false
+    return true
   }
 
   let lt = left.text.trim().to_owned()
   let rt = right.text.trim().to_owned()
 
   if lt == "" || rt == "" {
-    return false
+    return true
   }
 
   if ends_with_strong_sentence_punct(lt) {
-    return false
+    return true
   }
 
   if looks_like_new_section_after_page_break(rt) {
-    return false
+    return true
   }
 
-  if looks_like_numbered_list_start(rt) {
-    return false
+  if looks_like_list_start(rt) {
+    return true
   }
 
-  if is_page_label_like(rt) {
-    return false
-  }
+  is_page_label_like(rt)
+}
 
-  looks_like_page_start_continuation(rt)
+///|
+fn has_positive_text_continuation(
+  _left : PdfConvertBlock,
+  right : PdfConvertBlock,
+) -> Bool {
+  looks_like_page_start_continuation(right.text)
+}
+
+///|
+fn has_layout_compatibility(
+  left : PdfConvertBlock,
+  right : PdfConvertBlock,
+) -> Bool {
+  font_size_close(left.dominant_font_size, right.dominant_font_size) &&
+  indent_close(left.last_indent_left, right.first_indent_left) &&
+  alignment_compatible(left.last_alignment_hint, right.first_alignment_hint) &&
+  !gap_looks_like_new_paragraph(
+    right.first_line_gap_before,
+    right.first_line_height,
+  )
+}
+
+///|
+fn has_core_continuation_support(
+  left : PdfConvertBlock,
+  right : PdfConvertBlock,
+) -> Bool {
+  left.last_is_wrapped_candidate ||
+  right.first_is_wrapped_candidate ||
+  right.first_is_same_paragraph_with_prev_candidate
 }
 
 ///|
@@ -178,6 +259,15 @@ fn looks_like_numbered_list_start(text : String) -> Bool {
 }
 
 ///|
+fn looks_like_list_start(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  t.has_prefix("•") ||
+  t.has_prefix("- ") ||
+  t.has_prefix("* ") ||
+  looks_like_numbered_list_start(t)
+}
+
+///|
 fn looks_like_page_start_continuation(text : String) -> Bool {
   let t = text.trim().to_owned()
   if t == "" {
@@ -188,7 +278,7 @@ fn looks_like_page_start_continuation(text : String) -> Bool {
     return false
   }
 
-  if looks_like_numbered_list_start(t) {
+  if looks_like_list_start(t) {
     return false
   }
 
@@ -202,13 +292,36 @@ fn looks_like_page_start_continuation(text : String) -> Bool {
       if ch >= 'a' && ch <= 'z' {
         return true
       }
-      if ch == '，' || ch == ',' || ch == '、' || ch == ')' {
+      if ch == '，' ||
+        ch == ',' ||
+        ch == '、' ||
+        ch == ')' ||
+        ch == '）' ||
+        ch == ';' ||
+        ch == '；' {
         return true
       }
-      true
+      starts_with_continuation_phrase(t)
     }
     _ => false
   }
+}
+
+///|
+fn starts_with_continuation_phrase(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  t.has_prefix("and ") ||
+  t.has_prefix("or ") ||
+  t.has_prefix("but ") ||
+  t.has_prefix("because ") ||
+  t.has_prefix("which ") ||
+  t.has_prefix("that ") ||
+  t.has_prefix("then ") ||
+  t.has_prefix("therefore ") ||
+  t.has_prefix("so ") ||
+  t.has_prefix("to ") ||
+  t.has_prefix("without ") ||
+  t.has_prefix("with ")
 }
 
 ///|
@@ -250,4 +363,39 @@ fn first_non_space_char(text : String) -> Char? {
     }
   }
   None
+}
+
+///|
+fn font_size_close(left : Double?, right : Double?) -> Bool {
+  match (left, right) {
+    (Some(a), Some(b)) => abs_f64(a - b) <= 0.75
+    _ => true
+  }
+}
+
+///|
+fn indent_close(left : Double?, right : Double?) -> Bool {
+  match (left, right) {
+    (Some(a), Some(b)) => abs_f64(a - b) <= 12.0
+    _ => true
+  }
+}
+
+///|
+fn alignment_compatible(left : String?, right : String?) -> Bool {
+  match (left, right) {
+    (Some(a), Some(b)) => a == b
+    _ => true
+  }
+}
+
+///|
+fn gap_looks_like_new_paragraph(
+  gap_before : Double?,
+  line_height : Double?,
+) -> Bool {
+  match (gap_before, line_height) {
+    (Some(g), Some(h)) => h > 0.0 && g > h * 1.5
+    _ => false
+  }
 }

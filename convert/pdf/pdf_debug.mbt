@@ -74,6 +74,20 @@ fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
       opt_f64(block.dominant_font_size) +
       " font_name=" +
       opt_str(block.dominant_font_name) +
+      " source_block_index=" +
+      block.source_block_index.to_string() +
+      " source_block_line_count=" +
+      block.source_block_line_count.to_string() +
+      " source_block_kind=" +
+      core_block_kind_str(block.source_block_kind) +
+      " source_block_bbox=" +
+      rect_str(block.source_block_bbox) +
+      " core_flags=" +
+      core_flags_str(block) +
+      " dominant_language=" +
+      opt_str(block.dominant_language) +
+      " writing_direction=" +
+      writing_direction_str(block.writing_direction) +
       " top_y=" +
       block.top_y.to_string() +
       " left_x=" +
@@ -120,6 +134,47 @@ fn block_kind_str(kind : PdfConvertBlockKind) -> String {
     PdfConvertBlockKind::Paragraph => "Paragraph"
     PdfConvertBlockKind::Noise => "Noise"
   }
+}
+
+///|
+fn core_block_kind_str(kind : @model.PdfTextBlockKind) -> String {
+  match kind {
+    @model.PdfTextBlockKind::Text => "Text"
+    @model.PdfTextBlockKind::HeadingCandidate => "HeadingCandidate"
+    @model.PdfTextBlockKind::ListCandidate => "ListCandidate"
+    @model.PdfTextBlockKind::CaptionCandidate => "CaptionCandidate"
+    @model.PdfTextBlockKind::HeaderFooterCandidate => "HeaderFooterCandidate"
+    @model.PdfTextBlockKind::TableCellCandidate => "TableCellCandidate"
+    @model.PdfTextBlockKind::FormulaCandidate => "FormulaCandidate"
+    @model.PdfTextBlockKind::Unknown => "Unknown"
+  }
+}
+
+///|
+fn writing_direction_str(dir : @model.PdfWritingDirection) -> String {
+  match dir {
+    @model.PdfWritingDirection::LeftToRight => "LeftToRight"
+    @model.PdfWritingDirection::RightToLeft => "RightToLeft"
+    @model.PdfWritingDirection::TopToBottom => "TopToBottom"
+    @model.PdfWritingDirection::BottomToTop => "BottomToTop"
+    @model.PdfWritingDirection::Unknown => "Unknown"
+  }
+}
+
+///|
+fn core_flags_str(block : PdfConvertBlock) -> String {
+  "heading=" +
+  block.is_heading_candidate.to_string() +
+  ",page=" +
+  block.is_noise_candidate.to_string() +
+  ",header=" +
+  block.is_header_footer_candidate.to_string() +
+  ",artifact=" +
+  block.is_artifact_candidate.to_string() +
+  ",caption=" +
+  block.is_caption_candidate.to_string() +
+  ",table=" +
+  block.is_table_cell_candidate.to_string()
 }
 
 ///|

@@ -57,7 +57,15 @@ fn build_convert_page_lines(
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
 
-  { _page_index: page.page_index, lines, blocks: [], images, objects: [] }
+  {
+    _page_index: page.page_index,
+    media_box: Some(page.boxes.media_box),
+    crop_box: page.boxes.crop_box,
+    lines,
+    blocks: [],
+    images,
+    objects: [],
+  }
 }
 
 ///|
@@ -76,14 +84,31 @@ fn core_line_to_convert_line(
     line_index,
     text,
     _source_block_index,
+    source_block_line_count: block.lines.length(),
+    source_block_kind: block.kind,
+    source_block_bbox: block.bbox,
+    source_block_dominant_font_size: block.dominant_font_size,
+    source_block_dominant_font_name: block.dominant_font_name,
     is_heading_candidate: block.is_heading_candidate,
     is_page_number_candidate: block.is_page_number_candidate,
+    is_header_footer_candidate: block.is_header_footer_candidate,
+    is_artifact_candidate: block.is_artifact_candidate,
+    is_caption_candidate: block.is_caption_candidate,
+    is_table_cell_candidate: block.is_table_cell_candidate,
+    dominant_language: block.dominant_language,
+    writing_direction: block.writing_direction,
     _bbox: line.bbox,
     font_size: pick_line_font_size(line),
     font_name: pick_line_font_name(line),
     indent_left: line.indent_left,
+    indent_right: line.indent_right,
+    alignment_hint: line.alignment_hint,
     line_gap_before: line.line_gap_before,
     _line_gap_after: line.line_gap_after,
+    line_height: line.line_height,
+    baseline_y: line.baseline_y,
+    is_wrapped_candidate: line.is_wrapped_candidate,
+    is_same_paragraph_with_prev_candidate: line.is_same_paragraph_with_prev_candidate,
   }
 }
 
