@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/io/pdfiofs"
+
+import {
+  "bobzhang/mbtpdf/core/pdfio",
+  "moonbitlang/async/fs",
+}
+
+// Values
+pub async fn bytes_of_input_channel(@fs.File) -> Array[Byte]
+
+pub async fn bytes_to_output_channel(@fs.File, Array[Byte]) -> Unit
+
+pub async fn input_of_channel(@fs.File, source? : String) -> @pdfio.Input
+
+pub async fn input_of_file(String, source? : String) -> @pdfio.Input
+
+pub fn output_of_channel(@fs.File) -> @pdfio.Output
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

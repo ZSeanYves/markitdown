@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfst"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfStructTree {
+  pdf : @pdf.Pdf
+}
+pub fn PdfStructTree::merge_structure_trees(Self, Array[@pdf.Pdf], add_toplevel_document? : Bool) -> Int? raise
+pub fn PdfStructTree::new(@pdf.Pdf) -> Self
+pub fn PdfStructTree::trim_structure_tree(Self, Array[Int]) -> Unit raise
+
+pub struct PdfStructTrees {
+  pdfs : Array[@pdf.Pdf]
+}
+pub fn PdfStructTrees::new(Array[@pdf.Pdf]) -> Self
+pub fn PdfStructTrees::renumber_parent_trees(Self) -> Unit raise
+
+// Type aliases
+
+// Traits
+

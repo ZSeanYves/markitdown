@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/font/pdfstandard14"
+
+import {
+  "bobzhang/mbtpdf/font/pdffont",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfStandard14 {
+  unit : Unit
+}
+pub fn PdfStandard14::afm_data(Self, @pdffont.StandardFont) -> (Map[String, String], Map[Int, Int], Map[(Int, Int), Int], Map[String, Int]) raise
+pub fn PdfStandard14::baseline_adjustment(Self, @pdffont.StandardFont) -> Int
+pub fn PdfStandard14::flags_of_standard_font(Self, @pdffont.StandardFont) -> Int
+pub fn PdfStandard14::new() -> Self
+pub fn PdfStandard14::stemv_of_standard_font(Self, @pdffont.StandardFont) -> Int
+pub fn PdfStandard14::textwidth(Self, Bool, @pdffont.Encoding, @pdffont.StandardFont, String) -> Int raise
+
+// Type aliases
+
+// Traits
+

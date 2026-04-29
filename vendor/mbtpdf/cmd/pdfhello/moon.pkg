@@ -1,0 +1,14 @@
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/graphics/pdfops",
+  "bobzhang/mbtpdf/document/pdfpage",
+  "bobzhang/mbtpdf/document/pdfpaper",
+  "bobzhang/mbtpdf/core/pdftransform",
+  "bobzhang/mbtpdf/io/pdfwritefs",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+}
+
+options(
+  "is-main": true,
+)

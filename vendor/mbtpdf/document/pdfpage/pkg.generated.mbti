@@ -1,0 +1,73 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfpage"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdftransform",
+  "bobzhang/mbtpdf/document/pdfdest",
+  "bobzhang/mbtpdf/document/pdfpaper",
+  "bobzhang/mbtpdf/graphics/pdfops",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[A, B, C] ppstub((A, B) -> C raise?, A, B) -> (C, A, @pdftransform.TransformMatrix) raise?
+
+// Errors
+
+// Types and methods
+pub(all) struct Page {
+  content : Array[@pdf.PdfObject]
+  mediabox : @pdf.PdfObject
+  resources : @pdf.PdfObject
+  rotate : Rotation
+  rest : @pdf.PdfObject
+}
+pub fn Page::blank(@pdfpaper.Paper) -> Self
+pub fn Page::custom(@pdf.PdfObject) -> Self
+pub fn Page::postpend_operators(Self, @pdf.Pdf, Array[@pdfops.Op], fast? : Bool) -> Self raise
+pub fn Page::prepend_operators(Self, @pdf.Pdf, Array[@pdfops.Op], fast? : Bool) -> Self raise
+pub fn Page::process_xobjects(Self, @pdf.Pdf, (@pdf.Pdf, @pdf.PdfObject, Array[@pdf.PdfObject]) -> Array[@pdf.PdfObject]) -> Unit raise
+pub fn Page::protect_ops(Array[@pdfops.Op]) -> Array[@pdfops.Op]
+
+pub struct PdfPageDoc {
+  pdf : @pdf.Pdf
+}
+pub fn PdfPageDoc::add_pagetree(Self, Array[Page]) -> (@pdf.Pdf, Int) raise
+pub fn PdfPageDoc::add_prefix(Self, String) -> Unit raise
+pub fn PdfPageDoc::add_root(Self, Int, Array[(String, @pdf.PdfObject)]) -> @pdf.Pdf raise
+pub fn PdfPageDoc::change_pages(Self, Bool, Array[Page], matrices? : Array[(Int, @pdftransform.TransformMatrix)], changes? : Array[(Int, Int)]) -> @pdf.Pdf raise
+pub fn PdfPageDoc::combine_pdf_resources(Self, @pdf.PdfObject, @pdf.PdfObject) -> @pdf.PdfObject raise
+pub fn PdfPageDoc::endpage(Self) -> Int raise
+pub fn PdfPageDoc::endpage_fast(Self) -> Int raise
+pub fn PdfPageDoc::fixup_destinations(Self) -> Unit raise
+pub fn PdfPageDoc::fixup_duplicate_annots(Self) -> Unit raise
+pub fn PdfPageDoc::fixup_duplicate_pages(Self) -> Unit raise
+pub fn PdfPageDoc::fixup_parents(Self) -> Unit raise
+pub fn PdfPageDoc::minimum_valid() -> @pdf.Pdf raise
+pub fn PdfPageDoc::new(@pdf.Pdf) -> Self
+pub fn PdfPageDoc::page_object_number(Self, Int) -> Int? raise
+pub fn PdfPageDoc::pagenumber_of_target(Self, @pdfdest.Destination, fastrefnums? : Map[Int, Int]) -> Int raise
+pub fn PdfPageDoc::pages_of_pagetree(Self) -> Array[Page] raise
+pub fn PdfPageDoc::pages_of_pagetree_quick(Self) -> Int raise
+pub fn PdfPageDoc::pdf_of_pages(Self, Array[Int], retain_numbering? : Bool, process_struct_tree? : Bool) -> @pdf.Pdf raise
+pub fn PdfPageDoc::process_xobject(Self, (@pdf.Pdf, @pdf.PdfObject, Array[@pdf.PdfObject]) -> Array[@pdf.PdfObject], @pdf.PdfObject, Int) -> Unit raise
+pub fn PdfPageDoc::renumber_pages(Self, Array[Page]) -> Array[Page] raise
+pub fn PdfPageDoc::replace_inherit(Self, Array[Int]) -> Unit raise
+pub fn PdfPageDoc::shortest_unused_prefix(Self) -> String
+pub fn PdfPageDoc::target_of_pagenumber(Self, Int) -> @pdfdest.Destination raise
+
+pub(all) enum Rotation {
+  Rotate0
+  Rotate90
+  Rotate180
+  Rotate270
+}
+pub fn Rotation::from_int(Int) -> Self raise
+pub fn Rotation::to_int(Self) -> Int
+pub impl @debug.Debug for Rotation
+
+// Type aliases
+
+// Traits
+

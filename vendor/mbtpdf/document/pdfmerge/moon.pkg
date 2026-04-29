@@ -1,0 +1,10 @@
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfe",
+  "bobzhang/mbtpdf/document/pdfdest",
+  "bobzhang/mbtpdf/document/pdfmarks",
+  "bobzhang/mbtpdf/document/pdfpage",
+  "bobzhang/mbtpdf/document/pdfpagelabels",
+  "bobzhang/mbtpdf/document/pdftree",
+  "bobzhang/mbtpdf/document/pdfst",
+}

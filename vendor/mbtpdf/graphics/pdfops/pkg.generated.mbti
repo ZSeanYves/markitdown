@@ -1,0 +1,106 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/graphics/pdfops"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdftransform",
+}
+
+// Values
+pub let begin_artifact : Op
+
+pub let end_artifact : Op
+
+// Errors
+
+// Types and methods
+pub(all) enum Op {
+  Opw(Double)
+  OpJ(Int)
+  Opj(Int)
+  OpM(Double)
+  Opd(Array[Double], Double)
+  Opri(String)
+  Opi(Int)
+  Opgs(String)
+  Opq
+  OpQ
+  Opcm(@pdftransform.TransformMatrix)
+  Opm(Double, Double)
+  Opl(Double, Double)
+  Opc(Double, Double, Double, Double, Double, Double)
+  Opv(Double, Double, Double, Double)
+  Opy(Double, Double, Double, Double)
+  Oph
+  Opre(Double, Double, Double, Double)
+  OpS
+  Ops
+  Opf
+  OpF
+  OpfStar
+  OpB
+  OpBStar
+  Opb
+  OpbStar
+  Opn
+  OpW
+  OpWStar
+  OpBT
+  OpET
+  OpTc(Double)
+  OpTw(Double)
+  OpTz(Double)
+  OpTL(Double)
+  OpTf(String, Double)
+  OpTr(Int)
+  OpTs(Double)
+  OpTd(Double, Double)
+  OpTD(Double, Double)
+  OpTm(@pdftransform.TransformMatrix)
+  OpTStar
+  OpTj(String)
+  OpTJ(@pdf.PdfObject)
+  OpSingleQuote(String)
+  OpDoubleQuote(Double, Double, String)
+  Opd0(Double, Double)
+  Opd1(Double, Double, Double, Double, Double, Double)
+  OpCS(String)
+  Opcs(String)
+  OpSC(Array[Double])
+  Opsc(Array[Double])
+  OpSCN(Array[Double])
+  Opscn(Array[Double])
+  OpSCNName(String, Array[Double])
+  OpscnName(String, Array[Double])
+  OpG(Double)
+  Opg(Double)
+  OpRG(Double, Double, Double)
+  Oprg(Double, Double, Double)
+  OpK(Double, Double, Double, Double)
+  Opk(Double, Double, Double, Double)
+  Opsh(String)
+  InlineImage((@pdf.PdfObject, @pdf.PdfObject?, Array[Byte]))
+  OpDo(String)
+  OpMP(String)
+  OpDP(String, @pdf.PdfObject)
+  OpBMC(String)
+  OpBDC(String, @pdf.PdfObject)
+  OpEMC
+  OpBX
+  OpEX
+  OpUnknown(String)
+  OpComment(String)
+}
+pub fn Op::components(@pdf.Pdf, @pdf.PdfObject, @pdf.PdfObject) -> Int raise
+pub fn Op::concat_bytess(Array[Array[Byte]]) -> Array[Byte]
+pub fn Op::parse_operators(@pdf.Pdf, @pdf.PdfObject, Array[@pdf.PdfObject]) -> Array[Self] raise
+pub fn Op::parse_single_stream(@pdf.Pdf, @pdf.PdfObject, Array[Byte]) -> Array[Self] raise
+pub fn Op::parse_stream(@pdf.Pdf, @pdf.PdfObject, Array[Array[Byte]]) -> Array[Self] raise
+pub fn Op::stream_of_ops(Array[Self]) -> @pdf.PdfObject raise
+pub fn Op::string_of_ops(Array[Self]) -> String raise
+pub fn Op::to_string(Self) -> String raise
+
+// Type aliases
+
+// Traits
+

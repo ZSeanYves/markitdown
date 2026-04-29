@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/codec/pdfjpeg"
+
+import {
+  "bobzhang/mbtpdf/core/pdfio",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfJpeg {
+  unit : Unit
+}
+pub fn PdfJpeg::get_jpeg_data(Self, @pdfio.Input) -> Array[Byte] raise
+pub fn PdfJpeg::new() -> Self
+
+// Type aliases
+
+// Traits
+

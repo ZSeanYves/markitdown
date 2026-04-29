@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfpagelabels"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let basic_label : PageLabel
+
+// Errors
+
+// Types and methods
+pub(all) enum LabelStyle {
+  DecimalArabic
+  UppercaseRoman
+  LowercaseRoman
+  UppercaseLetters
+  LowercaseLetters
+  NoLabelPrefixOnly
+}
+pub fn LabelStyle::to_string(Self) -> String
+pub impl @debug.Debug for LabelStyle
+
+pub(all) struct PageLabel {
+  labelstyle : LabelStyle
+  labelprefix : String?
+  startpage : Int
+  startvalue : Int
+}
+pub fn PageLabel::read_all(@pdf.Pdf) -> Array[Self] raise
+pub fn PageLabel::remove_all(@pdf.Pdf) -> Unit raise
+pub fn PageLabel::to_string(Self) -> String
+pub fn PageLabel::write_all(Array[Self], @pdf.Pdf) -> Unit raise
+pub impl @debug.Debug for PageLabel
+
+pub struct PdfPageLabels {
+  unit : Unit
+}
+pub fn PdfPageLabels::add_label(Self, Int, Array[PageLabel], PageLabel, Int) -> Array[PageLabel]
+pub fn PdfPageLabels::coalesce(Self, Array[PageLabel]) -> Array[PageLabel]
+pub fn PdfPageLabels::complete(Self, Array[PageLabel]) -> Array[PageLabel]
+pub fn PdfPageLabels::merge_pagelabels(Self, Array[@pdf.Pdf], Array[Array[Int]]) -> Array[PageLabel] raise
+pub fn PdfPageLabels::new() -> Self
+pub fn PdfPageLabels::pagelabel_of_pagenumber(Self, Int, Array[PageLabel]) -> PageLabel raise
+pub fn PdfPageLabels::pagelabeltext_of_pagenumber(Self, Int, Array[PageLabel]) -> String raise
+
+// Type aliases
+
+// Traits
+

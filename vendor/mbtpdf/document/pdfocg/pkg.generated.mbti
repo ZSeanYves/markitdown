@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfocg"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Ocg {
+  ocg_name : String
+  ocg_intent : Array[String]
+  ocg_usage : OcgUsage?
+}
+pub impl @debug.Debug for Ocg
+
+pub(all) enum OcgAppDict {
+  AppDict
+}
+pub impl @debug.Debug for OcgAppDict
+
+pub(all) struct OcgConfig {
+  ocgconfig_name : String?
+  ocgconfig_creator : String?
+  ocgconfig_basestate : OcgState
+  ocgconfig_on : Array[Int]?
+  ocgconfig_off : Array[Int]?
+  ocgconfig_intent : Array[String]
+  ocgconfig_usage_application_dictionaries : Array[OcgAppDict]?
+  ocgconfig_order : OcgOrderTree?
+  ocgconfig_listmode : OcgListMode
+  ocgconfig_rbgroups : Array[Array[Int]]
+  ocgconfig_locked : Array[Int]
+}
+pub impl @debug.Debug for OcgConfig
+
+pub(all) enum OcgListMode {
+  AllPages
+  VisiblePages
+}
+pub impl @debug.Debug for OcgListMode
+
+pub(all) enum OcgOrderTree {
+  Leaf
+  Branch(Int, OcgOrderTree, OcgOrderTree)
+}
+pub impl @debug.Debug for OcgOrderTree
+
+pub(all) struct OcgProperties {
+  ocgs : Array[(Int, Ocg)]
+  ocg_default_config : OcgConfig
+  ocg_configs : Array[OcgConfig]
+}
+pub fn OcgProperties::read(@pdf.Pdf) -> Self? raise
+pub fn OcgProperties::write(Self, @pdf.Pdf) -> Unit
+pub impl @debug.Debug for OcgProperties
+
+pub(all) enum OcgState {
+  On
+  Off
+  Unchanged
+}
+pub impl @debug.Debug for OcgState
+
+pub(all) enum OcgUsage {
+  Placeholder
+}
+pub impl @debug.Debug for OcgUsage
+
+pub struct PdfOcg {
+  pdf : @pdf.Pdf
+}
+pub fn PdfOcg::new(@pdf.Pdf) -> Self
+pub fn PdfOcg::print_document(Self) -> Unit raise
+pub fn PdfOcg::read(Self) -> OcgProperties? raise
+pub fn PdfOcg::write(Self, OcgProperties) -> Unit
+
+// Type aliases
+
+// Traits
+

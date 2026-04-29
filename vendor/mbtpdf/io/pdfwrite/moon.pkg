@@ -1,0 +1,13 @@
+import {
+  "bobzhang/mbtpdf/codec/pdfcodec",
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfe",
+  "bobzhang/mbtpdf/core/pdfio",
+  "bobzhang/mbtpdf/core/pdfcryptprimitives",
+  "bobzhang/mbtpdf/crypto/pdfcrypt",
+  "bobzhang/mbtpdf/io/pdfread",
+  "bobzhang/mbtpdf/document/pdfpage",
+  "bobzhang/mbtpdf/io/pdfiofs",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+}

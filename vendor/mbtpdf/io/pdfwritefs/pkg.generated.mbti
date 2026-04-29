@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/io/pdfwritefs"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/io/pdfwrite",
+  "moonbitlang/async/fs",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfWriteFs {
+  writer : @pdfwrite.PdfWrite
+}
+pub fn PdfWriteFs::new(logger? : (String) -> Unit) -> Self
+pub fn PdfWriteFs::of_writer(@pdfwrite.PdfWrite) -> Self
+pub async fn PdfWriteFs::pdf_to_channel(Self, preserve_objstm? : Bool, generate_objstm? : Bool, compress_objstm? : Bool, recrypt? : String, @pdfwrite.Encryption?, Bool, @pdf.Pdf, @fs.File) -> Unit
+pub async fn PdfWriteFs::pdf_to_file(Self, @pdf.Pdf, String) -> Unit
+pub async fn PdfWriteFs::pdf_to_file_options(Self, preserve_objstm? : Bool, generate_objstm? : Bool, compress_objstm? : Bool, recrypt? : String, @pdfwrite.Encryption?, Bool, @pdf.Pdf, String) -> Unit
+
+// Type aliases
+
+// Traits
+

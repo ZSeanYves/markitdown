@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdfutil"
+
+// Values
+pub let printer : Ref[(String) -> Unit]
+
+pub let quiet : Ref[Bool]
+
+// Errors
+
+// Types and methods
+pub struct PdfUtil {
+  stdout_buffer : Ref[String]
+  stderr_buffer : Ref[String]
+}
+pub fn PdfUtil::fleprint(Self, String) -> Unit
+pub fn PdfUtil::flprint(Self, String) -> Unit
+pub fn[K : Hash + Eq, V] PdfUtil::hashtable_of_dictionary(Self, Array[(K, V)]) -> Map[K, V]
+pub fn[K, V] PdfUtil::list_of_hashtbl(Self, Map[K, V]) -> Array[(K, V)]
+pub fn[T] PdfUtil::memoize(Self, () -> T raise) -> () -> T raise
+pub fn PdfUtil::new() -> Self
+pub fn[K, V] PdfUtil::null_hash(Self) -> Map[K, V]
+
+// Type aliases
+pub type Printer = (String) -> Unit
+
+// Traits
+

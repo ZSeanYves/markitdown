@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/font/pdfafmdata"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfAfmData {
+  unit : Unit
+}
+pub fn PdfAfmData::courier_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::courier_bold_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::courier_bold_oblique_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::courier_oblique_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::helvetica_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::helvetica_bold_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::helvetica_bold_oblique_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::helvetica_oblique_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::new() -> Self
+pub fn PdfAfmData::symbol_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::times_bold_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::times_bold_italic_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::times_italic_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::times_roman_afm(Self) -> Array[Byte]
+pub fn PdfAfmData::zapf_dingbats_afm(Self) -> Array[Byte]
+
+// Type aliases
+
+// Traits
+

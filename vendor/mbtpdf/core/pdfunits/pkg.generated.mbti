@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdfunits"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum LengthUnit {
+  PdfPoint
+  Inch
+  Centimetre
+  Millimetre
+}
+pub fn LengthUnit::to_centimetres(Self, Double) -> Double
+pub fn LengthUnit::to_inches(Self, Double) -> Double
+pub fn LengthUnit::to_millimetres(Self, Double) -> Double
+pub fn LengthUnit::to_points(Self, Double) -> Double
+pub impl @debug.Debug for LengthUnit
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/io/pdfreadfs"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/io/pdfread",
+  "moonbitlang/async/fs",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfReadFs {
+  reader : @pdfread.PdfRead
+}
+pub fn PdfReadFs::new() -> Self
+pub fn PdfReadFs::of_reader(@pdfread.PdfRead) -> Self
+pub async fn PdfReadFs::pdf_of_channel(Self, revision? : Int, source? : String, String?, String?, @fs.File) -> @pdf.Pdf
+pub async fn PdfReadFs::pdf_of_channel_lazy(Self, revision? : Int, source? : String, String?, String?, @fs.File) -> @pdf.Pdf
+pub async fn PdfReadFs::pdf_of_file(Self, revision? : Int, String?, String?, String) -> @pdf.Pdf
+
+// Type aliases
+
+// Traits
+

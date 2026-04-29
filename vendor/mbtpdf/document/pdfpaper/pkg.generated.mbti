@@ -1,0 +1,56 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfpaper"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfunits",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let a0 : Paper
+
+pub let a1 : Paper
+
+pub let a10 : Paper
+
+pub let a2 : Paper
+
+pub let a3 : Paper
+
+pub let a4 : Paper
+
+pub let a5 : Paper
+
+pub let a6 : Paper
+
+pub let a7 : Paper
+
+pub let a8 : Paper
+
+pub let a9 : Paper
+
+pub let uslegal : Paper
+
+pub let usletter : Paper
+
+// Errors
+
+// Types and methods
+pub struct Paper {
+  unit : @pdfunits.LengthUnit
+  width : Double
+  height : Double
+}
+pub fn Paper::height(Self) -> Double
+pub fn Paper::landscape(Self) -> Self
+pub fn Paper::new(unit~ : @pdfunits.LengthUnit, width~ : Double, height~ : Double) -> Self
+pub fn Paper::rectangle(Self) -> @pdf.PdfObject
+pub fn Paper::unit(Self) -> @pdfunits.LengthUnit
+pub fn Paper::width(Self) -> Double
+pub impl @debug.Debug for Paper
+
+// Type aliases
+
+// Traits
+

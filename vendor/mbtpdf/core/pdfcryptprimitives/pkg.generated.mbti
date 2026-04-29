@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdfcryptprimitives"
+
+import {
+  "bobzhang/mbtpdf/core/pdfio",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Encryption {
+  ARC4(Int, Int)
+  AESV2
+  AESV3(Bool)
+}
+pub fn Encryption::r_and_keylength(Self) -> (Int, Int)
+pub impl @debug.Debug for Encryption
+
+pub struct PdfCryptPrimitives {
+  unit : Unit
+}
+pub fn PdfCryptPrimitives::aes_decrypt_data(Self, Int, Array[Int], Array[Byte], remove_padding? : Bool) -> Array[Byte]
+pub fn PdfCryptPrimitives::aes_decrypt_data_ecb(Self, Int, Array[Int], Array[Byte], remove_padding? : Bool) -> Array[Byte]
+pub fn PdfCryptPrimitives::aes_encrypt_data(Self, Int, Array[Int], Array[Byte], firstblock? : Array[Int]) -> Array[Byte]
+pub fn PdfCryptPrimitives::aes_encrypt_data_ecb(Self, Int, Array[Int], Array[Byte]) -> Array[Byte]
+pub fn PdfCryptPrimitives::crypt(Self, Array[Int], Array[Byte]) -> Array[Byte]
+pub fn PdfCryptPrimitives::decrypt_stream_data(Self, Encryption, Bool, String?, Int, Int, Array[Int], Int, Int, Array[Byte]) -> Array[Byte] raise
+pub fn PdfCryptPrimitives::find_hash(Self, Encryption, Int, Int, Array[Int], Int) -> Array[Int]
+pub fn PdfCryptPrimitives::md5(Self, Array[Byte]) -> Array[Byte]
+pub fn PdfCryptPrimitives::new() -> Self
+pub fn PdfCryptPrimitives::sha256(Self, @pdfio.Input) -> String raise
+pub fn PdfCryptPrimitives::sha384(Self, @pdfio.Input) -> String raise
+pub fn PdfCryptPrimitives::sha512(Self, @pdfio.Input) -> String raise
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/font/pdfafm"
+
+import {
+  "bobzhang/mbtpdf/core/pdfio",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfAfm {
+  unit : Unit
+}
+pub fn PdfAfm::new() -> Self
+pub fn PdfAfm::read(Self, @pdfio.Input) -> (Array[(String, String)], Array[(Int, Int)], Array[(Int, Int, Int)], Array[(String, Int)]) raise
+
+// Type aliases
+
+// Traits
+

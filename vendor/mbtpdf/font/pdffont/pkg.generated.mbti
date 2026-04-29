@@ -1,0 +1,133 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/font/pdffont"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdftransform",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct CIDSystemInfo {
+  registry : String
+  ordering : String
+  supplement : Int
+}
+pub impl @debug.Debug for CIDSystemInfo
+
+pub(all) enum CMapEncoding {
+  Predefined(String)
+  CMap(Int)
+}
+pub impl @debug.Debug for CMapEncoding
+
+pub(all) struct CompositeCIDFont {
+  cid_system_info : CIDSystemInfo
+  cid_basefont : String
+  cid_fontdescriptor : FontDescriptor
+  cid_widths : Array[(Int, Double)]
+  cid_default_width : Int
+}
+
+pub(all) enum Encoding {
+  ImplicitInFontFile
+  StandardEncoding
+  MacRomanEncoding
+  WinAnsiEncoding
+  MacExpertEncoding
+  CustomEncoding(Encoding, Array[(String, Int)])
+  FillUndefinedWithStandard(Encoding)
+}
+pub fn Encoding::reverse_table(Self) -> Map[String, Int]
+pub fn Encoding::table(Self) -> Map[Int, String]
+pub fn Encoding::to_string(Self) -> String
+
+pub(all) enum Font {
+  StandardFont(StandardFont, Encoding)
+  SimpleFont(SimpleFont)
+  CIDKeyedFont(String, CompositeCIDFont, CMapEncoding)
+}
+pub fn Font::to_string(Self) -> String
+
+pub(all) struct FontDescriptor {
+  ascent : Double
+  descent : Double
+  avgwidth : Double
+  maxwidth : Double
+  flags : Int
+  fontbbox : (Double, Double, Double, Double)
+  italicangle : Double
+  capheight : Double
+  xheight : Double
+  stemv : Double
+  fontfile : FontFile?
+  charset : Array[String]?
+  tounicode : Map[Int, String]?
+  tounicode_bytes : Map[String, String]?
+}
+
+pub(all) enum FontFile {
+  FontFile(Int)
+  FontFile2(Int)
+  FontFile3(Int)
+}
+pub impl @debug.Debug for FontFile
+
+pub(all) struct SimpleFont {
+  fonttype : SimpleFontType
+  basefont : String
+  firstchar : Int
+  lastchar : Int
+  widths : Array[Int]
+  fontdescriptor : FontDescriptor?
+  fontmetrics : Array[Double]?
+  encoding : Encoding
+}
+pub fn SimpleFont::to_string(Self) -> String
+
+pub(all) enum SimpleFontType {
+  Type1
+  MMType1
+  Type3(Type3Glyphs)
+  Truetype
+}
+pub fn SimpleFontType::to_string(Self) -> String
+
+pub(all) enum StandardFont {
+  TimesRoman
+  TimesBold
+  TimesItalic
+  TimesBoldItalic
+  Helvetica
+  HelveticaBold
+  HelveticaOblique
+  HelveticaBoldOblique
+  Courier
+  CourierBold
+  CourierOblique
+  CourierBoldOblique
+  Symbol
+  ZapfDingbats
+}
+pub fn StandardFont::to_string(Self) -> String
+pub impl Eq for StandardFont
+pub impl @debug.Debug for StandardFont
+
+pub(all) struct Type3Glyphs {
+  fontbbox : (Double, Double, Double, Double)
+  fontmatrix : @pdftransform.TransformMatrix
+  charprocs : Array[(String, @pdf.PdfObject)]
+  type3_resources : @pdf.PdfObject
+}
+
+// Type aliases
+pub type Differences = Array[(String, Int)]
+
+pub type FontMetrics = Array[Double]
+
+// Traits
+

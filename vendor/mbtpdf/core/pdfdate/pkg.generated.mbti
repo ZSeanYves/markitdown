@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdfdate"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror BadDate
+
+// Types and methods
+pub struct Date {
+  year : Int
+  month : Int
+  day : Int
+  hour : Int
+  minute : Int
+  second : Int
+  hour_offset : Int
+  minute_offset : Int
+}
+pub fn Date::of_pdf_string(String) -> Self raise BadDate
+pub fn Date::to_pdf_string(Self) -> String raise BadDate
+pub impl @debug.Debug for Date
+
+// Type aliases
+
+// Traits
+

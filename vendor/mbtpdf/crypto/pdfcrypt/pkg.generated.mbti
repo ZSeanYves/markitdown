@@ -1,0 +1,58 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/crypto/pdfcrypt"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfcryptprimitives",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum EncryptionMethod {
+  PDF40bit
+  PDF128bit
+  AES128bit(Bool)
+  AES256bit(Bool)
+  AES256bitISO(Bool)
+  AlreadyEncrypted
+}
+pub impl @debug.Debug for EncryptionMethod
+
+pub struct PdfCrypt {
+  unit : Unit
+}
+pub fn PdfCrypt::banlist_of_p(Self, Int) -> Array[Permission]
+pub fn PdfCrypt::decrypt_pdf(Self, String, @pdf.Pdf, keyfromowner? : String) -> (@pdf.Pdf?, Array[Permission]) raise
+pub fn PdfCrypt::decrypt_pdf_owner(Self, String, @pdf.Pdf) -> @pdf.Pdf? raise
+pub fn PdfCrypt::decrypt_single_stream(Self, String?, String?, @pdf.Pdf, Int, Int, @pdf.PdfObject) -> @pdf.PdfObject raise
+pub fn PdfCrypt::encrypt_pdf_128bit(Self, String, String, Array[Permission], @pdf.Pdf) -> @pdf.Pdf raise
+pub fn PdfCrypt::encrypt_pdf_40bit(Self, String, String, Array[Permission], @pdf.Pdf) -> @pdf.Pdf raise
+pub fn PdfCrypt::encrypt_pdf_AES(Self, Bool, String, String, Array[Permission], @pdf.Pdf) -> @pdf.Pdf raise
+pub fn PdfCrypt::encrypt_pdf_AES256(Self, Bool, String, String, Array[Permission], @pdf.Pdf) -> @pdf.Pdf raise
+pub fn PdfCrypt::encrypt_pdf_AES256ISO(Self, Bool, String, String, Array[Permission], @pdf.Pdf) -> @pdf.Pdf raise
+pub fn PdfCrypt::get_encryption_values(Self, @pdf.Pdf) -> (@pdfcryptprimitives.Encryption, String, String, Int, String, String?, String?) raise
+pub fn PdfCrypt::is_encrypted(Self, @pdf.Pdf) -> Bool
+pub fn PdfCrypt::new() -> Self
+pub fn PdfCrypt::recrypt_pdf(Self, @pdf.Pdf, String, renumber? : Bool) -> @pdf.Pdf raise
+
+pub(all) enum Permission {
+  NoEdit
+  NoPrint
+  NoCopy
+  NoAnnot
+  NoForms
+  NoExtract
+  NoAssemble
+  NoHqPrint
+}
+pub impl Eq for Permission
+pub impl @debug.Debug for Permission
+
+// Type aliases
+
+// Traits
+

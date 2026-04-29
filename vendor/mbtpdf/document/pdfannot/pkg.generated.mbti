@@ -1,0 +1,87 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfannot"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdftransform",
+  "bobzhang/mbtpdf/document/pdfpage",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Annotation {
+  subtype : Subtype
+  annot_contents : String?
+  subject : String?
+  rectangle : (Double, Double, Double, Double)
+  border : Border
+  colour : (Int, Int, Int)?
+  annotrest : @pdf.PdfObject
+}
+pub fn Annotation::new(Subtype, content? : String, border? : Border, rectangle? : (Double, Double, Double, Double), colour? : (Int, Int, Int), subject? : String) -> Self
+
+pub(all) struct Border {
+  width : Double
+  vradius : Double
+  hradius : Double
+  style : Style
+  dasharray : Array[Int]
+}
+pub fn Border::new(Double, vradius? : Double, hradius? : Double, style? : Style, dasharray? : Array[Int]) -> Self
+pub impl @debug.Debug for Border
+
+pub struct PdfAnnot {
+  pdf : @pdf.Pdf
+}
+pub fn PdfAnnot::add_annotation(Self, @pdfpage.Page, Annotation) -> @pdfpage.Page raise
+pub fn PdfAnnot::annotations_of_page(Self, @pdfpage.Page) -> Array[Annotation] raise
+pub fn PdfAnnot::new(@pdf.Pdf) -> Self
+pub fn PdfAnnot::transform_annotations(Self, @pdftransform.TransformMatrix, @pdf.PdfObject) -> Unit raise
+
+pub(all) enum Style {
+  NoStyle
+  Solid
+  Dashed
+  Beveled
+  Inset
+  UnderlineStyle
+}
+pub impl @debug.Debug for Style
+
+pub(all) enum Subtype {
+  Text
+  Link
+  FreeText
+  Line
+  Square
+  Circle
+  Polygon
+  PolyLine
+  Highlight
+  Underline
+  Squiggly
+  StrikeOut
+  Stamp
+  Caret
+  Ink
+  Popup(Annotation)
+  FileAttachment
+  Sound
+  Movie
+  Widget
+  Screen
+  PrinterMark
+  TrapNet
+  Watermark
+  ThreeDee
+  Unknown(String)
+}
+
+// Type aliases
+
+// Traits
+

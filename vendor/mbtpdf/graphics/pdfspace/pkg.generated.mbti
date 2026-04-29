@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/graphics/pdfspace"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/graphics/pdffun",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum ColourSpace {
+  DeviceGray
+  DeviceRGB
+  DeviceCMYK
+  CalGray((Double, Double, Double), (Double, Double, Double), Double)
+  CalRGB((Double, Double, Double), (Double, Double, Double), Array[Double], Array[Double])
+  Lab((Double, Double, Double), (Double, Double, Double), Array[Double])
+  ICCBased(ICCBased)
+  Indexed(ColourSpace, Map[Int, Array[Int]])
+  Pattern
+  PatternWithBaseColourspace(ColourSpace)
+  Separation(String, ColourSpace, @pdffun.PdfFunction)
+  DeviceN(Array[String], ColourSpace, @pdffun.PdfFunction, @pdf.PdfObject)
+}
+pub fn ColourSpace::name(Self) -> String?
+pub fn ColourSpace::read(@pdf.Pdf, @pdf.PdfObject, @pdf.PdfObject) -> Self raise
+pub fn ColourSpace::to_pdf_object(Self, @pdf.Pdf) -> @pdf.PdfObject
+pub fn ColourSpace::to_string(Self) -> String
+
+pub(all) struct ICCBased {
+  icc_n : Int
+  icc_alternate : ColourSpace
+  icc_range : Array[Double]
+  icc_metadata : @pdf.PdfObject?
+  icc_stream : @pdf.PdfObject
+}
+
+// Type aliases
+pub type Point = (Double, Double, Double)
+
+// Traits
+

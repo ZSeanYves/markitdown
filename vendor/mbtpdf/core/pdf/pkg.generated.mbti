@@ -1,0 +1,176 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdf"
+
+import {
+  "bobzhang/mbtpdf/core/pdfcryptprimitives",
+  "bobzhang/mbtpdf/core/pdfio",
+  "bobzhang/mbtpdf/core/pdftransform",
+}
+
+// Values
+pub fn input_pdferror(@pdfio.Input, String) -> String
+
+pub fn is_whitespace(Char) -> Bool
+
+pub fn make_matrix(@pdftransform.TransformMatrix) -> PdfObject
+
+pub fn pdfobjmap_bindings(Map[Int, (Ref[ObjectData], Int)]) -> Array[(Int, (Ref[ObjectData], Int))]
+
+pub fn pdfobjmap_empty() -> Map[Int, (Ref[ObjectData], Int)]
+
+pub fn pdfobjmap_find(Int, Map[Int, (Ref[ObjectData], Int)]) -> (Ref[ObjectData], Int) raise
+
+pub fn recurse_array((PdfObject) -> PdfObject, Array[PdfObject]) -> PdfObject
+
+pub fn renumber_pdfs(Array[Pdf]) -> Array[Pdf]
+
+// Errors
+pub(all) suberror PdfError {
+  Msg(String)
+}
+
+// Types and methods
+pub(all) struct DeferredEncryption {
+  crypt_type : @pdfcryptprimitives.Encryption
+  file_encryption_key : String?
+  obj : Int
+  gen : Int
+  key : Array[Int]
+  keylength : Int
+  r : Int
+}
+
+pub(all) enum ObjectData {
+  Parsed(PdfObject)
+  ParsedAlreadyDecrypted(PdfObject)
+  ToParse
+  ToParseFromObjectStream(Map[Int, Array[Int]], Int, Int, (Int, Array[Int]) -> Array[(Int, (Ref[ObjectData], Int))])
+}
+
+pub(all) struct Pdf {
+  major : Int
+  minor : Int
+  root : Int
+  objects : PdfObjects
+  mut trailerdict : PdfObject
+  was_linearized : Bool
+  mut saved_encryption : SavedEncryption?
+}
+pub fn Pdf::addobj(Self, PdfObject) -> Int
+pub fn Pdf::addobj_given_num(Self, (Int, PdfObject)) -> Unit
+pub fn Pdf::catalog_of_pdf(Self) -> PdfObject raise
+pub fn Pdf::change_id(Self, String) -> Unit raise
+pub fn Pdf::changes(Self) -> Map[Int, Int]
+pub fn Pdf::contents_of_nametree(Self, PdfObject) -> Array[(PdfObject, PdfObject)] raise
+pub fn Pdf::deep_copy(Self) -> Self
+pub fn Pdf::direct(Self, PdfObject) -> PdfObject
+pub fn Pdf::empty() -> Self
+pub fn Pdf::generate_id(Self, String, () -> Double) -> PdfObject
+pub fn Pdf::getnum(Self, PdfObject) -> Double raise
+pub fn Pdf::indirect_number(Self, String, PdfObject) -> Int?
+pub fn Pdf::lookup_chain(Self, PdfObject, ArrayView[String]) -> PdfObject?
+pub fn Pdf::lookup_direct(Self, String, PdfObject) -> PdfObject?
+pub fn Pdf::lookup_direct_orelse(Self, String, String, PdfObject) -> PdfObject?
+pub fn Pdf::lookup_fail(Self, String, String, PdfObject) -> PdfObject raise
+pub fn Pdf::lookup_obj(Self, Int) -> PdfObject
+pub fn Pdf::nametree_lookup(Self, PdfObject, PdfObject) -> PdfObject? raise
+pub fn Pdf::objcard(Self) -> Int
+pub fn Pdf::objects_referenced(Self, Array[String], Array[(String, PdfObject)], PdfObject) -> Array[Int]
+pub fn Pdf::objiter(Self, (Int, PdfObject) -> Unit raise?) -> Unit raise?
+pub fn Pdf::objiter_gen(Self, (Int, Int, PdfObject) -> Unit raise?) -> Unit raise?
+pub fn Pdf::objiter_inorder(Self, (Int, PdfObject) -> Unit raise?) -> Unit raise?
+pub fn Pdf::objnumbers(Self) -> Array[Int]
+pub fn Pdf::objselect(Self, (PdfObject) -> Bool raise?) -> Array[Int] raise?
+pub fn Pdf::objselfmap(Self, (PdfObject) -> PdfObject raise?) -> Unit raise?
+pub fn Pdf::page_reference_numbers(Self) -> Array[Int] raise
+pub fn Pdf::parse_matrix(Self, String, PdfObject) -> @pdftransform.TransformMatrix raise
+pub fn Pdf::parse_rectangle(Self, PdfObject) -> (Double, Double, Double, Double) raise
+pub fn Pdf::remove_unreferenced(Self) -> Unit raise
+pub fn Pdf::removeobj(Self, Int) -> Unit
+pub fn Pdf::renumber(Self, Map[Int, Int], preserve_order? : Bool) -> Self
+pub fn Pdf::renumber_object_parsed(Self, Map[Int, Int], PdfObject, preserve_order? : Bool) -> PdfObject
+pub fn Pdf::replace_chain(Self, ArrayView[String], PdfObject) -> Unit raise
+pub fn Pdf::transform_quadpoints(Self, @pdftransform.TransformMatrix, PdfObject) -> PdfObject raise
+pub fn Pdf::transform_rect(Self, @pdftransform.TransformMatrix, PdfObject) -> PdfObject raise
+
+pub(all) struct PdfName {
+  bytes : Bytes
+}
+pub fn PdfName::equal_string_bytes(Self, String) -> Bool
+pub fn PdfName::lexical_compare(Self, Self) -> Int
+pub fn PdfName::of_bytes(Bytes) -> Self
+pub fn PdfName::of_string(String) -> Self
+pub fn PdfName::to_bytes(Self) -> Bytes
+pub fn PdfName::to_string_bytes(Self) -> String
+pub impl Compare for PdfName
+pub impl Eq for PdfName
+pub impl Hash for PdfName
+pub impl Show for PdfName
+
+pub(all) enum PdfObject {
+  Null
+  Boolean(Bool)
+  Integer(Int)
+  Real(Double)
+  String(String)
+  Name(PdfName)
+  Array(Array[PdfObject])
+  Dictionary(Array[(String, PdfObject)])
+  Stream(Ref[(PdfObject, Stream)])
+  Indirect(Int)
+}
+pub fn PdfObject::add_entry(Self, String, Self) -> Self raise
+pub fn PdfObject::bigarray_of_stream(Self) -> Array[Byte] raise
+pub fn PdfObject::find_indirect(Self, String) -> Int? raise
+pub fn PdfObject::getstream(Self) -> Unit raise
+pub fn PdfObject::lookup_immediate(Self, String) -> Self?
+pub fn PdfObject::lookup_immediate_all(Self, String) -> Array[Self]
+pub fn PdfObject::remove_entry(Self, String) -> Self raise
+pub fn PdfObject::replace_entry(Self, String, Self) -> Self raise
+pub fn PdfObject::to_string(Self) -> String
+pub fn PdfObject::to_string_including_data(Self) -> String
+
+pub(all) struct PdfObjects {
+  mut max_obj_num : Int
+  parse : ((Int) -> PdfObject)?
+  objects : Map[Int, (Ref[ObjectData], Int)]
+  object_stream_ids : Map[Int, Int]
+}
+
+pub(all) struct SavedEncryption {
+  from_get_encryption_values : (@pdfcryptprimitives.Encryption, String, String, Int, String, String?, String?)
+  encrypt_metadata : Bool
+  perms : String
+}
+
+pub(all) enum Stream {
+  Got(Array[Byte])
+  ToGet(ToGet)
+}
+
+pub(all) struct ToGet {
+  input : @pdfio.Input
+  position : Int
+  length : Int
+  crypt : ToGetCrypt
+}
+pub fn ToGet::length(Self) -> Int
+pub fn ToGet::new(@pdfio.Input, Int, Int, crypt? : ToGetCrypt) -> Self
+
+pub(all) enum ToGetCrypt {
+  NoChange
+  ToDecrypt(DeferredEncryption)
+}
+
+// Type aliases
+pub type EncryptionValues = (@pdfcryptprimitives.Encryption, String, String, Int, String, String?, String?)
+
+pub type PdfObjMap = Map[Int, (Ref[ObjectData], Int)]
+
+// Traits
+pub trait ToPdfNumber {
+  to_pdf_number(Self) -> PdfObject
+}
+pub impl ToPdfNumber for Int
+pub impl ToPdfNumber for Double
+

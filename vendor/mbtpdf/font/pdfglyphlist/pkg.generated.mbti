@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/font/pdfglyphlist"
+
+// Values
+pub let name_to_dingbats : Array[(String, Int)]
+
+pub let name_to_macexpert : Array[(String, Int)]
+
+pub let name_to_macroman : Array[(String, Int)]
+
+pub let name_to_pdf : Array[(String, Int)]
+
+pub let name_to_pdf_hashes : Map[String, Int]
+
+pub let name_to_standard : Array[(String, Int)]
+
+pub let name_to_symbol : Array[(String, Int)]
+
+pub let name_to_win : Array[(String, Int)]
+
+pub let reverse_name_to_pdf_hashes : Map[Int, String]
+
+// Errors
+
+// Types and methods
+pub struct PdfGlyphList {
+  unit : Unit
+}
+pub fn PdfGlyphList::glyph_hashes(Self) -> Map[String, Array[Int]] raise
+pub fn PdfGlyphList::glyphlist_src(Self) -> Array[Byte]
+pub fn PdfGlyphList::glyphmap(Self) -> Array[(String, Array[Int])] raise
+pub fn PdfGlyphList::new() -> Self
+pub fn PdfGlyphList::reverse_glyph_hashes(Self) -> Map[Array[Int], String] raise
+
+// Type aliases
+
+// Traits
+

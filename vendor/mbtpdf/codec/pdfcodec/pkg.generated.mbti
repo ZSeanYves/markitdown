@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/codec/pdfcodec"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror CodecError {
+  CouldntDecodeStream(String)
+  DecodeNotSupported(String)
+}
+
+// Types and methods
+pub(all) enum Encoding {
+  ASCIIHex
+  ASCII85
+  RunLength
+  LZW(Int)
+  Flate
+  CCITT(Int, Int)
+  CCITTG4(Int, Int)
+}
+pub impl @debug.Debug for Encoding
+
+pub struct PdfCodec {
+  flate_level : Int
+}
+pub fn PdfCodec::decode_flate(Self, Array[Byte]) -> Array[Byte] raise CodecError
+pub fn PdfCodec::decode_from_bytes(Self, Array[Byte], @pdf.PdfObject) -> Array[Byte]?
+pub fn PdfCodec::decode_pdfstream(Self, @pdf.Pdf, @pdf.PdfObject, jbig2dec? : String) -> Unit raise CodecError
+pub fn PdfCodec::decode_pdfstream_onestage(Self, @pdf.Pdf, @pdf.PdfObject, jbig2dec? : String) -> Unit raise CodecError
+pub fn PdfCodec::decode_pdfstream_until_unknown(Self, @pdf.Pdf, @pdf.PdfObject, jbig2dec? : String) -> Unit raise CodecError
+pub fn PdfCodec::encode_flate(Self, Array[Byte]) -> Array[Byte]
+pub fn PdfCodec::encode_pdfstream(Self, @pdf.Pdf, Encoding, @pdf.PdfObject, im? : String, only_if_smaller? : Bool, predictor? : Predictor, predictor_columns? : Int) -> Unit raise CodecError
+pub fn PdfCodec::new(flate_level? : Int) -> Self
+
+pub(all) enum Predictor {
+  TIFF2
+  PNGNone
+  PNGSub
+  PNGUp
+  PNGAverage
+  PNGPaeth
+  PNGOptimum
+}
+pub impl @debug.Debug for Predictor
+
+// Type aliases
+
+// Traits
+pub trait PdfFilterNameDecode {
+  decode_stage(Self, PdfCodec, @pdf.Pdf, @pdf.PdfObject?, Array[Byte], String?) -> Array[Byte] raise CodecError
+}
+pub impl PdfFilterNameDecode for @pdf.PdfName
+

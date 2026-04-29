@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/codec/pdfflate"
+
+// Values
+
+// Errors
+pub suberror FlateError {
+  Error(String, String)
+}
+
+// Types and methods
+pub struct PdfFlate {
+  unit : Unit
+}
+pub fn PdfFlate::compress(Self, level? : Int, header? : Bool, (Array[Byte]) -> Int, (Array[Byte], Int) -> Unit) -> Unit
+pub fn PdfFlate::new() -> Self
+pub fn PdfFlate::uncompress(Self, header? : Bool, (Array[Byte]) -> Int, (Array[Byte], Int) -> Unit) -> Unit raise FlateError
+
+// Type aliases
+
+// Traits
+

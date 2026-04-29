@@ -1,0 +1,63 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/core/pdftransform"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror NonInvertable {
+  NonInvertable
+}
+
+// Types and methods
+pub struct Transform {
+  ops : Array[TransformOp]
+}
+pub fn Transform::append(Self, Self) -> Self
+pub fn Transform::apply(Self, (Double, Double)) -> (Double, Double)
+pub fn Transform::compose(Self, TransformOp) -> Self
+pub fn Transform::identity() -> Self
+pub fn Transform::new(Array[TransformOp]) -> Self
+pub fn Transform::to_matrix(Self) -> TransformMatrix
+pub fn Transform::to_string(Self) -> String
+pub impl @debug.Debug for Transform
+
+pub(all) struct TransformMatrix {
+  a : Double
+  b : Double
+  c : Double
+  d : Double
+  e : Double
+  f : Double
+}
+pub fn TransformMatrix::apply(Self, (Double, Double)) -> (Double, Double)
+pub fn TransformMatrix::compose(Self, Self) -> Self
+pub fn TransformMatrix::decompose(Self) -> (Double, Double, Double, Double, Double, Double)
+pub fn TransformMatrix::identity() -> Self
+pub fn TransformMatrix::invert(Self) -> Self raise NonInvertable
+pub fn TransformMatrix::recompose(Double, Double, Double, Double, Double, Double) -> Self
+pub fn TransformMatrix::rotate((Double, Double), Double) -> Self
+pub fn TransformMatrix::scale((Double, Double), Double, Double) -> Self
+pub fn TransformMatrix::shear_x((Double, Double), Double) -> Self
+pub fn TransformMatrix::shear_y((Double, Double), Double) -> Self
+pub fn TransformMatrix::to_string(Self) -> String
+pub fn TransformMatrix::translate(Double, Double) -> Self
+pub impl @debug.Debug for TransformMatrix
+
+pub(all) enum TransformOp {
+  Scale((Double, Double), Double, Double)
+  Rotate((Double, Double), Double)
+  Translate(Double, Double)
+  ShearX((Double, Double), Double)
+  ShearY((Double, Double), Double)
+}
+pub fn TransformOp::to_matrix(Self) -> TransformMatrix
+pub impl @debug.Debug for TransformOp
+
+// Type aliases
+
+// Traits
+

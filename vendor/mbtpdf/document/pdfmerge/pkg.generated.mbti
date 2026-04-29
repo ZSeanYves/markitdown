@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfmerge"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfMergeDoc {
+  pdf : @pdf.Pdf
+}
+pub fn PdfMergeDoc::new(@pdf.Pdf) -> Self
+pub fn PdfMergeDoc::remove_duplicate_fonts(Self) -> Unit
+
+pub struct PdfMerger {
+  names : Array[String]
+  pdfs : Array[@pdf.Pdf]
+  ranges : Array[Array[Int]]
+}
+pub fn PdfMerger::merge_pdfs(Self, Bool, Bool, process_struct_trees? : Bool, add_toplevel_document? : Bool) -> @pdf.Pdf raise
+pub fn PdfMerger::new(Array[String], Array[@pdf.Pdf], Array[Array[Int]]) -> Self
+
+// Type aliases
+
+// Traits
+

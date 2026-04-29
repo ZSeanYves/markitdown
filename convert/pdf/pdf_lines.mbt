@@ -188,7 +188,7 @@ fn export_single_pdf_image(
 
 ///|
 fn write_pdf_raw_rgb24_as_bmp(
-  rgb : @pdfio.MutableBytes,
+  rgb : Array[Byte],
   width : Int,
   height : Int,
   out_dir : String,
@@ -199,7 +199,7 @@ fn write_pdf_raw_rgb24_as_bmp(
   }
 
   let expected = width * height * 3
-  if @pdfio.bytes_size(rgb) < expected {
+  if rgb.length() < expected {
     return None
   }
 
@@ -210,10 +210,10 @@ fn write_pdf_raw_rgb24_as_bmp(
   let header_size = 14 + 40
   let file_size = header_size + pixel_size
 
-  let out = @pdfio.mkbytes(file_size)
+  let out = Array::make(file_size, (0).to_byte())
 
   fn put_u8(pos : Int, v : Int) -> Unit {
-    @pdfio.bset(out, pos, v & 0xFF)
+    out[pos] = (v & 0xFF).to_byte()
   }
 
   fn put_u16_le(pos : Int, v : Int) -> Unit {
@@ -256,9 +256,9 @@ fn write_pdf_raw_rgb24_as_bmp(
     let mut src = y * width * 3
 
     for _x = 0; _x < width; _x = _x + 1 {
-      let r = @pdfio.bget(rgb, src)
-      let g = @pdfio.bget(rgb, src + 1)
-      let b = @pdfio.bget(rgb, src + 2)
+      let r = rgb[src].to_int()
+      let g = rgb[src + 1].to_int()
+      let b = rgb[src + 2].to_int()
 
       // BMP 像素顺序是 BGR
       put_u8(dst, b)
@@ -293,7 +293,7 @@ fn write_pdf_raw_rgb24_as_bmp(
 
 ///|
 fn write_pdf_image_asset(
-  data : @pdfio.MutableBytes,
+  data : Array[Byte],
   ext : String,
   out_dir : String,
   next_image_idx : Ref[Int],
