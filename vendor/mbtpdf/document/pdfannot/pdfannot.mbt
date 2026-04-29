@@ -433,6 +433,7 @@ pub fn PdfAnnot::add_annotation(
   {
     content: page.content,
     mediabox: page.mediabox,
+    cropbox: page.cropbox,
     resources: page.resources,
     rotate: page.rotate,
     rest: new_rest,
