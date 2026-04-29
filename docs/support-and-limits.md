@@ -132,21 +132,27 @@ The normal PDF path has already been taken over by the repository’s native rec
 Currently supported:
 
 - native character / span / line / block recovery
+- line-seed converter staging by default: `pdf_core` text block lines are
+  flattened and converted as one `PdfConvertBlock` per line
 - text normalization and fragmented English word recovery
 - page geometry exposure through `pdf_core` including media box, crop box, and
   rotation
 - page-noise cleanup
-- repeated header / footer cleanup
+- repeated header / footer cleanup using repeated edge text plus page box
+  top/bottom zones
 - heading / short-sentence boundary recovery
 - paragraph / block recovery
 - basic bullet / list-item recovery
-- cross-page paragraph merging
+- cross-page paragraph merging using hard blockers, text-continuation evidence,
+  layout compatibility, and core-derived continuation signals
 - hardwrap recovery
 - conservative pseudo two-column negative protection
 - lightweight page-level block origin metadata
 - lightweight image asset-origin metadata
 - raw page refs, content stream refs, images, and annotation/link data available
   to debug inspect helpers
+- source core block provenance and block-level flags retained in
+  `PdfConvertBlock` for debug and future enhancement work
 - conservative nearby-caption attachment in single-image + single high-confidence caption-like cases
 - retention of page-level asset origin for exported PDF image assets
 - debug inspect output for document version/page count, per-page geometry,
@@ -156,6 +162,12 @@ Current boundaries:
 
 - OCR is still not the default `normal` path
 - OCR currently exists as a plugin-style path driven by external tooling
+- PDF conversion remains conservative structure recovery; it is not equivalent
+  to visual page reflow or full layout recreation
+- core block seeding is not enabled by default; the normal path still uses
+  line-seed block staging
+- annotations and link records currently enter the `pdf_core` model/debug
+  substrate, but they are not emitted as Markdown links by default
 - more complex multi-column, heavy graphic-text mixing, and extreme anomaly cases are still under active improvement
 - some complex layouts still rely on heuristic rules rather than full layout-semantic reconstruction
 - Markdown output is still a conservative structural recovery result; it is not
@@ -237,6 +249,9 @@ Current boundaries:
 ### 8.1 PDF Boundary
 
 - The default `normal` path is already a text-oriented native structural recovery mainflow.
+- The default PDF path uses line-seed block staging, not core-block seed mode.
+- `pdf_core` annotation/link extraction is available for model/debug
+  inspection, but annotations are not converted into Markdown links by default.
 - Complex multi-column layouts, strong graphic-text mixing, and extreme abnormal pages remain enhancement targets.
 
 ### 8.2 OCR Boundary

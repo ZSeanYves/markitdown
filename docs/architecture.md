@@ -58,6 +58,32 @@ Boundaries:
 - Does not directly define the sidecar schema
 - Does not directly handle CLI filesystem policy
 
+Current PDF recovery chain (`convert/pdf`):
+
+- `pdf_core` provides the lower-level PDF model consumed by the converter:
+  page geometry, text spans/lines/blocks, image records, annotation/link records,
+  layout hints, and source provenance.
+- The default PDF converter still uses a line-seed strategy. `pdf_core`
+  `PdfTextBlock.lines` are flattened into `PdfConvertLine`, and the default
+  block staging creates one `PdfConvertBlock` per line.
+- `PdfConvertBlock` retains source core block provenance and block-level flags
+  such as source block index, source block kind, source block bbox, source block
+  line count, core dominant font hints, caption/table flags, language, and
+  writing direction. These are currently used for debug and future recovery
+  improvements; they do not switch the default converter to core-block seeding.
+- `classify` is the final converter layer for deciding whether a text block is
+  heading, paragraph, or noise. Downstream stages should treat that decision as
+  the semantic boundary for heading promotion/demotion.
+- `noise` handles repeated edge cleanup. It uses repeated head/tail text
+  detection together with page boxes and top/bottom edge zones so body content
+  is not removed merely because it is short.
+- `merge` handles cross-page paragraph merging. Its decision is layered through
+  hard blockers, positive text-continuation evidence, layout compatibility, and
+  core-derived continuation support.
+- `to_ir` maps already classified converter blocks and images into unified IR.
+  It may assign heading role/depth for IR emission, but it does not re-open the
+  heading/noise/paragraph classification decision.
+
 ### 2.4 Lower-level Parsing Infrastructure (`doc_parse/*`)
 
 Responsibilities:
