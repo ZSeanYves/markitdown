@@ -368,12 +368,44 @@ fn build_page_model_from_blocks(
     text_blocks: blocks,
     images: build_page_images_from_raw(raw_page.images),
     vectors: [],
-    annotations: [],
+    annotations: build_page_annotations_from_raw(raw_page.annotations),
     forms: [],
     reading_order_candidates: [],
     artifact_candidates: [],
     raw_content_stream_refs: raw_page.raw_content_stream_refs,
   }
+}
+
+///|
+/// 从 raw annotations 构建 page model annotations。
+fn build_page_annotations_from_raw(
+  raw_annotations : Array[@raw.RawAnnotationInfo],
+) -> Array[@model.PdfAnnotationObject] {
+  let out : Array[@model.PdfAnnotationObject] = Array::new()
+
+  for raw_annotation in raw_annotations {
+    match raw_annotation.bbox {
+      Some(bbox) => {
+        let annotation : @model.PdfAnnotationObject = {
+          id: raw_annotation.id,
+          subtype: raw_annotation.subtype,
+          bbox,
+          contents: raw_annotation.contents,
+          subject: raw_annotation.subject,
+          uri: raw_annotation.uri,
+          dest: raw_annotation.dest,
+          target_page: raw_annotation.target_page,
+          color: raw_annotation.color,
+          object_ref: raw_pdf_ref_to_string(raw_annotation.object_ref),
+          source_refs: build_source_refs_from_raw(raw_annotation.source_refs),
+        }
+        out.push(annotation)
+      }
+      None => ()
+    }
+  }
+
+  out
 }
 
 ///|

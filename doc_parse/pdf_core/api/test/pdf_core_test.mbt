@@ -31,6 +31,52 @@ async fn open_pdf_model(path : String) -> @model.PdfDocumentModel {
 }
 
 ///|
+fn ensure_test_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+async fn write_link_annotation_pdf(path : String) -> Unit {
+  let pdf0 = @pdf.Pdf::empty()
+  let page = @pdfpage.Page::custom(
+    Array([Real(0.0), Real(0.0), Real(200.0), Real(200.0)]),
+  )
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  let refs = pdf.page_reference_numbers()
+  let annot : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(10.0), Real(20.0), Real(110.0), Real(40.0)])),
+    ("/Contents", String("Example link")),
+    ("/Subj", String("URI link")),
+    (
+      "/A",
+      Dictionary([
+        ("/S", Name(@pdf.PdfName::of_string("/URI"))),
+        ("/URI", String("https://example.com/v3")),
+      ]),
+    ),
+  ])
+  let annot_num = pdf.addobj(annot)
+  let page_obj = pdf.lookup_obj(refs[0])
+  let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
+  pdf.addobj_given_num((refs[0], updated_page))
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn create_link_annotation_fixture() -> String {
+  let dir = "tmp/pdf_core"
+  ensure_test_dir("tmp")
+  ensure_test_dir(dir)
+  let path = dir + "/link_annotation.pdf"
+  write_link_annotation_pdf(path)
+  path
+}
+
+///|
 /// 断言 raw 层最小可用。
 fn assert_raw_readable(raw : @raw.RawPdfDocumentExtract) -> Unit raise {
   if raw.page_count <= 0 {
@@ -553,6 +599,60 @@ async test "pdf core page geometry and source refs are populated" {
   if page.raw_content_stream_refs.length() !=
     raw_page.raw_content_stream_refs.length() {
     fail("model raw_content_stream_refs should be passed through")
+  }
+}
+
+///|
+async test "pdf core extracts URI link annotations" {
+  let path = create_link_annotation_fixture()
+  let raw = open_raw_pdf(path)
+  let raw_annotations = raw.pages[0].annotations
+  if raw_annotations.length() != 1 {
+    fail("expected one raw annotation")
+  }
+  let raw_annot = raw_annotations[0]
+  if raw_annot.subtype != "/Link" {
+    fail("expected raw annotation subtype /Link")
+  }
+  match raw_annot.bbox {
+    Some(rect) => {
+      assert_eq(rect.x0, 10.0)
+      assert_eq(rect.y0, 20.0)
+      assert_eq(rect.x1, 110.0)
+      assert_eq(rect.y1, 40.0)
+    }
+    None => fail("expected raw annotation bbox")
+  }
+  match raw_annot.uri {
+    Some("https://example.com/v3") => ()
+    _ => fail("expected raw annotation URI")
+  }
+  match raw_annot.object_ref {
+    Some(r) => if r.obj_num <= 0 { fail("expected raw annotation object ref") }
+    None => fail("expected raw annotation object ref")
+  }
+
+  let doc = open_pdf_model(path)
+  let annotations = doc.pages[0].annotations
+  if annotations.length() != 1 {
+    fail("expected one model annotation")
+  }
+  let annot = annotations[0]
+  if annot.subtype != "/Link" {
+    fail("expected model annotation subtype /Link")
+  }
+  assert_eq(annot.bbox.x0, 10.0)
+  assert_eq(annot.bbox.y0, 20.0)
+  match annot.uri {
+    Some("https://example.com/v3") => ()
+    _ => fail("expected model annotation URI")
+  }
+  match annot.object_ref {
+    Some(obj_ref) =>
+      if !obj_ref.contains(" 0 R") {
+        fail("expected model annotation object ref")
+      }
+    None => fail("expected model annotation object ref")
   }
 }
 
