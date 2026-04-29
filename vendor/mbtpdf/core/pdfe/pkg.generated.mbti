@@ -1,14 +1,18 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "bobzhang/mbtpdf/core/pdfe"
 
+import {
+  "moonbitlang/core/ref",
+}
+
 // Values
 pub fn log(String) -> Unit
 
-pub let logger : Ref[(String) -> Unit]
+pub let logger : @ref.Ref[(String) -> Unit]
 
-pub let quiet : Ref[Bool]
+pub let quiet : @ref.Ref[Bool]
 
-pub let read_debug : Ref[Bool]
+pub let read_debug : @ref.Ref[Bool]
 
 pub fn[T] with_logger((String) -> Unit, () -> T raise) -> T raise
 

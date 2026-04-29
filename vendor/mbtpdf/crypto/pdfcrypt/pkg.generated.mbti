@@ -19,8 +19,7 @@ pub(all) enum EncryptionMethod {
   AES256bit(Bool)
   AES256bitISO(Bool)
   AlreadyEncrypted
-}
-pub impl @debug.Debug for EncryptionMethod
+} derive(@debug.Debug)
 
 pub struct PdfCrypt {
   unit : Unit
@@ -48,9 +47,7 @@ pub(all) enum Permission {
   NoExtract
   NoAssemble
   NoHqPrint
-}
-pub impl Eq for Permission
-pub impl @debug.Debug for Permission
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

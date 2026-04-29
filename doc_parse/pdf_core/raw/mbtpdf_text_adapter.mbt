@@ -161,15 +161,17 @@ fn extract_raw_page_from_page(
   page_index : Int,
 ) -> RawPdfPageExtract raise {
   let text = @pdftext.PdfText::new(pdf)
-  let ops = @pdfops.Op::parse_operators(pdf, page.resources, page.content)
+  let ops = @pdfops.Op::parse_operators_with_source(
+    pdf,
+    page.resources,
+    page.content,
+  )
   let text_ops = collect_text_ops_from_ops(
     pdf,
     text,
     page.resources,
-    page.content,
     ops,
     page_index,
-    0,
   )
 
   let images = collect_images_from_ops(
@@ -177,7 +179,6 @@ fn extract_raw_page_from_page(
     page.resources,
     ops,
     page_index,
-    0,
     identity_matrix(),
   )
 
@@ -206,10 +207,8 @@ fn collect_text_ops_from_ops(
   pdf : @pdf.Pdf,
   text : @pdftext.PdfText,
   resources : @pdf.PdfObject,
-  _streams : Array[@pdf.PdfObject],
-  ops : Array[@pdfops.Op],
+  ops : Array[@pdfops.LocatedOp],
   page_index : Int,
-  source_stream_index : Int,
 ) -> Array[RawTextOp] raise {
   let out = Array::new()
   let extractor_cache : Map[String, @pdftext.TextExtractor] = Map::new()
@@ -355,18 +354,21 @@ fn collect_text_ops_from_ops(
   fn append_show_text(
     kind : RawTextOpKind,
     raw_text : String,
-    source_op_index : Int,
+    located : @pdfops.LocatedOp,
   ) -> Unit {
     if !state.val.in_text {
       return
     }
 
+    let source_stream_index = located.source_stream_index
+    let source_op_index = located.source_op_index
     let source = make_source_ref(
       page_index,
       source_stream_index,
       source_op_index,
       Some(state.val.text_object_id),
       Some(next_content_order()),
+      raw_ref_of_obj_num(located.source_object_ref),
     )
 
     let run_origin = Some(current_origin())
@@ -407,7 +409,7 @@ fn collect_text_ops_from_ops(
 
   fn append_show_text_array(
     obj : @pdf.PdfObject,
-    source_op_index : Int,
+    located : @pdfops.LocatedOp,
   ) -> Unit {
     if !state.val.in_text {
       return
@@ -419,12 +421,15 @@ fn collect_text_ops_from_ops(
     }
 
     let joined = parts.join("")
+    let source_stream_index = located.source_stream_index
+    let source_op_index = located.source_op_index
     let source = make_source_ref(
       page_index,
       source_stream_index,
       source_op_index,
       Some(state.val.text_object_id),
       Some(next_content_order()),
+      raw_ref_of_obj_num(located.source_object_ref),
     )
 
     let run_origin = Some(current_origin())
@@ -477,7 +482,7 @@ fn collect_text_ops_from_ops(
     }
   }
 
-  fn recurse_form_xobject(name : String, _source_op_index : Int) -> Unit raise {
+  fn recurse_form_xobject(name : String) -> Unit raise {
     match pdf.lookup_direct("/XObject", resources) {
       Some(@pdf.PdfObject::Dictionary(entries)) =>
         if entries.search_by(pair => pair.0 == name) is Some(idx) {
@@ -496,9 +501,11 @@ fn collect_text_ops_from_ops(
                 .lookup_direct("/Resources", xobj)
                 .unwrap_or(resources)
               let xstreams : Array[@pdf.PdfObject] = [xobj]
-              let xops = @pdfops.Op::parse_operators(pdf, xresources, xstreams)
+              let xops = @pdfops.Op::parse_operators_with_source(
+                pdf, xresources, xstreams,
+              )
               let nested = collect_text_ops_from_ops(
-                pdf, text, xresources, xstreams, xops, page_index, source_stream_index,
+                pdf, text, xresources, xops, page_index,
               )
               for op in nested {
                 out.push({
@@ -525,7 +532,8 @@ fn collect_text_ops_from_ops(
   }
 
   for i = 0; i < ops.length(); i = i + 1 {
-    let op = ops[i]
+    let located = ops[i]
+    let op = located.op
     match op {
       @pdfops.Op::Opq => {
         state.val.ctm_stack.push(state.val.ctm)
@@ -578,7 +586,7 @@ fn collect_text_ops_from_ops(
       @pdfops.Op::OpTj(text_value) => {
         debug_op("Tj text=" + text_value)
         debug_text_state("before Tj")
-        append_show_text(RawTextOpKind::ShowText, text_value, i)
+        append_show_text(RawTextOpKind::ShowText, text_value, located)
         debug_text_state("after Tj")
       }
       @pdfops.Op::OpTJ(obj) => {
@@ -586,7 +594,7 @@ fn collect_text_ops_from_ops(
         let joined = parts.join("")
         debug_op("TJ text=" + joined)
         debug_text_state("before TJ")
-        append_show_text_array(obj, i)
+        append_show_text_array(obj, located)
         debug_text_state("after TJ")
       }
       @pdfops.Op::OpSingleQuote(text_value) =>
@@ -594,7 +602,7 @@ fn collect_text_ops_from_ops(
           debug_op("' text=" + text_value)
           debug_text_state("before single_quote")
           set_pending_break("single_quote")
-          append_show_text(RawTextOpKind::Quote, text_value, i)
+          append_show_text(RawTextOpKind::Quote, text_value, located)
           debug_text_state("after single_quote")
         }
       @pdfops.Op::OpDoubleQuote(_, _, text_value) =>
@@ -602,7 +610,7 @@ fn collect_text_ops_from_ops(
           debug_op("\" text=" + text_value)
           debug_text_state("before double_quote")
           set_pending_break("double_quote")
-          append_show_text(RawTextOpKind::DoubleQuote, text_value, i)
+          append_show_text(RawTextOpKind::DoubleQuote, text_value, located)
           debug_text_state("after double_quote")
         }
       @pdfops.Op::OpTStar =>
@@ -650,7 +658,7 @@ fn collect_text_ops_from_ops(
         }
       @pdfops.Op::OpDo(name) => {
         debug_op("Do name=" + name)
-        recurse_form_xobject(name, i)
+        recurse_form_xobject(name)
       }
       _ => ()
     }
@@ -667,9 +675,8 @@ fn collect_text_ops_from_ops(
 fn collect_images_from_ops(
   pdf : @pdf.Pdf,
   resources : @pdf.PdfObject,
-  ops : Array[@pdfops.Op],
+  ops : Array[@pdfops.LocatedOp],
   page_index : Int,
-  source_stream_index : Int,
   initial_ctm : @pdftransform.TransformMatrix,
 ) -> Array[RawImageInfo] raise {
   let out : Array[RawImageInfo] = Array::new()
@@ -739,8 +746,9 @@ fn collect_images_from_ops(
   }
 
   fn make_image_source_refs(
+    source_stream_index : Int,
     source_op_index : Int,
-    object_ref : RawPdfRef?,
+    source_object_ref : RawPdfRef?,
   ) -> Array[RawSourceRef] {
     [
       {
@@ -749,7 +757,7 @@ fn collect_images_from_ops(
         source_op_index,
         text_object_id: None,
         content_order_index: None,
-        source_object_ref: object_ref,
+        source_object_ref,
       },
     ]
   }
@@ -1015,7 +1023,7 @@ fn collect_images_from_ops(
     object_ref : RawPdfRef?,
     inline_image : Bool,
     payload : RawImagePayload?,
-    source_op_index : Int,
+    located : @pdfops.LocatedOp,
   ) -> Unit {
     match
       (
@@ -1036,7 +1044,11 @@ fn collect_images_from_ops(
           alt_text: None,
           inline_image,
           payload,
-          source_refs: make_image_source_refs(source_op_index, object_ref),
+          source_refs: make_image_source_refs(
+            located.source_stream_index,
+            located.source_op_index,
+            raw_ref_of_obj_num(located.source_object_ref),
+          ),
         }
         out.push(image)
       }
@@ -1044,7 +1056,7 @@ fn collect_images_from_ops(
     }
   }
 
-  fn recurse_xobject(name : String, source_op_index : Int) -> Unit raise {
+  fn recurse_xobject(name : String, located : @pdfops.LocatedOp) -> Unit raise {
     match pdf.lookup_direct("/XObject", resources) {
       Some(@pdf.PdfObject::Dictionary(entries)) =>
         if entries.search_by(pair => pair.0 == name) is Some(idx) {
@@ -1065,7 +1077,7 @@ fn collect_images_from_ops(
                   "xobj-image-p" +
                   page_index.to_string() +
                   "-op" +
-                  source_op_index.to_string()
+                  located.source_op_index.to_string()
               }
               let payload = xobject_image_payload(xobj)
               let image_dict = match stream_dict_and_bytes(xobj) {
@@ -1073,7 +1085,7 @@ fn collect_images_from_ops(
                 None => xobj
               }
               append_image_from_dict(
-                id, image_dict, raw_ref, false, payload, source_op_index,
+                id, image_dict, raw_ref, false, payload, located,
               )
             }
             Some(@pdf.PdfObject::Name(n)) if n.equal_string_bytes("/Form") =>
@@ -1087,7 +1099,7 @@ fn collect_images_from_ops(
                   .lookup_direct("/Resources", xobj)
                   .unwrap_or(resources)
                 let xstreams : Array[@pdf.PdfObject] = [xobj]
-                let xops = @pdfops.Op::parse_operators(
+                let xops = @pdfops.Op::parse_operators_with_source(
                   pdf, xresources, xstreams,
                 )
                 let nested = collect_images_from_ops(
@@ -1095,7 +1107,6 @@ fn collect_images_from_ops(
                   xresources,
                   xops,
                   page_index,
-                  source_stream_index,
                   image_ctm.val,
                 )
                 for image in nested {
@@ -1110,7 +1121,8 @@ fn collect_images_from_ops(
   }
 
   for i = 0; i < ops.length(); i = i + 1 {
-    match ops[i] {
+    let located = ops[i]
+    match located.op {
       @pdfops.Op::Opq => image_ctm_stack.push(image_ctm.val)
       @pdfops.Op::OpQ =>
         if !image_ctm_stack.is_empty() {
@@ -1118,16 +1130,19 @@ fn collect_images_from_ops(
           let _ = image_ctm_stack.pop()
         }
       @pdfops.Op::Opcm(m) => image_ctm.val = mul_matrix_image(image_ctm.val, m)
-      @pdfops.Op::OpDo(name) => recurse_xobject(name, i)
+      @pdfops.Op::OpDo(name) => recurse_xobject(name, located)
       @pdfops.Op::InlineImage((dict, _, data)) => {
         let payload = inline_image_payload(dict, data)
         append_image_from_dict(
-          "inline-image-p" + page_index.to_string() + "-op" + i.to_string(),
+          "inline-image-p" +
+          page_index.to_string() +
+          "-op" +
+          located.source_op_index.to_string(),
           dict,
           None,
           true,
           payload,
-          i,
+          located,
         )
       }
       _ => ()
@@ -1274,6 +1289,7 @@ fn make_source_ref(
   source_op_index : Int,
   text_object_id : Int?,
   content_order_index : Int?,
+  source_object_ref : RawPdfRef?,
 ) -> RawSourceRef {
   {
     page_index,
@@ -1281,7 +1297,15 @@ fn make_source_ref(
     source_op_index,
     text_object_id,
     content_order_index,
-    source_object_ref: None,
+    source_object_ref,
+  }
+}
+
+///|
+fn raw_ref_of_obj_num(obj_num : Int?) -> RawPdfRef? {
+  match obj_num {
+    Some(i) => Some({ obj_num: i, gen_num: 0 })
+    None => None
   }
 }
 

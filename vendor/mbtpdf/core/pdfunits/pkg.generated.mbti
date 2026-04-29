@@ -15,12 +15,11 @@ pub(all) enum LengthUnit {
   Inch
   Centimetre
   Millimetre
-}
+} derive(@debug.Debug)
 pub fn LengthUnit::to_centimetres(Self, Double) -> Double
 pub fn LengthUnit::to_inches(Self, Double) -> Double
 pub fn LengthUnit::to_millimetres(Self, Double) -> Double
 pub fn LengthUnit::to_points(Self, Double) -> Double
-pub impl @debug.Debug for LengthUnit
 
 // Type aliases
 

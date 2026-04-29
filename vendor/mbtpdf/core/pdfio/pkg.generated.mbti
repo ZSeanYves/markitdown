@@ -3,6 +3,7 @@ package "bobzhang/mbtpdf/core/pdfio"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -69,19 +70,17 @@ pub struct BitstreamPosition {
   curr_byte : Int
   bit : Int
   bits_read : Int
-}
-pub impl @debug.Debug for BitstreamPosition
+} derive(@debug.Debug)
 
 pub struct BitstreamWrite {
   bytes : Array[Byte]
   mut bit : Int
-}
+} derive(@debug.Debug)
 pub fn BitstreamWrite::align(Self) -> Unit
 pub fn BitstreamWrite::bytes(Self) -> Array[Byte]
 pub fn BitstreamWrite::new() -> Self
 pub fn BitstreamWrite::putbit(Self, Int) -> Unit
 pub fn BitstreamWrite::putval(Self, Int, Int) -> Unit raise
-pub impl @debug.Debug for BitstreamWrite
 
 pub struct Input {
   pos_in : () -> Int
@@ -114,9 +113,9 @@ pub struct Output {
   out_channel_length : () -> Int
   flush : async () -> Unit
 }
-pub fn Output::extract_bytes(Self, Ref[Array[Byte]]) -> Array[Byte]
+pub fn Output::extract_bytes(Self, @ref.Ref[Array[Byte]]) -> Array[Byte]
 pub fn Output::getinit(Self, Array[Byte], Int, Int) -> Unit raise
-pub fn Output::of_bytes(Int) -> (Self, Ref[Array[Byte]])
+pub fn Output::of_bytes(Int) -> (Self, @ref.Ref[Array[Byte]])
 pub fn Output::of_write_at(async (BytesView, Int64) -> Unit) -> Self
 
 // Type aliases

@@ -14,6 +14,13 @@ pub let end_artifact : Op
 // Errors
 
 // Types and methods
+pub(all) struct LocatedOp {
+  op : Op
+  source_stream_index : Int
+  source_op_index : Int
+  source_object_ref : Int?
+}
+
 pub(all) enum Op {
   Opw(Double)
   OpJ(Int)
@@ -94,6 +101,7 @@ pub(all) enum Op {
 pub fn Op::components(@pdf.Pdf, @pdf.PdfObject, @pdf.PdfObject) -> Int raise
 pub fn Op::concat_bytess(Array[Array[Byte]]) -> Array[Byte]
 pub fn Op::parse_operators(@pdf.Pdf, @pdf.PdfObject, Array[@pdf.PdfObject]) -> Array[Self] raise
+pub fn Op::parse_operators_with_source(@pdf.Pdf, @pdf.PdfObject, Array[@pdf.PdfObject]) -> Array[LocatedOp] raise
 pub fn Op::parse_single_stream(@pdf.Pdf, @pdf.PdfObject, Array[Byte]) -> Array[Self] raise
 pub fn Op::parse_stream(@pdf.Pdf, @pdf.PdfObject, Array[Array[Byte]]) -> Array[Self] raise
 pub fn Op::stream_of_ops(Array[Self]) -> @pdf.PdfObject raise

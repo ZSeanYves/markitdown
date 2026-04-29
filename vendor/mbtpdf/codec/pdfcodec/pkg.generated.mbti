@@ -23,8 +23,7 @@ pub(all) enum Encoding {
   Flate
   CCITT(Int, Int)
   CCITTG4(Int, Int)
-}
-pub impl @debug.Debug for Encoding
+} derive(@debug.Debug)
 
 pub struct PdfCodec {
   flate_level : Int
@@ -46,8 +45,7 @@ pub(all) enum Predictor {
   PNGAverage
   PNGPaeth
   PNGOptimum
-}
-pub impl @debug.Debug for Predictor
+} derive(@debug.Debug)
 
 // Type aliases
 

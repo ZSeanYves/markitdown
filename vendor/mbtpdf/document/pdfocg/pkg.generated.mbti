@@ -15,13 +15,11 @@ pub(all) struct Ocg {
   ocg_name : String
   ocg_intent : Array[String]
   ocg_usage : OcgUsage?
-}
-pub impl @debug.Debug for Ocg
+} derive(@debug.Debug)
 
 pub(all) enum OcgAppDict {
   AppDict
-}
-pub impl @debug.Debug for OcgAppDict
+} derive(@debug.Debug)
 
 pub(all) struct OcgConfig {
   ocgconfig_name : String?
@@ -35,41 +33,35 @@ pub(all) struct OcgConfig {
   ocgconfig_listmode : OcgListMode
   ocgconfig_rbgroups : Array[Array[Int]]
   ocgconfig_locked : Array[Int]
-}
-pub impl @debug.Debug for OcgConfig
+} derive(@debug.Debug)
 
 pub(all) enum OcgListMode {
   AllPages
   VisiblePages
-}
-pub impl @debug.Debug for OcgListMode
+} derive(@debug.Debug)
 
 pub(all) enum OcgOrderTree {
   Leaf
   Branch(Int, OcgOrderTree, OcgOrderTree)
-}
-pub impl @debug.Debug for OcgOrderTree
+} derive(@debug.Debug)
 
 pub(all) struct OcgProperties {
   ocgs : Array[(Int, Ocg)]
   ocg_default_config : OcgConfig
   ocg_configs : Array[OcgConfig]
-}
+} derive(@debug.Debug)
 pub fn OcgProperties::read(@pdf.Pdf) -> Self? raise
 pub fn OcgProperties::write(Self, @pdf.Pdf) -> Unit
-pub impl @debug.Debug for OcgProperties
 
 pub(all) enum OcgState {
   On
   Off
   Unchanged
-}
-pub impl @debug.Debug for OcgState
+} derive(@debug.Debug)
 
 pub(all) enum OcgUsage {
   Placeholder
-}
-pub impl @debug.Debug for OcgUsage
+} derive(@debug.Debug)
 
 pub struct PdfOcg {
   pdf : @pdf.Pdf

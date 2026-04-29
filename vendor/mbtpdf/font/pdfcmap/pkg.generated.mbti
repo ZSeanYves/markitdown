@@ -14,9 +14,8 @@ import {
 pub struct CMap {
   map : Array[(String, String)]
   wmode : Int?
-}
+} derive(@debug.Debug)
 pub fn CMap::parse(@pdf.Pdf, @pdf.PdfObject) -> Self raise
-pub impl @debug.Debug for CMap
 
 // Type aliases
 

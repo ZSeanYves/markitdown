@@ -33,8 +33,7 @@ pub fn Destination::transform(Self, @pdf.Pdf, @pdftransform.TransformMatrix) -> 
 pub(all) enum TargetPage {
   PageObject(Int)
   OtherDocPageNumber(Int)
-}
-pub impl @debug.Debug for TargetPage
+} derive(@debug.Debug)
 
 // Type aliases
 

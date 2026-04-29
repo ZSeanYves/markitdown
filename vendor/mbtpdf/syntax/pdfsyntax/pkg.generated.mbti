@@ -5,6 +5,7 @@ import {
   "bobzhang/mbtpdf/core/pdf",
   "bobzhang/mbtpdf/core/pdfio",
   "bobzhang/mbtpdf/syntax/pdfgenlex",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -29,7 +30,7 @@ pub fn PdfSyntax::lex_dictionary(Self, Bool, @pdfio.Input) -> Array[@pdfgenlex.T
 pub fn PdfSyntax::lex_hexstring(Self, @pdfio.Input) -> @pdfgenlex.Token raise
 pub fn PdfSyntax::lex_keyword(Self, @pdfio.Input) -> @pdfgenlex.Token raise
 pub fn PdfSyntax::lex_name(Self, @pdfio.Input) -> @pdfgenlex.Token raise
-pub fn PdfSyntax::lex_next(Self, Ref[Int], Ref[Int], Bool, @pdfio.Input, Array[@pdfgenlex.Token], Bool, (Int) -> Array[@pdfgenlex.Token] raise) -> @pdfgenlex.Token
+pub fn PdfSyntax::lex_next(Self, @ref.Ref[Int], @ref.Ref[Int], Bool, @pdfio.Input, Array[@pdfgenlex.Token], Bool, (Int) -> Array[@pdfgenlex.Token] raise) -> @pdfgenlex.Token
 pub fn PdfSyntax::lex_number(Self, @pdfio.Input) -> @pdfgenlex.Token raise
 pub fn PdfSyntax::lex_object_at(Self, Bool, @pdfio.Input, Bool, (Int) -> Array[@pdfgenlex.Token] raise) -> Array[@pdfgenlex.Token] raise
 pub fn PdfSyntax::lex_stream(Self, @pdfio.Input, Array[@pdfgenlex.Token], (Int) -> Array[@pdfgenlex.Token] raise, Bool) -> @pdfgenlex.Token raise

@@ -20,10 +20,9 @@ pub struct Date {
   second : Int
   hour_offset : Int
   minute_offset : Int
-}
+} derive(@debug.Debug)
 pub fn Date::of_pdf_string(String) -> Self raise BadDate
 pub fn Date::to_pdf_string(Self) -> String raise BadDate
-pub impl @debug.Debug for Date
 
 // Type aliases
 

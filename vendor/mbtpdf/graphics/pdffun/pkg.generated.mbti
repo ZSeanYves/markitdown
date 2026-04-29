@@ -58,35 +58,31 @@ pub(all) enum Calculator {
   Dup
   Index
   Roll
-}
+} derive(@debug.Debug)
 pub fn Calculator::to_string(Array[Self]) -> String
-pub impl @debug.Debug for Calculator
 
 pub(all) struct Interpolation {
   c0 : Array[Double]
   c1 : Array[Double]
   n : Double
-}
-pub impl @debug.Debug for Interpolation
+} derive(@debug.Debug)
 
 pub(all) struct PdfFunction {
   func : PdfFunctionKind
   domain : Array[Double]
   range : Array[Double]?
-}
+} derive(@debug.Debug)
 pub fn PdfFunction::eval(Self, Array[Double]) -> Array[Double] raise BadFunctionEvaluation
 pub fn PdfFunction::parse(@pdf.Pdf, @pdf.PdfObject) -> Self raise
 pub fn PdfFunction::print(Self) -> Unit
 pub fn PdfFunction::to_pdf_object(Self, @pdf.Pdf) -> @pdf.PdfObject
-pub impl @debug.Debug for PdfFunction
 
 pub(all) enum PdfFunctionKind {
   Interpolation(Interpolation)
   Stitching(Stitching)
   Sampled(Sampled)
   Calculator(Array[Calculator])
-}
-pub impl @debug.Debug for PdfFunctionKind
+} derive(@debug.Debug)
 
 pub(all) struct Sampled {
   size : Array[Int]
@@ -95,15 +91,13 @@ pub(all) struct Sampled {
   decode : Array[Double]
   bps : Int
   samples : Array[Int]
-}
-pub impl @debug.Debug for Sampled
+} derive(@debug.Debug)
 
 pub(all) struct Stitching {
   functions : Array[PdfFunction]
   bounds : Array[Double]
   stitch_encode : Array[Double]
-}
-pub impl @debug.Debug for Stitching
+} derive(@debug.Debug)
 
 // Type aliases
 

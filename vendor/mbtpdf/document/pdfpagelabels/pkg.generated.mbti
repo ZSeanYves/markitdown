@@ -19,21 +19,19 @@ pub(all) enum LabelStyle {
   UppercaseLetters
   LowercaseLetters
   NoLabelPrefixOnly
-}
+} derive(@debug.Debug)
 pub fn LabelStyle::to_string(Self) -> String
-pub impl @debug.Debug for LabelStyle
 
 pub(all) struct PageLabel {
   labelstyle : LabelStyle
   labelprefix : String?
   startpage : Int
   startvalue : Int
-}
+} derive(@debug.Debug)
 pub fn PageLabel::read_all(@pdf.Pdf) -> Array[Self] raise
 pub fn PageLabel::remove_all(@pdf.Pdf) -> Unit raise
 pub fn PageLabel::to_string(Self) -> String
 pub fn PageLabel::write_all(Array[Self], @pdf.Pdf) -> Unit raise
-pub impl @debug.Debug for PageLabel
 
 pub struct PdfPageLabels {
   unit : Unit

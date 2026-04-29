@@ -30,9 +30,8 @@ pub(all) struct Border {
   hradius : Double
   style : Style
   dasharray : Array[Int]
-}
+} derive(@debug.Debug)
 pub fn Border::new(Double, vradius? : Double, hradius? : Double, style? : Style, dasharray? : Array[Int]) -> Self
-pub impl @debug.Debug for Border
 
 pub struct PdfAnnot {
   pdf : @pdf.Pdf
@@ -49,8 +48,7 @@ pub(all) enum Style {
   Beveled
   Inset
   UnderlineStyle
-}
-pub impl @debug.Debug for Style
+} derive(@debug.Debug)
 
 pub(all) enum Subtype {
   Text

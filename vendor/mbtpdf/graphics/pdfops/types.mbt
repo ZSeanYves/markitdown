@@ -80,6 +80,14 @@ pub(all) enum Op {
 }
 
 ///|
+pub(all) struct LocatedOp {
+  op : Op
+  source_stream_index : Int
+  source_op_index : Int
+  source_object_ref : Int?
+}
+
+///|
 type PdfObject = @pdf.PdfObject
 
 ///|

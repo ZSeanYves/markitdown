@@ -1,17 +1,21 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "bobzhang/mbtpdf/core/pdfutil"
 
-// Values
-pub let printer : Ref[(String) -> Unit]
+import {
+  "moonbitlang/core/ref",
+}
 
-pub let quiet : Ref[Bool]
+// Values
+pub let printer : @ref.Ref[(String) -> Unit]
+
+pub let quiet : @ref.Ref[Bool]
 
 // Errors
 
 // Types and methods
 pub struct PdfUtil {
-  stdout_buffer : Ref[String]
-  stderr_buffer : Ref[String]
+  stdout_buffer : @ref.Ref[String]
+  stderr_buffer : @ref.Ref[String]
 }
 pub fn PdfUtil::fleprint(Self, String) -> Unit
 pub fn PdfUtil::flprint(Self, String) -> Unit

@@ -15,9 +15,8 @@ pub(all) enum Encryption {
   ARC4(Int, Int)
   AESV2
   AESV3(Bool)
-}
+} derive(@debug.Debug)
 pub fn Encryption::r_and_keylength(Self) -> (Int, Int)
-pub impl @debug.Debug for Encryption
 
 pub struct PdfCryptPrimitives {
   unit : Unit

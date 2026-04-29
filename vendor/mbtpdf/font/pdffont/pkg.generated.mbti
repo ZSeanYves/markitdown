@@ -16,14 +16,12 @@ pub(all) struct CIDSystemInfo {
   registry : String
   ordering : String
   supplement : Int
-}
-pub impl @debug.Debug for CIDSystemInfo
+} derive(@debug.Debug)
 
 pub(all) enum CMapEncoding {
   Predefined(String)
   CMap(Int)
-}
-pub impl @debug.Debug for CMapEncoding
+} derive(@debug.Debug)
 
 pub(all) struct CompositeCIDFont {
   cid_system_info : CIDSystemInfo
@@ -74,8 +72,7 @@ pub(all) enum FontFile {
   FontFile(Int)
   FontFile2(Int)
   FontFile3(Int)
-}
-pub impl @debug.Debug for FontFile
+} derive(@debug.Debug)
 
 pub(all) struct SimpleFont {
   fonttype : SimpleFontType
@@ -112,10 +109,8 @@ pub(all) enum StandardFont {
   CourierBoldOblique
   Symbol
   ZapfDingbats
-}
+} derive(Eq, @debug.Debug)
 pub fn StandardFont::to_string(Self) -> String
-pub impl Eq for StandardFont
-pub impl @debug.Debug for StandardFont
 
 pub(all) struct Type3Glyphs {
   fontbbox : (Double, Double, Double, Double)
