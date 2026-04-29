@@ -25,7 +25,7 @@ fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
               break
             }
 
-            let seg = xml[content_start:t1i].to_bytes()
+            let seg = xml[content_start:t1i].to_owned()
             let s = @cor.utf8_bytes_to_string(seg) catch { _ => "" }
 
             acc = acc + s
@@ -101,14 +101,14 @@ fn extract_text_inlines(
       continue
     }
 
-    let run = xml[p:close + close_pat.length()].to_bytes()
+    let run = xml[p:close + close_pat.length()].to_owned()
     let text = extract_text_runs(run, 0, run.length())
     if text.trim() != "" {
       let rid = run_hyperlink_rid(run)
       let link = match rid {
         Some(id) =>
           match hyperlinks.get(id) {
-            Some(u) => u.trim().to_string()
+            Some(u) => u.trim().to_owned()
             None => ""
           }
         None => ""
@@ -147,7 +147,7 @@ fn run_hyperlink_rid(run : Bytes) -> String? raise {
   if gt < 0 {
     return None
   }
-  let tag = run[p0:gt + 1].to_bytes()
+  let tag = run[p0:gt + 1].to_owned()
   read_attr_value_in_tag_bytes(tag, "r:id")
 }
 

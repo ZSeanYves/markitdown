@@ -4,7 +4,6 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,
   "ZSeanYves/markitdown/doc_parse/pdf_core/api" @api,
   "ZSeanYves/markitdown/doc_parse/pdf_core/text" @text,
-  "bobzhang/mbtpdf/core/pdfio" @pdfio,
   "moonbitlang/x/fs" @fs,
 }
 

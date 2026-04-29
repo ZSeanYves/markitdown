@@ -43,6 +43,11 @@ Approximate meanings:
 * `debug raw`: dumps the selected raw text
 * `debug pipeline`: shows debug information for the full PDF processing pipeline
 
+For the current native PDF path, `debug pipeline` is the most useful
+architecture-facing inspect entry. It surfaces `pdf_core`-derived information
+such as page geometry, raw refs, image summaries, annotation summaries, and
+text block statistics without changing normal conversion output.
+
 ## Regression System
 
 The current regression system has been split into three independent validation chains:
@@ -165,6 +170,12 @@ The current project can be roughly understood as the following layers:
 * `core/*`: unified IR, Markdown emitter, metadata sidecar emitter
 * `samples/*`: mainflow / metadata / assets regression and acceptance demo samples
 
+Within `doc_parse/*`, the current lower-level package split is:
+
+* `doc_parse/zip`: ZIP container handling used by OOXML readers
+* `doc_parse/ooxml`: shared OOXML package/relationship/media/docProps/debug-dump infrastructure
+* `doc_parse/pdf_core`: native PDF parsing substrate including page geometry, source refs, raw images/annotations, and inspect helpers
+
 When developing, you should try to determine clearly which layer your change belongs to:
 
 * raw format parsing problems: check `doc_parse/*` first
@@ -178,9 +189,10 @@ When developing, you should try to determine clearly which layer your change bel
 
 1. Continue stabilizing and documenting the current native PDF mainflow
 2. Continue strengthening the engineering contract of metadata sidecar and lightweight provenance
-3. Continue improving PPTX structural recovery and image-context expression
-4. Continue improving HTML local structural recovery and image-context expression
-5. Continue improving cross-format consistency through the unified IR
+3. Continue consolidating low-level OOXML and PDF parsing infrastructure boundaries
+4. Continue improving PPTX structural recovery and image-context expression
+5. Continue improving HTML local structural recovery and image-context expression
+6. Continue improving cross-format consistency through the unified IR
 
 ### Mid-term directions
 

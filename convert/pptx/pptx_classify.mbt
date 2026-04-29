@@ -13,7 +13,7 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
 
   for i in 0..<compacted.length() {
     let para = compacted[i]
-    let p = para.text.trim().to_string()
+    let p = para.text.trim().to_owned()
     if p == "" {
       continue
     }
@@ -205,7 +205,7 @@ fn slide_para_score(p : SlideParagraph) -> Int {
 
 ///|
 fn looks_like_slide_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -232,7 +232,7 @@ fn looks_like_slide_title(s : String) -> Bool {
 
 ///|
 fn is_bullet_like(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t.has_prefix("• ") ||
   t.has_prefix("· ") ||
   t.has_prefix("- ") ||
@@ -249,7 +249,7 @@ fn is_bullet_like(s : String) -> Bool {
 
 ///|
 fn strip_bullet_prefix(s : String) -> String {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
 
   if t.has_prefix("• ") ||
     t.has_prefix("· ") ||
@@ -259,18 +259,18 @@ fn strip_bullet_prefix(s : String) -> String {
     t.has_prefix("▪ ") ||
     t.has_prefix("● ") ||
     t.has_prefix("○ ") {
-    return t[2:].to_string().trim().to_string()
+    return t[2:].trim().to_owned()
   }
 
   if t.has_prefix("（1）") ||
     t.has_prefix("（2）") ||
     t.has_prefix("（3）") {
-    return t[3:].to_string().trim().to_string()
+    return t[3:].trim().to_owned()
   }
 
   let idx = find_numbered_bullet_end(t)
   if idx > 0 {
-    return t[idx:].to_string().trim().to_string()
+    return t[idx:].trim().to_owned()
   }
 
   t
@@ -278,7 +278,7 @@ fn strip_bullet_prefix(s : String) -> String {
 
 ///|
 fn ends_like_sentence(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let arr = t.to_array()
   let n = arr.length()
   if n == 0 {
@@ -299,7 +299,7 @@ fn ends_like_sentence(s : String) -> Bool {
 
 ///|
 fn is_probable_slide_number(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }

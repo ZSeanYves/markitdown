@@ -118,7 +118,7 @@ fn resolve_output_path(input : String, output : String?) -> String? {
   match output {
     None => None
     Some(raw) => {
-      let out = raw.trim().to_string()
+      let out = raw.trim().to_owned()
       if out == "" {
         None
       } else if looks_like_output_dir(out) {
@@ -162,7 +162,7 @@ fn dirname_of_path(path : String) -> String {
   if last <= 0 {
     "."
   } else {
-    path[:last].to_string()
+    path[:last].to_owned()
   }
 }
 
@@ -187,7 +187,7 @@ fn input_stem(path : String) -> String {
   if dot <= 0 {
     base
   } else {
-    base[:dot].to_string()
+    base[:dot].to_owned()
   }
 }
 
@@ -203,7 +203,7 @@ fn metadata_output_path(markdown_path : String) -> String {
     }
   }
 
-  let stem = if dot <= 0 { base } else { base[:dot].to_string() }
+  let stem = if dot <= 0 { base } else { base[:dot].to_owned() }
 
   // Keep sidecar under `metadata/` subdir to avoid cluttering markdown dirs and
   // to make metadata/main_process/assets chain collection easier in CI scripts.

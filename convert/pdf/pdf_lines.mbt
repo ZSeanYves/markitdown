@@ -37,7 +37,7 @@ fn build_convert_page_lines(
     let block = page.text_blocks[block_index]
 
     for line in block.lines {
-      let text = @model.line_text(line).trim().to_string()
+      let text = @model.line_text(line).trim().to_owned()
       if text == "" {
         continue
       }
@@ -56,8 +56,18 @@ fn build_convert_page_lines(
   }
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
+  let annotations = build_convert_page_annotations(page)
 
-  { _page_index: page.page_index, lines, blocks: [], images, objects: [] }
+  {
+    _page_index: page.page_index,
+    media_box: Some(page.boxes.media_box),
+    crop_box: page.boxes.crop_box,
+    lines,
+    blocks: [],
+    images,
+    annotations,
+    objects: [],
+  }
 }
 
 ///|
@@ -69,21 +79,38 @@ fn core_line_to_convert_line(
   line : @model.PdfTextLine,
 ) -> PdfConvertLine {
   let raw_text = @model.line_text(line)
-  let text = raw_text.trim().to_string()
+  let text = raw_text.trim().to_owned()
 
   {
     _page_index,
     line_index,
     text,
     _source_block_index,
+    source_block_line_count: block.lines.length(),
+    source_block_kind: block.kind,
+    source_block_bbox: block.bbox,
+    source_block_dominant_font_size: block.dominant_font_size,
+    source_block_dominant_font_name: block.dominant_font_name,
     is_heading_candidate: block.is_heading_candidate,
     is_page_number_candidate: block.is_page_number_candidate,
+    is_header_footer_candidate: block.is_header_footer_candidate,
+    is_artifact_candidate: block.is_artifact_candidate,
+    is_caption_candidate: block.is_caption_candidate,
+    is_table_cell_candidate: block.is_table_cell_candidate,
+    dominant_language: block.dominant_language,
+    writing_direction: block.writing_direction,
     _bbox: line.bbox,
     font_size: pick_line_font_size(line),
     font_name: pick_line_font_name(line),
     indent_left: line.indent_left,
+    indent_right: line.indent_right,
+    alignment_hint: line.alignment_hint,
     line_gap_before: line.line_gap_before,
     _line_gap_after: line.line_gap_after,
+    line_height: line.line_height,
+    baseline_y: line.baseline_y,
+    is_wrapped_candidate: line.is_wrapped_candidate,
+    is_same_paragraph_with_prev_candidate: line.is_same_paragraph_with_prev_candidate,
   }
 }
 
@@ -150,6 +177,12 @@ fn export_convert_page_images(
           left_x: image.bbox.x0,
           _width_px: image.width_px,
           _height_px: image.height_px,
+          colorspace: image.colorspace,
+          bits_per_component: image.bits_per_component,
+          image_filter: image.image_filter,
+          object_ref: image.object_ref,
+          inline_image: image.inline_image,
+          source_refs_count: image.source_refs.length(),
           source_image_id: image.id,
         })
         _image_index = _image_index + 1
@@ -159,6 +192,53 @@ fn export_convert_page_images(
   }
 
   out
+}
+
+///|
+fn build_convert_page_annotations(
+  page : @model.PdfPageModel,
+) -> Array[PdfConvertAnnotation] {
+  let out : Array[PdfConvertAnnotation] = []
+
+  for i = 0; i < page.annotations.length(); i = i + 1 {
+    out.push(
+      core_annotation_to_convert_annotation(
+        page.page_index,
+        i,
+        page.annotations[i],
+      ),
+    )
+  }
+
+  out
+}
+
+///|
+fn core_annotation_to_convert_annotation(
+  _page_index : Int,
+  _annotation_index : Int,
+  annotation : @model.PdfAnnotationObject,
+) -> PdfConvertAnnotation {
+  {
+    _page_index,
+    _annotation_index,
+    subtype: annotation.subtype,
+    _bbox: annotation.bbox,
+    uri: annotation.uri,
+    dest: annotation.dest,
+    object_ref: annotation.object_ref,
+    contents: annotation.contents,
+    subject: annotation.subject,
+    color: convert_annotation_color(annotation.color),
+  }
+}
+
+///|
+fn convert_annotation_color(color : @model.PdfColor?) -> PdfConvertColor? {
+  match color {
+    Some(c) => Some({ r: c.r, g: c.g, b: c.b })
+    None => None
+  }
 }
 
 ///|
@@ -188,7 +268,7 @@ fn export_single_pdf_image(
 
 ///|
 fn write_pdf_raw_rgb24_as_bmp(
-  rgb : @pdfio.MutableBytes,
+  rgb : Array[Byte],
   width : Int,
   height : Int,
   out_dir : String,
@@ -199,7 +279,7 @@ fn write_pdf_raw_rgb24_as_bmp(
   }
 
   let expected = width * height * 3
-  if @pdfio.bytes_size(rgb) < expected {
+  if rgb.length() < expected {
     return None
   }
 
@@ -210,10 +290,10 @@ fn write_pdf_raw_rgb24_as_bmp(
   let header_size = 14 + 40
   let file_size = header_size + pixel_size
 
-  let out = @pdfio.mkbytes(file_size)
+  let out = Array::make(file_size, (0).to_byte())
 
   fn put_u8(pos : Int, v : Int) -> Unit {
-    @pdfio.bset(out, pos, v & 0xFF)
+    out[pos] = (v & 0xFF).to_byte()
   }
 
   fn put_u16_le(pos : Int, v : Int) -> Unit {
@@ -256,9 +336,9 @@ fn write_pdf_raw_rgb24_as_bmp(
     let mut src = y * width * 3
 
     for _x = 0; _x < width; _x = _x + 1 {
-      let r = @pdfio.bget(rgb, src)
-      let g = @pdfio.bget(rgb, src + 1)
-      let b = @pdfio.bget(rgb, src + 2)
+      let r = rgb[src].to_int()
+      let g = rgb[src + 1].to_int()
+      let b = rgb[src + 2].to_int()
 
       // BMP 像素顺序是 BGR
       put_u8(dst, b)
@@ -293,7 +373,7 @@ fn write_pdf_raw_rgb24_as_bmp(
 
 ///|
 fn write_pdf_image_asset(
-  data : @pdfio.MutableBytes,
+  data : Array[Byte],
   ext : String,
   out_dir : String,
   next_image_idx : Ref[Int],

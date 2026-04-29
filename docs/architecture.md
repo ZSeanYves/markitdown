@@ -58,6 +58,39 @@ Boundaries:
 - Does not directly define the sidecar schema
 - Does not directly handle CLI filesystem policy
 
+Current PDF recovery chain (`convert/pdf`):
+
+- `pdf_core` provides the lower-level PDF model consumed by the converter:
+  page geometry, text spans/lines/blocks, image records, annotation/link records,
+  layout hints, and source provenance.
+- The default PDF converter still uses a line-seed strategy. `pdf_core`
+  `PdfTextBlock.lines` are flattened into `PdfConvertLine`, and the default
+  block staging creates one `PdfConvertBlock` per line.
+- `PdfConvertBlock` retains source core block provenance and block-level flags
+  such as source block index, source block kind, source block bbox, source block
+  line count, core dominant font hints, caption/table flags, language, and
+  writing direction. These are currently used for debug and future recovery
+  improvements; they do not switch the default converter to core-block seeding.
+- Convert-stage page staging also retains image provenance details and page-level
+  annotation records for pipeline debug. These are inspect/debug data, not a
+  promise of Markdown link emission.
+- `classify` is the final converter layer for deciding whether a text block is
+  heading, paragraph, or noise. Downstream stages should treat that decision as
+  the semantic boundary for heading promotion/demotion.
+- `noise` handles repeated edge cleanup. It uses repeated head/tail text
+  detection together with page boxes and top/bottom edge zones so body content
+  is not removed merely because it is short.
+- `merge` handles cross-page paragraph merging. Its decision is layered through
+  hard blockers, positive text-continuation evidence, layout compatibility, and
+  core-derived continuation support.
+- `to_ir` maps already classified converter blocks and images into unified IR.
+  It may assign heading role/depth for IR emission, but it does not re-open the
+  heading/noise/paragraph classification decision. Nearby image-caption pairing
+  remains conservative: it is only attempted on single-image pages, still uses
+  the existing caption-like text helper, and now requires a bbox geometry gate
+  based on above/below placement, nearby vertical gap, and horizontal
+  overlap/alignment. Multi-image caption pairing remains disabled.
+
 ### 2.4 Lower-level Parsing Infrastructure (`doc_parse/*`)
 
 Responsibilities:
@@ -90,6 +123,24 @@ Current `doc_parse/ooxml` capabilities:
 - Debug dump API: render read-only human-readable summaries for package
   structure, relationships, media assets, and properties. This is for diagnosis
   and inspection, not for conversion output.
+
+Current `doc_parse/pdf_core` capabilities:
+
+- Vendored backend integration: `pdf_core` currently runs on a vendored
+  `mbtpdf` backend hidden behind `pdf_core/api`, so upper layers do not depend
+  on backend-specific types.
+- Source-aware raw parsing: operator parsing retains low-level source references
+  that can later be surfaced through debug/inspection output.
+- Page geometry and provenance: per-page media box, inherited crop box,
+  rotation, raw page refs, and raw content stream refs are available to the raw
+  layer and inspect helpers.
+- Raw images and annotations: page/image extraction and annotation/link raw
+  extraction are already present in the parsing substrate.
+- Debug inspect API: read-only summaries expose document flags, page geometry,
+  content stream refs, text block/line/span counts, image summaries, and
+  annotation summaries for diagnosis. Upper `convert/pdf` pipeline debug can
+  further surface convert-stage image provenance and page annotations without
+  changing normal Markdown output.
 
 Role:
 
@@ -210,10 +261,13 @@ the data flow is as follows:
   * three validation chains
   * engineering-oriented sidecar output
   * the layered structure between `doc_parse/*` and `convert/*`
+  * first-pass consolidation of shared OOXML and native PDF parsing
+    infrastructure
 * Still being consolidated:
 
   * complex PDF layouts
   * ambiguous multi-image / multi-caption scenarios
+  * multi-image caption pairing beyond the current conservative single-image-page path
   * richer cross-format metadata consistency
 * Future stage:
 

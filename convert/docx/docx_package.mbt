@@ -72,7 +72,7 @@ fn DocxPackage::extract_media_by_relationships(
     if rel_out == "" || !rel_out.has_prefix("assets/") {
       continue
     }
-    let name = rel_out["assets/".length():].to_string()
+    let name = rel_out["assets/".length():].to_owned()
 
     let data = @ox.read_part_bytes(p.pkg, normalized) catch { _ => continue }
     @fs.write_bytes_to_file(out_dir + "/" + name, data)

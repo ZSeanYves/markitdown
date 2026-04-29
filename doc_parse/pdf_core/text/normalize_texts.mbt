@@ -58,7 +58,7 @@ fn normalize_line_spans_with_glue(
 
   for i = 0; i < spans.length(); i = i + 1 {
     let cur0 = normalize_single_span(spans[i])
-    let cur_trim = cur0.text.trim().to_string()
+    let cur_trim = cur0.text.trim().to_owned()
 
     // 归一化后空 span 直接丢掉
     if cur_trim == "" {
@@ -92,7 +92,7 @@ fn normalize_line_spans_with_glue(
       Some((merged_prev_text, remaining_cur_text)) => {
         out[out.length() - 1] = { ..prev, text: merged_prev_text }
 
-        let remain = remaining_cur_text.trim().to_string()
+        let remain = remaining_cur_text.trim().to_owned()
         if remain != "" {
           out.push({ ..cur, text: remain })
         }
@@ -112,11 +112,11 @@ fn normalize_line_spans_with_glue(
     if glue == " " {
       out[out.length() - 1] = {
         ..prev,
-        text: prev_text.trim().to_string() + " ",
+        text: prev_text.trim().to_owned() + " ",
       }
-      out.push({ ..cur, text: cur_text.trim().to_string() })
+      out.push({ ..cur, text: cur_text.trim().to_owned() })
     } else {
-      out.push({ ..cur, text: cur_text.trim().to_string() })
+      out.push({ ..cur, text: cur_text.trim().to_owned() })
     }
   }
 
@@ -129,9 +129,9 @@ fn try_merge_english_word_fragment_span(
   right_text : String,
 ) -> (String, String)? {
   let l = left_text
-  let r = right_text.trim().to_string()
+  let r = right_text.trim().to_owned()
 
-  if l.trim().to_string() == "" || r == "" {
+  if l.trim().to_owned() == "" || r == "" {
     return None
   }
 
@@ -173,7 +173,7 @@ fn try_merge_english_word_fragment_span(
   }
 
   let left_prefix = remove_trailing_ascii_letters(l)
-  let remain = r[right_prefix.length():].to_string()
+  let remain = r[right_prefix.length():].to_owned()
 
   Some((left_prefix + joined, remain))
 }
@@ -235,7 +235,7 @@ fn remove_trailing_ascii_letters(text : String) -> String {
     }
   }
 
-  text[:end].to_string()
+  text[:end].to_owned()
 }
 
 ///|
@@ -297,8 +297,8 @@ fn should_drop_trailing_page_number_digit_span(
   prev : @model.PdfTextSpan,
   cur : @model.PdfTextSpan,
 ) -> Bool {
-  let left = prev.text.trim().to_string()
-  let right = cur.text.trim().to_string()
+  let left = prev.text.trim().to_owned()
+  let right = cur.text.trim().to_owned()
   //println(
   //  "[tail-digit-check] left=\"" +
   //  left +
@@ -335,7 +335,7 @@ fn should_drop_trailing_page_number_digit_span(
 
 ///|
 fn is_single_page_number_digit_span(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.length() != 1 {
     return false
   }
@@ -359,7 +359,7 @@ fn is_single_page_number_digit_span(text : String) -> Bool {
 
 ///|
 fn ends_like_sentence_for_artifact(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -372,7 +372,7 @@ fn ends_like_sentence_for_artifact(text : String) -> Bool {
 fn count_words_for_artifact(text : String) -> Int {
   let mut n = 0
   for sv in text.split(" ") {
-    let t = sv.to_string().trim().to_string()
+    let t = sv.trim().to_owned()
     if t != "" {
       n = n + 1
     }
@@ -438,7 +438,7 @@ fn normalize_basic_spaces(text : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|
@@ -456,12 +456,12 @@ fn normalize_post_text(text : String) -> String {
     //println("[normalize_post_text] before=\"" + t7 + "\" after=\"" + t8 + "\"")
   }
 
-  t8.trim().to_string()
+  t8.trim().to_owned()
 }
 
 ///|
 fn strip_trailing_slash_page_artifact(text : String) -> String {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return t
   }
@@ -475,7 +475,7 @@ fn strip_trailing_slash_page_artifact(text : String) -> String {
   match first_char_opt(t) {
     Some(ch) =>
       if ch == '/' || ch == '／' || ch == '∕' || ch == '⁄' {
-        let suffix = t[1:].trim().to_string()
+        let suffix = t[1:].trim().to_owned()
         if suffix != "" && suffix.length() <= 3 && all_ascii_digits(suffix) {
           return ""
         }
@@ -507,9 +507,9 @@ fn strip_trailing_slash_page_artifact(text : String) -> String {
     return t
   }
 
-  let suffix = t[slash + 1:].trim().to_string()
+  let suffix = t[slash + 1:].trim().to_owned()
   if suffix != "" && suffix.length() <= 3 && all_ascii_digits(suffix) {
-    return t[:slash].trim().to_string()
+    return t[:slash].trim().to_owned()
   }
 
   t
@@ -524,8 +524,8 @@ fn fix_hyphenated_english_wrap(text : String) -> String {
 
 ///|
 fn glue_between_spans(left_text : String, right_text : String) -> String {
-  let l = left_text.trim().to_string()
-  let r = right_text.trim().to_string()
+  let l = left_text.trim().to_owned()
+  let r = right_text.trim().to_owned()
 
   if l == "" || r == "" {
     return ""
@@ -551,8 +551,8 @@ fn should_merge_hyphenated_word_piece(
   left_text : String,
   right_text : String,
 ) -> Bool {
-  let l = left_text.trim().to_string()
-  let r = right_text.trim().to_string()
+  let l = left_text.trim().to_owned()
+  let r = right_text.trim().to_owned()
   if l == "" || r == "" {
     return false
   }
@@ -571,8 +571,8 @@ fn should_insert_space_after_bullet_marker(
   left_text : String,
   right_text : String,
 ) -> Bool {
-  let l = left_text.trim().to_string()
-  let r = right_text.trim().to_string()
+  let l = left_text.trim().to_owned()
+  let r = right_text.trim().to_owned()
   if l == "" || r == "" {
     return false
   }
@@ -597,8 +597,8 @@ fn should_insert_space_after_numbered_marker(
   left_text : String,
   right_text : String,
 ) -> Bool {
-  let l = left_text.trim().to_string()
-  let r = right_text.trim().to_string()
+  let l = left_text.trim().to_owned()
+  let r = right_text.trim().to_owned()
   if l == "" || r == "" {
     return false
   }
@@ -621,7 +621,7 @@ fn should_insert_space_after_numbered_marker(
 
 ///|
 fn normalize_bullet_marker_spacing(text : String) -> String {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return t
   }
@@ -629,7 +629,7 @@ fn normalize_bullet_marker_spacing(text : String) -> String {
   if (t.has_prefix("•") || t.has_prefix("*") || t.has_prefix("-")) &&
     t.length() >= 2 &&
     t[1] != ' ' {
-    t[:1].to_string() + " " + t[1:].to_string()
+    t[:1].to_owned() + " " + t[1:].to_owned()
   } else {
     t
   }
@@ -659,7 +659,7 @@ fn normalize_numbered_marker_spacing(text : String) -> String {
     return text
   }
 
-  chars[0].to_string() + chars[1].to_string() + " " + text[2:].to_string()
+  chars[0].to_string() + chars[1].to_string() + " " + text[2:].to_owned()
 }
 
 ///|
@@ -667,7 +667,7 @@ fn normalize_numbered_marker_spacing(text : String) -> String {
 fn fix_common_split_english_words(text : String) -> String {
   let words : Array[String] = Array::new()
   for part in text.split(" ") {
-    let s = part.to_string()
+    let s = part.to_owned()
     if s != "" {
       words.push(s)
     }
@@ -713,8 +713,8 @@ fn fix_known_broken_english_phrases(text : String) -> String {
 
 ///|
 fn try_join_split_english_word(left : String, right : String) -> String? {
-  let l = left.trim().to_string()
-  let r = right.trim().to_string()
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
 
   if !looks_like_split_english_word_pair(l, r) {
     return None
@@ -732,8 +732,8 @@ fn try_join_split_english_word(left : String, right : String) -> String? {
 
 ///|
 fn looks_like_split_english_word_pair(left : String, right : String) -> Bool {
-  let l = left.trim().to_string()
-  let r = right.trim().to_string()
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
 
   if l == "" || r == "" {
     return false
@@ -970,9 +970,9 @@ fn should_remove_cjk_inner_space(left : Char, right : Char) -> Bool {
 
 ///|
 fn trim_hyphen_suffix(text : String) -> String {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.has_suffix("-") {
-    t[:t.length() - 1].to_string()
+    t[:t.length() - 1].to_owned()
   } else {
     t
   }
@@ -980,18 +980,18 @@ fn trim_hyphen_suffix(text : String) -> String {
 
 ///|
 fn last_ascii_letter_before_hyphen(text : String) -> Char? {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if !t.has_suffix("-") || t.length() < 2 {
     return None
   }
 
-  let prefix = t[:t.length() - 1].to_string()
+  let prefix = t[:t.length() - 1].to_owned()
   last_char_opt(prefix)
 }
 
 ///|
 fn ends_with_numbered_marker(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.length() < 2 {
     return false
   }

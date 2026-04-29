@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/io/pdfwrite"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfio",
+  "bobzhang/mbtpdf/crypto/pdfcrypt",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Encryption {
+  encryption_method : @pdfcrypt.EncryptionMethod
+  owner_password : String
+  user_password : String
+  permissions : Array[@pdfcrypt.Permission]
+}
+pub fn Encryption::new(@pdfcrypt.EncryptionMethod, String, String, Array[@pdfcrypt.Permission]) -> Self
+
+pub struct PdfWrite {
+  logger : (String) -> Unit
+}
+pub fn PdfWrite::new(logger? : (String) -> Unit) -> Self
+pub fn PdfWrite::pdf_to_output(Self, preserve_objstm? : Bool, generate_objstm? : Bool, compress_objstm? : Bool, recrypt? : String, Encryption?, Bool, @pdf.Pdf, @pdfio.Output) -> Unit raise
+pub fn PdfWrite::string_of_pdf(Self, @pdf.PdfObject) -> String
+
+// Type aliases
+pub using @pdfcrypt {type EncryptionMethod}
+
+// Traits
+

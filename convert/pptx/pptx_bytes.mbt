@@ -63,7 +63,7 @@ fn bytes_slice_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
   if len <= 0 {
     return ""
   }
-  @cor.utf8_bytes_to_string(bs[start:end_].to_bytes())
+  @cor.utf8_bytes_to_string(bs[start:end_].to_owned())
 }
 
 ///|
@@ -125,7 +125,7 @@ fn normalize_slide_text(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|

@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/cmd/pdfhello"
+
+// Values
+pub async fn run(out_file? : String, quiet? : Bool) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

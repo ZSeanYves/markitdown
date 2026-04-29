@@ -22,7 +22,7 @@ fn parse_shared_strings(ss_xml : String) -> Array[String] {
         match si_end0 {
           None => break
           Some(si_end) => {
-            let chunk = ss_xml[si_start:si_end].to_string()
+            let chunk = ss_xml[si_start:si_end].to_owned()
 
             let mut tpos = 0
             let mut acc = ""
@@ -40,7 +40,7 @@ fn parse_shared_strings(ss_xml : String) -> Array[String] {
                       match t1 {
                         None => break
                         Some(t_end) => {
-                          let content = chunk[content_start:t_end].to_string()
+                          let content = chunk[content_start:t_end].to_owned()
                           acc = acc + content
                           tpos = t_end + 4
                         }

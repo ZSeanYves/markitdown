@@ -134,7 +134,7 @@ async fn main {
                 return
               }
 
-              let scope = positional[0].trim().to_string().to_lower()
+              let scope = positional[0].trim().to_owned().to_lower()
               let input = positional[1]
               let output_opt = if positional.length() == 3 {
                 Some(positional[2])

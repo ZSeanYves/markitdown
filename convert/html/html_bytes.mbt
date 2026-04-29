@@ -46,14 +46,14 @@ fn strip_tags_bytes(inner : Bytes) -> Bytes {
     let p0 = find_bytes(inner, lt, i)
     match p0 {
       None => {
-        let tail = inner[i:n].to_bytes().to_array()
+        let tail = inner[i:n].to_owned().to_array()
         for b in tail {
           out.push(b)
         }
         break
       }
       Some(p) => {
-        let head = inner[i:p].to_bytes().to_array()
+        let head = inner[i:p].to_owned().to_array()
         for b in head {
           out.push(b)
         }

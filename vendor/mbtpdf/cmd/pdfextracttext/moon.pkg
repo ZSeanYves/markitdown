@@ -1,0 +1,16 @@
+import {
+  "bobzhang/mbtpdf/core/pdfe",
+  "bobzhang/mbtpdf/core/pdfutil",
+  "bobzhang/mbtpdf/crypto/pdfcrypt",
+  "bobzhang/mbtpdf/document/pdfpage",
+  "bobzhang/mbtpdf/io/pdfreadfs",
+  "bobzhang/mbtpdf/io/pdfwritefs",
+  "bobzhang/mbtpdf/text/pdftext",
+  "moonbitlang/core/env",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+}
+
+options(
+  "is-main": true,
+)

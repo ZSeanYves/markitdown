@@ -30,7 +30,7 @@ fn parse_sheet_table(
         match ctag_end0 {
           None => break
           Some(i1) => {
-            let ctag = sheet_xml[i0:i1 + 1].to_string()
+            let ctag = sheet_xml[i0:i1 + 1].to_owned()
 
             let rref = get_attr(ctag, "r").unwrap_or("")
             let t = get_attr(ctag, "t").unwrap_or("")
@@ -41,7 +41,7 @@ fn parse_sheet_table(
             match c_end0 {
               None => break
               Some(c_end) => {
-                let inner = sheet_xml[i1 + 1:c_end].to_string()
+                let inner = sheet_xml[i1 + 1:c_end].to_owned()
 
                 let mut val = ""
                 let v0 = find_sub(inner, "<v>", 0)
@@ -52,7 +52,7 @@ fn parse_sheet_table(
                     let v1 = find_sub(inner, "</v>", vs)
                     match v1 {
                       None => ()
-                      Some(v_end) => val = inner[vs:v_end].to_string()
+                      Some(v_end) => val = inner[vs:v_end].to_owned()
                     }
                   }
                 }
@@ -187,7 +187,7 @@ fn parse_inline_str(inner : String) -> String {
             match t1 {
               None => break
               Some(t_end) => {
-                let content = inner[content_start:t_end].to_string()
+                let content = inner[content_start:t_end].to_owned()
                 acc = acc + content
                 tpos = t_end + 4
               }

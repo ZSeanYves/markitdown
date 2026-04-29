@@ -21,7 +21,7 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     for i = 0; i < n; i = i + 1 {
       let block = page.blocks[i]
-      let text = block.text.trim().to_string()
+      let text = block.text.trim().to_owned()
 
       match block.kind {
         PdfConvertBlockKind::Noise => ()
@@ -40,9 +40,12 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     let rebuilt = rebuild_page_objects({
       _page_index: page._page_index,
+      media_box: page.media_box,
+      crop_box: page.crop_box,
       lines: page.lines,
       blocks: kept,
       images: page.images,
+      annotations: page.annotations,
       objects: [],
     })
 
@@ -116,7 +119,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let out = Array::new()
 
   for block in page.blocks {
-    let t = block.text.trim().to_string()
+    let t = block.text.trim().to_owned()
     if t != "" {
       out.push(block)
     }
@@ -132,7 +135,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
 /// - 纯页码/页标签可以删
 /// - 较短、非完整正文句、非长正文段才进入 repeated 候选
 fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
-  let t = block.text.trim().to_string()
+  let t = block.text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -165,8 +168,9 @@ fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
 
 ///|
 /// 是否删除当前 block：
-/// - 必须位于页首前两块或页尾后两块
+/// - 必须位于页首/页尾非空块
 /// - 并且 key 命中 repeated head/tail
+/// - 若 page box 可用，还必须落在页面 top/bottom edge zone
 fn should_drop_repeated_edge_block(
   page : PdfConvertPage,
   block_index : Int,
@@ -182,15 +186,80 @@ fn should_drop_repeated_edge_block(
   let first_idx = first_nonempty_block_index(page)
   let last_idx = last_nonempty_block_index(page)
 
-  if block_index == first_idx && contains_string(repeated_heads, key) {
+  if block_index == first_idx &&
+    contains_string(repeated_heads, key) &&
+    is_top_edge_block(page, block) {
     return true
   }
 
-  if block_index == last_idx && contains_string(repeated_tails, key) {
+  if block_index == last_idx &&
+    contains_string(repeated_tails, key) &&
+    is_bottom_edge_block(page, block) {
     return true
   }
 
   false
+}
+
+///|
+fn is_top_edge_block(page : PdfConvertPage, block : PdfConvertBlock) -> Bool {
+  match effective_page_box(page) {
+    None => true
+    Some(box) => {
+      let h = page_box_height(box)
+      if h <= 0.0 {
+        return true
+      }
+
+      block._bbox.y1 >= box.y1 - edge_zone_height(h)
+    }
+  }
+}
+
+///|
+fn is_bottom_edge_block(page : PdfConvertPage, block : PdfConvertBlock) -> Bool {
+  match effective_page_box(page) {
+    None => true
+    Some(box) => {
+      let h = page_box_height(box)
+      if h <= 0.0 {
+        return true
+      }
+
+      block._bbox.y0 <= box.y0 + edge_zone_height(h) ||
+      is_sparse_page_tail_fallback(page)
+    }
+  }
+}
+
+///|
+fn is_sparse_page_tail_fallback(page : PdfConvertPage) -> Bool {
+  normalized_nonempty_blocks(page).length() <= 3
+}
+
+///|
+fn effective_page_box(page : PdfConvertPage) -> @model.PdfRect? {
+  match page.crop_box {
+    Some(box) => Some(box)
+    None => page.media_box
+  }
+}
+
+///|
+fn page_box_height(box : @model.PdfRect) -> Double {
+  box.y1 - box.y0
+}
+
+///|
+fn edge_zone_height(page_height : Double) -> Double {
+  let zone = page_height * 0.12
+  if zone < 48.0 {
+    return 48.0
+  }
+  if zone > 120.0 {
+    return 120.0
+  }
+  zone
 }
 
 ///|
@@ -200,7 +269,7 @@ fn should_drop_repeated_edge_block(
 /// - 英文转小写
 /// - 数字统一替换成 '#'
 fn normalize_noise_key(s : String) -> String {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return ""
   }
@@ -230,14 +299,14 @@ fn normalize_noise_key(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|
 fn count_words(s : String) -> Int {
   let mut n = 0
   for sv in s.split(" ") {
-    let t = sv.to_string().trim().to_string()
+    let t = sv.trim().to_owned()
     if t != "" {
       n = n + 1
     }
@@ -248,7 +317,7 @@ fn count_words(s : String) -> Int {
 ///|
 /// 非严格正文句判定：用于保护正文不被 repeated noise 误删。
 fn ends_like_sentence(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -259,7 +328,7 @@ fn ends_like_sentence(text : String) -> Bool {
 
 ///|
 fn is_probable_page_number_like(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -289,19 +358,19 @@ fn is_probable_page_number_like(text : String) -> Bool {
 
 ///|
 fn looks_like_simple_english_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
     return false
   }
 
-  let tail = t[5:].trim().to_string()
+  let tail = t[5:].trim().to_owned()
   tail != "" && tail.length() <= 4 && all_ascii_digits(tail)
 }
 
 ///|
 fn looks_like_simple_cjk_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("第") && (t.contains("页") || t.contains("⻚"))) {
     return false
@@ -312,26 +381,26 @@ fn looks_like_simple_cjk_page_label(text : String) -> Bool {
     .replace_all(old="页", new="")
     .replace_all(old="⻚", new="")
     .trim()
-    .to_string()
+    .to_owned()
 
   mid != "" && mid.length() <= 4 && all_ascii_digits(mid)
 }
 
 ///|
 fn looks_like_fraction_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   let parts : Array[String] = Array::new()
   for part in t.split("/") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
 
   if parts.length() != 2 {
     return false
   }
 
-  let left = parts[0].trim().to_string()
-  let right = parts[1].trim().to_string()
+  let left = parts[0].trim().to_owned()
+  let right = parts[1].trim().to_owned()
 
   left != "" &&
   right != "" &&
@@ -343,7 +412,7 @@ fn looks_like_fraction_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_dash_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.length() > 12 {
     return false
   }
@@ -355,12 +424,12 @@ fn looks_like_dash_page_label(text : String) -> Bool {
 
   let parts : Array[String] = Array::new()
   for part in normalized.split("-") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
 
   let mut non_empty = 0
   for p in parts {
-    let s = p.trim().to_string()
+    let s = p.trim().to_owned()
     if s != "" {
       if !all_ascii_digits(s) {
         return false
@@ -400,7 +469,7 @@ fn contains_string(xs : Array[String], x : String) -> Bool {
 ///|
 fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
   for i = 0; i < page.blocks.length(); i = i + 1 {
-    let t = page.blocks[i].text.trim().to_string()
+    let t = page.blocks[i].text.trim().to_owned()
     if t != "" {
       return i
     }
@@ -412,7 +481,7 @@ fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
 fn last_nonempty_block_index(page : PdfConvertPage) -> Int {
   let mut i = page.blocks.length() - 1
   while i >= 0 {
-    let t = page.blocks[i].text.trim().to_string()
+    let t = page.blocks[i].text.trim().to_owned()
     if t != "" {
       return i
     }

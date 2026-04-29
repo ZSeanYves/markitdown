@@ -73,9 +73,9 @@ fn debug_print_lines(
   )
 
   for i = 0; i < lines.length(); i = i + 1 {
-    let text = @model.line_text(lines[i]).trim().to_string()
+    let text = @model.line_text(lines[i]).trim().to_owned()
     let short = if text.length() > 80 {
-      text[:80].to_string() + "..."
+      text[:80].to_owned() + "..."
     } else {
       text
     }
@@ -98,17 +98,17 @@ fn debug_print_merge_reasons(
   for i = 0; i < lines.length() - 1; i = i + 1 {
     let left = lines[i]
     let right = lines[i + 1]
-    let left_text = @model.line_text(left).trim().to_string()
-    let right_text = @model.line_text(right).trim().to_string()
+    let left_text = @model.line_text(left).trim().to_owned()
+    let right_text = @model.line_text(right).trim().to_owned()
 
     let left_short = if left_text.length() > 40 {
-      left_text[:40].to_string() + "..."
+      left_text[:40].to_owned() + "..."
     } else {
       left_text
     }
 
     let right_short = if right_text.length() > 40 {
-      right_text[:40].to_string() + "..."
+      right_text[:40].to_owned() + "..."
     } else {
       right_text
     }
@@ -172,7 +172,7 @@ fn filter_noise_lines(
       continue
     }
 
-    if is_page_number_candidate(text.to_string()) {
+    if is_page_number_candidate(text.to_owned()) {
       //println("[drop-noise-line] " + text.to_string())
       continue
     }

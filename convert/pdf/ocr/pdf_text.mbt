@@ -2,7 +2,7 @@
 /// Strong heading candidate for block decisions.
 /// This must stay conservative.
 fn is_strong_heading_candidate(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -48,7 +48,7 @@ fn is_strong_heading_candidate(s : String) -> Bool {
 
 ///|
 fn looks_like_figure_or_table_caption(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t.has_prefix("Figure ") ||
   t.has_prefix("FIGURE ") ||
   t.has_prefix("Table ") ||
@@ -60,7 +60,7 @@ fn looks_like_figure_or_table_caption(s : String) -> Bool {
 
 ///|
 fn looks_like_intro_phrase(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t == "In conclusion," ||
   t == "In summary," ||
   t == "For example," ||
@@ -73,7 +73,7 @@ fn looks_like_intro_phrase(s : String) -> Bool {
 
 ///|
 fn looks_like_list_intro_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -107,7 +107,7 @@ fn append_line(buf : String, cur : String) -> String {
 
 ///|
 fn ends_like_sentence(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -150,7 +150,7 @@ fn drop_last_char(s : String) -> String {
   if n == 0 {
     return s
   }
-  String::from_array(cs[:n - 1].to_array())
+  String::from_array(cs[:n - 1].to_owned())
 }
 
 ///|
@@ -175,7 +175,7 @@ fn finalize_paragraph(s : String) -> String {
     }
   }
 
-  remove_cjk_inner_spaces(out.trim().to_string())
+  remove_cjk_inner_spaces(out.trim().to_owned())
 }
 
 ///|
@@ -199,7 +199,7 @@ fn finalize_heading(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|

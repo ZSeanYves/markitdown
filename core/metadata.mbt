@@ -677,7 +677,7 @@ fn indent_lines(s : String, spaces : Int) -> String {
 
   for i in 0..<lines.length() {
     out.write_string(prefix)
-    out.write_string(lines[i].to_string())
+    out.write_string(lines[i].to_owned())
     if i + 1 < lines.length() {
       out.write_string("\n")
     }

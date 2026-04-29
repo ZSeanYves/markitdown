@@ -106,7 +106,7 @@ fn collect_slide_image_rids(slide_xml : Bytes) -> Array[String] raise {
         match gt {
           None => break
           Some(gt0) => {
-            let tag = slide_xml[i0:gt0 + 1].to_bytes()
+            let tag = slide_xml[i0:gt0 + 1].to_owned()
             match read_attr_value_in_tag_bytes(tag, "r:embed") {
               Some(rid) => if rid != "" { out.push(rid) }
               None => ()

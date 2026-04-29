@@ -55,6 +55,8 @@ pub async fn parse_pdf(
 
     for page in doc1.pages {
       debug_print_convert_lines(page)
+      debug_print_convert_images(page)
+      debug_print_convert_annotations(page)
       debug_print_convert_blocks(page)
     }
 
@@ -106,7 +108,7 @@ fn is_effectively_empty_core_doc(doc : @model.PdfDocumentModel) -> Bool {
 
   for page in doc.pages {
     for block in page.text_blocks {
-      let t = @model.block_text(block).trim().to_string()
+      let t = @model.block_text(block).trim().to_owned()
       if t == "" {
         continue
       }

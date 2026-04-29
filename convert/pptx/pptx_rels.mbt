@@ -19,7 +19,7 @@ fn parse_presentation_slide_rids(xml : String) -> Array[String] raise {
           None => break
           Some(gt0) => {
             let tag = bs[i0:gt0 + 1]
-            match read_attr_value_in_tag_bytes(tag.to_bytes(), "r:id") {
+            match read_attr_value_in_tag_bytes(tag.to_owned(), "r:id") {
               Some(rid) => out.push(rid)
               None => ()
             }

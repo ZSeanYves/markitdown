@@ -38,6 +38,28 @@ The repository has now formed a stable workflow:
 
 **multi-format input -> unified IR -> Markdown output / asset export / regression validation**
 
+### Low-level Parsing Infrastructure Status
+
+The lower-level parsing substrate has also completed a first consolidation pass.
+
+Current `doc_parse/ooxml` infrastructure includes:
+
+* package query APIs for listing parts, reading bytes, and querying content types
+* typed OOXML relationships with internal/external target handling
+* package-level media asset indexing for `word/media`, `ppt/media`, and `xl/media`
+* lightweight `docProps/core.xml` and `docProps/app.xml` reading
+* read-only debug dump APIs for package inspection
+
+Current `doc_parse/pdf_core` infrastructure includes:
+
+* vendored `mbtpdf` backend integration
+* source-aware operator parsing and raw adapter layering
+* page geometry support including media box, inherited crop box, rotation, and raw page refs
+* raw image and annotation/link extraction
+* debug/inspect APIs that expose per-page geometry, refs, images, annotations, and text statistics
+
+These lower-level packages are parsing and inspection infrastructure. They support the upper-level `convert/*` recovery layer, but they do not directly define the final Markdown semantics on their own.
+
 ## Lightweight Provenance (Origin Metadata)
 
 The unified IR currently includes a lightweight provenance layer for tracing the source of both content blocks and exported assets:

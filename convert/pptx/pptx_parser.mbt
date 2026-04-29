@@ -255,7 +255,7 @@ fn infer_slide_image_captions(
 
   let candidates : Array[(Int, String)] = []
   for para in paras {
-    let t = para.text.trim().to_string()
+    let t = para.text.trim().to_owned()
     let is_non_bullet = match para.bullet_kind {
       None => true
       Some(_) => false
@@ -276,7 +276,7 @@ fn infer_slide_image_captions(
   // only for a single-image slide with exactly one short non-bullet paragraph.
   let nearby_candidates : Array[(Int, String)] = []
   for para in paras {
-    let t = para.text.trim().to_string()
+    let t = para.text.trim().to_owned()
     if t == "" {
       continue
     }
@@ -301,7 +301,7 @@ fn infer_slide_image_captions(
 
 ///|
 fn is_caption_like_text(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || t.to_array().length() > 120 {
     return false
   }
@@ -320,7 +320,7 @@ fn is_caption_like_text(s : String) -> Bool {
 
 ///|
 fn looks_like_sentence_like_body_text(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t.to_array().length() < 16 {
     return false
   }

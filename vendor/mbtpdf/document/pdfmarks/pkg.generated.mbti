@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/document/pdfmarks"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdftransform",
+  "bobzhang/mbtpdf/document/pdfdest",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Bookmark {
+  level : Int
+  text : String
+  target : @pdfdest.Destination
+  isopen : Bool
+  colour : (Double, Double, Double)
+  flags : Int
+}
+pub fn Bookmark::to_string(Self) -> String
+pub fn Bookmark::transform(Self, @pdf.Pdf, @pdftransform.TransformMatrix) -> Self raise
+
+pub struct PdfMarks {
+  pdf : @pdf.Pdf
+}
+pub fn PdfMarks::add_bookmarks(Self, Array[Bookmark]) -> @pdf.Pdf raise
+pub fn PdfMarks::new(@pdf.Pdf) -> Self
+pub fn PdfMarks::read_bookmarks(Self, preserve_actions? : Bool) -> Array[Bookmark] raise
+pub fn PdfMarks::remove_bookmarks(Self) -> @pdf.Pdf raise
+
+// Type aliases
+
+// Traits
+

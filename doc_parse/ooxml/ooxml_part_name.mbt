@@ -1,7 +1,7 @@
 ///|
 /// Normalize a package part name to the internal no-leading-slash form.
 fn normalize_part_name(part_name : String) -> String raise OoxmlError {
-  let t0 = part_name.trim().to_string()
+  let t0 = part_name.trim().to_owned()
   if t0 == "" {
     raise InvalidPartPath(part_name)
   }
@@ -11,7 +11,7 @@ fn normalize_part_name(part_name : String) -> String raise OoxmlError {
     raise InvalidPartPath(part_name)
   }
 
-  normalize_relative_path(t.to_string())
+  normalize_relative_path(t.to_owned())
 }
 
 ///|
@@ -19,7 +19,7 @@ fn normalize_part_name(part_name : String) -> String raise OoxmlError {
 fn normalize_source_part_for_resolve(
   source_part : String,
 ) -> String raise OoxmlError {
-  let t = source_part.trim().to_string()
+  let t = source_part.trim().to_owned()
   if t == "" || t == "/" {
     ""
   } else {
@@ -47,7 +47,7 @@ fn resolve_target(
     return target
   }
 
-  let target0 = target.trim().to_string()
+  let target0 = target.trim().to_owned()
   if target0 == "" {
     raise InvalidPartPath(target)
   }
@@ -82,13 +82,13 @@ fn split_dir_file(path : String) -> (String, String) {
   if slash < 0 {
     ("", path)
   } else {
-    (path[:slash].to_string(), path[slash + 1:].to_string())
+    (path[:slash].to_owned(), path[slash + 1:].to_owned())
   }
 }
 
 ///|
 fn normalize_relative_path(path : String) -> String raise OoxmlError {
-  let raw = path.trim().to_string()
+  let raw = path.trim().to_owned()
   if raw == "" {
     raise InvalidPartPath(path)
   }
@@ -97,7 +97,7 @@ fn normalize_relative_path(path : String) -> String raise OoxmlError {
   let stack : Array[String] = []
 
   for segv in parts {
-    let seg = segv.to_string()
+    let seg = segv.to_owned()
     if seg == "" || seg == "." {
       continue
     }
@@ -132,6 +132,6 @@ fn extension_of_part(path : String) -> String {
   if dot < 0 || dot + 1 >= chars.length() {
     ""
   } else {
-    path[dot + 1:].to_string()
+    path[dot + 1:].to_owned()
   }
 }

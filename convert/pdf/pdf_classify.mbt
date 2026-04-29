@@ -48,9 +48,12 @@ fn classify_convert_page_blocks(
 
   rebuild_page_objects({
     _page_index: page._page_index,
+    media_box: page.media_box,
+    crop_box: page.crop_box,
     lines: page.lines,
     blocks,
     images: page.images,
+    annotations: page.annotations,
     objects: page.objects,
   })
 }
@@ -62,7 +65,7 @@ fn classify_single_block_with_context(
   next : PdfConvertBlock?,
   max_heading : Int,
 ) -> PdfConvertBlock {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
 
   if should_never_be_heading(text) {
     return match block.kind {
@@ -103,7 +106,7 @@ fn classify_single_block_with_context(
 
 ///|
 fn should_never_be_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return true
@@ -117,7 +120,15 @@ fn should_never_be_heading(text : String) -> Bool {
     return true
   }
 
+  if looks_like_list_item_sentence(t) {
+    return true
+  }
+
   if looks_like_colon_label(t) {
+    return true
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return true
   }
 
@@ -144,7 +155,7 @@ fn should_promote_paragraph_to_heading(
   text : String,
   max_heading : Int,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -162,7 +173,15 @@ fn should_promote_paragraph_to_heading(
     return false
   }
 
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
   if looks_like_colon_label(t) {
+    return false
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -197,7 +216,7 @@ fn should_promote_paragraph_to_heading(
 
 ///|
 fn should_be_noise(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   is_page_label_like(t)
 }
 
@@ -213,14 +232,42 @@ fn copy_block_with_kind(
     text: block.text,
     line_start: block.line_start,
     line_end: block.line_end,
+    source_block_index: block.source_block_index,
+    source_block_line_count: block.source_block_line_count,
+    source_block_kind: block.source_block_kind,
+    source_block_bbox: block.source_block_bbox,
+    source_block_dominant_font_size: block.source_block_dominant_font_size,
+    source_block_dominant_font_name: block.source_block_dominant_font_name,
     is_heading_candidate: block.is_heading_candidate,
     is_noise_candidate: block.is_noise_candidate,
+    is_header_footer_candidate: block.is_header_footer_candidate,
+    is_artifact_candidate: block.is_artifact_candidate,
+    is_caption_candidate: block.is_caption_candidate,
+    is_table_cell_candidate: block.is_table_cell_candidate,
+    dominant_language: block.dominant_language,
+    writing_direction: block.writing_direction,
     _bbox: block._bbox,
     dominant_font_size: block.dominant_font_size,
     dominant_font_name: block.dominant_font_name,
     top_y: block.top_y,
     left_x: block.left_x,
     line_count: block.line_count,
+    first_indent_left: block.first_indent_left,
+    last_indent_left: block.last_indent_left,
+    first_indent_right: block.first_indent_right,
+    last_indent_right: block.last_indent_right,
+    first_alignment_hint: block.first_alignment_hint,
+    last_alignment_hint: block.last_alignment_hint,
+    first_line_gap_before: block.first_line_gap_before,
+    last_line_gap_after: block.last_line_gap_after,
+    first_line_height: block.first_line_height,
+    last_line_height: block.last_line_height,
+    first_baseline_y: block.first_baseline_y,
+    last_baseline_y: block.last_baseline_y,
+    first_is_wrapped_candidate: block.first_is_wrapped_candidate,
+    last_is_wrapped_candidate: block.last_is_wrapped_candidate,
+    first_is_same_paragraph_with_prev_candidate: block.first_is_same_paragraph_with_prev_candidate,
+    last_is_same_paragraph_with_prev_candidate: block.last_is_same_paragraph_with_prev_candidate,
   }
 }
 
@@ -233,7 +280,7 @@ fn should_keep_heading(
   next : PdfConvertBlock?,
   max_heading : Int,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -251,7 +298,15 @@ fn should_keep_heading(
     return false
   }
 
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
   if looks_like_colon_label(t) {
+    return false
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -318,7 +373,7 @@ fn should_demote_heading(
   text : String,
   next : PdfConvertBlock?,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return true
@@ -348,7 +403,15 @@ fn should_demote_heading(
     return true
   }
 
+  if looks_like_list_item_sentence(t) {
+    return true
+  }
+
   if looks_like_colon_label(t) {
+    return true
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return true
   }
 
@@ -400,7 +463,7 @@ fn is_too_long_for_heading(text : String) -> Bool {
 ///|
 /// 明显像正文句子。
 fn is_obvious_body_sentence(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if ends_with_strong_sentence_punct(t) {
     return true
@@ -416,7 +479,7 @@ fn is_obvious_body_sentence(text : String) -> Bool {
 ///|
 /// 第一版高置信标题文本。
 fn looks_like_short_heading_text(text : String, max_heading : Int) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -447,7 +510,7 @@ fn looks_like_short_heading_text(text : String, max_heading : Int) -> Bool {
 
 ///|
 fn looks_like_page_section_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -472,7 +535,7 @@ fn looks_like_page_section_heading(text : String) -> Bool {
 ///|
 /// 章节/小节样式标题。
 fn looks_like_section_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   t.has_prefix("第") ||
   starts_with_digit_section(t) ||
@@ -519,7 +582,7 @@ fn looks_like_layout_heading_candidate(
   next : PdfConvertBlock?,
   text : String,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -545,7 +608,10 @@ fn looks_like_layout_heading_candidate(
     return false
   }
 
-  if looks_like_bullet_item(t) || looks_like_colon_label(t) {
+  if looks_like_bullet_item(t) ||
+    looks_like_list_item_sentence(t) ||
+    looks_like_colon_label(t) ||
+    looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -578,7 +644,7 @@ fn looks_like_layout_heading_candidate(
 
 ///|
 fn starts_with_digit_section(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -598,7 +664,7 @@ fn starts_with_digit_section(text : String) -> Bool {
 
 ///|
 fn starts_with_english_section_word(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_prefix("Chapter ") ||
   t.has_prefix("Section ") ||
   t.has_prefix("Part ") ||
@@ -610,7 +676,7 @@ fn starts_with_english_section_word(text : String) -> Bool {
 
 ///|
 fn looks_like_short_english_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" || t.length() > 40 {
     return false
@@ -649,7 +715,7 @@ fn looks_like_short_english_heading(text : String) -> Bool {
 
 ///|
 fn english_word_count(text : String) -> Int {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return 0
   }
@@ -673,7 +739,7 @@ fn english_word_count(text : String) -> Int {
 
 ///|
 fn looks_like_short_cjk_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -709,7 +775,7 @@ fn looks_like_short_cjk_heading(text : String) -> Bool {
 ///|
 /// 页标签样式，当前都不保留成标题。
 fn is_page_label_like(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   t == "Page 1" ||
   t == "Page 2" ||
@@ -725,7 +791,7 @@ fn is_page_label_like(text : String) -> Bool {
 ///|
 /// 单个短噪声样式。
 fn is_single_token_noise_like(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   t == "OK" || t == "ok" || t == "OK." || t == "OK!"
 }
@@ -733,26 +799,99 @@ fn is_single_token_noise_like(text : String) -> Bool {
 ///|
 /// 标题尾巴带短噪声。
 fn ends_with_noise_tail(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(" OK") || t.has_suffix(" ok")
 }
 
 ///|
 fn looks_like_bullet_item(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t == "•" || t.has_prefix("•") || t.has_prefix("- ") || t.has_prefix("* ")
+}
+
+///|
+fn looks_like_list_item_sentence(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if looks_like_bullet_item(t) {
+    return true
+  }
+
+  let arr = t.to_array()
+  let mut i = 0
+  let mut has_digit = false
+
+  while i < arr.length() {
+    let c = arr[i]
+    if is_digit_char(c) {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if has_digit && i + 1 < arr.length() {
+    let c = arr[i]
+    if (c == '.' || c == '、' || c == ')' || c == '）') && arr[i + 1] == ' ' {
+      return true
+    }
+  }
+
+  false
 }
 
 ///|
 /// 看起来像“Key points:”这类 label，而不是标题。
 fn looks_like_colon_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(":") || t.has_suffix("：")
 }
 
 ///|
+fn looks_like_side_marker_label_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" || !t.contains(" ") || !t.contains("-") {
+    return false
+  }
+
+  let mut first = ""
+  for sv in t.split(" ") {
+    let w = sv.trim().to_owned()
+    if w != "" {
+      first = w
+      break
+    }
+  }
+
+  if first == "" {
+    return false
+  }
+
+  if first.has_prefix("LEFT-") || first.has_prefix("RIGHT-") {
+    return true
+  }
+
+  let mut has_upper = false
+  for c in first.to_array() {
+    let ok = (c >= 'A' && c <= 'Z') || is_digit_char(c) || c == '-'
+    if !ok {
+      return false
+    }
+    if c >= 'A' && c <= 'Z' {
+      has_upper = true
+    }
+  }
+
+  has_upper && first.contains("-")
+}
+
+///|
 fn looks_like_numbered_body_sentence(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -788,7 +927,7 @@ fn looks_like_numbered_body_sentence(text : String) -> Bool {
 
 ///|
 fn starts_with_tight_numbered_body_prefix(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   let arr = t.to_array()
 
   if arr.length() < 3 {
@@ -823,7 +962,7 @@ fn contains_body_like_phrase(text : String) -> Bool {
 
 ///|
 fn ends_with_strong_sentence_punct(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(".") ||
   t.has_suffix("。") ||
   t.has_suffix("!") ||
@@ -834,7 +973,7 @@ fn ends_with_strong_sentence_punct(text : String) -> Bool {
 
 ///|
 fn starts_with_upper_ascii(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   let arr = t.to_array()
   if arr.is_empty() {
     return false
@@ -848,7 +987,7 @@ fn starts_with_upper_ascii(text : String) -> Bool {
 fn next_block_looks_like_body(next : PdfConvertBlock?) -> Bool {
   match next {
     Some(b) => {
-      let t = b.text.trim().to_string()
+      let t = b.text.trim().to_owned()
       if t == "" {
         return false
       }

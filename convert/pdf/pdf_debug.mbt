@@ -3,11 +3,13 @@ fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
   let mut page_count = 0
   let mut line_count = 0
   let mut block_count = 0
+  let mut annotation_count = 0
 
   for page in doc.pages {
     page_count = page_count + 1
     line_count = line_count + page.lines.length()
     block_count = block_count + page.blocks.length()
+    annotation_count = annotation_count + page.annotations.length()
   }
 
   "PdfConvertDocument(" +
@@ -19,6 +21,9 @@ fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
   ", " +
   "blocks=" +
   block_count.to_string() +
+  ", " +
+  "annotations=" +
+  annotation_count.to_string() +
   ")"
 }
 
@@ -53,6 +58,74 @@ fn debug_print_convert_lines(page : PdfConvertPage) -> Unit {
 }
 
 ///|
+fn debug_print_convert_images(page : PdfConvertPage) -> Unit {
+  println(
+    "pdf_images/debug page=" +
+    page._page_index.to_string() +
+    " convert_images=" +
+    page.images.length().to_string(),
+  )
+
+  for image in page.images {
+    println(
+      "  [image " +
+      image._image_index.to_string() +
+      "] path=" +
+      image.path +
+      " source_image_id=" +
+      image.source_image_id +
+      " image_filter=" +
+      opt_str(image.image_filter) +
+      " object_ref=" +
+      opt_str(image.object_ref) +
+      " inline_image=" +
+      image.inline_image.to_string() +
+      " colorspace=" +
+      opt_str(image.colorspace) +
+      " bits_per_component=" +
+      opt_int(image.bits_per_component) +
+      " source_refs_count=" +
+      image.source_refs_count.to_string() +
+      " _bbox=" +
+      rect_str(image._bbox),
+    )
+  }
+}
+
+///|
+fn debug_print_convert_annotations(page : PdfConvertPage) -> Unit {
+  println(
+    "pdf_annotations/debug page=" +
+    page._page_index.to_string() +
+    " convert_annotations=" +
+    page.annotations.length().to_string(),
+  )
+
+  for annotation in page.annotations {
+    println(
+      "  [annotation " +
+      annotation._annotation_index.to_string() +
+      "] subtype=" +
+      annotation.subtype +
+      " uri=" +
+      opt_str(annotation.uri) +
+      " dest=" +
+      opt_str(annotation.dest) +
+      " object_ref=" +
+      opt_str(annotation.object_ref) +
+      " bbox=" +
+      rect_str(annotation._bbox) +
+      " contents=" +
+      opt_str(annotation.contents) +
+      " subject=" +
+      opt_str(annotation.subject) +
+      " color=" +
+      opt_color(annotation.color),
+    )
+  }
+}
+
+///|
 fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
   println(
     "pdf_blocks/debug page=" +
@@ -74,6 +147,20 @@ fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
       opt_f64(block.dominant_font_size) +
       " font_name=" +
       opt_str(block.dominant_font_name) +
+      " source_block_index=" +
+      block.source_block_index.to_string() +
+      " source_block_line_count=" +
+      block.source_block_line_count.to_string() +
+      " source_block_kind=" +
+      core_block_kind_str(block.source_block_kind) +
+      " source_block_bbox=" +
+      rect_str(block.source_block_bbox) +
+      " core_flags=" +
+      core_flags_str(block) +
+      " dominant_language=" +
+      opt_str(block.dominant_language) +
+      " writing_direction=" +
+      writing_direction_str(block.writing_direction) +
       " top_y=" +
       block.top_y.to_string() +
       " left_x=" +
@@ -101,6 +188,29 @@ fn opt_str(v : String?) -> String {
 }
 
 ///|
+fn opt_int(v : Int?) -> String {
+  match v {
+    Some(x) => x.to_string()
+    None => "None"
+  }
+}
+
+///|
+fn opt_color(v : PdfConvertColor?) -> String {
+  match v {
+    Some(c) =>
+      "(" +
+      c.r.to_string() +
+      "," +
+      c.g.to_string() +
+      "," +
+      c.b.to_string() +
+      ")"
+    None => "None"
+  }
+}
+
+///|
 fn rect_str(r : @model.PdfRect) -> String {
   "(" +
   r.x0.to_string() +
@@ -120,6 +230,47 @@ fn block_kind_str(kind : PdfConvertBlockKind) -> String {
     PdfConvertBlockKind::Paragraph => "Paragraph"
     PdfConvertBlockKind::Noise => "Noise"
   }
+}
+
+///|
+fn core_block_kind_str(kind : @model.PdfTextBlockKind) -> String {
+  match kind {
+    @model.PdfTextBlockKind::Text => "Text"
+    @model.PdfTextBlockKind::HeadingCandidate => "HeadingCandidate"
+    @model.PdfTextBlockKind::ListCandidate => "ListCandidate"
+    @model.PdfTextBlockKind::CaptionCandidate => "CaptionCandidate"
+    @model.PdfTextBlockKind::HeaderFooterCandidate => "HeaderFooterCandidate"
+    @model.PdfTextBlockKind::TableCellCandidate => "TableCellCandidate"
+    @model.PdfTextBlockKind::FormulaCandidate => "FormulaCandidate"
+    @model.PdfTextBlockKind::Unknown => "Unknown"
+  }
+}
+
+///|
+fn writing_direction_str(dir : @model.PdfWritingDirection) -> String {
+  match dir {
+    @model.PdfWritingDirection::LeftToRight => "LeftToRight"
+    @model.PdfWritingDirection::RightToLeft => "RightToLeft"
+    @model.PdfWritingDirection::TopToBottom => "TopToBottom"
+    @model.PdfWritingDirection::BottomToTop => "BottomToTop"
+    @model.PdfWritingDirection::Unknown => "Unknown"
+  }
+}
+
+///|
+fn core_flags_str(block : PdfConvertBlock) -> String {
+  "heading=" +
+  block.is_heading_candidate.to_string() +
+  ",page=" +
+  block.is_noise_candidate.to_string() +
+  ",header=" +
+  block.is_header_footer_candidate.to_string() +
+  ",artifact=" +
+  block.is_artifact_candidate.to_string() +
+  ",caption=" +
+  block.is_caption_candidate.to_string() +
+  ",table=" +
+  block.is_table_cell_candidate.to_string()
 }
 
 ///|
@@ -146,9 +297,9 @@ fn debug_print_page_edge_blocks(doc : PdfConvertDocument) -> Unit {
 
 ///|
 fn edge_block_debug_str(block : PdfConvertBlock) -> String {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
   let short = if text.length() > 100 {
-    text[:100].to_string() + "..."
+    text[:100].to_owned() + "..."
   } else {
     text
   }
@@ -184,8 +335,8 @@ fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
       continue
     }
 
-    let first = page.blocks[0].text.trim().to_string()
-    let last = page.blocks[page.blocks.length() - 1].text.trim().to_string()
+    let first = page.blocks[0].text.trim().to_owned()
+    let last = page.blocks[page.blocks.length() - 1].text.trim().to_owned()
 
     if first != "" {
       edge_texts.push(first)
@@ -214,7 +365,7 @@ fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
 
     if count >= 2 {
       let short = if cur.length() > 120 {
-        cur[:120].to_string() + "..."
+        cur[:120].to_owned() + "..."
       } else {
         cur
       }
@@ -243,7 +394,7 @@ fn debug_print_header_footer_like_blocks(doc : PdfConvertDocument) -> Unit {
 
 ///|
 fn looks_like_debug_edge_noise_candidate(block : PdfConvertBlock) -> Bool {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
 
   if text == "" {
     return false

@@ -16,7 +16,7 @@ fn normalize_doc_part_target(target : String) -> String {
   }
 
   if target.has_prefix("/") {
-    return target[1:].to_string()
+    return target[1:].to_owned()
   }
 
   if target.has_prefix("word/") {

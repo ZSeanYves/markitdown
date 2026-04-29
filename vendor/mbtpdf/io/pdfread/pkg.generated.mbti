@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/io/pdfread"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "bobzhang/mbtpdf/core/pdfio",
+  "bobzhang/mbtpdf/crypto/pdfcrypt",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PdfRead {
+  read_debug : Bool
+  error_on_malformed : Bool
+  debug_always_treat_malformed : Bool
+  logger : (String) -> Unit
+}
+pub fn PdfRead::is_linearized(Self, @pdfio.Input) -> Bool
+pub fn PdfRead::new(read_debug? : Bool, error_on_malformed? : Bool, debug_always_treat_malformed? : Bool, logger? : (String) -> Unit) -> Self
+pub fn PdfRead::pdf_of_input(Self, revision? : Int, String?, String?, @pdfio.Input) -> @pdf.Pdf raise
+pub fn PdfRead::pdf_of_input_lazy(Self, revision? : Int, String?, String?, @pdfio.Input) -> @pdf.Pdf raise
+pub fn PdfRead::permissions(Self, @pdf.Pdf) -> Array[@pdfcrypt.Permission]
+pub fn PdfRead::revisions(Self, @pdfio.Input) -> Int raise
+pub fn PdfRead::what_encryption(Self, @pdf.Pdf) -> @pdfcrypt.EncryptionMethod?
+
+// Type aliases
+
+// Traits
+

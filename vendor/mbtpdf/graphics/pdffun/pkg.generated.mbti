@@ -1,0 +1,105 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/mbtpdf/graphics/pdffun"
+
+import {
+  "bobzhang/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror BadFunctionEvaluation {
+  Msg(String)
+}
+
+// Types and methods
+pub(all) enum Calculator {
+  If(Array[Calculator])
+  IfElse(Array[Calculator], Array[Calculator])
+  Bool(Bool)
+  Float(Double)
+  Int(Int)
+  Abs
+  Add
+  Atan
+  Ceiling
+  Cos
+  Cvi
+  Cvr
+  Div
+  Exp
+  Floor
+  Idiv
+  Ln
+  Log
+  Mod
+  Mul
+  Neg
+  Round
+  Sin
+  Sqrt
+  Sub
+  Truncate
+  And
+  Bitshift
+  Eq
+  Ge
+  Gt
+  Le
+  Lt
+  Ne
+  Not
+  Or
+  Xor
+  Copy
+  Exch
+  Pop
+  Dup
+  Index
+  Roll
+} derive(@debug.Debug)
+pub fn Calculator::to_string(Array[Self]) -> String
+
+pub(all) struct Interpolation {
+  c0 : Array[Double]
+  c1 : Array[Double]
+  n : Double
+} derive(@debug.Debug)
+
+pub(all) struct PdfFunction {
+  func : PdfFunctionKind
+  domain : Array[Double]
+  range : Array[Double]?
+} derive(@debug.Debug)
+pub fn PdfFunction::eval(Self, Array[Double]) -> Array[Double] raise BadFunctionEvaluation
+pub fn PdfFunction::parse(@pdf.Pdf, @pdf.PdfObject) -> Self raise
+pub fn PdfFunction::print(Self) -> Unit
+pub fn PdfFunction::to_pdf_object(Self, @pdf.Pdf) -> @pdf.PdfObject
+
+pub(all) enum PdfFunctionKind {
+  Interpolation(Interpolation)
+  Stitching(Stitching)
+  Sampled(Sampled)
+  Calculator(Array[Calculator])
+} derive(@debug.Debug)
+
+pub(all) struct Sampled {
+  size : Array[Int]
+  order : Int
+  encode : Array[Double]
+  decode : Array[Double]
+  bps : Int
+  samples : Array[Int]
+} derive(@debug.Debug)
+
+pub(all) struct Stitching {
+  functions : Array[PdfFunction]
+  bounds : Array[Double]
+  stitch_encode : Array[Double]
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
+

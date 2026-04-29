@@ -387,7 +387,7 @@ fn subview(
   if start < 0 || end_ < start || end_ > bytes.length() {
     raise UnexpectedEOF(context)
   }
-  bytes[start:end_].to_bytes()
+  bytes[start:end_].to_owned()
 }
 
 ///|

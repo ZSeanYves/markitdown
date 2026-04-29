@@ -31,6 +31,72 @@ async fn open_pdf_model(path : String) -> @model.PdfDocumentModel {
 }
 
 ///|
+async fn open_pdf_summary(path : String) -> String {
+  let resolved = resolve_sample_path(path)
+  match
+    @api.extract_document_summary(resolved, @api.default_pdf_core_config()) {
+    Ok(summary) => summary
+    Err(e) => fail("extract_document_summary failed: " + e.to_string())
+  }
+}
+
+///|
+async fn open_pdf_block_debug(path : String) -> String {
+  let resolved = resolve_sample_path(path)
+  match
+    @api.extract_document_block_debug(resolved, @api.default_pdf_core_config()) {
+    Ok(debug_dump) => debug_dump
+    Err(e) => fail("extract_document_block_debug failed: " + e.to_string())
+  }
+}
+
+///|
+fn ensure_test_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+async fn write_link_annotation_pdf(path : String) -> Unit {
+  let pdf0 = @pdf.Pdf::empty()
+  let page = @pdfpage.Page::custom(
+    Array([Real(0.0), Real(0.0), Real(200.0), Real(200.0)]),
+  )
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  let refs = pdf.page_reference_numbers()
+  let annot : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(10.0), Real(20.0), Real(110.0), Real(40.0)])),
+    ("/Contents", String("Example link")),
+    ("/Subj", String("URI link")),
+    (
+      "/A",
+      Dictionary([
+        ("/S", Name(@pdf.PdfName::of_string("/URI"))),
+        ("/URI", String("https://example.com/v3")),
+      ]),
+    ),
+  ])
+  let annot_num = pdf.addobj(annot)
+  let page_obj = pdf.lookup_obj(refs[0])
+  let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
+  pdf.addobj_given_num((refs[0], updated_page))
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn create_link_annotation_fixture() -> String {
+  let dir = "tmp/pdf_core"
+  ensure_test_dir("tmp")
+  ensure_test_dir(dir)
+  let path = dir + "/link_annotation.pdf"
+  write_link_annotation_pdf(path)
+  path
+}
+
+///|
 /// 断言 raw 层最小可用。
 fn assert_raw_readable(raw : @raw.RawPdfDocumentExtract) -> Unit raise {
   if raw.page_count <= 0 {
@@ -139,6 +205,30 @@ fn assert_model_readable(doc : @model.PdfDocumentModel) -> Unit raise {
         page.page_index.to_string(),
       )
     }
+  }
+}
+
+///|
+fn assert_valid_rect(rect : @model.PdfRect, label : String) -> Unit raise {
+  if !@model.is_rect_valid(rect) {
+    fail(label + " rect should be valid")
+  }
+  if @model.rect_width(rect) <= 0.0 {
+    fail(label + " rect width should be > 0")
+  }
+  if @model.rect_height(rect) <= 0.0 {
+    fail(label + " rect height should be > 0")
+  }
+}
+
+///|
+fn assert_contains_text(
+  text : String,
+  needle : String,
+  label : String,
+) -> Unit raise {
+  if !text.contains(needle) {
+    fail(label + " should contain: " + needle)
   }
 }
 
@@ -386,7 +476,7 @@ fn _print_span_sources(
     let span = spans[i]
     let text = span.text
     let text_short = if text.length() > 30 {
-      text[:30].to_string() + "..."
+      text[:30].to_owned() + "..."
     } else {
       text
     }
@@ -434,7 +524,7 @@ fn _print_line_sources(
     let line = lines[i]
     let text = @model.line_text(line)
     let text_short = if text.length() > 30 {
-      text[:30].to_string() + "..."
+      text[:30].to_owned() + "..."
     } else {
       text
     }
@@ -505,6 +595,147 @@ async test "pdf core smoke works on text_simple sample" {
   if !text.contains("English") {
     fail("text_simple page text should contain 'English'")
   }
+}
+
+///|
+async test "pdf core page geometry and source refs are populated" {
+  let raw = open_raw_pdf("samples/main_process/pdf/text_simple.pdf")
+  assert_raw_readable(raw)
+  let raw_page = raw.pages[0]
+  match raw_page.raw_page_ref {
+    Some(r) =>
+      if r.obj_num <= 0 {
+        fail("raw page object number should be > 0")
+      }
+    None => fail("raw page ref should be available for text_simple")
+  }
+  match raw_page.media_box {
+    Some(rect) => assert_valid_rect(rect, "raw media_box")
+    None => fail("raw media_box should be available for text_simple")
+  }
+  if raw_page.rotation != 0 {
+    fail("text_simple rotation should be stable at 0")
+  }
+  if raw_page.raw_content_stream_refs.is_empty() {
+    fail("text_simple should expose indirect content stream refs")
+  }
+
+  let doc = open_pdf_model("samples/main_process/pdf/text_simple.pdf")
+  assert_model_readable(doc)
+  let page = doc.pages[0]
+  assert_valid_rect(page.boxes.media_box, "model media_box")
+  if page.rotation != raw_page.rotation {
+    fail("model rotation should match raw rotation")
+  }
+  if page.raw_content_stream_refs.length() !=
+    raw_page.raw_content_stream_refs.length() {
+    fail("model raw_content_stream_refs should be passed through")
+  }
+}
+
+///|
+async test "pdf core extracts URI link annotations" {
+  let path = create_link_annotation_fixture()
+  let raw = open_raw_pdf(path)
+  let raw_annotations = raw.pages[0].annotations
+  if raw_annotations.length() != 1 {
+    fail("expected one raw annotation")
+  }
+  let raw_annot = raw_annotations[0]
+  if raw_annot.subtype != "/Link" {
+    fail("expected raw annotation subtype /Link")
+  }
+  match raw_annot.bbox {
+    Some(rect) => {
+      assert_eq(rect.x0, 10.0)
+      assert_eq(rect.y0, 20.0)
+      assert_eq(rect.x1, 110.0)
+      assert_eq(rect.y1, 40.0)
+    }
+    None => fail("expected raw annotation bbox")
+  }
+  match raw_annot.uri {
+    Some("https://example.com/v3") => ()
+    _ => fail("expected raw annotation URI")
+  }
+  match raw_annot.object_ref {
+    Some(r) => if r.obj_num <= 0 { fail("expected raw annotation object ref") }
+    None => fail("expected raw annotation object ref")
+  }
+
+  let doc = open_pdf_model(path)
+  let annotations = doc.pages[0].annotations
+  if annotations.length() != 1 {
+    fail("expected one model annotation")
+  }
+  let annot = annotations[0]
+  if annot.subtype != "/Link" {
+    fail("expected model annotation subtype /Link")
+  }
+  assert_eq(annot.bbox.x0, 10.0)
+  assert_eq(annot.bbox.y0, 20.0)
+  match annot.uri {
+    Some("https://example.com/v3") => ()
+    _ => fail("expected model annotation URI")
+  }
+  match annot.object_ref {
+    Some(obj_ref) =>
+      if !obj_ref.contains(" 0 R") {
+        fail("expected model annotation object ref")
+      }
+    None => fail("expected model annotation object ref")
+  }
+}
+
+///|
+async test "pdf core summary includes version and page count" {
+  let summary = open_pdf_summary("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(summary, "PdfDocumentSummary(", "summary header")
+  assert_contains_text(summary, "version=", "summary version")
+  assert_contains_text(summary, "page_count=", "summary page count")
+  assert_contains_text(summary, "blocks=", "summary block count")
+}
+
+///|
+async test "pdf core block debug includes page geometry and refs" {
+  let dump = open_pdf_block_debug("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(dump, "PdfDocumentDebug(", "debug header")
+  assert_contains_text(dump, "version=", "debug version")
+  assert_contains_text(dump, "page_count=", "debug page count")
+  assert_contains_text(dump, "[page 0]", "debug page header")
+  assert_contains_text(dump, "raw_page_ref=", "debug raw page ref")
+  assert_contains_text(dump, "media_box=", "debug media_box")
+  assert_contains_text(dump, "crop_box=", "debug crop_box")
+  assert_contains_text(dump, "rotation=0", "debug rotation")
+  assert_contains_text(
+    dump, "raw_content_stream_refs=[", "debug content stream refs",
+  )
+  assert_contains_text(dump, "stats: text_blocks=", "debug page stats")
+  assert_contains_text(dump, "lines=", "debug line stats")
+  assert_contains_text(dump, "spans=", "debug span stats")
+}
+
+///|
+async test "pdf core block debug includes annotation details" {
+  let path = create_link_annotation_fixture()
+  let dump = open_pdf_block_debug(path)
+  assert_contains_text(dump, "annotations=1", "debug annotation count")
+  assert_contains_text(dump, "[annotation 0]", "debug annotation item")
+  assert_contains_text(dump, "subtype=/Link", "debug annotation subtype")
+  assert_contains_text(
+    dump, "uri=https://example.com/v3", "debug annotation uri",
+  )
+  assert_contains_text(dump, "object_ref=", "debug annotation object_ref")
+}
+
+///|
+async test "pdf core block debug includes image details" {
+  let dump = open_pdf_block_debug("samples/assets/pdf/pdf_image_xobject.pdf")
+  assert_contains_text(dump, "images=", "debug image count")
+  assert_contains_text(dump, "[image 0]", "debug image item")
+  assert_contains_text(dump, "width=", "debug image width")
+  assert_contains_text(dump, "height=", "debug image height")
+  assert_contains_text(dump, "object_ref=", "debug image object_ref")
 }
 
 ///|

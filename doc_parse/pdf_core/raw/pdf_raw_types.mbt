@@ -97,10 +97,10 @@ pub struct RawTextOp {
 ///|
 /// 原始图片负载类型。
 pub(all) enum RawImagePayload {
-  Jpeg(@pdfio.MutableBytes)
-  Jpeg2000(@pdfio.MutableBytes)
-  Jbig2(@pdfio.MutableBytes, Int?)
-  RawRgb24(@pdfio.MutableBytes)
+  Jpeg(Array[Byte])
+  Jpeg2000(Array[Byte])
+  Jbig2(Array[Byte], Int?)
+  RawRgb24(Array[Byte])
 }
 
 ///|
@@ -143,6 +143,9 @@ pub(all) struct RawAnnotationInfo {
 pub struct RawPdfPageExtract {
   page_index : Int
   raw_page_ref : RawPdfRef?
+  media_box : @model.PdfRect?
+  crop_box : @model.PdfRect?
+  rotation : Int
   text_ops : Array[RawTextOp]
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]
