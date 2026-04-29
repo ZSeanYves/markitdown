@@ -7,8 +7,8 @@ fn explain_should_merge_lines(
   left : @model.PdfTextLine,
   right : @model.PdfTextLine,
 ) -> String {
-  let lt = @model.line_text(left).trim().to_string()
-  let rt = @model.line_text(right).trim().to_string()
+  let lt = @model.line_text(left).trim().to_owned()
+  let rt = @model.line_text(right).trim().to_owned()
 
   if lt == "" || rt == "" {
     return "split: empty line"
@@ -48,8 +48,8 @@ fn should_merge_lines(
   left : @model.PdfTextLine,
   right : @model.PdfTextLine,
 ) -> Bool {
-  let lt = @model.line_text(left).trim().to_string()
-  let rt = @model.line_text(right).trim().to_string()
+  let lt = @model.line_text(left).trim().to_owned()
+  let rt = @model.line_text(right).trim().to_owned()
 
   if lt == "" || rt == "" {
     return false
@@ -138,7 +138,7 @@ fn looks_like_bullet_line_text(text : String) -> Bool {
 
 ///|
 fn looks_like_paragraph_intro_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -147,7 +147,7 @@ fn looks_like_paragraph_intro_line(text : String) -> Bool {
     return false
   }
 
-  let core = t[:t.length() - 1].trim().to_string()
+  let core = t[:t.length() - 1].trim().to_owned()
   let lower = core.to_lower()
 
   if lower == "key points" || core == "要点" {
@@ -185,8 +185,8 @@ fn lines_look_like_same_paragraph(
     return false
   }
 
-  if looks_like_heading_line(@model.line_text(left).trim().to_string()) ||
-    looks_like_heading_line(@model.line_text(right).trim().to_string()) {
+  if looks_like_heading_line(@model.line_text(left).trim().to_owned()) ||
+    looks_like_heading_line(@model.line_text(right).trim().to_owned()) {
     return false
   }
 
@@ -283,8 +283,8 @@ fn should_join_same_line(
 
       let current_text = normalize_text(spans_text(current_spans))
         .trim()
-        .to_string()
-      let right_text = normalize_text(right.text).trim().to_string()
+        .to_owned()
+      let right_text = normalize_text(right.text).trim().to_owned()
 
       // source/op 太远时，只有少数高置信例外允许继续并
       if !source_op_is_close(a, b) && !content_order_is_close(a, b) {
@@ -296,8 +296,8 @@ fn should_join_same_line(
       }
       let current_text = normalize_text(spans_text(current_spans))
         .trim()
-        .to_string()
-      let right_text = normalize_text(right.text).trim().to_string()
+        .to_owned()
+      let right_text = normalize_text(right.text).trim().to_owned()
 
       // 先看版面：不像同一视觉行，直接断开
       if looks_like_new_visual_chunk(current_spans, right) {
@@ -330,7 +330,7 @@ fn should_join_same_line(
 
 ///|
 fn is_page_number_candidate(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -365,19 +365,19 @@ fn is_page_number_candidate(text : String) -> Bool {
 
 ///|
 fn looks_like_simple_english_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
     return false
   }
 
-  let tail = t[5:].trim().to_string()
+  let tail = t[5:].trim().to_owned()
   tail != "" && tail.length() <= 4 && all_ascii_digits(tail)
 }
 
 ///|
 fn looks_like_simple_cjk_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("第") && (t.has_suffix("页") || t.has_suffix("⻚"))) {
     return false
@@ -388,26 +388,26 @@ fn looks_like_simple_cjk_page_label(text : String) -> Bool {
     .replace_all(old="页", new="")
     .replace_all(old="⻚", new="")
     .trim()
-    .to_string()
+    .to_owned()
 
   mid != "" && mid.length() <= 4 && all_ascii_digits(mid)
 }
 
 ///|
 fn looks_like_fraction_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   let parts : Array[String] = Array::new()
   for part in t.split("/") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
 
   if parts.length() != 2 {
     return false
   }
 
-  let left = parts[0].trim().to_string()
-  let right = parts[1].trim().to_string()
+  let left = parts[0].trim().to_owned()
+  let right = parts[1].trim().to_owned()
 
   left != "" &&
   right != "" &&
@@ -419,7 +419,7 @@ fn looks_like_fraction_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_page_prefixed_section_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   let lt = t.to_lower()
 
   if !lt.has_prefix("page ") {
@@ -428,7 +428,7 @@ fn looks_like_page_prefixed_section_heading(text : String) -> Bool {
 
   let words : Array[String] = Array::new()
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -452,7 +452,7 @@ fn looks_like_page_prefixed_section_heading(text : String) -> Bool {
 
 ///|
 fn looks_like_dash_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.length() > 12 {
     return false
   }
@@ -466,7 +466,7 @@ fn looks_like_dash_page_label(text : String) -> Bool {
   let mut non_empty = 0
 
   for p in parts {
-    let s = p.to_string().trim().to_string()
+    let s = p.trim().to_owned()
     if s != "" {
       if !all_ascii_digits(s) {
         return false
@@ -480,7 +480,7 @@ fn looks_like_dash_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_heading_line(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -525,7 +525,7 @@ fn looks_like_heading_line(text : String) -> Bool {
 
 ///|
 fn looks_like_body_line(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -551,7 +551,7 @@ fn looks_like_body_line(text : String) -> Bool {
 
 ///|
 fn looks_like_section_or_page_prefix(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -574,7 +574,7 @@ fn looks_like_section_or_page_prefix(text : String) -> Bool {
 
 ///|
 fn starts_with_numbered_heading_prefix(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -597,7 +597,7 @@ fn starts_with_numbered_heading_prefix(text : String) -> Bool {
 
 ///|
 fn looks_like_heading_prefix_text(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -619,7 +619,7 @@ fn looks_like_heading_prefix_text(text : String) -> Bool {
 
 ///|
 fn looks_like_short_cjk_heading_completion(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -646,7 +646,7 @@ fn looks_like_short_cjk_heading_completion(text : String) -> Bool {
 
 ///|
 fn looks_like_short_cjk_heading(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -703,7 +703,7 @@ fn looks_like_known_short_cjk_heading_text(text : String) -> Bool {
 
 ///|
 fn looks_like_titlecase_heading(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
 
   if t == "" || t.length() > 48 {
     return false
@@ -740,8 +740,8 @@ fn looks_like_titlecase_heading(text : String) -> Bool {
 
 ///|
 fn looks_like_broken_english_word_pair(left : String, right : String) -> Bool {
-  let l = left.trim()
-  let r = right.trim()
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
 
   if l == "" || r == "" {
     return false
@@ -782,8 +782,8 @@ fn looks_like_broken_english_word_pair(left : String, right : String) -> Bool {
 
 ///|
 fn looks_like_cjk_continuation_pair(left : String, right : String) -> Bool {
-  let l = left.trim()
-  let r = right.trim()
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
 
   if l == "" || r == "" {
     return false
@@ -827,8 +827,8 @@ fn should_merge_short_fragment_pair(
   left_line : @model.PdfTextLine,
   right_line : @model.PdfTextLine,
 ) -> Bool {
-  let l = @model.line_text(left_line).trim().to_string()
-  let r = @model.line_text(right_line).trim().to_string()
+  let l = @model.line_text(left_line).trim().to_owned()
+  let r = @model.line_text(right_line).trim().to_owned()
 
   if l == "" || r == "" {
     return false
@@ -871,7 +871,7 @@ fn should_merge_short_fragment_pair(
 
 ///|
 fn looks_like_standalone_short_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -947,7 +947,7 @@ fn looks_like_cross_column_pair(
 
 ///|
 fn looks_like_complete_or_standalone_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -982,7 +982,7 @@ fn starts_with_body_continuation_prefix(text : String) -> Bool {
 
 ///|
 fn looks_like_body_fragment_suffix(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1004,7 +1004,7 @@ fn looks_like_body_fragment_suffix(text : String) -> Bool {
 
 ///|
 fn is_page_noise_like(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1298,7 +1298,7 @@ fn last_ascii_word(text : String) -> String {
     return ""
   }
 
-  text[start:end + 1].to_string()
+  text[start:end + 1].to_owned()
 }
 
 ///|
@@ -1327,7 +1327,7 @@ pub fn word_count(text : String) -> Int {
 
 ///|
 pub fn looks_like_figure_or_table_caption(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1341,7 +1341,7 @@ pub fn looks_like_figure_or_table_caption(text : String) -> Bool {
 
 ///|
 fn looks_like_list_intro_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1360,7 +1360,7 @@ fn looks_like_list_intro_line(text : String) -> Bool {
 
 ///|
 pub fn looks_like_intro_phrase(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1374,7 +1374,7 @@ pub fn looks_like_intro_phrase(text : String) -> Bool {
 
 ///|
 fn looks_like_numbered_body_sentence(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1395,7 +1395,7 @@ fn looks_like_numbered_body_sentence(text : String) -> Bool {
 
 ///|
 fn looks_like_all_caps_body_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1410,7 +1410,7 @@ fn looks_like_all_caps_body_line(text : String) -> Bool {
 ///|
 /// 左侧是否像“纯标题前缀”，而不是已经进入正文残片。
 fn looks_like_pure_heading_prefix(text : String) -> Bool {
-  let t = text.trim()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1483,10 +1483,8 @@ fn looks_like_cross_column_same_row_chunk(
     return false
   }
 
-  let current_text = normalize_text(spans_text(current_spans))
-    .trim()
-    .to_string()
-  let right_text = normalize_text(right.text).trim().to_string()
+  let current_text = normalize_text(spans_text(current_spans)).trim().to_owned()
+  let right_text = normalize_text(right.text).trim().to_owned()
 
   if current_text == "" || right_text == "" {
     return false

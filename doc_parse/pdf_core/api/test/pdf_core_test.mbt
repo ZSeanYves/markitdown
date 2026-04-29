@@ -31,6 +31,26 @@ async fn open_pdf_model(path : String) -> @model.PdfDocumentModel {
 }
 
 ///|
+async fn open_pdf_summary(path : String) -> String {
+  let resolved = resolve_sample_path(path)
+  match
+    @api.extract_document_summary(resolved, @api.default_pdf_core_config()) {
+    Ok(summary) => summary
+    Err(e) => fail("extract_document_summary failed: " + e.to_string())
+  }
+}
+
+///|
+async fn open_pdf_block_debug(path : String) -> String {
+  let resolved = resolve_sample_path(path)
+  match
+    @api.extract_document_block_debug(resolved, @api.default_pdf_core_config()) {
+    Ok(debug_dump) => debug_dump
+    Err(e) => fail("extract_document_block_debug failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_test_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -198,6 +218,17 @@ fn assert_valid_rect(rect : @model.PdfRect, label : String) -> Unit raise {
   }
   if @model.rect_height(rect) <= 0.0 {
     fail(label + " rect height should be > 0")
+  }
+}
+
+///|
+fn assert_contains_text(
+  text : String,
+  needle : String,
+  label : String,
+) -> Unit raise {
+  if !text.contains(needle) {
+    fail(label + " should contain: " + needle)
   }
 }
 
@@ -445,7 +476,7 @@ fn _print_span_sources(
     let span = spans[i]
     let text = span.text
     let text_short = if text.length() > 30 {
-      text[:30].to_string() + "..."
+      text[:30].to_owned() + "..."
     } else {
       text
     }
@@ -493,7 +524,7 @@ fn _print_line_sources(
     let line = lines[i]
     let text = @model.line_text(line)
     let text_short = if text.length() > 30 {
-      text[:30].to_string() + "..."
+      text[:30].to_owned() + "..."
     } else {
       text
     }
@@ -654,6 +685,57 @@ async test "pdf core extracts URI link annotations" {
       }
     None => fail("expected model annotation object ref")
   }
+}
+
+///|
+async test "pdf core summary includes version and page count" {
+  let summary = open_pdf_summary("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(summary, "PdfDocumentSummary(", "summary header")
+  assert_contains_text(summary, "version=", "summary version")
+  assert_contains_text(summary, "page_count=", "summary page count")
+  assert_contains_text(summary, "blocks=", "summary block count")
+}
+
+///|
+async test "pdf core block debug includes page geometry and refs" {
+  let dump = open_pdf_block_debug("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(dump, "PdfDocumentDebug(", "debug header")
+  assert_contains_text(dump, "version=", "debug version")
+  assert_contains_text(dump, "page_count=", "debug page count")
+  assert_contains_text(dump, "[page 0]", "debug page header")
+  assert_contains_text(dump, "raw_page_ref=", "debug raw page ref")
+  assert_contains_text(dump, "media_box=", "debug media_box")
+  assert_contains_text(dump, "crop_box=", "debug crop_box")
+  assert_contains_text(dump, "rotation=0", "debug rotation")
+  assert_contains_text(
+    dump, "raw_content_stream_refs=[", "debug content stream refs",
+  )
+  assert_contains_text(dump, "stats: text_blocks=", "debug page stats")
+  assert_contains_text(dump, "lines=", "debug line stats")
+  assert_contains_text(dump, "spans=", "debug span stats")
+}
+
+///|
+async test "pdf core block debug includes annotation details" {
+  let path = create_link_annotation_fixture()
+  let dump = open_pdf_block_debug(path)
+  assert_contains_text(dump, "annotations=1", "debug annotation count")
+  assert_contains_text(dump, "[annotation 0]", "debug annotation item")
+  assert_contains_text(dump, "subtype=/Link", "debug annotation subtype")
+  assert_contains_text(
+    dump, "uri=https://example.com/v3", "debug annotation uri",
+  )
+  assert_contains_text(dump, "object_ref=", "debug annotation object_ref")
+}
+
+///|
+async test "pdf core block debug includes image details" {
+  let dump = open_pdf_block_debug("samples/assets/pdf/pdf_image_xobject.pdf")
+  assert_contains_text(dump, "images=", "debug image count")
+  assert_contains_text(dump, "[image 0]", "debug image item")
+  assert_contains_text(dump, "width=", "debug image width")
+  assert_contains_text(dump, "height=", "debug image height")
+  assert_contains_text(dump, "object_ref=", "debug image object_ref")
 }
 
 ///|

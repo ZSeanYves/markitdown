@@ -35,7 +35,7 @@ fn parse_styles_xml(styles_xml : String) -> XlsxStyles {
           match end0 {
             None => ()
             Some(nf_end) => {
-              let inner = styles_xml[nf1 + 1:nf_end].to_string()
+              let inner = styles_xml[nf1 + 1:nf_end].to_owned()
               let mut pos = 0
               while true {
                 let fmt0 = find_sub(inner, "<numFmt", pos)
@@ -46,7 +46,7 @@ fn parse_styles_xml(styles_xml : String) -> XlsxStyles {
                     match fmt1 {
                       None => break
                       Some(i1) => {
-                        let tag = inner[i0:i1 + 1].to_string()
+                        let tag = inner[i0:i1 + 1].to_owned()
                         let num_fmt_id = parse_int(
                           get_attr(tag, "numFmtId").unwrap_or(""),
                         )
@@ -85,7 +85,7 @@ fn parse_styles_xml(styles_xml : String) -> XlsxStyles {
           match end0 {
             None => ()
             Some(cx_end) => {
-              let inner = styles_xml[cx1 + 1:cx_end].to_string()
+              let inner = styles_xml[cx1 + 1:cx_end].to_owned()
 
               let mut pos = 0
               while true {
@@ -97,7 +97,7 @@ fn parse_styles_xml(styles_xml : String) -> XlsxStyles {
                     match xf1 {
                       None => break
                       Some(i1) => {
-                        let tag = inner[i0:i1 + 1].to_string()
+                        let tag = inner[i0:i1 + 1].to_owned()
                         let num_fmt_id = parse_int(
                           get_attr(tag, "numFmtId").unwrap_or(""),
                         )

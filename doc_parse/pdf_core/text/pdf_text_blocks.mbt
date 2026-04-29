@@ -66,7 +66,7 @@ pub fn build_blocks_from_lines(
 
   for i = 0; i < lines.length(); i = i + 1 {
     let line = lines[i]
-    let text = @model.line_text(line).trim().to_string()
+    let text = @model.line_text(line).trim().to_owned()
 
     if text == "" {
       block_index = flush_paragraph_buf(out, page_index, block_index, buf)
@@ -111,8 +111,8 @@ fn should_merge_lines_in_block(
   left : @model.PdfTextLine,
   right : @model.PdfTextLine,
 ) -> Bool {
-  let lt = @model.line_text(left).trim().to_string()
-  let rt = @model.line_text(right).trim().to_string()
+  let lt = @model.line_text(left).trim().to_owned()
+  let rt = @model.line_text(right).trim().to_owned()
   if lt == "" || rt == "" {
     return false
   }
@@ -159,8 +159,8 @@ fn should_force_break_before_line(
   page_lines : Array[@model.PdfTextLine],
   cur_index : Int,
 ) -> Bool {
-  let prev_text = @model.line_text(prev).trim().to_string()
-  let cur_text = @model.line_text(cur).trim().to_string()
+  let prev_text = @model.line_text(prev).trim().to_owned()
+  let cur_text = @model.line_text(cur).trim().to_owned()
   if cur_text == "" {
     return true
   }
@@ -198,7 +198,7 @@ fn should_force_break_before_line(
 
 ///|
 fn looks_like_continuation_line(line : @model.PdfTextLine) -> Bool {
-  let t = @model.line_text(line).trim().to_string()
+  let t = @model.line_text(line).trim().to_owned()
   if t == "" {
     return false
   }
@@ -232,13 +232,13 @@ fn looks_like_cross_column_jump(
 
 ///|
 fn looks_like_standalone_ack_line(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t == "OK" || t == "Ok" || t == "ok"
 }
 
 ///|
 fn looks_like_sentence_start(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -254,7 +254,7 @@ fn is_heading_candidate_line(
   page_lines : Array[@model.PdfTextLine],
   line_index : Int,
 ) -> Bool {
-  let text = @model.line_text(line).trim().to_string()
+  let text = @model.line_text(line).trim().to_owned()
   if text == "" {
     return false
   }
@@ -287,7 +287,7 @@ fn is_heading_candidate_line(
 
 ///|
 fn looks_like_heading_text_candidate(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -467,7 +467,7 @@ fn is_near_page_top(
 
 ///|
 fn is_short_single_line_heading_like(line : @model.PdfTextLine) -> Bool {
-  let text = @model.line_text(line).trim().to_string()
+  let text = @model.line_text(line).trim().to_owned()
   if text == "" {
     return false
   }
@@ -492,8 +492,8 @@ fn is_between_body_lines(
     return false
   }
 
-  let prev = @model.line_text(page_lines[line_index - 1]).trim().to_string()
-  let next = @model.line_text(page_lines[line_index + 1]).trim().to_string()
+  let prev = @model.line_text(page_lines[line_index - 1]).trim().to_owned()
+  let next = @model.line_text(page_lines[line_index + 1]).trim().to_owned()
 
   looks_like_body_line(prev) && looks_like_body_line(next)
 }
@@ -501,7 +501,7 @@ fn is_between_body_lines(
 ///|
 /// line 是否像页码候选。
 fn is_page_number_candidate_line(line : @model.PdfTextLine) -> Bool {
-  let text = @model.line_text(line).trim().to_string()
+  let text = @model.line_text(line).trim().to_owned()
   if text == "" {
     return false
   }

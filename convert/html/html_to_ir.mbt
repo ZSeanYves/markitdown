@@ -95,7 +95,7 @@ fn paragraph_inlines_to_blocks(
       HtmlInline::Break => buf.push(@cor.Inline::Break)
       HtmlInline::Link(text, href) =>
         buf.push(
-          @cor.Inline::Link(text.trim().to_string(), href.trim().to_string()),
+          @cor.Inline::Link(text.trim().to_owned(), href.trim().to_owned()),
         )
       HtmlInline::Image(alt, title, src) => {
         if render_ir_inlines(buf).trim() != "" {
@@ -118,7 +118,7 @@ fn paragraph_inlines_to_blocks(
             let fallback = if alt.trim() == "" {
               "image"
             } else {
-              alt.trim().to_string()
+              alt.trim().to_owned()
             }
             out.push(@cor.Block::Paragraph("[" + fallback + "]"))
           }
@@ -148,7 +148,7 @@ fn html_inlines_to_ir(xs : Array[HtmlInline]) -> Array[@cor.Inline] {
             if alt.trim() == "" {
               "image"
             } else {
-              alt.trim().to_string()
+              alt.trim().to_owned()
             },
           ),
         )
@@ -201,7 +201,7 @@ fn export_local_html_image(
     return None
   }
 
-  let src0 = strip_query_and_hash(src_raw.trim().to_string())
+  let src0 = strip_query_and_hash(src_raw.trim().to_owned())
   if src0 == "" {
     return None
   }
@@ -280,7 +280,7 @@ fn strip_query_and_hash(src : String) -> String {
       break
     }
   }
-  src[:end].to_string()
+  src[:end].to_owned()
 }
 
 ///|
@@ -297,7 +297,7 @@ fn dirname_of_path(path : String) -> String {
   } else if last == 0 {
     "/"
   } else {
-    path[:last].to_string()
+    path[:last].to_owned()
   }
 }
 
@@ -557,7 +557,7 @@ fn figure_to_image_block(
 
 ///|
 fn normalized_optional_text(s : String) -> String? {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     None
   } else {

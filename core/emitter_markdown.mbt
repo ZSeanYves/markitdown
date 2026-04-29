@@ -25,12 +25,12 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           let lines : Array[String] = t
             .split("\n")
-            .map(fn(x) { trim_string(x.to_string()) })
+            .map(fn(x) { trim_string(x.to_owned()) })
             .filter(fn(x) { x != "" })
             .iter()
             .collect()
@@ -89,18 +89,18 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           for sv in t.split("\n") {
-            let line = sv.to_string()
+            let line = sv.to_owned()
             out = out + "> " + line + "\n"
           }
           out = out + "\n"
         }
       }
       RichBlockQuote(inlines) => {
-        let t = render_inlines(inlines).trim().to_string()
+        let t = render_inlines(inlines).trim().to_owned()
         if t != "" {
           out = out + "> " + t + "\n\n"
         }
@@ -110,7 +110,7 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           out = out + "```\n" + t + "\n```\n\n"
@@ -123,21 +123,21 @@ pub fn emit_markdown(doc : Document) -> String {
         out = out + "![" + a + "](" + p + ")\n\n"
       }
       ImageBlock(img) => {
-        let a = img.alt_text.unwrap_or("").trim().to_string()
+        let a = img.alt_text.unwrap_or("").trim().to_owned()
         let alt = if a == "" { "image" } else { a }
         let p = trim_string(img.path)
         out = out + "![" + alt + "](" + p + ")\n"
         match img.title {
           Some(t) =>
             if t.trim() != "" {
-              out = out + "*" + t.trim().to_string() + "*\n"
+              out = out + "*" + t.trim().to_owned() + "*\n"
             }
           None => ()
         }
         match img.caption {
           Some(c) =>
             if c.trim() != "" {
-              out = out + c.trim().to_string() + "\n"
+              out = out + c.trim().to_owned() + "\n"
             }
           None => ()
         }
@@ -191,7 +191,7 @@ fn normalize_markdown_tail(s : String) -> String {
     return ""
   }
 
-  String::from_array(cs[:end].to_array()) + "\n"
+  String::from_array(cs[:end].to_owned()) + "\n"
 }
 
 ///|
@@ -211,8 +211,8 @@ fn render_inlines(xs : Array[Inline]) -> String {
       Text(t) => out = out + t
       Break => out = out + "<br>"
       Link(text, url) => {
-        let t0 = text.trim().to_string()
-        let u0 = url.trim().to_string()
+        let t0 = text.trim().to_owned()
+        let u0 = url.trim().to_owned()
         if t0 == "" || u0 == "" {
           out = out + t0
         } else {
@@ -221,5 +221,5 @@ fn render_inlines(xs : Array[Inline]) -> String {
       }
     }
   }
-  out.trim().to_string()
+  out.trim().to_owned()
 }

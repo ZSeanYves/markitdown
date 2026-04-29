@@ -33,9 +33,7 @@ fn extract_shape_paragraphs(
                 let inlines0 = extract_text_inlines(
                   xml, inner_start, p_end0, hyperlinks,
                 )
-                let text = render_plain_text_inlines(inlines0)
-                  .trim()
-                  .to_string()
+                let text = render_plain_text_inlines(inlines0).trim().to_owned()
                 let inlines = apply_shape_level_link_if_needed(
                   inlines0, text, shape_link,
                 )
@@ -119,7 +117,7 @@ fn apply_shape_level_link_if_needed(
       if text.trim() == "" || url.trim() == "" {
         inlines
       } else {
-        [@cor.Inline::Link(text, url.trim().to_string())]
+        [@cor.Inline::Link(text, url.trim().to_owned())]
       }
     None => inlines
   }
@@ -155,12 +153,12 @@ fn shape_level_single_hyperlink(
         if gt < 0 {
           break
         }
-        let tag = shape_xml[i0:gt + 1].to_bytes()
+        let tag = shape_xml[i0:gt + 1].to_owned()
         match read_attr_value_in_tag_bytes(tag, "r:id") {
           Some(rid) =>
             match hyperlinks.get(rid) {
               Some(url) => {
-                let u = url.trim().to_string()
+                let u = url.trim().to_owned()
                 if u != "" {
                   urls.set(u, true)
                 }

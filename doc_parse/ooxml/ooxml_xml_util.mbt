@@ -38,7 +38,7 @@ fn collect_start_tags(xml : String, local_name : String) -> Array[String] {
       break
     }
 
-    let tag = xml[i:j + 1].to_string()
+    let tag = xml[i:j + 1].to_owned()
     let tag_name = start_tag_local_name(tag)
     if tag_name == local_name {
       tags.push(tag)
@@ -74,7 +74,7 @@ fn start_tag_local_name(tag : String) -> String {
     return ""
   }
 
-  local_name_from_raw(tag[i:j].to_string())
+  local_name_from_raw(tag[i:j].to_owned())
 }
 
 ///|
@@ -98,7 +98,7 @@ fn end_tag_local_name(tag : String) -> String {
     return ""
   }
 
-  local_name_from_raw(tag[i:j].to_string())
+  local_name_from_raw(tag[i:j].to_owned())
 }
 
 ///|
@@ -161,8 +161,8 @@ fn parse_tag_attributes(tag : String) -> Map[String, String] {
     let value_end = i
     i = i + 1
 
-    let key = tag[key_start:key_end].to_string()
-    let value = tag[value_start:value_end].to_string()
+    let key = tag[key_start:key_end].to_owned()
+    let value = tag[value_start:value_end].to_owned()
     attrs.set(key, value)
   }
 
@@ -214,7 +214,7 @@ fn tag_text(xml : String, local_name : String) -> String? {
       break
     }
 
-    let start_tag = xml[i:tag_end + 1].to_string()
+    let start_tag = xml[i:tag_end + 1].to_owned()
     let name = start_tag_local_name(start_tag)
 
     if name == local_name {
@@ -228,9 +228,7 @@ fn tag_text(xml : String, local_name : String) -> String? {
       match end {
         Some(pos) =>
           return Some(
-            xml_entity_decode(
-              xml[content_start:pos].to_string().trim().to_string(),
-            ),
+            xml_entity_decode(xml[content_start:pos].trim().to_owned()),
           )
         None => ()
       }
@@ -280,7 +278,7 @@ fn find_closing_tag_by_local_name(
       return None
     }
 
-    let tag = xml[i:tag_end + 1].to_string()
+    let tag = xml[i:tag_end + 1].to_owned()
     if end_tag_local_name(tag) == local_name {
       return Some(i)
     }
@@ -314,7 +312,7 @@ fn local_name_from_raw(raw_name : String) -> String {
   if colon < 0 {
     raw_name
   } else {
-    raw_name[colon + 1:].to_string()
+    raw_name[colon + 1:].to_owned()
   }
 }
 

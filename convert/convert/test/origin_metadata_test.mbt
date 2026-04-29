@@ -175,7 +175,9 @@ fn assert_image_caption_mirrors_asset_origin(doc : @cor.Document) -> Unit raise 
       @cor.Block::ImageBlock(img) =>
         match doc.asset_origins.val.get(img.path) {
           Some(asset_origin) =>
-            assert_eq(asset_origin.nearby_caption, img.caption)
+            if asset_origin.nearby_caption != img.caption {
+              fail("asset nearby_caption should mirror image caption")
+            }
           None => fail("missing asset origin for image path: " + img.path)
         }
       _ => ()
@@ -302,10 +304,18 @@ test "origin_metadata/html_docx_minimal_closure" {
   assert_image_caption_mirrors_asset_origin(html_doc)
   match first_image_block(html_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, Some("single"))
-      assert_eq(img.title, None)
-      assert_eq(img.caption, None)
-      assert_eq(img.origin, None)
+      if img.alt_text != Some("single") {
+        fail("html single image alt_text should be Some(single)")
+      }
+      if img.title != None {
+        fail("html single image title should be None")
+      }
+      if img.caption != None {
+        fail("html single image caption should be None")
+      }
+      if img.origin != None {
+        fail("html single image origin should be None")
+      }
       assert_asset_origin_has_min_source(html_doc, img.path)
     }
     None => fail("expected one html image block")
@@ -342,12 +352,23 @@ test "image_context/html_alt_title_figcaption" {
   )
   match first_image_block(html_alt_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, Some("red diagram"))
-      assert_eq(img.title, None)
-      assert_eq(img.caption, None)
-      assert_eq(img.origin, None)
+      if img.alt_text != Some("red diagram") {
+        fail("html alt image alt_text should be Some(red diagram)")
+      }
+      if img.title != None {
+        fail("html alt image title should be None")
+      }
+      if img.caption != None {
+        fail("html alt image caption should be None")
+      }
+      if img.origin != None {
+        fail("html figure image origin should be None")
+      }
       match html_alt_doc.asset_origins.val.get(img.path) {
-        Some(asset_origin) => assert_eq(asset_origin.nearby_caption, None)
+        Some(asset_origin) =>
+          if asset_origin.nearby_caption != None {
+            fail("html alt sample nearby_caption should be None")
+          }
         None => fail("html alt sample asset origin should exist")
       }
     }
@@ -361,10 +382,18 @@ test "image_context/html_alt_title_figcaption" {
   )
   match first_image_block(html_title_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, Some("red diagram"))
-      assert_eq(img.title, Some("Figure title text"))
-      assert_eq(img.caption, None)
-      assert_eq(img.origin, None)
+      if img.alt_text != Some("red diagram") {
+        fail("html title image alt_text should be Some(red diagram)")
+      }
+      if img.title != Some("Figure title text") {
+        fail("html title image title should be Figure title text")
+      }
+      if img.caption != None {
+        fail("html title image caption should be None")
+      }
+      if img.origin != None {
+        fail("html title image origin should be None")
+      }
       assert_asset_origin_has_min_source(html_title_doc, img.path)
     }
     None => fail("expected one html image block for title sample")
@@ -379,13 +408,23 @@ test "image_context/html_alt_title_figcaption" {
   )
   match first_image_block(html_fig_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, Some("figure image"))
-      assert_eq(img.title, Some("Figure title"))
-      assert_eq(img.caption, Some("Figure caption text."))
-      assert_eq(img.origin, None)
+      if img.alt_text != Some("figure image") {
+        fail("html figure image alt_text should be Some(figure image)")
+      }
+      if img.title != Some("Figure title") {
+        fail("html figure image title should be Figure title")
+      }
+      if img.caption != Some("Figure caption text.") {
+        fail("html figure image caption should be Figure caption text.")
+      }
+      if img.origin != None {
+        fail("html figure image origin should be None")
+      }
       match html_fig_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) =>
-          assert_eq(asset_origin.nearby_caption, Some("Figure caption text."))
+          if asset_origin.nearby_caption != Some("Figure caption text.") {
+            fail("html figure nearby_caption should match figure caption")
+          }
         None => fail("html figure sample asset origin should exist")
       }
     }
@@ -401,9 +440,15 @@ test "image_context/html_alt_title_figcaption" {
   )
   match first_image_block(html_missing_alt_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, None)
-      assert_eq(img.title, None)
-      assert_eq(img.caption, None)
+      if img.alt_text != None {
+        fail("html missing-alt image alt_text should be None")
+      }
+      if img.title != None {
+        fail("html missing-alt image title should be None")
+      }
+      if img.caption != None {
+        fail("html missing-alt image caption should be None")
+      }
       assert_asset_origin_has_min_source(html_missing_alt_doc, img.path)
     }
     None => fail("expected one html image block for missing-alt sample")
@@ -435,20 +480,28 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   assert_image_caption_mirrors_asset_origin(pptx_doc)
   match first_image_block(pptx_doc) {
     Some(img) => {
-      assert_eq(img.alt_text, Some("slide-1-image-1"))
-      assert_eq(img.title, None)
-      assert_eq(img.caption, Some("Figure 1. Revenue trend"))
+      if img.alt_text != Some("slide-1-image-1") {
+        fail("pptx image alt_text should be Some(slide-1-image-1)")
+      }
+      if img.title != None {
+        fail("pptx image title should be None")
+      }
+      if img.caption != Some("Figure 1. Revenue trend") {
+        fail("pptx image caption should be Figure 1. Revenue trend")
+      }
       match img.origin {
-        Some(origin) => assert_eq(origin.slide, Some(1))
+        Some(origin) =>
+          if origin.slide != Some(1) {
+            fail("pptx image origin slide should be Some(1)")
+          }
         None => fail("pptx image origin should exist")
       }
       assert_asset_origin_has_min_source(pptx_doc, img.path)
       match pptx_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) =>
-          assert_eq(
-            asset_origin.nearby_caption,
-            Some("Figure 1. Revenue trend"),
-          )
+          if asset_origin.nearby_caption != Some("Figure 1. Revenue trend") {
+            fail("pptx nearby_caption should match figure caption")
+          }
         None => fail("pptx asset origin should exist")
       }
     }
@@ -571,10 +624,17 @@ async test "origin_metadata/pdf_minimal_closure" {
   assert_image_caption_mirrors_asset_origin(pdf_doc)
   match first_image_block(pdf_doc) {
     Some(img) => {
-      assert_eq(img.title, None)
-      assert_eq(img.caption, None)
+      if img.title != None {
+        fail("pdf image title should be None")
+      }
+      if img.caption != None {
+        fail("pdf image caption should be None")
+      }
       match img.origin {
-        Some(origin) => assert_eq(origin.page, Some(1))
+        Some(origin) =>
+          if origin.page != Some(1) {
+            fail("pdf image origin page should be Some(1)")
+          }
         None => fail("pdf image origin should exist")
       }
       assert_asset_origin_has_min_source(pdf_doc, img.path)
@@ -603,17 +663,23 @@ test "image_context/pptx_caption_association" {
   )
   match first_image_block(doc) {
     Some(img) => {
-      assert_eq(img.caption, Some("Figure 1. Revenue trend"))
+      if img.caption != Some("Figure 1. Revenue trend") {
+        fail(
+          "pptx caption-like image caption should be Figure 1. Revenue trend",
+        )
+      }
       match img.origin {
-        Some(origin) => assert_eq(origin.slide, Some(1))
+        Some(origin) =>
+          if origin.slide != Some(1) {
+            fail("pptx caption-like image origin slide should be Some(1)")
+          }
         None => fail("pptx image origin should exist")
       }
       match doc.asset_origins.val.get(img.path) {
         Some(asset_origin) =>
-          assert_eq(
-            asset_origin.nearby_caption,
-            Some("Figure 1. Revenue trend"),
-          )
+          if asset_origin.nearby_caption != Some("Figure 1. Revenue trend") {
+            fail("pptx caption-like nearby_caption should match figure caption")
+          }
         None => fail("pptx image asset origin should exist")
       }
     }
@@ -645,14 +711,23 @@ async test "image_context/pdf_caption_like" {
   )
   match first_image_block(single_caption_doc) {
     Some(img) => {
-      assert_eq(img.caption, Some("Figure 1. PDF caption"))
+      if img.caption != Some("Figure 1. PDF caption") {
+        fail("pdf single-caption image caption should be Figure 1. PDF caption")
+      }
       match img.origin {
-        Some(origin) => assert_eq(origin.page, Some(1))
+        Some(origin) =>
+          if origin.page != Some(1) {
+            fail("pdf no-caption image origin page should be Some(1)")
+          }
         None => fail("pdf single-caption image origin should exist")
       }
       match single_caption_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) =>
-          assert_eq(asset_origin.nearby_caption, Some("Figure 1. PDF caption"))
+          if asset_origin.nearby_caption != Some("Figure 1. PDF caption") {
+            fail(
+              "pdf single-caption nearby_caption should be Figure 1. PDF caption",
+            )
+          }
         None => fail("pdf single-caption asset origin should exist")
       }
     }
@@ -672,13 +747,21 @@ async test "image_context/pdf_caption_like" {
   )
   match first_image_block(no_caption_doc) {
     Some(img) => {
-      assert_eq(img.caption, None)
+      if img.caption != None {
+        fail("pdf no-caption image caption should be None")
+      }
       match img.origin {
-        Some(origin) => assert_eq(origin.page, Some(1))
+        Some(origin) =>
+          if origin.page != Some(1) {
+            fail("pdf no-caption image origin page should be Some(1)")
+          }
         None => fail("pdf no-caption image origin should exist")
       }
       match no_caption_doc.asset_origins.val.get(img.path) {
-        Some(asset_origin) => assert_eq(asset_origin.nearby_caption, None)
+        Some(asset_origin) =>
+          if asset_origin.nearby_caption != None {
+            fail("pdf no-caption nearby_caption should be None")
+          }
         None => fail("pdf no-caption asset origin should exist")
       }
     }

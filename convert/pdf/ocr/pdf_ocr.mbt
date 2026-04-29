@@ -47,7 +47,7 @@ fn cleanup_ocr_sidecar_text(text : String) -> String {
   let mut blank_run = 0
 
   for line_sv in text.split("\n") {
-    let line = line_sv.to_string().trim().to_string()
+    let line = line_sv.trim().to_owned()
 
     if line == "" {
       blank_run = blank_run + 1
@@ -63,12 +63,12 @@ fn cleanup_ocr_sidecar_text(text : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|
 fn is_effectively_empty_ocr_text(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return true
   }

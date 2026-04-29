@@ -1,12 +1,12 @@
 ///|
 fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return None
   }
 
   if t.has_prefix("• ") || t.has_prefix("- ") || t.has_prefix("* ") {
-    return Some((false, 0, t[2:].trim().to_string()))
+    return Some((false, 0, t[2:].trim().to_owned()))
   }
 
   let cs = t.to_array()
@@ -30,7 +30,7 @@ fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? {
   if has_digit && i + 1 < n {
     let c = cs[i]
     if (c == '.' || c == ')' || c == '）' || c == '、') && cs[i + 1] == ' ' {
-      let text = String::from_array(cs[i + 2:].to_array()).trim().to_string()
+      let text = String::from_array(cs[i + 2:].to_owned()).trim().to_owned()
       return Some((true, 0, text))
     }
   }
@@ -40,7 +40,7 @@ fn parse_pdf_list_item(s : String) -> (Bool, Int, String)? {
 
 ///|
 fn looks_like_list_item_sentence(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }

@@ -91,6 +91,22 @@ Current `doc_parse/ooxml` capabilities:
   structure, relationships, media assets, and properties. This is for diagnosis
   and inspection, not for conversion output.
 
+Current `doc_parse/pdf_core` capabilities:
+
+- Vendored backend integration: `pdf_core` currently runs on a vendored
+  `mbtpdf` backend hidden behind `pdf_core/api`, so upper layers do not depend
+  on backend-specific types.
+- Source-aware raw parsing: operator parsing retains low-level source references
+  that can later be surfaced through debug/inspection output.
+- Page geometry and provenance: per-page media box, inherited crop box,
+  rotation, raw page refs, and raw content stream refs are available to the raw
+  layer and inspect helpers.
+- Raw images and annotations: page/image extraction and annotation/link raw
+  extraction are already present in the parsing substrate.
+- Debug inspect API: read-only summaries expose document flags, page geometry,
+  content stream refs, text block/line/span counts, image summaries, and
+  annotation summaries for diagnosis.
+
 Role:
 
 - This layer serves as the parsing substrate beneath the upper-level recovery logic
@@ -210,6 +226,8 @@ the data flow is as follows:
   * three validation chains
   * engineering-oriented sidecar output
   * the layered structure between `doc_parse/*` and `convert/*`
+  * first-pass consolidation of shared OOXML and native PDF parsing
+    infrastructure
 * Still being consolidated:
 
   * complex PDF layouts

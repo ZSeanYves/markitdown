@@ -127,7 +127,7 @@ fn infer_page_image_nearby_captions(
 
   let candidates : Array[(Int, String)] = []
   for block in page.blocks {
-    let t = block.text.trim().to_string()
+    let t = block.text.trim().to_owned()
     if t == "" {
       continue
     }
@@ -194,7 +194,7 @@ fn emit_text_block_to_ir(
   has_document_title : Bool,
   max_heading : Int,
 ) -> Unit {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
   if text == "" {
     return
   }
@@ -289,7 +289,7 @@ fn emit_text_block_to_ir(
       }
     }
     PdfConvertBlockKind::Paragraph => {
-      let pt = text.trim().to_string()
+      let pt = text.trim().to_owned()
       match try_parse_bullet_list_item_for_ir(pt) {
         Some(item_text) =>
           @cor.push_with_origin(
@@ -324,20 +324,20 @@ fn emit_text_block_to_ir(
 
 ///|
 fn try_parse_bullet_list_item_for_ir(text : String) -> String? {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return None
   }
 
   if t.has_prefix("•") {
-    let body = t[1:].trim().to_string()
+    let body = t[1:].trim().to_owned()
     if body != "" {
       return Some(body)
     }
   }
 
   if t.has_prefix("- ") || t.has_prefix("* ") {
-    let body = t[2:].trim().to_string()
+    let body = t[2:].trim().to_owned()
     if body != "" {
       return Some(body)
     }
@@ -389,7 +389,7 @@ fn detect_document_title_presence_for_ir(doc : PdfConvertDocument) -> Bool {
       break
     }
 
-    let t = block.text.trim().to_string()
+    let t = block.text.trim().to_owned()
     if t == "" || should_never_emit_heading(t) {
       continue
     }
@@ -433,7 +433,7 @@ fn classify_heading_role_for_ir(
   prev : PdfConvertBlock?,
   next : PdfConvertBlock?,
 ) -> PdfIrHeadingRole {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return PdfIrHeadingRole::NotHeading
   }
@@ -486,7 +486,7 @@ fn looks_like_document_title_role_for_ir(
   prev : PdfConvertBlock?,
   next : PdfConvertBlock?,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -541,7 +541,7 @@ fn looks_like_section_heading_role_for_ir(
   prev : PdfConvertBlock?,
   _next : PdfConvertBlock?,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -578,7 +578,7 @@ fn looks_like_section_heading_role_for_ir(
 ///|
 /// heading 黑名单。
 fn looks_like_heading_negative_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return true
   }
@@ -602,7 +602,7 @@ fn looks_like_heading_negative_for_ir(text : String) -> Bool {
 /// depth=3:
 /// - 1.1.1 / （1） / 1)
 fn infer_section_depth_for_ir(text : String) -> Int {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return 0
   }
@@ -662,7 +662,7 @@ fn infer_section_depth_for_ir(text : String) -> Int {
 
 ///|
 fn looks_like_page_prefixed_section_heading_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -686,7 +686,7 @@ fn looks_like_page_prefixed_section_heading_for_ir(text : String) -> Bool {
 
 ///|
 fn all_ascii_digits_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -734,7 +734,7 @@ fn map_section_depth_to_heading_level_for_ir(
 ///|
 /// 即使上游标了 Heading，这些也不应在 IR 层发成 heading。
 fn should_never_emit_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return true
@@ -823,7 +823,7 @@ fn starts_with_top_level_number_for_ir(s : String) -> Bool {
 
 ///|
 fn starts_with_numbered_heading_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let cs = t.to_array()
   let n = cs.length()
   if n == 0 {
@@ -861,7 +861,7 @@ fn starts_with_numbered_heading_for_ir(s : String) -> Bool {
 
 ///|
 fn looks_like_heading_marker_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t.has_prefix("第") ||
   t.has_prefix("Chapter") ||
   t.has_prefix("CHAPTER") ||
@@ -881,7 +881,7 @@ fn looks_like_heading_marker_for_ir(s : String) -> Bool {
 ///|
 /// 英文标题形态。
 fn looks_like_english_title_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -904,7 +904,7 @@ fn looks_like_english_title_for_ir(s : String) -> Bool {
 
   let words : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -941,7 +941,7 @@ fn looks_like_english_title_for_ir(s : String) -> Bool {
 /// - Cross-page should NOT merge
 /// - Heading vs Short Sentence
 fn looks_like_compact_predicative_title_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1007,7 +1007,7 @@ fn looks_like_compact_predicative_title_for_ir(text : String) -> Bool {
 ///|
 /// 更像完整正文句，而不是标题。
 fn looks_like_complete_statement_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1070,7 +1070,7 @@ fn looks_like_complete_statement_for_ir(text : String) -> Bool {
 ///|
 /// section-like 标题形态。
 fn looks_like_section_title_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1114,7 +1114,7 @@ fn looks_like_section_title_for_ir(s : String) -> Bool {
 
 ///|
 fn looks_like_compact_cjk_heading_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1163,7 +1163,7 @@ fn looks_like_compact_cjk_heading_for_ir(s : String) -> Bool {
 
 ///|
 fn looks_like_strong_document_title_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1196,7 +1196,7 @@ fn looks_like_strong_document_title_for_ir(s : String) -> Bool {
 
 ///|
 fn looks_like_mixed_document_title_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1216,7 +1216,7 @@ fn looks_like_mixed_document_title_for_ir(text : String) -> Bool {
 
   let words : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -1246,7 +1246,7 @@ fn looks_like_mixed_document_title_for_ir(text : String) -> Bool {
 
 ///|
 fn looks_like_document_title_phrase_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1273,7 +1273,7 @@ fn looks_like_document_title_phrase_for_ir(text : String) -> Bool {
 ///|
 /// 常见 section 标题词表。
 fn looks_like_common_section_label_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1314,7 +1314,7 @@ fn next_block_looks_like_body_for_h1(next : PdfConvertBlock?) -> Bool {
   match next {
     None => false
     Some(b) => {
-      let t = b.text.trim().to_string()
+      let t = b.text.trim().to_owned()
       if t == "" {
         return false
       }
@@ -1333,7 +1333,7 @@ fn has_short_heading_layout_signal_for_ir(
   block : PdfConvertBlock,
   prev : PdfConvertBlock?,
 ) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1372,7 +1372,7 @@ fn has_short_heading_layout_signal_for_ir(
 
 ///|
 fn looks_like_short_heading_text_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1396,7 +1396,7 @@ fn looks_like_short_heading_text_for_ir(text : String) -> Bool {
 fn split_non_empty_words_for_ir(text : String) -> Array[String] {
   let out : Array[String] = []
   for sv in text.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       out.push(w)
     }
@@ -1531,7 +1531,7 @@ fn clamp_heading_level(level : Int, max_heading : Int) -> Int {
 
 ///|
 fn ends_like_sentence_for_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1550,7 +1550,7 @@ fn ends_like_sentence_for_heading(text : String) -> Bool {
 
 ///|
 fn looks_like_list_item_sentence_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1599,7 +1599,7 @@ fn looks_like_intro_phrase_for_ir(text : String) -> Bool {
 
 ///|
 fn looks_like_list_intro_line_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1613,14 +1613,14 @@ fn looks_like_list_intro_line_for_ir(text : String) -> Bool {
 
 ///|
 fn looks_like_side_marker_label_line_for_ir(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || !t.contains(" ") || !t.contains("-") {
     return false
   }
 
   let mut first = ""
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       first = w
       break
@@ -1650,7 +1650,7 @@ fn looks_like_side_marker_label_line_for_ir(s : String) -> Bool {
 
 ///|
 fn is_probable_page_number_for_ir(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -1717,7 +1717,7 @@ fn is_cjkish_for_ir(c : Char) -> Bool {
 /// heading 输出前做最小规范化：
 /// - 当前只修中文章节标题里的缺失空格
 fn normalize_heading_text_for_ir(text : String) -> String {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return t
   }

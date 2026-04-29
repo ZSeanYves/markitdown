@@ -22,9 +22,9 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
       let prev_last = merged_prev[merged_prev.length() - 1]
       let cur_first = cur_page.blocks[0]
 
-      let merged_text = prev_last.text.trim().to_string() +
+      let merged_text = prev_last.text.trim().to_owned() +
         " " +
-        cur_first.text.trim().to_string()
+        cur_first.text.trim().to_owned()
 
       let merged_font_size = match prev_last.dominant_font_size {
         Some(v) => Some(v)
@@ -107,8 +107,8 @@ fn should_merge_page_boundary(
     return false
   }
 
-  let lt = left.text.trim().to_string()
-  let rt = right.text.trim().to_string()
+  let lt = left.text.trim().to_owned()
+  let rt = right.text.trim().to_owned()
 
   if lt == "" || rt == "" {
     return false
@@ -135,7 +135,7 @@ fn should_merge_page_boundary(
 
 ///|
 fn looks_like_heading_start(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if t == "" {
     return false
@@ -159,7 +159,7 @@ fn looks_like_heading_start(text : String) -> Bool {
 
 ///|
 fn looks_like_numbered_list_start(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -179,7 +179,7 @@ fn looks_like_numbered_list_start(text : String) -> Bool {
 
 ///|
 fn looks_like_page_start_continuation(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -213,7 +213,7 @@ fn looks_like_page_start_continuation(text : String) -> Bool {
 
 ///|
 fn looks_like_new_section_after_page_break(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -231,7 +231,7 @@ fn looks_like_new_section_after_page_break(text : String) -> Bool {
 
 ///|
 fn starts_with_numbered_section_heading(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   let arr = t.to_array()
   if arr.length() < 3 {
     return false

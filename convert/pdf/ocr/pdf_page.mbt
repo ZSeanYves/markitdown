@@ -13,7 +13,7 @@ fn merge_clean_pages_with_breaks(pages : Array[String]) -> String {
   let n = pages.length()
 
   for i in 0..<n {
-    let page = pages[i].trim().to_string()
+    let page = pages[i].trim().to_owned()
     if page != "" {
       out.push(page)
     }
@@ -40,7 +40,7 @@ fn strip_page_noise(
 
   let raw_lines : Array[String] = []
   for sv in s.split("\n") {
-    raw_lines.push(sv.to_string())
+    raw_lines.push(sv.to_owned())
   }
 
   let n = raw_lines.length()
@@ -68,7 +68,7 @@ fn strip_page_repeated_noise_only(
 
   let raw_lines : Array[String] = []
   for sv in s.split("\n") {
-    raw_lines.push(sv.to_string())
+    raw_lines.push(sv.to_owned())
   }
 
   let lines = strip_page_repeated_noise_only_as_lines(
@@ -88,7 +88,7 @@ fn strip_page_repeated_noise_only_as_lines(
   let n = raw_lines.length()
   let mut i = 0
   while i < n && head_pos.length() < 2 {
-    let t = raw_lines[i].trim().to_string()
+    let t = raw_lines[i].trim().to_owned()
     if t != "" {
       head_pos.push(i)
     }
@@ -99,7 +99,7 @@ fn strip_page_repeated_noise_only_as_lines(
   let tail_pos : Array[Int] = []
   let mut j = n - 1
   while j >= 0 && tail_pos.length() < 2 {
-    let t = raw_lines[j].trim().to_string()
+    let t = raw_lines[j].trim().to_owned()
     if t != "" {
       tail_pos.push(j)
     }
@@ -111,7 +111,7 @@ fn strip_page_repeated_noise_only_as_lines(
 
   // 删页眉
   for idx in head_pos {
-    let t = raw_lines[idx].trim().to_string()
+    let t = raw_lines[idx].trim().to_owned()
     let key = normalize_noise_key(t)
     if key != "" &&
       contains_string(head_keys, key) &&
@@ -122,7 +122,7 @@ fn strip_page_repeated_noise_only_as_lines(
 
   // 删页脚
   for idx in tail_pos {
-    let t = raw_lines[idx].trim().to_string()
+    let t = raw_lines[idx].trim().to_owned()
     let key = normalize_noise_key(t)
     if key != "" &&
       contains_string(tail_keys, key) &&
@@ -141,7 +141,7 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
   let mut prev_blank = false
 
   for line in raw_lines {
-    let t = line.trim().to_string()
+    let t = line.trim().to_owned()
     if t == "" {
       if !prev_blank {
         out.push("")
@@ -165,14 +165,14 @@ fn cleanup_page_noise_lines(raw_lines : Array[String]) -> String {
 /// Protect short real content from repeated-header/footer cleanup.
 /// Keep this narrow: only very short non-page-number lines are preserved.
 fn should_preserve_short_page_edge_block(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
   n > 0 && n <= 6 && !is_probable_page_number(t)
 }
 
 ///|
 fn is_probable_page_number(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -210,14 +210,14 @@ fn is_probable_page_number(s : String) -> Bool {
 
 ///|
 fn looks_like_spaced_page_number(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
 
   let tokens : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       tokens.push(w)
     }
@@ -249,7 +249,7 @@ fn looks_like_spaced_page_number(s : String) -> Bool {
 
 ///|
 fn looks_like_artifact_page_noise(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -303,15 +303,15 @@ fn looks_like_artifact_page_noise(s : String) -> Bool {
 /// - Page 2 of 3
 /// - page 2 / 3
 fn looks_like_page_number_phrase(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
     return false
   }
 
   let rest = if t.has_prefix("Page ") {
-    String::from_array(t.to_array()[5:].to_array()).trim().to_string()
+    t[5:].trim().to_owned()
   } else {
-    String::from_array(t.to_array()[5:].to_array()).trim().to_string()
+    t[5:].trim().to_owned()
   }
 
   if rest == "" {
@@ -337,7 +337,7 @@ fn looks_like_page_number_phrase(s : String) -> Bool {
 
 ///|
 fn looks_like_fraction_page_number(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let cs = t.to_array()
   let n = cs.length()
 
@@ -382,7 +382,7 @@ fn looks_like_fraction_page_number(s : String) -> Bool {
 
 ///|
 fn is_noise_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }

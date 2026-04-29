@@ -28,7 +28,7 @@ The only backend currently wired into `pdf_core` is vendored `mbtpdf`.
 
 The backend boundary is intentionally narrow:
 
-- `raw/mbtpdf_text_adapter.mbt` imports and consumes `mbtpdf` types.
+- `raw/mbtpdf_*_adapter.mbt` imports and consumes `mbtpdf` types.
 - `raw/pdf_raw_types.mbt` exposes project-owned raw structs, not `mbtpdf` objects.
 - `text`, `model`, and `api` consume project-owned raw/model types.
 - `convert/pdf` consumes `pdf_core/api` output and should not depend on `mbtpdf`.
@@ -125,8 +125,9 @@ Important model groups:
 - `boxes.media_box`
 - `boxes.crop_box`
 - `rotation`
-- `raw_page_ref`
 - `raw_content_stream_refs`
+
+`raw_page_ref` currently remains in the raw layer and is surfaced through debug/inspection output, not through `PdfPageModel`.
 
 These fields are parser-facing metadata. They are not rendered directly to Markdown by `pdf_core`.
 
@@ -143,9 +144,9 @@ Main APIs:
 
 `extract_document_model` runs the full native pipeline and returns `PdfDocumentModel`.
 
-`extract_document_summary` returns a compact human-readable summary.
+`extract_document_summary` returns a compact human-readable summary including document version, page count, and top-level object totals.
 
-`extract_document_block_debug` returns a textual inspection dump of pages, blocks, lines, images, geometry, and selected classification flags. This is for pipeline diagnosis; it is not a stable Markdown or IR format.
+`extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. This is for pipeline diagnosis; it is not a stable Markdown or IR format.
 
 ## Current Limits
 
@@ -170,18 +171,20 @@ Current responsibilities are mostly separated:
 - `api` is orchestration and public entry.
 - debug output is available through API helpers and gated internal debug functions.
 
-Files that are currently large enough to consider splitting later:
+Recent cleanup:
 
-- `raw/mbtpdf_text_adapter.mbt`: backend opening, text ops, image extraction, source refs, and geometry are all in one file.
+- R1 split the raw adapter into `mbtpdf_text_adapter.mbt`, `mbtpdf_page_adapter.mbt`, `mbtpdf_image_adapter.mbt`, `mbtpdf_annotation_adapter.mbt`, and `mbtpdf_adapter_util.mbt`.
+
+Files that are still large enough to consider splitting later:
+
+- `raw/mbtpdf_text_adapter.mbt`: text-state and text-op logic are still concentrated in one file.
 - `text/rule.mbt`: many unrelated recovery predicates live together.
 - `text/normalize_texts.mbt`: normalization and hardwrap behavior could be grouped by concern.
 - `api/test/pdf_core_test.mbt`: broad integration coverage in one test file.
 
 Suggested future splits, without changing behavior now:
 
-- `raw/mbtpdf_page_adapter.mbt`
 - `raw/mbtpdf_text_ops.mbt`
-- `raw/mbtpdf_image_adapter.mbt`
 - `text/rules_heading.mbt`
 - `text/rules_hardwrap.mbt`
 - `text/rules_noise.mbt`

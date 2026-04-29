@@ -67,7 +67,7 @@ fn file_ext_lower(path : String) -> String {
       if i == n - 1 {
         return ""
       }
-      return path[i + 1:].to_string().to_lower()
+      return path[i + 1:].to_owned().to_lower()
     }
     i = i - 1
   }

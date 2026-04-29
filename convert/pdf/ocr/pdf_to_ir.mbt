@@ -41,7 +41,7 @@ fn ocr_text_to_ir_document_with_debug(
 
   let pages : Array[String] = []
   for page_sv in text.split("\f") {
-    let page = page_sv.to_string()
+    let page = page_sv.to_owned()
     if page.trim() != "" {
       pages.push(page)
     }
@@ -86,7 +86,7 @@ fn ocr_text_to_ir_document_with_debug(
 
       let mut shown = 0
       for sv in clean_page.split("\n") {
-        let line = sv.to_string().trim().to_string()
+        let line = sv.trim().to_owned()
         if line != "" {
           shown += 1
           if shown >= 8 {
@@ -125,7 +125,7 @@ fn ocr_text_to_ir_document_with_debug(
   let merged = merge_clean_pages_with_breaks(clean_pages)
   let mut shown = 0
   for sv in merged.split("\n") {
-    let line = sv.to_string().trim().to_string()
+    let line = sv.trim().to_owned()
     if line != "" {
       shown += 1
       if shown >= 15 {
@@ -194,7 +194,7 @@ fn normalize_heading_level_after_first_h1(
 
 ///|
 fn looks_like_repeated_page_template_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
   if n < 8 || n > 36 {
     return false
@@ -239,8 +239,8 @@ fn coalesce_loose_paragraph_blocks(blocks : Array[PdfBlock]) -> Array[PdfBlock] 
 
 ///|
 fn can_soft_merge_paragraphs(prev : String, cur : String) -> Bool {
-  let p = prev.trim().to_string()
-  let c = cur.trim().to_string()
+  let p = prev.trim().to_owned()
+  let c = cur.trim().to_owned()
   if p == "" || c == "" {
     return false
   }
@@ -278,8 +278,8 @@ fn should_allow_label_token_continuation_merge(
   prev : String,
   cur : String,
 ) -> Bool {
-  let p = prev.trim().to_string()
-  let c = cur.trim().to_string()
+  let p = prev.trim().to_owned()
+  let c = cur.trim().to_owned()
   if p == "" || c == "" {
     return false
   }
@@ -303,7 +303,7 @@ fn should_allow_label_token_continuation_merge(
 
   let parts : Array[String] = c
     .split(" ")
-    .map(fn(sv) { sv.to_string().trim().to_string() })
+    .map(fn(sv) { sv.trim().to_owned() })
     .filter(fn(x) { x != "" })
     .iter()
     .collect()
@@ -325,8 +325,8 @@ fn should_veto_short_independent_line_merge(
   prev : String,
   cur : String,
 ) -> Bool {
-  let p = prev.trim().to_string()
-  let c = cur.trim().to_string()
+  let p = prev.trim().to_owned()
+  let c = cur.trim().to_owned()
   if p == "" || c == "" {
     return false
   }
@@ -353,7 +353,7 @@ fn should_veto_short_independent_line_merge(
 
 ///|
 fn should_veto_lead_in_line_merge(prev : String) -> Bool {
-  let p = prev.trim().to_string()
+  let p = prev.trim().to_owned()
   if p == "" {
     return false
   }
@@ -371,7 +371,7 @@ fn should_veto_lead_in_line_merge(prev : String) -> Bool {
 
   let mut words = 0
   for sv in p.split(" ") {
-    if sv.to_string().trim() != "" {
+    if sv.trim() != "" {
       words += 1
     }
   }

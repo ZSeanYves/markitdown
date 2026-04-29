@@ -74,6 +74,33 @@ It is not part of the Markdown main body and is not intended to replace the main
 
 ## 7) Current Per-format Support Scope and Boundaries
 
+### 7.0 Shared Low-level Parsing Foundations
+
+The repository now also has a usable low-level parsing substrate beneath the
+format-specific recovery logic.
+
+Current OOXML infrastructure includes:
+
+- package query APIs for part listing, part reads, and content-type lookup
+- typed relationships with internal/external target handling
+- package-level media asset indexing
+- lightweight `docProps/core.xml` and `docProps/app.xml` reading
+- read-only debug dump APIs for inspection
+
+Current PDF Core infrastructure includes:
+
+- vendored native backend wiring
+- source-aware operator parsing
+- page geometry support including media box, inherited crop box, rotation, raw
+  page refs, and raw content stream refs
+- raw image extraction
+- raw annotation / link extraction
+- read-only debug inspect output for document/page/image/annotation statistics
+
+These capabilities are parsing infrastructure. They support recovery,
+inspection, and metadata, but do not by themselves guarantee rich final
+document semantics.
+
 ### 7.1 DOCX
 
 Currently supported:
@@ -106,6 +133,8 @@ Currently supported:
 
 - native character / span / line / block recovery
 - text normalization and fragmented English word recovery
+- page geometry exposure through `pdf_core` including media box, crop box, and
+  rotation
 - page-noise cleanup
 - repeated header / footer cleanup
 - heading / short-sentence boundary recovery
@@ -116,8 +145,12 @@ Currently supported:
 - conservative pseudo two-column negative protection
 - lightweight page-level block origin metadata
 - lightweight image asset-origin metadata
+- raw page refs, content stream refs, images, and annotation/link data available
+  to debug inspect helpers
 - conservative nearby-caption attachment in single-image + single high-confidence caption-like cases
 - retention of page-level asset origin for exported PDF image assets
+- debug inspect output for document version/page count, per-page geometry,
+  counts, images, and annotations
 
 Current boundaries:
 
@@ -125,6 +158,8 @@ Current boundaries:
 - OCR currently exists as a plugin-style path driven by external tooling
 - more complex multi-column, heavy graphic-text mixing, and extreme anomaly cases are still under active improvement
 - some complex layouts still rely on heuristic rules rather than full layout-semantic reconstruction
+- Markdown output is still a conservative structural recovery result; it is not
+  intended to be a full visual reproduction of the original PDF page
 
 ### 7.3 XLSX
 
@@ -212,7 +247,10 @@ Current boundaries:
 ### 8.3 Advanced OOXML Boundary
 
 - The current priority is “readable structure + regression stability + explainability”.
-- Advanced OOXML features (complex style semantics, deeper layout/relationship logic, formula evaluation, etc.) are not yet fully covered.
+- Shared OOXML infrastructure for package, relationships, media, and document
+  properties is now in place, but higher-level advanced OOXML semantics
+  (complex style semantics, deeper layout logic, formula evaluation, etc.) are
+  not yet fully covered.
 
 ## 9) Known Limits
 

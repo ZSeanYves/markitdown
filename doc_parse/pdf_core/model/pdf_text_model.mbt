@@ -162,8 +162,8 @@ pub fn glue_between_spans(left : String, right : String) -> String {
     return ""
   }
 
-  let lc = last_char_opt(l.to_string())
-  let rc = first_char_opt(r.to_string())
+  let lc = last_char_opt(l.to_owned())
+  let rc = first_char_opt(r.to_owned())
 
   match (lc, rc) {
     (Some(a), Some(b)) => {
@@ -173,22 +173,22 @@ pub fn glue_between_spans(left : String, right : String) -> String {
       }
 
       // 断词场景：inter- + national
-      if should_merge_hyphenated_word_piece(l.to_string(), r.to_string()) {
+      if should_merge_hyphenated_word_piece(l.to_owned(), r.to_owned()) {
         return ""
       }
 
       // 新增：明显像英文词内续接，不补空格
-      if should_glue_english_word_piece(l.to_string(), r.to_string()) {
+      if should_glue_english_word_piece(l.to_owned(), r.to_owned()) {
         return ""
       }
 
       // 左边是 bullet，右边是正文：补空格
-      if should_insert_space_after_bullet_marker(l.to_string(), r.to_string()) {
+      if should_insert_space_after_bullet_marker(l.to_owned(), r.to_owned()) {
         return " "
       }
 
       // 左侧编号项（如 2)）后接正文：补空格
-      if should_insert_space_after_numbered_marker(l.to_string(), r.to_string()) {
+      if should_insert_space_after_numbered_marker(l.to_owned(), r.to_owned()) {
         return " "
       }
 
@@ -236,7 +236,7 @@ fn should_merge_hyphenated_word_piece(left : String, right : String) -> Bool {
     return false
   }
 
-  match (last_char_opt(l.to_string()), first_char_opt(r.to_string())) {
+  match (last_char_opt(l.to_owned()), first_char_opt(r.to_owned())) {
     (Some(a), Some(b)) => a == '-' && is_ascii_letter(b)
     _ => false
   }
@@ -252,7 +252,7 @@ fn should_insert_space_after_bullet_marker(
     return false
   }
 
-  match (last_char_opt(l.to_string()), first_char_opt(right.to_string())) {
+  match (last_char_opt(l.to_owned()), first_char_opt(right)) {
     (Some(_), Some(b)) if is_space_like_char(b) => false
     (Some(a), Some(b)) => is_bullet_char(a) && !is_spacing_or_punct(b)
     _ => false
@@ -284,7 +284,7 @@ fn should_insert_space_after_numbered_marker(
     return false
   }
 
-  match first_char_opt(r.to_string()) {
+  match first_char_opt(r.to_owned()) {
     Some(ch) => !is_spacing_or_punct(ch)
     None => false
   }
@@ -299,42 +299,42 @@ fn should_glue_english_word_piece(left : String, right : String) -> Bool {
     return false
   }
 
-  let lc = last_char_opt(l.to_string())
-  let rc = first_char_opt(r.to_string())
+  let lc = last_char_opt(l.to_owned())
+  let rc = first_char_opt(r.to_owned())
 
   match (lc, rc) {
     (Some(a), Some(b)) => {
-      if is_common_standalone_english_word(last_ascii_word(l.to_string())) &&
-        is_common_standalone_english_word(first_ascii_word(r.to_string())) {
+      if is_common_standalone_english_word(last_ascii_word(l.to_owned())) &&
+        is_common_standalone_english_word(first_ascii_word(r.to_owned())) {
         return false
       }
-      if is_common_standalone_english_word(last_ascii_word(l.to_string())) {
+      if is_common_standalone_english_word(last_ascii_word(l.to_owned())) {
         return false
       }
-      if is_short_upper_acronym(last_ascii_word(l.to_string())) {
+      if is_short_upper_acronym(last_ascii_word(l.to_owned())) {
         return false
       }
       if !is_ascii_letter(a) || !is_ascii_letter(b) {
         return false
       }
 
-      let left_word = last_ascii_word(l.to_string())
-      let right_word = first_ascii_word(r.to_string())
+      let left_word = last_ascii_word(l.to_owned())
+      let right_word = first_ascii_word(r.to_owned())
 
       if is_common_english_suffix_piece(right_word) &&
-        last_ascii_word_len(l.to_string()) >= 3 {
+        last_ascii_word_len(l.to_owned()) >= 3 {
         return true
       }
       if right_word == "rm" && left_word.has_suffix("fi") {
         return true
       }
       if is_common_bound_english_prefix(left_word) &&
-        first_ascii_word_len(r.to_string()) >= 4 {
+        first_ascii_word_len(r.to_owned()) >= 4 {
         return true
       }
 
-      let left_len = last_ascii_word_len(l.to_string())
-      let right_len = first_ascii_word_len(r.to_string())
+      let left_len = last_ascii_word_len(l.to_owned())
+      let right_len = first_ascii_word_len(r.to_owned())
 
       // 左右都很短：高概率是 ligature / 词内碎片
       // fi + rst, con + firm, uni + fied
@@ -343,7 +343,7 @@ fn should_glue_english_word_piece(left : String, right : String) -> Bool {
       }
 
       // 左边极短且右边不是常见独立短词：也倾向词内续接
-      if left_len <= 2 && !is_common_short_english_word_start(r.to_string()) {
+      if left_len <= 2 && !is_common_short_english_word_start(r.to_owned()) {
         return true
       }
 
@@ -373,7 +373,7 @@ fn last_ascii_word(text : String) -> String {
     }
   }
 
-  text[start:arr.length()].to_string()
+  text[start:arr.length()].to_owned()
 }
 
 ///|
@@ -390,7 +390,7 @@ fn first_ascii_word(text : String) -> String {
     }
   }
 
-  text[:end].to_string()
+  text[:end].to_owned()
 }
 
 ///|

@@ -72,7 +72,7 @@ fn parse_workbook_sheets(
         match j {
           None => break
           Some(i1) => {
-            let tag = wb_xml[i0:i1 + 1].to_string()
+            let tag = wb_xml[i0:i1 + 1].to_owned()
             let name = get_attr(tag, "name").unwrap_or("Sheet")
             let rid = get_attr(tag, "r:id").unwrap_or("")
             if rid != "" {
@@ -95,13 +95,13 @@ fn parse_workbook_sheets(
 
 ///|
 fn normalize_sheet_part_target(target : String) -> String {
-  let target0 = target.trim().to_string()
+  let target0 = target.trim().to_owned()
   if target0 == "" {
     return ""
   }
 
   if target0.has_prefix("/") {
-    target0[1:].to_string()
+    target0[1:].to_owned()
   } else {
     target0
   }

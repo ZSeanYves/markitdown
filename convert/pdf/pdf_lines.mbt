@@ -37,7 +37,7 @@ fn build_convert_page_lines(
     let block = page.text_blocks[block_index]
 
     for line in block.lines {
-      let text = @model.line_text(line).trim().to_string()
+      let text = @model.line_text(line).trim().to_owned()
       if text == "" {
         continue
       }
@@ -69,7 +69,7 @@ fn core_line_to_convert_line(
   line : @model.PdfTextLine,
 ) -> PdfConvertLine {
   let raw_text = @model.line_text(line)
-  let text = raw_text.trim().to_string()
+  let text = raw_text.trim().to_owned()
 
   {
     _page_index,

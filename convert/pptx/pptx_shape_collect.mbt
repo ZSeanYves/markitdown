@@ -21,7 +21,7 @@ fn collect_slide_shapes(xml : Bytes) -> Array[SlideShape] raise {
             match sp_end {
               None => break
               Some(sp_end0) => {
-                let sp_xml = xml[i0:sp_end0 + close_sp.length()].to_bytes()
+                let sp_xml = xml[i0:sp_end0 + close_sp.length()].to_owned()
                 let is_title = shape_is_title_like(sp_xml)
                 let is_body = shape_is_body_like(sp_xml)
                 let (x, y, w, h) = read_shape_bounds(sp_xml)
@@ -67,7 +67,7 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
               let off_gt = find_bytes(xml, gt_pat, off_i0)
               match off_gt {
                 Some(off_gt0) => {
-                  let tag = xml[off_i0:off_gt0 + 1].to_bytes()
+                  let tag = xml[off_i0:off_gt0 + 1].to_owned()
                   match read_attr_value_in_tag_bytes(tag, "x") {
                     Some(v) => x = parse_nonneg_int(v)
                     None => ()
@@ -88,7 +88,7 @@ fn read_shape_bounds(xml : Bytes) -> (Int, Int, Int, Int) raise {
               let ext_gt = find_bytes(xml, gt_pat, ext_i0)
               match ext_gt {
                 Some(ext_gt0) => {
-                  let tag = xml[ext_i0:ext_gt0 + 1].to_bytes()
+                  let tag = xml[ext_i0:ext_gt0 + 1].to_owned()
                   match read_attr_value_in_tag_bytes(tag, "cx") {
                     Some(v) => w = parse_nonneg_int(v)
                     None => ()

@@ -26,15 +26,15 @@ fn normalize_cli_args(args : Array[String]) -> Array[String] {
   }
 
   for i in 1..<args.length() {
-    let a = args[i].trim().to_string()
+    let a = args[i].trim().to_owned()
 
     if a.has_prefix("--") {
       let eq = find_first_eq(a)
       match eq {
         Some(pos) => {
           // --key=value  ->  ["--key", "value"]
-          let k = a[:pos].to_string()
-          let v = a[pos + 1:].to_string()
+          let k = a[:pos].to_owned()
+          let v = a[pos + 1:].to_owned()
           out.push(k)
           out.push(v)
           continue

@@ -61,7 +61,7 @@ fn detect_repeated_page_noise(
 
 ///|
 fn is_repeated_noise_candidate_line(line : String) -> Bool {
-  let t = line.trim().to_string()
+  let t = line.trim().to_owned()
   if t == "" {
     return false
   }
@@ -91,7 +91,7 @@ fn is_repeated_noise_candidate_line(line : String) -> Bool {
 fn count_words(s : String) -> Int {
   let mut n = 0
   for sv in s.split(" ") {
-    if sv.to_string().trim().to_string() != "" {
+    if sv.trim().to_owned() != "" {
       n += 1
     }
   }
@@ -108,7 +108,7 @@ fn normalized_nonempty_lines(page : String) -> Array[String] {
 
   let out : Array[String] = []
   for sv in s.split("\n") {
-    let line = sv.to_string().trim().to_string()
+    let line = sv.trim().to_owned()
     if line != "" {
       out.push(line)
     }
@@ -152,7 +152,7 @@ fn normalize_noise_key(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|

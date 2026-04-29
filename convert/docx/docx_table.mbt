@@ -380,5 +380,5 @@ fn trim_ascii_spaces(s : String) -> String {
     }
   }
 
-  String::from_array(cs[l:r].to_array())
+  String::from_array(cs[l:r].to_owned())
 }

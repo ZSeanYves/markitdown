@@ -229,7 +229,7 @@ fn collect_wt_inlines(
 
       let open_tag = @cor.slice_to_string(chars, p, p2 + 1)
       let inner = @cor.slice_to_string(chars, p2 + 1, p3)
-      let text = collect_wt_text(inner).trim().to_string()
+      let text = collect_wt_text(inner).trim().to_owned()
       let rid = read_attr_value_in_tag(open_tag, "r:id").unwrap_or("")
       let url = rels.get(rid).unwrap_or("")
 
@@ -237,7 +237,7 @@ fn collect_wt_inlines(
         if url.trim() == "" {
           out.push(@cor.Inline::Text(text))
         } else {
-          out.push(@cor.Inline::Link(text, url.trim().to_string()))
+          out.push(@cor.Inline::Link(text, url.trim().to_owned()))
         }
       }
       i = p3 + "</w:hyperlink>".length()

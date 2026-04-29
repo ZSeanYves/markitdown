@@ -1,6 +1,6 @@
 ///|
 fn guess_heading_level(text : String) -> Int {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return 0
   }
@@ -56,7 +56,7 @@ fn guess_heading_level(text : String) -> Int {
 
 ///|
 fn heading_score(s : String) -> Int {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return 0
   }
@@ -99,7 +99,7 @@ fn heading_score(s : String) -> Int {
 
 ///|
 fn guess_numbered_heading_level(s : String) -> Int {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
 
   if t.has_prefix("第一章") ||
     t.has_prefix("第二章") ||
@@ -202,7 +202,7 @@ fn starts_with_top_level_number(s : String) -> Bool {
 
 ///|
 fn looks_like_heading_marker(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t.has_prefix("第") ||
   t.has_prefix("Chapter") ||
   t.has_prefix("CHAPTER") ||
@@ -221,7 +221,7 @@ fn looks_like_heading_marker(s : String) -> Bool {
 
 ///|
 fn looks_like_english_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -244,7 +244,7 @@ fn looks_like_english_title(s : String) -> Bool {
 
   let words : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -279,10 +279,10 @@ fn looks_like_english_title(s : String) -> Bool {
 /// Heuristic for document-level title.
 /// Used to restore old PDF samples where the first main title should be H1.
 fn looks_like_document_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let words : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -355,7 +355,7 @@ fn looks_like_document_title(s : String) -> Bool {
 
 ///|
 fn looks_like_page_start_title_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || ends_like_sentence(t) || is_probable_page_number(t) {
     return false
   }
@@ -371,7 +371,7 @@ fn looks_like_page_start_title_line(s : String) -> Bool {
 
   let words : Array[String] = []
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       words.push(w)
     }
@@ -394,7 +394,7 @@ fn looks_like_page_start_title_line(s : String) -> Bool {
 /// Heuristic for section-like heading.
 /// Usually maps to H2 unless numbering rules say otherwise.
 fn looks_like_section_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -441,7 +441,7 @@ fn looks_like_section_title(s : String) -> Bool {
 ///|
 /// very conservative compact CJK heading fallback
 fn looks_like_compact_cjk_heading(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -493,7 +493,7 @@ fn looks_like_compact_cjk_heading(s : String) -> Bool {
 
 ///|
 fn starts_with_numbered_heading(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let cs = t.to_array()
   let n = cs.length()
   if n == 0 {
@@ -535,14 +535,14 @@ fn starts_with_numbered_heading(s : String) -> Bool {
 
 ///|
 fn looks_like_side_marker_label_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || !t.contains(" ") || !t.contains("-") {
     return false
   }
 
   let mut first = ""
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       first = w
       break

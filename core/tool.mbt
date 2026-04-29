@@ -1,7 +1,7 @@
 ///|
 pub fn trim_string(s : String) -> String {
   let normalized = s.replace(old="\u3000", new=" ")
-  normalized.trim().to_string()
+  normalized.trim().to_owned()
 }
 
 ///|
@@ -14,7 +14,7 @@ fn normalize_cell(s : String) -> String {
   let t = normalize_text(s)
   let parts = t
     .split("\n")
-    .map(fn(x) { trim_string(escape_pipes(x.to_string())) })
+    .map(fn(x) { trim_string(escape_pipes(x.to_owned())) })
     .filter(fn(x) { x != "" })
 
   parts.join("<br>")
@@ -100,9 +100,9 @@ fn normalize_image_ext(ext_raw : String) -> String {
     return "img"
   }
   if t.has_prefix(".") {
-    t[1:].to_string()
+    t[1:].to_owned()
   } else {
-    t.to_string()
+    t.to_owned()
   }
 }
 
@@ -208,10 +208,10 @@ pub fn decode_numeric_entities(s : String) -> String {
       }
 
       if j < n && s[j] == ';' {
-        let body = s[i + 2:j].to_string().trim().to_string()
+        let body = s[i + 2:j].trim().to_owned()
 
         let cp_opt = if body.has_prefix("x") || body.has_prefix("X") {
-          parse_hex_int(body[1:].to_string())
+          parse_hex_int(body[1:].to_owned())
         } else {
           parse_dec_int(body)
         }

@@ -21,7 +21,7 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     for i = 0; i < n; i = i + 1 {
       let block = page.blocks[i]
-      let text = block.text.trim().to_string()
+      let text = block.text.trim().to_owned()
 
       match block.kind {
         PdfConvertBlockKind::Noise => ()
@@ -116,7 +116,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let out = Array::new()
 
   for block in page.blocks {
-    let t = block.text.trim().to_string()
+    let t = block.text.trim().to_owned()
     if t != "" {
       out.push(block)
     }
@@ -132,7 +132,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
 /// - 纯页码/页标签可以删
 /// - 较短、非完整正文句、非长正文段才进入 repeated 候选
 fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
-  let t = block.text.trim().to_string()
+  let t = block.text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -200,7 +200,7 @@ fn should_drop_repeated_edge_block(
 /// - 英文转小写
 /// - 数字统一替换成 '#'
 fn normalize_noise_key(s : String) -> String {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return ""
   }
@@ -230,14 +230,14 @@ fn normalize_noise_key(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|
 fn count_words(s : String) -> Int {
   let mut n = 0
   for sv in s.split(" ") {
-    let t = sv.to_string().trim().to_string()
+    let t = sv.trim().to_owned()
     if t != "" {
       n = n + 1
     }
@@ -248,7 +248,7 @@ fn count_words(s : String) -> Int {
 ///|
 /// 非严格正文句判定：用于保护正文不被 repeated noise 误删。
 fn ends_like_sentence(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -259,7 +259,7 @@ fn ends_like_sentence(text : String) -> Bool {
 
 ///|
 fn is_probable_page_number_like(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t == "" {
     return false
   }
@@ -289,19 +289,19 @@ fn is_probable_page_number_like(text : String) -> Bool {
 
 ///|
 fn looks_like_simple_english_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
     return false
   }
 
-  let tail = t[5:].trim().to_string()
+  let tail = t[5:].trim().to_owned()
   tail != "" && tail.length() <= 4 && all_ascii_digits(tail)
 }
 
 ///|
 fn looks_like_simple_cjk_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   if !(t.has_prefix("第") && (t.contains("页") || t.contains("⻚"))) {
     return false
@@ -312,26 +312,26 @@ fn looks_like_simple_cjk_page_label(text : String) -> Bool {
     .replace_all(old="页", new="")
     .replace_all(old="⻚", new="")
     .trim()
-    .to_string()
+    .to_owned()
 
   mid != "" && mid.length() <= 4 && all_ascii_digits(mid)
 }
 
 ///|
 fn looks_like_fraction_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
 
   let parts : Array[String] = Array::new()
   for part in t.split("/") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
 
   if parts.length() != 2 {
     return false
   }
 
-  let left = parts[0].trim().to_string()
-  let right = parts[1].trim().to_string()
+  let left = parts[0].trim().to_owned()
+  let right = parts[1].trim().to_owned()
 
   left != "" &&
   right != "" &&
@@ -343,7 +343,7 @@ fn looks_like_fraction_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_dash_page_label(text : String) -> Bool {
-  let t = text.trim().to_string()
+  let t = text.trim().to_owned()
   if t.length() > 12 {
     return false
   }
@@ -355,12 +355,12 @@ fn looks_like_dash_page_label(text : String) -> Bool {
 
   let parts : Array[String] = Array::new()
   for part in normalized.split("-") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
 
   let mut non_empty = 0
   for p in parts {
-    let s = p.trim().to_string()
+    let s = p.trim().to_owned()
     if s != "" {
       if !all_ascii_digits(s) {
         return false
@@ -400,7 +400,7 @@ fn contains_string(xs : Array[String], x : String) -> Bool {
 ///|
 fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
   for i = 0; i < page.blocks.length(); i = i + 1 {
-    let t = page.blocks[i].text.trim().to_string()
+    let t = page.blocks[i].text.trim().to_owned()
     if t != "" {
       return i
     }
@@ -412,7 +412,7 @@ fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
 fn last_nonempty_block_index(page : PdfConvertPage) -> Int {
   let mut i = page.blocks.length() - 1
   while i >= 0 {
-    let t = page.blocks[i].text.trim().to_string()
+    let t = page.blocks[i].text.trim().to_owned()
     if t != "" {
       return i
     }

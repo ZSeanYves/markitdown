@@ -146,9 +146,9 @@ fn debug_print_page_edge_blocks(doc : PdfConvertDocument) -> Unit {
 
 ///|
 fn edge_block_debug_str(block : PdfConvertBlock) -> String {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
   let short = if text.length() > 100 {
-    text[:100].to_string() + "..."
+    text[:100].to_owned() + "..."
   } else {
     text
   }
@@ -184,8 +184,8 @@ fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
       continue
     }
 
-    let first = page.blocks[0].text.trim().to_string()
-    let last = page.blocks[page.blocks.length() - 1].text.trim().to_string()
+    let first = page.blocks[0].text.trim().to_owned()
+    let last = page.blocks[page.blocks.length() - 1].text.trim().to_owned()
 
     if first != "" {
       edge_texts.push(first)
@@ -214,7 +214,7 @@ fn debug_print_repeated_edge_texts(doc : PdfConvertDocument) -> Unit {
 
     if count >= 2 {
       let short = if cur.length() > 120 {
-        cur[:120].to_string() + "..."
+        cur[:120].to_owned() + "..."
       } else {
         cur
       }
@@ -243,7 +243,7 @@ fn debug_print_header_footer_like_blocks(doc : PdfConvertDocument) -> Unit {
 
 ///|
 fn looks_like_debug_edge_noise_candidate(block : PdfConvertBlock) -> Bool {
-  let text = block.text.trim().to_string()
+  let text = block.text.trim().to_owned()
 
   if text == "" {
     return false

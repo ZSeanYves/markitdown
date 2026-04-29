@@ -119,7 +119,7 @@ fn looks_like_desc_prefix_text(s : String) -> Bool {
 
 ///|
 fn looks_like_callout_title_text(s : String) -> Bool {
-  let t = s.trim()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
 
   if t == "" || n > 24 {
@@ -144,7 +144,7 @@ fn looks_like_callout_title_text(s : String) -> Bool {
 
 ///|
 fn looks_like_callout_desc_text(s : String) -> Bool {
-  let t = s.trim()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
 
   if t == "" {

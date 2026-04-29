@@ -156,8 +156,8 @@ fn looks_like_page_x_of_y(s : String) -> Bool {
       if pos <= 0 || pos >= t.length() - 1 {
         return false
       }
-      let left = t[:pos].trim().to_string()
-      let right = t[pos + 1:].trim().to_string()
+      let left = t[:pos].trim().to_owned()
+      let right = t[pos + 1:].trim().to_owned()
       is_all_digits(left) && is_all_digits(right)
     }
   }
@@ -176,7 +176,7 @@ fn normalize_noise_text(s : String) -> String {
 
 ///|
 fn is_all_digits(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -207,7 +207,11 @@ fn ascii_lower(s : String) -> String {
   for c in s.to_array() {
     let code = c.to_int()
     if code >= 'A'.to_int() && code <= 'Z'.to_int() {
-      out = out + Int::to_char(code + 32).to_string()
+      let lower = Int::to_char(code + 32)
+      match lower {
+        Some(v) => out = out + v.to_string()
+        None => out = out + c.to_string()
+      }
     } else {
       out = out + c.to_string()
     }

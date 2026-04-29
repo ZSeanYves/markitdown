@@ -47,7 +47,7 @@ fn get_attr(tag : String, key : String) -> String? {
       let i1 = find_sub(tag, "\"", s0)
       match i1 {
         None => None
-        Some(q) => Some(tag[s0:q].to_string())
+        Some(q) => Some(tag[s0:q].to_owned())
       }
     }
   }

@@ -124,7 +124,7 @@ fn slide_hyperlink_map(
   }
   for rel in rels {
     if rel.rel_type.has_suffix("/hyperlink") && rel.resolved_target.trim() != "" {
-      out.set(rel.id, rel.resolved_target.trim().to_string())
+      out.set(rel.id, rel.resolved_target.trim().to_owned())
     }
   }
   out

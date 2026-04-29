@@ -22,9 +22,9 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
 
   let lines : Array[PdfLine] = []
   for sv in s.split("\n") {
-    let raw0 = sv.to_string()
+    let raw0 = sv.to_owned()
     for raw in split_compound_pseudo_column_line(raw0) {
-      let line = raw.trim().to_string()
+      let line = raw.trim().to_owned()
 
       if line == PDF_PAGE_BREAK_MARKER {
         lines.push(PdfLine::PageBreak)
@@ -60,7 +60,7 @@ fn split_blocks_smart(page : String) -> Array[PdfBlock] {
           prev_was_page_break = false
         } else if should_start_new_block(buf, cur, prev_was_page_break) {
           let promote_page_start_heading = buf_is_page_lead &&
-            looks_like_list_item_sentence(cur.trim().to_string()) &&
+            looks_like_list_item_sentence(cur.trim().to_owned()) &&
             looks_like_short_page_start_section_title(buf)
           flush_pdf_block_with_hint(out, buf, promote_page_start_heading)
           buf = cur
@@ -99,7 +99,7 @@ fn flush_pdf_block_with_hint(
   buf : String,
   prefer_heading : Bool,
 ) -> Unit {
-  let raw = buf.trim().to_string()
+  let raw = buf.trim().to_owned()
   if raw == "" {
     return
   }
@@ -142,7 +142,7 @@ fn flush_pdf_block_with_hint(
 
 ///|
 fn should_accept_ordered_list_item(out : Array[PdfBlock], raw : String) -> Bool {
-  let t = raw.trim().to_string()
+  let t = raw.trim().to_owned()
   if !looks_like_list_item_sentence(t) {
     return false
   }
@@ -162,7 +162,7 @@ fn should_accept_ordered_list_item(out : Array[PdfBlock], raw : String) -> Bool 
 
 ///|
 fn looks_like_short_page_start_section_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || ends_like_sentence(t) || is_probable_page_number(t) {
     return false
   }
@@ -200,7 +200,7 @@ fn trim_string_for_pdf_block(s : String) -> String {
     }
   }
 
-  out.trim().to_string()
+  out.trim().to_owned()
 }
 
 ///|
@@ -209,7 +209,7 @@ fn should_start_new_block(
   cur : String,
   prev_was_page_break : Bool,
 ) -> Bool {
-  let t = cur.trim().to_string()
+  let t = cur.trim().to_owned()
   if t == "" {
     return true
   }
@@ -251,7 +251,7 @@ fn should_start_new_block(
 /// Do NOT use short plain title heuristics here,
 /// otherwise hard-wrapped Chinese lines will be over-split.
 fn starts_like_new_block(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -284,8 +284,8 @@ fn starts_like_new_block(s : String) -> Bool {
 
 ///|
 fn should_merge_across_page_break(left : String, right : String) -> Bool {
-  let l = left.trim().to_string()
-  let r = right.trim().to_string()
+  let l = left.trim().to_owned()
+  let r = right.trim().to_owned()
 
   if l == "" || r == "" {
     return false
@@ -333,8 +333,8 @@ fn should_flush_buf_before_appending(
   cur : String,
   buf_is_page_lead : Bool,
 ) -> Bool {
-  let b = buf.trim().to_string()
-  let t = cur.trim().to_string()
+  let b = buf.trim().to_owned()
+  let t = cur.trim().to_owned()
 
   if b == "" || t == "" {
     return false
@@ -380,7 +380,7 @@ fn should_flush_buf_before_appending(
 
 ///|
 fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
-  let t = raw.trim().to_string()
+  let t = raw.trim().to_owned()
   if !t.contains("LEFT-") || !t.contains("RIGHT-") {
     return [raw]
   }
@@ -406,8 +406,8 @@ fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
     return [raw]
   }
 
-  let left = String::from_array(cs[:split_at].to_array()).trim().to_string()
-  let right = String::from_array(cs[split_at:].to_array()).trim().to_string()
+  let left = String::from_array(cs[:split_at].to_owned()).trim().to_owned()
+  let right = String::from_array(cs[split_at:].to_owned()).trim().to_owned()
   if left == "" || right == "" {
     return [raw]
   }
@@ -417,14 +417,14 @@ fn split_compound_pseudo_column_line(raw : String) -> Array[String] {
 
 ///|
 fn looks_like_label_token_line_start(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" || !t.contains("-") || !t.contains(" ") {
     return false
   }
 
   let mut first = ""
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       first = w
       break
@@ -486,8 +486,8 @@ fn looks_like_label_token_line_start(s : String) -> Bool {
 
 ///|
 fn should_continue_previous_list_item(prev : String, cur : String) -> Bool {
-  let p = prev.trim().to_string()
-  let t = cur.trim().to_string()
+  let p = prev.trim().to_owned()
+  let t = cur.trim().to_owned()
   if !looks_like_list_item_sentence(p) || t == "" {
     return false
   }
@@ -504,7 +504,7 @@ fn should_continue_previous_list_item(prev : String, cur : String) -> Bool {
 
 ///|
 fn looks_like_page_leading_heading(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -533,15 +533,15 @@ fn should_break_numbered_sentence_and_emphasis(
   buf : String,
   cur : String,
 ) -> Bool {
-  let b = buf.trim().to_string()
-  let t = cur.trim().to_string()
+  let b = buf.trim().to_owned()
+  let t = cur.trim().to_owned()
   looks_like_numbered_sentence_prefix(b) &&
   looks_like_uppercase_emphasis_line(t)
 }
 
 ///|
 fn looks_like_numbered_sentence_prefix(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let cs = t.to_array()
   let n = cs.length()
   if n < 4 {
@@ -569,7 +569,7 @@ fn looks_like_numbered_sentence_prefix(s : String) -> Bool {
 
 ///|
 fn looks_like_uppercase_emphasis_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
   if n < 8 || n > 80 {
     return false
@@ -591,7 +591,7 @@ fn looks_like_uppercase_emphasis_line(s : String) -> Bool {
 
 ///|
 fn looks_like_short_uppercase_title_like(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let cs = t.to_array()
   let n = cs.length()
   if n < 4 || n > 48 {
@@ -614,7 +614,7 @@ fn looks_like_short_uppercase_title_like(s : String) -> Bool {
 
 ///|
 fn looks_like_section_marker_like(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t.has_prefix("page ") ||
     t.has_prefix("Page ") ||
     t.has_prefix("section ") ||
@@ -630,14 +630,14 @@ fn looks_like_section_marker_like(s : String) -> Bool {
 
 ///|
 fn looks_like_pseudo_column_line(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t.to_array().length() < 6 || !t.contains("-") || !t.contains(" ") {
     return false
   }
 
   let mut head = ""
   for sv in t.split(" ") {
-    let w = sv.to_string().trim().to_string()
+    let w = sv.trim().to_owned()
     if w != "" {
       head = w
       break

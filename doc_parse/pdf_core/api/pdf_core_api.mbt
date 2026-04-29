@@ -42,6 +42,12 @@ pub struct PdfCoreConfig {
 }
 
 ///|
+priv struct PdfCoreDebugBundle {
+  raw : @raw.RawPdfDocumentExtract
+  doc : @model.PdfDocumentModel
+}
+
+///|
 /// 默认配置。
 pub fn default_pdf_core_config() -> PdfCoreConfig {
   { backend: PdfCoreBackend::MbtPdf }
@@ -54,12 +60,9 @@ pub async fn extract_document_model(
   path : String,
   config : PdfCoreConfig,
 ) -> Result[@model.PdfDocumentModel, PdfCoreError] {
-  let raw = match config.backend {
-    PdfCoreBackend::MbtPdf =>
-      match @raw.extract_raw_document_with_mbtpdf(path) {
-        Ok(v) => v
-        Err(err) => return Err(map_adapter_error(err))
-      }
+  let raw = match extract_raw_document(path, config) {
+    Ok(v) => v
+    Err(err) => return Err(err)
   }
 
   build_document_model_from_raw(raw)
@@ -72,149 +75,20 @@ pub async fn extract_document_summary(
   config : PdfCoreConfig,
 ) -> Result[String, PdfCoreError] {
   match extract_document_model(path, config) {
-    Ok(doc) => {
-      let mut block_count = 0
-      for page in doc.pages {
-        block_count = block_count + page.text_blocks.length()
-      }
-
-      Ok(
-        "PdfDocumentModel(" +
-        "pages=" +
-        doc.page_count.to_string() +
-        ", " +
-        "blocks=" +
-        block_count.to_string() +
-        ", " +
-        "encrypted=" +
-        doc.is_encrypted.to_string() +
-        ", " +
-        "title=" +
-        option_to_string(doc.metadata.title) +
-        ")",
-      )
-    }
+    Ok(doc) => Ok(render_document_summary(doc))
     Err(err) => Err(err)
   }
 }
 
 ///|
-/// 打印 pdf_core 原始 page.text_blocks，
-/// 用于确认 header / 标题 / 正文是否已经在 core 层分开。
+/// 打印 pdf_core 页面 / block / line / image / annotation 调试信息，
+/// 用于确认 page geometry、对象来源和文本结构是否符合预期。
 pub async fn extract_document_block_debug(
   path : String,
   config : PdfCoreConfig,
 ) -> Result[String, PdfCoreError] {
-  match extract_document_model(path, config) {
-    Ok(doc) => {
-      let mut out = ""
-      out = out +
-        "PdfDocumentModel(" +
-        "pages=" +
-        doc.page_count.to_string() +
-        ", " +
-        "encrypted=" +
-        doc.is_encrypted.to_string() +
-        ", " +
-        "title=" +
-        option_to_string(doc.metadata.title) +
-        ")\n"
-
-      for page in doc.pages {
-        out = out +
-          "[page " +
-          page.page_index.to_string() +
-          "] text_blocks=" +
-          page.text_blocks.length().to_string() +
-          " images=" +
-          page.images.length().to_string() +
-          "\n"
-
-        for i = 0; i < page.text_blocks.length(); i = i + 1 {
-          let block = page.text_blocks[i]
-          let text = @model.block_text(block).trim().to_string()
-          let short = if text.length() > 160 {
-            text[:160].to_string() + "..."
-          } else {
-            text
-          }
-
-          out = out +
-            "  [block " +
-            i.to_string() +
-            "] " +
-            "kind=" +
-            core_block_kind_str(block.kind) +
-            ", heading_candidate=" +
-            block.is_heading_candidate.to_string() +
-            ", header_footer_candidate=" +
-            block.is_header_footer_candidate.to_string() +
-            ", page_number_candidate=" +
-            block.is_page_number_candidate.to_string() +
-            ", line_count=" +
-            block.lines.length().to_string() +
-            ", font_size=" +
-            opt_f64(block.dominant_font_size) +
-            ", font_name=" +
-            opt_str(block.dominant_font_name) +
-            ", bbox=" +
-            rect_str(block.bbox) +
-            ", text=\"" +
-            short +
-            "\"\n"
-
-          for j = 0; j < block.lines.length(); j = j + 1 {
-            let line = block.lines[j]
-            let line_txt = @model.line_text(line).trim().to_string()
-            let line_short = if line_txt.length() > 120 {
-              line_txt[:120].to_string() + "..."
-            } else {
-              line_txt
-            }
-
-            out = out +
-              "    [line " +
-              j.to_string() +
-              "] text=\"" +
-              line_short +
-              "\"" +
-              ", indent_left=" +
-              opt_f64(line.indent_left) +
-              ", gap_before=" +
-              opt_f64(line.line_gap_before) +
-              ", gap_after=" +
-              opt_f64(line.line_gap_after) +
-              ", bbox=" +
-              rect_str(line.bbox) +
-              "\n"
-          }
-          for k = 0; k < page.images.length(); k = k + 1 {
-            let image = page.images[k]
-            out = out +
-              "  [image " +
-              k.to_string() +
-              "] " +
-              "id=" +
-              image.id +
-              ", width=" +
-              image.width_px.to_string() +
-              ", height=" +
-              image.height_px.to_string() +
-              ", inline=" +
-              image.inline_image.to_string() +
-              ", filter=" +
-              opt_str_or_none(image.image_filter) +
-              ", object_ref=" +
-              opt_str_or_none(image.object_ref) +
-              ", bbox=" +
-              rect_str(image.bbox) +
-              "\n"
-          }
-        }
-      }
-
-      Ok(out)
-    }
+  match extract_document_debug_bundle(path, config) {
+    Ok(bundle) => Ok(render_document_block_debug(bundle.raw, bundle.doc))
     Err(err) => Err(err)
   }
 }
@@ -225,7 +99,7 @@ fn opt_str_or_none(v : String?) -> String {
     Some(s) => s
     None => "None"
   }
-} ///|
+}
 
 ///|
 fn core_block_kind_str(kind : @model.PdfTextBlockKind) -> String {
@@ -271,11 +145,338 @@ fn rect_str(r : @model.PdfRect) -> String {
 }
 
 ///|
+fn opt_rect_str(r : @model.PdfRect?) -> String {
+  match r {
+    Some(rect) => rect_str(rect)
+    None => "None"
+  }
+}
+
+///|
+fn string_array_str(items : Array[String]) -> String {
+  if items.is_empty() {
+    return "[]"
+  }
+
+  "[" + items.join(", ") + "]"
+}
+
+///|
+fn page_line_count(page : @model.PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    total = total + block.lines.length()
+  }
+  total
+}
+
+///|
+fn page_span_count(page : @model.PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    for line in block.lines {
+      total = total + line.spans.length()
+    }
+  }
+  total
+}
+
+///|
+fn document_block_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page.text_blocks.length()
+  }
+  total
+}
+
+///|
+fn document_line_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page_line_count(page)
+  }
+  total
+}
+
+///|
+fn document_span_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page_span_count(page)
+  }
+  total
+}
+
+///|
+fn document_image_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page.images.length()
+  }
+  total
+}
+
+///|
+fn document_annotation_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page.annotations.length()
+  }
+  total
+}
+
+///|
+fn shorten_text(text : String, limit : Int) -> String {
+  if text.length() > limit {
+    text[:limit].to_owned() + "..."
+  } else {
+    text
+  }
+}
+
+///|
+fn render_document_summary(doc : @model.PdfDocumentModel) -> String {
+  "PdfDocumentSummary(" +
+  "version=" +
+  doc.version +
+  ", " +
+  "page_count=" +
+  doc.page_count.to_string() +
+  ", " +
+  "blocks=" +
+  document_block_count(doc).to_string() +
+  ", " +
+  "images=" +
+  document_image_count(doc).to_string() +
+  ", " +
+  "annotations=" +
+  document_annotation_count(doc).to_string() +
+  ", " +
+  "encrypted=" +
+  doc.is_encrypted.to_string() +
+  ", " +
+  "title=" +
+  option_to_string(doc.metadata.title) +
+  ")"
+}
+
+///|
+fn render_document_block_debug(
+  raw : @raw.RawPdfDocumentExtract,
+  doc : @model.PdfDocumentModel,
+) -> String {
+  let mut out = ""
+  out = out +
+    "PdfDocumentDebug(" +
+    "version=" +
+    doc.version +
+    ", " +
+    "page_count=" +
+    doc.page_count.to_string() +
+    ", " +
+    "encrypted=" +
+    doc.is_encrypted.to_string() +
+    ", " +
+    "has_xref_stream=" +
+    doc.has_xref_stream.to_string() +
+    ", " +
+    "has_object_stream=" +
+    doc.has_object_stream.to_string() +
+    ", " +
+    "title=" +
+    option_to_string(doc.metadata.title) +
+    ", " +
+    "total_blocks=" +
+    document_block_count(doc).to_string() +
+    ", " +
+    "total_lines=" +
+    document_line_count(doc).to_string() +
+    ", " +
+    "total_spans=" +
+    document_span_count(doc).to_string() +
+    ", " +
+    "total_images=" +
+    document_image_count(doc).to_string() +
+    ", " +
+    "total_annotations=" +
+    document_annotation_count(doc).to_string() +
+    ")\n"
+
+  for i = 0; i < doc.pages.length(); i = i + 1 {
+    let raw_page = raw.pages[i]
+    let page = doc.pages[i]
+
+    out = out + "[page " + page.page_index.to_string() + "]\n"
+    out = out +
+      "  raw_page_ref=" +
+      opt_str_or_none(raw_pdf_ref_to_string(raw_page.raw_page_ref)) +
+      "\n"
+    out = out + "  media_box=" + opt_rect_str(raw_page.media_box) + "\n"
+    out = out + "  crop_box=" + opt_rect_str(raw_page.crop_box) + "\n"
+    out = out + "  rotation=" + raw_page.rotation.to_string() + "\n"
+    out = out +
+      "  raw_content_stream_refs=" +
+      string_array_str(raw_page.raw_content_stream_refs) +
+      "\n"
+    out = out +
+      "  stats: text_blocks=" +
+      page.text_blocks.length().to_string() +
+      ", lines=" +
+      page_line_count(page).to_string() +
+      ", spans=" +
+      page_span_count(page).to_string() +
+      ", images=" +
+      page.images.length().to_string() +
+      ", annotations=" +
+      page.annotations.length().to_string() +
+      ", page_objects=" +
+      @model.page_object_count(page).to_string() +
+      "\n"
+
+    if page.images.is_empty() {
+      out = out + "  images=[]\n"
+    } else {
+      for j = 0; j < page.images.length(); j = j + 1 {
+        let image = page.images[j]
+        out = out +
+          "  [image " +
+          j.to_string() +
+          "] " +
+          "id=" +
+          image.id +
+          ", width=" +
+          image.width_px.to_string() +
+          ", height=" +
+          image.height_px.to_string() +
+          ", inline=" +
+          image.inline_image.to_string() +
+          ", filter=" +
+          opt_str_or_none(image.image_filter) +
+          ", object_ref=" +
+          opt_str_or_none(image.object_ref) +
+          ", bbox=" +
+          rect_str(image.bbox) +
+          "\n"
+      }
+    }
+
+    if page.annotations.is_empty() {
+      out = out + "  annotations=[]\n"
+    } else {
+      for j = 0; j < page.annotations.length(); j = j + 1 {
+        let annotation = page.annotations[j]
+        out = out +
+          "  [annotation " +
+          j.to_string() +
+          "] " +
+          "subtype=" +
+          annotation.subtype +
+          ", uri=" +
+          opt_str_or_none(annotation.uri) +
+          ", dest=" +
+          opt_str_or_none(annotation.dest) +
+          ", object_ref=" +
+          opt_str_or_none(annotation.object_ref) +
+          ", bbox=" +
+          rect_str(annotation.bbox) +
+          "\n"
+      }
+    }
+
+    for j = 0; j < page.text_blocks.length(); j = j + 1 {
+      let block = page.text_blocks[j]
+      let text = shorten_text(@model.block_text(block).trim().to_owned(), 160)
+
+      out = out +
+        "  [block " +
+        j.to_string() +
+        "] " +
+        "kind=" +
+        core_block_kind_str(block.kind) +
+        ", heading_candidate=" +
+        block.is_heading_candidate.to_string() +
+        ", header_footer_candidate=" +
+        block.is_header_footer_candidate.to_string() +
+        ", page_number_candidate=" +
+        block.is_page_number_candidate.to_string() +
+        ", line_count=" +
+        block.lines.length().to_string() +
+        ", font_size=" +
+        opt_f64(block.dominant_font_size) +
+        ", font_name=" +
+        opt_str(block.dominant_font_name) +
+        ", bbox=" +
+        rect_str(block.bbox) +
+        ", text=\"" +
+        text +
+        "\"\n"
+
+      for k = 0; k < block.lines.length(); k = k + 1 {
+        let line = block.lines[k]
+        let line_short = shorten_text(
+          @model.line_text(line).trim().to_owned(),
+          120,
+        )
+
+        out = out +
+          "    [line " +
+          k.to_string() +
+          "] text=\"" +
+          line_short +
+          "\"" +
+          ", indent_left=" +
+          opt_f64(line.indent_left) +
+          ", gap_before=" +
+          opt_f64(line.line_gap_before) +
+          ", gap_after=" +
+          opt_f64(line.line_gap_after) +
+          ", bbox=" +
+          rect_str(line.bbox) +
+          "\n"
+      }
+    }
+  }
+
+  out
+}
+
+///|
 fn map_adapter_error(err : @raw.MbtPdfAdapterError) -> PdfCoreError {
   match err {
     OpenFailed(msg) => PdfCoreError::AdapterFailed("open failed: " + msg)
     ExtractFailed(msg) => PdfCoreError::AdapterFailed("extract failed: " + msg)
     Unsupported(msg) => PdfCoreError::Unsupported(msg)
+  }
+}
+
+///|
+async fn extract_raw_document(
+  path : String,
+  config : PdfCoreConfig,
+) -> Result[@raw.RawPdfDocumentExtract, PdfCoreError] {
+  match config.backend {
+    PdfCoreBackend::MbtPdf =>
+      match @raw.extract_raw_document_with_mbtpdf(path) {
+        Ok(v) => Ok(v)
+        Err(err) => Err(map_adapter_error(err))
+      }
+  }
+}
+
+///|
+async fn extract_document_debug_bundle(
+  path : String,
+  config : PdfCoreConfig,
+) -> Result[PdfCoreDebugBundle, PdfCoreError] {
+  let raw = match extract_raw_document(path, config) {
+    Ok(v) => v
+    Err(err) => return Err(err)
+  }
+
+  match build_document_model_from_raw(raw) {
+    Ok(doc) => Ok({ raw, doc })
+    Err(err) => Err(err)
   }
 }
 
