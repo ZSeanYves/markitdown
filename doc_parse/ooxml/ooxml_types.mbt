@@ -32,6 +32,10 @@ pub(all) enum OoxmlTargetMode {
 } derive(Eq)
 
 ///|
+/// A relationship entry parsed from an OOXML `.rels` part.
+///
+/// `target` is the raw relationship target. `resolved_target` is normalized for
+/// internal targets and left as-is for external targets.
 pub struct OoxmlRelationship {
   id : String
   rel_type : String
@@ -41,6 +45,7 @@ pub struct OoxmlRelationship {
 }
 
 ///|
+/// A source relationship that points to an OOXML media asset.
 pub struct OoxmlAssetRef {
   source_part : String
   rel_id : String
@@ -48,6 +53,10 @@ pub struct OoxmlAssetRef {
 }
 
 ///|
+/// Media asset discovered in an OOXML package.
+///
+/// The index is package-level and intentionally format-neutral across DOCX,
+/// PPTX, and XLSX.
 pub struct OoxmlAsset {
   part_name : String
   content_type : String?
@@ -57,6 +66,7 @@ pub struct OoxmlAsset {
 }
 
 ///|
+/// Lightweight fields from `docProps/core.xml`.
 pub struct OoxmlCoreProperties {
   title : String?
   subject : String?
@@ -68,6 +78,7 @@ pub struct OoxmlCoreProperties {
 }
 
 ///|
+/// Lightweight fields from `docProps/app.xml`.
 pub struct OoxmlAppProperties {
   application : String?
   pages : String?
@@ -77,6 +88,7 @@ pub struct OoxmlAppProperties {
 }
 
 ///|
+/// Opened OOXML package with a ZIP archive and cached content-type maps.
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, Int]

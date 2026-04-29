@@ -73,6 +73,24 @@ Typical current components include:
 - `doc_parse/ooxml`: shared OOXML parsing infrastructure
 - `doc_parse/pdf_core`: native PDF parsing foundations
 
+Current `doc_parse/ooxml` capabilities:
+
+- Package query API: open an OOXML ZIP package, list parts, check part
+  existence, read part bytes, and query content types by part, prefix, or
+  content type.
+- Typed relationships: read package-level and part-level `.rels`, preserve
+  `Internal` / `External` target mode, resolve internal relationship targets,
+  and look up relationships by id or type suffix.
+- Media asset index: list `word/media`, `ppt/media`, and `xl/media` assets with
+  part name, content type, extension, size, and relationship references pointing
+  back to the asset.
+- Document properties: read lightweight `docProps/core.xml` and
+  `docProps/app.xml` fields for document-level metadata. The metadata sidecar
+  uses this for the top-level `document` field on OOXML inputs.
+- Debug dump API: render read-only human-readable summaries for package
+  structure, relationships, media assets, and properties. This is for diagnosis
+  and inspection, not for conversion output.
+
 Role:
 
 - This layer serves as the parsing substrate beneath the upper-level recovery logic

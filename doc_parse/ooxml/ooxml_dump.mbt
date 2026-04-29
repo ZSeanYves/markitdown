@@ -16,6 +16,7 @@ pub fn dump_ooxml_package(pkg : OoxmlPackage) -> String {
 }
 
 ///|
+/// Dump part and content-type counts from the package container.
 pub fn dump_package_summary(pkg : OoxmlPackage) -> String {
   let out = StringBuilder::new()
   out.write_string("[Content_Types]\n")
@@ -32,6 +33,7 @@ pub fn dump_package_summary(pkg : OoxmlPackage) -> String {
 }
 
 ///|
+/// Dump package-root relationships and all source-part relationships.
 pub fn dump_relationships_summary(pkg : OoxmlPackage) -> String {
   let out = StringBuilder::new()
   out.write_string("[relationships]\n")
@@ -54,6 +56,7 @@ pub fn dump_relationships_summary(pkg : OoxmlPackage) -> String {
 }
 
 ///|
+/// Dump indexed media assets and the source relationships that reference them.
 pub fn dump_media_assets_summary(pkg : OoxmlPackage) -> String {
   let out = StringBuilder::new()
   out.write_string("[media]\n")
@@ -78,6 +81,7 @@ pub fn dump_media_assets_summary(pkg : OoxmlPackage) -> String {
 }
 
 ///|
+/// Dump lightweight core/app document properties.
 pub fn dump_properties_summary(pkg : OoxmlPackage) -> String {
   let out = StringBuilder::new()
   let core = read_core_properties(pkg)
