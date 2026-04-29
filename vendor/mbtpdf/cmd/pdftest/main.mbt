@@ -5,6 +5,7 @@ fn rebuild_page(pdf : @pdf.Pdf, page : @pdfpage.Page) -> @pdfpage.Page raise {
   {
     content: [stream],
     mediabox: page.mediabox,
+    cropbox: page.cropbox,
     resources: page.resources,
     rotate: page.rotate,
     rest: page.rest,

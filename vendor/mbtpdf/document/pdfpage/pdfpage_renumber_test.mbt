@@ -34,6 +34,7 @@ fn renumber_page(rect : @pdf.PdfObject) -> @pdfpage.Page raise {
   {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: rect,
+    cropbox: None,
     resources: renumber_resources(),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -165,6 +166,7 @@ test "renumber_pages rewrites inline image colorspace names" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: rect,
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

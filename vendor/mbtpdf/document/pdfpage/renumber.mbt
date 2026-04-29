@@ -178,6 +178,7 @@ pub fn PdfPageDoc::renumber_pages(
       content: change_content(seqnum, page.resources, page.content),
       resources: change_resources(seqnum, page.resources),
       mediabox: page.mediabox,
+      cropbox: page.cropbox,
       rotate: page.rotate,
       rest: page.rest,
     })

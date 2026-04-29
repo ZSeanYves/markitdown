@@ -50,6 +50,7 @@ async test "run removes image xobjects and writes output" {
     let page : @pdfpage.Page = {
       content: [stream],
       mediabox: sample_rect(),
+      cropbox: None,
       resources,
       rotate: @pdfpage.Rotation::Rotate0,
       rest: Dictionary([]),

@@ -19,6 +19,7 @@ pub fn[A, B, C] ppstub((A, B) -> C raise?, A, B) -> (C, A, @pdftransform.Transfo
 pub(all) struct Page {
   content : Array[@pdf.PdfObject]
   mediabox : @pdf.PdfObject
+  cropbox : @pdf.PdfObject?
   resources : @pdf.PdfObject
   rotate : Rotation
   rest : @pdf.PdfObject

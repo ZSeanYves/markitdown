@@ -356,11 +356,11 @@ fn build_page_model_from_blocks(
   {
     page_index: raw_page.page_index,
     page_label: None,
-    rotation: 0,
+    rotation: raw_page.rotation,
     user_unit: None,
     boxes: {
-      media_box: default_rect(),
-      crop_box: None,
+      media_box: raw_page.media_box.unwrap_or(default_rect()),
+      crop_box: raw_page.crop_box,
       bleed_box: None,
       trim_box: None,
       art_box: None,

@@ -7,6 +7,7 @@ fn remove_dict_entries(
     let keep = key != "/Resources" &&
       key != "/Contents" &&
       key != "/MediaBox" &&
+      key != "/CropBox" &&
       key != "/Rotate" &&
       key != "/Parent" &&
       key != "/Type"
@@ -30,6 +31,7 @@ fn find_pages(
   pdf : @pdf.Pdf,
   resources : PdfObject?,
   mediabox : PdfObject?,
+  cropbox : PdfObject?,
   rotate : Rotation,
 ) -> Array[Page] raise {
   match pages {
@@ -51,6 +53,10 @@ fn find_pages(
             Some(x) => Some(x)
             None => mediabox
           }
+          let cropbox = match pdf.lookup_direct("/CropBox", pages) {
+            Some(x) => Some(x)
+            None => cropbox
+          }
           let rotate = match pdf.lookup_direct("/Rotate", pages) {
             Some(Integer(r)) => Rotation::from_int(r)
             _ => rotate
@@ -68,7 +74,9 @@ fn find_pages(
               Dictionary(d) => PdfObject::Dictionary(d)
               _ => raise @pdf.PdfError::Msg("malformed kid")
             }
-            out.append(find_pages(kid_obj, pdf, resources, mediabox, rotate)[:])
+            out.append(
+              find_pages(kid_obj, pdf, resources, mediabox, cropbox, rotate)[:],
+            )
           }
           out
         }
@@ -86,6 +94,10 @@ fn find_pages(
             Some(x) => Some(x)
             None => mediabox
           }
+          let cropbox = match pdf.lookup_direct("/CropBox", pages) {
+            Some(x) => Some(x)
+            None => cropbox
+          }
           let rotate = match pdf.lookup_direct("/Rotate", pages) {
             Some(Integer(r)) => Rotation::from_int(r)
             _ => rotate
@@ -103,7 +115,9 @@ fn find_pages(
               Dictionary(d) => PdfObject::Dictionary(d)
               _ => raise @pdf.PdfError::Msg("malformed kid")
             }
-            out.append(find_pages(kid_obj, pdf, resources, mediabox, rotate)[:])
+            out.append(
+              find_pages(kid_obj, pdf, resources, mediabox, cropbox, rotate)[:],
+            )
           }
           out
         }
@@ -115,6 +129,10 @@ fn find_pages(
           let mediabox = match pdf.lookup_direct("/MediaBox", pages) {
             Some(x) => Some(x)
             None => mediabox
+          }
+          let cropbox = match pdf.lookup_direct("/CropBox", pages) {
+            Some(x) => Some(x)
+            None => cropbox
           }
           let contents = match pages {
             Dictionary(_) =>
@@ -171,7 +189,7 @@ fn find_pages(
             Dictionary(d) => PdfObject::Dictionary(remove_dict_entries(d))
             _ => raise @pdf.PdfError::Msg("Bad /Pages")
           }
-          [{ resources, content, mediabox, rotate, rest }]
+          [{ resources, content, mediabox, cropbox, rotate, rest }]
         }
       }
     }
@@ -189,7 +207,7 @@ pub fn PdfPageDoc::pages_of_pagetree(self : PdfPageDoc) -> Array[Page] raise {
       let pages = pdf.lookup_fail(
         "No or malformed /Pages", "/Pages", document_catalog,
       )
-      find_pages(pages, pdf, None, None, Rotate0)
+      find_pages(pages, pdf, None, None, None, Rotate0)
     }
   }
 }

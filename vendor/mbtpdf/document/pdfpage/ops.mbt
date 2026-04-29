@@ -10,6 +10,7 @@ pub fn Page::prepend_operators(
     {
       content: [@pdfops.Op::stream_of_ops(ops)] + self.content,
       mediabox: self.mediabox,
+      cropbox: self.cropbox,
       resources: self.resources,
       rotate: self.rotate,
       rest: self.rest,
@@ -19,6 +20,7 @@ pub fn Page::prepend_operators(
     {
       content: [@pdfops.Op::stream_of_ops(ops + old_ops)],
       mediabox: self.mediabox,
+      cropbox: self.cropbox,
       resources: self.resources,
       rotate: self.rotate,
       rest: self.rest,
@@ -66,6 +68,7 @@ pub fn Page::postpend_operators(
     {
       content: self.content + [@pdfops.Op::stream_of_ops(wrapped)],
       mediabox: self.mediabox,
+      cropbox: self.cropbox,
       resources: self.resources,
       rotate: self.rotate,
       rest: self.rest,
@@ -80,6 +83,7 @@ pub fn Page::postpend_operators(
       {
         content: [@pdfops.Op::stream_of_ops(ops)],
         mediabox: self.mediabox,
+        cropbox: self.cropbox,
         resources: self.resources,
         rotate: self.rotate,
         rest: self.rest,
@@ -95,6 +99,7 @@ pub fn Page::postpend_operators(
       {
         content: [@pdfops.Op::stream_of_ops(combined)],
         mediabox: self.mediabox,
+        cropbox: self.cropbox,
         resources: self.resources,
         rotate: self.rotate,
         rest: self.rest,

@@ -16,6 +16,7 @@ test "process_xobjects updates form xobject stream" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: Array([Real(0.0), Real(0.0), Real(10.0), Real(20.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -99,6 +100,7 @@ test "process_xobjects errors when xobject subtype missing" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: Array([Real(0.0), Real(0.0), Real(10.0), Real(20.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -132,6 +134,7 @@ test "process_xobjects accepts updated stream with non-dict metadata" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: Array([Real(0.0), Real(0.0), Real(10.0), Real(20.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -164,6 +167,7 @@ test "process_xobjects errors on non-indirect xobject references" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: Array([Real(0.0), Real(0.0), Real(10.0), Real(20.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

@@ -110,6 +110,7 @@ fn remove_images_page(
   {
     content: [stream],
     mediabox: page.mediabox,
+    cropbox: page.cropbox,
     resources: remove_image_xobjects(pdf, page.resources),
     rotate: page.rotate,
     rest: page.rest,

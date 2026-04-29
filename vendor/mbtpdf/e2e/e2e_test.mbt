@@ -2072,6 +2072,7 @@ async test "e2e page ops roundtrip" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops([@pdfops.Op::Opq, @pdfops.Op::OpQ])],
     mediabox: rect,
+    cropbox: None,
     resources: Dictionary([]),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

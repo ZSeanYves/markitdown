@@ -143,6 +143,19 @@ fn assert_model_readable(doc : @model.PdfDocumentModel) -> Unit raise {
 }
 
 ///|
+fn assert_valid_rect(rect : @model.PdfRect, label : String) -> Unit raise {
+  if !@model.is_rect_valid(rect) {
+    fail(label + " rect should be valid")
+  }
+  if @model.rect_width(rect) <= 0.0 {
+    fail(label + " rect width should be > 0")
+  }
+  if @model.rect_height(rect) <= 0.0 {
+    fail(label + " rect height should be > 0")
+  }
+}
+
+///|
 fn page_image_count(page : @model.PdfPageModel) -> Int {
   page.images.length()
 }
@@ -504,6 +517,42 @@ async test "pdf core smoke works on text_simple sample" {
   let text = page_joined_text(doc.pages[0])
   if !text.contains("English") {
     fail("text_simple page text should contain 'English'")
+  }
+}
+
+///|
+async test "pdf core page geometry and source refs are populated" {
+  let raw = open_raw_pdf("samples/main_process/pdf/text_simple.pdf")
+  assert_raw_readable(raw)
+  let raw_page = raw.pages[0]
+  match raw_page.raw_page_ref {
+    Some(r) =>
+      if r.obj_num <= 0 {
+        fail("raw page object number should be > 0")
+      }
+    None => fail("raw page ref should be available for text_simple")
+  }
+  match raw_page.media_box {
+    Some(rect) => assert_valid_rect(rect, "raw media_box")
+    None => fail("raw media_box should be available for text_simple")
+  }
+  if raw_page.rotation != 0 {
+    fail("text_simple rotation should be stable at 0")
+  }
+  if raw_page.raw_content_stream_refs.is_empty() {
+    fail("text_simple should expose indirect content stream refs")
+  }
+
+  let doc = open_pdf_model("samples/main_process/pdf/text_simple.pdf")
+  assert_model_readable(doc)
+  let page = doc.pages[0]
+  assert_valid_rect(page.boxes.media_box, "model media_box")
+  if page.rotation != raw_page.rotation {
+    fail("model rotation should match raw rotation")
+  }
+  if page.raw_content_stream_refs.length() !=
+    raw_page.raw_content_stream_refs.length() {
+    fail("model raw_content_stream_refs should be passed through")
   }
 }
 

@@ -15,6 +15,7 @@ pub(all) enum Rotation {
 pub(all) struct Page {
   content : Array[PdfObject]
   mediabox : PdfObject
+  cropbox : PdfObject?
   resources : PdfObject
   rotate : Rotation
   rest : PdfObject
@@ -36,6 +37,7 @@ pub fn Page::custom(rectangle : PdfObject) -> Page {
   {
     content: [],
     mediabox: rectangle,
+    cropbox: None,
     resources: PdfObject::Dictionary([]),
     rotate: Rotate0,
     rest: PdfObject::Dictionary([]),

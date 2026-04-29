@@ -184,11 +184,57 @@ fn extract_raw_page_from_page(
 
   {
     page_index,
-    raw_page_ref: None,
+    raw_page_ref: page_ref_for_index(pdf, page_index),
+    media_box: parse_pdf_rect(pdf, page.mediabox),
+    crop_box: page_crop_box(pdf, page),
+    rotation: page.rotate.to_int(),
     text_ops,
     images,
     annotations: [],
-    raw_content_stream_refs: [],
+    raw_content_stream_refs: content_stream_refs(page.content),
+  }
+}
+
+///|
+fn page_ref_for_index(pdf : @pdf.Pdf, page_index : Int) -> RawPdfRef? {
+  try {
+    match @pdfpage.PdfPageDoc::new(pdf).page_object_number(page_index + 1) {
+      Some(i) => Some({ obj_num: i, gen_num: 0 })
+      None => None
+    }
+  } catch {
+    _ => None
+  }
+}
+
+///|
+fn content_stream_refs(content : Array[@pdf.PdfObject]) -> Array[String] {
+  let refs : Array[String] = []
+  for obj in content {
+    match obj {
+      @pdf.PdfObject::Indirect(i) => refs.push(i.to_string() + " 0 R")
+      _ => ()
+    }
+  }
+  refs
+}
+
+///|
+fn parse_pdf_rect(pdf : @pdf.Pdf, obj : @pdf.PdfObject) -> @model.PdfRect? {
+  try {
+    match pdf.parse_rectangle(obj) {
+      (x0, y0, x1, y1) => Some({ x0, y0, x1, y1 })
+    }
+  } catch {
+    _ => None
+  }
+}
+
+///|
+fn page_crop_box(pdf : @pdf.Pdf, page : @pdfpage.Page) -> @model.PdfRect? {
+  match page.cropbox {
+    Some(crop_box) => parse_pdf_rect(pdf, crop_box)
+    None => None
   }
 }
 

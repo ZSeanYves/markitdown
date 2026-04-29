@@ -254,6 +254,7 @@ test "prepend/postpend operators update content" {
   let page = Page::{
     content: [@pdfops.Op::stream_of_ops(base_ops)],
     mediabox: base_page.mediabox,
+    cropbox: base_page.cropbox,
     resources: base_page.resources,
     rotate: base_page.rotate,
     rest: base_page.rest,
@@ -352,6 +353,7 @@ test "renumber_pages updates resources and operators" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: Array([Real(0.0), Real(0.0), Real(100.0), Real(100.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -386,6 +388,7 @@ test "add_prefix rewrites resources and content" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: Array([Real(0.0), Real(0.0), Real(100.0), Real(100.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -422,6 +425,7 @@ test "shortest_unused_prefix skips used names" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: Array([Real(0.0), Real(0.0), Real(100.0), Real(100.0)]),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

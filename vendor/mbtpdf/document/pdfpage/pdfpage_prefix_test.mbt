@@ -37,6 +37,7 @@ test "shortest_unused_prefix handles dense prefixes" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -72,6 +73,7 @@ test "add_prefix rewrites resources and operators" {
       @pdfops.Op::stream_of_ops(ops_secondary),
     ],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -186,6 +188,7 @@ test "add_prefix rewrites inline image colorspace names" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -238,6 +241,7 @@ test "add_prefix handles filtered inline images with trailing ops" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -279,6 +283,7 @@ test "add_prefix rejects blank resource names" {
   let page : @pdfpage.Page = {
     content: [],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -301,6 +306,7 @@ test "add_prefix handles single indirect contents" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -346,6 +352,7 @@ test "add_prefix keeps direct inline colorspace names" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources: Dictionary([]),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -399,6 +406,7 @@ test "add_prefix preserves inline colorspace arrays" {
   let page : @pdfpage.Page = {
     content: [@pdfops.Op::stream_of_ops(ops)],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources: Dictionary([]),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),
@@ -460,6 +468,7 @@ test "add_prefix merges non-iso content streams" {
   let page : @pdfpage.Page = {
     content: [stream1, stream2],
     mediabox: prefix_sample_rect(),
+    cropbox: None,
     resources: Dictionary([]),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

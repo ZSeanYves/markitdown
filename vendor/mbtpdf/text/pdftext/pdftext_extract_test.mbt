@@ -786,6 +786,7 @@ fn build_unicode_pdf() -> @pdf.Pdf raise {
   let page : @pdfpage.Page = {
     content: [stream],
     mediabox,
+    cropbox: None,
     resources: Dictionary([("/Font", Dictionary([("/F0", font)]))]),
     rotate: Rotate0,
     rest: Dictionary([]),
@@ -814,6 +815,7 @@ fn extract_test_page(
   {
     content: [stream],
     mediabox: extract_test_mediabox(),
+    cropbox: None,
     resources,
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

@@ -166,6 +166,7 @@ test "annotations_of_page skips popup parent" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -211,6 +212,7 @@ test "read_annotation uses /BS style" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -276,6 +278,7 @@ test "read_annotation parses styles and extras" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -335,6 +338,7 @@ test "read_annotation handles unknown subtype and missing strings" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -366,6 +370,7 @@ test "annotations_of_page handles non-array and add_annotation rejects" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest: Dictionary([("/Annots", Null)]),
@@ -456,6 +461,7 @@ test "read_annotation handles more subtypes and popup fallback" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -525,6 +531,7 @@ test "read_annotation covers border styles and dash array" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -561,6 +568,7 @@ test "add_annotation merges existing annots and extras" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest: Dictionary([("/Annots", Array([existing]))]),
@@ -607,6 +615,7 @@ test "annotations_of_page errors on non-dictionary annots" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest: Dictionary([("/Annots", Array([Integer(1)]))]),
@@ -667,6 +676,7 @@ test "read_annotation covers remaining subtypes" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -768,6 +778,7 @@ test "read_annotation handles inset style and non-name /S" {
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -806,6 +817,7 @@ test "read_annotation errors on popup stream and add_annotation requires diction
   let page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest,
@@ -814,6 +826,7 @@ test "read_annotation errors on popup stream and add_annotation requires diction
   let bad_page : @pdfpage.Page = {
     content: base.content,
     mediabox: base.mediabox,
+    cropbox: None,
     resources: base.resources,
     rotate: base.rotate,
     rest: Integer(1),

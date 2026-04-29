@@ -84,6 +84,10 @@ fn mkpage(
   if rotation != 0 {
     entries.push(("/Rotate", PdfObject::Integer(rotation)))
   }
+  match page.cropbox {
+    Some(cropbox) => entries.push(("/CropBox", cropbox))
+    None => ()
+  }
   let rest_entries = match page.rest {
     Dictionary(d) => d
     _ => raise @pdf.PdfError::Msg("mkpage")

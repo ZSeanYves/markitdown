@@ -27,6 +27,7 @@ fn pdf_with_stream() -> @pdf.Pdf raise {
   let page : @pdfpage.Page = {
     content: [stream],
     mediabox,
+    cropbox: None,
     resources: Dictionary([]),
     rotate: @pdfpage.Rotation::Rotate0,
     rest: Dictionary([]),

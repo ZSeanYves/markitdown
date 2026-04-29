@@ -143,6 +143,9 @@ pub(all) struct RawAnnotationInfo {
 pub struct RawPdfPageExtract {
   page_index : Int
   raw_page_ref : RawPdfRef?
+  media_box : @model.PdfRect?
+  crop_box : @model.PdfRect?
+  rotation : Int
   text_ops : Array[RawTextOp]
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]

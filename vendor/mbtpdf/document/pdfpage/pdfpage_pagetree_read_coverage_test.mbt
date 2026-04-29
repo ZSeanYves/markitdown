@@ -38,6 +38,16 @@ fn sample_rect() -> @pdf.PdfObject {
 }
 
 ///|
+fn sample_crop_rect() -> @pdf.PdfObject {
+  Array([Integer(10), Integer(20), Integer(90), Integer(80)])
+}
+
+///|
+fn sample_page_crop_rect() -> @pdf.PdfObject {
+  Array([Integer(30), Integer(40), Integer(70), Integer(60)])
+}
+
+///|
 fn empty_stream(pdf : @pdf.Pdf) -> Int {
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(0))])
   pdf.addobj(Stream(Ref::new((dict, @pdf.Stream::Got(@pdfio.mkbytes(0))))))
@@ -56,9 +66,12 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
   // /Contents -> indirect non-array -> should be treated as a singleton array.
   let bad_contents_num = pdf0.addobj(Integer(0))
   let resources_parent : @pdf.PdfObject = Dictionary([("/Font", Dictionary([]))])
+  let inherited_cropbox = sample_crop_rect()
+  let page_cropbox = sample_page_crop_rect()
   let page1_dict : @pdf.PdfObject = Dictionary([
     ("/Type", Name(@pdf.PdfName::of_string("/Page"))),
     ("/MediaBox", sample_rect()),
+    ("/CropBox", page_cropbox),
     ("/Contents", Indirect(contents_array_num)),
     ("/Extra", Integer(1)),
   ])
@@ -75,6 +88,7 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
     Dictionary([
       ("/Kids", Array([page1_dict, Indirect(page2_num)])),
       ("/Resources", resources_parent),
+      ("/CropBox", inherited_cropbox),
       ("/Rotate", Integer(90)),
     ]),
   )
@@ -99,12 +113,21 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
   }
   // Second page inherits the most recently seen mediabox.
   assert_eq(pages[0].mediabox.to_string(), pages[1].mediabox.to_string())
+  match pages[0].cropbox {
+    Some(cropbox) => assert_eq(cropbox.to_string(), page_cropbox.to_string())
+    None => fail("expected page /CropBox")
+  }
+  match pages[1].cropbox {
+    Some(cropbox) => assert_eq(cropbox.to_string(), inherited_cropbox.to_string())
+    None => fail("expected inherited /CropBox")
+  }
 
   // Rest dict should keep custom keys but drop page-standard ones.
   match (pages[0].rest : @pdf.PdfObject) {
     Dictionary(entries) => {
       assert_true(dict_entries_has_int(entries, "/Extra", 1))
       assert_true(!dict_entries_has_key(entries, "/Type"))
+      assert_true(!dict_entries_has_key(entries, "/CropBox"))
     }
     _ => fail("expected rest dictionary")
   }
@@ -169,6 +192,7 @@ test "add_pagetree errors on empty page list and bad rest" {
   let bad_page : @pdfpage.Page = {
     content: [],
     mediabox: sample_rect(),
+    cropbox: None,
     resources: Dictionary([]),
     rotate: Rotate0,
     rest: Integer(0),
@@ -204,6 +228,7 @@ test "add_pagetree writes rotate and builds nested trees" {
       {
         content: base.content,
         mediabox: base.mediabox,
+        cropbox: None,
         resources: base.resources,
         rotate: Rotate90,
         rest: base.rest,

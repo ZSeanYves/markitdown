@@ -24,6 +24,7 @@ pub async fn run(
     let page : @pdfpage.Page = {
       content: [stream],
       mediabox: @pdfpage.Page::blank(@pdfpaper.a4).mediabox,
+      cropbox: None,
       resources: Dictionary([("/Font", Dictionary([("/F0", font)]))]),
       rotate: @pdfpage.Rotation::Rotate0,
       rest: Dictionary([]),
