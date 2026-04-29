@@ -117,7 +117,15 @@ fn should_never_be_heading(text : String) -> Bool {
     return true
   }
 
+  if looks_like_list_item_sentence(t) {
+    return true
+  }
+
   if looks_like_colon_label(t) {
+    return true
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return true
   }
 
@@ -162,7 +170,15 @@ fn should_promote_paragraph_to_heading(
     return false
   }
 
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
   if looks_like_colon_label(t) {
+    return false
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -251,7 +267,15 @@ fn should_keep_heading(
     return false
   }
 
+  if looks_like_list_item_sentence(t) {
+    return false
+  }
+
   if looks_like_colon_label(t) {
+    return false
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -348,7 +372,15 @@ fn should_demote_heading(
     return true
   }
 
+  if looks_like_list_item_sentence(t) {
+    return true
+  }
+
   if looks_like_colon_label(t) {
+    return true
+  }
+
+  if looks_like_side_marker_label_line(t) {
     return true
   }
 
@@ -545,7 +577,10 @@ fn looks_like_layout_heading_candidate(
     return false
   }
 
-  if looks_like_bullet_item(t) || looks_like_colon_label(t) {
+  if looks_like_bullet_item(t) ||
+    looks_like_list_item_sentence(t) ||
+    looks_like_colon_label(t) ||
+    looks_like_side_marker_label_line(t) {
     return false
   }
 
@@ -744,10 +779,83 @@ fn looks_like_bullet_item(text : String) -> Bool {
 }
 
 ///|
+fn looks_like_list_item_sentence(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if looks_like_bullet_item(t) {
+    return true
+  }
+
+  let arr = t.to_array()
+  let mut i = 0
+  let mut has_digit = false
+
+  while i < arr.length() {
+    let c = arr[i]
+    if is_digit_char(c) {
+      has_digit = true
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if has_digit && i + 1 < arr.length() {
+    let c = arr[i]
+    if (c == '.' || c == '、' || c == ')' || c == '）') && arr[i + 1] == ' ' {
+      return true
+    }
+  }
+
+  false
+}
+
+///|
 /// 看起来像“Key points:”这类 label，而不是标题。
 fn looks_like_colon_label(text : String) -> Bool {
   let t = text.trim().to_owned()
   t.has_suffix(":") || t.has_suffix("：")
+}
+
+///|
+fn looks_like_side_marker_label_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" || !t.contains(" ") || !t.contains("-") {
+    return false
+  }
+
+  let mut first = ""
+  for sv in t.split(" ") {
+    let w = sv.trim().to_owned()
+    if w != "" {
+      first = w
+      break
+    }
+  }
+
+  if first == "" {
+    return false
+  }
+
+  if first.has_prefix("LEFT-") || first.has_prefix("RIGHT-") {
+    return true
+  }
+
+  let mut has_upper = false
+  for c in first.to_array() {
+    let ok = (c >= 'A' && c <= 'Z') || is_digit_char(c) || c == '-'
+    if !ok {
+      return false
+    }
+    if c >= 'A' && c <= 'Z' {
+      has_upper = true
+    }
+  }
+
+  has_upper && first.contains("-")
 }
 
 ///|
