@@ -40,6 +40,8 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     let rebuilt = rebuild_page_objects({
       _page_index: page._page_index,
+      media_box: page.media_box,
+      crop_box: page.crop_box,
       lines: page.lines,
       blocks: kept,
       images: page.images,
@@ -165,8 +167,9 @@ fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
 
 ///|
 /// 是否删除当前 block：
-/// - 必须位于页首前两块或页尾后两块
+/// - 必须位于页首/页尾非空块
 /// - 并且 key 命中 repeated head/tail
+/// - 若 page box 可用，还必须落在页面 top/bottom edge zone
 fn should_drop_repeated_edge_block(
   page : PdfConvertPage,
   block_index : Int,
@@ -182,15 +185,80 @@ fn should_drop_repeated_edge_block(
   let first_idx = first_nonempty_block_index(page)
   let last_idx = last_nonempty_block_index(page)
 
-  if block_index == first_idx && contains_string(repeated_heads, key) {
+  if block_index == first_idx &&
+    contains_string(repeated_heads, key) &&
+    is_top_edge_block(page, block) {
     return true
   }
 
-  if block_index == last_idx && contains_string(repeated_tails, key) {
+  if block_index == last_idx &&
+    contains_string(repeated_tails, key) &&
+    is_bottom_edge_block(page, block) {
     return true
   }
 
   false
+}
+
+///|
+fn is_top_edge_block(page : PdfConvertPage, block : PdfConvertBlock) -> Bool {
+  match effective_page_box(page) {
+    None => true
+    Some(box) => {
+      let h = page_box_height(box)
+      if h <= 0.0 {
+        return true
+      }
+
+      block._bbox.y1 >= box.y1 - edge_zone_height(h)
+    }
+  }
+}
+
+///|
+fn is_bottom_edge_block(page : PdfConvertPage, block : PdfConvertBlock) -> Bool {
+  match effective_page_box(page) {
+    None => true
+    Some(box) => {
+      let h = page_box_height(box)
+      if h <= 0.0 {
+        return true
+      }
+
+      block._bbox.y0 <= box.y0 + edge_zone_height(h) ||
+      is_sparse_page_tail_fallback(page)
+    }
+  }
+}
+
+///|
+fn is_sparse_page_tail_fallback(page : PdfConvertPage) -> Bool {
+  normalized_nonempty_blocks(page).length() <= 3
+}
+
+///|
+fn effective_page_box(page : PdfConvertPage) -> @model.PdfRect? {
+  match page.crop_box {
+    Some(box) => Some(box)
+    None => page.media_box
+  }
+}
+
+///|
+fn page_box_height(box : @model.PdfRect) -> Double {
+  box.y1 - box.y0
+}
+
+///|
+fn edge_zone_height(page_height : Double) -> Double {
+  let zone = page_height * 0.12
+  if zone < 48.0 {
+    return 48.0
+  }
+  if zone > 120.0 {
+    return 120.0
+  }
+  zone
 }
 
 ///|

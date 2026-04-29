@@ -19,6 +19,8 @@ fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
   let objects = build_page_objects(page.blocks, page.images)
   {
     _page_index: page._page_index,
+    media_box: page.media_box,
+    crop_box: page.crop_box,
     lines: page.lines,
     blocks: page.blocks,
     images: page.images,
