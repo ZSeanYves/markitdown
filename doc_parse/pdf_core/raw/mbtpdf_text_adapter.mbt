@@ -1052,10 +1052,12 @@ fn collect_images_from_ops(
           ),
         ) catch {
           err => {
-            println(
-              "[pdf-image-debug] inline decode failed: " + err.to_string(),
-            )
-            println("[pdf-image-debug] inline dict=" + dict.to_string())
+            if DEBUG_MBTPDF_OP {
+              println(
+                "[pdf-image-debug] inline decode failed: " + err.to_string(),
+              )
+              println("[pdf-image-debug] inline dict=" + dict.to_string())
+            }
             None
           }
         }

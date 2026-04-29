@@ -322,16 +322,6 @@ fn should_join_same_line(
         looks_like_short_cjk_heading_completion(right_text) {
         return true
       }
-      if current_text.contains("LEFT-A") || right_text.contains("RIGHT-B") {
-        println(
-          "[same-line-join] cur=\"" +
-          current_text +
-          "\" right=\"" +
-          right_text +
-          "\"",
-        )
-      }
-
       true
     }
     _ => false

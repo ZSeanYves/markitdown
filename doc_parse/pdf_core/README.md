@@ -1,367 +1,201 @@
 # pdf_core
 
-`pdf_core` is the low-level PDF structural recovery package inside `markitdown-mb`.
+`doc_parse/pdf_core` is the native PDF structural recovery package used by the normal PDF path in `markitdown-mb`.
 
-Its responsibility is **not** to emit final Markdown directly. Instead, it parses, normalizes, and reconstructs PDF content into a stable structural document model that can be consumed by upper layers.
+Its job is to turn rendering-oriented PDF content into a parser-facing document model. It does not emit final Markdown, does not own final IR shaping, and does not implement OCR. Upper layers such as `convert/pdf` decide how the recovered model becomes Markdown.
 
-In practical terms, `pdf_core` solves the problem of:
+## Scope
 
-> how to recover a PDF — a rendering-oriented and structurally unstable format — into a document-like, structured representation that is suitable for further conversion.
+`pdf_core` currently owns:
 
-## Current Role in the Repository
+- opening text-based PDFs through the vendored `mbtpdf` backend
+- extracting page text, images, page geometry, and low-level source references
+- normalizing raw extracted content into chars, spans, lines, blocks, and pages
+- exposing a stable `PdfDocumentModel` to higher converter layers
+- providing debug/inspection strings for the recovered model
 
-On the current `main` branch, the normal PDF path has already been **fully replaced by a native structural recovery mainflow**.
+`pdf_core` does not own:
 
-That means:
+- final Markdown formatting
+- final converter IR decisions
+- OCR
+- annotation/link/table semantic recovery
+- browser-like visual layout reconstruction
 
-* the normal PDF path is no longer described as an external text-first pipeline
-* `pdf_core` is no longer just an experimental extraction layer
-* `convert/pdf` now consumes the recovered native structural model
-* OCR remains a **plugin-style path** driven by external tooling and is not the default normal flow
+## Vendored Backend Boundary
 
-So the role of `pdf_core` today is:
+The only backend currently wired into `pdf_core` is vendored `mbtpdf`.
 
-* provide the native low-level recovery backbone for text-based PDFs
-* expose stable page / block / line / span structures to upper layers
-* support heading / paragraph / noise / layout-related recovery before Markdown emission
+The backend boundary is intentionally narrow:
 
----
+- `raw/mbtpdf_text_adapter.mbt` imports and consumes `mbtpdf` types.
+- `raw/pdf_raw_types.mbt` exposes project-owned raw structs, not `mbtpdf` objects.
+- `text`, `model`, and `api` consume project-owned raw/model types.
+- `convert/pdf` consumes `pdf_core/api` output and should not depend on `mbtpdf`.
 
-## What `pdf_core` Outputs
+Recent backend work:
 
-The primary outward-facing result is a structured PDF document model rather than flat extracted text.
+- V0: `mbtpdf` was vendored and connected as the PDF backend.
+- V1: `LocatedOp` and `parse_operators_with_source` were added so operators can carry source references.
+- V2.0: raw/model pages gained media box, crop box, rotation, raw page refs, and raw content stream refs.
+- V2.1: vendored `Page.cropbox` now supports inherited `/CropBox`.
 
-Current output is centered around:
+The public vendor API changed in V2.1 because `vendor/mbtpdf/document/pdfpage.Page` now includes:
 
-* `PdfDocumentModel`
-* `PdfPageModel`
-* `PdfTextBlock`
-* `PdfTextLine`
-* `PdfTextSpan`
-
-and lower-layer provenance / geometry / font metadata that is preserved during recovery.
-
-The main recovery chain is:
-
-```text
-raw -> chars -> spans -> lines -> blocks -> PdfDocumentModel
+```moonbit
+cropbox : PdfObject?
 ```
 
-This is the key point:
+This is intentionally contained inside the vendored backend and raw adapter boundary.
 
-* upper layers no longer need to consume only plain extracted text
-* upper layers can consume recovered structural units
-* heading candidates, paragraph-like blocks, and noise-related candidates are already surfaced in the native model
+## Pipeline
 
----
-
-## Main Output Interface
-
-### `PdfDocumentModel`
-
-`PdfDocumentModel` is the primary output interface currently intended for higher-level consumers.
-
-Its pages contain recovered text blocks rather than loose extraction placeholders.
-
-Conceptually, upper layers receive:
-
-* document-level pages
-* page-level text blocks
-* block-level lines
-* line-level spans
-* preserved geometry / font / source metadata where available
-
-This makes `PdfDocumentModel` the native structural input for `convert/pdf`.
-
-### Structural granularity currently exposed
-
-The current outward model already provides usable structure at the following levels:
-
-* page
-* block
-* line
-* span
-
-Lower layers still preserve provenance and source-order information where relevant.
-
-Current block-level semantics already include candidate distinctions such as:
-
-* heading-like block candidates
-* normal text blocks
-* page-number-like or removable-noise candidates
-
-So `pdf_core` is already more than a text extraction package:
-it now provides a practical **native structural recovery interface**.
-
----
-
-## Recovery Pipeline
-
-The native PDF recovery chain currently follows this general structure:
+The normal native pipeline is:
 
 ```text
-MBTPDF adapter
+mbtpdf
 -> raw
 -> chars
 -> spans
 -> lines
 -> blocks
 -> PdfDocumentModel
+-> convert/pdf
 ```
 
-### 1. Adapter layer
+Layer responsibilities:
 
-The current low-level adapter reads PDF content and extracts factual text-related information.
+- `raw`: factual backend extraction and backend-to-project type conversion.
+- `text`: char/span/line/block reconstruction and text recovery heuristics.
+- `model`: stable document, page, text, image, geometry, and source-reference structs.
+- `api`: package entry points, backend selection, model building, and debug summaries.
+- `debug`: there is no separate `debug` package; debug/inspection helpers currently live in `api` and selected pipeline files.
 
-Its responsibilities include:
+## Raw Layer
 
-* iterating pages and content streams
-* decoding glyph/text content
-* extracting font and source information
-* building the raw-layer containers
+`raw` is the only layer that should directly understand `mbtpdf`.
 
-This layer tries to stay factual rather than semantic.
+Primary output:
 
-### 2. Raw layer
+- `RawPdfDocumentExtract`
+- `RawPdfPageExtract`
+- `RawTextOp`
+- `RawImageInfo`
 
-The raw layer provides a normalized low-level container for upstream recovery.
+Current page-level raw fields include:
 
-Typical responsibilities include:
+- `page_index`
+- `raw_page_ref`
+- `media_box`
+- `crop_box`
+- `rotation`
+- `raw_content_stream_refs`
+- text ops
+- images
+- annotations placeholder data
 
-* preserving decoded text/glyph results
-* preserving source references
-* preserving break signals
-* preserving low-level PDF extraction traces
+The adapter resolves inherited page geometry through `mbtpdf` page-tree reading. `crop_box` is parsed from `Page.cropbox`; malformed rectangles fall back to `None`.
 
-This layer still reflects the low-level nature of PDF, but in a structured internal form.
+## Text Layer
 
-### 3. Character layer
+`text` turns raw page content into progressively richer textual structure:
 
-The character layer maps raw glyph-level content into structured character records.
+- `pdf_text_chars.mbt`: raw text ops to character records.
+- `pdf_text_spans.mbt`: character grouping.
+- `pdf_text_lines.mbt`: line construction, normalization, merging, and page-line filtering.
+- `pdf_text_blocks.mbt`: block construction.
+- `normalize_texts.mbt`, `unicode_compat.mbt`, and `rule.mbt`: normalization and recovery heuristics.
 
-Typical fields include:
+This layer is heuristic-heavy by design. Rules should stay conservative, explainable, and regression-backed.
 
-* decoded text
-* unicode
-* bbox / origin
-* font name / font size
-* ligature / compatibility-glyph hints
-* decode confidence
-* source references
-* break-before / break-reason
+## Model Layer
 
-This is where the package enters character-level structured representation.
+`model` owns the stable internal representation exposed to the rest of the repository.
 
-### 4. Span layer
+Important model groups:
 
-The span layer groups consecutive characters into `PdfTextSpan`.
+- geometry: `PdfPoint`, `PdfRect`, page boxes
+- text: chars, spans, lines, blocks
+- image metadata and payloads
+- page/document containers
+- source references
 
-This grouping is intentionally local and conservative. It mainly relies on:
+`PdfPageModel` currently carries page geometry and provenance data:
 
-* source continuity
-* font consistency
-* break propagation
+- `boxes.media_box`
+- `boxes.crop_box`
+- `rotation`
+- `raw_page_ref`
+- `raw_content_stream_refs`
 
-The goal is not to infer final document semantics here, but to create workable text fragments.
+These fields are parser-facing metadata. They are not rendered directly to Markdown by `pdf_core`.
 
-### 5. Line layer
+## API Layer
 
-The line layer is one of the most important parts of `pdf_core`.
+`api` is the public entry point for the package.
 
-Its responsibilities include:
+Main APIs:
 
-* recovering human-readable text lines from spans
-* correcting common PDF fragmentation problems
-* supporting hardwrap recovery
-* distinguishing conservative heading/body boundaries
-* carrying geometry and layout signals upward
+- `default_pdf_core_config`
+- `extract_document_model`
+- `extract_document_summary`
+- `extract_document_block_debug`
 
-Current line recovery already includes practical handling for:
+`extract_document_model` runs the full native pipeline and returns `PdfDocumentModel`.
 
-* Chinese hardwrap
-* English hardwrap
-* fragmented English words
-* compatibility glyph normalization
-* same-line vs new-chunk decisions
-* conservative page-number-like filtering
+`extract_document_summary` returns a compact human-readable summary.
 
-### 6. Block layer
+`extract_document_block_debug` returns a textual inspection dump of pages, blocks, lines, images, geometry, and selected classification flags. This is for pipeline diagnosis; it is not a stable Markdown or IR format.
 
-The block layer lifts recovered lines into stable block units.
+## Current Limits
 
-The current strategy remains intentionally conservative:
+Known limits:
 
-* heading candidate line -> standalone block
-* page-number or removable-noise candidate -> standalone candidate block
-* normal body line -> standalone paragraph-like block
+- no full multi-column reading order engine
+- no table semantic reconstruction
+- no annotation/link semantic model
+- no OCR in the native path
+- no full vector/graphics semantic recovery
+- no browser-like layout engine
+- image extraction exists, but image semantics remain limited
+- many line/block decisions remain heuristic and sample-regression driven
 
-This provides a stable baseline for upper layers and avoids amplifying errors too early.
+## Package Audit Notes
 
-### 7. Document model layer
+Current responsibilities are mostly separated:
 
-The final native output is exposed as `PdfDocumentModel`.
+- `raw` is the backend adapter boundary.
+- `model` is type ownership.
+- `text` is reconstruction logic.
+- `api` is orchestration and public entry.
+- debug output is available through API helpers and gated internal debug functions.
 
-This means `pdf_core` is now capable of providing a structured PDF text model to upper layers, rather than only acting as a raw extraction experiment.
+Files that are currently large enough to consider splitting later:
 
----
+- `raw/mbtpdf_text_adapter.mbt`: backend opening, text ops, image extraction, source refs, and geometry are all in one file.
+- `text/rule.mbt`: many unrelated recovery predicates live together.
+- `text/normalize_texts.mbt`: normalization and hardwrap behavior could be grouped by concern.
+- `api/test/pdf_core_test.mbt`: broad integration coverage in one test file.
 
-## What Is Currently Supported
+Suggested future splits, without changing behavior now:
 
-`pdf_core` currently focuses on **text-based PDF** recovery.
+- `raw/mbtpdf_page_adapter.mbt`
+- `raw/mbtpdf_text_ops.mbt`
+- `raw/mbtpdf_image_adapter.mbt`
+- `text/rules_heading.mbt`
+- `text/rules_hardwrap.mbt`
+- `text/rules_noise.mbt`
 
-### Current supported scope
+## Tests
 
-The native chain already provides useful, regression-backed support for:
+Useful verification commands:
 
-* native text extraction into structured document models
-* char / span / line / block reconstruction
-* text normalization
-* common CJK compatibility glyph normalization
-* common ligature normalization
-* fragmented English word recovery
-* English and Chinese hardwrap recovery
-* heading candidate surfacing
-* paragraph-like block recovery
-* page-noise and repeated-header/footer related support
-* conservative pseudo two-column negative protection
+```sh
+moon check
+moon test
+./samples/diff.sh
+./samples/check_metadata.sh
+./samples/check_assets.sh
+```
 
-### Typical sample-backed cases already covered
-
-Current regression-backed behavior includes stable handling of:
-
-* simple text PDFs
-* English hardwrap recovery
-* Chinese hardwrap recovery
-* heading vs body boundary recovery
-* repeated header/footer cleanup support
-* heading false-positive negative cases
-* pseudo two-column negative cases
-
-In practice, `pdf_core` already supports stable structural recovery for simple and moderately complex text-oriented PDFs.
-
----
-
-## What `pdf_core` Does Not Do Directly
-
-`pdf_core` does not try to be:
-
-* a final Markdown emitter
-* a full semantic document engine
-* a pixel-perfect visual reconstruction system
-* a browser-style layout engine for PDF
-
-Its role is to provide a strong native structural intermediate layer.
-
-Final Markdown shaping still belongs to upper layers such as `convert/pdf` and the shared IR / emitter stack.
-
----
-
-## OCR Position
-
-OCR is **not** part of the normal native PDF mainflow.
-
-Current OCR behavior should be understood as:
-
-* a plugin-style path
-* externally driven
-* dependent on external tooling
-* separate from the default normal PDF path
-
-In the repository today:
-
-* normal PDF conversion is fully native
-* OCR remains optional and externally powered
-
----
-
-## Current Limitations
-
-Although the native mainflow is now in place, `pdf_core` still has clear boundaries.
-
-### 1. Complex layout understanding is still limited
-
-The package does not yet fully solve all difficult layout problems such as:
-
-* full multi-column reading-order reconstruction
-* floating text blocks
-* advanced cross-column interaction
-* complex page-layer ordering
-* full table / caption / footnote semantic reconstruction
-
-### 2. Layout semantics are still heuristic-heavy
-
-The current system uses geometry, font, spacing, and source-order signals, but many decisions are still based on conservative heuristics rather than full layout-semantic reasoning.
-
-### 3. Non-text object integration is still incomplete
-
-The package may already preserve or prepare room for non-text objects such as:
-
-* images
-* vectors
-* annotations
-* forms
-* outlines
-
-But the current main focus remains the text recovery chain.
-
-### 4. Some extreme PDFs may still lose information before later recovery stages
-
-This is especially true for:
-
-* extreme layout anomalies
-* extractor-level decoding oddities
-* difficult pseudo two-column cases
-* heavily fragmented or semantically ambiguous content streams
-
----
-
-## Design Principles
-
-The current package follows a few core principles.
-
-### 1. Layered recovery
-
-Problems are solved at the most appropriate layer:
-
-* raw: factual extraction
-* chars: character structuring
-* spans: local grouping
-* lines: textual continuity recovery
-* blocks: early semantic stabilization
-* model: unified outward representation
-
-### 2. Explainable heuristics
-
-Rules are intentionally kept:
-
-* understandable
-* testable
-* debuggable
-* regression-friendly
-
-### 3. Conservative before aggressive
-
-In PDF recovery, aggressive rules can easily fuse unrelated structures.
-The package prefers to establish a stable baseline first and expand from there.
-
-### 4. Native structure first
-
-The normal PDF path is now built on native structure recovery itself, not on a flat-text-first fallback description.
-
----
-
-## Why `pdf_core` Matters Now
-
-A short summary of the current stage:
-
-> `pdf_core` is no longer just a low-level PDF text extraction experiment.
-> It is now the native structural recovery backbone of the PDF normal path on `main`.
-
-More concretely:
-
-* it no longer merely “gets text out of a PDF”
-* it now actively reconstructs structure
-* it already outputs a usable document model for upper layers
-* it serves as the native foundation for the current `convert/pdf` mainflow
-
-That is the most important status change to reflect in this README.
+Current sample tests are expected to show no Markdown output changes for C0 documentation/package cleanup.
