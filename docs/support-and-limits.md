@@ -135,11 +135,14 @@ Currently supported:
 - code-like paragraph recovery
 - line-break handling in paragraphs and table cells
 - hyperlink recovery in paragraph / heading / list contexts
+- external hyperlink preservation as Markdown links through `Inline::Link(text, href)`
 - lightweight block-level origin metadata
 - lightweight asset-origin metadata for exported image resources
 
 Current boundaries:
 
+- hyperlinks with missing `r:id`, missing relationships, or internal anchors are currently downgraded to plain text
+- footnote and endnote hyperlinks are not currently recovered
 - quote-like / code-like detection for multilingual or non-standard style names remains conservative
 - some style generalization still relies mainly on heuristic naming rules
 

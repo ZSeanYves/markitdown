@@ -16,7 +16,7 @@ priv struct PptxSlideImage {
 ///|
 fn export_slide_images(
   p : PptxPackage,
-  slide_part : String,
+  rel_ctx : PptxSlideRelContext,
   slide_xml : Bytes,
   out_dir : String,
   slide_no : Int,
@@ -33,10 +33,7 @@ fn export_slide_images(
     }
   }
 
-  let rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
-    _ => return []
-  }
-  let image_targets = rels_image_target_map(rels)
+  let image_targets = rels_image_target_map(rel_ctx.rels)
   if image_targets.length() == 0 {
     return []
   }

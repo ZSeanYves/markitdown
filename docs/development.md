@@ -286,6 +286,30 @@ The shared OOXML layer now provides:
 * README and package-level responsibility documentation that separates ZIP,
   OOXML shared infrastructure, and format-specific recovery code
 
+### DOCX conversion constraints
+
+DOCX conversion is implemented in `convert/docx` on top of the shared OOXML
+package and relationship infrastructure. Keep the following constraints in
+place when changing that path:
+
+* External DOCX hyperlinks are represented in the unified IR as
+  `Inline::Link(text, href)`. Markdown emission should flow through the normal
+  rich-inline path rather than ad-hoc string rendering.
+* `word/_rels/document.xml.rels` must be read at most once per document parse.
+  Build a document relationship context once and pass it through paragraph,
+  inline, image, and hyperlink recovery.
+* Hyperlink parsing must not re-read `document.xml.rels` per hyperlink node.
+  Relationship lookup should use the cached document relationship context.
+* The paragraph inline scanner should remain approximately linear in the
+  paragraph XML size. Avoid nested full-paragraph rescans per inline node or per
+  hyperlink.
+* `scan_paragraph` should not do both a rich-inline scan and a separate
+  `collect_wt_text` pass for the same paragraph. The rich-inline scanner should
+  return both inline nodes and plain text when both are needed.
+* `word/styles.xml` is lazy/gated: read and parse it only when `document.xml`
+  contains `<w:pStyle`. Documents with no paragraph style markers should use an
+  empty/default styles context and must not fail because styles were skipped.
+
 ### PDF Core infrastructure
 
 The native PDF substrate now provides:

@@ -48,10 +48,9 @@ pub fn parse_pptx(
     )
 
     let xml = p.read_bytes_required(path)
-    let _ = build_slide_rel_context(p, path)
-    let hyperlinks = slide_hyperlink_map(p, path)
-    let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
-    let paras = extract_slide_paragraphs(xml, hyperlinks)
+    let rel_ctx = build_slide_rel_context(p, path)
+    let images = export_slide_images(p, rel_ctx, xml, out_dir, idx, image_idx)
+    let paras = extract_slide_paragraphs(xml, rel_ctx.hyperlinks)
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
       images, paras,
     )
