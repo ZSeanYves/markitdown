@@ -2,5 +2,5 @@ import {
   "bobzhang/mbtpdf/core/pdf",
   "bobzhang/mbtpdf/core/pdfe",
   "bobzhang/mbtpdf/document/pdftree",
-  "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
 }

@@ -32,9 +32,9 @@ test "afm_data loads standard fonts" {
 
 ///|
 test "baseline_adjustment covers all fonts" {
-  let values = all_standard_fonts().map(font => @pdfstandard14.PdfStandard14::new().baseline_adjustment(
-    font,
-  ))
+  let values = all_standard_fonts().map(font => {
+    @pdfstandard14.PdfStandard14::new().baseline_adjustment(font)
+  })
   assert_eq(values.length(), all_standard_fonts().length())
   assert_eq(
     @pdfstandard14.PdfStandard14::new().baseline_adjustment(
@@ -52,9 +52,9 @@ test "baseline_adjustment covers all fonts" {
 
 ///|
 test "stemv_of_standard_font covers all fonts" {
-  let values = all_standard_fonts().map(font => @pdfstandard14.PdfStandard14::new().stemv_of_standard_font(
-    font,
-  ))
+  let values = all_standard_fonts().map(font => {
+    @pdfstandard14.PdfStandard14::new().stemv_of_standard_font(font)
+  })
   assert_eq(values.length(), all_standard_fonts().length())
   assert_eq(
     @pdfstandard14.PdfStandard14::new().stemv_of_standard_font(
@@ -93,7 +93,7 @@ test "textwidth handles missing widths and kerning" {
   )
   assert_eq(implicit_width, 0)
   assert_true(widths_by_name.get("NoSlash") is None)
-  let no_slash = @pdfe.with_silenced_logs(fn() raise {
+  let no_slash = @pdfe.with_silenced_logs(() => {
     @pdf.PdfName::of_string("NoSlash")
   })
   let custom_font : @pdf.PdfObject = Dictionary([

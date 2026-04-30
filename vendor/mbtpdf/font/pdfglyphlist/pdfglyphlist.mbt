@@ -3628,7 +3628,7 @@ let truetypemap_arr : Array[(String, Array[Int])] = [
 ]
 
 ///|
-fn parse_glyphlist_line(line : String) -> (String, Array[Int])? raise {
+fn parse_glyphlist_line(line : String) -> (String, Array[Int])? {
   if line.length() == 0 {
     return None
   }
@@ -3639,15 +3639,15 @@ fn parse_glyphlist_line(line : String) -> (String, Array[Int])? raise {
   match line.find(";") {
     None => None
     Some(pos) => {
-      let name = line[0:pos].to_string()
+      let name = line[0:pos].to_owned()
       let rest = line[pos + 1:]
       let codes = Array::new()
-      for token_view in rest.to_string().split(" ") {
-        let token = token_view.to_string().trim().to_string()
+      for token_view in rest.to_owned().split(" ") {
+        let token = token_view.trim().to_owned()
         if token.length() == 0 {
           continue
         }
-        let value : Int = @strconv.parse_int(token, base=16) catch {
+        let value : Int = @string.parse_int(token, base=16) catch {
           _ => continue
         }
         codes.push(value)

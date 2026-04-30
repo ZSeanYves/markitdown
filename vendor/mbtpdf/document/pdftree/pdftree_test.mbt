@@ -52,10 +52,9 @@ test "build_name_tree handles empty input" {
 test "build_name_tree uses kids for large inputs" {
   let pdf = @pdf.Pdf::empty()
   let tree_ctx = @pdftree.PdfTree::new(pdf)
-  let entries : Array[(String, @pdf.PdfObject)] = Array::makei(11, i => (
-    "Key\{i}",
-    Integer(i),
-  ))
+  let entries : Array[(String, @pdf.PdfObject)] = Array::makei(11, i => {
+    ("Key\{i}", Integer(i))
+  })
   let tree = tree_ctx.build_name_tree(false, entries)
   match pdf.lookup_direct("/Kids", tree) {
     Some(Array(kids)) => assert_true(kids.length() > 0)
@@ -87,7 +86,7 @@ test "read_name_tree skips malformed keys" {
       ]),
     ),
   ])
-  let read = @pdfe.with_logger(_ => (), fn() raise {
+  let read = @pdfe.with_logger(_ => (), () => {
     @pdftree.PdfTree::new(pdf).read_name_tree(tree)
   })
   assert_eq(read.length(), 0)
@@ -155,7 +154,7 @@ test "read_number_tree returns empty on non-integer keys" {
       ]),
     ),
   ])
-  let read = @pdfe.with_logger(_ => (), fn() raise {
+  let read = @pdfe.with_logger(_ => (), () => {
     @pdftree.PdfTree::new(pdf).read_number_tree(tree)
   })
   assert_eq(read.length(), 0)

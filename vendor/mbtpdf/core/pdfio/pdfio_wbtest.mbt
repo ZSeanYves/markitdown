@@ -29,10 +29,10 @@ test "input_of_string supports read_line" {
 ///|
 test "peek_char and read_char_back" {
   let input = Input::of_string("ab")
-  assert_eq(input.peek_char(), Some('a'))
+  assert_true(input.peek_char() == Some('a'))
   let _ = (input.input_char)()
   let back = input.read_char_back()
-  assert_eq(back, Some('a'))
+  assert_true(back == Some('a'))
 }
 
 ///|

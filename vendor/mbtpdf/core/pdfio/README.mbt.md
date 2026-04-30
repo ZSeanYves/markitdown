@@ -126,8 +126,8 @@ test "input_of_bytes" {
 ///|
 test "input_of_string" {
   let input = @pdfio.Input::of_string("ABC")
-  inspect((input.input_char)(), content="Some('A')")
-  inspect((input.input_char)(), content="Some('B')")
+  assert_true((input.input_char)() == Some('A'))
+  assert_true((input.input_char)() == Some('B'))
 }
 ```
 

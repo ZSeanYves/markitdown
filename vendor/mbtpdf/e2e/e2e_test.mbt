@@ -1,12 +1,7 @@
 ///|
 fn test_tmp_root() -> String {
   match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
-    Some(dir) =>
-      if dir.trim() == "" {
-        ".tmp"
-      } else {
-        dir
-      }
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
     None => ".tmp"
   }
 }
@@ -706,7 +701,6 @@ async test "e2e merge writes and reads back" {
   let parsed = read_pdf(out_path)
   assert_eq(page_count(parsed), left_count + right_count + third_count)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -759,7 +753,6 @@ async test "e2e merge preserves text extraction" {
   })
   assert_true(extracted.contains("ABCdef"))
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -775,7 +768,6 @@ async test "e2e split subset of large pdf" {
   let parsed = read_pdf(out_path)
   assert_eq(page_count(parsed), subset.length())
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -811,7 +803,6 @@ async test "e2e split then bookmark" {
   )
   assert_eq(target_page, 1)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -844,7 +835,6 @@ async test "e2e annotation roundtrip" {
     _ => fail("expected annotation contents")
   }
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -892,7 +882,6 @@ async test "e2e merge preserves annotations" {
     _ => fail("expected merged annotation contents")
   }
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -963,7 +952,6 @@ async test "e2e merge preserves page labels" {
   let labels = @pdfpagelabels.PageLabel::read_all(parsed)
   assert_merged_label_prefixes(labels, left_count)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1013,7 +1001,6 @@ async test "e2e merge preserves named destinations" {
   assert_destination_page(parsed_left_dest, parsed_left)
   assert_destination_page(parsed_right_dest, parsed_right)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1081,7 +1068,6 @@ async test "e2e merge preserves /Dests dictionary" {
   assert_destination_page(parsed_left_read, parsed_left)
   assert_destination_page(parsed_right_read, parsed_right)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1148,7 +1134,6 @@ async test "e2e merge preserves AcroForm entries" {
     _ => fail("expected parsed /SigFlags 1")
   }
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1202,7 +1187,6 @@ async test "e2e merge preserves /OCProperties" {
   }
   assert_eq(read_ocg_on_count(parsed), 2)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1264,7 +1248,6 @@ async test "e2e merge preserves OCG configs" {
   }
   assert_eq(read_ocg_on_count(parsed), 2)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1310,7 +1293,6 @@ async test "e2e merge preserves structure trees" {
   assert_true(parsed_keys.contains("0"))
   assert_true(parsed_keys.contains("1"))
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1352,7 +1334,6 @@ async test "e2e merge preserves /Names JavaScript" {
     parsed_entries.search_by(pair => pair.0 == "RightScript") is Some(_),
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1390,7 +1371,6 @@ async test "e2e merge preserves /Names /EmbeddedFiles" {
     parsed, parsed_entries, "RightFile", "right.txt", "right payload",
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1428,7 +1408,6 @@ async test "e2e merge preserves /Names /URLS" {
     parsed, parsed_entries, "RightURL", "https://example.com/right",
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1462,7 +1441,6 @@ async test "e2e merge preserves /Names /AP" {
   assert_ap_entry(parsed, parsed_entries, "LeftAP", "left ap")
   assert_ap_entry(parsed, parsed_entries, "RightAP", "right ap")
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1496,7 +1474,6 @@ async test "e2e merge preserves /Names /Renditions" {
   assert_rendition_entry(parsed, parsed_entries, "LeftRendition", "left")
   assert_rendition_entry(parsed, parsed_entries, "RightRendition", "right")
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1530,7 +1507,6 @@ async test "e2e merge preserves /Names /AlternatePresentations" {
   assert_alt_presentation_entry(parsed, parsed_entries, "LeftAlt", "left")
   assert_alt_presentation_entry(parsed, parsed_entries, "RightAlt", "right")
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1605,7 +1581,6 @@ async test "e2e merge stress large name trees" {
     }
   }
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1702,7 +1677,6 @@ async test "e2e merge mixed feature pipeline" {
     parsed, parsed_embedded, "MixFile", "mixed.txt", "mix payload",
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1783,7 +1757,6 @@ async test "e2e merge multi-copy mixed stress" {
     }
   }
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1845,7 +1818,6 @@ async test "e2e merge varied page counts stress" {
     parsed, parsed_urls, "VariedURL-3", "https://example.com/varied/3",
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1892,7 +1864,6 @@ async test "e2e merge preserves bookmark targets" {
   )
   assert_eq(target_page, 1)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1936,7 +1907,6 @@ async test "e2e bookmarks roundtrip" {
   assert_eq(parsed_marks[0].text, "E2E Intro")
   assert_eq(parsed_marks[1].text, "E2E Details")
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1957,7 +1927,6 @@ async test "e2e write object streams and read back" {
   let parsed = read_pdf(out_path)
   assert_true(parsed.objects.object_stream_ids.length() > 0)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -1993,7 +1962,6 @@ async test "e2e encrypt pdf and require password" {
   )
   assert_eq(page_count(parsed_pw), page_count(pdf))
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -2073,7 +2041,6 @@ async test "e2e page labels roundtrip" {
     "E2E-1",
   )
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }
 
 ///|
@@ -2124,5 +2091,4 @@ async test "e2e page ops roundtrip" {
   }
   assert_true(found)
   let _ : Result[Unit, Error] = try? @fs.remove(out_path)
-
 }

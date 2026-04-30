@@ -48,8 +48,8 @@ test "read_ocg parses ocproperties" {
   assert_eq(ocg.ocg_name, "Layer 1")
   assert_eq(ocg.ocg_intent.length(), 1)
   assert_eq(ocg.ocg_intent[0], "/View")
-  assert_eq(props.ocg_default_config.ocgconfig_name, Some("Default"))
-  assert_eq(props.ocg_default_config.ocgconfig_creator, Some("tester"))
+  assert_true(props.ocg_default_config.ocgconfig_name == Some("Default"))
+  assert_true(props.ocg_default_config.ocgconfig_creator == Some("tester"))
   match props.ocg_default_config.ocgconfig_basestate {
     OcgState::Off => ()
     _ => fail("expected Off basestate")

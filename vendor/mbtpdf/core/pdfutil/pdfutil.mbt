@@ -64,12 +64,14 @@ pub fn PdfUtil::fleprint(self : PdfUtil, message : String) -> Unit {
 /// Memoize a nullary function (cache the first computed value).
 pub fn[T] PdfUtil::memoize(_self : PdfUtil, f : () -> T raise) -> () -> T raise {
   let cached : Ref[T?] = Ref::new(None)
-  () => match cached.val {
-    Some(value) => value
-    None => {
-      let value = f()
-      cached.val = Some(value)
-      value
+  () => {
+    match cached.val {
+      Some(value) => value
+      None => {
+        let value = f()
+        cached.val = Some(value)
+        value
+      }
     }
   }
 }

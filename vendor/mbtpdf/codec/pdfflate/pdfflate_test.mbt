@@ -21,8 +21,10 @@ fn run_uncompress(
     }
   }
   let out : @pdfio.MutableBytes = Array::new()
-  let output = (buf : @pdfio.MutableBytes, length : Int) => for i in 0..<length {
-    out.push(buf[i])
+  let output = (buf : @pdfio.MutableBytes, length : Int) => {
+    for i in 0..<length {
+      out.push(buf[i])
+    }
   }
   ctx.uncompress(header~, input, output)
   out
@@ -48,8 +50,10 @@ fn run_compress(
     }
   }
   let out : @pdfio.MutableBytes = Array::new()
-  let output = (buf : @pdfio.MutableBytes, length : Int) => for i in 0..<length {
-    out.push(buf[i])
+  let output = (buf : @pdfio.MutableBytes, length : Int) => {
+    for i in 0..<length {
+      out.push(buf[i])
+    }
   }
   ctx.compress(header~, input, output)
   out

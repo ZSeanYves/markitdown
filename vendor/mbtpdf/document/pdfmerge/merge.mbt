@@ -24,7 +24,9 @@ pub fn PdfMerger::merge_pdfs(
   let pdfs = merge_pdfs_renumber(names, pdfs)
   merge_pdfs_rename_name_trees(names, pdfs)
   let (major, minor) = max_version_number(pdfs)
-  let pagelists = pdfs.map(pdf => @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree())
+  let pagelists = pdfs.map(pdf => {
+    @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
+  })
   let pdf = @pdf.Pdf::empty()
   fn select_pages(
     range : Array[Int],
@@ -168,11 +170,9 @@ pub fn PdfMerger::merge_pdfs(
   for pair in changes {
     changes_map.set(pair.0, pair.1)
   }
-  pdf.objselfmap(obj => pdf.renumber_object_parsed(
-    changes_map,
-    obj,
-    preserve_order=false,
-  ))
+  pdf.objselfmap(obj => {
+    pdf.renumber_object_parsed(changes_map, obj, preserve_order=false)
+  })
   let pdf : @pdf.Pdf = {
     major,
     minor,

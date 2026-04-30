@@ -7,7 +7,7 @@ EXP_DIR="$SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "markdown")
 
 fail=0
 
@@ -46,6 +46,8 @@ for fmt in "${FORMATS[@]}"; do
 
     if [[ "$fmt" == "html" ]]; then
       [[ "$ext_lc" =~ ^(html|htm)$ ]] && echo "$name"
+    elif [[ "$fmt" == "markdown" ]]; then
+      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && echo "$name"
     else
       [[ "$ext_lc" == "$fmt" ]] && echo "$name"
     fi
@@ -111,6 +113,8 @@ for fmt in "${FORMATS[@]}"; do
     enrolled=false
     if [[ "$fmt" == "html" ]]; then
       [[ "$ext_lc" =~ ^(html|htm)$ ]] && enrolled=true
+    elif [[ "$fmt" == "markdown" ]]; then
+      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && enrolled=true
     else
       [[ "$ext_lc" == "$fmt" ]] && enrolled=true
     fi

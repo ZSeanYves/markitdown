@@ -178,8 +178,7 @@ fn lex_item(s : String) -> Token {
         let mut number = s
         if number.length() > 1 {
           match (number.get_char(0), number.get_char(1)) {
-            (Some('-'), Some('-')) =>
-              number = number[1:].to_owned()
+            (Some('-'), Some('-')) => number = number[1:].to_owned()
             _ => ()
           }
         }

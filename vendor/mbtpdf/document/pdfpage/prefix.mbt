@@ -41,31 +41,33 @@ fn names_used(pdf : @pdf.Pdf) -> Array[String] {
     if x == "" {
       ""
     } else {
-      (try! x[1:]).to_string()
+      x[1:].to_owned()
     }
   }
 
-  pdf.objiter((_, obj) => match obj {
-    @pdf.PdfObject::Dictionary(_) | @pdf.PdfObject::Stream(_) =>
-      match pdf.lookup_direct("/Type", obj) {
-        Some(@pdf.PdfObject::Name(name)) if name.equal_string_bytes("/Page") ||
-          name.equal_string_bytes("/Pages") =>
-          match pdf.lookup_direct("/Resources", obj) {
-            Some(resources) =>
-              for key in resource_keys {
-                match pdf.lookup_direct(key, resources) {
-                  Some(@pdf.PdfObject::Dictionary(d)) =>
-                    for entry in d {
-                      names.push(unslash(entry.0))
-                    }
-                  _ => ()
+  pdf.objiter((_, obj) => {
+    match obj {
+      @pdf.PdfObject::Dictionary(_) | @pdf.PdfObject::Stream(_) =>
+        match pdf.lookup_direct("/Type", obj) {
+          Some(@pdf.PdfObject::Name(name)) if name.equal_string_bytes("/Page") ||
+            name.equal_string_bytes("/Pages") =>
+            match pdf.lookup_direct("/Resources", obj) {
+              Some(resources) =>
+                for key in resource_keys {
+                  match pdf.lookup_direct(key, resources) {
+                    Some(@pdf.PdfObject::Dictionary(d)) =>
+                      for entry in d {
+                        names.push(unslash(entry.0))
+                      }
+                    _ => ()
+                  }
                 }
-              }
-            _ => ()
-          }
-        _ => ()
-      }
-    _ => ()
+              _ => ()
+            }
+          _ => ()
+        }
+      _ => ()
+    }
   })
   names.sort()
   names.dedup()
@@ -92,7 +94,7 @@ fn addp(prefix : String, name : String) -> String raise {
   if name == "" {
     raise @pdf.PdfError::Msg("addp: blank name")
   }
-  "/" + prefix + (try! name[1:]).to_string()
+  "/" + prefix + name[1:].to_owned()
 }
 
 ///|
@@ -195,9 +197,9 @@ fn fix_stream(
     @pdf.PdfObject::Indirect(i) =>
       if fixed_streams.get(i) is None {
         let operators = @pdfops.Op::parse_operators(pdf, resources, [obj])
-        let operators_updated = operators.map(op => prefix_operator(
-          pdf, prefix, op,
-        ))
+        let operators_updated = operators.map(op => {
+          prefix_operator(pdf, prefix, op)
+        })
         let stream_obj = pdf.lookup_obj(i)
         match stream_obj {
           @pdf.PdfObject::Stream(r) =>

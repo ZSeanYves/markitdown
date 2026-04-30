@@ -33,9 +33,9 @@ test "lookup helpers and catalog" {
   assert_integer(pdf.lookup_fail("err", "/A", dict), 1)
   assert_is_err(try? pdf.lookup_fail("err", "/B", dict))
   let dict_indirect = PdfObject::Dictionary([("/A", PdfObject::Indirect(5))])
-  assert_eq(dict_indirect.find_indirect("/A"), Some(5))
+  assert_true(dict_indirect.find_indirect("/A") == Some(5))
   let dict_non_indirect = PdfObject::Dictionary([("/A", PdfObject::Integer(7))])
-  assert_eq(dict_non_indirect.find_indirect("/A"), None)
+  assert_true(dict_non_indirect.find_indirect("/A") == None)
   assert_is_err(try? PdfObject::Integer(1).find_indirect("/A"))
   let catalog_pdf = make_basic_pdf()
   match catalog_pdf.catalog_of_pdf() {
@@ -53,9 +53,11 @@ test "recurse and iterators" {
   pdf.addobj_given_num((1, PdfObject::Integer(1)))
   match
     recurse_array(
-      obj => match obj {
-        PdfObject::Integer(v) => PdfObject::Integer(v + 1)
-        _ => obj
+      obj => {
+        match obj {
+          PdfObject::Integer(v) => PdfObject::Integer(v + 1)
+          _ => obj
+        }
       },
       [PdfObject::Integer(1), PdfObject::Integer(2)],
     ) {
@@ -75,9 +77,11 @@ test "recurse and iterators" {
     3,
     ({ val: ObjectData::ParsedAlreadyDecrypted(PdfObject::Integer(5)) }, 0),
   )
-  pdf.objselfmap(obj => match obj {
-    PdfObject::Integer(v) => PdfObject::Integer(v + 1)
-    _ => obj
+  pdf.objselfmap(obj => {
+    match obj {
+      PdfObject::Integer(v) => PdfObject::Integer(v + 1)
+      _ => obj
+    }
   })
   assert_integer(pdf.lookup_obj(3), 6)
   let stream = make_stream(
@@ -85,9 +89,11 @@ test "recurse and iterators" {
     @pdfio.bytes_of_string("x"),
   )
   pdf.addobj_given_num((4, stream))
-  let selected = pdf.objselect(obj => match obj {
-    PdfObject::Integer(_) => true
-    _ => false
+  let selected = pdf.objselect(obj => {
+    match obj {
+      PdfObject::Integer(_) => true
+      _ => false
+    }
   })
   assert_true(selected.contains(1))
 }
@@ -104,7 +110,7 @@ test "references and renumbering" {
   let pages = pdf.page_reference_numbers()
   assert_eq(pages, [2])
   let table = pdf.changes()
-  assert_eq(table.get(2), Some(2))
+  assert_true(table.get(2) == Some(2))
   let renum_table : Map[Int, Int] = Map::new()
   renum_table.set(1, 10)
   renum_table.set(2, 11)

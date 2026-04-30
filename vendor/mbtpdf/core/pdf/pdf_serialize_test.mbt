@@ -43,7 +43,7 @@ test "lookup_immediate_all works on stream dictionaries" {
 ///|
 test "PdfObject::to_string escapes strings and normalizes names" {
   let messages : Array[String] = []
-  let rendered = @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() raise {
+  let rendered = @pdfe.with_logger(fn(msg) { messages.push(msg) }, () => {
     let obj = PdfObject::Dictionary([
       ("Type", PdfObject::Name(PdfName::of_string("NoSlash"))),
       ("/Needs Escape", PdfObject::String("a(b)\\c\n")),
@@ -81,7 +81,7 @@ test "to_string_including_data warns when stream cannot be got" {
   )
   let stream_obj = PdfObject::Stream(stream_ref)
   let messages : Array[String] = []
-  let rendered = @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() raise {
+  let rendered = @pdfe.with_logger(fn(msg) { messages.push(msg) }, () => {
     stream_obj.to_string_including_data()
   })
   assert_true(rendered.contains("stream"))

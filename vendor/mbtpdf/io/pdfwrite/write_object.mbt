@@ -59,7 +59,6 @@ fn write_pdf_object_to_output(
     PdfObject::Stream(r) => {
       if include_stream_data {
         let _ = obj.getstream() catch { _ => () }
-
       }
       let (dict, stream_data) = r.val
       write_pdf_object_to_output(

@@ -26,11 +26,7 @@ fn strip_dict_markers(value : String) -> String {
   if value.length() < 4 {
     value
   } else {
-    try value[2:value.length() - 2] catch {
-      _ => value
-    } noraise {
-      view => view.to_string()
-    }
+    value[2:value.length() - 2].to_owned()
   }
 }
 

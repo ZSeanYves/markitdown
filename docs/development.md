@@ -58,6 +58,34 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+### Temporary Output Directories
+
+All automated tests and regression scripts should write temporary output under a
+single temp root:
+
+```bash
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+```
+
+Rules:
+
+* Default temp output goes to `$ROOT/.tmp/`
+* `MARKITDOWN_TMP_DIR` may be used to override the temp root
+* The following subdirectories are the standard layout and should be reused under
+  the selected temp root:
+  * `.tmp/samples/diff`
+  * `.tmp/samples/assets`
+  * `.tmp/samples/metadata`
+  * `.tmp/samples/check`
+  * `.tmp/origin`
+  * `.tmp/pdf_core`
+  * `.tmp/scratch/mbtpdf`
+* Do not introduce new root-level temp directories such as
+  `.tmp_test_out`, `.tmp_assets_test`, `.tmp_metadata_test`,
+  `tmp-origin-tests`, or `tmp`
+* New test scripts must reuse the `MARKITDOWN_TMP_DIR` convention instead of
+  inventing a separate temp root
+
 ### Check sample enrollment consistency
 
 ```bash

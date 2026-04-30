@@ -346,7 +346,7 @@ fn eval_function_calculator(
             if start < 0 {
               raise BadFunctionEvaluation::Msg("Type error")
             }
-            let slice = stack.sub(start~, end=original_len).to_array()
+            let slice = stack[start:original_len].to_owned()
             for value in slice {
               stack.push(value)
             }
@@ -361,7 +361,6 @@ fn eval_function_calculator(
       }
       Calculator::Pop => {
         let _ = pop_value(stack)
-
       }
       Calculator::Dup => {
         let a = pop_value(stack)
@@ -390,7 +389,7 @@ fn eval_function_calculator(
         if start < 0 {
           raise BadFunctionEvaluation::Msg("Type error")
         }
-        let slice = stack.sub(start~, end=stack.length()).to_array()
+        let slice = stack[start:stack.length()].to_owned()
         stack.truncate(start)
         let mut rotated = Array::new(capacity=slice.length())
         if j > 0 {

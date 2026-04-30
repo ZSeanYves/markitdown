@@ -88,11 +88,7 @@ fn version_from_catalog(ctx : PdfRead, pdf : @pdf.Pdf) -> (Int, Int)? {
         return None
       }
       // `/Version` is a name like `/1.7` (byte-string). Slice off the `/`.
-      let version = try s[1:] catch {
-        _ => return None
-      } noraise {
-        view => view.to_string()
-      }
+      let version = s[1:].to_owned()
       let header = "%PDF-\{version}"
       try read_header(ctx, @pdfio.Input::of_string(header)) catch {
         _ => None

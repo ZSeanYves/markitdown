@@ -1,12 +1,7 @@
 ///|
 fn test_tmp_root() -> String {
   match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
-    Some(dir) =>
-      if dir.trim() == "" {
-        ".tmp"
-      } else {
-        dir
-      }
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
     None => ".tmp"
   }
 }

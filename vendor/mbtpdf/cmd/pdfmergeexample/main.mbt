@@ -38,6 +38,9 @@ async fn main {
 
 ///|
 pub async fn run(args : Array[String], quiet? : Bool = false) -> Unit {
+  let _ = @pdfe.quiet.val
+  let _ = @pdfutil.quiet.val
+  let _ = @fs.exists
   let argc = args.length()
   if argc < 3 {
     if !quiet {

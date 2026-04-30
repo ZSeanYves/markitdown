@@ -18,17 +18,17 @@ fn decode_operator_stream(
   pdf : @pdf.Pdf,
   stream : @pdf.PdfObject,
 ) -> @pdfio.MutableBytes raise {
-    let direct = pdf.direct(stream)
-    @pdfcodec.PdfCodec::new().decode_pdfstream(pdf, direct)
-    direct.getstream()
-    match direct {
-      Stream(r) =>
-        match r.val {
-          (_, @pdf.Stream::Got(data)) => data
-          _ => raise @pdf.PdfError::Msg("Malformed stream")
-        }
-      _ => raise @pdf.PdfError::Msg("Malformed stream")
-    }
+  let direct = pdf.direct(stream)
+  @pdfcodec.PdfCodec::new().decode_pdfstream(pdf, direct)
+  direct.getstream()
+  match direct {
+    Stream(r) =>
+      match r.val {
+        (_, @pdf.Stream::Got(data)) => data
+        _ => raise @pdf.PdfError::Msg("Malformed stream")
+      }
+    _ => raise @pdf.PdfError::Msg("Malformed stream")
+  }
 }
 
 ///|
@@ -60,7 +60,9 @@ pub fn Op::parse_operators_with_source(
   streams : Array[@pdf.PdfObject],
 ) -> Array[LocatedOp] raise {
   let located : Array[LocatedOp] = Array::new()
-  for source_stream_index = 0; source_stream_index < streams.length(); source_stream_index = source_stream_index + 1 {
+  for source_stream_index = 0
+      source_stream_index < streams.length()
+      source_stream_index = source_stream_index + 1 {
     let stream = streams[source_stream_index]
     let source_object_ref = match stream {
       Indirect(i) => Some(i)
@@ -68,7 +70,9 @@ pub fn Op::parse_operators_with_source(
     }
     let rawstream = decode_operator_stream(pdf, stream)
     let ops = Op::parse_single_stream(pdf, resources, rawstream)
-    for source_op_index = 0; source_op_index < ops.length(); source_op_index = source_op_index + 1 {
+    for source_op_index = 0
+        source_op_index < ops.length()
+        source_op_index = source_op_index + 1 {
       located.push({
         op: ops[source_op_index],
         source_stream_index,

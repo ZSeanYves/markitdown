@@ -1,7 +1,7 @@
 ///|
 test "log forwards to logger" {
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(message) { messages.push(message) }, fn() raise {
+  @pdfe.with_logger(fn(message) { messages.push(message) }, () => {
     @pdfe.log("hello")
     @pdfe.log("world")
     ()
@@ -12,7 +12,7 @@ test "log forwards to logger" {
 ///|
 test "quiet suppresses log output" {
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(message) { messages.push(message) }, fn() raise {
+  @pdfe.with_logger(fn(message) { messages.push(message) }, () => {
     @pdfe.quiet.val = true
     @pdfe.log("hello")
     @pdfe.quiet.val = false
@@ -26,8 +26,8 @@ test "quiet suppresses log output" {
 test "with_silenced_logs restores quiet flag" {
   @pdfe.quiet.val = false
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(message) { messages.push(message) }, fn() raise {
-    @pdfe.with_silenced_logs(fn() raise {
+  @pdfe.with_logger(fn(message) { messages.push(message) }, () => {
+    @pdfe.with_silenced_logs(() => {
       @pdfe.log("hidden")
       ()
     })
@@ -42,10 +42,10 @@ test "with_silenced_logs restores quiet flag" {
 test "with_logger restores previous logger on error" {
   let outer_messages : Array[String] = []
   let inner_messages : Array[String] = []
-  @pdfe.with_logger(fn(message) { outer_messages.push(message) }, fn() raise {
+  @pdfe.with_logger(fn(message) { outer_messages.push(message) }, () => {
     let res : Result[Unit, Error] = try? @pdfe.with_logger(
       fn(message) { inner_messages.push(message) },
-      fn() {
+      () => {
         @pdfe.log("inner")
         fail("boom")
       },

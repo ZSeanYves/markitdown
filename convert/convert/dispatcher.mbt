@@ -53,6 +53,8 @@ pub async fn parse_to_ir(
     "csv" => Ok(@csv.parse_csv(input_path, out_dir_str, max_h))
     "tsv" => Ok(@csv.parse_tsv(input_path, out_dir_str, max_h))
     "json" => Ok(@json.parse_json(input_path, out_dir_str, max_h))
+    "md" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
+    "markdown" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
 }

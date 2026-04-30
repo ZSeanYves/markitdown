@@ -1,12 +1,7 @@
 ///|
 fn pdfmarks_tmp_dir() -> String {
   let root = match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
-    Some(dir) =>
-      if dir.trim() == "" {
-        ".tmp"
-      } else {
-        dir
-      }
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
     None => ".tmp"
   }
   root + "/scratch/mbtpdf/pdfmarks"
@@ -39,5 +34,4 @@ async test "pdfmarks bookmark string roundtrip through file output" {
   assert_eq(parsed_marks.length(), 1)
   assert_eq(parsed_marks[0].text, "Café")
   let _ : Result[Unit, Error] = try? @fs.remove(filename)
-
 }

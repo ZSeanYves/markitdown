@@ -14,6 +14,8 @@ pub struct PdfTextUtil {
 
 ///|
 pub fn PdfTextUtil::new() -> PdfTextUtil {
+  let _ = @pdfreadfs.PdfReadFs::new()
+  let _ = @async.now()
   { unit: () }
 }
 
@@ -62,9 +64,7 @@ fn bytes_slice_to_string(
   start : Int,
   length : Int,
 ) -> String {
-  @pdfio.string_of_int_array(
-    bytes[start:start + length].to_owned(),
-  )
+  @pdfio.string_of_int_array(bytes[start:start + length].to_owned())
 }
 
 ///|
@@ -179,17 +179,19 @@ pub fn TextExtractor::new(font : @pdffont.Font) -> TextExtractor {
     _ => ImplicitInFontFile
   }
   let table = PdfTextUtil::new().table_of_encoding(encoding)
-  let convert = (i : Int) => try {
-    match table.get(i) {
-      Some(decoded) =>
-        match @pdfglyphlist.PdfGlyphList::new().glyph_hashes().get(decoded) {
-          Some(codepoints) => (decoded, codepoints)
-          None => ("/" + decoded, [i])
-        }
-      None => (".notdef", [i])
+  let convert = (i : Int) => {
+    try {
+      match table.get(i) {
+        Some(decoded) =>
+          match @pdfglyphlist.PdfGlyphList::new().glyph_hashes().get(decoded) {
+            Some(codepoints) => (decoded, codepoints)
+            None => ("/" + decoded, [i])
+          }
+        None => (".notdef", [i])
+      }
+    } catch {
+      _ => (".notdef", [i])
     }
-  } catch {
-    _ => (".notdef", [i])
   }
   let tounicode = PdfTextUtil::new().find_tounicode_bytes(font)
   let tounicode_lengths = match tounicode {
@@ -352,10 +354,12 @@ fn charcode_extractor_of_font_real(
       }
       let parsed_list = @pdfutil.PdfUtil::new().list_of_hashtbl(parsed)
       try {
-        let reversed = parsed_list.map(pair => (
-          PdfTextUtil::new().codepoints_of_utf16be(pair.1),
-          code_int_of_string(pair.0),
-        ))
+        let reversed = parsed_list.map(pair => {
+          (
+            PdfTextUtil::new().codepoints_of_utf16be(pair.1),
+            code_int_of_string(pair.0),
+          )
+        })
         (@pdfutil.PdfUtil::new().hashtable_of_dictionary(reversed), true)
       } catch {
         err => {

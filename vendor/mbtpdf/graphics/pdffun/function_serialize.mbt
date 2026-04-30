@@ -81,9 +81,9 @@ fn entries_of_stitching(
   pdf : @pdf.Pdf,
   s : Stitching,
 ) -> Array[(String, PdfObject)] {
-  let numbers = s.functions.map(fun => PdfObject::Indirect(
-    pdf.addobj(fun.to_pdf_object(pdf)),
-  ))
+  let numbers = s.functions.map(fun => {
+    PdfObject::Indirect(pdf.addobj(fun.to_pdf_object(pdf)))
+  })
   [
     ("/Functions", PdfObject::Array(numbers)),
     (

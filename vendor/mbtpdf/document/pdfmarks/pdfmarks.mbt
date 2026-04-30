@@ -215,10 +215,9 @@ fn add_parent(parent : Int?, node : Ntree) -> Ntree raise {
     Some(parent_num) =>
       ntree_obj(node).add_entry("/Parent", PdfObject::Indirect(parent_num))
   }
-  let children = ntree_children(node).map(child => add_parent(
-    Some(ntree_objnum(node)),
-    child,
-  ))
+  let children = ntree_children(node).map(child => {
+    add_parent(Some(ntree_objnum(node)), child)
+  })
   Br(ntree_objnum(node), obj, children, ntree_isopen(node))
 }
 
@@ -381,8 +380,8 @@ fn make_outline_ntree(
       while split < rest.length() && rest[split].level > head.level {
         split = split + 1
       }
-      let lower = rest.sub(start=0, end=split)
-      let remaining = rest.sub(start=split)
+      let lower = rest[0:split]
+      let remaining = rest[split:]
       let node = node_of_line(
         pdf,
         head.text,

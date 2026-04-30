@@ -154,7 +154,7 @@ fn key_string(obj : @pdf.PdfObject) -> String {
 
 ///|
 fn parse_int(value : String) -> Int {
-  try @strconv.parse_int(value) catch {
+  try @string.parse_int(value) catch {
     _ => 0
   } noraise {
     v => v
@@ -261,14 +261,14 @@ fn build_nt_tree(items : Array[(String, @pdf.PdfObject)]) -> Nt {
 fn clone_entries(
   entries : Array[(String, @pdf.PdfObject)],
 ) -> Array[(String, @pdf.PdfObject)] {
-  entries[:].to_array()
+  entries[:].to_owned()
 }
 
 ///|
 fn clone_pairs(
   entries : Array[(@pdf.PdfObject, @pdf.PdfObject)],
 ) -> Array[(@pdf.PdfObject, @pdf.PdfObject)] {
-  entries[:].to_array()
+  entries[:].to_owned()
 }
 
 ///|

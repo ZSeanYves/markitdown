@@ -1,5 +1,10 @@
 ///|
 pub fn emit_markdown(doc : Document) -> String {
+  match doc.passthrough_markdown.val {
+    Some(raw) => return normalize_markdown_tail(raw)
+    None => ()
+  }
+
   let mut out = ""
   let blocks = doc.blocks.val
 

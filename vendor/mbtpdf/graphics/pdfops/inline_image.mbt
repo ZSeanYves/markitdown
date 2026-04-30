@@ -1,12 +1,14 @@
 ///|
 fn filterspecial(filters : Array[@pdf.PdfObject]) -> Bool {
-  filters.any(filter => match filter {
-    Name(name) =>
-      name.equal_string_bytes("/ASCIIHexDecode") ||
-      name.equal_string_bytes("/ASCII85Decode") ||
-      name.equal_string_bytes("/AHx") ||
-      name.equal_string_bytes("/A85")
-    _ => false
+  filters.any(filter => {
+    match filter {
+      Name(name) =>
+        name.equal_string_bytes("/ASCIIHexDecode") ||
+        name.equal_string_bytes("/ASCII85Decode") ||
+        name.equal_string_bytes("/AHx") ||
+        name.equal_string_bytes("/A85")
+      _ => false
+    }
   })
 }
 

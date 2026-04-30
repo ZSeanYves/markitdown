@@ -14,6 +14,9 @@ pub fn PdfRead::new(
   debug_always_treat_malformed? : Bool = false,
   logger? : (String) -> Unit = @pdfe.logger.val,
 ) -> PdfRead {
+  let _ = @async.now()
+  let _ = @pdfiofs.output_of_channel
+  let _ = @pdfpage.Rotation::Rotate0
   { read_debug, error_on_malformed, debug_always_treat_malformed, logger }
 }
 

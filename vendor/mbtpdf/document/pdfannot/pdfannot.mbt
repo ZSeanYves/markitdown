@@ -205,15 +205,17 @@ fn read_annotation(pdf : @pdf.Pdf, annot : PdfObject) -> Annotation raise {
   }
   let annotrest : PdfObject = match pdf.direct(annot) {
     Dictionary(entries) => {
-      let filtered = entries.filter(pair => match pair.0 {
-        "/Subtype"
-        | "/Contents"
-        | "/Rect"
-        | "/Border"
-        | "/Subj"
-        | "/BS"
-        | "/C" => false
-        _ => true
+      let filtered = entries.filter(pair => {
+        match pair.0 {
+          "/Subtype"
+          | "/Contents"
+          | "/Rect"
+          | "/Border"
+          | "/Subj"
+          | "/BS"
+          | "/C" => false
+          _ => true
+        }
       })
       Dictionary(filtered)
     }

@@ -372,7 +372,7 @@ pub fn PdfCrypt::get_encryption_values(
     if s.length() < need {
       raise @pdf.PdfError::Msg("\{name}: too small in get_encryption_values")
     } else {
-      s[0:need].to_string()
+      s[0:need].to_owned()
     }
   }
   match crypt_type {
@@ -634,19 +634,21 @@ pub fn PdfCrypt::decrypt_single_stream(
             )
           }
           decrypt_stream(
-            value => decrypt(
-              crypt_type,
-              pdf,
-              no_encrypt_metadata,
-              false,
-              obj,
-              gen,
-              @pdfio.int_array_of_bytes(file_encryption_key),
-              keylength,
-              r,
-              Some(@pdfio.string_of_bytes(file_encryption_key)),
-              value,
-            ),
+            value => {
+              decrypt(
+                crypt_type,
+                pdf,
+                no_encrypt_metadata,
+                false,
+                obj,
+                gen,
+                @pdfio.int_array_of_bytes(file_encryption_key),
+                keylength,
+                r,
+                Some(@pdfio.string_of_bytes(file_encryption_key)),
+                value,
+              )
+            },
             crypt_type,
             pdf,
             no_encrypt_metadata,
@@ -686,19 +688,21 @@ pub fn PdfCrypt::decrypt_single_stream(
                   no_encrypt_metadata, user_pw_string, r, o, p, id, keylength,
                 )
                 decrypt_stream(
-                  value => decrypt(
-                    crypt_type,
-                    pdf,
-                    no_encrypt_metadata,
-                    false,
-                    obj,
-                    gen,
-                    user_key,
-                    keylength,
-                    r,
-                    None,
-                    value,
-                  ),
+                  value => {
+                    decrypt(
+                      crypt_type,
+                      pdf,
+                      no_encrypt_metadata,
+                      false,
+                      obj,
+                      gen,
+                      user_key,
+                      keylength,
+                      r,
+                      None,
+                      value,
+                    )
+                  },
                   crypt_type,
                   pdf,
                   no_encrypt_metadata,
@@ -729,19 +733,21 @@ pub fn PdfCrypt::decrypt_single_stream(
                   no_encrypt_metadata, user_pw_string, r, o, p, id, keylength,
                 )
                 decrypt_stream(
-                  value => decrypt(
-                    crypt_type,
-                    pdf,
-                    no_encrypt_metadata,
-                    false,
-                    obj,
-                    gen,
-                    user_key,
-                    keylength,
-                    r,
-                    None,
-                    value,
-                  ),
+                  value => {
+                    decrypt(
+                      crypt_type,
+                      pdf,
+                      no_encrypt_metadata,
+                      false,
+                      obj,
+                      gen,
+                      user_key,
+                      keylength,
+                      r,
+                      None,
+                      value,
+                    )
+                  },
                   crypt_type,
                   pdf,
                   no_encrypt_metadata,

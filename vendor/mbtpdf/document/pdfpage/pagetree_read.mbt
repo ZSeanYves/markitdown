@@ -153,11 +153,13 @@ fn find_pages(
           let content = match contents {
             None => []
             Some(Array(cs)) =>
-              cs.filter_map(c => match pdf.direct(c) {
-                Stream(_) => Some(c)
-                _ => {
-                  @pdfe.log("Page /Contents not a stream: ignoring.\n")
-                  None
+              cs.filter_map(c => {
+                match pdf.direct(c) {
+                  Stream(_) => Some(c)
+                  _ => {
+                    @pdfe.log("Page /Contents not a stream: ignoring.\n")
+                    None
+                  }
                 }
               })
             Some(obj) =>

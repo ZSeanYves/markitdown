@@ -22,6 +22,13 @@ pub using @pdfwritefs {type PdfWriteFs}
 pub using @pdfcrypt {type EncryptionMethod, type Permission}
 
 ///|
+fn touch_native_support() -> Unit {
+  let _ = @async.now()
+  let _ = @fs.exists
+  let _ = @sys.get_env_var
+}
+
+///|
 /// Read a PDF from a file.
 pub async fn read_file(
   filename : String,
@@ -29,6 +36,7 @@ pub async fn read_file(
   user_password? : String,
   owner_password? : String,
 ) -> @pdf.Pdf {
+  touch_native_support()
   @pdfreadfs.PdfReadFs::new().pdf_of_file(
     revision?,
     user_password,
@@ -40,5 +48,6 @@ pub async fn read_file(
 ///|
 /// Write a PDF to a file.
 pub async fn write_file(pdf : @pdf.Pdf, filename : String) -> Unit {
+  touch_native_support()
   @pdfwritefs.PdfWriteFs::new().pdf_to_file(pdf, filename)
 }

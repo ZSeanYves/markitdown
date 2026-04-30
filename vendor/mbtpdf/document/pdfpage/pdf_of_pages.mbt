@@ -233,18 +233,20 @@ pub fn PdfPageDoc::pdf_of_pages(
     0,
   )
   let objnumbers_set = range_to_set(objnumbers)
-  pdf.objiter((i, o) => match o {
-    Dictionary(_) =>
-      match pdf.lookup_direct("/Type", o) {
-        Some(Name(name)) if name.equal_string_bytes("/Pages") =>
-          pdf.removeobj(i)
-        Some(Name(name)) if name.equal_string_bytes("/Page") =>
-          if objnumbers_set.get(i) is None {
+  pdf.objiter((i, o) => {
+    match o {
+      Dictionary(_) =>
+        match pdf.lookup_direct("/Type", o) {
+          Some(Name(name)) if name.equal_string_bytes("/Pages") =>
             pdf.removeobj(i)
-          }
-        _ => ()
-      }
-    _ => ()
+          Some(Name(name)) if name.equal_string_bytes("/Page") =>
+            if objnumbers_set.get(i) is None {
+              pdf.removeobj(i)
+            }
+          _ => ()
+        }
+      _ => ()
+    }
   })
   let new_pagetree = pdf_of_pages_build_pagetree(thetree, objnumbers, pdf)
   pdf.addobj_given_num((old_pagetree_root_num, new_pagetree))

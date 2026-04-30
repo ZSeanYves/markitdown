@@ -20,6 +20,16 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
+fn read_utf8_text(path : String) -> String raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read sample failed: " + e.to_string())
+  }
+  @cor.utf8_bytes_to_string(bytes) catch {
+    e => fail("utf8 decode failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -698,6 +708,52 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   }
   if !json_json.contains("\"document\": null") {
     fail("json metadata should keep document null")
+  }
+
+  let markdown_path = resolve_sample_path(
+    "samples/main_process/markdown/markdown_basic_heading_paragraph.md",
+  )
+  let markdown_doc = @md.parse_markdown(markdown_path, "", 6)
+  let markdown_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_basic_heading_paragraph.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_doc) != markdown_expected {
+    fail("markdown dispatcher output should preserve original markdown body")
+  }
+  let markdown_json = @cor.emit_metadata_json(
+    markdown_doc, "markdown_basic_heading_paragraph.md", "markdown", "markdown_basic_heading_paragraph.md",
+  )
+  if !markdown_json.contains("\"format\": \"markdown\"") {
+    fail("markdown metadata should contain markdown format")
+  }
+  if !markdown_json.contains(
+      "\"source_name\": \"markdown_basic_heading_paragraph.md\"",
+    ) {
+    fail("markdown metadata should contain source_name")
+  }
+  if !markdown_json.contains("\"block_count\": 2") {
+    fail("markdown metadata should contain conservative block_count=2")
+  }
+  if !markdown_json.contains("\"asset_count\": 0") {
+    fail("markdown metadata should contain zero assets")
+  }
+  if !markdown_json.contains("\"document\": null") {
+    fail("markdown metadata should keep document null")
+  }
+
+  let frontmatter_path = resolve_sample_path(
+    "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+  )
+  let frontmatter_doc = @md.parse_markdown(frontmatter_path, "", 6)
+  let frontmatter_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_frontmatter_passthrough.md",
+    ),
+  )
+  if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
+    fail("markdown .markdown extension should preserve frontmatter sample")
   }
 }
 

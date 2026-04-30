@@ -241,13 +241,13 @@ test "lookup and chains" {
     _ => fail("expected stream")
   }
   let dict_indirect = PdfObject::Dictionary([("/A", PdfObject::Indirect(1))])
-  assert_eq(pdf.indirect_number("/A", dict_indirect), Some(1))
-  assert_eq(pdf.indirect_number("/B", dict_indirect), None)
+  assert_true(pdf.indirect_number("/A", dict_indirect) == Some(1))
+  assert_true(pdf.indirect_number("/B", dict_indirect) == None)
   let dict_direct = PdfObject::Dictionary([("/A", PdfObject::Integer(2))])
-  assert_eq(pdf.indirect_number("/A", dict_direct), None)
+  assert_true(pdf.indirect_number("/A", dict_direct) == None)
   let stream_indirect = make_stream(dict_indirect, data)
-  assert_eq(pdf.indirect_number("/A", stream_indirect), Some(1))
-  assert_eq(pdf.indirect_number("/A", PdfObject::Integer(1)), None)
+  assert_true(pdf.indirect_number("/A", stream_indirect) == Some(1))
+  assert_true(pdf.indirect_number("/A", PdfObject::Integer(1)) == None)
   let dict_alt = PdfObject::Dictionary([("/Alt", PdfObject::Integer(3))])
   assert_some_integer(pdf.lookup_direct_orelse("/Missing", "/Alt", dict_alt), 3)
   let pdf_parse = Pdf::empty()
@@ -268,9 +268,9 @@ test "lookup and chains" {
   let map_missing : Map[Int, Array[Int]] = Map::new()
   map_missing.set(12, [0])
   let ref_missing = Ref::new(
-    ObjectData::ToParseFromObjectStream(map_missing, 6, 0, (_stream, _idx) => [
-      (13, (Ref::new(ObjectData::Parsed(PdfObject::Integer(7))), 0)),
-    ]),
+    ObjectData::ToParseFromObjectStream(map_missing, 6, 0, (_stream, _idx) => {
+      [(13, (Ref::new(ObjectData::Parsed(PdfObject::Integer(7))), 0))]
+    }),
   )
   pdf_parse.objects.objects.set(12, (ref_missing, 0))
   match pdf_parse.lookup_obj(12) {
@@ -280,9 +280,9 @@ test "lookup and chains" {
   let map_found : Map[Int, Array[Int]] = Map::new()
   map_found.set(14, [0])
   let ref_found = Ref::new(
-    ObjectData::ToParseFromObjectStream(map_found, 7, 0, (_stream, _idx) => [
-      (14, (Ref::new(ObjectData::Parsed(PdfObject::Integer(8))), 0)),
-    ]),
+    ObjectData::ToParseFromObjectStream(map_found, 7, 0, (_stream, _idx) => {
+      [(14, (Ref::new(ObjectData::Parsed(PdfObject::Integer(8))), 0))]
+    }),
   )
   pdf_parse.objects.objects.set(14, (ref_found, 0))
   assert_integer(pdf_parse.lookup_obj(14), 8)

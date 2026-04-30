@@ -71,7 +71,7 @@ test "lex_dictionary minus_one accepts preconsumed marker" {
 test "lex_dictionary errors on unexpected token" {
   let res : Result[Array[@pdfgenlex.Token], Error] = try? @pdfe.with_logger(
     _ => (),
-    fn() {
+    () => {
       @pdfsyntax.PdfSyntax::new().lex_dictionary(
         false,
         @pdfio.Input::of_string("<< @ >>"),
@@ -83,7 +83,7 @@ test "lex_dictionary errors on unexpected token" {
 
 ///|
 test "lex_dictionary stops on stream without dict" {
-  let tokens = @pdfe.with_logger(_ => (), fn() raise {
+  let tokens = @pdfe.with_logger(_ => (), () => {
     @pdfsyntax.PdfSyntax::new().lex_dictionary(
       false,
       @pdfio.Input::of_string("stream\nendstreamXXXX"),

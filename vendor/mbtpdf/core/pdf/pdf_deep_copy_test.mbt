@@ -23,8 +23,9 @@ test "deep_copy copies streams and object data" {
     ({ val: ObjectData::ParsedAlreadyDecrypted(PdfObject::String("x")) }, 0),
   )
   let themap : Map[Int, Array[Int]] = Map::new()
-  let parser = (_ : Int, _ : Array[Int]) => (
-    [] : Array[(Int, (Ref[ObjectData], Int))])
+  let parser = (_ : Int, _ : Array[Int]) => {
+    ([] : Array[(Int, (Ref[ObjectData], Int))])
+  }
   pdf.objects.objects.set(
     6,
     ({ val: ObjectData::ToParseFromObjectStream(themap, 1, 2, parser) }, 0),
@@ -51,5 +52,5 @@ test "deep_copy copies streams and object data" {
       }
     _ => fail("expected stream copy")
   }
-  assert_eq(copied.objects.object_stream_ids.get(4), Some(99))
+  assert_true(copied.objects.object_stream_ids.get(4) == Some(99))
 }

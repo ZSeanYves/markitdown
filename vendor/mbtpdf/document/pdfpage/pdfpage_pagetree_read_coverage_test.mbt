@@ -118,7 +118,8 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
     None => fail("expected page /CropBox")
   }
   match pages[1].cropbox {
-    Some(cropbox) => assert_eq(cropbox.to_string(), inherited_cropbox.to_string())
+    Some(cropbox) =>
+      assert_eq(cropbox.to_string(), inherited_cropbox.to_string())
     None => fail("expected inherited /CropBox")
   }
 

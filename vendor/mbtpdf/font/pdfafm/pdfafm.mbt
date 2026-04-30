@@ -33,7 +33,7 @@ fn split_whitespace(line : String) -> Array[String] {
 
 ///|
 fn parse_int(token : String) -> Int raise {
-  @strconv.parse_int(token, base=10)
+  @string.parse_int(token, base=10)
 }
 
 ///|
@@ -106,11 +106,10 @@ fn extract_section(
 }
 
 ///|
-fn split_header(line : String) -> (String, String) raise {
+fn split_header(line : String) -> (String, String) {
   match line.find(" ") {
     None => (line, "")
-    Some(pos) =>
-      (line[0:pos].to_string(), line[pos + 1:].to_string().trim().to_string())
+    Some(pos) => (line[0:pos].to_owned(), line[pos + 1:].trim().to_owned())
   }
 }
 
@@ -148,13 +147,12 @@ fn get_tables(
   for line in header_lines {
     headers.push(split_header(line))
   }
-  let charmetrics = char_metrics_lines.filter_map(line => if line
-    .trim()
-    .length() <
-    5 {
-    None
-  } else {
-    Some(read_char_metrics_line(line))
+  let charmetrics = char_metrics_lines.filter_map(line => {
+    if line.trim().length() < 5 {
+      None
+    } else {
+      Some(read_char_metrics_line(line))
+    }
   })
   let charmetrics_hash : Map[String, (Int, Int)] = Map::new(
     capacity=charmetrics.length(),
@@ -162,10 +160,12 @@ fn get_tables(
   for entry in charmetrics {
     charmetrics_hash.set(entry.0, entry.1)
   }
-  let kerns = kern_lines.filter_map(line => if line.trim().length() < 5 {
-    None
-  } else {
-    Some(read_kern_line(line))
+  let kerns = kern_lines.filter_map(line => {
+    if line.trim().length() < 5 {
+      None
+    } else {
+      Some(read_kern_line(line))
+    }
   })
   let ws = Array::new(capacity=charmetrics.length())
   for entry in charmetrics {

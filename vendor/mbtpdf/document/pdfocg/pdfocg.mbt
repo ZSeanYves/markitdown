@@ -14,6 +14,7 @@ type PdfObject = @pdf.PdfObject
 
 ///|
 pub fn PdfOcg::new(pdf : @pdf.Pdf) -> PdfOcg {
+  let _ = @pdfpage.Rotation::Rotate0
   { pdf, }
 }
 
@@ -106,9 +107,11 @@ fn read_config(pdf : @pdf.Pdf, config : @pdf.PdfObject) -> OcgConfig {
   let ocgconfig_on = match pdf.lookup_direct("/ON", config) {
     Some(PdfObject::Array(indirects)) =>
       Some(
-        indirects.map(obj => match obj {
-          PdfObject::Indirect(n) => n
-          _ => 0
+        indirects.map(obj => {
+          match obj {
+            PdfObject::Indirect(n) => n
+            _ => 0
+          }
         }),
       )
     _ => None
@@ -116,9 +119,11 @@ fn read_config(pdf : @pdf.Pdf, config : @pdf.PdfObject) -> OcgConfig {
   let ocgconfig_off = match pdf.lookup_direct("/OFF", config) {
     Some(PdfObject::Array(indirects)) =>
       Some(
-        indirects.map(obj => match obj {
-          PdfObject::Indirect(n) => n
-          _ => 0
+        indirects.map(obj => {
+          match obj {
+            PdfObject::Indirect(n) => n
+            _ => 0
+          }
         }),
       )
     _ => None
@@ -126,9 +131,11 @@ fn read_config(pdf : @pdf.Pdf, config : @pdf.PdfObject) -> OcgConfig {
   let ocgconfig_intent = match pdf.lookup_direct("/Intent", config) {
     Some(PdfObject::Name(n)) => [n.to_string_bytes()]
     Some(PdfObject::Array(items)) =>
-      items.map(item => match pdf.direct(item) {
-        PdfObject::Name(n) => n.to_string_bytes()
-        _ => ""
+      items.map(item => {
+        match pdf.direct(item) {
+          PdfObject::Name(n) => n.to_string_bytes()
+          _ => ""
+        }
       })
     _ => ["/View"]
   }
@@ -147,9 +154,11 @@ fn read_config(pdf : @pdf.Pdf, config : @pdf.PdfObject) -> OcgConfig {
   let ocgconfig_rbgroups = []
   let ocgconfig_locked = match pdf.lookup_direct("/Locked", config) {
     Some(PdfObject::Array(items)) =>
-      items.map(item => match pdf.direct(item) {
-        PdfObject::Indirect(n) => n
-        _ => 0
+      items.map(item => {
+        match pdf.direct(item) {
+          PdfObject::Indirect(n) => n
+          _ => 0
+        }
       })
     _ => []
   }
@@ -184,9 +193,11 @@ fn read_individual_ocg(pdf : @pdf.Pdf, ocg : @pdf.PdfObject) -> Ocg raise {
   let ocg_intent = match pdf.lookup_direct("/Intent", ocg) {
     Some(PdfObject::Name(n)) => [n.to_string_bytes()]
     Some(PdfObject::Array(items)) =>
-      items.filter_map(item => match pdf.direct(item) {
-        PdfObject::Name(n) => Some(n.to_string_bytes())
-        _ => None
+      items.filter_map(item => {
+        match pdf.direct(item) {
+          PdfObject::Name(n) => Some(n.to_string_bytes())
+          _ => None
+        }
       })
     _ => ["/View"]
   }
@@ -263,7 +274,7 @@ fn print_ocg(pair : (Int, Ocg)) -> Unit {
   let sb = StringBuilder::new()
   sb.write_string("Intent(s)")
   for intent in ocg.ocg_intent {
-    sb..write_char(' ')..write_string(intent)
+    sb..write_char(' ').write_string(intent)
   }
   sb.write_char('\n')
   @pdfutil.PdfUtil::new().flprint(sb.to_string())

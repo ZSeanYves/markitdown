@@ -11,5 +11,4 @@ import {
   "bobzhang/mbtpdf/document/pdfst",
   "bobzhang/mbtpdf/document/pdftree",
   "bobzhang/mbtpdf/core/pdftransform",
-  "bobzhang/mbtpdf/core/pdfunits",
 }

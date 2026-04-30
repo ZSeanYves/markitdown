@@ -89,6 +89,8 @@ pub(all) struct AssetOrigin {
 /// Dual-index design:
 /// - blocks + block_origins: block-oriented reading/markdown workflows
 /// - asset_origins: asset-oriented indexing workflows
+/// - passthrough_markdown: original markdown body for formats that should not be
+///   reconstructed from semantic IR
 ///
 /// We keep these indices side-by-side so metadata sidecar can expose both views
 /// (`blocks[]` and `assets[]`) without forcing every converter to rebuild joins.
@@ -96,6 +98,7 @@ pub struct Document {
   blocks : Ref[Array[Block]]
   block_origins : Ref[Array[Origin?]]
   asset_origins : Ref[Map[String, AssetOrigin]]
+  passthrough_markdown : Ref[String?]
 }
 
 ///|
@@ -104,6 +107,7 @@ pub fn new_document() -> Document {
     blocks: { val: [] },
     block_origins: { val: [] },
     asset_origins: { val: Map::new() },
+    passthrough_markdown: { val: None },
   }
 }
 
@@ -128,6 +132,11 @@ pub fn set_asset_origin(
     return
   }
   doc.asset_origins.val.set(asset_path, origin)
+}
+
+///|
+pub fn set_passthrough_markdown(doc : Document, markdown : String) -> Unit {
+  doc.passthrough_markdown.val = Some(markdown)
 }
 
 ///|

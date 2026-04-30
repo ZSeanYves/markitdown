@@ -315,7 +315,7 @@ test "write_colourspace Indexed unsupported base returns null" {
   let table : Map[Int, Array[Int]] = Map::new()
   table.set(0, [0, 0, 0])
   let space : ColourSpace = Indexed(Pattern, table)
-  let obj = @pdfe.with_logger(_ => (), fn() raise { space.to_pdf_object(pdf) })
+  let obj = @pdfe.with_logger(_ => (), () => space.to_pdf_object(pdf))
   match (obj : @pdf.PdfObject) {
     Null => ()
     _ => fail("expected null for unsupported base")
@@ -332,7 +332,7 @@ test "write_colourspace ICCBased missing stream falls back" {
     icc_metadata: None,
     icc_stream: Null,
   }
-  let obj = @pdfe.with_logger(_ => (), fn() raise {
+  let obj = @pdfe.with_logger(_ => (), () => {
     ColourSpace::ICCBased(icc).to_pdf_object(pdf)
   })
   match (obj : @pdf.PdfObject) {
