@@ -41,6 +41,13 @@ fn scan_document(
               sheet: None,
               block_index: Some(doc.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
         }
@@ -54,6 +61,13 @@ fn scan_document(
             sheet: None,
             block_index: Some(doc.blocks.val.length()),
             heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: None,
+            relationship_id: None,
+            key_path: None,
           }),
         )
         prev_was_list = false
@@ -96,6 +110,13 @@ fn scan_document(
               sheet: None,
               block_index: Some(doc.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
         }
@@ -110,6 +131,13 @@ fn scan_document(
             sheet: None,
             block_index: Some(doc.blocks.val.length()),
             heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: None,
+            relationship_id: None,
+            key_path: None,
           }),
         )
         prev_was_list = cur_is_list
