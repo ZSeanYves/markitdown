@@ -71,6 +71,9 @@ Current PDF recovery chain (`convert/pdf`):
   line count, core dominant font hints, caption/table flags, language, and
   writing direction. These are currently used for debug and future recovery
   improvements; they do not switch the default converter to core-block seeding.
+- Convert-stage page staging also retains image provenance details and page-level
+  annotation records for pipeline debug. These are inspect/debug data, not a
+  promise of Markdown link emission.
 - `classify` is the final converter layer for deciding whether a text block is
   heading, paragraph, or noise. Downstream stages should treat that decision as
   the semantic boundary for heading promotion/demotion.
@@ -82,7 +85,11 @@ Current PDF recovery chain (`convert/pdf`):
   core-derived continuation support.
 - `to_ir` maps already classified converter blocks and images into unified IR.
   It may assign heading role/depth for IR emission, but it does not re-open the
-  heading/noise/paragraph classification decision.
+  heading/noise/paragraph classification decision. Nearby image-caption pairing
+  remains conservative: it is only attempted on single-image pages, still uses
+  the existing caption-like text helper, and now requires a bbox geometry gate
+  based on above/below placement, nearby vertical gap, and horizontal
+  overlap/alignment. Multi-image caption pairing remains disabled.
 
 ### 2.4 Lower-level Parsing Infrastructure (`doc_parse/*`)
 
@@ -131,7 +138,9 @@ Current `doc_parse/pdf_core` capabilities:
   extraction are already present in the parsing substrate.
 - Debug inspect API: read-only summaries expose document flags, page geometry,
   content stream refs, text block/line/span counts, image summaries, and
-  annotation summaries for diagnosis.
+  annotation summaries for diagnosis. Upper `convert/pdf` pipeline debug can
+  further surface convert-stage image provenance and page annotations without
+  changing normal Markdown output.
 
 Role:
 
@@ -258,6 +267,7 @@ the data flow is as follows:
 
   * complex PDF layouts
   * ambiguous multi-image / multi-caption scenarios
+  * multi-image caption pairing beyond the current conservative single-image-page path
   * richer cross-format metadata consistency
 * Future stage:
 

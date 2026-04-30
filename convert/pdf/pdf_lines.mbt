@@ -56,6 +56,7 @@ fn build_convert_page_lines(
   }
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
+  let annotations = build_convert_page_annotations(page)
 
   {
     _page_index: page.page_index,
@@ -64,6 +65,7 @@ fn build_convert_page_lines(
     lines,
     blocks: [],
     images,
+    annotations,
     objects: [],
   }
 }
@@ -175,6 +177,12 @@ fn export_convert_page_images(
           left_x: image.bbox.x0,
           _width_px: image.width_px,
           _height_px: image.height_px,
+          colorspace: image.colorspace,
+          bits_per_component: image.bits_per_component,
+          image_filter: image.image_filter,
+          object_ref: image.object_ref,
+          inline_image: image.inline_image,
+          source_refs_count: image.source_refs.length(),
           source_image_id: image.id,
         })
         _image_index = _image_index + 1
@@ -184,6 +192,53 @@ fn export_convert_page_images(
   }
 
   out
+}
+
+///|
+fn build_convert_page_annotations(
+  page : @model.PdfPageModel,
+) -> Array[PdfConvertAnnotation] {
+  let out : Array[PdfConvertAnnotation] = []
+
+  for i = 0; i < page.annotations.length(); i = i + 1 {
+    out.push(
+      core_annotation_to_convert_annotation(
+        page.page_index,
+        i,
+        page.annotations[i],
+      ),
+    )
+  }
+
+  out
+}
+
+///|
+fn core_annotation_to_convert_annotation(
+  _page_index : Int,
+  _annotation_index : Int,
+  annotation : @model.PdfAnnotationObject,
+) -> PdfConvertAnnotation {
+  {
+    _page_index,
+    _annotation_index,
+    subtype: annotation.subtype,
+    _bbox: annotation.bbox,
+    uri: annotation.uri,
+    dest: annotation.dest,
+    object_ref: annotation.object_ref,
+    contents: annotation.contents,
+    subject: annotation.subject,
+    color: convert_annotation_color(annotation.color),
+  }
+}
+
+///|
+fn convert_annotation_color(color : @model.PdfColor?) -> PdfConvertColor? {
+  match color {
+    Some(c) => Some({ r: c.r, g: c.g, b: c.b })
+    None => None
+  }
 }
 
 ///|

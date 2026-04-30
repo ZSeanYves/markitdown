@@ -45,6 +45,7 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
       lines: page.lines,
       blocks: kept,
       images: page.images,
+      annotations: page.annotations,
       objects: [],
     })
 

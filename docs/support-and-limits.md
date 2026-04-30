@@ -151,9 +151,13 @@ Currently supported:
 - lightweight image asset-origin metadata
 - raw page refs, content stream refs, images, and annotation/link data available
   to debug inspect helpers
+- convert-stage pipeline debug retention for image provenance fields and
+  page-level annotation records
 - source core block provenance and block-level flags retained in
   `PdfConvertBlock` for debug and future enhancement work
-- conservative nearby-caption attachment in single-image + single high-confidence caption-like cases
+- conservative nearby-caption attachment in single-image-page +
+  single surviving caption-like cases, with bbox geometry gating based on
+  above/below placement, nearby vertical gap, and horizontal alignment/overlap
 - retention of page-level asset origin for exported PDF image assets
 - debug inspect output for document version/page count, per-page geometry,
   counts, images, and annotations
@@ -167,7 +171,10 @@ Current boundaries:
 - core block seeding is not enabled by default; the normal path still uses
   line-seed block staging
 - annotations and link records currently enter the `pdf_core` model/debug
-  substrate, but they are not emitted as Markdown links by default
+  substrate and convert-stage debug, but they are not emitted as Markdown
+  links by default
+- multi-image caption pairing is not enabled; the current caption path remains
+  a conservative single-image-page strategy
 - more complex multi-column, heavy graphic-text mixing, and extreme anomaly cases are still under active improvement
 - some complex layouts still rely on heuristic rules rather than full layout-semantic reconstruction
 - Markdown output is still a conservative structural recovery result; it is not
@@ -251,7 +258,14 @@ Current boundaries:
 - The default `normal` path is already a text-oriented native structural recovery mainflow.
 - The default PDF path uses line-seed block staging, not core-block seed mode.
 - `pdf_core` annotation/link extraction is available for model/debug
-  inspection, but annotations are not converted into Markdown links by default.
+  inspection, and convert pipeline debug retains page annotations, but
+  annotations are not converted into Markdown links by default.
+- Image provenance is retained in convert pipeline debug for diagnosis, but it
+  does not change the Markdown contract.
+- PDF caption pairing remains conservative: it is only attempted for
+  single-image pages, uses the existing caption-like text helper, and applies a
+  bbox geometry gate rather than enabling broad layout-semantic matching.
+- Multi-image caption pairing is still not enabled.
 - Complex multi-column layouts, strong graphic-text mixing, and extreme abnormal pages remain enhancement targets.
 
 ### 8.2 OCR Boundary

@@ -17,15 +17,7 @@ const DEBUG_TO_IR = false
 ///|
 fn rebuild_page_objects(page : PdfConvertPage) -> PdfConvertPage {
   let objects = build_page_objects(page.blocks, page.images)
-  {
-    _page_index: page._page_index,
-    media_box: page.media_box,
-    crop_box: page.crop_box,
-    lines: page.lines,
-    blocks: page.blocks,
-    images: page.images,
-    objects,
-  }
+  { ..page, objects, }
 }
 
 ///|
@@ -126,14 +118,11 @@ fn infer_page_image_nearby_captions(
     return (out, consumed_block_indices)
   }
 
+  let image = page.images[0]
   let candidates : Array[(Int, String)] = []
   for block in page.blocks {
-    let t = block.text.trim().to_owned()
-    if t == "" {
-      continue
-    }
-    if looks_like_figure_or_table_caption_for_ir(t) {
-      candidates.push((block.block_index, t))
+    if is_bbox_gated_caption_candidate(block, image) {
+      candidates.push((block.block_index, block.text.trim().to_owned()))
     }
   }
 
@@ -144,6 +133,123 @@ fn infer_page_image_nearby_captions(
   }
 
   (out, consumed_block_indices)
+}
+
+///|
+fn is_bbox_gated_caption_candidate(
+  block : PdfConvertBlock,
+  image : PdfConvertImage,
+) -> Bool {
+  let text = block.text.trim().to_owned()
+  if text == "" {
+    return false
+  }
+
+  if !looks_like_figure_or_table_caption_for_ir(text) {
+    return false
+  }
+
+  if block.kind != PdfConvertBlockKind::Paragraph {
+    return false
+  }
+
+  if block.is_noise_candidate ||
+    block.is_header_footer_candidate ||
+    block.is_artifact_candidate ||
+    block.is_heading_candidate {
+    return false
+  }
+
+  if !is_block_above_image(block, image) && !is_block_below_image(block, image) {
+    return false
+  }
+
+  let gap = caption_vertical_gap(block, image)
+  if gap < 0.0 || gap > 32.0 {
+    return false
+  }
+
+  let overlap = horizontal_overlap_width(block._bbox, image._bbox)
+  if overlap <= 0.0 {
+    return false
+  }
+
+  let block_width = max_f64(block._bbox.x1 - block._bbox.x0, 1.0)
+  if overlap / block_width < 0.8 {
+    return false
+  }
+
+  abs_f64(block.left_x - image.left_x) <= 24.0 ||
+  is_within_x_span(block_center_x(block), image._bbox)
+}
+
+///|
+fn is_block_above_image(
+  block : PdfConvertBlock,
+  image : PdfConvertImage,
+) -> Bool {
+  block._bbox.y0 >= image._bbox.y1
+}
+
+///|
+fn is_block_below_image(
+  block : PdfConvertBlock,
+  image : PdfConvertImage,
+) -> Bool {
+  block._bbox.y1 <= image._bbox.y0
+}
+
+///|
+fn caption_vertical_gap(
+  block : PdfConvertBlock,
+  image : PdfConvertImage,
+) -> Double {
+  if is_block_above_image(block, image) {
+    block._bbox.y0 - image._bbox.y1
+  } else if is_block_below_image(block, image) {
+    image._bbox.y0 - block._bbox.y1
+  } else {
+    -1.0
+  }
+}
+
+///|
+fn horizontal_overlap_width(a : @model.PdfRect, b : @model.PdfRect) -> Double {
+  let left = max_f64(a.x0, b.x0)
+  let right = min_f64(a.x1, b.x1)
+  if right > left {
+    right - left
+  } else {
+    0.0
+  }
+}
+
+///|
+fn block_center_x(block : PdfConvertBlock) -> Double {
+  (block._bbox.x0 + block._bbox.x1) / 2.0
+}
+
+///|
+fn is_within_x_span(x : Double, rect : @model.PdfRect) -> Bool {
+  x >= rect.x0 && x <= rect.x1
+}
+
+///|
+fn min_f64(a : Double, b : Double) -> Double {
+  if a < b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn max_f64(a : Double, b : Double) -> Double {
+  if a > b {
+    a
+  } else {
+    b
+  }
 }
 
 ///|

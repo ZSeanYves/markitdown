@@ -3,11 +3,13 @@ fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
   let mut page_count = 0
   let mut line_count = 0
   let mut block_count = 0
+  let mut annotation_count = 0
 
   for page in doc.pages {
     page_count = page_count + 1
     line_count = line_count + page.lines.length()
     block_count = block_count + page.blocks.length()
+    annotation_count = annotation_count + page.annotations.length()
   }
 
   "PdfConvertDocument(" +
@@ -19,6 +21,9 @@ fn debug_convert_document_summary(doc : PdfConvertDocument) -> String {
   ", " +
   "blocks=" +
   block_count.to_string() +
+  ", " +
+  "annotations=" +
+  annotation_count.to_string() +
   ")"
 }
 
@@ -48,6 +53,74 @@ fn debug_print_convert_lines(page : PdfConvertPage) -> Unit {
       opt_f64(line.line_gap_before) +
       " _bbox=" +
       rect_str(line._bbox),
+    )
+  }
+}
+
+///|
+fn debug_print_convert_images(page : PdfConvertPage) -> Unit {
+  println(
+    "pdf_images/debug page=" +
+    page._page_index.to_string() +
+    " convert_images=" +
+    page.images.length().to_string(),
+  )
+
+  for image in page.images {
+    println(
+      "  [image " +
+      image._image_index.to_string() +
+      "] path=" +
+      image.path +
+      " source_image_id=" +
+      image.source_image_id +
+      " image_filter=" +
+      opt_str(image.image_filter) +
+      " object_ref=" +
+      opt_str(image.object_ref) +
+      " inline_image=" +
+      image.inline_image.to_string() +
+      " colorspace=" +
+      opt_str(image.colorspace) +
+      " bits_per_component=" +
+      opt_int(image.bits_per_component) +
+      " source_refs_count=" +
+      image.source_refs_count.to_string() +
+      " _bbox=" +
+      rect_str(image._bbox),
+    )
+  }
+}
+
+///|
+fn debug_print_convert_annotations(page : PdfConvertPage) -> Unit {
+  println(
+    "pdf_annotations/debug page=" +
+    page._page_index.to_string() +
+    " convert_annotations=" +
+    page.annotations.length().to_string(),
+  )
+
+  for annotation in page.annotations {
+    println(
+      "  [annotation " +
+      annotation._annotation_index.to_string() +
+      "] subtype=" +
+      annotation.subtype +
+      " uri=" +
+      opt_str(annotation.uri) +
+      " dest=" +
+      opt_str(annotation.dest) +
+      " object_ref=" +
+      opt_str(annotation.object_ref) +
+      " bbox=" +
+      rect_str(annotation._bbox) +
+      " contents=" +
+      opt_str(annotation.contents) +
+      " subject=" +
+      opt_str(annotation.subject) +
+      " color=" +
+      opt_color(annotation.color),
     )
   }
 }
@@ -110,6 +183,29 @@ fn opt_f64(v : Double?) -> String {
 fn opt_str(v : String?) -> String {
   match v {
     Some(x) => x
+    None => "None"
+  }
+}
+
+///|
+fn opt_int(v : Int?) -> String {
+  match v {
+    Some(x) => x.to_string()
+    None => "None"
+  }
+}
+
+///|
+fn opt_color(v : PdfConvertColor?) -> String {
+  match v {
+    Some(c) =>
+      "(" +
+      c.r.to_string() +
+      "," +
+      c.g.to_string() +
+      "," +
+      c.b.to_string() +
+      ")"
     None => "None"
   }
 }

@@ -100,7 +100,34 @@ priv struct PdfConvertImage {
   left_x : Double
   _width_px : Int
   _height_px : Int
+  colorspace : String?
+  bits_per_component : Int?
+  image_filter : String?
+  object_ref : String?
+  inline_image : Bool
+  source_refs_count : Int
   source_image_id : String
+}
+
+///|
+priv struct PdfConvertColor {
+  r : Int
+  g : Int
+  b : Int
+}
+
+///|
+priv struct PdfConvertAnnotation {
+  _page_index : Int
+  _annotation_index : Int
+  subtype : String
+  _bbox : @model.PdfRect
+  uri : String?
+  dest : String?
+  object_ref : String?
+  contents : String?
+  subject : String?
+  color : PdfConvertColor?
 }
 
 ///|
@@ -117,6 +144,7 @@ priv struct PdfConvertPage {
   lines : Array[PdfConvertLine]
   blocks : Array[PdfConvertBlock]
   images : Array[PdfConvertImage]
+  annotations : Array[PdfConvertAnnotation]
   objects : Array[PdfConvertPageObject]
 }
 

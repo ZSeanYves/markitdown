@@ -55,6 +55,8 @@ pub async fn parse_pdf(
 
     for page in doc1.pages {
       debug_print_convert_lines(page)
+      debug_print_convert_images(page)
+      debug_print_convert_annotations(page)
       debug_print_convert_blocks(page)
     }
 

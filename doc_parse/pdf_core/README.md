@@ -20,6 +20,8 @@ Its job is to turn rendering-oriented PDF content into a parser-facing document 
 - final converter IR decisions
 - OCR
 - annotation/link/table semantic recovery
+- final image-caption pairing decisions
+- Markdown link emission for annotations/links
 - browser-like visual layout reconstruction
 
 ## Vendored Backend Boundary
@@ -146,7 +148,7 @@ Main APIs:
 
 `extract_document_summary` returns a compact human-readable summary including document version, page count, and top-level object totals.
 
-`extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. This is for pipeline diagnosis; it is not a stable Markdown or IR format.
+`extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. This is for pipeline diagnosis; it is not a stable Markdown or IR format. Upper `convert/pdf` pipeline debug may further retain convert-stage image provenance and page annotation passthrough on top of this, but those remain inspect/debug data rather than stable Markdown or IR semantics.
 
 ## Current Limits
 
@@ -155,6 +157,7 @@ Known limits:
 - no full multi-column reading order engine
 - no table semantic reconstruction
 - no annotation/link semantic model
+- no final image-caption pairing semantics in this layer
 - no OCR in the native path
 - no full vector/graphics semantic recovery
 - no browser-like layout engine
