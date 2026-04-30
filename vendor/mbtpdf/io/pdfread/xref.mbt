@@ -49,7 +49,7 @@ fn count_leading_spaces(chars : StringView) -> Int {
 fn split_fields(line : String) -> Array[String] {
   let parts = Array::new()
   for part in line.split(" ") {
-    let s = part.to_string()
+    let s = part.to_owned()
     if s != "" {
       parts.push(s)
     }

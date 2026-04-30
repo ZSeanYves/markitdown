@@ -13,7 +13,7 @@ fn[T] array_slice(
   start : Int,
   len : Int,
 ) -> ArrayView[T] {
-  values.sub(start~, end=start + len)
+  values[start:start + len]
 }
 
 ///|

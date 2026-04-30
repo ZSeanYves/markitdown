@@ -139,7 +139,7 @@ test "streams and transforms" {
     PdfObject::Real(8.0),
     PdfObject::Real(9.0),
   ])
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     match
       pdf.transform_quadpoints(
         @pdftransform.TransformMatrix::identity(),

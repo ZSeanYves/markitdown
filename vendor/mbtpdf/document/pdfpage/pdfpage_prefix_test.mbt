@@ -447,8 +447,8 @@ test "add_prefix merges non-iso content streams" {
   ])
   let bytes = @pdfio.bytes_of_string(rendered)
   let mid = @pdfio.bytes_size(bytes) / 2
-  let first = bytes[:mid].to_array()
-  let second = bytes[mid:].to_array()
+  let first = bytes[:mid].to_owned()
+  let second = bytes[mid:].to_owned()
   let stream1 : @pdf.PdfObject = Stream(
     Ref::new(
       (
@@ -478,7 +478,7 @@ test "add_prefix merges non-iso content streams" {
     ],
   )
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).add_prefix("p")
     ()
   })

@@ -58,7 +58,7 @@ Log a message using the current logger.
 ///|
 test "log: captures messages with custom logger" {
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
+  @pdfe.with_logger(fn(msg) { messages.push(msg) }, () => {
     @pdfe.log("hello")
     @pdfe.log("world")
     ()
@@ -75,8 +75,8 @@ Run an action with logging suppressed, restoring the previous state.
 ///|
 test "with_silenced_logs: suppresses log calls within scope" {
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
-    @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_logger(fn(msg) { messages.push(msg) }, () => {
+    @pdfe.with_silenced_logs(() => {
       @pdfe.log("hidden")
       ()
     })
@@ -101,7 +101,7 @@ pub fn[T] with_logger(Logger, () -> T raise) -> T raise
 
 ```moonbit nocheck
 let messages : Array[String] = []
-@pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
+@pdfe.with_logger(fn(msg) { messages.push(msg) }, () => {
   // ... code that calls @pdfe.log() ...
   ()
 })
@@ -110,7 +110,7 @@ let messages : Array[String] = []
 **Silence noisy logs for a scope (recommended for tests that trigger malformed inputs):**
 
 ```moonbit nocheck
-@pdfe.with_silenced_logs(fn() {
+@pdfe.with_silenced_logs(() => {
   // ... code that calls @pdfe.log() ...
   ()
 })

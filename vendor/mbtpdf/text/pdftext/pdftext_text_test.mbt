@@ -161,12 +161,12 @@ test "encoding tables and extractors" {
   let encoding = ctx.read_encoding(win_ansi_font_dict())
   let table = @pdftext.PdfTextUtil::new().table_of_encoding(encoding)
   let sample = @pdfglyphlist.name_to_win[0]
-  assert_eq(table.get(sample.1), Some(sample.0))
+  assert_true(table.get(sample.1) == Some(sample.0))
   let reversed = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(encoding)
-  assert_eq(reversed.get(sample.0), Some(sample.1))
+  assert_true(reversed.get(sample.0) == Some(sample.1))
   let custom = ctx.read_encoding(custom_encoding_font_dict())
   let custom_table = @pdftext.PdfTextUtil::new().table_of_encoding(custom)
-  assert_eq(custom_table.get(65), Some("/A"))
+  assert_true(custom_table.get(65) == Some("/A"))
   let extractor = ctx.text_extractor_of_font(standard_font_dict())
   let pairs = extractor.glyphnames_and_codepoints_of_text("A")
   assert_eq(pairs.length(), 1)
@@ -174,7 +174,7 @@ test "encoding tables and extractors" {
   inspect(pairs[0].1, content="[65]")
   inspect(extractor.codepoints_of_text("AB"), content="[65, 66]")
   let charcode = ctx.charcode_extractor_of_font(standard_font_dict())
-  assert_eq(charcode(0x41), Some(65))
+  assert_true(charcode(0x41) == Some(65))
 }
 
 ///|

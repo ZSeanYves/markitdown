@@ -316,7 +316,7 @@ test "merge_structure_trees merges roots" {
     ("/AF", Array([Name(@pdf.PdfName::of_string("/File"))])),
   ])
   ignore(install_struct_root(pdf2, root2))
-  let merged = @pdfe.with_logger(_ => (), fn() {
+  let merged = @pdfe.with_logger(_ => (), fn() raise {
     PdfStructTree::new(pdf_out).merge_structure_trees(
       [pdf1, pdf2],
       add_toplevel_document=true,
@@ -334,7 +334,7 @@ test "merge_structure_trees merges roots" {
       }
     _ => fail("expected merged struct tree")
   }
-  let merged_no_top = @pdfe.with_logger(_ => (), fn() {
+  let merged_no_top = @pdfe.with_logger(_ => (), fn() raise {
     PdfStructTree::new(pdf_out).merge_structure_trees([pdf1, pdf2])
   })
   assert_true(merged_no_top is Some(_))

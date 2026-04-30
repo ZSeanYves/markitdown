@@ -5,6 +5,10 @@ async fn main {
 
 ///|
 pub async fn run(args : Array[String], quiet? : Bool = false) -> Unit {
+  let _ = @pdfe.quiet.val
+  let _ = @pdfutil.quiet.val
+  let _ = @pdfpage.Rotation::Rotate0
+  let _ = @fs.exists
   if args.length() != 4 {
     if !quiet {
       println("Syntax: pdfencrypt <input> <output> <owner-password>")

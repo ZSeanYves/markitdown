@@ -114,16 +114,18 @@ pub fn PdfStructTree::trim_structure_tree(
   let remove_set = set_of_ints(page_objnums_to_remove)
   let del : Ref[Array[Int]] = { val: [] }
   let replaceobjs : Ref[Array[(Int, @pdf.PdfObject)]] = { val: [] }
-  pdf.objiter((n, o) => match pdf.direct(o) {
-    @pdf.PdfObject::Dictionary(d) =>
-      match @pdf.PdfObject::Dictionary(d).lookup_immediate("/Pg") {
-        Some(@pdf.PdfObject::Indirect(i)) =>
-          if remove_set.get(i) is Some(_) {
-            del.val.push(n)
-          }
-        _ => ()
-      }
-    _ => ()
+  pdf.objiter((n, o) => {
+    match pdf.direct(o) {
+      @pdf.PdfObject::Dictionary(d) =>
+        match @pdf.PdfObject::Dictionary(d).lookup_immediate("/Pg") {
+          Some(@pdf.PdfObject::Indirect(i)) =>
+            if remove_set.get(i) is Some(_) {
+              del.val.push(n)
+            }
+          _ => ()
+        }
+      _ => ()
+    }
   })
   fn survives(obj : @pdf.PdfObject) -> Bool {
     match obj {
@@ -194,16 +196,18 @@ pub fn PdfStructTree::trim_structure_tree(
       pdf.addobj_given_num(pair)
     }
     replaceobjs.val = []
-    pdf.objiter((n, o) => match pdf.direct(o) {
-      @pdf.PdfObject::Dictionary(d) =>
-        match @pdf.PdfObject::Dictionary(d).lookup_immediate("/K") {
-          Some(@pdf.PdfObject::Integer(_)) => ()
-          Some(@pdf.PdfObject::Indirect(i)) =>
-            process_indirect(d, [@pdf.PdfObject::Indirect(i)], n)
-          Some(@pdf.PdfObject::Array(objs)) => process_indirect(d, objs, n)
-          _ => ()
-        }
-      _ => ()
+    pdf.objiter((n, o) => {
+      match pdf.direct(o) {
+        @pdf.PdfObject::Dictionary(d) =>
+          match @pdf.PdfObject::Dictionary(d).lookup_immediate("/K") {
+            Some(@pdf.PdfObject::Integer(_)) => ()
+            Some(@pdf.PdfObject::Indirect(i)) =>
+              process_indirect(d, [@pdf.PdfObject::Indirect(i)], n)
+            Some(@pdf.PdfObject::Array(objs)) => process_indirect(d, objs, n)
+            _ => ()
+          }
+        _ => ()
+      }
     })
   }
 }
@@ -217,12 +221,14 @@ pub fn PdfStructTrees::renumber_parent_trees(
   if pdfs.length() <= 1 {
     return
   }
-  let parent_trees = pdfs.map(pdf => match
-    pdf.lookup_chain(pdf.trailerdict, [
-      "/Root", "/StructTreeRoot", "/ParentTree",
-    ]) {
-    Some(tree) => @pdftree.PdfTree::new(pdf).read_number_tree(tree)
-    None => []
+  let parent_trees = pdfs.map(pdf => {
+    match
+      pdf.lookup_chain(pdf.trailerdict, [
+        "/Root", "/StructTreeRoot", "/ParentTree",
+      ]) {
+      Some(tree) => @pdftree.PdfTree::new(pdf).read_number_tree(tree)
+      None => []
+    }
   })
   let mut total_entries = 0
   for tree in parent_trees {
@@ -233,7 +239,7 @@ pub fn PdfStructTrees::renumber_parent_trees(
   for i, tree in parent_trees {
     let pdfn = i + 1
     for pair in tree {
-      let key = @strconv.parse_int(pair.0)
+      let key = @string.parse_int(pair.0)
       mapping.set((pdfn, key), next)
       next = next + 1
     }
@@ -286,7 +292,7 @@ pub fn PdfStructTrees::renumber_parent_trees(
     let pdfn = i + 1
     let out = Array::new(capacity=tree.length())
     for pair in tree {
-      let key = @strconv.parse_int(pair.0)
+      let key = @string.parse_int(pair.0)
       match mapping.get((pdfn, key)) {
         Some(new_key) => out.push((new_key.to_string(), pair.1))
         None =>
@@ -455,11 +461,13 @@ pub fn PdfStructTree::merge_structure_trees(
   let merged_af = merge_arrays(get_all(struct_tree_roots, "/AF"))
   let struct_tree_objnum = pdf.addobj(@pdf.PdfObject::Null)
   let existing_ks = flatten(
-    struct_tree_roots.map(root => match root.lookup_immediate("/K") {
-      Some(@pdf.PdfObject::Indirect(i)) => [@pdf.PdfObject::Indirect(i)]
-      Some(@pdf.PdfObject::Array(items)) => items
-      Some(obj) => [obj]
-      None => []
+    struct_tree_roots.map(root => {
+      match root.lookup_immediate("/K") {
+        Some(@pdf.PdfObject::Indirect(i)) => [@pdf.PdfObject::Indirect(i)]
+        Some(@pdf.PdfObject::Array(items)) => items
+        Some(obj) => [obj]
+        None => []
+      }
     }),
   )
   let updated_ks = Array::new(capacity=existing_ks.length())

@@ -1,11 +1,16 @@
 import {
   "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/pdf" @pdf,
   "ZSeanYves/markitdown/convert/docx" @doc,
   "ZSeanYves/markitdown/convert/xlsx" @xlsx,
   "ZSeanYves/markitdown/convert/pptx" @pptx,
   "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/convert/csv" @csv,
+  "ZSeanYves/markitdown/convert/json" @json,
+  "ZSeanYves/markitdown/convert/markdown" @md,
+  "ZSeanYves/markitdown/convert/yaml" @yaml,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "moonbitlang/async",
 } for "test"

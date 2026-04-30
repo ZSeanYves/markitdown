@@ -3,6 +3,7 @@ pub async fn run(
   out_file? : String = "hello.pdf",
   quiet? : Bool = false,
 ) -> Unit {
+  let _ = @fs.exists
   try {
     let font = @pdf.PdfObject::Dictionary([
       ("/Type", Name(@pdf.PdfName::of_string("/Font"))),

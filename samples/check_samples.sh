@@ -4,13 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown")
 
 fail=0
 
 echo "==> sample integrity check"
+mkdir -p "$TMP_ROOT/samples/check"
 
 
 is_noise_file() {
@@ -44,6 +46,10 @@ for fmt in "${FORMATS[@]}"; do
 
     if [[ "$fmt" == "html" ]]; then
       [[ "$ext_lc" =~ ^(html|htm)$ ]] && echo "$name"
+    elif [[ "$fmt" == "yaml" ]]; then
+      [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && echo "$name"
+    elif [[ "$fmt" == "markdown" ]]; then
+      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && echo "$name"
     else
       [[ "$ext_lc" == "$fmt" ]] && echo "$name"
     fi
@@ -109,6 +115,10 @@ for fmt in "${FORMATS[@]}"; do
     enrolled=false
     if [[ "$fmt" == "html" ]]; then
       [[ "$ext_lc" =~ ^(html|htm)$ ]] && enrolled=true
+    elif [[ "$fmt" == "yaml" ]]; then
+      [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && enrolled=true
+    elif [[ "$fmt" == "markdown" ]]; then
+      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && enrolled=true
     else
       [[ "$ext_lc" == "$fmt" ]] && enrolled=true
     fi

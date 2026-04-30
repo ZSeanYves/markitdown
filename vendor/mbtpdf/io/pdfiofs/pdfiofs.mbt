@@ -5,11 +5,10 @@
 /// outputs), while concentrating native-only `@fs.File` helpers under `io/`.
 ///
 /// These helpers currently read the whole file/channel into memory.
-
-///|
 async fn read_data_to_bytes(
   load : async () -> &@io.Data,
 ) -> @pdfio.MutableBytes {
+  let _ = @async.now()
   let data = load()
   data.binary().to_array()
 }

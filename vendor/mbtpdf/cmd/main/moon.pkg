@@ -1,5 +1,5 @@
 import {
-  "bobzhang/mbtpdf" as @lib,
+  "bobzhang/mbtpdf" @lib,
 }
 
 options(

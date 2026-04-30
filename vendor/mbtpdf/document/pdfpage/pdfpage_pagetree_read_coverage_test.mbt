@@ -101,7 +101,7 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
   )
   let pdf = @pdfpage.PdfPageDoc::new(pdf0).add_root(pages_root_num, [])
   let messages : Array[String] = []
-  let pages = @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
+  let pages = @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
   })
   assert_eq(pages.length(), 2)
@@ -118,7 +118,8 @@ test "pages_of_pagetree reads inherited resources and contents shapes" {
     None => fail("expected page /CropBox")
   }
   match pages[1].cropbox {
-    Some(cropbox) => assert_eq(cropbox.to_string(), inherited_cropbox.to_string())
+    Some(cropbox) =>
+      assert_eq(cropbox.to_string(), inherited_cropbox.to_string())
     None => fail("expected inherited /CropBox")
   }
 

@@ -34,6 +34,8 @@ pub fn push_with_origin(Document, Block, Origin?) -> Unit
 
 pub fn set_asset_origin(Document, String, AssetOrigin) -> Unit
 
+pub fn set_passthrough_markdown(Document, String) -> Unit
+
 pub fn slice_to_string(Array[Char], Int, Int) -> String
 
 pub fn trim_string(String) -> String
@@ -81,6 +83,7 @@ pub struct Document {
   blocks : @ref.Ref[Array[Block]]
   block_origins : @ref.Ref[Array[Origin?]]
   asset_origins : @ref.Ref[Map[String, AssetOrigin]]
+  passthrough_markdown : @ref.Ref[String?]
 }
 
 pub(all) struct ImageData {

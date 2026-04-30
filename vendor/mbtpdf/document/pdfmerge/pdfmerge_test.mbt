@@ -9,9 +9,11 @@ fn[T] assert_is_err(res : Result[T, Error]) -> Unit raise {
 ///|
 fn count_streams(pdf : @pdf.Pdf) -> Int {
   let mut count = 0
-  pdf.objiter((_, obj) => match (obj : @pdf.PdfObject) {
-    Stream(_) => count = count + 1
-    _ => ()
+  pdf.objiter((_, obj) => {
+    match (obj : @pdf.PdfObject) {
+      Stream(_) => count = count + 1
+      _ => ()
+    }
   })
   count
 }
@@ -69,22 +71,24 @@ fn lookup_entry(
 ///|
 fn collect_dest_strings(pdf : @pdf.Pdf) -> Array[String] {
   let out = Array::new()
-  pdf.objiter((_, obj) => match (obj : @pdf.PdfObject) {
-    Dictionary(entries) => {
-      match lookup_entry(entries, "/Dest") {
-        Some(String(s)) => out.push(s)
-        _ => ()
+  pdf.objiter((_, obj) => {
+    match (obj : @pdf.PdfObject) {
+      Dictionary(entries) => {
+        match lookup_entry(entries, "/Dest") {
+          Some(String(s)) => out.push(s)
+          _ => ()
+        }
+        match lookup_entry(entries, "/S") {
+          Some(Name(n)) if n.equal_string_bytes("/GoTo") =>
+            match lookup_entry(entries, "/D") {
+              Some(String(s)) => out.push(s)
+              _ => ()
+            }
+          _ => ()
+        }
       }
-      match lookup_entry(entries, "/S") {
-        Some(Name(n)) if n.equal_string_bytes("/GoTo") =>
-          match lookup_entry(entries, "/D") {
-            Some(String(s)) => out.push(s)
-            _ => ()
-          }
-        _ => ()
-      }
+      _ => ()
     }
-    _ => ()
   })
   out
 }

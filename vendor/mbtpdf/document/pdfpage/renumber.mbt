@@ -143,9 +143,9 @@ pub fn PdfPageDoc::renumber_pages(
     content : Array[@pdf.PdfObject],
   ) -> Array[@pdf.PdfObject] raise {
     let operators = @pdfops.Op::parse_operators(pdf, resources, content)
-    let operators_updated = operators.map(op => change_operator(
-      pdf, lookup, lookup_option, seqnum, op,
-    ))
+    let operators_updated = operators.map(op => {
+      change_operator(pdf, lookup, lookup_option, seqnum, op)
+    })
     [@pdfops.Op::stream_of_ops(operators_updated)]
   }
 

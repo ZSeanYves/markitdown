@@ -83,12 +83,7 @@ pub fn PdfSyntax::lex_number(
   let mut number = s
   if number.length() > 1 {
     match (number.get_char(0), number.get_char(1)) {
-      (Some('-'), Some('-')) =>
-        number = try number[1:] catch {
-          _ => number
-        } noraise {
-          view => view.to_string()
-        }
+      (Some('-'), Some('-')) => number = number[1:].to_owned()
       _ => ()
     }
   }
@@ -96,9 +91,9 @@ pub fn PdfSyntax::lex_number(
     number.contains("e") ||
     number.contains("E")
   if !has_decimal {
-    try @strconv.parse_int(number) catch {
+    try @string.parse_int(number) catch {
       _ =>
-        try @strconv.parse_double(number) catch {
+        try @string.parse_double(number) catch {
           _ => LexNone
         } noraise {
           f => LexReal(f)
@@ -107,7 +102,7 @@ pub fn PdfSyntax::lex_number(
       i => LexInt(i)
     }
   } else {
-    try @strconv.parse_double(number) catch {
+    try @string.parse_double(number) catch {
       _ => LexNone
     } noraise {
       f => LexReal(f)

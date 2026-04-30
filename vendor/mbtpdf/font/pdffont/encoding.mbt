@@ -3,8 +3,10 @@
 
 ///|
 fn add_encoding(table : Map[Int, String], encoding : Encoding) -> Unit {
-  let addvals = (vals : Array[(String, Int)]) => for pair in vals {
-    table.set(pair.1, pair.0)
+  let addvals = (vals : Array[(String, Int)]) => {
+    for pair in vals {
+      table.set(pair.1, pair.0)
+    }
   }
   match encoding {
     Encoding::ImplicitInFontFile => ()
@@ -33,8 +35,10 @@ pub fn Encoding::table(self : Encoding) -> Map[Int, String] {
 ///|
 pub fn Encoding::reverse_table(self : Encoding) -> Map[String, Int] {
   let table : Map[String, Int] = Map::new(capacity=203)
-  let addvals = (vals : Array[(String, Int)]) => for pair in vals {
-    table.set(pair.0, pair.1)
+  let addvals = (vals : Array[(String, Int)]) => {
+    for pair in vals {
+      table.set(pair.0, pair.1)
+    }
   }
   fn add_reverse(enc : Encoding) -> Unit {
     match enc {

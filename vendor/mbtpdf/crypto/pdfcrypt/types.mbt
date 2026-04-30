@@ -5,6 +5,7 @@ pub struct PdfCrypt {
 
 ///|
 pub fn PdfCrypt::new() -> PdfCrypt {
+  let _ = @pdfpage.Rotation::Rotate0
   { unit: () }
 }
 

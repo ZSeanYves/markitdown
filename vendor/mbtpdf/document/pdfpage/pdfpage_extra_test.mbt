@@ -68,7 +68,7 @@ test "pages_of_pagetree handles missing mediabox and non-stream contents" {
     .remove_entry("/Resources")
     .add_entry("/Contents", Integer(2))
   pdf.addobj_given_num((page2_num, page2_updated))
-  let out_pages = @pdfe.with_logger(_ => (), fn() {
+  let out_pages = @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
   })
   assert_eq(out_pages.length(), 2)
@@ -207,7 +207,7 @@ test "change_pages rewrites bookmarks and mixed annotations" {
   pdf.addobj_given_num((pdf.root, catalog))
   let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
   let matrix = @pdftransform.TransformMatrix::translate(10.0, 0.0)
-  let updated = @pdfe.with_logger(_ => (), fn() {
+  let updated = @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, matrices=[
       (1, matrix),
     ])

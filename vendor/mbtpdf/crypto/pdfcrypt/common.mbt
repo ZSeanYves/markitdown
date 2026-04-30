@@ -25,12 +25,12 @@ fn bytes_of_int_arrays(values : Array[Array[Int]]) -> @pdfio.MutableBytes {
 
 ///|
 fn int_array_prefix(values : Array[Int], len : Int) -> Array[Int] {
-  values[:len].to_array()
+  values[:len].to_owned()
 }
 
 ///|
 fn bytes_prefix(values : @pdfio.MutableBytes, len : Int) -> @pdfio.MutableBytes {
-  values[:len].to_array()
+  values[:len].to_owned()
 }
 
 ///|

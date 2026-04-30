@@ -2,5 +2,4 @@ import {
   "bobzhang/mbtpdf/codec/pdfflate",
   "bobzhang/mbtpdf/core/pdf",
   "bobzhang/mbtpdf/core/pdfio",
-  "moonbitlang/async",
 }

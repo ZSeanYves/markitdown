@@ -34,9 +34,11 @@ fn dict_contains_name_entry(
 ) -> Bool {
   match entry {
     (key, Name(name)) =>
-      dict.search_by(pair => match pair {
-        (k, Name(vname)) => k == key && vname == name
-        _ => false
+      dict.search_by(pair => {
+        match pair {
+          (k, Name(vname)) => k == key && vname == name
+          _ => false
+        }
       })
       is Some(_)
     _ => false

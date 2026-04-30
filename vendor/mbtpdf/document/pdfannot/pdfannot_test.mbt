@@ -395,7 +395,7 @@ test "transform_annotations keeps malformed quadpoints" {
     ("/Annots", Array([Indirect(objnum)])),
   ])
   let tr = @pdftransform.TransformMatrix::translate(5.0, 5.0)
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     @pdfannot.PdfAnnot::new(pdf).transform_annotations(tr, rest)
   })
   let updated = pdf.lookup_obj(objnum)
@@ -637,7 +637,7 @@ test "transform_annotations leaves non-array quadpoints" {
     ("/Annots", Array([Indirect(objnum)])),
   ])
   let tr = @pdftransform.TransformMatrix::translate(5.0, 5.0)
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     @pdfannot.PdfAnnot::new(pdf).transform_annotations(tr, rest)
   })
   let updated = pdf.lookup_obj(objnum)

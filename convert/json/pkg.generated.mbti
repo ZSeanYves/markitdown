@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/json"
+
+import {
+  "ZSeanYves/markitdown/core",
+}
+
+// Values
+pub fn parse_json(String, String, Int) -> @core.Document raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

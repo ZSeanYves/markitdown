@@ -228,7 +228,7 @@ test "get_image_24bpp JBIG2 filter array ignores non-indirect globals entry" {
   let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
   match
     (@pdfimage.Image::get_image_24bpp(pdf, resources, stream) : @pdfimage.Image) {
-    JBIG2(_, _, globals) => assert_eq(globals, None)
+    JBIG2(_, _, globals) => assert_true(globals == None)
     _ => fail("expected JBIG2 image")
   }
 }
@@ -394,7 +394,7 @@ test "get_image_24bpp JBIG2 ignores non-indirect globals entry" {
   let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
   match
     (@pdfimage.Image::get_image_24bpp(pdf, resources, stream) : @pdfimage.Image) {
-    JBIG2(_, _, globals_ref) => assert_eq(globals_ref, None)
+    JBIG2(_, _, globals_ref) => assert_true(globals_ref == None)
     _ => fail("expected JBIG2 image")
   }
 }
@@ -415,7 +415,7 @@ test "get_image_24bpp JBIG2 ignores malformed decodeparms" {
   let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
   match
     (@pdfimage.Image::get_image_24bpp(pdf, resources, stream) : @pdfimage.Image) {
-    JBIG2(_, _, globals_ref) => assert_eq(globals_ref, None)
+    JBIG2(_, _, globals_ref) => assert_true(globals_ref == None)
     _ => fail("expected JBIG2 image")
   }
 }

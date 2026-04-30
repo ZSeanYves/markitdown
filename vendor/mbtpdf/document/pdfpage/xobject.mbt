@@ -103,12 +103,12 @@ pub fn PdfPageDoc::combine_pdf_resources(
     }
   }
 
-  let unknown_keys_a = a_entries.filter(entry => !resource_keys.contains(
-    entry.0,
-  ))
-  let unknown_keys_b = b_entries.filter(entry => !resource_keys.contains(
-    entry.0,
-  ))
+  let unknown_keys_a = a_entries.filter(entry => {
+    !resource_keys.contains(entry.0)
+  })
+  let unknown_keys_b = b_entries.filter(entry => {
+    !resource_keys.contains(entry.0)
+  })
   let combined_known = resource_keys.filter_map(combine_entries)
   let mut out = @pdf.PdfObject::Dictionary([])
   for entry in unknown_keys_a {

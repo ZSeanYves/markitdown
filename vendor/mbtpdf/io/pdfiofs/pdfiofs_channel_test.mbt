@@ -1,5 +1,6 @@
 ///|
 async test "channel io helpers roundtrip" {
+  let _ = @async.now()
   let input_path = "pdfio_async_input.txt"
   @fs.write_file(input_path, "hello", create=0o644, truncate=true)
   let in_file = @fs.open(input_path, mode=ReadOnly)

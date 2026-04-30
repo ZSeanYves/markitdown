@@ -584,18 +584,28 @@ pub fn BitstreamWrite::bytes(self : BitstreamWrite) -> MutableBytes {
 fn output_of_bytes(data : Ref[MutableBytes]) -> Output {
   let mut pos = 0
   let mut highest_written = -1
-  let output_int = (value : Int) => if pos > data.val.length() - 1 {
-    let new_len = if pos * 2 > 0 { pos * 2 } else { 1 }
-    let new_bytes = mkbytes(new_len)
-    data.val[:].blit_to(new_bytes)
-    bset_unsafe(new_bytes, pos, value)
-    highest_written = if highest_written > pos { highest_written } else { pos }
-    pos = pos + 1
-    data.val = new_bytes
-  } else {
-    highest_written = if highest_written > pos { highest_written } else { pos }
-    bset_unsafe(data.val, pos, value)
-    pos = pos + 1
+  let output_int = (value : Int) => {
+    if pos > data.val.length() - 1 {
+      let new_len = if pos * 2 > 0 { pos * 2 } else { 1 }
+      let new_bytes = mkbytes(new_len)
+      data.val[:].blit_to(new_bytes)
+      bset_unsafe(new_bytes, pos, value)
+      highest_written = if highest_written > pos {
+        highest_written
+      } else {
+        pos
+      }
+      pos = pos + 1
+      data.val = new_bytes
+    } else {
+      highest_written = if highest_written > pos {
+        highest_written
+      } else {
+        pos
+      }
+      bset_unsafe(data.val, pos, value)
+      pos = pos + 1
+    }
   }
   {
     pos_out: () => pos,

@@ -1,4 +1,3 @@
 import {
   "bobzhang/mbtpdf/core/pdfe",
-  "moonbitlang/async",
 }

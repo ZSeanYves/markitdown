@@ -4,5 +4,6 @@ import {
   "bobzhang/mbtpdf/core/pdfcryptprimitives",
   "bobzhang/mbtpdf/core/pdftransform",
   "moonbitlang/core/env",
+  "moonbitlang/core/string",
   "moonbitlang/core/strconv",
 }

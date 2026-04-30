@@ -11,7 +11,7 @@ test "malformed pdf without xref uses fallback" {
     #|trailer
     #|<< /Root 1 0 R /Size 3 >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(
       None,
       None,
@@ -37,7 +37,7 @@ test "malformed pdf without trailer infers root" {
     #|<< /Type /Pages /Count 0 /Kids [] >>
     #|endobj
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(
       None,
       None,
@@ -63,7 +63,7 @@ test "malformed pdf honors error_on_malformed" {
     #|<< /Type /Pages /Count 0 /Kids [] >>
     #|endobj
     #|%%EOF
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_true(res is Err(_))
@@ -84,7 +84,7 @@ test "malformed pdf skips bad objects and trailers" {
     #|endobj
     #|trailer
     #|<< /Root 1 0 R
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(
       None,
       None,
@@ -98,7 +98,7 @@ test "malformed pdf skips bad objects and trailers" {
 ///|
 async test "revision -1 returns revisions error" {
   let input = @pdfiofs.input_of_file("testdata/pdfjs_identity_tounicode.pdf")
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(revision=-1, None, None, input)
   })
   assert_true(res is Err(_))

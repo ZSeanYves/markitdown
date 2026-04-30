@@ -27,16 +27,16 @@ test "parse_cmap parses bfchar and bfrange" {
   ])
   let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
-  assert_eq(parsed.wmode, Some(1))
+  assert_true(parsed.wmode == Some(1))
   let key01 = @pdfio.string_of_int_array([0x01])
   let key02 = @pdfio.string_of_int_array([0x02])
   let key03 = @pdfio.string_of_int_array([0x03])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
   let u0042 = @pdfio.string_of_int_array([0x00, 0x42])
   let u0043 = @pdfio.string_of_int_array([0x00, 0x43])
-  assert_eq(find_value(parsed.map, key01), Some(u0041))
-  assert_eq(find_value(parsed.map, key02), Some(u0042))
-  assert_eq(find_value(parsed.map, key03), Some(u0043))
+  assert_true(find_value(parsed.map, key01) == Some(u0041))
+  assert_true(find_value(parsed.map, key02) == Some(u0042))
+  assert_true(find_value(parsed.map, key03) == Some(u0043))
 }
 
 ///|
@@ -49,13 +49,13 @@ test "parse_cmap parses bfrange array mapping" {
   ])
   let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
-  assert_eq(parsed.wmode, None)
+  assert_true(parsed.wmode == None)
   let key01 = @pdfio.string_of_int_array([0x01])
   let key02 = @pdfio.string_of_int_array([0x02])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
   let u0042 = @pdfio.string_of_int_array([0x00, 0x42])
-  assert_eq(find_value(parsed.map, key01), Some(u0041))
-  assert_eq(find_value(parsed.map, key02), Some(u0042))
+  assert_true(find_value(parsed.map, key01) == Some(u0041))
+  assert_true(find_value(parsed.map, key02) == Some(u0042))
 }
 
 ///|
@@ -69,7 +69,7 @@ test "parse_cmap handles ToGet streams" {
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
-  assert_eq(find_value(parsed.map, key01), Some(u0041))
+  assert_true(find_value(parsed.map, key01) == Some(u0041))
 }
 
 ///|
@@ -111,7 +111,7 @@ test "parse_cmap ignores invalid wmode digits" {
     Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
-  assert_eq(parsed.wmode, None)
+  assert_true(parsed.wmode == None)
 }
 
 ///|
@@ -124,7 +124,7 @@ test "parse_cmap tolerates missing endbfchar" {
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
-  assert_eq(find_value(parsed.map, key01), Some(u0041))
+  assert_true(find_value(parsed.map, key01) == Some(u0041))
 }
 
 ///|
@@ -137,7 +137,7 @@ test "parse_cmap skips junk between code and unicode" {
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
-  assert_eq(find_value(parsed.map, key01), Some(u0041))
+  assert_true(find_value(parsed.map, key01) == Some(u0041))
 }
 
 ///|
@@ -225,5 +225,5 @@ test "parse_cmap ignores overflowing wmode" {
     Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
-  assert_eq(parsed.wmode, None)
+  assert_true(parsed.wmode == None)
 }

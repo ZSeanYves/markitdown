@@ -145,11 +145,9 @@ fn eval_function_sampled(
   let (dec, dec2) = split_pairs(pairs_of_list_eval(s.decode))
   let (r, r2) = split_pairs(pairs_of_list_eval(range))
   let encoded_inputs = map5(clamped_inputs, d, d2, e, e2, interpolate)
-  let clamped_encoded = map2(encoded_inputs, s.size, (i, size) => clamp_double(
-    i,
-    0.0,
-    size.to_double() - 1.0,
-  ))
+  let clamped_encoded = map2(encoded_inputs, s.size, (i, size) => {
+    clamp_double(i, 0.0, size.to_double() - 1.0)
+  })
   let vals_to_read = range.length() / 2
   let read_table = (inputs : Array[Int]) => {
     if inputs.length() != s.size.length() {

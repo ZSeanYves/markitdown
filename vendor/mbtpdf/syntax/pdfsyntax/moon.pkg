@@ -3,5 +3,5 @@ import {
   "bobzhang/mbtpdf/core/pdfio",
   "bobzhang/mbtpdf/syntax/pdfgenlex",
   "bobzhang/mbtpdf/core/pdfe",
-  "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
 }

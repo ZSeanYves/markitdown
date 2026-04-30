@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS_DIR="$ROOT/samples/assets"
 EXP_DIR="$ASSETS_DIR/expected"
-OUT_DIR="$ROOT/.tmp_assets_test"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+OUT_DIR="$TMP_ROOT/samples/assets"
 
 extract_asset_refs() {
   local dir="$1"

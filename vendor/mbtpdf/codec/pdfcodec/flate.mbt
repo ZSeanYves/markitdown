@@ -17,9 +17,9 @@ pub fn PdfCodec::decode_flate(
     }
   }
   let out : @pdfio.MutableBytes = Array::new()
-  let output = (buf : @pdfio.MutableBytes, length : Int) => out.append(
-    buf[:length],
-  )
+  let output = (buf : @pdfio.MutableBytes, length : Int) => {
+    out.append(buf[:length])
+  }
   try {
     @pdfflate.PdfFlate::new().uncompress(header=true, input, output)
     out
@@ -197,7 +197,7 @@ pub fn PdfCodec::decode_pdfstream_onestage(
             Name(name) => (name, None)
             Array([]) =>
               raise CodecError::DecodeNotSupported("empty filter array")
-            Array([Name(name), .. rest]) => (name, Some(rest.to_array()))
+            Array([Name(name), .. rest]) => (name, Some(rest.to_owned()))
             Array(_) =>
               raise CodecError::DecodeNotSupported("invalid filter entry")
             _ => raise CodecError::DecodeNotSupported("invalid filter")
@@ -250,7 +250,7 @@ pub fn PdfCodec::decode_pdfstream_onestage(
                   new_dict.remove_entry(parms_key)
                 })
               } else {
-                let rest = arr.sub(start=1).to_array()
+                let rest = arr[1:].to_owned()
                 if rest.length() == 0 {
                   map_pdf_error("remove decode parms", fn() raise {
                     new_dict.remove_entry(parms_key)

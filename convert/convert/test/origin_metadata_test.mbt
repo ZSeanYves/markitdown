@@ -20,10 +20,79 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
+fn read_utf8_text(path : String) -> String raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read sample failed: " + e.to_string())
+  }
+  @cor.utf8_bytes_to_string(bytes) catch {
+    e => fail("utf8 decode failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
   }
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn test_tmp_root() -> String {
+  match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
+    None => ".tmp"
+  }
+}
+
+///|
+fn ensure_test_tmp_root() -> Unit raise {
+  ensure_dir_tree(test_tmp_root())
+}
+
+///|
+fn origin_tmp_root() -> String raise {
+  ensure_test_tmp_root()
+  let dir = test_tmp_root() + "/origin"
+  ensure_dir(dir)
+  dir
 }
 
 ///|
@@ -283,8 +352,7 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 /// - HTML/DOCX minimal closure should satisfy block+asset provenance invariants
 /// - catches accidental decoupling between IR emission and origin metadata wiring
 test "origin_metadata/html_docx_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/html_docx_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -336,8 +404,7 @@ test "origin_metadata/html_docx_minimal_closure" {
 /// validates HTML image context mapping boundary:
 /// alt/title/figcaption are mapped, while missing fields remain None.
 test "image_context/html_alt_title_figcaption" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_html_alt_title_figcaption"
   recreate_clean_dir(out_dir)
@@ -457,8 +524,7 @@ test "image_context/html_alt_title_figcaption" {
 
 ///|
 test "origin_metadata/pptx_xlsx_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/pptx_xlsx_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -519,8 +585,7 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
 
 ///|
 test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/metadata_sidecar_document_properties"
   recreate_clean_dir(out_dir)
@@ -596,12 +661,142 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !html_json.contains("\"document\": null") {
     fail("non-OOXML metadata should keep document null")
   }
+
+  let csv_doc = @csv.parse_csv(
+    resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
+    "",
+    6,
+  )
+  let csv_json = @cor.emit_metadata_json(
+    csv_doc, "csv_basic.csv", "csv", "csv_basic.md",
+  )
+  if !csv_json.contains("\"format\": \"csv\"") {
+    fail("csv metadata should contain csv format")
+  }
+  if !csv_json.contains("\"source_name\": \"csv_basic.csv\"") {
+    fail("csv metadata should contain source_name")
+  }
+  if !csv_json.contains("\"block_count\": 1") {
+    fail("csv metadata should contain one table block")
+  }
+  if !csv_json.contains("\"asset_count\": 0") {
+    fail("csv metadata should contain zero assets")
+  }
+  if !csv_json.contains("\"document\": null") {
+    fail("csv metadata should keep document null")
+  }
+
+  let json_doc = @json.parse_json(
+    resolve_sample_path("samples/main_process/json/json_object_basic.json"),
+    "",
+    6,
+  )
+  let json_json = @cor.emit_metadata_json(
+    json_doc, "json_object_basic.json", "json", "json_object_basic.md",
+  )
+  if !json_json.contains("\"format\": \"json\"") {
+    fail("json metadata should contain json format")
+  }
+  if !json_json.contains("\"source_name\": \"json_object_basic.json\"") {
+    fail("json metadata should contain source_name")
+  }
+  if !json_json.contains("\"block_count\": 1") {
+    fail("json metadata should contain one block")
+  }
+  if !json_json.contains("\"asset_count\": 0") {
+    fail("json metadata should contain zero assets")
+  }
+  if !json_json.contains("\"document\": null") {
+    fail("json metadata should keep document null")
+  }
+
+  let yaml_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
+    "",
+    6,
+  )
+  let yaml_json = @cor.emit_metadata_json(
+    yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
+  )
+  if !yaml_json.contains("\"format\": \"yaml\"") {
+    fail("yaml metadata should contain yaml format")
+  }
+  if !yaml_json.contains("\"source_name\": \"yaml_mapping_basic.yaml\"") {
+    fail("yaml metadata should contain source_name")
+  }
+  if !yaml_json.contains("\"block_count\": 1") {
+    fail("yaml metadata should contain one block")
+  }
+  if !yaml_json.contains("\"asset_count\": 0") {
+    fail("yaml metadata should contain zero assets")
+  }
+  if !yaml_json.contains("\"document\": null") {
+    fail("yaml metadata should keep document null")
+  }
+
+  let yml_path = resolve_sample_path(
+    "samples/main_process/yaml/yml_extension_basic.yml",
+  )
+  let yml_doc = @yaml.parse_yaml(yml_path, "", 6)
+  let yml_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/yaml/yml_extension_basic.md",
+    ),
+  )
+  if @cor.emit_markdown(yml_doc) != yml_expected {
+    fail("yaml .yml extension should preserve deterministic markdown output")
+  }
+
+  let markdown_path = resolve_sample_path(
+    "samples/main_process/markdown/markdown_basic_heading_paragraph.md",
+  )
+  let markdown_doc = @md.parse_markdown(markdown_path, "", 6)
+  let markdown_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_basic_heading_paragraph.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_doc) != markdown_expected {
+    fail("markdown dispatcher output should preserve original markdown body")
+  }
+  let markdown_json = @cor.emit_metadata_json(
+    markdown_doc, "markdown_basic_heading_paragraph.md", "markdown", "markdown_basic_heading_paragraph.md",
+  )
+  if !markdown_json.contains("\"format\": \"markdown\"") {
+    fail("markdown metadata should contain markdown format")
+  }
+  if !markdown_json.contains(
+      "\"source_name\": \"markdown_basic_heading_paragraph.md\"",
+    ) {
+    fail("markdown metadata should contain source_name")
+  }
+  if !markdown_json.contains("\"block_count\": 2") {
+    fail("markdown metadata should contain conservative block_count=2")
+  }
+  if !markdown_json.contains("\"asset_count\": 0") {
+    fail("markdown metadata should contain zero assets")
+  }
+  if !markdown_json.contains("\"document\": null") {
+    fail("markdown metadata should keep document null")
+  }
+
+  let frontmatter_path = resolve_sample_path(
+    "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+  )
+  let frontmatter_doc = @md.parse_markdown(frontmatter_path, "", 6)
+  let frontmatter_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_frontmatter_passthrough.md",
+    ),
+  )
+  if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
+    fail("markdown .markdown extension should preserve frontmatter sample")
+  }
 }
 
 ///|
 async test "origin_metadata/pdf_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/pdf_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -645,8 +840,7 @@ async test "origin_metadata/pdf_minimal_closure" {
 
 ///|
 test "image_context/pptx_caption_association" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_pptx_caption_association"
   recreate_clean_dir(out_dir)
@@ -689,8 +883,7 @@ test "image_context/pptx_caption_association" {
 
 ///|
 async test "image_context/pdf_caption_like" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_pdf_caption_like"
   recreate_clean_dir(out_dir)

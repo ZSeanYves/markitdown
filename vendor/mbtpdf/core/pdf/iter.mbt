@@ -107,14 +107,16 @@ fn Pdf::nullify_deleted_page_references(self : Pdf) -> Unit raise {
 
   // Upper bound: all objects could be /Page dictionaries.
   let page_object_numbers = Array::new(capacity=self.objects.objects.length())
-  self.objiter((objnum, obj) => match obj {
-    Dictionary(_) =>
-      match self.lookup_direct("/Type", obj) {
-        Some(Name(name)) if name.equal_string_bytes("/Page") =>
-          page_object_numbers.push(objnum)
-        _ => ()
-      }
-    _ => ()
+  self.objiter((objnum, obj) => {
+    match obj {
+      Dictionary(_) =>
+        match self.lookup_direct("/Type", obj) {
+          Some(Name(name)) if name.equal_string_bytes("/Page") =>
+            page_object_numbers.push(objnum)
+          _ => ()
+        }
+      _ => ()
+    }
   })
   let refnums = self.page_reference_numbers()
   if refnums.length() != page_object_numbers.length() {

@@ -58,7 +58,7 @@ fn strip_outer_braces(tokens : Array[Token]) -> Array[Token] {
       _ => break
     }
   }
-  tokens.sub(start~, end~).to_array()
+  tokens[start:end].to_owned()
 }
 
 ///|
@@ -75,7 +75,7 @@ fn group_operators(tokens : Array[Token]) -> Array[Array[Token]] {
             _ => j = j + 1
           }
         }
-        let group = tokens.sub(start=i + 1, end=j).to_array()
+        let group = tokens[i + 1:j].to_owned()
         groups.push(group)
         i = if j < tokens.length() { j + 1 } else { j }
       }
@@ -163,9 +163,11 @@ pub fn PdfFunction::parse(pdf : @pdf.Pdf, obj : PdfObject) -> PdfFunction raise 
     Integer(0) => {
       let size = match pdf.lookup_fail("no /Size (sampled fun)", "/Size", f) {
         Array(values) =>
-          values.map(value => match value {
-            Integer(n) => n
-            _ => raise @pdf.PdfError::Msg("bad /Size (sampled fun)")
+          values.map(value => {
+            match value {
+              Integer(n) => n
+              _ => raise @pdf.PdfError::Msg("bad /Size (sampled fun)")
+            }
           })
         _ => raise @pdf.PdfError::Msg("Bad /Size (sampled fun)")
       }

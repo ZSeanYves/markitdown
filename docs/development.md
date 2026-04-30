@@ -58,6 +58,58 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+## Current Format Expansion Stage
+
+The currently landed text-format expansion stages are:
+
+* F1: CSV / TSV
+* F2: JSON
+* F3: Markdown passthrough
+
+Development positioning:
+
+* CSV / TSV and JSON are structured-input converters that map source content into unified IR
+* Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
+
+Current Markdown passthrough contract:
+
+* Supports `.md` and `.markdown`
+* Reads UTF-8 text
+* Stores the original body in `passthrough_markdown`
+* `core/emitter_markdown.mbt` prefers `passthrough_markdown` when present
+* Only normalizes the final tail to exactly one trailing newline
+* Does not perform Markdown AST parsing
+* Does not rewrite link / image / table / code-fence / frontmatter semantics
+* Does not change the metadata sidecar schema
+
+### Temporary Output Directories
+
+All automated tests and regression scripts should write temporary output under a
+single temp root:
+
+```bash
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+```
+
+Rules:
+
+* Default temp output goes to `$ROOT/.tmp/`
+* `MARKITDOWN_TMP_DIR` may be used to override the temp root
+* The following subdirectories are the standard layout and should be reused under
+  the selected temp root:
+  * `.tmp/samples/diff`
+  * `.tmp/samples/assets`
+  * `.tmp/samples/metadata`
+  * `.tmp/samples/check`
+  * `.tmp/origin`
+  * `.tmp/pdf_core`
+  * `.tmp/scratch/mbtpdf`
+* Do not introduce new root-level temp directories such as
+  `.tmp_test_out`, `.tmp_assets_test`, `.tmp_metadata_test`,
+  `tmp-origin-tests`, or `tmp`
+* New test scripts must reuse the `MARKITDOWN_TMP_DIR` convention instead of
+  inventing a separate temp root
+
 ### Check sample enrollment consistency
 
 ```bash
@@ -99,6 +151,12 @@ Typical cases include:
 * `core/ir.mbt`
 * mainflow-related samples and expected outputs
 
+Notes for Markdown passthrough work:
+
+* Changes under `convert/markdown/` should preserve source Markdown body stability
+* If you touch `passthrough_markdown` or emitter fallback order, re-run Markdown samples in `samples/main_process/markdown`
+* Do not update Markdown expected outputs unless the intended contract itself changes
+
 ### When modifying metadata / provenance / image-context logic
 
 If you modify any of the following, you should at least run:
@@ -113,6 +171,11 @@ Typical cases include:
 * `core/ir.mbt`
 * image caption / nearby-caption / origin related logic
 * `samples/metadata/*`
+
+Markdown-specific note:
+
+* Markdown metadata currently uses conservative block slicing and keeps `document = null`
+* Do not change the metadata schema when adjusting Markdown passthrough behavior unless the schema change is explicitly planned and accepted
 
 ### When modifying asset export / asset reference logic
 
@@ -183,22 +246,94 @@ When developing, you should try to determine clearly which layer your change bel
 * output form and sidecar problems: check `core/*` first
 * acceptance or regression issues: check `samples/*` first
 
-## Current Engineering Direction
+## Completed Stabilization Phase
 
-### Near-term priorities
+This phase consolidated the OOXML infrastructure, native PDF parsing
+substrate, and PDF conversion pipeline without changing the public metadata
+sidecar schema or the expected Markdown sample outputs.
 
-1. Continue stabilizing and documenting the current native PDF mainflow
-2. Continue strengthening the engineering contract of metadata sidecar and lightweight provenance
-3. Continue consolidating low-level OOXML and PDF parsing infrastructure boundaries
-4. Continue improving PPTX structural recovery and image-context expression
-5. Continue improving HTML local structural recovery and image-context expression
-6. Continue improving cross-format consistency through the unified IR
+### OOXML infrastructure
 
-### Mid-term directions
+The shared OOXML layer now provides:
 
-1. Continue strengthening complex PDF layout recovery
-2. Promote more high-confidence structures into richer IR semantics
-3. Continue improving consistency, maintainability, and explainability in OOXML and lower-level parsing infrastructure
-4. Gradually enhance the expressiveness of metadata while preserving the current lightweight contract
+* package query helpers for opening packages, listing parts, checking part
+  existence, reading part bytes, and querying content types
+* typed relationship parsing with internal/external target handling and
+  relationship lookup helpers
+* media asset indexing for `word/media`, `ppt/media`, and `xl/media`
+* lightweight `docProps/core.xml` and `docProps/app.xml` extraction
+* read-only package dump APIs for inspection
+* document-property propagation into the metadata sidecar `document` section
+* README and package-level responsibility documentation that separates ZIP,
+  OOXML shared infrastructure, and format-specific recovery code
+
+### PDF Core infrastructure
+
+The native PDF substrate now provides:
+
+* vendored `mbtpdf` backend integration behind `doc_parse/pdf_core/api`
+* source-aware operator parsing and source reference propagation
+* page geometry exposure including media box, inherited crop box, rotation,
+  raw page refs, and raw content stream refs
+* raw image extraction with payload, placement bbox, object refs, filters, and
+  source refs
+* raw annotation/link extraction with URI, destination, bbox, object ref, and
+  source refs
+* raw adapter decomposition so text, images, and annotations remain inspectable
+  without forcing final Markdown semantics in the parsing layer
+* debug inspect output for document, page, text, image, annotation, and geometry
+  diagnostics
+
+### PDF Convert pipeline
+
+The default PDF conversion path now has explicit stage boundaries:
+
+* heading recovery is finalized in `classify`, so `to_ir` no longer re-opens
+  the heading/noise/paragraph classification decision
+* cross-page paragraph merge is layered through hard blockers, positive text
+  continuation, layout compatibility, and core-derived continuation support
+* repeated edge noise cleanup uses repeated head/tail detection with page box
+  top/bottom zones
+* `PdfConvertBlock` retains source core block provenance and block-level flags
+  for debug and future enhancement work while preserving the default line-seed
+  one-line-one-block strategy
+* image provenance is available in PDF pipeline debug, including image filter,
+  object ref, inline-image marker, dimensions, placement bbox, and source-ref
+  count
+* annotation/link records are visible in PDF pipeline debug, but are not emitted
+  as Markdown links by default
+* single-image caption pairing is bbox-gated and remains conservative; ambiguous
+  cases are intentionally left unmatched
+
+## Current Boundaries
+
+The following remain unsupported or intentionally disabled by default:
+
+* PDF multi-image caption pairing
+* PDF annotation/link Markdown emission
+* PDF outline/bookmark extraction into Markdown or metadata output
+* PDF complex table recovery
+* OCR as a formally closed default path
+* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json set
+
+## Next Candidate Routes
+
+Recommended order for the next expansion phase:
+
+1. YAML
+2. Markdown passthrough + metadata
+3. EPUB
+4. RTF
+5. ODT / ODS / ODP
+
+Rationale:
+
+* YAML can follow the JSON route while keeping YAML-specific syntax and
+  ambiguity handling isolated.
+* Markdown passthrough can validate metadata/origin behavior without introducing
+  a heavy parser.
+* EPUB is valuable but requires package/navigation/content stitching.
+* RTF and OpenDocument formats are broader parser investments and should follow
+  after the lighter routes.
 
 ```

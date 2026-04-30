@@ -150,7 +150,7 @@ test "contents_of_nametree" {
       ]),
     ),
   ])
-  let contents = @pdfe.with_logger(_ => (), fn() {
+  let contents = @pdfe.with_logger(_ => (), fn() raise {
     pdf.contents_of_nametree(tree)
   })
   assert_eq(contents.length(), 1)

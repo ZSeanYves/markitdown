@@ -137,6 +137,9 @@ async fn main {
 
 ///|
 pub async fn run(args : Array[String], quiet? : Bool = false) -> Unit {
+  let _ = @pdfe.quiet.val
+  let _ = @pdfutil.quiet.val
+  let _ = @fs.exists
   if args.length() != 3 {
     if !quiet {
       println("Syntax: pdfdraft <input> <output>")

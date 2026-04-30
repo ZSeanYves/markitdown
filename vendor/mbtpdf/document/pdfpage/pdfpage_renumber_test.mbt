@@ -57,7 +57,7 @@ test "renumber_pages renames resource operators consistently" {
     Real(100.0),
     Real(100.0),
   ])
-  let updated = @pdfe.with_logger(_ => (), fn() {
+  let updated = @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).renumber_pages([renumber_page(rect)])
   })
   let renamed = updated[0]

@@ -139,9 +139,8 @@ pub fn PdfTextUtil::tounicode_map(
 ) -> @pdfio.MutableBytes {
   let sb = StringBuilder::new()
   let mut code = start_code
-  sb
-  ..write_string(tounicode_preamble)
-  ..write_string("\{us.length()} beginbfrange\n")
+  sb.write_string(tounicode_preamble)
+  sb.write_string("\{us.length()} beginbfrange\n")
   for u in us {
     sb.write_string(
       "<\{hex_byte_lower(code)}><\{hex_byte_lower(code)}><\{self.hex(u)}>\n",

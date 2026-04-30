@@ -212,10 +212,12 @@ pub fn PdfText::read_metrics(
         raise @pdf.PdfError::Msg("Bad /Widths")
       }
       let before = repeat_double(missingwidth, firstchar)
-      let given = elts.map(elt => match self.pdf.direct(elt) {
-        Integer(i) => Double::from_int(i)
-        Real(f) => f
-        _ => raise @pdf.PdfError::Msg("Bad /Width entry")
+      let given = elts.map(elt => {
+        match self.pdf.direct(elt) {
+          Integer(i) => Double::from_int(i)
+          Real(f) => f
+          _ => raise @pdf.PdfError::Msg("Bad /Width entry")
+        }
       })
       let after = repeat_double(missingwidth, 255 - lastchar)
       let metrics = Array::new(
@@ -637,10 +639,9 @@ pub fn PdfText::add_tounicode(
         let bytes_map = @pdfutil.PdfUtil::new().hashtable_of_dictionary(
           parsed.map,
         )
-        let int_pairs = parsed.map.map(pair => (
-          code_int_of_string(pair.0),
-          pair.1,
-        ))
+        let int_pairs = parsed.map.map(pair => {
+          (code_int_of_string(pair.0), pair.1)
+        })
         let int_map = @pdfutil.PdfUtil::new().hashtable_of_dictionary(int_pairs)
         (Some(int_map), Some(bytes_map))
       } catch {

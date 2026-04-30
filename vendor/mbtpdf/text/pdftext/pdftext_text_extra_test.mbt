@@ -69,17 +69,17 @@ test "encoding tables include mac variants and filled standards" {
   let macroman = @pdftext.PdfTextUtil::new().table_of_encoding(
     macroman_encoding,
   )
-  assert_eq(macroman.get(65), Some("/A"))
+  assert_true(macroman.get(65) == Some("/A"))
   let macexpert_encoding = ctx.read_encoding(
     font_with_encoding_name("/MacExpertEncoding"),
   )
   let macexpert = @pdftext.PdfTextUtil::new().table_of_encoding(
     macexpert_encoding,
   )
-  assert_eq(macexpert.get(97), Some("/Asmall"))
+  assert_true(macexpert.get(97) == Some("/Asmall"))
   let filled_encoding = ctx.read_encoding(truetype_font_with_encoding_dict())
   let filled = @pdftext.PdfTextUtil::new().table_of_encoding(filled_encoding)
-  assert_eq(filled.get(65), Some("/A"))
+  assert_true(filled.get(65) == Some("/A"))
 }
 
 ///|
@@ -94,26 +94,26 @@ test "reverse tables handle implicit and mac encodings" {
   let implicit = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(
     implicit_encoding,
   )
-  assert_eq(implicit.get("/A"), None)
+  assert_true(implicit.get("/A") == None)
   let macroman_encoding = ctx.read_encoding(
     font_with_encoding_name("/MacRomanEncoding"),
   )
   let macroman = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(
     macroman_encoding,
   )
-  assert_eq(macroman.get("/A"), Some(65))
+  assert_true(macroman.get("/A") == Some(65))
   let macexpert_encoding = ctx.read_encoding(
     font_with_encoding_name("/MacExpertEncoding"),
   )
   let macexpert = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(
     macexpert_encoding,
   )
-  assert_eq(macexpert.get("/Asmall"), Some(97))
+  assert_true(macexpert.get("/Asmall") == Some(97))
   let filled_encoding = ctx.read_encoding(truetype_font_with_encoding_dict())
   let filled = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(
     filled_encoding,
   )
-  assert_eq(filled.get("/A"), Some(65))
+  assert_true(filled.get("/A") == Some(65))
 }
 
 ///|
@@ -123,7 +123,7 @@ test "reverse table handles custom differences" {
     font_with_difference("/NotAGlyph"),
   )
   let reversed = @pdftext.PdfTextUtil::new().reverse_table_of_encoding(encoding)
-  assert_eq(reversed.get("/NotAGlyph"), Some(70))
+  assert_true(reversed.get("/NotAGlyph") == Some(70))
 }
 
 ///|
@@ -152,7 +152,7 @@ test "charcode extractor uses tounicode bytes map" {
   let charcode = ctx.charcode_extractor_of_font(
     simple_font_with_tounicode(tounicode_ref),
   )
-  assert_eq(charcode(66), Some(33))
+  assert_true(charcode(66) == Some(33))
 }
 
 ///|

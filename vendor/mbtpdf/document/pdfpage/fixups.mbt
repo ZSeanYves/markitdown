@@ -266,14 +266,17 @@ pub fn PdfPageDoc::fixup_duplicate_annots(self : PdfPageDoc) -> Unit raise {
   let pdf = self.pdf
   let src = Ref::new(pdf.objects.max_obj_num)
   let pages = PdfPageDoc::new(pdf).pages_of_pagetree()
-  let existing_annots = pages.map(page => match
-    pdf.lookup_direct("/Annots", page.rest) {
-    Some(Array(a)) =>
-      a.filter_map(obj => match obj {
-        Indirect(i) => Some(i)
-        _ => None
-      })
-    _ => []
+  let existing_annots = pages.map(page => {
+    match pdf.lookup_direct("/Annots", page.rest) {
+      Some(Array(a)) =>
+        a.filter_map(obj => {
+          match obj {
+            Indirect(i) => Some(i)
+            _ => None
+          }
+        })
+      _ => []
+    }
   })
   let seen : Map[Int, Unit] = Map::new()
   let to_copy : Array[(Int, Int)] = Array::new()
