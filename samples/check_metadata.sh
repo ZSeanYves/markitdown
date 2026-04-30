@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 META_DIR="$ROOT/samples/metadata"
 EXP_DIR="$META_DIR/expected"
-OUT_DIR="$ROOT/.tmp_metadata_test"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+OUT_DIR="$TMP_ROOT/samples/metadata"
 
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"

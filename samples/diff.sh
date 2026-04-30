@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
-OUT_DIR="$ROOT/.tmp_test_out"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+OUT_DIR="$TMP_ROOT/samples/diff"
 
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"

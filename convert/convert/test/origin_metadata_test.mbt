@@ -27,6 +27,65 @@ fn ensure_dir(path : String) -> Unit raise {
 }
 
 ///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn test_tmp_root() -> String {
+  match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
+    None => ".tmp"
+  }
+}
+
+///|
+fn ensure_test_tmp_root() -> Unit raise {
+  ensure_dir_tree(test_tmp_root())
+}
+
+///|
+fn origin_tmp_root() -> String raise {
+  ensure_test_tmp_root()
+  let dir = test_tmp_root() + "/origin"
+  ensure_dir(dir)
+  dir
+}
+
+///|
 /// 递归删除目录；目录不存在时直接返回。
 fn remove_dir_recursive(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
@@ -283,8 +342,7 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 /// - HTML/DOCX minimal closure should satisfy block+asset provenance invariants
 /// - catches accidental decoupling between IR emission and origin metadata wiring
 test "origin_metadata/html_docx_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/html_docx_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -336,8 +394,7 @@ test "origin_metadata/html_docx_minimal_closure" {
 /// validates HTML image context mapping boundary:
 /// alt/title/figcaption are mapped, while missing fields remain None.
 test "image_context/html_alt_title_figcaption" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_html_alt_title_figcaption"
   recreate_clean_dir(out_dir)
@@ -457,8 +514,7 @@ test "image_context/html_alt_title_figcaption" {
 
 ///|
 test "origin_metadata/pptx_xlsx_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/pptx_xlsx_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -519,8 +575,7 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
 
 ///|
 test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/metadata_sidecar_document_properties"
   recreate_clean_dir(out_dir)
@@ -648,8 +703,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
 
 ///|
 async test "origin_metadata/pdf_minimal_closure" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/pdf_minimal_closure"
   recreate_clean_dir(out_dir)
@@ -693,8 +747,7 @@ async test "origin_metadata/pdf_minimal_closure" {
 
 ///|
 test "image_context/pptx_caption_association" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_pptx_caption_association"
   recreate_clean_dir(out_dir)
@@ -737,8 +790,7 @@ test "image_context/pptx_caption_association" {
 
 ///|
 async test "image_context/pdf_caption_like" {
-  let root_dir = "tmp-origin-tests"
-  ensure_dir(root_dir)
+  let root_dir = origin_tmp_root()
 
   let out_dir = root_dir + "/image_context_pdf_caption_like"
   recreate_clean_dir(out_dir)
