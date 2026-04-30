@@ -55,7 +55,7 @@ fn parse_docx_impl(
   let src = @cor.basename(path)
   let mut asset_idx = 0
   for entry in asset_by_target {
-    let (_target, rel_path) = entry
+    let (target, rel_path) = entry
     asset_idx += 1
     @cor.set_asset_origin(doc, rel_path, {
       source_name: Some(src),
@@ -65,8 +65,8 @@ fn parse_docx_impl(
       origin_id: Some("docx-asset-" + asset_idx.to_string()),
       nearby_caption: None,
       object_ref: None,
-      relationship_id: None,
-      source_path: None,
+      relationship_id: lookup_doc_relationship_id_for_target(rel_ctx, target),
+      source_path: Some(normalize_doc_part_target(target)),
       row_index: None,
       column_index: None,
       key_path: None,

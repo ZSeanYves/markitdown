@@ -34,7 +34,12 @@
         "slide": null,
         "sheet": "Sample",
         "block_index": 1,
-        "heading_path": null
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 5,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId1"
       },
       "image": null
     },

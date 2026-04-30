@@ -9,11 +9,19 @@
 // - otherwise: <v> literal (usually number)
 
 ///|
+priv struct XlsxTableExtract {
+  rows : Array[Array[String]]
+  min_row : Int
+  min_col : Int
+  max_row : Int
+}
+
+///|
 fn parse_sheet_table(
   sheet_xml : String,
   shared : Array[String],
   styles : XlsxStyles,
-) -> Array[Array[String]] {
+) -> XlsxTableExtract {
   let cells : Map[String, String] = Map::new()
   let mut min_r = 0
   let mut min_c = 0
@@ -90,7 +98,7 @@ fn parse_sheet_table(
   }
 
   if max_r == 0 || max_c == 0 {
-    return []
+    return { rows: [], min_row: 0, min_col: 0, max_row: 0 }
   }
 
   let table0 : Array[Array[String]] = []
@@ -104,7 +112,9 @@ fn parse_sheet_table(
   }
 
   let table1 = trim_table_bottom(table0)
-  normalize_table_width(table1)
+  let rows = normalize_table_width(table1)
+  let max_row = if rows.length() == 0 { 0 } else { min_r + rows.length() - 1 }
+  { rows, min_row: min_r, min_col: min_c, max_row }
 }
 // ============================
 // Utilities

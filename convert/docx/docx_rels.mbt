@@ -36,6 +36,24 @@ fn lookup_doc_relationship_target(
 }
 
 ///|
+fn lookup_doc_relationship_id_for_target(
+  ctx : DocxRelationshipContext,
+  target : String,
+) -> String? {
+  let normalized_target = normalize_doc_part_target(target)
+  if normalized_target == "" {
+    return None
+  }
+
+  for rel in ctx.document_relationships {
+    if normalize_doc_part_target(rel.resolved_target) == normalized_target {
+      return Some(rel.id)
+    }
+  }
+  None
+}
+
+///|
 fn lookup_doc_hyperlink_target(
   ctx : DocxRelationshipContext,
   rid : String,

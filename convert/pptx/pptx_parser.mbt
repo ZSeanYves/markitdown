@@ -44,6 +44,13 @@ pub fn parse_pptx(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
 
@@ -75,6 +82,13 @@ pub fn parse_pptx(
             sheet: None,
             block_index: None,
             heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: None,
+            relationship_id: None,
+            key_path: None,
           }),
         }),
         Some({
@@ -84,6 +98,13 @@ pub fn parse_pptx(
           sheet: None,
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
       @cor.set_asset_origin(doc, img._path, {
@@ -115,6 +136,13 @@ pub fn parse_pptx(
           sheet: None,
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
     } else {
@@ -134,6 +162,13 @@ pub fn parse_pptx(
                   sheet: None,
                   block_index: Some(doc.blocks.val.length()),
                   heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
                 }),
               )
             }
@@ -152,6 +187,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = false
@@ -168,6 +210,13 @@ pub fn parse_pptx(
                   sheet: None,
                   block_index: Some(doc.blocks.val.length()),
                   heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
                 }),
               )
             }
@@ -186,6 +235,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = false
@@ -206,6 +262,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = true
@@ -224,6 +287,13 @@ pub fn parse_pptx(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
     idx = idx + 1

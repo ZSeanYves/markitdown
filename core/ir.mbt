@@ -52,6 +52,13 @@ pub(all) struct Origin {
   sheet : String?
   block_index : Int?
   heading_path : Array[String]?
+  line_start : Int?
+  line_end : Int?
+  row_index : Int?
+  column_index : Int?
+  object_ref : String?
+  relationship_id : String?
+  key_path : String?
 } derive(Eq)
 
 ///|

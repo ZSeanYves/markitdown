@@ -447,6 +447,22 @@ fn infer_block_key_path(format : String) -> String? {
 }
 
 ///|
+fn int_opt_or(primary : Int?, fallback : Int?) -> Int? {
+  match primary {
+    Some(_) => primary
+    None => fallback
+  }
+}
+
+///|
+fn string_opt_or(primary : String?, fallback : String?) -> String? {
+  match primary {
+    Some(_) => primary
+    None => fallback
+  }
+}
+
+///|
 fn find_image_data_by_path(doc : Document, path : String) -> ImageData? {
   for block in doc.blocks.val {
     match block {
@@ -472,7 +488,7 @@ fn convert_block_origin(
   match doc.block_origins.val[index] {
     None => None
     Some(origin) => {
-      let (line_start, line_end) = infer_block_line_range(
+      let (inferred_line_start, inferred_line_end) = infer_block_line_range(
         format, block, index, markdown_ranges,
       )
       Some({
@@ -483,13 +499,13 @@ fn convert_block_origin(
         sheet: origin.sheet,
         block_index: origin.block_index,
         heading_path: origin.heading_path,
-        line_start,
-        line_end,
-        row_index: None,
-        column_index: None,
-        object_ref: None,
-        relationship_id: None,
-        key_path: infer_block_key_path(format),
+        line_start: int_opt_or(origin.line_start, inferred_line_start),
+        line_end: int_opt_or(origin.line_end, inferred_line_end),
+        row_index: origin.row_index,
+        column_index: origin.column_index,
+        object_ref: origin.object_ref,
+        relationship_id: origin.relationship_id,
+        key_path: string_opt_or(origin.key_path, infer_block_key_path(format)),
       })
     }
   }

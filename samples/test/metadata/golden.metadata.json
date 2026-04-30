@@ -143,7 +143,9 @@
         "slide": null,
         "sheet": null,
         "origin_id": "docx-asset-1",
-        "nearby_caption": null
+        "nearby_caption": null,
+        "relationship_id": "rId4",
+        "source_path": "word/media/image1.png"
       },
       "nearby_caption": null
     }
