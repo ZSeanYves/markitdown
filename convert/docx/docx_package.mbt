@@ -87,12 +87,34 @@ fn DocxPackage::extract_media_by_relationships(
 }
 
 ///|
-fn DocxPackage::load_styles(p : DocxPackage) -> DocxStyles {
-  let xml = p.read_text_optional("word/styles.xml")
-  if xml == "" {
+fn scan_docx_document_features(doc_xml : String) -> DocxDocumentFeatures {
+  let features = {
+    has_pstyle: doc_xml.contains("<w:pStyle"),
+    has_numpr: doc_xml.contains("<w:numPr"),
+  }
+  profile_document_features(features.has_pstyle, features.has_numpr)
+  features
+}
+
+///|
+fn DocxPackage::load_styles_for_document(
+  p : DocxPackage,
+  features : DocxDocumentFeatures,
+) -> DocxStyles {
+  if !features.has_pstyle {
     return empty_styles()
   }
-  parse_styles_xml(xml)
+
+  let started = @env.now()
+  let xml = p.read_text_optional("word/styles.xml")
+  profile_styles_read(xml.length())
+  if xml == "" {
+    profile_styles_elapsed_ms(@env.now() - started)
+    return empty_styles()
+  }
+  let styles = parse_styles_xml(xml)
+  profile_styles_elapsed_ms(@env.now() - started)
+  styles
 }
 
 ///|

@@ -151,6 +151,39 @@ fn write_profile_report(
     "\n" +
     "slice_to_string_calls=" +
     counters.slice_to_string_calls.val.to_string() +
+    "\n" +
+    "styles_read_count=" +
+    counters.styles_read_count.val.to_string() +
+    "\n" +
+    "styles_parse_calls=" +
+    counters.styles_parse_calls.val.to_string() +
+    "\n" +
+    "styles_xml_len=" +
+    counters.styles_xml_len.val.to_string() +
+    "\n" +
+    "style_nodes_seen=" +
+    counters.style_nodes_seen.val.to_string() +
+    "\n" +
+    "style_lookup_calls=" +
+    counters.style_lookup_calls.val.to_string() +
+    "\n" +
+    "style_lookup_misses=" +
+    counters.style_lookup_misses.val.to_string() +
+    "\n" +
+    "styles_tag_scan_calls=" +
+    counters.styles_tag_scan_calls.val.to_string() +
+    "\n" +
+    "styles_tag_scan_total_search_len=" +
+    counters.styles_tag_scan_total_search_len.val.to_string() +
+    "\n" +
+    "styles_elapsed_ms_counter=" +
+    counters.styles_elapsed_ms.val.to_string() +
+    "\n" +
+    "document_has_pstyle=" +
+    counters.document_has_pstyle.val.to_string() +
+    "\n" +
+    "document_has_numpr=" +
+    counters.document_has_numpr.val.to_string() +
     "\n"
   @fs.write_string_to_file(path, report, encoding="utf8") catch {
     e => fail("write profile report failed: " + e.to_string())
@@ -173,6 +206,17 @@ test "docx hyperlink profiling captures hot path counters" {
     xml_tag_scan_calls: { val: 0 },
     xml_tag_scan_total_search_len: { val: 0 },
     slice_to_string_calls: { val: 0 },
+    styles_read_count: { val: 0 },
+    styles_parse_calls: { val: 0 },
+    styles_xml_len: { val: 0 },
+    style_nodes_seen: { val: 0 },
+    style_lookup_calls: { val: 0 },
+    style_lookup_misses: { val: 0 },
+    styles_tag_scan_calls: { val: 0 },
+    styles_tag_scan_total_search_len: { val: 0 },
+    styles_elapsed_ms: { val: 0 },
+    document_has_pstyle: { val: false },
+    document_has_numpr: { val: false },
   }
   let prev_profile = current_docx_profile.val
   let prev_enabled = docx_profile_enabled.val
@@ -188,10 +232,11 @@ test "docx hyperlink profiling captures hot path counters" {
   )
   let pkg = open_docx(path)
   let doc_xml = pkg.read_text_required("word/document.xml")
+  let document_features = scan_docx_document_features(doc_xml)
   let rel_ctx = pkg.read_document_relationship_context(Some(counter))
   let asset_by_target = build_docx_asset_path_map(rel_ctx, out_dir)
   let styles_started = @env.now()
-  let styles = pkg.load_styles()
+  let styles = pkg.load_styles_for_document(document_features)
   let styles_elapsed_ms = @env.now() - styles_started
   let numbering_started = @env.now()
   let numbering = pkg.load_numbering()
@@ -220,6 +265,13 @@ test "docx hyperlink profiling captures hot path counters" {
   assert_eq(profile.hyperlink_nodes_seen.val, 80)
   assert_eq(profile.hyperlink_target_lookup_calls.val, 80)
   assert_eq(profile.collect_wt_text_calls.val, 0)
+  assert_false(profile.document_has_pstyle.val)
+  assert_eq(profile.styles_read_count.val, 0)
+  assert_eq(profile.styles_parse_calls.val, 0)
+  assert_eq(profile.styles_xml_len.val, 0)
+  assert_eq(profile.style_nodes_seen.val, 0)
+  assert_eq(profile.styles_tag_scan_calls.val, 0)
+  assert_true(styles_elapsed_ms < 100)
   assert_true(profile.xml_tag_scan_total_search_len.val < 1_200_000)
   write_profile_report(
     test_tmp_root() + "/docx/link_many_profile.txt",

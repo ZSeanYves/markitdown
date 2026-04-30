@@ -26,13 +26,14 @@ fn parse_docx_impl(
 
   // 1) 读正文 xml
   let doc_xml = pkg.read_text_required("word/document.xml")
+  let document_features = scan_docx_document_features(doc_xml)
 
   // 2) 读一次 document.xml.rels，并构建 hyperlink/image 查找缓存
   let rel_ctx = pkg.read_document_relationship_context(rel_read_counter)
   let asset_by_target = build_docx_asset_path_map(rel_ctx, out_root)
 
-  // 3) 读 styles.xml（标题样式映射）
-  let styles = pkg.load_styles()
+  // 3) 仅当正文使用段落样式时才读 styles.xml（标题/引用/code 样式映射）
+  let styles = pkg.load_styles_for_document(document_features)
 
   // 4) 读 numbering.xml（列表类型映射）
   let numbering = pkg.load_numbering()
