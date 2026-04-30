@@ -37,7 +37,7 @@ Boundaries:
 
 Responsibilities:
 
-- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html`)
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv`)
 
 Boundaries:
 

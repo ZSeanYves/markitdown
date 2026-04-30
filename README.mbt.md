@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -33,6 +33,7 @@ Current major capabilities include:
 * **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
 * **PPTX**: reading-order recovery, title/body separation, list recovery, handling of table-like / caption-like / callout-like regions, conservative caption / nearby-text attachment for single-image slides, and basic run-level and shape-level hyperlink recovery
 * **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, and image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
+* **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
 
 The repository has now formed a stable workflow:
 

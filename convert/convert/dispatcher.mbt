@@ -50,6 +50,8 @@ pub async fn parse_to_ir(
     "pptx" => Ok(@pptx.parse_pptx(input_path, out_dir_str, max_h))
     "html" => Ok(@html.parse_html(input_path, out_dir_str, max_h))
     "htm" => Ok(@html.parse_html(input_path, out_dir_str, max_h))
+    "csv" => Ok(@csv.parse_csv(input_path, out_dir_str, max_h))
+    "tsv" => Ok(@csv.parse_tsv(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
 }

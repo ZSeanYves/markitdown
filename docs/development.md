@@ -183,22 +183,94 @@ When developing, you should try to determine clearly which layer your change bel
 * output form and sidecar problems: check `core/*` first
 * acceptance or regression issues: check `samples/*` first
 
-## Current Engineering Direction
+## Completed Stabilization Phase
 
-### Near-term priorities
+This phase consolidated the OOXML infrastructure, native PDF parsing
+substrate, and PDF conversion pipeline without changing the public metadata
+sidecar schema or the expected Markdown sample outputs.
 
-1. Continue stabilizing and documenting the current native PDF mainflow
-2. Continue strengthening the engineering contract of metadata sidecar and lightweight provenance
-3. Continue consolidating low-level OOXML and PDF parsing infrastructure boundaries
-4. Continue improving PPTX structural recovery and image-context expression
-5. Continue improving HTML local structural recovery and image-context expression
-6. Continue improving cross-format consistency through the unified IR
+### OOXML infrastructure
 
-### Mid-term directions
+The shared OOXML layer now provides:
 
-1. Continue strengthening complex PDF layout recovery
-2. Promote more high-confidence structures into richer IR semantics
-3. Continue improving consistency, maintainability, and explainability in OOXML and lower-level parsing infrastructure
-4. Gradually enhance the expressiveness of metadata while preserving the current lightweight contract
+* package query helpers for opening packages, listing parts, checking part
+  existence, reading part bytes, and querying content types
+* typed relationship parsing with internal/external target handling and
+  relationship lookup helpers
+* media asset indexing for `word/media`, `ppt/media`, and `xl/media`
+* lightweight `docProps/core.xml` and `docProps/app.xml` extraction
+* read-only package dump APIs for inspection
+* document-property propagation into the metadata sidecar `document` section
+* README and package-level responsibility documentation that separates ZIP,
+  OOXML shared infrastructure, and format-specific recovery code
+
+### PDF Core infrastructure
+
+The native PDF substrate now provides:
+
+* vendored `mbtpdf` backend integration behind `doc_parse/pdf_core/api`
+* source-aware operator parsing and source reference propagation
+* page geometry exposure including media box, inherited crop box, rotation,
+  raw page refs, and raw content stream refs
+* raw image extraction with payload, placement bbox, object refs, filters, and
+  source refs
+* raw annotation/link extraction with URI, destination, bbox, object ref, and
+  source refs
+* raw adapter decomposition so text, images, and annotations remain inspectable
+  without forcing final Markdown semantics in the parsing layer
+* debug inspect output for document, page, text, image, annotation, and geometry
+  diagnostics
+
+### PDF Convert pipeline
+
+The default PDF conversion path now has explicit stage boundaries:
+
+* heading recovery is finalized in `classify`, so `to_ir` no longer re-opens
+  the heading/noise/paragraph classification decision
+* cross-page paragraph merge is layered through hard blockers, positive text
+  continuation, layout compatibility, and core-derived continuation support
+* repeated edge noise cleanup uses repeated head/tail detection with page box
+  top/bottom zones
+* `PdfConvertBlock` retains source core block provenance and block-level flags
+  for debug and future enhancement work while preserving the default line-seed
+  one-line-one-block strategy
+* image provenance is available in PDF pipeline debug, including image filter,
+  object ref, inline-image marker, dimensions, placement bbox, and source-ref
+  count
+* annotation/link records are visible in PDF pipeline debug, but are not emitted
+  as Markdown links by default
+* single-image caption pairing is bbox-gated and remains conservative; ambiguous
+  cases are intentionally left unmatched
+
+## Current Boundaries
+
+The following remain unsupported or intentionally disabled by default:
+
+* PDF multi-image caption pairing
+* PDF annotation/link Markdown emission
+* PDF outline/bookmark extraction into Markdown or metadata output
+* PDF complex table recovery
+* OCR as a formally closed default path
+* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv set
+
+## Next Candidate Routes
+
+Recommended order for the next expansion phase:
+
+1. JSON / YAML
+2. Markdown passthrough + metadata
+3. EPUB
+4. RTF
+5. ODT / ODS / ODP
+
+Rationale:
+
+* JSON / YAML can establish structured-data passthrough and summarization
+  patterns now that CSV / TSV cover the first small-surface table-text route.
+* Markdown passthrough can validate metadata/origin behavior without introducing
+  a heavy parser.
+* EPUB is valuable but requires package/navigation/content stitching.
+* RTF and OpenDocument formats are broader parser investments and should follow
+  after the lighter routes.
 
 ```

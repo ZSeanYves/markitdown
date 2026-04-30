@@ -255,6 +255,10 @@ fn detect_input_format(path : String) -> String {
     "pptx"
   } else if base.has_suffix(".html") || base.has_suffix(".htm") {
     "html"
+  } else if base.has_suffix(".csv") {
+    "csv"
+  } else if base.has_suffix(".tsv") {
+    "tsv"
   } else {
     "unknown"
   }

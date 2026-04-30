@@ -6,6 +6,7 @@ import {
   "ZSeanYves/markitdown/convert/xlsx" @xlsx,
   "ZSeanYves/markitdown/convert/pptx" @pptx,
   "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/convert/csv" @csv,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "moonbitlang/async",
 } for "test"

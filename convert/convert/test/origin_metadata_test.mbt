@@ -596,6 +596,30 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !html_json.contains("\"document\": null") {
     fail("non-OOXML metadata should keep document null")
   }
+
+  let csv_doc = @csv.parse_csv(
+    resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
+    "",
+    6,
+  )
+  let csv_json = @cor.emit_metadata_json(
+    csv_doc, "csv_basic.csv", "csv", "csv_basic.md",
+  )
+  if !csv_json.contains("\"format\": \"csv\"") {
+    fail("csv metadata should contain csv format")
+  }
+  if !csv_json.contains("\"source_name\": \"csv_basic.csv\"") {
+    fail("csv metadata should contain source_name")
+  }
+  if !csv_json.contains("\"block_count\": 1") {
+    fail("csv metadata should contain one table block")
+  }
+  if !csv_json.contains("\"asset_count\": 0") {
+    fail("csv metadata should contain zero assets")
+  }
+  if !csv_json.contains("\"document\": null") {
+    fail("csv metadata should keep document null")
+  }
 }
 
 ///|

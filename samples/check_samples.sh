@@ -6,7 +6,7 @@ SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv")
 
 fail=0
 

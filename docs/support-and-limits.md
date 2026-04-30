@@ -19,6 +19,8 @@ The unified entry currently supports:
 - XLSX
 - PPTX
 - HTML/HTM
+- CSV
+- TSV
 
 Inputs outside the above extensions are rejected by the dispatcher.
 
@@ -250,6 +252,27 @@ Current boundaries:
 - more complex containers and deeply nested cases are still handled conservatively
 - table-cell hyperlink handling still remains on the string-render path (not yet promoted into rich-inline IR)
 - remote / unsupported image sources are not force-exported as local assets
+
+### 7.6 CSV / TSV
+
+Currently supported:
+
+- `.csv` and `.tsv` extension routing
+- comma delimiter for CSV and tab delimiter for TSV
+- quoted fields, including delimiters inside quotes
+- escaped quote handling using `""`
+- quoted newline handling inside fields
+- empty cells
+- ragged rows, padded to the widest row before Markdown table emission
+- table output through the unified IR `Table` block
+- lightweight block origin metadata and standard metadata sidecar summary fields
+
+Current boundaries:
+
+- UTF-8 text input is expected
+- no type inference, formula handling, dialect sniffing, comments, or schema detection
+- no large-file streaming path; files are read into memory as text
+- CSV / TSV output is a single Markdown table, not a multi-table workbook model
 
 ## 8) Current Boundaries (Key Points)
 
