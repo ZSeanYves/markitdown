@@ -171,11 +171,7 @@ fn lex_item(s : String) -> Token {
     match s.get_char(0) {
       Some(c) if c.is_ascii_alphabetic() => LexName(s)
       Some('"') if len >= 2 => {
-        let inner = try s[1:len - 1] catch {
-          _ => ""
-        } noraise {
-          view => view.to_string()
-        }
+        let inner = s[1:len - 1].to_owned()
         LexString(inner)
       }
       _ => {
@@ -183,11 +179,7 @@ fn lex_item(s : String) -> Token {
         if number.length() > 1 {
           match (number.get_char(0), number.get_char(1)) {
             (Some('-'), Some('-')) =>
-              number = try number[1:] catch {
-                _ => number
-              } noraise {
-                view => view.to_string()
-              }
+              number = number[1:].to_owned()
             _ => ()
           }
         }
@@ -195,9 +187,9 @@ fn lex_item(s : String) -> Token {
           number.contains("e") ||
           number.contains("E")
         if !has_decimal {
-          try @strconv.parse_int(number) catch {
+          try @string.parse_int(number) catch {
             _ =>
-              try @strconv.parse_double(number) catch {
+              try @string.parse_double(number) catch {
                 _ => LexName(s)
               } noraise {
                 f => LexReal(f)
@@ -206,7 +198,7 @@ fn lex_item(s : String) -> Token {
             i => LexInt(i)
           }
         } else {
-          try @strconv.parse_double(number) catch {
+          try @string.parse_double(number) catch {
             _ => LexName(s)
           } noraise {
             f => LexReal(f)

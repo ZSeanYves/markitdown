@@ -18,7 +18,7 @@ fn concat_parts(parts : Array[@pdfio.MutableBytes]) -> @pdfio.MutableBytes {
 
 ///|
 test "parse_single_stream reports malformed section without operator" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let ops = @pdfops.Op::parse_single_stream(
@@ -32,7 +32,7 @@ test "parse_single_stream reports malformed section without operator" {
 
 ///|
 test "parse_single_stream parses incomplete operators as unknown" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("w J gs Tf Tj")
@@ -43,7 +43,7 @@ test "parse_single_stream parses incomplete operators as unknown" {
 
 ///|
 test "parse_single_stream parses DP/BDC with comment operand as unknown" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     // Ensure the input ends with whitespace so the lexer doesn't raise End_of_file.
@@ -55,7 +55,7 @@ test "parse_single_stream parses DP/BDC with comment operand as unknown" {
 
 ///|
 test "parse inline image fixes bad end marker after fixed-length data" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -73,7 +73,7 @@ test "parse inline image fixes bad end marker after fixed-length data" {
 
 ///|
 test "parse inline image flate detects EI at end of stream" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let raw = @pdfio.bytes_of_list([0x7f])
@@ -100,7 +100,7 @@ test "parse inline image flate detects EI at end of stream" {
 
 ///|
 test "parse inline image flate errors when EI missing after whitespace" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let raw = @pdfio.bytes_of_list([0x7f])
@@ -120,7 +120,7 @@ test "parse inline image flate errors when EI missing after whitespace" {
 
 ///|
 test "parse inline image DCT handles stray 0xD9 bytes" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -147,7 +147,7 @@ test "parse inline image DCT handles stray 0xD9 bytes" {
 
 ///|
 test "parse inline image DCT errors on truncated data" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -164,7 +164,7 @@ test "parse inline image DCT errors on truncated data" {
 
 ///|
 test "parse inline image ASCIIHexDecode terminates on EI at EOF" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -191,7 +191,7 @@ test "parse inline image ASCIIHexDecode terminates on EI at EOF" {
 
 ///|
 test "parse inline image ASCIIHexDecode errors when EI missing at EOF" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -209,7 +209,7 @@ test "parse inline image ASCIIHexDecode errors when EI missing at EOF" {
 
 ///|
 test "parse_single_stream parses dash pattern 'd' op" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("[1 2] 0 d")
@@ -220,7 +220,7 @@ test "parse_single_stream parses dash pattern 'd' op" {
 
 ///|
 test "parse_single_stream errors on malformed dash pattern 'd' op" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     // Missing the left bracket and the right bracket.
@@ -234,7 +234,7 @@ test "parse_single_stream errors on malformed dash pattern 'd' op" {
 
 ///|
 test "parse_single_stream parses TJ arrays and skips malformed elements" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("[(A) 20 /Bad (B)] TJ")
@@ -256,7 +256,7 @@ test "parse_single_stream parses TJ arrays and skips malformed elements" {
 
 ///|
 test "parse_single_stream errors on malformed TJ op" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("TJ")
@@ -269,7 +269,7 @@ test "parse_single_stream errors on malformed TJ op" {
 
 ///|
 test "parse_single_stream fills sc defaults when operand not a number" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("/DeviceRGB sc")
@@ -287,7 +287,7 @@ test "parse_single_stream fills sc defaults when operand not a number" {
 
 ///|
 test "parse_single_stream errors on too-short dash pattern op" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -301,7 +301,7 @@ test "parse_single_stream errors on too-short dash pattern op" {
 
 ///|
 test "parse_single_stream errors on dash pattern op with non-numeric phase" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -315,7 +315,7 @@ test "parse_single_stream errors on dash pattern op with non-numeric phase" {
 
 ///|
 test "parse_single_stream errors on dash pattern op missing left bracket" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -329,7 +329,7 @@ test "parse_single_stream errors on dash pattern op missing left bracket" {
 
 ///|
 test "parse_single_stream errors on dash pattern op with non-numeric entries" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -343,7 +343,7 @@ test "parse_single_stream errors on dash pattern op with non-numeric entries" {
 
 ///|
 test "parse_single_stream errors on TJ missing left bracket" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -357,7 +357,7 @@ test "parse_single_stream errors on TJ missing left bracket" {
 
 ///|
 test "parse_single_stream makes invalid string operands unknown" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("1 '")
@@ -368,7 +368,7 @@ test "parse_single_stream makes invalid string operands unknown" {
 
 ///|
 test "Op::components handles Cal* colourspaces in array form" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let calrgb : @pdf.PdfObject = Array([
@@ -391,7 +391,7 @@ test "Op::components handles Cal* colourspaces in array form" {
 
 ///|
 test "parse_single_stream errors on invalid leading character" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
@@ -405,7 +405,7 @@ test "parse_single_stream errors on invalid leading character" {
 
 ///|
 test "parse inline image supports DCT filter specified as a single-element array" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -421,7 +421,7 @@ test "parse inline image supports DCT filter specified as a single-element array
 
 ///|
 test "parse inline image errors when /Filter has wrong type" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let header = @pdfio.bytes_of_string(
@@ -439,7 +439,7 @@ test "parse inline image errors when /Filter has wrong type" {
 
 ///|
 test "Op::components errors on unknown colourspace array" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let bad : @pdf.PdfObject = Array([
@@ -455,7 +455,7 @@ test "Op::components errors on unknown colourspace array" {
 
 ///|
 test "parse_single_stream treats non-numeric i operand as unknown" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("/X i")

@@ -63,7 +63,7 @@ fn bytes_slice_to_string(
   length : Int,
 ) -> String {
   @pdfio.string_of_int_array(
-    bytes[:].sub(start~, end=start + length).to_array(),
+    bytes[start:start + length].to_owned(),
   )
 }
 
@@ -492,7 +492,7 @@ pub fn PdfTextUtil::codepoints_of_pdfdocstring(
   s : String,
 ) -> Array[Int] raise {
   if self.is_unicode(s) {
-    let body = s[2:].to_string()
+    let body = s[2:].to_owned()
     self.codepoints_of_utf16be(body)
   } else {
     let bytes = @pdfio.int_array_of_bytes(@pdfio.bytes_of_string(s))

@@ -172,7 +172,7 @@ test "change_pages rewrites bookmarks annotations and openaction" {
   }
   let matrices = [(1, scale), (2, @pdftransform.TransformMatrix::identity())]
   let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
-  let updated = @pdfe.with_logger(_ => (), fn() {
+  let updated = @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, matrices~)
   })
   assert_eq(@pdfpage.PdfPageDoc::new(updated).pages_of_pagetree_quick(), 2)
@@ -218,7 +218,7 @@ test "change_pages logs when lengths differ with matrices" {
   let pdf = build_two_page_pdf()
   let pages = [@pdfpage.Page::blank(@pdfpaper.a4)]
   let matrices = [(1, @pdftransform.TransformMatrix::identity())]
-  let updated = @pdfe.with_logger(_ => (), fn() {
+  let updated = @pdfe.with_logger(_ => (), fn() raise {
     @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, matrices~)
   })
   assert_eq(@pdfpage.PdfPageDoc::new(updated).pages_of_pagetree_quick(), 1)
@@ -281,7 +281,7 @@ test "change_pages logs when /Annots is not an array" {
     (2, @pdftransform.TransformMatrix::identity()),
   ]
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
+  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() raise {
     ignore(@pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, matrices~))
     ()
   })
@@ -420,7 +420,7 @@ test "change_pages catches failures in annotations and openaction rewriting" {
     (2, @pdftransform.TransformMatrix::identity()),
   ]
   let messages : Array[String] = []
-  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() {
+  @pdfe.with_logger(fn(msg) { messages.push(msg) }, fn() raise {
     ignore(@pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, matrices~))
     ()
   })

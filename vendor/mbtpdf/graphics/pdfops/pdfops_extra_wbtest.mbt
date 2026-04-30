@@ -29,7 +29,7 @@ test "string_of_op delegates to string_of_ops" {
 
 ///|
 test "parse_single_stream ignores comments and yields unknown" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("%c\ntrue false ZZ q Q")
@@ -42,7 +42,7 @@ test "parse_single_stream ignores comments and yields unknown" {
 
 ///|
 test "components handles extra branches and errors" {
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     assert_eq(
@@ -129,7 +129,7 @@ test "components handles /I alias" {
 
 ///|
 test "components errors on array without name leader" {
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let res : Result[Int, Error] = try? Op::components(

@@ -130,7 +130,7 @@ test "merge_pdfs handles malformed names and optional catalog entries" {
   )
   set_catalog_entry(pdf1, "/AcroForm", Null)
   set_catalog_entry(pdf2, "/AcroForm", Dictionary([("/Fields", Array([Null]))]))
-  let merged = @pdfe.with_logger(_ => (), fn() {
+  let merged = @pdfe.with_logger(_ => (), fn() raise {
     PdfMerger::new(["one", "two"], [pdf1, pdf2], [[1], [1]]).merge_pdfs(
       false,
       false,
@@ -161,7 +161,7 @@ test "merge_pdfs handles malformed names and optional catalog entries" {
 test "merge_pdfs warns on duplicate names with struct trees" {
   let pdf1 = @pdfpage.PdfPageDoc::minimum_valid()
   let pdf2 = @pdfpage.PdfPageDoc::minimum_valid()
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_logger(_ => (), fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_logger(_ => (), fn() raise {
     PdfMerger::new(["dup", "dup"], [pdf1, pdf2], [[1], [1]]).merge_pdfs(
       false,
       false,

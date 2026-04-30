@@ -12,7 +12,7 @@ test "malformed pdf honors /Version in catalog when forced" {
     #|trailer
     #|<< /Root 1 0 R >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_eq(pdf.major, 1)
@@ -33,7 +33,7 @@ test "malformed pdf falls back to catalog when /Root is direct" {
     #|trailer
     #|<< /Root 99 >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_eq(pdf.root, 1)
@@ -50,7 +50,7 @@ test "malformed pdf without /Root and catalog errors" {
     #|trailer
     #|<< /Size 2 >>
     #|trailer
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_true(res is Err(_))
@@ -70,7 +70,7 @@ test "malformed pdf ignores invalid /Version name" {
     #|trailer
     #|<< /Root 1 0 R >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_eq(pdf.major, 1)
@@ -91,7 +91,7 @@ test "malformed pdf ignores short /Version name" {
     #|trailer
     #|<< /Root 1 0 R >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_eq(pdf.major, 1)
@@ -111,7 +111,7 @@ test "malformed pdf errors on missing startxref digits" {
     #|endobj
     #|startxref
     #|%%EOF
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_true(res is Err(_))
@@ -120,7 +120,7 @@ test "malformed pdf errors on missing startxref digits" {
 ///|
 test "malformed pdf errors on missing root and trailer" {
   let reader = PdfRead::new(debug_always_treat_malformed=true, logger=_ => ())
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string("trailer"))
   })
   assert_true(res is Err(_))
@@ -149,7 +149,7 @@ test "malformed pdf parses stream with indirect length" {
     #|trailer
     #|<< /Root 3 0 R >>
     #|%%EOF
-  let pdf = @pdfe.with_silenced_logs(fn() {
+  let pdf = @pdfe.with_silenced_logs(fn() raise {
     reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
   })
   assert_eq(pdf.root, 3)
@@ -157,7 +157,7 @@ test "malformed pdf parses stream with indirect length" {
 
 ///|
 test "pdf_of_input rejects invalid revision" {
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(
       revision=0,
       None,

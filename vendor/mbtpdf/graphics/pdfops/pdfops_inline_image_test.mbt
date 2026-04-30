@@ -236,7 +236,7 @@ test "parse inline image flate handles trailing operators" {
 
 ///|
 fn parse_inline_image_error(dict : @pdf.PdfObject) -> Unit raise {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let rendered = try
@@ -326,7 +326,7 @@ test "parse inline image cleans filter arrays" {
 
 ///|
 test "parse inline image decode failures raise" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let dict : @pdf.PdfObject = Dictionary([
@@ -350,7 +350,7 @@ test "parse inline image decode failures raise" {
 
 ///|
 test "parse inline image errors on missing colorspace entry and type" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let dict : @pdf.PdfObject = Dictionary([
       ("/W", Integer(1)),
@@ -398,7 +398,7 @@ test "parse inline image errors on missing colorspace entry and type" {
 
 ///|
 test "parse inline image errors on invalid ID marker" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let text = "BI << /W 1 /H 1 /BPC 8 /CS /DeviceGray >> XX 0 EI"
@@ -413,7 +413,7 @@ test "parse inline image errors on invalid ID marker" {
 
 ///|
 test "parse inline image handles bad filters" {
-  @pdfe.with_silenced_logs(fn() {
+  @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let dict : @pdf.PdfObject = Dictionary([
@@ -541,7 +541,7 @@ test "parse inline image DCT reads JPEG marker data" {
 
 ///|
 test "parse inline image errors on invalid filter array" {
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let dict : @pdf.PdfObject = Dictionary([
@@ -566,7 +566,7 @@ test "parse inline image errors on invalid filter array" {
 
 ///|
 test "components handles indexed shorthand and errors" {
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let indexed : @pdf.PdfObject = Array([
@@ -586,7 +586,7 @@ test "components handles indexed shorthand and errors" {
 
 ///|
 test "parse_single_stream errors on ID keyword" {
-  @pdfe.with_logger(_ => (), fn() {
+  @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let old = @pdfe.read_debug.val

@@ -93,7 +93,7 @@ test "textwidth handles missing widths and kerning" {
   )
   assert_eq(implicit_width, 0)
   assert_true(widths_by_name.get("NoSlash") is None)
-  let no_slash = @pdfe.with_silenced_logs(fn() {
+  let no_slash = @pdfe.with_silenced_logs(fn() raise {
     @pdf.PdfName::of_string("NoSlash")
   })
   let custom_font : @pdf.PdfObject = Dictionary([

@@ -83,7 +83,7 @@ test "lex_dictionary errors on unexpected token" {
 
 ///|
 test "lex_dictionary stops on stream without dict" {
-  let tokens = @pdfe.with_logger(_ => (), fn() {
+  let tokens = @pdfe.with_logger(_ => (), fn() raise {
     @pdfsyntax.PdfSyntax::new().lex_dictionary(
       false,
       @pdfio.Input::of_string("stream\nendstreamXXXX"),

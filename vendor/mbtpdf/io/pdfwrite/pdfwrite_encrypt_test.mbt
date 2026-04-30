@@ -222,7 +222,7 @@ test "pdfread returns pdf for encrypted objstm without password" {
   )
   let pdf_bytes = output.extract_bytes(buffer)
   let input = @pdfio.Input::of_bytes(pdf_bytes, source="encrypt-objstm-nopw")
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
   })
   match res {
@@ -267,7 +267,7 @@ test "pdfread skips malformed object stream" {
   let n_value_index = n_pos + n_marker.length()
   pdf_bytes[n_value_index] = '/'.to_int().to_byte()
   let input = @pdfio.Input::of_bytes(pdf_bytes, source="malformed-objstm")
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() {
+  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(
       Some("user"),
       None,
