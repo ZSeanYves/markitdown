@@ -37,7 +37,7 @@ Boundaries:
 
 Responsibilities:
 
-- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/md/markdown`)
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/yaml/yml/md/markdown`)
 
 Boundaries:
 
@@ -57,11 +57,14 @@ Current format-expansion stages in this layer:
 - F1: CSV / TSV
 - F2: JSON
 - F3: Markdown passthrough
+- F4: YAML
 
 Current converter split:
 
-- Structured-input converters such as CSV / TSV / JSON recover source content
-  into unified IR semantics
+- Delimited-text converters such as CSV / TSV map source text into unified IR
+  `Table` semantics
+- Structured-data converters such as JSON / YAML map source content into
+  unified IR `Table` / `List` / `CodeBlock` semantics conservatively
 - Markdown uses a low-loss passthrough path: it reads UTF-8 source text,
   preserves the original Markdown body, and only builds conservative block
   slices for metadata summary and origin reporting
@@ -285,6 +288,7 @@ the data flow is as follows:
   * format expansion F1: CSV / TSV
   * format expansion F2: JSON
   * format expansion F3: Markdown passthrough
+  * format expansion F4: YAML
   * first-pass consolidation of shared OOXML and native PDF parsing
     infrastructure
 * Still being consolidated:
@@ -299,15 +303,22 @@ the data flow is as follows:
   * fine-grained anchoring such as bbox / char-range / object-id
   * semantic reconstruction for more complex layouts
 
-Markdown passthrough boundary at the current stage:
+Current text-format expansion boundaries:
 
-- supports `.md` and `.markdown`
-- reads UTF-8 Markdown files
-- preserves the original Markdown body as the main output
-- uses `passthrough_markdown` as the emitter’s preferred source when present
-- only normalizes the final tail to exactly one trailing newline
-- does not run Markdown AST parsing
-- does not reinterpret or rewrite link / image / table / code / frontmatter
-- continues to use the existing metadata sidecar schema unchanged
+- CSV / TSV remain delimited-text converters only: no streaming path, dialect
+  sniffing, or schema inference is introduced at this layer
+- JSON remains a conservative structured-data route: no JSON Schema, JSON
+  Lines, or streaming parser path is introduced
+- Markdown passthrough supports `.md` and `.markdown`, reads UTF-8 Markdown
+  files, preserves the original Markdown body as the main output, uses
+  `passthrough_markdown` as the emitter's preferred source when present, only
+  normalizes the final tail to exactly one trailing newline, does not run
+  Markdown AST parsing, and does not reinterpret or rewrite link / image /
+  table / code / frontmatter
+- YAML supports `.yaml` and `.yml` and maps a simple YAML subset into unified
+  IR; anchors / aliases / tags / block scalar / flow style / multi-document
+  input remain out of scope
+- These format additions do not change the metadata sidecar schema; they remain
+  on the existing shared `format / source_name / summary / document` contract
 
 ```

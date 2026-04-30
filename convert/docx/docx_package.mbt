@@ -42,19 +42,26 @@ fn DocxPackage::read_text_required(
 }
 
 ///|
-fn DocxPackage::read_document_relationships(
+fn DocxPackage::read_document_relationship_context(
   p : DocxPackage,
-) -> Map[String, String] {
-  let rels = @ox.read_part_relationships(p.pkg, "word/document.xml") catch {
-    _ => return Map::new()
+  read_counter : Ref[Int]?,
+) -> DocxRelationshipContext {
+  match read_counter {
+    Some(counter) => counter.val = counter.val + 1
+    None => ()
   }
-  rels_to_target_map(rels)
+  profile_relationship_context_read()
+
+  let rels = @ox.read_part_relationships(p.pkg, "word/document.xml") catch {
+    _ => return empty_docx_relationship_context()
+  }
+  build_docx_relationship_context(rels)
 }
 
 ///|
 fn DocxPackage::extract_media_by_relationships(
   p : DocxPackage,
-  rels : Map[String, String],
+  ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
   out_dir : String,
 ) -> Unit raise @fs.IOError {
@@ -62,7 +69,7 @@ fn DocxPackage::extract_media_by_relationships(
     @fs.create_dir(out_dir)
   }
 
-  for entry in rels {
+  for entry in ctx.targets_by_rid {
     let (_, target) = entry
     let normalized = normalize_doc_part_target(target)
     if !normalized.has_prefix("word/media/") {

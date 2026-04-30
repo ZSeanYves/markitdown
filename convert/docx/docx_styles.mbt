@@ -40,7 +40,7 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
   let mut i = 0
 
   while true {
-    let s1 = find_sub(chars, i, "<w:style")
+    let s1 = find_style_open(chars, i)
     if s1 < 0 {
       break
     }
@@ -55,13 +55,13 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
       break
     }
 
-    let open_tag = @cor.slice_to_string(chars, s1, s2 + 1)
-    let inner = @cor.slice_to_string(chars, s2 + 1, s3)
+    let open_tag = profiled_slice_to_string(chars, s1, s2 + 1)
 
     let is_paragraph = open_tag.contains("w:type=\"paragraph\"") ||
       open_tag.contains("w:type='paragraph'")
 
     if is_paragraph {
+      let inner = profiled_slice_to_string(chars, s2 + 1, s3)
       match read_attr_value_in_tag(open_tag, "w:styleId") {
         Some(style_id) => {
           match read_style_name(inner) {
@@ -83,6 +83,24 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
   }
 
   { heading_by_style, name_by_style }
+}
+
+///|
+fn find_style_open(chars : Array[Char], from : Int) -> Int {
+  let mut i = from
+  while true {
+    let p = find_sub(chars, i, "<w:style")
+    if p < 0 {
+      return -1
+    }
+
+    if p + 8 < chars.length() && is_delim_for_tag(chars[p + 8]) {
+      return p
+    }
+
+    i = p + 8
+  }
+  -1
 }
 
 ///|

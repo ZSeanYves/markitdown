@@ -1,5 +1,7 @@
 ///|
 fn find_sub(chars : Array[Char], from : Int, pat : String) -> Int {
+  let search_len = if from < chars.length() { chars.length() - from } else { 0 }
+  profile_xml_tag_scan_call(search_len)
   let p = pat.to_array()
   let plen = p.length()
   let mut i = from
@@ -21,6 +23,7 @@ fn find_sub(chars : Array[Char], from : Int, pat : String) -> Int {
 
 ///|
 fn read_attr_value(block : String, attr_pat : String) -> String? {
+  profile_xml_attr_lookup_call()
   // 在 block 字符串里找 attr_pat（比如 "<w:pStyle w:val=\"" 或 "r:embed=\"")
   // 找到则返回引号中的内容
   let chars = block.to_array()
@@ -43,25 +46,257 @@ fn is_delim_for_tag(c : Char) -> Bool {
   c == ' ' || c == '>' || c == '/' || c == '\n' || c == '\r' || c == '\t'
 }
 
-// 只匹配真正的 "<w:t" 标签：后面必须是分隔符（空格 / > / /）
+///|
+let wt_open_tag_chars : Array[Char] = "<w:t".to_array()
 
 ///|
-fn find_wt_open(chars : Array[Char], from : Int) -> Int {
+let wt_close_tag_chars : Array[Char] = "</w:t>".to_array()
+
+///|
+let tab_open_tag_chars : Array[Char] = "<w:tab".to_array()
+
+///|
+let br_open_tag_chars : Array[Char] = "<w:br".to_array()
+
+///|
+let hyperlink_open_tag_chars : Array[Char] = "<w:hyperlink".to_array()
+
+///|
+let hyperlink_close_tag_chars : Array[Char] = "</w:hyperlink>".to_array()
+
+///|
+fn xml_unescape(s : String) -> String {
+  let t = s
+    .replace(old="&lt;", new="<")
+    .replace(old="&gt;", new=">")
+    .replace(old="&amp;", new="&")
+    .replace(old="&quot;", new="\"")
+    .replace(old="&apos;", new="'")
+
+  @cor.decode_numeric_entities(t)
+}
+
+///|
+fn find_char_in_range(
+  chars : Array[Char],
+  from : Int,
+  end_ : Int,
+  target : Char,
+) -> Int {
   let mut i = from
-  while true {
-    let p = find_sub(chars, i, "<w:t")
-    if p < 0 {
-      return -1
+  while i < end_ {
+    if chars[i] == target {
+      profile_xml_tag_scan_call(i - from + 1)
+      return i
     }
-
-    // "<w:t" 长度是 4
-    if p + 4 < chars.length() && is_delim_for_tag(chars[p + 4]) {
-      return p
-    }
-
-    i = p + 4
+    i += 1
   }
+  profile_xml_tag_scan_call(if end_ > from { end_ - from } else { 0 })
   -1
+}
+
+///|
+fn find_pattern_in_range(
+  chars : Array[Char],
+  from : Int,
+  end_ : Int,
+  pat : Array[Char],
+) -> Int {
+  let plen = pat.length()
+  let mut i = from
+  while i + plen <= end_ {
+    let mut ok = true
+    for k in 0..<plen {
+      if chars[i + k] != pat[k] {
+        ok = false
+        break
+      }
+    }
+    if ok {
+      profile_xml_tag_scan_call(i - from + plen)
+      return i
+    }
+    i += 1
+  }
+  profile_xml_tag_scan_call(if end_ > from { end_ - from } else { 0 })
+  -1
+}
+
+///|
+fn tag_prefix_matches(
+  chars : Array[Char],
+  pos : Int,
+  end_ : Int,
+  pat : Array[Char],
+) -> Bool {
+  let plen = pat.length()
+  if pos + plen >= end_ {
+    return false
+  }
+  for i in 0..<plen {
+    if chars[pos + i] != pat[i] {
+      return false
+    }
+  }
+  is_delim_for_tag(chars[pos + plen])
+}
+
+///|
+fn text_from_docx_range(chars : Array[Char], start : Int, end_ : Int) -> String {
+  let out = StringBuilder::new()
+  let mut i = start
+
+  while i < end_ {
+    let lt = find_char_in_range(chars, i, end_, '<')
+    if lt < 0 {
+      break
+    }
+    if lt + 1 >= end_ {
+      break
+    }
+    let gt = find_char_in_range(chars, lt + 1, end_, '>')
+    if gt < 0 {
+      break
+    }
+
+    if chars[lt + 1] != '/' {
+      if tag_prefix_matches(chars, lt, end_, wt_open_tag_chars) {
+        let close = find_pattern_in_range(
+          chars,
+          gt + 1,
+          end_,
+          wt_close_tag_chars,
+        )
+        if close < 0 {
+          i = gt + 1
+          continue
+        }
+        out.write_string(
+          xml_unescape(profiled_slice_to_string(chars, gt + 1, close)),
+        )
+        i = close + wt_close_tag_chars.length()
+        continue
+      }
+
+      if tag_prefix_matches(chars, lt, end_, br_open_tag_chars) {
+        out.write_string("\n")
+        i = gt + 1
+        continue
+      }
+
+      if tag_prefix_matches(chars, lt, end_, tab_open_tag_chars) {
+        out.write_string("\t")
+        i = gt + 1
+        continue
+      }
+    }
+
+    i = gt + 1
+  }
+
+  out.to_string()
+}
+
+///|
+fn scan_docx_inline_text(
+  block : String,
+  rel_ctx : DocxRelationshipContext,
+) -> DocxInlineScanResult {
+  profile_collect_wt_inlines_call()
+  let chars = block.to_array()
+  let text_out = StringBuilder::new()
+  let out : Array[@cor.Inline] = []
+  let mut i = 0
+
+  while i < chars.length() {
+    let lt = find_char_in_range(chars, i, chars.length(), '<')
+    if lt < 0 {
+      break
+    }
+    if lt + 1 >= chars.length() {
+      break
+    }
+    let gt = find_char_in_range(chars, lt + 1, chars.length(), '>')
+    if gt < 0 {
+      break
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), hyperlink_open_tag_chars) {
+      profile_hyperlink_node_seen()
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        hyperlink_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let open_tag = profiled_slice_to_string(chars, lt, gt + 1)
+      let raw_text = text_from_docx_range(chars, gt + 1, close)
+      text_out.write_string(raw_text)
+
+      let text = @cor.trim_string(raw_text)
+      let rid = read_attr_value_in_tag(open_tag, "r:id").unwrap_or("")
+      let url = lookup_doc_hyperlink_target(rel_ctx, rid)
+      if text != "" {
+        if url.trim() == "" {
+          out.push(@cor.Inline::Text(text))
+        } else {
+          out.push(@cor.Inline::Link(text, url.trim().to_owned()))
+        }
+      }
+
+      i = close + hyperlink_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), wt_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        wt_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let text = xml_unescape(profiled_slice_to_string(chars, gt + 1, close))
+      if text != "" {
+        text_out.write_string(text)
+        out.push(@cor.Inline::Text(text))
+      }
+
+      i = close + wt_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), br_open_tag_chars) {
+      text_out.write_string("\n")
+      out.push(@cor.Inline::Break)
+      i = gt + 1
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), tab_open_tag_chars) {
+      text_out.write_string("\t")
+      out.push(@cor.Inline::Text("\t"))
+      i = gt + 1
+      continue
+    }
+
+    i = gt + 1
+  }
+
+  { inlines: out, text: @cor.trim_string(text_out.to_string()) }
 }
 
 ///|
@@ -90,9 +325,7 @@ fn collect_tc_text(tc_inner : String) -> String {
       break
     }
 
-    let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
-    let text = collect_wt_text(p_xml)
-
+    let text = @cor.trim_string(text_from_docx_range(chars, p2 + 1, p3))
     if !@cor.is_blank(text) {
       parts.push(text)
     }
@@ -101,7 +334,6 @@ fn collect_tc_text(tc_inner : String) -> String {
   }
 
   if parts.length() == 0 {
-    // 兜底：有些奇怪单元格里可能没有标准 <w:p>，仍退回旧逻辑
     collect_wt_text(tc_inner)
   } else {
     parts.join("\n")
@@ -110,173 +342,8 @@ fn collect_tc_text(tc_inner : String) -> String {
 
 ///|
 fn collect_wt_text(block : String) -> String {
-  let chars = block.to_array()
-  let mut i = 0
-  let mut out = ""
-
-  while i < chars.length() {
-    let p_t = find_wt_open(chars, i)
-    let p_br = find_sub(chars, i, "<w:br")
-    let p_tab = find_sub(chars, i, "<w:tab")
-
-    let mut p = -1
-    let mut kind = 0 // 1 = w:t, 2 = w:br, 3 = w:tab
-
-    if p_t >= 0 {
-      p = p_t
-      kind = 1
-    }
-    if p_br >= 0 && (p < 0 || p_br < p) {
-      p = p_br
-      kind = 2
-    }
-    if p_tab >= 0 && (p < 0 || p_tab < p) {
-      p = p_tab
-      kind = 3
-    }
-
-    if p < 0 {
-      break
-    }
-
-    if kind == 1 {
-      let p2 = find_sub(chars, p, ">")
-      if p2 < 0 {
-        break
-      }
-
-      let p3 = find_sub(chars, p2 + 1, "</w:t>")
-      if p3 < 0 {
-        i = p2 + 1
-        continue
-      }
-
-      out = out + @cor.slice_to_string(chars, p2 + 1, p3)
-      i = p3 + 6
-      continue
-    }
-
-    if kind == 2 {
-      let p2 = find_sub(chars, p, ">")
-      if p2 < 0 {
-        break
-      }
-      out = out + "\n"
-      i = p2 + 1
-      continue
-    }
-
-    let p2 = find_sub(chars, p, ">")
-    if p2 < 0 {
-      break
-    }
-    out = out + "\t"
-    i = p2 + 1
-  }
-
-  @cor.trim_string(out)
-}
-
-///|
-fn collect_wt_inlines(
-  block : String,
-  rels : Map[String, String],
-) -> Array[@cor.Inline] {
-  let chars = block.to_array()
-  let mut i = 0
-  let out : Array[@cor.Inline] = []
-
-  while i < chars.length() {
-    let p_h = find_sub(chars, i, "<w:hyperlink")
-    let p_t = find_wt_open(chars, i)
-    let p_br = find_sub(chars, i, "<w:br")
-    let p_tab = find_sub(chars, i, "<w:tab")
-
-    let mut p = -1
-    let mut kind = 0 // 1 = hyperlink, 2 = w:t, 3 = w:br, 4 = w:tab
-
-    if p_h >= 0 {
-      p = p_h
-      kind = 1
-    }
-    if p_t >= 0 && (p < 0 || p_t < p) {
-      p = p_t
-      kind = 2
-    }
-    if p_br >= 0 && (p < 0 || p_br < p) {
-      p = p_br
-      kind = 3
-    }
-    if p_tab >= 0 && (p < 0 || p_tab < p) {
-      p = p_tab
-      kind = 4
-    }
-
-    if p < 0 {
-      break
-    }
-
-    if kind == 1 {
-      let p2 = find_sub(chars, p, ">")
-      if p2 < 0 {
-        break
-      }
-      let p3 = find_sub(chars, p2 + 1, "</w:hyperlink>")
-      if p3 < 0 {
-        i = p2 + 1
-        continue
-      }
-
-      let open_tag = @cor.slice_to_string(chars, p, p2 + 1)
-      let inner = @cor.slice_to_string(chars, p2 + 1, p3)
-      let text = collect_wt_text(inner).trim().to_owned()
-      let rid = read_attr_value_in_tag(open_tag, "r:id").unwrap_or("")
-      let url = rels.get(rid).unwrap_or("")
-
-      if text != "" {
-        if url.trim() == "" {
-          out.push(@cor.Inline::Text(text))
-        } else {
-          out.push(@cor.Inline::Link(text, url.trim().to_owned()))
-        }
-      }
-      i = p3 + "</w:hyperlink>".length()
-      continue
-    }
-
-    if kind == 2 {
-      let p2 = find_sub(chars, p, ">")
-      if p2 < 0 {
-        break
-      }
-
-      let p3 = find_sub(chars, p2 + 1, "</w:t>")
-      if p3 < 0 {
-        i = p2 + 1
-        continue
-      }
-
-      let text = @cor.slice_to_string(chars, p2 + 1, p3)
-      if text != "" {
-        out.push(@cor.Inline::Text(text))
-      }
-      i = p3 + 6
-      continue
-    }
-
-    let p2 = find_sub(chars, p, ">")
-    if p2 < 0 {
-      break
-    }
-    if kind == 3 {
-      out.push(@cor.Inline::Break)
-    } else {
-      out.push(@cor.Inline::Text("\t"))
-    }
-    i = p2 + 1
-  }
-
-  out
+  profile_collect_wt_text_call(block.length())
+  @cor.trim_string(text_from_docx_range(block.to_array(), 0, block.length()))
 }
 
 ///|

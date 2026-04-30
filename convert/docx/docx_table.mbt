@@ -1,7 +1,7 @@
 ///|
 fn scan_paragraph(
   p_xml : String,
-  rels : Map[String, String],
+  rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
   styles : DocxStyles,
   numbering : DocxNumbering,
@@ -14,22 +14,22 @@ fn scan_paragraph(
 
   // 2) 图片 embed（常见：<a:blip r:embed="rId5">）
   match read_attr_value(p_xml, "r:embed=\"") {
-    Some(rid) =>
-      match rels.get(rid) {
-        Some(target) => {
-          let asset = rid_to_asset_path(target, asset_by_target)
-          if asset != "" {
-            out.push(@cor.Block::Image("image", asset))
-          }
+    Some(rid) => {
+      let target = lookup_doc_relationship_target(rel_ctx, rid)
+      if target != "" {
+        let asset = rid_to_asset_path(target, asset_by_target)
+        if asset != "" {
+          out.push(@cor.Block::Image("image", asset))
         }
-        None => ()
       }
+    }
     None => ()
   }
 
   // 3) 段落文本
-  let inlines = collect_wt_inlines(p_xml, rels)
-  let text = collect_wt_text(p_xml)
+  let scan = scan_docx_inline_text(p_xml, rel_ctx)
+  let inlines = scan.inlines
+  let text = scan.text
   if @cor.is_blank(text) {
     return out
   }
@@ -136,7 +136,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
       break
     }
 
-    let tr_inner = @cor.slice_to_string(chars, tr2 + 1, tr3)
+    let tr_inner = profiled_slice_to_string(chars, tr2 + 1, tr3)
     let tr_chars = tr_inner.to_array()
 
     let mut j = 0
@@ -158,7 +158,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
         break
       }
 
-      let tc_inner = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
+      let tc_inner = profiled_slice_to_string(tr_chars, tc2 + 1, tc3)
 
       // 只从 tc_inner 里抽 w:t
       let cell_text = collect_tc_text(tc_inner)
@@ -289,7 +289,7 @@ fn read_pstyle_value(p_xml : String) -> String? {
     return None
   }
 
-  let tag = @cor.slice_to_string(chars, p1, p2 + 1)
+  let tag = profiled_slice_to_string(chars, p1, p2 + 1)
 
   match read_attr_value_in_tag(tag, "w:val") {
     Some(v) => Some(v)

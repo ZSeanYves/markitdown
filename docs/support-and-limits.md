@@ -22,6 +22,7 @@ The unified entry currently supports:
 - CSV
 - TSV
 - JSON
+- YAML (`.yaml` / `.yml`)
 - Markdown (`.md` / `.markdown`)
 
 Inputs outside the above extensions are rejected by the dispatcher.
@@ -33,10 +34,13 @@ The currently landed text-format expansion stages are:
 - F1: CSV / TSV
 - F2: JSON
 - F3: Markdown passthrough
+- F4: YAML
 
 Their positioning is intentionally different:
 
-- CSV / TSV and JSON are structured inputs converted into unified IR semantics
+- CSV / TSV are delimited table text converted into unified IR `Table`
+- JSON and YAML are structured inputs converted into unified IR `Table` /
+  `List` / `CodeBlock` semantics conservatively
 - Markdown is a low-loss passthrough input: the main body is preserved as
   source Markdown rather than rebuilt from an AST
 
@@ -335,6 +339,38 @@ Current boundaries:
 - block counts in metadata are conservative engineering summaries, not a
   promise of full Markdown semantic parsing
 
+### 8.9 YAML
+
+Currently supported:
+
+- `.yaml` and `.yml` extension routing
+- UTF-8 YAML files read into memory
+- simple YAML subset including top-level mapping, indentation-based nested
+  mapping, scalar sequences, and sequences of mappings
+- scalar handling for strings, `true`, `false`, `null`, and `~`
+- single-quoted and double-quoted strings
+- full-line comments and conservative inline-comment stripping outside quoted
+  strings
+- top-level mappings emitted as key-value Markdown tables
+- arrays of objects with consistent keys emitted as Markdown tables
+- arrays of scalar values emitted as bullet lists
+- nested / ambiguous mixed structures emitted as fenced YAML blocks or compact
+  inline string values inside table cells
+- lightweight block origin metadata and standard metadata sidecar summary fields
+
+Current boundaries:
+
+- only a simple subset is supported
+- no anchors or aliases
+- no tags
+- no block scalar `|` / `>`
+- no flow style `{}` / `[]`
+- no complex keys
+- no multi-document `---` / `...`
+- no YAML schema inference
+- no streaming parser path
+- metadata schema remains unchanged
+
 ## 9) Current Boundaries (Key Points)
 
 ### 9.1 PDF Boundary
@@ -374,6 +410,15 @@ Current boundaries:
 - Metadata remains on the existing schema and uses conservative block slicing
   rather than full Markdown syntax analysis.
 
+### 9.5 YAML Boundary
+
+- YAML support is currently a conservative simple-subset converter, not a full
+  YAML-spec implementation.
+- Unsupported YAML features are intentionally kept out of scope rather than
+  partially guessed.
+- Nested or ambiguous structures may fall back to compact string values or
+  fenced YAML blocks instead of richer semantic reconstruction.
+
 ## 10) Known Limits
 
 - Provenance is lightweight traceability only, not bbox / char-range / source-object-id level fine-grained anchoring.
@@ -383,10 +428,13 @@ Current boundaries:
 - If no Markdown output file is provided (stdout mode), `--with-metadata` will not write sidecar files to disk.
 - Markdown passthrough does not validate, normalize, or semantically interpret
   Markdown syntax beyond ensuring a single trailing newline in the final output.
+- YAML support does not attempt full-spec compatibility and intentionally
+  excludes anchors / aliases / tags / block scalars / flow style / multi-doc
+  features.
 
 ## 11) Suggested Acceptance Wording (Directly Reusable)
 
 - “The project has completed a unified multi-format IR mainflow and established three regression-verifiable validation chains: main_process, metadata, and assets.”
-- “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, and F3 Markdown passthrough.”
-- “CSV / TSV and JSON are structurally recovered into unified IR, while Markdown currently follows a low-loss passthrough path that preserves the original Markdown body and keeps the metadata schema unchanged.”
+- “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, F3 Markdown passthrough, and F4 YAML.”
+- “CSV / TSV map delimited table text into IR `Table`, JSON and YAML conservatively map structured data into IR `Table` / `List` / `CodeBlock`, and Markdown follows a low-loss passthrough path that preserves the original Markdown body while keeping the metadata schema unchanged.”
 - “At the current stage, the focus is on regression stability, explainability, and engineering-consumable outputs; complex PDF layouts, OCR quality refinement, and broader advanced OOXML coverage remain future consolidation work.”

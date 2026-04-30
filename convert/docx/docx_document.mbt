@@ -1,7 +1,7 @@
 ///|
 fn scan_document(
   doc_xml : String,
-  rels : Map[String, String],
+  rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
   styles : DocxStyles,
   numbering : DocxNumbering,
@@ -27,7 +27,7 @@ fn scan_document(
         break
       }
 
-      let tbl_xml = @cor.slice_to_string(chars, t2 + 1, t3)
+      let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
       let rows = scan_table_block(tbl_xml)
       if rows.length() > 0 {
         if prev_was_list {
@@ -73,9 +73,10 @@ fn scan_document(
         break
       }
 
-      let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
+      profile_paragraph_seen()
+      let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
       let blocks = scan_paragraph(
-        p_xml, rels, asset_by_target, styles, numbering, max_heading,
+        p_xml, rel_ctx, asset_by_target, styles, numbering, max_heading,
       )
 
       for b in blocks {

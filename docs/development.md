@@ -65,10 +65,12 @@ The currently landed text-format expansion stages are:
 * F1: CSV / TSV
 * F2: JSON
 * F3: Markdown passthrough
+* F4: YAML
 
 Development positioning:
 
-* CSV / TSV and JSON are structured-input converters that map source content into unified IR
+* CSV / TSV are delimited-table text converters that map source content into unified IR `Table`
+* JSON / YAML are structured-data converters that conservatively map source content into unified IR `Table` / `List` / `CodeBlock`
 * Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
 
 Current Markdown passthrough contract:
@@ -81,6 +83,17 @@ Current Markdown passthrough contract:
 * Does not perform Markdown AST parsing
 * Does not rewrite link / image / table / code-fence / frontmatter semantics
 * Does not change the metadata sidecar schema
+
+Current YAML convert contract:
+
+* Supports `.yaml` and `.yml`
+* Reads UTF-8 text
+* Supports a simple subset: top-level mapping, indentation-based nested mapping,
+  scalar sequences, sequence of mappings, booleans, nulls, and quoted strings
+* Maps structured data conservatively into IR `Table` / `List` / `CodeBlock`
+* Keeps the existing metadata sidecar schema unchanged
+* Does not support anchors / aliases / tags / block scalar / flow style /
+  multi-document input
 
 ### Temporary Output Directories
 
@@ -176,6 +189,12 @@ Markdown-specific note:
 
 * Markdown metadata currently uses conservative block slicing and keeps `document = null`
 * Do not change the metadata schema when adjusting Markdown passthrough behavior unless the schema change is explicitly planned and accepted
+
+YAML-specific note:
+
+* YAML metadata currently keeps `document = null` and only uses the shared sidecar schema
+* Changes under `convert/yaml/` should preserve the current conservative subset and fallback strategy
+* Do not update YAML expected outputs unless the intended `Table` / `List` / `CodeBlock` contract itself changes
 
 ### When modifying asset export / asset reference logic
 
@@ -314,24 +333,18 @@ The following remain unsupported or intentionally disabled by default:
 * PDF outline/bookmark extraction into Markdown or metadata output
 * PDF complex table recovery
 * OCR as a formally closed default path
-* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json set
+* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json/markdown/yaml set
 
 ## Next Candidate Routes
 
 Recommended order for the next expansion phase:
 
-1. YAML
-2. Markdown passthrough + metadata
-3. EPUB
-4. RTF
-5. ODT / ODS / ODP
+1. EPUB
+2. RTF
+3. ODT / ODS / ODP
 
 Rationale:
 
-* YAML can follow the JSON route while keeping YAML-specific syntax and
-  ambiguity handling isolated.
-* Markdown passthrough can validate metadata/origin behavior without introducing
-  a heavy parser.
 * EPUB is valuable but requires package/navigation/content stitching.
 * RTF and OpenDocument formats are broader parser investments and should follow
   after the lighter routes.

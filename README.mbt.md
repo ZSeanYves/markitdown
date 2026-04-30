@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -35,6 +35,22 @@ Current major capabilities include:
 * **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, and image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
 * **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
 * **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values
+* **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
+* **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into `Table` / `List` / `CodeBlock`
+
+Current text-format expansion stages:
+
+* **F1 CSV / TSV**: delimited table text -> unified IR `Table`
+* **F2 JSON**: structured data -> unified IR `Table` / `List` / `CodeBlock`
+* **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
+* **F4 YAML**: simple-subset structured data -> unified IR `Table` / `List` / `CodeBlock`
+
+Current text-format boundaries:
+
+* **CSV / TSV**: no streaming path, dialect sniffing, or schema inference
+* **JSON**: no JSON Schema, JSON Lines, or streaming parser path
+* **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
+* **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
 
 The repository has now formed a stable workflow:
 

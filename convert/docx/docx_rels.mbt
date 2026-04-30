@@ -1,12 +1,47 @@
 ///|
-fn rels_to_target_map(
-  rels : Array[@ox.OoxmlRelationship],
-) -> Map[String, String] {
-  let m : Map[String, String] = Map::new()
-  for rel in rels {
-    m.set(rel.id, rel.target)
+fn empty_docx_relationship_context() -> DocxRelationshipContext {
+  {
+    document_relationships: [],
+    targets_by_rid: Map::new(),
+    hyperlink_targets_by_rid: Map::new(),
   }
-  m
+}
+
+///|
+fn build_docx_relationship_context(
+  rels : Array[@ox.OoxmlRelationship],
+) -> DocxRelationshipContext {
+  let targets_by_rid : Map[String, String] = Map::new()
+  let hyperlink_targets_by_rid : Map[String, String] = Map::new()
+
+  for rel in rels {
+    targets_by_rid.set(rel.id, rel.resolved_target)
+
+    if rel.rel_type.has_suffix("/hyperlink") &&
+      rel.target_mode == @ox.External &&
+      rel.resolved_target.trim() != "" {
+      hyperlink_targets_by_rid.set(rel.id, rel.resolved_target)
+    }
+  }
+
+  { document_relationships: rels, targets_by_rid, hyperlink_targets_by_rid }
+}
+
+///|
+fn lookup_doc_relationship_target(
+  ctx : DocxRelationshipContext,
+  rid : String,
+) -> String {
+  ctx.targets_by_rid.get(rid).unwrap_or("")
+}
+
+///|
+fn lookup_doc_hyperlink_target(
+  ctx : DocxRelationshipContext,
+  rid : String,
+) -> String {
+  profile_hyperlink_target_lookup_call()
+  ctx.hyperlink_targets_by_rid.get(rid).unwrap_or("")
 }
 
 ///|
@@ -28,13 +63,12 @@ fn normalize_doc_part_target(target : String) -> String {
 
 ///|
 fn build_docx_asset_path_map(
-  rels : Map[String, String],
+  ctx : DocxRelationshipContext,
   out_root : String,
 ) -> Map[String, String] {
   let media_targets : Array[String] = []
-  for entry in rels {
-    let (_, target) = entry
-    let normalized = normalize_doc_part_target(target)
+  for rel in ctx.document_relationships {
+    let normalized = normalize_doc_part_target(rel.resolved_target)
     if normalized.has_prefix("word/media/") {
       media_targets.push(normalized)
     }
