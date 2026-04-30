@@ -1,5 +1,6 @@
 import {
   "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
   "ZSeanYves/markitdown/doc_parse/pdf_core/text" @text,
   "ZSeanYves/markitdown/doc_parse/pdf_core/raw" @raw,
   "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,

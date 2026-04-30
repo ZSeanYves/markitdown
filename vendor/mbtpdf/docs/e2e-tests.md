@@ -3,7 +3,7 @@
 ## Overview
 The end-to-end tests live in `e2e/e2e_test.mbt`. Each test reads real PDF
 fixtures from `testdata/e2e`, performs a high-level operation, writes the
-result to `tmp/e2e`, then reads the output back to validate the roundtrip.
+result to `.tmp/scratch/mbtpdf/e2e` by default, then reads the output back to validate the roundtrip.
 
 ## Fixtures
 - `testdata/e2e/merge_dummy.pdf`
@@ -22,19 +22,19 @@ result to `tmp/e2e`, then reads the output back to validate the roundtrip.
 ## Test cases
 - Merge roundtrip
   - Reads `merge_dummy.pdf`, `pdfjs_identity_tounicode.pdf`, and `pdfjs_tracemonkey.pdf`.
-  - Merges all pages, writes to `tmp/e2e/merged.pdf`, reads back, and checks
+  - Merges all pages, writes to `.tmp/scratch/mbtpdf/e2e/merged.pdf`, reads back, and checks
     merged page count equals the sum of inputs.
 - Split roundtrip
   - Reads `SFAA_Japanese.pdf`.
-  - Extracts a subset of pages, writes to `tmp/e2e/split.pdf`, reads back, and
+  - Extracts a subset of pages, writes to `.tmp/scratch/mbtpdf/e2e/split.pdf`, reads back, and
     checks the subset page count matches.
 - Annotation roundtrip
   - Reads `merge_dummy.pdf`.
-  - Adds a text annotation to the first page, writes to `tmp/e2e/annotated.pdf`,
+  - Adds a text annotation to the first page, writes to `.tmp/scratch/mbtpdf/e2e/annotated.pdf`,
     reads back, and checks the annotation count and contents.
 - Bookmark roundtrip
   - Reads `SFAA_Japanese.pdf`.
-  - Adds two bookmarks targeting pages 1 and 2, writes to `tmp/e2e/bookmarks.pdf`,
+  - Adds two bookmarks targeting pages 1 and 2, writes to `.tmp/scratch/mbtpdf/e2e/bookmarks.pdf`,
     reads back, and checks the bookmark texts.
 - Object stream roundtrip
   - Writes `pdfjs_tracemonkey.pdf` with generated/compressed object streams.
@@ -103,6 +103,6 @@ result to `tmp/e2e`, then reads the output back to validate the roundtrip.
 - `scripts/e2e_checksums.sh --check` verifies fixtures against the recorded hashes.
 
 ## Review notes
-- Output PDFs are created in `tmp/e2e` and removed at the end of each test.
+- Output PDFs are created under `.tmp/scratch/mbtpdf/e2e` by default and removed at the end of each test.
 - The tests intentionally validate PDF read/write roundtrips to guard against
   regressions during refactoring.

@@ -1,4 +1,18 @@
 ///|
+fn pdfmarks_tmp_dir() -> String {
+  let root = match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(dir) =>
+      if dir.trim() == "" {
+        ".tmp"
+      } else {
+        dir
+      }
+    None => ".tmp"
+  }
+  root + "/scratch/mbtpdf/pdfmarks"
+}
+
+///|
 async test "pdfmarks bookmark string roundtrip through file output" {
   let pdf = @pdfpage.PdfPageDoc::minimum_valid()
   let marks : Array[@pdfmarks.Bookmark] = [
@@ -12,7 +26,7 @@ async test "pdfmarks bookmark string roundtrip through file output" {
     },
   ]
   let pdf_with = @pdfmarks.PdfMarks::new(pdf).add_bookmarks(marks)
-  let dir = "tmp/pdfmarks"
+  let dir = pdfmarks_tmp_dir()
   if !@fs.exists(dir) {
     @fs.mkdir(dir, permission=0o755, recursive=true)
   }

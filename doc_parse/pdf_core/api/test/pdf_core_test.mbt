@@ -58,6 +58,52 @@ fn ensure_test_dir(path : String) -> Unit raise {
 }
 
 ///|
+fn ensure_test_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_test_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn test_tmp_root() -> String {
+  match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
+    None => ".tmp"
+  }
+}
+
+///|
 async fn write_link_annotation_pdf(path : String) -> Unit {
   let pdf0 = @pdf.Pdf::empty()
   let page = @pdfpage.Page::custom(
@@ -88,9 +134,8 @@ async fn write_link_annotation_pdf(path : String) -> Unit {
 
 ///|
 async fn create_link_annotation_fixture() -> String {
-  let dir = "tmp/pdf_core"
-  ensure_test_dir("tmp")
-  ensure_test_dir(dir)
+  let dir = test_tmp_root() + "/pdf_core"
+  ensure_test_dir_tree(dir)
   let path = dir + "/link_annotation.pdf"
   write_link_annotation_pdf(path)
   path

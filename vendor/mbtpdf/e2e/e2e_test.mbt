@@ -1,5 +1,20 @@
 ///|
-const OUTPUT_DIR : String = "tmp/e2e"
+fn test_tmp_root() -> String {
+  match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
+    Some(dir) =>
+      if dir.trim() == "" {
+        ".tmp"
+      } else {
+        dir
+      }
+    None => ".tmp"
+  }
+}
+
+///|
+fn output_dir() -> String {
+  test_tmp_root() + "/scratch/mbtpdf/e2e"
+}
 
 ///|
 const MERGE_LEFT_PATH : String = "testdata/e2e/merge_dummy.pdf"
@@ -685,8 +700,8 @@ async test "e2e merge writes and reads back" {
     process_struct_trees=true,
     add_toplevel_document=false,
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   assert_eq(page_count(parsed), left_count + right_count + third_count)
@@ -735,8 +750,8 @@ async test "e2e merge preserves text extraction" {
     process_struct_trees=true,
     add_toplevel_document=false,
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merge_text.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merge_text.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let extracted = @pdfe.with_logger(_ => (), fn() {
@@ -754,8 +769,8 @@ async test "e2e split subset of large pdf" {
   assert_true(count > 10)
   let subset = [1, 2, count]
   let split = @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages(subset)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/split.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/split.pdf"
   write_pdf(out_path, split)
   let parsed = read_pdf(out_path)
   assert_eq(page_count(parsed), subset.length())
@@ -785,8 +800,8 @@ async test "e2e split then bookmark" {
     },
   ]
   let split_with = @pdfmarks.PdfMarks::new(split).add_bookmarks(marks)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/split_bookmark.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/split_bookmark.pdf"
   write_pdf(out_path, split_with)
   let parsed = read_pdf(out_path)
   let parsed_marks = @pdfmarks.PdfMarks::new(parsed).read_bookmarks()
@@ -815,8 +830,8 @@ async test "e2e annotation roundtrip" {
   )
   pages[0] = updated_page
   let updated_pdf = @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/annotated.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/annotated.pdf"
   write_pdf(out_path, updated_pdf)
   let parsed = read_pdf(out_path)
   let parsed_pages = @pdfpage.PdfPageDoc::new(parsed).pages_of_pagetree()
@@ -863,8 +878,8 @@ async test "e2e merge preserves annotations" {
     process_struct_trees=true,
     add_toplevel_document=false,
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_annot.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_annot.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_pages = @pdfpage.PdfPageDoc::new(parsed).pages_of_pagetree()
@@ -941,8 +956,8 @@ async test "e2e merge preserves page labels" {
   )
   let in_memory_labels = @pdfpagelabels.PageLabel::read_all(merged)
   assert_merged_label_prefixes(in_memory_labels, left_count)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_labels.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_labels.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let labels = @pdfpagelabels.PageLabel::read_all(parsed)
@@ -986,8 +1001,8 @@ async test "e2e merge preserves named destinations" {
   let right_dest = read_named_destination(merged, "RightDest")
   assert_destination_page(left_dest, left_expected)
   assert_destination_page(right_dest, right_expected)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_named_dests.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_named_dests.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_pages = parsed.page_reference_numbers()
@@ -1048,8 +1063,8 @@ async test "e2e merge preserves /Dests dictionary" {
   )
   assert_destination_page(left_read, left_expected)
   assert_destination_page(right_read, right_expected)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_dests_dict.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_dests_dict.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_pages = parsed.page_reference_numbers()
@@ -1110,8 +1125,8 @@ async test "e2e merge preserves AcroForm entries" {
     Some(Integer(1)) => ()
     _ => fail("expected /SigFlags 1")
   }
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_acroform.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_acroform.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_catalog = parsed.catalog_of_pdf()
@@ -1172,8 +1187,8 @@ async test "e2e merge preserves /OCProperties" {
     None => fail("missing OCG LayerRight")
   }
   assert_eq(read_ocg_on_count(merged), 2)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_ocg.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_ocg.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_names = read_ocg_names(parsed)
@@ -1230,8 +1245,8 @@ async test "e2e merge preserves OCG configs" {
     None => fail("missing config ConfigRight")
   }
   assert_eq(read_ocg_on_count(merged), 2)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_ocg_configs.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_ocg_configs.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   match @pdfocg.OcgProperties::read(parsed) {
@@ -1286,8 +1301,8 @@ async test "e2e merge preserves structure trees" {
   assert_eq(parent_keys.length(), 2)
   assert_true(parent_keys.contains("0"))
   assert_true(parent_keys.contains("1"))
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_struct_trees.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_struct_trees.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_keys = read_parent_tree_keys(parsed)
@@ -1325,8 +1340,8 @@ async test "e2e merge preserves /Names JavaScript" {
   let entries = read_name_tree_entries(merged, "/JavaScript")
   assert_true(entries.search_by(pair => pair.0 == "LeftScript") is Some(_))
   assert_true(entries.search_by(pair => pair.0 == "RightScript") is Some(_))
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_javascript_names.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_javascript_names.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/JavaScript")
@@ -1363,8 +1378,8 @@ async test "e2e merge preserves /Names /EmbeddedFiles" {
   assert_embedded_file_entry(
     merged, entries, "RightFile", "right.txt", "right payload",
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_embedded_files.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_embedded_files.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/EmbeddedFiles")
@@ -1401,8 +1416,8 @@ async test "e2e merge preserves /Names /URLS" {
   let entries = read_name_tree_entries(merged, "/URLS")
   assert_url_entry(merged, entries, "LeftURL", "https://example.com/left")
   assert_url_entry(merged, entries, "RightURL", "https://example.com/right")
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_urls.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_urls.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/URLS")
@@ -1439,8 +1454,8 @@ async test "e2e merge preserves /Names /AP" {
   let entries = read_name_tree_entries(merged, "/AP")
   assert_ap_entry(merged, entries, "LeftAP", "left ap")
   assert_ap_entry(merged, entries, "RightAP", "right ap")
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_ap.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_ap.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/AP")
@@ -1473,8 +1488,8 @@ async test "e2e merge preserves /Names /Renditions" {
   let entries = read_name_tree_entries(merged, "/Renditions")
   assert_rendition_entry(merged, entries, "LeftRendition", "left")
   assert_rendition_entry(merged, entries, "RightRendition", "right")
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_renditions.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_renditions.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/Renditions")
@@ -1507,8 +1522,8 @@ async test "e2e merge preserves /Names /AlternatePresentations" {
   let entries = read_name_tree_entries(merged, "/AlternatePresentations")
   assert_alt_presentation_entry(merged, entries, "LeftAlt", "left")
   assert_alt_presentation_entry(merged, entries, "RightAlt", "right")
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_alternate_presentations.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_alternate_presentations.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_entries = read_name_tree_entries(parsed, "/AlternatePresentations")
@@ -1571,8 +1586,8 @@ async test "e2e merge stress large name trees" {
       None => fail("missing bulk url: " + name)
     }
   }
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_bulk_names.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_bulk_names.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_dests = read_name_tree_entries(parsed, "/Dests")
@@ -1660,8 +1675,8 @@ async test "e2e merge mixed feature pipeline" {
   assert_embedded_file_entry(
     merged, merged_embedded, "MixFile", "mixed.txt", "mix payload",
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_mixed.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_mixed.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_pages = @pdfpage.PdfPageDoc::new(parsed).pages_of_pagetree()
@@ -1753,8 +1768,8 @@ async test "e2e merge multi-copy mixed stress" {
       None => fail("missing merged stress url: " + name)
     }
   }
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_mixed_stress.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_mixed_stress.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_marks = @pdfmarks.PdfMarks::new(parsed).read_bookmarks()
@@ -1814,8 +1829,8 @@ async test "e2e merge varied page counts stress" {
   assert_url_entry(
     merged, merged_urls, "VariedURL-3", "https://example.com/varied/3",
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_varied_pages.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_varied_pages.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   assert_eq(page_count(parsed), merged_count)
@@ -1866,8 +1881,8 @@ async test "e2e merge preserves bookmark targets" {
     process_struct_trees=true,
     add_toplevel_document=false,
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/merged_marks.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/merged_marks.pdf"
   write_pdf(out_path, merged)
   let parsed = read_pdf(out_path)
   let parsed_marks = @pdfmarks.PdfMarks::new(parsed).read_bookmarks()
@@ -1912,8 +1927,8 @@ async test "e2e bookmarks roundtrip" {
     },
   ]
   let pdf_with = @pdfmarks.PdfMarks::new(pdf).add_bookmarks(marks)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/bookmarks.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/bookmarks.pdf"
   write_pdf(out_path, pdf_with)
   let parsed = read_pdf(out_path)
   let parsed_marks = @pdfmarks.PdfMarks::new(parsed).read_bookmarks()
@@ -1927,8 +1942,8 @@ async test "e2e bookmarks roundtrip" {
 ///|
 async test "e2e write object streams and read back" {
   let pdf = read_pdf(MERGE_THIRD_PATH)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/objstm.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/objstm.pdf"
   let file = @fs.open(out_path, mode=WriteOnly, create=0o644, truncate=true)
   defer file.close()
   @pdfwritefs.PdfWriteFs::new().pdf_to_channel(
@@ -1954,8 +1969,8 @@ async test "e2e encrypt pdf and require password" {
     "user-pass",
     [],
   )
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/encrypted.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/encrypted.pdf"
   let file = @fs.open(out_path, mode=WriteOnly, create=0o644, truncate=true)
   defer file.close()
   @pdfwritefs.PdfWriteFs::new().pdf_to_channel(Some(enc), true, pdf, file)
@@ -2040,8 +2055,8 @@ async test "e2e page labels roundtrip" {
     },
   ]
   @pdfpagelabels.PageLabel::write_all(labels, pdf)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/pagelabels.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/pagelabels.pdf"
   write_pdf(out_path, pdf)
   let parsed = read_pdf(out_path)
   let read_back = @pdfpagelabels.PageLabel::read_all(parsed)
@@ -2090,8 +2105,8 @@ async test "e2e page ops roundtrip" {
   )
   pages[0] = updated
   let updated_pdf = @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages)
-  ensure_dir(OUTPUT_DIR)
-  let out_path = OUTPUT_DIR + "/page_ops.pdf"
+  ensure_dir(output_dir())
+  let out_path = output_dir() + "/page_ops.pdf"
   write_pdf(out_path, updated_pdf)
   let parsed = read_pdf(out_path)
   let parsed_page = @pdfpage.PdfPageDoc::new(parsed).pages_of_pagetree()[0]

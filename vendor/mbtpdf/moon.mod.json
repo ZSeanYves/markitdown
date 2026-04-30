@@ -2,7 +2,8 @@
   "name": "bobzhang/mbtpdf",
   "version": "0.1.2",
   "deps": {
-    "moonbitlang/async": "0.16.1"
+    "moonbitlang/async": "0.16.1",
+    "moonbitlang/x": "0.4.40"
   },
   "readme": "README.mbt.md",
   "repository": "",

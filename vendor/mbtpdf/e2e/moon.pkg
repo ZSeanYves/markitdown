@@ -17,6 +17,7 @@ import {
   "bobzhang/mbtpdf/text/pdftext",
   "bobzhang/mbtpdf/io/pdfwrite",
   "bobzhang/mbtpdf/io/pdfwritefs",
+  "moonbitlang/x/sys" @sys,
   "moonbitlang/async",
   "moonbitlang/async/fs",
 }
