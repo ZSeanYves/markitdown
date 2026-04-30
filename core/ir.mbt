@@ -81,6 +81,12 @@ pub(all) struct AssetOrigin {
   sheet : String?
   origin_id : String?
   nearby_caption : String?
+  object_ref : String?
+  relationship_id : String?
+  source_path : String?
+  row_index : Int?
+  column_index : Int?
+  key_path : String?
 }
 
 ///|

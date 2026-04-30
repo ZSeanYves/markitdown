@@ -86,6 +86,17 @@ present.
 * `origin`: provenance information (optional)
 * `image`: extra image-block information (only for image blocks)
 
+Block `origin` keeps the original v1 fields (`source_name`, `page`, `slide`,
+`sheet`, `block_index`, `heading_path`) and may also include additive optional
+fields when the converter has stable source information:
+
+* `format`
+* `line_start` / `line_end`
+* `row_index` / `column_index`
+* `object_ref`
+* `relationship_id`
+* `key_path`
+
 ### 4.3 Role of `assets[]`
 
 `assets[]` represents engineering information from the **asset-level perspective**:
@@ -95,6 +106,21 @@ present.
 * `alt_text` / `title` / `caption`
 * `origin`
 * `nearby_caption`
+
+Asset `origin` keeps the original v1 fields (`source_name`, `page`, `slide`,
+`sheet`, `origin_id`, `nearby_caption`) and may also include additive optional
+fields when available:
+
+* `format`
+* `object_ref`
+* `relationship_id`
+* `source_path`
+* `row_index` / `column_index`
+* `key_path`
+
+Additive origin fields are emitted sparsely: absent optional values are omitted
+instead of being serialized as `null`. Existing v1 fields keep their historical
+shape.
 
 ## 5) Relationship Between `ImageData.caption` and `nearby_caption`
 
@@ -119,7 +145,7 @@ The current contract is:
       "block_index": 0,
       "block_type": "heading",
       "text": "Example Title",
-      "origin": { "source_name": "demo.pdf", "page": 1 },
+      "origin": { "format": "pdf", "source_name": "demo.pdf", "page": 1 },
       "image": null
     }
   ],
@@ -130,7 +156,13 @@ The current contract is:
       "alt_text": null,
       "title": null,
       "caption": "Figure 1 Example",
-      "origin": { "source_name": "demo.pdf", "page": 1, "origin_id": "img-1" },
+      "origin": {
+        "format": "pdf",
+        "source_name": "demo.pdf",
+        "page": 1,
+        "origin_id": "img-1",
+        "object_ref": "3 0 R"
+      },
       "nearby_caption": "Figure 1 Example"
     }
   ]
@@ -148,12 +180,13 @@ The following can currently be treated as stable and safe to rely on:
 * `document` as the dedicated file-level metadata area, with `null` used when unavailable
 * the dual-view separation between `blocks[]` and `assets[]`
 * the relationship between the primary image caption field and the mirrored `nearby_caption`
+* origin extensions are additive and sparse; consumers should tolerate missing optional fields
 
 ### 7.2 Future Enhancements (Do Not Make Strong Coupling Assumptions Yet)
 
 The following belong to future enhancement directions and should not yet be treated as strongly stable assumptions:
 
-* finer-grained anchoring (`bbox` / `char-range` / `source-object-id`)
+* finer-grained anchoring (`bbox` / `char-range` / full PDF source refs)
 * more advanced semantic fields (especially for complex PDF and advanced OOXML scenarios)
 * completeness of field population in certain weak-semantic or ambiguous cases
 

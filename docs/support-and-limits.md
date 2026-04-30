@@ -135,13 +135,15 @@ Currently supported:
 - code-like paragraph recovery
 - line-break handling in paragraphs and table cells
 - hyperlink recovery in paragraph / heading / list contexts
-- external hyperlink preservation as Markdown links through `Inline::Link(text, href)`
+- external `w:hyperlink r:id` relationship preservation as Markdown links
+  through `Inline::Link(text, href)`
 - lightweight block-level origin metadata
 - lightweight asset-origin metadata for exported image resources
 
 Current boundaries:
 
-- hyperlinks with missing `r:id`, missing relationships, or internal anchors are currently downgraded to plain text
+- hyperlinks with missing `r:id`, missing relationships, empty targets, or
+  internal anchors/bookmarks are currently downgraded to plain text
 - footnote and endnote hyperlinks are not currently recovered
 - quote-like / code-like detection for multilingual or non-standard style names remains conservative
 - some style generalization still relies mainly on heuristic naming rules
@@ -235,7 +237,8 @@ Currently supported:
 - note-like / caption-like / callout-like grouping
 - table-like / grid-like region detection and stabilization
 - conservative filtering of page-number / corner-label noise
-- run-level hyperlink recovery and basic shape-level hyperlink recovery
+- run-level `a:hlinkClick r:id` external hyperlink recovery
+- basic shape-level hyperlink fallback when one clear external shape link is present
 - conservative caption-like attachment for single-image slides
 - conservative nearby-text attachment for single-image slides when there is exactly one clear nearby candidate
 - ambiguous multi-image / multi-caption cases intentionally remain unmatched
@@ -244,6 +247,9 @@ Currently supported:
 
 Current boundaries:
 
+- hyperlinks with missing `r:id`, missing relationships, empty targets, internal
+  anchors/bookmarks, actions, macros, or media link targets are currently
+  downgraded to plain text
 - some negative layouts may still be conservatively downgraded into readable ordered paragraphs
 - table-like stabilization currently focuses more on region / order recovery than on full table-level IR semantics
 
@@ -260,7 +266,7 @@ Currently supported:
 - lightweight inline model
 - local structure recovery inside list-item containers
 - local structure recovery inside blockquote containers
-- inline hyperlink recovery in paragraph / heading / list-item / blockquote contexts
+- inline `<a href>` hyperlink recovery in paragraph / heading / list-item / blockquote contexts
 - lightweight document-level block origin metadata
 - lightweight image / figure asset-origin metadata
 - image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
@@ -271,6 +277,8 @@ Currently supported:
 
 Current boundaries:
 
+- links with missing `href`, empty targets, or internal anchors are currently
+  downgraded to plain text
 - the current model is lightweight and DOM-like rather than browser-grade HTML semantics
 - more complex containers and deeply nested cases are still handled conservatively
 - table-cell hyperlink handling still remains on the string-render path (not yet promoted into rich-inline IR)
@@ -382,7 +390,9 @@ Current boundaries:
 - The default PDF path uses line-seed block staging, not core-block seed mode.
 - `pdf_core` annotation/link extraction is available for model/debug
   inspection, and convert pipeline debug retains page annotations, but
-  annotations are not converted into Markdown links by default.
+  annotations are not converted into Markdown links by default. PDF annotation
+  link emission requires a separate bbox/text matching design before it is
+  enabled.
 - Image provenance is retained in convert pipeline debug for diagnosis, but it
   does not change the Markdown contract.
 - PDF caption pairing remains conservative: it is only attempted for

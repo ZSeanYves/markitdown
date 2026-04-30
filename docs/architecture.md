@@ -178,6 +178,8 @@ Responsibilities:
 - Maintain `block_origins / asset_origins / ImageData`
 - Carry optional `passthrough_markdown` for formats whose final Markdown should
   remain source-preserving rather than emitter-reconstructed
+- Represent preserved inline hyperlinks as `Inline::Link(text, href)` across
+  supported converters
 
 Role:
 
@@ -185,11 +187,27 @@ Role:
 - Separates “parsing problems” from “output problems” for easier diagnosis
 - Provides a unified input contract for Markdown, metadata sidecars, and future engineering-oriented outputs
 
+Current link preservation contract:
+
+- HTML `<a href>` links, DOCX external `w:hyperlink r:id` relationships, PPTX
+  run-level `a:hlinkClick r:id` relationships, and PPTX basic shape-level
+  hyperlink fallback all converge on `Inline::Link(text, href)`.
+- Missing `href`, missing `r:id`, missing relationship targets, empty targets,
+  internal anchors/bookmarks, actions, macros, and media links are not promoted
+  to link IR. They remain plain text when text is available.
+- DOCX document relationships are cached per document parse; PPTX slide
+  relationships are cached per slide. Converters must not re-read `.rels` per
+  hyperlink node.
+- PDF annotation/link records exist in `pdf_core` and convert debug surfaces,
+  but default PDF Markdown output does not emit annotation links until a
+  separate bbox/text matching design is accepted.
+
 ### 2.6 Markdown Emitter (`core/emitter_markdown.mbt`)
 
 Responsibilities:
 
 - Render IR into stable Markdown main output (for reading)
+- Render `Inline::Link(text, href)` as Markdown `[text](href)`
 - Prefer `passthrough_markdown` when present, then normalize the tail to
   exactly one trailing newline
 

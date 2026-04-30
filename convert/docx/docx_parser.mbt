@@ -64,6 +64,12 @@ fn parse_docx_impl(
       sheet: None,
       origin_id: Some("docx-asset-" + asset_idx.to_string()),
       nearby_caption: None,
+      object_ref: None,
+      relationship_id: None,
+      source_path: None,
+      row_index: None,
+      column_index: None,
+      key_path: None,
     })
   }
   doc

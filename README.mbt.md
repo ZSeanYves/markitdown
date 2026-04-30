@@ -38,6 +38,15 @@ Current major capabilities include:
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
 * **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into `Table` / `List` / `CodeBlock`
 
+Current hyperlink preservation status:
+
+* **HTML**: preserves external `<a href>` links in supported rich-inline contexts
+* **DOCX**: preserves external `w:hyperlink r:id` links through document relationships
+* **PPTX**: preserves run-level `a:hlinkClick r:id` links, with a basic shape-level hyperlink fallback when the whole shape has one clear external link
+* All preserved links use the unified `Inline::Link(text, href)` IR and are emitted as Markdown `[text](href)`
+* Missing `href`, missing `r:id`, missing relationship, empty targets, internal anchors/bookmarks, actions, macros, and media links are not promoted to Markdown links; they are left as plain text where text is available
+* PDF annotation/link records are available in `pdf_core` and convert debug/inspection paths, but the default PDF Markdown output does not emit annotation links yet. Enabling that requires a separate bbox/text matching pass.
+
 Current text-format expansion stages:
 
 * **F1 CSV / TSV**: delimited table text -> unified IR `Table`
@@ -74,7 +83,7 @@ Current `doc_parse/pdf_core` infrastructure includes:
 * source-aware operator parsing and raw adapter layering
 * page geometry support including media box, inherited crop box, rotation, and raw page refs
 * raw image and annotation/link extraction
-* debug/inspect APIs that expose per-page geometry, refs, images, annotations, and text statistics
+* debug/inspect APIs that expose per-page geometry, refs, images, annotations, links, and text statistics
 
 These lower-level packages are parsing and inspection infrastructure. They support the upper-level `convert/*` recovery layer, but they do not directly define the final Markdown semantics on their own.
 

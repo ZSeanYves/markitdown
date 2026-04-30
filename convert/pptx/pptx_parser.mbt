@@ -95,6 +95,12 @@ pub fn parse_pptx(
           "slide-" + idx.to_string() + "-image-" + (i + 1).to_string(),
         ),
         nearby_caption,
+        object_ref: None,
+        relationship_id: img._relationship_id,
+        source_path: img._source_path,
+        row_index: None,
+        column_index: None,
+        key_path: None,
       })
     }
 

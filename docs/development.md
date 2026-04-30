@@ -286,6 +286,25 @@ The shared OOXML layer now provides:
 * README and package-level responsibility documentation that separates ZIP,
   OOXML shared infrastructure, and format-specific recovery code
 
+### Link IR constraints
+
+HTML, DOCX, and PPTX external hyperlink preservation should converge on the
+same IR and emitter contract:
+
+* Preserved hyperlinks use `Inline::Link(text, href)`.
+* The Markdown emitter renders link IR as `[text](href)`.
+* Supported sources are HTML `<a href>`, DOCX external `w:hyperlink r:id`
+  document relationships, PPTX run-level `a:hlinkClick r:id` slide
+  relationships, and PPTX basic shape-level hyperlink fallback.
+* Missing `href`, missing `r:id`, missing relationships, empty targets,
+  internal anchors/bookmarks, actions, macros, and media links must downgrade to
+  plain text when text is available.
+* Relationship parsing must be cached at the document/slide boundary. Do not
+  re-read `.rels` per hyperlink node.
+* PDF annotation/link records are available through `pdf_core` and convert
+  debug/inspection surfaces, but default PDF Markdown output must not emit
+  annotation links until bbox/text matching is designed and validated.
+
 ### DOCX conversion constraints
 
 DOCX conversion is implemented in `convert/docx` on top of the shared OOXML
@@ -309,6 +328,25 @@ place when changing that path:
 * `word/styles.xml` is lazy/gated: read and parse it only when `document.xml`
   contains `<w:pStyle`. Documents with no paragraph style markers should use an
   empty/default styles context and must not fail because styles were skipped.
+
+### PPTX conversion constraints
+
+PPTX conversion is implemented in `convert/pptx` on top of the shared OOXML
+package and relationship infrastructure. Keep the following constraints in
+place when changing that path:
+
+* External PPTX run-level hyperlinks are represented as
+  `Inline::Link(text, href)` from `a:hlinkClick r:id`.
+* Basic shape-level hyperlink fallback may wrap the whole shape text only when
+  the shape has one clear external hyperlink and no run-level link was already
+  recovered.
+* `ppt/slides/_rels/slideN.xml.rels` must be read at most once per slide parse.
+  Build a slide relationship context once and pass it to text, shape, image,
+  and hyperlink recovery.
+* Hyperlink parsing must not re-read slide relationships per run or per shape.
+  Relationship lookup should use the cached slide relationship context.
+* Internal anchors/bookmarks, actions, macros, media links, missing
+  relationships, and empty targets should stay as plain text.
 
 ### PDF Core infrastructure
 

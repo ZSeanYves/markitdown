@@ -36,6 +36,12 @@ pub fn parse_html(
           sheet: None,
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: None,
+          object_ref: None,
+          relationship_id: None,
+          source_path: None,
+          row_index: None,
+          column_index: None,
+          key_path: None,
         })
       }
       @cor.Block::ImageBlock(img) => {
@@ -47,6 +53,12 @@ pub fn parse_html(
           sheet: None,
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: img.caption,
+          object_ref: None,
+          relationship_id: None,
+          source_path: None,
+          row_index: None,
+          column_index: None,
+          key_path: None,
         })
       }
       _ => ()

@@ -13,6 +13,7 @@
       "block_type": "image",
       "text": "Figure 1. PDF caption",
       "origin": {
+        "format": "pdf",
         "source_name": "pdf_image_single_caption_like.pdf",
         "page": 1,
         "slide": null,
@@ -36,12 +37,14 @@
       "title": null,
       "caption": "Figure 1. PDF caption",
       "origin": {
+        "format": "pdf",
         "source_name": "pdf_image_single_caption_like.pdf",
         "page": 1,
         "slide": null,
         "sheet": null,
         "origin_id": "xobj-image-3",
-        "nearby_caption": "Figure 1. PDF caption"
+        "nearby_caption": "Figure 1. PDF caption",
+        "object_ref": "3 0 R"
       },
       "nearby_caption": "Figure 1. PDF caption"
     }

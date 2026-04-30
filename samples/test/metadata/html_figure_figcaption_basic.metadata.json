@@ -13,6 +13,7 @@
       "block_type": "image",
       "text": "Figure caption text.",
       "origin": {
+        "format": "html",
         "source_name": "html_figure_figcaption_basic.html",
         "page": null,
         "slide": null,
@@ -36,6 +37,7 @@
       "title": "Figure title",
       "caption": "Figure caption text.",
       "origin": {
+        "format": "html",
         "source_name": "html_figure_figcaption_basic.html",
         "page": null,
         "slide": null,

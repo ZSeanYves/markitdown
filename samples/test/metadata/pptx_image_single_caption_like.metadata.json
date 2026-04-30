@@ -13,6 +13,7 @@
       "block_type": "heading",
       "text": "Slide 1",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -27,6 +28,7 @@
       "block_type": "image",
       "text": "Figure 1. Revenue trend",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -46,6 +48,7 @@
       "block_type": "blank_line",
       "text": "",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -64,12 +67,15 @@
       "title": null,
       "caption": "Figure 1. Revenue trend",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
         "origin_id": "slide-1-image-1",
-        "nearby_caption": "Figure 1. Revenue trend"
+        "nearby_caption": "Figure 1. Revenue trend",
+        "relationship_id": "rId2",
+        "source_path": "ppt/media/image1.png"
       },
       "nearby_caption": "Figure 1. Revenue trend"
     }

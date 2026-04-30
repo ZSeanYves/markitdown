@@ -11,6 +11,8 @@
 priv struct PptxSlideImage {
   _alt : String
   _path : String
+  _relationship_id : String?
+  _source_path : String?
 }
 
 ///|
@@ -68,6 +70,8 @@ fn export_slide_images(
     out.push({
       _alt: "slide-" + slide_no.to_string() + "-image-" + img_idx.to_string(),
       _path: rel_out,
+      _relationship_id: Some(rid),
+      _source_path: Some(target),
     })
   }
 

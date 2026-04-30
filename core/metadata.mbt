@@ -120,22 +120,37 @@ priv struct MetadataAsset {
 
 ///|
 priv struct MetadataOrigin {
+  format : String?
   source_name : String?
   page : Int?
   slide : Int?
   sheet : String?
   block_index : Int?
   heading_path : Array[String]?
+  line_start : Int?
+  line_end : Int?
+  row_index : Int?
+  column_index : Int?
+  object_ref : String?
+  relationship_id : String?
+  key_path : String?
 }
 
 ///|
 priv struct MetadataAssetOrigin {
+  format : String?
   source_name : String?
   page : Int?
   slide : Int?
   sheet : String?
   origin_id : String?
   nearby_caption : String?
+  object_ref : String?
+  relationship_id : String?
+  source_path : String?
+  row_index : Int?
+  column_index : Int?
+  key_path : String?
 }
 
 ///|
@@ -146,8 +161,8 @@ fn build_document_metadata(
   markdown_file : String,
   document : MetadataDocumentProperties?,
 ) -> DocumentMetadata {
-  let blocks = build_metadata_blocks(doc)
-  let assets = build_metadata_assets(doc)
+  let blocks = build_metadata_blocks(doc, format)
+  let assets = build_metadata_assets(doc, format)
 
   {
     version: "1",
@@ -162,12 +177,16 @@ fn build_document_metadata(
 }
 
 ///|
-fn build_metadata_blocks(doc : Document) -> Array[MetadataBlock] {
+fn build_metadata_blocks(
+  doc : Document,
+  format : String,
+) -> Array[MetadataBlock] {
   let out : Array[MetadataBlock] = []
+  let markdown_ranges = markdown_line_ranges(doc)
 
   for i in 0..<doc.blocks.val.length() {
     let block = doc.blocks.val[i]
-    let origin = convert_block_origin(doc, i)
+    let origin = convert_block_origin(doc, i, format, block, markdown_ranges)
 
     match block {
       Block::ImageBlock(img) =>
@@ -198,7 +217,10 @@ fn build_metadata_blocks(doc : Document) -> Array[MetadataBlock] {
 }
 
 ///|
-fn build_metadata_assets(doc : Document) -> Array[MetadataAsset] {
+fn build_metadata_assets(
+  doc : Document,
+  format : String,
+) -> Array[MetadataAsset] {
   let out : Array[MetadataAsset] = []
 
   let paths : Array[String] = []
@@ -237,7 +259,7 @@ fn build_metadata_assets(doc : Document) -> Array[MetadataAsset] {
           alt_text,
           title,
           caption,
-          origin: Some(convert_asset_origin(asset_origin)),
+          origin: Some(convert_asset_origin(asset_origin, format)),
           nearby_caption: asset_origin.nearby_caption,
         })
       }
@@ -321,6 +343,110 @@ fn table_text(rows : Array[Array[String]]) -> String {
 }
 
 ///|
+fn markdown_line_ranges(doc : Document) -> Array[(Int, Int)] {
+  let out : Array[(Int, Int)] = []
+  for _ in doc.blocks.val {
+    out.push((0, 0))
+  }
+
+  let markdown = match doc.passthrough_markdown.val {
+    Some(text) => text.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+    None => return out
+  }
+  let lines : Array[String] = markdown
+    .split("\n")
+    .map(fn(line) { line.to_owned() })
+    .iter()
+    .collect()
+  let mut cursor = 0
+
+  for i in 0..<doc.blocks.val.length() {
+    let text = block_text_for_metadata(doc.blocks.val[i])
+    if text == "" {
+      continue
+    }
+    let block_lines : Array[String] = text
+      .replace(old="\r\n", new="\n")
+      .replace(old="\r", new="\n")
+      .split("\n")
+      .map(fn(line) { line.to_owned() })
+      .iter()
+      .collect()
+    match find_line_sequence(lines, block_lines, cursor) {
+      Some(start) => {
+        let end_ = start + block_lines.length() - 1
+        out[i] = (start + 1, end_ + 1)
+        cursor = end_ + 1
+      }
+      None => ()
+    }
+  }
+
+  out
+}
+
+///|
+fn find_line_sequence(
+  lines : Array[String],
+  needle : Array[String],
+  from : Int,
+) -> Int? {
+  if needle.length() == 0 {
+    return None
+  }
+  let mut i = from
+  while i + needle.length() <= lines.length() {
+    let mut ok = true
+    for j in 0..<needle.length() {
+      if lines[i + j] != needle[j] {
+        ok = false
+        break
+      }
+    }
+    if ok {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn infer_block_line_range(
+  format : String,
+  block : Block,
+  index : Int,
+  markdown_ranges : Array[(Int, Int)],
+) -> (Int?, Int?) {
+  if format == "csv" || format == "tsv" {
+    match block {
+      Block::Table(rows) => return (Some(1), Some(rows.length()))
+      _ => ()
+    }
+  }
+
+  if format == "markdown" {
+    if index >= 0 && index < markdown_ranges.length() {
+      let (start, end_) = markdown_ranges[index]
+      if start > 0 && end_ >= start {
+        return (Some(start), Some(end_))
+      }
+    }
+  }
+
+  (None, None)
+}
+
+///|
+fn infer_block_key_path(format : String) -> String? {
+  if format == "json" || format == "yaml" {
+    Some("$")
+  } else {
+    None
+  }
+}
+
+///|
 fn find_image_data_by_path(doc : Document, path : String) -> ImageData? {
   for block in doc.blocks.val {
     match block {
@@ -332,34 +458,62 @@ fn find_image_data_by_path(doc : Document, path : String) -> ImageData? {
 }
 
 ///|
-fn convert_block_origin(doc : Document, index : Int) -> MetadataOrigin? {
+fn convert_block_origin(
+  doc : Document,
+  index : Int,
+  format : String,
+  block : Block,
+  markdown_ranges : Array[(Int, Int)],
+) -> MetadataOrigin? {
   if index < 0 || index >= doc.block_origins.val.length() {
     return None
   }
 
   match doc.block_origins.val[index] {
     None => None
-    Some(origin) =>
+    Some(origin) => {
+      let (line_start, line_end) = infer_block_line_range(
+        format, block, index, markdown_ranges,
+      )
       Some({
+        format: Some(format),
         source_name: origin.source_name,
         page: origin.page,
         slide: origin.slide,
         sheet: origin.sheet,
         block_index: origin.block_index,
         heading_path: origin.heading_path,
+        line_start,
+        line_end,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: infer_block_key_path(format),
       })
+    }
   }
 }
 
 ///|
-fn convert_asset_origin(asset_origin : AssetOrigin) -> MetadataAssetOrigin {
+fn convert_asset_origin(
+  asset_origin : AssetOrigin,
+  format : String,
+) -> MetadataAssetOrigin {
   {
+    format: Some(format),
     source_name: asset_origin.source_name,
     page: asset_origin.page,
     slide: asset_origin.slide,
     sheet: asset_origin.sheet,
     origin_id: asset_origin.origin_id,
     nearby_caption: asset_origin.nearby_caption,
+    object_ref: asset_origin.object_ref,
+    relationship_id: asset_origin.relationship_id,
+    source_path: asset_origin.source_path,
+    row_index: asset_origin.row_index,
+    column_index: asset_origin.column_index,
+    key_path: asset_origin.key_path,
   }
 }
 
@@ -545,6 +699,7 @@ fn serialize_origin_opt(origin : MetadataOrigin?) -> String {
 fn serialize_origin(origin : MetadataOrigin) -> String {
   let fields : Array[String] = []
 
+  push_json_string_field(fields, "format", origin.format)
   fields.push("\"source_name\": " + json_string_opt(origin.source_name))
   fields.push("\"page\": " + json_int_opt(origin.page))
   fields.push("\"slide\": " + json_int_opt(origin.slide))
@@ -553,6 +708,13 @@ fn serialize_origin(origin : MetadataOrigin) -> String {
   fields.push(
     "\"heading_path\": " + serialize_string_array_opt(origin.heading_path),
   )
+  push_json_int_field(fields, "line_start", origin.line_start)
+  push_json_int_field(fields, "line_end", origin.line_end)
+  push_json_int_field(fields, "row_index", origin.row_index)
+  push_json_int_field(fields, "column_index", origin.column_index)
+  push_json_string_field(fields, "object_ref", origin.object_ref)
+  push_json_string_field(fields, "relationship_id", origin.relationship_id)
+  push_json_string_field(fields, "key_path", origin.key_path)
 
   "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
 }
@@ -569,12 +731,19 @@ fn serialize_asset_origin_opt(origin : MetadataAssetOrigin?) -> String {
 fn serialize_asset_origin(origin : MetadataAssetOrigin) -> String {
   let fields : Array[String] = []
 
+  push_json_string_field(fields, "format", origin.format)
   fields.push("\"source_name\": " + json_string_opt(origin.source_name))
   fields.push("\"page\": " + json_int_opt(origin.page))
   fields.push("\"slide\": " + json_int_opt(origin.slide))
   fields.push("\"sheet\": " + json_string_opt(origin.sheet))
   fields.push("\"origin_id\": " + json_string_opt(origin.origin_id))
   fields.push("\"nearby_caption\": " + json_string_opt(origin.nearby_caption))
+  push_json_string_field(fields, "object_ref", origin.object_ref)
+  push_json_string_field(fields, "relationship_id", origin.relationship_id)
+  push_json_string_field(fields, "source_path", origin.source_path)
+  push_json_int_field(fields, "row_index", origin.row_index)
+  push_json_int_field(fields, "column_index", origin.column_index)
+  push_json_string_field(fields, "key_path", origin.key_path)
 
   "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
 }
@@ -609,6 +778,30 @@ fn json_int_opt(v : Int?) -> String {
   match v {
     None => "null"
     Some(i) => i.to_string()
+  }
+}
+
+///|
+fn push_json_string_field(
+  fields : Array[String],
+  name : String,
+  value : String?,
+) -> Unit {
+  match value {
+    Some(v) => fields.push("\"" + name + "\": " + json_string(v))
+    None => ()
+  }
+}
+
+///|
+fn push_json_int_field(
+  fields : Array[String],
+  name : String,
+  value : Int?,
+) -> Unit {
+  match value {
+    Some(v) => fields.push("\"" + name + "\": " + v.to_string())
+    None => ()
   }
 }
 

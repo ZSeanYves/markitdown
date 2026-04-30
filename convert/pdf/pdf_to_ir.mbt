@@ -95,6 +95,12 @@ fn convert_pdf_blocks_to_ir(
             sheet: None,
             origin_id: Some(image.source_image_id),
             nearby_caption,
+            object_ref: image.object_ref,
+            relationship_id: None,
+            source_path: None,
+            row_index: None,
+            column_index: None,
+            key_path: None,
           })
         }
       }
