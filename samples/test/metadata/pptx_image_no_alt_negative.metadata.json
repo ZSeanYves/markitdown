@@ -1,8 +1,8 @@
 {
   "version": "1",
-  "source_name": "pptx_image_single_caption_like.pptx",
+  "source_name": "pptx_image_no_alt_negative.pptx",
   "format": "pptx",
-  "markdown_file": "pptx_image_single_caption_like.md",
+  "markdown_file": "pptx_image_no_alt_negative.md",
   "document": null,
   "summary": {
     "block_count": 3,
@@ -15,7 +15,7 @@
       "text": "Slide 1",
       "origin": {
         "format": "pptx",
-        "source_name": "pptx_image_single_caption_like.pptx",
+        "source_name": "pptx_image_no_alt_negative.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
@@ -27,10 +27,10 @@
     {
       "block_index": 1,
       "block_type": "image",
-      "text": "Figure 1. Revenue trend",
+      "text": "",
       "origin": {
         "format": "pptx",
-        "source_name": "pptx_image_single_caption_like.pptx",
+        "source_name": "pptx_image_no_alt_negative.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
@@ -39,9 +39,9 @@
       },
       "image": {
         "path": "assets/image01.png",
-        "alt_text": "tmpug_opwhs.png",
+        "alt_text": "slide-1-image-1",
         "title": null,
-        "caption": "Figure 1. Revenue trend"
+        "caption": null
       }
     },
     {
@@ -50,7 +50,7 @@
       "text": "",
       "origin": {
         "format": "pptx",
-        "source_name": "pptx_image_single_caption_like.pptx",
+        "source_name": "pptx_image_no_alt_negative.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
@@ -64,21 +64,21 @@
     {
       "path": "assets/image01.png",
       "asset_type": "image",
-      "alt_text": "tmpug_opwhs.png",
+      "alt_text": "slide-1-image-1",
       "title": null,
-      "caption": "Figure 1. Revenue trend",
+      "caption": null,
       "origin": {
         "format": "pptx",
-        "source_name": "pptx_image_single_caption_like.pptx",
+        "source_name": "pptx_image_no_alt_negative.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
         "origin_id": "slide-1-image-1",
-        "nearby_caption": "Figure 1. Revenue trend",
+        "nearby_caption": null,
         "relationship_id": "rId2",
         "source_path": "ppt/media/image1.png"
       },
-      "nearby_caption": "Figure 1. Revenue trend"
+      "nearby_caption": null
     }
   ]
 }

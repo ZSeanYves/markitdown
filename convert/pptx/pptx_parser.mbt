@@ -72,8 +72,8 @@ pub fn parse_pptx(
         doc,
         @cor.Block::ImageBlock({
           path: img._path,
-          alt_text: Some(img._alt),
-          title: None,
+          alt_text: Some(img._alt_text),
+          title: img._title,
           caption: nearby_caption,
           origin: Some({
             source_name: Some(src),

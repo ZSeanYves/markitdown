@@ -9,10 +9,18 @@
 /// - no caption inference here (kept in slide-level pairing step)
 /// - no remote/image-link fetching
 priv struct PptxSlideImage {
-  _alt : String
+  _alt_text : String
+  _title : String?
   _path : String
   _relationship_id : String?
   _source_path : String?
+}
+
+///|
+priv struct PptxPictureShapeMeta {
+  rid : String
+  descr : String?
+  title : String?
 }
 
 ///|
@@ -40,11 +48,76 @@ fn export_slide_images(
     return []
   }
 
+  let picture_shapes = collect_slide_picture_shape_metas(slide_xml)
+  if picture_shapes.length() > 0 {
+    return export_picture_shape_images(
+      p, out_dir, slide_no, next_idx, image_targets, picture_shapes,
+    )
+  }
+
   let rids = collect_slide_image_rids(slide_xml)
   if rids.length() == 0 {
     return []
   }
 
+  export_fallback_slide_images(
+    p, out_dir, slide_no, next_idx, image_targets, rids,
+  )
+}
+
+///|
+fn export_picture_shape_images(
+  p : PptxPackage,
+  out_dir : String,
+  slide_no : Int,
+  next_idx : Ref[Int],
+  image_targets : Map[String, String],
+  picture_shapes : Array[PptxPictureShapeMeta],
+) -> Array[PptxSlideImage] {
+  let out : Array[PptxSlideImage] = []
+  let mut img_idx = 0
+
+  for picture in picture_shapes {
+    let target = match image_targets.get(picture.rid) {
+      None => continue
+      Some(t) => t
+    }
+
+    let ext = image_ext_from_target(target)
+    if ext == "" {
+      continue
+    }
+
+    let data = @ox.read_part_bytes(p.pkg, target) catch { _ => continue }
+    img_idx += 1
+    let rel_out = @cor.next_image_asset_rel_path_unique(next_idx, ext, out_dir)
+    let dst = out_dir + "/" + rel_out
+    @fs.write_bytes_to_file(dst, data) catch {
+      _ => continue
+    }
+
+    let synthetic_alt = synthetic_slide_image_alt_text(slide_no, img_idx)
+    out.push({
+      _alt_text: picture.descr.unwrap_or(synthetic_alt),
+      _title: picture.title,
+      _path: rel_out,
+      _relationship_id: Some(picture.rid),
+      _source_path: Some(target),
+    })
+  }
+
+  out
+}
+
+///|
+fn export_fallback_slide_images(
+  p : PptxPackage,
+  out_dir : String,
+  slide_no : Int,
+  next_idx : Ref[Int],
+  image_targets : Map[String, String],
+  rids : Array[String],
+) -> Array[PptxSlideImage] {
   let out : Array[PptxSlideImage] = []
   let mut img_idx = 0
 
@@ -68,7 +141,8 @@ fn export_slide_images(
     }
 
     out.push({
-      _alt: "slide-" + slide_no.to_string() + "-image-" + img_idx.to_string(),
+      _alt_text: synthetic_slide_image_alt_text(slide_no, img_idx),
+      _title: None,
       _path: rel_out,
       _relationship_id: Some(rid),
       _source_path: Some(target),
@@ -76,6 +150,11 @@ fn export_slide_images(
   }
 
   out
+}
+
+///|
+fn synthetic_slide_image_alt_text(slide_no : Int, img_idx : Int) -> String {
+  "slide-" + slide_no.to_string() + "-image-" + img_idx.to_string()
 }
 
 ///|
@@ -89,6 +168,114 @@ fn rels_image_target_map(
     }
   }
   out
+}
+
+///|
+fn collect_slide_picture_shape_metas(
+  slide_xml : Bytes,
+) -> Array[PptxPictureShapeMeta] raise {
+  let out : Array[PptxPictureShapeMeta] = []
+  let open_pic = pat("<p:pic")
+  let close_pic = pat("</p:pic>")
+  let gt_pat = pat(">")
+
+  let mut pos = 0
+  while true {
+    let p0 = find_bytes(slide_xml, open_pic, pos)
+    match p0 {
+      None => break
+      Some(i0) => {
+        let gt = find_bytes(slide_xml, gt_pat, i0)
+        match gt {
+          None => break
+          Some(gt0) => {
+            let pic_end = find_bytes(slide_xml, close_pic, gt0 + 1)
+            match pic_end {
+              None => break
+              Some(pic_end0) => {
+                let pic_xml = slide_xml[i0:pic_end0 + close_pic.length()].to_owned()
+                match read_picture_shape_meta(pic_xml) {
+                  Some(meta) => out.push(meta)
+                  None => ()
+                }
+                pos = pic_end0 + close_pic.length()
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn read_picture_shape_meta(pic_xml : Bytes) -> PptxPictureShapeMeta? raise {
+  match read_picture_shape_rid(pic_xml) {
+    Some(rid) =>
+      if rid.trim() == "" {
+        None
+      } else {
+        ignore(read_picture_shape_cnvpr_attr(pic_xml, "name"))
+        Some({
+          rid: rid.trim().to_owned(),
+          descr: read_picture_shape_cnvpr_attr(pic_xml, "descr"),
+          title: read_picture_shape_cnvpr_attr(pic_xml, "title"),
+        })
+      }
+    None => None
+  }
+}
+
+///|
+fn read_picture_shape_rid(pic_xml : Bytes) -> String? raise {
+  read_attr_value_in_first_tag_bytes(pic_xml, "<a:blip", "r:embed")
+}
+
+///|
+fn read_picture_shape_cnvpr_attr(
+  pic_xml : Bytes,
+  attr_name : String,
+) -> String? raise {
+  normalize_optional_pptx_image_attr(
+    read_attr_value_in_first_tag_bytes(pic_xml, "<p:cNvPr", attr_name),
+  )
+}
+
+///|
+fn read_attr_value_in_first_tag_bytes(
+  block : Bytes,
+  tag_prefix : String,
+  attr_name : String,
+) -> String? raise {
+  let start = find_bytes(block, pat(tag_prefix), 0).unwrap_or(-1)
+  if start < 0 {
+    return None
+  }
+
+  let end_ = find_bytes(block, pat(">"), start).unwrap_or(-1)
+  if end_ < 0 {
+    return None
+  }
+
+  let tag = block[start:end_ + 1].to_owned()
+  read_attr_value_in_tag_bytes(tag, attr_name)
+}
+
+///|
+fn normalize_optional_pptx_image_attr(value : String?) -> String? {
+  match value {
+    Some(raw) => {
+      let trimmed = xml_unescape(raw).trim().to_owned()
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
 }
 
 ///|

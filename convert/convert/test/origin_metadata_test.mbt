@@ -457,6 +457,40 @@ test "origin_metadata/html_docx_minimal_closure" {
   assert_block_origin_alignment(docx_doc)
   assert_doc_level_origins(docx_doc)
   assert_image_assets_are_indexed(docx_doc)
+  assert_image_caption_mirrors_asset_origin(docx_doc)
+  match first_image_block(docx_doc) {
+    Some(img) => {
+      if img.alt_text != Some("截屏2026-02-18 15.08.23") {
+        fail("docx golden image alt_text should come from wp:docPr descr")
+      }
+      if img.title != None {
+        fail("docx golden image title should be None")
+      }
+      if img.caption != None {
+        fail("docx golden image caption should be None")
+      }
+      if img.origin != None {
+        fail("docx golden image origin should be None")
+      }
+      match docx_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => {
+          if asset_origin.relationship_id != Some("rId4") {
+            fail("docx golden image relationship_id should be rId4")
+          }
+          if asset_origin.source_path != Some("word/media/image1.png") {
+            fail(
+              "docx golden image source_path should be word/media/image1.png",
+            )
+          }
+          if asset_origin.nearby_caption != None {
+            fail("docx golden image nearby_caption should be None")
+          }
+        }
+        None => fail("docx golden asset origin should exist")
+      }
+    }
+    None => fail("expected one docx image block")
+  }
 }
 
 ///|
@@ -601,6 +635,92 @@ test "image_context/html_alt_title_figcaption" {
 }
 
 ///|
+test "image_context/docx_alt_title_and_no_alt" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/image_context_docx_alt_title_and_no_alt"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/docx-alt-title")
+  ensure_dir(out_dir + "/docx-no-alt")
+
+  let alt_title_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+    out_dir + "/docx-alt-title",
+    6,
+  )
+  match first_image_block(alt_title_doc) {
+    Some(img) => {
+      if img.alt_text != Some("Figure alt text") {
+        fail("docx alt-title image alt_text should prefer wp:docPr descr")
+      }
+      if img.title != Some("Figure title text") {
+        fail("docx alt-title image title should prefer wp:docPr title")
+      }
+      if img.caption != None {
+        fail("docx alt-title image caption should be None")
+      }
+      if img.origin != None {
+        fail("docx alt-title image origin should be None")
+      }
+      match alt_title_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => {
+          if asset_origin.relationship_id != Some("rId4") {
+            fail("docx alt-title relationship_id should be rId4")
+          }
+          if asset_origin.source_path != Some("word/media/image1.png") {
+            fail("docx alt-title source_path should be word/media/image1.png")
+          }
+          if asset_origin.nearby_caption != None {
+            fail("docx alt-title nearby_caption should be None")
+          }
+        }
+        None => fail("docx alt-title asset origin should exist")
+      }
+    }
+    None => fail("expected one docx image block for alt-title sample")
+  }
+
+  let no_alt_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+    out_dir + "/docx-no-alt",
+    6,
+  )
+  match first_image_block(no_alt_doc) {
+    Some(img) => {
+      if img.alt_text != Some("image") {
+        fail("docx no-alt image should preserve legacy alt fallback")
+      }
+      if img.title != None {
+        fail("docx no-alt image title should be None")
+      }
+      if img.caption != None {
+        fail("docx no-alt image caption should be None")
+      }
+      if img.origin != None {
+        fail("docx no-alt image origin should be None")
+      }
+      match no_alt_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => {
+          if asset_origin.relationship_id != Some("rId4") {
+            fail("docx no-alt relationship_id should be rId4")
+          }
+          if asset_origin.source_path != Some("word/media/image1.png") {
+            fail("docx no-alt source_path should be word/media/image1.png")
+          }
+          if asset_origin.nearby_caption != None {
+            fail("docx no-alt nearby_caption should be None")
+          }
+        }
+        None => fail("docx no-alt asset origin should exist")
+      }
+    }
+    None => fail("expected one docx image block for no-alt sample")
+  }
+}
+
+///|
 test "origin_metadata/html_asset_source_path_dedupe_and_remote_downgrade" {
   let root_dir = origin_tmp_root()
 
@@ -691,8 +811,8 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   assert_image_caption_mirrors_asset_origin(pptx_doc)
   match first_image_block(pptx_doc) {
     Some(img) => {
-      if img.alt_text != Some("slide-1-image-1") {
-        fail("pptx image alt_text should be Some(slide-1-image-1)")
+      if img.alt_text != Some("tmpug_opwhs.png") {
+        fail("pptx image alt_text should come from p:cNvPr descr")
       }
       if img.title != None {
         fail("pptx image title should be None")
@@ -709,10 +829,17 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
       }
       assert_asset_origin_has_min_source(pptx_doc, img.path)
       match pptx_doc.asset_origins.val.get(img.path) {
-        Some(asset_origin) =>
+        Some(asset_origin) => {
           if asset_origin.nearby_caption != Some("Figure 1. Revenue trend") {
             fail("pptx nearby_caption should match figure caption")
           }
+          if asset_origin.relationship_id != Some("rId2") {
+            fail("pptx relationship_id should be rId2")
+          }
+          if asset_origin.source_path != Some("ppt/media/image1.png") {
+            fail("pptx source_path should be ppt/media/image1.png")
+          }
+        }
         None => fail("pptx asset origin should exist")
       }
     }
@@ -1125,6 +1252,107 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     "html_figure_figcaption_basic.metadata.json",
   )
 
+  let pptx_single_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_image_single_caption_like"
+  recreate_clean_dir(pptx_single_out_dir)
+  defer cleanup_temp_dir(pptx_single_out_dir)
+  ensure_dir(pptx_single_out_dir + "/pptx")
+  let pptx_single_doc = @pptx.parse_pptx(
+    resolve_sample_path(
+      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+    ),
+    pptx_single_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      pptx_single_doc, "pptx_image_single_caption_like.pptx", "pptx", "pptx_image_single_caption_like.md",
+    ),
+    "pptx_image_single_caption_like.metadata.json",
+  )
+
+  let pptx_alt_title_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_image_alt_title_basic"
+  recreate_clean_dir(pptx_alt_title_out_dir)
+  defer cleanup_temp_dir(pptx_alt_title_out_dir)
+  ensure_dir(pptx_alt_title_out_dir + "/pptx")
+  let pptx_alt_title_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_image_alt_title_basic.pptx"),
+    pptx_alt_title_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      pptx_alt_title_doc, "pptx_image_alt_title_basic.pptx", "pptx", "pptx_image_alt_title_basic.md",
+    ),
+    "pptx_image_alt_title_basic.metadata.json",
+  )
+
+  let pptx_no_alt_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_image_no_alt_negative"
+  recreate_clean_dir(pptx_no_alt_out_dir)
+  defer cleanup_temp_dir(pptx_no_alt_out_dir)
+  ensure_dir(pptx_no_alt_out_dir + "/pptx")
+  let pptx_no_alt_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_image_no_alt_negative.pptx"),
+    pptx_no_alt_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      pptx_no_alt_doc, "pptx_image_no_alt_negative.pptx", "pptx", "pptx_image_no_alt_negative.md",
+    ),
+    "pptx_image_no_alt_negative.metadata.json",
+  )
+
+  let docx_golden_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_golden"
+  recreate_clean_dir(docx_golden_out_dir)
+  defer cleanup_temp_dir(docx_golden_out_dir)
+  ensure_dir(docx_golden_out_dir + "/docx")
+  let docx_golden_doc = @doc.parse_docx(
+    resolve_sample_path("samples/main_process/docx/golden.docx"),
+    docx_golden_out_dir + "/docx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(docx_golden_doc, "golden.docx", "docx", "golden.md"),
+    "golden.metadata.json",
+  )
+
+  let docx_alt_title_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_image_alt_title_basic"
+  recreate_clean_dir(docx_alt_title_out_dir)
+  defer cleanup_temp_dir(docx_alt_title_out_dir)
+  ensure_dir(docx_alt_title_out_dir + "/docx")
+  let docx_alt_title_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+    docx_alt_title_out_dir + "/docx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      docx_alt_title_doc, "docx_image_alt_title_basic.docx", "docx", "docx_image_alt_title_basic.md",
+    ),
+    "docx_image_alt_title_basic.metadata.json",
+  )
+
+  let docx_no_alt_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_image_no_alt_negative"
+  recreate_clean_dir(docx_no_alt_out_dir)
+  defer cleanup_temp_dir(docx_no_alt_out_dir)
+  ensure_dir(docx_no_alt_out_dir + "/docx")
+  let docx_no_alt_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+    docx_no_alt_out_dir + "/docx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      docx_no_alt_doc, "docx_image_no_alt_negative.docx", "docx", "docx_image_no_alt_negative.md",
+    ),
+    "docx_image_no_alt_negative.metadata.json",
+  )
+
   let csv_doc = @csv.parse_csv(
     resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
     "",
@@ -1274,6 +1502,12 @@ test "image_context/pptx_caption_association" {
   )
   match first_image_block(doc) {
     Some(img) => {
+      if img.alt_text != Some("tmpug_opwhs.png") {
+        fail("pptx caption-like image alt_text should come from p:cNvPr descr")
+      }
+      if img.title != None {
+        fail("pptx caption-like image title should be None")
+      }
       if img.caption != Some("Figure 1. Revenue trend") {
         fail(
           "pptx caption-like image caption should be Figure 1. Revenue trend",
@@ -1295,6 +1529,86 @@ test "image_context/pptx_caption_association" {
       }
     }
     None => fail("expected one pptx image block")
+  }
+}
+
+///|
+test "image_context/pptx_alt_title_and_no_alt" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/image_context_pptx_alt_title_and_no_alt"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/pptx-alt-title")
+  ensure_dir(out_dir + "/pptx-no-alt")
+
+  let alt_title_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_image_alt_title_basic.pptx"),
+    out_dir + "/pptx-alt-title",
+    6,
+  )
+  match first_image_block(alt_title_doc) {
+    Some(img) => {
+      if img.alt_text != Some("Figure alt text") {
+        fail("pptx alt-title image alt_text should prefer p:cNvPr descr")
+      }
+      if img.title != Some("Figure title text") {
+        fail("pptx alt-title image title should prefer p:cNvPr title")
+      }
+      if img.caption != None {
+        fail("pptx alt-title image caption should be None")
+      }
+      match alt_title_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => {
+          if asset_origin.relationship_id != Some("rId2") {
+            fail("pptx alt-title relationship_id should be rId2")
+          }
+          if asset_origin.source_path != Some("ppt/media/image1.png") {
+            fail("pptx alt-title source_path should be ppt/media/image1.png")
+          }
+          if asset_origin.nearby_caption != None {
+            fail("pptx alt-title nearby_caption should be None")
+          }
+        }
+        None => fail("pptx alt-title asset origin should exist")
+      }
+    }
+    None => fail("expected one pptx image block for alt-title sample")
+  }
+
+  let no_alt_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_image_no_alt_negative.pptx"),
+    out_dir + "/pptx-no-alt",
+    6,
+  )
+  match first_image_block(no_alt_doc) {
+    Some(img) => {
+      if img.alt_text != Some("slide-1-image-1") {
+        fail("pptx no-alt image should fall back to synthetic alt")
+      }
+      if img.title != None {
+        fail("pptx no-alt image title should be None")
+      }
+      if img.caption != None {
+        fail("pptx no-alt image caption should be None")
+      }
+      match no_alt_doc.asset_origins.val.get(img.path) {
+        Some(asset_origin) => {
+          if asset_origin.relationship_id != Some("rId2") {
+            fail("pptx no-alt relationship_id should be rId2")
+          }
+          if asset_origin.source_path != Some("ppt/media/image1.png") {
+            fail("pptx no-alt source_path should be ppt/media/image1.png")
+          }
+          if asset_origin.nearby_caption != None {
+            fail("pptx no-alt nearby_caption should be None")
+          }
+        }
+        None => fail("pptx no-alt asset origin should exist")
+      }
+    }
+    None => fail("expected one pptx image block for no-alt sample")
   }
 }
 

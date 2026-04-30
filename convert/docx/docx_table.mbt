@@ -13,16 +13,17 @@ fn scan_paragraph(
   let level = read_heading_level(p_xml, styles, max_heading)
 
   // 2) 图片 embed（常见：<a:blip r:embed="rId5">）
-  match read_attr_value(p_xml, "r:embed=\"") {
-    Some(rid) => {
-      let target = lookup_doc_relationship_target(rel_ctx, rid)
-      if target != "" {
-        let asset = rid_to_asset_path(target, asset_by_target)
-        if asset != "" {
-          out.push(@cor.Block::Image("image", asset))
-        }
-      }
-    }
+  match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
+    Some(img) =>
+      out.push(
+        @cor.Block::ImageBlock({
+          path: img.asset_path,
+          alt_text: img.alt_text,
+          title: img.title,
+          caption: None,
+          origin: None,
+        }),
+      )
     None => ()
   }
 
@@ -87,6 +88,89 @@ fn scan_paragraph(
     out.push(@cor.Block::Paragraph(text))
   }
   out
+}
+
+///|
+fn read_docx_image_context(
+  p_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+) -> DocxImageContext? {
+  match read_attr_value(p_xml, "r:embed=\"") {
+    Some(rid) => {
+      let target = lookup_doc_relationship_target(rel_ctx, rid)
+      if target == "" {
+        return None
+      }
+
+      let asset_path = rid_to_asset_path(target, asset_by_target)
+      if asset_path == "" {
+        return None
+      }
+
+      Some({
+        asset_path,
+        alt_text: string_opt_or(
+          first_docx_image_attr(p_xml, "descr"),
+          Some("image"),
+        ),
+        title: first_docx_image_attr(p_xml, "title"),
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn first_docx_image_attr(p_xml : String, attr_name : String) -> String? {
+  string_opt_or(
+    read_attr_value_in_first_tag(p_xml, "<wp:docPr", attr_name),
+    read_attr_value_in_first_tag(p_xml, "<pic:cNvPr", attr_name),
+  )
+}
+
+///|
+fn read_attr_value_in_first_tag(
+  block : String,
+  tag_prefix : String,
+  attr_name : String,
+) -> String? {
+  let chars = block.to_array()
+  let start = find_sub(chars, 0, tag_prefix)
+  if start < 0 {
+    return None
+  }
+
+  let end_ = find_sub(chars, start, ">")
+  if end_ < 0 {
+    return None
+  }
+
+  let tag = profiled_slice_to_string(chars, start, end_ + 1)
+  normalize_optional_docx_image_attr(read_attr_value_in_tag(tag, attr_name))
+}
+
+///|
+fn normalize_optional_docx_image_attr(value : String?) -> String? {
+  match value {
+    Some(raw) => {
+      let trimmed = @cor.trim_string(raw)
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn string_opt_or(primary : String?, fallback : String?) -> String? {
+  match primary {
+    Some(_) => primary
+    None => fallback
+  }
 }
 
 ///|

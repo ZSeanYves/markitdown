@@ -42,6 +42,13 @@ priv struct DocxInlineScanResult {
 }
 
 ///|
+priv struct DocxImageContext {
+  asset_path : String
+  alt_text : String?
+  title : String?
+}
+
+///|
 priv struct DocxProfilingCounters {
   paragraphs_seen : Ref[Int]
   hyperlink_nodes_seen : Ref[Int]

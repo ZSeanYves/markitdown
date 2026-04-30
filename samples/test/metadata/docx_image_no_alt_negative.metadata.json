@@ -1,0 +1,54 @@
+{
+  "version": "1",
+  "source_name": "docx_image_no_alt_negative.docx",
+  "format": "docx",
+  "markdown_file": "docx_image_no_alt_negative.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_image_no_alt_negative.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image01.png",
+        "alt_text": "image",
+        "title": null,
+        "caption": null
+      }
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image01.png",
+      "asset_type": "image",
+      "alt_text": "image",
+      "title": null,
+      "caption": null,
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_image_no_alt_negative.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "docx-asset-1",
+        "nearby_caption": null,
+        "relationship_id": "rId4",
+        "source_path": "word/media/image1.png"
+      },
+      "nearby_caption": null
+    }
+  ]
+}
