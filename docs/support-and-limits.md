@@ -21,6 +21,7 @@ The unified entry currently supports:
 - HTML/HTM
 - CSV
 - TSV
+- JSON
 
 Inputs outside the above extensions are rejected by the dispatcher.
 
@@ -273,6 +274,28 @@ Current boundaries:
 - no type inference, formula handling, dialect sniffing, comments, or schema detection
 - no large-file streaming path; files are read into memory as text
 - CSV / TSV output is a single Markdown table, not a multi-table workbook model
+
+### 7.7 JSON
+
+Currently supported:
+
+- `.json` extension routing
+- UTF-8 JSON files read into memory
+- JSON object, array, string, number, boolean, and null values
+- top-level objects emitted as key-value Markdown tables
+- arrays of objects with consistent keys emitted as Markdown tables
+- arrays of scalar values emitted as bullet lists
+- mixed arrays and ambiguous nested structures emitted as fenced JSON blocks
+- nested object / array values inside table cells compact-stringified as JSON
+- lightweight block origin metadata and standard metadata sidecar summary fields
+
+Current boundaries:
+
+- no JSON Schema support
+- no JSON Lines support
+- no streaming parser path
+- no type inference beyond JSON primitive values
+- nested structures remain conservative compact JSON values or fenced JSON blocks
 
 ## 8) Current Boundaries (Key Points)
 

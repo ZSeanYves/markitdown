@@ -251,13 +251,13 @@ The following remain unsupported or intentionally disabled by default:
 * PDF outline/bookmark extraction into Markdown or metadata output
 * PDF complex table recovery
 * OCR as a formally closed default path
-* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv set
+* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json set
 
 ## Next Candidate Routes
 
 Recommended order for the next expansion phase:
 
-1. JSON / YAML
+1. YAML
 2. Markdown passthrough + metadata
 3. EPUB
 4. RTF
@@ -265,8 +265,8 @@ Recommended order for the next expansion phase:
 
 Rationale:
 
-* JSON / YAML can establish structured-data passthrough and summarization
-  patterns now that CSV / TSV cover the first small-surface table-text route.
+* YAML can follow the JSON route while keeping YAML-specific syntax and
+  ambiguity handling isolated.
 * Markdown passthrough can validate metadata/origin behavior without introducing
   a heavy parser.
 * EPUB is valuable but requires package/navigation/content stitching.

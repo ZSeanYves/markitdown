@@ -259,6 +259,8 @@ fn detect_input_format(path : String) -> String {
     "csv"
   } else if base.has_suffix(".tsv") {
     "tsv"
+  } else if base.has_suffix(".json") {
+    "json"
   } else {
     "unknown"
   }

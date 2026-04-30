@@ -620,6 +620,30 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !csv_json.contains("\"document\": null") {
     fail("csv metadata should keep document null")
   }
+
+  let json_doc = @json.parse_json(
+    resolve_sample_path("samples/main_process/json/json_object_basic.json"),
+    "",
+    6,
+  )
+  let json_json = @cor.emit_metadata_json(
+    json_doc, "json_object_basic.json", "json", "json_object_basic.md",
+  )
+  if !json_json.contains("\"format\": \"json\"") {
+    fail("json metadata should contain json format")
+  }
+  if !json_json.contains("\"source_name\": \"json_object_basic.json\"") {
+    fail("json metadata should contain source_name")
+  }
+  if !json_json.contains("\"block_count\": 1") {
+    fail("json metadata should contain one block")
+  }
+  if !json_json.contains("\"asset_count\": 0") {
+    fail("json metadata should contain zero assets")
+  }
+  if !json_json.contains("\"document\": null") {
+    fail("json metadata should keep document null")
+  }
 }
 
 ///|

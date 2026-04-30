@@ -15,7 +15,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
@@ -50,6 +50,9 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     tsv)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.tsv" -print)
+      ;;
+    json)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.json" -print)
       ;;
     *)
       continue
