@@ -1,7 +1,7 @@
 ///|
 fn scan_paragraph(
   p_xml : String,
-  rels : Map[String, String],
+  rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
   styles : DocxStyles,
   numbering : DocxNumbering,
@@ -13,23 +13,24 @@ fn scan_paragraph(
   let level = read_heading_level(p_xml, styles, max_heading)
 
   // 2) 图片 embed（常见：<a:blip r:embed="rId5">）
-  match read_attr_value(p_xml, "r:embed=\"") {
-    Some(rid) =>
-      match rels.get(rid) {
-        Some(target) => {
-          let asset = rid_to_asset_path(target, asset_by_target)
-          if asset != "" {
-            out.push(@cor.Block::Image("image", asset))
-          }
-        }
-        None => ()
-      }
+  match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
+    Some(img) =>
+      out.push(
+        @cor.Block::ImageBlock({
+          path: img.asset_path,
+          alt_text: img.alt_text,
+          title: img.title,
+          caption: None,
+          origin: None,
+        }),
+      )
     None => ()
   }
 
   // 3) 段落文本
-  let inlines = collect_wt_inlines(p_xml, rels)
-  let text = collect_wt_text(p_xml)
+  let scan = scan_docx_inline_text(p_xml, rel_ctx)
+  let inlines = scan.inlines
+  let text = scan.text
   if @cor.is_blank(text) {
     return out
   }
@@ -90,6 +91,89 @@ fn scan_paragraph(
 }
 
 ///|
+fn read_docx_image_context(
+  p_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+) -> DocxImageContext? {
+  match read_attr_value(p_xml, "r:embed=\"") {
+    Some(rid) => {
+      let target = lookup_doc_relationship_target(rel_ctx, rid)
+      if target == "" {
+        return None
+      }
+
+      let asset_path = rid_to_asset_path(target, asset_by_target)
+      if asset_path == "" {
+        return None
+      }
+
+      Some({
+        asset_path,
+        alt_text: string_opt_or(
+          first_docx_image_attr(p_xml, "descr"),
+          Some("image"),
+        ),
+        title: first_docx_image_attr(p_xml, "title"),
+      })
+    }
+    None => None
+  }
+}
+
+///|
+fn first_docx_image_attr(p_xml : String, attr_name : String) -> String? {
+  string_opt_or(
+    read_attr_value_in_first_tag(p_xml, "<wp:docPr", attr_name),
+    read_attr_value_in_first_tag(p_xml, "<pic:cNvPr", attr_name),
+  )
+}
+
+///|
+fn read_attr_value_in_first_tag(
+  block : String,
+  tag_prefix : String,
+  attr_name : String,
+) -> String? {
+  let chars = block.to_array()
+  let start = find_sub(chars, 0, tag_prefix)
+  if start < 0 {
+    return None
+  }
+
+  let end_ = find_sub(chars, start, ">")
+  if end_ < 0 {
+    return None
+  }
+
+  let tag = profiled_slice_to_string(chars, start, end_ + 1)
+  normalize_optional_docx_image_attr(read_attr_value_in_tag(tag, attr_name))
+}
+
+///|
+fn normalize_optional_docx_image_attr(value : String?) -> String? {
+  match value {
+    Some(raw) => {
+      let trimmed = @cor.trim_string(raw)
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn string_opt_or(primary : String?, fallback : String?) -> String? {
+  match primary {
+    Some(_) => primary
+    None => fallback
+  }
+}
+
+///|
 fn read_heading_level(
   p_xml : String,
   styles : DocxStyles,
@@ -136,7 +220,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
       break
     }
 
-    let tr_inner = @cor.slice_to_string(chars, tr2 + 1, tr3)
+    let tr_inner = profiled_slice_to_string(chars, tr2 + 1, tr3)
     let tr_chars = tr_inner.to_array()
 
     let mut j = 0
@@ -158,7 +242,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
         break
       }
 
-      let tc_inner = @cor.slice_to_string(tr_chars, tc2 + 1, tc3)
+      let tc_inner = profiled_slice_to_string(tr_chars, tc2 + 1, tc3)
 
       // 只从 tc_inner 里抽 w:t
       let cell_text = collect_tc_text(tc_inner)
@@ -289,7 +373,7 @@ fn read_pstyle_value(p_xml : String) -> String? {
     return None
   }
 
-  let tag = @cor.slice_to_string(chars, p1, p2 + 1)
+  let tag = profiled_slice_to_string(chars, p1, p2 + 1)
 
   match read_attr_value_in_tag(tag, "w:val") {
     Some(v) => Some(v)

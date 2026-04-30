@@ -47,6 +47,15 @@ Top level:
 * `blocks[]`
 * `assets[]`
 
+Current G2 Origin / Source Location status:
+
+* additive origin schema extension is complete
+* additive origin fields are emitted sparsely
+* OOXML origin refinement is complete at the current repository boundary
+* structured/text origin refinement is complete at the current repository boundary
+* HTML image `source_path` refinement is complete at the current repository boundary
+* the metadata schema version and top-level shape are unchanged
+
 ### 4.1 Role of `document`
 
 `document` represents file-level document properties. It is deliberately kept at
@@ -86,6 +95,34 @@ present.
 * `origin`: provenance information (optional)
 * `image`: extra image-block information (only for image blocks)
 
+Current serialized `blocks[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `block_index`
+* `heading_path`
+* `line_start`
+* `line_end`
+* `row_index`
+* `column_index`
+* `object_ref`
+* `relationship_id`
+* `key_path`
+
+Current verifiable block-origin fill ranges:
+
+* XLSX blocks: source row/column span plus `relationship_id`
+* CSV / TSV blocks: physical `line_start` / `line_end` plus
+  `row_index = 1` / `column_index = 1`
+* JSON / YAML blocks: root `key_path = "$"`
+* Markdown blocks: conservative `line_start` / `line_end`
+
+Block origin remains block-scoped. The current IR does not carry row/cell-level
+table provenance.
+
 ### 4.3 Role of `assets[]`
 
 `assets[]` represents engineering information from the **asset-level perspective**:
@@ -95,6 +132,36 @@ present.
 * `alt_text` / `title` / `caption`
 * `origin`
 * `nearby_caption`
+
+Current serialized `assets[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `origin_id`
+* `object_ref`
+* `relationship_id`
+* `source_path`
+* `row_index`
+* `column_index`
+* `key_path`
+* `nearby_caption`
+
+Current verifiable asset-origin fill ranges:
+
+* PDF assets: `object_ref`
+* PPTX assets: `relationship_id` / `source_path`
+* DOCX assets: `relationship_id` / `source_path`
+* HTML image assets: `source_path` from normalized local `<img src>`
+
+Additive origin fields are emitted sparsely: absent optional values are omitted
+instead of being serialized as `null`. Existing v1 fields keep their historical
+shape.
+
+`relationship_id` is only populated for formats that actually have a stable
+relationship model. HTML does not have one in the current contract.
 
 ## 5) Relationship Between `ImageData.caption` and `nearby_caption`
 
@@ -119,7 +186,7 @@ The current contract is:
       "block_index": 0,
       "block_type": "heading",
       "text": "Example Title",
-      "origin": { "source_name": "demo.pdf", "page": 1 },
+      "origin": { "format": "pdf", "source_name": "demo.pdf", "page": 1 },
       "image": null
     }
   ],
@@ -130,7 +197,13 @@ The current contract is:
       "alt_text": null,
       "title": null,
       "caption": "Figure 1 Example",
-      "origin": { "source_name": "demo.pdf", "page": 1, "origin_id": "img-1" },
+      "origin": {
+        "format": "pdf",
+        "source_name": "demo.pdf",
+        "page": 1,
+        "origin_id": "img-1",
+        "object_ref": "3 0 R"
+      },
       "nearby_caption": "Figure 1 Example"
     }
   ]
@@ -148,13 +221,25 @@ The following can currently be treated as stable and safe to rely on:
 * `document` as the dedicated file-level metadata area, with `null` used when unavailable
 * the dual-view separation between `blocks[]` and `assets[]`
 * the relationship between the primary image caption field and the mirrored `nearby_caption`
+* the current sidecar origin field surface for `blocks[].origin` and `assets[].origin`
+* origin extensions are additive and sparse; consumers should tolerate missing optional fields
 
 ### 7.2 Future Enhancements (Do Not Make Strong Coupling Assumptions Yet)
 
 The following belong to future enhancement directions and should not yet be treated as strongly stable assumptions:
 
-* finer-grained anchoring (`bbox` / `char-range` / `source-object-id`)
+* finer-grained anchoring (`bbox` / `char-range` / full PDF source refs)
 * more advanced semantic fields (especially for complex PDF and advanced OOXML scenarios)
 * completeness of field population in certain weak-semantic or ambiguous cases
+
+Current explicit non-goals:
+
+* default sidecar emission of full PDF `source_refs`
+* default sidecar emission of bbox
+* HTML DOM path anchoring
+* HTML block `line_start` / `line_end`
+* table cell-level provenance
+* JSON / YAML nested key-path anchoring
+* default PDF annotation-link Markdown emission
 
 ```

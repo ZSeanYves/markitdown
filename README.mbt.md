@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -35,6 +35,31 @@ Current major capabilities include:
 * **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, and image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
 * **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
 * **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values
+* **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
+* **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into `Table` / `List` / `CodeBlock`
+
+Current hyperlink preservation status:
+
+* **HTML**: preserves external `<a href>` links in supported rich-inline contexts
+* **DOCX**: preserves external `w:hyperlink r:id` links through document relationships
+* **PPTX**: preserves run-level `a:hlinkClick r:id` links, with a basic shape-level hyperlink fallback when the whole shape has one clear external link
+* All preserved links use the unified `Inline::Link(text, href)` IR and are emitted as Markdown `[text](href)`
+* Missing `href`, missing `r:id`, missing relationship, empty targets, internal anchors/bookmarks, actions, macros, and media links are not promoted to Markdown links; they are left as plain text where text is available
+* PDF annotation/link records are available in `pdf_core` and convert debug/inspection paths, but the default PDF Markdown output does not emit annotation links yet. Enabling that requires a separate bbox/text matching pass.
+
+Current text-format expansion stages:
+
+* **F1 CSV / TSV**: delimited table text -> unified IR `Table`
+* **F2 JSON**: structured data -> unified IR `Table` / `List` / `CodeBlock`
+* **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
+* **F4 YAML**: simple-subset structured data -> unified IR `Table` / `List` / `CodeBlock`
+
+Current text-format boundaries:
+
+* **CSV / TSV**: no streaming path, dialect sniffing, or schema inference
+* **JSON**: no JSON Schema, JSON Lines, or streaming parser path
+* **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
+* **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
 
 The repository has now formed a stable workflow:
 
@@ -58,7 +83,7 @@ Current `doc_parse/pdf_core` infrastructure includes:
 * source-aware operator parsing and raw adapter layering
 * page geometry support including media box, inherited crop box, rotation, and raw page refs
 * raw image and annotation/link extraction
-* debug/inspect APIs that expose per-page geometry, refs, images, annotations, and text statistics
+* debug/inspect APIs that expose per-page geometry, refs, images, annotations, links, and text statistics
 
 These lower-level packages are parsing and inspection infrastructure. They support the upper-level `convert/*` recovery layer, but they do not directly define the final Markdown semantics on their own.
 
@@ -66,18 +91,74 @@ These lower-level packages are parsing and inspection infrastructure. They suppo
 
 The unified IR currently includes a lightweight provenance layer for tracing the source of both content blocks and exported assets:
 
-* `Document.block_origins`: block-level provenance information (such as source name, page / slide / sheet, and block index)
-* `Document.asset_origins`: asset-level provenance information (such as source name, page / slide / sheet, origin id, and nearby caption)
+* `Document.block_origins`: block-level provenance information
+* `Document.asset_origins`: asset-level provenance information
+
+The G2 Origin / Source Location stage is now complete at the current
+repository boundary. It includes:
+
+* additive origin schema extension
+* sparse sidecar emission for additive fields
+* OOXML origin refinement
+* structured/text origin refinement
+* HTML image `source_path` refinement
+
+Current sidecar `blocks[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `block_index`
+* `heading_path`
+* `line_start` / `line_end`
+* `row_index` / `column_index`
+* `object_ref`
+* `relationship_id`
+* `key_path`
+
+Current sidecar `assets[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `origin_id`
+* `object_ref`
+* `relationship_id`
+* `source_path`
+* `row_index` / `column_index`
+* `key_path`
+* `nearby_caption`
+
+Current verifiably populated ranges include:
+
+* PDF assets: `object_ref`
+* PPTX assets: `relationship_id` / `source_path`
+* DOCX assets: `relationship_id` / `source_path`
+* XLSX blocks: source row/column span plus `relationship_id`
+* CSV / TSV blocks: physical `line_start` / `line_end` plus row/column origin
+* JSON / YAML blocks: root `key_path = "$"`
+* Markdown blocks: conservative `line_start` / `line_end`
+* HTML image assets: `source_path` from normalized `<img src>`
 
 Its current scope is **lightweight provenance**, rather than a fine-grained anchoring system.
 
 It does **not yet** include:
 
-* bbox
-* char range
-* fine-grained source object id anchoring
+* default sidecar emission of full PDF `source_refs`
+* default sidecar emission of bbox
+* HTML DOM path or HTML block line-range anchoring
+* table cell-level provenance
+* JSON / YAML nested key-path anchoring
+* default PDF annotation-link Markdown emission
 
 It also does not alter the reading behavior of the Markdown main output.
+
+The metadata schema itself remains unchanged; G2 only extends and refines
+field population within the existing sidecar contract.
 
 ## Project Goals
 

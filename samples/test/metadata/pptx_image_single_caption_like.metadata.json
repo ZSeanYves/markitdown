@@ -3,6 +3,7 @@
   "source_name": "pptx_image_single_caption_like.pptx",
   "format": "pptx",
   "markdown_file": "pptx_image_single_caption_like.md",
+  "document": null,
   "summary": {
     "block_count": 3,
     "asset_count": 1
@@ -13,6 +14,7 @@
       "block_type": "heading",
       "text": "Slide 1",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -27,6 +29,7 @@
       "block_type": "image",
       "text": "Figure 1. Revenue trend",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -35,8 +38,8 @@
         "heading_path": null
       },
       "image": {
-        "path": "assets/image02.png",
-        "alt_text": "slide-1-image-1",
+        "path": "assets/image01.png",
+        "alt_text": "tmpug_opwhs.png",
         "title": null,
         "caption": "Figure 1. Revenue trend"
       }
@@ -46,6 +49,7 @@
       "block_type": "blank_line",
       "text": "",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
@@ -58,18 +62,21 @@
   ],
   "assets": [
     {
-      "path": "assets/image02.png",
+      "path": "assets/image01.png",
       "asset_type": "image",
-      "alt_text": "slide-1-image-1",
+      "alt_text": "tmpug_opwhs.png",
       "title": null,
       "caption": "Figure 1. Revenue trend",
       "origin": {
+        "format": "pptx",
         "source_name": "pptx_image_single_caption_like.pptx",
         "page": null,
         "slide": 1,
         "sheet": null,
         "origin_id": "slide-1-image-1",
-        "nearby_caption": "Figure 1. Revenue trend"
+        "nearby_caption": "Figure 1. Revenue trend",
+        "relationship_id": "rId2",
+        "source_path": "ppt/media/image1.png"
       },
       "nearby_caption": "Figure 1. Revenue trend"
     }

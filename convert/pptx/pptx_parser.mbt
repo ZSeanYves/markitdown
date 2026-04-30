@@ -44,14 +44,20 @@ pub fn parse_pptx(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
 
     let xml = p.read_bytes_required(path)
-    let _ = build_slide_rel_context(p, path)
-    let hyperlinks = slide_hyperlink_map(p, path)
-    let images = export_slide_images(p, path, xml, out_dir, idx, image_idx)
-    let paras = extract_slide_paragraphs(xml, hyperlinks)
+    let rel_ctx = build_slide_rel_context(p, path)
+    let images = export_slide_images(p, rel_ctx, xml, out_dir, idx, image_idx)
+    let paras = extract_slide_paragraphs(xml, rel_ctx.hyperlinks)
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
       images, paras,
     )
@@ -66,8 +72,8 @@ pub fn parse_pptx(
         doc,
         @cor.Block::ImageBlock({
           path: img._path,
-          alt_text: Some(img._alt),
-          title: None,
+          alt_text: Some(img._alt_text),
+          title: img._title,
           caption: nearby_caption,
           origin: Some({
             source_name: Some(src),
@@ -76,6 +82,13 @@ pub fn parse_pptx(
             sheet: None,
             block_index: None,
             heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: None,
+            relationship_id: None,
+            key_path: None,
           }),
         }),
         Some({
@@ -85,6 +98,13 @@ pub fn parse_pptx(
           sheet: None,
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
       @cor.set_asset_origin(doc, img._path, {
@@ -96,6 +116,12 @@ pub fn parse_pptx(
           "slide-" + idx.to_string() + "-image-" + (i + 1).to_string(),
         ),
         nearby_caption,
+        object_ref: None,
+        relationship_id: img._relationship_id,
+        source_path: img._source_path,
+        row_index: None,
+        column_index: None,
+        key_path: None,
       })
     }
 
@@ -110,6 +136,13 @@ pub fn parse_pptx(
           sheet: None,
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
     } else {
@@ -129,6 +162,13 @@ pub fn parse_pptx(
                   sheet: None,
                   block_index: Some(doc.blocks.val.length()),
                   heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
                 }),
               )
             }
@@ -147,6 +187,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = false
@@ -163,6 +210,13 @@ pub fn parse_pptx(
                   sheet: None,
                   block_index: Some(doc.blocks.val.length()),
                   heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
                 }),
               )
             }
@@ -181,6 +235,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = false
@@ -201,6 +262,13 @@ pub fn parse_pptx(
                 sheet: None,
                 block_index: Some(doc.blocks.val.length()),
                 heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
               }),
             )
             prev_was_list = true
@@ -219,6 +287,13 @@ pub fn parse_pptx(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
     idx = idx + 1

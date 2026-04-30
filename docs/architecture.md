@@ -37,7 +37,7 @@ Boundaries:
 
 Responsibilities:
 
-- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/md/markdown`)
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/yaml/yml/md/markdown`)
 
 Boundaries:
 
@@ -57,11 +57,14 @@ Current format-expansion stages in this layer:
 - F1: CSV / TSV
 - F2: JSON
 - F3: Markdown passthrough
+- F4: YAML
 
 Current converter split:
 
-- Structured-input converters such as CSV / TSV / JSON recover source content
-  into unified IR semantics
+- Delimited-text converters such as CSV / TSV map source text into unified IR
+  `Table` semantics
+- Structured-data converters such as JSON / YAML map source content into
+  unified IR `Table` / `List` / `CodeBlock` semantics conservatively
 - Markdown uses a low-loss passthrough path: it reads UTF-8 source text,
   preserves the original Markdown body, and only builds conservative block
   slices for metadata summary and origin reporting
@@ -175,6 +178,8 @@ Responsibilities:
 - Maintain `block_origins / asset_origins / ImageData`
 - Carry optional `passthrough_markdown` for formats whose final Markdown should
   remain source-preserving rather than emitter-reconstructed
+- Represent preserved inline hyperlinks as `Inline::Link(text, href)` across
+  supported converters
 
 Role:
 
@@ -182,11 +187,35 @@ Role:
 - Separates “parsing problems” from “output problems” for easier diagnosis
 - Provides a unified input contract for Markdown, metadata sidecars, and future engineering-oriented outputs
 
+Current origin/source-location status in this layer:
+
+- G2 additive origin extension is complete within the existing sidecar schema
+- origin fields are populated sparsely rather than padded with additive `null`
+- block/asset provenance remains intentionally lightweight and block-scoped
+- no row/cell-level table provenance container has been added to the unified IR
+- the Markdown main output contract is unchanged by origin enrichment
+
+Current link preservation contract:
+
+- HTML `<a href>` links, DOCX external `w:hyperlink r:id` relationships, PPTX
+  run-level `a:hlinkClick r:id` relationships, and PPTX basic shape-level
+  hyperlink fallback all converge on `Inline::Link(text, href)`.
+- Missing `href`, missing `r:id`, missing relationship targets, empty targets,
+  internal anchors/bookmarks, actions, macros, and media links are not promoted
+  to link IR. They remain plain text when text is available.
+- DOCX document relationships are cached per document parse; PPTX slide
+  relationships are cached per slide. Converters must not re-read `.rels` per
+  hyperlink node.
+- PDF annotation/link records exist in `pdf_core` and convert debug surfaces,
+  but default PDF Markdown output does not emit annotation links until a
+  separate bbox/text matching design is accepted.
+
 ### 2.6 Markdown Emitter (`core/emitter_markdown.mbt`)
 
 Responsibilities:
 
 - Render IR into stable Markdown main output (for reading)
+- Render `Inline::Link(text, href)` as Markdown `[text](href)`
 - Prefer `passthrough_markdown` when present, then normalize the tail to
   exactly one trailing newline
 
@@ -203,6 +232,17 @@ Boundaries:
 Responsibilities:
 
 - Serialize IR + origin / asset information into `*.metadata.json` (for engineering consumption)
+
+Current emitted origin field surface:
+
+- `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+- `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+- additive fields are sparse emit only; absent optional values are omitted
+- this is a fill-range refinement effort, not a schema-version change
 
 Boundaries:
 
@@ -285,8 +325,14 @@ the data flow is as follows:
   * format expansion F1: CSV / TSV
   * format expansion F2: JSON
   * format expansion F3: Markdown passthrough
+  * format expansion F4: YAML
   * first-pass consolidation of shared OOXML and native PDF parsing
     infrastructure
+  * G2 additive origin schema extension
+  * G2 sparse origin emission
+  * G2 OOXML origin refinement
+  * G2 structured/text origin refinement
+  * G2 HTML image `source_path` refinement
 * Still being consolidated:
 
   * complex PDF layouts
@@ -299,15 +345,43 @@ the data flow is as follows:
   * fine-grained anchoring such as bbox / char-range / object-id
   * semantic reconstruction for more complex layouts
 
-Markdown passthrough boundary at the current stage:
+Current text-format expansion boundaries:
 
-- supports `.md` and `.markdown`
-- reads UTF-8 Markdown files
-- preserves the original Markdown body as the main output
-- uses `passthrough_markdown` as the emitter’s preferred source when present
-- only normalizes the final tail to exactly one trailing newline
-- does not run Markdown AST parsing
-- does not reinterpret or rewrite link / image / table / code / frontmatter
-- continues to use the existing metadata sidecar schema unchanged
+- CSV / TSV remain delimited-text converters only: no streaming path, dialect
+  sniffing, or schema inference is introduced at this layer
+- JSON remains a conservative structured-data route: no JSON Schema, JSON
+  Lines, or streaming parser path is introduced
+- Markdown passthrough supports `.md` and `.markdown`, reads UTF-8 Markdown
+  files, preserves the original Markdown body as the main output, uses
+  `passthrough_markdown` as the emitter's preferred source when present, only
+  normalizes the final tail to exactly one trailing newline, does not run
+  Markdown AST parsing, and does not reinterpret or rewrite link / image /
+  table / code / frontmatter
+- YAML supports `.yaml` and `.yml` and maps a simple YAML subset into unified
+  IR; anchors / aliases / tags / block scalar / flow style / multi-document
+  input remain out of scope
+- These format additions do not change the metadata sidecar schema; they remain
+  on the existing shared `format / source_name / summary / document` contract
+
+Current origin fill matrix at the architecture level:
+
+- PDF assets populate `object_ref`
+- PPTX assets populate `relationship_id` and `source_path`
+- DOCX assets populate `relationship_id` and `source_path`
+- XLSX blocks populate source row/column span plus `relationship_id`
+- CSV / TSV blocks populate physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+- JSON / YAML blocks populate root `key_path = "$"`
+- Markdown blocks populate conservative `line_start` / `line_end`
+- HTML image assets populate `source_path` from normalized `<img src>`
+
+Current non-goals at this stage:
+
+- default sidecar emission of PDF full `source_refs`
+- default sidecar emission of bbox
+- HTML DOM path or HTML block line ranges
+- table cell-level provenance
+- JSON / YAML nested key paths
+- default PDF annotation-link Markdown emission
 
 ```

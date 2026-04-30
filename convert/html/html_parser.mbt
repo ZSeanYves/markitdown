@@ -21,7 +21,8 @@ pub fn parse_html(
   let doc = @cor.new_document()
 
   let nodes = scan_html_nodes(bs)
-  let blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
+  let html_blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
+  let blocks = html_blocks.blocks
   let src = @cor.basename(input_path)
   let mut asset_idx = 0
 
@@ -36,6 +37,12 @@ pub fn parse_html(
           sheet: None,
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: None,
+          object_ref: None,
+          relationship_id: None,
+          source_path: html_blocks.asset_source_paths.get(path),
+          row_index: None,
+          column_index: None,
+          key_path: None,
         })
       }
       @cor.Block::ImageBlock(img) => {
@@ -47,6 +54,12 @@ pub fn parse_html(
           sheet: None,
           origin_id: Some("html-asset-" + asset_idx.to_string()),
           nearby_caption: img.caption,
+          object_ref: None,
+          relationship_id: None,
+          source_path: html_blocks.asset_source_paths.get(img.path),
+          row_index: None,
+          column_index: None,
+          key_path: None,
         })
       }
       _ => ()
@@ -62,6 +75,13 @@ pub fn parse_html(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
   }

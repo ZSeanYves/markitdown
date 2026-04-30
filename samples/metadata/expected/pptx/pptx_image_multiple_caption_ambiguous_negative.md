@@ -1,8 +1,8 @@
 ## Slide 1
 
-![slide-1-image-1](assets/image03.jpg)
+![img_red.jpg](assets/image01.jpg)
 
-![slide-1-image-2](assets/image04.jpg)
+![img_red.jpg](assets/image02.jpg)
 
 Figure 1. Left sample
 

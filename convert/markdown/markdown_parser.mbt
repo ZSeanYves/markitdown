@@ -29,7 +29,7 @@ pub fn parse_markdown(
   for block in conservative_markdown_blocks(text) {
     @cor.push_with_origin(
       doc,
-      block,
+      block.block,
       Some({
         source_name: Some(src),
         page: None,
@@ -37,6 +37,13 @@ pub fn parse_markdown(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: Some(block.line_start),
+        line_end: Some(block.line_end),
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
   }

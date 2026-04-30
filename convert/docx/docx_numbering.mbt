@@ -84,8 +84,8 @@ fn parse_abstract_nums(
       break
     }
 
-    let open_tag = @cor.slice_to_string(chars, a1, a2 + 1)
-    let inner = @cor.slice_to_string(chars, a2 + 1, a3)
+    let open_tag = profiled_slice_to_string(chars, a1, a2 + 1)
+    let inner = profiled_slice_to_string(chars, a2 + 1, a3)
 
     let abs_id = match read_attr_value_in_tag(open_tag, "w:abstractNumId") {
       Some(v) => parse_int_default(v, -1)
@@ -125,8 +125,8 @@ fn parse_lvls_for_abstract_num(
       break
     }
 
-    let open_tag = @cor.slice_to_string(chars, l1, l2 + 1)
-    let inner = @cor.slice_to_string(chars, l2 + 1, l3)
+    let open_tag = profiled_slice_to_string(chars, l1, l2 + 1)
+    let inner = profiled_slice_to_string(chars, l2 + 1, l3)
 
     let ilvl = match read_attr_value_in_tag(open_tag, "w:ilvl") {
       Some(v) => parse_int_default(v, -1)
@@ -178,8 +178,8 @@ fn parse_nums(xml : String, num_to_abs : Map[Int, Int]) -> Unit {
       break
     }
 
-    let open_tag = @cor.slice_to_string(chars, n, n2 + 1)
-    let inner = @cor.slice_to_string(chars, n2 + 1, n3)
+    let open_tag = profiled_slice_to_string(chars, n, n2 + 1)
+    let inner = profiled_slice_to_string(chars, n2 + 1, n3)
 
     let num_id = match read_attr_value_in_tag(open_tag, "w:numId") {
       Some(v) => parse_int_default(v, -1)

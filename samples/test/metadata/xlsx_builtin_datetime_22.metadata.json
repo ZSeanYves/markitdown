@@ -13,6 +13,7 @@
       "block_type": "heading",
       "text": "Sample",
       "origin": {
+        "format": "xlsx",
         "source_name": "xlsx_builtin_datetime_22.xlsx",
         "page": null,
         "slide": null,
@@ -27,12 +28,18 @@
       "block_type": "table",
       "text": "Built-in numFmtId 22 | \n | \nValue | 2024-03-14 15:30:00\n | \nPurpose | Regression sample for built-in Excel date/time format detection",
       "origin": {
+        "format": "xlsx",
         "source_name": "xlsx_builtin_datetime_22.xlsx",
         "page": null,
         "slide": null,
         "sheet": "Sample",
         "block_index": 1,
-        "heading_path": null
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 5,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId1"
       },
       "image": null
     },
@@ -41,6 +48,7 @@
       "block_type": "blank_line",
       "text": "",
       "origin": {
+        "format": "xlsx",
         "source_name": "xlsx_builtin_datetime_22.xlsx",
         "page": null,
         "slide": null,

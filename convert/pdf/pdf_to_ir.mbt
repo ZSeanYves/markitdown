@@ -74,6 +74,13 @@ fn convert_pdf_blocks_to_ir(
             sheet: None,
             block_index: Some(out.blocks.val.length()),
             heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: None,
+            relationship_id: None,
+            key_path: None,
           }
 
           @cor.push_with_origin(
@@ -95,6 +102,12 @@ fn convert_pdf_blocks_to_ir(
             sheet: None,
             origin_id: Some(image.source_image_id),
             nearby_caption,
+            object_ref: image.object_ref,
+            relationship_id: None,
+            source_path: None,
+            row_index: None,
+            column_index: None,
+            key_path: None,
           })
         }
       }
@@ -361,6 +374,13 @@ fn emit_text_block_to_ir(
               sheet: None,
               block_index: Some(out.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
         PdfIrHeadingRole::SectionHeading => {
@@ -377,6 +397,13 @@ fn emit_text_block_to_ir(
               sheet: None,
               block_index: Some(out.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
         }
@@ -396,6 +423,13 @@ fn emit_text_block_to_ir(
               sheet: None,
               block_index: Some(out.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
         None =>
@@ -409,6 +443,13 @@ fn emit_text_block_to_ir(
               sheet: None,
               block_index: Some(out.blocks.val.length()),
               heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
             }),
           )
       }

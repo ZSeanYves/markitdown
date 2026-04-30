@@ -56,6 +56,13 @@ pub fn parse_xlsx(
         sheet: None,
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
     return doc
@@ -74,6 +81,13 @@ pub fn parse_xlsx(
         sheet: Some(sheet_name),
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
 
@@ -90,6 +104,13 @@ pub fn parse_xlsx(
           sheet: Some(sheet_name),
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
       @cor.push_with_origin(
@@ -102,13 +123,21 @@ pub fn parse_xlsx(
           sheet: Some(sheet_name),
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
       continue
     }
 
     let sh_xml = p.read_text_required(sheet_path)
-    let table = parse_sheet_table(sh_xml, shared, styles)
+    let table_extract = parse_sheet_table(sh_xml, shared, styles)
+    let table = table_extract.rows
 
     if table.length() == 0 {
       @cor.push_with_origin(
@@ -121,6 +150,13 @@ pub fn parse_xlsx(
           sheet: Some(sheet_name),
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
         }),
       )
     } else {
@@ -134,6 +170,13 @@ pub fn parse_xlsx(
           sheet: Some(sheet_name),
           block_index: Some(doc.blocks.val.length()),
           heading_path: None,
+          line_start: Some(table_extract.min_row),
+          line_end: Some(table_extract.max_row),
+          row_index: Some(table_extract.min_row),
+          column_index: Some(table_extract.min_col),
+          object_ref: None,
+          relationship_id: Some(sh._rid),
+          key_path: None,
         }),
       )
     }
@@ -148,6 +191,13 @@ pub fn parse_xlsx(
         sheet: Some(sheet_name),
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
       }),
     )
   }

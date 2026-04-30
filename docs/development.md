@@ -58,6 +58,47 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+## Current Origin / Source Location Status
+
+The current G2 Origin / Source Location stage is complete without changing the
+sidecar schema or the Markdown main output contract. It consists of:
+
+* additive origin schema extension
+* sparse additive-field emission
+* OOXML origin refinement
+* structured/text origin refinement
+* HTML image `source_path` refinement
+
+Current sidecar origin field surface:
+
+* `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+* `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+
+Current fill matrix to keep in mind during development:
+
+* PDF assets: `object_ref`
+* PPTX assets: `relationship_id` / `source_path`
+* DOCX assets: `relationship_id` / `source_path`
+* XLSX blocks: source row/column span plus `relationship_id`
+* CSV / TSV blocks: physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+* JSON / YAML blocks: root `key_path = "$"`
+* Markdown blocks: conservative `line_start` / `line_end`
+* HTML image assets: `source_path` from normalized `<img src>`
+
+Current explicit non-goals:
+
+* default sidecar emission of PDF full `source_refs`
+* default sidecar emission of bbox
+* HTML DOM path / block line range
+* table cell-level provenance
+* JSON / YAML nested key path
+* PDF annotation link Markdown emission
+
 ## Current Format Expansion Stage
 
 The currently landed text-format expansion stages are:
@@ -65,10 +106,12 @@ The currently landed text-format expansion stages are:
 * F1: CSV / TSV
 * F2: JSON
 * F3: Markdown passthrough
+* F4: YAML
 
 Development positioning:
 
-* CSV / TSV and JSON are structured-input converters that map source content into unified IR
+* CSV / TSV are delimited-table text converters that map source content into unified IR `Table`
+* JSON / YAML are structured-data converters that conservatively map source content into unified IR `Table` / `List` / `CodeBlock`
 * Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
 
 Current Markdown passthrough contract:
@@ -81,6 +124,17 @@ Current Markdown passthrough contract:
 * Does not perform Markdown AST parsing
 * Does not rewrite link / image / table / code-fence / frontmatter semantics
 * Does not change the metadata sidecar schema
+
+Current YAML convert contract:
+
+* Supports `.yaml` and `.yml`
+* Reads UTF-8 text
+* Supports a simple subset: top-level mapping, indentation-based nested mapping,
+  scalar sequences, sequence of mappings, booleans, nulls, and quoted strings
+* Maps structured data conservatively into IR `Table` / `List` / `CodeBlock`
+* Keeps the existing metadata sidecar schema unchanged
+* Does not support anchors / aliases / tags / block scalar / flow style /
+  multi-document input
 
 ### Temporary Output Directories
 
@@ -177,6 +231,20 @@ Markdown-specific note:
 * Markdown metadata currently uses conservative block slicing and keeps `document = null`
 * Do not change the metadata schema when adjusting Markdown passthrough behavior unless the schema change is explicitly planned and accepted
 
+YAML-specific note:
+
+* YAML metadata currently keeps `document = null` and only uses the shared sidecar schema
+* Changes under `convert/yaml/` should preserve the current conservative subset and fallback strategy
+* Do not update YAML expected outputs unless the intended `Table` / `List` / `CodeBlock` contract itself changes
+
+Origin-specific note:
+
+* G2 field population is intentionally sparse; do not backfill additive fields
+  with default `null` values
+* Do not change `samples/main_process/expected/*` for metadata-only work
+* Prefer `samples/metadata/*`, `samples/test/metadata/*`, and
+  `convert/convert/test/origin_metadata_test.mbt` when adjusting origin logic
+
 ### When modifying asset export / asset reference logic
 
 If you modify any of the following, you should at least run:
@@ -267,6 +335,68 @@ The shared OOXML layer now provides:
 * README and package-level responsibility documentation that separates ZIP,
   OOXML shared infrastructure, and format-specific recovery code
 
+### Link IR constraints
+
+HTML, DOCX, and PPTX external hyperlink preservation should converge on the
+same IR and emitter contract:
+
+* Preserved hyperlinks use `Inline::Link(text, href)`.
+* The Markdown emitter renders link IR as `[text](href)`.
+* Supported sources are HTML `<a href>`, DOCX external `w:hyperlink r:id`
+  document relationships, PPTX run-level `a:hlinkClick r:id` slide
+  relationships, and PPTX basic shape-level hyperlink fallback.
+* Missing `href`, missing `r:id`, missing relationships, empty targets,
+  internal anchors/bookmarks, actions, macros, and media links must downgrade to
+  plain text when text is available.
+* Relationship parsing must be cached at the document/slide boundary. Do not
+  re-read `.rels` per hyperlink node.
+* PDF annotation/link records are available through `pdf_core` and convert
+  debug/inspection surfaces, but default PDF Markdown output must not emit
+  annotation links until bbox/text matching is designed and validated.
+
+### DOCX conversion constraints
+
+DOCX conversion is implemented in `convert/docx` on top of the shared OOXML
+package and relationship infrastructure. Keep the following constraints in
+place when changing that path:
+
+* External DOCX hyperlinks are represented in the unified IR as
+  `Inline::Link(text, href)`. Markdown emission should flow through the normal
+  rich-inline path rather than ad-hoc string rendering.
+* `word/_rels/document.xml.rels` must be read at most once per document parse.
+  Build a document relationship context once and pass it through paragraph,
+  inline, image, and hyperlink recovery.
+* Hyperlink parsing must not re-read `document.xml.rels` per hyperlink node.
+  Relationship lookup should use the cached document relationship context.
+* The paragraph inline scanner should remain approximately linear in the
+  paragraph XML size. Avoid nested full-paragraph rescans per inline node or per
+  hyperlink.
+* `scan_paragraph` should not do both a rich-inline scan and a separate
+  `collect_wt_text` pass for the same paragraph. The rich-inline scanner should
+  return both inline nodes and plain text when both are needed.
+* `word/styles.xml` is lazy/gated: read and parse it only when `document.xml`
+  contains `<w:pStyle`. Documents with no paragraph style markers should use an
+  empty/default styles context and must not fail because styles were skipped.
+
+### PPTX conversion constraints
+
+PPTX conversion is implemented in `convert/pptx` on top of the shared OOXML
+package and relationship infrastructure. Keep the following constraints in
+place when changing that path:
+
+* External PPTX run-level hyperlinks are represented as
+  `Inline::Link(text, href)` from `a:hlinkClick r:id`.
+* Basic shape-level hyperlink fallback may wrap the whole shape text only when
+  the shape has one clear external hyperlink and no run-level link was already
+  recovered.
+* `ppt/slides/_rels/slideN.xml.rels` must be read at most once per slide parse.
+  Build a slide relationship context once and pass it to text, shape, image,
+  and hyperlink recovery.
+* Hyperlink parsing must not re-read slide relationships per run or per shape.
+  Relationship lookup should use the cached slide relationship context.
+* Internal anchors/bookmarks, actions, macros, media links, missing
+  relationships, and empty targets should stay as plain text.
+
 ### PDF Core infrastructure
 
 The native PDF substrate now provides:
@@ -314,24 +444,18 @@ The following remain unsupported or intentionally disabled by default:
 * PDF outline/bookmark extraction into Markdown or metadata output
 * PDF complex table recovery
 * OCR as a formally closed default path
-* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json set
+* broad new-format expansion beyond the current docx/pdf/xlsx/pptx/html/csv/tsv/json/markdown/yaml set
 
 ## Next Candidate Routes
 
 Recommended order for the next expansion phase:
 
-1. YAML
-2. Markdown passthrough + metadata
-3. EPUB
-4. RTF
-5. ODT / ODS / ODP
+1. EPUB
+2. RTF
+3. ODT / ODS / ODP
 
 Rationale:
 
-* YAML can follow the JSON route while keeping YAML-specific syntax and
-  ambiguity handling isolated.
-* Markdown passthrough can validate metadata/origin behavior without introducing
-  a heavy parser.
 * EPUB is valuable but requires package/navigation/content stitching.
 * RTF and OpenDocument formats are broader parser investments and should follow
   after the lighter routes.

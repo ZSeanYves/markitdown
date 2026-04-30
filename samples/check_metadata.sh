@@ -13,7 +13,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("image" "html" "pdf" "pptx" "yaml" "markdown")
+FORMATS=("image" "html" "pdf" "pptx" "docx" "yaml" "markdown")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$META_DIR/$fmt"
@@ -37,6 +37,9 @@ for fmt in "${FORMATS[@]}"; do
     pptx)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
       ;;
+    docx)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.docx" -print)
+      ;;
     yaml)
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) -print)
       ;;
@@ -53,7 +56,14 @@ for fmt in "${FORMATS[@]}"; do
     base="$(basename "$f")"
     name="${base%.*}"
 
-    out="$out_dir/$name.md"
+    sample_out_dir="$out_dir"
+    if [[ "$fmt" == "docx" || "$fmt" == "pptx" ]]; then
+      sample_out_dir="$out_dir/$name"
+      rm -rf "$sample_out_dir"
+      mkdir -p "$sample_out_dir"
+    fi
+
+    out="$sample_out_dir/$name.md"
     exp="$exp_dir/$name.md"
 
     echo "==> converting metadata/$fmt/$base"

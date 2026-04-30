@@ -10,6 +10,13 @@ priv struct HtmlImageExportCtx {
   out_dir : String
   next_idx : Ref[Int]
   by_src : Map[String, String]
+  src_by_asset_path : Map[String, String]
+}
+
+///|
+priv struct HtmlBlocksResult {
+  blocks : Array[@cor.Block]
+  asset_source_paths : Map[String, String]
 }
 
 ///|
@@ -18,7 +25,7 @@ fn nodes_to_blocks(
   max_h : Int,
   input_path : String,
   out_dir : String,
-) -> Array[@cor.Block] raise {
+) -> HtmlBlocksResult raise {
   let out : Array[@cor.Block] = []
   let ctx = new_html_image_export_ctx(input_path, out_dir)
 
@@ -78,7 +85,7 @@ fn nodes_to_blocks(
     }
   }
 
-  out
+  { blocks: out, asset_source_paths: ctx.src_by_asset_path }
 }
 
 ///|
@@ -180,6 +187,7 @@ fn new_html_image_export_ctx(
     out_dir,
     next_idx: { val: 0 },
     by_src: Map::new(),
+    src_by_asset_path: Map::new(),
   }
 
   if out_dir != "" {
@@ -213,7 +221,16 @@ fn export_local_html_image(
   }
 
   if ctx.by_src.contains(src0) {
-    return ctx.by_src.get(src0)
+    let rel_out = ctx.by_src.get(src0)
+    match rel_out {
+      Some(path) => {
+        if !ctx.src_by_asset_path.contains(path) {
+          ctx.src_by_asset_path.set(path, src0)
+        }
+        return Some(path)
+      }
+      None => return None
+    }
   }
 
   let abs_path_opt = resolve_html_local_image_path(ctx.input_dir, src0)
@@ -233,6 +250,7 @@ fn export_local_html_image(
       }
 
       ctx.by_src.set(src0, rel_out)
+      ctx.src_by_asset_path.set(rel_out, src0)
       Some(rel_out)
     }
   }

@@ -6,6 +6,12 @@ priv enum PptxBlock {
 }
 
 ///|
+priv struct PptxSlideRelContext {
+  rels : Array[@ox.OoxmlRelationship]
+  hyperlinks : Map[String, String]
+}
+
+///|
 priv struct SlideShape {
   xml : Bytes
   x : Int

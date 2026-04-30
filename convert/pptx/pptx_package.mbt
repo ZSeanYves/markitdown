@@ -96,49 +96,24 @@ fn list_slide_entries_in_presentation_order(
 fn build_slide_rel_context(
   p : PptxPackage,
   slide_part : String,
-) -> (String?, String?) {
+) -> PptxSlideRelContext {
   let slide_rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
-    _ => return (None, None)
+    _ => return { rels: [], hyperlinks: Map::new() }
   }
-  let slide_layout = rel_target_by_type_suffix(slide_rels, "/slideLayout")
-  match slide_layout {
-    None => (None, None)
-    Some(layout_part) => {
-      let layout_rels = @ox.read_part_relationships(p.pkg, layout_part) catch {
-        _ => return (Some(layout_part), None)
-      }
-      let slide_master = rel_target_by_type_suffix(layout_rels, "/slideMaster")
-      (Some(layout_part), slide_master)
-    }
-  }
+  { rels: slide_rels, hyperlinks: hyperlink_map_from_rels(slide_rels) }
 }
 
 ///|
-fn slide_hyperlink_map(
-  p : PptxPackage,
-  slide_part : String,
+fn hyperlink_map_from_rels(
+  rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, String] {
   let out : Map[String, String] = Map::new()
-  let rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
-    _ => return out
-  }
   for rel in rels {
-    if rel.rel_type.has_suffix("/hyperlink") && rel.resolved_target.trim() != "" {
+    if rel.rel_type.has_suffix("/hyperlink") &&
+      rel.target_mode == @ox.OoxmlTargetMode::External &&
+      rel.resolved_target.trim() != "" {
       out.set(rel.id, rel.resolved_target.trim().to_owned())
     }
   }
   out
-}
-
-///|
-fn rel_target_by_type_suffix(
-  rels : Array[@ox.OoxmlRelationship],
-  type_suffix : String,
-) -> String? {
-  for rel in rels {
-    if rel.rel_type.has_suffix(type_suffix) {
-      return Some(rel.resolved_target)
-    }
-  }
-  None
 }

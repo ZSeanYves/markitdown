@@ -22,6 +22,7 @@ The unified entry currently supports:
 - CSV
 - TSV
 - JSON
+- YAML (`.yaml` / `.yml`)
 - Markdown (`.md` / `.markdown`)
 
 Inputs outside the above extensions are rejected by the dispatcher.
@@ -33,10 +34,13 @@ The currently landed text-format expansion stages are:
 - F1: CSV / TSV
 - F2: JSON
 - F3: Markdown passthrough
+- F4: YAML
 
 Their positioning is intentionally different:
 
-- CSV / TSV and JSON are structured inputs converted into unified IR semantics
+- CSV / TSV are delimited table text converted into unified IR `Table`
+- JSON and YAML are structured inputs converted into unified IR `Table` /
+  `List` / `CodeBlock` semantics conservatively
 - Markdown is a low-loss passthrough input: the main body is preserved as
   source Markdown rather than rebuilt from an AST
 
@@ -90,6 +94,38 @@ The metadata sidecar is an **engineering artifact**, intended for:
 
 It is not part of the Markdown main body and is not intended to replace the main reading output.
 
+Current G2 Origin / Source Location scope is complete at the current stage:
+
+- additive origin schema extension
+- sparse additive-field emission
+- OOXML origin refinement
+- structured/text origin refinement
+- HTML image `source_path` refinement
+
+Current sidecar origin field surface:
+
+- `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+- `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+
+Current verifiable fill ranges:
+
+- PDF assets: `object_ref`
+- PPTX assets: `relationship_id` / `source_path`
+- DOCX assets: `relationship_id` / `source_path`
+- XLSX blocks: source row/column span plus `relationship_id`
+- CSV / TSV blocks: physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+- JSON / YAML blocks: root `key_path = "$"`
+- Markdown blocks: conservative `line_start` / `line_end`
+- HTML image assets: `source_path` from normalized `<img src>`
+
+The metadata schema is unchanged; G2 only refines population inside the
+existing contract.
+
 ## 8) Current Per-format Support Scope and Boundaries
 
 ### 7.0 Shared Low-level Parsing Foundations
@@ -131,11 +167,16 @@ Currently supported:
 - code-like paragraph recovery
 - line-break handling in paragraphs and table cells
 - hyperlink recovery in paragraph / heading / list contexts
+- external `w:hyperlink r:id` relationship preservation as Markdown links
+  through `Inline::Link(text, href)`
 - lightweight block-level origin metadata
 - lightweight asset-origin metadata for exported image resources
 
 Current boundaries:
 
+- hyperlinks with missing `r:id`, missing relationships, empty targets, or
+  internal anchors/bookmarks are currently downgraded to plain text
+- footnote and endnote hyperlinks are not currently recovered
 - quote-like / code-like detection for multilingual or non-standard style names remains conservative
 - some style generalization still relies mainly on heuristic naming rules
 
@@ -228,7 +269,8 @@ Currently supported:
 - note-like / caption-like / callout-like grouping
 - table-like / grid-like region detection and stabilization
 - conservative filtering of page-number / corner-label noise
-- run-level hyperlink recovery and basic shape-level hyperlink recovery
+- run-level `a:hlinkClick r:id` external hyperlink recovery
+- basic shape-level hyperlink fallback when one clear external shape link is present
 - conservative caption-like attachment for single-image slides
 - conservative nearby-text attachment for single-image slides when there is exactly one clear nearby candidate
 - ambiguous multi-image / multi-caption cases intentionally remain unmatched
@@ -237,6 +279,9 @@ Currently supported:
 
 Current boundaries:
 
+- hyperlinks with missing `r:id`, missing relationships, empty targets, internal
+  anchors/bookmarks, actions, macros, or media link targets are currently
+  downgraded to plain text
 - some negative layouts may still be conservatively downgraded into readable ordered paragraphs
 - table-like stabilization currently focuses more on region / order recovery than on full table-level IR semantics
 
@@ -253,7 +298,7 @@ Currently supported:
 - lightweight inline model
 - local structure recovery inside list-item containers
 - local structure recovery inside blockquote containers
-- inline hyperlink recovery in paragraph / heading / list-item / blockquote contexts
+- inline `<a href>` hyperlink recovery in paragraph / heading / list-item / blockquote contexts
 - lightweight document-level block origin metadata
 - lightweight image / figure asset-origin metadata
 - image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
@@ -264,6 +309,8 @@ Currently supported:
 
 Current boundaries:
 
+- links with missing `href`, empty targets, or internal anchors are currently
+  downgraded to plain text
 - the current model is lightweight and DOM-like rather than browser-grade HTML semantics
 - more complex containers and deeply nested cases are still handled conservatively
 - table-cell hyperlink handling still remains on the string-render path (not yet promoted into rich-inline IR)
@@ -281,7 +328,9 @@ Currently supported:
 - empty cells
 - ragged rows, padded to the widest row before Markdown table emission
 - table output through the unified IR `Table` block
-- lightweight block origin metadata and standard metadata sidecar summary fields
+- block origin with physical `line_start` / `line_end` and
+  `row_index = 1` / `column_index = 1`
+- standard metadata sidecar summary fields
 
 Current boundaries:
 
@@ -302,7 +351,8 @@ Currently supported:
 - arrays of scalar values emitted as bullet lists
 - mixed arrays and ambiguous nested structures emitted as fenced JSON blocks
 - nested object / array values inside table cells compact-stringified as JSON
-- lightweight block origin metadata and standard metadata sidecar summary fields
+- root-level block `key_path = "$"`
+- standard metadata sidecar summary fields
 
 Current boundaries:
 
@@ -311,6 +361,7 @@ Current boundaries:
 - no streaming parser path
 - no type inference beyond JSON primitive values
 - nested structures remain conservative compact JSON values or fenced JSON blocks
+- nested key-path anchoring is intentionally not populated
 
 ### 8.8 Markdown Passthrough
 
@@ -322,6 +373,7 @@ Currently supported:
 - `passthrough_markdown` takes precedence in the Markdown emitter
 - final output tail normalized to exactly one trailing newline
 - conservative block slicing for metadata summary and block origins
+- conservative block `line_start` / `line_end` on normalized physical lines
 - standard metadata sidecar fields with `format = markdown`, `source_name`,
   `summary.block_count`, `summary.asset_count`, and `document = null`
 
@@ -335,6 +387,40 @@ Current boundaries:
 - block counts in metadata are conservative engineering summaries, not a
   promise of full Markdown semantic parsing
 
+### 8.9 YAML
+
+Currently supported:
+
+- `.yaml` and `.yml` extension routing
+- UTF-8 YAML files read into memory
+- simple YAML subset including top-level mapping, indentation-based nested
+  mapping, scalar sequences, and sequences of mappings
+- scalar handling for strings, `true`, `false`, `null`, and `~`
+- single-quoted and double-quoted strings
+- full-line comments and conservative inline-comment stripping outside quoted
+  strings
+- top-level mappings emitted as key-value Markdown tables
+- arrays of objects with consistent keys emitted as Markdown tables
+- arrays of scalar values emitted as bullet lists
+- nested / ambiguous mixed structures emitted as fenced YAML blocks or compact
+  inline string values inside table cells
+- root-level block `key_path = "$"`
+- standard metadata sidecar summary fields
+
+Current boundaries:
+
+- only a simple subset is supported
+- no anchors or aliases
+- no tags
+- no block scalar `|` / `>`
+- no flow style `{}` / `[]`
+- no complex keys
+- no multi-document `---` / `...`
+- no YAML schema inference
+- no streaming parser path
+- metadata schema remains unchanged
+- nested key-path anchoring is intentionally not populated
+
 ## 9) Current Boundaries (Key Points)
 
 ### 9.1 PDF Boundary
@@ -343,7 +429,11 @@ Current boundaries:
 - The default PDF path uses line-seed block staging, not core-block seed mode.
 - `pdf_core` annotation/link extraction is available for model/debug
   inspection, and convert pipeline debug retains page annotations, but
-  annotations are not converted into Markdown links by default.
+  annotations are not converted into Markdown links by default. PDF annotation
+  link emission requires a separate bbox/text matching design before it is
+  enabled.
+- default sidecar emission of full PDF `source_refs` is not enabled
+- default sidecar emission of bbox is not enabled
 - Image provenance is retained in convert pipeline debug for diagnosis, but it
   does not change the Markdown contract.
 - PDF caption pairing remains conservative: it is only attempted for
@@ -374,19 +464,51 @@ Current boundaries:
 - Metadata remains on the existing schema and uses conservative block slicing
   rather than full Markdown syntax analysis.
 
+### 9.5 HTML Boundary
+
+- HTML support is currently lightweight semantic scanning, not full DOM
+  reconstruction.
+- HTML image assets can populate `source_path` from normalized local
+  `<img src>`.
+- HTML block DOM path anchoring is not enabled.
+- HTML block line-range anchoring is not enabled.
+
+### 9.6 Structured-data Boundary
+
+- Table cell-level provenance is not enabled across current formats.
+- JSON / YAML nested key-path anchoring is not enabled.
+
+### 9.7 YAML Boundary
+
+- YAML support is currently a conservative simple-subset converter, not a full
+  YAML-spec implementation.
+- Unsupported YAML features are intentionally kept out of scope rather than
+  partially guessed.
+- Nested or ambiguous structures may fall back to compact string values or
+  fenced YAML blocks instead of richer semantic reconstruction.
+
 ## 10) Known Limits
 
 - Provenance is lightweight traceability only, not bbox / char-range / source-object-id level fine-grained anchoring.
+- default sidecar emission of full PDF `source_refs` is not enabled.
+- default sidecar emission of bbox is not enabled.
 - HTML is parsed as lightweight semantics, not as a browser rendering model.
+- HTML DOM path and HTML block line-range anchoring are not enabled.
+- Table cell-level provenance is not enabled.
+- JSON / YAML nested key-path anchoring is not enabled.
 - XLSX does not evaluate formulas.
 - Ambiguous multi-image / multi-caption scenes in PPTX follow a conservative matching strategy (non-matching is acceptable).
 - If no Markdown output file is provided (stdout mode), `--with-metadata` will not write sidecar files to disk.
 - Markdown passthrough does not validate, normalize, or semantically interpret
   Markdown syntax beyond ensuring a single trailing newline in the final output.
+- YAML support does not attempt full-spec compatibility and intentionally
+  excludes anchors / aliases / tags / block scalars / flow style / multi-doc
+  features.
+- PDF annotation links are not emitted into default Markdown output.
 
 ## 11) Suggested Acceptance Wording (Directly Reusable)
 
 - “The project has completed a unified multi-format IR mainflow and established three regression-verifiable validation chains: main_process, metadata, and assets.”
-- “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, and F3 Markdown passthrough.”
-- “CSV / TSV and JSON are structurally recovered into unified IR, while Markdown currently follows a low-loss passthrough path that preserves the original Markdown body and keeps the metadata schema unchanged.”
+- “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, F3 Markdown passthrough, and F4 YAML.”
+- “CSV / TSV map delimited table text into IR `Table`, JSON and YAML conservatively map structured data into IR `Table` / `List` / `CodeBlock`, and Markdown follows a low-loss passthrough path that preserves the original Markdown body while keeping the metadata schema unchanged.”
 - “At the current stage, the focus is on regression stability, explainability, and engineering-consumable outputs; complex PDF layouts, OCR quality refinement, and broader advanced OOXML coverage remain future consolidation work.”

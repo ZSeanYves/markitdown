@@ -5,7 +5,17 @@ priv enum MarkdownChunkKind {
 }
 
 ///|
-fn conservative_markdown_blocks(text : String) -> Array[@cor.Block] {
+priv struct ConservativeMarkdownBlock {
+  block : @cor.Block
+  next_index : Int
+  line_start : Int
+  line_end : Int
+}
+
+///|
+fn conservative_markdown_blocks(
+  text : String,
+) -> Array[ConservativeMarkdownBlock] {
   let normalized = text
     .replace(old="\r\n", new="\n")
     .replace(old="\r", new="\n")
@@ -15,14 +25,14 @@ fn conservative_markdown_blocks(text : String) -> Array[@cor.Block] {
     .iter()
     .collect()
 
-  let out : Array[@cor.Block] = []
+  let out : Array[ConservativeMarkdownBlock] = []
   let count = lines.length()
   let mut i = 0
 
   match consume_frontmatter_block(lines, 0) {
-    Some((next, block)) => {
+    Some(block) => {
       out.push(block)
-      i = next
+      i = block.next_index
     }
     None => ()
   }
@@ -41,12 +51,22 @@ fn conservative_markdown_blocks(text : String) -> Array[@cor.Block] {
         let (next, chunk) = consume_fenced_block(
           lines, i, fence_char, fence_len,
         )
-        out.push(chunk_to_block(MarkdownChunkKind::CodeBlock, chunk))
+        out.push({
+          block: chunk_to_block(MarkdownChunkKind::CodeBlock, chunk),
+          next_index: next,
+          line_start: i + 1,
+          line_end: i + chunk.length(),
+        })
         i = next
       }
       None => {
         let (next, chunk) = consume_raw_block(lines, i)
-        out.push(chunk_to_block(MarkdownChunkKind::Paragraph, chunk))
+        out.push({
+          block: chunk_to_block(MarkdownChunkKind::Paragraph, chunk),
+          next_index: next,
+          line_start: i + 1,
+          line_end: i + chunk.length(),
+        })
         i = next
       }
     }
@@ -59,7 +79,7 @@ fn conservative_markdown_blocks(text : String) -> Array[@cor.Block] {
 fn consume_frontmatter_block(
   lines : Array[String],
   start : Int,
-) -> (Int, @cor.Block)? {
+) -> ConservativeMarkdownBlock? {
   if start != 0 || lines.length() == 0 {
     return None
   }
@@ -74,11 +94,14 @@ fn consume_frontmatter_block(
   while i < lines.length() {
     chunk.push(lines[i])
     if lines[i] == marker {
+      let block_value = chunk_to_block(MarkdownChunkKind::Paragraph, chunk)
+      let line_start = start + 1
+      let line_end = start + chunk.length()
       i += 1
       while i < lines.length() && lines[i].trim() == "" {
         i += 1
       }
-      return Some((i, chunk_to_block(MarkdownChunkKind::Paragraph, chunk)))
+      return Some({ block: block_value, next_index: i, line_start, line_end })
     }
     i += 1
   }
