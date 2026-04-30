@@ -37,7 +37,7 @@ Boundaries:
 
 Responsibilities:
 
-- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json`)
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/md/markdown`)
 
 Boundaries:
 
@@ -51,6 +51,20 @@ Responsibilities:
 - Perform structural recovery and semantic mapping for specific input formats
 - Build unified IR based on lower-level parsing results
 - Attach additional semantics such as `origin` and `image-context` within the current capability boundary
+
+Current format-expansion stages in this layer:
+
+- F1: CSV / TSV
+- F2: JSON
+- F3: Markdown passthrough
+
+Current converter split:
+
+- Structured-input converters such as CSV / TSV / JSON recover source content
+  into unified IR semantics
+- Markdown uses a low-loss passthrough path: it reads UTF-8 source text,
+  preserves the original Markdown body, and only builds conservative block
+  slices for metadata summary and origin reporting
 
 Boundaries:
 
@@ -159,6 +173,8 @@ Responsibilities:
 
 - Abstract `Document / Block / Inline`
 - Maintain `block_origins / asset_origins / ImageData`
+- Carry optional `passthrough_markdown` for formats whose final Markdown should
+  remain source-preserving rather than emitter-reconstructed
 
 Role:
 
@@ -171,11 +187,16 @@ Role:
 Responsibilities:
 
 - Render IR into stable Markdown main output (for reading)
+- Prefer `passthrough_markdown` when present, then normalize the tail to
+  exactly one trailing newline
 
 Boundaries:
 
 - Does not rewrite parsing strategy
 - Does not perform provenance rule decisions
+- Does not parse Markdown AST for passthrough inputs
+- Does not rewrite Markdown link / image / table / code / frontmatter
+  semantics when passthrough mode is active
 
 ### 2.7 Metadata Emitter (`core/metadata.mbt`)
 
@@ -261,6 +282,9 @@ the data flow is as follows:
   * three validation chains
   * engineering-oriented sidecar output
   * the layered structure between `doc_parse/*` and `convert/*`
+  * format expansion F1: CSV / TSV
+  * format expansion F2: JSON
+  * format expansion F3: Markdown passthrough
   * first-pass consolidation of shared OOXML and native PDF parsing
     infrastructure
 * Still being consolidated:
@@ -274,5 +298,16 @@ the data flow is as follows:
   * deeper advanced OOXML semantics
   * fine-grained anchoring such as bbox / char-range / object-id
   * semantic reconstruction for more complex layouts
+
+Markdown passthrough boundary at the current stage:
+
+- supports `.md` and `.markdown`
+- reads UTF-8 Markdown files
+- preserves the original Markdown body as the main output
+- uses `passthrough_markdown` as the emitter’s preferred source when present
+- only normalizes the final tail to exactly one trailing newline
+- does not run Markdown AST parsing
+- does not reinterpret or rewrite link / image / table / code / frontmatter
+- continues to use the existing metadata sidecar schema unchanged
 
 ```

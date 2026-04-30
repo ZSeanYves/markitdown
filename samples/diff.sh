@@ -16,7 +16,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "markdown")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
@@ -54,6 +54,9 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     json)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.json" -print)
+      ;;
+    yaml)
+      cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) -print)
       ;;
     markdown)
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.md" -o -name "*.markdown" \) -print)

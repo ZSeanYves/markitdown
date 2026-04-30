@@ -22,10 +22,25 @@ The unified entry currently supports:
 - CSV
 - TSV
 - JSON
+- Markdown (`.md` / `.markdown`)
 
 Inputs outside the above extensions are rejected by the dispatcher.
 
-## 3) Current Mainflow Capability
+## 3) Current Format Expansion Stages
+
+The currently landed text-format expansion stages are:
+
+- F1: CSV / TSV
+- F2: JSON
+- F3: Markdown passthrough
+
+Their positioning is intentionally different:
+
+- CSV / TSV and JSON are structured inputs converted into unified IR semantics
+- Markdown is a low-loss passthrough input: the main body is preserved as
+  source Markdown rather than rebuilt from an AST
+
+## 4) Current Mainflow Capability
 
 A unified mainflow has already been established:
 
@@ -36,7 +51,7 @@ And can optionally include:
 - `assets/` resource export
 - `metadata/*.metadata.json` sidecar output (enabled via `--with-metadata`)
 
-## 4) Roles and Value of the Three Validation Chains
+## 5) Roles and Value of the Three Validation Chains
 
 The complete regression system is split into three independent validation chains:
 
@@ -50,7 +65,7 @@ Why this split matters:
 2. **Acceptance explainability**: it becomes possible to answer separately whether structure is recovered, provenance is usable, and resources are exportable.
 3. **Engineering stability**: it avoids excessive noise in a single monolithic regression script.
 
-## 5) Positioning of `samples/test` (Acceptance Demo)
+## 6) Positioning of `samples/test` (Acceptance Demo)
 
 `samples/test` currently includes demo outputs for five formats:
 
@@ -65,7 +80,7 @@ It also includes corresponding metadata and asset demo files.
 > This directory is a **compact acceptance-oriented demo set**, meant to quickly demonstrate the combined effect of “main output + metadata + assets”;  
 > it is **not equivalent to the full regression set**. Full regression is defined by `samples/main_process`, `samples/metadata`, and `samples/assets`.
 
-## 6) Positioning of the Metadata Sidecar
+## 7) Positioning of the Metadata Sidecar
 
 The metadata sidecar is an **engineering artifact**, intended for:
 
@@ -75,7 +90,7 @@ The metadata sidecar is an **engineering artifact**, intended for:
 
 It is not part of the Markdown main body and is not intended to replace the main reading output.
 
-## 7) Current Per-format Support Scope and Boundaries
+## 8) Current Per-format Support Scope and Boundaries
 
 ### 7.0 Shared Low-level Parsing Foundations
 
@@ -254,7 +269,7 @@ Current boundaries:
 - table-cell hyperlink handling still remains on the string-render path (not yet promoted into rich-inline IR)
 - remote / unsupported image sources are not force-exported as local assets
 
-### 7.6 CSV / TSV
+### 8.6 CSV / TSV
 
 Currently supported:
 
@@ -275,7 +290,7 @@ Current boundaries:
 - no large-file streaming path; files are read into memory as text
 - CSV / TSV output is a single Markdown table, not a multi-table workbook model
 
-### 7.7 JSON
+### 8.7 JSON
 
 Currently supported:
 
@@ -297,9 +312,32 @@ Current boundaries:
 - no type inference beyond JSON primitive values
 - nested structures remain conservative compact JSON values or fenced JSON blocks
 
-## 8) Current Boundaries (Key Points)
+### 8.8 Markdown Passthrough
 
-### 8.1 PDF Boundary
+Currently supported:
+
+- `.md` and `.markdown` extension routing
+- UTF-8 Markdown files read into memory
+- original Markdown body preserved for final output
+- `passthrough_markdown` takes precedence in the Markdown emitter
+- final output tail normalized to exactly one trailing newline
+- conservative block slicing for metadata summary and block origins
+- standard metadata sidecar fields with `format = markdown`, `source_name`,
+  `summary.block_count`, `summary.asset_count`, and `document = null`
+
+Current boundaries:
+
+- no Markdown AST parse
+- no rewriting of heading / list / table / code / link / image / frontmatter
+  semantics
+- no remote asset parsing or export
+- metadata schema remains unchanged
+- block counts in metadata are conservative engineering summaries, not a
+  promise of full Markdown semantic parsing
+
+## 9) Current Boundaries (Key Points)
+
+### 9.1 PDF Boundary
 
 - The default `normal` path is already a text-oriented native structural recovery mainflow.
 - The default PDF path uses line-seed block staging, not core-block seed mode.
@@ -314,12 +352,12 @@ Current boundaries:
 - Multi-image caption pairing is still not enabled.
 - Complex multi-column layouts, strong graphic-text mixing, and extreme abnormal pages remain enhancement targets.
 
-### 8.2 OCR Boundary
+### 9.2 OCR Boundary
 
 - OCR is an `ocr` subcommand path, not the default mainflow.
 - OCR depends on external tooling and therefore requires separate environment verification.
 
-### 8.3 Advanced OOXML Boundary
+### 9.3 Advanced OOXML Boundary
 
 - The current priority is “readable structure + regression stability + explainability”.
 - Shared OOXML infrastructure for package, relationships, media, and document
@@ -327,15 +365,28 @@ Current boundaries:
   (complex style semantics, deeper layout logic, formula evaluation, etc.) are
   not yet fully covered.
 
-## 9) Known Limits
+### 9.4 Markdown Boundary
+
+- Markdown support is currently source-preserving passthrough, not a Markdown
+  parser/rewriter.
+- The emitter prefers `passthrough_markdown` and only normalizes the final
+  trailing newline.
+- Metadata remains on the existing schema and uses conservative block slicing
+  rather than full Markdown syntax analysis.
+
+## 10) Known Limits
 
 - Provenance is lightweight traceability only, not bbox / char-range / source-object-id level fine-grained anchoring.
 - HTML is parsed as lightweight semantics, not as a browser rendering model.
 - XLSX does not evaluate formulas.
 - Ambiguous multi-image / multi-caption scenes in PPTX follow a conservative matching strategy (non-matching is acceptable).
 - If no Markdown output file is provided (stdout mode), `--with-metadata` will not write sidecar files to disk.
+- Markdown passthrough does not validate, normalize, or semantically interpret
+  Markdown syntax beyond ensuring a single trailing newline in the final output.
 
-## 10) Suggested Acceptance Wording (Directly Reusable)
+## 11) Suggested Acceptance Wording (Directly Reusable)
 
 - “The project has completed a unified multi-format IR mainflow and established three regression-verifiable validation chains: main_process, metadata, and assets.”
+- “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, and F3 Markdown passthrough.”
+- “CSV / TSV and JSON are structurally recovered into unified IR, while Markdown currently follows a low-loss passthrough path that preserves the original Markdown body and keeps the metadata schema unchanged.”
 - “At the current stage, the focus is on regression stability, explainability, and engineering-consumable outputs; complex PDF layouts, OCR quality refinement, and broader advanced OOXML coverage remain future consolidation work.”

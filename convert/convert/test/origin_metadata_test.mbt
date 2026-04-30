@@ -710,6 +710,43 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("json metadata should keep document null")
   }
 
+  let yaml_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
+    "",
+    6,
+  )
+  let yaml_json = @cor.emit_metadata_json(
+    yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
+  )
+  if !yaml_json.contains("\"format\": \"yaml\"") {
+    fail("yaml metadata should contain yaml format")
+  }
+  if !yaml_json.contains("\"source_name\": \"yaml_mapping_basic.yaml\"") {
+    fail("yaml metadata should contain source_name")
+  }
+  if !yaml_json.contains("\"block_count\": 1") {
+    fail("yaml metadata should contain one block")
+  }
+  if !yaml_json.contains("\"asset_count\": 0") {
+    fail("yaml metadata should contain zero assets")
+  }
+  if !yaml_json.contains("\"document\": null") {
+    fail("yaml metadata should keep document null")
+  }
+
+  let yml_path = resolve_sample_path(
+    "samples/main_process/yaml/yml_extension_basic.yml",
+  )
+  let yml_doc = @yaml.parse_yaml(yml_path, "", 6)
+  let yml_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/yaml/yml_extension_basic.md",
+    ),
+  )
+  if @cor.emit_markdown(yml_doc) != yml_expected {
+    fail("yaml .yml extension should preserve deterministic markdown output")
+  }
+
   let markdown_path = resolve_sample_path(
     "samples/main_process/markdown/markdown_basic_heading_paragraph.md",
   )

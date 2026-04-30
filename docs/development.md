@@ -58,6 +58,30 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+## Current Format Expansion Stage
+
+The currently landed text-format expansion stages are:
+
+* F1: CSV / TSV
+* F2: JSON
+* F3: Markdown passthrough
+
+Development positioning:
+
+* CSV / TSV and JSON are structured-input converters that map source content into unified IR
+* Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
+
+Current Markdown passthrough contract:
+
+* Supports `.md` and `.markdown`
+* Reads UTF-8 text
+* Stores the original body in `passthrough_markdown`
+* `core/emitter_markdown.mbt` prefers `passthrough_markdown` when present
+* Only normalizes the final tail to exactly one trailing newline
+* Does not perform Markdown AST parsing
+* Does not rewrite link / image / table / code-fence / frontmatter semantics
+* Does not change the metadata sidecar schema
+
 ### Temporary Output Directories
 
 All automated tests and regression scripts should write temporary output under a
@@ -127,6 +151,12 @@ Typical cases include:
 * `core/ir.mbt`
 * mainflow-related samples and expected outputs
 
+Notes for Markdown passthrough work:
+
+* Changes under `convert/markdown/` should preserve source Markdown body stability
+* If you touch `passthrough_markdown` or emitter fallback order, re-run Markdown samples in `samples/main_process/markdown`
+* Do not update Markdown expected outputs unless the intended contract itself changes
+
 ### When modifying metadata / provenance / image-context logic
 
 If you modify any of the following, you should at least run:
@@ -141,6 +171,11 @@ Typical cases include:
 * `core/ir.mbt`
 * image caption / nearby-caption / origin related logic
 * `samples/metadata/*`
+
+Markdown-specific note:
+
+* Markdown metadata currently uses conservative block slicing and keeps `document = null`
+* Do not change the metadata schema when adjusting Markdown passthrough behavior unless the schema change is explicitly planned and accepted
 
 ### When modifying asset export / asset reference logic
 

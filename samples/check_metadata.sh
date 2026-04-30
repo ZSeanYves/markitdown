@@ -13,7 +13,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("image" "html" "pdf" "pptx" "markdown")
+FORMATS=("image" "html" "pdf" "pptx" "yaml" "markdown")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$META_DIR/$fmt"
@@ -36,6 +36,9 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     pptx)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.pptx" -print)
+      ;;
+    yaml)
+      cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) -print)
       ;;
     markdown)
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.md" -o -name "*.markdown" \) -print)
