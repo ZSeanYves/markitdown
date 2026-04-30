@@ -91,18 +91,74 @@ These lower-level packages are parsing and inspection infrastructure. They suppo
 
 The unified IR currently includes a lightweight provenance layer for tracing the source of both content blocks and exported assets:
 
-* `Document.block_origins`: block-level provenance information (such as source name, page / slide / sheet, and block index)
-* `Document.asset_origins`: asset-level provenance information (such as source name, page / slide / sheet, origin id, and nearby caption)
+* `Document.block_origins`: block-level provenance information
+* `Document.asset_origins`: asset-level provenance information
+
+The G2 Origin / Source Location stage is now complete at the current
+repository boundary. It includes:
+
+* additive origin schema extension
+* sparse sidecar emission for additive fields
+* OOXML origin refinement
+* structured/text origin refinement
+* HTML image `source_path` refinement
+
+Current sidecar `blocks[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `block_index`
+* `heading_path`
+* `line_start` / `line_end`
+* `row_index` / `column_index`
+* `object_ref`
+* `relationship_id`
+* `key_path`
+
+Current sidecar `assets[].origin` field surface:
+
+* `source_name`
+* `format`
+* `page`
+* `slide`
+* `sheet`
+* `origin_id`
+* `object_ref`
+* `relationship_id`
+* `source_path`
+* `row_index` / `column_index`
+* `key_path`
+* `nearby_caption`
+
+Current verifiably populated ranges include:
+
+* PDF assets: `object_ref`
+* PPTX assets: `relationship_id` / `source_path`
+* DOCX assets: `relationship_id` / `source_path`
+* XLSX blocks: source row/column span plus `relationship_id`
+* CSV / TSV blocks: physical `line_start` / `line_end` plus row/column origin
+* JSON / YAML blocks: root `key_path = "$"`
+* Markdown blocks: conservative `line_start` / `line_end`
+* HTML image assets: `source_path` from normalized `<img src>`
 
 Its current scope is **lightweight provenance**, rather than a fine-grained anchoring system.
 
 It does **not yet** include:
 
-* bbox
-* char range
-* fine-grained source object id anchoring
+* default sidecar emission of full PDF `source_refs`
+* default sidecar emission of bbox
+* HTML DOM path or HTML block line-range anchoring
+* table cell-level provenance
+* JSON / YAML nested key-path anchoring
+* default PDF annotation-link Markdown emission
 
 It also does not alter the reading behavior of the Markdown main output.
+
+The metadata schema itself remains unchanged; G2 only extends and refines
+field population within the existing sidecar contract.
 
 ## Project Goals
 

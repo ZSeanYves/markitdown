@@ -30,6 +30,13 @@ fn read_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn write_utf8_text(path : String, text : String) -> Unit raise {
+  @fs.write_string_to_file(path, text, encoding="utf8") catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -236,6 +243,35 @@ fn assert_asset_origin_has_min_source(
 }
 
 ///|
+fn assert_asset_origin_source_path(
+  doc : @cor.Document,
+  path : String,
+  expected : String?,
+) -> Unit raise {
+  fn show_string_opt(value : String?) -> String {
+    match value {
+      Some(v) => "Some(" + v + ")"
+      None => "None"
+    }
+  }
+
+  match doc.asset_origins.val.get(path) {
+    None => fail("missing asset origin for path: " + path)
+    Some(origin) =>
+      if origin.source_path != expected {
+        fail(
+          "unexpected asset origin source_path for " +
+          path +
+          ": " +
+          show_string_opt(origin.source_path) +
+          " != " +
+          show_string_opt(expected),
+        )
+      }
+  }
+}
+
+///|
 /// Guard rail for metadata chain:
 /// ImageData.caption should mirror asset nearby_caption when pairing is made.
 fn assert_image_caption_mirrors_asset_origin(doc : @cor.Document) -> Unit raise {
@@ -348,6 +384,25 @@ fn assert_page_level_origins(doc : @cor.Document) -> Unit raise {
 }
 
 ///|
+fn block_origin_at(doc : @cor.Document, index : Int) -> @cor.Origin raise {
+  match doc.block_origins.val[index] {
+    Some(origin) => origin
+    None => fail("expected block origin at index: " + index.to_string())
+  }
+}
+
+///|
+fn assert_metadata_snapshot(
+  actual : String,
+  expected_name : String,
+) -> Unit raise {
+  let expected = read_utf8_text(
+    resolve_sample_path("samples/test/metadata/" + expected_name),
+  )
+  assert_eq(actual, expected)
+}
+
+///|
 /// Regression intent:
 /// - HTML/DOCX minimal closure should satisfy block+asset provenance invariants
 /// - catches accidental decoupling between IR emission and origin metadata wiring
@@ -385,6 +440,11 @@ test "origin_metadata/html_docx_minimal_closure" {
         fail("html single image origin should be None")
       }
       assert_asset_origin_has_min_source(html_doc, img.path)
+      assert_asset_origin_source_path(
+        html_doc,
+        img.path,
+        Some("img/img_red.jpg"),
+      )
     }
     None => fail("expected one html image block")
   }
@@ -432,10 +492,14 @@ test "image_context/html_alt_title_figcaption" {
         fail("html figure image origin should be None")
       }
       match html_alt_doc.asset_origins.val.get(img.path) {
-        Some(asset_origin) =>
+        Some(asset_origin) => {
           if asset_origin.nearby_caption != None {
             fail("html alt sample nearby_caption should be None")
           }
+          if asset_origin.source_path != Some("img/img_red.jpg") {
+            fail("html alt sample source_path should be img/img_red.jpg")
+          }
+        }
         None => fail("html alt sample asset origin should exist")
       }
     }
@@ -462,6 +526,11 @@ test "image_context/html_alt_title_figcaption" {
         fail("html title image origin should be None")
       }
       assert_asset_origin_has_min_source(html_title_doc, img.path)
+      assert_asset_origin_source_path(
+        html_title_doc,
+        img.path,
+        Some("img/img_red.jpg"),
+      )
     }
     None => fail("expected one html image block for title sample")
   }
@@ -488,10 +557,14 @@ test "image_context/html_alt_title_figcaption" {
         fail("html figure image origin should be None")
       }
       match html_fig_doc.asset_origins.val.get(img.path) {
-        Some(asset_origin) =>
+        Some(asset_origin) => {
           if asset_origin.nearby_caption != Some("Figure caption text.") {
             fail("html figure nearby_caption should match figure caption")
           }
+          if asset_origin.source_path != Some("img/img_red.jpg") {
+            fail("html figure source_path should be img/img_red.jpg")
+          }
+        }
         None => fail("html figure sample asset origin should exist")
       }
     }
@@ -517,8 +590,80 @@ test "image_context/html_alt_title_figcaption" {
         fail("html missing-alt image caption should be None")
       }
       assert_asset_origin_has_min_source(html_missing_alt_doc, img.path)
+      assert_asset_origin_source_path(
+        html_missing_alt_doc,
+        img.path,
+        Some("img/img_red.jpg"),
+      )
     }
     None => fail("expected one html image block for missing-alt sample")
+  }
+}
+
+///|
+test "origin_metadata/html_asset_source_path_dedupe_and_remote_downgrade" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/html_asset_source_path_dedupe_and_remote_downgrade"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input_dir = out_dir + "/input"
+  let image_dir = input_dir + "/img"
+  let html_out_dir = out_dir + "/html"
+  ensure_dir(input_dir)
+  ensure_dir(image_dir)
+  ensure_dir(html_out_dir)
+
+  let image_bytes = @fs.read_file_to_bytes(
+    resolve_sample_path("samples/assets/html/img/img_red.jpg"),
+  ) catch {
+    e => fail("read html image sample failed: " + e.to_string())
+  }
+  @fs.write_bytes_to_file(image_dir + "/img_red.jpg", image_bytes) catch {
+    e => fail("write html image sample failed: " + e.to_string())
+  }
+
+  let input_path = input_dir + "/dedupe_remote.html"
+  write_utf8_text(
+    input_path,
+    "<p><img src=\"img/img_red.jpg?cache=1#frag\" alt=\"first\"></p>\n" +
+    "<p><img src=\"img/img_red.jpg?cache=2\" alt=\"second\"></p>\n" +
+    "<p><img src=\"https://example.com/remote.jpg\" alt=\"remote\"></p>\n" +
+    "<p><img src=\"data:image/png;base64,AAAA\" alt=\"inline\"></p>\n",
+  )
+
+  let doc = @html.parse_html(input_path, html_out_dir, 6)
+  assert_block_origin_alignment(doc)
+  assert_doc_level_origins(doc)
+  assert_image_assets_are_indexed(doc)
+
+  let image_paths : Array[String] = []
+  let paragraph_texts : Array[String] = []
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::ImageBlock(img) => image_paths.push(img.path)
+      @cor.Block::Paragraph(text) => paragraph_texts.push(text)
+      _ => ()
+    }
+  }
+
+  if image_paths.length() != 2 {
+    fail("expected two emitted html image blocks for duplicated local src")
+  }
+  if image_paths[0] != image_paths[1] {
+    fail("duplicated local html src should reuse the same exported asset path")
+  }
+  assert_asset_origin_source_path(doc, image_paths[0], Some("img/img_red.jpg"))
+
+  if paragraph_texts.length() != 2 {
+    fail("expected two fallback paragraphs for remote/data-uri html images")
+  }
+  if paragraph_texts[0] != "[remote]" {
+    fail("remote html image should degrade to [remote] paragraph")
+  }
+  if paragraph_texts[1] != "[inline]" {
+    fail("data-uri html image should degrade to [inline] paragraph")
   }
 }
 
@@ -792,6 +937,278 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
     fail("markdown .markdown extension should preserve frontmatter sample")
   }
+}
+
+///|
+test "origin_metadata/structured_text_block_origins" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/structured_text_block_origins"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let csv_path = out_dir + "/quoted_newline.csv"
+  write_utf8_text(csv_path, "Name,Note\nAlice,\"line1\nline2\"\nBob,ok\n")
+
+  let csv_doc = @csv.parse_csv(csv_path, "", 6)
+  let csv_origin = block_origin_at(csv_doc, 0)
+  if csv_origin.line_start != Some(1) {
+    fail("csv table block should start at line 1")
+  }
+  if csv_origin.line_end != Some(4) {
+    fail("csv table block should end at physical line 4")
+  }
+  if csv_origin.row_index != Some(1) {
+    fail("csv table block should start at row_index=1")
+  }
+  if csv_origin.column_index != Some(1) {
+    fail("csv table block should start at column_index=1")
+  }
+  if csv_origin.key_path != None {
+    fail("csv table block should not set key_path")
+  }
+
+  let tsv_doc = @csv.parse_tsv(
+    resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
+    "",
+    6,
+  )
+  let tsv_origin = block_origin_at(tsv_doc, 0)
+  if tsv_origin.line_start != Some(1) {
+    fail("tsv table block should start at line 1")
+  }
+  if tsv_origin.line_end != Some(3) {
+    fail("tsv table block should end at line 3")
+  }
+  if tsv_origin.row_index != Some(1) {
+    fail("tsv table block should start at row_index=1")
+  }
+  if tsv_origin.column_index != Some(1) {
+    fail("tsv table block should start at column_index=1")
+  }
+  if tsv_origin.key_path != None {
+    fail("tsv table block should not set key_path")
+  }
+
+  let json_object_doc = @json.parse_json(
+    resolve_sample_path("samples/main_process/json/json_object_basic.json"),
+    "",
+    6,
+  )
+  if block_origin_at(json_object_doc, 0).key_path != Some("$") {
+    fail("json object block should keep root key_path")
+  }
+
+  let json_list_doc = @json.parse_json(
+    resolve_sample_path(
+      "samples/main_process/json/json_array_scalars_list.json",
+    ),
+    "",
+    6,
+  )
+  for i in 0..<json_list_doc.block_origins.val.length() {
+    if block_origin_at(json_list_doc, i).key_path != Some("$") {
+      fail("json scalar list item should keep root key_path")
+    }
+  }
+
+  let yaml_mapping_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
+    "",
+    6,
+  )
+  if block_origin_at(yaml_mapping_doc, 0).key_path != Some("$") {
+    fail("yaml mapping block should keep root key_path")
+  }
+
+  let yaml_list_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_sequence_scalars.yaml"),
+    "",
+    6,
+  )
+  for i in 0..<yaml_list_doc.block_origins.val.length() {
+    if block_origin_at(yaml_list_doc, i).key_path != Some("$") {
+      fail("yaml scalar list item should keep root key_path")
+    }
+  }
+
+  let markdown_code_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
+    "",
+    6,
+  )
+  let markdown_code_origin = block_origin_at(markdown_code_doc, 0)
+  if markdown_code_origin.line_start != Some(1) {
+    fail("markdown code fence block should start at line 1")
+  }
+  if markdown_code_origin.line_end != Some(5) {
+    fail("markdown code fence block should end at line 5")
+  }
+
+  let markdown_frontmatter_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+    ),
+    "",
+    6,
+  )
+  if block_origin_at(markdown_frontmatter_doc, 0).line_start != Some(1) {
+    fail("markdown frontmatter block should start at line 1")
+  }
+  if block_origin_at(markdown_frontmatter_doc, 0).line_end != Some(5) {
+    fail("markdown frontmatter block should end at line 5")
+  }
+  if block_origin_at(markdown_frontmatter_doc, 1).line_start != Some(7) {
+    fail("markdown frontmatter heading block should start at line 7")
+  }
+  if block_origin_at(markdown_frontmatter_doc, 1).line_end != Some(7) {
+    fail("markdown frontmatter heading block should end at line 7")
+  }
+  if block_origin_at(markdown_frontmatter_doc, 2).line_start != Some(9) {
+    fail("markdown frontmatter trailing paragraph should start at line 9")
+  }
+  if block_origin_at(markdown_frontmatter_doc, 2).line_end != Some(9) {
+    fail("markdown frontmatter trailing paragraph should end at line 9")
+  }
+
+  let markdown_no_newline_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/main_process/markdown/markdown_no_trailing_newline.md",
+    ),
+    "",
+    6,
+  )
+  let markdown_no_newline_origin = block_origin_at(markdown_no_newline_doc, 0)
+  if markdown_no_newline_origin.line_start != Some(1) {
+    fail("markdown no-trailing-newline block should start at line 1")
+  }
+  if markdown_no_newline_origin.line_end != Some(1) {
+    fail("markdown no-trailing-newline block should end at line 1")
+  }
+}
+
+///|
+test "metadata_sidecar/structured_text_origin_snapshots" {
+  let html_single_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_html_img_single"
+  recreate_clean_dir(html_single_out_dir)
+  defer cleanup_temp_dir(html_single_out_dir)
+  ensure_dir(html_single_out_dir + "/html")
+  let html_single_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_img_single.html"),
+    html_single_out_dir + "/html",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_single_doc, "html_img_single.html", "html", "html_img_single.md",
+    ),
+    "html_img_single.metadata.json",
+  )
+
+  let html_figure_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_html_figure_figcaption_basic"
+  recreate_clean_dir(html_figure_out_dir)
+  defer cleanup_temp_dir(html_figure_out_dir)
+  ensure_dir(html_figure_out_dir + "/html")
+  let html_figure_doc = @html.parse_html(
+    resolve_sample_path(
+      "samples/metadata/html/html_figure_figcaption_basic.html",
+    ),
+    html_figure_out_dir + "/html",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_figure_doc, "html_figure_figcaption_basic.html", "html", "html_figure_figcaption_basic.md",
+    ),
+    "html_figure_figcaption_basic.metadata.json",
+  )
+
+  let csv_doc = @csv.parse_csv(
+    resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(csv_doc, "csv_basic.csv", "csv", "csv_basic.md"),
+    "csv_basic.metadata.json",
+  )
+
+  let tsv_doc = @csv.parse_tsv(
+    resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(tsv_doc, "tsv_basic.tsv", "tsv", "tsv_basic.md"),
+    "tsv_basic.metadata.json",
+  )
+
+  let json_doc = @json.parse_json(
+    resolve_sample_path("samples/main_process/json/json_object_basic.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_doc, "json_object_basic.json", "json", "json_object_basic.md",
+    ),
+    "json_object_basic.metadata.json",
+  )
+
+  let yaml_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
+    ),
+    "yaml_mapping_basic.metadata.json",
+  )
+
+  let markdown_code_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_code_doc, "markdown_code_fence.md", "markdown", "markdown_code_fence.md",
+    ),
+    "markdown_code_fence.metadata.json",
+  )
+
+  let markdown_frontmatter_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+    ),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_frontmatter_doc, "markdown_frontmatter_passthrough.markdown", "markdown",
+      "markdown_frontmatter_passthrough.md",
+    ),
+    "markdown_frontmatter_passthrough.metadata.json",
+  )
+
+  let markdown_no_newline_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/main_process/markdown/markdown_no_trailing_newline.md",
+    ),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_no_newline_doc, "markdown_no_trailing_newline.md", "markdown", "markdown_no_trailing_newline.md",
+    ),
+    "markdown_no_trailing_newline.metadata.json",
+  )
 }
 
 ///|

@@ -187,6 +187,14 @@ Role:
 - Separates “parsing problems” from “output problems” for easier diagnosis
 - Provides a unified input contract for Markdown, metadata sidecars, and future engineering-oriented outputs
 
+Current origin/source-location status in this layer:
+
+- G2 additive origin extension is complete within the existing sidecar schema
+- origin fields are populated sparsely rather than padded with additive `null`
+- block/asset provenance remains intentionally lightweight and block-scoped
+- no row/cell-level table provenance container has been added to the unified IR
+- the Markdown main output contract is unchanged by origin enrichment
+
 Current link preservation contract:
 
 - HTML `<a href>` links, DOCX external `w:hyperlink r:id` relationships, PPTX
@@ -224,6 +232,17 @@ Boundaries:
 Responsibilities:
 
 - Serialize IR + origin / asset information into `*.metadata.json` (for engineering consumption)
+
+Current emitted origin field surface:
+
+- `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+- `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+- additive fields are sparse emit only; absent optional values are omitted
+- this is a fill-range refinement effort, not a schema-version change
 
 Boundaries:
 
@@ -309,6 +328,11 @@ the data flow is as follows:
   * format expansion F4: YAML
   * first-pass consolidation of shared OOXML and native PDF parsing
     infrastructure
+  * G2 additive origin schema extension
+  * G2 sparse origin emission
+  * G2 OOXML origin refinement
+  * G2 structured/text origin refinement
+  * G2 HTML image `source_path` refinement
 * Still being consolidated:
 
   * complex PDF layouts
@@ -338,5 +362,26 @@ Current text-format expansion boundaries:
   input remain out of scope
 - These format additions do not change the metadata sidecar schema; they remain
   on the existing shared `format / source_name / summary / document` contract
+
+Current origin fill matrix at the architecture level:
+
+- PDF assets populate `object_ref`
+- PPTX assets populate `relationship_id` and `source_path`
+- DOCX assets populate `relationship_id` and `source_path`
+- XLSX blocks populate source row/column span plus `relationship_id`
+- CSV / TSV blocks populate physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+- JSON / YAML blocks populate root `key_path = "$"`
+- Markdown blocks populate conservative `line_start` / `line_end`
+- HTML image assets populate `source_path` from normalized `<img src>`
+
+Current non-goals at this stage:
+
+- default sidecar emission of PDF full `source_refs`
+- default sidecar emission of bbox
+- HTML DOM path or HTML block line ranges
+- table cell-level provenance
+- JSON / YAML nested key paths
+- default PDF annotation-link Markdown emission
 
 ```

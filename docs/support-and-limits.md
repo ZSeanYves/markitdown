@@ -94,6 +94,38 @@ The metadata sidecar is an **engineering artifact**, intended for:
 
 It is not part of the Markdown main body and is not intended to replace the main reading output.
 
+Current G2 Origin / Source Location scope is complete at the current stage:
+
+- additive origin schema extension
+- sparse additive-field emission
+- OOXML origin refinement
+- structured/text origin refinement
+- HTML image `source_path` refinement
+
+Current sidecar origin field surface:
+
+- `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+- `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+
+Current verifiable fill ranges:
+
+- PDF assets: `object_ref`
+- PPTX assets: `relationship_id` / `source_path`
+- DOCX assets: `relationship_id` / `source_path`
+- XLSX blocks: source row/column span plus `relationship_id`
+- CSV / TSV blocks: physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+- JSON / YAML blocks: root `key_path = "$"`
+- Markdown blocks: conservative `line_start` / `line_end`
+- HTML image assets: `source_path` from normalized `<img src>`
+
+The metadata schema is unchanged; G2 only refines population inside the
+existing contract.
+
 ## 8) Current Per-format Support Scope and Boundaries
 
 ### 7.0 Shared Low-level Parsing Foundations
@@ -296,7 +328,9 @@ Currently supported:
 - empty cells
 - ragged rows, padded to the widest row before Markdown table emission
 - table output through the unified IR `Table` block
-- lightweight block origin metadata and standard metadata sidecar summary fields
+- block origin with physical `line_start` / `line_end` and
+  `row_index = 1` / `column_index = 1`
+- standard metadata sidecar summary fields
 
 Current boundaries:
 
@@ -317,7 +351,8 @@ Currently supported:
 - arrays of scalar values emitted as bullet lists
 - mixed arrays and ambiguous nested structures emitted as fenced JSON blocks
 - nested object / array values inside table cells compact-stringified as JSON
-- lightweight block origin metadata and standard metadata sidecar summary fields
+- root-level block `key_path = "$"`
+- standard metadata sidecar summary fields
 
 Current boundaries:
 
@@ -326,6 +361,7 @@ Current boundaries:
 - no streaming parser path
 - no type inference beyond JSON primitive values
 - nested structures remain conservative compact JSON values or fenced JSON blocks
+- nested key-path anchoring is intentionally not populated
 
 ### 8.8 Markdown Passthrough
 
@@ -337,6 +373,7 @@ Currently supported:
 - `passthrough_markdown` takes precedence in the Markdown emitter
 - final output tail normalized to exactly one trailing newline
 - conservative block slicing for metadata summary and block origins
+- conservative block `line_start` / `line_end` on normalized physical lines
 - standard metadata sidecar fields with `format = markdown`, `source_name`,
   `summary.block_count`, `summary.asset_count`, and `document = null`
 
@@ -367,7 +404,8 @@ Currently supported:
 - arrays of scalar values emitted as bullet lists
 - nested / ambiguous mixed structures emitted as fenced YAML blocks or compact
   inline string values inside table cells
-- lightweight block origin metadata and standard metadata sidecar summary fields
+- root-level block `key_path = "$"`
+- standard metadata sidecar summary fields
 
 Current boundaries:
 
@@ -381,6 +419,7 @@ Current boundaries:
 - no YAML schema inference
 - no streaming parser path
 - metadata schema remains unchanged
+- nested key-path anchoring is intentionally not populated
 
 ## 9) Current Boundaries (Key Points)
 
@@ -393,6 +432,8 @@ Current boundaries:
   annotations are not converted into Markdown links by default. PDF annotation
   link emission requires a separate bbox/text matching design before it is
   enabled.
+- default sidecar emission of full PDF `source_refs` is not enabled
+- default sidecar emission of bbox is not enabled
 - Image provenance is retained in convert pipeline debug for diagnosis, but it
   does not change the Markdown contract.
 - PDF caption pairing remains conservative: it is only attempted for
@@ -423,7 +464,21 @@ Current boundaries:
 - Metadata remains on the existing schema and uses conservative block slicing
   rather than full Markdown syntax analysis.
 
-### 9.5 YAML Boundary
+### 9.5 HTML Boundary
+
+- HTML support is currently lightweight semantic scanning, not full DOM
+  reconstruction.
+- HTML image assets can populate `source_path` from normalized local
+  `<img src>`.
+- HTML block DOM path anchoring is not enabled.
+- HTML block line-range anchoring is not enabled.
+
+### 9.6 Structured-data Boundary
+
+- Table cell-level provenance is not enabled across current formats.
+- JSON / YAML nested key-path anchoring is not enabled.
+
+### 9.7 YAML Boundary
 
 - YAML support is currently a conservative simple-subset converter, not a full
   YAML-spec implementation.
@@ -435,7 +490,12 @@ Current boundaries:
 ## 10) Known Limits
 
 - Provenance is lightweight traceability only, not bbox / char-range / source-object-id level fine-grained anchoring.
+- default sidecar emission of full PDF `source_refs` is not enabled.
+- default sidecar emission of bbox is not enabled.
 - HTML is parsed as lightweight semantics, not as a browser rendering model.
+- HTML DOM path and HTML block line-range anchoring are not enabled.
+- Table cell-level provenance is not enabled.
+- JSON / YAML nested key-path anchoring is not enabled.
 - XLSX does not evaluate formulas.
 - Ambiguous multi-image / multi-caption scenes in PPTX follow a conservative matching strategy (non-matching is acceptable).
 - If no Markdown output file is provided (stdout mode), `--with-metadata` will not write sidecar files to disk.
@@ -444,6 +504,7 @@ Current boundaries:
 - YAML support does not attempt full-spec compatibility and intentionally
   excludes anchors / aliases / tags / block scalars / flow style / multi-doc
   features.
+- PDF annotation links are not emitted into default Markdown output.
 
 ## 11) Suggested Acceptance Wording (Directly Reusable)
 

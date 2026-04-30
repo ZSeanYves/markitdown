@@ -58,6 +58,47 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+## Current Origin / Source Location Status
+
+The current G2 Origin / Source Location stage is complete without changing the
+sidecar schema or the Markdown main output contract. It consists of:
+
+* additive origin schema extension
+* sparse additive-field emission
+* OOXML origin refinement
+* structured/text origin refinement
+* HTML image `source_path` refinement
+
+Current sidecar origin field surface:
+
+* `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `block_index`, `heading_path`, `line_start`, `line_end`, `row_index`,
+  `column_index`, `object_ref`, `relationship_id`, `key_path`
+* `assets[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
+  `origin_id`, `object_ref`, `relationship_id`, `source_path`, `row_index`,
+  `column_index`, `key_path`, `nearby_caption`
+
+Current fill matrix to keep in mind during development:
+
+* PDF assets: `object_ref`
+* PPTX assets: `relationship_id` / `source_path`
+* DOCX assets: `relationship_id` / `source_path`
+* XLSX blocks: source row/column span plus `relationship_id`
+* CSV / TSV blocks: physical `line_start` / `line_end` plus
+  `row_index` / `column_index`
+* JSON / YAML blocks: root `key_path = "$"`
+* Markdown blocks: conservative `line_start` / `line_end`
+* HTML image assets: `source_path` from normalized `<img src>`
+
+Current explicit non-goals:
+
+* default sidecar emission of PDF full `source_refs`
+* default sidecar emission of bbox
+* HTML DOM path / block line range
+* table cell-level provenance
+* JSON / YAML nested key path
+* PDF annotation link Markdown emission
+
 ## Current Format Expansion Stage
 
 The currently landed text-format expansion stages are:
@@ -195,6 +236,14 @@ YAML-specific note:
 * YAML metadata currently keeps `document = null` and only uses the shared sidecar schema
 * Changes under `convert/yaml/` should preserve the current conservative subset and fallback strategy
 * Do not update YAML expected outputs unless the intended `Table` / `List` / `CodeBlock` contract itself changes
+
+Origin-specific note:
+
+* G2 field population is intentionally sparse; do not backfill additive fields
+  with default `null` values
+* Do not change `samples/main_process/expected/*` for metadata-only work
+* Prefer `samples/metadata/*`, `samples/test/metadata/*`, and
+  `convert/convert/test/origin_metadata_test.mbt` when adjusting origin logic
 
 ### When modifying asset export / asset reference logic
 

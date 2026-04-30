@@ -42,7 +42,7 @@ fn push_json_value(
     column_index: None,
     object_ref: None,
     relationship_id: None,
-    key_path: None,
+    key_path: Some("$"),
   })
 
   match value {
@@ -70,7 +70,7 @@ fn push_json_value(
             column_index: None,
             object_ref: None,
             relationship_id: None,
-            key_path: None,
+            key_path: Some("$"),
           })
           @cor.push_with_origin(
             doc,

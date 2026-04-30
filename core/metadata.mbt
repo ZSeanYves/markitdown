@@ -414,17 +414,10 @@ fn find_line_sequence(
 ///|
 fn infer_block_line_range(
   format : String,
-  block : Block,
+  _block : Block,
   index : Int,
   markdown_ranges : Array[(Int, Int)],
 ) -> (Int?, Int?) {
-  if format == "csv" || format == "tsv" {
-    match block {
-      Block::Table(rows) => return (Some(1), Some(rows.length()))
-      _ => ()
-    }
-  }
-
   if format == "markdown" {
     if index >= 0 && index < markdown_ranges.length() {
       let (start, end_) = markdown_ranges[index]

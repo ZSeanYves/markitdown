@@ -1,8 +1,8 @@
 {
   "version": "1",
-  "source_name": "html_figure_figcaption_basic.html",
+  "source_name": "html_img_single.html",
   "format": "html",
-  "markdown_file": "html_figure_figcaption_basic.md",
+  "markdown_file": "html_img_single.md",
   "document": null,
   "summary": {
     "block_count": 1,
@@ -12,10 +12,10 @@
     {
       "block_index": 0,
       "block_type": "image",
-      "text": "Figure caption text.",
+      "text": "",
       "origin": {
         "format": "html",
-        "source_name": "html_figure_figcaption_basic.html",
+        "source_name": "html_img_single.html",
         "page": null,
         "slide": null,
         "sheet": null,
@@ -24,9 +24,9 @@
       },
       "image": {
         "path": "assets/image01.jpg",
-        "alt_text": "figure image",
-        "title": "Figure title",
-        "caption": "Figure caption text."
+        "alt_text": "single",
+        "title": null,
+        "caption": null
       }
     }
   ],
@@ -34,20 +34,20 @@
     {
       "path": "assets/image01.jpg",
       "asset_type": "image",
-      "alt_text": "figure image",
-      "title": "Figure title",
-      "caption": "Figure caption text.",
+      "alt_text": "single",
+      "title": null,
+      "caption": null,
       "origin": {
         "format": "html",
-        "source_name": "html_figure_figcaption_basic.html",
+        "source_name": "html_img_single.html",
         "page": null,
         "slide": null,
         "sheet": null,
         "origin_id": "html-asset-1",
-        "nearby_caption": "Figure caption text.",
+        "nearby_caption": null,
         "source_path": "img/img_red.jpg"
       },
-      "nearby_caption": "Figure caption text."
+      "nearby_caption": null
     }
   ]
 }

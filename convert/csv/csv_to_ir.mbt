@@ -34,6 +34,7 @@ fn parse_delimited_file(
   }
 
   let rows = parse_delimited_table(text, format)
+  let physical_line_count = physical_line_count(text)
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
 
@@ -51,10 +52,10 @@ fn parse_delimited_file(
       sheet: None,
       block_index: Some(doc.blocks.val.length()),
       heading_path: None,
-      line_start: None,
-      line_end: None,
-      row_index: None,
-      column_index: None,
+      line_start: Some(1),
+      line_end: Some(physical_line_count),
+      row_index: Some(1),
+      column_index: Some(1),
       object_ref: None,
       relationship_id: None,
       key_path: None,
@@ -62,4 +63,27 @@ fn parse_delimited_file(
   )
 
   doc
+}
+
+///|
+fn physical_line_count(text : String) -> Int {
+  if text == "" {
+    return 0
+  }
+
+  let normalized = text
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+  let mut breaks = 0
+  for ch in normalized.to_array() {
+    if ch == '\n' {
+      breaks += 1
+    }
+  }
+
+  if normalized.has_suffix("\n") {
+    breaks
+  } else {
+    breaks + 1
+  }
 }

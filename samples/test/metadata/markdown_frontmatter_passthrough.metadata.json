@@ -1,0 +1,67 @@
+{
+  "version": "1",
+  "source_name": "markdown_frontmatter_passthrough.markdown",
+  "format": "markdown",
+  "markdown_file": "markdown_frontmatter_passthrough.md",
+  "document": null,
+  "summary": {
+    "block_count": 3,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "paragraph",
+      "text": "---\ntitle: Frontmatter Demo\ntags:\n  - passthrough\n---",
+      "origin": {
+        "format": "markdown",
+        "source_name": "markdown_frontmatter_passthrough.markdown",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 5
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "# Frontmatter Heading",
+      "origin": {
+        "format": "markdown",
+        "source_name": "markdown_frontmatter_passthrough.markdown",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 7,
+        "line_end": 7
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "Body text after frontmatter.",
+      "origin": {
+        "format": "markdown",
+        "source_name": "markdown_frontmatter_passthrough.markdown",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "line_start": 9,
+        "line_end": 9
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}
