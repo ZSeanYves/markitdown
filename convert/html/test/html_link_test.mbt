@@ -4,7 +4,7 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
-  let fallback = "../../" + path
+  let fallback = "../../../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
@@ -46,7 +46,7 @@ fn has_any_link(xs : Array[@cor.Inline]) -> Bool {
 
 ///|
 test "html links are preserved in rich paragraph inlines" {
-  let basic_doc = parse_html(
+  let basic_doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_link_basic.html"),
     "",
     6,
@@ -61,7 +61,7 @@ test "html links are preserved in rich paragraph inlines" {
     _ => fail("html_link_basic should emit RichParagraph")
   }
 
-  let paragraph_doc = parse_html(
+  let paragraph_doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_link_in_paragraph.html"),
     "",
     6,
@@ -83,7 +83,7 @@ test "html links are preserved in rich paragraph inlines" {
 
 ///|
 test "html links are preserved in list items and nested inline text" {
-  let list_doc = parse_html(
+  let list_doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_link_in_list.html"),
     "",
     6,
@@ -102,7 +102,7 @@ test "html links are preserved in list items and nested inline text" {
     _ => fail("html_link_in_list should emit RichListItem")
   }
 
-  let nested_doc = parse_html(
+  let nested_doc = @html.parse_html(
     resolve_sample_path(
       "samples/main_process/html/html_link_nested_inline.html",
     ),
@@ -126,7 +126,7 @@ test "html links are preserved in list items and nested inline text" {
 
 ///|
 test "html table cell links render and missing href stays plain text" {
-  let table_doc = parse_html(
+  let table_doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_link_in_table.html"),
     "",
     6,
@@ -146,7 +146,7 @@ test "html table cell links render and missing href stays plain text" {
     _ => fail("html_link_in_table should emit RichTable")
   }
 
-  let negative_doc = parse_html(
+  let negative_doc = @html.parse_html(
     resolve_sample_path(
       "samples/main_process/html/html_link_missing_href_negative.html",
     ),
@@ -167,7 +167,7 @@ test "html table cell links render and missing href stays plain text" {
 
 ///|
 test "html table without explicit header keeps legacy table" {
-  let doc = parse_html(
+  let doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_br_table.html"),
     "",
     6,

@@ -1,9 +1,9 @@
 ///|
 test "metadata sidecar old entrypoint emits null document" {
-  let doc = new_document()
-  push(doc, Block::Paragraph("hello"))
+  let doc = @cor.new_document()
+  @cor.push(doc, @cor.Block::Paragraph("hello"))
 
-  let json = emit_metadata_json(doc, "sample.html", "html", "sample.md")
+  let json = @cor.emit_metadata_json(doc, "sample.html", "html", "sample.md")
   if !json.contains("\"document\": null") {
     fail("old metadata entrypoint should emit null document")
   }
@@ -11,9 +11,9 @@ test "metadata sidecar old entrypoint emits null document" {
 
 ///|
 test "metadata sidecar serializes document properties" {
-  let doc = new_document()
-  push(doc, Block::Paragraph("hello"))
-  let props = metadata_document_properties(
+  let doc = @cor.new_document()
+  @cor.push(doc, @cor.Block::Paragraph("hello"))
+  let props = @cor.metadata_document_properties(
     Some("Title"),
     Some("Subject"),
     Some("Creator"),
@@ -28,7 +28,7 @@ test "metadata sidecar serializes document properties" {
     Some("4"),
   )
 
-  let json = emit_metadata_json_with_document_properties(
+  let json = @cor.emit_metadata_json_with_document_properties(
     doc,
     "sample.docx",
     "docx",
@@ -49,16 +49,16 @@ test "metadata sidecar serializes document properties" {
 
 ///|
 test "metadata sidecar serializes rich table structure" {
-  let doc = new_document()
-  push(
+  let doc = @cor.new_document()
+  @cor.push(
     doc,
-    Block::RichTable({
+    @cor.Block::RichTable({
       rows: [["Name", "Role"], ["Alice", "Engineer"]],
       header_rows: 1,
     }),
   )
 
-  let json = emit_metadata_json(doc, "sample.json", "json", "sample.md")
+  let json = @cor.emit_metadata_json(doc, "sample.json", "json", "sample.md")
   if !json.contains("\"block_type\": \"table\"") {
     fail("rich table metadata should keep table block type")
   }
@@ -84,10 +84,10 @@ test "metadata sidecar serializes rich table structure" {
 
 ///|
 test "metadata sidecar omits legacy table structure" {
-  let doc = new_document()
-  push(doc, Block::Table([["Name", "Role"], ["Alice", "Engineer"]]))
+  let doc = @cor.new_document()
+  @cor.push(doc, @cor.Block::Table([["Name", "Role"], ["Alice", "Engineer"]]))
 
-  let json = emit_metadata_json(doc, "sample.csv", "csv", "sample.md")
+  let json = @cor.emit_metadata_json(doc, "sample.csv", "csv", "sample.md")
   if !json.contains("\"block_type\": \"table\"") {
     fail("legacy table metadata should keep table block type")
   }

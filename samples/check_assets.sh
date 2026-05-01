@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS_DIR="$ROOT/samples/assets"
 EXP_DIR="$ASSETS_DIR/expected"
+MAIN_SAMPLES_DIR="$ROOT/samples/main_process"
+MAIN_EXP_DIR="$MAIN_SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 OUT_DIR="$TMP_ROOT/samples/assets"
 
@@ -107,6 +109,64 @@ for fmt in "${FORMATS[@]}"; do
     fi
   done < <("${cmd[@]}" | sort)
 done
+
+zip_dir="$MAIN_SAMPLES_DIR/zip"
+zip_exp_dir="$MAIN_EXP_DIR/zip"
+
+if [[ -d "$zip_dir" ]]; then
+  while IFS= read -r zip_sample; do
+    [[ -z "$zip_sample" ]] && continue
+    found=1
+
+    base="$(basename "$zip_sample")"
+    name="${base%.*}"
+    zip_out_dir="$OUT_DIR/zip-$name"
+    zip_out_md="$zip_out_dir/$name.md"
+    zip_expected="$zip_exp_dir/$name.md"
+
+    rm -rf "$zip_out_dir"
+    mkdir -p "$zip_out_dir"
+
+    echo "==> checking zip assets"
+    echo "==> converting main_process/zip/$base"
+    moon run "$ROOT/cli" -- normal "$zip_sample" "$zip_out_md"
+
+    if [[ ! -f "$zip_out_md" ]]; then
+      echo "missing markdown output for zip asset sample: $zip_out_md"
+      fail=1
+      continue
+    fi
+
+    if [[ ! -f "$zip_expected" ]]; then
+      echo "!! expected missing: $zip_expected"
+      echo "   create with: cp \"$zip_out_md\" \"$zip_expected\""
+      fail=1
+      continue
+    fi
+
+    echo "==> diff main_process/zip/$name"
+    if ! diff -u "$zip_expected" "$zip_out_md"; then
+      echo "!! mismatch: main_process/zip/$name"
+      fail=1
+    fi
+
+    refs="$(extract_asset_refs "$zip_out_dir")"
+    if [[ -n "${refs//[$'\t\r\n ']}" ]]; then
+      missing=0
+      while IFS= read -r ref; do
+        [[ -z "$ref" ]] && continue
+        if [[ ! -f "$zip_out_dir/$ref" ]]; then
+          echo "missing asset for main_process/zip/$name: $zip_out_dir/$ref"
+          missing=1
+        fi
+      done <<< "$refs"
+
+      if [[ $missing -ne 0 ]]; then
+        fail=1
+      fi
+    fi
+  done < <(find "$zip_dir" -maxdepth 1 -type f -name "*.zip" -print | sort)
+fi
 
 if [[ $found -eq 0 ]]; then
   echo "No asset sample files found under $ASSETS_DIR for: ${FORMATS[*]}"

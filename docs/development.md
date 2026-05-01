@@ -514,10 +514,26 @@ explicit in code and tests:
 * validate and normalize archive entry paths before writing temporary files
 * keep entry extraction under `MARKITDOWN_TMP_DIR` when set, otherwise `.tmp`
 * process entries in normalized path order
+* keep nested asset remap under `assets/archive/<entry-id>/...` so same-name
+  converter outputs such as `image01.*` never collide across entries
 * keep unsupported entries as blockquote warnings rather than failing the whole
   archive
-* do not claim Office/PDF entry support, nested archive recursion, or asset
-  namespace/remap until those paths are implemented and covered by samples
+* fail closed on normalized-path collisions before building any shared
+  extracted tree
+* keep HTML local-image materialization inside a safe extracted tree rooted
+  under the ZIP temp directory
+* preserve ZIP-level provenance on remapped assets: `source_name = zip
+  filename`, `source_path/key_path = normalized entry path`, while keeping
+  inner `relationship_id` / `object_ref` when present
+* keep low-level ZIP reader fail-closed behavior for unsupported archive
+  features such as encrypted inputs, ZIP64, data descriptors, or duplicate raw
+  entry names
+* do not claim remote fetch, `data:`, absolute/root-relative/parent/
+  scheme-like/backslash HTML image support, nested archive recursion, or
+  unchecked full archive extraction unless those paths are implemented and
+  covered by samples
+* do not add a separate metadata field for inner HTML image `src` without an
+  explicit schema change
 
 Image-context-specific note:
 

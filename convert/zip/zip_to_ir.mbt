@@ -15,11 +15,11 @@ priv struct PlannedEntry {
 }
 
 ///|
-pub fn parse_zip(
+pub async fn parse_zip(
   input_path : String,
-  _out_dir : String,
+  out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise {
+) -> @cor.Document {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("zip: file not found: " + input_path)
   }
@@ -36,6 +36,17 @@ pub fn parse_zip(
   let tmp_root = zip_tmp_dir(input_path)
   ensure_dir_tree(tmp_root) catch {
     e => raise @cor.AppError("zip: create temp dir failed: " + e.to_string())
+  }
+  let archive_out_dir = if out_dir.trim() == "" {
+    tmp_root + "/archive-out"
+  } else {
+    out_dir
+  }
+  ensure_dir_tree(archive_out_dir) catch {
+    e =>
+      raise @cor.AppError(
+        "zip: create archive output dir failed: " + e.to_string(),
+      )
   }
 
   let plans : Array[PlannedEntry] = []
@@ -54,11 +65,14 @@ pub fn parse_zip(
         })
     }
   }
+  ensure_no_normalized_path_collisions(plans)
   plans.sort_by((a, b) => compare_zip_path(a.path, b.path))
 
   let final_md = StringBuilder::new()
   let used_ids : Map[String, Int] = Map::new()
   let mut total_decoded = 0
+  let extracted_root = tmp_root + "/extracted"
+  let mut shared_extracted_ready = false
 
   for i in 0..<plans.length() {
     let plan = plans[i]
@@ -81,16 +95,6 @@ pub fn parse_zip(
         zip_name,
         plan.path,
         "Skipped: nested archive is not supported: " + ext,
-      )
-      continue
-    }
-    if is_explicitly_deferred_ext(ext) {
-      append_warning_entry(
-        doc,
-        final_md,
-        zip_name,
-        plan.path,
-        "Skipped: unsupported file type for ZIP container phase 1: " + ext,
       )
       continue
     }
@@ -145,48 +149,94 @@ pub fn parse_zip(
     }
     total_decoded += entry_bytes.length()
 
+    let use_shared_extracted_input = is_html_entry_ext(ext) &&
+      html_entry_has_local_image_refs(entry_bytes)
+    if use_shared_extracted_input && !shared_extracted_ready {
+      materialize_safe_archive_tree(archive, plans, extracted_root) catch {
+        e => {
+          append_warning_entry(
+            doc,
+            final_md,
+            zip_name,
+            plan.path,
+            "Conversion failed: " + e.to_string(),
+          )
+          continue
+        }
+      }
+      shared_extracted_ready = true
+    }
+
     let entry_id = unique_entry_id(plan.path, used_ids)
     let entry_root = tmp_root + "/entries/" + entry_id
     let entry_out = tmp_root + "/out/" + entry_id
-    let entry_path = entry_root + "/" + plan.path
-    ensure_parent_dir(entry_path) catch {
+    recreate_clean_dir(entry_root) catch {
       e => {
         append_warning_entry(
           doc,
           final_md,
           zip_name,
           plan.path,
-          "Conversion failed: create temp path failed: " + e.to_string(),
+          "Conversion failed: reset entry temp dir failed: " + e.to_string(),
         )
         continue
       }
     }
-    ensure_dir_tree(entry_out) catch {
+    recreate_clean_dir(entry_out) catch {
       e => {
         append_warning_entry(
           doc,
           final_md,
           zip_name,
           plan.path,
-          "Conversion failed: create entry output dir failed: " + e.to_string(),
+          "Conversion failed: reset entry output dir failed: " + e.to_string(),
         )
         continue
       }
     }
-    @fs.write_bytes_to_file(entry_path, entry_bytes) catch {
-      e => {
-        append_warning_entry(
-          doc,
-          final_md,
-          zip_name,
-          plan.path,
-          "Conversion failed: write temp entry failed: " + e.to_string(),
-        )
-        continue
+    let input_path = if use_shared_extracted_input {
+      extracted_entry_path(extracted_root, plan.path) catch {
+        e => {
+          append_warning_entry(
+            doc,
+            final_md,
+            zip_name,
+            plan.path,
+            "Conversion failed: " + e.to_string(),
+          )
+          continue
+        }
       }
+    } else {
+      let entry_path = entry_root + "/" + plan.path
+      ensure_parent_dir(entry_path) catch {
+        e => {
+          append_warning_entry(
+            doc,
+            final_md,
+            zip_name,
+            plan.path,
+            "Conversion failed: create temp path failed: " + e.to_string(),
+          )
+          continue
+        }
+      }
+      @fs.write_bytes_to_file(entry_path, entry_bytes) catch {
+        e => {
+          append_warning_entry(
+            doc,
+            final_md,
+            zip_name,
+            plan.path,
+            "Conversion failed: write temp entry failed: " + e.to_string(),
+          )
+          continue
+        }
+      }
+      entry_path
     }
 
-    let subdoc = parse_supported_entry(entry_path, ext, entry_out, max_heading) catch {
+    let subdoc = parse_supported_entry(input_path, ext, entry_out, max_heading) catch {
       e => {
         append_warning_entry(
           doc,
@@ -198,23 +248,37 @@ pub fn parse_zip(
         continue
       }
     }
-    if doc_has_assets(subdoc) {
-      append_warning_entry(
-        doc,
-        final_md,
+
+    let remapped_subdoc = if doc_has_assets(subdoc) {
+      remap_subdoc_assets(
+        subdoc,
+        entry_id,
+        entry_out,
+        archive_out_dir,
         zip_name,
         plan.path,
-        "Skipped: entry produced assets; ZIP asset namespacing is not enabled in this phase",
-      )
-      continue
+      ) catch {
+        e => {
+          append_warning_entry(
+            doc,
+            final_md,
+            zip_name,
+            plan.path,
+            "Conversion failed: " + e.to_string(),
+          )
+          continue
+        }
+      }
+    } else {
+      subdoc
     }
     append_converted_entry(
       doc,
       final_md,
-      subdoc,
+      remapped_subdoc,
       zip_name,
       plan.path,
-      @cor.emit_markdown(subdoc),
+      @cor.emit_markdown(remapped_subdoc),
     )
   }
 
@@ -232,13 +296,26 @@ pub fn parse_zip(
 }
 
 ///|
-fn parse_supported_entry(
+async fn parse_supported_entry(
   input_path : String,
   ext : String,
   out_dir : String,
   max_heading : Int,
-) -> @cor.Document raise {
+) -> @cor.Document {
   match ext {
+    "docx" => @doc.parse_docx(input_path, out_dir, max_heading)
+    "pdf" =>
+      @pdf.parse_pdf(
+        input_path,
+        out_dir,
+        max_heading,
+        None,
+        false,
+        false,
+        false,
+      )
+    "xlsx" => @xlsx.parse_xlsx(input_path, out_dir, max_heading)
+    "pptx" => @pptx.parse_pptx(input_path, out_dir, max_heading)
     "html" => @html.parse_html(input_path, out_dir, max_heading)
     "htm" => @html.parse_html(input_path, out_dir, max_heading)
     "csv" => @csv.parse_csv(input_path, out_dir, max_heading)
@@ -249,6 +326,144 @@ fn parse_supported_entry(
     "md" => @md.parse_markdown(input_path, out_dir, max_heading)
     "markdown" => @md.parse_markdown(input_path, out_dir, max_heading)
     _ => raise @cor.AppError("unsupported zip entry type: " + ext)
+  }
+}
+
+///|
+fn remap_subdoc_assets(
+  subdoc : @cor.Document,
+  entry_id : String,
+  entry_out_dir : String,
+  archive_out_dir : String,
+  zip_source_name : String,
+  entry_path : String,
+) -> @cor.Document raise {
+  let asset_paths = collect_subdoc_asset_paths(subdoc)
+  if asset_paths.length() == 0 {
+    return subdoc
+  }
+
+  let path_map : Map[String, String] = Map::new()
+  for old_path in asset_paths {
+    path_map.set(old_path, namespaced_asset_path(old_path, entry_id))
+  }
+
+  for old_path in asset_paths {
+    let new_path = path_map.get(old_path).unwrap_or(old_path)
+    copy_remapped_asset_file(
+      old_path, new_path, entry_out_dir, archive_out_dir, entry_path,
+    )
+  }
+
+  let remapped = @cor.new_document()
+  for i in 0..<subdoc.blocks.val.length() {
+    @cor.push_with_origin(
+      remapped,
+      remap_block_asset_path(subdoc.blocks.val[i], path_map),
+      origin_at(subdoc, i),
+    )
+  }
+
+  for entry in subdoc.asset_origins.val {
+    let (old_path, old_origin) = entry
+    let new_path = path_map
+      .get(old_path)
+      .unwrap_or(namespaced_asset_path(old_path, entry_id))
+    @cor.set_asset_origin(
+      remapped,
+      new_path,
+      remap_asset_origin(old_origin, new_path, zip_source_name, entry_path),
+    )
+  }
+
+  for old_path in asset_paths {
+    let new_path = path_map.get(old_path).unwrap_or(old_path)
+    if remapped.asset_origins.val.contains(new_path) {
+      continue
+    }
+    @cor.set_asset_origin(
+      remapped,
+      new_path,
+      synthesize_remapped_asset_origin(
+        subdoc, old_path, new_path, zip_source_name, entry_path,
+      ),
+    )
+  }
+
+  remapped
+}
+
+///|
+fn materialize_safe_archive_tree(
+  archive : @zipraw.ZipArchive,
+  plans : Array[PlannedEntry],
+  extracted_root : String,
+) -> Unit raise {
+  recreate_clean_dir(extracted_root) catch {
+    e =>
+      raise @cor.AppError(
+        "zip extracted tree failed: reset temp dir failed: " + e.to_string(),
+      )
+  }
+
+  let mut total_materialized = 0
+  for i in 0..<plans.length() {
+    let plan = plans[i]
+    if i >= MAX_ZIP_ENTRIES {
+      continue
+    }
+    if plan.uncompressed_size > MAX_SINGLE_ENTRY_BYTES {
+      continue
+    }
+    if total_materialized + plan.uncompressed_size > MAX_TOTAL_ENTRY_BYTES {
+      continue
+    }
+
+    let dst = extracted_entry_path(extracted_root, plan.path)
+    ensure_parent_dir(dst) catch {
+      e =>
+        raise @cor.AppError(
+          "zip extracted tree failed: create parent dir failed for " +
+          plan.path +
+          ": " +
+          e.to_string(),
+        )
+    }
+
+    let entry_bytes = @zipraw.read_entry(
+      archive,
+      plan.raw_path,
+      max_output_size=MAX_SINGLE_ENTRY_BYTES,
+    ) catch {
+      e =>
+        raise @cor.AppError(
+          "zip extracted tree failed: read entry failed for " +
+          plan.path +
+          ": " +
+          e.to_string(),
+        )
+    }
+    total_materialized += entry_bytes.length()
+    @fs.write_bytes_to_file(dst, entry_bytes) catch {
+      e =>
+        raise @cor.AppError(
+          "zip extracted tree failed: write entry failed for " +
+          plan.path +
+          ": " +
+          e.to_string(),
+        )
+    }
+  }
+}
+
+///|
+fn append_subdoc_asset_origins(
+  doc : @cor.Document,
+  subdoc : @cor.Document,
+) -> Unit {
+  for entry in subdoc.asset_origins.val {
+    let (path, origin) = entry
+    @cor.set_asset_origin(doc, path, origin)
   }
 }
 
@@ -265,19 +480,26 @@ fn append_converted_entry(
   final_md.write_string(trim_trailing_newlines(entry_md))
   final_md.write_string("\n\n")
   for i in 0..<subdoc.blocks.val.length() {
+    let final_index = doc.blocks.val.length()
     @cor.push_with_origin(
       doc,
-      subdoc.blocks.val[i],
+      rewrite_block_for_zip(
+        subdoc.blocks.val[i],
+        zip_name,
+        entry_path,
+        final_index,
+      ),
       Some(
         rewrite_block_origin(
           origin_at(subdoc, i),
           zip_name,
           entry_path,
-          doc.blocks.val.length(),
+          final_index,
         ),
       ),
     )
   }
+  append_subdoc_asset_origins(doc, subdoc)
 }
 
 ///|
@@ -377,6 +599,213 @@ fn rewrite_block_origin(
 }
 
 ///|
+fn rewrite_block_for_zip(
+  block : @cor.Block,
+  zip_name : String,
+  entry_path : String,
+  index : Int,
+) -> @cor.Block {
+  match block {
+    @cor.Block::ImageBlock(img) =>
+      @cor.Block::ImageBlock({
+        ..img,
+        origin: Some(
+          rewrite_block_origin(img.origin, zip_name, entry_path, index),
+        ),
+      })
+    _ => block
+  }
+}
+
+///|
+fn collect_subdoc_asset_paths(doc : @cor.Document) -> Array[String] {
+  let seen : Map[String, Bool] = Map::new()
+
+  for entry in doc.asset_origins.val {
+    let (path, _origin) = entry
+    let normalized = path.trim().to_owned()
+    if normalized != "" {
+      seen.set(normalized, true)
+    }
+  }
+
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::Image(_, path) => {
+        let normalized = path.trim().to_owned()
+        if normalized != "" {
+          seen.set(normalized, true)
+        }
+      }
+      @cor.Block::ImageBlock(img) => {
+        let normalized = img.path.trim().to_owned()
+        if normalized != "" {
+          seen.set(normalized, true)
+        }
+      }
+      _ => ()
+    }
+  }
+
+  let out : Array[String] = []
+  for entry in seen {
+    out.push(entry.0)
+  }
+  out.sort_by((a, b) => compare_zip_path(a, b))
+  out
+}
+
+///|
+fn remap_block_asset_path(
+  block : @cor.Block,
+  path_map : Map[String, String],
+) -> @cor.Block {
+  match block {
+    @cor.Block::Image(alt, path) =>
+      @cor.Block::Image(alt, remap_asset_path(path, path_map))
+    @cor.Block::ImageBlock(img) =>
+      @cor.Block::ImageBlock({
+        ..img,
+        path: remap_asset_path(img.path, path_map),
+      })
+    _ => block
+  }
+}
+
+///|
+fn remap_asset_path(path : String, path_map : Map[String, String]) -> String {
+  path_map.get(path).unwrap_or(path)
+}
+
+///|
+fn namespaced_asset_path(path : String, entry_id : String) -> String {
+  let trimmed = path.trim().to_owned()
+  let suffix = if trimmed.has_prefix("assets/") {
+    trimmed["assets/".length():].to_owned()
+  } else {
+    @cor.basename(trimmed)
+  }
+  "assets/archive/" + entry_id + "/" + suffix
+}
+
+///|
+fn copy_remapped_asset_file(
+  old_path : String,
+  new_path : String,
+  entry_out_dir : String,
+  archive_out_dir : String,
+  entry_path : String,
+) -> Unit raise {
+  let src = entry_out_dir + "/" + old_path
+  let dst = archive_out_dir + "/" + new_path
+  ensure_parent_dir(dst) catch {
+    e =>
+      raise @cor.AppError(
+        "zip asset remap failed for " +
+        entry_path +
+        ": create destination failed: " +
+        e.to_string(),
+      )
+  }
+  let data = @fs.read_file_to_bytes(src) catch {
+    e =>
+      raise @cor.AppError(
+        "zip asset remap failed for " +
+        entry_path +
+        ": read source asset failed: " +
+        old_path +
+        " : " +
+        e.to_string(),
+      )
+  }
+  @fs.write_bytes_to_file(dst, data) catch {
+    e =>
+      raise @cor.AppError(
+        "zip asset remap failed for " +
+        entry_path +
+        ": write archive asset failed: " +
+        new_path +
+        " : " +
+        e.to_string(),
+      )
+  }
+}
+
+///|
+fn remap_asset_origin(
+  origin : @cor.AssetOrigin,
+  new_path : String,
+  zip_source_name : String,
+  entry_path : String,
+) -> @cor.AssetOrigin {
+  {
+    ..origin,
+    source_name: Some(zip_source_name),
+    origin_id: Some(
+      remap_asset_origin_id(origin.origin_id, new_path, entry_path),
+    ),
+    source_path: Some(entry_path),
+    key_path: Some(entry_path),
+  }
+}
+
+///|
+fn remap_asset_origin_id(
+  old_origin_id : String?,
+  new_path : String,
+  entry_path : String,
+) -> String {
+  let suffix = match old_origin_id {
+    Some(v) => if v.trim() == "" { new_path } else { v }
+    None => new_path
+  }
+  "zip:" + entry_path + ":" + suffix
+}
+
+///|
+fn synthesize_remapped_asset_origin(
+  doc : @cor.Document,
+  old_path : String,
+  new_path : String,
+  zip_source_name : String,
+  entry_path : String,
+) -> @cor.AssetOrigin {
+  let nearby_caption = match find_image_data_by_path(doc, old_path) {
+    Some(img) => img.caption
+    None => None
+  }
+
+  {
+    source_name: Some(zip_source_name),
+    page: None,
+    slide: None,
+    sheet: None,
+    origin_id: Some(remap_asset_origin_id(None, new_path, entry_path)),
+    nearby_caption,
+    object_ref: None,
+    relationship_id: None,
+    source_path: Some(entry_path),
+    row_index: None,
+    column_index: None,
+    key_path: Some(entry_path),
+  }
+}
+
+///|
+fn find_image_data_by_path(
+  doc : @cor.Document,
+  path : String,
+) -> @cor.ImageData? {
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::ImageBlock(img) => if img.path == path { return Some(img) }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 fn doc_has_assets(doc : @cor.Document) -> Bool {
   if doc.asset_origins.val.length() > 0 {
     return true
@@ -388,6 +817,259 @@ fn doc_has_assets(doc : @cor.Document) -> Bool {
     }
   }
   false
+}
+
+///|
+fn html_entry_has_local_image_refs(entry_bytes : Bytes) -> Bool {
+  let html = @cor.utf8_bytes_to_string(entry_bytes) catch { _ => return false }
+  let mut pos = 0
+
+  while true {
+    let img0 = find_ascii_case_insensitive(html, "<img", pos)
+    match img0 {
+      None => break
+      Some(start) =>
+        match find_substring(html, ">", start + 4) {
+          None => break
+          Some(end_) => {
+            let tag = html[start:end_ + 1].to_owned()
+            match read_html_attr_value(tag, "src") {
+              Some(src) => if is_local_html_image_src(src) { return true }
+              None => ()
+            }
+            pos = end_ + 1
+          }
+        }
+    }
+  }
+
+  false
+}
+
+///|
+fn find_substring(s : String, pat : String, start : Int) -> Int? {
+  let n = s.length()
+  let m = pat.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start >= n || n < m {
+    return None
+  }
+
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    if s[i:i + m] == pat {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn find_ascii_case_insensitive(s : String, pat : String, start : Int) -> Int? {
+  let s_chars = s.to_array()
+  let pat_chars = pat.to_array()
+  let n = s_chars.length()
+  let m = pat_chars.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start >= n || n < m {
+    return None
+  }
+
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    let mut matched = true
+    let mut j = 0
+    while j < m {
+      if ascii_lower_char(s_chars[i + j]) != ascii_lower_char(pat_chars[j]) {
+        matched = false
+        break
+      }
+      j += 1
+    }
+    if matched {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn ascii_lower_char(ch : Char) -> Char {
+  if ch >= 'A' && ch <= 'Z' {
+    Int::unsafe_to_char(ch.to_int() + ('a'.to_int() - 'A'.to_int()))
+  } else {
+    ch
+  }
+}
+
+///|
+fn read_html_attr_value(tag : String, key : String) -> String? {
+  let chars = tag.to_array()
+  let key_lower = ascii_lower_string(key)
+  let mut i = 0
+
+  while i < chars.length() {
+    while i < chars.length() && is_html_attr_space(chars[i]) {
+      i += 1
+    }
+    while i < chars.length() &&
+          (chars[i] == '<' || chars[i] == '>' || chars[i] == '/') {
+      i += 1
+    }
+
+    let name_start = i
+    while i < chars.length() && is_html_attr_name_char(chars[i]) {
+      i += 1
+    }
+    if name_start == i {
+      i += 1
+      continue
+    }
+
+    let name = ascii_lower_string(String::from_array(chars[name_start:i]))
+    while i < chars.length() && is_html_attr_space(chars[i]) {
+      i += 1
+    }
+    if i >= chars.length() || chars[i] != '=' {
+      continue
+    }
+    i += 1
+    while i < chars.length() && is_html_attr_space(chars[i]) {
+      i += 1
+    }
+    if i >= chars.length() {
+      return None
+    }
+
+    let value = if chars[i] == '"' || chars[i] == '\'' {
+      let quote = chars[i]
+      i += 1
+      let value_start = i
+      while i < chars.length() && chars[i] != quote {
+        i += 1
+      }
+      let out = String::from_array(chars[value_start:i])
+      if i < chars.length() {
+        i += 1
+      }
+      out
+    } else {
+      let value_start = i
+      while i < chars.length() &&
+            !is_html_attr_space(chars[i]) &&
+            chars[i] != '>' {
+        i += 1
+      }
+      String::from_array(chars[value_start:i])
+    }
+
+    if name == key_lower {
+      return Some(value)
+    }
+  }
+
+  None
+}
+
+///|
+fn ascii_lower_string(s : String) -> String {
+  let out : Array[Char] = []
+  for ch in s.to_array() {
+    out.push(ascii_lower_char(ch))
+  }
+  String::from_array(out)
+}
+
+///|
+fn is_html_attr_space(ch : Char) -> Bool {
+  ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\f'
+}
+
+///|
+fn is_html_attr_name_char(ch : Char) -> Bool {
+  (ch >= 'A' && ch <= 'Z') ||
+  (ch >= 'a' && ch <= 'z') ||
+  (ch >= '0' && ch <= '9') ||
+  ch == '-' ||
+  ch == '_' ||
+  ch == ':' ||
+  ch == '.'
+}
+
+///|
+fn is_local_html_image_src(src : String) -> Bool {
+  let trimmed = normalize_html_src(src)
+  if trimmed == "" {
+    return false
+  }
+  let lower = trimmed.to_lower()
+  !(trimmed.contains("\\") ||
+  lower.has_prefix("http://") ||
+  lower.has_prefix("https://") ||
+  lower.has_prefix("data:") ||
+  lower.has_prefix("//") ||
+  lower.has_prefix("/") ||
+  trimmed.contains("..") ||
+  has_scheme_like_prefix(lower))
+}
+
+///|
+fn normalize_html_src(src : String) -> String {
+  let trimmed = src.trim()
+  let mut end = trimmed.length()
+  for i in 0..<trimmed.length() {
+    if trimmed[i] == '?' || trimmed[i] == '#' {
+      end = i
+      break
+    }
+  }
+  trimmed[:end].trim().to_owned()
+}
+
+///|
+fn has_scheme_like_prefix(src : String) -> Bool {
+  for i in 0..<src.length() {
+    match src[i] {
+      ':' => return i > 0
+      '/' | '?' | '#' => return false
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+
+  @fs.remove_dir(path)
+}
+
+///|
+fn recreate_clean_dir(path : String) -> Unit raise {
+  if @fs.path_exists(path) {
+    remove_dir_recursive(path)
+  }
+  ensure_dir_tree(path)
 }
 
 ///|
@@ -411,6 +1093,28 @@ fn plan_entry(raw_path : String) -> EntryPlan {
       } else {
         EntryPlan::Visible(path)
       }
+  }
+}
+
+///|
+fn ensure_no_normalized_path_collisions(
+  plans : Array[PlannedEntry],
+) -> Unit raise {
+  let seen : Map[String, String] = Map::new()
+  for plan in plans {
+    match seen.get(plan.path) {
+      Some(first_raw_path) =>
+        raise @cor.AppError(
+          "zip: normalized path collision: " +
+          plan.path +
+          " (" +
+          display_path(first_raw_path) +
+          " vs " +
+          display_path(plan.raw_path) +
+          ")",
+        )
+      None => seen.set(plan.path, plan.raw_path)
+    }
   }
 }
 
@@ -461,7 +1165,11 @@ fn is_hidden_or_macos_metadata(path : String) -> Bool {
 ///|
 fn is_supported_entry_ext(ext : String) -> Bool {
   match ext {
-    "md"
+    "docx"
+    | "pdf"
+    | "xlsx"
+    | "pptx"
+    | "md"
     | "markdown"
     | "csv"
     | "tsv"
@@ -475,9 +1183,9 @@ fn is_supported_entry_ext(ext : String) -> Bool {
 }
 
 ///|
-fn is_explicitly_deferred_ext(ext : String) -> Bool {
+fn is_html_entry_ext(ext : String) -> Bool {
   match ext {
-    "docx" | "xlsx" | "pptx" | "pdf" => true
+    "html" | "htm" => true
     _ => false
   }
 }
@@ -641,4 +1349,38 @@ fn trim_trailing_newlines(text : String) -> String {
     end -= 1
   }
   text[:end].to_owned()
+}
+
+///|
+fn extracted_entry_path(
+  extracted_root : String,
+  entry_path : String,
+) -> String raise {
+  let normalized = match normalize_zip_entry_path(entry_path) {
+    Some(path) => path
+    None =>
+      raise @cor.AppError(
+        "zip extracted tree failed: unsafe materialized path: " +
+        display_path(entry_path),
+      )
+  }
+  let root = trim_trailing_slashes(extracted_root)
+  let out = root + "/" + normalized
+  let prefix = if root.has_suffix("/") { root } else { root + "/" }
+  if !out.has_prefix(prefix) {
+    raise @cor.AppError(
+      "zip extracted tree failed: materialized path escaped root: " +
+      display_path(entry_path),
+    )
+  }
+  out
+}
+
+///|
+fn trim_trailing_slashes(path : String) -> String {
+  let mut end = path.length()
+  while end > 1 && path[end - 1] == '/' {
+    end -= 1
+  }
+  path[:end].to_owned()
 }

@@ -4,7 +4,7 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
-  let fallback = "../../" + path
+  let fallback = "../../../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
@@ -14,7 +14,7 @@ fn resolve_sample_path(path : String) -> String raise {
 
 ///|
 test "json object table uses explicit header semantics" {
-  let doc = parse_json(
+  let doc = @json.parse_json(
     resolve_sample_path("samples/main_process/json/json_object_basic.json"),
     "",
     6,
@@ -31,7 +31,7 @@ test "json object table uses explicit header semantics" {
 
 ///|
 test "json array of objects table uses explicit header semantics" {
-  let doc = parse_json(
+  let doc = @json.parse_json(
     resolve_sample_path(
       "samples/main_process/json/json_array_objects_table.json",
     ),

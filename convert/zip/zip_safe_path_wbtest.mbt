@@ -16,6 +16,31 @@ test "zip normalize converts backslashes" {
 }
 
 ///|
+test "zip extracted entry path stays inside root" {
+  let out = extracted_entry_path("/tmp/zip-root", "site/img/pic.png")
+  assert_eq(out, "/tmp/zip-root/site/img/pic.png")
+
+  let bad = try? extracted_entry_path("/tmp/zip-root", "../secret.png")
+  assert_true(bad is Err(_))
+}
+
+///|
+test "zip html local image src safety stays conservative" {
+  assert_eq(is_local_html_image_src("img/pic.png"), true)
+  assert_eq(is_local_html_image_src("img/pic.png?cache=1"), true)
+  assert_eq(is_local_html_image_src("img/pic.png#preview"), true)
+  assert_eq(is_local_html_image_src("https://example.com/pic.png"), false)
+  assert_eq(is_local_html_image_src("data:image/png;base64,abcd"), false)
+  assert_eq(is_local_html_image_src("//cdn.example.com/pic.png"), false)
+  assert_eq(is_local_html_image_src("/img/pic.png"), false)
+  assert_eq(is_local_html_image_src("../secret.png"), false)
+  assert_eq(is_local_html_image_src("img\\pic.png"), false)
+  assert_eq(is_local_html_image_src("file:pic.png"), false)
+  assert_eq(is_local_html_image_src("ftp://example.com/pic.png"), false)
+  assert_eq(is_local_html_image_src("C:/pic.png"), false)
+}
+
+///|
 test "zip hidden macos metadata strategy" {
   assert_eq(is_hidden_or_macos_metadata("__MACOSX/._file"), true)
   assert_eq(is_hidden_or_macos_metadata("dir/.DS_Store"), true)
@@ -26,8 +51,12 @@ test "zip hidden macos metadata strategy" {
 ///|
 test "zip entry extension classification" {
   assert_eq(is_supported_entry_ext("json"), true)
+  assert_eq(is_supported_entry_ext("docx"), true)
+  assert_eq(is_supported_entry_ext("pdf"), true)
+  assert_eq(is_supported_entry_ext("pptx"), true)
   assert_eq(is_supported_entry_ext("txt"), false)
-  assert_eq(is_explicitly_deferred_ext("pdf"), true)
+  assert_eq(is_html_entry_ext("html"), true)
+  assert_eq(is_html_entry_ext("pdf"), false)
   assert_eq(is_nested_archive_ext("zip"), true)
   assert_eq(is_nested_archive_ext("epub"), true)
 }

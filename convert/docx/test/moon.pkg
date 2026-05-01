@@ -1,0 +1,5 @@
+import {
+  "ZSeanYves/markitdown/convert/docx" @doc,
+  "ZSeanYves/markitdown/core" @cor,
+  "moonbitlang/x/fs" @fs,
+} for "test"

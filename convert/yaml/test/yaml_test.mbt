@@ -4,7 +4,7 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
-  let fallback = "../../" + path
+  let fallback = "../../../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
@@ -33,7 +33,7 @@ test "yaml mapping emits key-value table" {
     ),
   )
 
-  let doc = parse_yaml(input, "", 6)
+  let doc = @yaml.parse_yaml(input, "", 6)
   assert_eq(@cor.emit_markdown(doc), expected)
   assert_eq(doc.blocks.val.length(), 1)
   match doc.blocks.val[0] {
@@ -53,14 +53,14 @@ test "yaml scalar sequence emits bullet list" {
     ),
   )
 
-  let doc = parse_yaml(input, "", 6)
+  let doc = @yaml.parse_yaml(input, "", 6)
   assert_eq(@cor.emit_markdown(doc), expected)
   assert_eq(doc.blocks.val.length(), 4)
 }
 
 ///|
 test "yaml object sequence and yml extension are supported" {
-  let table_doc = parse_yaml(
+  let table_doc = @yaml.parse_yaml(
     resolve_sample_path(
       "samples/main_process/yaml/yaml_sequence_objects_table.yaml",
     ),
@@ -78,7 +78,7 @@ test "yaml object sequence and yml extension are supported" {
     _ => fail("yaml_sequence_objects_table should emit RichTable")
   }
 
-  let yml_doc = parse_yaml(
+  let yml_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yml_extension_basic.yml"),
     "",
     6,
@@ -93,7 +93,7 @@ test "yaml object sequence and yml extension are supported" {
 
 ///|
 test "yaml nested mapping and quoted strings stay deterministic" {
-  let nested_doc = parse_yaml(
+  let nested_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yaml_nested_mapping.yaml"),
     "",
     6,
@@ -105,7 +105,7 @@ test "yaml nested mapping and quoted strings stay deterministic" {
   )
   assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
 
-  let quoted_doc = parse_yaml(
+  let quoted_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yaml_quoted_strings.yaml"),
     "",
     6,

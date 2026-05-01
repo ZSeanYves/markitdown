@@ -36,7 +36,7 @@ The currently landed text-format expansion stages are:
 - F2: JSON
 - F3: Markdown passthrough
 - F4: YAML
-- Z1.1a: ZIP container conversion for text / structured / static HTML entries
+- Z1.1c: ZIP container conversion for text / structured / Office / PDF / HTML entries, including archive asset namespace/remap and same-archive HTML local images
 
 Their positioning is intentionally different:
 
@@ -46,7 +46,8 @@ Their positioning is intentionally different:
 - Markdown is a low-loss passthrough input: the main body is preserved as
   source Markdown rather than rebuilt from an AST
 - ZIP is a container input: supported entries are converted with existing
-  path-based converters and concatenated under archive-path headings
+  path-based converters and concatenated under archive-path headings, while
+  exported nested assets are remapped into an archive namespace
 
 ## 4) Current Mainflow Capability
 
@@ -205,10 +206,20 @@ Currently supported:
 - Backslashes are normalized to `/` before validation.
 - Entries are processed in normalized path order for stable output.
 - Supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`,
-  `.yaml` / `.yml`, and static `.html` / `.htm`.
+  `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` /
+  `.htm`.
+- Markdown / CSV / TSV / JSON / YAML / static HTML entries are converted as
+  regular text / structured subdocuments.
+- Self-contained `.docx`, `.pptx`, `.xlsx`, and `.pdf` entries are supported,
+  including asset-producing cases.
 - Each supported entry is written under `MARKITDOWN_TMP_DIR` when set,
   otherwise under `.tmp/zip/<archive-name>/`, then converted through the
   existing path-based converter.
+- If an archive contains an HTML entry with safe local-image refs, ZIP also
+  builds a shared extracted tree under `.tmp/zip/<archive-name>/extracted/`
+  for safe normalized non-directory entries only.
+- Archive traversal enforces the current entry-count, per-entry-byte, and
+  total-byte limits before or during materialization.
 - The combined Markdown uses one heading per visible entry:
   `# path/to/entry.ext`.
 
@@ -218,26 +229,45 @@ Graceful degradation:
   archive.
 - Nested `.zip` / `.jar` / `.epub` entries are not recursed into and emit a
   warning.
-- Office/PDF entries inside ZIP are explicitly deferred and emit a warning.
 - If a supported entry conversion fails, only that entry emits a warning.
+- Normalized-path collisions such as `a\\b.png` versus `a/b.png` fail the
+  archive closed before extraction.
+- HTML image refs that are remote, `data:`, absolute, root-relative, parent
+  traversals, scheme-like (`file:`, `ftp:`, `C:`), or backslash-based do not
+  export assets and degrade through the existing HTML converter behavior.
+- Low-level ZIP reader rejections such as encrypted archives, ZIP64,
+  data-descriptor-dependent entries, multi-disk archives, or duplicate raw
+  entry names fail the archive closed.
 - If the ZIP itself cannot be opened, conversion fails closed.
 
 Metadata / assets / origin:
 
 - The metadata schema is unchanged.
 - Entry block origins use the ZIP filename as `source_name` and the normalized
-  archive entry path as `key_path`.
-- ZIP asset namespace/remap is not enabled yet. Entries that produce assets,
-  including HTML entries with local images, are skipped with a warning.
+  archive entry path as `key_path`; ZIP-level asset provenance also uses the
+  normalized entry path as `source_path`.
+- Asset-producing nested entries are remapped under
+  `assets/archive/<entry-id>/...`.
+- Multiple entries producing converter-local names such as `assets/image01.*`
+  stay isolated through that archive namespace and do not overwrite each other.
+- Remapped asset origins use the ZIP filename as `source_name` and the archive
+  entry path as both `source_path` and `key_path`.
+- Inner source identity fields such as OOXML `relationship_id` and PDF
+  `object_ref` are preserved when present.
+- HTML local images are supported only when the referenced file is a safe entry
+  in the same archive and the HTML converter accepts the `src` as local.
 
 Explicitly unsupported / out of scope:
 
-- Office/PDF entry conversion in ZIP
 - nested archive recursion
+- remote fetch for HTML image refs inside ZIP
+- absolute, root-relative, parent-traversal, scheme-like, or backslash HTML
+  image `src` inside ZIP
 - binary preview
+- full archive extraction without the existing safety checks
 - streaming archive conversion
-- asset namespace/remap
 - `.txt` conversion without a dedicated text converter
+- preserving inner HTML image `src` as a separate metadata field
 
 ### 8.2 DOCX
 

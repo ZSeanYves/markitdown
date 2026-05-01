@@ -37,7 +37,7 @@ Current major capabilities include:
 * **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values; synthetic object and array-of-objects tables carry explicit header semantics
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
 * **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into table / list / code-block IR, with synthetic mapping tables carrying explicit header semantics
-* **ZIP**: safe container conversion for supported text / structured / static HTML entries, with sorted archive paths and blockquote warnings for unsupported, nested, failed, or asset-producing entries
+* **ZIP**: safe container conversion for sorted safe archive entries, covering Markdown / CSV / TSV / JSON / YAML / static HTML plus self-contained DOCX / PPTX / XLSX / PDF entries, with archive-asset namespacing/remap and same-archive HTML local-image support through a safe extracted tree
 
 ### Short Support Matrix
 
@@ -52,7 +52,7 @@ Current major capabilities include:
 | JSON | Objects, regular object arrays, scalar arrays, and ambiguous nested values map conservatively into table / list / code-block IR; object tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No JSON Schema, JSON Lines, streaming, nested provenance, or cell-level metadata. |
 | YAML | A simple YAML subset maps conservatively into table / list / code-block IR; mapping tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, nested provenance, or cell-level metadata. |
 | Markdown | Source Markdown is preserved as the main output and only conservatively sliced for metadata. | Existing Markdown links are preserved because the original body is passed through. | Existing Markdown image syntax is preserved because the original body is passed through. | Conservative block `line_start/line_end` metadata is available without changing the body. | No Markdown AST parse, rewrite, validation, or remote asset parsing. |
-| ZIP | Supported archive entries are converted and concatenated under `# archive/path.ext` headings in normalized path order. | Link support depends on the nested supported entry converter. | ZIP asset namespacing is not enabled yet; entries that produce assets are skipped with a warning. | Entry blocks use the ZIP filename as `source_name` and normalized entry path as `key_path`. | No Office/PDF entries, nested archive recursion, binary preview, streaming, or asset remap. |
+| ZIP | Supported safe archive entries are converted and concatenated under `# archive/path.ext` headings in normalized path order. | Link support depends on the nested supported entry converter. | Asset-producing nested entries are remapped under `assets/archive/<entry-id>/...` so repeated `image01.*` names do not collide; HTML local images work when safe sibling files exist in the same archive. | Entry blocks and remapped asset origins use the ZIP filename as `source_name` and normalized entry path as `key_path` / `source_path`; inner `relationship_id` / `object_ref` are preserved when present. | No remote fetch, binary preview, nested archive recursion, or unsafe HTML image `src`; remote/`data:`/absolute/root-relative/parent/scheme-like/backslash HTML image refs do not export assets, and normalized collisions or unsupported low-level ZIP features fail closed. |
 
 Across the current formats, document-style converters prefer readable partial
 recovery and conservative downgrade, while syntax-driven structured parsers such
@@ -73,7 +73,7 @@ Current text-format expansion stages:
 * **F2 JSON**: structured data -> unified IR table / `List` / `CodeBlock`, with object tables using explicit header semantics
 * **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
 * **F4 YAML**: simple-subset structured data -> unified IR table / `List` / `CodeBlock`, with mapping tables using explicit header semantics
-* **Z1.1a ZIP**: archive container -> sorted supported text / structured / static HTML entry conversion, with warnings for unsupported entries
+* **Z1.1c ZIP**: archive container -> sorted supported text / structured / Office / PDF / HTML entry conversion, with archive asset namespacing/remap and safe same-archive HTML local-image materialization
 
 Current text-format boundaries:
 
@@ -81,7 +81,7 @@ Current text-format boundaries:
 * **JSON**: no JSON Schema, JSON Lines, or streaming parser path
 * **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
 * **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
-* **ZIP**: only `.md` / `.markdown`, `.csv` / `.tsv`, `.json`, `.yaml` / `.yml`, and static `.html` / `.htm` entries are converted; Office/PDF entries, nested archives, binary preview, and asset-producing entries are skipped with warnings
+* **ZIP**: supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`, `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` / `.htm`; self-contained DOCX / PPTX / XLSX / PDF assets are remapped into `assets/archive/<entry-id>/...`, and HTML local images only work for safe same-archive sibling files, without remote fetch, `data:`, absolute/root-relative paths, `..`, scheme-like/backslash `src`, or nested archive recursion
 
 Current table IR status:
 

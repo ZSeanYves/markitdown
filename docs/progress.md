@@ -17,7 +17,7 @@ The current format-expansion stage has landed four text / structured-input paths
 * JSON
 * Markdown passthrough
 * YAML
-* ZIP container conversion for text / structured / static HTML entries
+* ZIP container conversion for text / structured / Office / PDF / HTML entries
 
 Current positioning:
 
@@ -28,8 +28,8 @@ Current positioning:
 * Markdown passthrough: low-loss path that preserves the source Markdown body
   rather than rebuilding from a Markdown AST
 * ZIP: safe archive traversal that converts supported entries in normalized path
-  order and emits warnings for unsupported, nested, failed, or asset-producing
-  entries
+  order, remaps nested assets into archive namespaces, and supports same-archive
+  HTML local images through a safe extracted tree
 
 ## 2. General Capabilities
 
@@ -134,7 +134,8 @@ Current explicitly deferred table scope:
 
 Current landed scope:
 
-* Z1.1a minimal ZIP container conversion
+* Z1.1c ZIP container conversion with asset namespace/remap and HTML local
+  image materialization
 
 Current outcome:
 
@@ -142,22 +143,39 @@ Current outcome:
 * entry paths are normalized and checked before temporary extraction
 * directory entries and common macOS metadata entries are skipped
 * supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`,
-  `.yaml` / `.yml`, and static `.html` / `.htm`
+  `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` / `.htm`
+* Markdown / CSV / TSV / JSON / YAML / static HTML entries convert directly,
+  while self-contained DOCX / PPTX / XLSX / PDF entries also support asset
+  export inside the archive flow
 * entries are processed in normalized path order and emitted under
   `# archive/path.ext` headings
-* unsupported entries, nested archives, deferred Office/PDF entries, failed
-  entry conversions, and asset-producing entries emit blockquote warnings
-* metadata schema remains unchanged; entry block origins use the normalized
-  entry path as `key_path`
+* nested entry assets are remapped under `assets/archive/<entry-id>/...`
+* repeated converter-local asset names such as `image01.*` stay isolated across
+  archive entries through that namespace/remap
+* HTML local images work when referenced sibling files are safe entries in the
+  same archive and the `src` stays within the existing conservative HTML local
+  path rules
+* unsupported entries, nested archives, and failed entry conversions emit
+  blockquote warnings
+* normalized path collisions fail the archive closed
+* low-level unsupported ZIP features such as encrypted inputs, ZIP64, data
+  descriptors, multi-disk archives, or duplicate raw entry names fail closed
+* current entry-count, per-entry-byte, and total-byte limits are enforced
+* metadata schema remains unchanged; entry block origins and remapped asset
+  origins use the normalized entry path as ZIP-level provenance, while inner
+  `relationship_id` / `object_ref` are preserved when present
 
 Current explicitly deferred ZIP scope:
 
-* Office/PDF entries inside ZIP
 * nested archive recursion
+* remote fetch for HTML image refs inside ZIP
+* `data:`/absolute/root-relative/parent/scheme-like/backslash HTML image refs
+  inside ZIP
 * binary preview
+* full archive extraction without the existing safety checks
 * streaming archive conversion
-* asset namespace/remap
 * `.txt` conversion without a dedicated text converter
+* preserving inner HTML image `src` as a separate metadata field
 
 ## 3. Benchmark
 
@@ -205,7 +223,7 @@ Reasonable next candidates after the current stage:
 * B5: Python MarkItDown comparison audit
 * OCR regression closure
 * EPUB / ZIP expansion
-* ZIP Office/PDF entry support and asset namespace/remap
+* ZIP HTML dependency refinement beyond safe sibling materialization
 * PDF core / convert next round
 
 ## 6. Current Status

@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn parse_zip(String, String, Int) -> @core.Document raise
+pub async fn parse_zip(String, String, Int) -> @core.Document
 
 // Errors
 
