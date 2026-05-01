@@ -66,12 +66,27 @@ Current G3 image-context status:
   repository boundary
 * the metadata schema version and top-level shape remain unchanged
 
+Current G5.2 table-header metadata status:
+
+* Core IR now has both legacy `Block::Table(Array[Array[String]])` and
+  `Block::RichTable(TableData)`.
+* `TableData` carries `rows` plus `header_rows`; `header_rows` is explicit
+  source header semantics.
+* The metadata schema version and top-level shape remain unchanged.
+* `blocks[].table` is an additive optional field for structured table data.
+* Only `RichTable` populates `blocks[].table` with `rows` and `header_rows`.
+* Legacy `Table` omits `blocks[].table`.
+* Table text remains the existing flat table text representation for both
+  legacy `Table` and `RichTable`.
+
 Current provenance boundary:
 
 * sidecar origin is best-effort source location for engineering traceability
 * it is not a full layout trace, DOM path model, or char-range anchoring system
 * default sidecar emission of full PDF `source_refs` and bbox is not enabled
 * table cell-level provenance is not enabled
+* table cell-level metadata, alignment, rowspan/colspan, merged-cell
+  reconstruction, and table-cell origin are not enabled
 * HTML DOM path anchoring is not enabled
 * JSON / YAML nested key-path anchoring is not enabled
 
@@ -159,6 +174,16 @@ Current verifiable block-origin fill ranges:
 
 Block origin remains block-scoped. The current IR does not carry row/cell-level
 table provenance.
+
+Table blocks in sidecar output:
+
+* Legacy `Table` and `RichTable` both serialize as the existing table block type.
+* The `text` field remains Markdown-like flat table text.
+* `RichTable` also serializes `table: { rows, header_rows }`.
+* Legacy `Table` does not synthesize explicit header semantics and keeps
+  the optional `table` field absent.
+* The sidecar does not expose cell-level metadata, alignment, rowspan/colspan,
+  merged-cell reconstruction, cell type, or table-cell origin.
 
 ### 4.3 Role of `assets[]`
 

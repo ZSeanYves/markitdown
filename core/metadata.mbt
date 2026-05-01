@@ -94,6 +94,8 @@ priv struct MetadataBlock {
   origin : MetadataOrigin?
   // Only present for image blocks.
   image : MetadataImageBlock?
+  // Only present for RichTable blocks with explicit header semantics.
+  table : MetadataTableBlock?
 }
 
 ///|
@@ -103,6 +105,12 @@ priv struct MetadataImageBlock {
   title : String?
   // Primary semantic caption used by downstream consumers.
   caption : String?
+}
+
+///|
+priv struct MetadataTableBlock {
+  rows : Array[Array[String]]
+  header_rows : Int
 }
 
 ///|
@@ -201,6 +209,16 @@ fn build_metadata_blocks(
             title: img.title,
             caption: img.caption,
           }),
+          table: None,
+        })
+      Block::RichTable(table) =>
+        out.push({
+          block_index: i,
+          block_type: "table",
+          text: table_text(table.rows),
+          origin,
+          image: None,
+          table: Some({ rows: table.rows, header_rows: table.header_rows }),
         })
       _ =>
         out.push({
@@ -209,6 +227,7 @@ fn build_metadata_blocks(
           text: block_text_for_metadata(block),
           origin,
           image: None,
+          table: None,
         })
     }
   }
@@ -282,6 +301,7 @@ fn metadata_block_type(block : Block) -> String {
     Block::RichBlockQuote(_) => "blockquote"
     Block::CodeBlock(_) => "code_block"
     Block::Table(_) => "table"
+    Block::RichTable(_) => "table"
     Block::Image(_, _) => "image"
     Block::ImageBlock(_) => "image"
     Block::BlankLine => "blank_line"
@@ -301,6 +321,7 @@ fn block_text_for_metadata(block : Block) -> String {
     Block::RichBlockQuote(inlines) => inline_text(inlines)
     Block::CodeBlock(text) => text
     Block::Table(rows) => table_text(rows)
+    Block::RichTable(table) => table_text(table.rows)
     Block::Image(_, _) => ""
     Block::ImageBlock(img) => img.caption.unwrap_or("")
     Block::BlankLine => ""
@@ -657,6 +678,7 @@ fn serialize_block(block : MetadataBlock) -> String {
   fields.push("\"text\": " + json_string(block.text))
   fields.push("\"origin\": " + serialize_origin_opt(block.origin))
   fields.push("\"image\": " + serialize_image_block_opt(block.image))
+  push_json_table_field(fields, "table", block.table)
 
   "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
 }
@@ -694,6 +716,37 @@ fn serialize_image_block(image : MetadataImageBlock) -> String {
   fields.push("\"caption\": " + json_string_opt(image.caption))
 
   "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+}
+
+///|
+fn serialize_table_block(table : MetadataTableBlock) -> String {
+  let fields : Array[String] = []
+
+  fields.push("\"rows\": " + serialize_string_matrix(table.rows))
+  fields.push("\"header_rows\": " + table.header_rows.to_string())
+
+  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+}
+
+///|
+fn serialize_string_matrix(rows : Array[Array[String]]) -> String {
+  let parts : Array[String] = []
+  for row in rows {
+    parts.push(serialize_string_array(row))
+  }
+  "[\n" + indent_lines(join_json_items(parts), 2) + "\n]"
+}
+
+///|
+fn push_json_table_field(
+  fields : Array[String],
+  name : String,
+  value : MetadataTableBlock?,
+) -> Unit {
+  match value {
+    Some(v) => fields.push("\"" + name + "\": " + serialize_table_block(v))
+    None => ()
+  }
 }
 
 ///|

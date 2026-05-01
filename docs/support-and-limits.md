@@ -24,6 +24,7 @@ The unified entry currently supports:
 - JSON
 - YAML (`.yaml` / `.yml`)
 - Markdown (`.md` / `.markdown`)
+- ZIP (`.zip`)
 
 Inputs outside the above extensions are rejected by the dispatcher.
 
@@ -35,6 +36,7 @@ The currently landed text-format expansion stages are:
 - F2: JSON
 - F3: Markdown passthrough
 - F4: YAML
+- Z1.1a: ZIP container conversion for text / structured / static HTML entries
 
 Their positioning is intentionally different:
 
@@ -43,6 +45,8 @@ Their positioning is intentionally different:
   `List` / `CodeBlock` semantics conservatively
 - Markdown is a low-loss passthrough input: the main body is preserved as
   source Markdown rather than rebuilt from an AST
+- ZIP is a container input: supported entries are converted with existing
+  path-based converters and concatenated under archive-path headings
 
 ## 4) Current Mainflow Capability
 
@@ -143,6 +147,23 @@ Current shared image-context contract:
 - `nearby_caption` is the asset-origin mirror of the primary caption value, not
   an independent caption-inference slot
 
+Current table IR contract:
+
+- Legacy `Block::Table(Array[Array[String]])` remains supported and keeps its
+  old Markdown behavior: the first row is treated as the Markdown table header.
+- `Block::RichTable(TableData)` carries `rows` plus `header_rows`.
+- `header_rows` records explicit source header semantics. It is not cell-level
+  metadata, type inference, or schema detection.
+- The Markdown emitter renders `RichTable(header_rows >= 1)` with the first row
+  as the Markdown header.
+- The Markdown emitter renders `RichTable(header_rows = 0)` with synthetic
+  `Column N` headers and all source rows as body rows.
+- If `header_rows > 1`, only the first row is used as the Markdown header today;
+  additional header rows are emitted as body rows.
+- The metadata version and top-level schema are unchanged; `RichTable` blocks
+  expose additive `table: { rows, header_rows }` data while legacy `Table`
+  omits the optional `table` field.
+
 ## 8) Current Per-format Support Scope and Boundaries
 
 ### 8.0 Shared Low-level Parsing Foundations
@@ -172,7 +193,53 @@ These capabilities are parsing infrastructure. They support recovery,
 inspection, metadata, and graceful degradation, but they do not by themselves
 guarantee rich final document semantics.
 
-### 8.1 DOCX
+### 8.1 ZIP
+
+Currently supported:
+
+- `.zip` archives are opened through the shared low-level ZIP reader.
+- Directory entries and common macOS metadata entries are skipped:
+  `__MACOSX/`, `.DS_Store`, and basenames starting with `._`.
+- Entry paths are normalized before any temporary file is written. Absolute
+  paths, `..`, empty paths, and Windows drive prefixes are rejected.
+- Backslashes are normalized to `/` before validation.
+- Entries are processed in normalized path order for stable output.
+- Supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`,
+  `.yaml` / `.yml`, and static `.html` / `.htm`.
+- Each supported entry is written under `MARKITDOWN_TMP_DIR` when set,
+  otherwise under `.tmp/zip/<archive-name>/`, then converted through the
+  existing path-based converter.
+- The combined Markdown uses one heading per visible entry:
+  `# path/to/entry.ext`.
+
+Graceful degradation:
+
+- Unsupported entries emit a blockquote warning instead of failing the whole
+  archive.
+- Nested `.zip` / `.jar` / `.epub` entries are not recursed into and emit a
+  warning.
+- Office/PDF entries inside ZIP are explicitly deferred and emit a warning.
+- If a supported entry conversion fails, only that entry emits a warning.
+- If the ZIP itself cannot be opened, conversion fails closed.
+
+Metadata / assets / origin:
+
+- The metadata schema is unchanged.
+- Entry block origins use the ZIP filename as `source_name` and the normalized
+  archive entry path as `key_path`.
+- ZIP asset namespace/remap is not enabled yet. Entries that produce assets,
+  including HTML entries with local images, are skipped with a warning.
+
+Explicitly unsupported / out of scope:
+
+- Office/PDF entry conversion in ZIP
+- nested archive recursion
+- binary preview
+- streaming archive conversion
+- asset namespace/remap
+- `.txt` conversion without a dedicated text converter
+
+### 8.2 DOCX
 
 Currently supported:
 
@@ -195,6 +262,9 @@ Partially supported:
 - some style generalization still relies mainly on heuristic naming rules
 - table cells are still emitted as text cells rather than richer cell-level
   structure
+- DOCX tables intentionally continue through legacy `Table` at the current
+  stage to avoid changing output without a source-level explicit header
+  contract
 
 Graceful degradation:
 
@@ -297,7 +367,7 @@ Image context:
 
 Explicitly unsupported / out of scope:
 
-- true table IR recovery
+- semantic Table IR recovery
 - default PDF annotation-link Markdown emission
 - multi-image caption pairing
 - default sidecar emission of full PDF `source_refs`
@@ -321,6 +391,8 @@ Partially supported:
 - formula cells use existing cell values or cached string results but do not run
   formula evaluation
 - merged cells are not reconstructed into richer structure
+- XLSX tables intentionally continue through legacy `Table` at the current
+  stage to avoid changing output without explicit worksheet header semantics
 
 Graceful degradation:
 
@@ -414,7 +486,7 @@ Explicitly unsupported / out of scope:
 - multi-image caption pairing
 - treating OOXML `name` as caption or title
 - complex media / action / macro link promotion
-- true table IR reconstruction
+- semantic Table IR reconstruction
 
 ### 8.5 HTML
 
@@ -425,6 +497,7 @@ Currently supported:
 - block quotes
 - pre / code blocks
 - tables
+- explicit table-header semantics when `<th>` or `<thead>` is present
 - explicit `<br>` preservation
 - inline `<a href>` hyperlink recovery in paragraph / heading / list-item /
   blockquote contexts
@@ -474,6 +547,9 @@ Explicitly unsupported / out of scope:
 - DOM path anchoring
 - block line-range anchoring
 - browser DOM / CSS / JS rendering semantics
+- rowspan / colspan semantics
+- merged-cell reconstruction
+- table alignment and cell-level metadata
 
 ### 8.6 CSV / TSV
 
@@ -492,6 +568,9 @@ Partially supported:
 
 - the converter intentionally models the whole input as one table block rather
   than a richer workbook/schema system
+- CSV / TSV intentionally stay on legacy `Table` rather than
+  `RichTable(header_rows = 0)` so existing Markdown output does not churn for
+  sources without explicit header semantics
 
 Graceful degradation:
 
@@ -518,6 +597,7 @@ Explicitly unsupported / out of scope:
 - comments
 - schema detection
 - type inference
+- explicit table-header semantics
 - lossy fallback for invalid CSV syntax such as unterminated quoted fields
 
 ### 8.7 JSON
@@ -529,6 +609,7 @@ Currently supported:
 - JSON object, array, string, number, boolean, and null values
 - top-level objects emitted as key-value Markdown tables
 - arrays of objects with consistent keys emitted as Markdown tables
+- object and array-of-objects tables use `RichTable(header_rows = 1)`
 - arrays of scalar values emitted as bullet lists
 - mixed arrays and ambiguous nested structures emitted as fenced JSON blocks
 - nested object / array values inside table cells compact-stringified as JSON
@@ -562,6 +643,7 @@ Explicitly unsupported / out of scope:
 - JSON Lines support
 - streaming parser path
 - nested provenance beyond the root-level `key_path`
+- cell-level metadata or table-cell origin
 - lossy fallback for invalid JSON syntax
 
 ### 8.8 Markdown Passthrough
@@ -623,6 +705,7 @@ Currently supported:
   strings
 - top-level mappings emitted as key-value Markdown tables
 - arrays of objects with consistent keys emitted as Markdown tables
+- mapping and sequence-of-mappings tables use `RichTable(header_rows = 1)`
 - arrays of scalar values emitted as bullet lists
 - nested / ambiguous mixed structures emitted as fenced YAML blocks or compact
   inline string values inside table cells
@@ -659,6 +742,7 @@ Explicitly unsupported / out of scope:
 - multi-document `---` / `...`
 - streaming parser path
 - nested provenance beyond the root-level `key_path`
+- cell-level metadata or table-cell origin
 - lossy fallback for unsupported YAML syntax
 
 ## 9) Cross-cutting Boundaries
@@ -716,6 +800,21 @@ Explicitly unsupported / out of scope:
 - Metadata uses conservative block slicing rather than full Markdown syntax
   analysis.
 
+### 9.7 Table Semantics Boundary
+
+- Legacy `Table` remains the compatibility path and treats the first row as the
+  Markdown header.
+- `RichTable(TableData)` is only used where a converter has explicit header
+  semantics today: HTML `<th>` / `<thead>` and JSON / YAML synthetic object
+  tables.
+- CSV / TSV / XLSX / DOCX continue to emit legacy `Table` for now to avoid
+  changing output for sources whose header semantics are not explicit.
+- PDF / PPTX heuristic table-like regions are not promoted to semantic Table IR.
+- Table alignment, cell-level metadata, rowspan/colspan, merged-cell
+  reconstruction, and table-cell origin are not supported.
+- Metadata sidecar version stays `1`; `RichTable` sidecar snapshots include the
+  additive `table` object while legacy table snapshots stay flat-text only.
+
 ## 10) Known Limits
 
 - Provenance is lightweight traceability only, not bbox / char-range / source-object-id level fine-grained anchoring.
@@ -724,6 +823,8 @@ Explicitly unsupported / out of scope:
 - HTML is parsed as lightweight semantics, not as a browser rendering model.
 - HTML DOM path and HTML block line-range anchoring are not enabled.
 - Table cell-level provenance is not enabled.
+- Table alignment, rowspan/colspan, merged-cell reconstruction, and table-cell
+  origin are not enabled.
 - JSON / YAML nested key-path anchoring is not enabled.
 - XLSX does not evaluate formulas.
 - Ambiguous multi-image / multi-caption scenes in PPTX follow a conservative matching strategy (non-matching is acceptable).
@@ -737,10 +838,12 @@ Explicitly unsupported / out of scope:
   excludes anchors / aliases / tags / block scalars / flow style / multi-doc
   features.
 - PDF annotation links are not emitted into default Markdown output.
+- PDF / PPTX heuristic table-like recovery is not promoted directly to semantic
+  Table IR.
 
 ## 11) Suggested Acceptance Wording (Directly Reusable)
 
 - “The project has completed a unified multi-format IR mainflow and established three regression-verifiable validation chains: main_process, metadata, and assets.”
 - “The text-format expansion stages currently landed are F1 CSV / TSV, F2 JSON, F3 Markdown passthrough, and F4 YAML.”
-- “CSV / TSV map delimited table text into IR `Table`, JSON and YAML conservatively map structured data into IR `Table` / `List` / `CodeBlock`, and Markdown follows a low-loss passthrough path that preserves the original Markdown body while keeping the metadata schema unchanged.”
+- “CSV / TSV map delimited table text into legacy IR `Table`; JSON and YAML conservatively map structured data into table / `List` / `CodeBlock` IR, with object-style tables using `RichTable(header_rows = 1)`; Markdown follows a low-loss passthrough path that preserves the original Markdown body while keeping the metadata schema unchanged.”
 - “At the current stage, the focus is on regression stability, explainability, and engineering-consumable outputs; complex PDF layouts, OCR quality refinement, and broader advanced OOXML coverage remain future consolidation work.”

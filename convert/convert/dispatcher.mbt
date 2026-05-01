@@ -57,6 +57,7 @@ pub async fn parse_to_ir(
     "yml" => Ok(@yaml.parse_yaml(input_path, out_dir_str, max_h))
     "md" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
     "markdown" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
+    "zip" => Ok(@zipconv.parse_zip(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
 }

@@ -17,6 +17,7 @@ The current format-expansion stage has landed four text / structured-input paths
 * JSON
 * Markdown passthrough
 * YAML
+* ZIP container conversion for text / structured / static HTML entries
 
 Current positioning:
 
@@ -26,6 +27,9 @@ Current positioning:
   `Table` / `List` / `CodeBlock`
 * Markdown passthrough: low-loss path that preserves the source Markdown body
   rather than rebuilding from a Markdown AST
+* ZIP: safe archive traversal that converts supported entries in normalized path
+  order and emits warnings for unsupported, nested, failed, or asset-producing
+  entries
 
 ## 2. General Capabilities
 
@@ -93,6 +97,68 @@ Current outcome:
   implicit test coverage alone
 * graceful degradation is documented as a converter-level design principle
 
+### G5. Table Semantics
+
+Current landed scope:
+
+* G5.1 explicit table header semantics
+* G5.2 RichTable structured metadata
+
+Current outcome:
+
+* core IR now has `TableData { rows, header_rows }`
+* `Block::RichTable(TableData)` carries explicit header semantics
+* legacy `Block::Table(Array[Array[String]])` remains supported and keeps its
+  historical Markdown behavior
+* HTML tables use `RichTable(header_rows = 1)` only when `<th>` or `<thead>` is
+  explicitly present
+* JSON / YAML synthetic object and array-of-objects tables use
+  `RichTable(header_rows = 1)`
+* `blocks[].table` is an additive structured metadata field emitted only for
+  `RichTable`
+* legacy `Table` metadata remains flat-text only and does not synthesize
+  `header_rows = 1`
+* metadata version remains `1`
+
+Current explicitly deferred table scope:
+
+* CSV / TSV / XLSX / DOCX do not default-switch to `RichTable`
+* PDF / PPTX table-like regions are not promoted to semantic Table IR
+* cell-level metadata is not emitted
+* alignment is not modeled
+* rowspan / colspan semantics are not modeled
+* merged-cell reconstruction is not performed
+* table cell origin is not tracked
+
+### Z1. Container Conversion
+
+Current landed scope:
+
+* Z1.1a minimal ZIP container conversion
+
+Current outcome:
+
+* `.zip` inputs route through a container converter
+* entry paths are normalized and checked before temporary extraction
+* directory entries and common macOS metadata entries are skipped
+* supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`,
+  `.yaml` / `.yml`, and static `.html` / `.htm`
+* entries are processed in normalized path order and emitted under
+  `# archive/path.ext` headings
+* unsupported entries, nested archives, deferred Office/PDF entries, failed
+  entry conversions, and asset-producing entries emit blockquote warnings
+* metadata schema remains unchanged; entry block origins use the normalized
+  entry path as `key_path`
+
+Current explicitly deferred ZIP scope:
+
+* Office/PDF entries inside ZIP
+* nested archive recursion
+* binary preview
+* streaming archive conversion
+* asset namespace/remap
+* `.txt` conversion without a dedicated text converter
+
 ## 3. Benchmark
 
 Current benchmark infrastructure has landed in four pieces:
@@ -125,6 +191,7 @@ The following items are intentionally not claimed as done at the current stage:
 * PDF / PPTX multi-image caption pairing
 * PDF full `source_refs` / bbox default sidecar emission
 * table cell-level provenance
+* table alignment / span / merged-cell reconstruction
 * JSON / YAML nested provenance
 * OCR as the default conversion path
 * Python MarkItDown benchmark comparison
@@ -136,9 +203,9 @@ These are deferred items, not hidden behavior gaps.
 Reasonable next candidates after the current stage:
 
 * B5: Python MarkItDown comparison audit
-* G5: table semantics refinement
 * OCR regression closure
 * EPUB / ZIP expansion
+* ZIP Office/PDF entry support and asset namespace/remap
 * PDF core / convert next round
 
 ## 6. Current Status
@@ -147,6 +214,7 @@ At the current point, the repository has:
 
 * a multi-format conversion mainflow with documented support boundaries
 * a stable metadata-sidecar contract for current G2 / G3 scope
+* completed G5 table semantics for explicit headers and RichTable metadata
 * a documented degradation model instead of ad hoc fallback behavior
 * an internal benchmark harness with baseline recording
 

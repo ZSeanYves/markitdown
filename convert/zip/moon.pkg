@@ -1,15 +1,13 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/convert/pdf" @pdf,
-  "ZSeanYves/markitdown/convert/docx" @doc,
-  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
-  "ZSeanYves/markitdown/convert/pptx" @pptx,
+  "ZSeanYves/markitdown/doc_parse/zip" @zipraw,
   "ZSeanYves/markitdown/convert/html" @html,
   "ZSeanYves/markitdown/convert/csv" @csv,
   "ZSeanYves/markitdown/convert/json" @json,
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,
-  "ZSeanYves/markitdown/convert/zip" @zipconv,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
 }
 
 options(

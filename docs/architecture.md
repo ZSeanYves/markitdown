@@ -64,7 +64,9 @@ Current converter split:
 - Delimited-text converters such as CSV / TSV map source text into unified IR
   `Table` semantics
 - Structured-data converters such as JSON / YAML map source content into
-  unified IR `Table` / `List` / `CodeBlock` semantics conservatively
+  unified IR table / `List` / `CodeBlock` semantics conservatively. Their
+  synthetic object and array-of-objects tables currently use explicit
+  `RichTable(header_rows = 1)` semantics.
 - Markdown uses a low-loss passthrough path: it reads UTF-8 source text,
   preserves the original Markdown body, and only builds conservative block
   slices for metadata summary and origin reporting
@@ -233,6 +235,28 @@ Current link preservation contract:
   but default PDF Markdown output does not emit annotation links until a
   separate bbox/text matching design is accepted.
 
+Current table IR contract:
+
+- Legacy `Block::Table(Array[Array[String]])` remains part of the core IR and
+  keeps its historical Markdown contract: the first row is treated as the
+  Markdown table header.
+- `Block::RichTable(TableData)` is the explicit-header table shape. `TableData`
+  carries `rows : Array[Array[String]]` and `header_rows : Int`.
+- `header_rows` means explicit source header semantics, not inferred schema or
+  cell typing.
+- HTML emits `RichTable(header_rows = 1)` only when `<th>` or `<thead>` is
+  explicitly present; HTML tables without those markers continue through legacy
+  `Table`.
+- JSON and YAML synthetic object / array-of-objects tables emit
+  `RichTable(header_rows = 1)`.
+- CSV / TSV / XLSX / DOCX intentionally keep legacy `Table` for now so sources
+  without explicit header semantics do not get output churn.
+- PDF / PPTX table-like or grid-like heuristics are not promoted to semantic
+  Table IR.
+- The IR still does not include a cell model: cell-level metadata, alignment,
+  rowspan/colspan, merged-cell reconstruction, table-cell origin, and per-cell
+  source attribution remain out of scope.
+
 ### 2.6 Markdown Emitter (`core/emitter_markdown.mbt`)
 
 Responsibilities:
@@ -241,6 +265,12 @@ Responsibilities:
 - Render `Inline::Link(text, href)` as Markdown `[text](href)`
 - Prefer `passthrough_markdown` when present, then normalize the tail to
   exactly one trailing newline
+- Render legacy `Table` with the first row as the Markdown header for backward
+  compatibility
+- Render `RichTable(header_rows >= 1)` using the first row as the Markdown
+  header
+- Render `RichTable(header_rows = 0)` with synthetic `Column N` headers and all
+  source rows as body rows
 
 Boundaries:
 
@@ -249,6 +279,9 @@ Boundaries:
 - Does not parse Markdown AST for passthrough inputs
 - Does not rewrite Markdown link / image / table / code / frontmatter
   semantics when passthrough mode is active
+- Does not represent multiple Markdown header rows; if `header_rows > 1`, only
+  the first header row is emitted as the Markdown header and the remaining
+  header rows are emitted as body rows
 
 ### 2.7 Metadata Emitter (`core/metadata.mbt`)
 
@@ -282,11 +315,16 @@ Current emitted provenance boundary:
 - sidecar origin is intended for engineering traceability and explainability
 - it is not a promise of full layout-object identity, DOM anchoring, bbox
   emission, or row/cell-level provenance
+- table blocks, including `RichTable`, continue to serialize as the existing
+  table block type and flat table text; `RichTable` also populates additive
+  `table: { rows, header_rows }` sidecar data while legacy `Table` keeps
+  the optional `table` field absent
 
 Boundaries:
 
 - Does not rewrite the Markdown main body
 - Does not participate in upstream structural recovery strategy
+- Does not change the metadata schema for explicit table-header semantics
 
 ### 2.8 Asset Export (parser output + CLI output directory coordination)
 
@@ -375,6 +413,8 @@ the data flow is as follows:
   * G3 unified `ImageBlock` image-context contract
   * G3 DOCX source-native image `descr/title`
   * G3 PPTX source-native picture `descr/title`
+  * G5.1 explicit table-header IR with `RichTable(TableData)` for HTML
+    `<th>` / `<thead>` and JSON / YAML synthetic object tables
 * Still being consolidated:
 
   * complex PDF layouts
@@ -385,6 +425,8 @@ the data flow is as follows:
 
   * deeper advanced OOXML semantics
   * fine-grained anchoring such as bbox / char-range / object-id
+  * table cell model, alignment, merged-cell reconstruction, and table-cell
+    origin
   * semantic reconstruction for more complex layouts
 
 Current text-format expansion boundaries:

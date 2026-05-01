@@ -46,3 +46,55 @@ test "metadata sidecar serializes document properties" {
     fail("metadata should still contain summary")
   }
 }
+
+///|
+test "metadata sidecar serializes rich table structure" {
+  let doc = new_document()
+  push(
+    doc,
+    Block::RichTable({
+      rows: [["Name", "Role"], ["Alice", "Engineer"]],
+      header_rows: 1,
+    }),
+  )
+
+  let json = emit_metadata_json(doc, "sample.json", "json", "sample.md")
+  if !json.contains("\"block_type\": \"table\"") {
+    fail("rich table metadata should keep table block type")
+  }
+  if !json.contains("\"text\": \"Name | Role\\nAlice | Engineer\"") {
+    fail("rich table metadata should keep flat table text")
+  }
+  if !json.contains("\"table\": {") {
+    fail("rich table metadata should contain table object")
+  }
+  if !json.contains("\"rows\": [") {
+    fail("rich table metadata should contain table rows")
+  }
+  if !json.contains("[\"Name\", \"Role\"]") {
+    fail("rich table metadata should serialize header row")
+  }
+  if !json.contains("\"header_rows\": 1") {
+    fail("rich table metadata should serialize header_rows")
+  }
+  if !json.contains("\"version\": \"1\"") {
+    fail("rich table metadata should keep version 1")
+  }
+}
+
+///|
+test "metadata sidecar omits legacy table structure" {
+  let doc = new_document()
+  push(doc, Block::Table([["Name", "Role"], ["Alice", "Engineer"]]))
+
+  let json = emit_metadata_json(doc, "sample.csv", "csv", "sample.md")
+  if !json.contains("\"block_type\": \"table\"") {
+    fail("legacy table metadata should keep table block type")
+  }
+  if !json.contains("\"text\": \"Name | Role\\nAlice | Engineer\"") {
+    fail("legacy table metadata should keep flat table text")
+  }
+  if json.contains("\"table\":") {
+    fail("legacy table metadata should not synthesize table object")
+  }
+}

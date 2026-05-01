@@ -14,7 +14,13 @@ priv enum HtmlNode {
   ListItem(Bool, Int, Array[HtmlNode]) // ordered, level, children
   BlockQuote(Array[HtmlNode])
   CodeBlock(String)
-  Table(Array[Array[Array[HtmlInline]]])
+  Table(HtmlTable)
+}
+
+///|
+priv struct HtmlTable {
+  rows : Array[Array[Array[HtmlInline]]]
+  has_explicit_header : Bool
 }
 
 ///|
@@ -224,9 +230,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let rows = html_table_from_bytes(inner)
-                  if rows.length() > 0 {
-                    out.push(HtmlNode::Table(rows))
+                  let table = html_table_from_bytes(inner)
+                  if table.rows.length() > 0 {
+                    out.push(HtmlNode::Table(table))
                   }
                   pos = end + close_table.length()
                   continue
@@ -466,9 +472,9 @@ fn scan_li_children(
                 Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_owned()
-                    let rows = html_table_from_bytes(inner)
-                    if rows.length() > 0 {
-                      out.push(HtmlNode::Table(rows))
+                    let table = html_table_from_bytes(inner)
+                    if table.rows.length() > 0 {
+                      out.push(HtmlNode::Table(table))
                     }
                     pos = end + close_table.length()
                     continue
@@ -683,9 +689,9 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let rows = html_table_from_bytes(inner)
-                  if rows.length() > 0 {
-                    out.push(HtmlNode::Table(rows))
+                  let table = html_table_from_bytes(inner)
+                  if table.rows.length() > 0 {
+                    out.push(HtmlNode::Table(table))
                   }
                   pos = end + close_table.length()
                   continue
@@ -1126,7 +1132,7 @@ fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
 }
 
 ///|
-fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
+fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
   let out : Array[Array[Array[HtmlInline]]] = []
 
   let open_tr = pat("<tr")
@@ -1162,7 +1168,16 @@ fn html_table_from_bytes(inner : Bytes) -> Array[Array[Array[HtmlInline]]] {
     }
   }
 
-  normalize_table_rows(out)
+  {
+    rows: normalize_table_rows(out),
+    has_explicit_header: html_table_has_explicit_header(inner),
+  }
+}
+
+///|
+fn html_table_has_explicit_header(inner : Bytes) -> Bool {
+  let text = (@cor.utf8_bytes_to_string(inner) catch { _ => "" }).to_lower()
+  text.contains("<th") || text.contains("<thead")
 }
 
 ///|

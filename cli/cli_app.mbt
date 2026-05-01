@@ -265,6 +265,8 @@ fn detect_input_format(path : String) -> String {
     "yaml"
   } else if base.has_suffix(".markdown") || base.has_suffix(".md") {
     "markdown"
+  } else if base.has_suffix(".zip") {
+    "zip"
   } else {
     "unknown"
   }

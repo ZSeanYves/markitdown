@@ -23,7 +23,17 @@
         "heading_path": null,
         "key_path": "$"
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["name", "Alice"],
+          ["role", "Engineer"],
+          ["active", "true"],
+          ["score", "42"]
+        ],
+        "header_rows": 1
+      }
     }
   ],
   "assets": [

@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML / ZIP**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -32,25 +32,27 @@ Current major capabilities include:
 * **PDF**: the default mainflow has been switched to a native structural recovery pipeline, rebuilding text-based PDF structure through event / span / line / block / IR reconstruction; it also supports unified `ImageBlock`, lightweight page-level image provenance, and conservative caption attachment in single caption-like cases
 * **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
 * **PPTX**: reading-order recovery, title/body separation, list recovery, handling of table-like / caption-like / callout-like regions, conservative caption / nearby-text attachment for single-image slides, basic run-level and shape-level hyperlink recovery, and source-native picture `descr/title` mapping with synthetic alt only as fallback
-* **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`, and normalized local image `source_path`
+* **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, explicit table-header semantics when `<th>` or `<thead>` is present, inline hyperlink recovery, image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`, and normalized local image `source_path`
 * **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
-* **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values
+* **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values; synthetic object and array-of-objects tables carry explicit header semantics
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
-* **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into `Table` / `List` / `CodeBlock`
+* **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into table / list / code-block IR, with synthetic mapping tables carrying explicit header semantics
+* **ZIP**: safe container conversion for supported text / structured / static HTML entries, with sorted archive paths and blockquote warnings for unsupported, nested, failed, or asset-producing entries
 
 ### Short Support Matrix
 
 | Format | Structure | Links | Images | Metadata / Origin | Major Limits |
 | --- | --- | --- | --- | --- | --- |
 | DOCX | Headings, lists, tables, block quotes, code-like paragraphs, and images are recovered. | External `w:hyperlink r:id` links are preserved in paragraph, heading, and list contexts. | Images use unified `ImageBlock` with source-native `descr/title` when present. | Block origin plus image asset `relationship_id/source_path` are populated. | Footnote/endnote links, revisions, comments, and textboxes are out of scope. |
-| PPTX | Slide order, title/body, lists, and layout-aware reading order are recovered conservatively. | Run-level links and one-clear-shape external links are preserved when relationships resolve cleanly. | Images use unified `ImageBlock` with source-native `p:cNvPr descr/title` and conservative single-image caption pairing. | Slide-level block/asset origin plus image `relationship_id/source_path` are populated. | True table IR, macro/action/media links, and multi-image caption pairing are not enabled. |
+| PPTX | Slide order, title/body, lists, and layout-aware reading order are recovered conservatively. | Run-level links and one-clear-shape external links are preserved when relationships resolve cleanly. | Images use unified `ImageBlock` with source-native `p:cNvPr descr/title` and conservative single-image caption pairing. | Slide-level block/asset origin plus image `relationship_id/source_path` are populated. | Semantic Table IR, macro/action/media links, and multi-image caption pairing are not enabled. |
 | XLSX | Multi-sheet worksheet content is emitted as sheet headings plus tables. | No hyperlink extraction path is currently implemented. | No image conversion path is currently implemented. | Sheet/table origin includes sheet name, source row/column span, and sheet `relationship_id`. | Formula evaluation, merged-cell reconstruction, charts, comments, pivots, and images are out of scope. |
-| PDF | Text-oriented structural recovery rebuilds headings, paragraphs, lists, and exported images conservatively. | Annotation/link data exists in debug/model layers but is not emitted as Markdown links by default. | Exported images use unified `ImageBlock` with conservative single-image bbox-gated caption pairing. | Page block origin and image asset `object_ref` are populated on a lightweight basis. | True table IR, default annotation-link emission, and full complex-layout recovery are not enabled. |
-| HTML | Lightweight semantic scanning recovers headings, lists, block quotes, code blocks, and tables. | Inline `<a href>` links are preserved in supported rich-inline contexts. | Local images preserve `alt/title`, `figure/figcaption`, and normalized `source_path`. | Block origin is lightweight and local image assets can populate `source_path`. | No browser DOM/CSS/JS rendering, remote fetch, DOM path, or block line-range anchoring. |
+| PDF | Text-oriented structural recovery rebuilds headings, paragraphs, lists, and exported images conservatively. | Annotation/link data exists in debug/model layers but is not emitted as Markdown links by default. | Exported images use unified `ImageBlock` with conservative single-image bbox-gated caption pairing. | Page block origin and image asset `object_ref` are populated on a lightweight basis. | Semantic Table IR, default annotation-link emission, and full complex-layout recovery are not enabled. |
+| HTML | Lightweight semantic scanning recovers headings, lists, block quotes, code blocks, and tables; `<th>` / `<thead>` tables use explicit header semantics. | Inline `<a href>` links are preserved in supported rich-inline contexts. | Local images preserve `alt/title`, `figure/figcaption`, and normalized `source_path`. | Block origin is lightweight and local image assets can populate `source_path`. | No browser DOM/CSS/JS rendering, remote fetch, DOM path, block line-range anchoring, or rowspan/colspan reconstruction. |
 | CSV / TSV | Delimited text is emitted as one unified `Table` with quoted-newline and ragged-row handling. | No link model is applied. | No image model is applied. | Block origin carries physical line range plus `row_index = 1` and `column_index = 1`. | No streaming, dialect sniffing, schema detection, comments, or type inference. |
-| JSON | Objects, regular object arrays, scalar arrays, and ambiguous nested values map conservatively into `Table` / `List` / `CodeBlock`. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No JSON Schema, JSON Lines, streaming, or nested provenance. |
-| YAML | A simple YAML subset maps conservatively into `Table` / `List` / `CodeBlock`. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, or nested provenance. |
+| JSON | Objects, regular object arrays, scalar arrays, and ambiguous nested values map conservatively into table / list / code-block IR; object tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No JSON Schema, JSON Lines, streaming, nested provenance, or cell-level metadata. |
+| YAML | A simple YAML subset maps conservatively into table / list / code-block IR; mapping tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, nested provenance, or cell-level metadata. |
 | Markdown | Source Markdown is preserved as the main output and only conservatively sliced for metadata. | Existing Markdown links are preserved because the original body is passed through. | Existing Markdown image syntax is preserved because the original body is passed through. | Conservative block `line_start/line_end` metadata is available without changing the body. | No Markdown AST parse, rewrite, validation, or remote asset parsing. |
+| ZIP | Supported archive entries are converted and concatenated under `# archive/path.ext` headings in normalized path order. | Link support depends on the nested supported entry converter. | ZIP asset namespacing is not enabled yet; entries that produce assets are skipped with a warning. | Entry blocks use the ZIP filename as `source_name` and normalized entry path as `key_path`. | No Office/PDF entries, nested archive recursion, binary preview, streaming, or asset remap. |
 
 Across the current formats, document-style converters prefer readable partial
 recovery and conservative downgrade, while syntax-driven structured parsers such
@@ -68,9 +70,10 @@ Current hyperlink preservation status:
 Current text-format expansion stages:
 
 * **F1 CSV / TSV**: delimited table text -> unified IR `Table`
-* **F2 JSON**: structured data -> unified IR `Table` / `List` / `CodeBlock`
+* **F2 JSON**: structured data -> unified IR table / `List` / `CodeBlock`, with object tables using explicit header semantics
 * **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
-* **F4 YAML**: simple-subset structured data -> unified IR `Table` / `List` / `CodeBlock`
+* **F4 YAML**: simple-subset structured data -> unified IR table / `List` / `CodeBlock`, with mapping tables using explicit header semantics
+* **Z1.1a ZIP**: archive container -> sorted supported text / structured / static HTML entry conversion, with warnings for unsupported entries
 
 Current text-format boundaries:
 
@@ -78,6 +81,30 @@ Current text-format boundaries:
 * **JSON**: no JSON Schema, JSON Lines, or streaming parser path
 * **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
 * **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
+* **ZIP**: only `.md` / `.markdown`, `.csv` / `.tsv`, `.json`, `.yaml` / `.yml`, and static `.html` / `.htm` entries are converted; Office/PDF entries, nested archives, binary preview, and asset-producing entries are skipped with warnings
+
+Current table IR status:
+
+* Legacy `Block::Table(Array[Array[String]])` remains supported and keeps its
+  historical Markdown behavior: the first row is emitted as the Markdown table
+  header.
+* `Block::RichTable(TableData)` carries `rows` plus `header_rows` for converters
+  that have explicit header semantics.
+* For `RichTable`, `header_rows >= 1` uses the first row as the Markdown header;
+  `header_rows = 0` emits synthetic `Column N` headers and treats every source
+  row as body content.
+* If `header_rows > 1`, only the first header row is used as the Markdown header
+  today; additional header rows are emitted as body rows.
+* HTML only uses `RichTable(header_rows = 1)` when `<th>` or `<thead>` is
+  explicitly present. JSON / YAML synthetic object tables use
+  `RichTable(header_rows = 1)`.
+* CSV / TSV / XLSX / DOCX intentionally continue to emit legacy `Table` for now
+  to avoid changing output for sources without explicit header semantics.
+* PDF / PPTX heuristic table-like regions are not promoted to semantic Table IR.
+* Metadata sidecar version remains `1`; `RichTable` blocks expose additive
+  `table: { rows, header_rows }` data while legacy `Table` stays flat-text only.
+* Table cell-level metadata, alignment, rowspan/colspan, merged-cell
+  reconstruction, and table cell origin are not supported.
 
 The repository has now formed a stable workflow:
 

@@ -129,6 +129,8 @@ Current explicit non-goals:
 * default sidecar emission of bbox
 * HTML DOM path / block line range
 * table cell-level provenance
+* table alignment, rowspan/colspan, merged-cell reconstruction, and
+  table-cell origin
 * JSON / YAML nested key path
 * PDF annotation link Markdown emission
 
@@ -175,8 +177,49 @@ The currently landed text-format expansion stages are:
 Development positioning:
 
 * CSV / TSV are delimited-table text converters that map source content into unified IR `Table`
-* JSON / YAML are structured-data converters that conservatively map source content into unified IR `Table` / `List` / `CodeBlock`
+* JSON / YAML are structured-data converters that conservatively map source content into unified IR table / `List` / `CodeBlock`
 * Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
+
+## Current Table IR Status
+
+The current table IR has two compatibility tiers:
+
+* Legacy `Block::Table(Array[Array[String]])` remains supported. Its Markdown
+  output contract is unchanged: the first row is emitted as the Markdown table
+  header.
+* `Block::RichTable(TableData)` carries `rows` and `header_rows` for converters
+  that have explicit source header semantics.
+
+Markdown emitter behavior:
+
+* `Table`: first row is the Markdown header.
+* `RichTable(header_rows >= 1)`: first row is the Markdown header.
+* `RichTable(header_rows = 0)`: synthetic `Column N` headers are emitted and all
+  source rows become body rows.
+* `RichTable(header_rows > 1)`: only the first header row is represented as the
+  Markdown header today; additional header rows are emitted as body rows.
+
+Current converter wiring:
+
+* HTML uses `RichTable(header_rows = 1)` only when `<th>` or `<thead>` is
+  explicitly present.
+* JSON object tables and array-of-objects tables use
+  `RichTable(header_rows = 1)`.
+* YAML mapping tables and sequence-of-mappings tables use
+  `RichTable(header_rows = 1)`.
+* CSV / TSV / XLSX / DOCX continue to emit legacy `Table` to avoid changing
+  output for sources without explicit header semantics.
+* PDF / PPTX table-like heuristics are not promoted to semantic Table IR.
+
+Current table non-goals:
+
+* no metadata version bump for `header_rows`
+* metadata snapshots for `RichTable` blocks include additive `table` data
+* no cell-level metadata
+* no alignment model
+* no rowspan / colspan semantics
+* no merged-cell reconstruction
+* no table-cell origin
 
 Current Markdown passthrough contract:
 
@@ -195,7 +238,7 @@ Current YAML convert contract:
 * Reads UTF-8 text
 * Supports a simple subset: top-level mapping, indentation-based nested mapping,
   scalar sequences, sequence of mappings, booleans, nulls, and quoted strings
-* Maps structured data conservatively into IR `Table` / `List` / `CodeBlock`
+* Maps structured data conservatively into table / `List` / `CodeBlock` IR
 * Keeps the existing metadata sidecar schema unchanged
 * Does not support anchors / aliases / tags / block scalar / flow style /
   multi-document input
@@ -462,6 +505,19 @@ Origin-specific note:
 * Do not change `samples/main_process/expected/*` for metadata-only work
 * Prefer `samples/metadata/*`, `samples/test/metadata/*`, and
   `convert/convert/test/origin_metadata_test.mbt` when adjusting origin logic
+
+### When modifying ZIP container conversion
+
+ZIP is a container converter, not a raw unzip feature. Keep these constraints
+explicit in code and tests:
+
+* validate and normalize archive entry paths before writing temporary files
+* keep entry extraction under `MARKITDOWN_TMP_DIR` when set, otherwise `.tmp`
+* process entries in normalized path order
+* keep unsupported entries as blockquote warnings rather than failing the whole
+  archive
+* do not claim Office/PDF entry support, nested archive recursion, or asset
+  namespace/remap until those paths are implemented and covered by samples
 
 Image-context-specific note:
 
