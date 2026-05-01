@@ -56,6 +56,25 @@ Current G2 Origin / Source Location status:
 * HTML image `source_path` refinement is complete at the current repository boundary
 * the metadata schema version and top-level shape are unchanged
 
+Current G3 image-context status:
+
+* unified `ImageBlock` / `ImageData` semantics are in use for image-first
+  converters
+* DOCX source-native `descr/title` mapping is complete at the current
+  repository boundary
+* PPTX source-native picture `descr/title` mapping is complete at the current
+  repository boundary
+* the metadata schema version and top-level shape remain unchanged
+
+Current provenance boundary:
+
+* sidecar origin is best-effort source location for engineering traceability
+* it is not a full layout trace, DOM path model, or char-range anchoring system
+* default sidecar emission of full PDF `source_refs` and bbox is not enabled
+* table cell-level provenance is not enabled
+* HTML DOM path anchoring is not enabled
+* JSON / YAML nested key-path anchoring is not enabled
+
 ### 4.1 Role of `document`
 
 `document` represents file-level document properties. It is deliberately kept at
@@ -87,6 +106,17 @@ present.
 
 ### 4.2 Role of `blocks[]`
 
+Current unified `ImageBlock` / `ImageData` contract:
+
+* `path`: emitted asset path
+* `alt_text`: source-native image hint when available
+* `title`: source-native title-like hint when available
+* `caption`: primary semantic caption when confidence is high enough
+* `origin`: optional IR-side image origin
+
+This is the shared image contract used by HTML, DOCX, PPTX, and PDF image-first
+paths.
+
 `blocks[]` represents engineering information from the **content-block perspective**:
 
 * `block_index`: block sequence number
@@ -94,6 +124,13 @@ present.
 * `text`: extracted block text (depending on type)
 * `origin`: provenance information (optional)
 * `image`: extra image-block information (only for image blocks)
+
+Current serialized `blocks[].image` field surface:
+
+* `path`
+* `alt_text`
+* `title`
+* `caption`
 
 Current serialized `blocks[].origin` field surface:
 
@@ -133,6 +170,15 @@ table provenance.
 * `origin`
 * `nearby_caption`
 
+Current sidecar reuse rule for image-context fields:
+
+* `assets[].alt_text`, `assets[].title`, and `assets[].caption` are not inferred
+  independently on the asset side
+* they are populated by joining the asset `path` back to the corresponding
+  `ImageBlock`
+* `nearby_caption` remains the mirrored asset-origin field for asset-oriented
+  lookup, not a second caption-inference result
+
 Current serialized `assets[].origin` field surface:
 
 * `source_name`
@@ -156,6 +202,18 @@ Current verifiable asset-origin fill ranges:
 * DOCX assets: `relationship_id` / `source_path`
 * HTML image assets: `source_path` from normalized local `<img src>`
 
+Current verifiable image-context fill ranges:
+
+* HTML: `<img alt> -> alt_text`, `<img title> -> title`,
+  `<figcaption> -> caption`, local `<img src> -> source_path`
+* DOCX: `ImageBlock`, drawing `descr -> alt_text`, drawing `title -> title`,
+  asset-origin `relationship_id / source_path`
+* PPTX: `ImageBlock`, `p:cNvPr descr -> alt_text`, `p:cNvPr title -> title`,
+  synthetic alt only as fallback, asset-origin `relationship_id / source_path`
+* PDF: `ImageBlock`, `object_ref`, and conservative bbox-gated single-image
+  caption attachment
+* XLSX: no image conversion path at the current stage
+
 Additive origin fields are emitted sparsely: absent optional values are omitted
 instead of being serialized as `null`. Existing v1 fields keep their historical
 shape.
@@ -169,7 +227,10 @@ The current contract is:
 
 * `ImageData.caption` is the primary semantic caption value for an image.
 * `nearby_caption` is the mirrored / indexing field on the asset side.
-* If `nearby_caption` exists, it is expected to match the primary caption value, so it can be used for engineering search and consistency checks.
+* It is not a separate semantic caption slot and should not be treated as an
+  independent caption-inference result.
+* If `nearby_caption` exists, it is expected to match the primary caption value,
+  so it can be used for engineering search and consistency checks.
 
 ## 6) Minimal JSON Example
 
@@ -241,5 +302,9 @@ Current explicit non-goals:
 * table cell-level provenance
 * JSON / YAML nested key-path anchoring
 * default PDF annotation-link Markdown emission
+* PDF / PPTX multi-image caption pairing
+* using OOXML `name` as image caption or title
+* XLSX image support
+* remote HTML image fetch
 
 ```

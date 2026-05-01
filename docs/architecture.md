@@ -69,6 +69,16 @@ Current converter split:
   preserves the original Markdown body, and only builds conservative block
   slices for metadata summary and origin reporting
 
+Graceful degradation is an explicit converter-layer design principle:
+
+- document-style converters such as DOCX / PPTX / PDF / HTML prefer readable
+  partial recovery plus conservative downgrade over aggressive speculative
+  reconstruction
+- syntax-driven parsers such as CSV / TSV / JSON / YAML are expected to make
+  fail-closed behavior explicit when source syntax is invalid
+- Markdown passthrough uses a third mode: preserve the original body and avoid
+  semantic reinterpretation
+
 Boundaries:
 
 - Does not reimplement low-level container parsing or raw format decoding
@@ -194,6 +204,19 @@ Current origin/source-location status in this layer:
 - block/asset provenance remains intentionally lightweight and block-scoped
 - no row/cell-level table provenance container has been added to the unified IR
 - the Markdown main output contract is unchanged by origin enrichment
+- origin/source-location should be read as best-effort provenance rather than a
+  full layout trace, DOM path model, or char-range anchoring system
+
+Current image-context status in this layer:
+
+- `ImageData` is the unified image contract for image-first converters:
+  `path`, `alt_text`, `title`, `caption`, `origin`
+- `caption` is the primary semantic caption value
+- `title` and `alt_text` are source-native hints when a format can recover them
+- `nearby_caption` is not part of `ImageData`; it remains an asset-origin mirror
+  used for asset-oriented lookup and consistency checks
+- new image-context work is expected to fit the existing IR contract rather
+  than changing the metadata schema
 
 Current link preservation contract:
 
@@ -243,6 +266,22 @@ Current emitted origin field surface:
   `column_index`, `key_path`, `nearby_caption`
 - additive fields are sparse emit only; absent optional values are omitted
 - this is a fill-range refinement effort, not a schema-version change
+
+Current emitted image-context behavior:
+
+- `blocks[].image` serializes `path`, `alt_text`, `title`, and `caption`
+- `assets[].alt_text`, `assets[].title`, and `assets[].caption` are populated by
+  joining asset `path` back to the corresponding `ImageBlock`
+- `assets[].nearby_caption` remains the mirrored asset-side field and should
+  match the primary caption when both exist
+- this is an emitter-side reuse rule, not an independent second caption
+  inference pipeline
+
+Current emitted provenance boundary:
+
+- sidecar origin is intended for engineering traceability and explainability
+- it is not a promise of full layout-object identity, DOM anchoring, bbox
+  emission, or row/cell-level provenance
 
 Boundaries:
 
@@ -333,6 +372,9 @@ the data flow is as follows:
   * G2 OOXML origin refinement
   * G2 structured/text origin refinement
   * G2 HTML image `source_path` refinement
+  * G3 unified `ImageBlock` image-context contract
+  * G3 DOCX source-native image `descr/title`
+  * G3 PPTX source-native picture `descr/title`
 * Still being consolidated:
 
   * complex PDF layouts
@@ -375,6 +417,16 @@ Current origin fill matrix at the architecture level:
 - Markdown blocks populate conservative `line_start` / `line_end`
 - HTML image assets populate `source_path` from normalized `<img src>`
 
+Current image-context fill matrix at the architecture level:
+
+- HTML images populate `alt_text`, `title`, `caption`, and local `source_path`
+- DOCX images populate `ImageBlock` plus source-native `alt_text/title`
+- PPTX images populate `ImageBlock` plus source-native `alt_text/title`,
+  falling back to synthetic alt only when `descr` is absent
+- PDF images populate `ImageBlock`, `object_ref`, and conservative single-image
+  caption attachment
+- XLSX currently has no image conversion path
+
 Current non-goals at this stage:
 
 - default sidecar emission of PDF full `source_refs`
@@ -383,5 +435,9 @@ Current non-goals at this stage:
 - table cell-level provenance
 - JSON / YAML nested key paths
 - default PDF annotation-link Markdown emission
+- PDF / PPTX multi-image caption pairing
+- repurposing OOXML `name` as image caption or title
+- XLSX image support
+- remote HTML image fetch
 
 ```

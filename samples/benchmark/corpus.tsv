@@ -1,0 +1,30 @@
+# run_kind	format	sample	input_path	metadata_enabled
+smoke	docx	golden	samples/main_process/docx/golden.docx	false
+smoke	pptx	pptx_simple	samples/main_process/pptx/pptx_simple.pptx	false
+smoke	xlsx	xlsx_multi_sheet_mixed	samples/main_process/xlsx/xlsx_multi_sheet_mixed.xlsx	false
+smoke	pdf	text_simple	samples/main_process/pdf/text_simple.pdf	false
+smoke	html	html_mixed	samples/main_process/html/html_mixed.html	false
+smoke	csv	csv_ragged_rows	samples/main_process/csv/csv_ragged_rows.csv	false
+smoke	tsv	tsv_basic	samples/main_process/tsv/tsv_basic.tsv	false
+smoke	json	json_nested_object	samples/main_process/json/json_nested_object.json	false
+smoke	yaml	yaml_nested_mapping	samples/main_process/yaml/yaml_nested_mapping.yaml	false
+smoke	markdown	markdown_frontmatter_passthrough	samples/main_process/markdown/markdown_frontmatter_passthrough.markdown	false
+
+# image tier
+image	docx	docx_image_alt_title_basic_img	samples/metadata/docx/docx_image_alt_title_basic.docx	false
+image	pptx	pptx_image_single_caption_like_img	samples/metadata/pptx/pptx_image_single_caption_like.pptx	false
+image	html	html_figure_figcaption_basic_img	samples/metadata/html/html_figure_figcaption_basic.html	false
+image	pdf	pdf_image_single_caption_like_img	samples/metadata/pdf/pdf_image_single_caption_like.pdf	false
+
+# metadata tier
+metadata	docx	golden_metadata	samples/main_process/docx/golden.docx	true
+metadata	docx	docx_image_alt_title_basic_metadata	samples/metadata/docx/docx_image_alt_title_basic.docx	true
+metadata	pptx	pptx_image_alt_title_basic_metadata	samples/metadata/pptx/pptx_image_alt_title_basic.pptx	true
+metadata	yaml	yaml_mapping_basic_metadata	samples/metadata/yaml/yaml_mapping_basic.yaml	true
+metadata	markdown	markdown_frontmatter_metadata	samples/metadata/markdown/markdown_frontmatter_passthrough.markdown	true
+
+# extended tier
+extended	docx	docx_link_many_performance_guard_ext	samples/main_process/docx/docx_link_many_performance_guard.docx	false
+extended	pptx	pptx_table_like_region_local_with_intro_outro_ext	samples/main_process/pptx/pptx_table_like_region_local_with_intro_outro.pptx	false
+extended	xlsx	xlsx_cell_types_ext	samples/main_process/xlsx/xlsx_cell_types.xlsx	false
+extended	pdf	pdf_repeated_header_footer_variants_ext	samples/main_process/pdf/pdf_repeated_header_footer_variants.pdf	false

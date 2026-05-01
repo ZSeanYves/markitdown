@@ -58,6 +58,39 @@ The current regression system has been split into three independent validation c
 
 In addition, `samples/test` provides a compact five-format demo set for acceptance walkthrough and quick manual inspection.
 
+## Support Matrix Discipline
+
+When landing a new format or materially expanding an existing one, update the
+product-facing support contract at the same time:
+
+* Add or revise the format entry in `README.mbt.md` so the short support matrix
+  stays aligned with the implementation.
+* Update `docs/support-and-limits.md` using the repository-wide template:
+  `Currently supported`, `Partially supported`, `Graceful degradation`,
+  `Metadata / assets / origin`, `Link support`, `Image context`, and
+  `Explicitly unsupported / out of scope`.
+* Update `docs/architecture.md` if the change affects converter-layer
+  degradation strategy, provenance semantics, or shared IR contracts.
+* Update `docs/metadata-sidecar.md` if the change affects verifiable origin or
+  image-context fill ranges.
+
+Every new parser or converter path should also explicitly declare which
+degradation model it follows:
+
+* `fail-closed`: invalid or unsupported syntax should raise and stop conversion
+  instead of guessing a lossy structure
+* `soft-degrade`: partial recovery is acceptable, but fallback behavior must be
+  explainable and stable
+* `source-preserving`: preserve the input body and avoid semantic reinterpretation
+
+New regression coverage should include:
+
+* at least one positive example that demonstrates the intended supported path
+* at least one negative or unsupported example that proves unsupported features
+  are not accidentally overclaimed
+* at least one degradation example when the format supports conservative
+  fallback behavior rather than hard failure
+
 ## Current Origin / Source Location Status
 
 The current G2 Origin / Source Location stage is complete without changing the
@@ -98,6 +131,37 @@ Current explicit non-goals:
 * table cell-level provenance
 * JSON / YAML nested key path
 * PDF annotation link Markdown emission
+
+## Current Image Context Status
+
+The current shared image-context contract should be treated as stable at the
+current stage:
+
+* `ImageBlock` / `ImageData` carries `path`, `alt_text`, `title`, `caption`,
+  and `origin`
+* `blocks[].image` serializes `path`, `alt_text`, `title`, and `caption`
+* `assets[].alt_text`, `assets[].title`, and `assets[].caption` are filled by
+  joining exported asset `path` back to the corresponding `ImageBlock`
+* `nearby_caption` remains the asset-origin mirror of the primary caption value,
+  not a second caption-inference slot
+
+Current format image-context fill ranges:
+
+* HTML: `<img alt>`, `<img title>`, `<figure>`, `<figcaption>`, and local
+  `source_path`
+* DOCX: `ImageBlock` plus source-native drawing `descr/title`
+* PPTX: `ImageBlock` plus source-native picture `descr/title`, with synthetic
+  alt only as fallback
+* PDF: `ImageBlock`, `object_ref`, and conservative single-image caption pairing
+* XLSX: no image conversion path yet
+
+Current image-context non-goals:
+
+* PDF / PPTX multi-image caption pairing
+* using OOXML `name` as image caption or title
+* default sidecar emission of PDF bbox / full `source_refs`
+* XLSX image support
+* remote HTML image fetch
 
 ## Current Format Expansion Stage
 
@@ -155,6 +219,7 @@ Rules:
   * `.tmp/samples/assets`
   * `.tmp/samples/metadata`
   * `.tmp/samples/check`
+  * `.tmp/bench/smoke`
   * `.tmp/origin`
   * `.tmp/pdf_core`
   * `.tmp/scratch/mbtpdf`
@@ -163,6 +228,159 @@ Rules:
   `tmp-origin-tests`, or `tmp`
 * New test scripts must reuse the `MARKITDOWN_TMP_DIR` convention instead of
   inventing a separate temp root
+
+### Run internal smoke benchmark
+
+```bash
+./samples/bench_smoke.sh
+./samples/bench_smoke.sh --kind image
+./samples/bench_smoke.sh --kind all
+./samples/bench_smoke.sh --iterations 3 --warmup 1
+BENCH_KIND=image BENCH_ITERATIONS=3 BENCH_WARMUP=1 ./samples/bench_smoke.sh
+```
+
+Current smoke benchmark behavior:
+
+* Uses `MARKITDOWN_TMP_DIR` when provided, otherwise writes under `$ROOT/.tmp`
+* Supports `--kind KIND` / `BENCH_KIND=KIND`, where `KIND` is one of
+  `smoke`, `image`, `metadata`, `extended`, or `all`
+* Defaults to `--kind smoke` so daily benchmark cost stays low
+* Supports `--iterations N` / `BENCH_ITERATIONS=N` and `--warmup N` /
+  `BENCH_WARMUP=N`
+* Resolves the benchmark root as:
+
+```bash
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+BENCH_ROOT="$TMP_ROOT/bench/smoke"
+```
+
+* Writes warmup outputs under `.tmp/bench/smoke/<format>/<sample>/warmup-N/`
+* Writes measured outputs under `.tmp/bench/smoke/<format>/<sample>/iter-N/`
+* Writes run records to `.tmp/bench/smoke/results.jsonl`
+* Writes aggregate sample metrics to `.tmp/bench/smoke/summary.tsv`
+* Uses the checked-in `samples/benchmark/corpus.tsv` corpus and filters rows by
+  `run_kind`
+* `--kind all` runs every non-comment row in the benchmark corpus
+* Avoids stdout mode so asset-exporting formats do not fall back to the repo-root
+  `out/` directory
+
+`results.jsonl` fields:
+
+* `runner`: current benchmark runner id, currently `markitdown-mb`
+* `mode`: CLI mode used for the run, currently `normal`
+* `run_kind`: corpus tier for the sample, such as `smoke` or `image`
+* `format`: detected input family in the corpus row
+* `sample`: benchmark sample id from the corpus row
+* `input_path`: repo-relative input file path from the corpus row
+* `file_size`: input file size in bytes
+* `metadata_enabled`: requested benchmark mode from the corpus row
+* `iteration`: 1-based measured iteration number
+* `warmup`: `false` for measured rows; warmup runs are not emitted to
+  `results.jsonl`
+* `elapsed_ms`: wall-clock elapsed milliseconds for that measured run
+* `output_bytes`: generated markdown file size in bytes for that run
+* `asset_count`: number of exported files under that run's `assets/` directory
+* `exit_status`: CLI process exit code
+* `timestamp`: UTC timestamp captured after the run
+* `git_rev`: current repository short revision
+* `tmp_root`: temp root used for the run
+* `timer_precision`: timer mode used by the shell helper, currently `ms` or `s`
+
+`summary.tsv` fields:
+
+* `format`: format column copied from the corpus row
+* `sample`: benchmark sample id
+* `runs`: number of measured iterations included in the summary
+* `failed`: number of measured runs with non-zero exit status
+* `min_ms`: minimum measured elapsed time
+* `median_ms`: median measured elapsed time
+* `max_ms`: maximum measured elapsed time
+* `avg_ms`: arithmetic mean of measured elapsed times
+* `output_bytes_last`: markdown file size from the last measured iteration
+* `asset_count_last`: exported asset count from the last measured iteration
+
+### Run overlap-only comparison benchmark
+
+```bash
+./samples/bench_compare_markitdown.sh --help
+./samples/bench_compare_markitdown.sh
+BENCH_ITERATIONS=3 BENCH_WARMUP=1 ./samples/bench_compare_markitdown.sh
+```
+
+Current comparison benchmark behavior:
+
+* Uses `MARKITDOWN_TMP_DIR` when provided, otherwise writes under `$ROOT/.tmp`
+* Resolves the comparison root as:
+
+```bash
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+COMPARE_ROOT="$TMP_ROOT/bench/compare"
+```
+
+* Uses the checked-in overlap-only corpus at
+  `samples/benchmark/compare_corpus.tsv`
+* Compares only overlapping text-oriented formats in the first phase:
+  DOCX, PPTX, XLSX, PDF, HTML, and CSV
+* Does not compare YAML, Markdown passthrough, TSV, metadata semantics, asset
+  semantics, image-context behavior, or Markdown content similarity
+* Does not enable OCR, Azure Document Intelligence, or plugin-driven paths
+* Writes runner-separated outputs under:
+  * `.tmp/bench/compare/mb/...`
+  * `.tmp/bench/compare/python/...`
+* Writes measured rows to `.tmp/bench/compare/results.jsonl`
+* Writes aggregate runner/sample metrics to `.tmp/bench/compare/summary.tsv`
+* Requires a user-prepared Python environment for Microsoft MarkItDown; the
+  script does not auto-install dependencies
+
+Recommended Python environment preparation:
+
+```bash
+python -m venv .venv-markitdown-compare
+. .venv-markitdown-compare/bin/activate
+pip install 'markitdown[all]==0.1.5'
+```
+
+Python runner resolution order:
+
+* `MARKITDOWN_COMPARE_CMD`
+* `MARKITDOWN_COMPARE_PY_BIN` via `python -m markitdown`
+* default `.venv-markitdown-compare/bin/markitdown`
+
+Comparison benchmark `results.jsonl` fields:
+
+* `runner`: `markitdown-mb` or `markitdown-python`
+* `version`: runner version string; current repo runner uses repo revision, the
+  Python runner tries `markitdown --version`
+* `format`: corpus format
+* `sample`: corpus sample id
+* `input_path`: repo-relative input file path
+* `file_size`: input file size in bytes
+* `iteration`: 1-based measured iteration number
+* `warmup`: always `false` in measured rows; warmup runs are not emitted
+* `elapsed_ms`: wall-clock elapsed milliseconds
+* `output_bytes`: generated markdown file size in bytes
+* `stderr_bytes`: stderr file size in bytes
+* `exit_status`: runner process exit code
+* `output_path`: explicit markdown output path for that run
+* `stderr_path`: stderr capture file path for that run
+* `timestamp`: UTC timestamp captured after the run
+* `git_rev`: current repository short revision
+* `tmp_root`: temp root used for the run
+* `timer_precision`: timer mode used by the shell helper
+
+Comparison benchmark `summary.tsv` fields:
+
+* `runner`: `markitdown-mb` or `markitdown-python`
+* `format`: corpus format
+* `sample`: corpus sample id
+* `runs`: number of measured iterations
+* `failed`: number of measured runs with non-zero exit status
+* `min_ms`: minimum measured elapsed time
+* `median_ms`: median measured elapsed time
+* `max_ms`: maximum measured elapsed time
+* `avg_ms`: arithmetic mean of measured elapsed times
+* `output_bytes_last`: markdown file size from the last measured iteration
+* `stderr_bytes_last`: stderr file size from the last measured iteration
 
 ### Check sample enrollment consistency
 
@@ -245,6 +463,19 @@ Origin-specific note:
 * Prefer `samples/metadata/*`, `samples/test/metadata/*`, and
   `convert/convert/test/origin_metadata_test.mbt` when adjusting origin logic
 
+Image-context-specific note:
+
+* Preserve the current `ImageBlock` contract: `path`, `alt_text`, `title`,
+  `caption`, `origin`
+* Preserve the current sidecar reuse rule:
+  `assets[].alt_text/title/caption` come from `ImageBlock` path join
+* Treat `nearby_caption` as the mirrored asset-origin field, not a second
+  independent caption slot
+* Do not repurpose OOXML `name` into caption or title without an explicit
+  contract change
+* Do not enable PDF / PPTX multi-image caption pairing as part of incidental
+  image-context work
+
 ### When modifying asset export / asset reference logic
 
 If you modify any of the following, you should at least run:
@@ -258,6 +489,13 @@ Typical cases include:
 * image export logic for any format
 * asset naming rules
 * `samples/assets/*`
+
+Image-context note:
+
+* PPTX / DOCX / HTML image export changes can affect both `samples/assets/*`
+  and `samples/metadata/*`
+* If source-native alt/title changes Markdown image text, update the affected
+  expected outputs intentionally rather than treating it as incidental churn
 
 ### When modifying PDF-related lower-level or recovery logic
 

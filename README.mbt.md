@@ -28,15 +28,33 @@ This means the repository should not be understood only as a “format converter
 
 Current major capabilities include:
 
-* **DOCX**: heading, list, table, image, block quote, and code-like paragraph recovery, plus hyperlink recovery inside paragraphs, headings, and list items
-* **PDF**: the default mainflow has been switched to a native structural recovery pipeline, rebuilding text-based PDF structure through event / span / line / block / IR reconstruction; it also supports lightweight page-level image provenance and conservative caption attachment in single caption-like cases
+* **DOCX**: heading, list, table, image, block quote, and code-like paragraph recovery, plus hyperlink recovery inside paragraphs, headings, and list items; DOCX images now use unified `ImageBlock` with source-native `descr -> alt_text` and `title -> title` when present
+* **PDF**: the default mainflow has been switched to a native structural recovery pipeline, rebuilding text-based PDF structure through event / span / line / block / IR reconstruction; it also supports unified `ImageBlock`, lightweight page-level image provenance, and conservative caption attachment in single caption-like cases
 * **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
-* **PPTX**: reading-order recovery, title/body separation, list recovery, handling of table-like / caption-like / callout-like regions, conservative caption / nearby-text attachment for single-image slides, and basic run-level and shape-level hyperlink recovery
-* **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, and image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
+* **PPTX**: reading-order recovery, title/body separation, list recovery, handling of table-like / caption-like / callout-like regions, conservative caption / nearby-text attachment for single-image slides, basic run-level and shape-level hyperlink recovery, and source-native picture `descr/title` mapping with synthetic alt only as fallback
+* **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, inline hyperlink recovery, image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`, and normalized local image `source_path`
 * **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
 * **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
 * **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into `Table` / `List` / `CodeBlock`
+
+### Short Support Matrix
+
+| Format | Structure | Links | Images | Metadata / Origin | Major Limits |
+| --- | --- | --- | --- | --- | --- |
+| DOCX | Headings, lists, tables, block quotes, code-like paragraphs, and images are recovered. | External `w:hyperlink r:id` links are preserved in paragraph, heading, and list contexts. | Images use unified `ImageBlock` with source-native `descr/title` when present. | Block origin plus image asset `relationship_id/source_path` are populated. | Footnote/endnote links, revisions, comments, and textboxes are out of scope. |
+| PPTX | Slide order, title/body, lists, and layout-aware reading order are recovered conservatively. | Run-level links and one-clear-shape external links are preserved when relationships resolve cleanly. | Images use unified `ImageBlock` with source-native `p:cNvPr descr/title` and conservative single-image caption pairing. | Slide-level block/asset origin plus image `relationship_id/source_path` are populated. | True table IR, macro/action/media links, and multi-image caption pairing are not enabled. |
+| XLSX | Multi-sheet worksheet content is emitted as sheet headings plus tables. | No hyperlink extraction path is currently implemented. | No image conversion path is currently implemented. | Sheet/table origin includes sheet name, source row/column span, and sheet `relationship_id`. | Formula evaluation, merged-cell reconstruction, charts, comments, pivots, and images are out of scope. |
+| PDF | Text-oriented structural recovery rebuilds headings, paragraphs, lists, and exported images conservatively. | Annotation/link data exists in debug/model layers but is not emitted as Markdown links by default. | Exported images use unified `ImageBlock` with conservative single-image bbox-gated caption pairing. | Page block origin and image asset `object_ref` are populated on a lightweight basis. | True table IR, default annotation-link emission, and full complex-layout recovery are not enabled. |
+| HTML | Lightweight semantic scanning recovers headings, lists, block quotes, code blocks, and tables. | Inline `<a href>` links are preserved in supported rich-inline contexts. | Local images preserve `alt/title`, `figure/figcaption`, and normalized `source_path`. | Block origin is lightweight and local image assets can populate `source_path`. | No browser DOM/CSS/JS rendering, remote fetch, DOM path, or block line-range anchoring. |
+| CSV / TSV | Delimited text is emitted as one unified `Table` with quoted-newline and ragged-row handling. | No link model is applied. | No image model is applied. | Block origin carries physical line range plus `row_index = 1` and `column_index = 1`. | No streaming, dialect sniffing, schema detection, comments, or type inference. |
+| JSON | Objects, regular object arrays, scalar arrays, and ambiguous nested values map conservatively into `Table` / `List` / `CodeBlock`. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No JSON Schema, JSON Lines, streaming, or nested provenance. |
+| YAML | A simple YAML subset maps conservatively into `Table` / `List` / `CodeBlock`. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, or nested provenance. |
+| Markdown | Source Markdown is preserved as the main output and only conservatively sliced for metadata. | Existing Markdown links are preserved because the original body is passed through. | Existing Markdown image syntax is preserved because the original body is passed through. | Conservative block `line_start/line_end` metadata is available without changing the body. | No Markdown AST parse, rewrite, validation, or remote asset parsing. |
+
+Across the current formats, document-style converters prefer readable partial
+recovery and conservative downgrade, while syntax-driven structured parsers such
+as CSV / JSON / YAML fail closed on invalid syntax instead of guessing.
 
 Current hyperlink preservation status:
 
@@ -87,7 +105,7 @@ Current `doc_parse/pdf_core` infrastructure includes:
 
 These lower-level packages are parsing and inspection infrastructure. They support the upper-level `convert/*` recovery layer, but they do not directly define the final Markdown semantics on their own.
 
-## Lightweight Provenance (Origin Metadata)
+## Lightweight Provenance and Image Context
 
 The unified IR currently includes a lightweight provenance layer for tracing the source of both content blocks and exported assets:
 
@@ -102,6 +120,30 @@ repository boundary. It includes:
 * OOXML origin refinement
 * structured/text origin refinement
 * HTML image `source_path` refinement
+
+The current G3 Image context phase has landed the key DOCX / PPTX
+consolidation work without changing the metadata schema or Markdown emitter
+contract. It includes:
+
+* unified `ImageBlock` / `ImageData` semantics for image-first converters
+* DOCX `ImageBlock` upgrade plus source-native `descr/title`
+* PPTX source-native picture `descr/title` with synthetic alt fallback
+
+Current unified `ImageBlock` / `ImageData` semantics:
+
+* `path`: emitted asset path
+* `alt_text`: source-native image hint when available
+* `title`: source-native title-like hint when available
+* `caption`: primary semantic caption when confidence is high enough
+* `origin`: optional IR-side image origin
+
+Current metadata sidecar image behavior:
+
+* `blocks[].image` serializes `path / alt_text / title / caption`
+* `assets[].alt_text / title / caption` are populated by joining the exported
+  asset path back to the corresponding `ImageBlock`
+* `nearby_caption` remains the asset-origin mirror of the primary caption value,
+  not a separate caption-inference slot
 
 Current sidecar `blocks[].origin` field surface:
 
@@ -144,6 +186,18 @@ Current verifiably populated ranges include:
 * Markdown blocks: conservative `line_start` / `line_end`
 * HTML image assets: `source_path` from normalized `<img src>`
 
+Current image-context coverage includes:
+
+* HTML: `<img alt>`, `<img title>`, `<figure>`, `<figcaption>`, and local image
+  `source_path`
+* DOCX: `ImageBlock`, OOXML drawing `descr -> alt_text`, `title -> title`,
+  asset-origin `relationship_id / source_path`
+* PPTX: `ImageBlock`, `p:cNvPr descr -> alt_text`, `p:cNvPr title -> title`,
+  synthetic alt only as fallback, asset-origin `relationship_id / source_path`
+* PDF: `ImageBlock`, image provenance via `object_ref`, and conservative
+  single-image caption attachment
+* XLSX: no image conversion path yet
+
 Its current scope is **lightweight provenance**, rather than a fine-grained anchoring system.
 
 It does **not yet** include:
@@ -154,6 +208,11 @@ It does **not yet** include:
 * table cell-level provenance
 * JSON / YAML nested key-path anchoring
 * default PDF annotation-link Markdown emission
+* PDF / PPTX multi-image caption pairing
+* treating OOXML `name` as caption or title
+* default PDF bbox / full `source_refs` sidecar emission
+* XLSX image support
+* remote HTML image fetch
 
 It also does not alter the reading behavior of the Markdown main output.
 

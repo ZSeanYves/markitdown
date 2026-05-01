@@ -102,6 +102,13 @@ Current G2 Origin / Source Location scope is complete at the current stage:
 - structured/text origin refinement
 - HTML image `source_path` refinement
 
+Current G3 image-context consolidation at the current stage includes:
+
+- unified `ImageBlock` / `ImageData` semantics
+- DOCX source-native image `descr/title`
+- PPTX source-native picture `descr/title`
+- stable sidecar reuse of `ImageBlock` image context on the asset side
+
 Current sidecar origin field surface:
 
 - `blocks[].origin`: `source_name`, `format`, `page`, `slide`, `sheet`,
@@ -126,9 +133,19 @@ Current verifiable fill ranges:
 The metadata schema is unchanged; G2 only refines population inside the
 existing contract.
 
+Current shared image-context contract:
+
+- `ImageBlock` / `ImageData` carries `path`, `alt_text`, `title`, `caption`,
+  and `origin`
+- `blocks[].image` serializes `path`, `alt_text`, `title`, and `caption`
+- `assets[].alt_text`, `assets[].title`, and `assets[].caption` are filled by
+  joining exported asset `path` back to the corresponding `ImageBlock`
+- `nearby_caption` is the asset-origin mirror of the primary caption value, not
+  an independent caption-inference slot
+
 ## 8) Current Per-format Support Scope and Boundaries
 
-### 7.0 Shared Low-level Parsing Foundations
+### 8.0 Shared Low-level Parsing Foundations
 
 The repository now also has a usable low-level parsing substrate beneath the
 format-specific recovery logic.
@@ -152,10 +169,10 @@ Current PDF Core infrastructure includes:
 - read-only debug inspect output for document/page/image/annotation statistics
 
 These capabilities are parsing infrastructure. They support recovery,
-inspection, and metadata, but do not by themselves guarantee rich final
-document semantics.
+inspection, metadata, and graceful degradation, but they do not by themselves
+guarantee rich final document semantics.
 
-### 7.1 DOCX
+### 8.1 DOCX
 
 Currently supported:
 
@@ -163,100 +180,179 @@ Currently supported:
 - ordered / unordered / nested list recovery
 - table parsing
 - image export and Markdown references
+- unified `ImageBlock` emission for DOCX images
+- source-native OOXML drawing `descr -> alt_text`
+- source-native OOXML drawing `title -> title`
 - block quote detection
 - code-like paragraph recovery
 - line-break handling in paragraphs and table cells
-- hyperlink recovery in paragraph / heading / list contexts
-- external `w:hyperlink r:id` relationship preservation as Markdown links
-  through `Inline::Link(text, href)`
-- lightweight block-level origin metadata
-- lightweight asset-origin metadata for exported image resources
+- numbering / styles driven paragraph recovery
 
-Current boundaries:
+Partially supported:
+
+- quote-like / code-like detection for multilingual or non-standard style names
+  remains conservative
+- some style generalization still relies mainly on heuristic naming rules
+- table cells are still emitted as text cells rather than richer cell-level
+  structure
+
+Graceful degradation:
 
 - hyperlinks with missing `r:id`, missing relationships, empty targets, or
-  internal anchors/bookmarks are currently downgraded to plain text
-- footnote and endnote hyperlinks are not currently recovered
-- quote-like / code-like detection for multilingual or non-standard style names remains conservative
-- some style generalization still relies mainly on heuristic naming rules
+  internal anchors/bookmarks are downgraded to plain text rather than forced
+  into Markdown link syntax
 
-### 7.2 PDF
+Metadata / assets / origin:
+
+- lightweight block-level origin metadata is available
+- exported image assets can populate `relationship_id` and `source_path`
+
+Link support:
+
+- paragraph / heading / list contexts can preserve external
+  `w:hyperlink r:id` relationships through `Inline::Link(text, href)`
+
+Image context:
+
+- DOCX images use unified `ImageBlock`
+- source-native drawing `descr` maps to `alt_text`
+- source-native drawing `title` maps to `title`
+- image caption inference is intentionally not performed from OOXML `name` or
+  surrounding document text
+
+Explicitly unsupported / out of scope:
+
+- footnote and endnote hyperlink recovery
+- revisions / track changes semantics
+- comments
+- textbox-specific recovery semantics
+
+### 8.2 PDF
 
 The current PDF mainflow is:
 
 **native structural recovery**
 
-The normal PDF path has already been taken over by the repository’s native recovery chain rather than an external text-first pipeline.
+The normal PDF path has already been taken over by the repository’s native
+recovery chain rather than an external text-first pipeline.
 
 Currently supported:
 
 - native character / span / line / block recovery
-- line-seed converter staging by default: `pdf_core` text block lines are
-  flattened and converted as one `PdfConvertBlock` per line
+- line-seed converter staging by default
 - text normalization and fragmented English word recovery
-- page geometry exposure through `pdf_core` including media box, crop box, and
-  rotation
+- page geometry exposure through `pdf_core`
 - page-noise cleanup
-- repeated header / footer cleanup using repeated edge text plus page box
-  top/bottom zones
+- repeated header / footer cleanup
 - heading / short-sentence boundary recovery
 - paragraph / block recovery
 - basic bullet / list-item recovery
-- cross-page paragraph merging using hard blockers, text-continuation evidence,
-  layout compatibility, and core-derived continuation signals
+- cross-page paragraph merging
 - hardwrap recovery
-- conservative pseudo two-column negative protection
 - lightweight page-level block origin metadata
 - lightweight image asset-origin metadata
 - raw page refs, content stream refs, images, and annotation/link data available
   to debug inspect helpers
-- convert-stage pipeline debug retention for image provenance fields and
-  page-level annotation records
-- source core block provenance and block-level flags retained in
-  `PdfConvertBlock` for debug and future enhancement work
-- conservative nearby-caption attachment in single-image-page +
-  single surviving caption-like cases, with bbox geometry gating based on
-  above/below placement, nearby vertical gap, and horizontal alignment/overlap
-- retention of page-level asset origin for exported PDF image assets
-- debug inspect output for document version/page count, per-page geometry,
-  counts, images, and annotations
+- convert-stage debug retention for image provenance and annotation records
+- unified `ImageBlock` emission for exported PDF images
+- conservative single-image bbox-gated caption attachment
 
-Current boundaries:
+Partially supported:
 
-- OCR is still not the default `normal` path
-- OCR currently exists as a plugin-style path driven by external tooling
-- PDF conversion remains conservative structure recovery; it is not equivalent
-  to visual page reflow or full layout recreation
-- core block seeding is not enabled by default; the normal path still uses
-  line-seed block staging
-- annotations and link records currently enter the `pdf_core` model/debug
-  substrate and convert-stage debug, but they are not emitted as Markdown
-  links by default
-- multi-image caption pairing is not enabled; the current caption path remains
-  a conservative single-image-page strategy
-- more complex multi-column, heavy graphic-text mixing, and extreme anomaly cases are still under active improvement
-- some complex layouts still rely on heuristic rules rather than full layout-semantic reconstruction
-- Markdown output is still a conservative structural recovery result; it is not
-  intended to be a full visual reproduction of the original PDF page
+- multi-column, graphic-heavy, and extreme abnormal pages still rely on
+  conservative heuristics rather than full layout-semantic reconstruction
+- OCR exists as an explicit alternative path, not as part of the default
+  `normal` conversion contract
+- Markdown output is a conservative structural recovery result, not visual page
+  reflow
 
-### 7.3 XLSX
+Graceful degradation:
+
+- annotation/link records remain available in `pdf_core` and convert debug/model
+  paths even when they are not emitted as Markdown links
+- ambiguous image-caption cases are left unmatched rather than forcing
+  low-confidence pairings
+- multi-image caption pairing is not enabled, so image/text blocks remain
+  separate in ambiguous scenes
+
+Metadata / assets / origin:
+
+- lightweight page-level block origin metadata is available
+- exported image assets can populate `object_ref`
+- convert-stage debug can retain richer image/source information than the
+  default sidecar contract exposes
+
+Link support:
+
+- raw annotation/link extraction exists in `pdf_core` and convert debug/model
+  layers
+- default Markdown output does not emit PDF annotation links
+
+Image context:
+
+- exported PDF images use unified `ImageBlock`
+- image assets can populate `object_ref`
+- caption attachment is conservative and only attempted for single-image pages
+  with one surviving bbox-gated caption-like candidate
+
+Explicitly unsupported / out of scope:
+
+- true table IR recovery
+- default PDF annotation-link Markdown emission
+- multi-image caption pairing
+- default sidecar emission of full PDF `source_refs`
+- default sidecar emission of bbox
+- full recovery of complex multi-column or strong graphic-text mixed layouts
+
+### 8.3 XLSX
 
 Currently supported:
 
 - multi-sheet output
+- sheet heading plus table emission
 - handling of shared string / inline string / bool / error / number cells
 - sparse table trimming
 - sparse-edge bounding-box tightening
 - built-in and custom datetime formatting
 - table-width normalization
-- lightweight sheet-level block origin metadata
 
-Current boundaries:
+Partially supported:
 
-- no formula evaluation
-- merged cells have not yet been upgraded into richer structural recovery targets
+- formula cells use existing cell values or cached string results but do not run
+  formula evaluation
+- merged cells are not reconstructed into richer structure
 
-### 7.4 PPTX
+Graceful degradation:
+
+- `(no sheets found)` is emitted when the workbook has no discoverable sheets
+- `(missing sheet xml: ...)` is emitted when workbook metadata points to a
+  missing sheet part
+- `(empty sheet)` is emitted when a sheet resolves but yields no table content
+
+Metadata / assets / origin:
+
+- lightweight sheet-level block origin metadata is available
+- table blocks can populate source row/column span and sheet `relationship_id`
+
+Link support:
+
+- no hyperlink extraction path is currently implemented
+
+Image context:
+
+- no image conversion path is currently implemented
+
+Explicitly unsupported / out of scope:
+
+- formula evaluation
+- merged-cell structural reconstruction
+- charts
+- images
+- comments
+- hyperlinks
+- pivot-table or similar workbook-level semantic recovery
+
+### 8.4 PPTX
 
 Currently supported:
 
@@ -270,51 +366,114 @@ Currently supported:
 - table-like / grid-like region detection and stabilization
 - conservative filtering of page-number / corner-label noise
 - run-level `a:hlinkClick r:id` external hyperlink recovery
-- basic shape-level hyperlink fallback when one clear external shape link is present
+- basic shape-level hyperlink fallback when one clear external shape link is
+  present
+- unified `ImageBlock` emission for PPTX images
 - conservative caption-like attachment for single-image slides
-- conservative nearby-text attachment for single-image slides when there is exactly one clear nearby candidate
+- conservative nearby-text attachment for single-image slides when there is
+  exactly one clear nearby candidate
+- source-native `p:cNvPr descr -> alt_text`
+- source-native `p:cNvPr title -> title`
+- synthetic alt only as fallback when `descr` is absent
+
+Partially supported:
+
+- table-like / grid-like logic currently focuses on region / order stabilization
+  rather than complete `Table` IR semantics
+- some negative layouts may still be conservatively downgraded into readable
+  ordered paragraphs
+
+Graceful degradation:
+
 - ambiguous multi-image / multi-caption cases intentionally remain unmatched
-- lightweight slide-level block origin metadata
-- lightweight slide-level asset origin metadata
-
-Current boundaries:
-
-- hyperlinks with missing `r:id`, missing relationships, empty targets, internal
-  anchors/bookmarks, actions, macros, or media link targets are currently
+- hyperlinks with missing `r:id`, missing relationships, empty targets,
+  internal anchors/bookmarks, actions, macros, or media link targets are
   downgraded to plain text
-- some negative layouts may still be conservatively downgraded into readable ordered paragraphs
-- table-like stabilization currently focuses more on region / order recovery than on full table-level IR semantics
 
-### 7.5 HTML
+Metadata / assets / origin:
+
+- lightweight slide-level block origin metadata is available
+- lightweight slide-level asset origin metadata is available
+- exported image assets can populate `relationship_id` and `source_path`
+
+Link support:
+
+- run-level external hyperlink recovery is supported
+- one-clear-shape external hyperlink fallback is supported
+- action / macro / media link promotion is not performed
+
+Image context:
+
+- PPTX images use unified `ImageBlock`
+- source-native `p:cNvPr descr` maps to `alt_text`
+- source-native `p:cNvPr title` maps to `title`
+- single-image caption/nearby-text attachment remains conservative
+
+Explicitly unsupported / out of scope:
+
+- multi-image caption pairing
+- treating OOXML `name` as caption or title
+- complex media / action / macro link promotion
+- true table IR reconstruction
+
+### 8.5 HTML
 
 Currently supported:
 
-- headings / paragraphs / list items
+- lightweight semantic scanning of headings / paragraphs / list items
 - ordered / unordered / nested lists
 - block quotes
 - pre / code blocks
 - tables
 - explicit `<br>` preservation
-- lightweight inline model
-- local structure recovery inside list-item containers
-- local structure recovery inside blockquote containers
-- inline `<a href>` hyperlink recovery in paragraph / heading / list-item / blockquote contexts
-- lightweight document-level block origin metadata
-- lightweight image / figure asset-origin metadata
-- image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`
-- `<img alt>` -> `ImageData.alt_text`
-- `<img title>` -> `ImageData.title`
-- `<figcaption>` -> `ImageData.caption`
-- local image export behavior remains unchanged; remote / unsupported sources are handled conservatively
+- inline `<a href>` hyperlink recovery in paragraph / heading / list-item /
+  blockquote contexts
+- image-context retention for `<img alt>`, `<img title>`, `<figure>`, and
+  `<figcaption>`
+- normalized local `<img src>` -> asset-origin `source_path`
+- local image export when the source resolves conservatively as a local file
 
-Current boundaries:
+Partially supported:
 
-- links with missing `href`, empty targets, or internal anchors are currently
-  downgraded to plain text
-- the current model is lightweight and DOM-like rather than browser-grade HTML semantics
-- more complex containers and deeply nested cases are still handled conservatively
-- table-cell hyperlink handling still remains on the string-render path (not yet promoted into rich-inline IR)
-- remote / unsupported image sources are not force-exported as local assets
+- the current model is lightweight and DOM-like rather than browser-grade HTML
+  semantics
+- more complex containers and deeply nested cases are still handled
+  conservatively
+- table-cell hyperlink handling still remains on the string-render path rather
+  than rich-inline IR
+
+Graceful degradation:
+
+- links with missing `href`, empty targets, or internal anchors are downgraded
+  to plain text
+- remote / `data:` / unsupported image sources are not exported as local assets
+- paragraph-level image fallbacks degrade to a simple `[alt]` text placeholder
+  when no local export path is available
+
+Metadata / assets / origin:
+
+- lightweight document-level block origin metadata is available
+- local image / figure assets can populate `source_path`
+
+Link support:
+
+- inline external `<a href>` links are preserved in supported rich-inline
+  contexts
+- internal anchors are not promoted to structured link IR
+
+Image context:
+
+- `<img alt>` maps to `ImageData.alt_text`
+- `<img title>` maps to `ImageData.title`
+- `<figcaption>` maps to `ImageData.caption`
+- local image assets can populate normalized `source_path`
+
+Explicitly unsupported / out of scope:
+
+- remote HTML image fetch
+- DOM path anchoring
+- block line-range anchoring
+- browser DOM / CSS / JS rendering semantics
 
 ### 8.6 CSV / TSV
 
@@ -326,18 +485,40 @@ Currently supported:
 - escaped quote handling using `""`
 - quoted newline handling inside fields
 - empty cells
-- ragged rows, padded to the widest row before Markdown table emission
+- ragged rows padded to the widest row before Markdown table emission
 - table output through the unified IR `Table` block
-- block origin with physical `line_start` / `line_end` and
-  `row_index = 1` / `column_index = 1`
-- standard metadata sidecar summary fields
 
-Current boundaries:
+Partially supported:
 
-- UTF-8 text input is expected
-- no type inference, formula handling, dialect sniffing, comments, or schema detection
-- no large-file streaming path; files are read into memory as text
-- CSV / TSV output is a single Markdown table, not a multi-table workbook model
+- the converter intentionally models the whole input as one table block rather
+  than a richer workbook/schema system
+
+Graceful degradation:
+
+- ragged rows are padded rather than rejected when width is inconsistent
+
+Metadata / assets / origin:
+
+- block origin can populate physical `line_start` / `line_end`
+- block origin can populate `row_index = 1` and `column_index = 1`
+- no asset export path is involved
+
+Link support:
+
+- no link model is applied
+
+Image context:
+
+- no image model is applied
+
+Explicitly unsupported / out of scope:
+
+- streaming conversion
+- dialect sniffing
+- comments
+- schema detection
+- type inference
+- lossy fallback for invalid CSV syntax such as unterminated quoted fields
 
 ### 8.7 JSON
 
@@ -351,17 +532,37 @@ Currently supported:
 - arrays of scalar values emitted as bullet lists
 - mixed arrays and ambiguous nested structures emitted as fenced JSON blocks
 - nested object / array values inside table cells compact-stringified as JSON
-- root-level block `key_path = "$"`
-- standard metadata sidecar summary fields
 
-Current boundaries:
+Partially supported:
 
-- no JSON Schema support
-- no JSON Lines support
-- no streaming parser path
-- no type inference beyond JSON primitive values
-- nested structures remain conservative compact JSON values or fenced JSON blocks
-- nested key-path anchoring is intentionally not populated
+- nested structures remain conservative compact JSON values or fenced JSON
+  blocks rather than deeper semantic provenance
+
+Graceful degradation:
+
+- irregular structures fall back to `CodeBlock` or compact cell-string output
+  rather than forced table shaping
+
+Metadata / assets / origin:
+
+- root-level block origin can populate `key_path = "$"`
+- no asset export path is involved
+
+Link support:
+
+- no link model is applied
+
+Image context:
+
+- no image model is applied
+
+Explicitly unsupported / out of scope:
+
+- JSON Schema support
+- JSON Lines support
+- streaming parser path
+- nested provenance beyond the root-level `key_path`
+- lossy fallback for invalid JSON syntax
 
 ### 8.8 Markdown Passthrough
 
@@ -374,18 +575,39 @@ Currently supported:
 - final output tail normalized to exactly one trailing newline
 - conservative block slicing for metadata summary and block origins
 - conservative block `line_start` / `line_end` on normalized physical lines
-- standard metadata sidecar fields with `format = markdown`, `source_name`,
-  `summary.block_count`, `summary.asset_count`, and `document = null`
 
-Current boundaries:
+Partially supported:
 
-- no Markdown AST parse
-- no rewriting of heading / list / table / code / link / image / frontmatter
-  semantics
-- no remote asset parsing or export
-- metadata schema remains unchanged
-- block counts in metadata are conservative engineering summaries, not a
-  promise of full Markdown semantic parsing
+- metadata block counts are engineering summaries rather than a promise of full
+  Markdown AST semantics
+
+Graceful degradation:
+
+- the converter does not attempt Markdown semantic interpretation and instead
+  preserves the original body with only final trailing-newline normalization
+
+Metadata / assets / origin:
+
+- standard metadata sidecar fields remain available
+- block origin can populate conservative `line_start` / `line_end`
+- no additional asset export path is inferred from source Markdown
+
+Link support:
+
+- existing Markdown links are preserved because the original Markdown body is
+  passed through unchanged
+
+Image context:
+
+- existing Markdown image syntax is preserved because the original Markdown body
+  is passed through unchanged
+
+Explicitly unsupported / out of scope:
+
+- Markdown AST parse
+- Markdown rewrite / normalization
+- Markdown validation
+- remote asset parsing or export
 
 ### 8.9 YAML
 
@@ -404,88 +626,95 @@ Currently supported:
 - arrays of scalar values emitted as bullet lists
 - nested / ambiguous mixed structures emitted as fenced YAML blocks or compact
   inline string values inside table cells
-- root-level block `key_path = "$"`
-- standard metadata sidecar summary fields
 
-Current boundaries:
+Partially supported:
 
-- only a simple subset is supported
-- no anchors or aliases
-- no tags
-- no block scalar `|` / `>`
-- no flow style `{}` / `[]`
-- no complex keys
-- no multi-document `---` / `...`
-- no YAML schema inference
-- no streaming parser path
-- metadata schema remains unchanged
-- nested key-path anchoring is intentionally not populated
+- only a simple subset is supported and nested semantics stay conservative
 
-## 9) Current Boundaries (Key Points)
+Graceful degradation:
 
-### 9.1 PDF Boundary
+- semantically unclear or mixed structures fall back to fenced YAML blocks or
+  compact cell strings rather than speculative reconstruction
 
-- The default `normal` path is already a text-oriented native structural recovery mainflow.
-- The default PDF path uses line-seed block staging, not core-block seed mode.
-- `pdf_core` annotation/link extraction is available for model/debug
-  inspection, and convert pipeline debug retains page annotations, but
-  annotations are not converted into Markdown links by default. PDF annotation
-  link emission requires a separate bbox/text matching design before it is
-  enabled.
-- default sidecar emission of full PDF `source_refs` is not enabled
-- default sidecar emission of bbox is not enabled
-- Image provenance is retained in convert pipeline debug for diagnosis, but it
-  does not change the Markdown contract.
-- PDF caption pairing remains conservative: it is only attempted for
-  single-image pages, uses the existing caption-like text helper, and applies a
-  bbox geometry gate rather than enabling broad layout-semantic matching.
-- Multi-image caption pairing is still not enabled.
-- Complex multi-column layouts, strong graphic-text mixing, and extreme abnormal pages remain enhancement targets.
+Metadata / assets / origin:
+
+- root-level block origin can populate `key_path = "$"`
+- no asset export path is involved
+
+Link support:
+
+- no link model is applied
+
+Image context:
+
+- no image model is applied
+
+Explicitly unsupported / out of scope:
+
+- anchors / aliases
+- tags
+- block scalar `|` / `>`
+- flow style `{}` / `[]`
+- complex keys
+- multi-document `---` / `...`
+- streaming parser path
+- nested provenance beyond the root-level `key_path`
+- lossy fallback for unsupported YAML syntax
+
+## 9) Cross-cutting Boundaries
+
+### 9.1 Hard-fail Parsers vs Soft-degrade Converters
+
+- CSV / TSV, JSON, and YAML are syntax-driven parsers and fail closed on invalid
+  syntax rather than guessing a lossy fallback structure.
+- DOCX, PPTX, PDF, and HTML are recovery-oriented converters and prefer readable
+  partial output plus conservative downgrade instead of aggressive inference.
+- Markdown passthrough is intentionally source-preserving: its degradation model
+  is “do not reinterpret the source body”.
 
 ### 9.2 OCR Boundary
 
 - OCR is an `ocr` subcommand path, not the default mainflow.
-- OCR depends on external tooling and therefore requires separate environment verification.
+- OCR depends on external tooling and therefore requires separate environment
+  verification.
+- The default PDF support matrix should be read as native text-oriented
+  structural recovery, not OCR-first conversion.
 
-### 9.3 Advanced OOXML Boundary
+### 9.3 Provenance Granularity Boundary
 
-- The current priority is “readable structure + regression stability + explainability”.
-- Shared OOXML infrastructure for package, relationships, media, and document
-  properties is now in place, but higher-level advanced OOXML semantics
-  (complex style semantics, deeper layout logic, formula evaluation, etc.) are
-  not yet fully covered.
+- Sidecar origin is best-effort provenance for engineering traceability, not a
+  full layout trace or anchoring system.
+- Table cell-level provenance is not enabled across current formats.
+- HTML DOM path anchoring is not enabled.
+- JSON / YAML nested key-path anchoring is not enabled.
+- Default sidecar emission of full PDF `source_refs` or bbox is not enabled.
 
-### 9.4 Markdown Boundary
+### 9.4 Multi-image Caption Boundary
 
-- Markdown support is currently source-preserving passthrough, not a Markdown
+- PDF caption pairing remains conservative and is only attempted for
+  single-image pages with one surviving bbox-gated caption candidate.
+- PPTX caption / nearby-text attachment remains conservative and is only
+  intended for single-image slides with one clear candidate.
+- Multi-image caption pairing is not enabled in PDF or PPTX.
+
+### 9.5 Remote Asset Boundary
+
+- Remote HTML image fetch is not enabled.
+- Remote / unsupported HTML image sources are not force-exported as local
+  assets.
+- Markdown passthrough does not parse or export remote assets from source
+  Markdown.
+- The current asset path focuses on package-embedded OOXML media, exported PDF
+  images, and conservative local HTML image export.
+
+### 9.6 Markdown Passthrough Boundary
+
+- Markdown support is source-preserving passthrough, not a Markdown
   parser/rewriter.
 - The emitter prefers `passthrough_markdown` and only normalizes the final
   trailing newline.
-- Metadata remains on the existing schema and uses conservative block slicing
-  rather than full Markdown syntax analysis.
-
-### 9.5 HTML Boundary
-
-- HTML support is currently lightweight semantic scanning, not full DOM
-  reconstruction.
-- HTML image assets can populate `source_path` from normalized local
-  `<img src>`.
-- HTML block DOM path anchoring is not enabled.
-- HTML block line-range anchoring is not enabled.
-
-### 9.6 Structured-data Boundary
-
-- Table cell-level provenance is not enabled across current formats.
-- JSON / YAML nested key-path anchoring is not enabled.
-
-### 9.7 YAML Boundary
-
-- YAML support is currently a conservative simple-subset converter, not a full
-  YAML-spec implementation.
-- Unsupported YAML features are intentionally kept out of scope rather than
-  partially guessed.
-- Nested or ambiguous structures may fall back to compact string values or
-  fenced YAML blocks instead of richer semantic reconstruction.
+- Metadata uses conservative block slicing rather than full Markdown syntax
+  analysis.
 
 ## 10) Known Limits
 
@@ -498,6 +727,9 @@ Current boundaries:
 - JSON / YAML nested key-path anchoring is not enabled.
 - XLSX does not evaluate formulas.
 - Ambiguous multi-image / multi-caption scenes in PPTX follow a conservative matching strategy (non-matching is acceptable).
+- OOXML `name` is not treated as image caption or title.
+- XLSX image conversion is not enabled.
+- Remote HTML image fetch is not enabled.
 - If no Markdown output file is provided (stdout mode), `--with-metadata` will not write sidecar files to disk.
 - Markdown passthrough does not validate, normalize, or semantically interpret
   Markdown syntax beyond ensuring a single trailing newline in the final output.
