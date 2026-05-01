@@ -71,16 +71,20 @@ fn nodes_to_blocks(
             )
         }
       HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
-      HtmlNode::Table(rows) => {
+      HtmlNode::Table(table) => {
         let out_rows : Array[Array[String]] = []
-        for row in rows {
+        for row in table.rows {
           let out_row : Array[String] = []
           for cell in row {
             out_row.push(render_inlines(cell))
           }
           out_rows.push(out_row)
         }
-        out.push(@cor.Block::Table(out_rows))
+        if table.has_explicit_header {
+          out.push(@cor.Block::RichTable({ rows: out_rows, header_rows: 1 }))
+        } else {
+          out.push(@cor.Block::Table(out_rows))
+        }
       }
     }
   }
@@ -462,7 +466,7 @@ fn list_item_child_to_text(node : HtmlNode, max_h : Int) -> String {
     }
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
-    HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Table(table) => render_table_markdown(table.rows)
     HtmlNode::Figure(_img, caption) => render_inlines(caption)
   }
 }
@@ -543,7 +547,7 @@ fn quote_node_to_text(node : HtmlNode, max_h : Int) -> String {
     }
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
-    HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Table(table) => render_table_markdown(table.rows)
     HtmlNode::Figure(_img, caption) => render_inlines(caption)
   }
 }

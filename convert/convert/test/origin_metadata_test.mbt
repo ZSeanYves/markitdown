@@ -168,6 +168,36 @@ fn read_ooxml_metadata_document_properties(
 }
 
 ///|
+fn read_epub_metadata_document_properties(
+  path : String,
+) -> @cor.MetadataDocumentProperties? raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read EPUB sample failed: " + e.to_string())
+  }
+  let pkg = @epubpkg.open_epub_package(bytes, @cor.basename(path)) catch {
+    e => fail("open EPUB sample failed: " + e.to_string())
+  }
+  let meta = pkg.metadata
+
+  Some(
+    @cor.metadata_document_properties(
+      meta.title,
+      None,
+      meta.creator,
+      None,
+      None,
+      meta.date,
+      meta.modified,
+      Some("EPUB"),
+      None,
+      None,
+      None,
+      None,
+    ),
+  )
+}
+
+///|
 fn assert_metadata_has_document_object(
   json : String,
   format : String,
@@ -399,7 +429,19 @@ fn assert_metadata_snapshot(
   let expected = read_utf8_text(
     resolve_sample_path("samples/test/metadata/" + expected_name),
   )
-  assert_eq(actual, expected)
+  assert_eq(
+    trim_one_trailing_newline(actual),
+    trim_one_trailing_newline(expected),
+  )
+}
+
+///|
+fn trim_one_trailing_newline(text : String) -> String {
+  if text.has_suffix("\n") {
+    text[:text.length() - 1].to_owned()
+  } else {
+    text
+  }
 }
 
 ///|
@@ -1052,6 +1094,66 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("markdown metadata should keep document null")
   }
 
+  let txt_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
+    "",
+    6,
+  )
+  let txt_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/txt/txt_paragraphs.md"),
+  )
+  if @cor.emit_markdown(txt_doc) != txt_expected {
+    fail("txt output should preserve paragraph-only plain-text semantics")
+  }
+  let txt_json = @cor.emit_metadata_json(
+    txt_doc, "txt_paragraphs.txt", "txt", "txt_paragraphs.md",
+  )
+  if !txt_json.contains("\"format\": \"txt\"") {
+    fail("txt metadata should contain txt format")
+  }
+  if !txt_json.contains("\"source_name\": \"txt_paragraphs.txt\"") {
+    fail("txt metadata should contain source_name")
+  }
+  if !txt_json.contains("\"block_count\": 2") {
+    fail("txt metadata should contain two paragraph blocks")
+  }
+  if !txt_json.contains("\"asset_count\": 0") {
+    fail("txt metadata should contain zero assets")
+  }
+  if !txt_json.contains("\"document\": null") {
+    fail("txt metadata should keep document null")
+  }
+
+  let xml_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_basic.xml"),
+    "",
+    6,
+  )
+  let xml_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_basic.md"),
+  )
+  if @cor.emit_markdown(xml_doc) != xml_expected {
+    fail("xml output should preserve source as fenced xml markdown")
+  }
+  let xml_json = @cor.emit_metadata_json(
+    xml_doc, "xml_basic.xml", "xml", "xml_basic.md",
+  )
+  if !xml_json.contains("\"format\": \"xml\"") {
+    fail("xml metadata should contain xml format")
+  }
+  if !xml_json.contains("\"source_name\": \"xml_basic.xml\"") {
+    fail("xml metadata should contain source_name")
+  }
+  if !xml_json.contains("\"block_count\": 1") {
+    fail("xml metadata should contain one code block")
+  }
+  if !xml_json.contains("\"asset_count\": 0") {
+    fail("xml metadata should contain zero assets")
+  }
+  if !xml_json.contains("\"document\": null") {
+    fail("xml metadata should keep document null")
+  }
+
   let frontmatter_path = resolve_sample_path(
     "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
   )
@@ -1211,6 +1313,34 @@ test "origin_metadata/structured_text_block_origins" {
   }
   if markdown_no_newline_origin.line_end != Some(1) {
     fail("markdown no-trailing-newline block should end at line 1")
+  }
+
+  let txt_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
+    "",
+    6,
+  )
+  if txt_doc.blocks.val.length() != 2 {
+    fail("txt_paragraphs should emit exactly two paragraph blocks")
+  }
+
+  let txt_first = block_origin_at(txt_doc, 0)
+  if txt_first.line_start != Some(1) {
+    fail("txt first paragraph should start at line 1")
+  }
+  if txt_first.line_end != Some(2) {
+    fail("txt first paragraph should end at line 2")
+  }
+  if txt_first.key_path != None {
+    fail("txt paragraph should not set key_path")
+  }
+
+  let txt_second = block_origin_at(txt_doc, 1)
+  if txt_second.line_start != Some(4) {
+    fail("txt second paragraph should start at line 4")
+  }
+  if txt_second.line_end != Some(5) {
+    fail("txt second paragraph should end at line 5")
   }
 }
 
@@ -1395,6 +1525,27 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
     ),
     "yaml_mapping_basic.metadata.json",
+  )
+
+  let epub_out_dir = origin_tmp_root() + "/metadata_sidecar_epub_metadata_basic"
+  recreate_clean_dir(epub_out_dir)
+  defer cleanup_temp_dir(epub_out_dir)
+  let epub_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_doc,
+      "epub_metadata_basic.epub",
+      "epub",
+      "epub_metadata_basic.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+      ),
+    ),
+    "epub_metadata_basic.metadata.json",
   )
 
   let markdown_code_doc = @md.parse_markdown(

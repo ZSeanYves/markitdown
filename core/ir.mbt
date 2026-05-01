@@ -19,12 +19,24 @@ pub(all) enum Block {
   RichBlockQuote(Array[Inline])
   CodeBlock(String)
   Table(Array[Array[String]])
+  RichTable(TableData)
   // Legacy image shape kept for backward compatibility with old emitters/tests.
   // New pipelines should prefer ImageBlock(ImageData).
   Image(String, String) // alt, path
   // Canonical image block carrying structured image context.
   ImageBlock(ImageData)
   BlankLine
+}
+
+///|
+/// Explicit table payload for converters that know whether rows are headers.
+///
+/// `header_rows` is intentionally coarse: Markdown has a single header row, so
+/// the emitter uses the first header row as the Markdown header and treats any
+/// additional header rows as body rows.
+pub(all) struct TableData {
+  rows : Array[Array[String]]
+  header_rows : Int
 }
 
 ///|

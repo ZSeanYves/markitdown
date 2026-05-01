@@ -11,7 +11,7 @@ The repository has two different sample roles:
 2. **Acceptance demo set** (for quick showcase)
    - `samples/test`
 
-`samples/test` is a compact five-format demonstration set. It is **not** a replacement for full regression coverage.
+`samples/test` is a compact acceptance demonstration set. It is **not** a replacement for full regression coverage.
 
 ## Why regression is split into 3 independent chains
 
@@ -34,7 +34,7 @@ This split improves explainability:
 
 ## Acceptance demo coverage (`samples/test`)
 
-Current demo files cover five formats:
+Current demo files cover a compact subset of formats:
 
 - DOCX: `samples/test/golden.md`
 - HTML: `samples/test/html_figure_figcaption_basic.md`

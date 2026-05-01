@@ -1,101 +1,64 @@
-# Metadata Sidecar (`*.metadata.json`)
+# Metadata Sidecar
 
-## 1) Positioning
+The metadata sidecar is the machine-readable companion output to Markdown. It
+is for provenance, indexing, and auditing, not for the main reading flow.
 
-The metadata sidecar is a **companion output for engineering consumption** and is not part of the Markdown main body.
-
-Its main purposes include:
-
-- provenance and auditing
-- asset indexing
-- RAG / chunk preprocessing
-- automated acceptance verification
-
-## 2) How to Enable It
-
-Enable it via the CLI flag `--with-metadata`:
+## Enable It
 
 ```bash
 moon run cli -- normal --with-metadata <input> <output.md>
-moon run cli -- ocr --with-metadata <input> <output.md>
-moon run cli -- debug --with-metadata <all|extract|raw|pipeline> <input> <output.md>
-````
+```
 
-Note: if no output Markdown file is provided (stdout mode), the sidecar is currently not written to disk.
+The sidecar is written to:
 
-## 3) Output Path Rule
+```text
+<markdown_dir>/metadata/<markdown_stem>.metadata.json
+```
 
-The sidecar is always written into the `metadata/` subdirectory next to the Markdown output:
+## Top-level Shape
 
-* Markdown: `out/demo.md`
-* Sidecar: `out/metadata/demo.metadata.json`
-
-The rule can be summarized as:
-
-`<markdown_dir>/metadata/<markdown_stem>.metadata.json`
-
-## 4) Current Schema: Main Fields
-
-Top level:
+Current top-level fields:
 
 * `version`
 * `source_name`
 * `format`
 * `markdown_file`
-* `document` (document-level properties object or `null`)
-* `summary` (`block_count` / `asset_count`)
-* `blocks[]`
-* `assets[]`
+* `document`
+* `summary`
+* `blocks`
+* `assets`
 
-Current G2 Origin / Source Location status:
+Current schema principles:
 
-* additive origin schema extension is complete
-* additive origin fields are emitted sparsely
-* OOXML origin refinement is complete at the current repository boundary
-* structured/text origin refinement is complete at the current repository boundary
-* HTML image `source_path` refinement is complete at the current repository boundary
-* the metadata schema version and top-level shape are unchanged
+* schema version is unchanged
+* new provenance fill is additive
+* optional values are emitted sparsely
 
-### 4.1 Role of `document`
+## `document`
 
-`document` represents file-level document properties. It is deliberately kept at
-the top level and is not mixed into `summary`, `origin`, `blocks[]`, or
-`assets[]`.
+`document` is the file-level metadata object.
 
-For OOXML inputs (`docx` / `pptx` / `xlsx`), the CLI sidecar path reads
-`docProps/core.xml` and `docProps/app.xml` through the shared OOXML package
-layer. If the input is not OOXML, or if document properties cannot be read, the
-field is `null`.
+Common current uses:
 
-Current fields:
+* OOXML document properties
+* EPUB OPF `title / creator / date / modified`
 
-* `title`
-* `subject`
-* `creator`
-* `description`
-* `keywords`
-* `created`
-* `modified`
-* `application`
-* `pages`
-* `words`
-* `slides`
-* `sheets`
+When unavailable, `document` is `null`.
 
-All fields are optional strings and may be `null` even when `document` is
-present.
+## `blocks[]`
 
-### 4.2 Role of `blocks[]`
+`blocks[]` is the content-block view.
 
-`blocks[]` represents engineering information from the **content-block perspective**:
+Important current fields:
 
-* `block_index`: block sequence number
-* `block_type`: block type
-* `text`: extracted block text (depending on type)
-* `origin`: provenance information (optional)
-* `image`: extra image-block information (only for image blocks)
+* `block_index`
+* `block_type`
+* `text`
+* `origin`
+* `image` for image blocks
+* optional `table` for `RichTable`
 
-Current serialized `blocks[].origin` field surface:
+Current block-origin field surface:
 
 * `source_name`
 * `format`
@@ -112,28 +75,30 @@ Current serialized `blocks[].origin` field surface:
 * `relationship_id`
 * `key_path`
 
-Current verifiable block-origin fill ranges:
+Examples of current fill behavior:
 
-* XLSX blocks: source row/column span plus `relationship_id`
-* CSV / TSV blocks: physical `line_start` / `line_end` plus
-  `row_index = 1` / `column_index = 1`
-* JSON / YAML blocks: root `key_path = "$"`
-* Markdown blocks: conservative `line_start` / `line_end`
+* CSV / TSV: physical line range plus row/column origin
+* JSON / YAML: root `key_path = "$"`
+* Markdown: conservative line ranges
+* TXT: paragraph-level `line_start / line_end`
+* XML: one conservative `CodeBlock` summary with whole-document line range
+* EPUB: spine item path as EPUB-level provenance
 
-Block origin remains block-scoped. The current IR does not carry row/cell-level
-table provenance.
+## `assets[]`
 
-### 4.3 Role of `assets[]`
+`assets[]` is the exported-resource view.
 
-`assets[]` represents engineering information from the **asset-level perspective**:
+Important current fields:
 
-* `path`: asset path
-* `asset_type`: asset type (currently mainly `image`)
-* `alt_text` / `title` / `caption`
+* `path`
+* `asset_type`
+* `alt_text`
+* `title`
+* `caption`
 * `origin`
 * `nearby_caption`
 
-Current serialized `assets[].origin` field surface:
+Current asset-origin field surface:
 
 * `source_name`
 * `format`
@@ -149,97 +114,36 @@ Current serialized `assets[].origin` field surface:
 * `key_path`
 * `nearby_caption`
 
-Current verifiable asset-origin fill ranges:
+Current strong examples:
 
-* PDF assets: `object_ref`
-* PPTX assets: `relationship_id` / `source_path`
-* DOCX assets: `relationship_id` / `source_path`
-* HTML image assets: `source_path` from normalized local `<img src>`
+* PDF assets populate `object_ref`
+* DOCX / PPTX assets populate `relationship_id` and source path identity
+* HTML local images populate normalized `source_path`
+* ZIP / EPUB remapped assets preserve container-level provenance
+* TXT and XML produce no assets
 
-Additive origin fields are emitted sparsely: absent optional values are omitted
-instead of being serialized as `null`. Existing v1 fields keep their historical
-shape.
+## Image Context Contract
 
-`relationship_id` is only populated for formats that actually have a stable
-relationship model. HTML does not have one in the current contract.
+Shared current image contract:
 
-## 5) Relationship Between `ImageData.caption` and `nearby_caption`
+* `ImageBlock` / `ImageData` carries `path`, `alt_text`, `title`, `caption`,
+  and `origin`
+* `blocks[].image` serializes image-block data
+* `assets[].alt_text/title/caption` are populated by joining asset `path` back
+  to the corresponding `ImageBlock`
+* `nearby_caption` is the asset-side mirror of the main caption value, not a
+  second independent caption system
 
-The current contract is:
+## Current Boundary
 
-* `ImageData.caption` is the primary semantic caption value for an image.
-* `nearby_caption` is the mirrored / indexing field on the asset side.
-* If `nearby_caption` exists, it is expected to match the primary caption value, so it can be used for engineering search and consistency checks.
+The sidecar currently does not promise:
 
-## 6) Minimal JSON Example
-
-```json
-{
-  "version": "1",
-  "source_name": "demo.pdf",
-  "format": "pdf",
-  "markdown_file": "demo.md",
-  "document": null,
-  "summary": { "block_count": 3, "asset_count": 1 },
-  "blocks": [
-    {
-      "block_index": 0,
-      "block_type": "heading",
-      "text": "Example Title",
-      "origin": { "format": "pdf", "source_name": "demo.pdf", "page": 1 },
-      "image": null
-    }
-  ],
-  "assets": [
-    {
-      "path": "assets/image01.png",
-      "asset_type": "image",
-      "alt_text": null,
-      "title": null,
-      "caption": "Figure 1 Example",
-      "origin": {
-        "format": "pdf",
-        "source_name": "demo.pdf",
-        "page": 1,
-        "origin_id": "img-1",
-        "object_ref": "3 0 R"
-      },
-      "nearby_caption": "Figure 1 Example"
-    }
-  ]
-}
-```
-
-## 7) “Stable Contract” at the Current Stage
-
-### 7.1 What Can Be Treated as a Stable Engineering Contract
-
-The following can currently be treated as stable and safe to rely on:
-
-* the sidecar naming and directory rule (`metadata/<stem>.metadata.json`)
-* top-level key fields: `version/source_name/format/markdown_file/document/summary/blocks/assets`
-* `document` as the dedicated file-level metadata area, with `null` used when unavailable
-* the dual-view separation between `blocks[]` and `assets[]`
-* the relationship between the primary image caption field and the mirrored `nearby_caption`
-* the current sidecar origin field surface for `blocks[].origin` and `assets[].origin`
-* origin extensions are additive and sparse; consumers should tolerate missing optional fields
-
-### 7.2 Future Enhancements (Do Not Make Strong Coupling Assumptions Yet)
-
-The following belong to future enhancement directions and should not yet be treated as strongly stable assumptions:
-
-* finer-grained anchoring (`bbox` / `char-range` / full PDF source refs)
-* more advanced semantic fields (especially for complex PDF and advanced OOXML scenarios)
-* completeness of field population in certain weak-semantic or ambiguous cases
-
-Current explicit non-goals:
-
-* default sidecar emission of full PDF `source_refs`
-* default sidecar emission of bbox
-* HTML DOM path anchoring
-* HTML block `line_start` / `line_end`
+* full bbox or char-range anchoring
+* DOM path anchoring
 * table cell-level provenance
-* JSON / YAML nested key-path anchoring
+* nested provenance for every JSON/YAML inner node
 * default PDF annotation-link Markdown emission
+* extra asset output for TXT or XML
 
-```
+For full per-format support boundaries, see
+[docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).

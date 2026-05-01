@@ -16,7 +16,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
@@ -52,6 +52,12 @@ for fmt in "${FORMATS[@]}"; do
     tsv)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.tsv" -print)
       ;;
+    txt)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.txt" -print)
+      ;;
+    xml)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.xml" -print)
+      ;;
     json)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.json" -print)
       ;;
@@ -60,6 +66,12 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     markdown)
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.md" -o -name "*.markdown" \) -print)
+      ;;
+    zip)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.zip" -print)
+      ;;
+    epub)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.epub" -print)
       ;;
     *)
       continue

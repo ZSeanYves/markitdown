@@ -80,6 +80,7 @@ pub(all) enum Block {
   RichBlockQuote(Array[Inline])
   CodeBlock(String)
   Table(Array[Array[String]])
+  RichTable(TableData)
   Image(String, String)
   ImageBlock(ImageData)
   BlankLine
@@ -137,6 +138,11 @@ pub(all) struct Origin {
   key_path : String?
 } derive(Eq)
 pub impl Show for Origin
+
+pub(all) struct TableData {
+  rows : Array[Array[String]]
+  header_rows : Int
+}
 
 // Type aliases
 

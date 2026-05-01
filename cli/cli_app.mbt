@@ -74,7 +74,7 @@ async fn cmd_convert(
       if with_metadata {
         let format = detect_input_format(input)
         let markdown_file = @cor.basename(p)
-        let document = read_ooxml_document_properties(input, format)
+        let document = read_document_properties(input, format)
         let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
           @cor.basename(input),
@@ -211,14 +211,23 @@ fn metadata_output_path(markdown_path : String) -> String {
 }
 
 ///|
-fn read_ooxml_document_properties(
+fn read_document_properties(
   input : String,
   format : String,
 ) -> @cor.MetadataDocumentProperties? {
-  if !(format == "docx" || format == "pptx" || format == "xlsx") {
-    return None
+  if format == "docx" || format == "pptx" || format == "xlsx" {
+    return read_ooxml_document_properties(input)
   }
+  if format == "epub" {
+    return read_epub_document_properties(input)
+  }
+  None
+}
 
+///|
+fn read_ooxml_document_properties(
+  input : String,
+) -> @cor.MetadataDocumentProperties? {
   let bytes = @fs.read_file_to_bytes(input) catch { _ => return None }
   let pkg = @ox.open_ooxml_package(bytes) catch { _ => return None }
   let core = @ox.read_core_properties(pkg)
@@ -243,6 +252,34 @@ fn read_ooxml_document_properties(
 }
 
 ///|
+fn read_epub_document_properties(
+  input : String,
+) -> @cor.MetadataDocumentProperties? {
+  let bytes = @fs.read_file_to_bytes(input) catch { _ => return None }
+  let pkg = @epubpkg.open_epub_package(bytes, @cor.basename(input)) catch {
+    _ => return None
+  }
+  let meta = pkg.metadata
+
+  Some(
+    @cor.metadata_document_properties(
+      meta.title,
+      None,
+      meta.creator,
+      None,
+      None,
+      meta.date,
+      meta.modified,
+      Some("EPUB"),
+      None,
+      None,
+      None,
+      None,
+    ),
+  )
+}
+
+///|
 fn detect_input_format(path : String) -> String {
   let base = @cor.basename(path).to_lower()
   if base.has_suffix(".docx") {
@@ -259,12 +296,20 @@ fn detect_input_format(path : String) -> String {
     "csv"
   } else if base.has_suffix(".tsv") {
     "tsv"
+  } else if base.has_suffix(".txt") {
+    "txt"
+  } else if base.has_suffix(".xml") {
+    "xml"
   } else if base.has_suffix(".json") {
     "json"
   } else if base.has_suffix(".yaml") || base.has_suffix(".yml") {
     "yaml"
   } else if base.has_suffix(".markdown") || base.has_suffix(".md") {
     "markdown"
+  } else if base.has_suffix(".zip") {
+    "zip"
+  } else if base.has_suffix(".epub") {
+    "epub"
   } else {
     "unknown"
   }

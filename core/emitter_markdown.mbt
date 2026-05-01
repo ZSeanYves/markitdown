@@ -148,27 +148,94 @@ pub fn emit_markdown(doc : Document) -> String {
         }
         out = out + "\n"
       }
-      Table(rows) =>
-        if rows.length() > 0 {
-          let header = rows[0]
-          out = out + "| " + header.map(normalize_cell).join(" | ") + " |\n"
-          out = out + "| " + header.map(fn(_) { "---" }).join(" | ") + " |\n"
-
-          for i in 1..<rows.length() {
-            let r = rows[i]
-            let cells = r
-            while cells.length() < header.length() {
-              cells.push("")
-            }
-            out = out + "| " + cells.map(normalize_cell).join(" | ") + " |\n"
-          }
-          out = out + "\n"
-        }
+      Table(rows) => out = out + render_legacy_table(rows)
+      RichTable(table) => out = out + render_rich_table(table)
       BlankLine => out = out + "\n"
     }
   }
 
   normalize_markdown_tail(out)
+}
+
+///|
+fn render_legacy_table(rows : Array[Array[String]]) -> String {
+  if rows.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+  let header = rows[0]
+  out = out + render_markdown_table_header(header)
+
+  for i in 1..<rows.length() {
+    out = out + render_markdown_table_row(rows[i], header.length())
+  }
+
+  out + "\n"
+}
+
+///|
+fn render_rich_table(table : TableData) -> String {
+  let rows = table.rows
+  if rows.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+
+  if table.header_rows <= 0 {
+    let width = table_width(rows)
+    if width == 0 {
+      return ""
+    }
+    let header : Array[String] = []
+    for i in 0..<width {
+      header.push("Column " + (i + 1).to_string())
+    }
+    out = out + render_markdown_table_header(header)
+    for row in rows {
+      out = out + render_markdown_table_row(row, width)
+    }
+    return out + "\n"
+  }
+
+  // Markdown only supports one header row. Keep the first explicit header as
+  // the Markdown header and render any additional header rows as body rows.
+  let header = rows[0]
+  out = out + render_markdown_table_header(header)
+  for i in 1..<rows.length() {
+    out = out + render_markdown_table_row(rows[i], header.length())
+  }
+  out + "\n"
+}
+
+///|
+fn render_markdown_table_header(header : Array[String]) -> String {
+  "| " +
+  header.map(normalize_cell).join(" | ") +
+  " |\n| " +
+  header.map(fn(_) { "---" }).join(" | ") +
+  " |\n"
+}
+
+///|
+fn render_markdown_table_row(row : Array[String], width : Int) -> String {
+  let cells = row.copy()
+  while cells.length() < width {
+    cells.push("")
+  }
+  "| " + cells.map(normalize_cell).join(" | ") + " |\n"
+}
+
+///|
+fn table_width(rows : Array[Array[String]]) -> Int {
+  let mut width = 0
+  for row in rows {
+    if row.length() > width {
+      width = row.length()
+    }
+  }
+  width
 }
 
 ///|

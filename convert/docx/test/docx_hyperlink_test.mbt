@@ -4,7 +4,7 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
-  let fallback = "../../" + path
+  let fallback = "../../../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
@@ -133,7 +133,7 @@ fn docx_test_out_dir(name : String) -> String raise {
 ///|
 test "docx hyperlink basic and paragraph preservation" {
   let basic_out = docx_test_out_dir("link_basic")
-  let basic_doc = parse_docx(
+  let basic_doc = @doc.parse_docx(
     resolve_sample_path("samples/main_process/docx/docx_link_basic.docx"),
     basic_out,
     6,
@@ -149,7 +149,7 @@ test "docx hyperlink basic and paragraph preservation" {
   }
 
   let para_out = docx_test_out_dir("link_in_paragraph")
-  let para_doc = parse_docx(
+  let para_doc = @doc.parse_docx(
     resolve_sample_path("samples/main_process/docx/docx_link_in_paragraph.docx"),
     para_out,
     6,
@@ -170,7 +170,7 @@ test "docx hyperlink basic and paragraph preservation" {
 ///|
 test "docx hyperlink merges multiple runs and missing rel degrades to text" {
   let multi_out = docx_test_out_dir("link_multiple_runs")
-  let multi_doc = parse_docx(
+  let multi_doc = @doc.parse_docx(
     resolve_sample_path(
       "samples/main_process/docx/docx_link_multiple_runs.docx",
     ),
@@ -190,7 +190,7 @@ test "docx hyperlink merges multiple runs and missing rel degrades to text" {
   }
 
   let negative_out = docx_test_out_dir("link_missing_rel_negative")
-  let negative_doc = parse_docx(
+  let negative_doc = @doc.parse_docx(
     resolve_sample_path(
       "samples/main_process/docx/docx_link_missing_rel_negative.docx",
     ),

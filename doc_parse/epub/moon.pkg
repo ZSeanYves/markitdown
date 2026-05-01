@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/zip" @zip,
+}
+
+options(
+  "preferred-target": "native",
+)

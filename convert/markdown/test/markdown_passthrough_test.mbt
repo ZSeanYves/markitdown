@@ -4,7 +4,7 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
-  let fallback = "../../" + path
+  let fallback = "../../../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
@@ -33,7 +33,7 @@ test "markdown passthrough preserves basic heading and paragraph" {
     ),
   )
 
-  let doc = parse_markdown(input, "", 6)
+  let doc = @md.parse_markdown(input, "", 6)
   assert_eq(@cor.emit_markdown(doc), expected)
   assert_eq(doc.blocks.val.length(), 2)
   assert_eq(doc.asset_origins.val.length(), 0)
@@ -41,7 +41,7 @@ test "markdown passthrough preserves basic heading and paragraph" {
 
 ///|
 test "markdown passthrough preserves fenced code and frontmatter as conservative blocks" {
-  let code_doc = parse_markdown(
+  let code_doc = @md.parse_markdown(
     resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
     "",
     6,
@@ -49,7 +49,7 @@ test "markdown passthrough preserves fenced code and frontmatter as conservative
   assert_eq(code_doc.blocks.val.length(), 1)
   assert_true(code_doc.blocks.val[0] is @cor.Block::CodeBlock(_))
 
-  let frontmatter_doc = parse_markdown(
+  let frontmatter_doc = @md.parse_markdown(
     resolve_sample_path(
       "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
     ),
@@ -73,7 +73,7 @@ test "markdown passthrough normalizes missing trailing newline only at output" {
       "samples/main_process/expected/markdown/markdown_no_trailing_newline.md",
     ),
   )
-  let doc = parse_markdown(input, "", 6)
+  let doc = @md.parse_markdown(input, "", 6)
   assert_eq(@cor.emit_markdown(doc), expected)
   assert_eq(doc.blocks.val.length(), 1)
 }

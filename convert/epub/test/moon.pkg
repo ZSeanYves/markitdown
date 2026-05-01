@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/epub" @epub,
+} for "test"

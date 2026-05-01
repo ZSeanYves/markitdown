@@ -4,6 +4,7 @@ target/
 .mooncakes/
 .moonagent/
 .tmp/
+.venv*
 out/
 dataset/
 tmp/
@@ -11,3 +12,5 @@ tmp-origin-tests/
 .tmp_test_out/
 .tmp_assets_test/
 .tmp_metadata_test/
+.codex
+.codex/

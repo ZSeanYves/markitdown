@@ -9,7 +9,7 @@
 
 ### A1. Unified IR + Multi-format Conversion
 
-- [x] Supports docx/pdf/xlsx/pptx/html inputs and routes them through a unified IR main pipeline.  
+- [x] Supports multiple current format families through one unified IR main pipeline: OOXML (DOCX / PPTX / XLSX), PDF, HTML / HTM, structured data (CSV / TSV / JSON / YAML / YML / XML), textlike input (Markdown / MD / MARKDOWN / TXT), and containers / ebooks (ZIP / EPUB).  
   Evidence: `convert/convert/dispatcher.mbt`, `core/ir.mbt`, `README.mbt.md`
 
 ### A2. Structured Output (Markdown)
@@ -40,7 +40,7 @@
 
 - [x] Three complete regression chains have been established: `main_process / metadata / assets`.  
   Evidence: `samples/diff.sh`, `samples/check_metadata.sh`, `samples/check_assets.sh`
-- [x] A five-format acceptance demo sample set is provided under `samples/test` (condensed demonstration, not equivalent to the full regression suite).  
+- [x] A compact acceptance demo sample set is provided under `samples/test` (condensed demonstration, not equivalent to the full regression suite).  
   Evidence: `samples/test/*.md`, `samples/test/metadata/*.metadata.json`, `samples/test/assets/*`
 
 ### B3. Documentation Delivery
@@ -109,4 +109,4 @@
 1. Run `samples/check_samples.sh` to verify consistency of the sample inventory.
 2. Run `samples/diff.sh` for main pipeline regression (and trigger assets checks).
 3. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
-4. Spot-check `samples/test` as the five-format acceptance demonstration sample set.
+4. Spot-check `samples/test` as the compact acceptance demonstration sample set.

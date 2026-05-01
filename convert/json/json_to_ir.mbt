@@ -49,7 +49,7 @@ fn push_json_value(
     JsonValue::Object(members) =>
       @cor.push_with_origin(
         doc,
-        @cor.Block::Table(object_rows(members)),
+        @cor.Block::RichTable({ rows: object_rows(members), header_rows: 1 }),
         origin,
       )
     JsonValue::Array(values) =>
@@ -81,7 +81,11 @@ fn push_json_value(
       } else {
         match array_object_rows(values) {
           Some(rows) =>
-            @cor.push_with_origin(doc, @cor.Block::Table(rows), origin)
+            @cor.push_with_origin(
+              doc,
+              @cor.Block::RichTable({ rows, header_rows: 1 }),
+              origin,
+            )
           None =>
             @cor.push_with_origin(
               doc,

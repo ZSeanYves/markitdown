@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+}
+
+options(
+  "preferred-target": "native",
+)
