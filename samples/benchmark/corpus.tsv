@@ -5,7 +5,13 @@ smoke	xlsx	xlsx_multi_sheet_mixed	samples/main_process/xlsx/xlsx_multi_sheet_mix
 smoke	pdf	text_simple	samples/main_process/pdf/text_simple.pdf	false
 smoke	html	html_mixed	samples/main_process/html/html_mixed.html	false
 smoke	csv	csv_ragged_rows	samples/main_process/csv/csv_ragged_rows.csv	false
+smoke	csv	csv_small	samples/benchmark/csv/csv_small.csv	false
+smoke	csv	csv_medium	samples/benchmark/csv/csv_medium.csv	false
+smoke	csv	csv_large	samples/benchmark/csv/csv_large.csv	false
 smoke	tsv	tsv_basic	samples/main_process/tsv/tsv_basic.tsv	false
+smoke	tsv	tsv_small	samples/benchmark/tsv/tsv_small.tsv	false
+smoke	tsv	tsv_medium	samples/benchmark/tsv/tsv_medium.tsv	false
+smoke	tsv	tsv_large	samples/benchmark/tsv/tsv_large.tsv	false
 smoke	txt	txt_paragraphs	samples/main_process/txt/txt_paragraphs.txt	false
 smoke	txt	txt_small	samples/benchmark/txt/txt_small.txt	false
 smoke	txt	txt_medium	samples/benchmark/txt/txt_medium.txt	false
@@ -28,6 +34,9 @@ image	pdf	pdf_image_single_caption_like_img	samples/metadata/pdf/pdf_image_singl
 metadata	docx	golden_metadata	samples/main_process/docx/golden.docx	true
 metadata	docx	docx_image_alt_title_basic_metadata	samples/metadata/docx/docx_image_alt_title_basic.docx	true
 metadata	pptx	pptx_image_alt_title_basic_metadata	samples/metadata/pptx/pptx_image_alt_title_basic.pptx	true
+metadata	csv	csv_metadata_basic	samples/metadata/csv/csv_metadata_basic.csv	true
+metadata	csv	csv_metadata_ragged_rows	samples/metadata/csv/csv_metadata_ragged_rows.csv	true
+metadata	tsv	tsv_metadata_basic	samples/metadata/tsv/tsv_metadata_basic.tsv	true
 metadata	txt	txt_metadata_basic	samples/metadata/txt/txt_metadata_basic.txt	true
 metadata	txt	txt_metadata_markdown_like	samples/metadata/txt/txt_metadata_markdown_like.txt	true
 metadata	xml	xml_metadata_basic	samples/metadata/xml/xml_metadata_basic.xml	true

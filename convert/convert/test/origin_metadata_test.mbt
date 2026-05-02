@@ -1588,6 +1588,28 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     @cor.emit_metadata_json(csv_doc, "csv_basic.csv", "csv", "csv_basic.md"),
     "csv_basic.metadata.json",
   )
+  let csv_metadata_basic_doc = @csv.parse_csv(
+    resolve_sample_path("samples/metadata/csv/csv_metadata_basic.csv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      csv_metadata_basic_doc, "csv_metadata_basic.csv", "csv", "csv_metadata_basic.md",
+    ),
+    "csv_metadata_basic.metadata.json",
+  )
+  let csv_metadata_ragged_doc = @csv.parse_csv(
+    resolve_sample_path("samples/metadata/csv/csv_metadata_ragged_rows.csv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      csv_metadata_ragged_doc, "csv_metadata_ragged_rows.csv", "csv", "csv_metadata_ragged_rows.md",
+    ),
+    "csv_metadata_ragged_rows.metadata.json",
+  )
 
   let tsv_doc = @csv.parse_tsv(
     resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
@@ -1597,6 +1619,17 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
   assert_metadata_snapshot(
     @cor.emit_metadata_json(tsv_doc, "tsv_basic.tsv", "tsv", "tsv_basic.md"),
     "tsv_basic.metadata.json",
+  )
+  let tsv_metadata_basic_doc = @csv.parse_tsv(
+    resolve_sample_path("samples/metadata/tsv/tsv_metadata_basic.tsv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      tsv_metadata_basic_doc, "tsv_metadata_basic.tsv", "tsv", "tsv_metadata_basic.md",
+    ),
+    "tsv_metadata_basic.metadata.json",
   )
 
   let json_doc = @json.parse_json(

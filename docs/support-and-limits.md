@@ -177,18 +177,26 @@ Known limits:
 Supported:
 
 * delimiter-based table conversion
-* quoted fields
+* `.csv` comma / `.tsv` tab routing
+* quoted fields and escaped quotes
+* empty-cell preservation
+* quoted-newline cell preservation via current Markdown-table `<br>` emission
+* Markdown-pipe-safe table cell emission
+* UTF-8 BOM removal
+* CRLF / CR normalization
 * ragged-row normalization
 * physical line-range provenance
 
 Conservative behavior:
 
 * output is a single table, not schema-aware typing
+* current Markdown table emission treats the first row as the header row
 
 Known limits:
 
 * no streaming
 * no dialect sniffing
+* no delimiter auto-detection beyond file extension
 * no schema inference
 
 ### JSON

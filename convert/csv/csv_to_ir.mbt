@@ -32,9 +32,10 @@ fn parse_delimited_file(
   let text = @cor.utf8_bytes_to_string(bytes) catch {
     e => raise @cor.AppError("csv: utf8 decode failed: " + e.to_string())
   }
+  let normalized = normalize_delimited_source(text)
 
-  let rows = parse_delimited_table(text, format)
-  let physical_line_count = physical_line_count(text)
+  let rows = parse_delimited_table(normalized, format)
+  let physical_line_count = physical_line_count(normalized)
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
 
@@ -63,6 +64,34 @@ fn parse_delimited_file(
   )
 
   doc
+}
+
+///|
+fn normalize_delimited_source(text : String) -> String {
+  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
+    text[1:].to_owned()
+  } else {
+    text
+  }
+  let out : Array[Char] = []
+  let chars = without_bom.to_array()
+  let mut i = 0
+
+  while i < chars.length() {
+    if chars[i] == '\r' {
+      out.push('\n')
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      out.push(chars[i])
+      i += 1
+    }
+  }
+
+  String::from_array(out)
 }
 
 ///|

@@ -1,0 +1,4 @@
+| Name | Role | Location |
+| --- | --- | --- |
+| Alice |  | NY |
+|  | Designer |  |

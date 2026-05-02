@@ -39,6 +39,17 @@ For Markdown hardening work, the smoke corpus now includes:
 * `markdown_medium`
 * `markdown_large`
 
+For CSV / TSV hardening work, the smoke corpus now includes:
+
+* `csv_ragged_rows`
+* `csv_small`
+* `csv_medium`
+* `csv_large`
+* `tsv_basic`
+* `tsv_small`
+* `tsv_medium`
+* `tsv_large`
+
 ## Baseline Command
 
 ```bash

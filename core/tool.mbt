@@ -6,7 +6,14 @@ pub fn trim_string(s : String) -> String {
 
 ///|
 fn escape_pipes(s : String) -> String {
-  s.replace(old="|", new="\\|")
+  let out : Array[Char] = []
+  for ch in s.to_array() {
+    if ch == '|' {
+      out.push('\\')
+    }
+    out.push(ch)
+  }
+  String::from_array(out)
 }
 
 ///|
