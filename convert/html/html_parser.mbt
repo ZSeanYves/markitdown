@@ -14,9 +14,10 @@ pub fn parse_html(
     raise @cor.AppError("html: file not found: " + input_path)
   }
 
-  let bs = @fs.read_file_to_bytes(input_path) catch {
+  let raw_bs = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("html: read failed: " + e.to_string())
   }
+  let bs = normalize_html_input_bytes(raw_bs)
 
   let doc = @cor.new_document()
 
@@ -87,4 +88,32 @@ pub fn parse_html(
   }
 
   doc
+}
+
+///|
+fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
+  let n = bs.length()
+  let mut start = 0
+  if n >= 3 && bs[0] == 0xEF && bs[1] == 0xBB && bs[2] == 0xBF {
+    start = 3
+  }
+
+  let out : Array[Byte] = []
+  let mut i = start
+  while i < n {
+    let b = bs[i]
+    if b == '\r'.to_int().to_byte() {
+      out.push('\n'.to_int().to_byte())
+      if i + 1 < n && bs[i + 1] == '\n'.to_int().to_byte() {
+        i = i + 2
+      } else {
+        i = i + 1
+      }
+    } else {
+      out.push(b)
+      i = i + 1
+    }
+  }
+
+  Bytes::from_array(out)
 }

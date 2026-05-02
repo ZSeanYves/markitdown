@@ -73,6 +73,15 @@ For XML hardening work, the smoke corpus now includes:
 * `xml_medium`
 * `xml_large`
 
+For HTML H1/H2 review, the smoke corpus now includes:
+
+* `html_mixed`
+* `html_small`
+* `html_medium`
+* `html_large`
+* `html_table_large`
+* `html_mixed_content_large`
+
 ## Baseline Command
 
 ```bash

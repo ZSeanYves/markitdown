@@ -4,6 +4,11 @@ smoke	pptx	pptx_simple	samples/main_process/pptx/pptx_simple.pptx	false
 smoke	xlsx	xlsx_multi_sheet_mixed	samples/main_process/xlsx/xlsx_multi_sheet_mixed.xlsx	false
 smoke	pdf	text_simple	samples/main_process/pdf/text_simple.pdf	false
 smoke	html	html_mixed	samples/main_process/html/html_mixed.html	false
+smoke	html	html_small	samples/benchmark/html/html_small.html	false
+smoke	html	html_medium	samples/benchmark/html/html_medium.html	false
+smoke	html	html_large	samples/benchmark/html/html_large.html	false
+smoke	html	html_table_large	samples/benchmark/html/html_table_large.html	false
+smoke	html	html_mixed_content_large	samples/benchmark/html/html_mixed_content_large.html	false
 smoke	csv	csv_ragged_rows	samples/main_process/csv/csv_ragged_rows.csv	false
 smoke	csv	csv_small	samples/benchmark/csv/csv_small.csv	false
 smoke	csv	csv_medium	samples/benchmark/csv/csv_medium.csv	false

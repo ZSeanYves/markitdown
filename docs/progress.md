@@ -24,6 +24,15 @@ The repository is now in a documented multi-format baseline stage:
 * XML has entered H1 hardening as a source-preserving baseline, not a semantic XML-family converter
 * H1 is not final parity completion; H2 / H3 remain
 
+## Current Hardening Focus
+
+The project has entered full-format H2 / H3 gap review.
+
+H1 baseline is complete for TXT, Markdown, CSV, TSV, JSON, YAML, and XML.
+
+Next work will prioritize market-parity quality and performance leadership
+across all supported formats.
+
 ## Implemented Capability Groups
 
 ### Core pipeline
@@ -79,6 +88,8 @@ The repository is now in a documented multi-format baseline stage:
 Recent completed additions worth calling out explicitly:
 
 * TXT conservative paragraph conversion
+* HTML / HTM H1/H2 review is in progress with baseline coverage and smoke
+  corpus expansion
 * XML conservative source-preserving conversion
 * ZIP asset namespace/remap and same-archive HTML local-image handling
 * EPUB spine-based conversion
