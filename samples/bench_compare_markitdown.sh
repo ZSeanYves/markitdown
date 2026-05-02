@@ -69,6 +69,13 @@ set_now_ms() {
     return
   fi
 
+  raw="$(LC_ALL=C LANG=C perl -MTime::HiRes=time -e 'print int(time()*1000), qq(\n)' 2>/dev/null || true)"
+  if [[ "$raw" =~ ^[0-9]+$ ]]; then
+    TIMER_PRECISION="ms"
+    NOW_MS_VALUE="$raw"
+    return
+  fi
+
   local secs
   secs="$(date +%s 2>/dev/null || true)"
   if [[ "$secs" =~ ^[0-9]+$ ]]; then
@@ -476,22 +483,24 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   input_abs="$(resolve_input_path "$input_path")"
   file_size="$(file_size_bytes "$input_abs")"
 
-  for warmup_iteration in $(seq 1 "$WARMUP"); do
-    mb_sample_dir="$COMPARE_ROOT/mb/$format/$sample/warmup-$warmup_iteration"
-    py_sample_dir="$COMPARE_ROOT/python/$format/$sample/warmup-$warmup_iteration"
-    mb_output_md="$mb_sample_dir/$sample.md"
-    py_output_md="$py_sample_dir/$sample.md"
-    mb_stderr="$mb_sample_dir/stderr.txt"
-    py_stderr="$py_sample_dir/stderr.txt"
+  if [[ "$WARMUP" -gt 0 ]]; then
+    for ((warmup_iteration = 1; warmup_iteration <= WARMUP; warmup_iteration++)); do
+      mb_sample_dir="$COMPARE_ROOT/mb/$format/$sample/warmup-$warmup_iteration"
+      py_sample_dir="$COMPARE_ROOT/python/$format/$sample/warmup-$warmup_iteration"
+      mb_output_md="$mb_sample_dir/$sample.md"
+      py_output_md="$py_sample_dir/$sample.md"
+      mb_stderr="$mb_sample_dir/stderr.txt"
+      py_stderr="$py_sample_dir/stderr.txt"
 
-    rm -rf "$mb_sample_dir" "$py_sample_dir"
-    mkdir -p "$mb_sample_dir" "$py_sample_dir"
+      rm -rf "$mb_sample_dir" "$py_sample_dir"
+      mkdir -p "$mb_sample_dir" "$py_sample_dir"
 
-    echo "==> warmup mb/$format/$sample #$warmup_iteration"
-    run_mb "$input_abs" "$mb_output_md" "$mb_stderr" || true
-    echo "==> warmup python/$format/$sample #$warmup_iteration"
-    run_python "$input_abs" "$py_output_md" "$py_stderr" || true
-  done
+      echo "==> warmup mb/$format/$sample #$warmup_iteration"
+      run_mb "$input_abs" "$mb_output_md" "$mb_stderr" || true
+      echo "==> warmup python/$format/$sample #$warmup_iteration"
+      run_python "$input_abs" "$py_output_md" "$py_stderr" || true
+    done
+  fi
 
   for iteration in $(seq 1 "$ITERATIONS"); do
     for runner_key in mb python; do

@@ -1,35 +1,34 @@
 # Benchmark Baseline
 
-This document records the current internal benchmark baseline for
+This document records the current checked-in smoke benchmark baseline for
 `samples/bench_smoke.sh`.
 
 It is a same-machine reference point, not a hard performance SLA.
 
 ## Benchmark Scope
 
-The internal benchmark covers the checked-in corpus under:
+The harness supports the checked-in corpus under:
 
 * `smoke`
 * `image`
 * `metadata`
 * `extended`
 
-The checked-in smoke corpus includes multiple families, including:
+The checked-in baseline in this document is the `smoke` tier used for the
+release-polish check.
+
+The checked-in smoke corpus includes:
 
 * OOXML
 * PDF
 * HTML
-* CSV / TSV
-* TXT
-* XML
-* JSON
-* YAML
-* Markdown
+* Structured data: CSV / TSV / JSON / YAML / XML
+* Text-like: TXT / Markdown
 
 ## Baseline Command
 
 ```bash
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_smoke.sh --kind all
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_smoke.sh --kind smoke
 ```
 
 Artifacts are written under:
@@ -48,10 +47,10 @@ Main outputs:
 
 This baseline was captured with:
 
-* OS: `Linux zseanyves-MS-7D99 6.14.0-28-generic #28~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 25 10:47:01 UTC 2 x86_64 x86_64 x86_64 GNU/Linux`
+* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan 2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
 * Shell: `/bin/bash`
-* Date (UTC): `2026-05-01T00:55:52Z`
-* Git revision: `ceb1a1a`
+* Date (UTC): `2026-05-02T06:59:45Z`
+* Git revision: `8a5806a`
 * Timer precision: `ms`
 
 ## Summary
@@ -61,29 +60,18 @@ above:
 
 ```tsv
 format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	asset_count_last
-docx	golden	3	0	293	303	310	302	1445	1
-pptx	pptx_simple	3	0	274	285	291	283.3	310	0
-xlsx	xlsx_multi_sheet_mixed	3	0	280	284	287	283.7	301	0
-pdf	text_simple	3	0	278	284	286	282.7	272	0
-html	html_mixed	3	0	277	281	283	280.3	87	0
-csv	csv_ragged_rows	3	0	270	270	272	270.7	115	0
-tsv	tsv_basic	3	0	271	272	276	273	70	0
-json	json_nested_object	3	0	266	271	272	269.7	121	0
-yaml	yaml_nested_mapping	3	0	269	272	274	271.7	120	0
-markdown	markdown_frontmatter_passthrough	3	0	267	270	273	270	107	0
-docx	docx_image_alt_title_basic_img	3	0	272	278	283	277.7	59	1
-pptx	pptx_image_single_caption_like_img	3	0	275	278	281	278	75	1
-html	html_figure_figcaption_basic_img	3	0	271	277	279	275.7	72	1
-pdf	pdf_image_single_caption_like_img	3	0	284	285	289	286	51	1
-docx	golden_metadata	3	0	290	293	311	298	1445	1
-docx	docx_image_alt_title_basic_metadata	3	0	269	278	309	285.3	59	1
-pptx	pptx_image_alt_title_basic_metadata	3	0	276	277	279	277.3	71	1
-yaml	yaml_mapping_basic_metadata	3	0	275	277	282	278	67	0
-markdown	markdown_frontmatter_metadata	3	0	268	272	273	271	107	0
-docx	docx_link_many_performance_guard_ext	3	0	285	287	292	288	2959	0
-pptx	pptx_table_like_region_local_with_intro_outro_ext	3	0	282	286	288	285.3	145	0
-xlsx	xlsx_cell_types_ext	3	0	282	291	296	289.7	154	0
-pdf	pdf_repeated_header_footer_variants_ext	3	0	295	302	308	301.7	745	0
+docx	golden	3	0	351	352	358	353.7	1445	1
+pptx	pptx_simple	3	0	345	345	347	345.7	310	0
+xlsx	xlsx_multi_sheet_mixed	3	0	344	344	351	346.3	301	0
+pdf	text_simple	3	0	339	340	340	339.7	272	0
+html	html_mixed	3	0	331	332	337	333.3	87	0
+csv	csv_ragged_rows	3	0	336	341	350	342.3	115	0
+tsv	tsv_basic	3	0	330	331	333	331.3	70	0
+txt	txt_paragraphs	3	0	326	333	336	331.7	56	0
+xml	xml_basic	3	0	328	332	336	332	47	0
+json	json_nested_object	3	0	331	331	332	331.3	121	0
+yaml	yaml_nested_mapping	3	0	329	331	333	331	120	0
+markdown	markdown_frontmatter_passthrough	3	0	331	338	346	338.3	107	0
 ```
 
 ## Interpretation

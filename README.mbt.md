@@ -16,10 +16,9 @@ Supported input families:
 * OOXML: DOCX / PPTX / XLSX
 * PDF
 * HTML / HTM
-* Delimited text: CSV / TSV
-* Structured text: JSON / YAML / YML / XML
-* Text-like: TXT / Markdown / MD / MARKDOWN
-* Containers: ZIP
+* Structured data: CSV / TSV / JSON / YAML / YML / XML
+* Text-like: Markdown / MD / MARKDOWN / TXT
+* Container: ZIP
 * Ebook: EPUB
 
 Core project capabilities:
@@ -81,25 +80,26 @@ Notes:
 * stdout mode only prints Markdown; it does not write sidecar files
 * if `[output]` looks like a directory, the tool writes `<output>/<input_stem>.md`
 
-## Support Matrix
+## Support Summary
 
-| Family | Current behavior | Important limits |
-| --- | --- | --- |
-| DOCX | Headings, lists, tables, hyperlinks, images, block quotes, code-like paragraphs | No footnotes/endnotes/comments/textbox-special handling |
-| PPTX | Reading order, title/body separation, lists, layout-aware blocks, images, hyperlinks | No full notes support, no advanced multi-image caption pairing |
-| XLSX | Multi-sheet table output with datetime formatting and sparse trimming | No formula evaluation, merged-cell reconstruction, or image output |
-| PDF | Conservative structural recovery with exported images and lightweight provenance | No default annotation-link emission, no complex-table recovery, no OCR-first default |
-| HTML / HTM | Lightweight semantic recovery for headings/lists/tables/quotes/code/links/images | No browser/CSS/JS rendering or remote fetch |
-| CSV / TSV | Conservative table conversion | No dialect sniffing or schema inference |
-| TXT | Plain-text paragraph conversion with BOM/newline normalization | No Markdown semantics or assets |
-| XML | Source-preserving fenced `xml` code-block conversion | No XML semantic recovery, DTD/entity expansion, or schema validation |
-| JSON | Conservative table/list/code-block mapping | No JSON Lines / Schema / streaming |
-| YAML / YML | Conservative simple-subset table/list/code-block mapping | No anchors / aliases / tags / block scalar / multi-doc |
-| Markdown / MD / MARKDOWN | Source-preserving passthrough | No AST rewriting |
-| ZIP | Safe entry traversal with supported nested-entry conversion and archive asset namespacing | No nested recursion, no binary preview, no remote HTML asset fetch |
-| EPUB | `container.xml` + OPF manifest/spine driven conversion for XHTML/HTML spine items | No DRM, CSS rendering, nav/NCX semantic reconstruction, or advanced media fallback |
+Current supported input families:
 
-For full per-format support and limits, see [docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).
+* OOXML: DOCX / PPTX / XLSX
+* PDF
+* HTML / HTM
+* Structured data: CSV / TSV / JSON / YAML / YML / XML
+* Text-like: Markdown / MD / MARKDOWN / TXT
+* Container: ZIP
+* Ebook: EPUB
+
+Important boundaries:
+
+* TXT is plain-text paragraph conversion; it does not infer Markdown semantics
+* XML is source-preserving fenced `xml` code-block conversion; it is not a
+  semantic XHTML / RSS / OPF / SVG converter
+
+For the full per-format support contract and limits, see
+[docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).
 
 ## Regression And Benchmark
 

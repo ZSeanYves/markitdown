@@ -73,14 +73,14 @@ Current format families:
   * `convert/pdf`
 * HTML:
   * `convert/html`
-* Text-like:
-  * `convert/txt`
-  * `convert/markdown`
 * Structured data:
-  * `convert/csv`
+  * `convert/csv` for CSV / TSV
   * `convert/json`
   * `convert/yaml`
   * `convert/xml`
+* Text-like:
+  * `convert/markdown`
+  * `convert/txt`
 * Container:
   * `convert/zip`
 * Ebook:

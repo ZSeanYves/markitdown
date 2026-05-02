@@ -42,14 +42,10 @@ The repository is now in a documented multi-format baseline stage:
 * OOXML: DOCX / PPTX / XLSX
 * PDF
 * HTML / HTM
-* CSV / TSV
-* JSON
-* YAML / YML
-* Markdown / MD / MARKDOWN
-* TXT
-* XML
-* ZIP
-* EPUB
+* Structured data: CSV / TSV / JSON / YAML / YML / XML
+* Text-like: Markdown / MD / MARKDOWN / TXT
+* Container: ZIP
+* Ebook: EPUB
 
 ### Current container / ebook scope
 

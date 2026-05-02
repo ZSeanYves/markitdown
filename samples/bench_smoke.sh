@@ -85,6 +85,13 @@ set_now_ms() {
     return
   fi
 
+  raw="$(LC_ALL=C LANG=C perl -MTime::HiRes=time -e 'print int(time()*1000), qq(\n)' 2>/dev/null || true)"
+  if [[ "$raw" =~ ^[0-9]+$ ]]; then
+    TIMER_PRECISION="ms"
+    NOW_MS_VALUE="$raw"
+    return
+  fi
+
   local secs
   secs="$(date +%s 2>/dev/null || true)"
   if [[ "$secs" =~ ^[0-9]+$ ]]; then
@@ -352,20 +359,22 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   metadata_json="$(json_bool "$metadata_enabled")"
   input_abs="$(resolve_input_path "$input_path")"
   file_size="$(file_size_bytes "$input_abs")"
-  for warmup_iteration in $(seq 1 "$WARMUP"); do
-    sample_dir="$BENCH_ROOT/$format/$sample/warmup-$warmup_iteration"
-    output_md="$sample_dir/$sample.md"
-    rm -rf "$sample_dir"
-    mkdir -p "$sample_dir"
+  if [[ "$WARMUP" -gt 0 ]]; then
+    for ((warmup_iteration = 1; warmup_iteration <= WARMUP; warmup_iteration++)); do
+      sample_dir="$BENCH_ROOT/$format/$sample/warmup-$warmup_iteration"
+      output_md="$sample_dir/$sample.md"
+      rm -rf "$sample_dir"
+      mkdir -p "$sample_dir"
 
-    cmd=(moon run "$ROOT/cli" -- normal "$input_abs" "$output_md")
-    if [[ "$metadata_json" == "true" ]]; then
-      cmd=(moon run "$ROOT/cli" -- normal --with-metadata "$input_abs" "$output_md")
-    fi
+      cmd=(moon run "$ROOT/cli" -- normal "$input_abs" "$output_md")
+      if [[ "$metadata_json" == "true" ]]; then
+        cmd=(moon run "$ROOT/cli" -- normal --with-metadata "$input_abs" "$output_md")
+      fi
 
-    echo "==> warmup $format/$sample #$warmup_iteration"
-    "${cmd[@]}" >/dev/null 2>&1 || true
-  done
+      echo "==> warmup $format/$sample #$warmup_iteration"
+      "${cmd[@]}" >/dev/null 2>&1 || true
+    done
+  fi
 
   for iteration in $(seq 1 "$ITERATIONS"); do
     sample_dir="$BENCH_ROOT/$format/$sample/iter-$iteration"
