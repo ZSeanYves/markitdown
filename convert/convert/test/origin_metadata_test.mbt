@@ -1054,10 +1054,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   assert_metadata_snapshot(
     @cor.emit_metadata_json(
-      yaml_metadata_basic_doc,
-      "yaml_metadata_basic.yaml",
-      "yaml",
-      "yaml_metadata_basic.md",
+      yaml_metadata_basic_doc, "yaml_metadata_basic.yaml", "yaml", "yaml_metadata_basic.md",
     ),
     "yaml_metadata_basic.metadata.json",
   )
@@ -1068,10 +1065,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   assert_metadata_snapshot(
     @cor.emit_metadata_json(
-      yaml_metadata_table_doc,
-      "yaml_metadata_table.yaml",
-      "yaml",
-      "yaml_metadata_table.md",
+      yaml_metadata_table_doc, "yaml_metadata_table.yaml", "yaml", "yaml_metadata_table.md",
     ),
     "yaml_metadata_table.metadata.json",
   )
@@ -1082,10 +1076,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   assert_metadata_snapshot(
     @cor.emit_metadata_json(
-      yaml_metadata_nested_doc,
-      "yaml_metadata_nested.yaml",
-      "yaml",
-      "yaml_metadata_nested.md",
+      yaml_metadata_nested_doc, "yaml_metadata_nested.yaml", "yaml", "yaml_metadata_nested.md",
     ),
     "yaml_metadata_nested.metadata.json",
   )
@@ -1499,7 +1490,7 @@ test "origin_metadata/structured_text_block_origins" {
 }
 
 ///|
-test "metadata_sidecar/structured_text_origin_snapshots" {
+async test "metadata_sidecar/structured_text_origin_snapshots" {
   let html_single_out_dir = origin_tmp_root() +
     "/metadata_sidecar_html_img_single"
   recreate_clean_dir(html_single_out_dir)
@@ -1534,6 +1525,159 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       html_figure_doc, "html_figure_figcaption_basic.html", "html", "html_figure_figcaption_basic.md",
     ),
     "html_figure_figcaption_basic.metadata.json",
+  )
+
+  let html_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_html_basic"
+  recreate_clean_dir(html_basic_out_dir)
+  defer cleanup_temp_dir(html_basic_out_dir)
+  ensure_dir(html_basic_out_dir + "/html")
+  let html_basic_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_metadata_basic.html"),
+    html_basic_out_dir + "/html",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_basic_doc, "html_metadata_basic.html", "html", "html_metadata_basic.md",
+    ),
+    "html_metadata_basic.metadata.json",
+  )
+
+  let html_link_image_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_html_link_image"
+  recreate_clean_dir(html_link_image_out_dir)
+  defer cleanup_temp_dir(html_link_image_out_dir)
+  ensure_dir(html_link_image_out_dir + "/html")
+  let html_link_image_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_metadata_link_image.html"),
+    html_link_image_out_dir + "/html",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_link_image_doc, "html_metadata_link_image.html", "html", "html_metadata_link_image.md",
+    ),
+    "html_metadata_link_image.metadata.json",
+  )
+
+  let xlsx_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_xlsx_basic"
+  recreate_clean_dir(xlsx_basic_out_dir)
+  defer cleanup_temp_dir(xlsx_basic_out_dir)
+  ensure_dir(xlsx_basic_out_dir + "/xlsx")
+  let xlsx_basic_doc = @xlsx.parse_xlsx(
+    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+    xlsx_basic_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_basic_doc,
+      "xlsx_metadata_basic.xlsx",
+      "xlsx",
+      "xlsx_metadata_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+      ),
+    ),
+    "xlsx_metadata_basic.metadata.json",
+  )
+
+  let xlsx_multi_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_multi_sheet"
+  recreate_clean_dir(xlsx_multi_out_dir)
+  defer cleanup_temp_dir(xlsx_multi_out_dir)
+  ensure_dir(xlsx_multi_out_dir + "/xlsx")
+  let xlsx_multi_doc = @xlsx.parse_xlsx(
+    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx"),
+    xlsx_multi_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_multi_doc,
+      "xlsx_metadata_multi_sheet.xlsx",
+      "xlsx",
+      "xlsx_metadata_multi_sheet.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_multi_sheet.metadata.json",
+  )
+
+  let xlsx_policy_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_formula_or_merged_policy"
+  recreate_clean_dir(xlsx_policy_out_dir)
+  defer cleanup_temp_dir(xlsx_policy_out_dir)
+  ensure_dir(xlsx_policy_out_dir + "/xlsx")
+  let xlsx_policy_doc = @xlsx.parse_xlsx(
+    resolve_sample_path(
+      "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+    ),
+    xlsx_policy_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_policy_doc,
+      "xlsx_metadata_formula_or_merged_policy.xlsx",
+      "xlsx",
+      "xlsx_metadata_formula_or_merged_policy.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_formula_or_merged_policy.metadata.json",
+  )
+
+  let zip_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_basic"
+  recreate_clean_dir(zip_basic_out_dir)
+  defer cleanup_temp_dir(zip_basic_out_dir)
+  let zip_basic_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_basic.zip"),
+    zip_basic_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_basic_doc, "zip_metadata_basic.zip", "zip", "zip_metadata_basic.md",
+    ),
+    "zip_metadata_basic.metadata.json",
+  )
+
+  let zip_origins_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_zip_entry_origins"
+  recreate_clean_dir(zip_origins_out_dir)
+  defer cleanup_temp_dir(zip_origins_out_dir)
+  let zip_origins_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_entry_origins.zip"),
+    zip_origins_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_origins_doc, "zip_metadata_entry_origins.zip", "zip", "zip_metadata_entry_origins.md",
+    ),
+    "zip_metadata_entry_origins.metadata.json",
+  )
+
+  let zip_assets_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_assets"
+  recreate_clean_dir(zip_assets_out_dir)
+  defer cleanup_temp_dir(zip_assets_out_dir)
+  let zip_assets_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+    zip_assets_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_assets_doc, "zip_metadata_assets.zip", "zip", "zip_metadata_assets.md",
+    ),
+    "zip_metadata_assets.metadata.json",
   )
 
   let pptx_single_out_dir = origin_tmp_root() +
@@ -1599,7 +1743,15 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     6,
   )
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(docx_golden_doc, "golden.docx", "docx", "golden.md"),
+    @cor.emit_metadata_json_with_document_properties(
+      docx_golden_doc,
+      "golden.docx",
+      "docx",
+      "golden.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/main_process/docx/golden.docx"),
+      ),
+    ),
     "golden.metadata.json",
   )
 
@@ -1614,8 +1766,14 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     6,
   )
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(
-      docx_alt_title_doc, "docx_image_alt_title_basic.docx", "docx", "docx_image_alt_title_basic.md",
+    @cor.emit_metadata_json_with_document_properties(
+      docx_alt_title_doc,
+      "docx_image_alt_title_basic.docx",
+      "docx",
+      "docx_image_alt_title_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+      ),
     ),
     "docx_image_alt_title_basic.metadata.json",
   )
@@ -1631,8 +1789,14 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     6,
   )
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(
-      docx_no_alt_doc, "docx_image_no_alt_negative.docx", "docx", "docx_image_no_alt_negative.md",
+    @cor.emit_metadata_json_with_document_properties(
+      docx_no_alt_doc,
+      "docx_image_no_alt_negative.docx",
+      "docx",
+      "docx_image_no_alt_negative.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+      ),
     ),
     "docx_image_no_alt_negative.metadata.json",
   )
@@ -1790,6 +1954,60 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       ),
     ),
     "epub_metadata_basic.metadata.json",
+  )
+
+  let epub_spine_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_spine_origins.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_spine_doc,
+      "epub_metadata_spine_origins.epub",
+      "epub",
+      "epub_metadata_spine_origins.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_spine_origins.epub"),
+      ),
+    ),
+    "epub_metadata_spine_origins.metadata.json",
+  )
+
+  let epub_assets_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_assets_doc,
+      "epub_metadata_assets.epub",
+      "epub",
+      "epub_metadata_assets.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+      ),
+    ),
+    "epub_metadata_assets.metadata.json",
+  )
+
+  let epub_warning_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_warning_block.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_warning_doc,
+      "epub_metadata_warning_block.epub",
+      "epub",
+      "epub_metadata_warning_block.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_warning_block.epub"),
+      ),
+    ),
+    "epub_metadata_warning_block.metadata.json",
   )
 
   let markdown_code_doc = @md.parse_markdown(

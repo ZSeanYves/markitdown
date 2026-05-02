@@ -86,6 +86,16 @@ test "epub package parses metadata basic" {
 }
 
 ///|
+test "epub package parses linear no spine flag" {
+  let pkg = open_sample_package(
+    "samples/main_process/epub/epub_linear_no_current_behavior.epub",
+  )
+  assert_eq(pkg.spine.length(), 2)
+  assert_eq(pkg.spine[0].linear, true)
+  assert_eq(pkg.spine[1].linear, false)
+}
+
+///|
 test "epub package rejects missing container" {
   assert_open_epub_fails(
     "samples/test/epub/epub_missing_container.epub", "missing EPUB part: META-INF/container.xml",
@@ -117,5 +127,19 @@ test "epub package rejects normalized collisions" {
 test "epub package rejects encryption xml" {
   assert_open_epub_fails(
     "samples/test/epub/epub_encryption_xml.epub", "DRM/encryption is not supported",
+  )
+}
+
+///|
+test "epub package rejects missing manifest item" {
+  assert_open_epub_fails(
+    "samples/test/epub/epub_missing_manifest_item.epub", "spine itemref missing manifest item",
+  )
+}
+
+///|
+test "epub package rejects duplicate manifest id" {
+  assert_open_epub_fails(
+    "samples/test/epub/epub_duplicate_manifest_id.epub", "duplicate manifest id",
   )
 }

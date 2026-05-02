@@ -20,15 +20,24 @@ The repository is now in a documented multi-format baseline stage:
 * sample regression and benchmark harnesses are in place
 * TXT and XML conservative conversion are completed and no longer candidate work
 * the project has entered format-by-format hardening
-* recent H1 baselines: TXT, Markdown, CSV / TSV, JSON, YAML
-* XML has entered H1 hardening as a source-preserving baseline, not a semantic XML-family converter
+* recent H1 baselines: TXT, Markdown, CSV / TSV, JSON, YAML, XML
+* EPUB H1/H2 ebook review is completed with package/spine baseline coverage and
+  smoke benchmark enrollment
+* DOCX H2 market-parity review is completed with baseline benchmark,
+  assets/metadata coverage, and overlap-only comparison refresh
+* PPTX H2 layout-quality review is completed with smoke/comparison refresh and
+  current layout/assets coverage audit
+* PDF H2 core-gap review is completed; next PDF work is core-first signal and
+  debug surface strengthening before more convert-layer heuristics
 * H1 is not final parity completion; H2 / H3 remain
 
 ## Current Hardening Focus
 
 The project has entered full-format H2 / H3 gap review.
 
-H1 baseline is complete for TXT, Markdown, CSV, TSV, JSON, YAML, and XML.
+H1 baseline is complete for TXT, Markdown, CSV, TSV, JSON, YAML, XML, and
+dedicated H1/H2 review docs now exist for HTML, XLSX, ZIP, EPUB, DOCX, and
+PPTX. PDF now has a dedicated H2 core-gap audit and planning document.
 
 Next work will prioritize market-parity quality and performance leadership
 across all supported formats.
@@ -88,8 +97,19 @@ across all supported formats.
 Recent completed additions worth calling out explicitly:
 
 * TXT conservative paragraph conversion
-* HTML / HTM H1/H2 review is in progress with baseline coverage and smoke
-  corpus expansion
+* HTML / HTM H1/H2 review is completed with baseline coverage and smoke corpus
+  expansion
+* XLSX H1/H2 review is completed with current formula / merged / hidden-sheet
+  policy fixed by regression and smoke coverage expansion
+* ZIP H1/H2 container review is completed with metadata coverage, safety
+  regression, and smoke corpus expansion
+* DOCX H2 market-parity review is completed with smoke/comparison refresh and
+  metadata/assets coverage tightening
+* PPTX H2 layout-quality review is completed with smoke/comparison refresh and
+  existing layout/assets coverage reuse
+* PDF H2 core-gap review is completed with `pdf_core` vs `convert/pdf`
+  responsibility audit, regression inventory, and benchmark/comparison gap
+  planning
 * XML conservative source-preserving conversion
 * ZIP asset namespace/remap and same-archive HTML local-image handling
 * EPUB spine-based conversion
@@ -114,11 +134,12 @@ moon test
 Current recommended next candidates are:
 
 * OCR regression closure
-* PDF core / convert next round
+* PDF core-first signal upgrade round
 * EPUB nav / TOC semantic reconstruction
 * EPUB CSS / semantic refinement
 * ZIP HTML dependency refinement beyond safe sibling materialization
 * XLSX merged cells / formula policy refinement
 * PPTX notes / advanced layout refinement
+* PPTX lower-layer table / notes / hidden-slide signal upgrade
 * benchmark comparison refresh
 * release packaging / versioned baseline

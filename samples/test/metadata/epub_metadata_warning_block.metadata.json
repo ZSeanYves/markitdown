@@ -1,0 +1,109 @@
+{
+  "version": "1",
+  "source_name": "epub_metadata_warning_block.epub",
+  "format": "epub",
+  "markdown_file": "epub_metadata_warning_block.md",
+  "document": {
+  "title": "EPUB Metadata Warning Block",
+  "subject": null,
+  "creator": null,
+  "description": null,
+  "keywords": null,
+  "created": null,
+  "modified": null,
+  "application": "EPUB",
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 5,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "OPS/chapter.xhtml",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_warning_block.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "Warning Chapter",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_warning_block.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "This chapter precedes a warning block.",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_warning_block.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "heading",
+      "text": "OPS/media/audio.mp3",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_warning_block.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "key_path": "OPS/media/audio.mp3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported spine media type: audio/mpeg",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_warning_block.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null,
+        "key_path": "OPS/media/audio.mp3"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

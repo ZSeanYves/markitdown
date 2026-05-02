@@ -436,6 +436,42 @@ async test "zip parse fails closed on normalized path collisions" {
 }
 
 ///|
+async test "zip parse fails closed on unsafe archive paths" {
+  let root = zip_test_root()
+  let out_dir = root + "/parse_zip_unsafe_paths"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let traversal = try? @zipconv.parse_zip(
+    resolve_sample_path("samples/test/zip/zip_unsafe_traversal.zip"),
+    out_dir,
+    6,
+  )
+  assert_true(traversal is Err(_))
+
+  let absolute = try? @zipconv.parse_zip(
+    resolve_sample_path("samples/test/zip/zip_unsafe_absolute.zip"),
+    out_dir,
+    6,
+  )
+  assert_true(absolute is Err(_))
+
+  let windows_drive = try? @zipconv.parse_zip(
+    resolve_sample_path("samples/test/zip/zip_unsafe_windows_drive.zip"),
+    out_dir,
+    6,
+  )
+  assert_true(windows_drive is Err(_))
+
+  let duplicate_entries = try? @zipconv.parse_zip(
+    resolve_sample_path("samples/test/zip/zip_duplicate_entries.zip"),
+    out_dir,
+    6,
+  )
+  assert_true(duplicate_entries is Err(_))
+}
+
+///|
 async test "zip parse keeps nested archive and unsupported warnings" {
   let root = zip_test_root()
   let out_dir = root + "/parse_zip_warning_regression"

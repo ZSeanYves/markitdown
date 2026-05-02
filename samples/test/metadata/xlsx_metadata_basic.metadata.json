@@ -1,0 +1,79 @@
+{
+  "version": "1",
+  "source_name": "xlsx_metadata_basic.xlsx",
+  "format": "xlsx",
+  "markdown_file": "xlsx_metadata_basic.md",
+  "document": {
+  "title": null,
+  "subject": null,
+  "creator": "openpyxl",
+  "description": null,
+  "keywords": null,
+  "created": "2026-05-02T11:27:43Z",
+  "modified": "2026-05-02T11:27:43Z",
+  "application": "Microsoft Excel Compatible / Openpyxl 3.1.5",
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 3,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "MetaBasic",
+      "origin": {
+        "format": "xlsx",
+        "source_name": "xlsx_metadata_basic.xlsx",
+        "page": null,
+        "slide": null,
+        "sheet": "MetaBasic",
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "table",
+      "text": "Key | Value\nversion | 1\nmode | stable",
+      "origin": {
+        "format": "xlsx",
+        "source_name": "xlsx_metadata_basic.xlsx",
+        "page": null,
+        "slide": null,
+        "sheet": "MetaBasic",
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 3,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId1"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "xlsx",
+        "source_name": "xlsx_metadata_basic.xlsx",
+        "page": null,
+        "slide": null,
+        "sheet": "MetaBasic",
+        "block_index": 2,
+        "heading_path": null
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

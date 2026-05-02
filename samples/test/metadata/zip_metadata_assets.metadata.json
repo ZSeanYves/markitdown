@@ -1,0 +1,103 @@
+{
+  "version": "1",
+  "source_name": "zip_metadata_assets.zip",
+  "format": "zip",
+  "markdown_file": "zip_metadata_assets.md",
+  "document": null,
+  "summary": {
+    "block_count": 4,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "site/img/img_red.jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_assets.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "site/img/img_red.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported file type: jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_assets.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "key_path": "site/img/img_red.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "heading",
+      "text": "site/page.html",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_assets.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "site/page.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "image",
+      "text": "Zip caption",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_assets.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "key_path": "site/page.html"
+      },
+      "image": {
+        "path": "assets/archive/site_page.html/image01.jpg",
+        "alt_text": "zip red",
+        "title": "Zip Red",
+        "caption": "Zip caption"
+      }
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/archive/site_page.html/image01.jpg",
+      "asset_type": "image",
+      "alt_text": "zip red",
+      "title": "Zip Red",
+      "caption": "Zip caption",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_assets.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "zip:site/page.html:html-asset-1",
+        "nearby_caption": "Zip caption",
+        "source_path": "site/page.html",
+        "key_path": "site/page.html"
+      },
+      "nearby_caption": "Zip caption"
+    }
+  ]
+}

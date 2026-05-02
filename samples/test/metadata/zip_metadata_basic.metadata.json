@@ -1,0 +1,134 @@
+{
+  "version": "1",
+  "source_name": "zip_metadata_basic.zip",
+  "format": "zip",
+  "markdown_file": "zip_metadata_basic.md",
+  "document": null,
+  "summary": {
+    "block_count": 7,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "a.txt",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "a.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "Alpha text only.",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "a.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "heading",
+      "text": "b.md",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "b.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "paragraph",
+      "text": "# Beta",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "b.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "paragraph",
+      "text": "Markdown body.",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null,
+        "line_start": 3,
+        "line_end": 3,
+        "key_path": "b.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "heading",
+      "text": "c.bin",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null,
+        "key_path": "c.bin"
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported file type: bin",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_basic.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": null,
+        "key_path": "c.bin"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

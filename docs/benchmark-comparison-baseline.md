@@ -5,6 +5,138 @@ between `markitdown-mb` and Microsoft MarkItDown.
 
 It is a local reference, not a pass/fail performance target.
 
+## Current PPTX Overlap Baseline
+
+This PPTX baseline is for the current overlap-only PPTX cases only. It does not
+claim full semantic equivalence with Microsoft MarkItDown across all PPTX
+features.
+
+### Command
+
+```bash
+tmp_corpus="$(mktemp /private/tmp/pptx_compare_final.XXXXXX)"
+printf 'format\tsample\tinput_path\n' > "$tmp_corpus"
+printf 'pptx\tpptx_title_bullets_compare\tsamples/main_process/pptx/pptx_title_bullets.pptx\n' >> "$tmp_corpus"
+printf 'pptx\tpptx_hyperlink_basic_compare\tsamples/main_process/pptx/pptx_hyperlink_basic.pptx\n' >> "$tmp_corpus"
+printf 'pptx\tpptx_hyperlink_shape_basic_compare\tsamples/main_process/pptx/pptx_hyperlink_shape_basic.pptx\n' >> "$tmp_corpus"
+printf 'pptx\tpptx_slide_order_compare\tsamples/main_process/pptx/pptx_slide_order.pptx\n' >> "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+```
+
+### Runners
+
+* `markitdown-mb`: prebuilt native CLI
+  `_build/native/debug/build/cli/cli.exe normal`
+* Microsoft MarkItDown: `markitdown 0.1.5` from `PATH`
+
+### Environment
+
+This PPTX baseline was captured with:
+
+* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* Date (UTC): `2026-05-02T13:51:31Z`
+* Git revision: `e9aa483`
+* Timer precision: `ms`
+
+### PPTX Summary
+
+```tsv
+runner	format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	stderr_bytes_last
+markitdown-mb	pptx	pptx_title_bullets_compare	3	0	12	12	13	12.3	81	0
+markitdown-python	pptx	pptx_title_bullets_compare	3	0	459	470	484	471	85	0
+markitdown-mb	pptx	pptx_hyperlink_basic_compare	3	0	11	11	12	11.3	111	0
+markitdown-python	pptx	pptx_hyperlink_basic_compare	3	0	485	491	495	490.3	89	0
+markitdown-mb	pptx	pptx_hyperlink_shape_basic_compare	3	0	11	11	12	11.3	62	0
+markitdown-python	pptx	pptx_hyperlink_shape_basic_compare	3	0	483	489	507	493	43	0
+markitdown-mb	pptx	pptx_slide_order_compare	3	0	13	13	13	13	91	0
+markitdown-python	pptx	pptx_slide_order_compare	3	0	484	491	511	495.3	118	0
+```
+
+### PPTX Interpretation
+
+* overlap scope only: title/body+list, run hyperlink, shape hyperlink, and
+  slide-order cases
+* warmup: `1`
+* iterations: `3`
+* `pptx_title_bullets_compare`: both tools preserve the title/body content, but
+  `markitdown-mb` keeps Markdown list structure while Microsoft MarkItDown
+  flattens bullets into plain lines
+* `pptx_hyperlink_basic_compare`: both tools preserve the visible URL text, but
+  `markitdown-mb` emits Markdown link syntax while Microsoft MarkItDown keeps
+  plain text
+* `pptx_hyperlink_shape_basic_compare`: `markitdown-mb` preserves the
+  shape-level external hyperlink target; Microsoft MarkItDown keeps the heading
+  text only
+* `pptx_slide_order_compare`: both tools preserve slide order, but marker and
+  heading-level conventions differ
+* result: PPTX runner-level performance is a clear `win` for `markitdown-mb`
+  on this machine and this runner setup
+* non-goal for this baseline: proving full PPTX semantic parity
+
+## Current DOCX Overlap Baseline
+
+This DOCX baseline is for the current overlap-only DOCX cases only. It does not
+claim full semantic equivalence with Microsoft MarkItDown across all DOCX
+features.
+
+### Command
+
+```bash
+tmp_corpus="$(mktemp /private/tmp/docx_compare.XXXXXX)"
+printf 'format\tsample\tinput_path\n' > "$tmp_corpus"
+printf 'docx\tdocx_heading_levels_compare\tsamples/main_process/docx/docx_heading_levels.docx\n' >> "$tmp_corpus"
+printf 'docx\tdocx_link_basic_compare\tsamples/main_process/docx/docx_link_basic.docx\n' >> "$tmp_corpus"
+printf 'docx\tdocx_list_nested_compare\tsamples/main_process/docx/docx_list_nested.docx\n' >> "$tmp_corpus"
+printf 'docx\tdocx_table_multiline_cell_compare\tsamples/main_process/docx/docx_table_multiline_cell.docx\n' >> "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+```
+
+### Runners
+
+* `markitdown-mb`: prebuilt native CLI
+  `_build/native/debug/build/cli/cli.exe normal`
+* Microsoft MarkItDown: `markitdown 0.1.5` from `PATH`
+
+### Environment
+
+This DOCX baseline was captured with:
+
+* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* Date (UTC): `2026-05-02T13:31:21Z`
+* Git revision: `e9aa483`
+* Timer precision: `ms`
+
+### DOCX Summary
+
+```tsv
+runner	format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	stderr_bytes_last
+markitdown-mb	docx	docx_heading_levels_compare	3	0	24	24	25	24.3	296	0
+markitdown-python	docx	docx_heading_levels_compare	3	0	451	451	487	463	295	0
+markitdown-mb	docx	docx_link_basic_compare	3	0	11	11	12	11.3	29	0
+markitdown-python	docx	docx_link_basic_compare	3	0	519	522	533	524.7	28	0
+markitdown-mb	docx	docx_list_nested_compare	3	0	22	23	23	22.7	179	0
+markitdown-python	docx	docx_list_nested_compare	3	0	452	452	453	452.3	178	0
+markitdown-mb	docx	docx_table_multiline_cell_compare	3	0	10	10	11	10.3	61	0
+markitdown-python	docx	docx_table_multiline_cell_compare	3	0	450	451	466	455.7	73	0
+```
+
+### DOCX Interpretation
+
+* overlap scope only: heading, hyperlink, nested-list, and simple-table cases
+* warmup: `1`
+* iterations: `3`
+* `docx_heading_levels_compare`: output shape is effectively the same, with
+  trailing-newline byte differences only
+* `docx_link_basic_compare`: output shape is effectively the same, with
+  trailing-newline byte differences only
+* `docx_list_nested_compare`: both tools preserve nested list structure, but
+  bullet marker choices differ
+* `docx_table_multiline_cell_compare`: both tools preserve a readable table,
+  but header and multiline-cell strategies differ
+* result: DOCX runner-level performance is a clear `win` for `markitdown-mb`
+  on this machine and this runner setup
+* non-goal for this baseline: proving full DOCX semantic parity
+
 ## Current TXT Overlap Baseline
 
 This TXT baseline is for the current overlap-only TXT case only. It does not

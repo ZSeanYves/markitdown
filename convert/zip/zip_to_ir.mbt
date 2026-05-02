@@ -50,13 +50,12 @@ pub async fn parse_zip(
   }
 
   let plans : Array[PlannedEntry] = []
-  let unsafe_warnings : Map[String, String] = Map::new()
   for meta in @zipraw.list_entries(archive) {
     match plan_entry(meta.name) {
       EntryPlan::Directory => ()
       EntryPlan::Hidden => ()
       EntryPlan::Unsafe(display) =>
-        unsafe_warnings.set(display, "Skipped: unsafe archive path")
+        raise @cor.AppError("zip: unsafe archive path: " + display)
       EntryPlan::Visible(path) =>
         plans.push({
           raw_path: meta.name,
@@ -280,15 +279,6 @@ pub async fn parse_zip(
       plan.path,
       @cor.emit_markdown(remapped_subdoc),
     )
-  }
-
-  let unsafe_paths = sorted_warning_keys(unsafe_warnings)
-  for path in unsafe_paths {
-    match unsafe_warnings.get(path) {
-      Some(message) =>
-        append_warning_entry(doc, final_md, zip_name, path, message)
-      None => ()
-    }
   }
 
   @cor.set_passthrough_markdown(doc, final_md.to_string())
@@ -1259,16 +1249,6 @@ fn is_safe_id_char(ch : Char) -> Bool {
   ch == '.' ||
   ch == '_' ||
   ch == '-'
-}
-
-///|
-fn sorted_warning_keys(warnings : Map[String, String]) -> Array[String] {
-  let keys : Array[String] = []
-  for pair in warnings {
-    keys.push(pair.0)
-  }
-  keys.sort_by((a, b) => compare_zip_path(a, b))
-  keys
 }
 
 ///|

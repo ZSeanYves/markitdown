@@ -14,6 +14,7 @@ import {
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,
   "ZSeanYves/markitdown/convert/epub" @epub,
+  "ZSeanYves/markitdown/convert/zip" @zipconv,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
   "moonbitlang/async",

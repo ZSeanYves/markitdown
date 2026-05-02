@@ -1,6 +1,12 @@
 # format	sample	input_path
 docx	docx_heading_levels_compare	samples/main_process/docx/docx_heading_levels.docx
+docx	docx_link_basic_compare	samples/main_process/docx/docx_link_basic.docx
+docx	docx_list_nested_compare	samples/main_process/docx/docx_list_nested.docx
+docx	docx_table_multiline_cell_compare	samples/main_process/docx/docx_table_multiline_cell.docx
 pptx	pptx_title_bullets_compare	samples/main_process/pptx/pptx_title_bullets.pptx
+pptx	pptx_hyperlink_basic_compare	samples/main_process/pptx/pptx_hyperlink_basic.pptx
+pptx	pptx_hyperlink_shape_basic_compare	samples/main_process/pptx/pptx_hyperlink_shape_basic.pptx
+pptx	pptx_slide_order_compare	samples/main_process/pptx/pptx_slide_order.pptx
 xlsx	xlsx_multi_sheet_mixed_compare	samples/main_process/xlsx/xlsx_multi_sheet_mixed.xlsx
 pdf	text_simple_compare	samples/main_process/pdf/text_simple.pdf
 html	html_simple_compare	samples/main_process/html/html_simple.html

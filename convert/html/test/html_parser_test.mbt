@@ -25,7 +25,9 @@ fn read_html_parser_utf8_text(path : String) -> String raise {
 ///|
 test "html strips utf8 bom and normalizes crlf" {
   let doc = @html.parse_html(
-    resolve_html_parser_sample_path("samples/main_process/html/html_bom_utf8.html"),
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_bom_utf8.html",
+    ),
     "",
     6,
   )
@@ -40,7 +42,9 @@ test "html strips utf8 bom and normalizes crlf" {
 ///|
 test "html keeps current conservative entity and wrapper behavior stable" {
   let entities_doc = @html.parse_html(
-    resolve_html_parser_sample_path("samples/main_process/html/html_entities.html"),
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_entities.html",
+    ),
     "",
     6,
   )
@@ -108,7 +112,10 @@ test "html remote images keep current downgrade policy" {
       "samples/main_process/expected/html/html_remote_figure_current_behavior.md",
     ),
   )
-  assert_eq(trim_one_trailing_newline(@cor.emit_markdown(figure_doc)), trim_one_trailing_newline(figure_expected))
+  assert_eq(
+    trim_one_trailing_newline(@cor.emit_markdown(figure_doc)),
+    trim_one_trailing_newline(figure_expected),
+  )
 }
 
 ///|

@@ -3,7 +3,20 @@
   "source_name": "docx_image_alt_title_basic.docx",
   "format": "docx",
   "markdown_file": "docx_image_alt_title_basic.md",
-  "document": null,
+  "document": {
+  "title": null,
+  "subject": null,
+  "creator": "Data",
+  "description": null,
+  "keywords": null,
+  "created": "2026-02-18T15:06:47Z",
+  "modified": "2026-02-18T15:10:04Z",
+  "application": "WPS Office_12.1.23540.23540_F1E327BC-269C-435d-A152-05C5408002CA",
+  "pages": "2",
+  "words": "0",
+  "slides": null,
+  "sheets": null
+},
   "summary": {
     "block_count": 1,
     "asset_count": 1

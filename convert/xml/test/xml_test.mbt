@@ -132,7 +132,9 @@ test "xml preserves declarations comments attributes and doctype literally" {
 ///|
 test "xml preserves markdown-sensitive text and multiline nesting" {
   let markdown_doc = @xml.parse_xml(
-    resolve_sample_path("samples/main_process/xml/xml_markdown_sensitive_chars.xml"),
+    resolve_sample_path(
+      "samples/main_process/xml/xml_markdown_sensitive_chars.xml",
+    ),
     "",
     6,
   )

@@ -177,3 +177,80 @@ test "epub convert unsupported spine media emits warning block" {
     markdown, "> Skipped: unsupported spine media type: image/svg+xml",
   )
 }
+
+///|
+test "epub convert multi chapter spine order sample" {
+  let out_dir = test_tmp_root() + "/epub-convert-spine-order"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_multi_chapter_spine_order.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_multi_chapter_spine_order.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+}
+
+///|
+test "epub convert local image sample remaps assets" {
+  let out_dir = test_tmp_root() + "/epub-convert-local-image"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_local_image_basic.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_local_image_basic.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+  if !doc.asset_origins.val.contains(
+      "assets/archive/OPS_chapter.xhtml/image01.png",
+    ) {
+    fail("expected remapped EPUB asset origin")
+  }
+}
+
+///|
+test "epub convert linear no spine item is skipped" {
+  let out_dir = test_tmp_root() + "/epub-convert-linear-no"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_linear_no_current_behavior.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_linear_no_current_behavior.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+}
+
+///|
+test "epub convert unsupported spine warning sample" {
+  let out_dir = test_tmp_root() + "/epub-convert-unsupported-warning"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_unsupported_spine_warning.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_unsupported_spine_warning.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+}

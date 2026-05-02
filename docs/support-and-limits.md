@@ -74,9 +74,13 @@ Conservative behavior:
 
 * style-driven recovery remains heuristic rather than style-taxonomy complete
 * image title/alt comes from source-native OOXML drawing fields
+* OOXML document properties are surfaced in the explicit `--with-metadata`
+  sidecar path
 
 Known limits:
 
+* no run-level bold / italic / code-span preservation yet
+* no internal bookmark / anchor hyperlink promotion
 * no footnote/endnote hyperlink recovery
 * no comments / revisions / textbox-special semantics
 * no table cell provenance or rich cell model
@@ -88,21 +92,28 @@ Supported:
 * slide-order traversal
 * reading-order-aware text recovery
 * title/body/list separation
+* placeholder- and geometry-aware reading-order heuristics
 * table-like / callout-like / caption-like region handling
-* run-level and basic shape-level hyperlink recovery
+* run-level and basic shape-level external hyperlink recovery
 * exported images through unified `ImageBlock`
+* OOXML document properties in the explicit `--with-metadata` sidecar path
 
 Conservative behavior:
 
+* each slide gets a synthetic slide-boundary heading in workbook order
+* current "table" recovery is heuristic layout grouping, not explicit PowerPoint
+  table-object lowering
 * image caption attachment stays conservative
 * layout heuristics favor readable downgrade over aggressive reconstruction
 
 Known limits:
 
 * no notes-page output
+* no comments or hidden-slide annotation policy
 * no advanced multi-image caption pairing
 * no semantic table IR for heuristic table-like regions
-* no macro/action/media hyperlink promotion
+* no internal/action/media hyperlink promotion
+* no chart / SmartArt / OLE / embedded-media semantics
 
 ### XLSX
 
@@ -118,11 +129,14 @@ Conservative behavior:
 
 * tables remain legacy `Table` output
 * cached values are used; formulas are not evaluated
+* hidden sheets are currently emitted in workbook order
+* merged ranges currently preserve only the top-left visible value
 
 Known limits:
 
 * no merged-cell reconstruction
 * no formula policy beyond current cached-value path
+* no hidden-sheet filtering or annotation policy yet
 * no charts / pivots / comments / image export
 
 ### PDF
@@ -159,11 +173,17 @@ Supported:
 * inline hyperlinks
 * local image export
 * figure / figcaption / alt / title handling
+* UTF-8 BOM removal
+* CRLF / CR normalization
 
 Conservative behavior:
 
 * recovery is lightweight semantic HTML parsing, not browser rendering
 * local images are only exported for accepted local paths
+* unsupported remote/data-URI images degrade conservatively instead of fetching
+* comments / doctype are ignored
+* semantic wrappers such as `main` / `section` / `header` / `footer` preserve
+  child content conservatively
 
 Known limits:
 
@@ -171,6 +191,8 @@ Known limits:
 * no remote fetch
 * no DOM-path metadata
 * no rowspan / colspan reconstruction
+* HTML named-entity decoding is intentionally partial in the current H1 path
+* no specialized `details` / `summary` semantic reconstruction
 
 ### CSV / TSV
 
@@ -332,9 +354,11 @@ Supported:
 
 Conservative behavior:
 
+* unsafe archive paths fail closed at container level
 * unsupported entries emit warning blocks rather than crashing the whole archive
-* `.txt` and `.xml` entries convert through the same dispatcher-driven path as
-  standalone files
+* supported entries convert through the same dispatcher-driven path as their
+  standalone format families
+* nested archives are downgraded to warning blocks rather than traversed
 
 Known limits:
 
@@ -343,6 +367,7 @@ Known limits:
 * no remote HTML asset fetch
 * no absolute / root-relative / parent / scheme-like / backslash HTML local-image export
 * normalized collisions and unsupported low-level ZIP features fail closed
+* no ZIP64 / data-descriptor / encrypted-ZIP support in the current H1 path
 
 ### EPUB
 
@@ -355,6 +380,7 @@ Supported:
 * same-archive local images through a safe extracted tree
 * archive-style asset namespace/remap
 * OPF title / creator / date / modified document metadata
+* `linear="no"` spine items are skipped in the current H1 path
 
 Conservative behavior:
 
