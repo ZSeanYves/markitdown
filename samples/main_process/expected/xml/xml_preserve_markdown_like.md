@@ -1,0 +1,6 @@
+```xml
+<root>
+  <item># Not a heading</item>
+  <item>- Not a list</item>
+</root>
+```
