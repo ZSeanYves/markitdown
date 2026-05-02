@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "source_name": "csv_metadata_ragged_rows.csv",
+  "format": "csv",
+  "markdown_file": "csv_metadata_ragged_rows.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "table",
+      "text": "Name | Role | Location | \nAlice | Engineer |  | \nBob | Designer | LA | Extra",
+      "origin": {
+        "format": "csv",
+        "source_name": "csv_metadata_ragged_rows.csv",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 3,
+        "row_index": 1,
+        "column_index": 1
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

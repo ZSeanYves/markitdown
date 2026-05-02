@@ -1047,6 +1047,48 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !yaml_json.contains("\"document\": null") {
     fail("yaml metadata should keep document null")
   }
+  let yaml_metadata_basic_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_basic.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_basic_doc,
+      "yaml_metadata_basic.yaml",
+      "yaml",
+      "yaml_metadata_basic.md",
+    ),
+    "yaml_metadata_basic.metadata.json",
+  )
+  let yaml_metadata_table_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_table.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_table_doc,
+      "yaml_metadata_table.yaml",
+      "yaml",
+      "yaml_metadata_table.md",
+    ),
+    "yaml_metadata_table.metadata.json",
+  )
+  let yaml_metadata_nested_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_nested.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_nested_doc,
+      "yaml_metadata_nested.yaml",
+      "yaml",
+      "yaml_metadata_nested.md",
+    ),
+    "yaml_metadata_nested.metadata.json",
+  )
 
   let yml_path = resolve_sample_path(
     "samples/main_process/yaml/yml_extension_basic.yml",
@@ -1642,6 +1684,39 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       json_doc, "json_object_basic.json", "json", "json_object_basic.md",
     ),
     "json_object_basic.metadata.json",
+  )
+  let json_metadata_basic_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_basic.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_basic_doc, "json_metadata_basic.json", "json", "json_metadata_basic.md",
+    ),
+    "json_metadata_basic.metadata.json",
+  )
+  let json_metadata_table_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_table.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_table_doc, "json_metadata_table.json", "json", "json_metadata_table.md",
+    ),
+    "json_metadata_table.metadata.json",
+  )
+  let json_metadata_nested_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_nested.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_nested_doc, "json_metadata_nested.json", "json", "json_metadata_nested.md",
+    ),
+    "json_metadata_nested.metadata.json",
   )
 
   let yaml_doc = @yaml.parse_yaml(

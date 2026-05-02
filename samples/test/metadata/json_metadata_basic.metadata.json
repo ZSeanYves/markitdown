@@ -1,0 +1,40 @@
+{
+  "version": "1",
+  "source_name": "json_metadata_basic.json",
+  "format": "json",
+  "markdown_file": "json_metadata_basic.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "table",
+      "text": "Key | Value\nname | Alice\nrole | Engineer",
+      "origin": {
+        "format": "json",
+        "source_name": "json_metadata_basic.json",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "$"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["name", "Alice"],
+          ["role", "Engineer"]
+        ],
+        "header_rows": 1
+      }
+    }
+  ],
+  "assets": [
+    
+  ]
+}

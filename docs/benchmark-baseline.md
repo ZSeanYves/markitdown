@@ -50,6 +50,22 @@ For CSV / TSV hardening work, the smoke corpus now includes:
 * `tsv_medium`
 * `tsv_large`
 
+For JSON hardening work, the smoke corpus now includes:
+
+* `json_nested_object`
+* `json_small`
+* `json_medium`
+* `json_large`
+* `json_array_objects_large`
+
+For YAML hardening work, the smoke corpus now includes:
+
+* `yaml_nested_mapping`
+* `yaml_small`
+* `yaml_medium`
+* `yaml_large`
+* `yaml_sequence_mappings_large`
+
 ## Baseline Command
 
 ```bash

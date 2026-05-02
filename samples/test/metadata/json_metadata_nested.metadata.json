@@ -1,0 +1,41 @@
+{
+  "version": "1",
+  "source_name": "json_metadata_nested.json",
+  "format": "json",
+  "markdown_file": "json_metadata_nested.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "table",
+      "text": "Key | Value\nname | Alice\nprofile | {\"team\":\"Search\"}\ntags | [\"owner\",\"reviewer\"]",
+      "origin": {
+        "format": "json",
+        "source_name": "json_metadata_nested.json",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "$"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["name", "Alice"],
+          ["profile", "{\"team\":\"Search\"}"],
+          ["tags", "[\"owner\",\"reviewer\"]"]
+        ],
+        "header_rows": 1
+      }
+    }
+  ],
+  "assets": [
+    
+  ]
+}

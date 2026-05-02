@@ -1,0 +1,4 @@
+| Key | Value |
+| --- | --- |
+| hello | \u4F60\u597D |
+| snowman | \u2603 |

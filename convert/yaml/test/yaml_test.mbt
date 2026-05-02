@@ -117,3 +117,43 @@ test "yaml nested mapping and quoted strings stay deterministic" {
   )
   assert_eq(@cor.emit_markdown(quoted_doc), quoted_expected)
 }
+
+///|
+test "yaml unsupported features fail closed" {
+  let anchors_result = try? @yaml.parse_yaml(
+    resolve_sample_path(
+      "samples/main_process/yaml/yaml_anchors_aliases_current_behavior.key",
+    ),
+    "",
+    6,
+  )
+  assert_true(anchors_result is Err(_))
+
+  let document_result = try? @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_document_separator.key"),
+    "",
+    6,
+  )
+  assert_true(document_result is Err(_))
+
+  let multiline_result = try? @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_multiline_scalar.key"),
+    "",
+    6,
+  )
+  assert_true(multiline_result is Err(_))
+
+  let empty_mapping_result = try? @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_empty_mapping.key"),
+    "",
+    6,
+  )
+  assert_true(empty_mapping_result is Err(_))
+
+  let empty_sequence_result = try? @yaml.parse_yaml(
+    resolve_sample_path("samples/main_process/yaml/yaml_empty_sequence.key"),
+    "",
+    6,
+  )
+  assert_true(empty_sequence_result is Err(_))
+}

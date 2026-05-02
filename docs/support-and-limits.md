@@ -206,17 +206,23 @@ Supported:
 * object -> table
 * scalar array -> list
 * regular object array -> table
+* empty array -> fenced code block
+* empty object -> empty key/value table
 * mixed / nested fallback -> code block
+* UTF-8 BOM removal
+* CRLF / CR normalization
 
 Conservative behavior:
 
 * object tables use explicit header semantics only where structure is obvious
+* regular object arrays only become tables when all rows share the same key set
 
 Known limits:
 
 * no JSON Schema
 * no JSON Lines
 * no streaming parser path
+* unicode escapes are preserved in decoded string values as conservative text
 * no nested provenance beyond root `key_path`
 
 ### YAML / YML
@@ -226,16 +232,22 @@ Supported:
 * conservative simple-subset mapping / sequence parsing
 * mapping -> table
 * scalar sequence -> list
+* sequence-of-mappings -> table when the mapping key set is stable
 * nested / ambiguous fallback -> code block
+* UTF-8 BOM removal
+* CRLF / CR normalization
 
 Conservative behavior:
 
 * only the current simple subset is interpreted structurally
+* comments are ignored by the current parser
+* regular table cells preserve markdown-sensitive characters conservatively
 
 Known limits:
 
 * no anchors / aliases / tags
 * no block scalar / flow style / multi-document input
+* no full YAML spec support
 * no nested provenance beyond root `key_path`
 
 ### Markdown / MD / MARKDOWN
