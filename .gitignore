@@ -4,6 +4,7 @@ target/
 .mooncakes/
 .moonagent/
 .tmp/
+.venv*
 out/
 dataset/
 tmp/

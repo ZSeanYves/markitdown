@@ -1,27 +1,48 @@
 # Benchmark Baseline
 
-This document records a reference internal benchmark baseline for the current
-repository state. It is not a hard performance assertion and should not be used
-as a pass/fail gate by itself.
+This document records the current internal benchmark baseline for
+`samples/bench_smoke.sh`.
 
-Use it to detect large regressions, to compare runs on the same machine, and to
-understand the rough cost profile of each benchmark tier.
+It is a same-machine reference point, not a hard performance SLA.
 
-## Baseline command
+## Benchmark Scope
+
+The internal benchmark covers the checked-in corpus under:
+
+* `smoke`
+* `image`
+* `metadata`
+* `extended`
+
+The checked-in smoke corpus includes multiple families, including:
+
+* OOXML
+* PDF
+* HTML
+* CSV / TSV
+* TXT
+* XML
+* JSON
+* YAML
+* Markdown
+
+## Baseline Command
 
 ```bash
 BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_smoke.sh --kind all
 ```
 
-The command writes benchmark artifacts under:
+Artifacts are written under:
 
 ```bash
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 $TMP_ROOT/bench/smoke
 ```
 
-Measured runs are written to `results.jsonl`, and aggregate sample metrics are
-written to `summary.tsv`.
+Main outputs:
+
+* `results.jsonl`
+* `summary.tsv`
 
 ## Environment
 
@@ -33,16 +54,10 @@ This baseline was captured with:
 * Git revision: `ceb1a1a`
 * Timer precision: `ms`
 
-Notes:
-
-* This is an internal baseline for the current machine and repository revision.
-* The values will move with CPU model, filesystem cache, background load,
-  MoonBit runtime behavior, and benchmark corpus changes.
-* Warmup runs are not included in `results.jsonl` or `summary.tsv`.
-
 ## Summary
 
-The table below is the `summary.tsv` produced by the baseline command above.
+The checked-in baseline summary is the `summary.tsv` produced by the command
+above:
 
 ```tsv
 format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	asset_count_last
@@ -73,11 +88,14 @@ pdf	pdf_repeated_header_footer_variants_ext	3	0	295	302	308	301.7	745	0
 
 ## Interpretation
 
-Use this file as a reference point, not as a strict SLA:
+Use this file to:
 
-* Compare new runs against the same `git_rev` and machine before drawing
-  conclusions.
-* Prefer looking for large step changes, not small single-digit millisecond
-  movement.
-* Re-run with the same command when benchmarking code that may benefit from
-  filesystem cache or runtime warmup.
+* detect large regressions on the same machine
+* compare runs with the same corpus and similar environment
+* reason about relative benchmark tiers
+
+Do not use it as:
+
+* a strict pass/fail gate
+* a portability claim across machines
+* a guarantee that timings stay stable when the corpus changes

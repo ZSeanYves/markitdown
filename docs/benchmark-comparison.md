@@ -1,39 +1,35 @@
 # Benchmark Comparison
 
 This document describes the current overlap-only comparison benchmark between
-this repository and Microsoft MarkItDown.
+`markitdown-mb` and Microsoft MarkItDown.
 
-It is intentionally limited in scope. The goal of the first phase is to compare
-success rate, wall-clock cost, and output-size behavior on overlapping formats,
-not to declare semantic equivalence.
+It is a runner-level comparison harness, not a semantic-equivalence claim.
 
 ## Current Scope
 
 The current comparison benchmark:
 
-* compares the local runner and the Python Microsoft MarkItDown runner
+* compares the local MoonBit runner and the Python MarkItDown runner
 * uses explicit output paths for both sides
 * records measured rows to `results.jsonl`
 * records aggregate metrics to `summary.tsv`
 * supports warmup and repeated measured iterations
 
-The current comparison benchmark does **not**:
+It does not currently compare:
 
-* compare metadata semantics
-* compare asset-export semantics
-* compare image-context behavior
-* compare Markdown body similarity
-* enable OCR plugins
-* enable Azure Document Intelligence
-* include YAML, Markdown passthrough, or TSV in the first overlap-only phase
+* Markdown semantic equivalence
+* metadata semantics
+* asset-export semantics
+* image-context behavior
+* OCR or cloud/plugin-assisted execution
 
-## Current Overlap-only Corpus
+## Compared Corpus
 
-The checked-in corpus is:
+The checked-in overlap corpus is:
 
 * `samples/benchmark/compare_corpus.tsv`
 
-The current first-phase formats are:
+Current overlap formats:
 
 * DOCX
 * PPTX
@@ -42,81 +38,72 @@ The current first-phase formats are:
 * HTML
 * CSV
 
-These were chosen because they are part of the current overlap surface between
-the two tools without requiring sidecar parity, asset parity, or optional
-cloud/plugin flows.
+This benchmark does not try to cover every format supported by the repository.
+It only covers the current overlap surface that is practical to compare at the
+runner level.
 
 ## Runner Setup
 
-This repository runner is invoked with:
+Repository runner:
 
 ```bash
 moon run cli -- normal <input> <output.md>
 ```
 
-The Python runner is expected to come from a user-managed environment outside
-this repository. One simple option is to install it into an existing system,
-conda, or other external Python environment:
-
-```bash
-python -m pip install 'markitdown[all]==0.1.5'
-```
-
-The comparison harness resolves the Python runner in this order:
+Python runner resolution order:
 
 1. `MARKITDOWN_COMPARE_CMD`
 2. `markitdown` found in `PATH`
 3. `MARKITDOWN_COMPARE_PY_BIN` via `python -m markitdown`
 
-If none of the above are available, the script exits with a clear error and
-asks the user to install Microsoft MarkItDown themselves or provide
-`MARKITDOWN_COMPARE_CMD=/path/to/markitdown`.
+The harness does not create a repository-local Python virtual environment.
+
+One simple install option in a user-managed environment is:
+
+```bash
+python -m pip install 'markitdown[all]==0.1.5'
+```
 
 ## Environment Isolation
 
-The Python runner is isolated by the comparison harness with:
+The comparison harness isolates the Python runner with:
 
 * `TMPDIR`
 * `XDG_CACHE_HOME`
 * `HOME`
 
-It also avoids passing OCR / Azure / OpenAI-related execution options and does
-not enable plugin paths. The harness does not create or manage a repository-local
-`.venv`.
+It also avoids passing OCR / Azure / OpenAI / plugin-related execution options.
 
 ## Output Layout
 
-Comparison artifacts are written under:
+Artifacts are written under:
 
 ```bash
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 $TMP_ROOT/bench/compare
 ```
 
-Runner-separated outputs live under:
+Runner-specific outputs live under:
 
 * `.../mb/<format>/<sample>/iter-N/`
 * `.../python/<format>/<sample>/iter-N/`
 
-Top-level result files are:
+Top-level files:
 
 * `results.jsonl`
 * `summary.tsv`
 
 ## Interpretation
 
-Treat this benchmark as a runner-level comparison harness, not as a quality
-oracle.
-
-What it is good for:
+This benchmark is useful for:
 
 * success-rate comparison on overlapping inputs
-* rough performance comparison on the same machine
-* spotting large regressions or startup surprises
+* rough same-machine elapsed-time comparison
+* output-size comparison
 
-What it is not good for:
+It is not useful for:
 
-* proving Markdown semantic equivalence
-* comparing provenance quality
-* comparing image / asset / metadata fidelity
-* comparing OCR or cloud-assisted behavior
+* proving Markdown semantic parity
+* proving provenance parity
+* proving asset / metadata parity
+* evaluating OCR or cloud-assisted paths
