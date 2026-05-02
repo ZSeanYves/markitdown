@@ -13,7 +13,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("image" "html" "pdf" "pptx" "docx" "yaml" "markdown")
+FORMATS=("image" "html" "pdf" "pptx" "docx" "yaml" "markdown" "epub")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$META_DIR/$fmt"
@@ -45,6 +45,9 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     markdown)
       cmd=(find "$in_dir" -maxdepth 1 -type f \( -name "*.md" -o -name "*.markdown" \) -print)
+      ;;
+    epub)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.epub" -print)
       ;;
     *)
       continue

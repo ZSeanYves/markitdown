@@ -16,7 +16,7 @@ mkdir -p "$OUT_DIR"
 fail=0
 found=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown" "zip")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown" "zip" "epub")
 
 for fmt in "${FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
@@ -63,6 +63,9 @@ for fmt in "${FORMATS[@]}"; do
       ;;
     zip)
       cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.zip" -print)
+      ;;
+    epub)
+      cmd=(find "$in_dir" -maxdepth 1 -type f -name "*.epub" -print)
       ;;
     *)
       continue

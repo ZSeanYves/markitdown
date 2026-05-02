@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML / ZIP**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML / ZIP / EPUB**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -38,6 +38,7 @@ Current major capabilities include:
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
 * **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into table / list / code-block IR, with synthetic mapping tables carrying explicit header semantics
 * **ZIP**: safe container conversion for sorted safe archive entries, covering Markdown / CSV / TSV / JSON / YAML / static HTML plus self-contained DOCX / PPTX / XLSX / PDF entries, with archive-asset namespacing/remap and same-archive HTML local-image support through a safe extracted tree
+* **EPUB**: spine-driven container conversion based on `META-INF/container.xml` and OPF rootfile/manifest/spine parsing, with XHTML/HTML spine-item recovery, safe extracted-tree local image support, per-spine-item warning fallback, archive-style asset namespacing/remap, and lightweight OPF document metadata
 
 ### Short Support Matrix
 
@@ -53,6 +54,7 @@ Current major capabilities include:
 | YAML | A simple YAML subset maps conservatively into table / list / code-block IR; mapping tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, nested provenance, or cell-level metadata. |
 | Markdown | Source Markdown is preserved as the main output and only conservatively sliced for metadata. | Existing Markdown links are preserved because the original body is passed through. | Existing Markdown image syntax is preserved because the original body is passed through. | Conservative block `line_start/line_end` metadata is available without changing the body. | No Markdown AST parse, rewrite, validation, or remote asset parsing. |
 | ZIP | Supported safe archive entries are converted and concatenated under `# archive/path.ext` headings in normalized path order. | Link support depends on the nested supported entry converter. | Asset-producing nested entries are remapped under `assets/archive/<entry-id>/...` so repeated `image01.*` names do not collide; HTML local images work when safe sibling files exist in the same archive. | Entry blocks and remapped asset origins use the ZIP filename as `source_name` and normalized entry path as `key_path` / `source_path`; inner `relationship_id` / `object_ref` are preserved when present. | No remote fetch, binary preview, nested archive recursion, or unsafe HTML image `src`; remote/`data:`/absolute/root-relative/parent/scheme-like/backslash HTML image refs do not export assets, and normalized collisions or unsupported low-level ZIP features fail closed. |
+| EPUB | `META-INF/container.xml`, OPF rootfile resolution, manifest, and spine determine reading order; XHTML/HTML spine items are concatenated under stable wrapper headings, and per-item failures degrade to warning blocks. | HTML link support inside supported spine documents follows the existing HTML converter. | Local images work when the referenced files are safe entries in the same archive; exported assets are remapped under `assets/archive/<entry-id>/...` so repeated `image01.*` names do not collide. | Block and remapped asset origins use the EPUB filename as `source_name` and the spine item path as `key_path` / `source_path`; OPF `title` / `creator` / `date` / `modified` can populate document properties. | No DRM/encryption, CSS rendering, nav semantic reconstruction, fallback chains, remote fetch, unsafe OPF/html paths, nested archive recursion, or audio/video/font/SVG spine support; normalized collisions, `META-INF/encryption.xml`, and unsupported low-level ZIP features fail closed. |
 
 Across the current formats, document-style converters prefer readable partial
 recovery and conservative downgrade, while syntax-driven structured parsers such
@@ -74,6 +76,7 @@ Current text-format expansion stages:
 * **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
 * **F4 YAML**: simple-subset structured data -> unified IR table / `List` / `CodeBlock`, with mapping tables using explicit header semantics
 * **Z1.1c ZIP**: archive container -> sorted supported text / structured / Office / PDF / HTML entry conversion, with archive asset namespacing/remap and safe same-archive HTML local-image materialization
+* **E1.1 EPUB**: container.xml / OPF spine-driven EPUB conversion for XHTML/HTML spine items, with safe extracted-tree local images, archive-style asset remap, and lightweight OPF document metadata
 
 Current text-format boundaries:
 
@@ -82,6 +85,7 @@ Current text-format boundaries:
 * **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
 * **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
 * **ZIP**: supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`, `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` / `.htm`; self-contained DOCX / PPTX / XLSX / PDF assets are remapped into `assets/archive/<entry-id>/...`, and HTML local images only work for safe same-archive sibling files, without remote fetch, `data:`, absolute/root-relative paths, `..`, scheme-like/backslash `src`, or nested archive recursion
+* **EPUB**: reading order comes from `META-INF/container.xml` plus OPF manifest/spine rather than ZIP entry sort order; only XHTML/HTML spine items are converted, local images only work for safe same-archive sibling files, per-item failures degrade to warning blocks, and DRM/encryption, CSS rendering, nav semantic reconstruction, fallback chains, remote fetch, audio/video/font/SVG spine, scripts, or nested archive recursion are out of scope
 
 Current table IR status:
 
@@ -212,6 +216,7 @@ Current verifiably populated ranges include:
 * JSON / YAML blocks: root `key_path = "$"`
 * Markdown blocks: conservative `line_start` / `line_end`
 * HTML image assets: `source_path` from normalized `<img src>`
+* EPUB blocks/assets: spine item path as EPUB-level `key_path` / `source_path`, with OPF document metadata mapped into sidecar document properties when present
 
 Current image-context coverage includes:
 

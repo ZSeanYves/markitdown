@@ -122,6 +122,8 @@ Current fill matrix to keep in mind during development:
 * JSON / YAML blocks: root `key_path = "$"`
 * Markdown blocks: conservative `line_start` / `line_end`
 * HTML image assets: `source_path` from normalized `<img src>`
+* EPUB blocks/assets: spine item path as EPUB-level `key_path` /
+  `source_path`, with OPF metadata mapped into document properties when present
 
 Current explicit non-goals:
 
@@ -173,12 +175,16 @@ The currently landed text-format expansion stages are:
 * F2: JSON
 * F3: Markdown passthrough
 * F4: YAML
+* Z1.1c: ZIP container conversion
+* E1.1: EPUB conversion through container.xml / OPF spine parsing
 
 Development positioning:
 
 * CSV / TSV are delimited-table text converters that map source content into unified IR `Table`
 * JSON / YAML are structured-data converters that conservatively map source content into unified IR table / `List` / `CodeBlock`
 * Markdown is intentionally different: it is a low-loss passthrough path whose main output preserves the original Markdown source body
+* ZIP is a safe container converter that normalizes archive paths, processes supported entries in stable order, and remaps nested assets into archive namespaces
+* EPUB is a package-driven container converter that resolves `META-INF/container.xml` and OPF manifest/spine order, converts XHTML/HTML spine items through HTML, and reuses safe extracted-tree asset handling
 
 ## Current Table IR Status
 
@@ -518,6 +524,32 @@ explicit in code and tests:
   converter outputs such as `image01.*` never collide across entries
 * keep unsupported entries as blockquote warnings rather than failing the whole
   archive
+
+### When modifying EPUB conversion
+
+EPUB is a package-driven container converter, not a sorted ZIP passthrough.
+Keep these constraints explicit in code and tests:
+
+* require `META-INF/container.xml` and resolve the first usable OPF rootfile
+* resolve manifest `href` relative to the OPF directory, not archive sort order
+* drive final Markdown order from OPF spine order
+* keep shared extraction under `MARKITDOWN_TMP_DIR` when set, otherwise `.tmp`
+* only materialize safe normalized non-directory entries
+* keep XHTML/HTML local-image handling delegated to the existing HTML converter
+  through a safe extracted tree
+* keep remapped spine assets under `assets/archive/<entry-id>/...`
+* keep unsupported spine media and per-item conversion failures as blockquote
+  warnings rather than failing the whole EPUB
+* keep DRM/encryption, nav semantic reconstruction, CSS rendering, remote
+  fetch, and nested archive recursion explicitly out of scope
+
+Recommended EPUB regression entrypoints:
+
+* `doc_parse/epub/test`: container.xml, rootfile, manifest/spine, and path-safety coverage
+* `convert/epub/test`: black-box spine conversion, warning fallback, and asset remap coverage
+* `samples/main_process/epub`: end-to-end spine-order and Markdown output coverage
+* `samples/metadata/epub`: OPF document metadata sidecar coverage
+* `samples/test/epub`: negative fixtures for missing container, unsafe paths, normalized collisions, remote images, encryption markers, and unsupported spine media
 * fail closed on normalized-path collisions before building any shared
   extracted tree
 * keep HTML local-image materialization inside a safe extracted tree rooted
@@ -758,16 +790,10 @@ The following remain unsupported or intentionally disabled by default:
 
 ## Next Candidate Routes
 
-Recommended order for the next expansion phase:
+Recommended EPUB follow-up directions after the basic spine-based path:
 
-1. EPUB
-2. RTF
-3. ODT / ODS / ODP
-
-Rationale:
-
-* EPUB is valuable but requires package/navigation/content stitching.
-* RTF and OpenDocument formats are broader parser investments and should follow
-  after the lighter routes.
+1. EPUB nav / TOC semantic reconstruction
+2. EPUB CSS / semantic refinement
+3. EPUB advanced media / fallback handling
 
 ```

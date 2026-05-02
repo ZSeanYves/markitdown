@@ -58,6 +58,7 @@ pub async fn parse_to_ir(
     "md" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
     "markdown" => Ok(@md.parse_markdown(input_path, out_dir_str, max_h))
     "zip" => Ok(@zipconv.parse_zip(input_path, out_dir_str, max_h))
+    "epub" => Ok(@epub.parse_epub(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
 }

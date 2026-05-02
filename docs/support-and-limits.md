@@ -25,6 +25,7 @@ The unified entry currently supports:
 - YAML (`.yaml` / `.yml`)
 - Markdown (`.md` / `.markdown`)
 - ZIP (`.zip`)
+- EPUB (`.epub`)
 
 Inputs outside the above extensions are rejected by the dispatcher.
 
@@ -37,6 +38,7 @@ The currently landed text-format expansion stages are:
 - F3: Markdown passthrough
 - F4: YAML
 - Z1.1c: ZIP container conversion for text / structured / Office / PDF / HTML entries, including archive asset namespace/remap and same-archive HTML local images
+- E1.1: EPUB container conversion for OPF/spine-ordered XHTML/HTML content, including safe extracted-tree local images, archive-style asset namespace/remap, and lightweight OPF metadata
 
 Their positioning is intentionally different:
 
@@ -48,6 +50,9 @@ Their positioning is intentionally different:
 - ZIP is a container input: supported entries are converted with existing
   path-based converters and concatenated under archive-path headings, while
   exported nested assets are remapped into an archive namespace
+- EPUB is a package-driven container input: `META-INF/container.xml` and OPF
+  manifest/spine determine reading order, while XHTML/HTML spine items are
+  converted through the existing HTML pipeline
 
 ## 4) Current Mainflow Capability
 
@@ -134,6 +139,9 @@ Current verifiable fill ranges:
 - JSON / YAML blocks: root `key_path = "$"`
 - Markdown blocks: conservative `line_start` / `line_end`
 - HTML image assets: `source_path` from normalized `<img src>`
+- EPUB blocks/assets: spine item path as EPUB-level `key_path` /
+  `source_path`, with OPF `title` / `creator` / `date` / `modified` mapped into
+  document properties when available
 
 The metadata schema is unchanged; G2 only refines population inside the
 existing contract.
@@ -268,6 +276,91 @@ Explicitly unsupported / out of scope:
 - streaming archive conversion
 - `.txt` conversion without a dedicated text converter
 - preserving inner HTML image `src` as a separate metadata field
+
+### 8.1.1 EPUB
+
+Currently supported:
+
+- `.epub` archives are opened through the shared low-level ZIP reader.
+- `META-INF/container.xml` is required and the first usable `rootfile
+  full-path` is used.
+- Rootfile and OPF manifest paths are safely resolved as relative archive paths;
+  absolute, root-relative, Windows-drive, scheme-like, empty-segment, `.`, and
+  `..` paths are rejected.
+- OPF manifest items are resolved relative to the OPF directory.
+- OPF spine order drives Markdown reading order; ZIP entry sort order is not
+  used for final document order.
+- Spine items with `linear="no"` are skipped by default.
+- Supported spine content is limited to `application/xhtml+xml`, `text/html`,
+  and `.xhtml` / `.html` / `.htm` extension fallback.
+- Each supported spine document is converted through the existing HTML
+  converter and wrapped under a stable heading:
+  `# path/to/content.xhtml`.
+- A shared extracted tree is built under `MARKITDOWN_TMP_DIR` when set,
+  otherwise under `.tmp/epub/<archive-name>/extracted/`, using only safe
+  normalized non-directory entries.
+- Directory entries plus common macOS metadata entries are skipped during EPUB
+  materialization.
+- Safe same-archive local images work through that extracted tree plus the
+  existing HTML local-image rules.
+- Exported spine assets are remapped under `assets/archive/<entry-id>/...`.
+- OPF `dc:title`, `dc:creator`, `dc:date`, and `meta
+  property="dcterms:modified"` can populate document properties.
+
+Graceful degradation:
+
+- Unsupported spine media types emit a blockquote warning for that spine item
+  instead of failing the whole book.
+- If one supported spine document fails conversion, only that spine item emits
+  a warning block.
+- Remote, `data:`, absolute, root-relative, parent-traversal, scheme-like, or
+  backslash HTML image refs degrade through the existing HTML converter and do
+  not export assets.
+- Missing or invalid OPF/container parts fail the EPUB closed.
+- Normalized path collisions fail the EPUB closed before extraction.
+- `META-INF/encryption.xml` causes EPUB conversion to fail closed.
+- Low-level ZIP reader rejections such as encrypted archives, ZIP64,
+  data-descriptor-dependent entries, multi-disk archives, or duplicate raw
+  entry names fail closed.
+
+Metadata / assets / origin:
+
+- The metadata schema is unchanged.
+- Block origins use the EPUB filename as `source_name` and the spine item path
+  as `key_path`.
+- Remapped asset origins use the EPUB filename as `source_name` and the spine
+  item path as both `source_path` and `key_path`.
+- Remapped asset `origin_id` is namespaced at the EPUB/spine level while
+  preserving existing inner image-context fields such as `nearby_caption`.
+- Multiple spine documents producing local converter asset names such as
+  `assets/image01.*` stay isolated under `assets/archive/<entry-id>/...`.
+
+Link support:
+
+- Supported XHTML/HTML spine documents inherit the current HTML link behavior.
+- OPF nav/NCX semantic reconstruction is not performed.
+
+Image context:
+
+- Supported XHTML/HTML spine documents inherit the current HTML image-context
+  behavior.
+- HTML local images are supported only when the referenced files are safe
+  entries in the same EPUB and the `src` passes the existing conservative local
+  path rules.
+
+Explicitly unsupported / out of scope:
+
+- DRM / encryption
+- CSS rendering
+- nav / NCX semantic reconstruction
+- fallback chains
+- remote fetch
+- absolute / root-relative / parent-traversal / scheme-like OPF or HTML paths
+- scripts
+- nested archive recursion
+- audio / video / embedded fonts
+- SVG spine support
+- MIME sniffing beyond the existing HTML asset behavior
 
 ### 8.2 DOCX
 

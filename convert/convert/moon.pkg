@@ -10,6 +10,7 @@ import {
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,
   "ZSeanYves/markitdown/convert/zip" @zipconv,
+  "ZSeanYves/markitdown/convert/epub" @epub,
 }
 
 options(

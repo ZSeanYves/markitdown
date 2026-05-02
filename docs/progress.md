@@ -18,6 +18,7 @@ The current format-expansion stage has landed four text / structured-input paths
 * Markdown passthrough
 * YAML
 * ZIP container conversion for text / structured / Office / PDF / HTML entries
+* EPUB container conversion for OPF/spine-ordered XHTML/HTML content
 
 Current positioning:
 
@@ -30,6 +31,9 @@ Current positioning:
 * ZIP: safe archive traversal that converts supported entries in normalized path
   order, remaps nested assets into archive namespaces, and supports same-archive
   HTML local images through a safe extracted tree
+* EPUB: package-driven traversal that resolves `META-INF/container.xml` plus
+  OPF manifest/spine order, converts XHTML/HTML spine items through the HTML
+  pipeline, and remaps exported spine assets into archive namespaces
 
 ## 2. General Capabilities
 
@@ -177,6 +181,54 @@ Current explicitly deferred ZIP scope:
 * `.txt` conversion without a dedicated text converter
 * preserving inner HTML image `src` as a separate metadata field
 
+### E1. EPUB Conversion
+
+Current landed scope:
+
+* E1.1 EPUB conversion through `META-INF/container.xml` and OPF manifest/spine
+  parsing
+
+Current outcome:
+
+* `.epub` inputs route through a dedicated package parser rather than ZIP entry
+  sort order
+* the converter requires `META-INF/container.xml`, resolves the first usable
+  OPF rootfile, and reads manifest / spine metadata
+* rootfile and manifest paths are safe-resolved as relative archive paths
+* directory entries and common macOS metadata entries are skipped during safe
+  materialization
+* final Markdown order follows OPF spine order, not archive order
+* supported spine content is limited to XHTML/HTML
+* each converted spine document is wrapped under a stable `# path/to/item`
+  heading
+* same-archive local images work when the referenced files are safe entries in
+  the same EPUB and the `src` stays within the existing conservative HTML local
+  path rules
+* exported spine assets are remapped under `assets/archive/<entry-id>/...` so
+  repeated local converter names such as `image01.*` do not collide
+* unsupported spine media and per-item conversion failures degrade to
+  blockquote warnings instead of failing the whole book
+* OPF `title` / `creator` / `date` / `modified` can populate sidecar document
+  properties without changing the metadata schema
+* normalized path collisions, invalid container/OPF paths,
+  `META-INF/encryption.xml`, and unsupported low-level ZIP features fail closed
+* regression coverage is wired through `doc_parse/epub/test`,
+  `convert/epub/test`, plus `samples/main_process/epub`,
+  `samples/metadata/epub`, and `samples/test/epub`
+
+Current explicitly deferred EPUB scope:
+
+* DRM/encryption support
+* CSS rendering
+* nav / NCX semantic reconstruction
+* fallback chains
+* remote fetch
+* scripts
+* nested archive recursion
+* audio / video / embedded fonts
+* SVG spine support
+* preserving inner HTML image `src` as a separate metadata field
+
 ## 3. Benchmark
 
 Current benchmark infrastructure has landed in four pieces:
@@ -222,7 +274,9 @@ Reasonable next candidates after the current stage:
 
 * B5: Python MarkItDown comparison audit
 * OCR regression closure
-* EPUB / ZIP expansion
+* EPUB nav / TOC semantic reconstruction
+* EPUB CSS / semantic refinement
+* EPUB advanced media / fallback handling
 * ZIP HTML dependency refinement beyond safe sibling materialization
 * PDF core / convert next round
 

@@ -7,7 +7,7 @@ EXP_DIR="$SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown" "zip")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown" "zip" "epub")
 
 fail=0
 

@@ -168,6 +168,64 @@ if [[ -d "$zip_dir" ]]; then
   done < <(find "$zip_dir" -maxdepth 1 -type f -name "*.zip" -print | sort)
 fi
 
+epub_dir="$MAIN_SAMPLES_DIR/epub"
+epub_exp_dir="$MAIN_EXP_DIR/epub"
+
+if [[ -d "$epub_dir" ]]; then
+  while IFS= read -r epub_sample; do
+    [[ -z "$epub_sample" ]] && continue
+    found=1
+
+    base="$(basename "$epub_sample")"
+    name="${base%.*}"
+    epub_out_dir="$OUT_DIR/epub-$name"
+    epub_out_md="$epub_out_dir/$name.md"
+    epub_expected="$epub_exp_dir/$name.md"
+
+    rm -rf "$epub_out_dir"
+    mkdir -p "$epub_out_dir"
+
+    echo "==> checking epub assets"
+    echo "==> converting main_process/epub/$base"
+    moon run "$ROOT/cli" -- normal "$epub_sample" "$epub_out_md"
+
+    if [[ ! -f "$epub_out_md" ]]; then
+      echo "missing markdown output for epub asset sample: $epub_out_md"
+      fail=1
+      continue
+    fi
+
+    if [[ ! -f "$epub_expected" ]]; then
+      echo "!! expected missing: $epub_expected"
+      echo "   create with: cp \"$epub_out_md\" \"$epub_expected\""
+      fail=1
+      continue
+    fi
+
+    echo "==> diff main_process/epub/$name"
+    if ! diff -u "$epub_expected" "$epub_out_md"; then
+      echo "!! mismatch: main_process/epub/$name"
+      fail=1
+    fi
+
+    refs="$(extract_asset_refs "$epub_out_dir")"
+    if [[ -n "${refs//[$'\t\r\n ']}" ]]; then
+      missing=0
+      while IFS= read -r ref; do
+        [[ -z "$ref" ]] && continue
+        if [[ ! -f "$epub_out_dir/$ref" ]]; then
+          echo "missing asset for main_process/epub/$name: $epub_out_dir/$ref"
+          missing=1
+        fi
+      done <<< "$refs"
+
+      if [[ $missing -ne 0 ]]; then
+        fail=1
+      fi
+    fi
+  done < <(find "$epub_dir" -maxdepth 1 -type f -name "*.epub" -print | sort)
+fi
+
 if [[ $found -eq 0 ]]; then
   echo "No asset sample files found under $ASSETS_DIR for: ${FORMATS[*]}"
   exit 1

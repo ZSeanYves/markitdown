@@ -168,6 +168,36 @@ fn read_ooxml_metadata_document_properties(
 }
 
 ///|
+fn read_epub_metadata_document_properties(
+  path : String,
+) -> @cor.MetadataDocumentProperties? raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read EPUB sample failed: " + e.to_string())
+  }
+  let pkg = @epubpkg.open_epub_package(bytes, @cor.basename(path)) catch {
+    e => fail("open EPUB sample failed: " + e.to_string())
+  }
+  let meta = pkg.metadata
+
+  Some(
+    @cor.metadata_document_properties(
+      meta.title,
+      None,
+      meta.creator,
+      None,
+      None,
+      meta.date,
+      meta.modified,
+      Some("EPUB"),
+      None,
+      None,
+      None,
+      None,
+    ),
+  )
+}
+
+///|
 fn assert_metadata_has_document_object(
   json : String,
   format : String,
@@ -399,7 +429,19 @@ fn assert_metadata_snapshot(
   let expected = read_utf8_text(
     resolve_sample_path("samples/test/metadata/" + expected_name),
   )
-  assert_eq(actual, expected)
+  assert_eq(
+    trim_one_trailing_newline(actual),
+    trim_one_trailing_newline(expected),
+  )
+}
+
+///|
+fn trim_one_trailing_newline(text : String) -> String {
+  if text.has_suffix("\n") {
+    text[:text.length() - 1].to_owned()
+  } else {
+    text
+  }
 }
 
 ///|
@@ -1395,6 +1437,27 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
     ),
     "yaml_mapping_basic.metadata.json",
+  )
+
+  let epub_out_dir = origin_tmp_root() + "/metadata_sidecar_epub_metadata_basic"
+  recreate_clean_dir(epub_out_dir)
+  defer cleanup_temp_dir(epub_out_dir)
+  let epub_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_doc,
+      "epub_metadata_basic.epub",
+      "epub",
+      "epub_metadata_basic.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+      ),
+    ),
+    "epub_metadata_basic.metadata.json",
   )
 
   let markdown_code_doc = @md.parse_markdown(

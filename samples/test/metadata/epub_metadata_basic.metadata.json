@@ -1,0 +1,77 @@
+{
+  "version": "1",
+  "source_name": "epub_metadata_basic.epub",
+  "format": "epub",
+  "markdown_file": "epub_metadata_basic.md",
+  "document": {
+  "title": "EPUB Metadata Sample",
+  "subject": null,
+  "creator": "Example Author",
+  "description": null,
+  "keywords": null,
+  "created": "2024-01-15",
+  "modified": "2024-01-16T09:30:00Z",
+  "application": "EPUB",
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 3,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "OPS/chapter.xhtml",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_basic.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "Metadata Chapter",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_basic.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "Metadata sample body.",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_basic.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}
