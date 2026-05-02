@@ -11,7 +11,7 @@ It is no longer best described as just a “document-to-Markdown converter”. I
 * lightweight provenance tracking
 * downstream integration for knowledge bases, RAG, auditing, and content processing workflows
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / JSON / Markdown / YAML / ZIP / EPUB**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
+The project currently supports **DOCX / PDF / XLSX / PPTX / HTML / CSV / TSV / TXT / XML / JSON / Markdown / YAML / ZIP / EPUB**, and can produce structured Markdown, extracted assets, and metadata sidecars when needed.
 
 Currently supported platforms:
 
@@ -34,6 +34,8 @@ Current major capabilities include:
 * **PPTX**: reading-order recovery, title/body separation, list recovery, handling of table-like / caption-like / callout-like regions, conservative caption / nearby-text attachment for single-image slides, basic run-level and shape-level hyperlink recovery, and source-native picture `descr/title` mapping with synthetic alt only as fallback
 * **HTML**: lightweight DOM-semantic parsing with support for list / table / block quote / code block / local-container structure recovery, explicit table-header semantics when `<th>` or `<thead>` is present, inline hyperlink recovery, image-context retention for `<img alt>`, `<img title>`, `<figure>`, and `<figcaption>`, and normalized local image `source_path`
 * **CSV / TSV**: delimiter-based table conversion with quoted fields, escaped quotes, empty cells, and ragged-row padding
+* **TXT**: conservative plain-text paragraph conversion for `.txt`, with UTF-8 BOM removal, CRLF/CR normalization, empty-line paragraph boundaries, and multi-line paragraph joining by single spaces
+* **XML**: conservative source-preserving conversion for `.xml`, emitted as fenced `xml` code blocks after UTF-8 BOM removal and CRLF/CR normalization, without XML-specific semantic recovery
 * **JSON**: conservative structured-data conversion for objects, arrays, scalars, and nested values; synthetic object and array-of-objects tables carry explicit header semantics
 * **Markdown**: source-preserving passthrough for `.md` / `.markdown`, using `passthrough_markdown` for final output and only normalizing the final trailing newline
 * **YAML**: conservative simple-subset structured-data conversion for `.yaml` / `.yml`, mapping common mappings/sequences into table / list / code-block IR, with synthetic mapping tables carrying explicit header semantics
@@ -50,6 +52,8 @@ Current major capabilities include:
 | PDF | Text-oriented structural recovery rebuilds headings, paragraphs, lists, and exported images conservatively. | Annotation/link data exists in debug/model layers but is not emitted as Markdown links by default. | Exported images use unified `ImageBlock` with conservative single-image bbox-gated caption pairing. | Page block origin and image asset `object_ref` are populated on a lightweight basis. | Semantic Table IR, default annotation-link emission, and full complex-layout recovery are not enabled. |
 | HTML | Lightweight semantic scanning recovers headings, lists, block quotes, code blocks, and tables; `<th>` / `<thead>` tables use explicit header semantics. | Inline `<a href>` links are preserved in supported rich-inline contexts. | Local images preserve `alt/title`, `figure/figcaption`, and normalized `source_path`. | Block origin is lightweight and local image assets can populate `source_path`. | No browser DOM/CSS/JS rendering, remote fetch, DOM path, block line-range anchoring, or rowspan/colspan reconstruction. |
 | CSV / TSV | Delimited text is emitted as one unified `Table` with quoted-newline and ragged-row handling. | No link model is applied. | No image model is applied. | Block origin carries physical line range plus `row_index = 1` and `column_index = 1`. | No streaming, dialect sniffing, schema detection, comments, or type inference. |
+| TXT | Plain text is grouped into paragraph blocks separated by empty lines; non-empty lines inside one paragraph are joined with single spaces after newline normalization. | No link model is applied. | No image model is applied. | Block origin carries conservative paragraph `line_start/line_end`. | No Markdown semantics, heading/list/table/code recognition, non-UTF-8 encoding detection, or asset export. |
+| XML | Source XML is preserved as a fenced `xml` code block after BOM/newline normalization. | No link model is applied. | No image model is applied. | Block origin carries conservative whole-document `line_start/line_end`. | No XML semantic recovery, namespace interpretation, external entity loading, DTD expansion, schema validation, non-UTF-8 encoding detection, or asset export. |
 | JSON | Objects, regular object arrays, scalar arrays, and ambiguous nested values map conservatively into table / list / code-block IR; object tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No JSON Schema, JSON Lines, streaming, nested provenance, or cell-level metadata. |
 | YAML | A simple YAML subset maps conservatively into table / list / code-block IR; mapping tables use explicit header semantics. | No link model is applied. | No image model is applied. | Root block origin can populate `key_path = "$"`. | No anchors, aliases, tags, block scalars, flow style, multi-doc input, nested provenance, or cell-level metadata. |
 | Markdown | Source Markdown is preserved as the main output and only conservatively sliced for metadata. | Existing Markdown links are preserved because the original body is passed through. | Existing Markdown image syntax is preserved because the original body is passed through. | Conservative block `line_start/line_end` metadata is available without changing the body. | No Markdown AST parse, rewrite, validation, or remote asset parsing. |
@@ -75,16 +79,20 @@ Current text-format expansion stages:
 * **F2 JSON**: structured data -> unified IR table / `List` / `CodeBlock`, with object tables using explicit header semantics
 * **F3 Markdown passthrough**: original Markdown body preserved through `passthrough_markdown`
 * **F4 YAML**: simple-subset structured data -> unified IR table / `List` / `CodeBlock`, with mapping tables using explicit header semantics
+* **F5 TXT**: plain-text input -> conservative paragraph-only IR with BOM/newline normalization and empty-line paragraph boundaries
+* **F6 XML**: source XML input -> conservative fenced `xml` passthrough with BOM/newline normalization and no XML semantic reconstruction
 * **Z1.1c ZIP**: archive container -> sorted supported text / structured / Office / PDF / HTML entry conversion, with archive asset namespacing/remap and safe same-archive HTML local-image materialization
 * **E1.1 EPUB**: container.xml / OPF spine-driven EPUB conversion for XHTML/HTML spine items, with safe extracted-tree local images, archive-style asset remap, and lightweight OPF document metadata
 
 Current text-format boundaries:
 
 * **CSV / TSV**: no streaming path, dialect sniffing, or schema inference
+* **TXT**: no Markdown semantics, no heading/list/table/code heuristics, no complex encoding auto-detection, and no asset export
+* **XML**: no XML semantic recovery, no external entity / DTD expansion, no schema validation, no namespace semantics, no complex encoding auto-detection, and no asset export
 * **JSON**: no JSON Schema, JSON Lines, or streaming parser path
 * **Markdown**: no AST parse and no rewriting of link / image / table / code / frontmatter semantics
 * **YAML**: only a simple subset is supported; anchors / aliases / tags / block scalar / flow style / multi-document input are out of scope
-* **ZIP**: supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.json`, `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` / `.htm`; self-contained DOCX / PPTX / XLSX / PDF assets are remapped into `assets/archive/<entry-id>/...`, and HTML local images only work for safe same-archive sibling files, without remote fetch, `data:`, absolute/root-relative paths, `..`, scheme-like/backslash `src`, or nested archive recursion
+* **ZIP**: supported entries are `.md` / `.markdown`, `.csv` / `.tsv`, `.txt`, `.xml`, `.json`, `.yaml` / `.yml`, `.docx`, `.pdf`, `.xlsx`, `.pptx`, and `.html` / `.htm`; self-contained DOCX / PPTX / XLSX / PDF assets are remapped into `assets/archive/<entry-id>/...`, and HTML local images only work for safe same-archive sibling files, without remote fetch, `data:`, absolute/root-relative paths, `..`, scheme-like/backslash `src`, or nested archive recursion
 * **EPUB**: reading order comes from `META-INF/container.xml` plus OPF manifest/spine rather than ZIP entry sort order; only XHTML/HTML spine items are converted, local images only work for safe same-archive sibling files, per-item failures degrade to warning blocks, and DRM/encryption, CSS rendering, nav semantic reconstruction, fallback chains, remote fetch, audio/video/font/SVG spine, scripts, or nested archive recursion are out of scope
 
 Current table IR status:

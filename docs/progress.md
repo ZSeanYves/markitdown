@@ -7,16 +7,18 @@ This document is a stage-level progress snapshot. It is meant to answer:
 * what is explicitly deferred to later rounds
 * what the next candidate workstreams are
 
-For detailed support boundaries, use [docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md). For benchmark execution details, use [docs/development.md](/home/zseanyves/markitdown/docs/development.md). For the current internal benchmark reference, use [docs/benchmark-baseline.md](/home/zseanyves/markitdown/docs/benchmark-baseline.md).
+For detailed support boundaries, use [docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md). For benchmark execution details, use [docs/development.md](/home/zseanyves/markitdown/docs/development.md). For the current internal benchmark reference, use [docs/benchmark-baseline.md](/home/zseanyves/markitdown/docs/benchmark-baseline.md). For the current overlap-only comparison reference, use [docs/benchmark-comparison-baseline.md](/home/zseanyves/markitdown/docs/benchmark-comparison-baseline.md).
 
 ## 1. Format Expansion
 
-The current format-expansion stage has landed four text / structured-input paths:
+The current format-expansion stage has landed eight input-expansion paths:
 
 * CSV / TSV
 * JSON
 * Markdown passthrough
 * YAML
+* TXT plain-text conversion
+* XML conservative source-preserving conversion
 * ZIP container conversion for text / structured / Office / PDF / HTML entries
 * EPUB container conversion for OPF/spine-ordered XHTML/HTML content
 
@@ -28,6 +30,10 @@ Current positioning:
   `Table` / `List` / `CodeBlock`
 * Markdown passthrough: low-loss path that preserves the source Markdown body
   rather than rebuilding from a Markdown AST
+* TXT: plain-text input mapped conservatively into paragraph-only IR with
+  UTF-8 BOM removal, newline normalization, and empty-line paragraph boundaries
+* XML: source XML mapped conservatively into fenced `xml` Markdown with UTF-8
+  BOM removal, newline normalization, and no XML semantic reconstruction
 * ZIP: safe archive traversal that converts supported entries in normalized path
   order, remaps nested assets into archive namespaces, and supports same-archive
   HTML local images through a safe extracted tree
@@ -178,8 +184,59 @@ Current explicitly deferred ZIP scope:
 * binary preview
 * full archive extraction without the existing safety checks
 * streaming archive conversion
-* `.txt` conversion without a dedicated text converter
 * preserving inner HTML image `src` as a separate metadata field
+
+### F5. TXT Plain-text Conversion
+
+Current landed scope:
+
+* F5 TXT conservative plain-text conversion
+
+Current outcome:
+
+* `.txt` inputs route through a dedicated plain-text converter
+* UTF-8 BOM is removed when present
+* CRLF / CR line endings are normalized to LF before block splitting
+* empty lines define paragraph boundaries
+* consecutive non-empty lines inside one paragraph are joined with single spaces
+* output stays paragraph-only; heading/list/table/code/image recognition is not applied
+* metadata schema remains unchanged; paragraph blocks populate lightweight
+  `source_name` and conservative `line_start` / `line_end`
+* no asset export path is involved
+
+Current explicitly deferred TXT scope:
+
+* Markdown semantics on plain-text input
+* complex encoding auto-detection
+* heading/list/table/code heuristics
+* asset export
+
+### F6. XML Conservative Conversion
+
+Current landed scope:
+
+* F6 XML conservative source-preserving conversion
+
+Current outcome:
+
+* `.xml` inputs route through a dedicated conservative converter
+* UTF-8 BOM is removed when present
+* CRLF / CR line endings are normalized to LF before emission
+* output is preserved as fenced `xml` Markdown rather than structurally rebuilt
+* metadata schema remains unchanged; the whole source is summarized as one
+  `CodeBlock` with lightweight `source_name` and conservative `line_start` /
+  `line_end`
+* no asset export path is involved
+
+Current explicitly deferred XML scope:
+
+* XML semantic recovery
+* namespace interpretation
+* external entity loading
+* DTD expansion
+* schema validation
+* complex encoding auto-detection
+* specialized handling for `.xhtml`, `.rss`, `.atom`, `.opf`, or `.svg`
 
 ### E1. EPUB Conversion
 
@@ -231,17 +288,21 @@ Current explicitly deferred EPUB scope:
 
 ## 3. Benchmark
 
-Current benchmark infrastructure has landed in four pieces:
+Current benchmark infrastructure has landed in six pieces:
 
 * smoke benchmark corpus and runner
 * iterations / warmup controls
 * optional benchmark tiers
-* baseline documentation
+* internal benchmark baseline documentation
+* overlap-only comparison benchmark harness
+* comparison baseline documentation
 
 Current benchmark surface:
 
 * `samples/bench_smoke.sh`
+* `samples/bench_compare_markitdown.sh`
 * `samples/benchmark/corpus.tsv`
+* `samples/benchmark/compare_corpus.tsv`
 * `results.jsonl`
 * `summary.tsv`
 
@@ -250,8 +311,10 @@ Current benchmark capabilities:
 * default `smoke` tier for low-cost daily runs
 * optional `image`, `metadata`, `extended`, and `all` tiers
 * configurable `BENCH_ITERATIONS` / `BENCH_WARMUP`
+* overlap-only comparison against a user-managed external `markitdown` command
 * isolated benchmark output under `MARKITDOWN_TMP_DIR`
-* checked-in internal baseline documentation for the current environment
+* checked-in internal and comparison baseline documentation for the current
+  environment
 
 ## 4. Explicitly Deferred / Not Yet Done
 
@@ -264,7 +327,6 @@ The following items are intentionally not claimed as done at the current stage:
 * table alignment / span / merged-cell reconstruction
 * JSON / YAML nested provenance
 * OCR as the default conversion path
-* Python MarkItDown benchmark comparison
 
 These are deferred items, not hidden behavior gaps.
 
@@ -272,7 +334,6 @@ These are deferred items, not hidden behavior gaps.
 
 Reasonable next candidates after the current stage:
 
-* B5: Python MarkItDown comparison audit
 * OCR regression closure
 * EPUB nav / TOC semantic reconstruction
 * EPUB CSS / semantic refinement
@@ -288,7 +349,7 @@ At the current point, the repository has:
 * a stable metadata-sidecar contract for current G2 / G3 scope
 * completed G5 table semantics for explicit headers and RichTable metadata
 * a documented degradation model instead of ad hoc fallback behavior
-* an internal benchmark harness with baseline recording
+* internal and comparison benchmark harnesses with checked-in baseline records
 
 This is enough to treat the current stage as a coherent, documented milestone,
 while still keeping the deferred items explicit for future work.

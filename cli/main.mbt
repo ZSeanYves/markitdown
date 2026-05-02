@@ -20,7 +20,7 @@ async fn main {
             help="Also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.json/.zip/.epub)",
+            help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.txt/.xml/.json/.zip/.epub)",
           ),
         },
       ),

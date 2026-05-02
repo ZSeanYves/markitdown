@@ -7,7 +7,7 @@ EXP_DIR="$SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "json" "yaml" "markdown" "zip" "epub")
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
 
 fail=0
 
@@ -50,6 +50,10 @@ for fmt in "${FORMATS[@]}"; do
       [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && echo "$name"
     elif [[ "$fmt" == "markdown" ]]; then
       [[ "$ext_lc" =~ ^(md|markdown)$ ]] && echo "$name"
+    elif [[ "$fmt" == "txt" ]]; then
+      [[ "$ext_lc" == "txt" ]] && echo "$name"
+    elif [[ "$fmt" == "xml" ]]; then
+      [[ "$ext_lc" == "xml" ]] && echo "$name"
     else
       [[ "$ext_lc" == "$fmt" ]] && echo "$name"
     fi
@@ -119,6 +123,10 @@ for fmt in "${FORMATS[@]}"; do
       [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && enrolled=true
     elif [[ "$fmt" == "markdown" ]]; then
       [[ "$ext_lc" =~ ^(md|markdown)$ ]] && enrolled=true
+    elif [[ "$fmt" == "txt" ]]; then
+      [[ "$ext_lc" == "txt" ]] && enrolled=true
+    elif [[ "$fmt" == "xml" ]]; then
+      [[ "$ext_lc" == "xml" ]] && enrolled=true
     else
       [[ "$ext_lc" == "$fmt" ]] && enrolled=true
     fi

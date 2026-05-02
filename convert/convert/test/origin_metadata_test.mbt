@@ -1094,6 +1094,66 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("markdown metadata should keep document null")
   }
 
+  let txt_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
+    "",
+    6,
+  )
+  let txt_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/txt/txt_paragraphs.md"),
+  )
+  if @cor.emit_markdown(txt_doc) != txt_expected {
+    fail("txt output should preserve paragraph-only plain-text semantics")
+  }
+  let txt_json = @cor.emit_metadata_json(
+    txt_doc, "txt_paragraphs.txt", "txt", "txt_paragraphs.md",
+  )
+  if !txt_json.contains("\"format\": \"txt\"") {
+    fail("txt metadata should contain txt format")
+  }
+  if !txt_json.contains("\"source_name\": \"txt_paragraphs.txt\"") {
+    fail("txt metadata should contain source_name")
+  }
+  if !txt_json.contains("\"block_count\": 2") {
+    fail("txt metadata should contain two paragraph blocks")
+  }
+  if !txt_json.contains("\"asset_count\": 0") {
+    fail("txt metadata should contain zero assets")
+  }
+  if !txt_json.contains("\"document\": null") {
+    fail("txt metadata should keep document null")
+  }
+
+  let xml_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_basic.xml"),
+    "",
+    6,
+  )
+  let xml_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_basic.md"),
+  )
+  if @cor.emit_markdown(xml_doc) != xml_expected {
+    fail("xml output should preserve source as fenced xml markdown")
+  }
+  let xml_json = @cor.emit_metadata_json(
+    xml_doc, "xml_basic.xml", "xml", "xml_basic.md",
+  )
+  if !xml_json.contains("\"format\": \"xml\"") {
+    fail("xml metadata should contain xml format")
+  }
+  if !xml_json.contains("\"source_name\": \"xml_basic.xml\"") {
+    fail("xml metadata should contain source_name")
+  }
+  if !xml_json.contains("\"block_count\": 1") {
+    fail("xml metadata should contain one code block")
+  }
+  if !xml_json.contains("\"asset_count\": 0") {
+    fail("xml metadata should contain zero assets")
+  }
+  if !xml_json.contains("\"document\": null") {
+    fail("xml metadata should keep document null")
+  }
+
   let frontmatter_path = resolve_sample_path(
     "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
   )
@@ -1253,6 +1313,34 @@ test "origin_metadata/structured_text_block_origins" {
   }
   if markdown_no_newline_origin.line_end != Some(1) {
     fail("markdown no-trailing-newline block should end at line 1")
+  }
+
+  let txt_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
+    "",
+    6,
+  )
+  if txt_doc.blocks.val.length() != 2 {
+    fail("txt_paragraphs should emit exactly two paragraph blocks")
+  }
+
+  let txt_first = block_origin_at(txt_doc, 0)
+  if txt_first.line_start != Some(1) {
+    fail("txt first paragraph should start at line 1")
+  }
+  if txt_first.line_end != Some(2) {
+    fail("txt first paragraph should end at line 2")
+  }
+  if txt_first.key_path != None {
+    fail("txt paragraph should not set key_path")
+  }
+
+  let txt_second = block_origin_at(txt_doc, 1)
+  if txt_second.line_start != Some(4) {
+    fail("txt second paragraph should start at line 4")
+  }
+  if txt_second.line_end != Some(5) {
+    fail("txt second paragraph should end at line 5")
   }
 }
 

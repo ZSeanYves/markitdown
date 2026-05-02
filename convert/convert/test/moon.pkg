@@ -8,6 +8,8 @@ import {
   "ZSeanYves/markitdown/convert/pptx" @pptx,
   "ZSeanYves/markitdown/convert/html" @html,
   "ZSeanYves/markitdown/convert/csv" @csv,
+  "ZSeanYves/markitdown/convert/txt" @txt,
+  "ZSeanYves/markitdown/convert/xml" @xml,
   "ZSeanYves/markitdown/convert/json" @json,
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,

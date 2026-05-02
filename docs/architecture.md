@@ -37,7 +37,7 @@ Boundaries:
 
 Responsibilities:
 
-- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/json/yaml/yml/md/markdown`)
+- Route inputs to the corresponding parser based on file extension (`docx/pdf/xlsx/pptx/html/csv/tsv/txt/xml/json/yaml/yml/md/markdown/zip/epub`)
 
 Boundaries:
 
@@ -58,11 +58,19 @@ Current format-expansion stages in this layer:
 - F2: JSON
 - F3: Markdown passthrough
 - F4: YAML
+- F5: TXT plain-text conversion
+- F6: XML conservative conversion
 
 Current converter split:
 
 - Delimited-text converters such as CSV / TSV map source text into unified IR
   `Table` semantics
+- TXT uses a conservative plain-text path: it reads UTF-8 text, strips a
+  leading UTF-8 BOM when present, normalizes CRLF/CR to LF, and groups content
+  into paragraph-only IR separated by empty lines
+- XML uses a conservative source-preserving path: it reads UTF-8 text, strips
+  a leading UTF-8 BOM when present, normalizes CRLF/CR to LF, and preserves
+  the normalized source as fenced `xml` Markdown without XML semantic recovery
 - Structured-data converters such as JSON / YAML map source content into
   unified IR table / `List` / `CodeBlock` semantics conservatively. Their
   synthetic object and array-of-objects tables currently use explicit

@@ -52,6 +52,8 @@ pub async fn parse_to_ir(
     "htm" => Ok(@html.parse_html(input_path, out_dir_str, max_h))
     "csv" => Ok(@csv.parse_csv(input_path, out_dir_str, max_h))
     "tsv" => Ok(@csv.parse_tsv(input_path, out_dir_str, max_h))
+    "txt" => Ok(@txt.parse_txt(input_path, out_dir_str, max_h))
+    "xml" => Ok(@xml.parse_xml(input_path, out_dir_str, max_h))
     "json" => Ok(@json.parse_json(input_path, out_dir_str, max_h))
     "yaml" => Ok(@yaml.parse_yaml(input_path, out_dir_str, max_h))
     "yml" => Ok(@yaml.parse_yaml(input_path, out_dir_str, max_h))

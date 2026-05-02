@@ -320,6 +320,8 @@ async fn parse_supported_entry(
     "htm" => @html.parse_html(input_path, out_dir, max_heading)
     "csv" => @csv.parse_csv(input_path, out_dir, max_heading)
     "tsv" => @csv.parse_tsv(input_path, out_dir, max_heading)
+    "txt" => @txt.parse_txt(input_path, out_dir, max_heading)
+    "xml" => @xml.parse_xml(input_path, out_dir, max_heading)
     "json" => @json.parse_json(input_path, out_dir, max_heading)
     "yaml" => @yaml.parse_yaml(input_path, out_dir, max_heading)
     "yml" => @yaml.parse_yaml(input_path, out_dir, max_heading)
@@ -1173,6 +1175,8 @@ fn is_supported_entry_ext(ext : String) -> Bool {
     | "markdown"
     | "csv"
     | "tsv"
+    | "txt"
+    | "xml"
     | "json"
     | "yaml"
     | "yml"

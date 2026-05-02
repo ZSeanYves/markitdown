@@ -21,6 +21,8 @@ The unified entry currently supports:
 - HTML/HTM
 - CSV
 - TSV
+- TXT
+- XML
 - JSON
 - YAML (`.yaml` / `.yml`)
 - Markdown (`.md` / `.markdown`)
@@ -37,12 +39,16 @@ The currently landed text-format expansion stages are:
 - F2: JSON
 - F3: Markdown passthrough
 - F4: YAML
+- F5: TXT plain-text conversion
+- F6: XML conservative source-preserving conversion
 - Z1.1c: ZIP container conversion for text / structured / Office / PDF / HTML entries, including archive asset namespace/remap and same-archive HTML local images
 - E1.1: EPUB container conversion for OPF/spine-ordered XHTML/HTML content, including safe extracted-tree local images, archive-style asset namespace/remap, and lightweight OPF metadata
 
 Their positioning is intentionally different:
 
 - CSV / TSV are delimited table text converted into unified IR `Table`
+- TXT is a conservative plain-text input: paragraph-only IR with BOM/newline normalization and empty-line paragraph boundaries
+- XML is a conservative source-preserving input: the normalized source is emitted as fenced `xml` Markdown rather than interpreted semantically
 - JSON and YAML are structured inputs converted into unified IR `Table` /
   `List` / `CodeBlock` semantics conservatively
 - Markdown is a low-loss passthrough input: the main body is preserved as
@@ -274,7 +280,6 @@ Explicitly unsupported / out of scope:
 - binary preview
 - full archive extraction without the existing safety checks
 - streaming archive conversion
-- `.txt` conversion without a dedicated text converter
 - preserving inner HTML image `src` as a separate metadata field
 
 ### 8.1.1 EPUB
@@ -768,6 +773,99 @@ Explicitly unsupported / out of scope:
 - nested provenance beyond the root-level `key_path`
 - cell-level metadata or table-cell origin
 - lossy fallback for invalid JSON syntax
+
+### 8.7.1 TXT
+
+Currently supported:
+
+- `.txt` extension routing
+- UTF-8 text files read into memory
+- UTF-8 BOM stripping at file start
+- CRLF / CR normalization to LF
+- empty-line paragraph boundaries
+- consecutive non-empty lines inside one paragraph joined with single spaces
+- paragraph-only IR output via `Block::Paragraph`
+- conservative paragraph `line_start` / `line_end` origin metadata
+
+Partially supported:
+
+- line-level structure is intentionally collapsed into paragraph text for stable output
+
+Graceful degradation:
+
+- the converter does not speculate about headings, lists, tables, or code blocks;
+  plain text is preserved as conservative paragraph content
+
+Metadata / assets / origin:
+
+- standard metadata sidecar fields remain available
+- paragraph blocks populate lightweight `source_name` plus conservative
+  `line_start` / `line_end`
+- no asset export path is involved
+
+Link support:
+
+- no link model is applied
+
+Image context:
+
+- no image model is applied
+
+Explicitly unsupported / out of scope:
+
+- Markdown semantic interpretation
+- heading/list/table/code heuristics
+- complex encoding auto-detection
+- non-UTF-8 fallback decoding
+- asset export
+
+### 8.7.2 XML
+
+Currently supported:
+
+- `.xml` extension routing
+- UTF-8 input with optional UTF-8 BOM removal
+- CRLF / CR normalization to LF before emission
+- conservative source-preserving output as fenced `xml` Markdown
+- metadata/origin emission through one lightweight `CodeBlock` summary block
+- no asset export
+
+Partially supported:
+
+- line-level XML formatting is preserved after newline normalization, but no
+  semantic XML structure is interpreted
+
+Graceful degradation:
+
+- the converter preserves the normalized source instead of speculating about
+  document semantics
+
+Metadata / assets / origin:
+
+- standard metadata sidecar fields remain available
+- the summary `CodeBlock` populates lightweight `source_name` plus conservative
+  `line_start` / `line_end`
+- no asset export path is involved
+
+Link support:
+
+- no link model is applied
+
+Image context:
+
+- no image model is applied
+
+Explicitly unsupported / out of scope:
+
+- XML semantic recovery
+- namespace interpretation
+- external entity loading
+- DTD expansion
+- schema validation
+- specialized handling for `.xhtml`, `.rss`, `.atom`, `.opf`, or `.svg`
+- complex encoding auto-detection
+- non-UTF-8 fallback decoding
+- asset export
 
 ### 8.8 Markdown Passthrough
 
