@@ -32,6 +32,13 @@ For TXT hardening work, the smoke corpus now includes:
 * `txt_medium`
 * `txt_large`
 
+For Markdown hardening work, the smoke corpus now includes:
+
+* `markdown_frontmatter_passthrough`
+* `markdown_small`
+* `markdown_medium`
+* `markdown_large`
+
 ## Baseline Command
 
 ```bash

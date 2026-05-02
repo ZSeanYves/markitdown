@@ -1124,6 +1124,22 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("txt metadata should keep document null")
   }
 
+  let txt_literal_doc = @txt.parse_txt(
+    resolve_sample_path(
+      "samples/main_process/txt/txt_markdown_like_literal.txt",
+    ),
+    "",
+    6,
+  )
+  let txt_literal_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/txt/txt_markdown_like_literal.md",
+    ),
+  )
+  if @cor.emit_markdown(txt_literal_doc) != txt_literal_expected {
+    fail("txt markdown-like literals should stay escaped in markdown output")
+  }
+
   let xml_doc = @xml.parse_xml(
     resolve_sample_path("samples/main_process/xml/xml_basic.xml"),
     "",
@@ -1165,6 +1181,34 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
     fail("markdown .markdown extension should preserve frontmatter sample")
+  }
+
+  let markdown_bom_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_bom_utf8.md"),
+    "",
+    6,
+  )
+  let markdown_bom_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_bom_utf8.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_bom_doc) != markdown_bom_expected {
+    fail("markdown should strip utf8 bom from passthrough output")
+  }
+
+  let markdown_crlf_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_crlf.md"),
+    "",
+    6,
+  )
+  let markdown_crlf_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_crlf.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_crlf_doc) != markdown_crlf_expected {
+    fail("markdown should normalize crlf input to stable newline output")
   }
 }
 
@@ -1315,6 +1359,42 @@ test "origin_metadata/structured_text_block_origins" {
     fail("markdown no-trailing-newline block should end at line 1")
   }
 
+  let markdown_crlf_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_crlf.md"),
+    "",
+    6,
+  )
+  if block_origin_at(markdown_crlf_doc, 0).line_start != Some(1) {
+    fail("markdown crlf heading block should start at line 1")
+  }
+  if block_origin_at(markdown_crlf_doc, 0).line_end != Some(1) {
+    fail("markdown crlf heading block should end at line 1")
+  }
+  if block_origin_at(markdown_crlf_doc, 1).line_start != Some(3) {
+    fail("markdown crlf paragraph block should start at line 3")
+  }
+  if block_origin_at(markdown_crlf_doc, 1).line_end != Some(3) {
+    fail("markdown crlf paragraph block should end at line 3")
+  }
+
+  let markdown_bom_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_bom_utf8.md"),
+    "",
+    6,
+  )
+  if block_origin_at(markdown_bom_doc, 0).line_start != Some(1) {
+    fail("markdown bom heading block should start at line 1")
+  }
+  if block_origin_at(markdown_bom_doc, 0).line_end != Some(1) {
+    fail("markdown bom heading block should end at line 1")
+  }
+  if block_origin_at(markdown_bom_doc, 1).line_start != Some(3) {
+    fail("markdown bom paragraph block should start at line 3")
+  }
+  if block_origin_at(markdown_bom_doc, 1).line_end != Some(3) {
+    fail("markdown bom paragraph block should end at line 3")
+  }
+
   let txt_doc = @txt.parse_txt(
     resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
     "",
@@ -1341,6 +1421,22 @@ test "origin_metadata/structured_text_block_origins" {
   }
   if txt_second.line_end != Some(5) {
     fail("txt second paragraph should end at line 5")
+  }
+
+  let txt_many_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_many_paragraphs.txt"),
+    "",
+    6,
+  )
+  if txt_many_doc.blocks.val.length() != 5 {
+    fail("txt_many_paragraphs should ignore repeated blank lines")
+  }
+  let txt_many_last = block_origin_at(txt_many_doc, 4)
+  if txt_many_last.line_start != Some(14) {
+    fail("txt many-paragraph final block should start at line 14")
+  }
+  if txt_many_last.line_end != Some(14) {
+    fail("txt many-paragraph final block should end at line 14")
   }
 }
 
@@ -1587,6 +1683,33 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       markdown_no_newline_doc, "markdown_no_trailing_newline.md", "markdown", "markdown_no_trailing_newline.md",
     ),
     "markdown_no_trailing_newline.metadata.json",
+  )
+
+  let markdown_basic_doc = @md.parse_markdown(
+    resolve_sample_path("samples/metadata/markdown/markdown_metadata_basic.md"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_basic_doc, "markdown_metadata_basic.md", "markdown", "markdown_metadata_basic.md",
+    ),
+    "markdown_metadata_basic.metadata.json",
+  )
+
+  let markdown_multiline_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/metadata/markdown/markdown_metadata_heading_or_multiline.md",
+    ),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_multiline_doc, "markdown_metadata_heading_or_multiline.md", "markdown",
+      "markdown_metadata_heading_or_multiline.md",
+    ),
+    "markdown_metadata_heading_or_multiline.metadata.json",
   )
 }
 

@@ -14,6 +14,9 @@ smoke	xml	xml_basic	samples/main_process/xml/xml_basic.xml	false
 smoke	json	json_nested_object	samples/main_process/json/json_nested_object.json	false
 smoke	yaml	yaml_nested_mapping	samples/main_process/yaml/yaml_nested_mapping.yaml	false
 smoke	markdown	markdown_frontmatter_passthrough	samples/main_process/markdown/markdown_frontmatter_passthrough.markdown	false
+smoke	markdown	markdown_small	samples/benchmark/markdown/markdown_small.md	false
+smoke	markdown	markdown_medium	samples/benchmark/markdown/markdown_medium.md	false
+smoke	markdown	markdown_large	samples/benchmark/markdown/markdown_large.md	false
 
 # image tier
 image	docx	docx_image_alt_title_basic_img	samples/metadata/docx/docx_image_alt_title_basic.docx	false
@@ -30,6 +33,8 @@ metadata	txt	txt_metadata_markdown_like	samples/metadata/txt/txt_metadata_markdo
 metadata	xml	xml_metadata_basic	samples/metadata/xml/xml_metadata_basic.xml	true
 metadata	yaml	yaml_mapping_basic_metadata	samples/metadata/yaml/yaml_mapping_basic.yaml	true
 metadata	markdown	markdown_frontmatter_metadata	samples/metadata/markdown/markdown_frontmatter_passthrough.markdown	true
+metadata	markdown	markdown_metadata_basic	samples/metadata/markdown/markdown_metadata_basic.md	true
+metadata	markdown	markdown_metadata_heading_or_multiline	samples/metadata/markdown/markdown_metadata_heading_or_multiline.md	true
 
 # extended tier
 extended	docx	docx_link_many_performance_guard_ext	samples/main_process/docx/docx_link_many_performance_guard.docx	false

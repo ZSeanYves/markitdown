@@ -37,6 +37,7 @@ Current overlap formats:
 * PDF
 * HTML
 * CSV
+* Markdown
 * TXT
 
 This benchmark does not try to cover every format supported by the repository.
@@ -47,6 +48,11 @@ For TXT specifically, the overlap check is runner-level only: it is useful for
 success-rate, elapsed-time, and output-size comparison on simple plain-text
 inputs, but it is not a claim that every tool makes the same literal-escaping
 choices for markdown-like text.
+
+For Markdown specifically, the overlap check is also runner-level only: it is
+useful for passthrough stability and rough elapsed-time/output-size comparison
+on conservative Markdown samples, but it is not a claim of full Markdown
+semantic equivalence across tools.
 
 ## Runner Setup
 

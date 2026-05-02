@@ -6,3 +6,4 @@ pdf	text_simple_compare	samples/main_process/pdf/text_simple.pdf
 html	html_simple_compare	samples/main_process/html/html_simple.html
 csv	csv_basic_compare	samples/main_process/csv/csv_basic.csv
 txt	txt_plain_compare	samples/main_process/txt/txt_plain.txt
+markdown	markdown_basic_heading_compare	samples/main_process/markdown/markdown_basic_heading_paragraph.md

@@ -234,6 +234,8 @@ Known limits:
 
 Supported:
 
+* UTF-8 BOM removal
+* CRLF / CR normalization
 * source-preserving passthrough
 * conservative block slicing for metadata summary
 
