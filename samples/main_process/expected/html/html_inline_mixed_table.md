@@ -1,2 +1,3 @@
-| foo bar baz |
+| Column 1 |
 | --- |
+| foo bar baz |

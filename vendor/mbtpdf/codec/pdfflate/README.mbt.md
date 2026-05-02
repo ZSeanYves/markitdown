@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/codec/pdfflate
+# @ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfflate
 
 FLATE/zlib compression and decompression for PDF streams.
 

@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/cmd/main"
+package "ZSeanYves/markitdown/vendor/mbtpdf/cmd/main"
 
 // Values
 pub fn run(quiet? : Bool) -> Unit

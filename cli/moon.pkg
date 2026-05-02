@@ -1,8 +1,15 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/csv" @csv,
   "ZSeanYves/markitdown/convert/convert" @conv,
+  "ZSeanYves/markitdown/convert/json" @json,
+  "ZSeanYves/markitdown/convert/txt" @txt,
+  "ZSeanYves/markitdown/convert/yaml" @yaml,
+  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
+  "ZSeanYves/markitdown/convert/zip" @zipconv,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
+  "moonbitlang/core/env" @env,
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,
@@ -12,5 +19,6 @@ import {
 
 options(
   "is-main": true,
+  "native-stub": [ "native_stub.c" ],
   "preferred-target": "native",
 )

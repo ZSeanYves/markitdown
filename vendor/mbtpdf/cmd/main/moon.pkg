@@ -1,5 +1,5 @@
 import {
-  "bobzhang/mbtpdf" @lib,
+  "ZSeanYves/markitdown/vendor/mbtpdf" @lib,
 }
 
 options(

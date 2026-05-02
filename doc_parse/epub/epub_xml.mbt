@@ -240,6 +240,115 @@ fn tag_text_with_attr(
 }
 
 ///|
+fn tag_attr_with_attr(
+  xml : String,
+  local_name : String,
+  match_attr_key : String,
+  match_attr_value : String,
+  target_attr_key : String,
+) -> String? {
+  let chars = xml.to_array()
+  let n = chars.length()
+  let mut i = 0
+
+  while i < n {
+    if chars[i] != '<' {
+      i += 1
+      continue
+    }
+    if i + 1 < n &&
+      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
+      i += 1
+      continue
+    }
+
+    let mut tag_end = i + 1
+    while tag_end < n && chars[tag_end] != '>' {
+      tag_end += 1
+    }
+    if tag_end >= n {
+      break
+    }
+
+    let start_tag = xml[i:tag_end + 1].to_owned()
+    if start_tag_local_name(start_tag) == local_name {
+      let attrs = parse_tag_attributes(start_tag)
+      if get_optional_attr(attrs, match_attr_key) == match_attr_value {
+        let target = get_optional_attr(attrs, target_attr_key).trim().to_owned()
+        if target != "" {
+          return Some(target)
+        }
+      }
+    }
+    i = tag_end + 1
+  }
+
+  None
+}
+
+///|
+fn first_start_tag_with_attr(
+  xml : String,
+  local_name : String,
+  attr_key : String,
+  attr_value : String,
+) -> String? {
+  let chars = xml.to_array()
+  let n = chars.length()
+  let mut i = 0
+
+  while i < n {
+    if chars[i] != '<' {
+      i += 1
+      continue
+    }
+    if i + 1 < n &&
+      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
+      i += 1
+      continue
+    }
+
+    let mut tag_end = i + 1
+    while tag_end < n && chars[tag_end] != '>' {
+      tag_end += 1
+    }
+    if tag_end >= n {
+      break
+    }
+
+    let start_tag = xml[i:tag_end + 1].to_owned()
+    if start_tag_local_name(start_tag) == local_name {
+      let attrs = parse_tag_attributes(start_tag)
+      if get_optional_attr(attrs, attr_key) == attr_value {
+        return Some(start_tag)
+      }
+    }
+    i = tag_end + 1
+  }
+
+  None
+}
+
+///|
+fn tag_content(
+  xml : String,
+  start_tag : String,
+  local_name : String,
+) -> String? {
+  let start = find_substring(xml, start_tag, 0)
+  match start {
+    None => None
+    Some(pos) => {
+      let content_start = pos + start_tag.length()
+      match find_closing_tag_by_local_name(xml, local_name, content_start) {
+        Some(end_) => Some(xml[content_start:end_].to_owned())
+        None => None
+      }
+    }
+  }
+}
+
+///|
 fn start_tag_local_name(tag : String) -> String {
   let chars = tag.to_array()
   if chars.length() < 3 {
@@ -335,6 +444,28 @@ fn find_closing_tag_by_local_name(
     i = tag_end + 1
   }
 
+  None
+}
+
+///|
+fn find_substring(s : String, pat : String, start : Int) -> Int? {
+  let n = s.length()
+  let m = pat.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start >= n || n < m {
+    return None
+  }
+
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    if s[i:i + m] == pat {
+      return Some(i)
+    }
+    i += 1
+  }
   None
 }
 

@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/graphics/pdfimage"
+package "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfimage"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/graphics/pdfspace",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfspace",
   "moonbitlang/core/debug",
 }
 

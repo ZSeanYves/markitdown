@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf/api"
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/model",
+}
+
+// Values
+pub fn default_pdf_config() -> PdfConfig
+
+pub async fn extract_document_block_debug(String, PdfConfig) -> Result[String, PdfError]
+
+pub async fn extract_document_inspect_dump(String, PdfConfig) -> Result[String, PdfError]
+
+pub async fn extract_document_model(String, PdfConfig) -> Result[@model.PdfDocumentModel, PdfError]
+
+pub async fn extract_document_summary(String, PdfConfig) -> Result[String, PdfError]
+
+// Errors
+
+// Types and methods
+pub enum PdfBackend {
+  MbtPdf
+}
+
+pub struct PdfConfig {
+  backend : PdfBackend
+}
+
+pub enum PdfError {
+  AdapterFailed(String)
+  BuildFailed(String)
+  Unsupported(String)
+}
+pub impl Show for PdfError
+
+// Type aliases
+
+// Traits
+

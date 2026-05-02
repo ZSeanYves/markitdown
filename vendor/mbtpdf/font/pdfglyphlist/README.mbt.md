@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/font/pdfglyphlist
+# @ZSeanYves/markitdown/vendor/mbtpdf/font/pdfglyphlist
 
 Glyph name to Unicode mapping tables for PDF text extraction.
 

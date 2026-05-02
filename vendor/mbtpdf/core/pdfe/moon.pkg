@@ -1,3 +1,3 @@
 import {
-  "bobzhang/mbtpdf/core/pdfutil",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfutil",
 }

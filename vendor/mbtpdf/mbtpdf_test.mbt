@@ -7,6 +7,11 @@ fn test_tmp_root() -> String {
 }
 
 ///|
+fn fixture_path_mbtpdf(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 async fn ensure_tmp_dir(path : String) -> Unit {
   if !@fs.exists(path) {
     @fs.mkdir(path, permission=0o755, recursive=true)
@@ -15,7 +20,7 @@ async fn ensure_tmp_dir(path : String) -> Unit {
 
 ///|
 async test "root facade read_file" {
-  let pdf = read_file("testdata/logo.pdf")
+  let pdf = read_file(fixture_path_mbtpdf("testdata/logo.pdf"))
   assert_true(pdf.objcard() > 0)
 }
 

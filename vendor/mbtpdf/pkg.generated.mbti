@@ -1,13 +1,13 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf"
+package "ZSeanYves/markitdown/vendor/mbtpdf"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/crypto/pdfcrypt",
-  "bobzhang/mbtpdf/io/pdfread",
-  "bobzhang/mbtpdf/io/pdfreadfs",
-  "bobzhang/mbtpdf/io/pdfwrite",
-  "bobzhang/mbtpdf/io/pdfwritefs",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/crypto/pdfcrypt",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfread",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfreadfs",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfwrite",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfwritefs",
 }
 
 // Values

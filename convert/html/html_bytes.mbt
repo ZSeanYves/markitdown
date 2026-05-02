@@ -76,6 +76,7 @@ fn html_unescape(s : String) -> String {
     .replace(old="&gt;", new=">")
     .replace(old="&amp;", new="&")
     .replace(old="&quot;", new="\"")
+    .replace(old="&nbsp;", new=" ")
     .replace(old="&apos;", new="'")
   @cor.decode_numeric_entities(t)
 }

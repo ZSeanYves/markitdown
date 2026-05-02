@@ -1,5 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/raw" @raw,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/text" @text,
-}

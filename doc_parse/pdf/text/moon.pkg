@@ -1,0 +1,4 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+  "ZSeanYves/markitdown/doc_parse/pdf/raw" @raw,
+}

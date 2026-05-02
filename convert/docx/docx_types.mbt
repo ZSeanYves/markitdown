@@ -20,6 +20,7 @@ priv struct DocxNumbering {
 priv struct DocxStyles {
   heading_by_style : Map[String, Int]
   name_by_style : Map[String, String]
+  list_info_by_style : Map[String, ParagraphListInfo]
 }
 
 ///|
@@ -27,6 +28,38 @@ priv struct DocxRelationshipContext {
   document_relationships : Array[@ox.OoxmlRelationship]
   targets_by_rid : Map[String, String]
   hyperlink_targets_by_rid : Map[String, String]
+}
+
+///|
+priv enum DocxHeaderFooterKind {
+  Header
+  Footer
+}
+
+///|
+priv enum DocxHeaderFooterRefType {
+  Default
+  First
+  Even
+  Unknown
+}
+
+///|
+priv struct DocxHeaderFooterReference {
+  kind : DocxHeaderFooterKind
+  ref_type : DocxHeaderFooterRefType
+  relationship_id : String
+  part_name : String
+}
+
+///|
+priv struct DocxHeaderFooterPart {
+  kind : DocxHeaderFooterKind
+  ref_type : DocxHeaderFooterRefType
+  relationship_id : String
+  part_name : String
+  text : String
+  is_page_number_only : Bool
 }
 
 ///|
@@ -46,6 +79,132 @@ priv struct DocxImageContext {
   asset_path : String
   alt_text : String?
   title : String?
+}
+
+///|
+priv struct DocxFootnote {
+  text : String
+}
+
+///|
+priv struct DocxEndnote {
+  text : String
+}
+
+///|
+priv struct DocxComment {
+  author : String?
+  text : String
+}
+
+///|
+priv struct DocxNoteBundle {
+  footnotes_by_id : Map[Int, DocxFootnote]
+  endnotes_by_id : Map[Int, DocxEndnote]
+  comments_by_id : Map[Int, DocxComment]
+}
+
+///|
+priv struct DocxHeaderFooterBundle {
+  headers : Array[DocxHeaderFooterPart]
+  footers : Array[DocxHeaderFooterPart]
+}
+
+///|
+priv enum DocxTextBoxContext {
+  Body
+  Header
+  Footer
+}
+
+///|
+priv struct DocxTextBox {
+  context : DocxTextBoxContext
+  source_part : String
+  relationship_id : String?
+  textbox_index : Int
+  blocks : Array[@cor.Block]
+}
+
+///|
+priv struct DocxTextBoxBundle {
+  items : Array[DocxTextBox]
+}
+
+///|
+priv struct DocxReferenceLedger {
+  footnote_order : Array[Int]
+  endnote_order : Array[Int]
+  comment_order : Array[Int]
+}
+
+///|
+fn empty_docx_note_bundle() -> DocxNoteBundle {
+  { footnotes_by_id: {}, endnotes_by_id: {}, comments_by_id: {} }
+}
+
+///|
+fn empty_docx_header_footer_bundle() -> DocxHeaderFooterBundle {
+  { headers: [], footers: [] }
+}
+
+///|
+fn empty_docx_text_box_bundle() -> DocxTextBoxBundle {
+  { items: [] }
+}
+
+///|
+fn new_docx_reference_ledger() -> DocxReferenceLedger {
+  { footnote_order: [], endnote_order: [], comment_order: [] }
+}
+
+///|
+fn docx_reference_index(order : Array[Int], id : Int) -> Int {
+  let mut i = 0
+  while i < order.length() {
+    if order[i] == id {
+      return i + 1
+    }
+    i += 1
+  }
+  -1
+}
+
+///|
+fn record_docx_reference_and_get_index(order : Array[Int], id : Int) -> Int {
+  if id < 0 {
+    return -1
+  }
+  let existing = docx_reference_index(order, id)
+  if existing > 0 {
+    return existing
+  }
+  order.push(id)
+  order.length()
+}
+
+///|
+fn record_docx_footnote_reference_and_get_index(
+  ledger : DocxReferenceLedger,
+  id : Int,
+) -> Int {
+  record_docx_reference_and_get_index(ledger.footnote_order, id)
+}
+
+///|
+fn record_docx_endnote_reference_and_get_index(
+  ledger : DocxReferenceLedger,
+  id : Int,
+) -> Int {
+  record_docx_reference_and_get_index(ledger.endnote_order, id)
+}
+
+///|
+fn record_docx_comment_reference_and_get_index(
+  ledger : DocxReferenceLedger,
+  id : Int,
+) -> Int {
+  record_docx_reference_and_get_index(ledger.comment_order, id)
 }
 
 ///|

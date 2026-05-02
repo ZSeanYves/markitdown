@@ -29,19 +29,19 @@ pub async fn parse_pdf(
   }
 
   if pipeline_debug {
-    let cfg = @api.default_pdf_core_config()
+    let cfg = @api.default_pdf_config()
     match @api.extract_document_block_debug(input_path, cfg) {
       Ok(s) => println(s)
-      Err(e) => println("pdf_core/debug error: " + e.to_string())
+      Err(e) => println("pdf debug error: " + e.to_string())
     }
   }
 
-  let core_doc = extract_pdf_core_document(input_path)
+  let core_doc = extract_pdf_document_model(input_path)
 
   // AutoFallback is conservative degradation: only fallback when native result
   // is effectively empty, to avoid mixing two extraction semantics by default.
   if ocr_mode == PdfOcrMode::AutoFallback &&
-    is_effectively_empty_core_doc(core_doc) {
+    is_effectively_empty_pdf_doc(core_doc) {
     return @ocr.parse_pdf_via_ocr(
       input_path, _out_dir, max_heading, pipeline_debug,
     )
@@ -58,6 +58,7 @@ pub async fn parse_pdf(
       debug_print_convert_images(page)
       debug_print_convert_annotations(page)
       debug_print_convert_blocks(page)
+      debug_print_heading_decisions(page, max_heading)
     }
 
     debug_print_page_edge_blocks(doc1)
@@ -68,13 +69,16 @@ pub async fn parse_pdf(
   let doc2 = classify_convert_blocks(doc1, max_heading)
   let doc3 = filter_noise_blocks(doc2)
   let doc4 = merge_convert_blocks(doc3)
+  let doc5 = attach_high_confidence_uri_links(doc4)
 
   if pipeline_debug {
-    println(debug_convert_document_summary(doc4))
+    debug_print_noise_decisions(doc2)
+    debug_print_merge_decisions(doc3)
+    println(debug_convert_document_summary(doc5))
   }
 
   let src = @cor.basename(input_path)
-  convert_pdf_blocks_to_ir(doc4, max_heading, src)
+  convert_pdf_blocks_to_ir(doc5, max_heading, src)
 }
 
 ///|
@@ -102,8 +106,8 @@ fn parse_pdf_ocr_mode(mode : String?) -> PdfOcrMode {
 }
 
 ///|
-/// 判断 native pdf_core 结果是否几乎没有可用文本。
-fn is_effectively_empty_core_doc(doc : @model.PdfDocumentModel) -> Bool {
+/// 判断 native PDF lower-layer parser 结果是否几乎没有可用文本。
+fn is_effectively_empty_pdf_doc(doc : @model.PdfDocumentModel) -> Bool {
   let mut signal_chars = 0
 
   for page in doc.pages {

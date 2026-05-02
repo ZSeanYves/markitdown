@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/crypto/pdfcrypt"
+package "ZSeanYves/markitdown/vendor/mbtpdf/crypto/pdfcrypt"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdfcryptprimitives",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfcryptprimitives",
   "moonbitlang/core/debug",
 }
 

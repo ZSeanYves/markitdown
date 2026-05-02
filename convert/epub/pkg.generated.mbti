@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn inspect_epub(String) -> @ZSeanYves/markitdown/doc_parse/epub.EpubInspectReport raise
+
 pub fn parse_epub(String, String, Int) -> @core.Document raise
 
 // Errors

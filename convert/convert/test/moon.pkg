@@ -14,7 +14,12 @@ import {
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,
   "ZSeanYves/markitdown/convert/epub" @epub,
+  "ZSeanYves/markitdown/convert/zip" @zipconv,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
+  "ZSeanYves/markitdown/vendor/mbtpdf" @mbtpdf,
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf" @mbtpdf_core,
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage" @pdfpage,
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfops" @pdfops,
   "moonbitlang/async",
 } for "test"

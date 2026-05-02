@@ -1,0 +1,362 @@
+{
+  "version": "1",
+  "source_name": "pptx_speaker_notes_basic.pptx",
+  "format": "pptx",
+  "markdown_file": "pptx_speaker_notes_basic.md",
+  "document": {
+  "title": "PptxGenJS Presentation",
+  "subject": "PptxGenJS Presentation",
+  "creator": "PptxGenJS",
+  "description": null,
+  "keywords": null,
+  "created": "2026-03-05T14:26:55Z",
+  "modified": "2026-03-05T14:26:55Z",
+  "application": "Microsoft Office PowerPoint",
+  "pages": null,
+  "words": "0",
+  "slides": "3",
+  "sheets": null
+},
+  "summary": {
+    "block_count": 21,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "Slide 1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "PPTX MVP 测试",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "第一段：Hello, 世界 ✅",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "paragraph",
+      "text": "第二段：包含 emoji 🙂 与符号 & < >",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "list_item",
+      "text": "项目符号 1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "list_item",
+      "text": "项目符号 2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": ["Slide 1"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 7,
+      "block_type": "paragraph",
+      "text": "本页核心信息",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 7,
+        "heading_path": ["Slide 1", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 8,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 8,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 9,
+      "block_type": "heading",
+      "text": "Slide 2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 9,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 10,
+      "block_type": "heading",
+      "text": "第二页标题：Data Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 10,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 11,
+      "block_type": "paragraph",
+      "text": "段落 A：这是一段普通文本。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 11,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 12,
+      "block_type": "paragraph",
+      "text": "段落 B：支持中文、English、123。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 12,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 13,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 13,
+        "heading_path": ["Slide 2"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 14,
+      "block_type": "paragraph",
+      "text": "第二页备注",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 14,
+        "heading_path": ["Slide 2", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 15,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 15,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 16,
+      "block_type": "heading",
+      "text": "Slide 3",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 16,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 17,
+      "block_type": "heading",
+      "text": "第三页：仅标题",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 17,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 18,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 18,
+        "heading_path": ["Slide 3"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 19,
+      "block_type": "paragraph",
+      "text": "最后页备注",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 19,
+        "heading_path": ["Slide 3", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 20,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "pptx_speaker_notes_basic.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 20,
+        "heading_path": null
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

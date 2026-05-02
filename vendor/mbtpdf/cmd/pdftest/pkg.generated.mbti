@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/cmd/pdftest"
+package "ZSeanYves/markitdown/vendor/mbtpdf/cmd/pdftest"
 
 // Values
 pub async fn run(Array[String], quiet? : Bool) -> Unit

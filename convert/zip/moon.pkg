@@ -12,6 +12,7 @@ import {
   "ZSeanYves/markitdown/convert/json" @json,
   "ZSeanYves/markitdown/convert/markdown" @md,
   "ZSeanYves/markitdown/convert/yaml" @yaml,
+  "moonbitlang/core/env" @env,
   "moonbitlang/x/fs" @fs,
   "moonbitlang/x/sys" @sys,
 }

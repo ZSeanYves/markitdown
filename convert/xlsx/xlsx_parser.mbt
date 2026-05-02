@@ -1,51 +1,250 @@
 ///|
-/// XLSX MVP parser (MoonBit)
-/// - package access: reuse OOXML package layer
-/// - XML parsing: lightweight string scanning (good enough for MVP)
-/// - Output: Heading + Table per sheet
+/// XLSX lower-layer aware parser (MoonBit)
 ///
-/// Limitations:
-/// - no formula evaluation
-/// - merged cells ignored
-/// - lightweight date/time formatting support for common built-in/custom Excel numFmt
-/// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
+/// Product policy:
+/// - cached values are used when present
+/// - a lightweight evaluator is only used for safe missing-cache formulas
+/// - merged ranges are detected but not visually reconstructed
+/// - hidden sheets are emitted in workbook order
+/// - output remains conservative heading + table lowering
 pub fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
-  // 1) open package
+  parse_xlsx_with_profile(input_path, _out_dir, max_heading).0
+}
+
+///|
+pub fn inspect_xlsx(input_path : String) -> XlsxWorkbookModel raise {
+  let (workbook, _) = inspect_xlsx_with_profile(input_path)
+  workbook
+}
+
+///|
+pub fn parse_xlsx_with_profile(
+  input_path : String,
+  _out_dir : String,
+  max_heading : Int,
+) -> (@cor.Document, XlsxProfileReport?) raise {
+  let (workbook, profile) = inspect_xlsx_with_profile(input_path)
+  let build_started = @env.now()
+  let doc = build_xlsx_document(workbook, max_heading)
+  xlsx_profile_push_stage(
+    profile,
+    "ir_lowering",
+    @env.now() - build_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  (doc, profile)
+}
+
+///|
+pub fn inspect_xlsx_with_profile(
+  input_path : String,
+) -> (XlsxWorkbookModel, XlsxProfileReport?) raise {
+  let profile = if xlsx_profile_enabled() {
+    Some(new_xlsx_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let open_started = @env.now()
   let p = open_xlsx(input_path) catch {
     e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())
   }
+  xlsx_profile_push_stage(
+    profile,
+    "zip_package_open",
+    @env.now() - open_started,
+    None,
+  )
 
-  // 2) read workbook.xml + rels
+  let workbook_started = @env.now()
   let wb_xml = p.read_text_required("xl/workbook.xml")
+  xlsx_profile_push_stage(
+    profile,
+    "workbook_xml_read",
+    @env.now() - workbook_started,
+    Some("bytes=" + wb_xml.length().to_string()),
+  )
 
-  // 3) sharedStrings.xml is optional
+  let shared_started = @env.now()
   let shared : Array[String] = if @ox.has_part(p.pkg, "xl/sharedStrings.xml") {
-    let ss_xml = p.read_text_optional("xl/sharedStrings.xml")
-    parse_shared_strings(ss_xml)
+    parse_shared_strings(p.read_text_optional("xl/sharedStrings.xml"))
   } else {
     []
   }
+  xlsx_profile_push_stage(
+    profile,
+    "shared_strings_parse",
+    @env.now() - shared_started,
+    Some("count=" + shared.length().to_string()),
+  )
 
-  // 4) styles.xml is optional
+  let styles_started = @env.now()
   let styles = if @ox.has_part(p.pkg, "xl/styles.xml") {
-    let styles_xml = p.read_text_optional("xl/styles.xml")
-    parse_styles_xml(styles_xml)
+    parse_styles_xml(p.read_text_optional("xl/styles.xml"))
   } else {
     empty_styles()
   }
+  xlsx_profile_push_stage(
+    profile,
+    "styles_parse",
+    @env.now() - styles_started,
+    None,
+  )
 
-  // 5) parse sheets
-  let sheets = parse_workbook_sheets(p.pkg, wb_xml)
+  let workbook_meta_started = @env.now()
+  let uses_date_1904 = workbook_uses_date_1904(wb_xml)
+  let sheet_infos = parse_workbook_sheets(p.pkg, wb_xml)
+  xlsx_profile_push_stage(
+    profile,
+    "workbook_relationships",
+    @env.now() - workbook_meta_started,
+    Some("sheet_infos=" + sheet_infos.length().to_string()),
+  )
+  let sheets : Array[XlsxSheetModel] = []
 
-  // 6) build IR
+  for info in sheet_infos {
+    let normalized_target = match info.target {
+      Some(target) => normalize_sheet_part_target(target)
+      None => ""
+    }
+    if !info.is_supported_worksheet {
+      sheets.push(
+        empty_sheet_model(
+          info.name,
+          Some(info._rid),
+          info.rel_type,
+          if normalized_target == "" {
+            None
+          } else {
+            Some(normalized_target)
+          },
+          info.state,
+          false,
+          false,
+        ),
+      )
+      continue
+    }
+
+    if normalized_target == "" {
+      sheets.push(
+        empty_sheet_model(
+          info.name,
+          Some(info._rid),
+          info.rel_type,
+          if normalized_target == "" {
+            None
+          } else {
+            Some(normalized_target)
+          },
+          info.state,
+          true,
+          false,
+        ),
+      )
+      xlsx_profile_record_sheet(profile, sheets[sheets.length() - 1])
+      continue
+    }
+
+    let sheet_xml_started = @env.now()
+    let read_profiled = p.read_text_required_profiled(normalized_target) catch {
+      _ => {
+        sheets.push(
+          empty_sheet_model(
+            info.name,
+            Some(info._rid),
+            info.rel_type,
+            Some(normalized_target),
+            info.state,
+            true,
+            false,
+          ),
+        )
+        xlsx_profile_record_sheet(profile, sheets[sheets.length() - 1])
+        continue
+      }
+    }
+    let sh_xml = read_profiled.0
+    let read_stats = read_profiled.1
+    xlsx_profile_push_stage(
+      profile,
+      "worksheet_entry_lookup:" + info.name,
+      read_stats.entry_lookup_elapsed_ms,
+      Some(
+        "part=" +
+        read_stats.normalized_part_name +
+        " hit=" +
+        read_stats.part_index_hit.to_string(),
+      ),
+    )
+    xlsx_profile_push_stage(
+      profile,
+      "worksheet_entry_decompress:" + info.name,
+      read_stats.read_entry_elapsed_ms,
+      Some("bytes=" + read_stats.byte_len.to_string()),
+    )
+    xlsx_profile_push_stage(
+      profile,
+      "worksheet_bytes_to_string:" + info.name,
+      read_stats.bytes_to_string_elapsed_ms,
+      Some("text_bytes=" + read_stats.text_len.to_string()),
+    )
+    xlsx_profile_push_stage(
+      profile,
+      "worksheet_xml_read:" + info.name,
+      @env.now() - sheet_xml_started,
+      Some(
+        "part=" +
+        read_stats.normalized_part_name +
+        " bytes=" +
+        read_stats.text_len.to_string(),
+      ),
+    )
+
+    let sheet_parse_started = @env.now()
+    let sheet_model = parse_sheet_model(
+      info.name,
+      Some(info._rid),
+      info.rel_type,
+      Some(normalized_target),
+      info.state,
+      sh_xml,
+      shared,
+      styles,
+      uses_date_1904,
+      profile,
+    )
+    xlsx_profile_push_stage(
+      profile,
+      "worksheet_model_parse_total:" + info.name,
+      @env.now() - sheet_parse_started,
+      Some(
+        "cells=" +
+        sheet_model.cells.length().to_string() +
+        " rows=" +
+        sheet_model.table_rows.length().to_string(),
+      ),
+    )
+    xlsx_profile_record_sheet(profile, sheet_model)
+    sheets.push(sheet_model)
+  }
+
+  ({ source_name: @cor.basename(input_path), uses_date_1904, sheets }, profile)
+}
+
+///|
+fn build_xlsx_document(
+  workbook : XlsxWorkbookModel,
+  max_heading : Int,
+) -> @cor.Document {
   let doc = @cor.new_document()
-  let src = @cor.basename(input_path)
+  let src = workbook.source_name
 
-  if sheets.length() == 0 {
+  if workbook.sheets.length() == 0 {
     @cor.push_with_origin(
       doc,
       @cor.Block::Paragraph("(no sheets found)"),
@@ -68,17 +267,49 @@ pub fn parse_xlsx(
     return doc
   }
 
-  for i in 0..<sheets.length() {
-    let sh = sheets[i]
-    let sheet_name = sh.name
+  for sheet in workbook.sheets {
+    push_sheet_blocks(doc, src, sheet, max_heading)
+  }
+
+  doc
+}
+
+///|
+fn push_sheet_blocks(
+  doc : @cor.Document,
+  src : String,
+  sheet : XlsxSheetModel,
+  max_heading : Int,
+) -> Unit {
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Heading(clamp_heading(2, max_heading), sheet.name),
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
+
+  if !sheet.is_supported_worksheet {
     @cor.push_with_origin(
       doc,
-      @cor.Block::Heading(clamp_heading(2, max_heading), sheet_name),
+      @cor.Block::Paragraph("(unsupported sheet type)"),
       Some({
         source_name: Some(src),
         page: None,
         slide: None,
-        sheet: Some(sheet_name),
+        sheet: Some(sheet.name),
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
         line_start: None,
@@ -86,109 +317,21 @@ pub fn parse_xlsx(
         row_index: None,
         column_index: None,
         object_ref: None,
-        relationship_id: None,
+        relationship_id: sheet.relationship_id,
         key_path: None,
       }),
     )
-
-    let sheet_path = normalize_sheet_part_target(sh.target)
-
-    if sheet_path == "" || !@ox.has_part(p.pkg, sheet_path) {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Paragraph("(missing sheet xml: " + sheet_path + ")"),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
-      )
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::BlankLine,
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
-      )
-      continue
-    }
-
-    let sh_xml = p.read_text_required(sheet_path)
-    let table_extract = parse_sheet_table(sh_xml, shared, styles)
-    let table = table_extract.rows
-
-    if table.length() == 0 {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Paragraph("(empty sheet)"),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
-      )
-    } else {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Table(table),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: Some(table_extract.min_row),
-          line_end: Some(table_extract.max_row),
-          row_index: Some(table_extract.min_row),
-          column_index: Some(table_extract.min_col),
-          object_ref: None,
-          relationship_id: Some(sh._rid),
-          key_path: None,
-        }),
-      )
-    }
-
+  } else if !sheet.has_sheet_xml {
     @cor.push_with_origin(
       doc,
-      @cor.Block::BlankLine,
+      @cor.Block::Paragraph(
+        "(missing sheet xml: " + sheet.part_target.unwrap_or("") + ")",
+      ),
       Some({
         source_name: Some(src),
         page: None,
         slide: None,
-        sheet: Some(sheet_name),
+        sheet: Some(sheet.name),
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
         line_start: None,
@@ -196,11 +339,270 @@ pub fn parse_xlsx(
         row_index: None,
         column_index: None,
         object_ref: None,
-        relationship_id: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  } else if sheet.table_rows.length() == 0 {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Paragraph("(empty sheet)"),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  } else {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::RichTable({
+        rows: sheet.table_rows,
+        header_rows: sheet.header_rows,
+        hints: Some(sheet_table_hints(sheet)),
+      }),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: Some(sheet.used_min_row),
+        line_end: Some(sheet.used_max_row),
+        row_index: Some(sheet.used_min_row),
+        column_index: Some(sheet.used_min_col),
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
         key_path: None,
       }),
     )
   }
 
-  doc
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::BlankLine,
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
+}
+
+///|
+fn sheet_table_hints(sheet : XlsxSheetModel) -> @cor.TableHints {
+  let merged_ranges = if sheet.merged_ranges.length() == 0 {
+    None
+  } else {
+    let out : Array[String] = []
+    for range_ in sheet.merged_ranges {
+      out.push(range_.range_ref)
+    }
+    Some(out)
+  }
+
+  let formula_cells = sheet_formula_hints(sheet)
+  let semantic_types = sheet_semantic_type_matrix(sheet)
+  {
+    format: Some("xlsx"),
+    sheet_state: Some(sheet_state_string(sheet.state)),
+    merged_ranges,
+    formula_cells,
+    semantic_types,
+    span_cells: None,
+  }
+}
+
+///|
+fn sheet_state_string(state : XlsxSheetState) -> String {
+  match state {
+    XlsxSheetState::Visible => "visible"
+    XlsxSheetState::Hidden => "hidden"
+    XlsxSheetState::VeryHidden => "veryHidden"
+  }
+}
+
+///|
+fn sheet_formula_hints(sheet : XlsxSheetModel) -> Array[@cor.TableFormulaHint]? {
+  let out : Array[@cor.TableFormulaHint] = []
+  for cell in sheet.cells {
+    match cell.formula_text {
+      Some(text) =>
+        if text.trim() != "" {
+          out.push({
+            reference: cell.reference,
+            row_index: cell.row,
+            column_index: cell.column,
+            formula_text: text,
+            cached_value: cell.source_value,
+            display_text: cell.display_text,
+            cell_kind: xlsx_cell_kind_string(cell.kind),
+            semantic_type: xlsx_semantic_type_string(cell.semantic_type),
+            policy: xlsx_formula_policy_string(cell.formula_trace),
+            evaluated_value: xlsx_formula_evaluated_value(cell.formula_trace),
+            unsupported_reason: xlsx_formula_unsupported_reason(
+              cell.formula_trace,
+            ),
+            error_reason: xlsx_formula_error_reason(cell.formula_trace),
+            referenced_cells: xlsx_formula_referenced_cells(cell.formula_trace),
+            referenced_ranges: xlsx_formula_referenced_ranges(
+              cell.formula_trace,
+            ),
+          })
+        }
+      None => ()
+    }
+  }
+  if out.length() == 0 {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn xlsx_formula_policy_string(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) =>
+      Some(
+        match v.policy {
+          XlsxFormulaPolicy::Cached => "cached"
+          XlsxFormulaPolicy::EvaluatedMissingCache => "evaluated_missing_cache"
+          XlsxFormulaPolicy::UnsupportedFormula => "unsupported_formula"
+          XlsxFormulaPolicy::FormulaError => "formula_error"
+        },
+      )
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_evaluated_value(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.evaluated_value
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_unsupported_reason(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.unsupported_reason
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_error_reason(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.error_reason
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_referenced_cells(trace : XlsxFormulaTrace?) -> Array[String]? {
+  match trace {
+    Some(v) => v.referenced_cells
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_referenced_ranges(trace : XlsxFormulaTrace?) -> Array[String]? {
+  match trace {
+    Some(v) => v.referenced_ranges
+    None => None
+  }
+}
+
+///|
+fn sheet_semantic_type_matrix(sheet : XlsxSheetModel) -> Array[Array[String]]? {
+  if sheet.table_rows.length() == 0 {
+    return None
+  }
+
+  let mut max_col = 0
+  for row in sheet.table_rows {
+    if row.length() > max_col {
+      max_col = row.length()
+    }
+  }
+  if max_col == 0 {
+    return None
+  }
+
+  let lookup : Map[String, String] = Map::new()
+  for cell in sheet.cells {
+    lookup.set(
+      cell.row.to_string() + "," + cell.column.to_string(),
+      xlsx_semantic_type_string(cell.semantic_type),
+    )
+  }
+
+  let out : Array[Array[String]] = []
+  for row_offset in 0..<sheet.table_rows.length() {
+    let row : Array[String] = []
+    let actual_row = sheet.used_min_row + row_offset
+    for col_offset in 0..<max_col {
+      let actual_col = sheet.used_min_col + col_offset
+      row.push(
+        lookup
+        .get(actual_row.to_string() + "," + actual_col.to_string())
+        .unwrap_or("blank"),
+      )
+    }
+    out.push(row)
+  }
+  Some(out)
+}
+
+///|
+fn xlsx_cell_kind_string(kind : XlsxCellKind) -> String {
+  match kind {
+    XlsxCellKind::SharedString => "shared_string"
+    XlsxCellKind::InlineString => "inline_string"
+    XlsxCellKind::Boolean => "boolean"
+    XlsxCellKind::StringResult => "string_result"
+    XlsxCellKind::Error => "error"
+    XlsxCellKind::Number => "number"
+    XlsxCellKind::Blank => "blank"
+  }
+}
+
+///|
+fn xlsx_semantic_type_string(kind : XlsxCellSemanticType) -> String {
+  match kind {
+    XlsxCellSemanticType::String => "string"
+    XlsxCellSemanticType::Number => "number"
+    XlsxCellSemanticType::Boolean => "boolean"
+    XlsxCellSemanticType::Date => "date"
+    XlsxCellSemanticType::DateTime => "datetime"
+    XlsxCellSemanticType::Time => "time"
+    XlsxCellSemanticType::Blank => "blank"
+    XlsxCellSemanticType::Error => "error"
+    XlsxCellSemanticType::FormulaCachedValue => "formula_cached_value"
+    XlsxCellSemanticType::FormulaMissingCache => "formula_missing_cache"
+  }
 }

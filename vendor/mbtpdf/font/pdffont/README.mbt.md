@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/font/pdffont
+# @ZSeanYves/markitdown/vendor/mbtpdf/font/pdffont
 
 PDF font and encoding types.
 

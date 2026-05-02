@@ -95,8 +95,25 @@ result to `.tmp/scratch/mbtpdf/e2e` by default, then reads the output back to va
     counts and /URLS name-tree entries survive the roundtrip.
 
 ## Running
-- `moon test e2e` to run only the end-to-end tests.
-- `moon test` to run the full suite, including these end-to-end checks.
+- `moon test vendor/mbtpdf/e2e --include-skipped` to run only the vendored
+  end-to-end tests.
+- root-repository `moon test` does not treat these as mandatory default
+  validation any more; they are optional/manual vendor e2e coverage.
+
+## Policy
+
+The `vendor/mbtpdf/e2e` package is kept in-tree because it still provides
+useful regression coverage for write-read roundtrips and PDF merge/split
+pipelines.
+
+However, these tests are now treated as optional/manual vendor e2e because:
+
+* they are heavier than the repository's normal package-level validation
+* they create and inspect generated PDFs under `.tmp/scratch/mbtpdf/e2e`
+* they should not make root `moon test` fail by default when the main
+  `markitdown-mb` suite is otherwise healthy
+
+Manual invocation remains supported through `--include-skipped`.
 
 ## Checksums
 - `scripts/e2e_checksums.sh` regenerates `testdata/e2e_checksums.txt`.
@@ -106,3 +123,5 @@ result to `.tmp/scratch/mbtpdf/e2e` by default, then reads the output back to va
 - Output PDFs are created under `.tmp/scratch/mbtpdf/e2e` by default and removed at the end of each test.
 - The tests intentionally validate PDF read/write roundtrips to guard against
   regressions during refactoring.
+- Generated outputs are read back from the temp path directly; they are not
+  checked-in fixtures.

@@ -1,6 +1,6 @@
 ///|
 fn empty_styles() -> DocxStyles {
-  { heading_by_style: {}, name_by_style: {} }
+  { heading_by_style: {}, name_by_style: {}, list_info_by_style: {} }
 }
 
 ///|
@@ -43,6 +43,7 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
   profile_styles_parse_call()
   let heading_by_style : Map[String, Int] = {}
   let name_by_style : Map[String, String] = {}
+  let list_info_by_style : Map[String, ParagraphListInfo] = {}
 
   let chars = xml.to_array()
   let mut i = 0
@@ -78,6 +79,11 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
             None => ()
           }
 
+          match parse_style_linked_list_info(inner) {
+            Some(info) => list_info_by_style[style_id] = info
+            None => ()
+          }
+
           let level = detect_heading_level(style_id, inner)
           if level > 0 {
             heading_by_style[style_id] = level
@@ -91,7 +97,7 @@ fn parse_styles_xml(xml : String) -> DocxStyles {
     i = s3 + 10
   }
 
-  { heading_by_style, name_by_style }
+  { heading_by_style, name_by_style, list_info_by_style }
 }
 
 ///|
@@ -175,6 +181,34 @@ fn read_style_name(inner : String) -> String? {
     Some(name) => Some(name)
     None => read_attr_value(inner, "<w:name w:val='")
   }
+}
+
+///|
+fn style_list_info_of(
+  styles : DocxStyles,
+  style_id : String,
+) -> ParagraphListInfo? {
+  styles.list_info_by_style.get(style_id)
+}
+
+///|
+fn parse_style_linked_list_info(inner : String) -> ParagraphListInfo? {
+  let chars = inner.to_array()
+  let ppr_open = find_sub_for_styles(chars, 0, "<w:pPr")
+  if ppr_open < 0 {
+    return None
+  }
+  let ppr_open_end = find_sub_for_styles(chars, ppr_open, ">")
+  if ppr_open_end < 0 {
+    return None
+  }
+  let ppr_close = find_sub_for_styles(chars, ppr_open_end + 1, "</w:pPr>")
+  if ppr_close < 0 || ppr_close <= ppr_open_end {
+    return None
+  }
+
+  let ppr = profiled_slice_to_string(chars, ppr_open_end + 1, ppr_close)
+  read_paragraph_list_info(ppr)
 }
 
 ///|

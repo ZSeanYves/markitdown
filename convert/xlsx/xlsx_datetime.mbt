@@ -3,6 +3,7 @@ fn format_excel_datetime(
   raw : String,
   num_fmt_id : Int,
   custom_code : String?,
+  uses_date_1904 : Bool,
 ) -> String {
   let parsed = parse_excel_serial(raw)
   match parsed {
@@ -30,7 +31,7 @@ fn format_excel_datetime(
         return pad2(hh) + ":" + pad2(mm) + ":" + pad2(ss)
       }
 
-      let (y, m, d) = excel_serial_to_ymd(serial_day)
+      let (y, m, d) = excel_serial_to_ymd(serial_day, uses_date_1904)
 
       if is_date_only {
         return pad4(y) + "-" + pad2(m) + "-" + pad2(d)
@@ -193,7 +194,11 @@ fn frac_to_hms(frac_num : Int, frac_den : Int) -> (Int, Int, Int, Int) {
 /// Excel 1900 date system:
 /// serial 1  -> 1900-01-01
 /// serial 60 -> 1900-02-29 (Excel compatibility)
-fn excel_serial_to_ymd(serial : Int) -> (Int, Int, Int) {
+fn excel_serial_to_ymd(serial : Int, uses_date_1904 : Bool) -> (Int, Int, Int) {
+  if uses_date_1904 {
+    return excel_serial_to_ymd_1904(serial)
+  }
+
   if serial <= 0 {
     return (1899, 12, 30)
   }
@@ -207,6 +212,41 @@ fn excel_serial_to_ymd(serial : Int) -> (Int, Int, Int) {
   let mut d = 1
 
   let mut days_left = if serial < 60 { serial - 1 } else { serial - 2 }
+
+  while true {
+    let diy = if is_leap_year(y) { 366 } else { 365 }
+    if days_left >= diy {
+      days_left = days_left - diy
+      y = y + 1
+    } else {
+      break
+    }
+  }
+
+  while true {
+    let dim = days_in_month(y, m)
+    if days_left >= dim {
+      days_left = days_left - dim
+      m = m + 1
+    } else {
+      break
+    }
+  }
+
+  d = d + days_left
+  (y, m, d)
+}
+
+///|
+fn excel_serial_to_ymd_1904(serial : Int) -> (Int, Int, Int) {
+  if serial < 0 {
+    return (1903, 12, 31)
+  }
+
+  let mut y = 1904
+  let mut m = 1
+  let mut d = 1
+  let mut days_left = serial
 
   while true {
     let diy = if is_leap_year(y) { 366 } else { 365 }

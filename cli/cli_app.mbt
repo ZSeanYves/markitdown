@@ -19,29 +19,68 @@ async fn cmd_convert(
   pdf_pipeline_debug : Bool,
   with_metadata : Bool,
 ) -> Unit {
-  let resolved_output = resolve_output_path(input, output)
+  match
+    convert_once(
+      input, output, out_dir, max_heading, pdf_mode, pdf_extract_debug, pdf_dump_selected_raw,
+      pdf_pipeline_debug, with_metadata,
+    ) {
+    Ok(_) => ()
+    Err(msg) => exit_error(msg)
+  }
+}
 
-  let out_root = match out_dir {
-    Some(d) => d
+///|
+pub fn exit_error(msg : String) -> Unit {
+  println("error: " + msg)
+}
+
+///|
+async fn convert_once(
+  input : String,
+  output : String?,
+  out_dir : String?,
+  max_heading : Int,
+  pdf_mode : String?,
+  pdf_extract_debug : Bool,
+  pdf_dump_selected_raw : Bool,
+  pdf_pipeline_debug : Bool,
+  with_metadata : Bool,
+) -> Result[Unit, String] {
+  let resolved_output = resolve_output_path(input, output)
+  let format = detect_input_format(input)
+  let xlsx_profile_enabled = format == "xlsx" && debug_profile_xlsx_enabled()
+  let csv_profile_enabled = (format == "csv" || format == "tsv") &&
+    debug_profile_csv_enabled()
+  let json_profile_enabled = format == "json" && debug_profile_json_enabled()
+  let txt_profile_enabled = format == "txt" && debug_profile_txt_enabled()
+  let yaml_profile_enabled = (format == "yaml" || format == "yml") &&
+    debug_profile_yaml_enabled()
+  let zip_profile_enabled = format == "zip" && debug_profile_zip_enabled()
+  let xlsx_profile_report : Ref[@xlsx.XlsxProfileReport?] = { val: None }
+  let csv_profile_report : Ref[@csv.CsvProfileReport?] = { val: None }
+  let json_profile_report : Ref[@json.JsonProfileReport?] = { val: None }
+  let txt_profile_report : Ref[@txt.TxtProfileReport?] = { val: None }
+  let yaml_profile_report : Ref[@yaml.YamlProfileReport?] = { val: None }
+  let zip_profile_report : Ref[@zipconv.ZipProfileReport?] = { val: None }
+
+  let output_root_opt = match out_dir {
+    Some(d) => Some(d)
     None =>
       match resolved_output {
-        Some(p) => dirname_of_path(p)
-        None => "out"
+        Some(p) => Some(dirname_of_path(p))
+        None => None
       }
   }
+  let parse_out_dir = output_root_opt.unwrap_or("")
 
-  // 确保 out_root 存在
-  if !@fs.path_exists(out_root) {
-    @fs.create_dir(out_root) catch {
-      e => {
-        exit_error(e.to_string())
-        return
-      }
+  if output_root_opt is Some(out_root) {
+    ensure_dir_tree(out_root) catch {
+      e => return Err(e.to_string())
     }
   }
 
   let opts : @conv.ConvertOptions = {
-    out_dir: Some(out_root),
+    out_dir: output_root_opt,
     max_heading: Some(max_heading),
     pdf_enhance_mode: pdf_mode,
     pdf_extract_debug,
@@ -49,32 +88,257 @@ async fn cmd_convert(
     pdf_pipeline_debug,
   }
 
-  let doc_res = @conv.parse_to_ir(input, opts)
-  let doc = match doc_res {
-    Ok(d) => d
-    Err(e) => {
-      exit_error("parse failed: " + e.to_string())
-      return
+  let parse_started = @env.now()
+  let doc = if xlsx_profile_enabled {
+    let profiled = @xlsx.parse_xlsx_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        xlsx_profile_report.val = profile
+        d
+      }
+    }
+  } else if csv_profile_enabled {
+    let profiled = try {
+      if format == "tsv" {
+        @csv.parse_tsv_with_profile(input, parse_out_dir, max_heading)
+      } else {
+        @csv.parse_csv_with_profile(input, parse_out_dir, max_heading)
+      }
+    } catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        csv_profile_report.val = profile
+        d
+      }
+    }
+  } else if json_profile_enabled {
+    let profiled = @json.parse_json_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        json_profile_report.val = profile
+        d
+      }
+    }
+  } else if txt_profile_enabled {
+    let profiled = @txt.parse_txt_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        txt_profile_report.val = profile
+        d
+      }
+    }
+  } else if yaml_profile_enabled {
+    let profiled = @yaml.parse_yaml_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        yaml_profile_report.val = profile
+        d
+      }
+    }
+  } else if zip_profile_enabled {
+    let profiled = @zipconv.parse_zip_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        zip_profile_report.val = profile
+        d
+      }
+    }
+  } else {
+    match @conv.parse_to_ir(input, opts) {
+      Ok(d) => d
+      Err(e) => return Err("parse failed: " + e.to_string())
     }
   }
+  xlsx_profile_push_cli_stage(
+    xlsx_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  csv_profile_push_cli_stage(
+    csv_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  json_profile_push_cli_stage(
+    json_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  txt_profile_push_cli_stage(
+    txt_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  yaml_profile_push_cli_stage(
+    yaml_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  zip_profile_push_cli_stage(
+    zip_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
 
+  let emit_started = @env.now()
   let md = @cor.emit_markdown(doc)
+  xlsx_profile_push_cli_stage(
+    xlsx_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  csv_profile_push_cli_stage(
+    csv_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  json_profile_push_cli_stage(
+    json_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  txt_profile_push_cli_stage(
+    txt_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  yaml_profile_push_cli_stage(
+    yaml_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  zip_profile_push_cli_stage(
+    zip_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
 
   match resolved_output {
     Some(p) => {
-      @fs.write_string_to_file(p, md, encoding="utf8") catch {
-        e => {
-          exit_error("write output failed: " + e.to_string())
-          return
-        }
+      let parent = dirname_of_path(p)
+      ensure_dir_tree(parent) catch {
+        e => return Err("create output dir failed: " + e.to_string())
       }
+      let write_markdown_started = @env.now()
+      @fs.write_string_to_file(p, md, encoding="utf8") catch {
+        e => return Err("write output failed: " + e.to_string())
+      }
+      xlsx_profile_push_cli_stage(
+        xlsx_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      csv_profile_push_cli_stage(
+        csv_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      json_profile_push_cli_stage(
+        json_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      txt_profile_push_cli_stage(
+        txt_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      yaml_profile_push_cli_stage(
+        yaml_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      zip_profile_push_cli_stage(
+        zip_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
 
-      // metadata sidecar is explicit opt-in to keep default UX simple and
-      // avoid additional files unless users request machine-readable output.
       if with_metadata {
-        let format = detect_input_format(input)
         let markdown_file = @cor.basename(p)
+        let docprops_started = @env.now()
         let document = read_document_properties(input, format)
+        let document_available = match document {
+          Some(_) => "true"
+          None => "false"
+        }
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        let metadata_emit_started = @env.now()
         let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
           @cor.basename(input),
@@ -82,35 +346,451 @@ async fn cmd_convert(
           markdown_file,
           document,
         )
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
         let metadata_path = metadata_output_path(p)
         let metadata_dir = dirname_of_path(metadata_path)
 
-        if !@fs.path_exists(metadata_dir) {
-          @fs.create_dir(metadata_dir) catch {
-            e => {
-              exit_error("create metadata dir failed: " + e.to_string())
-              return
-            }
-          }
+        ensure_dir_tree(metadata_dir) catch {
+          e => return Err("create metadata dir failed: " + e.to_string())
         }
 
+        let metadata_write_started = @env.now()
         @fs.write_string_to_file(metadata_path, metadata_json, encoding="utf8") catch {
-          e => {
-            exit_error("write metadata failed: " + e.to_string())
-            return
-          }
+          e => return Err("write metadata failed: " + e.to_string())
         }
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
       }
+
+      let _ = write_xlsx_profile_log_if_enabled(
+        xlsx_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write xlsx profile failed: " + e.to_string())
+      }
+      let _ = write_csv_profile_log_if_enabled(
+        csv_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write csv profile failed: " + e.to_string())
+      }
+      let _ = write_json_profile_log_if_enabled(
+        json_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write json profile failed: " + e.to_string())
+      }
+      let _ = write_txt_profile_log_if_enabled(
+        txt_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write txt profile failed: " + e.to_string())
+      }
+      let _ = write_yaml_profile_log_if_enabled(
+        yaml_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write yaml profile failed: " + e.to_string())
+      }
+      let _ = write_zip_profile_log_if_enabled(
+        zip_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write zip profile failed: " + e.to_string())
+      }
+
+      Ok(())
     }
-    // stdout mode is intentionally markdown-only:
-    // sidecar needs a deterministic on-disk path and should not mix with text stream.
-    None => println(md)
+    None => {
+      // stdout mode is intentionally markdown-only:
+      // sidecar needs a deterministic on-disk path and should not mix with text stream.
+      println(md)
+      Ok(())
+    }
   }
 }
 
 ///|
-fn exit_error(msg : String) -> Unit {
-  println("error: " + msg)
+struct BatchItemResult {
+  index : Int
+  input_path : String
+  output_md : String?
+  format : String
+  status : String
+  elapsed_ms : Int
+  error : String
+}
+
+///|
+struct BatchRunResult {
+  total_count : Int
+  success_count : Int
+  failure_count : Int
+  unsupported_count : Int
+  skipped_directory_count : Int
+  had_error : Bool
+  summary_path : String
+}
+
+///|
+fn batch_summary_line(result : BatchRunResult) -> String {
+  "batch summary: " +
+  result.success_count.to_string() +
+  " ok, " +
+  result.failure_count.to_string() +
+  " failed, " +
+  result.unsupported_count.to_string() +
+  " unsupported, " +
+  result.skipped_directory_count.to_string() +
+  " skipped_directory, " +
+  result.total_count.to_string() +
+  " total -> " +
+  result.summary_path
+}
+
+///|
+async fn run_batch(
+  input_dir : String,
+  output_dir : String,
+  with_metadata : Bool,
+) -> Result[BatchRunResult, String] {
+  let items = collect_batch_inputs(input_dir) catch {
+    e => return Err("read batch input dir failed: " + e.to_string())
+  }
+  ensure_dir_tree(output_dir) catch {
+    e => return Err("create batch output dir failed: " + e.to_string())
+  }
+
+  let results : Array[BatchItemResult] = []
+  let mut success_count = 0
+  let mut failure_count = 0
+  let mut unsupported_count = 0
+  let mut skipped_directory_count = 0
+
+  for i in 0..<items.length() {
+    let item = items[i]
+    let index = i + 1
+
+    match item.kind {
+      BatchInputKind::Directory => {
+        skipped_directory_count += 1
+        results.push({
+          index,
+          input_path: item.path,
+          output_md: None,
+          format: "",
+          status: "skipped_directory",
+          elapsed_ms: 0,
+          error: "",
+        })
+      }
+      BatchInputKind::File => {
+        let format = detect_input_format(item.path)
+        if format == "unknown" {
+          failure_count += 1
+          unsupported_count += 1
+          results.push({
+            index,
+            input_path: item.path,
+            output_md: None,
+            format: file_ext_lower(item.path),
+            status: "unsupported",
+            elapsed_ms: 0,
+            error: "Unsupported file type: " + file_ext_lower(item.path),
+          })
+          continue
+        }
+
+        let doc_root = batch_doc_root(output_dir, index, item.path)
+        let markdown_path = join_path(doc_root, input_stem(item.path) + ".md")
+        let started = now_ms()
+        let result = convert_once(
+          item.path,
+          Some(markdown_path),
+          Some(doc_root),
+          6,
+          None,
+          false,
+          false,
+          false,
+          with_metadata,
+        )
+        let elapsed_ms = elapsed_ms_since(started)
+
+        match result {
+          Ok(_) => {
+            success_count += 1
+            results.push({
+              index,
+              input_path: item.path,
+              output_md: Some(markdown_path),
+              format,
+              status: "ok",
+              elapsed_ms,
+              error: "",
+            })
+          }
+          Err(msg) => {
+            failure_count += 1
+            let status = if msg.contains("Unsupported file type:") {
+              unsupported_count += 1
+              "unsupported"
+            } else {
+              "failed"
+            }
+            results.push({
+              index,
+              input_path: item.path,
+              output_md: Some(markdown_path),
+              format,
+              status,
+              elapsed_ms,
+              error: msg,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  let summary_path = join_path(output_dir, "batch-summary.tsv")
+  write_batch_summary(summary_path, results) catch {
+    e => return Err("write batch summary failed: " + e.to_string())
+  }
+
+  Ok({
+    total_count: items.length(),
+    success_count,
+    failure_count,
+    unsupported_count,
+    skipped_directory_count,
+    had_error: failure_count > 0,
+    summary_path,
+  })
+}
+
+///|
+enum BatchInputKind {
+  File
+  Directory
+}
+
+///|
+struct BatchInputEntry {
+  path : String
+  kind : BatchInputKind
+}
+
+///|
+fn collect_batch_inputs(
+  input_dir : String,
+) -> Array[BatchInputEntry] raise @fs.IOError {
+  let names = @fs.read_dir(input_dir)
+  names.sort()
+
+  let out : Array[BatchInputEntry] = []
+  for name in names {
+    let child = join_path(input_dir, name)
+    if @fs.is_dir(child) {
+      out.push({ path: child, kind: BatchInputKind::Directory })
+    } else if @fs.is_file(child) {
+      out.push({ path: child, kind: BatchInputKind::File })
+    }
+  }
+  out
+}
+
+///|
+fn file_ext_lower(path : String) -> String {
+  let n = path.length()
+  if n == 0 {
+    return ""
+  }
+
+  let mut i = n - 1
+  while i >= 0 {
+    if path[i] == '.' {
+      if i == n - 1 {
+        return ""
+      }
+      return path[i + 1:].to_owned().to_lower()
+    }
+    i = i - 1
+  }
+  ""
+}
+
+///|
+fn batch_doc_root(
+  output_dir : String,
+  index : Int,
+  input_path : String,
+) -> String {
+  join_path(
+    output_dir,
+    pad_batch_index(index) + "-" + sanitize_batch_stem(input_stem(input_path)),
+  )
+}
+
+///|
+fn pad_batch_index(n : Int) -> String {
+  if n < 10 {
+    "00" + n.to_string()
+  } else if n < 100 {
+    "0" + n.to_string()
+  } else {
+    n.to_string()
+  }
+}
+
+///|
+fn sanitize_batch_stem(raw : String) -> String {
+  let chars = raw.to_array()
+  let out : Array[Char] = []
+  for ch in chars {
+    let keep = (ch >= 'a' && ch <= 'z') ||
+      (ch >= 'A' && ch <= 'Z') ||
+      (ch >= '0' && ch <= '9')
+    if keep {
+      out.push(ch)
+    } else if ch == '-' || ch == '_' {
+      out.push(ch)
+    } else {
+      out.push('-')
+    }
+  }
+
+  let text = String::from_array(out).trim().to_owned()
+  if text == "" {
+    "document"
+  } else {
+    text
+  }
+}
+
+///|
+fn write_batch_summary(
+  path : String,
+  results : Array[BatchItemResult],
+) -> Unit raise @fs.IOError {
+  let lines : Array[String] = [
+    "index\tinput_path\toutput_md\tformat\tstatus\telapsed_ms\terror",
+  ]
+  for item in results {
+    let output_md = match item.output_md {
+      Some(p) => p
+      None => ""
+    }
+    lines.push(
+      item.index.to_string() +
+      "\t" +
+      summary_escape(item.input_path) +
+      "\t" +
+      summary_escape(output_md) +
+      "\t" +
+      summary_escape(item.format) +
+      "\t" +
+      summary_escape(item.status) +
+      "\t" +
+      item.elapsed_ms.to_string() +
+      "\t" +
+      summary_escape(item.error),
+    )
+  }
+  @fs.write_string_to_file(path, lines.join("\n") + "\n", encoding="utf8")
+}
+
+///|
+fn summary_escape(text : String) -> String {
+  text
+  .replace(old="\t", new=" ")
+  .replace(old="\n", new=" ")
+  .replace(old="\r", new=" ")
+}
+
+///|
+fn elapsed_ms_since(started : Int64) -> Int {
+  let now = now_ms()
+  if now <= started {
+    0
+  } else {
+    (now - started).to_int()
+  }
 }
 
 ///|
@@ -211,6 +891,40 @@ fn metadata_output_path(markdown_path : String) -> String {
 }
 
 ///|
+fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
+  let normalized = path.trim().to_owned()
+  if normalized == "" || normalized == "." {
+    return
+  }
+  if @fs.path_exists(normalized) {
+    return
+  }
+
+  let parts = normalized.split("/")
+  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
+  for raw in parts {
+    let part = raw.trim().to_owned()
+    if part == "" || part == "." {
+      continue
+    }
+
+    current = if current == "" || current == "/" {
+      if current == "/" {
+        "/" + part
+      } else {
+        part
+      }
+    } else {
+      current + "/" + part
+    }
+
+    if !@fs.path_exists(current) {
+      @fs.create_dir(current)
+    }
+  }
+}
+
+///|
 fn read_document_properties(
   input : String,
   format : String,
@@ -222,6 +936,306 @@ fn read_document_properties(
     return read_epub_document_properties(input)
   }
   None
+}
+
+///|
+fn debug_profile_xlsx_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_XLSX") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_json_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_JSON") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_csv_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_CSV") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_txt_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_TXT") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_yaml_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_YAML") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_zip_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_ZIP") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn xlsx_profile_push_cli_stage(
+  profile : @xlsx.XlsxProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @xlsx.xlsx_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn csv_profile_push_cli_stage(
+  profile : @csv.CsvProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @csv.csv_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn json_profile_push_cli_stage(
+  profile : @json.JsonProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @json.json_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn txt_profile_push_cli_stage(
+  profile : @txt.TxtProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @txt.txt_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn yaml_profile_push_cli_stage(
+  profile : @yaml.YamlProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @yaml.yaml_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn zip_profile_push_cli_stage(
+  profile : @zipconv.ZipProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @zipconv.zip_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn write_xlsx_profile_log_if_enabled(
+  profile : @xlsx.XlsxProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".xlsx.profile.log",
+      )
+      let lines : Array[String] = [
+        @xlsx.xlsx_profile_render_report(rep),
+        "xlsx_profile cli markdown_output=" + markdown_path,
+        "xlsx_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_csv_profile_log_if_enabled(
+  profile : @csv.CsvProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".csv.profile.log",
+      )
+      let lines : Array[String] = [
+        @csv.csv_profile_render_report(rep),
+        "csv_profile cli markdown_output=" + markdown_path,
+        "csv_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_json_profile_log_if_enabled(
+  profile : @json.JsonProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".json.profile.log",
+      )
+      let lines : Array[String] = [
+        @json.json_profile_render_report(rep),
+        "json_profile cli markdown_output=" + markdown_path,
+        "json_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_txt_profile_log_if_enabled(
+  profile : @txt.TxtProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".txt.profile.log",
+      )
+      let lines : Array[String] = [
+        @txt.txt_profile_render_report(rep),
+        "txt_profile cli markdown_output=" + markdown_path,
+        "txt_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_yaml_profile_log_if_enabled(
+  profile : @yaml.YamlProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".yaml.profile.log",
+      )
+      let lines : Array[String] = [
+        @yaml.yaml_profile_render_report(rep),
+        "yaml_profile cli markdown_output=" + markdown_path,
+        "yaml_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_zip_profile_log_if_enabled(
+  profile : @zipconv.ZipProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".zip.profile.log",
+      )
+      let lines : Array[String] = [
+        @zipconv.zip_profile_render_report(rep),
+        "zip_profile cli markdown_output=" + markdown_path,
+        "zip_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
 }
 
 ///|
@@ -261,20 +1275,26 @@ fn read_epub_document_properties(
   }
   let meta = pkg.metadata
 
+  let props = @cor.metadata_document_properties(
+    meta.title,
+    None,
+    meta.creator,
+    None,
+    None,
+    meta.date,
+    meta.modified,
+    Some("EPUB"),
+    None,
+    None,
+    None,
+    None,
+  )
   Some(
-    @cor.metadata_document_properties(
-      meta.title,
-      None,
-      meta.creator,
-      None,
-      None,
-      meta.date,
-      meta.modified,
-      Some("EPUB"),
-      None,
-      None,
-      None,
-      None,
+    @cor.metadata_document_properties_with_extras(
+      props,
+      meta.language,
+      meta.identifier,
+      meta.publisher,
     ),
   )
 }

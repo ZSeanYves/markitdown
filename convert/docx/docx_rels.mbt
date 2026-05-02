@@ -63,6 +63,20 @@ fn lookup_doc_hyperlink_target(
 }
 
 ///|
+fn lookup_doc_part_target_opt(
+  ctx : DocxRelationshipContext,
+  rid : String,
+) -> String? {
+  let target = lookup_doc_relationship_target(ctx, rid)
+  let normalized = normalize_doc_part_target(target)
+  if normalized == "" {
+    None
+  } else {
+    Some(normalized)
+  }
+}
+
+///|
 fn normalize_doc_part_target(target : String) -> String {
   if target == "" {
     return ""
@@ -84,6 +98,15 @@ fn build_docx_asset_path_map(
   ctx : DocxRelationshipContext,
   out_root : String,
 ) -> Map[String, String] {
+  build_docx_asset_path_map_with_seed(ctx, out_root, { val: 0 })
+}
+
+///|
+fn build_docx_asset_path_map_with_seed(
+  ctx : DocxRelationshipContext,
+  out_root : String,
+  next_idx : Ref[Int],
+) -> Map[String, String] {
   let media_targets : Array[String] = []
   for rel in ctx.document_relationships {
     let normalized = normalize_doc_part_target(rel.resolved_target)
@@ -94,7 +117,6 @@ fn build_docx_asset_path_map(
   media_targets.sort()
 
   let out : Map[String, String] = Map::new()
-  let next_idx : Ref[Int] = { val: 0 }
   for target in media_targets {
     if out.contains(target) {
       continue

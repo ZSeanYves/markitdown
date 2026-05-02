@@ -1,0 +1,334 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf/model"
+
+// Values
+pub fn block_char_count(PdfTextBlock) -> Int
+
+pub fn block_source_ref_count(PdfTextBlock) -> Int
+
+pub fn block_span_count(PdfTextBlock) -> Int
+
+pub fn block_text(PdfTextBlock) -> String
+
+pub fn bottom_edge_threshold(PdfPageModel) -> Double
+
+pub fn chars_bbox(Array[PdfChar]) -> PdfRect?
+
+pub fn glue_between_spans(String, String) -> String
+
+pub fn is_bottom_edge_block(PdfPageModel, PdfTextBlock) -> Bool
+
+pub fn is_edge_region_block(PdfPageModel, PdfTextBlock) -> Bool
+
+pub fn is_rect_valid(PdfRect) -> Bool
+
+pub fn is_top_edge_block(PdfPageModel, PdfTextBlock) -> Bool
+
+pub fn line_char_count(PdfTextLine) -> Int
+
+pub fn line_source_ref_count(PdfTextLine) -> Int
+
+pub fn line_text(PdfTextLine) -> String
+
+pub fn lines_bbox(Array[PdfTextLine]) -> PdfRect?
+
+pub fn page_artifact_candidate_count(PdfPageModel) -> Int
+
+pub fn page_char_count(PdfPageModel) -> Int
+
+pub fn page_header_footer_candidate_count(PdfPageModel) -> Int
+
+pub fn page_line_count(PdfPageModel) -> Int
+
+pub fn page_object_count(PdfPageModel) -> Int
+
+pub fn page_page_number_candidate_count(PdfPageModel) -> Int
+
+pub fn page_span_count(PdfPageModel) -> Int
+
+pub fn page_text_block_count(PdfPageModel) -> Int
+
+pub fn rect_center(PdfRect) -> PdfPoint
+
+pub fn rect_height(PdfRect) -> Double
+
+pub fn rect_width(PdfRect) -> Double
+
+pub fn source_ref_to_string(PdfSourceRef) -> String
+
+pub fn span_source_ref_count(PdfTextSpan) -> Int
+
+pub fn span_text(PdfTextSpan) -> String
+
+pub fn spans_bbox(Array[PdfTextSpan]) -> PdfRect?
+
+pub fn top_edge_threshold(PdfPageModel) -> Double
+
+pub fn union_rect(PdfRect, PdfRect) -> PdfRect
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfAnnotationObject {
+  id : String
+  subtype : String
+  bbox : PdfRect
+  contents : String?
+  subject : String?
+  uri : String?
+  dest : String?
+  target_page : Int?
+  color : PdfColor?
+  object_ref : String?
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) struct PdfChar {
+  unicode : String
+  raw_bytes : Bytes?
+  decoded_text : String
+  bbox : PdfRect
+  origin : PdfPoint
+  quad : PdfQuad?
+  advance_width : Double?
+  glyph_width : Double?
+  font_name : String?
+  font_size : Double?
+  fill_color : PdfColor?
+  rotation : Double?
+  is_ligature : Bool
+  is_compat_glyph : Bool
+  decode_confidence : Double?
+  source : PdfSourceRef
+  break_before : Bool
+  break_reason : String?
+}
+
+pub(all) struct PdfColor {
+  r : Int
+  g : Int
+  b : Int
+}
+
+pub(all) struct PdfDocumentMetadata {
+  title : String?
+  author : String?
+  subject : String?
+  keywords : Array[String]
+  creator : String?
+  producer : String?
+  creation_date : String?
+  mod_date : String?
+}
+
+pub(all) struct PdfDocumentModel {
+  version : String
+  page_count : Int
+  metadata : PdfDocumentMetadata
+  is_encrypted : Bool
+  has_xref_stream : Bool
+  has_object_stream : Bool
+  outlines : Array[PdfOutlineItem]
+  pages : Array[PdfPageModel]
+}
+
+pub(all) struct PdfFormField {
+  id : String
+  field_type : String
+  field_name : String?
+  field_value : String?
+  bbox : PdfRect?
+  page_index : Int
+  options : Array[String]
+  checked_state : Bool?
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) struct PdfImageObject {
+  id : String
+  bbox : PdfRect
+  width_px : Int
+  height_px : Int
+  colorspace : String?
+  bits_per_component : Int?
+  image_filter : String?
+  object_ref : String?
+  alt_text : String?
+  inline_image : Bool
+  payload : PdfImagePayload?
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) enum PdfImagePayload {
+  Jpeg(Array[Byte])
+  Jpeg2000(Array[Byte])
+  Jbig2(Array[Byte], Int?)
+  RawRgb24(Array[Byte])
+}
+
+pub(all) struct PdfOutlineItem {
+  title : String
+  page_index : Int?
+  dest : String?
+  children : Array[PdfOutlineItem]
+}
+
+pub(all) struct PdfPageBoxes {
+  media_box : PdfRect
+  crop_box : PdfRect?
+  bleed_box : PdfRect?
+  trim_box : PdfRect?
+  art_box : PdfRect?
+}
+
+pub(all) struct PdfPageModel {
+  page_index : Int
+  page_label : String?
+  rotation : Int
+  user_unit : Double?
+  boxes : PdfPageBoxes
+  text_blocks : Array[PdfTextBlock]
+  images : Array[PdfImageObject]
+  vectors : Array[PdfVectorObject]
+  annotations : Array[PdfAnnotationObject]
+  forms : Array[PdfFormField]
+  reading_order_candidates : Array[String]
+  artifact_candidates : Array[String]
+  raw_content_stream_refs : Array[String]
+}
+
+pub(all) struct PdfPoint {
+  x : Double
+  y : Double
+}
+
+pub(all) struct PdfQuad {
+  p1 : PdfPoint
+  p2 : PdfPoint
+  p3 : PdfPoint
+  p4 : PdfPoint
+}
+
+pub(all) struct PdfRect {
+  x0 : Double
+  y0 : Double
+  x1 : Double
+  y1 : Double
+}
+
+pub(all) struct PdfSourceRef {
+  page_index : Int
+  source_stream_index : Int
+  source_op_index : Int
+  text_object_id : Int?
+  content_order_index : Int?
+  source_object_ref : String?
+}
+
+pub(all) struct PdfTextBlock {
+  id : String
+  bbox : PdfRect
+  kind : PdfTextBlockKind
+  rotation : Double?
+  dominant_font_name : String?
+  dominant_font_size : Double?
+  dominant_language : String?
+  writing_direction : PdfWritingDirection
+  z_index : Int?
+  lines : Array[PdfTextLine]
+  is_heading_candidate : Bool
+  is_header_footer_candidate : Bool
+  is_page_number_candidate : Bool
+  is_table_cell_candidate : Bool
+  is_caption_candidate : Bool
+  is_artifact_candidate : Bool
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) enum PdfTextBlockKind {
+  Text
+  HeadingCandidate
+  ListCandidate
+  CaptionCandidate
+  HeaderFooterCandidate
+  TableCellCandidate
+  FormulaCandidate
+  Unknown
+}
+
+pub(all) struct PdfTextLine {
+  id : String
+  bbox : PdfRect
+  baseline_y : Double?
+  ascent : Double?
+  descent : Double?
+  line_height : Double?
+  indent_left : Double?
+  indent_right : Double?
+  alignment_hint : String?
+  line_gap_before : Double?
+  line_gap_after : Double?
+  spans : Array[PdfTextSpan]
+  is_wrapped_candidate : Bool
+  is_same_paragraph_with_prev_candidate : Bool
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) struct PdfTextSpan {
+  id : String
+  bbox : PdfRect
+  origin : PdfPoint
+  text : String
+  font_name : String?
+  font_family : String?
+  font_size : Double?
+  is_bold : Bool
+  is_italic : Bool
+  is_monospace : Bool
+  fill_color : PdfColor?
+  stroke_color : PdfColor?
+  char_spacing : Double?
+  word_spacing : Double?
+  text_rise : Double?
+  scale_x : Double?
+  writing_direction : PdfWritingDirection
+  language_hint : String?
+  chars : Array[PdfChar]
+  source_refs : Array[PdfSourceRef]
+  break_before : Bool
+  break_reason : String?
+}
+
+pub(all) enum PdfVectorKind {
+  Line
+  Rect
+  Curve
+  Path
+  Fill
+  Stroke
+  Unknown
+}
+
+pub(all) struct PdfVectorObject {
+  id : String
+  bbox : PdfRect
+  kind : PdfVectorKind
+  stroke_color : PdfColor?
+  fill_color : PdfColor?
+  stroke_width : Double?
+  dash_pattern : Array[Int]
+  source_refs : Array[PdfSourceRef]
+}
+
+pub(all) enum PdfWritingDirection {
+  LeftToRight
+  RightToLeft
+  TopToBottom
+  BottomToTop
+  Unknown
+}
+
+// Type aliases
+
+// Traits
+

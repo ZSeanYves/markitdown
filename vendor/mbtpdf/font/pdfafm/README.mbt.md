@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/font/pdfafm
+# @ZSeanYves/markitdown/vendor/mbtpdf/font/pdfafm
 
 Adobe Font Metrics (AFM) file parser.
 

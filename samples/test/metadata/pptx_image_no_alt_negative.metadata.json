@@ -75,6 +75,7 @@
         "sheet": null,
         "origin_id": "slide-1-image-1",
         "nearby_caption": null,
+        "object_ref": "picture-2",
         "relationship_id": "rId2",
         "source_path": "ppt/media/image1.png"
       },

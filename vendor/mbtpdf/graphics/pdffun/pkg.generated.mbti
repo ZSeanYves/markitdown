@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/graphics/pdffun"
+package "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdffun"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
   "moonbitlang/core/debug",
 }
 

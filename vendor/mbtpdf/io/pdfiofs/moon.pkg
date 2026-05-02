@@ -1,5 +1,5 @@
 import {
-  "bobzhang/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
   "moonbitlang/async",
   "moonbitlang/async/fs",
   "moonbitlang/async/io",

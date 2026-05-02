@@ -27,10 +27,24 @@ This split improves explainability:
 
 ## Scripts
 
-- `samples/check_samples.sh`: enrollment integrity check for main_process set.
-- `samples/diff.sh`: main process regression entry (and invokes assets checks).
+- `samples/scripts/check_samples.sh`: enrollment integrity check for main_process set.
+- `samples/check.sh`: full validation entry.
+- `samples/check_main_process.sh`: main process regression entry.
 - `samples/check_metadata.sh`: metadata-focused regression.
 - `samples/check_assets.sh`: assets extraction/reference regression.
+
+Validation UX notes:
+
+* validation prefers a probe-validated native CLI when one is available
+* if the discovered native binary is stale, validation falls back to `moon run`
+* set `MARKITDOWN_CLI=/abs/path/to/cli` to override runner discovery with a
+  known-fresh native binary
+* `moon run` includes wrapper overhead, so explicit native override is still
+  useful for faster local runs
+* `SAMPLES_VERBOSE=1` restores per-sample logs
+* `check_main_process.sh` is intentionally focused on main Markdown regression;
+  run `./samples/check.sh` for the full integrity + main_process + metadata +
+  assets chain
 
 ## Acceptance demo coverage (`samples/test`)
 

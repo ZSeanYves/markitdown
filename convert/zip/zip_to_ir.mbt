@@ -8,18 +8,62 @@ const MAX_SINGLE_ENTRY_BYTES : Int = 128 * 1024 * 1024
 const MAX_TOTAL_ENTRY_BYTES : Int = 256 * 1024 * 1024
 
 ///|
+pub(all) enum ZipInspectEntryKind {
+  Supported
+  NestedArchive
+  Unsupported
+  Directory
+  HiddenMetadata
+  UnsafePath
+  EntryLimitExceeded
+  EntryTooLarge
+  TotalDecodedLimitExceeded
+} derive(Eq)
+
+///|
+pub(all) enum ZipInspectAction {
+  Convert
+  Skip
+  Warn
+  Fail
+} derive(Eq)
+
+///|
+pub struct ZipInspectEntry {
+  raw_name : String
+  normalized_path : String?
+  entry_kind : ZipInspectEntryKind
+  action : ZipInspectAction
+  compression_method : @zipraw.CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  flags : Int
+  has_data_descriptor : Bool
+  is_encrypted : Bool
+  uses_zip64 : Bool
+  local_header_offset : Int
+  crc32 : Int
+  dispatch_format : String?
+  note : String?
+}
+
+///|
+pub struct ZipInspectReport {
+  source_name : String
+  entry_count : Int
+  entries : Array[ZipInspectEntry]
+}
+
+///|
 priv struct PlannedEntry {
   raw_path : String
   path : String
   uncompressed_size : Int
+  inspect_index : Int
 }
 
 ///|
-pub async fn parse_zip(
-  input_path : String,
-  out_dir : String,
-  max_heading : Int,
-) -> @cor.Document {
+pub fn inspect_zip(input_path : String) -> ZipInspectReport raise {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("zip: file not found: " + input_path)
   }
@@ -31,9 +75,56 @@ pub async fn parse_zip(
     e => raise @cor.AppError("zip: open failed: " + e.to_string())
   }
 
+  inspect_zip_archive(archive, @cor.basename(input_path))
+}
+
+///|
+pub async fn parse_zip(
+  input_path : String,
+  out_dir : String,
+  max_heading : Int,
+) -> @cor.Document {
+  parse_zip_with_profile(input_path, out_dir, max_heading).0
+}
+
+///|
+pub async fn parse_zip_with_profile(
+  input_path : String,
+  out_dir : String,
+  max_heading : Int,
+) -> (@cor.Document, ZipProfileReport?) {
+  if !@fs.path_exists(input_path) {
+    raise @cor.AppError("zip: file not found: " + input_path)
+  }
+
+  let profile = if zip_profile_enabled() {
+    Some(new_zip_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let open_started = @env.now()
+  let bytes = @fs.read_file_to_bytes(input_path) catch {
+    e => raise @cor.AppError("zip: read failed: " + e.to_string())
+  }
+  let archive = @zipraw.open_zip(bytes) catch {
+    e => raise @cor.AppError("zip: open failed: " + e.to_string())
+  }
+  zip_profile_add_stage(
+    profile,
+    "zip_open",
+    @env.now() - open_started,
+    Some("archive_bytes=" + bytes.length().to_string()),
+  )
+
+  let inspect_started = @env.now()
+  let inspect = inspect_zip_archive(archive, @cor.basename(input_path))
+  let inspect_elapsed = @env.now() - inspect_started
+
   let doc = @cor.new_document()
-  let zip_name = @cor.basename(input_path)
-  let tmp_root = zip_tmp_dir(input_path)
+  let zip_name = inspect.source_name
+  let tmp_root = allocate_archive_run_dir(zip_tmp_dir(input_path), "run")
+  let staged_entries_root = tmp_root + "/entries"
   ensure_dir_tree(tmp_root) catch {
     e => raise @cor.AppError("zip: create temp dir failed: " + e.to_string())
   }
@@ -42,41 +133,85 @@ pub async fn parse_zip(
   } else {
     out_dir
   }
+  if out_dir.trim() != "" {
+    defer ignore(try? cleanup_archive_run_dir(tmp_root))
+  }
   ensure_dir_tree(archive_out_dir) catch {
     e =>
       raise @cor.AppError(
         "zip: create archive output dir failed: " + e.to_string(),
       )
   }
-
-  let plans : Array[PlannedEntry] = []
-  let unsafe_warnings : Map[String, String] = Map::new()
-  for meta in @zipraw.list_entries(archive) {
-    match plan_entry(meta.name) {
-      EntryPlan::Directory => ()
-      EntryPlan::Hidden => ()
-      EntryPlan::Unsafe(display) =>
-        unsafe_warnings.set(display, "Skipped: unsafe archive path")
-      EntryPlan::Visible(path) =>
-        plans.push({
-          raw_path: meta.name,
-          path,
-          uncompressed_size: meta.uncompressed_size,
-        })
-    }
+  ensure_dir_tree(staged_entries_root) catch {
+    e =>
+      raise @cor.AppError(
+        "zip: create staged entries dir failed: " + e.to_string(),
+      )
   }
-  ensure_no_normalized_path_collisions(plans)
-  plans.sort_by((a, b) => compare_zip_path(a.path, b.path))
+
+  let filter_counts = summarize_inspect_entries(inspect)
+  zip_profile_add_summary(
+    profile,
+    "counts total_entries=" +
+    inspect.entry_count.to_string() +
+    " converted_entries=" +
+    filter_counts.converted_entries.to_string() +
+    " skipped_entries=" +
+    filter_counts.skipped_entries.to_string() +
+    " unsupported_entries=" +
+    filter_counts.unsupported_entries.to_string() +
+    " nested_archive_entries=" +
+    filter_counts.nested_archive_entries.to_string(),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_list_entries",
+    inspect_elapsed,
+    Some("entries=" + inspect.entry_count.to_string()),
+  )
+
+  let plan_started = @env.now()
+  let plans = build_planned_entries(inspect)
+  let plan_elapsed = @env.now() - plan_started
+  zip_profile_add_stage(
+    profile,
+    "zip_filter_entries",
+    plan_elapsed,
+    Some(
+      "plans=" +
+      plans.length().to_string() +
+      " convertible=" +
+      filter_counts.converted_entries.to_string(),
+    ),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_sort_entries",
+    0,
+    Some("planned_entries_sorted=" + plans.length().to_string()),
+  )
 
   let final_md = StringBuilder::new()
   let used_ids : Map[String, Int] = Map::new()
   let mut total_decoded = 0
+  let mut converted_entries = 0
+  let mut warning_entries = 0
+  let mut asset_remap_entries = 0
   let extracted_root = tmp_root + "/extracted"
   let mut shared_extracted_ready = false
+  let extract_elapsed : Ref[UInt64] = { val: 0 }
+  let stage_elapsed : Ref[UInt64] = { val: 0 }
+  let dispatch_elapsed : Ref[UInt64] = { val: 0 }
+  let aggregate_elapsed : Ref[UInt64] = { val: 0 }
+  let remap_elapsed : Ref[UInt64] = { val: 0 }
+  let mut staged_input_entries = 0
+  let mut shared_input_entries = 0
+  let mut output_dir_entries = 0
 
   for i in 0..<plans.length() {
     let plan = plans[i]
     if i >= MAX_ZIP_ENTRIES {
+      warning_entries += 1
       append_warning_entry(
         doc,
         final_md,
@@ -89,6 +224,7 @@ pub async fn parse_zip(
 
     let ext = file_ext_lower(plan.path)
     if is_nested_archive_ext(ext) {
+      warning_entries += 1
       append_warning_entry(
         doc,
         final_md,
@@ -99,6 +235,7 @@ pub async fn parse_zip(
       continue
     }
     if !is_supported_entry_ext(ext) {
+      warning_entries += 1
       append_warning_entry(
         doc,
         final_md,
@@ -109,6 +246,7 @@ pub async fn parse_zip(
       continue
     }
     if plan.uncompressed_size > MAX_SINGLE_ENTRY_BYTES {
+      warning_entries += 1
       append_warning_entry(
         doc,
         final_md,
@@ -121,6 +259,7 @@ pub async fn parse_zip(
       continue
     }
     if total_decoded + plan.uncompressed_size > MAX_TOTAL_ENTRY_BYTES {
+      warning_entries += 1
       append_warning_entry(
         doc,
         final_md,
@@ -131,12 +270,14 @@ pub async fn parse_zip(
       continue
     }
 
+    let read_started = @env.now()
     let entry_bytes = @zipraw.read_entry(
       archive,
       plan.raw_path,
       max_output_size=MAX_SINGLE_ENTRY_BYTES,
     ) catch {
       e => {
+        warning_entries += 1
         append_warning_entry(
           doc,
           final_md,
@@ -147,13 +288,16 @@ pub async fn parse_zip(
         continue
       }
     }
+    extract_elapsed.val = extract_elapsed.val + (@env.now() - read_started)
     total_decoded += entry_bytes.length()
 
     let use_shared_extracted_input = is_html_entry_ext(ext) &&
       html_entry_has_local_image_refs(entry_bytes)
     if use_shared_extracted_input && !shared_extracted_ready {
+      let shared_extract_started = @env.now()
       materialize_safe_archive_tree(archive, plans, extracted_root) catch {
         e => {
+          warning_entries += 1
           append_warning_entry(
             doc,
             final_md,
@@ -164,39 +308,43 @@ pub async fn parse_zip(
           continue
         }
       }
+      extract_elapsed.val = extract_elapsed.val +
+        (@env.now() - shared_extract_started)
       shared_extracted_ready = true
     }
 
     let entry_id = unique_entry_id(plan.path, used_ids)
-    let entry_root = tmp_root + "/entries/" + entry_id
-    let entry_out = tmp_root + "/out/" + entry_id
-    recreate_clean_dir(entry_root) catch {
-      e => {
-        append_warning_entry(
-          doc,
-          final_md,
-          zip_name,
-          plan.path,
-          "Conversion failed: reset entry temp dir failed: " + e.to_string(),
-        )
-        continue
-      }
+    let entry_out = if zip_entry_requires_output_dir(ext) {
+      Some(tmp_root + "/out/" + entry_id)
+    } else {
+      None
     }
-    recreate_clean_dir(entry_out) catch {
-      e => {
-        append_warning_entry(
-          doc,
-          final_md,
-          zip_name,
-          plan.path,
-          "Conversion failed: reset entry output dir failed: " + e.to_string(),
-        )
-        continue
+    let stage_started = @env.now()
+    let dispatch_out_dir = match entry_out {
+      Some(dir) => {
+        ensure_dir_tree(dir) catch {
+          e => {
+            append_warning_entry(
+              doc,
+              final_md,
+              zip_name,
+              plan.path,
+              "Conversion failed: create entry output dir failed: " +
+              e.to_string(),
+            )
+            continue
+          }
+        }
+        output_dir_entries += 1
+        dir
       }
+      None => ""
     }
     let input_path = if use_shared_extracted_input {
+      shared_input_entries += 1
       extracted_entry_path(extracted_root, plan.path) catch {
         e => {
+          warning_entries += 1
           append_warning_entry(
             doc,
             final_md,
@@ -208,21 +356,30 @@ pub async fn parse_zip(
         }
       }
     } else {
-      let entry_path = entry_root + "/" + plan.path
-      ensure_parent_dir(entry_path) catch {
-        e => {
-          append_warning_entry(
-            doc,
-            final_md,
-            zip_name,
-            plan.path,
-            "Conversion failed: create temp path failed: " + e.to_string(),
-          )
-          continue
+      let uses_flat_staging = zip_entry_uses_flat_staging(ext)
+      let entry_path = if uses_flat_staging {
+        staged_entries_root + "/" + entry_id
+      } else {
+        staged_entries_root + "/" + entry_id + "/" + plan.path
+      }
+      if !uses_flat_staging {
+        ensure_parent_dir(entry_path) catch {
+          e => {
+            append_warning_entry(
+              doc,
+              final_md,
+              zip_name,
+              plan.path,
+              "Conversion failed: create temp path failed: " + e.to_string(),
+            )
+            continue
+          }
         }
       }
+      staged_input_entries += 1
       @fs.write_bytes_to_file(entry_path, entry_bytes) catch {
         e => {
+          warning_entries += 1
           append_warning_entry(
             doc,
             final_md,
@@ -235,9 +392,14 @@ pub async fn parse_zip(
       }
       entry_path
     }
+    stage_elapsed.val = stage_elapsed.val + (@env.now() - stage_started)
 
-    let subdoc = parse_supported_entry(input_path, ext, entry_out, max_heading) catch {
+    let dispatch_started = @env.now()
+    let subdoc = parse_supported_entry(
+      input_path, ext, dispatch_out_dir, max_heading,
+    ) catch {
       e => {
+        warning_entries += 1
         append_warning_entry(
           doc,
           final_md,
@@ -248,17 +410,21 @@ pub async fn parse_zip(
         continue
       }
     }
+    dispatch_elapsed.val = dispatch_elapsed.val +
+      (@env.now() - dispatch_started)
 
     let remapped_subdoc = if doc_has_assets(subdoc) {
-      remap_subdoc_assets(
+      let remap_started = @env.now()
+      let remapped = remap_subdoc_assets(
         subdoc,
         entry_id,
-        entry_out,
+        dispatch_out_dir,
         archive_out_dir,
         zip_name,
         plan.path,
       ) catch {
         e => {
+          warning_entries += 1
           append_warning_entry(
             doc,
             final_md,
@@ -269,9 +435,13 @@ pub async fn parse_zip(
           continue
         }
       }
+      remap_elapsed.val = remap_elapsed.val + (@env.now() - remap_started)
+      asset_remap_entries += 1
+      remapped
     } else {
       subdoc
     }
+    let aggregate_started = @env.now()
     append_converted_entry(
       doc,
       final_md,
@@ -280,19 +450,114 @@ pub async fn parse_zip(
       plan.path,
       @cor.emit_markdown(remapped_subdoc),
     )
+    aggregate_elapsed.val = aggregate_elapsed.val +
+      (@env.now() - aggregate_started)
+    converted_entries += 1
   }
 
-  let unsafe_paths = sorted_warning_keys(unsafe_warnings)
-  for path in unsafe_paths {
-    match unsafe_warnings.get(path) {
-      Some(message) =>
-        append_warning_entry(doc, final_md, zip_name, path, message)
-      None => ()
+  zip_profile_add_summary(
+    profile,
+    "result total_entries=" +
+    inspect.entry_count.to_string() +
+    " converted_entries=" +
+    converted_entries.to_string() +
+    " warning_entries=" +
+    warning_entries.to_string() +
+    " total_decompressed_bytes=" +
+    total_decoded.to_string() +
+    " output_markdown_bytes=" +
+    final_md.to_string().length().to_string() +
+    " asset_count=" +
+    doc.asset_origins.val.length().to_string(),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_extract_entry_total",
+    extract_elapsed.val,
+    Some("total_decompressed_bytes=" + total_decoded.to_string()),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_stage_entry_total",
+    stage_elapsed.val,
+    Some(
+      "staged_input_entries=" +
+      staged_input_entries.to_string() +
+      " shared_input_entries=" +
+      shared_input_entries.to_string() +
+      " output_dir_entries=" +
+      output_dir_entries.to_string(),
+    ),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_dispatch_entry_total",
+    dispatch_elapsed.val,
+    Some("converted_entries=" + converted_entries.to_string()),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_markdown_aggregate",
+    aggregate_elapsed.val,
+    Some("markdown_bytes=" + final_md.to_string().length().to_string()),
+  )
+  zip_profile_add_stage(
+    profile,
+    "zip_asset_remap",
+    remap_elapsed.val,
+    Some("asset_entries=" + asset_remap_entries.to_string()),
+  )
+
+  @cor.set_passthrough_markdown(doc, final_md.to_string())
+  (doc, profile)
+}
+
+///|
+priv struct ZipInspectCounts {
+  converted_entries : Int
+  skipped_entries : Int
+  unsupported_entries : Int
+  nested_archive_entries : Int
+}
+
+///|
+fn summarize_inspect_entries(inspect : ZipInspectReport) -> ZipInspectCounts {
+  let mut converted_entries = 0
+  let mut skipped_entries = 0
+  let mut unsupported_entries = 0
+  let mut nested_archive_entries = 0
+
+  for entry in inspect.entries {
+    match entry.entry_kind {
+      ZipInspectEntryKind::Supported =>
+        if entry.action == ZipInspectAction::Convert {
+          converted_entries += 1
+        } else {
+          skipped_entries += 1
+        }
+      ZipInspectEntryKind::NestedArchive => {
+        nested_archive_entries += 1
+        skipped_entries += 1
+      }
+      ZipInspectEntryKind::Unsupported => {
+        unsupported_entries += 1
+        skipped_entries += 1
+      }
+      ZipInspectEntryKind::Directory
+      | ZipInspectEntryKind::HiddenMetadata
+      | ZipInspectEntryKind::UnsafePath
+      | ZipInspectEntryKind::EntryLimitExceeded
+      | ZipInspectEntryKind::EntryTooLarge
+      | ZipInspectEntryKind::TotalDecodedLimitExceeded => skipped_entries += 1
     }
   }
 
-  @cor.set_passthrough_markdown(doc, final_md.to_string())
-  doc
+  {
+    converted_entries,
+    skipped_entries,
+    unsupported_entries,
+    nested_archive_entries,
+  }
 }
 
 ///|
@@ -328,6 +593,30 @@ async fn parse_supported_entry(
     "md" => @md.parse_markdown(input_path, out_dir, max_heading)
     "markdown" => @md.parse_markdown(input_path, out_dir, max_heading)
     _ => raise @cor.AppError("unsupported zip entry type: " + ext)
+  }
+}
+
+///|
+fn zip_entry_requires_output_dir(ext : String) -> Bool {
+  match ext {
+    "docx" | "pdf" | "pptx" | "html" | "htm" => true
+    _ => false
+  }
+}
+
+///|
+fn zip_entry_uses_flat_staging(ext : String) -> Bool {
+  match ext {
+    "csv"
+    | "tsv"
+    | "txt"
+    | "xml"
+    | "json"
+    | "yaml"
+    | "yml"
+    | "md"
+    | "markdown" => true
+    _ => false
   }
 }
 
@@ -1075,6 +1364,268 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 }
 
 ///|
+fn inspect_zip_archive(
+  archive : @zipraw.ZipArchive,
+  source_name : String,
+) -> ZipInspectReport {
+  let entries : Array[ZipInspectEntry] = []
+  let visible : Array[PlannedEntry] = []
+  let mut running_total = 0
+
+  for meta in @zipraw.list_entries(archive) {
+    let inspect_index = entries.length()
+    let planned = inspect_entry(meta, inspect_index)
+    entries.push(planned.0)
+    match planned.1 {
+      Some(plan) => visible.push(plan)
+      None => ()
+    }
+  }
+
+  let collision_notes = detect_normalized_collisions(visible)
+  for collision in collision_notes {
+    let idx = collision.0
+    let note = collision.1
+    let entry = entries[idx]
+    entries[idx] = {
+      ..entry,
+      entry_kind: ZipInspectEntryKind::UnsafePath,
+      action: ZipInspectAction::Fail,
+      note: Some(note),
+    }
+  }
+
+  visible.sort_by((a, b) => compare_zip_path(a.path, b.path))
+  for i in 0..<visible.length() {
+    let plan = visible[i]
+    let entry = entries[plan.inspect_index]
+    if entry.action == ZipInspectAction::Fail {
+      continue
+    }
+
+    let upgraded = if i >= MAX_ZIP_ENTRIES {
+      {
+        ..entry,
+        entry_kind: ZipInspectEntryKind::EntryLimitExceeded,
+        action: ZipInspectAction::Warn,
+        note: Some("entry count limit exceeded"),
+      }
+    } else if plan.uncompressed_size > MAX_SINGLE_ENTRY_BYTES {
+      {
+        ..entry,
+        entry_kind: ZipInspectEntryKind::EntryTooLarge,
+        action: ZipInspectAction::Warn,
+        note: Some(
+          "entry too large: " + plan.uncompressed_size.to_string() + " bytes",
+        ),
+      }
+    } else if running_total + plan.uncompressed_size > MAX_TOTAL_ENTRY_BYTES {
+      {
+        ..entry,
+        entry_kind: ZipInspectEntryKind::TotalDecodedLimitExceeded,
+        action: ZipInspectAction::Warn,
+        note: Some("total decoded size limit exceeded"),
+      }
+    } else {
+      running_total += plan.uncompressed_size
+      entry
+    }
+    entries[plan.inspect_index] = upgraded
+  }
+
+  { source_name, entry_count: entries.length(), entries }
+}
+
+///|
+fn inspect_entry(
+  meta : @zipraw.ZipEntryMeta,
+  inspect_index : Int,
+) -> (ZipInspectEntry, PlannedEntry?) {
+  let base = base_inspect_entry(meta)
+  match plan_entry(meta.name) {
+    EntryPlan::Directory =>
+      (
+        {
+          ..base,
+          entry_kind: ZipInspectEntryKind::Directory,
+          action: ZipInspectAction::Skip,
+          note: Some("directory entry"),
+        },
+        None,
+      )
+    EntryPlan::Hidden =>
+      (
+        {
+          ..base,
+          normalized_path: normalize_zip_entry_path(meta.name),
+          entry_kind: ZipInspectEntryKind::HiddenMetadata,
+          action: ZipInspectAction::Skip,
+          note: Some("hidden or macOS metadata entry"),
+        },
+        None,
+      )
+    EntryPlan::Unsafe(display) =>
+      (
+        {
+          ..base,
+          entry_kind: ZipInspectEntryKind::UnsafePath,
+          action: ZipInspectAction::Fail,
+          note: Some("unsafe archive path: " + display),
+        },
+        None,
+      )
+    EntryPlan::Visible(path) => {
+      let ext = file_ext_lower(path)
+      let entry_kind = if is_nested_archive_ext(ext) {
+        ZipInspectEntryKind::NestedArchive
+      } else if is_supported_entry_ext(ext) {
+        ZipInspectEntryKind::Supported
+      } else {
+        ZipInspectEntryKind::Unsupported
+      }
+      let action = match entry_kind {
+        ZipInspectEntryKind::Supported => ZipInspectAction::Convert
+        ZipInspectEntryKind::NestedArchive => ZipInspectAction::Warn
+        ZipInspectEntryKind::Unsupported => ZipInspectAction::Warn
+        _ => ZipInspectAction::Skip
+      }
+      let note = match entry_kind {
+        ZipInspectEntryKind::NestedArchive =>
+          Some("nested archive is not supported: " + ext)
+        ZipInspectEntryKind::Unsupported =>
+          Some("unsupported file type: " + ext)
+        _ => None
+      }
+      (
+        {
+          ..base,
+          normalized_path: Some(path),
+          entry_kind,
+          action,
+          dispatch_format: inspect_dispatch_format(ext),
+          note,
+        },
+        Some({
+          raw_path: meta.name,
+          path,
+          uncompressed_size: meta.uncompressed_size,
+          inspect_index,
+        }),
+      )
+    }
+  }
+}
+
+///|
+fn base_inspect_entry(meta : @zipraw.ZipEntryMeta) -> ZipInspectEntry {
+  {
+    raw_name: meta.name,
+    normalized_path: None,
+    entry_kind: ZipInspectEntryKind::Unsupported,
+    action: ZipInspectAction::Skip,
+    compression_method: meta.compression_method,
+    compressed_size: meta.compressed_size,
+    uncompressed_size: meta.uncompressed_size,
+    flags: meta.flags,
+    has_data_descriptor: meta.has_data_descriptor,
+    is_encrypted: meta.is_encrypted,
+    uses_zip64: meta.uses_zip64,
+    local_header_offset: meta.local_header_offset,
+    crc32: meta.crc32,
+    dispatch_format: None,
+    note: None,
+  }
+}
+
+///|
+fn detect_normalized_collisions(
+  plans : Array[PlannedEntry],
+) -> Array[(Int, String)] {
+  let seen : Map[String, PlannedEntry] = Map::new()
+  let out : Array[(Int, String)] = []
+  for plan in plans {
+    match seen.get(plan.path) {
+      Some(first) => {
+        let note = "normalized path collision: " +
+          plan.path +
+          " (" +
+          display_path(first.raw_path) +
+          " vs " +
+          display_path(plan.raw_path) +
+          ")"
+        out.push((first.inspect_index, note))
+        out.push((plan.inspect_index, note))
+      }
+      None => seen.set(plan.path, plan)
+    }
+  }
+  out
+}
+
+///|
+fn build_planned_entries(
+  inspect : ZipInspectReport,
+) -> Array[PlannedEntry] raise {
+  let plans : Array[PlannedEntry] = []
+  for entry in inspect.entries {
+    match entry.action {
+      ZipInspectAction::Fail =>
+        raise @cor.AppError(
+          "zip: " + entry.note.unwrap_or("entry planning failed"),
+        )
+      _ => ()
+    }
+  }
+
+  for i in 0..<inspect.entries.length() {
+    let entry = inspect.entries[i]
+    if entry.action == ZipInspectAction::Convert {
+      plans.push({
+        raw_path: entry.raw_name,
+        path: entry.normalized_path.unwrap_or(entry.raw_name),
+        uncompressed_size: entry.uncompressed_size,
+        inspect_index: i,
+      })
+    } else if entry.entry_kind == ZipInspectEntryKind::EntryLimitExceeded ||
+      entry.entry_kind == ZipInspectEntryKind::EntryTooLarge ||
+      entry.entry_kind == ZipInspectEntryKind::TotalDecodedLimitExceeded ||
+      entry.entry_kind == ZipInspectEntryKind::NestedArchive ||
+      entry.entry_kind == ZipInspectEntryKind::Unsupported {
+      plans.push({
+        raw_path: entry.raw_name,
+        path: entry.normalized_path.unwrap_or(entry.raw_name),
+        uncompressed_size: entry.uncompressed_size,
+        inspect_index: i,
+      })
+    }
+  }
+  plans.sort_by((a, b) => compare_zip_path(a.path, b.path))
+  plans
+}
+
+///|
+fn inspect_dispatch_format(ext : String) -> String? {
+  match ext {
+    "docx"
+    | "pdf"
+    | "xlsx"
+    | "pptx"
+    | "html"
+    | "htm"
+    | "csv"
+    | "tsv"
+    | "txt"
+    | "xml"
+    | "json"
+    | "yaml"
+    | "yml"
+    | "md"
+    | "markdown" => Some(ext)
+    _ => None
+  }
+}
+
+///|
 priv enum EntryPlan {
   Directory
   Hidden
@@ -1095,28 +1646,6 @@ fn plan_entry(raw_path : String) -> EntryPlan {
       } else {
         EntryPlan::Visible(path)
       }
-  }
-}
-
-///|
-fn ensure_no_normalized_path_collisions(
-  plans : Array[PlannedEntry],
-) -> Unit raise {
-  let seen : Map[String, String] = Map::new()
-  for plan in plans {
-    match seen.get(plan.path) {
-      Some(first_raw_path) =>
-        raise @cor.AppError(
-          "zip: normalized path collision: " +
-          plan.path +
-          " (" +
-          display_path(first_raw_path) +
-          " vs " +
-          display_path(plan.raw_path) +
-          ")",
-        )
-      None => seen.set(plan.path, plan.raw_path)
-    }
   }
 }
 
@@ -1262,16 +1791,6 @@ fn is_safe_id_char(ch : Char) -> Bool {
 }
 
 ///|
-fn sorted_warning_keys(warnings : Map[String, String]) -> Array[String] {
-  let keys : Array[String] = []
-  for pair in warnings {
-    keys.push(pair.0)
-  }
-  keys.sort_by((a, b) => compare_zip_path(a, b))
-  keys
-}
-
-///|
 fn compare_zip_path(a : String, b : String) -> Int {
   a[:].lexical_compare(b[:])
 }
@@ -1283,6 +1802,37 @@ fn zip_tmp_dir(input_path : String) -> String {
     None => ".tmp"
   }
   root + "/zip/" + safe_entry_id(@cor.basename(input_path))
+}
+
+///|
+let zip_archive_run_serial : Ref[Int] = { val: 0 }
+
+///|
+fn allocate_archive_run_dir(base_root : String, prefix : String) -> String {
+  zip_archive_run_serial.val += 1
+  let serial = zip_archive_run_serial.val
+  let stamp = @env.now().to_string()
+  let trimmed_base = trim_trailing_slashes(base_root)
+  let mut suffix = stamp + "-" + serial.to_string()
+  let mut candidate = trimmed_base + "/" + prefix + "-" + suffix
+  while true {
+    if !@fs.path_exists(candidate) {
+      return candidate
+    }
+    zip_archive_run_serial.val += 1
+    suffix = stamp + "-" + zip_archive_run_serial.val.to_string()
+    candidate = trimmed_base + "/" + prefix + "-" + suffix
+  }
+  candidate
+}
+
+///|
+fn cleanup_archive_run_dir(path : String) -> Unit raise {
+  let trimmed = trim_trailing_slashes(path)
+  if trimmed == "" || trimmed == "." || trimmed == "/" {
+    return
+  }
+  remove_dir_recursive(trimmed)
 }
 
 ///|

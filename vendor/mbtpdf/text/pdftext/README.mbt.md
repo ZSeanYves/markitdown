@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/text/pdftext
+# @ZSeanYves/markitdown/vendor/mbtpdf/text/pdftext
 
 Text extraction and encoding conversions for PDF documents.
 

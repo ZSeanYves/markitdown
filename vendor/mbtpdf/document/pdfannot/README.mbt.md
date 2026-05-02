@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdfannot
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdfannot
 
 PDF annotation reading, writing, and transformation.
 

@@ -37,6 +37,44 @@ pub(all) enum Block {
 pub(all) struct TableData {
   rows : Array[Array[String]]
   header_rows : Int
+  hints : TableHints?
+}
+
+///|
+pub(all) struct TableSpanHint {
+  row_index : Int
+  column_index : Int
+  rowspan : Int
+  colspan : Int
+  text : String?
+}
+
+///|
+pub(all) struct TableHints {
+  format : String?
+  sheet_state : String?
+  merged_ranges : Array[String]?
+  formula_cells : Array[TableFormulaHint]?
+  semantic_types : Array[Array[String]]?
+  span_cells : Array[TableSpanHint]?
+}
+
+///|
+pub(all) struct TableFormulaHint {
+  reference : String
+  row_index : Int
+  column_index : Int
+  formula_text : String
+  cached_value : String?
+  display_text : String
+  cell_kind : String
+  semantic_type : String
+  policy : String?
+  evaluated_value : String?
+  unsupported_reason : String?
+  error_reason : String?
+  referenced_cells : Array[String]?
+  referenced_ranges : Array[String]?
 }
 
 ///|

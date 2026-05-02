@@ -4,23 +4,71 @@ pub fn parse_txt(
   _out_dir : String,
   _max_heading : Int,
 ) -> @cor.Document raise {
+  parse_txt_with_profile(input_path, _out_dir, _max_heading).0
+}
+
+///|
+pub fn parse_txt_with_profile(
+  input_path : String,
+  _out_dir : String,
+  _max_heading : Int,
+) -> (@cor.Document, TxtProfileReport?) raise {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("txt: file not found: " + input_path)
   }
 
+  let profile = if txt_profile_enabled() {
+    Some(new_txt_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let read_started = @env.now()
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("txt: read failed: " + e.to_string())
   }
+  txt_profile_add_stage(
+    profile,
+    "txt_file_read",
+    @env.now() - read_started,
+    Some("bytes=" + bytes.length().to_string()),
+  )
 
-  let raw = @cor.utf8_bytes_to_string(bytes) catch {
-    e => raise @cor.AppError("txt: utf8 decode failed: " + e.to_string())
-  }
+  let decode_started = @env.now()
+  let raw = decode_txt_utf8_text(bytes, input_path)
+  txt_profile_add_stage(
+    profile,
+    "txt_bytes_to_string",
+    @env.now() - decode_started,
+    Some("chars=" + raw.length().to_string()),
+  )
 
+  let normalize_started = @env.now()
   let text = normalize_txt_text(raw)
+  txt_profile_add_stage(
+    profile,
+    "txt_normalize_newlines",
+    @env.now() - normalize_started,
+    Some("chars=" + text.length().to_string()),
+  )
+
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
+  let split_started = @env.now()
+  let paragraphs = paragraph_spans(text)
+  txt_profile_add_stage(
+    profile,
+    "txt_split_paragraphs",
+    @env.now() - split_started,
+    Some("paragraphs=" + paragraphs.length().to_string()),
+  )
 
-  for para in paragraph_spans(text) {
+  let build_ir_started = @env.now()
+  if paragraphs.length() > 0 {
+    @cor.set_passthrough_markdown(doc, txt_literal_markdown(paragraphs))
+  }
+
+  for para in paragraphs {
     @cor.push_with_origin(
       doc,
       @cor.Block::Paragraph(para.text),
@@ -42,7 +90,46 @@ pub fn parse_txt(
     )
   }
 
-  doc
+  txt_profile_add_stage(
+    profile,
+    "txt_build_ir",
+    @env.now() - build_ir_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+
+  (doc, profile)
+}
+
+///|
+fn decode_txt_utf8_text(bytes : Bytes, _input_path : String) -> String raise {
+  let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise @cor.AppError("txt: utf8 decode failed")
+  }
+
+  if !contains_non_bmp_char(decoded) {
+    return decoded
+  }
+
+  let out = StringBuilder::new()
+  for ch in decoded.to_array() {
+    let cp = ch.to_int()
+    if cp > 0xFFFF {
+      out.write_string("&#" + cp.to_string() + ";")
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn contains_non_bmp_char(text : String) -> Bool {
+  for ch in text.to_array() {
+    if ch.to_int() > 0xFFFF {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -60,7 +147,25 @@ fn normalize_txt_text(text : String) -> String {
     text
   }
 
-  without_bom.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  let out : Array[Char] = []
+  let chars = without_bom.to_array()
+  let mut i = 0
+
+  while i < chars.length() {
+    if chars[i] == '\r' {
+      out.push('\n')
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      out.push(chars[i])
+      i += 1
+    }
+  }
+
+  String::from_array(out)
 }
 
 ///|
@@ -118,4 +223,151 @@ fn split_lines_preserve_trailing(text : String) -> Array[String] {
 
   out.push(String::from_array(line))
   out
+}
+
+///|
+fn txt_literal_markdown(paragraphs : Array[ParagraphSpan]) -> String {
+  let out = StringBuilder::new()
+
+  for i in 0..<paragraphs.length() {
+    let body = escape_txt_paragraph(paragraphs[i].text)
+    out.write_string(body)
+    if i + 1 < paragraphs.length() {
+      out.write_string("\n\n")
+    }
+  }
+
+  let built = out.to_string()
+  if built == "" {
+    ""
+  } else {
+    built + "\n"
+  }
+}
+
+///|
+fn escape_txt_paragraph(text : String) -> String {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    return ""
+  }
+
+  match thematic_break_marker(trimmed) {
+    Some(prefix) =>
+      return "\\" +
+        prefix +
+        escape_markdown_punctuation(trimmed[prefix.length():].to_owned())
+    None => ()
+  }
+
+  let chars = trimmed.to_array()
+  let first = chars[0]
+
+  if first == '#' || first == '>' {
+    return "\\" +
+      String::from_array([first]) +
+      escape_markdown_punctuation(String::from_array(chars[1:].to_owned()))
+  }
+
+  if (first == '-' || first == '+' || first == '*') &&
+    chars.length() >= 2 &&
+    chars[1] == ' ' {
+    return "\\" +
+      String::from_array([first]) +
+      escape_markdown_punctuation(String::from_array(chars[1:].to_owned()))
+  }
+
+  match ordered_list_marker_parts(trimmed) {
+    Some((marker_index, suffix_index)) => {
+      let out = StringBuilder::new()
+      out.write_string(String::from_array(chars[:marker_index].to_owned()))
+      out.write_string("\\")
+      out.write_char(chars[marker_index])
+      out.write_char(chars[suffix_index])
+      out.write_string(
+        escape_markdown_punctuation(
+          String::from_array(chars[suffix_index + 1:].to_owned()),
+        ),
+      )
+      out.to_string()
+    }
+    None => escape_markdown_punctuation(trimmed)
+  }
+}
+
+///|
+fn ordered_list_marker_parts(text : String) -> (Int, Int)? {
+  let chars = text.to_array()
+  let mut i = 0
+
+  while i < chars.length() && is_ascii_digit(chars[i]) {
+    i += 1
+  }
+
+  if i == 0 || i + 1 >= chars.length() {
+    return None
+  }
+
+  if (chars[i] == '.' || chars[i] == ')') && chars[i + 1] == ' ' {
+    Some((i, i + 1))
+  } else {
+    None
+  }
+}
+
+///|
+fn thematic_break_marker(text : String) -> String? {
+  if text.length() < 3 {
+    return None
+  }
+
+  let chars = text.to_array()
+  let first = chars[0]
+  if !(first == '-' || first == '*' || first == '_') {
+    return None
+  }
+
+  for ch in chars {
+    if ch != first {
+      return None
+    }
+  }
+
+  Some(String::from_array([first]))
+}
+
+///|
+fn is_ascii_digit(ch : Char) -> Bool {
+  ch >= '0' && ch <= '9'
+}
+
+///|
+fn escape_markdown_punctuation(text : String) -> String {
+  let out : Array[Char] = []
+
+  for ch in text.to_array() {
+    if should_escape_markdown_char(ch) {
+      out.push('\\')
+    }
+    out.push(ch)
+  }
+
+  String::from_array(out)
+}
+
+///|
+fn should_escape_markdown_char(ch : Char) -> Bool {
+  ch == '\\' ||
+  ch == '`' ||
+  ch == '*' ||
+  ch == '_' ||
+  ch == '{' ||
+  ch == '}' ||
+  ch == '[' ||
+  ch == ']' ||
+  ch == '(' ||
+  ch == ')' ||
+  ch == '<' ||
+  ch == '>' ||
+  ch == '#'
 }

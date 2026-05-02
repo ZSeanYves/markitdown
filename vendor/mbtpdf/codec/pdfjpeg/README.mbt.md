@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/codec/pdfjpeg
+# @ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfjpeg
 
 JPEG data extraction helpers for PDF streams.
 

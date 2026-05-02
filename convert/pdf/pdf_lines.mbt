@@ -2,7 +2,7 @@
 /// Convert-stage line builder.
 ///
 /// Intent:
-/// - map pdf_core text blocks into normalized line units
+/// - map PDF lower-layer parser text blocks into normalized line units
 /// - preserve enough geometry/font hints for later heading/paragraph heuristics
 /// - keep this stage free from semantic classification decisions
 ///

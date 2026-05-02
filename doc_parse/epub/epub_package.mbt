@@ -33,6 +33,32 @@ pub fn open_epub_package(
   if spine.length() == 0 {
     raise InvalidXml("missing spine itemref")
   }
+  let nav_item = match find_nav_item(manifest) {
+    Some(item) => Some(item)
+    None => find_ncx_nav_item(opf_xml, manifest_by_id)
+  }
+  let guide_cover_path = find_guide_cover_path(opf_xml, opf_dir)
+  let cover_item = find_cover_item(
+    opf_xml, manifest_by_id, manifest, guide_cover_path,
+  )
+  let nav_points = match nav_item {
+    Some(item) =>
+      try {
+        if manifest_item_is_ncx(item) {
+          parse_ncx_nav_points(
+            read_required_xml_part(archive, entry_index, item.resolved_path),
+            item.resolved_path,
+          )
+        } else {
+          parse_nav_points(
+            read_required_xml_part(archive, entry_index, item.resolved_path),
+          )
+        }
+      } catch {
+        _ => []
+      }
+    None => []
+  }
 
   {
     archive,
@@ -45,6 +71,58 @@ pub fn open_epub_package(
     metadata,
     manifest,
     spine,
+    nav_item,
+    cover_item,
+    guide_cover_path,
+    nav_points,
+  }
+}
+
+///|
+pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
+  let spine_items : Array[EpubInspectSpineItem] = []
+  for item in pkg.spine {
+    let media_type = match item.manifest_item {
+      Some(v) => v.media_type
+      None => None
+    }
+    let action = if !item.linear {
+      "skip"
+    } else if spine_item_supported(item) {
+      "convert"
+    } else {
+      "warn"
+    }
+    spine_items.push({
+      idref: item.idref,
+      href: match item.manifest_item {
+        Some(v) => v.href
+        None => ""
+      },
+      media_type,
+      linear: item.linear,
+      spine_index: item.spine_index,
+      action,
+    })
+  }
+  {
+    source_name: pkg.source_name,
+    mimetype: pkg.mimetype,
+    rootfile_path: pkg.rootfile_path,
+    manifest_count: pkg.manifest.length(),
+    spine_count: pkg.spine.length(),
+    nav_path: match pkg.nav_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    cover_path: match pkg.cover_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    guide_cover_path: pkg.guide_cover_path,
+    has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
+    metadata: pkg.metadata,
+    spine_items,
   }
 }
 
@@ -73,6 +151,21 @@ pub fn list_parts(pkg : EpubPackage) -> Array[String] {
     out.push(entry.path)
   }
   out
+}
+
+///|
+pub fn read_nav_document(pkg : EpubPackage) -> String? {
+  match pkg.nav_item {
+    Some(item) =>
+      try
+        read_required_xml_part(pkg.archive, pkg.entry_index, item.resolved_path)
+      catch {
+        _ => None
+      } noraise {
+        xml => Some(xml)
+      }
+    None => None
+  }
 }
 
 ///|
@@ -153,6 +246,10 @@ fn parse_opf_metadata(xml : String) -> EpubMetadata {
   {
     title: tag_text(xml, "title"),
     creator: tag_text(xml, "creator"),
+    language: tag_text(xml, "language"),
+    identifier: tag_text(xml, "identifier"),
+    publisher: tag_text(xml, "publisher"),
+    subject: tag_text(xml, "subject"),
     date: tag_text(xml, "date"),
     modified: tag_text_with_attr(xml, "meta", "property", "dcterms:modified"),
   }
@@ -170,10 +267,14 @@ fn parse_opf_manifest(
     let href = get_required_attr(attrs, "href").trim().to_owned()
     let media_type0 = get_optional_attr(attrs, "media-type").trim().to_owned()
     let media_type = if media_type0 == "" { None } else { Some(media_type0) }
+    let properties = split_space_properties(
+      get_optional_attr(attrs, "properties"),
+    )
     out.push({
       id,
       href,
       media_type,
+      properties,
       resolved_path: resolve_opf_href(opf_dir, href),
     })
   }
@@ -186,27 +287,409 @@ fn parse_opf_manifest(
 }
 
 ///|
+fn find_nav_item(manifest : Array[EpubManifestItem]) -> EpubManifestItem? {
+  for item in manifest {
+    if has_manifest_property(item, "nav") {
+      return Some(item)
+    }
+  }
+  None
+}
+
+///|
+fn find_ncx_nav_item(
+  opf_xml : String,
+  manifest_by_id : Map[String, EpubManifestItem],
+) -> EpubManifestItem? {
+  let spine_tags = collect_start_tags(opf_xml, "spine")
+  if spine_tags.length() == 0 {
+    return None
+  }
+  let attrs = parse_tag_attributes(spine_tags[0])
+  let toc_id = get_optional_attr(attrs, "toc").trim().to_owned()
+  if toc_id == "" {
+    return None
+  }
+  match manifest_by_id.get(toc_id) {
+    Some(item) => if manifest_item_is_ncx(item) { Some(item) } else { None }
+    None => None
+  }
+}
+
+///|
+fn find_cover_item(
+  opf_xml : String,
+  manifest_by_id : Map[String, EpubManifestItem],
+  manifest : Array[EpubManifestItem],
+  guide_cover_path : String?,
+) -> EpubManifestItem? {
+  for item in manifest {
+    if has_manifest_property(item, "cover-image") {
+      return Some(item)
+    }
+  }
+
+  let cover_id = tag_attr_with_attr(opf_xml, "meta", "name", "cover", "content")
+  match cover_id {
+    Some(id) =>
+      match manifest_by_id.get(id.trim().to_owned()) {
+        Some(item) => Some(item)
+        None => find_cover_manifest_by_path(manifest, guide_cover_path)
+      }
+    None => find_cover_manifest_by_path(manifest, guide_cover_path)
+  }
+}
+
+///|
+fn find_cover_manifest_by_path(
+  manifest : Array[EpubManifestItem],
+  guide_cover_path : String?,
+) -> EpubManifestItem? {
+  let path = match guide_cover_path {
+    Some(v) => v
+    None => return None
+  }
+  for item in manifest {
+    if item.resolved_path == path && manifest_item_is_image(item) {
+      return Some(item)
+    }
+  }
+  None
+}
+
+///|
+fn manifest_item_is_image(item : EpubManifestItem) -> Bool {
+  let media_type = match item.media_type {
+    Some(v) => v.trim().to_owned().to_lower()
+    None => ""
+  }
+  media_type.has_prefix("image/")
+}
+
+///|
+fn manifest_item_is_ncx(item : EpubManifestItem) -> Bool {
+  match item.media_type {
+    Some(v) => v.trim().to_owned().to_lower() == "application/x-dtbncx+xml"
+    None => false
+  }
+}
+
+///|
+fn find_guide_cover_path(
+  opf_xml : String,
+  opf_dir : String,
+) -> String? raise EpubError {
+  let guide_tags = collect_start_tags(opf_xml, "guide")
+  if guide_tags.length() == 0 {
+    return None
+  }
+  let guide_region = match tag_content(opf_xml, guide_tags[0], "guide") {
+    Some(body) => body
+    None => return None
+  }
+
+  for tag in collect_start_tags(guide_region, "reference") {
+    let attrs = parse_tag_attributes(tag)
+    let ref_type = get_optional_attr(attrs, "type").trim().to_owned().to_lower()
+    if ref_type != "cover" {
+      continue
+    }
+    let href = get_optional_attr(attrs, "href").trim().to_owned()
+    if href == "" {
+      continue
+    }
+    return Some(resolve_opf_href(opf_dir, href))
+  }
+  None
+}
+
+///|
+fn has_manifest_property(item : EpubManifestItem, property : String) -> Bool {
+  for entry in item.properties {
+    if entry == property {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn split_space_properties(value : String) -> Array[String] {
+  let out : Array[String] = []
+  for part in value.trim().split(" ") {
+    let normalized = part.trim().to_owned()
+    if normalized != "" {
+      out.push(normalized)
+    }
+  }
+  out
+}
+
+///|
+fn parse_nav_points(xml : String) -> Array[EpubNavPoint] {
+  let out : Array[EpubNavPoint] = []
+  let nav_tag = first_start_tag_with_attr(xml, "nav", "epub:type", "toc")
+  let nav_region = match nav_tag {
+    Some(tag) =>
+      match tag_content(xml, tag, "nav") {
+        Some(body) => body
+        None => return out
+      }
+    None => return out
+  }
+
+  let links = collect_start_tags(nav_region, "a")
+  for tag in links {
+    let attrs = parse_tag_attributes(tag)
+    let href = get_optional_attr(attrs, "href").trim().to_owned()
+    if href == "" {
+      continue
+    }
+    match tag_content(nav_region, tag, "a") {
+      Some(text) => {
+        let label = xml_entity_decode(text.trim().to_owned())
+        if label != "" {
+          out.push({ label, href, depth: 0, source_path: None })
+        }
+      }
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn parse_ncx_nav_points(
+  xml : String,
+  source_path : String,
+) -> Array[EpubNavPoint] {
+  let nav_map_tags = collect_start_tags(xml, "navMap")
+  if nav_map_tags.length() == 0 {
+    return []
+  }
+  let nav_map_region = match tag_content(xml, nav_map_tags[0], "navMap") {
+    Some(body) => body
+    None => return []
+  }
+  parse_ncx_nav_points_from_elements(
+    collect_direct_child_elements(nav_map_region, "navPoint"),
+    source_path,
+    0,
+  )
+}
+
+///|
+fn parse_ncx_nav_points_from_elements(
+  elements : Array[String],
+  source_path : String,
+  depth : Int,
+) -> Array[EpubNavPoint] {
+  let out : Array[EpubNavPoint] = []
+  for nav_point_xml in elements {
+    let label = match tag_text(nav_point_xml, "text") {
+      Some(v) => v.trim().to_owned()
+      None => ""
+    }
+    let href = match extract_safe_ncx_href(nav_point_xml, source_path) {
+      Some(v) => v
+      None => ""
+    }
+    if label != "" && href != "" {
+      out.push({ label, href, depth, source_path: Some(source_path) })
+    }
+
+    let child_nav_points = collect_direct_child_elements(
+      inner_element_content(nav_point_xml, "navPoint"),
+      "navPoint",
+    )
+    if child_nav_points.length() > 0 {
+      out.append(
+        parse_ncx_nav_points_from_elements(
+          child_nav_points,
+          source_path,
+          depth + 1,
+        ),
+      )
+    }
+  }
+  out
+}
+
+///|
+fn inner_element_content(xml : String, local_name : String) -> String {
+  let tags = collect_start_tags(xml, local_name)
+  if tags.length() == 0 {
+    return ""
+  }
+  match tag_content(xml, tags[0], local_name) {
+    Some(body) => body
+    None => ""
+  }
+}
+
+///|
+fn extract_safe_ncx_href(
+  nav_point_xml : String,
+  source_path : String,
+) -> String? {
+  let content_tags = collect_start_tags(nav_point_xml, "content")
+  if content_tags.length() == 0 {
+    return None
+  }
+  let attrs = parse_tag_attributes(content_tags[0])
+  let raw_href = get_optional_attr(attrs, "src").trim().to_owned()
+  if raw_href == "" {
+    return None
+  }
+  if raw_href.has_prefix("#") {
+    return Some(raw_href)
+  }
+  let ncx_dir = dirname_of_part(source_path)
+  let validated = try? resolve_opf_href(ncx_dir, raw_href)
+  match validated {
+    Ok(_) => Some(raw_href)
+    Err(_) => None
+  }
+}
+
+///|
+fn collect_direct_child_elements(
+  xml : String,
+  local_name : String,
+) -> Array[String] {
+  collect_direct_child_elements_in_parent(xml, local_name)
+}
+
+///|
+fn collect_direct_child_elements_in_parent(
+  xml : String,
+  local_name : String,
+) -> Array[String] {
+  let out : Array[String] = []
+  let chars = xml.to_array()
+  let n = chars.length()
+  let mut i = 0
+  let mut depth = 0
+  let mut element_start = -1
+
+  while i < n {
+    if chars[i] != '<' {
+      i += 1
+      continue
+    }
+    if i + 1 < n && (chars[i + 1] == '?' || chars[i + 1] == '!') {
+      i += 1
+      continue
+    }
+
+    let mut tag_end = i + 1
+    while tag_end < n && chars[tag_end] != '>' {
+      tag_end += 1
+    }
+    if tag_end >= n {
+      break
+    }
+
+    let tag = xml[i:tag_end + 1].to_owned()
+    if i + 1 < n && chars[i + 1] == '/' {
+      if end_tag_local_name(tag) == local_name {
+        depth -= 1
+        if depth == 0 && element_start >= 0 {
+          out.push(xml[element_start:tag_end + 1].to_owned())
+          element_start = -1
+        }
+      }
+      i = tag_end + 1
+      continue
+    }
+
+    if start_tag_local_name(tag) == local_name {
+      if depth == 0 {
+        element_start = i
+      }
+      if start_tag_is_self_closing(tag) {
+        if depth == 0 {
+          out.push(xml[i:tag_end + 1].to_owned())
+          element_start = -1
+        }
+      } else {
+        depth += 1
+      }
+    }
+    i = tag_end + 1
+  }
+
+  out
+}
+
+///|
 fn parse_opf_spine(
   xml : String,
   manifest_by_id : Map[String, EpubManifestItem],
 ) -> Array[EpubSpineItem] raise EpubError {
   let out : Array[EpubSpineItem] = []
+  let mut spine_index = 0
   for tag in collect_start_tags(xml, "itemref") {
     let attrs = parse_tag_attributes(tag)
     let idref = get_required_attr(attrs, "idref").trim().to_owned()
     let linear = get_optional_attr(attrs, "linear").trim().to_lower() != "no"
-    let item = match manifest_by_id.get(idref) {
-      Some(v) => v
-      None => raise InvalidXml("spine itemref missing manifest item: " + idref)
+    match manifest_by_id.get(idref) {
+      Some(item) =>
+        out.push({
+          idref,
+          linear,
+          spine_index,
+          manifest_item: Some(item),
+          resolved_path: Some(item.resolved_path),
+        })
+      None =>
+        out.push({
+          idref,
+          linear,
+          spine_index,
+          manifest_item: None,
+          resolved_path: None,
+        })
     }
-    out.push({
-      idref,
-      linear,
-      manifest_item: item,
-      resolved_path: item.resolved_path,
-    })
+    spine_index += 1
   }
   out
+}
+
+///|
+fn spine_item_supported(item : EpubSpineItem) -> Bool {
+  let media_type = match item.manifest_item {
+    Some(manifest_item) =>
+      match manifest_item.media_type {
+        Some(v) => v.trim().to_owned().to_lower()
+        None => ""
+      }
+    None => return false
+  }
+  if media_type == "application/xhtml+xml" || media_type == "text/html" {
+    return true
+  }
+
+  let path = match item.resolved_path {
+    Some(v) => v
+    None => return false
+  }
+  let n = path.length()
+  if n == 0 {
+    return false
+  }
+  let mut i = n - 1
+  while i >= 0 {
+    if path[i] == '.' {
+      if i == n - 1 {
+        return false
+      }
+      let ext = path[i + 1:].to_owned().to_lower()
+      return ext == "xhtml" || ext == "html" || ext == "htm"
+    }
+    i -= 1
+  }
+  false
 }
 
 ///|

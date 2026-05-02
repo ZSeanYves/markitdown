@@ -1,10 +1,10 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdfe",
-  "bobzhang/mbtpdf/document/pdfdest",
-  "bobzhang/mbtpdf/document/pdfmarks",
-  "bobzhang/mbtpdf/document/pdfpage",
-  "bobzhang/mbtpdf/document/pdfpagelabels",
-  "bobzhang/mbtpdf/document/pdftree",
-  "bobzhang/mbtpdf/document/pdfst",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfdest",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfmarks",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpagelabels",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdftree",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfst",
 }

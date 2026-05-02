@@ -1,6 +1,6 @@
 import {
-  "bobzhang/mbtpdf/codec/pdfcodec",
-  "bobzhang/mbtpdf/core/pdfio",
-  "bobzhang/mbtpdf/core/pdfutil",
+  "ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfcodec",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfutil",
   "moonbitlang/core/string",
 }

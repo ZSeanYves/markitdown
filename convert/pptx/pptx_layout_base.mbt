@@ -39,6 +39,7 @@ fn split_title_shapes(
             h: sp.shape.h,
             is_title: true,
             is_body: sp.shape.is_body,
+            object_ref: sp.shape.object_ref,
           }
           let promoted_layout : LayoutShape = {
             shape: promoted_shape,
@@ -71,6 +72,9 @@ fn find_promotable_title_candidate(shapes : Array[LayoutShape]) -> Int? {
   let mut best_score = -1
   for i in 0..<shapes.length() {
     let sp = shapes[i]
+    if is_noise_candidate(sp, slide_w, slide_h) {
+      continue
+    }
     if is_promotable_title_candidate(sp, slide_h, slide_w) {
       let sc = promotable_title_score(sp, slide_h)
       if sc > best_score {

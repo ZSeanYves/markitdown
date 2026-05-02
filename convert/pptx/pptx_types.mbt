@@ -1,14 +1,23 @@
 ///|
 priv enum PptxBlock {
-  Heading(String, Array[@cor.Inline])
-  Paragraph(String, Array[@cor.Inline])
-  ListItem(Bool, Int, String, Array[@cor.Inline]) // ordered, level, text, inlines
+  Heading(String, Array[@cor.Inline], String?, String?) // text, inlines, object_ref, relationship_id
+  Paragraph(String, Array[@cor.Inline], String?, String?) // text, inlines, object_ref, relationship_id
+  ListItem(Bool, Int, String, Array[@cor.Inline], String?, String?) // ordered, level, text, inlines, object_ref, relationship_id
+}
+
+///|
+priv struct PptxSlideEntry {
+  part_name : String
+  rel_id : String?
+  hidden : Bool
 }
 
 ///|
 priv struct PptxSlideRelContext {
   rels : Array[@ox.OoxmlRelationship]
   hyperlinks : Map[String, String]
+  notes_part : String?
+  notes_relationship_id : String?
 }
 
 ///|
@@ -20,6 +29,7 @@ priv struct SlideShape {
   h : Int
   is_title : Bool
   is_body : Bool
+  object_ref : String?
 }
 
 ///|
@@ -56,6 +66,45 @@ priv struct SlideParagraph {
   from_title_shape : Bool
   from_body_shape : Bool
   associated_with_image_caption : Bool
+  object_ref : String?
+  relationship_id : String?
+}
+
+///|
+priv struct PptxTableFrame {
+  rows : Array[Array[String]]
+  header_rows : Int
+  object_ref : String?
+}
+
+///|
+priv struct PptxRawPictureShape {
+  xml : Bytes
+  object_ref : String?
+}
+
+///|
+priv struct PptxRawGraphicFrame {
+  xml : Bytes
+  object_ref : String?
+}
+
+///|
+priv struct PptxCollectedSlideObjects {
+  text_shapes : Array[SlideShape]
+  picture_shapes : Array[PptxRawPictureShape]
+  graphic_frames : Array[PptxRawGraphicFrame]
+}
+
+///|
+priv struct PptxGroupContext {
+  offset_x : Int
+  offset_y : Int
+  scale_x_num : Int
+  scale_x_den : Int
+  scale_y_num : Int
+  scale_y_den : Int
+  group_ref_prefix : String?
 }
 
 ///|

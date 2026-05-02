@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdfpagelabels
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpagelabels
 
 Page label handling for PDF documents.
 

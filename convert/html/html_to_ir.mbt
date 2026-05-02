@@ -17,6 +17,7 @@ priv struct HtmlImageExportCtx {
 priv struct HtmlBlocksResult {
   blocks : Array[@cor.Block]
   asset_source_paths : Map[String, String]
+  block_origins : Array[@cor.Origin?]
 }
 
 ///|
@@ -27,33 +28,62 @@ fn nodes_to_blocks(
   out_dir : String,
 ) -> HtmlBlocksResult raise {
   let out : Array[@cor.Block] = []
+  let origins : Array[@cor.Origin?] = []
   let ctx = new_html_image_export_ctx(input_path, out_dir)
+  let source_name = @cor.basename(input_path)
+  let mut object_counter = 0
 
   for node in nodes {
+    object_counter += 1
+    let origin : @cor.Origin? = Some({
+      source_name: Some(source_name),
+      page: None,
+      slide: None,
+      sheet: None,
+      block_index: None,
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: Some(
+        "html:" + html_node_origin_kind(node) + ":" + object_counter.to_string(),
+      ),
+      relationship_id: None,
+      key_path: Some(html_node_origin_key_path(node, object_counter)),
+    })
     match node {
-      HtmlNode::Heading(level, xs) =>
+      HtmlNode::Heading(level, xs) => {
         out.push(
           @cor.Block::RichHeading(
             clamp_heading(level, max_h),
             html_inlines_to_ir(xs),
           ),
         )
+        origins.push(origin)
+      }
       HtmlNode::Paragraph(xs) => {
         let blocks = paragraph_inlines_to_blocks(xs, ctx)
         for b in blocks {
           out.push(b)
+          origins.push(origin)
         }
       }
       HtmlNode::Figure(img, caption) =>
         match figure_to_image_block(img, caption, ctx) {
-          Some(b) => out.push(b)
+          Some(b) => {
+            out.push(b)
+            origins.push(origin)
+          }
           None => ()
         }
       HtmlNode::ListItem(ordered, level, children) =>
         match list_item_children_to_inlines(children, max_h) {
-          Some(inlines) =>
+          Some(inlines) => {
             out.push(@cor.Block::RichListItem(ordered, level, inlines))
-          None =>
+            origins.push(origin)
+          }
+          None => {
             out.push(
               @cor.Block::ListItem(
                 ordered,
@@ -61,16 +91,26 @@ fn nodes_to_blocks(
                 list_item_children_to_text(children, max_h),
               ),
             )
+            origins.push(origin)
+          }
         }
       HtmlNode::BlockQuote(children) =>
         match quote_children_to_inlines(children, max_h) {
-          Some(inlines) => out.push(@cor.Block::RichBlockQuote(inlines))
-          None =>
+          Some(inlines) => {
+            out.push(@cor.Block::RichBlockQuote(inlines))
+            origins.push(origin)
+          }
+          None => {
             out.push(
               @cor.Block::BlockQuote(quote_children_to_text(children, max_h)),
             )
+            origins.push(origin)
+          }
         }
-      HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
+      HtmlNode::CodeBlock(text) => {
+        out.push(@cor.Block::CodeBlock(text))
+        origins.push(origin)
+      }
       HtmlNode::Table(table) => {
         let out_rows : Array[Array[String]] = []
         for row in table.rows {
@@ -80,16 +120,24 @@ fn nodes_to_blocks(
           }
           out_rows.push(out_row)
         }
-        if table.has_explicit_header {
-          out.push(@cor.Block::RichTable({ rows: out_rows, header_rows: 1 }))
-        } else {
-          out.push(@cor.Block::Table(out_rows))
-        }
+        let hints = html_table_hints(table)
+        out.push(
+          @cor.Block::RichTable({
+            rows: out_rows,
+            header_rows: table.header_rows,
+            hints,
+          }),
+        )
+        origins.push(origin)
       }
     }
   }
 
-  { blocks: out, asset_source_paths: ctx.src_by_asset_path }
+  {
+    blocks: out,
+    asset_source_paths: ctx.src_by_asset_path,
+    block_origins: origins,
+  }
 }
 
 ///|
@@ -104,10 +152,15 @@ fn paragraph_inlines_to_blocks(
     match x {
       HtmlInline::Text(t) => buf.push(@cor.Inline::Text(t))
       HtmlInline::Break => buf.push(@cor.Inline::Break)
-      HtmlInline::Link(text, href) =>
-        buf.push(
-          @cor.Inline::Link(text.trim().to_owned(), href.trim().to_owned()),
-        )
+      HtmlInline::Link(text, href) => {
+        let t = text.trim().to_owned()
+        let h = href.trim().to_owned()
+        if t != "" && h != "" {
+          buf.push(@cor.Inline::Link(t, h))
+        } else if t != "" {
+          buf.push(@cor.Inline::Text(t))
+        }
+      }
       HtmlInline::Image(alt, title, src) => {
         if render_ir_inlines(buf).trim() != "" {
           out.push(@cor.Block::RichParagraph(buf))
@@ -122,7 +175,9 @@ fn paragraph_inlines_to_blocks(
                 alt_text: normalized_optional_text(alt),
                 title: normalize_optional_html_attr(title),
                 caption: None,
-                origin: None,
+                origin: Some(
+                  new_html_image_origin(ctx.input_dir, src, "inline-img"),
+                ),
               }),
             )
           None => {
@@ -568,7 +623,9 @@ fn figure_to_image_block(
               alt_text: normalized_optional_text(alt),
               title: normalize_optional_html_attr(title),
               caption: normalized_optional_text(render_inlines(caption)),
-              origin: None,
+              origin: Some(
+                new_html_image_origin(ctx.input_dir, src, "figure-img"),
+              ),
             }),
           )
         None => None
@@ -635,5 +692,74 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
     max_h
   } else {
     level
+  }
+}
+
+///|
+fn html_table_hints(table : HtmlTable) -> @cor.TableHints? {
+  let span_cells = if table.span_cells.length() == 0 {
+    None
+  } else {
+    let out : Array[@cor.TableSpanHint] = []
+    for span in table.span_cells {
+      out.push({
+        row_index: span.row_index,
+        column_index: span.column_index,
+        rowspan: span.rowspan,
+        colspan: span.colspan,
+        text: span.text,
+      })
+    }
+    Some(out)
+  }
+
+  Some({
+    format: Some("html"),
+    sheet_state: None,
+    merged_ranges: None,
+    formula_cells: None,
+    semantic_types: None,
+    span_cells,
+  })
+}
+
+///|
+fn html_node_origin_kind(node : HtmlNode) -> String {
+  match node {
+    HtmlNode::Heading(_, _) => "heading"
+    HtmlNode::Paragraph(_) => "paragraph"
+    HtmlNode::Figure(_, _) => "figure"
+    HtmlNode::ListItem(_, _, _) => "list-item"
+    HtmlNode::BlockQuote(_) => "blockquote"
+    HtmlNode::CodeBlock(_) => "pre"
+    HtmlNode::Table(_) => "table"
+  }
+}
+
+///|
+fn html_node_origin_key_path(node : HtmlNode, index : Int) -> String {
+  "$.html[" + index.to_string() + "]." + html_node_origin_kind(node)
+}
+
+///|
+fn new_html_image_origin(
+  _input_dir : String,
+  src : String,
+  kind : String,
+) -> @cor.Origin {
+  {
+    source_name: None,
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: None,
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: Some("html:" + kind),
+    relationship_id: None,
+    key_path: Some("$.html.asset[" + src + "]"),
   }
 }

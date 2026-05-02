@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdfocg
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdfocg
 
 Optional Content Groups (layers) for PDF documents.
 

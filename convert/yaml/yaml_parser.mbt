@@ -22,13 +22,25 @@ priv struct YamlLine {
 
 ///|
 fn parse_yaml_text(text : String) -> YamlValue? raise {
+  let prepare_started = @env.now()
   let lines = prepare_yaml_lines(text)
+  yaml_profile_add_active_stage(
+    "yaml_normalize_or_split_lines",
+    @env.now() - prepare_started,
+    Some("lines=" + lines.length().to_string()),
+  )
   if lines.length() == 0 {
     return None
   }
 
   let indent = lines[0].indent
+  let parse_lines_started = @env.now()
   let (next, value) = parse_block(lines, 0, indent)
+  yaml_profile_add_active_stage(
+    "yaml_parse_lines",
+    @env.now() - parse_lines_started,
+    Some("root_indent=" + indent.to_string()),
+  )
   if next < lines.length() {
     raise @cor.AppError(
       "yaml: unexpected trailing content at line " +
@@ -79,7 +91,13 @@ fn parse_mapping(
   start : Int,
   indent : Int,
 ) -> (Int, YamlValue) raise {
+  let started = @env.now()
   let (next, members) = consume_mapping_members(lines, start, indent)
+  yaml_profile_add_active_stage(
+    "yaml_parse_mapping",
+    @env.now() - started,
+    Some("members=" + members.length().to_string()),
+  )
   (next, YamlValue::Mapping(members))
 }
 
@@ -137,6 +155,7 @@ fn parse_sequence(
   start : Int,
   indent : Int,
 ) -> (Int, YamlValue) raise {
+  let started = @env.now()
   let values : Array[YamlValue] = []
   let mut i = start
 
@@ -161,6 +180,11 @@ fn parse_sequence(
     i = next
   }
 
+  yaml_profile_add_active_stage(
+    "yaml_parse_sequence",
+    @env.now() - started,
+    Some("items=" + values.length().to_string()),
+  )
   (i, YamlValue::Sequence(values))
 }
 

@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/graphics/pdfimage
+# @ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfimage
 
 Image extraction and decoding for PDF documents.
 

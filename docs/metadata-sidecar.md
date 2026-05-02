@@ -142,8 +142,8 @@ The sidecar currently does not promise:
 * DOM path anchoring
 * table cell-level provenance
 * nested provenance for every JSON/YAML inner node
-* default PDF annotation-link Markdown emission
+* rich PDF link provenance beyond the current narrow high-confidence URI path
 * extra asset output for TXT or XML
 
 For full per-format support boundaries, see
-[docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).
+[docs/support-and-limits.md](./support-and-limits.md).

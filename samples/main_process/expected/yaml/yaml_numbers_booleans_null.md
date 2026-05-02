@@ -1,0 +1,6 @@
+| Key | Value |
+| --- | --- |
+| count | 42 |
+| ratio | 3.14 |
+| active | true |
+| missing | null |

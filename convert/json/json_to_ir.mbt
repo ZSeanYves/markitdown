@@ -4,23 +4,128 @@ pub fn parse_json(
   _out_dir : String,
   _max_heading : Int,
 ) -> @cor.Document raise {
+  parse_json_with_profile(input_path, _out_dir, _max_heading).0
+}
+
+///|
+pub fn parse_json_with_profile(
+  input_path : String,
+  _out_dir : String,
+  _max_heading : Int,
+) -> (@cor.Document, JsonProfileReport?) raise {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("json: file not found: " + input_path)
   }
 
+  let profile = if json_profile_enabled_for_run() {
+    Some(new_json_profile_report(input_path))
+  } else {
+    None
+  }
+  let profile_enabled = match profile {
+    Some(_) => true
+    None => false
+  }
+
+  let read_started = @env.now()
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("json: read failed: " + e.to_string())
   }
+  json_profile_add_stage(
+    profile,
+    "json_file_read",
+    @env.now() - read_started,
+    Some("bytes=" + bytes.length().to_string()),
+  )
 
-  let text = @cor.utf8_bytes_to_string(bytes) catch {
-    e => raise @cor.AppError("json: utf8 decode failed: " + e.to_string())
+  let decode_started = @env.now()
+  let text = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise @cor.AppError("json: utf8 decode failed: " + input_path)
   }
+  json_profile_add_stage(
+    profile,
+    "json_bytes_to_string",
+    @env.now() - decode_started,
+    Some("chars=" + text.length().to_string()),
+  )
 
-  let value = parse_json_text(text)
+  let normalize_started = @env.now()
+  let normalized = normalize_json_source(text)
+  json_profile_add_stage(
+    profile,
+    "json_normalize_source",
+    @env.now() - normalize_started,
+    Some("chars=" + normalized.length().to_string()),
+  )
+
+  let value = if profile_enabled {
+    parse_json_text_profiled(normalized, profile)
+  } else {
+    parse_json_text(normalized)
+  }
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
+  let lowering_started = @env.now()
+  json_profile_begin(profile_enabled)
   push_json_value(doc, value, src)
-  doc
+  let lowering_profile = json_profile_finish()
+  json_profile_add_stage(
+    profile,
+    "json_detect_uniform_table",
+    lowering_profile.uniform_table_detect_elapsed_ms,
+    Some(
+      "rows=" +
+      lowering_profile.uniform_table_rows_seen.to_string() +
+      " columns=" +
+      lowering_profile.uniform_table_columns_seen.to_string(),
+    ),
+  )
+  json_profile_add_stage(
+    profile,
+    "json_compact_stringify_nested",
+    lowering_profile.nested_stringify_elapsed_ms,
+    Some(
+      "value_cell_calls=" +
+      lowering_profile.value_cell_stringify_calls.to_string() +
+      " scalar_calls=" +
+      lowering_profile.scalar_text_stringify_calls.to_string(),
+    ),
+  )
+  json_profile_add_stage(
+    profile,
+    "json_lower_to_ir",
+    @env.now() - lowering_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  (doc, profile)
+}
+
+///|
+fn normalize_json_source(text : String) -> String {
+  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
+    text[1:].to_owned()
+  } else {
+    text
+  }
+  let out : Array[Char] = []
+  let chars = without_bom.to_array()
+  let mut i = 0
+
+  while i < chars.length() {
+    if chars[i] == '\r' {
+      out.push('\n')
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      out.push(chars[i])
+      i += 1
+    }
+  }
+
+  String::from_array(out)
 }
 
 ///|
@@ -49,7 +154,11 @@ fn push_json_value(
     JsonValue::Object(members) =>
       @cor.push_with_origin(
         doc,
-        @cor.Block::RichTable({ rows: object_rows(members), header_rows: 1 }),
+        @cor.Block::RichTable({
+          rows: object_rows(members),
+          header_rows: 1,
+          hints: None,
+        }),
         origin,
       )
     JsonValue::Array(values) =>
@@ -79,19 +188,35 @@ fn push_json_value(
           )
         }
       } else {
+        let detect_started = @env.now()
         match array_object_rows(values) {
-          Some(rows) =>
+          Some(rows) => {
+            profile_uniform_table_detect_elapsed_ms(
+              @env.now() - detect_started,
+              rows.length(),
+              if rows.length() == 0 {
+                0
+              } else {
+                rows[0].length()
+              },
+            )
             @cor.push_with_origin(
               doc,
-              @cor.Block::RichTable({ rows, header_rows: 1 }),
+              @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
               origin,
             )
-          None =>
-            @cor.push_with_origin(
-              doc,
-              @cor.Block::CodeBlock(stringify_json(value)),
-              origin,
+          }
+          None => {
+            profile_uniform_table_detect_elapsed_ms(
+              @env.now() - detect_started,
+              0,
+              0,
             )
+            let stringify_started = @env.now()
+            let text = stringify_json(value)
+            profile_nested_stringify_elapsed_ms(@env.now() - stringify_started)
+            @cor.push_with_origin(doc, @cor.Block::CodeBlock(text), origin)
+          }
         }
       }
     JsonValue::String(s) =>
@@ -130,7 +255,7 @@ fn array_object_rows(values : Array[JsonValue]) -> Array[Array[String]]? {
         if i == 0 {
           keys = member_keys
           rows.push(keys)
-        } else if !same_keys(keys, member_keys) {
+        } else if !same_key_set(keys, member_keys) {
           return None
         }
 
@@ -152,16 +277,26 @@ fn array_object_rows(values : Array[JsonValue]) -> Array[Array[String]]? {
 }
 
 ///|
-fn same_keys(a : Array[String], b : Array[String]) -> Bool {
+fn same_key_set(a : Array[String], b : Array[String]) -> Bool {
   if a.length() != b.length() {
     return false
   }
-  for i in 0..<a.length() {
-    if a[i] != b[i] {
+  for key in a {
+    if !contains_key(b, key) {
       return false
     }
   }
   true
+}
+
+///|
+fn contains_key(keys : Array[String], target : String) -> Bool {
+  for key in keys {
+    if key == target {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -195,7 +330,13 @@ fn value_cell(value : JsonValue) -> String {
     JsonValue::Number(n) => n
     JsonValue::Bool(b) => if b { "true" } else { "false" }
     JsonValue::Null => "null"
-    _ => stringify_json(value)
+    _ => {
+      profile_value_cell_stringify_call()
+      let started = @env.now()
+      let text = stringify_json(value)
+      profile_nested_stringify_elapsed_ms(@env.now() - started)
+      text
+    }
   }
 }
 
@@ -206,7 +347,24 @@ fn scalar_text(value : JsonValue) -> String {
     JsonValue::Number(n) => n
     JsonValue::Bool(b) => if b { "true" } else { "false" }
     JsonValue::Null => "null"
-    _ => stringify_json(value)
+    _ => {
+      profile_scalar_text_stringify_call()
+      let started = @env.now()
+      let text = stringify_json(value)
+      profile_nested_stringify_elapsed_ms(@env.now() - started)
+      text
+    }
+  }
+}
+
+///|
+fn json_profile_enabled_for_run() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_JSON") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
   }
 }
 

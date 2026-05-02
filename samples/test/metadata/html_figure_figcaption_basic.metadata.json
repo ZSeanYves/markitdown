@@ -20,7 +20,9 @@
         "slide": null,
         "sheet": null,
         "block_index": 0,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "html:figure:1",
+        "key_path": "$.html[1].figure"
       },
       "image": {
         "path": "assets/image01.jpg",
@@ -45,7 +47,8 @@
         "sheet": null,
         "origin_id": "html-asset-1",
         "nearby_caption": "Figure caption text.",
-        "source_path": "img/img_red.jpg"
+        "source_path": "img/img_red.jpg",
+        "key_path": "$.html[1].figure"
       },
       "nearby_caption": "Figure caption text."
     }

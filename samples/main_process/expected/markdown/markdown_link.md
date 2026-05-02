@@ -1,0 +1,1 @@
+[text](https://example.com/path?q=1)

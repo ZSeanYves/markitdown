@@ -1,109 +1,85 @@
 # Progress Summary
 
-This document is a current-stage status summary, not a full development log.
-It answers three questions:
+This document summarizes the repository's current project state.
 
-* what is already landed
-* what is currently stable enough to treat as project contract
-* what remains as next-stage candidate work
+For detailed per-format behavior, use
+[docs/support-and-limits.md](./support-and-limits.md).
 
-For detailed format-by-format behavior, use
-[docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).
+For second-round sealed-format status, use
+[docs/second-round-summary.md](./second-round-summary.md).
 
-## Current Stage
+For benchmark runner/corpus/comparability rules, use
+[docs/benchmark-governance.md](./benchmark-governance.md).
 
-The repository is now in a documented multi-format baseline stage:
+## Current State
 
-* MoonBit-native CLI is in place
-* unified IR / Markdown emitter / metadata sidecar are in place
-* major format families are connected to one dispatcher-driven mainflow
-* sample regression and benchmark harnesses are in place
-* TXT and XML conservative conversion are completed and no longer candidate work
+The repository is in a stable post-second-round state:
 
-## Implemented Capability Groups
+* the main multi-format product path is consolidated around a native-preferred
+  CLI, unified IR, Markdown emitter, metadata sidecar, and asset export
+* repository-level CLI and batch contracts are explicitly validated
+* benchmark and quality conclusions are checked-in-corpus scoped
+* sealed formats now carry explicit H2++ / H3++ status language
+* non-sealed text and structured-data formats retain conservative, narrower
+  support claims
 
-### Core pipeline
+## Sealed Formats
 
-* CLI with `normal / ocr / debug`
-* dispatcher-based extension routing
-* unified IR
-* Markdown emitter
-* metadata sidecar
-* asset export
+The following formats are currently sealed for second-round quality/performance
+status within their documented scope:
 
-### Parsing infrastructure
+* XLSX: `H2++ complete`, `H3++ evidence-backed on checked-in native overlap corpus`
+* HTML: `H2++ complete`, `H3++ evidence-backed on checked-in native overlap corpus`
+* ZIP: `H2++ complete`, `H3++ evidence-backed on checked-in native corpus`
+* EPUB: `H2++ complete`, `H3++ evidence-backed on checked-in native EPUB corpus`
+* DOCX: `H2++ complete`, `H3++ evidence-backed on checked-in native overlap corpus`
+* PPTX: `H2++ complete`, `H3++ evidence-backed on checked-in native overlap corpus`
+* PDF: `H2++ complete for native text-PDF scope`, `H3++ evidence-backed on checked-in native text-PDF corpus`
 
-* shared ZIP reader
-* shared OOXML package / relationships / media / docProps helpers
-* native PDF substrate via `pdf_core`
+These are evidence-scoped claims, not universal format-completeness claims.
 
-### Supported format families
+## Validation Surface
 
-* OOXML: DOCX / PPTX / XLSX
-* PDF
-* HTML / HTM
-* Structured data: CSV / TSV / JSON / YAML / YML / XML
-* Text-like: Markdown / MD / MARKDOWN / TXT
-* Container: ZIP
-* Ebook: EPUB
-
-### Current container / ebook scope
-
-* ZIP safe-entry conversion with archive asset namespace/remap
-* ZIP support for `.txt` and `.xml` entries through normal dispatcher routing
-* EPUB `container.xml -> OPF -> manifest/spine` conversion
-* EPUB same-archive local-image handling through a safe extracted tree
-
-### Provenance / metadata / image context
-
-* additive origin population inside existing metadata schema
-* block-level and asset-level provenance
-* OOXML / PDF / HTML image-context population
-* document properties for OOXML and EPUB where available
-
-### Validation and benchmarking
-
-* `samples/main_process`
-* `samples/metadata`
-* `samples/assets`
-* `samples/test` compact acceptance demo
-* internal smoke benchmark
-* overlap-only MarkItDown comparison benchmark
-
-## Recently Landed
-
-Recent completed additions worth calling out explicitly:
-
-* TXT conservative paragraph conversion
-* XML conservative source-preserving conversion
-* ZIP asset namespace/remap and same-archive HTML local-image handling
-* EPUB spine-based conversion
-* repository-local `.venv` dependency removal from comparison benchmark workflow
-
-## Current Validation Status
-
-The repository currently expects the following checks to pass together:
+The repository's default validation bar is:
 
 ```bash
+moon build --target native
 moon check
 moon test
-./samples/diff.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
-./samples/check_samples.sh
-./samples/bench_smoke.sh --kind smoke
+./samples/check.sh
 ```
 
-## Next-stage Candidates
+Supporting validation chains:
 
-Current recommended next candidates are:
+* `./samples/check_main_process.sh`
+* `./samples/check_metadata.sh`
+* `./samples/check_assets.sh`
+* `./samples/scripts/check_cli_contract.sh`
+* `./samples/scripts/check_batch_contract.sh`
+* `./samples/scripts/check_corpus_manifest.sh`
 
-* OCR regression closure
-* PDF core / convert next round
-* EPUB nav / TOC semantic reconstruction
-* EPUB CSS / semantic refinement
-* ZIP HTML dependency refinement beyond safe sibling materialization
-* XLSX merged cells / formula policy refinement
-* PPTX notes / advanced layout refinement
-* benchmark comparison refresh
-* release packaging / versioned baseline
+## Benchmark Surface
+
+The benchmark surface is organized around:
+
+* smoke: checked-in local corpus
+* overlap comparison: sample-scoped comparison against Microsoft MarkItDown
+* batch profile: repeated `normal` vs `batch`
+
+Default performance conclusions should be read only from:
+
+* prebuilt native runner
+* checked-in named corpus
+* explicit execution path
+
+`moon run` remains a supported fallback, but not the preferred H3++ proof
+point.
+
+## Current Priorities
+
+The current repository focus is project hygiene and reproducibility:
+
+* keep documentation and status language consistent
+* keep scripts and benchmark outputs reviewable
+* keep sample families clearly separated by responsibility
+* keep future work explicit without reopening sealed format claims

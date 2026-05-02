@@ -1,5 +1,5 @@
 import {
-  "bobzhang/mbtpdf/codec/pdfflate",
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfflate",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
 }

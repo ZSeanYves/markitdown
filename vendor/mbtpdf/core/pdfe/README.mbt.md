@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/core/pdfe
+# @ZSeanYves/markitdown/vendor/mbtpdf/core/pdfe
 
 Error logging utilities for PDF operations.
 

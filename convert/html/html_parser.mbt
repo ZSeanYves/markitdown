@@ -14,9 +14,10 @@ pub fn parse_html(
     raise @cor.AppError("html: file not found: " + input_path)
   }
 
-  let bs = @fs.read_file_to_bytes(input_path) catch {
+  let raw_bs = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("html: read failed: " + e.to_string())
   }
+  let bs = normalize_html_input_bytes(raw_bs)
 
   let doc = @cor.new_document()
 
@@ -42,7 +43,9 @@ pub fn parse_html(
           source_path: html_blocks.asset_source_paths.get(path),
           row_index: None,
           column_index: None,
-          key_path: None,
+          key_path: html_blocks.block_origins[i].map(fn(origin) {
+            origin.key_path.unwrap_or("")
+          }),
         })
       }
       @cor.Block::ImageBlock(img) => {
@@ -59,7 +62,9 @@ pub fn parse_html(
           source_path: html_blocks.asset_source_paths.get(img.path),
           row_index: None,
           column_index: None,
-          key_path: None,
+          key_path: html_blocks.block_origins[i].map(fn(origin) {
+            origin.key_path.unwrap_or("")
+          }),
         })
       }
       _ => ()
@@ -68,12 +73,75 @@ pub fn parse_html(
     @cor.push_with_origin(
       doc,
       blocks[i],
+      html_block_origin_with_index(
+        html_blocks.block_origins[i],
+        src,
+        doc.blocks.val.length(),
+      ),
+    )
+  }
+
+  doc
+}
+
+///|
+fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
+  let n = bs.length()
+  let mut start = 0
+  if n >= 3 && bs[0] == 0xEF && bs[1] == 0xBB && bs[2] == 0xBF {
+    start = 3
+  }
+
+  let out : Array[Byte] = []
+  let mut i = start
+  while i < n {
+    let b = bs[i]
+    if b == '\r'.to_int().to_byte() {
+      out.push('\n'.to_int().to_byte())
+      if i + 1 < n && bs[i + 1] == '\n'.to_int().to_byte() {
+        i = i + 2
+      } else {
+        i = i + 1
+      }
+    } else {
+      out.push(b)
+      i = i + 1
+    }
+  }
+
+  Bytes::from_array(out)
+}
+
+///|
+fn html_block_origin_with_index(
+  origin : @cor.Origin?,
+  source_name : String,
+  block_index : Int,
+) -> @cor.Origin? {
+  match origin {
+    Some(v) =>
       Some({
-        source_name: Some(src),
+        source_name: Some(source_name),
+        page: v.page,
+        slide: v.slide,
+        sheet: v.sheet,
+        block_index: Some(block_index),
+        heading_path: v.heading_path,
+        line_start: v.line_start,
+        line_end: v.line_end,
+        row_index: v.row_index,
+        column_index: v.column_index,
+        object_ref: v.object_ref,
+        relationship_id: v.relationship_id,
+        key_path: v.key_path,
+      })
+    None =>
+      Some({
+        source_name: Some(source_name),
         page: None,
         slide: None,
         sheet: None,
-        block_index: Some(doc.blocks.val.length()),
+        block_index: Some(block_index),
         heading_path: None,
         line_start: None,
         line_end: None,
@@ -82,9 +150,6 @@ pub fn parse_html(
         object_ref: None,
         relationship_id: None,
         key_path: None,
-      }),
-    )
+      })
   }
-
-  doc
 }

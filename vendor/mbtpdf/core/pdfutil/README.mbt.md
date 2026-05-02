@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/core/pdfutil
+# @ZSeanYves/markitdown/vendor/mbtpdf/core/pdfutil
 
 Small utility helpers used across the PDF library.
 

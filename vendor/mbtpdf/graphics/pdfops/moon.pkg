@@ -1,9 +1,9 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/codec/pdfcodec",
-  "bobzhang/mbtpdf/core/pdfe",
-  "bobzhang/mbtpdf/syntax/pdfgenlex",
-  "bobzhang/mbtpdf/core/pdfio",
-  "bobzhang/mbtpdf/syntax/pdfsyntax",
-  "bobzhang/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfcodec",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/vendor/mbtpdf/syntax/pdfgenlex",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/syntax/pdfsyntax",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
 }

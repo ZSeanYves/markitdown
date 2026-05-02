@@ -11,7 +11,7 @@
 Packages are grouped by domain (core/codec/crypto/syntax/font/graphics/text/document/io),
 while leaf package names still map closely to camlpdf module names. Paths below
 are module-relative (for example, `core/pdfio`), and import aliases default to
-the last path segment (so `bobzhang/mbtpdf/core/pdfio` is used as `@pdfio`).
+the last path segment (so `ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio` is used as `@pdfio`).
 
 | Package path | camlpdf module(s) | Notes |
 | --- | --- | --- |

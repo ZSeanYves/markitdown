@@ -1,34 +1,278 @@
 // ============================
-// sheet xml -> table
+// worksheet xml -> structured sheet model
 // ============================
-//
-// Scan for cells:
-// <c r="A1" t="s"><v>0</v></c>
-// - r: cell reference
-// - t="s": sharedStrings index in <v>
-// - otherwise: <v> literal (usually number)
 
 ///|
-priv struct XlsxTableExtract {
-  rows : Array[Array[String]]
-  min_row : Int
-  min_col : Int
-  max_row : Int
+priv struct ParsedCellXml {
+  reference : String
+  cell_type : String
+  style_index : Int
+  value : String
+  formula_text : String?
+  inner : String
 }
 
 ///|
-fn parse_sheet_table(
+fn parse_sheet_model(
+  sheet_name : String,
+  relationship_id : String?,
+  relationship_type : String?,
+  part_target : String?,
+  state : XlsxSheetState,
   sheet_xml : String,
   shared : Array[String],
   styles : XlsxStyles,
-) -> XlsxTableExtract {
-  let cells : Map[String, String] = Map::new()
+  uses_date_1904 : Bool,
+  profile : XlsxProfileReport?,
+) -> XlsxSheetModel {
+  let collect_cells_started = @env.now()
+  let parsed_cells = collect_sheet_cells(sheet_xml)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_collect_cells:" + sheet_name,
+    @env.now() - collect_cells_started,
+    Some("parsed_cells=" + parsed_cells.length().to_string()),
+  )
+
+  let merged_ranges_started = @env.now()
+  let merged_ranges = parse_merged_ranges(sheet_xml)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_merged_ranges:" + sheet_name,
+    @env.now() - merged_ranges_started,
+    Some("merged_ranges=" + merged_ranges.length().to_string()),
+  )
+  let cells : Array[XlsxCellModel] = []
+
   let mut min_r = 0
   let mut min_c = 0
   let mut max_r = 0
   let mut max_c = 0
+  let cell_texts : Map[String, String] = Map::new()
 
+  let cell_decode_started = @env.now()
+  for parsed in parsed_cells {
+    let (rr, cc) = cell_ref_to_rc(parsed.reference)
+    if rr <= 0 || cc <= 0 {
+      continue
+    }
+
+    let num_format_id = style_index_numfmt(styles, parsed.style_index)
+    let (kind, semantic_type, text) = resolve_cell_display(
+      parsed.cell_type,
+      parsed.inner,
+      parsed.value,
+      parsed.formula_text,
+      shared,
+      styles,
+      num_format_id,
+      uses_date_1904,
+    )
+
+    let source_value = if parsed.value.trim() == "" {
+      None
+    } else {
+      Some(parsed.value)
+    }
+    let formula_text = parsed.formula_text
+    cells.push({
+      reference: parsed.reference,
+      row: rr,
+      column: cc,
+      kind,
+      display_text: text,
+      source_value,
+      formula_text,
+      semantic_type,
+      style_index: parsed.style_index,
+      num_format_id,
+      formula_trace: None,
+    })
+  }
+  apply_formula_policy(sheet_name, cells)
+  rebuild_sheet_text_index(cells, cell_texts)
+  let (range_min_r, range_min_c, range_max_r, range_max_c) = used_range_from_cells(
+    cells,
+  )
+  min_r = range_min_r
+  min_c = range_min_c
+  max_r = range_max_r
+  max_c = range_max_c
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_cell_decode_loop:" + sheet_name,
+    @env.now() - cell_decode_started,
+    Some("cells=" + cells.length().to_string()),
+  )
+
+  let render_rows_started = @env.now()
+  let rows = render_sheet_rows(cell_texts, min_r, min_c, max_r, max_c)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_render_rows:" + sheet_name,
+    @env.now() - render_rows_started,
+    Some("rows=" + rows.length().to_string()),
+  )
+  {
+    name: sheet_name,
+    relationship_id,
+    relationship_type,
+    part_target,
+    state,
+    is_supported_worksheet: true,
+    has_sheet_xml: true,
+    cells,
+    merged_ranges,
+    table_rows: rows,
+    header_rows: xlsx_header_rows(rows),
+    used_min_row: min_r,
+    used_min_col: min_c,
+    used_max_row: if rows.length() == 0 {
+      0
+    } else {
+      min_r + rows.length() - 1
+    },
+    used_max_col: table_width(rows),
+  }
+}
+
+///|
+fn apply_formula_policy(
+  sheet_name : String,
+  cells : Array[XlsxCellModel],
+) -> Unit {
+  let mut i = 0
+  while i < cells.length() {
+    let cell = cells[i]
+    match cell.formula_text {
+      Some(text) =>
+        if text.trim() != "" {
+          let trace = if cell.source_value != None {
+            Some({
+              policy: XlsxFormulaPolicy::Cached,
+              evaluated_value: None,
+              unsupported_reason: None,
+              error_reason: None,
+              referenced_cells: None,
+              referenced_ranges: None,
+            })
+          } else {
+            evaluate_missing_cache_formula(sheet_name, cell, cells)
+          }
+
+          let next_cell = match trace {
+            Some(info) =>
+              if info.policy == XlsxFormulaPolicy::EvaluatedMissingCache {
+                {
+                  ..cell,
+                  display_text: info.evaluated_value.unwrap_or(""),
+                  semantic_type: inferred_formula_eval_semantic_type(
+                    info.evaluated_value.unwrap_or(""),
+                  ),
+                  formula_trace: Some(info),
+                }
+              } else {
+                { ..cell, formula_trace: Some(info) }
+              }
+            None => cell
+          }
+          cells[i] = next_cell
+        }
+      None => ()
+    }
+    i = i + 1
+  }
+}
+
+///|
+fn inferred_formula_eval_semantic_type(text : String) -> XlsxCellSemanticType {
+  let trimmed = text.trim()
+  if trimmed == "" {
+    XlsxCellSemanticType::FormulaMissingCache
+  } else if trimmed == "TRUE" || trimmed == "FALSE" {
+    XlsxCellSemanticType::Boolean
+  } else {
+    try @string.parse_double(trimmed.to_owned()) catch {
+      _ => XlsxCellSemanticType::String
+    } noraise {
+      _ => XlsxCellSemanticType::Number
+    }
+  }
+}
+
+///|
+fn rebuild_sheet_text_index(
+  cells : Array[XlsxCellModel],
+  cell_texts : Map[String, String],
+) -> Unit {
+  for cell in cells {
+    cell_texts.set(
+      cell.row.to_string() + "," + cell.column.to_string(),
+      cell.display_text,
+    )
+  }
+}
+
+///|
+fn used_range_from_cells(cells : Array[XlsxCellModel]) -> (Int, Int, Int, Int) {
+  let mut min_r = 0
+  let mut min_c = 0
+  let mut max_r = 0
+  let mut max_c = 0
+  for cell in cells {
+    if @cor.trim_string(cell.display_text) == "" {
+      continue
+    }
+    if min_r == 0 || cell.row < min_r {
+      min_r = cell.row
+    }
+    if min_c == 0 || cell.column < min_c {
+      min_c = cell.column
+    }
+    if cell.row > max_r {
+      max_r = cell.row
+    }
+    if cell.column > max_c {
+      max_c = cell.column
+    }
+  }
+  (min_r, min_c, max_r, max_c)
+}
+
+///|
+fn empty_sheet_model(
+  sheet_name : String,
+  relationship_id : String?,
+  relationship_type : String?,
+  part_target : String?,
+  state : XlsxSheetState,
+  is_supported_worksheet : Bool,
+  has_sheet_xml : Bool,
+) -> XlsxSheetModel {
+  {
+    name: sheet_name,
+    relationship_id,
+    relationship_type,
+    part_target,
+    state,
+    is_supported_worksheet,
+    has_sheet_xml,
+    cells: [],
+    merged_ranges: [],
+    table_rows: [],
+    header_rows: 0,
+    used_min_row: 0,
+    used_min_col: 0,
+    used_max_row: 0,
+    used_max_col: 0,
+  }
+}
+
+///|
+fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
+  let out : Array[ParsedCellXml] = []
   let mut pos = 0
+
   while true {
     let c0 = find_sub(sheet_xml, "<c ", pos)
     match c0 {
@@ -39,55 +283,24 @@ fn parse_sheet_table(
           None => break
           Some(i1) => {
             let ctag = sheet_xml[i0:i1 + 1].to_owned()
-
             let rref = get_attr(ctag, "r").unwrap_or("")
-            let t = get_attr(ctag, "t").unwrap_or("")
-            let s = get_attr(ctag, "s").unwrap_or("")
-            let style_idx = parse_int(s)
-
+            let cell_type = get_attr(ctag, "t").unwrap_or("")
+            let style_idx = parse_int(get_attr(ctag, "s").unwrap_or(""))
             let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
             match c_end0 {
               None => break
               Some(c_end) => {
                 let inner = sheet_xml[i1 + 1:c_end].to_owned()
-
-                let mut val = ""
-                let v0 = find_sub(inner, "<v>", 0)
-                match v0 {
-                  None => ()
-                  Some(v_start0) => {
-                    let vs = v_start0 + 3
-                    let v1 = find_sub(inner, "</v>", vs)
-                    match v1 {
-                      None => ()
-                      Some(v_end) => val = inner[vs:v_end].to_owned()
-                    }
-                  }
-                }
-
-                let (rr, cc) = cell_ref_to_rc(rref)
-                if rr > 0 && cc > 0 {
-                  let text = resolve_cell_text(
-                    t, inner, val, shared, styles, style_idx,
-                  )
-                  cells.set(rr.to_string() + "," + cc.to_string(), text)
-
-                  if @cor.trim_string(text) != "" {
-                    if min_r == 0 || rr < min_r {
-                      min_r = rr
-                    }
-                    if min_c == 0 || cc < min_c {
-                      min_c = cc
-                    }
-                    if rr > max_r {
-                      max_r = rr
-                    }
-                    if cc > max_c {
-                      max_c = cc
-                    }
-                  }
-                }
-
+                let value = tag_text(inner, "v").unwrap_or("")
+                let formula_text = tag_text(inner, "f")
+                out.push({
+                  reference: rref,
+                  cell_type,
+                  style_index: style_idx,
+                  value,
+                  formula_text,
+                  inner,
+                })
                 pos = c_end + 4
               }
             }
@@ -97,89 +310,268 @@ fn parse_sheet_table(
     }
   }
 
-  if max_r == 0 || max_c == 0 {
-    return { rows: [], min_row: 0, min_col: 0, max_row: 0 }
-  }
-
-  let table0 : Array[Array[String]] = []
-  for r in min_r..<(max_r + 1) {
-    let row : Array[String] = []
-    for c in min_c..<(max_c + 1) {
-      let k = r.to_string() + "," + c.to_string()
-      row.push(cells.get(k).unwrap_or(""))
-    }
-    table0.push(trim_row_right(row))
-  }
-
-  let table1 = trim_table_bottom(table0)
-  let rows = normalize_table_width(table1)
-  let max_row = if rows.length() == 0 { 0 } else { min_r + rows.length() - 1 }
-  { rows, min_row: min_r, min_col: min_c, max_row }
+  out
 }
-// ============================
-// Utilities
-// ============================
 
 ///|
-fn resolve_cell_text(
-  t : String,
-  inner : String,
-  val : String,
-  shared : Array[String],
-  styles : XlsxStyles,
-  style_idx : Int,
-) -> String {
-  if t == "s" {
-    let idx = parse_int(val)
-    if idx >= 0 && idx < shared.length() {
-      shared[idx]
-    } else {
-      ""
-    }
-  } else if t == "inlineStr" {
-    parse_inline_str(inner)
-  } else if t == "b" {
-    let v = @cor.trim_string(val)
-    if v == "1" {
-      "TRUE"
-    } else if v == "0" {
-      "FALSE"
-    } else {
-      xml_unescape(v)
-    }
-  } else if t == "str" {
-    xml_unescape(val)
-  } else if t == "e" {
-    let v = @cor.trim_string(val)
-    if v == "" {
-      "#ERROR!"
-    } else {
-      v
-    }
-  } else {
-    // numeric / formula cached result / other types
-    let raw = xml_unescape(val)
-    let num_fmt_id = style_index_numfmt(styles, style_idx)
-
-    if numfmt_is_builtin_datetime_like(num_fmt_id) {
-      format_excel_datetime(raw, num_fmt_id, None)
-    } else {
-      match custom_numfmt_code(styles, num_fmt_id) {
-        Some(code) =>
-          if numfmt_code_is_datetime_like(code) {
-            format_excel_datetime(raw, num_fmt_id, Some(code))
-          } else {
-            raw
+fn parse_merged_ranges(sheet_xml : String) -> Array[XlsxMergedRange] {
+  let out : Array[XlsxMergedRange] = []
+  let start0 = find_sub(sheet_xml, "<mergeCells", 0)
+  match start0 {
+    None => out
+    Some(mc0) => {
+      let gt0 = find_sub(sheet_xml, ">", mc0)
+      match gt0 {
+        None => out
+        Some(mc1) => {
+          let end0 = find_sub(sheet_xml, "</mergeCells>", mc1 + 1)
+          match end0 {
+            None => out
+            Some(mc_end) => {
+              let inner = sheet_xml[mc1 + 1:mc_end].to_owned()
+              let mut pos = 0
+              while true {
+                let merge0 = find_sub(inner, "<mergeCell", pos)
+                match merge0 {
+                  None => break
+                  Some(i0) => {
+                    let merge1 = find_sub(inner, ">", i0)
+                    match merge1 {
+                      None => break
+                      Some(i1) => {
+                        let tag = inner[i0:i1 + 1].to_owned()
+                        let range_ref = get_attr(tag, "ref").unwrap_or("")
+                        match parse_merge_ref(range_ref) {
+                          Some((r1, c1, r2, c2)) =>
+                            out.push({
+                              range_ref,
+                              start_row: r1,
+                              start_col: c1,
+                              end_row: r2,
+                              end_col: c2,
+                            })
+                          None => ()
+                        }
+                        pos = i1 + 1
+                      }
+                    }
+                  }
+                }
+              }
+              out
+            }
           }
-        None => raw
+        }
       }
     }
   }
 }
 
 ///|
+fn parse_merge_ref(range_ref : String) -> (Int, Int, Int, Int)? {
+  let parts : Array[String] = []
+  for part in range_ref.split(":") {
+    parts.push(part.to_owned())
+  }
+  if parts.length() != 2 {
+    return None
+  }
+  let (r1, c1) = cell_ref_to_rc(parts[0])
+  let (r2, c2) = cell_ref_to_rc(parts[1])
+  if r1 <= 0 || c1 <= 0 || r2 <= 0 || c2 <= 0 {
+    None
+  } else {
+    Some((r1, c1, r2, c2))
+  }
+}
+
+///|
+fn resolve_cell_display(
+  cell_type : String,
+  inner : String,
+  val : String,
+  formula_text : String?,
+  shared : Array[String],
+  styles : XlsxStyles,
+  num_format_id : Int,
+  uses_date_1904 : Bool,
+) -> (XlsxCellKind, XlsxCellSemanticType, String) {
+  let has_formula = match formula_text {
+    Some(text) => text.trim() != ""
+    None => false
+  }
+  if cell_type == "s" {
+    let idx = parse_int(val)
+    if idx >= 0 && idx < shared.length() {
+      (XlsxCellKind::SharedString, XlsxCellSemanticType::String, shared[idx])
+    } else {
+      (XlsxCellKind::SharedString, XlsxCellSemanticType::String, "")
+    }
+  } else if cell_type == "inlineStr" {
+    (
+      XlsxCellKind::InlineString,
+      XlsxCellSemanticType::String,
+      parse_inline_str(inner),
+    )
+  } else if cell_type == "b" {
+    let v = @cor.trim_string(val)
+    if v == "1" {
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        "TRUE",
+      )
+    } else if v == "0" {
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        "FALSE",
+      )
+    } else {
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        xml_unescape(v),
+      )
+    }
+  } else if cell_type == "str" {
+    (
+      XlsxCellKind::StringResult,
+      if has_formula {
+        XlsxCellSemanticType::FormulaCachedValue
+      } else {
+        XlsxCellSemanticType::String
+      },
+      xml_unescape(val),
+    )
+  } else if cell_type == "e" {
+    let v = @cor.trim_string(val)
+    if v == "" {
+      (
+        XlsxCellKind::Error,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Error
+        },
+        "#ERROR!",
+      )
+    } else {
+      (
+        XlsxCellKind::Error,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Error
+        },
+        v,
+      )
+    }
+  } else if @cor.trim_string(val) == "" {
+    (
+      XlsxCellKind::Blank,
+      if has_formula {
+        XlsxCellSemanticType::FormulaMissingCache
+      } else {
+        XlsxCellSemanticType::Blank
+      },
+      "",
+    )
+  } else {
+    let raw = xml_unescape(val)
+    let (semantic_type, rendered) = if numfmt_is_builtin_datetime_like(
+        num_format_id,
+      ) {
+      (
+        datetime_semantic_type(num_format_id, None, has_formula),
+        format_excel_datetime(raw, num_format_id, None, uses_date_1904),
+      )
+    } else {
+      match custom_numfmt_code(styles, num_format_id) {
+        Some(code) =>
+          if numfmt_code_is_datetime_like(code) {
+            (
+              datetime_semantic_type(num_format_id, Some(code), has_formula),
+              format_excel_datetime(
+                raw,
+                num_format_id,
+                Some(code),
+                uses_date_1904,
+              ),
+            )
+          } else {
+            (
+              if has_formula {
+                XlsxCellSemanticType::FormulaCachedValue
+              } else {
+                XlsxCellSemanticType::Number
+              },
+              raw,
+            )
+          }
+        None =>
+          (
+            if has_formula {
+              XlsxCellSemanticType::FormulaCachedValue
+            } else {
+              XlsxCellSemanticType::Number
+            },
+            raw,
+          )
+      }
+    }
+    (XlsxCellKind::Number, semantic_type, rendered)
+  }
+}
+
+///|
+fn datetime_semantic_type(
+  num_format_id : Int,
+  custom_code : String?,
+  has_formula : Bool,
+) -> XlsxCellSemanticType {
+  if has_formula {
+    return XlsxCellSemanticType::FormulaCachedValue
+  }
+
+  let is_date_only = match custom_code {
+    Some(code) => numfmt_code_is_date_only(code)
+    None => numfmt_is_date_only_builtin(num_format_id)
+  }
+  let is_time_only = match custom_code {
+    Some(code) => numfmt_code_is_time_only(code)
+    None => numfmt_is_time_only_builtin(num_format_id)
+  }
+  let is_datetime = match custom_code {
+    Some(code) => numfmt_code_is_datetime(code)
+    None => numfmt_is_datetime_builtin(num_format_id)
+  }
+
+  if is_date_only {
+    XlsxCellSemanticType::Date
+  } else if is_time_only {
+    XlsxCellSemanticType::Time
+  } else if is_datetime {
+    XlsxCellSemanticType::DateTime
+  } else {
+    XlsxCellSemanticType::DateTime
+  }
+}
+
+///|
 fn parse_inline_str(inner : String) -> String {
-  // Collect all <t>...</t> inside the cell inner xml
   let mut tpos = 0
   let mut acc = ""
 
@@ -198,7 +590,7 @@ fn parse_inline_str(inner : String) -> String {
               None => break
               Some(t_end) => {
                 let content = inner[content_start:t_end].to_owned()
-                acc = acc + content
+                acc = acc + xml_unescape(content)
                 tpos = t_end + 4
               }
             }
@@ -208,7 +600,75 @@ fn parse_inline_str(inner : String) -> String {
     }
   }
 
-  xml_unescape(acc)
+  acc
+}
+
+///|
+fn render_sheet_rows(
+  cells : Map[String, String],
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> Array[Array[String]] {
+  if max_r == 0 || max_c == 0 {
+    return []
+  }
+
+  let table0 : Array[Array[String]] = []
+  for r in min_r..<(max_r + 1) {
+    let row : Array[String] = []
+    for c in min_c..<(max_c + 1) {
+      let k = r.to_string() + "," + c.to_string()
+      row.push(cells.get(k).unwrap_or(""))
+    }
+    table0.push(trim_row_right(row))
+  }
+
+  let table1 = trim_table_bottom(table0)
+  normalize_table_width(table1)
+}
+
+///|
+fn xlsx_header_rows(rows : Array[Array[String]]) -> Int {
+  if rows.length() == 0 {
+    0
+  } else {
+    1
+  }
+}
+
+///|
+fn table_width(rows : Array[Array[String]]) -> Int {
+  let mut width = 0
+  for row in rows {
+    if row.length() > width {
+      width = row.length()
+    }
+  }
+  width
+}
+
+///|
+fn tag_text(xml : String, name : String) -> String? {
+  let open = "<" + name
+  let t0 = find_sub(xml, open, 0)
+  match t0 {
+    None => None
+    Some(start0) => {
+      let gt0 = find_sub(xml, ">", start0)
+      match gt0 {
+        None => None
+        Some(start1) => {
+          let end0 = find_sub(xml, "</" + name + ">", start1 + 1)
+          match end0 {
+            None => None
+            Some(end1) => Some(xml[start1 + 1:end1].to_owned())
+          }
+        }
+      }
+    }
+  }
 }
 
 // cell ref like "BC12" -> (12, 55)

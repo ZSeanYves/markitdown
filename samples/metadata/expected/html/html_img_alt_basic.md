@@ -1,1 +1,1 @@
-![red diagram](assets/image02.jpg)
+![red diagram](assets/image01.jpg)

@@ -2,10 +2,20 @@
 package "ZSeanYves/markitdown/cli"
 
 // Values
+pub fn exit_error(String) -> Unit
+
+pub fn now_ms() -> Int64
 
 // Errors
 
 // Types and methods
+type BatchInputEntry
+
+type BatchInputKind
+
+type BatchItemResult
+
+type BatchRunResult
 
 // Type aliases
 

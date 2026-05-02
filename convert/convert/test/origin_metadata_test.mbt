@@ -6,6 +6,49 @@
 /// - guards metadata-sidecar image context mirrors (caption vs nearby_caption)
 /// - checks asset indexing invariants shared by main_process / metadata / assets chains
 /// 已做了内容删除，在测试结束后不会保留内容，但会残留测试目录
+fn parent_dir(path : String) -> String {
+  match path.rev_find("/") {
+    None => ""
+    Some(idx) => if idx == 0 { "/" } else { path[:idx].to_owned() }
+  }
+}
+
+///|
+fn join_path(base : String, rel : String) -> String {
+  if base == "" || base == "." {
+    rel
+  } else if base == "/" {
+    "/" + rel
+  } else if base.has_suffix("/") {
+    base + rel
+  } else {
+    base + "/" + rel
+  }
+}
+
+///|
+fn find_repo_root_from(dir : String) -> String? {
+  if @fs.path_exists(join_path(dir, "moon.mod.json")) {
+    return Some(dir)
+  }
+  let parent = parent_dir(dir)
+  if parent == "" || parent == dir {
+    None
+  } else {
+    find_repo_root_from(parent)
+  }
+}
+
+///|
+fn find_repo_root() -> String? {
+  let dir = match @sys.get_env_var("PWD") {
+    Some(cwd) => cwd
+    None => return None
+  }
+  find_repo_root_from(dir)
+}
+
+///|
 fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
@@ -16,16 +59,23 @@ fn resolve_sample_path(path : String) -> String raise {
     return fallback
   }
 
+  match find_repo_root() {
+    Some(root) => {
+      let rooted = join_path(root, path)
+      if @fs.path_exists(rooted) {
+        return rooted
+      }
+    }
+    None => ()
+  }
+
   fail("sample file not found: " + path)
 }
 
 ///|
 fn read_utf8_text(path : String) -> String raise {
-  let bytes = @fs.read_file_to_bytes(path) catch {
+  @fs.read_file_to_string(path, encoding="utf8") catch {
     e => fail("read sample failed: " + e.to_string())
-  }
-  @cor.utf8_bytes_to_string(bytes) catch {
-    e => fail("utf8 decode failed: " + e.to_string())
   }
 }
 
@@ -79,6 +129,153 @@ fn ensure_dir_tree(path : String) -> Unit raise {
   }
 
   ignore(flush(part, current))
+}
+
+///|
+fn metadata_pdf_page_from_ops(
+  ops : Array[@pdfops.Op],
+  rect : @mbtpdf_core.PdfObject,
+) -> @pdfpage.Page raise {
+  let stream = @pdfops.Op::stream_of_ops(ops)
+  let font : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Type", Name(@mbtpdf_core.PdfName::of_string("/Font"))),
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Type1"))),
+    ("/BaseFont", Name(@mbtpdf_core.PdfName::of_string("/Helvetica"))),
+  ])
+  {
+    content: [stream],
+    mediabox: rect,
+    cropbox: None,
+    resources: Dictionary([("/Font", Dictionary([("/F0", font)]))]),
+    rotate: @pdfpage.Rotation::Rotate0,
+    rest: Dictionary([]),
+  }
+}
+
+///|
+async fn write_metadata_simple_table_pdf(path : String) -> Unit {
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(240.0),
+  ])
+  let ops : Array[@pdfops.Op] = [
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 180.0),
+    @pdfops.Op::OpTj("Product"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 180.0),
+    @pdfops.Op::OpTj("Region"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 180.0),
+    @pdfops.Op::OpTj("Status"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 158.0),
+    @pdfops.Op::OpTj("Alpha"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 158.0),
+    @pdfops.Op::OpTj("East"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 158.0),
+    @pdfops.Op::OpTj("Open"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 136.0),
+    @pdfops.Op::OpTj("Beta"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 136.0),
+    @pdfops.Op::OpTj("West"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 136.0),
+    @pdfops.Op::OpTj("Closed"),
+    @pdfops.Op::OpET,
+  ]
+
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let page = metadata_pdf_page_from_ops(ops, rect)
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn write_metadata_headerless_numeric_table_pdf(path : String) -> Unit {
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(240.0),
+  ])
+  let ops : Array[@pdfops.Op] = [
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 180.0),
+    @pdfops.Op::OpTj("Alpha"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 180.0),
+    @pdfops.Op::OpTj("12"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 180.0),
+    @pdfops.Op::OpTj("4.5%"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 158.0),
+    @pdfops.Op::OpTj("Beta"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 158.0),
+    @pdfops.Op::OpTj("9"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 158.0),
+    @pdfops.Op::OpTj("3.2%"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 136.0),
+    @pdfops.Op::OpTj("Gamma"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 136.0),
+    @pdfops.Op::OpTj("7"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 136.0),
+    @pdfops.Op::OpTj("2.1%"),
+    @pdfops.Op::OpET,
+  ]
+
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let page = metadata_pdf_page_from_ops(ops, rect)
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  @mbtpdf.write_file(pdf, path)
 }
 
 ///|
@@ -179,20 +376,26 @@ fn read_epub_metadata_document_properties(
   }
   let meta = pkg.metadata
 
+  let props = @cor.metadata_document_properties(
+    meta.title,
+    None,
+    meta.creator,
+    None,
+    None,
+    meta.date,
+    meta.modified,
+    Some("EPUB"),
+    None,
+    None,
+    None,
+    None,
+  )
   Some(
-    @cor.metadata_document_properties(
-      meta.title,
-      None,
-      meta.creator,
-      None,
-      None,
-      meta.date,
-      meta.modified,
-      Some("EPUB"),
-      None,
-      None,
-      None,
-      None,
+    @cor.metadata_document_properties_with_extras(
+      props,
+      meta.language,
+      meta.identifier,
+      meta.publisher,
     ),
   )
 }
@@ -478,8 +681,16 @@ test "origin_metadata/html_docx_minimal_closure" {
       if img.caption != None {
         fail("html single image caption should be None")
       }
-      if img.origin != None {
-        fail("html single image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html single image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html single image origin key_path should track source path")
+          }
+        }
+        None => fail("html single image origin should be present")
       }
       assert_asset_origin_has_min_source(html_doc, img.path)
       assert_asset_origin_source_path(
@@ -564,8 +775,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != None {
         fail("html alt image caption should be None")
       }
-      if img.origin != None {
-        fail("html figure image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html alt image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html alt image origin key_path should track source path")
+          }
+        }
+        None => fail("html alt image origin should be present")
       }
       match html_alt_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
@@ -598,8 +817,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != None {
         fail("html title image caption should be None")
       }
-      if img.origin != None {
-        fail("html title image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html title image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html title image origin key_path should track source path")
+          }
+        }
+        None => fail("html title image origin should be present")
       }
       assert_asset_origin_has_min_source(html_title_doc, img.path)
       assert_asset_origin_source_path(
@@ -629,8 +856,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != Some("Figure caption text.") {
         fail("html figure image caption should be Figure caption text.")
       }
-      if img.origin != None {
-        fail("html figure image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:figure-img") {
+            fail("html figure image origin object_ref should be figure-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html figure image origin key_path should track source path")
+          }
+        }
+        None => fail("html figure image origin should be present")
       }
       match html_fig_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
@@ -895,6 +1130,13 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   )
   assert_block_origin_alignment(xlsx_doc)
   assert_sheet_level_origins(xlsx_doc)
+  match xlsx_doc.blocks.val[1] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("xlsx should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("xlsx should emit RichTable for sheet tables")
+  }
 }
 
 ///|
@@ -946,6 +1188,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     read_ooxml_metadata_document_properties(xlsx_path),
   )
   assert_metadata_has_document_object(xlsx_json, "xlsx")
+  if !xlsx_json.contains("\"table\": {") {
+    fail("xlsx metadata should expose table payload for RichTable blocks")
+  }
+  if !xlsx_json.contains("\"header_rows\": 1") {
+    fail("xlsx metadata should keep explicit header_rows")
+  }
 
   let missing_docprops_path = resolve_sample_path(
     "samples/main_process/docx/docx_blockquote_basic.docx",
@@ -999,6 +1247,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !csv_json.contains("\"document\": null") {
     fail("csv metadata should keep document null")
   }
+  if !csv_json.contains("\"table\": {") {
+    fail("csv metadata should expose table payload for RichTable blocks")
+  }
+  if !csv_json.contains("\"header_rows\": 1") {
+    fail("csv metadata should keep explicit header_rows")
+  }
 
   let json_doc = @json.parse_json(
     resolve_sample_path("samples/main_process/json/json_object_basic.json"),
@@ -1022,6 +1276,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   }
   if !json_json.contains("\"document\": null") {
     fail("json metadata should keep document null")
+  }
+  if !json_json.contains("\"table\": {") {
+    fail("json metadata should expose table payload for RichTable blocks")
+  }
+  if !json_json.contains("\"header_rows\": 1") {
+    fail("json metadata should keep explicit header_rows")
   }
 
   let yaml_doc = @yaml.parse_yaml(
@@ -1047,6 +1307,39 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !yaml_json.contains("\"document\": null") {
     fail("yaml metadata should keep document null")
   }
+  let yaml_metadata_basic_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_basic.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_basic_doc, "yaml_metadata_basic.yaml", "yaml", "yaml_metadata_basic.md",
+    ),
+    "yaml_metadata_basic.metadata.json",
+  )
+  let yaml_metadata_table_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_table.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_table_doc, "yaml_metadata_table.yaml", "yaml", "yaml_metadata_table.md",
+    ),
+    "yaml_metadata_table.metadata.json",
+  )
+  let yaml_metadata_nested_doc = @yaml.parse_yaml(
+    resolve_sample_path("samples/metadata/yaml/yaml_metadata_nested.yaml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      yaml_metadata_nested_doc, "yaml_metadata_nested.yaml", "yaml", "yaml_metadata_nested.md",
+    ),
+    "yaml_metadata_nested.metadata.json",
+  )
 
   let yml_path = resolve_sample_path(
     "samples/main_process/yaml/yml_extension_basic.yml",
@@ -1124,6 +1417,22 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("txt metadata should keep document null")
   }
 
+  let txt_literal_doc = @txt.parse_txt(
+    resolve_sample_path(
+      "samples/main_process/txt/txt_markdown_like_literal.txt",
+    ),
+    "",
+    6,
+  )
+  let txt_literal_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/txt/txt_markdown_like_literal.md",
+    ),
+  )
+  if @cor.emit_markdown(txt_literal_doc) != txt_literal_expected {
+    fail("txt markdown-like literals should stay escaped in markdown output")
+  }
+
   let xml_doc = @xml.parse_xml(
     resolve_sample_path("samples/main_process/xml/xml_basic.xml"),
     "",
@@ -1166,6 +1475,34 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
     fail("markdown .markdown extension should preserve frontmatter sample")
   }
+
+  let markdown_bom_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_bom_utf8.md"),
+    "",
+    6,
+  )
+  let markdown_bom_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_bom_utf8.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_bom_doc) != markdown_bom_expected {
+    fail("markdown should strip utf8 bom from passthrough output")
+  }
+
+  let markdown_crlf_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_crlf.md"),
+    "",
+    6,
+  )
+  let markdown_crlf_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/markdown/markdown_crlf.md",
+    ),
+  )
+  if @cor.emit_markdown(markdown_crlf_doc) != markdown_crlf_expected {
+    fail("markdown should normalize crlf input to stable newline output")
+  }
 }
 
 ///|
@@ -1196,6 +1533,13 @@ test "origin_metadata/structured_text_block_origins" {
   if csv_origin.key_path != None {
     fail("csv table block should not set key_path")
   }
+  match csv_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("csv should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("csv should emit RichTable for table semantics")
+  }
 
   let tsv_doc = @csv.parse_tsv(
     resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
@@ -1217,6 +1561,13 @@ test "origin_metadata/structured_text_block_origins" {
   }
   if tsv_origin.key_path != None {
     fail("tsv table block should not set key_path")
+  }
+  match tsv_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("tsv should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("tsv should emit RichTable for table semantics")
   }
 
   let json_object_doc = @json.parse_json(
@@ -1259,6 +1610,25 @@ test "origin_metadata/structured_text_block_origins" {
     if block_origin_at(yaml_list_doc, i).key_path != Some("$") {
       fail("yaml scalar list item should keep root key_path")
     }
+  }
+
+  let xml_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_comments.xml"),
+    "",
+    6,
+  )
+  let xml_origin = block_origin_at(xml_doc, 0)
+  if xml_origin.line_start != Some(1) {
+    fail("xml code block should start at line 1")
+  }
+  if xml_origin.line_end != Some(5) {
+    fail("xml code block should end at physical line 5")
+  }
+  if xml_origin.key_path != None {
+    fail("xml code block should not set key_path")
+  }
+  if xml_origin.source_name != Some("xml_comments.xml") {
+    fail("xml code block should preserve source_name")
   }
 
   let markdown_code_doc = @md.parse_markdown(
@@ -1315,6 +1685,42 @@ test "origin_metadata/structured_text_block_origins" {
     fail("markdown no-trailing-newline block should end at line 1")
   }
 
+  let markdown_crlf_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_crlf.md"),
+    "",
+    6,
+  )
+  if block_origin_at(markdown_crlf_doc, 0).line_start != Some(1) {
+    fail("markdown crlf heading block should start at line 1")
+  }
+  if block_origin_at(markdown_crlf_doc, 0).line_end != Some(1) {
+    fail("markdown crlf heading block should end at line 1")
+  }
+  if block_origin_at(markdown_crlf_doc, 1).line_start != Some(3) {
+    fail("markdown crlf paragraph block should start at line 3")
+  }
+  if block_origin_at(markdown_crlf_doc, 1).line_end != Some(3) {
+    fail("markdown crlf paragraph block should end at line 3")
+  }
+
+  let markdown_bom_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_bom_utf8.md"),
+    "",
+    6,
+  )
+  if block_origin_at(markdown_bom_doc, 0).line_start != Some(1) {
+    fail("markdown bom heading block should start at line 1")
+  }
+  if block_origin_at(markdown_bom_doc, 0).line_end != Some(1) {
+    fail("markdown bom heading block should end at line 1")
+  }
+  if block_origin_at(markdown_bom_doc, 1).line_start != Some(3) {
+    fail("markdown bom paragraph block should start at line 3")
+  }
+  if block_origin_at(markdown_bom_doc, 1).line_end != Some(3) {
+    fail("markdown bom paragraph block should end at line 3")
+  }
+
   let txt_doc = @txt.parse_txt(
     resolve_sample_path("samples/main_process/txt/txt_paragraphs.txt"),
     "",
@@ -1342,10 +1748,26 @@ test "origin_metadata/structured_text_block_origins" {
   if txt_second.line_end != Some(5) {
     fail("txt second paragraph should end at line 5")
   }
+
+  let txt_many_doc = @txt.parse_txt(
+    resolve_sample_path("samples/main_process/txt/txt_many_paragraphs.txt"),
+    "",
+    6,
+  )
+  if txt_many_doc.blocks.val.length() != 5 {
+    fail("txt_many_paragraphs should ignore repeated blank lines")
+  }
+  let txt_many_last = block_origin_at(txt_many_doc, 4)
+  if txt_many_last.line_start != Some(14) {
+    fail("txt many-paragraph final block should start at line 14")
+  }
+  if txt_many_last.line_end != Some(14) {
+    fail("txt many-paragraph final block should end at line 14")
+  }
 }
 
 ///|
-test "metadata_sidecar/structured_text_origin_snapshots" {
+async test "metadata_sidecar/structured_text_origin_snapshots" {
   let html_single_out_dir = origin_tmp_root() +
     "/metadata_sidecar_html_img_single"
   recreate_clean_dir(html_single_out_dir)
@@ -1381,6 +1803,286 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     ),
     "html_figure_figcaption_basic.metadata.json",
   )
+
+  let html_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_html_basic"
+  recreate_clean_dir(html_basic_out_dir)
+  defer cleanup_temp_dir(html_basic_out_dir)
+  ensure_dir(html_basic_out_dir + "/html")
+  let html_basic_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_metadata_basic.html"),
+    html_basic_out_dir + "/html",
+    6,
+  )
+  match html_basic_doc.blocks.val[0] {
+    @cor.Block::RichHeading(_, _) => ()
+    _ => fail("html metadata basic should keep RichHeading block semantics")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_basic_doc, "html_metadata_basic.html", "html", "html_metadata_basic.md",
+    ),
+    "html_metadata_basic.metadata.json",
+  )
+
+  let html_link_image_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_html_link_image"
+  recreate_clean_dir(html_link_image_out_dir)
+  defer cleanup_temp_dir(html_link_image_out_dir)
+  ensure_dir(html_link_image_out_dir + "/html")
+  let html_link_image_doc = @html.parse_html(
+    resolve_sample_path("samples/metadata/html/html_metadata_link_image.html"),
+    html_link_image_out_dir + "/html",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      html_link_image_doc, "html_metadata_link_image.html", "html", "html_metadata_link_image.md",
+    ),
+    "html_metadata_link_image.metadata.json",
+  )
+
+  let xlsx_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_xlsx_basic"
+  recreate_clean_dir(xlsx_basic_out_dir)
+  defer cleanup_temp_dir(xlsx_basic_out_dir)
+  ensure_dir(xlsx_basic_out_dir + "/xlsx")
+  let xlsx_basic_doc = @xlsx.parse_xlsx(
+    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+    xlsx_basic_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_basic_doc,
+      "xlsx_metadata_basic.xlsx",
+      "xlsx",
+      "xlsx_metadata_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+      ),
+    ),
+    "xlsx_metadata_basic.metadata.json",
+  )
+
+  let xlsx_multi_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_multi_sheet"
+  recreate_clean_dir(xlsx_multi_out_dir)
+  defer cleanup_temp_dir(xlsx_multi_out_dir)
+  ensure_dir(xlsx_multi_out_dir + "/xlsx")
+  let xlsx_multi_doc = @xlsx.parse_xlsx(
+    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx"),
+    xlsx_multi_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_multi_doc,
+      "xlsx_metadata_multi_sheet.xlsx",
+      "xlsx",
+      "xlsx_metadata_multi_sheet.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_multi_sheet.metadata.json",
+  )
+
+  let xlsx_policy_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_formula_or_merged_policy"
+  recreate_clean_dir(xlsx_policy_out_dir)
+  defer cleanup_temp_dir(xlsx_policy_out_dir)
+  ensure_dir(xlsx_policy_out_dir + "/xlsx")
+  let xlsx_policy_doc = @xlsx.parse_xlsx(
+    resolve_sample_path(
+      "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+    ),
+    xlsx_policy_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_policy_doc,
+      "xlsx_metadata_formula_or_merged_policy.xlsx",
+      "xlsx",
+      "xlsx_metadata_formula_or_merged_policy.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_formula_or_merged_policy.metadata.json",
+  )
+
+  let mut saw_xlsx_policy_hints = false
+  for block in xlsx_policy_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) =>
+        match table.hints {
+          Some(hints) => {
+            saw_xlsx_policy_hints = true
+            if hints.format != Some("xlsx") {
+              fail("expected xlsx format hint in metadata policy sample")
+            }
+            if hints.sheet_state != Some("visible") {
+              fail("expected visible sheet_state in metadata policy sample")
+            }
+            match hints.merged_ranges {
+              Some(ranges) => assert_eq(ranges, ["B3:C4"])
+              None =>
+                fail("xlsx metadata policy sample should expose merged ranges")
+            }
+            match hints.formula_cells {
+              Some(cells) => {
+                assert_eq(cells.length(), 1)
+                assert_eq(cells[0].reference, "B2")
+                assert_eq(cells[0].formula_text, "10+5")
+                assert_eq(cells[0].semantic_type, "formula_cached_value")
+                if cells[0].policy != Some("cached") {
+                  fail("expected cached policy in metadata policy sample")
+                }
+              }
+              None =>
+                fail("xlsx metadata policy sample should expose formula cells")
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  assert_true(saw_xlsx_policy_hints)
+
+  let xlsx_formula_states_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_formula_policy_states"
+  recreate_clean_dir(xlsx_formula_states_out_dir)
+  defer cleanup_temp_dir(xlsx_formula_states_out_dir)
+  ensure_dir(xlsx_formula_states_out_dir + "/xlsx")
+  let xlsx_formula_states_doc = @xlsx.parse_xlsx(
+    resolve_sample_path(
+      "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+    ),
+    xlsx_formula_states_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_formula_states_doc,
+      "xlsx_metadata_formula_policy_states.xlsx",
+      "xlsx",
+      "xlsx_metadata_formula_policy_states.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_formula_policy_states.metadata.json",
+  )
+
+  let mut saw_xlsx_formula_states = false
+  for block in xlsx_formula_states_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) =>
+        match table.hints {
+          Some(hints) =>
+            match hints.formula_cells {
+              Some(cells) => {
+                saw_xlsx_formula_states = true
+                assert_eq(cells.length(), 4)
+                if cells[0].policy != Some("cached") {
+                  fail("expected cached policy in XLSX metadata fixture")
+                }
+                if cells[1].policy != Some("evaluated_missing_cache") {
+                  fail(
+                    "expected evaluated_missing_cache policy in XLSX metadata fixture",
+                  )
+                }
+                if cells[1].evaluated_value != Some("3") {
+                  fail("expected evaluated value 3 in XLSX metadata fixture")
+                }
+                if cells[2].policy != Some("unsupported_formula") {
+                  fail(
+                    "expected unsupported_formula policy in XLSX metadata fixture",
+                  )
+                }
+                if cells[3].policy != Some("formula_error") {
+                  fail("expected formula_error policy in XLSX metadata fixture")
+                }
+              }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  assert_true(saw_xlsx_formula_states)
+
+  let zip_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_basic"
+  recreate_clean_dir(zip_basic_out_dir)
+  defer cleanup_temp_dir(zip_basic_out_dir)
+  let zip_basic_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_basic.zip"),
+    zip_basic_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_basic_doc, "zip_metadata_basic.zip", "zip", "zip_metadata_basic.md",
+    ),
+    "zip_metadata_basic.metadata.json",
+  )
+
+  let zip_origins_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_zip_entry_origins"
+  recreate_clean_dir(zip_origins_out_dir)
+  defer cleanup_temp_dir(zip_origins_out_dir)
+  let zip_origins_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_entry_origins.zip"),
+    zip_origins_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_origins_doc, "zip_metadata_entry_origins.zip", "zip", "zip_metadata_entry_origins.md",
+    ),
+    "zip_metadata_entry_origins.metadata.json",
+  )
+
+  let zip_assets_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_assets"
+  recreate_clean_dir(zip_assets_out_dir)
+  defer cleanup_temp_dir(zip_assets_out_dir)
+  let zip_assets_doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+    zip_assets_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      zip_assets_doc, "zip_metadata_assets.zip", "zip", "zip_metadata_assets.md",
+    ),
+    "zip_metadata_assets.metadata.json",
+  )
+  let zip_inspect = @zipconv.inspect_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+  )
+  let mut saw_convertable_html = false
+  for entry in zip_inspect.entries {
+    if entry.normalized_path == Some("site/page.html") {
+      saw_convertable_html = true
+      if entry.action != @zipconv.ZipInspectAction::Convert {
+        fail("zip inspect should mark site/page.html as convertable")
+      }
+      if entry.dispatch_format != Some("html") {
+        fail("zip inspect should classify site/page.html as html")
+      }
+    }
+  }
+  if !saw_convertable_html {
+    fail("zip inspect should report site/page.html in metadata asset sample")
+  }
 
   let pptx_single_out_dir = origin_tmp_root() +
     "/metadata_sidecar_pptx_image_single_caption_like"
@@ -1435,6 +2137,192 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     "pptx_image_no_alt_negative.metadata.json",
   )
 
+  let pptx_table_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_table_basic"
+  recreate_clean_dir(pptx_table_out_dir)
+  defer cleanup_temp_dir(pptx_table_out_dir)
+  ensure_dir(pptx_table_out_dir + "/pptx")
+  // PPTX H2 slice coverage:
+  // keep explicit table metadata regression separate from image-only PPTX cases.
+  let pptx_table_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_basic.pptx"),
+    pptx_table_out_dir + "/pptx",
+    6,
+  )
+  let mut saw_pptx_table = false
+  for block in pptx_table_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) => {
+        saw_pptx_table = true
+        if table.header_rows != 1 {
+          fail("pptx explicit table metadata sample should keep header_rows=1")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_pptx_table {
+    fail("pptx explicit table metadata sample should emit RichTable")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_table_doc,
+      "pptx_metadata_table_basic.pptx",
+      "pptx",
+      "pptx_metadata_table_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_table_basic.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_table_basic.metadata.json",
+  )
+
+  let pptx_notes_hidden_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_notes_hidden"
+  recreate_clean_dir(pptx_notes_hidden_out_dir)
+  defer cleanup_temp_dir(pptx_notes_hidden_out_dir)
+  ensure_dir(pptx_notes_hidden_out_dir + "/pptx")
+  // Hidden-slide + speaker-notes coverage is intentionally content-preserving:
+  // heading text carries the hidden marker; notes keep existing provenance fields.
+  let pptx_notes_hidden_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_notes_hidden.pptx"),
+    pptx_notes_hidden_out_dir + "/pptx",
+    6,
+  )
+  let pptx_notes_hidden_md = @cor.emit_markdown(pptx_notes_hidden_doc)
+  if !pptx_notes_hidden_md.contains("## Slide 2 (hidden)") {
+    fail(
+      "pptx notes+hidden metadata sample should preserve hidden slide marker",
+    )
+  }
+  if !pptx_notes_hidden_md.contains("### Speaker Notes") {
+    fail("pptx notes+hidden metadata sample should emit speaker notes heading")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_notes_hidden_doc,
+      "pptx_metadata_notes_hidden.pptx",
+      "pptx",
+      "pptx_metadata_notes_hidden.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_notes_hidden.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_notes_hidden.metadata.json",
+  )
+
+  let pptx_docprops_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_docprops_rich"
+  recreate_clean_dir(pptx_docprops_out_dir)
+  defer cleanup_temp_dir(pptx_docprops_out_dir)
+  ensure_dir(pptx_docprops_out_dir + "/pptx")
+  let pptx_docprops_doc = @pptx.parse_pptx(
+    resolve_sample_path(
+      "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+    ),
+    pptx_docprops_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_docprops_doc,
+      "pptx_metadata_docprops_rich.pptx",
+      "pptx",
+      "pptx_metadata_docprops_rich.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_docprops_rich.metadata.json",
+  )
+
+  let pptx_links_images_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_links_images"
+  recreate_clean_dir(pptx_links_images_out_dir)
+  defer cleanup_temp_dir(pptx_links_images_out_dir)
+  ensure_dir(pptx_links_images_out_dir + "/pptx")
+  let pptx_links_images_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_links_images.pptx"),
+    pptx_links_images_out_dir + "/pptx",
+    6,
+  )
+  let pptx_links_images_md = @cor.emit_markdown(pptx_links_images_doc)
+  if !pptx_links_images_md.contains(
+      "[reference](https://example.com/reference)",
+    ) {
+    fail("pptx links+images metadata sample should keep hyperlink markdown")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_links_images_doc,
+      "pptx_metadata_links_images.pptx",
+      "pptx",
+      "pptx_metadata_links_images.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_links_images.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_links_images.metadata.json",
+  )
+
+  let pptx_table_grid_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_table_grid"
+  recreate_clean_dir(pptx_table_grid_out_dir)
+  defer cleanup_temp_dir(pptx_table_grid_out_dir)
+  ensure_dir(pptx_table_grid_out_dir + "/pptx")
+  let pptx_table_grid_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_grid.pptx"),
+    pptx_table_grid_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_table_grid_doc,
+      "pptx_metadata_table_grid.pptx",
+      "pptx",
+      "pptx_metadata_table_grid.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_table_grid.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_table_grid.metadata.json",
+  )
+
+  let pptx_caption_like_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_caption_like"
+  recreate_clean_dir(pptx_caption_like_out_dir)
+  defer cleanup_temp_dir(pptx_caption_like_out_dir)
+  ensure_dir(pptx_caption_like_out_dir + "/pptx")
+  let pptx_caption_like_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_caption_like.pptx"),
+    pptx_caption_like_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_caption_like_doc,
+      "pptx_metadata_caption_like.pptx",
+      "pptx",
+      "pptx_metadata_caption_like.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_caption_like.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_caption_like.metadata.json",
+  )
+
   let docx_golden_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_golden"
   recreate_clean_dir(docx_golden_out_dir)
   defer cleanup_temp_dir(docx_golden_out_dir)
@@ -1444,10 +2332,46 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     docx_golden_out_dir + "/docx",
     6,
   )
+  let docx_table_blocks = docx_golden_doc.blocks.val.filter(fn(block) {
+    match block {
+      @cor.Block::RichTable(_) => true
+      _ => false
+    }
+  })
+  if docx_table_blocks.length() != 1 {
+    fail("golden.docx should emit one RichTable block")
+  }
+  match docx_table_blocks[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("docx golden table should keep header_rows=1 explicit semantics")
+      }
+    _ => fail("golden.docx table block should be RichTable")
+  }
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(docx_golden_doc, "golden.docx", "docx", "golden.md"),
+    @cor.emit_metadata_json_with_document_properties(
+      docx_golden_doc,
+      "golden.docx",
+      "docx",
+      "golden.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/main_process/docx/golden.docx"),
+      ),
+    ),
     "golden.metadata.json",
   )
+  let docx_json = @cor.emit_metadata_json_with_document_properties(
+    docx_golden_doc,
+    "golden.docx",
+    "docx",
+    "golden.md",
+    read_ooxml_metadata_document_properties(
+      resolve_sample_path("samples/main_process/docx/golden.docx"),
+    ),
+  )
+  if !docx_json.contains("\"header_rows\": 1") {
+    fail("docx metadata should expose explicit table header_rows")
+  }
 
   let docx_alt_title_out_dir = origin_tmp_root() +
     "/metadata_sidecar_docx_image_alt_title_basic"
@@ -1460,8 +2384,16 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     6,
   )
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(
-      docx_alt_title_doc, "docx_image_alt_title_basic.docx", "docx", "docx_image_alt_title_basic.md",
+    @cor.emit_metadata_json_with_document_properties(
+      docx_alt_title_doc,
+      "docx_image_alt_title_basic.docx",
+      "docx",
+      "docx_image_alt_title_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/docx/docx_image_alt_title_basic.docx",
+        ),
+      ),
     ),
     "docx_image_alt_title_basic.metadata.json",
   )
@@ -1477,10 +2409,96 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     6,
   )
   assert_metadata_snapshot(
-    @cor.emit_metadata_json(
-      docx_no_alt_doc, "docx_image_no_alt_negative.docx", "docx", "docx_image_no_alt_negative.md",
+    @cor.emit_metadata_json_with_document_properties(
+      docx_no_alt_doc,
+      "docx_image_no_alt_negative.docx",
+      "docx",
+      "docx_image_no_alt_negative.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/docx/docx_image_no_alt_negative.docx",
+        ),
+      ),
     ),
     "docx_image_no_alt_negative.metadata.json",
+  )
+
+  let docx_notes_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_notes"
+  recreate_clean_dir(docx_notes_out_dir)
+  defer cleanup_temp_dir(docx_notes_out_dir)
+  ensure_dir(docx_notes_out_dir + "/docx")
+  let docx_notes_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+    docx_notes_out_dir + "/docx",
+    6,
+  )
+  if docx_notes_doc.blocks.val.length() != 6 {
+    fail("docx notes metadata sample should emit six blocks")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_notes_doc,
+      "docx_notes_metadata.docx",
+      "docx",
+      "docx_notes_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+      ),
+    ),
+    "docx_notes_metadata.metadata.json",
+  )
+
+  let docx_header_footer_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_header_footer"
+  recreate_clean_dir(docx_header_footer_out_dir)
+  defer cleanup_temp_dir(docx_header_footer_out_dir)
+  ensure_dir(docx_header_footer_out_dir + "/docx")
+  let docx_header_footer_doc = @doc.parse_docx(
+    resolve_sample_path(
+      "samples/metadata/docx/docx_header_footer_metadata.docx",
+    ),
+    docx_header_footer_out_dir + "/docx",
+    6,
+  )
+  if docx_header_footer_doc.blocks.val.length() != 7 {
+    fail("docx header/footer metadata sample should emit seven blocks")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_header_footer_doc,
+      "docx_header_footer_metadata.docx",
+      "docx",
+      "docx_header_footer_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/docx/docx_header_footer_metadata.docx",
+        ),
+      ),
+    ),
+    "docx_header_footer_metadata.metadata.json",
+  )
+
+  let docx_textbox_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_textbox"
+  recreate_clean_dir(docx_textbox_out_dir)
+  defer cleanup_temp_dir(docx_textbox_out_dir)
+  ensure_dir(docx_textbox_out_dir + "/docx")
+  let docx_textbox_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+    docx_textbox_out_dir + "/docx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_textbox_doc,
+      "docx_textbox_metadata.docx",
+      "docx",
+      "docx_textbox_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+      ),
+    ),
+    "docx_textbox_metadata.metadata.json",
   )
 
   let csv_doc = @csv.parse_csv(
@@ -1492,6 +2510,28 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     @cor.emit_metadata_json(csv_doc, "csv_basic.csv", "csv", "csv_basic.md"),
     "csv_basic.metadata.json",
   )
+  let csv_metadata_basic_doc = @csv.parse_csv(
+    resolve_sample_path("samples/metadata/csv/csv_metadata_basic.csv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      csv_metadata_basic_doc, "csv_metadata_basic.csv", "csv", "csv_metadata_basic.md",
+    ),
+    "csv_metadata_basic.metadata.json",
+  )
+  let csv_metadata_ragged_doc = @csv.parse_csv(
+    resolve_sample_path("samples/metadata/csv/csv_metadata_ragged_rows.csv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      csv_metadata_ragged_doc, "csv_metadata_ragged_rows.csv", "csv", "csv_metadata_ragged_rows.md",
+    ),
+    "csv_metadata_ragged_rows.metadata.json",
+  )
 
   let tsv_doc = @csv.parse_tsv(
     resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
@@ -1501,6 +2541,17 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
   assert_metadata_snapshot(
     @cor.emit_metadata_json(tsv_doc, "tsv_basic.tsv", "tsv", "tsv_basic.md"),
     "tsv_basic.metadata.json",
+  )
+  let tsv_metadata_basic_doc = @csv.parse_tsv(
+    resolve_sample_path("samples/metadata/tsv/tsv_metadata_basic.tsv"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      tsv_metadata_basic_doc, "tsv_metadata_basic.tsv", "tsv", "tsv_metadata_basic.md",
+    ),
+    "tsv_metadata_basic.metadata.json",
   )
 
   let json_doc = @json.parse_json(
@@ -1514,6 +2565,39 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
     ),
     "json_object_basic.metadata.json",
   )
+  let json_metadata_basic_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_basic.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_basic_doc, "json_metadata_basic.json", "json", "json_metadata_basic.md",
+    ),
+    "json_metadata_basic.metadata.json",
+  )
+  let json_metadata_table_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_table.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_table_doc, "json_metadata_table.json", "json", "json_metadata_table.md",
+    ),
+    "json_metadata_table.metadata.json",
+  )
+  let json_metadata_nested_doc = @json.parse_json(
+    resolve_sample_path("samples/metadata/json/json_metadata_nested.json"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      json_metadata_nested_doc, "json_metadata_nested.json", "json", "json_metadata_nested.md",
+    ),
+    "json_metadata_nested.metadata.json",
+  )
 
   let yaml_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
@@ -1525,6 +2609,30 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
     ),
     "yaml_mapping_basic.metadata.json",
+  )
+
+  let xml_basic_doc = @xml.parse_xml(
+    resolve_sample_path("samples/metadata/xml/xml_metadata_basic.xml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      xml_basic_doc, "xml_metadata_basic.xml", "xml", "xml_metadata_basic.md",
+    ),
+    "xml_metadata_basic.metadata.json",
+  )
+
+  let xml_multiline_doc = @xml.parse_xml(
+    resolve_sample_path("samples/metadata/xml/xml_metadata_multiline.xml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      xml_multiline_doc, "xml_metadata_multiline.xml", "xml", "xml_metadata_multiline.md",
+    ),
+    "xml_metadata_multiline.metadata.json",
   )
 
   let epub_out_dir = origin_tmp_root() + "/metadata_sidecar_epub_metadata_basic"
@@ -1546,6 +2654,94 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       ),
     ),
     "epub_metadata_basic.metadata.json",
+  )
+
+  let epub_spine_doc = @epub.parse_epub(
+    resolve_sample_path(
+      "samples/metadata/epub/epub_metadata_spine_origins.epub",
+    ),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_spine_doc,
+      "epub_metadata_spine_origins.epub",
+      "epub",
+      "epub_metadata_spine_origins.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/epub/epub_metadata_spine_origins.epub",
+        ),
+      ),
+    ),
+    "epub_metadata_spine_origins.metadata.json",
+  )
+
+  let epub_assets_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_assets_doc,
+      "epub_metadata_assets.epub",
+      "epub",
+      "epub_metadata_assets.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+      ),
+    ),
+    "epub_metadata_assets.metadata.json",
+  )
+  let epub_cover_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_cover_doc,
+      "epub_metadata_cover.epub",
+      "epub",
+      "epub_metadata_cover.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+      ),
+    ),
+    "epub_metadata_cover.metadata.json",
+  )
+  let epub_inspect = @epub.inspect_epub(
+    resolve_sample_path("samples/main_process/epub/epub_nav_toc.epub"),
+  )
+  if epub_inspect.nav_path != Some("OPS/nav.xhtml") {
+    fail("epub inspect should expose nav path")
+  }
+  if epub_inspect.spine_count != 1 {
+    fail("epub inspect should expose spine count")
+  }
+
+  let epub_warning_doc = @epub.parse_epub(
+    resolve_sample_path(
+      "samples/metadata/epub/epub_metadata_warning_block.epub",
+    ),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_warning_doc,
+      "epub_metadata_warning_block.epub",
+      "epub",
+      "epub_metadata_warning_block.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/epub/epub_metadata_warning_block.epub",
+        ),
+      ),
+    ),
+    "epub_metadata_warning_block.metadata.json",
   )
 
   let markdown_code_doc = @md.parse_markdown(
@@ -1587,6 +2783,33 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       markdown_no_newline_doc, "markdown_no_trailing_newline.md", "markdown", "markdown_no_trailing_newline.md",
     ),
     "markdown_no_trailing_newline.metadata.json",
+  )
+
+  let markdown_basic_doc = @md.parse_markdown(
+    resolve_sample_path("samples/metadata/markdown/markdown_metadata_basic.md"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_basic_doc, "markdown_metadata_basic.md", "markdown", "markdown_metadata_basic.md",
+    ),
+    "markdown_metadata_basic.metadata.json",
+  )
+
+  let markdown_multiline_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/metadata/markdown/markdown_metadata_heading_or_multiline.md",
+    ),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      markdown_multiline_doc, "markdown_metadata_heading_or_multiline.md", "markdown",
+      "markdown_metadata_heading_or_multiline.md",
+    ),
+    "markdown_metadata_heading_or_multiline.metadata.json",
   )
 }
 
@@ -1841,5 +3064,129 @@ async test "image_context/pdf_caption_like" {
       }
     }
     None => fail("expected one image block for pdf no-caption sample")
+  }
+}
+
+///|
+async test "origin_metadata/pdf_conservative_table_first_pass" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/pdf_conservative_table_first_pass"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/pdf")
+  let input = out_dir + "/pdf/simple_table.pdf"
+  write_metadata_simple_table_pdf(input)
+
+  let doc = @pdf.parse_pdf(
+    input,
+    out_dir + "/pdf",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+
+  let mut saw_table = false
+  let mut table_block_index = -1
+  for i = 0; i < doc.blocks.val.length(); i = i + 1 {
+    match doc.blocks.val[i] {
+      @cor.Block::RichTable(table) => {
+        saw_table = true
+        table_block_index = i
+        if table.header_rows != 1 {
+          fail("pdf conservative table sample should keep header_rows=1")
+        }
+        if table.rows.length() != 3 {
+          fail("pdf conservative table sample should keep 3 rows")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_table {
+    fail("pdf conservative table sample should emit RichTable")
+  }
+
+  let origin = block_origin_at(doc, table_block_index)
+  if origin.page != Some(1) {
+    fail("pdf conservative table origin page should be Some(1)")
+  }
+  if origin.line_start == None || origin.line_end == None {
+    fail("pdf conservative table origin should keep line_start/line_end")
+  }
+
+  let pdf_json = @cor.emit_metadata_json(
+    doc, "simple_table.pdf", "pdf", "simple_table.md",
+  )
+  if !pdf_json.contains("\"table\": {") {
+    fail("pdf metadata should expose table payload for RichTable blocks")
+  }
+  if !pdf_json.contains("\"header_rows\": 1") {
+    fail("pdf metadata should keep explicit header_rows")
+  }
+}
+
+///|
+async test "origin_metadata/pdf_headerless_numeric_table_second_pass" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/pdf_headerless_numeric_table_second_pass"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/pdf")
+  let input = out_dir + "/pdf/headerless_numeric_table.pdf"
+  write_metadata_headerless_numeric_table_pdf(input)
+
+  let doc = @pdf.parse_pdf(
+    input,
+    out_dir + "/pdf",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+
+  let mut saw_table = false
+  let mut table_block_index = -1
+  for i = 0; i < doc.blocks.val.length(); i = i + 1 {
+    match doc.blocks.val[i] {
+      @cor.Block::RichTable(table) => {
+        saw_table = true
+        table_block_index = i
+        if table.header_rows != 0 {
+          fail("pdf headerless numeric table should keep header_rows=0")
+        }
+        if table.rows.length() != 3 {
+          fail("pdf headerless numeric table should keep 3 rows")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_table {
+    fail("pdf headerless numeric table should emit RichTable")
+  }
+
+  let origin = block_origin_at(doc, table_block_index)
+  if origin.page != Some(1) {
+    fail("pdf headerless numeric table origin page should be Some(1)")
+  }
+  if origin.line_start == None || origin.line_end == None {
+    fail("pdf headerless numeric table origin should keep line_start/line_end")
+  }
+
+  let pdf_json = @cor.emit_metadata_json(
+    doc, "headerless_numeric_table.pdf", "pdf", "headerless_numeric_table.md",
+  )
+  if !pdf_json.contains("\"table\": {") {
+    fail("pdf headerless table metadata should expose table payload")
+  }
+  if !pdf_json.contains("\"header_rows\": 0") {
+    fail("pdf headerless table metadata should keep header_rows=0")
   }
 }

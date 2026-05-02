@@ -20,10 +20,21 @@ separate enough that behavior stays explainable and regression-verifiable.
 
 * subcommand parsing
 * output path coordination
-* `--with-metadata`
+* explicit `--with-metadata` sidecar gating
 * debug/ocr mode selection
+* batch-v1 per-document output-root coordination
 
 It does not implement format-specific parsing or recovery.
+
+Current CLI contract:
+
+* `normal` default emits Markdown plus necessary assets only
+* `normal --with-metadata` additionally emits
+  `<markdown_dir>/metadata/<stem>.metadata.json`
+* stdout mode is Markdown-only and should not create sidecar or `out/`
+  directories
+* `batch` is non-recursive, serial v1, and writes one isolated document root
+  per top-level input file plus `batch-summary.tsv`
 
 ### Dispatcher
 
@@ -53,7 +64,7 @@ It only chooses the converter; it does not own recovery strategy.
 
 * `doc_parse/zip`: ZIP reader and container primitives
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
-* `doc_parse/pdf_core`: native PDF substrate and inspect/debug-facing raw data
+* `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
 * `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
 
 These packages are infrastructure, not final Markdown semantics.
@@ -127,6 +138,7 @@ This is why OOXML support is not implemented as three fully isolated parsers.
 PDF has its own native substrate:
 
 * page geometry
+* document / page / text / image / annotation models
 * text structures
 * raw image extraction
 * annotation/link data
@@ -134,6 +146,17 @@ PDF has its own native substrate:
 
 The default mainflow uses conservative structural recovery rather than OCR-first
 or visual-page reconstruction.
+
+Converter responsibility is intentionally separated:
+
+* `doc_parse/pdf` owns extraction, page/text/image/annotation signal, and
+  debug-facing raw/model surfaces
+* `convert/pdf` consumes those lower-layer signals for conservative heading,
+  noise, merge, table, caption, and link decisions
+
+This split is the stable architecture outcome from the earlier PDF H2 process;
+the repository no longer needs separate historical PDF phase docs to explain
+the active design.
 
 ### HTML
 
