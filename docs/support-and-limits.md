@@ -298,6 +298,8 @@ Supported:
 * UTF-8 BOM removal
 * CRLF / CR normalization
 * source-preserving fenced `xml` code-block output
+* XML declaration / comments / attributes / doctype text preserved literally
+* fence-width growth when source contains backticks
 
 Conservative behavior:
 
@@ -310,6 +312,7 @@ Known limits:
 * no namespace interpretation
 * no external entity loading
 * no DTD expansion
+* no `SYSTEM` / `PUBLIC` external-resource resolution
 * no schema validation
 * no specialized `.xhtml` / `.rss` / `.atom` / `.opf` / `.svg` handling
 * no asset export

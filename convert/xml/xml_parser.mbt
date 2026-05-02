@@ -115,8 +115,9 @@ fn physical_line_count(text : String) -> Int {
   }
 
   let mut count = 1
-  for ch in text.to_array() {
-    if ch == '\n' {
+  let chars = text.to_array()
+  for i in 0..<chars.length() {
+    if chars[i] == '\n' && i + 1 < chars.length() {
       count = count + 1
     }
   }

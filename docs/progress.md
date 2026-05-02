@@ -19,6 +19,10 @@ The repository is now in a documented multi-format baseline stage:
 * major format families are connected to one dispatcher-driven mainflow
 * sample regression and benchmark harnesses are in place
 * TXT and XML conservative conversion are completed and no longer candidate work
+* the project has entered format-by-format hardening
+* recent H1 baselines: TXT, Markdown, CSV / TSV, JSON, YAML
+* XML has entered H1 hardening as a source-preserving baseline, not a semantic XML-family converter
+* H1 is not final parity completion; H2 / H3 remain
 
 ## Implemented Capability Groups
 

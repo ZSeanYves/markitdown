@@ -17,6 +17,9 @@ smoke	txt	txt_small	samples/benchmark/txt/txt_small.txt	false
 smoke	txt	txt_medium	samples/benchmark/txt/txt_medium.txt	false
 smoke	txt	txt_large	samples/benchmark/txt/txt_large.txt	false
 smoke	xml	xml_basic	samples/main_process/xml/xml_basic.xml	false
+smoke	xml	xml_small	samples/benchmark/xml/xml_small.xml	false
+smoke	xml	xml_medium	samples/benchmark/xml/xml_medium.xml	false
+smoke	xml	xml_large	samples/benchmark/xml/xml_large.xml	false
 smoke	json	json_nested_object	samples/main_process/json/json_nested_object.json	false
 smoke	json	json_small	samples/benchmark/json/json_small.json	false
 smoke	json	json_medium	samples/benchmark/json/json_medium.json	false
@@ -48,6 +51,7 @@ metadata	tsv	tsv_metadata_basic	samples/metadata/tsv/tsv_metadata_basic.tsv	true
 metadata	txt	txt_metadata_basic	samples/metadata/txt/txt_metadata_basic.txt	true
 metadata	txt	txt_metadata_markdown_like	samples/metadata/txt/txt_metadata_markdown_like.txt	true
 metadata	xml	xml_metadata_basic	samples/metadata/xml/xml_metadata_basic.xml	true
+metadata	xml	xml_metadata_multiline	samples/metadata/xml/xml_metadata_multiline.xml	true
 metadata	json	json_metadata_basic	samples/metadata/json/json_metadata_basic.json	true
 metadata	json	json_metadata_table	samples/metadata/json/json_metadata_table.json	true
 metadata	json	json_metadata_nested	samples/metadata/json/json_metadata_nested.json	true

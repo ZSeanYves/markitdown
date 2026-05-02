@@ -66,6 +66,13 @@ For YAML hardening work, the smoke corpus now includes:
 * `yaml_large`
 * `yaml_sequence_mappings_large`
 
+For XML hardening work, the smoke corpus now includes:
+
+* `xml_basic`
+* `xml_small`
+* `xml_medium`
+* `xml_large`
+
 ## Baseline Command
 
 ```bash

@@ -1347,6 +1347,22 @@ test "origin_metadata/structured_text_block_origins" {
     }
   }
 
+  let xml_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_comments.xml"),
+    "",
+    6,
+  )
+  let xml_origin = block_origin_at(xml_doc, 0)
+  if xml_origin.line_start != Some(1) {
+    fail("xml code block should start at line 1")
+  }
+  if xml_origin.line_end != Some(5) {
+    fail("xml code block should end at physical line 5")
+  }
+  if xml_origin.key_path != None {
+    fail("xml code block should not set key_path")
+  }
+
   let markdown_code_doc = @md.parse_markdown(
     resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
     "",
@@ -1729,6 +1745,30 @@ test "metadata_sidecar/structured_text_origin_snapshots" {
       yaml_doc, "yaml_mapping_basic.yaml", "yaml", "yaml_mapping_basic.md",
     ),
     "yaml_mapping_basic.metadata.json",
+  )
+
+  let xml_basic_doc = @xml.parse_xml(
+    resolve_sample_path("samples/metadata/xml/xml_metadata_basic.xml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      xml_basic_doc, "xml_metadata_basic.xml", "xml", "xml_metadata_basic.md",
+    ),
+    "xml_metadata_basic.metadata.json",
+  )
+
+  let xml_multiline_doc = @xml.parse_xml(
+    resolve_sample_path("samples/metadata/xml/xml_metadata_multiline.xml"),
+    "",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json(
+      xml_multiline_doc, "xml_metadata_multiline.xml", "xml", "xml_metadata_multiline.md",
+    ),
+    "xml_metadata_multiline.metadata.json",
   )
 
   let epub_out_dir = origin_tmp_root() + "/metadata_sidecar_epub_metadata_basic"

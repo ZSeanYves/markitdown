@@ -81,3 +81,75 @@ test "xml grows fence width when source contains triple backticks" {
   )
   assert_eq(@cor.emit_markdown(doc), expected)
 }
+
+///|
+test "xml preserves declarations comments attributes and doctype literally" {
+  let declaration_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_declaration.xml"),
+    "",
+    6,
+  )
+  let declaration_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_declaration.md"),
+  )
+  assert_eq(@cor.emit_markdown(declaration_doc), declaration_expected)
+
+  let comments_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_comments.xml"),
+    "",
+    6,
+  )
+  let comments_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_comments.md"),
+  )
+  assert_eq(@cor.emit_markdown(comments_doc), comments_expected)
+
+  let attributes_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_attributes.xml"),
+    "",
+    6,
+  )
+  let attributes_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_attributes.md"),
+  )
+  assert_eq(@cor.emit_markdown(attributes_doc), attributes_expected)
+
+  let doctype_doc = @xml.parse_xml(
+    resolve_sample_path(
+      "samples/main_process/xml/xml_doctype_entity_literal.xml",
+    ),
+    "",
+    6,
+  )
+  let doctype_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/xml/xml_doctype_entity_literal.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(doctype_doc), doctype_expected)
+}
+
+///|
+test "xml preserves markdown-sensitive text and multiline nesting" {
+  let markdown_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_markdown_sensitive_chars.xml"),
+    "",
+    6,
+  )
+  let markdown_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/xml/xml_markdown_sensitive_chars.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(markdown_doc), markdown_expected)
+
+  let nested_doc = @xml.parse_xml(
+    resolve_sample_path("samples/main_process/xml/xml_nested.xml"),
+    "",
+    6,
+  )
+  let nested_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/xml/xml_nested.md"),
+  )
+  assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
+}
