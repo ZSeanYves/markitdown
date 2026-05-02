@@ -18,7 +18,10 @@ ITERATIONS="${BENCH_ITERATIONS:-1}"
 WARMUP="${BENCH_WARMUP:-0}"
 MARKITDOWN_COMPARE_PY_BIN="${MARKITDOWN_COMPARE_PY_BIN:-}"
 MARKITDOWN_COMPARE_CMD="${MARKITDOWN_COMPARE_CMD:-}"
+MARKITDOWN_MB_CMD="${MARKITDOWN_MB_CMD:-}"
 MB_VERSION=""
+MB_RUNNER_KIND="unknown"
+MB_PREBUILT_CLI="$ROOT/_build/native/debug/build/cli/cli.exe"
 PYTHON_VERSION="unknown"
 
 json_escape() {
@@ -36,6 +39,10 @@ trim_field() {
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
   printf '%s' "$value"
+}
+
+lower_field() {
+  printf '%s' "${1-}" | tr '[:upper:]' '[:lower:]'
 }
 
 resolve_input_path() {
@@ -100,6 +107,7 @@ Environment overrides:
   BENCH_ITERATIONS            number of measured iterations per sample (default: 1)
   BENCH_WARMUP                number of unrecorded warmup runs per sample (default: 0)
   MARKITDOWN_TMP_DIR          override temp root (default: \$ROOT/.tmp)
+  MARKITDOWN_MB_CMD           markitdown-mb command prefix, e.g. "_build/native/debug/build/cli/cli.exe normal"
   MARKITDOWN_COMPARE_CMD      python runner command prefix, e.g. "/path/to/markitdown"
   MARKITDOWN_COMPARE_PY_BIN   python executable that can run "python -m markitdown"
 
@@ -107,6 +115,8 @@ Notes:
   * This is an overlap-only benchmark between this repository runner and Microsoft MarkItDown.
   * It does not compare metadata semantics, assets semantics, or Markdown similarity.
   * It does not enable OCR plugins, Azure Document Intelligence, or other optional plugin paths.
+  * By default the comparison harness builds once, then prefers the prebuilt native cli binary.
+  * If no prebuilt cli binary is available, it falls back to "moon run", which includes wrapper overhead.
   * It does not create or manage a Python virtual environment inside this repository.
 EOF
 }
@@ -207,6 +217,11 @@ split_command_string() {
   read -r -a PY_COMPARE_CMD <<< "$raw"
 }
 
+split_mb_command_string() {
+  local raw="${1-}"
+  read -r -a MB_COMPARE_CMD <<< "$raw"
+}
+
 python_compare_unavailable() {
   local path_markitdown
   path_markitdown="$(command -v markitdown 2>/dev/null || true)"
@@ -265,6 +280,40 @@ resolve_python_runner() {
   exit 1
 }
 
+resolve_mb_runner() {
+  if [[ -n "$MARKITDOWN_MB_CMD" ]]; then
+    split_mb_command_string "$MARKITDOWN_MB_CMD"
+    if [[ ${#MB_COMPARE_CMD[@]} -eq 0 ]]; then
+      echo "MARKITDOWN_MB_CMD did not produce a runnable command prefix" >&2
+      exit 1
+    fi
+    if ! command -v "${MB_COMPARE_CMD[0]}" >/dev/null 2>&1 && [[ ! -x "${MB_COMPARE_CMD[0]}" ]]; then
+      echo "MARKITDOWN_MB_CMD runner not found: ${MB_COMPARE_CMD[0]}" >&2
+      exit 1
+    fi
+    MB_RUNNER_KIND="override"
+    return
+  fi
+
+  if [[ -x "$MB_PREBUILT_CLI" ]]; then
+    MB_COMPARE_CMD=("$MB_PREBUILT_CLI" "normal")
+    MB_RUNNER_KIND="prebuilt-native"
+    return
+  fi
+
+  MB_COMPARE_CMD=("moon" "run" "$ROOT/cli" "--" "normal")
+  MB_RUNNER_KIND="moon-run"
+}
+
+is_compare_header_row() {
+  local format="${1-}"
+  local sample="${2-}"
+  local input_path="${3-}"
+  [[ "$(lower_field "$format")" == "format" ]] &&
+    [[ "$(lower_field "$sample")" == "sample" ]] &&
+    [[ "$(lower_field "$input_path")" == "input_path" ]]
+}
+
 probe_python_runner() {
   mkdir -p "$PYTHON_TMPDIR" "$PYTHON_CACHE_HOME" "$PYTHON_HOME"
   if ! env \
@@ -315,7 +364,7 @@ run_mb() {
   local input_abs="$1"
   local output_md="$2"
   local stderr_path="$3"
-  moon run "$ROOT/cli" -- normal "$input_abs" "$output_md" >/dev/null 2>"$stderr_path"
+  "${MB_COMPARE_CMD[@]}" "$input_abs" "$output_md" >/dev/null 2>"$stderr_path"
 }
 
 run_python() {
@@ -449,6 +498,8 @@ if ! (cd "$ROOT" && moon build >/dev/null); then
   exit 1
 fi
 
+resolve_mb_runner
+
 rm -rf "$COMPARE_ROOT"
 mkdir -p "$COMPARE_ROOT" "$PYTHON_TMPDIR" "$PYTHON_CACHE_HOME" "$PYTHON_HOME"
 : > "$RESULTS_PATH"
@@ -462,6 +513,8 @@ fail_count=0
 echo "==> iterations: $ITERATIONS"
 echo "==> warmup: $WARMUP"
 echo "==> corpus: $CORPUS_PATH"
+echo "==> mb runner: ${MB_COMPARE_CMD[*]}"
+echo "==> mb runner kind: $MB_RUNNER_KIND"
 echo "==> python runner: ${PY_COMPARE_CMD[*]}"
 echo "==> python version: $PYTHON_VERSION"
 
@@ -474,6 +527,10 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   format="$(trim_field "$format")"
   sample="$(trim_field "$sample")"
   input_path="$(trim_field "$input_path")"
+
+  if is_compare_header_row "$format" "$sample" "$input_path"; then
+    continue
+  fi
 
   if [[ -z "$format" || -z "$sample" || -z "$input_path" ]]; then
     echo "skip malformed comparison row: $raw_line" >&2

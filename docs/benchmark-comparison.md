@@ -37,10 +37,16 @@ Current overlap formats:
 * PDF
 * HTML
 * CSV
+* TXT
 
 This benchmark does not try to cover every format supported by the repository.
 It only covers the current overlap surface that is practical to compare at the
 runner level.
+
+For TXT specifically, the overlap check is runner-level only: it is useful for
+success-rate, elapsed-time, and output-size comparison on simple plain-text
+inputs, but it is not a claim that every tool makes the same literal-escaping
+choices for markdown-like text.
 
 ## Runner Setup
 
@@ -49,6 +55,16 @@ Repository runner:
 ```bash
 moon run cli -- normal <input> <output.md>
 ```
+
+When available, the comparison harness now builds once and defaults to the
+prebuilt native CLI runner instead:
+
+```bash
+_build/native/debug/build/cli/cli.exe normal <input> <output.md>
+```
+
+`MARKITDOWN_MB_CMD` can override the repository runner command. If the harness
+falls back to `moon run`, the measured time includes wrapper overhead.
 
 Python runner resolution order:
 
