@@ -5,6 +5,53 @@ between `markitdown-mb` and Microsoft MarkItDown.
 
 It is a local reference, not a pass/fail performance target.
 
+## Current TXT Overlap Baseline
+
+This TXT baseline is for the current overlap-only TXT case only. It does not
+claim the same result shape for every compared format.
+
+### Command
+
+```bash
+tmp_corpus="$(mktemp /private/tmp/compare_txt_baseline.XXXXXX)"
+printf 'format\tsample\tinput_path\n' > "$tmp_corpus"
+printf 'txt\ttxt_plain_compare\tsamples/main_process/txt/txt_plain.txt\n' >> "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=5 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+```
+
+### Runners
+
+* `markitdown-mb`: prebuilt native CLI
+  `_build/native/debug/build/cli/cli.exe normal`
+* Microsoft MarkItDown: `markitdown 0.1.5` from `PATH`
+
+### Environment
+
+This TXT baseline was captured with:
+
+* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* Date (UTC): `2026-05-02T08:02:35Z`
+* Git revision: `52a8135`
+* Timer precision: `ms`
+
+### TXT Summary
+
+```tsv
+runner	format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	stderr_bytes_last
+markitdown-mb	txt	txt_plain_compare	5	0	9	10	10	9.6	17	0
+markitdown-python	txt	txt_plain_compare	5	0	434	437	443	437	17	0
+```
+
+### TXT Interpretation
+
+* overlap scope only: TXT `txt_plain_compare`
+* warmup: `1`
+* iterations: `5`
+* output: identical
+* result: TXT = win for `markitdown-mb` on this machine and this runner setup
+
+## Historical Multi-Format Reference
+
 ## Scope
 
 The baseline covers the current overlap-only comparison harness:

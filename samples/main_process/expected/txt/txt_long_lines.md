@@ -1,0 +1,3 @@
+This is a deliberately long plain text line with markdown-like markers such as \[link\]\(x\), \<tag\>, and \#hash kept as literal content even when the line grows wider than the usual sample width.
+
+Another paragraph keeps 1. ordered-looking text and - dash-looking text inside plain text expectations.

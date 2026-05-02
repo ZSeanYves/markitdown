@@ -25,6 +25,13 @@ The checked-in smoke corpus includes:
 * Structured data: CSV / TSV / JSON / YAML / XML
 * Text-like: TXT / Markdown
 
+For TXT hardening work, the smoke corpus now includes:
+
+* `txt_paragraphs`
+* `txt_small`
+* `txt_medium`
+* `txt_large`
+
 ## Baseline Command
 
 ```bash
@@ -49,8 +56,8 @@ This baseline was captured with:
 
 * OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan 2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
 * Shell: `/bin/bash`
-* Date (UTC): `2026-05-02T06:59:45Z`
-* Git revision: `8a5806a`
+* Date (UTC): `2026-05-02T07:40:56Z`
+* Git revision: `52a8135`
 * Timer precision: `ms`
 
 ## Summary
@@ -60,18 +67,21 @@ above:
 
 ```tsv
 format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	asset_count_last
-docx	golden	3	0	351	352	358	353.7	1445	1
-pptx	pptx_simple	3	0	345	345	347	345.7	310	0
-xlsx	xlsx_multi_sheet_mixed	3	0	344	344	351	346.3	301	0
-pdf	text_simple	3	0	339	340	340	339.7	272	0
-html	html_mixed	3	0	331	332	337	333.3	87	0
-csv	csv_ragged_rows	3	0	336	341	350	342.3	115	0
-tsv	tsv_basic	3	0	330	331	333	331.3	70	0
-txt	txt_paragraphs	3	0	326	333	336	331.7	56	0
-xml	xml_basic	3	0	328	332	336	332	47	0
-json	json_nested_object	3	0	331	331	332	331.3	121	0
-yaml	yaml_nested_mapping	3	0	329	331	333	331	120	0
-markdown	markdown_frontmatter_passthrough	3	0	331	338	346	338.3	107	0
+docx	golden	3	0	356	358	361	358.3	1445	1
+pptx	pptx_simple	3	0	346	346	352	348	310	0
+xlsx	xlsx_multi_sheet_mixed	3	0	348	350	356	351.3	301	0
+pdf	text_simple	3	0	339	343	345	342.3	272	0
+html	html_mixed	3	0	333	333	336	334	87	0
+csv	csv_ragged_rows	3	0	334	335	343	337.3	115	0
+tsv	tsv_basic	3	0	333	336	337	335.3	70	0
+txt	txt_paragraphs	3	0	335	337	339	337	57	0
+txt	txt_small	3	0	332	333	333	332.7	43	0
+txt	txt_medium	3	0	340	341	348	343	3981	0
+txt	txt_large	3	0	520	522	528	523.3	72983	0
+xml	xml_basic	3	0	337	341	350	342.7	47	0
+json	json_nested_object	3	0	333	334	336	334.3	121	0
+yaml	yaml_nested_mapping	3	0	334	337	343	338	120	0
+markdown	markdown_frontmatter_passthrough	3	0	334	334	337	335	107	0
 ```
 
 ## Interpretation

@@ -259,6 +259,8 @@ Conservative behavior:
 
 * non-empty lines inside one paragraph are joined with single spaces
 * no Markdown semantics are inferred
+* markdown-like literal text is emitted conservatively so plain TXT does not
+  silently become headings/lists/links by accident
 
 Known limits:
 
