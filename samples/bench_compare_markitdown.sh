@@ -16,7 +16,6 @@ TIMER_PRECISION="unknown"
 NOW_MS_VALUE="0"
 ITERATIONS="${BENCH_ITERATIONS:-1}"
 WARMUP="${BENCH_WARMUP:-0}"
-DEFAULT_PYTHON_MARKITDOWN="$ROOT/.venv-markitdown-compare/bin/markitdown"
 MARKITDOWN_COMPARE_PY_BIN="${MARKITDOWN_COMPARE_PY_BIN:-}"
 MARKITDOWN_COMPARE_CMD="${MARKITDOWN_COMPARE_CMD:-}"
 MB_VERSION=""
@@ -94,13 +93,14 @@ Environment overrides:
   BENCH_ITERATIONS            number of measured iterations per sample (default: 1)
   BENCH_WARMUP                number of unrecorded warmup runs per sample (default: 0)
   MARKITDOWN_TMP_DIR          override temp root (default: \$ROOT/.tmp)
-  MARKITDOWN_COMPARE_CMD      python runner command prefix, e.g. ".venv-markitdown-compare/bin/markitdown"
+  MARKITDOWN_COMPARE_CMD      python runner command prefix, e.g. "/path/to/markitdown"
   MARKITDOWN_COMPARE_PY_BIN   python executable that can run "python -m markitdown"
 
 Notes:
   * This is an overlap-only benchmark between this repository runner and Microsoft MarkItDown.
   * It does not compare metadata semantics, assets semantics, or Markdown similarity.
   * It does not enable OCR plugins, Azure Document Intelligence, or other optional plugin paths.
+  * It does not create or manage a Python virtual environment inside this repository.
 EOF
 }
 
@@ -201,24 +201,28 @@ split_command_string() {
 }
 
 python_compare_unavailable() {
+  local path_markitdown
+  path_markitdown="$(command -v markitdown 2>/dev/null || true)"
+  if [[ -z "$path_markitdown" ]]; then
+    path_markitdown="<missing>"
+  fi
   cat >&2 <<EOF
 python MarkItDown runner not found.
 
 Checked:
   MARKITDOWN_COMPARE_CMD=${MARKITDOWN_COMPARE_CMD:-<unset>}
   MARKITDOWN_COMPARE_PY_BIN=${MARKITDOWN_COMPARE_PY_BIN:-<unset>}
-  default CLI path=$DEFAULT_PYTHON_MARKITDOWN
+  PATH markitdown=$path_markitdown
 
-Prepare a dedicated comparison environment, for example:
-  python -m venv .venv-markitdown-compare
-  . .venv-markitdown-compare/bin/activate
-  pip install 'markitdown[all]==0.1.5'
+Install Microsoft MarkItDown into a user-managed environment, for example:
+  python -m pip install 'markitdown[all]==0.1.5'
 
-Then rerun with either:
-  ./samples/bench_compare_markitdown.sh
-or explicitly:
-  MARKITDOWN_COMPARE_CMD=".venv-markitdown-compare/bin/markitdown" ./samples/bench_compare_markitdown.sh
-  MARKITDOWN_COMPARE_PY_BIN=".venv-markitdown-compare/bin/python" ./samples/bench_compare_markitdown.sh
+Then rerun using one of:
+  markitdown available in PATH
+  MARKITDOWN_COMPARE_CMD=/path/to/markitdown ./samples/bench_compare_markitdown.sh
+  MARKITDOWN_COMPARE_PY_BIN=/path/to/python ./samples/bench_compare_markitdown.sh
+
+The comparison harness does not create or manage a repository-local .venv.
 EOF
 }
 
@@ -236,17 +240,17 @@ resolve_python_runner() {
     return
   fi
 
+  if command -v markitdown >/dev/null 2>&1; then
+    PY_COMPARE_CMD=("markitdown")
+    return
+  fi
+
   if [[ -n "$MARKITDOWN_COMPARE_PY_BIN" ]]; then
     if [[ ! -x "$MARKITDOWN_COMPARE_PY_BIN" ]]; then
       python_compare_unavailable
       exit 1
     fi
     PY_COMPARE_CMD=("$MARKITDOWN_COMPARE_PY_BIN" "-m" "markitdown")
-    return
-  fi
-
-  if [[ -x "$DEFAULT_PYTHON_MARKITDOWN" ]]; then
-    PY_COMPARE_CMD=("$DEFAULT_PYTHON_MARKITDOWN")
     return
   fi
 

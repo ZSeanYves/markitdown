@@ -378,22 +378,21 @@ COMPARE_ROOT="$TMP_ROOT/bench/compare"
   * `.tmp/bench/compare/python/...`
 * Writes measured rows to `.tmp/bench/compare/results.jsonl`
 * Writes aggregate runner/sample metrics to `.tmp/bench/compare/summary.tsv`
-* Requires a user-prepared Python environment for Microsoft MarkItDown; the
-  script does not auto-install dependencies
+* Requires a user-prepared Python MarkItDown command outside the repository;
+  the script does not auto-install dependencies or create a local virtual
+  environment
 
-Recommended Python environment preparation:
+Example install into a user-managed environment:
 
 ```bash
-python -m venv .venv-markitdown-compare
-. .venv-markitdown-compare/bin/activate
-pip install 'markitdown[all]==0.1.5'
+python -m pip install 'markitdown[all]==0.1.5'
 ```
 
 Python runner resolution order:
 
 * `MARKITDOWN_COMPARE_CMD`
+* `markitdown` found in `PATH`
 * `MARKITDOWN_COMPARE_PY_BIN` via `python -m markitdown`
-* default `.venv-markitdown-compare/bin/markitdown`
 
 Comparison benchmark `results.jsonl` fields:
 

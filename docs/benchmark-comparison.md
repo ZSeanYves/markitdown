@@ -54,20 +54,23 @@ This repository runner is invoked with:
 moon run cli -- normal <input> <output.md>
 ```
 
-The Python runner is expected to come from a user-prepared virtual environment.
-Recommended setup:
+The Python runner is expected to come from a user-managed environment outside
+this repository. One simple option is to install it into an existing system,
+conda, or other external Python environment:
 
 ```bash
-python -m venv .venv-markitdown-compare
-. .venv-markitdown-compare/bin/activate
-pip install 'markitdown[all]==0.1.5'
+python -m pip install 'markitdown[all]==0.1.5'
 ```
 
 The comparison harness resolves the Python runner in this order:
 
 1. `MARKITDOWN_COMPARE_CMD`
-2. `MARKITDOWN_COMPARE_PY_BIN` via `python -m markitdown`
-3. default `.venv-markitdown-compare/bin/markitdown`
+2. `markitdown` found in `PATH`
+3. `MARKITDOWN_COMPARE_PY_BIN` via `python -m markitdown`
+
+If none of the above are available, the script exits with a clear error and
+asks the user to install Microsoft MarkItDown themselves or provide
+`MARKITDOWN_COMPARE_CMD=/path/to/markitdown`.
 
 ## Environment Isolation
 
@@ -78,7 +81,8 @@ The Python runner is isolated by the comparison harness with:
 * `HOME`
 
 It also avoids passing OCR / Azure / OpenAI-related execution options and does
-not enable plugin paths.
+not enable plugin paths. The harness does not create or manage a repository-local
+`.venv`.
 
 ## Output Layout
 

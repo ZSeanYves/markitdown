@@ -21,8 +21,10 @@ This baseline is intentionally limited:
 The Python runner in this baseline used the current base/miniforge environment.
 It was **not** run from an isolated comparison virtual environment.
 
-That means the baseline is useful as a local reference, but it is less isolated
-than the preferred comparison setup documented in
+That means the baseline is useful as a local reference, but it should be read as
+one machine's historical environment record rather than a project dependency.
+It is also less isolated than the preferred user-managed external-command setup
+documented in
 [docs/benchmark-comparison.md](/home/zseanyves/markitdown/docs/benchmark-comparison.md).
 
 ## Baseline Command
@@ -51,7 +53,8 @@ This baseline was captured with:
 ## Notes
 
 * This is a same-machine reference baseline, not a portability claim.
-* The Python runner was available, but it was not isolated in a dedicated venv.
+* The Python runner was available in a pre-existing miniforge/base environment,
+  not in a repository-local virtual environment.
 * In the current base/miniforge environment, the Python runner emitted a stable
   stderr warning from `pydub` about missing `ffmpeg` / `avconv`, which is why
   the current Python rows have non-zero `stderr_bytes` even when the conversion
