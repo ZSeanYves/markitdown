@@ -1772,7 +1772,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx",
       "docx_image_alt_title_basic.md",
       read_ooxml_metadata_document_properties(
-        resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+        resolve_sample_path(
+          "samples/metadata/docx/docx_image_alt_title_basic.docx",
+        ),
       ),
     ),
     "docx_image_alt_title_basic.metadata.json",
@@ -1795,7 +1797,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx",
       "docx_image_no_alt_negative.md",
       read_ooxml_metadata_document_properties(
-        resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+        resolve_sample_path(
+          "samples/metadata/docx/docx_image_no_alt_negative.docx",
+        ),
       ),
     ),
     "docx_image_no_alt_negative.metadata.json",
@@ -1957,7 +1961,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let epub_spine_doc = @epub.parse_epub(
-    resolve_sample_path("samples/metadata/epub/epub_metadata_spine_origins.epub"),
+    resolve_sample_path(
+      "samples/metadata/epub/epub_metadata_spine_origins.epub",
+    ),
     epub_out_dir,
     6,
   )
@@ -1968,7 +1974,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub",
       "epub_metadata_spine_origins.md",
       read_epub_metadata_document_properties(
-        resolve_sample_path("samples/metadata/epub/epub_metadata_spine_origins.epub"),
+        resolve_sample_path(
+          "samples/metadata/epub/epub_metadata_spine_origins.epub",
+        ),
       ),
     ),
     "epub_metadata_spine_origins.metadata.json",
@@ -1993,7 +2001,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let epub_warning_doc = @epub.parse_epub(
-    resolve_sample_path("samples/metadata/epub/epub_metadata_warning_block.epub"),
+    resolve_sample_path(
+      "samples/metadata/epub/epub_metadata_warning_block.epub",
+    ),
     epub_out_dir,
     6,
   )
@@ -2004,7 +2014,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub",
       "epub_metadata_warning_block.md",
       read_epub_metadata_document_properties(
-        resolve_sample_path("samples/metadata/epub/epub_metadata_warning_block.epub"),
+        resolve_sample_path(
+          "samples/metadata/epub/epub_metadata_warning_block.epub",
+        ),
       ),
     ),
     "epub_metadata_warning_block.metadata.json",

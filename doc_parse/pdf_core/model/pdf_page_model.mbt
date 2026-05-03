@@ -149,3 +149,123 @@ pub fn page_object_count(page : PdfPageModel) -> Int {
   page.annotations.length() +
   page.forms.length()
 }
+
+///|
+/// 页面总行数统计。
+pub fn page_line_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    total = total + block.lines.length()
+  }
+  total
+}
+
+///|
+/// 页面总 span 数统计。
+pub fn page_span_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    total = total + block_span_count(block)
+  }
+  total
+}
+
+///|
+/// 页面总 char 数统计。
+pub fn page_char_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    total = total + block_char_count(block)
+  }
+  total
+}
+
+///|
+/// 页面顶部边缘阈值。
+pub fn top_edge_threshold(page : PdfPageModel) -> Double {
+  let box = effective_page_box(page)
+  let h = rect_height(box)
+  box.y1 - edge_zone_height(h)
+}
+
+///|
+/// 页面底部边缘阈值。
+pub fn bottom_edge_threshold(page : PdfPageModel) -> Double {
+  let box = effective_page_box(page)
+  let h = rect_height(box)
+  box.y0 + edge_zone_height(h)
+}
+
+///|
+/// 当前 block 是否处于页面顶部边缘区域。
+pub fn is_top_edge_block(page : PdfPageModel, block : PdfTextBlock) -> Bool {
+  block.bbox.y1 >= top_edge_threshold(page)
+}
+
+///|
+/// 当前 block 是否处于页面底部边缘区域。
+pub fn is_bottom_edge_block(page : PdfPageModel, block : PdfTextBlock) -> Bool {
+  block.bbox.y0 <= bottom_edge_threshold(page)
+}
+
+///|
+/// 当前 block 是否属于页面边缘候选区域。
+pub fn is_edge_region_block(page : PdfPageModel, block : PdfTextBlock) -> Bool {
+  is_top_edge_block(page, block) || is_bottom_edge_block(page, block)
+}
+
+///|
+/// 页面 artifact candidate 总数。
+pub fn page_artifact_candidate_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    if block.is_artifact_candidate {
+      total = total + 1
+    }
+  }
+  total
+}
+
+///|
+/// 页面 header/footer candidate 总数。
+pub fn page_header_footer_candidate_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    if block.is_header_footer_candidate {
+      total = total + 1
+    }
+  }
+  total
+}
+
+///|
+/// 页面页码候选总数。
+pub fn page_page_number_candidate_count(page : PdfPageModel) -> Int {
+  let mut total = 0
+  for block in page.text_blocks {
+    if block.is_page_number_candidate {
+      total = total + 1
+    }
+  }
+  total
+}
+
+///|
+fn effective_page_box(page : PdfPageModel) -> PdfRect {
+  match page.boxes.crop_box {
+    Some(box) => box
+    None => page.boxes.media_box
+  }
+}
+
+///|
+fn edge_zone_height(page_height : Double) -> Double {
+  let zone = page_height * 0.12
+  if zone < 48.0 {
+    return 48.0
+  }
+  if zone > 120.0 {
+    return 120.0
+  }
+  zone
+}

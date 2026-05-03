@@ -2,6 +2,12 @@
 
 This document records the first planning pass for PDF H2 work.
 
+Status update:
+
+* PDF P1 model/debug signal pass has now started
+* current implementation notes are tracked in
+  [docs/pdf-core-model-debug-pass.md](./pdf-core-model-debug-pass.md)
+
 Scope for this round:
 
 * audit the current `pdf_core` and `convert/pdf` architecture
@@ -215,7 +221,7 @@ Current gaps:
 | noise | block text, bbox, page boxes, repeated edge patterns | Drops repeated header/footer/page-number-like content. | dedicated artifact/page-edge candidates from core, richer repeated-object provenance | Currently recomputes page-edge repetition at convert time. |
 | merge | block text, bbox, font sizes, indent, gap, wrapped candidates | Only merges previous-page-last paragraph with current-page-first paragraph. | richer paragraph continuity signals, source refs, multi-block merge plans | Cross-page merge is conservative and narrow by design. |
 | image/caption | page-local images + text blocks + bbox | Emits image blocks; nearby caption only when page has exactly one image. | multi-image caption pairing, caption candidates from core, image-text linkage beyond bbox | Current policy is intentionally narrow and page-local. |
-| annotation/link | page annotations | Kept for debug only. | Markdown link emission, block/link anchoring, internal-link handling | High-value underused surface. |
+| annotation/link | page annotations | Kept for debug only; P1.1 now makes URI/internal-dest visible in core inspect; P2 policy review now documents conservative emission rules. | Markdown link emission, block/link anchoring, internal-link handling | High-value underused surface. |
 | to_ir | blocks + page object order + images | Emits headings, paragraphs, and images in page object order. | annotations, outlines, vectors, forms, table candidates, page labels | IR emission is still text-and-image focused. |
 | metadata sidecar | source name, page number, block index, image object ref | Preserves lightweight page/block/image provenance. | line/run/source-op refs, annotation origins, raw content stream refs, richer page geometry origin | Provenance exists, but it is intentionally shallow. |
 | debug | convert lines/images/annotations/blocks | Good human-readable inspection output. | raw-op view, structured machine-readable diagnostics, dedicated extract/raw scopes | `pipeline_debug` is the only effective public debug switch today. |
@@ -234,7 +240,7 @@ Current gaps:
 | Images / image provenance | Stronger than many lightweight pipelines already | Stable asset export, bbox, provenance, page linkage | partial | no | Expand image provenance/debug surfaces before caption or layout inference work | P1 |
 | Image caption pairing | Single-image page-local bbox heuristic only | Better caption pairing on common figure layouts | partial | yes | Keep narrow policy; only widen after core exposes stronger image/text neighborhood signal | P2 |
 | PDF annotations / links | Extracted into core and convert debug, not emitted | URI links should usually surface in output | yes, partly | yes | Strengthen link model and define conservative Markdown emission rules | P1 -> P2 |
-| Outlines / bookmarks | Model field exists but is empty | Bookmark/tree access for navigation-aware conversion | yes | no | Populate outlines in `pdf_core` before converter attempts heading/path use | P1 |
+| Outlines / bookmarks | Model field exists but is empty | Bookmark/tree access for navigation-aware conversion | yes | no | Keep as explicit core gap until a safe lower-layer outline model exists | P1 |
 | Document metadata | Basic metadata exists in core but is lightly used | Stable document metadata with capability visibility | partial | partial | Decide what PDF metadata should consistently surface in sidecar/debug | P1 |
 | Page geometry / origin metadata | Page/block/image origin exists; geometry-rich provenance stays internal | Better auditability for page/block/image decisions | yes | yes | Preserve selected source refs and page geometry hints into debug/sidecar | P1 |
 | CJK / ligature / unicode normalization | Char model has decode confidence, ligature, compat glyph info; converter largely ignores it | Better auditability and safer normalization choices | yes | partial | Add debug/sample coverage and clarify when converter should trust or preserve raw text | P1 |

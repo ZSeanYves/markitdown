@@ -433,25 +433,48 @@ fn emit_text_block_to_ir(
             }),
           )
         None =>
-          @cor.push_with_origin(
-            out,
-            @cor.Block::Paragraph(pt),
-            Some({
-              source_name: Some(source_name),
-              page: Some(_page_index + 1),
-              slide: None,
-              sheet: None,
-              block_index: Some(out.blocks.val.length()),
-              heading_path: None,
-              line_start: None,
-              line_end: None,
-              row_index: None,
-              column_index: None,
-              object_ref: None,
-              relationship_id: None,
-              key_path: None,
-            }),
-          )
+          match block.rich_inlines {
+            Some(inlines) =>
+              @cor.push_with_origin(
+                out,
+                @cor.Block::RichParagraph(inlines),
+                Some({
+                  source_name: Some(source_name),
+                  page: Some(_page_index + 1),
+                  slide: None,
+                  sheet: None,
+                  block_index: Some(out.blocks.val.length()),
+                  heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
+                }),
+              )
+            None =>
+              @cor.push_with_origin(
+                out,
+                @cor.Block::Paragraph(pt),
+                Some({
+                  source_name: Some(source_name),
+                  page: Some(_page_index + 1),
+                  slide: None,
+                  sheet: None,
+                  block_index: Some(out.blocks.val.length()),
+                  heading_path: None,
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: None,
+                  relationship_id: None,
+                  key_path: None,
+                }),
+              )
+          }
       }
     }
   }

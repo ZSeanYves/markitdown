@@ -29,6 +29,14 @@ The repository is now in a documented multi-format baseline stage:
   current layout/assets coverage audit
 * PDF H2 core-gap review is completed; next PDF work is core-first signal and
   debug surface strengthening before more convert-layer heuristics
+* PDF P1 `pdf_core` model/debug signal pass is underway with inspect/debug
+  surface tightening and reusable signal-helper cleanup
+* PDF P1.1 annotation/link signal pass has started with internal-destination
+  coverage and outline gap clarification
+* PDF P2 annotation/link emission policy review is underway to keep link
+  emission conservative and geometry-driven
+* PDF P2.2 high-confidence single-line URI link emission is landed without
+  changing internal-destination or ambiguous-link behavior
 * H1 is not final parity completion; H2 / H3 remain
 
 ## Current Hardening Focus
@@ -110,6 +118,8 @@ Recent completed additions worth calling out explicitly:
 * PDF H2 core-gap review is completed with `pdf_core` vs `convert/pdf`
   responsibility audit, regression inventory, and benchmark/comparison gap
   planning
+* PDF P1 `pdf_core` model/debug pass is started with inspect dump, signal
+  helpers, and dedicated test-entry groundwork
 * XML conservative source-preserving conversion
 * ZIP asset namespace/remap and same-archive HTML local-image handling
 * EPUB spine-based conversion
@@ -134,7 +144,7 @@ moon test
 Current recommended next candidates are:
 
 * OCR regression closure
-* PDF core-first signal upgrade round
+* PDF core-first signal/debug upgrade round
 * EPUB nav / TOC semantic reconstruction
 * EPUB CSS / semantic refinement
 * ZIP HTML dependency refinement beyond safe sibling materialization

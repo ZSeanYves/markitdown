@@ -46,6 +46,7 @@ priv struct PdfConvertBlock {
   block_index : Int
   kind : PdfConvertBlockKind
   text : String
+  rich_inlines : Array[@cor.Inline]?
   line_start : Int
   line_end : Int
   source_block_index : Int

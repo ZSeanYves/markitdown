@@ -230,6 +230,7 @@ fn copy_block_with_kind(
     block_index: block.block_index,
     kind,
     text: block.text,
+    rich_inlines: block.rich_inlines,
     line_start: block.line_start,
     line_end: block.line_end,
     source_block_index: block.source_block_index,

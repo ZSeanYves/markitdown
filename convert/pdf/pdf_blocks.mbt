@@ -56,6 +56,7 @@ fn make_block_from_line(
     block_index,
     kind,
     text: line.text,
+    rich_inlines: None,
     line_start: line.line_index,
     line_end: line.line_index,
     source_block_index: line._source_block_index,

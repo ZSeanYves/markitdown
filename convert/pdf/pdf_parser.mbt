@@ -68,13 +68,14 @@ pub async fn parse_pdf(
   let doc2 = classify_convert_blocks(doc1, max_heading)
   let doc3 = filter_noise_blocks(doc2)
   let doc4 = merge_convert_blocks(doc3)
+  let doc5 = attach_high_confidence_uri_links(doc4)
 
   if pipeline_debug {
-    println(debug_convert_document_summary(doc4))
+    println(debug_convert_document_summary(doc5))
   }
 
   let src = @cor.basename(input_path)
-  convert_pdf_blocks_to_ir(doc4, max_heading, src)
+  convert_pdf_blocks_to_ir(doc5, max_heading, src)
 }
 
 ///|

@@ -10,6 +10,8 @@ pub fn default_pdf_core_config() -> PdfCoreConfig
 
 pub async fn extract_document_block_debug(String, PdfCoreConfig) -> Result[String, PdfCoreError]
 
+pub async fn extract_document_inspect_dump(String, PdfCoreConfig) -> Result[String, PdfCoreError]
+
 pub async fn extract_document_model(String, PdfCoreConfig) -> Result[@model.PdfDocumentModel, PdfCoreError]
 
 pub async fn extract_document_summary(String, PdfCoreConfig) -> Result[String, PdfCoreError]

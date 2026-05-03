@@ -688,3 +688,81 @@ pub fn lines_bbox(lines : Array[PdfTextLine]) -> PdfRect? {
   }
   Some(acc)
 }
+
+///|
+/// line 内 char 总数。
+pub fn line_char_count(line : PdfTextLine) -> Int {
+  let mut total = 0
+  for span in line.spans {
+    total = total + span.chars.length()
+  }
+  total
+}
+
+///|
+/// block 内 span 总数。
+pub fn block_span_count(block : PdfTextBlock) -> Int {
+  let mut total = 0
+  for line in block.lines {
+    total = total + line.spans.length()
+  }
+  total
+}
+
+///|
+/// block 内 char 总数。
+pub fn block_char_count(block : PdfTextBlock) -> Int {
+  let mut total = 0
+  for line in block.lines {
+    total = total + line_char_count(line)
+  }
+  total
+}
+
+///|
+/// source ref 数量辅助。
+pub fn block_source_ref_count(block : PdfTextBlock) -> Int {
+  block.source_refs.length()
+}
+
+///|
+/// source ref 数量辅助。
+pub fn line_source_ref_count(line : PdfTextLine) -> Int {
+  line.source_refs.length()
+}
+
+///|
+/// source ref 数量辅助。
+pub fn span_source_ref_count(span : PdfTextSpan) -> Int {
+  span.source_refs.length()
+}
+
+///|
+/// source ref 调试字符串。
+pub fn source_ref_to_string(source_ref : PdfSourceRef) -> String {
+  let text_object = match source_ref.text_object_id {
+    Some(v) => v.to_string()
+    None => "None"
+  }
+  let content_order = match source_ref.content_order_index {
+    Some(v) => v.to_string()
+    None => "None"
+  }
+  let object_ref = match source_ref.source_object_ref {
+    Some(v) => v
+    None => "None"
+  }
+
+  "page=" +
+  source_ref.page_index.to_string() +
+  ",stream=" +
+  source_ref.source_stream_index.to_string() +
+  ",op=" +
+  source_ref.source_op_index.to_string() +
+  ",text_object=" +
+  text_object +
+  ",content_order=" +
+  content_order +
+  ",object_ref=" +
+  object_ref
+}

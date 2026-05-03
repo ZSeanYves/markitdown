@@ -2,19 +2,49 @@
 package "ZSeanYves/markitdown/doc_parse/pdf_core/model"
 
 // Values
+pub fn block_char_count(PdfTextBlock) -> Int
+
+pub fn block_source_ref_count(PdfTextBlock) -> Int
+
+pub fn block_span_count(PdfTextBlock) -> Int
+
 pub fn block_text(PdfTextBlock) -> String
+
+pub fn bottom_edge_threshold(PdfPageModel) -> Double
 
 pub fn chars_bbox(Array[PdfChar]) -> PdfRect?
 
 pub fn glue_between_spans(String, String) -> String
 
+pub fn is_bottom_edge_block(PdfPageModel, PdfTextBlock) -> Bool
+
+pub fn is_edge_region_block(PdfPageModel, PdfTextBlock) -> Bool
+
 pub fn is_rect_valid(PdfRect) -> Bool
+
+pub fn is_top_edge_block(PdfPageModel, PdfTextBlock) -> Bool
+
+pub fn line_char_count(PdfTextLine) -> Int
+
+pub fn line_source_ref_count(PdfTextLine) -> Int
 
 pub fn line_text(PdfTextLine) -> String
 
 pub fn lines_bbox(Array[PdfTextLine]) -> PdfRect?
 
+pub fn page_artifact_candidate_count(PdfPageModel) -> Int
+
+pub fn page_char_count(PdfPageModel) -> Int
+
+pub fn page_header_footer_candidate_count(PdfPageModel) -> Int
+
+pub fn page_line_count(PdfPageModel) -> Int
+
 pub fn page_object_count(PdfPageModel) -> Int
+
+pub fn page_page_number_candidate_count(PdfPageModel) -> Int
+
+pub fn page_span_count(PdfPageModel) -> Int
 
 pub fn page_text_block_count(PdfPageModel) -> Int
 
@@ -24,9 +54,15 @@ pub fn rect_height(PdfRect) -> Double
 
 pub fn rect_width(PdfRect) -> Double
 
+pub fn source_ref_to_string(PdfSourceRef) -> String
+
+pub fn span_source_ref_count(PdfTextSpan) -> Int
+
 pub fn span_text(PdfTextSpan) -> String
 
 pub fn spans_bbox(Array[PdfTextSpan]) -> PdfRect?
+
+pub fn top_edge_threshold(PdfPageModel) -> Double
 
 pub fn union_rect(PdfRect, PdfRect) -> PdfRect
 

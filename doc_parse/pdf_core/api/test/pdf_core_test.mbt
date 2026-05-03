@@ -51,6 +51,16 @@ async fn open_pdf_block_debug(path : String) -> String {
 }
 
 ///|
+async fn open_pdf_inspect_dump(path : String) -> String {
+  let resolved = resolve_sample_path(path)
+  match
+    @api.extract_document_inspect_dump(resolved, @api.default_pdf_core_config()) {
+    Ok(debug_dump) => debug_dump
+    Err(e) => fail("extract_document_inspect_dump failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_test_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -138,6 +148,47 @@ async fn create_link_annotation_fixture() -> String {
   ensure_test_dir_tree(dir)
   let path = dir + "/link_annotation.pdf"
   write_link_annotation_pdf(path)
+  path
+}
+
+///|
+async fn write_internal_dest_annotation_pdf(path : String) -> Unit {
+  let pdf0 = @pdf.Pdf::empty()
+  let page = @pdfpage.Page::custom(
+    Array([Real(0.0), Real(0.0), Real(200.0), Real(200.0)]),
+  )
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  let refs = pdf.page_reference_numbers()
+  let annot : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(20.0), Real(30.0), Real(120.0), Real(50.0)])),
+    ("/Contents", String("Internal destination")),
+    ("/Subj", String("Dest link")),
+    (
+      "/Dest",
+      Array([
+        Indirect(refs[0]),
+        Name(@pdf.PdfName::of_string("/XYZ")),
+        Real(0.0),
+        Real(200.0),
+        Real(1.0),
+      ]),
+    ),
+  ])
+  let annot_num = pdf.addobj(annot)
+  let page_obj = pdf.lookup_obj(refs[0])
+  let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
+  pdf.addobj_given_num((refs[0], updated_page))
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn create_internal_dest_annotation_fixture() -> String {
+  let dir = test_tmp_root() + "/pdf_core"
+  ensure_test_dir_tree(dir)
+  let path = dir + "/internal_dest_annotation.pdf"
+  write_internal_dest_annotation_pdf(path)
   path
 }
 
@@ -733,6 +784,48 @@ async test "pdf core extracts URI link annotations" {
 }
 
 ///|
+async test "pdf core extracts internal destination link annotations" {
+  let path = create_internal_dest_annotation_fixture()
+  let raw = open_raw_pdf(path)
+  let raw_annotations = raw.pages[0].annotations
+  if raw_annotations.length() != 1 {
+    fail("expected one raw internal-dest annotation")
+  }
+  let raw_annot = raw_annotations[0]
+  if raw_annot.subtype != "/Link" {
+    fail("expected raw internal annotation subtype /Link")
+  }
+  match raw_annot.dest {
+    Some(dest) =>
+      if !dest.contains("/XYZ") {
+        fail("expected raw internal annotation dest to contain /XYZ")
+      }
+    None => fail("expected raw internal annotation dest")
+  }
+
+  let doc = open_pdf_model(path)
+  let annotations = doc.pages[0].annotations
+  if annotations.length() != 1 {
+    fail("expected one model internal-dest annotation")
+  }
+  let annot = annotations[0]
+  if annot.subtype != "/Link" {
+    fail("expected model internal annotation subtype /Link")
+  }
+  match annot.dest {
+    Some(dest) =>
+      if !dest.contains("/XYZ") {
+        fail("expected model internal annotation dest to contain /XYZ")
+      }
+    None => fail("expected model internal annotation dest")
+  }
+  match annot.uri {
+    Some(_) => fail("expected internal-dest annotation uri to be empty")
+    None => ()
+  }
+}
+
+///|
 async test "pdf core summary includes version and page count" {
   let summary = open_pdf_summary("samples/main_process/pdf/text_simple.pdf")
   assert_contains_text(summary, "PdfDocumentSummary(", "summary header")
@@ -781,6 +874,65 @@ async test "pdf core block debug includes image details" {
   assert_contains_text(dump, "width=", "debug image width")
   assert_contains_text(dump, "height=", "debug image height")
   assert_contains_text(dump, "object_ref=", "debug image object_ref")
+}
+
+///|
+async test "pdf core inspect dump includes page stats and signals" {
+  let dump = open_pdf_inspect_dump("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(dump, "PdfDocumentInspect(", "inspect header")
+  assert_contains_text(dump, "chars=", "inspect char count")
+  assert_contains_text(dump, "[page 0] media_box=", "inspect page geometry")
+  assert_contains_text(dump, "stats: blocks=", "inspect page stats")
+  assert_contains_text(
+    dump, "signals: top_edge_threshold=", "inspect page signal thresholds",
+  )
+  assert_contains_text(
+    dump, "header_footer_candidates=", "inspect candidate counts",
+  )
+}
+
+///|
+async test "pdf core inspect dump includes block line span and sources" {
+  let dump = open_pdf_inspect_dump("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(dump, "[block 0] id=", "inspect block item")
+  assert_contains_text(dump, "edge_region=", "inspect edge-region signal")
+  assert_contains_text(dump, "block_source[0]=", "inspect block source ref")
+  assert_contains_text(dump, "[line 0] id=", "inspect line item")
+  assert_contains_text(dump, "line_source[0]=", "inspect line source ref")
+  assert_contains_text(dump, "[span 0] id=", "inspect span item")
+  assert_contains_text(dump, "span_source[0]=", "inspect span source ref")
+}
+
+///|
+async test "pdf core inspect dump includes image and annotation sources" {
+  let link_path = create_link_annotation_fixture()
+  let link_dump = open_pdf_inspect_dump(link_path)
+  assert_contains_text(
+    link_dump, "[annotation 0] id=", "inspect annotation item",
+  )
+  assert_contains_text(
+    link_dump, "annotation_source[0]=", "inspect annotation source",
+  )
+  assert_contains_text(
+    link_dump, "uri=https://example.com/v3", "inspect annotation uri",
+  )
+
+  let image_dump = open_pdf_inspect_dump(
+    "samples/assets/pdf/pdf_image_xobject.pdf",
+  )
+  assert_contains_text(image_dump, "[image 0] id=", "inspect image item")
+  assert_contains_text(image_dump, "image_source[0]=", "inspect image source")
+  assert_contains_text(image_dump, "bbox=", "inspect image bbox")
+}
+
+///|
+async test "pdf core outline model stays empty as current gap" {
+  let doc = open_pdf_model("samples/main_process/pdf/text_simple.pdf")
+  if !doc.outlines.is_empty() {
+    fail("expected outlines to remain empty for current pdf_core gap")
+  }
+  let dump = open_pdf_inspect_dump("samples/main_process/pdf/text_simple.pdf")
+  assert_contains_text(dump, "outlines=0", "inspect outline gap")
 }
 
 ///|

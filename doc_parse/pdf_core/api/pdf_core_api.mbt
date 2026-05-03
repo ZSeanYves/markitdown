@@ -94,6 +94,23 @@ pub async fn extract_document_block_debug(
 }
 
 ///|
+/// 更细粒度的 inspect dump：
+/// - 页级统计
+/// - block / line / span / char 结构
+/// - image / annotation 来源
+///
+/// 这是诊断输出，不是稳定的 IR / Markdown 合同。
+pub async fn extract_document_inspect_dump(
+  path : String,
+  config : PdfCoreConfig,
+) -> Result[String, PdfCoreError] {
+  match extract_document_debug_bundle(path, config) {
+    Ok(bundle) => Ok(render_document_inspect_dump(bundle.raw, bundle.doc))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 fn opt_str_or_none(v : String?) -> String {
   match v {
     Some(s) => s
@@ -172,13 +189,12 @@ fn page_line_count(page : @model.PdfPageModel) -> Int {
 
 ///|
 fn page_span_count(page : @model.PdfPageModel) -> Int {
-  let mut total = 0
-  for block in page.text_blocks {
-    for line in block.lines {
-      total = total + line.spans.length()
-    }
-  }
-  total
+  @model.page_span_count(page)
+}
+
+///|
+fn page_char_count(page : @model.PdfPageModel) -> Int {
+  @model.page_char_count(page)
 }
 
 ///|
@@ -204,6 +220,15 @@ fn document_span_count(doc : @model.PdfDocumentModel) -> Int {
   let mut total = 0
   for page in doc.pages {
     total = total + page_span_count(page)
+  }
+  total
+}
+
+///|
+fn document_char_count(doc : @model.PdfDocumentModel) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total = total + page_char_count(page)
   }
   total
 }
@@ -366,6 +391,10 @@ fn render_document_block_debug(
     } else {
       for j = 0; j < page.annotations.length(); j = j + 1 {
         let annotation = page.annotations[j]
+        let target_page_str = match annotation.target_page {
+          Some(v) => v.to_string()
+          None => "None"
+        }
         out = out +
           "  [annotation " +
           j.to_string() +
@@ -376,6 +405,8 @@ fn render_document_block_debug(
           opt_str_or_none(annotation.uri) +
           ", dest=" +
           opt_str_or_none(annotation.dest) +
+          ", target_page=" +
+          target_page_str +
           ", object_ref=" +
           opt_str_or_none(annotation.object_ref) +
           ", bbox=" +
@@ -402,6 +433,10 @@ fn render_document_block_debug(
         block.is_page_number_candidate.to_string() +
         ", line_count=" +
         block.lines.length().to_string() +
+        ", span_count=" +
+        @model.block_span_count(block).to_string() +
+        ", char_count=" +
+        @model.block_char_count(block).to_string() +
         ", font_size=" +
         opt_f64(block.dominant_font_size) +
         ", font_name=" +
@@ -431,6 +466,8 @@ fn render_document_block_debug(
           opt_f64(line.line_gap_before) +
           ", gap_after=" +
           opt_f64(line.line_gap_after) +
+          ", source_refs=" +
+          line.source_refs.length().to_string() +
           ", bbox=" +
           rect_str(line.bbox) +
           "\n"
@@ -439,6 +476,298 @@ fn render_document_block_debug(
   }
 
   out
+}
+
+///|
+fn render_document_inspect_dump(
+  raw : @raw.RawPdfDocumentExtract,
+  doc : @model.PdfDocumentModel,
+) -> String {
+  let out : Array[String] = []
+  out.push(
+    "PdfDocumentInspect(" +
+    "version=" +
+    doc.version +
+    ", page_count=" +
+    doc.page_count.to_string() +
+    ", encrypted=" +
+    doc.is_encrypted.to_string() +
+    ", has_xref_stream=" +
+    doc.has_xref_stream.to_string() +
+    ", has_object_stream=" +
+    doc.has_object_stream.to_string() +
+    ", outlines=" +
+    doc.outlines.length().to_string() +
+    ", blocks=" +
+    document_block_count(doc).to_string() +
+    ", lines=" +
+    document_line_count(doc).to_string() +
+    ", spans=" +
+    document_span_count(doc).to_string() +
+    ", chars=" +
+    document_char_count(doc).to_string() +
+    ", images=" +
+    document_image_count(doc).to_string() +
+    ", annotations=" +
+    document_annotation_count(doc).to_string() +
+    ")",
+  )
+
+  for i = 0; i < doc.pages.length(); i = i + 1 {
+    let raw_page = raw.pages[i]
+    let page = doc.pages[i]
+    out.push(
+      "[page " +
+      page.page_index.to_string() +
+      "] media_box=" +
+      rect_str(page.boxes.media_box) +
+      " crop_box=" +
+      opt_rect_str(page.boxes.crop_box) +
+      " rotation=" +
+      page.rotation.to_string() +
+      " raw_page_ref=" +
+      opt_str_or_none(raw_pdf_ref_to_string(raw_page.raw_page_ref)) +
+      " raw_content_stream_refs=" +
+      string_array_str(page.raw_content_stream_refs),
+    )
+    out.push(
+      "  stats: blocks=" +
+      page.text_blocks.length().to_string() +
+      ", lines=" +
+      @model.page_line_count(page).to_string() +
+      ", spans=" +
+      @model.page_span_count(page).to_string() +
+      ", chars=" +
+      @model.page_char_count(page).to_string() +
+      ", images=" +
+      page.images.length().to_string() +
+      ", annotations=" +
+      page.annotations.length().to_string() +
+      ", object_count=" +
+      @model.page_object_count(page).to_string(),
+    )
+    out.push(
+      "  signals: top_edge_threshold=" +
+      @model.top_edge_threshold(page).to_string() +
+      ", bottom_edge_threshold=" +
+      @model.bottom_edge_threshold(page).to_string() +
+      ", header_footer_candidates=" +
+      @model.page_header_footer_candidate_count(page).to_string() +
+      ", page_number_candidates=" +
+      @model.page_page_number_candidate_count(page).to_string() +
+      ", artifact_candidates=" +
+      @model.page_artifact_candidate_count(page).to_string(),
+    )
+
+    for block_index = 0
+        block_index < page.text_blocks.length()
+        block_index = block_index + 1 {
+      let block = page.text_blocks[block_index]
+      out.push(
+        "  [block " +
+        block_index.to_string() +
+        "] id=" +
+        block.id +
+        " kind=" +
+        core_block_kind_str(block.kind) +
+        " bbox=" +
+        rect_str(block.bbox) +
+        " top_edge=" +
+        @model.is_top_edge_block(page, block).to_string() +
+        " bottom_edge=" +
+        @model.is_bottom_edge_block(page, block).to_string() +
+        " edge_region=" +
+        @model.is_edge_region_block(page, block).to_string() +
+        " heading=" +
+        block.is_heading_candidate.to_string() +
+        " header_footer=" +
+        block.is_header_footer_candidate.to_string() +
+        " page_number=" +
+        block.is_page_number_candidate.to_string() +
+        " artifact=" +
+        block.is_artifact_candidate.to_string() +
+        " caption=" +
+        block.is_caption_candidate.to_string() +
+        " table_cell=" +
+        block.is_table_cell_candidate.to_string() +
+        " lines=" +
+        block.lines.length().to_string() +
+        " spans=" +
+        @model.block_span_count(block).to_string() +
+        " chars=" +
+        @model.block_char_count(block).to_string() +
+        " source_refs=" +
+        @model.block_source_ref_count(block).to_string() +
+        " text=\"" +
+        shorten_text(@model.block_text(block).trim().to_owned(), 120) +
+        "\"",
+      )
+      if !block.source_refs.is_empty() {
+        out.push(
+          "    block_source[0]=" +
+          @model.source_ref_to_string(block.source_refs[0]),
+        )
+      }
+
+      for line_index = 0
+          line_index < block.lines.length()
+          line_index = line_index + 1 {
+        let line = block.lines[line_index]
+        out.push(
+          "    [line " +
+          line_index.to_string() +
+          "] id=" +
+          line.id +
+          " bbox=" +
+          rect_str(line.bbox) +
+          " baseline_y=" +
+          opt_f64(line.baseline_y) +
+          " line_height=" +
+          opt_f64(line.line_height) +
+          " indent_left=" +
+          opt_f64(line.indent_left) +
+          " indent_right=" +
+          opt_f64(line.indent_right) +
+          " gap_before=" +
+          opt_f64(line.line_gap_before) +
+          " gap_after=" +
+          opt_f64(line.line_gap_after) +
+          " wrapped=" +
+          line.is_wrapped_candidate.to_string() +
+          " same_paragraph_prev=" +
+          line.is_same_paragraph_with_prev_candidate.to_string() +
+          " spans=" +
+          line.spans.length().to_string() +
+          " chars=" +
+          @model.line_char_count(line).to_string() +
+          " source_refs=" +
+          @model.line_source_ref_count(line).to_string() +
+          " text=\"" +
+          shorten_text(@model.line_text(line).trim().to_owned(), 100) +
+          "\"",
+        )
+        if !line.source_refs.is_empty() {
+          out.push(
+            "      line_source[0]=" +
+            @model.source_ref_to_string(line.source_refs[0]),
+          )
+        }
+
+        for span_index = 0
+            span_index < line.spans.length()
+            span_index = span_index + 1 {
+          let span = line.spans[span_index]
+          out.push(
+            "      [span " +
+            span_index.to_string() +
+            "] id=" +
+            span.id +
+            " bbox=" +
+            rect_str(span.bbox) +
+            " font_name=" +
+            opt_str(span.font_name) +
+            " font_size=" +
+            opt_f64(span.font_size) +
+            " bold=" +
+            span.is_bold.to_string() +
+            " italic=" +
+            span.is_italic.to_string() +
+            " monospace=" +
+            span.is_monospace.to_string() +
+            " chars=" +
+            span.chars.length().to_string() +
+            " source_refs=" +
+            @model.span_source_ref_count(span).to_string() +
+            " text=\"" +
+            shorten_text(span.text, 80) +
+            "\"",
+          )
+          if !span.source_refs.is_empty() {
+            out.push(
+              "        span_source[0]=" +
+              @model.source_ref_to_string(span.source_refs[0]),
+            )
+          }
+        }
+      }
+    }
+
+    if page.images.is_empty() {
+      out.push("  images=[]")
+    } else {
+      for image_index = 0
+          image_index < page.images.length()
+          image_index = image_index + 1 {
+        let image = page.images[image_index]
+        out.push(
+          "  [image " +
+          image_index.to_string() +
+          "] id=" +
+          image.id +
+          " bbox=" +
+          rect_str(image.bbox) +
+          " width=" +
+          image.width_px.to_string() +
+          " height=" +
+          image.height_px.to_string() +
+          " inline=" +
+          image.inline_image.to_string() +
+          " object_ref=" +
+          opt_str_or_none(image.object_ref) +
+          " source_refs=" +
+          image.source_refs.length().to_string(),
+        )
+        if !image.source_refs.is_empty() {
+          out.push(
+            "    image_source[0]=" +
+            @model.source_ref_to_string(image.source_refs[0]),
+          )
+        }
+      }
+    }
+
+    if page.annotations.is_empty() {
+      out.push("  annotations=[]")
+    } else {
+      for annotation_index = 0
+          annotation_index < page.annotations.length()
+          annotation_index = annotation_index + 1 {
+        let annotation = page.annotations[annotation_index]
+        let target_page_str = match annotation.target_page {
+          Some(v) => v.to_string()
+          None => "None"
+        }
+        out.push(
+          "  [annotation " +
+          annotation_index.to_string() +
+          "] id=" +
+          annotation.id +
+          " subtype=" +
+          annotation.subtype +
+          " bbox=" +
+          rect_str(annotation.bbox) +
+          " uri=" +
+          opt_str_or_none(annotation.uri) +
+          " dest=" +
+          opt_str_or_none(annotation.dest) +
+          " target_page=" +
+          target_page_str +
+          " object_ref=" +
+          opt_str_or_none(annotation.object_ref) +
+          " source_refs=" +
+          annotation.source_refs.length().to_string(),
+        )
+        if !annotation.source_refs.is_empty() {
+          out.push(
+            "    annotation_source[0]=" +
+            @model.source_ref_to_string(annotation.source_refs[0]),
+          )
+        }
+      }
+    }
+  }
+
+  out.join("\n") + "\n"
 }
 
 ///|

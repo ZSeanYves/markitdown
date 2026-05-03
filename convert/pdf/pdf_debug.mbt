@@ -123,6 +123,10 @@ fn debug_print_convert_annotations(page : PdfConvertPage) -> Unit {
       opt_color(annotation.color),
     )
   }
+
+  for match_result in match_page_uri_links(page) {
+    println("  " + render_pdf_link_match(match_result))
+  }
 }
 
 ///|

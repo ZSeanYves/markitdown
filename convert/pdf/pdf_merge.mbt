@@ -42,6 +42,7 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
         block_index: prev_last.block_index,
         kind: prev_last.kind,
         text: merged_text,
+        rich_inlines: None,
         line_start: prev_last.line_start,
         line_end: cur_first.line_end,
         source_block_index: prev_last.source_block_index,
