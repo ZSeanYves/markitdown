@@ -65,7 +65,25 @@ fn normalize_txt_text(text : String) -> String {
     text
   }
 
-  without_bom.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  let out : Array[Char] = []
+  let chars = without_bom.to_array()
+  let mut i = 0
+
+  while i < chars.length() {
+    if chars[i] == '\r' {
+      out.push('\n')
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      out.push(chars[i])
+      i += 1
+    }
+  }
+
+  String::from_array(out)
 }
 
 ///|
@@ -152,6 +170,14 @@ fn escape_txt_paragraph(text : String) -> String {
     return ""
   }
 
+  match thematic_break_marker(trimmed) {
+    Some(prefix) => {
+      return "\\" + prefix +
+        escape_markdown_punctuation(trimmed[prefix.length():].to_owned())
+    }
+    None => ()
+  }
+
   let chars = trimmed.to_array()
   let first = chars[0]
 
@@ -205,6 +231,27 @@ fn ordered_list_marker_parts(text : String) -> (Int, Int)? {
   } else {
     None
   }
+}
+
+///|
+fn thematic_break_marker(text : String) -> String? {
+  if text.length() < 3 {
+    return None
+  }
+
+  let chars = text.to_array()
+  let first = chars[0]
+  if !(first == '-' || first == '*' || first == '_') {
+    return None
+  }
+
+  for ch in chars {
+    if ch != first {
+      return None
+    }
+  }
+
+  Some(String::from_array([first]))
 }
 
 ///|

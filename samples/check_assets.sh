@@ -2,12 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/samples/tmp_helpers.sh"
 ASSETS_DIR="$ROOT/samples/assets"
 EXP_DIR="$ASSETS_DIR/expected"
 MAIN_SAMPLES_DIR="$ROOT/samples/main_process"
 MAIN_EXP_DIR="$MAIN_SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_DIR="$TMP_ROOT/samples/assets"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "assets")"
 
 extract_asset_refs() {
   local dir="$1"
@@ -21,8 +22,7 @@ extract_asset_refs() {
     | sort -u || true
 }
 
-rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR"
+trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
 fail=0
 found=0
@@ -67,7 +67,6 @@ for fmt in "${FORMATS[@]}"; do
     name="${base%.*}"
 
     sample_out_dir="$out_dir/$name"
-    rm -rf "$sample_out_dir"
     mkdir -p "$sample_out_dir"
 
     out_md="$sample_out_dir/$name.md"
@@ -127,7 +126,6 @@ if [[ -d "$zip_dir" ]]; then
     zip_out_md="$zip_out_dir/$name.md"
     zip_expected="$zip_exp_dir/$name.md"
 
-    rm -rf "$zip_out_dir"
     mkdir -p "$zip_out_dir"
 
     echo "==> checking zip assets"
@@ -185,7 +183,6 @@ if [[ -d "$epub_dir" ]]; then
     epub_out_md="$epub_out_dir/$name.md"
     epub_expected="$epub_exp_dir/$name.md"
 
-    rm -rf "$epub_out_dir"
     mkdir -p "$epub_out_dir"
 
     echo "==> checking epub assets"

@@ -23,6 +23,58 @@ fn read_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn test_tmp_root() -> String {
+  ".tmp/convert-txt-test"
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    if !@fs.path_exists(next) {
+      @fs.create_dir(next)
+    }
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn write_bytes(path : String, bytes : Bytes) -> Unit raise {
+  @fs.write_bytes_to_file(path, bytes) catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
 test "txt paragraphs stay plain text paragraphs" {
   let sample = resolve_sample_path(
     "samples/main_process/txt/txt_paragraphs.txt",
@@ -130,6 +182,34 @@ test "txt blank-only input emits empty document" {
     "",
     6,
   )
+  assert_eq(doc.blocks.val.length(), 0)
+  assert_eq(@cor.emit_markdown(doc), "")
+}
+
+///|
+test "txt thematic-break-like paragraphs stay literal and cr-only input normalizes" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let thematic_path = dir + "/txt_thematic_break_like.txt"
+  write_bytes(thematic_path, Bytes::from_array([45, 45, 45, 10, 95, 95, 95, 10]))
+  let thematic_doc = @txt.parse_txt(thematic_path, "", 6)
+  assert_eq(@cor.emit_markdown(thematic_doc), "--- \\_\\_\\_\n")
+
+  let cr_only_path = dir + "/txt_cr_only.txt"
+  write_bytes(cr_only_path, Bytes::from_array([65, 13, 66, 13, 13, 67]))
+  let cr_only_doc = @txt.parse_txt(cr_only_path, "", 6)
+  assert_eq(@cor.emit_markdown(cr_only_doc), "A B\n\nC\n")
+}
+
+///|
+test "txt true empty file emits empty document" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let empty_path = dir + "/txt_true_empty.txt"
+  write_bytes(empty_path, Bytes::from_array([]))
+  let doc = @txt.parse_txt(empty_path, "", 6)
   assert_eq(doc.blocks.val.length(), 0)
   assert_eq(@cor.emit_markdown(doc), "")
 }

@@ -35,6 +35,17 @@ async fn main {
           ),
         },
       ),
+      "batch": @clap.SubCommand::new(
+        help="Batch conversion: batch [--with-metadata] <input_dir> <output_dir>",
+        args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json inside each document output root",
+          ),
+          "input": @clap.Arg::positional(
+            help="Path to input directory (non-recursive file scan)",
+          ),
+        },
+      ),
       "debug": @clap.SubCommand::new(
         help="Debug conversion: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
         args={
@@ -125,6 +136,55 @@ async fn main {
                 with_metadata,
               )
             }
+            "batch" => {
+              if positional.length() != 2 {
+                exit_error(
+                  "usage: batch [--with-metadata] <input_dir> <output_dir>",
+                )
+                print_cli_usage()
+                @sys.exit(2)
+                return
+              }
+
+              let input_dir = positional[0]
+              let output_dir = positional[1]
+
+              if !@fs.path_exists(input_dir) {
+                exit_error(
+                  "batch input_dir must be an existing directory: " + input_dir,
+                )
+                @sys.exit(2)
+                return
+              }
+
+              let input_is_dir = @fs.is_dir(input_dir) catch {
+                e => {
+                  exit_error("batch input_dir check failed: " + e.to_string())
+                  @sys.exit(2)
+                  return
+                }
+              }
+              if !input_is_dir {
+                exit_error(
+                  "batch input_dir must be an existing directory: " + input_dir,
+                )
+                @sys.exit(2)
+                return
+              }
+
+              match run_batch(input_dir, output_dir, with_metadata) {
+                Ok(result) => {
+                  println(batch_summary_line(result))
+                  if result.had_error {
+                    @sys.exit(1)
+                  }
+                }
+                Err(msg) => {
+                  exit_error(msg)
+                  @sys.exit(2)
+                }
+              }
+            }
             "debug" => {
               if positional.length() < 2 || positional.length() > 3 {
                 exit_error(
@@ -190,6 +250,7 @@ fn print_cli_usage() -> Unit {
   println("Usage:")
   println("  moon run cli -- normal [--with-metadata] <input> [output]")
   println("  moon run cli -- ocr [--with-metadata] <input> [output]")
+  println("  moon run cli -- batch [--with-metadata] <input_dir> <output_dir>")
   println(
     "  moon run cli -- debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
   )

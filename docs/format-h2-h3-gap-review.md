@@ -338,8 +338,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
+* H2 readiness audited
+* H2 complete
 * pending H3 review
 
 #### Current strengths
@@ -350,12 +350,12 @@ reusable even outside Markdown conversion.
 * smoke benchmark small / medium / large exists
 * overlap-only MarkItDown comparison baseline exists
 
-#### H2 quality gaps
+#### H2 quality notes
 
-* real-world plain-text corpora still need review
-* international text joining behavior may need closer quality audit
-* paragraph joining heuristics should be evaluated against mainstream behavior
-* empty/odd whitespace edge cases may still need broader coverage
+* conservative paragraph conversion and literal-safe markdown output are stable
+* UTF-8-only fail-closed policy is explicit and acceptable for current H2 scope
+* empty/CR-only/thematic-break-like edge cases are covered conservatively
+* broader corpus expansion may still be useful, but no longer blocks H2
 
 #### Bottom-layer gaps
 
@@ -370,10 +370,9 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run TXT H2 review on real-world text corpora
-* audit CJK and mixed-language paragraph joining
 * add batch/large-file TXT benchmarks
-* compare multiple simple TXT overlap samples against MarkItDown
+* revisit line-joining policy only if a concrete real-world quality issue appears
+* keep semantic inference out of TXT unless product goals change
 
 #### Non-goals for now
 
@@ -385,8 +384,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
+* H2 readiness audited
+* H2 complete
 * pending H3 review
 
 #### Current strengths
@@ -396,13 +395,12 @@ reusable even outside Markdown conversion.
 * metadata summary and benchmark enrollment exist
 * overlap-only comparison baseline exists
 
-#### H2 quality gaps
+#### H2 quality notes
 
-* broader real-world Markdown corpus is needed
-* frontmatter and mixed Markdown/HTML handling need review against mainstream
-  tools
-* extension/variant behavior should be documented more explicitly where it
-  intentionally stays conservative
+* passthrough fidelity, normalization, and frontmatter policy are now explicit
+* conservative block slicing remains metadata-oriented, not semantic Markdown
+  rewriting
+* broader real-world corpus expansion is still useful, but no longer blocks H2
 
 #### Bottom-layer gaps
 
@@ -418,10 +416,9 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run Markdown H2 review on real-world repositories/docs
-* add broader frontmatter/raw-HTML/nontrivial Markdown samples
 * benchmark batch and large-file passthrough
-* define explicit non-goals for full Markdown semantic normalization
+* expand real-world corpus only if a concrete fidelity gap appears
+* keep non-goals explicit around AST rewrite / beautification
 
 #### Non-goals for now
 

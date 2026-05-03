@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/samples/tmp_helpers.sh"
 META_DIR="$ROOT/samples/metadata"
 EXP_DIR="$META_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_DIR="$TMP_ROOT/samples/metadata"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "metadata")"
 
-rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR"
+trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
 fail=0
 found=0
@@ -80,7 +80,6 @@ for fmt in "${FORMATS[@]}"; do
     sample_out_dir="$out_dir"
     if [[ "$fmt" == "docx" || "$fmt" == "pptx" ]]; then
       sample_out_dir="$out_dir/$name"
-      rm -rf "$sample_out_dir"
       mkdir -p "$sample_out_dir"
     fi
 

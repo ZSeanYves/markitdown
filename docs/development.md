@@ -17,6 +17,12 @@ OCR path:
 moon run cli -- ocr <input> [output]
 ```
 
+Batch path:
+
+```bash
+moon run cli -- batch <input_dir> <output_dir>
+```
+
 Debug path:
 
 ```bash
@@ -35,6 +41,10 @@ Output rules:
 * directory-like `[output]` becomes `<output>/<input_stem>.md`
 * metadata sidecar is written to `<markdown_dir>/metadata/<stem>.metadata.json`
 * stdout mode does not write sidecar files
+* batch v1 is a non-recursive directory runner
+* batch v1 writes each top-level input file into its own isolated document root
+  under `<output_dir>`, using `NNN-<input_stem>/<input_stem>.md`
+* batch v1 writes `batch-summary.tsv` at the batch output root
 
 ## Temp Directories
 
@@ -102,11 +112,25 @@ Overlap-only comparison benchmark:
 ./samples/bench_compare_markitdown.sh
 ```
 
+Batch profiling benchmark:
+
+```bash
+./samples/bench_batch_profile.sh
+./samples/bench_batch_profile.sh --formats csv,json,html,xlsx,docx,pdf --counts 1,3 --memory auto
+./samples/bench_warn.sh --suite batch_profile
+```
+
 Notes:
 
 * both benchmark scripts use `MARKITDOWN_TMP_DIR`
+* batch profiling writes additive local artifacts under `.tmp/bench/batch_profile`
+* benchmark warning checks are manual; use `--strict` only when intentionally
+  gating a local benchmark run
 * comparison benchmark expects a user-managed external `markitdown` command
 * comparison benchmark does not create a repository-local Python virtual environment
+* sample validation scripts now use isolated temporary directories and can be
+  run without sharing one fixed `.tmp/samples` output tree; benchmark outputs
+  remain under `.tmp/bench/...` for inspection
 
 ## Adding Or Expanding A Format
 

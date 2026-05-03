@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/samples/tmp_helpers.sh"
 SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_DIR="$TMP_ROOT/samples/diff"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "diff")"
 
-rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR"
+trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
 "$ROOT/samples/check_samples.sh"
 "$ROOT/samples/check_assets.sh"

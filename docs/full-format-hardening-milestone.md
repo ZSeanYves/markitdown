@@ -24,8 +24,8 @@ Important framing:
 
 | Format | Current status | Main completed work | Remaining H2/H3 focus |
 | --- | --- | --- | --- |
-| TXT | H1 complete | conservative paragraph conversion, literal-safe Markdown output, metadata, smoke baseline, overlap comparison baseline | very large file behavior, batch profiling, encoding fallback policy |
-| Markdown / MD / MARKDOWN | H1 complete | passthrough baseline, normalization, metadata, smoke baseline | frontmatter policy, larger passthrough profiling, batch performance |
+| TXT | H2 readiness audited, H2 complete | conservative paragraph conversion, literal-safe Markdown output, metadata, smoke baseline, overlap comparison baseline | very large file behavior, batch profiling, encoding fallback policy |
+| Markdown / MD / MARKDOWN | H2 readiness audited, H2 complete | passthrough baseline, normalization, metadata, smoke baseline, frontmatter passthrough policy | larger passthrough profiling, batch performance |
 | CSV | H1 complete | table baseline, quoted delimiter handling, ragged rows, metadata, smoke baseline | streaming, large-table memory behavior, richer table model |
 | TSV | H1 complete | table baseline, ragged rows, metadata, smoke baseline | streaming, large-table memory behavior, richer table model |
 | JSON | H1 complete | conservative structured-data baseline, metadata, smoke baseline | unicode escape handling, parser completeness, large nested profiling |

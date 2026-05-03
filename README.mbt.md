@@ -71,12 +71,31 @@ Other entrypoints:
 
 ```bash
 moon run cli -- ocr <input> [output]
+moon run cli -- batch <input_dir> <output_dir>
 moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
+```
+
+Batch v1 directory conversion:
+
+```bash
+moon run cli -- batch --with-metadata <input_dir> <output_dir>
+```
+
+Batch v1 writes one isolated document root per top-level input file:
+
+```text
+out/
+  001-demo/
+    demo.md
+    assets/
+    metadata/demo.metadata.json
 ```
 
 Notes:
 
 * `ocr` is a separate path, not the default mainflow
+* `batch` is non-recursive in v1; it scans only the top-level files in
+  `<input_dir>`
 * stdout mode only prints Markdown; it does not write sidecar files
 * if `[output]` looks like a directory, the tool writes `<output>/<input_stem>.md`
 

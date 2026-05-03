@@ -18,11 +18,22 @@ The repository is now in a documented multi-format product-hardening stage:
 * unified IR / Markdown emitter / metadata sidecar are in place
 * major format families are connected to one dispatcher-driven mainflow
 * sample regression and benchmark harnesses are in place
-* TXT / Markdown / CSV / TSV / JSON / YAML / XML have H1 baselines in place
+* sample validation temp-dir isolation is in place
+* TXT / Markdown H2 readiness is audited and documented
+* CSV / TSV / JSON / YAML / XML have H1 baselines in place
 * HTML / XLSX / ZIP / EPUB have completed review passes and stronger baselines
 * DOCX / PPTX have completed H2 review passes
 * PDF has completed a core-first H2/P4 pass through benchmark/comparison
   refresh
+* H3 benchmark discipline audit/plan is documented
+* H3.2 batch benchmark mode design is documented
+* CLI batch mode v1 is implemented for non-recursive directory conversion
+* H3.3 batch profiling harness and first startup/throughput/memory report are
+  documented
+* H3.4 batch profiling scale extension is documented for `1 / 3 / 8 / 16`
+  groups and metadata on/off profiling
+* H3.5 manual benchmark regression warning prototype is in place with
+  conservative checked-in thresholds
 * H1 is not final parity completion; H2 / H3 remain
 
 ## Full-format hardening milestone
@@ -55,7 +66,8 @@ current next-stage Top 10.
 
 ## Current Status Summary
 
-* TXT / Markdown / CSV / TSV / JSON / YAML / XML: H1 complete
+* TXT / Markdown: H2 complete
+* CSV / TSV / JSON / YAML / XML: H1 complete
 * HTML / XLSX / ZIP / EPUB: reviewed and baseline-strengthened
 * DOCX / PPTX: H2 review completed
 * PDF: core-first H2/P4 pass completed through benchmark/comparison refresh
@@ -64,7 +76,7 @@ current next-stage Top 10.
 
 ### Core pipeline
 
-* CLI with `normal / ocr / debug`
+* CLI with `normal / ocr / batch / debug`
 * dispatcher-based extension routing
 * unified IR
 * Markdown emitter
@@ -128,8 +140,8 @@ moon test
 
 Current recommended next priorities are:
 
-* temp-dir isolation for sample/benchmark scripts
-* H3 benchmark discipline: batch / large / memory profiling
+* H3 benchmark discipline: batch mode design, scale normalization, and optional
+  memory probing
 * HTML lower-layer upgrades
 * XLSX lower-layer upgrades
 * ZIP lower-layer upgrades

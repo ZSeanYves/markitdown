@@ -12,5 +12,6 @@ import {
 
 options(
   "is-main": true,
+  "native-stub": [ "native_stub.c" ],
   "preferred-target": "native",
 )

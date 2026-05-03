@@ -5,6 +5,10 @@ This document records the current checked-in smoke benchmark baseline for
 
 It is a same-machine reference point, not a hard performance SLA.
 
+The current smoke harness is an internal benchmark harness. It is useful for
+same-machine trend tracking, but it is not the same thing as a prebuilt
+native-CLI speed claim.
+
 ## Benchmark Scope
 
 The harness supports the checked-in corpus under:
@@ -156,6 +160,16 @@ Main outputs:
 
 * `results.jsonl`
 * `summary.tsv`
+
+These artifacts are temporary local outputs for manual inspection and are not
+checked in.
+
+## Runner Note
+
+The current smoke harness builds once and then invokes the repository runner
+through `moon run`. This is acceptable for internal smoke tracking, but H3
+native speed claims should continue to prefer overlap-only comparison runs that
+use the prebuilt native CLI when available.
 
 ## Current PDF Smoke Baseline
 

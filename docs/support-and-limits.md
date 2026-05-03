@@ -281,10 +281,14 @@ Supported:
 * CRLF / CR normalization
 * source-preserving passthrough
 * conservative block slicing for metadata summary
+* frontmatter passthrough as literal source text when a leading `---` or `+++`
+  block is present
 
 Conservative behavior:
 
 * original Markdown body is preserved instead of re-rendered from an AST
+* metadata summary uses lightweight conservative blocks instead of full Markdown
+  semantics
 
 Known limits:
 
@@ -306,6 +310,8 @@ Conservative behavior:
 * no Markdown semantics are inferred
 * markdown-like literal text is emitted conservatively so plain TXT does not
   silently become headings/lists/links by accident
+* input must decode as UTF-8; unsupported encodings fail closed rather than
+  using heuristic auto-detection
 
 Known limits:
 

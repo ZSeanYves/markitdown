@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
@@ -12,8 +11,6 @@ FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml"
 fail=0
 
 echo "==> sample integrity check"
-mkdir -p "$TMP_ROOT/samples/check"
-
 
 is_noise_file() {
   local base="$1"
