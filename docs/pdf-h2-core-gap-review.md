@@ -4,9 +4,15 @@ This document records the first planning pass for PDF H2 work.
 
 Status update:
 
-* PDF P1 model/debug signal pass has now started
+* PDF P1 `pdf_core` model/debug signal pass is completed
+* PDF P1.1 annotation/link signal pass is completed
+* PDF P2.2 high-confidence URI link emission is completed
+* PDF P3/P4 heading/noise/cross-page passes are completed through benchmark and
+  comparison refresh
 * current implementation notes are tracked in
   [docs/pdf-core-model-debug-pass.md](./pdf-core-model-debug-pass.md)
+* current heading / noise / cross-page attribution notes are tracked in
+  [docs/pdf-p3-heading-noise-cross-page-audit.md](./pdf-p3-heading-noise-cross-page-audit.md)
 
 Scope for this round:
 
@@ -188,7 +194,7 @@ Important current architecture fact:
 | bbox | present | Required for page model inclusion. |
 | page index | present | Via page container. |
 | source refs | present | Included on annotation objects. |
-| Markdown link emission | absent | Converter does not currently emit annotation links. |
+| Markdown link emission | present, narrow | High-confidence single-line URI annotations only; internal/ambiguous/image-area cases remain conservative. |
 | convert debug passthrough | present | Annotations appear in convert debug. |
 
 ### Debug / dump surfaces
@@ -221,7 +227,7 @@ Current gaps:
 | noise | block text, bbox, page boxes, repeated edge patterns | Drops repeated header/footer/page-number-like content. | dedicated artifact/page-edge candidates from core, richer repeated-object provenance | Currently recomputes page-edge repetition at convert time. |
 | merge | block text, bbox, font sizes, indent, gap, wrapped candidates | Only merges previous-page-last paragraph with current-page-first paragraph. | richer paragraph continuity signals, source refs, multi-block merge plans | Cross-page merge is conservative and narrow by design. |
 | image/caption | page-local images + text blocks + bbox | Emits image blocks; nearby caption only when page has exactly one image. | multi-image caption pairing, caption candidates from core, image-text linkage beyond bbox | Current policy is intentionally narrow and page-local. |
-| annotation/link | page annotations | Kept for debug only; P1.1 now makes URI/internal-dest visible in core inspect; P2 policy review now documents conservative emission rules. | Markdown link emission, block/link anchoring, internal-link handling | High-value underused surface. |
+| annotation/link | page annotations | Narrow URI-link emission is landed; debug/inspect still carries the broader raw model. | richer block/link anchoring, internal-link handling, broader provenance | High-value surface, still intentionally conservative. |
 | to_ir | blocks + page object order + images | Emits headings, paragraphs, and images in page object order. | annotations, outlines, vectors, forms, table candidates, page labels | IR emission is still text-and-image focused. |
 | metadata sidecar | source name, page number, block index, image object ref | Preserves lightweight page/block/image provenance. | line/run/source-op refs, annotation origins, raw content stream refs, richer page geometry origin | Provenance exists, but it is intentionally shallow. |
 | debug | convert lines/images/annotations/blocks | Good human-readable inspection output. | raw-op view, structured machine-readable diagnostics, dedicated extract/raw scopes | `pipeline_debug` is the only effective public debug switch today. |

@@ -95,11 +95,27 @@ This is still debug output, not a stable IR or Markdown contract.
 | outlines/bookmarks | still gap/placeholder | document model field remains present but unpopulated |
 | fatal/low-signal structured status | still gap | current API still uses `Result` + converter-side low-signal predicate |
 
-## P1.1 Annotation/Link Status
+## Annotation/Link Signal Status
 
-See [PDF Core Annotation/Link Pass](./pdf-core-annotation-link-pass.md) for the
-current link/outline signal surface. URI and internal-destination link signals
-are now exposed in `pdf_core` inspect/debug; outlines/bookmarks remain a gap.
+`pdf_core` now exposes a conservative but usable annotation/link raw surface:
+
+* `/Link` subtype
+* URI action
+* internal destination / `Dest`
+* annotation bbox
+* page-local ownership
+* object ref
+* model-level source refs
+
+Current explicit gaps remain:
+
+* raw annotation source refs are still empty
+* quadpoints are not exposed
+* outlines/bookmarks are still a placeholder gap
+* there is no generalized action-system model beyond URI/internal-dest basics
+
+This is enough for later `convert/pdf` work to distinguish core extraction gaps
+from convert-side link emission policy.
 
 ## What `convert/pdf` Can Consume Next
 

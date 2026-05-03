@@ -17,8 +17,9 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     let merged_prev = prev_page.blocks
     let merged_cur = Array::new()
+    let decision = decide_page_boundary_merge(prev_page, cur_page)
 
-    if should_merge_page_boundary(prev_page, cur_page) {
+    if is_merge_decision(decision) {
       let prev_last = merged_prev[merged_prev.length() - 1]
       let cur_first = cur_page.blocks[0]
 
@@ -130,91 +131,11 @@ fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 }
 
 ///|
-fn should_merge_page_boundary(
-  prev_page : PdfConvertPage,
-  cur_page : PdfConvertPage,
-) -> Bool {
-  if prev_page.blocks.is_empty() || cur_page.blocks.is_empty() {
-    return false
+fn is_merge_decision(decision : PdfMergeDecision) -> Bool {
+  match decision.status {
+    PdfMergeDecisionStatus::Merge => true
+    PdfMergeDecisionStatus::KeepSplit => false
   }
-
-  let left = prev_page.blocks[prev_page.blocks.length() - 1]
-  let right = cur_page.blocks[0]
-
-  if has_cross_page_merge_hard_blocker(left, right) {
-    return false
-  }
-
-  if !has_positive_text_continuation(left, right) {
-    return false
-  }
-
-  has_layout_compatibility(left, right) ||
-  has_core_continuation_support(left, right)
-}
-
-///|
-fn has_cross_page_merge_hard_blocker(
-  left : PdfConvertBlock,
-  right : PdfConvertBlock,
-) -> Bool {
-  if left.kind != PdfConvertBlockKind::Paragraph ||
-    right.kind != PdfConvertBlockKind::Paragraph {
-    return true
-  }
-
-  let lt = left.text.trim().to_owned()
-  let rt = right.text.trim().to_owned()
-
-  if lt == "" || rt == "" {
-    return true
-  }
-
-  if ends_with_strong_sentence_punct(lt) {
-    return true
-  }
-
-  if looks_like_new_section_after_page_break(rt) {
-    return true
-  }
-
-  if looks_like_list_start(rt) {
-    return true
-  }
-
-  is_page_label_like(rt)
-}
-
-///|
-fn has_positive_text_continuation(
-  _left : PdfConvertBlock,
-  right : PdfConvertBlock,
-) -> Bool {
-  looks_like_page_start_continuation(right.text)
-}
-
-///|
-fn has_layout_compatibility(
-  left : PdfConvertBlock,
-  right : PdfConvertBlock,
-) -> Bool {
-  font_size_close(left.dominant_font_size, right.dominant_font_size) &&
-  indent_close(left.last_indent_left, right.first_indent_left) &&
-  alignment_compatible(left.last_alignment_hint, right.first_alignment_hint) &&
-  !gap_looks_like_new_paragraph(
-    right.first_line_gap_before,
-    right.first_line_height,
-  )
-}
-
-///|
-fn has_core_continuation_support(
-  left : PdfConvertBlock,
-  right : PdfConvertBlock,
-) -> Bool {
-  left.last_is_wrapped_candidate ||
-  right.first_is_wrapped_candidate ||
-  right.first_is_same_paragraph_with_prev_candidate
 }
 
 ///|

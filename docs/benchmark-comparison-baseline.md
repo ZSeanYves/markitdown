@@ -5,6 +5,83 @@ between `markitdown-mb` and Microsoft MarkItDown.
 
 It is a local reference, not a pass/fail performance target.
 
+## Current PDF Overlap Baseline
+
+This PDF baseline is for the current overlap-only text-PDF cases only. It does
+not claim full semantic equivalence with Microsoft MarkItDown across all PDF
+layouts or OCR scenarios.
+
+### Command
+
+```bash
+tmp_corpus="$(mktemp /private/tmp/pdf_compare.XXXXXX)"
+printf 'format\tsample\tinput_path\n' > "$tmp_corpus"
+printf 'pdf\ttext_simple_compare\tsamples/main_process/pdf/text_simple.pdf\n' >> "$tmp_corpus"
+printf 'pdf\theading_basic_compare\tsamples/main_process/pdf/heading_basic.pdf\n' >> "$tmp_corpus"
+printf 'pdf\tpdf_repeated_header_footer_compare\tsamples/main_process/pdf/pdf_repeated_header_footer.pdf\n' >> "$tmp_corpus"
+printf 'pdf\tpdf_cross_page_should_merge_compare\tsamples/main_process/pdf/pdf_cross_page_should_merge_phase15.pdf\n' >> "$tmp_corpus"
+printf 'pdf\tpdf_cross_page_should_not_merge_compare\tsamples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf\n' >> "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+```
+
+### Runners
+
+* `markitdown-mb`: prebuilt native CLI
+  `_build/native/debug/build/cli/cli.exe normal`
+* Microsoft MarkItDown: `markitdown 0.1.5` from `PATH`
+
+### Environment
+
+This PDF baseline was captured with:
+
+* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* Date (UTC): `2026-05-03T04:23:36Z`
+* Git revision: `f268ac2`
+* Timer precision: `ms`
+
+### PDF Summary
+
+```tsv
+runner	format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	stderr_bytes_last
+markitdown-mb	pdf	text_simple_compare	3	0	12	12	12	12	272	0
+markitdown-python	pdf	text_simple_compare	3	0	496	515	518	509.7	271	0
+markitdown-mb	pdf	heading_basic_compare	3	0	14	14	17	15	257	0
+markitdown-python	pdf	heading_basic_compare	3	0	530	540	579	549.7	266	0
+markitdown-mb	pdf	pdf_repeated_header_footer_compare	3	0	12	12	13	12.3	142	0
+markitdown-python	pdf	pdf_repeated_header_footer_compare	3	0	520	524	539	527.7	207	0
+markitdown-mb	pdf	pdf_cross_page_should_merge_compare	3	0	12	13	13	12.7	313	0
+markitdown-python	pdf	pdf_cross_page_should_merge_compare	3	0	523	527	530	526.7	314	0
+markitdown-mb	pdf	pdf_cross_page_should_not_merge_compare	3	0	11	12	12	11.7	246	0
+markitdown-python	pdf	pdf_cross_page_should_not_merge_compare	3	0	518	528	530	525.3	243	0
+```
+
+### PDF Interpretation
+
+* overlap scope only: simple text, heading/basic structure, repeated
+  header/footer cleanup, cross-page merge, and cross-page no-merge
+* warmup: `1`
+* iterations: `3`
+* `text_simple_compare`: semantic difference; `markitdown-mb` preserves heading
+  structure and cleaner CJK text while Microsoft MarkItDown emits plain text
+  with compatibility glyph artifacts; result: `win`
+* `heading_basic_compare`: semantic difference; `markitdown-mb` preserves
+  chapter/section heading structure and suppresses page noise, while Microsoft
+  MarkItDown keeps flatter text and page residue; result: `win`
+* `pdf_repeated_header_footer_compare`: semantic difference; `markitdown-mb`
+  removes repeated edge noise while Microsoft MarkItDown keeps the repeated
+  header/footer strings; result: `win`
+* `pdf_cross_page_should_merge_compare`: semantic difference; both tools
+  preserve the text, but `markitdown-mb` merges the paragraph across pages
+  while Microsoft MarkItDown keeps the page break split; result: `win`
+* `pdf_cross_page_should_not_merge_compare`: semantic difference; both tools
+  keep the new section separate, but `markitdown-mb` restores heading/list
+  structure while Microsoft MarkItDown keeps flatter text and form-feed residue;
+  result: `win`
+* non-goals for this baseline:
+  * proving full PDF semantic parity
+  * covering OCR/image-heavy PDFs
+  * covering complex table/layout reconstruction
+
 ## Current PPTX Overlap Baseline
 
 This PPTX baseline is for the current overlap-only PPTX cases only. It does not
@@ -206,7 +283,7 @@ runner. That is a historical environment fact, not a project dependency.
 
 The current preferred workflow is still the user-managed external-command setup
 described in
-[docs/benchmark-comparison.md](/home/zseanyves/markitdown/docs/benchmark-comparison.md).
+[docs/benchmark-comparison.md](./benchmark-comparison.md).
 
 ## Baseline Command
 

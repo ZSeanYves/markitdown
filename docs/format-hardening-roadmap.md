@@ -89,14 +89,14 @@ emitting Markdown.
 | CSV / TSV | H1 complete |
 | JSON | H1 complete |
 | YAML / YML | H1 complete |
-| XML | supported conservative baseline, pending H1 hardening |
-| HTML / HTM | supported, pending H1 / H2 review |
-| XLSX | supported, pending H1 / H2 review |
-| ZIP | supported, pending H1 / H2 container hardening review |
-| EPUB | supported, pending H1 / H2 ebook hardening review |
-| DOCX | supported, pending H2 market-parity pass |
-| PPTX | supported, pending H2 layout quality pass |
-| PDF | supported, pending deeper `pdf_core` / convert H2 pass |
+| XML | H1 complete |
+| HTML / HTM | H1 reviewed, baseline strengthened, H2 gaps documented |
+| XLSX | H1 reviewed, baseline strengthened, H2 gaps documented |
+| ZIP | H1 reviewed, container baseline strengthened, H2 gaps documented |
+| EPUB | H1 reviewed, ebook package baseline strengthened, H2 gaps documented |
+| DOCX | H2 market-parity review completed |
+| PPTX | H2 layout-quality review completed |
+| PDF | H2 core-first deep pass completed through P4.4 benchmark/comparison refresh |
 
 Notes:
 
@@ -107,15 +107,14 @@ Notes:
 
 Recommended next sequence:
 
-1. Finish XML H1.
-2. Review TXT / Markdown / CSV / TSV / JSON / YAML at H2 quality level.
-3. Push HTML through H1 / H2.
-4. Push XLSX through H1 / H2.
-5. Push ZIP through H1 / H2.
-6. Push EPUB through H1 / H2.
-7. Run DOCX H2 market-parity pass.
-8. Run PPTX H2 layout-quality pass.
-9. Run PDF H2 with `pdf_core` upgrades first where needed.
+1. Review TXT / Markdown / CSV / TSV / JSON / YAML / XML at H2 quality level.
+2. Push HTML through deeper H2 lower-layer work.
+3. Push XLSX through deeper H2 lower-layer work.
+4. Push ZIP through deeper H2 lower-layer work.
+5. Push EPUB through deeper H2 lower-layer work.
+6. Continue DOCX H2 semantics work where lower-layer signal is still missing.
+7. Continue PPTX H2 layout/object-model work where lower-layer signal is still missing.
+8. Continue PDF H2 with `pdf_core` and convert follow-ups where needed.
 
 This order keeps the project moving from simpler text / structured data toward
 heavier document-layout formats, while also forcing the team to harden reusable

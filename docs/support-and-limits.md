@@ -155,12 +155,13 @@ Conservative behavior:
 
 * structure is text-first, not visual-layout faithful
 * image caption attachment is limited to conservative single-image cases
-* annotation/link records remain available in debug layers even when not
-  emitted as Markdown links
+* PDF annotation links only emit for a narrow, high-confidence URI subset; all
+  other annotation/link cases remain conservative and debug-visible
 
 Known limits:
 
-* no default PDF annotation-link Markdown emission
+* no internal-destination / GoTo link emission
+* no multiline or ambiguous PDF link emission
 * no semantic table recovery
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction

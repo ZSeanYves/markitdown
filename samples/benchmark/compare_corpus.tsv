@@ -9,6 +9,10 @@ pptx	pptx_hyperlink_shape_basic_compare	samples/main_process/pptx/pptx_hyperlink
 pptx	pptx_slide_order_compare	samples/main_process/pptx/pptx_slide_order.pptx
 xlsx	xlsx_multi_sheet_mixed_compare	samples/main_process/xlsx/xlsx_multi_sheet_mixed.xlsx
 pdf	text_simple_compare	samples/main_process/pdf/text_simple.pdf
+pdf	heading_basic_compare	samples/main_process/pdf/heading_basic.pdf
+pdf	pdf_repeated_header_footer_compare	samples/main_process/pdf/pdf_repeated_header_footer.pdf
+pdf	pdf_cross_page_should_merge_compare	samples/main_process/pdf/pdf_cross_page_should_merge_phase15.pdf
+pdf	pdf_cross_page_should_not_merge_compare	samples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf
 html	html_simple_compare	samples/main_process/html/html_simple.html
 csv	csv_basic_compare	samples/main_process/csv/csv_basic.csv
 txt	txt_plain_compare	samples/main_process/txt/txt_plain.txt

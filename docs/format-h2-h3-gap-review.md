@@ -184,8 +184,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* pending H1 / H2 review
+* H1 reviewed, baseline strengthened, H2 gaps documented
 * pending H3 performance review
 
 #### Current strengths
@@ -237,10 +236,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* PDF H2 core-gap review documented
-* pending `pdf_core` P1 signal upgrade pass
-* pending converter-side PDF H2 quality pass
+* H2 core-first deep pass completed through P4.4 benchmark/comparison refresh
 * pending H3 performance review
 
 #### Current strengths
@@ -255,7 +251,7 @@ reusable even outside Markdown conversion.
 #### H2 quality gaps
 
 * semantic table recovery is still absent
-* annotation/link output is still debug-only rather than emitted Markdown
+* annotation/link output is still intentionally narrow and conservative
 * complex layouts and multi-column handling remain limited
 * image-caption recovery is intentionally narrow
 * some document capability surfaces are still placeholders rather than trusted
@@ -278,11 +274,10 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* complete `pdf_core` model/debug cleanup before more heading/noise/merge work
-* add PDF samples for annotations/links, outlines, and table-like negatives
-* audit link emission policy with lower-layer support first
-* expand benchmark coverage to multiple PDF profiles before claiming H3 trend
-* keep explicit PDF non-goals in place while the core-first pass is underway
+* add PDF samples for outlines/bookmarks, image-caption expansion, and table-like negatives
+* continue tables / image-caption / internal-link/outlines work without widening current conservative guards
+* expand benchmark coverage to larger and more diverse text-PDF profiles before claiming H3 trend
+* keep explicit PDF non-goals in place while deeper layout semantics remain out of scope
 
 #### Non-goals for now
 
@@ -294,8 +289,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* pending H1 / H2 review
+* H1 reviewed, baseline strengthened, H2 gaps documented
 * pending H3 performance review
 
 #### Current strengths
@@ -329,7 +323,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run dedicated HTML H1/H2 review across real pages
 * expand samples for nested block/inline and difficult tables
 * review local-image and figure semantics on messy HTML
 * benchmark static/simple vs DOM-heavy HTML separately
@@ -675,8 +668,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* H1 / H2 container review in progress
+* H1 reviewed, container baseline strengthened, H2 gaps documented
 * pending H3 performance review
 
 #### Current strengths
@@ -710,7 +702,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run dedicated ZIP H1/H2 container audit
 * add mixed-entry and large-archive corpora
 * review nested-archive and unsupported-entry policy
 * benchmark container overhead separately from nested entry conversion
@@ -725,8 +716,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* H1 complete, pending H2 / H3 ebook review
+* H1 reviewed, ebook package baseline strengthened, H2 gaps documented
 * pending H3 performance review
 
 #### Current strengths
@@ -759,7 +749,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run dedicated EPUB H1/H2 ebook audit
 * add nav/TOC and multi-spine real-world samples
 * review XHTML/asset semantics within EPUB separately from generic XML
 * benchmark short vs long-spine EPUBs

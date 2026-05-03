@@ -99,7 +99,7 @@ Important boundaries:
   semantic XHTML / RSS / OPF / SVG converter
 
 For the full per-format support contract and limits, see
-[docs/support-and-limits.md](/home/zseanyves/markitdown/docs/support-and-limits.md).
+[docs/support-and-limits.md](./docs/support-and-limits.md).
 
 ## Regression And Benchmark
 
@@ -150,10 +150,12 @@ not part of the default `normal` mainflow contract.
 ## Documentation
 
 * [Support and Limits](./docs/support-and-limits.md)
+* [Full-format Hardening Milestone](./docs/full-format-hardening-milestone.md)
 * [Architecture](./docs/architecture.md)
 * [Development Guide](./docs/development.md)
 * [Metadata Sidecar](./docs/metadata-sidecar.md)
 * [Progress Summary](./docs/progress.md)
 * [Benchmark Baseline](./docs/benchmark-baseline.md)
 * [Benchmark Comparison](./docs/benchmark-comparison.md)
+* [Benchmark Comparison Baseline](./docs/benchmark-comparison-baseline.md)
 * [Sample Coverage](./docs/sample-coverage.md)

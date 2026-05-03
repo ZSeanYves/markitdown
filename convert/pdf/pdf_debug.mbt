@@ -176,6 +176,39 @@ fn debug_print_convert_blocks(page : PdfConvertPage) -> Unit {
 }
 
 ///|
+fn debug_print_heading_decisions(
+  page : PdfConvertPage,
+  max_heading : Int,
+) -> Unit {
+  println(
+    "pdf_heading/debug page=" +
+    page._page_index.to_string() +
+    " decisions=" +
+    page.blocks.length().to_string(),
+  )
+
+  for i = 0; i < page.blocks.length(); i = i + 1 {
+    let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
+    let next = if i + 1 < page.blocks.length() {
+      Some(page.blocks[i + 1])
+    } else {
+      None
+    }
+    let block = page.blocks[i]
+    let decision = decide_heading_classification(prev, block, next, max_heading)
+    println(
+      "  " +
+      render_pdf_heading_decision(
+        page._page_index,
+        block.block_index,
+        decision,
+        block.text.trim().to_owned(),
+      ),
+    )
+  }
+}
+
+///|
 fn opt_f64(v : Double?) -> String {
   match v {
     Some(x) => x.to_string()
@@ -393,6 +426,75 @@ fn debug_print_header_footer_like_blocks(doc : PdfConvertDocument) -> Unit {
         println("    " + edge_block_debug_str(block))
       }
     }
+  }
+}
+
+///|
+fn debug_print_noise_decisions(doc : PdfConvertDocument) -> Unit {
+  let repeated = build_repeated_edge_noise_index(doc)
+  println("pdf_noise/debug")
+
+  for page in doc.pages {
+    println("  [page " + page._page_index.to_string() + "]")
+
+    for i = 0; i < page.blocks.length(); i = i + 1 {
+      let block = page.blocks[i]
+      let evidence = collect_edge_noise_evidence(page, i, block, repeated)
+      let decision = decide_noise_block(page, i, block, repeated)
+      println(
+        "    " +
+        render_pdf_noise_decision(
+          page._page_index,
+          block.block_index,
+          decision,
+          block.text.trim().to_owned(),
+        ),
+      )
+      println(
+        "    " +
+        render_pdf_edge_evidence(
+          page._page_index,
+          block.block_index,
+          evidence,
+          block.text.trim().to_owned(),
+        ),
+      )
+    }
+  }
+}
+
+///|
+fn debug_print_merge_decisions(doc : PdfConvertDocument) -> Unit {
+  println("pdf_merge/debug")
+
+  if doc.pages.length() < 2 {
+    println("  <no page boundary>")
+    return
+  }
+
+  for i = 1; i < doc.pages.length(); i = i + 1 {
+    let prev_page = doc.pages[i - 1]
+    let cur_page = doc.pages[i]
+
+    if prev_page.blocks.is_empty() || cur_page.blocks.is_empty() {
+      continue
+    }
+
+    let prev_last = prev_page.blocks[prev_page.blocks.length() - 1]
+    let cur_first = cur_page.blocks[0]
+    let decision = decide_page_boundary_merge(prev_page, cur_page)
+    println(
+      "  " +
+      render_pdf_merge_decision(
+        prev_page._page_index,
+        prev_last.block_index,
+        cur_page._page_index,
+        cur_first.block_index,
+        decision,
+        prev_last.text.trim().to_owned(),
+        cur_first.text.trim().to_owned(),
+      ),
+    )
   }
 }
 

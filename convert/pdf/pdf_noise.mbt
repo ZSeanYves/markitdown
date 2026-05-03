@@ -12,7 +12,7 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     return doc
   }
 
-  let (repeated_heads, repeated_tails) = detect_repeated_edge_noise(doc)
+  let repeated = build_repeated_edge_noise_index(doc)
   let pages = Array::new()
 
   for page in doc.pages {
@@ -22,19 +22,11 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
     for i = 0; i < n; i = i + 1 {
       let block = page.blocks[i]
       let text = block.text.trim().to_owned()
+      let decision = decide_noise_block(page, i, block, repeated)
 
-      match block.kind {
-        PdfConvertBlockKind::Noise => ()
-        _ =>
-          if should_drop_repeated_edge_block(
-              page, i, block, repeated_heads, repeated_tails,
-            ) {
-            ()
-          } else if text == "" {
-            ()
-          } else {
-            kept.push(block)
-          }
+      match decision.status {
+        PdfNoiseDecisionStatus::Drop => ()
+        PdfNoiseDecisionStatus::Keep => if text != "" { kept.push(block) }
       }
     }
 
@@ -53,64 +45,6 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   }
 
   { pages, }
-}
-
-///|
-/// 检测跨页重复页眉/页脚块。
-///
-/// 当前策略非常保守：
-/// - 只看每页前 1~2 个块、后 1~2 个块
-/// - 只统计短块
-/// - 文本归一化后跨页出现达到阈值才判 repeated noise
-fn detect_repeated_edge_noise(
-  doc : PdfConvertDocument,
-) -> (Array[String], Array[String]) {
-  let head_count = Map::new()
-  let tail_count = Map::new()
-
-  for page in doc.pages {
-    let blocks = normalized_nonempty_blocks(page)
-    let n = blocks.length()
-    if n == 0 {
-      continue
-    }
-
-    let head = blocks[0]
-    let head_key = normalize_noise_key(head.text)
-    if head_key != "" && is_repeated_noise_candidate_block(head) {
-      let old = head_count.get(head_key) |> Option::unwrap_or(0)
-      head_count.set(head_key, old + 1)
-    }
-
-    let tail = blocks[n - 1]
-    let tail_key = normalize_noise_key(tail.text)
-    if tail_key != "" && is_repeated_noise_candidate_block(tail) {
-      let old = tail_count.get(tail_key) |> Option::unwrap_or(0)
-      tail_count.set(tail_key, old + 1)
-    }
-  }
-
-  let page_n = doc.pages.length()
-  let threshold = if page_n <= 2 { 2 } else { (page_n + 1) / 2 }
-
-  let heads = Array::new()
-  let tails = Array::new()
-
-  for entry in head_count {
-    let (k, v) = entry
-    if v >= threshold && k.length() <= 80 {
-      heads.push(k)
-    }
-  }
-
-  for entry in tail_count {
-    let (k, v) = entry
-    if v >= threshold && k.length() <= 80 {
-      tails.push(k)
-    }
-  }
-
-  (heads, tails)
 }
 
 ///|
@@ -164,41 +98,6 @@ fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
   }
 
   true
-}
-
-///|
-/// 是否删除当前 block：
-/// - 必须位于页首/页尾非空块
-/// - 并且 key 命中 repeated head/tail
-/// - 若 page box 可用，还必须落在页面 top/bottom edge zone
-fn should_drop_repeated_edge_block(
-  page : PdfConvertPage,
-  block_index : Int,
-  block : PdfConvertBlock,
-  repeated_heads : Array[String],
-  repeated_tails : Array[String],
-) -> Bool {
-  let key = normalize_noise_key(block.text)
-  if key == "" {
-    return false
-  }
-
-  let first_idx = first_nonempty_block_index(page)
-  let last_idx = last_nonempty_block_index(page)
-
-  if block_index == first_idx &&
-    contains_string(repeated_heads, key) &&
-    is_top_edge_block(page, block) {
-    return true
-  }
-
-  if block_index == last_idx &&
-    contains_string(repeated_tails, key) &&
-    is_bottom_edge_block(page, block) {
-    return true
-  }
-
-  false
 }
 
 ///|

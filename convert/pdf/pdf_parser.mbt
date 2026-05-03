@@ -58,6 +58,7 @@ pub async fn parse_pdf(
       debug_print_convert_images(page)
       debug_print_convert_annotations(page)
       debug_print_convert_blocks(page)
+      debug_print_heading_decisions(page, max_heading)
     }
 
     debug_print_page_edge_blocks(doc1)
@@ -71,6 +72,8 @@ pub async fn parse_pdf(
   let doc5 = attach_high_confidence_uri_links(doc4)
 
   if pipeline_debug {
+    debug_print_noise_decisions(doc2)
+    debug_print_merge_decisions(doc3)
     println(debug_convert_document_summary(doc5))
   }
 
