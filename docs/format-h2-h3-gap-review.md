@@ -528,8 +528,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
+* H2 readiness audited, H2 complete
 * pending H3 review
 
 #### Current strengths
@@ -537,20 +536,25 @@ reusable even outside Markdown conversion.
 * stable conservative object/list/table/code-block mapping
 * metadata coverage and smoke benchmarks already exist
 * mixed/nested fallback behavior is explicit
+* explicit `RichTable` metadata semantics are already in place
+* unicode escape decoding and strict number grammar are now in place
 
-#### H2 quality gaps
+#### H2 quality outcome
 
-* unicode-escape behavior remains conservative and may need parity review
-* real-world nested JSON needs broader coverage
-* array-of-objects table decisions should be compared against mainstream tools
-* malformed and irregular payload behavior should be reviewed against product
-  expectations
+* valid `\uXXXX` escapes now decode to Unicode text, including surrogate pairs
+* malformed unicode, bad numbers, trailing commas, and raw control characters
+  fail closed
+* scalar roots, scalar arrays, object roots, and uniform object arrays lower
+  deterministically
+* stable-key object arrays keep RichTable semantics even when later object key
+  order differs
+* nested values are preserved as compact JSON strings instead of being
+  misleadingly flattened
 
 #### Bottom-layer gaps
 
-* parser completeness
-* unicode decoding policy
-* richer nested JSON model if H2 proves current fallback too weak
+* streaming/materialization split for very large JSON payloads
+* richer nested JSON model only if a concrete product need appears
 
 #### H3 performance gaps
 
@@ -561,16 +565,16 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run JSON H2 review on real API/config samples
-* decide whether unicode escape decoding belongs in parser/core
 * benchmark nested vs table-friendly JSON separately
 * evaluate overlap-comparison practicality and corpus shape
 
 #### Non-goals for now
 
 * schema inference
+* JSON Lines
 * JSON Schema validation
 * business-semantic guessing
+* arbitrary nested flattening
 
 ### YAML / YML
 

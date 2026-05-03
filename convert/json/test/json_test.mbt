@@ -245,3 +245,132 @@ test "json malformed input fails closed" {
   let result = try? @json.parse_json(malformed, "", 6)
   assert_true(result is Err(_))
 }
+
+///|
+test "json decodes unicode escapes and surrogate pairs" {
+  let unicode_doc = @json.parse_json(
+    resolve_sample_path("samples/main_process/json/json_unicode_escape.json"),
+    "",
+    6,
+  )
+  let unicode_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/json/json_unicode_escape.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(unicode_doc), unicode_expected)
+
+  let root = json_test_root()
+  let out_dir = root + "/unicode"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let surrogate_path = out_dir + "/surrogate.json"
+  write_utf8_text(surrogate_path, "{\"emoji\":\"\\ud83d\\ude00\"}\n")
+  let surrogate_doc = @json.parse_json(surrogate_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(surrogate_doc),
+    "| Key | Value |\n| --- | --- |\n| emoji | 😀 |\n",
+  )
+}
+
+///|
+test "json number grammar stays strict and complete" {
+  let root = json_test_root()
+  let out_dir = root + "/numbers"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let valid_path = out_dir + "/valid.json"
+  write_utf8_text(
+    valid_path, "{\"i\":0,\"neg\":-1,\"dec\":3.14,\"frac\":-0.5,\"exp\":1e10,\"negexp\":-2.5E-3}\n",
+  )
+  let valid_doc = @json.parse_json(valid_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(valid_doc),
+    "| Key | Value |\n| --- | --- |\n| i | 0 |\n| neg | -1 |\n| dec | 3.14 |\n| frac | -0.5 |\n| exp | 1e10 |\n| negexp | -2.5E-3 |\n",
+  )
+
+  let invalid_cases = [
+    ("leading_zero.json", "{\"n\":01}\n"),
+    ("trailing_dot.json", "{\"n\":1.}\n"),
+    ("leading_dot.json", "{\"n\":.5}\n"),
+    ("bad_exp.json", "{\"n\":1e}\n"),
+    ("nan.json", "{\"n\":NaN}\n"),
+    ("infinity.json", "{\"n\":Infinity}\n"),
+  ]
+
+  for i in 0..<invalid_cases.length() {
+    let entry = invalid_cases[i]
+    let path = out_dir + "/" + entry.0
+    write_utf8_text(path, entry.1)
+    assert_true((try? @json.parse_json(path, "", 6)) is Err(_))
+  }
+}
+
+///|
+test "json array lowering keeps stable RichTable and conservative fallback" {
+  let table_doc = @json.parse_json(
+    resolve_sample_path(
+      "samples/main_process/json/json_array_objects_table.json",
+    ),
+    "",
+    6,
+  )
+  match table_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 1)
+      assert_eq(table.rows[0], ["name", "role"])
+    }
+    _ => fail("uniform object array should emit RichTable")
+  }
+
+  let root = json_test_root()
+  let out_dir = root + "/arrays"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let reorder_path = out_dir + "/reordered.json"
+  write_utf8_text(
+    reorder_path, "[{\"name\":\"Alice\",\"role\":\"Engineer\"},{\"role\":\"Designer\",\"name\":\"Bob\"}]\n",
+  )
+  let reorder_doc = @json.parse_json(reorder_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(reorder_doc),
+    "| name | role |\n| --- | --- |\n| Alice | Engineer |\n| Bob | Designer |\n",
+  )
+
+  let nested_path = out_dir + "/nested_values.json"
+  write_utf8_text(
+    nested_path, "[{\"name\":\"Alice\",\"meta\":{\"team\":\"Search\"}},{\"name\":\"Bob\",\"meta\":{\"team\":\"Infra\"}}]\n",
+  )
+  let nested_doc = @json.parse_json(nested_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(nested_doc),
+    "| name | meta |\n| --- | --- |\n| Alice | {\"team\":\"Search\"} |\n| Bob | {\"team\":\"Infra\"} |\n",
+  )
+}
+
+///|
+test "json invalid escapes and control characters fail closed" {
+  let root = json_test_root()
+  let out_dir = root + "/invalid-strings"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let invalid_cases = [
+    ("bad_unicode.json", "{\"text\":\"\\uZZZZ\"}\n"),
+    ("lone_high.json", "{\"text\":\"\\ud83d\"}\n"),
+    ("lone_low.json", "{\"text\":\"\\ude00\"}\n"),
+    ("bad_control.json", "{\"text\":\"" + "\u{0001}" + "\"}\n"),
+    ("trailing_comma.json", "[1,2,]\n"),
+    ("unclosed_string.json", "{\"text\":\"abc}\n"),
+  ]
+
+  for i in 0..<invalid_cases.length() {
+    let entry = invalid_cases[i]
+    let path = out_dir + "/" + entry.0
+    write_utf8_text(path, entry.1)
+    assert_true((try? @json.parse_json(path, "", 6)) is Err(_))
+  }
+}

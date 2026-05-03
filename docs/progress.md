@@ -21,7 +21,8 @@ The repository is now in a documented multi-format product-hardening stage:
 * sample validation temp-dir isolation is in place
 * TXT / Markdown H2 readiness is audited and documented
 * CSV / TSV H2 readiness is audited and documented
-* JSON / YAML / XML have H1 baselines in place
+* JSON H2 readiness is audited and documented
+* YAML / XML have H1 baselines in place
 * HTML / XLSX / ZIP / EPUB have completed review passes and stronger baselines
 * DOCX / PPTX have completed H2 review passes
 * PDF has completed a core-first H2/P4 pass through benchmark/comparison
@@ -69,7 +70,8 @@ current next-stage Top 10.
 
 * TXT / Markdown: H2 complete
 * CSV / TSV: H2 complete
-* JSON / YAML / XML: H1 complete
+* JSON: H2 complete
+* YAML / XML: H1 complete
 * HTML / XLSX / ZIP / EPUB: reviewed and baseline-strengthened
 * DOCX / PPTX: H2 review completed
 * PDF: core-first H2/P4 pass completed through benchmark/comparison refresh

@@ -238,19 +238,25 @@ Supported:
 * mixed / nested fallback -> code block
 * UTF-8 BOM removal
 * CRLF / CR normalization
+* standard JSON escape decoding including valid `\uXXXX`
+* valid unicode surrogate-pair decoding
+* strict JSON number grammar for integer / fraction / exponent forms
 
 Conservative behavior:
 
 * object tables use explicit header semantics only where structure is obvious
 * regular object arrays only become tables when all rows share the same key set
+* nested object/array cell values inside otherwise tabular object arrays are
+  preserved as compact JSON strings instead of being flattened
 
 Known limits:
 
 * no JSON Schema
 * no JSON Lines
 * no streaming parser path
-* unicode escapes are preserved in decoded string values as conservative text
 * no nested provenance beyond root `key_path`
+* duplicate keys keep parser source order; no deduplication semantics are added
+* no relaxed JSON comments or trailing-comma support
 
 ### YAML / YML
 

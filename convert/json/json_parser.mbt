@@ -146,17 +146,7 @@ fn JsonParser::parse_string(self : JsonParser) -> String raise {
         'n' => out.push('\n')
         'r' => out.push('\r')
         't' => out.push('\t')
-        'u' => {
-          out.push('\\')
-          out.push('u')
-          for _ in 0..<4 {
-            self.pos = self.pos + 1
-            if self.pos >= self.chars.length() || !is_hex(self.chars[self.pos]) {
-              raise @cor.AppError("json: invalid unicode escape")
-            }
-            out.push(self.chars[self.pos])
-          }
-        }
+        'u' => self.parse_unicode_escape(out)
         _ => raise @cor.AppError("json: invalid escape")
       }
       self.pos = self.pos + 1
@@ -165,6 +155,10 @@ fn JsonParser::parse_string(self : JsonParser) -> String raise {
 
     if ch == '\n' || ch == '\r' {
       raise @cor.AppError("json: raw newline in string")
+    }
+
+    if ch.to_int() < 0x20 {
+      raise @cor.AppError("json: raw control character in string")
     }
 
     out.push(ch)
@@ -185,7 +179,9 @@ fn JsonParser::parse_number(self : JsonParser) -> String raise {
   }
 
   if self.consume_char('0') {
-    ()
+    if self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
+      raise @cor.AppError("json: invalid leading zero")
+    }
   } else if self.pos < self.chars.length() && is_digit_1_9(self.chars[self.pos]) {
     self.pos = self.pos + 1
     while self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
@@ -277,4 +273,83 @@ fn is_hex(ch : Char) -> Bool {
   (ch >= '0' && ch <= '9') ||
   (ch >= 'a' && ch <= 'f') ||
   (ch >= 'A' && ch <= 'F')
+}
+
+///|
+fn JsonParser::parse_unicode_escape(
+  self : JsonParser,
+  out : Array[Char],
+) -> Unit raise {
+  let code = self.read_hex_quad()
+
+  if is_high_surrogate(code) {
+    self.pos = self.pos + 1
+    if self.pos >= self.chars.length() || self.chars[self.pos] != '\\' {
+      raise @cor.AppError("json: invalid unicode surrogate pair")
+    }
+    self.pos = self.pos + 1
+    if self.pos >= self.chars.length() || self.chars[self.pos] != 'u' {
+      raise @cor.AppError("json: invalid unicode surrogate pair")
+    }
+    let low = self.read_hex_quad()
+    if !is_low_surrogate(low) {
+      raise @cor.AppError("json: invalid unicode surrogate pair")
+    }
+    let cp = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+    append_codepoint(out, cp)
+    return
+  }
+
+  if is_low_surrogate(code) {
+    raise @cor.AppError("json: lone low surrogate")
+  }
+
+  append_codepoint(out, code)
+}
+
+///|
+fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
+  let mut code = 0
+  for _ in 0..<4 {
+    self.pos = self.pos + 1
+    if self.pos >= self.chars.length() || !is_hex(self.chars[self.pos]) {
+      raise @cor.AppError("json: invalid unicode escape")
+    }
+    code = (code << 4) + hex_value(self.chars[self.pos])
+  }
+  code
+}
+
+///|
+fn append_codepoint(out : Array[Char], cp : Int) -> Unit {
+  if cp <= 0xFFFF {
+    out.push(Int::unsafe_to_char(cp))
+    return
+  }
+
+  let entity = "&#" + cp.to_string() + ";"
+  for ch in @cor.decode_numeric_entities(entity).to_array() {
+    out.push(ch)
+  }
+}
+
+///|
+fn is_high_surrogate(code : Int) -> Bool {
+  code >= 0xD800 && code <= 0xDBFF
+}
+
+///|
+fn is_low_surrogate(code : Int) -> Bool {
+  code >= 0xDC00 && code <= 0xDFFF
+}
+
+///|
+fn hex_value(ch : Char) -> Int {
+  if ch >= '0' && ch <= '9' {
+    return ch.to_int() - '0'.to_int()
+  }
+  if ch >= 'a' && ch <= 'f' {
+    return 10 + ch.to_int() - 'a'.to_int()
+  }
+  10 + ch.to_int() - 'A'.to_int()
 }

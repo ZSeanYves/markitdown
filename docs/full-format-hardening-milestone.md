@@ -28,7 +28,7 @@ Important framing:
 | Markdown / MD / MARKDOWN | H2 readiness audited, H2 complete | passthrough baseline, normalization, metadata, smoke baseline, frontmatter passthrough policy | larger passthrough profiling, batch performance |
 | CSV | H2 readiness audited, H2 complete | table baseline, quoted delimiter/newline handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, wider overlap corpus |
 | TSV | H2 readiness audited, H2 complete | table baseline, quoted tab handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, overlap-comparison practicality |
-| JSON | H1 complete | conservative structured-data baseline, metadata, smoke baseline | unicode escape handling, parser completeness, large nested profiling |
+| JSON | H2 readiness audited, H2 complete | conservative structured-data baseline, unicode escape decoding, strict number grammar, RichTable metadata semantics, smoke baseline | large nested profiling, streaming/materialization behavior, overlap-comparison practicality |
 | YAML / YML | H1 complete | conservative structured-data baseline, metadata, smoke baseline | subset definition, anchors, multiline scalars, document separators |
 | XML | H1 complete | source-preserving fenced-code baseline, metadata, smoke baseline | safe tokenizer/event model if H2 requires it |
 | HTML / HTM | H1 reviewed, baseline strengthened, H2 gaps documented | static HTML baseline, assets/metadata coverage, smoke baseline, H2 review doc | DOM/entity/source-origin improvements, rowspan/colspan, details/table cell semantics |
@@ -60,7 +60,9 @@ What is completed:
 * Markdown is stable as conservative passthrough/normalization
 * CSV / TSV are stable as conservative table conversion with explicit table
   metadata semantics
-* JSON / YAML are stable as conservative structured-data conversion
+* JSON is stable as conservative structured-data conversion with standard escape
+  decoding and explicit table metadata semantics
+* YAML is stable as conservative structured-data conversion
 * XML is stable as source-preserving fenced `xml` output
 
 Remaining focus:
@@ -68,7 +70,7 @@ Remaining focus:
 * TXT: very large file / batch behavior and encoding fallback policy
 * Markdown: frontmatter policy and large passthrough speed
 * CSV / TSV: streaming and large-table memory behavior
-* JSON: unicode escape handling, parser completeness, large nested cases
+* JSON: large nested cases, streaming/materialization behavior
 * YAML: subset definition, anchors, multiline scalars, document separators
 * XML: safe tokenizer / event model if H2 requires a richer lower layer
 

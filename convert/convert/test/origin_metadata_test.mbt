@@ -1029,6 +1029,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !json_json.contains("\"document\": null") {
     fail("json metadata should keep document null")
   }
+  if !json_json.contains("\"table\": {") {
+    fail("json metadata should expose table payload for RichTable blocks")
+  }
+  if !json_json.contains("\"header_rows\": 1") {
+    fail("json metadata should keep explicit header_rows")
+  }
 
   let yaml_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),

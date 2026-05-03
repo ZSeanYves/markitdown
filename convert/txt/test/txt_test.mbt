@@ -192,7 +192,10 @@ test "txt thematic-break-like paragraphs stay literal and cr-only input normaliz
   ensure_dir_tree(dir)
 
   let thematic_path = dir + "/txt_thematic_break_like.txt"
-  write_bytes(thematic_path, Bytes::from_array([45, 45, 45, 10, 95, 95, 95, 10]))
+  write_bytes(
+    thematic_path,
+    Bytes::from_array([45, 45, 45, 10, 95, 95, 95, 10]),
+  )
   let thematic_doc = @txt.parse_txt(thematic_path, "", 6)
   assert_eq(@cor.emit_markdown(thematic_doc), "--- \\_\\_\\_\n")
 

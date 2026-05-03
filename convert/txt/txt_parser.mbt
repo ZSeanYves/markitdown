@@ -171,10 +171,10 @@ fn escape_txt_paragraph(text : String) -> String {
   }
 
   match thematic_break_marker(trimmed) {
-    Some(prefix) => {
-      return "\\" + prefix +
+    Some(prefix) =>
+      return "\\" +
+        prefix +
         escape_markdown_punctuation(trimmed[prefix.length():].to_owned())
-    }
     None => ()
   }
 
