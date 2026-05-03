@@ -49,7 +49,9 @@ fn parse_delimited_chars(
     field : Array[Char],
   ) -> Array[String] {
     finish_field(row, field)
-    rows.push(row)
+    if !row_is_blank(row) {
+      rows.push(row)
+    }
     []
   }
 
@@ -123,6 +125,16 @@ fn parse_delimited_chars(
   }
 
   normalize_ragged_rows(rows)
+}
+
+///|
+fn row_is_blank(row : Array[String]) -> Bool {
+  for cell in row {
+    if cell != "" {
+      return false
+    }
+  }
+  true
 }
 
 ///|

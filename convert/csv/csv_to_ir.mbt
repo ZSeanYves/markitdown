@@ -45,7 +45,7 @@ fn parse_delimited_file(
 
   @cor.push_with_origin(
     doc,
-    @cor.Block::Table(rows),
+    @cor.Block::RichTable({ rows, header_rows: 1 }),
     Some({
       source_name: Some(src),
       page: None,

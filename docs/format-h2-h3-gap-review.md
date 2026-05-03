@@ -430,8 +430,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
+* H2 readiness audited, H2 complete
 * pending H3 review
 
 #### Current strengths
@@ -441,17 +440,22 @@ reusable even outside Markdown conversion.
 * metadata/origin coverage exists
 * smoke benchmark small / medium / large exists
 * overlap-only CSV comparison exists
+* explicit `RichTable` header semantics and sparse table metadata are now in
+  place
 
-#### H2 quality gaps
+#### H2 quality outcome
 
-* larger real-world CSVs and ragged datasets need review
-* header semantics should be compared against mainstream tools more carefully
-* multiline-cell readability and escaping behavior need real-world validation
+* conservative RFC-4180-ish parsing is in place for supported cases
+* ragged rows, trailing empty cells, quoted delimiters, and quoted newlines are
+  stable
+* metadata now carries explicit table rows/header metadata without changing
+  Markdown output
+* malformed unterminated quoted fields fail closed
+* additional real-world corpora are still useful, but no longer block H2
 
 #### Bottom-layer gaps
 
-* delimited parser robustness
-* table model for larger/streamed data
+* optional streaming/materialization split for very large delimited files
 * optional streaming path for large files
 
 #### H3 performance gaps
@@ -462,7 +466,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run CSV H2 review on real-world exported datasets
 * add wide-table and very tall-table benchmarks
 * evaluate need for streaming parser path
 * compare additional CSV overlap cases against MarkItDown
@@ -477,8 +480,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
+* H2 readiness audited, H2 complete
 * pending H3 review
 
 #### Current strengths
@@ -486,18 +488,22 @@ reusable even outside Markdown conversion.
 * stable tab-delimited table conversion
 * metadata/origin coverage exists
 * smoke benchmark small / medium / large exists
+* explicit `RichTable` header semantics and sparse table metadata are now in
+  place
 
-#### H2 quality gaps
+#### H2 quality outcome
 
-* broader real-world TSV coverage is still needed
-* multiline/escaping conventions need validation against actual TSV producers
-* parity expectations should be separated from CSV where behavior differs
+* stable tab-delimited parsing is in place through the shared delimited parser
+* trailing empty cells, ragged rows, quoted tabs, and pipe-safe Markdown cells
+  are stable
+* metadata now carries explicit table rows/header metadata without changing
+  Markdown output
+* TSV overlap-comparison practicality remains separate from H2 completeness
 
 #### Bottom-layer gaps
 
-* shared delimited parser quality
 * possible large-table streaming path
-* table model scalability
+* large-table memory behavior
 
 #### H3 performance gaps
 
@@ -508,7 +514,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* run TSV H2 review on real exported corpora
 * benchmark large/wide TSV separately from CSV
 * evaluate overlap-comparison practicality with mainstream tools
 * review shared delimited parser scalability

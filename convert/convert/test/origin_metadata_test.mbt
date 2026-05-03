@@ -999,6 +999,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !csv_json.contains("\"document\": null") {
     fail("csv metadata should keep document null")
   }
+  if !csv_json.contains("\"table\": {") {
+    fail("csv metadata should expose table payload for RichTable blocks")
+  }
+  if !csv_json.contains("\"header_rows\": 1") {
+    fail("csv metadata should keep explicit header_rows")
+  }
 
   let json_doc = @json.parse_json(
     resolve_sample_path("samples/main_process/json/json_object_basic.json"),
@@ -1273,6 +1279,13 @@ test "origin_metadata/structured_text_block_origins" {
   if csv_origin.key_path != None {
     fail("csv table block should not set key_path")
   }
+  match csv_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("csv should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("csv should emit RichTable for table semantics")
+  }
 
   let tsv_doc = @csv.parse_tsv(
     resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
@@ -1294,6 +1307,13 @@ test "origin_metadata/structured_text_block_origins" {
   }
   if tsv_origin.key_path != None {
     fail("tsv table block should not set key_path")
+  }
+  match tsv_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("tsv should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("tsv should emit RichTable for table semantics")
   }
 
   let json_object_doc = @json.parse_json(

@@ -208,12 +208,15 @@ Supported:
 * UTF-8 BOM removal
 * CRLF / CR normalization
 * ragged-row normalization
+* blank-line skipping inside delimited inputs
+* explicit table metadata with `rows` and `header_rows`
 * physical line-range provenance
 
 Conservative behavior:
 
 * output is a single table, not schema-aware typing
 * current Markdown table emission treats the first row as the header row
+* malformed unterminated quoted fields fail closed instead of guessing
 
 Known limits:
 
@@ -221,6 +224,7 @@ Known limits:
 * no dialect sniffing
 * no delimiter auto-detection beyond file extension
 * no schema inference
+* no formula/date/type inference
 
 ### JSON
 

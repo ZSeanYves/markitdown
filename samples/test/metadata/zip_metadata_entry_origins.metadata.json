@@ -135,7 +135,15 @@
         "column_index": 1,
         "key_path": "tables/people.csv"
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["Name", "Role"],
+          ["Ada", "Engineer"],
+          ["Bob", "Designer"]
+        ],
+        "header_rows": 1
+      }
     }
   ],
   "assets": [

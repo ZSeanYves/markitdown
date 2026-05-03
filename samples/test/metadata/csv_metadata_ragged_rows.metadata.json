@@ -26,7 +26,15 @@
         "row_index": 1,
         "column_index": 1
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["Name", "Role", "Location", ""],
+          ["Alice", "Engineer", "", ""],
+          ["Bob", "Designer", "LA", "Extra"]
+        ],
+        "header_rows": 1
+      }
     }
   ],
   "assets": [

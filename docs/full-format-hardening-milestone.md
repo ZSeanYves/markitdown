@@ -26,8 +26,8 @@ Important framing:
 | --- | --- | --- | --- |
 | TXT | H2 readiness audited, H2 complete | conservative paragraph conversion, literal-safe Markdown output, metadata, smoke baseline, overlap comparison baseline | very large file behavior, batch profiling, encoding fallback policy |
 | Markdown / MD / MARKDOWN | H2 readiness audited, H2 complete | passthrough baseline, normalization, metadata, smoke baseline, frontmatter passthrough policy | larger passthrough profiling, batch performance |
-| CSV | H1 complete | table baseline, quoted delimiter handling, ragged rows, metadata, smoke baseline | streaming, large-table memory behavior, richer table model |
-| TSV | H1 complete | table baseline, ragged rows, metadata, smoke baseline | streaming, large-table memory behavior, richer table model |
+| CSV | H2 readiness audited, H2 complete | table baseline, quoted delimiter/newline handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, wider overlap corpus |
+| TSV | H2 readiness audited, H2 complete | table baseline, quoted tab handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, overlap-comparison practicality |
 | JSON | H1 complete | conservative structured-data baseline, metadata, smoke baseline | unicode escape handling, parser completeness, large nested profiling |
 | YAML / YML | H1 complete | conservative structured-data baseline, metadata, smoke baseline | subset definition, anchors, multiline scalars, document separators |
 | XML | H1 complete | source-preserving fenced-code baseline, metadata, smoke baseline | safe tokenizer/event model if H2 requires it |
@@ -58,7 +58,8 @@ What is completed:
   already consolidated
 * TXT is stable as literal-safe paragraph conversion
 * Markdown is stable as conservative passthrough/normalization
-* CSV / TSV are stable as conservative table conversion
+* CSV / TSV are stable as conservative table conversion with explicit table
+  metadata semantics
 * JSON / YAML are stable as conservative structured-data conversion
 * XML is stable as source-preserving fenced `xml` output
 
@@ -66,7 +67,7 @@ Remaining focus:
 
 * TXT: very large file / batch behavior and encoding fallback policy
 * Markdown: frontmatter policy and large passthrough speed
-* CSV / TSV: streaming, large-table memory behavior, richer table model
+* CSV / TSV: streaming and large-table memory behavior
 * JSON: unicode escape handling, parser completeness, large nested cases
 * YAML: subset definition, anchors, multiline scalars, document separators
 * XML: safe tokenizer / event model if H2 requires a richer lower layer
