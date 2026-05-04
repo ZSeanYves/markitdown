@@ -1,5 +1,5 @@
 ## Slide 1
 
-Top box
+### Top box
 
 Bottom box

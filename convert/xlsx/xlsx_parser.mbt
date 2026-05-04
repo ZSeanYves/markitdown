@@ -1,51 +1,22 @@
 ///|
-/// XLSX MVP parser (MoonBit)
-/// - package access: reuse OOXML package layer
-/// - XML parsing: lightweight string scanning (good enough for MVP)
-/// - Output: Heading + Table per sheet
+/// XLSX lower-layer aware parser (MoonBit)
 ///
-/// Limitations:
+/// Product policy:
 /// - no formula evaluation
-/// - merged cells ignored
-/// - lightweight date/time formatting support for common built-in/custom Excel numFmt
-/// - current cell type support focuses on shared strings / inline strings / numbers / booleans / string results / errors
+/// - cached values are used when present
+/// - merged ranges are detected but not visually reconstructed
+/// - hidden sheets are emitted in workbook order
+/// - output remains conservative heading + table lowering
 pub fn parse_xlsx(
   input_path : String,
   _out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
-  // 1) open package
-  let p = open_xlsx(input_path) catch {
-    e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())
-  }
-
-  // 2) read workbook.xml + rels
-  let wb_xml = p.read_text_required("xl/workbook.xml")
-
-  // 3) sharedStrings.xml is optional
-  let shared : Array[String] = if @ox.has_part(p.pkg, "xl/sharedStrings.xml") {
-    let ss_xml = p.read_text_optional("xl/sharedStrings.xml")
-    parse_shared_strings(ss_xml)
-  } else {
-    []
-  }
-
-  // 4) styles.xml is optional
-  let styles = if @ox.has_part(p.pkg, "xl/styles.xml") {
-    let styles_xml = p.read_text_optional("xl/styles.xml")
-    parse_styles_xml(styles_xml)
-  } else {
-    empty_styles()
-  }
-
-  // 5) parse sheets
-  let sheets = parse_workbook_sheets(p.pkg, wb_xml)
-
-  // 6) build IR
+  let workbook = inspect_xlsx(input_path)
   let doc = @cor.new_document()
-  let src = @cor.basename(input_path)
+  let src = workbook.source_name
 
-  if sheets.length() == 0 {
+  if workbook.sheets.length() == 0 {
     @cor.push_with_origin(
       doc,
       @cor.Block::Paragraph("(no sheets found)"),
@@ -68,127 +39,132 @@ pub fn parse_xlsx(
     return doc
   }
 
-  for i in 0..<sheets.length() {
-    let sh = sheets[i]
-    let sheet_name = sh.name
-    @cor.push_with_origin(
-      doc,
-      @cor.Block::Heading(clamp_heading(2, max_heading), sheet_name),
-      Some({
-        source_name: Some(src),
-        page: None,
-        slide: None,
-        sheet: Some(sheet_name),
-        block_index: Some(doc.blocks.val.length()),
-        heading_path: None,
-        line_start: None,
-        line_end: None,
-        row_index: None,
-        column_index: None,
-        object_ref: None,
-        relationship_id: None,
-        key_path: None,
-      }),
-    )
+  for sheet in workbook.sheets {
+    push_sheet_blocks(doc, src, sheet, max_heading)
+  }
 
-    let sheet_path = normalize_sheet_part_target(sh.target)
+  doc
+}
 
-    if sheet_path == "" || !@ox.has_part(p.pkg, sheet_path) {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Paragraph("(missing sheet xml: " + sheet_path + ")"),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
-      )
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::BlankLine,
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
+///|
+pub fn inspect_xlsx(input_path : String) -> XlsxWorkbookModel raise {
+  let p = open_xlsx(input_path) catch {
+    e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())
+  }
+
+  let wb_xml = p.read_text_required("xl/workbook.xml")
+  let shared : Array[String] = if @ox.has_part(p.pkg, "xl/sharedStrings.xml") {
+    parse_shared_strings(p.read_text_optional("xl/sharedStrings.xml"))
+  } else {
+    []
+  }
+  let styles = if @ox.has_part(p.pkg, "xl/styles.xml") {
+    parse_styles_xml(p.read_text_optional("xl/styles.xml"))
+  } else {
+    empty_styles()
+  }
+  let uses_date_1904 = workbook_uses_date_1904(wb_xml)
+  let sheet_infos = parse_workbook_sheets(p.pkg, wb_xml)
+  let sheets : Array[XlsxSheetModel] = []
+
+  for info in sheet_infos {
+    let normalized_target = match info.target {
+      Some(target) => normalize_sheet_part_target(target)
+      None => ""
+    }
+    if !info.is_supported_worksheet {
+      sheets.push(
+        empty_sheet_model(
+          info.name,
+          Some(info._rid),
+          info.rel_type,
+          if normalized_target == "" {
+            None
+          } else {
+            Some(normalized_target)
+          },
+          info.state,
+          false,
+          false,
+        ),
       )
       continue
     }
 
-    let sh_xml = p.read_text_required(sheet_path)
-    let table_extract = parse_sheet_table(sh_xml, shared, styles)
-    let table = table_extract.rows
-
-    if table.length() == 0 {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Paragraph("(empty sheet)"),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: None,
-          line_end: None,
-          row_index: None,
-          column_index: None,
-          object_ref: None,
-          relationship_id: None,
-          key_path: None,
-        }),
+    if normalized_target == "" || !@ox.has_part(p.pkg, normalized_target) {
+      sheets.push(
+        empty_sheet_model(
+          info.name,
+          Some(info._rid),
+          info.rel_type,
+          if normalized_target == "" {
+            None
+          } else {
+            Some(normalized_target)
+          },
+          info.state,
+          true,
+          false,
+        ),
       )
-    } else {
-      @cor.push_with_origin(
-        doc,
-        @cor.Block::Table(table),
-        Some({
-          source_name: Some(src),
-          page: None,
-          slide: None,
-          sheet: Some(sheet_name),
-          block_index: Some(doc.blocks.val.length()),
-          heading_path: None,
-          line_start: Some(table_extract.min_row),
-          line_end: Some(table_extract.max_row),
-          row_index: Some(table_extract.min_row),
-          column_index: Some(table_extract.min_col),
-          object_ref: None,
-          relationship_id: Some(sh._rid),
-          key_path: None,
-        }),
-      )
+      continue
     }
 
+    let sh_xml = p.read_text_required(normalized_target)
+    sheets.push(
+      parse_sheet_model(
+        info.name,
+        Some(info._rid),
+        info.rel_type,
+        Some(normalized_target),
+        info.state,
+        sh_xml,
+        shared,
+        styles,
+        uses_date_1904,
+      ),
+    )
+  }
+
+  { source_name: @cor.basename(input_path), uses_date_1904, sheets }
+}
+
+///|
+fn push_sheet_blocks(
+  doc : @cor.Document,
+  src : String,
+  sheet : XlsxSheetModel,
+  max_heading : Int,
+) -> Unit {
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Heading(clamp_heading(2, max_heading), sheet.name),
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
+
+  if !sheet.is_supported_worksheet {
     @cor.push_with_origin(
       doc,
-      @cor.Block::BlankLine,
+      @cor.Block::Paragraph("(unsupported sheet type)"),
       Some({
         source_name: Some(src),
         page: None,
         slide: None,
-        sheet: Some(sheet_name),
+        sheet: Some(sheet.name),
         block_index: Some(doc.blocks.val.length()),
         heading_path: None,
         line_start: None,
@@ -196,11 +172,94 @@ pub fn parse_xlsx(
         row_index: None,
         column_index: None,
         object_ref: None,
-        relationship_id: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  } else if !sheet.has_sheet_xml {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Paragraph(
+        "(missing sheet xml: " + sheet.part_target.unwrap_or("") + ")",
+      ),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  } else if sheet.table_rows.length() == 0 {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Paragraph("(empty sheet)"),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  } else {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::RichTable({
+        rows: sheet.table_rows,
+        header_rows: sheet.header_rows,
+      }),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: Some(sheet.used_min_row),
+        line_end: Some(sheet.used_max_row),
+        row_index: Some(sheet.used_min_row),
+        column_index: Some(sheet.used_min_col),
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
         key_path: None,
       }),
     )
   }
 
-  doc
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::BlankLine,
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
 }

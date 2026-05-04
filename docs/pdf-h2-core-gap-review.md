@@ -4,11 +4,15 @@ This document records the first planning pass for PDF H2 work.
 
 Status update:
 
-* PDF P1 `pdf_core` model/debug signal pass is completed
+* PDF P1 `doc_parse/pdf` model/debug signal pass is completed
 * PDF P1.1 annotation/link signal pass is completed
 * PDF P2.2 high-confidence URI link emission is completed
 * PDF P3/P4 heading/noise/cross-page passes are completed through benchmark and
   comparison refresh
+* PDF conservative table/caption passes and numeric page-number scoping pass
+  are completed
+* PDF final closure re-audit now treats PDF as H2 complete, with remaining
+  deeper layout/semantic gaps kept as documented limitations
 * current implementation notes are tracked in
   [docs/pdf-core-model-debug-pass.md](./pdf-core-model-debug-pass.md)
 * current heading / noise / cross-page attribution notes are tracked in
@@ -16,7 +20,7 @@ Status update:
 
 Scope for this round:
 
-* audit the current `pdf_core` and `convert/pdf` architecture
+* audit the current `doc_parse/pdf` and `convert/pdf` architecture
 * identify which H2 gaps are really core gaps
 * identify which H2 improvements can stay in `convert/pdf`
 * inventory current samples and benchmark coverage
@@ -27,9 +31,9 @@ PDF semantics by itself.
 
 ## Current PDF Architecture Map
 
-### `pdf_core` / `doc_parse` map
+### `doc_parse/pdf` / `doc_parse` map
 
-Current PDF lower-layer code is centered under `doc_parse/pdf_core/`:
+Current PDF lower-layer code is centered under `doc_parse/pdf/`:
 
 * `raw/mbtpdf_text_adapter.mbt`
   Reads PDFs through vendored `mbtpdf`, walks page content streams, and emits
@@ -62,13 +66,13 @@ Current PDF lower-layer code is centered under `doc_parse/pdf_core/`:
   Image payload and provenance-facing image structs.
 * `model/pdf_page_model.mbt`
   Page/document containers, annotations, outlines, vectors, forms, metadata.
-* `api/pdf_core_api.mbt`
+* `api/pdf_api.mbt`
   Public API entry point and debug helpers.
-* `api/test/pdf_core_test.mbt`
+* `api/test/pdf_api_test.mbt`
   Integration-style coverage for model extraction, images, annotations, and
   debug summaries.
 
-There is no separate `pdf_core/debug` package today. Public debug surfaces live
+There is no separate `pdf debug` package today. Public debug surfaces live
 in `api`, and some lower-level helpers remain internal to the adapters.
 
 ### `convert/pdf` map
@@ -78,9 +82,9 @@ Current converter-side PDF files are under `convert/pdf/`:
 * `pdf_parser.mbt`
   Main native-or-OCR orchestration path.
 * `pdf_extract.mbt`
-  Thin bridge from `convert/pdf` into `pdf_core/api`.
+  Thin bridge from `convert/pdf` into `pdf/api`.
 * `pdf_lines.mbt`
-  Converts `pdf_core` pages/blocks/lines/images/annotations into convert-stage
+  Converts `doc_parse/pdf` pages/blocks/lines/images/annotations into convert-stage
   line/image/annotation structs.
 * `pdf_blocks.mbt`
   Rebuilds initial convert blocks and page object order.
@@ -104,7 +108,7 @@ Current converter-side PDF files are under `convert/pdf/`:
 The normal PDF path is currently:
 
 ```text
-pdf_core extract_document_model
+pdf extract_document_model
 -> build_convert_lines
 -> build_convert_blocks
 -> classify_convert_blocks
@@ -117,10 +121,10 @@ Important current architecture fact:
 
 * the native PDF path is already core-first in extraction
 * the remaining H2 question is whether the missing market-parity behavior is
-  caused by weak `pdf_core` signal, weak convert-stage use of that signal, or
+  caused by weak `doc_parse/pdf` signal, weak convert-stage use of that signal, or
   both
 
-## `pdf_core` Current Model Audit
+## `doc_parse/pdf` Current Model Audit
 
 ### Document-level
 
@@ -162,11 +166,11 @@ Important current architecture fact:
 | text lines | present | Includes bbox, baseline, line height, indents, gaps, paragraph-wrap candidates. |
 | text spans | present | Includes font family/size, style flags, scaling, spacing, language hints, chars, source refs. |
 | chars | present | Includes unicode/raw bytes/decoded text, bbox/origin/quad, glyph widths, font info, ligature and compat-glyph flags, decode confidence. |
-| heading candidate | present | Block-level flag from `pdf_core`. |
-| page number candidate | present | Block-level flag from `pdf_core`. |
-| header/footer candidate | present | Block-level flag from `pdf_core`. |
-| table-cell candidate | present | Block-level flag from `pdf_core`. |
-| caption candidate | present | Block-level flag from `pdf_core`. |
+| heading candidate | present | Block-level flag from `doc_parse/pdf`. |
+| page number candidate | present | Block-level flag from `doc_parse/pdf`. |
+| header/footer candidate | present | Block-level flag from `doc_parse/pdf`. |
+| table-cell candidate | present | Block-level flag from `doc_parse/pdf`. |
+| caption candidate | present | Block-level flag from `doc_parse/pdf`. |
 | source refs | present | Chars/spans/lines/blocks all have source refs. |
 | source op / stream refs | partial | Char/source refs are rich; page raw content stream refs are present; convert side does not preserve them. |
 
@@ -210,7 +214,7 @@ Current debug/audit surfaces:
 
 Current gaps:
 
-* no dedicated standalone `pdf_core_check` command
+* no dedicated standalone `pdf_check` command
 * no public structured raw-op dump API
 * no public page-inspect API beyond block-debug text
 * CLI `pdf_extract_debug` / `pdf_dump_selected_raw` flags are wired through
@@ -218,7 +222,7 @@ Current gaps:
 
 ## `convert/pdf` Consumption Audit
 
-| Stage | Input from `pdf_core` | Current behavior | Missing consumed signals | Notes |
+| Stage | Input from `doc_parse/pdf` | Current behavior | Missing consumed signals | Notes |
 | --- | --- | --- | --- | --- |
 | extract | full `PdfDocumentModel` | Thin bridge; maps core errors into app errors. | document flags, metadata, outlines are not acted on | Good boundary discipline; almost no heuristic work here. |
 | lines | pages, blocks, lines, images, annotations, page boxes | Converts core text blocks into convert lines; exports page images; carries annotations into convert page state. | spans/chars/source refs/decode confidence/raw content stream refs are dropped; doc metadata unused | This stage already consumes more than just strings. |
@@ -264,7 +268,7 @@ coding starts:
 
 * confirm which `PdfDocumentModel` fields are genuinely populated today and
   which are still placeholders
-* confirm which `pdf_core` signals `convert/pdf` already uses well and which it
+* confirm which `doc_parse/pdf` signals `convert/pdf` already uses well and which it
   discards
 * confirm whether current regression pain is mostly core-signal loss or
   converter-policy weakness
@@ -275,7 +279,7 @@ Why this is first:
 
 * PDF already has more lower-layer signal than a naive text extractor
 * without this audit, more heading/noise/merge rules would risk duplicating or
-  misusing information that already exists in `pdf_core`
+  misusing information that already exists in `doc_parse/pdf`
 
 ### P1: Core signal upgrades
 
@@ -336,8 +340,8 @@ Why these are later:
 | `text_simple` | yes | main-process baseline, smoke benchmark, compare baseline | stable simple text guard |
 | `text_multipage` | yes | main-process regression | stable multi-page baseline |
 | `text_hardwrap` | yes | main-process regression | stable hardwrap guard |
-| `hardwrap_en` | yes | main-process regression, `pdf_core` test coverage | stable H2 guard |
-| `hardwrap_zh` | yes | main-process regression, `pdf_core` test coverage | stable H2 guard |
+| `hardwrap_en` | yes | main-process regression, `doc_parse/pdf` test coverage | stable H2 guard |
+| `hardwrap_zh` | yes | main-process regression, `doc_parse/pdf` test coverage | stable H2 guard |
 | `not_heading_sentence` | yes | main-process regression | stable false-positive guard |
 
 ### Heading precision
@@ -377,7 +381,7 @@ Why these are later:
 | --- | --- | --- | --- |
 | PDF image provenance samples | yes | `samples/assets/pdf/*`, metadata/origin tests | stable image-provenance guard |
 | PDF image caption samples | yes | `samples/metadata/pdf/*`, metadata/origin tests | stable narrow caption guard |
-| PDF annotation/link debug samples | partial | generated in `doc_parse/pdf_core/api/test/pdf_core_test.mbt` | useful lower-layer test, but no checked-in main-process/compare guard yet |
+| PDF annotation/link debug samples | partial | generated in `doc_parse/pdf/api/test/pdf_api_test.mbt` | useful lower-layer test, but no checked-in main-process/compare guard yet |
 
 ### Benchmark inventory
 
@@ -461,7 +465,7 @@ Current PDF entry in `samples/benchmark/compare_corpus.tsv` is:
 Recommended future PDF benchmark structure:
 
 * native-core smoke
-  Focus on `pdf_core` extraction/model cost only.
+  Focus on `doc_parse/pdf` extraction/model cost only.
 * full native convert smoke
   Focus on current default path end-to-end cost.
 * profile tiers
@@ -471,9 +475,9 @@ Recommended future PDF benchmark structure:
 
 ## Recommended Next Implementation Sequence
 
-1. `pdf_core` model audit cleanup: make page/text/image/annotation/source-ref
+1. `doc_parse/pdf` model audit cleanup: make page/text/image/annotation/source-ref
    field coverage explicit and trustworthy.
-2. `pdf_core` debug dump improvements: expose page blocks/lines/spans/images/
+2. `doc_parse/pdf` debug dump improvements: expose page blocks/lines/spans/images/
    annotations more directly and make raw/extract debug surfaces usable.
 3. Heading/noise/cross-page regression attribution: classify which current
    misses are core-signal problems and which are convert-policy problems.
@@ -489,7 +493,7 @@ Recommended future PDF benchmark structure:
 ## Non-goals for Now
 
 * continue piling heading/noise/cross-page heuristics without first auditing
-  `pdf_core`
+  `doc_parse/pdf`
 * make OCR the default fast path
 * add LLM or vision as the default PDF path
 * implement a full visual layout engine

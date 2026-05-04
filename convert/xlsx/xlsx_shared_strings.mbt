@@ -41,7 +41,7 @@ fn parse_shared_strings(ss_xml : String) -> Array[String] {
                         None => break
                         Some(t_end) => {
                           let content = chunk[content_start:t_end].to_owned()
-                          acc = acc + content
+                          acc = acc + xml_unescape(content)
                           tpos = t_end + 4
                         }
                       }
@@ -51,7 +51,7 @@ fn parse_shared_strings(ss_xml : String) -> Array[String] {
               }
             }
 
-            out.push(xml_unescape(acc))
+            out.push(acc)
             pos = si_end + 5
           }
         }

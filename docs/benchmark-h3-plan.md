@@ -16,7 +16,7 @@ current baseline values remain in:
 The smoke benchmark is the repository's internal same-machine performance
 tracking harness:
 
-* script: `samples/bench_smoke.sh`
+* script: `samples/scripts/bench_smoke.sh`
 * corpus: `samples/benchmark/corpus.tsv`
 * main output root: `.tmp/bench/smoke`
 * primary artifacts:
@@ -44,7 +44,7 @@ Interpretation:
 The overlap-only comparison benchmark is the repository's selected-case runner
 comparison harness:
 
-* script: `samples/bench_compare_markitdown.sh`
+* script: `samples/scripts/bench_compare_markitdown.sh`
 * corpus: `samples/benchmark/compare_corpus.tsv`
 * main output root: `.tmp/bench/compare`
 * primary artifacts:
@@ -253,7 +253,7 @@ Current warning step:
 
 Current output for this phase:
 
-* `samples/bench_warn.sh`
+* `samples/scripts/bench_warn.sh`
 * `samples/benchmark/perf_thresholds.tsv`
 
 ### H3.6: corpus scale normalization

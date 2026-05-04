@@ -6,11 +6,55 @@ import {
 }
 
 // Values
+pub fn inspect_zip(String) -> ZipInspectReport raise
+
 pub async fn parse_zip(String, String, Int) -> @core.Document
 
 // Errors
 
 // Types and methods
+pub(all) enum ZipInspectAction {
+  Convert
+  Skip
+  Warn
+  Fail
+} derive(Eq)
+
+pub struct ZipInspectEntry {
+  raw_name : String
+  normalized_path : String?
+  entry_kind : ZipInspectEntryKind
+  action : ZipInspectAction
+  compression_method : @ZSeanYves/markitdown/doc_parse/zip.CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  flags : Int
+  has_data_descriptor : Bool
+  is_encrypted : Bool
+  uses_zip64 : Bool
+  local_header_offset : Int
+  crc32 : Int
+  dispatch_format : String?
+  note : String?
+}
+
+pub(all) enum ZipInspectEntryKind {
+  Supported
+  NestedArchive
+  Unsupported
+  Directory
+  HiddenMetadata
+  UnsafePath
+  EntryLimitExceeded
+  EntryTooLarge
+  TotalDecodedLimitExceeded
+} derive(Eq)
+
+pub struct ZipInspectReport {
+  source_name : String
+  entry_count : Int
+  entries : Array[ZipInspectEntry]
+}
 
 // Type aliases
 

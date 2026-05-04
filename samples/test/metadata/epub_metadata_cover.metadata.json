@@ -1,0 +1,116 @@
+{
+  "version": "1",
+  "source_name": "epub_metadata_cover.epub",
+  "format": "epub",
+  "markdown_file": "epub_metadata_cover.md",
+  "document": {
+  "title": "EPUB Metadata Cover",
+  "subject": null,
+  "creator": null,
+  "description": null,
+  "keywords": null,
+  "created": null,
+  "modified": null,
+  "application": "EPUB",
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 4,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_cover.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "OPS/images/cover.png"
+      },
+      "image": {
+        "path": "assets/archive/OPS_images_cover.png/image01.png",
+        "alt_text": "cover.png",
+        "title": null,
+        "caption": null
+      }
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "OPS/chapter.xhtml",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_cover.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "heading",
+      "text": "Metadata Cover Chapter",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_cover.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "paragraph",
+      "text": "Body after cover.",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_cover.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/archive/OPS_images_cover.png/image01.png",
+      "asset_type": "image",
+      "alt_text": "cover.png",
+      "title": null,
+      "caption": null,
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_cover.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "epub:OPS/images/cover.png:cover",
+        "nearby_caption": null,
+        "source_path": "OPS/images/cover.png",
+        "key_path": "OPS/images/cover.png"
+      },
+      "nearby_caption": null
+    }
+  ]
+}

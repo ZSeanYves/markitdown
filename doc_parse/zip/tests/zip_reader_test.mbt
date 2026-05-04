@@ -70,3 +70,50 @@ test "zip reader can list and read pptx core entry" {
   }
   assert_entry_readable(z, "ppt/presentation.xml")
 }
+
+///|
+test "zip inspect exposes entry structural facts" {
+  let bytes = read_sample_bytes(
+    "samples/main_process/zip/zip_basic_structured.zip",
+  )
+  let entries = @zip.inspect_zip(bytes) catch {
+    e => fail("inspect_zip failed: " + e.to_string())
+  }
+
+  if entries.length() == 0 {
+    fail("expected zip inspect entries to be non-empty")
+  }
+
+  let mut found_json = false
+  let mut found_txt = false
+  for entry in entries {
+    if entry.name == "data/person.json" {
+      found_json = true
+      if entry.is_directory {
+        fail("json entry should not be marked as directory")
+      }
+      if entry.is_encrypted {
+        fail("json entry should not be marked encrypted")
+      }
+      if entry.has_data_descriptor {
+        fail("json entry should not be marked with data descriptor")
+      }
+      if entry.uses_zip64 {
+        fail("json entry should not be marked as zip64")
+      }
+      if entry.compressed_size <= 0 || entry.uncompressed_size <= 0 {
+        fail("json entry should expose positive sizes")
+      }
+    }
+    if entry.name == "docs/readme.md" {
+      found_txt = true
+    }
+  }
+
+  if !found_json {
+    fail("expected data/person.json in inspect output")
+  }
+  if !found_txt {
+    fail("expected docs/readme.md in inspect output")
+  }
+}

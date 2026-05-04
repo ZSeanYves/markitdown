@@ -1,1 +1,1 @@
-Alpha &nbsp; Beta &copy; © & <ok>
+Alpha   Beta &copy; © & <ok>

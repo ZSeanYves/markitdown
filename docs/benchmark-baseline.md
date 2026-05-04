@@ -1,7 +1,7 @@
 # Benchmark Baseline
 
 This document records the current checked-in smoke benchmark baseline for
-`samples/bench_smoke.sh`.
+`samples/scripts/bench_smoke.sh`.
 
 It is a same-machine reference point, not a hard performance SLA.
 
@@ -78,7 +78,7 @@ For XML hardening work, the smoke corpus now includes:
 * `xml_medium`
 * `xml_large`
 
-For HTML H1/H2 review, the smoke corpus now includes:
+For HTML H2-complete support coverage, the smoke corpus now includes:
 
 * `html_mixed`
 * `html_small`
@@ -87,7 +87,7 @@ For HTML H1/H2 review, the smoke corpus now includes:
 * `html_table_large`
 * `html_mixed_content_large`
 
-For XLSX H1/H2 review, the smoke corpus now includes:
+For XLSX H2-complete support coverage, the smoke corpus now includes:
 
 * `xlsx_multi_sheet_mixed`
 * `xlsx_small`
@@ -96,7 +96,7 @@ For XLSX H1/H2 review, the smoke corpus now includes:
 * `xlsx_multi_sheet_large`
 * `xlsx_sparse_large`
 
-For ZIP H1/H2 container review, the smoke corpus now includes:
+For ZIP H2-complete container coverage, the smoke corpus now includes:
 
 * `zip_basic_structured`
 * `zip_small`
@@ -105,14 +105,14 @@ For ZIP H1/H2 container review, the smoke corpus now includes:
 * `zip_mixed_supported_large`
 * `zip_assets_many_images`
 
-For EPUB H1/H2 ebook review, the smoke corpus now includes:
+For EPUB H2-complete ebook coverage, the smoke corpus now includes:
 
 * `epub_small`
 * `epub_medium`
 * `epub_large_many_chapters`
 * `epub_assets_many_images`
 
-For DOCX H2 market-parity review, the smoke corpus now includes:
+For DOCX H2-complete support coverage, the smoke corpus now includes:
 
 * `docx_small`
 * `docx_medium`
@@ -121,7 +121,7 @@ For DOCX H2 market-parity review, the smoke corpus now includes:
 * `docx_images_many`
 * `docx_lists_large`
 
-For PPTX H2 layout-quality review, the smoke corpus now includes:
+For PPTX H2-complete support coverage, the smoke corpus now includes:
 
 * `pptx_small`
 * `pptx_medium`
@@ -131,7 +131,7 @@ For PPTX H2 layout-quality review, the smoke corpus now includes:
 * `pptx_layout_dense`
 * `pptx_many_slides`
 
-For PDF P4.4 benchmark refresh, the smoke corpus now includes:
+For PDF H2-complete support coverage, the smoke corpus now includes:
 
 * `pdf_text_simple`
 * `pdf_text_multipage`
@@ -146,7 +146,7 @@ For PDF P4.4 benchmark refresh, the smoke corpus now includes:
 ## Baseline Command
 
 ```bash
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_smoke.sh --kind smoke
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_smoke.sh --kind smoke
 ```
 
 Artifacts are written under:

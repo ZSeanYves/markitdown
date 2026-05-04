@@ -38,6 +38,17 @@ fn parse_docx_impl(
   // 4) 读 numbering.xml（列表类型映射）
   let numbering = pkg.load_numbering()
 
+  // 4.1) 读 footnotes/endnotes/comments（附注与批注）
+  let notes = pkg.load_note_bundle()
+
+  // 4.2) 读 header/footer parts（页眉页脚）
+  let header_footers = pkg.load_header_footer_bundle(doc_xml, out_root)
+
+  // 4.3) 读 text boxes / drawing text（文本框与形状文本）
+  let text_boxes = pkg.load_text_box_bundle(
+    doc_xml, out_root, styles, numbering, header_footers,
+  )
+
   // 5) 导出图片到 out_root/assets
   pkg.extract_media_by_relationships(rel_ctx, asset_by_target, assets_dir)
 
@@ -49,6 +60,9 @@ fn parse_docx_impl(
     asset_by_target,
     styles,
     numbering,
+    notes,
+    header_footers,
+    text_boxes,
     max_heading,
     @cor.basename(path),
   )

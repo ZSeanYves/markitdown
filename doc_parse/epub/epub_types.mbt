@@ -36,6 +36,10 @@ pub struct EpubArchiveEntry {
 pub struct EpubMetadata {
   title : String?
   creator : String?
+  language : String?
+  identifier : String?
+  publisher : String?
+  subject : String?
   date : String?
   modified : String?
 }
@@ -45,6 +49,7 @@ pub struct EpubManifestItem {
   id : String
   href : String
   media_type : String?
+  properties : Array[String]
   resolved_path : String
 }
 
@@ -54,6 +59,35 @@ pub struct EpubSpineItem {
   linear : Bool
   manifest_item : EpubManifestItem
   resolved_path : String
+}
+
+///|
+pub struct EpubNavPoint {
+  label : String
+  href : String
+}
+
+///|
+pub struct EpubInspectSpineItem {
+  idref : String
+  href : String
+  media_type : String?
+  linear : Bool
+  action : String
+}
+
+///|
+pub struct EpubInspectReport {
+  source_name : String
+  mimetype : String?
+  rootfile_path : String
+  manifest_count : Int
+  spine_count : Int
+  nav_path : String?
+  cover_path : String?
+  has_encryption : Bool
+  metadata : EpubMetadata
+  spine_items : Array[EpubInspectSpineItem]
 }
 
 ///|
@@ -68,4 +102,7 @@ pub struct EpubPackage {
   metadata : EpubMetadata
   manifest : Array[EpubManifestItem]
   spine : Array[EpubSpineItem]
+  nav_item : EpubManifestItem?
+  cover_item : EpubManifestItem?
+  nav_points : Array[EpubNavPoint]
 }

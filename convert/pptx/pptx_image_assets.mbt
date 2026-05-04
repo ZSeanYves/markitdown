@@ -12,6 +12,7 @@ priv struct PptxSlideImage {
   _alt_text : String
   _title : String?
   _path : String
+  _object_ref : String?
   _relationship_id : String?
   _source_path : String?
 }
@@ -21,6 +22,7 @@ priv struct PptxPictureShapeMeta {
   rid : String
   descr : String?
   title : String?
+  object_ref : String?
 }
 
 ///|
@@ -101,6 +103,7 @@ fn export_picture_shape_images(
       _alt_text: picture.descr.unwrap_or(synthetic_alt),
       _title: picture.title,
       _path: rel_out,
+      _object_ref: picture.object_ref,
       _relationship_id: Some(picture.rid),
       _source_path: Some(target),
     })
@@ -144,6 +147,7 @@ fn export_fallback_slide_images(
       _alt_text: synthetic_slide_image_alt_text(slide_no, img_idx),
       _title: None,
       _path: rel_out,
+      _object_ref: None,
       _relationship_id: Some(rid),
       _source_path: Some(target),
     })
@@ -175,35 +179,11 @@ fn collect_slide_picture_shape_metas(
   slide_xml : Bytes,
 ) -> Array[PptxPictureShapeMeta] raise {
   let out : Array[PptxPictureShapeMeta] = []
-  let open_pic = pat("<p:pic")
-  let close_pic = pat("</p:pic>")
-  let gt_pat = pat(">")
-
-  let mut pos = 0
-  while true {
-    let p0 = find_bytes(slide_xml, open_pic, pos)
-    match p0 {
-      None => break
-      Some(i0) => {
-        let gt = find_bytes(slide_xml, gt_pat, i0)
-        match gt {
-          None => break
-          Some(gt0) => {
-            let pic_end = find_bytes(slide_xml, close_pic, gt0 + 1)
-            match pic_end {
-              None => break
-              Some(pic_end0) => {
-                let pic_xml = slide_xml[i0:pic_end0 + close_pic.length()].to_owned()
-                match read_picture_shape_meta(pic_xml) {
-                  Some(meta) => out.push(meta)
-                  None => ()
-                }
-                pos = pic_end0 + close_pic.length()
-              }
-            }
-          }
-        }
-      }
+  let pictures = collect_slide_objects(slide_xml).picture_shapes
+  for picture in pictures {
+    match read_picture_shape_meta(picture.xml, picture.object_ref) {
+      Some(meta) => out.push(meta)
+      None => ()
     }
   }
 
@@ -211,7 +191,10 @@ fn collect_slide_picture_shape_metas(
 }
 
 ///|
-fn read_picture_shape_meta(pic_xml : Bytes) -> PptxPictureShapeMeta? raise {
+fn read_picture_shape_meta(
+  pic_xml : Bytes,
+  object_ref : String?,
+) -> PptxPictureShapeMeta? raise {
   match read_picture_shape_rid(pic_xml) {
     Some(rid) =>
       if rid.trim() == "" {
@@ -222,6 +205,7 @@ fn read_picture_shape_meta(pic_xml : Bytes) -> PptxPictureShapeMeta? raise {
           rid: rid.trim().to_owned(),
           descr: read_picture_shape_cnvpr_attr(pic_xml, "descr"),
           title: read_picture_shape_cnvpr_attr(pic_xml, "title"),
+          object_ref,
         })
       }
     None => None

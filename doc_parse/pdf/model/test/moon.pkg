@@ -1,0 +1,3 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+} for "test"

@@ -16,12 +16,15 @@ priv struct PdfRepeatedEdgeNoiseIndex {
 priv struct PdfEdgeNoiseEvidence {
   empty_text : Bool
   isolated_line : Bool
+  first_nonempty_block : Bool
+  last_nonempty_block : Bool
   top_edge : Bool
   bottom_edge : Bool
   near_page_margin : Bool
   outside_body_band : Bool
   small_height : Bool
   short_text : Bool
+  large_gap_before : Bool
   repeated_across_pages : Bool
   same_text_same_edge : Bool
   same_prefix_same_edge : Bool
@@ -183,12 +186,18 @@ fn collect_edge_noise_evidence(
   {
     empty_text: text == "",
     isolated_line: block.line_count == 1,
+    first_nonempty_block: first_idx >= 0 && block_index == first_idx,
+    last_nonempty_block: last_idx >= 0 && block_index == last_idx,
     top_edge,
     bottom_edge,
     near_page_margin,
     outside_body_band,
     small_height: @model.rect_height(block._bbox) <= 24.0,
     short_text: text.length() <= 40 && count_words(text) <= 6,
+    large_gap_before: match block.first_line_gap_before {
+      Some(gap) => gap >= 12.0
+      None => false
+    },
     repeated_across_pages,
     same_text_same_edge: repeated_across_pages,
     same_prefix_same_edge,
@@ -302,6 +311,15 @@ fn strong_page_number_drop(evidence : PdfEdgeNoiseEvidence) -> Bool {
   let edge_page_number = evidence.page_number_edge &&
     evidence.outside_body_band &&
     evidence.short_text
+  let core_header_footer_page_number = edge_page_number &&
+    evidence.near_page_margin &&
+    evidence.core_header_footer_candidate
+  let trailing_page_number_candidate = evidence.last_nonempty_block &&
+    evidence.core_page_number_candidate &&
+    evidence.core_header_footer_candidate &&
+    evidence.short_text &&
+    evidence.small_height &&
+    evidence.large_gap_before
 
   (edge_page_number && evidence.page_number_numeric && evidence.bottom_edge) ||
   (
@@ -315,6 +333,25 @@ fn strong_page_number_drop(evidence : PdfEdgeNoiseEvidence) -> Bool {
     evidence.page_number_roman &&
     evidence.isolated_line &&
     (evidence.top_edge || evidence.bottom_edge)
+  ) ||
+  (
+    core_header_footer_page_number &&
+    (
+      evidence.page_number_numeric ||
+      evidence.page_count_pattern ||
+      evidence.page_number_short_centered ||
+      evidence.page_number_with_label ||
+      evidence.page_number_roman
+    )
+  ) ||
+  (
+    trailing_page_number_candidate &&
+    (
+      evidence.page_number_numeric ||
+      evidence.page_count_pattern ||
+      evidence.page_number_with_label ||
+      evidence.page_number_roman
+    )
   )
 }
 
@@ -397,6 +434,9 @@ fn push_edge_reason_tags(
   if evidence.short_text {
     out.push("short_text")
   }
+  if evidence.large_gap_before {
+    out.push("large_gap_before")
+  }
   if evidence.repeated_across_pages {
     out.push("repeated_across_pages")
   }
@@ -435,6 +475,12 @@ fn push_edge_reason_tags(
   }
   if evidence.core_artifact_candidate {
     out.push("core_artifact_candidate")
+  }
+  if evidence.first_nonempty_block {
+    out.push("first_nonempty_block")
+  }
+  if evidence.last_nonempty_block {
+    out.push("last_nonempty_block")
   }
 }
 

@@ -242,14 +242,18 @@ test "pdf noise decision drops bottom numeric page number" {
 }
 
 ///|
-test "pdf noise keeps numeric text outside edge region" {
-  let block = make_noise_block(
-    0,
-    0,
-    PdfConvertBlockKind::Paragraph,
-    "12",
-    noise_rect(180.0, 380.0, 220.0, 396.0),
-  )
+test "pdf noise decision drops top edge numeric page number candidate" {
+  let block = {
+    ..make_noise_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "3",
+      noise_rect(320.0, 784.0, 344.0, 798.0),
+    ),
+    is_noise_candidate: true,
+    is_header_footer_candidate: true,
+  }
   let repeated = build_repeated_edge_noise_index(
     make_noise_doc([make_noise_page(0, [block], [])]),
   )
@@ -261,11 +265,157 @@ test "pdf noise keeps numeric text outside edge region" {
   )
 
   match decision.status {
+    PdfNoiseDecisionStatus::Drop => ()
+    _ => fail("expected top-edge numeric page number to drop")
+  }
+  if !decision.reason_tags.contains("page_number_numeric") {
+    fail("expected page_number_numeric reason")
+  }
+  if !decision.reason_tags.contains("core_header_footer_candidate") {
+    fail("expected core_header_footer_candidate reason")
+  }
+}
+
+///|
+test "pdf noise decision drops top edge dash page label candidate" {
+  let block = {
+    ..make_noise_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "2 -",
+      noise_rect(180.0, 784.0, 214.0, 798.0),
+    ),
+    is_noise_candidate: true,
+    is_header_footer_candidate: true,
+  }
+  let repeated = build_repeated_edge_noise_index(
+    make_noise_doc([make_noise_page(0, [block], [])]),
+  )
+  let decision = decide_noise_block(
+    make_noise_page(0, [block], []),
+    0,
+    block,
+    repeated,
+  )
+
+  match decision.status {
+    PdfNoiseDecisionStatus::Drop => ()
+    _ => fail("expected top-edge dash page label to drop")
+  }
+  if !decision.reason_tags.contains("page_count_pattern") {
+    fail("expected page_count_pattern reason")
+  }
+  if !decision.reason_tags.contains("core_header_footer_candidate") {
+    fail("expected core_header_footer_candidate reason")
+  }
+}
+
+///|
+test "pdf noise decision drops trailing numeric page number candidate" {
+  let body = make_noise_block(
+    0,
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "Body paragraph",
+    noise_rect(40.0, 360.0, 180.0, 378.0),
+  )
+  let trailing = {
+    ..make_noise_block(
+      0,
+      1,
+      PdfConvertBlockKind::Paragraph,
+      "3",
+      noise_rect(40.0, 120.0, 52.0, 134.0),
+    ),
+    is_noise_candidate: true,
+    is_header_footer_candidate: true,
+    first_line_gap_before: Some(24.0),
+  }
+  let page = make_noise_page(0, [body, trailing], [])
+  let repeated = build_repeated_edge_noise_index(make_noise_doc([page]))
+  let decision = decide_noise_block(page, 1, trailing, repeated)
+
+  match decision.status {
+    PdfNoiseDecisionStatus::Drop => ()
+    _ => fail("expected trailing numeric page number to drop")
+  }
+  if !decision.reason_tags.contains("last_nonempty_block") {
+    fail("expected last_nonempty_block reason")
+  }
+  if !decision.reason_tags.contains("large_gap_before") {
+    fail("expected large_gap_before reason")
+  }
+}
+
+///|
+test "pdf noise keeps numeric text outside edge region" {
+  let block = make_noise_block(
+    0,
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "12",
+    noise_rect(180.0, 380.0, 220.0, 396.0),
+  )
+  let repeated = build_repeated_edge_noise_index(
+    make_noise_doc([
+      {
+        ..make_noise_page(0, [block], []),
+        blocks: [
+          make_noise_block(
+            0,
+            0,
+            PdfConvertBlockKind::Paragraph,
+            "Body opening paragraph",
+            noise_rect(40.0, 760.0, 220.0, 778.0),
+          ),
+          block,
+          make_noise_block(
+            0,
+            2,
+            PdfConvertBlockKind::Paragraph,
+            "Body closing paragraph",
+            noise_rect(40.0, 120.0, 220.0, 138.0),
+          ),
+        ],
+      },
+    ]),
+  )
+  let page = {
+    ..make_noise_page(0, [block], []),
+    blocks: [
+      make_noise_block(
+        0,
+        0,
+        PdfConvertBlockKind::Paragraph,
+        "Body opening paragraph",
+        noise_rect(40.0, 760.0, 220.0, 778.0),
+      ),
+      block,
+      make_noise_block(
+        0,
+        2,
+        PdfConvertBlockKind::Paragraph,
+        "Body closing paragraph",
+        noise_rect(40.0, 120.0, 220.0, 138.0),
+      ),
+    ],
+  }
+  let block = { ..block, is_noise_candidate: true }
+  let page = { ..page, blocks: [page.blocks[0], block, page.blocks[2]] }
+  let decision = decide_noise_block(page, 1, block, repeated)
+
+  match decision.status {
     PdfNoiseDecisionStatus::Keep => ()
     _ => fail("expected keep decision")
   }
-  if !decision.reason_tags.contains("not_edge_block") {
-    fail("expected not_edge_block reason")
+  if decision.reason_tags.contains("page_number_edge") ||
+    decision.reason_tags.contains("top_edge") ||
+    decision.reason_tags.contains("bottom_edge") {
+    fail("mid-page numeric text should not carry edge-noise reasons")
+  }
+  if decision.reason_tags.contains("last_nonempty_block") {
+    fail("mid-page numeric text should not look like trailing page number")
   }
 }
 
@@ -286,16 +436,48 @@ test "pdf noise keep reason protects body-like repeated text" {
     noise_rect(42.0, 418.0, 322.0, 436.0),
   )
   let doc = make_noise_doc([
-    make_noise_page(0, [block0], []),
-    make_noise_page(1, [block1], []),
+    {
+      ..make_noise_page(0, [block0], []),
+      blocks: [
+        block0,
+        make_noise_block(
+          0,
+          1,
+          PdfConvertBlockKind::Paragraph,
+          "Tail paragraph",
+          noise_rect(40.0, 120.0, 220.0, 138.0),
+        ),
+      ],
+    },
+    {
+      ..make_noise_page(1, [block1], []),
+      blocks: [
+        block1,
+        make_noise_block(
+          1,
+          1,
+          PdfConvertBlockKind::Paragraph,
+          "Tail paragraph",
+          noise_rect(40.0, 120.0, 220.0, 138.0),
+        ),
+      ],
+    },
   ])
   let repeated = build_repeated_edge_noise_index(doc)
-  let decision = decide_noise_block(
-    make_noise_page(0, [block0], []),
-    0,
-    block0,
-    repeated,
-  )
+  let page = {
+    ..make_noise_page(0, [block0], []),
+    blocks: [
+      block0,
+      make_noise_block(
+        0,
+        1,
+        PdfConvertBlockKind::Paragraph,
+        "Tail paragraph",
+        noise_rect(40.0, 120.0, 220.0, 138.0),
+      ),
+    ],
+  }
+  let decision = decide_noise_block(page, 0, block0, repeated)
   match decision.status {
     PdfNoiseDecisionStatus::Keep => ()
     _ => fail("expected keep decision for body-like text")
@@ -303,8 +485,8 @@ test "pdf noise keep reason protects body-like repeated text" {
   if !decision.reason_tags.contains("body_like_guard") {
     fail("expected body_like_guard reason")
   }
-  if !decision.reason_tags.contains("repeated_across_pages") {
-    fail("expected repeated_across_pages keep reason")
+  if !decision.reason_tags.contains("long_sentence_guard") {
+    fail("expected long_sentence_guard for body-like repeated text")
   }
 }
 

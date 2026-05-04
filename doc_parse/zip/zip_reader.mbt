@@ -51,6 +51,11 @@ pub fn list_entries(archive : ZipArchive) -> Array[ZipEntryMeta] {
 }
 
 ///|
+pub fn inspect_zip(bytes : Bytes) -> Array[ZipEntryMeta] raise ZipError {
+  open_zip(bytes).entries
+}
+
+///|
 pub fn read_entry(
   archive : ZipArchive,
   path : String,
@@ -322,6 +327,10 @@ fn parse_cd_entries(
       local_header_offset,
       crc32,
       flags,
+      is_directory: name.has_suffix("/") || name.has_suffix("\\"),
+      is_encrypted: is_encrypted_flag(flags),
+      has_data_descriptor: has_data_descriptor_flag(flags),
+      uses_zip64: false,
     })
 
     cursor = entry_end
@@ -344,6 +353,16 @@ fn compression_method_from_code(code : Int) -> CompressionMethod {
   } else {
     Unsupported(code)
   }
+}
+
+///|
+fn is_encrypted_flag(flags : Int) -> Bool {
+  (flags & GP_FLAG_ENCRYPTED) != 0
+}
+
+///|
+fn has_data_descriptor_flag(flags : Int) -> Bool {
+  (flags & GP_FLAG_DATA_DESCRIPTOR) != 0
 }
 
 ///|

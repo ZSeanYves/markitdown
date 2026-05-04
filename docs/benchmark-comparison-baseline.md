@@ -21,7 +21,7 @@ printf 'pdf\theading_basic_compare\tsamples/main_process/pdf/heading_basic.pdf\n
 printf 'pdf\tpdf_repeated_header_footer_compare\tsamples/main_process/pdf/pdf_repeated_header_footer.pdf\n' >> "$tmp_corpus"
 printf 'pdf\tpdf_cross_page_should_merge_compare\tsamples/main_process/pdf/pdf_cross_page_should_merge_phase15.pdf\n' >> "$tmp_corpus"
 printf 'pdf\tpdf_cross_page_should_not_merge_compare\tsamples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf\n' >> "$tmp_corpus"
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh --corpus "$tmp_corpus"
 ```
 
 ### Runners
@@ -97,7 +97,7 @@ printf 'pptx\tpptx_title_bullets_compare\tsamples/main_process/pptx/pptx_title_b
 printf 'pptx\tpptx_hyperlink_basic_compare\tsamples/main_process/pptx/pptx_hyperlink_basic.pptx\n' >> "$tmp_corpus"
 printf 'pptx\tpptx_hyperlink_shape_basic_compare\tsamples/main_process/pptx/pptx_hyperlink_shape_basic.pptx\n' >> "$tmp_corpus"
 printf 'pptx\tpptx_slide_order_compare\tsamples/main_process/pptx/pptx_slide_order.pptx\n' >> "$tmp_corpus"
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh --corpus "$tmp_corpus"
 ```
 
 ### Runners
@@ -165,7 +165,7 @@ printf 'docx\tdocx_heading_levels_compare\tsamples/main_process/docx/docx_headin
 printf 'docx\tdocx_link_basic_compare\tsamples/main_process/docx/docx_link_basic.docx\n' >> "$tmp_corpus"
 printf 'docx\tdocx_list_nested_compare\tsamples/main_process/docx/docx_list_nested.docx\n' >> "$tmp_corpus"
 printf 'docx\tdocx_table_multiline_cell_compare\tsamples/main_process/docx/docx_table_multiline_cell.docx\n' >> "$tmp_corpus"
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh --corpus "$tmp_corpus"
 ```
 
 ### Runners
@@ -225,7 +225,7 @@ claim the same result shape for every compared format.
 tmp_corpus="$(mktemp /private/tmp/compare_txt_baseline.XXXXXX)"
 printf 'format\tsample\tinput_path\n' > "$tmp_corpus"
 printf 'txt\ttxt_plain_compare\tsamples/main_process/txt/txt_plain.txt\n' >> "$tmp_corpus"
-BENCH_WARMUP=1 BENCH_ITERATIONS=5 ./samples/bench_compare_markitdown.sh --corpus "$tmp_corpus"
+BENCH_WARMUP=1 BENCH_ITERATIONS=5 ./samples/scripts/bench_compare_markitdown.sh --corpus "$tmp_corpus"
 ```
 
 ### Runners
@@ -290,7 +290,7 @@ described in
 ```bash
 BENCH_WARMUP=1 BENCH_ITERATIONS=3 \
 MARKITDOWN_COMPARE_CMD="/home/zseanyves/miniforge3/bin/markitdown" \
-./samples/bench_compare_markitdown.sh
+./samples/scripts/bench_compare_markitdown.sh
 ```
 
 ## Environment

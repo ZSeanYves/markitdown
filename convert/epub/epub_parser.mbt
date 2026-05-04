@@ -26,7 +26,7 @@ pub fn parse_epub(
   }
 
   let doc = @cor.new_document()
-  let tmp_root = epub_tmp_dir(input_path)
+  let tmp_root = allocate_archive_run_dir(epub_tmp_dir(input_path), "run")
   ensure_dir_tree(tmp_root) catch {
     e => raise @cor.AppError("epub: create temp dir failed: " + e.to_string())
   }
@@ -34,6 +34,9 @@ pub fn parse_epub(
     tmp_root + "/archive-out"
   } else {
     out_dir
+  }
+  if out_dir.trim() != "" {
+    defer ignore(try? cleanup_archive_run_dir(tmp_root))
   }
   ensure_dir_tree(archive_out_dir) catch {
     e =>
@@ -53,6 +56,14 @@ pub fn parse_epub(
 
   let final_md = StringBuilder::new()
   let used_ids : Map[String, Int] = Map::new()
+  let nav_in_spine = nav_item_is_in_spine(pkg)
+
+  emit_cover_if_present(
+    doc, final_md, pkg, extracted_root, archive_out_dir, used_ids,
+  )
+  if !nav_in_spine {
+    emit_nav_toc_if_present(doc, final_md, pkg)
+  }
 
   for spine_item in pkg.spine {
     if !spine_item.linear {
@@ -60,6 +71,13 @@ pub fn parse_epub(
     }
 
     let content_path = spine_item.resolved_path
+    let is_nav_spine_item = match pkg.nav_item {
+      Some(item) => item.resolved_path == content_path
+      None => false
+    }
+    if is_nav_spine_item {
+      continue
+    }
     match materialization_skips.get(content_path) {
       Some(message) => {
         append_warning_entry(doc, final_md, epub_name, content_path, message)
@@ -186,6 +204,22 @@ pub fn parse_epub(
 }
 
 ///|
+pub fn inspect_epub(input_path : String) -> @epubpkg.EpubInspectReport raise {
+  if !@fs.path_exists(input_path) {
+    raise @cor.AppError("epub: file not found: " + input_path)
+  }
+
+  let bytes = @fs.read_file_to_bytes(input_path) catch {
+    e => raise @cor.AppError("epub: read failed: " + e.to_string())
+  }
+  let epub_name = @cor.basename(input_path)
+  let pkg = @epubpkg.open_epub_package(bytes, epub_name) catch {
+    e => raise @cor.AppError("epub: open failed: " + e.to_string())
+  }
+  @epubpkg.inspect_epub_package(pkg)
+}
+
+///|
 fn materialize_safe_archive_tree(
   pkg : @epubpkg.EpubPackage,
   extracted_root : String,
@@ -252,6 +286,223 @@ fn materialize_safe_archive_tree(
   }
 
   skipped
+}
+
+///|
+fn nav_item_is_in_spine(pkg : @epubpkg.EpubPackage) -> Bool {
+  match pkg.nav_item {
+    Some(nav_item) => {
+      for spine_item in pkg.spine {
+        if spine_item.resolved_path == nav_item.resolved_path {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn emit_nav_toc_if_present(
+  doc : @cor.Document,
+  final_md : StringBuilder,
+  pkg : @epubpkg.EpubPackage,
+) -> Unit {
+  if pkg.nav_points.length() == 0 {
+    return
+  }
+
+  let heading_index = doc.blocks.val.length()
+  final_md.write_string("# Table of Contents\n\n")
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Heading(1, "Table of Contents"),
+    Some({
+      source_name: Some(pkg.source_name),
+      page: None,
+      slide: None,
+      sheet: None,
+      block_index: Some(heading_index),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: None,
+      key_path: pkg.nav_item.map(fn(item) { item.resolved_path }),
+    }),
+  )
+
+  for point in pkg.nav_points {
+    final_md.write_string("- [")
+    final_md.write_string(point.label)
+    final_md.write_string("](")
+    final_md.write_string(rewrite_epub_href(point.href))
+    final_md.write_string(")\n")
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::RichListItem(false, 0, [
+        @cor.Inline::Link(point.label, rewrite_epub_href(point.href)),
+      ]),
+      Some({
+        source_name: Some(pkg.source_name),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: Some(["Table of Contents"]),
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: pkg.nav_item.map(fn(item) { item.resolved_path }),
+      }),
+    )
+  }
+  final_md.write_string("\n")
+}
+
+///|
+fn emit_cover_if_present(
+  doc : @cor.Document,
+  final_md : StringBuilder,
+  pkg : @epubpkg.EpubPackage,
+  extracted_root : String,
+  archive_out_dir : String,
+  used_ids : Map[String, Int],
+) -> Unit {
+  let cover_item = match pkg.cover_item {
+    Some(v) => v
+    None => return
+  }
+
+  let normalized_cover = cover_item.resolved_path
+  let cover_src = extracted_entry_path(extracted_root, normalized_cover) catch {
+    _ => return
+  }
+  if !@fs.path_exists(cover_src) {
+    return
+  }
+
+  let ext = image_ext_from_src(normalized_cover)
+  let entry_id = unique_entry_id(normalized_cover, used_ids)
+  let rel_path = "assets/archive/" + entry_id + "/image01." + ext
+  let out_path = archive_out_dir + "/" + rel_path
+  ensure_parent_dir(out_path) catch {
+    _ => return
+  }
+  let data = @fs.read_file_to_bytes(cover_src) catch { _ => return }
+  @fs.write_bytes_to_file(out_path, data) catch {
+    _ => return
+  }
+
+  let alt = cover_alt_text(normalized_cover)
+  final_md.write_string("![")
+  final_md.write_string(alt)
+  final_md.write_string("](")
+  final_md.write_string(rel_path)
+  final_md.write_string(")\n\n")
+
+  let origin : @cor.Origin = {
+    source_name: Some(pkg.source_name),
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: Some(doc.blocks.val.length()),
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: None,
+    relationship_id: None,
+    key_path: Some(normalized_cover),
+  }
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::ImageBlock({
+      path: rel_path,
+      alt_text: Some(alt),
+      title: None,
+      caption: None,
+      origin: Some(origin),
+    }),
+    Some(origin),
+  )
+  @cor.set_asset_origin(doc, rel_path, {
+    source_name: Some(pkg.source_name),
+    page: None,
+    slide: None,
+    sheet: None,
+    origin_id: Some("epub:" + normalized_cover + ":cover"),
+    nearby_caption: None,
+    object_ref: None,
+    relationship_id: None,
+    source_path: Some(normalized_cover),
+    row_index: None,
+    column_index: None,
+    key_path: Some(normalized_cover),
+  })
+}
+
+///|
+fn cover_alt_text(path : String) -> String {
+  let base = @cor.basename(path)
+  if base.trim() == "" {
+    "cover image"
+  } else {
+    base
+  }
+}
+
+///|
+fn image_ext_from_src(src : String) -> String {
+  let lower = src.to_lower()
+  if lower.has_suffix(".png") {
+    return "png"
+  }
+  if lower.has_suffix(".jpg") {
+    return "jpg"
+  }
+  if lower.has_suffix(".jpeg") {
+    return "jpeg"
+  }
+  if lower.has_suffix(".gif") {
+    return "gif"
+  }
+  if lower.has_suffix(".bmp") {
+    return "bmp"
+  }
+  if lower.has_suffix(".webp") {
+    return "webp"
+  }
+  if lower.has_suffix(".tif") || lower.has_suffix(".tiff") {
+    return "tiff"
+  }
+  "img"
+}
+
+///|
+fn rewrite_epub_href(href : String) -> String {
+  let trimmed = href.trim().to_owned()
+  if trimmed == "" {
+    return trimmed
+  }
+  if trimmed.has_prefix("#") {
+    return trimmed
+  }
+  let lower = trimmed.to_lower()
+  if lower.has_prefix("http://") ||
+    lower.has_prefix("https://") ||
+    lower.has_prefix("data:") ||
+    lower.has_prefix("//") {
+    return trimmed
+  }
+  trimmed
 }
 
 ///|
@@ -773,6 +1024,9 @@ fn epub_tmp_dir(input_path : String) -> String {
 }
 
 ///|
+let epub_archive_run_serial : Ref[Int] = { val: 0 }
+
+///|
 fn remove_dir_recursive(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     return
@@ -796,6 +1050,34 @@ fn recreate_clean_dir(path : String) -> Unit raise {
     remove_dir_recursive(path)
   }
   ensure_dir_tree(path)
+}
+
+///|
+fn allocate_archive_run_dir(base_root : String, prefix : String) -> String {
+  epub_archive_run_serial.val += 1
+  let serial = epub_archive_run_serial.val
+  let stamp = @env.now().to_string()
+  let trimmed_base = trim_trailing_slashes(base_root)
+  let mut suffix = stamp + "-" + serial.to_string()
+  let mut candidate = trimmed_base + "/" + prefix + "-" + suffix
+  while true {
+    if !@fs.path_exists(candidate) {
+      return candidate
+    }
+    epub_archive_run_serial.val += 1
+    suffix = stamp + "-" + epub_archive_run_serial.val.to_string()
+    candidate = trimmed_base + "/" + prefix + "-" + suffix
+  }
+  candidate
+}
+
+///|
+fn cleanup_archive_run_dir(path : String) -> Unit raise {
+  let trimmed = trim_trailing_slashes(path)
+  if trimmed == "" || trimmed == "." || trimmed == "/" {
+    return
+  }
+  remove_dir_recursive(trimmed)
 }
 
 ///|

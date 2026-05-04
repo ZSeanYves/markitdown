@@ -30,15 +30,27 @@ fn convert_pdf_blocks_to_ir(
   let has_document_title = detect_document_title_presence_for_ir(doc)
 
   for page in doc.pages {
-    // Caption inference is performed page-local on mixed text/image objects.
-    // We keep consumed caption indices to avoid duplicating caption text as paragraph.
-    let (page_image_captions, consumed_caption_block_indices) = infer_page_image_nearby_captions(
+    let page_tables = detect_pdf_tables(page, DEBUG_TO_IR)
+    let (page_image_captions, consumed_caption_block_indices) = infer_page_image_captions(
       page,
+      DEBUG_TO_IR,
     )
+    let consumed_table_block_indices = table_consumed_block_indices(page_tables)
     let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {
         PdfConvertPageObject::TextBlock(block) => {
+          match find_table_starting_at_block(page_tables, block) {
+            Some(table) => {
+              emit_pdf_table_to_ir(out, source_name, page._page_index, table)
+              continue
+            }
+            None => ()
+          }
+
+          if consumed_table_block_indices.contains(block.block_index) {
+            continue
+          }
           if consumed_caption_block_indices.contains(block.block_index) {
             continue
           }
@@ -118,85 +130,6 @@ fn convert_pdf_blocks_to_ir(
 }
 
 ///|
-fn infer_page_image_nearby_captions(
-  page : PdfConvertPage,
-) -> (Array[String?], Map[Int, Bool]) {
-  let out : Array[String?] = []
-  let consumed_block_indices : Map[Int, Bool] = Map::new()
-  for _ in page.images {
-    out.push(None)
-  }
-
-  if page.images.length() != 1 {
-    return (out, consumed_block_indices)
-  }
-
-  let image = page.images[0]
-  let candidates : Array[(Int, String)] = []
-  for block in page.blocks {
-    if is_bbox_gated_caption_candidate(block, image) {
-      candidates.push((block.block_index, block.text.trim().to_owned()))
-    }
-  }
-
-  if candidates.length() == 1 {
-    let (block_index, caption) = candidates[0]
-    out[0] = Some(caption)
-    consumed_block_indices.set(block_index, true)
-  }
-
-  (out, consumed_block_indices)
-}
-
-///|
-fn is_bbox_gated_caption_candidate(
-  block : PdfConvertBlock,
-  image : PdfConvertImage,
-) -> Bool {
-  let text = block.text.trim().to_owned()
-  if text == "" {
-    return false
-  }
-
-  if !looks_like_figure_or_table_caption_for_ir(text) {
-    return false
-  }
-
-  if block.kind != PdfConvertBlockKind::Paragraph {
-    return false
-  }
-
-  if block.is_noise_candidate ||
-    block.is_header_footer_candidate ||
-    block.is_artifact_candidate ||
-    block.is_heading_candidate {
-    return false
-  }
-
-  if !is_block_above_image(block, image) && !is_block_below_image(block, image) {
-    return false
-  }
-
-  let gap = caption_vertical_gap(block, image)
-  if gap < 0.0 || gap > 32.0 {
-    return false
-  }
-
-  let overlap = horizontal_overlap_width(block._bbox, image._bbox)
-  if overlap <= 0.0 {
-    return false
-  }
-
-  let block_width = max_f64(block._bbox.x1 - block._bbox.x0, 1.0)
-  if overlap / block_width < 0.8 {
-    return false
-  }
-
-  abs_f64(block.left_x - image.left_x) <= 24.0 ||
-  is_within_x_span(block_center_x(block), image._bbox)
-}
-
-///|
 fn is_block_above_image(
   block : PdfConvertBlock,
   image : PdfConvertImage,
@@ -245,6 +178,62 @@ fn block_center_x(block : PdfConvertBlock) -> Double {
 ///|
 fn is_within_x_span(x : Double, rect : @model.PdfRect) -> Bool {
   x >= rect.x0 && x <= rect.x1
+}
+
+///|
+fn table_consumed_block_indices(
+  tables : Array[PdfTableCandidate],
+) -> Map[Int, Bool] {
+  let out : Map[Int, Bool] = Map::new()
+  for table in tables {
+    for block_index in table.block_indices {
+      out.set(block_index, true)
+    }
+  }
+  out
+}
+
+///|
+fn find_table_starting_at_block(
+  tables : Array[PdfTableCandidate],
+  block : PdfConvertBlock,
+) -> PdfTableCandidate? {
+  for table in tables {
+    if block.line_start == table.line_start {
+      return Some(table)
+    }
+  }
+  None
+}
+
+///|
+fn emit_pdf_table_to_ir(
+  out : @cor.Document,
+  source_name : String,
+  page_index : Int,
+  table : PdfTableCandidate,
+) -> Unit {
+  let origin : @cor.Origin = {
+    source_name: Some(source_name),
+    page: Some(page_index + 1),
+    slide: None,
+    sheet: None,
+    block_index: Some(out.blocks.val.length()),
+    heading_path: None,
+    line_start: Some(table.line_start + 1),
+    line_end: Some(table.line_end + 1),
+    row_index: None,
+    column_index: None,
+    object_ref: None,
+    relationship_id: None,
+    key_path: None,
+  }
+
+  @cor.push_with_origin(
+    out,
+    @cor.Block::RichTable({ rows: table.rows, header_rows: table.header_rows }),
+    Some(origin),
+  )
 }
 
 ///|

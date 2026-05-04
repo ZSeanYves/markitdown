@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+  "bobzhang/mbtpdf" @mbtpdf,
+  "bobzhang/mbtpdf/core/pdf" @pdf,
+  "bobzhang/mbtpdf/document/pdfpage" @pdfpage,
+  "bobzhang/mbtpdf/graphics/pdfops" @pdfops,
+  "bobzhang/mbtpdf/text/pdftext" @pdftext,
+  "bobzhang/mbtpdf/core/pdftransform" @pdftransform,
+  "bobzhang/mbtpdf/core/pdfio" @pdfio,
+  "bobzhang/mbtpdf/graphics/pdfimage" @pdfimage,
+  "bobzhang/mbtpdf/codec/pdfcodec" @pdfcodec,
+}

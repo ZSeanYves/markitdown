@@ -150,6 +150,41 @@ fn assert_opt_int_eq(
 }
 
 ///|
+fn assert_inspect_action_eq(
+  actual : @zipconv.ZipInspectAction,
+  expected : @zipconv.ZipInspectAction,
+  message : String,
+) -> Unit raise {
+  if actual != expected {
+    fail(message)
+  }
+}
+
+///|
+fn assert_inspect_kind_eq(
+  actual : @zipconv.ZipInspectEntryKind,
+  expected : @zipconv.ZipInspectEntryKind,
+  message : String,
+) -> Unit raise {
+  if actual != expected {
+    fail(message)
+  }
+}
+
+///|
+fn inspect_entry_by_raw_name(
+  report : @zipconv.ZipInspectReport,
+  raw_name : String,
+) -> @zipconv.ZipInspectEntry raise {
+  for entry in report.entries {
+    if entry.raw_name == raw_name {
+      return entry
+    }
+  }
+  fail("inspect entry not found: " + raw_name)
+}
+
+///|
 async test "zip parse supports asset-producing docx and pptx entries" {
   let root = zip_test_root()
   let out_dir = root + "/parse_zip_assets_namespace"
@@ -313,6 +348,93 @@ async test "zip parse supports asset-producing docx and pptx entries" {
 }
 
 ///|
+test "zip inspect reports supported, nested, and unsafe entry policies" {
+  let report = @zipconv.inspect_zip(
+    resolve_sample_path("samples/main_process/zip/zip_basic_structured.zip"),
+  ) catch {
+    e => fail("inspect_zip failed: " + e.to_string())
+  }
+
+  let json_entry = inspect_entry_by_raw_name(report, "data/person.json")
+  assert_inspect_kind_eq(
+    json_entry.entry_kind,
+    @zipconv.ZipInspectEntryKind::Supported,
+    "expected json entry to be supported",
+  )
+  assert_inspect_action_eq(
+    json_entry.action,
+    @zipconv.ZipInspectAction::Convert,
+    "expected json entry action to be convert",
+  )
+  assert_opt_string_eq(
+    json_entry.dispatch_format,
+    Some("json"),
+    "expected json dispatch format",
+  )
+  assert_opt_string_eq(
+    json_entry.normalized_path,
+    Some("data/person.json"),
+    "expected normalized json path",
+  )
+}
+
+///|
+test "zip inspect reports unsafe path failure clearly" {
+  let inspected = try? @zipconv.inspect_zip(
+    resolve_sample_path("samples/test/zip/zip_unsafe_traversal.zip"),
+  )
+  match inspected {
+    Ok(report) => {
+      let entry = inspect_entry_by_raw_name(report, "../evil.txt")
+      assert_inspect_kind_eq(
+        entry.entry_kind,
+        @zipconv.ZipInspectEntryKind::UnsafePath,
+        "expected traversal entry to be unsafe",
+      )
+      assert_inspect_action_eq(
+        entry.action,
+        @zipconv.ZipInspectAction::Fail,
+        "expected traversal entry action to fail",
+      )
+    }
+    Err(_e) =>
+      fail("inspect_zip should succeed and classify unsafe traversal entry")
+  }
+}
+
+///|
+test "zip inspect reports normalized path collision clearly" {
+  let report = @zipconv.inspect_zip(
+    resolve_sample_path("samples/test/zip/zip_normalized_collision.zip"),
+  ) catch {
+    e => fail("inspect_zip failed: " + e.to_string())
+  }
+
+  let first = inspect_entry_by_raw_name(report, "a\\b.png")
+  let second = inspect_entry_by_raw_name(report, "a/b.png")
+  assert_inspect_action_eq(
+    first.action,
+    @zipconv.ZipInspectAction::Fail,
+    "expected first colliding entry to fail",
+  )
+  assert_inspect_action_eq(
+    second.action,
+    @zipconv.ZipInspectAction::Fail,
+    "expected second colliding entry to fail",
+  )
+  assert_inspect_kind_eq(
+    first.entry_kind,
+    @zipconv.ZipInspectEntryKind::UnsafePath,
+    "expected first colliding entry to be marked unsafe",
+  )
+  assert_inspect_kind_eq(
+    second.entry_kind,
+    @zipconv.ZipInspectEntryKind::UnsafePath,
+    "expected second colliding entry to be marked unsafe",
+  )
+}
+
+///|
 async test "zip parse supports html local images inside zip" {
   let root = zip_test_root()
   let out_dir = root + "/parse_zip_html_assets"
@@ -356,17 +478,6 @@ async test "zip parse supports html local images inside zip" {
       )
     }
     None => fail("expected zip html local image asset origin")
-  }
-
-  let extracted_root = extracted_root_for_sample(sample)
-  if !@fs.path_exists(extracted_root + "/site/page.html") {
-    fail("expected html local image entry to be materialized in extracted tree")
-  }
-  if !@fs.path_exists(extracted_root + "/site/img/pic.png") {
-    fail("expected sibling image to be materialized in extracted tree")
-  }
-  if @fs.path_exists(extracted_root + "/__MACOSX/site/img/._pic.png") {
-    fail("expected hidden macOS metadata entries to stay out of extracted tree")
   }
 }
 
@@ -492,10 +603,29 @@ async test "zip parse keeps nested archive and unsupported warnings" {
 }
 
 ///|
-fn extracted_root_for_sample(sample_path : String) -> String {
-  let root = match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
-    Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
-    None => ".tmp"
+async test "zip parse html-asset sample stays stable across repeated conversions" {
+  let root = zip_test_root()
+  let first_out = root + "/parse_zip_html_assets_repeat_1"
+  let second_out = root + "/parse_zip_html_assets_repeat_2"
+  recreate_clean_dir(first_out)
+  recreate_clean_dir(second_out)
+  defer cleanup_temp_dir(first_out)
+  defer cleanup_temp_dir(second_out)
+
+  let sample = resolve_sample_path("samples/test/zip/zip_html_local_image.zip")
+  let first = @zipconv.parse_zip(sample, first_out, 6)
+  let second = @zipconv.parse_zip(sample, second_out, 6)
+
+  let first_md = @cor.emit_markdown(first)
+  let second_md = @cor.emit_markdown(second)
+  assert_eq(first_md, second_md)
+  assert_contains(
+    first_md, "![single](assets/archive/site_page.html/image01.png)",
+  )
+  if !@fs.path_exists(first_out + "/assets/archive/site_page.html/image01.png") {
+    fail("expected first repeated zip run to emit remapped asset")
   }
-  root + "/zip/" + @cor.basename(sample_path) + "/extracted"
+  if !@fs.path_exists(second_out + "/assets/archive/site_page.html/image01.png") {
+    fail("expected second repeated zip run to emit remapped asset")
+  }
 }

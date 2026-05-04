@@ -4,6 +4,8 @@ package "ZSeanYves/markitdown/doc_parse/zip"
 // Values
 pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int) -> Bytes raise CodecError
 
+pub fn inspect_zip(Bytes) -> Array[ZipEntryMeta] raise ZipError
+
 pub fn list_entries(ZipArchive) -> Array[ZipEntryMeta]
 
 pub fn open_zip(Bytes) -> ZipArchive raise ZipError
@@ -49,6 +51,10 @@ pub struct ZipEntryMeta {
   local_header_offset : Int
   crc32 : Int
   flags : Int
+  is_directory : Bool
+  is_encrypted : Bool
+  has_data_descriptor : Bool
+  uses_zip64 : Bool
 }
 
 // Type aliases

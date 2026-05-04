@@ -1,2 +1,3 @@
-| a<br>b | c |
+| Column 1 | Column 2 |
 | --- | --- |
+| a<br>b | c |

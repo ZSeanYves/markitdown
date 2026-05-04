@@ -254,3 +254,121 @@ test "epub convert unsupported spine warning sample" {
   let doc = @epub.parse_epub(input, out_dir, 6)
   assert_eq(@cor.emit_markdown(doc), expected)
 }
+
+///|
+test "epub convert emits nav toc when nav is outside spine" {
+  let out_dir = test_tmp_root() + "/epub-convert-nav-toc"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path("samples/main_process/epub/epub_nav_toc.epub")
+  let expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/expected/epub/epub_nav_toc.md"),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+}
+
+///|
+test "epub convert avoids duplicate nav emission when nav is in spine" {
+  let out_dir = test_tmp_root() + "/epub-convert-nav-in-spine"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path("samples/test/epub/epub_nav_in_spine.epub")
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  if markdown.contains("# Table of Contents") {
+    fail("nav in spine should not emit separate toc section")
+  }
+  if markdown.contains("# OPS/nav.xhtml") {
+    fail("nav spine document should not be emitted twice")
+  }
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+  assert_contains(markdown, "Spine content should appear once.")
+}
+
+///|
+test "epub convert emits cover image before chapter content" {
+  let out_dir = test_tmp_root() + "/epub-convert-cover-image"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_cover_image.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_cover_image.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+  if !doc.asset_origins.val.contains(
+      "assets/archive/OPS_images_cover.png/image01.png",
+    ) {
+    fail("expected cover asset origin")
+  }
+}
+
+///|
+test "epub convert keeps internal anchors conservatively" {
+  let out_dir = test_tmp_root() + "/epub-convert-anchor-links"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/main_process/epub/epub_internal_anchor_links.epub",
+  )
+  let expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/epub/epub_internal_anchor_links.md",
+    ),
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  assert_eq(@cor.emit_markdown(doc), expected)
+}
+
+///|
+test "epub convert local-image and cover samples stay stable across repeated conversions" {
+  let first_out = test_tmp_root() + "/epub-convert-repeat-1"
+  let second_out = test_tmp_root() + "/epub-convert-repeat-2"
+  recreate_clean_dir(first_out)
+  recreate_clean_dir(second_out)
+  defer cleanup_temp_dir(first_out)
+  defer cleanup_temp_dir(second_out)
+
+  let image_input = resolve_sample_path(
+    "samples/main_process/epub/epub_local_image_basic.epub",
+  )
+  let image_first = @epub.parse_epub(image_input, first_out, 6)
+  let image_second = @epub.parse_epub(image_input, second_out, 6)
+  assert_eq(@cor.emit_markdown(image_first), @cor.emit_markdown(image_second))
+  if !@fs.path_exists(
+      first_out + "/assets/archive/OPS_chapter.xhtml/image01.png",
+    ) {
+    fail("expected first repeated epub run to emit remapped local image")
+  }
+  if !@fs.path_exists(
+      second_out + "/assets/archive/OPS_chapter.xhtml/image01.png",
+    ) {
+    fail("expected second repeated epub run to emit remapped local image")
+  }
+
+  let cover_input = resolve_sample_path(
+    "samples/main_process/epub/epub_cover_image.epub",
+  )
+  let cover_first = @epub.parse_epub(cover_input, first_out, 6)
+  let cover_second = @epub.parse_epub(cover_input, second_out, 6)
+  assert_eq(@cor.emit_markdown(cover_first), @cor.emit_markdown(cover_second))
+  if !@fs.path_exists(
+      first_out + "/assets/archive/OPS_images_cover.png/image01.png",
+    ) {
+    fail("expected first repeated epub cover run to emit remapped asset")
+  }
+  if !@fs.path_exists(
+      second_out + "/assets/archive/OPS_images_cover.png/image01.png",
+    ) {
+    fail("expected second repeated epub cover run to emit remapped asset")
+  }
+}

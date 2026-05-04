@@ -1,6 +1,0 @@
-import {
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/async",
-  "ZSeanYves/markitdown/doc_parse/pdf_core/api" @api,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,
-} for "test"

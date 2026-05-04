@@ -1,43 +1,7 @@
 ///|
 /// collect all <p:sp> shapes with lightweight geometry metadata
 fn collect_slide_shapes(xml : Bytes) -> Array[SlideShape] raise {
-  let out : Array[SlideShape] = []
-
-  let open_sp = pat("<p:sp")
-  let close_sp = pat("</p:sp>")
-  let gt_pat = pat(">")
-
-  let mut pos = 0
-  while true {
-    let s0 = find_bytes(xml, open_sp, pos)
-    match s0 {
-      None => break
-      Some(i0) => {
-        let gt = find_bytes(xml, gt_pat, i0)
-        match gt {
-          None => break
-          Some(_gt0) => {
-            let sp_end = find_bytes(xml, close_sp, i0)
-            match sp_end {
-              None => break
-              Some(sp_end0) => {
-                let sp_xml = xml[i0:sp_end0 + close_sp.length()].to_owned()
-                let is_title = shape_is_title_like(sp_xml)
-                let is_body = shape_is_body_like(sp_xml)
-                let (x, y, w, h) = read_shape_bounds(sp_xml)
-
-                out.push({ xml: sp_xml, x, y, w, h, is_title, is_body })
-
-                pos = sp_end0 + close_sp.length()
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  out
+  collect_slide_objects(xml).text_shapes
 }
 
 ///|

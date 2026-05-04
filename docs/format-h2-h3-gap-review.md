@@ -1,14 +1,11 @@
 # Format H2/H3 Gap Review
 
-This document reviews the current H2 and H3 upgrade gaps for every supported
-format in `markitdown-mb`.
+This document reviews the current post-H2 and H3 upgrade gaps for every
+supported format in `markitdown-mb`.
 
-It builds on [docs/format-hardening-roadmap.md](./format-hardening-roadmap.md)
-and assumes the same H1 / H2 / H3 ladder.
-
-This is a planning and audit document. It is not the detailed support contract,
-and it should not be read as a claim that every listed task is already in
-progress.
+It is now a next-stage planning document, not a record of which formats are
+still waiting to reach H2. The detailed support contract remains
+[docs/support-and-limits.md](./support-and-limits.md).
 
 ## H1 / H2 / H3 Reference
 
@@ -58,7 +55,7 @@ This principle applies across:
 
 * OOXML package/model work for DOCX / PPTX / XLSX
 * ZIP container handling
-* `pdf_core`
+* `doc_parse/pdf`
 * HTML parsing and image-context extraction
 * CSV / TSV table handling
 * JSON / YAML / XML structured-text models
@@ -72,8 +69,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* supported
-* H2 market-parity review documented
+* H2 complete
 * pending H3 performance review
 
 #### Current strengths
@@ -83,24 +79,27 @@ reusable even outside Markdown conversion.
 * hyperlink handling in key paragraph/list/heading contexts
 * image export and metadata sidecar integration
 * regression and metadata coverage already exist
+* explicit `RichTable` DOCX table metadata is now in place
+* style-linked numbering fallback and stronger ordered-list degradation are now
+  in place
 
-#### H2 quality gaps
+#### Documented limitations / future quality work
 
-* style and numbering fidelity still look heuristic rather than parity-grade
-* footnotes / endnotes are not yet recovered as reading output
-* comment / revision / textbox-heavy documents remain outside current quality
-  target
-* richer table semantics and cell provenance are still limited
-* real-world messy DOCX samples need broader coverage
+* style and numbering fidelity improved, but still look heuristic rather than
+  parity-grade
 * run-level formatting, bookmark/internal-link handling, and richer image
   caption semantics still trail mainstream DOCX tools
+* richer anchored semantics for comments and near-anchor textbox placement are
+  still missing
+* merged/nested/cell-provenance behavior is still limited even though visible
+  content preservation is now stronger
+* real-world messy DOCX samples still need broader coverage
 
-#### Bottom-layer gaps
+#### Bottom-layer / future parser-model work
 
-* OOXML styles model
-* numbering / abstract numbering recovery
-* footnote/endnote relationships and content traversal
-* richer OOXML drawing/textbox surfaces
+* richer OOXML styles model
+* deeper numbering / abstract numbering recovery
+* richer OOXML drawing/textbox surfaces beyond current `w:txbxContent` recovery
 * shared OOXML hyperlink/relationship robustness
 
 #### H3 performance gaps
@@ -111,53 +110,66 @@ reusable even outside Markdown conversion.
   keeping the scope overlap-only
 * classify current wins/losses with prebuilt native CLI only
 
+#### Closure decision
+
+DOCX is now **H2 complete** after the closure audit:
+
+* accepted-view-like revision handling now preserves inserted/moved-to visible
+  text while skipping deleted/moved-from markup
+* footnotes/endnotes/comments, headers/footers, and text boxes all have stable
+  conservative recovery paths
+* merged/nested tables remain imperfect, but current behavior preserves visible
+  content without claiming Word layout reconstruction
+* remaining gaps are documented limitations and future quality work, not H2
+  blockers
+
 #### Suggested next actions
 
 * add real-world DOCX corpus with styles, numbering, links, and notes
-* improve OOXML numbering/style signal before converter-local polishing
-* add DOCX footnote/endnote recovery plan
+* continue OOXML numbering/style signal beyond current style-linked fallback
 * benchmark text-heavy and image-heavy DOCX separately
-* document intentional non-goals for tracked changes / comments if deferred
+* document intentional non-goals for richer inline styling / review UI in
+  user-facing docs as needed
 
 #### Non-goals for now
 
 * pixel-faithful Word layout reproduction
 * full tracked-changes editor semantics
-* full comment workflow export
+* full threaded comment workflow export
 
 ### PPTX
 
 #### Current status
 
-* supported
-* H2 layout-quality review documented
+* H2 complete
 * pending H3 performance review
 
 #### Current strengths
 
 * slide-order traversal and reading-order-aware text recovery
 * title/body/list separation
-* conservative table-like / callout-like / caption-like region handling
+* explicit table-object lowering plus conservative table-like / callout-like /
+  caption-like region handling
 * basic run-level and shape-level external hyperlinks
 * image export and caption-like metadata surfaces
+* speaker notes extraction with conservative placeholder filtering
+* content-preserving hidden-slide annotation
+* explicit `p:grpSp` traversal with grouped text/image/table recovery
 
-#### H2 quality gaps
+#### Documented limitations / future quality work
 
-* layout grouping quality still depends heavily on heuristics
-* notes-page output is absent
-* real PowerPoint table objects are not modeled separately from heuristic
-  table-like regions
-* complex grouped shapes and dense slide layouts need stronger recovery
 * image-caption association still needs more real-world validation
 * hyperlink/media coverage is not yet parity-grade
+* comments remain absent
+* merged visual table reconstruction remains conservative
 
-#### Bottom-layer gaps
+#### Bottom-layer / future parser-model work
 
 * slide layout/master/placeholder model
-* shape geometry and grouping model
+* richer shape geometry / grouped-layout model
 * richer slide object graph
-* notes/comments/hidden-slide relationship traversal
-* table/drawing/media/action/hyperlink signal
+* comments/action-link traversal
+* charts / SmartArt / OLE object signal
 
 #### H3 performance gaps
 
@@ -168,9 +180,8 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* add real-world dense and mixed-layout PPTX samples
-* model notes-page and richer shape grouping in lower layers
-* improve hyperlink/media extraction before more heuristic converter work
+* add more real-world dense and mixed-layout PPTX samples
+* improve hyperlink/media extraction before broader converter work
 * benchmark simple, dense, and image-heavy decks separately
 * define explicit non-goals for animation/media semantics
 
@@ -184,7 +195,7 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 reviewed, baseline strengthened, H2 gaps documented
+* H2 lower-layer upgrade completed, H2 complete
 * pending H3 performance review
 
 #### Current strengths
@@ -192,22 +203,17 @@ reusable even outside Markdown conversion.
 * multi-sheet traversal
 * sparse-region trimming
 * datetime/time formatting
-* sheet-level table output with provenance
+* sheet-level `RichTable` output with provenance
+* workbook/sheet inspect surface with hidden-state and merged-range capture
+* formula cached-value policy with preserved lower-layer formula text
 * OOXML workbook/package base already exists
+#### Documented limitations / future quality work
 
-#### H2 quality gaps
-
-* merged cells are not reconstructed
-* formula policy is still "cached values only"
 * comments, drawings, charts, pivots are missing
-* richer workbook semantics and sheet layout need review
 * real-world spreadsheet samples are still too light
 
-#### Bottom-layer gaps
+#### Bottom-layer / future parser-model work
 
-* workbook / worksheet structural model
-* merged-cell region modeling
-* formula/cached-value policy abstraction
 * comments / drawings / relationships surfaces
 * richer cell typing/format signal
 
@@ -220,8 +226,6 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* add merged-cell and formula-policy audit samples
-* strengthen lower-layer worksheet model before converter-specific table polish
 * add real-world workbooks with multiple sheets and sparse/dense mixes
 * benchmark sparse and dense XLSX separately
 * define current non-goals for charts/pivots/comments if deferred
@@ -237,29 +241,45 @@ reusable even outside Markdown conversion.
 #### Current status
 
 * H2 core-first deep pass completed through P4.4 benchmark/comparison refresh
+* H2 closure re-audit completed, H2 complete
 * pending H3 performance review
 
 #### Current strengths
 
-* native `pdf_core` substrate already exposes chars / spans / lines / blocks
+* native `doc_parse/pdf` substrate already exposes chars / spans / lines / blocks
 * page geometry, image extraction, annotation extraction, and source refs exist
 * repeated header/footer cleanup and cross-page paragraph merge already exist
 * provenance and inspect surfaces are already part of the project
 * a dedicated PDF audit now exists in
   [docs/pdf-h2-core-gap-review.md](./pdf-h2-core-gap-review.md)
 
-#### H2 quality gaps
+#### H2 completed work
 
-* semantic table recovery is still absent
-* annotation/link output is still intentionally narrow and conservative
-* complex layouts and multi-column handling remain limited
-* image-caption recovery is intentionally narrow
-* some document capability surfaces are still placeholders rather than trusted
-  lower-layer signals
+* native `doc_parse/pdf` page/text/image/annotation/source-ref surface is wired into
+  the main converter path
+* heading, repeated edge-noise, page-number, and cross-page merge hardening are
+  covered by checked-in regression corpus
+* annotation/link output is conservative but stable for high-confidence safe
+  URI cases
+* simple high-confidence table recovery now exists, including headerless
+  numeric tables with `header_rows = 0`
+* same-page high-confidence image caption association now exists with
+  ambiguity/body/noise/table guards
+* conservative numeric page-number scoping now preserves middle-body numeric
+  table cells without weakening edge/trailing page-number cleanup
+
+#### H2 documented limitations
+
+* complex layouts and positive multi-column recovery remain limited
+* outlines / bookmarks are not yet emitted
+* internal Dest / GoTo emission remains out of the current converter policy
+* image-caption recovery stays intentionally narrow and same-page only
+* complex / multi-page / rotated / merged PDF table reconstruction is out of
+  scope for the current H2 bar
 
 #### Bottom-layer gaps
 
-* more trustworthy `pdf_core` capability reporting and populated model fields
+* more trustworthy `doc_parse/pdf` capability reporting and populated model fields
 * stronger page-edge / artifact / reading-order candidate signal
 * annotation/link/outlines surfaces usable by converter
 * richer provenance/debug surfaces for text/image/annotation decisions
@@ -274,8 +294,10 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* add PDF samples for outlines/bookmarks, image-caption expansion, and table-like negatives
-* continue tables / image-caption / internal-link/outlines work without widening current conservative guards
+* add PDF samples for outlines/bookmarks and richer internal-link behaviors if
+  product demand appears
+* expand broader image-caption and table corpora only if future H2.1 quality
+  work is desired, without widening current conservative guards
 * expand benchmark coverage to larger and more diverse text-PDF profiles before claiming H3 trend
 * keep explicit PDF non-goals in place while deeper layout semantics remain out of scope
 
@@ -289,7 +311,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 reviewed, baseline strengthened, H2 gaps documented
+* H2 lower-layer upgrade completed
+* H2 complete
 * pending H3 performance review
 
 #### Current strengths
@@ -298,21 +321,22 @@ reusable even outside Markdown conversion.
 * headings, paragraphs, lists, block quotes, code blocks, tables
 * inline links and local image export
 * figure/figcaption/alt/title handling already exists
+* common/numeric entity handling is now explicit and stable
+* table semantics now carry explicit `RichTable` / `header_rows` metadata
+* details/summary and script/style/head/noscript policy are explicit
 
-#### H2 quality gaps
+#### H2 quality outcome
 
 * more real-world HTML with messy DOMs is needed
-* semantic block/inline boundaries need broader review
 * table edge cases such as rowspan/colspan remain unsupported
 * image-context quality needs broader site-style coverage
 * browser-grade semantics are intentionally out of scope and should stay explicit
 
 #### Bottom-layer gaps
 
-* stronger DOM / node model
-* block/inline boundary signal
-* image-context extraction surfaces
-* safer local-reference and extracted-asset handling
+* optional richer DOM-path/source-span signal
+* optional stronger malformed-HTML recovery if future samples justify it
+* broader image-context extraction surfaces on messier real-world pages
 
 #### H3 performance gaps
 
@@ -338,9 +362,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H2 readiness audited
 * H2 complete
-* pending H3 review
+* next-stage work is H3 performance and selective H2.1 quality
 
 #### Current strengths
 
@@ -384,9 +407,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H2 readiness audited
 * H2 complete
-* pending H3 review
+* next-stage work is H3 performance and selective H2.1 quality
 
 #### Current strengths
 
@@ -430,8 +452,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H2 readiness audited, H2 complete
-* pending H3 review
+* H2 complete
+* next-stage work is H3 performance and corpus expansion
 
 #### Current strengths
 
@@ -480,8 +502,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H2 readiness audited, H2 complete
-* pending H3 review
+* H2 complete
+* next-stage work is H3 performance and corpus expansion
 
 #### Current strengths
 
@@ -528,8 +550,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H2 readiness audited, H2 complete
-* pending H3 review
+* H2 complete
+* next-stage work is H3 performance and corpus expansion
 
 #### Current strengths
 
@@ -580,28 +602,34 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
-* pending H3 review
+* H2 complete
+* next-stage work is H3 performance and corpus expansion
 
 #### Current strengths
 
 * conservative simple-subset parser with fail-closed boundaries
 * stable mapping/list/table/code-block downgrade behavior
 * metadata and smoke benchmark coverage exists
+* explicit `RichTable` metadata semantics are already in place
+* unsupported feature boundaries are already narrow and testable
 
-#### H2 quality gaps
+#### H2 quality outcome
 
-* current subset needs clearer real-world validation
-* comments are intentionally ignored; that tradeoff needs parity review
-* anchors, multiline scalars, flow style, and multi-document handling are still
-  outside current quality surface
+* supported subset is now explicit rather than implicit
+* comment/blank-line/simple-mapping/scalar-sequence/sequence-of-mappings
+  behavior is stable
+* anchors, aliases, tags, document separators, block scalars, flow style, and
+  inconsistent indentation fail closed
+* stable-key sequence-of-mappings now keep table semantics even when later
+  mapping key order differs
+* nested values are preserved conservatively instead of being flattened
 
 #### Bottom-layer gaps
 
-* YAML subset parser definition
-* safer tokenizer/line model
-* optional future anchor/multiline/document-separator support
+* optional future richer tokenizer/model if a larger safe subset becomes
+  necessary
+* optional future anchor/multiline/document-separator support if explicitly
+  scoped
 
 #### H3 performance gaps
 
@@ -611,8 +639,7 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* define the supported YAML subset more crisply
-* run H2 review on real config files within that subset
+* run broader real-world config review within the supported subset
 * evaluate whether anchors/multiline support belongs in bottom-layer upgrades
 * benchmark larger config-style YAMLs
 
@@ -626,28 +653,27 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 complete
-* pending H2 review
-* pending H3 review
+* H2 complete
+* next-stage work is H3 performance and future XML-family specialization
 
 #### Current strengths
 
 * source-preserving baseline is stable
 * BOM/CRLF/empty-file/backtick fence behavior is covered
 * metadata/origin coverage and smoke benchmarks exist
+* safe tokenizer / event surface now exists for declarations, processing
+  instructions, tags, comments, CDATA, doctype, text, and literal entity refs
 * explicit safe boundaries are already documented
 
 #### H2 quality gaps
 
-* current path is literal preservation only
-* if future user value needs more than fenced source, the project will need a
-  safe token/event model first
-* real-world XML families need clearer distinction from generic XML handling
+* generic XML remains intentionally source-preserving rather than semantic
+* real-world XML families still need clearer distinction from generic XML
+  handling
 
 #### Bottom-layer gaps
 
-* safe tokenizer / event model
-* namespace-neutral source model
+* optional richer namespace-neutral source model on top of the tokenizer
 * optional future DOM/event surfaces that still avoid unsafe entity behavior
 
 #### H3 performance gaps
@@ -660,7 +686,7 @@ reusable even outside Markdown conversion.
 #### Suggested next actions
 
 * keep XML H2 focused on safe generic XML, not XHTML/RSS/OPF/SVG semantics
-* design a safe tokenizer/event model if H2 requires richer behavior
+* reuse the tokenizer/event surface for future XHTML/RSS/OPF/SVG-local work
 * benchmark batch and large-file XML preservation
 * document comparability limits against MarkItDown more explicitly if needed
 
@@ -674,8 +700,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 reviewed, container baseline strengthened, H2 gaps documented
-* pending H3 performance review
+* H2 complete
+* next-stage work is H3 performance and deeper container features
 
 #### Current strengths
 
@@ -683,20 +709,15 @@ reusable even outside Markdown conversion.
 * supported-entry dispatch already works
 * archive asset namespace/remap is implemented
 * HTML local-image handling within ZIP is already in place
+* reusable inspect/inventory surface is now in place
 
-#### H2 quality gaps
+#### H2 completed work
 
-* container behavior needs broader robustness review
-* nested-archive policy and mixed-entry behavior need clearer boundaries
-* warning/unsupported-entry downgrade quality should be checked on real-world
-  archives
-
-#### Bottom-layer gaps
-
-* ZIP container safety model
-* entry policy abstraction
-* extracted-tree and namespace/remap robustness
-* optional future archive inventory/debug model
+* container safety model is explicitly documented and testable
+* entry policy abstraction now exists through inspect/inventory
+* extracted-tree and namespace/remap behavior remain covered and documented
+* normalized collision, unsafe path, and warning-level action boundaries are
+  explicitly surfaced
 
 #### H3 performance gaps
 
@@ -709,8 +730,8 @@ reusable even outside Markdown conversion.
 #### Suggested next actions
 
 * add mixed-entry and large-archive corpora
-* review nested-archive and unsupported-entry policy
 * benchmark container overhead separately from nested entry conversion
+* scope any future ZIP64 / data-descriptor / streaming work explicitly
 
 #### Non-goals for now
 
@@ -722,8 +743,8 @@ reusable even outside Markdown conversion.
 
 #### Current status
 
-* H1 reviewed, ebook package baseline strengthened, H2 gaps documented
-* pending H3 performance review
+* H2 complete
+* next-stage work is H3 performance and broader ebook semantics
 
 #### Current strengths
 
@@ -732,19 +753,13 @@ reusable even outside Markdown conversion.
 * same-archive local-image handling already works
 * EPUB metadata/document-properties support exists
 
-#### H2 quality gaps
+#### H2 completed work
 
-* nav/TOC semantic reconstruction is still pending
-* richer XHTML spine semantics need review
-* CSS-informed readability remains intentionally limited
-* real-world ebooks with more packaging variation need broader coverage
-
-#### Bottom-layer gaps
-
-* OPF/nav model
-* EPUB package and spine abstraction
-* stronger XHTML/asset remap surfaces
-* optional ebook-specific metadata/navigation model
+* EPUB3 nav detection and conservative TOC emission are in place
+* cover-image detection and conservative top-of-document cover emission are in
+  place
+* richer OPF metadata and inspect/debug surface are in place
+* EPUB package and spine abstraction are stronger and explicitly testable
 
 #### H3 performance gaps
 
@@ -755,8 +770,8 @@ reusable even outside Markdown conversion.
 
 #### Suggested next actions
 
-* add nav/TOC and multi-spine real-world samples
 * review XHTML/asset semantics within EPUB separately from generic XML
+* decide whether NCX should stay future or get a minimal extractor
 * benchmark short vs long-spine EPUBs
 
 #### Non-goals for now
@@ -791,17 +806,17 @@ reusable even outside Markdown conversion.
 
 ### Phase D: PDF deep pass
 
-14. PDF with `pdf_core` upgrades first
+14. PDF with `doc_parse/pdf` upgrades first
 
 Notes:
 
 * this order does not mean PDF is unimportant; it means PDF H2 depends heavily
-  on deeper `pdf_core` page/object/text modeling and benefits from a later,
+  on deeper `doc_parse/pdf` page/object/text modeling and benefits from a later,
   concentrated deep pass
 * ZIP and EPUB should be treated as container/ebook formats, not ordinary text
   formats
 * DOCX / PPTX / XLSX share OOXML package/model work that is itself a deliverable
-* `pdf_core` is one of the core project deliverables, not a converter-only
+* `doc_parse/pdf` is one of the core project deliverables, not a converter-only
   implementation detail
 
 ## Top Priority List
@@ -814,7 +829,7 @@ Notes:
 5. Improve OOXML lower-layer support for DOCX footnotes, numbering, and styles.
 6. Improve PPTX lower-layer shape/grouping/notes/link signal before more
    converter heuristics.
-7. Deepen `pdf_core` page object, text geometry, annotation, and image surfaces.
+7. Deepen `doc_parse/pdf` page object, text geometry, annotation, and image surfaces.
 8. Add batch and real-world benchmark tiers across all H1-complete simple
    formats.
 9. Evaluate CSV/TSV large-table scalability and possible streaming path.

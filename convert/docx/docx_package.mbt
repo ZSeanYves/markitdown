@@ -125,3 +125,172 @@ fn DocxPackage::load_numbering(p : DocxPackage) -> DocxNumbering {
   }
   parse_numbering_xml(xml)
 }
+
+///|
+fn DocxPackage::load_note_bundle(p : DocxPackage) -> DocxNoteBundle {
+  ignore(empty_docx_note_bundle())
+  {
+    footnotes_by_id: parse_footnotes_xml(
+      p.read_text_optional("word/footnotes.xml"),
+    ),
+    endnotes_by_id: parse_endnotes_xml(
+      p.read_text_optional("word/endnotes.xml"),
+    ),
+    comments_by_id: parse_comments_xml(
+      p.read_text_optional("word/comments.xml"),
+    ),
+  }
+}
+
+///|
+fn DocxPackage::load_header_footer_bundle(
+  p : DocxPackage,
+  doc_xml : String,
+  out_root : String,
+) -> DocxHeaderFooterBundle {
+  let doc_rels = p.read_document_relationship_context(None)
+  let refs = parse_docx_header_footer_references(doc_xml, doc_rels)
+  if refs.length() == 0 {
+    return empty_docx_header_footer_bundle()
+  }
+
+  let headers : Array[DocxHeaderFooterPart] = []
+  let footers : Array[DocxHeaderFooterPart] = []
+  let next_idx : Ref[Int] = {
+    val: build_docx_asset_path_map(doc_rels, out_root).length(),
+  }
+
+  for part_ref in refs {
+    let xml = p.read_text_optional(part_ref.part_name)
+    if xml.trim() == "" {
+      continue
+    }
+    let rels : Array[@ox.OoxmlRelationship] = @ox.read_part_relationships(
+      p.pkg,
+      part_ref.part_name,
+    ) catch {
+      _ => []
+    }
+    let rel_ctx = build_docx_relationship_context(rels)
+    let asset_by_target = build_docx_asset_path_map_with_seed(
+      rel_ctx, out_root, next_idx,
+    )
+    p.extract_media_by_relationships(
+      rel_ctx,
+      asset_by_target,
+      out_root + "/assets",
+    ) catch {
+      _ => ()
+    }
+    let rendered = render_docx_part_text_for_header_footer(xml)
+    let is_page_number_only = docx_header_footer_is_page_number_only(xml)
+    if @cor.is_blank(rendered) && !is_page_number_only {
+      continue
+    }
+    let part = {
+      kind: part_ref.kind,
+      ref_type: part_ref.ref_type,
+      relationship_id: part_ref.relationship_id,
+      part_name: part_ref.part_name,
+      text: rendered,
+      is_page_number_only,
+    }
+    match part_ref.kind {
+      DocxHeaderFooterKind::Header => headers.push(part)
+      DocxHeaderFooterKind::Footer => footers.push(part)
+    }
+  }
+
+  { headers, footers }
+}
+
+///|
+fn DocxPackage::load_text_box_bundle(
+  p : DocxPackage,
+  doc_xml : String,
+  out_root : String,
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+  header_footers : DocxHeaderFooterBundle,
+) -> DocxTextBoxBundle {
+  let doc_rels = p.read_document_relationship_context(None)
+  let asset_by_target = build_docx_asset_path_map(doc_rels, out_root)
+  let items : Array[DocxTextBox] = []
+
+  items.append(
+    collect_docx_text_boxes_from_xml(
+      doc_xml,
+      doc_rels,
+      asset_by_target,
+      styles,
+      numbering,
+      DocxTextBoxContext::Body,
+      "word/document.xml",
+      None,
+    ),
+  )
+
+  for part in header_footers.headers {
+    let xml = p.read_text_optional(part.part_name)
+    if xml.trim() == "" {
+      continue
+    }
+    let rels : Array[@ox.OoxmlRelationship] = @ox.read_part_relationships(
+      p.pkg,
+      part.part_name,
+    ) catch {
+      _ => []
+    }
+    let rel_ctx = build_docx_relationship_context(rels)
+    let part_asset_by_target = build_docx_asset_path_map_with_seed(
+      rel_ctx,
+      out_root,
+      { val: asset_by_target.length() + items.length() + 1000 },
+    )
+    items.append(
+      collect_docx_text_boxes_from_xml(
+        xml,
+        rel_ctx,
+        part_asset_by_target,
+        styles,
+        numbering,
+        DocxTextBoxContext::Header,
+        part.part_name,
+        Some(part.relationship_id),
+      ),
+    )
+  }
+
+  for part in header_footers.footers {
+    let xml = p.read_text_optional(part.part_name)
+    if xml.trim() == "" {
+      continue
+    }
+    let rels : Array[@ox.OoxmlRelationship] = @ox.read_part_relationships(
+      p.pkg,
+      part.part_name,
+    ) catch {
+      _ => []
+    }
+    let rel_ctx = build_docx_relationship_context(rels)
+    let part_asset_by_target = build_docx_asset_path_map_with_seed(
+      rel_ctx,
+      out_root,
+      { val: asset_by_target.length() + items.length() + 2000 },
+    )
+    items.append(
+      collect_docx_text_boxes_from_xml(
+        xml,
+        rel_ctx,
+        part_asset_by_target,
+        styles,
+        numbering,
+        DocxTextBoxContext::Footer,
+        part.part_name,
+        Some(part.relationship_id),
+      ),
+    )
+  }
+
+  { items, }
+}

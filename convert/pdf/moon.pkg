@@ -1,9 +1,9 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/pdf/ocr" @ocr,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/api" @api,
-  "ZSeanYves/markitdown/doc_parse/pdf_core/text" @text,
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+  "ZSeanYves/markitdown/doc_parse/pdf/api" @api,
+  "ZSeanYves/markitdown/doc_parse/pdf/text" @text,
   "moonbitlang/x/fs" @fs,
 }
 

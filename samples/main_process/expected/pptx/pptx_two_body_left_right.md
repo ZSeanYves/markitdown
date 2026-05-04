@@ -1,5 +1,5 @@
 ## Slide 1
 
-Left box
+### Left box
 
 Right box

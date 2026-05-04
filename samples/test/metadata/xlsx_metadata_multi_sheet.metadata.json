@@ -33,7 +33,8 @@
         "slide": null,
         "sheet": "MetaOne",
         "block_index": 0,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId1"
       },
       "image": null
     },
@@ -55,7 +56,14 @@
         "column_index": 1,
         "relationship_id": "rId1"
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["Name", "Score"],
+          ["Alice", "95"]
+        ],
+        "header_rows": 1
+      }
     },
     {
       "block_index": 2,
@@ -68,7 +76,8 @@
         "slide": null,
         "sheet": "MetaOne",
         "block_index": 2,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId1"
       },
       "image": null
     },
@@ -83,7 +92,8 @@
         "slide": null,
         "sheet": "MetaTwo",
         "block_index": 3,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId2"
       },
       "image": null
     },
@@ -105,7 +115,14 @@
         "column_index": 1,
         "relationship_id": "rId2"
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["beta", "2"]
+        ],
+        "header_rows": 1
+      }
     },
     {
       "block_index": 5,
@@ -118,7 +135,8 @@
         "slide": null,
         "sheet": "MetaTwo",
         "block_index": 5,
-        "heading_path": null
+        "heading_path": null,
+        "relationship_id": "rId2"
       },
       "image": null
     }

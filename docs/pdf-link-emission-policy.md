@@ -4,7 +4,7 @@ This document records the conservative PDF P2 annotation/link emission policy.
 
 ## Current PDF Signal
 
-`pdf_core` now exposes:
+`doc_parse/pdf` now exposes:
 
 * annotation subtype
 * URI
@@ -51,7 +51,7 @@ emit Markdown link text.
 Internal destinations are currently debug-only.
 
 * do not emit Markdown links for internal Dest / GoTo yet
-* keep the signal in `pdf_core` inspect/debug
+* keep the signal in `doc_parse/pdf` inspect/debug
 * revisit after a future anchor model exists
 
 ## Unsafe Scheme Policy

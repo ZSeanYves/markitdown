@@ -33,6 +33,17 @@ pub fn open_epub_package(
   if spine.length() == 0 {
     raise InvalidXml("missing spine itemref")
   }
+  let nav_item = find_nav_item(manifest)
+  let cover_item = find_cover_item(opf_xml, manifest_by_id, manifest)
+  let nav_points = match nav_item {
+    Some(item) =>
+      parse_nav_points(
+        read_required_xml_part(archive, entry_index, item.resolved_path),
+      ) catch {
+        _ => []
+      }
+    None => []
+  }
 
   {
     archive,
@@ -45,6 +56,49 @@ pub fn open_epub_package(
     metadata,
     manifest,
     spine,
+    nav_item,
+    cover_item,
+    nav_points,
+  }
+}
+
+///|
+pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
+  let spine_items : Array[EpubInspectSpineItem] = []
+  for item in pkg.spine {
+    let media_type = item.manifest_item.media_type
+    let action = if !item.linear {
+      "skip"
+    } else if spine_item_supported(item) {
+      "convert"
+    } else {
+      "warn"
+    }
+    spine_items.push({
+      idref: item.idref,
+      href: item.manifest_item.href,
+      media_type,
+      linear: item.linear,
+      action,
+    })
+  }
+  {
+    source_name: pkg.source_name,
+    mimetype: pkg.mimetype,
+    rootfile_path: pkg.rootfile_path,
+    manifest_count: pkg.manifest.length(),
+    spine_count: pkg.spine.length(),
+    nav_path: match pkg.nav_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    cover_path: match pkg.cover_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
+    metadata: pkg.metadata,
+    spine_items,
   }
 }
 
@@ -73,6 +127,21 @@ pub fn list_parts(pkg : EpubPackage) -> Array[String] {
     out.push(entry.path)
   }
   out
+}
+
+///|
+pub fn read_nav_document(pkg : EpubPackage) -> String? {
+  match pkg.nav_item {
+    Some(item) =>
+      try
+        read_required_xml_part(pkg.archive, pkg.entry_index, item.resolved_path)
+      catch {
+        _ => None
+      } noraise {
+        xml => Some(xml)
+      }
+    None => None
+  }
 }
 
 ///|
@@ -153,6 +222,10 @@ fn parse_opf_metadata(xml : String) -> EpubMetadata {
   {
     title: tag_text(xml, "title"),
     creator: tag_text(xml, "creator"),
+    language: tag_text(xml, "language"),
+    identifier: tag_text(xml, "identifier"),
+    publisher: tag_text(xml, "publisher"),
+    subject: tag_text(xml, "subject"),
     date: tag_text(xml, "date"),
     modified: tag_text_with_attr(xml, "meta", "property", "dcterms:modified"),
   }
@@ -170,10 +243,14 @@ fn parse_opf_manifest(
     let href = get_required_attr(attrs, "href").trim().to_owned()
     let media_type0 = get_optional_attr(attrs, "media-type").trim().to_owned()
     let media_type = if media_type0 == "" { None } else { Some(media_type0) }
+    let properties = split_space_properties(
+      get_optional_attr(attrs, "properties"),
+    )
     out.push({
       id,
       href,
       media_type,
+      properties,
       resolved_path: resolve_opf_href(opf_dir, href),
     })
   }
@@ -182,6 +259,90 @@ fn parse_opf_manifest(
     raise InvalidXml("missing manifest items")
   }
 
+  out
+}
+
+///|
+fn find_nav_item(manifest : Array[EpubManifestItem]) -> EpubManifestItem? {
+  for item in manifest {
+    if has_manifest_property(item, "nav") {
+      return Some(item)
+    }
+  }
+  None
+}
+
+///|
+fn find_cover_item(
+  opf_xml : String,
+  manifest_by_id : Map[String, EpubManifestItem],
+  manifest : Array[EpubManifestItem],
+) -> EpubManifestItem? {
+  for item in manifest {
+    if has_manifest_property(item, "cover-image") {
+      return Some(item)
+    }
+  }
+
+  let cover_id = tag_attr_with_attr(opf_xml, "meta", "name", "cover", "content")
+  match cover_id {
+    Some(id) => manifest_by_id.get(id.trim().to_owned())
+    None => None
+  }
+}
+
+///|
+fn has_manifest_property(item : EpubManifestItem, property : String) -> Bool {
+  for entry in item.properties {
+    if entry == property {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn split_space_properties(value : String) -> Array[String] {
+  let out : Array[String] = []
+  for part in value.trim().split(" ") {
+    let normalized = part.trim().to_owned()
+    if normalized != "" {
+      out.push(normalized)
+    }
+  }
+  out
+}
+
+///|
+fn parse_nav_points(xml : String) -> Array[EpubNavPoint] {
+  let out : Array[EpubNavPoint] = []
+  let nav_tag = first_start_tag_with_attr(xml, "nav", "epub:type", "toc")
+  let nav_region = match nav_tag {
+    Some(tag) =>
+      match tag_content(xml, tag, "nav") {
+        Some(body) => body
+        None => return out
+      }
+    None => return out
+  }
+
+  let links = collect_start_tags(nav_region, "a")
+  for tag in links {
+    let attrs = parse_tag_attributes(tag)
+    let href = get_optional_attr(attrs, "href").trim().to_owned()
+    if href == "" {
+      continue
+    }
+    match tag_content(nav_region, tag, "a") {
+      Some(text) => {
+        let label = xml_entity_decode(text.trim().to_owned())
+        if label != "" {
+          out.push({ label, href })
+        }
+      }
+      None => ()
+    }
+  }
   out
 }
 
@@ -207,6 +368,35 @@ fn parse_opf_spine(
     })
   }
   out
+}
+
+///|
+fn spine_item_supported(item : EpubSpineItem) -> Bool {
+  let media_type = match item.manifest_item.media_type {
+    Some(v) => v.trim().to_owned().to_lower()
+    None => ""
+  }
+  if media_type == "application/xhtml+xml" || media_type == "text/html" {
+    return true
+  }
+
+  let path = item.resolved_path
+  let n = path.length()
+  if n == 0 {
+    return false
+  }
+  let mut i = n - 1
+  while i >= 0 {
+    if path[i] == '.' {
+      if i == n - 1 {
+        return false
+      }
+      let ext = path[i + 1:].to_owned().to_lower()
+      return ext == "xhtml" || ext == "html" || ext == "htm"
+    }
+    i -= 1
+  }
+  false
 }
 
 ///|

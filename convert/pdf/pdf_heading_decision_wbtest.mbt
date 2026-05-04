@@ -221,14 +221,24 @@ test "pdf heading decision preserves core candidate with strong context" {
     734.0,
     Some(4.0),
   )
+  let prev = make_test_block(
+    -1,
+    PdfConvertBlockKind::Paragraph,
+    "Prior body paragraph.",
+    Some(12.0),
+    786.0,
+    Some(4.0),
+  )
 
-  let decision = decide_heading_classification(None, block, Some(next), 6)
+  let decision = decide_heading_classification(Some(prev), block, Some(next), 6)
   match decision.status {
     PdfHeadingDecisionStatus::KeepHeading => ()
     _ => fail("expected KeepHeading decision")
   }
-  if !decision.reason_tags.contains("core_candidate") {
-    fail("expected core_candidate reason")
+  if !decision.reason_tags.contains("font_size_delta") &&
+    !decision.reason_tags.contains("gap_before") &&
+    !decision.reason_tags.contains("next_body") {
+    fail("expected strong heading context reasons")
   }
 }
 

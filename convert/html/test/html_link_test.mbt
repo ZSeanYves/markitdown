@@ -166,14 +166,17 @@ test "html table cell links render and missing href stays plain text" {
 }
 
 ///|
-test "html table without explicit header keeps legacy table" {
+test "html table without explicit header keeps rich table metadata with header_rows=0" {
   let doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_br_table.html"),
     "",
     6,
   )
   match doc.blocks.val[0] {
-    @cor.Block::Table(rows) => assert_eq(rows[0][0], "a<br>b")
-    _ => fail("html_br_table should keep legacy Table without th or thead")
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 0)
+      assert_eq(table.rows[0][0], "a<br>b")
+    }
+    _ => fail("html_br_table should emit RichTable with header_rows=0")
   }
 }

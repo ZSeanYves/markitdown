@@ -106,7 +106,8 @@
 
 ## F. Recommended Acceptance Execution Order
 
-1. Run `samples/check_samples.sh` to verify consistency of the sample inventory.
-2. Run `samples/diff.sh` for main pipeline regression (and trigger assets checks).
+1. Run `samples/scripts/check_samples.sh` to verify consistency of the sample inventory.
+2. Run `samples/diff.sh` for main pipeline regression.
 3. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
-4. Spot-check `samples/test` as the compact acceptance demonstration sample set.
+4. Run `samples/check_assets.sh` to independently verify asset extraction/reference stability.
+5. Spot-check `samples/test` as the compact acceptance demonstration sample set.

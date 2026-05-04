@@ -53,7 +53,7 @@ It only chooses the converter; it does not own recovery strategy.
 
 * `doc_parse/zip`: ZIP reader and container primitives
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
-* `doc_parse/pdf_core`: native PDF substrate and inspect/debug-facing raw data
+* `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
 * `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
 
 These packages are infrastructure, not final Markdown semantics.

@@ -72,18 +72,29 @@ Supported:
 
 Conservative behavior:
 
+* numbering.xml and style-linked numbering now drive conservative ordered /
+  unordered list recovery where signal is available
 * style-driven recovery remains heuristic rather than style-taxonomy complete
 * image title/alt comes from source-native OOXML drawing fields
 * OOXML document properties are surfaced in the explicit `--with-metadata`
   sidecar path
+* DOCX tables now carry explicit `RichTable` / `header_rows` metadata while
+  keeping current Markdown table output stable
+* headers/footers now use conservative append sections with de-duplication and
+  page-number-only noise skipping
+* `w:txbxContent` text boxes now use a conservative final `Text Boxes` append
+  section instead of visual anchor reconstruction
+* deleted / moved-from revision markup is skipped while inserted / moved-to
+  visible text is preserved conservatively
 
 Known limits:
 
 * no run-level bold / italic / code-span preservation yet
 * no internal bookmark / anchor hyperlink promotion
-* no footnote/endnote hyperlink recovery
-* no comments / revisions / textbox-special semantics
-* no table cell provenance or rich cell model
+* footnotes/endnotes/comments currently use conservative append-section output
+  rather than richer inline semantics
+* no tracked-changes UI / richer review semantics
+* no table cell provenance or merged/nested visual table reconstruction
 
 ### PPTX
 
@@ -93,27 +104,37 @@ Supported:
 * reading-order-aware text recovery
 * title/body/list separation
 * placeholder- and geometry-aware reading-order heuristics
+* explicit `p:grpSp` group-shape traversal with nested grouped text/image/table
+  recovery
+* explicit PowerPoint `a:tbl` table-object lowering
 * table-like / callout-like / caption-like region handling
 * run-level and basic shape-level external hyperlink recovery
+* slide-local speaker notes extraction
+* hidden slide annotation with content-preserving output
 * exported images through unified `ImageBlock`
 * OOXML document properties in the explicit `--with-metadata` sidecar path
 
 Conservative behavior:
 
 * each slide gets a synthetic slide-boundary heading in workbook order
-* current "table" recovery is heuristic layout grouping, not explicit PowerPoint
-  table-object lowering
+* hidden slides are preserved with a `(hidden)` heading marker
+* explicit table objects emit `RichTable` with first-row header semantics unless
+  `a:tblPr firstRow="0|false"` disables it
+* speaker notes are emitted under the owning slide as a conservative append
+  subsection
+* heuristic "table-like" recovery still exists for non-table shape layouts
 * image caption attachment stays conservative
 * layout heuristics favor readable downgrade over aggressive reconstruction
 
 Known limits:
 
-* no notes-page output
-* no comments or hidden-slide annotation policy
 * no advanced multi-image caption pairing
+* no comments output yet
 * no semantic table IR for heuristic table-like regions
+* no visual merged-table reconstruction
 * no internal/action/media hyperlink promotion
 * no chart / SmartArt / OLE / embedded-media semantics
+* no pixel-perfect grouped-layout or z-order reconstruction
 
 ### XLSX
 
@@ -121,22 +142,30 @@ Supported:
 
 * multi-sheet output
 * sheet headings plus tables
+* explicit `RichTable` table semantics
 * sparse-region trimming
 * datetime/time formatting
+* shared strings and inline strings
+* boolean / error / blank cell handling
+* merged-range detection in the lower layer
+* hidden / veryHidden sheet-state capture in the lower layer
 * source row/column provenance
 
 Conservative behavior:
 
-* tables remain legacy `Table` output
+* tables emit spreadsheet-style `RichTable` with `header_rows = 1`
 * cached values are used; formulas are not evaluated
 * hidden sheets are currently emitted in workbook order
 * merged ranges currently preserve only the top-left visible value
+* formula text is preserved in the lower layer when present
+* sparse sheets are lowered through a used bounding box, not a full grid
 
 Known limits:
 
 * no merged-cell reconstruction
-* no formula policy beyond current cached-value path
-* no hidden-sheet filtering or annotation policy yet
+* no formula evaluation engine
+* no hidden-sheet annotation in emitted Markdown yet
+* no metadata serialization for formula text or merged ranges yet
 * no charts / pivots / comments / image export
 
 ### PDF
@@ -148,13 +177,22 @@ Supported:
 * repeated-header/footer cleanup
 * cross-page paragraph merge
 * exported images
+* simple high-confidence grid-like PDF tables
+* headerless numeric PDF tables
+* high-confidence same-page image captions
 * lightweight page/image provenance
 * PDF debug pipeline and inspect surfaces
 
 Conservative behavior:
 
 * structure is text-first, not visual-layout faithful
-* image caption attachment is limited to conservative single-image cases
+* table recovery only triggers for compact, aligned, high-confidence text grids
+* table lowering supports both explicit header-like first rows and conservative
+  `header_rows = 0` headerless numeric tables
+* page-number-like numeric candidates survive core/early-block construction and
+  are resolved later by edge-aware noise policy so middle-body numeric table
+  cells are still available to the conservative table detector
+* image caption attachment only triggers for short, figure-like nearby text
 * PDF annotation links only emit for a narrow, high-confidence URI subset; all
   other annotation/link cases remain conservative and debug-visible
 
@@ -162,7 +200,8 @@ Known limits:
 
 * no internal-destination / GoTo link emission
 * no multiline or ambiguous PDF link emission
-* no semantic table recovery
+* no general PDF table engine or complex table reconstruction
+* no outlines / bookmarks emission
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
 
@@ -174,8 +213,12 @@ Supported:
 * inline hyperlinks
 * local image export
 * figure / figcaption / alt / title handling
+* details / summary visible-text preservation
 * UTF-8 BOM removal
 * CRLF / CR normalization
+* common named entities: `amp`, `lt`, `gt`, `quot`, `apos`, `nbsp`
+* numeric decimal / hex entity decoding
+* explicit `RichTable` metadata semantics for HTML tables
 
 Conservative behavior:
 
@@ -185,6 +228,8 @@ Conservative behavior:
 * comments / doctype are ignored
 * semantic wrappers such as `main` / `section` / `header` / `footer` preserve
   child content conservatively
+* `script` / `style` / `head` / `noscript` are skipped rather than executed or
+  rendered
 
 Known limits:
 
@@ -192,8 +237,9 @@ Known limits:
 * no remote fetch
 * no DOM-path metadata
 * no rowspan / colspan reconstruction
-* HTML named-entity decoding is intentionally partial in the current H1 path
-* no specialized `details` / `summary` semantic reconstruction
+* unknown named entities remain literal rather than using a full HTML entity
+  table
+* no browser-style tree building or visual layout reconstruction
 
 ### CSV / TSV
 
@@ -269,12 +315,18 @@ Supported:
 * nested / ambiguous fallback -> code block
 * UTF-8 BOM removal
 * CRLF / CR normalization
+* `'...'` / `"..."` quoted scalar support
+* comment-only / blank-line-only input handling
 
 Conservative behavior:
 
 * only the current simple subset is interpreted structurally
 * comments are ignored by the current parser
 * regular table cells preserve markdown-sensitive characters conservatively
+* later mapping key order may differ inside a sequence-of-mappings as long as
+  the key set stays stable
+* nested mapping/sequence cell values are preserved as compact inline text
+  instead of being flattened
 
 Known limits:
 
@@ -282,6 +334,7 @@ Known limits:
 * no block scalar / flow style / multi-document input
 * no full YAML spec support
 * no nested provenance beyond root `key_path`
+* duplicate keys keep parser source order; no merge-key semantics are added
 
 ### Markdown / MD / MARKDOWN
 
@@ -337,13 +390,17 @@ Supported:
 * UTF-8 BOM removal
 * CRLF / CR normalization
 * source-preserving fenced `xml` code-block output
-* XML declaration / comments / attributes / doctype text preserved literally
+* XML declaration / processing instruction / comments / CDATA / attributes /
+  doctype text preserved literally
 * fence-width growth when source contains backticks
+* safe tokenizer/event surface for declarations, processing instructions, tags,
+  comments, CDATA, doctype, text, and literal entity references
 
 Conservative behavior:
 
 * XML is preserved as normalized source text rather than semantically rebuilt
 * metadata treats the whole source as one conservative `CodeBlock` summary block
+* tokenizer is syntax-level only and does not change main Markdown output
 
 Known limits:
 
@@ -351,6 +408,7 @@ Known limits:
 * no namespace interpretation
 * no external entity loading
 * no DTD expansion
+* no entity expansion
 * no `SYSTEM` / `PUBLIC` external-resource resolution
 * no schema validation
 * no specialized `.xhtml` / `.rss` / `.atom` / `.opf` / `.svg` handling
@@ -376,6 +434,8 @@ Conservative behavior:
 * supported entries convert through the same dispatcher-driven path as their
   standalone format families
 * nested archives are downgraded to warning blocks rather than traversed
+* deterministic ZIP inspect/inventory can classify entry action without
+  changing conversion semantics
 
 Known limits:
 
@@ -384,7 +444,7 @@ Known limits:
 * no remote HTML asset fetch
 * no absolute / root-relative / parent / scheme-like / backslash HTML local-image export
 * normalized collisions and unsupported low-level ZIP features fail closed
-* no ZIP64 / data-descriptor / encrypted-ZIP support in the current H1 path
+* no ZIP64 / data-descriptor / encrypted-ZIP support in the current H2 path
 
 ### EPUB
 
@@ -394,6 +454,8 @@ Supported:
 * OPF rootfile / manifest / spine parsing
 * spine-order Markdown aggregation
 * XHTML / HTML spine item conversion
+* EPUB3 nav detection with conservative TOC emission
+* cover-image detection with conservative top-of-document cover emission
 * same-archive local images through a safe extracted tree
 * archive-style asset namespace/remap
 * OPF title / creator / date / modified document metadata
@@ -408,7 +470,7 @@ Known limits:
 
 * no DRM / encryption support
 * no CSS rendering
-* no nav / NCX semantic reconstruction
+* no NCX semantic reconstruction
 * no fallback chains
 * no advanced media / font / SVG spine handling
 * no remote fetch

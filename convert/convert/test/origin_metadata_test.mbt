@@ -6,6 +6,49 @@
 /// - guards metadata-sidecar image context mirrors (caption vs nearby_caption)
 /// - checks asset indexing invariants shared by main_process / metadata / assets chains
 /// 已做了内容删除，在测试结束后不会保留内容，但会残留测试目录
+fn parent_dir(path : String) -> String {
+  match path.rev_find("/") {
+    None => ""
+    Some(idx) => if idx == 0 { "/" } else { path[:idx].to_owned() }
+  }
+}
+
+///|
+fn join_path(base : String, rel : String) -> String {
+  if base == "" || base == "." {
+    rel
+  } else if base == "/" {
+    "/" + rel
+  } else if base.has_suffix("/") {
+    base + rel
+  } else {
+    base + "/" + rel
+  }
+}
+
+///|
+fn find_repo_root_from(dir : String) -> String? {
+  if @fs.path_exists(join_path(dir, "moon.mod.json")) {
+    return Some(dir)
+  }
+  let parent = parent_dir(dir)
+  if parent == "" || parent == dir {
+    None
+  } else {
+    find_repo_root_from(parent)
+  }
+}
+
+///|
+fn find_repo_root() -> String? {
+  let dir = match @sys.get_env_var("PWD") {
+    Some(cwd) => cwd
+    None => return None
+  }
+  find_repo_root_from(dir)
+}
+
+///|
 fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
@@ -16,16 +59,23 @@ fn resolve_sample_path(path : String) -> String raise {
     return fallback
   }
 
+  match find_repo_root() {
+    Some(root) => {
+      let rooted = join_path(root, path)
+      if @fs.path_exists(rooted) {
+        return rooted
+      }
+    }
+    None => ()
+  }
+
   fail("sample file not found: " + path)
 }
 
 ///|
 fn read_utf8_text(path : String) -> String raise {
-  let bytes = @fs.read_file_to_bytes(path) catch {
+  @fs.read_file_to_string(path, encoding="utf8") catch {
     e => fail("read sample failed: " + e.to_string())
-  }
-  @cor.utf8_bytes_to_string(bytes) catch {
-    e => fail("utf8 decode failed: " + e.to_string())
   }
 }
 
@@ -79,6 +129,153 @@ fn ensure_dir_tree(path : String) -> Unit raise {
   }
 
   ignore(flush(part, current))
+}
+
+///|
+fn metadata_pdf_page_from_ops(
+  ops : Array[@pdfops.Op],
+  rect : @mbtpdf_core.PdfObject,
+) -> @pdfpage.Page raise {
+  let stream = @pdfops.Op::stream_of_ops(ops)
+  let font : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Type", Name(@mbtpdf_core.PdfName::of_string("/Font"))),
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Type1"))),
+    ("/BaseFont", Name(@mbtpdf_core.PdfName::of_string("/Helvetica"))),
+  ])
+  {
+    content: [stream],
+    mediabox: rect,
+    cropbox: None,
+    resources: Dictionary([("/Font", Dictionary([("/F0", font)]))]),
+    rotate: @pdfpage.Rotation::Rotate0,
+    rest: Dictionary([]),
+  }
+}
+
+///|
+async fn write_metadata_simple_table_pdf(path : String) -> Unit {
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(240.0),
+  ])
+  let ops : Array[@pdfops.Op] = [
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 180.0),
+    @pdfops.Op::OpTj("Product"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 180.0),
+    @pdfops.Op::OpTj("Region"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 180.0),
+    @pdfops.Op::OpTj("Status"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 158.0),
+    @pdfops.Op::OpTj("Alpha"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 158.0),
+    @pdfops.Op::OpTj("East"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 158.0),
+    @pdfops.Op::OpTj("Open"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 136.0),
+    @pdfops.Op::OpTj("Beta"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(150.0, 136.0),
+    @pdfops.Op::OpTj("West"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(250.0, 136.0),
+    @pdfops.Op::OpTj("Closed"),
+    @pdfops.Op::OpET,
+  ]
+
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let page = metadata_pdf_page_from_ops(ops, rect)
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn write_metadata_headerless_numeric_table_pdf(path : String) -> Unit {
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(240.0),
+  ])
+  let ops : Array[@pdfops.Op] = [
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 180.0),
+    @pdfops.Op::OpTj("Alpha"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 180.0),
+    @pdfops.Op::OpTj("12"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 180.0),
+    @pdfops.Op::OpTj("4.5%"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 158.0),
+    @pdfops.Op::OpTj("Beta"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 158.0),
+    @pdfops.Op::OpTj("9"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 158.0),
+    @pdfops.Op::OpTj("3.2%"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(40.0, 136.0),
+    @pdfops.Op::OpTj("Gamma"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(180.0, 136.0),
+    @pdfops.Op::OpTj("7"),
+    @pdfops.Op::OpET,
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(280.0, 136.0),
+    @pdfops.Op::OpTj("2.1%"),
+    @pdfops.Op::OpET,
+  ]
+
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let page = metadata_pdf_page_from_ops(ops, rect)
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  @mbtpdf.write_file(pdf, path)
 }
 
 ///|
@@ -895,6 +1092,13 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   )
   assert_block_origin_alignment(xlsx_doc)
   assert_sheet_level_origins(xlsx_doc)
+  match xlsx_doc.blocks.val[1] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("xlsx should keep header_rows=1 explicit table semantics")
+      }
+    _ => fail("xlsx should emit RichTable for sheet tables")
+  }
 }
 
 ///|
@@ -946,6 +1150,12 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     read_ooxml_metadata_document_properties(xlsx_path),
   )
   assert_metadata_has_document_object(xlsx_json, "xlsx")
+  if !xlsx_json.contains("\"table\": {") {
+    fail("xlsx metadata should expose table payload for RichTable blocks")
+  }
+  if !xlsx_json.contains("\"header_rows\": 1") {
+    fail("xlsx metadata should keep explicit header_rows")
+  }
 
   let missing_docprops_path = resolve_sample_path(
     "samples/main_process/docx/docx_blockquote_basic.docx",
@@ -1379,6 +1589,9 @@ test "origin_metadata/structured_text_block_origins" {
   if xml_origin.key_path != None {
     fail("xml code block should not set key_path")
   }
+  if xml_origin.source_name != Some("xml_comments.xml") {
+    fail("xml code block should preserve source_name")
+  }
 
   let markdown_code_doc = @md.parse_markdown(
     resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
@@ -1562,6 +1775,10 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     html_basic_out_dir + "/html",
     6,
   )
+  match html_basic_doc.blocks.val[0] {
+    @cor.Block::RichHeading(_, _) => ()
+    _ => fail("html metadata basic should keep RichHeading block semantics")
+  }
   assert_metadata_snapshot(
     @cor.emit_metadata_json(
       html_basic_doc, "html_metadata_basic.html", "html", "html_metadata_basic.md",
@@ -1705,6 +1922,24 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     ),
     "zip_metadata_assets.metadata.json",
   )
+  let zip_inspect = @zipconv.inspect_zip(
+    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+  )
+  let mut saw_convertable_html = false
+  for entry in zip_inspect.entries {
+    if entry.normalized_path == Some("site/page.html") {
+      saw_convertable_html = true
+      if entry.action != @zipconv.ZipInspectAction::Convert {
+        fail("zip inspect should mark site/page.html as convertable")
+      }
+      if entry.dispatch_format != Some("html") {
+        fail("zip inspect should classify site/page.html as html")
+      }
+    }
+  }
+  if !saw_convertable_html {
+    fail("zip inspect should report site/page.html in metadata asset sample")
+  }
 
   let pptx_single_out_dir = origin_tmp_root() +
     "/metadata_sidecar_pptx_image_single_caption_like"
@@ -1759,6 +1994,84 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "pptx_image_no_alt_negative.metadata.json",
   )
 
+  let pptx_table_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_table_basic"
+  recreate_clean_dir(pptx_table_out_dir)
+  defer cleanup_temp_dir(pptx_table_out_dir)
+  ensure_dir(pptx_table_out_dir + "/pptx")
+  // PPTX H2 slice coverage:
+  // keep explicit table metadata regression separate from image-only PPTX cases.
+  let pptx_table_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_basic.pptx"),
+    pptx_table_out_dir + "/pptx",
+    6,
+  )
+  let mut saw_pptx_table = false
+  for block in pptx_table_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) => {
+        saw_pptx_table = true
+        if table.header_rows != 1 {
+          fail("pptx explicit table metadata sample should keep header_rows=1")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_pptx_table {
+    fail("pptx explicit table metadata sample should emit RichTable")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_table_doc,
+      "pptx_metadata_table_basic.pptx",
+      "pptx",
+      "pptx_metadata_table_basic.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_table_basic.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_table_basic.metadata.json",
+  )
+
+  let pptx_notes_hidden_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_notes_hidden"
+  recreate_clean_dir(pptx_notes_hidden_out_dir)
+  defer cleanup_temp_dir(pptx_notes_hidden_out_dir)
+  ensure_dir(pptx_notes_hidden_out_dir + "/pptx")
+  // Hidden-slide + speaker-notes coverage is intentionally content-preserving:
+  // heading text carries the hidden marker; notes keep existing provenance fields.
+  let pptx_notes_hidden_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_notes_hidden.pptx"),
+    pptx_notes_hidden_out_dir + "/pptx",
+    6,
+  )
+  let pptx_notes_hidden_md = @cor.emit_markdown(pptx_notes_hidden_doc)
+  if !pptx_notes_hidden_md.contains("## Slide 2 (hidden)") {
+    fail(
+      "pptx notes+hidden metadata sample should preserve hidden slide marker",
+    )
+  }
+  if !pptx_notes_hidden_md.contains("### Speaker Notes") {
+    fail("pptx notes+hidden metadata sample should emit speaker notes heading")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_notes_hidden_doc,
+      "pptx_metadata_notes_hidden.pptx",
+      "pptx",
+      "pptx_metadata_notes_hidden.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_notes_hidden.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_notes_hidden.metadata.json",
+  )
+
   let docx_golden_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_golden"
   recreate_clean_dir(docx_golden_out_dir)
   defer cleanup_temp_dir(docx_golden_out_dir)
@@ -1768,6 +2081,22 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     docx_golden_out_dir + "/docx",
     6,
   )
+  let docx_table_blocks = docx_golden_doc.blocks.val.filter(fn(block) {
+    match block {
+      @cor.Block::RichTable(_) => true
+      _ => false
+    }
+  })
+  if docx_table_blocks.length() != 1 {
+    fail("golden.docx should emit one RichTable block")
+  }
+  match docx_table_blocks[0] {
+    @cor.Block::RichTable(table) =>
+      if table.header_rows != 1 {
+        fail("docx golden table should keep header_rows=1 explicit semantics")
+      }
+    _ => fail("golden.docx table block should be RichTable")
+  }
   assert_metadata_snapshot(
     @cor.emit_metadata_json_with_document_properties(
       docx_golden_doc,
@@ -1780,6 +2109,18 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     ),
     "golden.metadata.json",
   )
+  let docx_json = @cor.emit_metadata_json_with_document_properties(
+    docx_golden_doc,
+    "golden.docx",
+    "docx",
+    "golden.md",
+    read_ooxml_metadata_document_properties(
+      resolve_sample_path("samples/main_process/docx/golden.docx"),
+    ),
+  )
+  if !docx_json.contains("\"header_rows\": 1") {
+    fail("docx metadata should expose explicit table header_rows")
+  }
 
   let docx_alt_title_out_dir = origin_tmp_root() +
     "/metadata_sidecar_docx_image_alt_title_basic"
@@ -1829,6 +2170,84 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       ),
     ),
     "docx_image_no_alt_negative.metadata.json",
+  )
+
+  let docx_notes_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_notes"
+  recreate_clean_dir(docx_notes_out_dir)
+  defer cleanup_temp_dir(docx_notes_out_dir)
+  ensure_dir(docx_notes_out_dir + "/docx")
+  let docx_notes_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+    docx_notes_out_dir + "/docx",
+    6,
+  )
+  if docx_notes_doc.blocks.val.length() != 6 {
+    fail("docx notes metadata sample should emit six blocks")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_notes_doc,
+      "docx_notes_metadata.docx",
+      "docx",
+      "docx_notes_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+      ),
+    ),
+    "docx_notes_metadata.metadata.json",
+  )
+
+  let docx_header_footer_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_header_footer"
+  recreate_clean_dir(docx_header_footer_out_dir)
+  defer cleanup_temp_dir(docx_header_footer_out_dir)
+  ensure_dir(docx_header_footer_out_dir + "/docx")
+  let docx_header_footer_doc = @doc.parse_docx(
+    resolve_sample_path(
+      "samples/metadata/docx/docx_header_footer_metadata.docx",
+    ),
+    docx_header_footer_out_dir + "/docx",
+    6,
+  )
+  if docx_header_footer_doc.blocks.val.length() != 7 {
+    fail("docx header/footer metadata sample should emit seven blocks")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_header_footer_doc,
+      "docx_header_footer_metadata.docx",
+      "docx",
+      "docx_header_footer_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/docx/docx_header_footer_metadata.docx",
+        ),
+      ),
+    ),
+    "docx_header_footer_metadata.metadata.json",
+  )
+
+  let docx_textbox_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_textbox"
+  recreate_clean_dir(docx_textbox_out_dir)
+  defer cleanup_temp_dir(docx_textbox_out_dir)
+  ensure_dir(docx_textbox_out_dir + "/docx")
+  let docx_textbox_doc = @doc.parse_docx(
+    resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+    docx_textbox_out_dir + "/docx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_textbox_doc,
+      "docx_textbox_metadata.docx",
+      "docx",
+      "docx_textbox_metadata.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+      ),
+    ),
+    "docx_textbox_metadata.metadata.json",
   )
 
   let csv_doc = @csv.parse_csv(
@@ -2025,6 +2444,32 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     ),
     "epub_metadata_assets.metadata.json",
   )
+  let epub_cover_doc = @epub.parse_epub(
+    resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+    epub_out_dir,
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      epub_cover_doc,
+      "epub_metadata_cover.epub",
+      "epub",
+      "epub_metadata_cover.md",
+      read_epub_metadata_document_properties(
+        resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+      ),
+    ),
+    "epub_metadata_cover.metadata.json",
+  )
+  let epub_inspect = @epub.inspect_epub(
+    resolve_sample_path("samples/main_process/epub/epub_nav_toc.epub"),
+  )
+  if epub_inspect.nav_path != Some("OPS/nav.xhtml") {
+    fail("epub inspect should expose nav path")
+  }
+  if epub_inspect.spine_count != 1 {
+    fail("epub inspect should expose spine count")
+  }
 
   let epub_warning_doc = @epub.parse_epub(
     resolve_sample_path(
@@ -2368,5 +2813,129 @@ async test "image_context/pdf_caption_like" {
       }
     }
     None => fail("expected one image block for pdf no-caption sample")
+  }
+}
+
+///|
+async test "origin_metadata/pdf_conservative_table_first_pass" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/pdf_conservative_table_first_pass"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/pdf")
+  let input = out_dir + "/pdf/simple_table.pdf"
+  write_metadata_simple_table_pdf(input)
+
+  let doc = @pdf.parse_pdf(
+    input,
+    out_dir + "/pdf",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+
+  let mut saw_table = false
+  let mut table_block_index = -1
+  for i = 0; i < doc.blocks.val.length(); i = i + 1 {
+    match doc.blocks.val[i] {
+      @cor.Block::RichTable(table) => {
+        saw_table = true
+        table_block_index = i
+        if table.header_rows != 1 {
+          fail("pdf conservative table sample should keep header_rows=1")
+        }
+        if table.rows.length() != 3 {
+          fail("pdf conservative table sample should keep 3 rows")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_table {
+    fail("pdf conservative table sample should emit RichTable")
+  }
+
+  let origin = block_origin_at(doc, table_block_index)
+  if origin.page != Some(1) {
+    fail("pdf conservative table origin page should be Some(1)")
+  }
+  if origin.line_start == None || origin.line_end == None {
+    fail("pdf conservative table origin should keep line_start/line_end")
+  }
+
+  let pdf_json = @cor.emit_metadata_json(
+    doc, "simple_table.pdf", "pdf", "simple_table.md",
+  )
+  if !pdf_json.contains("\"table\": {") {
+    fail("pdf metadata should expose table payload for RichTable blocks")
+  }
+  if !pdf_json.contains("\"header_rows\": 1") {
+    fail("pdf metadata should keep explicit header_rows")
+  }
+}
+
+///|
+async test "origin_metadata/pdf_headerless_numeric_table_second_pass" {
+  let root_dir = origin_tmp_root()
+
+  let out_dir = root_dir + "/pdf_headerless_numeric_table_second_pass"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  ensure_dir(out_dir + "/pdf")
+  let input = out_dir + "/pdf/headerless_numeric_table.pdf"
+  write_metadata_headerless_numeric_table_pdf(input)
+
+  let doc = @pdf.parse_pdf(
+    input,
+    out_dir + "/pdf",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+
+  let mut saw_table = false
+  let mut table_block_index = -1
+  for i = 0; i < doc.blocks.val.length(); i = i + 1 {
+    match doc.blocks.val[i] {
+      @cor.Block::RichTable(table) => {
+        saw_table = true
+        table_block_index = i
+        if table.header_rows != 0 {
+          fail("pdf headerless numeric table should keep header_rows=0")
+        }
+        if table.rows.length() != 3 {
+          fail("pdf headerless numeric table should keep 3 rows")
+        }
+      }
+      _ => ()
+    }
+  }
+  if !saw_table {
+    fail("pdf headerless numeric table should emit RichTable")
+  }
+
+  let origin = block_origin_at(doc, table_block_index)
+  if origin.page != Some(1) {
+    fail("pdf headerless numeric table origin page should be Some(1)")
+  }
+  if origin.line_start == None || origin.line_end == None {
+    fail("pdf headerless numeric table origin should keep line_start/line_end")
+  }
+
+  let pdf_json = @cor.emit_metadata_json(
+    doc, "headerless_numeric_table.pdf", "pdf", "headerless_numeric_table.md",
+  )
+  if !pdf_json.contains("\"table\": {") {
+    fail("pdf headerless table metadata should expose table payload")
+  }
+  if !pdf_json.contains("\"header_rows\": 0") {
+    fail("pdf headerless table metadata should keep header_rows=0")
   }
 }

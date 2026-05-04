@@ -80,10 +80,15 @@ fn nodes_to_blocks(
           }
           out_rows.push(out_row)
         }
-        if table.has_explicit_header {
-          out.push(@cor.Block::RichTable({ rows: out_rows, header_rows: 1 }))
+        if table.header_rows > 0 {
+          out.push(
+            @cor.Block::RichTable({
+              rows: out_rows,
+              header_rows: table.header_rows,
+            }),
+          )
         } else {
-          out.push(@cor.Block::Table(out_rows))
+          out.push(@cor.Block::RichTable({ rows: out_rows, header_rows: 0 }))
         }
       }
     }

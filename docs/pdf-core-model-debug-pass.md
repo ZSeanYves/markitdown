@@ -1,10 +1,10 @@
 # PDF Core Model/Debug Pass
 
-This document records the PDF P1 `pdf_core` model/debug signal pass.
+This document records the PDF P1 `doc_parse/pdf` model/debug signal pass.
 
 Scope for this round:
 
-* tighten `pdf_core` model-field responsibility
+* tighten `doc_parse/pdf` model-field responsibility
 * improve inspect/debug visibility for page/text/image/annotation/source refs
 * expose conservative P1 signals that later `convert/pdf` work can consume
 * keep PDF Markdown output unchanged
@@ -17,21 +17,21 @@ Non-goals for this round:
 * no full table extraction
 * no full multi-column reading-order engine
 
-## Current `pdf_core` Model Map
+## Current `doc_parse/pdf` Model Map
 
 ### Layers
 
 | Layer | File(s) | Current responsibility | Public/Private | Notes |
 | --- | --- | --- | --- | --- |
-| geometry model | `doc_parse/pdf_core/model/pdf_geom_model.mbt` | points, rects, quads, colors, page boxes, geometry helpers | public | shared by text/image/page model |
-| text model | `doc_parse/pdf_core/model/pdf_text_model.mbt` | source refs, chars, spans, lines, blocks, text helpers | public | now also exposes source-ref and count helpers |
-| page/document model | `doc_parse/pdf_core/model/pdf_page_model.mbt` | page/image/annotation/vector/form/document containers | public | now also exposes page stats and edge-region helpers |
-| image/annotation model | `doc_parse/pdf_core/model/pdf_image_model.mbt` | payload/image/annotation/vector/form structs | public | core only exposes object/provenance, not final caption semantics |
-| raw parser types | `doc_parse/pdf_core/raw/pdf_raw_types.mbt` | backend-owned raw extract structs | mixed | adapter-facing layer |
-| raw adapters | `doc_parse/pdf_core/raw/mbtpdf_*.mbt` | vendored `mbtpdf` -> project raw structs | private boundary | only raw layer should know backend details |
-| text reconstruction | `doc_parse/pdf_core/text/pdf_text_*.mbt`, `normalize_texts.mbt`, `rule.mbt`, `unicode_compat.mbt` | chars -> spans -> lines -> blocks | public package, internal heuristic role | still heuristic-heavy but model-facing |
-| API/builder | `doc_parse/pdf_core/api/pdf_core_api.mbt` | raw -> model, summaries, debug/inspect | public | main consumer entry for `convert/pdf` |
-| tests | `doc_parse/pdf_core/api/test/pdf_core_test.mbt`, `doc_parse/pdf_core/model/test/pdf_text_model_test.mbt`, `doc_parse/pdf_core/test/*` | integration/model smoke | test-only | new aggregate test package added |
+| geometry model | `doc_parse/pdf/model/pdf_geom_model.mbt` | points, rects, quads, colors, page boxes, geometry helpers | public | shared by text/image/page model |
+| text model | `doc_parse/pdf/model/pdf_text_model.mbt` | source refs, chars, spans, lines, blocks, text helpers | public | now also exposes source-ref and count helpers |
+| page/document model | `doc_parse/pdf/model/pdf_page_model.mbt` | page/image/annotation/vector/form/document containers | public | now also exposes page stats and edge-region helpers |
+| image/annotation model | `doc_parse/pdf/model/pdf_image_model.mbt` | payload/image/annotation/vector/form structs | public | core only exposes object/provenance, not final caption semantics |
+| raw parser types | `doc_parse/pdf/raw/pdf_raw_types.mbt` | backend-owned raw extract structs | mixed | adapter-facing layer |
+| raw adapters | `doc_parse/pdf/raw/mbtpdf_*.mbt` | vendored `mbtpdf` -> project raw structs | private boundary | only raw layer should know backend details |
+| text reconstruction | `doc_parse/pdf/text/pdf_text_*.mbt`, `normalize_texts.mbt`, `rule.mbt`, `unicode_compat.mbt` | chars -> spans -> lines -> blocks | public package, internal heuristic role | still heuristic-heavy but model-facing |
+| API/builder | `doc_parse/pdf/api/pdf_api.mbt` | raw -> model, summaries, debug/inspect | public | main consumer entry for `convert/pdf` |
+| tests | `doc_parse/pdf/api/test/pdf_api_test.mbt`, `doc_parse/pdf/model/test/pdf_text_model_test.mbt`, `doc_parse/pdf/test/*` | integration/model smoke | test-only | new aggregate test package added |
 
 ### Key model responsibilities
 
@@ -97,7 +97,7 @@ This is still debug output, not a stable IR or Markdown contract.
 
 ## Annotation/Link Signal Status
 
-`pdf_core` now exposes a conservative but usable annotation/link raw surface:
+`doc_parse/pdf` now exposes a conservative but usable annotation/link raw surface:
 
 * `/Link` subtype
 * URI action
@@ -148,4 +148,4 @@ Still not solved by this pass:
 3. Add sample guards for annotation/link and table-like negatives.
 4. Use the new signal/debug surface to classify current heading/noise/cross-page
    misses into core-gap vs convert-gap buckets.
-5. Start the next `pdf_core` P1 signal pass only where signal is still missing.
+5. Start the next `doc_parse/pdf` P1 signal pass only where signal is still missing.

@@ -30,13 +30,16 @@ pub fn parse_pptx(
   let image_idx : Ref[Int] = { val: 0 }
   let src = @cor.basename(input_path)
   let mut idx = 1
-  for path in slides {
+  for slide in slides {
+    let path = slide.part_name
+    let slide_heading = if slide.hidden {
+      "Slide " + idx.to_string() + " (hidden)"
+    } else {
+      "Slide " + idx.to_string()
+    }
     @cor.push_with_origin(
       doc,
-      @cor.Block::Heading(
-        clamp_heading(2, max_heading),
-        "Slide " + idx.to_string(),
-      ),
+      @cor.Block::Heading(clamp_heading(2, max_heading), slide_heading),
       Some({
         source_name: Some(src),
         page: None,
@@ -58,12 +61,14 @@ pub fn parse_pptx(
     let rel_ctx = build_slide_rel_context(p, path)
     let images = export_slide_images(p, rel_ctx, xml, out_dir, idx, image_idx)
     let paras = extract_slide_paragraphs(xml, rel_ctx.hyperlinks)
+    let tables = collect_explicit_table_frames(xml, rel_ctx.hyperlinks)
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
       images, paras,
     )
     let blocks = classify_slide_paragraphs(
       drop_consumed_caption_paras(paras, consumed_caption_para_ids),
     )
+    let note_paras = extract_speaker_notes(p, rel_ctx)
 
     for i in 0..<images.length() {
       let img = images[i]
@@ -116,7 +121,7 @@ pub fn parse_pptx(
           "slide-" + idx.to_string() + "-image-" + (i + 1).to_string(),
         ),
         nearby_caption,
-        object_ref: None,
+        object_ref: img._object_ref,
         relationship_id: img._relationship_id,
         source_path: img._source_path,
         row_index: None,
@@ -125,7 +130,10 @@ pub fn parse_pptx(
       })
     }
 
-    if blocks.length() == 0 && images.length() == 0 {
+    if blocks.length() == 0 &&
+      images.length() == 0 &&
+      tables.length() == 0 &&
+      note_paras.length() == 0 {
       @cor.push_with_origin(
         doc,
         @cor.Block::Paragraph("(empty)"),
@@ -272,6 +280,160 @@ pub fn parse_pptx(
               }),
             )
             prev_was_list = true
+          }
+        }
+      }
+
+      for table in tables {
+        if prev_was_list {
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::BlankLine,
+            Some({
+              source_name: Some(src),
+              page: None,
+              slide: Some(idx),
+              sheet: None,
+              block_index: Some(doc.blocks.val.length()),
+              heading_path: None,
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: None,
+              relationship_id: None,
+              key_path: None,
+            }),
+          )
+        }
+
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::RichTable({
+            rows: table.rows,
+            header_rows: table.header_rows,
+          }),
+          Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(idx),
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: Some(0),
+            column_index: Some(0),
+            object_ref: table.object_ref,
+            relationship_id: slide.rel_id,
+            key_path: None,
+          }),
+        )
+        prev_was_list = false
+      }
+
+      if note_paras.length() > 0 {
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::Heading(clamp_heading(3, max_heading), "Speaker Notes"),
+          Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(idx),
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: Some([slide_heading]),
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: rel_ctx.notes_part,
+            relationship_id: rel_ctx.notes_relationship_id,
+            key_path: rel_ctx.notes_part,
+          }),
+        )
+
+        let note_blocks = classify_slide_paragraphs(note_paras)
+        for block in note_blocks {
+          match block {
+            PptxBlock::Heading(text, inlines) => {
+              let heading = if has_link_inline(inlines) {
+                @cor.Block::RichHeading(clamp_heading(4, max_heading), inlines)
+              } else {
+                @cor.Block::Heading(clamp_heading(4, max_heading), text)
+              }
+              @cor.push_with_origin(
+                doc,
+                heading,
+                Some({
+                  source_name: Some(src),
+                  page: None,
+                  slide: Some(idx),
+                  sheet: None,
+                  block_index: Some(doc.blocks.val.length()),
+                  heading_path: Some([slide_heading, "Speaker Notes"]),
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: rel_ctx.notes_part,
+                  relationship_id: rel_ctx.notes_relationship_id,
+                  key_path: rel_ctx.notes_part,
+                }),
+              )
+            }
+            PptxBlock::Paragraph(text, inlines) => {
+              let para = if has_link_inline(inlines) {
+                @cor.Block::RichParagraph(inlines)
+              } else {
+                @cor.Block::Paragraph(text)
+              }
+              @cor.push_with_origin(
+                doc,
+                para,
+                Some({
+                  source_name: Some(src),
+                  page: None,
+                  slide: Some(idx),
+                  sheet: None,
+                  block_index: Some(doc.blocks.val.length()),
+                  heading_path: Some([slide_heading, "Speaker Notes"]),
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: rel_ctx.notes_part,
+                  relationship_id: rel_ctx.notes_relationship_id,
+                  key_path: rel_ctx.notes_part,
+                }),
+              )
+            }
+            PptxBlock::ListItem(ordered, level, text, inlines) => {
+              let item = if has_link_inline(inlines) {
+                @cor.Block::RichListItem(ordered, level, inlines)
+              } else {
+                @cor.Block::ListItem(ordered, level, text)
+              }
+              @cor.push_with_origin(
+                doc,
+                item,
+                Some({
+                  source_name: Some(src),
+                  page: None,
+                  slide: Some(idx),
+                  sheet: None,
+                  block_index: Some(doc.blocks.val.length()),
+                  heading_path: Some([slide_heading, "Speaker Notes"]),
+                  line_start: None,
+                  line_end: None,
+                  row_index: None,
+                  column_index: None,
+                  object_ref: rel_ctx.notes_part,
+                  relationship_id: rel_ctx.notes_relationship_id,
+                  key_path: rel_ctx.notes_part,
+                }),
+              )
+            }
           }
         }
       }

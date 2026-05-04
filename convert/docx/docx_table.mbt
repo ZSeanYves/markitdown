@@ -6,14 +6,18 @@ fn scan_paragraph(
   styles : DocxStyles,
   numbering : DocxNumbering,
   max_heading : Int,
+  ledger : DocxReferenceLedger?,
 ) -> Array[@cor.Block] {
   let out : Array[@cor.Block] = []
+  let visible_xml = strip_docx_text_box_content_xml(
+    strip_docx_deleted_revision_xml(p_xml),
+  )
 
   // 1) 标题级别：优先 styles.xml，失败再 fallback
-  let level = read_heading_level(p_xml, styles, max_heading)
+  let level = read_heading_level(visible_xml, styles, max_heading)
 
   // 2) 图片 embed（常见：<a:blip r:embed="rId5">）
-  match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
+  match read_docx_image_context(visible_xml, rel_ctx, asset_by_target) {
     Some(img) =>
       out.push(
         @cor.Block::ImageBlock({
@@ -28,7 +32,7 @@ fn scan_paragraph(
   }
 
   // 3) 段落文本
-  let scan = scan_docx_inline_text(p_xml, rel_ctx)
+  let scan = scan_docx_inline_text(visible_xml, rel_ctx, ledger)
   let inlines = scan.inlines
   let text = scan.text
   if @cor.is_blank(text) {
@@ -44,40 +48,44 @@ fn scan_paragraph(
     return out
   }
 
-  match read_paragraph_list_info(p_xml) {
+  match read_paragraph_list_info(visible_xml) {
     Some(info) =>
       match resolve_list_kind(numbering, info) {
-        Some(kind) => {
-          let ordered = match kind {
-            Bullet => false
-            Ordered => true
-          }
+        Some(kind) => return emit_list_block(out, inlines, text, info, kind)
+        None => ()
+      }
+    None => ()
+  }
 
-          let list_level = if info.ilvl < 0 { 0 } else { info.ilvl }
-          if inlines.length() > 0 {
-            out.push(@cor.Block::RichListItem(ordered, list_level, inlines))
-          } else {
-            out.push(@cor.Block::ListItem(ordered, list_level, text))
-          }
-          return out
-        }
+  match read_style_linked_list_info(visible_xml, styles) {
+    Some(info) =>
+      match resolve_list_kind(numbering, info) {
+        Some(kind) => return emit_list_block(out, inlines, text, info, kind)
         None => ()
       }
     None => ()
   }
 
   // numbering.xml 缺失或未命中时，仍保留旧兜底
-  if paragraph_is_list_item(p_xml) {
-    out.push(@cor.Block::ListItem(false, 0, text))
+  if paragraph_is_list_item(visible_xml) {
+    let fallback_ordered = style_or_text_looks_ordered_list(visible_xml, text)
+    let fallback_level = fallback_list_level(visible_xml, styles)
+    if inlines.length() > 0 {
+      out.push(
+        @cor.Block::RichListItem(fallback_ordered, fallback_level, inlines),
+      )
+    } else {
+      out.push(@cor.Block::ListItem(fallback_ordered, fallback_level, text))
+    }
     return out
   }
 
-  if paragraph_is_blockquote(p_xml, styles) {
+  if paragraph_is_blockquote(visible_xml, styles) {
     out.push(@cor.Block::BlockQuote(text))
     return out
   }
 
-  if paragraph_is_codeblock(p_xml, styles, text) {
+  if paragraph_is_codeblock(visible_xml, styles, text) {
     out.push(@cor.Block::CodeBlock(text))
     return out
   }
@@ -86,6 +94,28 @@ fn scan_paragraph(
     out.push(@cor.Block::RichParagraph(inlines))
   } else {
     out.push(@cor.Block::Paragraph(text))
+  }
+  out
+}
+
+///|
+fn emit_list_block(
+  out : Array[@cor.Block],
+  inlines : Array[@cor.Inline],
+  text : String,
+  info : ParagraphListInfo,
+  kind : ListKind,
+) -> Array[@cor.Block] {
+  let ordered = match kind {
+    Bullet => false
+    Ordered => true
+  }
+
+  let list_level = if info.ilvl < 0 { 0 } else { info.ilvl }
+  if inlines.length() > 0 {
+    out.push(@cor.Block::RichListItem(ordered, list_level, inlines))
+  } else {
+    out.push(@cor.Block::ListItem(ordered, list_level, text))
   }
   out
 }
@@ -202,12 +232,12 @@ fn read_heading_level(
 
 ///|
 fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
-  let chars = tbl_xml.to_array()
+  let chars = strip_docx_deleted_revision_xml(tbl_xml).to_array()
   let mut i = 0
   let rows : Array[Array[String]] = []
 
   while true {
-    let tr1 = find_sub(chars, i, "<w:tr")
+    let tr1 = find_exact_open_tag(chars, i, wtr_open_tag_chars)
     if tr1 < 0 {
       break
     }
@@ -215,7 +245,9 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
     if tr2 < 0 {
       break
     }
-    let tr3 = find_sub(chars, tr2 + 1, "</w:tr>")
+    let tr3 = find_matching_docx_element_close(
+      chars, tr1, wtr_open_tag_chars, wtr_close_tag_chars,
+    )
     if tr3 < 0 {
       break
     }
@@ -227,7 +259,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
     let cells : Array[String] = []
 
     while true {
-      let tc1 = find_tc_open(tr_chars, j)
+      let tc1 = find_exact_open_tag(tr_chars, j, wtc_open_tag_chars)
       if tc1 < 0 {
         break
       }
@@ -237,7 +269,9 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
         break
       }
 
-      let tc3 = find_sub(tr_chars, tc2 + 1, "</w:tc>")
+      let tc3 = find_matching_docx_element_close(
+        tr_chars, tc1, wtc_open_tag_chars, wtc_close_tag_chars,
+      )
       if tc3 < 0 {
         break
       }
@@ -264,6 +298,17 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
   }
 
   rows
+}
+
+///|
+fn read_style_linked_list_info(
+  p_xml : String,
+  styles : DocxStyles,
+) -> ParagraphListInfo? {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) => style_list_info_of(styles, style_id)
+    None => None
+  }
 }
 
 ///|
@@ -357,6 +402,114 @@ fn paragraph_is_list_item(p_xml : String) -> Bool {
   p_xml.contains("<w:numPr") ||
   p_xml.contains("<w:ilvl") ||
   p_xml.contains("<w:numId")
+}
+
+///|
+fn fallback_list_level(p_xml : String, styles : DocxStyles) -> Int {
+  match read_style_linked_list_info(p_xml, styles) {
+    Some(info) => if info.ilvl < 0 { 0 } else { info.ilvl }
+    None =>
+      match read_pstyle_value(p_xml) {
+        Some(style_id) => {
+          let level = ordered_list_level_from_style(style_id)
+          if level >= 0 {
+            level
+          } else {
+            0
+          }
+        }
+        None => 0
+      }
+  }
+}
+
+///|
+fn style_or_text_looks_ordered_list(p_xml : String, text : String) -> Bool {
+  match read_pstyle_value(p_xml) {
+    Some(style_id) =>
+      if ordered_list_style_like(style_id) {
+        true
+      } else {
+        ordered_list_text_like(text)
+      }
+    None => ordered_list_text_like(text)
+  }
+}
+
+///|
+fn ordered_list_style_like(style_id : String) -> Bool {
+  ordered_list_level_from_style(style_id) >= 0
+}
+
+///|
+fn ordered_list_level_from_style(style_id : String) -> Int {
+  let t = ascii_lower(trim_ascii_spaces(style_id))
+  if t == "listparagraph" || t == "list paragraph" {
+    return -1
+  }
+  if t.contains("listparagraph") || t.contains("list paragraph") {
+    return -1
+  }
+  if t.contains("listbullet") || t.contains("list bullet") {
+    return -1
+  }
+
+  let keys : Array[(String, Int)] = [
+    ("listnumber", 0),
+    ("list number", 0),
+    ("listnumber2", 1),
+    ("list number 2", 1),
+    ("listnumber3", 2),
+    ("list number 3", 2),
+    ("listnumber4", 3),
+    ("list number 4", 3),
+    ("listnumber5", 4),
+    ("list number 5", 4),
+  ]
+
+  for entry in keys {
+    let (pat, level) = entry
+    if t == pat || t.contains(pat) {
+      return level
+    }
+  }
+  -1
+}
+
+///|
+fn ordered_list_text_like(text : String) -> Bool {
+  let t = trim_ascii_spaces(text)
+  if t.length() < 2 {
+    return false
+  }
+
+  let chars = t.to_array()
+  let mut i = 0
+  let mut digit_count = 0
+  while i < chars.length() {
+    let c = chars[i]
+    if c >= '0' && c <= '9' {
+      digit_count += 1
+      i += 1
+      continue
+    }
+    break
+  }
+
+  if digit_count == 0 || i >= chars.length() {
+    return false
+  }
+
+  let marker = chars[i]
+  if marker != '.' && marker != ')' {
+    return false
+  }
+
+  i += 1
+  if i >= chars.length() {
+    return false
+  }
+  chars[i] == ' ' || chars[i] == '\t'
 }
 
 ///|

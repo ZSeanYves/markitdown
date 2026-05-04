@@ -132,7 +132,7 @@ fn array_object_rows(values : Array[YamlValue]) -> Array[Array[String]]? {
         if i == 0 {
           keys = member_keys
           rows.push(keys)
-        } else if !same_keys(keys, member_keys) {
+        } else if !same_key_set(keys, member_keys) {
           return None
         }
 
@@ -154,19 +154,6 @@ fn array_object_rows(values : Array[YamlValue]) -> Array[Array[String]]? {
 }
 
 ///|
-fn same_keys(a : Array[String], b : Array[String]) -> Bool {
-  if a.length() != b.length() {
-    return false
-  }
-  for i in 0..<a.length() {
-    if a[i] != b[i] {
-      return false
-    }
-  }
-  true
-}
-
-///|
 fn member_value_cell(members : Array[YamlMember], key : String) -> String {
   for entry in members {
     if entry.key == key {
@@ -174,6 +161,29 @@ fn member_value_cell(members : Array[YamlMember], key : String) -> String {
     }
   }
   ""
+}
+
+///|
+fn same_key_set(a : Array[String], b : Array[String]) -> Bool {
+  if a.length() != b.length() {
+    return false
+  }
+  for key in a {
+    if !contains_key(b, key) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn contains_key(keys : Array[String], target : String) -> Bool {
+  for key in keys {
+    if key == target {
+      return true
+    }
+  }
+  false
 }
 
 ///|

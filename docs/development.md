@@ -59,10 +59,10 @@ temp layouts when an existing subtree is appropriate.
 
 ## Regression Commands
 
-Enrollment integrity:
+Full validation:
 
 ```bash
-./samples/check_samples.sh
+./samples/check.sh
 ```
 
 Main regression:
@@ -83,6 +83,31 @@ Assets regression:
 ./samples/check_assets.sh
 ```
 
+Validation runner policy:
+
+* sample validation prefers a probe-validated native CLI when one is available
+* if the discovered native binary fails a small golden-output probe, validation
+  falls back to `moon run`
+* set `MARKITDOWN_CLI=/abs/path/to/cli` to force a specific native/prebuilt CLI
+* explicit native override is useful for speed, but only when the caller knows
+  the binary matches the current source state
+* `moon run` is slower because it includes MoonBit wrapper overhead
+
+Validation UX controls:
+
+```bash
+SAMPLES_VERBOSE=1 ./samples/diff.sh
+SAMPLES_KEEP_TMP=1 ./samples/diff.sh
+CHECK_CONTINUE=1 ./samples/check.sh
+```
+
+Behavior:
+
+* default mode uses compact progress output plus final summary
+* `SAMPLES_VERBOSE=1` restores per-sample convert/diff logs
+* `SAMPLES_KEEP_TMP=1` or `KEEP_TMP=1` preserves temp outputs for debugging
+* `CHECK_CONTINUE=1` keeps `samples/check.sh` running after a failed stage
+
 Default verification set:
 
 ```bash
@@ -92,7 +117,8 @@ moon test
 ./samples/diff.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
-./samples/check_samples.sh
+./samples/scripts/check_samples.sh
+./samples/check.sh
 ```
 
 ## Benchmark Commands
@@ -100,24 +126,24 @@ moon test
 Internal smoke benchmark:
 
 ```bash
-./samples/bench_smoke.sh --kind smoke
-./samples/bench_smoke.sh --kind all
-BENCH_ITERATIONS=3 BENCH_WARMUP=1 ./samples/bench_smoke.sh --kind smoke
+./samples/scripts/bench_smoke.sh --kind smoke
+./samples/scripts/bench_smoke.sh --kind all
+BENCH_ITERATIONS=3 BENCH_WARMUP=1 ./samples/scripts/bench_smoke.sh --kind smoke
 ```
 
 Overlap-only comparison benchmark:
 
 ```bash
-./samples/bench_compare_markitdown.sh --help
-./samples/bench_compare_markitdown.sh
+./samples/scripts/bench_compare_markitdown.sh --help
+./samples/scripts/bench_compare_markitdown.sh
 ```
 
 Batch profiling benchmark:
 
 ```bash
-./samples/bench_batch_profile.sh
-./samples/bench_batch_profile.sh --formats csv,json,html,xlsx,docx,pdf --counts 1,3 --memory auto
-./samples/bench_warn.sh --suite batch_profile
+./samples/scripts/bench_batch_profile.sh
+./samples/scripts/bench_batch_profile.sh --formats csv,json,html,xlsx,docx,pdf --counts 1,3 --memory auto
+./samples/scripts/bench_warn.sh --suite batch_profile
 ```
 
 Notes:
@@ -131,6 +157,10 @@ Notes:
 * sample validation scripts now use isolated temporary directories and can be
   run without sharing one fixed `.tmp/samples` output tree; benchmark outputs
   remain under `.tmp/bench/...` for inspection
+* ZIP/EPUB archive conversion now materializes entries under per-conversion
+  archive roots with per-entry private temp/output directories, so repeated
+  `./samples/diff.sh` and `./samples/check_assets.sh` runs do not share one
+  fixed archive-entry temp tree
 
 ## Adding Or Expanding A Format
 
@@ -162,6 +192,8 @@ When adding samples, keep both sides in sync:
 Keep doc responsibilities separated:
 
 * `README.mbt.md`: product entry and short support summary
+* `docs/full-format-h2-completion.md`: compact milestone summary after a major
+  format-completion phase
 * `docs/support-and-limits.md`: detailed support contract
 * `docs/progress.md`: current stage and next candidates
 * `docs/architecture.md`: architecture view
@@ -169,6 +201,72 @@ Keep doc responsibilities separated:
 * benchmark docs: benchmark-only scope
 
 Do not duplicate full support matrices across all docs.
+
+## Test Package Discipline
+
+Use the repository's two existing test mechanisms intentionally:
+
+### `test/` subpackages
+
+Preferred for:
+
+* blackbox conversion tests
+* package-level API tests
+* sample/fixture-driven tests
+* tests that should import the package the same way downstream code does
+
+These subpackages should follow the existing `moon.pkg` pattern used by:
+
+* `convert/*/test`
+* `core/test`
+* `doc_parse/pdf/api/test`
+
+### `*_wbtest.mbt` files in the package root
+
+Keep whitebox tests in the package directory when they must exercise
+package-internal helpers that are intentionally not part of the exported
+contract.
+
+Do **not** widen public APIs just to avoid a root-level whitebox test unless
+the helper is genuinely valuable as a reusable package surface.
+
+Practical rule:
+
+* use `test/` subpackages for stable external behavior
+* use root `*_wbtest.mbt` only for true internal-helper whitebox coverage
+
+Common whitebox examples in this repository:
+
+* PDF decision/heuristic tests such as heading, noise, merge, link-matching,
+  and table/caption guards
+* PPTX grouped-shape traversal, explicit table XML, hidden-slide parsing, and
+  notes helper tests
+* DOCX lower-layer hyperlink / notes / header-footer / text-box helper tests
+* ZIP safe-path and asset-namespace planner tests
+
+If a test only needs the package the way downstream code sees it, keep it in
+`test/`. If it needs package-private helper state or internal decision tags,
+keep it as a root-level `*_wbtest.mbt`.
+
+### Integration layers
+
+The repository intentionally has a third validation layer beyond package tests:
+
+* `convert/convert/test`: cross-format metadata/provenance invariants
+* `samples/scripts/check_samples.sh`: enrollment integrity
+* `samples/diff.sh`: main Markdown regression
+* `samples/check_metadata.sh`: metadata sidecar regression
+* `samples/check_assets.sh`: asset export regression
+
+These scripts intentionally stay separate:
+
+* `check_samples.sh` validates enrollment only
+* `diff.sh` validates main Markdown only
+* `check_metadata.sh` validates metadata Markdown only
+* `check_assets.sh` validates asset-producing outputs and referenced files
+
+Treat these as integration tests, not replacements for either blackbox package
+tests or root-level whitebox coverage.
 
 ## Choosing Validation Scope
 

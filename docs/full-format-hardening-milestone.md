@@ -6,8 +6,7 @@ repository:
 * H1 baseline completion for the simpler text and structured-data formats
 * H1/H2 review and baseline strengthening for web, spreadsheet, container, and
   ebook formats
-* H2 review passes for DOCX and PPTX
-* a core-first PDF deep pass through P4.4 benchmark/comparison refresh
+* H2 completion across DOCX, PPTX, and PDF after deeper closure work
 
 This is not the final completion state of the project. It is the first complete
 product-stage milestone after the repository moved from “supports these
@@ -16,28 +15,28 @@ formats” to “must ship quality, speed, and reusable parsing infrastructure�
 Important framing:
 
 * `H1 complete` does not mean final parity
-* `H2 reviewed` does not mean every advanced feature is already implemented
-* the PDF deep pass completed here is still text-first and core-first, not a
+* `H2 complete` does not mean every advanced feature is already implemented
+* the PDF completion recorded here is still text-first and core-first, not a
   full layout or OCR platform
 
 ## Current Full-format Status
 
 | Format | Current status | Main completed work | Remaining H2/H3 focus |
 | --- | --- | --- | --- |
-| TXT | H2 readiness audited, H2 complete | conservative paragraph conversion, literal-safe Markdown output, metadata, smoke baseline, overlap comparison baseline | very large file behavior, batch profiling, encoding fallback policy |
-| Markdown / MD / MARKDOWN | H2 readiness audited, H2 complete | passthrough baseline, normalization, metadata, smoke baseline, frontmatter passthrough policy | larger passthrough profiling, batch performance |
-| CSV | H2 readiness audited, H2 complete | table baseline, quoted delimiter/newline handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, wider overlap corpus |
-| TSV | H2 readiness audited, H2 complete | table baseline, quoted tab handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, overlap-comparison practicality |
-| JSON | H2 readiness audited, H2 complete | conservative structured-data baseline, unicode escape decoding, strict number grammar, RichTable metadata semantics, smoke baseline | large nested profiling, streaming/materialization behavior, overlap-comparison practicality |
-| YAML / YML | H1 complete | conservative structured-data baseline, metadata, smoke baseline | subset definition, anchors, multiline scalars, document separators |
-| XML | H1 complete | source-preserving fenced-code baseline, metadata, smoke baseline | safe tokenizer/event model if H2 requires it |
-| HTML / HTM | H1 reviewed, baseline strengthened, H2 gaps documented | static HTML baseline, assets/metadata coverage, smoke baseline, H2 review doc | DOM/entity/source-origin improvements, rowspan/colspan, details/table cell semantics |
-| XLSX | H1 reviewed, baseline strengthened, H2 gaps documented | multi-sheet baseline, formula/merged/hidden/sparse policy fixed, metadata, smoke baseline | merged ranges model, formula text + cached value, styles/custom numFmt, comments/drawings/charts |
-| ZIP | H1 reviewed, container baseline strengthened, H2 gaps documented | safe-entry conversion, fail-closed unsafe paths, asset remap, metadata, smoke baseline | ZIP64, data descriptor, streaming, bomb protection, inventory/debug |
-| EPUB | H1 reviewed, ebook package baseline strengthened, H2 gaps documented | container/OPF/spine pipeline, assets/metadata, fail-closed package safety, smoke baseline | nav/TOC, NCX, cover semantics, internal anchors, asset graph, large ebook profiling |
-| DOCX | H2 market-parity review completed | market-parity review doc, assets/metadata coverage, smoke baseline, overlap comparison refresh | styles, numbering, footnotes/endnotes, comments, revisions, headers/footers, text boxes, nested tables |
-| PPTX | H2 layout-quality review completed | layout-quality review doc, assets/metadata coverage, smoke baseline, overlap comparison refresh | explicit table XML, speaker notes, comments, hidden slides, group shape tree, charts, SmartArt, internal/action links |
-| PDF | H2 core-first deep pass completed through P4.4 benchmark/comparison refresh | core-first audit, `pdf_core` model/debug pass, link signal/emission work, heading/noise/merge hardening, smoke/comparison refresh | tables, image caption expansion, richer link provenance/internal Dest, outlines/bookmarks, positive multi-column reading order, larger real-world profiling |
+| TXT | H2 complete | conservative paragraph conversion, literal-safe Markdown output, metadata, smoke baseline, overlap comparison baseline | very large file behavior, batch profiling, encoding fallback policy |
+| Markdown / MD / MARKDOWN | H2 complete | passthrough baseline, normalization, metadata, smoke baseline, frontmatter passthrough policy | larger passthrough profiling, batch performance |
+| CSV | H2 complete | table baseline, quoted delimiter/newline handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, wider overlap corpus |
+| TSV | H2 complete | table baseline, quoted tab handling, ragged rows, RichTable metadata semantics, smoke baseline | streaming, large-table memory behavior, overlap-comparison practicality |
+| JSON | H2 complete | conservative structured-data baseline, unicode escape decoding, strict number grammar, RichTable metadata semantics, smoke baseline | large nested profiling, streaming/materialization behavior, overlap-comparison practicality |
+| YAML / YML | H2 complete | conservative subset parser, fail-closed unsupported-feature policy, RichTable metadata semantics, smoke baseline | larger real-world subset review, H3 config-style profiling, any future subset expansion |
+| XML | H2 complete | source-preserving fenced-code baseline, safe tokenizer/event surface, metadata, smoke baseline | future XML-family converters can build on tokenizer without changing generic XML output |
+| HTML / HTM | H2 complete | lightweight DOM-like lowering, entity handling, RichTable metadata semantics, assets/metadata coverage, smoke baseline | DOM-path provenance, rowspan/colspan reconstruction, larger real-world HTML corpus |
+| XLSX | H2 complete | workbook/sheet/cell lower layer, hidden-sheet state capture, formula cached-value + lower-layer formula text policy, merged-range detection, RichTable metadata semantics, smoke baseline | comments/drawings/charts, richer real-world workbook corpus, H3 sparse/dense profiling |
+| ZIP | H2 complete | safe-entry conversion, fail-closed unsafe paths, inspect/inventory surface, asset remap, metadata, smoke baseline | ZIP64, data descriptor, streaming, bomb protection, broader mixed-archive corpus |
+| EPUB | H2 complete | container/OPF/spine/nav/cover pipeline, assets/metadata, fail-closed package safety, smoke baseline | NCX, richer internal-anchor semantics, broader asset graph, large ebook profiling |
+| DOCX | H2 complete | numbering/list semantics hardening, RichTable table metadata, footnotes/endnotes/comments append sections, header/footer append sections, textbox append sections, conservative accepted-view revision policy, assets/metadata coverage, smoke baseline, overlap comparison refresh | richer inline styling, bookmark/internal-link promotion, merged/nested visual reconstruction |
+| PPTX | H2 complete | explicit table XML lowering, speaker notes output, hidden slide annotation, explicit `p:grpSp` traversal with grouped text/image/table recovery, assets/metadata coverage, smoke baseline, overlap comparison refresh | comments, charts, SmartArt, internal/action links, richer table merge reconstruction |
+| PDF | H2 complete | `doc_parse/pdf` model/debug pass, link signal/emission work, heading/noise/merge hardening, conservative table lowering including headerless numeric tables, conservative image-caption association, numeric page-number scoping hardening, smoke/comparison refresh | outlines/bookmarks, internal Dest, positive multi-column reading order, larger real-world profiling, future H2.1 table/caption breadth only if product demand appears |
 
 ## Text / Structured-data Group
 
@@ -62,8 +61,10 @@ What is completed:
   metadata semantics
 * JSON is stable as conservative structured-data conversion with standard escape
   decoding and explicit table metadata semantics
-* YAML is stable as conservative structured-data conversion
-* XML is stable as source-preserving fenced `xml` output
+* YAML is stable as conservative subset-based structured-data conversion with
+  explicit fail-closed unsupported-feature policy
+* XML is stable as source-preserving fenced `xml` output with a reusable safe
+  tokenizer/event surface
 
 Remaining focus:
 
@@ -71,8 +72,10 @@ Remaining focus:
 * Markdown: frontmatter policy and large passthrough speed
 * CSV / TSV: streaming and large-table memory behavior
 * JSON: large nested cases, streaming/materialization behavior
-* YAML: subset definition, anchors, multiline scalars, document separators
-* XML: safe tokenizer / event model if H2 requires a richer lower layer
+* YAML: larger real-world subset review and any future explicitly scoped subset
+  expansion
+* XML: future XML-family specialization on top of the tokenizer, plus H3 large
+  / batch profiling
 
 ## Web / Spreadsheet / Container / Ebook Group
 
@@ -87,23 +90,24 @@ What is completed:
 
 * HTML H1/H2 review is done, with baseline strengthening and a documented gap
   list
-* XLSX H1/H2 review is done, with formula / merged / hidden / sparse policies
-  fixed by regression and documented
-* ZIP H1/H2 container review is done, with fail-closed unsafe-path policy,
-  asset remap, metadata, and smoke coverage
-* EPUB H1/H2 ebook review is done, with package/spine/assets/metadata/fail
-  closed behavior fixed and documented
+* XLSX H2 lower-layer upgrade is done, with workbook / sheet / cell semantics,
+  formula cached-value policy, merged-range detection, hidden-sheet state, and
+  RichTable metadata documented
+* ZIP H2 lower-layer upgrade is done, with fail-closed unsafe-path policy,
+  inspect/inventory surface, asset remap, metadata, and smoke coverage
+* EPUB H2 ebook upgrade is done, with package/spine/nav/cover/assets/metadata
+  and fail-closed behavior documented
 
 Remaining focus:
 
 * HTML: stronger DOM/entity/source-origin/table-cell semantics, plus
   rowspan/colspan/details handling
-* XLSX: merged-range model, formula text + cached value, richer
-  styles/custom-number-format support, comments/drawings/charts
+* XLSX: comments/drawings/charts, broader workbook corpus, and H3 sparse/dense
+  profiling
 * ZIP: ZIP64, data descriptor, streaming/materialization split, bomb
-  protection, inventory/debug surfaces
-* EPUB: nav/TOC, NCX, cover semantics, internal anchors, asset graph, large
-  ebook profiling
+  protection, and broader mixed-archive corpus
+* EPUB: NCX, richer internal anchors, broader asset graph, large ebook
+  profiling
 
 ## Office Group
 
@@ -114,25 +118,25 @@ Formats in this group:
 
 What is completed:
 
-* DOCX H2 market-parity review is completed
+* DOCX H2 market-parity review and closure work are completed
 * DOCX overlap comparison and smoke coverage now show strong selected-case
   speed wins over Microsoft MarkItDown, with semantic differences documented
-* PPTX H2 layout-quality review is completed
+* PPTX H2 layout-quality review and closure work are completed
 * PPTX overlap comparison and smoke coverage now show strong selected-case
-  speed wins over Microsoft MarkItDown, with layout/semantic gaps documented
+  speed wins over Microsoft MarkItDown, with documented limitations
 
 Remaining focus:
 
-* DOCX: styles, numbering, footnotes/endnotes, comments, revisions,
-  headers/footers, text boxes, nested tables
-* PPTX: explicit table XML, speaker notes, comments, hidden slides, group
-  shape tree, charts, SmartArt, internal/action links
+* DOCX: richer inline styling, bookmark/internal-link promotion,
+  merged/nested-table visual reconstruction
+* PPTX: comments, charts, SmartArt, internal/action links, richer table merge
+  reconstruction
 
 Important note:
 
-* these review passes do not claim full market parity
-* they define the gap surface and lock in current strengths, limits, and
-  overlap-only benchmark/comparison baselines
+* these completed H2 passes do not claim full market parity
+* they lock in current strengths, limits, and overlap-only
+  benchmark/comparison baselines
 
 ## PDF Group
 
@@ -140,7 +144,7 @@ The PDF path completed a deeper staged pass than the other formats in this
 milestone:
 
 * H2 core gap review
-* P1 `pdf_core` model/debug signal pass
+* P1 `doc_parse/pdf` model/debug signal pass
 * P1.1 annotation/link signal pass
 * P2 link emission policy
 * P2.1 debug-only URI link matching
@@ -157,7 +161,7 @@ milestone:
 What this means:
 
 * PDF work is no longer just ad hoc converter heuristics
-* `pdf_core` has become a visible lower-layer deliverable with inspect/debug
+* `doc_parse/pdf` has become a visible lower-layer deliverable with inspect/debug
   surfaces
 * heading, repeated edge noise, cross-page merge, and URI link emission now
   have explicit evidence/reason surfaces
@@ -166,10 +170,8 @@ What this means:
 
 Remaining PDF focus:
 
-* tables / weak table detection
-* image caption expansion
-* richer link provenance / internal Dest handling
 * outlines / bookmarks
+* richer link provenance / internal Dest handling
 * positive multi-column reading order
 * tagged PDF semantics
 * deeper encrypted/object-stream/xref-stream support if product needs it
@@ -215,9 +217,9 @@ Key lower-layer deliverables include:
 * HTML parser / DOM-like lowering
 * CSV / TSV delimited parser
 * JSON / YAML structured parsers
-* XML conservative source-preserving baseline, with future tokenizer/event
-  model path left explicit
-* PDF `pdf_core` page/text/image/annotation/source-ref/debug surface
+* XML conservative source-preserving baseline plus a reusable tokenizer/event
+  model
+* PDF `doc_parse/pdf` page/text/image/annotation/source-ref/debug surface
 
 Repository principle:
 
@@ -255,7 +257,7 @@ This milestone does **not** claim support for:
 4. XLSX H2 lower-layer upgrade: merged ranges, formula text + cached value,
    styles/custom numFmt.
 5. ZIP H2 lower-layer upgrade: ZIP64, data descriptor, streaming, inventory.
-6. EPUB H2: nav/TOC, cover semantics, internal anchors, richer asset graph.
+6. EPUB next pass: NCX, broader anchor semantics, richer asset graph.
 7. DOCX H2: styles, numbering, footnotes/comments/textboxes.
 8. PPTX H2: explicit table XML, notes, group-shape tree.
 9. PDF H2 next pass: tables, image captions, outlines, internal links, larger

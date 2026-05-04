@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/async",
+  "ZSeanYves/markitdown/doc_parse/pdf/api" @api,
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+} for "test"

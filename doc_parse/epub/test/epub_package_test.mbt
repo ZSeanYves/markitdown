@@ -143,3 +143,45 @@ test "epub package rejects duplicate manifest id" {
     "samples/test/epub/epub_duplicate_manifest_id.epub", "duplicate manifest id",
   )
 }
+
+///|
+test "epub package detects nav cover and richer metadata" {
+  let nav_pkg = open_sample_package(
+    "samples/main_process/epub/epub_nav_toc.epub",
+  )
+  match nav_pkg.nav_item {
+    Some(item) => {
+      assert_eq(item.resolved_path, "OPS/nav.xhtml")
+      if !item.properties.contains("nav") {
+        fail("expected nav item properties to include nav")
+      }
+    }
+    None => fail("expected nav item")
+  }
+  assert_eq(nav_pkg.nav_points.length(), 2)
+  assert_eq(nav_pkg.nav_points[0].label, "Section One")
+  assert_eq(nav_pkg.nav_points[0].href, "chapter.xhtml#section-1")
+
+  let cover_pkg = open_sample_package(
+    "samples/main_process/epub/epub_cover_image.epub",
+  )
+  match cover_pkg.cover_item {
+    Some(item) => {
+      assert_eq(item.resolved_path, "OPS/images/cover.png")
+      if !item.properties.contains("cover-image") {
+        fail("expected cover item properties to include cover-image")
+      }
+    }
+    None => fail("expected cover item")
+  }
+
+  let inspect = @epub.inspect_epub_package(nav_pkg)
+  if inspect.nav_path != Some("OPS/nav.xhtml") {
+    fail("expected inspect nav path")
+  }
+  if inspect.cover_path != None {
+    fail("expected nav sample cover path to stay empty")
+  }
+  assert_eq(inspect.spine_items.length(), 1)
+  assert_eq(inspect.spine_items[0].action, "convert")
+}

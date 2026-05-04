@@ -14,7 +14,7 @@ existing imports continue to resolve without changing adapter code.
 
 ## Purpose
 
-`vendor/mbtpdf` is used as the local backend for `doc_parse/pdf_core/raw`.
+`vendor/mbtpdf` is used as the local backend for `doc_parse/pdf/raw`.
 Keeping it in the repository allows controlled local changes to PDF parsing
 behavior in future phases.
 
@@ -24,9 +24,9 @@ Phase V0 is vendoring only:
 
 - Do not change PDF conversion behavior.
 - Do not add new PDF features.
-- Keep `doc_parse/pdf_core/raw/mbtpdf_text_adapter.mbt` as the adapter boundary
+- Keep `doc_parse/pdf/raw/mbtpdf_text_adapter.mbt` as the adapter boundary
   to mbtpdf internals.
-- Higher layers should depend on `doc_parse/pdf_core` types instead of mbtpdf
+- Higher layers should depend on `doc_parse/pdf` types instead of mbtpdf
   types.
 
 ## License and README

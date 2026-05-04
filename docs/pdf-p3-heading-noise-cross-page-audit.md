@@ -1,7 +1,7 @@
 # PDF P3 Heading / Noise / Cross-page Audit
 
 This document records the first PDF P3 attribution pass after the current
-`pdf_core` P1/P2 groundwork.
+`doc_parse/pdf` P1/P2 groundwork.
 
 Scope for this round:
 
@@ -20,11 +20,11 @@ Important note:
 
 | Sample | Current output status | Core signal status | Convert behavior | Root cause class | Suggested next action |
 | --- | --- | --- | --- | --- | --- |
-| `heading_basic` | pass; chapter and section lines become headings | page-local line/block boundaries are clean, but all heading-like lines arrive as `Text` with `heading_candidate=false` | classifier promotes chapter-marker and numbered-section lines from neutral paragraphs | `convert_classify_policy + intentional_conservative_limit` | keep as heading guard; decide whether chapter/section heading-candidate generation belongs in `pdf_core` or should remain a converter policy |
+| `heading_basic` | pass; chapter and section lines become headings | page-local line/block boundaries are clean, but all heading-like lines arrive as `Text` with `heading_candidate=false` | classifier promotes chapter-marker and numbered-section lines from neutral paragraphs | `convert_classify_policy + intentional_conservative_limit` | keep as heading guard; decide whether chapter/section heading-candidate generation belongs in `doc_parse/pdf` or should remain a converter policy |
 | `pdf_heading_vs_short_sentence` | pass; real headings promoted, short sentences/caption/list intro stay non-heading | title and `Introduction` arrive as heading candidates; `Method`, `Key points:`, caption line, and concluding phrase arrive as plain text | classifier promotes true headings and preserves caption/list-intro/body lines as paragraphs | `convert_classify_policy` | keep this as the main short-sentence false-positive guard before any wider heading promotion |
 | `pdf_heading_false_positive_phase15` | pass; all-caps and numbered body lines remain body text | only the top title arrives as heading candidate; all other risky short lines are neutral text | classifier avoids promoting all-caps, numbered, and short noisy body lines | `convert_classify_policy` | keep this as the primary negative heading guard; do not broaden all-caps or numbered-heading rules without stronger core signal |
 | `pdf_page_noise_cleanup` | pass; repeated page labels are removed | repeated `第⻚1..4` lines arrive as plain text with `page_number_candidate=false` and `header_footer_candidate=false` | repeated-edge cleanup removes the first block on each page by normalized repetition and edge position | `core_missing_edge_signal + convert_noise_policy` | prioritize a reliable core page-number / edge-artifact candidate surface; keep repeated-edge string cleanup as fallback |
-| `pdf_repeated_header_footer` | pass; repeated header/footer are removed, body preserved | repeated header/footer lines arrive as `HeadingCandidate`, not as header/footer or artifact signal | noise cleanup drops repeated top/bottom strings even when they look like headings | `core_missing_edge_signal + convert_noise_policy` | add top/bottom artifact or edge-region candidates in `pdf_core` so converter noise is not forced to remove repeated pseudo-headings |
+| `pdf_repeated_header_footer` | pass; repeated header/footer are removed, body preserved | repeated header/footer lines arrive as `HeadingCandidate`, not as header/footer or artifact signal | noise cleanup drops repeated top/bottom strings even when they look like headings | `core_missing_edge_signal + convert_noise_policy` | add top/bottom artifact or edge-region candidates in `doc_parse/pdf` so converter noise is not forced to remove repeated pseudo-headings |
 | `pdf_repeated_header_footer_variants` | pass; repeated draft header removed, real report headings preserved | repeated draft header has no header/footer flag; intermediate section titles such as `Summary` / `Details` are not core heading candidates | classifier promotes real section headings, while repeated-edge cleanup removes repeated top noise | `core_missing_edge_signal + convert_classify_policy + convert_noise_policy` | separate edge-artifact detection from heading recovery; do not solve this only by adding more heading exceptions |
 | `pdf_header_footer_variants_phase15` | pass; repeated top/bottom lines removed, body headings preserved | repeated header and footer both arrive as `HeadingCandidate`; no `header_footer_candidate` help is available | noise cleanup removes repeated edge headings, while current heading policy keeps the real body headings | `core_missing_edge_signal + convert_noise_policy` | make core edge/artifact signals trustworthy before widening converter noise rules |
 | `pdf_cross_page_paragraph` | pass; cross-page paragraph merges, next section stays separate | page-local blocks are correct, but there is no explicit cross-page continuation label; continuation is inferred from geometry/text only | merge policy joins previous-page-last with next-page-first paragraph and keeps the later heading separate | `convert_merge_policy` | keep this as the broad cross-page baseline; next work should inspect whether existing wrapped/gap/indent signals can be consumed more systematically before adding new heuristics |
@@ -38,8 +38,8 @@ Important note:
 
 Current picture:
 
-* `pdf_core` boundaries are already good enough on the guard corpus
-* `pdf_core` heading-candidate coverage is inconsistent across heading styles
+* `doc_parse/pdf` boundaries are already good enough on the guard corpus
+* `doc_parse/pdf` heading-candidate coverage is inconsistent across heading styles
 * `convert/pdf` currently carries the real promotion/demotion burden
 
 Evidence:
@@ -54,7 +54,7 @@ Judgment:
 
 * near-term heading work is still mostly a convert responsibility
 * however, any wider heading expansion should first decide whether additional
-  heading-like candidate generation belongs in `pdf_core`
+  heading-like candidate generation belongs in `doc_parse/pdf`
 
 ### Repeated edge noise
 
@@ -73,7 +73,7 @@ Evidence:
 
 Judgment:
 
-* the next real improvement should start in `pdf_core`
+* the next real improvement should start in `doc_parse/pdf`
 * converter noise logic is already useful, but it is compensating for missing
   edge/artifact signal instead of merely consuming one
 
@@ -148,7 +148,7 @@ P3.1 status:
 * completed as an attribution-driven pass in `convert/pdf`
 * heading promotion/demotion still primarily belongs to converter classify
   policy
-* `pdf_core` heading candidate remains a useful positive hint, but not yet a
+* `doc_parse/pdf` heading candidate remains a useful positive hint, but not yet a
   stable primary signal
 * classify and `pipeline_debug` now share a common heading-decision helper so
   promotion and demotion can be explained by explicit reason tags

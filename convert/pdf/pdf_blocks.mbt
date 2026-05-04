@@ -43,9 +43,7 @@ fn make_block_from_line(
   block_index : Int,
   line : PdfConvertLine,
 ) -> PdfConvertBlock {
-  let kind = if line.is_page_number_candidate {
-    PdfConvertBlockKind::Noise
-  } else if line.is_heading_candidate {
+  let kind = if line.is_heading_candidate {
     PdfConvertBlockKind::Heading
   } else {
     PdfConvertBlockKind::Paragraph

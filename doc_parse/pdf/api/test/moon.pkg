@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+  "ZSeanYves/markitdown/doc_parse/pdf/text" @text,
+  "ZSeanYves/markitdown/doc_parse/pdf/raw" @raw,
+  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
+  "ZSeanYves/markitdown/doc_parse/pdf/api" @api,
+  "bobzhang/mbtpdf" @mbtpdf,
+  "bobzhang/mbtpdf/core/pdf" @pdf,
+  "bobzhang/mbtpdf/document/pdfpage" @pdfpage,
+  "moonbitlang/async",
+} for "test"

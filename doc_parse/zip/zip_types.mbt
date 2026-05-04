@@ -41,6 +41,10 @@ pub struct ZipEntryMeta {
   local_header_offset : Int
   crc32 : Int
   flags : Int
+  is_directory : Bool
+  is_encrypted : Bool
+  has_data_descriptor : Bool
+  uses_zip64 : Bool
 }
 
 ///|

@@ -130,7 +130,17 @@
         "block_index": 6,
         "heading_path": null
       },
-      "image": null
+      "image": null,
+      "table": {
+        "rows": [
+          ["模块", "状态", "说明"],
+          ["core/ir", "完成", "定义文档中间表示（IR）的数据结构与转换规则，支持文本、图片、表格等元素的标准化存储"],
+          ["docx", "进行中", "解析docx文件的document.xml，提取段落、标题、列表等结构化内容，已完成文本提取，正在开发格式映射功能"],
+          ["pdf", "TODO", "下一阶段重点任务，计划集成OCR引擎与PDF布局分析算法，实现扫描版与文本版PDF的内容识别与结构化转换"],
+          ["markdown", "规划中", "基于IR生成符合CommonMark标准的Markdown文本，支持代码块、表格、图片引用等格式转换"]
+        ],
+        "header_rows": 1
+      }
     },
     {
       "block_index": 7,

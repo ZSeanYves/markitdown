@@ -29,19 +29,19 @@ pub async fn parse_pdf(
   }
 
   if pipeline_debug {
-    let cfg = @api.default_pdf_core_config()
+    let cfg = @api.default_pdf_config()
     match @api.extract_document_block_debug(input_path, cfg) {
       Ok(s) => println(s)
-      Err(e) => println("pdf_core/debug error: " + e.to_string())
+      Err(e) => println("pdf debug error: " + e.to_string())
     }
   }
 
-  let core_doc = extract_pdf_core_document(input_path)
+  let core_doc = extract_pdf_document_model(input_path)
 
   // AutoFallback is conservative degradation: only fallback when native result
   // is effectively empty, to avoid mixing two extraction semantics by default.
   if ocr_mode == PdfOcrMode::AutoFallback &&
-    is_effectively_empty_core_doc(core_doc) {
+    is_effectively_empty_pdf_doc(core_doc) {
     return @ocr.parse_pdf_via_ocr(
       input_path, _out_dir, max_heading, pipeline_debug,
     )
@@ -106,8 +106,8 @@ fn parse_pdf_ocr_mode(mode : String?) -> PdfOcrMode {
 }
 
 ///|
-/// 判断 native pdf_core 结果是否几乎没有可用文本。
-fn is_effectively_empty_core_doc(doc : @model.PdfDocumentModel) -> Bool {
+/// 判断 native PDF lower-layer parser 结果是否几乎没有可用文本。
+fn is_effectively_empty_pdf_doc(doc : @model.PdfDocumentModel) -> Bool {
   let mut signal_chars = 0
 
   for page in doc.pages {

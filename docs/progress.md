@@ -19,14 +19,22 @@ The repository is now in a documented multi-format product-hardening stage:
 * major format families are connected to one dispatcher-driven mainflow
 * sample regression and benchmark harnesses are in place
 * sample validation temp-dir isolation is in place
-* TXT / Markdown H2 readiness is audited and documented
-* CSV / TSV H2 readiness is audited and documented
-* JSON H2 readiness is audited and documented
-* YAML / XML have H1 baselines in place
-* HTML / XLSX / ZIP / EPUB have completed review passes and stronger baselines
-* DOCX / PPTX have completed H2 review passes
-* PDF has completed a core-first H2/P4 pass through benchmark/comparison
-  refresh
+* TXT / Markdown now have stable H2-complete support contracts
+* CSV / TSV now have stable H2-complete support contracts
+* JSON now has a stable H2-complete support contract
+* YAML / YML now has a stable H2-complete support contract
+* XML now has a stable H2-complete support contract
+* HTML / HTM now have stable H2-complete support contracts
+* XLSX now has a stable H2-complete support contract
+* ZIP now has a stable H2-complete support contract
+* EPUB now has a stable H2-complete support contract
+* ZIP / EPUB archive entry temp-dir isolation is fixed for repeated asset and
+  diff validation runs
+* DOCX / PPTX now have stable H2-complete support contracts after deeper
+  closure work
+* PDF has completed its core-first H2/P4 pass, conservative table/image-caption
+  hardening, and final closure re-audit, and now has a stable H2-complete
+  support contract
 * H3 benchmark discipline audit/plan is documented
 * H3.2 batch benchmark mode design is documented
 * CLI batch mode v1 is implemented for non-recursive directory conversion
@@ -42,15 +50,15 @@ The repository is now in a documented multi-format product-hardening stage:
 
 The repository has completed its first full-format hardening milestone:
 
-* text/structured formats have H1 baselines in place
-* HTML / XLSX / ZIP / EPUB have documented H1/H2 review outcomes and stronger
-  baselines
-* DOCX / PPTX H2 review passes are completed
-* PDF has completed a core-first H2/P4 pass through benchmark/comparison
-  refresh
+* all primary formats now have H2-complete support contracts
+* stable support/limits wording, regression coverage, and benchmark framing
+  are in place across the main format families
+* lower-layer/parser deliverables are now explicit parts of the product story,
+  not just converter internals
 
-The next phase is centered on H2/H3 product-quality gaps, lower-layer upgrades,
-and tighter benchmark discipline rather than simply wiring more formats.
+The next phase is centered on H3 benchmark discipline, larger-corpus
+profiling, release/documentation polish, and selective H2.1 quality work
+rather than simply wiring more formats.
 
 See [docs/full-format-hardening-milestone.md](./full-format-hardening-milestone.md)
 for the full status table, benchmark/comparison framing, non-goals, and the
@@ -71,10 +79,15 @@ current next-stage Top 10.
 * TXT / Markdown: H2 complete
 * CSV / TSV: H2 complete
 * JSON: H2 complete
-* YAML / XML: H1 complete
-* HTML / XLSX / ZIP / EPUB: reviewed and baseline-strengthened
-* DOCX / PPTX: H2 review completed
-* PDF: core-first H2/P4 pass completed through benchmark/comparison refresh
+* YAML / YML: H2 complete
+* XML: H2 complete
+* HTML / HTM: H2 complete
+* XLSX: H2 complete
+* ZIP: H2 complete
+* EPUB: H2 complete
+* DOCX: H2 complete
+* PPTX: H2 complete
+* PDF: H2 complete
 
 ## Implemented Capability Groups
 
@@ -91,7 +104,7 @@ current next-stage Top 10.
 
 * shared ZIP reader
 * shared OOXML package / relationships / media / docProps helpers
-* native PDF substrate via `pdf_core`
+* native PDF substrate via `doc_parse/pdf`
 
 ### Supported format families
 
@@ -106,8 +119,10 @@ current next-stage Top 10.
 ### Current container / ebook scope
 
 * ZIP safe-entry conversion with archive asset namespace/remap
+* ZIP inspect/inventory surface for deterministic entry planning/debug
 * ZIP support for `.txt` and `.xml` entries through normal dispatcher routing
 * EPUB `container.xml -> OPF -> manifest/spine` conversion
+* EPUB nav/TOC and cover detection with conservative emission policy
 * EPUB same-archive local-image handling through a safe extracted tree
 
 ### Provenance / metadata / image context
@@ -136,21 +151,39 @@ moon test
 ./samples/diff.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
-./samples/check_samples.sh
-./samples/bench_smoke.sh --kind smoke
+./samples/scripts/check_samples.sh
+./samples/scripts/bench_smoke.sh --kind smoke
 ```
 
 ## Next-stage Priorities
 
 Current recommended next priorities are:
 
-* H3 benchmark discipline: batch mode design, scale normalization, and optional
-  memory probing
-* HTML lower-layer upgrades
-* XLSX lower-layer upgrades
-* ZIP lower-layer upgrades
-* EPUB nav / TOC / cover / anchors
-* DOCX advanced OOXML semantics
-* PPTX explicit table / notes / group-shape work
-* PDF tables / image captions / outlines / internal links
-* release/documentation polish
+* H3 benchmark discipline: batch mode design follow-through, scale
+  normalization, and optional memory probing
+* larger real-world corpora for PDF / DOCX / PPTX / XLSX / EPUB
+* release/documentation polish and user-facing packaging cleanup
+* EPUB future quality work such as NCX / broader anchor semantics
+* selective H2.1 quality upgrades where product value is clear, without
+  hiding current documented limitations
+## 2026-05-04
+
+* tightened PDF page-number candidate scoping after numeric-table preservation:
+  numeric table cells now survive into conservative table detection, while true
+  edge/trailing page numbers are re-caught by later noise policy
+* final PDF H2 closure re-audit completed: simple high-confidence tables and
+  image captions are now treated as sufficient H2 coverage, with complex
+  tables, multi-column recovery, outlines/internal links, tagged PDF, and OCR
+  kept as documented limitations
+* test architecture audit completed: `test/` subpackages remain the home for
+  black-box/package tests, while root `*_wbtest.mbt` files are now explicitly
+  treated as the correct MoonBit white-box mechanism for package-private helper
+  coverage
+* PDF black-box caption coverage was strengthened so conservative caption
+  behavior is guarded at the package seam in addition to white-box helper and
+  metadata-chain coverage
+* sample validation UX was cleaned up: PPTX warnings removed, validation now
+  uses a shared runner-resolution path that prefers a probe-validated native
+  CLI and falls back to `moon run` when the local binary is stale, and the
+  main regression/metadata/assets scripts now use compact progress plus final
+  failure summary output

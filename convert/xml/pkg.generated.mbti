@@ -8,9 +8,23 @@ import {
 // Values
 pub fn parse_xml(String, String, Int) -> @core.Document raise
 
+pub fn tokenize_xml_text(String) -> Array[XmlEvent] raise
+
 // Errors
 
 // Types and methods
+pub enum XmlEvent {
+  Declaration(String, Int, Int)
+  ProcessingInstruction(String, String, Int, Int)
+  StartTag(String, Array[(String, String)], Int, Int)
+  EndTag(String, Int, Int)
+  EmptyElementTag(String, Array[(String, String)], Int, Int)
+  Text(String, Int, Int)
+  Comment(String, Int, Int)
+  CData(String, Int, Int)
+  Doctype(String, Int, Int)
+  EntityRef(String, Int, Int)
+}
 
 // Type aliases
 

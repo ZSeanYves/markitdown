@@ -20,7 +20,7 @@ priv enum HtmlNode {
 ///|
 priv struct HtmlTable {
   rows : Array[Array[Array[HtmlInline]]]
-  has_explicit_header : Bool
+  header_rows : Int
 }
 
 ///|
@@ -34,10 +34,12 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
-
   let close_script = pat("</script>")
   let close_style = pat("</style>")
   let close_head = pat("</head>")
+  let close_noscript = pat("</noscript>")
+  let close_details = pat("</details>")
+  let close_summary = pat("</summary>")
 
   let mut pos = 0
   let n = bs.length()
@@ -100,6 +102,15 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
               match j0 {
                 None => pos = q + 1
                 Some(j) => pos = j + close_head.length()
+              }
+              continue
+            }
+
+            if tag.has_prefix("<noscript") {
+              let j0 = find_bytes(bs, close_noscript, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_noscript.length()
               }
               continue
             }
@@ -172,6 +183,40 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                     out.push(HtmlNode::Paragraph(xs))
                   }
                   pos = end + close_p.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<details") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_details, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_owned()
+                  let children = scan_html_nodes_in_container(inner)
+                  for child in children {
+                    out.push(child)
+                  }
+                  pos = end + close_details.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<summary") {
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_summary, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_owned()
+                  let xs = html_inlines_from_bytes(inner)
+                  if !inlines_is_blank(xs) {
+                    out.push(HtmlNode::Paragraph(xs))
+                  }
+                  pos = end + close_summary.length()
                   continue
                 }
               }
@@ -533,6 +578,12 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
+  let close_script = pat("</script>")
+  let close_style = pat("</style>")
+  let close_head = pat("</head>")
+  let close_noscript = pat("</noscript>")
+  let close_details = pat("</details>")
+  let close_summary = pat("</summary>")
 
   let mut pos = 0
   let n = bs.length()
@@ -572,6 +623,42 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
+
+            if tag.has_prefix("<script") {
+              let j0 = find_bytes(bs, close_script, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_script.length()
+              }
+              continue
+            }
+
+            if tag.has_prefix("<style") {
+              let j0 = find_bytes(bs, close_style, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_style.length()
+              }
+              continue
+            }
+
+            if tag.has_prefix("<head") {
+              let j0 = find_bytes(bs, close_head, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_head.length()
+              }
+              continue
+            }
+
+            if tag.has_prefix("<noscript") {
+              let j0 = find_bytes(bs, close_noscript, q + 1)
+              match j0 {
+                None => pos = q + 1
+                Some(j) => pos = j + close_noscript.length()
+              }
+              continue
+            }
 
             if tag.has_prefix("<h") && tag.length() >= 3 {
               let lvl_ch = tag[2]
@@ -649,6 +736,44 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                     out.push(HtmlNode::Paragraph(xs))
                   }
                   pos = end + close_p.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<details") {
+              flush_pending_paragraph(out, pending_para)
+
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_details, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_owned()
+                  let children = scan_html_nodes_in_container(inner)
+                  for child in children {
+                    out.push(child)
+                  }
+                  pos = end + close_details.length()
+                  continue
+                }
+              }
+            }
+
+            if tag.has_prefix("<summary") {
+              flush_pending_paragraph(out, pending_para)
+
+              let inner_start = q + 1
+              let end0 = find_bytes(bs, close_summary, inner_start)
+              match end0 {
+                None => ()
+                Some(end) => {
+                  let inner = bs[inner_start:end].to_owned()
+                  let xs = html_inlines_from_bytes(inner)
+                  if !inlines_is_blank(xs) {
+                    out.push(HtmlNode::Paragraph(xs))
+                  }
+                  pos = end + close_summary.length()
                   continue
                 }
               }
@@ -866,13 +991,18 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
                 }
               }
             } else if tag.has_prefix("<img") {
-              let src = read_html_attr_value(tag0, "src")
-                .unwrap_or("")
+              let src = html_unescape(
+                  read_html_attr_value(tag0, "src").unwrap_or(""),
+                )
                 .trim()
                 .to_owned()
               if src != "" {
-                let alt = read_html_attr_value(tag0, "alt").unwrap_or("")
-                let title = read_html_attr_value(tag0, "title")
+                let alt = html_unescape(
+                  read_html_attr_value(tag0, "alt").unwrap_or(""),
+                )
+                let title = read_html_attr_value(tag0, "title").map(
+                  html_unescape,
+                )
                 out.push(HtmlInline::Image(alt, title, src))
               }
             }
@@ -967,15 +1097,18 @@ fn find_figure_image_inline(inner : Bytes) -> HtmlInline? {
         Some(gt0) => {
           let tag_bs = inner[i0:gt0 + 1].to_owned()
           let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
-          let src = read_html_attr_value(tag0, "src")
-            .unwrap_or("")
+          let src = html_unescape(
+              read_html_attr_value(tag0, "src").unwrap_or(""),
+            )
             .trim()
             .to_owned()
           if src == "" {
             return None
           }
-          let alt = read_html_attr_value(tag0, "alt").unwrap_or("")
-          let title = read_html_attr_value(tag0, "title")
+          let alt = html_unescape(
+            read_html_attr_value(tag0, "alt").unwrap_or(""),
+          )
+          let title = read_html_attr_value(tag0, "title").map(html_unescape)
           Some(HtmlInline::Image(alt, title, src))
         }
       }
@@ -1170,14 +1303,49 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
 
   {
     rows: normalize_table_rows(out),
-    has_explicit_header: html_table_has_explicit_header(inner),
+    header_rows: html_table_header_rows(inner),
   }
 }
 
 ///|
-fn html_table_has_explicit_header(inner : Bytes) -> Bool {
+fn html_table_header_rows(inner : Bytes) -> Int {
   let text = (@cor.utf8_bytes_to_string(inner) catch { _ => "" }).to_lower()
-  text.contains("<th") || text.contains("<thead")
+  if text.contains("<thead") {
+    return 1
+  }
+
+  let open_tr = pat("<tr")
+  let close_tr = pat("</tr>")
+  let gt_pat = pat(">")
+
+  let tr0 = find_bytes(inner, open_tr, 0)
+  match tr0 {
+    None => 0
+    Some(i0) => {
+      let gt0 = find_bytes(inner, gt_pat, i0)
+      match gt0 {
+        None => 0
+        Some(q0) => {
+          let row_start = q0 + 1
+          let end0 = find_bytes(inner, close_tr, row_start)
+          match end0 {
+            None => 0
+            Some(end) => {
+              let tr_inner = inner[row_start:end].to_owned()
+              let row_text = (@cor.utf8_bytes_to_string(tr_inner) catch {
+                _ => ""
+              }).to_lower()
+              if row_text.contains("<th") {
+                1
+              } else {
+                0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 ///|
