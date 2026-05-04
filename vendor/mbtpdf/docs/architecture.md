@@ -8,7 +8,7 @@ document-level features (merge, text extraction, encryption, etc.).
 
 Package paths below are shown relative to the module root (for example,
 `core/pdfio`), and import aliases default to the last path segment (so
-`bobzhang/mbtpdf/core/pdfio` is used as `@pdfio`).
+`ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio` is used as `@pdfio`).
 
 ```
 Input bytes (core/pdfio)

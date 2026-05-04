@@ -1,7 +1,7 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/codec/pdfcodec",
-  "bobzhang/mbtpdf/graphics/pdffun",
-  "bobzhang/mbtpdf/core/pdfio",
-  "bobzhang/mbtpdf/graphics/pdfspace",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfcodec",
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdffun",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfspace",
 }

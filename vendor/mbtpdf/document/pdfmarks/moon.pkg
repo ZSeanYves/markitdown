@@ -1,6 +1,6 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdfe",
-  "bobzhang/mbtpdf/core/pdftransform",
-  "bobzhang/mbtpdf/document/pdfdest",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfdest",
 }

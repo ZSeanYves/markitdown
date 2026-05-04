@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/core/pdfcryptprimitives
+# @ZSeanYves/markitdown/vendor/mbtpdf/core/pdfcryptprimitives
 
 Cryptographic primitives for PDF encryption and decryption.
 

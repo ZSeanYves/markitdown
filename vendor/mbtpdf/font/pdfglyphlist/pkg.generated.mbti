@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/font/pdfglyphlist"
+package "ZSeanYves/markitdown/vendor/mbtpdf/font/pdfglyphlist"
 
 // Values
 pub let name_to_dingbats : Array[(String, Int)]

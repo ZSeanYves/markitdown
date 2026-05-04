@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/io/pdfwritefs"
+package "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfwritefs"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/io/pdfwrite",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfwrite",
   "moonbitlang/async/fs",
 }
 

@@ -1,8 +1,8 @@
 import {
-  "bobzhang/mbtpdf/core/pdfio",
-  "bobzhang/mbtpdf/core/pdfe",
-  "bobzhang/mbtpdf/core/pdfcryptprimitives",
-  "bobzhang/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfcryptprimitives",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
   "moonbitlang/core/env",
   "moonbitlang/core/string",
   "moonbitlang/core/strconv",

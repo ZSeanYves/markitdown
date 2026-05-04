@@ -65,6 +65,19 @@ Full validation:
 ./samples/check.sh
 ```
 
+## PDF lower-layer dependency
+
+The native PDF lower layer lives under `doc_parse/pdf`.
+
+Its backend currently depends on the vendored package tree under:
+
+```text
+vendor/mbtpdf
+```
+
+This vendored tree is maintained as part of the repository rather than through
+a path-only external dependency in the root `moon.mod.json`.
+
 Main regression:
 
 ```bash

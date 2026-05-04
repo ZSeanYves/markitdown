@@ -1,12 +1,12 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/document/pdfpage"
+package "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdftransform",
-  "bobzhang/mbtpdf/document/pdfdest",
-  "bobzhang/mbtpdf/document/pdfpaper",
-  "bobzhang/mbtpdf/graphics/pdfops",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfdest",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpaper",
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfops",
   "moonbitlang/core/debug",
 }
 

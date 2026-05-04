@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/core/pdftransform"
+package "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform"
 
 import {
   "moonbitlang/core/debug",

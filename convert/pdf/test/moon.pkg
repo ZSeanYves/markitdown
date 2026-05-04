@@ -4,9 +4,9 @@ import {
   "ZSeanYves/markitdown/convert/pdf" @pdf,
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/pdf/api" @api,
-  "bobzhang/mbtpdf" @mbtpdf,
-  "bobzhang/mbtpdf/core/pdf" @mbtpdf_core,
-  "bobzhang/mbtpdf/document/pdfpage" @pdfpage,
-  "bobzhang/mbtpdf/graphics/pdfops" @pdfops,
+  "ZSeanYves/markitdown/vendor/mbtpdf" @mbtpdf,
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf" @mbtpdf_core,
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage" @pdfpage,
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfops" @pdfops,
   "moonbitlang/x/sys" @sys,
 } for "test"

@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/document/pdfmarks"
+package "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfmarks"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdftransform",
-  "bobzhang/mbtpdf/document/pdfdest",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfdest",
 }
 
 // Values

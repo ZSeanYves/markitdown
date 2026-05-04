@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/graphics/pdfspace
+# @ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfspace
 
 PDF color space handling.
 

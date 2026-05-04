@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/font/pdfcmap
+# @ZSeanYves/markitdown/vendor/mbtpdf/font/pdfcmap
 
 ToUnicode CMap parser for PDF text extraction.
 

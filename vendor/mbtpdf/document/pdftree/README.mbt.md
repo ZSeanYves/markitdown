@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdftree
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdftree
 
 Name tree and number tree operations for PDF documents.
 

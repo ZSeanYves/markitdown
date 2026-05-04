@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/font/pdfafmdata
+# @ZSeanYves/markitdown/vendor/mbtpdf/font/pdfafmdata
 
 Compressed AFM data for the 14 standard PDF fonts.
 

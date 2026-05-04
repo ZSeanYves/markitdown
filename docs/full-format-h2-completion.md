@@ -195,6 +195,15 @@ Another post-H2 cleanup was validation UX normalization:
 * sample integrity, main Markdown, metadata, and assets remain separate script
   responsibilities rather than one noisy all-in-one shell path
 
+Another repository-hygiene cleanup after H2 completion was normalizing the PDF
+backend dependency story:
+
+* the native PDF lower layer remains `doc_parse/pdf`
+* the backend implementation is a repository-local maintained fork under
+  `vendor/mbtpdf`
+* the root module no longer relies on a path-only external
+  `bobzhang/mbtpdf` dependency in `moon.mod.json`
+
 ## Benchmark / profiling status
 
 The benchmark toolchain is now a stable next-stage H3 foundation:

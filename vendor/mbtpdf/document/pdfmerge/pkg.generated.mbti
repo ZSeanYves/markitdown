@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/mbtpdf/document/pdfmerge"
+package "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfmerge"
 
 import {
-  "bobzhang/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
 }
 
 // Values

@@ -39,6 +39,13 @@ Core project capabilities:
 * regression samples
 * internal and comparison benchmark harnesses
 
+PDF lower-layer note:
+
+* the native PDF path uses `doc_parse/pdf` plus a repository-local maintained
+  vendored backend under `vendor/mbtpdf`
+* `vendor/mbtpdf` is maintained in-repo for markitdown-specific PDF parser
+  needs; it is not treated as a path-only external dependency during publish
+
 ## H2 Milestone
 
 The current H2 milestone is complete across the main format set:

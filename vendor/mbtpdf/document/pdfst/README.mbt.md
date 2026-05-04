@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdfst
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdfst
 
 PDF structure tree operations for tagged PDFs.
 

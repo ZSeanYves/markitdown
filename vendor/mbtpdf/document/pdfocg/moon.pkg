@@ -1,5 +1,5 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/core/pdfutil",
-  "bobzhang/mbtpdf/document/pdfpage",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfutil",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage",
 }

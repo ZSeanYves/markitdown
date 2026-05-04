@@ -187,3 +187,6 @@ Current recommended next priorities are:
   CLI and falls back to `moon run` when the local binary is stale, and the
   main regression/metadata/assets scripts now use compact progress plus final
   failure summary output
+* vendored PDF backend packaging was normalized: `vendor/mbtpdf` is now used
+  as a repository-local package tree, and the root module no longer carries a
+  publish-blocking path-only external `bobzhang/mbtpdf` dependency

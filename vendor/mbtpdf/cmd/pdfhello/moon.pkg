@@ -1,10 +1,10 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/graphics/pdfops",
-  "bobzhang/mbtpdf/document/pdfpage",
-  "bobzhang/mbtpdf/document/pdfpaper",
-  "bobzhang/mbtpdf/core/pdftransform",
-  "bobzhang/mbtpdf/io/pdfwritefs",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdfops",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpage",
+  "ZSeanYves/markitdown/vendor/mbtpdf/document/pdfpaper",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfwritefs",
   "moonbitlang/async",
   "moonbitlang/async/fs",
 }

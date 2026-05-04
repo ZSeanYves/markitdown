@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/document/pdfmarks
+# @ZSeanYves/markitdown/vendor/mbtpdf/document/pdfmarks
 
 PDF bookmarks (document outline) reading and writing.
 

@@ -1,6 +1,6 @@
 import {
-  "bobzhang/mbtpdf/core/pdf",
-  "bobzhang/mbtpdf/io/pdfiofs",
-  "bobzhang/mbtpdf/io/pdfread",
+  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfiofs",
+  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfread",
   "moonbitlang/async/fs",
 }

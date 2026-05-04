@@ -1,4 +1,4 @@
-# @bobzhang/mbtpdf/graphics/pdffun
+# @ZSeanYves/markitdown/vendor/mbtpdf/graphics/pdffun
 
 PDF function parsing and evaluation.
 
