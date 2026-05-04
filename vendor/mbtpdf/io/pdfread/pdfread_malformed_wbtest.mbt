@@ -1,4 +1,9 @@
 ///|
+fn fixture_path_pdfread_malformed(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 test "malformed pdf without xref uses fallback" {
   let data =
     #|%PDF-1.4
@@ -97,7 +102,9 @@ test "malformed pdf skips bad objects and trailers" {
 
 ///|
 async test "revision -1 returns revisions error" {
-  let input = @pdfiofs.input_of_file("testdata/pdfjs_identity_tounicode.pdf")
+  let input = @pdfiofs.input_of_file(
+    fixture_path_pdfread_malformed("testdata/pdfjs_identity_tounicode.pdf"),
+  )
   let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(revision=-1, None, None, input)
   })

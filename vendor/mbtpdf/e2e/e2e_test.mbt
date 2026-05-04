@@ -7,6 +7,11 @@ fn test_tmp_root() -> String {
 }
 
 ///|
+fn fixture_path_e2e(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 fn output_dir() -> String {
   test_tmp_root() + "/scratch/mbtpdf/e2e"
 }
@@ -28,8 +33,9 @@ const BOOKMARK_PATH : String = "testdata/SFAA_Japanese.pdf"
 
 ///|
 async fn assert_fixture(path : String) -> Unit {
-  if !@fs.exists(path) {
-    fail("missing fixture: " + path)
+  let resolved = fixture_path_e2e(path)
+  if !@fs.exists(resolved) {
+    fail("missing fixture: " + resolved)
   }
 }
 
@@ -43,7 +49,7 @@ async fn ensure_dir(path : String) -> Unit {
 ///|
 async fn read_pdf(path : String) -> @pdf.Pdf {
   assert_fixture(path)
-  @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, path)
+  @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, fixture_path_e2e(path))
 }
 
 ///|

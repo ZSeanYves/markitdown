@@ -20,8 +20,15 @@ fn pdf_has_stream(pdf : @pdf.Pdf) -> Bool {
 }
 
 ///|
+fn fixture_path_pdfread_roundtrip(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 async test "e2e parse camlpdf intro pdf" {
-  let filename = "testdata/introduction_to_camlpdf.pdf"
+  let filename = fixture_path_pdfread_roundtrip(
+    "testdata/introduction_to_camlpdf.pdf",
+  )
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, filename)
   let page_count = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree_quick()
   assert_true(pdf.objcard() > 0)
@@ -34,7 +41,9 @@ async test "e2e parse camlpdf intro pdf" {
 
 ///|
 async test "e2e roundtrip camlpdf intro pdf" {
-  let filename = "testdata/introduction_to_camlpdf.pdf"
+  let filename = fixture_path_pdfread_roundtrip(
+    "testdata/introduction_to_camlpdf.pdf",
+  )
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, filename)
   let roundtripped = pdfread_roundtrip_via_writer(pdf)
   assert_eq(
@@ -45,7 +54,7 @@ async test "e2e roundtrip camlpdf intro pdf" {
 
 ///|
 async test "e2e parse camlpdf logo pdf has stream" {
-  let filename = "testdata/logo.pdf"
+  let filename = fixture_path_pdfread_roundtrip("testdata/logo.pdf")
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, filename)
   assert_true(pdf_has_stream(pdf))
 }

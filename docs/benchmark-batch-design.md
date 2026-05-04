@@ -210,9 +210,9 @@ html_small_set	html	html_001	samples/benchmark/batch/html/html_001.html	false
 
 Preferred next implementation path:
 
-* add a dedicated future script such as `samples/bench_batch.sh`
-* keep existing `bench_smoke.sh` and `bench_compare_markitdown.sh` behavior
-  unchanged
+* add a dedicated future script such as `samples/scripts/bench_batch.sh`
+* keep existing `samples/scripts/bench_smoke.sh` and
+  `samples/scripts/bench_compare_markitdown.sh` behavior unchanged
 
 Why a dedicated script is safer than overloading smoke first:
 

@@ -63,7 +63,7 @@ if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
   exit "$overall_status"
 fi
 
-run_stage "diff" "$ROOT/samples/diff.sh" || overall_status=$?
+run_stage "main_process" "$ROOT/samples/check_main_process.sh" || overall_status=$?
 if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
   print_summary "$overall_status"
   exit "$overall_status"

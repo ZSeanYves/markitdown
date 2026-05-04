@@ -34,7 +34,8 @@ This means:
 * the format is usable as a stable product contract
 * checked-in regression coverage exists for the main supported behavior
 * support/limits wording is explicit
-* remaining harder cases are documented limitations, not hidden blockers
+* remaining harder cases are documented limitations, not hidden unresolved
+  work disguised as completion
 
 It does **not** mean every advanced format-specific feature is implemented or
 that the repository has become a pixel-faithful layout engine.
@@ -116,8 +117,9 @@ moon fmt
 moon info
 moon check
 moon test
+./samples/check.sh
 ./samples/scripts/check_samples.sh
-./samples/diff.sh
+./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
 ```
@@ -190,7 +192,7 @@ Another post-H2 cleanup was validation UX normalization:
   probe-validated native CLI, falls back to `moon run` when the discovered
   binary is stale, and still allows
   `MARKITDOWN_CLI=/abs/path/to/cli` for explicit native pinning
-* `diff.sh`, `check_metadata.sh`, and `check_assets.sh` now share one compact
+* `check_main_process.sh`, `check_metadata.sh`, and `check_assets.sh` now share one compact
   progress/failure-summary style instead of per-sample convert/diff spam
 * sample integrity, main Markdown, metadata, and assets remain separate script
   responsibilities rather than one noisy all-in-one shell path
@@ -201,8 +203,8 @@ backend dependency story:
 * the native PDF lower layer remains `doc_parse/pdf`
 * the backend implementation is a repository-local maintained fork under
   `vendor/mbtpdf`
-* the root module no longer relies on a path-only external
-  `bobzhang/mbtpdf` dependency in `moon.mod.json`
+* the root module no longer relies on a path-only external upstream dependency
+  for the PDF backend in `moon.mod.json`
 
 ## Benchmark / profiling status
 

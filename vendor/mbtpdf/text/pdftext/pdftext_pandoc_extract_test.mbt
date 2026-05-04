@@ -1,9 +1,14 @@
 ///|
+fn fixture_path_pdftext_pandoc(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 async test "extract text pandoc basic fixture" {
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
     None,
     None,
-    "testdata/pandoc/pandoc_basic.pdf",
+    fixture_path_pdftext_pandoc("testdata/pandoc/pandoc_basic.pdf"),
   )
   let pages = @pdftext.PdfText::new(pdf).extract_text(page_break="\n-----\n")
   inspect(
@@ -30,7 +35,7 @@ async test "extract text pandoc unicode fixture" {
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
     None,
     None,
-    "testdata/pandoc/pandoc_unicode.pdf",
+    fixture_path_pdftext_pandoc("testdata/pandoc/pandoc_unicode.pdf"),
   )
   let extracted = @pdftext.PdfText::new(pdf).extract_text()
   debug_inspect(

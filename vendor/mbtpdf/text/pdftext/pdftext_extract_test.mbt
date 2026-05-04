@@ -1,9 +1,14 @@
 ///|
+fn fixture_path_pdftext_extract(path : String) -> String {
+  "vendor/mbtpdf/" + path
+}
+
+///|
 async test "extract text intro pdf" {
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
     None,
     None,
-    "testdata/introduction_to_camlpdf.pdf",
+    fixture_path_pdftext_extract("testdata/introduction_to_camlpdf.pdf"),
   )
   let ctx = @pdftext.PdfText::new(pdf)
   let pages = ctx.extract_text(page_break="\n-----------------\n")
@@ -277,7 +282,7 @@ async test "extract text pdf.js identity sample" {
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
     None,
     None,
-    "testdata/pdfjs_identity_tounicode.pdf",
+    fixture_path_pdftext_extract("testdata/pdfjs_identity_tounicode.pdf"),
   )
   let extracted = @pdfe.with_logger(_ => (), () => {
     @pdftext.PdfText::new(pdf).extract_text(page_break="\n-------------\n")
@@ -291,7 +296,7 @@ async test "extract text SFAA Japanese" {
   let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
     None,
     None,
-    "testdata/SFAA_Japanese.pdf",
+    fixture_path_pdftext_extract("testdata/SFAA_Japanese.pdf"),
   )
   let extracted = @pdftext.PdfText::new(pdf).extract_text(
     page_break="\n-------\n",

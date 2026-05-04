@@ -148,7 +148,7 @@ The repository currently expects the following checks to pass together:
 ```bash
 moon check
 moon test
-./samples/diff.sh
+./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
 ./samples/scripts/check_samples.sh
@@ -189,4 +189,4 @@ Current recommended next priorities are:
   failure summary output
 * vendored PDF backend packaging was normalized: `vendor/mbtpdf` is now used
   as a repository-local package tree, and the root module no longer carries a
-  publish-blocking path-only external `bobzhang/mbtpdf` dependency
+  path-only external upstream dependency for the PDF backend

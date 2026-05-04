@@ -39,7 +39,7 @@
 ### B2. Regression Sample System
 
 - [x] Three complete regression chains have been established: `main_process / metadata / assets`.  
-  Evidence: `samples/diff.sh`, `samples/check_metadata.sh`, `samples/check_assets.sh`
+  Evidence: `samples/check.sh`, `samples/check_main_process.sh`, `samples/check_metadata.sh`, `samples/check_assets.sh`
 - [x] A compact acceptance demo sample set is provided under `samples/test` (condensed demonstration, not equivalent to the full regression suite).  
   Evidence: `samples/test/*.md`, `samples/test/metadata/*.metadata.json`, `samples/test/assets/*`
 
@@ -53,7 +53,7 @@
 ### C1. Main Technical Route: Multi-format -> IR -> Markdown
 
 - [x] The main route has been implemented and can be verified through regression.  
-  Evidence: `convert/convert/dispatcher.mbt`, `core/ir.mbt`, `core/emitter_markdown.mbt`, `samples/diff.sh`
+  Evidence: `convert/convert/dispatcher.mbt`, `core/ir.mbt`, `core/emitter_markdown.mbt`, `samples/check_main_process.sh`
 
 ### C2. Metadata Route: origin / image-context / caption / nearby-caption
 
@@ -107,7 +107,8 @@
 ## F. Recommended Acceptance Execution Order
 
 1. Run `samples/scripts/check_samples.sh` to verify consistency of the sample inventory.
-2. Run `samples/diff.sh` for main pipeline regression.
-3. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
-4. Run `samples/check_assets.sh` to independently verify asset extraction/reference stability.
-5. Spot-check `samples/test` as the compact acceptance demonstration sample set.
+2. Run `samples/check.sh` for the full release-style validation chain.
+3. Run `samples/check_main_process.sh` for isolated main pipeline regression when needed.
+4. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
+5. Run `samples/check_assets.sh` to independently verify asset extraction/reference stability.
+6. Spot-check `samples/test` as the compact acceptance demonstration sample set.

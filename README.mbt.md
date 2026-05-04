@@ -8,7 +8,7 @@ auditable conversion, stable degradation, and reusable parsing infrastructure.
 All primary repository formats now have **H2-complete** support contracts:
 common lightweight-conversion expectations are met, while harder layout and
 format-specific edge cases remain explicitly documented as limitations rather
-than hidden gaps.
+than hidden unresolved gaps.
 
 The current pipeline is:
 
@@ -191,7 +191,7 @@ Useful commands:
 
 ```bash
 ./samples/check.sh
-./samples/diff.sh
+./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
 ```
@@ -247,3 +247,4 @@ not part of the default `normal` mainflow contract.
 * [Benchmark Comparison](./docs/benchmark-comparison.md)
 * [Benchmark Comparison Baseline](./docs/benchmark-comparison-baseline.md)
 * [Sample Coverage](./docs/sample-coverage.md)
+* [Changelog](./CHANGELOG.md)

@@ -28,7 +28,8 @@ This split improves explainability:
 ## Scripts
 
 - `samples/scripts/check_samples.sh`: enrollment integrity check for main_process set.
-- `samples/diff.sh`: main process regression entry.
+- `samples/check.sh`: full validation entry.
+- `samples/check_main_process.sh`: main process regression entry.
 - `samples/check_metadata.sh`: metadata-focused regression.
 - `samples/check_assets.sh`: assets extraction/reference regression.
 
@@ -41,8 +42,9 @@ Validation UX notes:
 * `moon run` includes wrapper overhead, so explicit native override is still
   useful for faster local runs
 * `SAMPLES_VERBOSE=1` restores per-sample logs
-* `SKIP_INTEGRITY=1 ./samples/diff.sh` skips the leading enrollment check when
-  the user has already run `check_samples.sh`
+* `check_main_process.sh` is intentionally focused on main Markdown regression;
+  run `./samples/check.sh` for the full integrity + main_process + metadata +
+  assets chain
 
 ## Acceptance demo coverage (`samples/test`)
 

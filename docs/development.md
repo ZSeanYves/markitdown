@@ -81,7 +81,7 @@ a path-only external dependency in the root `moon.mod.json`.
 Main regression:
 
 ```bash
-./samples/diff.sh
+./samples/check_main_process.sh
 ```
 
 Metadata regression:
@@ -109,8 +109,8 @@ Validation runner policy:
 Validation UX controls:
 
 ```bash
-SAMPLES_VERBOSE=1 ./samples/diff.sh
-SAMPLES_KEEP_TMP=1 ./samples/diff.sh
+SAMPLES_VERBOSE=1 ./samples/check_main_process.sh
+SAMPLES_KEEP_TMP=1 ./samples/check_main_process.sh
 CHECK_CONTINUE=1 ./samples/check.sh
 ```
 
@@ -125,13 +125,14 @@ Default verification set:
 
 ```bash
 moon fmt
+moon info
 moon check
 moon test
-./samples/diff.sh
+./samples/check.sh
+./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
 ./samples/scripts/check_samples.sh
-./samples/check.sh
 ```
 
 ## Benchmark Commands
@@ -172,7 +173,7 @@ Notes:
   remain under `.tmp/bench/...` for inspection
 * ZIP/EPUB archive conversion now materializes entries under per-conversion
   archive roots with per-entry private temp/output directories, so repeated
-  `./samples/diff.sh` and `./samples/check_assets.sh` runs do not share one
+  `./samples/check_main_process.sh` and `./samples/check_assets.sh` runs do not share one
   fixed archive-entry temp tree
 
 ## Adding Or Expanding A Format
@@ -267,14 +268,14 @@ The repository intentionally has a third validation layer beyond package tests:
 
 * `convert/convert/test`: cross-format metadata/provenance invariants
 * `samples/scripts/check_samples.sh`: enrollment integrity
-* `samples/diff.sh`: main Markdown regression
+* `samples/check_main_process.sh`: main Markdown regression
 * `samples/check_metadata.sh`: metadata sidecar regression
 * `samples/check_assets.sh`: asset export regression
 
 These scripts intentionally stay separate:
 
 * `check_samples.sh` validates enrollment only
-* `diff.sh` validates main Markdown only
+* `check_main_process.sh` validates main Markdown only
 * `check_metadata.sh` validates metadata Markdown only
 * `check_assets.sh` validates asset-producing outputs and referenced files
 
@@ -288,7 +289,7 @@ tests or root-level whitebox coverage.
 Run at least:
 
 ```bash
-./samples/diff.sh
+./samples/check_main_process.sh
 ```
 
 Typical files:

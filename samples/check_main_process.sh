@@ -7,7 +7,7 @@ source "$ROOT/samples/scripts/validation_helpers.sh"
 SAMPLES_DIR="$ROOT/samples/main_process"
 EXP_DIR="$SAMPLES_DIR/expected"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "diff")"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
@@ -85,9 +85,9 @@ for entry in "${SAMPLE_LIST[@]}"; do
   fi
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "==> diff main_process/$fmt/$name"
+    echo "==> check main_process/$fmt/$name"
   fi
   validation_diff_or_record "main_process/$fmt/$name" "$f" "$exp" "$out" "$diff_path" || true
 done
 
-validation_finish "ALL TESTS PASSED" "FAILED SAMPLES"
+validation_finish "ALL MAIN PROCESS TESTS PASSED" "FAILED MAIN PROCESS SAMPLES"

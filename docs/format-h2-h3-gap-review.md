@@ -120,8 +120,8 @@ DOCX is now **H2 complete** after the closure audit:
   conservative recovery paths
 * merged/nested tables remain imperfect, but current behavior preserves visible
   content without claiming Word layout reconstruction
-* remaining gaps are documented limitations and future quality work, not H2
-  blockers
+* remaining gaps are documented limitations and future quality work, not
+  outstanding H2 completion work
 
 #### Suggested next actions
 
