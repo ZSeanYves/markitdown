@@ -242,6 +242,45 @@ lookup_metric_value() {
   esac
 }
 
+lookup_smoke_runner_kind() {
+  local input_path="$1"
+  awk -F '\t' -v want_key="$2" '
+    NR == 1 {
+      for (i = 1; i <= NF; i++) {
+        header[$i] = i
+      }
+      next
+    }
+    {
+      if ($header["sample"] == want_key) {
+        found = 1
+        if (!("runner_kind" in header)) {
+          print "unknown"
+          exit
+        }
+        print $(header["runner_kind"])
+        exit
+      }
+    }
+    END {
+      if (!found) {
+        print "__MISSING_KEY__"
+      }
+    }
+  ' "$input_path"
+}
+
+smoke_warning_runner_note() {
+  case "${1-}" in
+    moon-run|unknown)
+      printf 'includes Moon wrapper overhead'
+      ;;
+    *)
+      printf ''
+      ;;
+  esac
+}
+
 compare_value() {
   local actual="$1"
   local direction="$2"
@@ -367,7 +406,22 @@ run_suite_check() {
     if compare_value "$actual" "$direction" "$warn_value"; then
       printf '[ok]   %s %s=%s %s %s\n' "$key" "$metric" "$actual" "$(relation_text "$direction")" "$warn_value"
     else
-      printf '[warn] %s %s=%s not %s %s\n' "$key" "$metric" "$actual" "$(relation_text "$direction")" "$warn_value"
+      if [[ "$suite" == "smoke" ]]; then
+        local runner_kind
+        local runner_note
+        runner_kind="$(lookup_smoke_runner_kind "$input_path" "$key")"
+        if [[ "$runner_kind" == "__MISSING_KEY__" ]]; then
+          runner_kind="unknown"
+        fi
+        runner_note="$(smoke_warning_runner_note "$runner_kind")"
+        printf '[warn] %s %s=%s not %s %s (runner=%s' "$key" "$metric" "$actual" "$(relation_text "$direction")" "$warn_value" "$runner_kind"
+        if [[ -n "$runner_note" ]]; then
+          printf '; %s' "$runner_note"
+        fi
+        printf ')\n'
+      else
+        printf '[warn] %s %s=%s not %s %s\n' "$key" "$metric" "$actual" "$(relation_text "$direction")" "$warn_value"
+      fi
       [[ -n "$notes" ]] && printf '       note: %s\n' "$notes"
       WARNINGS=$((WARNINGS + 1))
       suite_warnings=$((suite_warnings + 1))

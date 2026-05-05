@@ -8,6 +8,7 @@ current baseline values remain in:
 
 * [docs/benchmark-baseline.md](./benchmark-baseline.md)
 * [docs/benchmark-comparison-baseline.md](./benchmark-comparison-baseline.md)
+* [docs/h3-baseline-v0.3.0.md](./h3-baseline-v0.3.0.md)
 
 ## Current Benchmark Contract
 
@@ -30,14 +31,21 @@ Current behavior:
 * supports warmup and repeated measured iterations
 * records median and average elapsed time
 * records output bytes, asset count, and exit status
+* records `runner_kind` and `runner_label` in local outputs
 * builds once before benchmarking
-* currently invokes the repository runner through `moon run`
+* resolves the repository runner in this order:
+  * `MARKITDOWN_CLI`
+  * probe-validated prebuilt native CLI
+  * fallback `moon run`
 
 Interpretation:
 
 * useful for internal cross-format smoke tracking
 * useful for same-machine trend observation
-* not the final native-CLI speed contract for H3 claims
+* stronger H3 smoke readings now prefer the same native CLI policy as
+  validation and comparison harnesses
+* `moon run` fallback remains valid for functionality, but its timings include
+  wrapper overhead and should not be read as native-only hot-path evidence
 
 ### Comparison benchmark
 
@@ -89,12 +97,9 @@ discipline.
 
 Current gaps:
 
-* no batch benchmark mode yet
 * no normalized small/medium/large policy across every format
 * no optional memory probe yet
 * no lightweight regression-warning workflow yet
-* smoke harness still uses `moon run`, so it mixes product work with wrapper
-  overhead
 * benchmark output roots are fixed under `.tmp/bench/smoke` and
   `.tmp/bench/compare`, which is convenient for inspection but not ideal for
   concurrent runs
@@ -160,6 +165,13 @@ Practical direction:
 * start with manual comparison against a prior summary
 * keep thresholds lightweight and advisory
 * only consider CI gating after the signal is stable
+
+Current triage note:
+
+* smoke warnings are now runner-aware
+* if a smoke warning is reported with `runner=moon-run` or `runner=unknown`,
+  it should still be treated as a triage/watch item first rather than proof of
+  a native DOCX/PDF/etc. product-path regression by itself
 
 ### 5. Runner isolation
 
@@ -271,6 +283,16 @@ Next quality-discipline step:
 * expand warning coverage only after the benchmark signal stabilizes further
 * keep warning thresholds conservative and low-noise
 * continue avoiding flaky hard CI gates
+
+### H3.8: runner normalization
+
+Current normalization step:
+
+* align smoke, validation, compare, and batch harnesses on the same
+  native-preferred runner policy
+* keep `moon run` fallback available for functionality and stale-binary cases
+* record runner metadata directly in local smoke outputs
+* keep warning thresholds unchanged while making warning interpretation clearer
 
 ## Non-goals For This H3 Planning Step
 

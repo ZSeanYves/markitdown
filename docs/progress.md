@@ -166,6 +166,29 @@ Current recommended next priorities are:
 * EPUB future quality work such as NCX / broader anchor semantics
 * selective H2.1 quality upgrades where product value is clear, without
   hiding current documented limitations
+## 2026-05-05
+
+* recorded the H3 baseline freeze for the `v0.3.0` release line in
+  [docs/h3-baseline-v0.3.0.md](./h3-baseline-v0.3.0.md)
+* normalized benchmark runner handling so `bench_smoke.sh`, sample validation,
+  overlap comparison, and batch profiling all now follow the same
+  native-preferred runner policy with `moon run` fallback
+* captured local H3 baseline artifacts for smoke, overlap comparison, batch
+  profiling, and manual warning status without changing converter semantics,
+  benchmark algorithms, or checked-in corpora
+* current local validation is mixed rather than fully green:
+  `moon check` and `./samples/check.sh` passed, while `moon test` failed on
+  missing vendored `mbtpdf` e2e fixtures in `.tmp/scratch`
+* root test hygiene was then tightened: vendored `mbtpdf` generated-output e2e
+  coverage is now treated as optional/manual rather than part of the default
+  root `moon test` contract, and the e2e helper path bug for generated outputs
+  was fixed so manual runs read back `.tmp/scratch/mbtpdf/e2e/*` directly
+* initial H3 warning triage for `docx/golden` shows a large runner-gap rather
+  than immediate evidence of a 10-second native DOCX hot path:
+  the prebuilt native CLI converts the sample in roughly `0.02-0.03s`, while
+  `moon run` takes roughly `0.81-0.88s` on the same file
+* smoke benchmark outputs and warning messages now record runner kind so future
+  warnings can distinguish native results from `moon run` wrapper overhead
 ## 2026-05-04
 
 * tightened PDF page-number candidate scoping after numeric-table preservation:

@@ -106,6 +106,17 @@ Validation runner policy:
   the binary matches the current source state
 * `moon run` is slower because it includes MoonBit wrapper overhead
 
+Vendored PDF e2e policy:
+
+* root `moon test` should pass without requiring generated vendored PDFs under
+  `.tmp/scratch/mbtpdf/e2e`
+* package/unit-style vendored PDF tests still run in the normal root suite
+* optional vendored e2e remains available through:
+
+```bash
+moon test vendor/mbtpdf/e2e --include-skipped
+```
+
 Validation UX controls:
 
 ```bash
@@ -143,6 +154,7 @@ Internal smoke benchmark:
 ./samples/scripts/bench_smoke.sh --kind smoke
 ./samples/scripts/bench_smoke.sh --kind all
 BENCH_ITERATIONS=3 BENCH_WARMUP=1 ./samples/scripts/bench_smoke.sh --kind smoke
+MARKITDOWN_CLI=/abs/path/to/cli ./samples/scripts/bench_smoke.sh --kind smoke
 ```
 
 Overlap-only comparison benchmark:
@@ -163,6 +175,11 @@ Batch profiling benchmark:
 Notes:
 
 * both benchmark scripts use `MARKITDOWN_TMP_DIR`
+* smoke benchmark now follows the same native-preferred runner policy as sample
+  validation: `MARKITDOWN_CLI`, then probe-validated prebuilt native CLI, then
+  fallback `moon run`
+* smoke `summary.tsv` and `results.jsonl` record runner metadata so local
+  warnings can distinguish native runs from `moon run` wrapper overhead
 * batch profiling writes additive local artifacts under `.tmp/bench/batch_profile`
 * benchmark warning checks are manual; use `--strict` only when intentionally
   gating a local benchmark run

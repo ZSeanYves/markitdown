@@ -166,10 +166,25 @@ checked in.
 
 ## Runner Note
 
-The current smoke harness builds once and then invokes the repository runner
-through `moon run`. This is acceptable for internal smoke tracking, but H3
-native speed claims should continue to prefer overlap-only comparison runs that
-use the prebuilt native CLI when available.
+The smoke harness now builds once and resolves the repository runner in this
+order:
+
+* `MARKITDOWN_CLI`
+* probe-validated prebuilt native CLI
+* fallback `moon run`
+
+This keeps smoke, sample validation, and comparison runs on the same
+native-preferred policy while preserving `moon run` as a functional fallback.
+When smoke falls back to `moon run`, the reported elapsed time includes MoonBit
+wrapper overhead and should not be read as a native-only speed claim.
+
+Current smoke local outputs also record:
+
+* `runner_kind`
+* `runner_label`
+
+so warning checks can distinguish native runs from wrapper-affected fallback
+runs.
 
 ## Current PDF Smoke Baseline
 
@@ -218,8 +233,9 @@ This baseline was captured with:
 
 ## Summary
 
-The checked-in baseline summary is the `summary.tsv` produced by the command
-above:
+The checked-in baseline summary below is a historical local sample from the
+`summary.tsv` produced by the command above. Newer smoke runs may include the
+additional trailing columns `runner_kind` and `runner_label`:
 
 ```tsv
 format	sample	runs	failed	min_ms	median_ms	max_ms	avg_ms	output_bytes_last	asset_count_last

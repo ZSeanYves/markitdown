@@ -2,6 +2,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/samples/scripts/tmp_helpers.sh"
+source "$ROOT/samples/scripts/validation_helpers.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 BENCH_ROOT="$TMP_ROOT/bench/smoke"
 CORPUS_PATH="$ROOT/samples/benchmark/corpus.tsv"
@@ -13,6 +15,10 @@ NOW_MS_VALUE="0"
 ITERATIONS="${BENCH_ITERATIONS:-1}"
 WARMUP="${BENCH_WARMUP:-0}"
 KIND="${BENCH_KIND:-smoke}"
+SMOKE_RUNNER_KIND="unknown"
+SMOKE_RUNNER_LABEL="unknown"
+SMOKE_RUNNER_COMMAND_BASE=""
+SMOKE_NATIVE_CLI_PATH=""
 
 json_escape() {
   local s="${1-}"
@@ -117,6 +123,7 @@ Environment overrides:
                      (default: smoke)
   BENCH_ITERATIONS   number of measured iterations per sample (default: 1)
   BENCH_WARMUP       number of unrecorded warmup runs per sample (default: 0)
+  MARKITDOWN_CLI     force a specific native/prebuilt CLI binary
   MARKITDOWN_TMP_DIR override temp root (default: \$ROOT/.tmp)
 EOF
 }
@@ -145,9 +152,50 @@ should_run_kind() {
   [[ "$selected" == "$row_kind" ]]
 }
 
+normalize_smoke_runner_kind() {
+  case "${1-}" in
+    override)
+      printf 'markitdown-cli-env'
+      ;;
+    prebuilt-native|moon-run)
+      printf '%s' "$1"
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
+build_smoke_runner_state() {
+  SMOKE_RUNNER_KIND="$(normalize_smoke_runner_kind "${CLI_RUNNER_KIND:-unknown}")"
+  if [[ -n "${CLI_BIN:-}" ]]; then
+    SMOKE_NATIVE_CLI_PATH="$CLI_BIN"
+    SMOKE_RUNNER_COMMAND_BASE="$CLI_BIN normal"
+    SMOKE_RUNNER_LABEL="$SMOKE_RUNNER_KIND ($CLI_BIN)"
+    return
+  fi
+
+  SMOKE_NATIVE_CLI_PATH=""
+  SMOKE_RUNNER_COMMAND_BASE="moon run $ROOT/cli -- normal"
+  if [[ "$SMOKE_RUNNER_KIND" == "moon-run" ]]; then
+    SMOKE_RUNNER_LABEL="moon-run fallback"
+  else
+    SMOKE_RUNNER_LABEL="$SMOKE_RUNNER_KIND"
+  fi
+}
+
+smoke_runner_command() {
+  local metadata_json="${1-}"
+  local command="$SMOKE_RUNNER_COMMAND_BASE"
+  if [[ "$metadata_json" == "true" ]]; then
+    command="$command --with-metadata"
+  fi
+  printf '%s' "$command"
+}
+
 generate_summary() {
   if [[ ! -s "$RUNS_TSV_PATH" ]]; then
-    printf 'format\tsample\truns\tfailed\tmin_ms\tmedian_ms\tmax_ms\tavg_ms\toutput_bytes_last\tasset_count_last\n' \
+    printf 'format\tsample\truns\tfailed\tmin_ms\tmedian_ms\tmax_ms\tavg_ms\toutput_bytes_last\tasset_count_last\trunner_kind\trunner_label\n' \
       > "$SUMMARY_PATH"
     return
   fi
@@ -185,7 +233,7 @@ generate_summary() {
 
     BEGIN {
       OFS = "\t"
-      print "format", "sample", "runs", "failed", "min_ms", "median_ms", "max_ms", "avg_ms", "output_bytes_last", "asset_count_last"
+      print "format", "sample", "runs", "failed", "min_ms", "median_ms", "max_ms", "avg_ms", "output_bytes_last", "asset_count_last", "runner_kind", "runner_label"
     }
 
     {
@@ -219,13 +267,15 @@ generate_summary() {
 
       output_last[key] = $6
       asset_last[key] = $7
+      runner_kind_last[key] = $8
+      runner_label_last[key] = $9
     }
 
     END {
       for (i = 1; i <= order_count; i++) {
         key = order[i]
         avg = sum_ms[key] / runs[key]
-        print formats[key], samples[key], runs[key], failed[key] + 0, min_ms[key], median_of(times[key]), max_ms[key], format_metric(avg), output_last[key], asset_last[key]
+        print formats[key], samples[key], runs[key], failed[key] + 0, min_ms[key], median_of(times[key]), max_ms[key], format_metric(avg), output_last[key], asset_last[key], runner_kind_last[key], runner_label_last[key]
       }
     }
   ' "$RUNS_TSV_PATH" > "$SUMMARY_PATH"
@@ -303,6 +353,12 @@ if ! (cd "$ROOT" && moon build >/dev/null); then
   exit 1
 fi
 
+if ! resolve_markitdown_cli; then
+  echo "failed to resolve markitdown runner" >&2
+  exit 1
+fi
+build_smoke_runner_state
+
 rm -rf "$BENCH_ROOT"
 mkdir -p "$BENCH_ROOT"
 : > "$RESULTS_PATH"
@@ -315,6 +371,11 @@ fail_count=0
 echo "==> iterations: $ITERATIONS"
 echo "==> warmup: $WARMUP"
 echo "==> kind: $KIND"
+echo "==> runner: $SMOKE_RUNNER_LABEL"
+echo "==> runner command: $SMOKE_RUNNER_COMMAND_BASE"
+if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
+  echo "==> runner note: $CLI_RUNNER_NOTE"
+fi
 
 while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   line="$(trim_field "$raw_line")"
@@ -359,6 +420,7 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   metadata_json="$(json_bool "$metadata_enabled")"
   input_abs="$(resolve_input_path "$input_path")"
   file_size="$(file_size_bytes "$input_abs")"
+  runner_command="$(smoke_runner_command "$metadata_json")"
   if [[ "$WARMUP" -gt 0 ]]; then
     for ((warmup_iteration = 1; warmup_iteration <= WARMUP; warmup_iteration++)); do
       sample_dir="$BENCH_ROOT/$format/$sample/warmup-$warmup_iteration"
@@ -366,13 +428,12 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
       rm -rf "$sample_dir"
       mkdir -p "$sample_dir"
 
-      cmd=(moon run "$ROOT/cli" -- normal "$input_abs" "$output_md")
-      if [[ "$metadata_json" == "true" ]]; then
-        cmd=(moon run "$ROOT/cli" -- normal --with-metadata "$input_abs" "$output_md")
-      fi
-
       echo "==> warmup $format/$sample #$warmup_iteration"
-      "${cmd[@]}" >/dev/null 2>&1 || true
+      if [[ "$metadata_json" == "true" ]]; then
+        run_markitdown_cli normal --with-metadata "$input_abs" "$output_md" >/dev/null 2>&1 || true
+      else
+        run_markitdown_cli normal "$input_abs" "$output_md" >/dev/null 2>&1 || true
+      fi
     done
   fi
 
@@ -382,16 +443,17 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
     rm -rf "$sample_dir"
     mkdir -p "$sample_dir"
 
-    cmd=(moon run "$ROOT/cli" -- normal "$input_abs" "$output_md")
-    if [[ "$metadata_json" == "true" ]]; then
-      cmd=(moon run "$ROOT/cli" -- normal --with-metadata "$input_abs" "$output_md")
-    fi
-
     echo "==> benchmark $format/$sample iter-$iteration"
     set_now_ms
     started_ms="$NOW_MS_VALUE"
     start_precision="$TIMER_PRECISION"
-    if "${cmd[@]}" >/dev/null 2>&1; then
+    if [[ "$metadata_json" == "true" ]]; then
+      if run_markitdown_cli normal --with-metadata "$input_abs" "$output_md" >/dev/null 2>&1; then
+        exit_status=0
+      else
+        exit_status=$?
+      fi
+    elif run_markitdown_cli normal "$input_abs" "$output_md" >/dev/null 2>&1; then
       exit_status=0
     else
       exit_status=$?
@@ -417,6 +479,10 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
 
     printf '{' >> "$RESULTS_PATH"
     printf '"runner":"%s",' "$(json_escape "markitdown-mb")" >> "$RESULTS_PATH"
+    printf '"runner_kind":"%s",' "$(json_escape "$SMOKE_RUNNER_KIND")" >> "$RESULTS_PATH"
+    printf '"runner_label":"%s",' "$(json_escape "$SMOKE_RUNNER_LABEL")" >> "$RESULTS_PATH"
+    printf '"runner_command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
+    printf '"native_cli_path":"%s",' "$(json_escape "$SMOKE_NATIVE_CLI_PATH")" >> "$RESULTS_PATH"
     printf '"mode":"%s",' "$(json_escape "normal")" >> "$RESULTS_PATH"
     printf '"run_kind":"%s",' "$(json_escape "$run_kind")" >> "$RESULTS_PATH"
     printf '"format":"%s",' "$(json_escape "$format")" >> "$RESULTS_PATH"
@@ -436,7 +502,7 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
     printf '"timer_precision":"%s"' "$(json_escape "$timer_precision")" >> "$RESULTS_PATH"
     printf '}\n' >> "$RESULTS_PATH"
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$format" \
       "$sample" \
       "$iteration" \
@@ -444,6 +510,8 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
       "$elapsed_ms" \
       "$output_bytes" \
       "$asset_count" \
+      "$SMOKE_RUNNER_KIND" \
+      "$SMOKE_RUNNER_LABEL" \
       >> "$RUNS_TSV_PATH"
 
     run_count=$((run_count + 1))
