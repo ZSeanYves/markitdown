@@ -68,6 +68,11 @@ The active phase-2 themes are:
 See [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
 for the working phase-2 governance outline.
 
+Phase-2 corpus policy templates now live in:
+
+* [samples/benchmark/README.md](../samples/benchmark/README.md)
+* [samples/benchmark/corpus_manifest.example.tsv](../samples/benchmark/corpus_manifest.example.tsv)
+
 ## Active Benchmark Docs
 
 The benchmark docs that should now be treated as active are:

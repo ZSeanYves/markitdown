@@ -172,6 +172,13 @@ Batch profiling benchmark:
 ./samples/scripts/bench_warn.sh --suite batch_profile
 ```
 
+Phase-2 benchmark governance entry points:
+
+* [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
+* [docs/benchmark-h3-plan.md](./benchmark-h3-plan.md)
+* [samples/benchmark/README.md](../samples/benchmark/README.md)
+* `./samples/scripts/check_corpus_manifest.sh`
+
 Notes:
 
 * both benchmark scripts use `MARKITDOWN_TMP_DIR`
@@ -183,6 +190,12 @@ Notes:
 * batch profiling writes additive local artifacts under `.tmp/bench/batch_profile`
 * benchmark warning checks are manual; use `--strict` only when intentionally
   gating a local benchmark run
+* checked-in benchmark samples are intentionally small and stable; broader
+  public/private corpora should follow the phase-2 corpus policy instead of
+  being added ad hoc
+* corpus manifests are validated manually with
+  `./samples/scripts/check_corpus_manifest.sh`; this is not part of the
+  default `samples/check.sh` contract today
 * comparison benchmark expects a user-managed external `markitdown` command
 * comparison benchmark does not create a repository-local Python virtual environment
 * sample validation scripts now use isolated temporary directories and can be

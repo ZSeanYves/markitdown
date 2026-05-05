@@ -8,7 +8,15 @@ import {
 // Values
 pub fn inspect_xlsx(String) -> XlsxWorkbookModel raise
 
+pub fn inspect_xlsx_with_profile(String) -> (XlsxWorkbookModel, XlsxProfileReport?) raise
+
 pub fn parse_xlsx(String, String, Int) -> @core.Document raise
+
+pub fn parse_xlsx_with_profile(String, String, Int) -> (@core.Document, XlsxProfileReport?) raise
+
+pub fn xlsx_profile_add_stage(XlsxProfileReport?, String, UInt64, String?) -> Unit
+
+pub fn xlsx_profile_render_report(XlsxProfileReport) -> String
 
 // Errors
 
@@ -41,6 +49,17 @@ pub struct XlsxMergedRange {
   start_col : Int
   end_row : Int
   end_col : Int
+}
+
+pub struct XlsxProfileReport {
+  input_path : String
+  stages : Array[XlsxProfileStage]
+}
+
+pub struct XlsxProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
 }
 
 pub struct XlsxSheetModel {

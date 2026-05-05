@@ -8,9 +8,25 @@ import {
 // Values
 pub fn parse_txt(String, String, Int) -> @core.Document raise
 
+pub fn parse_txt_with_profile(String, String, Int) -> (@core.Document, TxtProfileReport?) raise
+
+pub fn txt_profile_add_stage(TxtProfileReport?, String, UInt64, String?) -> Unit
+
+pub fn txt_profile_render_report(TxtProfileReport) -> String
+
 // Errors
 
 // Types and methods
+pub struct TxtProfileReport {
+  input_path : String
+  stages : Array[TxtProfileStage]
+}
+
+pub struct TxtProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
 
 // Type aliases
 

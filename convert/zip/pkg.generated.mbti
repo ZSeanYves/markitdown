@@ -10,6 +10,14 @@ pub fn inspect_zip(String) -> ZipInspectReport raise
 
 pub async fn parse_zip(String, String, Int) -> @core.Document
 
+pub async fn parse_zip_with_profile(String, String, Int) -> (@core.Document, ZipProfileReport?)
+
+pub fn zip_profile_add_stage(ZipProfileReport?, String, UInt64, String?) -> Unit
+
+pub fn zip_profile_add_summary(ZipProfileReport?, String) -> Unit
+
+pub fn zip_profile_render_report(ZipProfileReport) -> String
+
 // Errors
 
 // Types and methods
@@ -54,6 +62,18 @@ pub struct ZipInspectReport {
   source_name : String
   entry_count : Int
   entries : Array[ZipInspectEntry]
+}
+
+pub struct ZipProfileReport {
+  input_path : String
+  summary_lines : Array[String]
+  stages : Array[ZipProfileStage]
+}
+
+pub struct ZipProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
 }
 
 // Type aliases

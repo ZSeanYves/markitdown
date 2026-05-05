@@ -65,6 +65,8 @@ The current next-stage priorities are:
 * optional memory / RSS observation where platform support exists
 * release/documentation polish
 * selective H2.1 quality work where product value is clear
+* corpus manifest validation tooling for future public/private/manual corpus
+  tracking without checking sensitive paths into the repository
 
 ## Current Product Position
 
@@ -74,3 +76,5 @@ The project should now be read as:
 * conservative and auditable rather than visually reconstructive
 * complete at the H2 support-contract level across its primary format set
 * no longer in an “H2 in progress” or “first H3 hotspot triage” state
+* currently focused on long-term benchmark governance and broader-corpus
+  discipline rather than on ad-hoc micro-optimization

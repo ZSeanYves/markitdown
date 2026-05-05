@@ -220,6 +220,13 @@ Benchmark interpretation:
 * when a benchmark falls back to `moon run`, measured time includes wrapper
   overhead; prebuilt native CLI runs are the stronger performance reference
 
+Current H3 phase:
+
+* H3 phase 1 performance work is summarized in
+  [docs/h3-phase-1-summary.md](./docs/h3-phase-1-summary.md)
+* H3 phase 2 now focuses on benchmark governance and broader corpus policy via
+  [docs/h3-phase-2-benchmark-governance.md](./docs/h3-phase-2-benchmark-governance.md)
+
 ## Project Positioning
 
 This repository is not aimed at pixel-perfect layout reproduction. The current
@@ -250,6 +257,7 @@ not part of the default `normal` mainflow contract.
 * [Benchmark Batch Design](./docs/benchmark-batch-design.md)
 * [Benchmark Batch Profiling](./docs/benchmark-batch-profiling.md)
 * [Benchmark H3 Plan](./docs/benchmark-h3-plan.md)
+* [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Sample Coverage](./docs/sample-coverage.md)
 * [Acceptance Checklist](./docs/acceptance-checklist.md)
 * [Changelog](./CHANGELOG.md)

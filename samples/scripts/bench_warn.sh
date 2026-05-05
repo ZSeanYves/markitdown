@@ -50,6 +50,8 @@ Options:
 Notes:
   * This tool is a manual warning layer, not a CI hard gate.
   * Default mode reports warnings but exits 0.
+  * --strict upgrades warnings to exit 1 for intentional local gating.
+  * Thresholds are conservative local warning policy, not a formal SLA.
   * Missing input or malformed policy/input exits 2.
 EOF
 }

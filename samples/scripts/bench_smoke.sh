@@ -127,6 +127,12 @@ Environment overrides:
   BENCH_WARMUP       number of unrecorded warmup runs per sample (default: 0)
   MARKITDOWN_CLI     force a specific native/prebuilt CLI binary
   MARKITDOWN_TMP_DIR override temp root (default: \$ROOT/.tmp)
+
+Notes:
+  * This is the checked-in smoke benchmark harness for stable same-machine signals.
+  * Use --format for targeted local investigation without editing corpus.tsv.
+  * For phase-2 governance, treat one-off local runs as engineering signals, not
+    universal performance claims.
 EOF
 }
 
