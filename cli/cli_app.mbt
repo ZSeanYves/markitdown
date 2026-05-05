@@ -47,6 +47,9 @@ async fn convert_once(
   with_metadata : Bool,
 ) -> Result[Unit, String] {
   let resolved_output = resolve_output_path(input, output)
+  let format = detect_input_format(input)
+  let xlsx_profile_enabled = format == "xlsx" && debug_profile_xlsx_enabled()
+  let xlsx_profile_report : Ref[@xlsx.XlsxProfileReport?] = { val: None }
 
   let out_root = match out_dir {
     Some(d) => d
@@ -70,12 +73,38 @@ async fn convert_once(
     pdf_pipeline_debug,
   }
 
-  let doc = match @conv.parse_to_ir(input, opts) {
-    Ok(d) => d
-    Err(e) => return Err("parse failed: " + e.to_string())
+  let parse_started = @env.now()
+  let doc = if xlsx_profile_enabled {
+    let profiled = @xlsx.parse_xlsx_with_profile(input, out_root, max_heading) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        xlsx_profile_report.val = profile
+        d
+      }
+    }
+  } else {
+    match @conv.parse_to_ir(input, opts) {
+      Ok(d) => d
+      Err(e) => return Err("parse failed: " + e.to_string())
+    }
   }
+  xlsx_profile_push_cli_stage(
+    xlsx_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
 
+  let emit_started = @env.now()
   let md = @cor.emit_markdown(doc)
+  xlsx_profile_push_cli_stage(
+    xlsx_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
 
   match resolved_output {
     Some(p) => {
@@ -83,20 +112,44 @@ async fn convert_once(
       ensure_dir_tree(parent) catch {
         e => return Err("create output dir failed: " + e.to_string())
       }
+      let write_markdown_started = @env.now()
       @fs.write_string_to_file(p, md, encoding="utf8") catch {
         e => return Err("write output failed: " + e.to_string())
       }
+      xlsx_profile_push_cli_stage(
+        xlsx_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
 
       if with_metadata {
-        let format = detect_input_format(input)
         let markdown_file = @cor.basename(p)
+        let docprops_started = @env.now()
         let document = read_document_properties(input, format)
+        let document_available = match document {
+          Some(_) => "true"
+          None => "false"
+        }
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        let metadata_emit_started = @env.now()
         let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
           @cor.basename(input),
           format,
           markdown_file,
           document,
+        )
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
         )
         let metadata_path = metadata_output_path(p)
         let metadata_dir = dirname_of_path(metadata_path)
@@ -105,9 +158,24 @@ async fn convert_once(
           e => return Err("create metadata dir failed: " + e.to_string())
         }
 
+        let metadata_write_started = @env.now()
         @fs.write_string_to_file(metadata_path, metadata_json, encoding="utf8") catch {
           e => return Err("write metadata failed: " + e.to_string())
         }
+        xlsx_profile_push_cli_stage(
+          xlsx_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+      }
+
+      let _ = write_xlsx_profile_log_if_enabled(
+        xlsx_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write xlsx profile failed: " + e.to_string())
       }
 
       Ok(())
@@ -572,6 +640,56 @@ fn read_document_properties(
     return read_epub_document_properties(input)
   }
   None
+}
+
+///|
+fn debug_profile_xlsx_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_XLSX") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn xlsx_profile_push_cli_stage(
+  profile : @xlsx.XlsxProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @xlsx.xlsx_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn write_xlsx_profile_log_if_enabled(
+  profile : @xlsx.XlsxProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".xlsx.profile.log",
+      )
+      let lines : Array[String] = [
+        @xlsx.xlsx_profile_render_report(rep),
+        "xlsx_profile cli markdown_output=" + markdown_path,
+        "xlsx_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
 }
 
 ///|

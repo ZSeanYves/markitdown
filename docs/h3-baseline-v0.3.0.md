@@ -5,6 +5,12 @@ full-format H2 milestone.
 
 It is a local-machine benchmark snapshot, not a universal performance claim.
 
+Follow-up triage for normalized native-preferred benchmark data now lives in
+[docs/h3-performance-triage.md](./h3-performance-triage.md).
+
+The first XLSX-targeted profiling follow-up now lives in
+[docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md).
+
 ## 1. Scope
 
 This baseline freeze is the H3 starting reference for the `v0.3.0`

@@ -23,9 +23,25 @@ fn parse_sheet_model(
   shared : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  profile : XlsxProfileReport?,
 ) -> XlsxSheetModel {
+  let collect_cells_started = @env.now()
   let parsed_cells = collect_sheet_cells(sheet_xml)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_collect_cells:" + sheet_name,
+    @env.now() - collect_cells_started,
+    Some("parsed_cells=" + parsed_cells.length().to_string()),
+  )
+
+  let merged_ranges_started = @env.now()
   let merged_ranges = parse_merged_ranges(sheet_xml)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_merged_ranges:" + sheet_name,
+    @env.now() - merged_ranges_started,
+    Some("merged_ranges=" + merged_ranges.length().to_string()),
+  )
   let cells : Array[XlsxCellModel] = []
 
   let mut min_r = 0
@@ -34,6 +50,7 @@ fn parse_sheet_model(
   let mut max_c = 0
   let cell_texts : Map[String, String] = Map::new()
 
+  let cell_decode_started = @env.now()
   for parsed in parsed_cells {
     let (rr, cc) = cell_ref_to_rc(parsed.reference)
     if rr <= 0 || cc <= 0 {
@@ -85,8 +102,21 @@ fn parse_sheet_model(
       }
     }
   }
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_cell_decode_loop:" + sheet_name,
+    @env.now() - cell_decode_started,
+    Some("cells=" + cells.length().to_string()),
+  )
 
+  let render_rows_started = @env.now()
   let rows = render_sheet_rows(cell_texts, min_r, min_c, max_r, max_c)
+  xlsx_profile_add_stage(
+    profile,
+    "worksheet_render_rows:" + sheet_name,
+    @env.now() - render_rows_started,
+    Some("rows=" + rows.length().to_string()),
+  )
   {
     name: sheet_name,
     relationship_id,

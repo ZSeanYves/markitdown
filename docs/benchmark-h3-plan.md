@@ -267,6 +267,7 @@ Current output for this phase:
 
 * `samples/scripts/bench_warn.sh`
 * `samples/benchmark/perf_thresholds.tsv`
+* [docs/h3-performance-triage.md](./h3-performance-triage.md)
 
 ### H3.6: corpus scale normalization
 
@@ -293,6 +294,51 @@ Current normalization step:
 * keep `moon run` fallback available for functionality and stale-binary cases
 * record runner metadata directly in local smoke outputs
 * keep warning thresholds unchanged while making warning interpretation clearer
+
+### H3.9: normalized performance triage
+
+Current triage step:
+
+* use normalized native-preferred smoke data as the local same-machine baseline
+* rank slowest smoke rows, lowest comparison speedups, and weakest batch gains
+* separate true native hot paths from runner/corpus artifacts
+* recommend the first real optimization target before changing converter code
+
+Current output for this phase:
+
+* [docs/h3-performance-triage.md](./h3-performance-triage.md)
+
+### H3.10: XLSX large-sheet profiling
+
+Current profiling step:
+
+* add opt-in XLSX timing instrumentation gated by
+  `MARKITDOWN_PROFILE_XLSX=1`
+* profile the normalized first-priority H3 target
+  `samples/benchmark/xlsx/xlsx_large.xlsx`
+* separate worksheet XML read/materialization cost from
+  workbook/sheet/cell/Markdown stages
+* keep profiling output local under `.tmp`, not as a checked-in benchmark
+  artifact
+
+Current output for this phase:
+
+* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
+
+### H3.11: XLSX worksheet XML materialization
+
+Current optimization step:
+
+* use the H3.10 profile to split worksheet XML read into lookup, decompress,
+  and bytes-to-string stages
+* confirm whether the leading cost is archive access or UTF-8 materialization
+* allow only narrowly scoped worksheet-read/package-read changes with no XLSX
+  output-semantic change
+* keep `MARKITDOWN_PROFILE_XLSX=1` opt-in and local-only
+
+Current output for this phase:
+
+* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
 
 ## Non-goals For This H3 Planning Step
 

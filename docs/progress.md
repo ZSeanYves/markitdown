@@ -189,6 +189,20 @@ Current recommended next priorities are:
   `moon run` takes roughly `0.81-0.88s` on the same file
 * smoke benchmark outputs and warning messages now record runner kind so future
   warnings can distinguish native results from `moon run` wrapper overhead
+* normalized H3 performance triage is now documented in
+  [docs/h3-performance-triage.md](./h3-performance-triage.md); the first real
+  H3 optimization candidate is currently `xlsx` large-workbook handling rather
+  than the older DOCX smoke warning
+* the first XLSX-focused H3 profiling pass is now documented in
+  [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md); current local
+  evidence points more toward worksheet XML read/materialization cost than
+  Markdown emitter or metadata overhead for `xlsx_large`
+* the follow-up XLSX worksheet materialization pass further split that hotspot
+  and showed the dominant cost was bytes-to-string decode rather than ZIP
+  lookup/decompress for the current `xlsx_large` corpus; a narrow decode-path
+  optimization then dropped native smoke `xlsx_large` from roughly `212 ms` to
+  roughly `22 ms` locally without changing XLSX output semantics or metadata
+  schema
 ## 2026-05-04
 
 * tightened PDF page-number candidate scoping after numeric-table preservation:

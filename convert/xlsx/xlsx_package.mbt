@@ -38,6 +38,17 @@ priv struct XlsxPackage {
 }
 
 ///|
+priv struct XlsxReadTextProfile {
+  normalized_part_name : String
+  part_index_hit : Bool
+  entry_lookup_elapsed_ms : UInt64
+  read_entry_elapsed_ms : UInt64
+  bytes_to_string_elapsed_ms : UInt64
+  byte_len : Int
+  text_len : Int
+}
+
+///|
 fn open_xlsx(path : String) -> XlsxPackage raise @fs.IOError {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise @fs.IOError("read xlsx failed: " + path + " : " + e.to_string())
@@ -54,7 +65,7 @@ fn XlsxPackage::read_text_optional(
   part_name : String,
 ) -> String {
   let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
-  @cor.utf8_bytes_to_string(b) catch {
+  @utf8.decode(b, ignore_bom=true) catch {
     _ => return ""
   }
 }
@@ -67,9 +78,46 @@ fn XlsxPackage::read_text_required(
   let b = @ox.read_part_bytes(p.pkg, part_name) catch {
     e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
   }
-  @cor.utf8_bytes_to_string(b) catch {
-    e => fail("utf8 decode failed: " + part_name + " : " + e.to_string())
+  @utf8.decode(b, ignore_bom=true) catch {
+    _ => fail("utf8 decode failed: " + part_name)
   }
+}
+
+///|
+fn XlsxPackage::read_text_required_profiled(
+  p : XlsxPackage,
+  part_name : String,
+) -> (String, XlsxReadTextProfile) raise {
+  let lookup_started = @env.now()
+  let normalized = part_name.trim().to_owned()
+  let part_index_hit = p.pkg.part_index.contains(normalized)
+  let entry_lookup_elapsed_ms = @env.now() - lookup_started
+
+  let read_entry_started = @env.now()
+  let b = @zip.read_entry(p.pkg.archive, normalized) catch {
+    @zip.EntryNotFound(path) => fail("read_part_bytes failed: " + path)
+    e => fail("read_part_bytes failed: " + normalized + " : " + e.to_string())
+  }
+  let read_entry_elapsed_ms = @env.now() - read_entry_started
+
+  let decode_started = @env.now()
+  let text = @utf8.decode(b, ignore_bom=true) catch {
+    _ => fail("utf8 decode failed: " + normalized)
+  }
+  let bytes_to_string_elapsed_ms = @env.now() - decode_started
+
+  (
+    text,
+    {
+      normalized_part_name: normalized,
+      part_index_hit,
+      entry_lookup_elapsed_ms,
+      read_entry_elapsed_ms,
+      bytes_to_string_elapsed_ms,
+      byte_len: b.length(),
+      text_len: text.length(),
+    },
+  )
 }
 
 // ============================
