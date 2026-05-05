@@ -260,7 +260,29 @@ Secondary follow-up after that:
 * `H3 XLSX emitter/table-allocation pass` only if larger sheets show emitter
   cost rising materially
 
-## 11. Caveats
+## 11. Post-XLSX Optimization Refresh
+
+The post-optimization benchmark refresh confirmed that the worksheet
+materialization fix was not just a profile-only improvement.
+
+Local rerun highlights:
+
+* smoke `xlsx_large` moved from about `212 ms` down to `27 ms`
+* smoke rank shifted from the original top outlier to rank `16`
+* refreshed XLSX smoke rows now sit in the `12-27 ms` range
+* overlap comparison for `xlsx_multi_sheet_mixed_compare` improved to
+  `12 ms` vs `520 ms` (`43.33x`)
+* batch profile no longer shows XLSX as a weak large-group scaling row:
+  refreshed `8/16`-file speedups are `5.65x` to `5.91x`
+
+Interpretation:
+
+* the worksheet XML materialization hotspot was a real first-tier issue
+* removing it was enough to move XLSX out of the opening H3 bottleneck tier
+* the next H3 target should be chosen from the refreshed structured-data and
+  text-like smoke leaders rather than from XLSX
+
+## 12. Caveats
 
 Important caveats for reading this profile:
 
@@ -273,7 +295,7 @@ Important caveats for reading this profile:
   through a markdown-root path that produces sidecar files; this did not affect
   the hotspot conclusion because metadata cost remained tiny
 
-## 12. Validation
+## 13. Validation
 
 Validation for this pass:
 

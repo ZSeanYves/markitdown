@@ -49,7 +49,9 @@ async fn convert_once(
   let resolved_output = resolve_output_path(input, output)
   let format = detect_input_format(input)
   let xlsx_profile_enabled = format == "xlsx" && debug_profile_xlsx_enabled()
+  let json_profile_enabled = format == "json" && debug_profile_json_enabled()
   let xlsx_profile_report : Ref[@xlsx.XlsxProfileReport?] = { val: None }
+  let json_profile_report : Ref[@json.JsonProfileReport?] = { val: None }
 
   let out_root = match out_dir {
     Some(d) => d
@@ -84,6 +86,16 @@ async fn convert_once(
         d
       }
     }
+  } else if json_profile_enabled {
+    let profiled = @json.parse_json_with_profile(input, out_root, max_heading) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        json_profile_report.val = profile
+        d
+      }
+    }
   } else {
     match @conv.parse_to_ir(input, opts) {
       Ok(d) => d
@@ -96,11 +108,23 @@ async fn convert_once(
     @env.now() - parse_started,
     Some("blocks=" + doc.blocks.val.length().to_string()),
   )
+  json_profile_push_cli_stage(
+    json_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
 
   let emit_started = @env.now()
   let md = @cor.emit_markdown(doc)
   xlsx_profile_push_cli_stage(
     xlsx_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  json_profile_push_cli_stage(
+    json_profile_report.val,
     "markdown_emit",
     @env.now() - emit_started,
     Some("markdown_bytes=" + md.length().to_string()),
@@ -122,6 +146,12 @@ async fn convert_once(
         @env.now() - write_markdown_started,
         Some("path=" + p),
       )
+      json_profile_push_cli_stage(
+        json_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
 
       if with_metadata {
         let markdown_file = @cor.basename(p)
@@ -137,6 +167,12 @@ async fn convert_once(
           @env.now() - docprops_started,
           Some("available=" + document_available),
         )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
         let metadata_emit_started = @env.now()
         let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
@@ -147,6 +183,12 @@ async fn convert_once(
         )
         xlsx_profile_push_cli_stage(
           xlsx_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
           "metadata_json_emit",
           @env.now() - metadata_emit_started,
           Some("metadata_bytes=" + metadata_json.length().to_string()),
@@ -168,6 +210,12 @@ async fn convert_once(
           @env.now() - metadata_write_started,
           Some("path=" + metadata_path),
         )
+        json_profile_push_cli_stage(
+          json_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
       }
 
       let _ = write_xlsx_profile_log_if_enabled(
@@ -176,6 +224,13 @@ async fn convert_once(
         with_metadata,
       ) catch {
         e => return Err("write xlsx profile failed: " + e.to_string())
+      }
+      let _ = write_json_profile_log_if_enabled(
+        json_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write json profile failed: " + e.to_string())
       }
 
       Ok(())
@@ -654,6 +709,17 @@ fn debug_profile_xlsx_enabled() -> Bool {
 }
 
 ///|
+fn debug_profile_json_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_JSON") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
 fn xlsx_profile_push_cli_stage(
   profile : @xlsx.XlsxProfileReport?,
   name : String,
@@ -661,6 +727,16 @@ fn xlsx_profile_push_cli_stage(
   detail : String?,
 ) -> Unit {
   @xlsx.xlsx_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn json_profile_push_cli_stage(
+  profile : @json.JsonProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @json.json_profile_add_stage(profile, name, elapsed_ms, detail)
 }
 
 ///|
@@ -682,6 +758,35 @@ fn write_xlsx_profile_log_if_enabled(
         @xlsx.xlsx_profile_render_report(rep),
         "xlsx_profile cli markdown_output=" + markdown_path,
         "xlsx_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_json_profile_log_if_enabled(
+  profile : @json.JsonProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".json.profile.log",
+      )
+      let lines : Array[String] = [
+        @json.json_profile_render_report(rep),
+        "json_profile cli markdown_output=" + markdown_path,
+        "json_profile cli metadata_enabled=" + with_metadata.to_string(),
       ]
       @fs.write_string_to_file(
         profile_path,

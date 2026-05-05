@@ -26,6 +26,32 @@ fn parse_json_text(text : String) -> JsonValue raise {
 }
 
 ///|
+fn parse_json_text_profiled(
+  text : String,
+  report : JsonProfileReport?,
+) -> JsonValue raise {
+  let parse_started = @env.now()
+  let parser = JsonParser::{ chars: text.to_array(), pos: 0 }
+  let value = parser.parse_value()
+  parser.skip_ws()
+  if parser.pos < parser.chars.length() {
+    raise @cor.AppError("json: trailing content")
+  }
+  json_profile_add_stage(
+    report,
+    "json_parse_total",
+    @env.now() - parse_started,
+    Some(
+      "chars=" +
+      parser.chars.length().to_string() +
+      " root=" +
+      json_value_kind(value),
+    ),
+  )
+  value
+}
+
+///|
 priv struct JsonParser {
   chars : Array[Char]
   mut pos : Int
@@ -352,4 +378,16 @@ fn hex_value(ch : Char) -> Int {
     return 10 + ch.to_int() - 'a'.to_int()
   }
   10 + ch.to_int() - 'A'.to_int()
+}
+
+///|
+fn json_value_kind(value : JsonValue) -> String {
+  match value {
+    JsonValue::Object(_) => "object"
+    JsonValue::Array(_) => "array"
+    JsonValue::String(_) => "string"
+    JsonValue::Number(_) => "number"
+    JsonValue::Bool(_) => "bool"
+    JsonValue::Null => "null"
+  }
 }

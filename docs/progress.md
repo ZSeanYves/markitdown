@@ -203,6 +203,18 @@ Current recommended next priorities are:
   optimization then dropped native smoke `xlsx_large` from roughly `212 ms` to
   roughly `22 ms` locally without changing XLSX output semantics or metadata
   schema
+* the post-XLSX optimization benchmark refresh is now documented in
+  [docs/h3-performance-triage.md](./h3-performance-triage.md); refreshed local
+  benchmark data shows XLSX has exited the first-tier H3 bottleneck group, and
+  the next likely optimization targets have shifted to large structured-data
+  and large text/table emission paths
+* the JSON large-structure profiling pass is now documented in
+  [docs/h3-json-large-profile.md](./h3-json-large-profile.md); local profile
+  data showed JSON was carrying the same UTF-8 bytes-to-string materialization
+  hotspot pattern previously seen in XLSX, and a narrow decode-path fix then
+  dropped smoke `json_large` from `196 ms` to `30 ms` and
+  `json_array_objects_large` from `85 ms` to `20 ms` without changing JSON
+  output semantics or metadata schema
 ## 2026-05-04
 
 * tightened PDF page-number candidate scoping after numeric-table preservation:

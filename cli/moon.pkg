@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/convert" @conv,
+  "ZSeanYves/markitdown/convert/json" @json,
   "ZSeanYves/markitdown/convert/xlsx" @xlsx,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,

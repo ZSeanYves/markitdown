@@ -340,6 +340,40 @@ Current output for this phase:
 
 * [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
 
+### H3.12: post-XLSX optimization refresh
+
+Current refresh step:
+
+* rerun the normalized smoke / compare / batch suite after the XLSX worksheet
+  materialization fix
+* confirm whether XLSX remains in the first-tier bottleneck group
+* refresh H3 optimization ordering without rewriting the historical
+  `v0.3.0` baseline document
+
+Current outputs for this phase:
+
+* [docs/h3-performance-triage.md](./h3-performance-triage.md)
+* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
+
+### H3.13: JSON large-structure profiling
+
+Current profiling step:
+
+* add opt-in JSON timing instrumentation gated by
+  `MARKITDOWN_PROFILE_JSON=1`
+* profile the post-XLSX leading structured-data cases
+  `samples/benchmark/json/json_large.json` and
+  `samples/benchmark/json/json_array_objects_large.json`
+* separate bytes-to-string decode, recursive parse, lowering, nested
+  stringify, Markdown emission, and metadata stages
+* keep profiling output local under `.tmp`, not as a checked-in benchmark
+  artifact
+
+Current outputs for this phase:
+
+* [docs/h3-json-large-profile.md](./h3-json-large-profile.md)
+* [docs/h3-performance-triage.md](./h3-performance-triage.md)
+
 ## Non-goals For This H3 Planning Step
 
 This planning step does not try to:
