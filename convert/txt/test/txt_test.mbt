@@ -75,6 +75,13 @@ fn write_bytes(path : String, bytes : Bytes) -> Unit raise {
 }
 
 ///|
+fn write_utf8_text(path : String, text : String) -> Unit raise {
+  @fs.write_string_to_file(path, text, encoding="utf8") catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
 test "txt paragraphs stay plain text paragraphs" {
   let sample = resolve_sample_path(
     "samples/main_process/txt/txt_paragraphs.txt",
@@ -215,4 +222,25 @@ test "txt true empty file emits empty document" {
   let doc = @txt.parse_txt(empty_path, "", 6)
   assert_eq(doc.blocks.val.length(), 0)
   assert_eq(@cor.emit_markdown(doc), "")
+}
+
+///|
+test "txt invalid utf8 fails closed" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let bad_path = dir + "/txt_invalid_utf8.txt"
+  write_bytes(bad_path, Bytes::from_array([0xC3, 0x28]))
+  assert_true((try? @txt.parse_txt(bad_path, "", 6)) is Err(_))
+}
+
+///|
+test "txt preserves legacy non-bmp literal behavior" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let emoji_path = dir + "/txt_emoji.txt"
+  write_utf8_text(emoji_path, "emoji 🙂\n")
+  let doc = @txt.parse_txt(emoji_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "emoji &\\#128578;\n")
 }

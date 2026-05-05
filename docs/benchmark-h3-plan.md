@@ -1,378 +1,108 @@
 # Benchmark H3 Plan
 
-This document captures the current benchmark harness contract and the planned
-H3 benchmark-discipline work.
+This document captures the current benchmark-harness contract and the planned
+H3 phase-2 direction after the first performance wave was closed out.
 
-It is intentionally a planning document, not a new benchmark baseline. The
-current baseline values remain in:
+Current stable benchmark anchors remain in:
 
 * [docs/benchmark-baseline.md](./benchmark-baseline.md)
 * [docs/benchmark-comparison-baseline.md](./benchmark-comparison-baseline.md)
-* [docs/h3-baseline-v0.3.0.md](./h3-baseline-v0.3.0.md)
+* [docs/h3-phase-1-summary.md](./h3-phase-1-summary.md)
 
 ## Current Benchmark Contract
 
-### Smoke benchmark
+The repository currently uses three benchmark layers:
 
-The smoke benchmark is the repository's internal same-machine performance
-tracking harness:
+* smoke benchmark:
+  * `samples/scripts/bench_smoke.sh`
+  * internal same-machine cross-format tracking
+  * native-preferred runner policy with `moon run` fallback
+* overlap comparison benchmark:
+  * `samples/scripts/bench_compare_markitdown.sh`
+  * selected overlap-only comparison against Python `markitdown`
+  * no blanket parity claim
+* batch profiling benchmark:
+  * `samples/scripts/bench_batch_profile.sh`
+  * `process-per-file` vs `single-process-batch`
+  * optional memory observation when platform support exists
 
-* script: `samples/scripts/bench_smoke.sh`
-* corpus: `samples/benchmark/corpus.tsv`
-* main output root: `.tmp/bench/smoke`
-* primary artifacts:
-  * `results.jsonl`
-  * `summary.tsv`
+Shared assumptions:
 
-Current behavior:
+* `.tmp/bench/...` outputs are local artifacts and do not belong in version
+  control
+* native-preferred runs are the stronger performance reference
+* `moon run` timings remain useful for functionality, but include wrapper
+  overhead
+* selected overlap wins are not universal speed claims
 
-* reads checked-in corpus rows across `smoke`, `image`, `metadata`, and
-  `extended`
-* supports warmup and repeated measured iterations
-* records median and average elapsed time
-* records output bytes, asset count, and exit status
-* records `runner_kind` and `runner_label` in local outputs
-* builds once before benchmarking
-* resolves the repository runner in this order:
-  * `MARKITDOWN_CLI`
-  * probe-validated prebuilt native CLI
-  * fallback `moon run`
+## Phase-1 Status
 
-Interpretation:
+H3 phase 1 is now complete as a local performance wave:
 
-* useful for internal cross-format smoke tracking
-* useful for same-machine trend observation
-* stronger H3 smoke readings now prefer the same native CLI policy as
-  validation and comparison harnesses
-* `moon run` fallback remains valid for functionality, but its timings include
-  wrapper overhead and should not be read as native-only hot-path evidence
+* runner normalization is done
+* major UTF-8 materialization hotspots have been cut down
+* ZIP many-entry residual work has been profiled and locally stabilized
+* the current serial normalized rerun shows no stable native smoke row above
+  `50 ms`
+* `bench_warn --all` is currently clean on the local consolidation refresh
 
-### Comparison benchmark
+See [docs/h3-phase-1-summary.md](./h3-phase-1-summary.md) for the final phase-1
+before/after table and current local benchmark posture.
 
-The overlap-only comparison benchmark is the repository's selected-case runner
-comparison harness:
+## Phase-2 Direction
 
-* script: `samples/scripts/bench_compare_markitdown.sh`
-* corpus: `samples/benchmark/compare_corpus.tsv`
-* main output root: `.tmp/bench/compare`
-* primary artifacts:
-  * `results.jsonl`
-  * `summary.tsv`
+H3 phase 2 should focus on benchmark governance rather than on chasing every
+remaining `20-40 ms` local row.
 
-Current behavior:
+The active phase-2 themes are:
 
-* supports TSV corpora with or without a header row
-* supports warmup and repeated measured iterations
-* resolves the repository runner in this order:
-  * `MARKITDOWN_MB_CMD`
-  * prebuilt native CLI
-  * fallback `moon run`
-* resolves the Microsoft runner in this order:
-  * `MARKITDOWN_COMPARE_CMD`
-  * `markitdown` from `PATH`
-  * `MARKITDOWN_COMPARE_PY_BIN -m markitdown`
-* records median, average, runner versions, output bytes, and stderr bytes
-* isolates Python-side temp/cache/home state for cleaner local comparison
+* clearer suite tiers:
+  * daily/local fast checks
+  * pre-release benchmark suite
+  * manual investigation/profile suite
+* larger representative corpora
+* optional memory / RSS observation where available
+* warning-policy governance
+* corpus expansion policy, including local/private investigation corpora
 
-Interpretation:
+See [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
+for the working phase-2 governance outline.
 
-* comparison is overlap-only
-* comparison does not claim full semantic parity
-* prebuilt native CLI is the preferred H3 speed reference
-* `moon run` fallback is acceptable for functionality, but not for strong speed
-  conclusions
+## Active Benchmark Docs
 
-### Shared current assumptions
+The benchmark docs that should now be treated as active are:
 
-* `.tmp/bench/...` outputs are temporary local artifacts for inspection and do
-  not belong in version control
-* benchmark outputs are intentionally kept on disk for manual inspection
-* selected overlap speed wins are not blanket claims for every possible
-  document or layout
-
-## Current Harness Gaps
-
-The current benchmark system is already useful, but it is not yet a complete H3
-discipline.
-
-Current gaps:
-
-* no normalized small/medium/large policy across every format
-* no optional memory probe yet
-* no lightweight regression-warning workflow yet
-* benchmark output roots are fixed under `.tmp/bench/smoke` and
-  `.tmp/bench/compare`, which is convenient for inspection but not ideal for
-  concurrent runs
-
-See [docs/benchmark-batch-design.md](./benchmark-batch-design.md) for the H3.2
-batch-design audit and recommendation set.
-
-## H3 Target Capabilities
-
-### 1. Batch benchmark
-
-Target:
-
-* measure per-process startup overhead separately from batch throughput
-* allow one runner process to handle multiple files when the CLI grows that
-  capability
-* make text-like and structured-data formats easier to profile at scale
-* keep `process-per-file` and `single-process` results clearly separated
-
-Formats that benefit first:
-
-* TXT
-* Markdown
-* CSV / TSV
-* JSON
-* HTML
-* DOCX
-* PDF
-
-### 2. Large corpus benchmark
-
-Target:
-
-* make `small / medium / large` more consistent as a format-family convention
-* ensure each supported format has at least one representative large case
-* separate capability coverage from scale coverage more clearly
-
-This does not require generating all missing large samples in one pass.
-
-### 3. Memory profiling
-
-Target:
-
-* add an optional memory-observation path without introducing heavy tooling
-* keep the default benchmark flow simple
-
-Practical direction:
-
-* design for optional `/usr/bin/time -l` on macOS
-* design for optional `/usr/bin/time -v` on Linux
-* document platform differences explicitly
-* do not make memory fields part of the required checked-in baseline yet
-
-### 4. Regression warning
-
-Target:
-
-* surface suspicious benchmark changes early
-* avoid turning benchmarking into a flaky hard gate
-
-Practical direction:
-
-* start with manual comparison against a prior summary
-* keep thresholds lightweight and advisory
-* only consider CI gating after the signal is stable
-
-Current triage note:
-
-* smoke warnings are now runner-aware
-* if a smoke warning is reported with `runner=moon-run` or `runner=unknown`,
-  it should still be treated as a triage/watch item first rather than proof of
-  a native DOCX/PDF/etc. product-path regression by itself
-
-### 5. Runner isolation
-
-Target:
-
-* preserve today's easy-to-find `.tmp/bench/...` summaries
-* allow future run-id based isolation when parallel benchmarking matters
-
-Practical direction:
-
-* keep current fixed roots for now
-* later consider run-specific subdirectories or `BENCH_RUN_ID`
-* do not break the current inspection workflow just to make the harness more
-  abstract
-
-## Format-specific H3 Needs
-
-* TXT / Markdown: large passthrough runs and batch startup amortization
-* CSV / TSV: large-table throughput and memory behavior
-* JSON / YAML / XML: large nested structured-data cases
-* HTML: DOM-heavy, table-heavy, and image-heavy cases
-* XLSX: large workbook, sparse sheet, and multi-sheet cases
-* ZIP: many-entry, asset-heavy, and materialization-sensitive cases
-* EPUB: many-chapter and image-heavy ebook cases
-* DOCX: large docs, tables, images, and list-heavy cases
-* PPTX: many slides, dense layout, image-heavy, and table-like cases
-* PDF: multipage text, noisy text, cross-page merge, image-heavy, and
-  table-like cases
-
-## Proposed Implementation Phases
-
-### H3.1: benchmark harness audit and docs
-
-This phase is the current step:
-
-* benchmark harness behavior is audited
-* current scope and limits are documented
-* H3 implementation phases are defined before changing the harness too much
-
-### H3.2: batch benchmark mode design
-
-Next design step:
-
-* define whether batch mode belongs in the CLI, the harness, or both
-* decide output shape before implementation
-* avoid changing existing smoke/comparison semantics by accident
-* prefer benchmark-only process-per-file batch evidence before product CLI
-  batch surface expansion
-
-Design output for this phase:
-
+* [docs/benchmark-baseline.md](./benchmark-baseline.md)
+* [docs/benchmark-comparison.md](./benchmark-comparison.md)
+* [docs/benchmark-comparison-baseline.md](./benchmark-comparison-baseline.md)
 * [docs/benchmark-batch-design.md](./benchmark-batch-design.md)
-
-### H3.3: batch profiling
-
-Current profiling step:
-
-* add an additive batch profiling harness
-* compare `process-per-file` and `single-process-batch` on the same groups
-* capture optional memory observations when platform support exists
-* keep profiling results out of checked-in baseline contracts
-
-Current output for this phase:
-
 * [docs/benchmark-batch-profiling.md](./benchmark-batch-profiling.md)
+* [docs/h3-phase-1-summary.md](./h3-phase-1-summary.md)
+* [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
 
-### H3.4: batch profiling scale extension
+Historical per-pass profiling notes are no longer the primary benchmark entry
+point. Their lasting conclusions should be read from the summary/planning docs
+above.
 
-Current scale-extension step:
+## Current Non-goals
 
-* extend group sizes from `1 / 3` to `1 / 3 / 8 / 16`
-* profile metadata-off and metadata-on for both runner models
-* allow repeated representative samples for larger synthetic groups without
-  changing checked-in corpora
+This planning document does not:
+
+* redefine the checked-in baseline as a universal claim
+* turn local benchmarks into a strict flaky CI gate
+* imply that all remaining local `20-40 ms` rows are urgent converter
+  regressions
+* replace targeted profiling when a future refreshed board clearly re-elevates
+  a specific format family
 * keep the result schema local to H3 profiling artifacts rather than turning it
   into a stable benchmark API
-
-Current output for this phase:
-
-* [docs/benchmark-batch-profiling.md](./benchmark-batch-profiling.md)
-
-### H3.5: regression warning prototype
-
-Current warning step:
-
-* add a manual benchmark warning script that reads local TSV outputs
-* keep thresholds conservative and checked in as human-reviewed policy
-* default to warning-only output rather than nonzero exits
-* reserve `--strict` for intentional local gating, not default developer flow
-* do not parse Markdown baseline documents as machine input
-
-Current output for this phase:
-
-* `samples/scripts/bench_warn.sh`
-* `samples/benchmark/perf_thresholds.tsv`
-* [docs/h3-performance-triage.md](./h3-performance-triage.md)
-
-### H3.6: corpus scale normalization
-
-Next corpus step:
-
-* fill the most important small/medium/large gaps
-* keep capability-focused samples and scale-focused samples distinct
-* avoid conflating "has a sample" with "has meaningful scale coverage"
-
-### H3.7: regression warning expansion
-
-Next quality-discipline step:
-
-* expand warning coverage only after the benchmark signal stabilizes further
-* keep warning thresholds conservative and low-noise
-* continue avoiding flaky hard CI gates
-
-### H3.8: runner normalization
-
-Current normalization step:
-
-* align smoke, validation, compare, and batch harnesses on the same
-  native-preferred runner policy
-* keep `moon run` fallback available for functionality and stale-binary cases
-* record runner metadata directly in local smoke outputs
-* keep warning thresholds unchanged while making warning interpretation clearer
-
-### H3.9: normalized performance triage
-
-Current triage step:
-
-* use normalized native-preferred smoke data as the local same-machine baseline
-* rank slowest smoke rows, lowest comparison speedups, and weakest batch gains
-* separate true native hot paths from runner/corpus artifacts
-* recommend the first real optimization target before changing converter code
-
-Current output for this phase:
-
-* [docs/h3-performance-triage.md](./h3-performance-triage.md)
-
-### H3.10: XLSX large-sheet profiling
-
-Current profiling step:
-
-* add opt-in XLSX timing instrumentation gated by
-  `MARKITDOWN_PROFILE_XLSX=1`
-* profile the normalized first-priority H3 target
-  `samples/benchmark/xlsx/xlsx_large.xlsx`
-* separate worksheet XML read/materialization cost from
-  workbook/sheet/cell/Markdown stages
-* keep profiling output local under `.tmp`, not as a checked-in benchmark
-  artifact
-
-Current output for this phase:
-
-* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
-
-### H3.11: XLSX worksheet XML materialization
-
-Current optimization step:
-
-* use the H3.10 profile to split worksheet XML read into lookup, decompress,
-  and bytes-to-string stages
-* confirm whether the leading cost is archive access or UTF-8 materialization
-* allow only narrowly scoped worksheet-read/package-read changes with no XLSX
-  output-semantic change
-* keep `MARKITDOWN_PROFILE_XLSX=1` opt-in and local-only
-
-Current output for this phase:
-
-* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
-
-### H3.12: post-XLSX optimization refresh
-
-Current refresh step:
-
-* rerun the normalized smoke / compare / batch suite after the XLSX worksheet
-  materialization fix
-* confirm whether XLSX remains in the first-tier bottleneck group
-* refresh H3 optimization ordering without rewriting the historical
-  `v0.3.0` baseline document
-
-Current outputs for this phase:
-
-* [docs/h3-performance-triage.md](./h3-performance-triage.md)
-* [docs/h3-xlsx-large-profile.md](./h3-xlsx-large-profile.md)
-
-### H3.13: JSON large-structure profiling
-
-Current profiling step:
-
-* add opt-in JSON timing instrumentation gated by
-  `MARKITDOWN_PROFILE_JSON=1`
-* profile the post-XLSX leading structured-data cases
-  `samples/benchmark/json/json_large.json` and
-  `samples/benchmark/json/json_array_objects_large.json`
-* separate bytes-to-string decode, recursive parse, lowering, nested
-  stringify, Markdown emission, and metadata stages
-* keep profiling output local under `.tmp`, not as a checked-in benchmark
-  artifact
-
-Current outputs for this phase:
-
-* [docs/h3-json-large-profile.md](./h3-json-large-profile.md)
-* [docs/h3-performance-triage.md](./h3-performance-triage.md)
+* the later H3 phase-1 consolidation refresh now gives a cleaner local stop
+  condition for this wave: a serial normalized rerun places the current smoke
+  top board in roughly the `27-41 ms` range, keeps `bench_warn --all` clean,
+  and leaves no stable native smoke row above `50 ms`
+* this suggests the next H3 step should shift from “keep cutting obvious hot
+  paths” toward larger-corpus discipline, optional memory observation, and
+  selective residual audits when a refreshed board clearly re-elevates one
 
 ## Non-goals For This H3 Planning Step
 

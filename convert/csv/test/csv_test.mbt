@@ -368,3 +368,31 @@ test "tsv parser keeps trailing empty cells quoted tabs and skips blank rows" {
     "| a\tb | c |\n| --- | --- |\n| x | \\| |\n",
   )
 }
+
+///|
+test "csv invalid utf8 fails closed" {
+  let dir = csv_test_root()
+  let case_dir = dir + "/csv-invalid-utf8"
+  recreate_clean_dir(case_dir)
+  defer cleanup_temp_dir(case_dir)
+
+  let bad_path = case_dir + "/invalid.csv"
+  write_bytes(bad_path, Bytes::from_array([0xC3, 0x28]))
+  assert_true((try? @csv.parse_csv(bad_path, "", 6)) is Err(_))
+}
+
+///|
+test "csv preserves legacy non-bmp literal behavior" {
+  let dir = csv_test_root()
+  let case_dir = dir + "/csv-non-bmp"
+  recreate_clean_dir(case_dir)
+  defer cleanup_temp_dir(case_dir)
+
+  let path = case_dir + "/emoji.csv"
+  write_utf8_text(path, "label,value\nemoji,🙂\n")
+  let doc = @csv.parse_csv(path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "| label | value |\n| --- | --- |\n| emoji | &#128578; |\n",
+  )
+}

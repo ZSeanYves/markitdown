@@ -15,6 +15,7 @@ NOW_MS_VALUE="0"
 ITERATIONS="${BENCH_ITERATIONS:-1}"
 WARMUP="${BENCH_WARMUP:-0}"
 KIND="${BENCH_KIND:-smoke}"
+FORMAT_FILTER="${BENCH_FORMAT:-}"
 SMOKE_RUNNER_KIND="unknown"
 SMOKE_RUNNER_LABEL="unknown"
 SMOKE_RUNNER_COMMAND_BASE=""
@@ -116,11 +117,12 @@ git_rev() {
 
 usage() {
   cat <<EOF
-usage: ./samples/scripts/bench_smoke.sh [--kind KIND] [--iterations N] [--warmup N]
+usage: ./samples/scripts/bench_smoke.sh [--kind KIND] [--format FORMAT] [--iterations N] [--warmup N]
 
 Environment overrides:
   BENCH_KIND         benchmark tier: smoke | image | metadata | extended | all
                      (default: smoke)
+  BENCH_FORMAT       optional format filter within the selected tier
   BENCH_ITERATIONS   number of measured iterations per sample (default: 1)
   BENCH_WARMUP       number of unrecorded warmup runs per sample (default: 0)
   MARKITDOWN_CLI     force a specific native/prebuilt CLI binary
@@ -301,6 +303,15 @@ while [[ $# -gt 0 ]]; do
       ITERATIONS="$2"
       shift 2
       ;;
+    --format)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --format" >&2
+        usage >&2
+        exit 1
+      }
+      FORMAT_FILTER="$2"
+      shift 2
+      ;;
     --warmup)
       [[ $# -lt 2 ]] && {
         echo "missing value for --warmup" >&2
@@ -371,6 +382,9 @@ fail_count=0
 echo "==> iterations: $ITERATIONS"
 echo "==> warmup: $WARMUP"
 echo "==> kind: $KIND"
+if [[ -n "$FORMAT_FILTER" ]]; then
+  echo "==> format filter: $FORMAT_FILTER"
+fi
 echo "==> runner: $SMOKE_RUNNER_LABEL"
 echo "==> runner command: $SMOKE_RUNNER_COMMAND_BASE"
 if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
@@ -414,6 +428,10 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   fi
 
   if ! should_run_kind "$KIND" "$run_kind"; then
+    continue
+  fi
+
+  if [[ -n "$FORMAT_FILTER" && "$format" != "$FORMAT_FILTER" ]]; then
     continue
   fi
 

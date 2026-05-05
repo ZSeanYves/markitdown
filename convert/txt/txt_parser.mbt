@@ -4,23 +4,66 @@ pub fn parse_txt(
   _out_dir : String,
   _max_heading : Int,
 ) -> @cor.Document raise {
+  parse_txt_with_profile(input_path, _out_dir, _max_heading).0
+}
+
+///|
+pub fn parse_txt_with_profile(
+  input_path : String,
+  _out_dir : String,
+  _max_heading : Int,
+) -> (@cor.Document, TxtProfileReport?) raise {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("txt: file not found: " + input_path)
   }
 
+  let profile = if txt_profile_enabled() {
+    Some(new_txt_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let read_started = @env.now()
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("txt: read failed: " + e.to_string())
   }
+  txt_profile_add_stage(
+    profile,
+    "txt_file_read",
+    @env.now() - read_started,
+    Some("bytes=" + bytes.length().to_string()),
+  )
 
-  let raw = @cor.utf8_bytes_to_string(bytes) catch {
-    e => raise @cor.AppError("txt: utf8 decode failed: " + e.to_string())
-  }
+  let decode_started = @env.now()
+  let raw = decode_txt_utf8_text(bytes, input_path)
+  txt_profile_add_stage(
+    profile,
+    "txt_bytes_to_string",
+    @env.now() - decode_started,
+    Some("chars=" + raw.length().to_string()),
+  )
 
+  let normalize_started = @env.now()
   let text = normalize_txt_text(raw)
+  txt_profile_add_stage(
+    profile,
+    "txt_normalize_newlines",
+    @env.now() - normalize_started,
+    Some("chars=" + text.length().to_string()),
+  )
+
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
+  let split_started = @env.now()
   let paragraphs = paragraph_spans(text)
+  txt_profile_add_stage(
+    profile,
+    "txt_split_paragraphs",
+    @env.now() - split_started,
+    Some("paragraphs=" + paragraphs.length().to_string()),
+  )
 
+  let build_ir_started = @env.now()
   if paragraphs.length() > 0 {
     @cor.set_passthrough_markdown(doc, txt_literal_markdown(paragraphs))
   }
@@ -47,7 +90,46 @@ pub fn parse_txt(
     )
   }
 
-  doc
+  txt_profile_add_stage(
+    profile,
+    "txt_build_ir",
+    @env.now() - build_ir_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+
+  (doc, profile)
+}
+
+///|
+fn decode_txt_utf8_text(bytes : Bytes, _input_path : String) -> String raise {
+  let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise @cor.AppError("txt: utf8 decode failed")
+  }
+
+  if !contains_non_bmp_char(decoded) {
+    return decoded
+  }
+
+  let out = StringBuilder::new()
+  for ch in decoded.to_array() {
+    let cp = ch.to_int()
+    if cp > 0xFFFF {
+      out.write_string("&#" + cp.to_string() + ";")
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn contains_non_bmp_char(text : String) -> Bool {
+  for ch in text.to_array() {
+    if ch.to_int() > 0xFFFF {
+      return true
+    }
+  }
+  false
 }
 
 ///|

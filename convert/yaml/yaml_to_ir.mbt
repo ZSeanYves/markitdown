@@ -4,31 +4,110 @@ pub fn parse_yaml(
   _out_dir : String,
   _max_heading : Int,
 ) -> @cor.Document raise {
+  parse_yaml_with_profile(input_path, _out_dir, _max_heading).0
+}
+
+///|
+pub fn parse_yaml_with_profile(
+  input_path : String,
+  _out_dir : String,
+  _max_heading : Int,
+) -> (@cor.Document, YamlProfileReport?) raise {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("yaml: file not found: " + input_path)
   }
 
+  let profile = if yaml_profile_enabled() {
+    Some(new_yaml_profile_report(input_path))
+  } else {
+    None
+  }
+  yaml_profile_set_active(profile)
+  defer yaml_profile_set_active(None)
+
+  let read_started = @env.now()
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("yaml: read failed: " + e.to_string())
   }
+  yaml_profile_add_stage(
+    profile,
+    "yaml_file_read",
+    @env.now() - read_started,
+    Some("bytes=" + bytes.length().to_string()),
+  )
 
-  let text = @cor.utf8_bytes_to_string(bytes) catch {
+  let decode_started = @env.now()
+  let raw = decode_yaml_utf8_text(bytes) catch {
     e => raise @cor.AppError("yaml: utf8 decode failed: " + e.to_string())
   }
+  yaml_profile_add_stage(
+    profile,
+    "yaml_bytes_to_string",
+    @env.now() - decode_started,
+    Some("chars=" + raw.length().to_string()),
+  )
 
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
 
-  match parse_yaml_text(text) {
-    Some(value) => push_yaml_value(doc, value, src)
+  let parse_started = @env.now()
+  match parse_yaml_text(raw) {
+    Some(value) => {
+      let lower_started = @env.now()
+      push_yaml_value_with_profile(doc, value, src)
+      yaml_profile_add_stage(
+        profile,
+        "yaml_to_ir",
+        @env.now() - lower_started,
+        Some("blocks=" + doc.blocks.val.length().to_string()),
+      )
+    }
     None => ()
   }
+  yaml_profile_add_stage(
+    profile,
+    "yaml_parse_model",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
 
-  doc
+  (doc, profile)
 }
 
 ///|
-fn push_yaml_value(
+fn decode_yaml_utf8_text(bytes : Bytes) -> String raise {
+  let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise @cor.Utf8DecodeError("yaml: invalid utf8")
+  }
+
+  if !contains_non_bmp_char(decoded) {
+    return decoded
+  }
+
+  let out = StringBuilder::new()
+  for ch in decoded.to_array() {
+    let cp = ch.to_int()
+    if cp > 0xFFFF {
+      out.write_string("&#" + cp.to_string() + ";")
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn contains_non_bmp_char(text : String) -> Bool {
+  for ch in text.to_array() {
+    if ch.to_int() > 0xFFFF {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn push_yaml_value_with_profile(
   doc : @cor.Document,
   value : YamlValue,
   src : String,
@@ -50,12 +129,20 @@ fn push_yaml_value(
   })
 
   match value {
-    YamlValue::Mapping(members) =>
+    YamlValue::Mapping(members) => {
+      let detect_started = @env.now()
+      let rows = object_rows(members)
+      yaml_profile_add_active_stage(
+        "yaml_detect_table",
+        @env.now() - detect_started,
+        Some("kind=mapping rows=" + rows.length().to_string()),
+      )
       @cor.push_with_origin(
         doc,
-        @cor.Block::RichTable({ rows: object_rows(members), header_rows: 1 }),
+        @cor.Block::RichTable({ rows, header_rows: 1 }),
         origin,
       )
+    }
     YamlValue::Sequence(values) =>
       if values.length() == 0 {
         @cor.push_with_origin(doc, @cor.Block::CodeBlock("[]"), origin)
@@ -83,19 +170,32 @@ fn push_yaml_value(
           )
         }
       } else {
+        let detect_started = @env.now()
         match array_object_rows(values) {
-          Some(rows) =>
+          Some(rows) => {
+            yaml_profile_add_active_stage(
+              "yaml_detect_table",
+              @env.now() - detect_started,
+              Some("kind=sequence_table rows=" + rows.length().to_string()),
+            )
             @cor.push_with_origin(
               doc,
               @cor.Block::RichTable({ rows, header_rows: 1 }),
               origin,
             )
-          None =>
+          }
+          None => {
+            yaml_profile_add_active_stage(
+              "yaml_detect_table",
+              @env.now() - detect_started,
+              Some("kind=sequence_fallback"),
+            )
             @cor.push_with_origin(
               doc,
               @cor.Block::CodeBlock(stringify_yaml_block(value, 0)),
               origin,
             )
+          }
         }
       }
     YamlValue::String(s) =>

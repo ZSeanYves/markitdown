@@ -127,6 +127,7 @@ This is why OOXML support is not implemented as three fully isolated parsers.
 PDF has its own native substrate:
 
 * page geometry
+* document / page / text / image / annotation models
 * text structures
 * raw image extraction
 * annotation/link data
@@ -134,6 +135,17 @@ PDF has its own native substrate:
 
 The default mainflow uses conservative structural recovery rather than OCR-first
 or visual-page reconstruction.
+
+Converter responsibility is intentionally separated:
+
+* `doc_parse/pdf` owns extraction, page/text/image/annotation signal, and
+  debug-facing raw/model surfaces
+* `convert/pdf` consumes those lower-layer signals for conservative heading,
+  noise, merge, table, caption, and link decisions
+
+This split is the stable architecture outcome from the earlier PDF H2 process;
+the repository no longer needs separate historical PDF phase docs to explain
+the active design.
 
 ### HTML
 

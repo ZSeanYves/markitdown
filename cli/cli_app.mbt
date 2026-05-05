@@ -49,9 +49,19 @@ async fn convert_once(
   let resolved_output = resolve_output_path(input, output)
   let format = detect_input_format(input)
   let xlsx_profile_enabled = format == "xlsx" && debug_profile_xlsx_enabled()
+  let csv_profile_enabled = (format == "csv" || format == "tsv") &&
+    debug_profile_csv_enabled()
   let json_profile_enabled = format == "json" && debug_profile_json_enabled()
+  let txt_profile_enabled = format == "txt" && debug_profile_txt_enabled()
+  let yaml_profile_enabled = (format == "yaml" || format == "yml") &&
+    debug_profile_yaml_enabled()
+  let zip_profile_enabled = format == "zip" && debug_profile_zip_enabled()
   let xlsx_profile_report : Ref[@xlsx.XlsxProfileReport?] = { val: None }
+  let csv_profile_report : Ref[@csv.CsvProfileReport?] = { val: None }
   let json_profile_report : Ref[@json.JsonProfileReport?] = { val: None }
+  let txt_profile_report : Ref[@txt.TxtProfileReport?] = { val: None }
+  let yaml_profile_report : Ref[@yaml.YamlProfileReport?] = { val: None }
+  let zip_profile_report : Ref[@zipconv.ZipProfileReport?] = { val: None }
 
   let out_root = match out_dir {
     Some(d) => d
@@ -86,6 +96,22 @@ async fn convert_once(
         d
       }
     }
+  } else if csv_profile_enabled {
+    let profiled = try {
+      if format == "tsv" {
+        @csv.parse_tsv_with_profile(input, out_root, max_heading)
+      } else {
+        @csv.parse_csv_with_profile(input, out_root, max_heading)
+      }
+    } catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        csv_profile_report.val = profile
+        d
+      }
+    }
   } else if json_profile_enabled {
     let profiled = @json.parse_json_with_profile(input, out_root, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
@@ -93,6 +119,36 @@ async fn convert_once(
     match profiled {
       (d, profile) => {
         json_profile_report.val = profile
+        d
+      }
+    }
+  } else if txt_profile_enabled {
+    let profiled = @txt.parse_txt_with_profile(input, out_root, max_heading) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        txt_profile_report.val = profile
+        d
+      }
+    }
+  } else if yaml_profile_enabled {
+    let profiled = @yaml.parse_yaml_with_profile(input, out_root, max_heading) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        yaml_profile_report.val = profile
+        d
+      }
+    }
+  } else if zip_profile_enabled {
+    let profiled = @zipconv.parse_zip_with_profile(input, out_root, max_heading) catch {
+      e => return Err("parse failed: " + e.to_string())
+    }
+    match profiled {
+      (d, profile) => {
+        zip_profile_report.val = profile
         d
       }
     }
@@ -108,8 +164,32 @@ async fn convert_once(
     @env.now() - parse_started,
     Some("blocks=" + doc.blocks.val.length().to_string()),
   )
+  csv_profile_push_cli_stage(
+    csv_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
   json_profile_push_cli_stage(
     json_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  txt_profile_push_cli_stage(
+    txt_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  yaml_profile_push_cli_stage(
+    yaml_profile_report.val,
+    "cli_parse_total",
+    @env.now() - parse_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+  zip_profile_push_cli_stage(
+    zip_profile_report.val,
     "cli_parse_total",
     @env.now() - parse_started,
     Some("blocks=" + doc.blocks.val.length().to_string()),
@@ -123,8 +203,32 @@ async fn convert_once(
     @env.now() - emit_started,
     Some("markdown_bytes=" + md.length().to_string()),
   )
+  csv_profile_push_cli_stage(
+    csv_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
   json_profile_push_cli_stage(
     json_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  txt_profile_push_cli_stage(
+    txt_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  yaml_profile_push_cli_stage(
+    yaml_profile_report.val,
+    "markdown_emit",
+    @env.now() - emit_started,
+    Some("markdown_bytes=" + md.length().to_string()),
+  )
+  zip_profile_push_cli_stage(
+    zip_profile_report.val,
     "markdown_emit",
     @env.now() - emit_started,
     Some("markdown_bytes=" + md.length().to_string()),
@@ -146,8 +250,32 @@ async fn convert_once(
         @env.now() - write_markdown_started,
         Some("path=" + p),
       )
+      csv_profile_push_cli_stage(
+        csv_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
       json_profile_push_cli_stage(
         json_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      txt_profile_push_cli_stage(
+        txt_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      yaml_profile_push_cli_stage(
+        yaml_profile_report.val,
+        "markdown_write",
+        @env.now() - write_markdown_started,
+        Some("path=" + p),
+      )
+      zip_profile_push_cli_stage(
+        zip_profile_report.val,
         "markdown_write",
         @env.now() - write_markdown_started,
         Some("path=" + p),
@@ -167,8 +295,32 @@ async fn convert_once(
           @env.now() - docprops_started,
           Some("available=" + document_available),
         )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
         json_profile_push_cli_stage(
           json_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_document_properties",
+          @env.now() - docprops_started,
+          Some("available=" + document_available),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
           "metadata_document_properties",
           @env.now() - docprops_started,
           Some("available=" + document_available),
@@ -187,8 +339,32 @@ async fn convert_once(
           @env.now() - metadata_emit_started,
           Some("metadata_bytes=" + metadata_json.length().to_string()),
         )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
         json_profile_push_cli_stage(
           json_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_json_emit",
+          @env.now() - metadata_emit_started,
+          Some("metadata_bytes=" + metadata_json.length().to_string()),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
           "metadata_json_emit",
           @env.now() - metadata_emit_started,
           Some("metadata_bytes=" + metadata_json.length().to_string()),
@@ -210,8 +386,32 @@ async fn convert_once(
           @env.now() - metadata_write_started,
           Some("path=" + metadata_path),
         )
+        csv_profile_push_cli_stage(
+          csv_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
         json_profile_push_cli_stage(
           json_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        txt_profile_push_cli_stage(
+          txt_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        yaml_profile_push_cli_stage(
+          yaml_profile_report.val,
+          "metadata_write",
+          @env.now() - metadata_write_started,
+          Some("path=" + metadata_path),
+        )
+        zip_profile_push_cli_stage(
+          zip_profile_report.val,
           "metadata_write",
           @env.now() - metadata_write_started,
           Some("path=" + metadata_path),
@@ -225,12 +425,40 @@ async fn convert_once(
       ) catch {
         e => return Err("write xlsx profile failed: " + e.to_string())
       }
+      let _ = write_csv_profile_log_if_enabled(
+        csv_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write csv profile failed: " + e.to_string())
+      }
       let _ = write_json_profile_log_if_enabled(
         json_profile_report.val,
         p,
         with_metadata,
       ) catch {
         e => return Err("write json profile failed: " + e.to_string())
+      }
+      let _ = write_txt_profile_log_if_enabled(
+        txt_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write txt profile failed: " + e.to_string())
+      }
+      let _ = write_yaml_profile_log_if_enabled(
+        yaml_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write yaml profile failed: " + e.to_string())
+      }
+      let _ = write_zip_profile_log_if_enabled(
+        zip_profile_report.val,
+        p,
+        with_metadata,
+      ) catch {
+        e => return Err("write zip profile failed: " + e.to_string())
       }
 
       Ok(())
@@ -720,6 +948,50 @@ fn debug_profile_json_enabled() -> Bool {
 }
 
 ///|
+fn debug_profile_csv_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_CSV") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_txt_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_TXT") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_yaml_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_YAML") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
+fn debug_profile_zip_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_ZIP") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
 fn xlsx_profile_push_cli_stage(
   profile : @xlsx.XlsxProfileReport?,
   name : String,
@@ -730,6 +1002,16 @@ fn xlsx_profile_push_cli_stage(
 }
 
 ///|
+fn csv_profile_push_cli_stage(
+  profile : @csv.CsvProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @csv.csv_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
 fn json_profile_push_cli_stage(
   profile : @json.JsonProfileReport?,
   name : String,
@@ -737,6 +1019,36 @@ fn json_profile_push_cli_stage(
   detail : String?,
 ) -> Unit {
   @json.json_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn txt_profile_push_cli_stage(
+  profile : @txt.TxtProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @txt.txt_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn yaml_profile_push_cli_stage(
+  profile : @yaml.YamlProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @yaml.yaml_profile_add_stage(profile, name, elapsed_ms, detail)
+}
+
+///|
+fn zip_profile_push_cli_stage(
+  profile : @zipconv.ZipProfileReport?,
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  @zipconv.zip_profile_add_stage(profile, name, elapsed_ms, detail)
 }
 
 ///|
@@ -769,6 +1081,35 @@ fn write_xlsx_profile_log_if_enabled(
 }
 
 ///|
+fn write_csv_profile_log_if_enabled(
+  profile : @csv.CsvProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".csv.profile.log",
+      )
+      let lines : Array[String] = [
+        @csv.csv_profile_render_report(rep),
+        "csv_profile cli markdown_output=" + markdown_path,
+        "csv_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
 fn write_json_profile_log_if_enabled(
   profile : @json.JsonProfileReport?,
   markdown_path : String,
@@ -787,6 +1128,93 @@ fn write_json_profile_log_if_enabled(
         @json.json_profile_render_report(rep),
         "json_profile cli markdown_output=" + markdown_path,
         "json_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_txt_profile_log_if_enabled(
+  profile : @txt.TxtProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".txt.profile.log",
+      )
+      let lines : Array[String] = [
+        @txt.txt_profile_render_report(rep),
+        "txt_profile cli markdown_output=" + markdown_path,
+        "txt_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_yaml_profile_log_if_enabled(
+  profile : @yaml.YamlProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".yaml.profile.log",
+      )
+      let lines : Array[String] = [
+        @yaml.yaml_profile_render_report(rep),
+        "yaml_profile cli markdown_output=" + markdown_path,
+        "yaml_profile cli metadata_enabled=" + with_metadata.to_string(),
+      ]
+      @fs.write_string_to_file(
+        profile_path,
+        lines.join("\n") + "\n",
+        encoding="utf8",
+      )
+    }
+  }
+}
+
+///|
+fn write_zip_profile_log_if_enabled(
+  profile : @zipconv.ZipProfileReport?,
+  markdown_path : String,
+  with_metadata : Bool,
+) -> Unit raise @fs.IOError {
+  match profile {
+    None => ()
+    Some(rep) => {
+      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
+      ensure_dir_tree(debug_dir)
+      let profile_path = join_path(
+        debug_dir,
+        input_stem(markdown_path) + ".zip.profile.log",
+      )
+      let lines : Array[String] = [
+        @zipconv.zip_profile_render_report(rep),
+        "zip_profile cli markdown_output=" + markdown_path,
+        "zip_profile cli metadata_enabled=" + with_metadata.to_string(),
       ]
       @fs.write_string_to_file(
         profile_path,

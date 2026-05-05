@@ -3,13 +3,16 @@
 This document records the repository-wide H2 completion cleanup after every
 primary format reached an H2-complete support contract.
 
-It is the compact milestone summary for:
+It is the compact long-term summary for:
 
 * final H2 status
 * format-level highlights
 * known limitations that remain explicit
 * validation and benchmark tool status
 * documentation and test-structure cleanup outcomes
+
+It supersedes the older milestone/gap-review stage docs rather than requiring
+readers to reconstruct the final H2 state from historical process notes.
 
 ## H2 completion summary
 
@@ -225,23 +228,24 @@ status:
 
 * `README.mbt.md`
 * `docs/support-and-limits.md`
+* `docs/architecture.md`
 * `docs/progress.md`
 * `docs/development.md`
-* `docs/full-format-hardening-milestone.md`
+* `docs/full-format-h2-completion.md`
+* `docs/h3-phase-1-summary.md`
 * benchmark docs
 
-Most per-format process/readiness notes have now been folded into the stable
-documentation set above, and the redundant transition-era docs were removed.
-The stable support contract should now be read primarily from those documents
-rather than from older implementation-pass notes.
+Most transition-era milestone, gap-review, and profiling notes should now be
+treated as merged historical material rather than as the primary source of
+truth. The stable support contract should be read from the documents above.
 
 ## Next stage
 
 The next stage after full-format H2 completion is no longer "make one more
 format usable". It is:
 
-* H3 benchmark discipline
-* larger corpus profiling
-* memory profiling
+* H3 benchmark governance and broader corpus discipline
+* larger representative corpus work
+* optional memory/RSS observation
 * release/documentation polish
 * selective H2.1 quality upgrades where product value is clear

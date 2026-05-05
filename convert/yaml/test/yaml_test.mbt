@@ -334,3 +334,35 @@ test "yaml unsupported subset features fail closed from direct cases" {
     }
   }
 }
+
+///|
+test "yaml invalid utf8 fails closed" {
+  let root = yaml_test_root()
+  let out_dir = root + "/invalid-utf8"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let path = out_dir + "/invalid.yaml"
+  @fs.write_bytes_to_file(path, Bytes::from_array([0xC3, 0x28])) catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+
+  assert_true((try? @yaml.parse_yaml(path, "", 6)) is Err(_))
+}
+
+///|
+test "yaml preserves legacy non-bmp literal behavior" {
+  let root = yaml_test_root()
+  let out_dir = root + "/non-bmp"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let path = out_dir + "/emoji.yaml"
+  write_utf8_text(path, "label: \"🙂\"\n")
+
+  let doc = @yaml.parse_yaml(path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "| Key | Value |\n| --- | --- |\n| label | &#128578; |\n",
+  )
+}

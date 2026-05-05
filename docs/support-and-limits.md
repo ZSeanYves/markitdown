@@ -202,6 +202,7 @@ Known limits:
 * no multiline or ambiguous PDF link emission
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
+* no tagged-PDF semantic interpretation contract
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
 
