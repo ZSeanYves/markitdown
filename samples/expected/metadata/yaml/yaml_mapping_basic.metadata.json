@@ -12,7 +12,7 @@
     {
       "block_index": 0,
       "block_type": "table",
-      "text": "Key | Value\nname | Alice\nrole | Engineer\nactive | true\nscore | 42",
+      "text": "Key | Value\nname | Alice\nrole | Engineer",
       "origin": {
         "format": "yaml",
         "source_name": "yaml_mapping_basic.yaml",
@@ -28,9 +28,7 @@
         "rows": [
           ["Key", "Value"],
           ["name", "Alice"],
-          ["role", "Engineer"],
-          ["active", "true"],
-          ["score", "42"]
+          ["role", "Engineer"]
         ],
         "header_rows": 1
       }

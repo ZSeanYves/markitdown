@@ -23,6 +23,25 @@ Current non-goals for the default mainflow:
 * OCR-first default conversion
 * LLM-style or visual-semantic reconstruction
 
+## Status Vocabulary
+
+Repository status labels are intentionally conservative:
+
+* `H1 baseline`: dispatcher reachability plus a conservative main path exists
+* `H2 main-path quality`: common local non-OCR cases are stable, with explicit
+  limits documented
+* `H2 partial`: useful main-path support exists, but important structures still
+  depend on future lower-layer work
+* `subset-H2`: only a conservative supported subset reaches H2-style
+  expectations
+* `source-preserving H1/H2 partial`: the primary contract is safe source
+  preservation, not semantic reconstruction
+* `container/ebook H2 partial`: common package/container flows work, but
+  coverage still depends on package-model and nested-format limits
+* `H3 evidence requires benchmark`: performance language must be backed by
+  runner- and corpus-specific benchmark evidence, and must separate native CLI,
+  `moon run`, OCR, and cloud/plugin paths
+
 ## Supported Input Extensions
 
 Current supported extension families:
@@ -170,6 +189,12 @@ Known limits:
 
 ### PDF
 
+Status label:
+
+* `H2 partial` for text-oriented PDF on the default local path
+* scanned/OCR PDF is a separate explicit path, not part of the default
+  performance story
+
 Supported:
 
 * native text-oriented structural recovery
@@ -307,6 +332,10 @@ Known limits:
 
 ### YAML / YML
 
+Status label:
+
+* `subset-H2`: only the current conservative YAML subset is in scope
+
 Supported:
 
 * conservative simple-subset mapping / sequence parsing
@@ -339,6 +368,11 @@ Known limits:
 
 ### Markdown / MD / MARKDOWN
 
+Status label:
+
+* `H2 main-path quality` for passthrough Markdown
+* not a semantic Markdown AST converter
+
 Supported:
 
 * UTF-8 BOM removal
@@ -360,6 +394,11 @@ Known limits:
 * no link/image/table/frontmatter semantic transformation
 
 ### TXT
+
+Status label:
+
+* `H2 main-path quality` for literal-safe plain text
+* no heading/list/table inference contract
 
 Supported:
 
@@ -384,6 +423,11 @@ Known limits:
 * no asset export
 
 ### XML
+
+Status label:
+
+* `source-preserving H1/H2 partial`
+* safe XML handling, not semantic XML-family conversion
 
 Supported:
 
@@ -417,6 +461,11 @@ Known limits:
 
 ### ZIP
 
+Status label:
+
+* `container H2 partial`
+* package dispatch with explicit ZIP feature and safety boundaries
+
 Supported:
 
 * safe normalized entry traversal
@@ -448,6 +497,11 @@ Known limits:
 * no ZIP64 / data-descriptor / encrypted-ZIP support in the current H2 path
 
 ### EPUB
+
+Status label:
+
+* `ebook H2 partial`
+* OPF/spine/nav/local-asset main path, not full ebook rendering
 
 Supported:
 
@@ -486,10 +540,12 @@ Important boundary:
 
 Current shared rules:
 
-* metadata schema remains unchanged
+* metadata schema is additive and intentionally sparse
 * origin fields are additive and sparse
 * block provenance and asset provenance are lightweight, not fine-grained
 * `ImageBlock` / `ImageData` is the current shared image contract
+* sample validation checks the core sidecar contract rather than pinning every
+  optional field for every format
 
 Current strong examples:
 
@@ -508,3 +564,4 @@ It should currently be understood as:
 * dependent on external tooling
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
+* separate from any cloud / Document Intelligence / LLM-style path discussion

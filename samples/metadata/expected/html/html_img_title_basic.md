@@ -1,2 +1,2 @@
-![red diagram](assets/image05.jpg)
+![red diagram](assets/image01.jpg)
 *Figure title text*

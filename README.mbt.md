@@ -5,10 +5,10 @@ It is inspired by Microsoft MarkItDown’s product direction, but it is not a
 Python wrapper or Python-port clone. The project focuses on conservative,
 auditable conversion, stable degradation, and reusable parsing infrastructure.
 
-All primary repository formats now have **H2-complete** support contracts:
-common lightweight-conversion expectations are met, while harder layout and
-format-specific edge cases remain explicitly documented as limitations rather
-than hidden unresolved gaps.
+Dispatcher coverage now spans all primary repository format families, but
+support maturity differs by format. The project is past its initial
+full-format H2 sweep, yet that should be read as "documented main-path support
+contracts" rather than "final done" for every format.
 
 The current pipeline is:
 
@@ -46,46 +46,38 @@ PDF lower-layer note:
 * `vendor/mbtpdf` is maintained in-repo for markitdown-specific PDF parser
   needs; it is not treated as a path-only external dependency during publish
 
-## H2 Milestone
+## Support Status
 
-The current H2 milestone is complete across the main format set:
+The repository is past the initial H2 sweep across the main input set:
 
-* TXT
-* Markdown
-* CSV / TSV
-* JSON
-* YAML / YML
-* XML
-* HTML / HTM
-* XLSX
-* ZIP
-* EPUB
-* DOCX
-* PPTX
-* PDF
+* `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, HTML / HTM, DOCX,
+  PPTX
+* `H2 partial`: XLSX, PDF
+* `subset-H2`: YAML / YML
+* `source-preserving H1/H2 partial`: XML
+* `container/ebook H2 partial`: ZIP, EPUB
 
-`H2 complete` does **not** mean every complex format feature is implemented.
-It means the repository now reaches a stable, auditable, mainstream
-lightweight-conversion baseline for these formats while keeping major
-limitations explicit in the support contract.
+These labels are support-contract shorthand, not final-completion claims. H3
+performance conclusions also require benchmark evidence and should not be
+inferred from status labels alone.
 
 ## Format Matrix
 
 | Format | Status | Highlights | Known limitations |
 | --- | --- | --- | --- |
-| TXT | H2 complete | literal-safe paragraph conversion, metadata | UTF-8-only conservative policy, no semantic Markdown inference |
-| Markdown | H2 complete | source-preserving passthrough, metadata | not a Markdown AST rewrite / normalization engine |
-| CSV / TSV | H2 complete | stable table lowering, `RichTable` metadata | no streaming or huge-table H3 tuning yet |
-| JSON | H2 complete | conservative structured-data lowering, metadata | no streaming/materialization optimization yet |
-| YAML / YML | H2 complete | fail-closed supported subset, structured-data lowering | not a full YAML feature-complete parser |
-| XML | H2 complete | source-preserving fenced `xml` output, safe tokenizer base | not a semantic XML-family renderer |
-| HTML / HTM | H2 complete | semantic text/tables/links/images, `RichTable` metadata | no CSS/JS execution, no rowspan/colspan reconstruction |
-| XLSX | H2 complete | workbook/sheet/cell lower layer, datetime handling, metadata | no charts/comments/pivots, no merged-cell visual reconstruction |
-| ZIP | H2 complete | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
-| EPUB | H2 complete | container/OPF/spine/nav/cover/assets pipeline | richer anchor/NCX semantics remain future work |
-| DOCX | H2 complete | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
-| PPTX | H2 complete | grouped shapes, explicit tables, notes, hidden slides, images | no charts/SmartArt/OLE/action links/animations, no full merged-table visual reconstruction |
-| PDF | H2 complete | headings/noise/merge, URI links, simple tables, captions, provenance | no complex table engine, no outlines/internal Dest output, no OCR-default or full multi-column recovery |
+| TXT | H2 main-path quality | literal-safe text conversion, metadata | UTF-8-only conservative policy, no heading/list/table inference |
+| Markdown | H2 main-path quality | source-preserving passthrough, metadata | not a Markdown AST semantic converter |
+| CSV / TSV | H2 main-path quality | stable table lowering, `RichTable` metadata | no streaming or huge-table H3 tuning yet |
+| JSON | H2 main-path quality | conservative structured-data lowering, metadata | no streaming/materialization optimization yet |
+| YAML / YML | subset-H2 | fail-closed conservative subset, structured-data lowering | not full YAML 1.2 coverage |
+| XML | source-preserving H1/H2 partial | fenced `xml` output, safe tokenizer base | not a semantic XML-family converter |
+| HTML / HTM | H2 main-path quality | semantic text/tables/links/images, `RichTable` metadata | no CSS/JS execution, no rowspan/colspan reconstruction |
+| XLSX | H2 partial | workbook/sheet/cell lower layer, datetime handling, metadata | no charts/comments/pivots, no merged-cell visual reconstruction |
+| ZIP | container H2 partial | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
+| EPUB | ebook H2 partial | container/OPF/spine/nav/cover/assets pipeline | no DRM/CSS rendering, richer anchor/NCX semantics remain future work |
+| DOCX | H2 main-path quality | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
+| PPTX | H2 main-path quality | grouped shapes, explicit tables, notes, hidden slides, images | no charts/SmartArt/OLE/action links/animations, no full merged-table visual reconstruction |
+| PDF | H2 partial, text-oriented | headings/noise/merge, URI links, simple tables, captions, provenance | default strength is text PDF, not scanned/OCR or full complex-layout recovery |
 
 ## Output Model
 
@@ -172,9 +164,18 @@ Current supported input families:
 
 Important boundaries:
 
-* TXT is plain-text paragraph conversion; it does not infer Markdown semantics
+* TXT is a literal-safe text path; it does not infer heading/list/table
+  semantics
+* Markdown is passthrough; it is not a Markdown AST semantic converter
+* PDF is strongest on text-oriented PDFs; scanned/OCR and cloud-style document
+  understanding paths are separate from the default local mainflow
+* YAML is a conservative supported subset, not full YAML 1.2
 * XML is source-preserving fenced `xml` code-block conversion; it is not a
   semantic XHTML / RSS / OPF / SVG converter
+* ZIP is container dispatch with explicit security/feature limits; not all ZIP
+  features are supported
+* EPUB is an OPF/spine/nav/local-asset main path, not DRM/CSS/full-render
+  support
 
 For the full per-format support contract and limits, see
 [docs/support-and-limits.md](./docs/support-and-limits.md).
@@ -213,10 +214,13 @@ does not create a repository-local Python virtual environment.
 
 Benchmark interpretation:
 
-* selected overlap cases already show clear same-machine speed wins for the
-  native repository runner
+* current harnesses include selected overlap cases where the measured
+  native-preferred repository runner is faster on the same machine
 * these are **selected** overlaps, not blanket semantic- or performance-parity
   claims for every document shape
+* broader "speed lead" language still requires benchmark evidence per
+  runner/mode/corpus and must keep native CLI, `moon run`, and OCR/cloud paths
+  separate
 * when a benchmark falls back to `moon run`, measured time includes wrapper
   overhead; prebuilt native CLI runs are the stronger performance reference
 
@@ -238,8 +242,9 @@ engineering priorities are:
 * regression-verifiable behavior
 * reusable content-processing infrastructure
 
-OCR, cloud services, LLM-style understanding, and complex visual reasoning are
-not part of the default `normal` mainflow contract.
+OCR, cloud services, Document Intelligence-style paths, LLM-style
+understanding, and complex visual reasoning are not part of the default
+`normal` mainflow contract.
 
 ## Documentation
 
