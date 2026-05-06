@@ -2,8 +2,8 @@
 /// XLSX lower-layer aware parser (MoonBit)
 ///
 /// Product policy:
-/// - no formula evaluation
 /// - cached values are used when present
+/// - a lightweight evaluator is only used for safe missing-cache formulas
 /// - merged ranges are detected but not visually reconstructed
 /// - hidden sheets are emitted in workbook order
 /// - output remains conservative heading + table lowering

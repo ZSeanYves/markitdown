@@ -425,6 +425,12 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
                 None => fail("expected unsupported reason for VLOOKUP")
               }
               assert_eq(cells[1].policy, Some("unsupported_formula"))
+              assert_eq(cells[3].policy, Some("unsupported_formula"))
+              match cells[3].unsupported_reason {
+                Some(reason) =>
+                  assert_true(reason.contains("range scalar coercion unsupported"))
+                None => fail("expected unsupported reason for range scalar coercion")
+              }
             }
             None => fail("expected formula hints on unsupported sample")
           }

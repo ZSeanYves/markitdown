@@ -101,7 +101,9 @@ Every second-round format sprint should follow the same sequence:
 
 ## Current Sprint
 
-The first second-round excellence sprint is `XLSX`.
+The first second-round excellence sprint is `XLSX`, and it is now treated as
+`H2++ complete` plus `H3++ evidence-backed on the checked-in native overlap
+corpus`.
 
 Focus:
 
@@ -113,3 +115,5 @@ Focus:
 * metadata/debug evidence for the above
 * overlap quality comparison records
 * overlap and batch-oriented benchmark evidence
+* explicit non-goals: no full Excel engine, no cross-sheet/lookup/array/dynamic
+  formula support in evaluator v1

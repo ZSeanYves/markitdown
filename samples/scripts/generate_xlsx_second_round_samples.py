@@ -485,6 +485,59 @@ def make_metadata_policy_fixture() -> None:
     shutil.copyfile(src, dst)
 
 
+def make_metadata_formula_policy_states() -> None:
+    src = MAIN_SRC / "xlsx_formula_cached_value_current_policy.xlsx"
+    dst = META_SRC / "xlsx_metadata_formula_policy_states.xlsx"
+    rows = [
+        row_xml(
+            1,
+            [
+                inline_cell("A1", "Case"),
+                inline_cell("B1", "Expression"),
+                inline_cell("C1", "Value"),
+            ],
+        ),
+        row_xml(
+            2,
+            [
+                inline_cell("A2", "Cached formula"),
+                inline_cell("B2", "10+5"),
+                number_cell("C2", 15),
+            ],
+        ),
+        row_xml(
+            3,
+            [
+                inline_cell("A3", "Evaluated missing cache"),
+                inline_cell("B3", "1+2"),
+                number_formula_cell("C3", "1+2"),
+            ],
+        ),
+        row_xml(
+            4,
+            [
+                inline_cell("A4", "Unsupported formula"),
+                inline_cell("B4", "VLOOKUP(1,A1:B3,2,FALSE)"),
+                number_formula_cell("C4", "VLOOKUP(1,A1:B3,2,FALSE)"),
+            ],
+        ),
+        row_xml(
+            5,
+            [
+                inline_cell("A5", "Formula error"),
+                inline_cell("B5", "1/0"),
+                number_formula_cell("C5", "1/0"),
+            ],
+        ),
+    ]
+    sheet = make_sheet_xml("A1:C5", "".join(rows))
+    sheet = sheet.replace(
+        '<c r="C2"><v>15</v></c>',
+        '<c r="C2"><f>10+5</f><v>15</v></c>',
+    )
+    copy_zip_with_updates(src, dst, {"xl/worksheets/sheet1.xml": sheet})
+
+
 def make_formula_heavy_missing_cache() -> None:
     src = MAIN_SRC / "xlsx_formula_cached_value_current_policy.xlsx"
     dst = BENCH_SRC / "xlsx_formula_heavy_missing_cache.xlsx"
@@ -590,6 +643,7 @@ def main() -> None:
     make_typed_cells_matrix()
     make_hidden_sheets_policy()
     make_metadata_policy_fixture()
+    make_metadata_formula_policy_states()
     make_formula_heavy_missing_cache()
     make_formula_unsupported_many()
     make_benchmark_copies()

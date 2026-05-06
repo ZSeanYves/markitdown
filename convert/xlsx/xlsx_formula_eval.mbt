@@ -278,7 +278,14 @@ fn eval_unary(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "unary operator " + op,
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   match op {
     "+" =>
       match scalar_to_number(scalar) {
@@ -325,8 +332,22 @@ fn eval_binary(
     Err(res) => return res
   }
 
-  let (left_scalar, left_refs, left_ranges) = flatten_value_to_scalar(left_value)
-  let (right_scalar, right_refs, right_ranges) = flatten_value_to_scalar(right_value)
+  let (left_scalar, left_refs, left_ranges) = match flatten_value_to_scalar(
+    left_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "binary operator " + op,
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
+  let (right_scalar, right_refs, right_ranges) = match flatten_value_to_scalar(
+    right_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "binary operator " + op,
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let refs = concat_unique_strings(left_refs, right_refs)
   let ranges = concat_unique_strings(left_ranges, right_ranges)
 
@@ -554,7 +575,14 @@ fn eval_if_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (cond_scalar, cond_refs, cond_ranges) = flatten_value_to_scalar(cond_value)
+  let (cond_scalar, cond_refs, cond_ranges) = match flatten_value_to_scalar(
+    cond_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "IF condition",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let cond = match scalar_to_bool(cond_scalar) {
     Ok(v) => v
     Err(reason) => return XlsxFormulaEvalResult::Unsupported(reason, cond_refs, cond_ranges)
@@ -564,7 +592,14 @@ fn eval_if_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (branch_scalar, branch_refs, branch_ranges) = flatten_value_to_scalar(branch_value)
+  let (branch_scalar, branch_refs, branch_ranges) = match flatten_value_to_scalar(
+    branch_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "IF branch",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let refs = concat_unique_strings(cond_refs, branch_refs)
   let ranges = concat_unique_strings(cond_ranges, branch_ranges)
   formula_scalar_to_result(branch_scalar, refs, ranges)
@@ -610,7 +645,14 @@ fn eval_abs_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "ABS argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   match scalar_to_number(scalar) {
     Ok(v) =>
       XlsxFormulaEvalResult::Evaluated(
@@ -662,7 +704,14 @@ fn eval_left_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(text_value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    text_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "LEFT argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let text = scalar_to_text(scalar)
   let count = if args.length() == 2 {
     match eval_integer_arg(context, args[1], current_ref, depth + 1, state) {
@@ -705,7 +754,14 @@ fn eval_right_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(text_value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    text_value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "RIGHT argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let text = scalar_to_text(scalar)
   if args.length() == 2 {
     match eval_integer_arg(context, args[1], current_ref, depth + 1, state) {
@@ -745,7 +801,14 @@ fn eval_len_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "LEN argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   XlsxFormulaEvalResult::Evaluated(
     scalar_to_text(scalar).to_array().length().to_string(),
     XlsxCellSemanticType::Number,
@@ -770,7 +833,14 @@ fn eval_lower_upper_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    if upper { "UPPER argument" } else { "LOWER argument" },
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   let text = scalar_to_text(scalar)
   XlsxFormulaEvalResult::Evaluated(
     if upper { text.to_upper() } else { text.to_lower() },
@@ -795,7 +865,14 @@ fn eval_trim_function(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "TRIM argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return res
+  }
   XlsxFormulaEvalResult::Evaluated(
     collapse_internal_ws(scalar_to_text(scalar)),
     XlsxCellSemanticType::String,
@@ -830,7 +907,7 @@ fn eval_argument_scalars(
         merge_unique_strings(ranges, item_ranges)
       }
     }
-    let (_, value_refs, value_ranges) = flatten_value_to_scalar(value)
+    let (value_refs, value_ranges) = value_refs_and_ranges(value)
     merge_unique_strings(refs, value_refs)
     merge_unique_strings(ranges, value_ranges)
   }
@@ -853,8 +930,22 @@ fn eval_numeric_pair(
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let (left_scalar, left_refs, left_ranges) = flatten_value_to_scalar(left)
-  let (right_scalar, right_refs, right_ranges) = flatten_value_to_scalar(right)
+  let (left_scalar, left_refs, left_ranges) = match flatten_value_to_scalar(
+    left,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "numeric argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return Err(res)
+  }
+  let (right_scalar, right_refs, right_ranges) = match flatten_value_to_scalar(
+    right,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "numeric argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return Err(res)
+  }
   let lv = match scalar_to_number(left_scalar) {
     Ok(v) => v
     Err(reason) => return Err(XlsxFormulaEvalResult::Unsupported(reason, left_refs, left_ranges))
@@ -890,7 +981,14 @@ fn eval_integer_arg(
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let (scalar, refs, ranges) = flatten_value_to_scalar(value)
+  let (scalar, refs, ranges) = match flatten_value_to_scalar(
+    value,
+    XlsxFormulaScalarMode::ScalarOnly,
+    "integer argument",
+  ) {
+    Ok(v) => v
+    Err(res) => return Err(res)
+  }
   let number = match scalar_to_number(scalar) {
     Ok(v) => v
     Err(reason) => return Err(XlsxFormulaEvalResult::Unsupported(reason, refs, ranges))
@@ -1037,15 +1135,31 @@ fn scalar_from_text_and_semantic(
 ///|
 fn flatten_value_to_scalar(
   value : XlsxFormulaValue,
-) -> (XlsxFormulaScalar, Array[String], Array[String]) {
+  mode : XlsxFormulaScalarMode,
+  context : String,
+) -> Result[(XlsxFormulaScalar, Array[String], Array[String]), XlsxFormulaEvalResult] {
   match value {
-    XlsxFormulaValue::Scalar(scalar, refs, ranges) => (scalar, refs, ranges)
-    XlsxFormulaValue::Range(items, refs, ranges) =>
-      if items.length() == 0 {
-        (XlsxFormulaScalar::Blank, refs, ranges)
-      } else {
-        (items[0], refs, ranges)
+    XlsxFormulaValue::Scalar(scalar, refs, ranges) => Ok((scalar, refs, ranges))
+    XlsxFormulaValue::Range(_, refs, ranges) =>
+      match mode {
+        XlsxFormulaScalarMode::ScalarOnly => Err(
+          XlsxFormulaEvalResult::Unsupported(
+            "range scalar coercion unsupported in " + context,
+            refs,
+            ranges,
+          ),
+        )
       }
+  }
+}
+
+///|
+fn value_refs_and_ranges(
+  value : XlsxFormulaValue,
+) -> (Array[String], Array[String]) {
+  match value {
+    XlsxFormulaValue::Scalar(_, refs, ranges) => (refs, ranges)
+    XlsxFormulaValue::Range(_, refs, ranges) => (refs, ranges)
   }
 }
 

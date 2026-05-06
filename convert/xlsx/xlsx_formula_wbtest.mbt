@@ -165,6 +165,32 @@ test "xlsx formula evaluator marks unsupported and error cases" {
     None => fail("expected unsupported trace")
   }
 
+  let range_scalar_cells = [
+    formula_cell("A1", "1", XlsxCellSemanticType::Number, None, Some("1")),
+    formula_cell("A2", "2", XlsxCellSemanticType::Number, None, Some("2")),
+    formula_cell("B1", "3", XlsxCellSemanticType::Number, None, Some("3")),
+    formula_cell("B2", "4", XlsxCellSemanticType::Number, None, Some("4")),
+    formula_cell(
+      "C1",
+      "",
+      XlsxCellSemanticType::FormulaMissingCache,
+      Some("A1:A2+B1:B2"),
+      None,
+    ),
+  ]
+  match evaluate_missing_cache_formula("Sheet1", range_scalar_cells[4], range_scalar_cells) {
+    Some(info) => {
+      if info.policy != XlsxFormulaPolicy::UnsupportedFormula {
+        fail("expected UnsupportedFormula policy for range scalar coercion")
+      }
+      match info.unsupported_reason {
+        Some(reason) => assert_true(reason.contains("range scalar coercion unsupported"))
+        None => fail("expected range scalar coercion reason")
+      }
+    }
+    None => fail("expected range scalar unsupported trace")
+  }
+
   let error_cells = [
     formula_cell(
       "A1",

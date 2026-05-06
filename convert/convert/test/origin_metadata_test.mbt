@@ -1909,6 +1909,58 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   }
   assert_true(saw_xlsx_policy_hints)
 
+  let xlsx_formula_states_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_xlsx_formula_policy_states"
+  recreate_clean_dir(xlsx_formula_states_out_dir)
+  defer cleanup_temp_dir(xlsx_formula_states_out_dir)
+  ensure_dir(xlsx_formula_states_out_dir + "/xlsx")
+  let xlsx_formula_states_doc = @xlsx.parse_xlsx(
+    resolve_sample_path(
+      "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+    ),
+    xlsx_formula_states_out_dir + "/xlsx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      xlsx_formula_states_doc,
+      "xlsx_metadata_formula_policy_states.xlsx",
+      "xlsx",
+      "xlsx_metadata_formula_policy_states.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+        ),
+      ),
+    ),
+    "xlsx_metadata_formula_policy_states.metadata.json",
+  )
+
+  let mut saw_xlsx_formula_states = false
+  for block in xlsx_formula_states_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) =>
+        match table.hints {
+          Some(hints) =>
+            match hints.formula_cells {
+              Some(cells) => {
+                saw_xlsx_formula_states = true
+                assert_eq(cells.length(), 4)
+                assert_eq(cells[0].policy, Some("cached"))
+                assert_eq(cells[1].policy, Some("evaluated_missing_cache"))
+                assert_eq(cells[1].evaluated_value, Some("3"))
+                assert_eq(cells[2].policy, Some("unsupported_formula"))
+                assert_eq(cells[3].policy, Some("formula_error"))
+              }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  assert_true(saw_xlsx_formula_states)
+
   let zip_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_basic"
   recreate_clean_dir(zip_basic_out_dir)
   defer cleanup_temp_dir(zip_basic_out_dir)

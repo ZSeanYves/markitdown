@@ -42,6 +42,11 @@ priv enum XlsxFormulaValue {
 }
 
 ///|
+priv enum XlsxFormulaScalarMode {
+  ScalarOnly
+}
+
+///|
 priv enum XlsxFormulaEvalResult {
   Evaluated(String, XlsxCellSemanticType, Array[String], Array[String])
   Unsupported(String, Array[String], Array[String])
