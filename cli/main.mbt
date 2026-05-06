@@ -85,7 +85,7 @@ async fn main {
       match value.subcmd {
         Some(sub) => {
           let positional = sub.positional_args
-          let with_metadata = sub.flags.contains("with-metadata")
+          let with_metadata = sub.get_flag("with-metadata").unwrap_or(false)
 
           match sub.name {
             "normal" => {
@@ -248,10 +248,11 @@ async fn main {
 ///|
 fn print_cli_usage() -> Unit {
   println("Usage:")
-  println("  moon run cli -- normal [--with-metadata] <input> [output]")
-  println("  moon run cli -- ocr [--with-metadata] <input> [output]")
-  println("  moon run cli -- batch [--with-metadata] <input_dir> <output_dir>")
+  println("  markitdown-mb normal [--with-metadata] <input> [output]")
+  println("  markitdown-mb ocr [--with-metadata] <input> [output]")
+  println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
   println(
-    "  moon run cli -- debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
+    "  markitdown-mb debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
   )
+  println("  dev fallback: moon run cli -- <subcommand> ...")
 }

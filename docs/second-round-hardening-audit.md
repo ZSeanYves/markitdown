@@ -67,6 +67,9 @@ The largest hardening gaps are:
   places
 * metadata validation needed a stricter sidecar contract and broader fixture
   coverage
+* product-path CLI contract needed an explicit repository-level audit, because
+  metadata gating, stdout side effects, and runner selection can drift even
+  when format regressions stay green
 * several formats still rely on coarse provenance rather than richer origin
   models needed for RAG/citation workflows
 * some important limits remain converter-local when they really point to
@@ -188,6 +191,7 @@ Batch path assessment:
 
 * exists and is tested
 * non-recursive top-level directory scan only
+* serial only in v1
 * isolated document roots avoid same-stem collisions inside one batch
 * summary output is `batch-summary.tsv`
 * no parallelism, manifest mode, recursion, or batch-level quality metrics yet
@@ -210,6 +214,8 @@ Metadata sidecar assessment:
 * `samples/check_metadata.sh` now validates sidecar existence, JSON structure,
   summary counts, asset correspondence, and semantic fixture equality where
   fixtures exist
+* repository-level CLI contract checks should also verify the negative path:
+  no sidecar without `--with-metadata`
 
 Debug inspect assessment:
 
@@ -235,6 +241,8 @@ Error handling and degradation assessment:
 * if output looks directory-like, result is `<dir>/<input_stem>.md`
 * metadata dir is always subordinate to Markdown dir
 * assets dir is generally subordinate to output root, not metadata dir
+* product-path validation should fail if stdout mode creates default `out/`
+  directories or metadata sidecars
 * this is workable, but still under-documented for nested-container cases
 
 Cross-format behavior inconsistencies worth recording:
@@ -457,7 +465,7 @@ status" when sample/benchmark/support evidence is thin.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | DOCX | H2 | `doc_parse/ooxml`, `convert/docx/*` | `parse_docx` | strong main + metadata + assets + tests | smoke + compare + extended | headings, lists, tables, links, notes, headers/footers, text boxes, images | run styles, tracked changes UI, merged table fidelity, internal anchors | append sections, text fallback, conservative extraction | good coarse OOXML origin | yes | high | inline semantics and richer table/textbox provenance | medium | P2 | OOXML numbering/styles/comments/table origin hardening |
 | PPTX | H2 | `doc_parse/ooxml`, `convert/pptx/*` | `parse_pptx` | very strong main + metadata + assets + tests | smoke + compare + extended | slide order, text, bullets, notes, hidden slides, explicit tables, images, hyperlinks | charts, SmartArt, OLE, action links, merged tables, full z-order | readable downgrade + warning-like omissions | good slide/image origin | yes | medium-high | layout grouping and table-like heuristics still shallow | medium | P2 | layout/table model refinement and richer shape provenance |
-| XLSX | H2++ sprint active | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended + overlap compare | multi-sheet, shared strings, datetime, sparse trim, cached formulas, lightweight missing-cache formula eval v1, rich table, typed-cell/table hints | full Excel formula compatibility, merged reconstruction, comments/charts/images | top-left merged policy, cached-first formula policy, unsupported formula fail-closed policy | good sheet/row/col origin plus table hints | no | medium-high | formula/merged/state policy now evidenced, but no full formula engine or visual merge model | medium-high on large sheets | active | XLSX H2++/H3++ formula/merged/type sprint |
+| XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended + overlap compare | multi-sheet, shared strings, datetime, sparse trim, cached formulas, lightweight missing-cache formula eval v1, rich table, typed-cell/table hints | full Excel formula compatibility, merged reconstruction, comments/charts/images | top-left merged policy, cached-first formula policy, unsupported formula fail-closed policy | good sheet/row/col origin plus table hints | no | medium-high | formula/merged/state policy now evidenced, but no full formula engine or visual merge model | medium-high on large sheets | sealed | keep future work strictly optional: cross-sheet/lookup/array/dynamic formulas, charts/pivots/comments/images, full RSS benchmarking |
 | PDF | H2 partial | `doc_parse/pdf/*`, `vendor/mbtpdf` | `parse_pdf` | strong main + metadata/assets + tests | smoke + compare + batch profile + extended | text PDF, page blocks, headings, noise cleanup, merge, simple tables, URI links, images, captions | complex tables, outlines, internal links, OCR-default, complex layout | omit ambiguous structure, optional OCR path | moderate page/image/object origin | yes | medium | lower-layer signal still limits quality more than converter logic | medium | P2 | pdf_core signal enrichment before more heuristics |
 | HTML | H2 | `convert/html/html_dom.mbt` + parser | `parse_html` | very strong main + metadata + assets + tests | smoke + compare + batch profile | headings, paragraphs, lists, blockquote, pre/code, table, links, local images, figure/figcaption | browser tree-building, CSS layout, rowspan/colspan, remote fetch | skip script/style/head; conservative literal fallback | coarse block origin; asset `source_path` | yes local only | high | DOM semantics are decent but not rich enough for deeper provenance | low-medium | P1 | safer/richer DOM/event model and origin enrichment |
 | TXT | H2 | `convert/txt/txt_parser.mbt` | `parse_txt` | strong main + metadata + tests | smoke + compare + batch profile | paragraphs, UTF-8 normalize, literal-safe Markdown passthrough | semantic heading/list/table inference by design | fail closed on invalid UTF-8; literal-safe output | line-range origin only | no | medium | deliberate non-goal, but contract should stay explicit | low | P1 | benchmark guardrails and explicit text policy docs |

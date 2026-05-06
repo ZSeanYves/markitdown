@@ -228,6 +228,8 @@ The repository may say:
 * native-binary measurements are the strongest current local-performance
   reference
 * `moon run` is a functional fallback but not the preferred proof point
+* batch/profile/smoke scripts prefer prebuilt native CLI discovery and only
+  fall back to `moon run` with an explicit warning
 
 The repository should not say without broader evidence:
 

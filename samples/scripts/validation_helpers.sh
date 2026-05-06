@@ -5,6 +5,23 @@ CLI_RUNNER_KIND=""
 CLI_RUNNER_NOTE=""
 CLI_BIN=""
 
+runner_class_for_kind() {
+  case "${1-}" in
+    prebuilt-native)
+      printf 'native-binary'
+      ;;
+    moon-run)
+      printf 'moon-run-fallback'
+      ;;
+    override)
+      printf 'user-override'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
 validation_bool_enabled() {
   local raw="${1-}"
   raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
@@ -47,6 +64,7 @@ resolve_markitdown_cli() {
   done
 
   CLI_RUNNER_KIND="moon-run"
+  CLI_RUNNER_NOTE="using moon run fallback; timings are not native product-path"
   CLI_BIN=""
   return 0
 }
@@ -56,6 +74,14 @@ run_markitdown_cli() {
     "$CLI_BIN" "$@"
   else
     moon run "$ROOT/cli" -- "$@"
+  fi
+}
+
+markitdown_runner_command_prefix() {
+  if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
+    printf '%s' "$CLI_BIN"
+  else
+    printf 'moon run %s/cli --' "$ROOT"
   fi
 }
 
@@ -89,6 +115,18 @@ probe_markitdown_cli() {
       break
     fi
   done < <(validation_probe_cases)
+
+  if [[ "$status" -eq 0 ]]; then
+    local contract_dir="$probe_dir/contract"
+    local contract_input="$ROOT/samples/main_process/txt/txt_plain.txt"
+    local contract_output="$contract_dir/txt_plain.md"
+    mkdir -p "$contract_dir"
+    if ! "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
+      status=1
+    elif [[ -e "$contract_dir/metadata/txt_plain.metadata.json" ]]; then
+      status=1
+    fi
+  fi
 
   rm -rf "$probe_dir"
   return "$status"

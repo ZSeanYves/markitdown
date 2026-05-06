@@ -75,6 +75,18 @@ if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
   exit "$overall_status"
 fi
 
+run_stage "cli_contract" "$ROOT/samples/scripts/check_cli_contract.sh" || overall_status=$?
+if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
+  print_summary "$overall_status"
+  exit "$overall_status"
+fi
+
+run_stage "batch_contract" "$ROOT/samples/scripts/check_batch_contract.sh" || overall_status=$?
+if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
+  print_summary "$overall_status"
+  exit "$overall_status"
+fi
+
 run_stage "assets" "$ROOT/samples/check_assets.sh" || overall_status=$?
 
 print_summary "$overall_status"

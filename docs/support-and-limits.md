@@ -23,6 +23,32 @@ Current non-goals for the default mainflow:
 * OCR-first default conversion
 * LLM-style or visual-semantic reconstruction
 
+## CLI Output Contract
+
+Current product-path CLI contract:
+
+* `normal <input> [output]` writes Markdown and any required materialized
+  assets, but does not write metadata sidecars by default
+* `normal --with-metadata <input> [output]` additionally writes
+  `<markdown_dir>/metadata/<stem>.metadata.json`
+* stdout mode prints Markdown only; it does not create sidecar or default
+  output directories
+* `batch <input_dir> <output_dir>` is a serial, non-recursive v1 runner over
+  top-level files only
+* `batch --with-metadata` writes one sidecar per generated Markdown file inside
+  each isolated batch document root
+* `ocr` and `debug` follow the same explicit metadata-gating rule when writing
+  on-disk outputs
+
+Batch v1 behavior:
+
+* one isolated document root per top-level input file:
+  `NNN-<input_stem>/<input_stem>.md`
+* `assets/` and `metadata/` stay inside each document root
+* unsupported files do not abort the whole batch; they are recorded in
+  `batch-summary.tsv`
+* nested directories are skipped in v1 and recorded as `skipped_directory`
+
 ## Status Vocabulary
 
 Repository status labels are intentionally conservative:
@@ -157,6 +183,11 @@ Known limits:
 
 ### XLSX
 
+Status:
+
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native overlap corpus`
+
 Supported:
 
 * multi-sheet output
@@ -204,6 +235,7 @@ Known limits:
   evaluator-v1 subset
 * no hidden-sheet annotation in emitted Markdown beyond sheet headings
 * no charts / pivots / comments / image export
+* no full memory / RSS benchmark evidence yet
 
 ### PDF
 

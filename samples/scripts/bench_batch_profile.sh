@@ -2,6 +2,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/samples/scripts/tmp_helpers.sh"
+source "$ROOT/samples/scripts/validation_helpers.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 BENCH_ROOT="$TMP_ROOT/bench/batch_profile"
 CORPUS_PATH="$ROOT/samples/benchmark/corpus.tsv"
@@ -26,7 +28,6 @@ TIME_LABEL="none"
 TIME_SUPPORTED="false"
 MB_VERSION=""
 MB_RUNNER_KIND="unknown"
-MB_PREBUILT_CLI="$ROOT/_build/native/debug/build/cli/cli.exe"
 WITH_METADATA_JSON="false"
 WITH_METADATA_FLAG="false"
 CURRENT_METADATA_MODE_LABEL="without-metadata"
@@ -266,28 +267,21 @@ EOF
 }
 
 resolve_mb_runner() {
-  if [[ -x "$MB_PREBUILT_CLI" ]]; then
-    MB_BASE_CMD=("$MB_PREBUILT_CLI")
-    MB_RUNNER_KIND="prebuilt-native"
-    return
+  if ! resolve_markitdown_cli; then
+    echo "failed to resolve markitdown runner" >&2
+    exit 1
   fi
 
-  MB_BASE_CMD=("moon" "run" "$ROOT/cli" "--")
-  MB_RUNNER_KIND="moon-run"
+  MB_RUNNER_KIND="$CLI_RUNNER_KIND"
+  if [[ -n "${CLI_BIN:-}" ]]; then
+    MB_BASE_CMD=("$CLI_BIN")
+  else
+    MB_BASE_CMD=("moon" "run" "$ROOT/cli" "--")
+  fi
 }
 
 batch_runner_class() {
-  case "${1-}" in
-    prebuilt-native)
-      printf 'native-binary'
-      ;;
-    moon-run)
-      printf 'moon-run-fallback'
-      ;;
-    *)
-      printf 'unknown'
-      ;;
-  esac
+  runner_class_for_kind "$1"
 }
 
 detect_time_probe() {
@@ -1345,6 +1339,9 @@ MB_VERSION="markitdown-mb@${GIT_REV:-unknown}"
 
 echo "==> runner kind: $MB_RUNNER_KIND"
 echo "==> runner base: ${MB_BASE_CMD[*]}"
+if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
+  echo "==> runner note: $CLI_RUNNER_NOTE"
+fi
 echo "==> formats: ${FORMATS[*]}"
 echo "==> counts: ${COUNTS[*]}"
 echo "==> metadata modes: ${METADATA_MODE_VALUES[*]}"

@@ -52,7 +52,8 @@ The repository is past the initial H2 sweep across the main input set:
 
 * `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, HTML / HTM, DOCX,
   PPTX
-* `H2 partial`: XLSX, PDF
+* `H2 partial`: PDF
+* `H2++ complete, H3++ evidence-backed on checked-in native overlap corpus`: XLSX
 * `subset-H2`: YAML / YML
 * `source-preserving H1/H2 partial`: XML
 * `container/ebook H2 partial`: ZIP, EPUB
@@ -75,7 +76,7 @@ For second-round per-format excellence sprints, use
 | YAML / YML | subset-H2 | fail-closed conservative subset, structured-data lowering | not full YAML 1.2 coverage |
 | XML | source-preserving H1/H2 partial | fenced `xml` output, safe tokenizer base | not a semantic XML-family converter |
 | HTML / HTM | H2 main-path quality | semantic text/tables/links/images, `RichTable` metadata | no CSS/JS execution, no rowspan/colspan reconstruction |
-| XLSX | H2 partial | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1 | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
+| XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1, merged/state/type policy evidence | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
 | ZIP | container H2 partial | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
 | EPUB | ebook H2 partial | container/OPF/spine/nav/cover/assets pipeline | no DRM/CSS rendering, richer anchor/NCX semantics remain future work |
 | DOCX | H2 main-path quality | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
@@ -101,9 +102,29 @@ out/
     demo.metadata.json
 ```
 
+## Native CLI
+
+Recommended product-path build:
+
+```bash
+moon build --target native
+```
+
+Repository scripts prefer a discovered prebuilt native CLI binary. Use
+`MARKITDOWN_CLI=/abs/path/to/cli` to pin an explicit binary. If no working
+prebuilt binary is found, scripts fall back to `moon run` and print a warning;
+that fallback is for development convenience, not H3++ native-performance
+evidence.
+
 ## Quick Start
 
-Normal conversion:
+Recommended product-path command form:
+
+```bash
+./_build/native/debug/build/cli/cli.exe normal <input> [output]
+```
+
+Development fallback:
 
 ```bash
 moon run cli -- normal <input> [output]
@@ -146,6 +167,7 @@ Notes:
   path; it is not the repository's default support contract
 * `batch` is non-recursive in v1; it scans only the top-level files in
   `<input_dir>`
+* `batch` is serial in v1; it does not yet run files in parallel
 * stdout mode only prints Markdown; it does not write sidecar files
 * if `[output]` looks like a directory, the tool writes `<output>/<input_stem>.md`
 * `--with-metadata` writes `<markdown_dir>/metadata/<stem>.metadata.json`
@@ -200,6 +222,8 @@ Useful commands:
 ./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
+./samples/scripts/check_cli_contract.sh
+./samples/scripts/check_batch_contract.sh
 ```
 
 Internal smoke benchmark:

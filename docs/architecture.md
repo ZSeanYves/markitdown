@@ -20,10 +20,21 @@ separate enough that behavior stays explainable and regression-verifiable.
 
 * subcommand parsing
 * output path coordination
-* `--with-metadata`
+* explicit `--with-metadata` sidecar gating
 * debug/ocr mode selection
+* batch-v1 per-document output-root coordination
 
 It does not implement format-specific parsing or recovery.
+
+Current CLI contract:
+
+* `normal` default emits Markdown plus necessary assets only
+* `normal --with-metadata` additionally emits
+  `<markdown_dir>/metadata/<stem>.metadata.json`
+* stdout mode is Markdown-only and should not create sidecar or `out/`
+  directories
+* `batch` is non-recursive, serial v1, and writes one isolated document root
+  per top-level input file plus `batch-summary.tsv`
 
 ### Dispatcher
 

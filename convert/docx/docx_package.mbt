@@ -65,6 +65,9 @@ fn DocxPackage::extract_media_by_relationships(
   asset_by_target : Map[String, String],
   out_dir : String,
 ) -> Unit raise @fs.IOError {
+  if out_dir.trim() == "" {
+    return
+  }
   if !@fs.path_exists(out_dir) {
     @fs.create_dir(out_dir)
   }
@@ -157,7 +160,11 @@ fn DocxPackage::load_header_footer_bundle(
   let headers : Array[DocxHeaderFooterPart] = []
   let footers : Array[DocxHeaderFooterPart] = []
   let next_idx : Ref[Int] = {
-    val: build_docx_asset_path_map(doc_rels, out_root).length(),
+    val: if out_root.trim() == "" {
+      0
+    } else {
+      build_docx_asset_path_map(doc_rels, out_root).length()
+    },
   }
 
   for part_ref in refs {
@@ -172,15 +179,19 @@ fn DocxPackage::load_header_footer_bundle(
       _ => []
     }
     let rel_ctx = build_docx_relationship_context(rels)
-    let asset_by_target = build_docx_asset_path_map_with_seed(
-      rel_ctx, out_root, next_idx,
-    )
-    p.extract_media_by_relationships(
-      rel_ctx,
-      asset_by_target,
-      out_root + "/assets",
-    ) catch {
-      _ => ()
+    let asset_by_target = if out_root.trim() == "" {
+      Map::new()
+    } else {
+      build_docx_asset_path_map_with_seed(rel_ctx, out_root, next_idx)
+    }
+    if out_root.trim() != "" {
+      p.extract_media_by_relationships(
+        rel_ctx,
+        asset_by_target,
+        out_root + "/assets",
+      ) catch {
+        _ => ()
+      }
     }
     let rendered = render_docx_part_text_for_header_footer(xml)
     let is_page_number_only = docx_header_footer_is_page_number_only(xml)
@@ -214,7 +225,11 @@ fn DocxPackage::load_text_box_bundle(
   header_footers : DocxHeaderFooterBundle,
 ) -> DocxTextBoxBundle {
   let doc_rels = p.read_document_relationship_context(None)
-  let asset_by_target = build_docx_asset_path_map(doc_rels, out_root)
+  let asset_by_target = if out_root.trim() == "" {
+    Map::new()
+  } else {
+    build_docx_asset_path_map(doc_rels, out_root)
+  }
   let items : Array[DocxTextBox] = []
 
   items.append(
@@ -242,11 +257,15 @@ fn DocxPackage::load_text_box_bundle(
       _ => []
     }
     let rel_ctx = build_docx_relationship_context(rels)
-    let part_asset_by_target = build_docx_asset_path_map_with_seed(
-      rel_ctx,
-      out_root,
-      { val: asset_by_target.length() + items.length() + 1000 },
-    )
+    let part_asset_by_target = if out_root.trim() == "" {
+      Map::new()
+    } else {
+      build_docx_asset_path_map_with_seed(
+        rel_ctx,
+        out_root,
+        { val: asset_by_target.length() + items.length() + 1000 },
+      )
+    }
     items.append(
       collect_docx_text_boxes_from_xml(
         xml,
@@ -273,11 +292,15 @@ fn DocxPackage::load_text_box_bundle(
       _ => []
     }
     let rel_ctx = build_docx_relationship_context(rels)
-    let part_asset_by_target = build_docx_asset_path_map_with_seed(
-      rel_ctx,
-      out_root,
-      { val: asset_by_target.length() + items.length() + 2000 },
-    )
+    let part_asset_by_target = if out_root.trim() == "" {
+      Map::new()
+    } else {
+      build_docx_asset_path_map_with_seed(
+        rel_ctx,
+        out_root,
+        { val: asset_by_target.length() + items.length() + 2000 },
+      )
+    }
     items.append(
       collect_docx_text_boxes_from_xml(
         xml,

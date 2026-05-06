@@ -63,21 +63,24 @@ async fn convert_once(
   let yaml_profile_report : Ref[@yaml.YamlProfileReport?] = { val: None }
   let zip_profile_report : Ref[@zipconv.ZipProfileReport?] = { val: None }
 
-  let out_root = match out_dir {
-    Some(d) => d
+  let output_root_opt = match out_dir {
+    Some(d) => Some(d)
     None =>
       match resolved_output {
-        Some(p) => dirname_of_path(p)
-        None => "out"
+        Some(p) => Some(dirname_of_path(p))
+        None => None
       }
   }
+  let parse_out_dir = output_root_opt.unwrap_or("")
 
-  ensure_dir_tree(out_root) catch {
-    e => return Err(e.to_string())
+  if output_root_opt is Some(out_root) {
+    ensure_dir_tree(out_root) catch {
+      e => return Err(e.to_string())
+    }
   }
 
   let opts : @conv.ConvertOptions = {
-    out_dir: Some(out_root),
+    out_dir: output_root_opt,
     max_heading: Some(max_heading),
     pdf_enhance_mode: pdf_mode,
     pdf_extract_debug,
@@ -87,7 +90,7 @@ async fn convert_once(
 
   let parse_started = @env.now()
   let doc = if xlsx_profile_enabled {
-    let profiled = @xlsx.parse_xlsx_with_profile(input, out_root, max_heading) catch {
+    let profiled = @xlsx.parse_xlsx_with_profile(input, parse_out_dir, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -99,9 +102,9 @@ async fn convert_once(
   } else if csv_profile_enabled {
     let profiled = try {
       if format == "tsv" {
-        @csv.parse_tsv_with_profile(input, out_root, max_heading)
+        @csv.parse_tsv_with_profile(input, parse_out_dir, max_heading)
       } else {
-        @csv.parse_csv_with_profile(input, out_root, max_heading)
+        @csv.parse_csv_with_profile(input, parse_out_dir, max_heading)
       }
     } catch {
       e => return Err("parse failed: " + e.to_string())
@@ -113,7 +116,7 @@ async fn convert_once(
       }
     }
   } else if json_profile_enabled {
-    let profiled = @json.parse_json_with_profile(input, out_root, max_heading) catch {
+    let profiled = @json.parse_json_with_profile(input, parse_out_dir, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -123,7 +126,7 @@ async fn convert_once(
       }
     }
   } else if txt_profile_enabled {
-    let profiled = @txt.parse_txt_with_profile(input, out_root, max_heading) catch {
+    let profiled = @txt.parse_txt_with_profile(input, parse_out_dir, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -133,7 +136,7 @@ async fn convert_once(
       }
     }
   } else if yaml_profile_enabled {
-    let profiled = @yaml.parse_yaml_with_profile(input, out_root, max_heading) catch {
+    let profiled = @yaml.parse_yaml_with_profile(input, parse_out_dir, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -143,7 +146,7 @@ async fn convert_once(
       }
     }
   } else if zip_profile_enabled {
-    let profiled = @zipconv.parse_zip_with_profile(input, out_root, max_heading) catch {
+    let profiled = @zipconv.parse_zip_with_profile(input, parse_out_dir, max_heading) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {

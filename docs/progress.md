@@ -30,16 +30,21 @@ state:
   sidecars, and assets
 * `./samples/check_metadata.sh` now explicitly exercises `--with-metadata` and
   validates the core sidecar contract
+* repository-level CLI contract checks now explicitly verify that metadata
+  sidecars are opt-in, stdout is side-effect-free, and batch/no-batch metadata
+  behavior stays aligned with the documented product contract
 * benchmark harnesses for smoke, overlap comparison, batch profiling, and
   warnings are in place
 * benchmark governance now distinguishes runner class, execution path,
   overlap-only comparison, and not-comparable cases more explicitly
 * the first checked-in quality comparison seed records now exist for selected
   DOCX / PPTX / XLSX / HTML / CSV / Markdown / TXT / PDF overlap samples
-* the first second-round format excellence sprint has started with XLSX, with
-  formula/merged/type/sheet-state policy now backed by additional samples,
-  sidecar hints, and the first lightweight formula-evaluation-v1 pass for
-  missing-cache formulas
+* the first second-round format excellence sprint is now sealed at
+  `XLSX H2++ complete`, with `H3++` performance evidence backed on the
+  checked-in native overlap corpus
+* XLSX formula/merged/type/sheet-state policy is now backed by additional
+  samples, sidecar hints, lightweight formula-evaluation-v1 coverage, and
+  checked-in metadata policy fixtures
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story
@@ -78,7 +83,8 @@ moon test
 ```
 
 `./samples/check.sh` aggregates integrity, main output, metadata-sidecar, and
-asset checks; metadata validation is no longer just a Markdown smoke path.
+asset checks; metadata validation is no longer just a Markdown smoke path, and
+CLI/batch contract checks now guard output-path behavior explicitly.
 
 Useful benchmark and warning commands remain:
 

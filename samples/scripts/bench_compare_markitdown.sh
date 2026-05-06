@@ -2,6 +2,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/samples/scripts/tmp_helpers.sh"
+source "$ROOT/samples/scripts/validation_helpers.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 COMPARE_ROOT="$TMP_ROOT/bench/compare"
 CORPUS_PATH="$ROOT/samples/benchmark/compare_corpus.tsv"
@@ -21,7 +23,6 @@ MARKITDOWN_COMPARE_CMD="${MARKITDOWN_COMPARE_CMD:-}"
 MARKITDOWN_MB_CMD="${MARKITDOWN_MB_CMD:-}"
 MB_VERSION=""
 MB_RUNNER_KIND="unknown"
-MB_PREBUILT_CLI="$ROOT/_build/native/debug/build/cli/cli.exe"
 PYTHON_VERSION="unknown"
 
 json_escape() {
@@ -295,31 +296,21 @@ resolve_mb_runner() {
     return
   fi
 
-  if [[ -x "$MB_PREBUILT_CLI" ]]; then
-    MB_COMPARE_CMD=("$MB_PREBUILT_CLI" "normal")
-    MB_RUNNER_KIND="prebuilt-native"
-    return
+  if ! resolve_markitdown_cli; then
+    echo "failed to resolve markitdown runner" >&2
+    exit 1
   fi
 
-  MB_COMPARE_CMD=("moon" "run" "$ROOT/cli" "--" "normal")
-  MB_RUNNER_KIND="moon-run"
+  MB_RUNNER_KIND="$CLI_RUNNER_KIND"
+  if [[ -n "${CLI_BIN:-}" ]]; then
+    MB_COMPARE_CMD=("$CLI_BIN" "normal")
+  else
+    MB_COMPARE_CMD=("moon" "run" "$ROOT/cli" "--" "normal")
+  fi
 }
 
 mb_runner_class() {
-  case "${1-}" in
-    prebuilt-native)
-      printf 'native-binary'
-      ;;
-    moon-run)
-      printf 'moon-run-fallback'
-      ;;
-    override)
-      printf 'user-override'
-      ;;
-    *)
-      printf 'unknown'
-      ;;
-  esac
+  runner_class_for_kind "$1"
 }
 
 python_runner_class() {
@@ -578,6 +569,9 @@ echo "==> warmup: $WARMUP"
 echo "==> corpus: $CORPUS_PATH"
 echo "==> mb runner: ${MB_COMPARE_CMD[*]}"
 echo "==> mb runner kind: $MB_RUNNER_KIND"
+if [[ -n "${CLI_RUNNER_NOTE:-}" && -z "$MARKITDOWN_MB_CMD" ]]; then
+  echo "==> mb runner note: $CLI_RUNNER_NOTE"
+fi
 echo "==> python runner: ${PY_COMPARE_CMD[*]}"
 echo "==> python version: $PYTHON_VERSION"
 

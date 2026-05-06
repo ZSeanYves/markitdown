@@ -5,6 +5,24 @@ It focuses on workflow, validation, and format-onboarding practice.
 
 ## CLI Entry Points
 
+Recommended product-path build:
+
+```bash
+moon build --target native
+```
+
+Recommended product-path invocation:
+
+```bash
+./_build/native/debug/build/cli/cli.exe normal <input> [output]
+```
+
+Development fallback remains:
+
+```bash
+moon run cli -- normal <input> [output]
+```
+
 Normal conversion:
 
 ```bash
@@ -104,7 +122,8 @@ Validation runner policy:
 * set `MARKITDOWN_CLI=/abs/path/to/cli` to force a specific native/prebuilt CLI
 * explicit native override is useful for speed, but only when the caller knows
   the binary matches the current source state
-* `moon run` is slower because it includes MoonBit wrapper overhead
+* `moon run` is slower because it includes MoonBit wrapper overhead and should
+  not be used as the H3++ native-performance proof point
 
 Vendored PDF e2e policy:
 
@@ -143,6 +162,8 @@ moon test
 ./samples/check_main_process.sh
 ./samples/check_metadata.sh
 ./samples/check_assets.sh
+./samples/scripts/check_cli_contract.sh
+./samples/scripts/check_batch_contract.sh
 ./samples/scripts/check_samples.sh
 ```
 
