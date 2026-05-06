@@ -88,6 +88,10 @@ quality review concrete, but it is not the final parity conclusion.
 | ------ | ------ | ------------- | ------- | ----- |
 | DOCX | [golden.docx](./docx-golden-structure.md) | headings, paragraphs, image, table | `close` | both retain the main structure; image/table policy differs |
 | DOCX | [docx_table_multiline_cell.docx](./docx-table-multiline-cell.md) | table header and multiline cell | `win` | `markitdown-mb` keeps explicit header row and `<br>` cell split |
+| DOCX | [docx_list_links_linebreaks.docx](./docx-list-link-style.md) | mixed list structure, hyperlink retention, line-break policy | `close` | both keep the useful list/link shape; `markitdown-mb` keeps the explicit `<br>` |
+| DOCX | [docx_footnotes_endnotes_comments.docx](./docx-notes-comments.md) | notes/comments retention and ordering | `win` | `markitdown-mb` keeps explicit note/comment append sections and author signal |
+| DOCX | [docx_image_alt_title.docx](./docx-image-assets.md) | local image asset behavior, alt/title preservation | `win` | `markitdown-mb` materializes local assets and keeps the title line |
+| DOCX | [docx_textbox_body_and_table.docx](./docx-header-footer-textbox.md) | textbox extraction policy | `close` | both preserve useful text, but use different downgrade policies |
 | PPTX | [pptx_title_bullets.pptx](./pptx-title-bullets.md) | slide order, heading, bullets | `win` | `markitdown-mb` keeps bullet structure; Microsoft MarkItDown flattens it |
 | XLSX | [xlsx_multi_sheet_mixed.xlsx](./xlsx-multisheet-table.md) | multi-sheet tables and typed cells | `win` | `markitdown-mb` keeps cleaner sheet sections and fewer placeholder cells |
 | XLSX | [xlsx_formula_cached_values.xlsx](./xlsx-formula-cached-values.md) | cached formulas and missing-cache degradation | `win` | `markitdown-mb` avoids `NaN` for missing cache and keeps cached error text |

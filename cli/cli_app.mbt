@@ -90,7 +90,9 @@ async fn convert_once(
 
   let parse_started = @env.now()
   let doc = if xlsx_profile_enabled {
-    let profiled = @xlsx.parse_xlsx_with_profile(input, parse_out_dir, max_heading) catch {
+    let profiled = @xlsx.parse_xlsx_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -116,7 +118,9 @@ async fn convert_once(
       }
     }
   } else if json_profile_enabled {
-    let profiled = @json.parse_json_with_profile(input, parse_out_dir, max_heading) catch {
+    let profiled = @json.parse_json_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -126,7 +130,9 @@ async fn convert_once(
       }
     }
   } else if txt_profile_enabled {
-    let profiled = @txt.parse_txt_with_profile(input, parse_out_dir, max_heading) catch {
+    let profiled = @txt.parse_txt_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -136,7 +142,9 @@ async fn convert_once(
       }
     }
   } else if yaml_profile_enabled {
-    let profiled = @yaml.parse_yaml_with_profile(input, parse_out_dir, max_heading) catch {
+    let profiled = @yaml.parse_yaml_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -146,7 +154,9 @@ async fn convert_once(
       }
     }
   } else if zip_profile_enabled {
-    let profiled = @zipconv.parse_zip_with_profile(input, parse_out_dir, max_heading) catch {
+    let profiled = @zipconv.parse_zip_with_profile(
+      input, parse_out_dir, max_heading,
+    ) catch {
       e => return Err("parse failed: " + e.to_string())
     }
     match profiled {
@@ -1281,7 +1291,10 @@ fn read_epub_document_properties(
   )
   Some(
     @cor.metadata_document_properties_with_extras(
-      props, meta.language, meta.identifier, meta.publisher,
+      props,
+      meta.language,
+      meta.identifier,
+      meta.publisher,
     ),
   )
 }

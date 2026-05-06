@@ -1211,7 +1211,11 @@ fn scan_docx_inline_text(
 /// - 按 <w:p> 分段
 /// - 每个段落内部仍用 collect_wt_text
 /// - 多段落之间用 '\n' 连接
-fn collect_tc_text(tc_inner : String) -> String {
+fn collect_tc_text_with_relationships(
+  tc_inner : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+) -> String {
   let stripped_inner = strip_docx_text_box_content_xml(tc_inner)
   let chars = stripped_inner.to_array()
   let mut i = 0
@@ -1233,7 +1237,10 @@ fn collect_tc_text(tc_inner : String) -> String {
       break
     }
 
-    let text = @cor.trim_string(text_from_docx_range(chars, p2 + 1, p3))
+    let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
+    let text = @cor.trim_string(
+      collect_tc_paragraph_text(p_xml, rel_ctx, asset_by_target),
+    )
     if !@cor.is_blank(text) {
       parts.push(text)
     }
@@ -1246,6 +1253,52 @@ fn collect_tc_text(tc_inner : String) -> String {
   } else {
     parts.join("\n")
   }
+}
+
+///|
+fn collect_tc_paragraph_text(
+  p_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+) -> String {
+  let scan = scan_docx_inline_text(p_xml, rel_ctx, None)
+  let inline_text = render_docx_inline_markdown(scan.inlines, scan.text)
+  match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
+    Some(img) =>
+      match normalize_optional_docx_image_attr(img.alt_text) {
+        Some(alt) =>
+          if inline_text == "" {
+            alt
+          } else if inline_text.contains(alt) {
+            inline_text
+          } else {
+            inline_text + " " + alt
+          }
+        None => inline_text
+      }
+    None => inline_text
+  }
+}
+
+///|
+fn render_docx_inline_markdown(
+  inlines : Array[@cor.Inline],
+  fallback_text : String,
+) -> String {
+  if inlines.length() == 0 {
+    return @cor.trim_string(fallback_text)
+  }
+
+  let out = StringBuilder::new()
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Text(text) => out.write_string(text)
+      @cor.Inline::Break => out.write_string("\n")
+      @cor.Inline::Link(text, href) =>
+        out.write_string("[" + text + "](" + href + ")")
+    }
+  }
+  @cor.trim_string(out.to_string())
 }
 
 ///|

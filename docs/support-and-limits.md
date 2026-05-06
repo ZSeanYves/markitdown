@@ -106,6 +106,11 @@ Across the current implementation:
 
 ### DOCX
 
+Status:
+
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native overlap corpus`
+
 Supported:
 
 * headings
@@ -114,6 +119,10 @@ Supported:
 * block quotes
 * code-like paragraphs
 * hyperlinks in paragraph / heading / list contexts
+* multi-run hyperlinks
+* footnotes / endnotes / comments
+* headers / footers
+* text boxes, including table-contained text boxes
 * exported images through unified `ImageBlock`
 
 Conservative behavior:
@@ -126,20 +135,30 @@ Conservative behavior:
   sidecar path
 * DOCX tables now carry explicit `RichTable` / `header_rows` metadata while
   keeping current Markdown table output stable
+* DOCX table cells now preserve conservative Markdown-link text and image
+  alt-text labels where the lower layer has the necessary OOXML signal
 * headers/footers now use conservative append sections with de-duplication and
   page-number-only noise skipping
 * `w:txbxContent` text boxes now use a conservative final `Text Boxes` append
   section instead of visual anchor reconstruction
+* merged table cells currently follow a visible-content policy rather than full
+  visual merge reconstruction
+* footnotes/endnotes/comments use explicit append-section ordering rather than
+  inline Word review semantics
 * deleted / moved-from revision markup is skipped while inserted / moved-to
   visible text is preserved conservatively
 
 Known limits:
 
+* not a Word layout engine
+* no macro / VBA handling
 * no run-level bold / italic / code-span preservation yet
 * no internal bookmark / anchor hyperlink promotion
 * footnotes/endnotes/comments currently use conservative append-section output
   rather than richer inline semantics
 * no tracked-changes UI / richer review semantics
+* no floating-object or complex DrawingML visual reconstruction
+* no full style rendering
 * no table cell provenance or merged/nested visual table reconstruction
 
 ### PPTX

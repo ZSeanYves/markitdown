@@ -392,7 +392,10 @@ fn read_epub_metadata_document_properties(
   )
   Some(
     @cor.metadata_document_properties_with_extras(
-      props, meta.language, meta.identifier, meta.publisher,
+      props,
+      meta.language,
+      meta.identifier,
+      meta.publisher,
     ),
   )
 }
@@ -1927,7 +1930,8 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
             }
             match hints.merged_ranges {
               Some(ranges) => assert_eq(ranges, ["B3:C4"])
-              None => fail("xlsx metadata policy sample should expose merged ranges")
+              None =>
+                fail("xlsx metadata policy sample should expose merged ranges")
             }
             match hints.formula_cells {
               Some(cells) => {

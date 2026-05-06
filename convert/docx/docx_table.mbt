@@ -232,6 +232,19 @@ fn read_heading_level(
 
 ///|
 fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
+  scan_table_block_with_context(
+    tbl_xml,
+    empty_docx_relationship_context(),
+    Map::new(),
+  )
+}
+
+///|
+fn scan_table_block_with_context(
+  tbl_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+) -> Array[Array[String]] {
   let chars = strip_docx_deleted_revision_xml(tbl_xml).to_array()
   let mut i = 0
   let rows : Array[Array[String]] = []
@@ -279,7 +292,9 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
       let tc_inner = profiled_slice_to_string(tr_chars, tc2 + 1, tc3)
 
       // 只从 tc_inner 里抽 w:t
-      let cell_text = collect_tc_text(tc_inner)
+      let cell_text = collect_tc_text_with_relationships(
+        tc_inner, rel_ctx, asset_by_target,
+      )
       //println("[DBG] cell_text=" + cell_text)
       //println("[DBG] cell_len=" + cell_text.length().to_string())
 

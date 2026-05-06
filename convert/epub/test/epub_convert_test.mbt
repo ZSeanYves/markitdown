@@ -191,8 +191,7 @@ test "epub convert missing manifest spine item emits warning and continues" {
   let markdown = @cor.emit_markdown(doc)
   assert_contains(markdown, "# (missing manifest item #0: missing)")
   assert_contains(
-    markdown,
-    "> Skipped: spine item references missing manifest item: missing",
+    markdown, "> Skipped: spine item references missing manifest item: missing",
   )
   assert_contains(markdown, "# OPS/chapter.xhtml")
   assert_contains(markdown, "Valid chapter after missing manifest item.")
@@ -374,7 +373,9 @@ test "epub convert uses guide cover image fallback" {
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
-  assert_contains(markdown, "![cover.jpg](assets/archive/OPS_images_cover.jpg/image01.jpg)")
+  assert_contains(
+    markdown, "![cover.jpg](assets/archive/OPS_images_cover.jpg/image01.jpg)",
+  )
   assert_contains(markdown, "# OPS/chapter.xhtml")
   if !doc.asset_origins.val.contains(
       "assets/archive/OPS_images_cover.jpg/image01.jpg",

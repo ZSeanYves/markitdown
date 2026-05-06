@@ -71,7 +71,7 @@ Coverage summary by format:
 
 | Format | Small | Medium | Large | Batch | Assets-heavy | Metadata on/off | Degrade/error | Compare overlap | Current gap note |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | yes | yes | yes | partial via batch-profile defaults | yes | yes | weak | yes | no explicit degrade/error benchmark row yet |
+| DOCX | yes | yes | yes | partial via batch-profile defaults | yes | yes | yes | yes | overlap corpus is meaningful on selected local DOCX samples, not a blanket Word-performance claim |
 | PPTX | yes | yes | yes | no current batch-profile default | yes | yes | weak | yes | no metadata-rich compare row; no degrade/error benchmark row |
 | XLSX | yes | yes | yes | partial via batch-profile defaults | no | yes | yes | yes | no assets-heavy row; formula cached/eval/unsupported/merged/typed rows now checked in |
 | PDF | scenario-based, not strict size labels | scenario-based | scenario-based | partial via batch-profile defaults | yes | metadata gap in Tier 1 | yes | yes | no checked-in metadata-on benchmark row; no scanned/OCR corpus in default suite |

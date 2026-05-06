@@ -43,16 +43,18 @@ pub fn open_epub_package(
   )
   let nav_points = match nav_item {
     Some(item) =>
-      (if manifest_item_is_ncx(item) {
-        parse_ncx_nav_points(
-          read_required_xml_part(archive, entry_index, item.resolved_path),
-          item.resolved_path,
-        )
-      } else {
-        parse_nav_points(
-          read_required_xml_part(archive, entry_index, item.resolved_path),
-        )
-      }) catch {
+      try {
+        if manifest_item_is_ncx(item) {
+          parse_ncx_nav_points(
+            read_required_xml_part(archive, entry_index, item.resolved_path),
+            item.resolved_path,
+          )
+        } else {
+          parse_nav_points(
+            read_required_xml_part(archive, entry_index, item.resolved_path),
+          )
+        }
+      } catch {
         _ => []
       }
     None => []
@@ -497,12 +499,15 @@ fn parse_ncx_nav_points_from_elements(
     }
 
     let child_nav_points = collect_direct_child_elements(
-      inner_element_content(nav_point_xml, "navPoint"), "navPoint",
+      inner_element_content(nav_point_xml, "navPoint"),
+      "navPoint",
     )
     if child_nav_points.length() > 0 {
       out.append(
         parse_ncx_nav_points_from_elements(
-          child_nav_points, source_path, depth + 1,
+          child_nav_points,
+          source_path,
+          depth + 1,
         ),
       )
     }

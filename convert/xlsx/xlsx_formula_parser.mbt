@@ -29,7 +29,9 @@ priv struct XlsxFormulaParser {
 }
 
 ///|
-fn parse_xlsx_formula_text(formula_text : String) -> Result[XlsxFormulaAst, String] {
+fn parse_xlsx_formula_text(
+  formula_text : String,
+) -> Result[XlsxFormulaAst, String] {
   let trimmed = formula_text.trim().to_owned()
   if trimmed == "" {
     return Err("empty formula")
@@ -58,7 +60,9 @@ fn parse_xlsx_formula_text(formula_text : String) -> Result[XlsxFormulaAst, Stri
 }
 
 ///|
-fn XlsxFormulaParser::parse_expr(self : XlsxFormulaParser) -> Result[XlsxFormulaAst, String] {
+fn XlsxFormulaParser::parse_expr(
+  self : XlsxFormulaParser,
+) -> Result[XlsxFormulaAst, String] {
   self.parse_comparison()
 }
 
@@ -261,14 +265,7 @@ fn XlsxFormulaParser::parse_primary(
               XlsxFormulaToken::CellRef(label2, row2, col2) => {
                 self.pos = self.pos + 1
                 Ok(
-                  XlsxFormulaAst::RangeRef(
-                    label,
-                    label2,
-                    row,
-                    col,
-                    row2,
-                    col2,
-                  ),
+                  XlsxFormulaAst::RangeRef(label, label2, row, col, row2, col2),
                 )
               }
               _ => Err("range right-hand side must be a same-sheet cell ref")
@@ -359,7 +356,9 @@ fn XlsxFormulaParser::parse_function_call(
 }
 
 ///|
-fn tokenize_xlsx_formula(text : String) -> Result[Array[XlsxFormulaToken], String] {
+fn tokenize_xlsx_formula(
+  text : String,
+) -> Result[Array[XlsxFormulaToken], String] {
   let chars = text.to_array()
   let tokens : Array[XlsxFormulaToken] = []
   let mut i = 0
@@ -651,4 +650,3 @@ fn formula_cell_ref_to_rc(r : String) -> (Int, Int) {
 
   (row, col)
 }
-

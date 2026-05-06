@@ -32,10 +32,10 @@ test "xlsx formula parser supports arithmetic precedence and ranges" {
         XlsxFormulaAst::Binary(
           "+",
           XlsxFormulaAst::CellRef("A1", 1, 1),
-          XlsxFormulaAst::CellRef("B2", 2, 2),
+          XlsxFormulaAst::CellRef("B2", 2, 2)
         ),
-        XlsxFormulaAst::Number(v),
-      ),
+        XlsxFormulaAst::Number(v)
+      )
     ) => assert_eq(format_formula_number(v), "2")
     _ => fail("expected arithmetic AST shape")
   }
@@ -45,10 +45,8 @@ test "xlsx formula parser supports arithmetic precedence and ranges" {
     Ok(
       XlsxFormulaAst::FunctionCall(
         "SUM",
-        [
-          XlsxFormulaAst::RangeRef("$A$1", "$C$3", 1, 1, 3, 3),
-        ],
-      ),
+        [XlsxFormulaAst::RangeRef("$A$1", "$C$3", 1, 1, 3, 3)]
+      )
     ) => ()
     _ => fail("expected range AST shape")
   }
@@ -67,7 +65,13 @@ test "xlsx formula evaluator computes missing-cache arithmetic" {
   let cells = [
     formula_cell("A1", "1", XlsxCellSemanticType::Number, None, Some("1")),
     formula_cell("B1", "2", XlsxCellSemanticType::Number, None, Some("2")),
-    formula_cell("C1", "", XlsxCellSemanticType::FormulaMissingCache, Some("A1+B1"), None),
+    formula_cell(
+      "C1",
+      "",
+      XlsxCellSemanticType::FormulaMissingCache,
+      Some("A1+B1"),
+      None,
+    ),
   ]
   let trace = evaluate_missing_cache_formula("Sheet1", cells[2], cells)
   match trace {
@@ -162,7 +166,12 @@ test "xlsx formula evaluator marks unsupported and error cases" {
       None,
     ),
   ]
-  match evaluate_missing_cache_formula("Sheet1", unsupported_cells[0], unsupported_cells) {
+  match
+    evaluate_missing_cache_formula(
+      "Sheet1",
+      unsupported_cells[0],
+      unsupported_cells,
+    ) {
     Some(info) => {
       if info.policy != XlsxFormulaPolicy::UnsupportedFormula {
         fail("expected UnsupportedFormula policy")
@@ -188,13 +197,19 @@ test "xlsx formula evaluator marks unsupported and error cases" {
       None,
     ),
   ]
-  match evaluate_missing_cache_formula("Sheet1", range_scalar_cells[4], range_scalar_cells) {
+  match
+    evaluate_missing_cache_formula(
+      "Sheet1",
+      range_scalar_cells[4],
+      range_scalar_cells,
+    ) {
     Some(info) => {
       if info.policy != XlsxFormulaPolicy::UnsupportedFormula {
         fail("expected UnsupportedFormula policy for range scalar coercion")
       }
       match info.unsupported_reason {
-        Some(reason) => assert_true(reason.contains("range scalar coercion unsupported"))
+        Some(reason) =>
+          assert_true(reason.contains("range scalar coercion unsupported"))
         None => fail("expected range scalar coercion reason")
       }
     }
@@ -234,7 +249,12 @@ test "xlsx formula evaluator detects missing references and circular references"
       None,
     ),
   ]
-  match evaluate_missing_cache_formula("Sheet1", missing_ref_cells[0], missing_ref_cells) {
+  match
+    evaluate_missing_cache_formula(
+      "Sheet1",
+      missing_ref_cells[0],
+      missing_ref_cells,
+    ) {
     Some(info) => {
       if info.policy != XlsxFormulaPolicy::FormulaError {
         fail("expected FormulaError policy for missing ref")
@@ -263,7 +283,8 @@ test "xlsx formula evaluator detects missing references and circular references"
       None,
     ),
   ]
-  match evaluate_missing_cache_formula("Sheet1", circular_cells[0], circular_cells) {
+  match
+    evaluate_missing_cache_formula("Sheet1", circular_cells[0], circular_cells) {
     Some(info) => {
       if info.policy != XlsxFormulaPolicy::FormulaError {
         fail("expected FormulaError policy for circular reference")

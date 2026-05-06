@@ -464,7 +464,7 @@ status" when sample/benchmark/support evidence is thin.
 
 | Format | Maturity | Parser/core entry | Converter entry | Regression coverage | Benchmark coverage | Supported structures | Weak / unsupported structures | Stable degrade strategy | Metadata / origin | Assets | MS MarkItDown overlap | Quality shortboard | Performance risk | Priority | Next step |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | H2 | `doc_parse/ooxml`, `convert/docx/*` | `parse_docx` | strong main + metadata + assets + tests | smoke + compare + extended | headings, lists, tables, links, notes, headers/footers, text boxes, images | run styles, tracked changes UI, merged table fidelity, internal anchors | append sections, text fallback, conservative extraction | good coarse OOXML origin | yes | high | inline semantics and richer table/textbox provenance | medium | P2 | OOXML numbering/styles/comments/table origin hardening |
+| DOCX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | `doc_parse/ooxml`, `convert/docx/*` | `parse_docx` | strong second-round main + metadata + assets + tests | smoke + batch profile + metadata-on rows + compare | headings, style-linked headings, lists, tables, links, notes, headers/footers, text boxes, images, docProps | run styles beyond the checked-in subset, tracked changes UI, internal anchors, full visual table/layout fidelity | append sections, conservative merged-cell policy, text fallback | good coarse OOXML origin plus relationship/source-path evidence | yes | high | layout-engine non-goals remain explicit, but checked-in evidence now covers the mainstream document contract | medium | sealed | keep future work optional: richer inline style model, anchor promotion, stronger table provenance |
 | PPTX | H2 | `doc_parse/ooxml`, `convert/pptx/*` | `parse_pptx` | very strong main + metadata + assets + tests | smoke + compare + extended | slide order, text, bullets, notes, hidden slides, explicit tables, images, hyperlinks | charts, SmartArt, OLE, action links, merged tables, full z-order | readable downgrade + warning-like omissions | good slide/image origin | yes | medium-high | layout grouping and table-like heuristics still shallow | medium | P2 | layout/table model refinement and richer shape provenance |
 | XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended + overlap compare | multi-sheet, shared strings, datetime, sparse trim, cached formulas, lightweight missing-cache formula eval v1, rich table, typed-cell/table hints | full Excel formula compatibility, merged reconstruction, comments/charts/images | top-left merged policy, cached-first formula policy, unsupported formula fail-closed policy | good sheet/row/col origin plus table hints | no | medium-high | formula/merged/state policy now evidenced, but no full formula engine or visual merge model | medium-high on large sheets | sealed | keep future work strictly optional: cross-sheet/lookup/array/dynamic formulas, charts/pivots/comments/images, full RSS benchmarking |
 | PDF | H2 partial | `doc_parse/pdf/*`, `vendor/mbtpdf` | `parse_pdf` | strong main + metadata/assets + tests | smoke + compare + batch profile + extended | text PDF, page blocks, headings, noise cleanup, merge, simple tables, URI links, images, captions | complex tables, outlines, internal links, OCR-default, complex layout | omit ambiguous structure, optional OCR path | moderate page/image/object origin | yes | medium | lower-layer signal still limits quality more than converter logic | medium | P2 | pdf_core signal enrichment before more heuristics |
@@ -505,6 +505,7 @@ Stable support today includes:
 * text boxes including table-contained text boxes
 * OOXML document properties in sidecar
 * image asset export with relationship/source-path metadata
+* table-cell hyperlink and image-alt retention on the default local path
 
 #### B. Current Boundaries and Non-goals
 
@@ -527,34 +528,54 @@ Explicit non-goal for this round:
 
 Main substrate gaps:
 
-* OOXML numbering and style semantics are still conservative, not full-featured
-* relationship/object identity is useful but not rich enough for every inline
-  object/textbox case
-* no stronger document-part origin model for headers/footers/comments/notes
-* no cell-level table provenance or merged-cell model
+* OOXML numbering and style semantics remain conservative rather than
+  Word-complete
+* relationship/object identity is useful but not yet a full inline-object model
+* no stronger document-part origin model for every header/footer/comment/note
+  scenario
+* no cell-level table provenance or visual merged-cell model
 
 #### D. H2 Quality Parity Tasks
 
-Needed samples and work:
+This second-round sprint is now sealed for the checked-in DOCX contract.
 
-* hyperlinks combined with formatting and multi-run boundaries
-* numbering/style-linked list edge cases
-* mixed table/textbox/image documents
-* comments/notes ordering with interleaving body anchors
-* headers/footers with section changes
+Checked-in evidence now covers:
+
+* nested/style-linked list behavior
+* multi-run hyperlinks and hyperlink spacing
+* multiline and merged-boundary tables
+* notes/comments ordering
+* headers/footers/text boxes
+* local image asset behavior
+* OOXML docProps-rich sidecars
+
+Checked-in DOCX quality records now include:
+
+* `docx-golden-structure`: `close`
+* `docx-table-multiline-cell`: `win`
+* `docx-list-link-style`: `close`
+* `docx-notes-comments`: `win`
+* `docx-image-assets`: `win`
+* `docx-header-footer-textbox`: `close`
 
 #### E. H3 Performance Tasks
 
-Benchmark design:
+Checked-in DOCX benchmark coverage now includes:
 
-* small: heading/list/link basic docs
-* medium: mixed body/list/table docs
-* large: image-rich and table-rich docs
-* batch: many small docx files and repeated same-shape docs
+* small / medium / large
+* table-heavy
+* link-heavy
+* image-heavy
+* notes/comments-heavy
 * metadata on/off
-* asset-heavy case
-* compare with Python MarkItDown on overlap-only docs
-* memory peak for image/media extraction and numbering/style loading
+* batch profile with DOCX
+* overlap compare against Microsoft MarkItDown on selected local samples
+
+Current H3 conclusion is intentionally narrow:
+
+* `H3++ evidence-backed on checked-in native overlap corpus`
+* overlap conclusions are limited to the checked-in DOCX compare rows
+* no blanket claim about all Word documents or full layout-engine workloads
 
 ### PPTX
 

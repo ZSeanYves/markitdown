@@ -168,7 +168,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let formula_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_cached_values.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_cached_values.xlsx",
+    ),
     "",
     6,
   )
@@ -180,7 +182,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let missing_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_missing_cache.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_missing_cache.xlsx",
+    ),
     "",
     6,
   )
@@ -192,7 +196,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let merged_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_merged_cells_policy.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_merged_cells_policy.xlsx",
+    ),
     "",
     6,
   )
@@ -204,7 +210,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let hidden_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx",
+    ),
     "",
     6,
   )
@@ -216,7 +224,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let typed_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_typed_cells_matrix.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_typed_cells_matrix.xlsx",
+    ),
     "",
     6,
   )
@@ -242,7 +252,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let ranges_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_eval_ranges.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_eval_ranges.xlsx",
+    ),
     "",
     6,
   )
@@ -282,7 +294,9 @@ test "xlsx second-round policy samples stay stable" {
     ),
   )
   let errors_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_eval_errors.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_eval_errors.xlsx",
+    ),
     "",
     6,
   )
@@ -292,7 +306,9 @@ test "xlsx second-round policy samples stay stable" {
 ///|
 test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-state policy" {
   let formula_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_cached_values.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_cached_values.xlsx",
+    ),
     "",
     6,
   )
@@ -338,7 +354,9 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
   }
 
   let merged_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_merged_cells_policy.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_merged_cells_policy.xlsx",
+    ),
     "",
     6,
   )
@@ -347,9 +365,7 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
       match table.hints {
         Some(hints) =>
           match hints.merged_ranges {
-            Some(ranges) => {
-              assert_eq(ranges, ["B2:C2", "B3:C4", "B5:C5"])
-            }
+            Some(ranges) => assert_eq(ranges, ["B2:C2", "B3:C4", "B5:C5"])
             None => fail("merged policy should expose merged_ranges")
           }
         None => fail("merged policy should expose hints")
@@ -358,7 +374,9 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
   }
 
   let hidden_book = @xlsx.inspect_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx",
+    ),
   )
   assert_eq(hidden_book.sheets.length(), 3)
   match hidden_book.sheets[2].state {
@@ -367,7 +385,9 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
   }
 
   let typed_book = @xlsx.inspect_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_typed_cells_matrix.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_typed_cells_matrix.xlsx",
+    ),
   )
   let mut saw_string = false
   let mut saw_boolean = false
@@ -391,7 +411,9 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
 ///|
 test "xlsx metadata hints expose evaluated, unsupported, and error formula policy" {
   let eval_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_eval_if_round_text.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_eval_if_round_text.xlsx",
+    ),
     "",
     6,
   )
@@ -422,7 +444,9 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
   }
 
   let unsupported_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_eval_unsupported.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_eval_unsupported.xlsx",
+    ),
     "",
     6,
   )
@@ -437,11 +461,14 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
                 fail("expected unsupported_formula policy for VLOOKUP")
               }
               match cells[0].unsupported_reason {
-                Some(reason) => assert_true(reason.contains("unsupported function"))
+                Some(reason) =>
+                  assert_true(reason.contains("unsupported function"))
                 None => fail("expected unsupported reason for VLOOKUP")
               }
               if cells[1].policy != Some("unsupported_formula") {
-                fail("expected unsupported_formula policy for cross-sheet formula")
+                fail(
+                  "expected unsupported_formula policy for cross-sheet formula",
+                )
               }
               if cells[3].policy != Some("unsupported_formula") {
                 fail(
@@ -450,8 +477,11 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
               }
               match cells[3].unsupported_reason {
                 Some(reason) =>
-                  assert_true(reason.contains("range scalar coercion unsupported"))
-                None => fail("expected unsupported reason for range scalar coercion")
+                  assert_true(
+                    reason.contains("range scalar coercion unsupported"),
+                  )
+                None =>
+                  fail("expected unsupported reason for range scalar coercion")
               }
             }
             None => fail("expected formula hints on unsupported sample")
@@ -462,7 +492,9 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
   }
 
   let error_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/main_process/xlsx/xlsx_formula_eval_errors.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/xlsx_formula_eval_errors.xlsx",
+    ),
     "",
     6,
   )

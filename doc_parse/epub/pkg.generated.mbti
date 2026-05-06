@@ -44,6 +44,7 @@ pub struct EpubInspectReport {
   spine_count : Int
   nav_path : String?
   cover_path : String?
+  guide_cover_path : String?
   has_encryption : Bool
   metadata : EpubMetadata
   spine_items : Array[EpubInspectSpineItem]
@@ -54,6 +55,7 @@ pub struct EpubInspectSpineItem {
   href : String
   media_type : String?
   linear : Bool
+  spine_index : Int
   action : String
 }
 
@@ -79,6 +81,8 @@ pub struct EpubMetadata {
 pub struct EpubNavPoint {
   label : String
   href : String
+  depth : Int
+  source_path : String?
 }
 
 pub struct EpubPackage {
@@ -94,14 +98,16 @@ pub struct EpubPackage {
   spine : Array[EpubSpineItem]
   nav_item : EpubManifestItem?
   cover_item : EpubManifestItem?
+  guide_cover_path : String?
   nav_points : Array[EpubNavPoint]
 }
 
 pub struct EpubSpineItem {
   idref : String
   linear : Bool
-  manifest_item : EpubManifestItem
-  resolved_path : String
+  spine_index : Int
+  manifest_item : EpubManifestItem?
+  resolved_path : String?
 }
 
 // Type aliases

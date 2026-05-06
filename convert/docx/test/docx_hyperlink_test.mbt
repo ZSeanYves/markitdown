@@ -270,6 +270,53 @@ test "docx list and table samples keep stable markdown while exposing richer IR"
     }
     _ => fail("docx_table_multiline_cell should emit RichTable")
   }
+
+  let image_table_out = docx_test_out_dir("image_in_table")
+  let image_table_doc = @doc.parse_docx(
+    resolve_sample_path("samples/main_process/docx/docx_image_in_table.docx"),
+    image_table_out,
+    6,
+  )
+  match image_table_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 1)
+      assert_eq(table.rows[0][0], "Figure")
+      assert_eq(table.rows[1][0], "Table image")
+      assert_eq(table.rows[1][1], "Image inside table.")
+    }
+    _ => fail("docx_image_in_table should emit RichTable")
+  }
+  assert_true(@fs.is_file(image_table_out + "/assets/image01.jpg"))
+
+  let table_links_out = docx_test_out_dir("table_links_lists")
+  let table_links_doc = @doc.parse_docx(
+    resolve_sample_path("samples/main_process/docx/docx_table_links_lists.docx"),
+    table_links_out,
+    6,
+  )
+  match table_links_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.rows[1][0], "[OpenAI Docs](https://openai.com/docs)")
+      assert_eq(table.rows[2][1], "bullet one\nbullet two")
+    }
+    _ => fail("docx_table_links_lists should emit RichTable")
+  }
+
+  let table_complex_out = docx_test_out_dir("table_multiline_complex_round2")
+  let table_complex_doc = @doc.parse_docx(
+    resolve_sample_path(
+      "samples/main_process/docx/docx_table_multiline_complex.docx",
+    ),
+    table_complex_out,
+    6,
+  )
+  match table_complex_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.rows[1][1], "Line 1\nLine 2")
+      assert_eq(table.rows[2][1], "See [OpenAI](https://openai.com/docs) docs")
+    }
+    _ => fail("docx_table_multiline_complex should emit RichTable")
+  }
 }
 
 ///|

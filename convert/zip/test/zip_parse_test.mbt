@@ -405,7 +405,9 @@ test "zip inspect reports unsafe path failure clearly" {
 ///|
 test "zip inspect reports normalized path collision clearly" {
   let report = @zipconv.inspect_zip(
-    resolve_sample_path("samples/test/zip/zip_normalized_collision_boundary.zip"),
+    resolve_sample_path(
+      "samples/test/zip/zip_normalized_collision_boundary.zip",
+    ),
   ) catch {
     e => fail("inspect_zip failed: " + e.to_string())
   }
@@ -582,7 +584,9 @@ async test "zip parse fails closed on unsafe archive paths" {
   assert_true(duplicate_entries is Err(_))
 
   let normalized_collision = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_normalized_collision_boundary.zip"),
+    resolve_sample_path(
+      "samples/test/zip/zip_normalized_collision_boundary.zip",
+    ),
     out_dir,
     6,
   )

@@ -46,7 +46,9 @@ fn nodes_to_blocks(
       line_end: None,
       row_index: None,
       column_index: None,
-      object_ref: Some("html:" + html_node_origin_kind(node) + ":" + object_counter.to_string()),
+      object_ref: Some(
+        "html:" + html_node_origin_kind(node) + ":" + object_counter.to_string(),
+      ),
       relationship_id: None,
       key_path: Some(html_node_origin_key_path(node, object_counter)),
     })
@@ -77,11 +79,10 @@ fn nodes_to_blocks(
         }
       HtmlNode::ListItem(ordered, level, children) =>
         match list_item_children_to_inlines(children, max_h) {
-          Some(inlines) =>
-            {
-              out.push(@cor.Block::RichListItem(ordered, level, inlines))
-              origins.push(origin)
-            }
+          Some(inlines) => {
+            out.push(@cor.Block::RichListItem(ordered, level, inlines))
+            origins.push(origin)
+          }
           None => {
             out.push(
               @cor.Block::ListItem(
@@ -132,7 +133,11 @@ fn nodes_to_blocks(
     }
   }
 
-  { blocks: out, asset_source_paths: ctx.src_by_asset_path, block_origins: origins }
+  {
+    blocks: out,
+    asset_source_paths: ctx.src_by_asset_path,
+    block_origins: origins,
+  }
 }
 
 ///|
@@ -170,7 +175,9 @@ fn paragraph_inlines_to_blocks(
                 alt_text: normalized_optional_text(alt),
                 title: normalize_optional_html_attr(title),
                 caption: None,
-                origin: Some(new_html_image_origin(ctx.input_dir, src, "inline-img")),
+                origin: Some(
+                  new_html_image_origin(ctx.input_dir, src, "inline-img"),
+                ),
               }),
             )
           None => {
@@ -616,7 +623,9 @@ fn figure_to_image_block(
               alt_text: normalized_optional_text(alt),
               title: normalize_optional_html_attr(title),
               caption: normalized_optional_text(render_inlines(caption)),
-              origin: Some(new_html_image_origin(ctx.input_dir, src, "figure-img")),
+              origin: Some(
+                new_html_image_origin(ctx.input_dir, src, "figure-img"),
+              ),
             }),
           )
         None => None

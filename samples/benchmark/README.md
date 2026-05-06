@@ -244,6 +244,30 @@ These rows are intended to support the EPUB H2++ / H3++ sprint:
 They are checked-in engineering corpus rows, not blanket claims about every
 EPUB reader workload or all ebook conversion paths.
 
+Current DOCX second-round checked-in benchmark additions:
+
+* `docx_table_heavy.docx`
+* `docx_link_heavy.docx`
+* `docx_image_heavy.docx`
+* `docx_notes_comments_heavy.docx`
+* DOCX metadata rows for:
+  * `docx_metadata_docprops_rich`
+  * `docx_metadata_links_images`
+  * `docx_metadata_notes_comments`
+  * `docx_metadata_table_complex`
+  * `docx_metadata_textbox_header_footer`
+
+These rows are intended to support the DOCX H2++ / H3++ sprint:
+
+* nested/style-linked lists and hyperlink-heavy paragraph coverage
+* multiline/merged-boundary table coverage
+* local image asset export behavior
+* notes/comments append-policy overhead
+* metadata-on overhead for DOCX document/relationship/asset sidecars
+
+They are checked-in engineering corpus rows, not blanket claims about every
+Word document or full layout-engine workloads.
+
 For public/private/manual corpora:
 
 * do not add the real files to the repository

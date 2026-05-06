@@ -1320,8 +1320,7 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
                 let tr_inner = inner[row_start:end].to_owned()
                 let row_index = out.length() + 1
                 let (cells, row_spans) = html_table_row_from_bytes(
-                  tr_inner,
-                  row_index,
+                  tr_inner, row_index,
                 )
                 if cells.length() > 0 {
                   out.push(cells)
@@ -1500,7 +1499,11 @@ fn parse_html_positive_int_attr(raw : String?) -> Int {
         n = n * 10 + (k - 48)
         i += 1
       }
-      if n <= 0 { 1 } else { n }
+      if n <= 0 {
+        1
+      } else {
+        n
+      }
     }
     None => 1
   }

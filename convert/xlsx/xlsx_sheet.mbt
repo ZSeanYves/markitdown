@@ -492,8 +492,8 @@ fn resolve_cell_display(
   } else {
     let raw = xml_unescape(val)
     let (semantic_type, rendered) = if numfmt_is_builtin_datetime_like(
-      num_format_id,
-    ) {
+        num_format_id,
+      ) {
       (
         datetime_semantic_type(num_format_id, None, has_formula),
         format_excel_datetime(raw, num_format_id, None, uses_date_1904),
@@ -521,14 +521,15 @@ fn resolve_cell_display(
               raw,
             )
           }
-        None => (
-          if has_formula {
-            XlsxCellSemanticType::FormulaCachedValue
-          } else {
-            XlsxCellSemanticType::Number
-          },
-          raw,
-        )
+        None =>
+          (
+            if has_formula {
+              XlsxCellSemanticType::FormulaCachedValue
+            } else {
+              XlsxCellSemanticType::Number
+            },
+            raw,
+          )
       }
     }
     (XlsxCellKind::Number, semantic_type, rendered)

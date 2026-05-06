@@ -187,3 +187,27 @@ Current EPUB sprint state:
 * performance conclusions remain scoped to the checked-in native EPUB corpus
   and meaningful local overlap samples; they are not blanket claims about all
   ebook workloads or reading-system behavior
+
+The fifth second-round excellence sprint is `DOCX`.
+
+Current DOCX sprint state:
+
+* the lower layer already covered the main OOXML document path, but the
+  evidence chain lagged behind the implementation
+* checked-in second-round regression and metadata samples now cover nested and
+  style-linked headings/lists, hyperlink spacing and multi-run links,
+  multiline/merged-boundary tables, notes/comments ordering, headers/footers,
+  text boxes, and local image asset policy
+* DOCX table-cell lowering now preserves conservative image alt text and
+  Markdown-link text where the OOXML lower layer has the required signal
+* checked-in DOCX quality records now cover golden structure, multiline table
+  cells, list/link/style behavior, notes/comments, image assets, and textbox
+  policy
+* checked-in DOCX benchmark rows now include table-heavy, link-heavy,
+  image-heavy, notes/comments-heavy, metadata-on, batch-profile, and overlap
+  compare coverage
+* DOCX is now treated as `H2++ complete` plus `H3++ evidence-backed on the
+  checked-in native overlap corpus`
+* those conclusions remain scoped to the checked-in DOCX quality records and
+  local overlap/batch corpus; they are not a claim of full Word layout-engine
+  compatibility

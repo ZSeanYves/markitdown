@@ -444,9 +444,7 @@ fn sheet_state_string(state : XlsxSheetState) -> String {
 }
 
 ///|
-fn sheet_formula_hints(
-  sheet : XlsxSheetModel,
-) -> Array[@cor.TableFormulaHint]? {
+fn sheet_formula_hints(sheet : XlsxSheetModel) -> Array[@cor.TableFormulaHint]? {
   let out : Array[@cor.TableFormulaHint] = []
   for cell in sheet.cells {
     match cell.formula_text {
@@ -490,8 +488,7 @@ fn xlsx_formula_policy_string(trace : XlsxFormulaTrace?) -> String? {
       Some(
         match v.policy {
           XlsxFormulaPolicy::Cached => "cached"
-          XlsxFormulaPolicy::EvaluatedMissingCache =>
-            "evaluated_missing_cache"
+          XlsxFormulaPolicy::EvaluatedMissingCache => "evaluated_missing_cache"
           XlsxFormulaPolicy::UnsupportedFormula => "unsupported_formula"
           XlsxFormulaPolicy::FormulaError => "formula_error"
         },
@@ -571,7 +568,9 @@ fn sheet_semantic_type_matrix(sheet : XlsxSheetModel) -> Array[Array[String]]? {
     for col_offset in 0..<max_col {
       let actual_col = sheet.used_min_col + col_offset
       row.push(
-        lookup.get(actual_row.to_string() + "," + actual_col.to_string()).unwrap_or("blank"),
+        lookup
+        .get(actual_row.to_string() + "," + actual_col.to_string())
+        .unwrap_or("blank"),
       )
     }
     out.push(row)

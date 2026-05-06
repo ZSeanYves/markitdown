@@ -260,11 +260,9 @@ fn DocxPackage::load_text_box_bundle(
     let part_asset_by_target = if out_root.trim() == "" {
       Map::new()
     } else {
-      build_docx_asset_path_map_with_seed(
-        rel_ctx,
-        out_root,
-        { val: asset_by_target.length() + items.length() + 1000 },
-      )
+      build_docx_asset_path_map_with_seed(rel_ctx, out_root, {
+        val: asset_by_target.length() + items.length() + 1000,
+      })
     }
     items.append(
       collect_docx_text_boxes_from_xml(
@@ -295,11 +293,9 @@ fn DocxPackage::load_text_box_bundle(
     let part_asset_by_target = if out_root.trim() == "" {
       Map::new()
     } else {
-      build_docx_asset_path_map_with_seed(
-        rel_ctx,
-        out_root,
-        { val: asset_by_target.length() + items.length() + 2000 },
-      )
+      build_docx_asset_path_map_with_seed(rel_ctx, out_root, {
+        val: asset_by_target.length() + items.length() + 2000,
+      })
     }
     items.append(
       collect_docx_text_boxes_from_xml(

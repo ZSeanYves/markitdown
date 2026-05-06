@@ -50,10 +50,10 @@ PDF lower-layer note:
 
 The repository is past the initial H2 sweep across the main input set:
 
-* `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, DOCX, PPTX
+* `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, PPTX
 * `H2 partial`: PDF
 * `H2++ complete, H3++ evidence-backed on checked-in native overlap corpus`: XLSX,
-  HTML / HTM
+  HTML / HTM, DOCX
 * `H2++ complete, H3++ evidence-backed on checked-in native corpus`: ZIP
 * `subset-H2`: YAML / YML
 * `source-preserving H1/H2 partial`: XML
@@ -80,7 +80,7 @@ For second-round per-format excellence sprints, use
 | XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1, merged/state/type policy evidence | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
 | ZIP | H2++ complete, H3++ evidence-backed on checked-in native corpus | safe archive traversal, inspect surface, nested dispatch, warning/degrade policy, nested asset remap, container provenance | no recursive nested archive conversion, no ZIP64/data-descriptor/encrypted support, no blanket overlap-performance claim |
 | EPUB | H2++ complete, H3++ evidence-backed on checked-in native EPUB corpus | safe OPF/spine/nav/NCX/cover/assets pipeline, warning/degrade policy, metadata/origin | no DRM/CSS/JS/remote fetch, NCX minimal subset only, not a reading-system renderer |
-| DOCX | H2 main-path quality | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
+| DOCX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | lists, multiline/merged-boundary tables, notes/comments, headers/footers, text boxes, local image assets, metadata | not a Word layout engine, no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
 | PPTX | H2 main-path quality | grouped shapes, explicit tables, notes, hidden slides, images | no charts/SmartArt/OLE/action links/animations, no full merged-table visual reconstruction |
 | PDF | H2 partial, text-oriented | headings/noise/merge, URI links, simple tables, captions, provenance | default strength is text PDF, not scanned/OCR or full complex-layout recovery |
 

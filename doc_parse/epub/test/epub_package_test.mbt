@@ -147,12 +147,16 @@ test "epub package keeps missing manifest spine item" {
   assert_eq(missing.spine_index, 0)
   match missing.manifest_item {
     Some(_) =>
-      fail("expected missing manifest spine item to preserve None manifest_item")
+      fail(
+        "expected missing manifest spine item to preserve None manifest_item",
+      )
     None => ()
   }
   match missing.resolved_path {
     Some(_) =>
-      fail("expected missing manifest spine item to preserve None resolved_path")
+      fail(
+        "expected missing manifest spine item to preserve None resolved_path",
+      )
     None => ()
   }
   let inspect = @epub.inspect_epub_package(pkg)
@@ -214,9 +218,7 @@ test "epub package detects nav cover and richer metadata" {
 
 ///|
 test "epub package detects guide cover image fallback" {
-  let pkg = open_sample_package(
-    "samples/test/epub/epub_guide_cover_image.epub",
-  )
+  let pkg = open_sample_package("samples/test/epub/epub_guide_cover_image.epub")
   match pkg.cover_item {
     Some(item) => {
       assert_eq(item.resolved_path, "OPS/images/cover.jpg")
@@ -255,9 +257,7 @@ test "epub package cover priority keeps manifest cover image over guide" {
 
 ///|
 test "epub package keeps guide cover page without forcing cover image" {
-  let pkg = open_sample_package(
-    "samples/test/epub/epub_guide_cover_page.epub",
-  )
+  let pkg = open_sample_package("samples/test/epub/epub_guide_cover_page.epub")
   match pkg.cover_item {
     Some(_) => fail("guide cover page should not be promoted to cover image")
     None => ()

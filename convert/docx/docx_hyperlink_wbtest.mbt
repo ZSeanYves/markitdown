@@ -599,3 +599,48 @@ test "docx merged and rich-run table text degrades conservatively without losing
   assert_eq(rows[1][0], "Bold text")
   assert_eq(rows[1][1], "Italic")
 }
+
+///|
+test "docx table cell image alt text is preserved when relationship context is available" {
+  let rel_ctx : DocxRelationshipContext = {
+    document_relationships: [],
+    targets_by_rid: { "rIdImg1": "word/media/image1.jpg" },
+    hyperlink_targets_by_rid: {},
+  }
+  let asset_by_target : Map[String, String] = {
+    "word/media/image1.jpg": "assets/image01.jpg",
+  }
+  let rows = scan_table_block_with_context(
+    "<w:tr>" +
+    "<w:tc><w:p><w:r><w:t>Figure</w:t></w:r></w:p></w:tc>" +
+    "<w:tc><w:p><w:r><w:drawing><wp:inline><wp:docPr id=\"1\" name=\"Picture 1\" descr=\"Table image\" title=\"Table title\"/><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:blipFill><a:blip r:embed=\"rIdImg1\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:tc>" +
+    "</w:tr>",
+    rel_ctx,
+    asset_by_target,
+  )
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].length(), 2)
+  assert_eq(rows[0][0], "Figure")
+  assert_eq(rows[0][1], "Table image")
+}
+
+///|
+test "docx table cell hyperlink is preserved as markdown link when relationship context is available" {
+  let rel_ctx : DocxRelationshipContext = {
+    document_relationships: [],
+    targets_by_rid: { "rIdHyper1": "https://openai.com/docs" },
+    hyperlink_targets_by_rid: { "rIdHyper1": "https://openai.com/docs" },
+  }
+  let rows = scan_table_block_with_context(
+    "<w:tr>" +
+    "<w:tc><w:p><w:r><w:t>Action</w:t></w:r></w:p></w:tc>" +
+    "<w:tc><w:p><w:hyperlink r:id=\"rIdHyper1\"><w:r><w:t>OpenAI Docs</w:t></w:r></w:hyperlink></w:p></w:tc>" +
+    "</w:tr>",
+    rel_ctx,
+    Map::new(),
+  )
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].length(), 2)
+  assert_eq(rows[0][0], "Action")
+  assert_eq(rows[0][1], "[OpenAI Docs](https://openai.com/docs)")
+}

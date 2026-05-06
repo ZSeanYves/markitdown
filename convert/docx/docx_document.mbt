@@ -37,7 +37,9 @@ fn scan_document(
       }
 
       let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
-      let rows = scan_table_block(tbl_xml)
+      let rows = scan_table_block_with_context(
+        tbl_xml, rel_ctx, asset_by_target,
+      )
       if rows.length() > 0 {
         if prev_was_list {
           @cor.push_with_origin(

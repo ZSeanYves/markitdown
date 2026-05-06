@@ -73,6 +73,15 @@ state:
   overlap compare rows against Microsoft MarkItDown on meaningful samples
 * EPUB is now treated as `H2++ complete`, with `H3++` evidence backed on the
   checked-in native EPUB corpus
+* DOCX now has checked-in second-round regression/metadata/quality evidence
+  for nested/style-linked lists, hyperlink spacing and multi-run links,
+  multiline/merged-boundary tables, notes/comments ordering, headers/footers,
+  text boxes, and local image asset behavior
+* DOCX native benchmark coverage now includes table-heavy, link-heavy,
+  image-heavy, notes/comments-heavy, metadata-on, batch-profile, and overlap
+  compare rows against Microsoft MarkItDown on meaningful local samples
+* DOCX is now treated as `H2++ complete`, with `H3++` evidence backed on the
+  checked-in native overlap corpus
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story

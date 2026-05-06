@@ -91,12 +91,7 @@ pub fn metadata_document_properties_with_extras(
   identifier : String?,
   publisher : String?,
 ) -> MetadataDocumentProperties {
-  {
-    ..document,
-    language,
-    identifier,
-    publisher,
-  }
+  { ..document, language, identifier, publisher }
 }
 
 ///|
@@ -793,16 +788,24 @@ fn serialize_table_block(table : MetadataTableBlock) -> String {
 
 ///|
 fn rich_table_metadata_block(table : TableData) -> MetadataTableBlock {
-  let (format, sheet_state, merged_ranges, formula_cells, semantic_types, span_cells) = match table.hints {
+  let (
+    format,
+    sheet_state,
+    merged_ranges,
+    formula_cells,
+    semantic_types,
+    span_cells,
+  ) = match table.hints {
     None => (None, None, None, None, None, None)
-    Some(hints) => (
-      hints.format,
-      hints.sheet_state,
-      hints.merged_ranges,
-      metadata_formula_cells(hints.formula_cells),
-      hints.semantic_types,
-      metadata_span_cells(hints.span_cells),
-    )
+    Some(hints) =>
+      (
+        hints.format,
+        hints.sheet_state,
+        hints.merged_ranges,
+        metadata_formula_cells(hints.formula_cells),
+        hints.semantic_types,
+        metadata_span_cells(hints.span_cells),
+      )
   }
 
   {
@@ -922,8 +925,7 @@ fn push_json_formula_cells_field(
   value : Array[MetadataFormulaCell]?,
 ) -> Unit {
   match value {
-    Some(v) =>
-      fields.push("\"" + name + "\": " + serialize_formula_cells(v))
+    Some(v) => fields.push("\"" + name + "\": " + serialize_formula_cells(v))
     None => ()
   }
 }
@@ -984,7 +986,11 @@ fn serialize_formula_cell(cell : MetadataFormulaCell) -> String {
   push_json_string_field(fields, "evaluated_value", cell.evaluated_value)
   push_json_string_field(fields, "unsupported_reason", cell.unsupported_reason)
   push_json_string_field(fields, "error_reason", cell.error_reason)
-  push_json_string_array_field(fields, "referenced_cells", cell.referenced_cells)
+  push_json_string_array_field(
+    fields,
+    "referenced_cells",
+    cell.referenced_cells,
+  )
   push_json_string_array_field(
     fields,
     "referenced_ranges",

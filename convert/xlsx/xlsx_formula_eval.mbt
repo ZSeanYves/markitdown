@@ -103,7 +103,11 @@ fn eval_formula_ast(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if depth > context.max_recursion_depth {
-    return XlsxFormulaEvalResult::Error("formula recursion depth exceeded", [], [])
+    return XlsxFormulaEvalResult::Error(
+      "formula recursion depth exceeded",
+      [],
+      [],
+    )
   }
 
   match ast {
@@ -118,7 +122,11 @@ fn eval_formula_ast(
       XlsxFormulaEvalResult::Evaluated(v, XlsxCellSemanticType::String, [], [])
     XlsxFormulaAst::Bool(v) =>
       XlsxFormulaEvalResult::Evaluated(
-        if v { "TRUE" } else { "FALSE" },
+        if v {
+          "TRUE"
+        } else {
+          "FALSE"
+        },
         XlsxCellSemanticType::Boolean,
         [],
         [],
@@ -131,19 +139,11 @@ fn eval_formula_ast(
       start_row,
       start_col,
       end_row,
-      end_col,
+      end_col
     ) =>
       eval_range_ref(
-        context,
-        start_label,
-        end_label,
-        start_row,
-        start_col,
-        end_row,
-        end_col,
-        current_ref,
-        depth,
-        state,
+        context, start_label, end_label, start_row, start_col, end_row, end_col,
+        current_ref, depth, state,
       )
     XlsxFormulaAst::Unary(op, inner) =>
       eval_unary(context, op, inner, current_ref, depth, state)
@@ -166,11 +166,12 @@ fn eval_cell_ref(
 ) -> XlsxFormulaEvalResult {
   let refs = [label]
   match context.cells.get(label) {
-    None => return XlsxFormulaEvalResult::Error(
-      "missing cell reference: " + label,
-      refs,
-      [],
-    )
+    None =>
+      return XlsxFormulaEvalResult::Error(
+        "missing cell reference: " + label,
+        refs,
+        [],
+      )
     Some(record) =>
       match record.formula_text {
         Some(inner_formula) =>
@@ -185,15 +186,15 @@ fn eval_cell_ref(
           } else if record.source_value != None {
             return scalar_result_from_record(record, refs)
           } else {
-            let ast = match parse_xlsx_formula_text(inner_formula.trim().to_owned()) {
+            let ast = match
+              parse_xlsx_formula_text(inner_formula.trim().to_owned()) {
               Ok(v) => v
-              Err(reason) => {
+              Err(reason) =>
                 return XlsxFormulaEvalResult::Unsupported(
                   "unsupported referenced formula in " + label + ": " + reason,
                   refs,
                   [],
                 )
-              }
             }
             state.visited.set(label, true)
             let nested = eval_formula_ast(context, ast, label, depth + 1, state)
@@ -225,7 +226,9 @@ fn eval_range_ref(
   let count = (row1 - row0 + 1) * (col1 - col0 + 1)
   let range_label = start_label + ":" + end_label
   if count <= 0 {
-    return XlsxFormulaEvalResult::Error("invalid range: " + range_label, [], [range_label])
+    return XlsxFormulaEvalResult::Error("invalid range: " + range_label, [], [
+      range_label,
+    ])
   }
   if count > context.max_range_cell_count {
     return XlsxFormulaEvalResult::Unsupported(
@@ -241,15 +244,16 @@ fn eval_range_ref(
     for col in col0..<(col1 + 1) {
       let cell_ref = formula_rc_to_ref(row, col)
       refs.push(cell_ref)
-      let scalar = match eval_cell_ref(
-        context,
-        cell_ref,
-        row,
-        col,
-        current_ref,
-        depth + 1,
-        state,
-      ) {
+      let scalar = match
+        eval_cell_ref(
+          context,
+          cell_ref,
+          row,
+          col,
+          current_ref,
+          depth + 1,
+          state,
+        ) {
         XlsxFormulaEvalResult::Evaluated(text, semantic_type, _, _) =>
           scalar_from_text_and_semantic(text, semantic_type)
         XlsxFormulaEvalResult::Unsupported(reason, _, _) =>
@@ -261,7 +265,9 @@ fn eval_range_ref(
     }
   }
 
-  let (_, text, semantic_type) = collapse_range_scalar(values, refs, [range_label])
+  let (_, text, semantic_type) = collapse_range_scalar(values, refs, [
+    range_label,
+  ])
   XlsxFormulaEvalResult::Evaluated(text, semantic_type, refs, [range_label])
 }
 
@@ -278,11 +284,12 @@ fn eval_unary(
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "unary operator " + op,
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "unary operator " + op,
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -309,7 +316,12 @@ fn eval_unary(
           )
         Err(reason) => XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
       }
-    _ => XlsxFormulaEvalResult::Unsupported("unsupported unary operator: " + op, refs, ranges)
+    _ =>
+      XlsxFormulaEvalResult::Unsupported(
+        "unsupported unary operator: " + op,
+        refs,
+        ranges,
+      )
   }
 }
 
@@ -323,28 +335,32 @@ fn eval_binary(
   depth : Int,
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
-  let left_value = match eval_value(context, left, current_ref, depth + 1, state) {
+  let left_value = match
+    eval_value(context, left, current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let right_value = match eval_value(context, right, current_ref, depth + 1, state) {
+  let right_value = match
+    eval_value(context, right, current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
 
-  let (left_scalar, left_refs, left_ranges) = match flatten_value_to_scalar(
-    left_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "binary operator " + op,
-  ) {
+  let (left_scalar, left_refs, left_ranges) = match
+    flatten_value_to_scalar(
+      left_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "binary operator " + op,
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (right_scalar, right_refs, right_ranges) = match flatten_value_to_scalar(
-    right_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "binary operator " + op,
-  ) {
+  let (right_scalar, right_refs, right_ranges) = match
+    flatten_value_to_scalar(
+      right_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "binary operator " + op,
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -355,11 +371,13 @@ fn eval_binary(
     "+" | "-" | "*" | "/" | "^" => {
       let lv = match scalar_to_number(left_scalar) {
         Ok(v) => v
-        Err(reason) => return XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
+        Err(reason) =>
+          return XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
       }
       let rv = match scalar_to_number(right_scalar) {
         Ok(v) => v
-        Err(reason) => return XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
+        Err(reason) =>
+          return XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
       }
       if op == "/" && is_zeroish(rv) {
         return XlsxFormulaEvalResult::Error("division by zero", refs, ranges)
@@ -400,7 +418,11 @@ fn eval_binary(
             _ => false
           }
           XlsxFormulaEvalResult::Evaluated(
-            if result { "TRUE" } else { "FALSE" },
+            if result {
+              "TRUE"
+            } else {
+              "FALSE"
+            },
             XlsxCellSemanticType::Boolean,
             refs,
             ranges,
@@ -409,7 +431,12 @@ fn eval_binary(
         Err(reason) => XlsxFormulaEvalResult::Unsupported(reason, refs, ranges)
       }
     }
-    _ => XlsxFormulaEvalResult::Unsupported("unsupported binary operator: " + op, refs, ranges)
+    _ =>
+      XlsxFormulaEvalResult::Unsupported(
+        "unsupported binary operator: " + op,
+        refs,
+        ranges,
+      )
   }
 }
 
@@ -423,13 +450,20 @@ fn eval_function_call(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   match name {
-    "SUM" => eval_aggregate_numbers(context, args, current_ref, depth, state, "SUM")
+    "SUM" =>
+      eval_aggregate_numbers(context, args, current_ref, depth, state, "SUM")
     "AVERAGE" =>
-      eval_aggregate_numbers(context, args, current_ref, depth, state, "AVERAGE")
-    "MIN" => eval_aggregate_numbers(context, args, current_ref, depth, state, "MIN")
-    "MAX" => eval_aggregate_numbers(context, args, current_ref, depth, state, "MAX")
-    "COUNT" => eval_count_function(context, args, current_ref, depth, state, false)
-    "COUNTA" => eval_count_function(context, args, current_ref, depth, state, true)
+      eval_aggregate_numbers(
+        context, args, current_ref, depth, state, "AVERAGE",
+      )
+    "MIN" =>
+      eval_aggregate_numbers(context, args, current_ref, depth, state, "MIN")
+    "MAX" =>
+      eval_aggregate_numbers(context, args, current_ref, depth, state, "MAX")
+    "COUNT" =>
+      eval_count_function(context, args, current_ref, depth, state, false)
+    "COUNTA" =>
+      eval_count_function(context, args, current_ref, depth, state, true)
     "IF" => eval_if_function(context, args, current_ref, depth, state)
     "ROUND" => eval_round_function(context, args, current_ref, depth, state)
     "ABS" => eval_abs_function(context, args, current_ref, depth, state)
@@ -438,8 +472,10 @@ fn eval_function_call(
     "LEFT" => eval_left_function(context, args, current_ref, depth, state)
     "RIGHT" => eval_right_function(context, args, current_ref, depth, state)
     "LEN" => eval_len_function(context, args, current_ref, depth, state)
-    "LOWER" => eval_lower_upper_function(context, args, current_ref, depth, state, false)
-    "UPPER" => eval_lower_upper_function(context, args, current_ref, depth, state, true)
+    "LOWER" =>
+      eval_lower_upper_function(context, args, current_ref, depth, state, false)
+    "UPPER" =>
+      eval_lower_upper_function(context, args, current_ref, depth, state, true)
     "TRIM" => eval_trim_function(context, args, current_ref, depth, state)
     "TODAY" | "NOW" | "RAND" | "RANDBETWEEN" =>
       XlsxFormulaEvalResult::Unsupported(
@@ -447,7 +483,8 @@ fn eval_function_call(
         [],
         [],
       )
-    _ => XlsxFormulaEvalResult::Unsupported("unsupported function: " + name, [], [])
+    _ =>
+      XlsxFormulaEvalResult::Unsupported("unsupported function: " + name, [], [])
   }
 }
 
@@ -461,9 +498,14 @@ fn eval_aggregate_numbers(
   fn_name : String,
 ) -> XlsxFormulaEvalResult {
   if args.length() == 0 {
-    return XlsxFormulaEvalResult::Unsupported(fn_name + " requires at least one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      fn_name + " requires at least one argument",
+      [],
+      [],
+    )
   }
-  let scalars = match eval_argument_scalars(context, args, current_ref, depth, state) {
+  let scalars = match
+    eval_argument_scalars(context, args, current_ref, depth, state) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -475,7 +517,8 @@ fn eval_aggregate_numbers(
       XlsxFormulaScalar::Number(v) => numbers.push(v)
       XlsxFormulaScalar::Blank => ()
       XlsxFormulaScalar::String(_) | XlsxFormulaScalar::Bool(_) => ()
-      XlsxFormulaScalar::Error(code) => return XlsxFormulaEvalResult::Error(code, refs, ranges)
+      XlsxFormulaScalar::Error(code) =>
+        return XlsxFormulaEvalResult::Error(code, refs, ranges)
     }
   }
   if fn_name == "COUNT" {
@@ -487,7 +530,12 @@ fn eval_aggregate_numbers(
     )
   }
   if numbers.length() == 0 {
-    return XlsxFormulaEvalResult::Evaluated("0", XlsxCellSemanticType::Number, refs, ranges)
+    return XlsxFormulaEvalResult::Evaluated(
+      "0",
+      XlsxCellSemanticType::Number,
+      refs,
+      ranges,
+    )
   }
 
   let mut acc = numbers[0]
@@ -529,9 +577,14 @@ fn eval_count_function(
   count_non_blank : Bool,
 ) -> XlsxFormulaEvalResult {
   if args.length() == 0 {
-    return XlsxFormulaEvalResult::Unsupported("COUNT/COUNTA requires at least one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "COUNT/COUNTA requires at least one argument",
+      [],
+      [],
+    )
   }
-  let scalars = match eval_argument_scalars(context, args, current_ref, depth, state) {
+  let scalars = match
+    eval_argument_scalars(context, args, current_ref, depth, state) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -539,10 +592,7 @@ fn eval_count_function(
   for scalar in scalars.0 {
     match scalar {
       XlsxFormulaScalar::Number(_) => count = count + 1
-      XlsxFormulaScalar::Bool(_) =>
-        if count_non_blank {
-          count = count + 1
-        }
+      XlsxFormulaScalar::Bool(_) => if count_non_blank { count = count + 1 }
       XlsxFormulaScalar::String(text) =>
         if count_non_blank && text != "" {
           count = count + 1
@@ -569,34 +619,49 @@ fn eval_if_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() < 2 || args.length() > 3 {
-    return XlsxFormulaEvalResult::Unsupported("IF requires two or three arguments", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "IF requires two or three arguments",
+      [],
+      [],
+    )
   }
-  let cond_value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let cond_value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (cond_scalar, cond_refs, cond_ranges) = match flatten_value_to_scalar(
-    cond_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "IF condition",
-  ) {
+  let (cond_scalar, cond_refs, cond_ranges) = match
+    flatten_value_to_scalar(
+      cond_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "IF condition",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
   let cond = match scalar_to_bool(cond_scalar) {
     Ok(v) => v
-    Err(reason) => return XlsxFormulaEvalResult::Unsupported(reason, cond_refs, cond_ranges)
+    Err(reason) =>
+      return XlsxFormulaEvalResult::Unsupported(reason, cond_refs, cond_ranges)
   }
-  let branch = if cond { args[1] } else if args.length() == 3 { args[2] } else { XlsxFormulaAst::Bool(false) }
-  let branch_value = match eval_value(context, branch, current_ref, depth + 1, state) {
+  let branch = if cond {
+    args[1]
+  } else if args.length() == 3 {
+    args[2]
+  } else {
+    XlsxFormulaAst::Bool(false)
+  }
+  let branch_value = match
+    eval_value(context, branch, current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (branch_scalar, branch_refs, branch_ranges) = match flatten_value_to_scalar(
-    branch_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "IF branch",
-  ) {
+  let (branch_scalar, branch_refs, branch_ranges) = match
+    flatten_value_to_scalar(
+      branch_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "IF branch",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -614,9 +679,14 @@ fn eval_round_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() != 2 {
-    return XlsxFormulaEvalResult::Unsupported("ROUND requires exactly two arguments", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "ROUND requires exactly two arguments",
+      [],
+      [],
+    )
   }
-  let (value, digits, refs, ranges) = match eval_numeric_pair(context, args, current_ref, depth, state) {
+  let (value, digits, refs, ranges) = match
+    eval_numeric_pair(context, args, current_ref, depth, state) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -639,17 +709,23 @@ fn eval_abs_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() != 1 {
-    return XlsxFormulaEvalResult::Unsupported("ABS requires exactly one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "ABS requires exactly one argument",
+      [],
+      [],
+    )
   }
-  let value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "ABS argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "ABS argument",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -673,7 +749,8 @@ fn eval_concat_function(
   depth : Int,
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
-  let scalars = match eval_argument_scalars(context, args, current_ref, depth, state) {
+  let scalars = match
+    eval_argument_scalars(context, args, current_ref, depth, state) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -698,17 +775,23 @@ fn eval_left_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() == 0 || args.length() > 2 {
-    return XlsxFormulaEvalResult::Unsupported("LEFT requires one or two arguments", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "LEFT requires one or two arguments",
+      [],
+      [],
+    )
   }
-  let text_value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let text_value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    text_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "LEFT argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      text_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "LEFT argument",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -748,17 +831,23 @@ fn eval_right_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() == 0 || args.length() > 2 {
-    return XlsxFormulaEvalResult::Unsupported("RIGHT requires one or two arguments", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "RIGHT requires one or two arguments",
+      [],
+      [],
+    )
   }
-  let text_value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let text_value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    text_value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "RIGHT argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      text_value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "RIGHT argument",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -795,17 +884,23 @@ fn eval_len_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() != 1 {
-    return XlsxFormulaEvalResult::Unsupported("LEN requires exactly one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "LEN requires exactly one argument",
+      [],
+      [],
+    )
   }
-  let value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "LEN argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "LEN argument",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -827,23 +922,37 @@ fn eval_lower_upper_function(
   upper : Bool,
 ) -> XlsxFormulaEvalResult {
   if args.length() != 1 {
-    return XlsxFormulaEvalResult::Unsupported("LOWER/UPPER requires exactly one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "LOWER/UPPER requires exactly one argument",
+      [],
+      [],
+    )
   }
-  let value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    if upper { "UPPER argument" } else { "LOWER argument" },
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      if upper {
+        "UPPER argument"
+      } else {
+        "LOWER argument"
+      },
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
   let text = scalar_to_text(scalar)
   XlsxFormulaEvalResult::Evaluated(
-    if upper { text.to_upper() } else { text.to_lower() },
+    if upper {
+      text.to_upper()
+    } else {
+      text.to_lower()
+    },
     XlsxCellSemanticType::String,
     refs,
     ranges,
@@ -859,17 +968,23 @@ fn eval_trim_function(
   state : XlsxFormulaEvalState,
 ) -> XlsxFormulaEvalResult {
   if args.length() != 1 {
-    return XlsxFormulaEvalResult::Unsupported("TRIM requires exactly one argument", [], [])
+    return XlsxFormulaEvalResult::Unsupported(
+      "TRIM requires exactly one argument",
+      [],
+      [],
+    )
   }
-  let value = match eval_value(context, args[0], current_ref, depth + 1, state) {
+  let value = match
+    eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return res
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "TRIM argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "TRIM argument",
+    ) {
     Ok(v) => v
     Err(res) => return res
   }
@@ -888,7 +1003,10 @@ fn eval_argument_scalars(
   current_ref : String,
   depth : Int,
   state : XlsxFormulaEvalState,
-) -> Result[(Array[XlsxFormulaScalar], Array[String], Array[String]), XlsxFormulaEvalResult] {
+) -> Result[
+  (Array[XlsxFormulaScalar], Array[String], Array[String]),
+  XlsxFormulaEvalResult,
+] {
   let scalars : Array[XlsxFormulaScalar] = []
   let refs : Array[String] = []
   let ranges : Array[String] = []
@@ -921,34 +1039,43 @@ fn eval_numeric_pair(
   current_ref : String,
   depth : Int,
   state : XlsxFormulaEvalState,
-) -> Result[(Double, Double, Array[String], Array[String]), XlsxFormulaEvalResult] {
+) -> Result[
+  (Double, Double, Array[String], Array[String]),
+  XlsxFormulaEvalResult,
+] {
   let left = match eval_value(context, args[0], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let right = match eval_value(context, args[1], current_ref, depth + 1, state) {
+  let right = match
+    eval_value(context, args[1], current_ref, depth + 1, state) {
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let (left_scalar, left_refs, left_ranges) = match flatten_value_to_scalar(
-    left,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "numeric argument",
-  ) {
+  let (left_scalar, left_refs, left_ranges) = match
+    flatten_value_to_scalar(
+      left,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "numeric argument",
+    ) {
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let (right_scalar, right_refs, right_ranges) = match flatten_value_to_scalar(
-    right,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "numeric argument",
-  ) {
+  let (right_scalar, right_refs, right_ranges) = match
+    flatten_value_to_scalar(
+      right,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "numeric argument",
+    ) {
     Ok(v) => v
     Err(res) => return Err(res)
   }
   let lv = match scalar_to_number(left_scalar) {
     Ok(v) => v
-    Err(reason) => return Err(XlsxFormulaEvalResult::Unsupported(reason, left_refs, left_ranges))
+    Err(reason) =>
+      return Err(
+        XlsxFormulaEvalResult::Unsupported(reason, left_refs, left_ranges),
+      )
   }
   let rv = match scalar_to_number(right_scalar) {
     Ok(v) => v
@@ -961,12 +1088,14 @@ fn eval_numeric_pair(
         ),
       )
   }
-  Ok((
-    lv,
-    rv,
-    concat_unique_strings(left_refs, right_refs),
-    concat_unique_strings(left_ranges, right_ranges),
-  ))
+  Ok(
+    (
+      lv,
+      rv,
+      concat_unique_strings(left_refs, right_refs),
+      concat_unique_strings(left_ranges, right_ranges),
+    ),
+  )
 }
 
 ///|
@@ -981,17 +1110,19 @@ fn eval_integer_arg(
     Ok(v) => v
     Err(res) => return Err(res)
   }
-  let (scalar, refs, ranges) = match flatten_value_to_scalar(
-    value,
-    XlsxFormulaScalarMode::ScalarOnly,
-    "integer argument",
-  ) {
+  let (scalar, refs, ranges) = match
+    flatten_value_to_scalar(
+      value,
+      XlsxFormulaScalarMode::ScalarOnly,
+      "integer argument",
+    ) {
     Ok(v) => v
     Err(res) => return Err(res)
   }
   let number = match scalar_to_number(scalar) {
     Ok(v) => v
-    Err(reason) => return Err(XlsxFormulaEvalResult::Unsupported(reason, refs, ranges))
+    Err(reason) =>
+      return Err(XlsxFormulaEvalResult::Unsupported(reason, refs, ranges))
   }
   Ok((number.round().to_int(), refs, ranges))
 }
@@ -1011,7 +1142,7 @@ fn eval_value(
       start_row,
       start_col,
       end_row,
-      end_col,
+      end_col
     ) => {
       let row0 = if start_row <= end_row { start_row } else { end_row }
       let row1 = if start_row <= end_row { end_row } else { start_row }
@@ -1020,11 +1151,19 @@ fn eval_value(
       let count = (row1 - row0 + 1) * (col1 - col0 + 1)
       let range_label = start_label + ":" + end_label
       if count <= 0 {
-        return Err(XlsxFormulaEvalResult::Error("invalid range: " + range_label, [], [range_label]))
+        return Err(
+          XlsxFormulaEvalResult::Error("invalid range: " + range_label, [], [
+            range_label,
+          ]),
+        )
       }
       if count > context.max_range_cell_count {
         return Err(
-          XlsxFormulaEvalResult::Unsupported("range too large: " + range_label, [], [range_label]),
+          XlsxFormulaEvalResult::Unsupported(
+            "range too large: " + range_label,
+            [],
+            [range_label],
+          ),
         )
       }
       let scalars : Array[XlsxFormulaScalar] = []
@@ -1033,21 +1172,26 @@ fn eval_value(
         for col in col0..<(col1 + 1) {
           let cell_ref = formula_rc_to_ref(row, col)
           refs.push(cell_ref)
-          let scalar = match eval_cell_ref(
-            context,
-            cell_ref,
-            row,
-            col,
-            current_ref,
-            depth + 1,
-            state,
-          ) {
+          let scalar = match
+            eval_cell_ref(
+              context,
+              cell_ref,
+              row,
+              col,
+              current_ref,
+              depth + 1,
+              state,
+            ) {
             XlsxFormulaEvalResult::Evaluated(text, semantic_type, _, _) =>
               scalar_from_text_and_semantic(text, semantic_type)
             XlsxFormulaEvalResult::Unsupported(reason, _, _) =>
-              return Err(XlsxFormulaEvalResult::Unsupported(reason, refs, [range_label]))
+              return Err(
+                XlsxFormulaEvalResult::Unsupported(reason, refs, [range_label]),
+              )
             XlsxFormulaEvalResult::Error(reason, _, _) =>
-              return Err(XlsxFormulaEvalResult::Error(reason, refs, [range_label]))
+              return Err(
+                XlsxFormulaEvalResult::Error(reason, refs, [range_label]),
+              )
           }
           scalars.push(scalar)
         }
@@ -1137,18 +1281,22 @@ fn flatten_value_to_scalar(
   value : XlsxFormulaValue,
   mode : XlsxFormulaScalarMode,
   context : String,
-) -> Result[(XlsxFormulaScalar, Array[String], Array[String]), XlsxFormulaEvalResult] {
+) -> Result[
+  (XlsxFormulaScalar, Array[String], Array[String]),
+  XlsxFormulaEvalResult,
+] {
   match value {
     XlsxFormulaValue::Scalar(scalar, refs, ranges) => Ok((scalar, refs, ranges))
     XlsxFormulaValue::Range(_, refs, ranges) =>
       match mode {
-        XlsxFormulaScalarMode::ScalarOnly => Err(
-          XlsxFormulaEvalResult::Unsupported(
-            "range scalar coercion unsupported in " + context,
-            refs,
-            ranges,
-          ),
-        )
+        XlsxFormulaScalarMode::ScalarOnly =>
+          Err(
+            XlsxFormulaEvalResult::Unsupported(
+              "range scalar coercion unsupported in " + context,
+              refs,
+              ranges,
+            ),
+          )
       }
   }
 }
@@ -1177,14 +1325,12 @@ fn collapse_range_scalar(
     XlsxFormulaScalar::Number(v) =>
       (scalar, format_formula_number(v), XlsxCellSemanticType::Number)
     XlsxFormulaScalar::Bool(v) =>
-      (
-        scalar,
-        if v { "TRUE" } else { "FALSE" },
-        XlsxCellSemanticType::Boolean,
-      )
+      (scalar, if v { "TRUE" } else { "FALSE" }, XlsxCellSemanticType::Boolean)
     XlsxFormulaScalar::Blank => (scalar, "", XlsxCellSemanticType::Blank)
-    XlsxFormulaScalar::Error(code) => (scalar, code, XlsxCellSemanticType::Error)
-    XlsxFormulaScalar::String(text) => (scalar, text, XlsxCellSemanticType::String)
+    XlsxFormulaScalar::Error(code) =>
+      (scalar, code, XlsxCellSemanticType::Error)
+    XlsxFormulaScalar::String(text) =>
+      (scalar, text, XlsxCellSemanticType::String)
   }
 }
 
@@ -1211,7 +1357,11 @@ fn formula_scalar_to_result(
       )
     XlsxFormulaScalar::Bool(v) =>
       XlsxFormulaEvalResult::Evaluated(
-        if v { "TRUE" } else { "FALSE" },
+        if v {
+          "TRUE"
+        } else {
+          "FALSE"
+        },
         XlsxCellSemanticType::Boolean,
         refs,
         ranges,
@@ -1286,15 +1436,7 @@ fn compare_formula_scalars(
     (XlsxFormulaScalar::Number(a), XlsxFormulaScalar::Number(b)) =>
       Ok(if a < b { -1 } else if a > b { 1 } else { 0 })
     (XlsxFormulaScalar::Bool(a), XlsxFormulaScalar::Bool(b)) =>
-      Ok(
-        if a == b {
-          0
-        } else if !a && b {
-          -1
-        } else {
-          1
-        },
-      )
+      Ok(if a == b { 0 } else if !a && b { -1 } else { 1 })
     (XlsxFormulaScalar::String(a), XlsxFormulaScalar::String(b)) =>
       Ok(if a < b { -1 } else if a > b { 1 } else { 0 })
     (XlsxFormulaScalar::Blank, XlsxFormulaScalar::Blank) => Ok(0)
@@ -1302,7 +1444,8 @@ fn compare_formula_scalars(
       let a = scalar_to_number(left)
       let b = scalar_to_number(right)
       match (a, b) {
-        (Ok(av), Ok(bv)) => Ok(if av < bv { -1 } else if av > bv { 1 } else { 0 })
+        (Ok(av), Ok(bv)) =>
+          Ok(if av < bv { -1 } else if av > bv { 1 } else { 0 })
         _ => Err("comparison coercion unsupported")
       }
     }

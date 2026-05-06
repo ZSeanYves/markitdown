@@ -39,8 +39,39 @@ pub struct XlsxCellModel {
   display_text : String
   source_value : String?
   formula_text : String?
+  semantic_type : XlsxCellSemanticType
   style_index : Int
   num_format_id : Int
+  formula_trace : XlsxFormulaTrace?
+}
+
+pub enum XlsxCellSemanticType {
+  String
+  Number
+  Boolean
+  Date
+  DateTime
+  Time
+  Blank
+  Error
+  FormulaCachedValue
+  FormulaMissingCache
+} derive(Eq)
+
+pub enum XlsxFormulaPolicy {
+  Cached
+  EvaluatedMissingCache
+  UnsupportedFormula
+  FormulaError
+} derive(Eq)
+
+pub struct XlsxFormulaTrace {
+  policy : XlsxFormulaPolicy
+  evaluated_value : String?
+  unsupported_reason : String?
+  error_reason : String?
+  referenced_cells : Array[String]?
+  referenced_ranges : Array[String]?
 }
 
 pub struct XlsxMergedRange {
