@@ -7,6 +7,7 @@ fn extract_shape_paragraphs(
   from_body_shape : Bool,
   hyperlinks : Map[String, String],
   para_seq : Ref[Int],
+  object_ref : String?,
 ) -> Array[SlideParagraph] raise {
   let paras : Array[SlideParagraph] = []
   let shape_link = shape_level_single_hyperlink(xml, hyperlinks)
@@ -37,6 +38,9 @@ fn extract_shape_paragraphs(
                 let inlines = apply_shape_level_link_if_needed(
                   inlines0, text, shape_link,
                 )
+                let relationship_id = extract_single_hyperlink_relationship_id(
+                  inlines, hyperlinks,
+                )
 
                 let bullet_kind = paragraph_bullet_kind(
                   xml, inner_start, p_end0,
@@ -54,6 +58,8 @@ fn extract_shape_paragraphs(
                     from_title_shape,
                     from_body_shape,
                     associated_with_image_caption: false,
+                    object_ref,
+                    relationship_id,
                   })
                 }
 
@@ -99,6 +105,8 @@ fn extract_shape_paragraphs(
       from_title_shape: true,
       from_body_shape,
       associated_with_image_caption: false,
+      object_ref,
+      relationship_id: None,
     },
   ]
 }

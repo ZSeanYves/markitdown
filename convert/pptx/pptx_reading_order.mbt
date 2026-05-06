@@ -55,6 +55,7 @@ fn extract_slide_paragraphs(
       raw.is_body,
       hyperlinks,
       para_seq,
+      raw.object_ref,
     )
     for para in paras {
       out.push(para)

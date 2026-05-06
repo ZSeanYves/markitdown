@@ -163,6 +163,11 @@ Known limits:
 
 ### PPTX
 
+Status:
+
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native overlap corpus`
+
 Supported:
 
 * slide-order traversal
@@ -178,6 +183,7 @@ Supported:
 * hidden slide annotation with content-preserving output
 * exported images through unified `ImageBlock`
 * OOXML document properties in the explicit `--with-metadata` sidecar path
+* relationship/source provenance for hyperlinks, tables, images, and notes
 
 Conservative behavior:
 
@@ -188,6 +194,8 @@ Conservative behavior:
 * speaker notes are emitted under the owning slide as a conservative append
   subsection
 * heuristic "table-like" recovery still exists for non-table shape layouts
+* grouped shapes preserve conservative `object_ref` provenance through
+  reading-order text lowering when lower-layer shape identity is available
 * image caption attachment stays conservative
 * layout heuristics favor readable downgrade over aggressive reconstruction
 
@@ -200,6 +208,8 @@ Known limits:
 * no internal/action/media hyperlink promotion
 * no chart / SmartArt / OLE / embedded-media semantics
 * no pixel-perfect grouped-layout or z-order reconstruction
+* not a PowerPoint layout engine
+* no animations / transitions
 
 ### XLSX
 

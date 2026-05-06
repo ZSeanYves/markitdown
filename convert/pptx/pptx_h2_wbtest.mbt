@@ -273,6 +273,8 @@ test "pptx top non-caption title-like text still promotes to heading" {
       from_title_shape: true,
       from_body_shape: false,
       associated_with_image_caption: false,
+      object_ref: Some("shape-1"),
+      relationship_id: None,
     },
     {
       source_para_id: 2,
@@ -283,12 +285,20 @@ test "pptx top non-caption title-like text still promotes to heading" {
       from_title_shape: false,
       from_body_shape: true,
       associated_with_image_caption: false,
+      object_ref: Some("shape-2"),
+      relationship_id: None,
     },
   ]
   let blocks = classify_slide_paragraphs(paras)
   assert_eq(blocks.length(), 2)
   match blocks[0] {
-    PptxBlock::Heading(text, _) => assert_eq(text, "Release Notes")
+    PptxBlock::Heading(text, _, object_ref, _relationship_id) => {
+      assert_eq(text, "Release Notes")
+      match object_ref {
+        Some(v) => assert_eq(v, "shape-1")
+        None => fail("expected heading object_ref")
+      }
+    }
     _ => fail("expected top title-like text to classify as heading")
   }
 }

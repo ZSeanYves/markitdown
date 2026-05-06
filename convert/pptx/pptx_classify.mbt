@@ -21,12 +21,26 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
     // Caption-like text should usually stay as body text, but do not suppress
     // conservative top-title promotion for short, title-like labels.
     if is_caption_like_text(p) && !para.from_title_shape {
-      out.push(PptxBlock::Paragraph(p, para.inlines))
+      out.push(
+        PptxBlock::Paragraph(
+          p,
+          para.inlines,
+          para.object_ref,
+          para.relationship_id,
+        ),
+      )
       continue
     }
 
     if para.from_title_shape && !seen_heading {
-      out.push(PptxBlock::Heading(p, para.inlines))
+      out.push(
+        PptxBlock::Heading(
+          p,
+          para.inlines,
+          para.object_ref,
+          para.relationship_id,
+        ),
+      )
       seen_heading = true
       continue
     }
@@ -44,6 +58,8 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
             level,
             strip_bullet_prefix(p),
             para.inlines,
+            para.object_ref,
+            para.relationship_id,
           ),
         )
         continue
@@ -60,6 +76,8 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
           level,
           strip_bullet_prefix(p),
           para.inlines,
+          para.object_ref,
+          para.relationship_id,
         ),
       )
       continue
@@ -73,14 +91,28 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
         Some(_) => ()
         None =>
           if compacted.length() == 1 || i == 0 {
-            out.push(PptxBlock::Heading(p, para.inlines))
+            out.push(
+              PptxBlock::Heading(
+                p,
+                para.inlines,
+                para.object_ref,
+                para.relationship_id,
+              ),
+            )
             seen_heading = true
             continue
           }
       }
     }
 
-    out.push(PptxBlock::Paragraph(p, para.inlines))
+    out.push(
+      PptxBlock::Paragraph(
+        p,
+        para.inlines,
+        para.object_ref,
+        para.relationship_id,
+      ),
+    )
   }
 
   out
@@ -111,6 +143,8 @@ fn compact_slide_paragraphs(
       from_title_shape: para.from_title_shape,
       from_body_shape: para.from_body_shape,
       associated_with_image_caption: para.associated_with_image_caption,
+      object_ref: para.object_ref,
+      relationship_id: para.relationship_id,
     }
 
     if out.length() == 0 {

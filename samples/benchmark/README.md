@@ -268,6 +268,29 @@ These rows are intended to support the DOCX H2++ / H3++ sprint:
 They are checked-in engineering corpus rows, not blanket claims about every
 Word document or full layout-engine workloads.
 
+Current PPTX second-round checked-in benchmark additions:
+
+* `pptx_link_heavy.pptx`
+* `pptx_notes_heavy.pptx`
+* `pptx_layout_heavy.pptx`
+* PPTX metadata rows for:
+  * `pptx_metadata_docprops_rich`
+  * `pptx_metadata_links_images`
+  * `pptx_metadata_notes_hidden`
+  * `pptx_metadata_table_grid`
+  * `pptx_metadata_caption_like`
+
+These rows are intended to support the PPTX H2++ / H3++ sprint:
+
+* slide-order/title/bullet overlap evidence
+* hyperlink and local-image asset behavior
+* speaker-notes and hidden-slide policy
+* callout/grid/layout-heavy heuristic coverage
+* metadata-on overhead for PPTX slide/shape/asset provenance
+
+They remain checked-in engineering corpus rows, not blanket claims about all
+PowerPoint layouts or full presentation-rendering workloads.
+
 For public/private/manual corpora:
 
 * do not add the real files to the repository

@@ -48,7 +48,8 @@
         "slide": 1,
         "sheet": null,
         "block_index": 1,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-2"
       },
       "image": null
     },
@@ -63,7 +64,8 @@
         "slide": 1,
         "sheet": null,
         "block_index": 2,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -78,7 +80,8 @@
         "slide": 1,
         "sheet": null,
         "block_index": 3,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -93,7 +96,8 @@
         "slide": 1,
         "sheet": null,
         "block_index": 4,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -108,7 +112,8 @@
         "slide": 1,
         "sheet": null,
         "block_index": 5,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -189,7 +194,8 @@
         "slide": 2,
         "sheet": null,
         "block_index": 10,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-2"
       },
       "image": null
     },
@@ -204,7 +210,8 @@
         "slide": 2,
         "sheet": null,
         "block_index": 11,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -219,7 +226,8 @@
         "slide": 2,
         "sheet": null,
         "block_index": 12,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-3"
       },
       "image": null
     },
@@ -300,7 +308,8 @@
         "slide": 3,
         "sheet": null,
         "block_index": 17,
-        "heading_path": null
+        "heading_path": null,
+        "object_ref": "shape-2"
       },
       "image": null
     },

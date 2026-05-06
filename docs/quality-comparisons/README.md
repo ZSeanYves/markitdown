@@ -93,6 +93,11 @@ quality review concrete, but it is not the final parity conclusion.
 | DOCX | [docx_image_alt_title.docx](./docx-image-assets.md) | local image asset behavior, alt/title preservation | `win` | `markitdown-mb` materializes local assets and keeps the title line |
 | DOCX | [docx_textbox_body_and_table.docx](./docx-header-footer-textbox.md) | textbox extraction policy | `close` | both preserve useful text, but use different downgrade policies |
 | PPTX | [pptx_title_bullets.pptx](./pptx-title-bullets.md) | slide order, heading, bullets | `win` | `markitdown-mb` keeps bullet structure; Microsoft MarkItDown flattens it |
+| PPTX | [pptx_grouped_shapes_boundary.pptx](./pptx-reading-order.md) | grouped shapes, reading order, heading promotion | `win` | `markitdown-mb` keeps a clearer heading/body order for grouped text |
+| PPTX | [pptx_image_alt_title.pptx](./pptx-links-images.md) | local image asset behavior, alt/title preservation | `win` | `markitdown-mb` materializes the image asset and keeps the title hint |
+| PPTX | [pptx_hidden_slides_policy.pptx](./pptx-notes-hidden-slides.md) | hidden slide preservation | `win` | `markitdown-mb` keeps hidden slide state explicit |
+| PPTX | [pptx_callout_blocks_basic.pptx](./pptx-table-grid-callouts.md) | callout/card grouping and reading order | `win` | `markitdown-mb` keeps clearer callout title/body pairing |
+| PPTX | [pptx_image_caption_like_boundary.pptx](./pptx-caption-like-image.md) | caption-like image pairing | `win` | `markitdown-mb` keeps the local asset and nearby caption-like text together |
 | XLSX | [xlsx_multi_sheet_mixed.xlsx](./xlsx-multisheet-table.md) | multi-sheet tables and typed cells | `win` | `markitdown-mb` keeps cleaner sheet sections and fewer placeholder cells |
 | XLSX | [xlsx_formula_cached_values.xlsx](./xlsx-formula-cached-values.md) | cached formulas and missing-cache degradation | `win` | `markitdown-mb` avoids `NaN` for missing cache and keeps cached error text |
 | XLSX | [xlsx_formula_eval_arithmetic.xlsx](./xlsx-formula-eval-arithmetic.md) | missing-cache arithmetic evaluation | `win` | `markitdown-mb` recovers arithmetic results while Microsoft MarkItDown emits `NaN` |

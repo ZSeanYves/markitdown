@@ -158,7 +158,7 @@ pub fn parse_pptx(
 
       for b in blocks {
         match b {
-          PptxBlock::Heading(text, inlines) => {
+          PptxBlock::Heading(text, inlines, object_ref, relationship_id) => {
             if prev_was_list {
               @cor.push_with_origin(
                 doc,
@@ -199,14 +199,14 @@ pub fn parse_pptx(
                 line_end: None,
                 row_index: None,
                 column_index: None,
-                object_ref: None,
-                relationship_id: None,
+                object_ref,
+                relationship_id,
                 key_path: None,
               }),
             )
             prev_was_list = false
           }
-          PptxBlock::Paragraph(text, inlines) => {
+          PptxBlock::Paragraph(text, inlines, object_ref, relationship_id) => {
             if prev_was_list {
               @cor.push_with_origin(
                 doc,
@@ -247,14 +247,21 @@ pub fn parse_pptx(
                 line_end: None,
                 row_index: None,
                 column_index: None,
-                object_ref: None,
-                relationship_id: None,
+                object_ref,
+                relationship_id,
                 key_path: None,
               }),
             )
             prev_was_list = false
           }
-          PptxBlock::ListItem(ordered, level, text, inlines) => {
+          PptxBlock::ListItem(
+            ordered,
+            level,
+            text,
+            inlines,
+            object_ref,
+            relationship_id
+          ) => {
             let item = if has_link_inline(inlines) {
               @cor.Block::RichListItem(ordered, level, inlines)
             } else {
@@ -274,8 +281,8 @@ pub fn parse_pptx(
                 line_end: None,
                 row_index: None,
                 column_index: None,
-                object_ref: None,
-                relationship_id: None,
+                object_ref,
+                relationship_id,
                 key_path: None,
               }),
             )
@@ -357,7 +364,7 @@ pub fn parse_pptx(
         let note_blocks = classify_slide_paragraphs(note_paras)
         for block in note_blocks {
           match block {
-            PptxBlock::Heading(text, inlines) => {
+            PptxBlock::Heading(text, inlines, object_ref, relationship_id) => {
               let heading = if has_link_inline(inlines) {
                 @cor.Block::RichHeading(clamp_heading(4, max_heading), inlines)
               } else {
@@ -377,13 +384,19 @@ pub fn parse_pptx(
                   line_end: None,
                   row_index: None,
                   column_index: None,
-                  object_ref: rel_ctx.notes_part,
-                  relationship_id: rel_ctx.notes_relationship_id,
+                  object_ref: match object_ref {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_part
+                  },
+                  relationship_id: match relationship_id {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_relationship_id
+                  },
                   key_path: rel_ctx.notes_part,
                 }),
               )
             }
-            PptxBlock::Paragraph(text, inlines) => {
+            PptxBlock::Paragraph(text, inlines, object_ref, relationship_id) => {
               let para = if has_link_inline(inlines) {
                 @cor.Block::RichParagraph(inlines)
               } else {
@@ -403,13 +416,26 @@ pub fn parse_pptx(
                   line_end: None,
                   row_index: None,
                   column_index: None,
-                  object_ref: rel_ctx.notes_part,
-                  relationship_id: rel_ctx.notes_relationship_id,
+                  object_ref: match object_ref {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_part
+                  },
+                  relationship_id: match relationship_id {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_relationship_id
+                  },
                   key_path: rel_ctx.notes_part,
                 }),
               )
             }
-            PptxBlock::ListItem(ordered, level, text, inlines) => {
+            PptxBlock::ListItem(
+              ordered,
+              level,
+              text,
+              inlines,
+              object_ref,
+              relationship_id
+            ) => {
               let item = if has_link_inline(inlines) {
                 @cor.Block::RichListItem(ordered, level, inlines)
               } else {
@@ -429,8 +455,14 @@ pub fn parse_pptx(
                   line_end: None,
                   row_index: None,
                   column_index: None,
-                  object_ref: rel_ctx.notes_part,
-                  relationship_id: rel_ctx.notes_relationship_id,
+                  object_ref: match object_ref {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_part
+                  },
+                  relationship_id: match relationship_id {
+                    Some(v) => Some(v)
+                    None => rel_ctx.notes_relationship_id
+                  },
                   key_path: rel_ctx.notes_part,
                 }),
               )

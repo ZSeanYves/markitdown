@@ -27,6 +27,7 @@ fn extract_speaker_notes(
       true,
       Map::new(),
       para_seq,
+      shape.shape.object_ref,
     )
     for para in paras {
       if !is_notes_placeholder_noise(para.text) {

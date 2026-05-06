@@ -80,6 +80,14 @@ state:
 * DOCX native benchmark coverage now includes table-heavy, link-heavy,
   image-heavy, notes/comments-heavy, metadata-on, batch-profile, and overlap
   compare rows against Microsoft MarkItDown on meaningful local samples
+* PPTX now has checked-in second-round regression/metadata/quality evidence
+  for slide order, bullets, grouped-shape reading order, speaker notes, hidden
+  slides, explicit tables, local image assets, and caption-like image pairing
+* PPTX native benchmark coverage now includes link-heavy, notes-heavy,
+  layout-heavy, metadata-on, batch-profile, and overlap compare rows against
+  Microsoft MarkItDown on selected local samples
+* PPTX is now treated as `H2++ complete`, with `H3++` evidence backed on the
+  checked-in native overlap corpus
 * DOCX is now treated as `H2++ complete`, with `H3++` evidence backed on the
   checked-in native overlap corpus
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,

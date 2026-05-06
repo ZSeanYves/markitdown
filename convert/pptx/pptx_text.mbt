@@ -136,6 +136,47 @@ fn extract_text_inlines(
 }
 
 ///|
+fn extract_single_hyperlink_relationship_id(
+  inlines : Array[@cor.Inline],
+  hyperlinks : Map[String, String],
+) -> String? {
+  let mut seen_url : String? = None
+  for x in inlines {
+    match x {
+      @cor.Inline::Link(_text, url) => {
+        let trimmed = url.trim().to_owned()
+        if trimmed == "" {
+          continue
+        }
+        match seen_url {
+          Some(prev) => if prev != trimmed { return None }
+          None => seen_url = Some(trimmed)
+        }
+      }
+      _ => ()
+    }
+  }
+
+  let target = match seen_url {
+    Some(url) => url
+    None => return None
+  }
+
+  let mut rid : String? = None
+  for entry in hyperlinks {
+    let (candidate_rid, candidate_url) = entry
+    if candidate_url.trim() != target {
+      continue
+    }
+    match rid {
+      Some(prev) => if prev != candidate_rid { return None }
+      None => rid = Some(candidate_rid)
+    }
+  }
+  rid
+}
+
+///|
 fn run_hyperlink_rid(run : Bytes) -> String? raise {
   let open_h = pat("<a:hlinkClick")
   let gt_pat = pat(">")

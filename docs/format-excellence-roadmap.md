@@ -118,6 +118,18 @@ Focus:
 * explicit non-goals: no full Excel engine, no cross-sheet/lookup/array/dynamic
   formula support in evaluator v1
 
+PPTX is now also treated as:
+
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native overlap corpus`
+
+Current PPTX closure is intentionally scoped to:
+
+* mainstream slide-order/title/body/list/link/image/notes/table-like structure
+* heuristic reading order and conservative grouped-shape lowering
+* explicit non-goals: no PowerPoint layout engine, no animations/transitions,
+  no SmartArt/chart/OLE rendering, no pixel-perfect visual reconstruction
+
 The second second-round excellence sprint is `HTML`.
 
 Current HTML sprint state:

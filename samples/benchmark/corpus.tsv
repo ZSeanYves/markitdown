@@ -17,6 +17,9 @@ smoke	pptx	pptx_images_many	samples/assets/pptx/pptx_image_multi.pptx	false
 smoke	pptx	pptx_tables_large	samples/main_process/pptx/pptx_table_like_region_local_with_intro_outro.pptx	false
 smoke	pptx	pptx_layout_dense	samples/main_process/pptx/pptx_negative_dense_keyword_wall.pptx	false
 smoke	pptx	pptx_many_slides	samples/main_process/pptx/pptx_slide_order.pptx	false
+smoke	pptx	pptx_link_heavy	samples/benchmark/pptx/pptx_link_heavy.pptx	false
+smoke	pptx	pptx_notes_heavy	samples/benchmark/pptx/pptx_notes_heavy.pptx	false
+smoke	pptx	pptx_layout_heavy	samples/benchmark/pptx/pptx_layout_heavy.pptx	false
 smoke	xlsx	xlsx_multi_sheet_mixed	samples/main_process/xlsx/xlsx_multi_sheet_mixed.xlsx	false
 smoke	xlsx	xlsx_small	samples/benchmark/xlsx/xlsx_small.xlsx	false
 smoke	xlsx	xlsx_medium	samples/benchmark/xlsx/xlsx_medium.xlsx	false
@@ -109,6 +112,11 @@ metadata	docx	docx_metadata_notes_comments	samples/metadata/docx/docx_metadata_n
 metadata	docx	docx_metadata_table_complex	samples/metadata/docx/docx_metadata_table_complex.docx	true
 metadata	docx	docx_metadata_textbox_header_footer	samples/metadata/docx/docx_metadata_textbox_header_footer.docx	true
 metadata	pptx	pptx_image_alt_title_basic_metadata	samples/metadata/pptx/pptx_image_alt_title_basic.pptx	true
+metadata	pptx	pptx_metadata_docprops_rich	samples/metadata/pptx/pptx_metadata_docprops_rich.pptx	true
+metadata	pptx	pptx_metadata_links_images	samples/metadata/pptx/pptx_metadata_links_images.pptx	true
+metadata	pptx	pptx_metadata_notes_hidden	samples/metadata/pptx/pptx_metadata_notes_hidden.pptx	true
+metadata	pptx	pptx_metadata_table_grid	samples/metadata/pptx/pptx_metadata_table_grid.pptx	true
+metadata	pptx	pptx_metadata_caption_like	samples/metadata/pptx/pptx_metadata_caption_like.pptx	true
 metadata	xlsx	xlsx_metadata_basic	samples/metadata/xlsx/xlsx_metadata_basic.xlsx	true
 metadata	xlsx	xlsx_metadata_multi_sheet	samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx	true
 metadata	xlsx	xlsx_metadata_formula_or_merged_policy	samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx	true

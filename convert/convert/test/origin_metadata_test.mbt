@@ -2215,6 +2215,114 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "pptx_metadata_notes_hidden.metadata.json",
   )
 
+  let pptx_docprops_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_docprops_rich"
+  recreate_clean_dir(pptx_docprops_out_dir)
+  defer cleanup_temp_dir(pptx_docprops_out_dir)
+  ensure_dir(pptx_docprops_out_dir + "/pptx")
+  let pptx_docprops_doc = @pptx.parse_pptx(
+    resolve_sample_path(
+      "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+    ),
+    pptx_docprops_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_docprops_doc,
+      "pptx_metadata_docprops_rich.pptx",
+      "pptx",
+      "pptx_metadata_docprops_rich.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_docprops_rich.metadata.json",
+  )
+
+  let pptx_links_images_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_links_images"
+  recreate_clean_dir(pptx_links_images_out_dir)
+  defer cleanup_temp_dir(pptx_links_images_out_dir)
+  ensure_dir(pptx_links_images_out_dir + "/pptx")
+  let pptx_links_images_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_links_images.pptx"),
+    pptx_links_images_out_dir + "/pptx",
+    6,
+  )
+  let pptx_links_images_md = @cor.emit_markdown(pptx_links_images_doc)
+  if !pptx_links_images_md.contains(
+      "[reference](https://example.com/reference)",
+    ) {
+    fail("pptx links+images metadata sample should keep hyperlink markdown")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_links_images_doc,
+      "pptx_metadata_links_images.pptx",
+      "pptx",
+      "pptx_metadata_links_images.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_links_images.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_links_images.metadata.json",
+  )
+
+  let pptx_table_grid_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_table_grid"
+  recreate_clean_dir(pptx_table_grid_out_dir)
+  defer cleanup_temp_dir(pptx_table_grid_out_dir)
+  ensure_dir(pptx_table_grid_out_dir + "/pptx")
+  let pptx_table_grid_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_grid.pptx"),
+    pptx_table_grid_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_table_grid_doc,
+      "pptx_metadata_table_grid.pptx",
+      "pptx",
+      "pptx_metadata_table_grid.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_table_grid.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_table_grid.metadata.json",
+  )
+
+  let pptx_caption_like_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_pptx_metadata_caption_like"
+  recreate_clean_dir(pptx_caption_like_out_dir)
+  defer cleanup_temp_dir(pptx_caption_like_out_dir)
+  ensure_dir(pptx_caption_like_out_dir + "/pptx")
+  let pptx_caption_like_doc = @pptx.parse_pptx(
+    resolve_sample_path("samples/metadata/pptx/pptx_metadata_caption_like.pptx"),
+    pptx_caption_like_out_dir + "/pptx",
+    6,
+  )
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      pptx_caption_like_doc,
+      "pptx_metadata_caption_like.pptx",
+      "pptx",
+      "pptx_metadata_caption_like.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/metadata/pptx/pptx_metadata_caption_like.pptx",
+        ),
+      ),
+    ),
+    "pptx_metadata_caption_like.metadata.json",
+  )
+
   let docx_golden_out_dir = origin_tmp_root() + "/metadata_sidecar_docx_golden"
   recreate_clean_dir(docx_golden_out_dir)
   defer cleanup_temp_dir(docx_golden_out_dir)
