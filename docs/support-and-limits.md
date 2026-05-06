@@ -166,25 +166,43 @@ Supported:
 * datetime/time formatting
 * shared strings and inline strings
 * boolean / error / blank cell handling
+* typed-cell semantic tagging in metadata sidecar
+* formula text and cached-value policy hints in metadata sidecar
+* lightweight missing-cache formula evaluation for a safe local subset
 * merged-range detection in the lower layer
 * hidden / veryHidden sheet-state capture in the lower layer
+* sheet-state emission in metadata sidecar
 * source row/column provenance
 
 Conservative behavior:
 
 * tables emit spreadsheet-style `RichTable` with `header_rows = 1`
-* cached values are used; formulas are not evaluated
+* cached values are still preferred over local evaluation when present
+* missing cached formulas now use a lightweight evaluator only for a bounded,
+  deterministic subset
+* supported evaluator-v1 subset includes same-sheet references/ranges,
+  arithmetic, comparisons, and common local functions such as `SUM`,
+  `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `IF`, `ROUND`, `ABS`,
+  `CONCAT`/`CONCATENATE`, `LEFT`, `RIGHT`, `LEN`, `LOWER`, `UPPER`, and
+  `TRIM`
+* missing-cache formulas outside that subset degrade conservatively to blank
+  display rather than invented values
+* formula policy, evaluated values, and unsupported/error reasons are exposed
+  in metadata sidecar hints when available
 * hidden sheets are currently emitted in workbook order
 * merged ranges currently preserve only the top-left visible value
-* formula text is preserved in the lower layer when present
+* formula text is preserved in the lower layer and metadata sidecar when present
 * sparse sheets are lowered through a used bounding box, not a full grid
 
 Known limits:
 
 * no merged-cell reconstruction
-* no formula evaluation engine
-* no hidden-sheet annotation in emitted Markdown yet
-* no metadata serialization for formula text or merged ranges yet
+* no full Excel formula engine
+* no cross-sheet, external workbook, named-range, lookup, array, dynamic
+  array, volatile, or structured-reference evaluation
+* no workbook recalc or compatibility guarantee beyond the checked-in
+  evaluator-v1 subset
+* no hidden-sheet annotation in emitted Markdown beyond sheet headings
 * no charts / pivots / comments / image export
 
 ### PDF

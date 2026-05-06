@@ -102,6 +102,19 @@ Current checked-in benchmark control files:
 * `corpus_manifest.example.tsv`
 * `../scripts/check_corpus_manifest.sh`
 
+Role of each checked-in control:
+
+* `corpus.tsv`: checked-in Tier 1 smoke/image/metadata/extended benchmark rows
+* `compare_corpus.tsv`: overlap-only comparison rows against Microsoft
+  MarkItDown; it is not a blanket support-parity list
+* `perf_thresholds.tsv`: conservative local warning thresholds for selected
+  suites/rows
+* `corpus_manifest.example.tsv`: template for public/private/manual corpus
+  manifests
+
+For runner classes, comparability policy, and raw result-field expectations,
+see [docs/benchmark-governance.md](../../docs/benchmark-governance.md).
+
 ## Manifest Checker
 
 Validate the checked-in example manifest:
@@ -151,6 +164,26 @@ For checked-in smoke samples:
 * add or update the row in `corpus.tsv`
 * update the example manifest only if it remains a useful checked-in example
 * run `./samples/scripts/check_corpus_manifest.sh`
+
+Current XLSX second-round checked-in benchmark additions:
+
+* `xlsx_formula_heavy.xlsx`
+* `xlsx_formula_eval_arithmetic.xlsx`
+* `xlsx_formula_eval_ranges.xlsx`
+* `xlsx_formula_heavy_missing_cache.xlsx`
+* `xlsx_formula_unsupported_many.xlsx`
+* `xlsx_merged_heavy.xlsx`
+* `xlsx_typed_cells.xlsx`
+
+These rows are intended to support the XLSX H2++ / H3++ sprint:
+
+* cached-formula policy
+* lightweight missing-cache formula evaluation v1
+* merged-cell policy
+* typed-cell policy
+
+They are still local checked-in engineering corpus rows, not broad market-wide
+performance claims by themselves.
 
 For public/private/manual corpora:
 

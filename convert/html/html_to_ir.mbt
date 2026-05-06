@@ -85,10 +85,17 @@ fn nodes_to_blocks(
             @cor.Block::RichTable({
               rows: out_rows,
               header_rows: table.header_rows,
+              hints: None,
             }),
           )
         } else {
-          out.push(@cor.Block::RichTable({ rows: out_rows, header_rows: 0 }))
+          out.push(
+            @cor.Block::RichTable({
+              rows: out_rows,
+              header_rows: 0,
+              hints: None,
+            }),
+          )
         }
       }
     }

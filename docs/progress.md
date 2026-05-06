@@ -8,6 +8,12 @@ For detailed format behavior, use
 For second-round support/benchmark/parser-gap planning, use
 [docs/second-round-hardening-audit.md](./second-round-hardening-audit.md).
 
+For the current benchmark corpus/runner/comparability contract, use
+[docs/benchmark-governance.md](./benchmark-governance.md).
+
+For checked-in Markdown quality comparison records, use
+[docs/quality-comparisons/README.md](./quality-comparisons/README.md).
+
 ## Current State
 
 The repository is currently in a stable post-initial-H2, post-H3-phase-1
@@ -26,6 +32,14 @@ state:
   validates the core sidecar contract
 * benchmark harnesses for smoke, overlap comparison, batch profiling, and
   warnings are in place
+* benchmark governance now distinguishes runner class, execution path,
+  overlap-only comparison, and not-comparable cases more explicitly
+* the first checked-in quality comparison seed records now exist for selected
+  DOCX / PPTX / XLSX / HTML / CSV / Markdown / TXT / PDF overlap samples
+* the first second-round format excellence sprint has started with XLSX, with
+  formula/merged/type/sheet-state policy now backed by additional samples,
+  sidecar hints, and the first lightweight formula-evaluation-v1 pass for
+  missing-cache formulas
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story
@@ -46,6 +60,10 @@ In short:
 * H3 phase 1 performance optimization is done as a milestone artifact
 * broader speed conclusions still require benchmark evidence by runner, mode,
   and corpus
+* current quality records are a seed evidence set, not a final all-format H2
+  parity conclusion
+* the format-excellence workflow is now explicit in
+  [docs/format-excellence-roadmap.md](./format-excellence-roadmap.md)
 * the next H3 step is benchmark governance and broader corpus discipline, not
   another urgent converter hot-path cut
 

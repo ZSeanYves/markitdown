@@ -55,6 +55,7 @@ test "metadata sidecar serializes rich table structure" {
     @cor.Block::RichTable({
       rows: [["Name", "Role"], ["Alice", "Engineer"]],
       header_rows: 1,
+      hints: None,
     }),
   )
 

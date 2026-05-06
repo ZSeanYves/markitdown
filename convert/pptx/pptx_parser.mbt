@@ -312,6 +312,7 @@ pub fn parse_pptx(
           @cor.Block::RichTable({
             rows: table.rows,
             header_rows: table.header_rows,
+            hints: None,
           }),
           Some({
             source_name: Some(src),

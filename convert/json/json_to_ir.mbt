@@ -154,7 +154,11 @@ fn push_json_value(
     JsonValue::Object(members) =>
       @cor.push_with_origin(
         doc,
-        @cor.Block::RichTable({ rows: object_rows(members), header_rows: 1 }),
+        @cor.Block::RichTable({
+          rows: object_rows(members),
+          header_rows: 1,
+          hints: None,
+        }),
         origin,
       )
     JsonValue::Array(values) =>
@@ -198,7 +202,7 @@ fn push_json_value(
             )
             @cor.push_with_origin(
               doc,
-              @cor.Block::RichTable({ rows, header_rows: 1 }),
+              @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
               origin,
             )
           }

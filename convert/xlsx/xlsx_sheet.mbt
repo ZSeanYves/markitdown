@@ -58,10 +58,11 @@ fn parse_sheet_model(
     }
 
     let num_format_id = style_index_numfmt(styles, parsed.style_index)
-    let (kind, text) = resolve_cell_display(
+    let (kind, semantic_type, text) = resolve_cell_display(
       parsed.cell_type,
       parsed.inner,
       parsed.value,
+      parsed.formula_text,
       shared,
       styles,
       num_format_id,
@@ -82,26 +83,21 @@ fn parse_sheet_model(
       display_text: text,
       source_value,
       formula_text,
+      semantic_type,
       style_index: parsed.style_index,
       num_format_id,
+      formula_trace: None,
     })
-    cell_texts.set(rr.to_string() + "," + cc.to_string(), text)
-
-    if @cor.trim_string(text) != "" {
-      if min_r == 0 || rr < min_r {
-        min_r = rr
-      }
-      if min_c == 0 || cc < min_c {
-        min_c = cc
-      }
-      if rr > max_r {
-        max_r = rr
-      }
-      if cc > max_c {
-        max_c = cc
-      }
-    }
   }
+  apply_formula_policy(sheet_name, cells)
+  rebuild_sheet_text_index(cells, cell_texts)
+  let (range_min_r, range_min_c, range_max_r, range_max_c) = used_range_from_cells(
+    cells,
+  )
+  min_r = range_min_r
+  min_c = range_min_c
+  max_r = range_max_r
+  max_c = range_max_c
   xlsx_profile_add_stage(
     profile,
     "worksheet_cell_decode_loop:" + sheet_name,
@@ -138,6 +134,109 @@ fn parse_sheet_model(
     },
     used_max_col: table_width(rows),
   }
+}
+
+///|
+fn apply_formula_policy(
+  sheet_name : String,
+  cells : Array[XlsxCellModel],
+) -> Unit {
+  let mut i = 0
+  while i < cells.length() {
+    let cell = cells[i]
+    match cell.formula_text {
+      Some(text) =>
+        if text.trim() != "" {
+          let trace = if cell.source_value != None {
+            Some({
+              policy: XlsxFormulaPolicy::Cached,
+              evaluated_value: None,
+              unsupported_reason: None,
+              error_reason: None,
+              referenced_cells: None,
+              referenced_ranges: None,
+            })
+          } else {
+            evaluate_missing_cache_formula(sheet_name, cell, cells)
+          }
+
+          let next_cell = match trace {
+            Some(info) =>
+              if info.policy == XlsxFormulaPolicy::EvaluatedMissingCache {
+                {
+                  ..cell,
+                  display_text: info.evaluated_value.unwrap_or(""),
+                  semantic_type: inferred_formula_eval_semantic_type(
+                    info.evaluated_value.unwrap_or(""),
+                  ),
+                  formula_trace: Some(info),
+                }
+              } else {
+                { ..cell, formula_trace: Some(info) }
+              }
+            None => cell
+          }
+          cells[i] = next_cell
+        }
+      None => ()
+    }
+    i = i + 1
+  }
+}
+
+///|
+fn inferred_formula_eval_semantic_type(text : String) -> XlsxCellSemanticType {
+  let trimmed = text.trim()
+  if trimmed == "" {
+    XlsxCellSemanticType::FormulaMissingCache
+  } else if trimmed == "TRUE" || trimmed == "FALSE" {
+    XlsxCellSemanticType::Boolean
+  } else {
+    try @string.parse_double(trimmed.to_owned()) catch {
+      _ => XlsxCellSemanticType::String
+    } noraise {
+      _ => XlsxCellSemanticType::Number
+    }
+  }
+}
+
+///|
+fn rebuild_sheet_text_index(
+  cells : Array[XlsxCellModel],
+  cell_texts : Map[String, String],
+) -> Unit {
+  for cell in cells {
+    cell_texts.set(
+      cell.row.to_string() + "," + cell.column.to_string(),
+      cell.display_text,
+    )
+  }
+}
+
+///|
+fn used_range_from_cells(cells : Array[XlsxCellModel]) -> (Int, Int, Int, Int) {
+  let mut min_r = 0
+  let mut min_c = 0
+  let mut max_r = 0
+  let mut max_c = 0
+  for cell in cells {
+    if @cor.trim_string(cell.display_text) == "" {
+      continue
+    }
+    if min_r == 0 || cell.row < min_r {
+      min_r = cell.row
+    }
+    if min_c == 0 || cell.column < min_c {
+      min_c = cell.column
+    }
+    if cell.row > max_r {
+      max_r = cell.row
+    }
+    if cell.column > max_c {
+      max_c = cell.column
+    }
+  }
+  (min_r, min_c, max_r, max_c)
 }
 
 ///|
@@ -291,61 +390,182 @@ fn resolve_cell_display(
   cell_type : String,
   inner : String,
   val : String,
+  formula_text : String?,
   shared : Array[String],
   styles : XlsxStyles,
   num_format_id : Int,
   uses_date_1904 : Bool,
-) -> (XlsxCellKind, String) {
+) -> (XlsxCellKind, XlsxCellSemanticType, String) {
+  let has_formula = match formula_text {
+    Some(text) => text.trim() != ""
+    None => false
+  }
   if cell_type == "s" {
     let idx = parse_int(val)
     if idx >= 0 && idx < shared.length() {
-      (XlsxCellKind::SharedString, shared[idx])
+      (XlsxCellKind::SharedString, XlsxCellSemanticType::String, shared[idx])
     } else {
-      (XlsxCellKind::SharedString, "")
+      (XlsxCellKind::SharedString, XlsxCellSemanticType::String, "")
     }
   } else if cell_type == "inlineStr" {
-    (XlsxCellKind::InlineString, parse_inline_str(inner))
+    (
+      XlsxCellKind::InlineString,
+      XlsxCellSemanticType::String,
+      parse_inline_str(inner),
+    )
   } else if cell_type == "b" {
     let v = @cor.trim_string(val)
     if v == "1" {
-      (XlsxCellKind::Boolean, "TRUE")
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        "TRUE",
+      )
     } else if v == "0" {
-      (XlsxCellKind::Boolean, "FALSE")
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        "FALSE",
+      )
     } else {
-      (XlsxCellKind::Boolean, xml_unescape(v))
+      (
+        XlsxCellKind::Boolean,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Boolean
+        },
+        xml_unescape(v),
+      )
     }
   } else if cell_type == "str" {
-    (XlsxCellKind::StringResult, xml_unescape(val))
+    (
+      XlsxCellKind::StringResult,
+      if has_formula {
+        XlsxCellSemanticType::FormulaCachedValue
+      } else {
+        XlsxCellSemanticType::String
+      },
+      xml_unescape(val),
+    )
   } else if cell_type == "e" {
     let v = @cor.trim_string(val)
     if v == "" {
-      (XlsxCellKind::Error, "#ERROR!")
+      (
+        XlsxCellKind::Error,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Error
+        },
+        "#ERROR!",
+      )
     } else {
-      (XlsxCellKind::Error, v)
+      (
+        XlsxCellKind::Error,
+        if has_formula {
+          XlsxCellSemanticType::FormulaCachedValue
+        } else {
+          XlsxCellSemanticType::Error
+        },
+        v,
+      )
     }
   } else if @cor.trim_string(val) == "" {
-    (XlsxCellKind::Blank, "")
+    (
+      XlsxCellKind::Blank,
+      if has_formula {
+        XlsxCellSemanticType::FormulaMissingCache
+      } else {
+        XlsxCellSemanticType::Blank
+      },
+      "",
+    )
   } else {
     let raw = xml_unescape(val)
-    let rendered = if numfmt_is_builtin_datetime_like(num_format_id) {
-      format_excel_datetime(raw, num_format_id, None, uses_date_1904)
+    let (semantic_type, rendered) = if numfmt_is_builtin_datetime_like(
+      num_format_id,
+    ) {
+      (
+        datetime_semantic_type(num_format_id, None, has_formula),
+        format_excel_datetime(raw, num_format_id, None, uses_date_1904),
+      )
     } else {
       match custom_numfmt_code(styles, num_format_id) {
         Some(code) =>
           if numfmt_code_is_datetime_like(code) {
-            format_excel_datetime(
-              raw,
-              num_format_id,
-              Some(code),
-              uses_date_1904,
+            (
+              datetime_semantic_type(num_format_id, Some(code), has_formula),
+              format_excel_datetime(
+                raw,
+                num_format_id,
+                Some(code),
+                uses_date_1904,
+              ),
             )
           } else {
-            raw
+            (
+              if has_formula {
+                XlsxCellSemanticType::FormulaCachedValue
+              } else {
+                XlsxCellSemanticType::Number
+              },
+              raw,
+            )
           }
-        None => raw
+        None => (
+          if has_formula {
+            XlsxCellSemanticType::FormulaCachedValue
+          } else {
+            XlsxCellSemanticType::Number
+          },
+          raw,
+        )
       }
     }
-    (XlsxCellKind::Number, rendered)
+    (XlsxCellKind::Number, semantic_type, rendered)
+  }
+}
+
+///|
+fn datetime_semantic_type(
+  num_format_id : Int,
+  custom_code : String?,
+  has_formula : Bool,
+) -> XlsxCellSemanticType {
+  if has_formula {
+    return XlsxCellSemanticType::FormulaCachedValue
+  }
+
+  let is_date_only = match custom_code {
+    Some(code) => numfmt_code_is_date_only(code)
+    None => numfmt_is_date_only_builtin(num_format_id)
+  }
+  let is_time_only = match custom_code {
+    Some(code) => numfmt_code_is_time_only(code)
+    None => numfmt_is_time_only_builtin(num_format_id)
+  }
+  let is_datetime = match custom_code {
+    Some(code) => numfmt_code_is_datetime(code)
+    None => numfmt_is_datetime_builtin(num_format_id)
+  }
+
+  if is_date_only {
+    XlsxCellSemanticType::Date
+  } else if is_time_only {
+    XlsxCellSemanticType::Time
+  } else if is_datetime {
+    XlsxCellSemanticType::DateTime
+  } else {
+    XlsxCellSemanticType::DateTime
   }
 }
 

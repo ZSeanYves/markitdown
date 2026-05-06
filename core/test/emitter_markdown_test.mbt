@@ -6,6 +6,7 @@ test "rich table with explicit header row emits markdown header" {
     @cor.Block::RichTable({
       rows: [["Name", "Role"], ["Ada", "Engineer"], ["Grace", "Admiral"]],
       header_rows: 1,
+      hints: None,
     }),
   )
 
@@ -21,6 +22,7 @@ test "rich table without header emits synthetic markdown headers" {
     @cor.Block::RichTable({
       rows: [["Ada", "Engineer"], ["Grace", "Admiral"]],
       header_rows: 0,
+      hints: None,
     }),
   )
 

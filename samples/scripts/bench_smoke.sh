@@ -201,6 +201,23 @@ smoke_runner_command() {
   printf '%s' "$command"
 }
 
+smoke_runner_class() {
+  case "${1-}" in
+    prebuilt-native)
+      printf 'native-binary'
+      ;;
+    moon-run)
+      printf 'moon-run-fallback'
+      ;;
+    markitdown-cli-env|override)
+      printf 'user-override'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
 generate_summary() {
   if [[ ! -s "$RUNS_TSV_PATH" ]]; then
     printf 'format\tsample\truns\tfailed\tmin_ms\tmedian_ms\tmax_ms\tavg_ms\toutput_bytes_last\tasset_count_last\trunner_kind\trunner_label\n' \
@@ -500,26 +517,41 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
     output_bytes="$(file_size_bytes "$output_md")"
     asset_count="$(count_assets "$sample_dir")"
     timestamp="$(timestamp_utc)"
+    status="success"
+    if [[ "$exit_status" -ne 0 ]]; then
+      status="fail"
+    fi
+    runner_class="$(smoke_runner_class "$SMOKE_RUNNER_KIND")"
 
     printf '{' >> "$RESULTS_PATH"
+    printf '"suite":"%s",' "$(json_escape "smoke")" >> "$RESULTS_PATH"
     printf '"runner":"%s",' "$(json_escape "markitdown-mb")" >> "$RESULTS_PATH"
     printf '"runner_kind":"%s",' "$(json_escape "$SMOKE_RUNNER_KIND")" >> "$RESULTS_PATH"
+    printf '"runner_class":"%s",' "$(json_escape "$runner_class")" >> "$RESULTS_PATH"
     printf '"runner_label":"%s",' "$(json_escape "$SMOKE_RUNNER_LABEL")" >> "$RESULTS_PATH"
+    printf '"command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
     printf '"runner_command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
     printf '"native_cli_path":"%s",' "$(json_escape "$SMOKE_NATIVE_CLI_PATH")" >> "$RESULTS_PATH"
     printf '"mode":"%s",' "$(json_escape "normal")" >> "$RESULTS_PATH"
+    printf '"execution_path":"%s",' "$(json_escape "default-local-normal")" >> "$RESULTS_PATH"
+    printf '"ocr_enabled":false,' >> "$RESULTS_PATH"
+    printf '"debug_enabled":false,' >> "$RESULTS_PATH"
     printf '"run_kind":"%s",' "$(json_escape "$run_kind")" >> "$RESULTS_PATH"
     printf '"format":"%s",' "$(json_escape "$format")" >> "$RESULTS_PATH"
     printf '"sample":"%s",' "$(json_escape "$sample")" >> "$RESULTS_PATH"
     printf '"input_path":"%s",' "$(json_escape "$input_path")" >> "$RESULTS_PATH"
     printf '"file_size":%s,' "$file_size" >> "$RESULTS_PATH"
+    printf '"input_bytes":%s,' "$file_size" >> "$RESULTS_PATH"
     printf '"metadata_enabled":%s,' "$metadata_json" >> "$RESULTS_PATH"
     printf '"iteration":%s,' "$iteration" >> "$RESULTS_PATH"
     printf '"warmup":false,' >> "$RESULTS_PATH"
     printf '"elapsed_ms":%s,' "$elapsed_ms" >> "$RESULTS_PATH"
     printf '"output_bytes":%s,' "$output_bytes" >> "$RESULTS_PATH"
     printf '"asset_count":%s,' "$asset_count" >> "$RESULTS_PATH"
+    printf '"peak_rss_kb":null,' >> "$RESULTS_PATH"
     printf '"exit_status":%s,' "$exit_status" >> "$RESULTS_PATH"
+    printf '"status":"%s",' "$(json_escape "$status")" >> "$RESULTS_PATH"
+    printf '"note":null,' >> "$RESULTS_PATH"
     printf '"timestamp":"%s",' "$(json_escape "$timestamp")" >> "$RESULTS_PATH"
     printf '"git_rev":"%s",' "$(json_escape "$GIT_REV")" >> "$RESULTS_PATH"
     printf '"tmp_root":"%s",' "$(json_escape "$TMP_ROOT")" >> "$RESULTS_PATH"

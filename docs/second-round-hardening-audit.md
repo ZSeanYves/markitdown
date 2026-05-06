@@ -81,6 +81,24 @@ The next round should therefore prioritize:
 * P1-P2 lower-layer work for HTML/XLSX/ZIP/EPUB and OOXML quality parity
 * P2 PDF signal-model improvements before any aggressive output heuristics
 
+### XLSX Sprint Update
+
+The XLSX second-round sprint has now moved past cached-value-only formula
+policy:
+
+* cached values remain the default visible result when present
+* missing-cache formulas now have a lightweight evaluator v1 for a bounded
+  same-sheet subset
+* unsupported, volatile, cross-sheet, and broader Excel-engine cases still
+  degrade conservatively rather than inventing values
+* metadata sidecar `formula_cells` now records formula policy, evaluated
+  values, and unsupported/error reasons where available
+* checked-in quality records now cover cached policy, arithmetic evaluation,
+  range aggregates, unsupported boundaries, merged cells, typed cells, and
+  multi-sheet output
+* checked-in benchmark corpus now includes formula-eval arithmetic/range,
+  formula-heavy missing-cache, and unsupported-formula stress rows
+
 ### Status Update After P0.1 / P0.2 Follow-up
 
 This follow-up pass fixed the two highest-priority project-level guardrails
@@ -439,7 +457,7 @@ status" when sample/benchmark/support evidence is thin.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | DOCX | H2 | `doc_parse/ooxml`, `convert/docx/*` | `parse_docx` | strong main + metadata + assets + tests | smoke + compare + extended | headings, lists, tables, links, notes, headers/footers, text boxes, images | run styles, tracked changes UI, merged table fidelity, internal anchors | append sections, text fallback, conservative extraction | good coarse OOXML origin | yes | high | inline semantics and richer table/textbox provenance | medium | P2 | OOXML numbering/styles/comments/table origin hardening |
 | PPTX | H2 | `doc_parse/ooxml`, `convert/pptx/*` | `parse_pptx` | very strong main + metadata + assets + tests | smoke + compare + extended | slide order, text, bullets, notes, hidden slides, explicit tables, images, hyperlinks | charts, SmartArt, OLE, action links, merged tables, full z-order | readable downgrade + warning-like omissions | good slide/image origin | yes | medium-high | layout grouping and table-like heuristics still shallow | medium | P2 | layout/table model refinement and richer shape provenance |
-| XLSX | H2 | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended | multi-sheet, shared strings, datetime, sparse trim, cached formulas, rich table | formula evaluation, merged reconstruction, comments/charts/images | top-left merged policy, cached value policy | good sheet/row/col origin | no | medium | hidden/merged/formula semantics underexposed | medium-high on large sheets | P1/P2 | table/type metadata and large-file/batch profiling |
+| XLSX | H2++ sprint active | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended + overlap compare | multi-sheet, shared strings, datetime, sparse trim, cached formulas, lightweight missing-cache formula eval v1, rich table, typed-cell/table hints | full Excel formula compatibility, merged reconstruction, comments/charts/images | top-left merged policy, cached-first formula policy, unsupported formula fail-closed policy | good sheet/row/col origin plus table hints | no | medium-high | formula/merged/state policy now evidenced, but no full formula engine or visual merge model | medium-high on large sheets | active | XLSX H2++/H3++ formula/merged/type sprint |
 | PDF | H2 partial | `doc_parse/pdf/*`, `vendor/mbtpdf` | `parse_pdf` | strong main + metadata/assets + tests | smoke + compare + batch profile + extended | text PDF, page blocks, headings, noise cleanup, merge, simple tables, URI links, images, captions | complex tables, outlines, internal links, OCR-default, complex layout | omit ambiguous structure, optional OCR path | moderate page/image/object origin | yes | medium | lower-layer signal still limits quality more than converter logic | medium | P2 | pdf_core signal enrichment before more heuristics |
 | HTML | H2 | `convert/html/html_dom.mbt` + parser | `parse_html` | very strong main + metadata + assets + tests | smoke + compare + batch profile | headings, paragraphs, lists, blockquote, pre/code, table, links, local images, figure/figcaption | browser tree-building, CSS layout, rowspan/colspan, remote fetch | skip script/style/head; conservative literal fallback | coarse block origin; asset `source_path` | yes local only | high | DOM semantics are decent but not rich enough for deeper provenance | low-medium | P1 | safer/richer DOM/event model and origin enrichment |
 | TXT | H2 | `convert/txt/txt_parser.mbt` | `parse_txt` | strong main + metadata + tests | smoke + compare + batch profile | paragraphs, UTF-8 normalize, literal-safe Markdown passthrough | semantic heading/list/table inference by design | fail closed on invalid UTF-8; literal-safe output | line-range origin only | no | medium | deliberate non-goal, but contract should stay explicit | low | P1 | benchmark guardrails and explicit text policy docs |
@@ -614,16 +632,18 @@ Stable support today includes:
 * lower-layer merged range detection
 * hidden/veryHidden sheet state in inspect layer
 * row/column origin
+* table-level metadata hints for `format`, `sheet_state`, `merged_ranges`,
+  `formula_cells`, and `semantic_types`
 
 #### B. Current Boundaries and Non-goals
 
 Weak or unsupported:
 
-* no formula evaluation
+* no full Excel formula engine
 * no merged-cell visual reconstruction
 * no comments, charts, pivots, images
-* hidden sheets are not clearly annotated in final Markdown
-* metadata sidecar does not yet expose formula text or merged range policy
+* hidden sheets are not richly annotated in final Markdown beyond workbook
+  order and headings
 
 Current non-goal:
 
@@ -634,17 +654,18 @@ Current non-goal:
 Main substrate gaps:
 
 * lower layer lacks stronger workbook/table semantic model beyond used range
-* style/format handling is enough for date/time, not richer semantic typing
+* style/format handling is enough for date/time and coarse semantic typing, but
+  not richer workbook semantics
 * no first-class table object model, comments model, drawing/image model
-* merged ranges stay inspect-only rather than conversion-aware semantics
+* no cell-span or merged-layout reconstruction model
 
 #### D. H2 Quality Parity Tasks
 
 Needed next samples:
 
-* merged-cell policy matrix
-* formula + cached-value matrix
-* hidden sheet output policy
+* richer merged-header/body samples
+* formula + cached-value matrix with compare records
+* hidden/veryHidden sheet policy docs and compare notes
 * sparse wide sheets with empty leading/trailing areas
 * table-like business sheets with mixed types
 
@@ -655,6 +676,9 @@ Benchmark design:
 * small/medium/large workbook files
 * multi-sheet large
 * sparse large
+* formula-heavy
+* merged-heavy
+* typed-cells
 * batch directories of many small workbooks
 * metadata on/off
 * memory peak during sharedStrings/styles/worksheet materialization
@@ -1342,9 +1366,18 @@ Current script audit summary:
   schema
 * `check_corpus_manifest.sh`: useful governance helper
 
+Follow-up status:
+
+* benchmark governance now has a dedicated summary document:
+  [docs/benchmark-governance.md](/Users/winter/Documents/Moonbit/markitdown/docs/benchmark-governance.md)
+* the repository kept the current `samples/benchmark/*` and `.tmp/bench/*`
+  layout, but raw JSON outputs now expose clearer suite/runner/status fields
+* TSV summaries remain suite-specific by design; they are still not a universal
+  stable benchmark API
+
 Main benchmark hardening gaps:
 
-* no checked-in quality-comparison result records yet
+* no quality-aware benchmark summary schema yet
 * no unified degraded/fail reason taxonomy in benchmark outputs
 * no per-format explicit "not comparable" registry
 * no cross-format cold-start baseline table
@@ -1382,17 +1415,14 @@ Recommended template:
 - next action: <sample / parser / converter / benchmark follow-up>
 ```
 
-Recommended storage path:
+Current rollout status:
 
-* `docs/quality-comparison-template.md` as a reusable blank template
-* or keep the template in this audit and let future comparison docs instantiate
-  it
-
-Second-round recommendation:
-
-* a standalone template file is useful, but not strictly required this round
-* at minimum, this template should be treated as the contract for future format
-  comparison notes
+* a dedicated checked-in directory now exists at
+  [docs/quality-comparisons/README.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/README.md)
+* a reusable template now exists at
+  [docs/quality-comparisons/template.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/template.md)
+* the current seed set is intentionally small and sample-scoped; it is not a
+  blanket parity conclusion
 
 ## 7. Task 6: Second-Round Task Queue
 
@@ -1508,6 +1538,17 @@ Done when:
 
 * per-format benchmark scope and comparability are explicit
 
+Current status:
+
+* partially fixed in this follow-up:
+  * current checked-in benchmark corpus coverage is now summarized
+  * runner classes, execution paths, raw result fields, and comparability rules
+    are documented in [docs/benchmark-governance.md](/Users/winter/Documents/Moonbit/markitdown/docs/benchmark-governance.md)
+  * raw JSON outputs from smoke/compare/batch-profile now carry clearer
+    suite/runner/status/execution-path fields
+* remaining work is compare-corpus expansion, not-comparable registry growth,
+  and stronger summary-level degraded/fail taxonomy
+
 #### P0.4 Quality comparison record rollout
 
 Goal:
@@ -1537,6 +1578,18 @@ Risk:
 Done when:
 
 * at least a few seed comparison records exist in the agreed template
+
+Current status:
+
+* fixed in this follow-up:
+  * checked-in quality comparison docs now exist under
+    [docs/quality-comparisons/README.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/README.md)
+  * the repository now has a reusable comparison template plus seed records for
+    DOCX / PPTX / XLSX / HTML / CSV / Markdown / TXT / PDF
+  * each seed record names the concrete sample, commands, comparable scope, and
+    verdict
+* remaining work is broader record coverage, explicit not-comparable cases, and
+  future metadata-aware quality records where fair
 
 ### P1: Textlike / Structured Data Hardening
 

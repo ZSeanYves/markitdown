@@ -305,6 +305,31 @@ resolve_mb_runner() {
   MB_RUNNER_KIND="moon-run"
 }
 
+mb_runner_class() {
+  case "${1-}" in
+    prebuilt-native)
+      printf 'native-binary'
+      ;;
+    moon-run)
+      printf 'moon-run-fallback'
+      ;;
+    override)
+      printf 'user-override'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
+python_runner_class() {
+  if [[ -n "$MARKITDOWN_COMPARE_CMD" || -n "$MARKITDOWN_COMPARE_PY_BIN" ]]; then
+    printf 'python-markitdown-user-managed'
+  else
+    printf 'python-markitdown-path'
+  fi
+}
+
 is_compare_header_row() {
   local format="${1-}"
   local sample="${2-}"
@@ -404,20 +429,58 @@ write_result() {
   local git_revision="${15}"
   local tmp_root="${16}"
   local timer_precision="${17}"
+  local runner_kind="unknown"
+  local runner_class="unknown"
+  local runner_command=""
+  local execution_path="compare-overlap"
+  local status="success"
+  local note=""
+
+  if [[ "$exit_status" -ne 0 ]]; then
+    status="fail"
+  fi
+
+  if [[ "$runner" == "markitdown-mb" ]]; then
+    runner_kind="$MB_RUNNER_KIND"
+    runner_class="$(mb_runner_class "$MB_RUNNER_KIND")"
+    runner_command="${MB_COMPARE_CMD[*]}"
+  else
+    runner_kind="python-markitdown"
+    runner_class="$(python_runner_class)"
+    runner_command="${PY_COMPARE_CMD[*]}"
+  fi
 
   printf '{' >> "$RESULTS_PATH"
+  printf '"suite":"%s",' "$(json_escape "compare")" >> "$RESULTS_PATH"
   printf '"runner":"%s",' "$(json_escape "$runner")" >> "$RESULTS_PATH"
+  printf '"runner_kind":"%s",' "$(json_escape "$runner_kind")" >> "$RESULTS_PATH"
+  printf '"runner_class":"%s",' "$(json_escape "$runner_class")" >> "$RESULTS_PATH"
+  printf '"command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
   printf '"version":"%s",' "$(json_escape "$version")" >> "$RESULTS_PATH"
   printf '"format":"%s",' "$(json_escape "$format")" >> "$RESULTS_PATH"
   printf '"sample":"%s",' "$(json_escape "$sample")" >> "$RESULTS_PATH"
   printf '"input_path":"%s",' "$(json_escape "$input_path")" >> "$RESULTS_PATH"
   printf '"file_size":%s,' "$file_size" >> "$RESULTS_PATH"
+  printf '"input_bytes":%s,' "$file_size" >> "$RESULTS_PATH"
+  printf '"execution_path":"%s",' "$(json_escape "$execution_path")" >> "$RESULTS_PATH"
+  printf '"ocr_enabled":false,' >> "$RESULTS_PATH"
+  printf '"debug_enabled":false,' >> "$RESULTS_PATH"
+  printf '"metadata_enabled":false,' >> "$RESULTS_PATH"
   printf '"iteration":%s,' "$iteration" >> "$RESULTS_PATH"
   printf '"warmup":false,' >> "$RESULTS_PATH"
   printf '"elapsed_ms":%s,' "$elapsed_ms" >> "$RESULTS_PATH"
   printf '"output_bytes":%s,' "$output_bytes" >> "$RESULTS_PATH"
+  printf '"asset_count":null,' >> "$RESULTS_PATH"
+  printf '"peak_rss_kb":null,' >> "$RESULTS_PATH"
   printf '"stderr_bytes":%s,' "$stderr_bytes" >> "$RESULTS_PATH"
   printf '"exit_status":%s,' "$exit_status" >> "$RESULTS_PATH"
+  printf '"status":"%s",' "$(json_escape "$status")" >> "$RESULTS_PATH"
+  printf '"comparability":"%s",' "$(json_escape "overlap-only")" >> "$RESULTS_PATH"
+  if [[ -n "$note" ]]; then
+    printf '"note":"%s",' "$(json_escape "$note")" >> "$RESULTS_PATH"
+  else
+    printf '"note":null,' >> "$RESULTS_PATH"
+  fi
   printf '"output_path":"%s",' "$(json_escape "$output_path")" >> "$RESULTS_PATH"
   printf '"stderr_path":"%s",' "$(json_escape "$stderr_path")" >> "$RESULTS_PATH"
   printf '"timestamp":"%s",' "$(json_escape "$timestamp")" >> "$RESULTS_PATH"

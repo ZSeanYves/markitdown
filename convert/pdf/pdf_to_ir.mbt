@@ -231,7 +231,11 @@ fn emit_pdf_table_to_ir(
 
   @cor.push_with_origin(
     out,
-    @cor.Block::RichTable({ rows: table.rows, header_rows: table.header_rows }),
+    @cor.Block::RichTable({
+      rows: table.rows,
+      header_rows: table.header_rows,
+      hints: None,
+    }),
     Some(origin),
   )
 }

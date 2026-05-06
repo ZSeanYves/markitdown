@@ -139,7 +139,7 @@ fn push_yaml_value_with_profile(
       )
       @cor.push_with_origin(
         doc,
-        @cor.Block::RichTable({ rows, header_rows: 1 }),
+        @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
         origin,
       )
     }
@@ -180,7 +180,7 @@ fn push_yaml_value_with_profile(
             )
             @cor.push_with_origin(
               doc,
-              @cor.Block::RichTable({ rows, header_rows: 1 }),
+              @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
               origin,
             )
           }

@@ -63,7 +63,14 @@
           ["version", "1"],
           ["mode", "stable"]
         ],
-        "header_rows": 1
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string"],
+          ["string", "number"],
+          ["string", "string"]
+        ]
       }
     },
     {

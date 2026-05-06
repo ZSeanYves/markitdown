@@ -146,8 +146,8 @@ markitdown-python	pptx	pptx_slide_order_compare	3	0	484	491	511	495.3	118	0
   text only
 * `pptx_slide_order_compare`: both tools preserve slide order, but marker and
   heading-level conventions differ
-* result: PPTX runner-level performance is a clear `win` for `markitdown-mb`
-  on this machine and this runner setup
+* selected local overlap timing on this machine and this runner setup favored
+  `markitdown-mb`
 * non-goal for this baseline: proving full PPTX semantic parity
 
 ## Current DOCX Overlap Baseline
@@ -210,8 +210,8 @@ markitdown-python	docx	docx_table_multiline_cell_compare	3	0	450	451	466	455.7	7
   bullet marker choices differ
 * `docx_table_multiline_cell_compare`: both tools preserve a readable table,
   but header and multiline-cell strategies differ
-* result: DOCX runner-level performance is a clear `win` for `markitdown-mb`
-  on this machine and this runner setup
+* selected local overlap timing on this machine and this runner setup favored
+  `markitdown-mb`
 * non-goal for this baseline: proving full DOCX semantic parity
 
 ## Current TXT Overlap Baseline
@@ -257,7 +257,8 @@ markitdown-python	txt	txt_plain_compare	5	0	434	437	443	437	17	0
 * warmup: `1`
 * iterations: `5`
 * output: identical
-* result: TXT = win for `markitdown-mb` on this machine and this runner setup
+* selected local overlap timing on this machine and this runner setup favored
+  `markitdown-mb`
 
 ## Historical Multi-Format Reference
 

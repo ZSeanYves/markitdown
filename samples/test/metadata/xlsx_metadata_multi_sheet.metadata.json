@@ -62,7 +62,13 @@
           ["Name", "Score"],
           ["Alice", "95"]
         ],
-        "header_rows": 1
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string"],
+          ["string", "number"]
+        ]
       }
     },
     {
@@ -121,7 +127,13 @@
           ["Key", "Value"],
           ["beta", "2"]
         ],
-        "header_rows": 1
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string"],
+          ["string", "number"]
+        ]
       }
     },
     {

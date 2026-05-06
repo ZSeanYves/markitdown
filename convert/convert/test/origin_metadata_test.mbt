@@ -1877,6 +1877,38 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "xlsx_metadata_formula_or_merged_policy.metadata.json",
   )
 
+  let mut saw_xlsx_policy_hints = false
+  for block in xlsx_policy_doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(table) =>
+        match table.hints {
+          Some(hints) => {
+            saw_xlsx_policy_hints = true
+            assert_eq(hints.format, Some("xlsx"))
+            assert_eq(hints.sheet_state, Some("visible"))
+            match hints.merged_ranges {
+              Some(ranges) => assert_eq(ranges, ["B3:C4"])
+              None => fail("xlsx metadata policy sample should expose merged ranges")
+            }
+            match hints.formula_cells {
+              Some(cells) => {
+                assert_eq(cells.length(), 1)
+                assert_eq(cells[0].reference, "B2")
+                assert_eq(cells[0].formula_text, "10+5")
+                assert_eq(cells[0].semantic_type, "formula_cached_value")
+                assert_eq(cells[0].policy, Some("cached"))
+              }
+              None =>
+                fail("xlsx metadata policy sample should expose formula cells")
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  assert_true(saw_xlsx_policy_hints)
+
   let zip_basic_out_dir = origin_tmp_root() + "/metadata_sidecar_zip_basic"
   recreate_clean_dir(zip_basic_out_dir)
   defer cleanup_temp_dir(zip_basic_out_dir)

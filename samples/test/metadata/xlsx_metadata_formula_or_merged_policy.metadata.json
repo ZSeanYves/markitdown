@@ -63,7 +63,28 @@
           ["Cached formula", "15"],
           ["Merged top-left", "TopLeft"]
         ],
-        "header_rows": 1
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "merged_ranges": ["B3:C4"],
+        "formula_cells": [
+          {
+            "reference": "B2",
+            "row_index": 2,
+            "column_index": 2,
+            "formula_text": "10+5",
+            "cached_value": "15",
+            "display_text": "15",
+            "cell_kind": "number",
+            "semantic_type": "formula_cached_value",
+            "policy": "cached"
+          }
+        ],
+        "semantic_types": [
+          ["string", "string"],
+          ["string", "formula_cached_value"],
+          ["string", "string"]
+        ]
       }
     },
     {

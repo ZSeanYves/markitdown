@@ -109,7 +109,7 @@ fn parse_delimited_file_with_profile_impl(
   let table_started = @env.now()
   @cor.push_with_origin(
     doc,
-    @cor.Block::RichTable({ rows, header_rows: 1 }),
+    @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
     Some({
       source_name: Some(src),
       page: None,

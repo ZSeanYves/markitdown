@@ -276,6 +276,20 @@ resolve_mb_runner() {
   MB_RUNNER_KIND="moon-run"
 }
 
+batch_runner_class() {
+  case "${1-}" in
+    prebuilt-native)
+      printf 'native-binary'
+      ;;
+    moon-run)
+      printf 'moon-run-fallback'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
 detect_time_probe() {
   TIME_MODE="none"
   TIME_LABEL="none"
@@ -412,16 +426,34 @@ write_json_result() {
   local startup_probe_kind="${21}"
   local timestamp="${22}"
   local git_revision="${23}"
+  local runner_class
+  local peak_rss_kb="null"
+  local status="success"
+
+  runner_class="$(batch_runner_class "$runner_kind")"
+  if [[ "${failure_count:-0}" -gt 0 ]]; then
+    status="degraded"
+  fi
+  if [[ -n "${peak_rss_bytes:-}" && "${peak_rss_bytes:-0}" -gt 0 ]]; then
+    peak_rss_kb="$((peak_rss_bytes / 1024))"
+  fi
 
   printf '{' >> "$RESULTS_PATH"
+  printf '"suite":"%s",' "$(json_escape "batch-profile")" >> "$RESULTS_PATH"
   printf '"model":"%s",' "$(json_escape "$model")" >> "$RESULTS_PATH"
   printf '"format":"%s",' "$(json_escape "$format")" >> "$RESULTS_PATH"
   printf '"file_count":%s,' "$file_count" >> "$RESULTS_PATH"
   printf '"iteration":%s,' "$iteration" >> "$RESULTS_PATH"
   printf '"runner_kind":"%s",' "$(json_escape "$runner_kind")" >> "$RESULTS_PATH"
+  printf '"runner_class":"%s",' "$(json_escape "$runner_class")" >> "$RESULTS_PATH"
+  printf '"command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
   printf '"runner_command":"%s",' "$(json_escape "$runner_command")" >> "$RESULTS_PATH"
+  printf '"execution_path":"%s",' "$(json_escape "default-local-normal-vs-batch")" >> "$RESULTS_PATH"
+  printf '"ocr_enabled":false,' >> "$RESULTS_PATH"
+  printf '"debug_enabled":false,' >> "$RESULTS_PATH"
   printf '"input_bytes":%s,' "$input_bytes" >> "$RESULTS_PATH"
   printf '"output_bytes":%s,' "$output_bytes" >> "$RESULTS_PATH"
+  printf '"asset_count":null,' >> "$RESULTS_PATH"
   printf '"success_count":%s,' "$success_count" >> "$RESULTS_PATH"
   printf '"failure_count":%s,' "$failure_count" >> "$RESULTS_PATH"
   printf '"elapsed_ms":%s,' "$elapsed_ms" >> "$RESULTS_PATH"
@@ -429,6 +461,7 @@ write_json_result() {
   printf '"throughput_files_per_sec":%s,' "$throughput_files_per_sec" >> "$RESULTS_PATH"
   printf '"throughput_input_bytes_per_sec":%s,' "$throughput_input_bytes_per_sec" >> "$RESULTS_PATH"
   printf '"peak_rss_bytes":%s,' "${peak_rss_bytes:-0}" >> "$RESULTS_PATH"
+  printf '"peak_rss_kb":%s,' "$peak_rss_kb" >> "$RESULTS_PATH"
   printf '"peak_footprint_bytes":%s,' "${peak_footprint_bytes:-0}" >> "$RESULTS_PATH"
   printf '"fixed_overhead_ms":%s,' "${fixed_overhead_ms:-0}" >> "$RESULTS_PATH"
   printf '"estimated_process_overhead_total_ms":%s,' "${process_startup_total_ms:-0}" >> "$RESULTS_PATH"
@@ -436,7 +469,10 @@ write_json_result() {
   printf '"startup_probe_ms":%s,' "${startup_probe_ms:-0}" >> "$RESULTS_PATH"
   printf '"startup_probe_kind":"%s",' "$(json_escape "$startup_probe_kind")" >> "$RESULTS_PATH"
   printf '"with_metadata":%s,' "$WITH_METADATA_JSON" >> "$RESULTS_PATH"
+  printf '"metadata_enabled":%s,' "$WITH_METADATA_JSON" >> "$RESULTS_PATH"
   printf '"metadata_mode":"%s",' "$(json_escape "$CURRENT_METADATA_MODE_LABEL")" >> "$RESULTS_PATH"
+  printf '"status":"%s",' "$(json_escape "$status")" >> "$RESULTS_PATH"
+  printf '"note":null,' >> "$RESULTS_PATH"
   printf '"timestamp":"%s",' "$(json_escape "$timestamp")" >> "$RESULTS_PATH"
   printf '"git_rev":"%s",' "$(json_escape "$git_revision")" >> "$RESULTS_PATH"
   printf '"memory_probe":"%s"' "$(json_escape "$TIME_LABEL")" >> "$RESULTS_PATH"

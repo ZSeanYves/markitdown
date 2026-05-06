@@ -369,6 +369,7 @@ fn push_sheet_blocks(
       @cor.Block::RichTable({
         rows: sheet.table_rows,
         header_rows: sheet.header_rows,
+        hints: Some(sheet_table_hints(sheet)),
       }),
       Some({
         source_name: Some(src),
@@ -407,4 +408,201 @@ fn push_sheet_blocks(
       key_path: None,
     }),
   )
+}
+
+///|
+fn sheet_table_hints(sheet : XlsxSheetModel) -> @cor.TableHints {
+  let merged_ranges = if sheet.merged_ranges.length() == 0 {
+    None
+  } else {
+    let out : Array[String] = []
+    for range_ in sheet.merged_ranges {
+      out.push(range_.range_ref)
+    }
+    Some(out)
+  }
+
+  let formula_cells = sheet_formula_hints(sheet)
+  let semantic_types = sheet_semantic_type_matrix(sheet)
+  {
+    format: Some("xlsx"),
+    sheet_state: Some(sheet_state_string(sheet.state)),
+    merged_ranges,
+    formula_cells,
+    semantic_types,
+  }
+}
+
+///|
+fn sheet_state_string(state : XlsxSheetState) -> String {
+  match state {
+    XlsxSheetState::Visible => "visible"
+    XlsxSheetState::Hidden => "hidden"
+    XlsxSheetState::VeryHidden => "veryHidden"
+  }
+}
+
+///|
+fn sheet_formula_hints(
+  sheet : XlsxSheetModel,
+) -> Array[@cor.TableFormulaHint]? {
+  let out : Array[@cor.TableFormulaHint] = []
+  for cell in sheet.cells {
+    match cell.formula_text {
+      Some(text) =>
+        if text.trim() != "" {
+          out.push({
+            reference: cell.reference,
+            row_index: cell.row,
+            column_index: cell.column,
+            formula_text: text,
+            cached_value: cell.source_value,
+            display_text: cell.display_text,
+            cell_kind: xlsx_cell_kind_string(cell.kind),
+            semantic_type: xlsx_semantic_type_string(cell.semantic_type),
+            policy: xlsx_formula_policy_string(cell.formula_trace),
+            evaluated_value: xlsx_formula_evaluated_value(cell.formula_trace),
+            unsupported_reason: xlsx_formula_unsupported_reason(
+              cell.formula_trace,
+            ),
+            error_reason: xlsx_formula_error_reason(cell.formula_trace),
+            referenced_cells: xlsx_formula_referenced_cells(cell.formula_trace),
+            referenced_ranges: xlsx_formula_referenced_ranges(
+              cell.formula_trace,
+            ),
+          })
+        }
+      None => ()
+    }
+  }
+  if out.length() == 0 {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn xlsx_formula_policy_string(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) =>
+      Some(
+        match v.policy {
+          XlsxFormulaPolicy::Cached => "cached"
+          XlsxFormulaPolicy::EvaluatedMissingCache =>
+            "evaluated_missing_cache"
+          XlsxFormulaPolicy::UnsupportedFormula => "unsupported_formula"
+          XlsxFormulaPolicy::FormulaError => "formula_error"
+        },
+      )
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_evaluated_value(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.evaluated_value
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_unsupported_reason(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.unsupported_reason
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_error_reason(trace : XlsxFormulaTrace?) -> String? {
+  match trace {
+    Some(v) => v.error_reason
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_referenced_cells(trace : XlsxFormulaTrace?) -> Array[String]? {
+  match trace {
+    Some(v) => v.referenced_cells
+    None => None
+  }
+}
+
+///|
+fn xlsx_formula_referenced_ranges(trace : XlsxFormulaTrace?) -> Array[String]? {
+  match trace {
+    Some(v) => v.referenced_ranges
+    None => None
+  }
+}
+
+///|
+fn sheet_semantic_type_matrix(sheet : XlsxSheetModel) -> Array[Array[String]]? {
+  if sheet.table_rows.length() == 0 {
+    return None
+  }
+
+  let mut max_col = 0
+  for row in sheet.table_rows {
+    if row.length() > max_col {
+      max_col = row.length()
+    }
+  }
+  if max_col == 0 {
+    return None
+  }
+
+  let lookup : Map[String, String] = Map::new()
+  for cell in sheet.cells {
+    lookup.set(
+      cell.row.to_string() + "," + cell.column.to_string(),
+      xlsx_semantic_type_string(cell.semantic_type),
+    )
+  }
+
+  let out : Array[Array[String]] = []
+  for row_offset in 0..<sheet.table_rows.length() {
+    let row : Array[String] = []
+    let actual_row = sheet.used_min_row + row_offset
+    for col_offset in 0..<max_col {
+      let actual_col = sheet.used_min_col + col_offset
+      row.push(
+        lookup.get(actual_row.to_string() + "," + actual_col.to_string()).unwrap_or("blank"),
+      )
+    }
+    out.push(row)
+  }
+  Some(out)
+}
+
+///|
+fn xlsx_cell_kind_string(kind : XlsxCellKind) -> String {
+  match kind {
+    XlsxCellKind::SharedString => "shared_string"
+    XlsxCellKind::InlineString => "inline_string"
+    XlsxCellKind::Boolean => "boolean"
+    XlsxCellKind::StringResult => "string_result"
+    XlsxCellKind::Error => "error"
+    XlsxCellKind::Number => "number"
+    XlsxCellKind::Blank => "blank"
+  }
+}
+
+///|
+fn xlsx_semantic_type_string(kind : XlsxCellSemanticType) -> String {
+  match kind {
+    XlsxCellSemanticType::String => "string"
+    XlsxCellSemanticType::Number => "number"
+    XlsxCellSemanticType::Boolean => "boolean"
+    XlsxCellSemanticType::Date => "date"
+    XlsxCellSemanticType::DateTime => "datetime"
+    XlsxCellSemanticType::Time => "time"
+    XlsxCellSemanticType::Blank => "blank"
+    XlsxCellSemanticType::Error => "error"
+    XlsxCellSemanticType::FormulaCachedValue => "formula_cached_value"
+    XlsxCellSemanticType::FormulaMissingCache => "formula_missing_cache"
+  }
 }

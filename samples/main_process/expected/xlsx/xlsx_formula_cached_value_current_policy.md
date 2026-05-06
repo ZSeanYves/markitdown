@@ -3,4 +3,4 @@
 | Case | Value |
 | --- | --- |
 | Cached formula | 3 |
-| Missing cached formula |  |
+| Missing cached formula | 5 |

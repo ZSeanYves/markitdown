@@ -61,6 +61,9 @@ These labels are support-contract shorthand, not final-completion claims. H3
 performance conclusions also require benchmark evidence and should not be
 inferred from status labels alone.
 
+For second-round per-format excellence sprints, use
+[docs/format-excellence-roadmap.md](./docs/format-excellence-roadmap.md).
+
 ## Format Matrix
 
 | Format | Status | Highlights | Known limitations |
@@ -72,7 +75,7 @@ inferred from status labels alone.
 | YAML / YML | subset-H2 | fail-closed conservative subset, structured-data lowering | not full YAML 1.2 coverage |
 | XML | source-preserving H1/H2 partial | fenced `xml` output, safe tokenizer base | not a semantic XML-family converter |
 | HTML / HTM | H2 main-path quality | semantic text/tables/links/images, `RichTable` metadata | no CSS/JS execution, no rowspan/colspan reconstruction |
-| XLSX | H2 partial | workbook/sheet/cell lower layer, datetime handling, metadata | no charts/comments/pivots, no merged-cell visual reconstruction |
+| XLSX | H2 partial | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1 | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
 | ZIP | container H2 partial | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
 | EPUB | ebook H2 partial | container/OPF/spine/nav/cover/assets pipeline | no DRM/CSS rendering, richer anchor/NCX semantics remain future work |
 | DOCX | H2 main-path quality | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
@@ -176,6 +179,8 @@ Important boundaries:
   features are supported
 * EPUB is an OPF/spine/nav/local-asset main path, not DRM/CSS/full-render
   support
+* XLSX uses cached values first and only evaluates a conservative local subset
+  of missing-cache formulas; it is not a full Excel formula engine
 
 For the full per-format support contract and limits, see
 [docs/support-and-limits.md](./docs/support-and-limits.md).
@@ -230,6 +235,12 @@ Current H3 phase:
   [docs/h3-phase-1-summary.md](./docs/h3-phase-1-summary.md)
 * H3 phase 2 now focuses on benchmark governance and broader corpus policy via
   [docs/h3-phase-2-benchmark-governance.md](./docs/h3-phase-2-benchmark-governance.md)
+* current runner/corpus/comparability rules are summarized in
+  [docs/benchmark-governance.md](./docs/benchmark-governance.md)
+* seed Markdown-quality comparison records now live in
+  [docs/quality-comparisons/README.md](./docs/quality-comparisons/README.md)
+  and should be read as sample-scoped quality evidence, not blanket parity
+  claims
 
 ## Project Positioning
 
@@ -252,6 +263,7 @@ understanding, and complex visual reasoning are not part of the default
 * [Full-format H2 Completion](./docs/full-format-h2-completion.md)
 * [H3 Phase-1 Performance Summary](./docs/h3-phase-1-summary.md)
 * [H3 Phase-2 Benchmark Governance](./docs/h3-phase-2-benchmark-governance.md)
+* [Benchmark Governance](./docs/benchmark-governance.md)
 * [Architecture](./docs/architecture.md)
 * [Development Guide](./docs/development.md)
 * [Metadata Sidecar](./docs/metadata-sidecar.md)

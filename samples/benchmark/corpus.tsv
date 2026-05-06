@@ -19,6 +19,13 @@ smoke	xlsx	xlsx_medium	samples/benchmark/xlsx/xlsx_medium.xlsx	false
 smoke	xlsx	xlsx_large	samples/benchmark/xlsx/xlsx_large.xlsx	false
 smoke	xlsx	xlsx_multi_sheet_large	samples/benchmark/xlsx/xlsx_multi_sheet_large.xlsx	false
 smoke	xlsx	xlsx_sparse_large	samples/benchmark/xlsx/xlsx_sparse_large.xlsx	false
+smoke	xlsx	xlsx_formula_heavy	samples/benchmark/xlsx/xlsx_formula_heavy.xlsx	false
+smoke	xlsx	xlsx_formula_eval_arithmetic	samples/benchmark/xlsx/xlsx_formula_eval_arithmetic.xlsx	false
+smoke	xlsx	xlsx_formula_eval_ranges	samples/benchmark/xlsx/xlsx_formula_eval_ranges.xlsx	false
+smoke	xlsx	xlsx_formula_heavy_missing_cache	samples/benchmark/xlsx/xlsx_formula_heavy_missing_cache.xlsx	false
+smoke	xlsx	xlsx_formula_unsupported_many	samples/benchmark/xlsx/xlsx_formula_unsupported_many.xlsx	false
+smoke	xlsx	xlsx_merged_heavy	samples/benchmark/xlsx/xlsx_merged_heavy.xlsx	false
+smoke	xlsx	xlsx_typed_cells	samples/benchmark/xlsx/xlsx_typed_cells.xlsx	false
 smoke	zip	zip_basic_structured	samples/main_process/zip/zip_basic_structured.zip	false
 smoke	zip	zip_small	samples/benchmark/zip/zip_small.zip	false
 smoke	zip	zip_medium	samples/benchmark/zip/zip_medium.zip	false
@@ -88,6 +95,8 @@ metadata	pptx	pptx_image_alt_title_basic_metadata	samples/metadata/pptx/pptx_ima
 metadata	xlsx	xlsx_metadata_basic	samples/metadata/xlsx/xlsx_metadata_basic.xlsx	true
 metadata	xlsx	xlsx_metadata_multi_sheet	samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx	true
 metadata	xlsx	xlsx_metadata_formula_or_merged_policy	samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx	true
+metadata	xlsx	xlsx_formula_heavy_metadata	samples/main_process/xlsx/xlsx_formula_cached_values.xlsx	true
+metadata	xlsx	xlsx_formula_eval_missing_cache_metadata	samples/main_process/xlsx/xlsx_formula_missing_cache.xlsx	true
 metadata	zip	zip_metadata_basic	samples/metadata/zip/zip_metadata_basic.zip	true
 metadata	zip	zip_metadata_entry_origins	samples/metadata/zip/zip_metadata_entry_origins.zip	true
 metadata	zip	zip_metadata_assets	samples/metadata/zip/zip_metadata_assets.zip	true
@@ -113,4 +122,8 @@ metadata	markdown	markdown_metadata_heading_or_multiline	samples/metadata/markdo
 extended	docx	docx_link_many_performance_guard_ext	samples/main_process/docx/docx_link_many_performance_guard.docx	false
 extended	pptx	pptx_table_like_region_local_with_intro_outro_ext	samples/main_process/pptx/pptx_table_like_region_local_with_intro_outro.pptx	false
 extended	xlsx	xlsx_cell_types_ext	samples/main_process/xlsx/xlsx_cell_types.xlsx	false
+extended	xlsx	xlsx_formula_policy_ext	samples/main_process/xlsx/xlsx_formula_cached_values.xlsx	false
+extended	xlsx	xlsx_merged_policy_ext	samples/main_process/xlsx/xlsx_merged_cells_policy.xlsx	false
+extended	xlsx	xlsx_hidden_sheet_policy_ext	samples/main_process/xlsx/xlsx_hidden_sheets_policy.xlsx	false
+extended	xlsx	xlsx_typed_cells_matrix_ext	samples/main_process/xlsx/xlsx_typed_cells_matrix.xlsx	false
 extended	pdf	pdf_repeated_header_footer_variants_ext	samples/main_process/pdf/pdf_repeated_header_footer_variants.pdf	false

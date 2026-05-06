@@ -17,12 +17,44 @@ pub enum XlsxCellKind {
 } derive(Eq)
 
 ///|
+pub enum XlsxCellSemanticType {
+  String
+  Number
+  Boolean
+  Date
+  DateTime
+  Time
+  Blank
+  Error
+  FormulaCachedValue
+  FormulaMissingCache
+} derive(Eq)
+
+///|
+pub enum XlsxFormulaPolicy {
+  Cached
+  EvaluatedMissingCache
+  UnsupportedFormula
+  FormulaError
+} derive(Eq)
+
+///|
 pub struct XlsxMergedRange {
   range_ref : String
   start_row : Int
   start_col : Int
   end_row : Int
   end_col : Int
+}
+
+///|
+pub struct XlsxFormulaTrace {
+  policy : XlsxFormulaPolicy
+  evaluated_value : String?
+  unsupported_reason : String?
+  error_reason : String?
+  referenced_cells : Array[String]?
+  referenced_ranges : Array[String]?
 }
 
 ///|
@@ -34,8 +66,10 @@ pub struct XlsxCellModel {
   display_text : String
   source_value : String?
   formula_text : String?
+  semantic_type : XlsxCellSemanticType
   style_index : Int
   num_format_id : Int
+  formula_trace : XlsxFormulaTrace?
 }
 
 ///|

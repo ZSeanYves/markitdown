@@ -62,7 +62,7 @@ fn scan_document(
         }
         @cor.push_with_origin(
           doc,
-          @cor.Block::RichTable({ rows, header_rows: 1 }),
+          @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
           Some({
             source_name: Some(source_name),
             page: None,
