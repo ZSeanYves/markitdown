@@ -43,7 +43,9 @@ pub fn parse_html(
           source_path: html_blocks.asset_source_paths.get(path),
           row_index: None,
           column_index: None,
-          key_path: None,
+          key_path: html_blocks.block_origins[i].map(fn(origin) {
+            origin.key_path.unwrap_or("")
+          }),
         })
       }
       @cor.Block::ImageBlock(img) => {
@@ -60,7 +62,9 @@ pub fn parse_html(
           source_path: html_blocks.asset_source_paths.get(img.path),
           row_index: None,
           column_index: None,
-          key_path: None,
+          key_path: html_blocks.block_origins[i].map(fn(origin) {
+            origin.key_path.unwrap_or("")
+          }),
         })
       }
       _ => ()
@@ -69,21 +73,11 @@ pub fn parse_html(
     @cor.push_with_origin(
       doc,
       blocks[i],
-      Some({
-        source_name: Some(src),
-        page: None,
-        slide: None,
-        sheet: None,
-        block_index: Some(doc.blocks.val.length()),
-        heading_path: None,
-        line_start: None,
-        line_end: None,
-        row_index: None,
-        column_index: None,
-        object_ref: None,
-        relationship_id: None,
-        key_path: None,
-      }),
+      html_block_origin_with_index(
+        html_blocks.block_origins[i],
+        src,
+        doc.blocks.val.length(),
+      ),
     )
   }
 
@@ -116,4 +110,46 @@ fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
   }
 
   Bytes::from_array(out)
+}
+
+///|
+fn html_block_origin_with_index(
+  origin : @cor.Origin?,
+  source_name : String,
+  block_index : Int,
+) -> @cor.Origin? {
+  match origin {
+    Some(v) =>
+      Some({
+        source_name: Some(source_name),
+        page: v.page,
+        slide: v.slide,
+        sheet: v.sheet,
+        block_index: Some(block_index),
+        heading_path: v.heading_path,
+        line_start: v.line_start,
+        line_end: v.line_end,
+        row_index: v.row_index,
+        column_index: v.column_index,
+        object_ref: v.object_ref,
+        relationship_id: v.relationship_id,
+        key_path: v.key_path,
+      })
+    None =>
+      Some({
+        source_name: Some(source_name),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(block_index),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
+      })
+  }
 }

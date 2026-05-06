@@ -51,6 +51,9 @@ smoke	html	html_medium	samples/benchmark/html/html_medium.html	false
 smoke	html	html_large	samples/benchmark/html/html_large.html	false
 smoke	html	html_table_large	samples/benchmark/html/html_table_large.html	false
 smoke	html	html_mixed_content_large	samples/benchmark/html/html_mixed_content_large.html	false
+smoke	html	html_link_heavy	samples/benchmark/html/html_link_heavy.html	false
+smoke	html	html_asset_heavy_local	samples/benchmark/html/html_asset_heavy_local.html	false
+smoke	html	html_malformed_common	samples/benchmark/html/html_malformed_common.html	false
 smoke	csv	csv_ragged_rows	samples/main_process/csv/csv_ragged_rows.csv	false
 smoke	csv	csv_small	samples/benchmark/csv/csv_small.csv	false
 smoke	csv	csv_medium	samples/benchmark/csv/csv_medium.csv	false
@@ -100,6 +103,9 @@ metadata	xlsx	xlsx_formula_eval_missing_cache_metadata	samples/main_process/xlsx
 metadata	zip	zip_metadata_basic	samples/metadata/zip/zip_metadata_basic.zip	true
 metadata	zip	zip_metadata_entry_origins	samples/metadata/zip/zip_metadata_entry_origins.zip	true
 metadata	zip	zip_metadata_assets	samples/metadata/zip/zip_metadata_assets.zip	true
+metadata	html	html_metadata_table_links	samples/metadata/html/html_metadata_table_links.html	true
+metadata	html	html_metadata_span_boundary	samples/metadata/html/html_metadata_span_boundary.html	true
+metadata	html	html_metadata_unsafe_link_boundary	samples/metadata/html/html_metadata_unsafe_link_boundary.html	true
 metadata	csv	csv_metadata_basic	samples/metadata/csv/csv_metadata_basic.csv	true
 metadata	csv	csv_metadata_ragged_rows	samples/metadata/csv/csv_metadata_ragged_rows.csv	true
 metadata	tsv	tsv_metadata_basic	samples/metadata/tsv/tsv_metadata_basic.tsv	true

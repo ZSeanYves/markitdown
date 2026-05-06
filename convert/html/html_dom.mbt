@@ -21,6 +21,16 @@ priv enum HtmlNode {
 priv struct HtmlTable {
   rows : Array[Array[Array[HtmlInline]]]
   header_rows : Int
+  span_cells : Array[HtmlTableSpanCell]
+}
+
+///|
+priv struct HtmlTableSpanCell {
+  row_index : Int
+  column_index : Int
+  rowspan : Int
+  colspan : Int
+  text : String?
 }
 
 ///|
@@ -967,7 +977,9 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
             if tag.has_prefix("<br") {
               out.push(HtmlInline::Break)
             } else if tag.has_prefix("<a") {
-              let href = read_html_attr_value(tag0, "href")
+              let href = sanitize_html_href(
+                  read_html_attr_value(tag0, "href").unwrap_or(""),
+                )
                 .unwrap_or("")
                 .trim()
                 .to_owned()
@@ -1206,6 +1218,23 @@ fn read_html_attr_value(tag : String, attr_name : String) -> String? {
 }
 
 ///|
+fn sanitize_html_href(raw_href : String) -> String? {
+  let href = html_unescape(raw_href).trim().to_owned()
+  if href == "" {
+    return None
+  }
+
+  let lower = href.to_lower()
+  if lower.has_prefix("javascript:") ||
+    lower.has_prefix("vbscript:") ||
+    lower.has_prefix("data:") {
+    return None
+  }
+
+  Some(href)
+}
+
+///|
 fn append_inlines(dst : Array[HtmlInline], src : Array[HtmlInline]) -> Unit {
   for x in src {
     dst.push(x)
@@ -1267,6 +1296,7 @@ fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
 ///|
 fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
   let out : Array[Array[Array[HtmlInline]]] = []
+  let span_cells : Array[HtmlTableSpanCell] = []
 
   let open_tr = pat("<tr")
   let close_tr = pat("</tr>")
@@ -1288,9 +1318,16 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
               None => break
               Some(end) => {
                 let tr_inner = inner[row_start:end].to_owned()
-                let cells = html_table_row_from_bytes(tr_inner)
+                let row_index = out.length() + 1
+                let (cells, row_spans) = html_table_row_from_bytes(
+                  tr_inner,
+                  row_index,
+                )
                 if cells.length() > 0 {
                   out.push(cells)
+                }
+                for span in row_spans {
+                  span_cells.push(span)
                 }
                 pos = end + close_tr.length()
               }
@@ -1304,6 +1341,7 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
   {
     rows: normalize_table_rows(out),
     header_rows: html_table_header_rows(inner),
+    span_cells,
   }
 }
 
@@ -1349,8 +1387,12 @@ fn html_table_header_rows(inner : Bytes) -> Int {
 }
 
 ///|
-fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
+fn html_table_row_from_bytes(
+  tr_inner : Bytes,
+  row_index : Int,
+) -> (Array[Array[HtmlInline]], Array[HtmlTableSpanCell]) {
   let out : Array[Array[HtmlInline]] = []
+  let spans : Array[HtmlTableSpanCell] = []
 
   let open_td = pat("<td")
   let close_td = pat("</td>")
@@ -1360,6 +1402,7 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
 
   let mut pos = 0
   let n = tr_inner.length()
+  let mut col_index = 1
 
   while pos < n {
     let td0 = find_bytes(tr_inner, open_td, pos)
@@ -1396,7 +1439,30 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
               Some(end) => {
                 let cell_inner = tr_inner[cell_start:end].to_owned()
                 let xs = html_inlines_from_bytes(cell_inner)
+                let tag_bs = tr_inner[i0:q0 + 1].to_owned()
+                let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+                let rowspan = parse_html_positive_int_attr(
+                  read_html_attr_value(tag0, "rowspan"),
+                )
+                let colspan = parse_html_positive_int_attr(
+                  read_html_attr_value(tag0, "colspan"),
+                )
+                if rowspan > 1 || colspan > 1 {
+                  spans.push({
+                    row_index,
+                    column_index: col_index,
+                    rowspan,
+                    colspan,
+                    text: normalized_optional_text(render_inlines(xs)),
+                  })
+                }
                 out.push(xs)
+                let mut repeat = 1
+                while repeat < colspan {
+                  out.push([])
+                  repeat += 1
+                }
+                col_index += colspan
 
                 pos = if is_th {
                   end + close_th.length()
@@ -1411,5 +1477,31 @@ fn html_table_row_from_bytes(tr_inner : Bytes) -> Array[Array[HtmlInline]] {
     }
   }
 
-  out
+  (out, spans)
+}
+
+///|
+fn parse_html_positive_int_attr(raw : String?) -> Int {
+  match raw {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        return 1
+      }
+      let chars = trimmed.to_array()
+      let mut i = 0
+      let mut n = 0
+      while i < chars.length() {
+        let c = chars[i]
+        let k = c.to_int()
+        if k < 48 || k > 57 {
+          return 1
+        }
+        n = n * 10 + (k - 48)
+        i += 1
+      }
+      if n <= 0 { 1 } else { n }
+    }
+    None => 1
+  }
 }

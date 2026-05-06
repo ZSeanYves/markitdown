@@ -1,3 +1,3 @@
 A B &copy; © 😀 & <ok>
 
-[A & B]
+![A & B](assets/image01.jpg)

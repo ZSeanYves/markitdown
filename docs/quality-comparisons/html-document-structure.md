@@ -3,7 +3,7 @@
 - format: HTML
 - sample path: `samples/main_process/html/html_simple.html`
 - feature focus: heading, paragraphs, entity handling, list retention
-- comparison date: 2026-05-05
+- comparison date: 2026-05-06
 - markitdown-mb command: `./_build/native/debug/build/cli/cli.exe normal samples/main_process/html/html_simple.html .tmp/quality-comparisons/html_simple_compare/mb.md`
 - Microsoft MarkItDown command: `markitdown samples/main_process/html/html_simple.html -o .tmp/quality-comparisons/html_simple_compare/ms.md`
 - comparable scope: default local HTML conversion only; no CSS/JS execution path
@@ -61,4 +61,4 @@
 
 ## Next action
 
-- add future HTML records for links, tables, and local-image asset behavior
+- add future HTML records for links, tables, unsafe-link boundaries, and local-image asset behavior

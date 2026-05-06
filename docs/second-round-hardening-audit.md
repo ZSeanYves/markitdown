@@ -467,7 +467,7 @@ status" when sample/benchmark/support evidence is thin.
 | PPTX | H2 | `doc_parse/ooxml`, `convert/pptx/*` | `parse_pptx` | very strong main + metadata + assets + tests | smoke + compare + extended | slide order, text, bullets, notes, hidden slides, explicit tables, images, hyperlinks | charts, SmartArt, OLE, action links, merged tables, full z-order | readable downgrade + warning-like omissions | good slide/image origin | yes | medium-high | layout grouping and table-like heuristics still shallow | medium | P2 | layout/table model refinement and richer shape provenance |
 | XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | `doc_parse/ooxml`, `convert/xlsx/*` | `parse_xlsx` / `inspect_xlsx` | strong main + metadata + tests | smoke + batch profile + extended + overlap compare | multi-sheet, shared strings, datetime, sparse trim, cached formulas, lightweight missing-cache formula eval v1, rich table, typed-cell/table hints | full Excel formula compatibility, merged reconstruction, comments/charts/images | top-left merged policy, cached-first formula policy, unsupported formula fail-closed policy | good sheet/row/col origin plus table hints | no | medium-high | formula/merged/state policy now evidenced, but no full formula engine or visual merge model | medium-high on large sheets | sealed | keep future work strictly optional: cross-sheet/lookup/array/dynamic formulas, charts/pivots/comments/images, full RSS benchmarking |
 | PDF | H2 partial | `doc_parse/pdf/*`, `vendor/mbtpdf` | `parse_pdf` | strong main + metadata/assets + tests | smoke + compare + batch profile + extended | text PDF, page blocks, headings, noise cleanup, merge, simple tables, URI links, images, captions | complex tables, outlines, internal links, OCR-default, complex layout | omit ambiguous structure, optional OCR path | moderate page/image/object origin | yes | medium | lower-layer signal still limits quality more than converter logic | medium | P2 | pdf_core signal enrichment before more heuristics |
-| HTML | H2 | `convert/html/html_dom.mbt` + parser | `parse_html` | very strong main + metadata + assets + tests | smoke + compare + batch profile | headings, paragraphs, lists, blockquote, pre/code, table, links, local images, figure/figcaption | browser tree-building, CSS layout, rowspan/colspan, remote fetch | skip script/style/head; conservative literal fallback | coarse block origin; asset `source_path` | yes local only | high | DOM semantics are decent but not rich enough for deeper provenance | low-medium | P1 | safer/richer DOM/event model and origin enrichment |
+| HTML | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | `convert/html/html_dom.mbt` + parser | `parse_html` | very strong main + metadata + assets + tests | smoke + compare + batch profile + metadata-on rows | headings, paragraphs, nested lists, blockquote, pre/code, table, links, local images, figure/figcaption, semantic containers, details/summary, provenance hints | browser tree-building, CSS layout, JS execution, remote fetch, full rowspan/colspan reconstruction | skip script/style/head/noscript; unsafe-link fail-closed; conservative literal fallback | block `object_ref`/`key_path`, table `span_cells`, asset `source_path` | yes local only | high | checked-in quality records show strong local overlap behavior, but not browser-grade parity | low-medium | sealed | keep future work optional: richer DOM/tree provenance, broader entity coverage, browser-like parsing intentionally out of scope |
 | TXT | H2 | `convert/txt/txt_parser.mbt` | `parse_txt` | strong main + metadata + tests | smoke + compare + batch profile | paragraphs, UTF-8 normalize, literal-safe Markdown passthrough | semantic heading/list/table inference by design | fail closed on invalid UTF-8; literal-safe output | line-range origin only | no | medium | deliberate non-goal, but contract should stay explicit | low | P1 | benchmark guardrails and explicit text policy docs |
 | Markdown | H2 | `convert/markdown/*` | `parse_markdown` | strong main + metadata + tests | smoke + compare | passthrough, conservative block summary | no AST rewrite, no semantic normalization | passthrough source | line-range origin only | no | medium | current path is intentionally minimal, not normalized Markdown understanding | very low | P1 | benchmark guardrails and metadata contract clarity |
 | CSV | H2 | `convert/csv/csv_parser.mbt` | `parse_csv` | strong main + metadata + tests | smoke + compare + batch profile | quoted fields, BOM/CRLF, ragged rows, RichTable | no sniffing, no streaming, no typing | fail closed on malformed quotes | coarse table/line origin | no | high | always-header Markdown policy is simplistic | low-medium | P1 | parser hardening and streaming path design |
@@ -792,9 +792,13 @@ Stable support today includes:
 * `alt` / `title`
 * `figure` / `figcaption`
 * `details` / `summary`
+* semantic containers such as `main` / `section` / `article` / `aside` / `nav`
 * common entities and numeric entities
 * script/style/head/noscript ignore policy
 * local image asset export when path is accepted
+* block-level provenance through `object_ref` / `key_path` where the unified
+  metadata schema permits it
+* HTML table span-boundary hints through metadata `span_cells`
 
 #### B. Current Boundaries and Non-goals
 
@@ -802,46 +806,85 @@ Weak or unsupported:
 
 * no CSS execution/layout
 * no JS
-* no remote/data URI fetch
-* no rowspan/colspan reconstruction
+* no remote fetch
+* `data:` images are not materialized by default
+* no full rowspan/colspan visual reconstruction
 * no browser-spec tree builder
 * unknown named entities remain literal
 
 Current non-goal:
 
 * no browser-grade rendering in converter
+* no browser-style DOM/CSS/JS execution contract
 
 #### C. Lower-layer Capability Gaps
 
 Main substrate gaps:
 
 * DOM/event model is lightweight and custom, not a stronger safe event/DOM API
-* no DOM path provenance
+* provenance is useful at block/key-path level, but still not a full DOM path
+  or browser-grade tree contract
 * no CSS display hint model
 * local resource policy is useful but not generalized into a shared resource
   fetch/sanitizer substrate
 
 #### D. H2 Quality Parity Tasks
 
-Needed next samples:
+Checked-in HTML H2++ evidence now includes:
 
-* nested figures and captions
-* semantic section/article/aside wrappers
-* tables with header/body irregularities
-* path sanitization cases for local assets
-* more entity and malformed HTML cases
+* lightweight safe parser positioning rather than browser-grade rendering
+* explicit no-JS, no-CSS-layout, no-remote-fetch boundary
+* `script` / `style` / `head` / `noscript` ignore policy
+* unsafe-link fail-closed policy for `javascript:` / `vbscript:` / `data:`
+* local image asset export plus `alt` / `title` / `figcaption` preservation
+* table coverage for header rows, ragged rows, inline links in cells, and
+  span-boundary explanation through `span_cells`
+* semantic-container, nested-list, blockquote, pre/code, and
+  details/summary samples
+* metadata/origin coverage for `object_ref`, `key_path`, table `span_cells`,
+  and asset `source_path`
+* checked-in quality records:
+  * `html-document-structure`: `close`
+  * `html-table-links`: `win`
+  * `html-figure-image-assets`: `win`
+  * `html-semantic-containers`: `close`
+  * `html-unsafe-link-boundary`: `close`
+
+These records are checked-in seed evidence, not blanket claims about all HTML
+pages. They also do not compare JS/CSS execution, browser layout, or remote
+fetch behavior.
 
 #### E. H3 Performance Tasks
 
-Benchmark design:
+Checked-in HTML H3++ benchmark evidence now covers:
 
-* small/medium/large HTML
-* table-heavy large
-* mixed content large
-* assets-heavy local-image documents
-* metadata on/off
-* batch repeated small HTML pages
-* compare overlap-only on simple semantic HTML cases
+* `small`
+* `medium`
+* `large`
+* `table-heavy`
+* `link-heavy`
+* `asset-heavy local`
+* `malformed/common`
+* metadata-on rows
+* overlap compare with Microsoft MarkItDown
+* batch profile with HTML
+
+Current checked-in native overlap corpus observations are:
+
+* prebuilt-native `markitdown-mb` is clearly faster than Microsoft
+  MarkItDown 0.1.5 on the checked-in HTML overlap corpus
+* batch profile shows clear startup/throughput benefit over repeated per-file
+  `normal` invocations on the checked-in HTML batch corpus
+* no new RSS/memory conclusion should be claimed here because the memory probe
+  remains unavailable or unstable in the default checked-in harness
+* these timing observations must not be generalized to all webpages or
+  browser-like HTML workloads
+
+HTML provenance enhancements also now surface naturally through ZIP/EPUB nested
+HTML metadata snapshots. This sprint accepts those metadata refreshes as a
+lower-layer HTML effect; ZIP/EPUB Markdown output semantics did not change, and
+ZIP/EPUB themselves are not promoted to `H2++ complete` by that downstream
+reflection.
 
 ### TXT
 
@@ -1790,7 +1833,10 @@ Risk:
 
 Done when:
 
-* HTML support is better grounded as a semantic parser, not just tag scanning
+* completed in this round as `HTML H2++ complete`
+* HTML remains explicitly positioned as a lightweight safe semantic parser, not
+  a browser-grade engine
+* H3 claims stay limited to the checked-in native overlap corpus
 
 #### P1.8 XLSX table/type hardening
 

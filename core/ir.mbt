@@ -41,12 +41,22 @@ pub(all) struct TableData {
 }
 
 ///|
+pub(all) struct TableSpanHint {
+  row_index : Int
+  column_index : Int
+  rowspan : Int
+  colspan : Int
+  text : String?
+}
+
+///|
 pub(all) struct TableHints {
   format : String?
   sheet_state : String?
   merged_ranges : Array[String]?
   formula_cells : Array[TableFormulaHint]?
   semantic_types : Array[Array[String]]?
+  span_cells : Array[TableSpanHint]?
 }
 
 ///|

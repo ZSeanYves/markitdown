@@ -45,6 +45,17 @@ state:
 * XLSX formula/merged/type/sheet-state policy is now backed by additional
   samples, sidecar hints, lightweight formula-evaluation-v1 coverage, and
   checked-in metadata policy fixtures
+* the current second-round HTML sprint now has green validation after HTML
+  provenance/object-ref/key-path enhancements and the corresponding HTML +
+  ZIP/EPUB nested HTML metadata snapshot refresh
+* checked-in HTML quality comparison coverage now includes base structure,
+  ragged-row tables, local figure/image asset behavior, semantic containers,
+  and unsafe-link fail-closed boundaries
+* checked-in HTML benchmark coverage now includes `small`, `medium`, `large`,
+  `table-heavy`, `link-heavy`, `asset-heavy local`, `malformed/common`, and
+  metadata-on rows on the native-preferred path
+* HTML is now treated as `H2++ complete`, with `H3++` evidence backed on the
+  checked-in native overlap corpus
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story
@@ -69,6 +80,11 @@ In short:
   parity conclusion
 * the format-excellence workflow is now explicit in
   [docs/format-excellence-roadmap.md](./format-excellence-roadmap.md)
+* current HTML quality conclusions are limited to the checked-in HTML overlap
+  records in [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
+* current HTML H3 observations are limited to the checked-in native smoke,
+  overlap, and batch-profile corpus; they are not browser-scale or blanket web
+  claims
 * the next H3 step is benchmark governance and broader corpus discipline, not
   another urgent converter hot-path cut
 
@@ -100,6 +116,8 @@ Useful benchmark and warning commands remain:
 The current next-stage priorities are:
 
 * H3 phase 2 benchmark governance
+* carry the same second-round excellence workflow into the next format without
+  relaxing the HTML benchmark/quality evidence bar
 * broader representative corpora, including larger real-world documents
 * optional memory / RSS observation where platform support exists
 * release/documentation polish

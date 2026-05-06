@@ -97,6 +97,10 @@ quality review concrete, but it is not the final parity conclusion.
 | XLSX | [xlsx_merged_cells_policy.xlsx](./xlsx-merged-cells-policy.md) | merged-cell top-left ownership | `win` | `markitdown-mb` keeps covered cells blank instead of injecting placeholder values |
 | XLSX | [xlsx_typed_cells_matrix.xlsx](./xlsx-typed-cells.md) | typed-cell rendering | `win` | `markitdown-mb` keeps explicit error text and conservative boolean policy |
 | HTML | [html_simple.html](./html-document-structure.md) | heading, paragraphs, list | `close` | outputs are structurally equivalent aside from bullet marker style |
+| HTML | [html_table_ragged_links.html](./html-table-links.md) | table shape, ragged rows, inline links | `win` | `markitdown-mb` keeps the ragged trailing cell instead of shortening the row |
+| HTML | [html_figure_figcaption_image.html](./html-figure-image-assets.md) | local image asset behavior, title, figcaption | `win` | `markitdown-mb` materializes local assets and keeps figure context explicit |
+| HTML | [html_semantic_containers.html](./html-semantic-containers.md) | semantic wrapper passthrough | `close` | both preserve the useful body structure |
+| HTML | [html_link_unsafe_javascript.html](./html-unsafe-link-boundary.md) | unsafe-link fail-closed boundary | `close` | both degrade dangerous hrefs to plain text on this overlap sample |
 | CSV | [csv_ragged_rows.csv](./csv-ragged-rows.md) | ragged-row table retention | `win` | `markitdown-mb` preserves the extra column instead of truncating it |
 | Markdown | [markdown_basic_heading_paragraph.md](./markdown-passthrough.md) | passthrough | `close` | identical structure on this sample |
 | TXT | [txt_plain.txt](./txt-literal-safe.md) | literal-safe plain text | `close` | identical structure on this sample |

@@ -64,11 +64,12 @@ for entry in "${SAMPLE_LIST[@]}"; do
   name="${base%.*}"
   exp_dir="$EXP_DIR/$fmt"
   out_dir="$OUT_DIR/$fmt"
-  out="$out_dir/$name.md"
+  sample_out_dir="$out_dir/$name"
+  out="$sample_out_dir/$name.md"
   exp="$exp_dir/$name.md"
-  diff_path="$out_dir/$name.diff"
+  diff_path="$sample_out_dir/$name.diff"
 
-  mkdir -p "$exp_dir" "$out_dir"
+  mkdir -p "$exp_dir" "$sample_out_dir"
   validation_progress_step "$fmt/$base"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then

@@ -295,27 +295,46 @@ Supported:
 * common named entities: `amp`, `lt`, `gt`, `quot`, `apos`, `nbsp`
 * numeric decimal / hex entity decoding
 * explicit `RichTable` metadata semantics for HTML tables
+* conservative HTML provenance through block-level `object_ref` / `key_path`
+  where the current unified metadata schema permits it
+* table span-boundary hints in metadata sidecars through `span_cells`
 
 Conservative behavior:
 
-* recovery is lightweight semantic HTML parsing, not browser rendering
+* recovery is lightweight safe semantic HTML parsing, not browser rendering
 * local images are only exported for accepted local paths
 * unsupported remote/data-URI images degrade conservatively instead of fetching
+* `javascript:`, `vbscript:`, and `data:` hyperlinks fail closed to visible
+  text instead of emitting dangerous Markdown links
 * comments / doctype are ignored
 * semantic wrappers such as `main` / `section` / `header` / `footer` preserve
   child content conservatively
-* `script` / `style` / `head` / `noscript` are skipped rather than executed or
-  rendered
+* `script` / `style` / `head` / `noscript` are skipped rather than executed,
+  rendered, or browser-expanded
+* `thead` / `tbody` / `tr` / `th` / `td` lower to stable Markdown table rows
+  with conservative header-row inference
+* `rowspan` / `colspan` boundaries are recorded/explained through metadata
+  hints, but not visually reconstructed
 
 Known limits:
 
-* no CSS / JS execution
+* not browser-grade HTML5 parsing
+* no CSS layout
+* no JS execution
 * no remote fetch
-* no DOM-path metadata
-* no rowspan / colspan reconstruction
+* `data:` images are not materialized by default
+* local-path export remains fail-closed for rooted paths and parent-traversal
+  paths
 * unknown named entities remain literal rather than using a full HTML entity
   table
-* no browser-style tree building or visual layout reconstruction
+* no full DOM/tree-builder contract
+* no browser-style visual layout reconstruction
+
+Current second-round note:
+
+* HTML provenance improvements naturally surface through ZIP/EPUB nested HTML
+  metadata snapshots because those formats consume HTML as a lower layer
+* this does not by itself mean ZIP or EPUB are `H2++ complete`
 
 ### CSV / TSV
 

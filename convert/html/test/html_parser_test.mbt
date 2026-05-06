@@ -265,6 +265,86 @@ test "html table cells keep entities breaks and pipes stable" {
 }
 
 ///|
+test "html table span boundaries and local image boundaries are explicit" {
+  let span_doc = @html.parse_html(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_table_rowspan_colspan_boundary.html",
+    ),
+    "",
+    6,
+  )
+  let span_expected = read_html_parser_utf8_text(
+    resolve_html_parser_sample_path(
+      "samples/main_process/expected/html/html_table_rowspan_colspan_boundary.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(span_doc), span_expected)
+  match span_doc.blocks.val[0] {
+    @cor.Block::RichTable(table) =>
+      match table.hints {
+        Some(hints) =>
+          match hints.span_cells {
+            Some(span_cells) => {
+              assert_eq(span_cells.length(), 2)
+              assert_eq(span_cells[0].row_index, 1)
+              assert_eq(span_cells[0].column_index, 1)
+              assert_eq(span_cells[0].rowspan, 2)
+              assert_eq(span_cells[1].colspan, 2)
+            }
+            None => fail("expected span_cells hint on HTML span table")
+          }
+        None => fail("expected table hints on HTML span table")
+      }
+    _ => fail("span boundary sample should emit RichTable")
+  }
+
+  let image_doc = @html.parse_html(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_image_remote_data_uri_boundary.html",
+    ),
+    "",
+    6,
+  )
+  let image_expected = read_html_parser_utf8_text(
+    resolve_html_parser_sample_path(
+      "samples/main_process/expected/html/html_image_remote_data_uri_boundary.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(image_doc), image_expected)
+}
+
+///|
+test "html semantic containers and pre/code entity handling are stable" {
+  let semantic_doc = @html.parse_html(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_semantic_containers.html",
+    ),
+    "",
+    6,
+  )
+  let semantic_expected = read_html_parser_utf8_text(
+    resolve_html_parser_sample_path(
+      "samples/main_process/expected/html/html_semantic_containers.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(semantic_doc), semantic_expected)
+
+  let code_doc = @html.parse_html(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_pre_code_entities.html",
+    ),
+    "",
+    6,
+  )
+  let code_expected = read_html_parser_utf8_text(
+    resolve_html_parser_sample_path(
+      "samples/main_process/expected/html/html_pre_code_entities.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(code_doc), code_expected)
+}
+
+///|
 fn trim_one_trailing_newline(text : String) -> String {
   if text.has_suffix("\n") {
     text[:text.length() - 1].to_owned()

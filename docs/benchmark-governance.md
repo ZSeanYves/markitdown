@@ -75,7 +75,7 @@ Coverage summary by format:
 | PPTX | yes | yes | yes | no current batch-profile default | yes | yes | weak | yes | no metadata-rich compare row; no degrade/error benchmark row |
 | XLSX | yes | yes | yes | partial via batch-profile defaults | no | yes | yes | yes | no assets-heavy row; formula cached/eval/unsupported/merged/typed rows now checked in |
 | PDF | scenario-based, not strict size labels | scenario-based | scenario-based | partial via batch-profile defaults | yes | metadata gap in Tier 1 | yes | yes | no checked-in metadata-on benchmark row; no scanned/OCR corpus in default suite |
-| HTML | yes | yes | yes | partial via batch-profile defaults | partial | metadata gap in Tier 1 | weak | yes | no checked-in metadata benchmark row |
+| HTML | yes | yes | yes | partial via batch-profile defaults | yes | yes | yes | yes | still overlap-only local HTML corpus; not a browser-grade workload |
 | TXT | yes | yes | yes | no current batch-profile default | no | yes | weak | yes | no explicit degrade/error row |
 | Markdown | yes | yes | yes | no current batch-profile default | no | yes | weak | yes | no explicit degrade/error row |
 | CSV | yes | yes | yes | partial via batch-profile defaults | no | yes | yes | yes | no assets-heavy notion by design |

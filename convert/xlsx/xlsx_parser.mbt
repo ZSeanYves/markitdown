@@ -430,6 +430,7 @@ fn sheet_table_hints(sheet : XlsxSheetModel) -> @cor.TableHints {
     merged_ranges,
     formula_cells,
     semantic_types,
+    span_cells: None,
   }
 }
 

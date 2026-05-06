@@ -50,10 +50,10 @@ PDF lower-layer note:
 
 The repository is past the initial H2 sweep across the main input set:
 
-* `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, HTML / HTM, DOCX,
-  PPTX
+* `H2 main-path quality`: TXT, Markdown, CSV / TSV, JSON, DOCX, PPTX
 * `H2 partial`: PDF
-* `H2++ complete, H3++ evidence-backed on checked-in native overlap corpus`: XLSX
+* `H2++ complete, H3++ evidence-backed on checked-in native overlap corpus`: XLSX,
+  HTML / HTM
 * `subset-H2`: YAML / YML
 * `source-preserving H1/H2 partial`: XML
 * `container/ebook H2 partial`: ZIP, EPUB
@@ -75,7 +75,7 @@ For second-round per-format excellence sprints, use
 | JSON | H2 main-path quality | conservative structured-data lowering, metadata | no streaming/materialization optimization yet |
 | YAML / YML | subset-H2 | fail-closed conservative subset, structured-data lowering | not full YAML 1.2 coverage |
 | XML | source-preserving H1/H2 partial | fenced `xml` output, safe tokenizer base | not a semantic XML-family converter |
-| HTML / HTM | H2 main-path quality | semantic text/tables/links/images, `RichTable` metadata | no CSS/JS execution, no rowspan/colspan reconstruction |
+| HTML / HTM | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | lightweight safe semantic parsing, tables/links/images, `RichTable` metadata, local-asset export, provenance hints, unsafe-link fail-closed policy | not browser-grade, no CSS layout or JS, no remote fetch, no rowspan/colspan visual reconstruction |
 | XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1, merged/state/type policy evidence | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
 | ZIP | container H2 partial | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
 | EPUB | ebook H2 partial | container/OPF/spine/nav/cover/assets pipeline | no DRM/CSS rendering, richer anchor/NCX semantics remain future work |
@@ -194,6 +194,9 @@ Important boundaries:
 * Markdown is passthrough; it is not a Markdown AST semantic converter
 * PDF is strongest on text-oriented PDFs; scanned/OCR and cloud-style document
   understanding paths are separate from the default local mainflow
+* HTML is a lightweight safe parser, not a browser-grade engine; no JS, no CSS
+  layout, no remote fetch, and unsafe `javascript:` / `data:` / `vbscript:`
+  links fail closed
 * YAML is a conservative supported subset, not full YAML 1.2
 * XML is source-preserving fenced `xml` code-block conversion; it is not a
   semantic XHTML / RSS / OPF / SVG converter

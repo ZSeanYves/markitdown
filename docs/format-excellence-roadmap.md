@@ -117,3 +117,21 @@ Focus:
 * overlap and batch-oriented benchmark evidence
 * explicit non-goals: no full Excel engine, no cross-sheet/lookup/array/dynamic
   formula support in evaluator v1
+
+The second second-round excellence sprint is `HTML`.
+
+Current HTML sprint state:
+
+* parser/resource safety boundaries have been hardened without moving toward a
+  browser-grade engine
+* unsafe-link fail-closed behavior, local-image asset behavior, table span
+  hints, and HTML provenance are now backed by checked-in regression and
+  metadata samples
+* nested ZIP/EPUB HTML metadata snapshots now intentionally reflect lower-layer
+  HTML provenance improvements
+* checked-in HTML quality records and benchmark rows now exist, and the sprint
+  is now treated as `HTML H2++ complete` plus `H3++ evidence-backed on the
+  checked-in native overlap corpus`
+* those conclusions remain intentionally scoped to the checked-in HTML quality
+  records and native overlap/batch corpus; they are not browser-grade blanket
+  web claims

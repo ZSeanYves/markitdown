@@ -185,6 +185,24 @@ These rows are intended to support the XLSX H2++ / H3++ sprint:
 They are still local checked-in engineering corpus rows, not broad market-wide
 performance claims by themselves.
 
+Current HTML second-round checked-in benchmark additions:
+
+* `html_link_heavy.html`
+* `html_asset_heavy_local.html`
+* `html_malformed_common.html`
+* HTML metadata rows for `html_metadata_table_links`,
+  `html_metadata_span_boundary`, and `html_metadata_unsafe_link_boundary`
+
+These rows are intended to support the HTML H2++ / H3++ sprint:
+
+* safe-link boundary coverage
+* local-asset export behavior
+* malformed/common HTML degradation behavior
+* metadata-on overhead for HTML-specific sidecar rows
+
+They remain checked-in engineering corpus rows, not blanket claims about every
+web page or browser-like HTML workload.
+
 For public/private/manual corpora:
 
 * do not add the real files to the repository

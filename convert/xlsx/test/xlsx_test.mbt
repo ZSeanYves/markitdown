@@ -300,16 +300,26 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
     @cor.Block::RichTable(table) =>
       match table.hints {
         Some(hints) => {
-          assert_eq(hints.format, Some("xlsx"))
-          assert_eq(hints.sheet_state, Some("visible"))
+          if hints.format != Some("xlsx") {
+            fail("expected xlsx format hint on formula policy sheet")
+          }
+          if hints.sheet_state != Some("visible") {
+            fail("expected visible sheet_state on formula policy sheet")
+          }
           match hints.formula_cells {
             Some(cells) => {
               assert_eq(cells.length(), 5)
               assert_eq(cells[0].semantic_type, "formula_cached_value")
-              assert_eq(cells[0].policy, Some("cached"))
+              if cells[0].policy != Some("cached") {
+                fail("expected cached policy on cached formula cell")
+              }
               assert_eq(cells[4].semantic_type, "number")
-              assert_eq(cells[4].policy, Some("evaluated_missing_cache"))
-              assert_eq(cells[4].evaluated_value, Some("5"))
+              if cells[4].policy != Some("evaluated_missing_cache") {
+                fail("expected evaluated_missing_cache policy")
+              }
+              if cells[4].evaluated_value != Some("5") {
+                fail("expected evaluated missing-cache formula value 5")
+              }
             }
             None => fail("formula policy sheet should expose formula_cells")
           }
@@ -393,8 +403,12 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
             Some(cells) => {
               assert_eq(cells.length(), 5)
               assert_eq(cells[0].reference, "D2")
-              assert_eq(cells[0].policy, Some("evaluated_missing_cache"))
-              assert_eq(cells[0].evaluated_value, Some("high"))
+              if cells[0].policy != Some("evaluated_missing_cache") {
+                fail("expected evaluated_missing_cache policy on IF sample")
+              }
+              if cells[0].evaluated_value != Some("high") {
+                fail("expected IF sample evaluated value high")
+              }
               match cells[0].referenced_cells {
                 Some(refs) => assert_eq(refs, ["A2"])
                 None => fail("expected IF sample referenced_cells")
@@ -419,13 +433,21 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
           match hints.formula_cells {
             Some(cells) => {
               assert_eq(cells.length(), 4)
-              assert_eq(cells[0].policy, Some("unsupported_formula"))
+              if cells[0].policy != Some("unsupported_formula") {
+                fail("expected unsupported_formula policy for VLOOKUP")
+              }
               match cells[0].unsupported_reason {
                 Some(reason) => assert_true(reason.contains("unsupported function"))
                 None => fail("expected unsupported reason for VLOOKUP")
               }
-              assert_eq(cells[1].policy, Some("unsupported_formula"))
-              assert_eq(cells[3].policy, Some("unsupported_formula"))
+              if cells[1].policy != Some("unsupported_formula") {
+                fail("expected unsupported_formula policy for cross-sheet formula")
+              }
+              if cells[3].policy != Some("unsupported_formula") {
+                fail(
+                  "expected unsupported_formula policy for range scalar coercion",
+                )
+              }
               match cells[3].unsupported_reason {
                 Some(reason) =>
                   assert_true(reason.contains("range scalar coercion unsupported"))
@@ -451,10 +473,18 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
           match hints.formula_cells {
             Some(cells) => {
               assert_eq(cells.length(), 5)
-              assert_eq(cells[0].policy, Some("formula_error"))
-              assert_eq(cells[0].error_reason, Some("division by zero"))
-              assert_eq(cells[2].policy, Some("formula_error"))
-              assert_eq(cells[2].error_reason, Some("#N/A"))
+              if cells[0].policy != Some("formula_error") {
+                fail("expected formula_error policy on division by zero cell")
+              }
+              if cells[0].error_reason != Some("division by zero") {
+                fail("expected division by zero error reason")
+              }
+              if cells[2].policy != Some("formula_error") {
+                fail("expected formula_error policy in error sample")
+              }
+              if cells[2].error_reason != Some("#N/A") {
+                fail("expected #N/A error reason in formula error sample")
+              }
             }
             None => fail("expected formula hints on error sample")
           }

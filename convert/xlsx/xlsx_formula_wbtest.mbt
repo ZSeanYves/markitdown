@@ -75,7 +75,9 @@ test "xlsx formula evaluator computes missing-cache arithmetic" {
       if info.policy != XlsxFormulaPolicy::EvaluatedMissingCache {
         fail("expected EvaluatedMissingCache policy")
       }
-      assert_eq(info.evaluated_value, Some("3"))
+      if info.evaluated_value != Some("3") {
+        fail("expected evaluated value 3")
+      }
       match info.referenced_cells {
         Some(refs) => assert_eq(refs, ["A1", "B1"])
         None => fail("expected referenced cells")
@@ -104,7 +106,9 @@ test "xlsx formula evaluator supports ranges and IF/ROUND text cases" {
       if info.policy != XlsxFormulaPolicy::EvaluatedMissingCache {
         fail("expected EvaluatedMissingCache policy for SUM")
       }
-      assert_eq(info.evaluated_value, Some("6"))
+      if info.evaluated_value != Some("6") {
+        fail("expected SUM evaluation to 6")
+      }
       match info.referenced_ranges {
         Some(ranges) => assert_eq(ranges, ["A1:A3"])
         None => fail("expected referenced range")
@@ -132,11 +136,17 @@ test "xlsx formula evaluator supports ranges and IF/ROUND text cases" {
     ),
   ]
   match evaluate_missing_cache_formula("Sheet1", cond_cells[1], cond_cells) {
-    Some(info) => assert_eq(info.evaluated_value, Some("high"))
+    Some(info) =>
+      if info.evaluated_value != Some("high") {
+        fail("expected IF evaluation result high")
+      }
     None => fail("expected IF evaluation")
   }
   match evaluate_missing_cache_formula("Sheet1", cond_cells[3], cond_cells) {
-    Some(info) => assert_eq(info.evaluated_value, Some("3.33"))
+    Some(info) =>
+      if info.evaluated_value != Some("3.33") {
+        fail("expected ROUND evaluation to 3.33")
+      }
     None => fail("expected ROUND evaluation")
   }
 }
@@ -205,7 +215,9 @@ test "xlsx formula evaluator marks unsupported and error cases" {
       if info.policy != XlsxFormulaPolicy::FormulaError {
         fail("expected FormulaError policy")
       }
-      assert_eq(info.error_reason, Some("division by zero"))
+      if info.error_reason != Some("division by zero") {
+        fail("expected division by zero error")
+      }
     }
     None => fail("expected error trace")
   }

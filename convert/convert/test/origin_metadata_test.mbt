@@ -675,8 +675,16 @@ test "origin_metadata/html_docx_minimal_closure" {
       if img.caption != None {
         fail("html single image caption should be None")
       }
-      if img.origin != None {
-        fail("html single image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html single image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html single image origin key_path should track source path")
+          }
+        }
+        None => fail("html single image origin should be present")
       }
       assert_asset_origin_has_min_source(html_doc, img.path)
       assert_asset_origin_source_path(
@@ -761,8 +769,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != None {
         fail("html alt image caption should be None")
       }
-      if img.origin != None {
-        fail("html figure image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html alt image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html alt image origin key_path should track source path")
+          }
+        }
+        None => fail("html alt image origin should be present")
       }
       match html_alt_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
@@ -795,8 +811,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != None {
         fail("html title image caption should be None")
       }
-      if img.origin != None {
-        fail("html title image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:inline-img") {
+            fail("html title image origin object_ref should be inline-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html title image origin key_path should track source path")
+          }
+        }
+        None => fail("html title image origin should be present")
       }
       assert_asset_origin_has_min_source(html_title_doc, img.path)
       assert_asset_origin_source_path(
@@ -826,8 +850,16 @@ test "image_context/html_alt_title_figcaption" {
       if img.caption != Some("Figure caption text.") {
         fail("html figure image caption should be Figure caption text.")
       }
-      if img.origin != None {
-        fail("html figure image origin should be None")
+      match img.origin {
+        Some(origin) => {
+          if origin.object_ref != Some("html:figure-img") {
+            fail("html figure image origin object_ref should be figure-img")
+          }
+          if origin.key_path != Some("$.html.asset[img/img_red.jpg]") {
+            fail("html figure image origin key_path should track source path")
+          }
+        }
+        None => fail("html figure image origin should be present")
       }
       match html_fig_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
@@ -1884,8 +1916,12 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
         match table.hints {
           Some(hints) => {
             saw_xlsx_policy_hints = true
-            assert_eq(hints.format, Some("xlsx"))
-            assert_eq(hints.sheet_state, Some("visible"))
+            if hints.format != Some("xlsx") {
+              fail("expected xlsx format hint in metadata policy sample")
+            }
+            if hints.sheet_state != Some("visible") {
+              fail("expected visible sheet_state in metadata policy sample")
+            }
             match hints.merged_ranges {
               Some(ranges) => assert_eq(ranges, ["B3:C4"])
               None => fail("xlsx metadata policy sample should expose merged ranges")
@@ -1896,7 +1932,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
                 assert_eq(cells[0].reference, "B2")
                 assert_eq(cells[0].formula_text, "10+5")
                 assert_eq(cells[0].semantic_type, "formula_cached_value")
-                assert_eq(cells[0].policy, Some("cached"))
+                if cells[0].policy != Some("cached") {
+                  fail("expected cached policy in metadata policy sample")
+                }
               }
               None =>
                 fail("xlsx metadata policy sample should expose formula cells")
@@ -1946,11 +1984,25 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
               Some(cells) => {
                 saw_xlsx_formula_states = true
                 assert_eq(cells.length(), 4)
-                assert_eq(cells[0].policy, Some("cached"))
-                assert_eq(cells[1].policy, Some("evaluated_missing_cache"))
-                assert_eq(cells[1].evaluated_value, Some("3"))
-                assert_eq(cells[2].policy, Some("unsupported_formula"))
-                assert_eq(cells[3].policy, Some("formula_error"))
+                if cells[0].policy != Some("cached") {
+                  fail("expected cached policy in XLSX metadata fixture")
+                }
+                if cells[1].policy != Some("evaluated_missing_cache") {
+                  fail(
+                    "expected evaluated_missing_cache policy in XLSX metadata fixture",
+                  )
+                }
+                if cells[1].evaluated_value != Some("3") {
+                  fail("expected evaluated value 3 in XLSX metadata fixture")
+                }
+                if cells[2].policy != Some("unsupported_formula") {
+                  fail(
+                    "expected unsupported_formula policy in XLSX metadata fixture",
+                  )
+                }
+                if cells[3].policy != Some("formula_error") {
+                  fail("expected formula_error policy in XLSX metadata fixture")
+                }
               }
               None => ()
             }

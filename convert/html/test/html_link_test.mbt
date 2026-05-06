@@ -180,3 +180,44 @@ test "html table without explicit header keeps rich table metadata with header_r
     _ => fail("html_br_table should emit RichTable with header_rows=0")
   }
 }
+
+///|
+test "html unsafe links fail closed while safe variants stay links" {
+  let safe_doc = @html.parse_html(
+    resolve_sample_path("samples/main_process/html/html_links_variants.html"),
+    "",
+    6,
+  )
+  let safe_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/html/html_links_variants.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(safe_doc), safe_expected)
+  match safe_doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(has_link(inlines, "Absolute", "https://example.com/abs"))
+    _ => fail("expected rich paragraph for absolute link")
+  }
+
+  let unsafe_doc = @html.parse_html(
+    resolve_sample_path(
+      "samples/main_process/html/html_link_unsafe_javascript.html",
+    ),
+    "",
+    6,
+  )
+  let unsafe_expected = read_utf8_text(
+    resolve_sample_path(
+      "samples/main_process/expected/html/html_link_unsafe_javascript.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(unsafe_doc), unsafe_expected)
+  for block in unsafe_doc.blocks.val {
+    match block {
+      @cor.Block::RichParagraph(inlines) => assert_true(!has_any_link(inlines))
+      @cor.Block::Paragraph(_) => ()
+      _ => fail("unsafe-link sample should only emit paragraphs")
+    }
+  }
+}

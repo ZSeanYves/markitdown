@@ -50,6 +50,7 @@
         "sheet": null,
         "block_index": 1,
         "heading_path": null,
+        "object_ref": "html:heading:1",
         "key_path": "OPS/text/chapter-01.xhtml"
       },
       "image": null
@@ -66,6 +67,7 @@
         "sheet": null,
         "block_index": 2,
         "heading_path": null,
+        "object_ref": "html:paragraph:2",
         "key_path": "OPS/text/chapter-01.xhtml"
       },
       "image": null
@@ -98,6 +100,7 @@
         "sheet": null,
         "block_index": 4,
         "heading_path": null,
+        "object_ref": "html:heading:1",
         "key_path": "OPS/text/chapter-02.xhtml"
       },
       "image": null
@@ -114,6 +117,7 @@
         "sheet": null,
         "block_index": 5,
         "heading_path": null,
+        "object_ref": "html:paragraph:2",
         "key_path": "OPS/text/chapter-02.xhtml"
       },
       "image": null
