@@ -179,6 +179,26 @@ test "epub convert unsupported spine media emits warning block" {
 }
 
 ///|
+test "epub convert missing manifest spine item emits warning and continues" {
+  let out_dir = test_tmp_root() + "/epub-convert-missing-spine-manifest"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/test/epub/epub_missing_manifest_then_valid.epub",
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_contains(markdown, "# (missing manifest item #0: missing)")
+  assert_contains(
+    markdown,
+    "> Skipped: spine item references missing manifest item: missing",
+  )
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+  assert_contains(markdown, "Valid chapter after missing manifest item.")
+}
+
+///|
 test "epub convert multi chapter spine order sample" {
   let out_dir = test_tmp_root() + "/epub-convert-spine-order"
   recreate_clean_dir(out_dir)

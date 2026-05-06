@@ -57,14 +57,17 @@ pub struct EpubManifestItem {
 pub struct EpubSpineItem {
   idref : String
   linear : Bool
-  manifest_item : EpubManifestItem
-  resolved_path : String
+  spine_index : Int
+  manifest_item : EpubManifestItem?
+  resolved_path : String?
 }
 
 ///|
 pub struct EpubNavPoint {
   label : String
   href : String
+  depth : Int
+  source_path : String?
 }
 
 ///|
@@ -73,6 +76,7 @@ pub struct EpubInspectSpineItem {
   href : String
   media_type : String?
   linear : Bool
+  spine_index : Int
   action : String
 }
 

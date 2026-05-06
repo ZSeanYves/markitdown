@@ -58,8 +58,12 @@ test "epub package parses basic spine in OPF order" {
     fail("expected EPUB mimetype to be application/epub+zip")
   }
   assert_eq(pkg.spine.length(), 2)
-  assert_eq(pkg.spine[0].resolved_path, "OEBPS/chapter-02.xhtml")
-  assert_eq(pkg.spine[1].resolved_path, "OEBPS/chapter-01.xhtml")
+  if pkg.spine[0].resolved_path != Some("OEBPS/chapter-02.xhtml") {
+    fail("expected first EPUB spine path to preserve OPF order")
+  }
+  if pkg.spine[1].resolved_path != Some("OEBPS/chapter-01.xhtml") {
+    fail("expected second EPUB spine path to preserve OPF order")
+  }
   assert_eq(pkg.spine[0].linear, true)
   assert_eq(pkg.spine[1].linear, true)
 }
@@ -82,7 +86,9 @@ test "epub package parses metadata basic" {
     fail("expected EPUB modified timestamp from OPF metadata")
   }
   assert_eq(pkg.spine.length(), 1)
-  assert_eq(pkg.spine[0].resolved_path, "OPS/chapter.xhtml")
+  if pkg.spine[0].resolved_path != Some("OPS/chapter.xhtml") {
+    fail("expected EPUB chapter path from spine manifest item")
+  }
 }
 
 ///|
@@ -131,10 +137,30 @@ test "epub package rejects encryption xml" {
 }
 
 ///|
-test "epub package rejects missing manifest item" {
-  assert_open_epub_fails(
-    "samples/test/epub/epub_missing_manifest_item.epub", "spine itemref missing manifest item",
+test "epub package keeps missing manifest spine item" {
+  let pkg = open_sample_package(
+    "samples/test/epub/epub_missing_manifest_item.epub",
   )
+  assert_eq(pkg.spine.length(), 1)
+  let missing = pkg.spine[0]
+  assert_eq(missing.idref, "missing")
+  assert_eq(missing.spine_index, 0)
+  match missing.manifest_item {
+    Some(_) =>
+      fail("expected missing manifest spine item to preserve None manifest_item")
+    None => ()
+  }
+  match missing.resolved_path {
+    Some(_) =>
+      fail("expected missing manifest spine item to preserve None resolved_path")
+    None => ()
+  }
+  let inspect = @epub.inspect_epub_package(pkg)
+  assert_eq(inspect.spine_items.length(), 1)
+  assert_eq(inspect.spine_items[0].idref, "missing")
+  assert_eq(inspect.spine_items[0].spine_index, 0)
+  assert_eq(inspect.spine_items[0].href, "")
+  assert_eq(inspect.spine_items[0].action, "warn")
 }
 
 ///|

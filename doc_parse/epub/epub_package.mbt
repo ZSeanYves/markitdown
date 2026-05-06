@@ -66,7 +66,10 @@ pub fn open_epub_package(
 pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
   let spine_items : Array[EpubInspectSpineItem] = []
   for item in pkg.spine {
-    let media_type = item.manifest_item.media_type
+    let media_type = match item.manifest_item {
+      Some(v) => v.media_type
+      None => None
+    }
     let action = if !item.linear {
       "skip"
     } else if spine_item_supported(item) {
@@ -76,9 +79,13 @@ pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
     }
     spine_items.push({
       idref: item.idref,
-      href: item.manifest_item.href,
+      href: match item.manifest_item {
+        Some(v) => v.href
+        None => ""
+      },
       media_type,
       linear: item.linear,
+      spine_index: item.spine_index,
       action,
     })
   }
@@ -337,7 +344,7 @@ fn parse_nav_points(xml : String) -> Array[EpubNavPoint] {
       Some(text) => {
         let label = xml_entity_decode(text.trim().to_owned())
         if label != "" {
-          out.push({ label, href })
+          out.push({ label, href, depth: 0, source_path: None })
         }
       }
       None => ()
@@ -352,35 +359,52 @@ fn parse_opf_spine(
   manifest_by_id : Map[String, EpubManifestItem],
 ) -> Array[EpubSpineItem] raise EpubError {
   let out : Array[EpubSpineItem] = []
+  let mut spine_index = 0
   for tag in collect_start_tags(xml, "itemref") {
     let attrs = parse_tag_attributes(tag)
     let idref = get_required_attr(attrs, "idref").trim().to_owned()
     let linear = get_optional_attr(attrs, "linear").trim().to_lower() != "no"
-    let item = match manifest_by_id.get(idref) {
-      Some(v) => v
-      None => raise InvalidXml("spine itemref missing manifest item: " + idref)
+    match manifest_by_id.get(idref) {
+      Some(item) =>
+        out.push({
+          idref,
+          linear,
+          spine_index,
+          manifest_item: Some(item),
+          resolved_path: Some(item.resolved_path),
+        })
+      None =>
+        out.push({
+          idref,
+          linear,
+          spine_index,
+          manifest_item: None,
+          resolved_path: None,
+        })
     }
-    out.push({
-      idref,
-      linear,
-      manifest_item: item,
-      resolved_path: item.resolved_path,
-    })
+    spine_index += 1
   }
   out
 }
 
 ///|
 fn spine_item_supported(item : EpubSpineItem) -> Bool {
-  let media_type = match item.manifest_item.media_type {
-    Some(v) => v.trim().to_owned().to_lower()
-    None => ""
+  let media_type = match item.manifest_item {
+    Some(manifest_item) =>
+      match manifest_item.media_type {
+        Some(v) => v.trim().to_owned().to_lower()
+        None => ""
+      }
+    None => return false
   }
   if media_type == "application/xhtml+xml" || media_type == "text/html" {
     return true
   }
 
-  let path = item.resolved_path
+  let path = match item.resolved_path {
+    Some(v) => v
+    None => return false
+  }
   let n = path.length()
   if n == 0 {
     return false

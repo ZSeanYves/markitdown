@@ -70,7 +70,21 @@ pub fn parse_epub(
       continue
     }
 
-    let content_path = spine_item.resolved_path
+    let content_path = match spine_item.resolved_path {
+      Some(v) => v
+      None => {
+        let missing_entry_path = missing_manifest_entry_path(spine_item)
+        append_warning_entry(
+          doc,
+          final_md,
+          epub_name,
+          missing_entry_path,
+          "Skipped: spine item references missing manifest item: " +
+          spine_item.idref,
+        )
+        continue
+      }
+    }
     let is_nav_spine_item = match pkg.nav_item {
       Some(item) => item.resolved_path == content_path
       None => false
@@ -293,8 +307,9 @@ fn nav_item_is_in_spine(pkg : @epubpkg.EpubPackage) -> Bool {
   match pkg.nav_item {
     Some(nav_item) => {
       for spine_item in pkg.spine {
-        if spine_item.resolved_path == nav_item.resolved_path {
-          return true
+        match spine_item.resolved_path {
+          Some(path) => if path == nav_item.resolved_path { return true }
+          None => ()
         }
       }
       false
@@ -579,6 +594,15 @@ fn append_entry_heading(
     @cor.Block::Heading(1, entry_path),
     Some(epub_origin(epub_name, entry_path, doc.blocks.val.length())),
   )
+}
+
+///|
+fn missing_manifest_entry_path(spine_item : @epubpkg.EpubSpineItem) -> String {
+  "(missing manifest item #" +
+  spine_item.spine_index.to_string() +
+  ": " +
+  spine_item.idref +
+  ")"
 }
 
 ///|
@@ -929,17 +953,25 @@ fn rewrite_block_for_epub(
 
 ///|
 fn spine_media_type_lower(item : @epubpkg.EpubSpineItem) -> String {
-  match item.manifest_item.media_type {
-    Some(v) => v.trim().to_owned().to_lower()
+  match item.manifest_item {
+    Some(manifest_item) =>
+      match manifest_item.media_type {
+        Some(v) => v.trim().to_owned().to_lower()
+        None => ""
+      }
     None => ""
   }
 }
 
 ///|
 fn show_spine_media_type(item : @epubpkg.EpubSpineItem) -> String {
-  match item.manifest_item.media_type {
-    Some(v) => if v.trim() == "" { "(empty)" } else { v.trim().to_owned() }
-    None => "(missing)"
+  match item.manifest_item {
+    Some(manifest_item) =>
+      match manifest_item.media_type {
+        Some(v) => if v.trim() == "" { "(empty)" } else { v.trim().to_owned() }
+        None => "(missing)"
+      }
+    None => "(missing manifest item)"
   }
 }
 

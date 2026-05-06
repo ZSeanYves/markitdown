@@ -376,20 +376,23 @@ fn read_epub_metadata_document_properties(
   }
   let meta = pkg.metadata
 
+  let props = @cor.metadata_document_properties(
+    meta.title,
+    None,
+    meta.creator,
+    None,
+    None,
+    meta.date,
+    meta.modified,
+    Some("EPUB"),
+    None,
+    None,
+    None,
+    None,
+  )
   Some(
-    @cor.metadata_document_properties(
-      meta.title,
-      None,
-      meta.creator,
-      None,
-      None,
-      meta.date,
-      meta.modified,
-      Some("EPUB"),
-      None,
-      None,
-      None,
-      None,
+    @cor.metadata_document_properties_with_extras(
+      props, meta.language, meta.identifier, meta.publisher,
     ),
   )
 }

@@ -36,6 +36,9 @@ pub struct MetadataDocumentProperties {
   title : String?
   subject : String?
   creator : String?
+  language : String?
+  identifier : String?
+  publisher : String?
   description : String?
   keywords : String?
   created : String?
@@ -66,6 +69,9 @@ pub fn metadata_document_properties(
     title,
     subject,
     creator,
+    language: None,
+    identifier: None,
+    publisher: None,
     description,
     keywords,
     created,
@@ -75,6 +81,21 @@ pub fn metadata_document_properties(
     words,
     slides,
     sheets,
+  }
+}
+
+///|
+pub fn metadata_document_properties_with_extras(
+  document : MetadataDocumentProperties,
+  language : String?,
+  identifier : String?,
+  publisher : String?,
+) -> MetadataDocumentProperties {
+  {
+    ..document,
+    language,
+    identifier,
+    publisher,
   }
 }
 
@@ -659,6 +680,9 @@ fn serialize_document_properties(
   fields.push("\"title\": " + json_string_opt(document.title))
   fields.push("\"subject\": " + json_string_opt(document.subject))
   fields.push("\"creator\": " + json_string_opt(document.creator))
+  push_json_string_field(fields, "language", document.language)
+  push_json_string_field(fields, "identifier", document.identifier)
+  push_json_string_field(fields, "publisher", document.publisher)
   fields.push("\"description\": " + json_string_opt(document.description))
   fields.push("\"keywords\": " + json_string_opt(document.keywords))
   fields.push("\"created\": " + json_string_opt(document.created))
