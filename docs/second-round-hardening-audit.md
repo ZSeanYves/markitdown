@@ -475,7 +475,7 @@ status" when sample/benchmark/support evidence is thin.
 | JSON | H2 | `convert/json/json_parser.mbt` | `parse_json` | strong main + metadata + tests | smoke + batch profile | object table, scalar arrays, uniform object-array tables, fallback code block | no streaming, no JSONL, shallow provenance | fail closed on invalid JSON | root `key_path` only | no | low-medium | provenance and large-file strategy are shallow | medium on large materialization | P1 | parser hardening and streaming/large-file plan |
 | YAML / YML | partial H2 | `convert/yaml/yaml_parser.mbt` | `parse_yaml` | strong main + metadata + tests | smoke + batch profile | mapping table, scalar seq list, sequence-of-mappings table, fallback code block | subset only: no anchors/aliases/tags/block scalars/flow/multi-doc | fail closed on unsupported subset | root `key_path` only | no | low | support contract must say subset more loudly | medium | P1 | explicit YAML 1.2 subset contract and hardening |
 | XML | H1/H2 partial | `convert/xml/xml_parser.mbt` tokenizer | `parse_xml` | strong main + metadata + tests | smoke | safe source-preserving fenced XML, tokenizer events | no semantic XML-family rendering, no namespaces/DTD semantics | fail closed on malformed syntax; literal preserve | whole-doc code-block origin only | no | low | useful substrate, but not really "semantic XML support" | low-medium | P1 | tokenizer/event model promotion and family-specific future split |
-| ZIP | H2 partial | `doc_parse/zip/*` | `parse_zip` / `inspect_zip` | moderate main + metadata + tests | smoke + batch profile | safe entry traversal, nested supported-format dispatch, asset remap, inspect report | no nested archive recursion, no ZIP64/encrypted/data descriptor deep support | warning blocks for unsupported nested entries; fail closed on unsafe paths | decent container + asset `source_path` | yes | low | container semantics are useful, but support breadth depends on nested format maturity | medium on large entry counts | P1 | security hardening and inspect/summary promotion |
+| ZIP | H2++ complete, H3++ evidence-backed on checked-in native corpus | `doc_parse/zip/*` | `parse_zip` / `inspect_zip` | strong main + metadata + tests | smoke + batch profile + metadata-on rows | safe entry traversal, nested supported-format dispatch, asset remap, inspect report, warning/degrade policy, container provenance | no nested archive recursion, no ZIP64/encrypted/data descriptor support, no fair external overlap corpus yet | warning blocks for unsupported/nested entries; fail closed on unsafe paths and normalized collisions | good container + nested asset `source_path` + nested provenance passthrough | yes | low | quality is now well-grounded for the checked-in corpus, but still intentionally conservative on unsupported low-level ZIP features | medium on large entry counts | sealed | keep future work optional: ZIP64/data-descriptor/encrypted support, richer inspect surfacing, broader corpus evidence |
 | EPUB | H2 partial | `doc_parse/epub/*` + ZIP/XML | `parse_epub` / `inspect_epub` | moderate main + metadata + tests | smoke | OPF/container/spine/nav/cover/local images | no DRM, no CSS rendering, no NCX semantics, limited anchor model | warning blocks, skip unsupported spine items | spine/source-path level only | yes | low | current quality is limited by EPUB package model richness | medium | P1 | richer spine/nav/link/asset model |
 
 ## 4. Task 3: Per-format Detailed Support and Boundaries
@@ -1215,6 +1215,10 @@ Stable support today includes:
 * local HTML image handling inside archive
 * remapped nested assets
 * deterministic warning blocks for unsupported or nested archive entries
+* duplicate asset-name isolation through archive namespacing
+* nested DOCX / PPTX asset remap with preserved nested provenance
+* metadata sidecars that retain archive entry `key_path` plus nested
+  `object_ref` / `relationship_id` / page-or-slide provenance when present
 
 #### B. Current Boundaries and Non-goals
 
@@ -1242,22 +1246,50 @@ Main substrate gaps:
 
 #### D. H2 Quality Parity Tasks
 
-Needed next samples:
+Checked-in ZIP H2++ evidence now includes:
 
-* many-entry large ZIPs
-* path-collision/path-traversal negatives
-* mixed supported/unsupported entries
-* nested-archive warning sets
+* deterministic normalized entry ordering
+* mixed supported-entry dispatch across Markdown / TXT / CSV / JSON / HTML
+* explicit warning blocks for unsupported binary entries
+* explicit warning blocks for nested archive boundaries
+* hidden metadata skip policy with visible non-hidden dotfile behavior
+* archive asset namespace/remap for nested HTML and OOXML image outputs
+* duplicate asset-name isolation through archive entry ids
+* metadata/origin coverage for archive entry `key_path`, nested block
+  provenance, and nested asset `source_path`
+* checked-in quality records:
+  * `zip-mixed-supported`: `win`
+  * `zip-assets-remap`: `win`
+  * `zip-unsafe-path-boundary`: `not_comparable`
+  * `zip-unsupported-entry-boundary`: `win`
+
+These records are checked-in engineering evidence, not blanket claims about all
+ZIP archives or recursive container traversal.
 
 #### E. H3 Performance Tasks
 
-Benchmark design:
+Checked-in ZIP H3++ benchmark evidence now covers:
 
-* small/medium/large entry-count ZIPs
-* assets-heavy ZIPs
-* metadata on/off
-* batch repeated archives
-* memory peak for archive listing and staged extraction
+* `small`
+* `medium`
+* `large / many-entry`
+* `mixed supported`
+* `asset-heavy`
+* `unsupported/degrade`
+* metadata-on rows
+* batch profile with ZIP
+
+Current checked-in native corpus observations are:
+
+* prebuilt-native smoke rows exist for the repository ZIP corpus, including
+  mixed-supported and assets-heavy cases
+* native batch profile shows clear startup/throughput benefit over repeated
+  per-file ZIP conversion on the checked-in ZIP corpus
+* no new RSS/memory conclusion should be claimed here because the default
+  memory probe remains unavailable or unstable
+* ZIP does not currently have a fair external overlap-performance corpus, so
+  H3 conclusions stay scoped to the checked-in native ZIP corpus rather than a
+  Microsoft MarkItDown speed comparison
 
 ### EPUB
 
@@ -1890,7 +1922,9 @@ Risk:
 
 Done when:
 
+* completed in this round as `ZIP H2++ complete`
 * supported/unsupported ZIP feature boundary is explicit and tested
+* H3 claims stay limited to the checked-in native ZIP corpus
 
 #### P1.10 EPUB spine/nav/assets/link model hardening
 

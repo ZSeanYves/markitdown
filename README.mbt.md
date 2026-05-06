@@ -54,9 +54,10 @@ The repository is past the initial H2 sweep across the main input set:
 * `H2 partial`: PDF
 * `H2++ complete, H3++ evidence-backed on checked-in native overlap corpus`: XLSX,
   HTML / HTM
+* `H2++ complete, H3++ evidence-backed on checked-in native corpus`: ZIP
 * `subset-H2`: YAML / YML
 * `source-preserving H1/H2 partial`: XML
-* `container/ebook H2 partial`: ZIP, EPUB
+* `container/ebook H2 partial`: EPUB
 
 These labels are support-contract shorthand, not final-completion claims. H3
 performance conclusions also require benchmark evidence and should not be
@@ -77,7 +78,7 @@ For second-round per-format excellence sprints, use
 | XML | source-preserving H1/H2 partial | fenced `xml` output, safe tokenizer base | not a semantic XML-family converter |
 | HTML / HTM | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | lightweight safe semantic parsing, tables/links/images, `RichTable` metadata, local-asset export, provenance hints, unsafe-link fail-closed policy | not browser-grade, no CSS layout or JS, no remote fetch, no rowspan/colspan visual reconstruction |
 | XLSX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | workbook/sheet/cell lower layer, datetime handling, metadata, cached-first formula policy with lightweight missing-cache evaluation v1, merged/state/type policy evidence | no charts/comments/pivots, no merged-cell visual reconstruction, no full Excel formula compatibility |
-| ZIP | container H2 partial | safe archive traversal, inspect surface, nested asset remap | no recursive nested archive conversion, no ZIP64/data-descriptor deep work yet |
+| ZIP | H2++ complete, H3++ evidence-backed on checked-in native corpus | safe archive traversal, inspect surface, nested dispatch, warning/degrade policy, nested asset remap, container provenance | no recursive nested archive conversion, no ZIP64/data-descriptor/encrypted support, no blanket overlap-performance claim |
 | EPUB | ebook H2 partial | container/OPF/spine/nav/cover/assets pipeline | no DRM/CSS rendering, richer anchor/NCX semantics remain future work |
 | DOCX | H2 main-path quality | lists, tables, notes/comments, headers/footers, text boxes, metadata | no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
 | PPTX | H2 main-path quality | grouped shapes, explicit tables, notes, hidden slides, images | no charts/SmartArt/OLE/action links/animations, no full merged-table visual reconstruction |

@@ -532,7 +532,8 @@ Known limits:
 
 Status label:
 
-* `container H2 partial`
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native corpus`
 * package dispatch with explicit ZIP feature and safety boundaries
 
 Supported:
@@ -545,6 +546,9 @@ Supported:
   * self-contained DOCX / PPTX / XLSX / PDF
 * archive asset namespace/remap
 * same-archive HTML local-image support through a safe extracted tree
+* nested DOCX / PPTX asset remap with archive namespacing
+* metadata sidecars that preserve archive entry `key_path`, nested provenance,
+  and nested asset `source_path`
 
 Conservative behavior:
 
@@ -564,6 +568,14 @@ Known limits:
 * no absolute / root-relative / parent / scheme-like / backslash HTML local-image export
 * normalized collisions and unsupported low-level ZIP features fail closed
 * no ZIP64 / data-descriptor / encrypted-ZIP support in the current H2 path
+
+Current second-round note:
+
+* checked-in ZIP quality conclusions come from the repository quality records,
+  not from a blanket archive claim
+* checked-in ZIP H3 conclusions come from the native checked-in ZIP smoke and
+  batch corpus; they are not broad claims about every archive and do not
+  currently depend on an external overlap-performance story
 
 ### EPUB
 

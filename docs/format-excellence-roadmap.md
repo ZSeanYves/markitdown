@@ -135,3 +135,24 @@ Current HTML sprint state:
 * those conclusions remain intentionally scoped to the checked-in HTML quality
   records and native overlap/batch corpus; they are not browser-grade blanket
   web claims
+
+The third second-round excellence sprint is `ZIP`.
+
+Current ZIP sprint state:
+
+* the lower layer already enforced strict fail-closed boundaries for unsafe
+  paths, normalized collisions, encrypted/data-descriptor/ZIP64 structures,
+  and unsupported nested archive recursion
+* checked-in second-round regression and metadata samples now cover mixed
+  supported entries, unsupported-entry warnings, nested-archive warnings,
+  hidden-entry policy, and duplicate asset-name remap
+* checked-in ZIP quality records now exist for mixed supported entries,
+  asset-remap behavior, unsupported-entry warnings, and unsafe-path boundary
+  policy
+* checked-in ZIP benchmark rows now include native smoke, metadata-on, and
+  batch-profile coverage for the current archive corpus
+* ZIP is now treated as `H2++ complete` plus `H3++ evidence-backed on the
+  checked-in native corpus`
+* those conclusions remain scoped to the checked-in ZIP corpus and quality
+  records; they are not blanket claims about all archive formats or recursive
+  archive traversal

@@ -32,6 +32,7 @@ smoke	zip	zip_medium	samples/benchmark/zip/zip_medium.zip	false
 smoke	zip	zip_large_many_entries	samples/benchmark/zip/zip_large_many_entries.zip	false
 smoke	zip	zip_mixed_supported_large	samples/benchmark/zip/zip_mixed_supported_large.zip	false
 smoke	zip	zip_assets_many_images	samples/benchmark/zip/zip_assets_many_images.zip	false
+smoke	zip	zip_unsupported_degrade	samples/benchmark/zip/zip_unsupported_degrade.zip	false
 smoke	epub	epub_small	samples/benchmark/epub/epub_small.epub	false
 smoke	epub	epub_medium	samples/benchmark/epub/epub_medium.epub	false
 smoke	epub	epub_large_many_chapters	samples/benchmark/epub/epub_large_many_chapters.epub	false
@@ -103,6 +104,10 @@ metadata	xlsx	xlsx_formula_eval_missing_cache_metadata	samples/main_process/xlsx
 metadata	zip	zip_metadata_basic	samples/metadata/zip/zip_metadata_basic.zip	true
 metadata	zip	zip_metadata_entry_origins	samples/metadata/zip/zip_metadata_entry_origins.zip	true
 metadata	zip	zip_metadata_assets	samples/metadata/zip/zip_metadata_assets.zip	true
+metadata	zip	zip_metadata_mixed_supported	samples/metadata/zip/zip_metadata_mixed_supported.zip	true
+metadata	zip	zip_metadata_assets_remap	samples/metadata/zip/zip_metadata_assets_remap.zip	true
+metadata	zip	zip_metadata_unsupported_entries	samples/metadata/zip/zip_metadata_unsupported_entries.zip	true
+metadata	zip	zip_metadata_nested_archive_boundary	samples/metadata/zip/zip_metadata_nested_archive_boundary.zip	true
 metadata	html	html_metadata_table_links	samples/metadata/html/html_metadata_table_links.html	true
 metadata	html	html_metadata_span_boundary	samples/metadata/html/html_metadata_span_boundary.html	true
 metadata	html	html_metadata_unsafe_link_boundary	samples/metadata/html/html_metadata_unsafe_link_boundary.html	true

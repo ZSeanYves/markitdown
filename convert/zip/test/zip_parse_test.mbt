@@ -381,7 +381,7 @@ test "zip inspect reports supported, nested, and unsafe entry policies" {
 ///|
 test "zip inspect reports unsafe path failure clearly" {
   let inspected = try? @zipconv.inspect_zip(
-    resolve_sample_path("samples/test/zip/zip_unsafe_traversal.zip"),
+    resolve_sample_path("samples/test/zip/zip_path_traversal_boundary.zip"),
   )
   match inspected {
     Ok(report) => {
@@ -405,7 +405,7 @@ test "zip inspect reports unsafe path failure clearly" {
 ///|
 test "zip inspect reports normalized path collision clearly" {
   let report = @zipconv.inspect_zip(
-    resolve_sample_path("samples/test/zip/zip_normalized_collision.zip"),
+    resolve_sample_path("samples/test/zip/zip_normalized_collision_boundary.zip"),
   ) catch {
     e => fail("inspect_zip failed: " + e.to_string())
   }
@@ -554,14 +554,14 @@ async test "zip parse fails closed on unsafe archive paths" {
   defer cleanup_temp_dir(out_dir)
 
   let traversal = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_unsafe_traversal.zip"),
+    resolve_sample_path("samples/test/zip/zip_path_traversal_boundary.zip"),
     out_dir,
     6,
   )
   assert_true(traversal is Err(_))
 
   let absolute = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_unsafe_absolute.zip"),
+    resolve_sample_path("samples/test/zip/zip_absolute_path_boundary.zip"),
     out_dir,
     6,
   )
@@ -580,6 +580,13 @@ async test "zip parse fails closed on unsafe archive paths" {
     6,
   )
   assert_true(duplicate_entries is Err(_))
+
+  let normalized_collision = try? @zipconv.parse_zip(
+    resolve_sample_path("samples/test/zip/zip_normalized_collision_boundary.zip"),
+    out_dir,
+    6,
+  )
+  assert_true(normalized_collision is Err(_))
 }
 
 ///|

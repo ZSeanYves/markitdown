@@ -203,6 +203,23 @@ These rows are intended to support the HTML H2++ / H3++ sprint:
 They remain checked-in engineering corpus rows, not blanket claims about every
 web page or browser-like HTML workload.
 
+Current ZIP second-round checked-in benchmark additions:
+
+* `zip_unsupported_degrade.zip`
+* ZIP metadata rows for `zip_metadata_mixed_supported`,
+  `zip_metadata_assets_remap`, `zip_metadata_unsupported_entries`, and
+  `zip_metadata_nested_archive_boundary`
+
+These rows are intended to support the ZIP H2++ / H3++ sprint:
+
+* mixed supported-entry dispatch and aggregation
+* archive asset-remap behavior
+* unsupported/nested-archive degrade visibility
+* metadata-on overhead for ZIP container sidecars
+
+They are checked-in native corpus rows, not blanket claims about all ZIP
+archives and not a promise of fair external overlap comparison.
+
 For public/private/manual corpora:
 
 * do not add the real files to the repository

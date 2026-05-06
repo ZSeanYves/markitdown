@@ -1,0 +1,132 @@
+{
+  "version": "1",
+  "source_name": "zip_metadata_nested_archive_boundary.zip",
+  "format": "zip",
+  "markdown_file": "zip_metadata_nested_archive_boundary.md",
+  "document": null,
+  "summary": {
+    "block_count": 7,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "docs/readme.md",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "docs/readme.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "# Outer",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "docs/readme.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "Archive note.",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "line_start": 3,
+        "line_end": 3,
+        "key_path": "docs/readme.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "heading",
+      "text": "nested/archive.zip",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "key_path": "nested/archive.zip"
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "blockquote",
+      "text": "Skipped: nested archive is not supported: zip",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null,
+        "key_path": "nested/archive.zip"
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "heading",
+      "text": "nested/tool.jar",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null,
+        "key_path": "nested/tool.jar"
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "blockquote",
+      "text": "Skipped: nested archive is not supported: jar",
+      "origin": {
+        "format": "zip",
+        "source_name": "zip_metadata_nested_archive_boundary.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": null,
+        "key_path": "nested/tool.jar"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

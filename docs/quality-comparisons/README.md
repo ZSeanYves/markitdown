@@ -101,6 +101,10 @@ quality review concrete, but it is not the final parity conclusion.
 | HTML | [html_figure_figcaption_image.html](./html-figure-image-assets.md) | local image asset behavior, title, figcaption | `win` | `markitdown-mb` materializes local assets and keeps figure context explicit |
 | HTML | [html_semantic_containers.html](./html-semantic-containers.md) | semantic wrapper passthrough | `close` | both preserve the useful body structure |
 | HTML | [html_link_unsafe_javascript.html](./html-unsafe-link-boundary.md) | unsafe-link fail-closed boundary | `close` | both degrade dangerous hrefs to plain text on this overlap sample |
+| ZIP | [zip_mixed_supported_entries.zip](./zip-mixed-supported.md) | nested dispatch, ordering, mixed supported entries | `win` | `markitdown-mb` keeps normalized entry ordering and structured JSON lowering |
+| ZIP | [zip_duplicate_asset_names.zip](./zip-assets-remap.md) | nested HTML local-image remap and duplicate asset isolation | `win` | `markitdown-mb` materializes archive-namespaced assets instead of leaving raw entry-local refs |
+| ZIP | [zip_path_traversal_boundary.zip](./zip-unsafe-path-boundary.md) | unsafe-path fail-closed policy | `not_comparable` | safety-boundary review only; do not count as a product-quality win |
+| ZIP | [zip_unsupported_entries.zip](./zip-unsupported-entry-boundary.md) | unsupported-entry warning explainability | `win` | `markitdown-mb` explains degrade behavior instead of treating binary bytes as text |
 | CSV | [csv_ragged_rows.csv](./csv-ragged-rows.md) | ragged-row table retention | `win` | `markitdown-mb` preserves the extra column instead of truncating it |
 | Markdown | [markdown_basic_heading_paragraph.md](./markdown-passthrough.md) | passthrough | `close` | identical structure on this sample |
 | TXT | [txt_plain.txt](./txt-literal-safe.md) | literal-safe plain text | `close` | identical structure on this sample |

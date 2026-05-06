@@ -56,6 +56,14 @@ state:
   metadata-on rows on the native-preferred path
 * HTML is now treated as `H2++ complete`, with `H3++` evidence backed on the
   checked-in native overlap corpus
+* ZIP now has checked-in second-round regression/metadata/quality evidence for
+  mixed supported entries, unsupported-entry warnings, nested-archive
+  boundaries, hidden-entry policy, and archive asset remap
+* ZIP native benchmark coverage now includes small, medium, large/many-entry,
+  mixed-supported, assets-heavy, unsupported/degrade, metadata-on, and batch
+  profile rows
+* ZIP is now treated as `H2++ complete`, with `H3++` evidence backed on the
+  checked-in native ZIP corpus rather than an external overlap benchmark story
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story
