@@ -62,8 +62,9 @@ Repository status labels are intentionally conservative:
   expectations
 * `source-preserving H1/H2 partial`: the primary contract is safe source
   preservation, not semantic reconstruction
-* `container/ebook H2 partial`: common package/container flows work, but
-  coverage still depends on package-model and nested-format limits
+* `H2++ complete, H3++ evidence-backed on checked-in native EPUB corpus`:
+  checked-in EPUB package/spine/nav/assets evidence is in place, with explicit
+  non-goals still documented
 * `H3 evidence requires benchmark`: performance language must be backed by
   runner- and corpus-specific benchmark evidence, and must separate native CLI,
   `moon run`, OCR, and cloud/plugin paths
@@ -334,7 +335,9 @@ Current second-round note:
 
 * HTML provenance improvements naturally surface through ZIP/EPUB nested HTML
   metadata snapshots because those formats consume HTML as a lower layer
-* this does not by itself mean ZIP or EPUB are `H2++ complete`
+* that downstream metadata reflection was not, by itself, enough to seal ZIP or
+  EPUB; both formats only moved to `H2++ complete` after their own checked-in
+  regression, metadata, quality, and benchmark evidence chains were completed
 
 ### CSV / TSV
 
@@ -581,8 +584,9 @@ Current second-round note:
 
 Status label:
 
-* `ebook H2 partial`
-* OPF/spine/nav/local-asset main path, not full ebook rendering
+* `H2++ complete`
+* `H3++ evidence-backed on checked-in native EPUB corpus`
+* safe OPF/spine/nav/NCX/local-asset main path, not full ebook rendering
 
 Supported:
 
@@ -591,31 +595,57 @@ Supported:
 * spine-order Markdown aggregation
 * XHTML / HTML spine item conversion
 * EPUB3 nav detection with conservative TOC emission
+* EPUB2 NCX minimal fallback support on the checked-in subset:
+  * OPF `spine toc="<id>"`
+  * manifest `application/x-dtbncx+xml`
+  * `navMap` / `navPoint` / `navLabel/text` / `content src`
 * cover-image detection with conservative top-of-document cover emission
+* guide-cover image fallback
 * same-archive local images through a safe extracted tree
 * archive-style asset namespace/remap
-* OPF title / creator / date / modified document metadata
+* OPF title / creator / language / identifier / publisher / date / modified
+  document metadata
+* missing spine-manifest-item warning blocks with continue-on-next-chapter
+* unsupported spine-item warning blocks
 * `linear="no"` spine items are skipped in the current H1 path
 
 Conservative behavior:
 
 * EPUB reading order comes from OPF spine, not ZIP entry order
+* EPUB3 nav wins over NCX fallback when both exist
 * unsupported spine items degrade per item
+* missing manifest spine references degrade per item instead of aborting the
+  whole book
+* local assets are remapped into archive-scoped `assets/archive/...`
+* remote/data images are not fetched or materialized
 
 Known limits:
 
 * no DRM / encryption support
 * no CSS rendering
-* no NCX semantic reconstruction
-* no fallback chains
-* no advanced media / font / SVG spine handling
+* no JS
 * no remote fetch
+* NCX support is intentionally minimal:
+  * no `pageList`
+  * no `navList`
+  * no landmarks / SMIL
+  * no promise of full tree fidelity on arbitrary NCX files
+* no advanced media / font / SVG spine handling
 * no nested archive recursion
 
 Important boundary:
 
 * EPUB uses XML internally for container/OPF files, but EPUB support is its own
   package/spine pipeline and is not the same thing as standalone XML conversion
+* EPUB is not a ZIP dump: current quality assumes OPF package, spine order,
+  TOC policy, cover policy, and archive-local assets are respected
+
+Current evidence scope:
+
+* current EPUB H2++ quality conclusions come from checked-in EPUB quality
+  comparison records only
+* current EPUB H3++ performance conclusions come from the checked-in native
+  EPUB corpus and meaningful local overlap rows only
 
 ## Shared Metadata / Asset Notes
 

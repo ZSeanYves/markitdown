@@ -193,7 +193,7 @@ test "epub package detects nav cover and richer metadata" {
   )
   match cover_pkg.cover_item {
     Some(item) => {
-      assert_eq(item.resolved_path, "OPS/images/cover.png")
+      assert_eq(item.resolved_path, "OPS/images/cover.jpg")
       if !item.properties.contains("cover-image") {
         fail("expected cover item properties to include cover-image")
       }
@@ -210,4 +210,134 @@ test "epub package detects nav cover and richer metadata" {
   }
   assert_eq(inspect.spine_items.length(), 1)
   assert_eq(inspect.spine_items[0].action, "convert")
+}
+
+///|
+test "epub package detects guide cover image fallback" {
+  let pkg = open_sample_package(
+    "samples/test/epub/epub_guide_cover_image.epub",
+  )
+  match pkg.cover_item {
+    Some(item) => {
+      assert_eq(item.resolved_path, "OPS/images/cover.jpg")
+      if pkg.guide_cover_path != Some("OPS/images/cover.jpg") {
+        fail("expected guide cover path to preserve image href")
+      }
+    }
+    None => fail("expected guide cover image fallback to produce cover item")
+  }
+
+  let inspect = @epub.inspect_epub_package(pkg)
+  if inspect.cover_path != Some("OPS/images/cover.jpg") {
+    fail("expected inspect cover path from guide cover image")
+  }
+  if inspect.guide_cover_path != Some("OPS/images/cover.jpg") {
+    fail("expected inspect guide cover path")
+  }
+}
+
+///|
+test "epub package cover priority keeps manifest cover image over guide" {
+  let pkg = open_sample_package(
+    "samples/test/epub/epub_guide_cover_priority.epub",
+  )
+  match pkg.cover_item {
+    Some(item) =>
+      if item.resolved_path != "OPS/images/main-cover.png" {
+        fail("expected manifest cover-image property to outrank guide cover")
+      }
+    None => fail("expected primary cover item")
+  }
+  if pkg.guide_cover_path != Some("OPS/images/guide-cover.png") {
+    fail("expected guide cover path to remain inspectable")
+  }
+}
+
+///|
+test "epub package keeps guide cover page without forcing cover image" {
+  let pkg = open_sample_package(
+    "samples/test/epub/epub_guide_cover_page.epub",
+  )
+  match pkg.cover_item {
+    Some(_) => fail("guide cover page should not be promoted to cover image")
+    None => ()
+  }
+  if pkg.guide_cover_path != Some("OPS/cover.xhtml") {
+    fail("expected guide cover page path to remain available")
+  }
+
+  let inspect = @epub.inspect_epub_package(pkg)
+  if inspect.cover_path != None {
+    fail("guide cover page should not populate inspect cover image path")
+  }
+  if inspect.guide_cover_path != Some("OPS/cover.xhtml") {
+    fail("expected inspect guide cover page path")
+  }
+}
+
+///|
+test "epub package rejects unsafe guide cover href" {
+  assert_open_epub_fails(
+    "samples/test/epub/epub_guide_cover_unsafe.epub", "invalid EPUB path: ../cover.png",
+  )
+}
+
+///|
+test "epub package discovers ncx nav points from spine toc" {
+  let pkg = open_sample_package("samples/test/epub/epub_ncx_basic.epub")
+  match pkg.nav_item {
+    Some(item) => {
+      assert_eq(item.resolved_path, "OPS/toc.ncx")
+      match item.media_type {
+        Some(v) =>
+          if v != "application/x-dtbncx+xml" {
+            fail("expected NCX media type")
+          }
+        None => fail("expected NCX media type")
+      }
+    }
+    None => fail("expected ncx nav item")
+  }
+  assert_eq(pkg.nav_points.length(), 1)
+  assert_eq(pkg.nav_points[0].label, "Chapter One")
+  assert_eq(pkg.nav_points[0].href, "chapter.xhtml#s1")
+  assert_eq(pkg.nav_points[0].depth, 0)
+  if pkg.nav_points[0].source_path != Some("OPS/toc.ncx") {
+    fail("expected NCX source path on nav point")
+  }
+}
+
+///|
+test "epub package keeps current ncx nested boundary stable" {
+  let pkg = open_sample_package("samples/test/epub/epub_ncx_nested.epub")
+  assert_eq(pkg.nav_points.length(), 1)
+  assert_eq(pkg.nav_points[0].label, "Part One")
+  assert_eq(pkg.nav_points[0].depth, 0)
+}
+
+///|
+test "epub package prefers epub3 nav over ncx" {
+  let pkg = open_sample_package("samples/test/epub/epub_ncx_nav_priority.epub")
+  match pkg.nav_item {
+    Some(item) => {
+      assert_eq(item.resolved_path, "OPS/nav.xhtml")
+      if !item.properties.contains("nav") {
+        fail("expected EPUB3 nav to outrank NCX fallback")
+      }
+    }
+    None => fail("expected nav item")
+  }
+  assert_eq(pkg.nav_points.length(), 1)
+  assert_eq(pkg.nav_points[0].label, "EPUB3 Section")
+  if pkg.nav_points[0].source_path != None {
+    fail("epub3 nav points should keep current source_path behavior")
+  }
+}
+
+///|
+test "epub package skips unsafe ncx href and keeps safe points" {
+  let pkg = open_sample_package("samples/test/epub/epub_ncx_unsafe_href.epub")
+  assert_eq(pkg.nav_points.length(), 1)
+  assert_eq(pkg.nav_points[0].label, "Good")
+  assert_eq(pkg.nav_points[0].href, "chapter.xhtml")
 }

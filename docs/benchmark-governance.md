@@ -84,7 +84,7 @@ Coverage summary by format:
 | YAML | yes | yes | yes | no current batch-profile default | no | yes | weak | no | no overlap corpus yet |
 | XML | yes | yes | yes | no current batch-profile default | no | yes | weak | no | no overlap corpus yet |
 | ZIP | yes | yes | yes | partial via batch-profile manifest reuse | yes | yes | yes | no | no meaningful overlap corpus; native checked-in corpus is the current H3 reference |
-| EPUB | yes | yes | yes | no current batch-profile default | yes | metadata gap in Tier 1 | weak | no | no metadata-on benchmark row; no overlap corpus |
+| EPUB | yes | yes | yes | partial via batch-profile defaults | yes | yes | yes | yes | compare rows are meaningful on selected local samples; conclusions remain corpus-scoped |
 
 Interpretation notes:
 

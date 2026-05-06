@@ -21,7 +21,8 @@ state:
 
 * dispatcher coverage spans all primary format families, but maturity is split
   across `H2 main-path quality`, `H2 partial`, `subset-H2`,
-  `source-preserving H1/H2 partial`, and `container/ebook H2 partial`
+  `source-preserving H1/H2 partial`, and second-round sealed `H2++ / H3++`
+  formats
 * documented limitations remain explicit rather than hidden behind milestone
   labels
 * unified IR / Markdown emitter / metadata sidecar are stable repository
@@ -64,6 +65,14 @@ state:
   profile rows
 * ZIP is now treated as `H2++ complete`, with `H3++` evidence backed on the
   checked-in native ZIP corpus rather than an external overlap benchmark story
+* EPUB now has checked-in second-round regression/metadata/quality evidence
+  for OPF package metadata, spine ordering, EPUB3 nav, NCX fallback, cover
+  assets, duplicate asset-name remap, and warning/degrade behavior
+* EPUB native benchmark coverage now includes small, medium, chapter-heavy,
+  asset-heavy, metadata-on, unsupported/degrade, and NCX rows, with local
+  overlap compare rows against Microsoft MarkItDown on meaningful samples
+* EPUB is now treated as `H2++ complete`, with `H3++` evidence backed on the
+  checked-in native EPUB corpus
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story

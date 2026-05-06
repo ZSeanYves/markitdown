@@ -2,6 +2,6 @@
 
 # OPS/chapter.xhtml
 
-# Cover Chapter
+# Guide Cover Chapter
 
-Cover should appear before this chapter.
+Guide cover should appear before this chapter.

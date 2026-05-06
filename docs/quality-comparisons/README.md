@@ -105,6 +105,11 @@ quality review concrete, but it is not the final parity conclusion.
 | ZIP | [zip_duplicate_asset_names.zip](./zip-assets-remap.md) | nested HTML local-image remap and duplicate asset isolation | `win` | `markitdown-mb` materializes archive-namespaced assets instead of leaving raw entry-local refs |
 | ZIP | [zip_path_traversal_boundary.zip](./zip-unsafe-path-boundary.md) | unsafe-path fail-closed policy | `not_comparable` | safety-boundary review only; do not count as a product-quality win |
 | ZIP | [zip_unsupported_entries.zip](./zip-unsupported-entry-boundary.md) | unsupported-entry warning explainability | `win` | `markitdown-mb` explains degrade behavior instead of treating binary bytes as text |
+| EPUB | [epub_spine_order.epub](./epub-spine-order.md) | spine-order aggregation and chapter boundaries | `win` | both preserve chapter order, but `markitdown-mb` keeps explicit archive-path boundaries |
+| EPUB | [epub_nav_toc_basic.epub](./epub-nav-toc.md) | EPUB3 nav TOC extraction | `win` | `markitdown-mb` emits TOC structure while Microsoft MarkItDown keeps only the body |
+| EPUB | [epub_cover_image.epub](./epub-assets-cover.md) | cover image asset export | `win` | `markitdown-mb` materializes the local cover asset and keeps body order explicit |
+| EPUB | [epub_spine_unsupported_item_boundary.epub](./epub-unsupported-media-boundary.md) | unsupported spine media warning policy | `win` | `markitdown-mb` emits a clear warning block instead of leaking raw bytes as body text |
+| EPUB | [epub_ncx_toc_basic.epub](./epub-ncx-toc.md) | NCX fallback TOC on the minimal-support subset | `win` | `markitdown-mb` emits the NCX TOC while Microsoft MarkItDown keeps only the body |
 | CSV | [csv_ragged_rows.csv](./csv-ragged-rows.md) | ragged-row table retention | `win` | `markitdown-mb` preserves the extra column instead of truncating it |
 | Markdown | [markdown_basic_heading_paragraph.md](./markdown-passthrough.md) | passthrough | `close` | identical structure on this sample |
 | TXT | [txt_plain.txt](./txt-literal-safe.md) | literal-safe plain text | `close` | identical structure on this sample |

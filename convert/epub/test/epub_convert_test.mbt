@@ -290,6 +290,38 @@ test "epub convert emits nav toc when nav is outside spine" {
 }
 
 ///|
+test "epub convert emits ncx toc when epub3 nav is absent" {
+  let out_dir = test_tmp_root() + "/epub-convert-ncx-basic"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path("samples/test/epub/epub_ncx_basic.epub")
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_contains(markdown, "# Table of Contents")
+  assert_contains(markdown, "- [Chapter One](chapter.xhtml#s1)")
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+}
+
+///|
+test "epub convert prefers epub3 nav over ncx fallback" {
+  let out_dir = test_tmp_root() + "/epub-convert-ncx-priority"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/test/epub/epub_ncx_nav_priority.epub",
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_contains(markdown, "# Table of Contents")
+  assert_contains(markdown, "- [EPUB3 Section](chapter.xhtml#s1)")
+  if markdown.contains("NCX Chapter") {
+    fail("EPUB3 nav should outrank NCX fallback")
+  }
+}
+
+///|
 test "epub convert avoids duplicate nav emission when nav is in spine" {
   let out_dir = test_tmp_root() + "/epub-convert-nav-in-spine"
   recreate_clean_dir(out_dir)
@@ -325,10 +357,48 @@ test "epub convert emits cover image before chapter content" {
   let doc = @epub.parse_epub(input, out_dir, 6)
   assert_eq(@cor.emit_markdown(doc), expected)
   if !doc.asset_origins.val.contains(
-      "assets/archive/OPS_images_cover.png/image01.png",
+      "assets/archive/OPS_images_cover.jpg/image01.jpg",
     ) {
     fail("expected cover asset origin")
   }
+}
+
+///|
+test "epub convert uses guide cover image fallback" {
+  let out_dir = test_tmp_root() + "/epub-convert-guide-cover-image"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/test/epub/epub_guide_cover_image.epub",
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_contains(markdown, "![cover.jpg](assets/archive/OPS_images_cover.jpg/image01.jpg)")
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+  if !doc.asset_origins.val.contains(
+      "assets/archive/OPS_images_cover.jpg/image01.jpg",
+    ) {
+    fail("expected guide cover fallback asset origin")
+  }
+}
+
+///|
+test "epub convert does not emit guide cover page as cover image" {
+  let out_dir = test_tmp_root() + "/epub-convert-guide-cover-page"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let input = resolve_sample_path(
+    "samples/test/epub/epub_guide_cover_page.epub",
+  )
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  if markdown.contains("![") {
+    fail("guide cover page should not synthesize image cover output")
+  }
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+  assert_contains(markdown, "Guide Cover Chapter")
 }
 
 ///|
@@ -382,12 +452,12 @@ test "epub convert local-image and cover samples stay stable across repeated con
   let cover_second = @epub.parse_epub(cover_input, second_out, 6)
   assert_eq(@cor.emit_markdown(cover_first), @cor.emit_markdown(cover_second))
   if !@fs.path_exists(
-      first_out + "/assets/archive/OPS_images_cover.png/image01.png",
+      first_out + "/assets/archive/OPS_images_cover.jpg/image01.jpg",
     ) {
     fail("expected first repeated epub cover run to emit remapped asset")
   }
   if !@fs.path_exists(
-      second_out + "/assets/archive/OPS_images_cover.png/image01.png",
+      second_out + "/assets/archive/OPS_images_cover.jpg/image01.jpg",
     ) {
     fail("expected second repeated epub cover run to emit remapped asset")
   }

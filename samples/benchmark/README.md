@@ -220,6 +220,30 @@ These rows are intended to support the ZIP H2++ / H3++ sprint:
 They are checked-in native corpus rows, not blanket claims about all ZIP
 archives and not a promise of fair external overlap comparison.
 
+Current EPUB second-round checked-in benchmark additions:
+
+* `epub_assets_duplicate.epub`
+* `epub_ncx_toc.epub`
+* `epub_unsupported_degrade.epub`
+* EPUB metadata rows for:
+  * `epub_metadata_package_rich`
+  * `epub_metadata_spine_order`
+  * `epub_metadata_nav_toc`
+  * `epub_metadata_assets_cover`
+  * `epub_metadata_warning_item`
+  * `epub_metadata_duplicate_asset_names`
+
+These rows are intended to support the EPUB H2++ / H3++ sprint:
+
+* OPF package/spine ordering
+* EPUB3 nav and NCX fallback coverage
+* cover/local-asset remap and duplicate asset-name isolation
+* warning/degrade behavior for missing/unsupported spine items
+* metadata-on overhead for EPUB package/spine/assets sidecars
+
+They are checked-in engineering corpus rows, not blanket claims about every
+EPUB reader workload or all ebook conversion paths.
+
 For public/private/manual corpora:
 
 * do not add the real files to the repository

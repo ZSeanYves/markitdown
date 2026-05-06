@@ -156,3 +156,34 @@ Current ZIP sprint state:
 * those conclusions remain scoped to the checked-in ZIP corpus and quality
   records; they are not blanket claims about all archive formats or recursive
   archive traversal
+
+The fourth second-round excellence sprint is `EPUB`.
+
+Current EPUB sprint state:
+
+* package-open behavior now includes:
+  * missing-spine-manifest-item fail-soft warning behavior
+  * guide-cover image fallback
+  * EPUB3 nav primary TOC extraction
+  * EPUB2 NCX minimal fallback support on the checked-in subset
+* checked-in second-round regression and metadata samples now cover:
+  * basic package/open flow
+  * richer OPF metadata
+  * OPF spine order
+  * missing-manifest spine warnings
+  * unsupported-media spine warnings
+  * EPUB3 nav TOC
+  * NCX fallback TOC
+  * HTML-structure inheritance inside spine XHTML
+  * cover/local-asset remap and duplicate asset names
+* checked-in EPUB quality records now exist for spine order, nav TOC,
+  cover/assets, unsupported-media warning policy, and NCX fallback scope
+* checked-in EPUB benchmark rows now include native smoke, metadata-on,
+  NCX/unsupported/asset-heavy rows, batch-profile coverage, and overlap
+  compare rows against Microsoft MarkItDown where the local path is meaningfully
+  comparable
+* EPUB is now treated as `H2++ complete` plus `H3++ evidence-backed on the
+  checked-in native EPUB corpus`
+* performance conclusions remain scoped to the checked-in native EPUB corpus
+  and meaningful local overlap samples; they are not blanket claims about all
+  ebook workloads or reading-system behavior

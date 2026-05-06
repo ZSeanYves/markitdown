@@ -123,7 +123,8 @@ without changing converter/parser/emitter semantics:
   asset numbering and sidecar paths are stable per sample
 * top-level docs now use tighter support/status vocabulary:
   `H2 main-path quality`, `H2 partial`, `subset-H2`,
-  `source-preserving H1/H2 partial`, and `container/ebook H2 partial`
+  `source-preserving H1/H2 partial`, and second-round sealed `H2++ / H3++`
+  formats
 * README/progress speed wording was tightened so native CLI, `moon run`,
   OCR/cloud, and overlap-only comparison cases are not blended into one claim
 
@@ -476,7 +477,7 @@ status" when sample/benchmark/support evidence is thin.
 | YAML / YML | partial H2 | `convert/yaml/yaml_parser.mbt` | `parse_yaml` | strong main + metadata + tests | smoke + batch profile | mapping table, scalar seq list, sequence-of-mappings table, fallback code block | subset only: no anchors/aliases/tags/block scalars/flow/multi-doc | fail closed on unsupported subset | root `key_path` only | no | low | support contract must say subset more loudly | medium | P1 | explicit YAML 1.2 subset contract and hardening |
 | XML | H1/H2 partial | `convert/xml/xml_parser.mbt` tokenizer | `parse_xml` | strong main + metadata + tests | smoke | safe source-preserving fenced XML, tokenizer events | no semantic XML-family rendering, no namespaces/DTD semantics | fail closed on malformed syntax; literal preserve | whole-doc code-block origin only | no | low | useful substrate, but not really "semantic XML support" | low-medium | P1 | tokenizer/event model promotion and family-specific future split |
 | ZIP | H2++ complete, H3++ evidence-backed on checked-in native corpus | `doc_parse/zip/*` | `parse_zip` / `inspect_zip` | strong main + metadata + tests | smoke + batch profile + metadata-on rows | safe entry traversal, nested supported-format dispatch, asset remap, inspect report, warning/degrade policy, container provenance | no nested archive recursion, no ZIP64/encrypted/data descriptor support, no fair external overlap corpus yet | warning blocks for unsupported/nested entries; fail closed on unsafe paths and normalized collisions | good container + nested asset `source_path` + nested provenance passthrough | yes | low | quality is now well-grounded for the checked-in corpus, but still intentionally conservative on unsupported low-level ZIP features | medium on large entry counts | sealed | keep future work optional: ZIP64/data-descriptor/encrypted support, richer inspect surfacing, broader corpus evidence |
-| EPUB | H2 partial | `doc_parse/epub/*` + ZIP/XML | `parse_epub` / `inspect_epub` | moderate main + metadata + tests | smoke | OPF/container/spine/nav/cover/local images | no DRM, no CSS rendering, no NCX semantics, limited anchor model | warning blocks, skip unsupported spine items | spine/source-path level only | yes | low | current quality is limited by EPUB package model richness | medium | P1 | richer spine/nav/link/asset model |
+| EPUB | H2++ complete, H3++ evidence-backed on checked-in native EPUB corpus | `doc_parse/epub/*` + ZIP/XML | `parse_epub` / `inspect_epub` | strong main + metadata + tests | smoke + batch profile + metadata-on rows + compare | OPF/container/spine/nav/NCX/cover/local images, warning/degrade policy, package metadata, XHTML provenance | no DRM, no CSS rendering, no JS, NCX minimal subset only, limited anchor model | warning blocks for missing/unsupported spine items; fail closed on container/path/encryption errors | good spine/source-path plus nested XHTML provenance | yes | medium | current checked-in corpus now evidences package/spine/nav/assets behavior, but not reader-grade rendering | medium | sealed | keep future work optional: broader EPUB variant coverage, richer anchor model, fuller NCX fidelity, memory/RSS baselines |
 
 ## 4. Task 3: Per-format Detailed Support and Boundaries
 
@@ -883,8 +884,8 @@ Current checked-in native overlap corpus observations are:
 HTML provenance enhancements also now surface naturally through ZIP/EPUB nested
 HTML metadata snapshots. This sprint accepts those metadata refreshes as a
 lower-layer HTML effect; ZIP/EPUB Markdown output semantics did not change, and
-ZIP/EPUB themselves are not promoted to `H2++ complete` by that downstream
-reflection.
+that downstream reflection was not, by itself, the reason ZIP/EPUB later moved
+to `H2++ complete`; each format required its own checked-in evidence chain.
 
 ### TXT
 
@@ -1301,10 +1302,14 @@ Stable support today includes:
 * manifest / spine parsing
 * spine-order aggregation
 * local XHTML/HTML spine conversion
-* nav TOC emission
-* cover image emission
-* same-archive local image remap
-* OPF title/creator/date/modified metadata
+* EPUB3 nav TOC emission
+* EPUB2 NCX minimal fallback TOC on the checked-in subset
+* cover-image emission with guide-cover image fallback
+* same-archive local image remap and duplicate-name isolation
+* OPF title / creator / language / identifier / publisher / date / modified
+  metadata
+* warning-block downgrade for missing manifest spine items
+* warning-block downgrade for unsupported spine media items
 
 #### B. Current Boundaries and Non-goals
 
@@ -1312,36 +1317,49 @@ Unsupported or weak:
 
 * DRM/encryption
 * CSS rendering
-* richer NCX semantics
+* richer NCX semantics beyond the current minimal subset
 * advanced internal anchor/link model
+* pageList / navList / landmarks / SMIL NCX features
 * media overlays, fonts, SVG-heavy semantics
 
 #### C. Lower-layer Capability Gaps
 
-Main substrate gaps:
+Main substrate gaps are now narrower and mostly future-facing:
 
-* EPUB package model is useful but still shallow for semantic nav/link work
-* no stronger spine-item or anchor provenance model
-* local image/resource policy is archive-safe but not semantically rich
+* no stronger spine-fragment / anchor provenance model
+* NCX support is intentionally minimal rather than reader-grade
+* local image/resource policy is archive-safe and explainable, but not
+  semantically rich beyond current asset/source provenance
 
 #### D. H2 Quality Parity Tasks
 
-Needed next samples:
+Checked-in quality evidence now exists for:
 
-* multi-chapter books with nav + cover + internal anchors
-* unsupported media types
-* richer link/TOC families
-* asset-heavy EPUBs
+* spine-order aggregation and explicit chapter boundaries
+* EPUB3 nav TOC extraction
+* local cover-image asset materialization
+* unsupported spine-media warning/degrade behavior
+* NCX fallback TOC on the current minimal-support subset
 
 #### E. H3 Performance Tasks
 
-Benchmark design:
+Checked-in H3++ benchmark evidence now covers:
 
-* small/medium/large chapter count
-* assets-heavy EPUB
-* metadata on/off
-* batch repeated EPUBs
-* compare only if overlap with Microsoft MarkItDown is clear and fair
+* small / medium / large-many-chapter native corpus rows
+* asset-heavy and duplicate-asset EPUB rows
+* metadata-on EPUB rows
+* warning/degrade EPUB rows
+* batch-profile EPUB runs
+* meaningful local compare rows with Microsoft MarkItDown on selected overlap
+  samples only
+
+Current conclusion is intentionally scoped:
+
+* EPUB is `H2++ complete`
+* EPUB is `H3++ evidence-backed on checked-in native EPUB corpus`
+* compare rows with Microsoft MarkItDown are meaningful on selected local
+  samples, but no claim is made about all ebook workloads or reading-system
+  rendering
 
 ## 5. Task 4: Second-Round Benchmark Design
 

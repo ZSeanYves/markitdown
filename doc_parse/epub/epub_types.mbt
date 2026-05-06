@@ -89,6 +89,7 @@ pub struct EpubInspectReport {
   spine_count : Int
   nav_path : String?
   cover_path : String?
+  guide_cover_path : String?
   has_encryption : Bool
   metadata : EpubMetadata
   spine_items : Array[EpubInspectSpineItem]
@@ -108,5 +109,6 @@ pub struct EpubPackage {
   spine : Array[EpubSpineItem]
   nav_item : EpubManifestItem?
   cover_item : EpubManifestItem?
+  guide_cover_path : String?
   nav_points : Array[EpubNavPoint]
 }
