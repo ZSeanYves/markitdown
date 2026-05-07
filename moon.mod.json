@@ -16,7 +16,15 @@
     "docx",
     "xlsx",
     "pptx",
-    "html"
+    "html",
+    "csv",
+    "json",
+    "xml",
+    "yaml",
+    "epub",
+    "zip",
+    "txt",
+    "markdown"
   ],
   "description": "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling",
   "preferred-target": "native",

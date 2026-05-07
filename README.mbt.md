@@ -1,38 +1,83 @@
 # markitdown-mb
 
-`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown
+![MoonBit](https://img.shields.io/badge/MoonBit-native-2563eb)
+![CLI](https://img.shields.io/badge/CLI-prebuilt--native-16a34a)
+![Tests](https://img.shields.io/badge/tests-1275%20passed-16a34a)
+![Main%20samples](https://img.shields.io/badge/main%20samples-346%20passed-16a34a)
+![Metadata](https://img.shields.io/badge/metadata-82%20passed-16a34a)
+![Assets](https://img.shields.io/badge/assets-42%20passed-16a34a)
+![Bench%20smoke](https://img.shields.io/badge/bench%20smoke-96%20passed-16a34a)
+
+Formats: DOCX, PPTX, XLSX, PDF, HTML, ZIP, EPUB, CSV, TSV, JSON, YAML, XML, Markdown, TXT
+
+Sealed H2++ / H3++ scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for native text-PDF scope
+
+`markitdown-mb` is a MoonBit-native lightweight document-to-Markdown
 converter for local document structure extraction, RAG ingestion, and
 knowledge-base import.
 
-It follows the broad product direction of Microsoft MarkItDown, but focuses on
-native local execution, conservative degradation, explainable provenance, and
-checked-in quality and benchmark evidence.
+It is inspired by Microsoft MarkItDown, but it is an independent MoonBit-native
+implementation and repository design. It is not a Python package, not a
+Microsoft project, and not affiliated with the AutoGen team. The focus is
+local, lightweight, explainable conversion paths, native CLI performance,
+metadata sidecars, asset extraction, and reproducible checked-in
+quality/benchmark evidence.
 
 Current pipeline:
 
 **multi-format input -> unified IR -> Markdown / assets / metadata sidecar**
 
+## Supported Platforms
+
+The project is developed around MoonBit native builds and shell-based
+validation scripts.
+
+Current validated path:
+
+* macOS / Unix-like shell environment
+* MoonBit native build target
+* prebuilt native CLI used by validation and benchmark scripts
+
+Expected portable path:
+
+* Linux or macOS with the MoonBit toolchain
+* Windows is not the primary validated script environment today; WSL or another
+  Unix-like shell is recommended for the current sample and benchmark scripts
+
 ## Current Status
 
-| Format | Status | Quality scope | Performance evidence | Key boundaries |
-| --- | --- | --- | --- | --- |
-| DOCX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not a Word layout engine; no full tracked-changes UI |
-| PPTX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not a PowerPoint layout engine; no animations, SmartArt, chart, or OLE rendering |
-| XLSX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | no full Excel formula engine; no visual merged-cell reconstruction |
-| PDF | H2++ complete for native text-PDF scope | checked-in native text-PDF records | H3++ evidence-backed on checked-in native text-PDF corpus | no scanned/OCR default claim; no full PDF layout engine |
-| HTML / HTM | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not browser-grade; no JS, CSS layout, or remote fetch |
-| ZIP | H2++ complete | checked-in native corpus records | H3++ evidence-backed on checked-in native corpus | no nested archive recursion; no ZIP64/encrypted/data-descriptor support |
-| EPUB | H2++ complete | checked-in native EPUB records | H3++ evidence-backed on checked-in native EPUB corpus | no DRM, CSS, JS, or remote fetch |
-| CSV / TSV | H2 main-path quality | checked-in main-path regression | smoke and batch evidence only | no streaming or huge-table performance claim |
-| JSON | H2 main-path quality | checked-in main-path regression | smoke and batch evidence only | conservative structured-data lowering |
-| YAML / YML | subset-H2 | conservative subset only | smoke evidence only | not full YAML 1.2 |
-| XML | source-preserving H1/H2 partial | safe fenced-source contract | smoke evidence only | not a semantic XML-family converter |
-| Markdown | H2 main-path quality | passthrough contract | smoke evidence only | not a Markdown AST semantic converter |
-| TXT | H2 main-path quality | literal-safe text path | smoke evidence only | no inferred heading/list/table semantics |
+| Format | Current status | Scope |
+| --- | --- | --- |
+| XLSX | H2++ complete / H3++ evidence-backed | native overlap corpus; lightweight formula evaluator v1, merged-cell boundary, typed cells, sheet state |
+| HTML / HTM | H2++ complete / H3++ evidence-backed | lightweight safe parser; no browser-grade parsing, JS, CSS layout, or remote fetch |
+| ZIP | H2++ complete / H3++ evidence-backed | safe container conversion; nested dispatch and asset remap; no nested archive recursion |
+| EPUB | H2++ complete / H3++ evidence-backed | ZIP + OPF + spine + nav/NCX + XHTML chapters; no DRM/CSS/JS/remote fetch |
+| DOCX | H2++ complete / H3++ evidence-backed | Word document structure recovery; not a Word layout engine |
+| PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
+| PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
+| CSV / TSV / JSON / YAML / XML / Markdown / TXT | stable structured/text paths | conservative boundaries documented in support docs; not all families are second-round sealed |
 
 Benchmark and quality conclusions are always limited to the checked-in corpora
 named in the relevant docs. They are not blanket claims about all documents of
 that format.
+
+## Validation Snapshot
+
+Latest second-round closure run:
+
+| Check | Result |
+| --- | ---: |
+| `moon test` | 1275 passed, 0 failed |
+| Main process samples | 346 passed, 0 failed |
+| Metadata sidecars | 82 passed, 0 failed |
+| Asset checks | 42 passed, 0 failed |
+| Benchmark smoke | 96 samples, 0 failures |
+| Batch profile | 56 runs, 0 failures |
+| MarkItDown compare | 94 runs, 0 failures |
+
+These counts come from the current checked-in closure run and may change as the
+sample corpus grows. Compare-harness success does not mean every format is
+equally or fairly comparable with Microsoft MarkItDown.
 
 ## Core Capabilities
 
@@ -126,6 +171,34 @@ See [samples/benchmark/README.md](./samples/benchmark/README.md) and
 [docs/benchmark-governance.md](./docs/benchmark-governance.md) for corpus,
 runner, and comparability rules.
 
+## Benchmark Results
+
+Benchmark scripts write local artifacts under `.tmp/bench/`:
+
+* smoke: `.tmp/bench/smoke/results.jsonl` and `.tmp/bench/smoke/summary.tsv`
+* compare: `.tmp/bench/compare/results.jsonl` and `.tmp/bench/compare/summary.tsv`
+* batch profile:
+  `.tmp/bench/batch_profile/results.jsonl`,
+  `.tmp/bench/batch_profile/summary.tsv`,
+  `.tmp/bench/batch_profile/comparison-summary.tsv`,
+  `.tmp/bench/batch_profile/startup-summary.tsv`
+
+Run:
+
+```bash
+moon build --target native
+./samples/scripts/bench_smoke.sh --kind smoke
+./samples/scripts/bench_compare_markitdown.sh --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
+./samples/scripts/bench_batch_profile.sh --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
+```
+
+Notes:
+
+* `prebuilt-native` is the product performance path
+* `moon run` is a development fallback and should not be used for H3++ claims
+* some formats are not fairly comparable with Microsoft MarkItDown on every
+  scenario; use benchmark governance and quality records to interpret scope
+
 ## Documentation
 
 * [Support and Limits](./docs/support-and-limits.md)
@@ -135,6 +208,7 @@ runner, and comparability rules.
 * [PDF H2++ Readiness Audit](./docs/pdf-h2pp-readiness-audit.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
+* [Samples Overview](./samples/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Progress Summary](./docs/progress.md)
 * [Architecture Overview](./docs/architecture.md)
