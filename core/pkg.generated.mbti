@@ -12,6 +12,8 @@ pub fn basename(String) -> String
 
 pub fn bool_json(Bool) -> String
 
+pub fn collapse_space_like_runs(String) -> String
+
 pub fn debug_report_add_error(DebugReport, String) -> Unit
 
 pub fn debug_report_add_section(DebugReport, DebugSection) -> Unit
@@ -34,6 +36,14 @@ pub fn int_json(Int) -> String
 
 pub fn is_blank(String) -> Bool
 
+pub fn is_normalized_nfc(String) -> Bool
+
+pub fn is_normalized_nfd(String) -> Bool
+
+pub fn is_normalized_nfkc(String) -> Bool
+
+pub fn is_normalized_nfkd(String) -> Bool
+
 pub fn json_string(String) -> String
 
 pub fn json_string_opt(String?) -> String
@@ -50,6 +60,20 @@ pub fn next_image_asset_rel_path(@ref.Ref[Int], String) -> String
 
 pub fn next_image_asset_rel_path_unique(@ref.Ref[Int], String, String) -> String
 
+pub fn normalize_common_ligatures(String) -> String
+
+pub fn normalize_document_text_cleanup(String) -> String
+
+pub fn normalize_nfc(String) -> String
+
+pub fn normalize_nfd(String) -> String
+
+pub fn normalize_nfkc(String) -> String
+
+pub fn normalize_nfkd(String) -> String
+
+pub fn normalize_pdf_text_cleanup(String) -> String
+
 pub fn normalize_text(String) -> String
 
 pub fn normalize_text_with_options(String, TextNormalizationOptions) -> String
@@ -59,6 +83,8 @@ pub fn normalize_text_with_options_summary(String, NormalizeProfile, TextNormali
 pub fn normalize_text_with_profile(String, NormalizeProfile) -> String
 
 pub fn normalize_text_with_profile_summary(String, NormalizeProfile) -> TextNormalizationResult
+
+pub fn normalize_unicode_spaces(String) -> String
 
 pub fn object_json(Array[String]) -> String
 
@@ -136,7 +162,9 @@ pub(all) enum Block {
 
 pub(all) enum CanonicalNormalizationForm {
   Disabled
+  NFD
   NFC
+  NFKD
   NFKC
 } derive(Eq)
 

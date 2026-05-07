@@ -12,7 +12,9 @@ pub(all) enum NormalizeProfile {
 ///|
 pub(all) enum CanonicalNormalizationForm {
   Disabled
+  NFD
   NFC
+  NFKD
   NFKC
 } derive(Eq)
 
@@ -135,7 +137,7 @@ priv struct StageCounters {
   mut dashes : Int
   mut fullwidth : Int
   mut cjk_punctuation : Int
-  canonical : Int
+  mut canonical : Int
   mut compatibility : Int
   mut pdf_glyph : Int
   mut cjk_spacing : Int
@@ -327,6 +329,114 @@ pub fn normalize_text_with_profile(
     profile,
     default_text_normalization_options(profile),
   ).text
+}
+
+///|
+/// Cross-format low-risk character cleanup.
+///
+/// This keeps document structure conservative:
+/// - line endings are normalized
+/// - Unicode space variants are mapped to ASCII space
+/// - zero-width and soft hyphen are removed
+/// - common ligatures are expanded
+/// - newlines and tabs are preserved
+pub fn normalize_document_text_cleanup(text : String) -> String {
+  let options = {
+    ..default_text_normalization_options(NormalizeProfile::GeneralText),
+    normalize_unicode_spaces: true,
+    remove_soft_hyphen: true,
+    expand_ligatures: true,
+  }
+  normalize_text_with_options(text, options)
+}
+
+///|
+pub fn normalize_unicode_spaces(text : String) -> String {
+  let options = {
+    ..default_text_normalization_options(NormalizeProfile::Literal),
+    normalize_line_endings: false,
+    normalize_nbsp: true,
+    normalize_unicode_spaces: true,
+  }
+  normalize_text_with_options(text, options)
+}
+
+///|
+pub fn normalize_common_ligatures(text : String) -> String {
+  let options = {
+    ..default_text_normalization_options(NormalizeProfile::Literal),
+    normalize_line_endings: false,
+    expand_ligatures: true,
+  }
+  normalize_text_with_options(text, options)
+}
+
+///|
+pub fn collapse_space_like_runs(text : String) -> String {
+  let out = StringBuilder::new()
+  let mut prev_space = false
+
+  for ch in text {
+    if is_space_like_for_collapse(ch) {
+      if !prev_space {
+        out.write_char(' ')
+        prev_space = true
+      }
+    } else {
+      out.write_char(ch)
+      prev_space = false
+    }
+  }
+
+  out.to_string().trim().to_owned()
+}
+
+///|
+/// Shared PDF char-level cleanup before layout-specific post-processing.
+pub fn normalize_pdf_text_cleanup(text : String) -> String {
+  collapse_space_like_runs(
+    normalize_text_with_profile(text, NormalizeProfile::PdfText),
+  )
+}
+
+///|
+pub fn normalize_nfd(text : String) -> String {
+  @unicode_normalization.nfd(text)
+}
+
+///|
+pub fn normalize_nfc(text : String) -> String {
+  @unicode_normalization.nfc(text)
+}
+
+///|
+pub fn normalize_nfkd(text : String) -> String {
+  @unicode_normalization.nfkd(text)
+}
+
+///|
+pub fn normalize_nfkc(text : String) -> String {
+  @unicode_normalization.nfkc(text)
+}
+
+///|
+pub fn is_normalized_nfd(text : String) -> Bool {
+  @unicode_normalization.is_normalized(text, @unicode_normalization.NFD)
+}
+
+///|
+pub fn is_normalized_nfc(text : String) -> Bool {
+  @unicode_normalization.is_normalized(text, @unicode_normalization.NFC)
+}
+
+///|
+pub fn is_normalized_nfkd(text : String) -> Bool {
+  @unicode_normalization.is_normalized(text, @unicode_normalization.NFKD)
+}
+
+///|
+pub fn is_normalized_nfkc(text : String) -> Bool {
+  @unicode_normalization.is_normalized(text, @unicode_normalization.NFKC)
 }
 
 ///|
@@ -575,38 +685,59 @@ fn run_canonical_stage(
 ) -> String {
   match options.canonical_form {
     CanonicalNormalizationForm::Disabled => text
-    CanonicalNormalizationForm::NFC => {
-      warnings.push({
-        kind: TextNormalizationWarningKind::UnsupportedNormalization,
-        message: "NFC requested but MoonBit stdlib normalization API is unavailable; stage kept as no-op",
-      })
-      maybe_warn_literal(profile, warnings)
-      let _ = counters
-      text
-    }
-    CanonicalNormalizationForm::NFKC => {
-      warnings.push({
-        kind: TextNormalizationWarningKind::UnsupportedNormalization,
-        message: "NFKC requested but full compatibility normalization is not implemented in project scope",
-      })
-      maybe_warn_literal(profile, warnings)
-      let _ = counters
-      text
-    }
+    CanonicalNormalizationForm::NFD =>
+      apply_canonical_result(
+        text,
+        normalize_nfd(text),
+        profile,
+        counters,
+        warnings,
+      )
+    CanonicalNormalizationForm::NFC =>
+      apply_canonical_result(
+        text,
+        normalize_nfc(text),
+        profile,
+        counters,
+        warnings,
+      )
+    CanonicalNormalizationForm::NFKD =>
+      apply_canonical_result(
+        text,
+        normalize_nfkd(text),
+        profile,
+        counters,
+        warnings,
+      )
+    CanonicalNormalizationForm::NFKC =>
+      apply_canonical_result(
+        text,
+        normalize_nfkc(text),
+        profile,
+        counters,
+        warnings,
+      )
   }
 }
 
 ///|
-fn maybe_warn_literal(
+fn apply_canonical_result(
+  original : String,
+  normalized : String,
   profile : NormalizeProfile,
+  counters : StageCounters,
   warnings : Array[TextNormalizationWarning],
-) -> Unit {
+) -> String {
   if profile == NormalizeProfile::Literal {
     warnings.push({
       kind: TextNormalizationWarningKind::SkippedDueToLiteralContext,
-      message: "literal profile keeps source text conservative; aggressive normalization is skipped",
+      message: "literal profile keeps cleanup conservative; explicit canonical normalization request is applied via facade backend",
     })
   }
+  if normalized != original {
+    counters.canonical = counters.canonical + 1
+  }
+  normalized
 }
 
 ///|
@@ -858,6 +989,16 @@ fn collapse_pdf_comparison_whitespace(text : String) -> String {
 ///|
 fn is_collapse_space_char(ch : Char) -> Bool {
   ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
+}
+
+///|
+fn is_space_like_for_collapse(ch : Char) -> Bool {
+  ch == ' ' ||
+  ch == '\t' ||
+  ch == '\n' ||
+  ch == '\r' ||
+  ch == '\u{00A0}' ||
+  is_unicode_space_separator(ch)
 }
 
 ///|

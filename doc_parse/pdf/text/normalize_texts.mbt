@@ -414,32 +414,11 @@ fn normalize_single_span(span : @model.PdfTextSpan) -> @model.PdfTextSpan {
 /// 文本归一化：
 /// 1. unicode_compat 先走 shared substrate 的低风险字符归一化，并保留 PDF
 ///    专属 compatibility glyph fallback。
-/// 2. 这里负责 PDF line/span 专属的基础空白清洗。
+/// 2. 基础字符 cleanup 与 space-like collapse 复用 shared core facade。
 /// 3. 最后做 PDF-specific 的词边界 / CJK / bullet spacing 后处理。
 fn normalize_text(text : String) -> String {
-  let stage1 = normalize_unicode_compat(text)
-  let stage2 = normalize_basic_spaces(stage1)
-  normalize_post_text(stage2)
-}
-
-///|
-fn normalize_basic_spaces(text : String) -> String {
-  let mut out = ""
-  let mut prev_space = false
-
-  for ch in text {
-    if is_space_like(ch) {
-      if !prev_space {
-        out = out + " "
-        prev_space = true
-      }
-    } else {
-      out = out + ch.to_string()
-      prev_space = false
-    }
-  }
-
-  out.trim().to_owned()
+  let stage1 = @cor.normalize_pdf_text_cleanup(text)
+  normalize_post_text(stage1)
 }
 
 ///|
@@ -894,18 +873,6 @@ fn normalize_ascii_punct_spacing(text : String) -> String {
   }
 
   out
-}
-
-///|
-fn is_space_like(ch : Char) -> Bool {
-  ch == ' ' ||
-  ch == '\n' ||
-  ch == '\t' ||
-  ch == '\u{00A0}' ||
-  ch == '\u{2002}' ||
-  ch == '\u{2003}' ||
-  ch == '\u{2009}' ||
-  ch == '　'
 }
 
 ///|

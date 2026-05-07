@@ -186,7 +186,19 @@ test "fullwidth and cjk punctuation normalization stay opt in" {
 }
 
 ///|
-test "unsupported canonical normalization is warning only" {
+test "facade exposes direct unicode normalization helpers" {
+  assert_eq(@cor.normalize_nfd("\u{00E9}"), "e\u{0301}")
+  assert_eq(@cor.normalize_nfc("e\u{0301}"), "\u{00E9}")
+  assert_eq(@cor.normalize_nfkc("\u{FB03}"), "ffi")
+  assert_eq(@cor.normalize_nfkc("\u{FF21}"), "A")
+  assert_true(@cor.is_normalized_nfc("\u{00E9}"))
+  assert_false(@cor.is_normalized_nfc("e\u{0301}"))
+  assert_true(@cor.is_normalized_nfkc("A"))
+  assert_false(@cor.is_normalized_nfkc("\u{FF21}"))
+}
+
+///|
+test "canonical normalization options now use unicode backend" {
   let options = {
     ..@cor.default_text_normalization_options(
       @cor.NormalizeProfile::GeneralText,
@@ -200,13 +212,17 @@ test "unsupported canonical normalization is warning only" {
     options,
   )
 
-  assert_eq(result.text, "ﬁ")
+  assert_eq(result.text, "fi")
+  assert_eq(
+    change_count(result, @cor.TextNormalizationChangeKind::Canonical),
+    1,
+  )
   assert_eq(
     warning_count(
       result,
       @cor.TextNormalizationWarningKind::UnsupportedNormalization,
     ),
-    1,
+    0,
   )
 }
 
@@ -218,11 +234,16 @@ test "literal canonical request records literal warning" {
     record_summary: true,
   }
   let result = @cor.normalize_text_with_options_summary(
-    "raw",
+    "e\u{0301}",
     @cor.NormalizeProfile::Literal,
     options,
   )
 
+  assert_eq(result.text, "\u{00E9}")
+  assert_eq(
+    change_count(result, @cor.TextNormalizationChangeKind::Canonical),
+    1,
+  )
   assert_eq(
     warning_count(
       result,
@@ -280,4 +301,60 @@ test "profile summary includes compare cleanup stage" {
   assert_true(
     has_stage(result, @cor.TextNormalizationStage::PdfCompareStage, true),
   )
+}
+
+///|
+test "default cleanup profiles do not implicitly enable canonical normalization" {
+  assert_eq(
+    @cor.normalize_text_with_profile(
+      "e\u{0301}",
+      @cor.NormalizeProfile::Literal,
+    ),
+    "e\u{0301}",
+  )
+  assert_eq(
+    @cor.normalize_text_with_profile("Ａ", @cor.NormalizeProfile::GeneralText),
+    "Ａ",
+  )
+}
+
+///|
+test "document cleanup normalizes line endings unicode spaces invisibles and ligatures" {
+  let text = "A\r\nB\rC\u{00A0}D\u{2009}E\u{2007}F\u{202F}G\u{200B}hy\u{00AD}phen ﬁﬂﬀﬃﬄ"
+  let normalized = @cor.normalize_document_text_cleanup(text)
+
+  assert_eq(normalized, "A\nB\nC D E F Ghyphen fiflffffiffl")
+}
+
+///|
+test "unicode spaces helper maps common unicode spaces to ascii space only" {
+  let text = "A\u{00A0}B\u{2009}C\u{2007}D\u{202F}E"
+  let normalized = @cor.normalize_unicode_spaces(text)
+
+  assert_eq(normalized, "A B C D E")
+}
+
+///|
+test "common ligatures helper expands common latin ligatures only" {
+  let normalized = @cor.normalize_common_ligatures(
+    "ﬁ ﬂ ﬀ ﬃ ﬄ plain 中文",
+  )
+  assert_eq(normalized, "fi fl ff ffi ffl plain 中文")
+}
+
+///|
+test "collapse space like runs preserves normal text content" {
+  let normalized = @cor.collapse_space_like_runs(
+    "  Alpha\r\n\tBeta\u{00A0}\u{2009}Gamma  中文  ",
+  )
+  assert_eq(normalized, "Alpha Beta Gamma 中文")
+}
+
+///|
+test "pdf text cleanup helper stays conservative about plain ascii and cjk text" {
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("Plain ASCII text"),
+    "Plain ASCII text",
+  )
+  assert_eq(@cor.normalize_pdf_text_cleanup("中文标题"), "中文标题")
 }
