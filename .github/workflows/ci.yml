@@ -35,6 +35,9 @@ jobs:
           moon version || true
           moonc -v || true
 
+      - name: Update MoonBit registry
+        run: moon update
+
       - name: Build native CLI
         run: moon build --target native
 
@@ -67,6 +70,9 @@ jobs:
         run: |
           moon version || true
           moonc -v || true
+
+      - name: Update MoonBit registry
+        run: moon update
 
       - name: Build native CLI
         run: moon build --target native
