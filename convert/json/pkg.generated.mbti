@@ -17,15 +17,6 @@ pub fn parse_json_with_profile(String, String, Int) -> (@core.Document, JsonProf
 // Errors
 
 // Types and methods
-pub struct JsonLoweringProfileSummary {
-  value_cell_stringify_calls : Int
-  scalar_text_stringify_calls : Int
-  uniform_table_rows_seen : Int
-  uniform_table_columns_seen : Int
-  nested_stringify_elapsed_ms : UInt64
-  uniform_table_detect_elapsed_ms : UInt64
-}
-
 pub struct JsonProfileReport {
   input_path : String
   stages : Array[JsonProfileStage]

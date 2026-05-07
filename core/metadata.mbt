@@ -630,16 +630,16 @@ pub fn emit_metadata_json_with_document_properties(
 fn serialize_document_metadata(meta : DocumentMetadata) -> String {
   "{\n" +
   "  \"version\": " +
-  json_string(meta.version) +
+  meta_json_string(meta.version) +
   ",\n" +
   "  \"source_name\": " +
-  json_string(meta.source_name) +
+  meta_json_string(meta.source_name) +
   ",\n" +
   "  \"format\": " +
-  json_string(meta.format) +
+  meta_json_string(meta.format) +
   ",\n" +
   "  \"markdown_file\": " +
-  json_string(meta.markdown_file) +
+  meta_json_string(meta.markdown_file) +
   ",\n" +
   "  \"document\": " +
   serialize_document_properties_opt(meta.document) +
@@ -672,23 +672,23 @@ fn serialize_document_properties(
 ) -> String {
   let fields : Array[String] = []
 
-  fields.push("\"title\": " + json_string_opt(document.title))
-  fields.push("\"subject\": " + json_string_opt(document.subject))
-  fields.push("\"creator\": " + json_string_opt(document.creator))
-  push_json_string_field(fields, "language", document.language)
-  push_json_string_field(fields, "identifier", document.identifier)
-  push_json_string_field(fields, "publisher", document.publisher)
-  fields.push("\"description\": " + json_string_opt(document.description))
-  fields.push("\"keywords\": " + json_string_opt(document.keywords))
-  fields.push("\"created\": " + json_string_opt(document.created))
-  fields.push("\"modified\": " + json_string_opt(document.modified))
-  fields.push("\"application\": " + json_string_opt(document.application))
-  fields.push("\"pages\": " + json_string_opt(document.pages))
-  fields.push("\"words\": " + json_string_opt(document.words))
-  fields.push("\"slides\": " + json_string_opt(document.slides))
-  fields.push("\"sheets\": " + json_string_opt(document.sheets))
+  fields.push("\"title\": " + meta_json_string_opt(document.title))
+  fields.push("\"subject\": " + meta_json_string_opt(document.subject))
+  fields.push("\"creator\": " + meta_json_string_opt(document.creator))
+  meta_push_json_string_field(fields, "language", document.language)
+  meta_push_json_string_field(fields, "identifier", document.identifier)
+  meta_push_json_string_field(fields, "publisher", document.publisher)
+  fields.push("\"description\": " + meta_json_string_opt(document.description))
+  fields.push("\"keywords\": " + meta_json_string_opt(document.keywords))
+  fields.push("\"created\": " + meta_json_string_opt(document.created))
+  fields.push("\"modified\": " + meta_json_string_opt(document.modified))
+  fields.push("\"application\": " + meta_json_string_opt(document.application))
+  fields.push("\"pages\": " + meta_json_string_opt(document.pages))
+  fields.push("\"words\": " + meta_json_string_opt(document.words))
+  fields.push("\"slides\": " + meta_json_string_opt(document.slides))
+  fields.push("\"sheets\": " + meta_json_string_opt(document.sheets))
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -709,7 +709,7 @@ fn serialize_blocks(blocks : Array[MetadataBlock]) -> String {
   for block in blocks {
     parts.push(serialize_block(block))
   }
-  "[\n" + indent_lines(join_json_items(parts), 4) + "\n  ]"
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 4) + "\n  ]"
 }
 
 ///|
@@ -718,7 +718,7 @@ fn serialize_assets(assets : Array[MetadataAsset]) -> String {
   for asset in assets {
     parts.push(serialize_asset(asset))
   }
-  "[\n" + indent_lines(join_json_items(parts), 4) + "\n  ]"
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 4) + "\n  ]"
 }
 
 ///|
@@ -726,28 +726,30 @@ fn serialize_block(block : MetadataBlock) -> String {
   let fields : Array[String] = []
 
   fields.push("\"block_index\": " + block.block_index.to_string())
-  fields.push("\"block_type\": " + json_string(block.block_type))
-  fields.push("\"text\": " + json_string(block.text))
+  fields.push("\"block_type\": " + meta_json_string(block.block_type))
+  fields.push("\"text\": " + meta_json_string(block.text))
   fields.push("\"origin\": " + serialize_origin_opt(block.origin))
   fields.push("\"image\": " + serialize_image_block_opt(block.image))
   push_json_table_field(fields, "table", block.table)
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
 fn serialize_asset(asset : MetadataAsset) -> String {
   let fields : Array[String] = []
 
-  fields.push("\"path\": " + json_string(asset.path))
-  fields.push("\"asset_type\": " + json_string(asset.asset_type))
-  fields.push("\"alt_text\": " + json_string_opt(asset.alt_text))
-  fields.push("\"title\": " + json_string_opt(asset.title))
-  fields.push("\"caption\": " + json_string_opt(asset.caption))
+  fields.push("\"path\": " + meta_json_string(asset.path))
+  fields.push("\"asset_type\": " + meta_json_string(asset.asset_type))
+  fields.push("\"alt_text\": " + meta_json_string_opt(asset.alt_text))
+  fields.push("\"title\": " + meta_json_string_opt(asset.title))
+  fields.push("\"caption\": " + meta_json_string_opt(asset.caption))
   fields.push("\"origin\": " + serialize_asset_origin_opt(asset.origin))
-  fields.push("\"nearby_caption\": " + json_string_opt(asset.nearby_caption))
+  fields.push(
+    "\"nearby_caption\": " + meta_json_string_opt(asset.nearby_caption),
+  )
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -762,12 +764,12 @@ fn serialize_image_block_opt(image : MetadataImageBlock?) -> String {
 fn serialize_image_block(image : MetadataImageBlock) -> String {
   let fields : Array[String] = []
 
-  fields.push("\"path\": " + json_string(image.path))
-  fields.push("\"alt_text\": " + json_string_opt(image.alt_text))
-  fields.push("\"title\": " + json_string_opt(image.title))
-  fields.push("\"caption\": " + json_string_opt(image.caption))
+  fields.push("\"path\": " + meta_json_string(image.path))
+  fields.push("\"alt_text\": " + meta_json_string_opt(image.alt_text))
+  fields.push("\"title\": " + meta_json_string_opt(image.title))
+  fields.push("\"caption\": " + meta_json_string_opt(image.caption))
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -776,14 +778,22 @@ fn serialize_table_block(table : MetadataTableBlock) -> String {
 
   fields.push("\"rows\": " + serialize_string_matrix(table.rows))
   fields.push("\"header_rows\": " + table.header_rows.to_string())
-  push_json_string_field(fields, "format", table.format)
-  push_json_string_field(fields, "sheet_state", table.sheet_state)
-  push_json_string_array_field(fields, "merged_ranges", table.merged_ranges)
+  meta_push_json_string_field(fields, "format", table.format)
+  meta_push_json_string_field(fields, "sheet_state", table.sheet_state)
+  meta_push_json_string_array_field(
+    fields,
+    "merged_ranges",
+    table.merged_ranges,
+  )
   push_json_formula_cells_field(fields, "formula_cells", table.formula_cells)
-  push_json_string_matrix_field(fields, "semantic_types", table.semantic_types)
+  meta_push_json_string_matrix_field(
+    fields,
+    "semantic_types",
+    table.semantic_types,
+  )
   push_json_span_cells_field(fields, "span_cells", table.span_cells)
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -879,7 +889,7 @@ fn serialize_string_matrix(rows : Array[Array[String]]) -> String {
   for row in rows {
     parts.push(serialize_string_array(row))
   }
-  "[\n" + indent_lines(join_json_items(parts), 2) + "\n]"
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 2) + "\n]"
 }
 
 ///|
@@ -895,7 +905,7 @@ fn push_json_table_field(
 }
 
 ///|
-fn push_json_string_array_field(
+fn meta_push_json_string_array_field(
   fields : Array[String],
   name : String,
   value : Array[String]?,
@@ -907,7 +917,7 @@ fn push_json_string_array_field(
 }
 
 ///|
-fn push_json_string_matrix_field(
+fn meta_push_json_string_matrix_field(
   fields : Array[String],
   name : String,
   value : Array[Array[String]]?,
@@ -948,7 +958,7 @@ fn serialize_span_cells(cells : Array[MetadataTableSpanCell]) -> String {
   for cell in cells {
     parts.push(serialize_span_cell(cell))
   }
-  "[\n" + indent_lines(join_json_items(parts), 2) + "\n]"
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 2) + "\n]"
 }
 
 ///|
@@ -958,8 +968,8 @@ fn serialize_span_cell(cell : MetadataTableSpanCell) -> String {
   fields.push("\"column_index\": " + cell.column_index.to_string())
   fields.push("\"rowspan\": " + cell.rowspan.to_string())
   fields.push("\"colspan\": " + cell.colspan.to_string())
-  push_json_string_field(fields, "text", cell.text)
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  meta_push_json_string_field(fields, "text", cell.text)
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -968,35 +978,39 @@ fn serialize_formula_cells(cells : Array[MetadataFormulaCell]) -> String {
   for cell in cells {
     parts.push(serialize_formula_cell(cell))
   }
-  "[\n" + indent_lines(join_json_items(parts), 2) + "\n]"
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 2) + "\n]"
 }
 
 ///|
 fn serialize_formula_cell(cell : MetadataFormulaCell) -> String {
   let fields : Array[String] = []
-  fields.push("\"reference\": " + json_string(cell.reference))
+  fields.push("\"reference\": " + meta_json_string(cell.reference))
   fields.push("\"row_index\": " + cell.row_index.to_string())
   fields.push("\"column_index\": " + cell.column_index.to_string())
-  fields.push("\"formula_text\": " + json_string(cell.formula_text))
-  fields.push("\"cached_value\": " + json_string_opt(cell.cached_value))
-  fields.push("\"display_text\": " + json_string(cell.display_text))
-  fields.push("\"cell_kind\": " + json_string(cell.cell_kind))
-  fields.push("\"semantic_type\": " + json_string(cell.semantic_type))
-  push_json_string_field(fields, "policy", cell.policy)
-  push_json_string_field(fields, "evaluated_value", cell.evaluated_value)
-  push_json_string_field(fields, "unsupported_reason", cell.unsupported_reason)
-  push_json_string_field(fields, "error_reason", cell.error_reason)
-  push_json_string_array_field(
+  fields.push("\"formula_text\": " + meta_json_string(cell.formula_text))
+  fields.push("\"cached_value\": " + meta_json_string_opt(cell.cached_value))
+  fields.push("\"display_text\": " + meta_json_string(cell.display_text))
+  fields.push("\"cell_kind\": " + meta_json_string(cell.cell_kind))
+  fields.push("\"semantic_type\": " + meta_json_string(cell.semantic_type))
+  meta_push_json_string_field(fields, "policy", cell.policy)
+  meta_push_json_string_field(fields, "evaluated_value", cell.evaluated_value)
+  meta_push_json_string_field(
+    fields,
+    "unsupported_reason",
+    cell.unsupported_reason,
+  )
+  meta_push_json_string_field(fields, "error_reason", cell.error_reason)
+  meta_push_json_string_array_field(
     fields,
     "referenced_cells",
     cell.referenced_cells,
   )
-  push_json_string_array_field(
+  meta_push_json_string_array_field(
     fields,
     "referenced_ranges",
     cell.referenced_ranges,
   )
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -1011,11 +1025,11 @@ fn serialize_origin_opt(origin : MetadataOrigin?) -> String {
 fn serialize_origin(origin : MetadataOrigin) -> String {
   let fields : Array[String] = []
 
-  push_json_string_field(fields, "format", origin.format)
-  fields.push("\"source_name\": " + json_string_opt(origin.source_name))
+  meta_push_json_string_field(fields, "format", origin.format)
+  fields.push("\"source_name\": " + meta_json_string_opt(origin.source_name))
   fields.push("\"page\": " + json_int_opt(origin.page))
   fields.push("\"slide\": " + json_int_opt(origin.slide))
-  fields.push("\"sheet\": " + json_string_opt(origin.sheet))
+  fields.push("\"sheet\": " + meta_json_string_opt(origin.sheet))
   fields.push("\"block_index\": " + json_int_opt(origin.block_index))
   fields.push(
     "\"heading_path\": " + serialize_string_array_opt(origin.heading_path),
@@ -1024,11 +1038,11 @@ fn serialize_origin(origin : MetadataOrigin) -> String {
   push_json_int_field(fields, "line_end", origin.line_end)
   push_json_int_field(fields, "row_index", origin.row_index)
   push_json_int_field(fields, "column_index", origin.column_index)
-  push_json_string_field(fields, "object_ref", origin.object_ref)
-  push_json_string_field(fields, "relationship_id", origin.relationship_id)
-  push_json_string_field(fields, "key_path", origin.key_path)
+  meta_push_json_string_field(fields, "object_ref", origin.object_ref)
+  meta_push_json_string_field(fields, "relationship_id", origin.relationship_id)
+  meta_push_json_string_field(fields, "key_path", origin.key_path)
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -1043,21 +1057,23 @@ fn serialize_asset_origin_opt(origin : MetadataAssetOrigin?) -> String {
 fn serialize_asset_origin(origin : MetadataAssetOrigin) -> String {
   let fields : Array[String] = []
 
-  push_json_string_field(fields, "format", origin.format)
-  fields.push("\"source_name\": " + json_string_opt(origin.source_name))
+  meta_push_json_string_field(fields, "format", origin.format)
+  fields.push("\"source_name\": " + meta_json_string_opt(origin.source_name))
   fields.push("\"page\": " + json_int_opt(origin.page))
   fields.push("\"slide\": " + json_int_opt(origin.slide))
-  fields.push("\"sheet\": " + json_string_opt(origin.sheet))
-  fields.push("\"origin_id\": " + json_string_opt(origin.origin_id))
-  fields.push("\"nearby_caption\": " + json_string_opt(origin.nearby_caption))
-  push_json_string_field(fields, "object_ref", origin.object_ref)
-  push_json_string_field(fields, "relationship_id", origin.relationship_id)
-  push_json_string_field(fields, "source_path", origin.source_path)
+  fields.push("\"sheet\": " + meta_json_string_opt(origin.sheet))
+  fields.push("\"origin_id\": " + meta_json_string_opt(origin.origin_id))
+  fields.push(
+    "\"nearby_caption\": " + meta_json_string_opt(origin.nearby_caption),
+  )
+  meta_push_json_string_field(fields, "object_ref", origin.object_ref)
+  meta_push_json_string_field(fields, "relationship_id", origin.relationship_id)
+  meta_push_json_string_field(fields, "source_path", origin.source_path)
   push_json_int_field(fields, "row_index", origin.row_index)
   push_json_int_field(fields, "column_index", origin.column_index)
-  push_json_string_field(fields, "key_path", origin.key_path)
+  meta_push_json_string_field(fields, "key_path", origin.key_path)
 
-  "{\n" + indent_lines(join_json_fields(fields), 2) + "\n}"
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|
@@ -1072,16 +1088,16 @@ fn serialize_string_array_opt(xs : Array[String]?) -> String {
 fn serialize_string_array(xs : Array[String]) -> String {
   let parts : Array[String] = []
   for x in xs {
-    parts.push(json_string(x))
+    parts.push(meta_json_string(x))
   }
-  "[" + join_json_items_inline(parts) + "]"
+  "[" + meta_join_json_items_inline(parts) + "]"
 }
 
 ///|
-fn json_string_opt(v : String?) -> String {
+fn meta_json_string_opt(v : String?) -> String {
   match v {
     None => "null"
-    Some(s) => json_string(s)
+    Some(s) => meta_json_string(s)
   }
 }
 
@@ -1094,13 +1110,13 @@ fn json_int_opt(v : Int?) -> String {
 }
 
 ///|
-fn push_json_string_field(
+fn meta_push_json_string_field(
   fields : Array[String],
   name : String,
   value : String?,
 ) -> Unit {
   match value {
-    Some(v) => fields.push("\"" + name + "\": " + json_string(v))
+    Some(v) => fields.push("\"" + name + "\": " + meta_json_string(v))
     None => ()
   }
 }
@@ -1118,12 +1134,12 @@ fn push_json_int_field(
 }
 
 ///|
-fn json_string(s : String) -> String {
-  "\"" + escape_json_string(s) + "\""
+fn meta_json_string(s : String) -> String {
+  "\"" + escape_meta_json_string(s) + "\""
 }
 
 ///|
-fn escape_json_string(s : String) -> String {
+fn escape_meta_json_string(s : String) -> String {
   let out = StringBuilder::new()
   for c in s.to_array() {
     match c {
@@ -1139,7 +1155,7 @@ fn escape_json_string(s : String) -> String {
 }
 
 ///|
-fn join_json_items(items : Array[String]) -> String {
+fn meta_join_json_items(items : Array[String]) -> String {
   let out = StringBuilder::new()
   for i in 0..<items.length() {
     out.write_string(items[i])
@@ -1151,7 +1167,7 @@ fn join_json_items(items : Array[String]) -> String {
 }
 
 ///|
-fn join_json_items_inline(items : Array[String]) -> String {
+fn meta_join_json_items_inline(items : Array[String]) -> String {
   let out = StringBuilder::new()
   for i in 0..<items.length() {
     out.write_string(items[i])
@@ -1163,7 +1179,7 @@ fn join_json_items_inline(items : Array[String]) -> String {
 }
 
 ///|
-fn join_json_fields(fields : Array[String]) -> String {
+fn meta_join_json_fields(fields : Array[String]) -> String {
   let out = StringBuilder::new()
   for i in 0..<fields.length() {
     out.write_string(fields[i])
@@ -1175,7 +1191,7 @@ fn join_json_fields(fields : Array[String]) -> String {
 }
 
 ///|
-fn indent_lines(s : String, spaces : Int) -> String {
+fn meta_indent_lines(s : String, spaces : Int) -> String {
   let prefix = repeat_spaces(spaces)
   let lines = s.split("\n").to_array()
   let out = StringBuilder::new()

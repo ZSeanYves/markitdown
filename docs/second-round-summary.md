@@ -121,6 +121,22 @@ Recent substrate hardening after second-round seal:
 * literal-safe paths remain conservative and do not inherit aggressive
   normalization by default
 
+Recent engineering hardening after normalization v2:
+
+* CLI debug inspect is now a unified multi-format report path instead of a
+  PDF-only developer entrypoint
+* `debug <input>` works across dispatcher-supported formats and reports format,
+  structure, assets, metadata availability, and selected format-specific stats
+* `debug --json` provides a stable script-facing output contract
+* PDF debug inspect additionally exposes structured `pdf_backend`,
+  `pdf_pages`, `pdf_text_model`, `pdf_images`, `pdf_annotations`, `pdf_links`,
+  `pdf_pipeline`, and aggregated `PdfText` / `PdfCompareText`
+  normalization summary
+* legacy `debug <all|extract|raw|pipeline> ...` is now a deprecated alias over
+  the unified PDF inspect path rather than a separately maintained report path
+* debug inspect does not change normal or batch conversion semantics and does
+  not write sidecars by default
+
 ## Future Work
 
 Second-round closure does not eliminate future work. It narrows it.

@@ -23,7 +23,7 @@
     "yaml",
     "epub",
     "zip",
-    "txt",
+    "txt"
   ],
   "description": "A MoonBit-native document-to-Markdown converter with multi-format parsing, metadata, assets, batch conversion, and validation tooling",
   "preferred-target": "native",

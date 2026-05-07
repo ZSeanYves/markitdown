@@ -6,7 +6,19 @@ import {
 }
 
 // Values
+pub fn array_json(Array[String]) -> String
+
 pub fn basename(String) -> String
+
+pub fn bool_json(Bool) -> String
+
+pub fn debug_report_add_error(DebugReport, String) -> Unit
+
+pub fn debug_report_add_section(DebugReport, DebugSection) -> Unit
+
+pub fn debug_report_add_warning(DebugReport, String) -> Unit
+
+pub fn debug_section(String, String, Bool, String?, String) -> DebugSection
 
 pub fn decode_numeric_entities(String) -> String
 
@@ -18,11 +30,19 @@ pub fn emit_metadata_json(Document, String, String, String) -> String
 
 pub fn emit_metadata_json_with_document_properties(Document, String, String, String, MetadataDocumentProperties?) -> String
 
+pub fn int_json(Int) -> String
+
 pub fn is_blank(String) -> Bool
+
+pub fn json_string(String) -> String
+
+pub fn json_string_opt(String?) -> String
 
 pub fn metadata_document_properties(String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?) -> MetadataDocumentProperties
 
 pub fn metadata_document_properties_with_extras(MetadataDocumentProperties, String?, String?, String?) -> MetadataDocumentProperties
+
+pub fn new_debug_report(String, String, String) -> DebugReport
 
 pub fn new_document() -> Document
 
@@ -40,9 +60,13 @@ pub fn normalize_text_with_profile(String, NormalizeProfile) -> String
 
 pub fn normalize_text_with_profile_summary(String, NormalizeProfile) -> TextNormalizationResult
 
+pub fn object_json(Array[String]) -> String
+
 pub fn push(Document, Block) -> Unit
 
 pub fn push_with_origin(Document, Block, Origin?) -> Unit
+
+pub fn render_debug_report(DebugReport, DebugOutputKind) -> String
 
 pub fn set_asset_origin(Document, String, AssetOrigin) -> Unit
 
@@ -50,7 +74,19 @@ pub fn set_passthrough_markdown(Document, String) -> Unit
 
 pub fn slice_to_string(Array[Char], Int, Int) -> String
 
+pub fn string_array_json(Array[String]) -> String
+
+pub fn string_bool_kv_json(Array[(String, Bool)]) -> String
+
+pub fn string_int_kv_json(Array[(String, Int)]) -> String
+
+pub fn string_kv_json(Array[(String, String)]) -> String
+
+pub fn string_optional_kv_json(Array[(String, String?)]) -> String
+
 pub fn trim_string(String) -> String
+
+pub fn uint64_json(UInt64) -> String
 
 pub fn utf8_bytes_to_string(Bytes) -> String raise Utf8DecodeError
 
@@ -108,6 +144,31 @@ pub(all) enum CjkSpacingPolicy {
   Preserve
   RemoveBetweenCjk
 } derive(Eq)
+
+pub(all) enum DebugOutputKind {
+  HumanReadable
+  Json
+} derive(Eq)
+
+pub(all) struct DebugReport {
+  version : String
+  source_name : String
+  detected_format : String
+  command_mode : String
+  mut status : String
+  mut summary : String
+  sections : Array[DebugSection]
+  warnings : Array[String]
+  errors : Array[String]
+}
+
+pub(all) struct DebugSection {
+  name : String
+  kind : String
+  available : Bool
+  summary : String?
+  data_json : String
+}
 
 pub struct Document {
   blocks : @ref.Ref[Array[Block]]

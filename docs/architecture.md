@@ -35,6 +35,13 @@ Current CLI contract:
   directories
 * `batch` is non-recursive, serial v1, and writes one isolated document root
   per top-level input file plus `batch-summary.tsv`
+* `debug <input>` is the unified multi-format inspect path and emits a
+  developer-facing report instead of Markdown output
+* `debug --json` is the stable scriptable form; human-readable report text is
+  the default interactive form
+* legacy `debug <all|extract|raw|pipeline> <input> [output]` is a deprecated
+  PDF alias over the unified inspect surface; Markdown materialization only
+  happens when `[output]` is explicitly provided
 
 ### Dispatcher
 
@@ -73,6 +80,17 @@ These packages are infrastructure, not final Markdown semantics.
 
 `convert/*` maps source formats into unified IR and handles conservative
 degradation.
+
+The convert layer is now intentionally narrow at its public boundary:
+
+* stable package-facing entrypoints are the format `parse_*` functions and the
+  small set of inspect/profile APIs consumed by dispatcher, CLI, and unified
+  debug inspect
+* internal helpers such as classifiers, per-format normalization helpers,
+  relationship walkers, table heuristics, and parser internals are not treated
+  as stable external APIs
+* repository integration should prefer the dispatcher and CLI surfaces unless a
+  format-specific parse/inspect contract is explicitly required
 
 Current format families:
 

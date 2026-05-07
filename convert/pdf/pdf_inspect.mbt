@@ -1,0 +1,673 @@
+///|
+pub fn build_pdf_debug_sections(
+  model : @model.PdfDocumentModel,
+  max_heading : Int,
+) -> Array[@cor.DebugSection] {
+  let doc0 = build_convert_lines(model, "")
+  let doc1 = build_convert_blocks(doc0)
+  let doc2 = classify_convert_blocks(doc1, max_heading)
+  let doc3 = filter_noise_blocks(doc2)
+  let doc4 = merge_convert_blocks(doc3)
+  let doc5 = attach_high_confidence_uri_links(doc4)
+
+  [
+    pdf_backend_section(model),
+    pdf_pages_section(model),
+    pdf_text_model_section(model),
+    pdf_images_section(model),
+    pdf_annotations_section(model),
+    pdf_links_section(doc1),
+    pdf_pipeline_section(doc1, doc2, doc3, doc4, doc5, max_heading),
+  ]
+}
+
+///|
+fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
+  @cor.debug_section(
+    "pdf_backend",
+    "pdf",
+    true,
+    Some("PDF backend, OCR boundary, and document-level flags"),
+    @cor.object_json([
+      @cor.json_string("backend") + ": " + @cor.json_string("mbtpdf"),
+      @cor.json_string("ocr_mode") + ": " + @cor.json_string("native"),
+      @cor.json_string("ocr_used") + ": " + @cor.bool_json(false),
+      @cor.json_string("native_signal_empty") +
+      ": " +
+      @cor.bool_json(is_effectively_empty_pdf_doc(model)),
+      @cor.json_string("page_count") + ": " + model.page_count.to_string(),
+      @cor.json_string("outline_count") +
+      ": " +
+      model.outlines.length().to_string(),
+      @cor.json_string("is_encrypted") +
+      ": " +
+      @cor.bool_json(model.is_encrypted),
+      @cor.json_string("has_xref_stream") +
+      ": " +
+      @cor.bool_json(model.has_xref_stream),
+      @cor.json_string("has_object_stream") +
+      ": " +
+      @cor.bool_json(model.has_object_stream),
+    ]),
+  )
+}
+
+///|
+fn pdf_pages_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
+  let page_items : Array[String] = []
+  let mut raw_content_stream_ref_total = 0
+
+  for page in model.pages {
+    raw_content_stream_ref_total += page.raw_content_stream_refs.length()
+    page_items.push(
+      @cor.object_json([
+        @cor.json_string("page_number") +
+        ": " +
+        (page.page_index + 1).to_string(),
+        @cor.json_string("page_label") +
+        ": " +
+        @cor.json_string_opt(page.page_label),
+        @cor.json_string("rotation") + ": " + page.rotation.to_string(),
+        @cor.json_string("media_box") +
+        ": " +
+        pdf_rect_json(page.boxes.media_box),
+        @cor.json_string("crop_box") +
+        ": " +
+        pdf_rect_opt_json(page.boxes.crop_box),
+        @cor.json_string("raw_content_stream_ref_count") +
+        ": " +
+        page.raw_content_stream_refs.length().to_string(),
+        @cor.json_string("raw_content_stream_refs") +
+        ": " +
+        @cor.string_array_json(page.raw_content_stream_refs),
+        @cor.json_string("text_block_count") +
+        ": " +
+        @model.page_text_block_count(page).to_string(),
+        @cor.json_string("line_count") +
+        ": " +
+        @model.page_line_count(page).to_string(),
+        @cor.json_string("span_count") +
+        ": " +
+        @model.page_span_count(page).to_string(),
+        @cor.json_string("char_count") +
+        ": " +
+        @model.page_char_count(page).to_string(),
+        @cor.json_string("image_count") +
+        ": " +
+        page.images.length().to_string(),
+        @cor.json_string("vector_count") +
+        ": " +
+        page.vectors.length().to_string(),
+        @cor.json_string("annotation_count") +
+        ": " +
+        page.annotations.length().to_string(),
+        @cor.json_string("form_field_count") +
+        ": " +
+        page.forms.length().to_string(),
+        @cor.json_string("object_count") +
+        ": " +
+        @model.page_object_count(page).to_string(),
+        @cor.json_string("header_footer_candidate_count") +
+        ": " +
+        @model.page_header_footer_candidate_count(page).to_string(),
+        @cor.json_string("page_number_candidate_count") +
+        ": " +
+        @model.page_page_number_candidate_count(page).to_string(),
+        @cor.json_string("artifact_candidate_count") +
+        ": " +
+        @model.page_artifact_candidate_count(page).to_string(),
+      ]),
+    )
+  }
+
+  @cor.debug_section(
+    "pdf_pages",
+    "pdf",
+    true,
+    Some("PDF page geometry, content stream refs, and per-page object counts"),
+    @cor.object_json([
+      @cor.json_string("page_count") + ": " + model.page_count.to_string(),
+      @cor.json_string("raw_content_stream_ref_total") +
+      ": " +
+      raw_content_stream_ref_total.to_string(),
+      @cor.json_string("pages") + ": " + @cor.array_json(page_items),
+    ]),
+  )
+}
+
+///|
+fn pdf_text_model_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
+  let mut block_count = 0
+  let mut line_count = 0
+  let mut span_count = 0
+  let mut char_count = 0
+  let mut heading_candidate_count = 0
+  let mut page_number_candidate_count = 0
+  let mut header_footer_candidate_count = 0
+  let mut artifact_candidate_count = 0
+  let mut caption_candidate_count = 0
+  let mut table_cell_candidate_count = 0
+  let writing_direction_counts = Map::new()
+  let source_kind_counts = Map::new()
+
+  for page in model.pages {
+    block_count += page.text_blocks.length()
+    line_count += @model.page_line_count(page)
+    span_count += @model.page_span_count(page)
+    char_count += @model.page_char_count(page)
+
+    for block in page.text_blocks {
+      if block.is_heading_candidate {
+        heading_candidate_count += 1
+      }
+      if block.is_page_number_candidate {
+        page_number_candidate_count += 1
+      }
+      if block.is_header_footer_candidate {
+        header_footer_candidate_count += 1
+      }
+      if block.is_artifact_candidate {
+        artifact_candidate_count += 1
+      }
+      if block.is_caption_candidate {
+        caption_candidate_count += 1
+      }
+      if block.is_table_cell_candidate {
+        table_cell_candidate_count += 1
+      }
+
+      bump_string_count(
+        writing_direction_counts,
+        pdf_writing_direction_name(block.writing_direction),
+      )
+      bump_string_count(
+        source_kind_counts,
+        pdf_source_block_kind_name(block.kind),
+      )
+    }
+  }
+
+  @cor.debug_section(
+    "pdf_text_model",
+    "pdf",
+    true,
+    Some("PDF lower-layer text model counts and candidate signals"),
+    @cor.object_json([
+      @cor.json_string("text_block_count") + ": " + block_count.to_string(),
+      @cor.json_string("line_count") + ": " + line_count.to_string(),
+      @cor.json_string("span_count") + ": " + span_count.to_string(),
+      @cor.json_string("char_count") + ": " + char_count.to_string(),
+      @cor.json_string("heading_candidate_count") +
+      ": " +
+      heading_candidate_count.to_string(),
+      @cor.json_string("page_number_candidate_count") +
+      ": " +
+      page_number_candidate_count.to_string(),
+      @cor.json_string("header_footer_candidate_count") +
+      ": " +
+      header_footer_candidate_count.to_string(),
+      @cor.json_string("artifact_candidate_count") +
+      ": " +
+      artifact_candidate_count.to_string(),
+      @cor.json_string("caption_candidate_count") +
+      ": " +
+      caption_candidate_count.to_string(),
+      @cor.json_string("table_cell_candidate_count") +
+      ": " +
+      table_cell_candidate_count.to_string(),
+      @cor.json_string("writing_direction_counts") +
+      ": " +
+      map_string_int_json(writing_direction_counts),
+      @cor.json_string("source_block_kind_counts") +
+      ": " +
+      map_string_int_json(source_kind_counts),
+    ]),
+  )
+}
+
+///|
+fn pdf_images_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
+  let filter_counts = Map::new()
+  let colorspace_counts = Map::new()
+  let mut image_count = 0
+  let mut inline_image_count = 0
+  let mut with_object_ref_count = 0
+  let mut with_alt_text_count = 0
+
+  for page in model.pages {
+    for image in page.images {
+      image_count += 1
+      if image.inline_image {
+        inline_image_count += 1
+      }
+      if image.object_ref is Some(_) {
+        with_object_ref_count += 1
+      }
+      if image.alt_text is Some(_) {
+        with_alt_text_count += 1
+      }
+
+      match image.image_filter {
+        Some(name) => bump_string_count(filter_counts, name)
+        None => bump_string_count(filter_counts, "None")
+      }
+      match image.colorspace {
+        Some(name) => bump_string_count(colorspace_counts, name)
+        None => bump_string_count(colorspace_counts, "None")
+      }
+    }
+  }
+
+  @cor.debug_section(
+    "pdf_images",
+    "pdf",
+    true,
+    Some("PDF image object summary"),
+    @cor.object_json([
+      @cor.json_string("image_count") + ": " + image_count.to_string(),
+      @cor.json_string("inline_image_count") +
+      ": " +
+      inline_image_count.to_string(),
+      @cor.json_string("with_object_ref_count") +
+      ": " +
+      with_object_ref_count.to_string(),
+      @cor.json_string("with_alt_text_count") +
+      ": " +
+      with_alt_text_count.to_string(),
+      @cor.json_string("image_filter_counts") +
+      ": " +
+      map_string_int_json(filter_counts),
+      @cor.json_string("colorspace_counts") +
+      ": " +
+      map_string_int_json(colorspace_counts),
+    ]),
+  )
+}
+
+///|
+fn pdf_annotations_section(
+  model : @model.PdfDocumentModel,
+) -> @cor.DebugSection {
+  let subtype_counts = Map::new()
+  let mut annotation_count = 0
+  let mut uri_count = 0
+  let mut dest_count = 0
+  let mut target_page_count = 0
+  let mut object_ref_count = 0
+
+  for page in model.pages {
+    for annotation in page.annotations {
+      annotation_count += 1
+      bump_string_count(subtype_counts, annotation.subtype)
+      if annotation.uri is Some(_) {
+        uri_count += 1
+      }
+      if annotation.dest is Some(_) {
+        dest_count += 1
+      }
+      if annotation.target_page is Some(_) {
+        target_page_count += 1
+      }
+      if annotation.object_ref is Some(_) {
+        object_ref_count += 1
+      }
+    }
+  }
+
+  @cor.debug_section(
+    "pdf_annotations",
+    "pdf",
+    true,
+    Some("PDF annotation object summary"),
+    @cor.object_json([
+      @cor.json_string("annotation_count") + ": " + annotation_count.to_string(),
+      @cor.json_string("subtype_counts") +
+      ": " +
+      map_string_int_json(subtype_counts),
+      @cor.json_string("uri_count") + ": " + uri_count.to_string(),
+      @cor.json_string("dest_count") + ": " + dest_count.to_string(),
+      @cor.json_string("target_page_count") +
+      ": " +
+      target_page_count.to_string(),
+      @cor.json_string("object_ref_count") + ": " + object_ref_count.to_string(),
+    ]),
+  )
+}
+
+///|
+fn pdf_links_section(doc : PdfConvertDocument) -> @cor.DebugSection {
+  let match_status_counts = Map::new()
+  let mut matched_link_count = 0
+  let mut visible_text_total = 0
+
+  for page in doc.pages {
+    for result in match_page_uri_links(page) {
+      let status_name = pdf_uri_link_match_status_name(result.status)
+      bump_string_count(match_status_counts, status_name)
+
+      match result.status {
+        PdfUriLinkMatchStatus::Matched => matched_link_count += 1
+        PdfUriLinkMatchStatus::NoVisibleText => visible_text_total += 0
+        _ => ()
+      }
+
+      visible_text_total += result.matched_line_count
+    }
+  }
+
+  @cor.debug_section(
+    "pdf_links",
+    "pdf",
+    true,
+    Some("PDF URI-link matching summary"),
+    @cor.object_json([
+      @cor.json_string("match_status_counts") +
+      ": " +
+      map_string_int_json(match_status_counts),
+      @cor.json_string("matched_link_count") +
+      ": " +
+      matched_link_count.to_string(),
+      @cor.json_string("matched_line_total") +
+      ": " +
+      visible_text_total.to_string(),
+    ]),
+  )
+}
+
+///|
+fn pdf_pipeline_section(
+  doc1 : PdfConvertDocument,
+  doc2 : PdfConvertDocument,
+  doc3 : PdfConvertDocument,
+  doc4 : PdfConvertDocument,
+  doc5 : PdfConvertDocument,
+  max_heading : Int,
+) -> @cor.DebugSection {
+  let heading_status_counts = Map::new()
+  let heading_reason_counts = Map::new()
+  let noise_status_counts = Map::new()
+  let noise_reason_counts = Map::new()
+  let merge_status_counts = Map::new()
+  let merge_reason_counts = Map::new()
+
+  for page in doc1.pages {
+    for i = 0; i < page.blocks.length(); i = i + 1 {
+      let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
+      let next = if i + 1 < page.blocks.length() {
+        Some(page.blocks[i + 1])
+      } else {
+        None
+      }
+      let decision = decide_heading_classification(
+        prev,
+        page.blocks[i],
+        next,
+        max_heading,
+      )
+      bump_string_count(
+        heading_status_counts,
+        pdf_heading_decision_status_name(decision.status),
+      )
+      bump_reason_tags(heading_reason_counts, decision.reason_tags)
+    }
+  }
+
+  let repeated = build_repeated_edge_noise_index(doc2)
+  for page in doc2.pages {
+    for i = 0; i < page.blocks.length(); i = i + 1 {
+      let block = page.blocks[i]
+      let decision = decide_noise_block(page, i, block, repeated)
+      bump_string_count(
+        noise_status_counts,
+        pdf_noise_decision_status_name(decision.status),
+      )
+      bump_reason_tags(noise_reason_counts, decision.reason_tags)
+    }
+  }
+
+  for i = 1; i < doc3.pages.length(); i = i + 1 {
+    let decision = decide_page_boundary_merge(doc3.pages[i - 1], doc3.pages[i])
+    bump_string_count(
+      merge_status_counts,
+      pdf_merge_decision_status_name(decision.status),
+    )
+    bump_reason_tags(merge_reason_counts, decision.reason_tags)
+  }
+
+  let mut table_candidate_count = 0
+  let mut attached_image_caption_count = 0
+  let mut image_count = 0
+  let mut linked_block_count = 0
+  for page in doc5.pages {
+    table_candidate_count += detect_pdf_tables(page, false).length()
+    let (captions, _) = infer_page_image_captions(page, false)
+    image_count += page.images.length()
+    for caption in captions {
+      if caption is Some(_) {
+        attached_image_caption_count += 1
+      }
+    }
+    for block in page.blocks {
+      if block.rich_inlines is Some(_) {
+        linked_block_count += 1
+      }
+    }
+  }
+
+  @cor.debug_section(
+    "pdf_pipeline",
+    "pdf",
+    true,
+    Some("PDF convert-stage aggregate decision summary"),
+    @cor.object_json([
+      @cor.json_string("stage_counts") +
+      ": " +
+      @cor.object_json([
+        @cor.json_string("convert_line_count") +
+        ": " +
+        convert_line_count(doc1).to_string(),
+        @cor.json_string("initial_block_count") +
+        ": " +
+        convert_block_count(doc1).to_string(),
+        @cor.json_string("classified_block_count") +
+        ": " +
+        convert_block_count(doc2).to_string(),
+        @cor.json_string("noise_filtered_block_count") +
+        ": " +
+        convert_block_count(doc3).to_string(),
+        @cor.json_string("merged_block_count") +
+        ": " +
+        convert_block_count(doc4).to_string(),
+        @cor.json_string("linked_block_count") +
+        ": " +
+        linked_block_count.to_string(),
+      ]),
+      @cor.json_string("heading_status_counts") +
+      ": " +
+      map_string_int_json(heading_status_counts),
+      @cor.json_string("heading_reason_counts") +
+      ": " +
+      map_string_int_json(heading_reason_counts),
+      @cor.json_string("noise_status_counts") +
+      ": " +
+      map_string_int_json(noise_status_counts),
+      @cor.json_string("noise_reason_counts") +
+      ": " +
+      map_string_int_json(noise_reason_counts),
+      @cor.json_string("merge_status_counts") +
+      ": " +
+      map_string_int_json(merge_status_counts),
+      @cor.json_string("merge_reason_counts") +
+      ": " +
+      map_string_int_json(merge_reason_counts),
+      @cor.json_string("repeated_edge_summary") +
+      ": " +
+      @cor.object_json([
+        @cor.json_string("repeated_head_count") +
+        ": " +
+        repeated.repeated_heads.length().to_string(),
+        @cor.json_string("repeated_tail_count") +
+        ": " +
+        repeated.repeated_tails.length().to_string(),
+        @cor.json_string("repeated_head_prefix_count") +
+        ": " +
+        repeated.repeated_head_prefixes.length().to_string(),
+        @cor.json_string("repeated_tail_prefix_count") +
+        ": " +
+        repeated.repeated_tail_prefixes.length().to_string(),
+      ]),
+      @cor.json_string("table_candidate_count") +
+      ": " +
+      table_candidate_count.to_string(),
+      @cor.json_string("image_count") + ": " + image_count.to_string(),
+      @cor.json_string("attached_image_caption_count") +
+      ": " +
+      attached_image_caption_count.to_string(),
+      @cor.json_string("image_without_caption_count") +
+      ": " +
+      (image_count - attached_image_caption_count).to_string(),
+    ]),
+  )
+}
+
+///|
+fn convert_line_count(doc : PdfConvertDocument) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total += page.lines.length()
+  }
+  total
+}
+
+///|
+fn convert_block_count(doc : PdfConvertDocument) -> Int {
+  let mut total = 0
+  for page in doc.pages {
+    total += page.blocks.length()
+  }
+  total
+}
+
+///|
+fn bump_reason_tags(counts : Map[String, Int], tags : Array[String]) -> Unit {
+  for tag in tags {
+    bump_string_count(counts, tag)
+  }
+}
+
+///|
+fn bump_string_count(counts : Map[String, Int], key : String) -> Unit {
+  let prev = counts.get(key).unwrap_or(0)
+  counts.set(key, prev + 1)
+}
+
+///|
+fn map_string_int_json(counts : Map[String, Int]) -> String {
+  @cor.string_int_kv_json(sorted_string_int_entries(counts))
+}
+
+///|
+fn sorted_string_int_entries(counts : Map[String, Int]) -> Array[(String, Int)] {
+  let keys : Array[String] = []
+  for entry in counts {
+    let (key, _) = entry
+    keys.push(key)
+  }
+  keys.sort()
+
+  let out : Array[(String, Int)] = []
+  for key in keys {
+    out.push((key, counts.get(key).unwrap_or(0)))
+  }
+  out
+}
+
+///|
+fn pdf_rect_json(rect : @model.PdfRect) -> String {
+  @cor.object_json([
+    @cor.json_string("x0") + ": " + rect.x0.to_string(),
+    @cor.json_string("y0") + ": " + rect.y0.to_string(),
+    @cor.json_string("x1") + ": " + rect.x1.to_string(),
+    @cor.json_string("y1") + ": " + rect.y1.to_string(),
+  ])
+}
+
+///|
+fn pdf_rect_opt_json(rect : @model.PdfRect?) -> String {
+  match rect {
+    Some(v) => pdf_rect_json(v)
+    None => "null"
+  }
+}
+
+///|
+fn pdf_source_block_kind_name(kind : @model.PdfTextBlockKind) -> String {
+  match kind {
+    @model.PdfTextBlockKind::Text => "Text"
+    @model.PdfTextBlockKind::HeadingCandidate => "HeadingCandidate"
+    @model.PdfTextBlockKind::ListCandidate => "ListCandidate"
+    @model.PdfTextBlockKind::CaptionCandidate => "CaptionCandidate"
+    @model.PdfTextBlockKind::HeaderFooterCandidate => "HeaderFooterCandidate"
+    @model.PdfTextBlockKind::TableCellCandidate => "TableCellCandidate"
+    @model.PdfTextBlockKind::FormulaCandidate => "FormulaCandidate"
+    @model.PdfTextBlockKind::Unknown => "Unknown"
+  }
+}
+
+///|
+fn pdf_writing_direction_name(dir : @model.PdfWritingDirection) -> String {
+  match dir {
+    @model.PdfWritingDirection::LeftToRight => "LeftToRight"
+    @model.PdfWritingDirection::RightToLeft => "RightToLeft"
+    @model.PdfWritingDirection::TopToBottom => "TopToBottom"
+    @model.PdfWritingDirection::BottomToTop => "BottomToTop"
+    @model.PdfWritingDirection::Unknown => "Unknown"
+  }
+}
+
+///|
+fn pdf_heading_decision_status_name(
+  status : PdfHeadingDecisionStatus,
+) -> String {
+  match status {
+    PdfHeadingDecisionStatus::PromoteHeading => "PromoteHeading"
+    PdfHeadingDecisionStatus::KeepHeading => "KeepHeading"
+    PdfHeadingDecisionStatus::DemoteToParagraph => "DemoteToParagraph"
+    PdfHeadingDecisionStatus::ToNoise => "ToNoise"
+    PdfHeadingDecisionStatus::KeepParagraph => "KeepParagraph"
+    PdfHeadingDecisionStatus::KeepNoise => "KeepNoise"
+  }
+}
+
+///|
+fn pdf_noise_decision_status_name(status : PdfNoiseDecisionStatus) -> String {
+  match status {
+    PdfNoiseDecisionStatus::Drop => "Drop"
+    PdfNoiseDecisionStatus::Keep => "Keep"
+  }
+}
+
+///|
+fn pdf_merge_decision_status_name(status : PdfMergeDecisionStatus) -> String {
+  match status {
+    PdfMergeDecisionStatus::Merge => "Merge"
+    PdfMergeDecisionStatus::KeepSplit => "KeepSplit"
+  }
+}
+
+///|
+fn pdf_uri_link_match_status_name(status : PdfUriLinkMatchStatus) -> String {
+  match status {
+    PdfUriLinkMatchStatus::Matched => "Matched"
+    PdfUriLinkMatchStatus::RejectedEmptyUri => "RejectedEmptyUri"
+    PdfUriLinkMatchStatus::RejectedUnsupportedScheme =>
+      "RejectedUnsupportedScheme"
+    PdfUriLinkMatchStatus::RejectedDestOnly => "RejectedDestOnly"
+    PdfUriLinkMatchStatus::RejectedNoBbox => "RejectedNoBbox"
+    PdfUriLinkMatchStatus::RejectedNonLink => "RejectedNonLink"
+    PdfUriLinkMatchStatus::NoVisibleText => "NoVisibleText"
+    PdfUriLinkMatchStatus::Ambiguous => "Ambiguous"
+    PdfUriLinkMatchStatus::TooLarge => "TooLarge"
+    PdfUriLinkMatchStatus::OverlappingAnnotations => "OverlappingAnnotations"
+  }
+}

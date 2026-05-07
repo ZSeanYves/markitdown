@@ -39,6 +39,15 @@ Current product-path CLI contract:
   each isolated batch document root
 * `ocr` and `debug` follow the same explicit metadata-gating rule when writing
   on-disk outputs
+* `debug <input>` is now the unified multi-format inspect/report path
+* unified debug inspect does not write Markdown, metadata sidecars, or assets
+  by default
+* PDF keeps deeper debug detail, including normalization summary aggregation,
+  while other formats currently provide baseline report data plus selected
+  format-specific stats
+* legacy `debug <all|extract|raw|pipeline> <input> [output]` is deprecated and
+  now maps to the unified PDF inspect surface; only an explicit `[output]`
+  path materializes Markdown
 
 Batch v1 behavior:
 

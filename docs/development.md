@@ -38,8 +38,38 @@ Batch path:
 Debug path:
 
 ```bash
+./_build/native/debug/build/cli/cli.exe debug --json <input>
+./_build/native/debug/build/cli/cli.exe debug --with-ir --with-metadata-summary --with-normalization <input>
 ./_build/native/debug/build/cli/cli.exe debug <all|extract|raw|pipeline> <input> [output]
 ```
+
+Unified debug inspect notes:
+
+* `debug <input>` is the new multi-format inspect entrypoint
+* `debug --json` emits a stable JSON report for scripts and regression checks
+* `debug --with-ir` adds IR block previews
+* `debug --with-metadata-summary` adds origin summary detail
+* `debug --with-normalization` adds normalization summary when available
+* PDF inspect now uses structured `pdf_backend`, `pdf_pages`,
+  `pdf_text_model`, `pdf_images`, `pdf_annotations`, `pdf_links`,
+  `pdf_pipeline`, and `normalization` sections
+* legacy `debug <all|extract|raw|pipeline> ...` is a deprecated PDF alias; it
+  prints the unified inspect report and only materializes Markdown when
+  `[output]` is provided
+
+## Convert package API hygiene
+
+The `convert/*` packages are product-path implementation packages, not a wide
+plugin surface.
+
+Current policy:
+
+* keep stable `parse_*` entrypoints public
+* keep inspect/profile APIs public only when they are consumed by dispatcher,
+  CLI, unified debug inspect, or blackbox integration tests
+* keep format-internal helpers private whenever practical
+* when adding tests for internal behavior, prefer same-package whitebox tests
+  over widening the production public API
 
 Metadata sidecar:
 
@@ -112,6 +142,7 @@ Assets regression:
 
 ```bash
 ./samples/check_assets.sh
+./samples/scripts/check_debug_contract.sh
 ```
 
 Validation runner policy:

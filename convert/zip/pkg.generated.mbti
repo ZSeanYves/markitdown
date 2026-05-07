@@ -14,8 +14,6 @@ pub async fn parse_zip_with_profile(String, String, Int) -> (@core.Document, Zip
 
 pub fn zip_profile_add_stage(ZipProfileReport?, String, UInt64, String?) -> Unit
 
-pub fn zip_profile_add_summary(ZipProfileReport?, String) -> Unit
-
 pub fn zip_profile_render_report(ZipProfileReport) -> String
 
 // Errors

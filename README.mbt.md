@@ -84,6 +84,8 @@ equally or fairly comparable with Microsoft MarkItDown.
 * unified IR across document families
 * shared profile-driven Text Normalization v2 substrate with staged PDF
   extracted-text and comparison cleanup
+* narrower convert-package public API centered on stable parse, inspect, and
+  profile entrypoints
 * Markdown main output
 * `assets/` export for materialized local images
 * metadata sidecar via `--with-metadata`
@@ -122,9 +124,24 @@ Batch conversion:
 Debug and OCR entrypoints remain explicit non-default paths:
 
 ```bash
+./_build/native/debug/build/cli/cli.exe debug --json <input>
+./_build/native/debug/build/cli/cli.exe debug --with-ir --with-metadata-summary --with-normalization <input>
 ./_build/native/debug/build/cli/cli.exe debug <all|extract|raw|pipeline> <input> [output]
 ./_build/native/debug/build/cli/cli.exe ocr <input> [output]
 ```
+
+Unified debug inspect is multi-format and developer-facing:
+
+* it reports detected format, converter route, IR structure, asset summary, and
+  format-specific stats without changing normal conversion output
+* PDF additionally reports `pdf_backend`, `pdf_pages`, `pdf_text_model`,
+  `pdf_images`, `pdf_annotations`, `pdf_links`, `pdf_pipeline`, and aggregated
+  normalization summary
+* debug inspect does not write Markdown, assets, or metadata sidecars by
+  default
+* legacy `debug <all|extract|raw|pipeline> ...` is now a deprecated PDF alias
+  that prints the unified inspect report; provide `[output]` if you also want
+  Markdown materialized
 
 Development fallback:
 

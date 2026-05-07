@@ -54,12 +54,12 @@ pub fn yaml_profile_add_stage(
 }
 
 ///|
-pub fn yaml_profile_set_active(report : YamlProfileReport?) -> Unit {
+fn yaml_profile_set_active(report : YamlProfileReport?) -> Unit {
   yaml_active_profile_report.val = report
 }
 
 ///|
-pub fn yaml_profile_add_active_stage(
+fn yaml_profile_add_active_stage(
   name : String,
   elapsed_ms : UInt64,
   detail : String?,
