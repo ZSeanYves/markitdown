@@ -37,6 +37,7 @@ The repository's validation and benchmark scripts are shell-based and are
 primarily exercised in Unix-like environments; Windows users can use the native
 build path and run the sample/benchmark script layer through WSL or an
 equivalent POSIX shell until a dedicated Windows CI/script layer is added.
+GitHub Actions validation is currently checked in for Ubuntu and macOS.
 
 ## Current Status
 
@@ -127,6 +128,14 @@ moon test
 ./samples/check.sh
 ./samples/scripts/bench_smoke.sh --kind smoke
 ```
+
+Checked-in GitHub Actions CI now runs `moon build --target native`,
+`moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
+`macos-latest` for `push` and `pull_request`. `bench_smoke.sh --kind smoke`
+remains available locally and as a manual `workflow_dispatch` job; it is not
+part of the default PR gate. Windows core native support remains documented,
+but the shell validation suite still targets WSL or another POSIX shell rather
+than native Windows CI. `moon publish` remains a manual release step.
 
 Detailed validation counts, sample matrices, metadata/assets checks, benchmark
 smoke counts, batch profile results, and MarkItDown comparison runs are tracked

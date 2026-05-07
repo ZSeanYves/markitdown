@@ -30,6 +30,34 @@ Latest checked validation facts:
 These numbers are repository-local checked facts, not a promise that every
 future corpus size will stay constant.
 
+## GitHub Actions CI
+
+Checked-in workflow:
+
+* `.github/workflows/ci.yml`
+
+Default CI gate:
+
+* triggers: `push`, `pull_request`
+* matrix: `ubuntu-latest`, `macos-latest`
+* commands: `moon build --target native`, `moon check`, `moon test`,
+  `./samples/check.sh`
+
+Manual benchmark lane:
+
+* trigger: `workflow_dispatch`
+* runner: `ubuntu-latest`
+* command: `./samples/scripts/bench_smoke.sh --kind smoke`
+* rationale: smoke benchmark is lightweight and reproducible, but it remains an
+  engineering signal rather than a required semantic-validation gate
+
+Windows note:
+
+* core native build remains part of the supported product path
+* current shell validation suite is POSIX-oriented and should be run through
+  WSL or an equivalent shell until a dedicated Windows workflow is added
+* `moon publish` remains manual
+
 ## Runner
 
 Repository performance conclusions use:

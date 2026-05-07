@@ -185,6 +185,7 @@ Behavior:
 Default verification set:
 
 ```bash
+moon build --target native
 moon fmt
 moon info
 moon check
@@ -197,6 +198,20 @@ moon test
 ./samples/scripts/check_batch_contract.sh
 ./samples/scripts/check_samples.sh
 ```
+
+GitHub Actions CI:
+
+* checked-in workflow: `.github/workflows/ci.yml`
+* default validation matrix: `ubuntu-latest`, `macos-latest`
+* default CI commands: `moon build --target native`, `moon check`, `moon test`,
+  `./samples/check.sh`
+* manual benchmark job: `./samples/scripts/bench_smoke.sh --kind smoke` on
+  `workflow_dispatch` only
+* benchmark compare and batch profile remain local/manual rather than mandatory
+  CI gates
+* Windows shell validation remains a WSL/POSIX-shell story until a dedicated
+  Windows workflow is added
+* `moon publish` remains manual and is not automated by CI
 
 ## Benchmark Commands
 
