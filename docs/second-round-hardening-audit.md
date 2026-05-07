@@ -35,6 +35,10 @@ External reference scope:
 * Microsoft MarkItDown repository: <https://github.com/microsoft/markitdown>
 * MoonBit docs for package structure and `moon` commands: <https://docs.moonbitlang.com/>
 
+Current checked validation totals and representative benchmark rows are tracked
+separately in
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 ## 1. Executive Summary
 
 `markitdown-mb` already has a real multi-format pipeline:

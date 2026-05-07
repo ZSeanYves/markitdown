@@ -7,6 +7,7 @@ It is the concise project-level companion to:
 
 * [docs/support-and-limits.md](./support-and-limits.md)
 * [docs/benchmark-governance.md](./benchmark-governance.md)
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
 * [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
 * [docs/second-round-hardening-audit.md](./second-round-hardening-audit.md)
 
@@ -92,6 +93,10 @@ The checked-in benchmark chains are:
 * `samples/scripts/bench_compare_markitdown.sh`
 * `samples/scripts/bench_batch_profile.sh`
 
+Detailed validation counts, current run totals, and representative benchmark
+examples live in
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 ## Current Boundaries
 
 Across sealed formats, the repository stays intentionally conservative:
@@ -104,6 +109,8 @@ Across sealed formats, the repository stays intentionally conservative:
 * no globally aggressive text rewriting policy across literal or structured
   paths
 * no benchmark claim beyond the checked-in corpora
+
+## Recent Engineering Hardening
 
 Recent substrate hardening after second-round seal:
 

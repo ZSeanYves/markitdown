@@ -4,6 +4,9 @@ This is the repository’s detailed support contract. When README, progress, and
 support text differ, this document should be treated as the detailed source of
 truth for format behavior and limits.
 
+For checked validation totals and benchmark result snapshots, use
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 ## Project Scope
 
 Current product positioning:

@@ -6,6 +6,9 @@ second-round hardening.
 It does not claim new performance results by itself. Its purpose is to make
 future benchmark conclusions comparable, reviewable, and hard to overstate.
 
+For the current checked validation counts and representative benchmark rows,
+use [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 ## Goals
 
 Benchmark work in this repository should do three things:

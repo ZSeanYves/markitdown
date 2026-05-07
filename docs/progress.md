@@ -8,6 +8,9 @@ For detailed per-format behavior, use
 For second-round sealed-format status, use
 [docs/second-round-summary.md](./second-round-summary.md).
 
+For checked validation counts and benchmark examples, use
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 For benchmark runner/corpus/comparability rules, use
 [docs/benchmark-governance.md](./benchmark-governance.md).
 

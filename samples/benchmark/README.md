@@ -6,6 +6,9 @@ and warning-policy files.
 It is meant to make performance work reviewable and reproducible. It is not a
 dumping ground for arbitrary local inputs.
 
+For current checked counts and representative benchmark examples, use
+[docs/validation-and-benchmark-summary.md](../../docs/validation-and-benchmark-summary.md).
+
 ## Checked-in Control Files
 
 * `corpus.tsv`
