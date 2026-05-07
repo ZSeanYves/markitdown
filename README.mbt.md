@@ -1,5 +1,6 @@
 # markitdown-mb
 
+[![CI](https://github.com/ZSeanYves/markitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/ZSeanYves/markitdown/actions/workflows/ci.yml)
 ![MoonBit](https://img.shields.io/badge/MoonBit-native-2563eb)
 ![CLI](https://img.shields.io/badge/CLI-prebuilt--native-16a34a)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-6b7280)
@@ -143,6 +144,7 @@ in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-su
 
 ## Documentation
 
+* [Changelog](./CHANGELOG.md)
 * [Second-Round Summary](./docs/second-round-summary.md)
 * [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
 * [Support and Limits](./docs/support-and-limits.md)

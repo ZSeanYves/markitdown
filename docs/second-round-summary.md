@@ -5,6 +5,7 @@ state.
 
 It is the concise project-level companion to:
 
+* [CHANGELOG.md](../CHANGELOG.md)
 * [docs/support-and-limits.md](./support-and-limits.md)
 * [docs/benchmark-governance.md](./benchmark-governance.md)
 * [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
