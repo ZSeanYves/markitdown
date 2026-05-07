@@ -76,8 +76,9 @@ Why this order:
   move together.
 * DOCX / PPTX remain core OOXML formats but are broader and more expensive, so
   they are better after the first few sprints have hardened the workflow.
-* PDF is still a deep-water format and is better handled after more of the
-  project-wide evidence chain is in place.
+* PDF is a deep-water format, but the first native text-PDF evidence closure
+  sprint is now complete; future work should focus on selected blockers rather
+  than a broad rewrite.
 * TXT / Markdown matter, but their second-round upside is mostly performance
   proof and boundary clarity rather than large semantic recovery gains.
 
@@ -108,6 +109,17 @@ corpus`.
 Focus:
 
 * formula cached-value policy and missing-cache degradation
+
+Current next deep-water format note:
+
+* PDF is not yet in a closure sprint
+* PDF readiness audit landed first so the repository could separate:
+  * native text-PDF capability
+  * OCR/optional paths
+  * parser-signal gaps
+  * evidence gaps
+* after that audit, the first PDF sprint targeted text-PDF evidence closure
+  rather than a broad parser rewrite
 * lightweight formula evaluation v1 for safe missing-cache cases
 * merged-cell policy without misleading visual reconstruction
 * typed-cell semantics

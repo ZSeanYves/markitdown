@@ -82,7 +82,7 @@ For second-round per-format excellence sprints, use
 | EPUB | H2++ complete, H3++ evidence-backed on checked-in native EPUB corpus | safe OPF/spine/nav/NCX/cover/assets pipeline, warning/degrade policy, metadata/origin | no DRM/CSS/JS/remote fetch, NCX minimal subset only, not a reading-system renderer |
 | DOCX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | lists, multiline/merged-boundary tables, notes/comments, headers/footers, text boxes, local image assets, metadata | not a Word layout engine, no full tracked-change UI, no full run-level style fidelity, no complex visual table reconstruction |
 | PPTX | H2++ complete, H3++ evidence-backed on checked-in native overlap corpus | slide order, bullets, grouped shapes, explicit tables, notes, hidden slides, images | no charts/SmartArt/OLE/action links/animations, no full merged-table visual reconstruction |
-| PDF | H2 partial, text-oriented | headings/noise/merge, URI links, simple tables, captions, provenance | default strength is text PDF, not scanned/OCR or full complex-layout recovery |
+| PDF | H2++ complete for native text-PDF scope, H3++ evidence-backed on checked-in native text-PDF corpus | headings/noise/merge, URI links, simple tables, captions, provenance | default strength is text PDF, not scanned/OCR or full complex-layout recovery |
 
 ## Output Model
 

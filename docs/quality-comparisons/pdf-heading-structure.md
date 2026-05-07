@@ -2,11 +2,11 @@
 
 - format: PDF
 - sample path: `samples/main_process/pdf/heading_basic.pdf`
-- feature focus: heading retention, section separation, page-noise suppression
-- comparison date: 2026-05-05
-- markitdown-mb command: `./_build/native/debug/build/cli/cli.exe normal samples/main_process/pdf/heading_basic.pdf .tmp/quality-comparisons/heading_basic_compare/mb.md`
-- Microsoft MarkItDown command: `markitdown samples/main_process/pdf/heading_basic.pdf -o .tmp/quality-comparisons/heading_basic_compare/ms.md`
-- comparable scope: text-oriented PDF only; no OCR, cloud, or plugin path
+- feature focus: heading retention, page-noise suppression
+- comparison date: 2026-05-07
+- markitdown-mb command: `./_build/native/debug/build/cli/cli.exe normal samples/main_process/pdf/heading_basic.pdf .tmp/quality-comparisons/pdf-heading-structure/mb.md`
+- Microsoft MarkItDown command: `markitdown samples/main_process/pdf/heading_basic.pdf -o .tmp/quality-comparisons/pdf-heading-structure/ms.md`
+- comparable scope: native text-oriented PDF only; no OCR/cloud/plugin path
 - verdict: win
 
 ## Expected important structures
@@ -20,13 +20,12 @@
 
 - restores chapter and section headings as Markdown headings
 - keeps the body paragraphs
-- suppresses page-number residue from the main flow
+- suppresses page-number/footer residue from the main flow
 
 ## Microsoft MarkItDown result summary
 
 - keeps the text content, but does not recover heading structure
 - keeps page-number/footer residue in the output
-- includes glyph-compatibility artifacts in some CJK text
 
 ## Structure retention checklist
 
@@ -47,9 +46,7 @@
 
 ## Extra noise
 
-- Microsoft MarkItDown leaves page-number/footer residue such as `1` and
-  `第 2 ⻚`
-- CJK text includes compatibility-glyph artifacts like `第⼀章`
+- Microsoft MarkItDown leaves page-number/footer residue in the overlap sample
 
 ## Asset behavior
 
@@ -66,5 +63,4 @@
 
 ## Next action
 
-- keep PDF quality work focused on substrate signals before extra converter
-  heuristics
+- keep PDF quality work focused on native text-PDF signal closure

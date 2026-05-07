@@ -20,9 +20,8 @@ The repository is currently in a stable post-initial-H2, post-H3-phase-1
 state:
 
 * dispatcher coverage spans all primary format families, but maturity is split
-  across `H2 main-path quality`, `H2 partial`, `subset-H2`,
-  `source-preserving H1/H2 partial`, and second-round sealed `H2++ / H3++`
-  formats
+  across `H2 main-path quality`, `subset-H2`, `source-preserving H1/H2 partial`,
+  and second-round sealed `H2++ / H3++` formats
 * documented limitations remain explicit rather than hidden behind milestone
   labels
 * unified IR / Markdown emitter / metadata sidecar are stable repository
@@ -93,6 +92,9 @@ state:
 * vendored `mbtpdf` is treated as a repository-local maintained dependency,
   with optional/manual upstream-style e2e isolated from the default root test
   story
+* PDF is now treated as `H2++ complete` for the native text-PDF scope, with
+  `H3++` evidence backed on the checked-in native text-PDF corpus; OCR and
+  scanned-PDF paths remain explicitly separate
 
 ## Stable Milestone Status
 

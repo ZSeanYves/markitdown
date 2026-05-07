@@ -56,6 +56,11 @@ smoke	pdf	pdf_repeated_header_footer_variants	samples/main_process/pdf/pdf_repea
 smoke	pdf	pdf_cross_page_merge	samples/main_process/pdf/pdf_cross_page_should_merge_phase15.pdf	false
 smoke	pdf	pdf_cross_page_no_merge	samples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf	false
 smoke	pdf	pdf_two_column_negative	samples/main_process/pdf/pdf_two_column_negative_phase15.pdf	false
+metadata	pdf	pdf_metadata_text_structure	samples/metadata/pdf/pdf_metadata_text_structure.pdf	true
+metadata	pdf	pdf_metadata_noise_merge	samples/metadata/pdf/pdf_metadata_noise_merge.pdf	true
+metadata	pdf	pdf_metadata_uri_link	samples/metadata/pdf/pdf_metadata_uri_link.pdf	true
+metadata	pdf	pdf_metadata_table_like	samples/metadata/pdf/pdf_metadata_table_like.pdf	true
+metadata	pdf	pdf_metadata_image_caption	samples/metadata/pdf/pdf_metadata_image_caption.pdf	true
 smoke	html	html_mixed	samples/main_process/html/html_mixed.html	false
 smoke	html	html_small	samples/benchmark/html/html_small.html	false
 smoke	html	html_medium	samples/benchmark/html/html_medium.html	false

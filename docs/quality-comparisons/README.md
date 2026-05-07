@@ -124,5 +124,10 @@ quality review concrete, but it is not the final parity conclusion.
 | TXT | [txt_plain.txt](./txt-literal-safe.md) | literal-safe plain text | `close` | identical structure on this sample |
 | TXT | [txt_markdown_like_literal.txt](./txt-markdown-like-literal.md) | literal-safe versus Markdown reinterpretation | `loss` | `markitdown-mb` preserves literal intent but collapses line structure |
 | PDF | [heading_basic.pdf](./pdf-heading-structure.md) | heading retention and page-noise suppression | `win` | `markitdown-mb` restores heading structure and suppresses page residue |
+| PDF | [pdf_cross_page_should_merge_phase15.pdf](./pdf-cross-page-merge.md) | cross-page paragraph merge | `win` | `markitdown-mb` restores the broken paragraph more cleanly |
+| PDF | [pdf_repeated_header_footer.pdf](./pdf-header-footer-noise.md) | repeated header/footer suppression | `close` | both keep the body, but `markitdown-mb` drops the repeated edge noise |
+| PDF | [pdf_uri_link_basic.pdf](./pdf-uri-link.md) | URI annotation link emission | `win` | `markitdown-mb` emits a Markdown link while Microsoft keeps plain text |
+| PDF | [pdf_simple_table_like.pdf](./pdf-table-like.md) | simple aligned table recovery | `win` | `markitdown-mb` keeps a clearer table boundary and header row |
+| PDF | [pdf_image_caption_like.pdf](./pdf-image-caption.md) | local image asset export and caption pairing | `win` | `markitdown-mb` materializes the asset and keeps caption context explicit |
 
 Use [template.md](./template.md) for future additions.

@@ -271,7 +271,7 @@ Known limits:
 
 Status label:
 
-* `H2 partial` for text-oriented PDF on the default local path
+* `H2++ complete` for text-oriented PDF on the default local path
 * scanned/OCR PDF is a separate explicit path, not part of the default
   performance story
 
@@ -310,6 +310,7 @@ Known limits:
 * no tagged-PDF semantic interpretation contract
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
+* H3++ performance claims apply only to the checked-in native text-PDF corpus
 
 ### HTML / HTM
 
