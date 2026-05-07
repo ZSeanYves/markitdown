@@ -33,7 +33,7 @@ test "html strips utf8 bom and normalizes crlf" {
   )
   let expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_bom_utf8.md",
+      "samples/main_process/html/expected/html_bom_utf8.md",
     ),
   )
   assert_eq(@cor.emit_markdown(doc), expected)
@@ -64,7 +64,7 @@ test "html keeps current conservative entity and wrapper behavior stable" {
   )
   let details_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_details_summary.md",
+      "samples/main_process/html/expected/html_details_summary.md",
     ),
   )
   assert_eq(@cor.emit_markdown(details_doc), details_expected)
@@ -78,7 +78,7 @@ test "html keeps current conservative entity and wrapper behavior stable" {
   )
   let semantic_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_semantic_sectioning.md",
+      "samples/main_process/html/expected/html_semantic_sectioning.md",
     ),
   )
   assert_eq(@cor.emit_markdown(semantic_doc), semantic_expected)
@@ -95,7 +95,7 @@ test "html remote images keep current downgrade policy" {
   )
   let inline_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_remote_image_current_behavior.md",
+      "samples/main_process/html/expected/html_remote_image_current_behavior.md",
     ),
   )
   assert_eq(@cor.emit_markdown(inline_doc), inline_expected)
@@ -109,7 +109,7 @@ test "html remote images keep current downgrade policy" {
   )
   let figure_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_remote_figure_current_behavior.md",
+      "samples/main_process/html/expected/html_remote_figure_current_behavior.md",
     ),
   )
   assert_eq(
@@ -143,7 +143,7 @@ test "html entities decode conservatively and unknown entities stay literal" {
   )
   let unknown_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_unknown_entity_literal.md",
+      "samples/main_process/html/expected/html_unknown_entity_literal.md",
     ),
   )
   assert_eq(@cor.emit_markdown(unknown_doc), unknown_expected)
@@ -178,7 +178,7 @@ test "html details summary and script style handling are explicit" {
   )
   let script_style_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_script_style_ignored.md",
+      "samples/main_process/html/expected/html_script_style_ignored.md",
     ),
   )
   assert_eq(@cor.emit_markdown(script_style_doc), script_style_expected)
@@ -195,7 +195,7 @@ test "html semantic wrappers and table header semantics are stable" {
   )
   let wrappers_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_semantic_wrappers.md",
+      "samples/main_process/html/expected/html_semantic_wrappers.md",
     ),
   )
   assert_eq(@cor.emit_markdown(wrappers_doc), wrappers_expected)
@@ -209,7 +209,7 @@ test "html semantic wrappers and table header semantics are stable" {
   )
   let thead_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_table_thead_th.md",
+      "samples/main_process/html/expected/html_table_thead_th.md",
     ),
   )
   assert_eq(@cor.emit_markdown(thead_doc), thead_expected)
@@ -248,7 +248,7 @@ test "html table cells keep entities breaks and pipes stable" {
   )
   let table_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_table_cell_br_entities.md",
+      "samples/main_process/html/expected/html_table_cell_br_entities.md",
     ),
   )
   assert_eq(@cor.emit_markdown(table_doc), table_expected)
@@ -275,7 +275,7 @@ test "html table span boundaries and local image boundaries are explicit" {
   )
   let span_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_table_rowspan_colspan_boundary.md",
+      "samples/main_process/html/expected/html_table_rowspan_colspan_boundary.md",
     ),
   )
   assert_eq(@cor.emit_markdown(span_doc), span_expected)
@@ -307,7 +307,7 @@ test "html table span boundaries and local image boundaries are explicit" {
   )
   let image_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_image_remote_data_uri_boundary.md",
+      "samples/main_process/html/expected/html_image_remote_data_uri_boundary.md",
     ),
   )
   assert_eq(@cor.emit_markdown(image_doc), image_expected)
@@ -324,7 +324,7 @@ test "html semantic containers and pre/code entity handling are stable" {
   )
   let semantic_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_semantic_containers.md",
+      "samples/main_process/html/expected/html_semantic_containers.md",
     ),
   )
   assert_eq(@cor.emit_markdown(semantic_doc), semantic_expected)
@@ -338,7 +338,7 @@ test "html semantic containers and pre/code entity handling are stable" {
   )
   let code_expected = read_html_parser_utf8_text(
     resolve_html_parser_sample_path(
-      "samples/main_process/expected/html/html_pre_code_entities.md",
+      "samples/main_process/html/expected/html_pre_code_entities.md",
     ),
   )
   assert_eq(@cor.emit_markdown(code_doc), code_expected)

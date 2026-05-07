@@ -26,7 +26,7 @@ fn read_utf8_text(path : String) -> String raise {
 test "xml preserves source as fenced xml block" {
   let sample = resolve_sample_path("samples/main_process/xml/xml_basic.xml")
   let expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_basic.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_basic.md"),
   )
 
   let doc = @xml.parse_xml(sample, "", 6)
@@ -43,7 +43,7 @@ test "xml normalizes crlf and strips utf8 bom" {
     6,
   )
   let crlf_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_crlf.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_crlf.md"),
   )
   assert_eq(@cor.emit_markdown(crlf_doc), crlf_expected)
 
@@ -53,7 +53,7 @@ test "xml normalizes crlf and strips utf8 bom" {
     6,
   )
   let bom_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_bom_utf8.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_bom_utf8.md"),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
 }
@@ -77,7 +77,7 @@ test "xml grows fence width when source contains triple backticks" {
     6,
   )
   let expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_backticks.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_backticks.md"),
   )
   assert_eq(@cor.emit_markdown(doc), expected)
 }
@@ -90,7 +90,7 @@ test "xml preserves declarations comments attributes and doctype literally" {
     6,
   )
   let declaration_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_declaration.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_declaration.md"),
   )
   assert_eq(@cor.emit_markdown(declaration_doc), declaration_expected)
 
@@ -100,7 +100,7 @@ test "xml preserves declarations comments attributes and doctype literally" {
     6,
   )
   let comments_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_comments.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_comments.md"),
   )
   assert_eq(@cor.emit_markdown(comments_doc), comments_expected)
 
@@ -110,7 +110,7 @@ test "xml preserves declarations comments attributes and doctype literally" {
     6,
   )
   let attributes_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_attributes.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_attributes.md"),
   )
   assert_eq(@cor.emit_markdown(attributes_doc), attributes_expected)
 
@@ -123,7 +123,7 @@ test "xml preserves declarations comments attributes and doctype literally" {
   )
   let doctype_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xml/xml_doctype_entity_literal.md",
+      "samples/main_process/xml/expected/xml_doctype_entity_literal.md",
     ),
   )
   assert_eq(@cor.emit_markdown(doctype_doc), doctype_expected)
@@ -140,7 +140,7 @@ test "xml preserves markdown-sensitive text and multiline nesting" {
   )
   let markdown_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xml/xml_markdown_sensitive_chars.md",
+      "samples/main_process/xml/expected/xml_markdown_sensitive_chars.md",
     ),
   )
   assert_eq(@cor.emit_markdown(markdown_doc), markdown_expected)
@@ -151,7 +151,7 @@ test "xml preserves markdown-sensitive text and multiline nesting" {
     6,
   )
   let nested_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_nested.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_nested.md"),
   )
   assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
 }
@@ -167,7 +167,7 @@ test "xml source preserving covers processing instruction cdata namespace and en
   )
   let pi_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xml/xml_processing_instruction.md",
+      "samples/main_process/xml/expected/xml_processing_instruction.md",
     ),
   )
   assert_eq(@cor.emit_markdown(pi_doc), pi_expected)
@@ -178,7 +178,7 @@ test "xml source preserving covers processing instruction cdata namespace and en
     6,
   )
   let cdata_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_cdata.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_cdata.md"),
   )
   assert_eq(@cor.emit_markdown(cdata_doc), cdata_expected)
 
@@ -189,7 +189,7 @@ test "xml source preserving covers processing instruction cdata namespace and en
   )
   let namespace_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xml/xml_namespace_syntax.md",
+      "samples/main_process/xml/expected/xml_namespace_syntax.md",
     ),
   )
   assert_eq(@cor.emit_markdown(namespace_doc), namespace_expected)
@@ -201,7 +201,7 @@ test "xml source preserving covers processing instruction cdata namespace and en
   )
   let entity_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xml/xml_entity_refs_literal.md",
+      "samples/main_process/xml/expected/xml_entity_refs_literal.md",
     ),
   )
   assert_eq(@cor.emit_markdown(entity_doc), entity_expected)

@@ -81,22 +81,25 @@ Performance governance lives in
 The repository's checked-in validation chains are:
 
 * `samples/check.sh`
-* `samples/check_main_process.sh`
-* `samples/check_metadata.sh`
-* `samples/check_assets.sh`
-* `samples/scripts/check_cli_contract.sh`
-* `samples/scripts/check_batch_contract.sh`
-* `samples/scripts/check_corpus_manifest.sh`
+* `samples/check.sh --markdown-only`
+* `samples/check.sh --metadata-only`
+* `samples/check.sh --assets-only`
+* `samples/check.sh --contracts-only`
+* `samples/check.sh --manifest-only`
 
 The checked-in benchmark chains are:
 
-* `samples/scripts/bench_smoke.sh --kind smoke`
-* `samples/scripts/bench_compare_markitdown.sh`
-* `samples/scripts/bench_batch_profile.sh`
+* `samples/bench.sh --suite smoke --kind smoke`
+* `samples/bench.sh --suite compare`
+* `samples/bench.sh --suite batch-profile`
 
 Detailed validation counts, current run totals, and representative benchmark
 examples live in
 [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
+The reserved `samples/real_world` corpus is for future richer complex-scenario
+coverage. It does not change the sealed H2++ / H3++ evidence basis today and
+is not counted as benchmark evidence by default.
 
 ## Current Boundaries
 

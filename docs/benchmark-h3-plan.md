@@ -14,15 +14,15 @@ Current stable benchmark anchors remain in:
 The repository currently uses three benchmark layers:
 
 * smoke benchmark:
-  * `samples/scripts/bench_smoke.sh`
+  * `samples/bench.sh --suite smoke`
   * internal same-machine cross-format tracking
   * native-preferred runner policy with `moon run` fallback
 * overlap comparison benchmark:
-  * `samples/scripts/bench_compare_markitdown.sh`
+  * `samples/bench.sh --suite compare`
   * selected overlap-only comparison against Python `markitdown`
   * no blanket parity claim
 * batch profiling benchmark:
-  * `samples/scripts/bench_batch_profile.sh`
+  * `samples/bench.sh --suite batch-profile`
   * `process-per-file` vs `single-process-batch`
   * optional memory observation when platform support exists
 

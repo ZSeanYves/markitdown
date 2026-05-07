@@ -662,7 +662,7 @@ test "origin_metadata/html_docx_minimal_closure" {
   ensure_dir(out_dir + "/docx")
 
   let html_doc = @html.parse_html(
-    resolve_sample_path("samples/assets/html/html_img_single.html"),
+    resolve_sample_path("samples/main_process/html/assets/html_img_single.html"),
     out_dir + "/html",
     6,
   )
@@ -760,7 +760,9 @@ test "image_context/html_alt_title_figcaption" {
   ensure_dir(out_dir + "/html-context")
 
   let html_alt_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_img_alt_basic.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_img_alt_basic.html",
+    ),
     out_dir + "/html-context",
     6,
   )
@@ -802,7 +804,9 @@ test "image_context/html_alt_title_figcaption" {
   }
 
   let html_title_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_img_title_basic.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_img_title_basic.html",
+    ),
     out_dir + "/html-context",
     6,
   )
@@ -840,7 +844,7 @@ test "image_context/html_alt_title_figcaption" {
 
   let html_fig_doc = @html.parse_html(
     resolve_sample_path(
-      "samples/metadata/html/html_figure_figcaption_basic.html",
+      "samples/main_process/html/metadata/html_figure_figcaption_basic.html",
     ),
     out_dir + "/html-context",
     6,
@@ -884,7 +888,7 @@ test "image_context/html_alt_title_figcaption" {
 
   let html_missing_alt_doc = @html.parse_html(
     resolve_sample_path(
-      "samples/metadata/html/html_img_missing_alt_negative.html",
+      "samples/main_process/html/metadata/html_img_missing_alt_negative.html",
     ),
     out_dir + "/html-context",
     6,
@@ -923,7 +927,9 @@ test "image_context/docx_alt_title_and_no_alt" {
   ensure_dir(out_dir + "/docx-no-alt")
 
   let alt_title_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_image_alt_title_basic.docx",
+    ),
     out_dir + "/docx-alt-title",
     6,
   )
@@ -960,7 +966,9 @@ test "image_context/docx_alt_title_and_no_alt" {
   }
 
   let no_alt_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_image_no_alt_negative.docx",
+    ),
     out_dir + "/docx-no-alt",
     6,
   )
@@ -1013,7 +1021,7 @@ test "origin_metadata/html_asset_source_path_dedupe_and_remote_downgrade" {
   ensure_dir(html_out_dir)
 
   let image_bytes = @fs.read_file_to_bytes(
-    resolve_sample_path("samples/assets/html/img/img_red.jpg"),
+    resolve_sample_path("samples/main_process/html/assets/img/img_red.jpg"),
   ) catch {
     e => fail("read html image sample failed: " + e.to_string())
   }
@@ -1077,7 +1085,7 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
 
   let pptx_doc = @pptx.parse_pptx(
     resolve_sample_path(
-      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+      "samples/main_process/pptx/metadata/pptx_image_single_caption_like.pptx",
     ),
     out_dir + "/pptx",
     6,
@@ -1164,7 +1172,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   assert_metadata_has_document_object(docx_json, "docx")
 
   let pptx_path = resolve_sample_path(
-    "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+    "samples/main_process/pptx/metadata/pptx_image_single_caption_like.pptx",
   )
   let pptx_doc = @pptx.parse_pptx(pptx_path, out_dir + "/pptx", 6)
   let pptx_json = @cor.emit_metadata_json_with_document_properties(
@@ -1213,7 +1221,9 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   assert_metadata_has_document_object(missing_docprops_json, "docx")
 
   let html_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_img_alt_basic.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_img_alt_basic.html",
+    ),
     out_dir + "/html",
     6,
   )
@@ -1308,7 +1318,9 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     fail("yaml metadata should keep document null")
   }
   let yaml_metadata_basic_doc = @yaml.parse_yaml(
-    resolve_sample_path("samples/metadata/yaml/yaml_metadata_basic.yaml"),
+    resolve_sample_path(
+      "samples/main_process/yaml/metadata/yaml_metadata_basic.yaml",
+    ),
     "",
     6,
   )
@@ -1319,7 +1331,9 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     "yaml_metadata_basic.metadata.json",
   )
   let yaml_metadata_table_doc = @yaml.parse_yaml(
-    resolve_sample_path("samples/metadata/yaml/yaml_metadata_table.yaml"),
+    resolve_sample_path(
+      "samples/main_process/yaml/metadata/yaml_metadata_table.yaml",
+    ),
     "",
     6,
   )
@@ -1330,7 +1344,9 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     "yaml_metadata_table.metadata.json",
   )
   let yaml_metadata_nested_doc = @yaml.parse_yaml(
-    resolve_sample_path("samples/metadata/yaml/yaml_metadata_nested.yaml"),
+    resolve_sample_path(
+      "samples/main_process/yaml/metadata/yaml_metadata_nested.yaml",
+    ),
     "",
     6,
   )
@@ -1347,7 +1363,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   let yml_doc = @yaml.parse_yaml(yml_path, "", 6)
   let yml_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yml_extension_basic.md",
+      "samples/main_process/yaml/expected/yml_extension_basic.md",
     ),
   )
   if @cor.emit_markdown(yml_doc) != yml_expected {
@@ -1360,7 +1376,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   let markdown_doc = @md.parse_markdown(markdown_path, "", 6)
   let markdown_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_basic_heading_paragraph.md",
+      "samples/main_process/markdown/expected/markdown_basic_heading_paragraph.md",
     ),
   )
   if @cor.emit_markdown(markdown_doc) != markdown_expected {
@@ -1393,7 +1409,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     6,
   )
   let txt_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/txt/txt_paragraphs.md"),
+    resolve_sample_path("samples/main_process/txt/expected/txt_paragraphs.md"),
   )
   if @cor.emit_markdown(txt_doc) != txt_expected {
     fail("txt output should preserve paragraph-only plain-text semantics")
@@ -1426,7 +1442,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   let txt_literal_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/txt/txt_markdown_like_literal.md",
+      "samples/main_process/txt/expected/txt_markdown_like_literal.md",
     ),
   )
   if @cor.emit_markdown(txt_literal_doc) != txt_literal_expected {
@@ -1439,7 +1455,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
     6,
   )
   let xml_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/xml/xml_basic.md"),
+    resolve_sample_path("samples/main_process/xml/expected/xml_basic.md"),
   )
   if @cor.emit_markdown(xml_doc) != xml_expected {
     fail("xml output should preserve source as fenced xml markdown")
@@ -1469,7 +1485,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   let frontmatter_doc = @md.parse_markdown(frontmatter_path, "", 6)
   let frontmatter_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_frontmatter_passthrough.md",
+      "samples/main_process/markdown/expected/markdown_frontmatter_passthrough.md",
     ),
   )
   if @cor.emit_markdown(frontmatter_doc) != frontmatter_expected {
@@ -1483,7 +1499,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   let markdown_bom_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_bom_utf8.md",
+      "samples/main_process/markdown/expected/markdown_bom_utf8.md",
     ),
   )
   if @cor.emit_markdown(markdown_bom_doc) != markdown_bom_expected {
@@ -1497,7 +1513,7 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   )
   let markdown_crlf_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_crlf.md",
+      "samples/main_process/markdown/expected/markdown_crlf.md",
     ),
   )
   if @cor.emit_markdown(markdown_crlf_doc) != markdown_crlf_expected {
@@ -1774,7 +1790,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(html_single_out_dir)
   ensure_dir(html_single_out_dir + "/html")
   let html_single_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_img_single.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_img_single.html",
+    ),
     html_single_out_dir + "/html",
     6,
   )
@@ -1792,7 +1810,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(html_figure_out_dir + "/html")
   let html_figure_doc = @html.parse_html(
     resolve_sample_path(
-      "samples/metadata/html/html_figure_figcaption_basic.html",
+      "samples/main_process/html/metadata/html_figure_figcaption_basic.html",
     ),
     html_figure_out_dir + "/html",
     6,
@@ -1809,7 +1827,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(html_basic_out_dir)
   ensure_dir(html_basic_out_dir + "/html")
   let html_basic_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_metadata_basic.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_metadata_basic.html",
+    ),
     html_basic_out_dir + "/html",
     6,
   )
@@ -1830,7 +1850,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(html_link_image_out_dir)
   ensure_dir(html_link_image_out_dir + "/html")
   let html_link_image_doc = @html.parse_html(
-    resolve_sample_path("samples/metadata/html/html_metadata_link_image.html"),
+    resolve_sample_path(
+      "samples/main_process/html/metadata/html_metadata_link_image.html",
+    ),
     html_link_image_out_dir + "/html",
     6,
   )
@@ -1846,7 +1868,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(xlsx_basic_out_dir)
   ensure_dir(xlsx_basic_out_dir + "/xlsx")
   let xlsx_basic_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/metadata/xlsx_metadata_basic.xlsx",
+    ),
     xlsx_basic_out_dir + "/xlsx",
     6,
   )
@@ -1857,7 +1881,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "xlsx",
       "xlsx_metadata_basic.md",
       read_ooxml_metadata_document_properties(
-        resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_basic.xlsx"),
+        resolve_sample_path(
+          "samples/main_process/xlsx/metadata/xlsx_metadata_basic.xlsx",
+        ),
       ),
     ),
     "xlsx_metadata_basic.metadata.json",
@@ -1869,7 +1895,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(xlsx_multi_out_dir)
   ensure_dir(xlsx_multi_out_dir + "/xlsx")
   let xlsx_multi_doc = @xlsx.parse_xlsx(
-    resolve_sample_path("samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx"),
+    resolve_sample_path(
+      "samples/main_process/xlsx/metadata/xlsx_metadata_multi_sheet.xlsx",
+    ),
     xlsx_multi_out_dir + "/xlsx",
     6,
   )
@@ -1881,7 +1909,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "xlsx_metadata_multi_sheet.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/xlsx/xlsx_metadata_multi_sheet.xlsx",
+          "samples/main_process/xlsx/metadata/xlsx_metadata_multi_sheet.xlsx",
         ),
       ),
     ),
@@ -1895,7 +1923,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(xlsx_policy_out_dir + "/xlsx")
   let xlsx_policy_doc = @xlsx.parse_xlsx(
     resolve_sample_path(
-      "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+      "samples/main_process/xlsx/metadata/xlsx_metadata_formula_or_merged_policy.xlsx",
     ),
     xlsx_policy_out_dir + "/xlsx",
     6,
@@ -1908,7 +1936,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "xlsx_metadata_formula_or_merged_policy.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/xlsx/xlsx_metadata_formula_or_merged_policy.xlsx",
+          "samples/main_process/xlsx/metadata/xlsx_metadata_formula_or_merged_policy.xlsx",
         ),
       ),
     ),
@@ -1961,7 +1989,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(xlsx_formula_states_out_dir + "/xlsx")
   let xlsx_formula_states_doc = @xlsx.parse_xlsx(
     resolve_sample_path(
-      "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+      "samples/main_process/xlsx/metadata/xlsx_metadata_formula_policy_states.xlsx",
     ),
     xlsx_formula_states_out_dir + "/xlsx",
     6,
@@ -1974,7 +2002,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "xlsx_metadata_formula_policy_states.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/xlsx/xlsx_metadata_formula_policy_states.xlsx",
+          "samples/main_process/xlsx/metadata/xlsx_metadata_formula_policy_states.xlsx",
         ),
       ),
     ),
@@ -2024,7 +2052,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   recreate_clean_dir(zip_basic_out_dir)
   defer cleanup_temp_dir(zip_basic_out_dir)
   let zip_basic_doc = @zipconv.parse_zip(
-    resolve_sample_path("samples/metadata/zip/zip_metadata_basic.zip"),
+    resolve_sample_path(
+      "samples/main_process/zip/metadata/zip_metadata_basic.zip",
+    ),
     zip_basic_out_dir,
     6,
   )
@@ -2040,7 +2070,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   recreate_clean_dir(zip_origins_out_dir)
   defer cleanup_temp_dir(zip_origins_out_dir)
   let zip_origins_doc = @zipconv.parse_zip(
-    resolve_sample_path("samples/metadata/zip/zip_metadata_entry_origins.zip"),
+    resolve_sample_path(
+      "samples/main_process/zip/metadata/zip_metadata_entry_origins.zip",
+    ),
     zip_origins_out_dir,
     6,
   )
@@ -2055,7 +2087,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   recreate_clean_dir(zip_assets_out_dir)
   defer cleanup_temp_dir(zip_assets_out_dir)
   let zip_assets_doc = @zipconv.parse_zip(
-    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+    resolve_sample_path(
+      "samples/main_process/zip/metadata/zip_metadata_assets.zip",
+    ),
     zip_assets_out_dir,
     6,
   )
@@ -2066,7 +2100,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "zip_metadata_assets.metadata.json",
   )
   let zip_inspect = @zipconv.inspect_zip(
-    resolve_sample_path("samples/metadata/zip/zip_metadata_assets.zip"),
+    resolve_sample_path(
+      "samples/main_process/zip/metadata/zip_metadata_assets.zip",
+    ),
   )
   let mut saw_convertable_html = false
   for entry in zip_inspect.entries {
@@ -2091,7 +2127,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(pptx_single_out_dir + "/pptx")
   let pptx_single_doc = @pptx.parse_pptx(
     resolve_sample_path(
-      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+      "samples/main_process/pptx/metadata/pptx_image_single_caption_like.pptx",
     ),
     pptx_single_out_dir + "/pptx",
     6,
@@ -2109,7 +2145,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(pptx_alt_title_out_dir)
   ensure_dir(pptx_alt_title_out_dir + "/pptx")
   let pptx_alt_title_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_alt_title_basic.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_image_alt_title_basic.pptx",
+    ),
     pptx_alt_title_out_dir + "/pptx",
     6,
   )
@@ -2126,7 +2164,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(pptx_no_alt_out_dir)
   ensure_dir(pptx_no_alt_out_dir + "/pptx")
   let pptx_no_alt_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_no_alt_negative.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_image_no_alt_negative.pptx",
+    ),
     pptx_no_alt_out_dir + "/pptx",
     6,
   )
@@ -2145,7 +2185,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   // PPTX H2 slice coverage:
   // keep explicit table metadata regression separate from image-only PPTX cases.
   let pptx_table_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_basic.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_metadata_table_basic.pptx",
+    ),
     pptx_table_out_dir + "/pptx",
     6,
   )
@@ -2172,7 +2214,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_table_basic.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_table_basic.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_table_basic.pptx",
         ),
       ),
     ),
@@ -2187,7 +2229,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   // Hidden-slide + speaker-notes coverage is intentionally content-preserving:
   // heading text carries the hidden marker; notes keep existing provenance fields.
   let pptx_notes_hidden_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_metadata_notes_hidden.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_metadata_notes_hidden.pptx",
+    ),
     pptx_notes_hidden_out_dir + "/pptx",
     6,
   )
@@ -2208,7 +2252,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_notes_hidden.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_notes_hidden.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_notes_hidden.pptx",
         ),
       ),
     ),
@@ -2222,7 +2266,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(pptx_docprops_out_dir + "/pptx")
   let pptx_docprops_doc = @pptx.parse_pptx(
     resolve_sample_path(
-      "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+      "samples/main_process/pptx/metadata/pptx_metadata_docprops_rich.pptx",
     ),
     pptx_docprops_out_dir + "/pptx",
     6,
@@ -2235,7 +2279,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_docprops_rich.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_docprops_rich.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_docprops_rich.pptx",
         ),
       ),
     ),
@@ -2248,7 +2292,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(pptx_links_images_out_dir)
   ensure_dir(pptx_links_images_out_dir + "/pptx")
   let pptx_links_images_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_metadata_links_images.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_metadata_links_images.pptx",
+    ),
     pptx_links_images_out_dir + "/pptx",
     6,
   )
@@ -2266,7 +2312,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_links_images.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_links_images.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_links_images.pptx",
         ),
       ),
     ),
@@ -2279,7 +2325,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(pptx_table_grid_out_dir)
   ensure_dir(pptx_table_grid_out_dir + "/pptx")
   let pptx_table_grid_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_metadata_table_grid.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_metadata_table_grid.pptx",
+    ),
     pptx_table_grid_out_dir + "/pptx",
     6,
   )
@@ -2291,7 +2339,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_table_grid.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_table_grid.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_table_grid.pptx",
         ),
       ),
     ),
@@ -2304,7 +2352,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(pptx_caption_like_out_dir)
   ensure_dir(pptx_caption_like_out_dir + "/pptx")
   let pptx_caption_like_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_metadata_caption_like.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_metadata_caption_like.pptx",
+    ),
     pptx_caption_like_out_dir + "/pptx",
     6,
   )
@@ -2316,7 +2366,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "pptx_metadata_caption_like.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/pptx/pptx_metadata_caption_like.pptx",
+          "samples/main_process/pptx/metadata/pptx_metadata_caption_like.pptx",
         ),
       ),
     ),
@@ -2379,7 +2429,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(docx_alt_title_out_dir)
   ensure_dir(docx_alt_title_out_dir + "/docx")
   let docx_alt_title_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_image_alt_title_basic.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_image_alt_title_basic.docx",
+    ),
     docx_alt_title_out_dir + "/docx",
     6,
   )
@@ -2391,7 +2443,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx_image_alt_title_basic.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/docx/docx_image_alt_title_basic.docx",
+          "samples/main_process/docx/metadata/docx_image_alt_title_basic.docx",
         ),
       ),
     ),
@@ -2404,7 +2456,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(docx_no_alt_out_dir)
   ensure_dir(docx_no_alt_out_dir + "/docx")
   let docx_no_alt_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_image_no_alt_negative.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_image_no_alt_negative.docx",
+    ),
     docx_no_alt_out_dir + "/docx",
     6,
   )
@@ -2416,7 +2470,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx_image_no_alt_negative.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/docx/docx_image_no_alt_negative.docx",
+          "samples/main_process/docx/metadata/docx_image_no_alt_negative.docx",
         ),
       ),
     ),
@@ -2428,7 +2482,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(docx_notes_out_dir)
   ensure_dir(docx_notes_out_dir + "/docx")
   let docx_notes_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_notes_metadata.docx",
+    ),
     docx_notes_out_dir + "/docx",
     6,
   )
@@ -2442,7 +2498,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx",
       "docx_notes_metadata.md",
       read_ooxml_metadata_document_properties(
-        resolve_sample_path("samples/metadata/docx/docx_notes_metadata.docx"),
+        resolve_sample_path(
+          "samples/main_process/docx/metadata/docx_notes_metadata.docx",
+        ),
       ),
     ),
     "docx_notes_metadata.metadata.json",
@@ -2455,7 +2513,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   ensure_dir(docx_header_footer_out_dir + "/docx")
   let docx_header_footer_doc = @doc.parse_docx(
     resolve_sample_path(
-      "samples/metadata/docx/docx_header_footer_metadata.docx",
+      "samples/main_process/docx/metadata/docx_header_footer_metadata.docx",
     ),
     docx_header_footer_out_dir + "/docx",
     6,
@@ -2471,7 +2529,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx_header_footer_metadata.md",
       read_ooxml_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/docx/docx_header_footer_metadata.docx",
+          "samples/main_process/docx/metadata/docx_header_footer_metadata.docx",
         ),
       ),
     ),
@@ -2484,7 +2542,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   defer cleanup_temp_dir(docx_textbox_out_dir)
   ensure_dir(docx_textbox_out_dir + "/docx")
   let docx_textbox_doc = @doc.parse_docx(
-    resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_textbox_metadata.docx",
+    ),
     docx_textbox_out_dir + "/docx",
     6,
   )
@@ -2495,7 +2555,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "docx",
       "docx_textbox_metadata.md",
       read_ooxml_metadata_document_properties(
-        resolve_sample_path("samples/metadata/docx/docx_textbox_metadata.docx"),
+        resolve_sample_path(
+          "samples/main_process/docx/metadata/docx_textbox_metadata.docx",
+        ),
       ),
     ),
     "docx_textbox_metadata.metadata.json",
@@ -2511,7 +2573,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "csv_basic.metadata.json",
   )
   let csv_metadata_basic_doc = @csv.parse_csv(
-    resolve_sample_path("samples/metadata/csv/csv_metadata_basic.csv"),
+    resolve_sample_path(
+      "samples/main_process/csv/metadata/csv_metadata_basic.csv",
+    ),
     "",
     6,
   )
@@ -2522,7 +2586,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "csv_metadata_basic.metadata.json",
   )
   let csv_metadata_ragged_doc = @csv.parse_csv(
-    resolve_sample_path("samples/metadata/csv/csv_metadata_ragged_rows.csv"),
+    resolve_sample_path(
+      "samples/main_process/csv/metadata/csv_metadata_ragged_rows.csv",
+    ),
     "",
     6,
   )
@@ -2543,7 +2609,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "tsv_basic.metadata.json",
   )
   let tsv_metadata_basic_doc = @csv.parse_tsv(
-    resolve_sample_path("samples/metadata/tsv/tsv_metadata_basic.tsv"),
+    resolve_sample_path(
+      "samples/main_process/tsv/metadata/tsv_metadata_basic.tsv",
+    ),
     "",
     6,
   )
@@ -2566,7 +2634,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "json_object_basic.metadata.json",
   )
   let json_metadata_basic_doc = @json.parse_json(
-    resolve_sample_path("samples/metadata/json/json_metadata_basic.json"),
+    resolve_sample_path(
+      "samples/main_process/json/metadata/json_metadata_basic.json",
+    ),
     "",
     6,
   )
@@ -2577,7 +2647,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "json_metadata_basic.metadata.json",
   )
   let json_metadata_table_doc = @json.parse_json(
-    resolve_sample_path("samples/metadata/json/json_metadata_table.json"),
+    resolve_sample_path(
+      "samples/main_process/json/metadata/json_metadata_table.json",
+    ),
     "",
     6,
   )
@@ -2588,7 +2660,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     "json_metadata_table.metadata.json",
   )
   let json_metadata_nested_doc = @json.parse_json(
-    resolve_sample_path("samples/metadata/json/json_metadata_nested.json"),
+    resolve_sample_path(
+      "samples/main_process/json/metadata/json_metadata_nested.json",
+    ),
     "",
     6,
   )
@@ -2612,7 +2686,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let xml_basic_doc = @xml.parse_xml(
-    resolve_sample_path("samples/metadata/xml/xml_metadata_basic.xml"),
+    resolve_sample_path(
+      "samples/main_process/xml/metadata/xml_metadata_basic.xml",
+    ),
     "",
     6,
   )
@@ -2624,7 +2700,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let xml_multiline_doc = @xml.parse_xml(
-    resolve_sample_path("samples/metadata/xml/xml_metadata_multiline.xml"),
+    resolve_sample_path(
+      "samples/main_process/xml/metadata/xml_metadata_multiline.xml",
+    ),
     "",
     6,
   )
@@ -2639,7 +2717,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   recreate_clean_dir(epub_out_dir)
   defer cleanup_temp_dir(epub_out_dir)
   let epub_doc = @epub.parse_epub(
-    resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+    resolve_sample_path(
+      "samples/main_process/epub/metadata/epub_metadata_basic.epub",
+    ),
     epub_out_dir,
     6,
   )
@@ -2650,7 +2730,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub",
       "epub_metadata_basic.md",
       read_epub_metadata_document_properties(
-        resolve_sample_path("samples/metadata/epub/epub_metadata_basic.epub"),
+        resolve_sample_path(
+          "samples/main_process/epub/metadata/epub_metadata_basic.epub",
+        ),
       ),
     ),
     "epub_metadata_basic.metadata.json",
@@ -2658,7 +2740,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
 
   let epub_spine_doc = @epub.parse_epub(
     resolve_sample_path(
-      "samples/metadata/epub/epub_metadata_spine_origins.epub",
+      "samples/main_process/epub/metadata/epub_metadata_spine_origins.epub",
     ),
     epub_out_dir,
     6,
@@ -2671,7 +2753,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub_metadata_spine_origins.md",
       read_epub_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/epub/epub_metadata_spine_origins.epub",
+          "samples/main_process/epub/metadata/epub_metadata_spine_origins.epub",
         ),
       ),
     ),
@@ -2679,7 +2761,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let epub_assets_doc = @epub.parse_epub(
-    resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+    resolve_sample_path(
+      "samples/main_process/epub/metadata/epub_metadata_assets.epub",
+    ),
     epub_out_dir,
     6,
   )
@@ -2690,13 +2774,17 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub",
       "epub_metadata_assets.md",
       read_epub_metadata_document_properties(
-        resolve_sample_path("samples/metadata/epub/epub_metadata_assets.epub"),
+        resolve_sample_path(
+          "samples/main_process/epub/metadata/epub_metadata_assets.epub",
+        ),
       ),
     ),
     "epub_metadata_assets.metadata.json",
   )
   let epub_cover_doc = @epub.parse_epub(
-    resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+    resolve_sample_path(
+      "samples/main_process/epub/metadata/epub_metadata_cover.epub",
+    ),
     epub_out_dir,
     6,
   )
@@ -2707,7 +2795,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub",
       "epub_metadata_cover.md",
       read_epub_metadata_document_properties(
-        resolve_sample_path("samples/metadata/epub/epub_metadata_cover.epub"),
+        resolve_sample_path(
+          "samples/main_process/epub/metadata/epub_metadata_cover.epub",
+        ),
       ),
     ),
     "epub_metadata_cover.metadata.json",
@@ -2724,7 +2814,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
 
   let epub_warning_doc = @epub.parse_epub(
     resolve_sample_path(
-      "samples/metadata/epub/epub_metadata_warning_block.epub",
+      "samples/main_process/epub/metadata/epub_metadata_warning_block.epub",
     ),
     epub_out_dir,
     6,
@@ -2737,7 +2827,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       "epub_metadata_warning_block.md",
       read_epub_metadata_document_properties(
         resolve_sample_path(
-          "samples/metadata/epub/epub_metadata_warning_block.epub",
+          "samples/main_process/epub/metadata/epub_metadata_warning_block.epub",
         ),
       ),
     ),
@@ -2786,7 +2876,9 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
   )
 
   let markdown_basic_doc = @md.parse_markdown(
-    resolve_sample_path("samples/metadata/markdown/markdown_metadata_basic.md"),
+    resolve_sample_path(
+      "samples/main_process/markdown/metadata/markdown_metadata_basic.md",
+    ),
     "",
     6,
   )
@@ -2799,7 +2891,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
 
   let markdown_multiline_doc = @md.parse_markdown(
     resolve_sample_path(
-      "samples/metadata/markdown/markdown_metadata_heading_or_multiline.md",
+      "samples/main_process/markdown/metadata/markdown_metadata_heading_or_multiline.md",
     ),
     "",
     6,
@@ -2824,7 +2916,7 @@ async test "origin_metadata/pdf_minimal_closure" {
   ensure_dir(out_dir + "/pdf")
 
   let pdf_doc = @pdf.parse_pdf(
-    resolve_sample_path("samples/assets/pdf/pdf_image_xobject.pdf"),
+    resolve_sample_path("samples/main_process/pdf/assets/pdf_image_xobject.pdf"),
     out_dir + "/pdf",
     6,
     None,
@@ -2869,7 +2961,7 @@ test "image_context/pptx_caption_association" {
 
   let doc = @pptx.parse_pptx(
     resolve_sample_path(
-      "samples/metadata/pptx/pptx_image_single_caption_like.pptx",
+      "samples/main_process/pptx/metadata/pptx_image_single_caption_like.pptx",
     ),
     out_dir + "/pptx-image-context",
     6,
@@ -2918,7 +3010,9 @@ test "image_context/pptx_alt_title_and_no_alt" {
   ensure_dir(out_dir + "/pptx-no-alt")
 
   let alt_title_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_alt_title_basic.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_image_alt_title_basic.pptx",
+    ),
     out_dir + "/pptx-alt-title",
     6,
   )
@@ -2952,7 +3046,9 @@ test "image_context/pptx_alt_title_and_no_alt" {
   }
 
   let no_alt_doc = @pptx.parse_pptx(
-    resolve_sample_path("samples/metadata/pptx/pptx_image_no_alt_negative.pptx"),
+    resolve_sample_path(
+      "samples/main_process/pptx/metadata/pptx_image_no_alt_negative.pptx",
+    ),
     out_dir + "/pptx-no-alt",
     6,
   )
@@ -2998,7 +3094,7 @@ async test "image_context/pdf_caption_like" {
 
   let single_caption_doc = @pdf.parse_pdf(
     resolve_sample_path(
-      "samples/metadata/pdf/pdf_image_single_caption_like.pdf",
+      "samples/main_process/pdf/metadata/pdf_image_single_caption_like.pdf",
     ),
     out_dir + "/pdf-context",
     6,
@@ -3034,7 +3130,7 @@ async test "image_context/pdf_caption_like" {
 
   let no_caption_doc = @pdf.parse_pdf(
     resolve_sample_path(
-      "samples/metadata/pdf/pdf_image_no_caption_negative.pdf",
+      "samples/main_process/pdf/metadata/pdf_image_no_caption_negative.pdf",
     ),
     out_dir + "/pdf-context",
     6,

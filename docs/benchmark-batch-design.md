@@ -211,8 +211,8 @@ html_small_set	html	html_001	samples/benchmark/batch/html/html_001.html	false
 Preferred next implementation path:
 
 * add a dedicated future script such as `samples/scripts/bench_batch.sh`
-* keep existing `samples/scripts/bench_smoke.sh` and
-  `samples/scripts/bench_compare_markitdown.sh` behavior unchanged
+* keep existing `samples/bench.sh --suite smoke` and
+  `samples/bench.sh --suite compare` behavior unchanged
 
 Why a dedicated script is safer than overloading smoke first:
 
@@ -222,8 +222,8 @@ Why a dedicated script is safer than overloading smoke first:
 * H3.2 is explicitly trying to avoid accidental benchmark-contract drift
 
 If the repository later prefers less script surface area, an additive
-`bench_smoke.sh --kind batch` mode is still viable, but only after the batch
-summary schema is fixed.
+`samples/bench.sh --suite smoke --kind batch` mode is still viable, but only
+after the batch summary schema is fixed.
 
 ### Recommended artifact layout
 
@@ -652,8 +652,8 @@ Open questions:
 
 * should batch benchmark `total_output_bytes` remain Markdown-only forever, or
   should a separate artifact-byte metric become standard?
-* should future batch harness reuse `bench_smoke.sh` internals or stay as a
-  separate script long-term?
+* should future batch benchmarking reuse the smoke-suite backend internals or
+  stay as a separate script long-term?
 * does product batch eventually need both directory mode and manifest mode, or
   is one sufficient for the first release surface?
 

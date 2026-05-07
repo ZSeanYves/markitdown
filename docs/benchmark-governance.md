@@ -49,17 +49,24 @@ Default repository performance conclusions should be about the
 
 The checked-in benchmark corpus is split into tiers:
 
-* `Tier 0`: regression samples under `samples/main_process`,
-  `samples/metadata`, and `samples/assets`
+* `Tier 0`: regression samples under `samples/main_process` together with
+  checked expectations under `samples/main_process/<format>/expected`
 * `Tier 1`: checked-in benchmark smoke corpus under
   `samples/benchmark/corpus.tsv`
-* `Tier 2`: synthetic stress corpora and generators
+* `Tier 2`: synthetic stress corpora and documented construction recipes
 * `Tier 3`: public real-world corpus via manifest
 * `Tier 4`: private/manual local corpus via manifest
 
 Tier 1 is the current checked-in benchmark baseline. Tier 3 and Tier 4 should
 inform conclusions only when the manifest, provenance, and comparability notes
 are recorded.
+
+Note:
+
+* the reserved `samples/real_world/` corpus is not a benchmark corpus by
+  default
+* only rows intentionally admitted into benchmark manifests should be treated
+  as Tier 3 or Tier 4 benchmark evidence
 
 ## Current Checked-in Corpus Coverage
 
@@ -91,7 +98,8 @@ Coverage summary by format:
 
 Interpretation notes:
 
-* `Batch` means "currently exercised by `bench_batch_profile.sh` defaults or
+* `Batch` means "currently exercised by `samples/bench.sh --suite batch-profile`
+  defaults or
   easily by its current manifest reuse", not "every format already has a
   committed batch-profile baseline doc".
 * `Metadata on/off` means checked-in benchmark rows exist for explicit metadata
@@ -99,9 +107,9 @@ Interpretation notes:
 * `PDF` currently uses scenario-oriented text-PDF samples rather than a strict
   `small/medium/large` naming ladder.
 
-## Current Harnesses
+## Current Public Suites
 
-### `bench_smoke.sh`
+### `samples/bench.sh --suite smoke`
 
 Purpose:
 
@@ -121,7 +129,7 @@ Current limitations:
 * no explicit degraded/not-comparable taxonomy
 * summary TSV is suite-specific rather than cross-suite normalized
 
-### `bench_compare_markitdown.sh`
+### `samples/bench.sh --suite compare`
 
 Purpose:
 
@@ -139,7 +147,7 @@ Current limitations:
 * no checked-in not-comparable registry yet
 * summary TSV is runner-level only, not quality-aware
 
-### `bench_batch_profile.sh`
+### `samples/bench.sh --suite batch-profile`
 
 Purpose:
 

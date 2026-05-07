@@ -248,10 +248,10 @@ output corpus, but not empty.
 
 Present today:
 
-* `samples/metadata/pdf/pdf_image_single_caption_like.pdf`
-* `samples/metadata/pdf/pdf_image_no_caption_negative.pdf`
-* `samples/fixtures/metadata/pdf_image_single_caption_like.metadata.json`
-* `samples/metadata/expected/pdf/pdf_image_single_caption_like.md`
+* `samples/main_process/pdf/metadata/pdf_image_single_caption_like.pdf`
+* `samples/main_process/pdf/metadata/pdf_image_no_caption_negative.pdf`
+* `samples/main_process/pdf/expected/metadata/pdf_image_single_caption_like.metadata.json`
+* `samples/main_process/pdf/expected/metadata/pdf_image_single_caption_like.md`
 
 Currently evidenced via fixtures:
 

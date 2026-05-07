@@ -121,10 +121,10 @@ moon info
 moon check
 moon test
 ./samples/check.sh
-./samples/scripts/check_samples.sh
-./samples/check_main_process.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
+./samples/check.sh --manifest-only
+./samples/check.sh --markdown-only
+./samples/check.sh --metadata-only
+./samples/check.sh --assets-only
 ```
 
 Format-specific `test/` subpackages are used for blackbox/package tests where
@@ -195,10 +195,11 @@ Another post-H2 cleanup was validation UX normalization:
   probe-validated native CLI, falls back to `moon run` when the discovered
   binary is stale, and still allows
   `MARKITDOWN_CLI=/abs/path/to/cli` for explicit native pinning
-* `check_main_process.sh`, `check_metadata.sh`, and `check_assets.sh` now share one compact
+* `samples/check.sh` now fronts the focused `--markdown-only`,
+  `--metadata-only`, and `--assets-only` modes with one compact
   progress/failure-summary style instead of per-sample convert/diff spam
-* sample integrity, main Markdown, metadata, and assets remain separate script
-  responsibilities rather than one noisy all-in-one shell path
+* compatibility wrappers remain available, but the public validation surface is
+  now centered on one shell entrypoint instead of four near-duplicate ones
 
 Another repository-hygiene cleanup after H2 completion was normalizing the PDF
 backend dependency story:

@@ -161,7 +161,7 @@ test "docx hyperlink basic and paragraph preservation" {
     6,
   )
   let basic_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/docx/docx_link_basic.md"),
+    resolve_sample_path("samples/main_process/docx/expected/docx_link_basic.md"),
   )
   assert_eq(@cor.emit_markdown(basic_doc), basic_expected)
   match basic_doc.blocks.val[0] {
@@ -178,7 +178,7 @@ test "docx hyperlink basic and paragraph preservation" {
   )
   let para_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_link_in_paragraph.md",
+      "samples/main_process/docx/expected/docx_link_in_paragraph.md",
     ),
   )
   assert_eq(@cor.emit_markdown(para_doc), para_expected)
@@ -201,7 +201,7 @@ test "docx hyperlink merges multiple runs and missing rel degrades to text" {
   )
   let multi_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_link_multiple_runs.md",
+      "samples/main_process/docx/expected/docx_link_multiple_runs.md",
     ),
   )
   assert_eq(@cor.emit_markdown(multi_doc), multi_expected)
@@ -221,7 +221,7 @@ test "docx hyperlink merges multiple runs and missing rel degrades to text" {
   )
   let negative_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_link_missing_rel_negative.md",
+      "samples/main_process/docx/expected/docx_link_missing_rel_negative.md",
     ),
   )
   assert_eq(@cor.emit_markdown(negative_doc), negative_expected)
@@ -241,7 +241,7 @@ test "docx list and table samples keep stable markdown while exposing richer IR"
   )
   let list_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_list_nested.md",
+      "samples/main_process/docx/expected/docx_list_nested.md",
     ),
   )
   assert_eq(@cor.emit_markdown(list_doc), list_expected)
@@ -258,7 +258,7 @@ test "docx list and table samples keep stable markdown while exposing richer IR"
   )
   let table_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_table_multiline_cell.md",
+      "samples/main_process/docx/expected/docx_table_multiline_cell.md",
     ),
   )
   assert_eq(@cor.emit_markdown(table_doc), table_expected)
@@ -329,7 +329,7 @@ test "docx footnotes endnotes and comments append conservative sections" {
   )
   let footnote_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_footnote_basic.md",
+      "samples/main_process/docx/expected/docx_footnote_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(footnote_doc), footnote_expected)
@@ -342,7 +342,7 @@ test "docx footnotes endnotes and comments append conservative sections" {
   )
   let endnote_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_endnote_basic.md",
+      "samples/main_process/docx/expected/docx_endnote_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(endnote_doc), endnote_expected)
@@ -355,7 +355,7 @@ test "docx footnotes endnotes and comments append conservative sections" {
   )
   let comment_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_comment_basic.md",
+      "samples/main_process/docx/expected/docx_comment_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(comment_doc), comment_expected)
@@ -370,7 +370,7 @@ test "docx footnotes endnotes and comments append conservative sections" {
   )
   let multi_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_multiple_notes_order.md",
+      "samples/main_process/docx/expected/docx_multiple_notes_order.md",
     ),
   )
   let multi_markdown = @cor.emit_markdown(multi_doc)
@@ -390,7 +390,7 @@ test "docx headers and footers append conservative sections while skipping page-
   )
   let header_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_header_basic.md",
+      "samples/main_process/docx/expected/docx_header_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(header_doc), header_expected)
@@ -403,7 +403,7 @@ test "docx headers and footers append conservative sections while skipping page-
   )
   let footer_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_footer_basic.md",
+      "samples/main_process/docx/expected/docx_footer_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(footer_doc), footer_expected)
@@ -418,7 +418,7 @@ test "docx headers and footers append conservative sections while skipping page-
   )
   let page_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_page_number_footer_current_policy.md",
+      "samples/main_process/docx/expected/docx_page_number_footer_current_policy.md",
     ),
   )
   let page_markdown = @cor.emit_markdown(page_doc)
@@ -435,7 +435,7 @@ test "docx headers and footers append conservative sections while skipping page-
   )
   let dedup_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_header_footer_dedup.md",
+      "samples/main_process/docx/expected/docx_header_footer_dedup.md",
     ),
   )
   let dedup_markdown = @cor.emit_markdown(dedup_doc)
@@ -455,7 +455,7 @@ test "docx text boxes append conservative section without duplicating body text"
   )
   let basic_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_textbox_basic.md",
+      "samples/main_process/docx/expected/docx_textbox_basic.md",
     ),
   )
   let basic_markdown = @cor.emit_markdown(basic_doc)
@@ -470,7 +470,7 @@ test "docx text boxes append conservative section without duplicating body text"
   )
   let multiline_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_textbox_multiline.md",
+      "samples/main_process/docx/expected/docx_textbox_multiline.md",
     ),
   )
   assert_eq(@cor.emit_markdown(multiline_doc), multiline_expected)
@@ -483,7 +483,7 @@ test "docx text boxes append conservative section without duplicating body text"
   )
   let link_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_textbox_with_link.md",
+      "samples/main_process/docx/expected/docx_textbox_with_link.md",
     ),
   )
   let link_markdown = @cor.emit_markdown(link_doc)
@@ -498,7 +498,7 @@ test "docx text boxes append conservative section without duplicating body text"
   )
   let table_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_textbox_in_table.md",
+      "samples/main_process/docx/expected/docx_textbox_in_table.md",
     ),
   )
   assert_eq(@cor.emit_markdown(table_doc), table_expected)
@@ -513,7 +513,7 @@ test "docx text boxes append conservative section without duplicating body text"
   )
   let empty_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/docx/docx_textbox_empty_current_policy.md",
+      "samples/main_process/docx/expected/docx_textbox_empty_current_policy.md",
     ),
   )
   let empty_markdown = @cor.emit_markdown(empty_doc)

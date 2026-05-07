@@ -47,7 +47,7 @@ Manual benchmark lane:
 
 * trigger: `workflow_dispatch`
 * runner: `ubuntu-latest`
-* command: `./samples/scripts/bench_smoke.sh --kind smoke`
+* command: `./samples/bench.sh --suite smoke --kind smoke`
 * rationale: smoke benchmark is lightweight and reproducible, but it remains an
   engineering signal rather than a required semantic-validation gate
 
@@ -129,21 +129,26 @@ moon test
 Supporting validation chains:
 
 ```bash
-./samples/check_main_process.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
-./samples/scripts/check_cli_contract.sh
-./samples/scripts/check_batch_contract.sh
-./samples/scripts/check_debug_contract.sh
-./samples/scripts/check_corpus_manifest.sh
+./samples/check.sh --markdown-only
+./samples/check.sh --metadata-only
+./samples/check.sh --assets-only
+./samples/check.sh --manifest-only
 ```
+
+Reserved complex-scenario corpus:
+
+* `samples/real_world/manifest.tsv` defines the future richer real-world corpus
+* current default validation only checks the manifest schema and referenced
+  paths in `--manifest-only` mode
+* full `./samples/check.sh --real-world` runs are opt-in and are not part
+  of the current checked snapshot counts
 
 Benchmark entrypoints:
 
 ```bash
-./samples/scripts/bench_smoke.sh --kind smoke
-./samples/scripts/bench_compare_markitdown.sh --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
-./samples/scripts/bench_batch_profile.sh --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench.sh --suite smoke --kind smoke
+./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
+./samples/bench.sh --suite batch-profile --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ```
 
 ## Caveats

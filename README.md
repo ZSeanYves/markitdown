@@ -127,19 +127,27 @@ moon build --target native
 moon check
 moon test
 ./samples/check.sh
-./samples/scripts/bench_smoke.sh --kind smoke
+./samples/bench.sh --suite smoke --kind smoke
 ```
 
 Checked-in GitHub Actions CI now runs `moon build --target native`,
 `moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
-`macos-latest` for `push` and `pull_request`. `bench_smoke.sh --kind smoke`
-remains available locally and as a manual `workflow_dispatch` job; it is not
-part of the default PR gate. Windows core native support remains documented,
-but the shell validation suite still targets WSL or another POSIX shell rather
-than native Windows CI. `moon publish` remains a manual release step.
+`macos-latest` for `push` and `pull_request`. `./samples/bench.sh --suite smoke
+--kind smoke` remains available locally and as a manual `workflow_dispatch`
+job; it is not part of the default PR gate. Windows core native support
+remains documented, but the shell validation suite still targets WSL or
+another POSIX shell rather than native Windows CI. `moon publish` remains a
+manual release step.
 Lower-layer parser/core and unsafe-boundary fixtures now live under
-`samples/fixtures`; user-visible regression corpora remain under
-`samples/main_process`, `samples/metadata`, and `samples/assets`.
+`samples/fixtures`; user-visible regression inputs now live under one unified
+`samples/main_process` tree, with metadata-heavy and asset-heavy subcases
+co-located under the same format roots. Each format package now keeps its
+checked Markdown and exact CLI metadata expectations under
+`samples/main_process/<format>/expected/`.
+A reserved complex-scenario corpus now lives under `samples/real_world`; the
+default gate validates its manifest in `--manifest-only` mode, while full
+real-world conversion remains opt-in through
+`./samples/check.sh --real-world`.
 
 Detailed validation counts, sample matrices, metadata/assets checks, benchmark
 smoke counts, batch profile results, and MarkItDown comparison runs are tracked
@@ -154,6 +162,7 @@ in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-su
 * [Benchmark Governance](./docs/benchmark-governance.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
+* [Real-World Corpus Skeleton](./samples/real_world/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Architecture Overview](./docs/architecture.md)
 * [Development Guide](./docs/development.md)

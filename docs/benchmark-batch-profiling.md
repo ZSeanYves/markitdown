@@ -45,14 +45,14 @@ one process startup + directory enumeration + repeated parse/convert/emit/write
 Harness:
 
 ```bash
-./samples/scripts/bench_batch_profile.sh
+./samples/bench.sh --suite batch-profile
 ```
 
 Key properties:
 
 * additive script under `.tmp/bench/batch_profile`
-* does not change `samples/scripts/bench_smoke.sh` behavior
-* does not change `samples/scripts/bench_compare_markitdown.sh` behavior
+* does not change `samples/bench.sh --suite smoke` behavior
+* does not change `samples/bench.sh --suite compare` behavior
 * reuses checked-in smoke-corpus inputs without editing corpus files
 * compares `normal` loop versus `batch` command on the same file groups
 * supports metadata-off and metadata-on profiling
@@ -448,7 +448,7 @@ Also note:
 
 Recommended next steps:
 
-1. Keep `samples/scripts/bench_batch_profile.sh` as a separate profiling tool instead of
+1. Keep `samples/bench.sh --suite batch-profile` as a separate profiling tool instead of
    overloading existing smoke/comparison baselines.
 2. Preserve `comparison-summary.tsv` as the easiest place to compare runner
    models across group size and metadata mode.

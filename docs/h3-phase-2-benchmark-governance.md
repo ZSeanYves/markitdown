@@ -33,7 +33,7 @@ moon check
 Optional targeted fast rerun:
 
 ```bash
-./samples/scripts/bench_smoke.sh --kind smoke --format <format>
+./samples/bench.sh --suite smoke --kind smoke --format <format>
 ```
 
 Daily notes:
@@ -53,9 +53,9 @@ moon info
 moon check
 moon test
 ./samples/check.sh
-./samples/scripts/bench_smoke.sh
-./samples/scripts/bench_compare_markitdown.sh
-./samples/scripts/bench_batch_profile.sh
+./samples/bench.sh --suite smoke
+./samples/bench.sh --suite compare
+./samples/bench.sh --suite batch-profile
 ./samples/scripts/bench_warn.sh --all
 moon publish
 ```
@@ -78,7 +78,7 @@ MARKITDOWN_PROFILE_TXT=1 ...
 MARKITDOWN_PROFILE_CSV=1 ...
 MARKITDOWN_PROFILE_YAML=1 ...
 MARKITDOWN_PROFILE_ZIP=1 ...
-./samples/scripts/bench_smoke.sh --kind smoke --format yaml --warmup 3 --iterations 10
+./samples/bench.sh --suite smoke --kind smoke --format yaml --warmup 3 --iterations 10
 ```
 
 Manual notes:
@@ -123,8 +123,7 @@ Phase 2 uses a tiered corpus model.
 Location:
 
 * `samples/main_process`
-* `samples/metadata`
-* `samples/assets`
+* `samples/main_process/<format>/expected`
 
 Use:
 
@@ -197,11 +196,12 @@ for the checked-in policy/template entry point.
 Checker entry point:
 
 ```bash
-./samples/scripts/check_corpus_manifest.sh
+./samples/check.sh --manifest-only
 ```
 
-This remains a lightweight governance helper, not part of the default daily
-sample-validation chain.
+The lower-level `samples/scripts/check_corpus_manifest.sh` helper remains
+available for maintainer-only direct checks, but the public entrypoint is now
+`./samples/check.sh --manifest-only`.
 
 ## 5. Memory / RSS
 

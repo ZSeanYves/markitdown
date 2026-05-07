@@ -199,9 +199,7 @@ Useful verification commands:
 ```sh
 moon check
 moon test
-./samples/diff.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
+./samples/check.sh
 ```
 
 Current sample tests are expected to show no Markdown output changes for C0 documentation/package cleanup.

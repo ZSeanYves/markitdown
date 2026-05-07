@@ -137,7 +137,9 @@ test "ooxml package phase-2 can list and query parts" {
 
 ///|
 test "ooxml package phase-2 can find relationships by id and type" {
-  let pkg = open_sample_package("samples/assets/pptx/pptx_image_single.pptx")
+  let pkg = open_sample_package(
+    "samples/main_process/pptx/assets/pptx_image_single.pptx",
+  )
 
   let root_rels = @ox.read_package_relationships(pkg) catch {
     e => fail("read_package_relationships failed: " + e.to_string())

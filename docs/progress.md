@@ -54,12 +54,11 @@ moon test
 
 Supporting validation chains:
 
-* `./samples/check_main_process.sh`
-* `./samples/check_metadata.sh`
-* `./samples/check_assets.sh`
-* `./samples/scripts/check_cli_contract.sh`
-* `./samples/scripts/check_batch_contract.sh`
-* `./samples/scripts/check_corpus_manifest.sh`
+* `./samples/check.sh --markdown-only`
+* `./samples/check.sh --metadata-only`
+* `./samples/check.sh --assets-only`
+* `./samples/check.sh --contracts-only`
+* `./samples/check.sh --manifest-only`
 
 ## Benchmark Surface
 

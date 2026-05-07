@@ -4,10 +4,9 @@
 
 The repository has two different sample roles:
 
-1. **Full regression sets** (for engineering stability)
+1. **Unified regression corpus** (for engineering stability)
    - `samples/main_process`
-   - `samples/metadata`
-   - `samples/assets`
+   - `samples/main_process/<format>/expected`
 2. **Lower-layer fixture sets** (for parser/core and boundary coverage)
    - `samples/fixtures`
 
@@ -15,25 +14,23 @@ The repository has two different sample roles:
 boundaries, and unsafe inputs. It is **not** a replacement for full regression
 coverage and is not the repository's user-facing example gallery.
 
-## Why regression is split into 3 independent chains
+## Why the corpus is now unified
 
-- `main_process`: validate structure recovery and Markdown main output quality.
-- `metadata`: validate origin / image-context / caption / nearby-caption semantics.
-- `assets`: validate extracted assets and Markdown asset reference validity.
-
-This split improves explainability:
-
-- failures are easier to localize,
-- acceptance evidence maps clearly to completion/quality/explainability/UX,
-- regression noise is reduced.
+- `main_process` is the single checked-in input tree.
+- metadata-heavy and asset-heavy cases remain visible, but live under the same
+  format roots rather than separate top-level corpora.
+- expectations now live inside each format package under
+  `samples/main_process/<format>/expected/`.
 
 ## Scripts
 
-- `samples/scripts/check_samples.sh`: enrollment integrity check for main_process set.
+- `samples/check.sh --manifest-only`: enrollment and manifest integrity check.
 - `samples/check.sh`: full validation entry.
-- `samples/check_main_process.sh`: main process regression entry.
-- `samples/check_metadata.sh`: metadata-focused regression.
-- `samples/check_assets.sh`: assets extraction/reference regression.
+- `samples/check.sh --markdown-only`: unified regression entry.
+- `samples/check.sh --metadata-only`: metadata-focused regression.
+- `samples/check.sh --assets-only`: assets extraction/reference regression.
+- `samples/check.sh --contracts-only`: contract-focused regression.
+- `samples/check.sh --manifest-only`: manifest-focused validation.
 
 Validation UX notes:
 
@@ -44,15 +41,16 @@ Validation UX notes:
 * `moon run` includes wrapper overhead, so explicit native override is still
   useful for faster local runs
 * `SAMPLES_VERBOSE=1` restores per-sample logs
-* `check_main_process.sh` is intentionally focused on main Markdown regression;
-  run `./samples/check.sh` for the full integrity + main_process + metadata +
-  assets chain
+* `check.sh --markdown-only` validates the unified sample tree; run
+  `./samples/check.sh` for the full integrity + contract chain
 
 ## Lower-layer fixture coverage (`samples/fixtures`)
 
 Current checked-in fixture families are:
 
-- metadata sidecar snapshots: `samples/fixtures/metadata`
+- CLI-facing metadata sidecar snapshots:
+  `samples/main_process/<format>/expected/*.metadata.json`
+- lower-layer metadata snapshots: `samples/fixtures/metadata`
 - EPUB package and boundary fixtures: `samples/fixtures/epub`
 - ZIP path-safety and nested-archive fixtures: `samples/fixtures/zip`
 

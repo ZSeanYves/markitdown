@@ -78,4 +78,4 @@ jobs:
         run: moon build --target native
 
       - name: Benchmark smoke
-        run: ./samples/scripts/bench_smoke.sh --kind smoke
+        run: ./samples/bench.sh --suite smoke --kind smoke

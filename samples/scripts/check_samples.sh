@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SAMPLES_DIR="$ROOT/samples/main_process"
-EXP_DIR="$SAMPLES_DIR/expected"
 GEN_PPTX_IMAGE_CONTEXT_FAILED=0
 SAMPLES_VERBOSE="${SAMPLES_VERBOSE:-${VERBOSE:-0}}"
 
@@ -43,10 +42,32 @@ is_noise_file() {
   return 1
 }
 
+discover_inputs() {
+  local fmt="$1"
+  local in_dir="$SAMPLES_DIR/$fmt"
+  case "$fmt" in
+    docx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.docx" -print ;;
+    pdf) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pdf" -print ;;
+    xlsx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xlsx" -print ;;
+    pptx) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.pptx" -print ;;
+    html) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.html" -o -name "*.htm" \) -print ;;
+    csv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.csv" -print ;;
+    tsv) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.tsv" -print ;;
+    txt) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.txt" -print ;;
+    xml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.xml" -print ;;
+    json) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.json" -print ;;
+    yaml) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.yaml" -o -name "*.yml" \) -print ;;
+    markdown) find "$in_dir" -path "$in_dir/expected" -prune -o -type f \( -name "*.md" -o -name "*.markdown" \) -print ;;
+    zip) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.zip" -print ;;
+    epub) find "$in_dir" -path "$in_dir/expected" -prune -o -type f -name "*.epub" -print ;;
+    *) return 0 ;;
+  esac
+}
+
 for fmt in "${FORMATS[@]}"; do
   group_count=$((group_count + 1))
   in_dir="$SAMPLES_DIR/$fmt"
-  exp_dir="$EXP_DIR/$fmt"
+  exp_dir="$in_dir/expected"
 
   if [[ ! -d "$in_dir" ]]; then
     echo "[warn] input dir missing: $in_dir"
@@ -55,45 +76,25 @@ for fmt in "${FORMATS[@]}"; do
 
   mkdir -p "$exp_dir"
 
-  input_bases="$(find "$in_dir" -maxdepth 1 -type f | sort | while read -r path; do
-    base="$(basename "$path")"
+  input_bases="$(discover_inputs "$fmt" | sort | while read -r path; do
+    rel="${path#$in_dir/}"
+    base="$(basename "$rel")"
     if is_noise_file "$base"; then
       continue
     fi
-    name="${base%.*}"
-    ext="${base##*.}"
-    ext_lc="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
-
-    if [[ "$fmt" == "html" ]]; then
-      [[ "$ext_lc" =~ ^(html|htm)$ ]] && echo "$name"
-    elif [[ "$fmt" == "yaml" ]]; then
-      [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && echo "$name"
-    elif [[ "$fmt" == "markdown" ]]; then
-      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && echo "$name"
-    elif [[ "$fmt" == "txt" ]]; then
-      [[ "$ext_lc" == "txt" ]] && echo "$name"
-    elif [[ "$fmt" == "xml" ]]; then
-      [[ "$ext_lc" == "xml" ]] && echo "$name"
-    else
-      [[ "$ext_lc" == "$fmt" ]] && echo "$name"
-    fi
+    echo "${rel%.*}"
   done | sort -u)"
 
-  all_sample_bases="$(find "$in_dir" -maxdepth 1 -type f | sort | while read -r path; do
-    base="$(basename "$path")"
-    if is_noise_file "$base"; then
+  expected_bases="$(find "$exp_dir" -type f -name '*.md' -print | sort | while read -r path; do
+    rel="${path#$exp_dir/}"
+    if [[ "$rel" == reference/* ]]; then
       continue
     fi
-    echo "${base%.*}"
-  done | sort -u)"
-
-  expected_bases="$(find "$exp_dir" -maxdepth 1 -type f -name '*.md' -print | sort | while read -r path; do
-    base="$(basename "$path")"
-    echo "${base%.md}"
+    echo "${rel%.md}"
   done | sort -u)"
 
   if [[ "$fmt" == "pptx" && $GEN_PPTX_IMAGE_CONTEXT_FAILED -eq 1 ]]; then
-    generated_only_bases=$'pptx_image_caption_basic\npptx_image_caption_near_basic\npptx_image_multiple_caption_ambiguous_negative'
+    generated_only_bases=$'metadata/pptx_image_caption_basic\nmetadata/pptx_image_caption_near_basic\nmetadata/pptx_image_multiple_caption_ambiguous_negative'
     input_bases="$(comm -23 <(printf '%s\n' "$input_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
     expected_bases="$(comm -23 <(printf '%s\n' "$expected_bases" | sed '/^$/d' | sort -u) <(printf '%s\n' "$generated_only_bases" | sed '/^$/d' | sort -u))"
   fi
@@ -111,13 +112,8 @@ for fmt in "${FORMATS[@]}"; do
     fi
     while IFS= read -r base; do
       [[ -z "$base" ]] && continue
-      if printf '%s\n' "$all_sample_bases" | grep -Fxq "$base"; then
-        echo "  [error] expected exists but only non-enrolled input extension found:"
-        echo "    - $base"
-      else
-        echo "  [error] expected exists but input missing:"
-        echo "    - $base"
-      fi
+      echo "  [error] expected exists but input missing:"
+      echo "    - $base"
       fail=1
     done <<< "$missing_input"
   fi
@@ -134,59 +130,9 @@ for fmt in "${FORMATS[@]}"; do
     fail=1
   fi
 
-  unknown_files=0
-  reference_files=0
-  while IFS= read -r path; do
-    base="$(basename "$path")"
-    if is_noise_file "$base"; then
-      continue
-    fi
-    ext="${base##*.}"
-    ext_lc="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
-
-    enrolled=false
-    if [[ "$fmt" == "html" ]]; then
-      [[ "$ext_lc" =~ ^(html|htm)$ ]] && enrolled=true
-    elif [[ "$fmt" == "yaml" ]]; then
-      [[ "$ext_lc" =~ ^(yaml|yml)$ ]] && enrolled=true
-    elif [[ "$fmt" == "markdown" ]]; then
-      [[ "$ext_lc" =~ ^(md|markdown)$ ]] && enrolled=true
-    elif [[ "$fmt" == "txt" ]]; then
-      [[ "$ext_lc" == "txt" ]] && enrolled=true
-    elif [[ "$fmt" == "xml" ]]; then
-      [[ "$ext_lc" == "xml" ]] && enrolled=true
-    else
-      [[ "$ext_lc" == "$fmt" ]] && enrolled=true
-    fi
-
-    if [[ "$enrolled" == true ]]; then
-      continue
-    fi
-
-    if [[ "$ext_lc" == "key" ]]; then
-      if [[ $reference_files -eq 0 ]] && bool_enabled "$SAMPLES_VERBOSE"; then
-        echo "  [info] reference-only files (excluded from regression):"
-      fi
-      if bool_enabled "$SAMPLES_VERBOSE"; then
-        echo "    - $base"
-      fi
-      reference_files=$((reference_files + 1))
-    else
-      if [[ $unknown_files -eq 0 ]]; then
-        if [[ "$quiet_integrity" -eq 1 ]]; then
-          printf '[%s]\n' "$fmt"
-        fi
-        echo "  [warn] unsupported sample extensions (not in regression):"
-      fi
-      echo "    - $base"
-      unknown_files=$((unknown_files + 1))
-    fi
-  done < <(find "$in_dir" -maxdepth 1 -type f | sort)
-
-  if [[ -z "$missing_input" && -z "$missing_expected" && $unknown_files -eq 0 ]] && bool_enabled "$SAMPLES_VERBOSE"; then
+  if [[ -z "$missing_input" && -z "$missing_expected" ]] && bool_enabled "$SAMPLES_VERBOSE"; then
     echo "  [ok] sample/expected enrollment is consistent"
   fi
-
 done
 
 if [[ $fail -ne 0 ]]; then

@@ -81,7 +81,7 @@ test "markdown passthrough preserves basic heading and paragraph" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_basic_heading_paragraph.md",
+      "samples/main_process/markdown/expected/markdown_basic_heading_paragraph.md",
     ),
   )
 
@@ -122,7 +122,7 @@ test "markdown passthrough normalizes missing trailing newline only at output" {
 
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_no_trailing_newline.md",
+      "samples/main_process/markdown/expected/markdown_no_trailing_newline.md",
     ),
   )
   let doc = @md.parse_markdown(input, "", 6)
@@ -139,7 +139,7 @@ test "markdown normalizes crlf and strips utf8 bom" {
   )
   let crlf_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_crlf.md",
+      "samples/main_process/markdown/expected/markdown_crlf.md",
     ),
   )
   assert_eq(@cor.emit_markdown(crlf_doc), crlf_expected)
@@ -151,7 +151,7 @@ test "markdown normalizes crlf and strips utf8 bom" {
   )
   let bom_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_bom_utf8.md",
+      "samples/main_process/markdown/expected/markdown_bom_utf8.md",
     ),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
@@ -168,7 +168,7 @@ test "markdown passthrough preserves literal markdown constructs" {
   )
   let ordered_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_ordered_list.md",
+      "samples/main_process/markdown/expected/markdown_ordered_list.md",
     ),
   )
   assert_eq(@cor.emit_markdown(ordered_doc), ordered_expected)
@@ -182,7 +182,7 @@ test "markdown passthrough preserves literal markdown constructs" {
   )
   let html_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/markdown/markdown_raw_html_literal.md",
+      "samples/main_process/markdown/expected/markdown_raw_html_literal.md",
     ),
   )
   assert_eq(@cor.emit_markdown(html_doc), html_expected)

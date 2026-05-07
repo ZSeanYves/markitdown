@@ -102,7 +102,7 @@ git_rev() {
 
 usage() {
   cat <<EOF
-usage: ./samples/scripts/bench_compare_markitdown.sh [--iterations N] [--warmup N] [--corpus PATH]
+usage: ./samples/bench.sh --suite compare [--iterations N] [--warmup N] [--corpus PATH]
 
 Environment overrides:
   BENCH_ITERATIONS            number of measured iterations per sample (default: 1)
@@ -242,8 +242,8 @@ Install Microsoft MarkItDown into a user-managed environment, for example:
 
 Then rerun using one of:
   markitdown available in PATH
-  MARKITDOWN_COMPARE_CMD=/path/to/markitdown ./samples/scripts/bench_compare_markitdown.sh
-  MARKITDOWN_COMPARE_PY_BIN=/path/to/python ./samples/scripts/bench_compare_markitdown.sh
+  MARKITDOWN_COMPARE_CMD=/path/to/markitdown ./samples/bench.sh --suite compare
+  MARKITDOWN_COMPARE_PY_BIN=/path/to/python ./samples/bench.sh --suite compare
 
 The comparison harness does not create or manage a repository-local .venv.
 EOF

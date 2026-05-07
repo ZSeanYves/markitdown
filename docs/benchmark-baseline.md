@@ -1,7 +1,7 @@
 # Benchmark Baseline
 
 This document records the current checked-in smoke benchmark baseline for
-`samples/scripts/bench_smoke.sh`.
+`samples/bench.sh --suite smoke`.
 
 It is a same-machine reference point, not a hard performance SLA.
 
@@ -146,7 +146,7 @@ For PDF H2-complete support coverage, the smoke corpus now includes:
 ## Baseline Command
 
 ```bash
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_smoke.sh --kind smoke
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench.sh --suite smoke --kind smoke
 ```
 
 Artifacts are written under:

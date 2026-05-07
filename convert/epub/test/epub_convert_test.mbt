@@ -124,7 +124,7 @@ test "epub convert main_process basic spine sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_basic_spine.md",
+      "samples/main_process/epub/expected/epub_basic_spine.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -210,7 +210,7 @@ test "epub convert multi chapter spine order sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_multi_chapter_spine_order.md",
+      "samples/main_process/epub/expected/epub_multi_chapter_spine_order.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -228,7 +228,7 @@ test "epub convert local image sample remaps assets" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_local_image_basic.md",
+      "samples/main_process/epub/expected/epub_local_image_basic.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -251,7 +251,7 @@ test "epub convert linear no spine item is skipped" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_linear_no_current_behavior.md",
+      "samples/main_process/epub/expected/epub_linear_no_current_behavior.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -269,7 +269,7 @@ test "epub convert unsupported spine warning sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_unsupported_spine_warning.md",
+      "samples/main_process/epub/expected/epub_unsupported_spine_warning.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -284,7 +284,7 @@ test "epub convert emits nav toc when nav is outside spine" {
 
   let input = resolve_sample_path("samples/main_process/epub/epub_nav_toc.epub")
   let expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/epub/epub_nav_toc.md"),
+    resolve_sample_path("samples/main_process/epub/expected/epub_nav_toc.md"),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   assert_eq(@cor.emit_markdown(doc), expected)
@@ -354,7 +354,7 @@ test "epub convert emits cover image before chapter content" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_cover_image.md",
+      "samples/main_process/epub/expected/epub_cover_image.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -417,7 +417,7 @@ test "epub convert keeps internal anchors conservatively" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_internal_anchor_links.md",
+      "samples/main_process/epub/expected/epub_internal_anchor_links.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)

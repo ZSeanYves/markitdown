@@ -123,9 +123,7 @@ The broader safety net for behavior that consumes this layer is:
 
 ```bash
 moon check
-./samples/diff.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
+./samples/check.sh
 ```
 
 ## Current Limits

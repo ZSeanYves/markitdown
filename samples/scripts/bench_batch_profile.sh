@@ -237,7 +237,7 @@ parse_metadata_modes() {
 
 usage() {
   cat <<EOF
-usage: ./samples/scripts/bench_batch_profile.sh [--formats csv,json,...] [--group-sizes 1,3,8,16] [--models MODELS] [--iterations N] [--warmup N]
+usage: ./samples/bench.sh --suite batch-profile [--formats csv,json,...] [--group-sizes 1,3,8,16] [--models MODELS] [--iterations N] [--warmup N]
 
 Environment overrides:
   BATCH_PROFILE_ITERATIONS   measured iterations per group (default: 1)

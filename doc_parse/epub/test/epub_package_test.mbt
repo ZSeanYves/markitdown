@@ -71,7 +71,7 @@ test "epub package parses basic spine in OPF order" {
 ///|
 test "epub package parses metadata basic" {
   let pkg = open_sample_package(
-    "samples/metadata/epub/epub_metadata_basic.epub",
+    "samples/main_process/epub/metadata/epub_metadata_basic.epub",
   )
   if pkg.metadata.title != Some("EPUB Metadata Sample") {
     fail("expected EPUB title from OPF metadata")

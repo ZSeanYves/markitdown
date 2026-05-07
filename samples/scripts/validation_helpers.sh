@@ -87,9 +87,9 @@ markitdown_runner_command_prefix() {
 
 validation_probe_cases() {
   cat <<'EOF'
-samples/main_process/docx/docx_comment_basic.docx|samples/main_process/expected/docx/docx_comment_basic.md
-samples/main_process/pptx/pptx_hidden_slide_basic.pptx|samples/main_process/expected/pptx/pptx_hidden_slide_basic.md
-samples/main_process/pdf/pdf_page_noise_cleanup.pdf|samples/main_process/expected/pdf/pdf_page_noise_cleanup.md
+samples/main_process/docx/docx_comment_basic.docx|samples/main_process/docx/expected/docx_comment_basic.md
+samples/main_process/pptx/pptx_hidden_slide_basic.pptx|samples/main_process/pptx/expected/pptx_hidden_slide_basic.md
+samples/main_process/pdf/pdf_page_noise_cleanup.pdf|samples/main_process/pdf/expected/pdf_page_noise_cleanup.md
 EOF
 }
 
