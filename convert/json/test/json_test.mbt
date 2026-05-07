@@ -168,7 +168,7 @@ test "json nested and mixed fallbacks stay deterministic" {
   )
   let nested_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/json/json_nested_object.md",
+      "samples/main_process/json/expected/json_nested_object.md",
     ),
   )
   assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
@@ -180,7 +180,7 @@ test "json nested and mixed fallbacks stay deterministic" {
   )
   let mixed_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/json/json_mixed_array.md",
+      "samples/main_process/json/expected/json_mixed_array.md",
     ),
   )
   assert_eq(@cor.emit_markdown(mixed_doc), mixed_expected)
@@ -195,7 +195,7 @@ test "json handles escapes, empty values, and bom/crlf normalization" {
   )
   let escapes_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/json/json_string_escapes.md",
+      "samples/main_process/json/expected/json_string_escapes.md",
     ),
   )
   assert_eq(@cor.emit_markdown(escapes_doc), escapes_expected)
@@ -207,7 +207,7 @@ test "json handles escapes, empty values, and bom/crlf normalization" {
   )
   let empty_array_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/json/json_empty_array.md",
+      "samples/main_process/json/expected/json_empty_array.md",
     ),
   )
   assert_eq(@cor.emit_markdown(empty_array_doc), empty_array_expected)
@@ -218,7 +218,7 @@ test "json handles escapes, empty values, and bom/crlf normalization" {
     6,
   )
   let bom_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/json/json_bom_utf8.md"),
+    resolve_sample_path("samples/main_process/json/expected/json_bom_utf8.md"),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
 
@@ -228,7 +228,7 @@ test "json handles escapes, empty values, and bom/crlf normalization" {
     6,
   )
   let crlf_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/json/json_crlf.md"),
+    resolve_sample_path("samples/main_process/json/expected/json_crlf.md"),
   )
   assert_eq(@cor.emit_markdown(crlf_doc), crlf_expected)
 }
@@ -255,7 +255,7 @@ test "json decodes unicode escapes and surrogate pairs" {
   )
   let unicode_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/json/json_unicode_escape.md",
+      "samples/main_process/json/expected/json_unicode_escape.md",
     ),
   )
   assert_eq(@cor.emit_markdown(unicode_doc), unicode_expected)

@@ -118,9 +118,9 @@ The phase-1 consolidation refresh used:
 ```bash
 moon check
 ./samples/check.sh
-./samples/scripts/bench_smoke.sh
-./samples/scripts/bench_compare_markitdown.sh
-./samples/scripts/bench_batch_profile.sh
+./samples/bench.sh --suite smoke
+./samples/bench.sh --suite compare
+./samples/bench.sh --suite batch-profile
 ./samples/scripts/bench_warn.sh --all
 ```
 

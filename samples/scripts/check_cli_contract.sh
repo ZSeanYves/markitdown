@@ -38,7 +38,7 @@ assert_file_not_exists() {
 }
 
 TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
-DOCX_INPUT="$ROOT/samples/metadata/docx/docx_image_alt_title_basic.docx"
+DOCX_INPUT="$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx"
 XLSX_INPUT="$ROOT/samples/main_process/xlsx/xlsx_formula_cached_values.xlsx"
 
 NO_META_DIR="$OUT_DIR/no_meta"

@@ -35,6 +35,13 @@ Current CLI contract:
   directories
 * `batch` is non-recursive, serial v1, and writes one isolated document root
   per top-level input file plus `batch-summary.tsv`
+* `debug <input>` is the unified multi-format inspect path and emits a
+  developer-facing report instead of Markdown output
+* `debug --json` is the stable scriptable form; human-readable report text is
+  the default interactive form
+* legacy `debug <all|extract|raw|pipeline> <input> [output]` is a deprecated
+  PDF alias over the unified inspect surface; Markdown materialization only
+  happens when `[output]` is explicitly provided
 
 ### Dispatcher
 
@@ -73,6 +80,17 @@ These packages are infrastructure, not final Markdown semantics.
 
 `convert/*` maps source formats into unified IR and handles conservative
 degradation.
+
+The convert layer is now intentionally narrow at its public boundary:
+
+* stable package-facing entrypoints are the format `parse_*` functions and the
+  small set of inspect/profile APIs consumed by dispatcher, CLI, and unified
+  debug inspect
+* internal helpers such as classifiers, per-format normalization helpers,
+  relationship walkers, table heuristics, and parser internals are not treated
+  as stable external APIs
+* repository integration should prefer the dispatcher and CLI surfaces unless a
+  format-specific parse/inspect contract is explicitly required
 
 Current format families:
 
@@ -153,10 +171,47 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
+* `core/text_normalization.mbt` provides the shared text-normalization facade
+  and rule pipeline used by the PDF path for deterministic pure-string cleanup
+  before higher-level heuristics run
+
+Current text-normalization layering is also intentional:
+
+* shared substrate is profile-driven rather than globally aggressive:
+  `Literal`, `GeneralText`, `PdfText`, `PdfCompareText`, `HtmlText`,
+  `OoxmlText`, and `StructuredDataText`
+* shared substrate is stage-organized but rule-driven internally:
+  line-ending, canonical-unicode policy, compatibility glyph, whitespace,
+  invisible-char, soft-hyphen, PDF glyph fallback, and PDF compare cleanup
+  are each decomposed into explicit cleanup rules with ids, scopes, ordering,
+  and rule-level summary reporting
+* `PdfText` is the output-facing extracted-text profile
+* `PdfCompareText` is a stronger comparison-only profile used by PDF heading,
+  noise, table, caption, and merge heuristics
+* the current project does not claim ICU-level or full UAX #15 Unicode
+  normalization; canonical `NFD/NFC/NFKD/NFKC` are explicit facade APIs backed
+  by `tonyfettes/unicode`, but they are still opt-in and are not default
+  converter behavior
+* shared low-risk rules include line-ending normalization, NBSP/unicode-space
+  cleanup, selected zero-width removal, soft-hyphen stripping, common
+  ligature expansion, PDF compatibility-glyph fallback, and profile-gated
+  PDF output-safe spacing repair such as CJK spacing, punctuation spacing,
+  and marker spacing
+* shared document-text cleanup is already reused by PDF, TXT, HTML, DOCX, and
+  PPTX, while full conformance validation remains a future opt-in step
+* PDF keeps layout-aware repair such as word-fragment recovery, line-wrap
+  hyphen repair, noise filtering, heading/table/caption decisions, and other
+  geometry/source-ref heuristics in `doc_parse/pdf`
+* PDF-local span/line/model glue now prefers context signals such as source-ref
+  adjacency, font/font-size consistency, gap/baseline proximity, punctuation
+  boundaries, and casing signals over pure short-word fallback guesses
+* literal/source-preserving paths such as Markdown passthrough, XML fenced
+  output, JSON/YAML fallback code fences, and TXT literal-safe lowering do not
+  opt into aggressive text normalization policies
 
 This split is the stable architecture outcome from the earlier PDF H2 process;
-the repository no longer needs separate historical PDF phase docs to explain
-the active design.
+historical PDF phase docs remain useful for audit traceability, but they are
+no longer the source of truth for the active design.
 
 ### HTML
 
@@ -228,9 +283,9 @@ It is not a full layout trace or DOM/object anchoring model.
 The repository includes explicit non-production support layers:
 
 * debug pipeline for PDF
-* regression chains under `samples/main_process`, `samples/metadata`,
-  `samples/assets`
-* compact acceptance demo samples under `samples/test`
+* regression inputs under `samples/main_process` with checked expectations
+  under `samples/expected`
+* lower-layer parser/core fixtures under `samples/fixtures`
 * internal smoke benchmark
 * overlap-only comparison benchmark
 

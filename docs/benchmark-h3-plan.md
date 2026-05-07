@@ -1,5 +1,12 @@
 # Benchmark H3 Plan
 
+Status: historical planning note.
+
+Current benchmark facts and public benchmark governance now live in:
+
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+
 This document captures the current benchmark-harness contract and the planned
 H3 phase-2 direction after the first performance wave was closed out.
 
@@ -14,15 +21,15 @@ Current stable benchmark anchors remain in:
 The repository currently uses three benchmark layers:
 
 * smoke benchmark:
-  * `samples/scripts/bench_smoke.sh`
+  * `samples/bench.sh --suite smoke`
   * internal same-machine cross-format tracking
   * native-preferred runner policy with `moon run` fallback
 * overlap comparison benchmark:
-  * `samples/scripts/bench_compare_markitdown.sh`
+  * `samples/bench.sh --suite compare`
   * selected overlap-only comparison against Python `markitdown`
   * no blanket parity claim
 * batch profiling benchmark:
-  * `samples/scripts/bench_batch_profile.sh`
+  * `samples/bench.sh --suite batch-profile`
   * `process-per-file` vs `single-process-batch`
   * optional memory observation when platform support exists
 

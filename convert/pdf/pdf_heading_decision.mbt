@@ -55,7 +55,7 @@ fn decide_heading_classification(
   next : PdfConvertBlock?,
   max_heading : Int,
 ) -> PdfHeadingDecision {
-  let text = block.text.trim().to_owned()
+  let text = normalize_pdf_comparison_text(block.text)
   let evidence = collect_heading_evidence(prev, block, next, text, max_heading)
 
   match block.kind {

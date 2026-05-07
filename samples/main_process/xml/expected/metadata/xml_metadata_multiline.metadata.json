@@ -1,0 +1,33 @@
+{
+  "version": "1",
+  "source_name": "xml_metadata_multiline.xml",
+  "format": "xml",
+  "markdown_file": "xml_metadata_multiline.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "code_block",
+      "text": "<?xml version=\"1.0\"?>\n<root>\n  <item>Alpha</item>\n  <!-- keep comment -->\n  <item>Beta</item>\n</root>\n",
+      "origin": {
+        "format": "xml",
+        "source_name": "xml_metadata_multiline.xml",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 6
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

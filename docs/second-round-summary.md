@@ -3,10 +3,15 @@
 This document summarizes the repository's second-round `H2++ / H3++` closure
 state.
 
+The repository now sits on top of that sealed baseline with a unified public
+validation surface and a checked-in complex-only `samples/real_world` corpus.
+
 It is the concise project-level companion to:
 
+* [CHANGELOG.md](../CHANGELOG.md)
 * [docs/support-and-limits.md](./support-and-limits.md)
 * [docs/benchmark-governance.md](./benchmark-governance.md)
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
 * [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
 * [docs/second-round-hardening-audit.md](./second-round-hardening-audit.md)
 
@@ -79,18 +84,27 @@ Performance governance lives in
 The repository's checked-in validation chains are:
 
 * `samples/check.sh`
-* `samples/check_main_process.sh`
-* `samples/check_metadata.sh`
-* `samples/check_assets.sh`
-* `samples/scripts/check_cli_contract.sh`
-* `samples/scripts/check_batch_contract.sh`
-* `samples/scripts/check_corpus_manifest.sh`
+* `samples/check.sh --markdown-only`
+* `samples/check.sh --metadata-only`
+* `samples/check.sh --assets-only`
+* `samples/check.sh --contracts-only`
+* `samples/check.sh --manifest-only`
 
 The checked-in benchmark chains are:
 
-* `samples/scripts/bench_smoke.sh --kind smoke`
-* `samples/scripts/bench_compare_markitdown.sh`
-* `samples/scripts/bench_batch_profile.sh`
+* `samples/bench.sh --suite smoke --kind smoke`
+* `samples/bench.sh --suite compare`
+* `samples/bench.sh --suite batch-profile`
+
+Detailed validation counts, current run totals, and representative benchmark
+examples live in
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
+The checked-in `samples/real_world` corpus now provides richer
+complex-scenario coverage across the core formats. It complements the smaller
+feature-focused `main_process` regressions, and it now keeps only the
+long-form complex layer. It still does not change the sealed H2++ / H3++
+evidence basis and is not counted as benchmark evidence by default.
 
 ## Current Boundaries
 
@@ -101,7 +115,64 @@ Across sealed formats, the repository stays intentionally conservative:
 * no recursive ZIP archive conversion
 * no EPUB DRM/CSS/JS/reading-system claims
 * no OCR-default PDF claim
+* no globally aggressive text rewriting policy across literal or structured
+  paths
 * no benchmark claim beyond the checked-in corpora
+
+## Recent Engineering Hardening
+
+Recent substrate hardening after second-round seal:
+
+* shared text normalization now lives in a profile-driven, rule-driven
+  substrate rather than scattered PDF-only character fixes
+* the native PDF path uses `PdfText` for output cleanup and `PdfCompareText`
+  for comparison/heuristic normalization
+* normalization is staged and explainable:
+  line-ending, compatibility, whitespace, invisible-char, soft-hyphen, PDF
+  glyph fallback, and compare-cleanup stages all flow through one shared entry
+  point with explicit rule ids/scopes and debug summaries
+* output-safe pure-string cleanup such as CJK spacing, punctuation spacing,
+  and marker spacing now flows through shared policy instead of ad hoc PDF
+  post-text replacement chains
+* canonical `NFC` / `NFKC` are explicit non-default policy hooks, but the
+  repository does not claim full ICU/UAX #15 support on the current MoonBit
+  stdlib path
+* literal-safe paths remain conservative and do not inherit aggressive
+  normalization by default
+
+## Post-seal Engineering Hardening
+
+These follow-up changes happened after the second-round closure itself. They
+do not rewrite the historical second-round story, but they do affect the
+current implementation state:
+
+* the native PDF path no longer relies on known-phrase replacement, known
+  split-word lists, global `replace_all("- ", "")`, or global slash cleanup as
+  its default text-quality mechanism
+* PDF output-safe cleanup now runs through the shared rule pipeline, while
+  span/line/layout-aware repair stays in PDF-local layers
+* PDF no-context glue fallback has been tightened so normal short-word
+  boundaries such as `the + first` and `to + flow` do not merge by guesswork
+* wrapped-prefix continuation and ligature-fragment repair now depend on PDF
+  context signals rather than word lists
+* recent whitepaper regression fixes were absorbed without reopening sealed
+  scope language or widening benchmark claims
+
+Recent engineering hardening after normalization v2:
+
+* CLI debug inspect is now a unified multi-format report path instead of a
+  PDF-only developer entrypoint
+* `debug <input>` works across dispatcher-supported formats and reports format,
+  structure, assets, metadata availability, and selected format-specific stats
+* `debug --json` provides a stable script-facing output contract
+* PDF debug inspect additionally exposes structured `pdf_backend`,
+  `pdf_pages`, `pdf_text_model`, `pdf_images`, `pdf_annotations`, `pdf_links`,
+  `pdf_pipeline`, and aggregated `PdfText` / `PdfCompareText`
+  normalization summary
+* legacy `debug <all|extract|raw|pipeline> ...` is now a deprecated alias over
+  the unified PDF inspect path rather than a separately maintained report path
+* debug inspect does not change normal or batch conversion semantics and does
+  not write sidecars by default
 
 ## Future Work
 

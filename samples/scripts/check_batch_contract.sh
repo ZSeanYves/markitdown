@@ -44,7 +44,7 @@ mkdir -p "$INPUT_DIR/nested"
 
 printf 'alpha\n' > "$INPUT_DIR/a.txt"
 printf '# beta\n' > "$INPUT_DIR/b.md"
-cp "$ROOT/samples/metadata/docx/docx_image_alt_title_basic.docx" "$INPUT_DIR/c.docx"
+cp "$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx" "$INPUT_DIR/c.docx"
 printf 'ignored\n' > "$INPUT_DIR/nested/ignored.txt"
 printf 'bad\n' > "$INPUT_DIR/d.bin"
 

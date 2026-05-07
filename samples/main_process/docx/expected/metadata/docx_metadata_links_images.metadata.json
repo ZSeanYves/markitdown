@@ -1,0 +1,82 @@
+{
+  "version": "1",
+  "source_name": "docx_metadata_links_images.docx",
+  "format": "docx",
+  "markdown_file": "docx_metadata_links_images.md",
+  "document": {
+  "title": "DOCX Metadata Links Images",
+  "subject": null,
+  "creator": null,
+  "description": null,
+  "keywords": null,
+  "created": null,
+  "modified": null,
+  "application": "fixture",
+  "pages": "1",
+  "words": "0",
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 2,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "paragraph",
+      "text": "See OpenAI.",
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_metadata_links_images.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_metadata_links_images.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image01.jpg",
+        "alt_text": "Meta image",
+        "title": "Meta image title",
+        "caption": null
+      }
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image01.jpg",
+      "asset_type": "image",
+      "alt_text": "Meta image",
+      "title": "Meta image title",
+      "caption": null,
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_metadata_links_images.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "docx-asset-1",
+        "nearby_caption": null,
+        "relationship_id": "rIdImg1",
+        "source_path": "word/media/image1.jpg"
+      },
+      "nearby_caption": null
+    }
+  ]
+}

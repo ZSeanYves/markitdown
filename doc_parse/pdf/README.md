@@ -24,6 +24,19 @@ Its job is to turn rendering-oriented PDF content into a parser-facing document 
 - Markdown link emission for annotations/links
 - browser-like visual layout reconstruction
 
+Text-normalization boundary:
+
+- `doc_parse/pdf` may use the shared `core/text_normalization.mbt` facade for
+  low-risk extracted-text cleanup before higher PDF heuristics run.
+- That shared cleanup is now rule-driven and profile/policy-gated on the core
+  side; `doc_parse/pdf` consumes it as a pure-string cleanup substrate rather
+  than re-implementing parallel post-text replacement chains.
+- It does not own project-wide canonical normalization policy and should not
+  push shared cross-format cleanup rules down into `vendor/mbtpdf`.
+- Contextual PDF repair such as span glue, line-wrap hyphen repair, page-edge
+  artifact handling, and other geometry/source-ref heuristics stays local to
+  `doc_parse/pdf` and is not a core text-normalization responsibility.
+
 ## Vendored Backend Boundary
 
 The only backend currently wired into `doc_parse/pdf` is vendored `mbtpdf`.
@@ -199,9 +212,7 @@ Useful verification commands:
 ```sh
 moon check
 moon test
-./samples/diff.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
+./samples/check.sh
 ```
 
 Current sample tests are expected to show no Markdown output changes for C0 documentation/package cleanup.

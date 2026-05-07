@@ -133,7 +133,7 @@ fn collect_edge_noise_evidence(
   block : PdfConvertBlock,
   repeated : PdfRepeatedEdgeNoiseIndex,
 ) -> PdfEdgeNoiseEvidence {
-  let text = block.text.trim().to_owned()
+  let text = normalize_pdf_comparison_text(block.text)
   let key = normalize_noise_key(text)
   let prefix = normalize_noise_prefix_key(text)
   let first_idx = first_nonempty_block_index(page)
@@ -607,13 +607,13 @@ fn normalize_noise_prefix_key(s : String) -> String {
 
 ///|
 fn is_numeric_page_number_like(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t != "" && t.length() <= 4 && all_ascii_digits(t)
 }
 
 ///|
 fn is_roman_page_number_like(text : String) -> Bool {
-  let t = text.trim().to_upper()
+  let t = normalize_pdf_comparison_text(text).to_upper()
   if t == "" || t.length() > 6 {
     return false
   }
@@ -638,7 +638,7 @@ fn is_short_centered_block(
       let page_center = (box.x0 + box.x1) / 2.0
       let block_center = (block._bbox.x0 + block._bbox.x1) / 2.0
       abs_noise_f64(page_center - block_center) <= 40.0 &&
-      count_words(block.text.trim().to_owned()) <= 3
+      count_words(block.text) <= 3
     }
     None => false
   }

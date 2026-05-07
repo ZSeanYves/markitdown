@@ -17,6 +17,14 @@ type BatchItemResult
 
 type BatchRunResult
 
+type BlockStats
+
+type DebugCliOptions
+
+type DebugParseResult
+
+type OriginDimensionCounts
+
 // Type aliases
 
 // Traits

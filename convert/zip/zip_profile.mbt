@@ -29,7 +29,7 @@ fn new_zip_profile_report(input_path : String) -> ZipProfileReport {
 }
 
 ///|
-pub fn zip_profile_add_summary(
+fn zip_profile_add_summary(
   report : ZipProfileReport?,
   summary : String,
 ) -> Unit {

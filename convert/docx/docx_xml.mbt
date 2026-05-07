@@ -1177,7 +1177,10 @@ fn scan_docx_inline_text(
       let text = xml_unescape(profiled_slice_to_string(chars, gt + 1, close))
       if text != "" {
         text_out.write_string(text)
-        out.push(@cor.Inline::Text(text))
+        let cleaned = @cor.normalize_document_text_cleanup(text)
+        if cleaned != "" {
+          out.push(@cor.Inline::Text(cleaned))
+        }
       }
 
       i = close + wt_close_tag_chars.length()

@@ -41,6 +41,13 @@ This package intentionally does not:
 
 Those responsibilities belong to `convert/*`, `core/*`, and `cli/*`.
 
+Text-normalization boundary:
+
+- `doc_parse/ooxml` does not own shared document cleanup or canonical Unicode
+  normalization policy.
+- Format converters may reuse `core/text_normalization.mbt` at carefully chosen
+  text-only seams, but that policy stays above this package.
+
 ## Public APIs
 
 Package facade:
@@ -123,9 +130,7 @@ The broader safety net for behavior that consumes this layer is:
 
 ```bash
 moon check
-./samples/diff.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
+./samples/check.sh
 ```
 
 ## Current Limits

@@ -133,7 +133,7 @@ test "csv core samples stay stable" {
     6,
   )
   let basic_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/csv/csv_basic.md"),
+    resolve_sample_path("samples/main_process/csv/expected/csv_basic.md"),
   )
   assert_eq(@cor.emit_markdown(basic_doc), basic_expected)
   assert_eq(basic_doc.blocks.val.length(), 1)
@@ -144,7 +144,7 @@ test "csv core samples stay stable" {
     6,
   )
   let ragged_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/csv/csv_ragged_rows.md"),
+    resolve_sample_path("samples/main_process/csv/expected/csv_ragged_rows.md"),
   )
   assert_eq(@cor.emit_markdown(ragged_doc), ragged_expected)
 
@@ -166,7 +166,7 @@ test "csv quoted fields and markdown pipes stay readable" {
   )
   let quoted_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/csv/csv_quoted_newline.md",
+      "samples/main_process/csv/expected/csv_quoted_newline.md",
     ),
   )
   assert_eq(@cor.emit_markdown(quoted_doc), quoted_expected)
@@ -178,7 +178,7 @@ test "csv quoted fields and markdown pipes stay readable" {
   )
   let pipe_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/csv/csv_markdown_pipes.md",
+      "samples/main_process/csv/expected/csv_markdown_pipes.md",
     ),
   )
   assert_eq(@cor.emit_markdown(pipe_doc), pipe_expected)
@@ -192,7 +192,7 @@ test "csv strips utf8 bom and normalizes crlf without dropping empty output" {
     6,
   )
   let bom_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/csv/csv_bom_utf8.md"),
+    resolve_sample_path("samples/main_process/csv/expected/csv_bom_utf8.md"),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
 
@@ -202,7 +202,7 @@ test "csv strips utf8 bom and normalizes crlf without dropping empty output" {
     6,
   )
   let crlf_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/csv/csv_crlf.md"),
+    resolve_sample_path("samples/main_process/csv/expected/csv_crlf.md"),
   )
   assert_eq(@cor.emit_markdown(crlf_doc), crlf_expected)
 
@@ -223,7 +223,7 @@ test "tsv samples stay stable" {
     6,
   )
   let basic_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/tsv/tsv_basic.md"),
+    resolve_sample_path("samples/main_process/tsv/expected/tsv_basic.md"),
   )
   assert_eq(@cor.emit_markdown(basic_doc), basic_expected)
 
@@ -234,7 +234,7 @@ test "tsv samples stay stable" {
   )
   let pipe_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/tsv/tsv_markdown_pipes.md",
+      "samples/main_process/tsv/expected/tsv_markdown_pipes.md",
     ),
   )
   assert_eq(@cor.emit_markdown(pipe_doc), pipe_expected)
@@ -245,7 +245,7 @@ test "tsv samples stay stable" {
     6,
   )
   let bom_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/tsv/tsv_bom_utf8.md"),
+    resolve_sample_path("samples/main_process/tsv/expected/tsv_bom_utf8.md"),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
 

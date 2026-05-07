@@ -2,8 +2,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SAMPLE_IMPL="$ROOT/samples/scripts/check_samples_impl.sh"
+REAL_WORLD_IMPL="$ROOT/samples/scripts/check_real_world.sh"
+CORPUS_MANIFEST_CHECK="$ROOT/samples/scripts/check_corpus_manifest.sh"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 
 CONTINUE_ON_FAILURE="${CHECK_CONTINUE:-0}"
+MODE="full"
+REAL_WORLD_ARGS=()
 
 bool_enabled() {
   local raw="${1-}"
@@ -17,6 +23,69 @@ bool_enabled() {
       ;;
   esac
 }
+
+usage() {
+  cat <<'EOF'
+Usage: ./samples/check.sh [MODE]
+
+Public modes:
+  --full            Run the default release-style validation chain.
+  --markdown-only   Run only checked Markdown regression for enrolled samples.
+  --metadata-only   Run only metadata-focused sample validation.
+  --assets-only     Run only asset-focused sample validation.
+  --contracts-only  Run CLI, debug, and batch contract checks only.
+  --manifest-only   Run sample enrollment plus benchmark/real_world manifest checks.
+  --real-world      Rerun only the real_world complex-scenario corpus.
+                    Extra arguments after --real-world are forwarded to the
+                    real_world checker, for example:
+                    ./samples/check.sh --real-world --tags complex
+
+Notes:
+  * The default mode is --full and includes the checked-in real_world corpus.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --full)
+      MODE="full"
+      ;;
+    --main-process)
+      MODE="main-process"
+      ;;
+    --markdown-only)
+      MODE="markdown-only"
+      ;;
+    --metadata-only)
+      MODE="metadata-only"
+      ;;
+    --assets-only)
+      MODE="assets-only"
+      ;;
+    --contracts-only)
+      MODE="contracts-only"
+      ;;
+    --manifest-only)
+      MODE="manifest-only"
+      ;;
+    --real-world)
+      MODE="real-world"
+      shift
+      REAL_WORLD_ARGS=("$@")
+      break
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 run_stage() {
   local stage="$1"
@@ -52,42 +121,71 @@ print_summary() {
     IFS='|' read -r stage status elapsed <<< "$record"
     echo "- $stage: $status ($elapsed)"
   done
+  echo "- temp_root: $TMP_ROOT"
+}
+
+run_stage_or_stop() {
+  local stage="$1"
+  shift
+  run_stage "$stage" "$@" || overall_status=$?
+  if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
+    print_summary "$overall_status"
+    exit "$overall_status"
+  fi
+}
+
+run_manifest_chain() {
+  run_stage_or_stop "integrity" env SAMPLES_QUIET_INTEGRITY=1 "$ROOT/samples/scripts/check_samples.sh"
+  run_stage_or_stop "benchmark_manifest" "$CORPUS_MANIFEST_CHECK"
+  run_stage_or_stop "real_world_manifest" "$REAL_WORLD_IMPL" --manifest-only
+}
+
+run_contract_chain() {
+  run_stage_or_stop "cli_contract" "$ROOT/samples/scripts/check_cli_contract.sh"
+  run_stage_or_stop "debug_contract" "$ROOT/samples/scripts/check_debug_contract.sh"
+  run_stage_or_stop "batch_contract" "$ROOT/samples/scripts/check_batch_contract.sh"
 }
 
 STAGE_RESULTS=()
 overall_status=0
 
-run_stage "integrity" env SAMPLES_QUIET_INTEGRITY=1 "$ROOT/samples/scripts/check_samples.sh" || overall_status=$?
-if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
-  print_summary "$overall_status"
-  exit "$overall_status"
-fi
+case "$MODE" in
+  main-process)
+    exec "$SAMPLE_IMPL"
+    ;;
+  markdown-only)
+    exec "$SAMPLE_IMPL" --markdown-only
+    ;;
+  metadata-only)
+    exec "$SAMPLE_IMPL" --metadata-only
+    ;;
+  assets-only)
+    exec "$SAMPLE_IMPL" --assets-only
+    ;;
+  contracts-only)
+    run_contract_chain
+    print_summary "$overall_status"
+    exit "$overall_status"
+    ;;
+  manifest-only)
+    run_manifest_chain
+    print_summary "$overall_status"
+    exit "$overall_status"
+    ;;
+  real-world)
+    if [[ "${#REAL_WORLD_ARGS[@]}" -gt 0 ]]; then
+      exec "$REAL_WORLD_IMPL" "${REAL_WORLD_ARGS[@]}"
+    fi
+    exec "$REAL_WORLD_IMPL"
+    ;;
+esac
 
-run_stage "main_process" "$ROOT/samples/check_main_process.sh" || overall_status=$?
-if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
-  print_summary "$overall_status"
-  exit "$overall_status"
-fi
-
-run_stage "metadata" "$ROOT/samples/check_metadata.sh" || overall_status=$?
-if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
-  print_summary "$overall_status"
-  exit "$overall_status"
-fi
-
-run_stage "cli_contract" "$ROOT/samples/scripts/check_cli_contract.sh" || overall_status=$?
-if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
-  print_summary "$overall_status"
-  exit "$overall_status"
-fi
-
-run_stage "batch_contract" "$ROOT/samples/scripts/check_batch_contract.sh" || overall_status=$?
-if [[ "$overall_status" -ne 0 ]] && ! bool_enabled "$CONTINUE_ON_FAILURE"; then
-  print_summary "$overall_status"
-  exit "$overall_status"
-fi
-
-run_stage "assets" "$ROOT/samples/check_assets.sh" || overall_status=$?
+run_manifest_chain
+run_stage_or_stop "real_world" "$REAL_WORLD_IMPL"
+run_stage_or_stop "markdown" "$SAMPLE_IMPL" --markdown-only
+run_stage_or_stop "metadata" "$SAMPLE_IMPL" --metadata-only
+run_stage_or_stop "assets" "$SAMPLE_IMPL" --assets-only
+run_contract_chain
 
 print_summary "$overall_status"
 exit "$overall_status"

@@ -117,7 +117,7 @@ git_rev() {
 
 usage() {
   cat <<EOF
-usage: ./samples/scripts/bench_smoke.sh [--kind KIND] [--format FORMAT] [--iterations N] [--warmup N]
+usage: ./samples/bench.sh --suite smoke [--kind KIND] [--format FORMAT] [--iterations N] [--warmup N]
 
 Environment overrides:
   BENCH_KIND         benchmark tier: smoke | image | metadata | extended | all

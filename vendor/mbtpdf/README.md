@@ -19,6 +19,14 @@ The active lower-layer boundary is:
 * `doc_parse/pdf` exposes repository-owned raw/model/api types
 * `convert/pdf` depends on `doc_parse/pdf`, not on `vendor/mbtpdf` internals
 
+Text-normalization boundary:
+
+* `vendor/mbtpdf` is responsible for PDF-specific decoding such as
+  `ToUnicode`, CMap, font encoding, glyph mapping, and raw text extraction.
+* Cross-format cleanup and explicit canonical normalization policy live in the
+  repository's `core/text_normalization.mbt` facade, not in this vendored
+  backend.
+
 ## Test policy
 
 Root repository policy:

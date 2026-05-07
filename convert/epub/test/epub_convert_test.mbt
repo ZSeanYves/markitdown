@@ -124,7 +124,7 @@ test "epub convert main_process basic spine sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_basic_spine.md",
+      "samples/main_process/epub/expected/epub_basic_spine.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -149,7 +149,9 @@ test "epub convert remote image falls back without asset export" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_remote_image.epub")
+  let input = resolve_sample_path(
+    "samples/fixtures/epub/epub_remote_image.epub",
+  )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   assert_contains(markdown, "# OPS/chapter.xhtml")
@@ -168,7 +170,7 @@ test "epub convert unsupported spine media emits warning block" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_unsupported_spine_media.epub",
+    "samples/fixtures/epub/epub_unsupported_spine_media.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -185,7 +187,7 @@ test "epub convert missing manifest spine item emits warning and continues" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_missing_manifest_then_valid.epub",
+    "samples/fixtures/epub/epub_missing_manifest_then_valid.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -208,7 +210,7 @@ test "epub convert multi chapter spine order sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_multi_chapter_spine_order.md",
+      "samples/main_process/epub/expected/epub_multi_chapter_spine_order.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -226,7 +228,7 @@ test "epub convert local image sample remaps assets" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_local_image_basic.md",
+      "samples/main_process/epub/expected/epub_local_image_basic.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -249,7 +251,7 @@ test "epub convert linear no spine item is skipped" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_linear_no_current_behavior.md",
+      "samples/main_process/epub/expected/epub_linear_no_current_behavior.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -267,7 +269,7 @@ test "epub convert unsupported spine warning sample" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_unsupported_spine_warning.md",
+      "samples/main_process/epub/expected/epub_unsupported_spine_warning.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -282,7 +284,7 @@ test "epub convert emits nav toc when nav is outside spine" {
 
   let input = resolve_sample_path("samples/main_process/epub/epub_nav_toc.epub")
   let expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/epub/epub_nav_toc.md"),
+    resolve_sample_path("samples/main_process/epub/expected/epub_nav_toc.md"),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   assert_eq(@cor.emit_markdown(doc), expected)
@@ -294,7 +296,7 @@ test "epub convert emits ncx toc when epub3 nav is absent" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_ncx_basic.epub")
+  let input = resolve_sample_path("samples/fixtures/epub/epub_ncx_basic.epub")
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   assert_contains(markdown, "# Table of Contents")
@@ -309,7 +311,7 @@ test "epub convert prefers epub3 nav over ncx fallback" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_ncx_nav_priority.epub",
+    "samples/fixtures/epub/epub_ncx_nav_priority.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -326,7 +328,9 @@ test "epub convert avoids duplicate nav emission when nav is in spine" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_nav_in_spine.epub")
+  let input = resolve_sample_path(
+    "samples/fixtures/epub/epub_nav_in_spine.epub",
+  )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   if markdown.contains("# Table of Contents") {
@@ -350,7 +354,7 @@ test "epub convert emits cover image before chapter content" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_cover_image.md",
+      "samples/main_process/epub/expected/epub_cover_image.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
@@ -369,7 +373,7 @@ test "epub convert uses guide cover image fallback" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_guide_cover_image.epub",
+    "samples/fixtures/epub/epub_guide_cover_image.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -391,7 +395,7 @@ test "epub convert does not emit guide cover page as cover image" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_guide_cover_page.epub",
+    "samples/fixtures/epub/epub_guide_cover_page.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -413,7 +417,7 @@ test "epub convert keeps internal anchors conservatively" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/epub/epub_internal_anchor_links.md",
+      "samples/main_process/epub/expected/epub_internal_anchor_links.md",
     ),
   )
   let doc = @epub.parse_epub(input, out_dir, 6)

@@ -6,6 +6,9 @@ and warning-policy files.
 It is meant to make performance work reviewable and reproducible. It is not a
 dumping ground for arbitrary local inputs.
 
+For current checked counts and representative benchmark examples, use
+[docs/validation-and-benchmark-summary.md](../../docs/validation-and-benchmark-summary.md).
+
 ## Checked-in Control Files
 
 * `corpus.tsv`
@@ -16,6 +19,10 @@ dumping ground for arbitrary local inputs.
 Related helper:
 
 * `../scripts/check_corpus_manifest.sh`
+
+Public benchmark entrypoint:
+
+* `../bench.sh`
 
 ## Corpus Roles
 
@@ -83,7 +90,7 @@ performance reference.
 Smoke benchmark:
 
 ```bash
-./samples/scripts/bench_smoke.sh --kind smoke
+./samples/bench.sh --suite smoke --kind smoke
 ```
 
 Overlap comparison:
@@ -91,16 +98,22 @@ Overlap comparison:
 ```bash
 command -v markitdown
 markitdown --version || true
-./samples/scripts/bench_compare_markitdown.sh --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
+./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
 Batch profiling:
 
 ```bash
-./samples/scripts/bench_batch_profile.sh --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ```
 
 Manifest validation:
+
+```bash
+./samples/check.sh --manifest-only
+```
+
+Internal direct helper:
 
 ```bash
 ./samples/scripts/check_corpus_manifest.sh

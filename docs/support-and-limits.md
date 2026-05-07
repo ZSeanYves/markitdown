@@ -1,8 +1,11 @@
 # Support Scope And Known Limits
 
-This is the repository’s detailed support contract. When README, progress, and
-support text differ, this document should be treated as the detailed source of
-truth for format behavior and limits.
+This is the repository’s detailed support contract. When README or older
+historical/progress notes differ, this document should be treated as the
+detailed source of truth for format behavior and limits.
+
+For checked validation totals and benchmark result snapshots, use
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
 
 ## Project Scope
 
@@ -39,6 +42,15 @@ Current product-path CLI contract:
   each isolated batch document root
 * `ocr` and `debug` follow the same explicit metadata-gating rule when writing
   on-disk outputs
+* `debug <input>` is now the unified multi-format inspect/report path
+* unified debug inspect does not write Markdown, metadata sidecars, or assets
+  by default
+* PDF keeps deeper debug detail, including normalization summary aggregation,
+  while other formats currently provide baseline report data plus selected
+  format-specific stats
+* legacy `debug <all|extract|raw|pipeline> <input> [output]` is deprecated and
+  now maps to the unified PDF inspect surface; only an explicit `[output]`
+  path materializes Markdown
 
 Batch v1 behavior:
 
@@ -99,9 +111,57 @@ Across the current implementation:
   speculative reconstruction
 * structured-text converters either preserve source form or fail closed on
   invalid syntax instead of guessing
+* shared text normalization is profile-based rather than globally aggressive:
+  output text, comparison/heuristic text, and literal/raw text preservation are
+  explicitly separated
 * origin metadata is best-effort provenance, not a full anchoring system
 * metadata schema stays additive and sparse
 * asset export only happens for formats that materially emit image files
+
+Shared text-normalization substrate:
+
+* `core/text_normalization.mbt` is the common entry point for Text
+  Normalization v2
+* current shared profiles are:
+  `Literal`, `GeneralText`, `PdfText`, `PdfCompareText`, `HtmlText`,
+  `OoxmlText`, and `StructuredDataText`
+* `PdfText` is used for output-facing extracted PDF text cleanup
+* `PdfCompareText` is used for PDF heading/noise/table/caption/merge
+  comparison text and is intentionally stronger than output normalization
+* current shared stages are:
+  validate-scalar, line-ending, canonical-unicode policy,
+  compatibility-glyph, whitespace, invisible-char, soft-hyphen, PDF glyph
+  fallback, and PDF compare cleanup
+* shared cleanup is rule-driven inside those stages:
+  each rule has an explicit id, scope, profile/policy gating, centralized
+  order, and summary entry for debug aggregation
+* current high-value subset covers line endings, NBSP/unicode spaces,
+  `U+200B` / `U+FEFF`, `U+00AD`, common ligatures, PDF compatibility glyph
+  fallback, and profile-gated PDF output-safe spacing repair
+* output-safe spacing repair currently includes rule-gated CJK internal
+  spacing cleanup, CJK punctuation-adjacent spacing cleanup, ASCII
+  punctuation spacing cleanup, bullet-marker spacing, and numbered-marker
+  spacing where the active profile/policy allows them
+* smart-quote normalization, dash normalization, fullwidth folding, and CJK
+  punctuation rewriting are explicit opt-in behaviors and are not default
+  output policy
+* explicit canonical normalization APIs now exist through the project facade,
+  backed by `tonyfettes/unicode`, including `normalize_nfd/nfc/nfkd/nfkc` and
+  `is_normalized_*`
+* default converter behavior still does not enable canonical normalization
+* the repository does not claim full ICU/UAX #15 or
+  `NormalizationTest.txt`-verified conformance yet
+* this substrate is deterministic preprocessing, not OCR, not a layout engine,
+  and not a semantic classifier
+* PDF-only artifact cleanup, line-wrap repair, and other geometry-dependent
+  decisions stay in PDF layers and are not default text-normalization rules
+* the native PDF main path no longer depends on known-phrase replacement,
+  known split-word lists, global `replace_all("- ", "")`, or global slash
+  artifact cleanup as its default text-quality mechanism
+* literal contexts such as Markdown passthrough, fenced code output, HTML
+  `pre/code`, XML source-preserving fallback, JSON/YAML/XML literal code
+  paths, CSV/TSV value text, and TXT literal-safe lowering do not opt into
+  aggressive normalization by default
 
 ## Per-format Support
 
@@ -292,6 +352,10 @@ Supported:
 Conservative behavior:
 
 * structure is text-first, not visual-layout faithful
+* shared `PdfText` normalization runs before heading/noise/merge/table/caption
+  heuristics so low-risk character cleanup is consistent across the PDF path
+* pure string cleanup is handled by the shared core rule pipeline, while
+  span/line/model glue and line-wrap repair stay PDF-local
 * table recovery only triggers for compact, aligned, high-confidence text grids
 * table lowering supports both explicit header-like first rows and conservative
   `header_rows = 0` headerless numeric tables
@@ -301,6 +365,10 @@ Conservative behavior:
 * image caption attachment only triggers for short, figure-like nearby text
 * PDF annotation links only emit for a narrow, high-confidence URI subset; all
   other annotation/link cases remain conservative and debug-visible
+* no-context text glue fallback is intentionally narrow and now prefers same
+  line / adjacent-span context, source-ref adjacency, font/font-size/style
+  consistency, gap/baseline proximity, punctuation boundaries, and casing
+  signals over pure short-word guessing
 
 Known limits:
 
@@ -309,9 +377,12 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
+* no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
 * H3++ performance claims apply only to the checked-in native text-PDF corpus
+* OCR remains an explicit separate path; OCR cleanup has not been rolled into
+  the shared default normalization policy
 
 ### HTML / HTM
 
@@ -518,6 +589,8 @@ Conservative behavior:
   silently become headings/lists/links by accident
 * input must decode as UTF-8; unsupported encodings fail closed rather than
   using heuristic auto-detection
+* literal-safe TXT lowering does not opt into PDF-specific artifact cleanup or
+  aggressive spacing repair
 
 Known limits:
 
@@ -549,6 +622,8 @@ Conservative behavior:
 * XML is preserved as normalized source text rather than semantically rebuilt
 * metadata treats the whole source as one conservative `CodeBlock` summary block
 * tokenizer is syntax-level only and does not change main Markdown output
+* XML does not opt into PDF-specific artifact cleanup or aggressive text
+  rewriting beyond conservative source cleanup
 
 Known limits:
 

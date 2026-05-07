@@ -127,8 +127,8 @@ fn collect_page_boundary_merge_evidence(
 
   let left = prev_page.blocks[prev_page.blocks.length() - 1]
   let right = cur_page.blocks[0]
-  let lt = left.text.trim().to_owned()
-  let rt = right.text.trim().to_owned()
+  let lt = normalize_pdf_comparison_text(left.text)
+  let rt = normalize_pdf_comparison_text(right.text)
   let previous_sentence_end = ends_with_strong_sentence_punct(lt)
   let next_starts_heading_like = looks_like_new_section_after_page_break(rt)
   let next_starts_list_like = looks_like_list_start(rt)

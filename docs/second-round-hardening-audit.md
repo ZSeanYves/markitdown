@@ -35,6 +35,10 @@ External reference scope:
 * Microsoft MarkItDown repository: <https://github.com/microsoft/markitdown>
 * MoonBit docs for package structure and `moon` commands: <https://docs.moonbitlang.com/>
 
+Current checked validation totals and representative benchmark rows are tracked
+separately in
+[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+
 ## 1. Executive Summary
 
 `markitdown-mb` already has a real multi-format pipeline:
@@ -107,15 +111,15 @@ policy:
 This follow-up pass fixed the two highest-priority project-level guardrails
 without changing converter/parser/emitter semantics:
 
-* `samples/check_metadata.sh` now explicitly runs `normal --with-metadata`
+* `samples/check.sh --metadata-only` now explicitly runs `normal --with-metadata`
   against the metadata sample corpus
 * metadata validation now checks the on-disk sidecar path contract
   `<markdown_dir>/metadata/<stem>.metadata.json`, parses JSON, validates core
   top-level fields, verifies summary counts, checks asset/file correspondence,
   and requires `document` metadata for OOXML and EPUB sidecars
-* CLI sidecar fixtures can now live under `samples/expected/metadata`, while
-  `samples/test/metadata` continues to serve lower-layer emitter snapshots for
-  MoonBit tests
+* CLI exact sidecar fixtures now live alongside each format package under
+  `samples/main_process/<format>/expected`, while lower-layer MoonBit metadata
+  snapshots remain under `samples/fixtures/metadata`
 * samples with JSON sidecar fixtures now get semantic fixture comparison; other
   metadata samples get structure-level sidecar validation without freezing
   every optional field
@@ -212,7 +216,7 @@ Metadata sidecar assessment:
 * emitted only when `--with-metadata` is set and output is on disk
 * unavailable in stdout mode by design
 * supports block and asset views
-* `samples/check_metadata.sh` now validates sidecar existence, JSON structure,
+* `samples/check.sh --metadata-only` now validates sidecar existence, JSON structure,
   summary counts, asset correspondence, and semantic fixture equality where
   fixtures exist
 * repository-level CLI contract checks should also verify the negative path:
@@ -1488,11 +1492,13 @@ Second-round recommendation:
 
 Current script audit summary:
 
-* `bench_smoke.sh`: good base harness, broad checked-in corpus
-* `bench_compare_markitdown.sh`: good overlap-only comparison harness
-* `bench_batch_profile.sh`: good profiling harness, not a public stable result
-  schema
-* `check_corpus_manifest.sh`: useful governance helper
+* `samples/bench.sh --suite smoke`: good public smoke harness over broad
+  checked-in corpus
+* `samples/bench.sh --suite compare`: good public overlap-only comparison
+  harness
+* `samples/bench.sh --suite batch-profile`: good public profiling harness, not
+  a public stable result schema
+* `samples/check.sh --manifest-only`: useful governance helper surface
 
 Follow-up status:
 
@@ -1597,7 +1603,7 @@ Current status:
 
 Goal:
 
-* make `samples/check_metadata.sh` either actually validate sidecar JSON or
+* make `samples/check.sh --metadata-only` either actually validate sidecar JSON or
   rename the script/scope
 
 Impact:
@@ -1606,9 +1612,10 @@ Impact:
 
 Modules:
 
-* `samples/check_metadata.sh`
+* `samples/check.sh --metadata-only`
 * `samples/scripts/validation_helpers.sh`
-* expected metadata fixtures under `samples/test/metadata`
+* expected metadata fixtures under `samples/main_process/<format>/expected`
+* lower-layer metadata fixtures under `samples/fixtures/metadata`
 
 Samples:
 
@@ -1628,7 +1635,7 @@ Done when:
 
 Current status:
 
-* fixed in this follow-up: `samples/check_metadata.sh` now runs
+* fixed in this follow-up: `samples/check.sh --metadata-only` now runs
   `--with-metadata`, validates sidecar path/JSON/core fields/assets, and uses
   semantic JSON fixture comparison where fixtures exist
 * remaining work is broader per-format fixture coverage, not a rename or
@@ -2252,7 +2259,7 @@ Needed correction:
 
 Most important concrete issue:
 
-* `samples/check_metadata.sh` previously ran normal conversion without
+* `samples/check.sh --metadata-only` previously ran normal conversion without
   `--with-metadata`, so the name overstated sidecar verification strength
 
 Current follow-up status:
@@ -2277,22 +2284,18 @@ Requested validation:
 * `moon test`
 * `moon bench`
 * existing sample scripts that actually exist:
-  * `./samples/diff.sh`
-  * `./samples/check_samples.sh`
-  * `./samples/check_metadata.sh`
-  * `./samples/check_assets.sh`
-  * `./samples/check_html_assets.sh`
+  * `./samples/check.sh`
+  * `./samples/check.sh --metadata-only`
+  * `./samples/check.sh --assets-only`
+  * `./samples/check.sh --manifest-only`
 
 Local pre-audit existence check:
 
 * `samples/check.sh`: exists
-* `samples/check_main_process.sh`: exists
-* `samples/check_metadata.sh`: exists
-* `samples/check_assets.sh`: exists
-* `samples/check_html_assets.sh`: does not exist
-* `samples/diff.sh`: not present in repo root under `samples/`
-* `samples/check_samples.sh`: not present at that path; actual script is
-  `samples/scripts/check_samples.sh`
+* `samples/check.sh --markdown-only`: exists
+* `samples/check.sh --metadata-only`: exists
+* `samples/check.sh --assets-only`: exists
+* `samples/check.sh --manifest-only`: exists
 
 Expected validation note for `moon bench`:
 

@@ -55,7 +55,7 @@ fn collect_pdf_table_cell_blocks(
 ) -> Array[PdfTableCellBlock] {
   let out : Array[PdfTableCellBlock] = []
   for block in page.blocks {
-    let text = block.text.trim().to_owned()
+    let text = normalize_pdf_comparison_text(block.text)
     if text == "" {
       continue
     }
@@ -108,7 +108,7 @@ fn allow_numeric_table_candidate_block(
     return false
   }
 
-  if block.text.trim().length() > 8 {
+  if normalize_pdf_comparison_text(block.text).length() > 8 {
     return false
   }
 
@@ -411,7 +411,7 @@ fn count_numeric_like_cells(row : Array[String]) -> Int {
 
 ///|
 fn looks_like_numeric_table_cell(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -438,7 +438,7 @@ fn looks_like_numeric_table_cell(text : String) -> Bool {
 fn count_short_label_cells(row : Array[String]) -> Int {
   let mut out = 0
   for cell in row {
-    let t = cell.trim().to_owned()
+    let t = normalize_pdf_comparison_text(cell)
     if t != "" &&
       t.length() <= 24 &&
       !ends_like_sentence_for_pdf_table(t) &&
@@ -451,7 +451,7 @@ fn count_short_label_cells(row : Array[String]) -> Int {
 
 ///|
 fn looks_like_paragraph_table_reject_block(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return true
   }
@@ -470,7 +470,7 @@ fn looks_like_paragraph_table_reject_block(text : String) -> Bool {
 
 ///|
 fn looks_like_list_like_table_reject_block(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -520,13 +520,13 @@ fn is_space_like_table_char(ch : Char) -> Bool {
 
 ///|
 fn looks_like_toc_like_table_reject_block(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.contains("....") || t.contains(". . . .") || t.contains("\u{2026}")
 }
 
 ///|
 fn looks_like_caption_like_table_reject_block(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   let lower = t.to_lower()
   lower.has_prefix("figure ") ||
   lower.has_prefix("fig. ") ||
@@ -538,7 +538,7 @@ fn looks_like_caption_like_table_reject_block(text : String) -> Bool {
 
 ///|
 fn ends_like_sentence_for_pdf_table(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -551,7 +551,7 @@ fn ends_like_sentence_for_pdf_table(text : String) -> Bool {
 fn pdf_table_word_count(text : String) -> Int {
   let mut count = 0
   let mut in_word = false
-  for ch in text.to_array() {
+  for ch in normalize_pdf_comparison_text(text).to_array() {
     if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
       if in_word {
         in_word = false

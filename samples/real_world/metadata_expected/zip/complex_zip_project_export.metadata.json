@@ -1,0 +1,4863 @@
+{
+  "version": "1",
+  "source_name": "complex_zip_project_export.zip",
+  "format": "zip",
+  "markdown_file": "complex_zip_project_export.md",
+  "document": null,
+  "summary": {
+    "block_count": 226,
+    "asset_count": 5
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": ".snapshot/ignored.txt",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": ".snapshot/ignored.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "hidden checkpoint",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": ".snapshot/ignored.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "heading",
+      "text": "README.md",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "key_path": "README.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "paragraph",
+      "text": "# Project Export",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "README.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "paragraph",
+      "text": "Synthetic-realistic project export bundle for complex ZIP validation.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null,
+        "line_start": 3,
+        "line_end": 3,
+        "key_path": "README.md"
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "heading",
+      "text": "bin/blob.bin",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null,
+        "key_path": "bin/blob.bin"
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported file type: bin",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": null,
+        "key_path": "bin/blob.bin"
+      },
+      "image": null
+    },
+    {
+      "block_index": 7,
+      "block_type": "heading",
+      "text": "data/config.json",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 7,
+        "heading_path": null,
+        "key_path": "data/config.json"
+      },
+      "image": null
+    },
+    {
+      "block_index": 8,
+      "block_type": "table",
+      "text": "Key | Value\nenv | prod\nreplicas | 3\nfeature_flags | {\"real_world\":true,\"benchmarks\":false}",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 8,
+        "heading_path": null,
+        "key_path": "data/config.json"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["env", "prod"],
+          ["replicas", "3"],
+          ["feature_flags", "{\"real_world\":true,\"benchmarks\":false}"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 9,
+      "block_type": "heading",
+      "text": "data/export.csv",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 9,
+        "heading_path": null,
+        "key_path": "data/export.csv"
+      },
+      "image": null
+    },
+    {
+      "block_index": 10,
+      "block_type": "table",
+      "text": "Region | Quarter | Revenue\nEast | Q1 | 120\nWest | Q1 | 98\nNorth | Q2 | 131",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 10,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 4,
+        "row_index": 1,
+        "column_index": 1,
+        "key_path": "data/export.csv"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Region", "Quarter", "Revenue"],
+          ["East", "Q1", "120"],
+          ["West", "Q1", "98"],
+          ["North", "Q2", "131"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 11,
+      "block_type": "heading",
+      "text": "data/settings.yaml",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 11,
+        "heading_path": null,
+        "key_path": "data/settings.yaml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 12,
+      "block_type": "table",
+      "text": "Key | Value\nenv | prod\nreplicas | 3\nreal_world | true\nwindows_shell | wsl",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 12,
+        "heading_path": null,
+        "key_path": "data/settings.yaml"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["env", "prod"],
+          ["replicas", "3"],
+          ["real_world", "true"],
+          ["windows_shell", "wsl"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 13,
+      "block_type": "heading",
+      "text": "docs/whitepaper.docx",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 13,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 14,
+      "block_type": "heading",
+      "text": "Technical Whitepaper",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 14,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 15,
+      "block_type": "heading",
+      "text": "Executive Summary",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 15,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 16,
+      "block_type": "paragraph",
+      "text": "This whitepaper consolidates architecture, validation, release workflow, and risk evidence for a MoonBit-native document conversion pipeline. It is intentionally structured as a long-form delivery artifact rather than a feature-isolated sample.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 16,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 17,
+      "block_type": "heading",
+      "text": "1. 研究内容",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 17,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 18,
+      "block_type": "heading",
+      "text": "1.1 技术路线",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 18,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 19,
+      "block_type": "paragraph",
+      "text": "本项目旨在通过模块化设计实现文档格式转换的核心功能，优先完成基础架构搭建与关键模块开发。首先定义统一的中间表示（IR）结构，作为不同文档格式转换的桥梁，确保数据解析与生成的一致性。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 19,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 20,
+      "block_type": "heading",
+      "text": "Architecture Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 20,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 21,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 21,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": {
+        "path": "assets/archive/docs_whitepaper.docx/image01.png",
+        "alt_text": "image",
+        "title": null,
+        "caption": null
+      }
+    },
+    {
+      "block_index": 22,
+      "block_type": "paragraph",
+      "text": "Figure 1. Conversion pipeline overview and native validation entrypoint.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 22,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 23,
+      "block_type": "paragraph",
+      "text": "在IR模块稳定后，分阶段开展docx和pdf格式的解析工作，docx模块重点处理document.xml中的文本与格式信息，pdf模块则计划采用OCR技术结合布局分析实现内容提取。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 23,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 24,
+      "block_type": "heading",
+      "text": "Core Module Status",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 24,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 25,
+      "block_type": "table",
+      "text": "模块 | 状态 | 说明\ncore/ir | 完成 | 定义文档中间表示（IR）的数据结构与转换规则，支持文本、图片、表格等元素的标准化存储\ndocx | 进行中 | 解析docx文件的document.xml，提取段落、标题、列表等结构化内容，已完成文本提取，正在开发格式映射功能\npdf | TODO | 下一阶段重点任务，计划集成OCR引擎与PDF布局分析算法，实现扫描版与文本版PDF的内容识别与结构化转换\nmarkdown | 规划中 | 基于IR生成符合CommonMark标准的Markdown文本，支持代码块、表格、图片引用等格式转换",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 25,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["模块", "状态", "说明"],
+          ["core/ir", "完成", "定义文档中间表示（IR）的数据结构与转换规则，支持文本、图片、表格等元素的标准化存储"],
+          ["docx", "进行中", "解析docx文件的document.xml，提取段落、标题、列表等结构化内容，已完成文本提取，正在开发格式映射功能"],
+          ["pdf", "TODO", "下一阶段重点任务，计划集成OCR引擎与PDF布局分析算法，实现扫描版与文本版PDF的内容识别与结构化转换"],
+          ["markdown", "规划中", "基于IR生成符合CommonMark标准的Markdown文本，支持代码块、表格、图片引用等格式转换"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 26,
+      "block_type": "heading",
+      "text": "Delivery Plan",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 26,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 27,
+      "block_type": "list_item",
+      "text": "bullet A",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 27,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 28,
+      "block_type": "list_item",
+      "text": "ordered A.1",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 28,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 29,
+      "block_type": "list_item",
+      "text": "ordered A.2",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 29,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 30,
+      "block_type": "list_item",
+      "text": "bullet B",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 30,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 31,
+      "block_type": "paragraph",
+      "text": "The staged delivery plan emphasizes incremental hardening, checked-in evidence, and explicit policy boundaries for unsupported or intentionally degraded cases.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 31,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 32,
+      "block_type": "heading",
+      "text": "Risk Register",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 32,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 33,
+      "block_type": "table",
+      "text": "Action | Notes\n[OpenAI Docs](https://openai.com/docs) | Line one\nChecklist | bullet one\nbullet two",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 33,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Action", "Notes"],
+          ["[OpenAI Docs](https://openai.com/docs)", "Line one"],
+          ["Checklist", "bullet one\nbullet two"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 34,
+      "block_type": "heading",
+      "text": "Operator Notes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 34,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 35,
+      "block_type": "paragraph",
+      "text": "External references remain embedded in tables or adjacent narrative so that downstream Markdown keeps link targets readable without reconstructing Word layout.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 35,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 36,
+      "block_type": "heading",
+      "text": "Pseudo-code",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 36,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 37,
+      "block_type": "code_block",
+      "text": "let x = 1\nprintln(x)",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 37,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 38,
+      "block_type": "heading",
+      "text": "Visual Appendix",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 38,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 39,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 39,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": {
+        "path": "assets/archive/docs_whitepaper.docx/image02.png",
+        "alt_text": "image",
+        "title": null,
+        "caption": null
+      }
+    },
+    {
+      "block_index": 40,
+      "block_type": "paragraph",
+      "text": "Figure 2. Escalation and validation flow for release candidates.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 40,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 41,
+      "block_type": "paragraph",
+      "text": "Body paragraph.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 41,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 42,
+      "block_type": "table",
+      "text": "Cell before\n",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 42,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Cell before"],
+          [""]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 43,
+      "block_type": "heading",
+      "text": "Conclusion",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 43,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 44,
+      "block_type": "paragraph",
+      "text": "通过上述技术路线，将逐步构建从源文档解析到目标格式生成的完整转换链路，最终实现docx/pdf到Markdown的自动化转换，满足申报书快速整理的实际需求。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 44,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 45,
+      "block_type": "heading",
+      "text": "Text Boxes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 45,
+        "heading_path": null,
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 46,
+      "block_type": "heading",
+      "text": "Text Box 1",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 46,
+        "heading_path": null,
+        "object_ref": "word/document.xml#textbox-1",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 47,
+      "block_type": "paragraph",
+      "text": "Body text box.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 47,
+        "heading_path": null,
+        "object_ref": "word/document.xml#textbox-1",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 48,
+      "block_type": "heading",
+      "text": "Text Box 2",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 48,
+        "heading_path": null,
+        "object_ref": "word/document.xml#textbox-2",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 49,
+      "block_type": "paragraph",
+      "text": "Table text box.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 49,
+        "heading_path": null,
+        "object_ref": "word/document.xml#textbox-2",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 50,
+      "block_type": "heading",
+      "text": "nested/structured_bundle.zip",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 50,
+        "heading_path": null,
+        "key_path": "nested/structured_bundle.zip"
+      },
+      "image": null
+    },
+    {
+      "block_index": 51,
+      "block_type": "blockquote",
+      "text": "Skipped: nested archive is not supported: zip",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 51,
+        "heading_path": null,
+        "key_path": "nested/structured_bundle.zip"
+      },
+      "image": null
+    },
+    {
+      "block_index": 52,
+      "block_type": "heading",
+      "text": "notes/plain.txt",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 52,
+        "heading_path": null,
+        "key_path": "notes/plain.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 53,
+      "block_type": "paragraph",
+      "text": "Operators retain plain-text notes for environments where richer tooling is unavailable.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 53,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "notes/plain.txt"
+      },
+      "image": null
+    },
+    {
+      "block_index": 54,
+      "block_type": "heading",
+      "text": "sheets/finance_workbook.xlsx",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 54,
+        "heading_path": null,
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 55,
+      "block_type": "heading",
+      "text": "Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "Overview",
+        "block_index": 55,
+        "heading_path": null,
+        "relationship_id": "rId1",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 56,
+      "block_type": "table",
+      "text": "Key | Value\nk1 | 1\nk2 | 2\nk3 | 3\nk4 | 4\nk5 | 5\nk6 | 6\nk7 | 7\nk8 | 8\nk9 | 9\nk10 | 10\nk11 | 11\nk12 | 12\nk13 | 13\nk14 | 14\nk15 | 15\nk16 | 16\nk17 | 17\nk18 | 18\nk19 | 19\nk20 | 20\nk21 | 21\nk22 | 22\nk23 | 23\nk24 | 24\nk25 | 25\nk26 | 26\nk27 | 27\nk28 | 28\nk29 | 29\nk30 | 30\nk31 | 31\nk32 | 32\nk33 | 33\nk34 | 34\nk35 | 35\nk36 | 36\nk37 | 37\nk38 | 38\nk39 | 39\nk40 | 40\nk41 | 41\nk42 | 42\nk43 | 43\nk44 | 44\nk45 | 45\nk46 | 46\nk47 | 47\nk48 | 48\nk49 | 49\nk50 | 50",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "Overview",
+        "block_index": 56,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 51,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId1",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Key", "Value"],
+          ["k1", "1"],
+          ["k2", "2"],
+          ["k3", "3"],
+          ["k4", "4"],
+          ["k5", "5"],
+          ["k6", "6"],
+          ["k7", "7"],
+          ["k8", "8"],
+          ["k9", "9"],
+          ["k10", "10"],
+          ["k11", "11"],
+          ["k12", "12"],
+          ["k13", "13"],
+          ["k14", "14"],
+          ["k15", "15"],
+          ["k16", "16"],
+          ["k17", "17"],
+          ["k18", "18"],
+          ["k19", "19"],
+          ["k20", "20"],
+          ["k21", "21"],
+          ["k22", "22"],
+          ["k23", "23"],
+          ["k24", "24"],
+          ["k25", "25"],
+          ["k26", "26"],
+          ["k27", "27"],
+          ["k28", "28"],
+          ["k29", "29"],
+          ["k30", "30"],
+          ["k31", "31"],
+          ["k32", "32"],
+          ["k33", "33"],
+          ["k34", "34"],
+          ["k35", "35"],
+          ["k36", "36"],
+          ["k37", "37"],
+          ["k38", "38"],
+          ["k39", "39"],
+          ["k40", "40"],
+          ["k41", "41"],
+          ["k42", "42"],
+          ["k43", "43"],
+          ["k44", "44"],
+          ["k45", "45"],
+          ["k46", "46"],
+          ["k47", "47"],
+          ["k48", "48"],
+          ["k49", "49"],
+          ["k50", "50"]
+        ],
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"],
+          ["string", "number"]
+        ]
+      }
+    },
+    {
+      "block_index": 57,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "Overview",
+        "block_index": 57,
+        "heading_path": null,
+        "relationship_id": "rId1",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 58,
+      "block_type": "heading",
+      "text": "DataA",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataA",
+        "block_index": 58,
+        "heading_path": null,
+        "relationship_id": "rId2",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 59,
+      "block_type": "table",
+      "text": "ID | Name | Amt\n1 | DataA-1 | 7\n2 | DataA-2 | 14\n3 | DataA-3 | 21\n4 | DataA-4 | 28\n5 | DataA-5 | 35\n6 | DataA-6 | 42\n7 | DataA-7 | 49\n8 | DataA-8 | 56\n9 | DataA-9 | 63\n10 | DataA-10 | 70\n11 | DataA-11 | 77\n12 | DataA-12 | 84\n13 | DataA-13 | 91\n14 | DataA-14 | 98\n15 | DataA-15 | 105\n16 | DataA-16 | 112\n17 | DataA-17 | 119\n18 | DataA-18 | 126\n19 | DataA-19 | 133\n20 | DataA-20 | 140\n21 | DataA-21 | 147\n22 | DataA-22 | 154\n23 | DataA-23 | 161\n24 | DataA-24 | 168\n25 | DataA-25 | 175\n26 | DataA-26 | 182\n27 | DataA-27 | 189\n28 | DataA-28 | 196\n29 | DataA-29 | 203\n30 | DataA-30 | 210\n31 | DataA-31 | 217\n32 | DataA-32 | 224\n33 | DataA-33 | 231\n34 | DataA-34 | 238\n35 | DataA-35 | 245\n36 | DataA-36 | 252\n37 | DataA-37 | 259\n38 | DataA-38 | 266\n39 | DataA-39 | 273\n40 | DataA-40 | 280\n41 | DataA-41 | 287\n42 | DataA-42 | 294\n43 | DataA-43 | 301\n44 | DataA-44 | 308\n45 | DataA-45 | 315\n46 | DataA-46 | 322\n47 | DataA-47 | 329\n48 | DataA-48 | 336\n49 | DataA-49 | 343\n50 | DataA-50 | 350\n51 | DataA-51 | 357\n52 | DataA-52 | 364\n53 | DataA-53 | 371\n54 | DataA-54 | 378\n55 | DataA-55 | 385\n56 | DataA-56 | 392\n57 | DataA-57 | 399\n58 | DataA-58 | 406\n59 | DataA-59 | 413\n60 | DataA-60 | 420\n61 | DataA-61 | 427\n62 | DataA-62 | 434\n63 | DataA-63 | 441\n64 | DataA-64 | 448\n65 | DataA-65 | 455\n66 | DataA-66 | 462\n67 | DataA-67 | 469\n68 | DataA-68 | 476\n69 | DataA-69 | 483\n70 | DataA-70 | 490\n71 | DataA-71 | 497\n72 | DataA-72 | 504\n73 | DataA-73 | 511\n74 | DataA-74 | 518\n75 | DataA-75 | 525\n76 | DataA-76 | 532\n77 | DataA-77 | 539\n78 | DataA-78 | 546\n79 | DataA-79 | 553\n80 | DataA-80 | 560\n81 | DataA-81 | 567\n82 | DataA-82 | 574\n83 | DataA-83 | 581\n84 | DataA-84 | 588\n85 | DataA-85 | 595\n86 | DataA-86 | 602\n87 | DataA-87 | 609\n88 | DataA-88 | 616\n89 | DataA-89 | 623\n90 | DataA-90 | 630\n91 | DataA-91 | 637\n92 | DataA-92 | 644\n93 | DataA-93 | 651\n94 | DataA-94 | 658\n95 | DataA-95 | 665\n96 | DataA-96 | 672\n97 | DataA-97 | 679\n98 | DataA-98 | 686\n99 | DataA-99 | 693\n100 | DataA-100 | 700\n101 | DataA-101 | 707\n102 | DataA-102 | 714\n103 | DataA-103 | 721\n104 | DataA-104 | 728\n105 | DataA-105 | 735\n106 | DataA-106 | 742\n107 | DataA-107 | 749\n108 | DataA-108 | 756\n109 | DataA-109 | 763\n110 | DataA-110 | 770\n111 | DataA-111 | 777\n112 | DataA-112 | 784\n113 | DataA-113 | 791\n114 | DataA-114 | 798\n115 | DataA-115 | 805\n116 | DataA-116 | 812\n117 | DataA-117 | 819\n118 | DataA-118 | 826\n119 | DataA-119 | 833\n120 | DataA-120 | 840",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataA",
+        "block_index": 59,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 121,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId2",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["ID", "Name", "Amt"],
+          ["1", "DataA-1", "7"],
+          ["2", "DataA-2", "14"],
+          ["3", "DataA-3", "21"],
+          ["4", "DataA-4", "28"],
+          ["5", "DataA-5", "35"],
+          ["6", "DataA-6", "42"],
+          ["7", "DataA-7", "49"],
+          ["8", "DataA-8", "56"],
+          ["9", "DataA-9", "63"],
+          ["10", "DataA-10", "70"],
+          ["11", "DataA-11", "77"],
+          ["12", "DataA-12", "84"],
+          ["13", "DataA-13", "91"],
+          ["14", "DataA-14", "98"],
+          ["15", "DataA-15", "105"],
+          ["16", "DataA-16", "112"],
+          ["17", "DataA-17", "119"],
+          ["18", "DataA-18", "126"],
+          ["19", "DataA-19", "133"],
+          ["20", "DataA-20", "140"],
+          ["21", "DataA-21", "147"],
+          ["22", "DataA-22", "154"],
+          ["23", "DataA-23", "161"],
+          ["24", "DataA-24", "168"],
+          ["25", "DataA-25", "175"],
+          ["26", "DataA-26", "182"],
+          ["27", "DataA-27", "189"],
+          ["28", "DataA-28", "196"],
+          ["29", "DataA-29", "203"],
+          ["30", "DataA-30", "210"],
+          ["31", "DataA-31", "217"],
+          ["32", "DataA-32", "224"],
+          ["33", "DataA-33", "231"],
+          ["34", "DataA-34", "238"],
+          ["35", "DataA-35", "245"],
+          ["36", "DataA-36", "252"],
+          ["37", "DataA-37", "259"],
+          ["38", "DataA-38", "266"],
+          ["39", "DataA-39", "273"],
+          ["40", "DataA-40", "280"],
+          ["41", "DataA-41", "287"],
+          ["42", "DataA-42", "294"],
+          ["43", "DataA-43", "301"],
+          ["44", "DataA-44", "308"],
+          ["45", "DataA-45", "315"],
+          ["46", "DataA-46", "322"],
+          ["47", "DataA-47", "329"],
+          ["48", "DataA-48", "336"],
+          ["49", "DataA-49", "343"],
+          ["50", "DataA-50", "350"],
+          ["51", "DataA-51", "357"],
+          ["52", "DataA-52", "364"],
+          ["53", "DataA-53", "371"],
+          ["54", "DataA-54", "378"],
+          ["55", "DataA-55", "385"],
+          ["56", "DataA-56", "392"],
+          ["57", "DataA-57", "399"],
+          ["58", "DataA-58", "406"],
+          ["59", "DataA-59", "413"],
+          ["60", "DataA-60", "420"],
+          ["61", "DataA-61", "427"],
+          ["62", "DataA-62", "434"],
+          ["63", "DataA-63", "441"],
+          ["64", "DataA-64", "448"],
+          ["65", "DataA-65", "455"],
+          ["66", "DataA-66", "462"],
+          ["67", "DataA-67", "469"],
+          ["68", "DataA-68", "476"],
+          ["69", "DataA-69", "483"],
+          ["70", "DataA-70", "490"],
+          ["71", "DataA-71", "497"],
+          ["72", "DataA-72", "504"],
+          ["73", "DataA-73", "511"],
+          ["74", "DataA-74", "518"],
+          ["75", "DataA-75", "525"],
+          ["76", "DataA-76", "532"],
+          ["77", "DataA-77", "539"],
+          ["78", "DataA-78", "546"],
+          ["79", "DataA-79", "553"],
+          ["80", "DataA-80", "560"],
+          ["81", "DataA-81", "567"],
+          ["82", "DataA-82", "574"],
+          ["83", "DataA-83", "581"],
+          ["84", "DataA-84", "588"],
+          ["85", "DataA-85", "595"],
+          ["86", "DataA-86", "602"],
+          ["87", "DataA-87", "609"],
+          ["88", "DataA-88", "616"],
+          ["89", "DataA-89", "623"],
+          ["90", "DataA-90", "630"],
+          ["91", "DataA-91", "637"],
+          ["92", "DataA-92", "644"],
+          ["93", "DataA-93", "651"],
+          ["94", "DataA-94", "658"],
+          ["95", "DataA-95", "665"],
+          ["96", "DataA-96", "672"],
+          ["97", "DataA-97", "679"],
+          ["98", "DataA-98", "686"],
+          ["99", "DataA-99", "693"],
+          ["100", "DataA-100", "700"],
+          ["101", "DataA-101", "707"],
+          ["102", "DataA-102", "714"],
+          ["103", "DataA-103", "721"],
+          ["104", "DataA-104", "728"],
+          ["105", "DataA-105", "735"],
+          ["106", "DataA-106", "742"],
+          ["107", "DataA-107", "749"],
+          ["108", "DataA-108", "756"],
+          ["109", "DataA-109", "763"],
+          ["110", "DataA-110", "770"],
+          ["111", "DataA-111", "777"],
+          ["112", "DataA-112", "784"],
+          ["113", "DataA-113", "791"],
+          ["114", "DataA-114", "798"],
+          ["115", "DataA-115", "805"],
+          ["116", "DataA-116", "812"],
+          ["117", "DataA-117", "819"],
+          ["118", "DataA-118", "826"],
+          ["119", "DataA-119", "833"],
+          ["120", "DataA-120", "840"]
+        ],
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string", "string"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"]
+        ]
+      }
+    },
+    {
+      "block_index": 60,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataA",
+        "block_index": 60,
+        "heading_path": null,
+        "relationship_id": "rId2",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 61,
+      "block_type": "heading",
+      "text": "DataB",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataB",
+        "block_index": 61,
+        "heading_path": null,
+        "relationship_id": "rId3",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 62,
+      "block_type": "table",
+      "text": "ID | Name | Amt\n1 | DataB-1 | 7\n2 | DataB-2 | 14\n3 | DataB-3 | 21\n4 | DataB-4 | 28\n5 | DataB-5 | 35\n6 | DataB-6 | 42\n7 | DataB-7 | 49\n8 | DataB-8 | 56\n9 | DataB-9 | 63\n10 | DataB-10 | 70\n11 | DataB-11 | 77\n12 | DataB-12 | 84\n13 | DataB-13 | 91\n14 | DataB-14 | 98\n15 | DataB-15 | 105\n16 | DataB-16 | 112\n17 | DataB-17 | 119\n18 | DataB-18 | 126\n19 | DataB-19 | 133\n20 | DataB-20 | 140\n21 | DataB-21 | 147\n22 | DataB-22 | 154\n23 | DataB-23 | 161\n24 | DataB-24 | 168\n25 | DataB-25 | 175\n26 | DataB-26 | 182\n27 | DataB-27 | 189\n28 | DataB-28 | 196\n29 | DataB-29 | 203\n30 | DataB-30 | 210\n31 | DataB-31 | 217\n32 | DataB-32 | 224\n33 | DataB-33 | 231\n34 | DataB-34 | 238\n35 | DataB-35 | 245\n36 | DataB-36 | 252\n37 | DataB-37 | 259\n38 | DataB-38 | 266\n39 | DataB-39 | 273\n40 | DataB-40 | 280\n41 | DataB-41 | 287\n42 | DataB-42 | 294\n43 | DataB-43 | 301\n44 | DataB-44 | 308\n45 | DataB-45 | 315\n46 | DataB-46 | 322\n47 | DataB-47 | 329\n48 | DataB-48 | 336\n49 | DataB-49 | 343\n50 | DataB-50 | 350\n51 | DataB-51 | 357\n52 | DataB-52 | 364\n53 | DataB-53 | 371\n54 | DataB-54 | 378\n55 | DataB-55 | 385\n56 | DataB-56 | 392\n57 | DataB-57 | 399\n58 | DataB-58 | 406\n59 | DataB-59 | 413\n60 | DataB-60 | 420\n61 | DataB-61 | 427\n62 | DataB-62 | 434\n63 | DataB-63 | 441\n64 | DataB-64 | 448\n65 | DataB-65 | 455\n66 | DataB-66 | 462\n67 | DataB-67 | 469\n68 | DataB-68 | 476\n69 | DataB-69 | 483\n70 | DataB-70 | 490\n71 | DataB-71 | 497\n72 | DataB-72 | 504\n73 | DataB-73 | 511\n74 | DataB-74 | 518\n75 | DataB-75 | 525\n76 | DataB-76 | 532\n77 | DataB-77 | 539\n78 | DataB-78 | 546\n79 | DataB-79 | 553\n80 | DataB-80 | 560\n81 | DataB-81 | 567\n82 | DataB-82 | 574\n83 | DataB-83 | 581\n84 | DataB-84 | 588\n85 | DataB-85 | 595\n86 | DataB-86 | 602\n87 | DataB-87 | 609\n88 | DataB-88 | 616\n89 | DataB-89 | 623\n90 | DataB-90 | 630\n91 | DataB-91 | 637\n92 | DataB-92 | 644\n93 | DataB-93 | 651\n94 | DataB-94 | 658\n95 | DataB-95 | 665\n96 | DataB-96 | 672\n97 | DataB-97 | 679\n98 | DataB-98 | 686\n99 | DataB-99 | 693\n100 | DataB-100 | 700\n101 | DataB-101 | 707\n102 | DataB-102 | 714\n103 | DataB-103 | 721\n104 | DataB-104 | 728\n105 | DataB-105 | 735\n106 | DataB-106 | 742\n107 | DataB-107 | 749\n108 | DataB-108 | 756\n109 | DataB-109 | 763\n110 | DataB-110 | 770\n111 | DataB-111 | 777\n112 | DataB-112 | 784\n113 | DataB-113 | 791\n114 | DataB-114 | 798\n115 | DataB-115 | 805\n116 | DataB-116 | 812\n117 | DataB-117 | 819\n118 | DataB-118 | 826\n119 | DataB-119 | 833\n120 | DataB-120 | 840",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataB",
+        "block_index": 62,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 121,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId3",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["ID", "Name", "Amt"],
+          ["1", "DataB-1", "7"],
+          ["2", "DataB-2", "14"],
+          ["3", "DataB-3", "21"],
+          ["4", "DataB-4", "28"],
+          ["5", "DataB-5", "35"],
+          ["6", "DataB-6", "42"],
+          ["7", "DataB-7", "49"],
+          ["8", "DataB-8", "56"],
+          ["9", "DataB-9", "63"],
+          ["10", "DataB-10", "70"],
+          ["11", "DataB-11", "77"],
+          ["12", "DataB-12", "84"],
+          ["13", "DataB-13", "91"],
+          ["14", "DataB-14", "98"],
+          ["15", "DataB-15", "105"],
+          ["16", "DataB-16", "112"],
+          ["17", "DataB-17", "119"],
+          ["18", "DataB-18", "126"],
+          ["19", "DataB-19", "133"],
+          ["20", "DataB-20", "140"],
+          ["21", "DataB-21", "147"],
+          ["22", "DataB-22", "154"],
+          ["23", "DataB-23", "161"],
+          ["24", "DataB-24", "168"],
+          ["25", "DataB-25", "175"],
+          ["26", "DataB-26", "182"],
+          ["27", "DataB-27", "189"],
+          ["28", "DataB-28", "196"],
+          ["29", "DataB-29", "203"],
+          ["30", "DataB-30", "210"],
+          ["31", "DataB-31", "217"],
+          ["32", "DataB-32", "224"],
+          ["33", "DataB-33", "231"],
+          ["34", "DataB-34", "238"],
+          ["35", "DataB-35", "245"],
+          ["36", "DataB-36", "252"],
+          ["37", "DataB-37", "259"],
+          ["38", "DataB-38", "266"],
+          ["39", "DataB-39", "273"],
+          ["40", "DataB-40", "280"],
+          ["41", "DataB-41", "287"],
+          ["42", "DataB-42", "294"],
+          ["43", "DataB-43", "301"],
+          ["44", "DataB-44", "308"],
+          ["45", "DataB-45", "315"],
+          ["46", "DataB-46", "322"],
+          ["47", "DataB-47", "329"],
+          ["48", "DataB-48", "336"],
+          ["49", "DataB-49", "343"],
+          ["50", "DataB-50", "350"],
+          ["51", "DataB-51", "357"],
+          ["52", "DataB-52", "364"],
+          ["53", "DataB-53", "371"],
+          ["54", "DataB-54", "378"],
+          ["55", "DataB-55", "385"],
+          ["56", "DataB-56", "392"],
+          ["57", "DataB-57", "399"],
+          ["58", "DataB-58", "406"],
+          ["59", "DataB-59", "413"],
+          ["60", "DataB-60", "420"],
+          ["61", "DataB-61", "427"],
+          ["62", "DataB-62", "434"],
+          ["63", "DataB-63", "441"],
+          ["64", "DataB-64", "448"],
+          ["65", "DataB-65", "455"],
+          ["66", "DataB-66", "462"],
+          ["67", "DataB-67", "469"],
+          ["68", "DataB-68", "476"],
+          ["69", "DataB-69", "483"],
+          ["70", "DataB-70", "490"],
+          ["71", "DataB-71", "497"],
+          ["72", "DataB-72", "504"],
+          ["73", "DataB-73", "511"],
+          ["74", "DataB-74", "518"],
+          ["75", "DataB-75", "525"],
+          ["76", "DataB-76", "532"],
+          ["77", "DataB-77", "539"],
+          ["78", "DataB-78", "546"],
+          ["79", "DataB-79", "553"],
+          ["80", "DataB-80", "560"],
+          ["81", "DataB-81", "567"],
+          ["82", "DataB-82", "574"],
+          ["83", "DataB-83", "581"],
+          ["84", "DataB-84", "588"],
+          ["85", "DataB-85", "595"],
+          ["86", "DataB-86", "602"],
+          ["87", "DataB-87", "609"],
+          ["88", "DataB-88", "616"],
+          ["89", "DataB-89", "623"],
+          ["90", "DataB-90", "630"],
+          ["91", "DataB-91", "637"],
+          ["92", "DataB-92", "644"],
+          ["93", "DataB-93", "651"],
+          ["94", "DataB-94", "658"],
+          ["95", "DataB-95", "665"],
+          ["96", "DataB-96", "672"],
+          ["97", "DataB-97", "679"],
+          ["98", "DataB-98", "686"],
+          ["99", "DataB-99", "693"],
+          ["100", "DataB-100", "700"],
+          ["101", "DataB-101", "707"],
+          ["102", "DataB-102", "714"],
+          ["103", "DataB-103", "721"],
+          ["104", "DataB-104", "728"],
+          ["105", "DataB-105", "735"],
+          ["106", "DataB-106", "742"],
+          ["107", "DataB-107", "749"],
+          ["108", "DataB-108", "756"],
+          ["109", "DataB-109", "763"],
+          ["110", "DataB-110", "770"],
+          ["111", "DataB-111", "777"],
+          ["112", "DataB-112", "784"],
+          ["113", "DataB-113", "791"],
+          ["114", "DataB-114", "798"],
+          ["115", "DataB-115", "805"],
+          ["116", "DataB-116", "812"],
+          ["117", "DataB-117", "819"],
+          ["118", "DataB-118", "826"],
+          ["119", "DataB-119", "833"],
+          ["120", "DataB-120", "840"]
+        ],
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string", "string"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"]
+        ]
+      }
+    },
+    {
+      "block_index": 63,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataB",
+        "block_index": 63,
+        "heading_path": null,
+        "relationship_id": "rId3",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 64,
+      "block_type": "heading",
+      "text": "DataC",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataC",
+        "block_index": 64,
+        "heading_path": null,
+        "relationship_id": "rId4",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 65,
+      "block_type": "table",
+      "text": "ID | Name | Amt\n1 | DataC-1 | 7\n2 | DataC-2 | 14\n3 | DataC-3 | 21\n4 | DataC-4 | 28\n5 | DataC-5 | 35\n6 | DataC-6 | 42\n7 | DataC-7 | 49\n8 | DataC-8 | 56\n9 | DataC-9 | 63\n10 | DataC-10 | 70\n11 | DataC-11 | 77\n12 | DataC-12 | 84\n13 | DataC-13 | 91\n14 | DataC-14 | 98\n15 | DataC-15 | 105\n16 | DataC-16 | 112\n17 | DataC-17 | 119\n18 | DataC-18 | 126\n19 | DataC-19 | 133\n20 | DataC-20 | 140\n21 | DataC-21 | 147\n22 | DataC-22 | 154\n23 | DataC-23 | 161\n24 | DataC-24 | 168\n25 | DataC-25 | 175\n26 | DataC-26 | 182\n27 | DataC-27 | 189\n28 | DataC-28 | 196\n29 | DataC-29 | 203\n30 | DataC-30 | 210\n31 | DataC-31 | 217\n32 | DataC-32 | 224\n33 | DataC-33 | 231\n34 | DataC-34 | 238\n35 | DataC-35 | 245\n36 | DataC-36 | 252\n37 | DataC-37 | 259\n38 | DataC-38 | 266\n39 | DataC-39 | 273\n40 | DataC-40 | 280\n41 | DataC-41 | 287\n42 | DataC-42 | 294\n43 | DataC-43 | 301\n44 | DataC-44 | 308\n45 | DataC-45 | 315\n46 | DataC-46 | 322\n47 | DataC-47 | 329\n48 | DataC-48 | 336\n49 | DataC-49 | 343\n50 | DataC-50 | 350\n51 | DataC-51 | 357\n52 | DataC-52 | 364\n53 | DataC-53 | 371\n54 | DataC-54 | 378\n55 | DataC-55 | 385\n56 | DataC-56 | 392\n57 | DataC-57 | 399\n58 | DataC-58 | 406\n59 | DataC-59 | 413\n60 | DataC-60 | 420\n61 | DataC-61 | 427\n62 | DataC-62 | 434\n63 | DataC-63 | 441\n64 | DataC-64 | 448\n65 | DataC-65 | 455\n66 | DataC-66 | 462\n67 | DataC-67 | 469\n68 | DataC-68 | 476\n69 | DataC-69 | 483\n70 | DataC-70 | 490\n71 | DataC-71 | 497\n72 | DataC-72 | 504\n73 | DataC-73 | 511\n74 | DataC-74 | 518\n75 | DataC-75 | 525\n76 | DataC-76 | 532\n77 | DataC-77 | 539\n78 | DataC-78 | 546\n79 | DataC-79 | 553\n80 | DataC-80 | 560\n81 | DataC-81 | 567\n82 | DataC-82 | 574\n83 | DataC-83 | 581\n84 | DataC-84 | 588\n85 | DataC-85 | 595\n86 | DataC-86 | 602\n87 | DataC-87 | 609\n88 | DataC-88 | 616\n89 | DataC-89 | 623\n90 | DataC-90 | 630\n91 | DataC-91 | 637\n92 | DataC-92 | 644\n93 | DataC-93 | 651\n94 | DataC-94 | 658\n95 | DataC-95 | 665\n96 | DataC-96 | 672\n97 | DataC-97 | 679\n98 | DataC-98 | 686\n99 | DataC-99 | 693\n100 | DataC-100 | 700\n101 | DataC-101 | 707\n102 | DataC-102 | 714\n103 | DataC-103 | 721\n104 | DataC-104 | 728\n105 | DataC-105 | 735\n106 | DataC-106 | 742\n107 | DataC-107 | 749\n108 | DataC-108 | 756\n109 | DataC-109 | 763\n110 | DataC-110 | 770\n111 | DataC-111 | 777\n112 | DataC-112 | 784\n113 | DataC-113 | 791\n114 | DataC-114 | 798\n115 | DataC-115 | 805\n116 | DataC-116 | 812\n117 | DataC-117 | 819\n118 | DataC-118 | 826\n119 | DataC-119 | 833\n120 | DataC-120 | 840",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataC",
+        "block_index": 65,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 121,
+        "row_index": 1,
+        "column_index": 1,
+        "relationship_id": "rId4",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["ID", "Name", "Amt"],
+          ["1", "DataC-1", "7"],
+          ["2", "DataC-2", "14"],
+          ["3", "DataC-3", "21"],
+          ["4", "DataC-4", "28"],
+          ["5", "DataC-5", "35"],
+          ["6", "DataC-6", "42"],
+          ["7", "DataC-7", "49"],
+          ["8", "DataC-8", "56"],
+          ["9", "DataC-9", "63"],
+          ["10", "DataC-10", "70"],
+          ["11", "DataC-11", "77"],
+          ["12", "DataC-12", "84"],
+          ["13", "DataC-13", "91"],
+          ["14", "DataC-14", "98"],
+          ["15", "DataC-15", "105"],
+          ["16", "DataC-16", "112"],
+          ["17", "DataC-17", "119"],
+          ["18", "DataC-18", "126"],
+          ["19", "DataC-19", "133"],
+          ["20", "DataC-20", "140"],
+          ["21", "DataC-21", "147"],
+          ["22", "DataC-22", "154"],
+          ["23", "DataC-23", "161"],
+          ["24", "DataC-24", "168"],
+          ["25", "DataC-25", "175"],
+          ["26", "DataC-26", "182"],
+          ["27", "DataC-27", "189"],
+          ["28", "DataC-28", "196"],
+          ["29", "DataC-29", "203"],
+          ["30", "DataC-30", "210"],
+          ["31", "DataC-31", "217"],
+          ["32", "DataC-32", "224"],
+          ["33", "DataC-33", "231"],
+          ["34", "DataC-34", "238"],
+          ["35", "DataC-35", "245"],
+          ["36", "DataC-36", "252"],
+          ["37", "DataC-37", "259"],
+          ["38", "DataC-38", "266"],
+          ["39", "DataC-39", "273"],
+          ["40", "DataC-40", "280"],
+          ["41", "DataC-41", "287"],
+          ["42", "DataC-42", "294"],
+          ["43", "DataC-43", "301"],
+          ["44", "DataC-44", "308"],
+          ["45", "DataC-45", "315"],
+          ["46", "DataC-46", "322"],
+          ["47", "DataC-47", "329"],
+          ["48", "DataC-48", "336"],
+          ["49", "DataC-49", "343"],
+          ["50", "DataC-50", "350"],
+          ["51", "DataC-51", "357"],
+          ["52", "DataC-52", "364"],
+          ["53", "DataC-53", "371"],
+          ["54", "DataC-54", "378"],
+          ["55", "DataC-55", "385"],
+          ["56", "DataC-56", "392"],
+          ["57", "DataC-57", "399"],
+          ["58", "DataC-58", "406"],
+          ["59", "DataC-59", "413"],
+          ["60", "DataC-60", "420"],
+          ["61", "DataC-61", "427"],
+          ["62", "DataC-62", "434"],
+          ["63", "DataC-63", "441"],
+          ["64", "DataC-64", "448"],
+          ["65", "DataC-65", "455"],
+          ["66", "DataC-66", "462"],
+          ["67", "DataC-67", "469"],
+          ["68", "DataC-68", "476"],
+          ["69", "DataC-69", "483"],
+          ["70", "DataC-70", "490"],
+          ["71", "DataC-71", "497"],
+          ["72", "DataC-72", "504"],
+          ["73", "DataC-73", "511"],
+          ["74", "DataC-74", "518"],
+          ["75", "DataC-75", "525"],
+          ["76", "DataC-76", "532"],
+          ["77", "DataC-77", "539"],
+          ["78", "DataC-78", "546"],
+          ["79", "DataC-79", "553"],
+          ["80", "DataC-80", "560"],
+          ["81", "DataC-81", "567"],
+          ["82", "DataC-82", "574"],
+          ["83", "DataC-83", "581"],
+          ["84", "DataC-84", "588"],
+          ["85", "DataC-85", "595"],
+          ["86", "DataC-86", "602"],
+          ["87", "DataC-87", "609"],
+          ["88", "DataC-88", "616"],
+          ["89", "DataC-89", "623"],
+          ["90", "DataC-90", "630"],
+          ["91", "DataC-91", "637"],
+          ["92", "DataC-92", "644"],
+          ["93", "DataC-93", "651"],
+          ["94", "DataC-94", "658"],
+          ["95", "DataC-95", "665"],
+          ["96", "DataC-96", "672"],
+          ["97", "DataC-97", "679"],
+          ["98", "DataC-98", "686"],
+          ["99", "DataC-99", "693"],
+          ["100", "DataC-100", "700"],
+          ["101", "DataC-101", "707"],
+          ["102", "DataC-102", "714"],
+          ["103", "DataC-103", "721"],
+          ["104", "DataC-104", "728"],
+          ["105", "DataC-105", "735"],
+          ["106", "DataC-106", "742"],
+          ["107", "DataC-107", "749"],
+          ["108", "DataC-108", "756"],
+          ["109", "DataC-109", "763"],
+          ["110", "DataC-110", "770"],
+          ["111", "DataC-111", "777"],
+          ["112", "DataC-112", "784"],
+          ["113", "DataC-113", "791"],
+          ["114", "DataC-114", "798"],
+          ["115", "DataC-115", "805"],
+          ["116", "DataC-116", "812"],
+          ["117", "DataC-117", "819"],
+          ["118", "DataC-118", "826"],
+          ["119", "DataC-119", "833"],
+          ["120", "DataC-120", "840"]
+        ],
+        "header_rows": 1,
+        "format": "xlsx",
+        "sheet_state": "visible",
+        "semantic_types": [
+          ["string", "string", "string"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"],
+          ["number", "string", "number"]
+        ]
+      }
+    },
+    {
+      "block_index": 66,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": "DataC",
+        "block_index": 66,
+        "heading_path": null,
+        "relationship_id": "rId4",
+        "key_path": "sheets/finance_workbook.xlsx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 67,
+      "block_type": "heading",
+      "text": "slides/investor_deck.pptx",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 67,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 68,
+      "block_type": "heading",
+      "text": "Slide 1",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 68,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 69,
+      "block_type": "heading",
+      "text": "Project Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 69,
+        "heading_path": null,
+        "object_ref": "shape-171",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 70,
+      "block_type": "list_item",
+      "text": "Goal 1",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 70,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 71,
+      "block_type": "list_item",
+      "text": "Goal 2",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 71,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 72,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 72,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 73,
+      "block_type": "paragraph",
+      "text": "Key message for this slide.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 73,
+        "heading_path": null,
+        "object_ref": "shape-173",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 74,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 74,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 75,
+      "block_type": "heading",
+      "text": "Slide 2",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 75,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 76,
+      "block_type": "heading",
+      "text": "Project Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 76,
+        "heading_path": null,
+        "object_ref": "shape-171",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 77,
+      "block_type": "paragraph",
+      "text": "Background",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 77,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 78,
+      "block_type": "paragraph",
+      "text": "Goals",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 78,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 79,
+      "block_type": "paragraph",
+      "text": "Risks",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 79,
+        "heading_path": null,
+        "object_ref": "shape-173",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 80,
+      "block_type": "paragraph",
+      "text": "Timelines",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 80,
+        "heading_path": null,
+        "object_ref": "shape-173",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 81,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 81,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 82,
+      "block_type": "heading",
+      "text": "Slide 3",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 82,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 83,
+      "block_type": "heading",
+      "text": "PPTX MVP 测试",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 83,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 84,
+      "block_type": "paragraph",
+      "text": "第一段：Hello, 世界 ✅",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 84,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 85,
+      "block_type": "paragraph",
+      "text": "第二段：包含 emoji 🙂 与符号 & < >",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 85,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 86,
+      "block_type": "list_item",
+      "text": "项目符号 1",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 86,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 87,
+      "block_type": "list_item",
+      "text": "项目符号 2",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 87,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 88,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 88,
+        "heading_path": ["Slide 3"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 89,
+      "block_type": "paragraph",
+      "text": "本页核心信息",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 89,
+        "heading_path": ["Slide 3", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 90,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 90,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 91,
+      "block_type": "heading",
+      "text": "Slide 4",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 91,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 92,
+      "block_type": "heading",
+      "text": "第二页标题：Data Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 92,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 93,
+      "block_type": "paragraph",
+      "text": "段落 A：这是一段普通文本。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 93,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 94,
+      "block_type": "paragraph",
+      "text": "段落 B：支持中文、English、123。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 94,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 95,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 95,
+        "heading_path": ["Slide 4"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 96,
+      "block_type": "paragraph",
+      "text": "第二页备注",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 96,
+        "heading_path": ["Slide 4", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 97,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 97,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 98,
+      "block_type": "heading",
+      "text": "Slide 5",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 98,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 99,
+      "block_type": "heading",
+      "text": "第三页：仅标题",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 99,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 100,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 100,
+        "heading_path": ["Slide 5"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 101,
+      "block_type": "paragraph",
+      "text": "最后页备注",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 101,
+        "heading_path": ["Slide 5", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 102,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 102,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 103,
+      "block_type": "heading",
+      "text": "Slide 6",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 103,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 104,
+      "block_type": "heading",
+      "text": "Feature Cards",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 104,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 105,
+      "block_type": "paragraph",
+      "text": "Search",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 105,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 106,
+      "block_type": "paragraph",
+      "text": "Fast retrieval",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 106,
+        "heading_path": null,
+        "object_ref": "shape-4",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 107,
+      "block_type": "paragraph",
+      "text": "Vision",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 107,
+        "heading_path": null,
+        "object_ref": "shape-5",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 108,
+      "block_type": "paragraph",
+      "text": "Image parsing",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 108,
+        "heading_path": null,
+        "object_ref": "shape-6",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 109,
+      "block_type": "paragraph",
+      "text": "Speech",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 109,
+        "heading_path": null,
+        "object_ref": "shape-7",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 110,
+      "block_type": "paragraph",
+      "text": "Audio input",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 110,
+        "heading_path": null,
+        "object_ref": "shape-8",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 111,
+      "block_type": "paragraph",
+      "text": "Agents",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 111,
+        "heading_path": null,
+        "object_ref": "shape-9",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 112,
+      "block_type": "paragraph",
+      "text": "Task execution",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 112,
+        "heading_path": null,
+        "object_ref": "shape-10",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 113,
+      "block_type": "paragraph",
+      "text": "Memory",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 113,
+        "heading_path": null,
+        "object_ref": "shape-11",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 114,
+      "block_type": "paragraph",
+      "text": "Session state",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 114,
+        "heading_path": null,
+        "object_ref": "shape-12",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 115,
+      "block_type": "paragraph",
+      "text": "Planning",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 115,
+        "heading_path": null,
+        "object_ref": "shape-13",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 116,
+      "block_type": "paragraph",
+      "text": "Multi-step reasoning",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 116,
+        "heading_path": null,
+        "object_ref": "shape-14",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 117,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 117,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 118,
+      "block_type": "heading",
+      "text": "Slide 7",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 118,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 119,
+      "block_type": "heading",
+      "text": "Experiment Summary",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 119,
+        "heading_path": null,
+        "object_ref": "shape-171",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 120,
+      "block_type": "paragraph",
+      "text": "The following table summarizes the main results.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 120,
+        "heading_path": null,
+        "object_ref": "shape-177",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 121,
+      "block_type": "paragraph",
+      "text": "Model",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 121,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 122,
+      "block_type": "paragraph",
+      "text": "Score",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 122,
+        "heading_path": null,
+        "object_ref": "shape-173",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 123,
+      "block_type": "paragraph",
+      "text": "A",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 123,
+        "heading_path": null,
+        "object_ref": "shape-174",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 124,
+      "block_type": "paragraph",
+      "text": "91",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 124,
+        "heading_path": null,
+        "object_ref": "shape-175",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 125,
+      "block_type": "paragraph",
+      "text": "B",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 125,
+        "heading_path": null,
+        "object_ref": "shape-179",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 126,
+      "block_type": "paragraph",
+      "text": "88",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 126,
+        "heading_path": null,
+        "object_ref": "shape-176",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 127,
+      "block_type": "paragraph",
+      "text": "Model A performs best overall.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 127,
+        "heading_path": null,
+        "object_ref": "shape-178",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 128,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 128,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 129,
+      "block_type": "heading",
+      "text": "Slide 8",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 129,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 130,
+      "block_type": "heading",
+      "text": "Quarter Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 130,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 131,
+      "block_type": "table",
+      "text": "Quarter | Revenue | Profit\nQ1 | 120 | 40\nQ2 | 140 | 55",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 131,
+        "heading_path": null,
+        "row_index": 0,
+        "column_index": 0,
+        "object_ref": "group-200/graphicFrame-10",
+        "relationship_id": "rId18",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Quarter", "Revenue", "Profit"],
+          ["Q1", "120", "40"],
+          ["Q2", "140", "55"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 132,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 132,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 133,
+      "block_type": "heading",
+      "text": "Slide 9",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 133,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 134,
+      "block_type": "heading",
+      "text": "第二页标题：Data Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 134,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 135,
+      "block_type": "paragraph",
+      "text": "段落 A：这是一段普通文本。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 135,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 136,
+      "block_type": "paragraph",
+      "text": "段落 B：支持中文、English、123。",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 136,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 137,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 137,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 138,
+      "block_type": "heading",
+      "text": "Slide 10",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 138,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 139,
+      "block_type": "heading",
+      "text": "第三页：仅标题",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 139,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 140,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 140,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 141,
+      "block_type": "heading",
+      "text": "Slide 11",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 141,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 142,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 142,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": {
+        "path": "assets/archive/slides_investor_deck.pptx/image01.png",
+        "alt_text": "Figure alt text",
+        "title": "Figure title text",
+        "caption": null
+      }
+    },
+    {
+      "block_index": 143,
+      "block_type": "heading",
+      "text": "PPTX Links And Images",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 143,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 144,
+      "block_type": "paragraph",
+      "text": "See reference before review.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 144,
+        "heading_path": null,
+        "object_ref": "shape-4",
+        "relationship_id": "rId3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 145,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 145,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 146,
+      "block_type": "heading",
+      "text": "Slide 12",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 146,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 147,
+      "block_type": "heading",
+      "text": "PPTX Link Heavy",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 147,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 148,
+      "block_type": "paragraph",
+      "text": "Resources: Alpha, Beta, Gamma",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 148,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 149,
+      "block_type": "paragraph",
+      "text": "Docs: API, Guide, FAQ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 149,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 150,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 150,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 151,
+      "block_type": "heading",
+      "text": "Slide 13",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 151,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 152,
+      "block_type": "heading",
+      "text": "Model Topics",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 152,
+        "heading_path": null,
+        "object_ref": "shape-2",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 153,
+      "block_type": "paragraph",
+      "text": "Search",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 153,
+        "heading_path": null,
+        "object_ref": "shape-3",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 154,
+      "block_type": "paragraph",
+      "text": "Ranking",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 154,
+        "heading_path": null,
+        "object_ref": "shape-4",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 155,
+      "block_type": "paragraph",
+      "text": "Safety",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 155,
+        "heading_path": null,
+        "object_ref": "shape-5",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 156,
+      "block_type": "paragraph",
+      "text": "Vision",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 156,
+        "heading_path": null,
+        "object_ref": "shape-6",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 157,
+      "block_type": "paragraph",
+      "text": "Speech",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 157,
+        "heading_path": null,
+        "object_ref": "shape-7",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 158,
+      "block_type": "paragraph",
+      "text": "Agents",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 158,
+        "heading_path": null,
+        "object_ref": "shape-8",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 159,
+      "block_type": "paragraph",
+      "text": "Memory",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 159,
+        "heading_path": null,
+        "object_ref": "shape-9",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 160,
+      "block_type": "paragraph",
+      "text": "Planning",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 160,
+        "heading_path": null,
+        "object_ref": "shape-10",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 161,
+      "block_type": "paragraph",
+      "text": "Tooling",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 161,
+        "heading_path": null,
+        "object_ref": "shape-11",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 162,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 162,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 163,
+      "block_type": "heading",
+      "text": "Slide 14",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 163,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 164,
+      "block_type": "heading",
+      "text": "Third",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 164,
+        "heading_path": null,
+        "object_ref": "shape-171",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 165,
+      "block_type": "paragraph",
+      "text": "Alpha",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 165,
+        "heading_path": null,
+        "object_ref": "shape-172",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 166,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 166,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 167,
+      "block_type": "heading",
+      "text": "Slide 15 (hidden)",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 167,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 168,
+      "block_type": "heading",
+      "text": "First",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 168,
+        "heading_path": null,
+        "object_ref": "shape-174",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 169,
+      "block_type": "paragraph",
+      "text": "Beta",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 169,
+        "heading_path": null,
+        "object_ref": "shape-175",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 170,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 170,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 171,
+      "block_type": "heading",
+      "text": "Slide 16",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 171,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 172,
+      "block_type": "heading",
+      "text": "Second",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 172,
+        "heading_path": null,
+        "object_ref": "shape-177",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 173,
+      "block_type": "paragraph",
+      "text": "Gamma",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 173,
+        "heading_path": null,
+        "object_ref": "shape-178",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 174,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 174,
+        "heading_path": null,
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "image": null
+    },
+    {
+      "block_index": 175,
+      "block_type": "heading",
+      "text": "web/article.html",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 175,
+        "heading_path": null,
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 176,
+      "block_type": "heading",
+      "text": "Platform Operations Handbook",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 176,
+        "heading_path": null,
+        "object_ref": "html:heading:1",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 177,
+      "block_type": "paragraph",
+      "text": "Edition 2026.2 & validated on checked-in synthetic-realistic fixtures.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 177,
+        "heading_path": null,
+        "object_ref": "html:paragraph:2",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 178,
+      "block_type": "list_item",
+      "text": "Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 178,
+        "heading_path": null,
+        "object_ref": "html:list-item:3",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 179,
+      "block_type": "list_item",
+      "text": "Deployment",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 179,
+        "heading_path": null,
+        "object_ref": "html:list-item:4",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 180,
+      "block_type": "list_item",
+      "text": "Observability",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 180,
+        "heading_path": null,
+        "object_ref": "html:list-item:5",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 181,
+      "block_type": "list_item",
+      "text": "Appendix",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 181,
+        "heading_path": null,
+        "object_ref": "html:list-item:6",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 182,
+      "block_type": "paragraph",
+      "text": "Search",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 182,
+        "heading_path": null,
+        "object_ref": "html:paragraph:7",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 183,
+      "block_type": "paragraph",
+      "text": "Pricing",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 183,
+        "heading_path": null,
+        "object_ref": "html:paragraph:8",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 184,
+      "block_type": "paragraph",
+      "text": "Careers",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 184,
+        "heading_path": null,
+        "object_ref": "html:paragraph:9",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 185,
+      "block_type": "heading",
+      "text": "Overview",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 185,
+        "heading_path": null,
+        "object_ref": "html:heading:10",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 186,
+      "block_type": "paragraph",
+      "text": "\n            This handbook describes the operational baseline for a multi-format\n            document conversion platform. It focuses on repeatable execution,\n            readable output, bounded fallbacks, and evidence-driven change\n            control rather than pixel-perfect visual reproduction.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 186,
+        "heading_path": null,
+        "object_ref": "html:paragraph:11",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 187,
+      "block_type": "paragraph",
+      "text": "\n            Readers who only need the release checklist can jump to the\n            appendix, while implementers should also\n            review the external runbook\n            and the deployment contract.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 187,
+        "heading_path": null,
+        "object_ref": "html:paragraph:12",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 188,
+      "block_type": "blockquote",
+      "text": "Stable structure beats optimistic heuristics when the source format\n            mixes headings, links, images, and noisy side material.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 188,
+        "heading_path": null,
+        "object_ref": "html:blockquote:13",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 189,
+      "block_type": "paragraph",
+      "text": "Info. The platform ships a native-first validation path and a\n            documented fallback path for developer environments.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 189,
+        "heading_path": null,
+        "object_ref": "html:paragraph:14",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 190,
+      "block_type": "heading",
+      "text": "Documentation Shape",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 190,
+        "heading_path": null,
+        "object_ref": "html:heading:15",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 191,
+      "block_type": "paragraph",
+      "text": "The typical conversion package contains at least five interacting structures:",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 191,
+        "heading_path": null,
+        "object_ref": "html:paragraph:16",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 192,
+      "block_type": "list_item",
+      "text": "top-level headings and local anchor links",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 192,
+        "heading_path": null,
+        "object_ref": "html:list-item:17",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 193,
+      "block_type": "list_item",
+      "text": "nested procedures\n  1. prepare sample assets\n  1. run native validation\n  1. review output and metadata",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 193,
+        "heading_path": null,
+        "object_ref": "html:list-item:18",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 194,
+      "block_type": "list_item",
+      "text": "inline code such as moon build --target native",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 194,
+        "heading_path": null,
+        "object_ref": "html:list-item:19",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 195,
+      "block_type": "list_item",
+      "text": "tables with external references and operator notes",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 195,
+        "heading_path": null,
+        "object_ref": "html:list-item:20",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 196,
+      "block_type": "list_item",
+      "text": "local figures and caption-like explanations",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 196,
+        "heading_path": null,
+        "object_ref": "html:list-item:21",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 197,
+      "block_type": "paragraph",
+      "text": "Warning. Ignore javascript links\n            and data links during conversion.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 197,
+        "heading_path": null,
+        "object_ref": "html:paragraph:22",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 198,
+      "block_type": "paragraph",
+      "text": "Failure-mode checklist",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 198,
+        "heading_path": null,
+        "object_ref": "html:paragraph:23",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 199,
+      "block_type": "paragraph",
+      "text": "Check malformed links, repeated navigation, entity decoding, and preformatted text boundaries.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 199,
+        "heading_path": null,
+        "object_ref": "html:paragraph:24",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 200,
+      "block_type": "heading",
+      "text": "Deployment",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 200,
+        "heading_path": null,
+        "object_ref": "html:heading:25",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 201,
+      "block_type": "paragraph",
+      "text": "\n            Production deployment uses a staged rollout. Teams publish a frozen\n            build, update the registry cache, run a validation suite, and only\n            then fan out to scheduled batch jobs.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 201,
+        "heading_path": null,
+        "object_ref": "html:paragraph:26",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 202,
+      "block_type": "code_block",
+      "text": "moon build --target native\nmoon check\nmoon test\n./samples/check.sh\n./samples/check.sh --real-world --tags complex",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 202,
+        "heading_path": null,
+        "object_ref": "html:pre:27",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 203,
+      "block_type": "paragraph",
+      "text": "\n            On Windows hosts, the core native target is supported, but shell\n            validation remains easier under WSL or another POSIX-like runtime.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 203,
+        "heading_path": null,
+        "object_ref": "html:paragraph:28",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 204,
+      "block_type": "table",
+      "text": "Stage | Owner | Reference | Notes\nBuild | Release engineering | [build policy](https://example.com/build-policy) | Prefer native CLI over wrapper timing.\nValidate | Format owners | [observability section](#observability) | Capture metadata sidecars and asset refs.\nPromote | Operations | [promotion guide](guide.html#promotion) | Document deviations and explicit non-goals.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 204,
+        "heading_path": null,
+        "object_ref": "html:table:29",
+        "key_path": "web/article.html"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Stage", "Owner", "Reference", "Notes"],
+          ["Build", "Release engineering", "[build policy](https://example.com/build-policy)", "Prefer native CLI over wrapper timing."],
+          ["Validate", "Format owners", "[observability section](#observability)", "Capture metadata sidecars and asset refs."],
+          ["Promote", "Operations", "[promotion guide](guide.html#promotion)", "Document deviations and explicit non-goals."]
+        ],
+        "header_rows": 1,
+        "format": "html"
+      }
+    },
+    {
+      "block_index": 205,
+      "block_type": "heading",
+      "text": "Observability",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 205,
+        "heading_path": null,
+        "object_ref": "html:heading:30",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 206,
+      "block_type": "paragraph",
+      "text": "\n            A good conversion trace keeps structure readable even when the input\n            mixes dense lists, escaped entities like <sample>, and repeated\n            section wrappers.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 206,
+        "heading_path": null,
+        "object_ref": "html:paragraph:31",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 207,
+      "block_type": "image",
+      "text": "Figure 1. Release-path overview with assets, metadata, and contracts.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 207,
+        "heading_path": null,
+        "object_ref": "html:figure:32",
+        "key_path": "web/article.html"
+      },
+      "image": {
+        "path": "assets/archive/web_article.html/image01.jpg",
+        "alt_text": "System overview diagram",
+        "title": "Overview diagram",
+        "caption": "Figure 1. Release-path overview with assets, metadata, and contracts."
+      }
+    },
+    {
+      "block_index": 208,
+      "block_type": "paragraph",
+      "text": "\n            The support bundle also includes a second visual artifact for chart\n            references and a compact reminder that real-world samples do not\n            imply broader performance claims.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 208,
+        "heading_path": null,
+        "object_ref": "html:paragraph:33",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 209,
+      "block_type": "image",
+      "text": "Figure 2. Trend chart for smoke validation and contract stability.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 209,
+        "heading_path": null,
+        "object_ref": "html:figure:34",
+        "key_path": "web/article.html"
+      },
+      "image": {
+        "path": "assets/archive/web_article.html/image02.jpg",
+        "alt_text": "Metrics trend chart",
+        "title": "Trend chart",
+        "caption": "Figure 2. Trend chart for smoke validation and contract stability."
+      }
+    },
+    {
+      "block_index": 210,
+      "block_type": "heading",
+      "text": "Appendix",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 210,
+        "heading_path": null,
+        "object_ref": "html:heading:35",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 211,
+      "block_type": "heading",
+      "text": "Deployment Contract",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 211,
+        "heading_path": null,
+        "object_ref": "html:heading:36",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 212,
+      "block_type": "paragraph",
+      "text": "Every release record should answer these questions:",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 212,
+        "heading_path": null,
+        "object_ref": "html:paragraph:37",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 213,
+      "block_type": "list_item",
+      "text": "Which checked-in corpora passed?",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 213,
+        "heading_path": null,
+        "object_ref": "html:list-item:38",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 214,
+      "block_type": "list_item",
+      "text": "Which assets were emitted and where are they referenced?",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 214,
+        "heading_path": null,
+        "object_ref": "html:list-item:39",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 215,
+      "block_type": "list_item",
+      "text": "Which format-specific boundaries remain explicit non-goals?",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 215,
+        "heading_path": null,
+        "object_ref": "html:list-item:40",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 216,
+      "block_type": "paragraph",
+      "text": "\n            See also the overview,\n            quality records,\n            and ops@example.com.\n          ",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 216,
+        "heading_path": null,
+        "object_ref": "html:paragraph:41",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 217,
+      "block_type": "heading",
+      "text": "Sidebar",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 217,
+        "heading_path": null,
+        "object_ref": "html:heading:42",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 218,
+      "block_type": "paragraph",
+      "text": "Navigation and repeated site chrome should not dominate the extracted article body.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 218,
+        "heading_path": null,
+        "object_ref": "html:paragraph:43",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 219,
+      "block_type": "paragraph",
+      "text": "Last reviewed 2026-05-08. Synthetic-realistic complex HTML sample for markitdown-mb.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 219,
+        "heading_path": null,
+        "object_ref": "html:paragraph:44",
+        "key_path": "web/article.html"
+      },
+      "image": null
+    },
+    {
+      "block_index": 220,
+      "block_type": "heading",
+      "text": "web/img/img_blue.jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 220,
+        "heading_path": null,
+        "key_path": "web/img/img_blue.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 221,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported file type: jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 221,
+        "heading_path": null,
+        "key_path": "web/img/img_blue.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 222,
+      "block_type": "heading",
+      "text": "web/img/img_green.jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 222,
+        "heading_path": null,
+        "key_path": "web/img/img_green.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 223,
+      "block_type": "blockquote",
+      "text": "Skipped: unsupported file type: jpg",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 223,
+        "heading_path": null,
+        "key_path": "web/img/img_green.jpg"
+      },
+      "image": null
+    },
+    {
+      "block_index": 224,
+      "block_type": "heading",
+      "text": "xml/feed.xml",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 224,
+        "heading_path": null,
+        "key_path": "xml/feed.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 225,
+      "block_type": "code_block",
+      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><feed><title>Export Feed</title><entry><id>alpha</id><status>open</status></entry></feed>",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 225,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 1,
+        "key_path": "xml/feed.xml"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/archive/web_article.html/image01.jpg",
+      "asset_type": "image",
+      "alt_text": "System overview diagram",
+      "title": "Overview diagram",
+      "caption": "Figure 1. Release-path overview with assets, metadata, and contracts.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "zip:web/article.html:html-asset-1",
+        "nearby_caption": "Figure 1. Release-path overview with assets, metadata, and contracts.",
+        "source_path": "web/article.html",
+        "key_path": "web/article.html"
+      },
+      "nearby_caption": "Figure 1. Release-path overview with assets, metadata, and contracts."
+    },
+    {
+      "path": "assets/archive/web_article.html/image02.jpg",
+      "asset_type": "image",
+      "alt_text": "Metrics trend chart",
+      "title": "Trend chart",
+      "caption": "Figure 2. Trend chart for smoke validation and contract stability.",
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "zip:web/article.html:html-asset-2",
+        "nearby_caption": "Figure 2. Trend chart for smoke validation and contract stability.",
+        "source_path": "web/article.html",
+        "key_path": "web/article.html"
+      },
+      "nearby_caption": "Figure 2. Trend chart for smoke validation and contract stability."
+    },
+    {
+      "path": "assets/archive/docs_whitepaper.docx/image01.png",
+      "asset_type": "image",
+      "alt_text": "image",
+      "title": null,
+      "caption": null,
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "zip:docs/whitepaper.docx:docx-asset-1",
+        "nearby_caption": null,
+        "relationship_id": "rId4",
+        "source_path": "docs/whitepaper.docx",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "nearby_caption": null
+    },
+    {
+      "path": "assets/archive/docs_whitepaper.docx/image02.png",
+      "asset_type": "image",
+      "alt_text": "image",
+      "title": null,
+      "caption": null,
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "zip:docs/whitepaper.docx:docx-asset-2",
+        "nearby_caption": null,
+        "relationship_id": "rId7",
+        "source_path": "docs/whitepaper.docx",
+        "key_path": "docs/whitepaper.docx"
+      },
+      "nearby_caption": null
+    },
+    {
+      "path": "assets/archive/slides_investor_deck.pptx/image01.png",
+      "asset_type": "image",
+      "alt_text": "Figure alt text",
+      "title": "Figure title text",
+      "caption": null,
+      "origin": {
+        "format": "zip",
+        "source_name": "complex_zip_project_export.zip",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "origin_id": "zip:slides/investor_deck.pptx:slide-11-image-1",
+        "nearby_caption": null,
+        "object_ref": "picture-2",
+        "relationship_id": "rId2",
+        "source_path": "slides/investor_deck.pptx",
+        "key_path": "slides/investor_deck.pptx"
+      },
+      "nearby_caption": null
+    }
+  ]
+}

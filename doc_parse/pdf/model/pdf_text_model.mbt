@@ -146,11 +146,25 @@ pub fn line_text(line : PdfTextLine) -> String {
   let mut buf = line.spans[0].text
 
   for i = 1; i < line.spans.length(); i = i + 1 {
-    let cur = line.spans[i].text
-    buf = buf + glue_between_spans(buf, cur) + cur
+    let prev = line.spans[i - 1]
+    let cur = line.spans[i]
+    buf = buf + glue_between_adjacent_spans(buf, prev, cur) + cur.text
   }
 
   buf
+}
+
+///|
+fn glue_between_adjacent_spans(
+  left_text : String,
+  left_span : PdfTextSpan,
+  right_span : PdfTextSpan,
+) -> String {
+  if should_glue_english_word_piece_with_context(left_span, right_span) {
+    return ""
+  }
+
+  glue_between_spans(left_text, right_span.text)
 }
 
 ///|
@@ -174,11 +188,6 @@ pub fn glue_between_spans(left : String, right : String) -> String {
 
       // 断词场景：inter- + national
       if should_merge_hyphenated_word_piece(l.to_owned(), r.to_owned()) {
-        return ""
-      }
-
-      // 新增：明显像英文词内续接，不补空格
-      if should_glue_english_word_piece(l.to_owned(), r.to_owned()) {
         return ""
       }
 
@@ -291,66 +300,75 @@ fn should_insert_space_after_numbered_marker(
 }
 
 ///|
-fn should_glue_english_word_piece(left : String, right : String) -> Bool {
-  let l = left.trim()
-  let r = right.trim()
+fn should_glue_english_word_piece_with_context(
+  left_span : PdfTextSpan,
+  right_span : PdfTextSpan,
+) -> Bool {
+  let l = left_span.text.trim().to_owned()
+  let r = right_span.text.trim().to_owned()
 
   if l == "" || r == "" {
     return false
   }
 
-  let lc = last_char_opt(l.to_owned())
-  let rc = first_char_opt(r.to_owned())
+  let left_word = last_ascii_word(l)
+  let right_word = first_ascii_word(r)
 
-  match (lc, rc) {
-    (Some(a), Some(b)) => {
-      if is_common_standalone_english_word(last_ascii_word(l.to_owned())) &&
-        is_common_standalone_english_word(first_ascii_word(r.to_owned())) {
-        return false
-      }
-      if is_common_standalone_english_word(last_ascii_word(l.to_owned())) {
-        return false
-      }
-      if is_short_upper_acronym(last_ascii_word(l.to_owned())) {
-        return false
-      }
-      if !is_ascii_letter(a) || !is_ascii_letter(b) {
-        return false
-      }
-
-      let left_word = last_ascii_word(l.to_owned())
-      let right_word = first_ascii_word(r.to_owned())
-
-      if is_common_english_suffix_piece(right_word) &&
-        last_ascii_word_len(l.to_owned()) >= 3 {
-        return true
-      }
-      if right_word == "rm" && left_word.has_suffix("fi") {
-        return true
-      }
-      if is_common_bound_english_prefix(left_word) &&
-        first_ascii_word_len(r.to_owned()) >= 4 {
-        return true
-      }
-
-      let left_len = last_ascii_word_len(l.to_owned())
-      let right_len = first_ascii_word_len(r.to_owned())
-
-      // 左右都很短：高概率是 ligature / 词内碎片
-      // fi + rst, con + firm, uni + fied
-      if left_len <= 3 && right_len <= 4 {
-        return true
-      }
-
-      // 左边极短且右边不是常见独立短词：也倾向词内续接
-      if left_len <= 2 && !is_common_short_english_word_start(r.to_owned()) {
-        return true
-      }
-
-      false
-    }
-    _ => false
+  if left_word == "" || right_word == "" {
+    return false
   }
+
+  if left_word.length() > 12 || right_word.length() > 12 {
+    return false
+  }
+
+  if is_short_upper_acronym(left_word) || !starts_with_lower_ascii(right_word) {
+    return false
+  }
+
+  if looks_like_wrapped_prefix_continuation_for_word_merge(
+      left_span, right_span, left_word, right_word,
+    ) {
+    return true
+  }
+
+  if has_explicit_space_boundary_for_word_merge(left_span, right_span) {
+    return false
+  }
+
+  if !span_font_compatible_for_word_merge(left_span, right_span) ||
+    !span_source_refs_adjacent_for_word_merge(left_span, right_span) {
+    return false
+  }
+
+  // Wrapped hyphen repair is a PDF-local line/span decision: once the raw span
+  // proves it ended with a hyphen and the next span starts with lowercase text,
+  // we should not keep the artificial boundary after line merge.
+  if span_has_raw_trailing_hyphen_char(left_span) &&
+    starts_with_lower_ascii(right_word) {
+    return true
+  }
+
+  if right_span.break_before {
+    return false
+  }
+
+  if !span_gap_tight_for_word_merge(left_span, right_span) ||
+    !span_baseline_proximate_for_word_merge(left_span, right_span) {
+    return false
+  }
+
+  if starts_with_ligature_fragment_span(right_span) &&
+    left_word.length() >= 2 &&
+    right_word.length() <= 3 {
+    return true
+  }
+
+  if is_small_ligature_fragment_span(left_span) && right_word.length() <= 5 {
+    return true
+  }
+
+  looks_like_joinable_english_fragment_word(left_word, right_word)
 }
 
 ///|
@@ -394,7 +412,7 @@ fn first_ascii_word(text : String) -> String {
 }
 
 ///|
-fn is_common_bound_english_prefix(text : String) -> Bool {
+fn looks_like_bound_english_prefix(text : String) -> Bool {
   let t = text.trim().to_lower()
   t == "inter" ||
   t == "multi" ||
@@ -409,64 +427,7 @@ fn is_common_bound_english_prefix(text : String) -> Bool {
 }
 
 ///|
-fn is_common_short_english_word_start(text : String) -> Bool {
-  let t = text.trim().to_lower()
-
-  t.has_prefix("a") ||
-  t.has_prefix("an") ||
-  t.has_prefix("as") ||
-  t.has_prefix("at") ||
-  t.has_prefix("be") ||
-  t.has_prefix("by") ||
-  t.has_prefix("do") ||
-  t.has_prefix("go") ||
-  t.has_prefix("he") ||
-  t.has_prefix("if") ||
-  t.has_prefix("in") ||
-  t.has_prefix("is") ||
-  t.has_prefix("it") ||
-  t.has_prefix("me") ||
-  t.has_prefix("my") ||
-  t.has_prefix("no") ||
-  t.has_prefix("of") ||
-  t.has_prefix("on") ||
-  t.has_prefix("or") ||
-  t.has_prefix("so") ||
-  t.has_prefix("to") ||
-  t.has_prefix("up") ||
-  t.has_prefix("us") ||
-  t.has_prefix("we") ||
-  t.has_prefix("yet")
-}
-
-///|
-fn is_common_standalone_english_word(text : String) -> Bool {
-  let t = text.trim().to_lower()
-  t == "a" ||
-  t == "an" ||
-  t == "and" ||
-  t == "as" ||
-  t == "at" ||
-  t == "be" ||
-  t == "by" ||
-  t == "for" ||
-  t == "from" ||
-  t == "in" ||
-  t == "into" ||
-  t == "is" ||
-  t == "it" ||
-  t == "not" ||
-  t == "of" ||
-  t == "on" ||
-  t == "or" ||
-  t == "the" ||
-  t == "to" ||
-  t == "with" ||
-  t == "yet"
-}
-
-///|
-fn is_common_english_suffix_piece(text : String) -> Bool {
+fn looks_like_english_suffix_piece(text : String) -> Bool {
   let t = text.trim().to_lower()
   t == "ed" ||
   t == "er" ||
@@ -482,38 +443,35 @@ fn is_common_english_suffix_piece(text : String) -> Bool {
 }
 
 ///|
-fn last_ascii_word_len(text : String) -> Int {
-  let mut n = 0
-  let arr = text.to_array()
-  let mut i = arr.length() - 1
-
-  while i >= 0 {
-    let ch = arr[i]
-    if is_ascii_letter(ch) {
-      n = n + 1
-      if i == 0 {
-        break
-      }
-      i = i - 1
-    } else {
-      break
-    }
+fn looks_like_joinable_english_fragment_word(
+  left_suffix : String,
+  right_prefix : String,
+) -> Bool {
+  let word = left_suffix + right_prefix
+  if word.length() < 4 || word.length() > 24 {
+    return false
   }
 
-  n
-}
-
-///|
-fn first_ascii_word_len(text : String) -> Int {
-  let mut n = 0
-  for ch in text {
-    if is_ascii_letter(ch) {
-      n = n + 1
-    } else {
-      break
-    }
+  if !all_ascii_letters(word) {
+    return false
   }
-  n
+
+  let left = left_suffix.to_lower()
+  let right = right_prefix.to_lower()
+
+  if has_ligature_fragment_hint(left) {
+    return true
+  }
+
+  if looks_like_english_suffix_piece(right) && left.length() >= 3 {
+    return true
+  }
+
+  if looks_like_bound_english_prefix(left) && right.length() >= 4 {
+    return true
+  }
+
+  false
 }
 
 ///|
@@ -621,6 +579,239 @@ fn is_short_upper_acronym(text : String) -> Bool {
 }
 
 ///|
+fn starts_with_lower_ascii(text : String) -> Bool {
+  match first_char_opt(text) {
+    Some(ch) => ch >= 'a' && ch <= 'z'
+    None => false
+  }
+}
+
+///|
+fn has_explicit_space_boundary_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  span_has_trailing_space_char(left) || span_has_leading_space_char(right)
+}
+
+///|
+fn span_has_trailing_space_char(span : PdfTextSpan) -> Bool {
+  match last_span_raw_char_opt(span) {
+    Some(ch) => is_space_like_char(ch)
+    None => false
+  }
+}
+
+///|
+fn span_has_leading_space_char(span : PdfTextSpan) -> Bool {
+  match first_span_raw_char_opt(span) {
+    Some(ch) => is_space_like_char(ch)
+    None => false
+  }
+}
+
+///|
+fn span_has_raw_trailing_hyphen_char(span : PdfTextSpan) -> Bool {
+  match last_span_raw_char_opt(span) {
+    Some(ch) => is_word_wrap_hyphen_char(ch)
+    None => false
+  }
+}
+
+///|
+fn is_word_wrap_hyphen_char(ch : Char) -> Bool {
+  ch == '-' || ch == '\u{2010}' || ch == '\u{2011}'
+}
+
+///|
+fn starts_with_ligature_fragment_span(span : PdfTextSpan) -> Bool {
+  if span.chars.is_empty() {
+    return false
+  }
+
+  let first = span.chars[0]
+  first.is_ligature ||
+  first.decoded_text == "\u{FB00}" ||
+  first.decoded_text == "\u{FB01}" ||
+  first.decoded_text == "\u{FB02}" ||
+  first.decoded_text == "\u{FB03}" ||
+  first.decoded_text == "\u{FB04}"
+}
+
+///|
+fn is_small_ligature_fragment_span(span : PdfTextSpan) -> Bool {
+  let t = span.text.trim().to_owned().to_lower()
+  starts_with_ligature_fragment_span(span) &&
+  span.chars.length() == 1 &&
+  t != "" &&
+  t.length() <= 3 &&
+  all_ascii_letters(t)
+}
+
+///|
+fn looks_like_wrapped_prefix_continuation_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+  left_word : String,
+  right_word : String,
+) -> Bool {
+  if !looks_like_bound_english_prefix(left_word) || right_word.length() < 4 {
+    return false
+  }
+
+  let ref_size = span_word_merge_ref_size(left, right)
+  let baseline_drop = left.origin.y - right.origin.y
+  if baseline_drop <= ref_size * 0.7 || baseline_drop > ref_size * 2.4 {
+    return false
+  }
+
+  // Wrapped continuation should restart near the paragraph left edge rather
+  // than continuing horizontally on the same visual line.
+  right.bbox.x0 <= left.bbox.x0 + ref_size * 0.8
+}
+
+///|
+fn has_ligature_fragment_hint(text : String) -> Bool {
+  text.has_suffix("fi") ||
+  text.has_suffix("ff") ||
+  text.has_suffix("fl") ||
+  text.has_suffix("ffi") ||
+  text.has_suffix("ffl")
+}
+
+///|
+fn all_ascii_letters(text : String) -> Bool {
+  if text == "" {
+    return false
+  }
+
+  for ch in text {
+    if !is_ascii_letter(ch) {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn span_font_compatible_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  let font_name_ok = match (left.font_name, right.font_name) {
+    (Some(a), Some(b)) => a == b
+    _ => true
+  }
+
+  let font_family_ok = match (left.font_family, right.font_family) {
+    (Some(a), Some(b)) => a == b
+    _ => true
+  }
+
+  let font_size_ok = match (left.font_size, right.font_size) {
+    (Some(a), Some(b)) => abs_double_glue(a - b) <= 0.75
+    _ => true
+  }
+
+  let style_ok = left.is_bold == right.is_bold &&
+    left.is_italic == right.is_italic &&
+    left.is_monospace == right.is_monospace
+
+  font_name_ok && font_family_ok && font_size_ok && style_ok
+}
+
+///|
+fn span_gap_tight_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  let gap = right.bbox.x0 - left.bbox.x1
+  if gap <= 0.0 {
+    return true
+  }
+
+  let ref_size = span_word_merge_ref_size(left, right)
+  gap <= ref_size * 0.22 + 1.5
+}
+
+///|
+fn span_baseline_proximate_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  let ref_size = span_word_merge_ref_size(left, right)
+  abs_double_glue(left.origin.y - right.origin.y) <= ref_size * 0.35 + 0.75
+}
+
+///|
+fn span_word_merge_ref_size(left : PdfTextSpan, right : PdfTextSpan) -> Double {
+  match (left.font_size, right.font_size) {
+    (Some(a), Some(b)) => if a > b { a } else { b }
+    (Some(a), None) => a
+    (None, Some(b)) => b
+    (None, None) => 12.0
+  }
+}
+
+///|
+fn span_source_refs_adjacent_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  match
+    (
+      last_source_ref_opt(left.source_refs),
+      first_source_ref_opt(right.source_refs),
+    ) {
+    (Some(a), Some(b)) => {
+      if a.page_index != b.page_index ||
+        a.source_stream_index != b.source_stream_index {
+        return false
+      }
+
+      match (a.content_order_index, b.content_order_index) {
+        (Some(x), Some(y)) => if y < x { false } else { y - x <= 2 }
+        _ =>
+          if b.source_op_index < a.source_op_index {
+            false
+          } else {
+            b.source_op_index - a.source_op_index <= 2
+          }
+      }
+    }
+    _ => true
+  }
+}
+
+///|
+fn first_source_ref_opt(refs : Array[PdfSourceRef]) -> PdfSourceRef? {
+  if refs.is_empty() {
+    None
+  } else {
+    Some(refs[0])
+  }
+}
+
+///|
+fn last_source_ref_opt(refs : Array[PdfSourceRef]) -> PdfSourceRef? {
+  if refs.is_empty() {
+    None
+  } else {
+    Some(refs[refs.length() - 1])
+  }
+}
+
+///|
+fn abs_double_glue(x : Double) -> Double {
+  if x < 0.0 {
+    -x
+  } else {
+    x
+  }
+}
+
+///|
 fn first_char_opt(text : String) -> Char? {
   for ch in text {
     return Some(ch)
@@ -635,6 +826,30 @@ fn last_char_opt(text : String) -> Char? {
     last = Some(ch)
   }
   last
+}
+
+///|
+fn first_span_raw_char_opt(span : PdfTextSpan) -> Char? {
+  for pdf_char in span.chars {
+    for ch in pdf_char.decoded_text {
+      return Some(ch)
+    }
+  }
+  first_char_opt(span.text)
+}
+
+///|
+fn last_span_raw_char_opt(span : PdfTextSpan) -> Char? {
+  let mut last : Char? = None
+  for pdf_char in span.chars {
+    for ch in pdf_char.decoded_text {
+      last = Some(ch)
+    }
+  }
+  match last {
+    Some(_) => last
+    None => last_char_opt(span.text)
+  }
 }
 
 ///|

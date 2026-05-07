@@ -260,7 +260,7 @@ async test "convert/pdf attaches high-confidence same-page image caption" {
   let out_dir = create_pdf_out_dir("caption_positive")
   let doc = @pdf.parse_pdf(
     resolve_sample_path(
-      "samples/metadata/pdf/pdf_image_single_caption_like.pdf",
+      "samples/main_process/pdf/metadata/pdf_image_single_caption_like.pdf",
     ),
     out_dir,
     6,
@@ -294,7 +294,7 @@ async test "convert/pdf rejects ambiguous or missing image caption text" {
   let out_dir = create_pdf_out_dir("caption_negative")
   let doc = @pdf.parse_pdf(
     resolve_sample_path(
-      "samples/metadata/pdf/pdf_image_no_caption_negative.pdf",
+      "samples/main_process/pdf/metadata/pdf_image_no_caption_negative.pdf",
     ),
     out_dir,
     6,

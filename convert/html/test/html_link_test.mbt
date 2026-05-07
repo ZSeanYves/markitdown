@@ -52,7 +52,7 @@ test "html links are preserved in rich paragraph inlines" {
     6,
   )
   let basic_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/html/html_link_basic.md"),
+    resolve_sample_path("samples/main_process/html/expected/html_link_basic.md"),
   )
   assert_eq(@cor.emit_markdown(basic_doc), basic_expected)
   match basic_doc.blocks.val[0] {
@@ -68,7 +68,7 @@ test "html links are preserved in rich paragraph inlines" {
   )
   let paragraph_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_in_paragraph.md",
+      "samples/main_process/html/expected/html_link_in_paragraph.md",
     ),
   )
   assert_eq(@cor.emit_markdown(paragraph_doc), paragraph_expected)
@@ -90,7 +90,7 @@ test "html links are preserved in list items and nested inline text" {
   )
   let list_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_in_list.md",
+      "samples/main_process/html/expected/html_link_in_list.md",
     ),
   )
   assert_eq(@cor.emit_markdown(list_doc), list_expected)
@@ -111,7 +111,7 @@ test "html links are preserved in list items and nested inline text" {
   )
   let nested_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_nested_inline.md",
+      "samples/main_process/html/expected/html_link_nested_inline.md",
     ),
   )
   assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
@@ -133,7 +133,7 @@ test "html table cell links render and missing href stays plain text" {
   )
   let table_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_in_table.md",
+      "samples/main_process/html/expected/html_link_in_table.md",
     ),
   )
   assert_eq(@cor.emit_markdown(table_doc), table_expected)
@@ -155,7 +155,7 @@ test "html table cell links render and missing href stays plain text" {
   )
   let negative_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_missing_href_negative.md",
+      "samples/main_process/html/expected/html_link_missing_href_negative.md",
     ),
   )
   assert_eq(@cor.emit_markdown(negative_doc), negative_expected)
@@ -190,7 +190,7 @@ test "html unsafe links fail closed while safe variants stay links" {
   )
   let safe_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_links_variants.md",
+      "samples/main_process/html/expected/html_links_variants.md",
     ),
   )
   assert_eq(@cor.emit_markdown(safe_doc), safe_expected)
@@ -209,7 +209,7 @@ test "html unsafe links fail closed while safe variants stay links" {
   )
   let unsafe_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/html/html_link_unsafe_javascript.md",
+      "samples/main_process/html/expected/html_link_unsafe_javascript.md",
     ),
   )
   assert_eq(@cor.emit_markdown(unsafe_doc), unsafe_expected)
@@ -219,5 +219,47 @@ test "html unsafe links fail closed while safe variants stay links" {
       @cor.Block::Paragraph(_) => ()
       _ => fail("unsafe-link sample should only emit paragraphs")
     }
+  }
+}
+
+///|
+test "html text cleanup does not alter href src alt or title attributes" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let img_dir = dir + "/img"
+  ensure_dir_tree(img_dir)
+
+  let sample_path = dir + "/html_attr_cleanup_probe.html"
+  let image_path = img_dir + "/test%20asset.png"
+  write_utf8_text(image_path, "not-a-real-png-but-good-enough-for-export")
+  write_utf8_text(
+    sample_path, "<p><a href=\"https://example.com/a?x=1&amp;y=2\">Link&nbsp;ﬁ</a></p>\n<p><img src=\"./img/test%20asset.png?x=1&amp;y=2\" alt=\"Alt&nbsp;ﬁ\" title=\"Title&nbsp;ﬁ\"></p>\n",
+  )
+
+  let out_dir = dir + "/out"
+  ensure_dir_tree(out_dir)
+  let doc = @html.parse_html(sample_path, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(
+    markdown.has_prefix("[Link fi](https://example.com/a?x=1&y=2)\n\n"),
+  )
+  assert_true(markdown.contains("![Alt ﬁ](assets/image"))
+  assert_true(markdown.contains("\n*Title ﬁ*\n"))
+  assert_eq(doc.blocks.val.length(), 2)
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(has_link(inlines, "Link fi", "https://example.com/a?x=1&y=2"))
+    _ => fail("expected first html block to be a rich paragraph with link")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::ImageBlock(img) => {
+      assert_eq(img.alt_text.unwrap_or(""), "Alt ﬁ")
+      assert_eq(img.title.unwrap_or(""), "Title ﬁ")
+      assert_true(img.path.has_prefix("assets/image"))
+      assert_true(img.path.has_suffix(".png"))
+    }
+    _ => fail("expected exported image block for local html image")
   }
 }

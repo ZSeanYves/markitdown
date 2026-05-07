@@ -125,7 +125,7 @@ test "yaml mapping emits key-value table" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_mapping_basic.md",
+      "samples/main_process/yaml/expected/yaml_mapping_basic.md",
     ),
   )
 
@@ -145,7 +145,7 @@ test "yaml scalar sequence emits bullet list" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_sequence_scalars.md",
+      "samples/main_process/yaml/expected/yaml_sequence_scalars.md",
     ),
   )
 
@@ -165,7 +165,7 @@ test "yaml object sequence and yml extension are supported" {
   )
   let table_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_sequence_objects_table.md",
+      "samples/main_process/yaml/expected/yaml_sequence_objects_table.md",
     ),
   )
   assert_eq(@cor.emit_markdown(table_doc), table_expected)
@@ -181,7 +181,7 @@ test "yaml object sequence and yml extension are supported" {
   )
   let yml_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yml_extension_basic.md",
+      "samples/main_process/yaml/expected/yml_extension_basic.md",
     ),
   )
   assert_eq(@cor.emit_markdown(yml_doc), yml_expected)
@@ -196,7 +196,7 @@ test "yaml nested mapping and quoted strings stay deterministic" {
   )
   let nested_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_nested_mapping.md",
+      "samples/main_process/yaml/expected/yaml_nested_mapping.md",
     ),
   )
   assert_eq(@cor.emit_markdown(nested_doc), nested_expected)
@@ -208,7 +208,7 @@ test "yaml nested mapping and quoted strings stay deterministic" {
   )
   let quoted_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_quoted_strings.md",
+      "samples/main_process/yaml/expected/yaml_quoted_strings.md",
     ),
   )
   assert_eq(@cor.emit_markdown(quoted_doc), quoted_expected)
@@ -262,7 +262,7 @@ test "yaml comments blank lines and quoted colons stay deterministic" {
     6,
   )
   let comments_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/yaml/yaml_comments.md"),
+    resolve_sample_path("samples/main_process/yaml/expected/yaml_comments.md"),
   )
   assert_eq(@cor.emit_markdown(comments_doc), comments_expected)
 
@@ -273,7 +273,7 @@ test "yaml comments blank lines and quoted colons stay deterministic" {
   )
   let quoted_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/yaml/yaml_quoted_strings.md",
+      "samples/main_process/yaml/expected/yaml_quoted_strings.md",
     ),
   )
   assert_eq(@cor.emit_markdown(quoted_doc), quoted_expected)

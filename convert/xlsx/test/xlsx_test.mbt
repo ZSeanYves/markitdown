@@ -43,7 +43,7 @@ test "xlsx main process samples stay stable" {
   )
   let formula_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_cached_value_current_policy.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_cached_value_current_policy.md",
     ),
   )
   assert_eq(@cor.emit_markdown(formula_doc), formula_expected)
@@ -57,7 +57,7 @@ test "xlsx main process samples stay stable" {
   )
   let hidden_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_hidden_sheet_current_behavior.md",
+      "samples/main_process/xlsx/expected/xlsx_hidden_sheet_current_behavior.md",
     ),
   )
   assert_eq(@cor.emit_markdown(hidden_doc), hidden_expected)
@@ -164,7 +164,7 @@ test "xlsx inspect surface keeps sparse used range and cell kinds" {
 test "xlsx second-round policy samples stay stable" {
   let formula_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_cached_values.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_cached_values.md",
     ),
   )
   let formula_doc = @xlsx.parse_xlsx(
@@ -178,7 +178,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let missing_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_missing_cache.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_missing_cache.md",
     ),
   )
   let missing_doc = @xlsx.parse_xlsx(
@@ -192,7 +192,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let merged_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_merged_cells_policy.md",
+      "samples/main_process/xlsx/expected/xlsx_merged_cells_policy.md",
     ),
   )
   let merged_doc = @xlsx.parse_xlsx(
@@ -206,7 +206,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let hidden_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_hidden_sheets_policy.md",
+      "samples/main_process/xlsx/expected/xlsx_hidden_sheets_policy.md",
     ),
   )
   let hidden_doc = @xlsx.parse_xlsx(
@@ -220,7 +220,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let typed_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_typed_cells_matrix.md",
+      "samples/main_process/xlsx/expected/xlsx_typed_cells_matrix.md",
     ),
   )
   let typed_doc = @xlsx.parse_xlsx(
@@ -234,7 +234,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let arithmetic_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_eval_arithmetic.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_eval_arithmetic.md",
     ),
   )
   let arithmetic_doc = @xlsx.parse_xlsx(
@@ -248,7 +248,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let ranges_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_eval_ranges.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_eval_ranges.md",
     ),
   )
   let ranges_doc = @xlsx.parse_xlsx(
@@ -262,7 +262,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let if_round_text_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_eval_if_round_text.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_eval_if_round_text.md",
     ),
   )
   let if_round_text_doc = @xlsx.parse_xlsx(
@@ -276,7 +276,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let unsupported_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_eval_unsupported.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_eval_unsupported.md",
     ),
   )
   let unsupported_doc = @xlsx.parse_xlsx(
@@ -290,7 +290,7 @@ test "xlsx second-round policy samples stay stable" {
 
   let errors_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/xlsx/xlsx_formula_eval_errors.md",
+      "samples/main_process/xlsx/expected/xlsx_formula_eval_errors.md",
     ),
   )
   let errors_doc = @xlsx.parse_xlsx(

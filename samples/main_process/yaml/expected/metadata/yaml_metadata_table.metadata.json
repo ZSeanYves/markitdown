@@ -1,0 +1,40 @@
+{
+  "version": "1",
+  "source_name": "yaml_metadata_table.yaml",
+  "format": "yaml",
+  "markdown_file": "yaml_metadata_table.md",
+  "document": null,
+  "summary": {
+    "block_count": 1,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "table",
+      "text": "name | role\nAlice | Engineer\nBob | Designer",
+      "origin": {
+        "format": "yaml",
+        "source_name": "yaml_metadata_table.yaml",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "$"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["name", "role"],
+          ["Alice", "Engineer"],
+          ["Bob", "Designer"]
+        ],
+        "header_rows": 1
+      }
+    }
+  ],
+  "assets": [
+    
+  ]
+}

@@ -1,49 +1,103 @@
 # markitdown-mb
 
-`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown
-converter for local document structure extraction, RAG ingestion, and
-knowledge-base import.
+[![CI](https://github.com/ZSeanYves/markitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/ZSeanYves/markitdown/actions/workflows/ci.yml)
+![MoonBit](https://img.shields.io/badge/MoonBit-native-2563eb)
+![CLI](https://img.shields.io/badge/CLI-prebuilt--native-16a34a)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-6b7280)
+![Formats](https://img.shields.io/badge/formats-14%2B-0ea5e9)
+![Status](https://img.shields.io/badge/status-H2%2B%2B%20sealed%20%7C%20H3%2B%2B%20scoped-16a34a)
+![Validation](https://img.shields.io/badge/validation-passing-16a34a)
+![License](https://img.shields.io/badge/license-Apache--2.0-f59e0b)
 
-It follows the broad product direction of Microsoft MarkItDown, but focuses on
-native local execution, conservative degradation, explainable provenance, and
-checked-in quality and benchmark evidence.
+`markitdown-mb` is a MoonBit-native document-to-Markdown converter for local
+document structure extraction, RAG ingestion, and knowledge-base import. The
+project is built around a native CLI, a unified IR, deterministic metadata and
+asset sidecars, and checked-in validation and benchmark evidence.
+
+It is inspired by Microsoft MarkItDown, but it is an independent MoonBit-native
+implementation and repository design. It is not a Python package, not a
+Microsoft project, and not affiliated with the AutoGen team.
 
 Current pipeline:
 
 **multi-format input -> unified IR -> Markdown / assets / metadata sidecar**
 
+Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
+native text-PDF scope.
+
+The repository now centers its checked validation surface around
+`./samples/check.sh` and `./samples/bench.sh`, and keeps the checked-in
+`samples/real_world` corpus focused on longer complex-scenario documents.
+
+## Supported Platforms
+
+`markitdown-mb` targets MoonBit native builds on:
+
+* Windows
+* Linux
+* macOS
+
+The core converter is designed as a MoonBit-native CLI across those platforms.
+The repository's validation and benchmark scripts are shell-based and are
+primarily exercised in Unix-like environments; Windows users can use the native
+build path and run the sample/benchmark script layer through WSL or an
+equivalent POSIX shell until a dedicated Windows CI/script layer is added.
+GitHub Actions validation is currently checked in for Ubuntu and macOS.
+
 ## Current Status
 
-| Format | Status | Quality scope | Performance evidence | Key boundaries |
-| --- | --- | --- | --- | --- |
-| DOCX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not a Word layout engine; no full tracked-changes UI |
-| PPTX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not a PowerPoint layout engine; no animations, SmartArt, chart, or OLE rendering |
-| XLSX | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | no full Excel formula engine; no visual merged-cell reconstruction |
-| PDF | H2++ complete for native text-PDF scope | checked-in native text-PDF records | H3++ evidence-backed on checked-in native text-PDF corpus | no scanned/OCR default claim; no full PDF layout engine |
-| HTML / HTM | H2++ complete | checked-in native overlap records | H3++ evidence-backed on checked-in native overlap corpus | not browser-grade; no JS, CSS layout, or remote fetch |
-| ZIP | H2++ complete | checked-in native corpus records | H3++ evidence-backed on checked-in native corpus | no nested archive recursion; no ZIP64/encrypted/data-descriptor support |
-| EPUB | H2++ complete | checked-in native EPUB records | H3++ evidence-backed on checked-in native EPUB corpus | no DRM, CSS, JS, or remote fetch |
-| CSV / TSV | H2 main-path quality | checked-in main-path regression | smoke and batch evidence only | no streaming or huge-table performance claim |
-| JSON | H2 main-path quality | checked-in main-path regression | smoke and batch evidence only | conservative structured-data lowering |
-| YAML / YML | subset-H2 | conservative subset only | smoke evidence only | not full YAML 1.2 |
-| XML | source-preserving H1/H2 partial | safe fenced-source contract | smoke evidence only | not a semantic XML-family converter |
-| Markdown | H2 main-path quality | passthrough contract | smoke evidence only | not a Markdown AST semantic converter |
-| TXT | H2 main-path quality | literal-safe text path | smoke evidence only | no inferred heading/list/table semantics |
+| Format | Current status | Scope |
+| --- | --- | --- |
+| XLSX | H2++ complete / H3++ evidence-backed | native overlap corpus; lightweight formula evaluator v1, merged-cell boundary, typed cells, sheet state |
+| HTML / HTM | H2++ complete / H3++ evidence-backed | lightweight safe parser; no browser-grade parsing, JS, CSS layout, or remote fetch |
+| ZIP | H2++ complete / H3++ evidence-backed | safe container conversion; nested dispatch and asset remap; no nested archive recursion |
+| EPUB | H2++ complete / H3++ evidence-backed | ZIP + OPF + spine + nav/NCX + XHTML chapters; no DRM/CSS/JS/remote fetch |
+| DOCX | H2++ complete / H3++ evidence-backed | Word document structure recovery; not a Word layout engine |
+| PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
+| PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
+| CSV / TSV / JSON / YAML / XML / Markdown / TXT | stable structured/text paths | conservative boundaries documented in support docs; not all families are second-round sealed |
 
-Benchmark and quality conclusions are always limited to the checked-in corpora
-named in the relevant docs. They are not blanket claims about all documents of
-that format.
+Benchmark and quality conclusions are limited to the checked-in corpora and
+runner contracts named in the repository docs. They are not blanket claims
+about all documents of a format family.
 
 ## Core Capabilities
 
 * unified IR across document families
+* shared profile-driven Text Normalization v2 substrate with staged PDF
+  extracted-text and comparison cleanup
+* shared document-text cleanup facade already reused by PDF, TXT, HTML, DOCX,
+  and PPTX,
+  while canonical `NFD/NFC/NFKD/NFKC` remains explicit-only API surface
 * Markdown main output
 * `assets/` export for materialized local images
 * metadata sidecar via `--with-metadata`
 * batch conversion with isolated per-document roots
-* checked-in quality comparison records
+* unified multi-format debug inspect CLI
 * benchmark governance and checked-in benchmark corpora
 * prebuilt-native runner preference for validation and benchmark work
+
+## Performance Snapshot
+
+The H3++ performance evidence is based on the prebuilt-native CLI path, not
+`moon run`.
+
+The checked-in overlap comparison uses Microsoft MarkItDown `0.1.5` on named
+local samples from `samples/benchmark/compare_corpus.tsv`. Representative
+single-run examples currently sit in roughly the `20x` to `50x` range:
+
+| Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
+| --- | ---: | ---: | ---: |
+| XLSX formula cached values | 10 ms | 480 ms | ~48x |
+| DOCX nested lists mixed | 31 ms | 821 ms | ~26x |
+| PPTX title bullets | 18 ms | 710 ms | ~39x |
+| PDF URI link basic | 11 ms | 516 ms | ~47x |
+
+These measurements are corpus-scoped local benchmark facts, not universal
+performance claims. PDF comparison rows apply only to the native text-PDF
+overlap corpus. Full raw results, representative tables, and caveats live in
+[docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md)
+and [docs/benchmark-governance.md](./docs/benchmark-governance.md).
 
 ## CLI
 
@@ -59,34 +113,17 @@ Recommended invocation:
 ./_build/native/debug/build/cli/cli.exe normal <input> [output]
 ```
 
-With metadata sidecar:
+Other product-path entrypoints:
 
 ```bash
 ./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
-```
-
-Batch conversion:
-
-```bash
 ./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/debug/build/cli/cli.exe batch --with-metadata <input_dir> <output_dir>
-```
-
-Debug and OCR entrypoints remain explicit non-default paths:
-
-```bash
-./_build/native/debug/build/cli/cli.exe debug <all|extract|raw|pipeline> <input> [output]
+./_build/native/debug/build/cli/cli.exe debug --json <input>
 ./_build/native/debug/build/cli/cli.exe ocr <input> [output]
 ```
 
-Development fallback:
-
-```bash
-moon run cli -- normal <input> [output]
-```
-
-`moon run` is a functional fallback for development. It is not the preferred
-runner for H3++ performance conclusions.
+`moon run` remains a development fallback. It is not the preferred runner for
+H3++ performance conclusions.
 
 ## Validation
 
@@ -97,46 +134,45 @@ moon build --target native
 moon check
 moon test
 ./samples/check.sh
-./samples/scripts/bench_smoke.sh --kind smoke
+./samples/bench.sh --suite smoke --kind smoke
 ```
 
-Useful additional checks:
+Checked-in GitHub Actions CI now runs `moon build --target native`,
+`moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
+`macos-latest` for `push` and `pull_request`. `./samples/bench.sh --suite smoke
+--kind smoke` remains available locally and as a manual `workflow_dispatch`
+job; it is not part of the default PR gate. Windows core native support
+remains documented, but the shell validation suite still targets WSL or
+another POSIX shell rather than native Windows CI. `moon publish` remains a
+manual release step.
+Lower-layer parser/core and unsafe-boundary fixtures now live under
+`samples/fixtures`; user-visible regression inputs now live under one unified
+`samples/main_process` tree, with metadata-heavy and asset-heavy subcases
+co-located under the same format roots. Each format package now keeps its
+checked Markdown and exact CLI metadata expectations under
+`samples/main_process/<format>/expected/`.
+A checked-in `samples/real_world` corpus now complements the smaller
+feature-focused `samples/main_process` set with complex-only scenario files
+across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
+`./samples/check.sh` chain runs the full real-world set, and
+`./samples/check.sh --real-world --tags complex` remains available for focused
+reruns.
 
-```bash
-./samples/check_main_process.sh
-./samples/check_metadata.sh
-./samples/check_assets.sh
-./samples/scripts/check_cli_contract.sh
-./samples/scripts/check_batch_contract.sh
-./samples/scripts/check_corpus_manifest.sh
-```
-
-## Benchmark Notes
-
-* prebuilt native CLI is the product performance path
-* `moon run` is fallback and should be read as wrapper-inflated timing
-* raw benchmark facts live in `results.jsonl`
-* TSV summaries are generated per suite
-* overlap comparison with Microsoft MarkItDown is sample-scoped and may be
-  `not_comparable`
-* OCR, cloud, plugin, and scanned-PDF paths are outside the default local H3++
-  story
-
-See [samples/benchmark/README.md](./samples/benchmark/README.md) and
-[docs/benchmark-governance.md](./docs/benchmark-governance.md) for corpus,
-runner, and comparability rules.
+Detailed validation counts, sample matrices, metadata/assets checks, benchmark
+smoke counts, batch profile results, and MarkItDown comparison runs are tracked
+in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
 
 ## Documentation
 
+* [Changelog](./CHANGELOG.md)
+* [Documentation Map](./docs/README.md)
+* [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
 * [Support and Limits](./docs/support-and-limits.md)
-* [Second-Round Summary](./docs/second-round-summary.md)
-* [Format Excellence Roadmap](./docs/format-excellence-roadmap.md)
-* [Second-Round Hardening Audit](./docs/second-round-hardening-audit.md)
-* [PDF H2++ Readiness Audit](./docs/pdf-h2pp-readiness-audit.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
+* [Samples Overview](./samples/README.md)
+* [Real-World Corpus](./samples/real_world/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
-* [Progress Summary](./docs/progress.md)
 * [Architecture Overview](./docs/architecture.md)
 * [Development Guide](./docs/development.md)
 

@@ -1,0 +1,1755 @@
+{
+  "version": "1",
+  "source_name": "complex_pptx_investor_product_deck.pptx",
+  "format": "pptx",
+  "markdown_file": "complex_pptx_investor_product_deck.md",
+  "document": {
+  "title": "Investor Product Deck",
+  "subject": "Complex real-world PPTX sample",
+  "creator": "markitdown-mb",
+  "description": "Synthetic-realistic deck combining title, notes, tables, cards, links, hidden slides, and image assets.",
+  "keywords": null,
+  "created": null,
+  "modified": null,
+  "application": null,
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 107,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "Slide 1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "Project Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "object_ref": "shape-171"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "list_item",
+      "text": "Goal 1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "list_item",
+      "text": "Goal 2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "paragraph",
+      "text": "Key message for this slide.",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null,
+        "object_ref": "shape-173"
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 1,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 7,
+      "block_type": "heading",
+      "text": "Slide 2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 7,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 8,
+      "block_type": "heading",
+      "text": "Project Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 8,
+        "heading_path": null,
+        "object_ref": "shape-171"
+      },
+      "image": null
+    },
+    {
+      "block_index": 9,
+      "block_type": "paragraph",
+      "text": "Background",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 9,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 10,
+      "block_type": "paragraph",
+      "text": "Goals",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 10,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 11,
+      "block_type": "paragraph",
+      "text": "Risks",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 11,
+        "heading_path": null,
+        "object_ref": "shape-173"
+      },
+      "image": null
+    },
+    {
+      "block_index": 12,
+      "block_type": "paragraph",
+      "text": "Timelines",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 12,
+        "heading_path": null,
+        "object_ref": "shape-173"
+      },
+      "image": null
+    },
+    {
+      "block_index": 13,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 2,
+        "sheet": null,
+        "block_index": 13,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 14,
+      "block_type": "heading",
+      "text": "Slide 3",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 14,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 15,
+      "block_type": "heading",
+      "text": "PPTX MVP 测试",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 15,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 16,
+      "block_type": "paragraph",
+      "text": "第一段：Hello, 世界 ✅",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 16,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 17,
+      "block_type": "paragraph",
+      "text": "第二段：包含 emoji 🙂 与符号 & < >",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 17,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 18,
+      "block_type": "list_item",
+      "text": "项目符号 1",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 18,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 19,
+      "block_type": "list_item",
+      "text": "项目符号 2",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 19,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 20,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 20,
+        "heading_path": ["Slide 3"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 21,
+      "block_type": "paragraph",
+      "text": "本页核心信息",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 21,
+        "heading_path": ["Slide 3", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide1.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide1.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 22,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 3,
+        "sheet": null,
+        "block_index": 22,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 23,
+      "block_type": "heading",
+      "text": "Slide 4",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 23,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 24,
+      "block_type": "heading",
+      "text": "第二页标题：Data Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 24,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 25,
+      "block_type": "paragraph",
+      "text": "段落 A：这是一段普通文本。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 25,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 26,
+      "block_type": "paragraph",
+      "text": "段落 B：支持中文、English、123。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 26,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 27,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 27,
+        "heading_path": ["Slide 4"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 28,
+      "block_type": "paragraph",
+      "text": "第二页备注",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 28,
+        "heading_path": ["Slide 4", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide2.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide2.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 29,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 4,
+        "sheet": null,
+        "block_index": 29,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 30,
+      "block_type": "heading",
+      "text": "Slide 5",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 30,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 31,
+      "block_type": "heading",
+      "text": "第三页：仅标题",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 31,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 32,
+      "block_type": "heading",
+      "text": "Speaker Notes",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 32,
+        "heading_path": ["Slide 5"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 33,
+      "block_type": "paragraph",
+      "text": "最后页备注",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 33,
+        "heading_path": ["Slide 5", "Speaker Notes"],
+        "object_ref": "ppt/notesSlides/notesSlide3.xml",
+        "relationship_id": "rId2",
+        "key_path": "ppt/notesSlides/notesSlide3.xml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 34,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 5,
+        "sheet": null,
+        "block_index": 34,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 35,
+      "block_type": "heading",
+      "text": "Slide 6",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 35,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 36,
+      "block_type": "heading",
+      "text": "Feature Cards",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 36,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 37,
+      "block_type": "paragraph",
+      "text": "Search",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 37,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 38,
+      "block_type": "paragraph",
+      "text": "Fast retrieval",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 38,
+        "heading_path": null,
+        "object_ref": "shape-4"
+      },
+      "image": null
+    },
+    {
+      "block_index": 39,
+      "block_type": "paragraph",
+      "text": "Vision",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 39,
+        "heading_path": null,
+        "object_ref": "shape-5"
+      },
+      "image": null
+    },
+    {
+      "block_index": 40,
+      "block_type": "paragraph",
+      "text": "Image parsing",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 40,
+        "heading_path": null,
+        "object_ref": "shape-6"
+      },
+      "image": null
+    },
+    {
+      "block_index": 41,
+      "block_type": "paragraph",
+      "text": "Speech",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 41,
+        "heading_path": null,
+        "object_ref": "shape-7"
+      },
+      "image": null
+    },
+    {
+      "block_index": 42,
+      "block_type": "paragraph",
+      "text": "Audio input",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 42,
+        "heading_path": null,
+        "object_ref": "shape-8"
+      },
+      "image": null
+    },
+    {
+      "block_index": 43,
+      "block_type": "paragraph",
+      "text": "Agents",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 43,
+        "heading_path": null,
+        "object_ref": "shape-9"
+      },
+      "image": null
+    },
+    {
+      "block_index": 44,
+      "block_type": "paragraph",
+      "text": "Task execution",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 44,
+        "heading_path": null,
+        "object_ref": "shape-10"
+      },
+      "image": null
+    },
+    {
+      "block_index": 45,
+      "block_type": "paragraph",
+      "text": "Memory",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 45,
+        "heading_path": null,
+        "object_ref": "shape-11"
+      },
+      "image": null
+    },
+    {
+      "block_index": 46,
+      "block_type": "paragraph",
+      "text": "Session state",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 46,
+        "heading_path": null,
+        "object_ref": "shape-12"
+      },
+      "image": null
+    },
+    {
+      "block_index": 47,
+      "block_type": "paragraph",
+      "text": "Planning",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 47,
+        "heading_path": null,
+        "object_ref": "shape-13"
+      },
+      "image": null
+    },
+    {
+      "block_index": 48,
+      "block_type": "paragraph",
+      "text": "Multi-step reasoning",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 48,
+        "heading_path": null,
+        "object_ref": "shape-14"
+      },
+      "image": null
+    },
+    {
+      "block_index": 49,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 6,
+        "sheet": null,
+        "block_index": 49,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 50,
+      "block_type": "heading",
+      "text": "Slide 7",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 50,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 51,
+      "block_type": "heading",
+      "text": "Experiment Summary",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 51,
+        "heading_path": null,
+        "object_ref": "shape-171"
+      },
+      "image": null
+    },
+    {
+      "block_index": 52,
+      "block_type": "paragraph",
+      "text": "The following table summarizes the main results.",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 52,
+        "heading_path": null,
+        "object_ref": "shape-177"
+      },
+      "image": null
+    },
+    {
+      "block_index": 53,
+      "block_type": "paragraph",
+      "text": "Model",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 53,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 54,
+      "block_type": "paragraph",
+      "text": "Score",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 54,
+        "heading_path": null,
+        "object_ref": "shape-173"
+      },
+      "image": null
+    },
+    {
+      "block_index": 55,
+      "block_type": "paragraph",
+      "text": "A",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 55,
+        "heading_path": null,
+        "object_ref": "shape-174"
+      },
+      "image": null
+    },
+    {
+      "block_index": 56,
+      "block_type": "paragraph",
+      "text": "91",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 56,
+        "heading_path": null,
+        "object_ref": "shape-175"
+      },
+      "image": null
+    },
+    {
+      "block_index": 57,
+      "block_type": "paragraph",
+      "text": "B",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 57,
+        "heading_path": null,
+        "object_ref": "shape-179"
+      },
+      "image": null
+    },
+    {
+      "block_index": 58,
+      "block_type": "paragraph",
+      "text": "88",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 58,
+        "heading_path": null,
+        "object_ref": "shape-176"
+      },
+      "image": null
+    },
+    {
+      "block_index": 59,
+      "block_type": "paragraph",
+      "text": "Model A performs best overall.",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 59,
+        "heading_path": null,
+        "object_ref": "shape-178"
+      },
+      "image": null
+    },
+    {
+      "block_index": 60,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 7,
+        "sheet": null,
+        "block_index": 60,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 61,
+      "block_type": "heading",
+      "text": "Slide 8",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 61,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 62,
+      "block_type": "heading",
+      "text": "Quarter Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 62,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 63,
+      "block_type": "table",
+      "text": "Quarter | Revenue | Profit\nQ1 | 120 | 40\nQ2 | 140 | 55",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 63,
+        "heading_path": null,
+        "row_index": 0,
+        "column_index": 0,
+        "object_ref": "group-200/graphicFrame-10",
+        "relationship_id": "rId18"
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Quarter", "Revenue", "Profit"],
+          ["Q1", "120", "40"],
+          ["Q2", "140", "55"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 64,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 8,
+        "sheet": null,
+        "block_index": 64,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 65,
+      "block_type": "heading",
+      "text": "Slide 9",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 65,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 66,
+      "block_type": "heading",
+      "text": "第二页标题：Data Overview",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 66,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 67,
+      "block_type": "paragraph",
+      "text": "段落 A：这是一段普通文本。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 67,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 68,
+      "block_type": "paragraph",
+      "text": "段落 B：支持中文、English、123。",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 68,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 69,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 9,
+        "sheet": null,
+        "block_index": 69,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 70,
+      "block_type": "heading",
+      "text": "Slide 10",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 70,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 71,
+      "block_type": "heading",
+      "text": "第三页：仅标题",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 71,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 72,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 10,
+        "sheet": null,
+        "block_index": 72,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 73,
+      "block_type": "heading",
+      "text": "Slide 11",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 73,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 74,
+      "block_type": "image",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 74,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image01.png",
+        "alt_text": "Figure alt text",
+        "title": "Figure title text",
+        "caption": null
+      }
+    },
+    {
+      "block_index": 75,
+      "block_type": "heading",
+      "text": "PPTX Links And Images",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 75,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 76,
+      "block_type": "paragraph",
+      "text": "See reference before review.",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 76,
+        "heading_path": null,
+        "object_ref": "shape-4",
+        "relationship_id": "rId3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 77,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "block_index": 77,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 78,
+      "block_type": "heading",
+      "text": "Slide 12",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 78,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 79,
+      "block_type": "heading",
+      "text": "PPTX Link Heavy",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 79,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 80,
+      "block_type": "paragraph",
+      "text": "Resources: Alpha, Beta, Gamma",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 80,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 81,
+      "block_type": "paragraph",
+      "text": "Docs: API, Guide, FAQ",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 81,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 82,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 12,
+        "sheet": null,
+        "block_index": 82,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 83,
+      "block_type": "heading",
+      "text": "Slide 13",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 83,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 84,
+      "block_type": "heading",
+      "text": "Model Topics",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 84,
+        "heading_path": null,
+        "object_ref": "shape-2"
+      },
+      "image": null
+    },
+    {
+      "block_index": 85,
+      "block_type": "paragraph",
+      "text": "Search",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 85,
+        "heading_path": null,
+        "object_ref": "shape-3"
+      },
+      "image": null
+    },
+    {
+      "block_index": 86,
+      "block_type": "paragraph",
+      "text": "Ranking",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 86,
+        "heading_path": null,
+        "object_ref": "shape-4"
+      },
+      "image": null
+    },
+    {
+      "block_index": 87,
+      "block_type": "paragraph",
+      "text": "Safety",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 87,
+        "heading_path": null,
+        "object_ref": "shape-5"
+      },
+      "image": null
+    },
+    {
+      "block_index": 88,
+      "block_type": "paragraph",
+      "text": "Vision",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 88,
+        "heading_path": null,
+        "object_ref": "shape-6"
+      },
+      "image": null
+    },
+    {
+      "block_index": 89,
+      "block_type": "paragraph",
+      "text": "Speech",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 89,
+        "heading_path": null,
+        "object_ref": "shape-7"
+      },
+      "image": null
+    },
+    {
+      "block_index": 90,
+      "block_type": "paragraph",
+      "text": "Agents",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 90,
+        "heading_path": null,
+        "object_ref": "shape-8"
+      },
+      "image": null
+    },
+    {
+      "block_index": 91,
+      "block_type": "paragraph",
+      "text": "Memory",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 91,
+        "heading_path": null,
+        "object_ref": "shape-9"
+      },
+      "image": null
+    },
+    {
+      "block_index": 92,
+      "block_type": "paragraph",
+      "text": "Planning",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 92,
+        "heading_path": null,
+        "object_ref": "shape-10"
+      },
+      "image": null
+    },
+    {
+      "block_index": 93,
+      "block_type": "paragraph",
+      "text": "Tooling",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 93,
+        "heading_path": null,
+        "object_ref": "shape-11"
+      },
+      "image": null
+    },
+    {
+      "block_index": 94,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 13,
+        "sheet": null,
+        "block_index": 94,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 95,
+      "block_type": "heading",
+      "text": "Slide 14",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 95,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 96,
+      "block_type": "heading",
+      "text": "Third",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 96,
+        "heading_path": null,
+        "object_ref": "shape-171"
+      },
+      "image": null
+    },
+    {
+      "block_index": 97,
+      "block_type": "paragraph",
+      "text": "Alpha",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 97,
+        "heading_path": null,
+        "object_ref": "shape-172"
+      },
+      "image": null
+    },
+    {
+      "block_index": 98,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 14,
+        "sheet": null,
+        "block_index": 98,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 99,
+      "block_type": "heading",
+      "text": "Slide 15 (hidden)",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 99,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 100,
+      "block_type": "heading",
+      "text": "First",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 100,
+        "heading_path": null,
+        "object_ref": "shape-174"
+      },
+      "image": null
+    },
+    {
+      "block_index": 101,
+      "block_type": "paragraph",
+      "text": "Beta",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 101,
+        "heading_path": null,
+        "object_ref": "shape-175"
+      },
+      "image": null
+    },
+    {
+      "block_index": 102,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 15,
+        "sheet": null,
+        "block_index": 102,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 103,
+      "block_type": "heading",
+      "text": "Slide 16",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 103,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 104,
+      "block_type": "heading",
+      "text": "Second",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 104,
+        "heading_path": null,
+        "object_ref": "shape-177"
+      },
+      "image": null
+    },
+    {
+      "block_index": 105,
+      "block_type": "paragraph",
+      "text": "Gamma",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 105,
+        "heading_path": null,
+        "object_ref": "shape-178"
+      },
+      "image": null
+    },
+    {
+      "block_index": 106,
+      "block_type": "blank_line",
+      "text": "",
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 16,
+        "sheet": null,
+        "block_index": 106,
+        "heading_path": null
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image01.png",
+      "asset_type": "image",
+      "alt_text": "Figure alt text",
+      "title": "Figure title text",
+      "caption": null,
+      "origin": {
+        "format": "pptx",
+        "source_name": "complex_pptx_investor_product_deck.pptx",
+        "page": null,
+        "slide": 11,
+        "sheet": null,
+        "origin_id": "slide-11-image-1",
+        "nearby_caption": null,
+        "object_ref": "picture-2",
+        "relationship_id": "rId2",
+        "source_path": "ppt/media/image1.png"
+      },
+      "nearby_caption": null
+    }
+  ]
+}

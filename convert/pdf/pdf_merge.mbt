@@ -140,7 +140,7 @@ fn is_merge_decision(decision : PdfMergeDecision) -> Bool {
 
 ///|
 fn looks_like_heading_start(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
 
   if t == "" {
     return false
@@ -164,7 +164,7 @@ fn looks_like_heading_start(text : String) -> Bool {
 
 ///|
 fn looks_like_numbered_list_start(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -184,7 +184,7 @@ fn looks_like_numbered_list_start(text : String) -> Bool {
 
 ///|
 fn looks_like_list_start(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.has_prefix("•") ||
   t.has_prefix("- ") ||
   t.has_prefix("* ") ||
@@ -193,7 +193,7 @@ fn looks_like_list_start(text : String) -> Bool {
 
 ///|
 fn looks_like_page_start_continuation(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -233,7 +233,7 @@ fn looks_like_page_start_continuation(text : String) -> Bool {
 
 ///|
 fn starts_with_continuation_phrase(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.has_prefix("and ") ||
   t.has_prefix("or ") ||
   t.has_prefix("but ") ||
@@ -250,7 +250,7 @@ fn starts_with_continuation_phrase(text : String) -> Bool {
 
 ///|
 fn looks_like_new_section_after_page_break(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -268,7 +268,7 @@ fn looks_like_new_section_after_page_break(text : String) -> Bool {
 
 ///|
 fn starts_with_numbered_section_heading(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   let arr = t.to_array()
   if arr.length() < 3 {
     return false

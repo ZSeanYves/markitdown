@@ -1,5 +1,15 @@
 # PDF H2++ Readiness Audit
 
+Status: historical pre-closure audit for the native text-PDF scope.
+
+Its core boundary conclusions remain useful, but current PDF support status and
+architecture should be read from:
+
+* [README](../README.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/architecture.md](./architecture.md)
+* [docs/second-round-summary.md](./second-round-summary.md)
+
 This document is the repository's PDF H2++ readiness audit.
 
 It is intentionally not a format-closure claim.
@@ -136,6 +146,9 @@ Current supported text-PDF behaviors:
 * heading promotion for high-confidence heading-like blocks
 * false-positive heading guards
 * hardwrap recovery
+* shared Text Normalization v2 substrate for ligature / NBSP / unicode-space /
+  zero-width / soft-hyphen / PDF compatibility-glyph cleanup on the native PDF
+  path
 * repeated header/footer and page-number cleanup
 * cross-page paragraph merge
 * cross-page merge negatives
@@ -183,6 +196,25 @@ This is one of the format's strongest current assets:
 
 * many PDF heuristics are explainable today rather than hidden inside final
   Markdown output only
+* text normalization is now centralized enough to document as a deterministic
+  staged preprocessing subsystem rather than scattered one-off character fixes
+* output text and comparison text now use distinct normalization profiles:
+  `PdfText` for emitted text cleanup and `PdfCompareText` for heading/noise/
+  table/caption/merge comparisons
+
+Text Normalization v2 notes for the PDF path:
+
+* character normalization is centralized in `core/text_normalization.mbt`
+  rather than duplicated across `convert/pdf` heuristics
+* `doc_parse/pdf/text/unicode_compat.mbt` is now a compatibility adapter into
+  the shared substrate instead of a separate parallel character-normalization
+  implementation
+* canonical `NFC` / `NFKC` are not claimed as fully implemented PDF behavior
+  today; the current MoonBit stdlib path does not expose a full Unicode
+  normalization API for this repository, so the project currently ships a
+  high-value subset with explicit warning hooks
+* text normalization remains separate from OCR, reading-order recovery,
+  paragraph merge policy, and table/layout classification
 
 ## 3. Existing Evidence
 
@@ -226,10 +258,10 @@ output corpus, but not empty.
 
 Present today:
 
-* `samples/metadata/pdf/pdf_image_single_caption_like.pdf`
-* `samples/metadata/pdf/pdf_image_no_caption_negative.pdf`
-* `samples/test/metadata/pdf_image_single_caption_like.metadata.json`
-* `samples/test/pdf_image_single_caption_like.md`
+* `samples/main_process/pdf/metadata/pdf_image_single_caption_like.pdf`
+* `samples/main_process/pdf/metadata/pdf_image_no_caption_negative.pdf`
+* `samples/main_process/pdf/expected/metadata/pdf_image_single_caption_like.metadata.json`
+* `samples/main_process/pdf/expected/metadata/pdf_image_single_caption_like.md`
 
 Currently evidenced via fixtures:
 

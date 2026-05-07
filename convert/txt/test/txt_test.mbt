@@ -87,7 +87,7 @@ test "txt paragraphs stay plain text paragraphs" {
     "samples/main_process/txt/txt_paragraphs.txt",
   )
   let expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/txt/txt_paragraphs.md"),
+    resolve_sample_path("samples/main_process/txt/expected/txt_paragraphs.md"),
   )
 
   let doc = @txt.parse_txt(sample, "", 6)
@@ -113,7 +113,7 @@ test "txt markdown-like literals stay literal in markdown output" {
   )
   let expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/txt/txt_markdown_like_literal.md",
+      "samples/main_process/txt/expected/txt_markdown_like_literal.md",
     ),
   )
 
@@ -139,7 +139,7 @@ test "txt cjk and repeated blank lines stay stable" {
   )
   let cjk_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/txt/txt_cjk_paragraphs.md",
+      "samples/main_process/txt/expected/txt_cjk_paragraphs.md",
     ),
   )
   assert_eq(@cor.emit_markdown(cjk_doc), cjk_expected)
@@ -152,7 +152,7 @@ test "txt cjk and repeated blank lines stay stable" {
   )
   let many_expected = read_utf8_text(
     resolve_sample_path(
-      "samples/main_process/expected/txt/txt_many_paragraphs.md",
+      "samples/main_process/txt/expected/txt_many_paragraphs.md",
     ),
   )
   assert_eq(@cor.emit_markdown(many_doc), many_expected)
@@ -167,7 +167,7 @@ test "txt normalizes crlf and strips utf8 bom" {
     6,
   )
   let crlf_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/txt/txt_crlf.md"),
+    resolve_sample_path("samples/main_process/txt/expected/txt_crlf.md"),
   )
   assert_eq(@cor.emit_markdown(crlf_doc), crlf_expected)
 
@@ -177,7 +177,7 @@ test "txt normalizes crlf and strips utf8 bom" {
     6,
   )
   let bom_expected = read_utf8_text(
-    resolve_sample_path("samples/main_process/expected/txt/txt_bom_utf8.md"),
+    resolve_sample_path("samples/main_process/txt/expected/txt_bom_utf8.md"),
   )
   assert_eq(@cor.emit_markdown(bom_doc), bom_expected)
 }
@@ -232,6 +232,32 @@ test "txt invalid utf8 fails closed" {
   let bad_path = dir + "/txt_invalid_utf8.txt"
   write_bytes(bad_path, Bytes::from_array([0xC3, 0x28]))
   assert_true((try? @txt.parse_txt(bad_path, "", 6)) is Err(_))
+}
+
+///|
+test "txt shared document cleanup normalizes low risk text cleanup without changing paragraph semantics" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let path = dir + "/txt_shared_cleanup.txt"
+  write_utf8_text(
+    path, "\u{FEFF}A\r\nB\u{00A0}C\u{2009}D\u{200B}hy\u{00AD}phen ﬁ\n\nLine\u{2007}Two",
+  )
+  let doc = @txt.parse_txt(path, "", 6)
+
+  assert_eq(@cor.emit_markdown(doc), "A B C Dhyphen fi\n\nLine Two\n")
+  assert_eq(doc.blocks.val.length(), 2)
+
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "A B C Dhyphen fi")
+    _ => fail("expected first txt block to stay Paragraph after shared cleanup")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Line Two")
+    _ =>
+      fail("expected second txt block to stay Paragraph after shared cleanup")
+  }
 }
 
 ///|

@@ -68,27 +68,34 @@ pub fn parse_json_with_profile(
   let lowering_started = @env.now()
   json_profile_begin(profile_enabled)
   push_json_value(doc, value, src)
-  let lowering_profile = json_profile_finish()
+  let (
+    value_cell_stringify_calls,
+    scalar_text_stringify_calls,
+    uniform_table_rows_seen,
+    uniform_table_columns_seen,
+    nested_stringify_elapsed_ms,
+    uniform_table_detect_elapsed_ms,
+  ) = json_profile_finish()
   json_profile_add_stage(
     profile,
     "json_detect_uniform_table",
-    lowering_profile.uniform_table_detect_elapsed_ms,
+    uniform_table_detect_elapsed_ms,
     Some(
       "rows=" +
-      lowering_profile.uniform_table_rows_seen.to_string() +
+      uniform_table_rows_seen.to_string() +
       " columns=" +
-      lowering_profile.uniform_table_columns_seen.to_string(),
+      uniform_table_columns_seen.to_string(),
     ),
   )
   json_profile_add_stage(
     profile,
     "json_compact_stringify_nested",
-    lowering_profile.nested_stringify_elapsed_ms,
+    nested_stringify_elapsed_ms,
     Some(
       "value_cell_calls=" +
-      lowering_profile.value_cell_stringify_calls.to_string() +
+      value_cell_stringify_calls.to_string() +
       " scalar_calls=" +
-      lowering_profile.scalar_text_stringify_calls.to_string(),
+      scalar_text_stringify_calls.to_string(),
     ),
   )
   json_profile_add_stage(

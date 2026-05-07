@@ -20,7 +20,7 @@
 ### A3. Explainability and Engineering Consumption
 
 - [x] `block_origins` / `asset_origins` and sidecar output capabilities are provided.  
-  Evidence: `core/ir.mbt`, `core/metadata.mbt`, `samples/test/metadata/*`
+  Evidence: `core/ir.mbt`, `core/metadata.mbt`, `samples/main_process/*/expected/*.metadata.json`, `samples/fixtures/metadata/*`
 
 ### A4. Usability for Service Knowledge Base / RAG Direction
 
@@ -38,10 +38,10 @@
 
 ### B2. Regression Sample System
 
-- [x] Three complete regression chains have been established: `main_process / metadata / assets`.  
-  Evidence: `samples/check.sh`, `samples/check_main_process.sh`, `samples/check_metadata.sh`, `samples/check_assets.sh`
-- [x] A compact acceptance demo sample set is provided under `samples/test` (condensed demonstration, not equivalent to the full regression suite).  
-  Evidence: `samples/test/*.md`, `samples/test/metadata/*.metadata.json`, `samples/test/assets/*`
+- [x] One unified checked-in regression tree plus focused metadata/assets validation modes have been established.  
+  Evidence: `samples/check.sh`, `samples/check.sh --markdown-only`, `samples/check.sh --metadata-only`, `samples/check.sh --assets-only`
+- [x] Lower-layer fixture families are checked in under `samples/fixtures` for parser/core coverage and unsafe-boundary regression.  
+  Evidence: `samples/fixtures/metadata/*.metadata.json`, `samples/fixtures/epub/*`, `samples/fixtures/zip/*`
 
 ### B3. Documentation Delivery
 
@@ -53,26 +53,26 @@
 ### C1. Main Technical Route: Multi-format -> IR -> Markdown
 
 - [x] The main route has been implemented and can be verified through regression.  
-  Evidence: `convert/convert/dispatcher.mbt`, `core/ir.mbt`, `core/emitter_markdown.mbt`, `samples/check_main_process.sh`
+  Evidence: `convert/convert/dispatcher.mbt`, `core/ir.mbt`, `core/emitter_markdown.mbt`, `samples/check.sh --markdown-only`
 
 ### C2. Metadata Route: origin / image-context / caption / nearby-caption
 
 - [x] The sidecar already covers basic fields and the asset-oriented perspective.  
-  Evidence: `core/metadata.mbt`, `samples/metadata/*`, `samples/test/metadata/*`
+  Evidence: `core/metadata.mbt`, `samples/main_process/*`, `samples/main_process/*/expected/*.metadata.json`, `samples/fixtures/metadata/*`
 - [~] Data completeness under weak semantics and complex layout scenarios is still being finalized.  
   Evidence: `docs/support-and-limits.md`
 
 ### C3. Resource Route: Closed Loop for Assets Export and Referencing
 
 - [x] Assets export and Markdown reference validity checks are already in place.  
-  Evidence: `samples/check_assets.sh`, `samples/assets/expected/*`
+  Evidence: `samples/check.sh --assets-only`, `samples/main_process/*/expected/*.md`
 
 ## D. Risks and Boundary Mapping
 
 ### D1. PDF
 
 - [x] The normal mainline path already uses native structural recovery (non-OCR default path).  
-  Evidence: `README.mbt.md`, `cli/main.mbt`
+  Evidence: `README.mbt.md`, `cli/assets/main.mbt`
 - [~] Complex multi-column layouts and heavy mixed-layout cases are still being improved.  
   Evidence: `docs/support-and-limits.md`
 
@@ -106,9 +106,9 @@
 
 ## F. Recommended Acceptance Execution Order
 
-1. Run `samples/scripts/check_samples.sh` to verify consistency of the sample inventory.
+1. Run `samples/check.sh --manifest-only` to verify sample enrollment plus benchmark and real-world manifest consistency.
 2. Run `samples/check.sh` for the full release-style validation chain.
-3. Run `samples/check_main_process.sh` for isolated main pipeline regression when needed.
-4. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
-5. Run `samples/check_assets.sh` to independently verify asset extraction/reference stability.
-6. Spot-check `samples/test` as the compact acceptance demonstration sample set.
+3. Run `samples/check.sh --markdown-only` for isolated main pipeline regression when needed.
+4. Run `samples/check.sh --metadata-only` to independently verify metadata semantic stability.
+5. Run `samples/check.sh --assets-only` to independently verify asset extraction/reference stability.
+6. Spot-check `samples/main_process/*/expected/*.metadata.json` for CLI exact fixtures and `samples/fixtures` for lower-layer sidecar and unsafe-boundary fixtures.

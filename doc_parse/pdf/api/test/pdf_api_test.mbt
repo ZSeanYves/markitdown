@@ -915,7 +915,9 @@ async test "pdf core block debug includes annotation details" {
 
 ///|
 async test "pdf core block debug includes image details" {
-  let dump = open_pdf_block_debug("samples/assets/pdf/pdf_image_xobject.pdf")
+  let dump = open_pdf_block_debug(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   assert_contains_text(dump, "images=", "debug image count")
   assert_contains_text(dump, "[image 0]", "debug image item")
   assert_contains_text(dump, "width=", "debug image width")
@@ -963,7 +965,7 @@ async test "pdf core inspect dump includes image and annotation sources" {
   assert_contains_text(link_dump, "source_refs=", "inspect annotation sources")
 
   let image_dump = open_pdf_inspect_dump(
-    "samples/assets/pdf/pdf_image_xobject.pdf",
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
   )
   assert_contains_text(image_dump, "[image 0] id=", "inspect image item")
   assert_contains_text(image_dump, "image_source[0]=", "inspect image source")
@@ -1076,7 +1078,9 @@ async test "pdf core smoke works on hardwrap_zh sample" {
 /// - model 层应能看到 images
 /// - 至少一张不是 inline image
 async test "pdf core collects xobject images" {
-  let raw = open_raw_pdf("samples/assets/pdf/pdf_image_xobject.pdf")
+  let raw = open_raw_pdf(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   if raw.pages.is_empty() {
     fail("xobject image sample raw pages should not be empty")
   }
@@ -1084,7 +1088,9 @@ async test "pdf core collects xobject images" {
     fail("raw page 0 should contain at least one image")
   }
 
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   assert_model_readable(doc)
 
   assert_page_image_count_at_least(doc.pages[0], 1, "xobject image sample")
@@ -1107,7 +1113,7 @@ async test "pdf core collects xobject images" {
 /// Inline image：
 /// - model 层至少一张 inline image
 async test "pdf core collects inline images" {
-  let raw = open_raw_pdf("samples/assets/pdf/pdf_image_inline.pdf")
+  let raw = open_raw_pdf("samples/main_process/pdf/assets/pdf_image_inline.pdf")
   if raw.pages.is_empty() {
     fail("inline image sample raw pages should not be empty")
   }
@@ -1115,7 +1121,9 @@ async test "pdf core collects inline images" {
     fail("raw page 0 should contain at least one image")
   }
 
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_inline.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_inline.pdf",
+  )
   assert_model_readable(doc)
 
   assert_page_image_count_at_least(doc.pages[0], 1, "inline image sample")
@@ -1142,7 +1150,9 @@ async test "pdf core collects inline images" {
 /// - 应能通过 form 递归抓到图片
 /// - 通常应为非 inline image
 async test "pdf core collects form xobject images" {
-  let raw = open_raw_pdf("samples/assets/pdf/pdf_image_form_xobject.pdf")
+  let raw = open_raw_pdf(
+    "samples/main_process/pdf/assets/pdf_image_form_xobject.pdf",
+  )
   if raw.pages.is_empty() {
     fail("form xobject image sample raw pages should not be empty")
   }
@@ -1150,7 +1160,9 @@ async test "pdf core collects form xobject images" {
     fail("raw page 0 should contain at least one image")
   }
 
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_form_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_form_xobject.pdf",
+  )
   assert_model_readable(doc)
 
   assert_page_image_count_at_least(doc.pages[0], 1, "form xobject image sample")
@@ -1174,7 +1186,9 @@ async test "pdf core collects form xobject images" {
 
 ///|
 async test "pdf core xobject image carries payload" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   assert_page_image_count_at_least(doc.pages[0], 1, "xobject payload sample")
 
   let mut found = false
@@ -1199,7 +1213,9 @@ async test "pdf core xobject image carries payload" {
 
 ///|
 async test "pdf core inline image carries payload" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_inline.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_inline.pdf",
+  )
   assert_page_inline_image_count_at_least(
     doc.pages[0],
     1,
@@ -1228,7 +1244,9 @@ async test "pdf core inline image carries payload" {
 
 ///|
 async test "pdf core form xobject image carries payload" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_form_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_form_xobject.pdf",
+  )
   assert_page_image_count_at_least(doc.pages[0], 1, "form payload sample")
 
   let mut found = false
@@ -1253,7 +1271,9 @@ async test "pdf core form xobject image carries payload" {
 
 ///|
 async test "pdf core raw xobject image carries payload" {
-  let raw = open_raw_pdf("samples/assets/pdf/pdf_image_xobject.pdf")
+  let raw = open_raw_pdf(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   if raw.pages.is_empty() {
     fail("raw pages should not be empty")
   }
@@ -1283,7 +1303,9 @@ async test "pdf core raw xobject image carries payload" {
 
 ///|
 async test "pdf core xobject image has placement bbox" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
   assert_page_image_count_at_least(doc.pages[0], 1, "xobject bbox sample")
 
   let mut found = false
@@ -1303,7 +1325,9 @@ async test "pdf core xobject image has placement bbox" {
 
 ///|
 async test "pdf core inline image has placement bbox" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_inline.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_inline.pdf",
+  )
   assert_page_inline_image_count_at_least(doc.pages[0], 1, "inline bbox sample")
 
   let mut found = false
@@ -1323,7 +1347,9 @@ async test "pdf core inline image has placement bbox" {
 
 ///|
 async test "pdf core form xobject image has placement bbox" {
-  let doc = open_pdf_model("samples/assets/pdf/pdf_image_form_xobject.pdf")
+  let doc = open_pdf_model(
+    "samples/main_process/pdf/assets/pdf_image_form_xobject.pdf",
+  )
   assert_page_image_count_at_least(doc.pages[0], 1, "form bbox sample")
 
   let mut found = false

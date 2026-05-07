@@ -12,16 +12,6 @@ priv struct JsonProfilingCounters {
 let json_profile_enabled : Ref[Bool] = { val: false }
 
 ///|
-pub struct JsonLoweringProfileSummary {
-  value_cell_stringify_calls : Int
-  scalar_text_stringify_calls : Int
-  uniform_table_rows_seen : Int
-  uniform_table_columns_seen : Int
-  nested_stringify_elapsed_ms : UInt64
-  uniform_table_detect_elapsed_ms : UInt64
-}
-
-///|
 let current_json_profile : Ref[JsonProfilingCounters] = {
   val: {
     value_cell_stringify_calls: { val: 0 },
@@ -52,17 +42,16 @@ fn json_profile_begin(enabled : Bool) -> Unit {
 }
 
 ///|
-fn json_profile_finish() -> JsonLoweringProfileSummary {
-  let summary : JsonLoweringProfileSummary = {
-    value_cell_stringify_calls: current_json_profile.val.value_cell_stringify_calls.val,
-    scalar_text_stringify_calls: current_json_profile.val.scalar_text_stringify_calls.val,
-    uniform_table_rows_seen: current_json_profile.val.uniform_table_rows_seen.val,
-    uniform_table_columns_seen: current_json_profile.val.uniform_table_columns_seen.val,
-    nested_stringify_elapsed_ms: current_json_profile.val.nested_stringify_elapsed_ms.val,
-    uniform_table_detect_elapsed_ms: current_json_profile.val.uniform_table_detect_elapsed_ms.val,
-  }
+fn json_profile_finish() -> (Int, Int, Int, Int, UInt64, UInt64) {
   json_profile_enabled.val = false
-  summary
+  (
+    current_json_profile.val.value_cell_stringify_calls.val,
+    current_json_profile.val.scalar_text_stringify_calls.val,
+    current_json_profile.val.uniform_table_rows_seen.val,
+    current_json_profile.val.uniform_table_columns_seen.val,
+    current_json_profile.val.nested_stringify_elapsed_ms.val,
+    current_json_profile.val.uniform_table_detect_elapsed_ms.val,
+  )
 }
 
 ///|

@@ -3,9 +3,12 @@ package "ZSeanYves/markitdown/convert/pdf"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/doc_parse/pdf/model",
 }
 
 // Values
+pub fn build_pdf_debug_sections(@model.PdfDocumentModel, Int) -> Array[@core.DebugSection]
+
 pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
 
 // Errors
