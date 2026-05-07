@@ -20,7 +20,7 @@
 ### A3. Explainability and Engineering Consumption
 
 - [x] `block_origins` / `asset_origins` and sidecar output capabilities are provided.  
-  Evidence: `core/ir.mbt`, `core/metadata.mbt`, `samples/test/metadata/*`
+  Evidence: `core/ir.mbt`, `core/metadata.mbt`, `samples/fixtures/metadata/*`
 
 ### A4. Usability for Service Knowledge Base / RAG Direction
 
@@ -40,8 +40,8 @@
 
 - [x] Three complete regression chains have been established: `main_process / metadata / assets`.  
   Evidence: `samples/check.sh`, `samples/check_main_process.sh`, `samples/check_metadata.sh`, `samples/check_assets.sh`
-- [x] A compact acceptance demo sample set is provided under `samples/test` (condensed demonstration, not equivalent to the full regression suite).  
-  Evidence: `samples/test/*.md`, `samples/test/metadata/*.metadata.json`, `samples/test/assets/*`
+- [x] Lower-layer fixture families are checked in under `samples/fixtures` for parser/core coverage and unsafe-boundary regression.  
+  Evidence: `samples/fixtures/metadata/*.metadata.json`, `samples/fixtures/epub/*`, `samples/fixtures/zip/*`
 
 ### B3. Documentation Delivery
 
@@ -58,7 +58,7 @@
 ### C2. Metadata Route: origin / image-context / caption / nearby-caption
 
 - [x] The sidecar already covers basic fields and the asset-oriented perspective.  
-  Evidence: `core/metadata.mbt`, `samples/metadata/*`, `samples/test/metadata/*`
+  Evidence: `core/metadata.mbt`, `samples/metadata/*`, `samples/fixtures/metadata/*`
 - [~] Data completeness under weak semantics and complex layout scenarios is still being finalized.  
   Evidence: `docs/support-and-limits.md`
 
@@ -111,4 +111,4 @@
 3. Run `samples/check_main_process.sh` for isolated main pipeline regression when needed.
 4. Run `samples/check_metadata.sh` to independently verify metadata semantic stability.
 5. Run `samples/check_assets.sh` to independently verify asset extraction/reference stability.
-6. Spot-check `samples/test` as the compact acceptance demonstration sample set.
+6. Spot-check `samples/fixtures` for lower-layer metadata and unsafe-boundary fixtures.

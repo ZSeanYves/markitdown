@@ -275,7 +275,7 @@ The repository includes explicit non-production support layers:
 * debug pipeline for PDF
 * regression chains under `samples/main_process`, `samples/metadata`,
   `samples/assets`
-* compact acceptance demo samples under `samples/test`
+* lower-layer parser/core fixtures under `samples/fixtures`
 * internal smoke benchmark
 * overlap-only comparison benchmark
 

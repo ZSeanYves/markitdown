@@ -630,7 +630,7 @@ fn assert_metadata_snapshot(
   expected_name : String,
 ) -> Unit raise {
   let expected = read_utf8_text(
-    resolve_sample_path("samples/test/metadata/" + expected_name),
+    resolve_sample_path("samples/fixtures/metadata/" + expected_name),
   )
   assert_eq(
     trim_one_trailing_newline(actual),

@@ -118,7 +118,7 @@ without changing converter/parser/emitter semantics:
   top-level fields, verifies summary counts, checks asset/file correspondence,
   and requires `document` metadata for OOXML and EPUB sidecars
 * CLI sidecar fixtures can now live under `samples/expected/metadata`, while
-  `samples/test/metadata` continues to serve lower-layer emitter snapshots for
+  `samples/fixtures/metadata` continues to serve lower-layer emitter snapshots for
   MoonBit tests
 * samples with JSON sidecar fixtures now get semantic fixture comparison; other
   metadata samples get structure-level sidecar validation without freezing
@@ -1612,7 +1612,7 @@ Modules:
 
 * `samples/check_metadata.sh`
 * `samples/scripts/validation_helpers.sh`
-* expected metadata fixtures under `samples/test/metadata`
+* expected metadata fixtures under `samples/fixtures/metadata`
 
 Samples:
 

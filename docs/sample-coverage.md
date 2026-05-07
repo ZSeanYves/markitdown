@@ -1,6 +1,6 @@
 # Sample Coverage
 
-## Regression sets vs. demo set
+## Regression sets vs. lower-layer fixtures
 
 The repository has two different sample roles:
 
@@ -8,10 +8,12 @@ The repository has two different sample roles:
    - `samples/main_process`
    - `samples/metadata`
    - `samples/assets`
-2. **Acceptance demo set** (for quick showcase)
-   - `samples/test`
+2. **Lower-layer fixture sets** (for parser/core and boundary coverage)
+   - `samples/fixtures`
 
-`samples/test` is a compact acceptance demonstration set. It is **not** a replacement for full regression coverage.
+`samples/fixtures` is for parser/core/unit-test-only fixtures, fail-closed
+boundaries, and unsafe inputs. It is **not** a replacement for full regression
+coverage and is not the repository's user-facing example gallery.
 
 ## Why regression is split into 3 independent chains
 
@@ -46,14 +48,14 @@ Validation UX notes:
   run `./samples/check.sh` for the full integrity + main_process + metadata +
   assets chain
 
-## Acceptance demo coverage (`samples/test`)
+## Lower-layer fixture coverage (`samples/fixtures`)
 
-Current demo files cover a compact subset of formats:
+Current checked-in fixture families are:
 
-- DOCX: `samples/test/golden.md`
-- HTML: `samples/test/html_figure_figcaption_basic.md`
-- PDF: `samples/test/pdf_image_single_caption_like.md`
-- PPTX: `samples/test/pptx_image_single_caption_like.md`
-- XLSX: `samples/test/xlsx_builtin_datetime_22.md`
+- metadata sidecar snapshots: `samples/fixtures/metadata`
+- EPUB package and boundary fixtures: `samples/fixtures/epub`
+- ZIP path-safety and nested-archive fixtures: `samples/fixtures/zip`
 
-And include metadata/assets examples for acceptance walkthrough.
+The previous root-level demo Markdown set under `samples/test` has been
+removed so richer user-facing examples can be introduced separately without
+mixing them with lower-layer test fixtures.

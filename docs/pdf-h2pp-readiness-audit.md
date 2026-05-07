@@ -250,8 +250,8 @@ Present today:
 
 * `samples/metadata/pdf/pdf_image_single_caption_like.pdf`
 * `samples/metadata/pdf/pdf_image_no_caption_negative.pdf`
-* `samples/test/metadata/pdf_image_single_caption_like.metadata.json`
-* `samples/test/pdf_image_single_caption_like.md`
+* `samples/fixtures/metadata/pdf_image_single_caption_like.metadata.json`
+* `samples/metadata/expected/pdf/pdf_image_single_caption_like.md`
 
 Currently evidenced via fixtures:
 

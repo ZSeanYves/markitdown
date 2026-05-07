@@ -137,6 +137,9 @@ remains available locally and as a manual `workflow_dispatch` job; it is not
 part of the default PR gate. Windows core native support remains documented,
 but the shell validation suite still targets WSL or another POSIX shell rather
 than native Windows CI. `moon publish` remains a manual release step.
+Lower-layer parser/core and unsafe-boundary fixtures now live under
+`samples/fixtures`; user-visible regression corpora remain under
+`samples/main_process`, `samples/metadata`, and `samples/assets`.
 
 Detailed validation counts, sample matrices, metadata/assets checks, benchmark
 smoke counts, batch profile results, and MarkItDown comparison runs are tracked

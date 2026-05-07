@@ -19,7 +19,7 @@ Rules:
   `samples/main_process/expected/<format>/`
 * success-path samples belong here
 * fail-closed and parser-only boundary cases should usually stay in
-  `samples/test`
+  `samples/fixtures`
 
 ### `samples/metadata`
 
@@ -30,7 +30,7 @@ Purpose:
 Rules:
 
 * expected Markdown lives under `samples/metadata/expected/<format>/`
-* sidecar fixture snapshots live under `samples/test/metadata/`
+* sidecar fixture snapshots live under `samples/fixtures/metadata/`
 * metadata samples do not replace `main_process` coverage
 
 ### `samples/assets`
@@ -44,7 +44,7 @@ Rules:
 * expected Markdown lives under `samples/assets/expected/<format>/`
 * asset paths referenced by emitted Markdown must exist on disk
 
-### `samples/test`
+### `samples/fixtures`
 
 Purpose:
 

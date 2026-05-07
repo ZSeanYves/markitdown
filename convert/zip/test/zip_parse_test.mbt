@@ -381,7 +381,7 @@ test "zip inspect reports supported, nested, and unsafe entry policies" {
 ///|
 test "zip inspect reports unsafe path failure clearly" {
   let inspected = try? @zipconv.inspect_zip(
-    resolve_sample_path("samples/test/zip/zip_path_traversal_boundary.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_path_traversal_boundary.zip"),
   )
   match inspected {
     Ok(report) => {
@@ -406,7 +406,7 @@ test "zip inspect reports unsafe path failure clearly" {
 test "zip inspect reports normalized path collision clearly" {
   let report = @zipconv.inspect_zip(
     resolve_sample_path(
-      "samples/test/zip/zip_normalized_collision_boundary.zip",
+      "samples/fixtures/zip/zip_normalized_collision_boundary.zip",
     ),
   ) catch {
     e => fail("inspect_zip failed: " + e.to_string())
@@ -443,7 +443,9 @@ async test "zip parse supports html local images inside zip" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let sample = resolve_sample_path("samples/test/zip/zip_html_local_image.zip")
+  let sample = resolve_sample_path(
+    "samples/fixtures/zip/zip_html_local_image.zip",
+  )
   let doc = @zipconv.parse_zip(sample, out_dir, 6)
   let md = @cor.emit_markdown(doc)
 
@@ -492,7 +494,7 @@ async test "zip parse keeps unsafe parent-image refs as fallback" {
 
   let doc = @zipconv.parse_zip(
     resolve_sample_path(
-      "samples/test/zip/zip_html_local_image_unsafe_parent.zip",
+      "samples/fixtures/zip/zip_html_local_image_unsafe_parent.zip",
     ),
     out_dir,
     6,
@@ -517,7 +519,7 @@ async test "zip parse keeps remote html image refs as fallback" {
   defer cleanup_temp_dir(out_dir)
 
   let doc = @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_html_local_image_remote.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_html_local_image_remote.zip"),
     out_dir,
     6,
   )
@@ -541,7 +543,7 @@ async test "zip parse fails closed on normalized path collisions" {
   defer cleanup_temp_dir(out_dir)
 
   let result = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_normalized_collision.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_normalized_collision.zip"),
     out_dir,
     6,
   )
@@ -556,28 +558,28 @@ async test "zip parse fails closed on unsafe archive paths" {
   defer cleanup_temp_dir(out_dir)
 
   let traversal = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_path_traversal_boundary.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_path_traversal_boundary.zip"),
     out_dir,
     6,
   )
   assert_true(traversal is Err(_))
 
   let absolute = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_absolute_path_boundary.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_absolute_path_boundary.zip"),
     out_dir,
     6,
   )
   assert_true(absolute is Err(_))
 
   let windows_drive = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_unsafe_windows_drive.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_unsafe_windows_drive.zip"),
     out_dir,
     6,
   )
   assert_true(windows_drive is Err(_))
 
   let duplicate_entries = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/test/zip/zip_duplicate_entries.zip"),
+    resolve_sample_path("samples/fixtures/zip/zip_duplicate_entries.zip"),
     out_dir,
     6,
   )
@@ -585,7 +587,7 @@ async test "zip parse fails closed on unsafe archive paths" {
 
   let normalized_collision = try? @zipconv.parse_zip(
     resolve_sample_path(
-      "samples/test/zip/zip_normalized_collision_boundary.zip",
+      "samples/fixtures/zip/zip_normalized_collision_boundary.zip",
     ),
     out_dir,
     6,
@@ -623,7 +625,9 @@ async test "zip parse html-asset sample stays stable across repeated conversions
   defer cleanup_temp_dir(first_out)
   defer cleanup_temp_dir(second_out)
 
-  let sample = resolve_sample_path("samples/test/zip/zip_html_local_image.zip")
+  let sample = resolve_sample_path(
+    "samples/fixtures/zip/zip_html_local_image.zip",
+  )
   let first = @zipconv.parse_zip(sample, first_out, 6)
   let second = @zipconv.parse_zip(sample, second_out, 6)
 

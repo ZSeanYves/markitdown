@@ -149,7 +149,9 @@ test "epub convert remote image falls back without asset export" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_remote_image.epub")
+  let input = resolve_sample_path(
+    "samples/fixtures/epub/epub_remote_image.epub",
+  )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   assert_contains(markdown, "# OPS/chapter.xhtml")
@@ -168,7 +170,7 @@ test "epub convert unsupported spine media emits warning block" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_unsupported_spine_media.epub",
+    "samples/fixtures/epub/epub_unsupported_spine_media.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -185,7 +187,7 @@ test "epub convert missing manifest spine item emits warning and continues" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_missing_manifest_then_valid.epub",
+    "samples/fixtures/epub/epub_missing_manifest_then_valid.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -294,7 +296,7 @@ test "epub convert emits ncx toc when epub3 nav is absent" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_ncx_basic.epub")
+  let input = resolve_sample_path("samples/fixtures/epub/epub_ncx_basic.epub")
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   assert_contains(markdown, "# Table of Contents")
@@ -309,7 +311,7 @@ test "epub convert prefers epub3 nav over ncx fallback" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_ncx_nav_priority.epub",
+    "samples/fixtures/epub/epub_ncx_nav_priority.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -326,7 +328,9 @@ test "epub convert avoids duplicate nav emission when nav is in spine" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let input = resolve_sample_path("samples/test/epub/epub_nav_in_spine.epub")
+  let input = resolve_sample_path(
+    "samples/fixtures/epub/epub_nav_in_spine.epub",
+  )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
   if markdown.contains("# Table of Contents") {
@@ -369,7 +373,7 @@ test "epub convert uses guide cover image fallback" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_guide_cover_image.epub",
+    "samples/fixtures/epub/epub_guide_cover_image.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)
@@ -391,7 +395,7 @@ test "epub convert does not emit guide cover page as cover image" {
   defer cleanup_temp_dir(out_dir)
 
   let input = resolve_sample_path(
-    "samples/test/epub/epub_guide_cover_page.epub",
+    "samples/fixtures/epub/epub_guide_cover_page.epub",
   )
   let doc = @epub.parse_epub(input, out_dir, 6)
   let markdown = @cor.emit_markdown(doc)

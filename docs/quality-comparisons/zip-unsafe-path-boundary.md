@@ -1,11 +1,11 @@
 # Quality Comparison: zip-unsafe-path-boundary
 
 - format: ZIP
-- sample path: `samples/test/zip/zip_path_traversal_boundary.zip`
+- sample path: `samples/fixtures/zip/zip_path_traversal_boundary.zip`
 - feature focus: unsafe archive path fail-closed behavior
 - comparison date: 2026-05-06
-- markitdown-mb command: `./_build/native/debug/build/cli/cli.exe normal samples/test/zip/zip_path_traversal_boundary.zip .tmp/quality-zip/mb-unsafe.md`
-- Microsoft MarkItDown command: `markitdown samples/test/zip/zip_path_traversal_boundary.zip -o .tmp/quality-zip/ms-unsafe.md`
+- markitdown-mb command: `./_build/native/debug/build/cli/cli.exe normal samples/fixtures/zip/zip_path_traversal_boundary.zip .tmp/quality-zip/mb-unsafe.md`
+- Microsoft MarkItDown command: `markitdown samples/fixtures/zip/zip_path_traversal_boundary.zip -o .tmp/quality-zip/ms-unsafe.md`
 - comparable scope: safety-boundary review only
 - verdict: not_comparable
 
