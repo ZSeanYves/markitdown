@@ -153,19 +153,33 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
-* `core/text_normalization.mbt` provides the shared low-risk text
-  normalization substrate used by the PDF path for deterministic character
-  cleanup before higher-level heuristics run
+* `core/text_normalization.mbt` provides the shared Text Normalization v2
+  substrate used by the PDF path for deterministic character cleanup before
+  higher-level heuristics run
 
 Current text-normalization layering is also intentional:
 
-* shared substrate owns low-risk rules such as line-ending normalization,
-  NBSP/unicode-space cleanup, selected zero-width removal, soft-hyphen
-  stripping, and common ligature expansion
+* shared substrate is profile-driven rather than globally aggressive:
+  `Literal`, `GeneralText`, `PdfText`, `PdfCompareText`, `HtmlText`,
+  `OoxmlText`, and `StructuredDataText`
+* shared substrate is stage-oriented:
+  line-ending, canonical-unicode policy, compatibility glyph, whitespace,
+  invisible-char, soft-hyphen, PDF glyph fallback, and PDF compare cleanup
+* `PdfText` is the output-facing extracted-text profile
+* `PdfCompareText` is a stronger comparison-only profile used by PDF heading,
+  noise, table, caption, and merge heuristics
+* the current project does not claim ICU-level or full UAX #15 Unicode
+  normalization; canonical `NFC` / `NFKC` are explicit policy hooks and
+  currently no-op with warnings because the MoonBit stdlib path does not expose
+  a full normalization API here
+* shared low-risk rules include line-ending normalization, NBSP/unicode-space
+  cleanup, selected zero-width removal, soft-hyphen stripping, common
+  ligature expansion, and PDF compatibility-glyph fallback
 * PDF keeps document-specific post-processing such as word-fragment recovery,
   CJK spacing cleanup, and layout-adjacent text heuristics in `doc_parse/pdf`
-* literal/source-preserving paths such as Markdown passthrough and XML fenced
-  output do not opt into aggressive text normalization policies
+* literal/source-preserving paths such as Markdown passthrough, XML fenced
+  output, JSON/YAML fallback code fences, and TXT literal-safe lowering do not
+  opt into aggressive text normalization policies
 
 This split is the stable architecture outcome from the earlier PDF H2 process;
 the repository no longer needs separate historical PDF phase docs to explain

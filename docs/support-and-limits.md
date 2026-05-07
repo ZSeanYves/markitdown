@@ -100,26 +100,43 @@ Across the current implementation:
 * structured-text converters either preserve source form or fail closed on
   invalid syntax instead of guessing
 * shared text normalization is profile-based rather than globally aggressive:
-  PDF can opt into low-risk extracted-text cleanup, while literal/source-safe
-  paths stay conservative
+  output text, comparison/heuristic text, and literal/raw text preservation are
+  explicitly separated
 * origin metadata is best-effort provenance, not a full anchoring system
 * metadata schema stays additive and sparse
 * asset export only happens for formats that materially emit image files
 
 Shared text-normalization substrate:
 
-* `core/text_normalization.mbt` is the common entry point for low-risk text
-  cleanup
-* `PdfText` currently enables line-ending normalization, NBSP and selected
-  unicode-space cleanup, `U+200B` / `U+FEFF` removal, soft-hyphen stripping,
-  and common ligature expansion
+* `core/text_normalization.mbt` is the common entry point for Text
+  Normalization v2
+* current shared profiles are:
+  `Literal`, `GeneralText`, `PdfText`, `PdfCompareText`, `HtmlText`,
+  `OoxmlText`, and `StructuredDataText`
+* `PdfText` is used for output-facing extracted PDF text cleanup
+* `PdfCompareText` is used for PDF heading/noise/table/caption/merge
+  comparison text and is intentionally stronger than output normalization
+* current shared stages are:
+  validate-scalar, line-ending, canonical-unicode policy,
+  compatibility-glyph, whitespace, invisible-char, soft-hyphen, PDF glyph
+  fallback, and PDF compare cleanup
+* current high-value subset covers line endings, NBSP/unicode spaces,
+  `U+200B` / `U+FEFF`, `U+00AD`, common ligatures, and PDF compatibility glyph
+  fallback
 * smart-quote normalization, dash normalization, fullwidth folding, and CJK
-  punctuation rewriting are not default behaviors
+  punctuation rewriting are explicit opt-in behaviors and are not default
+  output policy
+* canonical `NFC` / `NFKC` policy hooks exist, but the repository does not
+  claim full ICU/UAX #15 support; the current MoonBit stdlib path does not
+  expose a full Unicode normalization API here, so canonical stages remain
+  documented no-op/warning behavior until a future table-backed implementation
+  exists
 * this substrate is deterministic preprocessing, not OCR, not a layout engine,
   and not a semantic classifier
-* literal contexts such as Markdown passthrough, fenced code output, XML
-  source-preserving fallback, JSON/YAML/XML literal code paths, and TXT
-  literal-safe lowering do not opt into aggressive normalization
+* literal contexts such as Markdown passthrough, fenced code output, HTML
+  `pre/code`, XML source-preserving fallback, JSON/YAML/XML literal code
+  paths, CSV/TSV value text, and TXT literal-safe lowering do not opt into
+  aggressive normalization by default
 
 ## Per-format Support
 

@@ -34,7 +34,7 @@ pub fn normalize_text(String) -> String
 
 pub fn normalize_text_with_options(String, TextNormalizationOptions) -> String
 
-pub fn normalize_text_with_options_summary(String, TextNormalizationOptions) -> TextNormalizationResult
+pub fn normalize_text_with_options_summary(String, NormalizeProfile, TextNormalizationOptions) -> TextNormalizationResult
 
 pub fn normalize_text_with_profile(String, NormalizeProfile) -> String
 
@@ -98,6 +98,12 @@ pub(all) enum Block {
   BlankLine
 }
 
+pub(all) enum CanonicalNormalizationForm {
+  Disabled
+  NFC
+  NFKC
+} derive(Eq)
+
 pub(all) enum CjkSpacingPolicy {
   Preserve
   RemoveBetweenCjk
@@ -146,6 +152,7 @@ pub(all) enum NormalizeProfile {
   Literal
   GeneralText
   PdfText
+  PdfCompareText
   HtmlText
   OoxmlText
   StructuredDataText
@@ -225,28 +232,78 @@ pub(all) enum TextNormalizationChangeKind {
   Ligatures
   Quotes
   Dashes
+  Fullwidth
+  CjkPunctuation
+  Canonical
+  Compatibility
+  PdfGlyph
   CjkSpacing
 } derive(Eq)
 
 pub(all) struct TextNormalizationOptions {
+  canonical_form : CanonicalNormalizationForm
   normalize_line_endings : Bool
   normalize_nbsp : Bool
-  collapse_unicode_spaces : Bool
+  normalize_unicode_spaces : Bool
   remove_zero_width : Bool
   remove_soft_hyphen : Bool
   expand_ligatures : Bool
   normalize_quotes : Bool
   normalize_dashes : Bool
-  preserve_line_breaks : Bool
+  normalize_fullwidth : Bool
+  normalize_cjk_punctuation : Bool
+  preserve_newlines : Bool
   preserve_tabs : Bool
   cjk_spacing_policy : CjkSpacingPolicy
+  pdf_private_glyph_fallback : Bool
+  apply_pdf_compare_cleanup : Bool
+  record_summary : Bool
   record_changes : Bool
 }
 
 pub(all) struct TextNormalizationResult {
   text : String
   changed : Bool
+  profile : NormalizeProfile
+  summary : TextNormalizationSummary
   changes : Array[TextNormalizationChange]
+} derive(Eq)
+
+pub(all) enum TextNormalizationStage {
+  ValidateScalarStage
+  CanonicalUnicodeStage
+  CompatibilityGlyphStage
+  WhitespaceStage
+  InvisibleCharStage
+  SoftHyphenStage
+  LineEndingStage
+  PdfGlyphStage
+  PdfCompareStage
+} derive(Eq)
+
+pub(all) struct TextNormalizationStageSummary {
+  stage : TextNormalizationStage
+  changed : Bool
+  total_changes : Int
+  applied : Bool
+} derive(Eq)
+
+pub(all) struct TextNormalizationSummary {
+  total_changes : Int
+  changes : Array[TextNormalizationChange]
+  stages : Array[TextNormalizationStageSummary]
+  warnings : Array[TextNormalizationWarning]
+} derive(Eq)
+
+pub(all) struct TextNormalizationWarning {
+  kind : TextNormalizationWarningKind
+  message : String
+} derive(Eq)
+
+pub(all) enum TextNormalizationWarningKind {
+  UnsupportedNormalization
+  InvalidScalar
+  SkippedDueToLiteralContext
 } derive(Eq)
 
 // Type aliases

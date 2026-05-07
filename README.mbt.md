@@ -2,7 +2,7 @@
 
 ![MoonBit](https://img.shields.io/badge/MoonBit-native-2563eb)
 ![CLI](https://img.shields.io/badge/CLI-prebuilt--native-16a34a)
-![Tests](https://img.shields.io/badge/tests-1286%20passed-16a34a)
+![Tests](https://img.shields.io/badge/tests-1295%20passed-16a34a)
 ![Main%20samples](https://img.shields.io/badge/main%20samples-346%20passed-16a34a)
 ![Metadata](https://img.shields.io/badge/metadata-82%20passed-16a34a)
 ![Assets](https://img.shields.io/badge/assets-42%20passed-16a34a)
@@ -67,7 +67,7 @@ Latest second-round closure run:
 
 | Check | Result |
 | --- | ---: |
-| `moon test` | 1286 passed, 0 failed |
+| `moon test` | 1295 passed, 0 failed |
 | Main process samples | 346 passed, 0 failed |
 | Metadata sidecars | 82 passed, 0 failed |
 | Asset checks | 42 passed, 0 failed |
@@ -82,8 +82,8 @@ equally or fairly comparable with Microsoft MarkItDown.
 ## Core Capabilities
 
 * unified IR across document families
-* shared profile-based text normalization substrate with PDF-specific low-risk
-  extracted-text cleanup
+* shared profile-driven Text Normalization v2 substrate with staged PDF
+  extracted-text and comparison cleanup
 * Markdown main output
 * `assets/` export for materialized local images
 * metadata sidecar via `--with-metadata`

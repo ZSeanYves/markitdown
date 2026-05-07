@@ -107,10 +107,17 @@ Across sealed formats, the repository stays intentionally conservative:
 
 Recent substrate hardening after second-round seal:
 
-* shared text normalization now lives in a profile-based substrate rather than
-  scattered PDF-only character fixes
-* the native PDF path uses a `PdfText` profile for low-risk extracted-text
-  cleanup
+* shared text normalization now lives in a profile-driven Text Normalization v2
+  substrate rather than scattered PDF-only character fixes
+* the native PDF path uses `PdfText` for output cleanup and `PdfCompareText`
+  for comparison/heuristic normalization
+* normalization is now staged and explainable:
+  line-ending, compatibility, whitespace, invisible-char, soft-hyphen, PDF
+  glyph fallback, and compare-cleanup stages all flow through one shared entry
+  point
+* canonical `NFC` / `NFKC` are explicit non-default policy hooks, but the
+  repository does not claim full ICU/UAX #15 support on the current MoonBit
+  stdlib path
 * literal-safe paths remain conservative and do not inherit aggressive
   normalization by default
 
