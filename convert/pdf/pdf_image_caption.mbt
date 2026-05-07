@@ -64,6 +64,7 @@ fn classify_caption_candidate(
   images : Array[PdfConvertImage],
 ) -> (String, Double)? {
   let text = block.text.trim().to_owned()
+  let comparison_text = normalize_pdf_comparison_text(block.text)
   if text == "" {
     return None
   }
@@ -79,17 +80,19 @@ fn classify_caption_candidate(
     return None
   }
 
-  let has_prefix = looks_like_image_caption_prefix(text)
-  let no_prefix_ok = looks_like_no_prefix_image_caption(text, block, image)
+  let has_prefix = looks_like_image_caption_prefix(comparison_text)
+  let no_prefix_ok = looks_like_no_prefix_image_caption(
+    comparison_text, block, image,
+  )
   if !(has_prefix || no_prefix_ok) {
     return None
   }
 
-  if text_has_too_many_words_for_caption(text) {
+  if text_has_too_many_words_for_caption(comparison_text) {
     return None
   }
 
-  if looks_like_table_caption_prefix(text) {
+  if looks_like_table_caption_prefix(comparison_text) {
     return None
   }
 
@@ -170,7 +173,7 @@ fn pick_best_caption_candidate(
 
 ///|
 fn looks_like_image_caption_prefix(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   let lower = t.to_lower()
   lower.has_prefix("figure ") ||
   lower.has_prefix("figure") ||
@@ -185,7 +188,7 @@ fn looks_like_image_caption_prefix(text : String) -> Bool {
 
 ///|
 fn looks_like_table_caption_prefix(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   let lower = t.to_lower()
   lower.has_prefix("table ") ||
   lower.has_prefix("table") ||
@@ -198,7 +201,7 @@ fn looks_like_no_prefix_image_caption(
   block : PdfConvertBlock,
   image : PdfConvertImage,
 ) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -223,7 +226,7 @@ fn text_has_too_many_words_for_caption(text : String) -> Bool {
 fn image_caption_word_count(text : String) -> Int {
   let mut count = 0
   let mut in_word = false
-  for ch in text.to_array() {
+  for ch in normalize_pdf_comparison_text(text).to_array() {
     if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
       if in_word {
         in_word = false
@@ -269,7 +272,7 @@ fn is_centered_near_image(
 
 ///|
 fn ends_like_body_sentence(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||

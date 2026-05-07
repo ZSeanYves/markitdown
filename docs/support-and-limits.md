@@ -99,9 +99,27 @@ Across the current implementation:
   speculative reconstruction
 * structured-text converters either preserve source form or fail closed on
   invalid syntax instead of guessing
+* shared text normalization is profile-based rather than globally aggressive:
+  PDF can opt into low-risk extracted-text cleanup, while literal/source-safe
+  paths stay conservative
 * origin metadata is best-effort provenance, not a full anchoring system
 * metadata schema stays additive and sparse
 * asset export only happens for formats that materially emit image files
+
+Shared text-normalization substrate:
+
+* `core/text_normalization.mbt` is the common entry point for low-risk text
+  cleanup
+* `PdfText` currently enables line-ending normalization, NBSP and selected
+  unicode-space cleanup, `U+200B` / `U+FEFF` removal, soft-hyphen stripping,
+  and common ligature expansion
+* smart-quote normalization, dash normalization, fullwidth folding, and CJK
+  punctuation rewriting are not default behaviors
+* this substrate is deterministic preprocessing, not OCR, not a layout engine,
+  and not a semantic classifier
+* literal contexts such as Markdown passthrough, fenced code output, XML
+  source-preserving fallback, JSON/YAML/XML literal code paths, and TXT
+  literal-safe lowering do not opt into aggressive normalization
 
 ## Per-format Support
 
@@ -292,6 +310,8 @@ Supported:
 Conservative behavior:
 
 * structure is text-first, not visual-layout faithful
+* shared `PdfText` normalization runs before heading/noise/merge/table/caption
+  heuristics so low-risk character cleanup is consistent across the PDF path
 * table recovery only triggers for compact, aligned, high-confidence text grids
 * table lowering supports both explicit header-like first rows and conservative
   `header_rows = 0` headerless numeric tables
@@ -309,6 +329,7 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
+* no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
 * H3++ performance claims apply only to the checked-in native text-PDF corpus

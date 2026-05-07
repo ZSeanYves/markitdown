@@ -10,6 +10,8 @@ pub fn basename(String) -> String
 
 pub fn decode_numeric_entities(String) -> String
 
+pub fn default_text_normalization_options(NormalizeProfile) -> TextNormalizationOptions
+
 pub fn emit_markdown(Document) -> String
 
 pub fn emit_metadata_json(Document, String, String, String) -> String
@@ -29,6 +31,14 @@ pub fn next_image_asset_rel_path(@ref.Ref[Int], String) -> String
 pub fn next_image_asset_rel_path_unique(@ref.Ref[Int], String, String) -> String
 
 pub fn normalize_text(String) -> String
+
+pub fn normalize_text_with_options(String, TextNormalizationOptions) -> String
+
+pub fn normalize_text_with_options_summary(String, TextNormalizationOptions) -> TextNormalizationResult
+
+pub fn normalize_text_with_profile(String, NormalizeProfile) -> String
+
+pub fn normalize_text_with_profile_summary(String, NormalizeProfile) -> TextNormalizationResult
 
 pub fn push(Document, Block) -> Unit
 
@@ -88,6 +98,11 @@ pub(all) enum Block {
   BlankLine
 }
 
+pub(all) enum CjkSpacingPolicy {
+  Preserve
+  RemoveBetweenCjk
+} derive(Eq)
+
 pub struct Document {
   blocks : @ref.Ref[Array[Block]]
   block_origins : @ref.Ref[Array[Origin?]]
@@ -126,6 +141,15 @@ pub struct MetadataDocumentProperties {
   slides : String?
   sheets : String?
 }
+
+pub(all) enum NormalizeProfile {
+  Literal
+  GeneralText
+  PdfText
+  HtmlText
+  OoxmlText
+  StructuredDataText
+} derive(Eq)
 
 pub(all) struct Origin {
   source_name : String?
@@ -183,6 +207,47 @@ pub(all) struct TableSpanHint {
   colspan : Int
   text : String?
 }
+
+pub(all) struct TextNormalizationChange {
+  kind : TextNormalizationChangeKind
+  before : String
+  after : String
+  count : Int
+} derive(Eq)
+
+pub(all) enum TextNormalizationChangeKind {
+  LineEndings
+  Tabs
+  Nbsp
+  UnicodeSpaces
+  ZeroWidth
+  SoftHyphen
+  Ligatures
+  Quotes
+  Dashes
+  CjkSpacing
+} derive(Eq)
+
+pub(all) struct TextNormalizationOptions {
+  normalize_line_endings : Bool
+  normalize_nbsp : Bool
+  collapse_unicode_spaces : Bool
+  remove_zero_width : Bool
+  remove_soft_hyphen : Bool
+  expand_ligatures : Bool
+  normalize_quotes : Bool
+  normalize_dashes : Bool
+  preserve_line_breaks : Bool
+  preserve_tabs : Bool
+  cjk_spacing_policy : CjkSpacingPolicy
+  record_changes : Bool
+}
+
+pub(all) struct TextNormalizationResult {
+  text : String
+  changed : Bool
+  changes : Array[TextNormalizationChange]
+} derive(Eq)
 
 // Type aliases
 

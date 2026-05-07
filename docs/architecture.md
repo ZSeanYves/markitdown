@@ -153,6 +153,19 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
+* `core/text_normalization.mbt` provides the shared low-risk text
+  normalization substrate used by the PDF path for deterministic character
+  cleanup before higher-level heuristics run
+
+Current text-normalization layering is also intentional:
+
+* shared substrate owns low-risk rules such as line-ending normalization,
+  NBSP/unicode-space cleanup, selected zero-width removal, soft-hyphen
+  stripping, and common ligature expansion
+* PDF keeps document-specific post-processing such as word-fragment recovery,
+  CJK spacing cleanup, and layout-adjacent text heuristics in `doc_parse/pdf`
+* literal/source-preserving paths such as Markdown passthrough and XML fenced
+  output do not opt into aggressive text normalization policies
 
 This split is the stable architecture outcome from the earlier PDF H2 process;
 the repository no longer needs separate historical PDF phase docs to explain

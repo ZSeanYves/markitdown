@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
   "ZSeanYves/markitdown/doc_parse/pdf/raw" @raw,
 }

@@ -21,7 +21,7 @@ fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
 
     for i = 0; i < n; i = i + 1 {
       let block = page.blocks[i]
-      let text = block.text.trim().to_owned()
+      let text = normalize_pdf_comparison_text(block.text)
       let decision = decide_noise_block(page, i, block, repeated)
 
       match decision.status {
@@ -53,7 +53,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
   let out = Array::new()
 
   for block in page.blocks {
-    let t = block.text.trim().to_owned()
+    let t = normalize_pdf_comparison_text(block.text)
     if t != "" {
       out.push(block)
     }
@@ -69,7 +69,7 @@ fn normalized_nonempty_blocks(page : PdfConvertPage) -> Array[PdfConvertBlock] {
 /// - 纯页码/页标签可以删
 /// - 较短、非完整正文句、非长正文段才进入 repeated 候选
 fn is_repeated_noise_candidate_block(block : PdfConvertBlock) -> Bool {
-  let t = block.text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(block.text)
   if t == "" {
     return false
   }
@@ -168,7 +168,7 @@ fn edge_zone_height(page_height : Double) -> Double {
 /// - 英文转小写
 /// - 数字统一替换成 '#'
 fn normalize_noise_key(s : String) -> String {
-  let t = s.trim().to_owned()
+  let t = lowercase_pdf_comparison_text(s)
   if t == "" {
     return ""
   }
@@ -177,9 +177,7 @@ fn normalize_noise_key(s : String) -> String {
   let mut prev_space = false
 
   for c in t {
-    let ch = if c >= 'A' && c <= 'Z' {
-      Int::unsafe_to_char(c.to_int() + 32)
-    } else if c >= '0' && c <= '9' {
+    let ch = if c >= '0' && c <= '9' {
       '#'
     } else if c == ' ' || c == '\t' {
       ' '
@@ -204,7 +202,7 @@ fn normalize_noise_key(s : String) -> String {
 ///|
 fn count_words(s : String) -> Int {
   let mut n = 0
-  for sv in s.split(" ") {
+  for sv in normalize_pdf_comparison_text(s).split(" ") {
     let t = sv.trim().to_owned()
     if t != "" {
       n = n + 1
@@ -216,7 +214,7 @@ fn count_words(s : String) -> Int {
 ///|
 /// 非严格正文句判定：用于保护正文不被 repeated noise 误删。
 fn ends_like_sentence(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -227,7 +225,7 @@ fn ends_like_sentence(text : String) -> Bool {
 
 ///|
 fn is_probable_page_number_like(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t == "" {
     return false
   }
@@ -257,7 +255,7 @@ fn is_probable_page_number_like(text : String) -> Bool {
 
 ///|
 fn looks_like_simple_english_page_label(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
 
   if !(t.has_prefix("Page ") || t.has_prefix("page ")) {
     return false
@@ -269,7 +267,7 @@ fn looks_like_simple_english_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_simple_cjk_page_label(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
 
   if !(t.has_prefix("第") && (t.contains("页") || t.contains("⻚"))) {
     return false
@@ -287,7 +285,7 @@ fn looks_like_simple_cjk_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_fraction_page_label(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
 
   let parts : Array[String] = Array::new()
   for part in t.split("/") {
@@ -311,7 +309,7 @@ fn looks_like_fraction_page_label(text : String) -> Bool {
 
 ///|
 fn looks_like_dash_page_label(text : String) -> Bool {
-  let t = text.trim().to_owned()
+  let t = normalize_pdf_comparison_text(text)
   if t.length() > 12 {
     return false
   }
@@ -368,7 +366,7 @@ fn contains_string(xs : Array[String], x : String) -> Bool {
 ///|
 fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
   for i = 0; i < page.blocks.length(); i = i + 1 {
-    let t = page.blocks[i].text.trim().to_owned()
+    let t = normalize_pdf_comparison_text(page.blocks[i].text)
     if t != "" {
       return i
     }
@@ -380,7 +378,7 @@ fn first_nonempty_block_index(page : PdfConvertPage) -> Int {
 fn last_nonempty_block_index(page : PdfConvertPage) -> Int {
   let mut i = page.blocks.length() - 1
   while i >= 0 {
-    let t = page.blocks[i].text.trim().to_owned()
+    let t = normalize_pdf_comparison_text(page.blocks[i].text)
     if t != "" {
       return i
     }

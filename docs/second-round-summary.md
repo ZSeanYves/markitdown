@@ -101,7 +101,18 @@ Across sealed formats, the repository stays intentionally conservative:
 * no recursive ZIP archive conversion
 * no EPUB DRM/CSS/JS/reading-system claims
 * no OCR-default PDF claim
+* no globally aggressive text rewriting policy across literal or structured
+  paths
 * no benchmark claim beyond the checked-in corpora
+
+Recent substrate hardening after second-round seal:
+
+* shared text normalization now lives in a profile-based substrate rather than
+  scattered PDF-only character fixes
+* the native PDF path uses a `PdfText` profile for low-risk extracted-text
+  cleanup
+* literal-safe paths remain conservative and do not inherit aggressive
+  normalization by default
 
 ## Future Work
 

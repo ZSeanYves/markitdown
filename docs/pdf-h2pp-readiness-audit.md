@@ -136,6 +136,8 @@ Current supported text-PDF behaviors:
 * heading promotion for high-confidence heading-like blocks
 * false-positive heading guards
 * hardwrap recovery
+* shared low-risk text normalization substrate for ligature / NBSP /
+  zero-width / soft-hyphen cleanup on the native PDF path
 * repeated header/footer and page-number cleanup
 * cross-page paragraph merge
 * cross-page merge negatives
@@ -183,6 +185,8 @@ This is one of the format's strongest current assets:
 
 * many PDF heuristics are explainable today rather than hidden inside final
   Markdown output only
+* text normalization is now centralized enough to document as a deterministic
+  preprocessing stage rather than scattered one-off character fixes
 
 ## 3. Existing Evidence
 

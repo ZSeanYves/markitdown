@@ -412,9 +412,10 @@ fn normalize_single_span(span : @model.PdfTextSpan) -> @model.PdfTextSpan {
 
 ///|
 /// 文本归一化：
-/// 1. unicode_compat 负责兼容字符 / ligature / control / compatibility glyph
-/// 2. 这里负责基础空白清洗
-/// 3. 最后做低风险后处理
+/// 1. unicode_compat 先走 shared substrate 的低风险字符归一化，并保留 PDF
+///    专属 compatibility glyph fallback。
+/// 2. 这里负责 PDF line/span 专属的基础空白清洗。
+/// 3. 最后做 PDF-specific 的词边界 / CJK / bullet spacing 后处理。
 fn normalize_text(text : String) -> String {
   let stage1 = normalize_unicode_compat(text)
   let stage2 = normalize_basic_spaces(stage1)

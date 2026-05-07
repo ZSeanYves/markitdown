@@ -2,11 +2,10 @@
 /// Unicode 兼容字符归一化。
 /// 这里只做“字符级兼容映射”，不做词边界恢复。
 ///
-/// 目标：
-/// - ligature
-/// - CJK compatibility glyph
-/// - 全角/零宽/nbsp
-/// - 常见兼容标点
+/// 分层约定：
+/// - 通用低风险规则（NBSP / zero-width / soft hyphen / ligature / line ending）
+///   由 shared core text normalization substrate 负责。
+/// - 这里保留 PDF 更专属的兼容字形 fallback，例如 CJK compatibility glyph。
 ///
 /// 不处理：
 /// - con firm -> confirm
@@ -14,67 +13,20 @@
 /// - inter national -> international
 /// 这些属于词边界恢复，不属于字符映射。
 pub fn normalize_unicode_compat(text : String) -> String {
-  let mut out = ""
-  for ch in text {
-    out = out + normalize_unicode_compat_char(ch)
+  let stage1 = @cor.normalize_text_with_profile(
+    text,
+    @cor.NormalizeProfile::PdfText,
+  )
+  let out = StringBuilder::new()
+  for ch in stage1 {
+    out.write_string(normalize_pdf_compat_char(ch))
   }
-  out
+  out.to_string()
 }
 
 ///|
-fn normalize_unicode_compat_char(ch : Char) -> String {
+fn normalize_pdf_compat_char(ch : Char) -> String {
   match ch {
-    // ---------- spaces / controls ----------
-    '\r' => "\n"
-    '\n' => " "
-    '\t' => " "
-    '\u{00A0}' => " " // NBSP
-    '\u{1680}' => " "
-    '\u{2000}' => " "
-    '\u{2001}' => " "
-    '\u{2002}' => " "
-    '\u{2003}' => " "
-    '\u{2004}' => " "
-    '\u{2005}' => " "
-    '\u{2006}' => " "
-    '\u{2007}' => " "
-    '\u{2008}' => " "
-    '\u{2009}' => " "
-    '\u{200A}' => " "
-    '\u{202F}' => " "
-    '\u{205F}' => " "
-    '\u{3000}' => " "
-    '\u{200B}' => "" // zero-width
-    '\u{200C}' => ""
-    '\u{200D}' => ""
-    '\u{2060}' => ""
-
-    // ---------- common ligatures ----------
-    'ﬀ' => "ff"
-    'ﬁ' => "fi"
-    'ﬂ' => "fl"
-    'ﬃ' => "ffi"
-    'ﬄ' => "ffl"
-    'ﬅ' => "ft"
-    'ﬆ' => "st"
-
-    // ---------- common punctuation compatibility ----------
-    '“' => "\""
-    '”' => "\""
-    '„' => "\""
-    '‟' => "\""
-    '‘' => "'"
-    '’' => "'"
-    '‚' => "'"
-    '‛' => "'"
-    '—' => "-"
-    '–' => "-"
-    '‒' => "-"
-    '―' => "-"
-    '…' => "..."
-    '﹣' => "-"
-    '－' => "-"
-
     // ---------- CJK compatibility / radicals often seen in PDF extraction ----------
     '⼀' => "一"
     '⼁' => "丨"

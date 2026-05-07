@@ -34,7 +34,7 @@ pub fn is_blank(s : String) -> Bool {
 
 ///|
 pub fn normalize_text(s : String) -> String {
-  s.replace(old="\r\n", new="\n").replace(old="\r", new="\n")
+  normalize_text_with_profile(s, NormalizeProfile::Literal)
 }
 
 ///|
