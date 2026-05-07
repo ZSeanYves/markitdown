@@ -238,7 +238,7 @@ The repository should not say without broader evidence:
 * "OCR/cloud/plugin paths are part of the same local speed story"
 * "one local benchmark baseline implies portability or universal parity"
 
-## Current P0.3 TODOs
+## Current Open Benchmark Governance Work
 
 Still missing after this governance pass:
 
@@ -250,7 +250,7 @@ Still missing after this governance pass:
 * optional checked-in benchmark result snapshots that are clearly labeled as
   historical local references rather than universal claims
 
-## Recommended Next Step
+## Recommended Ongoing Direction
 
 The next benchmark-governance step should be:
 

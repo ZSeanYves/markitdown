@@ -4,6 +4,9 @@ This document records a historical same-machine overlap-only comparison baseline
 between `markitdown-mb` and Microsoft MarkItDown.
 
 It is a local reference, not a pass/fail performance target.
+Use [docs/benchmark-governance.md](./benchmark-governance.md) and
+[samples/benchmark/README.md](../samples/benchmark/README.md) for the current
+runner/corpus contract.
 
 ## Current PDF Overlap Baseline
 
@@ -34,7 +37,7 @@ BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh 
 
 This PDF baseline was captured with:
 
-* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* OS: local macOS baseline (historical local measurement)
 * Date (UTC): `2026-05-03T04:23:36Z`
 * Git revision: `f268ac2`
 * Timer precision: `ms`
@@ -110,7 +113,7 @@ BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh 
 
 This PPTX baseline was captured with:
 
-* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* OS: local macOS baseline (historical local measurement)
 * Date (UTC): `2026-05-02T13:51:31Z`
 * Git revision: `e9aa483`
 * Timer precision: `ms`
@@ -178,7 +181,7 @@ BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/scripts/bench_compare_markitdown.sh 
 
 This DOCX baseline was captured with:
 
-* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* OS: local macOS baseline (historical local measurement)
 * Date (UTC): `2026-05-02T13:31:21Z`
 * Git revision: `e9aa483`
 * Timer precision: `ms`
@@ -238,7 +241,7 @@ BENCH_WARMUP=1 BENCH_ITERATIONS=5 ./samples/scripts/bench_compare_markitdown.sh 
 
 This TXT baseline was captured with:
 
-* OS: `Darwin winterdeMacBook-Air.local 24.3.0 Darwin Kernel Version 24.3.0: Thu Jan  2 20:31:46 PST 2025; root:xnu-11215.81.4~4/RELEASE_ARM64_T8132 arm64`
+* OS: local macOS baseline (historical local measurement)
 * Date (UTC): `2026-05-02T08:02:35Z`
 * Git revision: `52a8135`
 * Timer precision: `ms`

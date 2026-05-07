@@ -1545,11 +1545,17 @@ generate_group_summary
 generate_startup_summary
 generate_comparison_summary
 
-echo "==> batch profiling results: $RESULTS_PATH"
-echo "==> batch profiling summary: $SUMMARY_PATH"
-echo "==> batch profiling comparison summary: $COMPARISON_SUMMARY_PATH"
+echo "==> result dir: $BENCH_ROOT"
+echo "==> raw results: $RESULTS_PATH"
+echo "==> summary: $SUMMARY_PATH"
+echo "==> comparison summary: $COMPARISON_SUMMARY_PATH"
 echo "==> startup summary: $STARTUP_SUMMARY_PATH"
 echo "==> file results: $FILE_RESULTS_TSV_PATH"
+echo "==> runner_kind: $MB_RUNNER_KIND"
+echo "==> runner_class: $(batch_runner_class "$MB_RUNNER_KIND")"
+echo "==> execution_path: default-local-normal-vs-batch"
+echo "==> compare_meaningful: internal-runner-profile"
+echo "==> memory_rss_available: $TIME_SUPPORTED"
 echo "==> runs: $run_count"
 echo "==> failures: $fail_count"
 echo "==> skipped groups: $skipped_count"

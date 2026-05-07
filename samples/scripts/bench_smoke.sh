@@ -579,8 +579,14 @@ done < "$CORPUS_PATH"
 
 generate_summary
 
-echo "==> benchmark results: $RESULTS_PATH"
-echo "==> benchmark summary: $SUMMARY_PATH"
+echo "==> result dir: $BENCH_ROOT"
+echo "==> raw results: $RESULTS_PATH"
+echo "==> summary: $SUMMARY_PATH"
+echo "==> runner_kind: $SMOKE_RUNNER_KIND"
+echo "==> runner_class: $(smoke_runner_class "$SMOKE_RUNNER_KIND")"
+echo "==> execution_path: default-local-normal"
+echo "==> compare_meaningful: no"
+echo "==> memory_rss_available: no"
 echo "==> samples run: $run_count"
 echo "==> failures: $fail_count"
 

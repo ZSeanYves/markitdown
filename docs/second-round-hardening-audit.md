@@ -7,7 +7,7 @@ Scope of this round:
 
 * audit current support and limits with code/sample evidence
 * document support matrices, boundaries, and missing lower-layer capabilities
-* design benchmark and quality-comparison workflows for the next phase
+* record benchmark and quality-comparison workflow outcomes for the repository
 * produce an executable task queue
 
 Non-goal of this round:
@@ -18,16 +18,16 @@ Non-goal of this round:
 
 Primary local evidence used:
 
-* [README.mbt.md](/Users/winter/Documents/Moonbit/markitdown/README.mbt.md)
-* [docs/support-and-limits.md](/Users/winter/Documents/Moonbit/markitdown/docs/support-and-limits.md)
-* [docs/architecture.md](/Users/winter/Documents/Moonbit/markitdown/docs/architecture.md)
-* [docs/progress.md](/Users/winter/Documents/Moonbit/markitdown/docs/progress.md)
-* [core/ir.mbt](/Users/winter/Documents/Moonbit/markitdown/core/ir.mbt)
-* [core/emitter_markdown.mbt](/Users/winter/Documents/Moonbit/markitdown/core/emitter_markdown.mbt)
-* [core/metadata.mbt](/Users/winter/Documents/Moonbit/markitdown/core/metadata.mbt)
-* [cli/main.mbt](/Users/winter/Documents/Moonbit/markitdown/cli/main.mbt)
-* [cli/cli_app.mbt](/Users/winter/Documents/Moonbit/markitdown/cli/cli_app.mbt)
-* [convert/convert/dispatcher.mbt](/Users/winter/Documents/Moonbit/markitdown/convert/convert/dispatcher.mbt)
+* [README.mbt.md](./../README.mbt.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/architecture.md](./architecture.md)
+* [docs/progress.md](./progress.md)
+* [core/ir.mbt](../core/ir.mbt)
+* [core/emitter_markdown.mbt](../core/emitter_markdown.mbt)
+* [core/metadata.mbt](../core/metadata.mbt)
+* [cli/main.mbt](../cli/main.mbt)
+* [cli/cli_app.mbt](../cli/cli_app.mbt)
+* [convert/convert/dispatcher.mbt](../convert/convert/dispatcher.mbt)
 * `convert/*`, `doc_parse/*`, `samples/*`, and benchmark scripts
 
 External reference scope:
@@ -128,7 +128,7 @@ without changing converter/parser/emitter semantics:
 * README/progress speed wording was tightened so native CLI, `moon run`,
   OCR/cloud, and overlap-only comparison cases are not blended into one claim
 
-Remaining P0-adjacent TODOs after this fix:
+Remaining archival notes from the original hardening pass:
 
 * expand semantic metadata fixture coverage for samples that currently only get
   structure-level sidecar validation
@@ -140,7 +140,7 @@ Remaining P0-adjacent TODOs after this fix:
 
 ### 2.1 Product Entry Capability
 
-Current product entrypoints are defined in [cli/main.mbt](/Users/winter/Documents/Moonbit/markitdown/cli/main.mbt) and orchestrated in [cli/cli_app.mbt](/Users/winter/Documents/Moonbit/markitdown/cli/cli_app.mbt).
+Current product entrypoints are defined in [cli/main.mbt](../cli/main.mbt) and orchestrated in [cli/cli_app.mbt](../cli/cli_app.mbt).
 
 Current subcommands:
 
@@ -289,7 +289,7 @@ Cross-format behavior inconsistencies worth recording:
 
 ### 2.2 Unified IR / Markdown Emitter / Metadata Capability
 
-Unified IR is defined in [core/ir.mbt](/Users/winter/Documents/Moonbit/markitdown/core/ir.mbt). Markdown emission is in [core/emitter_markdown.mbt](/Users/winter/Documents/Moonbit/markitdown/core/emitter_markdown.mbt). Metadata sidecar emission is in [core/metadata.mbt](/Users/winter/Documents/Moonbit/markitdown/core/metadata.mbt).
+Unified IR is defined in [core/ir.mbt](../core/ir.mbt). Markdown emission is in [core/emitter_markdown.mbt](../core/emitter_markdown.mbt). Metadata sidecar emission is in [core/metadata.mbt](../core/metadata.mbt).
 
 Current block types:
 
@@ -1497,7 +1497,7 @@ Current script audit summary:
 Follow-up status:
 
 * benchmark governance now has a dedicated summary document:
-  [docs/benchmark-governance.md](/Users/winter/Documents/Moonbit/markitdown/docs/benchmark-governance.md)
+  [docs/benchmark-governance.md](./benchmark-governance.md)
 * the repository kept the current `samples/benchmark/*` and `.tmp/bench/*`
   layout, but raw JSON outputs now expose clearer suite/runner/status fields
 * TSV summaries remain suite-specific by design; they are still not a universal
@@ -1546,9 +1546,9 @@ Recommended template:
 Current rollout status:
 
 * a dedicated checked-in directory now exists at
-  [docs/quality-comparisons/README.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/README.md)
+  [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
 * a reusable template now exists at
-  [docs/quality-comparisons/template.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/template.md)
+  [docs/quality-comparisons/template.md](./quality-comparisons/template.md)
 * the current seed set is intentionally small and sample-scoped; it is not a
   blanket parity conclusion
 
@@ -1671,7 +1671,7 @@ Current status:
 * partially fixed in this follow-up:
   * current checked-in benchmark corpus coverage is now summarized
   * runner classes, execution paths, raw result fields, and comparability rules
-    are documented in [docs/benchmark-governance.md](/Users/winter/Documents/Moonbit/markitdown/docs/benchmark-governance.md)
+    are documented in [docs/benchmark-governance.md](./benchmark-governance.md)
   * raw JSON outputs from smoke/compare/batch-profile now carry clearer
     suite/runner/status/execution-path fields
 * remaining work is compare-corpus expansion, not-comparable registry growth,
@@ -1711,7 +1711,7 @@ Current status:
 
 * fixed in this follow-up:
   * checked-in quality comparison docs now exist under
-    [docs/quality-comparisons/README.md](/Users/winter/Documents/Moonbit/markitdown/docs/quality-comparisons/README.md)
+    [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
   * the repository now has a reusable comparison template plus seed records for
     DOCX / PPTX / XLSX / HTML / CSV / Markdown / TXT / PDF
   * each seed record names the concrete sample, commands, comparable scope, and
@@ -1910,7 +1910,7 @@ Risk:
 
 Done when:
 
-* completed in this round as `HTML H2++ complete`
+* recorded in the hardening pass as `HTML H2++ complete`
 * HTML remains explicitly positioned as a lightweight safe semantic parser, not
   a browser-grade engine
 * H3 claims stay limited to the checked-in native overlap corpus
@@ -1967,7 +1967,7 @@ Risk:
 
 Done when:
 
-* completed in this round as `ZIP H2++ complete`
+* recorded in the hardening pass as `ZIP H2++ complete`
 * supported/unsupported ZIP feature boundary is explicit and tested
 * H3 claims stay limited to the checked-in native ZIP corpus
 
@@ -2188,8 +2188,8 @@ Current issues to record at audit start, with current follow-up status:
 
 Evidence:
 
-* [README.mbt.md](/Users/winter/Documents/Moonbit/markitdown/README.mbt.md) and
-  [docs/progress.md](/Users/winter/Documents/Moonbit/markitdown/docs/progress.md)
+* [README.mbt.md](./../README.mbt.md) and
+  [docs/progress.md](./progress.md)
   present the repo as post-H2 and post-H3-phase-1 complete across the main
   format set.
 

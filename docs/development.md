@@ -17,40 +17,40 @@ Recommended product-path invocation:
 ./_build/native/debug/build/cli/cli.exe normal <input> [output]
 ```
 
-Development fallback remains:
-
-```bash
-moon run cli -- normal <input> [output]
-```
-
 Normal conversion:
 
 ```bash
-moon run cli -- normal <input> [output]
+./_build/native/debug/build/cli/cli.exe normal <input> [output]
 ```
 
 OCR path:
 
 ```bash
-moon run cli -- ocr <input> [output]
+./_build/native/debug/build/cli/cli.exe ocr <input> [output]
 ```
 
 Batch path:
 
 ```bash
-moon run cli -- batch <input_dir> <output_dir>
+./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
 ```
 
 Debug path:
 
 ```bash
-moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
+./_build/native/debug/build/cli/cli.exe debug <all|extract|raw|pipeline> <input> [output]
 ```
 
 Metadata sidecar:
 
 ```bash
-moon run cli -- normal --with-metadata <input> <output.md>
+./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
+```
+
+Development fallback remains:
+
+```bash
+moon run cli -- normal <input> [output]
 ```
 
 Output rules:
@@ -319,6 +319,7 @@ The repository intentionally has a third validation layer beyond package tests:
 
 * `convert/convert/test`: cross-format metadata/provenance invariants
 * `samples/scripts/check_samples.sh`: enrollment integrity
+* `samples/scripts/list_sample_inventory.sh`: sample-family inventory summary
 * `samples/check_main_process.sh`: main Markdown regression
 * `samples/check_metadata.sh`: metadata sidecar regression
 * `samples/check_assets.sh`: asset export regression

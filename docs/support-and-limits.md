@@ -60,11 +60,12 @@ Repository status labels are intentionally conservative:
   depend on future lower-layer work
 * `subset-H2`: only a conservative supported subset reaches H2-style
   expectations
-* `source-preserving H1/H2 partial`: the primary contract is safe source
-  preservation, not semantic reconstruction
-* `H2++ complete, H3++ evidence-backed on checked-in native EPUB corpus`:
-  checked-in EPUB package/spine/nav/assets evidence is in place, with explicit
-  non-goals still documented
+* `source-preserving`: the primary contract is safe source preservation, not
+  semantic reconstruction
+* `H2++ complete`: checked-in regression, metadata/assets behavior, and quality
+  scope are sealed for the documented format boundary
+* `H3++ evidence-backed`: performance language is backed by a named checked-in
+  corpus on the documented runner path
 * `H3 evidence requires benchmark`: performance language must be backed by
   runner- and corpus-specific benchmark evidence, and must separate native CLI,
   `moon run`, OCR, and cloud/plugin paths
@@ -528,7 +529,7 @@ Known limits:
 
 Status label:
 
-* `source-preserving H1/H2 partial`
+* `source-preserving`
 * safe XML handling, not semantic XML-family conversion
 
 Supported:

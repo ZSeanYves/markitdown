@@ -81,8 +81,9 @@ These records do not compare:
 
 ## Seed Records
 
-The current checked-in seed set is intentionally small. It is enough to make
-quality review concrete, but it is not the final parity conclusion.
+The current checked-in set is a maintained evidence index for the repository's
+current quality claims. It is still sample-scoped rather than a blanket parity
+conclusion.
 
 | Format | Sample | Feature focus | Verdict | Notes |
 | ------ | ------ | ------------- | ------- | ----- |

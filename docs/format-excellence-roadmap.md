@@ -1,237 +1,103 @@
 # Format Excellence Roadmap
 
+This document defines the repository's second-round format hardening model.
+
+It is not a sprint log. It records:
+
+* what `H2++` means
+* what `H3++` means
+* which formats are sealed
+* how future format work should be scoped
+
 ## Second-Round Positioning
 
-The first H1/H2/H3 baseline round is already complete. The project is now in a
-second-round `H2++ / H3++` phase.
+The project has already completed its first broad format-availability round.
 
-This round is not about:
+Second-round work is about:
 
-* restarting H1 closure
-* inflating the number of supported formats
-* writing broad “done” claims without evidence
+* explicit support boundaries
+* regression coverage for important structures and failure boundaries
+* metadata and asset validation where applicable
+* checked-in quality records
+* checked-in benchmark evidence
 
-This round is about format-by-format excellence sprints:
+Second-round work is not about:
 
-* push each existing format toward market-parity or market-leading Markdown
-  quality on the default local path
-* make support range, conservative degradation, and non-goals explicit
-* turn parser/core capability into a first-class deliverable rather than a
-  converter-local patch pile
-* attach every quality and performance claim to checked-in samples, metadata
-  validation, quality comparison records, and benchmark results
+* inflating support claims without evidence
+* treating every partial parser path as market-complete support
+* turning lightweight converters into layout engines
 
 ## H2++ Completion Standard
 
-A format reaches `H2++` only when all of the following exist:
+A format reaches `H2++ complete` only when all of the following are true:
 
-* support range is explicit
-* non-goals and conservative boundaries are explicit
-* parser/core gaps are either resolved or registered as concrete TODOs
-* regression samples cover main-path and complex boundary cases
-* metadata/origin/assets behavior is validated where applicable
-* quality comparison records exist against Microsoft MarkItDown or another
-  comparable lightweight baseline
-* the record set includes real `win`, `close`, `loss`, or
-  `not_comparable` outcomes rather than one-sided marketing snapshots
-* `docs/support-and-limits.md` is updated
-* `README.mbt.md` does not overstate maturity
+* support scope is explicit
+* non-goals and degradation boundaries are explicit
+* regression samples cover both main-path and important boundary cases
+* metadata and assets behavior are validated where applicable
+* checked-in quality comparison records exist
+* README and support docs do not overstate maturity
 
 ## H3++ Completion Standard
 
-A format reaches `H3++` only when all of the following exist:
+A format reaches `H3++ evidence-backed` only when all of the following are
+true:
 
-* native binary benchmark coverage
-* `small / medium / large / batch` corpus coverage
-* `metadata on/off` coverage
-* `assets-heavy` coverage when the format can emit assets
-* Microsoft MarkItDown or another mainstream overlap comparison where fair
-* raw JSONL benchmark output
-* summary TSV or Markdown output
-* `runner_kind`, `execution_path`, and `not_comparable` status are recorded
-* performance conclusions are limited to actually comparable corpora
-* if performance is not leading, there is a bottleneck note and a next-step
-  optimization plan
+* the benchmark runner is a prebuilt native binary
+* the corpus is checked in and named
+* compare rows are overlap-only and fair
+* metadata-on coverage exists where relevant
+* batch behavior is measured where product-path batch exists
+* conclusions stay within the named corpus scope
 
-## Recommended Second-Round Order
+## Current Sealed Formats
 
-1. XLSX
-2. HTML
-3. ZIP
-4. EPUB
-5. DOCX
-6. PPTX
-7. PDF
-8. CSV / TSV
-9. JSON
-10. YAML
-11. XML
-12. Markdown
-13. TXT
+| Format | Current second-round status |
+| --- | --- |
+| XLSX | H2++ complete / H3++ evidence-backed on checked-in native overlap corpus |
+| HTML | H2++ complete / H3++ evidence-backed on checked-in native overlap corpus |
+| ZIP | H2++ complete / H3++ evidence-backed on checked-in native corpus |
+| EPUB | H2++ complete / H3++ evidence-backed on checked-in native EPUB corpus |
+| DOCX | H2++ complete / H3++ evidence-backed on checked-in native overlap corpus |
+| PPTX | H2++ complete / H3++ evidence-backed on checked-in native overlap corpus |
+| PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed on checked-in native text-PDF corpus |
 
-Why this order:
+## Current Non-sealed Families
 
-* XLSX / HTML / ZIP / EPUB can show the second-round model quickly: lower-layer
-  capability, product quality, metadata behavior, and benchmark evidence all
-  move together.
-* DOCX / PPTX remain core OOXML formats but are broader and more expensive, so
-  they are better after the first few sprints have hardened the workflow.
-* PDF is a deep-water format, but the first native text-PDF evidence closure
-  sprint is now complete; future work should focus on selected blockers rather
-  than a broad rewrite.
-* TXT / Markdown matter, but their second-round upside is mostly performance
-  proof and boundary clarity rather than large semantic recovery gains.
+The following families remain intentionally narrower in current scope:
 
-## Single-Format Sprint Template
+* CSV / TSV
+* JSON
+* YAML / YML
+* XML
+* Markdown
+* TXT
 
-Every second-round format sprint should follow the same sequence:
+Their current support level should be read from
+[docs/support-and-limits.md](./support-and-limits.md), not inferred from the
+sealed-format table above.
 
-1. Current capability audit
-2. Market-parity gap list
-3. Parser/core gap list
-4. H2++ implementation
-5. Regression samples
-6. Metadata/origin/assets validation
-7. Quality comparison records
-8. H3++ benchmark corpus
-9. Performance run
-10. Bottleneck analysis
-11. Support docs update
-12. Validation
-13. Commit
+## Future Work Guidance
 
-## Current Sprint
+Future format work should prefer:
 
-The first second-round excellence sprint is `XLSX`, and it is now treated as
-`H2++ complete` plus `H3++ evidence-backed on the checked-in native overlap
-corpus`.
+1. audit
+2. boundary definition
+3. regression and metadata evidence
+4. quality records
+5. benchmark evidence
+6. support-doc closure
 
-Focus:
+Future format work should avoid:
 
-* formula cached-value policy and missing-cache degradation
+* large converter rewrites without evidence gaps
+* benchmark claims before corpus/comparability discipline
+* broad parity language without checked-in support
 
-Current next deep-water format note:
+## Related Documents
 
-* PDF is not yet in a closure sprint
-* PDF readiness audit landed first so the repository could separate:
-  * native text-PDF capability
-  * OCR/optional paths
-  * parser-signal gaps
-  * evidence gaps
-* after that audit, the first PDF sprint targeted text-PDF evidence closure
-  rather than a broad parser rewrite
-* lightweight formula evaluation v1 for safe missing-cache cases
-* merged-cell policy without misleading visual reconstruction
-* typed-cell semantics
-* visible / hidden / veryHidden sheet-state policy
-* metadata/debug evidence for the above
-* overlap quality comparison records
-* overlap and batch-oriented benchmark evidence
-* explicit non-goals: no full Excel engine, no cross-sheet/lookup/array/dynamic
-  formula support in evaluator v1
-
-PPTX is now also treated as:
-
-* `H2++ complete`
-* `H3++ evidence-backed on checked-in native overlap corpus`
-
-Current PPTX closure is intentionally scoped to:
-
-* mainstream slide-order/title/body/list/link/image/notes/table-like structure
-* heuristic reading order and conservative grouped-shape lowering
-* explicit non-goals: no PowerPoint layout engine, no animations/transitions,
-  no SmartArt/chart/OLE rendering, no pixel-perfect visual reconstruction
-
-The second second-round excellence sprint is `HTML`.
-
-Current HTML sprint state:
-
-* parser/resource safety boundaries have been hardened without moving toward a
-  browser-grade engine
-* unsafe-link fail-closed behavior, local-image asset behavior, table span
-  hints, and HTML provenance are now backed by checked-in regression and
-  metadata samples
-* nested ZIP/EPUB HTML metadata snapshots now intentionally reflect lower-layer
-  HTML provenance improvements
-* checked-in HTML quality records and benchmark rows now exist, and the sprint
-  is now treated as `HTML H2++ complete` plus `H3++ evidence-backed on the
-  checked-in native overlap corpus`
-* those conclusions remain intentionally scoped to the checked-in HTML quality
-  records and native overlap/batch corpus; they are not browser-grade blanket
-  web claims
-
-The third second-round excellence sprint is `ZIP`.
-
-Current ZIP sprint state:
-
-* the lower layer already enforced strict fail-closed boundaries for unsafe
-  paths, normalized collisions, encrypted/data-descriptor/ZIP64 structures,
-  and unsupported nested archive recursion
-* checked-in second-round regression and metadata samples now cover mixed
-  supported entries, unsupported-entry warnings, nested-archive warnings,
-  hidden-entry policy, and duplicate asset-name remap
-* checked-in ZIP quality records now exist for mixed supported entries,
-  asset-remap behavior, unsupported-entry warnings, and unsafe-path boundary
-  policy
-* checked-in ZIP benchmark rows now include native smoke, metadata-on, and
-  batch-profile coverage for the current archive corpus
-* ZIP is now treated as `H2++ complete` plus `H3++ evidence-backed on the
-  checked-in native corpus`
-* those conclusions remain scoped to the checked-in ZIP corpus and quality
-  records; they are not blanket claims about all archive formats or recursive
-  archive traversal
-
-The fourth second-round excellence sprint is `EPUB`.
-
-Current EPUB sprint state:
-
-* package-open behavior now includes:
-  * missing-spine-manifest-item fail-soft warning behavior
-  * guide-cover image fallback
-  * EPUB3 nav primary TOC extraction
-  * EPUB2 NCX minimal fallback support on the checked-in subset
-* checked-in second-round regression and metadata samples now cover:
-  * basic package/open flow
-  * richer OPF metadata
-  * OPF spine order
-  * missing-manifest spine warnings
-  * unsupported-media spine warnings
-  * EPUB3 nav TOC
-  * NCX fallback TOC
-  * HTML-structure inheritance inside spine XHTML
-  * cover/local-asset remap and duplicate asset names
-* checked-in EPUB quality records now exist for spine order, nav TOC,
-  cover/assets, unsupported-media warning policy, and NCX fallback scope
-* checked-in EPUB benchmark rows now include native smoke, metadata-on,
-  NCX/unsupported/asset-heavy rows, batch-profile coverage, and overlap
-  compare rows against Microsoft MarkItDown where the local path is meaningfully
-  comparable
-* EPUB is now treated as `H2++ complete` plus `H3++ evidence-backed on the
-  checked-in native EPUB corpus`
-* performance conclusions remain scoped to the checked-in native EPUB corpus
-  and meaningful local overlap samples; they are not blanket claims about all
-  ebook workloads or reading-system behavior
-
-The fifth second-round excellence sprint is `DOCX`.
-
-Current DOCX sprint state:
-
-* the lower layer already covered the main OOXML document path, but the
-  evidence chain lagged behind the implementation
-* checked-in second-round regression and metadata samples now cover nested and
-  style-linked headings/lists, hyperlink spacing and multi-run links,
-  multiline/merged-boundary tables, notes/comments ordering, headers/footers,
-  text boxes, and local image asset policy
-* DOCX table-cell lowering now preserves conservative image alt text and
-  Markdown-link text where the OOXML lower layer has the required signal
-* checked-in DOCX quality records now cover golden structure, multiline table
-  cells, list/link/style behavior, notes/comments, image assets, and textbox
-  policy
-* checked-in DOCX benchmark rows now include table-heavy, link-heavy,
-  image-heavy, notes/comments-heavy, metadata-on, batch-profile, and overlap
-  compare coverage
-* DOCX is now treated as `H2++ complete` plus `H3++ evidence-backed on the
-  checked-in native overlap corpus`
-* those conclusions remain scoped to the checked-in DOCX quality records and
-  local overlap/batch corpus; they are not a claim of full Word layout-engine
-  compatibility
+* [docs/second-round-summary.md](./second-round-summary.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+* [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
+* [docs/second-round-hardening-audit.md](./second-round-hardening-audit.md)

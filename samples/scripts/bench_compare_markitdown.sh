@@ -708,8 +708,15 @@ done < "$CORPUS_PATH"
 
 generate_summary
 
-echo "==> comparison results: $RESULTS_PATH"
-echo "==> comparison summary: $SUMMARY_PATH"
+echo "==> result dir: $COMPARE_ROOT"
+echo "==> raw results: $RESULTS_PATH"
+echo "==> summary: $SUMMARY_PATH"
+echo "==> mb_runner_kind: $MB_RUNNER_KIND"
+echo "==> mb_runner_class: $(mb_runner_class "$MB_RUNNER_KIND")"
+echo "==> python_runner_class: $(python_runner_class)"
+echo "==> execution_path: compare-overlap"
+echo "==> compare_meaningful: sample-scoped"
+echo "==> memory_rss_available: no"
 echo "==> runs: $run_count"
 echo "==> failures: $fail_count"
 
