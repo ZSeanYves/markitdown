@@ -23,6 +23,58 @@ fn read_html_parser_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn test_tmp_root() -> String {
+  ".tmp/convert-html-test"
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    if !@fs.path_exists(next) {
+      @fs.create_dir(next)
+    }
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn write_utf8_text(path : String, text : String) -> Unit raise {
+  @fs.write_string_to_file(path, text, encoding="utf8") catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
 test "html strips utf8 bom and normalizes crlf" {
   let doc = @html.parse_html(
     resolve_html_parser_sample_path(
@@ -342,6 +394,44 @@ test "html semantic containers and pre/code entity handling are stable" {
     ),
   )
   assert_eq(@cor.emit_markdown(code_doc), code_expected)
+}
+
+///|
+test "html text nodes use shared cleanup while pre/code stays literal" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_text_cleanup_probe.html"
+  write_utf8_text(
+    sample_path, "<p>Alpha&nbsp;Beta\u{2009}Gamma\u{2007}Delta\u{202F}Epsilon\u{200B}Zeta hy\u{00AD}phen ﬁ ﬂ ﬀ ﬃ ﬄ</p>\n<pre>Alpha&nbsp;Beta\u{2009}Gamma\u{200B}hy\u{00AD}phen ﬁ</pre>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "Alpha Beta Gamma Delta EpsilonZeta hyphen fi fl ff ffi ffl\n\n```\nAlpha Beta\u{2009}Gamma\u{200B}hy\u{00AD}phen ﬁ\n```\n",
+  )
+  assert_eq(doc.blocks.val.length(), 2)
+
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(_) =>
+      fail("expected shared cleanup probe to preserve rich paragraph text node")
+    @cor.Block::RichParagraph(inlines) =>
+      match inlines[0] {
+        @cor.Inline::Text(text) =>
+          assert_eq(
+            text, "Alpha Beta Gamma Delta EpsilonZeta hyphen fi fl ff ffi ffl",
+          )
+        _ => fail("expected cleaned text inline in first html block")
+      }
+    _ => fail("expected first html block to be a paragraph")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::CodeBlock(text) =>
+      assert_eq(text, "Alpha Beta\u{2009}Gamma\u{200B}hy\u{00AD}phen ﬁ")
+    _ => fail("expected second html block to stay a code block")
+  }
 }
 
 ///|

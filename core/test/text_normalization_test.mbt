@@ -198,6 +198,25 @@ test "canonical facade exposes direct unicode normalization helpers" {
 }
 
 ///|
+test "canonical curated cases cover combining mark ordering and hangul" {
+  assert_eq(
+    @cor.normalize_nfd("\u{1E0C}\u{0323}\u{0307}"),
+    "D\u{0323}\u{0323}\u{0307}",
+  )
+  assert_eq(@cor.normalize_nfc("D\u{0307}\u{0323}"), "\u{1E0C}\u{0307}")
+  assert_eq(@cor.normalize_nfd("\u{AC00}"), "\u{1100}\u{1161}")
+  assert_eq(@cor.normalize_nfc("\u{1100}\u{1161}"), "\u{AC00}")
+}
+
+///|
+test "canonical curated is_normalized checks cover hangul and reordered marks" {
+  assert_true(@cor.is_normalized_nfd("\u{1100}\u{1161}"))
+  assert_false(@cor.is_normalized_nfd("\u{AC00}"))
+  assert_true(@cor.is_normalized_nfc("\u{AC00}"))
+  assert_false(@cor.is_normalized_nfc("D\u{0307}\u{0323}"))
+}
+
+///|
 test "canonical normalization options now use unicode backend" {
   let options = {
     ..@cor.default_text_normalization_options(
@@ -357,4 +376,10 @@ test "cleanup pdf text cleanup helper stays conservative about plain ascii and c
     "Plain ASCII text",
   )
   assert_eq(@cor.normalize_pdf_text_cleanup("中文标题"), "中文标题")
+}
+
+///|
+test "cleanup document cleanup does not implicitly enable canonical normalization" {
+  assert_eq(@cor.normalize_document_text_cleanup("e\u{0301}"), "e\u{0301}")
+  assert_eq(@cor.normalize_document_text_cleanup("Ａ"), "Ａ")
 }

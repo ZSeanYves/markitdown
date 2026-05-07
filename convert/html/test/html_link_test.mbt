@@ -221,3 +221,45 @@ test "html unsafe links fail closed while safe variants stay links" {
     }
   }
 }
+
+///|
+test "html text cleanup does not alter href src alt or title attributes" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let img_dir = dir + "/img"
+  ensure_dir_tree(img_dir)
+
+  let sample_path = dir + "/html_attr_cleanup_probe.html"
+  let image_path = img_dir + "/test%20asset.png"
+  write_utf8_text(image_path, "not-a-real-png-but-good-enough-for-export")
+  write_utf8_text(
+    sample_path, "<p><a href=\"https://example.com/a?x=1&amp;y=2\">Link&nbsp;ﬁ</a></p>\n<p><img src=\"./img/test%20asset.png?x=1&amp;y=2\" alt=\"Alt&nbsp;ﬁ\" title=\"Title&nbsp;ﬁ\"></p>\n",
+  )
+
+  let out_dir = dir + "/out"
+  ensure_dir_tree(out_dir)
+  let doc = @html.parse_html(sample_path, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(
+    markdown.has_prefix("[Link fi](https://example.com/a?x=1&y=2)\n\n"),
+  )
+  assert_true(markdown.contains("![Alt ﬁ](assets/image"))
+  assert_true(markdown.contains("\n*Title ﬁ*\n"))
+  assert_eq(doc.blocks.val.length(), 2)
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(has_link(inlines, "Link fi", "https://example.com/a?x=1&y=2"))
+    _ => fail("expected first html block to be a rich paragraph with link")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::ImageBlock(img) => {
+      assert_eq(img.alt_text.unwrap_or(""), "Alt ﬁ")
+      assert_eq(img.title.unwrap_or(""), "Title ﬁ")
+      assert_true(img.path.has_prefix("assets/image"))
+      assert_true(img.path.has_suffix(".png"))
+    }
+    _ => fail("expected exported image block for local html image")
+  }
+}

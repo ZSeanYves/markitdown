@@ -426,6 +426,107 @@ test "docx notes parser and append sections stay conservative and deterministic"
 }
 
 ///|
+test "docx w:t plain text cleanup stays narrow and does not enable canonical normalization" {
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>A\u{00A0}B\u{2009}C\u{200B}hy\u{00AD}phen ﬁ</w:t></w:r>" +
+    "<w:r><w:tab/></w:r>" +
+    "<w:r><w:t>e\u{0301} Ａ</w:t></w:r>" +
+    "<w:r><w:br/></w:r>" +
+    "<w:r><w:t>Tail</w:t></w:r>",
+    empty_docx_relationship_context(),
+    None,
+  )
+
+  assert_eq(
+    scan.text,
+    "A\u{00A0}B\u{2009}C\u{200B}hy\u{00AD}phen ﬁ\te\u{0301} Ａ\nTail",
+  )
+  assert_eq(scan.inlines.length(), 5)
+  match scan.inlines[0] {
+    @cor.Inline::Text(text) => assert_eq(text, "A B Chyphen fi")
+    _ => fail("expected cleaned plain text inline from w:t")
+  }
+  match scan.inlines[1] {
+    @cor.Inline::Text(text) => assert_eq(text, "\t")
+    _ => fail("expected tab inline to stay literal")
+  }
+  match scan.inlines[2] {
+    @cor.Inline::Text(text) => assert_eq(text, "e\u{0301} Ａ")
+    _ => fail("expected canonical normalization to stay disabled by default")
+  }
+  match scan.inlines[3] {
+    @cor.Inline::Break => ()
+    _ => fail("expected break inline to stay explicit")
+  }
+  match scan.inlines[4] {
+    @cor.Inline::Text(text) => assert_eq(text, "Tail")
+    _ => fail("expected tail plain text inline")
+  }
+}
+
+///|
+test "docx w:t cleanup does not break hyperlink code-like or table assembly behavior" {
+  let rel_ctx : DocxRelationshipContext = {
+    document_relationships: [],
+    targets_by_rid: { "rIdHyper1": "https://openai.com/docs" },
+    hyperlink_targets_by_rid: { "rIdHyper1": "https://openai.com/docs" },
+  }
+
+  let hyperlink_scan = scan_docx_inline_text(
+    "<w:hyperlink r:id=\"rIdHyper1\"><w:r><w:t>OpenAI\u{00A0}Docs</w:t></w:r></w:hyperlink>",
+    rel_ctx,
+    None,
+  )
+  assert_eq(hyperlink_scan.text, "OpenAI\u{00A0}Docs")
+  assert_eq(hyperlink_scan.inlines.length(), 1)
+  match hyperlink_scan.inlines[0] {
+    @cor.Inline::Link(text, href) => {
+      assert_eq(text, "OpenAI\u{00A0}Docs")
+      assert_eq(href, "https://openai.com/docs")
+    }
+    _ => fail("expected hyperlink assembly to stay intact")
+  }
+
+  let code_blocks = scan_paragraph(
+    "<w:pPr><w:pStyle w:val=\"Code\"/></w:pPr>" +
+    "<w:r><w:t>let\u{00A0}x\u{2009}= 1;</w:t></w:r>" +
+    "<w:r><w:br/></w:r>" +
+    "<w:r><w:t>return\u{00A0}x;</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Map::new(),
+    parse_styles_xml(
+      "<w:styles>" +
+      "<w:style w:type=\"paragraph\" w:styleId=\"Code\">" +
+      "<w:name w:val=\"Code\"/>" +
+      "</w:style>" +
+      "</w:styles>",
+    ),
+    empty_numbering(),
+    6,
+    None,
+  )
+  assert_eq(code_blocks.length(), 1)
+  match code_blocks[0] {
+    @cor.Block::CodeBlock(text) =>
+      assert_eq(text, "let\u{00A0}x\u{2009}= 1;\nreturn\u{00A0}x;")
+    _ => fail("expected code-like paragraph detection to stay intact")
+  }
+
+  let rows = scan_table_block_with_context(
+    "<w:tr>" +
+    "<w:tc><w:p><w:r><w:t>Col\u{00A0}A</w:t></w:r></w:p></w:tc>" +
+    "<w:tc><w:p><w:r><w:t>Line\u{00A0}1</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>Line\u{2009}2 ﬁ</w:t></w:r></w:p></w:tc>" +
+    "</w:tr>",
+    empty_docx_relationship_context(),
+    {},
+  )
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].length(), 2)
+  assert_eq(rows[0][0], "Col A")
+  assert_eq(rows[0][1], "Line 1\nLine 2 fi")
+}
+
+///|
 test "docx header footer refs and page-number filtering stay conservative" {
   let rel_ctx : DocxRelationshipContext = {
     document_relationships: [],

@@ -67,6 +67,9 @@ about all documents of a format family.
 * unified IR across document families
 * shared profile-driven Text Normalization v2 substrate with staged PDF
   extracted-text and comparison cleanup
+* shared document-text cleanup facade already reused by PDF, TXT, HTML, and
+  DOCX,
+  while canonical `NFD/NFC/NFKD/NFKC` remains explicit-only API surface
 * Markdown main output
 * `assets/` export for materialized local images
 * metadata sidecar via `--with-metadata`

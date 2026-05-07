@@ -141,31 +141,7 @@ priv struct ParagraphSpan {
 
 ///|
 fn normalize_txt_text(text : String) -> String {
-  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
-    text[1:].to_owned()
-  } else {
-    text
-  }
-
-  let out : Array[Char] = []
-  let chars = without_bom.to_array()
-  let mut i = 0
-
-  while i < chars.length() {
-    if chars[i] == '\r' {
-      out.push('\n')
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        i += 2
-      } else {
-        i += 1
-      }
-    } else {
-      out.push(chars[i])
-      i += 1
-    }
-  }
-
-  String::from_array(out)
+  @cor.normalize_document_text_cleanup(text)
 }
 
 ///|

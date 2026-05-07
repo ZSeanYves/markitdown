@@ -95,15 +95,17 @@ What the current core layer already does:
 * optional fullwidth and CJK punctuation normalization
 * PDF-private glyph fallback
 * stronger PDF comparison cleanup profile
+* explicit facade-backed `NFD/NFC/NFKD/NFKC` through `tonyfettes/unicode`
 
 What it explicitly does not do yet:
 
-* real NFC
-* real NFKC
 * conformance-tested Unicode normalization
+* project-wide default canonical normalization in converter behavior
+* standards-conformance claims backed by `NormalizationTest.txt`
 
-That existing substrate is the right place for a future facade. The next step
-is to improve its backend, not to re-spread rules across converters.
+That existing substrate is the right place for the project facade. The backend
+for explicit canonical normalization is now wired, but the next step is still
+to improve verification rather than re-spread rules across converters.
 
 ## 3. Layering Decision
 
@@ -365,6 +367,8 @@ Current project status:
 
 * this recommendation has now been applied in P1
 * the backend is wired into `core/text_normalization.mbt`
+* explicit canonical facade APIs now call the backend instead of a warning-only
+  placeholder
 * converters still should not import `tonyfettes/unicode` directly
 
 ## 5.2 `sennenki/slugify`

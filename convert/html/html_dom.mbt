@@ -1036,8 +1036,9 @@ fn push_text_inline(out : Array[HtmlInline], bs : Bytes) -> Unit {
   }
   let s0 = @cor.utf8_bytes_to_string(bs) catch { _ => "" }
   let s1 = html_unescape(s0)
-  if s1 != "" {
-    out.push(HtmlInline::Text(s1))
+  let s2 = @cor.normalize_document_text_cleanup(s1)
+  if s2 != "" {
+    out.push(HtmlInline::Text(s2))
   }
 }
 

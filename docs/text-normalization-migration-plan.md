@@ -1,22 +1,31 @@
 # Text Normalization Migration Plan
 
-This document records the P2 audit for scattered PDF text cleanup logic.
+This document records the staged migration plan for shared text normalization
+and cleanup.
 
-Scope of this round:
+Scope of this document:
 
-* audit only
-* no converter/parser/emitter output changes
-* no migration of PDF layout heuristics into shared cleanup yet
-* no default enablement of NFC/NFKC
+* record completed migration phases and remaining gaps
+* keep converter/parser/emitter behavior changes out of planning-only rounds
+* keep PDF layout heuristics out of shared cleanup
+* keep canonical normalization explicit-only by default
 
-Current implementation status after P2 and P3.1:
+Current implementation status after P10:
 
 * low-risk PDF character cleanup has been moved into
   `core/text_normalization`
 * `doc_parse/pdf/text/normalize_texts.mbt` now calls
   `normalize_pdf_text_cleanup` before PDF-specific post-processing
+* TXT now routes its shared low-risk character cleanup through
+  `normalize_document_text_cleanup`
+* HTML now routes normal text nodes through
+  `normalize_document_text_cleanup` at the text-inline seam
+* DOCX now routes only `scan_docx_inline_text` `w:t` plain-text payloads
+  through `normalize_document_text_cleanup`
 * canonical normalization facade APIs exist, but remain explicit-only
-* default converter behavior still does not enable NFC/NFKC
+* `tonyfettes/unicode` is wired behind the facade for explicit
+  `NFD/NFC/NFKD/NFKC` calls
+* default converter behavior still does not enable `NFD/NFC/NFKD/NFKC`
 
 ## Goal
 
@@ -795,15 +804,202 @@ Reason:
 * all of these can change expected markdown or metadata even when they look
   superficially like harmless cleanup
 
-### Recommended P4 adoption order
+### Current format status
 
-1. TXT: easiest future pilot for `normalize_document_text_cleanup`
-2. HTML: next best candidate, but only with DOM-aware regression coverage
-3. selective DOCX/PPTX plain-text entry points if a truly text-only seam is
-   found
-4. leave Markdown, CSV/TSV, JSON, YAML, XML, EPUB wrapper, ZIP wrapper, and
-   most XLSX paths unchanged by default
+Already using shared text cleanup:
 
-This gives the project a safer path to unify cleanup across PDF, DOCX, PPTX,
-HTML, TXT, and Markdown without smuggling PDF layout semantics into a shared
-normalization layer.
+* PDF: `normalize_pdf_text_cleanup` for low-risk character cleanup before
+  PDF-specific post-processing
+* TXT: `normalize_document_text_cleanup` at the text-file normalization entry
+* HTML: `normalize_document_text_cleanup` only for normal text nodes after
+  unescape and before IR text inlines
+* DOCX: `normalize_document_text_cleanup` only for `scan_docx_inline_text`
+  `w:t` plain-text payloads
+
+Not yet migrated:
+
+* PPTX
+* XLSX
+* Markdown
+* CSV
+* TSV
+* JSON
+* YAML
+* XML
+* EPUB
+* ZIP
+
+### Why PPTX and other formats remain deferred
+
+DOCX is only partially adopted because:
+
+* only the `w:t` plain-text seam is shared today
+* run boundaries, paragraph assembly, tabs, lists, hyperlink assembly,
+  code-like detection, and table/header-footer/textbox policy still remain
+  DOCX-local semantics
+
+PPTX is still deferred because:
+
+* slide text flows through shape boundaries, reading-order decisions, title
+  merging, bullet handling, and noise filtering
+* current whitespace shaping is intertwined with slide/layout semantics rather
+  than plain text cleanup
+
+### Recommended next candidates
+
+1. canonical normalization conformance follow-up
+2. PPTX text-only seam audit
+3. only after a clean seam is proven, a narrow PPTX pilot at a true text-only
+   boundary
+
+The current staged result is a safer shared-cleanup path across PDF, TXT,
+HTML, and DOCX without smuggling PDF layout semantics or OOXML document
+semantics into the core normalization layer.
+
+## DOCX Text-Only Seam Audit
+
+This section records the P8 audit and P9 narrow pilot for DOCX adoption of
+shared document-text cleanup.
+
+Audit scope:
+
+* audit only
+* no DOCX converter/parser/emitter output changes
+* no direct `tonyfettes/unicode` dependency from DOCX packages
+* no default canonical normalization enablement
+
+### Audited files and functions
+
+Primary files:
+
+* [`convert/docx/docx_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_parser.mbt:1)
+* [`convert/docx/docx_document.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_document.mbt:1)
+* [`convert/docx/docx_table.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_table.mbt:1)
+* [`convert/docx/docx_xml.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_xml.mbt:342)
+* [`convert/docx/docx_package.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_package.mbt:1)
+* [`convert/docx/docx_rels.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_rels.mbt:1)
+
+Key functions and flows:
+
+* `parse_docx_impl`
+* `scan_document`
+* `scan_paragraph`
+* `scan_docx_inline_text`
+* `collect_tc_text_with_relationships`
+* `collect_tc_paragraph_text`
+* `render_docx_inline_markdown`
+* `collect_wt_text`
+* `collect_docx_paragraph_texts`
+* `render_docx_part_text_for_header_footer`
+* `render_docx_header_footer_paragraph_text`
+* `paragraph_is_codeblock`
+* `text_is_code_like`
+* `read_docx_image_context`
+* `normalize_optional_docx_image_attr`
+* `collect_docx_text_boxes_from_xml`
+
+### Current DOCX text assembly shape
+
+Observed structure:
+
+* `w:t` text is XML-unescaped and converted into `Inline::Text` in
+  `scan_docx_inline_text`
+* `w:br` becomes `Inline::Break` and contributes `\n` to the fallback text
+* `w:tab` becomes literal `\t`
+* `w:hyperlink` is assembled together with relationship lookup and trimmed
+  link text
+* paragraph/list/heading/blockquote/code decisions happen after inline scan
+* table cells are assembled paragraph-by-paragraph and then joined with `\n`
+* header/footer, footnote, endnote, comment, and text-box text reuse local
+  DOCX text extraction helpers
+
+This means DOCX does not have one single text-only path. It has several
+related paths that all sit close to OOXML run/paragraph semantics.
+
+### P9 pilot status
+
+P9 status:
+
+* completed as a minimal seam pilot
+* shared cleanup is applied only to the plain `w:t` text branch inside
+  [`scan_docx_inline_text`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_xml.mbt:1022)
+
+Current adopted seam:
+
+* XML-unescaped `w:t` plain-text payload before it becomes `Inline::Text`
+
+What this pilot intentionally did not touch:
+
+* `w:tab`
+* `w:br`
+* hyperlink assembly
+* fallback plain-text accumulation
+* code-like detection
+* table policy
+* header/footer policy
+* notes/comments policy
+* textbox policy
+
+### Must stay in DOCX layer
+
+These are DOCX semantics, not shared cleanup:
+
+* `w:tab` handling
+* `w:br` handling
+* paragraph/run boundary behavior
+* heading inference from paragraph styles
+* list numbering and list fallback
+* blockquote and style inference
+* hyperlink assembly with relationship lookup
+* table-cell paragraph joining and row/cell structure
+* code-like paragraph detection
+* text-box extraction and append-only section policy
+* header/footer page-number filtering
+* note/comment reference markers and append sections
+
+Reason:
+
+* all of these depend on OOXML structure, document assembly rules, or DOCX
+  presentation semantics rather than plain character cleanup
+
+### Deferred items
+
+Defer for now:
+
+* generic `trim()` replacement in DOCX
+* run-boundary space shaping
+* paragraph-end trimming
+* table-cell whitespace policy
+* hyperlink text trimming policy
+* image alt/title normalization policy
+* header/footer, note, and comment text cleanup policy
+
+Reason:
+
+* these are the areas most likely to change fixtures even if the underlying
+  cleanup seems conservative
+
+### Risk notes
+
+Key risks if DOCX adopts shared cleanup too early:
+
+* code-like detection may change because `text_is_code_like` inspects assembled
+  paragraph text
+* hyperlink text may change because `scan_docx_inline_text` trims the assembled
+  hyperlink body before building `Inline::Link`
+* table cell output may change because multiline cell text is built from
+  paragraph-level joined strings
+* note/header/footer/text-box sections may drift because they reuse local text
+  helpers with their own trimming and append conventions
+
+### Recommended current DOCX boundary
+
+Keep the current P9 boundary:
+
+1. only `scan_docx_inline_text` `w:t` plain-text payload uses shared cleanup
+2. keep `w:tab`, `w:br`, hyperlink assembly, and fallback accumulation
+   unchanged
+3. keep code-like, table, header/footer, notes/comments, and textbox behavior
+   DOCX-local
+4. do not widen DOCX adoption unless fixture-stable coverage proves another
+   seam is safe

@@ -235,6 +235,32 @@ test "txt invalid utf8 fails closed" {
 }
 
 ///|
+test "txt shared document cleanup normalizes low risk text cleanup without changing paragraph semantics" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let path = dir + "/txt_shared_cleanup.txt"
+  write_utf8_text(
+    path, "\u{FEFF}A\r\nB\u{00A0}C\u{2009}D\u{200B}hy\u{00AD}phen ﬁ\n\nLine\u{2007}Two",
+  )
+  let doc = @txt.parse_txt(path, "", 6)
+
+  assert_eq(@cor.emit_markdown(doc), "A B C Dhyphen fi\n\nLine Two\n")
+  assert_eq(doc.blocks.val.length(), 2)
+
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "A B C Dhyphen fi")
+    _ => fail("expected first txt block to stay Paragraph after shared cleanup")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Line Two")
+    _ =>
+      fail("expected second txt block to stay Paragraph after shared cleanup")
+  }
+}
+
+///|
 test "txt preserves legacy non-bmp literal behavior" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
