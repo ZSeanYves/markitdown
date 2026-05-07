@@ -1,4 +1,14 @@
 ///|
+/// Shared text normalization profiles.
+///
+/// Responsibility boundary:
+/// - document cleanup profiles are for low-risk cross-format cleanup such as
+///   CRLF/CR, NBSP, Unicode spaces, zero-width, soft hyphen, common ligatures,
+///   and conservative whitespace cleanup
+/// - canonical Unicode normalization remains explicit and opt-in
+/// - format-specific post-processing such as PDF span glue, line merge,
+///   hyphen-wrap repair, CJK spacing repair, heading/noise/caption/table, and
+///   cross-page merge must stay in format layers rather than this facade
 pub(all) enum NormalizeProfile {
   Literal
   GeneralText
@@ -10,6 +20,12 @@ pub(all) enum NormalizeProfile {
 } derive(Eq)
 
 ///|
+/// Explicit canonical Unicode normalization forms exposed through the facade.
+///
+/// These forms are never part of the repository's default converter behavior.
+/// Callers must opt in explicitly. Until conformance coverage such as
+/// `NormalizationTest.txt` is added, this facade should not be described as a
+/// full standards-conformance claim for project-wide normalization behavior.
 pub(all) enum CanonicalNormalizationForm {
   Disabled
   NFD
@@ -334,12 +350,16 @@ pub fn normalize_text_with_profile(
 ///|
 /// Cross-format low-risk character cleanup.
 ///
-/// This keeps document structure conservative:
+/// This is the shared document-cleanup layer:
 /// - line endings are normalized
 /// - Unicode space variants are mapped to ASCII space
 /// - zero-width and soft hyphen are removed
 /// - common ligatures are expanded
 /// - newlines and tabs are preserved
+///
+/// It is appropriate for gradual adoption by DOCX/HTML/TXT/Markdown and other
+/// non-PDF formats that want conservative cleanup without format-specific
+/// structure repair.
 pub fn normalize_document_text_cleanup(text : String) -> String {
   let options = {
     ..default_text_normalization_options(NormalizeProfile::GeneralText),
@@ -351,6 +371,10 @@ pub fn normalize_document_text_cleanup(text : String) -> String {
 }
 
 ///|
+/// Normalize NBSP and common Unicode space variants to ASCII space.
+///
+/// This helper does not perform canonical normalization, ligature expansion,
+/// layout repair, or format-specific post-processing.
 pub fn normalize_unicode_spaces(text : String) -> String {
   let options = {
     ..default_text_normalization_options(NormalizeProfile::Literal),
@@ -362,6 +386,10 @@ pub fn normalize_unicode_spaces(text : String) -> String {
 }
 
 ///|
+/// Expand common presentation ligatures such as `ﬁ`, `ﬂ`, `ﬀ`, `ﬃ`, and `ﬄ`.
+///
+/// This helper intentionally stays at compatibility cleanup level and does not
+/// imply canonical Unicode normalization.
 pub fn normalize_common_ligatures(text : String) -> String {
   let options = {
     ..default_text_normalization_options(NormalizeProfile::Literal),
@@ -372,6 +400,11 @@ pub fn normalize_common_ligatures(text : String) -> String {
 }
 
 ///|
+/// Collapse repeated space-like characters to a single ASCII space and trim the
+/// result.
+///
+/// This helper is conservative and text-only. It does not inspect geometry,
+/// span boundaries, pagination, or document structure.
 pub fn collapse_space_like_runs(text : String) -> String {
   let out = StringBuilder::new()
   let mut prev_space = false
@@ -393,6 +426,12 @@ pub fn collapse_space_like_runs(text : String) -> String {
 
 ///|
 /// Shared PDF char-level cleanup before layout-specific post-processing.
+///
+/// This helper is the boundary between shared cleanup and PDF-only recovery:
+/// - it owns low-risk character cleanup shared through the core facade
+/// - it must not absorb PDF span glue, line merge, hyphen-wrap repair,
+///   CJK-spacing repair, heading/noise/caption/table logic, or cross-page
+///   merge behavior
 pub fn normalize_pdf_text_cleanup(text : String) -> String {
   collapse_space_like_runs(
     normalize_text_with_profile(text, NormalizeProfile::PdfText),
@@ -400,41 +439,57 @@ pub fn normalize_pdf_text_cleanup(text : String) -> String {
 }
 
 ///|
+/// Explicit NFD normalization through the facade backend.
+///
+/// This is opt-in canonical normalization, not default document cleanup.
 pub fn normalize_nfd(text : String) -> String {
   @unicode_normalization.nfd(text)
 }
 
 ///|
+/// Explicit NFC normalization through the facade backend.
+///
+/// This is opt-in canonical normalization, not default document cleanup.
 pub fn normalize_nfc(text : String) -> String {
   @unicode_normalization.nfc(text)
 }
 
 ///|
+/// Explicit NFKD normalization through the facade backend.
+///
+/// This is opt-in canonical normalization, not default document cleanup.
 pub fn normalize_nfkd(text : String) -> String {
   @unicode_normalization.nfkd(text)
 }
 
 ///|
+/// Explicit NFKC normalization through the facade backend.
+///
+/// This is opt-in canonical normalization, not default document cleanup.
 pub fn normalize_nfkc(text : String) -> String {
   @unicode_normalization.nfkc(text)
 }
 
 ///|
+/// Facade quick check for explicit NFD normalization state.
 pub fn is_normalized_nfd(text : String) -> Bool {
   @unicode_normalization.is_normalized(text, @unicode_normalization.NFD)
 }
 
 ///|
+/// Facade quick check for explicit NFC normalization state.
 pub fn is_normalized_nfc(text : String) -> Bool {
   @unicode_normalization.is_normalized(text, @unicode_normalization.NFC)
 }
 
 ///|
+/// Facade quick check for explicit NFKD normalization state.
 pub fn is_normalized_nfkd(text : String) -> Bool {
   @unicode_normalization.is_normalized(text, @unicode_normalization.NFKD)
 }
 
 ///|
+/// Facade quick check for explicit NFKC normalization state.
 pub fn is_normalized_nfkc(text : String) -> Bool {
   @unicode_normalization.is_normalized(text, @unicode_normalization.NFKC)
 }

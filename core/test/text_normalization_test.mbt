@@ -40,7 +40,7 @@ fn warning_count(
 }
 
 ///|
-test "literal profile only normalizes line endings" {
+test "cleanup literal profile only normalizes line endings" {
   let text = "alpha\r\nbeta\rgamma\u{00A0}delta"
   let normalized = @cor.normalize_text_with_profile(
     text,
@@ -50,7 +50,7 @@ test "literal profile only normalizes line endings" {
 }
 
 ///|
-test "general text profile normalizes nbsp and zero width conservatively" {
+test "cleanup general text profile normalizes nbsp and zero width conservatively" {
   let text = "A\u{00A0}B\u{200B}C"
   let normalized = @cor.normalize_text_with_profile(
     text,
@@ -60,7 +60,7 @@ test "general text profile normalizes nbsp and zero width conservatively" {
 }
 
 ///|
-test "pdf profile expands ligatures and removes soft hyphen" {
+test "cleanup pdf profile expands ligatures and removes soft hyphen" {
   let text = "o\u{FB03}ce hy\u{00AD}phen"
   let normalized = @cor.normalize_text_with_profile(
     text,
@@ -70,7 +70,7 @@ test "pdf profile expands ligatures and removes soft hyphen" {
 }
 
 ///|
-test "pdf compare profile is stronger than pdf output profile" {
+test "cleanup pdf compare profile is stronger than pdf output profile" {
   let text = "中 文\r\nFigure\u{00A0}1\tA"
   let pdf_text = @cor.normalize_text_with_profile(
     text,
@@ -86,7 +86,7 @@ test "pdf compare profile is stronger than pdf output profile" {
 }
 
 ///|
-test "literal profile keeps ligatures by default" {
+test "cleanup literal profile keeps ligatures by default" {
   let text = "of\u{FB01}ce"
   let normalized = @cor.normalize_text_with_profile(
     text,
@@ -96,7 +96,7 @@ test "literal profile keeps ligatures by default" {
 }
 
 ///|
-test "structured data profile preserves quote and dash variants by default" {
+test "cleanup structured data profile preserves quote and dash variants by default" {
   let text = "“value” — still literal"
   let normalized = @cor.normalize_text_with_profile(
     text,
@@ -106,7 +106,7 @@ test "structured data profile preserves quote and dash variants by default" {
 }
 
 ///|
-test "explicit quote and dash options are opt in" {
+test "cleanup explicit quote and dash options are opt in" {
   let options = {
     ..@cor.default_text_normalization_options(
       @cor.NormalizeProfile::StructuredDataText,
@@ -134,7 +134,7 @@ test "explicit quote and dash options are opt in" {
 }
 
 ///|
-test "fullwidth and cjk punctuation normalization stay opt in" {
+test "cleanup fullwidth and cjk punctuation normalization stay opt in" {
   let text = "Ａ，Ｂ！"
   let literal = @cor.normalize_text_with_profile(
     text,
@@ -186,7 +186,7 @@ test "fullwidth and cjk punctuation normalization stay opt in" {
 }
 
 ///|
-test "facade exposes direct unicode normalization helpers" {
+test "canonical facade exposes direct unicode normalization helpers" {
   assert_eq(@cor.normalize_nfd("\u{00E9}"), "e\u{0301}")
   assert_eq(@cor.normalize_nfc("e\u{0301}"), "\u{00E9}")
   assert_eq(@cor.normalize_nfkc("\u{FB03}"), "ffi")
@@ -227,7 +227,7 @@ test "canonical normalization options now use unicode backend" {
 }
 
 ///|
-test "literal canonical request records literal warning" {
+test "canonical literal request records literal warning" {
   let options = {
     ..@cor.default_text_normalization_options(@cor.NormalizeProfile::Literal),
     canonical_form: @cor.CanonicalNormalizationForm::NFC,
@@ -254,7 +254,7 @@ test "literal canonical request records literal warning" {
 }
 
 ///|
-test "normalization summary records staged pdf changes" {
+test "cleanup summary records staged pdf changes" {
   let result = @cor.normalize_text_with_profile_summary(
     "A\u{00A0}\u{200B}hy\u{00AD}phen \u{FB01}\r\n⻅",
     @cor.NormalizeProfile::PdfText,
@@ -291,7 +291,7 @@ test "normalization summary records staged pdf changes" {
 }
 
 ///|
-test "profile summary includes compare cleanup stage" {
+test "cleanup profile summary includes compare cleanup stage" {
   let result = @cor.normalize_text_with_profile_summary(
     "A\t\r\nB",
     @cor.NormalizeProfile::PdfCompareText,
@@ -304,7 +304,7 @@ test "profile summary includes compare cleanup stage" {
 }
 
 ///|
-test "default cleanup profiles do not implicitly enable canonical normalization" {
+test "canonical default cleanup profiles do not implicitly enable canonical normalization" {
   assert_eq(
     @cor.normalize_text_with_profile(
       "e\u{0301}",
@@ -319,7 +319,7 @@ test "default cleanup profiles do not implicitly enable canonical normalization"
 }
 
 ///|
-test "document cleanup normalizes line endings unicode spaces invisibles and ligatures" {
+test "cleanup document cleanup normalizes line endings unicode spaces invisibles and ligatures" {
   let text = "A\r\nB\rC\u{00A0}D\u{2009}E\u{2007}F\u{202F}G\u{200B}hy\u{00AD}phen ﬁﬂﬀﬃﬄ"
   let normalized = @cor.normalize_document_text_cleanup(text)
 
@@ -327,7 +327,7 @@ test "document cleanup normalizes line endings unicode spaces invisibles and lig
 }
 
 ///|
-test "unicode spaces helper maps common unicode spaces to ascii space only" {
+test "cleanup unicode spaces helper maps common unicode spaces to ascii space only" {
   let text = "A\u{00A0}B\u{2009}C\u{2007}D\u{202F}E"
   let normalized = @cor.normalize_unicode_spaces(text)
 
@@ -335,7 +335,7 @@ test "unicode spaces helper maps common unicode spaces to ascii space only" {
 }
 
 ///|
-test "common ligatures helper expands common latin ligatures only" {
+test "cleanup common ligatures helper expands common latin ligatures only" {
   let normalized = @cor.normalize_common_ligatures(
     "ﬁ ﬂ ﬀ ﬃ ﬄ plain 中文",
   )
@@ -343,7 +343,7 @@ test "common ligatures helper expands common latin ligatures only" {
 }
 
 ///|
-test "collapse space like runs preserves normal text content" {
+test "cleanup collapse space like runs preserves normal text content" {
   let normalized = @cor.collapse_space_like_runs(
     "  Alpha\r\n\tBeta\u{00A0}\u{2009}Gamma  中文  ",
   )
@@ -351,7 +351,7 @@ test "collapse space like runs preserves normal text content" {
 }
 
 ///|
-test "pdf text cleanup helper stays conservative about plain ascii and cjk text" {
+test "cleanup pdf text cleanup helper stays conservative about plain ascii and cjk text" {
   assert_eq(
     @cor.normalize_pdf_text_cleanup("Plain ASCII text"),
     "Plain ASCII text",

@@ -9,6 +9,15 @@ Scope of this round:
 * no migration of PDF layout heuristics into shared cleanup yet
 * no default enablement of NFC/NFKC
 
+Current implementation status after P2 and P3.1:
+
+* low-risk PDF character cleanup has been moved into
+  `core/text_normalization`
+* `doc_parse/pdf/text/normalize_texts.mbt` now calls
+  `normalize_pdf_text_cleanup` before PDF-specific post-processing
+* canonical normalization facade APIs exist, but remain explicit-only
+* default converter behavior still does not enable NFC/NFKC
+
 ## Goal
 
 The repository already has a project-level text normalization facade in
@@ -192,6 +201,9 @@ Migration rule:
 
 * only move text-only cleanup that does not need PDF geometry or reading-order
   context
+* other formats such as DOCX, HTML, TXT, and Markdown should adopt shared
+  cleanup through `core/text_normalization`, not by inventing format-local
+  Unicode cleanup stacks
 
 ### C. PDF convert/layout layer
 
@@ -436,6 +448,361 @@ Recommended direction:
 * keep all geometry-aware and structure-aware heuristics in PDF-specific code
 * continue treating canonical normalization as opt-in until conformance work is
   added
+
+Cross-format adoption rule:
+
+* DOCX, HTML, TXT, and Markdown may gradually adopt
+  `normalize_document_text_cleanup` when they want conservative shared cleanup
+* PDF should continue using `normalize_pdf_text_cleanup` before its own
+  format-specific post-processing
+* no converter or parser package should directly import
+  `tonyfettes/unicode`; canonical normalization must stay behind the
+  `core/text_normalization` facade
+
+## Non-PDF Format Audit
+
+This section audits non-PDF formats for scattered text cleanup logic and
+classifies which parts may eventually adopt
+`normalize_document_text_cleanup`.
+
+### Summary by format
+
+#### DOCX
+
+Relevant files:
+
+* [`convert/docx/docx_document.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_document.mbt:1)
+* [`convert/docx/docx_table.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/docx/docx_table.mbt:364)
+
+Current cleanup:
+
+* ad hoc CRLF normalization inside `text_is_code_like`
+* frequent `trim_ascii_spaces` / `trim_string`
+* paragraph, run, list, and table assembly is structure-driven
+
+Recommendation:
+
+* do not attach `normalize_document_text_cleanup` at raw run or paragraph
+  boundaries yet
+* document cleanup may be useful later for carefully chosen plain-text payloads,
+  but DOCX run/paragraph/tab semantics must stay local
+
+Risk:
+
+* DOCX tabs, run boundaries, list spacing, code-like detection, and table cell
+  newlines are format semantics rather than generic cleanup
+
+#### PPTX
+
+Relevant files:
+
+* [`convert/pptx/pptx_bytes.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_bytes.mbt:108)
+* [`convert/pptx/pptx_text.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_text.mbt:1)
+* [`convert/pptx/pptx_slide.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_slide.mbt:85)
+* [`convert/pptx/pptx_noise.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_noise.mbt:173)
+* [`convert/pptx/pptx_reading_order.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_reading_order.mbt:24)
+
+Current cleanup:
+
+* `normalize_slide_text` trims and collapses spaces/tabs/newlines to one space
+* shape text and title text are normalized before reading-order and noise
+  decisions
+
+Recommendation:
+
+* do not replace `normalize_slide_text` with shared cleanup wholesale
+* only the lowest-risk character cleanup might be reusable later, but current
+  space collapsing is tightly coupled to slide shape semantics
+
+Risk:
+
+* shape reading order, title merging, bullet handling, and noise detection are
+  PPTX-specific semantics
+
+#### XLSX
+
+Relevant files:
+
+* [`convert/xlsx/xlsx_sheet.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/xlsx/xlsx_sheet.mbt:400)
+* [`convert/xlsx/xlsx_datetime.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/xlsx/xlsx_datetime.mbt:85)
+
+Current cleanup:
+
+* heavy use of `trim_string` and `trim()` for cell value classification
+* blank-row trimming, table-width normalization, boolean/error display shaping
+
+Recommendation:
+
+* do not apply `normalize_document_text_cleanup` to raw cell contents by
+  default
+* XLSX is mostly field-literal and table-structural; any future adoption should
+  be narrow and opt-in
+
+Risk:
+
+* trimming and blank-cell detection affect table shape, semantic typing, and
+  formula cache handling
+
+#### HTML
+
+Relevant files:
+
+* [`convert/html/html_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/html/html_parser.mbt:20)
+* [`convert/html/html_bytes.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/html/html_bytes.mbt:1)
+* [`convert/html/html_dom.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/html/html_dom.mbt:1)
+
+Current cleanup:
+
+* input bytes strip UTF-8 BOM and normalize CRLF/CR
+* `html_unescape` maps `&nbsp;` to space and decodes entities
+* inline trimming is DOM-aware
+
+Recommendation:
+
+* HTML is a promising future adopter for some shared document cleanup, but only
+  after DOM-level whitespace behavior is preserved carefully
+* raw byte normalization should likely stay local
+
+Risk:
+
+* HTML whitespace collapse is DOM semantics, not generic text cleanup
+* inline trimming around tags, paragraphs, `<pre>`, `<code>`, and figures must
+  remain format-aware
+
+#### TXT
+
+Relevant files:
+
+* [`convert/txt/txt_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/txt/txt_parser.mbt:47)
+
+Current cleanup:
+
+* strips UTF-8 BOM
+* normalizes CRLF/CR to LF
+* later trims lines and joins paragraphs
+
+Recommendation:
+
+* TXT is the strongest non-PDF candidate for future adoption of
+  `normalize_document_text_cleanup`
+* even here, paragraph joining and list/thematic-break heuristics must remain
+  local
+
+Risk:
+
+* line-based paragraph grouping is TXT semantics and should not move into core
+
+#### Markdown
+
+Relevant files:
+
+* [`convert/markdown/markdown_passthrough.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/markdown/markdown_passthrough.mbt:19)
+
+Current cleanup:
+
+* CRLF/CR normalized to LF
+* block/fence scanning uses trimmed lines conservatively
+
+Recommendation:
+
+* do not route Markdown passthrough through `normalize_document_text_cleanup`
+  by default
+* Markdown is intentionally close to source-preserving behavior
+
+Risk:
+
+* extra cleanup could alter fenced blocks, blank-line structure, or passthrough
+  expectations
+
+#### CSV / TSV
+
+Relevant files:
+
+* [`convert/csv/csv_to_ir.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/csv/csv_to_ir.mbt:38)
+* [`convert/csv/csv_to_ir.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/csv/csv_to_ir.mbt:185)
+
+Current cleanup:
+
+* shared `parse_delimited_file_with_profile_impl` handles both CSV and TSV
+* strips UTF-8 BOM
+* normalizes CRLF/CR to LF before parsing records
+
+Recommendation:
+
+* keep current normalization local for now
+* do not apply general document cleanup to delimited field content by default
+
+Risk:
+
+* CSV/TSV fields are often literal data; Unicode-space cleanup, ligature
+  expansion, or zero-width removal could change field values unexpectedly
+
+#### JSON
+
+Relevant files:
+
+* [`convert/json/json_profile.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/json/json_profile.mbt:1)
+
+Current cleanup:
+
+* no meaningful document text cleanup found in converter path
+* `trim()` use is mostly profile/log formatting
+
+Recommendation:
+
+* do not introduce shared document cleanup into JSON source rendering by
+  default
+
+Risk:
+
+* JSON output is effectively source-structured data; literal preservation
+  matters more than cleanup
+
+#### YAML
+
+Relevant files:
+
+* [`convert/yaml/yaml_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/yaml/yaml_parser.mbt:374)
+
+Current cleanup:
+
+* strips UTF-8 BOM on first line
+* normalizes CRLF/CR to LF
+* rejects tabs for indentation
+* trims and strips inline comments as part of YAML parsing
+
+Recommendation:
+
+* keep this logic local
+* do not apply shared document cleanup to YAML source before parsing
+
+Risk:
+
+* indentation, comments, and scalar parsing are YAML semantics
+
+#### XML
+
+Relevant files:
+
+* [`convert/xml/xml_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/xml/xml_parser.mbt:19)
+
+Current cleanup:
+
+* strips UTF-8 BOM
+* normalizes CRLF/CR to LF
+* otherwise keeps source for fenced code output
+
+Recommendation:
+
+* do not attach `normalize_document_text_cleanup` by default
+
+Risk:
+
+* XML is emitted as fenced source-like content; literal preservation matters
+
+#### EPUB
+
+Relevant files:
+
+* [`convert/epub/epub_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/epub/epub_parser.mbt:533)
+* [`convert/epub/epub_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/epub/epub_parser.mbt:1177)
+
+Current cleanup:
+
+* mostly archive/path normalization and trailing-newline trimming between merged
+  entry markdown blocks
+* text cleanup mainly inherited from inner format parsers such as HTML
+
+Recommendation:
+
+* EPUB itself should not add another cleanup layer at archive-merge time
+* future adoption should happen in inner content formats, not in EPUB wrapper
+
+Risk:
+
+* EPUB path normalization and stitched-entry formatting are container semantics
+
+#### ZIP
+
+Relevant files:
+
+* [`convert/zip/zip_to_ir.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/zip/zip_to_ir.mbt:771)
+* [`convert/zip/zip_to_ir.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/zip/zip_to_ir.mbt:1316)
+* [`convert/zip/zip_to_ir.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/zip/zip_to_ir.mbt:1653)
+
+Current cleanup:
+
+* mostly path normalization, HTML asset-src normalization, and trailing-newline
+  trimming between stitched subdocuments
+
+Recommendation:
+
+* ZIP wrapper should not apply shared text cleanup at container level
+* inner formats should own their own eventual adoption
+
+Risk:
+
+* archive path safety and subdocument stitching are not text-normalization
+  concerns
+
+### Classification
+
+#### A. Low-risk candidates for future `normalize_document_text_cleanup`
+
+Best candidates:
+
+* TXT: current BOM + CRLF/CR handling suggests a natural future adoption point
+* HTML: only after careful DOM-preserving integration, likely at text-node
+  boundaries rather than raw bytes
+* possibly selected DOCX/PPTX plain-text payloads later, but not at run/shape
+  boundaries by default
+
+Candidate low-risk transforms:
+
+* CRLF/CR normalization
+* NBSP / Unicode spaces
+* zero-width cleanup
+* soft hyphen cleanup
+* common ligature cleanup
+
+#### B. Format semantics that should not migrate
+
+Do not migrate:
+
+* DOCX paragraph/run/list/table spacing and code-like detection
+* PPTX shape reading order, title/body merge, noise heuristics, and bullet
+  behavior
+* HTML DOM-aware whitespace trimming and entity/inline handling
+* Markdown passthrough fence and blank-line behavior
+* CSV/TSV field-literal parsing
+* XLSX cell typing, blank-cell detection, and table-width normalization
+* YAML indentation, inline comments, and scalar parsing
+* XML fenced-source preservation
+* EPUB/ZIP path normalization and stitched-entry formatting
+
+#### C. Deferred migration items
+
+Defer for now:
+
+* generic `trim()` replacement across formats
+* collapse-space behavior in PPTX and Markdown
+* inline-run spacing in DOCX/PPTX/HTML
+* table cell whitespace in DOCX/XLSX/CSV/TSV
+* trailing-newline trimming in EPUB/ZIP stitched output
+
+Reason:
+
+* all of these can change expected markdown or metadata even when they look
+  superficially like harmless cleanup
+
+### Recommended P4 adoption order
+
+1. TXT: easiest future pilot for `normalize_document_text_cleanup`
+2. HTML: next best candidate, but only with DOM-aware regression coverage
+3. selective DOCX/PPTX plain-text entry points if a truly text-only seam is
+   found
+4. leave Markdown, CSV/TSV, JSON, YAML, XML, EPUB wrapper, ZIP wrapper, and
+   most XLSX paths unchanged by default
 
 This gives the project a safer path to unify cleanup across PDF, DOCX, PPTX,
 HTML, TXT, and Markdown without smuggling PDF layout semantics into a shared
