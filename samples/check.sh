@@ -9,6 +9,7 @@ TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 
 CONTINUE_ON_FAILURE="${CHECK_CONTINUE:-0}"
 MODE="full"
+REAL_WORLD_ARGS=()
 
 bool_enabled() {
   local raw="${1-}"
@@ -34,10 +35,13 @@ Public modes:
   --assets-only     Run only asset-focused sample validation.
   --contracts-only  Run CLI, debug, and batch contract checks only.
   --manifest-only   Run sample enrollment plus benchmark/real_world manifest checks.
-  --real-world      Run the opt-in real_world conversion check.
+  --real-world      Rerun only the real_world complex-scenario corpus.
+                    Extra arguments after --real-world are forwarded to the
+                    real_world checker, for example:
+                    ./samples/check.sh --real-world --tags complex
 
 Notes:
-  * The default mode is --full.
+  * The default mode is --full and includes the checked-in real_world corpus.
 EOF
 }
 
@@ -66,6 +70,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --real-world)
       MODE="real-world"
+      shift
+      REAL_WORLD_ARGS=("$@")
+      break
       ;;
     -h|--help)
       usage
@@ -166,11 +173,15 @@ case "$MODE" in
     exit "$overall_status"
     ;;
   real-world)
+    if [[ "${#REAL_WORLD_ARGS[@]}" -gt 0 ]]; then
+      exec "$REAL_WORLD_IMPL" "${REAL_WORLD_ARGS[@]}"
+    fi
     exec "$REAL_WORLD_IMPL"
     ;;
 esac
 
 run_manifest_chain
+run_stage_or_stop "real_world" "$REAL_WORLD_IMPL"
 run_stage_or_stop "markdown" "$SAMPLE_IMPL" --markdown-only
 run_stage_or_stop "metadata" "$SAMPLE_IMPL" --metadata-only
 run_stage_or_stop "assets" "$SAMPLE_IMPL" --assets-only

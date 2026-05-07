@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.3.3 - Validation surface and complex real-world corpus release
+
+This release finishes the repository's public validation-surface cleanup and
+lands a checked-in complex-only `real_world` corpus for richer scenario
+coverage.
+
+### Highlights
+
+* Public repository validation is now centered on `./samples/check.sh`.
+* Public repository benchmark entry is now centered on `./samples/bench.sh`.
+* GitHub Actions validation remains checked in for Ubuntu and macOS, while the
+  smoke benchmark stays manual.
+* The checked-in `samples/real_world` corpus now keeps only the longer complex
+  scenario layer across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB.
+* Default `./samples/check.sh` includes the full checked-in real-world corpus
+  because the current 11-row set is still lightweight enough for the standard
+  validation path.
+
+### Samples and validation
+
+* `samples/main_process` remains the feature-focused regression corpus.
+* `samples/real_world` now provides 11 checked long-form or stress-style
+  scenario rows with expected Markdown for every row.
+* Exact metadata fixtures are checked in for every real-world row.
+* Asset-producing real-world rows keep `refs_exist` validation rather than
+  binary asset diffing.
+* `samples/fixtures` remains the lower-layer parser/core and fail-closed
+  fixture tree.
+* Python sample generator scripts and stale public wrapper scripts are no
+  longer part of the normal validation story.
+
+### Documentation and workflow
+
+* README, samples docs, and development docs now describe the unified sample
+  and benchmark entrypoints.
+* Release documentation now reflects the complex-only real-world corpus shape
+  and its place outside the benchmark evidence path.
+* `moon publish` remains a manual release step.
+
+### Scope note
+
+* This release does not change converter, parser, or emitter semantics by
+  itself; it primarily packages checked-in corpus, validation-surface, and
+  release-documentation work.
+
 ## v0.3.1 - Second-round H2++/H3++ hardening release
 
 This release closes the second-round hardening cycle for `markitdown-mb`, a

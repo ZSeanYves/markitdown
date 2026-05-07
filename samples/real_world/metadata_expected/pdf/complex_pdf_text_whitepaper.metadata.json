@@ -1,0 +1,528 @@
+{
+  "version": "1",
+  "source_name": "complex_pdf_text_whitepaper.pdf",
+  "format": "pdf",
+  "markdown_file": "complex_pdf_text_whitepaper.md",
+  "document": null,
+  "summary": {
+    "block_count": 32,
+    "asset_count": 1
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "第一章 项目概述",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "本项目旨在将常见办公文档转换为结构化 Markdown。",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "heading",
+      "text": "1.1 研究目标",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 3,
+      "block_type": "paragraph",
+      "text": "实现 docx、pdf、xlsx、pptx、html 到 Markdown 的统一转换。",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 1,
+        "slide": null,
+        "sheet": null,
+        "block_index": 3,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 4,
+      "block_type": "heading",
+      "text": "第二章 技术路线",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 2,
+        "slide": null,
+        "sheet": null,
+        "block_index": 4,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 5,
+      "block_type": "paragraph",
+      "text": "系统采用统一 IR 作为中间表示。",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 2,
+        "slide": null,
+        "sheet": null,
+        "block_index": 5,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 6,
+      "block_type": "paragraph",
+      "text": "Alpha page content.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 3,
+        "slide": null,
+        "sheet": null,
+        "block_index": 6,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 7,
+      "block_type": "paragraph",
+      "text": "Beta page content.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 4,
+        "slide": null,
+        "sheet": null,
+        "block_index": 7,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 8,
+      "block_type": "paragraph",
+      "text": "Gamma page content.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 5,
+        "slide": null,
+        "sheet": null,
+        "block_index": 8,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 9,
+      "block_type": "paragraph",
+      "text": "Delta page content.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 6,
+        "slide": null,
+        "sheet": null,
+        "block_index": 9,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 10,
+      "block_type": "heading",
+      "text": "Project Report",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 7,
+        "slide": null,
+        "sheet": null,
+        "block_index": 10,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 11,
+      "block_type": "paragraph",
+      "text": "This is the first page body. It should remain after cleanup.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 7,
+        "slide": null,
+        "sheet": null,
+        "block_index": 11,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 12,
+      "block_type": "heading",
+      "text": "Confi dential",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 7,
+        "slide": null,
+        "sheet": null,
+        "block_index": 12,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 13,
+      "block_type": "heading",
+      "text": "Project Report",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 8,
+        "slide": null,
+        "sheet": null,
+        "block_index": 13,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 14,
+      "block_type": "paragraph",
+      "text": "This is the second page body. The repeated header and footer should be removed.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 8,
+        "slide": null,
+        "sheet": null,
+        "block_index": 14,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 15,
+      "block_type": "heading",
+      "text": "Confi dential",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 8,
+        "slide": null,
+        "sheet": null,
+        "block_index": 15,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 16,
+      "block_type": "heading",
+      "text": "Cross Page Paragraph",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 9,
+        "slide": null,
+        "sheet": null,
+        "block_index": 16,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 17,
+      "block_type": "paragraph",
+      "text": "This paragraph starts on the first page and is intentionally written to flow near the bottom of the page. The goal of this sample is to verify that a paragraph should not be split only because a page boundary appears in the extracted text. In many PDFs, the end of one page and the beginning of the next page still belong to the same logical paragraph. This sample therefore places the final sentence so that it continues across the page break and should still become a single paragraph after the parser removes simple page-level noise such as page numbers or repeated headers.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 9,
+        "slide": null,
+        "sheet": null,
+        "block_index": 17,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 18,
+      "block_type": "heading",
+      "text": "Next Section",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 10,
+        "slide": null,
+        "sheet": null,
+        "block_index": 18,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 19,
+      "block_type": "paragraph",
+      "text": "A new paragraph starts here and should remain separate from the previous one. It exists to confirm that cross-page merging does not accidentally swallow the next real section.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 10,
+        "slide": null,
+        "sheet": null,
+        "block_index": 19,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 20,
+      "block_type": "table",
+      "text": "Product | Region | Status\nAlpha | East | Open\nBeta | West | Closed",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 11,
+        "slide": null,
+        "sheet": null,
+        "block_index": 20,
+        "heading_path": null,
+        "line_start": 1,
+        "line_end": 9
+      },
+      "image": null,
+      "table": {
+        "rows": [
+          ["Product", "Region", "Status"],
+          ["Alpha", "East", "Open"],
+          ["Beta", "West", "Closed"]
+        ],
+        "header_rows": 1
+      }
+    },
+    {
+      "block_index": 21,
+      "block_type": "image",
+      "text": "Figure 1. PDF caption",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 12,
+        "slide": null,
+        "sheet": null,
+        "block_index": 21,
+        "heading_path": null
+      },
+      "image": {
+        "path": "assets/image01.jpg",
+        "alt_text": null,
+        "title": null,
+        "caption": "Figure 1. PDF caption"
+      }
+    },
+    {
+      "block_index": 22,
+      "block_type": "paragraph",
+      "text": "Visit the example website for details.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 13,
+        "slide": null,
+        "sheet": null,
+        "block_index": 22,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 23,
+      "block_type": "heading",
+      "text": "Pseudo two-column negative sample",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 23,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 24,
+      "block_type": "paragraph",
+      "text": "LEFT-A1 This paragraph belongs to the left column only.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 24,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 25,
+      "block_type": "paragraph",
+      "text": "RIGHT-B1 This paragraph is independent on the right side.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 25,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 26,
+      "block_type": "paragraph",
+      "text": "LEFT-A2 It should stay before LEFT-A3 and LEFT-A4.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 26,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 27,
+      "block_type": "paragraph",
+      "text": "RIGHT-B2 It should not merge into LEFT-A4.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 27,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 28,
+      "block_type": "paragraph",
+      "text": "LEFT-A3 Do not stitch with RIGHT-B1 lines.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 28,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 29,
+      "block_type": "paragraph",
+      "text": "RIGHT-B3 Keep local order inside right column.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 29,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 30,
+      "block_type": "paragraph",
+      "text": "LEFT-A4 End of left column block.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 30,
+        "heading_path": null
+      },
+      "image": null
+    },
+    {
+      "block_index": 31,
+      "block_type": "paragraph",
+      "text": "RIGHT-B4 End of right column block.",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 14,
+        "slide": null,
+        "sheet": null,
+        "block_index": 31,
+        "heading_path": null
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/image01.jpg",
+      "asset_type": "image",
+      "alt_text": null,
+      "title": null,
+      "caption": "Figure 1. PDF caption",
+      "origin": {
+        "format": "pdf",
+        "source_name": "complex_pdf_text_whitepaper.pdf",
+        "page": 12,
+        "slide": null,
+        "sheet": null,
+        "origin_id": "xobj-image-98",
+        "nearby_caption": "Figure 1. PDF caption",
+        "object_ref": "98 0 R"
+      },
+      "nearby_caption": "Figure 1. PDF caption"
+    }
+  ]
+}

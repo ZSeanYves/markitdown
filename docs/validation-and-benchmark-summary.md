@@ -4,6 +4,9 @@ This document is the repository's detailed validation and benchmark snapshot.
 It is the authoritative location for checked-in counts, representative local
 benchmark examples, and result-file locations.
 
+For the current `0.3.3` release line, the public repository validation
+entrypoints are `./samples/check.sh` and `./samples/bench.sh`.
+
 For scope boundaries and support claims, use
 [docs/support-and-limits.md](./support-and-limits.md).
 
@@ -15,14 +18,15 @@ For runner, corpus, and comparability rules, use
 
 ## Latest Validation Snapshot
 
-Latest checked validation facts:
+Current checked validation and benchmark facts:
 
 | Check | Current result |
 | --- | --- |
 | `moon test` | `1298 passed, 0 failed` |
-| Main process samples | `346 passed, 0 failed` |
-| Metadata sidecars | `82 passed, 0 failed` |
-| Asset checks | `42 passed, 0 failed` |
+| Real-world complex corpus | `11 passed, 0 failed` |
+| Main process samples | `444 passed, 0 failed` |
+| Metadata sidecars | `85 passed, 0 failed` |
+| Asset checks | `90 passed, 0 failed` |
 | Benchmark smoke corpus | `96 runs, 0 failures` |
 | Batch profile corpus | `56 runs, 0 failures` |
 | MarkItDown overlap compare | `94 runs, 0 failures` |
@@ -135,13 +139,17 @@ Supporting validation chains:
 ./samples/check.sh --manifest-only
 ```
 
-Reserved complex-scenario corpus:
+Complex-scenario corpus:
 
-* `samples/real_world/manifest.tsv` defines the future richer real-world corpus
-* current default validation only checks the manifest schema and referenced
-  paths in `--manifest-only` mode
-* full `./samples/check.sh --real-world` runs are opt-in and are not part
-  of the current checked snapshot counts
+* `samples/real_world/manifest.tsv` now defines a checked-in complex-only
+  corpus with 11 rows across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB
+* default `./samples/check.sh` runs the full real-world corpus in addition to
+  the smaller `main_process` regressions
+* `./samples/check.sh --real-world` remains the focused rerun path
+* `./samples/check.sh --real-world --tags complex` is the focused rerun path
+  for the long-form complex layer
+* the real-world corpus is still not a benchmark corpus and does not change the
+  sealed H2++ / H3++ evidence basis by itself
 
 Benchmark entrypoints:
 

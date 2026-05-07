@@ -25,6 +25,11 @@ Current pipeline:
 Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
 native text-PDF scope.
 
+The current `0.3.3` release line packages the repository's unified validation
+surface around `./samples/check.sh` and `./samples/bench.sh`, and keeps the
+checked-in `samples/real_world` corpus focused on longer complex-scenario
+documents.
+
 ## Supported Platforms
 
 `markitdown-mb` targets MoonBit native builds on:
@@ -144,10 +149,12 @@ Lower-layer parser/core and unsafe-boundary fixtures now live under
 co-located under the same format roots. Each format package now keeps its
 checked Markdown and exact CLI metadata expectations under
 `samples/main_process/<format>/expected/`.
-A reserved complex-scenario corpus now lives under `samples/real_world`; the
-default gate validates its manifest in `--manifest-only` mode, while full
-real-world conversion remains opt-in through
-`./samples/check.sh --real-world`.
+A checked-in `samples/real_world` corpus now complements the smaller
+feature-focused `samples/main_process` set with complex-only scenario files
+across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
+`./samples/check.sh` chain runs the full real-world set, and
+`./samples/check.sh --real-world --tags complex` remains available for focused
+reruns.
 
 Detailed validation counts, sample matrices, metadata/assets checks, benchmark
 smoke counts, batch profile results, and MarkItDown comparison runs are tracked
@@ -162,7 +169,7 @@ in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-su
 * [Benchmark Governance](./docs/benchmark-governance.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
-* [Real-World Corpus Skeleton](./samples/real_world/README.md)
+* [Real-World Corpus](./samples/real_world/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Architecture Overview](./docs/architecture.md)
 * [Development Guide](./docs/development.md)

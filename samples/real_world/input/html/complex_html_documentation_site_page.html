@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Platform Operations Handbook</title>
+    <meta
+      name="description"
+      content="Complex real-world HTML scenario with navigation, callouts, local assets, code, tables, details, and safe/unsafe links."
+    />
+    <style>
+      body { font-family: Georgia, serif; line-height: 1.55; }
+      nav, aside, footer { color: #444; }
+      code, pre { font-family: Menlo, monospace; }
+      .callout-warning { border-left: 4px solid #c53; padding-left: 1rem; }
+      .callout-info { border-left: 4px solid #267; padding-left: 1rem; }
+      .nav-noise { display: none; }
+    </style>
+    <script>
+      console.log("ignored script content");
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1>Platform Operations Handbook</h1>
+      <p>Edition 2026.2 &amp; validated on checked-in synthetic-realistic fixtures.</p>
+      <nav>
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#deployment">Deployment</a></li>
+          <li><a href="#observability">Observability</a></li>
+          <li><a href="#appendix">Appendix</a></li>
+        </ul>
+      </nav>
+      <div class="nav-noise">
+        <a href="/search">Search</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/careers">Careers</a>
+      </div>
+    </header>
+
+    <main>
+      <article>
+        <section id="overview">
+          <h2>Overview</h2>
+          <p>
+            This handbook describes the operational baseline for a multi-format
+            document conversion platform. It focuses on repeatable execution,
+            readable output, bounded fallbacks, and evidence-driven change
+            control rather than pixel-perfect visual reproduction.
+          </p>
+          <p>
+            Readers who only need the release checklist can jump to the
+            <a href="#appendix">appendix</a>, while implementers should also
+            review the <a href="https://example.com/runbooks">external runbook</a>
+            and the <a href="guide.html#deployment-contract">deployment contract</a>.
+          </p>
+          <blockquote>
+            Stable structure beats optimistic heuristics when the source format
+            mixes headings, links, images, and noisy side material.
+          </blockquote>
+          <div class="callout-info">
+            <p><strong>Info.</strong> The platform ships a native-first validation path and a
+            documented fallback path for developer environments.</p>
+          </div>
+        </section>
+
+        <section id="documentation-shape">
+          <h2>Documentation Shape</h2>
+          <p>The typical conversion package contains at least five interacting structures:</p>
+          <ul>
+            <li>top-level headings and local anchor links</li>
+            <li>
+              nested procedures
+              <ol>
+                <li>prepare sample assets</li>
+                <li>run native validation</li>
+                <li>review output and metadata</li>
+              </ol>
+            </li>
+            <li>inline code such as <code>moon build --target native</code></li>
+            <li>tables with external references and operator notes</li>
+            <li>local figures and caption-like explanations</li>
+          </ul>
+          <div class="callout-warning">
+            <p><strong>Warning.</strong> Ignore <a href="javascript:alert('bad')">javascript links</a>
+            and <a href="data:text/plain;base64,SGVsbG8=">data links</a> during conversion.</p>
+          </div>
+          <details>
+            <summary>Failure-mode checklist</summary>
+            <p>Check malformed links, repeated navigation, entity decoding, and preformatted text boundaries.</p>
+          </details>
+        </section>
+
+        <section id="deployment">
+          <h2>Deployment</h2>
+          <p>
+            Production deployment uses a staged rollout. Teams publish a frozen
+            build, update the registry cache, run a validation suite, and only
+            then fan out to scheduled batch jobs.
+          </p>
+          <pre><code>moon build --target native
+moon check
+moon test
+./samples/check.sh
+./samples/check.sh --real-world --tags complex</code></pre>
+          <p>
+            On Windows hosts, the core native target is supported, but shell
+            validation remains easier under WSL or another POSIX-like runtime.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Owner</th>
+                <th>Reference</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Build</td>
+                <td>Release engineering</td>
+                <td><a href="https://example.com/build-policy">build policy</a></td>
+                <td>Prefer native CLI over wrapper timing.</td>
+              </tr>
+              <tr>
+                <td>Validate</td>
+                <td>Format owners</td>
+                <td><a href="#observability">observability section</a></td>
+                <td>Capture metadata sidecars and asset refs.</td>
+              </tr>
+              <tr>
+                <td>Promote</td>
+                <td>Operations</td>
+                <td><a href="guide.html#promotion">promotion guide</a></td>
+                <td>Document deviations and explicit non-goals.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="observability">
+          <h2>Observability</h2>
+          <p>
+            A good conversion trace keeps structure readable even when the input
+            mixes dense lists, escaped entities like &lt;sample&gt;, and repeated
+            section wrappers.
+          </p>
+          <figure>
+            <img src="img/img_green.jpg" alt="System overview diagram" title="Overview diagram" />
+            <figcaption>Figure 1. Release-path overview with assets, metadata, and contracts.</figcaption>
+          </figure>
+          <p>
+            The support bundle also includes a second visual artifact for chart
+            references and a compact reminder that real-world samples do not
+            imply broader performance claims.
+          </p>
+          <figure>
+            <img src="img/img_blue.jpg" alt="Metrics trend chart" title="Trend chart" />
+            <figcaption>Figure 2. Trend chart for smoke validation and contract stability.</figcaption>
+          </figure>
+        </section>
+
+        <section id="appendix">
+          <h2>Appendix</h2>
+          <h3 id="deployment-contract">Deployment Contract</h3>
+          <p>Every release record should answer these questions:</p>
+          <ol>
+            <li>Which checked-in corpora passed?</li>
+            <li>Which assets were emitted and where are they referenced?</li>
+            <li>Which format-specific boundaries remain explicit non-goals?</li>
+          </ol>
+          <p>
+            See also <a href="#overview">the overview</a>,
+            <a href="https://example.com/quality-records">quality records</a>,
+            and <a href="mailto:ops@example.com">ops@example.com</a>.
+          </p>
+          <noscript>Ignored noscript fallback.</noscript>
+        </section>
+      </article>
+    </main>
+
+    <aside>
+      <h2>Sidebar</h2>
+      <p>Navigation and repeated site chrome should not dominate the extracted article body.</p>
+    </aside>
+
+    <footer>
+      <p>Last reviewed 2026-05-08. Synthetic-realistic complex HTML sample for markitdown-mb.</p>
+    </footer>
+  </body>
+</html>

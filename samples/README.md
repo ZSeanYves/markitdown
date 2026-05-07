@@ -8,6 +8,10 @@ families. Each format package keeps its own checked expectations under
 
 All checked sample inputs and expected outputs are committed to the repository.
 Normal validation and CI do not require running any sample generator step.
+The current `0.3.3` release line exposes `./samples/check.sh` and
+`./samples/bench.sh` as the public repository sample entrypoints; everything
+under `samples/scripts/` is internal implementation or maintainer-only helper
+surface.
 
 ## Directory Roles
 
@@ -16,7 +20,7 @@ Normal validation and CI do not require running any sample generator step.
 | `samples/main_process/` | checked-in user-visible regression inputs across all formats, with per-format `expected/` subtrees | `check.sh` | source inputs plus expected outputs | keep |
 | `samples/fixtures/` | parser/core/fail-closed fixtures plus lower-layer metadata snapshots | MoonBit tests, contract scripts | fixture inputs and lower-layer snapshots | keep |
 | `samples/benchmark/` | checked-in benchmark corpus | `bench.sh`, internal bench scripts | performance corpus rows | keep |
-| `samples/real_world/` | reserved complex-scenario corpus for future richer samples | `check.sh --real-world` | Markdown plus optional metadata/assets checks | new |
+| `samples/real_world/` | checked-in complex-scenario corpus that complements `main_process` | `check.sh`, `check.sh --real-world` | Markdown plus optional metadata/assets checks | keep |
 | `samples/scripts/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
 | `docs/quality-comparisons/` | human-readable external comparison records | manual review | narrative comparison docs | keep |
 
@@ -109,33 +113,41 @@ Rules:
 
 Purpose:
 
-* future richer complex-scenario corpus
-* synthetic or permissively licensed real-like documents
-* multiple structures in one file for later expansion
+* checked-in complex-scenario corpus for richer real-like coverage
+* synthetic or permissively licensed documents that combine multiple structures
+* scenario-style validation that complements, but does not replace,
+  `main_process`
 
 Rules:
 
 * this is not a replacement for `main_process`
 * this is not a benchmark corpus by default
 * rows are controlled by `samples/real_world/manifest.tsv`
-* full conversion is opt-in through `./samples/check.sh --real-world`
-* default `samples/check.sh` only validates the manifest schema through
-  `--manifest-only`
+* the checked-in corpus is now complex-only
+* the current checked-in set has 11 rows across DOCX, PPTX, XLSX, PDF, HTML,
+  ZIP, and EPUB
+* default `./samples/check.sh` runs the full real-world corpus because the
+  current row set remains fast enough for the default validation chain
+* `./samples/check.sh --real-world` remains the focused rerun entrypoint
+* `./samples/check.sh --real-world --tags complex` provides a complex-only
+  rerun path
+* `./samples/check.sh --manifest-only` is still available when you only want
+  schema and path validation
 
 ## Coverage Matrix
 
 | Format | main_process | metadata cases | asset cases | metadata expected | benchmark | quality records | real_world slot |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | yes | yes | yes | yes | yes | yes | reserved |
-| PPTX | yes | yes | yes | yes | yes | yes | reserved |
-| XLSX | yes | yes | n/a | yes | yes | yes | reserved |
-| PDF | yes | yes | yes | yes | yes | yes | reserved |
-| HTML | yes | yes | yes | yes | yes | yes | reserved |
-| ZIP | yes | yes | yes | yes | yes | yes / not comparable | reserved |
-| EPUB | yes | yes | yes | yes | yes | yes | reserved |
-| CSV / TSV | yes | yes | n/a | yes | yes | maybe | optional |
-| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | optional |
-| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | optional |
+| DOCX | yes | yes | yes | yes | yes | yes | complex |
+| PPTX | yes | yes | yes | yes | yes | yes | complex |
+| XLSX | yes | yes | n/a | yes | yes | yes | complex |
+| PDF | yes | yes | yes | yes | yes | yes | complex |
+| HTML | yes | yes | yes | yes | yes | yes | complex |
+| ZIP | yes | yes | yes | yes | yes | yes / not comparable | complex |
+| EPUB | yes | yes | yes | yes | yes | yes | complex |
+| CSV / TSV | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
+| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
+| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
 
 Interpretation:
 
@@ -145,7 +157,8 @@ Interpretation:
 * `metadata expected`: exact checked sidecar fixtures, when present
 * `benchmark`: performance evidence
 * `quality records`: human comparison docs
-* `real_world slot`: reserved complex-scenario corpus space, not current H2++ evidence
+* `real_world slot`: checked-in complex-scenario corpus space, still distinct
+  from the sealed H2++ / H3++ evidence basis and from benchmark claims
 
 ## Script Index
 
@@ -158,7 +171,7 @@ Interpretation:
 | `samples/scripts/check_batch_contract.sh` | internal batch contract implementation | yes via `check.sh` |
 | `samples/scripts/check_debug_contract.sh` | internal debug CLI contract implementation | yes via `check.sh` |
 | `samples/scripts/check_corpus_manifest.sh` | internal benchmark manifest helper | yes via `check.sh --manifest-only` |
-| `samples/scripts/check_real_world.sh` | internal real-world corpus helper | yes via `check.sh --manifest-only`, opt-in via `check.sh --real-world` |
+| `samples/scripts/check_real_world.sh` | internal real-world corpus helper with `--manifest-only` and `--tags` support | yes via `check.sh` and `check.sh --real-world` |
 | `samples/scripts/bench_*.sh` | internal benchmark suite implementations | yes via `bench.sh` |
 | `samples/scripts/bench_warn.sh` | maintainer-only benchmark warning helper | manual / internal |
 | `samples/scripts/list_sample_inventory.sh` | maintainer-only inventory summary helper | manual / internal |
@@ -181,11 +194,15 @@ Focused validation:
 ./samples/check.sh --manifest-only
 ```
 
-Opt-in complex-scenario validation:
+Focused real-world rerun:
 
 ```bash
 ./samples/check.sh --real-world
+./samples/check.sh --real-world --tags complex
 ```
+
+The default `./samples/check.sh` chain already includes the checked-in
+real-world corpus.
 
 Benchmark entrypoints:
 

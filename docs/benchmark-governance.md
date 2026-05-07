@@ -63,7 +63,7 @@ are recorded.
 
 Note:
 
-* the reserved `samples/real_world/` corpus is not a benchmark corpus by
+* the checked-in `samples/real_world/` corpus is not a benchmark corpus by
   default
 * only rows intentionally admitted into benchmark manifests should be treated
   as Tier 3 or Tier 4 benchmark evidence

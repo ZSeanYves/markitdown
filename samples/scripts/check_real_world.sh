@@ -15,11 +15,13 @@ trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-usage: ./samples/check.sh --real-world [--manifest-only]
+usage: ./samples/check.sh --real-world [--manifest-only] [--tags <csv>]
 
 Modes:
   --manifest-only   validate manifest header, row schema, and referenced paths
                     without running conversions
+  --tags <csv>      run only rows whose tags contain any requested tag
+                    example: --tags complex,longform
 
 Current assets_expected policy:
   empty             no extra asset validation
@@ -27,15 +29,27 @@ Current assets_expected policy:
 
 Notes:
   * zero-row manifests are valid and return success
-  * full mode is opt-in and intended for future richer complex-scenario samples
+  * full mode is used by `./samples/check.sh --real-world` and by the default
+    `./samples/check.sh` chain
 EOF
 }
+
+TAGS_FILTER=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --manifest-only)
       MODE="manifest-only"
       shift
+      ;;
+    --tags)
+      if [[ $# -lt 2 ]]; then
+        echo "--tags requires a comma-separated value" >&2
+        usage >&2
+        exit 1
+      fi
+      TAGS_FILTER="$2"
+      shift 2
       ;;
     --help|-h)
       usage
@@ -74,6 +88,57 @@ trim_trailing_cr() {
   local value="${1-}"
   value="${value%$'\r'}"
   printf '%s' "$value"
+}
+
+tags_match_filter() {
+  local row_tags="${1-}"
+  local requested_csv="${2-}"
+  local requested raw_tag normalized_requested normalized_row
+
+  [[ -z "$requested_csv" ]] && return 0
+
+  normalized_row=",$(printf '%s' "$row_tags" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]'),"
+
+  IFS=',' read -r -a requested <<< "$requested_csv"
+  for raw_tag in "${requested[@]}"; do
+    normalized_requested="$(printf '%s' "$raw_tag" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [[ -z "$normalized_requested" ]] && continue
+    if [[ "$normalized_row" == *",$normalized_requested,"* ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+parse_manifest_row() {
+  local raw_line="$1"
+  local __id_var="$2"
+  local __fmt_var="$3"
+  local __input_var="$4"
+  local __expected_var="$5"
+  local __metadata_var="$6"
+  local __assets_var="$7"
+  local __description_var="$8"
+  local __tags_var="$9"
+  local __extra_var="${10}"
+  local converted delimiter
+
+  delimiter=$'\x1f'
+  converted="${raw_line//$'\t'/$delimiter}"
+
+  local row_id row_fmt row_input row_expected row_metadata_expected row_assets_expected row_description row_tags row_extra
+  IFS="$delimiter" read -r row_id row_fmt row_input row_expected row_metadata_expected row_assets_expected row_description row_tags row_extra <<< "$converted"
+
+  printf -v "$__id_var" '%s' "$row_id"
+  printf -v "$__fmt_var" '%s' "$row_fmt"
+  printf -v "$__input_var" '%s' "$row_input"
+  printf -v "$__expected_var" '%s' "$row_expected"
+  printf -v "$__metadata_var" '%s' "$row_metadata_expected"
+  printf -v "$__assets_var" '%s' "$row_assets_expected"
+  printf -v "$__description_var" '%s' "$row_description"
+  printf -v "$__tags_var" '%s' "$row_tags"
+  printf -v "$__extra_var" '%s' "$row_extra"
 }
 
 extract_asset_refs() {
@@ -162,6 +227,7 @@ PY
 }
 
 ENTRY_LINES=()
+MANIFEST_TOTAL_ROWS=0
 
 load_manifest() {
   local header_seen=0
@@ -191,7 +257,7 @@ load_manifest() {
     [[ "${raw_line#\#}" != "$raw_line" ]] && continue
 
     local id fmt input expected metadata_expected assets_expected description tags extra
-    IFS=$'\t' read -r id fmt input expected metadata_expected assets_expected description tags extra <<< "$raw_line"
+    parse_manifest_row "$raw_line" id fmt input expected metadata_expected assets_expected description tags extra
 
     if [[ -n "${extra-}" ]]; then
       echo "real_world manifest row has too many columns: $raw_line" >&2
@@ -224,13 +290,17 @@ load_manifest() {
       fi
     fi
 
+    MANIFEST_TOTAL_ROWS=$((MANIFEST_TOTAL_ROWS + 1))
+
     if [[ -n "$assets_expected" && "$assets_expected" != "refs_exist" ]]; then
       echo "unsupported assets_expected policy for row $id: $assets_expected" >&2
       echo "supported values: empty, refs_exist" >&2
       exit 1
     fi
 
-    ENTRY_LINES+=("$raw_line")
+    if tags_match_filter "$tags" "$TAGS_FILTER"; then
+      ENTRY_LINES+=("$raw_line")
+    fi
   done < "$MANIFEST_PATH"
 
   if [[ "$header_seen" -eq 0 ]]; then
@@ -238,7 +308,11 @@ load_manifest() {
     exit 1
   fi
 
-  echo "REAL WORLD SAMPLE MANIFEST OK (${#ENTRY_LINES[@]} rows)"
+  if [[ -n "$TAGS_FILTER" ]]; then
+    echo "REAL WORLD SAMPLE MANIFEST OK (${MANIFEST_TOTAL_ROWS} rows, selected ${#ENTRY_LINES[@]} via tags: $TAGS_FILTER)"
+  else
+    echo "REAL WORLD SAMPLE MANIFEST OK (${#ENTRY_LINES[@]} rows)"
+  fi
 }
 
 load_manifest
@@ -264,7 +338,8 @@ for raw_line in "${ENTRY_LINES[@]}"; do
   assets_expected=""
   description=""
   tags=""
-  IFS=$'\t' read -r id fmt input expected metadata_expected assets_expected description tags <<< "$raw_line"
+  extra=""
+  parse_manifest_row "$raw_line" id fmt input expected metadata_expected assets_expected description tags extra
 
   input_abs="$(resolve_path "$input")"
   expected_abs="$(resolve_path "$expected")"

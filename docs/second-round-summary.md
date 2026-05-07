@@ -3,6 +3,10 @@
 This document summarizes the repository's second-round `H2++ / H3++` closure
 state.
 
+The current `0.3.3` release line sits on top of that sealed baseline and adds
+public validation-surface consolidation plus a checked-in complex-only
+`samples/real_world` corpus.
+
 It is the concise project-level companion to:
 
 * [CHANGELOG.md](../CHANGELOG.md)
@@ -97,9 +101,11 @@ Detailed validation counts, current run totals, and representative benchmark
 examples live in
 [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
 
-The reserved `samples/real_world` corpus is for future richer complex-scenario
-coverage. It does not change the sealed H2++ / H3++ evidence basis today and
-is not counted as benchmark evidence by default.
+The checked-in `samples/real_world` corpus now provides richer
+complex-scenario coverage across the core formats. It complements the smaller
+feature-focused `main_process` regressions, and it now keeps only the
+long-form complex layer. It still does not change the sealed H2++ / H3++
+evidence basis and is not counted as benchmark evidence by default.
 
 ## Current Boundaries
 

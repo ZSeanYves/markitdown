@@ -113,6 +113,11 @@ Full validation:
 ./samples/check.sh
 ```
 
+The current `0.3.3` release line keeps `./samples/check.sh` and
+`./samples/bench.sh` as the only public repository validation entrypoints.
+Helpers under `samples/scripts/` remain internal implementation detail or
+maintainer-only tooling.
+
 ## PDF lower-layer dependency
 
 The native PDF lower layer lives under `doc_parse/pdf`.
@@ -210,9 +215,12 @@ GitHub Actions CI:
 * Windows shell validation remains a WSL/POSIX-shell story until a dedicated
   Windows workflow is added
 * `moon publish` remains manual and is not automated by CI
-* `samples/real_world` is reserved for richer complex-scenario coverage; full
-  `./samples/check.sh --real-world` runs are opt-in and do not replace
-  the main regression chains
+* `samples/real_world` now holds a checked-in complex-only scenario corpus
+  with 11 long-form or stress rows
+* default `./samples/check.sh` runs the full real-world corpus
+* `./samples/check.sh --real-world` remains the focused rerun entrypoint, and
+  `./samples/check.sh --real-world --tags complex` provides a complex-only
+  rerun path
 
 ## Benchmark Commands
 
@@ -384,7 +392,8 @@ The repository intentionally has a third validation layer beyond package tests:
   asset-reference regression
 * `samples/check.sh --contracts-only`: CLI/debug/batch contract-only validation
 * `samples/check.sh --manifest-only`: enrollment plus benchmark/real_world manifest validation
-* `samples/check.sh --real-world`: opt-in complex-scenario corpus conversion
+* `samples/check.sh --real-world [--tags complex]`: focused rerun of the
+  complex-scenario corpus
 
 These scripts intentionally stay separate:
 
