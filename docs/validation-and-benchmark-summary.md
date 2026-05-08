@@ -4,8 +4,8 @@ This document is the repository's detailed validation and benchmark snapshot.
 It is the authoritative location for checked-in counts, representative local
 benchmark examples, and result-file locations.
 
-For the current `0.3.3` release line, the public repository validation
-entrypoints are `./samples/check.sh` and `./samples/bench.sh`.
+The public repository validation entrypoints are `./samples/check.sh` and
+`./samples/bench.sh`.
 
 For scope boundaries and support claims, use
 [docs/support-and-limits.md](./support-and-limits.md).
@@ -22,7 +22,7 @@ Current checked validation and benchmark facts:
 
 | Check | Current result |
 | --- | --- |
-| `moon test` | `1298 passed, 0 failed` |
+| `moon test` | `1316 passed, 0 failed` |
 | Real-world complex corpus | `11 passed, 0 failed` |
 | Main process samples | `444 passed, 0 failed` |
 | Metadata sidecars | `85 passed, 0 failed` |

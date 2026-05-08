@@ -113,10 +113,9 @@ Full validation:
 ./samples/check.sh
 ```
 
-The current `0.3.3` release line keeps `./samples/check.sh` and
-`./samples/bench.sh` as the only public repository validation entrypoints.
-Helpers under `samples/scripts/` remain internal implementation detail or
-maintainer-only tooling.
+The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
+public validation entrypoints. Helpers under `samples/scripts/` remain
+internal implementation detail or maintainer-only tooling.
 
 ## PDF lower-layer dependency
 
@@ -321,13 +320,14 @@ When adding samples, keep both sides in sync:
 Keep doc responsibilities separated:
 
 * `README.mbt.md`: product entry and short support summary
-* `docs/full-format-h2-completion.md`: compact milestone summary after a major
-  format-completion phase
+* `docs/README.md`: document map and current primary entrypoints
 * `docs/support-and-limits.md`: detailed support contract
-* `docs/progress.md`: current stage and next candidates
+* `docs/progress.md`: compact current project state and rollout summary
 * `docs/architecture.md`: architecture view
 * `docs/metadata-sidecar.md`: sidecar schema and fill behavior
 * benchmark docs: benchmark-only scope
+* historical milestone and audit docs: reference material, not primary
+  current-state truth
 
 Do not duplicate full support matrices across all docs.
 

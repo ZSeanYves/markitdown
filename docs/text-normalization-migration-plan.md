@@ -10,7 +10,7 @@ Scope of this document:
 * keep PDF layout heuristics out of shared cleanup
 * keep canonical normalization explicit-only by default
 
-Current implementation status after P10:
+Current implementation status after P13:
 
 * low-risk PDF character cleanup has been moved into
   `core/text_normalization`
@@ -21,6 +21,8 @@ Current implementation status after P10:
 * HTML now routes normal text nodes through
   `normalize_document_text_cleanup` at the text-inline seam
 * DOCX now routes only `scan_docx_inline_text` `w:t` plain-text payloads
+  through `normalize_document_text_cleanup`
+* PPTX now routes only `extract_text_runs` `<a:t>` plain-text payloads
   through `normalize_document_text_cleanup`
 * canonical normalization facade APIs exist, but remain explicit-only
 * `tonyfettes/unicode` is wired behind the facade for explicit
@@ -763,8 +765,8 @@ Best candidates:
 * TXT: current BOM + CRLF/CR handling suggests a natural future adoption point
 * HTML: only after careful DOM-preserving integration, likely at text-node
   boundaries rather than raw bytes
-* possibly selected DOCX/PPTX plain-text payloads later, but not at run/shape
-  boundaries by default
+* possibly selected non-OOXML literal-safe seams later, but not at
+  structure-sensitive boundaries by default
 
 Candidate low-risk transforms:
 
@@ -815,10 +817,11 @@ Already using shared text cleanup:
   unescape and before IR text inlines
 * DOCX: `normalize_document_text_cleanup` only for `scan_docx_inline_text`
   `w:t` plain-text payloads
+* PPTX: `normalize_document_text_cleanup` only for `extract_text_runs`
+  `<a:t>` plain-text payloads on the normal inline path
 
 Not yet migrated:
 
-* PPTX
 * XLSX
 * Markdown
 * CSV
@@ -829,7 +832,7 @@ Not yet migrated:
 * EPUB
 * ZIP
 
-### Why PPTX and other formats remain deferred
+### Why remaining formats stay deferred
 
 DOCX is only partially adopted because:
 
@@ -838,22 +841,23 @@ DOCX is only partially adopted because:
   code-like detection, and table/header-footer/textbox policy still remain
   DOCX-local semantics
 
-PPTX is still deferred because:
+PPTX is only partially adopted because:
 
-* slide text flows through shape boundaries, reading-order decisions, title
-  merging, bullet handling, and noise filtering
-* current whitespace shaping is intertwined with slide/layout semantics rather
-  than plain text cleanup
+* only the `<a:t>` plain-text seam in `extract_text_runs` is shared today
+* fallback accumulation, `<a:br>`, hyperlink assembly, shape-level link
+  fallback, `normalize_slide_text`, title/body merge, reading order, bullets,
+  noise/grouping, explicit table policy, notes, hidden slides, and image
+  metadata all remain PPTX-local semantics
 
 ### Recommended next candidates
 
 1. canonical normalization conformance follow-up
-2. PPTX text-only seam audit
-3. only after a clean seam is proven, a narrow PPTX pilot at a true text-only
-   boundary
+2. only after a new clean seam is proven, a narrow follow-up on another
+   format-specific text-only boundary
+3. widen OOXML adoption only after fixture-stable coverage proves the seam
 
 The current staged result is a safer shared-cleanup path across PDF, TXT,
-HTML, and DOCX without smuggling PDF layout semantics or OOXML document
+HTML, DOCX, and PPTX without smuggling PDF layout semantics or OOXML document
 semantics into the core normalization layer.
 
 ## DOCX Text-Only Seam Audit
@@ -1002,4 +1006,191 @@ Keep the current P9 boundary:
 3. keep code-like, table, header/footer, notes/comments, and textbox behavior
    DOCX-local
 4. do not widen DOCX adoption unless fixture-stable coverage proves another
+   seam is safe
+
+## PPTX Text-Only Seam Audit
+
+This section records the P11 audit and P12 narrow pilot for PPTX adoption of
+shared document-text cleanup.
+
+Audit scope:
+
+* audit first, then P12 narrow seam pilot
+* no PPTX converter/parser/emitter behavior changes outside that narrow seam
+* no direct `tonyfettes/unicode` dependency from PPTX packages
+* no default canonical normalization enablement
+
+### Audited files and functions
+
+Primary files:
+
+* [`convert/pptx/pptx_parser.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_parser.mbt:1)
+* [`convert/pptx/pptx_text.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_text.mbt:1)
+* [`convert/pptx/pptx_slide.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_slide.mbt:1)
+* [`convert/pptx/pptx_bytes.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_bytes.mbt:108)
+* [`convert/pptx/pptx_reading_order.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_reading_order.mbt:1)
+* [`convert/pptx/pptx_shape_collect.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_shape_collect.mbt:1)
+* [`convert/pptx/pptx_noise.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_noise.mbt:1)
+* [`convert/pptx/pptx_table_xml.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_table_xml.mbt:1)
+* [`convert/pptx/pptx_notes.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_notes.mbt:1)
+* [`convert/pptx/pptx_image_assets.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_image_assets.mbt:1)
+* [`convert/pptx/pptx_rels.mbt`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_rels.mbt:1)
+
+Key functions and flows:
+
+* `parse_pptx`
+* `extract_slide_paragraphs`
+* `extract_shape_paragraphs`
+* `extract_text_runs`
+* `extract_text_inlines`
+* `render_plain_text_inlines`
+* `normalize_slide_text`
+* `split_title_shapes`
+* `flatten_shapes_in_reading_order`
+* `filter_noise_shapes`
+* `collect_explicit_table_frames`
+* `parse_table_cell_text_body`
+* `extract_speaker_notes`
+* `export_slide_images`
+* `normalize_optional_pptx_image_attr`
+* `parse_presentation_slide_entries`
+
+### Current PPTX text assembly shape
+
+Observed structure:
+
+* `<a:t>` run text is UTF-8 decoded and XML-unescaped inside
+  `extract_text_runs`
+* `extract_text_inlines` turns that run payload into `Inline::Text`, or into
+  `Inline::Link` when a run-level hyperlink relationship is present
+* `<a:br>` becomes `Inline::Break`
+* paragraph text is assembled in `extract_shape_paragraphs`, then trimmed
+* title shapes merge multiple paragraphs through `normalize_slide_text`
+* slide-level reading order, title/body split, grouping, and noise filtering
+  happen after paragraph extraction
+* explicit `<a:tbl>` tables parse cell text through the same inline extractor,
+  but table row/cell assembly stays local
+* speaker notes reuse `extract_shape_paragraphs`
+* image alt/title metadata is read separately from picture shape attributes
+
+This means PPTX does not have one single plain-text path. It has a narrow run
+payload seam surrounded by strong slide/layout semantics.
+
+### P12 pilot status
+
+P12 status:
+
+* completed as a minimal seam pilot
+* shared cleanup is applied only to the plain `<a:t>` text branch inside
+  [`extract_text_runs`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_text.mbt:2)
+
+Current adopted seam:
+
+* UTF-8 decoded and XML-unescaped `<a:t>` plain-text payload on the normal
+  inline path before it becomes ordinary text output
+
+What this pilot intentionally did not touch:
+
+* fallback accumulation
+* `<a:br>`
+* hyperlink assembly
+* shape-level link fallback
+* `normalize_slide_text`
+* title/body merge
+* reading order
+* bullets
+* noise/grouping
+* explicit table policy
+* notes
+* hidden-slide handling
+* image metadata
+
+### Candidate future seam
+
+Best candidate seam:
+
+* the plain `<a:t>` payload inside
+  [`extract_text_runs`](/Users/winter/Documents/Moonbit/markitdown/convert/pptx/pptx_text.mbt:2)
+  after UTF-8 decode and XML unescape, before it is wrapped into ordinary text
+  inlines
+
+Why this is the lowest-risk seam:
+
+* the payload is already decoded OOXML text rather than raw slide XML
+* it is earlier than paragraph/title merge and reading-order heuristics
+* it is similar in spirit to the adopted HTML text-node seam and DOCX `w:t`
+  seam
+
+Boundary for any future widening:
+
+* only plain `<a:t>` payload should be considered
+* do not widen to `extract_text_inlines` wholesale, because that function also
+  owns hyperlink assembly, `<a:br>`, and fallback text accumulation
+
+### Must stay in PPTX layer
+
+These are PPTX semantics, not shared cleanup:
+
+* `normalize_slide_text`
+* shape reading order
+* title/body split and title merge
+* bullet/list inference and paragraph level handling
+* hyperlink assembly and shape-level link fallback
+* single-slide noise filtering
+* caption-like, callout-like, and table-like grouping heuristics
+* explicit table row/cell assembly policy
+* speaker notes placeholder filtering
+* hidden-slide labeling
+* image caption inference
+* image alt/title extraction policy
+
+Reason:
+
+* all of these depend on slide geometry, OOXML presentation structure, or
+  output-shaping heuristics rather than plain character cleanup
+
+### Deferred items
+
+Defer for now:
+
+* generic `trim()` replacement in PPTX
+* `normalize_slide_text` whitespace collapse behavior
+* shape-text normalization used by title/noise/grouping heuristics
+* hyperlink text trimming policy
+* speaker-notes text cleanup policy
+* explicit table cell whitespace policy
+* image alt/title cleanup policy
+
+Reason:
+
+* these are the areas most likely to change fixtures even if the underlying
+  cleanup appears conservative
+
+### Risk notes
+
+Key risks if PPTX adopts shared cleanup too early:
+
+* title merge may change because `extract_shape_paragraphs` normalizes and
+  joins title paragraphs with spaces
+* link behavior may drift because run-level and shape-level hyperlink assembly
+  happen in the same inline path
+* explicit table output may shift because table cells reuse inline extraction
+  but have their own row/cell policy
+* notes, hidden-slide markers, and noise filtering may move because they
+  normalize shape text for slide-specific decisions
+* caption-like and callout-like grouping may change because they inspect
+  already-normalized shape text
+
+### Recommended current PPTX boundary
+
+Keep the current P12 boundary:
+
+1. only `extract_text_runs` `<a:t>` plain-text payload uses shared cleanup on
+   the normal inline path
+2. keep fallback accumulation, `<a:br>`, hyperlink assembly, and shape-level
+   link fallback unchanged
+3. keep `normalize_slide_text`, title merge, reading order, bullets,
+   noise/grouping, explicit tables, notes, hidden-slide handling, and image
+   metadata PPTX-local
+4. do not widen PPTX adoption unless fixture-stable coverage proves another
    seam is safe

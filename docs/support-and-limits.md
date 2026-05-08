@@ -138,11 +138,12 @@ Shared text-normalization substrate:
 * smart-quote normalization, dash normalization, fullwidth folding, and CJK
   punctuation rewriting are explicit opt-in behaviors and are not default
   output policy
-* canonical `NFC` / `NFKC` policy hooks exist, but the repository does not
-  claim full ICU/UAX #15 support; the current MoonBit stdlib path does not
-  expose a full Unicode normalization API here, so canonical stages remain
-  documented no-op/warning behavior until a future table-backed implementation
-  exists
+* explicit canonical normalization APIs now exist through the project facade,
+  backed by `tonyfettes/unicode`, including `normalize_nfd/nfc/nfkd/nfkc` and
+  `is_normalized_*`
+* default converter behavior still does not enable canonical normalization
+* the repository does not claim full ICU/UAX #15 or
+  `NormalizationTest.txt`-verified conformance yet
 * this substrate is deterministic preprocessing, not OCR, not a layout engine,
   and not a semantic classifier
 * literal contexts such as Markdown passthrough, fenced code output, HTML

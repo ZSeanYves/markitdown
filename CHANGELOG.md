@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.3.4 - Text normalization rollout and release-readiness documentation draft
+
+This draft release note captures the repository state after the shared
+document-cleanup rollout widened across the main text-bearing formats while
+keeping converter defaults stable.
+
+### Highlights
+
+* Shared document cleanup is now reused by PDF, TXT, HTML, DOCX, and PPTX.
+* The project facade now exposes explicit `normalize_nfd/nfc/nfkd/nfkc` and
+  `is_normalized_*` APIs backed by `tonyfettes/unicode`.
+* Canonical normalization remains explicit-only and is still not part of the
+  repository's default converter behavior.
+* Full `NormalizationTest.txt` conformance validation is still pending, so the
+  repository does not claim complete ICU/UAX #15 equivalence.
+
+### Rollout scope
+
+* PDF shares only low-risk character cleanup through the core facade; layout
+  and structure heuristics remain PDF-local.
+* TXT routes low-risk document cleanup through the shared facade while keeping
+  paragraph semantics local.
+* HTML uses the shared cleanup only at the normal text-node seam and does not
+  apply it to raw source, `pre/code`, or attribute paths.
+* DOCX uses the shared cleanup only for `scan_docx_inline_text` `w:t`
+  plain-text payloads.
+* PPTX uses the shared cleanup only for `extract_text_runs` `<a:t>`
+  plain-text payloads on the normal inline path; fallback accumulation,
+  `<a:br>`, hyperlink assembly, shape-level link fallback, slide/text-layout
+  heuristics, notes, tables, hidden slides, and image metadata remain local.
+
+### Validation and documentation
+
+* Repository documentation now consistently describes the facade-backed
+  canonical normalization state and its conformance caveat.
+* Current checked validation snapshot has been refreshed to the latest local
+  verification totals used for release readiness.
+* This release note draft does not record any converter/parser/emitter
+  behavior change by default.
+
 ## v0.3.3 - Validation surface and complex real-world corpus release
 
 This release finishes the repository's public validation-surface cleanup and
@@ -110,8 +150,12 @@ MarkItDown.
 * No DRM support for EPUB.
 * No nested archive recursion for ZIP.
 * No full Excel formula engine.
-* Unicode NFC/NFKC canonical normalization remains a documented hook, not a
-  claimed ICU/UAX #15 implementation.
+* At the time of `v0.3.1`, Unicode NFC/NFKC canonical normalization remained a
+  documented hook rather than a claimed ICU/UAX #15 implementation.
+* Current repository note: explicit `NFD/NFC/NFKD/NFKC` facade APIs are now
+  wired through `tonyfettes/unicode`, but default converter behavior still
+  does not enable canonical normalization and full conformance remains
+  incomplete.
 
 ## v0.3.0
 

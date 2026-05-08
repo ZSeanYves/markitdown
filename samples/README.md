@@ -8,10 +8,9 @@ families. Each format package keeps its own checked expectations under
 
 All checked sample inputs and expected outputs are committed to the repository.
 Normal validation and CI do not require running any sample generator step.
-The current `0.3.3` release line exposes `./samples/check.sh` and
-`./samples/bench.sh` as the public repository sample entrypoints; everything
-under `samples/scripts/` is internal implementation or maintainer-only helper
-surface.
+The repository exposes `./samples/check.sh` and `./samples/bench.sh` as the
+public sample entrypoints; everything under `samples/scripts/` is internal
+implementation or maintainer-only helper surface.
 
 ## Directory Roles
 

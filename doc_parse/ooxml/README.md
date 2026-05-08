@@ -41,6 +41,13 @@ This package intentionally does not:
 
 Those responsibilities belong to `convert/*`, `core/*`, and `cli/*`.
 
+Text-normalization boundary:
+
+- `doc_parse/ooxml` does not own shared document cleanup or canonical Unicode
+  normalization policy.
+- Format converters may reuse `core/text_normalization.mbt` at carefully chosen
+  text-only seams, but that policy stays above this package.
+
 ## Public APIs
 
 Package facade:

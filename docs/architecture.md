@@ -187,12 +187,14 @@ Current text-normalization layering is also intentional:
 * `PdfCompareText` is a stronger comparison-only profile used by PDF heading,
   noise, table, caption, and merge heuristics
 * the current project does not claim ICU-level or full UAX #15 Unicode
-  normalization; canonical `NFC` / `NFKC` are explicit policy hooks and
-  currently no-op with warnings because the MoonBit stdlib path does not expose
-  a full normalization API here
+  normalization; canonical `NFD/NFC/NFKD/NFKC` are explicit facade APIs backed
+  by `tonyfettes/unicode`, but they are still opt-in and are not default
+  converter behavior
 * shared low-risk rules include line-ending normalization, NBSP/unicode-space
   cleanup, selected zero-width removal, soft-hyphen stripping, common
   ligature expansion, and PDF compatibility-glyph fallback
+* shared document-text cleanup is already reused by PDF, TXT, HTML, and DOCX,
+  while full conformance validation remains a future opt-in step
 * PDF keeps document-specific post-processing such as word-fragment recovery,
   CJK spacing cleanup, and layout-adjacent text heuristics in `doc_parse/pdf`
 * literal/source-preserving paths such as Markdown passthrough, XML fenced

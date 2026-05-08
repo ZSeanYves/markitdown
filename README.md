@@ -25,10 +25,9 @@ Current pipeline:
 Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
 native text-PDF scope.
 
-The current `0.3.3` release line packages the repository's unified validation
-surface around `./samples/check.sh` and `./samples/bench.sh`, and keeps the
-checked-in `samples/real_world` corpus focused on longer complex-scenario
-documents.
+The repository now centers its checked validation surface around
+`./samples/check.sh` and `./samples/bench.sh`, and keeps the checked-in
+`samples/real_world` corpus focused on longer complex-scenario documents.
 
 ## Supported Platforms
 
@@ -67,8 +66,8 @@ about all documents of a format family.
 * unified IR across document families
 * shared profile-driven Text Normalization v2 substrate with staged PDF
   extracted-text and comparison cleanup
-* shared document-text cleanup facade already reused by PDF, TXT, HTML, and
-  DOCX,
+* shared document-text cleanup facade already reused by PDF, TXT, HTML, DOCX,
+  and PPTX,
   while canonical `NFD/NFC/NFKD/NFKC` remains explicit-only API surface
 * Markdown main output
 * `assets/` export for materialized local images
@@ -166,7 +165,7 @@ in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-su
 ## Documentation
 
 * [Changelog](./CHANGELOG.md)
-* [Second-Round Summary](./docs/second-round-summary.md)
+* [Documentation Map](./docs/README.md)
 * [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
 * [Support and Limits](./docs/support-and-limits.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)

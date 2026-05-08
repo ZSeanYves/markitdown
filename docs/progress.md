@@ -5,14 +5,11 @@ This document summarizes the repository's current project state.
 For detailed per-format behavior, use
 [docs/support-and-limits.md](./support-and-limits.md).
 
-For second-round sealed-format status, use
-[docs/second-round-summary.md](./second-round-summary.md).
+For the current document map and primary current-state entrypoints, use
+[docs/README.md](./README.md).
 
 For checked validation counts and benchmark examples, use
 [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
-
-For benchmark runner/corpus/comparability rules, use
-[docs/benchmark-governance.md](./benchmark-governance.md).
 
 ## Current State
 
@@ -85,3 +82,17 @@ The current repository focus is project hygiene and reproducibility:
 * keep scripts and benchmark outputs reviewable
 * keep sample families clearly separated by responsibility
 * keep future work explicit without reopening sealed format claims
+
+## Current Shared Text Cleanup Rollout
+
+Current rollout status:
+
+* shared document cleanup is already reused by PDF, TXT, HTML, DOCX, and PPTX
+* explicit canonical `NFD/NFC/NFKD/NFKC` facade APIs are available
+* default converter behavior still does not enable canonical normalization
+* full `NormalizationTest.txt` conformance is still pending
+
+For the detailed rollout boundary, use
+[docs/text-normalization-migration-plan.md](./text-normalization-migration-plan.md)
+and
+[docs/text-normalization-conformance.md](./text-normalization-conformance.md).

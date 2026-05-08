@@ -1,6 +1,16 @@
 ///|
 /// extract all <a:t>...</a:t> text within xml[start:end_]
 fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
+  extract_text_runs_impl(xml, start, end_, true)
+}
+
+///|
+fn extract_text_runs_impl(
+  xml : Bytes,
+  start : Int,
+  end_ : Int,
+  apply_shared_cleanup : Bool,
+) -> String {
   let open_t = pat("<a:t>")
   let close_t = pat("</a:t>")
 
@@ -36,7 +46,12 @@ fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
     }
   }
 
-  xml_unescape(acc)
+  let decoded = xml_unescape(acc)
+  if apply_shared_cleanup {
+    @cor.normalize_document_text_cleanup(decoded)
+  } else {
+    decoded
+  }
 }
 
 ///|
@@ -127,7 +142,7 @@ fn extract_text_inlines(
   if out.length() > 0 {
     return out
   }
-  let fallback = extract_text_runs(xml, start, end_)
+  let fallback = extract_text_runs_impl(xml, start, end_, false)
   if fallback.trim() == "" {
     []
   } else {

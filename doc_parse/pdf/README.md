@@ -24,6 +24,13 @@ Its job is to turn rendering-oriented PDF content into a parser-facing document 
 - Markdown link emission for annotations/links
 - browser-like visual layout reconstruction
 
+Text-normalization boundary:
+
+- `doc_parse/pdf` may use the shared `core/text_normalization.mbt` facade for
+  low-risk extracted-text cleanup before higher PDF heuristics run.
+- It does not own project-wide canonical normalization policy and should not
+  push shared cross-format cleanup rules down into `vendor/mbtpdf`.
+
 ## Vendored Backend Boundary
 
 The only backend currently wired into `doc_parse/pdf` is vendored `mbtpdf`.

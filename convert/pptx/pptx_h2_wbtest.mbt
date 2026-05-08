@@ -302,3 +302,83 @@ test "pptx top non-caption title-like text still promotes to heading" {
     _ => fail("expected top title-like text to classify as heading")
   }
 }
+
+///|
+test "pptx a:t plain text cleanup stays narrow and keeps canonical normalization disabled" {
+  let run_xml = "<a:r>" +
+    "<a:t>\u{FEFF}A\r\nB\u{00A0}C\u{2009}D\u{2007}E\u{202F}F\u{200B}\u{00AD}Gﬁﬂﬀﬃﬄe\u{0301}Ｚ</a:t>" +
+    "</a:r>"
+  let run_bs = @utf8.encode(run_xml)
+  let cleaned = extract_text_runs(run_bs, 0, run_bs.length())
+  assert_eq(cleaned, "A\nB C D E FGfiflffffiffl\u{0065}\u{0301}Ｚ")
+}
+
+///|
+test "pptx shared cleanup does not change br hyperlink shape-link or fallback behavior" {
+  let para_xml = "<a:p>" +
+    "<a:r><a:t>Line\u{00A0}1</a:t></a:r>" +
+    "<a:br/>" +
+    "<a:r><a:rPr><a:hlinkClick r:id=\"rId7\"/></a:rPr><a:t>Visit\u{200B}</a:t></a:r>" +
+    "</a:p>"
+  let hyperlinks : Map[String, String] = {
+    "rId7": " https://example.com/path ",
+  }
+  let para_bs = @utf8.encode(para_xml)
+  let inlines = extract_text_inlines(para_bs, 0, para_bs.length(), hyperlinks)
+  assert_eq(inlines.length(), 3)
+  match inlines[0] {
+    @cor.Inline::Text(text) => assert_eq(text, "Line 1")
+    _ => fail("expected first inline to stay plain text")
+  }
+  match inlines[1] {
+    @cor.Inline::Break => ()
+    _ => fail("expected <a:br> to remain Inline::Break")
+  }
+  match inlines[2] {
+    @cor.Inline::Link(text, url) => {
+      assert_eq(text, "Visit")
+      assert_eq(url, "https://example.com/path")
+    }
+    _ => fail("expected run hyperlink to remain Inline::Link")
+  }
+
+  let shape_xml = "<p:sp>" +
+    "<p:txBody><a:bodyPr/><a:lstStyle/>" +
+    "<a:p><a:r><a:t>Shape\u{00A0}Link</a:t></a:r></a:p>" +
+    "</p:txBody>" +
+    "<a:hlinkClick r:id=\"rId8\"/>" +
+    "</p:sp>"
+  let shape_bs = @utf8.encode(shape_xml)
+  let paras = extract_shape_paragraphs(
+    shape_bs,
+    false,
+    true,
+    { "rId8": " https://shape.example " },
+    { val: 0 },
+    Some("shape-9"),
+  )
+  assert_eq(paras.length(), 1)
+  assert_eq(paras[0].text, "Shape Link")
+  assert_eq(paras[0].inlines.length(), 1)
+  match paras[0].inlines[0] {
+    @cor.Inline::Link(text, url) => {
+      assert_eq(text, "Shape Link")
+      assert_eq(url, "https://shape.example")
+    }
+    _ => fail("expected shape-level link fallback to stay intact")
+  }
+
+  let fallback_xml = "<a:p><a:t>\u{00A0}Fallback\u{200B}</a:t></a:p>"
+  let fallback_bs = @utf8.encode(fallback_xml)
+  let fallback = extract_text_inlines(
+    fallback_bs,
+    0,
+    fallback_bs.length(),
+    Map::new(),
+  )
+  assert_eq(fallback.length(), 1)
+  match fallback[0] {
+    @cor.Inline::Text(text) => assert_eq(text, "\u{00A0}Fallback\u{200B}")
+    _ => fail("expected fallback accumulation to remain untouched")
+  }
+}

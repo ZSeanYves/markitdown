@@ -21,7 +21,8 @@ Current repository status:
   * `is_normalized_nfc`
   * `is_normalized_nfkd`
   * `is_normalized_nfkc`
-* shared document-text cleanup is already reused by PDF, TXT, HTML, and DOCX
+* shared document-text cleanup is already reused by PDF, TXT, HTML, DOCX,
+  and PPTX
 * default converter behavior still does not enable canonical normalization
 * canonical normalization remains separate from shared document cleanup
 * full standards-conformance validation is still pending
@@ -157,7 +158,7 @@ When the project is ready for full conformance, define:
 
 ## Current Recommendation
 
-Recommended next step after P10:
+Recommended next step after P13:
 
 * keep smoke tests in normal `moon test`
 * add only a very small curated layer in-tree

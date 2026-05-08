@@ -3,8 +3,8 @@
 This directory now holds a complex-only checked-in `real_world` corpus:
 long-form or stress-style scenario samples that sit alongside the repository's
 smaller feature-focused `main_process` regressions.
-It is the `0.3.3` release-line checked scenario set for richer real-like
-coverage, not a benchmark corpus.
+It is the repository's checked scenario set for richer real-like coverage, not
+a benchmark corpus.
 
 Current status:
 

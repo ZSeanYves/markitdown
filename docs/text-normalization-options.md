@@ -538,7 +538,8 @@ Pros:
 Cons:
 
 * cannot honestly claim standard Unicode normalization
-* NFC/NFKC remain unsupported warning-only stages
+* if used as the only fallback baseline, it would not provide real
+  NFC/NFKC canonical normalization
 
 Recommended use:
 

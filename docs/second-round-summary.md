@@ -3,9 +3,8 @@
 This document summarizes the repository's second-round `H2++ / H3++` closure
 state.
 
-The current `0.3.3` release line sits on top of that sealed baseline and adds
-public validation-surface consolidation plus a checked-in complex-only
-`samples/real_world` corpus.
+The repository now sits on top of that sealed baseline with a unified public
+validation surface and a checked-in complex-only `samples/real_world` corpus.
 
 It is the concise project-level companion to:
 
