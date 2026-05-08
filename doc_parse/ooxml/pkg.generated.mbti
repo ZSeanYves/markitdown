@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn classify_ooxml_error(OoxmlError) -> OoxmlErrorInfo
+
 pub fn dump_media_assets_summary(OoxmlPackage) -> String
 
 pub fn dump_ooxml_package(OoxmlPackage) -> String
@@ -24,13 +26,23 @@ pub fn has_part(OoxmlPackage, String) -> Bool
 
 pub fn has_relationships_part(OoxmlPackage, String) -> Bool
 
+pub fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory
+
+pub fn inspect_ooxml_package(OoxmlPackage) -> OoxmlPackageInspectReport
+
+pub fn list_content_type_infos(OoxmlPackage) -> Array[OoxmlContentTypeInfo]
+
 pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
+
+pub fn list_part_infos(OoxmlPackage) -> Array[OoxmlPartInfo]
 
 pub fn list_parts(OoxmlPackage) -> Array[String]
 
 pub fn list_parts_by_content_type(OoxmlPackage, String) -> Array[String] raise OoxmlError
 
 pub fn list_parts_by_prefix(OoxmlPackage, String) -> Array[String]
+
+pub fn list_relationship_infos(OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise OoxmlError
 
 pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
 
@@ -81,6 +93,18 @@ pub struct OoxmlAssetRef {
   rel_type : String
 }
 
+pub struct OoxmlContentTypeInfo {
+  kind : OoxmlContentTypeInfoKind
+  extension : String?
+  part_name : String?
+  content_type : String
+}
+
+pub(all) enum OoxmlContentTypeInfoKind {
+  DefaultExtension
+  OverridePart
+} derive(Eq)
+
 pub struct OoxmlCoreProperties {
   title : String?
   subject : String?
@@ -91,6 +115,28 @@ pub struct OoxmlCoreProperties {
   modified : String?
 }
 
+pub struct OoxmlErrorInfo {
+  kind : OoxmlErrorKind
+  detail : String
+  part_name : String?
+  rels_part_name : String?
+  source_part : String?
+  rel_id : String?
+}
+
+pub(all) enum OoxmlErrorKind {
+  ZipFailure
+  MissingPart
+  MalformedContentTypes
+  MalformedRelationships
+  InvalidXml
+  UnsafePartName
+  UnsafeRelationshipTarget
+  DuplicateNormalizedPart
+  DuplicateContentTypeOverride
+  RelationshipNotFound
+} derive(Eq)
+
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, Int]
@@ -98,7 +144,47 @@ pub struct OoxmlPackage {
   content_types_override : Map[String, String]
 }
 
+pub struct OoxmlPackageInspectReport {
+  part_count : Int
+  content_type_default_count : Int
+  content_type_override_count : Int
+  relationship_source_count : Int
+  package_relationship_count : Int
+  part_relationship_count : Int
+  media_asset_count : Int
+  inventory : OoxmlPackageInventory
+  package_relationships : Array[OoxmlRelationshipInfo]
+  part_relationships : Array[OoxmlRelationshipInfo]
+  media_assets : Array[OoxmlAsset]
+  core_properties : OoxmlCoreProperties
+  app_properties : OoxmlAppProperties
+}
+
+pub struct OoxmlPackageInventory {
+  parts : Array[OoxmlPartInfo]
+  content_types : Array[OoxmlContentTypeInfo]
+  relationship_source_parts : Array[String]
+}
+
+pub struct OoxmlPartInfo {
+  part_name : String
+  content_type : String?
+  size : Int
+  is_relationships_part : Bool
+  has_relationships : Bool
+}
+
 pub struct OoxmlRelationship {
+  id : String
+  rel_type : String
+  target : String
+  target_mode : OoxmlTargetMode
+  resolved_target : String
+}
+
+pub struct OoxmlRelationshipInfo {
+  source_part : String?
+  rels_part_name : String
   id : String
   rel_type : String
   target : String

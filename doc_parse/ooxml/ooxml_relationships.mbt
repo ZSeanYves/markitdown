@@ -118,24 +118,53 @@ fn read_relationships_from_rels_part(
 ) -> Array[OoxmlRelationship] raise OoxmlError {
   let rels_bytes = read_part_bytes(pkg, rels_part)
   let rels_xml = bytes_to_xml_text(rels_bytes)
-  parse_relationships_xml(rels_xml, source_part)
+  parse_relationships_xml(rels_xml, source_part, rels_part)
 }
 
 ///|
 fn parse_relationships_xml(
   xml : String,
   source_part : String,
+  rels_part_name : String,
 ) -> Array[OoxmlRelationship] raise OoxmlError {
   let rels : Array[OoxmlRelationship] = []
 
   for tag in collect_start_tags(xml, "Relationship") {
     let attrs = parse_tag_attributes(tag)
-    let id = get_required_attr(attrs, "Id")
-    let rel_type = get_required_attr(attrs, "Type")
-    let target = get_required_attr(attrs, "Target")
+    let id = get_required_attr(attrs, "Id") catch {
+      _ =>
+        raise InvalidXml(
+          malformed_relationships_detail(
+            rels_part_name, source_part, "missing attribute: Id",
+          ),
+        )
+    }
+    let rel_type = get_required_attr(attrs, "Type") catch {
+      _ =>
+        raise InvalidXml(
+          malformed_relationships_detail(
+            rels_part_name, source_part, "missing attribute: Type",
+          ),
+        )
+    }
+    let target = get_required_attr(attrs, "Target") catch {
+      _ =>
+        raise InvalidXml(
+          malformed_relationships_detail(
+            rels_part_name, source_part, "missing attribute: Target",
+          ),
+        )
+    }
     let target_mode_raw = get_optional_attr(attrs, "TargetMode")
     let target_mode = parse_target_mode(target_mode_raw)
-    let resolved_target = resolve_target(source_part, target, target_mode)
+    let resolved_target = resolve_target(source_part, target, target_mode) catch {
+      InvalidPartPath(path) =>
+        raise InvalidPartPath(
+          "unsafe relationship target: " +
+          malformed_relationships_detail(rels_part_name, source_part, path),
+        )
+      e => raise e
+    }
 
     rels.push({ id, rel_type, target, target_mode, resolved_target })
   }
@@ -150,4 +179,19 @@ fn parse_target_mode(value : String) -> OoxmlTargetMode {
   } else {
     Internal
   }
+}
+
+///|
+fn malformed_relationships_detail(
+  rels_part_name : String,
+  source_part : String,
+  detail : String,
+) -> String {
+  let source = if source_part == "" { "(package)" } else { source_part }
+  "relationships rels_part=\"" +
+  rels_part_name +
+  "\" source=\"" +
+  source +
+  "\": " +
+  detail
 }

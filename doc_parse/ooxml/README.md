@@ -18,6 +18,8 @@ Current supported scope:
 - Read and list package parts.
 - Query `[Content_Types].xml` defaults and overrides.
 - Read package-root and part-level relationships.
+- Produce structured package inventory and inspect reports for parts, content
+  types, and relationships.
 - Reject invalid relationship targets.
 - Preserve relationship target mode as `Internal` or `External`.
 - Resolve internal relationship targets relative to a source part.
@@ -73,6 +75,15 @@ Relationships:
 - `find_relationship_by_id(pkg, source_part, rel_id)`
 - `find_relationships_by_type(pkg, source_part, rel_type_suffix)`
 
+Structured inspect:
+
+- `inspect_ooxml_inventory(pkg)`
+- `inspect_ooxml_package(pkg)`
+- `list_part_infos(pkg)`
+- `list_content_type_infos(pkg)`
+- `list_relationship_infos(pkg, source_part)`
+- `classify_ooxml_error(err)`
+
 Media assets:
 
 - `list_media_assets(pkg)`
@@ -110,13 +121,17 @@ Debug dumps:
 
 - Keep this layer read-only and package-oriented.
 - Keep format-specific semantic recovery out of `doc_parse/ooxml`.
-- Prefer deterministic output order for listing and debug APIs.
+- Prefer deterministic output order for listing, inspect, and debug APIs.
 - Fail closed on normalized part-path collisions, malformed relationship XML,
   and unsafe normalized targets.
 - Treat missing optional OOXML parts, such as docProps or part relationships, as
   empty/`None` where that is part of the public contract.
 - Preserve target mode information so callers can avoid treating external links
   as internal package parts.
+- Keep the package-facing inspect surface structured; debug dump strings remain
+  convenience helpers and are not the primary machine-readable contract.
+- Keep duplicate relationship-id handling compatible for now; it remains a known
+  lower-layer boundary rather than a default fail-closed behavior.
 - Keep debug dump output human-readable and lossy; it is not a machine schema.
 
 ## Tests
@@ -139,6 +154,11 @@ moon check
 Current lower-layer coverage includes:
 
 - positive package open/read/list/query on DOCX/PPTX/XLSX samples
+- structured inventory/inspect reporting
+- missing part classification
+- malformed `[Content_Types].xml` classification
+- malformed `.rels` classification
+- deterministic inventory ordering
 - deterministic package dump smoke checks
 - duplicate relationship-id compatibility boundary
 - unsafe relationship-target failure
@@ -150,6 +170,8 @@ Current lower-layer coverage includes:
 
 - XML parsing is intentionally lightweight and only targets the small tag and
   attribute patterns required by current package-level helpers.
+- Error taxonomy is additive and classifier-based today; the top-level
+  `OoxmlError` variants stay compatibility-oriented for existing consumers.
 - Content type and relationship APIs are package infrastructure, not full
   format semantics.
 - The media asset index covers conventional OOXML media directories only:

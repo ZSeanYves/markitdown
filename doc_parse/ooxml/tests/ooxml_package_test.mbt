@@ -337,6 +337,33 @@ fn assert_dump_has_debug_sections(dump : String) -> Unit raise {
 }
 
 ///|
+fn expect_error_info(
+  result : Result[Unit, @ox.OoxmlError],
+  kind : @ox.OoxmlErrorKind,
+) -> @ox.OoxmlErrorInfo raise {
+  match result {
+    Ok(_) => fail("expected OOXML error")
+    Err(err) => {
+      let info = @ox.classify_ooxml_error(err)
+      if info.kind != kind {
+        fail("unexpected OOXML error kind: err=" + err.to_string())
+      }
+      info
+    }
+  }
+}
+
+///|
+fn[T] ok_or_err_unit(
+  result : Result[T, @ox.OoxmlError],
+) -> Result[Unit, @ox.OoxmlError] {
+  match result {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
 test "ooxml package phase-2.2 can dump docx sample" {
   let pkg = open_sample_package("samples/main_process/docx/golden.docx")
   let dump = @ox.dump_ooxml_package(pkg)
@@ -437,13 +464,140 @@ test "ooxml package rejects unsafe relationship target path" {
   let pkg = @ox.open_ooxml_package(bytes) catch {
     e => fail("open_ooxml_package failed: " + e.to_string())
   }
-  let result = try? @ox.read_part_relationships(pkg, "word/document.xml")
-  match result {
-    Ok(_) => fail("expected unsafe relationship target to fail closed")
-    Err(e) =>
-      if !e.to_string().contains("invalid OOXML part path") {
-        fail("unexpected unsafe target error: " + e.to_string())
-      }
+  let result = ok_or_err_unit(
+    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+  )
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::UnsafeRelationshipTarget,
+  )
+  if !info.detail.contains("rels_part=\"word/_rels/document.xml.rels\"") {
+    fail("unsafe relationship target should preserve rels part context")
+  }
+  if !info.detail.contains("../media/../../evil.bin") {
+    fail("unsafe relationship target should preserve raw target detail")
+  }
+}
+
+///|
+test "ooxml package inspect inventory is deterministic and structured" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+        "<Override PartName=\"/word/theme/theme1.xml\" ContentType=\"application/theme+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId7\" Type=\"theme\" Target=\"theme/theme1.xml\"/>",
+      ),
+    ),
+    ("word/theme/theme1.xml", "<theme/>"),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  assert_eq(inventory.parts.length(), 4)
+  assert_eq(inventory.parts[0].part_name, "_rels/.rels")
+  assert_eq(inventory.parts[1].part_name, "word/_rels/document.xml.rels")
+  assert_eq(inventory.parts[2].part_name, "word/document.xml")
+  assert_eq(inventory.parts[3].part_name, "word/theme/theme1.xml")
+  assert_eq(inventory.relationship_source_parts.length(), 1)
+  assert_eq(inventory.relationship_source_parts[0], "word/document.xml")
+  let report = @ox.inspect_ooxml_package(pkg)
+  assert_eq(report.package_relationship_count, 1)
+  assert_eq(report.part_relationship_count, 1)
+  assert_eq(report.inventory.content_types.length(), 3)
+  assert_eq(report.package_relationships[0].rels_part_name, "_rels/.rels")
+  assert_eq(
+    report.part_relationships[0].rels_part_name,
+    "word/_rels/document.xml.rels",
+  )
+  match report.part_relationships[0].source_part {
+    Some(v) => assert_eq(v, "word/document.xml")
+    None => fail("expected source part in part relationship info")
+  }
+}
+
+///|
+test "ooxml package missing part read is classified" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let result = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "word/missing.xml"))
+  let info = expect_error_info(result, @ox.OoxmlErrorKind::MissingPart)
+  match info.part_name {
+    Some(path) => assert_eq(path, "word/missing.xml")
+    None => fail("expected missing part path")
+  }
+}
+
+///|
+test "ooxml package malformed content types is classified" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+      "<Default ContentType=\"application/xml\"/>" +
+      "</Types>",
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let result = ok_or_err_unit(try? @ox.open_ooxml_package(bytes))
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::MalformedContentTypes,
+  )
+  match info.part_name {
+    Some(path) => assert_eq(path, "[Content_Types].xml")
+    None => fail("expected content types part name")
+  }
+  if !info.detail.contains("missing attribute: Extension") {
+    fail("expected malformed content types detail")
+  }
+}
+
+///|
+test "ooxml package malformed relationships is classified" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml("<Relationship Id=\"rId1\" Type=\"image\"/>"),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = ok_or_err_unit(
+    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+  )
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::MalformedRelationships,
+  )
+  match info.rels_part_name {
+    Some(path) => assert_eq(path, "word/_rels/document.xml.rels")
+    None => fail("expected relationships part name")
+  }
+  if !info.detail.contains("missing attribute: Target") {
+    fail("expected malformed relationships detail")
   }
 }
 
@@ -517,11 +671,44 @@ test "ooxml package rejects duplicate content type override after normalization"
   let result = try? @ox.open_ooxml_package(bytes)
   match result {
     Ok(_) => fail("expected duplicate normalized content type override to fail")
-    Err(e) =>
+    Err(e) => {
+      let info = @ox.classify_ooxml_error(e)
+      if info.kind != @ox.OoxmlErrorKind::DuplicateContentTypeOverride {
+        fail("unexpected duplicate override error kind: " + e.to_string())
+      }
       if !e
         .to_string()
         .contains("duplicate content type override: /word/document.xml") {
         fail("unexpected duplicate override error: " + e.to_string())
       }
+    }
+  }
+}
+
+///|
+test "ooxml package missing relationship target stays not found" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = ok_or_err_unit(try? @ox.resolve_relationship(pkg, "", "rId404"))
+  let info = expect_error_info(result, @ox.OoxmlErrorKind::RelationshipNotFound)
+  match info.rel_id {
+    Some(v) => assert_eq(v, "rId404")
+    None => fail("expected missing relationship id")
   }
 }

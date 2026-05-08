@@ -156,6 +156,8 @@ Current foundation direction:
 * strongest candidate for the first publishable-quality hardening pass
 * should evolve toward a reusable OOXML package parser, not a document-format
   semantic converter
+* should expose structured inventory/inspect and classifier-friendly errors,
+  while keeping converter-facing compatibility stable during hardening
 
 ### `doc_parse/pdf`
 
