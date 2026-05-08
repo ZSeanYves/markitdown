@@ -6,15 +6,27 @@ import {
 }
 
 // Values
+pub fn classify_pdf_error(PdfError) -> PdfErrorInfo
+
+pub fn classify_pdf_error_with_issues(PdfError, Array[PdfInspectIssue]) -> PdfErrorInfo
+
+pub fn classify_pdf_inspect_issue(PdfInspectIssue) -> PdfErrorInfo?
+
 pub fn default_pdf_config() -> PdfConfig
 
 pub async fn extract_document_block_debug(String, PdfConfig) -> Result[String, PdfError]
 
 pub async fn extract_document_inspect_dump(String, PdfConfig) -> Result[String, PdfError]
 
+pub async fn extract_document_inspect_report(String, PdfConfig) -> Result[PdfDocumentInspectReport, PdfError]
+
 pub async fn extract_document_model(String, PdfConfig) -> Result[@model.PdfDocumentModel, PdfError]
 
 pub async fn extract_document_summary(String, PdfConfig) -> Result[String, PdfError]
+
+pub fn inspect_pdf_document(@model.PdfDocumentModel) -> PdfDocumentInspectReport
+
+pub fn inspect_pdf_page(@model.PdfPageModel) -> PdfPageInspectInfo
 
 // Errors
 
@@ -27,12 +39,147 @@ pub struct PdfConfig {
   backend : PdfBackend
 }
 
+pub struct PdfDocumentInspectReport {
+  version : String
+  page_count : Int
+  successful_page_count : Int
+  failed_page_count : Int
+  metadata : @model.PdfDocumentMetadata
+  outline_count : Int
+  encrypted : Bool
+  has_xref_stream : Bool
+  has_object_stream : Bool
+  has_text_signal : Bool
+  has_image_signal : Bool
+  has_annotation_signal : Bool
+  has_any_signal : Bool
+  is_low_signal : Bool
+  is_empty_signal : Bool
+  page_failure_count : Int
+  text_page_count : Int
+  empty_page_count : Int
+  low_signal_page_count : Int
+  total_text_block_count : Int
+  total_line_count : Int
+  total_span_count : Int
+  total_char_count : Int
+  total_image_count : Int
+  total_annotation_count : Int
+  total_link_annotation_count : Int
+  total_vector_count : Int
+  total_form_count : Int
+  total_source_ref_count : Int
+  unsupported_feature_count : Int
+  raw_issue_count : Int
+  model_issue_count : Int
+  issue_count : Int
+  warning_count : Int
+  error_count : Int
+  pages : Array[PdfPageInspectInfo]
+  issues : Array[PdfInspectIssue]
+}
+
 pub enum PdfError {
   AdapterFailed(String)
   BuildFailed(String)
   Unsupported(String)
 }
 pub impl Show for PdfError
+
+pub struct PdfErrorInfo {
+  kind : PdfErrorKind
+  message : String
+  mapping : PdfErrorMappingKind
+}
+
+pub enum PdfErrorKind {
+  AdapterFailed
+  BuildFailed
+  Unsupported
+  Encrypted
+  Malformed
+  UnsupportedObjectStream
+  UnsupportedFilter
+  MalformedContentStream
+  MissingFontEncoding
+  BadToUnicode
+  PartialPageFailure
+  EmptyExtraction
+  LowSignalExtraction
+  Unknown
+}
+
+pub enum PdfErrorMappingKind {
+  DirectVariant
+  TypedIssue
+  BestEffortMessage
+}
+
+pub struct PdfInspectIssue {
+  kind : PdfInspectIssueKind
+  severity : PdfInspectSeverity
+  source : PdfInspectIssueSource
+  page_index : Int?
+  object_ref : String?
+  source_ref : @model.PdfSourceRef?
+  message : String
+}
+
+pub enum PdfInspectIssueKind {
+  PartialPageFailure
+  UnsupportedObjectStream
+  AnnotationParseWarning
+  ImageParseWarning
+  EmptyPage
+  LowSignalPage
+  EmptyExtraction
+  LowSignalExtraction
+  EncryptedDocument
+}
+
+pub enum PdfInspectIssueSource {
+  Raw
+  Model
+}
+
+pub enum PdfInspectSeverity {
+  Warning
+  Error
+}
+
+pub struct PdfPageInspectInfo {
+  page_index : Int
+  page_label : String?
+  rotation : Int
+  media_box : @model.PdfRect
+  crop_box : @model.PdfRect?
+  effective_width : Double
+  effective_height : Double
+  raw_content_stream_ref_count : Int
+  text_block_count : Int
+  line_count : Int
+  span_count : Int
+  char_count : Int
+  image_count : Int
+  annotation_count : Int
+  link_annotation_count : Int
+  vector_count : Int
+  form_count : Int
+  object_count : Int
+  source_ref_count : Int
+  reading_order_candidate_count : Int
+  artifact_candidate_count : Int
+  page_number_candidate_count : Int
+  header_footer_candidate_count : Int
+  has_text_signal : Bool
+  has_any_signal : Bool
+  is_low_signal : Bool
+  is_empty_signal : Bool
+  raw_issue_count : Int
+  model_issue_count : Int
+  issue_count : Int
+  issues : Array[PdfInspectIssue]
+}
 
 // Type aliases
 

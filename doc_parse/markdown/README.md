@@ -1,0 +1,167 @@
+# doc_parse/markdown
+
+Purpose:
+
+* lightweight source scanner / raw block inventory foundation for Markdown
+* reusable in-tree lower-layer package inside `ZSeanYves/markitdown`
+* not a Markdown renderer or passthrough output-policy layer
+
+Current status:
+
+* Markdown lightweight scanner foundation candidate
+* current scope is source scanning / raw block inventory / inspect /
+  validation
+* `convert/markdown` still owns passthrough output and product normalization
+
+Stable candidate API:
+
+* `scan_markdown_document`
+* `inspect_markdown_document`
+* `collect_markdown_validation_issues`
+* `validate_markdown_document`
+
+Minimal examples:
+
+```moonbit
+let doc = @markdown.scan_markdown_document("---\ntitle: demo\n---\n# Hello\n")
+let report = @markdown.inspect_markdown_document(doc)
+
+println("frontmatter=" + report.frontmatter_count.to_string())
+println("headings=" + report.heading_count.to_string())
+```
+
+```moonbit
+let doc = @markdown.scan_markdown_document("```moonbit\nlet x = 1\n")
+for issue in @markdown.collect_markdown_validation_issues(doc) {
+  println(issue.kind.to_string())
+}
+```
+
+Build on top:
+
+* frontmatter scanners, fenced-code auditors, raw block inventory tools, and
+  custom chunkers can reuse this scanner without touching passthrough output
+
+Compatibility surface:
+
+* `MarkdownDocument`
+* `MarkdownBlock`
+* `MarkdownBlockKind`
+* `MarkdownFrontmatter`
+* `MarkdownFrontmatterKind`
+* `MarkdownFencedCodeInfo`
+* `MarkdownValidationIssue`
+* `MarkdownValidationIssueKind`
+* `MarkdownValidationSeverity`
+* `MarkdownValidationReport`
+* `MarkdownInspectReport`
+
+Internal exposed surface:
+
+* line scanner helpers
+* frontmatter and fence detectors
+* paragraph grouping helpers
+* raw block classification helpers
+* these remain implementation details rather than a second public facade
+
+Current model:
+
+* `MarkdownDocument`
+* `MarkdownBlock`
+* `MarkdownFrontmatter`
+* `MarkdownFencedCodeInfo`
+
+Current validation surface:
+
+* `MarkdownValidationIssue`
+* `MarkdownValidationReport`
+* current issues are intentionally light:
+  * `UnclosedFrontmatter`
+  * `UnclosedFence`
+* reserved compatibility kinds that are not emitted by the normal Pass 2
+  scanner:
+  * `UnknownFrontmatterKind`
+  * `SuspiciousTableRow`
+
+Current inspect surface:
+
+* line count
+* block count
+* blank-line count
+* heading count
+* fenced-code count
+* list-item count
+* blockquote count
+* table-like-row count
+* thematic-break count
+* html-block-candidate count
+* frontmatter count
+* issue / warning / error counts
+
+Scanner boundary:
+
+* LF / CRLF / CR normalization
+* UTF-8 BOM stripping at the source-string seam
+* YAML-style frontmatter detection with `---`
+* TOML-style frontmatter detection with `+++`
+* fenced-code detection for backtick and tilde fences
+* ATX heading raw detection
+* Setext heading raw detection with simple underline heuristics
+* raw list-marker detection
+* raw blockquote detection
+* table-like row detection by literal pipe presence only
+* thematic-break detection with a simple repeated-marker rule
+* HTML-in-Markdown is only a raw candidate signal; it is not parsed as HTML
+
+Non-goals:
+
+* CommonMark full parsing
+* Markdown renderer
+* Markdown -> IR conversion
+* passthrough output policy
+* output normalization / cleanup policy
+* inline emphasis / link parsing
+* table semantics
+* MDX / footnotes / extension parsing
+
+Relationship to `convert/markdown`:
+
+* `doc_parse/markdown` owns lightweight source scanning, raw block inventory,
+  inspect, and validation
+* `convert/markdown` still owns passthrough output, conservative block-to-IR
+  wiring, and final product normalization behavior
+* this pass does not switch the normal Markdown converter onto the scanner
+  foundation
+
+Known limits:
+
+* this is a lightweight scanner, not a full CommonMark parser
+* scanner output is string-based and line-oriented rather than a full Markdown
+  AST
+* frontmatter detection is only recognized at document start
+* table-like rows are raw candidates only; no full table parsing is claimed
+* HTML block candidates are counted only as raw source signal and are not
+  parsed
+* scanner findings do not mutate passthrough output or converter policy
+* the scanner is intentionally lightweight and line-oriented rather than a
+  CommonMark AST renderer
+
+Performance note:
+
+* this scanner is designed to stay lightweight on small source files
+* by design there is no hard parse-error classifier; malformed findings are
+  carried as validation issues and inspect signals instead
+
+Testing:
+
+* lower-layer tests live in `doc_parse/markdown/tests`
+* converter regression remains guarded under `convert/markdown/test`
+
+Versioning note:
+
+* this package is an in-tree candidate surface, not a renderer or passthrough
+  policy layer
+* current scanner intentionally always succeeds and therefore does not expose a
+  hard parse-error classifier
+* future work may widen scanner coverage or add more structured warnings
+  without changing `convert/markdown` ownership

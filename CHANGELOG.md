@@ -2,6 +2,72 @@
 
 ## Unreleased
 
+* Mark `doc_parse/ooxml`, `doc_parse/epub`, and native text-PDF
+  `doc_parse/pdf` as foundation candidates after the recent inspect,
+  validation, classifier, and lower-layer contract hardening passes.
+* Migrate simple-format parser foundations internally into `doc_parse/csv`,
+  `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
+  while keeping `convert/*` responsible for IR/Markdown/product semantics.
+* Harden the internal simple-format foundations with package-level README
+  boundaries, stronger inspect reporting, and lower-layer parser tests while
+  keeping conversion outputs unchanged.
+* Close `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
+  and `doc_parse/text` as in-tree parser foundation candidates with documented
+  stable surfaces, compatibility boundaries, and known limits.
+* Close `doc_parse/xml` as an in-tree XML parser foundation candidate with
+  safe tokenizer/parser/model/error/inspect/validation boundaries while
+  keeping `convert/xml` source-preserving.
+* Sync overall `doc_parse` foundation status after the simple-format and XML
+  parser candidate closures, and clarify the `doc_parse` vs `convert`
+  ownership boundary without changing runtime behavior.
+* Close `doc_parse/html` as an in-tree HTML DOM-ish parser foundation
+  candidate with tolerant tokenizer/parser/model/inspect/validation
+  boundaries while keeping `convert/html` on the current normal conversion
+  path.
+* Close `doc_parse/markdown` as an in-tree lightweight Markdown scanner
+  foundation candidate with raw block inventory, frontmatter, fenced code,
+  and inspect/validation boundaries while keeping `convert/markdown` on the
+  current passthrough/product path.
+* Sync `doc_parse` foundation status after the HTML and Markdown candidate
+  closures, and clarify that `convert/html` and `convert/markdown` still own
+  their current normal product paths.
+* Add `doc_parse/xlsx` as an active SpreadsheetML semantic foundation Pass 1,
+  route `convert/xlsx` through that semantic workbook model, and keep
+  RichTable / IR / Markdown / product policy in the converter layer without
+  changing output behavior.
+* Close `doc_parse/xlsx` as an in-tree XLSX semantic foundation candidate
+  with workbook/sheet/cell/sharedStrings/styles/formula/merged-range
+  boundaries documented and lower-layer tests tightened, while keeping
+  `convert/xlsx` zero-drift and product-policy-owned.
+* Add `doc_parse/docx` as an active WordprocessingML semantic foundation
+  Pass 1 with source-native body/inline/table/relationship/style/numbering/
+  note parsing, inspect/validation/classifier surface, and lower-layer tests
+  while keeping `convert/docx` on the current zero-drift normal conversion
+  path.
+* Close `doc_parse/docx` as an in-tree DOCX semantic foundation candidate
+  with source-native body/inline/table/relationship/style/numbering/notes/
+  media boundaries documented and lower-layer tests tightened, while keeping
+  `convert/docx` on the current zero-drift normal conversion path.
+* Add `doc_parse/pptx` as an active PresentationML semantic foundation
+  Pass 1 with source-native presentation/slide/shape/text/table/notes/media/
+  hyperlink parsing, inspect/validation/classifier surface, and lower-layer
+  tests while keeping `convert/pptx` on the current zero-drift normal
+  conversion path.
+* Close `doc_parse/pptx` as an in-tree PPTX semantic foundation candidate
+  with source-native slide/shape/text/table/notes/media boundaries documented
+  and lower-layer tests tightened, while keeping `convert/pptx` on the
+  current zero-drift normal conversion path.
+* Sync `doc_parse` foundation status after the OOXML semantic closure:
+  `doc_parse/xlsx`, `doc_parse/docx`, and `doc_parse/pptx` are now in-tree
+  OOXML semantic foundation candidates; the `doc_parse` vs `convert`
+  ownership boundary is clarified; and normal-path integration status is
+  explicitly documented without changing runtime behavior.
+* Clarify the current package publishing strategy: `doc_parse/*` remains
+  importable subpackages under `ZSeanYves/markitdown`, not separately split
+  MoonBit modules yet.
+* Document compatibility surfaces, non-goals, and candidate boundaries for the
+  OOXML, EPUB, and PDF parsing foundations without expanding their functional
+  scope.
 * Sync current documentation after the rule-driven text-normalization rollout
   and PDF span-glue fallback tightening.
 * Clarify that shared text normalization is a conversion-quality substrate, not
@@ -200,7 +266,7 @@ This release closes the repository's first full-format H2 milestone.
 * Validation now prefers a probe-validated native CLI when available and falls
   back to `moon run` only when needed.
 * The PDF lower layer now lives under `doc_parse/pdf`, backed by a
-  repository-local maintained fork under `vendor/mbtpdf`.
+  repository-local maintained fork under `doc_parse/pdf/vendor/mbtpdf`.
 * Benchmark, batch-profiling, and regression-warning tools are available for
   H3 performance work.
 

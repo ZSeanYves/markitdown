@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap"
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct CMap {
+  map : Array[(String, String)]
+  wmode : Int?
+} derive(@debug.Debug)
+pub fn CMap::parse(@pdf.Pdf, @pdf.PdfObject) -> Self raise
+
+// Type aliases
+
+// Traits
+

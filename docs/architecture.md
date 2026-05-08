@@ -71,10 +71,50 @@ It only chooses the converter; it does not own recovery strategy.
 
 * `doc_parse/zip`: ZIP reader and container primitives
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
+* `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest,
+  and spine
 * `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
-* `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
+* `doc_parse/csv` / `doc_parse/tsv`: delimited table parser/model/inspect
+* `doc_parse/json`: JSON parser / AST / inspect
+* `doc_parse/yaml`: current YAML-subset parser / AST / inspect
+* `doc_parse/text`: plain-text structural document model / inspect
+* `doc_parse/xml`: XML tokenizer / parser / inspect / validation foundation
+* `doc_parse/html`: tolerant HTML tokenizer / parser / inspect / validation
+  foundation candidate
+* `doc_parse/markdown`: Markdown lightweight scanner candidate for inspect /
+  validation
+* `doc_parse/xlsx`: SpreadsheetML semantic workbook / sheet / cell foundation
+* `doc_parse/docx`: WordprocessingML semantic body / inline / table /
+  relationship foundation
+* `doc_parse/pptx`: PresentationML semantic presentation / slide / shape /
+  text / table / notes / media foundation
 
 These packages are infrastructure, not final Markdown semantics.
+
+Current candidate line:
+
+* `doc_parse/ooxml`: OOXML package foundation candidate
+* `doc_parse/epub`: EPUB package/spine/nav foundation candidate
+* `doc_parse/pdf`: native text-PDF foundation candidate
+* `doc_parse/zip`: external-decoder-backed ZIP foundation candidate as
+  the shared container primitive
+* `doc_parse/csv`: simple-format parser foundation candidate
+* `doc_parse/tsv`: simple-format parser foundation candidate
+* `doc_parse/json`: simple-format parser foundation candidate
+* `doc_parse/yaml`: YAML-subset parser foundation candidate
+* `doc_parse/text`: plain-text parser foundation candidate
+* `doc_parse/xml`: XML parser foundation candidate
+* `doc_parse/html`: HTML DOM-ish parser foundation candidate
+* `doc_parse/markdown`: lightweight Markdown scanner foundation candidate
+* `doc_parse/xlsx`: XLSX semantic foundation candidate
+* `doc_parse/docx`: DOCX semantic foundation candidate
+* `doc_parse/pptx`: PPTX semantic foundation candidate
+
+Current module strategy keeps these as importable subpackages under
+`ZSeanYves/markitdown` rather than as independently split MoonBit modules.
+
+Current foundation contract for reusable lower layers is documented in
+[docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
 ### Format converters
 
@@ -115,6 +155,40 @@ Current format families:
 * Ebook:
   * `convert/epub`
 
+Current lower-layer integration split:
+
+Integrated normal paths:
+
+* `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` and still owns
+  `RichTable` / IR / Markdown policy
+* `convert/json` and `convert/yaml` consume parser/model layers from
+  `doc_parse/json` and `doc_parse/yaml` and still own table/list/code-block
+  lowering policy
+* `convert/txt` consumes `doc_parse/text` and still owns literal-Markdown /
+  `Document` product policy
+* `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
+  parsing while still owning sheet heading output, RichTable hints, IR
+  lowering, Markdown table policy, and product wording
+
+Not switched intentionally:
+
+* `convert/xml` still owns the current source-preserving fenced-output normal
+  path; the XML parser foundation is not the normal converter path yet
+* `convert/html` still owns heading/list/table/link/image/assets/caption/
+  nearby-text product policy; the HTML DOM-ish parser foundation is not the
+  normal converter path yet
+* `convert/markdown` still owns passthrough/product policy; the Markdown
+  scanner foundation is not the normal converter path yet
+* `convert/docx` still owns the current normal conversion path, final
+  heading/list/table/caption/code/image policy, and the normal DOCX
+  converter path is not switched even though `doc_parse/docx` now provides a
+  WordprocessingML source-native semantic package
+* `convert/pptx` still owns the current normal conversion path,
+  reading-order/layout/grouping/caption/image policy, Speaker Notes final
+  product policy, and the normal PPTX converter path is not switched even
+  though `doc_parse/pptx` now provides a PresentationML source-native
+  semantic package
+
 ### Unified IR
 
 `core/ir.mbt` provides the shared representation:
@@ -151,6 +225,10 @@ DOCX / PPTX / XLSX share:
 
 This is why OOXML support is not implemented as three fully isolated parsers.
 
+`doc_parse/ooxml` is intended to keep evolving as a reusable package parser for
+parts/relationships/media/docProps, not as a DOCX/PPTX/XLSX semantic
+converter.
+
 ### PDF
 
 PDF has its own native substrate:
@@ -169,6 +247,9 @@ Converter responsibility is intentionally separated:
 
 * `doc_parse/pdf` owns extraction, page/text/image/annotation signal, and
   debug-facing raw/model surfaces
+* `doc_parse/pdf` also exposes a structured inspect/report view plus
+  classifier-friendly errors for package-level audit use
+* the recommended package-facing candidate facade is `doc_parse/pdf/api`
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
 * `core/text_normalization.mbt` provides the shared text-normalization facade
@@ -215,11 +296,24 @@ no longer the source of truth for the active design.
 
 ### HTML
 
-HTML is a lightweight semantic converter:
+HTML is still a lightweight semantic converter in the normal product path:
 
 * structural tags map into IR
 * inline links and local images are preserved within current limits
 * browser/CSS/JS semantics are intentionally out of scope
+* `doc_parse/html` now provides a lower-layer tokenizer/parser/model/inspect/
+  validation candidate surface, but `convert/html` still owns the normal HTML
+  -> IR / Markdown / asset/product policy path
+
+### Markdown
+
+Markdown is intentionally a source-scanner lower layer, not a renderer:
+
+* `doc_parse/markdown` now provides a lightweight source scanner / raw block
+  inventory / frontmatter / fenced-code candidate surface
+* `convert/markdown` still owns passthrough output and final product policy
+* HTML-in-Markdown remains a raw source candidate only and is not parsed as
+  HTML by the scanner
 
 ### Text-like
 
@@ -233,9 +327,19 @@ TXT and Markdown are intentionally different:
 CSV / TSV / JSON / YAML / XML are not treated as one semantic family, but they
 share a “conservative and stable” philosophy:
 
-* CSV / TSV -> tables
-* JSON / YAML -> conservative table / list / code-block mapping
-* XML -> source-preserving fenced code-block output
+* `doc_parse/csv` / `doc_parse/tsv` now own delimited parsing while
+  `convert/csv` still owns `RichTable` / IR semantics
+* `doc_parse/json` now owns JSON parsing / AST while `convert/json` still owns
+  table/list/code-block lowering; source normalization now also lives in the
+  parser layer
+* `doc_parse/yaml` now owns current YAML-subset parsing / AST while
+  `convert/yaml` still owns conservative table/list/code-block lowering
+* `doc_parse/text` now owns UTF-8/open-newline/paragraph structure while
+  `convert/txt` still owns cleanup-profile choice and literal-Markdown policy
+* `doc_parse/xml` now owns a safe XML tokenizer/parser/model/inspect/
+  validation foundation
+  while `convert/xml` still keeps the normal source-preserving fenced code-block
+  output path
 
 ### Container
 
@@ -260,6 +364,10 @@ It adds:
 * manifest/spine parsing
 * spine-order aggregation
 * safe same-archive local-image handling for XHTML/HTML spine documents
+
+`doc_parse/epub` is intended to stay at the package/container/OPF/spine/nav
+layer rather than turning into a reading-system renderer or final Markdown
+aggregator.
 
 ## Metadata And Assets
 

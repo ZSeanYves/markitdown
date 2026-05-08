@@ -73,11 +73,11 @@ clean layering split:
 These files are correctly PDF-specific and should remain outside the shared
 cleanup facade:
 
-* [`vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt:1)
-* [`vendor/mbtpdf/font/pdffont/encoding.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdffont/encoding.mbt:1)
-* [`vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt:1)
-* [`vendor/mbtpdf/text/pdftext/read.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/text/pdftext/read.mbt:1)
-* [`vendor/mbtpdf/text/pdftext/extract.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/text/pdftext/extract.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdffont/encoding.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdffont/encoding.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/text/pdftext/read.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext/read.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/text/pdftext/extract.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext/extract.mbt:1)
 * [`doc_parse/pdf/raw/mbtpdf_text_adapter.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/raw/mbtpdf_text_adapter.mbt:1)
 
 Responsibilities:

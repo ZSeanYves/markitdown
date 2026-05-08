@@ -1,5 +1,0 @@
-import {
-  "ZSeanYves/markitdown/vendor/mbtpdf/codec/pdfflate",
-  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
-  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdfio",
-}

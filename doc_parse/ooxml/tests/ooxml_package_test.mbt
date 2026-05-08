@@ -25,6 +25,127 @@ fn open_sample_package(path : String) -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn bytes_of_string(s : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in s.to_array() {
+    out.push(ch.to_int().to_byte())
+  }
+  out
+}
+
+///|
+fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn add_store_entry(
+  out : Array[Byte],
+  central : Array[(String, Int, Int)],
+  name : String,
+  data : String,
+) -> Unit {
+  let local_offset = out.length()
+  let name_bytes = bytes_of_string(name)
+  let data_bytes = bytes_of_string(data)
+
+  append_u32_le(out, 0x04034b50)
+  append_u16_le(out, 20)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u32_le(out, 0)
+  append_u32_le(out, data_bytes.length())
+  append_u32_le(out, data_bytes.length())
+  append_u16_le(out, name_bytes.length())
+  append_u16_le(out, 0)
+  for b in name_bytes {
+    out.push(b)
+  }
+  for b in data_bytes {
+    out.push(b)
+  }
+
+  central.push((name, data_bytes.length(), local_offset))
+}
+
+///|
+fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data) = entry
+    add_store_entry(out, central, name, data)
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn minimal_content_types_xml(overrides : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+  "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+  overrides +
+  "</Types>"
+}
+
+///|
+fn minimal_rels_xml(inner : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+  inner +
+  "</Relationships>"
+}
+
+///|
 fn assert_core_readable(
   pkg : @ox.OoxmlPackage,
   part_name : String,
@@ -133,6 +254,25 @@ test "ooxml package phase-2 can list and query parts" {
   if docs.length() == 0 {
     fail("main document content type should be discoverable")
   }
+
+  let doc_override = @ox.lookup_content_type_override(pkg, "word/document.xml") catch {
+    e => fail("lookup_content_type_override failed: " + e.to_string())
+  }
+  match doc_override {
+    Some(v) =>
+      if !v.has_suffix("document.main+xml") {
+        fail("expected override content type for main document")
+      }
+    None => fail("expected override content type")
+  }
+
+  match @ox.lookup_content_type_default(pkg, "xml") {
+    Some(v) =>
+      if v == "" {
+        fail("default xml content type should not be empty")
+      }
+    None => fail("expected xml default content type")
+  }
 }
 
 ///|
@@ -197,6 +337,20 @@ test "ooxml package phase-2 can read document properties safely" {
 }
 
 ///|
+test "ooxml package phase-2 can read part text" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let text = @ox.read_part_text(pkg, "word/document.xml") catch {
+    e => fail("read_part_text failed: " + e.to_string())
+  }
+  if text.trim() == "" {
+    fail("expected non-empty part text")
+  }
+  if !text.contains("document") && !text.contains("w:document") {
+    fail("expected xml-ish text content from part text reader")
+  }
+}
+
+///|
 fn assert_dump_has_debug_sections(dump : String) -> Unit raise {
   if dump == "" {
     fail("dump should not be empty")
@@ -212,6 +366,33 @@ fn assert_dump_has_debug_sections(dump : String) -> Unit raise {
   }
   if !dump.contains("properties") {
     fail("dump should contain properties")
+  }
+}
+
+///|
+fn expect_error_info(
+  result : Result[Unit, @ox.OoxmlError],
+  kind : @ox.OoxmlErrorKind,
+) -> @ox.OoxmlErrorInfo raise {
+  match result {
+    Ok(_) => fail("expected OOXML error")
+    Err(err) => {
+      let info = @ox.classify_ooxml_error(err)
+      if info.kind != kind {
+        fail("unexpected OOXML error kind: err=" + err.to_string())
+      }
+      info
+    }
+  }
+}
+
+///|
+fn[T] ok_or_err_unit(
+  result : Result[T, @ox.OoxmlError],
+) -> Result[Unit, @ox.OoxmlError] {
+  match result {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
   }
 }
 
@@ -261,5 +442,691 @@ test "ooxml package phase-2.2 dump handles missing media and docProps" {
   }
   if !dump.contains("title=(none)") {
     fail("dump should report missing core properties")
+  }
+}
+
+///|
+test "ooxml package currently preserves duplicate relationship ids for compatibility" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let rels = @ox.read_package_relationships(pkg) catch {
+    e => fail("read_package_relationships failed: " + e.to_string())
+  }
+  assert_eq(rels.length(), 2)
+  if rels[0].id != "rId1" || rels[1].id != "rId1" {
+    fail("expected duplicate relationship ids to remain visible to callers")
+  }
+}
+
+///|
+test "ooxml strict validation reports duplicate relationship ids" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  if report.mode != @ox.OoxmlValidationMode::Strict {
+    fail("strict validation should default to Strict mode")
+  }
+  if report.error_count <= 0 {
+    fail("strict validation should report duplicate relationship id")
+  }
+  if report.issues[0].kind !=
+    @ox.OoxmlValidationIssueKind::DuplicateRelationshipId {
+    fail("expected duplicate relationship id issue")
+  }
+}
+
+///|
+test "ooxml compatible validation stays empty for duplicate relationship ids" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(
+    pkg,
+    mode=@ox.OoxmlValidationMode::Compatible,
+  )
+  assert_eq(report.issue_count, 0)
+  assert_eq(report.error_count, 0)
+  assert_eq(report.warning_count, 0)
+}
+
+///|
+test "ooxml package rejects unsafe relationship target path" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"image\" Target=\"../media/../../evil.bin\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = ok_or_err_unit(
+    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+  )
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::UnsafeRelationshipTarget,
+  )
+  if !info.detail.contains("rels_part=\"word/_rels/document.xml.rels\"") {
+    fail("unsafe relationship target should preserve rels part context")
+  }
+  if !info.detail.contains("../media/../../evil.bin") {
+    fail("unsafe relationship target should preserve raw target detail")
+  }
+  match info.target {
+    Some(target) =>
+      if !target.contains("../media/../../evil.bin") {
+        fail("unsafe relationship target should retain traversal target detail")
+      }
+    None => fail("unsafe relationship target should classify target")
+  }
+}
+
+///|
+test "ooxml package inspect inventory is deterministic and structured" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+        "<Override PartName=\"/word/theme/theme1.xml\" ContentType=\"application/theme+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId7\" Type=\"theme\" Target=\"theme/theme1.xml\"/>",
+      ),
+    ),
+    ("word/theme/theme1.xml", "<theme/>"),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  assert_eq(inventory.parts.length(), 4)
+  assert_eq(inventory.part_count, 4)
+  assert_eq(inventory.relationship_part_count, 2)
+  assert_eq(inventory.content_type_entry_count, 3)
+  assert_eq(inventory.media_asset_count, 0)
+  if inventory.has_core_properties || inventory.has_app_properties {
+    fail("docProps should be absent in this inline package")
+  }
+  assert_eq(inventory.parts[0].part_name, "_rels/.rels")
+  assert_eq(inventory.parts[1].part_name, "word/_rels/document.xml.rels")
+  assert_eq(inventory.parts[2].part_name, "word/document.xml")
+  assert_eq(inventory.parts[3].part_name, "word/theme/theme1.xml")
+  assert_eq(inventory.relationship_parts.length(), 2)
+  assert_eq(inventory.relationship_parts[0], "_rels/.rels")
+  assert_eq(inventory.relationship_parts[1], "word/_rels/document.xml.rels")
+  assert_eq(inventory.relationship_source_parts.length(), 1)
+  assert_eq(inventory.relationship_source_parts[0], "word/document.xml")
+  let report = @ox.inspect_ooxml_package(pkg)
+  assert_eq(report.package_relationship_count, 1)
+  assert_eq(report.part_relationship_count, 1)
+  assert_eq(report.inventory.content_types.length(), 3)
+  assert_eq(report.package_relationships[0].rels_part_name, "_rels/.rels")
+  assert_eq(
+    report.part_relationships[0].rels_part_name,
+    "word/_rels/document.xml.rels",
+  )
+  match report.part_relationships[0].source_part {
+    Some(v) => assert_eq(v, "word/document.xml")
+    None => fail("expected source part in part relationship info")
+  }
+}
+
+///|
+test "ooxml package can find part info and missing part info" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let info = @ox.find_part_info(pkg, "word/document.xml") catch {
+    e => fail("find_part_info failed: " + e.to_string())
+  }
+  match info {
+    Some(v) => {
+      assert_eq(v.part_name, "word/document.xml")
+      if v.size <= 0 {
+        fail("expected positive part size")
+      }
+    }
+    None => fail("expected part info for word/document.xml")
+  }
+
+  let missing = @ox.find_part_info(pkg, "word/missing.xml") catch {
+    e =>
+      fail(
+        "find_part_info on missing part failed unexpectedly: " + e.to_string(),
+      )
+  }
+  match missing {
+    Some(_) => fail("missing part should not produce part info")
+    None => ()
+  }
+}
+
+///|
+test "ooxml package missing part read is classified" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let result = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "word/missing.xml"))
+  let info = expect_error_info(result, @ox.OoxmlErrorKind::MissingPart)
+  match info.part_name {
+    Some(path) => assert_eq(path, "word/missing.xml")
+    None => fail("expected missing part path")
+  }
+}
+
+///|
+test "ooxml package malformed content types is classified" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+      "<Default ContentType=\"application/xml\"/>" +
+      "</Types>",
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let result = ok_or_err_unit(try? @ox.open_ooxml_package(bytes))
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::MalformedContentTypes,
+  )
+  match info.part_name {
+    Some(path) => assert_eq(path, "[Content_Types].xml")
+    None => fail("expected content types part name")
+  }
+  if !info.detail.contains("missing attribute: Extension") {
+    fail("expected malformed content types detail")
+  }
+}
+
+///|
+test "ooxml package malformed relationships is classified" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml("<Relationship Id=\"rId1\" Type=\"image\"/>"),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = ok_or_err_unit(
+    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+  )
+  let info = expect_error_info(
+    result,
+    @ox.OoxmlErrorKind::MalformedRelationships,
+  )
+  match info.rels_part_name {
+    Some(path) => assert_eq(path, "word/_rels/document.xml.rels")
+    None => fail("expected relationships part name")
+  }
+  if !info.detail.contains("missing attribute: Target") {
+    fail("expected malformed relationships detail")
+  }
+}
+
+///|
+test "ooxml strict validation reports missing relationship target" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml("<Relationship Id=\"rId1\" Type=\"image\"/>"),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::MissingRelationshipTarget
+  })
+  assert_eq(issues.length(), 1)
+}
+
+///|
+test "ooxml strict validation reports missing relationship id" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Type=\"image\" Target=\"media/image1.png\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::MissingRelationshipId
+  })
+  assert_eq(issues.length(), 1)
+}
+
+///|
+test "ooxml strict validation reports unsafe relationship target" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"image\" Target=\"../media/../../evil.bin\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::UnsafeRelationshipTarget
+  })
+  assert_eq(issues.length(), 1)
+  match issues[0].target {
+    Some(v) =>
+      if !v.contains("../media/../../evil.bin") {
+        fail("strict validation should retain unsafe target detail")
+      }
+    None => fail("strict validation should keep target")
+  }
+}
+
+///|
+test "ooxml package classifies rooted and parent traversal part paths" {
+  let pkg = open_sample_package("samples/main_process/docx/golden.docx")
+  let rooted = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "/../evil.xml"))
+  let rooted_info = expect_error_info(
+    rooted,
+    @ox.OoxmlErrorKind::UnsafePartName,
+  )
+  match rooted_info.part_name {
+    Some(path) =>
+      if path.trim() == "" {
+        fail("expected unsafe part path detail")
+      }
+    None => fail("expected unsafe part path payload")
+  }
+}
+
+///|
+test "ooxml package preserves external relationship classification" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"hyperlink\" Target=\"https://example.com/spec\" TargetMode=\"External\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let rels = @ox.read_part_relationships(pkg, "word/document.xml") catch {
+    e => fail("read_part_relationships failed: " + e.to_string())
+  }
+  assert_eq(rels.length(), 1)
+  if rels[0].target_mode != @ox.OoxmlTargetMode::External {
+    fail("expected external relationship target mode")
+  }
+  assert_eq(rels[0].resolved_target, "https://example.com/spec")
+
+  let infos = @ox.list_relationship_infos(pkg, "word/document.xml") catch {
+    e => fail("list_relationship_infos failed: " + e.to_string())
+  }
+  assert_eq(infos.length(), 1)
+  if infos[0].target_mode != @ox.OoxmlTargetMode::External {
+    fail("expected external target mode in relationship info")
+  }
+
+  let report = @ox.validate_ooxml_package(pkg)
+  assert_eq(report.warning_count, 1)
+  assert_eq(report.error_count, 0)
+  if report.issues[0].kind != @ox.OoxmlValidationIssueKind::ExternalRelationship {
+    fail("expected external relationship validation issue")
+  }
+}
+
+///|
+test "ooxml package rejects duplicate normalized part names" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+    ("word/./document.xml", "<doc/>"),
+  ])
+
+  let result = try? @ox.open_ooxml_package(bytes)
+  match result {
+    Ok(_) => fail("expected normalized part collision to fail closed")
+    Err(e) =>
+      if !e.to_string().contains("normalized part collision: word/document.xml") {
+        fail("unexpected normalized collision error: " + e.to_string())
+      }
+  }
+}
+
+///|
+test "ooxml package inventory skips directory entries" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    ("word/", ""),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  assert_eq(inventory.part_count, 1)
+  assert_eq(inventory.parts[0].part_name, "word/document.xml")
+}
+
+///|
+test "ooxml package rejects duplicate content type override after normalization" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/xml\"/>" +
+        "<Override PartName=\"/word/./document.xml\" ContentType=\"application/xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let result = try? @ox.open_ooxml_package(bytes)
+  match result {
+    Ok(_) => fail("expected duplicate normalized content type override to fail")
+    Err(e) => {
+      let info = @ox.classify_ooxml_error(e)
+      if info.kind != @ox.OoxmlErrorKind::DuplicateContentTypeOverride {
+        fail("unexpected duplicate override error kind: " + e.to_string())
+      }
+      if !e
+        .to_string()
+        .contains("duplicate content type override: /word/document.xml") {
+        fail("unexpected duplicate override error: " + e.to_string())
+      }
+    }
+  }
+}
+
+///|
+test "ooxml package content type default and override behavior is explicit" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+      "<Default Extension=\"xml\" ContentType=\"application/xml-default\"/>" +
+      "<Default Extension=\"png\" ContentType=\"image/png\"/>" +
+      "<Override PartName=\"/word/document.xml\" ContentType=\"application/document-override\"/>" +
+      "</Types>",
+    ),
+    ("word/document.xml", "<doc/>"),
+    ("word/other.xml", "<other/>"),
+    ("word/media/image1.png", "PNGDATA"),
+    ("word/noext", "raw"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let doc_ct = @ox.lookup_content_type(pkg, "word/document.xml") catch {
+    e => fail("lookup_content_type failed: " + e.to_string())
+  }
+  match doc_ct {
+    Some(v) => assert_eq(v, "application/document-override")
+    None => fail("expected override content type")
+  }
+  let other_ct = @ox.lookup_content_type(pkg, "word/other.xml") catch {
+    e => fail("lookup_content_type failed: " + e.to_string())
+  }
+  match other_ct {
+    Some(v) => assert_eq(v, "application/xml-default")
+    None => fail("expected xml default content type")
+  }
+  let png_ct = @ox.lookup_content_type(pkg, "word/media/image1.png") catch {
+    e => fail("lookup_content_type failed: " + e.to_string())
+  }
+  match png_ct {
+    Some(v) => assert_eq(v, "image/png")
+    None => fail("expected png default content type")
+  }
+  let noext_ct = @ox.lookup_content_type(pkg, "word/noext") catch {
+    e => fail("lookup_content_type failed: " + e.to_string())
+  }
+  match noext_ct {
+    Some(_) => fail("part without extension should not infer a content type")
+    None => ()
+  }
+}
+
+///|
+test "ooxml strict validation issue ordering is deterministic" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId2\" Type=\"hyperlink\" Target=\"https://example.com/spec\" TargetMode=\"External\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  if report.issues.length() < 3 {
+    fail("expected multiple strict validation issues")
+  }
+  if report.issues[0].kind !=
+    @ox.OoxmlValidationIssueKind::DuplicateRelationshipId {
+    fail("expected duplicate relationship id issue first")
+  }
+  if report.issues[1].kind !=
+    @ox.OoxmlValidationIssueKind::MissingRelationshipId {
+    fail("expected missing relationship id issue second")
+  }
+}
+
+///|
+test "ooxml package can parse lightweight core and app properties" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+      "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+      "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>" +
+      "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>" +
+      "</Types>",
+    ),
+    (
+      "docProps/core.xml", "<cp:coreProperties><dc:title>Spec</dc:title><dc:creator>MoonBit</dc:creator></cp:coreProperties>",
+    ),
+    (
+      "docProps/app.xml", "<Properties><Application>MarkItDown</Application><Pages>7</Pages><Worksheets>3</Worksheets></Properties>",
+    ),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let core = @ox.read_core_properties(pkg)
+  let app = @ox.read_app_properties(pkg)
+  match core.title {
+    Some(v) => assert_eq(v, "Spec")
+    None => fail("expected core title")
+  }
+  match core.creator {
+    Some(v) => assert_eq(v, "MoonBit")
+    None => fail("expected core creator")
+  }
+  match app.application {
+    Some(v) => assert_eq(v, "MarkItDown")
+    None => fail("expected app application")
+  }
+  match app.pages {
+    Some(v) => assert_eq(v, "7")
+    None => fail("expected app pages")
+  }
+  let inventory = @ox.inspect_ooxml_inventory(pkg)
+  if !inventory.has_core_properties || !inventory.has_app_properties {
+    fail("expected docProps availability in inventory")
+  }
+}
+
+///|
+test "ooxml package missing relationship target stays not found" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = ok_or_err_unit(try? @ox.resolve_relationship(pkg, "", "rId404"))
+  let info = expect_error_info(result, @ox.OoxmlErrorKind::RelationshipNotFound)
+  match info.rel_id {
+    Some(v) => assert_eq(v, "rId404")
+    None => fail("expected missing relationship id")
   }
 }

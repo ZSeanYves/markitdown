@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfdest",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfmarks",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpage",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpagelabels",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdftree",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfst",
+}

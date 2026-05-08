@@ -17,6 +17,27 @@ pub(all) suberror MbtPdfAdapterError {
 pub impl Show for MbtPdfAdapterError
 
 // Types and methods
+pub struct PdfRawIssue {
+  kind : PdfRawIssueKind
+  severity : PdfRawIssueSeverity
+  page_index : Int?
+  object_ref : RawPdfRef?
+  source_ref : RawSourceRef?
+  message : String
+}
+
+pub enum PdfRawIssueKind {
+  EncryptedDocument
+  UnsupportedObjectStream
+  AnnotationParseWarning
+  ImageParseWarning
+}
+
+pub enum PdfRawIssueSeverity {
+  Warning
+  Error
+}
+
 pub(all) struct RawAnnotationInfo {
   id : String
   page_index : Int
@@ -102,6 +123,7 @@ pub struct RawPdfDocumentExtract {
   metadata_producer : String?
   metadata_creation_date : String?
   metadata_mod_date : String?
+  issues : Array[PdfRawIssue]
   pages : Array[RawPdfPageExtract]
 }
 
@@ -115,6 +137,7 @@ pub struct RawPdfPageExtract {
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]
   raw_content_stream_refs : Array[String]
+  issues : Array[PdfRawIssue]
 }
 
 pub(all) struct RawPdfRef {

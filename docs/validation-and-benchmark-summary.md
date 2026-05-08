@@ -22,7 +22,7 @@ Current checked validation and benchmark facts:
 
 | Check | Current result |
 | --- | --- |
-| `moon test` | `1334 passed, 0 failed` |
+| `moon test` | `1380 passed, 0 failed` |
 | Real-world complex corpus | `11 passed, 0 failed` |
 | Main process samples | `444 passed, 0 failed` |
 | Metadata sidecars | `85 passed, 0 failed` |
@@ -42,6 +42,7 @@ moon check
 moon test
 ./samples/check.sh
 ./samples/bench.sh --suite smoke --kind smoke
+./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
 ## GitHub Actions CI
@@ -117,14 +118,14 @@ Representative overlap examples from the current checked-in compare summary:
 
 | Format | Case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio | Scope note |
 | --- | --- | ---: | ---: | ---: | --- |
-| XLSX | `xlsx_formula_cached_values_compare` | 10 ms | 480 ms | ~48x | overlap corpus, prebuilt-native vs local Python tool |
-| XLSX | `xlsx_formula_eval_arithmetic_compare` | 10 ms | 508 ms | ~51x | overlap corpus, bounded evaluator-v1 scenario |
-| DOCX | `docx_nested_lists_mixed_compare` | 31 ms | 821 ms | ~26x | overlap corpus, selected local Word sample |
-| DOCX | `docx_table_multiline_complex_compare` | 14 ms | 673 ms | ~48x | overlap corpus, selected local table-heavy sample |
-| PPTX | `pptx_title_bullets_compare` | 18 ms | 710 ms | ~39x | overlap corpus, selected local presentation sample |
-| PPTX | `pptx_image_alt_title_compare` | 13 ms | 651 ms | ~50x | overlap corpus, selected local image/title sample |
-| PDF | `pdf_uri_link_basic_compare` | 11 ms | 516 ms | ~47x | native text-PDF overlap only |
-| HTML | `html_simple_compare` | 10 ms | 499 ms | ~50x | overlap corpus, lightweight local HTML parser scope |
+| XLSX | `xlsx_formula_cached_values_compare` | 10 ms | 436 ms | ~44x | overlap corpus, prebuilt-native vs local Python tool |
+| XLSX | `xlsx_formula_eval_arithmetic_compare` | 9 ms | 436 ms | ~48x | overlap corpus, bounded evaluator-v1 scenario |
+| DOCX | `docx_nested_lists_mixed_compare` | 14 ms | 535 ms | ~38x | overlap corpus, selected local Word sample |
+| DOCX | `docx_table_multiline_complex_compare` | 14 ms | 507 ms | ~36x | overlap corpus, selected local table-heavy sample |
+| PPTX | `pptx_title_bullets_compare` | 11 ms | 442 ms | ~40x | overlap corpus, selected local presentation sample |
+| PPTX | `pptx_image_alt_title_compare` | 11 ms | 435 ms | ~40x | overlap corpus, selected local image/title sample |
+| PDF | `pdf_uri_link_basic_compare` | 10 ms | 438 ms | ~44x | native text-PDF overlap only |
+| HTML | `html_simple_compare` | 9 ms | 438 ms | ~49x | overlap corpus, lightweight local HTML parser scope |
 
 These are representative rows, not an attempt to summarize every format with a
 single multiplier.

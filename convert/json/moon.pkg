@@ -1,5 +1,6 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/json" @dpjson,
   "moonbitlang/core/env" @env,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/x/fs" @fs,

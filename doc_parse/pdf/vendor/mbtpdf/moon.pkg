@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/crypto/pdfcrypt",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadfs",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfwrite",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfwritefs",
+  "moonbitlang/async/fs",
+  "moonbitlang/x/sys" @sys,
+  "moonbitlang/async",
+}

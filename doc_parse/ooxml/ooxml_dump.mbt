@@ -3,6 +3,85 @@
 ///
 /// These helpers are intentionally read-only and lossy: they are for debugging
 /// package structure, not for feeding conversion logic.
+pub fn inspect_ooxml_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
+  build_package_inventory(pkg)
+}
+
+///|
+pub fn inspect_ooxml_package(pkg : OoxmlPackage) -> OoxmlPackageInspectReport {
+  let inventory = inspect_ooxml_inventory(pkg)
+  let package_relationships = read_relationship_infos(pkg, "", "_rels/.rels") catch {
+    _ => []
+  }
+  let part_relationships : Array[OoxmlRelationshipInfo] = []
+  for source in inventory.relationship_source_parts {
+    let rels_part_name = rels_part_name_for_source(source)
+    let infos = read_relationship_infos(pkg, source, rels_part_name) catch {
+      _ => []
+    }
+    for info in infos {
+      part_relationships.push(info)
+    }
+  }
+  let media_assets = list_media_assets(pkg) catch { _ => [] }
+  {
+    part_count: inventory.parts.length(),
+    content_type_default_count: count_string_map(pkg.content_types_default),
+    content_type_override_count: count_string_map(pkg.content_types_override),
+    relationship_source_count: inventory.relationship_source_parts.length(),
+    package_relationship_count: package_relationships.length(),
+    part_relationship_count: part_relationships.length(),
+    media_asset_count: media_assets.length(),
+    inventory,
+    package_relationships,
+    part_relationships,
+    media_assets,
+    core_properties: read_core_properties(pkg),
+    app_properties: read_app_properties(pkg),
+  }
+}
+
+///|
+pub fn list_part_infos(pkg : OoxmlPackage) -> Array[OoxmlPartInfo] {
+  inspect_ooxml_package(pkg).inventory.parts
+}
+
+///|
+pub fn find_part_info(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> OoxmlPartInfo? raise OoxmlError {
+  let normalized = normalize_part_name(part_name)
+  for info in list_part_infos(pkg) {
+    if info.part_name == normalized {
+      return Some(info)
+    }
+  }
+  None
+}
+
+///|
+pub fn list_content_type_infos(
+  pkg : OoxmlPackage,
+) -> Array[OoxmlContentTypeInfo] {
+  inspect_ooxml_package(pkg).inventory.content_types
+}
+
+///|
+pub fn list_relationship_infos(
+  pkg : OoxmlPackage,
+  source_part : String,
+) -> Array[OoxmlRelationshipInfo] raise OoxmlError {
+  let source = normalize_source_part_for_resolve(source_part)
+  let rels_part_name = if source == "" {
+    "_rels/.rels"
+  } else {
+    rels_part_name_for_source(source)
+  }
+  read_relationship_infos(pkg, source, rels_part_name)
+}
+
+///|
 pub fn dump_ooxml_package(pkg : OoxmlPackage) -> String {
   let out = StringBuilder::new()
   out.write_string(dump_package_summary(pkg))
@@ -18,16 +97,17 @@ pub fn dump_ooxml_package(pkg : OoxmlPackage) -> String {
 ///|
 /// Dump part and content-type counts from the package container.
 pub fn dump_package_summary(pkg : OoxmlPackage) -> String {
+  let report = inspect_ooxml_package(pkg)
   let out = StringBuilder::new()
   out.write_string("[Content_Types]\n")
   out.write_string("part count: ")
-  out.write_string(list_parts(pkg).length().to_string())
+  out.write_string(report.part_count.to_string())
   out.write_string("\n")
   out.write_string("content type defaults: ")
-  out.write_string(count_string_map(pkg.content_types_default).to_string())
+  out.write_string(report.content_type_default_count.to_string())
   out.write_string("\n")
   out.write_string("content type overrides: ")
-  out.write_string(count_string_map(pkg.content_types_override).to_string())
+  out.write_string(report.content_type_override_count.to_string())
   out.write_string("\n")
   out.to_string()
 }
@@ -35,22 +115,24 @@ pub fn dump_package_summary(pkg : OoxmlPackage) -> String {
 ///|
 /// Dump package-root relationships and all source-part relationships.
 pub fn dump_relationships_summary(pkg : OoxmlPackage) -> String {
+  let report = inspect_ooxml_package(pkg)
   let out = StringBuilder::new()
   out.write_string("[relationships]\n")
   out.write_string("root relationships:\n")
-  write_relationships(out, read_package_relationships(pkg) catch { _ => [] })
+  write_relationship_infos(out, report.package_relationships)
 
-  let sources = relationship_source_parts(pkg)
-  for source in sources {
+  for source in report.inventory.relationship_source_parts {
     out.write_string("source part: ")
     out.write_string(source)
     out.write_string("\n")
-    write_relationships(
-      out,
-      read_part_relationships(pkg, source) catch {
-        _ => []
-      },
-    )
+    let rels : Array[OoxmlRelationshipInfo] = []
+    for rel in report.part_relationships {
+      match rel.source_part {
+        Some(value) => if value == source { rels.push(rel) }
+        None => ()
+      }
+    }
+    write_relationship_infos(out, rels)
   }
   out.to_string()
 }
@@ -58,14 +140,14 @@ pub fn dump_relationships_summary(pkg : OoxmlPackage) -> String {
 ///|
 /// Dump indexed media assets and the source relationships that reference them.
 pub fn dump_media_assets_summary(pkg : OoxmlPackage) -> String {
+  let report = inspect_ooxml_package(pkg)
   let out = StringBuilder::new()
   out.write_string("[media]\n")
-  let assets = list_media_assets(pkg) catch { _ => [] }
   out.write_string("media asset count: ")
-  out.write_string(assets.length().to_string())
+  out.write_string(report.media_asset_count.to_string())
   out.write_string("\n")
 
-  for asset in assets {
+  for asset in report.media_assets {
     out.write_string("- part_name=")
     out.write_string(asset.part_name)
     out.write_string(" content_type=")
@@ -83,9 +165,10 @@ pub fn dump_media_assets_summary(pkg : OoxmlPackage) -> String {
 ///|
 /// Dump lightweight core/app document properties.
 pub fn dump_properties_summary(pkg : OoxmlPackage) -> String {
+  let report = inspect_ooxml_package(pkg)
   let out = StringBuilder::new()
-  let core = read_core_properties(pkg)
-  let app = read_app_properties(pkg)
+  let core = report.core_properties
+  let app = report.app_properties
 
   out.write_string("[properties]\n")
   out.write_string("core: title=")
@@ -119,21 +202,103 @@ pub fn dump_properties_summary(pkg : OoxmlPackage) -> String {
 }
 
 ///|
-fn relationship_source_parts(pkg : OoxmlPackage) -> Array[String] {
-  let out : Array[String] = []
+fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
+  let entries = @zip.list_entries(pkg.archive)
+  let parts : Array[OoxmlPartInfo] = []
+  let content_types : Array[OoxmlContentTypeInfo] = []
+  let relationship_source_parts : Array[String] = []
+  let relationship_parts : Array[String] = []
+  for entry in pkg.content_types_default {
+    let (extension, content_type) = entry
+    content_types.push({
+      kind: OoxmlContentTypeInfoKind::DefaultExtension,
+      extension: Some(extension),
+      part_name: None,
+      content_type,
+    })
+  }
+  content_types.sort_by(fn(a, b) { compare_content_type_infos(a, b) })
   for part in list_parts(pkg) {
+    if part == "[Content_Types].xml" {
+      continue
+    }
+    if is_relationships_part_name(part) {
+      relationship_parts.push(part)
+    }
+    parts.push({
+      part_name: part,
+      content_type: lookup_content_type(pkg, part) catch {
+        _ => None
+      },
+      size: part_size(entries, pkg, part),
+      is_relationships_part: is_relationships_part_name(part),
+      has_relationships: has_relationships_part(pkg, part),
+    })
     if has_relationships_part(pkg, part) {
-      out.push(part)
+      relationship_source_parts.push(part)
     }
   }
-  out.sort()
+  for entry in pkg.content_types_override {
+    let (part_name, content_type) = entry
+    content_types.push({
+      kind: OoxmlContentTypeInfoKind::OverridePart,
+      extension: None,
+      part_name: Some(part_name),
+      content_type,
+    })
+  }
+  parts.sort_by(fn(a, b) { a.part_name[:].lexical_compare(b.part_name[:]) })
+  relationship_source_parts.sort()
+  relationship_parts.sort()
+  let media_asset_count = (list_media_assets(pkg) catch { _ => [] }).length()
+  {
+    parts,
+    content_types,
+    relationship_source_parts,
+    relationship_parts,
+    part_count: parts.length(),
+    relationship_part_count: relationship_parts.length(),
+    content_type_entry_count: content_types.length(),
+    media_asset_count,
+    has_core_properties: has_part(pkg, "docProps/core.xml"),
+    has_app_properties: has_part(pkg, "docProps/app.xml"),
+  }
+}
+
+///|
+fn read_relationship_infos(
+  pkg : OoxmlPackage,
+  source_part : String,
+  rels_part_name : String,
+) -> Array[OoxmlRelationshipInfo] raise OoxmlError {
+  if !pkg.part_index.contains(rels_part_name) {
+    return []
+  }
+  let source_part_opt = if source_part == "" { None } else { Some(source_part) }
+  let rels = if source_part == "" {
+    read_package_relationships(pkg)
+  } else {
+    read_part_relationships(pkg, source_part)
+  }
+  let out : Array[OoxmlRelationshipInfo] = []
+  for rel in rels {
+    out.push({
+      source_part: source_part_opt,
+      rels_part_name,
+      id: rel.id,
+      rel_type: rel.rel_type,
+      target: rel.target,
+      target_mode: rel.target_mode,
+      resolved_target: rel.resolved_target,
+    })
+  }
   out
 }
 
 ///|
-fn write_relationships(
+fn write_relationship_infos(
   out : StringBuilder,
-  rels : Array[OoxmlRelationship],
+  rels : Array[OoxmlRelationshipInfo],
 ) -> Unit {
   if rels.length() == 0 {
     out.write_string("  (none)\n")
@@ -176,6 +341,57 @@ fn write_asset_refs_inline(
     }
   }
   out.write_string("]")
+}
+
+///|
+fn compare_content_type_infos(
+  a : OoxmlContentTypeInfo,
+  b : OoxmlContentTypeInfo,
+) -> Int {
+  let a_key = content_type_sort_key(a)
+  let b_key = content_type_sort_key(b)
+  a_key[:].lexical_compare(b_key[:])
+}
+
+///|
+fn content_type_sort_key(info : OoxmlContentTypeInfo) -> String {
+  match info.kind {
+    OoxmlContentTypeInfoKind::DefaultExtension =>
+      "0:" + string_opt_or_empty(info.extension)
+    OoxmlContentTypeInfoKind::OverridePart =>
+      "1:" + string_opt_or_empty(info.part_name)
+  }
+}
+
+///|
+fn string_opt_or_empty(value : String?) -> String {
+  match value {
+    Some(v) => v
+    None => ""
+  }
+}
+
+///|
+fn is_relationships_part_name(part_name : String) -> Bool {
+  (part_name.has_suffix(".rels") && part_name.contains("/_rels/")) ||
+  part_name == "_rels/.rels"
+}
+
+///|
+fn part_size(
+  entries : Array[@zip.ZipEntryMeta],
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> Int {
+  match pkg.part_index.get(part_name) {
+    Some(index) =>
+      if index >= 0 && index < entries.length() {
+        entries[index].uncompressed_size
+      } else {
+        0
+      }
+    None => 0
+  }
 }
 
 ///|

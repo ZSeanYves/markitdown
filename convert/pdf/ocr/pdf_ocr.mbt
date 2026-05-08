@@ -159,7 +159,7 @@ async fn try_ocr_pdf_to_text(path : String, pipeline_debug : Bool) -> String? {
   }
 
   let text = (@fs.read_file_to_bytes(sidecar)
-  |> fn(bs) { @cor.utf8_bytes_to_string(bs) catch { _ => "" } }) catch {
+  |> fn(bs) { @utf8.decode(bs, ignore_bom=false) catch { _ => "" } }) catch {
     _ => ""
   }
 

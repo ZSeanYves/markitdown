@@ -1,4 +1,10 @@
 ///|
+priv struct RawAnnotationCollectResult {
+  annotations : Array[RawAnnotationInfo]
+  issues : Array[PdfRawIssue]
+}
+
+///|
 /// 注释颜色。
 fn color_from_pdf_object(
   pdf : @pdf.Pdf,
@@ -55,12 +61,30 @@ fn dest_string_from_annotation(
 }
 
 ///|
+fn annotation_issue(
+  kind : PdfRawIssueKind,
+  severity : PdfRawIssueSeverity,
+  page_index : Int,
+  annot_ref : @pdf.PdfObject,
+  message : String,
+) -> PdfRawIssue {
+  {
+    kind,
+    severity,
+    page_index: Some(page_index),
+    object_ref: raw_ref_from_pdf_object(annot_ref),
+    source_ref: None,
+    message,
+  }
+}
+
+///|
 fn annotation_from_pdf_object(
   pdf : @pdf.Pdf,
   annot_ref : @pdf.PdfObject,
   page_index : Int,
   annotation_index : Int,
-) -> RawAnnotationInfo? {
+) -> Result[RawAnnotationInfo, PdfRawIssue] {
   let annot_obj = pdf.direct(annot_ref)
   match annot_obj {
     @pdf.PdfObject::Dictionary(_) => {
@@ -71,7 +95,7 @@ fn annotation_from_pdf_object(
       match bbox {
         Some(bbox) => {
           let action = pdf.lookup_direct("/A", annot_obj)
-          Some({
+          Ok({
             id: "annot-" +
             page_index.to_string() +
             "-" +
@@ -98,10 +122,28 @@ fn annotation_from_pdf_object(
             source_refs: [],
           })
         }
-        None => None
+        None =>
+          Err(
+            annotation_issue(
+              PdfRawIssueKind::AnnotationParseWarning,
+              PdfRawIssueSeverity::Warning,
+              page_index,
+              annot_ref,
+              "annotation missing or malformed /Rect bbox",
+            ),
+          )
       }
     }
-    _ => None
+    _ =>
+      Err(
+        annotation_issue(
+          PdfRawIssueKind::AnnotationParseWarning,
+          PdfRawIssueSeverity::Warning,
+          page_index,
+          annot_ref,
+          "annotation is not a dictionary object",
+        ),
+      )
   }
 }
 
@@ -111,17 +153,27 @@ fn collect_annotations_from_page(
   pdf : @pdf.Pdf,
   page : @pdfpage.Page,
   page_index : Int,
-) -> Array[RawAnnotationInfo] {
+) -> RawAnnotationCollectResult {
   let out : Array[RawAnnotationInfo] = Array::new()
+  let issues : Array[PdfRawIssue] = Array::new()
   match pdf.lookup_direct("/Annots", page.rest) {
     Some(@pdf.PdfObject::Array(annots)) =>
       for i = 0; i < annots.length(); i = i + 1 {
         match annotation_from_pdf_object(pdf, annots[i], page_index, i) {
-          Some(annotation) => out.push(annotation)
-          None => ()
+          Ok(annotation) => out.push(annotation)
+          Err(issue) => issues.push(issue)
         }
       }
+    Some(_) =>
+      issues.push({
+        kind: PdfRawIssueKind::AnnotationParseWarning,
+        severity: PdfRawIssueSeverity::Warning,
+        page_index: Some(page_index),
+        object_ref: None,
+        source_ref: None,
+        message: "page /Annots entry is present but not an array",
+      })
     _ => ()
   }
-  out
+  { annotations: out, issues }
 }

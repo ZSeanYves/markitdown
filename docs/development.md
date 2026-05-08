@@ -119,6 +119,16 @@ The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
 public validation entrypoints. Helpers under `samples/scripts/` remain
 internal implementation detail or maintainer-only tooling.
 
+Lower-layer package work:
+
+* `doc_parse/ooxml`, `doc_parse/pdf`, and `doc_parse/epub` should be treated as
+  reusable parsing substrates, not as places to hide converter-only Markdown
+  semantics
+* when hardening `doc_parse/*`, prefer direct lower-layer tests over relying
+  only on converter Markdown regression
+* use [docs/doc-parse-foundation.md](./doc-parse-foundation.md) as the package
+  maturity contract
+
 ## PDF lower-layer dependency
 
 The native PDF lower layer lives under `doc_parse/pdf`.
@@ -126,7 +136,7 @@ The native PDF lower layer lives under `doc_parse/pdf`.
 Its backend currently depends on the vendored package tree under:
 
 ```text
-vendor/mbtpdf
+doc_parse/pdf/vendor/mbtpdf
 ```
 
 This vendored tree is maintained as part of the repository rather than through
@@ -170,7 +180,7 @@ Vendored PDF e2e policy:
 * optional vendored e2e remains available through:
 
 ```bash
-moon test vendor/mbtpdf/e2e --include-skipped
+moon test doc_parse/pdf/vendor/mbtpdf/e2e --include-skipped
 ```
 
 Validation UX controls:

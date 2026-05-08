@@ -55,7 +55,8 @@ pub fn parse_txt_with_profile(
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
   let split_started = @env.now()
-  let paragraphs = paragraph_spans(text)
+  let parsed = @dptext.parse_text_document(text)
+  let paragraphs = parsed.paragraphs
   txt_profile_add_stage(
     profile,
     "txt_split_paragraphs",
@@ -133,76 +134,12 @@ fn contains_non_bmp_char(text : String) -> Bool {
 }
 
 ///|
-priv struct ParagraphSpan {
-  text : String
-  line_start : Int
-  line_end : Int
-}
-
-///|
 fn normalize_txt_text(text : String) -> String {
   @cor.normalize_document_text_cleanup(text)
 }
 
 ///|
-fn paragraph_spans(text : String) -> Array[ParagraphSpan] {
-  if text == "" {
-    return []
-  }
-
-  let lines = split_lines_preserve_trailing(text)
-  let out : Array[ParagraphSpan] = []
-  let current : Array[String] = []
-  let mut line_start = 0
-  let mut line_end = 0
-
-  for i in 0..<lines.length() {
-    let line_no = i + 1
-    let trimmed = lines[i].trim().to_owned()
-    if trimmed == "" {
-      if current.length() > 0 {
-        out.push({ text: current.join(" "), line_start, line_end })
-        current.clear()
-        line_start = 0
-        line_end = 0
-      }
-      continue
-    }
-
-    if current.length() == 0 {
-      line_start = line_no
-    }
-    current.push(trimmed)
-    line_end = line_no
-  }
-
-  if current.length() > 0 {
-    out.push({ text: current.join(" "), line_start, line_end })
-  }
-
-  out
-}
-
-///|
-fn split_lines_preserve_trailing(text : String) -> Array[String] {
-  let out : Array[String] = []
-  let line : Array[Char] = []
-
-  for ch in text.to_array() {
-    if ch == '\n' {
-      out.push(String::from_array(line))
-      line.clear()
-    } else {
-      line.push(ch)
-    }
-  }
-
-  out.push(String::from_array(line))
-  out
-}
-
-///|
-fn txt_literal_markdown(paragraphs : Array[ParagraphSpan]) -> String {
+fn txt_literal_markdown(paragraphs : Array[@dptext.TextParagraph]) -> String {
   let out = StringBuilder::new()
 
   for i in 0..<paragraphs.length() {

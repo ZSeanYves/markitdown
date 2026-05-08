@@ -55,11 +55,160 @@ GitHub Actions validation is currently checked in for Ubuntu and macOS.
 | DOCX | H2++ complete / H3++ evidence-backed | Word document structure recovery; not a Word layout engine |
 | PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
 | PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
-| CSV / TSV / JSON / YAML / XML / Markdown / TXT | stable structured/text paths | conservative boundaries documented in support docs; not all families are second-round sealed |
+| CSV / TSV / JSON / YAML / TXT | stable structured/text paths | conservative boundaries documented in support docs; Markdown is handled separately as a lightweight scanner candidate |
+| XML | source-preserving converter path + parser foundation candidate | source-preserving converter output today; `doc_parse/xml` is now an XML parser foundation candidate |
 
 Benchmark and quality conclusions are limited to the checked-in corpora and
 runner contracts named in the repository docs. They are not blanket claims
 about all documents of a format family.
+
+## doc_parse Foundation Status
+
+`doc_parse` is now treated as a reusable parsing foundation layer inside the
+repository rather than as a converter-only helper.
+
+Current contract:
+
+* `doc_parse/*` owns parsing, source-native model, inspect, validation,
+  provenance where available, and safety boundary
+* `convert/*` owns IR, Markdown, assets, metadata, and product output policy
+
+### Container and package foundations
+
+* `doc_parse/zip`
+  external-decoder-backed ZIP foundation candidate for archive structure,
+  inventory, validation, and inspect.
+* `doc_parse/ooxml`
+  OOXML package foundation candidate for parts, relationships, content types,
+  media, docProps, inspect, and strict validation.
+* `doc_parse/epub`
+  EPUB package/spine/nav foundation candidate for container, OPF, manifest,
+  spine, nav/NCX, cover, metadata, inspect, and validation.
+* `doc_parse/pdf`
+  native text-PDF foundation candidate for page/text/image/annotation lower
+  layers, structured inspect, typed issues, and classifier-friendly errors.
+
+### Simple-format, markup, and scanner foundations
+
+* `doc_parse/csv`
+  CSV parser foundation candidate for delimited table model, inspect, and
+  ragged-row validation.
+* `doc_parse/tsv`
+  TSV parser foundation candidate as the tab-delimited facade over the CSV core.
+* `doc_parse/json`
+  JSON parser foundation candidate for AST, inspect, and malformed-input
+  classification.
+* `doc_parse/yaml`
+  YAML-subset parser foundation candidate for subset AST, inspect, and
+  fail-closed unsupported-feature boundaries.
+* `doc_parse/text`
+  plain-text parser foundation candidate for bytes/string open, BOM/newline
+  handling, structural model, and inspect.
+* `doc_parse/xml`
+  XML parser foundation candidate for safe tokenizer/parser/model/inspect/
+  validation with explicit no-XXE and no-DTD-expansion boundary.
+* `doc_parse/html`
+  HTML DOM-ish parser foundation candidate for tolerant tokenizer/parser/raw
+  node inventory/inspect/validation with explicit no-fetch /
+  no-script-execution boundaries.
+* `doc_parse/markdown`
+  Markdown lightweight scanner foundation candidate for raw block inventory,
+  frontmatter detection, fenced code detection, and inspect/validation.
+
+### OOXML semantic sublayers
+
+* `doc_parse/xlsx`
+  XLSX semantic foundation candidate for workbook/sheet/cell/shared
+  strings/styles/merged ranges/formula trace inspect and validation.
+* `doc_parse/docx`
+  DOCX semantic foundation candidate for source-native
+  body/inline/table relationships, styles, numbering, notes, and media refs.
+* `doc_parse/pptx`
+  PPTX semantic foundation candidate for source-native slide order,
+  raw shape tree, text paragraphs/runs, explicit tables, notes, media refs,
+  and hyperlink refs.
+
+Current module strategy:
+
+* these packages are delivered today as importable in-tree subpackages under
+  `ZSeanYves/markitdown`
+* standalone `ZSeanYves/doc_parse` module extraction is future release work
+* `moon.pkg` defines package configuration inside the current module; publishable
+  module boundaries are still determined by `moon.mod.json`
+* convert normal-path integration status is:
+  * integrated: `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
+  * not switched intentionally: `xml` / `html` / `markdown` / `docx` / `pptx`
+* `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` while still owning
+  `RichTable` / IR / Markdown policy
+* `convert/json`, `convert/yaml`, and `convert/txt` consume `doc_parse`
+  parser/model layers while still owning IR / Markdown / product policy
+* `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
+  parsing, while still owning RichTable / IR / Markdown / metadata / product
+  output policy
+* `convert/xml` still owns the current source-preserving XML normal path
+* `convert/html` and `convert/markdown` still own their current product
+  conversion paths
+* `convert/docx` still owns the current normal DOCX conversion path and its
+  final heading/list/table/caption/code/image product policy; the new
+  `doc_parse/docx` semantic package is not the normal converter path yet
+* `convert/pptx` still owns the current normal PPTX conversion path and its
+  reading-order/layout/grouping/caption/image/IR product policy
+* none of these candidate labels claim full spec coverage
+
+## What doc_parse is
+
+`doc_parse` is the parsing foundation under `markitdown`.
+
+It provides source-native document models, structural inspection, validation
+issues, error classification, provenance where available, and safety
+boundaries for real-world document formats.
+
+It is useful for:
+
+* conversion pipelines
+* document inspection
+* validation / quality audits
+* RAG ingestion preprocessing
+* format-specific tooling
+* custom extractors and indexers on top of MoonBit
+
+It is not:
+
+* a Markdown renderer
+* an Office / PDF / browser engine
+* an OCR system
+* a full spec implementation for every format
+* the owner of final output policy
+
+## What Users Can Build On Top
+
+`doc_parse` is intentionally reusable above the lower-layer model boundary.
+
+Typical things users can build on top of it include:
+
+* document structure inspectors
+* broken-reference checkers
+* unsafe archive/path checkers
+* OOXML media and hyperlink auditors
+* EPUB spine / nav validators
+* XLSX workbook and cell analyzers
+* DOCX paragraph / table / link / image extractors
+* PPTX slide / shape / media inventories
+* HTML / XML safety scanners
+* Markdown frontmatter / fence scanners
+* custom converters into a private IR
+* chunking / indexing preprocessors for RAG pipelines
+
+## What Remains In convert
+
+The converter layer still owns product behavior above the `doc_parse` model:
+
+* final Markdown output
+* IR block / inline policy
+* assets export
+* metadata sidecar shaping
+* heading / list / table / caption / layout heuristics
+* product compatibility behavior
 
 ## Core Capabilities
 
@@ -84,14 +233,15 @@ The H3++ performance evidence is based on the prebuilt-native CLI path, not
 
 The checked-in overlap comparison uses Microsoft MarkItDown `0.1.5` on named
 local samples from `samples/benchmark/compare_corpus.tsv`. Representative
-single-run examples currently sit in roughly the `20x` to `50x` range:
+single-run examples from the latest local compare rerun sit in roughly the
+high-`30x` to high-`40x` range:
 
 | Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
 | --- | ---: | ---: | ---: |
-| XLSX formula cached values | 10 ms | 480 ms | ~48x |
-| DOCX nested lists mixed | 31 ms | 821 ms | ~26x |
-| PPTX title bullets | 18 ms | 710 ms | ~39x |
-| PDF URI link basic | 11 ms | 516 ms | ~47x |
+| XLSX formula cached values | 10 ms | 436 ms | ~44x |
+| DOCX nested lists mixed | 14 ms | 535 ms | ~38x |
+| PPTX title bullets | 11 ms | 442 ms | ~40x |
+| PDF URI link basic | 10 ms | 438 ms | ~44x |
 
 These measurements are corpus-scoped local benchmark facts, not universal
 performance claims. PDF comparison rows apply only to the native text-PDF
@@ -189,6 +339,7 @@ Current boundary:
 * [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
 * [Support and Limits](./docs/support-and-limits.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)
+* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
 * [Real-World Corpus](./samples/real_world/README.md)

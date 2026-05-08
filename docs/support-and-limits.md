@@ -111,12 +111,73 @@ Across the current implementation:
   speculative reconstruction
 * structured-text converters either preserve source form or fail closed on
   invalid syntax instead of guessing
+* `doc_parse/*` packages are lower-layer parsing substrates and should expose
+  container/document/package/page/part signal rather than final Markdown
+  semantics
 * shared text normalization is profile-based rather than globally aggressive:
   output text, comparison/heuristic text, and literal/raw text preservation are
   explicitly separated
 * origin metadata is best-effort provenance, not a full anchoring system
 * metadata schema stays additive and sparse
 * asset export only happens for formats that materially emit image files
+
+Lower-layer package contract:
+
+* `doc_parse/*` is now treated as an in-tree parser/model/error/inspect/
+  validation/provenance/safety foundation line rather than as a
+  converter-only helper layer
+* current package/container foundation candidate line is:
+  * `doc_parse/zip`: external-decoder-backed ZIP foundation candidate
+  * `doc_parse/ooxml`: OOXML package foundation candidate
+  * `doc_parse/epub`: EPUB package/spine/nav foundation candidate
+  * `doc_parse/pdf`: native text-PDF foundation candidate
+* current simple-format parser candidate line is:
+  * `doc_parse/csv`: simple-format parser foundation candidate
+  * `doc_parse/tsv`: simple-format parser foundation candidate
+  * `doc_parse/json`: simple-format parser foundation candidate
+  * `doc_parse/yaml`: YAML-subset parser foundation candidate
+  * `doc_parse/text`: plain-text parser foundation candidate
+  * `doc_parse/xml`: XML parser foundation candidate
+* current markup/scanner candidate line also includes:
+  * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tolerant
+    tokenizer/parser/model/inspect/validation and explicit no-fetch /
+    no-script-execution boundary
+  * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate
+    with raw block inventory, frontmatter detection, fenced code detection,
+    and no renderer / no output mutation boundary
+* current OOXML semantic candidate line is:
+  * `doc_parse/xlsx`: XLSX semantic foundation candidate with
+    workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
+    model plus inspect/validation, while `convert/xlsx` still owns RichTable /
+    IR / Markdown / product output policy
+  * `doc_parse/docx`: DOCX semantic foundation candidate with
+    WordprocessingML body/inline/table/relationship/style/numbering/note/media
+    model plus inspect/validation/classifier, while `convert/docx` still owns
+    the current normal output path
+  * `doc_parse/pptx`: PPTX semantic foundation candidate with PresentationML
+    presentation/slide/raw-shape/text/table/notes/media/hyperlink model plus
+    inspect/validation/classifier, while `convert/pptx` still owns the
+    current normal output path
+* current delivery remains importable subpackages under
+  `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
+* they should fail closed or surface structured errors on malformed or unsafe
+  input
+* they should expose inspect/debug-friendly summaries that do not depend on
+  final Markdown conversion, and where helpful should also provide structured
+  inspect/report objects plus classifier-friendly error metadata
+* they should not absorb converter-only semantic policy
+* current convert normal-path integration status is:
+  * integrated: `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
+  * not switched intentionally: `xml` / `html` / `markdown` / `docx` / `pptx`
+* simple-format parser candidates still keep `convert/*` in place for
+  file-I/O seams, IR shaping, Markdown policy, and product-facing metadata
+  wiring
+* current simple-format packages now also carry in-tree package README
+  documentation for API, limits, and converter-boundary notes
+* all OOXML semantic sublayers now exist in-tree, and `doc_parse/xlsx`,
+  `doc_parse/docx`, and `doc_parse/pptx` are semantic foundation candidates
+
+See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
 Shared text-normalization substrate:
 
@@ -162,6 +223,8 @@ Shared text-normalization substrate:
   `pre/code`, XML source-preserving fallback, JSON/YAML/XML literal code
   paths, CSV/TSV value text, and TXT literal-safe lowering do not opt into
   aggressive normalization by default
+* debug/inspect surfaces, validation reports, and typed issue signals do not
+  change default normal conversion behavior by themselves
 
 ## Per-format Support
 
@@ -204,6 +267,10 @@ Conservative behavior:
   section instead of visual anchor reconstruction
 * merged table cells currently follow a visible-content policy rather than full
   visual merge reconstruction
+* `doc_parse/docx` now exists as a source-native semantic foundation
+  candidate for body/inline/table/relationship/style/numbering/note discovery,
+  but `convert/docx` still owns the current normal heading/list/table/caption/
+  code/image output policy
 * footnotes/endnotes/comments use explicit append-section ordering rather than
   inline Word review semantics
 * deleted / moved-from revision markup is skipped while inserted / moved-to
@@ -228,6 +295,9 @@ Status:
 
 * `H2++ complete`
 * `H3++ evidence-backed on checked-in native overlap corpus`
+* `doc_parse/pptx` now exists as a PresentationML semantic foundation
+  candidate, while `convert/pptx` still owns the current normal conversion
+  path
 
 Supported:
 
@@ -271,6 +341,9 @@ Known limits:
 * no pixel-perfect grouped-layout or z-order reconstruction
 * not a PowerPoint layout engine
 * no animations / transitions
+* `doc_parse/pptx` does not claim reading-order recovery, layout grouping,
+  image export, final Speaker Notes section policy, or final heading/list
+  classification ownership
 
 ### XLSX
 
@@ -418,6 +491,8 @@ Conservative behavior:
   with conservative header-row inference
 * `rowspan` / `colspan` boundaries are recorded/explained through metadata
   hints, but not visually reconstructed
+* `doc_parse/html` now provides a DOM-ish parser foundation candidate, but
+  `convert/html` still owns the current normal HTML conversion path
 
 Known limits:
 
@@ -555,12 +630,17 @@ Supported:
 * conservative block slicing for metadata summary
 * frontmatter passthrough as literal source text when a leading `---` or `+++`
   block is present
+* `doc_parse/markdown` now provides a lightweight source scanner / raw block
+  inventory / inspect candidate surface for Markdown source structure
 
 Conservative behavior:
 
 * original Markdown body is preserved instead of re-rendered from an AST
 * metadata summary uses lightweight conservative blocks instead of full Markdown
   semantics
+* scanner findings do not mutate passthrough output or normalization policy
+* `convert/markdown` still owns the normal passthrough/product path; the
+  lightweight scanner foundation is not the normal converter path yet
 
 Known limits:
 
@@ -603,7 +683,7 @@ Known limits:
 Status label:
 
 * `source-preserving`
-* safe XML handling, not semantic XML-family conversion
+* safe XML handling with an internal parser foundation candidate
 
 Supported:
 
@@ -614,14 +694,16 @@ Supported:
 * XML declaration / processing instruction / comments / CDATA / attributes /
   doctype text preserved literally
 * fence-width growth when source contains backticks
-* safe tokenizer/event surface for declarations, processing instructions, tags,
-  comments, CDATA, doctype, text, and literal entity references
+* `doc_parse/xml` tokenizer / parser / inspect / validation candidate for
+  declarations, processing instructions, tags, comments, CDATA, doctype, and
+  safe text/entity handling
 
 Conservative behavior:
 
 * XML is preserved as normalized source text rather than semantically rebuilt
 * metadata treats the whole source as one conservative `CodeBlock` summary block
-* tokenizer is syntax-level only and does not change main Markdown output
+* parser-layer XML inspection now exists, but the normal converter still keeps
+  source-preserving fenced output
 * XML does not opt into PDF-specific artifact cleanup or aggressive text
   rewriting beyond conservative source cleanup
 
@@ -631,7 +713,8 @@ Known limits:
 * no namespace interpretation
 * no external entity loading
 * no DTD expansion
-* no entity expansion
+* no custom entity expansion; only predefined XML entities are decoded in the
+  parser foundation
 * no `SYSTEM` / `PUBLIC` external-resource resolution
 * no schema validation
 * no specialized `.xhtml` / `.rss` / `.atom` / `.opf` / `.svg` handling

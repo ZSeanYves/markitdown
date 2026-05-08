@@ -18,8 +18,8 @@ pub fn parse_markdown(
     e => raise @cor.AppError("markdown: read failed: " + e.to_string())
   }
 
-  let raw = @cor.utf8_bytes_to_string(bytes) catch {
-    e => raise @cor.AppError("markdown: utf8 decode failed: " + e.to_string())
+  let raw = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise @cor.AppError("markdown: utf8 decode failed")
   }
   let text = normalize_markdown_source(raw)
 

@@ -1,4 +1,10 @@
 ///|
+priv enum DelimitedFormat {
+  Csv
+  Tsv
+}
+
+///|
 pub fn parse_csv(
   input_path : String,
   _out_dir : String,
@@ -73,26 +79,27 @@ fn parse_delimited_file_with_profile_impl(
     ),
   )
 
-  let normalize_started = @env.now()
-  let normalized = normalize_delimited_source(text)
-  csv_profile_add_stage(
-    profile,
-    "csv_normalize_newlines",
-    @env.now() - normalize_started,
-    Some("chars=" + normalized.length().to_string()),
-  )
-
   let parse_started = @env.now()
-  let rows = parse_delimited_table(normalized, format)
+  let parsed = match format {
+    DelimitedFormat::Csv => @dpcsv.parse_csv_document(text)
+    DelimitedFormat::Tsv => @dptsv.parse_tsv_document(text)
+  }
   csv_profile_add_stage(
     profile,
     "csv_parse_records",
     @env.now() - parse_started,
     Some(
-      "format=" + format_label(format) + " rows=" + rows.length().to_string(),
+      "format=" +
+      format_label(format) +
+      " rows=" +
+      parsed.rows.length().to_string(),
     ),
   )
-  let physical_line_count = physical_line_count(normalized)
+  let rows : Array[Array[String]] = []
+  for row in parsed.rows {
+    rows.push(row.fields)
+  }
+  let physical_line_count = parsed.line_count
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
 
@@ -182,52 +189,3 @@ fn contains_non_bmp_char(text : String) -> Bool {
 }
 
 ///|
-fn normalize_delimited_source(text : String) -> String {
-  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
-    text[1:].to_owned()
-  } else {
-    text
-  }
-  let out : Array[Char] = []
-  let chars = without_bom.to_array()
-  let mut i = 0
-
-  while i < chars.length() {
-    if chars[i] == '\r' {
-      out.push('\n')
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        i += 2
-      } else {
-        i += 1
-      }
-    } else {
-      out.push(chars[i])
-      i += 1
-    }
-  }
-
-  String::from_array(out)
-}
-
-///|
-fn physical_line_count(text : String) -> Int {
-  if text == "" {
-    return 0
-  }
-
-  let normalized = text
-    .replace(old="\r\n", new="\n")
-    .replace(old="\r", new="\n")
-  let mut breaks = 0
-  for ch in normalized.to_array() {
-    if ch == '\n' {
-      breaks += 1
-    }
-  }
-
-  if normalized.has_suffix("\n") {
-    breaks
-  } else {
-    breaks + 1
-  }
-}

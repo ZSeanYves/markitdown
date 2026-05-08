@@ -1112,7 +1112,9 @@ fn doc_has_assets(doc : @cor.Document) -> Bool {
 
 ///|
 fn html_entry_has_local_image_refs(entry_bytes : Bytes) -> Bool {
-  let html = @cor.utf8_bytes_to_string(entry_bytes) catch { _ => return false }
+  let html = @utf8.decode(entry_bytes, ignore_bom=false) catch {
+    _ => return false
+  }
   let mut pos = 0
 
   while true {

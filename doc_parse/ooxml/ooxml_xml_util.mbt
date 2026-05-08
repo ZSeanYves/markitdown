@@ -175,7 +175,12 @@ fn get_required_attr(
   key : String,
 ) -> String raise OoxmlError {
   match attrs.get(key) {
-    Some(value) => value
+    Some(value) =>
+      if value.trim() == "" {
+        raise InvalidXml("missing attribute: " + key)
+      } else {
+        value
+      }
     None => raise InvalidXml("missing attribute: " + key)
   }
 }

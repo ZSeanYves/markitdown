@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
+  "moonbitlang/core/math" @math,
+  "moonbitlang/core/string" @string,
+  "moonbitlang/x/fs" @fs,
+}
+
+options(
+  "preferred-target": "native",
+)

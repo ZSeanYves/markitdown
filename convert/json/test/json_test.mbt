@@ -118,8 +118,8 @@ fn read_utf8_text(path : String) -> String raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => fail("read sample failed: " + e.to_string())
   }
-  @cor.utf8_bytes_to_string(bytes) catch {
-    e => fail("utf8 decode failed: " + e.to_string())
+  @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => fail("utf8 decode failed")
   }
 }
 

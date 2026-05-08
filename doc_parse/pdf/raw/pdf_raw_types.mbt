@@ -6,6 +6,33 @@ pub(all) struct RawPdfRef {
 }
 
 ///|
+/// Raw-layer issue severity.
+pub enum PdfRawIssueSeverity {
+  Warning
+  Error
+}
+
+///|
+/// Raw-layer typed issue kind.
+pub enum PdfRawIssueKind {
+  EncryptedDocument
+  UnsupportedObjectStream
+  AnnotationParseWarning
+  ImageParseWarning
+}
+
+///|
+/// Raw-layer typed issue.
+pub struct PdfRawIssue {
+  kind : PdfRawIssueKind
+  severity : PdfRawIssueSeverity
+  page_index : Int?
+  object_ref : RawPdfRef?
+  source_ref : RawSourceRef?
+  message : String
+}
+
+///|
 /// 原始来源引用。
 pub struct RawSourceRef {
   page_index : Int
@@ -150,6 +177,7 @@ pub struct RawPdfPageExtract {
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]
   raw_content_stream_refs : Array[String]
+  issues : Array[PdfRawIssue]
 }
 
 ///|
@@ -168,5 +196,6 @@ pub struct RawPdfDocumentExtract {
   metadata_producer : String?
   metadata_creation_date : String?
   metadata_mod_date : String?
+  issues : Array[PdfRawIssue]
   pages : Array[RawPdfPageExtract]
 }

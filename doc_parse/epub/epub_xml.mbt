@@ -1,10 +1,7 @@
 ///|
 fn bytes_to_xml_text(bytes : Bytes, path : String) -> String raise EpubError {
-  @cor.utf8_bytes_to_string(bytes) catch {
-    e =>
-      raise InvalidXml(
-        "utf8 decode failed for `" + path + "`: " + e.to_string(),
-      )
+  @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise InvalidXml("utf8 decode failed for `" + path + "`")
   }
 }
 

@@ -49,191 +49,33 @@ pub fn inspect_xlsx_with_profile(
     None
   }
 
-  let open_started = @env.now()
-  let p = open_xlsx(input_path) catch {
-    e => raise @cor.AppError("xlsx: open package failed: " + e.to_string())
-  }
-  xlsx_profile_push_stage(
-    profile,
-    "zip_package_open",
-    @env.now() - open_started,
-    None,
-  )
-
-  let workbook_started = @env.now()
-  let wb_xml = p.read_text_required("xl/workbook.xml")
-  xlsx_profile_push_stage(
-    profile,
-    "workbook_xml_read",
-    @env.now() - workbook_started,
-    Some("bytes=" + wb_xml.length().to_string()),
-  )
-
-  let shared_started = @env.now()
-  let shared : Array[String] = if @ox.has_part(p.pkg, "xl/sharedStrings.xml") {
-    parse_shared_strings(p.read_text_optional("xl/sharedStrings.xml"))
-  } else {
-    []
-  }
-  xlsx_profile_push_stage(
-    profile,
-    "shared_strings_parse",
-    @env.now() - shared_started,
-    Some("count=" + shared.length().to_string()),
-  )
-
-  let styles_started = @env.now()
-  let styles = if @ox.has_part(p.pkg, "xl/styles.xml") {
-    parse_styles_xml(p.read_text_optional("xl/styles.xml"))
-  } else {
-    empty_styles()
-  }
-  xlsx_profile_push_stage(
-    profile,
-    "styles_parse",
-    @env.now() - styles_started,
-    None,
-  )
-
-  let workbook_meta_started = @env.now()
-  let uses_date_1904 = workbook_uses_date_1904(wb_xml)
-  let sheet_infos = parse_workbook_sheets(p.pkg, wb_xml)
-  xlsx_profile_push_stage(
-    profile,
-    "workbook_relationships",
-    @env.now() - workbook_meta_started,
-    Some("sheet_infos=" + sheet_infos.length().to_string()),
-  )
-  let sheets : Array[XlsxSheetModel] = []
-
-  for info in sheet_infos {
-    let normalized_target = match info.target {
-      Some(target) => normalize_sheet_part_target(target)
-      None => ""
-    }
-    if !info.is_supported_worksheet {
-      sheets.push(
-        empty_sheet_model(
-          info.name,
-          Some(info._rid),
-          info.rel_type,
-          if normalized_target == "" {
-            None
-          } else {
-            Some(normalized_target)
-          },
-          info.state,
-          false,
-          false,
-        ),
+  let semantic_started = @env.now()
+  let semantic = @dpxlsx.open_xlsx_workbook(input_path) catch {
+    e =>
+      raise @cor.AppError(
+        "xlsx: semantic workbook parse failed: " + e.to_string(),
       )
-      continue
-    }
-
-    if normalized_target == "" {
-      sheets.push(
-        empty_sheet_model(
-          info.name,
-          Some(info._rid),
-          info.rel_type,
-          if normalized_target == "" {
-            None
-          } else {
-            Some(normalized_target)
-          },
-          info.state,
-          true,
-          false,
-        ),
-      )
-      xlsx_profile_record_sheet(profile, sheets[sheets.length() - 1])
-      continue
-    }
-
-    let sheet_xml_started = @env.now()
-    let read_profiled = p.read_text_required_profiled(normalized_target) catch {
-      _ => {
-        sheets.push(
-          empty_sheet_model(
-            info.name,
-            Some(info._rid),
-            info.rel_type,
-            Some(normalized_target),
-            info.state,
-            true,
-            false,
-          ),
-        )
-        xlsx_profile_record_sheet(profile, sheets[sheets.length() - 1])
-        continue
-      }
-    }
-    let sh_xml = read_profiled.0
-    let read_stats = read_profiled.1
-    xlsx_profile_push_stage(
-      profile,
-      "worksheet_entry_lookup:" + info.name,
-      read_stats.entry_lookup_elapsed_ms,
-      Some(
-        "part=" +
-        read_stats.normalized_part_name +
-        " hit=" +
-        read_stats.part_index_hit.to_string(),
-      ),
-    )
-    xlsx_profile_push_stage(
-      profile,
-      "worksheet_entry_decompress:" + info.name,
-      read_stats.read_entry_elapsed_ms,
-      Some("bytes=" + read_stats.byte_len.to_string()),
-    )
-    xlsx_profile_push_stage(
-      profile,
-      "worksheet_bytes_to_string:" + info.name,
-      read_stats.bytes_to_string_elapsed_ms,
-      Some("text_bytes=" + read_stats.text_len.to_string()),
-    )
-    xlsx_profile_push_stage(
-      profile,
-      "worksheet_xml_read:" + info.name,
-      @env.now() - sheet_xml_started,
-      Some(
-        "part=" +
-        read_stats.normalized_part_name +
-        " bytes=" +
-        read_stats.text_len.to_string(),
-      ),
-    )
-
-    let sheet_parse_started = @env.now()
-    let sheet_model = parse_sheet_model(
-      info.name,
-      Some(info._rid),
-      info.rel_type,
-      Some(normalized_target),
-      info.state,
-      sh_xml,
-      shared,
-      styles,
-      uses_date_1904,
-      profile,
-    )
-    xlsx_profile_push_stage(
-      profile,
-      "worksheet_model_parse_total:" + info.name,
-      @env.now() - sheet_parse_started,
-      Some(
-        "cells=" +
-        sheet_model.cells.length().to_string() +
-        " rows=" +
-        sheet_model.table_rows.length().to_string(),
-      ),
-    )
-    xlsx_profile_record_sheet(profile, sheet_model)
-    sheets.push(sheet_model)
   }
+  xlsx_profile_push_stage(
+    profile,
+    "semantic_workbook_parse",
+    @env.now() - semantic_started,
+    Some(
+      "sheets=" +
+      semantic.sheets.length().to_string() +
+      " shared_strings=" +
+      semantic.shared_strings.length().to_string(),
+    ),
+  )
 
-  ({ source_name: @cor.basename(input_path), uses_date_1904, sheets }, profile)
+  let workbook = compat_workbook_model_from_semantic(
+    @cor.basename(input_path),
+    semantic,
+  )
+  for sheet in workbook.sheets {
+    xlsx_profile_record_sheet(profile, sheet)
+  }
+  (workbook, profile)
 }
 
 ///|
