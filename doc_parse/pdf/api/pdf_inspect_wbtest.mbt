@@ -163,3 +163,42 @@ test "pdf error classifier avoids over-reporting reserved kinds" {
     _ => fail("generic unsupported errors should keep direct variant mapping")
   }
 }
+
+///|
+test "pdf typed issue classifier helpers prefer inspect issues" {
+  let issue = {
+    kind: PdfInspectIssueKind::PartialPageFailure,
+    severity: PdfInspectSeverity::Error,
+    source: PdfInspectIssueSource::Model,
+    page_index: None,
+    object_ref: None,
+    source_ref: None,
+    message: "document model exposes fewer pages than declared page_count",
+  }
+
+  let info = match classify_pdf_inspect_issue(issue) {
+    Some(v) => v
+    None => fail("partial page failure issue should classify")
+  }
+  match info.kind {
+    PdfErrorKind::PartialPageFailure => ()
+    _ => fail("typed inspect issue should classify to partial page failure")
+  }
+  match info.mapping {
+    PdfErrorMappingKind::TypedIssue => ()
+    _ => fail("typed inspect issue should use typed issue mapping")
+  }
+
+  let err = classify_pdf_error_with_issues(
+    PdfError::BuildFailed("generic build failure"),
+    [issue],
+  )
+  match err.kind {
+    PdfErrorKind::PartialPageFailure => ()
+    _ => fail("typed issue classifier should override generic build failure")
+  }
+  match err.mapping {
+    PdfErrorMappingKind::TypedIssue => ()
+    _ => fail("typed issue classifier should mark typed issue mapping")
+  }
+}

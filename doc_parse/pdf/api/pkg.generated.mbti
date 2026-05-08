@@ -8,6 +8,10 @@ import {
 // Values
 pub fn classify_pdf_error(PdfError) -> PdfErrorInfo
 
+pub fn classify_pdf_error_with_issues(PdfError, Array[PdfInspectIssue]) -> PdfErrorInfo
+
+pub fn classify_pdf_inspect_issue(PdfInspectIssue) -> PdfErrorInfo?
+
 pub fn default_pdf_config() -> PdfConfig
 
 pub async fn extract_document_block_debug(String, PdfConfig) -> Result[String, PdfError]
@@ -51,6 +55,7 @@ pub struct PdfDocumentInspectReport {
   has_any_signal : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
+  page_failure_count : Int
   text_page_count : Int
   empty_page_count : Int
   low_signal_page_count : Int
@@ -64,6 +69,9 @@ pub struct PdfDocumentInspectReport {
   total_vector_count : Int
   total_form_count : Int
   total_source_ref_count : Int
+  unsupported_feature_count : Int
+  raw_issue_count : Int
+  model_issue_count : Int
   issue_count : Int
   warning_count : Int
   error_count : Int
@@ -103,22 +111,35 @@ pub enum PdfErrorKind {
 
 pub enum PdfErrorMappingKind {
   DirectVariant
+  TypedIssue
   BestEffortMessage
 }
 
 pub struct PdfInspectIssue {
   kind : PdfInspectIssueKind
   severity : PdfInspectSeverity
+  source : PdfInspectIssueSource
   page_index : Int?
+  object_ref : String?
+  source_ref : @model.PdfSourceRef?
   message : String
 }
 
 pub enum PdfInspectIssueKind {
+  PartialPageFailure
+  UnsupportedObjectStream
+  AnnotationParseWarning
+  ImageParseWarning
   EmptyPage
   LowSignalPage
   EmptyExtraction
   LowSignalExtraction
   EncryptedDocument
+}
+
+pub enum PdfInspectIssueSource {
+  Raw
+  Model
 }
 
 pub enum PdfInspectSeverity {
@@ -154,6 +175,8 @@ pub struct PdfPageInspectInfo {
   has_any_signal : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
+  raw_issue_count : Int
+  model_issue_count : Int
   issue_count : Int
   issues : Array[PdfInspectIssue]
 }

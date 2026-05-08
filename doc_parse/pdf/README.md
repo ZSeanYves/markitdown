@@ -116,11 +116,26 @@ Current page-level raw fields include:
 - `crop_box`
 - `rotation`
 - `raw_content_stream_refs`
+- typed raw inspect issues
 - text ops
 - images
-- annotations placeholder data
+- annotations
 
 The adapter resolves inherited page geometry through `mbtpdf` page-tree reading. `crop_box` is parsed from `Page.cropbox`; malformed rectangles fall back to `None`.
+
+Pass 3 typed raw issue starter:
+
+- `RawPdfDocumentExtract` and `RawPdfPageExtract` now carry additive
+  `issues : Array[PdfRawIssue]`
+- raw issues are report-only inspect signal and do not change the default
+  parse/build/convert path
+- currently real raw issue kinds are:
+  - `EncryptedDocument`
+  - `AnnotationParseWarning`
+  - `ImageParseWarning`
+- `UnsupportedObjectStream` is now wired into the raw/report/classifier
+  pipeline as a typed slot, but current vendored backend exposure does not yet
+  surface a live object-stream marker beyond this starter plumbing
 
 ## Text Layer
 
@@ -169,6 +184,8 @@ Main APIs:
 - `extract_document_inspect_report`
 - `inspect_pdf_document`
 - `inspect_pdf_page`
+- `classify_pdf_inspect_issue`
+- `classify_pdf_error_with_issues`
 - `extract_document_block_debug`
 - `extract_document_inspect_dump`
 - `classify_pdf_error`
@@ -181,6 +198,8 @@ Stable candidate API:
 - `inspect_pdf_document`
 - `inspect_pdf_page`
 - `classify_pdf_error`
+- `classify_pdf_inspect_issue`
+- `classify_pdf_error_with_issues`
 
 Structured inspect/report types:
 
@@ -188,6 +207,7 @@ Structured inspect/report types:
 - `PdfPageInspectInfo`
 - `PdfInspectIssue`
 - `PdfInspectIssueKind`
+- `PdfInspectIssueSource`
 - `PdfInspectSeverity`
 - `PdfErrorInfo`
 - `PdfErrorKind`
@@ -203,36 +223,52 @@ Debug / inspect convenience API:
 
 `extract_document_inspect_report` returns a structured `PdfDocumentInspectReport`. It exposes page counts, success/failure counts, document flags, metadata, text/image/annotation/vector/form totals, page-level signal summaries, and non-fatal inspect issues. This is the primary machine-readable inspect contract for PDF package users.
 
-Current Pass 2 inventory additions include:
+Current Pass 3 inventory/report additions include:
 
 - document-level `text_page_count`, `empty_page_count`, and
   `low_signal_page_count`
 - document-level `has_image_signal` and `has_annotation_signal`
 - document-level `total_link_annotation_count` and `total_source_ref_count`
+- document-level `page_failure_count`
+- document-level `unsupported_feature_count`
+- document-level `raw_issue_count` and `model_issue_count`
 - page-level `effective_width` / `effective_height`
-- page-level `link_annotation_count`, `source_ref_count`, and `issue_count`
+- page-level `link_annotation_count`, `source_ref_count`, `raw_issue_count`,
+  `model_issue_count`, and `issue_count`
 
 `extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. It now reuses the structured inspect report for summary totals and page quality signals, but it remains a diagnosis string rather than a stable Markdown or IR format. Upper `convert/pdf` pipeline debug may further retain convert-stage image provenance and page annotation passthrough on top of this, but those remain inspect/debug data rather than stable Markdown or IR semantics.
 
-`classify_pdf_error` returns a structured `PdfErrorInfo` so callers can separate adapter/build/unsupported failures from more specific detail kinds such as encrypted, malformed, unsupported object stream, unsupported filter, or low-signal cases.
+`classify_pdf_error` returns a structured `PdfErrorInfo` so callers can
+separate adapter/build/unsupported failures from more specific detail kinds
+such as encrypted, malformed, unsupported object stream, unsupported filter, or
+low-signal cases.
 
-Pass 2 source-mapped classifier status:
+`classify_pdf_inspect_issue` and `classify_pdf_error_with_issues` let audit
+consumers prefer typed inspect issues when the lower layer already exposed a
+stronger signal than a generic top-level error variant.
+
+Pass 3 source-mapped classifier status:
 
 - direct top-level mapping today:
   - `AdapterFailed`
   - `BuildFailed`
   - `Unsupported`
-- best-effort message mapping today:
+- typed issue mapping today:
+  - `EncryptedDocument` from raw encrypted-document signal
+  - `AnnotationParseWarning` and `ImageParseWarning` as raw inspect-only issue
+    kinds
+  - `PartialPageFailure`, `EmptyPage`, `LowSignalPage`, `EmptyExtraction`, and
+    `LowSignalExtraction` from model/report signal
+  - `UnsupportedObjectStream` has typed inspect/report plumbing but is still
+    gated by future raw backend exposure
+- best-effort message mapping still used today:
   - `Encrypted`
   - `Malformed`
-  - `UnsupportedObjectStream`
   - `UnsupportedFilter`
   - `MalformedContentStream`
   - `MissingFontEncoding`
   - `BadToUnicode`
-  - `PartialPageFailure`
-  - `EmptyExtraction`
-  - `LowSignalExtraction`
+  - `UnsupportedObjectStream` when no typed raw issue is available
 - reserved/future source-mapped refinement:
   - any kind that still depends on message-level inference rather than a typed
     raw/model signal should be treated as best-effort until lower layers expose
@@ -257,15 +293,20 @@ Inspect issue model:
 
 - `PdfInspectIssue` is a report-only audit surface.
 - It does not change default parse or conversion behavior.
+- inspect issues now record `source = Raw | Model`, optional page/object/source
+  provenance, and deterministic per-page/document ordering.
 - empty/low-signal findings remain inspect/report warnings or errors, not new
   hard parser failures.
 - document-level issues currently cover:
   - encrypted-document marker
+  - partial-page-failure marker
   - empty-document marker
   - low-signal-document marker
 - page-level issues currently cover:
   - empty-page marker
   - low-signal-page marker
+  - raw annotation-parse warning marker
+  - raw image-parse warning marker
 
 Annotation/link boundary:
 

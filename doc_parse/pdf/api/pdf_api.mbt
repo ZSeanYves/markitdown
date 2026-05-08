@@ -467,7 +467,7 @@ fn render_document_inspect_dump(
   doc : @model.PdfDocumentModel,
 ) -> String {
   let out : Array[String] = []
-  let report = inspect_pdf_document(doc)
+  let report = inspect_pdf_document_core(Some(raw), doc)
   out.push(
     "PdfDocumentInspect(" +
     "version=" +
@@ -494,6 +494,8 @@ fn render_document_inspect_dump(
     report.total_image_count.to_string() +
     ", annotations=" +
     report.total_annotation_count.to_string() +
+    ", issues=" +
+    report.issue_count.to_string() +
     ")",
   )
 
@@ -541,7 +543,11 @@ fn render_document_inspect_dump(
       ", empty_signal=" +
       page_report.is_empty_signal.to_string() +
       ", issues=" +
-      page_report.issues.length().to_string(),
+      page_report.issues.length().to_string() +
+      ", raw_issues=" +
+      page_report.raw_issue_count.to_string() +
+      ", model_issues=" +
+      page_report.model_issue_count.to_string(),
     )
     out.push(
       "  signals: top_edge_threshold=" +

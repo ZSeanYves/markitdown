@@ -135,12 +135,36 @@ pub async fn extract_raw_document_with_mbtpdf(
     raw_pages.push(raw_page)
   }
 
+  let has_xref_stream = false
+  let has_object_stream = false
+  let issues : Array[PdfRawIssue] = Array::new()
+  if pdf.saved_encryption is Some(_) {
+    issues.push({
+      kind: PdfRawIssueKind::EncryptedDocument,
+      severity: PdfRawIssueSeverity::Warning,
+      page_index: None,
+      object_ref: None,
+      source_ref: None,
+      message: "document is encrypted",
+    })
+  }
+  if has_object_stream {
+    issues.push({
+      kind: PdfRawIssueKind::UnsupportedObjectStream,
+      severity: PdfRawIssueSeverity::Error,
+      page_index: None,
+      object_ref: None,
+      source_ref: None,
+      message: "document uses object streams",
+    })
+  }
+
   Ok({
     version: pdf.major.to_string() + "." + pdf.minor.to_string(),
     page_count: raw_pages.length(),
     is_encrypted: pdf.saved_encryption is Some(_),
-    has_xref_stream: false,
-    has_object_stream: false,
+    has_xref_stream,
+    has_object_stream,
     metadata_title: None,
     metadata_author: None,
     metadata_subject: None,
@@ -149,6 +173,7 @@ pub async fn extract_raw_document_with_mbtpdf(
     metadata_producer: None,
     metadata_creation_date: None,
     metadata_mod_date: None,
+    issues,
     pages: raw_pages,
   })
 }
@@ -181,7 +206,11 @@ fn extract_raw_page_from_page(
     page_index,
     identity_matrix(),
   )
-  let annotations = collect_annotations_from_page(pdf, page, page_index)
+  let image_issues = collect_image_parse_issues(images)
+  let annotation_result = collect_annotations_from_page(pdf, page, page_index)
+  let issues : Array[PdfRawIssue] = Array::new()
+  issues.append(image_issues)
+  issues.append(annotation_result.issues)
 
   {
     page_index,
@@ -191,8 +220,9 @@ fn extract_raw_page_from_page(
     rotation: page_rotation(page),
     text_ops,
     images,
-    annotations,
+    annotations: annotation_result.annotations,
     raw_content_stream_refs: content_stream_refs(page.content),
+    issues,
   }
 }
 

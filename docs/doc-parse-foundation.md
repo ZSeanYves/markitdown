@@ -181,9 +181,9 @@ Current role:
 
 Current foundation direction:
 
-* active foundation hardening pass 2: keep parser/model/debug boundaries strong
+* active foundation hardening pass 3: keep parser/model/debug boundaries strong
   while extending structured inspect/report, document/page inventory, and
-  classifier surfaces
+  typed issue/classifier surfaces
 * do not collapse `convert/pdf` semantic policy into the lower layer
 * prioritize auditability, debug signal, and structured failure over broad
   semantic ambition
@@ -195,16 +195,23 @@ Current maturity:
 * `PdfError` now has a classifier-friendly structured companion for audit use
 * document/page inspect reports now expose additive inventory counts for text,
   image, annotation, link-like annotation, source-ref, and page-quality signal
-* classifier output now distinguishes direct top-level variant mapping from
-  best-effort message-based detail mapping
+* classifier output now distinguishes direct top-level variant mapping, typed
+  inspect-issue mapping, and best-effort message-based detail mapping
+* raw/model issue plumbing now exists as an inspect/report-only starter:
+  encrypted-document markers, malformed-annotation warnings, missing-image-
+  payload warnings, and model-derived empty/low-signal/partial-page findings
+  are exposed as typed audit signal without changing converter semantics
 * default parse/model behavior remains compatibility-oriented and unchanged
 * the remaining closure work is to keep refining the lower-layer contract
   without absorbing convert/pdf semantic policy
 
-Remaining PDF closure items after Pass 2:
+Remaining PDF closure items after Pass 3:
 
 * deeper raw/model source mapping for unsupported features and malformed content
   paths, so fewer `PdfErrorKind` values rely on best-effort message inference
+* real raw detection for object streams, unsupported filters, malformed content
+  streams, missing font encodings, and bad ToUnicode paths instead of
+  classifier-only best-effort mapping
 * stronger package/document-level unsupported-feature taxonomy
 * clearer partial-page failure signal if the raw/model pipeline later exposes
   page-local failure markers without changing converter semantics

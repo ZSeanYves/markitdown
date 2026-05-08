@@ -416,6 +416,44 @@ fn image_from_dict(
 }
 
 ///|
+fn first_image_source_ref_opt(image : RawImageInfo) -> RawSourceRef? {
+  if image.source_refs.is_empty() {
+    None
+  } else {
+    Some(image.source_refs[0])
+  }
+}
+
+///|
+fn image_payload_warning_message(image : RawImageInfo) -> String {
+  let filter = match image.image_filter {
+    Some(v) => v
+    None => "unknown"
+  }
+  "image signal recovered without exportable payload (filter=" + filter + ")"
+}
+
+///|
+fn collect_image_parse_issues(
+  images : Array[RawImageInfo],
+) -> Array[PdfRawIssue] {
+  let issues : Array[PdfRawIssue] = Array::new()
+  for image in images {
+    if image.payload is None {
+      issues.push({
+        kind: PdfRawIssueKind::ImageParseWarning,
+        severity: PdfRawIssueSeverity::Warning,
+        page_index: Some(image.page_index),
+        object_ref: image.object_ref,
+        source_ref: first_image_source_ref_opt(image),
+        message: image_payload_warning_message(image),
+      })
+    }
+  }
+  issues
+}
+
+///|
 fn collect_xobject_images(
   pdf : @pdf.Pdf,
   resources : @pdf.PdfObject,
