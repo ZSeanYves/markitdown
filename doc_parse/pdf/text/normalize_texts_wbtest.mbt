@@ -49,6 +49,27 @@ fn make_span(text : String) -> @model.PdfTextSpan {
 }
 
 ///|
+fn make_line(spans : Array[@model.PdfTextSpan]) -> @model.PdfTextLine {
+  {
+    id: "l",
+    bbox: zero_rect(),
+    baseline_y: None,
+    ascent: None,
+    descent: None,
+    line_height: Some(12.0),
+    indent_left: Some(0.0),
+    indent_right: Some(0.0),
+    alignment_hint: None,
+    line_gap_before: Some(0.0),
+    line_gap_after: Some(0.0),
+    spans,
+    is_wrapped_candidate: false,
+    is_same_paragraph_with_prev_candidate: false,
+    source_refs: [dummy_source_ref()],
+  }
+}
+
+///|
 test "single span pdf normalization preserves source refs" {
   let span = make_span("o\u{FB03}ce\u{00A0}\u{200B}hy\u{00AD}phen⻅")
   let normalized = normalize_single_span(span)
@@ -83,4 +104,39 @@ test "single span normalization does not alter chars provenance array" {
   assert_eq(normalized.source_refs.length(), 1)
   assert_eq(normalized.source_refs[0].page_index, 2)
   assert_eq(normalized.source_refs[0].source_stream_index, 3)
+}
+
+///|
+test "pdf lower layer now delegates pure string cleanup to core rule engine" {
+  assert_eq(normalize_text("中 文 ， 标题"), "中文，标题")
+  assert_eq(normalize_text("•First item"), "• First item")
+  assert_eq(normalize_text("1)another"), "1) another")
+}
+
+///|
+test "pdf lower layer no longer applies phrase or slash post patches globally" {
+  assert_eq(normalize_text("A - B"), "A - B")
+  assert_eq(normalize_text("inter-national"), "inter-national")
+  assert_eq(normalize_text("/1"), "/1")
+}
+
+///|
+test "pdf span fragment merge repairs tight broken english words without phrase whitelist" {
+  let spans = normalize_line_spans_with_glue([
+    make_span("confi"),
+    make_span("rms"),
+  ])
+  assert_eq(spans.length(), 1)
+  assert_eq(spans[0].text, "confirms")
+}
+
+///|
+test "pdf line merge repairs wrapped hyphen with line context only" {
+  let merged = merge_two_lines(
+    0,
+    0,
+    make_line([make_span("inter-")]),
+    make_line([make_span("national")]),
+  )
+  assert_eq(@model.line_text(merged), "international")
 }

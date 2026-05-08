@@ -512,10 +512,45 @@ fn merge_two_lines(
   for s in left.spans {
     spans.push(s)
   }
+  if should_repair_hyphenated_line_wrap(left, right) && !spans.is_empty() {
+    let last = spans[spans.length() - 1]
+    spans[spans.length() - 1] = {
+      ..last,
+      text: trim_pdf_line_wrap_hyphen(last.text),
+    }
+  }
   for s in right.spans {
     spans.push(s)
   }
 
   let source_refs = collect_span_source_refs(spans)
   make_line_record(page_index, line_index, spans, true, source_refs)
+}
+
+///|
+fn should_repair_hyphenated_line_wrap(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Bool {
+  let l = @model.line_text(left).trim().to_owned()
+  let r = @model.line_text(right).trim().to_owned()
+
+  if l == "" || r == "" {
+    return false
+  }
+
+  match (last_char_opt(l), first_char_opt(r)) {
+    (Some('-'), Some(ch)) => ch >= 'a' && ch <= 'z'
+    _ => false
+  }
+}
+
+///|
+fn trim_pdf_line_wrap_hyphen(text : String) -> String {
+  let t = text.trim().to_owned()
+  if t.has_suffix("-") {
+    t[:t.length() - 1].to_owned()
+  } else {
+    text
+  }
 }

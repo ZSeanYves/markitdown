@@ -1126,6 +1126,25 @@ fn text_normalization_summary_json(
     )
   }
 
+  let rule_items : Array[String] = []
+  for rule in summary.rules {
+    rule_items.push(
+      @cor.object_json([
+        @cor.json_string("rule") +
+        ": " +
+        @cor.json_string(normalization_rule_name(rule.rule)),
+        @cor.json_string("scope") +
+        ": " +
+        @cor.json_string(normalization_rule_scope_name(rule.scope)),
+        @cor.json_string("changed") + ": " + @cor.bool_json(rule.changed),
+        @cor.json_string("total_changes") +
+        ": " +
+        rule.total_changes.to_string(),
+        @cor.json_string("applied") + ": " + @cor.bool_json(rule.applied),
+      ]),
+    )
+  }
+
   let warning_items : Array[String] = []
   for warning in summary.warnings {
     warning_items.push(
@@ -1141,6 +1160,7 @@ fn text_normalization_summary_json(
   @cor.object_json([
     @cor.json_string("total_changes") + ": " + summary.total_changes.to_string(),
     @cor.json_string("changes") + ": " + @cor.array_json(change_items),
+    @cor.json_string("rules") + ": " + @cor.array_json(rule_items),
     @cor.json_string("stages") + ": " + @cor.array_json(stage_items),
     @cor.json_string("warnings") + ": " + @cor.array_json(warning_items),
   ])
@@ -1152,6 +1172,8 @@ fn aggregate_pdf_normalization(
   profile : @cor.NormalizeProfile,
 ) -> @cor.TextNormalizationSummary {
   let aggregate_changes = Map::new()
+  let aggregate_rules = Map::new()
+  let aggregate_rule_scopes = Map::new()
   let aggregate_stages = Map::new()
   let aggregate_warnings = Map::new()
   let mut total_changes = 0
@@ -1170,6 +1192,15 @@ fn aggregate_pdf_normalization(
         let key = normalization_change_kind_name(change.kind)
         let prev = aggregate_changes.get(key).unwrap_or(0)
         aggregate_changes.set(key, prev + change.count)
+      }
+
+      for rule in summary.rules {
+        let key = normalization_rule_name(rule.rule)
+        let prev = aggregate_rules.get(key).unwrap_or(0)
+        aggregate_rules.set(key, prev + rule.total_changes)
+        if !aggregate_rule_scopes.contains(key) {
+          aggregate_rule_scopes.set(key, rule.scope)
+        }
       }
 
       for stage in summary.stages {
@@ -1200,6 +1231,21 @@ fn aggregate_pdf_normalization(
     })
   }
 
+  let rules : Array[@cor.TextNormalizationRuleSummary] = []
+  for entry in sorted_map_entries(aggregate_rules) {
+    let (key, count) = entry
+    let scope = aggregate_rule_scopes
+      .get(key)
+      .unwrap_or(@cor.TextNormalizationRuleScope::WhitespaceCleanup)
+    rules.push({
+      rule: normalization_rule_from_name(key),
+      scope,
+      changed: count > 0,
+      total_changes: count,
+      applied: true,
+    })
+  }
+
   let stages : Array[@cor.TextNormalizationStageSummary] = []
   for entry in sorted_map_entries(aggregate_stages) {
     let (key, count) = entry
@@ -1226,7 +1272,7 @@ fn aggregate_pdf_normalization(
     }
   }
 
-  { total_changes, changes, stages, warnings }
+  { total_changes, changes, rules, stages, warnings }
 }
 
 ///|
@@ -1604,6 +1650,7 @@ fn normalization_change_kind_name(
     @cor.TextNormalizationChangeKind::Tabs => "Tabs"
     @cor.TextNormalizationChangeKind::Nbsp => "Nbsp"
     @cor.TextNormalizationChangeKind::UnicodeSpaces => "UnicodeSpaces"
+    @cor.TextNormalizationChangeKind::SpaceLikeRuns => "SpaceLikeRuns"
     @cor.TextNormalizationChangeKind::ZeroWidth => "ZeroWidth"
     @cor.TextNormalizationChangeKind::SoftHyphen => "SoftHyphen"
     @cor.TextNormalizationChangeKind::Ligatures => "Ligatures"
@@ -1611,10 +1658,20 @@ fn normalization_change_kind_name(
     @cor.TextNormalizationChangeKind::Dashes => "Dashes"
     @cor.TextNormalizationChangeKind::Fullwidth => "Fullwidth"
     @cor.TextNormalizationChangeKind::CjkPunctuation => "CjkPunctuation"
+    @cor.TextNormalizationChangeKind::CjkPunctuationSpacing =>
+      "CjkPunctuationSpacing"
+    @cor.TextNormalizationChangeKind::AsciiPunctuationSpacing =>
+      "AsciiPunctuationSpacing"
+    @cor.TextNormalizationChangeKind::BulletMarkerSpacing =>
+      "BulletMarkerSpacing"
+    @cor.TextNormalizationChangeKind::NumberedMarkerSpacing =>
+      "NumberedMarkerSpacing"
     @cor.TextNormalizationChangeKind::Canonical => "Canonical"
     @cor.TextNormalizationChangeKind::Compatibility => "Compatibility"
     @cor.TextNormalizationChangeKind::PdfGlyph => "PdfGlyph"
     @cor.TextNormalizationChangeKind::CjkSpacing => "CjkSpacing"
+    @cor.TextNormalizationChangeKind::PdfComparisonWhitespace =>
+      "PdfComparisonWhitespace"
   }
 }
 
@@ -1627,6 +1684,7 @@ fn normalization_change_kind_from_name(
     "Tabs" => @cor.TextNormalizationChangeKind::Tabs
     "Nbsp" => @cor.TextNormalizationChangeKind::Nbsp
     "UnicodeSpaces" => @cor.TextNormalizationChangeKind::UnicodeSpaces
+    "SpaceLikeRuns" => @cor.TextNormalizationChangeKind::SpaceLikeRuns
     "ZeroWidth" => @cor.TextNormalizationChangeKind::ZeroWidth
     "SoftHyphen" => @cor.TextNormalizationChangeKind::SoftHyphen
     "Ligatures" => @cor.TextNormalizationChangeKind::Ligatures
@@ -1634,10 +1692,108 @@ fn normalization_change_kind_from_name(
     "Dashes" => @cor.TextNormalizationChangeKind::Dashes
     "Fullwidth" => @cor.TextNormalizationChangeKind::Fullwidth
     "CjkPunctuation" => @cor.TextNormalizationChangeKind::CjkPunctuation
+    "CjkPunctuationSpacing" =>
+      @cor.TextNormalizationChangeKind::CjkPunctuationSpacing
+    "AsciiPunctuationSpacing" =>
+      @cor.TextNormalizationChangeKind::AsciiPunctuationSpacing
+    "BulletMarkerSpacing" =>
+      @cor.TextNormalizationChangeKind::BulletMarkerSpacing
+    "NumberedMarkerSpacing" =>
+      @cor.TextNormalizationChangeKind::NumberedMarkerSpacing
     "Canonical" => @cor.TextNormalizationChangeKind::Canonical
     "Compatibility" => @cor.TextNormalizationChangeKind::Compatibility
     "PdfGlyph" => @cor.TextNormalizationChangeKind::PdfGlyph
+    "PdfComparisonWhitespace" =>
+      @cor.TextNormalizationChangeKind::PdfComparisonWhitespace
     _ => @cor.TextNormalizationChangeKind::CjkSpacing
+  }
+}
+
+///|
+fn normalization_rule_name(rule : @cor.TextNormalizationRuleId) -> String {
+  match rule {
+    @cor.TextNormalizationRuleId::NormalizeLineEndings => "NormalizeLineEndings"
+    @cor.TextNormalizationRuleId::NormalizeTabs => "NormalizeTabs"
+    @cor.TextNormalizationRuleId::CanonicalUnicode => "CanonicalUnicode"
+    @cor.TextNormalizationRuleId::ExpandLigatures => "ExpandLigatures"
+    @cor.TextNormalizationRuleId::NormalizeQuotes => "NormalizeQuotes"
+    @cor.TextNormalizationRuleId::NormalizeDashes => "NormalizeDashes"
+    @cor.TextNormalizationRuleId::NormalizeFullwidth => "NormalizeFullwidth"
+    @cor.TextNormalizationRuleId::NormalizeCjkPunctuation =>
+      "NormalizeCjkPunctuation"
+    @cor.TextNormalizationRuleId::NormalizeNbsp => "NormalizeNbsp"
+    @cor.TextNormalizationRuleId::NormalizeUnicodeSpaces =>
+      "NormalizeUnicodeSpaces"
+    @cor.TextNormalizationRuleId::CollapseSpaceLikeRuns =>
+      "CollapseSpaceLikeRuns"
+    @cor.TextNormalizationRuleId::RemoveSpacesBetweenCjk =>
+      "RemoveSpacesBetweenCjk"
+    @cor.TextNormalizationRuleId::RemoveSpacesAroundCjkPunctuation =>
+      "RemoveSpacesAroundCjkPunctuation"
+    @cor.TextNormalizationRuleId::NormalizeAsciiPunctuationSpacing =>
+      "NormalizeAsciiPunctuationSpacing"
+    @cor.TextNormalizationRuleId::NormalizeBulletMarkerSpacing =>
+      "NormalizeBulletMarkerSpacing"
+    @cor.TextNormalizationRuleId::NormalizeNumberedMarkerSpacing =>
+      "NormalizeNumberedMarkerSpacing"
+    @cor.TextNormalizationRuleId::RemoveZeroWidth => "RemoveZeroWidth"
+    @cor.TextNormalizationRuleId::RemoveSoftHyphen => "RemoveSoftHyphen"
+    @cor.TextNormalizationRuleId::PdfPrivateGlyphFallback =>
+      "PdfPrivateGlyphFallback"
+    @cor.TextNormalizationRuleId::CollapsePdfComparisonWhitespace =>
+      "CollapsePdfComparisonWhitespace"
+  }
+}
+
+///|
+fn normalization_rule_from_name(name : String) -> @cor.TextNormalizationRuleId {
+  match name {
+    "NormalizeLineEndings" => @cor.TextNormalizationRuleId::NormalizeLineEndings
+    "NormalizeTabs" => @cor.TextNormalizationRuleId::NormalizeTabs
+    "CanonicalUnicode" => @cor.TextNormalizationRuleId::CanonicalUnicode
+    "ExpandLigatures" => @cor.TextNormalizationRuleId::ExpandLigatures
+    "NormalizeQuotes" => @cor.TextNormalizationRuleId::NormalizeQuotes
+    "NormalizeDashes" => @cor.TextNormalizationRuleId::NormalizeDashes
+    "NormalizeFullwidth" => @cor.TextNormalizationRuleId::NormalizeFullwidth
+    "NormalizeCjkPunctuation" =>
+      @cor.TextNormalizationRuleId::NormalizeCjkPunctuation
+    "NormalizeNbsp" => @cor.TextNormalizationRuleId::NormalizeNbsp
+    "NormalizeUnicodeSpaces" =>
+      @cor.TextNormalizationRuleId::NormalizeUnicodeSpaces
+    "CollapseSpaceLikeRuns" =>
+      @cor.TextNormalizationRuleId::CollapseSpaceLikeRuns
+    "RemoveSpacesBetweenCjk" =>
+      @cor.TextNormalizationRuleId::RemoveSpacesBetweenCjk
+    "RemoveSpacesAroundCjkPunctuation" =>
+      @cor.TextNormalizationRuleId::RemoveSpacesAroundCjkPunctuation
+    "NormalizeAsciiPunctuationSpacing" =>
+      @cor.TextNormalizationRuleId::NormalizeAsciiPunctuationSpacing
+    "NormalizeBulletMarkerSpacing" =>
+      @cor.TextNormalizationRuleId::NormalizeBulletMarkerSpacing
+    "NormalizeNumberedMarkerSpacing" =>
+      @cor.TextNormalizationRuleId::NormalizeNumberedMarkerSpacing
+    "RemoveZeroWidth" => @cor.TextNormalizationRuleId::RemoveZeroWidth
+    "RemoveSoftHyphen" => @cor.TextNormalizationRuleId::RemoveSoftHyphen
+    "PdfPrivateGlyphFallback" =>
+      @cor.TextNormalizationRuleId::PdfPrivateGlyphFallback
+    _ => @cor.TextNormalizationRuleId::CollapsePdfComparisonWhitespace
+  }
+}
+
+///|
+fn normalization_rule_scope_name(
+  scope : @cor.TextNormalizationRuleScope,
+) -> String {
+  match scope {
+    @cor.TextNormalizationRuleScope::CharacterCleanup => "CharacterCleanup"
+    @cor.TextNormalizationRuleScope::CanonicalUnicode => "CanonicalUnicode"
+    @cor.TextNormalizationRuleScope::CompatibilityGlyph => "CompatibilityGlyph"
+    @cor.TextNormalizationRuleScope::WhitespaceCleanup => "WhitespaceCleanup"
+    @cor.TextNormalizationRuleScope::PunctuationSpacing => "PunctuationSpacing"
+    @cor.TextNormalizationRuleScope::MarkerSpacing => "MarkerSpacing"
+    @cor.TextNormalizationRuleScope::CjkSpacing => "CjkSpacing"
+    @cor.TextNormalizationRuleScope::PdfCleanup => "PdfCleanup"
+    @cor.TextNormalizationRuleScope::CompareOnly => "CompareOnly"
   }
 }
 

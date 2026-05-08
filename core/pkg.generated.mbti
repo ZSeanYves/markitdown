@@ -316,6 +316,7 @@ pub(all) enum TextNormalizationChangeKind {
   Tabs
   Nbsp
   UnicodeSpaces
+  SpaceLikeRuns
   ZeroWidth
   SoftHyphen
   Ligatures
@@ -323,10 +324,15 @@ pub(all) enum TextNormalizationChangeKind {
   Dashes
   Fullwidth
   CjkPunctuation
+  CjkPunctuationSpacing
+  AsciiPunctuationSpacing
+  BulletMarkerSpacing
+  NumberedMarkerSpacing
   Canonical
   Compatibility
   PdfGlyph
   CjkSpacing
+  PdfComparisonWhitespace
 } derive(Eq)
 
 pub(all) struct TextNormalizationOptions {
@@ -334,6 +340,7 @@ pub(all) struct TextNormalizationOptions {
   normalize_line_endings : Bool
   normalize_nbsp : Bool
   normalize_unicode_spaces : Bool
+  collapse_space_like_runs : Bool
   remove_zero_width : Bool
   remove_soft_hyphen : Bool
   expand_ligatures : Bool
@@ -341,6 +348,10 @@ pub(all) struct TextNormalizationOptions {
   normalize_dashes : Bool
   normalize_fullwidth : Bool
   normalize_cjk_punctuation : Bool
+  remove_spaces_around_cjk_punctuation : Bool
+  normalize_ascii_punctuation_spacing : Bool
+  normalize_bullet_marker_spacing : Bool
+  normalize_numbered_marker_spacing : Bool
   preserve_newlines : Bool
   preserve_tabs : Bool
   cjk_spacing_policy : CjkSpacingPolicy
@@ -356,6 +367,49 @@ pub(all) struct TextNormalizationResult {
   profile : NormalizeProfile
   summary : TextNormalizationSummary
   changes : Array[TextNormalizationChange]
+} derive(Eq)
+
+pub(all) enum TextNormalizationRuleId {
+  NormalizeLineEndings
+  NormalizeTabs
+  CanonicalUnicode
+  ExpandLigatures
+  NormalizeQuotes
+  NormalizeDashes
+  NormalizeFullwidth
+  NormalizeCjkPunctuation
+  NormalizeNbsp
+  NormalizeUnicodeSpaces
+  CollapseSpaceLikeRuns
+  RemoveSpacesBetweenCjk
+  RemoveSpacesAroundCjkPunctuation
+  NormalizeAsciiPunctuationSpacing
+  NormalizeBulletMarkerSpacing
+  NormalizeNumberedMarkerSpacing
+  RemoveZeroWidth
+  RemoveSoftHyphen
+  PdfPrivateGlyphFallback
+  CollapsePdfComparisonWhitespace
+} derive(Eq)
+
+pub(all) enum TextNormalizationRuleScope {
+  CharacterCleanup
+  CanonicalUnicode
+  CompatibilityGlyph
+  WhitespaceCleanup
+  PunctuationSpacing
+  MarkerSpacing
+  CjkSpacing
+  PdfCleanup
+  CompareOnly
+} derive(Eq)
+
+pub(all) struct TextNormalizationRuleSummary {
+  rule : TextNormalizationRuleId
+  scope : TextNormalizationRuleScope
+  applied : Bool
+  changed : Bool
+  total_changes : Int
 } derive(Eq)
 
 pub(all) enum TextNormalizationStage {
@@ -380,6 +434,7 @@ pub(all) struct TextNormalizationStageSummary {
 pub(all) struct TextNormalizationSummary {
   total_changes : Int
   changes : Array[TextNormalizationChange]
+  rules : Array[TextNormalizationRuleSummary]
   stages : Array[TextNormalizationStageSummary]
   warnings : Array[TextNormalizationWarning]
 } derive(Eq)

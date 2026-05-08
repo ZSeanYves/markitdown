@@ -59,6 +59,7 @@ pub(all) enum TextNormalizationChangeKind {
   Tabs
   Nbsp
   UnicodeSpaces
+  SpaceLikeRuns
   ZeroWidth
   SoftHyphen
   Ligatures
@@ -66,10 +67,15 @@ pub(all) enum TextNormalizationChangeKind {
   Dashes
   Fullwidth
   CjkPunctuation
+  CjkPunctuationSpacing
+  AsciiPunctuationSpacing
+  BulletMarkerSpacing
+  NumberedMarkerSpacing
   Canonical
   Compatibility
   PdfGlyph
   CjkSpacing
+  PdfComparisonWhitespace
 } derive(Eq)
 
 ///|
@@ -85,6 +91,7 @@ pub(all) struct TextNormalizationOptions {
   normalize_line_endings : Bool
   normalize_nbsp : Bool
   normalize_unicode_spaces : Bool
+  collapse_space_like_runs : Bool
   remove_zero_width : Bool
   remove_soft_hyphen : Bool
   expand_ligatures : Bool
@@ -92,6 +99,10 @@ pub(all) struct TextNormalizationOptions {
   normalize_dashes : Bool
   normalize_fullwidth : Bool
   normalize_cjk_punctuation : Bool
+  remove_spaces_around_cjk_punctuation : Bool
+  normalize_ascii_punctuation_spacing : Bool
+  normalize_bullet_marker_spacing : Bool
+  normalize_numbered_marker_spacing : Bool
   preserve_newlines : Bool
   preserve_tabs : Bool
   cjk_spacing_policy : CjkSpacingPolicy
@@ -127,6 +138,7 @@ pub(all) struct TextNormalizationStageSummary {
 pub(all) struct TextNormalizationSummary {
   total_changes : Int
   changes : Array[TextNormalizationChange]
+  rules : Array[TextNormalizationRuleSummary]
   stages : Array[TextNormalizationStageSummary]
   warnings : Array[TextNormalizationWarning]
 } derive(Eq)
@@ -146,6 +158,7 @@ priv struct StageCounters {
   mut tabs : Int
   mut nbsp : Int
   mut unicode_spaces : Int
+  mut space_like_runs : Int
   mut zero_width : Int
   mut soft_hyphen : Int
   mut ligatures : Int
@@ -153,10 +166,15 @@ priv struct StageCounters {
   mut dashes : Int
   mut fullwidth : Int
   mut cjk_punctuation : Int
+  mut cjk_punctuation_spacing : Int
+  mut ascii_punctuation_spacing : Int
+  mut bullet_marker_spacing : Int
+  mut numbered_marker_spacing : Int
   mut canonical : Int
   mut compatibility : Int
   mut pdf_glyph : Int
   mut cjk_spacing : Int
+  mut pdf_compare_whitespace : Int
 }
 
 ///|
@@ -166,6 +184,7 @@ fn empty_stage_counters() -> StageCounters {
     tabs: 0,
     nbsp: 0,
     unicode_spaces: 0,
+    space_like_runs: 0,
     zero_width: 0,
     soft_hyphen: 0,
     ligatures: 0,
@@ -173,10 +192,15 @@ fn empty_stage_counters() -> StageCounters {
     dashes: 0,
     fullwidth: 0,
     cjk_punctuation: 0,
+    cjk_punctuation_spacing: 0,
+    ascii_punctuation_spacing: 0,
+    bullet_marker_spacing: 0,
+    numbered_marker_spacing: 0,
     canonical: 0,
     compatibility: 0,
     pdf_glyph: 0,
     cjk_spacing: 0,
+    pdf_compare_whitespace: 0,
   }
 }
 
@@ -191,6 +215,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: false,
         normalize_unicode_spaces: false,
+        collapse_space_like_runs: false,
         remove_zero_width: false,
         remove_soft_hyphen: false,
         expand_ligatures: false,
@@ -198,6 +223,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -212,6 +241,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: true,
         normalize_unicode_spaces: false,
+        collapse_space_like_runs: false,
         remove_zero_width: true,
         remove_soft_hyphen: false,
         expand_ligatures: false,
@@ -219,6 +249,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -233,6 +267,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: true,
         normalize_unicode_spaces: true,
+        collapse_space_like_runs: false,
         remove_zero_width: true,
         remove_soft_hyphen: true,
         expand_ligatures: true,
@@ -240,6 +275,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -254,6 +293,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: true,
         normalize_unicode_spaces: true,
+        collapse_space_like_runs: false,
         remove_zero_width: true,
         remove_soft_hyphen: true,
         expand_ligatures: true,
@@ -261,6 +301,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: false,
         preserve_tabs: false,
         cjk_spacing_policy: CjkSpacingPolicy::RemoveBetweenCjk,
@@ -275,6 +319,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: true,
         normalize_unicode_spaces: false,
+        collapse_space_like_runs: false,
         remove_zero_width: true,
         remove_soft_hyphen: false,
         expand_ligatures: false,
@@ -282,6 +327,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -296,6 +345,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: true,
         normalize_unicode_spaces: false,
+        collapse_space_like_runs: false,
         remove_zero_width: true,
         remove_soft_hyphen: false,
         expand_ligatures: false,
@@ -303,6 +353,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -317,6 +371,7 @@ pub fn default_text_normalization_options(
         normalize_line_endings: true,
         normalize_nbsp: false,
         normalize_unicode_spaces: false,
+        collapse_space_like_runs: false,
         remove_zero_width: false,
         remove_soft_hyphen: false,
         expand_ligatures: false,
@@ -324,6 +379,10 @@ pub fn default_text_normalization_options(
         normalize_dashes: false,
         normalize_fullwidth: false,
         normalize_cjk_punctuation: false,
+        remove_spaces_around_cjk_punctuation: false,
+        normalize_ascii_punctuation_spacing: false,
+        normalize_bullet_marker_spacing: false,
+        normalize_numbered_marker_spacing: false,
         preserve_newlines: true,
         preserve_tabs: true,
         cjk_spacing_policy: CjkSpacingPolicy::Preserve,
@@ -425,17 +484,26 @@ pub fn collapse_space_like_runs(text : String) -> String {
 }
 
 ///|
-/// Shared PDF char-level cleanup before layout-specific post-processing.
+/// Shared PDF text cleanup before layout-specific post-processing.
 ///
 /// This helper is the boundary between shared cleanup and PDF-only recovery:
-/// - it owns low-risk character cleanup shared through the core facade
+/// - it owns core string-level cleanup shared through the core facade
+/// - it may apply PDF output-safe spacing repair such as CJK spacing,
+///   punctuation spacing, and marker spacing through the rule engine
 /// - it must not absorb PDF span glue, line merge, hyphen-wrap repair,
-///   CJK-spacing repair, heading/noise/caption/table logic, or cross-page
+///   page-artifact removal, heading/noise/caption/table logic, or cross-page
 ///   merge behavior
 pub fn normalize_pdf_text_cleanup(text : String) -> String {
-  collapse_space_like_runs(
-    normalize_text_with_profile(text, NormalizeProfile::PdfText),
-  )
+  let options = {
+    ..default_text_normalization_options(NormalizeProfile::PdfText),
+    collapse_space_like_runs: true,
+    cjk_spacing_policy: CjkSpacingPolicy::RemoveBetweenCjk,
+    remove_spaces_around_cjk_punctuation: true,
+    normalize_ascii_punctuation_spacing: true,
+    normalize_bullet_marker_spacing: true,
+    normalize_numbered_marker_spacing: true,
+  }
+  normalize_text_with_options_summary(text, NormalizeProfile::PdfText, options).text
 }
 
 ///|
@@ -527,6 +595,7 @@ pub fn normalize_text_with_options_summary(
 ) -> TextNormalizationResult {
   let counters = empty_stage_counters()
   let stages : Array[TextNormalizationStageSummary] = []
+  let rules : Array[TextNormalizationRuleSummary] = []
   let warnings : Array[TextNormalizationWarning] = []
 
   let stage0 = run_validate_scalar_stage(text, warnings)
@@ -539,7 +608,7 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage1 = run_line_ending_stage(stage0, options, counters)
+  let stage1 = run_line_ending_stage(stage0, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::LineEndingStage,
@@ -549,7 +618,9 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage2 = run_canonical_stage(stage1, profile, options, counters, warnings)
+  let stage2 = run_canonical_stage(
+    stage1, profile, options, counters, warnings, rules,
+  )
   push_stage_summary(
     stages,
     TextNormalizationStage::CanonicalUnicodeStage,
@@ -559,7 +630,7 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage3 = run_compatibility_stage(stage2, options, counters)
+  let stage3 = run_compatibility_stage(stage2, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::CompatibilityGlyphStage,
@@ -578,19 +649,31 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage4 = run_whitespace_stage(stage3, options, counters)
+  let stage4 = run_whitespace_stage(stage3, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::WhitespaceStage,
     options.normalize_nbsp ||
     options.normalize_unicode_spaces ||
-    options.cjk_spacing_policy == CjkSpacingPolicy::RemoveBetweenCjk,
+    options.collapse_space_like_runs ||
+    options.cjk_spacing_policy == CjkSpacingPolicy::RemoveBetweenCjk ||
+    options.remove_spaces_around_cjk_punctuation ||
+    options.normalize_ascii_punctuation_spacing ||
+    options.normalize_bullet_marker_spacing ||
+    options.normalize_numbered_marker_spacing,
     stage4 != stage3,
-    counters.nbsp + counters.unicode_spaces + counters.cjk_spacing,
+    counters.nbsp +
+    counters.unicode_spaces +
+    counters.space_like_runs +
+    counters.cjk_spacing +
+    counters.cjk_punctuation_spacing +
+    counters.ascii_punctuation_spacing +
+    counters.bullet_marker_spacing +
+    counters.numbered_marker_spacing,
     options,
   )
 
-  let stage5 = run_invisible_char_stage(stage4, options, counters)
+  let stage5 = run_invisible_char_stage(stage4, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::InvisibleCharStage,
@@ -600,7 +683,7 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage6 = run_soft_hyphen_stage(stage5, options, counters)
+  let stage6 = run_soft_hyphen_stage(stage5, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::SoftHyphenStage,
@@ -610,7 +693,7 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage7 = run_pdf_glyph_stage(stage6, options, counters)
+  let stage7 = run_pdf_glyph_stage(stage6, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::PdfGlyphStage,
@@ -620,19 +703,19 @@ pub fn normalize_text_with_options_summary(
     options,
   )
 
-  let stage8 = run_pdf_compare_stage(stage7, options, counters)
+  let stage8 = run_pdf_compare_stage(stage7, options, counters, rules)
   push_stage_summary(
     stages,
     TextNormalizationStage::PdfCompareStage,
     options.apply_pdf_compare_cleanup,
     stage8 != stage7,
-    counters.compatibility,
+    counters.pdf_compare_whitespace,
     options,
   )
 
   let changes = build_changes(counters, options)
   let total_changes = total_change_count(changes)
-  let summary = { total_changes, changes, stages, warnings }
+  let summary = { total_changes, changes, rules, stages, warnings }
 
   { text: stage8, changed: stage8 != text, profile, summary, changes }
 }
@@ -670,8 +753,27 @@ fn run_line_ending_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
   if !options.normalize_line_endings {
+    push_rule_summary(
+      rules,
+      TextNormalizationRuleId::NormalizeLineEndings,
+      TextNormalizationRuleScope::CharacterCleanup,
+      false,
+      false,
+      0,
+      options,
+    )
+    push_rule_summary(
+      rules,
+      TextNormalizationRuleId::NormalizeTabs,
+      TextNormalizationRuleScope::WhitespaceCleanup,
+      false,
+      false,
+      0,
+      options,
+    )
     return text
   }
 
@@ -715,7 +817,26 @@ fn run_line_ending_stage(
     i = i + 1
   }
 
-  out.to_string()
+  let stage = out.to_string()
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeLineEndings,
+    TextNormalizationRuleScope::CharacterCleanup,
+    true,
+    counters.line_endings > 0,
+    counters.line_endings,
+    options,
+  )
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeTabs,
+    TextNormalizationRuleScope::WhitespaceCleanup,
+    !options.preserve_tabs,
+    counters.tabs > 0,
+    counters.tabs,
+    options,
+  )
+  stage
 }
 
 ///|
@@ -737,8 +858,9 @@ fn run_canonical_stage(
   options : TextNormalizationOptions,
   counters : StageCounters,
   warnings : Array[TextNormalizationWarning],
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
-  match options.canonical_form {
+  let out = match options.canonical_form {
     CanonicalNormalizationForm::Disabled => text
     CanonicalNormalizationForm::NFD =>
       apply_canonical_result(
@@ -773,6 +895,17 @@ fn run_canonical_stage(
         warnings,
       )
   }
+
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::CanonicalUnicode,
+    TextNormalizationRuleScope::CanonicalUnicode,
+    options.canonical_form != CanonicalNormalizationForm::Disabled,
+    out != text,
+    counters.canonical,
+    options,
+  )
+  out
 }
 
 ///|
@@ -800,80 +933,94 @@ fn run_compatibility_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
-  let out = StringBuilder::new()
-  let mut changed = false
+  let ligature_result = apply_char_mapping_rule(
+    text,
+    options.expand_ligatures,
+    fn(ch) { map_ligature_char(ch, true) },
+  )
+  counters.ligatures = counters.ligatures + ligature_result.count
+  counters.compatibility = counters.compatibility + ligature_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::ExpandLigatures,
+    TextNormalizationRuleScope::CompatibilityGlyph,
+    options.expand_ligatures,
+    ligature_result.count > 0,
+    ligature_result.count,
+    options,
+  )
 
-  for ch in text {
-    match map_compatibility_char(ch, options) {
-      Some((mapped, kind)) => {
-        out.write_string(mapped)
-        record_compatibility_change(counters, kind)
-        changed = true
-      }
-      None => out.write_char(ch)
-    }
-  }
+  let quote_result = apply_char_mapping_rule(
+    ligature_result.text,
+    options.normalize_quotes,
+    fn(ch) { map_quote_char(ch, true) },
+  )
+  counters.quotes = counters.quotes + quote_result.count
+  counters.compatibility = counters.compatibility + quote_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeQuotes,
+    TextNormalizationRuleScope::CompatibilityGlyph,
+    options.normalize_quotes,
+    quote_result.count > 0,
+    quote_result.count,
+    options,
+  )
 
-  if changed {
-    out.to_string()
-  } else {
-    text
-  }
-}
+  let dash_result = apply_char_mapping_rule(
+    quote_result.text,
+    options.normalize_dashes,
+    fn(ch) { map_dash_char(ch, true) },
+  )
+  counters.dashes = counters.dashes + dash_result.count
+  counters.compatibility = counters.compatibility + dash_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeDashes,
+    TextNormalizationRuleScope::CompatibilityGlyph,
+    options.normalize_dashes,
+    dash_result.count > 0,
+    dash_result.count,
+    options,
+  )
 
-///|
-fn map_compatibility_char(
-  ch : Char,
-  options : TextNormalizationOptions,
-) -> (String, TextNormalizationChangeKind)? {
-  match map_ligature_char(ch, options.expand_ligatures) {
-    Some(mapped) => Some((mapped, TextNormalizationChangeKind::Ligatures))
-    None =>
-      match map_quote_char(ch, options.normalize_quotes) {
-        Some(mapped) => Some((mapped, TextNormalizationChangeKind::Quotes))
-        None =>
-          match map_dash_char(ch, options.normalize_dashes) {
-            Some(mapped) => Some((mapped, TextNormalizationChangeKind::Dashes))
-            None =>
-              match map_fullwidth_char(ch, options.normalize_fullwidth) {
-                Some(mapped) =>
-                  Some((mapped, TextNormalizationChangeKind::Fullwidth))
-                None =>
-                  match
-                    map_cjk_punctuation_char(
-                      ch,
-                      options.normalize_cjk_punctuation,
-                    ) {
-                    Some(mapped) =>
-                      Some(
-                        (mapped, TextNormalizationChangeKind::CjkPunctuation),
-                      )
-                    None => None
-                  }
-              }
-          }
-      }
-  }
-}
+  let fullwidth_result = apply_char_mapping_rule(
+    dash_result.text,
+    options.normalize_fullwidth,
+    fn(ch) { map_fullwidth_char(ch, true) },
+  )
+  counters.fullwidth = counters.fullwidth + fullwidth_result.count
+  counters.compatibility = counters.compatibility + fullwidth_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeFullwidth,
+    TextNormalizationRuleScope::CompatibilityGlyph,
+    options.normalize_fullwidth,
+    fullwidth_result.count > 0,
+    fullwidth_result.count,
+    options,
+  )
 
-///|
-fn record_compatibility_change(
-  counters : StageCounters,
-  kind : TextNormalizationChangeKind,
-) -> Unit {
-  counters.compatibility = counters.compatibility + 1
-  match kind {
-    TextNormalizationChangeKind::Ligatures =>
-      counters.ligatures = counters.ligatures + 1
-    TextNormalizationChangeKind::Quotes => counters.quotes = counters.quotes + 1
-    TextNormalizationChangeKind::Dashes => counters.dashes = counters.dashes + 1
-    TextNormalizationChangeKind::Fullwidth =>
-      counters.fullwidth = counters.fullwidth + 1
-    TextNormalizationChangeKind::CjkPunctuation =>
-      counters.cjk_punctuation = counters.cjk_punctuation + 1
-    _ => ()
-  }
+  let cjk_punct_result = apply_char_mapping_rule(
+    fullwidth_result.text,
+    options.normalize_cjk_punctuation,
+    fn(ch) { map_cjk_punctuation_char(ch, true) },
+  )
+  counters.cjk_punctuation = counters.cjk_punctuation + cjk_punct_result.count
+  counters.compatibility = counters.compatibility + cjk_punct_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeCjkPunctuation,
+    TextNormalizationRuleScope::CompatibilityGlyph,
+    options.normalize_cjk_punctuation,
+    cjk_punct_result.count > 0,
+    cjk_punct_result.count,
+    options,
+  )
+
+  cjk_punct_result.text
 }
 
 ///|
@@ -881,41 +1028,130 @@ fn run_whitespace_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
-  let chars = text.to_array()
-  let out = StringBuilder::new()
-  let mut i = 0
-  let mut changed = false
+  let nbsp_result = apply_nbsp_rule(text, options.normalize_nbsp)
+  counters.nbsp = counters.nbsp + nbsp_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeNbsp,
+    TextNormalizationRuleScope::WhitespaceCleanup,
+    options.normalize_nbsp,
+    nbsp_result.count > 0,
+    nbsp_result.count,
+    options,
+  )
 
-  while i < chars.length() {
-    let ch = chars[i]
-    if options.normalize_nbsp && ch == '\u{00A0}' {
-      out.write_char(' ')
-      counters.nbsp = counters.nbsp + 1
-      changed = true
-      i = i + 1
-      continue
-    }
+  let unicode_space_result = apply_unicode_space_rule(
+    nbsp_result.text,
+    options.normalize_unicode_spaces,
+  )
+  counters.unicode_spaces = counters.unicode_spaces + unicode_space_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeUnicodeSpaces,
+    TextNormalizationRuleScope::WhitespaceCleanup,
+    options.normalize_unicode_spaces,
+    unicode_space_result.count > 0,
+    unicode_space_result.count,
+    options,
+  )
 
-    if options.normalize_unicode_spaces && is_unicode_space_separator(ch) {
-      out.write_char(' ')
-      counters.unicode_spaces = counters.unicode_spaces + 1
-      changed = true
-      i = i + 1
-      continue
-    }
+  let collapse_result = apply_collapse_space_like_runs_rule(
+    unicode_space_result.text,
+    options.collapse_space_like_runs,
+  )
+  counters.space_like_runs = counters.space_like_runs + collapse_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::CollapseSpaceLikeRuns,
+    TextNormalizationRuleScope::WhitespaceCleanup,
+    options.collapse_space_like_runs,
+    collapse_result.count > 0,
+    collapse_result.count,
+    options,
+  )
 
-    out.write_char(ch)
-    i = i + 1
-  }
+  let remove_between_cjk_result = apply_remove_spaces_between_cjk_rule(
+    collapse_result.text,
+    options.cjk_spacing_policy == CjkSpacingPolicy::RemoveBetweenCjk,
+  )
+  counters.cjk_spacing = counters.cjk_spacing + remove_between_cjk_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::RemoveSpacesBetweenCjk,
+    TextNormalizationRuleScope::CjkSpacing,
+    options.cjk_spacing_policy == CjkSpacingPolicy::RemoveBetweenCjk,
+    remove_between_cjk_result.count > 0,
+    remove_between_cjk_result.count,
+    options,
+  )
 
-  let stage1 = if changed { out.to_string() } else { text }
-  let (stage2, cjk_spacing_count) = match options.cjk_spacing_policy {
-    CjkSpacingPolicy::Preserve => (stage1, 0)
-    CjkSpacingPolicy::RemoveBetweenCjk => remove_spaces_between_cjk(stage1)
-  }
-  counters.cjk_spacing = counters.cjk_spacing + cjk_spacing_count
-  stage2
+  let remove_cjk_punct_result = apply_remove_spaces_around_cjk_punctuation_rule(
+    remove_between_cjk_result.text,
+    options.remove_spaces_around_cjk_punctuation,
+  )
+  counters.cjk_punctuation_spacing = counters.cjk_punctuation_spacing +
+    remove_cjk_punct_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::RemoveSpacesAroundCjkPunctuation,
+    TextNormalizationRuleScope::CjkSpacing,
+    options.remove_spaces_around_cjk_punctuation,
+    remove_cjk_punct_result.count > 0,
+    remove_cjk_punct_result.count,
+    options,
+  )
+
+  let ascii_punct_result = apply_normalize_ascii_punctuation_spacing_rule(
+    remove_cjk_punct_result.text,
+    options.normalize_ascii_punctuation_spacing,
+  )
+  counters.ascii_punctuation_spacing = counters.ascii_punctuation_spacing +
+    ascii_punct_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeAsciiPunctuationSpacing,
+    TextNormalizationRuleScope::PunctuationSpacing,
+    options.normalize_ascii_punctuation_spacing,
+    ascii_punct_result.count > 0,
+    ascii_punct_result.count,
+    options,
+  )
+
+  let bullet_result = apply_normalize_bullet_marker_spacing_rule(
+    ascii_punct_result.text,
+    options.normalize_bullet_marker_spacing,
+  )
+  counters.bullet_marker_spacing = counters.bullet_marker_spacing +
+    bullet_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeBulletMarkerSpacing,
+    TextNormalizationRuleScope::MarkerSpacing,
+    options.normalize_bullet_marker_spacing,
+    bullet_result.count > 0,
+    bullet_result.count,
+    options,
+  )
+
+  let numbered_result = apply_normalize_numbered_marker_spacing_rule(
+    bullet_result.text,
+    options.normalize_numbered_marker_spacing,
+  )
+  counters.numbered_marker_spacing = counters.numbered_marker_spacing +
+    numbered_result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::NormalizeNumberedMarkerSpacing,
+    TextNormalizationRuleScope::MarkerSpacing,
+    options.normalize_numbered_marker_spacing,
+    numbered_result.count > 0,
+    numbered_result.count,
+    options,
+  )
+
+  numbered_result.text
 }
 
 ///|
@@ -923,8 +1159,18 @@ fn run_invisible_char_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
   if !options.remove_zero_width {
+    push_rule_summary(
+      rules,
+      TextNormalizationRuleId::RemoveZeroWidth,
+      TextNormalizationRuleScope::CharacterCleanup,
+      false,
+      false,
+      0,
+      options,
+    )
     return text
   }
 
@@ -939,11 +1185,17 @@ fn run_invisible_char_stage(
     }
   }
 
-  if changed {
-    out.to_string()
-  } else {
-    text
-  }
+  let result = if changed { out.to_string() } else { text }
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::RemoveZeroWidth,
+    TextNormalizationRuleScope::CharacterCleanup,
+    true,
+    changed,
+    counters.zero_width,
+    options,
+  )
+  result
 }
 
 ///|
@@ -951,8 +1203,18 @@ fn run_soft_hyphen_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
   if !options.remove_soft_hyphen {
+    push_rule_summary(
+      rules,
+      TextNormalizationRuleId::RemoveSoftHyphen,
+      TextNormalizationRuleScope::CharacterCleanup,
+      false,
+      false,
+      0,
+      options,
+    )
     return text
   }
 
@@ -967,11 +1229,17 @@ fn run_soft_hyphen_stage(
     }
   }
 
-  if changed {
-    out.to_string()
-  } else {
-    text
-  }
+  let result = if changed { out.to_string() } else { text }
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::RemoveSoftHyphen,
+    TextNormalizationRuleScope::CharacterCleanup,
+    true,
+    changed,
+    counters.soft_hyphen,
+    options,
+  )
+  result
 }
 
 ///|
@@ -979,8 +1247,18 @@ fn run_pdf_glyph_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
   if !options.pdf_private_glyph_fallback {
+    push_rule_summary(
+      rules,
+      TextNormalizationRuleId::PdfPrivateGlyphFallback,
+      TextNormalizationRuleScope::PdfCleanup,
+      false,
+      false,
+      0,
+      options,
+    )
     return text
   }
 
@@ -997,11 +1275,17 @@ fn run_pdf_glyph_stage(
     }
   }
 
-  if changed {
-    out.to_string()
-  } else {
-    text
-  }
+  let result = if changed { out.to_string() } else { text }
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::PdfPrivateGlyphFallback,
+    TextNormalizationRuleScope::PdfCleanup,
+    true,
+    changed,
+    counters.pdf_glyph,
+    options,
+  )
+  result
 }
 
 ///|
@@ -1009,16 +1293,24 @@ fn run_pdf_compare_stage(
   text : String,
   options : TextNormalizationOptions,
   counters : StageCounters,
+  rules : Array[TextNormalizationRuleSummary],
 ) -> String {
-  if !options.apply_pdf_compare_cleanup {
-    return text
-  }
-
-  let collapsed = collapse_pdf_comparison_whitespace(text)
-  if collapsed != text {
-    counters.compatibility = counters.compatibility + 1
-  }
-  collapsed.trim().to_owned()
+  let result = apply_pdf_compare_whitespace_rule(
+    text,
+    options.apply_pdf_compare_cleanup,
+  )
+  counters.pdf_compare_whitespace = counters.pdf_compare_whitespace +
+    result.count
+  push_rule_summary(
+    rules,
+    TextNormalizationRuleId::CollapsePdfComparisonWhitespace,
+    TextNormalizationRuleScope::CompareOnly,
+    options.apply_pdf_compare_cleanup,
+    result.count > 0,
+    result.count,
+    options,
+  )
+  result.text
 }
 
 ///|
@@ -1096,6 +1388,13 @@ fn build_changes(
   )
   push_change(
     changes,
+    TextNormalizationChangeKind::SpaceLikeRuns,
+    "space_like_run",
+    "single_space",
+    counters.space_like_runs,
+  )
+  push_change(
+    changes,
     TextNormalizationChangeKind::ZeroWidth,
     "zero_width",
     "",
@@ -1145,6 +1444,34 @@ fn build_changes(
   )
   push_change(
     changes,
+    TextNormalizationChangeKind::CjkPunctuationSpacing,
+    "space around CJK punctuation",
+    "",
+    counters.cjk_punctuation_spacing,
+  )
+  push_change(
+    changes,
+    TextNormalizationChangeKind::AsciiPunctuationSpacing,
+    "ascii punctuation spacing",
+    "single_space",
+    counters.ascii_punctuation_spacing,
+  )
+  push_change(
+    changes,
+    TextNormalizationChangeKind::BulletMarkerSpacing,
+    "bullet marker",
+    "marker + space",
+    counters.bullet_marker_spacing,
+  )
+  push_change(
+    changes,
+    TextNormalizationChangeKind::NumberedMarkerSpacing,
+    "numbered marker",
+    "marker + space",
+    counters.numbered_marker_spacing,
+  )
+  push_change(
+    changes,
     TextNormalizationChangeKind::Canonical,
     "canonical",
     "normalized",
@@ -1170,6 +1497,13 @@ fn build_changes(
     "CJK space",
     "",
     counters.cjk_spacing,
+  )
+  push_change(
+    changes,
+    TextNormalizationChangeKind::PdfComparisonWhitespace,
+    "comparison whitespace",
+    "single_space",
+    counters.pdf_compare_whitespace,
   )
   changes
 }

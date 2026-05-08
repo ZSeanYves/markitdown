@@ -132,9 +132,12 @@ Shared text-normalization substrate:
   validate-scalar, line-ending, canonical-unicode policy,
   compatibility-glyph, whitespace, invisible-char, soft-hyphen, PDF glyph
   fallback, and PDF compare cleanup
+* shared cleanup is rule-driven inside those stages:
+  each rule has an explicit id, scope, profile/policy gating, centralized
+  order, and summary entry for debug aggregation
 * current high-value subset covers line endings, NBSP/unicode spaces,
-  `U+200B` / `U+FEFF`, `U+00AD`, common ligatures, and PDF compatibility glyph
-  fallback
+  `U+200B` / `U+FEFF`, `U+00AD`, common ligatures, PDF compatibility glyph
+  fallback, and profile-gated PDF output-safe spacing repair
 * smart-quote normalization, dash normalization, fullwidth folding, and CJK
   punctuation rewriting are explicit opt-in behaviors and are not default
   output policy
@@ -146,6 +149,8 @@ Shared text-normalization substrate:
   `NormalizationTest.txt`-verified conformance yet
 * this substrate is deterministic preprocessing, not OCR, not a layout engine,
   and not a semantic classifier
+* PDF-only artifact cleanup, line-wrap repair, and other geometry-dependent
+  decisions stay in PDF layers and are not default text-normalization rules
 * literal contexts such as Markdown passthrough, fenced code output, HTML
   `pre/code`, XML source-preserving fallback, JSON/YAML/XML literal code
   paths, CSV/TSV value text, and TXT literal-safe lowering do not opt into

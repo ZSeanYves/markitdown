@@ -180,9 +180,11 @@ Current text-normalization layering is also intentional:
 * shared substrate is profile-driven rather than globally aggressive:
   `Literal`, `GeneralText`, `PdfText`, `PdfCompareText`, `HtmlText`,
   `OoxmlText`, and `StructuredDataText`
-* shared substrate is stage-oriented:
+* shared substrate is stage-organized but rule-driven internally:
   line-ending, canonical-unicode policy, compatibility glyph, whitespace,
   invisible-char, soft-hyphen, PDF glyph fallback, and PDF compare cleanup
+  are each decomposed into explicit cleanup rules with ids, scopes, ordering,
+  and rule-level summary reporting
 * `PdfText` is the output-facing extracted-text profile
 * `PdfCompareText` is a stronger comparison-only profile used by PDF heading,
   noise, table, caption, and merge heuristics
@@ -192,11 +194,14 @@ Current text-normalization layering is also intentional:
   converter behavior
 * shared low-risk rules include line-ending normalization, NBSP/unicode-space
   cleanup, selected zero-width removal, soft-hyphen stripping, common
-  ligature expansion, and PDF compatibility-glyph fallback
+  ligature expansion, PDF compatibility-glyph fallback, and profile-gated
+  PDF output-safe spacing repair such as CJK spacing, punctuation spacing,
+  and marker spacing
 * shared document-text cleanup is already reused by PDF, TXT, HTML, and DOCX,
   while full conformance validation remains a future opt-in step
-* PDF keeps document-specific post-processing such as word-fragment recovery,
-  CJK spacing cleanup, and layout-adjacent text heuristics in `doc_parse/pdf`
+* PDF keeps layout-aware repair such as word-fragment recovery, line-wrap
+  hyphen repair, noise filtering, heading/table/caption decisions, and other
+  geometry/source-ref heuristics in `doc_parse/pdf`
 * literal/source-preserving paths such as Markdown passthrough, XML fenced
   output, JSON/YAML fallback code fences, and TXT literal-safe lowering do not
   opt into aggressive text normalization policies

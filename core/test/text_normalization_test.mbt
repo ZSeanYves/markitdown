@@ -26,6 +26,33 @@ fn has_stage(
 }
 
 ///|
+fn rule_count(
+  result : @cor.TextNormalizationResult,
+  rule : @cor.TextNormalizationRuleId,
+) -> Int {
+  for summary in result.summary.rules {
+    if summary.rule == rule {
+      return summary.total_changes
+    }
+  }
+  0
+}
+
+///|
+fn has_rule(
+  result : @cor.TextNormalizationResult,
+  rule : @cor.TextNormalizationRuleId,
+  expected_applied : Bool,
+) -> Bool {
+  for summary in result.summary.rules {
+    if summary.rule == rule && summary.applied == expected_applied {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn warning_count(
   result : @cor.TextNormalizationResult,
   kind : @cor.TextNormalizationWarningKind,
@@ -320,6 +347,13 @@ test "cleanup profile summary includes compare cleanup stage" {
   assert_true(
     has_stage(result, @cor.TextNormalizationStage::PdfCompareStage, true),
   )
+  assert_true(
+    has_rule(
+      result,
+      @cor.TextNormalizationRuleId::CollapsePdfComparisonWhitespace,
+      true,
+    ),
+  )
 }
 
 ///|
@@ -382,4 +416,80 @@ test "cleanup pdf text cleanup helper stays conservative about plain ascii and c
 test "cleanup document cleanup does not implicitly enable canonical normalization" {
   assert_eq(@cor.normalize_document_text_cleanup("e\u{0301}"), "e\u{0301}")
   assert_eq(@cor.normalize_document_text_cleanup("Ａ"), "Ａ")
+}
+
+///|
+test "cleanup pdf helper applies rule driven cjk punctuation and marker spacing" {
+  let options = {
+    ..@cor.default_text_normalization_options(@cor.NormalizeProfile::PdfText),
+    collapse_space_like_runs: true,
+    cjk_spacing_policy: @cor.CjkSpacingPolicy::RemoveBetweenCjk,
+    remove_spaces_around_cjk_punctuation: true,
+    normalize_ascii_punctuation_spacing: true,
+    normalize_bullet_marker_spacing: true,
+    normalize_numbered_marker_spacing: true,
+    record_summary: true,
+    record_changes: true,
+  }
+  let result = @cor.normalize_text_with_options_summary(
+    "中 文 ， 标题",
+    @cor.NormalizeProfile::PdfText,
+    options,
+  )
+
+  assert_eq(result.text, "中文，标题")
+  assert_true(
+    has_rule(result, @cor.TextNormalizationRuleId::RemoveSpacesBetweenCjk, true),
+  )
+  assert_eq(
+    rule_count(result, @cor.TextNormalizationRuleId::RemoveSpacesBetweenCjk),
+    1,
+  )
+  assert_eq(
+    rule_count(
+      result,
+      @cor.TextNormalizationRuleId::RemoveSpacesAroundCjkPunctuation,
+    ),
+    2,
+  )
+}
+
+///|
+test "cleanup pdf helper normalizes marker spacing and preserves numbering decimals" {
+  assert_eq(@cor.normalize_pdf_text_cleanup("•First item"), "• First item")
+  assert_eq(@cor.normalize_pdf_text_cleanup("1)another"), "1) another")
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("1.1 研究目标"),
+    "1.1 研究目标",
+  )
+}
+
+///|
+test "cleanup pdf helper keeps literal hyphen slash and cjk latin boundaries" {
+  assert_eq(@cor.normalize_pdf_text_cleanup("A - B"), "A - B")
+  assert_eq(@cor.normalize_pdf_text_cleanup("inter-national"), "inter-national")
+  assert_eq(@cor.normalize_pdf_text_cleanup("/1"), "/1")
+  assert_eq(@cor.normalize_pdf_text_cleanup("中文 AI"), "中文 AI")
+  assert_eq(
+    @cor.normalize_text_with_profile("/1", @cor.NormalizeProfile::GeneralText),
+    "/1",
+  )
+}
+
+///|
+test "cleanup structured data profile keeps aggressive spacing rules disabled" {
+  assert_eq(
+    @cor.normalize_text_with_profile(
+      "中 文",
+      @cor.NormalizeProfile::StructuredDataText,
+    ),
+    "中 文",
+  )
+  assert_eq(
+    @cor.normalize_text_with_profile(
+      "1)another",
+      @cor.NormalizeProfile::StructuredDataText,
+    ),
+    "1)another",
+  )
 }

@@ -10,12 +10,15 @@ Scope of this document:
 * keep PDF layout heuristics out of shared cleanup
 * keep canonical normalization explicit-only by default
 
-Current implementation status after P13:
+Current implementation status after the rule-engine rollout:
 
 * low-risk PDF character cleanup has been moved into
   `core/text_normalization`
-* `doc_parse/pdf/text/normalize_texts.mbt` now calls
-  `normalize_pdf_text_cleanup` before PDF-specific post-processing
+* `core/text_normalization` now owns a lightweight rule-driven cleanup
+  pipeline with explicit rule ids, scopes, profile-gated options, and
+  rule-level summary reporting
+* `normalize_pdf_text_cleanup` now owns PDF output-safe string cleanup through
+  core policy instead of a PDF-local post-text chain
 * TXT now routes its shared low-risk character cleanup through
   `normalize_document_text_cleanup`
 * HTML now routes normal text nodes through
@@ -28,6 +31,10 @@ Current implementation status after P13:
 * `tonyfettes/unicode` is wired behind the facade for explicit
   `NFD/NFC/NFKD/NFKC` calls
 * default converter behavior still does not enable `NFD/NFC/NFKD/NFKC`
+* PDF lower-layer global phrase replacement and global slash-artifact cleanup
+  are no longer part of the main path
+* wrapped hyphen repair now stays in PDF line-merge context instead of a
+  global `replace_all("- ", "")`
 
 ## Goal
 
@@ -85,6 +92,11 @@ Current shared cleanup that is already centralized:
 * zero-width cleanup
 * soft hyphen cleanup
 * ligature expansion
+* collapse-space-like cleanup for the PDF output profile
+* CJK internal spacing cleanup under explicit profile/policy
+* CJK punctuation spacing cleanup under explicit profile/policy
+* ASCII punctuation spacing under explicit profile/policy
+* bullet / numbered marker spacing under explicit profile/policy
 * PDF compare whitespace cleanup
 * optional fullwidth and canonical normalization support through the facade
 
@@ -97,20 +109,14 @@ The main scatter point is here:
 Important functions:
 
 * `normalize_text`
-* `normalize_basic_spaces`
-* `normalize_post_text`
-* `strip_trailing_slash_page_artifact`
-* `fix_hyphenated_english_wrap`
-* `fix_common_split_english_words`
-* `remove_spaces_between_cjk`
-* `normalize_ascii_punct_spacing`
-* `normalize_bullet_marker_spacing`
-* `normalize_numbered_marker_spacing`
+* `normalize_line_spans_with_glue`
+* `try_merge_english_word_fragment_span`
+* `should_drop_trailing_page_number_digit_span`
 
-This file currently mixes two kinds of work:
+This file is now narrower:
 
-* character-level cleanup that could be shared later
-* PDF-specific line/span recovery heuristics that should remain PDF-local
+* pure string cleanup flows through `core/text_normalization`
+* PDF-specific line/span recovery heuristics remain PDF-local
 
 ### 4. PDF layout glue and line merge heuristics
 

@@ -53,6 +53,8 @@ Unified debug inspect notes:
 * PDF inspect now uses structured `pdf_backend`, `pdf_pages`,
   `pdf_text_model`, `pdf_images`, `pdf_annotations`, `pdf_links`,
   `pdf_pipeline`, and `normalization` sections
+* normalization debug output now includes rule-level summaries in addition to
+  change/stage aggregation
 * legacy `debug <all|extract|raw|pipeline> ...` is a deprecated PDF alias; it
   prints the unified inspect report and only materializes Markdown when
   `[output]` is provided
