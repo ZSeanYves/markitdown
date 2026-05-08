@@ -176,6 +176,8 @@ Converter responsibility is intentionally separated:
 
 * `doc_parse/pdf` owns extraction, page/text/image/annotation signal, and
   debug-facing raw/model surfaces
+* `doc_parse/pdf` also exposes a structured inspect/report view plus
+  classifier-friendly errors for package-level audit use
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
 * `core/text_normalization.mbt` provides the shared text-normalization facade

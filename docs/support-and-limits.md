@@ -128,7 +128,8 @@ Lower-layer package contract:
 * they should fail closed or surface structured errors on malformed or unsafe
   input
 * they should expose inspect/debug-friendly summaries that do not depend on
-  final Markdown conversion
+  final Markdown conversion, and where helpful should also provide structured
+  inspect/report objects plus classifier-friendly error metadata
 * they should not absorb converter-only semantic policy
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).

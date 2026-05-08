@@ -11,7 +11,8 @@ Foundation direction:
 - `convert/pdf` is an important consumer, but it is not the design center of
   the lower layer
 - publishable-quality hardening here should prioritize parser/model/debug
-  boundaries and fail-closed behavior over broader semantic ambition
+  boundaries, structured inspect/report surfaces, and fail-closed behavior
+  over broader semantic ambition
 
 ## Scope
 
@@ -21,7 +22,8 @@ Foundation direction:
 - extracting page text, images, page geometry, and low-level source references
 - normalizing raw extracted content into chars, spans, lines, blocks, and pages
 - exposing a stable `PdfDocumentModel` to higher converter layers
-- providing debug/inspection strings for the recovered model
+- exposing structured inspect/report data plus debug/inspection strings for the
+  recovered model
 
 `doc_parse/pdf` does not own:
 
@@ -164,13 +166,61 @@ Main APIs:
 - `default_pdf_config`
 - `extract_document_model`
 - `extract_document_summary`
+- `extract_document_inspect_report`
+- `inspect_pdf_document`
+- `inspect_pdf_page`
 - `extract_document_block_debug`
+- `extract_document_inspect_dump`
+- `classify_pdf_error`
+
+Stable candidate API:
+
+- `extract_document_model`
+- `extract_document_summary`
+- `extract_document_inspect_report`
+- `inspect_pdf_document`
+- `inspect_pdf_page`
+- `classify_pdf_error`
+
+Structured inspect/report types:
+
+- `PdfDocumentInspectReport`
+- `PdfPageInspectInfo`
+- `PdfInspectIssue`
+- `PdfInspectIssueKind`
+- `PdfInspectSeverity`
+- `PdfErrorInfo`
+- `PdfErrorKind`
+
+Debug / inspect convenience API:
+
+- `extract_document_block_debug`
+- `extract_document_inspect_dump`
 
 `extract_document_model` runs the full native pipeline and returns `PdfDocumentModel`.
 
 `extract_document_summary` returns a compact human-readable summary including document version, page count, and top-level object totals.
 
-`extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. This is for pipeline diagnosis; it is not a stable Markdown or IR format. Upper `convert/pdf` pipeline debug may further retain convert-stage image provenance and page annotation passthrough on top of this, but those remain inspect/debug data rather than stable Markdown or IR semantics.
+`extract_document_inspect_report` returns a structured `PdfDocumentInspectReport`. It exposes page counts, success/failure counts, document flags, metadata, text/image/annotation/vector/form totals, page-level signal summaries, and non-fatal inspect issues. This is the primary machine-readable inspect contract for PDF package users.
+
+`extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. It now reuses the structured inspect report for summary totals and page quality signals, but it remains a diagnosis string rather than a stable Markdown or IR format. Upper `convert/pdf` pipeline debug may further retain convert-stage image provenance and page annotation passthrough on top of this, but those remain inspect/debug data rather than stable Markdown or IR semantics.
+
+`classify_pdf_error` returns a structured `PdfErrorInfo` so callers can separate adapter/build/unsupported failures from more specific detail kinds such as encrypted, malformed, unsupported object stream, unsupported filter, or low-signal cases.
+
+Compatibility surface:
+
+- `PdfError` remains the top-level failure type returned by the existing path-based APIs
+- `PdfDocumentModel` remains the main converter-facing lower-layer model
+- the lower-layer model fields continue to be the compatibility surface that `convert/pdf` uses directly
+
+Known limits:
+
+- no full visual layout engine
+- no full tagged-PDF semantic extraction
+- no OCR default fallback
+- no scanned-PDF support by default
+- no full PDF spec support claim
+- no complete recovery from malformed PDFs
 
 ## Current Limits
 

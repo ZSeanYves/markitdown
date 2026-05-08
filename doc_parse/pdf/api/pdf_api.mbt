@@ -190,11 +190,6 @@ fn page_span_count(page : @model.PdfPageModel) -> Int {
 }
 
 ///|
-fn page_char_count(page : @model.PdfPageModel) -> Int {
-  @model.page_char_count(page)
-}
-
-///|
 fn document_block_count(doc : @model.PdfDocumentModel) -> Int {
   let mut total = 0
   for page in doc.pages {
@@ -217,15 +212,6 @@ fn document_span_count(doc : @model.PdfDocumentModel) -> Int {
   let mut total = 0
   for page in doc.pages {
     total = total + page_span_count(page)
-  }
-  total
-}
-
-///|
-fn document_char_count(doc : @model.PdfDocumentModel) -> Int {
-  let mut total = 0
-  for page in doc.pages {
-    total = total + page_char_count(page)
   }
   total
 }
@@ -481,6 +467,7 @@ fn render_document_inspect_dump(
   doc : @model.PdfDocumentModel,
 ) -> String {
   let out : Array[String] = []
+  let report = inspect_pdf_document(doc)
   out.push(
     "PdfDocumentInspect(" +
     "version=" +
@@ -494,25 +481,26 @@ fn render_document_inspect_dump(
     ", has_object_stream=" +
     doc.has_object_stream.to_string() +
     ", outlines=" +
-    doc.outlines.length().to_string() +
+    report.outline_count.to_string() +
     ", blocks=" +
-    document_block_count(doc).to_string() +
+    report.total_text_block_count.to_string() +
     ", lines=" +
-    document_line_count(doc).to_string() +
+    report.total_line_count.to_string() +
     ", spans=" +
-    document_span_count(doc).to_string() +
+    report.total_span_count.to_string() +
     ", chars=" +
-    document_char_count(doc).to_string() +
+    report.total_char_count.to_string() +
     ", images=" +
-    document_image_count(doc).to_string() +
+    report.total_image_count.to_string() +
     ", annotations=" +
-    document_annotation_count(doc).to_string() +
+    report.total_annotation_count.to_string() +
     ")",
   )
 
   for i = 0; i < doc.pages.length(); i = i + 1 {
     let raw_page = raw.pages[i]
     let page = doc.pages[i]
+    let page_report = report.pages[i]
     out.push(
       "[page " +
       page.page_index.to_string() +
@@ -529,19 +517,31 @@ fn render_document_inspect_dump(
     )
     out.push(
       "  stats: blocks=" +
-      page.text_blocks.length().to_string() +
+      page_report.text_block_count.to_string() +
       ", lines=" +
-      @model.page_line_count(page).to_string() +
+      page_report.line_count.to_string() +
       ", spans=" +
-      @model.page_span_count(page).to_string() +
+      page_report.span_count.to_string() +
       ", chars=" +
-      @model.page_char_count(page).to_string() +
+      page_report.char_count.to_string() +
       ", images=" +
-      page.images.length().to_string() +
+      page_report.image_count.to_string() +
       ", annotations=" +
-      page.annotations.length().to_string() +
+      page_report.annotation_count.to_string() +
       ", object_count=" +
-      @model.page_object_count(page).to_string(),
+      page_report.object_count.to_string(),
+    )
+    out.push(
+      "  quality: has_text_signal=" +
+      page_report.has_text_signal.to_string() +
+      ", has_any_signal=" +
+      page_report.has_any_signal.to_string() +
+      ", low_signal=" +
+      page_report.is_low_signal.to_string() +
+      ", empty_signal=" +
+      page_report.is_empty_signal.to_string() +
+      ", issues=" +
+      page_report.issues.length().to_string(),
     )
     out.push(
       "  signals: top_edge_threshold=" +

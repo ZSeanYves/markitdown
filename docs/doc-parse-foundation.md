@@ -181,10 +181,20 @@ Current role:
 
 Current foundation direction:
 
-* keep parser/model/debug boundaries strong
+* active foundation hardening pass 1: keep parser/model/debug boundaries strong
+  while adding structured inspect/report and classifier surfaces
 * do not collapse `convert/pdf` semantic policy into the lower layer
 * prioritize auditability, debug signal, and structured failure over broad
   semantic ambition
+
+Current maturity:
+
+* package-facing structured inspect/report contract exists alongside the legacy
+  debug dump surface
+* `PdfError` now has a classifier-friendly structured companion for audit use
+* default parse/model behavior remains compatibility-oriented and unchanged
+* the remaining closure work is to keep refining the lower-layer contract
+  without absorbing convert/pdf semantic policy
 
 ### `doc_parse/epub`
 
