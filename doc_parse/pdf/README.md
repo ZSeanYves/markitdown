@@ -28,6 +28,8 @@ Current package split:
 
 - there is no single root `doc_parse/pdf` package facade
 - the recommended package-facing entrypoint is `doc_parse/pdf/api`
+- current delivery remains importable subpackages under
+  `ZSeanYves/markitdown`, not a separately split MoonBit module
 - `model`, `raw`, and `text` remain important lower-layer packages, but they
   are not the primary stable candidate facade for new consumers
 

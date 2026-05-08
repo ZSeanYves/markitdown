@@ -61,6 +61,35 @@ Benchmark and quality conclusions are limited to the checked-in corpora and
 runner contracts named in the repository docs. They are not blanket claims
 about all documents of a format family.
 
+## doc_parse Foundation Status
+
+`doc_parse` is now treated as a reusable parsing foundation layer inside the
+repository rather than as a converter-only helper.
+
+Current foundation candidates:
+
+* `doc_parse/ooxml`
+  OOXML package / parts / relationships / content types / media / docProps /
+  structured inspect / strict validation.
+* `doc_parse/epub`
+  container / OPF / manifest / spine / nav / NCX / cover / metadata /
+  structured inspect / validation.
+* `doc_parse/pdf`
+  native text-PDF document model / page geometry / text-image-annotation raw
+  signals / structured inspect / typed issues / error classifier.
+* `doc_parse/zip`
+  remains the container primitive for now and was not part of this candidate
+  closure line.
+
+Current module strategy:
+
+* these packages are delivered today as importable subpackages under
+  `ZSeanYves/markitdown`
+* `convert/*` consumes `doc_parse/*`; `doc_parse/*` does not own final Markdown
+  semantics
+* they are foundation candidates, not claims of full OOXML / EPUB / PDF spec
+  coverage
+
 ## Core Capabilities
 
 * unified IR across document families
@@ -189,6 +218,7 @@ Current boundary:
 * [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
 * [Support and Limits](./docs/support-and-limits.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)
+* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
 * [Real-World Corpus](./samples/real_world/README.md)

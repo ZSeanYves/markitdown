@@ -19,6 +19,9 @@ Use these pages as the primary current-state entrypoints:
 * [doc_parse Foundation Contract](./doc-parse-foundation.md)
   Reusable lower-layer package contract for `doc_parse/ooxml`, `doc_parse/pdf`,
   and `doc_parse/epub`.
+* [doc_parse Package Strategy](./package-publishing-strategy.md)
+  Current subpackage delivery strategy, future module-split criteria, and
+  nested-module warning.
 * [Development Guide](./development.md)
   Maintainer workflow, validation commands, and format-onboarding practice.
 

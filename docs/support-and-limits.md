@@ -125,6 +125,12 @@ Lower-layer package contract:
 
 * `doc_parse/ooxml`, `doc_parse/pdf`, and `doc_parse/epub` are expected to
   evolve toward reusable MoonBit parsing foundations
+* current candidate status is:
+  * `doc_parse/ooxml`: publishable foundation candidate
+  * `doc_parse/epub`: publishable foundation candidate
+  * `doc_parse/pdf`: native text-PDF publishable foundation candidate
+* current delivery remains importable subpackages under
+  `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
   input
 * they should expose inspect/debug-friendly summaries that do not depend on
@@ -178,6 +184,8 @@ Shared text-normalization substrate:
   `pre/code`, XML source-preserving fallback, JSON/YAML/XML literal code
   paths, CSV/TSV value text, and TXT literal-safe lowering do not opt into
   aggressive normalization by default
+* debug/inspect surfaces, validation reports, and typed issue signals do not
+  change default normal conversion behavior by themselves
 
 ## Per-format Support
 

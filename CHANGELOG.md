@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+* Mark `doc_parse/ooxml`, `doc_parse/epub`, and native text-PDF
+  `doc_parse/pdf` as foundation candidates after the recent inspect,
+  validation, classifier, and lower-layer contract hardening passes.
+* Clarify the current package publishing strategy: `doc_parse/*` remains
+  importable subpackages under `ZSeanYves/markitdown`, not separately split
+  MoonBit modules yet.
+* Document compatibility surfaces, non-goals, and candidate boundaries for the
+  OOXML, EPUB, and PDF parsing foundations without expanding their functional
+  scope.
 * Sync current documentation after the rule-driven text-normalization rollout
   and PDF span-glue fallback tightening.
 * Clarify that shared text normalization is a conversion-quality substrate, not

@@ -10,6 +10,18 @@ part-level `.rels`, indexes conventional media assets, exposes lightweight
 
 It is not a Word/PowerPoint/Excel semantic converter.
 
+## Candidate Status
+
+Current status:
+
+- `doc_parse/ooxml` is treated as a publishable foundation candidate within
+  the current repository scope
+- current delivery remains the importable subpackage
+  `ZSeanYves/markitdown/doc_parse/ooxml`, not a separately split MoonBit
+  module
+- this candidate status does not claim full OOXML or full Office semantic
+  coverage
+
 ## Positioning
 
 `doc_parse/ooxml` is the shared low-level OOXML package substrate for DOCX,

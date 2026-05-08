@@ -18,6 +18,41 @@ it is intentionally excluded from this hardening pass so the work can stay
 focused on reusable document-parsing substrates rather than on a full
 container-stack rewrite.
 
+## Current Status
+
+Current candidate line:
+
+* `doc_parse/ooxml`: publishable foundation candidate
+* `doc_parse/epub`: publishable foundation candidate
+* `doc_parse/pdf`: text-PDF publishable foundation candidate
+* `doc_parse/zip`: still out of this closure scope as the shared container
+  primitive
+
+Current packaging strategy:
+
+* these foundations are delivered today as importable subpackages under
+  `ZSeanYves/markitdown`
+* they are not yet split into independent MoonBit modules
+* `convert/*` consumes them, but they are documented as reusable parsing
+  foundations rather than as converter-only helpers
+
+See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
+
+## Unified Contract
+
+Across the current candidate line:
+
+* `doc_parse/*` owns parsing, lower-layer models, inspect/debug signal, and
+  provenance where available
+* `convert/*` owns Markdown/IR semantic conversion and final output policy
+* no remote fetch is part of the lower-layer foundation contract
+* lower layers should fail closed where safety matters
+* explicit validation or inspect issues do not automatically become default
+  hard failures in normal conversion paths
+* compatibility-oriented default open/read behavior may coexist with explicit
+  strict validation or inspect reporting
+* none of the current candidates claim full spec support
+
 ## Purpose
 
 `doc_parse/*` packages are MoonBit parsing substrates.
@@ -153,14 +188,33 @@ Current role:
 
 Current foundation direction:
 
-* strongest candidate for the first publishable-quality hardening pass
-* now a near-publishable foundation candidate within current repository scope
+* now a publishable foundation candidate within current repository scope
 * should evolve toward a reusable OOXML package parser, not a document-format
   semantic converter
 * should expose structured inventory/inspect and classifier-friendly errors,
   while keeping converter-facing compatibility stable during hardening
 * now keeps default package opening compatibility-oriented, with explicit strict
   validation reserved for publishable-package hygiene checks
+
+Current maturity:
+
+* stable candidate package-facing API is centered on open/read/list/query
+  facade functions
+* structured inventory and inspect reports exist for parts, relationships,
+  content types, media assets, and docProps
+* classifier-friendly error metadata exists without breaking the top-level
+  `OoxmlError` surface
+* explicit strict validation exists for package hygiene findings while default
+  open remains compatibility-oriented
+* compatibility surfaces remain documented for `OoxmlPackage` fields that
+  in-repo consumers still touch directly
+
+Known limits:
+
+* not a DOCX/PPTX/XLSX semantic converter
+* no external relationship fetch
+* no macro/VBA semantic support
+* no full OOXML spec coverage claim
 
 Remaining closure items:
 
@@ -212,6 +266,15 @@ Current maturity:
 * the remaining work is to keep refining the lower-layer contract without
   absorbing convert/pdf semantic policy
 
+Known limits:
+
+* text-PDF lower-layer candidate only
+* no scanned-PDF default support
+* no OCR default fallback
+* no full visual layout engine
+* no tagged-PDF semantic extraction claim
+* no full PDF spec support claim
+
 Remaining PDF closure items after candidate closure:
 
 * deeper raw/model source mapping for unsupported features and malformed content
@@ -253,6 +316,14 @@ Current maturity after closure:
 * rootfile-selection, missing-navigation, duplicate-spine-idref, and
   unsupported-spine policy are now documented and covered by direct lower-layer
   tests
+
+Known limits:
+
+* not a reading-system renderer
+* no DRM/encryption support claim
+* no CSS/JS rendering
+* no remote fetch
+* no full EPUB spec or full XHTML semantic conversion claim
 
 Remaining closure items:
 

@@ -76,6 +76,17 @@ It only chooses the converter; it does not own recovery strategy.
 
 These packages are infrastructure, not final Markdown semantics.
 
+Current candidate line:
+
+* `doc_parse/ooxml`: publishable foundation candidate
+* `doc_parse/epub`: publishable foundation candidate
+* `doc_parse/pdf`: text-PDF publishable foundation candidate
+* `doc_parse/zip`: still the shared container primitive and not part of this
+  closure line
+
+Current module strategy keeps these as importable subpackages under
+`ZSeanYves/markitdown` rather than as independently split MoonBit modules.
+
 Current foundation contract for reusable lower layers is documented in
 [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
@@ -178,6 +189,7 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `doc_parse/pdf` also exposes a structured inspect/report view plus
   classifier-friendly errors for package-level audit use
+* the recommended package-facing candidate facade is `doc_parse/pdf/api`
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
 * `core/text_normalization.mbt` provides the shared text-normalization facade
