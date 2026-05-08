@@ -18,6 +18,7 @@ Current supported scope:
 - Read and list package parts.
 - Query `[Content_Types].xml` defaults and overrides.
 - Read package-root and part-level relationships.
+- Reject invalid relationship targets.
 - Preserve relationship target mode as `Internal` or `External`.
 - Resolve internal relationship targets relative to a source part.
 - Query relationships by id or type suffix.
@@ -110,6 +111,8 @@ Debug dumps:
 - Keep this layer read-only and package-oriented.
 - Keep format-specific semantic recovery out of `doc_parse/ooxml`.
 - Prefer deterministic output order for listing and debug APIs.
+- Fail closed on normalized part-path collisions, malformed relationship XML,
+  and unsafe normalized targets.
 - Treat missing optional OOXML parts, such as docProps or part relationships, as
   empty/`None` where that is part of the public contract.
 - Preserve target mode information so callers can avoid treating external links
@@ -132,6 +135,16 @@ The broader safety net for behavior that consumes this layer is:
 moon check
 ./samples/check.sh
 ```
+
+Current lower-layer coverage includes:
+
+- positive package open/read/list/query on DOCX/PPTX/XLSX samples
+- deterministic package dump smoke checks
+- duplicate relationship-id compatibility boundary
+- unsafe relationship-target failure
+- external relationship classification
+- normalized part collision failure
+- duplicate normalized content-type override failure
 
 ## Current Limits
 

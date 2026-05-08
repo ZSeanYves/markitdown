@@ -49,6 +49,12 @@ fn parse_content_types(
     let attrs = parse_tag_attributes(tag)
     let ext = get_required_attr(attrs, "Extension")
     let content_type = get_required_attr(attrs, "ContentType")
+    if ext.trim() == "" {
+      raise InvalidXml("empty content type default extension")
+    }
+    if defaults.contains(ext) {
+      raise InvalidXml("duplicate content type default extension: " + ext)
+    }
     defaults.set(ext, content_type)
   }
 
@@ -56,7 +62,12 @@ fn parse_content_types(
     let attrs = parse_tag_attributes(tag)
     let part_name = get_required_attr(attrs, "PartName")
     let content_type = get_required_attr(attrs, "ContentType")
-    overrides.set(part_name, content_type)
+    let normalized_part_name = normalize_part_name(part_name)
+    let override_key = "/" + normalized_part_name
+    if overrides.contains(override_key) {
+      raise InvalidXml("duplicate content type override: " + override_key)
+    }
+    overrides.set(override_key, content_type)
   }
 
   (defaults, overrides)

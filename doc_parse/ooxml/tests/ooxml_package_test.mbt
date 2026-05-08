@@ -25,6 +25,127 @@ fn open_sample_package(path : String) -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn bytes_of_string(s : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in s.to_array() {
+    out.push(ch.to_int().to_byte())
+  }
+  out
+}
+
+///|
+fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn add_store_entry(
+  out : Array[Byte],
+  central : Array[(String, Int, Int)],
+  name : String,
+  data : String,
+) -> Unit {
+  let local_offset = out.length()
+  let name_bytes = bytes_of_string(name)
+  let data_bytes = bytes_of_string(data)
+
+  append_u32_le(out, 0x04034b50)
+  append_u16_le(out, 20)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u32_le(out, 0)
+  append_u32_le(out, data_bytes.length())
+  append_u32_le(out, data_bytes.length())
+  append_u16_le(out, name_bytes.length())
+  append_u16_le(out, 0)
+  for b in name_bytes {
+    out.push(b)
+  }
+  for b in data_bytes {
+    out.push(b)
+  }
+
+  central.push((name, data_bytes.length(), local_offset))
+}
+
+///|
+fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data) = entry
+    add_store_entry(out, central, name, data)
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn minimal_content_types_xml(overrides : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+  "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+  overrides +
+  "</Types>"
+}
+
+///|
+fn minimal_rels_xml(inner : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+  inner +
+  "</Relationships>"
+}
+
+///|
 fn assert_core_readable(
   pkg : @ox.OoxmlPackage,
   part_name : String,
@@ -261,5 +382,146 @@ test "ooxml package phase-2.2 dump handles missing media and docProps" {
   }
   if !dump.contains("title=(none)") {
     fail("dump should report missing core properties")
+  }
+}
+
+///|
+test "ooxml package currently preserves duplicate relationship ids for compatibility" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let rels = @ox.read_package_relationships(pkg) catch {
+    e => fail("read_package_relationships failed: " + e.to_string())
+  }
+  assert_eq(rels.length(), 2)
+  if rels[0].id != "rId1" || rels[1].id != "rId1" {
+    fail("expected duplicate relationship ids to remain visible to callers")
+  }
+}
+
+///|
+test "ooxml package rejects unsafe relationship target path" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"image\" Target=\"../media/../../evil.bin\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let result = try? @ox.read_part_relationships(pkg, "word/document.xml")
+  match result {
+    Ok(_) => fail("expected unsafe relationship target to fail closed")
+    Err(e) =>
+      if !e.to_string().contains("invalid OOXML part path") {
+        fail("unexpected unsafe target error: " + e.to_string())
+      }
+  }
+}
+
+///|
+test "ooxml package preserves external relationship classification" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"hyperlink\" Target=\"https://example.com/spec\" TargetMode=\"External\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let rels = @ox.read_part_relationships(pkg, "word/document.xml") catch {
+    e => fail("read_part_relationships failed: " + e.to_string())
+  }
+  assert_eq(rels.length(), 1)
+  if rels[0].target_mode != @ox.OoxmlTargetMode::External {
+    fail("expected external relationship target mode")
+  }
+  assert_eq(rels[0].resolved_target, "https://example.com/spec")
+}
+
+///|
+test "ooxml package rejects duplicate normalized part names" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+    ("word/./document.xml", "<doc/>"),
+  ])
+
+  let result = try? @ox.open_ooxml_package(bytes)
+  match result {
+    Ok(_) => fail("expected normalized part collision to fail closed")
+    Err(e) =>
+      if !e.to_string().contains("normalized part collision: word/document.xml") {
+        fail("unexpected normalized collision error: " + e.to_string())
+      }
+  }
+}
+
+///|
+test "ooxml package rejects duplicate content type override after normalization" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/xml\"/>" +
+        "<Override PartName=\"/word/./document.xml\" ContentType=\"application/xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+
+  let result = try? @ox.open_ooxml_package(bytes)
+  match result {
+    Ok(_) => fail("expected duplicate normalized content type override to fail")
+    Err(e) =>
+      if !e
+        .to_string()
+        .contains("duplicate content type override: /word/document.xml") {
+        fail("unexpected duplicate override error: " + e.to_string())
+      }
   }
 }

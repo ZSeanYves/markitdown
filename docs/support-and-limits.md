@@ -111,12 +111,27 @@ Across the current implementation:
   speculative reconstruction
 * structured-text converters either preserve source form or fail closed on
   invalid syntax instead of guessing
+* `doc_parse/*` packages are lower-layer parsing substrates and should expose
+  container/document/package/page/part signal rather than final Markdown
+  semantics
 * shared text normalization is profile-based rather than globally aggressive:
   output text, comparison/heuristic text, and literal/raw text preservation are
   explicitly separated
 * origin metadata is best-effort provenance, not a full anchoring system
 * metadata schema stays additive and sparse
 * asset export only happens for formats that materially emit image files
+
+Lower-layer package contract:
+
+* `doc_parse/ooxml`, `doc_parse/pdf`, and `doc_parse/epub` are expected to
+  evolve toward reusable MoonBit parsing foundations
+* they should fail closed or surface structured errors on malformed or unsafe
+  input
+* they should expose inspect/debug-friendly summaries that do not depend on
+  final Markdown conversion
+* they should not absorb converter-only semantic policy
+
+See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
 Shared text-normalization substrate:
 

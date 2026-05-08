@@ -17,7 +17,21 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
   let entries = @zip.list_entries(archive)
   let mut i = 0
   while i < entries.length() {
-    part_index.set(entries[i].name, i)
+    let raw_name = entries[i].name
+    if raw_name == "" || raw_name == "[Content_Types].xml" {
+      part_index.set(raw_name, i)
+      i = i + 1
+      continue
+    }
+    if entries[i].is_directory || raw_name.has_suffix("/") {
+      i = i + 1
+      continue
+    }
+    let normalized = normalize_part_name(raw_name)
+    if part_index.contains(normalized) {
+      raise InvalidPartPath("normalized part collision: " + normalized)
+    }
+    part_index.set(normalized, i)
     i = i + 1
   }
 

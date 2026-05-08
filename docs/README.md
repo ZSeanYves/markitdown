@@ -16,6 +16,9 @@ Use these pages as the primary current-state entrypoints:
   Repository structure, lower-layer boundaries, and main pipeline design.
 * [Second-Round Summary](./second-round-summary.md)
   Concise sealed-scope project summary plus post-seal hardening notes.
+* [doc_parse Foundation Contract](./doc-parse-foundation.md)
+  Reusable lower-layer package contract for `doc_parse/ooxml`, `doc_parse/pdf`,
+  and `doc_parse/epub`.
 * [Development Guide](./development.md)
   Maintainer workflow, validation commands, and format-onboarding practice.
 

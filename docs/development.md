@@ -119,6 +119,16 @@ The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
 public validation entrypoints. Helpers under `samples/scripts/` remain
 internal implementation detail or maintainer-only tooling.
 
+Lower-layer package work:
+
+* `doc_parse/ooxml`, `doc_parse/pdf`, and `doc_parse/epub` should be treated as
+  reusable parsing substrates, not as places to hide converter-only Markdown
+  semantics
+* when hardening `doc_parse/*`, prefer direct lower-layer tests over relying
+  only on converter Markdown regression
+* use [docs/doc-parse-foundation.md](./doc-parse-foundation.md) as the package
+  maturity contract
+
 ## PDF lower-layer dependency
 
 The native PDF lower layer lives under `doc_parse/pdf`.

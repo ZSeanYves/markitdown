@@ -4,6 +4,15 @@
 
 Its job is to turn rendering-oriented PDF content into a parser-facing document model. It does not emit final Markdown, does not own final IR shaping, and does not implement OCR. Upper layers such as `convert/pdf` decide how the recovered model becomes Markdown.
 
+Foundation direction:
+
+- `doc_parse/pdf` should keep evolving as a reusable native text-PDF parsing
+  substrate
+- `convert/pdf` is an important consumer, but it is not the design center of
+  the lower layer
+- publishable-quality hardening here should prioritize parser/model/debug
+  boundaries and fail-closed behavior over broader semantic ambition
+
 ## Scope
 
 `doc_parse/pdf` currently owns:

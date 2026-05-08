@@ -76,6 +76,9 @@ It only chooses the converter; it does not own recovery strategy.
 
 These packages are infrastructure, not final Markdown semantics.
 
+Current foundation contract for reusable lower layers is documented in
+[docs/doc-parse-foundation.md](./doc-parse-foundation.md).
+
 ### Format converters
 
 `convert/*` maps source formats into unified IR and handles conservative
@@ -150,6 +153,10 @@ DOCX / PPTX / XLSX share:
 * document properties
 
 This is why OOXML support is not implemented as three fully isolated parsers.
+
+`doc_parse/ooxml` is intended to keep evolving as a reusable package parser for
+parts/relationships/media/docProps, not as a DOCX/PPTX/XLSX semantic
+converter.
 
 ### PDF
 
@@ -260,6 +267,10 @@ It adds:
 * manifest/spine parsing
 * spine-order aggregation
 * safe same-archive local-image handling for XHTML/HTML spine documents
+
+`doc_parse/epub` is intended to stay at the package/container/OPF/spine/nav
+layer rather than turning into a reading-system renderer or final Markdown
+aggregator.
 
 ## Metadata And Assets
 
