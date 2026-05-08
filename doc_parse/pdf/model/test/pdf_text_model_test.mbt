@@ -49,6 +49,67 @@ fn make_span(text : String) -> @model.PdfTextSpan {
 }
 
 ///|
+fn make_source_ref(
+  page_index : Int,
+  source_stream_index : Int,
+  source_op_index : Int,
+  content_order_index : Int?,
+) -> @model.PdfSourceRef {
+  {
+    page_index,
+    source_stream_index,
+    source_op_index,
+    text_object_id: None,
+    content_order_index,
+    source_object_ref: None,
+  }
+}
+
+///|
+fn make_rect(
+  x0 : Double,
+  y0 : Double,
+  x1 : Double,
+  y1 : Double,
+) -> @model.PdfRect {
+  { x0, y0, x1, y1 }
+}
+
+///|
+fn make_word_merge_span(
+  text : String,
+  x0 : Double,
+  x1 : Double,
+  y : Double,
+  source_op_index : Int,
+) -> @model.PdfTextSpan {
+  {
+    id: "s-" + text,
+    bbox: make_rect(x0, y - 8.0, x1, y + 2.0),
+    origin: { x: x0, y },
+    text,
+    font_name: Some("Dummy"),
+    font_family: Some("Dummy"),
+    font_size: Some(12.0),
+    is_bold: false,
+    is_italic: false,
+    is_monospace: false,
+    fill_color: None,
+    stroke_color: None,
+    char_spacing: None,
+    word_spacing: None,
+    text_rise: None,
+    scale_x: None,
+    writing_direction: @model.PdfWritingDirection::LeftToRight,
+    language_hint: None,
+    chars: [],
+    source_refs: [make_source_ref(0, 0, source_op_index, Some(source_op_index))],
+    break_before: false,
+    break_reason: None,
+  }
+}
+
+///|
 fn make_line(spans : Array[@model.PdfTextSpan]) -> @model.PdfTextLine {
   {
     id: "l",
@@ -115,4 +176,105 @@ test "wb debug line glue target tokens" {
   debug_case("Thisfi nal", "Thisfi", "nal")
   debug_case("•First item", "•", "First item")
   debug_case("2)another", "2)", "another")
+}
+
+///|
+test "glue_between_spans fallback stays conservative without pdf context" {
+  assert_eq(@model.glue_between_spans("confi", "rms"), " ")
+  assert_eq(@model.glue_between_spans("to", "flow"), " ")
+}
+
+///|
+test "line_text merges tight broken word spans with pdf context signals" {
+  let line = make_line([
+    make_word_merge_span("confi", 0.0, 28.0, 100.0, 10),
+    make_word_merge_span("rms", 28.8, 44.0, 100.2, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "confirms")
+}
+
+///|
+test "line_text merges bound prefix fragments with pdf context signals" {
+  let line = make_line([
+    make_word_merge_span("inter", 0.0, 24.0, 100.0, 10),
+    make_word_merge_span("national", 24.6, 66.0, 100.1, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "international")
+}
+
+///|
+test "line_text merges ligature fragment spans with pdf context signals" {
+  let line = make_line([
+    make_word_merge_span("di", 0.0, 10.0, 100.0, 10),
+    {
+      ..make_word_merge_span("ff", 10.5, 16.0, 100.0, 11),
+      chars: [
+        {
+          unicode: "\u{FB00}",
+          raw_bytes: None,
+          decoded_text: "\u{FB00}",
+          bbox: make_rect(10.5, 92.0, 16.0, 102.0),
+          origin: { x: 10.5, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: true,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 11, Some(11)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    make_word_merge_span("erent", 16.4, 42.0, 100.0, 12),
+  ])
+
+  assert_eq(@model.line_text(line), "different")
+}
+
+///|
+test "line_text keeps normal short words separated" {
+  let line = make_line([
+    make_word_merge_span("to", 0.0, 10.0, 100.0, 10),
+    make_word_merge_span("flow", 11.0, 30.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "to flow")
+}
+
+///|
+test "line_text does not merge across large gap" {
+  let line = make_line([
+    make_word_merge_span("confi", 0.0, 28.0, 100.0, 10),
+    make_word_merge_span("rms", 40.5, 56.0, 100.1, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "confi rms")
+}
+
+///|
+test "line_text does not merge across punctuation boundary" {
+  let line = make_line([
+    make_word_merge_span("word.", 0.0, 28.0, 100.0, 10),
+    make_word_merge_span("next", 28.7, 46.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "word. next")
+}
+
+///|
+test "line_text keeps cjk latin spacing intact" {
+  let line = make_line([
+    make_word_merge_span("中文", 0.0, 20.0, 100.0, 10),
+    make_word_merge_span("AI", 21.0, 30.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "中文 AI")
 }

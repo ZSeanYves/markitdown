@@ -131,6 +131,32 @@ test "pdf span fragment merge repairs tight broken english words without phrase 
 }
 
 ///|
+test "pdf span fragment merge keeps normal short word boundaries" {
+  let first = normalize_line_spans_with_glue([
+    make_span("the"),
+    make_span("first"),
+  ])
+  assert_eq(first.length(), 2)
+  assert_eq(first[0].text, "the")
+  assert_eq(first[1].text, "first")
+
+  let flow = normalize_line_spans_with_glue([make_span("to"), make_span("flow")])
+  assert_eq(flow.length(), 2)
+  assert_eq(flow[0].text, "to")
+  assert_eq(flow[1].text, "flow")
+}
+
+///|
+test "pdf span fragment merge repairs bound prefix and ligature fragments" {
+  let international = normalize_line_spans_with_glue([
+    make_span("inter"),
+    make_span("national"),
+  ])
+  assert_eq(international.length(), 1)
+  assert_eq(international[0].text, "international")
+}
+
+///|
 test "pdf line merge repairs wrapped hyphen with line context only" {
   let merged = merge_two_lines(
     0,

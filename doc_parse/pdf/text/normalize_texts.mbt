@@ -76,6 +76,10 @@ fn normalize_line_spans_with_glue(
     let prev_text = prev.text
     let cur_text = cur.text
 
+    if should_drop_trailing_page_number_slash_span(prev, cur, spans, i) {
+      continue
+    }
+
     // 关键：先在这里拦尾部孤立数字 span
     if should_drop_trailing_page_number_digit_span(prev, cur) {
       //println(
@@ -90,9 +94,13 @@ fn normalize_line_spans_with_glue(
 
     match try_merge_english_word_fragment_span(prev, cur) {
       Some((merged_prev_text, remaining_cur_text)) => {
-        out[out.length() - 1] = { ..prev, text: merged_prev_text }
-
         let remain = remaining_cur_text.trim().to_owned()
+        out[out.length() - 1] = if remain == "" {
+          merge_fully_consumed_fragment_span(prev, cur, merged_prev_text)
+        } else {
+          { ..prev, text: merged_prev_text }
+        }
+
         if remain != "" {
           out.push({ ..cur, text: remain })
         }
@@ -112,6 +120,37 @@ fn normalize_line_spans_with_glue(
   }
 
   out
+}
+
+///|
+fn merge_fully_consumed_fragment_span(
+  left : @model.PdfTextSpan,
+  right : @model.PdfTextSpan,
+  merged_text : String,
+) -> @model.PdfTextSpan {
+  let chars = Array::new()
+  for ch in left.chars {
+    chars.push(ch)
+  }
+  for ch in right.chars {
+    chars.push(ch)
+  }
+
+  let source_refs = Array::new()
+  for src in left.source_refs {
+    source_refs.push(src)
+  }
+  for src in right.source_refs {
+    source_refs.push(src)
+  }
+
+  {
+    ..left,
+    text: merged_text,
+    bbox: @model.union_rect(left.bbox, right.bbox),
+    chars,
+    source_refs,
+  }
 }
 
 ///|
@@ -141,8 +180,20 @@ fn try_merge_english_word_fragment_span(
     return None
   }
 
+  if has_explicit_space_boundary_for_word_merge(left_span, right_span) {
+    return None
+  }
+
   if !looks_like_tight_english_fragment_context(left_span, right_span) {
     return None
+  }
+
+  if starts_with_ligature_fragment_span(right_span) &&
+    left_suffix.length() >= 3 &&
+    right_prefix.length() <= 3 {
+    let left_prefix = remove_trailing_ascii_letters(l)
+    let remain = r[right_prefix.length():].to_owned()
+    return Some((left_prefix + left_suffix + right_prefix, remain))
   }
 
   if !looks_like_joinable_english_fragment_word(left_suffix, right_prefix) {
@@ -255,7 +306,7 @@ fn looks_like_joinable_english_fragment_word(
   let right = right_prefix.to_lower()
 
   if has_ligature_fragment_hint(left) {
-    return true
+    return right.length() <= 3
   }
 
   if looks_like_english_suffix_piece(right) && left.length() >= 3 {
@@ -266,8 +317,7 @@ fn looks_like_joinable_english_fragment_word(
     return true
   }
 
-  (left.length() <= 4 && right.length() <= 5) ||
-  (left.length() <= 5 && right.length() <= 3)
+  false
 }
 
 ///|
@@ -296,6 +346,79 @@ fn span_font_compatible_for_word_merge(
   }
 
   font_name_ok && font_size_ok
+}
+
+///|
+fn has_explicit_space_boundary_for_word_merge(
+  left : @model.PdfTextSpan,
+  right : @model.PdfTextSpan,
+) -> Bool {
+  span_has_trailing_space_char(left) || span_has_leading_space_char(right)
+}
+
+///|
+fn span_has_trailing_space_char(span : @model.PdfTextSpan) -> Bool {
+  match last_span_char_opt(span) {
+    Some(ch) => is_space_like_char_word_merge(ch)
+    None => false
+  }
+}
+
+///|
+fn span_has_leading_space_char(span : @model.PdfTextSpan) -> Bool {
+  match first_span_char_opt(span) {
+    Some(ch) => is_space_like_char_word_merge(ch)
+    None => false
+  }
+}
+
+///|
+fn starts_with_ligature_fragment_span(span : @model.PdfTextSpan) -> Bool {
+  if span.chars.is_empty() {
+    return false
+  }
+
+  let first = span.chars[0]
+  first.is_ligature ||
+  first.decoded_text == "\u{FB00}" ||
+  first.decoded_text == "\u{FB01}" ||
+  first.decoded_text == "\u{FB02}" ||
+  first.decoded_text == "\u{FB03}" ||
+  first.decoded_text == "\u{FB04}"
+}
+
+///|
+fn first_span_char_opt(span : @model.PdfTextSpan) -> Char? {
+  for pdf_char in span.chars {
+    for ch in pdf_char.decoded_text {
+      return Some(ch)
+    }
+  }
+  None
+}
+
+///|
+fn last_span_char_opt(span : @model.PdfTextSpan) -> Char? {
+  let mut last : Char? = None
+  for pdf_char in span.chars {
+    for ch in pdf_char.decoded_text {
+      last = Some(ch)
+    }
+  }
+  last
+}
+
+///|
+fn is_space_like_char_word_merge(ch : Char) -> Bool {
+  ch == ' ' ||
+  ch == '\t' ||
+  ch == '\n' ||
+  ch == '\r' ||
+  ch == '\u{00A0}' ||
+  ch == '\u{2002}' ||
+  ch == '\u{2003}' ||
+  ch == '\u{2009}' ||
+  ch == '　'
 }
 
 ///|
@@ -456,6 +579,51 @@ fn should_drop_trailing_page_number_digit_span(
   }
 
   true
+}
+
+///|
+fn should_drop_trailing_page_number_slash_span(
+  prev : @model.PdfTextSpan,
+  cur : @model.PdfTextSpan,
+  spans : Array[@model.PdfTextSpan],
+  cur_index : Int,
+) -> Bool {
+  let left = prev.text.trim().to_owned()
+  let current = cur.text.trim().to_owned()
+
+  if left == "" || current != "/" {
+    return false
+  }
+
+  if !ends_like_sentence_for_artifact(left) {
+    return false
+  }
+
+  if count_words_for_artifact(left) < 4 {
+    return false
+  }
+
+  let next = next_nonempty_normalized_span_text(spans, cur_index + 1)
+  match next {
+    Some(text) => is_single_page_number_digit_span(text)
+    None => false
+  }
+}
+
+///|
+fn next_nonempty_normalized_span_text(
+  spans : Array[@model.PdfTextSpan],
+  start : Int,
+) -> String? {
+  let mut i = start
+  while i < spans.length() {
+    let text = normalize_single_span(spans[i]).text.trim().to_owned()
+    if text != "" {
+      return Some(text)
+    }
+    i = i + 1
+  }
+  None
 }
 
 ///|
