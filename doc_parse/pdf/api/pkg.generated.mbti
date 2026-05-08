@@ -46,17 +46,24 @@ pub struct PdfDocumentInspectReport {
   has_xref_stream : Bool
   has_object_stream : Bool
   has_text_signal : Bool
+  has_image_signal : Bool
+  has_annotation_signal : Bool
   has_any_signal : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
+  text_page_count : Int
+  empty_page_count : Int
+  low_signal_page_count : Int
   total_text_block_count : Int
   total_line_count : Int
   total_span_count : Int
   total_char_count : Int
   total_image_count : Int
   total_annotation_count : Int
+  total_link_annotation_count : Int
   total_vector_count : Int
   total_form_count : Int
+  total_source_ref_count : Int
   issue_count : Int
   warning_count : Int
   error_count : Int
@@ -74,6 +81,7 @@ pub impl Show for PdfError
 pub struct PdfErrorInfo {
   kind : PdfErrorKind
   message : String
+  mapping : PdfErrorMappingKind
 }
 
 pub enum PdfErrorKind {
@@ -93,6 +101,11 @@ pub enum PdfErrorKind {
   Unknown
 }
 
+pub enum PdfErrorMappingKind {
+  DirectVariant
+  BestEffortMessage
+}
+
 pub struct PdfInspectIssue {
   kind : PdfInspectIssueKind
   severity : PdfInspectSeverity
@@ -101,6 +114,8 @@ pub struct PdfInspectIssue {
 }
 
 pub enum PdfInspectIssueKind {
+  EmptyPage
+  LowSignalPage
   EmptyExtraction
   LowSignalExtraction
   EncryptedDocument
@@ -117,6 +132,8 @@ pub struct PdfPageInspectInfo {
   rotation : Int
   media_box : @model.PdfRect
   crop_box : @model.PdfRect?
+  effective_width : Double
+  effective_height : Double
   raw_content_stream_ref_count : Int
   text_block_count : Int
   line_count : Int
@@ -124,9 +141,11 @@ pub struct PdfPageInspectInfo {
   char_count : Int
   image_count : Int
   annotation_count : Int
+  link_annotation_count : Int
   vector_count : Int
   form_count : Int
   object_count : Int
+  source_ref_count : Int
   reading_order_candidate_count : Int
   artifact_candidate_count : Int
   page_number_candidate_count : Int
@@ -135,6 +154,7 @@ pub struct PdfPageInspectInfo {
   has_any_signal : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
+  issue_count : Int
   issues : Array[PdfInspectIssue]
 }
 

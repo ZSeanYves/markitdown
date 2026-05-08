@@ -203,9 +203,40 @@ Debug / inspect convenience API:
 
 `extract_document_inspect_report` returns a structured `PdfDocumentInspectReport`. It exposes page counts, success/failure counts, document flags, metadata, text/image/annotation/vector/form totals, page-level signal summaries, and non-fatal inspect issues. This is the primary machine-readable inspect contract for PDF package users.
 
+Current Pass 2 inventory additions include:
+
+- document-level `text_page_count`, `empty_page_count`, and
+  `low_signal_page_count`
+- document-level `has_image_signal` and `has_annotation_signal`
+- document-level `total_link_annotation_count` and `total_source_ref_count`
+- page-level `effective_width` / `effective_height`
+- page-level `link_annotation_count`, `source_ref_count`, and `issue_count`
+
 `extract_document_block_debug` returns a textual inspection dump that joins raw-page provenance with model-page structure. It includes document flags and totals, per-page geometry and raw refs, content stream refs, text block/line/span counts, image summaries, annotation summaries, and block/line details. It now reuses the structured inspect report for summary totals and page quality signals, but it remains a diagnosis string rather than a stable Markdown or IR format. Upper `convert/pdf` pipeline debug may further retain convert-stage image provenance and page annotation passthrough on top of this, but those remain inspect/debug data rather than stable Markdown or IR semantics.
 
 `classify_pdf_error` returns a structured `PdfErrorInfo` so callers can separate adapter/build/unsupported failures from more specific detail kinds such as encrypted, malformed, unsupported object stream, unsupported filter, or low-signal cases.
+
+Pass 2 source-mapped classifier status:
+
+- direct top-level mapping today:
+  - `AdapterFailed`
+  - `BuildFailed`
+  - `Unsupported`
+- best-effort message mapping today:
+  - `Encrypted`
+  - `Malformed`
+  - `UnsupportedObjectStream`
+  - `UnsupportedFilter`
+  - `MalformedContentStream`
+  - `MissingFontEncoding`
+  - `BadToUnicode`
+  - `PartialPageFailure`
+  - `EmptyExtraction`
+  - `LowSignalExtraction`
+- reserved/future source-mapped refinement:
+  - any kind that still depends on message-level inference rather than a typed
+    raw/model signal should be treated as best-effort until lower layers expose
+    stronger markers
 
 Compatibility surface:
 
@@ -221,6 +252,26 @@ Known limits:
 - no scanned-PDF support by default
 - no full PDF spec support claim
 - no complete recovery from malformed PDFs
+
+Inspect issue model:
+
+- `PdfInspectIssue` is a report-only audit surface.
+- It does not change default parse or conversion behavior.
+- empty/low-signal findings remain inspect/report warnings or errors, not new
+  hard parser failures.
+- document-level issues currently cover:
+  - encrypted-document marker
+  - empty-document marker
+  - low-signal-document marker
+- page-level issues currently cover:
+  - empty-page marker
+  - low-signal-page marker
+
+Annotation/link boundary:
+
+- `doc_parse/pdf` reports raw annotation and link-like annotation counts through
+  inspect/inventory surfaces.
+- It still does not own final annotation-to-Markdown link emission policy.
 
 ## Current Limits
 

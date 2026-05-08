@@ -181,8 +181,9 @@ Current role:
 
 Current foundation direction:
 
-* active foundation hardening pass 1: keep parser/model/debug boundaries strong
-  while adding structured inspect/report and classifier surfaces
+* active foundation hardening pass 2: keep parser/model/debug boundaries strong
+  while extending structured inspect/report, document/page inventory, and
+  classifier surfaces
 * do not collapse `convert/pdf` semantic policy into the lower layer
 * prioritize auditability, debug signal, and structured failure over broad
   semantic ambition
@@ -192,9 +193,23 @@ Current maturity:
 * package-facing structured inspect/report contract exists alongside the legacy
   debug dump surface
 * `PdfError` now has a classifier-friendly structured companion for audit use
+* document/page inspect reports now expose additive inventory counts for text,
+  image, annotation, link-like annotation, source-ref, and page-quality signal
+* classifier output now distinguishes direct top-level variant mapping from
+  best-effort message-based detail mapping
 * default parse/model behavior remains compatibility-oriented and unchanged
 * the remaining closure work is to keep refining the lower-layer contract
   without absorbing convert/pdf semantic policy
+
+Remaining PDF closure items after Pass 2:
+
+* deeper raw/model source mapping for unsupported features and malformed content
+  paths, so fewer `PdfErrorKind` values rely on best-effort message inference
+* stronger package/document-level unsupported-feature taxonomy
+* clearer partial-page failure signal if the raw/model pipeline later exposes
+  page-local failure markers without changing converter semantics
+* candidate-closure work on publishable-surface boundaries once the lower-level
+  signal taxonomy is less message-driven
 
 ### `doc_parse/epub`
 
