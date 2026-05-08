@@ -882,6 +882,117 @@ async test "pdf core summary includes version and page count" {
 }
 
 ///|
+async test "pdf stable candidate facade smoke" {
+  let input = resolve_sample_path("samples/main_process/pdf/text_simple.pdf")
+  let doc = match
+    @api.extract_document_model(input, @api.default_pdf_config()) {
+    Ok(v) => v
+    Err(e) => fail("extract_document_model failed: " + e.to_string())
+  }
+  let report = match
+    @api.extract_document_inspect_report(input, @api.default_pdf_config()) {
+    Ok(v) => v
+    Err(e) => fail("extract_document_inspect_report failed: " + e.to_string())
+  }
+  let summary = match
+    @api.extract_document_summary(input, @api.default_pdf_config()) {
+    Ok(v) => v
+    Err(e) => fail("extract_document_summary failed: " + e.to_string())
+  }
+  let page_info = @api.inspect_pdf_page(doc.pages[0])
+  let doc_info = @api.inspect_pdf_document(doc)
+  let err_info = match
+    @api.extract_document_model(
+      "samples/main_process/pdf/__missing_candidate_surface__.pdf",
+      @api.default_pdf_config(),
+    ) {
+    Ok(_) => fail("missing path should fail")
+    Err(e) => @api.classify_pdf_error(e)
+  }
+  let image_page : @model.PdfPageModel = {
+    page_index: 0,
+    page_label: None,
+    rotation: 0,
+    user_unit: None,
+    boxes: {
+      media_box: { x0: 0.0, y0: 0.0, x1: 100.0, y1: 100.0 },
+      crop_box: None,
+      bleed_box: None,
+      trim_box: None,
+      art_box: None,
+    },
+    text_blocks: [],
+    images: [
+      {
+        id: "image-0",
+        bbox: { x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 },
+        width_px: 10,
+        height_px: 10,
+        colorspace: None,
+        bits_per_component: None,
+        image_filter: None,
+        object_ref: None,
+        alt_text: None,
+        inline_image: true,
+        payload: None,
+        source_refs: [],
+      },
+    ],
+    vectors: [],
+    annotations: [],
+    forms: [],
+    reading_order_candidates: [],
+    artifact_candidates: [],
+    raw_content_stream_refs: [],
+  }
+  let synthetic_report = @api.inspect_pdf_document({
+    version: "1.7",
+    page_count: 1,
+    metadata: {
+      title: None,
+      author: None,
+      subject: None,
+      keywords: [],
+      creator: None,
+      producer: None,
+      creation_date: None,
+      mod_date: None,
+    },
+    is_encrypted: false,
+    has_xref_stream: false,
+    has_object_stream: false,
+    outlines: [],
+    pages: [image_page],
+  })
+  let issue_info = match
+    @api.classify_pdf_inspect_issue(synthetic_report.issues[0]) {
+    Some(v) => v
+    None => fail("classify_pdf_inspect_issue should classify low-signal page")
+  }
+
+  if report.page_count != doc.page_count {
+    fail("stable facade smoke should keep report page count aligned with model")
+  }
+  if doc_info.page_count != doc.page_count {
+    fail("inspect_pdf_document should preserve model page count")
+  }
+  if page_info.page_index != 0 {
+    fail("inspect_pdf_page should preserve page index")
+  }
+  assert_contains_text(
+    summary, "PdfDocumentSummary(", "stable facade summary header",
+  )
+  match err_info.mapping {
+    @api.PdfErrorMappingKind::DirectVariant => ()
+    _ => fail("generic build error should keep direct variant mapping")
+  }
+  match issue_info.mapping {
+    @api.PdfErrorMappingKind::TypedIssue => ()
+    _ => fail("typed inspect issue should keep typed issue mapping")
+  }
+}
+
+///|
 async test "pdf core block debug includes page geometry and refs" {
   let dump = open_pdf_block_debug("samples/main_process/pdf/text_simple.pdf")
   assert_contains_text(dump, "PdfDocumentDebug(", "debug header")

@@ -14,6 +14,23 @@ Foundation direction:
   boundaries, structured inspect/report surfaces, and fail-closed behavior
   over broader semantic ambition
 
+## Candidate Status
+
+Current status:
+
+- `doc_parse/pdf` is treated as a `text-PDF publishable foundation candidate`
+  within the current repository scope
+- this candidate status is for the native text-PDF lower layer only
+- it does not claim scanned-PDF support, OCR default support, full PDF spec
+  support, or full visual-layout/tagged-PDF semantics
+
+Current package split:
+
+- there is no single root `doc_parse/pdf` package facade
+- the recommended package-facing entrypoint is `doc_parse/pdf/api`
+- `model`, `raw`, and `text` remain important lower-layer packages, but they
+  are not the primary stable candidate facade for new consumers
+
 ## Scope
 
 `doc_parse/pdf` currently owns:
@@ -201,6 +218,10 @@ Stable candidate API:
 - `classify_pdf_inspect_issue`
 - `classify_pdf_error_with_issues`
 
+These are the recommended package-facing APIs for external MoonBit consumers.
+New tooling should start here rather than depending directly on raw adapter or
+text-reconstruction internals.
+
 Structured inspect/report types:
 
 - `PdfDocumentInspectReport`
@@ -216,6 +237,10 @@ Debug / inspect convenience API:
 
 - `extract_document_block_debug`
 - `extract_document_inspect_dump`
+
+These APIs stay public because they are useful for CLI debug and human
+inspection, but they should not be treated as the main machine-readable
+contract.
 
 `extract_document_model` runs the full native pipeline and returns `PdfDocumentModel`.
 
@@ -247,21 +272,42 @@ low-signal cases.
 consumers prefer typed inspect issues when the lower layer already exposed a
 stronger signal than a generic top-level error variant.
 
-Pass 3 source-mapped classifier status:
+Error classifier mapping kinds:
+
+- `DirectVariant`
+- `TypedIssue`
+- `BestEffortMessage`
+
+Current typed signals:
+
+- `EncryptedDocument`
+- `AnnotationParseWarning`
+- `ImageParseWarning`
+- `PartialPageFailure`
+- `EmptyPage`
+- `LowSignalPage`
+- `EmptyExtraction`
+- `LowSignalExtraction`
+
+Reserved / future typed signals:
+
+- `UnsupportedObjectStream`
+- `UnsupportedFilter`
+- `MalformedContentStream`
+- `MissingFontEncoding`
+- `BadToUnicode`
+- `Malformed`
+- deeper page-local partial build failure taxonomy
+
+Classifier status:
 
 - direct top-level mapping today:
   - `AdapterFailed`
   - `BuildFailed`
   - `Unsupported`
 - typed issue mapping today:
-  - `EncryptedDocument` from raw encrypted-document signal
-  - `AnnotationParseWarning` and `ImageParseWarning` as raw inspect-only issue
-    kinds
-  - `PartialPageFailure`, `EmptyPage`, `LowSignalPage`, `EmptyExtraction`, and
-    `LowSignalExtraction` from model/report signal
-  - `UnsupportedObjectStream` has typed inspect/report plumbing but is still
-    gated by future raw backend exposure
-- best-effort message mapping still used today:
+  - the current typed signals listed above
+- best-effort message mapping still used today for:
   - `Encrypted`
   - `Malformed`
   - `UnsupportedFilter`
@@ -269,18 +315,39 @@ Pass 3 source-mapped classifier status:
   - `MissingFontEncoding`
   - `BadToUnicode`
   - `UnsupportedObjectStream` when no typed raw issue is available
-- reserved/future source-mapped refinement:
-  - any kind that still depends on message-level inference rather than a typed
-    raw/model signal should be treated as best-effort until lower layers expose
-    stronger markers
+
+Any kind that still depends on message-level inference should be treated as
+best-effort rather than as fully source-mapped parser truth.
 
 Compatibility surface:
 
 - `PdfError` remains the top-level failure type returned by the existing path-based APIs
 - `PdfDocumentModel` remains the main converter-facing lower-layer model
 - the lower-layer model fields continue to be the compatibility surface that `convert/pdf` uses directly
+- `RawPdfDocumentExtract`, `RawPdfPageExtract`, and related raw structs are
+  also part of the current compatibility surface for repository tests and
+  lower-layer inspection
 
-Known limits:
+Internal exposed surface:
+
+- `raw/mbtpdf_*_adapter.mbt` remains the vendored-backend integration detail
+- `text/*` reconstruction helpers and predicates remain implementation-heavy
+  internals even though selected values are still exported today
+- `model/*` bbox/source-ref counters and glue helpers are useful lower-layer
+  utilities, but they are closer to assembly helpers than to the primary
+  stable facade
+
+Versioning / API stability note:
+
+- stable candidate facade means the `api` package entrypoints above are the
+  preferred surface to keep additive and steady
+- compatibility surfaces remain public because `convert/pdf`, CLI debug, and
+  lower-layer tests still depend on them
+- future independent release work may encapsulate more raw/model/text details,
+  but this candidate pass does not tighten field visibility or break existing
+  repository consumers
+
+Candidate boundary reminders:
 
 - no full visual layout engine
 - no full tagged-PDF semantic extraction

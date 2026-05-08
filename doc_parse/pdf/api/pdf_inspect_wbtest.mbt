@@ -202,3 +202,41 @@ test "pdf typed issue classifier helpers prefer inspect issues" {
     _ => fail("typed issue classifier should mark typed issue mapping")
   }
 }
+
+///|
+test "pdf raw warning issues do not over-promote reserved kinds" {
+  let raw_warning = {
+    kind: PdfInspectIssueKind::AnnotationParseWarning,
+    severity: PdfInspectSeverity::Warning,
+    source: PdfInspectIssueSource::Raw,
+    page_index: Some(0),
+    object_ref: Some("12 0 R"),
+    source_ref: None,
+    message: "annotation missing or malformed /Rect bbox",
+  }
+
+  match classify_pdf_inspect_issue(raw_warning) {
+    Some(_) =>
+      fail("annotation parse warnings should remain inspect-only findings")
+    None => ()
+  }
+
+  let info = classify_pdf_error_with_issues(
+    PdfError::Unsupported("unsupported filter /LZWDecode"),
+    [raw_warning],
+  )
+  match info.kind {
+    PdfErrorKind::UnsupportedFilter => ()
+    _ =>
+      fail(
+        "reserved unsupported filter kind should still come from message mapping",
+      )
+  }
+  match info.mapping {
+    PdfErrorMappingKind::BestEffortMessage => ()
+    _ =>
+      fail(
+        "non-classifying raw warnings should not upgrade reserved kinds to typed issue mapping",
+      )
+  }
+}

@@ -181,15 +181,19 @@ Current role:
 
 Current foundation direction:
 
-* active foundation hardening pass 3: keep parser/model/debug boundaries strong
-  while extending structured inspect/report, document/page inventory, and
-  typed issue/classifier surfaces
+* now a publishable foundation candidate within current repository scope for
+  native text-PDF lower-layer use
+* keep parser/model/debug boundaries strong while extending structured
+  inspect/report, document/page inventory, and typed issue/classifier surfaces
 * do not collapse `convert/pdf` semantic policy into the lower layer
 * prioritize auditability, debug signal, and structured failure over broad
   semantic ambition
 
 Current maturity:
 
+* stable candidate facade now centers on `doc_parse/pdf/api`
+* structured inspect/report and debug convenience surfaces are both available,
+  with the structured report as the preferred machine-readable contract
 * package-facing structured inspect/report contract exists alongside the legacy
   debug dump surface
 * `PdfError` now has a classifier-friendly structured companion for audit use
@@ -202,10 +206,13 @@ Current maturity:
   payload warnings, and model-derived empty/low-signal/partial-page findings
   are exposed as typed audit signal without changing converter semantics
 * default parse/model behavior remains compatibility-oriented and unchanged
-* the remaining closure work is to keep refining the lower-layer contract
-  without absorbing convert/pdf semantic policy
+* clear compatibility surfaces remain documented for `PdfDocumentModel`, raw
+  extract structs, and debug-oriented lower-layer access without tightening
+  current repository consumers
+* the remaining work is to keep refining the lower-layer contract without
+  absorbing convert/pdf semantic policy
 
-Remaining PDF closure items after Pass 3:
+Remaining PDF closure items after candidate closure:
 
 * deeper raw/model source mapping for unsupported features and malformed content
   paths, so fewer `PdfErrorKind` values rely on best-effort message inference
