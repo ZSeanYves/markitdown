@@ -22,6 +22,28 @@ pub(all) enum OoxmlErrorKind {
 } derive(Eq)
 
 ///|
+pub(all) enum OoxmlValidationMode {
+  Compatible
+  Strict
+} derive(Eq)
+
+///|
+pub(all) enum OoxmlValidationSeverity {
+  Warning
+  Error
+} derive(Eq)
+
+///|
+pub(all) enum OoxmlValidationIssueKind {
+  ExternalRelationship
+  DuplicateRelationshipId
+  MissingRelationshipId
+  MissingRelationshipType
+  MissingRelationshipTarget
+  UnsafeRelationshipTarget
+} derive(Eq)
+
+///|
 pub impl Show for OoxmlError with to_string(self : OoxmlError) -> String {
   match self {
     ZipError(msg) => "zip error: " + msg
@@ -47,6 +69,29 @@ pub struct OoxmlErrorInfo {
   source_part : String?
   rel_id : String?
   target : String?
+}
+
+///|
+pub struct OoxmlValidationIssue {
+  kind : OoxmlValidationIssueKind
+  severity : OoxmlValidationSeverity
+  part_name : String?
+  rels_part_name : String?
+  source_part : String?
+  relationship_id : String?
+  target : String?
+  message : String
+}
+
+///|
+pub struct OoxmlValidationReport {
+  mode : OoxmlValidationMode
+  part_count : Int
+  relationship_part_count : Int
+  issue_count : Int
+  error_count : Int
+  warning_count : Int
+  issues : Array[OoxmlValidationIssue]
 }
 
 ///|

@@ -477,6 +477,70 @@ test "ooxml package currently preserves duplicate relationship ids for compatibi
 }
 
 ///|
+test "ooxml strict validation reports duplicate relationship ids" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  if report.mode != @ox.OoxmlValidationMode::Strict {
+    fail("strict validation should default to Strict mode")
+  }
+  if report.error_count <= 0 {
+    fail("strict validation should report duplicate relationship id")
+  }
+  if report.issues[0].kind !=
+    @ox.OoxmlValidationIssueKind::DuplicateRelationshipId {
+    fail("expected duplicate relationship id issue")
+  }
+}
+
+///|
+test "ooxml compatible validation stays empty for duplicate relationship ids" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(
+    pkg,
+    mode=@ox.OoxmlValidationMode::Compatible,
+  )
+  assert_eq(report.issue_count, 0)
+  assert_eq(report.error_count, 0)
+  assert_eq(report.warning_count, 0)
+}
+
+///|
 test "ooxml package rejects unsafe relationship target path" {
   let bytes = build_store_zip([
     (
@@ -680,6 +744,92 @@ test "ooxml package malformed relationships is classified" {
 }
 
 ///|
+test "ooxml strict validation reports missing relationship target" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml("<Relationship Id=\"rId1\" Type=\"image\"/>"),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::MissingRelationshipTarget
+  })
+  assert_eq(issues.length(), 1)
+}
+
+///|
+test "ooxml strict validation reports missing relationship id" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Type=\"image\" Target=\"media/image1.png\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::MissingRelationshipId
+  })
+  assert_eq(issues.length(), 1)
+}
+
+///|
+test "ooxml strict validation reports unsafe relationship target" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"image\" Target=\"../media/../../evil.bin\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  let issues = report.issues.filter(fn(issue) {
+    issue.kind == @ox.OoxmlValidationIssueKind::UnsafeRelationshipTarget
+  })
+  assert_eq(issues.length(), 1)
+  match issues[0].target {
+    Some(v) =>
+      if !v.contains("../media/../../evil.bin") {
+        fail("strict validation should retain unsafe target detail")
+      }
+    None => fail("strict validation should keep target")
+  }
+}
+
+///|
 test "ooxml package classifies rooted and parent traversal part paths" {
   let pkg = open_sample_package("samples/main_process/docx/golden.docx")
   let rooted = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "/../evil.xml"))
@@ -732,6 +882,13 @@ test "ooxml package preserves external relationship classification" {
   assert_eq(infos.length(), 1)
   if infos[0].target_mode != @ox.OoxmlTargetMode::External {
     fail("expected external target mode in relationship info")
+  }
+
+  let report = @ox.validate_ooxml_package(pkg)
+  assert_eq(report.warning_count, 1)
+  assert_eq(report.error_count, 0)
+  if report.issues[0].kind != @ox.OoxmlValidationIssueKind::ExternalRelationship {
+    fail("expected external relationship validation issue")
   }
 }
 
@@ -855,6 +1012,48 @@ test "ooxml package content type default and override behavior is explicit" {
   match noext_ct {
     Some(_) => fail("part without extension should not infer a content type")
     None => ()
+  }
+}
+
+///|
+test "ooxml strict validation issue ordering is deterministic" {
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>" +
+        "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"word/document.xml\"/>",
+      ),
+    ),
+    (
+      "word/_rels/document.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId2\" Type=\"hyperlink\" Target=\"https://example.com/spec\" TargetMode=\"External\"/>",
+      ),
+    ),
+    ("word/document.xml", "<doc/>"),
+  ])
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let report = @ox.validate_ooxml_package(pkg)
+  if report.issues.length() < 3 {
+    fail("expected multiple strict validation issues")
+  }
+  if report.issues[0].kind !=
+    @ox.OoxmlValidationIssueKind::DuplicateRelationshipId {
+    fail("expected duplicate relationship id issue first")
+  }
+  if report.issues[1].kind !=
+    @ox.OoxmlValidationIssueKind::MissingRelationshipId {
+    fail("expected missing relationship id issue second")
   }
 }
 

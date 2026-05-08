@@ -159,13 +159,16 @@ Current foundation direction:
   semantic converter
 * should expose structured inventory/inspect and classifier-friendly errors,
   while keeping converter-facing compatibility stable during hardening
+* now keeps default package opening compatibility-oriented, with explicit strict
+  validation reserved for publishable-package hygiene checks
 
 Remaining closure items:
 
 * evaluate whether any currently public helper-shaped surface should be hidden in
   a future versioned package release, without breaking current converter users
 * decide whether duplicate relationship-id compatibility should stay as-is or
-  move behind an explicit strict-mode API in a future non-breaking design
+  whether future release policy should tighten only the strict-validation story,
+  not the default open path
 * clarify whether lightweight XML text decoding should remain package-local or
   later gain an explicit "XML/text part reader" naming split in a release pass
 
