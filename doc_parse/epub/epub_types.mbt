@@ -14,6 +14,7 @@ pub(all) enum EpubErrorKind {
   MissingContainer
   MissingRootfile
   MissingPart
+  DuplicateManifestId
   InvalidXml
   InvalidPath
   InvalidPackage
@@ -40,6 +41,9 @@ pub(all) enum EpubValidationIssueKind {
   MissingManifestItem
   MissingSpineTarget
   UnsupportedSpineItem
+  DuplicateSpineIdref
+  MissingNavigationDocument
+  MultipleRootfiles
 } derive(Eq)
 
 ///|
@@ -64,8 +68,11 @@ pub struct EpubErrorInfo {
   kind : EpubErrorKind
   detail : String
   part_name : String?
+  rootfile_path : String?
+  manifest_id : String?
   source_part : String?
   path : String?
+  href : String?
 }
 
 ///|
@@ -201,7 +208,10 @@ pub struct EpubValidationIssue {
   severity : EpubValidationSeverity
   rootfile_path : String
   manifest_id : String?
+  spine_idref : String?
   part_name : String?
+  href : String?
+  media_type : String?
   spine_index : Int?
   message : String
 }

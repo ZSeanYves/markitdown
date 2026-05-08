@@ -194,15 +194,15 @@ Current role:
 
 Current foundation direction:
 
-* active foundation hardening target for the next publishable-package pass
-* now exposes a package-facing facade for rootfiles, manifest, spine, nav/NCX,
+* now a publishable foundation candidate within current repository scope
+* exposes a package-facing facade for rootfiles, manifest, spine, nav/NCX,
   cover candidates, and structured inventory/inspect reporting
-* now separates open/read failures from explicit validation issues without
-  changing default package-open behavior
-* keep reading-system rendering, CSS/JS, remote fetch, and final Markdown
+* keeps default package opening compatibility-oriented while exposing explicit
+  validation for package hygiene findings
+* keeps reading-system rendering, CSS/JS, remote fetch, and final Markdown
   aggregation out of the lower layer
 
-Current maturity after pass 1:
+Current maturity after closure:
 
 * package open/read/list APIs are in place
 * rootfile/manifest/spine/nav/cover package signal is exposed as reusable
@@ -211,13 +211,16 @@ Current maturity after pass 1:
 * classifier-style error reporting is available without breaking the existing
   top-level `EpubError` surface
 * explicit validation reporting exists for non-fatal package hygiene issues
+* rootfile-selection, missing-navigation, duplicate-spine-idref, and
+  unsupported-spine policy are now documented and covered by direct lower-layer
+  tests
 
 Remaining closure items:
 
 * decide whether any currently public `EpubPackage` fields should remain long
   term public or be treated as compatibility-only surface
-* decide whether additional validation modes or severity classes are needed
-  before calling the package near-publishable
+* decide whether additional validation modes or severity classes are needed in
+  a future release-policy pass; current package scope does not require them
 * continue expanding direct lower-layer malformed/edge-case tests without
   changing `convert/epub` semantics
 

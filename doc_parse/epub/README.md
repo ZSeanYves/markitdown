@@ -229,10 +229,17 @@ Compatibility surface, but not ideal for external long-term reliance:
 - `EpubPackage.archive`
 - `EpubPackage.entries`
 - `EpubPackage.entry_index`
+- `EpubPackage.rootfile_path`
+- `EpubPackage.rootfiles`
 - `EpubPackage.manifest`
 - `EpubPackage.spine`
 - `EpubPackage.nav_item`
+- `EpubPackage.nav_document_item`
+- `EpubPackage.ncx_item`
 - `EpubPackage.cover_item`
+- `EpubPackage.guide_cover_path`
+- `EpubPackage.cover_candidates`
+- `EpubPackage.nav_points`
 
 These remain public today because in-repo converter consumers still touch them
 directly. Tightening them should be treated as a future versioned API change,
@@ -268,9 +275,53 @@ Versioning note:
 
 Current validation focus:
 
+- multiple rootfiles are reported explicitly while default open keeps choosing
+  the first usable rootfile deterministically
 - missing manifest items referenced by spine
 - missing resolved spine targets
+- duplicate spine `idref` values
+- missing navigation documents when neither EPUB3 nav nor NCX is available
 - unsupported spine item media types for lower-layer reading-order consumers
+
+Default compatibility policy:
+
+- `open_epub_package` keeps current converter-facing behavior
+- explicit validation is additive and opt-in through
+  `collect_epub_validation_issues` / `validate_epub_package`
+- non-fatal package hygiene findings do not automatically become open failures
+
+## Rootfile Selection Policy
+
+- all declared rootfiles from `META-INF/container.xml` are exposed through
+  `list_epub_rootfiles`
+- the first usable normalized rootfile is selected deterministically
+- multiple rootfiles are not fatal by default; they are reported as validation
+  issues
+- missing or unusable rootfiles still fail closed during package open
+
+## Navigation Policy
+
+- EPUB3 nav documents outrank NCX when both are present
+- NCX remains a conservative fallback when no EPUB3 nav is available
+- missing both nav and NCX is not fatal by default
+- missing navigation signal is surfaced as an explicit validation warning
+
+## Cover Candidate Policy
+
+- cover-image manifest properties outrank metadata and guide fallback
+- metadata `name="cover"` stays a package-level candidate source
+- guide references stay conservative and package-local
+- guide cover pages are preserved as signal, but not promoted to image covers
+  unless they resolve to a manifest image
+
+## Remote Resource Policy
+
+- remote/data/scheme-like hrefs are blocked rather than fetched when this layer
+  is asked to normalize package paths
+- lower-layer package open does not try to act like a reading system or remote
+  asset fetcher
+- remote-resource fallback behavior above package open remains the
+  responsibility of `convert/epub`
 
 ## read_part_text Boundary
 

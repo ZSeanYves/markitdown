@@ -69,6 +69,191 @@ fn assert_epub_error_kind(
 }
 
 ///|
+fn bytes_of_string(s : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in s.to_array() {
+    out.push(ch.to_int().to_byte())
+  }
+  out
+}
+
+///|
+fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn add_store_entry(
+  out : Array[Byte],
+  central : Array[(String, Int, Int)],
+  name : String,
+  data : String,
+) -> Unit {
+  let local_offset = out.length()
+  let name_bytes = bytes_of_string(name)
+  let data_bytes = bytes_of_string(data)
+
+  append_u32_le(out, 0x04034b50)
+  append_u16_le(out, 20)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u32_le(out, 0)
+  append_u32_le(out, data_bytes.length())
+  append_u32_le(out, data_bytes.length())
+  append_u16_le(out, name_bytes.length())
+  append_u16_le(out, 0)
+  for b in name_bytes {
+    out.push(b)
+  }
+  for b in data_bytes {
+    out.push(b)
+  }
+
+  central.push((name, data_bytes.length(), local_offset))
+}
+
+///|
+fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data) = entry
+    add_store_entry(out, central, name, data)
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn open_inline_epub(
+  entries : Array[(String, String)],
+  name? : String = "inline.epub",
+) -> @epub.EpubPackage raise {
+  @epub.open_epub_package(build_store_zip(entries), name) catch {
+    e => fail("open inline epub failed: " + e.to_string())
+  }
+}
+
+///|
+fn minimal_container(rootfiles : Array[(String, String?)]) -> String {
+  let children : Array[String] = []
+  for entry in rootfiles {
+    let (path, media_type) = entry
+    let media = match media_type {
+      Some(v) => " media-type=\"" + v + "\""
+      None => ""
+    }
+    children.push("<rootfile full-path=\"" + path + "\"" + media + "/>")
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">" +
+  "<rootfiles>" +
+  children.join("") +
+  "</rootfiles>" +
+  "</container>"
+}
+
+///|
+fn minimal_opf(
+  manifest_items : Array[(String, String, String, String?)],
+  spine_items : Array[(String, String?)],
+  toc? : String? = None,
+) -> String {
+  let manifest_xml : Array[String] = []
+  for entry in manifest_items {
+    let (id, href, media_type, properties) = entry
+    let props = match properties {
+      Some(v) => " properties=\"" + v + "\""
+      None => ""
+    }
+    manifest_xml.push(
+      "<item id=\"" +
+      id +
+      "\" href=\"" +
+      href +
+      "\" media-type=\"" +
+      media_type +
+      "\"" +
+      props +
+      "/>",
+    )
+  }
+  let spine_xml : Array[String] = []
+  for entry in spine_items {
+    let (idref, linear) = entry
+    let linear_attr = match linear {
+      Some(v) => " linear=\"" + v + "\""
+      None => ""
+    }
+    spine_xml.push("<itemref idref=\"" + idref + "\"" + linear_attr + "/>")
+  }
+  let toc_attr = match toc {
+    Some(v) => " toc=\"" + v + "\""
+    None => ""
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\">" +
+  "<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>Inline EPUB</dc:title></metadata>" +
+  "<manifest>" +
+  manifest_xml.join("") +
+  "</manifest>" +
+  "<spine" +
+  toc_attr +
+  ">" +
+  spine_xml.join("") +
+  "</spine>" +
+  "</package>"
+}
+
+///|
 test "epub package parses basic spine in OPF order" {
   let pkg = open_sample_package(
     "samples/main_process/epub/epub_basic_spine.epub",
@@ -249,18 +434,21 @@ test "epub package keeps missing manifest spine item" {
   assert_eq(inspect.spine_items[0].action, "warn")
 
   let issues = @epub.collect_epub_validation_issues(pkg)
-  assert_eq(issues.length(), 2)
+  assert_eq(issues.length(), 3)
   if issues[0].kind != @epub.EpubValidationIssueKind::MissingManifestItem {
     fail("expected missing manifest issue first")
   }
   if issues[1].kind != @epub.EpubValidationIssueKind::MissingSpineTarget {
     fail("expected missing spine target issue second")
   }
+  if issues[2].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+    fail("expected missing navigation issue third")
+  }
 
   let report = @epub.validate_epub_package(pkg)
-  assert_eq(report.issue_count, 2)
+  assert_eq(report.issue_count, 3)
   assert_eq(report.error_count, 2)
-  assert_eq(report.warning_count, 0)
+  assert_eq(report.warning_count, 1)
 }
 
 ///|
@@ -310,7 +498,8 @@ test "epub package detects nav cover and richer metadata" {
   }
   let cover_candidates = @epub.find_epub_cover_candidates(cover_pkg)
   assert_eq(cover_candidates.length(), 1)
-  if cover_candidates[0].source != @epub.EpubCoverCandidateSource::ManifestProperty {
+  if cover_candidates[0].source !=
+    @epub.EpubCoverCandidateSource::ManifestProperty {
     fail("expected manifest-property cover candidate")
   }
   assert_eq(cover_candidates[0].selected, true)
@@ -531,33 +720,209 @@ test "epub package metadata entries expose non-empty fields only" {
 }
 
 ///|
+test "epub package selects first usable rootfile deterministically" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/missing.opf", Some("application/oebps-package+xml")),
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+        ("OPS/alt.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf([("c1", "chapter.xhtml", "application/xhtml+xml", None)], [
+        ("c1", None),
+      ]),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>ok</body></html>",
+    ),
+    (
+      "OPS/alt.opf",
+      minimal_opf([("c2", "chapter2.xhtml", "application/xhtml+xml", None)], [
+        ("c2", None),
+      ]),
+    ),
+    (
+      "OPS/chapter2.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>alt</body></html>",
+    ),
+  ])
+
+  assert_eq(pkg.rootfile_path, "OPS/content.opf")
+  let rootfiles = @epub.list_epub_rootfiles(pkg)
+  assert_eq(rootfiles.length(), 3)
+  assert_eq(rootfiles[0].full_path, "OPS/missing.opf")
+  assert_eq(rootfiles[0].usable, false)
+  assert_eq(rootfiles[1].full_path, "OPS/content.opf")
+  assert_eq(rootfiles[1].is_primary, true)
+
+  let report = @epub.validate_epub_package(pkg)
+  if report.issues[0].kind !=
+    @epub.EpubValidationIssueKind::MissingNavigationDocument {
+    fail("expected missing navigation issue first")
+  }
+  if report.issues[1].kind != @epub.EpubValidationIssueKind::MultipleRootfiles {
+    fail("expected multiple rootfiles issue second")
+  }
+}
+
+///|
+test "epub package validation reports duplicate spine idref deterministically" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf(
+        [
+          ("c1", "chapter.xhtml", "application/xhtml+xml", None),
+          ("nav", "nav.xhtml", "application/xhtml+xml", Some("nav")),
+        ],
+        [("c1", None), ("c1", None)],
+      ),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>dup</body></html>",
+    ),
+    (
+      "OPS/nav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav epub:type=\"toc\"><a href=\"chapter.xhtml\">One</a></nav></body></html>",
+    ),
+  ])
+
+  let issues = @epub.collect_epub_validation_issues(pkg)
+  assert_eq(issues.length(), 1)
+  if issues[0].kind != @epub.EpubValidationIssueKind::DuplicateSpineIdref {
+    fail("expected duplicate spine idref issue")
+  }
+  if issues[0].spine_idref != Some("c1") {
+    fail("expected duplicate spine idref payload")
+  }
+}
+
+///|
+test "epub package missing nav and ncx is validation warning not fatal" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf([("c1", "chapter.xhtml", "application/xhtml+xml", None)], [
+        ("c1", None),
+      ]),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>plain</body></html>",
+    ),
+  ])
+
+  match pkg.nav_item {
+    Some(_) => fail("expected missing nav item")
+    None => ()
+  }
+  let issues = @epub.collect_epub_validation_issues(pkg)
+  assert_eq(issues.length(), 1)
+  if issues[0].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+    fail("expected missing navigation issue")
+  }
+}
+
+///|
+test "epub package nav outranks missing ncx without validation noise" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf(
+        [
+          ("c1", "chapter.xhtml", "application/xhtml+xml", None),
+          ("nav", "nav.xhtml", "application/xhtml+xml", Some("nav")),
+        ],
+        [("c1", None)],
+      ),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>plain</body></html>",
+    ),
+    (
+      "OPS/nav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav epub:type=\"toc\"><a href=\"chapter.xhtml\">One</a></nav></body></html>",
+    ),
+  ])
+
+  let issues = @epub.collect_epub_validation_issues(pkg)
+  assert_eq(issues.length(), 0)
+}
+
+///|
 test "epub package validation warns on unsupported spine item" {
   let pkg = open_sample_package(
     "samples/fixtures/epub/epub_unsupported_spine_media.epub",
   )
   let issues = @epub.collect_epub_validation_issues(pkg)
-  assert_eq(issues.length(), 1)
-  if issues[0].kind != @epub.EpubValidationIssueKind::UnsupportedSpineItem {
-    fail("expected unsupported spine item issue")
+  assert_eq(issues.length(), 2)
+  if issues[0].kind != @epub.EpubValidationIssueKind::MissingNavigationDocument {
+    fail("expected missing navigation issue first")
   }
-  if issues[0].severity != @epub.EpubValidationSeverity::Warning {
+  if issues[1].kind != @epub.EpubValidationIssueKind::UnsupportedSpineItem {
+    fail("expected unsupported spine item issue second")
+  }
+  if issues[1].severity != @epub.EpubValidationSeverity::Warning {
     fail("expected unsupported spine item warning")
   }
 
   let report = @epub.validate_epub_package(pkg)
-  assert_eq(report.issue_count, 1)
+  assert_eq(report.issue_count, 2)
   assert_eq(report.error_count, 0)
-  assert_eq(report.warning_count, 1)
+  assert_eq(report.warning_count, 2)
 }
 
 ///|
 test "epub package keeps remote-resource handling above lower-layer package open" {
-  let pkg = open_sample_package(
-    "samples/fixtures/epub/epub_remote_image.epub",
-  )
+  let pkg = open_sample_package("samples/fixtures/epub/epub_remote_image.epub")
   assert_eq(pkg.entries.length(), 4)
   assert_eq(@epub.has_part(pkg, "OPS/content.opf"), true)
   assert_eq(@epub.has_part(pkg, "https://example.com/cover.jpg"), false)
   let inventory = @epub.inspect_epub_inventory(pkg)
   assert_eq(inventory.part_count, 4)
+}
+
+///|
+test "epub package duplicate manifest id classifier stays additive" {
+  let sample = resolve_sample_path(
+    "samples/fixtures/epub/epub_duplicate_manifest_id.epub",
+  )
+  let bytes = @fs.read_file_to_bytes(sample) catch {
+    e => fail("read sample failed: " + e.to_string())
+  }
+  let result = try? @epub.open_epub_package(bytes, @cor.basename(sample))
+  match result {
+    Ok(_) => fail("expected duplicate manifest package to fail")
+    Err(err) => {
+      let info = @epub.classify_epub_error(err)
+      if info.kind != @epub.EpubErrorKind::DuplicateManifestId {
+        fail("expected duplicate manifest classifier")
+      }
+      if info.manifest_id != Some("dup") {
+        fail("expected duplicate manifest id payload")
+      }
+    }
+  }
 }
