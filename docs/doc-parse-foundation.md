@@ -8,15 +8,7 @@ Current audit scope for this contract:
 * `doc_parse/ooxml`
 * `doc_parse/pdf`
 * `doc_parse/epub`
-
-Explicitly out of scope for this round:
-
 * `doc_parse/zip`
-
-`doc_parse/zip` remains the shared container primitive for OOXML and EPUB, but
-it is intentionally excluded from this hardening pass so the work can stay
-focused on reusable document-parsing substrates rather than on a full
-container-stack rewrite.
 
 ## Current Status
 
@@ -25,7 +17,7 @@ Current candidate line:
 * `doc_parse/ooxml`: publishable foundation candidate
 * `doc_parse/epub`: publishable foundation candidate
 * `doc_parse/pdf`: text-PDF publishable foundation candidate
-* `doc_parse/zip`: still out of this closure scope as the shared container
+* `doc_parse/zip`: active foundation hardening Pass 1 as the shared container
   primitive
 
 Current packaging strategy:
@@ -47,6 +39,9 @@ Across the current candidate line:
 * `convert/*` owns Markdown/IR semantic conversion and final output policy
 * no remote fetch is part of the lower-layer foundation contract
 * lower layers should fail closed where safety matters
+* shared container layers such as `doc_parse/zip` may keep compatibility-
+  oriented open/read behavior while surfacing stricter validation and inspect
+  reports explicitly
 * explicit validation or inspect issues do not automatically become default
   hard failures in normal conversion paths
 * compatibility-oriented default open/read behavior may coexist with explicit
@@ -225,6 +220,59 @@ Remaining closure items:
   not the default open path
 * clarify whether lightweight XML text decoding should remain package-local or
   later gain an explicit "XML/text part reader" naming split in a release pass
+
+### `doc_parse/zip`
+
+Current role:
+
+* shared ZIP archive/container primitive for `doc_parse/ooxml`,
+  `doc_parse/epub`, and `convert/zip`
+
+Current foundation direction:
+
+* now in active foundation hardening Pass 1 within current repository scope
+* should expose a reusable archive open/read/list facade plus structured
+  inventory, path-safety helpers, validation issues, and classifier-friendly
+  errors
+* should keep archive/container responsibilities separate from OOXML/EPUB
+  package semantics and from ZIP-converter dispatch policy
+* currently uses an external-backed compression-decode dependency while keeping
+  the `doc_parse/zip` facade as the stable project boundary
+
+Current maturity:
+
+* current package-facing facade is centered on `open_zip`, `list_entries`,
+  `has_entry`, `read_entry`, `normalize_entry_path`, and structured
+  inventory/inspect/validation helpers
+* structured entry inventory and archive inspect reports now exist for entry
+  counts, directory/file shape, normalized-path safety, duplicate normalized
+  paths, unsupported compression markers, and deterministic ordering
+* classifier-friendly error metadata now exists without breaking the top-level
+  `ZipError` surface
+* explicit validation reports now surface unsafe paths, duplicate normalized
+  paths, directory entries, empty entries, unsupported compression, and nested-
+  archive candidates
+
+Known limits:
+
+* not a Markdown converter
+* not an OOXML or EPUB semantic layer
+* no password or encrypted-ZIP recovery
+* no multi-disk or ZIP64 support
+* no full compression-method matrix
+* no full ZIP-spec coverage claim
+* no recursive archive conversion policy
+
+Remaining closure items:
+
+* decide whether the current surface is mature enough to promote from active
+  hardening into a publishable foundation candidate
+* decide whether the bytes-level entry-read contract should later gain a stable
+  text-decoding helper or stay explicitly bytes-only
+* continue narrowing which currently public raw archive fields are true long-
+  term compatibility surface versus future encapsulation candidates
+* clarify whether unsupported-feature classification should remain partly
+  message-based until deeper backend/source mapping exists
 
 ### `doc_parse/pdf`
 

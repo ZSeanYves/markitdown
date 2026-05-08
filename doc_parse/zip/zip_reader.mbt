@@ -51,6 +51,62 @@ pub fn list_entries(archive : ZipArchive) -> Array[ZipEntryMeta] {
 }
 
 ///|
+pub fn has_entry(archive : ZipArchive, path : String) -> Bool {
+  archive.entry_index.contains(path)
+}
+
+///|
+pub fn normalize_entry_path(raw_path : String) -> String? {
+  normalize_entry_path_impl(raw_path, false)
+}
+
+///|
+pub fn list_entry_infos(archive : ZipArchive) -> Array[ZipEntryInfo] {
+  inspect_zip_archive(archive).inventory.entries
+}
+
+///|
+pub fn find_entry_info(archive : ZipArchive, path : String) -> ZipEntryInfo? {
+  for info in list_entry_infos(archive) {
+    if info.raw_name == path {
+      return Some(info)
+    }
+  }
+  None
+}
+
+///|
+pub fn inspect_zip_inventory(archive : ZipArchive) -> ZipArchiveInventory {
+  inspect_zip_archive(archive).inventory
+}
+
+///|
+pub fn inspect_zip_archive(archive : ZipArchive) -> ZipArchiveInspectReport {
+  build_zip_archive_report(archive)
+}
+
+///|
+pub fn collect_zip_validation_issues(
+  archive : ZipArchive,
+) -> Array[ZipValidationIssue] {
+  inspect_zip_archive(archive).issues
+}
+
+///|
+pub fn validate_zip_archive(archive : ZipArchive) -> ZipValidationReport {
+  let report = inspect_zip_archive(archive)
+  {
+    entry_count: report.entry_count,
+    file_entry_count: report.file_entry_count,
+    directory_entry_count: report.directory_entry_count,
+    issue_count: report.issue_count,
+    warning_count: report.warning_count,
+    error_count: report.error_count,
+    issues: report.issues,
+  }
+}
+
+///|
 pub fn inspect_zip(bytes : Bytes) -> Array[ZipEntryMeta] raise ZipError {
   open_zip(bytes).entries
 }
@@ -150,6 +206,41 @@ pub fn read_entry(
         ", actual=" +
         actual.to_string(),
       )
+  }
+}
+
+///|
+pub fn classify_zip_error(err : ZipError) -> ZipErrorInfo {
+  match err {
+    EntryNotFound(path) =>
+      {
+        kind: ZipErrorKind::MissingEntry,
+        mapping: ZipErrorMappingKind::DirectVariant,
+        entry_name: Some(path),
+        detail: err.to_string(),
+      }
+    UnsupportedCompressionMethod(_) =>
+      {
+        kind: ZipErrorKind::UnsupportedCompressionMethod,
+        mapping: ZipErrorMappingKind::DirectVariant,
+        entry_name: None,
+        detail: err.to_string(),
+      }
+    DecodeFailed(detail) =>
+      {
+        kind: ZipErrorKind::ReadEntryFailed,
+        mapping: ZipErrorMappingKind::DirectVariant,
+        entry_name: extract_backtick_wrapped_name(detail),
+        detail: err.to_string(),
+      }
+    UnexpectedEOF(_) | InvalidSignature(_, _, _) =>
+      {
+        kind: ZipErrorKind::MalformedArchive,
+        mapping: ZipErrorMappingKind::DirectVariant,
+        entry_name: None,
+        detail: err.to_string(),
+      }
+    InvalidStructure(detail) => classify_invalid_structure_detail(detail)
   }
 }
 
@@ -363,6 +454,486 @@ fn is_encrypted_flag(flags : Int) -> Bool {
 ///|
 fn has_data_descriptor_flag(flags : Int) -> Bool {
   (flags & GP_FLAG_DATA_DESCRIPTOR) != 0
+}
+
+///|
+fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
+  let infos0 : Array[ZipEntryInfo] = []
+  let normalized_counts : Map[String, Int] = Map::new()
+
+  for meta in archive.entries {
+    let info = build_zip_entry_info(meta)
+    infos0.push(info)
+    match info.normalized_path {
+      Some(path) =>
+        normalized_counts.set(
+          path,
+          normalized_counts.get(path).unwrap_or(0) + 1,
+        )
+      None => ()
+    }
+  }
+
+  infos0.sort_by(compare_zip_entry_info)
+
+  let issues = collect_zip_validation_issues_from_infos(
+    infos0, normalized_counts,
+  )
+  let issue_counts : Map[String, Int] = Map::new()
+  let mut warning_count = 0
+  let mut error_count = 0
+  for issue in issues {
+    issue_counts.set(
+      issue.raw_name,
+      issue_counts.get(issue.raw_name).unwrap_or(0) + 1,
+    )
+    match issue.severity {
+      ZipValidationSeverity::Warning => warning_count += 1
+      ZipValidationSeverity::Error => error_count += 1
+    }
+  }
+
+  let infos : Array[ZipEntryInfo] = []
+  let mut file_entry_count = 0
+  let mut directory_entry_count = 0
+  let mut unsafe_entry_count = 0
+  let mut duplicate_normalized_entry_count = 0
+  let mut encrypted_entry_count = 0
+  let mut unsupported_compression_entry_count = 0
+  let mut total_uncompressed_size = 0
+  let mut total_compressed_size = 0
+
+  for info in infos0 {
+    let issue_count = issue_counts.get(info.raw_name).unwrap_or(0)
+    let final_info = { ..info, issue_count, }
+    if final_info.is_directory {
+      directory_entry_count += 1
+    } else {
+      file_entry_count += 1
+    }
+    if final_info.is_unsafe_path {
+      unsafe_entry_count += 1
+    }
+    match final_info.normalized_path {
+      Some(path) =>
+        if normalized_counts.get(path).unwrap_or(0) > 1 {
+          duplicate_normalized_entry_count += 1
+        }
+      None => ()
+    }
+    if final_info.is_encrypted {
+      encrypted_entry_count += 1
+    }
+    match final_info.compression_method {
+      Unsupported(_) => unsupported_compression_entry_count += 1
+      _ => ()
+    }
+    total_uncompressed_size += final_info.uncompressed_size
+    total_compressed_size += final_info.compressed_size
+    infos.push(final_info)
+  }
+
+  let inventory = {
+    entries: infos,
+    entry_count: infos.length(),
+    file_entry_count,
+    directory_entry_count,
+    unsafe_entry_count,
+    duplicate_normalized_entry_count,
+    encrypted_entry_count,
+    unsupported_compression_entry_count,
+    total_uncompressed_size,
+    total_compressed_size,
+    has_unsafe_paths: unsafe_entry_count > 0,
+    has_duplicate_normalized_paths: duplicate_normalized_entry_count > 0,
+  }
+
+  {
+    entry_count: inventory.entry_count,
+    file_entry_count: inventory.file_entry_count,
+    directory_entry_count: inventory.directory_entry_count,
+    unsafe_entry_count: inventory.unsafe_entry_count,
+    duplicate_normalized_entry_count: inventory.duplicate_normalized_entry_count,
+    encrypted_entry_count: inventory.encrypted_entry_count,
+    unsupported_compression_entry_count: inventory.unsupported_compression_entry_count,
+    total_uncompressed_size: inventory.total_uncompressed_size,
+    total_compressed_size: inventory.total_compressed_size,
+    issue_count: issues.length(),
+    warning_count,
+    error_count,
+    inventory,
+    issues,
+  }
+}
+
+///|
+fn build_zip_entry_info(meta : ZipEntryMeta) -> ZipEntryInfo {
+  let normalized_path = if meta.is_directory {
+    normalize_entry_path_impl(meta.name, true)
+  } else {
+    normalize_entry_path(meta.name)
+  }
+  let ext = if meta.is_directory {
+    None
+  } else {
+    let candidate = match normalized_path {
+      Some(path) => path
+      None => display_entry_path(meta.name)
+    }
+    let ext0 = file_ext_lower(candidate)
+    if ext0 == "" {
+      None
+    } else {
+      Some(ext0)
+    }
+  }
+  let is_hidden_metadata = match normalized_path {
+    Some(path) => is_hidden_or_macos_metadata(path)
+    None => false
+  }
+  let is_nested_archive_candidate = match ext {
+    Some(v) => is_nested_archive_ext(v)
+    None => false
+  }
+  {
+    raw_name: meta.name,
+    normalized_path,
+    is_directory: meta.is_directory,
+    is_file: !meta.is_directory,
+    extension: ext,
+    compression_method: meta.compression_method,
+    compressed_size: meta.compressed_size,
+    uncompressed_size: meta.uncompressed_size,
+    local_header_offset: meta.local_header_offset,
+    crc32: meta.crc32,
+    flags: meta.flags,
+    is_encrypted: meta.is_encrypted,
+    has_data_descriptor: meta.has_data_descriptor,
+    uses_zip64: meta.uses_zip64,
+    is_unsafe_path: normalized_path == None,
+    is_hidden_metadata,
+    is_nested_archive_candidate,
+    issue_count: 0,
+  }
+}
+
+///|
+fn collect_zip_validation_issues_from_infos(
+  infos : Array[ZipEntryInfo],
+  normalized_counts : Map[String, Int],
+) -> Array[ZipValidationIssue] {
+  let issues : Array[ZipValidationIssue] = []
+
+  for info in infos {
+    if info.is_unsafe_path {
+      issues.push({
+        kind: ZipValidationIssueKind::UnsafeEntryPath,
+        severity: ZipValidationSeverity::Error,
+        raw_name: info.raw_name,
+        normalized_path: None,
+        compression_method: None,
+        message: "unsafe archive entry path: " +
+        display_entry_path(info.raw_name),
+      })
+    }
+    if info.is_directory {
+      issues.push({
+        kind: ZipValidationIssueKind::DirectoryEntry,
+        severity: ZipValidationSeverity::Warning,
+        raw_name: info.raw_name,
+        normalized_path: info.normalized_path,
+        compression_method: None,
+        message: "directory entry",
+      })
+    } else if info.uncompressed_size == 0 {
+      issues.push({
+        kind: ZipValidationIssueKind::EmptyEntry,
+        severity: ZipValidationSeverity::Warning,
+        raw_name: info.raw_name,
+        normalized_path: info.normalized_path,
+        compression_method: None,
+        message: "empty file entry",
+      })
+    }
+    match info.compression_method {
+      Unsupported(_) =>
+        issues.push({
+          kind: ZipValidationIssueKind::UnsupportedCompressionMethod,
+          severity: ZipValidationSeverity::Error,
+          raw_name: info.raw_name,
+          normalized_path: info.normalized_path,
+          compression_method: Some(info.compression_method),
+          message: "unsupported compression method for entry: " +
+          display_entry_path(info.raw_name),
+        })
+      _ => ()
+    }
+    if info.is_nested_archive_candidate {
+      issues.push({
+        kind: ZipValidationIssueKind::NestedArchiveCandidate,
+        severity: ZipValidationSeverity::Warning,
+        raw_name: info.raw_name,
+        normalized_path: info.normalized_path,
+        compression_method: None,
+        message: "entry looks like a nested archive candidate: " +
+        info.extension.unwrap_or(""),
+      })
+    }
+  }
+
+  for info in infos {
+    match info.normalized_path {
+      Some(path) =>
+        if normalized_counts.get(path).unwrap_or(0) > 1 {
+          issues.push({
+            kind: ZipValidationIssueKind::DuplicateNormalizedEntry,
+            severity: ZipValidationSeverity::Error,
+            raw_name: info.raw_name,
+            normalized_path: Some(path),
+            compression_method: None,
+            message: "normalized entry path collision: " + path,
+          })
+        }
+      None => ()
+    }
+  }
+
+  issues
+}
+
+///|
+fn classify_invalid_structure_detail(detail : String) -> ZipErrorInfo {
+  if detail.contains("duplicate entry name in central directory: ") {
+    let name = extract_after_prefix(
+      detail, "duplicate entry name in central directory: ",
+    )
+    return {
+      kind: ZipErrorKind::DuplicateEntryName,
+      mapping: ZipErrorMappingKind::BestEffortMessage,
+      entry_name: name,
+      detail: "invalid zip structure: " + detail,
+    }
+  }
+
+  if detail.contains("encrypted zip is not supported: ") {
+    let name = extract_after_prefix(detail, "encrypted zip is not supported: ")
+    return {
+      kind: ZipErrorKind::EncryptedEntry,
+      mapping: ZipErrorMappingKind::BestEffortMessage,
+      entry_name: name,
+      detail: "invalid zip structure: " + detail,
+    }
+  }
+
+  if detail.contains("data descriptor is not supported in phase-1") ||
+    detail.contains("multi-disk zip is not supported") ||
+    detail.contains("ZIP64 is not supported in phase-1") {
+    return {
+      kind: ZipErrorKind::UnsupportedFeature,
+      mapping: ZipErrorMappingKind::BestEffortMessage,
+      entry_name: extract_after_last_colon(detail),
+      detail: "invalid zip structure: " + detail,
+    }
+  }
+
+  {
+    kind: ZipErrorKind::MalformedArchive,
+    mapping: ZipErrorMappingKind::DirectVariant,
+    entry_name: None,
+    detail: "invalid zip structure: " + detail,
+  }
+}
+
+///|
+fn normalize_entry_path_impl(
+  raw_path : String,
+  allow_directory_tail : Bool,
+) -> String? {
+  if contains_nul_char(raw_path) {
+    return None
+  }
+
+  let replaced0 = raw_path.replace(old="\\", new="/")
+  let replaced = if allow_directory_tail {
+    strip_trailing_slashes(replaced0)
+  } else {
+    replaced0
+  }
+
+  if replaced.trim() == "" || replaced.has_prefix("/") {
+    return None
+  }
+  if replaced.length() >= 2 && replaced[1] == ':' {
+    return None
+  }
+
+  let parts = replaced.split("/")
+  let clean : Array[String] = []
+  for part in parts {
+    let segment = part.trim().to_owned()
+    if segment == "" || segment == "." || segment == ".." {
+      return None
+    }
+    clean.push(segment)
+  }
+
+  if clean.length() == 0 {
+    None
+  } else {
+    Some(clean.join("/"))
+  }
+}
+
+///|
+fn compare_zip_entry_info(a : ZipEntryInfo, b : ZipEntryInfo) -> Int {
+  let a_key = zip_entry_sort_key(a)
+  let b_key = zip_entry_sort_key(b)
+  let primary = a_key[:].lexical_compare(b_key[:])
+  if primary != 0 {
+    return primary
+  }
+  a.raw_name[:].lexical_compare(b.raw_name[:])
+}
+
+///|
+fn zip_entry_sort_key(info : ZipEntryInfo) -> String {
+  match info.normalized_path {
+    Some(path) => path
+    None => display_entry_path(info.raw_name)
+  }
+}
+
+///|
+fn strip_trailing_slashes(path : String) -> String {
+  let mut end_ = path.length()
+  while end_ > 0 {
+    let ch = path[end_ - 1]
+    if ch == '/' {
+      end_ -= 1
+    } else {
+      break
+    }
+  }
+  path[:end_].to_owned()
+}
+
+///|
+fn contains_nul_char(path : String) -> Bool {
+  for ch in path.to_array() {
+    if ch.to_int() == 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn display_entry_path(raw_path : String) -> String {
+  let p = raw_path.replace(old="\\", new="/")
+  if p.trim() == "" {
+    "(empty path)"
+  } else {
+    p
+  }
+}
+
+///|
+fn is_hidden_or_macos_metadata(path : String) -> Bool {
+  if path == "__MACOSX" || path.has_prefix("__MACOSX/") {
+    return true
+  }
+  let base = basename(path)
+  base == ".DS_Store" || base.has_prefix("._")
+}
+
+///|
+fn basename(path : String) -> String {
+  let mut last = 0
+  for i in 0..<path.length() {
+    if path[i] == '/' {
+      last = i + 1
+    }
+  }
+  path[last:].to_owned()
+}
+
+///|
+fn is_nested_archive_ext(ext : String) -> Bool {
+  match ext {
+    "zip" | "jar" | "epub" => true
+    _ => false
+  }
+}
+
+///|
+fn file_ext_lower(path : String) -> String {
+  let n = path.length()
+  if n == 0 {
+    return ""
+  }
+  let mut i = n - 1
+  while i >= 0 {
+    if path[i] == '.' {
+      if i == n - 1 {
+        return ""
+      }
+      return path[i + 1:].to_owned().to_lower()
+    }
+    i -= 1
+  }
+  ""
+}
+
+///|
+fn extract_after_prefix(src : String, prefix : String) -> String? {
+  if !src.has_prefix(prefix) {
+    return None
+  }
+  let out = src[prefix.length():].trim().to_owned()
+  if out == "" {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn extract_after_last_colon(src : String) -> String? {
+  let mut last = -1
+  for i in 0..<src.length() {
+    if src[i] == ':' {
+      last = i
+    }
+  }
+  if last < 0 || last + 1 >= src.length() {
+    return None
+  }
+  let out = src[last + 1:].trim().to_owned()
+  if out == "" {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+fn extract_backtick_wrapped_name(src : String) -> String? {
+  let mut first = -1
+  let mut second = -1
+  for i in 0..<src.length() {
+    if src[i] == '`' {
+      if first < 0 {
+        first = i
+      } else {
+        second = i
+        break
+      }
+    }
+  }
+  if first < 0 || second <= first + 1 {
+    return None
+  }
+  Some(src[first + 1:second].to_owned())
 }
 
 ///|

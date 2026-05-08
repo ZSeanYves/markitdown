@@ -23,6 +23,8 @@ Current recommendation:
 
 * keep `doc_parse/ooxml`, `doc_parse/epub`, and `doc_parse/pdf` as importable
   subpackages under the root module for now
+* keep `doc_parse/zip` as the shared container primitive under the same root
+  module while its own foundation facade continues hardening
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
   parsing foundations continue to stabilize
 
@@ -64,6 +66,14 @@ That split should wait until all of the following are clearer:
 * the `zip` dependency strategy is explicit
 * release/version policy is explicit
 * cross-package tests can be run and published independently
+
+Current dependency note:
+
+* `doc_parse/zip` is the lowest-level shared container candidate in the stack
+* any future independent `doc_parse_ooxml` or `doc_parse_epub` module split
+  would need an explicit dependency story on top of `doc_parse_zip`
+* ZIP is therefore the package whose release-policy shape constrains the rest
+  of the container/package parsing split the most
 
 ## Nested Module Warning
 

@@ -129,6 +129,8 @@ Lower-layer package contract:
   * `doc_parse/ooxml`: publishable foundation candidate
   * `doc_parse/epub`: publishable foundation candidate
   * `doc_parse/pdf`: native text-PDF publishable foundation candidate
+  * `doc_parse/zip`: active foundation hardening Pass 1 as the shared
+    container primitive
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
