@@ -17,7 +17,8 @@ pub fn open_epub_package(
   let container_xml = read_required_xml_part(
     archive, entry_index, "META-INF/container.xml",
   )
-  let rootfile_path = parse_container_rootfile_path(container_xml, entry_index)
+  let rootfiles = parse_container_rootfiles(container_xml, entry_index)
+  let rootfile_path = select_primary_rootfile(rootfiles)
   let opf_xml = read_required_xml_part(archive, entry_index, rootfile_path)
   let opf_dir = dirname_of_part(rootfile_path)
   let metadata = parse_opf_metadata(opf_xml)
@@ -33,13 +34,18 @@ pub fn open_epub_package(
   if spine.length() == 0 {
     raise InvalidXml("missing spine itemref")
   }
-  let nav_item = match find_nav_item(manifest) {
+  let nav_document_item = find_nav_item(manifest)
+  let ncx_item = find_ncx_nav_item(opf_xml, manifest_by_id)
+  let nav_item = match nav_document_item {
     Some(item) => Some(item)
-    None => find_ncx_nav_item(opf_xml, manifest_by_id)
+    None => ncx_item
   }
   let guide_cover_path = find_guide_cover_path(opf_xml, opf_dir)
   let cover_item = find_cover_item(
     opf_xml, manifest_by_id, manifest, guide_cover_path,
+  )
+  let cover_candidates = collect_cover_candidates(
+    opf_xml, manifest_by_id, manifest, guide_cover_path, cover_item,
   )
   let nav_points = match nav_item {
     Some(item) =>
@@ -67,19 +73,151 @@ pub fn open_epub_package(
     source_name,
     mimetype,
     rootfile_path,
+    rootfiles,
     opf_dir,
     metadata,
     manifest,
     spine,
     nav_item,
+    nav_document_item,
+    ncx_item,
     cover_item,
     guide_cover_path,
+    cover_candidates,
     nav_points,
   }
 }
 
 ///|
+pub fn list_epub_rootfiles(pkg : EpubPackage) -> Array[EpubRootfileInfo] {
+  pkg.rootfiles
+}
+
+///|
+pub fn get_epub_primary_rootfile(pkg : EpubPackage) -> EpubRootfileInfo {
+  for item in pkg.rootfiles {
+    if item.is_primary {
+      return item
+    }
+  }
+  {
+    full_path: pkg.rootfile_path,
+    media_type: None,
+    normalized_path: Some(pkg.rootfile_path),
+    exists: true,
+    usable: true,
+    is_primary: true,
+  }
+}
+
+///|
+pub fn list_epub_manifest_items(pkg : EpubPackage) -> Array[EpubManifestItem] {
+  pkg.manifest
+}
+
+///|
+pub fn find_epub_manifest_item(
+  pkg : EpubPackage,
+  id : String,
+) -> EpubManifestItem? {
+  for item in pkg.manifest {
+    if item.id == id {
+      return Some(item)
+    }
+  }
+  None
+}
+
+///|
+pub fn list_epub_spine_items(pkg : EpubPackage) -> Array[EpubSpineItem] {
+  pkg.spine
+}
+
+///|
+pub fn list_epub_spine_reading_order(pkg : EpubPackage) -> Array[String] {
+  let out : Array[String] = []
+  for item in pkg.spine {
+    match item.resolved_path {
+      Some(path) => out.push(path)
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+pub fn find_epub_nav_item(pkg : EpubPackage) -> EpubManifestItem? {
+  pkg.nav_document_item
+}
+
+///|
+pub fn find_epub_ncx_item(pkg : EpubPackage) -> EpubManifestItem? {
+  pkg.ncx_item
+}
+
+///|
+pub fn list_epub_metadata(pkg : EpubPackage) -> Array[EpubMetadataEntry] {
+  metadata_entries_of(pkg.metadata)
+}
+
+///|
+pub fn find_epub_cover_candidates(
+  pkg : EpubPackage,
+) -> Array[EpubCoverCandidate] {
+  pkg.cover_candidates
+}
+
+///|
+pub fn inspect_epub_inventory(pkg : EpubPackage) -> EpubPackageInventory {
+  let primary_rootfile = get_epub_primary_rootfile(pkg)
+  let metadata_entries = list_epub_metadata(pkg)
+  let mut spine_linear_count = 0
+  for item in pkg.spine {
+    if item.linear {
+      spine_linear_count += 1
+    }
+  }
+  {
+    source_name: pkg.source_name,
+    mimetype: pkg.mimetype,
+    primary_rootfile_path: primary_rootfile.full_path,
+    part_count: pkg.entries.length(),
+    rootfile_count: pkg.rootfiles.length(),
+    manifest_count: pkg.manifest.length(),
+    spine_count: pkg.spine.length(),
+    spine_linear_count,
+    nav_point_count: pkg.nav_points.length(),
+    metadata_count: metadata_entries.length(),
+    cover_candidate_count: pkg.cover_candidates.length(),
+    has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
+    nav_path: match pkg.nav_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    nav_document_path: match pkg.nav_document_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    ncx_path: match pkg.ncx_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    cover_path: match pkg.cover_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    guide_cover_path: pkg.guide_cover_path,
+    parts: pkg.entries,
+    rootfiles: pkg.rootfiles,
+    metadata_entries,
+    cover_candidates: pkg.cover_candidates,
+  }
+}
+
+///|
 pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
+  let inventory = inspect_epub_inventory(pkg)
+  let primary_rootfile = get_epub_primary_rootfile(pkg)
   let spine_items : Array[EpubInspectSpineItem] = []
   for item in pkg.spine {
     let media_type = match item.manifest_item {
@@ -109,9 +247,19 @@ pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
     source_name: pkg.source_name,
     mimetype: pkg.mimetype,
     rootfile_path: pkg.rootfile_path,
+    primary_rootfile,
+    rootfiles: pkg.rootfiles,
     manifest_count: pkg.manifest.length(),
     spine_count: pkg.spine.length(),
     nav_path: match pkg.nav_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    nav_document_path: match pkg.nav_document_item {
+      Some(v) => Some(v.resolved_path)
+      None => None
+    },
+    ncx_path: match pkg.ncx_item {
       Some(v) => Some(v.resolved_path)
       None => None
     },
@@ -122,7 +270,133 @@ pub fn inspect_epub_package(pkg : EpubPackage) -> EpubInspectReport {
     guide_cover_path: pkg.guide_cover_path,
     has_encryption: pkg.entry_index.contains("META-INF/encryption.xml"),
     metadata: pkg.metadata,
+    cover_candidates: pkg.cover_candidates,
+    inventory,
     spine_items,
+  }
+}
+
+///|
+pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
+  match err {
+    ZipError(msg) =>
+      {
+        kind: EpubErrorKind::ZipFailure,
+        detail: msg,
+        part_name: None,
+        source_part: None,
+        path: None,
+      }
+    MissingPart(path) =>
+      if path == "META-INF/container.xml" {
+        {
+          kind: EpubErrorKind::MissingContainer,
+          detail: path,
+          part_name: Some(path),
+          source_part: None,
+          path: Some(path),
+        }
+      } else {
+        {
+          kind: EpubErrorKind::MissingPart,
+          detail: path,
+          part_name: Some(path),
+          source_part: None,
+          path: Some(path),
+        }
+      }
+    InvalidXml(msg) => classify_invalid_xml_detail(msg)
+    InvalidPath(path) => classify_invalid_path_detail(path)
+    InvalidPackage(msg) =>
+      {
+        kind: EpubErrorKind::InvalidPackage,
+        detail: msg,
+        part_name: None,
+        source_part: None,
+        path: None,
+      }
+    UnsupportedFeature(msg) =>
+      {
+        kind: EpubErrorKind::UnsupportedFeature,
+        detail: msg,
+        part_name: None,
+        source_part: None,
+        path: None,
+      }
+  }
+}
+
+///|
+pub fn collect_epub_validation_issues(
+  pkg : EpubPackage,
+) -> Array[EpubValidationIssue] {
+  let out : Array[EpubValidationIssue] = []
+  for item in pkg.spine {
+    match item.manifest_item {
+      Some(manifest_item) =>
+        if !spine_item_supported(item) {
+          out.push({
+            kind: EpubValidationIssueKind::UnsupportedSpineItem,
+            severity: EpubValidationSeverity::Warning,
+            rootfile_path: pkg.rootfile_path,
+            manifest_id: Some(manifest_item.id),
+            part_name: Some(manifest_item.resolved_path),
+            spine_index: Some(item.spine_index),
+            message: "spine item media type is not supported for lower-layer reading order consumers",
+          })
+        }
+      None =>
+        out.push({
+          kind: EpubValidationIssueKind::MissingManifestItem,
+          severity: EpubValidationSeverity::Error,
+          rootfile_path: pkg.rootfile_path,
+          manifest_id: Some(item.idref),
+          part_name: None,
+          spine_index: Some(item.spine_index),
+          message: "spine item references missing manifest id: " + item.idref,
+        })
+    }
+
+    match item.resolved_path {
+      Some(_) => ()
+      None =>
+        out.push({
+          kind: EpubValidationIssueKind::MissingSpineTarget,
+          severity: EpubValidationSeverity::Error,
+          rootfile_path: pkg.rootfile_path,
+          manifest_id: Some(item.idref),
+          part_name: None,
+          spine_index: Some(item.spine_index),
+          message: "spine item has no resolved target path: " + item.idref,
+        })
+    }
+  }
+  out.sort_by(fn(a, b) { compare_validation_issue(a, b) })
+  out
+}
+
+///|
+pub fn validate_epub_package(pkg : EpubPackage) -> EpubValidationReport {
+  let inventory = inspect_epub_inventory(pkg)
+  let issues = collect_epub_validation_issues(pkg)
+  let mut error_count = 0
+  let mut warning_count = 0
+  for issue in issues {
+    match issue.severity {
+      EpubValidationSeverity::Error => error_count += 1
+      EpubValidationSeverity::Warning => warning_count += 1
+    }
+  }
+  {
+    source_name: pkg.source_name,
+    part_count: inventory.part_count,
+    rootfile_count: inventory.rootfile_count,
+    manifest_count: inventory.manifest_count,
+    spine_count: inventory.spine_count,
+    issue_count: issues.length(),
+    error_count,
+    warning_count,
+    issues,
   }
 }
 
@@ -142,6 +416,15 @@ pub fn read_part_bytes(
 ) -> Bytes raise EpubError {
   let normalized = normalize_package_full_path(part_name)
   read_required_part_bytes(pkg.archive, pkg.entry_index, normalized)
+}
+
+///|
+pub fn read_part_text(
+  pkg : EpubPackage,
+  part_name : String,
+) -> String raise EpubError {
+  let normalized = normalize_package_full_path(part_name)
+  read_required_xml_part(pkg.archive, pkg.entry_index, normalized)
 }
 
 ///|
@@ -216,29 +499,95 @@ fn read_optional_text_part(
 }
 
 ///|
-fn parse_container_rootfile_path(
+fn parse_container_rootfiles(
   xml : String,
   entry_index : Map[String, String],
-) -> String raise EpubError {
+) -> Array[EpubRootfileInfo] raise EpubError {
   let tags = collect_start_tags(xml, "rootfile")
   if tags.length() == 0 {
     raise InvalidXml("container.xml missing rootfile")
   }
 
+  let out : Array[EpubRootfileInfo] = []
   for tag in tags {
     let attrs = parse_tag_attributes(tag)
     let full_path = get_optional_attr(attrs, "full-path").trim().to_owned()
     if full_path == "" {
       continue
     }
+    let media_type0 = get_optional_attr(attrs, "media-type").trim().to_owned()
+    let media_type = if media_type0 == "" { None } else { Some(media_type0) }
     let normalized = try? normalize_package_full_path(full_path)
-    match normalized {
-      Ok(path) => if entry_index.contains(path) { return path }
-      Err(_) => ()
+    let normalized_path = match normalized {
+      Ok(path) => Some(path)
+      Err(_) => None
     }
+    let exists = match normalized_path {
+      Some(path) => entry_index.contains(path)
+      None => false
+    }
+    let usable = match normalized_path {
+      Some(path) => entry_index.contains(path)
+      None => false
+    }
+    out.push({
+      full_path,
+      media_type,
+      normalized_path,
+      exists,
+      usable,
+      is_primary: false,
+    })
   }
 
+  if out.length() == 0 {
+    raise InvalidXml("container.xml missing rootfile")
+  }
+
+  let primary_index = first_usable_rootfile_index(out)
+  if primary_index < 0 {
+    raise InvalidXml("container.xml has no usable rootfile")
+  }
+  let primary_path = out[primary_index].normalized_path.unwrap_or("")
+  let finalized : Array[EpubRootfileInfo] = []
+  for i in 0..<out.length() {
+    let item = out[i]
+    finalized.push({
+      full_path: item.full_path,
+      media_type: item.media_type,
+      normalized_path: item.normalized_path,
+      exists: item.exists,
+      usable: item.usable,
+      is_primary: item.normalized_path == Some(primary_path) &&
+      i == primary_index,
+    })
+  }
+  finalized
+}
+
+///|
+fn select_primary_rootfile(
+  rootfiles : Array[EpubRootfileInfo],
+) -> String raise EpubError {
+  for item in rootfiles {
+    if item.is_primary {
+      match item.normalized_path {
+        Some(path) => return path
+        None => ()
+      }
+    }
+  }
   raise InvalidXml("container.xml has no usable rootfile")
+}
+
+///|
+fn first_usable_rootfile_index(rootfiles : Array[EpubRootfileInfo]) -> Int {
+  for i in 0..<rootfiles.length() {
+    if rootfiles[i].usable {
+      return i
+    }
+  }
+  -1
 }
 
 ///|
@@ -420,6 +769,145 @@ fn split_space_properties(value : String) -> Array[String] {
     let normalized = part.trim().to_owned()
     if normalized != "" {
       out.push(normalized)
+    }
+  }
+  out
+}
+
+///|
+fn collect_cover_candidates(
+  opf_xml : String,
+  manifest_by_id : Map[String, EpubManifestItem],
+  manifest : Array[EpubManifestItem],
+  guide_cover_path : String?,
+  selected_cover_item : EpubManifestItem?,
+) -> Array[EpubCoverCandidate] {
+  let out : Array[EpubCoverCandidate] = []
+  let selected_path = match selected_cover_item {
+    Some(item) => Some(item.resolved_path)
+    None => None
+  }
+
+  for item in manifest {
+    if has_manifest_property(item, "cover-image") {
+      out.push({
+        source: EpubCoverCandidateSource::ManifestProperty,
+        path: item.resolved_path,
+        manifest_id: Some(item.id),
+        media_type: item.media_type,
+        is_image: manifest_item_is_image(item),
+        selected: selected_path == Some(item.resolved_path),
+      })
+    }
+  }
+
+  let cover_id = tag_attr_with_attr(opf_xml, "meta", "name", "cover", "content")
+  match cover_id {
+    Some(id) =>
+      match manifest_by_id.get(id.trim().to_owned()) {
+        Some(item) =>
+          out.push({
+            source: EpubCoverCandidateSource::MetadataCover,
+            path: item.resolved_path,
+            manifest_id: Some(item.id),
+            media_type: item.media_type,
+            is_image: manifest_item_is_image(item),
+            selected: selected_path == Some(item.resolved_path),
+          })
+        None => ()
+      }
+    None => ()
+  }
+
+  match guide_cover_path {
+    Some(path) =>
+      out.push({
+        source: EpubCoverCandidateSource::GuideReference,
+        path,
+        manifest_id: find_manifest_id_by_path(manifest, path),
+        media_type: find_manifest_media_type_by_path(manifest, path),
+        is_image: guide_cover_path_is_image(manifest, path),
+        selected: selected_path == Some(path),
+      })
+    None => ()
+  }
+
+  out.sort_by(fn(a, b) {
+    cover_candidate_sort_key(a)[:].lexical_compare(
+      cover_candidate_sort_key(b)[:],
+    )
+  })
+  dedupe_cover_candidates(out)
+}
+
+///|
+fn find_manifest_id_by_path(
+  manifest : Array[EpubManifestItem],
+  path : String,
+) -> String? {
+  for item in manifest {
+    if item.resolved_path == path {
+      return Some(item.id)
+    }
+  }
+  None
+}
+
+///|
+fn find_manifest_media_type_by_path(
+  manifest : Array[EpubManifestItem],
+  path : String,
+) -> String? {
+  for item in manifest {
+    if item.resolved_path == path {
+      return item.media_type
+    }
+  }
+  None
+}
+
+///|
+fn guide_cover_path_is_image(
+  manifest : Array[EpubManifestItem],
+  path : String,
+) -> Bool {
+  for item in manifest {
+    if item.resolved_path == path {
+      return manifest_item_is_image(item)
+    }
+  }
+  false
+}
+
+///|
+fn cover_candidate_sort_key(candidate : EpubCoverCandidate) -> String {
+  cover_candidate_source_text(candidate.source) +
+  ":" +
+  candidate.path +
+  ":" +
+  candidate.manifest_id.unwrap_or("")
+}
+
+///|
+fn cover_candidate_source_text(source : EpubCoverCandidateSource) -> String {
+  match source {
+    EpubCoverCandidateSource::ManifestProperty => "0"
+    EpubCoverCandidateSource::MetadataCover => "1"
+    EpubCoverCandidateSource::GuideReference => "2"
+  }
+}
+
+///|
+fn dedupe_cover_candidates(
+  candidates : Array[EpubCoverCandidate],
+) -> Array[EpubCoverCandidate] {
+  let out : Array[EpubCoverCandidate] = []
+  let seen : Map[String, Int] = Map::new()
+  for candidate in candidates {
+    let key = cover_candidate_sort_key(candidate)
+    if !seen.contains(key) {
+      seen.set(key, 1)
+      out.push(candidate)
     }
   }
   out
@@ -905,4 +1393,103 @@ fn is_hidden_or_macos_metadata(path : String) -> Bool {
   }
   let base = @cor.basename(path)
   base == ".DS_Store" || base.has_prefix("._")
+}
+
+///|
+fn metadata_entries_of(metadata : EpubMetadata) -> Array[EpubMetadataEntry] {
+  let out : Array[EpubMetadataEntry] = []
+  push_metadata_entry(out, "title", metadata.title)
+  push_metadata_entry(out, "creator", metadata.creator)
+  push_metadata_entry(out, "language", metadata.language)
+  push_metadata_entry(out, "identifier", metadata.identifier)
+  push_metadata_entry(out, "publisher", metadata.publisher)
+  push_metadata_entry(out, "subject", metadata.subject)
+  push_metadata_entry(out, "date", metadata.date)
+  push_metadata_entry(out, "modified", metadata.modified)
+  out
+}
+
+///|
+fn push_metadata_entry(
+  out : Array[EpubMetadataEntry],
+  name : String,
+  value : String?,
+) -> Unit {
+  match value {
+    Some(v) => if v.trim() != "" { out.push({ name, value: v }) }
+    None => ()
+  }
+}
+
+///|
+fn classify_invalid_xml_detail(msg : String) -> EpubErrorInfo {
+  if msg.contains("container.xml missing rootfile") ||
+    msg.contains("container.xml has no usable rootfile") {
+    {
+      kind: EpubErrorKind::MissingRootfile,
+      detail: msg,
+      part_name: Some("META-INF/container.xml"),
+      source_part: Some("META-INF/container.xml"),
+      path: None,
+    }
+  } else {
+    {
+      kind: EpubErrorKind::InvalidXml,
+      detail: msg,
+      part_name: None,
+      source_part: None,
+      path: None,
+    }
+  }
+}
+
+///|
+fn classify_invalid_path_detail(path : String) -> EpubErrorInfo {
+  let lower = path.to_lower()
+  let kind = if has_scheme_like_prefix(lower) {
+    EpubErrorKind::RemoteResourceBlocked
+  } else {
+    EpubErrorKind::UnsafeHref
+  }
+  { kind, detail: path, part_name: None, source_part: None, path: Some(path) }
+}
+
+///|
+fn compare_validation_issue(
+  a : EpubValidationIssue,
+  b : EpubValidationIssue,
+) -> Int {
+  validation_issue_sort_key(a)[:].lexical_compare(
+    validation_issue_sort_key(b)[:],
+  )
+}
+
+///|
+fn validation_issue_sort_key(issue : EpubValidationIssue) -> String {
+  validation_severity_text(issue.severity) +
+  ":" +
+  validation_issue_kind_text(issue.kind) +
+  ":" +
+  issue.spine_index.map(fn(v) { v.to_string() }).unwrap_or("") +
+  ":" +
+  issue.manifest_id.unwrap_or("") +
+  ":" +
+  issue.part_name.unwrap_or("")
+}
+
+///|
+fn validation_severity_text(severity : EpubValidationSeverity) -> String {
+  match severity {
+    EpubValidationSeverity::Error => "0"
+    EpubValidationSeverity::Warning => "1"
+  }
+}
+
+///|
+fn validation_issue_kind_text(kind : EpubValidationIssueKind) -> String {
+  match kind {
+    EpubValidationIssueKind::MissingManifestItem => "MissingManifestItem"
+    EpubValidationIssueKind::MissingSpineTarget => "MissingSpineTarget"
+    EpubValidationIssueKind::UnsupportedSpineItem => "UnsupportedSpineItem"
+  }
 }

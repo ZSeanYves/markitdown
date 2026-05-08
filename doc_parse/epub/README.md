@@ -1,118 +1,319 @@
 # EPUB Package Layer
 
-## Positioning
+`doc_parse/epub` is a MoonBit EPUB package parser for ZIP-based EPUB
+containers.
 
-`doc_parse/epub` is the repository's lower-layer EPUB package parser.
-
-It sits below `convert/epub` and is responsible for EPUB container/package
-signal such as:
-
-* `META-INF/container.xml`
-* OPF rootfile resolution
-* manifest items
-* spine order
-* nav / NCX discovery
-* cover candidates
-* lightweight package metadata
+It is intended to be a reusable lower-layer package: it opens EPUB archives,
+normalizes and inventories package entries, resolves container rootfiles,
+parses OPF metadata/manifest/spine, discovers EPUB3 nav and EPUB2 NCX
+candidates, tracks conservative cover candidates, and exposes structured
+inspect and validation reports.
 
 It is not a reading-system renderer and it does not emit final Markdown.
 
+## Purpose
+
+`doc_parse/epub` sits below `convert/epub`.
+
+This package is responsible for:
+
+- opening EPUB packages from `Bytes`
+- normalizing archive entry paths
+- reading `META-INF/container.xml`
+- resolving primary OPF rootfiles
+- exposing rootfile, manifest, spine, nav, NCX, and cover-package signal
+- exposing lightweight package metadata
+- reading package parts safely by normalized path
+- exposing structured inspect/debug-friendly reports
+- surfacing lower-layer errors and explicit validation issues
+
+It intentionally does not own:
+
+- final Markdown aggregation
+- XHTML/HTML semantic conversion
+- CSS rendering
+- JavaScript execution
+- reading-system layout behavior
+- remote fetch
+- DRM support
+
 ## Supported Scope
 
-Current supported scope:
+Current supported lower-layer scope:
 
-* open EPUB packages from `Bytes`
-* normalize and inventory archive entry paths
-* read `mimetype`
-* parse `META-INF/container.xml`
-* resolve the active OPF rootfile
-* parse OPF metadata, manifest, and spine
-* preserve missing-manifest spine items as lower-layer warning candidates
-* discover EPUB3 nav documents
-* fall back to minimal EPUB2 NCX discovery where supported
-* detect cover-image candidates, including conservative guide fallback
-* expose lightweight inspect summaries for package/spine action review
-* read package parts safely by normalized path
+- open EPUB packages from `Bytes`
+- reject normalized path collisions and unsafe archive paths
+- read `mimetype`
+- parse `META-INF/container.xml`
+- list container rootfiles and identify the selected primary rootfile
+- parse OPF metadata, manifest, and spine
+- preserve missing-manifest spine references as explicit validation findings
+- discover EPUB3 nav documents
+- fall back to minimal EPUB2 NCX discovery where supported
+- detect cover-image candidates, including conservative guide fallback
+- expose structured package inventory and inspect reports
+- expose explicit validation reports for lower-layer hygiene issues
+- read package parts safely by normalized path
 
-## Non-goals
+## Non-Goals
 
 This package intentionally does not:
 
-* perform final Markdown aggregation
-* act like a generic ZIP dump
-* render CSS
-* execute JavaScript
-* fetch remote resources
-* implement a reading-system layout engine
-* claim DRM support
-* claim complete EPUB spec coverage
+- perform final Markdown aggregation
+- behave like a generic ZIP dump API
+- render CSS
+- execute JavaScript
+- fetch remote resources
+- implement a reading-system layout engine
+- claim DRM/encryption support
+- claim full EPUB spec coverage
+- claim full XHTML semantic conversion
 
 Those responsibilities belong above this layer, mainly in `convert/epub`.
 
-## Public APIs
+## Public API
+
+Usage note:
+
+- Add `ZSeanYves/markitdown/doc_parse/epub` as a dependency in your MoonBit
+  package.
+- Open EPUB bytes with `open_epub_package(bytes, source_name)`.
+- Consume package, spine, nav, and inspect data from this layer.
 
 Package facade:
 
-* `open_epub_package(bytes, source_name)`
-* `has_part(pkg, part_name)`
-* `read_part_bytes(pkg, part_name)`
-* `list_parts(pkg)`
+- `open_epub_package(bytes, source_name)`
+- `has_part(pkg, part_name)`
+- `read_part_bytes(pkg, part_name)`
+- `read_part_text(pkg, part_name)`
+- `list_parts(pkg)`
 
-Inspection:
+Rootfile and package model:
 
-* `inspect_epub_package(pkg)`
-* `read_nav_document(pkg)`
+- `list_epub_rootfiles(pkg)`
+- `get_epub_primary_rootfile(pkg)`
+- `list_epub_metadata(pkg)`
+- `list_epub_manifest_items(pkg)`
+- `find_epub_manifest_item(pkg, id)`
+- `list_epub_spine_items(pkg)`
+- `list_epub_spine_reading_order(pkg)`
+- `find_epub_nav_item(pkg)`
+- `find_epub_ncx_item(pkg)`
+- `find_epub_cover_candidates(pkg)`
+- `read_nav_document(pkg)`
+
+Structured inspect and validation:
+
+- `inspect_epub_inventory(pkg)`
+- `inspect_epub_package(pkg)`
+- `classify_epub_error(err)`
+- `collect_epub_validation_issues(pkg)`
+- `validate_epub_package(pkg)`
 
 Public models:
 
-* `EpubPackage`
-* `EpubMetadata`
-* `EpubManifestItem`
-* `EpubSpineItem`
-* `EpubNavPoint`
-* `EpubInspectReport`
+- `EpubPackage`
+- `EpubRootfileInfo`
+- `EpubMetadata`
+- `EpubMetadataEntry`
+- `EpubManifestItem`
+- `EpubSpineItem`
+- `EpubNavPoint`
+- `EpubCoverCandidate`
+- `EpubPackageInventory`
+- `EpubInspectReport`
+- `EpubErrorInfo`
+- `EpubValidationIssue`
+- `EpubValidationReport`
 
-## Safety Boundaries
+## Minimal Examples
 
-Current package-safety rules:
+Open a package and inspect the selected rootfile:
 
-* archive entry paths are normalized before use
-* parent-escape paths are rejected
-* normalized path collisions are rejected
-* `META-INF/encryption.xml` is treated as unsupported
-* malformed XML fails closed through `EpubError`
-* remote/data resources are not fetched by this layer
+```moonbit
+let pkg = @epub.open_epub_package(bytes, "book.epub")
+let primary = @epub.get_epub_primary_rootfile(pkg)
+ignore(primary.full_path)
+```
+
+List manifest items and spine reading order:
+
+```moonbit
+let manifest = @epub.list_epub_manifest_items(pkg)
+let reading_order = @epub.list_epub_spine_reading_order(pkg)
+```
+
+Inspect nav and NCX candidates:
+
+```moonbit
+let nav_item = @epub.find_epub_nav_item(pkg)
+let ncx_item = @epub.find_epub_ncx_item(pkg)
+```
+
+Inspect cover candidates:
+
+```moonbit
+let candidates = @epub.find_epub_cover_candidates(pkg)
+for candidate in candidates {
+  ignore(candidate.source)
+}
+```
+
+Read structured inventory:
+
+```moonbit
+let inventory = @epub.inspect_epub_inventory(pkg)
+let part_count = inventory.part_count
+let nav_path = inventory.nav_path
+```
+
+Classify lower-layer errors:
+
+```moonbit
+match try? @epub.open_epub_package(bytes, "book.epub") {
+  Ok(pkg) => ignore(pkg)
+  Err(err) => {
+    let info = @epub.classify_epub_error(err)
+    ignore(info.kind)
+  }
+}
+```
+
+Collect explicit validation issues:
+
+```moonbit
+let report = @epub.validate_epub_package(pkg)
+for issue in report.issues {
+  ignore(issue.kind)
+}
+```
 
 ## Design Principles
 
-* keep this layer package/spine/nav oriented
-* preserve reading order from the OPF spine, not archive order
-* keep unsupported media and missing manifest items explicit
-* prefer deterministic inspection output
-* keep debug/inspect summaries lower-layer and converter-independent
+- keep this layer package/spine/nav oriented
+- preserve OPF reading order rather than archive order
+- keep unsupported media and missing manifest references explicit
+- prefer deterministic inventory, inspect, and validation ordering
+- keep inspect/report surfaces structured rather than dump-string only
+- keep debug/inspect surfaces converter-independent
+- keep remote/data resources blocked rather than fetched
 
-## Relationship To `convert/epub`
+## API Stability
 
-`convert/epub` is the main consumer of this package.
+Stable-candidate surface:
+
+- `open_epub_package`
+- `has_part`
+- `read_part_bytes`
+- `read_part_text`
+- `list_parts`
+- `list_epub_rootfiles`
+- `get_epub_primary_rootfile`
+- `list_epub_metadata`
+- `list_epub_manifest_items`
+- `find_epub_manifest_item`
+- `list_epub_spine_items`
+- `list_epub_spine_reading_order`
+- `find_epub_nav_item`
+- `find_epub_ncx_item`
+- `find_epub_cover_candidates`
+- `read_nav_document`
+- `inspect_epub_inventory`
+- `inspect_epub_package`
+- `classify_epub_error`
+- `collect_epub_validation_issues`
+- `validate_epub_package`
+
+Compatibility surface, but not ideal for external long-term reliance:
+
+- `EpubPackage.archive`
+- `EpubPackage.entries`
+- `EpubPackage.entry_index`
+- `EpubPackage.manifest`
+- `EpubPackage.spine`
+- `EpubPackage.nav_item`
+- `EpubPackage.cover_item`
+
+These remain public today because in-repo converter consumers still touch them
+directly. Tightening them should be treated as a future versioned API change,
+not as a silent refactor.
+
+Versioning note:
+
+- additive facade and inspect helpers are the preferred evolution path
+- compatibility-preserving behavior wins over aggressive breakage in the
+  current repository line
+- any future field-visibility tightening should be treated as a release-policy
+  change
+
+## Safety Boundaries
+
+- archive entry paths are normalized before use
+- parent-escape paths are rejected
+- normalized path collisions are rejected
+- remote/data/scheme-like hrefs are blocked rather than fetched
+- `META-INF/encryption.xml` is treated as unsupported
+- malformed XML fails closed through `EpubError`
+- guide fallback is conservative and package-local
+- this package does not claim DRM support
+
+## Errors vs Validation Issues
+
+- `EpubError` represents open/read/parse failures
+- `EpubValidationIssue` represents explicit package-hygiene findings collected
+  after a package opens successfully
+- use `classify_epub_error` for failure analysis
+- use `validate_epub_package` when you want lower-layer package hygiene
+  reporting without changing normal package opening behavior
+
+Current validation focus:
+
+- missing manifest items referenced by spine
+- missing resolved spine targets
+- unsupported spine item media types for lower-layer reading-order consumers
+
+## read_part_text Boundary
+
+- `read_part_text` is a package-local XML/text helper for EPUB parts
+- it is not a converter-level text policy surface
+- it does not imply XHTML semantic conversion or shared normalization policy
+
+## Known Limits
+
+- this package does not implement full EPUB specification coverage
+- this package does not render CSS/JS or behave like a reading system
+- this package does not fetch remote resources
+- this package does not expose DRM support
+- XML handling is intentionally lightweight and scoped to package-level helpers
+- NCX support is minimal and conservative
+- guide handling is only used for conservative cover fallback
+- validation taxonomy is additive and may grow without changing default open
+  behavior
+- inspect reports are structured and useful for tooling, but they are still a
+  lower-layer package contract rather than a final interchange schema
+
+## Relationship to `convert/epub`
+
+`convert/epub` is a consumer of this package.
 
 The lower layer provides:
 
-* normalized package inventory
-* OPF metadata
-* manifest/spine structure
-* nav/NCX signal
-* cover candidates
-* safe part-byte access
+- normalized package inventory
+- rootfile/OPF metadata
+- manifest/spine structure
+- nav/NCX discovery
+- cover candidates
+- safe part reads
 
 `convert/epub` remains responsible for:
 
-* XHTML/HTML body conversion
-* warning-block policy
-* asset materialization
-* final Markdown ordering/output
-* metadata sidecar shaping
+- XHTML/HTML body conversion
+- asset materialization
+- warning-block policy
+- final Markdown ordering and output
+- metadata sidecar shaping
 
-## Tests
+## Testing
 
 The primary lower-layer tests live in `doc_parse/epub/test`.
 
@@ -129,14 +330,3 @@ moon check
 moon test
 ./samples/check.sh
 ```
-
-## Current Limits
-
-* XML handling is intentionally lightweight and scoped to current EPUB package
-  helpers
-* NCX support is minimal and conservative
-* guide handling is only used for conservative cover fallback
-* no CSS/JS/remote-fetch/rendering behavior
-* no DRM support
-* inspect summaries are for debugging and may evolve; they are not a stable
-  interchange format
