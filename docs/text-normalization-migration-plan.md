@@ -1,14 +1,17 @@
 # Text Normalization Migration Plan
 
-This document records the staged migration plan for shared text normalization
-and cleanup.
+Status: mostly completed for the current rule-driven rollout.
+
+This document is now kept primarily as migration history and boundary notes for
+shared text normalization and cleanup.
 
 Scope of this document:
 
-* record completed migration phases and remaining gaps
-* keep converter/parser/emitter behavior changes out of planning-only rounds
+* record completed migration phases and remaining deferred gaps
 * keep PDF layout heuristics out of shared cleanup
 * keep canonical normalization explicit-only by default
+* point readers back to current source-of-truth docs when this page and current
+  implementation status would otherwise be confused
 
 Current implementation status after the rule-engine rollout:
 
@@ -35,6 +38,20 @@ Current implementation status after the rule-engine rollout:
   are no longer part of the main path
 * wrapped hyphen repair now stays in PDF line-merge context instead of a
   global `replace_all("- ", "")`
+* CJK spacing, CJK punctuation spacing, ASCII punctuation spacing, bullet
+  spacing, and numbered-marker spacing now flow through shared rule policy
+  rather than a PDF-local post-text chain
+* PDF no-context glue fallback has been tightened so fragment merge depends
+  more on PDF context signals and less on short-word guessing
+* known phrase replacement and known split-word lists are no longer the main
+  path for native PDF text quality
+
+Current source of truth for active behavior:
+
+* [README](../README.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/architecture.md](./architecture.md)
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
 
 ## Goal
 
@@ -455,7 +472,7 @@ Not part of P3:
 * no movement of heading or table semantics
 * no default output change
 
-## Current Recommendation
+## Current Boundary Recommendation
 
 Recommended direction:
 
@@ -475,6 +492,16 @@ Cross-format adoption rule:
 * no converter or parser package should directly import
   `tonyfettes/unicode`; canonical normalization must stay behind the
   `core/text_normalization` facade
+
+Planning note:
+
+* the earlier P3 candidate sections below are retained as migration history
+  and audit context
+* items that are already implemented should not be read as still-pending
+  rollout work
+* remaining deferred work is intentionally narrow: OCR-path cleanup,
+  possible PDF-local artifact-rule objects, and optional future conformance
+  validation for the explicit canonical facade
 
 ## Non-PDF Format Audit
 

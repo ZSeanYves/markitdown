@@ -1,5 +1,14 @@
 # Format Excellence Roadmap
 
+Status: completed historical framework for the second-round sealed-format
+closure.
+
+For current sealed-scope wording and detailed support boundaries, use:
+
+* [README](../README.md)
+* [docs/second-round-summary.md](./second-round-summary.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+
 This document defines the repository's second-round format hardening model.
 
 It is not a sprint log. It records:

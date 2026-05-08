@@ -22,7 +22,7 @@ Current checked validation and benchmark facts:
 
 | Check | Current result |
 | --- | --- |
-| `moon test` | `1316 passed, 0 failed` |
+| `moon test` | `1334 passed, 0 failed` |
 | Real-world complex corpus | `11 passed, 0 failed` |
 | Main process samples | `444 passed, 0 failed` |
 | Metadata sidecars | `85 passed, 0 failed` |
@@ -33,6 +33,16 @@ Current checked validation and benchmark facts:
 
 These numbers are repository-local checked facts, not a promise that every
 future corpus size will stay constant.
+
+Latest local verification used for this snapshot:
+
+```bash
+moon fmt
+moon check
+moon test
+./samples/check.sh
+./samples/bench.sh --suite smoke --kind smoke
+```
 
 ## GitHub Actions CI
 

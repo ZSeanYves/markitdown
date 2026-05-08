@@ -123,19 +123,40 @@ Across sealed formats, the repository stays intentionally conservative:
 
 Recent substrate hardening after second-round seal:
 
-* shared text normalization now lives in a profile-driven Text Normalization v2
+* shared text normalization now lives in a profile-driven, rule-driven
   substrate rather than scattered PDF-only character fixes
 * the native PDF path uses `PdfText` for output cleanup and `PdfCompareText`
   for comparison/heuristic normalization
-* normalization is now staged and explainable:
+* normalization is staged and explainable:
   line-ending, compatibility, whitespace, invisible-char, soft-hyphen, PDF
   glyph fallback, and compare-cleanup stages all flow through one shared entry
-  point
+  point with explicit rule ids/scopes and debug summaries
+* output-safe pure-string cleanup such as CJK spacing, punctuation spacing,
+  and marker spacing now flows through shared policy instead of ad hoc PDF
+  post-text replacement chains
 * canonical `NFC` / `NFKC` are explicit non-default policy hooks, but the
   repository does not claim full ICU/UAX #15 support on the current MoonBit
   stdlib path
 * literal-safe paths remain conservative and do not inherit aggressive
   normalization by default
+
+## Post-seal Engineering Hardening
+
+These follow-up changes happened after the second-round closure itself. They
+do not rewrite the historical second-round story, but they do affect the
+current implementation state:
+
+* the native PDF path no longer relies on known-phrase replacement, known
+  split-word lists, global `replace_all("- ", "")`, or global slash cleanup as
+  its default text-quality mechanism
+* PDF output-safe cleanup now runs through the shared rule pipeline, while
+  span/line/layout-aware repair stays in PDF-local layers
+* PDF no-context glue fallback has been tightened so normal short-word
+  boundaries such as `the + first` and `to + flow` do not merge by guesswork
+* wrapped-prefix continuation and ligature-fragment repair now depend on PDF
+  context signals rather than word lists
+* recent whitepaper regression fixes were absorbed without reopening sealed
+  scope language or widening benchmark claims
 
 Recent engineering hardening after normalization v2:
 

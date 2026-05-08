@@ -1,5 +1,14 @@
 # Progress Summary
 
+Status: historical snapshot retained for traceability.
+
+Current source of truth for project state now lives in:
+
+* [README](../README.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
+* [docs/second-round-summary.md](./second-round-summary.md)
+
 This document summarizes the repository's current project state.
 
 For detailed per-format behavior, use
@@ -11,7 +20,7 @@ For the current document map and primary current-state entrypoints, use
 For checked validation counts and benchmark examples, use
 [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
 
-## Current State
+## Snapshot
 
 The repository is in a stable post-second-round state:
 

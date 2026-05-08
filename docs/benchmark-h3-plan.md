@@ -1,5 +1,12 @@
 # Benchmark H3 Plan
 
+Status: historical planning note.
+
+Current benchmark facts and public benchmark governance now live in:
+
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+
 This document captures the current benchmark-harness contract and the planned
 H3 phase-2 direction after the first performance wave was closed out.
 

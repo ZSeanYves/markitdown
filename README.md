@@ -64,11 +64,11 @@ about all documents of a format family.
 ## Core Capabilities
 
 * unified IR across document families
-* shared profile-driven Text Normalization v2 substrate with staged PDF
-  extracted-text and comparison cleanup
-* shared document-text cleanup facade already reused by PDF, TXT, HTML, DOCX,
-  and PPTX,
+* shared rule-driven text-normalization substrate for output-safe cleanup
+* profile/policy-gated cleanup reuse across PDF, TXT, HTML, DOCX, and PPTX,
   while canonical `NFD/NFC/NFKD/NFKC` remains explicit-only API surface
+* conservative literal/source-preserving/structured-data paths that do not
+  inherit aggressive cleanup by default
 * Markdown main output
 * `assets/` export for materialized local images
 * metadata sidecar via `--with-metadata`
@@ -137,6 +137,10 @@ moon test
 ./samples/bench.sh --suite smoke --kind smoke
 ```
 
+Current checked totals and representative benchmark rows are tracked in
+[docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
+That page is the source of truth for the latest local snapshot.
+
 Checked-in GitHub Actions CI now runs `moon build --target native`,
 `moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
 `macos-latest` for `push` and `pull_request`. `./samples/bench.sh --suite smoke
@@ -162,6 +166,22 @@ Detailed validation counts, sample matrices, metadata/assets checks, benchmark
 smoke counts, batch profile results, and MarkItDown comparison runs are tracked
 in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
 
+## Text Cleanup Boundary
+
+Text normalization in this repository is a conversion-quality substrate, not a
+standalone product surface.
+
+Current boundary:
+
+* core owns rule-driven, profile/policy-gated pure string cleanup
+* PDF output-safe extracted-text cleanup goes through that shared core layer
+* PDF span/line/layout-aware repair stays in PDF-local text/model layers
+* the default converter path does not enable canonical `NFD/NFC/NFKD/NFKC`
+* literal/source-preserving/structured-data paths stay conservative
+* the native PDF path no longer depends on known-phrase replacement, known
+  split-word lists, global `replace_all("- ", "")`, or global slash-artifact
+  cleanup as its main text-quality mechanism
+
 ## Documentation
 
 * [Changelog](./CHANGELOG.md)
@@ -185,4 +205,5 @@ in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-su
 * an OCR-first default converter
 * a DRM/CSS/JS/remote-fetch pipeline
 * a full Excel formula engine
+* a full Unicode/ICU/UAX #15 conformance claim
 * a benchmark claim beyond the checked-in corpora

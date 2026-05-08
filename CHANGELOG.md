@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+* Sync current documentation after the rule-driven text-normalization rollout
+  and PDF span-glue fallback tightening.
+* Clarify that shared text normalization is a conversion-quality substrate, not
+  a standalone product surface.
+* Clarify that canonical normalization remains explicit-only and is still not
+  part of default converter behavior.
+* Mark older roadmap/progress/audit documents as historical where current
+  source-of-truth pages already supersede them.
+
 ## v0.3.4 - Text normalization rollout and release-readiness documentation draft
 
 This draft release note captures the repository state after the shared

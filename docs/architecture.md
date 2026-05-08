@@ -171,9 +171,9 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions
-* `core/text_normalization.mbt` provides the shared Text Normalization v2
-  substrate used by the PDF path for deterministic character cleanup before
-  higher-level heuristics run
+* `core/text_normalization.mbt` provides the shared text-normalization facade
+  and rule pipeline used by the PDF path for deterministic pure-string cleanup
+  before higher-level heuristics run
 
 Current text-normalization layering is also intentional:
 
@@ -197,18 +197,21 @@ Current text-normalization layering is also intentional:
   ligature expansion, PDF compatibility-glyph fallback, and profile-gated
   PDF output-safe spacing repair such as CJK spacing, punctuation spacing,
   and marker spacing
-* shared document-text cleanup is already reused by PDF, TXT, HTML, and DOCX,
-  while full conformance validation remains a future opt-in step
+* shared document-text cleanup is already reused by PDF, TXT, HTML, DOCX, and
+  PPTX, while full conformance validation remains a future opt-in step
 * PDF keeps layout-aware repair such as word-fragment recovery, line-wrap
   hyphen repair, noise filtering, heading/table/caption decisions, and other
   geometry/source-ref heuristics in `doc_parse/pdf`
+* PDF-local span/line/model glue now prefers context signals such as source-ref
+  adjacency, font/font-size consistency, gap/baseline proximity, punctuation
+  boundaries, and casing signals over pure short-word fallback guesses
 * literal/source-preserving paths such as Markdown passthrough, XML fenced
   output, JSON/YAML fallback code fences, and TXT literal-safe lowering do not
   opt into aggressive text normalization policies
 
 This split is the stable architecture outcome from the earlier PDF H2 process;
-the repository no longer needs separate historical PDF phase docs to explain
-the active design.
+historical PDF phase docs remain useful for audit traceability, but they are
+no longer the source of truth for the active design.
 
 ### HTML
 

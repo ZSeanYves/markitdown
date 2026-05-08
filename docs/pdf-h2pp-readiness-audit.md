@@ -1,5 +1,15 @@
 # PDF H2++ Readiness Audit
 
+Status: historical pre-closure audit for the native text-PDF scope.
+
+Its core boundary conclusions remain useful, but current PDF support status and
+architecture should be read from:
+
+* [README](../README.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/architecture.md](./architecture.md)
+* [docs/second-round-summary.md](./second-round-summary.md)
+
 This document is the repository's PDF H2++ readiness audit.
 
 It is intentionally not a format-closure claim.
