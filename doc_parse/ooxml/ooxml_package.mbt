@@ -71,6 +71,20 @@ pub fn read_part_bytes(
 }
 
 ///|
+/// Read a package part as lightweight XML/text content.
+///
+/// This helper uses the package-local XML text decoding path. It is intended
+/// for OOXML package parts such as `.xml`, `.rels`, and small metadata parts,
+/// not as a general semantic text-decoding policy for converters.
+pub fn read_part_text(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> String raise OoxmlError {
+  let bytes = read_part_bytes(pkg, part_name)
+  bytes_to_xml_text(bytes)
+}
+
+///|
 /// List all package parts in deterministic sorted order.
 pub fn list_parts(pkg : OoxmlPackage) -> Array[String] {
   let out : Array[String] = []

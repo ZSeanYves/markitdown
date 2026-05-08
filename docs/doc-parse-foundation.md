@@ -154,10 +154,20 @@ Current role:
 Current foundation direction:
 
 * strongest candidate for the first publishable-quality hardening pass
+* now a near-publishable foundation candidate within current repository scope
 * should evolve toward a reusable OOXML package parser, not a document-format
   semantic converter
 * should expose structured inventory/inspect and classifier-friendly errors,
   while keeping converter-facing compatibility stable during hardening
+
+Remaining closure items:
+
+* evaluate whether any currently public helper-shaped surface should be hidden in
+  a future versioned package release, without breaking current converter users
+* decide whether duplicate relationship-id compatibility should stay as-is or
+  move behind an explicit strict-mode API in a future non-breaking design
+* clarify whether lightweight XML text decoding should remain package-local or
+  later gain an explicit "XML/text part reader" naming split in a release pass
 
 ### `doc_parse/pdf`
 

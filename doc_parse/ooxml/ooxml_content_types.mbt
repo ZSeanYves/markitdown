@@ -39,6 +39,28 @@ pub fn list_parts_by_content_type(
 }
 
 ///|
+pub fn lookup_content_type_default(
+  pkg : OoxmlPackage,
+  extension : String,
+) -> String? {
+  let ext = extension.trim().to_owned()
+  if ext == "" {
+    None
+  } else {
+    pkg.content_types_default.get(ext)
+  }
+}
+
+///|
+pub fn lookup_content_type_override(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> String? raise OoxmlError {
+  let normalized = normalize_part_name(part_name)
+  pkg.content_types_override.get("/" + normalized)
+}
+
+///|
 fn parse_content_types(
   xml : String,
 ) -> (Map[String, String], Map[String, String]) raise OoxmlError {

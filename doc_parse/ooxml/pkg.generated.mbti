@@ -18,6 +18,8 @@ pub fn dump_properties_summary(OoxmlPackage) -> String
 
 pub fn dump_relationships_summary(OoxmlPackage) -> String
 
+pub fn find_part_info(OoxmlPackage, String) -> OoxmlPartInfo? raise OoxmlError
+
 pub fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
 
 pub fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
@@ -46,6 +48,10 @@ pub fn list_relationship_infos(OoxmlPackage, String) -> Array[OoxmlRelationshipI
 
 pub fn lookup_content_type(OoxmlPackage, String) -> String? raise OoxmlError
 
+pub fn lookup_content_type_default(OoxmlPackage, String) -> String?
+
+pub fn lookup_content_type_override(OoxmlPackage, String) -> String? raise OoxmlError
+
 pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
 
 pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
@@ -57,6 +63,8 @@ pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] rais
 pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
 
 pub fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
+
+pub fn read_part_text(OoxmlPackage, String) -> String raise OoxmlError
 
 pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
 
@@ -122,6 +130,7 @@ pub struct OoxmlErrorInfo {
   rels_part_name : String?
   source_part : String?
   rel_id : String?
+  target : String?
 }
 
 pub(all) enum OoxmlErrorKind {
@@ -164,6 +173,13 @@ pub struct OoxmlPackageInventory {
   parts : Array[OoxmlPartInfo]
   content_types : Array[OoxmlContentTypeInfo]
   relationship_source_parts : Array[String]
+  relationship_parts : Array[String]
+  part_count : Int
+  relationship_part_count : Int
+  content_type_entry_count : Int
+  media_asset_count : Int
+  has_core_properties : Bool
+  has_app_properties : Bool
 }
 
 pub struct OoxmlPartInfo {

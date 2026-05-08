@@ -1,5 +1,15 @@
 # OOXML Package Layer
 
+`doc_parse/ooxml` is a MoonBit OOXML package parser for ZIP-based Office
+containers such as DOCX, PPTX, and XLSX.
+
+It is intended to be a reusable lower-layer package: it opens OOXML archives,
+lists and reads parts, parses `[Content_Types].xml`, parses package and
+part-level `.rels`, indexes conventional media assets, exposes lightweight
+`docProps`, and provides structured inspect/debug reports.
+
+It is not a Word/PowerPoint/Excel semantic converter.
+
 ## Positioning
 
 `doc_parse/ooxml` is the shared low-level OOXML package substrate for DOCX,
@@ -53,16 +63,27 @@ Text-normalization boundary:
 
 ## Public APIs
 
+Usage note:
+
+- Add `ZSeanYves/markitdown/doc_parse/ooxml` as a dependency in your MoonBit
+  package.
+- Open OOXML bytes with `open_ooxml_package(bytes)`.
+- Consume package parts, content types, relationships, media assets, and
+  inspect reports from this layer.
+
 Package facade:
 
 - `open_ooxml_package(bytes)`
 - `has_part(pkg, part_name)`
 - `read_part_bytes(pkg, part_name)`
+- `read_part_text(pkg, part_name)`
 - `list_parts(pkg)`
 - `list_parts_by_prefix(pkg, prefix)`
 
 Content types:
 
+- `lookup_content_type_default(pkg, extension)`
+- `lookup_content_type_override(pkg, part_name)`
 - `lookup_content_type(pkg, part_name)`
 - `list_parts_by_content_type(pkg, content_type)`
 
@@ -80,6 +101,7 @@ Structured inspect:
 - `inspect_ooxml_inventory(pkg)`
 - `inspect_ooxml_package(pkg)`
 - `list_part_infos(pkg)`
+- `find_part_info(pkg, part_name)`
 - `list_content_type_infos(pkg)`
 - `list_relationship_infos(pkg, source_part)`
 - `classify_ooxml_error(err)`
@@ -100,6 +122,49 @@ Debug dumps:
 - `dump_relationships_summary(pkg)`
 - `dump_media_assets_summary(pkg)`
 - `dump_properties_summary(pkg)`
+
+## Minimal Examples
+
+Open a package and list parts:
+
+```moonbit
+let pkg = @ox.open_ooxml_package(bytes)
+let parts = @ox.list_parts(pkg)
+```
+
+Read package inventory:
+
+```moonbit
+let inventory = @ox.inspect_ooxml_inventory(pkg)
+let count = inventory.part_count
+let has_core = inventory.has_core_properties
+```
+
+Resolve a relationship safely:
+
+```moonbit
+let rels = @ox.read_part_relationships(pkg, "word/document.xml")
+let target = @ox.resolve_relationship(pkg, "word/document.xml", "rId5")
+```
+
+Query effective content type:
+
+```moonbit
+let ct = @ox.lookup_content_type(pkg, "word/document.xml")
+let xml_default = @ox.lookup_content_type_default(pkg, "xml")
+```
+
+Classify lower-layer errors:
+
+```moonbit
+match try? @ox.read_part_relationships(pkg, "word/document.xml") {
+  Ok(rels) => ignore(rels)
+  Err(err) => {
+    let info = @ox.classify_ooxml_error(err)
+    ignore(info.kind)
+  }
+}
+```
 
 ## File Layout
 
@@ -133,6 +198,17 @@ Debug dumps:
 - Keep duplicate relationship-id handling compatible for now; it remains a known
   lower-layer boundary rather than a default fail-closed behavior.
 - Keep debug dump output human-readable and lossy; it is not a machine schema.
+
+## Safety Boundaries
+
+- Unsafe part names and parent-traversal targets fail closed.
+- External relationship targets are classified and preserved, not fetched.
+- Malformed `[Content_Types].xml` and malformed `.rels` fail closed.
+- Directory entries are skipped from package part inventory.
+- Duplicate normalized part paths and duplicate normalized content-type
+  overrides fail closed.
+- Duplicate relationship ids remain compatibility behavior for now; they are not
+  promoted to default parser failure in the current package contract.
 
 ## Tests
 
@@ -168,6 +244,11 @@ Current lower-layer coverage includes:
 
 ## Current Limits
 
+- This package does not implement full OOXML specification coverage.
+- This package does not parse DOCX/PPTX/XLSX semantic structure into final
+  document meaning.
+- This package does not fetch remote targets from external relationships.
+- This package does not parse macro/VBA payload semantics.
 - XML parsing is intentionally lightweight and only targets the small tag and
   attribute patterns required by current package-level helpers.
 - Error taxonomy is additive and classifier-based today; the top-level
@@ -179,3 +260,11 @@ Current lower-layer coverage includes:
 - Document properties cover a small stable subset of core/app properties.
 - Debug dumps are intended for inspection and can evolve; they are not a stable
   interchange format.
+
+## Relationship to `convert/*`
+
+- `convert/docx`, `convert/pptx`, and `convert/xlsx` are consumers of this
+  lower-layer package.
+- They own final semantic conversion behavior.
+- `doc_parse/ooxml` stays package-oriented and does not absorb higher-layer
+  converter heuristics.

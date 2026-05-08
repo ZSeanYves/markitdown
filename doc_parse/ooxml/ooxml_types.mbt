@@ -46,6 +46,7 @@ pub struct OoxmlErrorInfo {
   rels_part_name : String?
   source_part : String?
   rel_id : String?
+  target : String?
 }
 
 ///|
@@ -59,6 +60,7 @@ pub fn classify_ooxml_error(err : OoxmlError) -> OoxmlErrorInfo {
         rels_part_name: None,
         source_part: None,
         rel_id: None,
+        target: None,
       }
     MissingPart(path) =>
       {
@@ -72,6 +74,7 @@ pub fn classify_ooxml_error(err : OoxmlError) -> OoxmlErrorInfo {
         },
         source_part: None,
         rel_id: None,
+        target: None,
       }
     InvalidXml(msg) => classify_invalid_xml_detail(msg)
     InvalidPartPath(path) => classify_invalid_part_path_detail(path)
@@ -83,6 +86,7 @@ pub fn classify_ooxml_error(err : OoxmlError) -> OoxmlErrorInfo {
         rels_part_name: None,
         source_part: Some(source_part),
         rel_id: Some(rel_id),
+        target: None,
       }
   }
 }
@@ -189,6 +193,13 @@ pub struct OoxmlPackageInventory {
   parts : Array[OoxmlPartInfo]
   content_types : Array[OoxmlContentTypeInfo]
   relationship_source_parts : Array[String]
+  relationship_parts : Array[String]
+  part_count : Int
+  relationship_part_count : Int
+  content_type_entry_count : Int
+  media_asset_count : Int
+  has_core_properties : Bool
+  has_app_properties : Bool
 }
 
 ///|
@@ -228,6 +239,7 @@ fn classify_invalid_xml_detail(msg : String) -> OoxmlErrorInfo {
       rels_part_name: None,
       source_part: None,
       rel_id: None,
+      target: None,
     }
   } else if msg.has_prefix("relationships ") {
     classify_relationships_detail(msg)
@@ -239,6 +251,7 @@ fn classify_invalid_xml_detail(msg : String) -> OoxmlErrorInfo {
       rels_part_name: None,
       source_part: None,
       rel_id: None,
+      target: None,
     }
   }
 }
@@ -264,6 +277,7 @@ fn classify_relationships_detail(msg : String) -> OoxmlErrorInfo {
     rels_part_name,
     source_part,
     rel_id: None,
+    target: None,
   }
 }
 
@@ -271,6 +285,7 @@ fn classify_relationships_detail(msg : String) -> OoxmlErrorInfo {
 fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
   if path.has_prefix("unsafe relationship target: ") {
     let detail = path["unsafe relationship target: ".length():].to_owned()
+    let target = parse_relationship_target(detail)
     {
       kind: OoxmlErrorKind::UnsafeRelationshipTarget,
       detail,
@@ -278,6 +293,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
       rels_part_name: None,
       source_part: None,
       rel_id: None,
+      target,
     }
   } else if path.has_prefix("normalized part collision: ") {
     let detail = path["normalized part collision: ".length():].to_owned()
@@ -288,6 +304,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
       rels_part_name: None,
       source_part: None,
       rel_id: None,
+      target: None,
     }
   } else {
     {
@@ -297,6 +314,7 @@ fn classify_invalid_part_path_detail(path : String) -> OoxmlErrorInfo {
       rels_part_name: None,
       source_part: None,
       rel_id: None,
+      target: None,
     }
   }
 }
@@ -327,6 +345,16 @@ fn parse_relationship_detail(msg : String) -> String {
     msg
   } else {
     msg[idx + 2:].to_owned()
+  }
+}
+
+///|
+fn parse_relationship_target(detail : String) -> String? {
+  let idx = find_substring(detail, ": ")
+  if idx < 0 || idx + 2 >= detail.length() {
+    None
+  } else {
+    Some(detail[idx + 2:].to_owned())
   }
 }
 
