@@ -84,6 +84,9 @@ Current public tooling:
 * `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -140,6 +143,12 @@ Key design points:
 * `--profile yaml` adds internal YAML-subset parse sub-stage rows for hotspot
   attribution without changing the default benchmark manifest or parser
   semantics
+* `--profile text` adds internal text parse sub-stage rows for hotspot
+  attribution without changing the normalized text document model
+* `--profile json` adds internal JSON parse sub-stage rows for hotspot
+  attribution without changing JSON validity rules or value semantics
+* `--profile markdown` adds internal Markdown scan sub-stage rows for hotspot
+  attribution without turning the scanner into a full Markdown parser
 
 Measured stage model:
 
@@ -165,6 +174,8 @@ Interpretation caveats:
   or latency promises
 * yaml profile rows are stage-attribution aids, not release-facing stable API
   or latency promises
+* text/json/markdown profile rows are stage-attribution aids, not
+  release-facing stable API or latency promises
 
 ## Current Baseline Commands
 
@@ -264,6 +275,35 @@ Current interpretation:
 * it does not expand or narrow the YAML subset boundary
 * it does not change `convert/yaml` output ownership
 * it should not be mistaken for a stable release-facing YAML profiling API
+
+## Focused Lightweight Large-input Follow-up
+
+The current harness also includes focused profile modes for text, JSON, and
+Markdown:
+
+```bash
+./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
+```
+
+Current checked follow-up results:
+
+* `txt_large / parse`: `4.991 ms -> 1.952 ms`
+* `json_large / parse`: `4.247 ms -> 2.805 ms`
+* `markdown_large / scan`: `3.391 ms -> 2.181 ms`
+
+Current interpretation:
+
+* `text` improved by collapsing newline normalization, line splitting, and
+  paragraph reconstruction into one pass without changing the plain-text
+  source-native model
+* `json` improved by preparing normalized char buffers directly and fast-path
+  parsing plain strings without changing JSON validity or value semantics
+* `markdown` improved by precomputing line-level trim metadata so the scanner
+  stops re-trimming and re-classifying the same raw lines
+* these profile modes exist only for hotspot attribution; they do not widen
+  format support or change converter ownership boundaries
 
 ## Library vs CLI Guidance
 

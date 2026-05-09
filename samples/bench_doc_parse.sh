@@ -10,6 +10,9 @@ DEFAULT_OUTPUT="$RESULT_ROOT/summary.tsv"
 usage() {
   cat <<'EOF'
 Usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--output PATH]
+       ./samples/bench_doc_parse.sh --format text --profile text --iterations 10 --warmup 2
+       ./samples/bench_doc_parse.sh --format json --profile json --iterations 10 --warmup 2
+       ./samples/bench_doc_parse.sh --format markdown --profile markdown --iterations 10 --warmup 2
        ./samples/bench_doc_parse.sh --format xlsx --profile xlsx --iterations 10 --warmup 2
        ./samples/bench_doc_parse.sh --format docx --profile docx --iterations 10 --warmup 2
        ./samples/bench_doc_parse.sh --format yaml --profile yaml --iterations 10 --warmup 2
@@ -19,6 +22,9 @@ Notes:
   * It does not call convert/* or the normal CLI conversion path.
   * File I/O is intentionally excluded from measured parse/inspect/validate loops
     unless a package's public API surface is itself byte/package-open oriented.
+  * --profile text/json/markdown adds internal lightweight parser or scanner
+    sub-stages for hotspot attribution while leaving the default summary layout
+    intact.
   * --profile xlsx adds internal SpreadsheetML parse sub-stages for hotspot
     attribution while leaving the default summary layout intact.
   * --profile docx adds internal WordprocessingML parse sub-stages for hotspot

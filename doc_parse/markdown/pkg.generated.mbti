@@ -6,6 +6,8 @@ pub fn collect_markdown_validation_issues(MarkdownDocument) -> Array[MarkdownVal
 
 pub fn inspect_markdown_document(MarkdownDocument) -> MarkdownInspectReport
 
+pub fn profile_markdown_document(String) -> MarkdownProfiledDocument
+
 pub fn scan_markdown_document(String) -> MarkdownDocument
 
 pub fn validate_markdown_document(MarkdownDocument) -> MarkdownValidationReport
@@ -82,6 +84,21 @@ pub struct MarkdownInspectReport {
   warning_count : Int
   error_count : Int
   is_empty : Bool
+}
+
+pub(all) struct MarkdownParseProfileReport {
+  stages : Array[MarkdownParseProfileStage]
+}
+
+pub(all) struct MarkdownParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct MarkdownProfiledDocument {
+  document : MarkdownDocument
+  report : MarkdownParseProfileReport
 }
 
 pub struct MarkdownValidationIssue {

@@ -30,6 +30,9 @@ Measured commands:
 ./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -60,6 +63,12 @@ Artifacts:
   `.tmp/bench/doc_parse/yaml_after_parse.tsv`
 * focused YAML parse profile summary:
   `.tmp/bench/doc_parse/yaml_profile_after.tsv`
+* focused text parse profile summary:
+  `.tmp/bench/doc_parse/text_profile_after_final.tsv`
+* focused JSON parse profile summary:
+  `.tmp/bench/doc_parse/json_profile_after.tsv`
+* focused Markdown scan profile summary:
+  `.tmp/bench/doc_parse/markdown_profile_after.tsv`
 
 ## Outcome Summary
 
@@ -175,17 +184,17 @@ Current intentional gap:
 
 * `pdf` is still deferred from the first library-only harness
 
-Slowest `open/parse/scan` rows:
+Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms`
-* `docx_link_heavy / parse`: `8.631 ms`
-* `yaml_large / parse`: `7.181 ms`
-* `json_large / parse`: `3.857 ms`
-* `txt_large / parse`: `3.769 ms`
-* `markdown_large / scan`: `3.306 ms`
-* `docx_small / parse`: `2.664 ms`
-* `csv_large / parse`: `2.509 ms`
-* `tsv_large / parse`: `2.330 ms`
+* `yaml_large / parse`: `5.943 ms`
+* `docx_link_heavy / parse`: `5.214 ms`
+* `json_large / parse`: `2.854 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.661 ms`
+* `csv_large / parse`: `2.324 ms`
+* `markdown_large / scan`: `2.165 ms`
+* `tsv_large / parse`: `2.061 ms`
+* `txt_large / parse`: `2.010 ms`
+* `docx_small / parse`: `1.965 ms`
 
 Slowest `inspect` rows:
 
@@ -207,7 +216,7 @@ Small-case rows above `10 ms` in the library harness:
 
 Rows above `10 ms` anywhere in the current library harness:
 
-* `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms`
+* none
 
 ## Focused XLSX Formula-heavy Follow-up
 
@@ -255,15 +264,73 @@ These profile rows are attribution aids only:
 
 ## Post-optimization Library Snapshot
 
-After the focused XLSX, DOCX, and YAML changes, the full
+After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `5.808 ms`
-* `docx_link_heavy / parse`: `5.329 ms`
-* `txt_large / parse`: `3.966 ms`
-* `json_large / parse`: `3.605 ms`
-* `markdown_large / scan`: `3.130 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.666 ms`
+* `yaml_large / parse`: `5.943 ms`
+* `docx_link_heavy / parse`: `5.214 ms`
+* `json_large / parse`: `2.854 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.661 ms`
+* `csv_large / parse`: `2.324 ms`
+* `markdown_large / scan`: `2.165 ms`
+* `tsv_large / parse`: `2.061 ms`
+* `txt_large / parse`: `2.010 ms`
+
+## Focused Lightweight Large-input Follow-up
+
+Follow-up commands:
+
+```bash
+./samples/bench_doc_parse.sh --format text --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_before_parse.tsv
+./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_profile_after_final.tsv
+./samples/bench_doc_parse.sh --format json --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_before_parse.tsv
+./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_profile_after.tsv
+./samples/bench_doc_parse.sh --format markdown --stage scan --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_before_scan.tsv
+./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_profile_after.tsv
+```
+
+Focused before/after rows:
+
+* `txt_small / parse`: `0.004 ms -> 0.002 ms`
+* `txt_large / parse`: `4.991 ms -> 1.952 ms`
+* `json_small / parse`: `0.002 ms -> 0.003 ms`
+* `json_large / parse`: `4.247 ms -> 2.805 ms`
+* `markdown_small / scan`: `0.004 ms -> 0.003 ms`
+* `markdown_large / scan`: `3.391 ms -> 2.181 ms`
+
+Current rounded internal profile breakdowns on the checked large samples:
+
+* `txt_large`
+  * `newline_scan`: `1.000 ms`
+  * `build_document`: `1.000 ms`
+  * `line_build`: `0.200 ms`
+  * `paragraph_build`: `0.000 ms`
+* `json_large`
+  * `tokenize`: `1.000 ms`
+  * `parse_value`: `1.800 ms`
+  * `parse_object`: `4.100 ms`
+  * `parse_array`: `2.100 ms`
+  * `parse_string`: `0.800 ms`
+  * `parse_number`: `0.300 ms`
+* `markdown_large`
+  * `normalize_lines`: `0.800 ms`
+  * `scan_lines`: `1.200 ms`
+  * `block_classify`: `1.100 ms`
+  * `build_document`: `0.200 ms`
+
+Interpretation:
+
+* the text improvement came from collapsing newline normalization, line
+  inventory construction, and paragraph reconstruction into one pass without
+  changing the normalized source-native model
+* the JSON improvement came from cheaper normalized char preparation and a
+  fast path for plain strings without changing JSON validity rules or value
+  semantics
+* the Markdown improvement came from precomputing trimmed and left-trimmed
+  line views so the scanner stops re-trimming and re-classifying the same raw
+  line data
+* these profile rows remain attribution aids only; they do not widen format
+  support or change converter ownership boundaries
 
 ## Focused DOCX Link-heavy Follow-up
 

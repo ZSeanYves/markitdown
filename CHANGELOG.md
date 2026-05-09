@@ -89,6 +89,12 @@
   `yaml_large` library parse row from about `6.9 ms` to about `5.9 ms` by
   reducing raw line preparation and repeated trim/copy work, without changing
   YAML subset semantics or `convert/yaml` output behavior.
+* Add text/JSON/Markdown-specific doc_parse benchmark stage profiling and
+  reduce the checked large-input rows from about `5.0 ms -> 2.0 ms`
+  (`txt_large`), `4.2 ms -> 2.8 ms` (`json_large`), and
+  `3.4 ms -> 2.2 ms` (`markdown_large`) by removing repeated scans and
+  duplicate trim/classification work, without changing parsing semantics or
+  converter output behavior.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

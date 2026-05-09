@@ -4,27 +4,82 @@
 /// This scanner always succeeds by design. Ambiguities and malformed fences are
 /// reported as validation issues instead of hard parse errors.
 pub fn scan_markdown_document(text : String) -> MarkdownDocument {
+  scan_markdown_document_with_profile(text, None, None)
+}
+
+///|
+/// Benchmark-oriented profiled scan helper used for internal hotspot
+/// attribution.
+///
+/// This does not turn the lightweight scanner into a full Markdown parser or
+/// change converter behavior.
+pub fn profile_markdown_document(text : String) -> MarkdownProfiledDocument {
+  let report = new_markdown_parse_profile_report()
+  let totals = new_markdown_parse_profile_totals()
+  let document = scan_markdown_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  markdown_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
+}
+
+///|
+fn scan_markdown_document_with_profile(
+  text : String,
+  profile : MarkdownParseProfileReport?,
+  profile_totals : MarkdownParseProfileTotals?,
+) -> MarkdownDocument {
+  let normalize_started = markdown_parse_profile_stage_started(profile)
   let normalized = normalize_markdown_source(text)
-  let lines = split_markdown_lines(normalized)
+  let lines = build_markdown_line_views(split_markdown_lines(normalized))
+  markdown_parse_profile_stage_finished(
+    profile,
+    "normalize_lines",
+    normalize_started,
+    Some("lines=" + lines.length().to_string()),
+  )
   let blocks : Array[MarkdownBlock] = []
   let issues : Array[MarkdownValidationIssue] = []
   let mut frontmatter : MarkdownFrontmatter? = None
   let mut i = 0
 
+  let frontmatter_started = markdown_parse_profile_stage_started(profile)
   match consume_markdown_frontmatter(lines) {
     Some((parsed, next_index, frontmatter_issues)) => {
       frontmatter = Some(parsed)
       for issue in frontmatter_issues {
+        let issue_started = match profile_totals {
+          Some(_) => @env.now()
+          None => 0
+        }
         issues.push(issue)
+        let issue_total = match profile_totals {
+          Some(totals) => Some(totals.validation_issues_elapsed_ms)
+          None => None
+        }
+        markdown_parse_profile_add_elapsed(issue_total, issue_started)
       }
       i = next_index
     }
     None => ()
   }
+  let has_frontmatter = match frontmatter {
+    Some(_) => "true"
+    None => "false"
+  }
+  markdown_parse_profile_stage_finished(
+    profile,
+    "frontmatter",
+    frontmatter_started,
+    Some("has_frontmatter=" + has_frontmatter),
+  )
 
+  let scan_started = markdown_parse_profile_stage_started(profile)
   while i < lines.length() {
     let line = lines[i]
-    let trimmed = line.trim().to_owned()
+    let trimmed = line.trimmed
     let line_no = i + 1
 
     if trimmed == "" {
@@ -32,20 +87,29 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
         kind: MarkdownBlockKind::BlankLine,
         line_start: line_no,
         line_end: line_no,
-        raw_text: line,
+        raw_text: line.raw,
         fenced_code: None,
       })
       i += 1
       continue
     }
 
+    let fence_started = match profile_totals {
+      Some(_) => @env.now()
+      None => 0
+    }
+    let fence_total = match profile_totals {
+      Some(totals) => Some(totals.fence_scan_elapsed_ms)
+      None => None
+    }
     match parse_markdown_fence_open(line) {
       Some(open_fence) => {
-        let raw_lines : Array[String] = [line]
+        markdown_parse_profile_add_elapsed(fence_total, fence_started)
+        let raw_lines : Array[String] = [line.raw]
         let mut j = i + 1
         let mut closed = false
         while j < lines.length() {
-          raw_lines.push(lines[j])
+          raw_lines.push(lines[j].raw)
           if is_markdown_fence_close(
               lines[j],
               open_fence.fence_char,
@@ -58,6 +122,10 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
           j += 1
         }
         if !closed {
+          let issue_started = match profile_totals {
+            Some(_) => @env.now()
+            None => 0
+          }
           issues.push({
             kind: MarkdownValidationIssueKind::UnclosedFence,
             severity: MarkdownValidationSeverity::Warning,
@@ -65,6 +133,11 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
             line_end: Some(i + raw_lines.length()),
             message: "fenced code block is not closed",
           })
+          let issue_total = match profile_totals {
+            Some(totals) => Some(totals.validation_issues_elapsed_ms)
+            None => None
+          }
+          markdown_parse_profile_add_elapsed(issue_total, issue_started)
         }
         blocks.push({
           kind: MarkdownBlockKind::FencedCode,
@@ -81,15 +154,24 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
         i = j
         continue
       }
-      None => ()
+      None => markdown_parse_profile_add_elapsed(fence_total, fence_started)
     }
 
+    let classify_started = match profile_totals {
+      Some(_) => @env.now()
+      None => 0
+    }
+    let classify_total = match profile_totals {
+      Some(totals) => Some(totals.block_classify_elapsed_ms)
+      None => None
+    }
     if can_start_setext_heading(lines, i) {
+      markdown_parse_profile_add_elapsed(classify_total, classify_started)
       blocks.push({
         kind: MarkdownBlockKind::HeadingSetext,
         line_start: line_no,
         line_end: line_no + 1,
-        raw_text: line + "\n" + lines[i + 1],
+        raw_text: line.raw + "\n" + lines[i + 1].raw,
         fenced_code: None,
       })
       i += 2
@@ -97,25 +179,26 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
     }
 
     let kind = classify_markdown_line_kind(line)
+    markdown_parse_profile_add_elapsed(classify_total, classify_started)
     if kind != MarkdownBlockKind::ParagraphLike {
       blocks.push({
         kind,
         line_start: line_no,
         line_end: line_no,
-        raw_text: line,
+        raw_text: line.raw,
         fenced_code: None,
       })
       i += 1
       continue
     }
 
-    let raw_lines : Array[String] = [line]
+    let raw_lines : Array[String] = [line.raw]
     let mut j = i + 1
     while j < lines.length() {
       if should_end_markdown_paragraph(lines, j) {
         break
       }
-      raw_lines.push(lines[j])
+      raw_lines.push(lines[j].raw)
       j += 1
     }
     blocks.push({
@@ -127,14 +210,48 @@ pub fn scan_markdown_document(text : String) -> MarkdownDocument {
     })
     i = j
   }
+  markdown_parse_profile_stage_finished(
+    profile,
+    "scan_lines",
+    scan_started,
+    Some("blocks=" + blocks.length().to_string()),
+  )
 
-  {
+  let build_started = markdown_parse_profile_stage_started(profile)
+  let doc = {
     source_length: normalized.to_array().length(),
     line_count: lines.length(),
     blocks,
     frontmatter,
     issues,
   }
+  markdown_parse_profile_stage_finished(
+    profile,
+    "build_document",
+    build_started,
+    Some("issues=" + doc.issues.length().to_string()),
+  )
+  doc
+}
+
+///|
+priv struct MarkdownLineView {
+  raw : String
+  trimmed : String
+  left_trimmed : String
+}
+
+///|
+fn build_markdown_line_views(lines : Array[String]) -> Array[MarkdownLineView] {
+  let out : Array[MarkdownLineView] = []
+  for line in lines {
+    out.push({
+      raw: line,
+      trimmed: line.trim().to_owned(),
+      left_trimmed: trim_markdown_left(line),
+    })
+  }
+  out
 }
 
 ///|
@@ -189,13 +306,13 @@ fn split_markdown_lines(text : String) -> Array[String] {
 
 ///|
 fn consume_markdown_frontmatter(
-  lines : Array[String],
+  lines : Array[MarkdownLineView],
 ) -> (MarkdownFrontmatter, Int, Array[MarkdownValidationIssue])? {
   if lines.length() == 0 {
     return None
   }
 
-  let marker = lines[0].trim().to_owned()
+  let marker = lines[0].trimmed
   let kind = match marker {
     "---" => Some(MarkdownFrontmatterKind::Yaml)
     "+++" => Some(MarkdownFrontmatterKind::Toml)
@@ -209,7 +326,7 @@ fn consume_markdown_frontmatter(
       let issues : Array[MarkdownValidationIssue] = []
       let mut i = 1
       while i < lines.length() {
-        if lines[i].trim() == marker {
+        if lines[i].trimmed == marker {
           return Some(
             (
               {
@@ -224,7 +341,7 @@ fn consume_markdown_frontmatter(
             ),
           )
         }
-        body.push(lines[i])
+        body.push(lines[i].raw)
         i += 1
       }
 
@@ -253,9 +370,10 @@ fn consume_markdown_frontmatter(
 }
 
 ///|
-fn parse_markdown_fence_open(line : String) -> MarkdownFencedCodeInfo? {
-  let trimmed = trim_markdown_left(line)
-  let chars = trimmed.to_array()
+fn parse_markdown_fence_open(
+  line : MarkdownLineView,
+) -> MarkdownFencedCodeInfo? {
+  let chars = line.left_trimmed.to_array()
   if chars.length() < 3 {
     return None
   }
@@ -273,7 +391,7 @@ fn parse_markdown_fence_open(line : String) -> MarkdownFencedCodeInfo? {
     return None
   }
 
-  let info = trimmed[i:].trim().to_owned()
+  let info = line.left_trimmed[i:].trim().to_owned()
   Some({
     fence_char,
     fence_length: i,
@@ -288,12 +406,11 @@ fn parse_markdown_fence_open(line : String) -> MarkdownFencedCodeInfo? {
 
 ///|
 fn is_markdown_fence_close(
-  line : String,
+  line : MarkdownLineView,
   fence_char : Char,
   fence_length : Int,
 ) -> Bool {
-  let trimmed = trim_markdown_left(line)
-  let chars = trimmed.to_array()
+  let chars = line.left_trimmed.to_array()
   if chars.length() < fence_length {
     return false
   }
@@ -303,24 +420,25 @@ fn is_markdown_fence_close(
     i += 1
   }
 
-  i >= fence_length && trimmed[i:].trim() == ""
+  i >= fence_length && line.left_trimmed[i:].trim() == ""
 }
 
 ///|
-fn can_start_setext_heading(lines : Array[String], index : Int) -> Bool {
+fn can_start_setext_heading(
+  lines : Array[MarkdownLineView],
+  index : Int,
+) -> Bool {
   if index + 1 >= lines.length() {
     return false
   }
-  let current = lines[index].trim().to_owned()
-  current != "" &&
+  lines[index].trimmed != "" &&
   classify_markdown_line_kind(lines[index]) == MarkdownBlockKind::ParagraphLike &&
   is_markdown_setext_underline(lines[index + 1])
 }
 
 ///|
-fn is_markdown_setext_underline(line : String) -> Bool {
-  let trimmed = line.trim().to_owned()
-  let chars = trimmed.to_array()
+fn is_markdown_setext_underline(line : MarkdownLineView) -> Bool {
+  let chars = line.trimmed.to_array()
   if chars.length() < 3 {
     return false
   }
@@ -339,7 +457,7 @@ fn is_markdown_setext_underline(line : String) -> Bool {
 }
 
 ///|
-fn classify_markdown_line_kind(line : String) -> MarkdownBlockKind {
+fn classify_markdown_line_kind(line : MarkdownLineView) -> MarkdownBlockKind {
   if is_markdown_atx_heading(line) {
     MarkdownBlockKind::HeadingAtx
   } else if is_markdown_list_item(line) {
@@ -358,9 +476,12 @@ fn classify_markdown_line_kind(line : String) -> MarkdownBlockKind {
 }
 
 ///|
-fn should_end_markdown_paragraph(lines : Array[String], index : Int) -> Bool {
+fn should_end_markdown_paragraph(
+  lines : Array[MarkdownLineView],
+  index : Int,
+) -> Bool {
   let line = lines[index]
-  if line.trim() == "" {
+  if line.trimmed == "" {
     return true
   }
   match parse_markdown_fence_open(line) {
@@ -376,9 +497,8 @@ fn should_end_markdown_paragraph(lines : Array[String], index : Int) -> Bool {
 }
 
 ///|
-fn is_markdown_atx_heading(line : String) -> Bool {
-  let trimmed = trim_markdown_left(line)
-  let chars = trimmed.to_array()
+fn is_markdown_atx_heading(line : MarkdownLineView) -> Bool {
+  let chars = line.left_trimmed.to_array()
   if chars.length() == 0 || chars[0] != '#' {
     return false
   }
@@ -394,15 +514,14 @@ fn is_markdown_atx_heading(line : String) -> Bool {
 }
 
 ///|
-fn is_markdown_list_item(line : String) -> Bool {
-  let trimmed = trim_markdown_left(line)
-  if trimmed.has_prefix("- ") ||
-    trimmed.has_prefix("* ") ||
-    trimmed.has_prefix("+ ") {
+fn is_markdown_list_item(line : MarkdownLineView) -> Bool {
+  if line.left_trimmed.has_prefix("- ") ||
+    line.left_trimmed.has_prefix("* ") ||
+    line.left_trimmed.has_prefix("+ ") {
     return true
   }
 
-  let chars = trimmed.to_array()
+  let chars = line.left_trimmed.to_array()
   let mut i = 0
   while i < chars.length() && chars[i] >= '0' && chars[i] <= '9' {
     i += 1
@@ -415,13 +534,13 @@ fn is_markdown_list_item(line : String) -> Bool {
 }
 
 ///|
-fn is_markdown_blockquote(line : String) -> Bool {
-  trim_markdown_left(line).has_prefix(">")
+fn is_markdown_blockquote(line : MarkdownLineView) -> Bool {
+  line.left_trimmed.has_prefix(">")
 }
 
 ///|
-fn is_markdown_thematic_break(line : String) -> Bool {
-  let chars = line.to_array().filter(fn(ch) { ch != ' ' && ch != '\t' })
+fn is_markdown_thematic_break(line : MarkdownLineView) -> Bool {
+  let chars = line.raw.to_array().filter(fn(ch) { ch != ' ' && ch != '\t' })
   if chars.length() < 3 {
     return false
   }
@@ -440,18 +559,16 @@ fn is_markdown_thematic_break(line : String) -> Bool {
 }
 
 ///|
-fn is_markdown_table_like_row(line : String) -> Bool {
-  let trimmed = line.trim().to_owned()
-  trimmed != "" && trimmed.contains("|")
+fn is_markdown_table_like_row(line : MarkdownLineView) -> Bool {
+  line.trimmed != "" && line.trimmed.contains("|")
 }
 
 ///|
-fn is_markdown_html_block_candidate(line : String) -> Bool {
-  let trimmed = trim_markdown_left(line)
-  if !trimmed.has_prefix("<") {
+fn is_markdown_html_block_candidate(line : MarkdownLineView) -> Bool {
+  if !line.left_trimmed.has_prefix("<") {
     return false
   }
-  let chars = trimmed.to_array()
+  let chars = line.left_trimmed.to_array()
   if chars.length() < 2 {
     return false
   }

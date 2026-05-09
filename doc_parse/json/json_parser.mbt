@@ -1,14 +1,24 @@
 ///|
 /// Parse JSON text into a source-native document model.
 pub fn parse_json_document(text : String) -> JsonDocument raise {
-  let normalized = normalize_json_source(text)
-  let parser = JsonParser::{ chars: normalized.to_array(), pos: 0 }
-  let root = parser.parse_value()
-  parser.skip_ws()
-  if parser.pos < parser.chars.length() {
-    raise ParseError("trailing content")
-  }
-  { root, }
+  parse_json_document_with_profile(text, None, None)
+}
+
+///|
+/// Benchmark-oriented profiled parse helper used for internal hotspot
+/// attribution.
+///
+/// This does not change the source-native JSON model or converter behavior.
+pub fn profile_json_document(text : String) -> JsonProfiledDocument raise {
+  let report = new_json_parse_profile_report()
+  let totals = new_json_parse_profile_totals()
+  let document = parse_json_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  json_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
 }
 
 ///|
@@ -57,6 +67,47 @@ pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
 priv struct JsonParser {
   chars : Array[Char]
   mut pos : Int
+  profile_totals : JsonParseProfileTotals?
+}
+
+///|
+fn parse_json_document_with_profile(
+  text : String,
+  profile : JsonParseProfileReport?,
+  profile_totals : JsonParseProfileTotals?,
+) -> JsonDocument raise {
+  let tokenize_started = json_parse_profile_stage_started(profile)
+  let chars = normalize_json_chars(text)
+  json_parse_profile_stage_finished(
+    profile,
+    "tokenize",
+    tokenize_started,
+    Some("chars=" + chars.length().to_string()),
+  )
+
+  let parser = JsonParser::{ chars, pos: 0, profile_totals }
+  let parse_started = json_parse_profile_stage_started(profile)
+  let root = parser.parse_value()
+  parser.skip_ws()
+  if parser.pos < parser.chars.length() {
+    raise ParseError("trailing content")
+  }
+  json_parse_profile_stage_finished(
+    profile,
+    "parse_value",
+    parse_started,
+    Some("root=" + json_value_kind(root)),
+  )
+
+  let build_started = json_parse_profile_stage_started(profile)
+  let doc = { root, }
+  json_parse_profile_stage_finished(
+    profile,
+    "build_document",
+    build_started,
+    Some("root=" + json_value_kind(doc.root)),
+  )
+  doc
 }
 
 ///|
@@ -94,12 +145,22 @@ fn JsonParser::parse_value(self : JsonParser) -> JsonValue raise {
 
 ///|
 fn JsonParser::parse_object(self : JsonParser) -> JsonValue raise {
+  let started = match self.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let total = match self.profile_totals {
+    Some(totals) => Some(totals.parse_object_elapsed_ms)
+    None => None
+  }
   self.expect_char('{')
   self.skip_ws()
 
   let members : Array[JsonMember] = []
   if self.consume_char('}') {
-    return JsonValue::Object(members)
+    let value = JsonValue::Object(members)
+    json_parse_profile_add_elapsed(total, started)
+    return value
   }
 
   while true {
@@ -122,17 +183,29 @@ fn JsonParser::parse_object(self : JsonParser) -> JsonValue raise {
     self.expect_char(',')
   }
 
-  JsonValue::Object(members)
+  let value = JsonValue::Object(members)
+  json_parse_profile_add_elapsed(total, started)
+  value
 }
 
 ///|
 fn JsonParser::parse_array(self : JsonParser) -> JsonValue raise {
+  let started = match self.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let total = match self.profile_totals {
+    Some(totals) => Some(totals.parse_array_elapsed_ms)
+    None => None
+  }
   self.expect_char('[')
   self.skip_ws()
 
   let values : Array[JsonValue] = []
   if self.consume_char(']') {
-    return JsonValue::Array(values)
+    let value = JsonValue::Array(values)
+    json_parse_profile_add_elapsed(total, started)
+    return value
   }
 
   while true {
@@ -144,19 +217,50 @@ fn JsonParser::parse_array(self : JsonParser) -> JsonValue raise {
     self.expect_char(',')
   }
 
-  JsonValue::Array(values)
+  let value = JsonValue::Array(values)
+  json_parse_profile_add_elapsed(total, started)
+  value
 }
 
 ///|
 fn JsonParser::parse_string(self : JsonParser) -> String raise {
+  let started = match self.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let total = match self.profile_totals {
+    Some(totals) => Some(totals.parse_string_elapsed_ms)
+    None => None
+  }
   self.expect_char('"')
-  let out : Array[Char] = []
+  let plain_start = self.pos
+  while self.pos < self.chars.length() {
+    let ch = self.chars[self.pos]
+    if ch == '"' {
+      let value = slice_chars_to_string(self.chars, plain_start, self.pos)
+      self.pos += 1
+      json_parse_profile_add_elapsed(total, started)
+      return value
+    }
+    if ch == '\\' || ch == '\n' || ch == '\r' || ch.to_int() < 0x20 {
+      break
+    }
+    self.pos += 1
+  }
+
+  let out : Array[Char] = if self.pos > plain_start {
+    self.chars[plain_start:self.pos].to_owned()
+  } else {
+    []
+  }
 
   while self.pos < self.chars.length() {
     let ch = self.chars[self.pos]
     if ch == '"' {
       self.pos += 1
-      return String::from_array(out)
+      let value = String::from_array(out)
+      json_parse_profile_add_elapsed(total, started)
+      return value
     }
 
     if ch == '\\' {
@@ -193,11 +297,20 @@ fn JsonParser::parse_string(self : JsonParser) -> String raise {
     self.pos += 1
   }
 
+  json_parse_profile_add_elapsed(total, started)
   raise ParseError("unterminated string")
 }
 
 ///|
 fn JsonParser::parse_number(self : JsonParser) -> String raise {
+  let started = match self.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let total = match self.profile_totals {
+    Some(totals) => Some(totals.parse_number_elapsed_ms)
+    None => None
+  }
   let start = self.pos
 
   if self.consume_char('-') && self.pos >= self.chars.length() {
@@ -241,7 +354,9 @@ fn JsonParser::parse_number(self : JsonParser) -> String raise {
     }
   }
 
-  slice_chars_to_string(self.chars, start, self.pos)
+  let value = slice_chars_to_string(self.chars, start, self.pos)
+  json_parse_profile_add_elapsed(total, started)
+  value
 }
 
 ///|
@@ -330,15 +445,14 @@ fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
 }
 
 ///|
-fn normalize_json_source(text : String) -> String {
-  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
-    text[1:].to_owned()
-  } else {
-    text
-  }
+fn normalize_json_chars(text : String) -> Array[Char] {
   let out : Array[Char] = []
-  let chars = without_bom.to_array()
+  let chars = text.to_array()
   let mut i = 0
+
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    i = 1
+  }
 
   while i < chars.length() {
     if chars[i] == '\r' {
@@ -354,7 +468,7 @@ fn normalize_json_source(text : String) -> String {
     }
   }
 
-  String::from_array(out)
+  out
 }
 
 ///|

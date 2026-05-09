@@ -84,7 +84,7 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms -> 5.808 ms`
+  `yaml_large / parse / 6.953 ms -> 5.943 ms`
   owner confirmed: line preparation plus repeated short mapping/scalar trim
   and copy work on a large sequence-of-mappings sample
   remaining breakdown on the checked sample:
@@ -92,23 +92,32 @@ Current highest-priority library rows:
   `parse_mapping ~2.7 ms`, `normalize_lines ~1.9 ms`,
   `scan_lines ~1.3 ms`
   next action: keep YAML as the lead library hotspot, but reassess whether
-  deeper parser allocation work is worth it before moving on to text/json
+  deeper parser allocation work is worth it before moving on to CSV/TSV or a
+  more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms`
-  suspected owner: newline normalization and line inventory construction
-  next action: check repeated passes over large text buffers
+  `txt_large / parse / 3.966 ms -> 2.010 ms`
+  owner confirmed: repeated newline normalization, line splitting, and
+  paragraph reconstruction before the single-pass cleanup
+  next action: keep on watch only; it is no longer a lead hotspot
 
 * `doc_parse/json`
-  `json_large / parse / 3.605 ms`
-  suspected owner: JSON tokenizer plus value-tree allocation
-  next action: inspect allocation churn in object/array recursion
+  `json_large / parse / 3.605 ms -> 2.854 ms`
+  owner confirmed: normalized char preparation plus plain-string hot-path
+  allocation
+  remaining breakdown on the checked sample:
+  `parse_value ~1.8 ms`, `tokenize ~1.0 ms`, `parse_string ~0.8 ms`
+  next action: keep on watch only; if JSON comes back to the top, inspect
+  object/array allocation churn more deeply
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.130 ms`
-  suspected owner: line scanner and raw block inventory traversal
-  next action: confirm whether fence/frontmatter/block classification performs
-  duplicate scans
+  `markdown_large / scan / 3.130 ms -> 2.165 ms`
+  owner confirmed: repeated trim/left-trim/block classification on the same
+  raw lines before line-view precomputation
+  remaining breakdown on the checked sample:
+  `scan_lines ~1.2 ms`, `block_classify ~1.1 ms`,
+  `normalize_lines ~0.8 ms`
+  next action: keep on watch only; it is no longer a lead hotspot
 
 Recent focused follow-up results:
 
@@ -131,7 +140,17 @@ Recent focused follow-up results:
   `body_scan ~2.6 ms`, `hyperlink_resolution ~0.3 ms`,
   `headers_footers ~0.2 ms`, `inline_scan ~0.2 ms`
   next action: keep DOCX on the watch list, but shift active optimization
-  priority to YAML first and then reassess text/json/markdown parse costs
+  priority to YAML first and then reassess CSV/TSV, JSON, and text allocation
+  costs
+
+* `doc_parse/text/json/markdown`
+  focused lightweight large-input follow-up is now complete
+  current checked large rows:
+  `txt_large / parse / 2.010 ms`,
+  `json_large / parse / 2.854 ms`,
+  `markdown_large / scan / 2.165 ms`
+  next action: no immediate second pass unless a future baseline regression or
+  new evidence re-promotes one of these rows into the top queue
 
 Lower-priority library observations:
 
@@ -144,8 +163,13 @@ Lower-priority library observations:
   focused context-reuse fix
 * the DOCX link-heavy row is no longer the lead library hotspot after the
   focused body-scan and text-box-scan cleanup
-* the YAML large row improved, but it still leads the remaining library
-  parse-cost queue after the current low-risk cleanup
+* the YAML large row still leads the remaining library parse-cost queue after
+  the current low-risk cleanup
+* DOCX still leads the OOXML semantic queue after XLSX was substantially
+  reduced
+* CSV/TSV are now more competitive with the lightweight hotspots than
+  Markdown or text, so the next lightweight follow-up should be chosen from
+  fresh evidence rather than from the old pre-optimization ordering
 
 ## CLI/Product-Path Interpretation
 
