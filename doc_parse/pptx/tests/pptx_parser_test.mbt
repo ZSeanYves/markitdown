@@ -344,6 +344,10 @@ test "pptx semantic presentation preserves slide order hidden signal hyperlinks 
   assert_true(order_doc.slides.length() > 1)
   assert_eq(order_doc.slides[0].index, 1)
   assert_eq(order_doc.slides[1].index, 2)
+  match order_doc.slides[0].relationship_id {
+    Some(_rid) => ()
+    None => fail("expected slide relationship id")
+  }
 
   let hidden_doc = @pptx.open_pptx_presentation(
     resolve_sample_path(
@@ -375,8 +379,16 @@ test "pptx semantic presentation preserves slide order hidden signal hyperlinks 
   )
   assert_true(media_doc.media_refs.length() > 0)
   match media_doc.media_refs[0].alt_text {
-    Some(_alt) => ()
+    Some(alt) => assert_true(alt != "")
     None => fail("expected alt text signal")
+  }
+  match media_doc.media_refs[0].content_type {
+    Some(content_type) => assert_true(content_type.has_prefix("image/"))
+    None => fail("expected image content type")
+  }
+  match media_doc.media_refs[0].target_part {
+    Some(target_part) => assert_true(target_part.has_prefix("ppt/media/"))
+    None => fail("expected media target part")
   }
 }
 
@@ -436,10 +448,26 @@ test "pptx semantic grouped shape tree preserves nested children object refs and
     None => fail("expected grouped table model")
   }
 
+  let linked_text = outer.children[3]
+  assert_true(linked_text.kind == @pptx.PptxShapeKind::TextBox)
+  assert_eq(linked_text.text_paragraphs[0].runs[0].text, "Visit")
+  match linked_text.hyperlink_refs[0].target {
+    Some(target) => assert_eq(target, "https://example.com")
+    None => fail("expected linked text target")
+  }
+
   match slide.notes {
     Some(notes) => assert_eq(notes.paragraphs[0].runs[0].text, "Speaker note")
     None => fail("expected speaker notes")
   }
+
+  let inspect = @pptx.inspect_pptx_presentation(doc)
+  assert_eq(inspect.slide_count, 1)
+  assert_eq(inspect.group_shape_count, 2)
+  assert_eq(inspect.table_count, 1)
+  assert_eq(inspect.notes_count, 1)
+  assert_eq(inspect.media_ref_count, 1)
+  assert_eq(inspect.hyperlink_count, 1)
 }
 
 ///|
@@ -452,9 +480,19 @@ test "pptx semantic parse facade from package matches direct open and inspect co
 
   let opened_inspect = @pptx.inspect_pptx_presentation(opened)
   let parsed_inspect = @pptx.inspect_pptx_presentation(parsed)
+  let opened_issues = @pptx.collect_pptx_validation_issues(opened)
+  let parsed_issues = @pptx.collect_pptx_validation_issues(parsed)
+  let opened_report = @pptx.validate_pptx_presentation(opened)
+  let parsed_report = @pptx.validate_pptx_presentation(parsed)
   assert_eq(opened_inspect.slide_count, parsed_inspect.slide_count)
   assert_eq(opened_inspect.paragraph_count, parsed_inspect.paragraph_count)
   assert_eq(opened_inspect.hyperlink_count, parsed_inspect.hyperlink_count)
+  assert_eq(opened_issues.length(), opened_report.issue_count)
+  assert_eq(parsed_issues.length(), parsed_report.issue_count)
+  let error_info = @pptx.classify_pptx_error(
+    @pptx.PptxError::OpenFailed("missing.pptx: not found"),
+  )
+  assert_true(error_info.kind == @pptx.PptxErrorKind::OpenFailed)
 }
 
 ///|
@@ -468,8 +506,24 @@ test "pptx semantic validation reports missing slide relationship and media gaps
   assert_true(
     issues[0].kind == @pptx.PptxValidationIssueKind::MissingRelationshipTarget,
   )
+  match issues[0].relationship_id {
+    Some(rid) => assert_eq(rid, "rIdMissing")
+    None => fail("expected missing hyperlink relationship id")
+  }
   assert_true(issues[1].kind == @pptx.PptxValidationIssueKind::MissingMediaPart)
+  match issues[1].relationship_id {
+    Some(rid) => assert_eq(rid, "rIdImage")
+    None => fail("expected missing media relationship id")
+  }
   assert_true(issues[2].kind == @pptx.PptxValidationIssueKind::MissingSlidePart)
+  match issues[2].relationship_id {
+    Some(rid) => assert_eq(rid, "rId2")
+    None => fail("expected missing slide relationship id")
+  }
+  match issues[2].part_path {
+    Some(part_path) => assert_eq(part_path, "ppt/slides/missing.xml")
+    None => fail("expected missing slide part path")
+  }
 
   let inspect = @pptx.inspect_pptx_presentation(pres)
   assert_eq(inspect.issue_count, report.issue_count)

@@ -11,13 +11,22 @@ Purpose:
 
 Current status:
 
-* active semantic foundation Pass 1
+* PPTX semantic foundation candidate
 * in-tree semantic/model/inspect/validation package, not a standalone MoonBit
   module split yet
 * `convert/pptx` still owns the current normal conversion path and its final
   reading-order/layout/grouping/caption/image/heading/list/IR policy
 
 Current public API:
+
+* `open_pptx_presentation`
+* `parse_pptx_presentation_from_package`
+* `inspect_pptx_presentation`
+* `collect_pptx_validation_issues`
+* `validate_pptx_presentation`
+* `classify_pptx_error`
+
+Stable candidate API:
 
 * `open_pptx_presentation`
 * `parse_pptx_presentation_from_package`
@@ -57,10 +66,12 @@ Compatibility surface:
 Internal exposed surface:
 
 * PresentationML XML scanning helpers remain package-internal
-* slide/shape/tree traversal remains internal implementation detail
-* notes and media resolution helpers remain internal to this package plus
-  `doc_parse/ooxml`
-* no second public utility layer is exposed for layout recovery or grouping
+* presentation/slide relationship parsing and shape-tree traversal remain
+  internal implementation details
+* text extraction, explicit table parsing, notes discovery, and media
+  resolution helpers remain internal to this package plus `doc_parse/ooxml`
+* no second public utility layer is exposed for reading order, layout
+  recovery, grouping, or caption pairing
 
 Current semantic boundary:
 
@@ -71,6 +82,22 @@ Current semantic boundary:
 * explicit table rows/cells/paragraphs
 * raw media refs and hyperlink refs
 * inspect counts and explicit validation issue collection
+
+Current slide / shape / text / table / notes / media boundary:
+
+* slide order and hidden-slide signal are preserved as source-native lower-layer
+  data, but no slide-to-Markdown ordering policy is decided here
+* nested group traversal and raw shape kind/object-ref signal are preserved
+  without owning layout grouping, card/callout grouping, or table-like
+  grouping
+* text paragraphs/runs and raw hyperlink targets are preserved without final
+  heading/list/paragraph classification
+* explicit `a:tbl` objects preserve raw rows/cells/paragraphs without Markdown
+  table rendering
+* notes preserve raw speaker-notes paragraphs without final section
+  naming/order policy
+* media refs preserve relationship id / target part / content type / alt/title
+  signal without asset export path or caption policy
 
 Non-goals:
 
@@ -92,7 +119,8 @@ Relationship to `convert/pptx`:
   inspect/validation
 * `convert/pptx` still owns semantic model -> IR / Markdown / assets /
   metadata / final product policy
-* Pass 1 does not switch `convert/pptx` normal path to this package
+* `convert/pptx` normal path is intentionally not switched to this package in
+  the current candidate closure
 
 Known limits:
 
@@ -114,5 +142,7 @@ Versioning note:
 * this package is intentionally being stabilized in-tree first
 * future work may still refine field-level compatibility surfaces, add more
   validation taxonomy, or integrate tiny zero-drift helper seams
-* Pass 1 here means the raw semantic parser/model line exists and is tested; it
-  does not yet claim candidate closure
+* candidate status here means the source-native presentation/slide/shape/text/
+  table/notes/media API, inspect surface, validation surface, and current
+  lower-layer tests are stable enough for internal reuse; it does not claim
+  full PresentationML support or a switched `convert/pptx` normal path

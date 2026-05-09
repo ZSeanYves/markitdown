@@ -53,6 +53,10 @@
   hyperlink parsing, inspect/validation/classifier surface, and lower-layer
   tests while keeping `convert/pptx` on the current zero-drift normal
   conversion path.
+* Close `doc_parse/pptx` as an in-tree PPTX semantic foundation candidate
+  with source-native slide/shape/text/table/notes/media boundaries documented
+  and lower-layer tests tightened, while keeping `convert/pptx` on the
+  current zero-drift normal conversion path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

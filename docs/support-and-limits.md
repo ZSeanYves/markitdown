@@ -157,8 +157,8 @@ Lower-layer package contract:
     WordprocessingML body/inline/table/relationship/style/numbering/note/media
     model plus inspect/validation/classifier, while `convert/docx` still owns
     the current normal output path
-* current active semantic hardening line also includes:
-  * `doc_parse/pptx`: PPTX semantic foundation Pass 1 with PresentationML
+* current semantic candidate line also includes:
+  * `doc_parse/pptx`: PPTX semantic foundation candidate with PresentationML
     presentation/slide/raw-shape/text/table/notes/media/hyperlink model plus
     inspect/validation/classifier, while `convert/pptx` still owns the
     current normal output path
@@ -175,8 +175,9 @@ Lower-layer package contract:
   wiring
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
-* all OOXML semantic sublayers now exist in-tree, with `doc_parse/pptx`
-  still in active hardening rather than candidate closure
+* all OOXML semantic sublayers now exist in-tree, and `doc_parse/xlsx`,
+  `doc_parse/docx`, and `doc_parse/pptx` are now all semantic foundation
+  candidates
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
@@ -296,9 +297,9 @@ Status:
 
 * `H2++ complete`
 * `H3++ evidence-backed on checked-in native overlap corpus`
-* `doc_parse/pptx` now exists as an active PresentationML semantic
-  foundation Pass 1, while `convert/pptx` still owns the current normal
-  conversion path
+* `doc_parse/pptx` now exists as a PresentationML semantic foundation
+  candidate, while `convert/pptx` still owns the current normal conversion
+  path
 
 Supported:
 
