@@ -152,6 +152,11 @@ Lower-layer package contract:
   * `doc_parse/xlsx`: XLSX semantic foundation candidate with
     workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
     model plus inspect/validation
+* current active semantic hardening line also includes:
+  * `doc_parse/docx`: active DOCX semantic foundation Pass 1 with
+    WordprocessingML body/inline/table/relationship/style/numbering/note
+    model plus inspect/validation/classifier, while `convert/docx` still owns
+    the current normal output path
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -166,7 +171,7 @@ Lower-layer package contract:
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
 * deferred lower-layer work remains:
-  * DOCX / PPTX semantic sublayers above the OOXML package layer
+  * PPTX semantic sublayer above the OOXML package layer
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
@@ -258,6 +263,10 @@ Conservative behavior:
   section instead of visual anchor reconstruction
 * merged table cells currently follow a visible-content policy rather than full
   visual merge reconstruction
+* `doc_parse/docx` now exists as an active source-native semantic foundation
+  Pass 1 for body/inline/table/relationship/style/numbering/note discovery,
+  but `convert/docx` still owns the current normal heading/list/table/caption/
+  code/image output policy
 * footnotes/endnotes/comments use explicit append-section ordering rather than
   inline Word review semantics
 * deleted / moved-from revision markup is skipped while inserted / moved-to

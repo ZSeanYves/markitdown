@@ -39,6 +39,11 @@
   with workbook/sheet/cell/sharedStrings/styles/formula/merged-range
   boundaries documented and lower-layer tests tightened, while keeping
   `convert/xlsx` zero-drift and product-policy-owned.
+* Add `doc_parse/docx` as an active WordprocessingML semantic foundation
+  Pass 1 with source-native body/inline/table/relationship/style/numbering/
+  note parsing, inspect/validation/classifier surface, and lower-layer tests
+  while keeping `convert/docx` on the current zero-drift normal conversion
+  path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

@@ -72,6 +72,8 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/zip`: ZIP reader and container primitives
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
 * `doc_parse/xlsx`: SpreadsheetML semantic workbook / sheet / cell foundation
+* `doc_parse/docx`: WordprocessingML semantic body / inline / table /
+  relationship foundation
 * `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
 * `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
 * `doc_parse/csv` / `doc_parse/tsv`: delimited table parser/model/inspect
@@ -102,6 +104,7 @@ Current candidate line:
 * `doc_parse/html`: HTML DOM-ish parser foundation candidate
 * `doc_parse/markdown`: lightweight Markdown scanner foundation candidate
 * `doc_parse/xlsx`: XLSX semantic foundation candidate
+* `doc_parse/docx`: active DOCX semantic foundation Pass 1
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.
@@ -160,6 +163,10 @@ Current lower-layer integration split:
 * `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
   parsing while still owning sheet heading output, RichTable hints, IR
   lowering, Markdown table policy, and product wording
+* `doc_parse/docx` now provides a WordprocessingML source-native semantic
+  package, but `convert/docx` still owns the current normal conversion path,
+  final heading/list/table/caption/code/image policy, and the normal DOCX
+  converter path is not switched
 * `convert/xml` still owns the current source-preserving fenced-output normal
   path; the XML parser foundation is not the normal converter path yet
 * `convert/html` still owns heading/list/table/link/image/assets/caption/

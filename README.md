@@ -88,11 +88,14 @@ Current contract:
   native text-PDF foundation candidate for page/text/image/annotation lower
   layers, structured inspect, typed issues, and classifier-friendly errors.
 
-### OOXML semantic foundation in hardening
+### OOXML semantic foundations
 
 * `doc_parse/xlsx`
   SpreadsheetML semantic foundation candidate for workbook/sheet/cell/shared
   strings/styles/merged ranges/formula trace inspect and validation.
+* `doc_parse/docx`
+  active WordprocessingML semantic foundation Pass 1 for source-native
+  body/inline/table relationships, styles, numbering, notes, and media refs.
 
 ### Simple-format and markup parser foundations
 
@@ -132,7 +135,10 @@ Current module strategy:
 * `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
   parsing, while still owning RichTable / IR / Markdown / metadata / product
   output policy
-* `docx/pptx` semantic sublayers remain deferred
+* `convert/docx` still owns the current normal DOCX conversion path and its
+  final heading/list/table/caption/code/image product policy; the new
+  `doc_parse/docx` semantic package is not the normal converter path yet
+* `pptx` semantic sublayer remains deferred
 * `convert/html` and `convert/markdown` normal paths remain product conversion
   paths and are not switched to the new parser/scanner foundations yet
 * none of these candidate labels claim full spec coverage

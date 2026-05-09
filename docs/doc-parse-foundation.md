@@ -18,6 +18,7 @@ Current audit scope for this contract:
 * `doc_parse/xml`
 * `doc_parse/html`
 * `doc_parse/markdown`
+* `doc_parse/docx`
 
 ## Contract
 
@@ -55,7 +56,8 @@ Shared contract:
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
 | `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
 | `doc_parse/xlsx` | XLSX semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
-| `docx/pptx` semantic sublayers | deferred semantic sublayer | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx` and `convert/pptx` |
+| `doc_parse/docx` | active semantic foundation Pass 1 | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | `convert/docx` remains the current normal conversion path and is not switched to the semantic package yet |
+| `pptx` semantic sublayer | deferred semantic sublayer | n/a | possible future PresentationML semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/pptx` |
 
 ## Candidate Definitions
 
@@ -83,6 +85,10 @@ Shared contract:
   source-native semantic-model foundation above a lower package substrate,
   with stable candidate API, inspect/error/validation surface, and no
   RichTable/IR/Markdown/product semantics
+* `active semantic foundation Pass 1`
+  initial source-native semantic-model package above a lower package
+  substrate, with package-facing API, inspect/error/validation surface, and
+  lower-layer tests, but without candidate-closure guarantees yet
 * `deferred semantic sublayer`
   format-specific semantic parser/converter split intentionally left above the
   current lower-layer package line
@@ -319,6 +325,58 @@ Known limits:
 * styles and number formats are conservative semantic formatting aids, not a
   full Excel style engine
 
+### `doc_parse/docx`
+
+Current role:
+
+* active WordprocessingML semantic foundation Pass 1 above the shared OOXML
+  package line
+* source-native body / inline / table / relationship / style / numbering /
+  notes semantic parser/model/inspect/validation package
+
+Current surface:
+
+* `open_docx_document`
+* `parse_docx_document_from_package`
+* `inspect_docx_document`
+* `collect_docx_validation_issues`
+* `validate_docx_document`
+* `classify_docx_error`
+
+Current maturity:
+
+* active semantic foundation Pass 1
+* current source-native compatibility surface is centered on `DocxDocument`,
+  `DocxBodyBlock`, `DocxParagraph`, `DocxRun`, `DocxInline`, `DocxTable`,
+  `DocxRelationship`, `DocxStyles`, `DocxNumbering`, `DocxNotes`,
+  `DocxHyperlink`, and `DocxMediaRef`
+* current semantic scope includes main-document body blocks, paragraphs, runs,
+  text/tab/line-break inlines, raw hyperlink and media refs, tables, styles,
+  numbering, note/comment/header/footer discovery, and text-box discovery
+* current lower-layer tests lock the package/model boundary without claiming
+  final heading/list/table/caption/code/image output policy
+
+Current boundary:
+
+* `doc_parse/docx` owns WordprocessingML source-native semantic parsing/model/
+  inspect/validation/classifier work
+* `convert/docx` still owns the current normal conversion path, final
+  heading/list/codeblock/blockquote heuristics, Markdown table rendering,
+  caption/image product policy, appended product sections, IR lowering, and
+  metadata/origin wiring
+
+Known limits:
+
+* not full WordprocessingML support
+* not full Office semantic support
+* no final heading/list/table/caption/code/image output policy
+* styles and numbering preserve conservative semantic signal rather than a
+  full style cascade or full list-layout engine
+* tracked changes are only handled through conservative deleted-revision
+  stripping in this Pass 1 package
+* complex fields, equations, charts, SmartArt, and deeper DrawingML semantics
+  remain out of scope
+
 ### `doc_parse/zip`
 
 Current role:
@@ -503,6 +561,8 @@ Current packages:
   inspect/validation candidate
 * `doc_parse/xlsx`: SpreadsheetML semantic foundation candidate above
   `doc_parse/ooxml`
+* `doc_parse/docx`: active WordprocessingML semantic foundation Pass 1 above
+  `doc_parse/ooxml`
 
 Current boundary:
 
@@ -516,6 +576,9 @@ Current boundary:
 * `convert/xlsx` now consumes `doc_parse/xlsx` for workbook/sheet/cell
   semantic parsing while still owning RichTable / IR / Markdown / wording /
   product metadata policy
+* `doc_parse/docx` now provides a source-native WordprocessingML semantic
+  package, but `convert/docx` still owns the current normal DOCX conversion
+  path and the normal converter path is not switched
 * `convert/xml` still owns source-preserving fenced-XML product semantics even
   though `doc_parse/xml` now provides the tokenizer/parser/model foundation;
   the normal XML converter path is not switched
@@ -550,6 +613,9 @@ Current maturity:
   validation, and a no-renderer boundary
 * `doc_parse/xlsx`: semantic foundation candidate with workbook/sheet/cell
   semantic model, inspect, validation, and conservative formula trace signal
+* `doc_parse/docx`: active semantic foundation Pass 1 with body/inline/table/
+  relationship/style/numbering semantic model and lower-layer tests, while
+  final product policy remains in `convert/docx`
 
 Known limits:
 
@@ -670,16 +736,16 @@ Remaining work:
 
 Current deferred line:
 
-* `docx/pptx` semantic sublayers remain intentionally deferred above the
-  current OOXML package foundation
+* `pptx` semantic sublayer remains intentionally deferred above the current
+  OOXML package foundation
 * semantic conversion ownership therefore still lives in:
-  * `convert/docx`
   * `convert/pptx`
 
 Known deferred boundary:
 
-* these are not parser-foundation candidates yet
-* this document does not claim a separate semantic parser contract for them
+* `pptx` is not a semantic-foundation candidate yet
+* this document does not claim a separate PresentationML semantic parser
+  contract for it
 * any future split here should happen only after the current package/scanner
   candidate line and converter integration story remain stable
 
