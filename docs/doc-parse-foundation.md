@@ -14,6 +14,7 @@ Current audit scope for this contract:
 * `doc_parse/json`
 * `doc_parse/yaml`
 * `doc_parse/text`
+* `doc_parse/xml`
 
 ## Current Status
 
@@ -30,10 +31,13 @@ Current candidate line:
 * `doc_parse/yaml`: YAML-subset parser foundation candidate
 * `doc_parse/text`: plain-text parser foundation candidate
 
+Active hardening line:
+
+* `doc_parse/xml`: XML tokenizer/parser/model/safety boundary hardening Pass 1
+
 Deferred parser-layer migration line:
 
-* `doc_parse/xml`: still deferred; the current XML converter remains mostly
-  source-preserving rather than backed by a mature reusable parser package
+* `doc_parse/html` and `doc_parse/markdown`: still deferred
 
 Current packaging strategy:
 
@@ -67,6 +71,9 @@ Across the current candidate line:
 * none of the current candidates claim full spec support
 * simple-format parser migration has already narrowed `convert/*` toward
   model-to-IR / Markdown semantics; it does not remove `convert/*`
+* XML now has an in-tree parser foundation starter under `doc_parse/xml`, but
+  `convert/xml` still keeps the normal source-preserving product path until
+  the parser layer matures further
 
 ## Purpose
 
@@ -418,6 +425,7 @@ Current packages:
 * `doc_parse/json`: JSON parser/AST/inspect
 * `doc_parse/yaml`: current YAML-subset parser/AST/inspect
 * `doc_parse/text`: plain-text structure/paragraph/inspect model
+* `doc_parse/xml`: XML tokenizer/parser/model/inspect/safety boundary starter
 
 Current boundary:
 
@@ -427,8 +435,10 @@ Current boundary:
 * `convert/csv`, `convert/json`, `convert/yaml`, and `convert/txt` still own
   IR shaping, Markdown output policy, metadata wiring, and product-facing
   origin semantics
-* `doc_parse/xml`, `doc_parse/html`, and `doc_parse/markdown` remain deferred
-  until their parser boundaries are clearer or a real lower-layer parser exists
+* `convert/xml` still owns source-preserving fenced-XML product semantics even
+  though `doc_parse/xml` now provides the tokenizer/parser/model foundation
+* `doc_parse/html` and `doc_parse/markdown` remain deferred until their parser
+  boundaries are clearer or a real lower-layer parser exists
 
 Current maturity:
 
@@ -442,6 +452,8 @@ Current maturity:
   unsupported-feature boundaries and inspect reporting
 * `doc_parse/text`: plain-text parser foundation candidate with byte-open,
   newline-style detection, paragraph structure, and inspect reporting
+* `doc_parse/xml`: active foundation hardening Pass 1 with safe tokenizer /
+  parser / inspect / validation boundaries, but not yet candidate-closed
 
 Known limits:
 
@@ -450,15 +462,15 @@ Known limits:
 * these candidate labels are lower-layer parser-foundation labels only; they
   are not claims of full format-family spec coverage or final product
   conversion ownership
-* XML is not yet migrated because the current XML converter is mostly
-  source-preserving rather than backed by a reusable parser layer
+* XML still keeps converter output source-preserving and intentionally does not
+  claim full XML spec support, DTD support, or entity-expansion support
 
 Remaining work:
 
 * decide which current model fields should remain long-term stable and which
   should later narrow to compatibility-only surfaces
-* decide whether XML should gain a real tokenizer/parser package or remain
-  source-preserving
+* continue hardening `doc_parse/xml` toward candidate status without changing
+  source-preserving converter output
 * revisit HTML/Markdown lower-layer extraction separately from final conversion
   policy
 

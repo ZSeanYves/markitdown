@@ -14,6 +14,9 @@
 * Close `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
   and `doc_parse/text` as in-tree parser foundation candidates with documented
   stable surfaces, compatibility boundaries, and known limits.
+* Add `doc_parse/xml` foundation Pass 1 as an in-tree safe tokenizer/parser /
+  inspect / validation starter with explicit no-XXE and no-DTD-expansion
+  boundaries, while keeping `convert/xml` source-preserving.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

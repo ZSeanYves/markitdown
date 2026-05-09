@@ -77,6 +77,7 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/json`: JSON parser / AST / inspect
 * `doc_parse/yaml`: current YAML-subset parser / AST / inspect
 * `doc_parse/text`: plain-text structural document model / inspect
+* `doc_parse/xml`: XML tokenizer / parser / inspect / validation starter
 
 These packages are infrastructure, not final Markdown semantics.
 
@@ -92,6 +93,7 @@ Current candidate line:
 * `doc_parse/json`: simple-format parser foundation candidate
 * `doc_parse/yaml`: YAML-subset parser foundation candidate
 * `doc_parse/text`: plain-text parser foundation candidate
+* `doc_parse/xml`: active XML foundation hardening Pass 1
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.
@@ -272,8 +274,9 @@ share a “conservative and stable” philosophy:
   `convert/yaml` still owns conservative table/list/code-block lowering
 * `doc_parse/text` now owns UTF-8/open-newline/paragraph structure while
   `convert/txt` still owns cleanup-profile choice and literal-Markdown policy
-* XML remains source-preserving fenced code-block output for now; a reusable
-  XML parser layer is still deferred
+* `doc_parse/xml` now owns a safe XML tokenizer/parser/model/inspect starter
+  while `convert/xml` still keeps the normal source-preserving fenced code-block
+  output path
 
 ### Container
 

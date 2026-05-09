@@ -640,7 +640,7 @@ Known limits:
 Status label:
 
 * `source-preserving`
-* safe XML handling, not semantic XML-family conversion
+* safe XML handling with an internal parser foundation starter
 
 Supported:
 
@@ -651,14 +651,16 @@ Supported:
 * XML declaration / processing instruction / comments / CDATA / attributes /
   doctype text preserved literally
 * fence-width growth when source contains backticks
-* safe tokenizer/event surface for declarations, processing instructions, tags,
-  comments, CDATA, doctype, text, and literal entity references
+* `doc_parse/xml` tokenizer / parser / inspect / validation starter for
+  declarations, processing instructions, tags, comments, CDATA, doctype, and
+  safe text/entity handling
 
 Conservative behavior:
 
 * XML is preserved as normalized source text rather than semantically rebuilt
 * metadata treats the whole source as one conservative `CodeBlock` summary block
-* tokenizer is syntax-level only and does not change main Markdown output
+* parser-layer XML inspection now exists, but the normal converter still keeps
+  source-preserving fenced output
 * XML does not opt into PDF-specific artifact cleanup or aggressive text
   rewriting beyond conservative source cleanup
 
@@ -668,7 +670,8 @@ Known limits:
 * no namespace interpretation
 * no external entity loading
 * no DTD expansion
-* no entity expansion
+* no custom entity expansion; only predefined XML entities are decoded in the
+  parser foundation
 * no `SYSTEM` / `PUBLIC` external-resource resolution
 * no schema validation
 * no specialized `.xhtml` / `.rss` / `.atom` / `.opf` / `.svg` handling
