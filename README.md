@@ -73,7 +73,7 @@ Current contract:
   provenance where available, and safety boundary
 * `convert/*` owns IR, Markdown, assets, metadata, and product output policy
 
-### Container and structured-document foundations
+### Container and package foundations
 
 * `doc_parse/zip`
   external-decoder-backed ZIP foundation candidate for archive structure,
@@ -88,20 +88,7 @@ Current contract:
   native text-PDF foundation candidate for page/text/image/annotation lower
   layers, structured inspect, typed issues, and classifier-friendly errors.
 
-### OOXML semantic foundations
-
-* `doc_parse/xlsx`
-  SpreadsheetML semantic foundation candidate for workbook/sheet/cell/shared
-  strings/styles/merged ranges/formula trace inspect and validation.
-* `doc_parse/docx`
-  WordprocessingML semantic foundation candidate for source-native
-  body/inline/table relationships, styles, numbering, notes, and media refs.
-* `doc_parse/pptx`
-  PresentationML semantic foundation candidate for source-native slide order,
-  raw shape tree, text paragraphs/runs, explicit tables, notes, media refs,
-  and hyperlink refs.
-
-### Simple-format and markup parser foundations
+### Simple-format, markup, and scanner foundations
 
 * `doc_parse/csv`
   CSV parser foundation candidate for delimited table model, inspect, and
@@ -124,31 +111,48 @@ Current contract:
   HTML DOM-ish parser foundation candidate for tolerant tokenizer/parser/raw
   node inventory/inspect/validation with explicit no-fetch /
   no-script-execution boundaries.
-
-### Source scanner foundation
-
 * `doc_parse/markdown`
   Markdown lightweight scanner foundation candidate for raw block inventory,
   frontmatter detection, fenced code detection, and inspect/validation.
+
+### OOXML semantic sublayers
+
+* `doc_parse/xlsx`
+  XLSX semantic foundation candidate for workbook/sheet/cell/shared
+  strings/styles/merged ranges/formula trace inspect and validation.
+* `doc_parse/docx`
+  DOCX semantic foundation candidate for source-native
+  body/inline/table relationships, styles, numbering, notes, and media refs.
+* `doc_parse/pptx`
+  PPTX semantic foundation candidate for source-native slide order,
+  raw shape tree, text paragraphs/runs, explicit tables, notes, media refs,
+  and hyperlink refs.
 
 Current module strategy:
 
 * these packages are delivered today as importable in-tree subpackages under
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` module extraction is future release work
+* `moon.pkg` defines package configuration inside the current module; publishable
+  module boundaries are still determined by `moon.mod.json`
+* convert normal-path integration status is:
+  * integrated: `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
+  * not switched intentionally: `xml` / `html` / `markdown` / `docx` / `pptx`
+* `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` while still owning
+  `RichTable` / IR / Markdown policy
+* `convert/json`, `convert/yaml`, and `convert/txt` consume `doc_parse`
+  parser/model layers while still owning IR / Markdown / product policy
 * `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
   parsing, while still owning RichTable / IR / Markdown / metadata / product
   output policy
+* `convert/xml` still owns the current source-preserving XML normal path
+* `convert/html` and `convert/markdown` still own their current product
+  conversion paths
 * `convert/docx` still owns the current normal DOCX conversion path and its
   final heading/list/table/caption/code/image product policy; the new
   `doc_parse/docx` semantic package is not the normal converter path yet
-* `doc_parse/pptx` now exists in-tree as a semantic foundation candidate,
-  while `convert/pptx` still owns the current normal conversion path and its
+* `convert/pptx` still owns the current normal PPTX conversion path and its
   reading-order/layout/grouping/caption/image/IR product policy
-* all OOXML semantic sublayers now exist in-tree:
-  `doc_parse/xlsx`, `doc_parse/docx`, and `doc_parse/pptx`
-* `convert/html` and `convert/markdown` normal paths remain product conversion
-  paths and are not switched to the new parser/scanner foundations yet
 * none of these candidate labels claim full spec coverage
 
 ## Core Capabilities

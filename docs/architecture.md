@@ -71,13 +71,9 @@ It only chooses the converter; it does not own recovery strategy.
 
 * `doc_parse/zip`: ZIP reader and container primitives
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
-* `doc_parse/xlsx`: SpreadsheetML semantic workbook / sheet / cell foundation
-* `doc_parse/docx`: WordprocessingML semantic body / inline / table /
-  relationship foundation
-* `doc_parse/pptx`: PresentationML semantic presentation / slide / shape /
-  text / table / notes / media foundation
+* `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest,
+  and spine
 * `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
-* `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
 * `doc_parse/csv` / `doc_parse/tsv`: delimited table parser/model/inspect
 * `doc_parse/json`: JSON parser / AST / inspect
 * `doc_parse/yaml`: current YAML-subset parser / AST / inspect
@@ -87,15 +83,20 @@ It only chooses the converter; it does not own recovery strategy.
   foundation candidate
 * `doc_parse/markdown`: Markdown lightweight scanner candidate for inspect /
   validation
+* `doc_parse/xlsx`: SpreadsheetML semantic workbook / sheet / cell foundation
+* `doc_parse/docx`: WordprocessingML semantic body / inline / table /
+  relationship foundation
+* `doc_parse/pptx`: PresentationML semantic presentation / slide / shape /
+  text / table / notes / media foundation
 
 These packages are infrastructure, not final Markdown semantics.
 
 Current candidate line:
 
-* `doc_parse/ooxml`: publishable foundation candidate
-* `doc_parse/epub`: publishable foundation candidate
-* `doc_parse/pdf`: text-PDF publishable foundation candidate
-* `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
+* `doc_parse/ooxml`: OOXML package foundation candidate
+* `doc_parse/epub`: EPUB package/spine/nav foundation candidate
+* `doc_parse/pdf`: native text-PDF foundation candidate
+* `doc_parse/zip`: external-decoder-backed ZIP foundation candidate as
   the shared container primitive
 * `doc_parse/csv`: simple-format parser foundation candidate
 * `doc_parse/tsv`: simple-format parser foundation candidate
@@ -156,6 +157,8 @@ Current format families:
 
 Current lower-layer integration split:
 
+Integrated normal paths:
+
 * `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` and still owns
   `RichTable` / IR / Markdown policy
 * `convert/json` and `convert/yaml` consume parser/model layers from
@@ -166,14 +169,9 @@ Current lower-layer integration split:
 * `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
   parsing while still owning sheet heading output, RichTable hints, IR
   lowering, Markdown table policy, and product wording
-* `doc_parse/docx` now provides a WordprocessingML source-native semantic
-  package, but `convert/docx` still owns the current normal conversion path,
-  final heading/list/table/caption/code/image policy, and the normal DOCX
-  converter path is not switched
-* `doc_parse/pptx` now provides a PresentationML source-native semantic
-  package, but `convert/pptx` still owns the current normal conversion path,
-  reading-order/layout/grouping/caption/image policy, Speaker Notes final
-  product policy, and the normal PPTX converter path is not switched
+
+Not switched intentionally:
+
 * `convert/xml` still owns the current source-preserving fenced-output normal
   path; the XML parser foundation is not the normal converter path yet
 * `convert/html` still owns heading/list/table/link/image/assets/caption/
@@ -181,6 +179,15 @@ Current lower-layer integration split:
   normal converter path yet
 * `convert/markdown` still owns passthrough/product policy; the Markdown
   scanner foundation is not the normal converter path yet
+* `convert/docx` still owns the current normal conversion path, final
+  heading/list/table/caption/code/image policy, and the normal DOCX
+  converter path is not switched even though `doc_parse/docx` now provides a
+  WordprocessingML source-native semantic package
+* `convert/pptx` still owns the current normal conversion path,
+  reading-order/layout/grouping/caption/image policy, Speaker Notes final
+  product policy, and the normal PPTX converter path is not switched even
+  though `doc_parse/pptx` now provides a PresentationML source-native
+  semantic package
 
 ### Unified IR
 

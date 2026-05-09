@@ -57,6 +57,11 @@
   with source-native slide/shape/text/table/notes/media boundaries documented
   and lower-layer tests tightened, while keeping `convert/pptx` on the
   current zero-drift normal conversion path.
+* Sync `doc_parse` foundation status after the OOXML semantic closure:
+  `doc_parse/xlsx`, `doc_parse/docx`, and `doc_parse/pptx` are now in-tree
+  OOXML semantic foundation candidates; the `doc_parse` vs `convert`
+  ownership boundary is clarified; and normal-path integration status is
+  explicitly documented without changing runtime behavior.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

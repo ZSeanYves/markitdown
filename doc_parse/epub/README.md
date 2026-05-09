@@ -15,8 +15,8 @@ It is not a reading-system renderer and it does not emit final Markdown.
 
 Current status:
 
-- `doc_parse/epub` is treated as a publishable foundation candidate within
-  the current repository scope
+- `doc_parse/epub` is treated as an EPUB package/spine/nav foundation
+  candidate within the current repository scope
 - current delivery remains the importable subpackage
   `ZSeanYves/markitdown/doc_parse/epub`, not a separately split MoonBit module
 - this candidate status does not claim full EPUB spec coverage, reading-system

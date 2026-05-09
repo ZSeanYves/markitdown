@@ -14,8 +14,8 @@ It is not a Word/PowerPoint/Excel semantic converter.
 
 Current status:
 
-- `doc_parse/ooxml` is treated as a publishable foundation candidate within
-  the current repository scope
+- `doc_parse/ooxml` is treated as an OOXML package foundation candidate
+  within the current repository scope
 - current delivery remains the importable subpackage
   `ZSeanYves/markitdown/doc_parse/ooxml`, not a separately split MoonBit
   module

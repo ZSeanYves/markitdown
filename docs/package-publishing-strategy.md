@@ -25,8 +25,8 @@ Important distinction:
 
 Current recommendation:
 
-* keep `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`, and `doc_parse/zip`
-  as importable subpackages under the root module for now
+* keep all current `doc_parse/*` foundations as importable in-tree packages
+  under the root module for now
 * keep `doc_parse/xlsx` in-tree as an XLSX semantic foundation candidate
   until its semantic model surface and future standalone release-policy
   surface are more stable
@@ -64,6 +64,8 @@ It would also require:
 * a versioning and changelog policy per released module
 * a release cadence independent from the converter layer
 * a clear strategy for shared dependencies such as `doc_parse/zip`
+* all in-tree package candidate surfaces stable enough to version outside the
+  current repository boundary
 * cross-package validation split out from the monorepo-level `moon test` and
   `./samples/check.sh` flow
 
@@ -140,8 +142,8 @@ Short term:
 * continue shipping the current `doc_parse/*` line as importable in-tree
   subpackages under `ZSeanYves/markitdown`
 * continue stabilizing both the structured-document foundations and the
-  simple-format/XML/HTML/Markdown parser/scanner candidates plus the active
-  OOXML semantic candidate line, including `doc_parse/pptx`, in-tree before
+  simple-format/XML/HTML/Markdown parser/scanner candidates plus the OOXML
+  semantic candidate line in-tree before
   any standalone-module split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and

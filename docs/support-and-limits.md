@@ -123,17 +123,14 @@ Across the current implementation:
 
 Lower-layer package contract:
 
-* `doc_parse/zip`, `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`,
-  `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
-  `doc_parse/text`, `doc_parse/xml`, `doc_parse/html`, and
-  `doc_parse/markdown` are now treated as in-tree parsing foundations with
-  package-specific candidate / deferred labels
-* current candidate status is:
-  * `doc_parse/ooxml`: publishable foundation candidate
-  * `doc_parse/epub`: publishable foundation candidate
-  * `doc_parse/pdf`: native text-PDF publishable foundation candidate
-  * `doc_parse/zip`: external-decoder-backed publishable foundation candidate
-    as the shared container primitive
+* `doc_parse/*` is now treated as an in-tree parser/model/error/inspect/
+  validation/provenance/safety foundation line rather than as a
+  converter-only helper layer
+* current package/container foundation candidate line is:
+  * `doc_parse/zip`: external-decoder-backed ZIP foundation candidate
+  * `doc_parse/ooxml`: OOXML package foundation candidate
+  * `doc_parse/epub`: EPUB package/spine/nav foundation candidate
+  * `doc_parse/pdf`: native text-PDF foundation candidate
 * current simple-format parser candidate line is:
   * `doc_parse/csv`: simple-format parser foundation candidate
   * `doc_parse/tsv`: simple-format parser foundation candidate
@@ -141,23 +138,22 @@ Lower-layer package contract:
   * `doc_parse/yaml`: YAML-subset parser foundation candidate
   * `doc_parse/text`: plain-text parser foundation candidate
   * `doc_parse/xml`: XML parser foundation candidate
-* current parser / scanner candidate line also includes:
+* current markup/scanner candidate line also includes:
   * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tolerant
     tokenizer/parser/model/inspect/validation and explicit no-fetch /
     no-script-execution boundary
   * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate
     with raw block inventory, frontmatter detection, fenced code detection,
     and no renderer / no output mutation boundary
-* current semantic candidate line also includes:
+* current OOXML semantic candidate line is:
   * `doc_parse/xlsx`: XLSX semantic foundation candidate with
     workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
-    model plus inspect/validation
-* current semantic candidate line also includes:
+    model plus inspect/validation, while `convert/xlsx` still owns RichTable /
+    IR / Markdown / product output policy
   * `doc_parse/docx`: DOCX semantic foundation candidate with
     WordprocessingML body/inline/table/relationship/style/numbering/note/media
     model plus inspect/validation/classifier, while `convert/docx` still owns
     the current normal output path
-* current semantic candidate line also includes:
   * `doc_parse/pptx`: PPTX semantic foundation candidate with PresentationML
     presentation/slide/raw-shape/text/table/notes/media/hyperlink model plus
     inspect/validation/classifier, while `convert/pptx` still owns the
@@ -170,14 +166,16 @@ Lower-layer package contract:
   final Markdown conversion, and where helpful should also provide structured
   inspect/report objects plus classifier-friendly error metadata
 * they should not absorb converter-only semantic policy
+* current convert normal-path integration status is:
+  * integrated: `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
+  * not switched intentionally: `xml` / `html` / `markdown` / `docx` / `pptx`
 * simple-format parser candidates still keep `convert/*` in place for
   file-I/O seams, IR shaping, Markdown policy, and product-facing metadata
   wiring
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
 * all OOXML semantic sublayers now exist in-tree, and `doc_parse/xlsx`,
-  `doc_parse/docx`, and `doc_parse/pptx` are now all semantic foundation
-  candidates
+  `doc_parse/docx`, and `doc_parse/pptx` are semantic foundation candidates
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 

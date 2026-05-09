@@ -18,8 +18,8 @@ Foundation direction:
 
 Current status:
 
-- `doc_parse/pdf` is treated as a `text-PDF publishable foundation candidate`
-  within the current repository scope
+- `doc_parse/pdf` is treated as a native text-PDF foundation candidate within
+  the current repository scope
 - this candidate status is for the native text-PDF lower layer only
 - it does not claim scanned-PDF support, OCR default support, full PDF spec
   support, or full visual-layout/tagged-PDF semantics

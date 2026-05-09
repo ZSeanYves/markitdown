@@ -37,36 +37,37 @@ Shared contract:
 * no remote fetch belongs in the lower-layer package contract
 * none of the current packages claim full format-spec support unless a package
   README explicitly says so
-* introducing a new parser or scanner foundation does not automatically mean
-  the normal `convert/*` path has switched to it
+* introducing a new parser, scanner, or semantic foundation does not
+  automatically mean the normal `convert/*` path has switched to it
 
 ## Current Status Matrix
 
 | Package | Status | Stable surface | Scope | Non-goals | Conversion integration status |
 | --- | --- | --- | --- | --- | --- |
-| `doc_parse/zip` | external-decoder-backed publishable foundation candidate | archive open/read/list, path normalization, inventory, inspect, validation, classifier | ZIP archive/container primitive | full ZIP spec, password recovery, recursive archive policy | consumed by `doc_parse/ooxml`, `doc_parse/epub`, and `convert/zip` |
-| `doc_parse/ooxml` | publishable foundation candidate | open/read/list/query/inspect/strict-validation facade | OOXML package / parts / relationships / content types / media / docProps | Office semantic conversion | consumed by `convert/docx`, `convert/pptx`, `convert/xlsx` |
-| `doc_parse/epub` | publishable foundation candidate | package/rootfile/manifest/spine/nav/cover/inspect/validation facade | EPUB container / OPF / manifest / spine / nav / NCX / cover / metadata | reading-system rendering, DRM, CSS/JS | consumed by `convert/epub` |
-| `doc_parse/pdf` | native text-PDF publishable foundation candidate | `doc_parse/pdf/api` facade, structured inspect/report, typed issue starter | native text-PDF model / page geometry / text / image / annotation raw signal | OCR default, scanned PDF, full layout engine | consumed by `convert/pdf` |
+| `doc_parse/zip` | external-decoder-backed ZIP foundation candidate | archive open/read/list, path normalization, inventory, inspect, validation, classifier | ZIP archive/container primitive | full ZIP spec, password recovery, recursive archive policy | existing lower-layer integration consumed by `doc_parse/ooxml`, `doc_parse/epub`, and `convert/zip` |
+| `doc_parse/ooxml` | OOXML package foundation candidate | open/read/list/query/inspect/strict-validation facade | OOXML package / parts / relationships / content types / media / docProps | Office semantic conversion | existing lower-layer integration consumed by `convert/docx`, `convert/pptx`, and `convert/xlsx` |
+| `doc_parse/epub` | EPUB package/spine/nav foundation candidate | package/rootfile/manifest/spine/nav/cover/inspect/validation facade | EPUB container / OPF / manifest / spine / nav / NCX / cover / metadata | reading-system rendering, DRM, CSS/JS | existing lower-layer integration consumed by `convert/epub` |
+| `doc_parse/pdf` | native text-PDF foundation candidate | `doc_parse/pdf/api` facade, structured inspect/report, typed issue starter | native text-PDF model / page geometry / text / image / annotation raw signal | OCR default, scanned PDF, full layout engine | existing lower-layer integration consumed by `convert/pdf` |
 | `doc_parse/csv` | simple-format parser foundation candidate | parse/options/inspect/validation/classifier | comma-delimited table parser/model | Markdown table / `RichTable` policy | `convert/csv` already consumes the parser/model for CSV normal conversion |
 | `doc_parse/tsv` | simple-format parser foundation candidate | TSV facade over CSV core | tab-delimited table parser/model | Markdown table / `RichTable` policy | `convert/csv` already consumes the TSV facade for TSV normal conversion |
 | `doc_parse/json` | simple-format parser foundation candidate | parse/AST/inspect/classifier | JSON parser / AST / malformed-input classification | JSON-to-table/list/code-block policy | `convert/json` already consumes the parser/model for JSON normal conversion |
 | `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | `convert/yaml` already consumes the parser/model for YAML normal conversion |
 | `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | `convert/txt` already consumes the parser/model for TXT normal conversion |
-| `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and the normal XML converter path is not switched |
-| `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
-| `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
-| `doc_parse/xlsx` | XLSX semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
-| `doc_parse/docx` | DOCX semantic foundation candidate | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | `convert/docx` remains the current normal conversion path and is not switched to the semantic package yet |
-| `doc_parse/pptx` | PPTX semantic foundation candidate | open-presentation / parse-from-package / inspect / validation / classifier facade | PresentationML presentation / slide / raw shape / text / table / notes / media / hyperlink semantic model | reading order, layout grouping, caption/image export/product output policy, full PresentationML support | `convert/pptx` remains the current normal conversion path and is not switched to the semantic package yet |
+| `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | not switched intentionally: `convert/xml` remains source-preserving and the normal XML converter path is not switched |
+| `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | not switched intentionally: `convert/html` still owns the current source/product conversion path |
+| `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | not switched intentionally: `convert/markdown` still owns the passthrough/product path |
+| `doc_parse/xlsx` | OOXML semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | integrated: `convert/xlsx` now consumes the semantic workbook/model while still owning RichTable / IR / Markdown / product policy |
+| `doc_parse/docx` | OOXML semantic foundation candidate | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | not switched intentionally: `convert/docx` remains the current normal conversion path |
+| `doc_parse/pptx` | OOXML semantic foundation candidate | open-presentation / parse-from-package / inspect / validation / classifier facade | PresentationML presentation / slide / raw shape / text / table / notes / media / hyperlink semantic model | reading order, layout grouping, caption/image export/product output policy, full PresentationML support | not switched intentionally: `convert/pptx` remains the current normal conversion path |
 
 ## Candidate Definitions
 
-* `publishable foundation candidate`
+* `package/container foundation candidate`
   package-facing reusable lower-layer with stable candidate API, inspect/error/
-  validation surfaces, docs, and lower-layer tests
+  validation surfaces, docs, and lower-layer tests for archive/container or
+  package-level ownership
 * `native text-PDF foundation candidate`
-  publishable lower-layer candidate scoped to native text-PDF parsing/model/
+  reusable lower-layer candidate scoped to native text-PDF parsing/model/
   inspect boundaries rather than OCR or scanned-PDF claims
 * `parser foundation candidate`
   reusable parser/model/error/inspect foundation with stable candidate API and
@@ -82,13 +83,18 @@ Shared contract:
   lightweight source-scanner foundation with stable candidate API and raw
   block inventory / inspect / validation surface, but without renderer or
   output-mutation ownership
-* `semantic foundation candidate`
+* `OOXML semantic foundation candidate`
   source-native semantic-model foundation above a lower package substrate,
   with stable candidate API, inspect/error/validation surface, and no
   RichTable/IR/Markdown/product semantics
-* `deferred semantic sublayer`
-  format-specific semantic parser/converter split intentionally left above the
-  current lower-layer package line
+* `in-tree foundation candidate`
+  current repository delivery form for a candidate package that is stable for
+  internal reuse under `ZSeanYves/markitdown`, but not yet split into its own
+  module
+* `future standalone module extraction`
+  later release work that may extract one umbrella `ZSeanYves/doc_parse`
+  module or narrower packages only after candidate surfaces, dependency
+  strategy, and conversion behavior are stable
 ## Current Packaging Strategy
 
 * these foundations are delivered today as importable subpackages under
@@ -96,9 +102,9 @@ Shared contract:
 * they are not yet split into independent MoonBit modules
 * `convert/*` consumes them, but they are documented as reusable parsing
   foundations rather than as converter-only helpers
-* simple-format, markup-parser, and lightweight scanner foundations have now
-  been migrated into `doc_parse/*` internally and are being stabilized there
-  before any future standalone-module split is attempted
+* simple-format, markup-parser, lightweight scanner, and OOXML semantic
+  foundations are being stabilized in-tree before any future standalone-module
+  split is attempted
 
 See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
 
@@ -112,7 +118,8 @@ They exist to:
 * expose structured lower-layer models
 * preserve provenance and source references where available
 * expose inspect/debug-friendly summaries
-* fail closed on malformed or unsupported input
+* fail closed where the package contract requires it, and otherwise surface
+  structured errors or validation issues on malformed or unsupported input
 * provide stable, reusable public APIs for MoonBit consumers
 
 They do not exist to be thin aliases over `convert/*`.
@@ -237,7 +244,7 @@ Current role:
 
 Current foundation direction:
 
-* now a publishable foundation candidate within current repository scope
+* now an OOXML package foundation candidate within current repository scope
 * should evolve toward a reusable OOXML package parser, not a document-format
   semantic converter
 * should expose structured inventory/inspect and classifier-friendly errors,
@@ -440,8 +447,8 @@ Current role:
 
 Current foundation direction:
 
-* now an external-decoder-backed publishable foundation candidate within
-  current repository scope
+* now an external-decoder-backed ZIP foundation candidate within current
+  repository scope
 * should expose a reusable archive open/read/list facade plus structured
   inventory, path-safety helpers, validation issues, and classifier-friendly
   errors
@@ -495,8 +502,8 @@ Current role:
 
 Current foundation direction:
 
-* now a publishable foundation candidate within current repository scope for
-  native text-PDF lower-layer use
+* now a native text-PDF foundation candidate within current repository scope
+  for lower-layer use
 * keep parser/model/debug boundaries strong while extending structured
   inspect/report, document/page inventory, and typed issue/classifier surfaces
 * do not collapse `convert/pdf` semantic policy into the lower layer
@@ -556,7 +563,8 @@ Current role:
 
 Current foundation direction:
 
-* now a publishable foundation candidate within current repository scope
+* now an EPUB package/spine/nav foundation candidate within current repository
+  scope
 * exposes a package-facing facade for rootfiles, manifest, spine, nav/NCX,
   cover candidates, and structured inventory/inspect reporting
 * keeps default package opening compatibility-oriented while exposing explicit

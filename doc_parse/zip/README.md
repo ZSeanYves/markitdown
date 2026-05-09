@@ -13,7 +13,7 @@ It is not a Markdown converter and it does not own OOXML or EPUB semantics.
 
 Current status:
 
-- `doc_parse/zip` is an external-decoder-backed publishable foundation candidate
+- `doc_parse/zip` is an external-decoder-backed ZIP foundation candidate
 - current delivery remains the importable subpackage
   `ZSeanYves/markitdown/doc_parse/zip`, not a separately split MoonBit module
 
@@ -267,7 +267,7 @@ Repository-level validation should still include `moon test` and
 
 Current versioning note:
 
-- treat the current facade as an active hardening surface, not a frozen
+- treat the current facade as an in-tree candidate surface, not a frozen
   standalone module contract
 - prefer `inspect_zip_inventory`, `inspect_zip_archive`, `classify_zip_error`,
   and `validate_zip_archive` for new package consumers
