@@ -107,13 +107,10 @@ Current contract:
 * `doc_parse/xml`
   XML parser foundation candidate for safe tokenizer/parser/model/inspect/
   validation with explicit no-XXE and no-DTD-expansion boundary.
-
-### Active parser hardening
-
 * `doc_parse/html`
-  active foundation hardening Pass 1 for a tolerant DOM-ish tokenizer/parser/
-  model/inspect/validation layer with explicit no-fetch / no-script-execution
-  boundaries.
+  HTML DOM-ish parser foundation candidate for tolerant tokenizer/parser/raw
+  node inventory/inspect/validation with explicit no-fetch /
+  no-script-execution boundaries.
 
 Current module strategy:
 

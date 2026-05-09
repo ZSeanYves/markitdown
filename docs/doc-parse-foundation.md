@@ -48,7 +48,7 @@ Shared contract:
 | `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | consumed by `convert/yaml` |
 | `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
-| `doc_parse/html` | active hardening | tokenize/parse/inspect/validation/classifier starter | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
+| `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
 | `doc_parse/markdown` | deferred | n/a | future lower-layer Markdown scanner work | Markdown renderer / passthrough product policy | `convert/markdown` still owns current path |
 | `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
 
@@ -63,9 +63,6 @@ Shared contract:
 * `subset parser foundation candidate`
   parser foundation candidate whose subset boundary is explicit and
   intentionally documented
-* `active hardening`
-  package boundary exists but stable-candidate README/API/test closure is not
-  complete yet
 * `deferred`
   not yet split into a reusable lower-layer package contract
 ## Current Packaging Strategy
@@ -444,8 +441,8 @@ Current boundary:
 * `convert/xml` still owns source-preserving fenced-XML product semantics even
   though `doc_parse/xml` now provides the tokenizer/parser/model foundation
 * `doc_parse/html` now provides a tolerant DOM-ish parser/model/inspect/
-  validation starter, but `convert/html` still owns the current HTML parser +
-  IR/Markdown/product policy path
+  validation candidate surface, but `convert/html` still owns the current HTML
+  parser + IR/Markdown/product policy path
 * `doc_parse/markdown` remains deferred until its scanner/parser boundary is
   worth splitting into a real lower-layer package
 
@@ -464,7 +461,7 @@ Current maturity:
 * `doc_parse/xml`: XML parser foundation candidate with safe tokenizer /
   parser / inspect / validation boundaries and explicit no-XXE / no-DTD-
   expansion behavior
-* `doc_parse/html`: active foundation hardening Pass 1 with tokenizer /
+* `doc_parse/html`: HTML DOM-ish parser foundation candidate with tokenizer /
   tolerant parser / raw node model / inspect / validation / no-fetch safety
   boundary
 
@@ -480,7 +477,7 @@ Known limits:
 
 Current role:
 
-* tolerant DOM-ish HTML tokenizer/parser/model/inspect/validation starter
+* tolerant DOM-ish HTML tokenizer/parser/model/inspect/validation candidate
 * explicit lower-layer safety boundary for no remote fetch, no script
   execution, and no CSS/JS rendering
 
@@ -492,6 +489,22 @@ Current surface:
 * `collect_html_validation_issues`
 * `validate_html_document`
 * `classify_html_error`
+
+Current maturity:
+
+* stable candidate API now covers tokenize/parse/inspect/validation/classifier
+  access
+* compatibility surface is centered on the raw DOM-ish model, inspect report,
+  validation report, and classifier-friendly error metadata
+* tolerant repair policy is explicit and test-locked:
+  * multiple top-level nodes are allowed
+  * documented void elements behave as self-closing in the raw model
+  * explicit self-closing syntax is preserved
+  * unexpected closing tags and unclosed elements are surfaced as validation
+    issues rather than browser-style full tree correction
+* raw script/style content is preserved as text and never executed or rendered
+* URL safety remains a validation/report surface only; parsing does not fetch,
+  rewrite, or block these nodes by default
 
 Current boundary:
 
@@ -506,15 +519,16 @@ Known limits:
 * no remote fetch
 * no script execution
 * no CSS/layout rendering
+* partial HTML entity decoding only; unsupported named entities stay literal
+* no DOM mutation API, accessibility tree, or browser-correction semantics
 * no final Markdown/link/image/caption policy ownership
 
 Remaining closure items:
 
-* candidate-surface review and package README/API stability pass
 * decide whether any current model fields should remain long-term stable
 * evaluate future zero-drift integration opportunities with `convert/html`
-* XML still keeps converter output source-preserving and intentionally does not
-  claim full XML spec support, DTD support, or entity-expansion support
+* decide whether future release policy should expose bytes-open helpers or keep
+  the current string-first parser surface
 
 Remaining work:
 

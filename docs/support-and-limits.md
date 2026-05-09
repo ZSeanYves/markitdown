@@ -140,9 +140,10 @@ Lower-layer package contract:
   * `doc_parse/yaml`: YAML-subset parser foundation candidate
   * `doc_parse/text`: plain-text parser foundation candidate
   * `doc_parse/xml`: XML parser foundation candidate
-* current active parser hardening line also includes:
-  * `doc_parse/html`: tolerant DOM-ish HTML tokenizer/parser/model/inspect/
-    validation starter with explicit no-fetch / no-script-execution boundary
+* current markup/parser candidate line also includes:
+  * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tolerant
+    tokenizer/parser/model/inspect/validation and explicit no-fetch /
+    no-script-execution boundary
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe

@@ -12,7 +12,15 @@ test "html stable facade handles doctype comments nested elements and multiple t
   assert_true(doc.has_doctype)
   assert_eq(doc.nodes.length(), 4)
 
+  let issues = @html.collect_html_validation_issues(doc)
+  let validation = @html.validate_html_document(doc)
   let report = @html.inspect_html_document(doc)
+  let info = @html.classify_html_error(
+    @html.HtmlError::ParseError("expected name"),
+  )
+
+  assert_eq(issues.length(), 0)
+  assert_eq(validation.issue_count, 0)
   assert_eq(report.doctype_count, 1)
   assert_eq(report.comment_count, 1)
   assert_eq(report.element_count, 4)
@@ -21,6 +29,7 @@ test "html stable facade handles doctype comments nested elements and multiple t
   assert_eq(report.image_element_count, 1)
   assert_eq(report.max_depth, 3)
   assert_eq(report.issue_count, 0)
+  assert_true(info.kind == @html.HtmlErrorKind::InvalidName)
 }
 
 ///|
@@ -53,6 +62,16 @@ test "html parser preserves raw script style content and flags unsafe urls witho
         _ => fail("expected raw script text child")
       }
     _ => fail("expected first node to be script element")
+  }
+
+  match doc.nodes[1] {
+    @html.HtmlNode::Element(style) =>
+      match style.children[0] {
+        @html.HtmlNode::Text(text) =>
+          assert_true(text.text.contains(".x { color: red; }"))
+        _ => fail("expected raw style text child")
+      }
+    _ => fail("expected second node to be style element")
   }
 
   match doc.nodes[3] {
@@ -157,4 +176,110 @@ test "html parser keeps empty documents explicit and classifies malformed hard e
     }
     assert_true(info.kind == expected_kind)
   }
+}
+
+///|
+test "html entities decode conservatively while unknown named entities stay literal" {
+  let doc = @html.parse_html_document(
+    "<p>A &amp; B &nbsp; &#169; &#x1F600; &copy;</p>",
+  )
+
+  match doc.nodes[0] {
+    @html.HtmlNode::Element(paragraph) =>
+      match paragraph.children[0] {
+        @html.HtmlNode::Text(text) => {
+          assert_true(text.text.contains("A & B"))
+          assert_true(text.text.contains(" © "))
+          assert_true(text.text.contains("😀"))
+          assert_true(text.text.contains("&copy;"))
+        }
+        _ => fail("expected paragraph text child")
+      }
+    _ => fail("expected paragraph element")
+  }
+}
+
+///|
+test "html void and self-closing elements stay self-closing without unclosed warnings" {
+  let doc = @html.parse_html_document(
+    "<div><br><img src='img.png'/><input disabled><hr /></div>",
+  )
+  let validation = @html.validate_html_document(doc)
+  let report = @html.inspect_html_document(doc)
+
+  assert_eq(validation.issue_count, 0)
+  assert_eq(report.image_element_count, 1)
+  assert_eq(report.element_count, 5)
+
+  match doc.nodes[0] {
+    @html.HtmlNode::Element(div) => {
+      assert_eq(div.children.length(), 4)
+      for child in div.children {
+        match child {
+          @html.HtmlNode::Element(element) => assert_true(element.self_closing)
+          _ => fail("expected only self-closing element children")
+        }
+      }
+    }
+    _ => fail("expected outer div element")
+  }
+}
+
+///|
+test "html unsafe url issues are deterministic and preserve raw attribute values" {
+  let doc = @html.parse_html_document(
+    "<a href='javascript:bad'>x</a>" +
+    "<img src='data:text/plain,hi'>" +
+    "<form action='vbscript:msgbox(1)'></form>",
+  )
+  let validation = @html.validate_html_document(doc)
+
+  assert_eq(validation.issue_count, 3)
+  assert_true(
+    validation.issues[0].kind == @html.HtmlValidationIssueKind::UnsafeUrl,
+  )
+  assert_true(
+    validation.issues[1].kind == @html.HtmlValidationIssueKind::UnsafeUrl,
+  )
+  assert_true(
+    validation.issues[2].kind == @html.HtmlValidationIssueKind::UnsafeUrl,
+  )
+  assert_eq(validation.issues[0].message, "unsafe url uses javascript: scheme")
+  assert_eq(validation.issues[1].message, "unsafe url uses data: scheme")
+  assert_eq(validation.issues[2].message, "unsafe url uses vbscript: scheme")
+
+  match doc.nodes[1] {
+    @html.HtmlNode::Element(img) =>
+      assert_eq(img.attributes[0].value, "data:text/plain,hi")
+    _ => fail("expected img element")
+  }
+}
+
+///|
+test "html inspect inventory and validation ordering stay deterministic" {
+  let doc = @html.parse_html_document(
+    "<div><h2>Title</h2><a href='/safe'>x</a><img src='img.png'>" +
+    "<table><tr><td>x</td></tr></table><ul><li>one</li></ul>" +
+    "<pre><code>c</code></pre><script>bad()</script><style>.x{}</style></div>",
+  )
+  let report = @html.inspect_html_document(doc)
+  let validation = @html.validate_html_document(doc)
+
+  assert_eq(report.heading_element_count, 1)
+  assert_eq(report.link_element_count, 1)
+  assert_eq(report.image_element_count, 1)
+  assert_eq(report.table_element_count, 1)
+  assert_eq(report.list_element_count, 1)
+  assert_eq(report.pre_element_count, 1)
+  assert_eq(report.code_element_count, 1)
+  assert_eq(report.script_element_count, 1)
+  assert_eq(report.style_element_count, 1)
+
+  assert_eq(validation.issue_count, 2)
+  assert_true(
+    validation.issues[0].kind == @html.HtmlValidationIssueKind::ScriptElement,
+  )
+  assert_true(
+    validation.issues[1].kind == @html.HtmlValidationIssueKind::StyleElement,
+  )
 }

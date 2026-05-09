@@ -8,13 +8,13 @@ Purpose:
 
 Current status:
 
-* active foundation hardening Pass 1
+* HTML DOM-ish parser foundation candidate
 * current scope is tokenizer/parser/model/error/inspect/validation/safety
   boundary
 * `convert/html` still owns normal HTML conversion policy and source-preserving
   product behavior
 
-Current public API:
+Stable candidate API:
 
 * `tokenize_html_document`
 * `parse_html_document`
@@ -34,7 +34,12 @@ Compatibility surface:
 * `HtmlDoctype`
 * `HtmlSourceSpan`
 * `HtmlToken`
+* `HtmlAttributeQuoteStyle`
+* `HtmlError`
+* `HtmlErrorKind`
 * `HtmlErrorInfo`
+* `HtmlValidationIssueKind`
+* `HtmlValidationSeverity`
 * `HtmlValidationIssue`
 * `HtmlValidationReport`
 * `HtmlInspectReport`
@@ -44,6 +49,8 @@ Internal exposed surface:
 * tokenizer scanning helpers
 * tolerant stack-repair helpers for end-tag mismatch handling
 * limited HTML entity decoding helpers
+* URL safety classification helpers
+* raw inventory traversal helpers
 * these are implementation details, not a second public facade
 
 Current model:
@@ -91,6 +98,18 @@ Safety boundary:
   * numeric entities such as `&#169;` and `&#x1F600;`
 * unknown named entities are preserved literally
 
+Tolerant repair policy:
+
+* multiple top-level nodes are allowed
+* documented void elements are treated as self-closing in the raw model
+* explicit self-closing syntax is preserved in the raw model
+* unexpected closing tags are surfaced as validation issues
+* unclosed elements are repaired conservatively and surfaced as validation
+  issues
+* duplicate attributes are surfaced as validation issues
+* raw `script` / `style` contents are preserved as text and never executed or
+  rendered
+
 Current parser boundary:
 
 * start / end / self-closing tags
@@ -132,11 +151,12 @@ Known limits:
 * the entity decoder is intentionally partial; unsupported named entities stay
   literal
 * whitespace-only inter-tag text nodes are currently dropped to keep inspect
-  and inventory surfaces stable during Pass 1
+  and inventory surfaces stable
 * current raw-text handling focuses on `script` / `style` / `textarea` /
   `title`, not full HTML tokenizer states
 * namespaces, CSS cascade/layout, script execution, and remote resources are
   out of scope
+* no full HTML5 tree-construction or browser-correction claim is made
 
 Testing:
 
@@ -145,7 +165,9 @@ Testing:
 
 Versioning note:
 
-* this package is still in active in-tree hardening rather than candidate
-  closure
+* this package is a current in-tree candidate surface, not a separately
+  published MoonBit module
+* compatibility fields remain intentionally visible while future release-policy
+  decisions are still in-tree
 * future work may expand validation, provenance/span fidelity, and tokenizer
-  coverage before candidate review
+  coverage without changing the current no-fetch / no-execution boundary

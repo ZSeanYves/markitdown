@@ -20,9 +20,10 @@
 * Sync overall `doc_parse` foundation status after the simple-format and XML
   parser candidate closures, and clarify the `doc_parse` vs `convert`
   ownership boundary without changing runtime behavior.
-* Add `doc_parse/html` as an in-tree HTML parser foundation hardening line
-  with tolerant tokenizer/parser/model/inspect/validation boundaries while
-  keeping `convert/html` on the current normal conversion path.
+* Close `doc_parse/html` as an in-tree HTML DOM-ish parser foundation
+  candidate with tolerant tokenizer/parser/model/inspect/validation
+  boundaries while keeping `convert/html` on the current normal conversion
+  path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.
