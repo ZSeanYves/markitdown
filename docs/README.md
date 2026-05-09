@@ -18,7 +18,8 @@ Use these pages as the primary current-state entrypoints:
   Concise sealed-scope project summary plus post-seal hardening notes.
 * [doc_parse Foundation Contract](./doc-parse-foundation.md)
   Reusable lower-layer package contract for the current container, document,
-  simple-format, XML, and HTML parser foundation lines under `doc_parse/*`.
+  simple-format, XML, HTML, and Markdown parser/scanner foundation lines
+  under `doc_parse/*`.
 * [doc_parse Package Strategy](./package-publishing-strategy.md)
   Current in-tree subpackage delivery strategy, future umbrella/split-module
   criteria, and nested-module warning.

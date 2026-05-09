@@ -112,12 +112,18 @@ Current contract:
   node inventory/inspect/validation with explicit no-fetch /
   no-script-execution boundaries.
 
+### Active parser hardening
+
+* `doc_parse/markdown`
+  lightweight Markdown scanner foundation hardening for raw block inventory,
+  frontmatter detection, fenced code detection, and inspect/validation.
+
 Current module strategy:
 
 * these packages are delivered today as importable in-tree subpackages under
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` module extraction is future release work
-* `markdown` and `docx/pptx/xlsx` semantic sublayers remain deferred
+* `docx/pptx/xlsx` semantic sublayers remain deferred
 * none of these candidate labels claim full spec coverage
 
 ## Core Capabilities

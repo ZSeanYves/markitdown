@@ -24,6 +24,10 @@
   candidate with tolerant tokenizer/parser/model/inspect/validation
   boundaries while keeping `convert/html` on the current normal conversion
   path.
+* Add `doc_parse/markdown` as an in-tree lightweight Markdown scanner
+  foundation hardening line with raw block inventory, frontmatter, fenced
+  code, and inspect/validation boundaries while keeping `convert/markdown`
+  on the current passthrough/product path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

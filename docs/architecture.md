@@ -80,6 +80,8 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/xml`: XML tokenizer / parser / inspect / validation foundation
 * `doc_parse/html`: tolerant HTML tokenizer / parser / inspect / validation
   foundation candidate
+* `doc_parse/markdown`: lightweight Markdown source scanner / inspect /
+  validation starter
 
 These packages are infrastructure, not final Markdown semantics.
 
@@ -97,6 +99,7 @@ Current candidate line:
 * `doc_parse/text`: plain-text parser foundation candidate
 * `doc_parse/xml`: XML parser foundation candidate
 * `doc_parse/html`: HTML DOM-ish parser foundation candidate
+* `doc_parse/markdown`: lightweight Markdown scanner foundation hardening
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.
@@ -258,6 +261,16 @@ HTML is still a lightweight semantic converter in the normal product path:
 * `doc_parse/html` now provides a lower-layer tokenizer/parser/model/inspect/
   validation candidate surface, but `convert/html` still owns the normal HTML
   -> IR / Markdown / asset/product policy path
+
+### Markdown
+
+Markdown is intentionally a source-scanner lower layer, not a renderer:
+
+* `doc_parse/markdown` now provides a lightweight source scanner / raw block
+  inventory / frontmatter / fenced-code inspect surface
+* `convert/markdown` still owns passthrough output and final product policy
+* HTML-in-Markdown remains a raw source candidate only and is not parsed as
+  HTML by the scanner
 
 ### Text-like
 

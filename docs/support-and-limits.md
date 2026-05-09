@@ -125,8 +125,9 @@ Lower-layer package contract:
 
 * `doc_parse/zip`, `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`,
   `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
-  `doc_parse/text`, and `doc_parse/xml` are now treated as in-tree parsing
-  foundations with package-specific candidate labels
+  `doc_parse/text`, `doc_parse/xml`, `doc_parse/html`, and
+  `doc_parse/markdown` are now treated as in-tree parsing foundations with
+  package-specific candidate / hardening labels
 * current candidate status is:
   * `doc_parse/ooxml`: publishable foundation candidate
   * `doc_parse/epub`: publishable foundation candidate
@@ -140,10 +141,13 @@ Lower-layer package contract:
   * `doc_parse/yaml`: YAML-subset parser foundation candidate
   * `doc_parse/text`: plain-text parser foundation candidate
   * `doc_parse/xml`: XML parser foundation candidate
-* current markup/parser candidate line also includes:
+* current active parser hardening line also includes:
   * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tolerant
     tokenizer/parser/model/inspect/validation and explicit no-fetch /
     no-script-execution boundary
+  * `doc_parse/markdown`: lightweight Markdown source scanner hardening with
+    raw block inventory, frontmatter detection, fenced code detection, and no
+    renderer / no output mutation boundary
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -158,7 +162,6 @@ Lower-layer package contract:
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
 * deferred lower-layer work remains:
-  * `doc_parse/markdown`
   * DOCX / PPTX / XLSX semantic sublayers above the OOXML package layer
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
@@ -602,12 +605,15 @@ Supported:
 * conservative block slicing for metadata summary
 * frontmatter passthrough as literal source text when a leading `---` or `+++`
   block is present
+* `doc_parse/markdown` now provides a lightweight source scanner / raw block
+  inventory / inspect surface for Markdown source structure
 
 Conservative behavior:
 
 * original Markdown body is preserved instead of re-rendered from an AST
 * metadata summary uses lightweight conservative blocks instead of full Markdown
   semantics
+* scanner findings do not mutate passthrough output or normalization policy
 
 Known limits:
 

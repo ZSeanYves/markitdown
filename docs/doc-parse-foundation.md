@@ -16,6 +16,7 @@ Current audit scope for this contract:
 * `doc_parse/text`
 * `doc_parse/xml`
 * `doc_parse/html`
+* `doc_parse/markdown`
 
 ## Contract
 
@@ -49,7 +50,7 @@ Shared contract:
 | `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
-| `doc_parse/markdown` | deferred | n/a | future lower-layer Markdown scanner work | Markdown renderer / passthrough product policy | `convert/markdown` still owns current path |
+| `doc_parse/markdown` | active hardening | scan/inspect/validation starter | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns passthrough product policy |
 | `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
 
 ## Candidate Definitions
@@ -63,6 +64,9 @@ Shared contract:
 * `subset parser foundation candidate`
   parser foundation candidate whose subset boundary is explicit and
   intentionally documented
+* `active hardening`
+  package boundary exists and a reusable scanner/model/inspect surface is in
+  place, but candidate closure and release-policy narrowing are not complete
 * `deferred`
   not yet split into a reusable lower-layer package contract
 ## Current Packaging Strategy
@@ -443,8 +447,8 @@ Current boundary:
 * `doc_parse/html` now provides a tolerant DOM-ish parser/model/inspect/
   validation candidate surface, but `convert/html` still owns the current HTML
   parser + IR/Markdown/product policy path
-* `doc_parse/markdown` remains deferred until its scanner/parser boundary is
-  worth splitting into a real lower-layer package
+* `doc_parse/markdown` now provides a lightweight source scanner/model/inspect
+  surface, but `convert/markdown` still owns passthrough product policy
 
 Current maturity:
 
@@ -464,6 +468,9 @@ Current maturity:
 * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tokenizer /
   tolerant parser / raw node model / inspect / validation / no-fetch safety
   boundary
+* `doc_parse/markdown`: active foundation hardening Pass 1 with lightweight
+  source scanner / raw block inventory / frontmatter and fenced-code detection
+  / inspect / validation / no-renderer boundary
 
 Known limits:
 
@@ -523,12 +530,51 @@ Known limits:
 * no DOM mutation API, accessibility tree, or browser-correction semantics
 * no final Markdown/link/image/caption policy ownership
 
+### `doc_parse/markdown`
+
+Current role:
+
+* lightweight Markdown source scanner / raw block inventory / inspect /
+  validation foundation line
+* explicit lower-layer safety boundary for no renderer and no output mutation
+
+Current surface:
+
+* `scan_markdown_document`
+* `inspect_markdown_document`
+* `collect_markdown_validation_issues`
+* `validate_markdown_document`
+
+Current maturity:
+
+* active foundation hardening Pass 1
+* scanner always succeeds and surfaces structural problems as validation
+  issues instead of hard parse errors
+* current scan is intentionally line-oriented and conservative
+
+Current boundary:
+
+* `doc_parse/markdown` owns raw source scanning, raw block inventory, and
+  inspect/validation reporting
+* `convert/markdown` still owns passthrough output and product normalization
+  policy
+
+Known limits:
+
+* no CommonMark parser or renderer
+* no Markdown -> IR conversion
+* no output mutation or normalization policy
+* inline emphasis/link parsing is not performed
+* HTML-in-Markdown remains a raw candidate signal only
+
 Remaining closure items:
 
 * decide whether any current model fields should remain long-term stable
 * evaluate future zero-drift integration opportunities with `convert/html`
 * decide whether future release policy should expose bytes-open helpers or keep
   the current string-first parser surface
+* continue stabilizing `doc_parse/markdown` scanner boundaries before any
+  future candidate-surface review
 
 Remaining work:
 
