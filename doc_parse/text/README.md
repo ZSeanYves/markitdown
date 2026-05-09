@@ -8,15 +8,20 @@ Purpose:
 
 Current status:
 
-* internal foundation hardening
-* not yet labeled as a standalone publishable package candidate
+* plain-text parser foundation candidate
+* stable as an in-tree text-structure/error/inspect surface
+* not a standalone MoonBit module split yet
 
-Public API:
+Stable candidate API:
 
 * `open_text_document`
 * `parse_text_document`
 * `inspect_text_document`
 * `classify_text_error`
+
+Debug / inspect API:
+
+* `inspect_text_document`
 
 Current model:
 
@@ -24,6 +29,18 @@ Current model:
 * `TextLine`
 * `TextParagraph`
 * `TextNewlineStyle`
+
+Compatibility surface:
+
+* `TextDocument`
+* `TextLine`
+* `TextParagraph`
+* `TextInspectReport`
+
+Internal exposed surface:
+
+* newline detection, line splitting, and paragraph grouping helpers remain
+  implementation details rather than a separate helper contract
 
 Current inspect surface:
 
@@ -61,6 +78,12 @@ Known limits:
 
 * low-signal detection is heuristic and inspect-only
 * parser entry does not own final normalization/output policy
+
+Versioning note:
+
+* future release-policy work may still revisit byte-open helpers, low-signal
+  heuristics, or field-level visibility, but Markdown/product policy will stay
+  in `convert/txt`
 
 Testing:
 

@@ -9,10 +9,11 @@ Purpose:
 
 Current status:
 
-* internal foundation hardening
-* not yet labeled as a standalone publishable package candidate
+* simple-format parser foundation candidate
+* stable as an in-tree parser/model/error/inspect/validation surface
+* not a standalone MoonBit module split yet
 
-Public API:
+Stable candidate API:
 
 * `parse_csv_document`
 * `parse_csv_with_options`
@@ -23,6 +24,23 @@ Public API:
 * `classify_csv_error`
 * `default_csv_parse_options`
 * `csv_parse_options_for_tsv`
+
+Debug / inspect API:
+
+* `inspect_csv_document`
+
+Compatibility surface:
+
+* `CsvDocument`
+* `CsvRow`
+* `CsvParseOptions`
+* `CsvValidationIssue`
+* `CsvValidationReport`
+
+Internal exposed surface:
+
+* there is no separate public parser-helper layer; delimiter scanning and quote
+  handling stay internal to the package implementation
 
 Current model:
 
@@ -73,6 +91,8 @@ Known limits:
   spreadsheet import stack
 * UTF-8 file I/O and non-BMP output compatibility policy still live in
   `convert/csv`
+* exact row/field struct layout is still a compatibility surface first, even
+  though it is now intentionally reusable by `convert/csv`
 
 Testing:
 
@@ -81,6 +101,7 @@ Testing:
 
 Versioning note:
 
-* this package is currently stabilized in-tree first
-* future standalone extraction should happen only after API boundaries and
-  consumer seams are tighter
+* this package is stabilized in-tree first
+* future release-policy work may still narrow field-level compatibility
+  surfaces, add bytes-open helpers, or split module boundaries after broader
+  internal validation

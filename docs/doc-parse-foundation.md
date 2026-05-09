@@ -24,14 +24,14 @@ Current candidate line:
 * `doc_parse/pdf`: text-PDF publishable foundation candidate
 * `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
   the shared container primitive
+* `doc_parse/csv`: simple-format parser foundation candidate
+* `doc_parse/tsv`: simple-format parser foundation candidate
+* `doc_parse/json`: simple-format parser foundation candidate
+* `doc_parse/yaml`: YAML-subset parser foundation candidate
+* `doc_parse/text`: plain-text parser foundation candidate
 
-Current internal parser-layer migration line:
+Deferred parser-layer migration line:
 
-* `doc_parse/csv`: internal parser foundation for delimited table parsing
-* `doc_parse/tsv`: thin tab-delimited facade over `doc_parse/csv`
-* `doc_parse/json`: internal parser foundation for JSON AST/inspect
-* `doc_parse/yaml`: internal parser foundation for the current YAML subset
-* `doc_parse/text`: internal parser foundation for plain-text structure/inspect
 * `doc_parse/xml`: still deferred; the current XML converter remains mostly
   source-preserving rather than backed by a mature reusable parser package
 
@@ -42,8 +42,9 @@ Current packaging strategy:
 * they are not yet split into independent MoonBit modules
 * `convert/*` consumes them, but they are documented as reusable parsing
   foundations rather than as converter-only helpers
-* simple-format parser foundations are now being migrated into `doc_parse/*`
-  internally before any future standalone-module split is attempted
+* simple-format parser foundations have now been migrated into `doc_parse/*`
+  internally and are being stabilized there before any future standalone-module
+  split is attempted
 
 See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
 
@@ -64,8 +65,8 @@ Across the current candidate line:
 * compatibility-oriented default open/read behavior may coexist with explicit
   strict validation or inspect reporting
 * none of the current candidates claim full spec support
-* internal parser-layer migration for simple formats narrows `convert/*`
-  toward model-to-IR / Markdown semantics; it does not remove `convert/*`
+* simple-format parser migration has already narrowed `convert/*` toward
+  model-to-IR / Markdown semantics; it does not remove `convert/*`
 
 ## Purpose
 
@@ -407,8 +408,8 @@ Remaining closure items:
 
 Current role:
 
-* internal parser-layer migration of simple formats out of `convert/*` and into
-  `doc_parse/*`
+* simple-format parser foundations now living in `doc_parse/*` and consumed by
+  `convert/*`
 
 Current packages:
 
@@ -431,30 +432,31 @@ Current boundary:
 
 Current maturity:
 
-* `doc_parse/csv` now exposes parse options, inspect, validation, and
-  classifier-friendly error metadata without `RichTable` / Markdown policy
-* `doc_parse/tsv` stays a thin delimiter facade and intentionally does not
-  duplicate CSV parser logic
-* `doc_parse/json` now owns JSON normalization, parsing, AST, inspect counts,
-  and malformed-input classification
-* `doc_parse/yaml` now owns the current YAML-subset parser, inspect, and
-  unsupported-feature classification boundaries
-* `doc_parse/text` now owns UTF-8 byte opening, newline-style detection, line /
-  paragraph structure, and inspect reporting
+* `doc_parse/csv`: simple-format parser foundation candidate with parse
+  options, inspect, validation, and classifier-friendly error metadata
+* `doc_parse/tsv`: simple-format parser foundation candidate as a thin
+  tab-delimited facade over the CSV parser core
+* `doc_parse/json`: simple-format parser foundation candidate with JSON
+  normalization, AST, inspect, and malformed-input classification
+* `doc_parse/yaml`: YAML-subset parser foundation candidate with explicit
+  unsupported-feature boundaries and inspect reporting
+* `doc_parse/text`: plain-text parser foundation candidate with byte-open,
+  newline-style detection, paragraph structure, and inspect reporting
 
 Known limits:
 
-* these simple-format packages are internal migration foundations first, not
-  yet publishable-package candidates
 * JSON/YAML/CSV/TXT decoding compatibility and file-I/O seams may still be
   partially staged in `convert/*` while parser/model ownership is moved inward
+* these candidate labels are lower-layer parser-foundation labels only; they
+  are not claims of full format-family spec coverage or final product
+  conversion ownership
 * XML is not yet migrated because the current XML converter is mostly
   source-preserving rather than backed by a reusable parser layer
 
 Remaining work:
 
-* evaluate whether the simple-format foundations are stable enough for future
-  candidate labeling
+* decide which current model fields should remain long-term stable and which
+  should later narrow to compatibility-only surfaces
 * decide whether XML should gain a real tokenizer/parser package or remain
   source-preserving
 * revisit HTML/Markdown lower-layer extraction separately from final conversion

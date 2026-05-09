@@ -81,7 +81,7 @@ Current foundation candidates:
   external-decoder-backed ZIP archive/container primitive / deterministic
   inspect / validation / classifier surface.
 
-Current internal parser-layer migration:
+Current simple-format parser foundation candidates:
 
 * `doc_parse/csv` / `doc_parse/tsv`
   delimited-table parser/model/inspect/validation foundations consumed by
@@ -102,8 +102,8 @@ Current module strategy:
   semantics
 * they are foundation candidates, not claims of full OOXML / EPUB / PDF / ZIP
   spec coverage
-* the new simple-format parser foundations are still an internal in-tree
-  migration step, not a standalone module split yet
+* the simple-format parser candidates are still in-tree package surfaces, not a
+  standalone module split yet
 
 ## Core Capabilities
 

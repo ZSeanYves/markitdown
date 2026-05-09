@@ -80,3 +80,22 @@ test "csv parse options stay header-neutral and can preserve blank rows" {
   assert_eq(issues[0].row_index, 2)
   assert_eq(issues[1].row_index, 4)
 }
+
+///|
+test "csv validation issue ordering stays deterministic" {
+  let doc = @csv.parse_csv_with_options(
+    "a,b,c\nx\n\n1,2\n",
+    @csv.new_csv_parse_options(
+      @csv.CsvDelimiter::Comma,
+      '"',
+      true,
+      false,
+      false,
+    ),
+  )
+  let issues = @csv.collect_csv_validation_issues(doc)
+  assert_eq(issues.length(), 3)
+  assert_eq(issues[0].row_index, 2)
+  assert_eq(issues[1].row_index, 3)
+  assert_eq(issues[2].row_index, 4)
+}

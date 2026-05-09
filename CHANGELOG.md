@@ -11,6 +11,9 @@
 * Harden the internal simple-format foundations with package-level README
   boundaries, stronger inspect reporting, and lower-layer parser tests while
   keeping conversion outputs unchanged.
+* Close `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
+  and `doc_parse/text` as in-tree parser foundation candidates with documented
+  stable surfaces, compatibility boundaries, and known limits.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

@@ -9,21 +9,39 @@ Purpose:
 
 Current status:
 
-* internal foundation hardening
-* not yet labeled as a standalone publishable package candidate
+* YAML-subset parser foundation candidate
+* stable as an in-tree subset parser/AST/error/inspect surface
+* not a standalone MoonBit module split yet
 
-Public API:
+Stable candidate API:
 
 * `parse_yaml_document`
 * `inspect_yaml_document`
 * `classify_yaml_error`
 * `yaml_value_kind`
 
+Debug / inspect API:
+
+* `inspect_yaml_document`
+
 Current model:
 
 * `YamlDocument`
 * `YamlValue`
 * `YamlMember`
+
+Compatibility surface:
+
+* `YamlDocument`
+* `YamlValue`
+* `YamlMember`
+* `YamlErrorInfo`
+* exact subset behavior is part of the documented compatibility boundary
+
+Internal exposed surface:
+
+* indentation walkers, scalar parsing helpers, and comment stripping remain
+  internal implementation details
 
 Current inspect surface:
 
@@ -67,8 +85,15 @@ Known limits:
 * current package intentionally supports a subset only
 * file I/O and converter-side UTF-8 compatibility policy remain in
   `convert/yaml`
+* unsupported YAML features still fail closed as parse errors rather than a
+  richer validation-report family
 
 Testing:
 
 * lower-layer tests live in `doc_parse/yaml/tests`
 * converter behavior is regression-guarded separately under `convert/yaml/test`
+
+Versioning note:
+
+* future release-policy work may add a richer validation surface, but the
+  current candidate scope intentionally centers on the YAML subset parser

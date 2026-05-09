@@ -8,15 +8,33 @@ Purpose:
 
 Current status:
 
-* internal foundation hardening
-* not yet labeled as a standalone publishable package candidate
+* simple-format parser foundation candidate
+* stable as an in-tree parser/AST/error/inspect surface
+* not a standalone MoonBit module split yet
 
-Public API:
+Stable candidate API:
 
 * `parse_json_document`
 * `inspect_json_document`
 * `classify_json_error`
 * `json_value_kind`
+
+Debug / inspect API:
+
+* `inspect_json_document`
+
+Compatibility surface:
+
+* `JsonDocument`
+* `JsonValue`
+* `JsonMember`
+* `JsonErrorInfo`
+* exact enum/field layout remains a documented compatibility surface
+
+Internal exposed surface:
+
+* recursive-descent parser helpers stay internal; they are not a separate
+  public contract
 
 Current model:
 
@@ -66,6 +84,8 @@ Known limits:
   policy remain in `convert/json`
 * this package does not claim permissive JSON5 / comments / trailing-comma
   support
+* exact numeric-value representation remains source-preserving string text,
+  which is intentional for parser neutrality but still a release-policy choice
 
 Testing:
 
@@ -74,5 +94,6 @@ Testing:
 
 Versioning note:
 
-* current hardening is in-tree first; future standalone extraction should
-  happen only after internal validation remains stable
+* current candidate closure is in-tree first
+* future release-policy work may still add bytes-open helpers or narrow field
+  visibility without changing converter ownership

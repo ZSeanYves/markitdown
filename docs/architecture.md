@@ -87,6 +87,11 @@ Current candidate line:
 * `doc_parse/pdf`: text-PDF publishable foundation candidate
 * `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
   the shared container primitive
+* `doc_parse/csv`: simple-format parser foundation candidate
+* `doc_parse/tsv`: simple-format parser foundation candidate
+* `doc_parse/json`: simple-format parser foundation candidate
+* `doc_parse/yaml`: YAML-subset parser foundation candidate
+* `doc_parse/text`: plain-text parser foundation candidate
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.

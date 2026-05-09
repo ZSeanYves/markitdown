@@ -81,3 +81,18 @@ test "json classifier covers malformed string and unicode cases" {
     bad_surrogate.kind == @json.JsonErrorKind::InvalidUnicodeSurrogate,
   )
 }
+
+///|
+test "json parser stays model-only and does not lower to conversion policy" {
+  let doc = @json.parse_json_document("[{\"name\":\"Ada\"},{\"name\":\"Bob\"}]")
+  match doc.root {
+    @json.JsonValue::Array(values) => {
+      assert_eq(values.length(), 2)
+      match values[0] {
+        @json.JsonValue::Object(members) => assert_eq(members[0].key, "name")
+        _ => fail("expected object element")
+      }
+    }
+    _ => fail("expected array root")
+  }
+}
