@@ -94,7 +94,7 @@ Current contract:
   SpreadsheetML semantic foundation candidate for workbook/sheet/cell/shared
   strings/styles/merged ranges/formula trace inspect and validation.
 * `doc_parse/docx`
-  active WordprocessingML semantic foundation Pass 1 for source-native
+  WordprocessingML semantic foundation candidate for source-native
   body/inline/table relationships, styles, numbering, notes, and media refs.
 
 ### Simple-format and markup parser foundations

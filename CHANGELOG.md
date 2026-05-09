@@ -44,6 +44,10 @@
   note parsing, inspect/validation/classifier surface, and lower-layer tests
   while keeping `convert/docx` on the current zero-drift normal conversion
   path.
+* Close `doc_parse/docx` as an in-tree DOCX semantic foundation candidate
+  with source-native body/inline/table/relationship/style/numbering/notes/
+  media boundaries documented and lower-layer tests tightened, while keeping
+  `convert/docx` on the current zero-drift normal conversion path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

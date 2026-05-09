@@ -342,19 +342,31 @@ test "docx semantic model preserves styles numbering notes headers footers and t
   )
   assert_true(styled.styles.styles.length() > 0)
   let heading_level : Ref[Int] = { val: 0 }
+  let saw_named_style : Ref[Bool] = { val: false }
+  let saw_paragraph_style : Ref[Bool] = { val: false }
   for style in styled.styles.styles {
     match style.raw_heading_level {
       Some(level) => if level > heading_level.val { heading_level.val = level }
       None => ()
     }
+    if style.name is Some(_) {
+      saw_named_style.val = true
+    }
+    if style.style_type == @docx.DocxStyleType::Paragraph {
+      saw_paragraph_style.val = true
+    }
   }
   assert_true(heading_level.val > 0)
+  assert_true(saw_named_style.val)
+  assert_true(saw_paragraph_style.val)
 
   let listed = @docx.open_docx_document(
     resolve_sample_path("samples/main_process/docx/docx_list_nested.docx"),
   )
   let inspect_listed = @docx.inspect_docx_document(listed)
   assert_true(inspect_listed.numbering_ref_count > 0)
+  assert_true(listed.numbering.numbering_instances.length() > 0)
+  assert_true(listed.numbering.abstract_numbers.length() > 0)
 
   let note_doc = @docx.open_docx_document(
     resolve_sample_path("samples/main_process/docx/docx_footnote_basic.docx"),
@@ -380,6 +392,12 @@ test "docx semantic model preserves styles numbering notes headers footers and t
     resolve_sample_path("samples/main_process/docx/docx_textbox_basic.docx"),
   )
   assert_true(textbox_doc.text_boxes.length() > 0)
+  let inspect_textbox = @docx.inspect_docx_document(textbox_doc)
+  assert_true(inspect_textbox.text_box_count > 0)
+  assert_true(@docx.inspect_docx_document(header_doc).header_count > 0)
+  assert_true(@docx.inspect_docx_document(footer_doc).footer_count > 0)
+  let inspect_note = @docx.inspect_docx_document(note_doc)
+  assert_true(inspect_note.note_count > 0)
 }
 
 ///|
@@ -404,12 +422,15 @@ test "docx semantic validation reports relationship media style and numbering ga
   let report = @docx.validate_docx_document(doc)
 
   assert_eq(issues.length(), report.issue_count)
+  assert_eq(issues.length(), 4)
   assert_true(
     issues[0].kind == @docx.DocxValidationIssueKind::MissingRelationshipTarget,
   )
   assert_true(issues[1].kind == @docx.DocxValidationIssueKind::MissingMediaPart)
   assert_true(issues[2].kind == @docx.DocxValidationIssueKind::MissingStyle)
   assert_true(issues[3].kind == @docx.DocxValidationIssueKind::MissingNumbering)
+  assert_true(issues[0].severity == @docx.DocxValidationSeverity::Warning)
+  assert_true(issues[1].severity == @docx.DocxValidationSeverity::Warning)
 
   let inspect = @docx.inspect_docx_document(doc)
   assert_eq(inspect.issue_count, report.issue_count)
@@ -418,12 +439,24 @@ test "docx semantic validation reports relationship media style and numbering ga
 }
 
 ///|
-test "docx semantic classifier recognizes malformed main document xml" {
+test "docx semantic classifier recognizes malformed document styles and numbering xml" {
   let pkg = generated_malformed_docx_pkg()
   let result = try? @docx.parse_docx_document_from_package(pkg)
   assert_true(result is Err(_))
-  let info = @docx.classify_docx_error(
+  let doc_info = @docx.classify_docx_error(
     @docx.DocxError::ParseError("malformed document xml: missing <w:body>"),
   )
-  assert_true(info.kind == @docx.DocxErrorKind::MalformedDocumentXml)
+  assert_true(doc_info.kind == @docx.DocxErrorKind::MalformedDocumentXml)
+
+  let styles_info = @docx.classify_docx_error(
+    @docx.DocxError::ParseError("styles read failed: malformed styles xml"),
+  )
+  assert_true(styles_info.kind == @docx.DocxErrorKind::MalformedStylesXml)
+
+  let numbering_info = @docx.classify_docx_error(
+    @docx.DocxError::ParseError(
+      "numbering read failed: malformed numbering xml",
+    ),
+  )
+  assert_true(numbering_info.kind == @docx.DocxErrorKind::MalformedNumberingXml)
 }

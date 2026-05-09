@@ -104,7 +104,7 @@ Current candidate line:
 * `doc_parse/html`: HTML DOM-ish parser foundation candidate
 * `doc_parse/markdown`: lightweight Markdown scanner foundation candidate
 * `doc_parse/xlsx`: XLSX semantic foundation candidate
-* `doc_parse/docx`: active DOCX semantic foundation Pass 1
+* `doc_parse/docx`: DOCX semantic foundation candidate
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.

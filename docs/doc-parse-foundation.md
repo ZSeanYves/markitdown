@@ -56,7 +56,7 @@ Shared contract:
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
 | `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
 | `doc_parse/xlsx` | XLSX semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
-| `doc_parse/docx` | active semantic foundation Pass 1 | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | `convert/docx` remains the current normal conversion path and is not switched to the semantic package yet |
+| `doc_parse/docx` | DOCX semantic foundation candidate | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | `convert/docx` remains the current normal conversion path and is not switched to the semantic package yet |
 | `pptx` semantic sublayer | deferred semantic sublayer | n/a | possible future PresentationML semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/pptx` |
 
 ## Candidate Definitions
@@ -85,10 +85,6 @@ Shared contract:
   source-native semantic-model foundation above a lower package substrate,
   with stable candidate API, inspect/error/validation surface, and no
   RichTable/IR/Markdown/product semantics
-* `active semantic foundation Pass 1`
-  initial source-native semantic-model package above a lower package
-  substrate, with package-facing API, inspect/error/validation surface, and
-  lower-layer tests, but without candidate-closure guarantees yet
 * `deferred semantic sublayer`
   format-specific semantic parser/converter split intentionally left above the
   current lower-layer package line
@@ -329,7 +325,7 @@ Known limits:
 
 Current role:
 
-* active WordprocessingML semantic foundation Pass 1 above the shared OOXML
+* WordprocessingML semantic foundation candidate above the shared OOXML
   package line
 * source-native body / inline / table / relationship / style / numbering /
   notes semantic parser/model/inspect/validation package
@@ -345,7 +341,7 @@ Current surface:
 
 Current maturity:
 
-* active semantic foundation Pass 1
+* semantic foundation candidate
 * current source-native compatibility surface is centered on `DocxDocument`,
   `DocxBodyBlock`, `DocxParagraph`, `DocxRun`, `DocxInline`, `DocxTable`,
   `DocxRelationship`, `DocxStyles`, `DocxNumbering`, `DocxNotes`,
@@ -353,8 +349,9 @@ Current maturity:
 * current semantic scope includes main-document body blocks, paragraphs, runs,
   text/tab/line-break inlines, raw hyperlink and media refs, tables, styles,
   numbering, note/comment/header/footer discovery, and text-box discovery
-* current lower-layer tests lock the package/model boundary without claiming
-  final heading/list/table/caption/code/image output policy
+* current lower-layer tests lock relationship/style/numbering/notes/media
+  boundaries without claiming final heading/list/table/caption/code/image
+  output policy
 
 Current boundary:
 
@@ -373,7 +370,7 @@ Known limits:
 * styles and numbering preserve conservative semantic signal rather than a
   full style cascade or full list-layout engine
 * tracked changes are only handled through conservative deleted-revision
-  stripping in this Pass 1 package
+  stripping in this candidate package
 * complex fields, equations, charts, SmartArt, and deeper DrawingML semantics
   remain out of scope
 
@@ -561,7 +558,7 @@ Current packages:
   inspect/validation candidate
 * `doc_parse/xlsx`: SpreadsheetML semantic foundation candidate above
   `doc_parse/ooxml`
-* `doc_parse/docx`: active WordprocessingML semantic foundation Pass 1 above
+* `doc_parse/docx`: WordprocessingML semantic foundation candidate above
   `doc_parse/ooxml`
 
 Current boundary:
@@ -613,9 +610,9 @@ Current maturity:
   validation, and a no-renderer boundary
 * `doc_parse/xlsx`: semantic foundation candidate with workbook/sheet/cell
   semantic model, inspect, validation, and conservative formula trace signal
-* `doc_parse/docx`: active semantic foundation Pass 1 with body/inline/table/
-  relationship/style/numbering semantic model and lower-layer tests, while
-  final product policy remains in `convert/docx`
+* `doc_parse/docx`: semantic foundation candidate with body/inline/table/
+  relationship/style/numbering/notes/media semantic model and lower-layer
+  tests, while final product policy remains in `convert/docx`
 
 Known limits:
 

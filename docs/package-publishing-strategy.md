@@ -30,9 +30,9 @@ Current recommendation:
 * keep `doc_parse/xlsx` in-tree as an XLSX semantic foundation candidate
   until its semantic model surface and future standalone release-policy
   surface are more stable
-* keep `doc_parse/docx` in-tree as an active DOCX semantic foundation Pass 1
-  until its source-native semantic model surface and future zero-drift
-  convert integration story are more stable
+* keep `doc_parse/docx` in-tree as a DOCX semantic foundation candidate until
+  its source-native semantic model surface and future zero-drift convert
+  integration story are more stable
 * keep simple-format parser candidates such as `doc_parse/csv`,
   `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
   inside the same root module until their internal boundaries and future

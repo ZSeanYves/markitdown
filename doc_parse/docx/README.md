@@ -10,13 +10,22 @@ Purpose:
 
 Current status:
 
-* active semantic foundation Pass 1
+* DOCX semantic foundation candidate
 * in-tree semantic/model/inspect/validation package, not a standalone MoonBit
   module split yet
 * `convert/docx` still owns the current normal conversion path and its final
   heading/list/table/caption/code/image policy
 
 Current public API:
+
+* `open_docx_document`
+* `parse_docx_document_from_package`
+* `inspect_docx_document`
+* `collect_docx_validation_issues`
+* `validate_docx_document`
+* `classify_docx_error`
+
+Stable candidate API:
 
 * `open_docx_document`
 * `parse_docx_document_from_package`
@@ -63,6 +72,19 @@ Compatibility surface:
 * `DocxValidationIssue`
 * `DocxValidationReport`
 
+Current relationship / style / numbering / notes / media boundary:
+
+* relationship ids, target parts, target mode, and resolved hyperlink/media
+  targets are preserved as source-native lower-layer signal
+* style id / name / type / based-on / raw heading-like signal are preserved
+  where available, but no final heading decision is made here
+* numbering refs preserve raw `numId` / `abstractNumId` / `ilvl`-driven signal
+  without owning final list rendering
+* notes/comments/headers/footers/text boxes are preserved as source-native
+  structures without appended product-section naming or ordering policy
+* media refs preserve raw relationship/media signal without asset export path
+  or caption policy
+
 Internal exposed surface:
 
 * WordprocessingML XML scanning helpers remain package-internal
@@ -103,7 +125,8 @@ Relationship to `convert/docx`:
   inspect/validation
 * `convert/docx` still owns semantic model -> IR / Markdown / assets /
   metadata / final product policy
-* Pass 1 does not require `convert/docx` normal path to switch to this package
+* `convert/docx` normal path is intentionally not switched to this package in
+  the current candidate closure
 
 Known limits:
 
@@ -113,7 +136,7 @@ Known limits:
 * note/comment/header/footer/text-box support is source-native discovery, not
   final product ordering policy
 * tracked changes are only handled through conservative deleted-revision
-  stripping in this Pass 1 foundation
+  stripping in this candidate package
 * complex fields, equations, charts, SmartArt, and deep DrawingML semantics
   remain out of scope
 
@@ -128,5 +151,7 @@ Versioning note:
 * future work may still refine field-level compatibility surfaces, add more
   lower-layer validation taxonomy, or integrate more of `convert/docx` once
   zero-drift seams are demonstrated
-* Pass 1 here means the semantic parser/model line exists and is tested; it
-  does not yet claim candidate closure
+* candidate status here means the source-native semantic API, inspect surface,
+  validation surface, and current lower-layer tests are stable enough for
+  internal reuse; it does not claim full WordprocessingML support or a
+  switched `convert/docx` normal path

@@ -152,9 +152,9 @@ Lower-layer package contract:
   * `doc_parse/xlsx`: XLSX semantic foundation candidate with
     workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
     model plus inspect/validation
-* current active semantic hardening line also includes:
-  * `doc_parse/docx`: active DOCX semantic foundation Pass 1 with
-    WordprocessingML body/inline/table/relationship/style/numbering/note
+* current semantic candidate line also includes:
+  * `doc_parse/docx`: DOCX semantic foundation candidate with
+    WordprocessingML body/inline/table/relationship/style/numbering/note/media
     model plus inspect/validation/classifier, while `convert/docx` still owns
     the current normal output path
 * current delivery remains importable subpackages under
@@ -263,8 +263,8 @@ Conservative behavior:
   section instead of visual anchor reconstruction
 * merged table cells currently follow a visible-content policy rather than full
   visual merge reconstruction
-* `doc_parse/docx` now exists as an active source-native semantic foundation
-  Pass 1 for body/inline/table/relationship/style/numbering/note discovery,
+* `doc_parse/docx` now exists as a source-native semantic foundation
+  candidate for body/inline/table/relationship/style/numbering/note discovery,
   but `convert/docx` still owns the current normal heading/list/table/caption/
   code/image output policy
 * footnotes/endnotes/comments use explicit append-section ordering rather than
