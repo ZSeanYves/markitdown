@@ -50,7 +50,7 @@ Shared contract:
 | `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
-| `doc_parse/markdown` | active hardening | scan/inspect/validation starter | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns passthrough product policy |
+| `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns passthrough product policy |
 | `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
 
 ## Candidate Definitions
@@ -64,6 +64,10 @@ Shared contract:
 * `subset parser foundation candidate`
   parser foundation candidate whose subset boundary is explicit and
   intentionally documented
+* `scanner foundation candidate`
+  lightweight source-scanner foundation with stable candidate API and raw
+  block inventory / inspect / validation surface, but without renderer or
+  output-mutation ownership
 * `active hardening`
   package boundary exists and a reusable scanner/model/inspect surface is in
   place, but candidate closure and release-policy narrowing are not complete
@@ -245,7 +249,7 @@ Known limits:
 * no macro/VBA semantic support
 * no full OOXML spec coverage claim
 
-Remaining closure items:
+Future release-policy items:
 
 * evaluate whether any currently public helper-shaped surface should be hidden in
   a future versioned package release, without breaking current converter users
@@ -298,7 +302,7 @@ Known limits:
 * no full ZIP-spec coverage claim
 * no recursive archive conversion policy
 
-Remaining closure items:
+Future release-policy items:
 
 * decide whether the bytes-level entry-read contract should later gain a stable
   text-decoding helper or stay explicitly bytes-only
@@ -448,7 +452,7 @@ Current boundary:
   validation candidate surface, but `convert/html` still owns the current HTML
   parser + IR/Markdown/product policy path
 * `doc_parse/markdown` now provides a lightweight source scanner/model/inspect
-  surface, but `convert/markdown` still owns passthrough product policy
+  candidate surface, but `convert/markdown` still owns passthrough product policy
 
 Current maturity:
 
@@ -468,9 +472,9 @@ Current maturity:
 * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tokenizer /
   tolerant parser / raw node model / inspect / validation / no-fetch safety
   boundary
-* `doc_parse/markdown`: active foundation hardening Pass 1 with lightweight
-  source scanner / raw block inventory / frontmatter and fenced-code detection
-  / inspect / validation / no-renderer boundary
+* `doc_parse/markdown`: Markdown lightweight scanner foundation candidate with
+  raw block inventory, frontmatter and fenced-code detection, inspect /
+  validation, and a no-renderer boundary
 
 Known limits:
 
@@ -547,7 +551,7 @@ Current surface:
 
 Current maturity:
 
-* active foundation hardening Pass 1
+* Markdown lightweight scanner foundation candidate
 * scanner always succeeds and surfaces structural problems as validation
   issues instead of hard parse errors
 * current scan is intentionally line-oriented and conservative
@@ -567,14 +571,15 @@ Known limits:
 * inline emphasis/link parsing is not performed
 * HTML-in-Markdown remains a raw candidate signal only
 
-Remaining closure items:
+Future release-policy items:
 
-* decide whether any current model fields should remain long-term stable
-* evaluate future zero-drift integration opportunities with `convert/html`
+* decide whether any current model fields should remain long-term stable versus
+  compatibility-only
+* evaluate future zero-drift integration opportunities with `convert/markdown`
 * decide whether future release policy should expose bytes-open helpers or keep
-  the current string-first parser surface
-* continue stabilizing `doc_parse/markdown` scanner boundaries before any
-  future candidate-surface review
+  the current string-first scanner surface
+* decide whether reserved issue kinds should remain compatibility-only or be
+  widened into emitted warnings in a later release pass
 
 Remaining work:
 

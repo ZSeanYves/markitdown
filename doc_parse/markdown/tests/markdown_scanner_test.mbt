@@ -1,4 +1,51 @@
 ///|
+test "markdown scanner stable facade smoke covers scan inspect collect and validate" {
+  let doc = @md.scan_markdown_document(
+    "---\n" +
+    "title: Demo\n" +
+    "---\n" +
+    "## Heading\n" +
+    "```moonbit\n" +
+    "let x = 1\n" +
+    "```\n",
+  )
+  let report = @md.inspect_markdown_document(doc)
+  let issues = @md.collect_markdown_validation_issues(doc)
+  let validation = @md.validate_markdown_document(doc)
+
+  assert_eq(doc.line_count, 7)
+  assert_eq(report.heading_count, 1)
+  assert_eq(report.fenced_code_count, 1)
+  assert_eq(issues.length(), 0)
+  assert_eq(validation.issue_count, 0)
+
+  match doc.frontmatter {
+    Some(frontmatter) => {
+      assert_true(frontmatter.kind == @md.MarkdownFrontmatterKind::Yaml)
+      assert_eq(frontmatter.line_start, 1)
+      assert_eq(frontmatter.line_end, 3)
+    }
+    None => fail("expected yaml frontmatter")
+  }
+
+  assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::HeadingAtx)
+  assert_eq(doc.blocks[0].line_start, 4)
+  assert_eq(doc.blocks[0].line_end, 4)
+  assert_eq(doc.blocks[1].line_start, 5)
+  assert_eq(doc.blocks[1].line_end, 7)
+  assert_eq(doc.blocks[1].raw_text, "```moonbit\nlet x = 1\n```")
+  match doc.blocks[1].fenced_code {
+    Some(info) => {
+      assert_true(info.fence_char == '`')
+      assert_eq(info.fence_length, 3)
+      assert_true(info.info_string == Some("moonbit"))
+      assert_true(info.closed)
+    }
+    None => fail("expected fenced code info")
+  }
+}
+
+///|
 test "markdown scanner tracks paragraphs blanks headings lists quotes thematic breaks and table-like rows" {
   let doc = @md.scan_markdown_document(
     "# Title\n" +
@@ -24,6 +71,31 @@ test "markdown scanner tracks paragraphs blanks headings lists quotes thematic b
 
   assert_true(doc.blocks[1].kind == @md.MarkdownBlockKind::ParagraphLike)
   assert_eq(doc.blocks[1].raw_text, "Body line 1\nBody line 2")
+}
+
+///|
+test "markdown validation report preserves issue ordering from scanner output" {
+  let doc = @md.scan_markdown_document("```ts\n" + "const x = 1\n")
+  let issues = @md.collect_markdown_validation_issues(doc)
+  let validation = @md.validate_markdown_document(doc)
+
+  assert_eq(issues.length(), 1)
+  assert_eq(validation.issue_count, 1)
+  assert_eq(validation.warning_count, 1)
+  assert_eq(validation.error_count, 0)
+  assert_true(
+    validation.issues[0].kind == @md.MarkdownValidationIssueKind::UnclosedFence,
+  )
+  assert_true(validation.issues[0].kind == issues[0].kind)
+  match validation.issues[0].line_start {
+    Some(line_start) => assert_true(line_start == 1)
+    None => fail("expected line_start")
+  }
+  match validation.issues[0].line_end {
+    Some(line_end) => assert_true(line_end == 2)
+    None => fail("expected line_end")
+  }
+  assert_eq(validation.issues[0].message, issues[0].message)
 }
 
 ///|
@@ -53,6 +125,26 @@ test "markdown scanner detects yaml and toml frontmatter conservatively" {
     Some(frontmatter) =>
       assert_true(frontmatter.kind == @md.MarkdownFrontmatterKind::Toml)
     None => fail("expected toml frontmatter")
+  }
+}
+
+///|
+test "markdown scanner recognizes all supported raw list marker variants" {
+  let doc = @md.scan_markdown_document(
+    "- dash\n" +
+    "* star\n" +
+    "+ plus\n" +
+    "1. ordered dot\n" +
+    "1) ordered paren\n",
+  )
+  let report = @md.inspect_markdown_document(doc)
+
+  assert_eq(report.list_item_count, 5)
+  assert_eq(doc.blocks.length(), 5)
+  for i = 0; i < doc.blocks.length(); i = i + 1 {
+    assert_true(doc.blocks[i].kind == @md.MarkdownBlockKind::ListItem)
+    assert_eq(doc.blocks[i].line_start, i + 1)
+    assert_eq(doc.blocks[i].line_end, i + 1)
   }
 }
 
@@ -114,6 +206,25 @@ test "markdown scanner reports unclosed frontmatter and unclosed fence" {
 }
 
 ///|
+test "markdown scanner keeps table-like rows and html candidates as raw heuristics" {
+  let doc = @md.scan_markdown_document(
+    "| a | b |\n" + "<div class=\"x\">\n" + "[A](b) and *em*\n",
+  )
+  let report = @md.inspect_markdown_document(doc)
+  let validation = @md.validate_markdown_document(doc)
+
+  assert_eq(report.table_like_row_count, 1)
+  assert_eq(report.html_block_candidate_count, 1)
+  assert_eq(validation.issue_count, 0)
+  assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::TableLikeRow)
+  assert_eq(doc.blocks[0].raw_text, "| a | b |")
+  assert_true(doc.blocks[1].kind == @md.MarkdownBlockKind::HtmlBlockCandidate)
+  assert_eq(doc.blocks[1].raw_text, "<div class=\"x\">")
+  assert_true(doc.blocks[2].kind == @md.MarkdownBlockKind::ParagraphLike)
+  assert_eq(doc.blocks[2].raw_text, "[A](b) and *em*")
+}
+
+///|
 test "markdown scanner preserves raw html candidates and inline markdown literally" {
   let doc = @md.scan_markdown_document(
     "<div class=\"x\">\n" + "[A](b) and *em*\n",
@@ -137,4 +248,16 @@ test "markdown scanner handles setext headings bom and line-ending normalization
   assert_eq(report.blank_line_count, 1)
   assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::HeadingSetext)
   assert_eq(doc.blocks[0].raw_text, "Title\n---")
+}
+
+///|
+test "markdown scanner counts both atx and setext headings" {
+  let doc = @md.scan_markdown_document("# Atx\n" + "\n" + "Setext\n" + "===\n")
+  let report = @md.inspect_markdown_document(doc)
+
+  assert_eq(report.heading_count, 2)
+  assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::HeadingAtx)
+  assert_true(doc.blocks[2].kind == @md.MarkdownBlockKind::HeadingSetext)
+  assert_eq(doc.blocks[2].line_start, 3)
+  assert_eq(doc.blocks[2].line_end, 4)
 }

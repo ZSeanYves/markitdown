@@ -8,12 +8,12 @@ Purpose:
 
 Current status:
 
-* active foundation hardening Pass 1
+* Markdown lightweight scanner foundation candidate
 * current scope is source scanning / raw block inventory / inspect /
   validation
 * `convert/markdown` still owns passthrough output and product normalization
 
-Current public API:
+Stable candidate API:
 
 * `scan_markdown_document`
 * `inspect_markdown_document`
@@ -56,6 +56,10 @@ Current validation surface:
 * current issues are intentionally light:
   * `UnclosedFrontmatter`
   * `UnclosedFence`
+* reserved compatibility kinds that are not emitted by the normal Pass 2
+  scanner:
+  * `UnknownFrontmatterKind`
+  * `SuspiciousTableRow`
 
 Current inspect surface:
 
@@ -117,6 +121,8 @@ Known limits:
 * HTML block candidates are counted only as raw source signal and are not
   parsed
 * scanner findings do not mutate passthrough output or converter policy
+* the scanner is intentionally lightweight and line-oriented rather than a
+  CommonMark AST renderer
 
 Testing:
 
@@ -125,8 +131,9 @@ Testing:
 
 Versioning note:
 
-* this package is an in-tree hardening line, not a candidate closure yet
+* this package is an in-tree candidate surface, not a renderer or passthrough
+  policy layer
 * current scanner intentionally always succeeds and therefore does not expose a
-  hard parse-error classifier in Pass 1
+  hard parse-error classifier
 * future work may widen scanner coverage or add more structured warnings
   without changing `convert/markdown` ownership

@@ -34,9 +34,9 @@ Current recommendation:
 * keep `doc_parse/html` in-tree as an HTML DOM-ish parser foundation
   candidate until its DOM-ish model boundary and future zero-drift convert
   integration story stabilize further
-* keep `doc_parse/markdown` in-tree as a lightweight source scanner
-  hardening line until its raw block inventory and future release-policy
-  surfaces stabilize further
+* keep `doc_parse/markdown` in-tree as a lightweight source scanner candidate
+  until its raw block inventory and future release-policy surfaces stabilize
+  further
 * keep hardening those packages in-tree with package-level README/API/test
   contracts before considering any independent release story
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
@@ -125,7 +125,7 @@ Short term:
 * continue shipping the current `doc_parse/*` line as importable in-tree
   subpackages under `ZSeanYves/markitdown`
 * continue stabilizing both the structured-document foundations and the
-  simple-format/XML/HTML/Markdown parser candidates in-tree before any
+  simple-format/XML/HTML/Markdown parser/scanner candidates in-tree before any
   standalone-module split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and

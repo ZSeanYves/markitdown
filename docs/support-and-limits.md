@@ -141,13 +141,13 @@ Lower-layer package contract:
   * `doc_parse/yaml`: YAML-subset parser foundation candidate
   * `doc_parse/text`: plain-text parser foundation candidate
   * `doc_parse/xml`: XML parser foundation candidate
-* current active parser hardening line also includes:
+* current parser / scanner candidate line also includes:
   * `doc_parse/html`: HTML DOM-ish parser foundation candidate with tolerant
     tokenizer/parser/model/inspect/validation and explicit no-fetch /
     no-script-execution boundary
-  * `doc_parse/markdown`: lightweight Markdown source scanner hardening with
-    raw block inventory, frontmatter detection, fenced code detection, and no
-    renderer / no output mutation boundary
+  * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate
+    with raw block inventory, frontmatter detection, fenced code detection,
+    and no renderer / no output mutation boundary
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -606,7 +606,7 @@ Supported:
 * frontmatter passthrough as literal source text when a leading `---` or `+++`
   block is present
 * `doc_parse/markdown` now provides a lightweight source scanner / raw block
-  inventory / inspect surface for Markdown source structure
+  inventory / inspect candidate surface for Markdown source structure
 
 Conservative behavior:
 

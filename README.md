@@ -55,7 +55,7 @@ GitHub Actions validation is currently checked in for Ubuntu and macOS.
 | DOCX | H2++ complete / H3++ evidence-backed | Word document structure recovery; not a Word layout engine |
 | PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
 | PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
-| CSV / TSV / JSON / YAML / Markdown / TXT | stable structured/text paths | conservative boundaries documented in support docs; not all families are second-round sealed |
+| CSV / TSV / JSON / YAML / TXT | stable structured/text paths | conservative boundaries documented in support docs; Markdown is handled separately as a lightweight scanner candidate |
 | XML | source-preserving converter path + parser foundation candidate | source-preserving converter output today; `doc_parse/xml` is now an XML parser foundation candidate |
 
 Benchmark and quality conclusions are limited to the checked-in corpora and
@@ -112,10 +112,10 @@ Current contract:
   node inventory/inspect/validation with explicit no-fetch /
   no-script-execution boundaries.
 
-### Active parser hardening
+### Lightweight Scanner Foundations
 
 * `doc_parse/markdown`
-  lightweight Markdown scanner foundation hardening for raw block inventory,
+  Markdown lightweight scanner foundation candidate for raw block inventory,
   frontmatter detection, fenced code detection, and inspect/validation.
 
 Current module strategy:
