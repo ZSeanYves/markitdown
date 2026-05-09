@@ -1,19 +1,28 @@
 ///|
-pub fn default_csv_parse_options() -> CsvParseOptions {
+pub fn new_csv_parse_options(
+  delimiter : CsvDelimiter,
+  quote_char : Char,
+  double_quote_escape : Bool,
+  skip_blank_rows : Bool,
+  normalize_ragged_rows : Bool,
+) -> CsvParseOptions {
   {
-    delimiter: CsvDelimiter::Comma,
-    skip_blank_rows: true,
-    normalize_ragged_rows: true,
+    delimiter,
+    quote_char,
+    double_quote_escape,
+    skip_blank_rows,
+    normalize_ragged_rows,
   }
 }
 
 ///|
+pub fn default_csv_parse_options() -> CsvParseOptions {
+  new_csv_parse_options(CsvDelimiter::Comma, '"', true, true, true)
+}
+
+///|
 pub fn csv_parse_options_for_tsv() -> CsvParseOptions {
-  {
-    delimiter: CsvDelimiter::Tab,
-    skip_blank_rows: true,
-    normalize_ragged_rows: true,
-  }
+  new_csv_parse_options(CsvDelimiter::Tab, '"', true, true, true)
 }
 
 ///|
@@ -57,6 +66,7 @@ fn parse_delimited_chars(
   }
 
   let delimiter = delimiter_char(options.delimiter)
+  let quote_char = options.quote_char
   let rows : Array[CsvRow] = []
   let mut row_fields : Array[String] = []
   let field : Array[Char] = []
@@ -98,9 +108,11 @@ fn parse_delimited_chars(
     let ch = chars[i]
 
     if in_quotes {
-      if ch == '"' {
-        if i + 1 < chars.length() && chars[i + 1] == '"' {
-          field.push('"')
+      if ch == quote_char {
+        if options.double_quote_escape &&
+          i + 1 < chars.length() &&
+          chars[i + 1] == quote_char {
+          field.push(quote_char)
           i += 2
           last_was_record_break = false
           continue
@@ -122,7 +134,7 @@ fn parse_delimited_chars(
       continue
     }
 
-    if ch == '"' && !field_started && field.length() == 0 {
+    if ch == quote_char && !field_started && field.length() == 0 {
       in_quotes = true
       field_started = true
       i += 1

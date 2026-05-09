@@ -9,6 +9,8 @@ test "csv parser handles simple rows and inspect counts" {
   let report = @csv.inspect_csv_document(doc)
   assert_eq(report.row_count, 3)
   assert_eq(report.column_count, 2)
+  assert_eq(report.min_field_count, 2)
+  assert_eq(report.max_field_count, 2)
   assert_eq(report.ragged_row_count, 0)
 }
 
@@ -40,6 +42,8 @@ test "csv validation reports ragged rows and empty cells" {
   assert_eq(issues[0].row_index, 2)
 
   let report = @csv.inspect_csv_document(doc)
+  assert_eq(report.min_field_count, 2)
+  assert_eq(report.max_field_count, 3)
   assert_eq(report.empty_cell_count, 2)
 }
 
@@ -51,4 +55,28 @@ test "csv malformed quote fails closed and classifies" {
     @csv.CsvError::ParseError("unterminated quoted field"),
   )
   assert_true(info.kind == @csv.CsvErrorKind::UnterminatedQuotedField)
+}
+
+///|
+test "csv parse options stay header-neutral and can preserve blank rows" {
+  let doc = @csv.parse_csv_with_options(
+    "name,age\n\nAda,12\nsolo\n",
+    @csv.new_csv_parse_options(
+      @csv.CsvDelimiter::Comma,
+      '"',
+      true,
+      false,
+      false,
+    ),
+  )
+
+  assert_eq(doc.rows.length(), 4)
+  assert_eq(doc.rows[1].fields, [""])
+  assert_eq(doc.rows[3].fields, ["solo"])
+  assert_eq(doc.rows[3].original_field_count, 1)
+
+  let issues = @csv.collect_csv_validation_issues(doc)
+  assert_eq(issues.length(), 2)
+  assert_eq(issues[0].row_index, 2)
+  assert_eq(issues[1].row_index, 4)
 }

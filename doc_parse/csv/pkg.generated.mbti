@@ -12,6 +12,8 @@ pub fn default_csv_parse_options() -> CsvParseOptions
 
 pub fn inspect_csv_document(CsvDocument) -> CsvInspectReport
 
+pub fn new_csv_parse_options(CsvDelimiter, Char, Bool, Bool, Bool) -> CsvParseOptions
+
 pub fn parse_csv_document(String) -> CsvDocument raise
 
 pub fn parse_csv_with_options(String, CsvParseOptions) -> CsvDocument raise
@@ -52,6 +54,8 @@ pub struct CsvInspectReport {
   row_count : Int
   column_count : Int
   line_count : Int
+  min_field_count : Int
+  max_field_count : Int
   empty_cell_count : Int
   ragged_row_count : Int
   multiline_row_count : Int
@@ -60,6 +64,8 @@ pub struct CsvInspectReport {
 
 pub struct CsvParseOptions {
   delimiter : CsvDelimiter
+  quote_char : Char
+  double_quote_escape : Bool
   skip_blank_rows : Bool
   normalize_ragged_rows : Bool
 }

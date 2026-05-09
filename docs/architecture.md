@@ -261,9 +261,12 @@ share a “conservative and stable” philosophy:
 * `doc_parse/csv` / `doc_parse/tsv` now own delimited parsing while
   `convert/csv` still owns `RichTable` / IR semantics
 * `doc_parse/json` now owns JSON parsing / AST while `convert/json` still owns
-  table/list/code-block lowering
+  table/list/code-block lowering; source normalization now also lives in the
+  parser layer
 * `doc_parse/yaml` now owns current YAML-subset parsing / AST while
   `convert/yaml` still owns conservative table/list/code-block lowering
+* `doc_parse/text` now owns UTF-8/open-newline/paragraph structure while
+  `convert/txt` still owns cleanup-profile choice and literal-Markdown policy
 * XML remains source-preserving fenced code-block output for now; a reusable
   XML parser layer is still deferred
 

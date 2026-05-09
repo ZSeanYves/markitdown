@@ -4,8 +4,17 @@ pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
   let mut ragged_row_count = 0
   let mut multiline_row_count = 0
   let mut multiline_field_count = 0
+  let mut min_field_count = 0
+  let mut max_field_count = 0
 
-  for row in doc.rows {
+  for i in 0..<doc.rows.length() {
+    let row = doc.rows[i]
+    if i == 0 || row.original_field_count < min_field_count {
+      min_field_count = row.original_field_count
+    }
+    if row.original_field_count > max_field_count {
+      max_field_count = row.original_field_count
+    }
     if row.original_field_count != doc.column_count {
       ragged_row_count += 1
     }
@@ -27,6 +36,8 @@ pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
     row_count: doc.rows.length(),
     column_count: doc.column_count,
     line_count: doc.line_count,
+    min_field_count,
+    max_field_count,
     empty_cell_count,
     ragged_row_count,
     multiline_row_count,

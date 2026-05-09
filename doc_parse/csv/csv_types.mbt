@@ -12,6 +12,8 @@ pub(all) enum CsvDelimiter {
 ///|
 pub struct CsvParseOptions {
   delimiter : CsvDelimiter
+  quote_char : Char
+  double_quote_escape : Bool
   skip_blank_rows : Bool
   normalize_ragged_rows : Bool
 }
@@ -81,6 +83,8 @@ pub struct CsvInspectReport {
   row_count : Int
   column_count : Int
   line_count : Int
+  min_field_count : Int
+  max_field_count : Int
   empty_cell_count : Int
   ragged_row_count : Int
   multiline_row_count : Int

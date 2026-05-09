@@ -55,6 +55,7 @@ pub struct JsonInspectReport {
   object_count : Int
   array_count : Int
   scalar_count : Int
+  member_count : Int
   max_depth : Int
   root_kind : String
 }

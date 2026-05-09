@@ -7,6 +7,7 @@ pub fn inspect_json_document(doc : JsonDocument) -> JsonInspectReport {
     object_count: stats.object_count,
     array_count: stats.array_count,
     scalar_count: stats.scalar_count,
+    member_count: stats.member_count,
     max_depth: stats.max_depth,
     root_kind,
   }
@@ -18,6 +19,7 @@ priv struct JsonInspectStats {
   object_count : Int
   array_count : Int
   scalar_count : Int
+  member_count : Int
   max_depth : Int
 }
 
@@ -29,6 +31,7 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
       let mut object_count = 1
       let mut array_count = 0
       let mut scalar_count = 0
+      let mut member_count = members.length()
       let mut max_depth = depth
       for entry in members {
         let child = inspect_json_value(entry.value, depth + 1)
@@ -36,17 +39,26 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
         object_count += child.object_count
         array_count += child.array_count
         scalar_count += child.scalar_count
+        member_count += child.member_count
         if child.max_depth > max_depth {
           max_depth = child.max_depth
         }
       }
-      { node_count, object_count, array_count, scalar_count, max_depth }
+      {
+        node_count,
+        object_count,
+        array_count,
+        scalar_count,
+        member_count,
+        max_depth,
+      }
     }
     JsonValue::Array(values) => {
       let mut node_count = 1
       let mut object_count = 0
       let mut array_count = 1
       let mut scalar_count = 0
+      let mut member_count = 0
       let mut max_depth = depth
       for child_value in values {
         let child = inspect_json_value(child_value, depth + 1)
@@ -54,11 +66,19 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
         object_count += child.object_count
         array_count += child.array_count
         scalar_count += child.scalar_count
+        member_count += child.member_count
         if child.max_depth > max_depth {
           max_depth = child.max_depth
         }
       }
-      { node_count, object_count, array_count, scalar_count, max_depth }
+      {
+        node_count,
+        object_count,
+        array_count,
+        scalar_count,
+        member_count,
+        max_depth,
+      }
     }
     JsonValue::String(_)
     | JsonValue::Number(_)
@@ -69,6 +89,7 @@ fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
         object_count: 0,
         array_count: 0,
         scalar_count: 1,
+        member_count: 0,
         max_depth: depth,
       }
   }

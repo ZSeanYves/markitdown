@@ -49,17 +49,8 @@ pub fn parse_json_with_profile(
     Some("chars=" + text.length().to_string()),
   )
 
-  let normalize_started = @env.now()
-  let normalized = normalize_json_source(text)
-  json_profile_add_stage(
-    profile,
-    "json_normalize_source",
-    @env.now() - normalize_started,
-    Some("chars=" + normalized.length().to_string()),
-  )
-
   let parse_started = @env.now()
-  let parsed = @dpjson.parse_json_document(normalized)
+  let parsed = @dpjson.parse_json_document(text)
   let value = parsed.root
   json_profile_add_stage(
     profile,
@@ -67,7 +58,7 @@ pub fn parse_json_with_profile(
     @env.now() - parse_started,
     Some(
       "chars=" +
-      normalized.length().to_string() +
+      text.length().to_string() +
       " root=" +
       @dpjson.json_value_kind(value),
     ),
@@ -114,34 +105,6 @@ pub fn parse_json_with_profile(
     Some("blocks=" + doc.blocks.val.length().to_string()),
   )
   (doc, profile)
-}
-
-///|
-fn normalize_json_source(text : String) -> String {
-  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
-    text[1:].to_owned()
-  } else {
-    text
-  }
-  let out : Array[Char] = []
-  let chars = without_bom.to_array()
-  let mut i = 0
-
-  while i < chars.length() {
-    if chars[i] == '\r' {
-      out.push('\n')
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        i += 2
-      } else {
-        i += 1
-      }
-    } else {
-      out.push(chars[i])
-      i += 1
-    }
-  }
-
-  String::from_array(out)
 }
 
 ///|

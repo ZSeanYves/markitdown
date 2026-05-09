@@ -148,6 +148,8 @@ Lower-layer package contract:
 * simple-format parser migration currently keeps `convert/*` in place for
   file-I/O seams, IR shaping, Markdown policy, and product-facing metadata
   wiring
+* current simple-format packages now also carry in-tree package README
+  documentation for API, limits, and converter-boundary notes
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 

@@ -26,6 +26,8 @@ Current recommendation:
 * keep simple-format parser migrations such as `doc_parse/csv`,
   `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
   inside the same root module until their internal boundaries stabilize
+* keep hardening those packages in-tree with package-level README/API/test
+  contracts before considering any independent release story
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
   parsing foundations continue to stabilize
 

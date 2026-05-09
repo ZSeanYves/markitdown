@@ -8,6 +8,7 @@ test "json parser handles object array and inspect depth" {
   assert_eq(report.object_count, 2)
   assert_eq(report.array_count, 1)
   assert_eq(report.scalar_count, 5)
+  assert_eq(report.member_count, 3)
   assert_eq(report.max_depth, 4)
 }
 
@@ -44,4 +45,39 @@ test "json malformed input fails closed and classifies" {
     @json.JsonError::ParseError("unexpected character"),
   )
   assert_true(info.kind == @json.JsonErrorKind::UnexpectedCharacter)
+}
+
+///|
+test "json parser handles number formats and trailing content errors" {
+  let doc = @json.parse_json_document(
+    "{\"int\":0,\"neg\":-12,\"frac\":3.14,\"exp\":6.02e23}",
+  )
+  let report = @json.inspect_json_document(doc)
+  assert_eq(report.member_count, 4)
+  assert_true((try? @json.parse_json_document("{\"a\":1} trailing")) is Err(_))
+
+  let info = @json.classify_json_error(
+    @json.JsonError::ParseError("trailing content"),
+  )
+  assert_true(info.kind == @json.JsonErrorKind::TrailingContent)
+}
+
+///|
+test "json classifier covers malformed string and unicode cases" {
+  let bad_escape = @json.classify_json_error(
+    @json.JsonError::ParseError("invalid escape"),
+  )
+  assert_true(bad_escape.kind == @json.JsonErrorKind::InvalidEscape)
+
+  let bad_unicode = @json.classify_json_error(
+    @json.JsonError::ParseError("invalid unicode escape"),
+  )
+  assert_true(bad_unicode.kind == @json.JsonErrorKind::InvalidUnicodeEscape)
+
+  let bad_surrogate = @json.classify_json_error(
+    @json.JsonError::ParseError("invalid unicode surrogate pair"),
+  )
+  assert_true(
+    bad_surrogate.kind == @json.JsonErrorKind::InvalidUnicodeSurrogate,
+  )
 }

@@ -421,11 +421,26 @@ Current packages:
 Current boundary:
 
 * these packages own parser/model/error/inspect logic
+* package-local README files now document public API, current boundaries, known
+  limits, and relationship to `convert/*`
 * `convert/csv`, `convert/json`, `convert/yaml`, and `convert/txt` still own
   IR shaping, Markdown output policy, metadata wiring, and product-facing
   origin semantics
 * `doc_parse/xml`, `doc_parse/html`, and `doc_parse/markdown` remain deferred
   until their parser boundaries are clearer or a real lower-layer parser exists
+
+Current maturity:
+
+* `doc_parse/csv` now exposes parse options, inspect, validation, and
+  classifier-friendly error metadata without `RichTable` / Markdown policy
+* `doc_parse/tsv` stays a thin delimiter facade and intentionally does not
+  duplicate CSV parser logic
+* `doc_parse/json` now owns JSON normalization, parsing, AST, inspect counts,
+  and malformed-input classification
+* `doc_parse/yaml` now owns the current YAML-subset parser, inspect, and
+  unsupported-feature classification boundaries
+* `doc_parse/text` now owns UTF-8 byte opening, newline-style detection, line /
+  paragraph structure, and inspect reporting
 
 Known limits:
 

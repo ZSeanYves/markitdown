@@ -28,6 +28,19 @@ test "text inspect exposes counts and low-signal marker" {
 }
 
 ///|
+test "text parser reports mixed newline and empty text deterministically" {
+  let mixed = @text.parse_text_document("a\r\nb\nc\r")
+  assert_true(mixed.newline_style == @text.TextNewlineStyle::Mixed)
+
+  let empty = @text.parse_text_document("")
+  let empty_report = @text.inspect_text_document(empty)
+  assert_eq(empty_report.char_count, 0)
+  assert_eq(empty_report.line_count, 0)
+  assert_eq(empty_report.paragraph_count, 0)
+  assert_true(empty_report.is_empty)
+}
+
+///|
 test "text open bytes fails closed on invalid utf8" {
   let ok = @text.open_text_document(
     Bytes::from_array([228, 189, 160, 229, 165, 189]),
