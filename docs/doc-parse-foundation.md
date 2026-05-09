@@ -17,8 +17,8 @@ Current candidate line:
 * `doc_parse/ooxml`: publishable foundation candidate
 * `doc_parse/epub`: publishable foundation candidate
 * `doc_parse/pdf`: text-PDF publishable foundation candidate
-* `doc_parse/zip`: active foundation hardening Pass 1 as the shared container
-  primitive
+* `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
+  the shared container primitive
 
 Current packaging strategy:
 
@@ -230,7 +230,8 @@ Current role:
 
 Current foundation direction:
 
-* now in active foundation hardening Pass 1 within current repository scope
+* now an external-decoder-backed publishable foundation candidate within
+  current repository scope
 * should expose a reusable archive open/read/list facade plus structured
   inventory, path-safety helpers, validation issues, and classifier-friendly
   errors
@@ -241,7 +242,7 @@ Current foundation direction:
 
 Current maturity:
 
-* current package-facing facade is centered on `open_zip`, `list_entries`,
+* stable candidate facade is centered on `open_zip`, `list_entries`,
   `has_entry`, `read_entry`, `normalize_entry_path`, and structured
   inventory/inspect/validation helpers
 * structured entry inventory and archive inspect reports now exist for entry
@@ -265,14 +266,15 @@ Known limits:
 
 Remaining closure items:
 
-* decide whether the current surface is mature enough to promote from active
-  hardening into a publishable foundation candidate
 * decide whether the bytes-level entry-read contract should later gain a stable
   text-decoding helper or stay explicitly bytes-only
 * continue narrowing which currently public raw archive fields are true long-
   term compatibility surface versus future encapsulation candidates
 * clarify whether unsupported-feature classification should remain partly
   message-based until deeper backend/source mapping exists
+* decide whether future release policy should tighten the legacy
+  `inspect_zip(bytes)` compatibility helper or keep it as a permanent
+  convenience surface
 
 ### `doc_parse/pdf`
 

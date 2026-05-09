@@ -13,8 +13,7 @@ It is not a Markdown converter and it does not own OOXML or EPUB semantics.
 
 Current status:
 
-- `doc_parse/zip` is in active foundation hardening Pass 1
-- it is not yet marked as a publishable foundation candidate
+- `doc_parse/zip` is an external-decoder-backed publishable foundation candidate
 - current delivery remains the importable subpackage
   `ZSeanYves/markitdown/doc_parse/zip`, not a separately split MoonBit module
 
@@ -54,7 +53,7 @@ It intentionally does not own:
 - password recovery
 - full ZIP repair
 
-## Current Facade
+## Stable Candidate API
 
 Current package-facing facade:
 
@@ -62,7 +61,6 @@ Current package-facing facade:
 - `list_entries(archive)`
 - `has_entry(archive, path)`
 - `read_entry(archive, path, max_output_size?)`
-- `inspect_zip(bytes)`
 
 Structured inventory / inspect / validation:
 
@@ -74,6 +72,16 @@ Structured inventory / inspect / validation:
 - `classify_zip_error(err)`
 - `collect_zip_validation_issues(archive)`
 - `validate_zip_archive(archive)`
+
+## Debug / Legacy Compatibility API
+
+Current compatibility helper:
+
+- `inspect_zip(bytes)`
+
+This helper stays public for legacy/debug use, but the structured inspect and
+validation helpers above are the preferred machine-readable contract for new
+consumers.
 
 ## Minimal Examples
 
@@ -163,6 +171,26 @@ Current validation issue coverage includes:
 - unsupported compression methods
 - nested archive candidates by extension
 
+Current classifier signal includes:
+
+- `MissingEntry`
+- `UnsupportedCompressionMethod`
+- `EncryptedEntry`
+- `DuplicateEntryName`
+- `UnsupportedFeature`
+- `MalformedArchive`
+- `ReadEntryFailed`
+- `Unknown`
+
+Reserved / future source-mapped signals:
+
+- richer encrypted/password handling
+- ZIP64 and multi-disk parser-source mapping
+- data-descriptor/source-mapped unsupported mode details
+- more complete compression-method matrix coverage
+- stronger zip-bomb ratio reporting when the backend can expose the needed
+  size metadata consistently
+
 ## Compatibility Surface
 
 The following remain public because in-repo consumers still depend on them:
@@ -174,6 +202,22 @@ The following remain public because in-repo consumers still depend on them:
 - `open_zip`
 - `list_entries`
 - `read_entry`
+
+## Internal Exposed Surface
+
+Current lower-level surface that remains public for now, but should still be
+treated as implementation-shaped rather than the long-term package boundary:
+
+- `ZipArchive.bytes`
+- `ZipArchive.entries`
+- `ZipArchive.entry_index`
+- `ZipEntryMeta`
+- `ZipError`
+- `CompressionMethod`
+
+These types are currently useful to in-repo consumers and tests, but the stable
+candidate recommendation for new users is to start from the facade and inspect
+types above them.
 
 These are still supported, but they are not the full long-term abstraction
 boundary by themselves.

@@ -78,8 +78,8 @@ Current foundation candidates:
   native text-PDF document model / page geometry / text-image-annotation raw
   signals / structured inspect / typed issues / error classifier.
 * `doc_parse/zip`
-  remains the container primitive for now and was not part of this candidate
-  closure line.
+  external-decoder-backed ZIP archive/container primitive / deterministic
+  inspect / validation / classifier surface.
 
 Current module strategy:
 
@@ -87,8 +87,8 @@ Current module strategy:
   `ZSeanYves/markitdown`
 * `convert/*` consumes `doc_parse/*`; `doc_parse/*` does not own final Markdown
   semantics
-* they are foundation candidates, not claims of full OOXML / EPUB / PDF spec
-  coverage
+* they are foundation candidates, not claims of full OOXML / EPUB / PDF / ZIP
+  spec coverage
 
 ## Core Capabilities
 

@@ -21,10 +21,8 @@ Important distinction:
 
 Current recommendation:
 
-* keep `doc_parse/ooxml`, `doc_parse/epub`, and `doc_parse/pdf` as importable
-  subpackages under the root module for now
-* keep `doc_parse/zip` as the shared container primitive under the same root
-  module while its own foundation facade continues hardening
+* keep `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`, and `doc_parse/zip`
+  as importable subpackages under the root module for now
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
   parsing foundations continue to stabilize
 

@@ -338,6 +338,23 @@ test "zip facade can read entry bytes and classify missing entry" {
 }
 
 ///|
+test "zip normalize_entry_path rejects unsafe paths and normalizes separators" {
+  if @zip.normalize_entry_path("../evil.txt") != None {
+    fail("parent traversal should be rejected")
+  }
+  if @zip.normalize_entry_path("/absolute.txt") != None {
+    fail("leading slash should be rejected")
+  }
+  if @zip.normalize_entry_path("C:/temp/evil.txt") != None {
+    fail("drive letter path should be rejected")
+  }
+  let normalized = @zip.normalize_entry_path("safe\\dir/file.txt")
+  if normalized != Some("safe/dir/file.txt") {
+    fail("mixed separators should normalize to safe/dir/file.txt")
+  }
+}
+
+///|
 test "zip validation reports unsafe paths and normalized collisions" {
   let archive = open_inline_zip([
     ("../evil.txt", "1"),

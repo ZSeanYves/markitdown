@@ -81,8 +81,8 @@ Current candidate line:
 * `doc_parse/ooxml`: publishable foundation candidate
 * `doc_parse/epub`: publishable foundation candidate
 * `doc_parse/pdf`: text-PDF publishable foundation candidate
-* `doc_parse/zip`: active foundation hardening Pass 1 as the shared container
-  primitive
+* `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
+  the shared container primitive
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.

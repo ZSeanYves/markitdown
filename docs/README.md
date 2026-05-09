@@ -17,8 +17,8 @@ Use these pages as the primary current-state entrypoints:
 * [Second-Round Summary](./second-round-summary.md)
   Concise sealed-scope project summary plus post-seal hardening notes.
 * [doc_parse Foundation Contract](./doc-parse-foundation.md)
-  Reusable lower-layer package contract for `doc_parse/ooxml`, `doc_parse/pdf`,
-  and `doc_parse/epub`.
+  Reusable lower-layer package contract for `doc_parse/ooxml`,
+  `doc_parse/pdf`, `doc_parse/epub`, and `doc_parse/zip`.
 * [doc_parse Package Strategy](./package-publishing-strategy.md)
   Current subpackage delivery strategy, future module-split criteria, and
   nested-module warning.
