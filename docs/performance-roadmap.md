@@ -84,23 +84,28 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms`
-  suspected owner: YAML-subset parser scan and tree allocation on large mapping
-  input
-  next action: allocation-focused parser profile before any semantic change
+  `yaml_large / parse / 6.953 ms -> 5.808 ms`
+  owner confirmed: line preparation plus repeated short mapping/scalar trim
+  and copy work on a large sequence-of-mappings sample
+  remaining breakdown on the checked sample:
+  `parse_sequence ~4.1 ms`, `parse_nodes ~2.7 ms`,
+  `parse_mapping ~2.7 ms`, `normalize_lines ~1.9 ms`,
+  `scan_lines ~1.3 ms`
+  next action: keep YAML as the lead library hotspot, but reassess whether
+  deeper parser allocation work is worth it before moving on to text/json
 
 * `doc_parse/text`
-  `txt_large / parse / 3.825 ms`
+  `txt_large / parse / 3.966 ms`
   suspected owner: newline normalization and line inventory construction
   next action: check repeated passes over large text buffers
 
 * `doc_parse/json`
-  `json_large / parse / 3.607 ms`
+  `json_large / parse / 3.605 ms`
   suspected owner: JSON tokenizer plus value-tree allocation
   next action: inspect allocation churn in object/array recursion
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.075 ms`
+  `markdown_large / scan / 3.130 ms`
   suspected owner: line scanner and raw block inventory traversal
   next action: confirm whether fence/frontmatter/block classification performs
   duplicate scans
@@ -139,6 +144,8 @@ Lower-priority library observations:
   focused context-reuse fix
 * the DOCX link-heavy row is no longer the lead library hotspot after the
   focused body-scan and text-box-scan cleanup
+* the YAML large row improved, but it still leads the remaining library
+  parse-cost queue after the current low-risk cleanup
 
 ## CLI/Product-Path Interpretation
 

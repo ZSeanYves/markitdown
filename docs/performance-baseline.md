@@ -29,6 +29,7 @@ Measured commands:
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -55,6 +56,10 @@ Artifacts:
   `.tmp/bench/doc_parse/docx_after_parse.tsv`
 * focused DOCX parse profile summary:
   `.tmp/bench/doc_parse/docx_profile_after.tsv`
+* focused YAML parse summary:
+  `.tmp/bench/doc_parse/yaml_after_parse.tsv`
+* focused YAML parse profile summary:
+  `.tmp/bench/doc_parse/yaml_profile_after.tsv`
 
 ## Outcome Summary
 
@@ -250,15 +255,15 @@ These profile rows are attribution aids only:
 
 ## Post-optimization Library Snapshot
 
-After the focused XLSX and DOCX changes, the full
+After the focused XLSX, DOCX, and YAML changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `6.953 ms`
-* `docx_link_heavy / parse`: `4.985 ms`
-* `txt_large / parse`: `3.825 ms`
-* `json_large / parse`: `3.607 ms`
-* `markdown_large / scan`: `3.075 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.688 ms`
+* `yaml_large / parse`: `5.808 ms`
+* `docx_link_heavy / parse`: `5.329 ms`
+* `txt_large / parse`: `3.966 ms`
+* `json_large / parse`: `3.605 ms`
+* `markdown_large / scan`: `3.130 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.666 ms`
 
 ## Focused DOCX Link-heavy Follow-up
 
@@ -315,6 +320,57 @@ Interpretation:
 * the new profile helper only adds attribution rows for benchmarking; it does
   not change the stable DOCX parse API surface
 
+## Focused YAML Large Follow-up
+
+Follow-up commands:
+
+```bash
+./samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_before_parse.tsv
+./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 2 --warmup 0 --output .tmp/bench/doc_parse/yaml_profile_before.tsv
+./samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_after_parse.tsv
+./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_profile_after.tsv
+```
+
+Before this optimization round, the focused YAML parse run showed:
+
+* `yaml_small / parse`: `0.003 ms` avg, `0.003 ms` p50, `0.004 ms` p95
+* `yaml_large / parse`: `6.907 ms` avg, `6.980 ms` p50, `7.032 ms` p95
+
+The focused YAML profile baseline before optimization showed:
+
+* `yaml_large / parse`: `7.010 ms` avg on the profiled run
+* `yaml_large` stage breakdown:
+  * `parse_sequence`: `5.500 ms`
+  * `scan_lines`: `3.500 ms`
+  * `parse_nodes`: `3.000 ms`
+  * `parse_mapping`: `3.000 ms`
+  * `parse_scalar`: `1.000 ms`
+  * `normalize_lines`: `0.500 ms`
+
+After the large-parse follow-up, the focused YAML run now shows:
+
+* `yaml_small / parse`: `0.009 ms` avg, `0.009 ms` p50, `0.009 ms` p95
+* `yaml_large / parse`: `5.925 ms` avg, `5.930 ms` p50, `6.021 ms` p95
+
+Current rounded YAML internal profile breakdown for `yaml_large`:
+
+* `parse_sequence`: `4.100 ms`
+* `parse_nodes`: `2.700 ms`
+* `parse_mapping`: `2.700 ms`
+* `normalize_lines`: `1.900 ms`
+* `scan_lines`: `1.300 ms`
+* `parse_scalar`: `0.700 ms`
+
+Interpretation:
+
+* the main win came from replacing full-text newline normalization/splitting
+  with cheaper raw-line collection and reducing repeated trim/copy work in the
+  hot subset paths
+* the YAML subset boundary, fail-closed behavior, inspect surface, and
+  `convert/yaml` boundary stayed unchanged
+* the new profile helper only adds attribution rows for benchmarking; it does
+  not change the stable YAML parse API surface
+
 ## What This Baseline Can And Cannot Tell Us
 
 This baseline can tell us:
@@ -335,7 +391,7 @@ This baseline still cannot yet tell us directly:
 
 ## Current Decision
 
-This round is baseline-first, but it also includes one targeted DOCX
+This round is baseline-first, but it also includes targeted DOCX and YAML
 hot-path cleanup based on the new profile data.
 
 The next optimization round should start from the remaining hotspots and

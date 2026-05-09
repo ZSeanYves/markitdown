@@ -83,6 +83,7 @@ Current public tooling:
 * `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -136,6 +137,9 @@ Key design points:
 * `--profile docx` adds internal DOCX parse sub-stage rows for hotspot
   attribution without changing the default benchmark manifest or parser
   semantics
+* `--profile yaml` adds internal YAML-subset parse sub-stage rows for hotspot
+  attribution without changing the default benchmark manifest or parser
+  semantics
 
 Measured stage model:
 
@@ -158,6 +162,8 @@ Interpretation caveats:
 * xlsx profile rows are stage-attribution aids, not release-facing stable API
   or latency promises
 * docx profile rows are stage-attribution aids, not release-facing stable API
+  or latency promises
+* yaml profile rows are stage-attribution aids, not release-facing stable API
   or latency promises
 
 ## Current Baseline Commands
@@ -232,6 +238,32 @@ Current interpretation:
 * it does not change the source-native DOCX semantic model
 * it does not switch `convert/docx` normal-path ownership
 * it should not be mistaken for a stable release-facing DOCX profiling API
+
+## Focused YAML Follow-up
+
+The current harness also includes a YAML-specific profile mode:
+
+```bash
+./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
+```
+
+This mode exists to answer a narrower parser question: where the time goes
+inside `parse_yaml_document` on checked large subset samples.
+
+Current checked follow-up result:
+
+* `yaml_large / parse`: `6.907 ms -> 5.925 ms` on the focused parse run
+* main remaining stages in the profile: `parse_sequence`, `parse_nodes`,
+  `parse_mapping`
+* the main improvement came from cheaper line preparation and less repeated
+  trim/copy work, not from changing YAML subset behavior
+
+Current interpretation:
+
+* the profile is only for hotspot attribution
+* it does not expand or narrow the YAML subset boundary
+* it does not change `convert/yaml` output ownership
+* it should not be mistaken for a stable release-facing YAML profiling API
 
 ## Library vs CLI Guidance
 

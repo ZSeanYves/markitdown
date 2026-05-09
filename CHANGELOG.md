@@ -85,6 +85,10 @@
   `docx_link_heavy` library parse row from `8.735 ms` to about `5.0 ms` by
   removing repeated body-scan and no-op text-box scanning work, without
   changing DOCX conversion output or semantic boundaries.
+* Add YAML-specific doc_parse benchmark stage profiling and reduce the checked
+  `yaml_large` library parse row from about `6.9 ms` to about `5.9 ms` by
+  reducing raw line preparation and repeated trim/copy work, without changing
+  YAML subset semantics or `convert/yaml` output behavior.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

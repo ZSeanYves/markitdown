@@ -20,6 +20,21 @@ Stable candidate API:
 * `classify_yaml_error`
 * `yaml_value_kind`
 
+Current public API:
+
+* `parse_yaml_document`
+* `profile_yaml_document`
+* `inspect_yaml_document`
+* `classify_yaml_error`
+* `yaml_value_kind`
+
+Benchmark-oriented helper surface:
+
+* `profile_yaml_document` exists for internal hotspot attribution and
+  benchmark tooling
+* it is not part of the main stable candidate API contract
+* it does not change the YAML subset model or `convert/yaml` behavior
+
 Minimal examples:
 
 ```moonbit

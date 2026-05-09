@@ -12,6 +12,7 @@ usage() {
 Usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--output PATH]
        ./samples/bench_doc_parse.sh --format xlsx --profile xlsx --iterations 10 --warmup 2
        ./samples/bench_doc_parse.sh --format docx --profile docx --iterations 10 --warmup 2
+       ./samples/bench_doc_parse.sh --format yaml --profile yaml --iterations 10 --warmup 2
 
 Notes:
   * This harness measures doc_parse APIs directly inside one benchmark process.
@@ -21,6 +22,8 @@ Notes:
   * --profile xlsx adds internal SpreadsheetML parse sub-stages for hotspot
     attribution while leaving the default summary layout intact.
   * --profile docx adds internal WordprocessingML parse sub-stages for hotspot
+    attribution while leaving the default summary layout intact.
+  * --profile yaml adds internal YAML-subset parse sub-stages for hotspot
     attribution while leaving the default summary layout intact.
 EOF
 }

@@ -184,7 +184,7 @@ fn parse_args(args : Array[String]) -> BenchConfig raise BenchError {
 ///|
 fn print_usage() -> Unit {
   println(
-    "usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--profile xlsx|docx] [--output PATH]",
+    "usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--profile xlsx|docx|yaml] [--output PATH]",
   )
 }
 
@@ -582,6 +582,17 @@ fn bench_yaml_row(
   let bytes = read_bytes(row.path)
   let raw = decode_utf8(bytes, row.path)
   let package_name = "doc_parse/yaml"
+  if enabled_stage(row, cfg, "parse") && cfg.profile == "yaml" {
+    bench_yaml_profile_rows(
+      row,
+      cfg,
+      summaries,
+      runs,
+      package_name,
+      bytes.length(),
+      raw,
+    )
+  }
   if enabled_stage(row, cfg, "parse") {
     summaries.push(
       measure_stage(
@@ -628,6 +639,92 @@ fn bench_yaml_row(
         },
       ),
     )
+  }
+}
+
+///|
+fn bench_yaml_profile_rows(
+  row : ManifestRow,
+  cfg : BenchConfig,
+  summaries : Array[BenchSummaryRow],
+  runs : Array[BenchRunRow],
+  package_name : String,
+  bytes : Int,
+  raw : String,
+) -> Unit raise BenchError {
+  let profile_runs : Array[BenchRunRow] = []
+  let stage_order : Array[String] = []
+  let stage_notes : Map[String, String] = Map::new()
+
+  for _ in 0..<cfg.warmup {
+    ignore(
+      @yaml.profile_yaml_document(raw) catch {
+        e =>
+          raise Failed(
+            "yaml profile parse failed for " + row.path + " : " + e.to_string(),
+          )
+      },
+    )
+  }
+
+  for i in 0..<cfg.iterations {
+    let profiled = @yaml.profile_yaml_document(raw) catch {
+      e =>
+        raise Failed(
+          "yaml profile parse failed for " + row.path + " : " + e.to_string(),
+        )
+    }
+    for stage in profiled.report.stages {
+      let stage_name = "profile:" + stage.name
+      if stage_notes.get(stage_name) == None {
+        stage_order.push(stage_name)
+        stage_notes.set(stage_name, yaml_profile_stage_notes(stage.detail))
+      }
+      let run = {
+        format: row.format,
+        package_name,
+        sample: row.label,
+        size_class: row.size_class,
+        stage: stage_name,
+        iteration: i + 1,
+        elapsed_us: stage.elapsed_ms.to_int() * 1000,
+        bytes,
+        notes: stage_notes.get(stage_name).unwrap_or(""),
+      }
+      runs.push(run)
+      profile_runs.push(run)
+    }
+  }
+
+  for stage_name in stage_order {
+    let timings : Array[Int] = []
+    let notes = stage_notes.get(stage_name).unwrap_or("")
+    for run in profile_runs {
+      if run.stage == stage_name {
+        timings.push(run.elapsed_us)
+      }
+    }
+    if timings.length() > 0 {
+      summaries.push(
+        summary_row_from_timings(
+          row, package_name, stage_name, bytes, notes, timings,
+        ),
+      )
+    }
+  }
+}
+
+///|
+fn yaml_profile_stage_notes(detail : String?) -> String {
+  let base = "yaml internal parse sub-stage from profile_yaml_document; durations are rounded to package-local milliseconds"
+  match detail {
+    Some(text) =>
+      if text.trim() == "" {
+        base
+      } else {
+        base + " detail=" + text.trim().to_owned()
+      }
+    None => base
   }
 }
 
