@@ -34,6 +34,8 @@ Shared contract:
 * no remote fetch belongs in the lower-layer package contract
 * none of the current packages claim full format-spec support unless a package
   README explicitly says so
+* introducing a new parser or scanner foundation does not automatically mean
+  the normal `convert/*` path has switched to it
 
 ## Current Status Matrix
 
@@ -43,36 +45,41 @@ Shared contract:
 | `doc_parse/ooxml` | publishable foundation candidate | open/read/list/query/inspect/strict-validation facade | OOXML package / parts / relationships / content types / media / docProps | Office semantic conversion | consumed by `convert/docx`, `convert/pptx`, `convert/xlsx` |
 | `doc_parse/epub` | publishable foundation candidate | package/rootfile/manifest/spine/nav/cover/inspect/validation facade | EPUB container / OPF / manifest / spine / nav / NCX / cover / metadata | reading-system rendering, DRM, CSS/JS | consumed by `convert/epub` |
 | `doc_parse/pdf` | native text-PDF publishable foundation candidate | `doc_parse/pdf/api` facade, structured inspect/report, typed issue starter | native text-PDF model / page geometry / text / image / annotation raw signal | OCR default, scanned PDF, full layout engine | consumed by `convert/pdf` |
-| `doc_parse/csv` | simple-format parser foundation candidate | parse/options/inspect/validation/classifier | comma-delimited table parser/model | Markdown table / `RichTable` policy | consumed by `convert/csv` |
-| `doc_parse/tsv` | simple-format parser foundation candidate | TSV facade over CSV core | tab-delimited table parser/model | Markdown table / `RichTable` policy | consumed by `convert/csv` |
-| `doc_parse/json` | simple-format parser foundation candidate | parse/AST/inspect/classifier | JSON parser / AST / malformed-input classification | JSON-to-table/list/code-block policy | consumed by `convert/json` |
-| `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | consumed by `convert/yaml` |
-| `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
-| `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
-| `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
-| `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns passthrough product policy |
-| `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
+| `doc_parse/csv` | simple-format parser foundation candidate | parse/options/inspect/validation/classifier | comma-delimited table parser/model | Markdown table / `RichTable` policy | `convert/csv` already consumes the parser/model for CSV normal conversion |
+| `doc_parse/tsv` | simple-format parser foundation candidate | TSV facade over CSV core | tab-delimited table parser/model | Markdown table / `RichTable` policy | `convert/csv` already consumes the TSV facade for TSV normal conversion |
+| `doc_parse/json` | simple-format parser foundation candidate | parse/AST/inspect/classifier | JSON parser / AST / malformed-input classification | JSON-to-table/list/code-block policy | `convert/json` already consumes the parser/model for JSON normal conversion |
+| `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | `convert/yaml` already consumes the parser/model for YAML normal conversion |
+| `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | `convert/txt` already consumes the parser/model for TXT normal conversion |
+| `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and the normal XML converter path is not switched |
+| `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
+| `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
+| `docx/pptx/xlsx` semantic sublayers | deferred semantic sublayer | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
 
 ## Candidate Definitions
 
 * `publishable foundation candidate`
   package-facing reusable lower-layer with stable candidate API, inspect/error/
   validation surfaces, docs, and lower-layer tests
+* `native text-PDF foundation candidate`
+  publishable lower-layer candidate scoped to native text-PDF parsing/model/
+  inspect boundaries rather than OCR or scanned-PDF claims
 * `parser foundation candidate`
   reusable parser/model/error/inspect foundation with stable candidate API and
   no IR/Markdown/product semantics
 * `subset parser foundation candidate`
   parser foundation candidate whose subset boundary is explicit and
   intentionally documented
+* `DOM-ish parser foundation candidate`
+  tolerant parser/model/inspect candidate that intentionally preserves raw
+  structural signal without claiming browser-grade or full semantic
+  reconstruction
 * `scanner foundation candidate`
   lightweight source-scanner foundation with stable candidate API and raw
   block inventory / inspect / validation surface, but without renderer or
   output-mutation ownership
-* `active hardening`
-  package boundary exists and a reusable scanner/model/inspect surface is in
-  place, but candidate closure and release-policy narrowing are not complete
-* `deferred`
-  not yet split into a reusable lower-layer package contract
+* `deferred semantic sublayer`
+  format-specific semantic parser/converter split intentionally left above the
+  current lower-layer package line
 ## Current Packaging Strategy
 
 * these foundations are delivered today as importable subpackages under
@@ -80,9 +87,9 @@ Shared contract:
 * they are not yet split into independent MoonBit modules
 * `convert/*` consumes them, but they are documented as reusable parsing
   foundations rather than as converter-only helpers
-* simple-format parser foundations have now been migrated into `doc_parse/*`
-  internally and are being stabilized there before any future standalone-module
-  split is attempted
+* simple-format, markup-parser, and lightweight scanner foundations have now
+  been migrated into `doc_parse/*` internally and are being stabilized there
+  before any future standalone-module split is attempted
 
 See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
 
@@ -422,12 +429,12 @@ Remaining closure items:
 * continue expanding direct lower-layer malformed/edge-case tests without
   changing `convert/epub` semantics
 
-### Simple-format parser foundations
+### Simple-format and markup parser foundations
 
 Current role:
 
-* simple-format parser foundations now living in `doc_parse/*` and consumed by
-  `convert/*`
+* simple-format, markup-parser, and lightweight scanner foundations now live
+  in `doc_parse/*` and are consumed by `convert/*` where already integrated
 
 Current packages:
 
@@ -436,23 +443,31 @@ Current packages:
 * `doc_parse/json`: JSON parser/AST/inspect
 * `doc_parse/yaml`: current YAML-subset parser/AST/inspect
 * `doc_parse/text`: plain-text structure/paragraph/inspect model
-* `doc_parse/xml`: XML tokenizer/parser/model/inspect/safety boundary starter
+* `doc_parse/xml`: XML tokenizer/parser/model/inspect/validation candidate
+* `doc_parse/html`: tolerant DOM-ish tokenizer/parser/raw node inventory/
+  inspect/validation candidate
+* `doc_parse/markdown`: lightweight source scanner/raw block inventory/
+  inspect/validation candidate
 
 Current boundary:
 
-* these packages own parser/model/error/inspect logic
+* these packages own parser/model/error/inspect logic, and the Markdown line
+  specifically owns scanning/inventory rather than rendering
 * package-local README files now document public API, current boundaries, known
   limits, and relationship to `convert/*`
 * `convert/csv`, `convert/json`, `convert/yaml`, and `convert/txt` still own
   IR shaping, Markdown output policy, metadata wiring, and product-facing
   origin semantics
 * `convert/xml` still owns source-preserving fenced-XML product semantics even
-  though `doc_parse/xml` now provides the tokenizer/parser/model foundation
+  though `doc_parse/xml` now provides the tokenizer/parser/model foundation;
+  the normal XML converter path is not switched
 * `doc_parse/html` now provides a tolerant DOM-ish parser/model/inspect/
   validation candidate surface, but `convert/html` still owns the current HTML
-  parser + IR/Markdown/product policy path
+  parser + IR/Markdown/product policy path and the normal HTML converter path
+  is not switched
 * `doc_parse/markdown` now provides a lightweight source scanner/model/inspect
-  candidate surface, but `convert/markdown` still owns passthrough product policy
+  candidate surface, but `convert/markdown` still owns passthrough product
+  policy and the normal Markdown converter path is not switched
 
 Current maturity:
 
@@ -591,21 +606,40 @@ Remaining work:
 * revisit HTML/Markdown lower-layer extraction separately from final conversion
   policy
 
-## Current Round Strategy
+### Deferred semantic sublayers
 
-This round intentionally focuses on:
+Current deferred line:
 
-1. audit and boundary clarity
-2. README/API/doc improvements
-3. lower-layer test guardrails
-4. one low-risk concrete hardening slice
+* `docx/pptx/xlsx` semantic sublayers remain intentionally deferred above the
+  current OOXML package foundation
+* semantic conversion ownership therefore still lives in:
+  * `convert/docx`
+  * `convert/pptx`
+  * `convert/xlsx`
 
-Preferred implementation priority:
+Known deferred boundary:
 
-1. `doc_parse/ooxml`
-2. `doc_parse/epub`
-3. `doc_parse/pdf`
+* these are not parser-foundation candidates yet
+* this document does not claim a separate semantic parser contract for them
+* any future split here should happen only after the current package/scanner
+  candidate line and converter integration story remain stable
 
-The first substantial hardening slice should land in `doc_parse/ooxml`, because
-it already sits under three sealed format families and has the clearest path to
-reusable package-parser quality without changing converter semantics.
+## Current Repository Strategy
+
+Current repository strategy intentionally focuses on:
+
+1. keeping `doc_parse/*` as in-tree reusable package foundations inside
+   `ZSeanYves/markitdown`
+2. keeping `convert/*` as the owner of IR / Markdown / assets / metadata /
+   product semantics
+3. documenting which lower-layer packages are already integrated into normal
+   convert paths and which are not
+4. deferring standalone module extraction and OOXML semantic sublayer splits
+   until current candidate boundaries are more stable
+
+Current non-goals for this stage:
+
+* no claim that `convert/xml`, `convert/html`, or `convert/markdown` have
+  switched their normal paths to the new parser/scanner foundations
+* no standalone published `ZSeanYves/doc_parse` module claim yet
+* no full-spec claim for XML / HTML / Markdown / YAML / PDF / EPUB / OOXML

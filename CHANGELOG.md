@@ -28,6 +28,9 @@
   foundation candidate with raw block inventory, frontmatter, fenced code,
   and inspect/validation boundaries while keeping `convert/markdown` on the
   current passthrough/product path.
+* Sync `doc_parse` foundation status after the HTML and Markdown candidate
+  closures, and clarify that `convert/html` and `convert/markdown` still own
+  their current normal product paths.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

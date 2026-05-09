@@ -127,7 +127,7 @@ Lower-layer package contract:
   `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
   `doc_parse/text`, `doc_parse/xml`, `doc_parse/html`, and
   `doc_parse/markdown` are now treated as in-tree parsing foundations with
-  package-specific candidate / hardening labels
+  package-specific candidate / deferred labels
 * current candidate status is:
   * `doc_parse/ooxml`: publishable foundation candidate
   * `doc_parse/epub`: publishable foundation candidate
@@ -468,6 +468,8 @@ Conservative behavior:
   with conservative header-row inference
 * `rowspan` / `colspan` boundaries are recorded/explained through metadata
   hints, but not visually reconstructed
+* `doc_parse/html` now provides a DOM-ish parser foundation candidate, but
+  `convert/html` still owns the current normal HTML conversion path
 
 Known limits:
 
@@ -614,6 +616,8 @@ Conservative behavior:
 * metadata summary uses lightweight conservative blocks instead of full Markdown
   semantics
 * scanner findings do not mutate passthrough output or normalization policy
+* `convert/markdown` still owns the normal passthrough/product path; the
+  lightweight scanner foundation is not the normal converter path yet
 
 Known limits:
 
@@ -656,7 +660,7 @@ Known limits:
 Status label:
 
 * `source-preserving`
-* safe XML handling with an internal parser foundation starter
+* safe XML handling with an internal parser foundation candidate
 
 Supported:
 
@@ -667,7 +671,7 @@ Supported:
 * XML declaration / processing instruction / comments / CDATA / attributes /
   doctype text preserved literally
 * fence-width growth when source contains backticks
-* `doc_parse/xml` tokenizer / parser / inspect / validation starter for
+* `doc_parse/xml` tokenizer / parser / inspect / validation candidate for
   declarations, processing instructions, tags, comments, CDATA, doctype, and
   safe text/entity handling
 

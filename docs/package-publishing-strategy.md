@@ -8,6 +8,8 @@ This document records the current publishing strategy for the reusable
 Current delivery unit:
 
 * the publishable module is still `ZSeanYves/markitdown`
+* all current `doc_parse/*` foundations are still in-tree packages inside that
+  module
 * `doc_parse/*` is consumed through importable subpackages such as:
   * `ZSeanYves/markitdown/doc_parse/ooxml`
   * `ZSeanYves/markitdown/doc_parse/epub`
@@ -89,6 +91,7 @@ That split should wait until all of the following are clearer:
 * release/version policy is explicit
 * cross-package tests can be run and published independently
 * a markitdown integration branch remains green through the split boundary
+* conversion behavior does not drift across the split boundary
 
 Current dependency note:
 

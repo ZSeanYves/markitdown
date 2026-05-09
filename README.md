@@ -69,8 +69,8 @@ repository rather than as a converter-only helper.
 
 Current contract:
 
-* `doc_parse/*` owns parsing, source-native model, inspect, validation, and
-  safety boundary
+* `doc_parse/*` owns parsing, source-native model, inspect, validation,
+  provenance where available, and safety boundary
 * `convert/*` owns IR, Markdown, assets, metadata, and product output policy
 
 ### Container and structured-document foundations
@@ -88,7 +88,7 @@ Current contract:
   native text-PDF foundation candidate for page/text/image/annotation lower
   layers, structured inspect, typed issues, and classifier-friendly errors.
 
-### Simple-format parser foundations
+### Simple-format and markup parser foundations
 
 * `doc_parse/csv`
   CSV parser foundation candidate for delimited table model, inspect, and
@@ -112,7 +112,7 @@ Current contract:
   node inventory/inspect/validation with explicit no-fetch /
   no-script-execution boundaries.
 
-### Lightweight Scanner Foundations
+### Source scanner foundation
 
 * `doc_parse/markdown`
   Markdown lightweight scanner foundation candidate for raw block inventory,
@@ -124,6 +124,8 @@ Current module strategy:
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` module extraction is future release work
 * `docx/pptx/xlsx` semantic sublayers remain deferred
+* `convert/html` and `convert/markdown` normal paths remain product conversion
+  paths and are not switched to the new parser/scanner foundations yet
 * none of these candidate labels claim full spec coverage
 
 ## Core Capabilities

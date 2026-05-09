@@ -146,6 +146,23 @@ Current format families:
 * Ebook:
   * `convert/epub`
 
+Current lower-layer integration split:
+
+* `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` and still owns
+  `RichTable` / IR / Markdown policy
+* `convert/json` and `convert/yaml` consume parser/model layers from
+  `doc_parse/json` and `doc_parse/yaml` and still own table/list/code-block
+  lowering policy
+* `convert/txt` consumes `doc_parse/text` and still owns literal-Markdown /
+  `Document` product policy
+* `convert/xml` still owns the current source-preserving fenced-output normal
+  path; the XML parser foundation is not the normal converter path yet
+* `convert/html` still owns heading/list/table/link/image/assets/caption/
+  nearby-text product policy; the HTML DOM-ish parser foundation is not the
+  normal converter path yet
+* `convert/markdown` still owns passthrough/product policy; the Markdown
+  scanner foundation is not the normal converter path yet
+
 ### Unified IR
 
 `core/ir.mbt` provides the shared representation:
