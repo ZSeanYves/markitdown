@@ -65,6 +65,12 @@
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.
+* Prepare `doc_parse` for future release by documenting release-facing usage,
+  examples, API comments, and parser-vs-converter boundaries without changing
+  runtime behavior.
+* Add `doc_parse` performance strategy, measured baseline, and optimization
+  roadmap notes while keeping benchmark claims scoped to the current native
+  CLI harness and checked local corpus.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

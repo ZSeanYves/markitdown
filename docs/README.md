@@ -23,6 +23,14 @@ Use these pages as the primary current-state entrypoints:
 * [doc_parse Package Strategy](./package-publishing-strategy.md)
   Current in-tree subpackage delivery strategy, future umbrella-module
   extraction criteria, and nested-module warning.
+* [doc_parse Performance](./doc-parse-performance.md)
+  Release-facing performance positioning, benchmark interpretation, and
+  doc_parse-specific baseline notes.
+* [Performance Baseline](./performance-baseline.md)
+  Current measured smoke and batch-profile snapshot for doc_parse release
+  preparation.
+* [Performance Roadmap](./performance-roadmap.md)
+  Budget-by-format view, current hotspot list, and staged optimization plan.
 * [Development Guide](./development.md)
   Maintainer workflow, validation commands, and format-onboarding practice.
 
