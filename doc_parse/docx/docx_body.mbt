@@ -28,6 +28,19 @@ fn parse_docx_body_blocks(
   styles : DocxStyles,
   numbering : DocxNumbering,
 ) -> Array[DocxBodyBlock] {
+  let visible_xml = strip_docx_text_box_content_xml(
+    strip_docx_deleted_revision_xml(xml),
+  )
+  parse_docx_body_blocks_visible(visible_xml, ctx, styles, numbering)
+}
+
+///|
+fn parse_docx_body_blocks_visible(
+  xml : String,
+  ctx : DocxPartParseContext,
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> Array[DocxBodyBlock] {
   let chars = xml.to_array()
   let out : Array[DocxBodyBlock] = []
   let mut i = 0
@@ -49,7 +62,9 @@ fn parse_docx_body_blocks(
       }
       let tbl_xml = @cor.slice_to_string(chars, t2 + 1, t3)
       out.push(
-        DocxBodyBlock::Table(parse_docx_table(tbl_xml, ctx, styles, numbering)),
+        DocxBodyBlock::Table(
+          parse_docx_table_visible(tbl_xml, ctx, styles, numbering),
+        ),
       )
       i = t3 + wtbl_close_tag_chars.length()
       continue
@@ -73,7 +88,7 @@ fn parse_docx_body_blocks(
       let p_xml = @cor.slice_to_string(chars, p2 + 1, p3)
       out.push(
         DocxBodyBlock::Paragraph(
-          parse_docx_paragraph(p_xml, ctx, styles, numbering),
+          parse_docx_paragraph_visible(p_xml, ctx, styles, numbering),
         ),
       )
       i = p3 + wp_close_tag_chars.length()

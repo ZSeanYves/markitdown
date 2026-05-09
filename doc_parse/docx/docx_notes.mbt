@@ -55,6 +55,7 @@ fn parse_docx_footnotes_xml(
     rels: empty_docx_relationship_index(),
     source_part: "word/footnotes.xml",
     issues,
+    profile_totals: None,
   }
   parse_docx_note_entries(xml, "<w:footnote", "</w:footnote>", fn(
     id,
@@ -90,6 +91,7 @@ fn parse_docx_endnotes_xml(
     rels: empty_docx_relationship_index(),
     source_part: "word/endnotes.xml",
     issues,
+    profile_totals: None,
   }
   parse_docx_note_entries(xml, "<w:endnote", "</w:endnote>", fn(
     id,
@@ -125,6 +127,7 @@ fn parse_docx_comments_xml(
     rels: empty_docx_relationship_index(),
     source_part: "word/comments.xml",
     issues,
+    profile_totals: None,
   }
   parse_docx_note_entries(xml, "<w:comment", "</w:comment>", fn(
     id,
@@ -263,8 +266,12 @@ fn collect_docx_text_boxes_from_xml(
   source_part : String,
   relationship_id : String?,
 ) -> Array[DocxTextBox] {
-  let chars = strip_docx_deleted_revision_xml(xml).to_array()
   let out : Array[DocxTextBox] = []
+  if !xml.contains("<w:txbxContent") {
+    return out
+  }
+
+  let chars = strip_docx_deleted_revision_xml(xml).to_array()
   let mut i = 0
   let mut textbox_index = 0
 

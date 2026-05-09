@@ -20,6 +20,7 @@ Current public API:
 
 * `open_docx_document`
 * `parse_docx_document_from_package`
+* `profile_docx_document_from_package`
 * `inspect_docx_document`
 * `collect_docx_validation_issues`
 * `validate_docx_document`
@@ -33,6 +34,13 @@ Stable candidate API:
 * `collect_docx_validation_issues`
 * `validate_docx_document`
 * `classify_docx_error`
+
+Benchmark-oriented helper surface:
+
+* `profile_docx_document_from_package` exists for internal hotspot attribution
+  and benchmark tooling
+* it is not part of the main stable candidate API contract
+* it does not change the semantic document model or `convert/docx` behavior
 
 Inspect / validation API:
 

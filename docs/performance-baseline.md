@@ -28,6 +28,7 @@ Measured commands:
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -50,6 +51,10 @@ Artifacts:
   `.tmp/bench/doc_parse/xlsx_after_parse.tsv`
 * focused XLSX parse profile summary:
   `.tmp/bench/doc_parse/xlsx_profile.tsv`
+* focused DOCX parse summary:
+  `.tmp/bench/doc_parse/docx_after_parse.tsv`
+* focused DOCX parse profile summary:
+  `.tmp/bench/doc_parse/docx_profile_after.tsv`
 
 ## Outcome Summary
 
@@ -245,15 +250,70 @@ These profile rows are attribution aids only:
 
 ## Post-optimization Library Snapshot
 
-After the focused XLSX change, the full `./samples/bench_doc_parse.sh`
-slowest rows are now:
+After the focused XLSX and DOCX changes, the full
+`./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `docx_link_heavy / parse`: `8.735 ms`
-* `yaml_large / parse`: `7.039 ms`
-* `txt_large / parse`: `3.938 ms`
-* `json_large / parse`: `3.667 ms`
-* `markdown_large / scan`: `3.356 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.983 ms`
+* `yaml_large / parse`: `6.953 ms`
+* `docx_link_heavy / parse`: `4.985 ms`
+* `txt_large / parse`: `3.825 ms`
+* `json_large / parse`: `3.607 ms`
+* `markdown_large / scan`: `3.075 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.688 ms`
+
+## Focused DOCX Link-heavy Follow-up
+
+Follow-up commands:
+
+```bash
+./samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_before_parse.tsv
+./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_before.tsv
+./samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_after_parse.tsv
+./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_after.tsv
+```
+
+Before this optimization round, the checked DOCX library baseline showed:
+
+* `docx_small / parse`: `2.887 ms` avg, `2.898 ms` p50, `2.922 ms` p95
+* `docx_link_heavy / parse`: `8.735 ms` avg, `8.786 ms` p50,
+  `8.861 ms` p95
+
+The focused DOCX profile baseline before optimization showed:
+
+* `docx_small / parse`: `2.701 ms` avg
+* `docx_link_heavy / parse`: `8.216 ms` avg
+* `docx_link_heavy` stage breakdown:
+  * `body_scan`: `5.200 ms`
+  * `text_boxes`: `1.600 ms`
+  * `inline_scan`: `0.600 ms`
+  * `relationships`: `0.500 ms`
+  * `hyperlink_resolution`: `0.200 ms`
+
+After the link-heavy parse follow-up, the focused DOCX run now shows:
+
+* `docx_small / parse`: `1.867 ms` avg, `1.865 ms` p50, `1.891 ms` p95
+* `docx_link_heavy / parse`: `4.985 ms` avg, `4.930 ms` p50,
+  `5.046 ms` p95
+
+Current rounded DOCX internal profile breakdown for `docx_link_heavy`:
+
+* `body_scan`: `2.500 ms`
+* `inline_scan`: `0.600 ms`
+* `headers_footers`: `0.200 ms`
+* `document_xml`: `0.100 ms`
+* `styles`: `0.100 ms`
+* `text_boxes`: `0.000 ms`
+* `hyperlink_resolution`: `0.000 ms`
+* `media_resolution`: `0.000 ms`
+
+Interpretation:
+
+* the biggest win came from reducing repeated body-level scanning and skipping
+  no-op text-box scans on samples that do not contain any text boxes
+* relationship lookup was never the primary hotspot on this sample
+* the DOCX semantic model, relationship validation, and `convert/docx`
+  boundary stayed unchanged
+* the new profile helper only adds attribution rows for benchmarking; it does
+  not change the stable DOCX parse API surface
 
 ## What This Baseline Can And Cannot Tell Us
 
@@ -275,8 +335,9 @@ This baseline still cannot yet tell us directly:
 
 ## Current Decision
 
-This round is baseline-first.
+This round is baseline-first, but it also includes one targeted DOCX
+hot-path cleanup based on the new profile data.
 
-No hot-path behavior change was made from benchmark results alone. The next
-optimization round should start from the hotspots and measurement gaps listed
-in [`docs/performance-roadmap.md`](./performance-roadmap.md).
+The next optimization round should start from the remaining hotspots and
+measurement gaps listed in
+[`docs/performance-roadmap.md`](./performance-roadmap.md).

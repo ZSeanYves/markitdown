@@ -16,6 +16,8 @@ pub fn open_docx_document(String) -> DocxDocument raise
 
 pub fn parse_docx_document_from_package(@ooxml.OoxmlPackage) -> DocxDocument raise
 
+pub fn profile_docx_document_from_package(@ooxml.OoxmlPackage) -> DocxProfiledDocument raise
+
 pub fn validate_docx_document(DocxDocument) -> DocxValidationReport
 
 // Errors
@@ -189,6 +191,21 @@ pub struct DocxParagraph {
   runs : Array[DocxRun]
   hyperlink_refs : Array[DocxHyperlink]
   media_refs : Array[DocxMediaRef]
+}
+
+pub(all) struct DocxParseProfileReport {
+  stages : Array[DocxParseProfileStage]
+}
+
+pub(all) struct DocxParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct DocxProfiledDocument {
+  document : DocxDocument
+  report : DocxParseProfileReport
 }
 
 pub struct DocxRelationship {

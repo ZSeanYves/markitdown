@@ -82,6 +82,7 @@ Current public tooling:
 * `./samples/bench.sh --suite batch-profile`
 * `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -132,6 +133,9 @@ Key design points:
 * `--profile xlsx` adds internal XLSX parse sub-stage rows for hotspot
   attribution without changing the default benchmark manifest or parser
   semantics
+* `--profile docx` adds internal DOCX parse sub-stage rows for hotspot
+  attribution without changing the default benchmark manifest or parser
+  semantics
 
 Measured stage model:
 
@@ -152,6 +156,8 @@ Interpretation caveats:
 * stage columns still use `*_ms`, but the harness records them with sub-ms
   decimal precision
 * xlsx profile rows are stage-attribution aids, not release-facing stable API
+  or latency promises
+* docx profile rows are stage-attribution aids, not release-facing stable API
   or latency promises
 
 ## Current Baseline Commands
@@ -201,6 +207,31 @@ Current interpretation:
 * it does not change workbook semantics, formula trace policy, or validation
   behavior
 * it should not be mistaken for a stable release-facing XLSX profiling API
+
+## Focused DOCX Follow-up
+
+The current harness also includes a DOCX-specific profile mode:
+
+```bash
+./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
+```
+
+This mode exists to answer a similarly narrow question: where the time goes
+inside `parse_docx_document_from_package` on checked link-heavy samples.
+
+Current checked follow-up result:
+
+* `docx_link_heavy / parse`: `8.735 ms -> 4.985 ms`
+* main remaining stage in the profile: `body_scan`
+* `text_boxes`, `hyperlink_resolution`, and `media_resolution` are now
+  effectively no-op or near-no-op on this sample
+
+Current interpretation:
+
+* the profile is only for hotspot attribution
+* it does not change the source-native DOCX semantic model
+* it does not switch `convert/docx` normal-path ownership
+* it should not be mistaken for a stable release-facing DOCX profiling API
 
 ## Library vs CLI Guidance
 

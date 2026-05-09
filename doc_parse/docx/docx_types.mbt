@@ -350,6 +350,7 @@ priv struct DocxPartParseContext {
   rels : DocxRelationshipIndex
   source_part : String
   issues : Array[DocxValidationIssue]
+  profile_totals : DocxParseProfileTotals?
 }
 
 ///|

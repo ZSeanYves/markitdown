@@ -83,35 +83,29 @@ Track each hotspot by:
 
 Current highest-priority library rows:
 
-* `doc_parse/docx`
-  `docx_link_heavy / parse / 8.735 ms`
-  suspected owner: WordprocessingML body/inline scan plus hyperlink
-  relationship resolution
-  next action: profile repeated XML walk and hyperlink/media lookup density
-
 * `doc_parse/yaml`
-  `yaml_large / parse / 7.039 ms`
+  `yaml_large / parse / 6.953 ms`
   suspected owner: YAML-subset parser scan and tree allocation on large mapping
   input
   next action: allocation-focused parser profile before any semantic change
 
 * `doc_parse/text`
-  `txt_large / parse / 3.938 ms`
+  `txt_large / parse / 3.825 ms`
   suspected owner: newline normalization and line inventory construction
   next action: check repeated passes over large text buffers
 
 * `doc_parse/json`
-  `json_large / parse / 3.667 ms`
+  `json_large / parse / 3.607 ms`
   suspected owner: JSON tokenizer plus value-tree allocation
   next action: inspect allocation churn in object/array recursion
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.356 ms`
+  `markdown_large / scan / 3.075 ms`
   suspected owner: line scanner and raw block inventory traversal
   next action: confirm whether fence/frontmatter/block classification performs
   duplicate scans
 
-Recent focused follow-up result:
+Recent focused follow-up results:
 
 * `doc_parse/xlsx`
   `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 2.983 ms`
@@ -121,7 +115,18 @@ Recent focused follow-up result:
   `collect_cells ~0.9 ms`, `formula_eval ~0.7 ms`, `read_xml ~0.6 ms`,
   `resolve_cells ~0.5 ms`, `formula_context ~0.2 ms`
   next action: keep XLSX on the watch list, but shift active optimization
-  priority to DOCX and YAML first
+  priority to YAML first
+
+* `doc_parse/docx`
+  `docx_link_heavy / parse / 8.735 ms -> 4.985 ms`
+  owner confirmed: repeated body-level XML cleanup/traversal and no-op
+  text-box scanning on a link-heavy sample without text boxes, not
+  relationship lookup
+  remaining breakdown on the checked sample:
+  `body_scan ~2.6 ms`, `hyperlink_resolution ~0.3 ms`,
+  `headers_footers ~0.2 ms`, `inline_scan ~0.2 ms`
+  next action: keep DOCX on the watch list, but shift active optimization
+  priority to YAML first and then reassess text/json/markdown parse costs
 
 Lower-priority library observations:
 
@@ -132,6 +137,8 @@ Lower-priority library observations:
   in parse/scan stages, not in inspect/validate traversal
 * the XLSX formula-heavy row is no longer the lead library hotspot after the
   focused context-reuse fix
+* the DOCX link-heavy row is no longer the lead library hotspot after the
+  focused body-scan and text-box-scan cleanup
 
 ## CLI/Product-Path Interpretation
 

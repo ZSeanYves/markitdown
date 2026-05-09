@@ -81,6 +81,10 @@
   `xlsx_formula_heavy_missing_cache` library parse row from `14.367 ms` to
   about `2.9 ms` by removing repeated per-formula sheet-context rebuilds,
   without changing XLSX conversion output or formula-trace semantics.
+* Add DOCX-specific doc_parse benchmark stage profiling and reduce the checked
+  `docx_link_heavy` library parse row from `8.735 ms` to about `5.0 ms` by
+  removing repeated body-scan and no-op text-box scanning work, without
+  changing DOCX conversion output or semantic boundaries.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.
