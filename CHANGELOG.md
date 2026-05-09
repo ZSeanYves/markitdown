@@ -209,7 +209,7 @@ This release closes the repository's first full-format H2 milestone.
 * Validation now prefers a probe-validated native CLI when available and falls
   back to `moon run` only when needed.
 * The PDF lower layer now lives under `doc_parse/pdf`, backed by a
-  repository-local maintained fork under `vendor/mbtpdf`.
+  repository-local maintained fork under `doc_parse/pdf/vendor/mbtpdf`.
 * Benchmark, batch-profiling, and regression-warning tools are available for
   H3 performance work.
 

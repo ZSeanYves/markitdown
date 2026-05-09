@@ -136,7 +136,7 @@ The native PDF lower layer lives under `doc_parse/pdf`.
 Its backend currently depends on the vendored package tree under:
 
 ```text
-vendor/mbtpdf
+doc_parse/pdf/vendor/mbtpdf
 ```
 
 This vendored tree is maintained as part of the repository rather than through
@@ -180,7 +180,7 @@ Vendored PDF e2e policy:
 * optional vendored e2e remains available through:
 
 ```bash
-moon test vendor/mbtpdf/e2e --include-skipped
+moon test doc_parse/pdf/vendor/mbtpdf/e2e --include-skipped
 ```
 
 Validation UX controls:

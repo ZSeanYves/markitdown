@@ -1,7 +1,0 @@
-import {
-  "ZSeanYves/markitdown/vendor/mbtpdf" @lib,
-}
-
-options(
-  "is-main": true,
-)

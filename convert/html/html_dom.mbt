@@ -87,7 +87,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
           }
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
+            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
 
             if tag.has_prefix("<script") {
               let j0 = find_bytes(bs, close_script, q + 1)
@@ -455,7 +455,7 @@ fn scan_li_children(
             }
 
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
+            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
 
             if tag.has_prefix("<p") {
               flush_pending_paragraph(out, pending_para)
@@ -632,7 +632,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
           }
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }).to_lower()
+            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
 
             if tag.has_prefix("<script") {
               let j0 = find_bytes(bs, close_script, q + 1)
@@ -932,7 +932,7 @@ fn normalize_table_rows(
 /// keep newlines as much as possible, only strip tags and unescape
 fn html_pre_text_from_bytes(inner : Bytes) -> String {
   let text_bs = strip_tags_bytes(inner)
-  let s0 = @cor.utf8_bytes_to_string(text_bs) catch { _ => "" }
+  let s0 = @utf8.decode(text_bs, ignore_bom=false) catch { _ => "" }
 
   html_unescape(s0.replace(old="\r\n", new="\n").replace(old="\r", new="\n"))
   .trim()
@@ -971,7 +971,7 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
           }
           Some(j0) => {
             let tag_bs = inner[i0:j0 + 1].to_owned()
-            let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
             let tag = tag0.to_lower()
 
             if tag.has_prefix("<br") {
@@ -1034,7 +1034,7 @@ fn push_text_inline(out : Array[HtmlInline], bs : Bytes) -> Unit {
   if bs.length() == 0 {
     return
   }
-  let s0 = @cor.utf8_bytes_to_string(bs) catch { _ => "" }
+  let s0 = @utf8.decode(bs, ignore_bom=false) catch { _ => "" }
   let s1 = html_unescape(s0)
   let s2 = @cor.normalize_document_text_cleanup(s1)
   if s2 != "" {
@@ -1109,7 +1109,7 @@ fn find_figure_image_inline(inner : Bytes) -> HtmlInline? {
         None => None
         Some(gt0) => {
           let tag_bs = inner[i0:gt0 + 1].to_owned()
-          let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+          let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
           let src = html_unescape(
               read_html_attr_value(tag0, "src").unwrap_or(""),
             )
@@ -1347,7 +1347,7 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
 
 ///|
 fn html_table_header_rows(inner : Bytes) -> Int {
-  let text = (@cor.utf8_bytes_to_string(inner) catch { _ => "" }).to_lower()
+  let text = (@utf8.decode(inner, ignore_bom=false) catch { _ => "" }).to_lower()
   if text.contains("<thead") {
     return 1
   }
@@ -1370,7 +1370,7 @@ fn html_table_header_rows(inner : Bytes) -> Int {
             None => 0
             Some(end) => {
               let tr_inner = inner[row_start:end].to_owned()
-              let row_text = (@cor.utf8_bytes_to_string(tr_inner) catch {
+              let row_text = (@utf8.decode(tr_inner, ignore_bom=false) catch {
                 _ => ""
               }).to_lower()
               if row_text.contains("<th") {
@@ -1440,7 +1440,9 @@ fn html_table_row_from_bytes(
                 let cell_inner = tr_inner[cell_start:end].to_owned()
                 let xs = html_inlines_from_bytes(cell_inner)
                 let tag_bs = tr_inner[i0:q0 + 1].to_owned()
-                let tag0 = @cor.utf8_bytes_to_string(tag_bs) catch { _ => "" }
+                let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch {
+                  _ => ""
+                }
                 let rowspan = parse_html_positive_int_attr(
                   read_html_attr_value(tag0, "rowspan"),
                 )

@@ -114,8 +114,6 @@ pub fn trim_string(String) -> String
 
 pub fn uint64_json(UInt64) -> String
 
-pub fn utf8_bytes_to_string(Bytes) -> String raise Utf8DecodeError
-
 // Errors
 pub(all) suberror AppError {
   AppError(String)

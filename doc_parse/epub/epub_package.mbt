@@ -562,7 +562,7 @@ fn read_optional_text_part(
   }
 
   let data = @zip.read_entry(archive, raw_path) catch { _ => return None }
-  let text = @cor.utf8_bytes_to_string(data) catch { _ => return None }
+  let text = @utf8.decode(data, ignore_bom=false) catch { _ => return None }
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     None

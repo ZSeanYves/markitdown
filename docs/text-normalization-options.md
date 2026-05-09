@@ -195,13 +195,13 @@ No audited file in `vendor/mbtpdf` exposed:
 
 Audited files:
 
-* [`vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt:1)
-* [`vendor/mbtpdf/font/pdfcmap/README.mbt.md`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdfcmap/README.mbt.md:1)
-* [`vendor/mbtpdf/font/pdffont/encoding.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdffont/encoding.mbt:1)
-* [`vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt:1)
-* [`vendor/mbtpdf/text/pdftext/read.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/text/pdftext/read.mbt:350)
-* [`vendor/mbtpdf/text/pdftext/extract.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/text/pdftext/extract.mbt:1)
-* [`vendor/mbtpdf/text/pdftext/text.mbt`](/Users/winter/Documents/Moonbit/markitdown/vendor/mbtpdf/text/pdftext/text.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/pdfcmap.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/README.mbt.md`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap/README.mbt.md:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdffont/encoding.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdffont/encoding.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfglyphlist/pdfglyphlist.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/text/pdftext/read.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext/read.mbt:350)
+* [`doc_parse/pdf/vendor/mbtpdf/text/pdftext/extract.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext/extract.mbt:1)
+* [`doc_parse/pdf/vendor/mbtpdf/text/pdftext/text.mbt`](/Users/winter/Documents/Moonbit/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext/text.mbt:1)
 
 Observed capabilities:
 

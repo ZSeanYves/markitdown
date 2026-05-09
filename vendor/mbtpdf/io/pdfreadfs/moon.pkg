@@ -1,6 +1,0 @@
-import {
-  "ZSeanYves/markitdown/vendor/mbtpdf/core/pdf",
-  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfiofs",
-  "ZSeanYves/markitdown/vendor/mbtpdf/io/pdfread",
-  "moonbitlang/async/fs",
-}

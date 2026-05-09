@@ -113,14 +113,15 @@ The H3++ performance evidence is based on the prebuilt-native CLI path, not
 
 The checked-in overlap comparison uses Microsoft MarkItDown `0.1.5` on named
 local samples from `samples/benchmark/compare_corpus.tsv`. Representative
-single-run examples currently sit in roughly the `20x` to `50x` range:
+single-run examples from the latest local compare rerun sit in roughly the
+high-`30x` to high-`40x` range:
 
 | Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
 | --- | ---: | ---: | ---: |
-| XLSX formula cached values | 10 ms | 480 ms | ~48x |
-| DOCX nested lists mixed | 31 ms | 821 ms | ~26x |
-| PPTX title bullets | 18 ms | 710 ms | ~39x |
-| PDF URI link basic | 11 ms | 516 ms | ~47x |
+| XLSX formula cached values | 10 ms | 436 ms | ~44x |
+| DOCX nested lists mixed | 14 ms | 535 ms | ~38x |
+| PPTX title bullets | 11 ms | 442 ms | ~40x |
+| PDF URI link basic | 10 ms | 438 ms | ~44x |
 
 These measurements are corpus-scoped local benchmark facts, not universal
 performance claims. PDF comparison rows apply only to the native text-PDF

@@ -23,7 +23,7 @@ fn DocxPackage::read_text_optional(
   part_name : String,
 ) -> String {
   let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
-  @cor.utf8_bytes_to_string(b) catch {
+  @utf8.decode(b, ignore_bom=false) catch {
     _ => return ""
   }
 }
@@ -36,8 +36,8 @@ fn DocxPackage::read_text_required(
   let b = @ox.read_part_bytes(p.pkg, part_name) catch {
     e => fail("read_part_bytes failed: " + part_name + " : " + e.to_string())
   }
-  @cor.utf8_bytes_to_string(b) catch {
-    e => fail("utf8 decode failed: " + part_name + " : " + e.to_string())
+  @utf8.decode(b, ignore_bom=false) catch {
+    _ => fail("utf8 decode failed: " + part_name)
   }
 }
 

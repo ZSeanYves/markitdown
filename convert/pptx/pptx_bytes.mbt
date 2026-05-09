@@ -63,7 +63,7 @@ fn bytes_slice_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
   if len <= 0 {
     return ""
   }
-  @cor.utf8_bytes_to_string(bs[start:end_].to_owned())
+  @utf8.decode(bs[start:end_].to_owned(), ignore_bom=false)
 }
 
 ///|

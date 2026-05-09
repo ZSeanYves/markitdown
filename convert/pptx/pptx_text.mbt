@@ -36,7 +36,7 @@ fn extract_text_runs_impl(
             }
 
             let seg = xml[content_start:t1i].to_owned()
-            let s = @cor.utf8_bytes_to_string(seg) catch { _ => "" }
+            let s = @utf8.decode(seg, ignore_bom=false) catch { _ => "" }
 
             acc = acc + s
             tpos = t1i + close_t.length()

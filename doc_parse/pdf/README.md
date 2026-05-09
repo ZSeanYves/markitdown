@@ -62,7 +62,8 @@ Text-normalization boundary:
   side; `doc_parse/pdf` consumes it as a pure-string cleanup substrate rather
   than re-implementing parallel post-text replacement chains.
 - It does not own project-wide canonical normalization policy and should not
-  push shared cross-format cleanup rules down into `vendor/mbtpdf`.
+  push shared cross-format cleanup rules down into
+  `doc_parse/pdf/vendor/mbtpdf`.
 - Contextual PDF repair such as span glue, line-wrap hyphen repair, page-edge
   artifact handling, and other geometry/source-ref heuristics stays local to
   `doc_parse/pdf` and is not a core text-normalization responsibility.
@@ -85,7 +86,7 @@ Recent backend work:
 - V2.0: raw/model pages gained media box, crop box, rotation, raw page refs, and raw content stream refs.
 - V2.1: vendored `Page.cropbox` now supports inherited `/CropBox`.
 
-The public vendor API changed in V2.1 because `vendor/mbtpdf/document/pdfpage.Page` now includes:
+The public vendor API changed in V2.1 because `doc_parse/pdf/vendor/mbtpdf/document/pdfpage.Page` now includes:
 
 ```moonbit
 cropbox : PdfObject?

@@ -23,7 +23,7 @@ fn PptxPackage::read_text_optional(
   part_name : String,
 ) -> String {
   let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
-  @cor.utf8_bytes_to_string(b) catch {
+  @utf8.decode(b, ignore_bom=false) catch {
     _ => return ""
   }
 }
