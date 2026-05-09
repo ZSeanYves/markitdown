@@ -81,6 +81,7 @@ Current public tooling:
 * `./samples/bench.sh --suite compare`
 * `./samples/bench.sh --suite batch-profile`
 * `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
+* `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -128,6 +129,9 @@ Key design points:
   `convert/*`
 * the checked manifest lives at `samples/doc_parse_bench/manifest.tsv`
 * summary artifacts are written under `.tmp/bench/doc_parse/`
+* `--profile xlsx` adds internal XLSX parse sub-stage rows for hotspot
+  attribution without changing the default benchmark manifest or parser
+  semantics
 
 Measured stage model:
 
@@ -147,6 +151,8 @@ Interpretation caveats:
   one artificial shape
 * stage columns still use `*_ms`, but the harness records them with sub-ms
   decimal precision
+* xlsx profile rows are stage-attribution aids, not release-facing stable API
+  or latency promises
 
 ## Current Baseline Commands
 
@@ -177,6 +183,24 @@ Interpretation notes stay the same:
   timing and hotspot attribution
 * any row above 10ms in the current smoke benchmark is a hotspot candidate,
   not automatic evidence of a `doc_parse` regression by itself
+
+## Focused XLSX Follow-up
+
+The current harness now includes an XLSX-specific profile mode:
+
+```bash
+./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
+```
+
+This mode exists to answer a narrow question: where the time goes inside
+`parse_xlsx_workbook_from_package` on checked formula-heavy samples.
+
+Current interpretation:
+
+* the profile is only for hotspot attribution
+* it does not change workbook semantics, formula trace policy, or validation
+  behavior
+* it should not be mistaken for a stable release-facing XLSX profiling API
 
 ## Library vs CLI Guidance
 

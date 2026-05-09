@@ -10,12 +10,15 @@ DEFAULT_OUTPUT="$RESULT_ROOT/summary.tsv"
 usage() {
   cat <<'EOF'
 Usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--output PATH]
+       ./samples/bench_doc_parse.sh --format xlsx --profile xlsx --iterations 10 --warmup 2
 
 Notes:
   * This harness measures doc_parse APIs directly inside one benchmark process.
   * It does not call convert/* or the normal CLI conversion path.
   * File I/O is intentionally excluded from measured parse/inspect/validate loops
     unless a package's public API surface is itself byte/package-open oriented.
+  * --profile xlsx adds internal SpreadsheetML parse sub-stages for hotspot
+    attribution while leaving the default summary layout intact.
 EOF
 }
 

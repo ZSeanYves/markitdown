@@ -1,20 +1,9 @@
 ///|
 fn evaluate_missing_cache_formula(
-  sheet_name : String,
   cell : XlsxCellModel,
-  cells : Array[XlsxCellModel],
+  formula_text : String,
+  context : XlsxFormulaSheetContext,
 ) -> XlsxFormulaTrace? {
-  let formula_text = match cell.formula_text {
-    Some(text) =>
-      if text.trim() == "" {
-        return None
-      } else {
-        text.trim().to_owned()
-      }
-    None => return None
-  }
-
-  let context = build_formula_sheet_context(sheet_name, cells)
   if formula_text.length() > context.max_formula_text_length {
     return Some({
       policy: XlsxFormulaPolicy::UnsupportedFormula,
@@ -74,7 +63,6 @@ fn evaluate_missing_cache_formula(
 
 ///|
 fn build_formula_sheet_context(
-  _sheet_name : String,
   cells : Array[XlsxCellModel],
 ) -> XlsxFormulaSheetContext {
   let map : Map[String, XlsxFormulaCellRecord] = Map::new()
@@ -174,8 +162,9 @@ fn eval_cell_ref(
       )
     Some(record) =>
       match record.formula_text {
-        Some(inner_formula) =>
-          if inner_formula.trim() == "" {
+        Some(inner_formula) => {
+          let trimmed_inner_formula = inner_formula.trim()
+          if trimmed_inner_formula == "" {
             return scalar_result_from_record(record, refs)
           } else if state.visited.get(label) == Some(true) {
             return XlsxFormulaEvalResult::Error(
@@ -187,7 +176,7 @@ fn eval_cell_ref(
             return scalar_result_from_record(record, refs)
           } else {
             let ast = match
-              parse_xlsx_formula_text(inner_formula.trim().to_owned()) {
+              parse_xlsx_formula_text(trimmed_inner_formula.to_owned()) {
               Ok(v) => v
               Err(reason) =>
                 return XlsxFormulaEvalResult::Unsupported(
@@ -201,6 +190,7 @@ fn eval_cell_ref(
             ignore(state.visited.remove(label))
             return prepend_formula_ref(nested, label)
           }
+        }
         None => return scalar_result_from_record(record, refs)
       }
   }

@@ -83,47 +83,55 @@ Track each hotspot by:
 
 Current highest-priority library rows:
 
-* `doc_parse/xlsx`
-  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms`
-  suspected owner: SpreadsheetML semantic parse plus conservative
-  formula-evaluation trace on missing cached values
-  next action: isolate workbook open vs sheet parse vs formula trace cost
-
 * `doc_parse/docx`
-  `docx_link_heavy / parse / 8.631 ms`
+  `docx_link_heavy / parse / 8.735 ms`
   suspected owner: WordprocessingML body/inline scan plus hyperlink
   relationship resolution
   next action: profile repeated XML walk and hyperlink/media lookup density
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 7.181 ms`
+  `yaml_large / parse / 7.039 ms`
   suspected owner: YAML-subset parser scan and tree allocation on large mapping
   input
   next action: allocation-focused parser profile before any semantic change
 
 * `doc_parse/text`
-  `txt_large / parse / 3.769 ms`
+  `txt_large / parse / 3.938 ms`
   suspected owner: newline normalization and line inventory construction
   next action: check repeated passes over large text buffers
 
 * `doc_parse/json`
-  `json_large / parse / 3.857 ms`
+  `json_large / parse / 3.667 ms`
   suspected owner: JSON tokenizer plus value-tree allocation
   next action: inspect allocation churn in object/array recursion
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.306 ms`
+  `markdown_large / scan / 3.356 ms`
   suspected owner: line scanner and raw block inventory traversal
   next action: confirm whether fence/frontmatter/block classification performs
   duplicate scans
+
+Recent focused follow-up result:
+
+* `doc_parse/xlsx`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 2.983 ms`
+  owner confirmed: SpreadsheetML formula-heavy parse path, specifically
+  repeated per-formula sheet-context rebuild before the current fix
+  remaining breakdown on the checked sample:
+  `collect_cells ~0.9 ms`, `formula_eval ~0.7 ms`, `read_xml ~0.6 ms`,
+  `resolve_cells ~0.5 ms`, `formula_context ~0.2 ms`
+  next action: keep XLSX on the watch list, but shift active optimization
+  priority to DOCX and YAML first
 
 Lower-priority library observations:
 
 * `inspect` and `validate` rows are mostly sub-`1 ms`
 * `zip`, `ooxml`, and `epub` `open` rows are currently sub-`1 ms` on the
   checked small/large manifest files
-* the current library baseline suggests the main optimization headroom is in
-  parse/scan stages, not in inspect/validate traversal
+* the current library baseline still suggests the main optimization headroom is
+  in parse/scan stages, not in inspect/validate traversal
+* the XLSX formula-heavy row is no longer the lead library hotspot after the
+  focused context-reuse fix
 
 ## CLI/Product-Path Interpretation
 

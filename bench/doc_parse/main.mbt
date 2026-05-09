@@ -11,6 +11,7 @@ struct BenchConfig {
   warmup : Int
   formats : Array[String]
   stages : Array[String]
+  profile : String
 }
 
 ///|
@@ -142,6 +143,7 @@ fn parse_args(args : Array[String]) -> BenchConfig raise BenchError {
   let mut warmup = 2
   let mut formats : Array[String] = []
   let mut stages : Array[String] = []
+  let mut profile = ""
   let mut i = 0
 
   while i < args.length() {
@@ -164,6 +166,9 @@ fn parse_args(args : Array[String]) -> BenchConfig raise BenchError {
     } else if arg == "--stage" {
       i = require_value(args, i, arg)
       stages = split_csv_arg(args[i])
+    } else if arg == "--profile" {
+      i = require_value(args, i, arg)
+      profile = args[i].trim().to_owned().to_lower()
     } else if arg == "-h" || arg == "--help" {
       print_usage()
       @sys.exit(0)
@@ -173,13 +178,13 @@ fn parse_args(args : Array[String]) -> BenchConfig raise BenchError {
     i += 1
   }
 
-  { manifest, output, iterations, warmup, formats, stages }
+  { manifest, output, iterations, warmup, formats, stages, profile }
 }
 
 ///|
 fn print_usage() -> Unit {
   println(
-    "usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--output PATH]",
+    "usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--profile xlsx] [--output PATH]",
   )
 }
 
@@ -1108,6 +1113,17 @@ fn bench_xlsx_row(
       ),
     )
   }
+  if enabled_stage(row, cfg, "parse") && cfg.profile == "xlsx" {
+    bench_xlsx_profile_rows(
+      row,
+      cfg,
+      summaries,
+      runs,
+      package_name,
+      bytes.length(),
+      pkg,
+    )
+  }
   let wb = @xlsx.parse_xlsx_workbook_from_package(pkg) catch {
     e =>
       raise Failed("xlsx parse failed for " + row.path + " : " + e.to_string())
@@ -1145,6 +1161,92 @@ fn bench_xlsx_row(
         },
       ),
     )
+  }
+}
+
+///|
+fn bench_xlsx_profile_rows(
+  row : ManifestRow,
+  cfg : BenchConfig,
+  summaries : Array[BenchSummaryRow],
+  runs : Array[BenchRunRow],
+  package_name : String,
+  bytes : Int,
+  pkg : @ooxml.OoxmlPackage,
+) -> Unit raise BenchError {
+  let profile_runs : Array[BenchRunRow] = []
+  let stage_order : Array[String] = []
+  let stage_notes : Map[String, String] = Map::new()
+
+  for _ in 0..<cfg.warmup {
+    ignore(
+      @xlsx.profile_xlsx_workbook_from_package(pkg) catch {
+        e =>
+          raise Failed(
+            "xlsx profile parse failed for " + row.path + " : " + e.to_string(),
+          )
+      },
+    )
+  }
+
+  for i in 0..<cfg.iterations {
+    let profiled = @xlsx.profile_xlsx_workbook_from_package(pkg) catch {
+      e =>
+        raise Failed(
+          "xlsx profile parse failed for " + row.path + " : " + e.to_string(),
+        )
+    }
+    for stage in profiled.report.stages {
+      let stage_name = "profile:" + stage.name
+      if stage_notes.get(stage_name) == None {
+        stage_order.push(stage_name)
+        stage_notes.set(stage_name, xlsx_profile_stage_notes(stage.detail))
+      }
+      let run = {
+        format: row.format,
+        package_name,
+        sample: row.label,
+        size_class: row.size_class,
+        stage: stage_name,
+        iteration: i + 1,
+        elapsed_us: stage.elapsed_ms.to_int() * 1000,
+        bytes,
+        notes: stage_notes.get(stage_name).unwrap_or(""),
+      }
+      runs.push(run)
+      profile_runs.push(run)
+    }
+  }
+
+  for stage_name in stage_order {
+    let timings : Array[Int] = []
+    let notes = stage_notes.get(stage_name).unwrap_or("")
+    for run in profile_runs {
+      if run.stage == stage_name {
+        timings.push(run.elapsed_us)
+      }
+    }
+    if timings.length() > 0 {
+      summaries.push(
+        summary_row_from_timings(
+          row, package_name, stage_name, bytes, notes, timings,
+        ),
+      )
+    }
+  }
+}
+
+///|
+fn xlsx_profile_stage_notes(detail : String?) -> String {
+  let base = "xlsx internal parse sub-stage from profile_xlsx_workbook_from_package; durations are rounded to package-local milliseconds"
+  match detail {
+    Some(text) =>
+      if text.trim() == "" {
+        base
+      } else {
+        base + " detail=" + text.trim().to_owned()
+      }
+    None => base
   }
 }
 
@@ -1322,7 +1424,6 @@ fn measure_stage(
   action : () -> Result[Unit, BenchError],
 ) -> BenchSummaryRow raise BenchError {
   let timings : Array[Int] = []
-  let mut total_us = 0
 
   for _ in 0..<cfg.warmup {
     match action() {
@@ -1339,7 +1440,6 @@ fn measure_stage(
     }
     let elapsed_us = elapsed_us_since(started)
     timings.push(elapsed_us)
-    total_us += elapsed_us
     runs.push({
       format: row.format,
       package_name,
@@ -1353,12 +1453,26 @@ fn measure_stage(
     })
   }
 
+  summary_row_from_timings(row, package_name, stage, bytes, notes, timings)
+}
+
+///|
+fn summary_row_from_timings(
+  row : ManifestRow,
+  package_name : String,
+  stage : String,
+  bytes : Int,
+  notes : String,
+  timings : Array[Int],
+) -> BenchSummaryRow {
+  let total_us = sum_timings_us(timings)
   let sorted = clone_int_array(timings)
   sorted.sort()
-  let avg_us = if cfg.iterations <= 0 {
+  let iterations = timings.length()
+  let avg_us = if iterations <= 0 {
     0
   } else {
-    (total_us + cfg.iterations / 2) / cfg.iterations
+    (total_us + iterations / 2) / iterations
   }
   {
     format: row.format,
@@ -1366,7 +1480,7 @@ fn measure_stage(
     sample: row.label,
     size_class: row.size_class,
     stage,
-    iterations: cfg.iterations,
+    iterations,
     total_us,
     avg_us,
     min_us: sorted[0],
@@ -1376,6 +1490,15 @@ fn measure_stage(
     bytes,
     notes,
   }
+}
+
+///|
+fn sum_timings_us(timings : Array[Int]) -> Int {
+  let mut total_us = 0
+  for elapsed_us in timings {
+    total_us += elapsed_us
+  }
+  total_us
 }
 
 ///|

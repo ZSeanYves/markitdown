@@ -22,6 +22,22 @@ pub fn open_xlsx_workbook(path : String) -> XlsxWorkbook raise {
 }
 
 ///|
+/// Benchmark-oriented profiled parse helper used for internal hotspot
+/// attribution.
+///
+/// This does not change the semantic workbook model or conversion behavior.
+pub fn profile_xlsx_workbook_from_package(
+  pkg : @ox.OoxmlPackage,
+) -> XlsxProfiledWorkbook raise {
+  let report = new_xlsx_parse_profile_report()
+  let workbook = parse_xlsx_workbook_from_package_with_profile(
+    pkg,
+    Some(report),
+  )
+  { workbook, report }
+}
+
+///|
 /// Parse an already-open OOXML package into an XLSX semantic workbook model.
 ///
 /// RichTable lowering, Markdown output, and sheet-heading product policy stay
@@ -29,12 +45,28 @@ pub fn open_xlsx_workbook(path : String) -> XlsxWorkbook raise {
 pub fn parse_xlsx_workbook_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> XlsxWorkbook raise {
+  parse_xlsx_workbook_from_package_with_profile(pkg, None)
+}
+
+///|
+fn parse_xlsx_workbook_from_package_with_profile(
+  pkg : @ox.OoxmlPackage,
+  profile : XlsxParseProfileReport?,
+) -> XlsxWorkbook raise {
+  let workbook_started = xlsx_parse_profile_stage_started(profile)
   let workbook_xml = @ox.read_part_text(pkg, "xl/workbook.xml") catch {
     @ox.MissingPart(path) =>
       raise XlsxError::OoxmlFailure("missing workbook part: " + path)
     e => raise XlsxError::OoxmlFailure(e.to_string())
   }
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "workbook_xml",
+    workbook_started,
+    Some("bytes=" + workbook_xml.length().to_string()),
+  )
 
+  let shared_strings_started = xlsx_parse_profile_stage_started(profile)
   let shared_strings = if @ox.has_part(pkg, "xl/sharedStrings.xml") {
     let shared_xml = @ox.read_part_text(pkg, "xl/sharedStrings.xml") catch {
       e =>
@@ -46,7 +78,14 @@ pub fn parse_xlsx_workbook_from_package(
   } else {
     []
   }
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "shared_strings",
+    shared_strings_started,
+    Some("count=" + shared_strings.length().to_string()),
+  )
 
+  let styles_started = xlsx_parse_profile_stage_started(profile)
   let styles = if @ox.has_part(pkg, "xl/styles.xml") {
     let styles_xml = @ox.read_part_text(pkg, "xl/styles.xml") catch {
       e => raise XlsxError::ParseError("styles read failed: " + e.to_string())
@@ -55,9 +94,34 @@ pub fn parse_xlsx_workbook_from_package(
   } else {
     empty_styles()
   }
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "styles",
+    styles_started,
+    Some(
+      "xf_numfmts=" +
+      styles.xf_numfmts.length().to_string() +
+      " custom_numfmts=" +
+      styles.custom_numfmts.length().to_string(),
+    ),
+  )
 
+  let workbook_flags_started = xlsx_parse_profile_stage_started(profile)
   let uses_date_1904 = workbook_uses_date_1904(workbook_xml)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "workbook_flags",
+    workbook_flags_started,
+    Some("uses_date_1904=" + uses_date_1904.to_string()),
+  )
+  let sheet_infos_started = xlsx_parse_profile_stage_started(profile)
   let sheet_infos = parse_workbook_sheets(pkg, workbook_xml)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet_infos",
+    sheet_infos_started,
+    Some("count=" + sheet_infos.length().to_string()),
+  )
   let sheets : Array[XlsxSheet] = []
 
   for info in sheet_infos {
@@ -113,6 +177,7 @@ pub fn parse_xlsx_workbook_from_package(
       continue
     }
 
+    let sheet_xml_started = xlsx_parse_profile_stage_started(profile)
     let sheet_xml = @ox.read_part_text(pkg, normalized_target) catch {
       _ => {
         sheets.push(
@@ -140,6 +205,12 @@ pub fn parse_xlsx_workbook_from_package(
         continue
       }
     }
+    xlsx_parse_profile_stage_finished(
+      profile,
+      "sheet:" + info.name + ":read_xml",
+      sheet_xml_started,
+      Some("bytes=" + sheet_xml.length().to_string()),
+    )
 
     let sheet = parse_sheet_model(
       info.name,
@@ -152,17 +223,21 @@ pub fn parse_xlsx_workbook_from_package(
       shared_strings,
       styles,
       uses_date_1904,
+      profile,
     )
     sheets.push(sheet)
   }
 
-  {
-    shared_strings,
-    styles,
-    uses_date_1904,
-    sheets,
-    issues: workbook_level_issues(sheets),
-  }
+  let issues_started = xlsx_parse_profile_stage_started(profile)
+  let issues = workbook_level_issues(sheets)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "workbook_issues",
+    issues_started,
+    Some("count=" + issues.length().to_string()),
+  )
+
+  { shared_strings, styles, uses_date_1904, sheets, issues }
 }
 
 ///|

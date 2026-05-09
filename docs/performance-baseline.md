@@ -27,6 +27,7 @@ Measured commands:
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -45,6 +46,10 @@ Artifacts:
   `.tmp/bench/doc_parse/summary.tsv`
 * doc_parse library raw runs:
   `.tmp/bench/doc_parse/summary.runs.tsv`
+* focused XLSX parse summary:
+  `.tmp/bench/doc_parse/xlsx_after_parse.tsv`
+* focused XLSX parse profile summary:
+  `.tmp/bench/doc_parse/xlsx_profile.tsv`
 
 ## Outcome Summary
 
@@ -193,6 +198,62 @@ Small-case rows above `10 ms` in the library harness:
 Rows above `10 ms` anywhere in the current library harness:
 
 * `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms`
+
+## Focused XLSX Formula-heavy Follow-up
+
+Follow-up commands:
+
+```bash
+./samples/bench_doc_parse.sh --format xlsx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_after_parse.tsv
+./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_profile.tsv
+```
+
+Before this optimization round, the checked XLSX library baseline showed:
+
+* `xlsx_small / parse`: `0.200 ms` avg, `0.198 ms` p50, `0.217 ms` p95
+* `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms` avg,
+  `13.316 ms` p50, `21.843 ms` p95
+
+After the formula-heavy parse follow-up, the focused XLSX run now shows:
+
+* `xlsx_small / parse`: `0.222 ms` avg, `0.222 ms` p50, `0.228 ms` p95
+* `xlsx_formula_heavy_missing_cache / parse`: `2.929 ms` avg,
+  `2.932 ms` p50, `2.996 ms` p95
+
+Interpretation:
+
+* the formula-heavy row is now below the current small-case `<10 ms` library
+  target band
+* the small workbook row remains in the same sub-millisecond range
+* the hotspot moved from “formula-heavy XLSX dominates the library harness” to
+  “DOCX and YAML now lead the remaining parse-cost queue”
+
+Current rounded XLSX internal profile breakdown for
+`xlsx_formula_heavy_missing_cache`:
+
+* `sheet:FormulaPolicy:collect_cells`: `0.900 ms` avg
+* `sheet:FormulaPolicy:formula_eval`: `0.700 ms` avg
+* `sheet:FormulaPolicy:read_xml`: `0.600 ms` avg
+* `sheet:FormulaPolicy:resolve_cells`: `0.500 ms` avg
+* `sheet:FormulaPolicy:formula_context`: `0.200 ms` avg
+
+These profile rows are attribution aids only:
+
+* they are stage-local and rounded to package-local millisecond resolution
+* they do not change the semantic workbook model
+* they should not be read as cross-machine guarantees
+
+## Post-optimization Library Snapshot
+
+After the focused XLSX change, the full `./samples/bench_doc_parse.sh`
+slowest rows are now:
+
+* `docx_link_heavy / parse`: `8.735 ms`
+* `yaml_large / parse`: `7.039 ms`
+* `txt_large / parse`: `3.938 ms`
+* `json_large / parse`: `3.667 ms`
+* `markdown_large / scan`: `3.356 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.983 ms`
 
 ## What This Baseline Can And Cannot Tell Us
 

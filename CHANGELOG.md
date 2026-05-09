@@ -77,6 +77,10 @@
 * Record the first direct `doc_parse/*` library baseline and hotspot
   attribution, and clarify how it differs from the existing CLI/product-path
   benchmark results.
+* Add XLSX-specific doc_parse benchmark stage profiling and reduce the checked
+  `xlsx_formula_heavy_missing_cache` library parse row from `14.367 ms` to
+  about `2.9 ms` by removing repeated per-formula sheet-context rebuilds,
+  without changing XLSX conversion output or formula-trace semantics.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.
