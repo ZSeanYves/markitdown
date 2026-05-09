@@ -19,6 +19,27 @@ Stable candidate API:
 * `inspect_text_document`
 * `classify_text_error`
 
+Minimal examples:
+
+```moonbit
+let doc = @text.parse_text_document("alpha\n\nbeta\n")
+let report = @text.inspect_text_document(doc)
+
+println("lines=" + report.line_count.to_string())
+println("paragraphs=" + report.paragraph_count.to_string())
+```
+
+```moonbit
+let bytes = "hello\r\nworld\r\n".to_bytes()
+let doc = @text.open_text_document(bytes)
+println(doc.newline_style.to_string())
+```
+
+Build on top:
+
+* text chunkers, newline/BOM auditors, and custom literal-text preprocessors
+  can reuse `TextDocument` directly without invoking `convert/txt`
+
 Debug / inspect API:
 
 * `inspect_text_document`
@@ -78,6 +99,12 @@ Known limits:
 
 * low-signal detection is heuristic and inspect-only
 * parser entry does not own final normalization/output policy
+
+Performance note:
+
+* direct string/bytes parsing is intended to be lightweight for small text
+  inputs
+* CLI timings should still be read separately from direct package timings
 
 Versioning note:
 

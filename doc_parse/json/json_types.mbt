@@ -1,9 +1,11 @@
 ///|
+/// Hard parse failures for the JSON parser.
 pub(all) suberror JsonError {
   ParseError(String)
 }
 
 ///|
+/// Source-native JSON values.
 pub(all) enum JsonValue {
   Object(Array[JsonMember])
   Array(Array[JsonValue])
@@ -20,6 +22,7 @@ pub struct JsonMember {
 }
 
 ///|
+/// A parsed JSON document rooted at a single JSON value.
 pub struct JsonDocument {
   root : JsonValue
 }
@@ -44,12 +47,14 @@ pub(all) enum JsonErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard JSON parse failures.
 pub struct JsonErrorInfo {
   kind : JsonErrorKind
   detail : String
 }
 
 ///|
+/// Structural summary for a parsed JSON document.
 pub struct JsonInspectReport {
   node_count : Int
   object_count : Int

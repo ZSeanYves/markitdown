@@ -1,4 +1,5 @@
 ///|
+/// Raw block classes reported by the lightweight Markdown scanner.
 pub(all) enum MarkdownBlockKind {
   ParagraphLike
   HeadingAtx
@@ -14,6 +15,7 @@ pub(all) enum MarkdownBlockKind {
 } derive(Eq)
 
 ///|
+/// Frontmatter kinds recognized by the lightweight scanner.
 pub(all) enum MarkdownFrontmatterKind {
   Yaml
   Toml
@@ -21,6 +23,7 @@ pub(all) enum MarkdownFrontmatterKind {
 } derive(Eq)
 
 ///|
+/// Frontmatter captured from the top of a Markdown source file.
 pub struct MarkdownFrontmatter {
   kind : MarkdownFrontmatterKind
   line_start : Int
@@ -30,6 +33,7 @@ pub struct MarkdownFrontmatter {
 }
 
 ///|
+/// Raw fenced-code details preserved by the scanner.
 pub struct MarkdownFencedCodeInfo {
   fence_char : Char
   fence_length : Int
@@ -38,6 +42,7 @@ pub struct MarkdownFencedCodeInfo {
 }
 
 ///|
+/// A raw Markdown block inventory entry.
 pub struct MarkdownBlock {
   kind : MarkdownBlockKind
   line_start : Int
@@ -47,6 +52,7 @@ pub struct MarkdownBlock {
 }
 
 ///|
+/// Scanner result for a Markdown source document.
 pub struct MarkdownDocument {
   source_length : Int
   line_count : Int
@@ -70,6 +76,8 @@ pub(all) enum MarkdownValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues surfaced by the scanner without turning scanning into a
+/// hard parse failure.
 pub struct MarkdownValidationIssue {
   kind : MarkdownValidationIssueKind
   severity : MarkdownValidationSeverity
@@ -79,6 +87,7 @@ pub struct MarkdownValidationIssue {
 }
 
 ///|
+/// Aggregated validation report for Markdown scanner issues.
 pub struct MarkdownValidationReport {
   issue_count : Int
   warning_count : Int
@@ -87,6 +96,7 @@ pub struct MarkdownValidationReport {
 }
 
 ///|
+/// Structural summary for a scanned Markdown document.
 pub struct MarkdownInspectReport {
   line_count : Int
   block_count : Int

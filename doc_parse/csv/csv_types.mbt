@@ -1,4 +1,5 @@
 ///|
+/// Hard parse failures for the CSV parser.
 pub(all) suberror CsvError {
   ParseError(String)
 }
@@ -10,6 +11,7 @@ pub(all) enum CsvDelimiter {
 } derive(Eq)
 
 ///|
+/// Parsing options for delimiter, quoting, and ragged-row handling.
 pub struct CsvParseOptions {
   delimiter : CsvDelimiter
   quote_char : Char
@@ -19,6 +21,7 @@ pub struct CsvParseOptions {
 }
 
 ///|
+/// Parsed CSV rows with original line provenance.
 pub struct CsvRow {
   fields : Array[String]
   original_field_count : Int
@@ -27,6 +30,7 @@ pub struct CsvRow {
 }
 
 ///|
+/// Source-native CSV table model.
 pub struct CsvDocument {
   delimiter : CsvDelimiter
   rows : Array[CsvRow]
@@ -41,6 +45,7 @@ pub(all) enum CsvErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard CSV parse failures.
 pub struct CsvErrorInfo {
   kind : CsvErrorKind
   detail : String
@@ -58,6 +63,7 @@ pub(all) enum CsvValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues reported without turning the parse into a hard failure.
 pub struct CsvValidationIssue {
   kind : CsvValidationIssueKind
   severity : CsvValidationSeverity
@@ -68,6 +74,7 @@ pub struct CsvValidationIssue {
 }
 
 ///|
+/// Aggregated CSV validation report.
 pub struct CsvValidationReport {
   row_count : Int
   column_count : Int
@@ -78,6 +85,7 @@ pub struct CsvValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed CSV document.
 pub struct CsvInspectReport {
   delimiter : CsvDelimiter
   row_count : Int

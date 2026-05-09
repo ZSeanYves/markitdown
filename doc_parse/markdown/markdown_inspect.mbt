@@ -1,4 +1,5 @@
 ///|
+/// Return Markdown scanner findings as explicit validation issues.
 pub fn collect_markdown_validation_issues(
   doc : MarkdownDocument,
 ) -> Array[MarkdownValidationIssue] {
@@ -6,6 +7,7 @@ pub fn collect_markdown_validation_issues(
 }
 
 ///|
+/// Aggregate Markdown validation counts and issues into a deterministic report.
 pub fn validate_markdown_document(
   doc : MarkdownDocument,
 ) -> MarkdownValidationReport {
@@ -22,6 +24,7 @@ pub fn validate_markdown_document(
 }
 
 ///|
+/// Summarize structure for a scanned Markdown document.
 pub fn inspect_markdown_document(
   doc : MarkdownDocument,
 ) -> MarkdownInspectReport {

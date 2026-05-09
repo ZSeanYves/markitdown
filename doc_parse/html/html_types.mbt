@@ -1,9 +1,11 @@
 ///|
+/// Hard parse failures for the tolerant HTML parser foundation.
 pub(all) suberror HtmlError {
   ParseError(String)
 }
 
 ///|
+/// Line-based source span for HTML tokens and nodes.
 pub struct HtmlSourceSpan {
   line_start : Int
   line_end : Int
@@ -17,6 +19,7 @@ pub(all) enum HtmlAttributeQuoteStyle {
 } derive(Eq)
 
 ///|
+/// Public tokenizer output for tolerant HTML scanning.
 pub(all) enum HtmlToken {
   StartTag(String, Array[HtmlAttribute], Bool, HtmlSourceSpan)
   EndTag(String, HtmlSourceSpan)
@@ -26,6 +29,7 @@ pub(all) enum HtmlToken {
 }
 
 ///|
+/// Source-native HTML nodes preserved by the DOM-ish parser.
 pub(all) enum HtmlNode {
   Element(HtmlElement)
   Text(HtmlText)
@@ -34,6 +38,7 @@ pub(all) enum HtmlNode {
 }
 
 ///|
+/// Parsed HTML attributes with raw quote-style provenance.
 pub struct HtmlAttribute {
   name : String
   value : String
@@ -42,6 +47,7 @@ pub struct HtmlAttribute {
 }
 
 ///|
+/// Parsed HTML element nodes with preserved child structure.
 pub struct HtmlElement {
   tag_name : String
   attributes : Array[HtmlAttribute]
@@ -69,6 +75,7 @@ pub struct HtmlDoctype {
 }
 
 ///|
+/// Tolerantly parsed HTML document with validation issues kept explicitly.
 pub struct HtmlDocument {
   nodes : Array[HtmlNode]
   source_length : Int
@@ -88,6 +95,7 @@ pub(all) enum HtmlErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard HTML parse failures.
 pub struct HtmlErrorInfo {
   kind : HtmlErrorKind
   detail : String
@@ -112,6 +120,7 @@ pub(all) enum HtmlValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues surfaced after a successful tolerant HTML parse.
 pub struct HtmlValidationIssue {
   kind : HtmlValidationIssueKind
   severity : HtmlValidationSeverity
@@ -122,6 +131,7 @@ pub struct HtmlValidationIssue {
 }
 
 ///|
+/// Aggregated validation report for a parsed HTML document.
 pub struct HtmlValidationReport {
   issue_count : Int
   warning_count : Int
@@ -130,6 +140,7 @@ pub struct HtmlValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed HTML document.
 pub struct HtmlInspectReport {
   node_count : Int
   element_count : Int

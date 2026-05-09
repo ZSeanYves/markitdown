@@ -23,6 +23,39 @@ Stable candidate API:
 * `validate_html_document`
 * `classify_html_error`
 
+Minimal examples:
+
+```moonbit
+let doc = @html.parse_html_document("<h1>Hello</h1><p>world</p>")
+let report = @html.inspect_html_document(doc)
+
+println("elements=" + report.element_count.to_string())
+println("headings=" + report.heading_element_count.to_string())
+```
+
+```moonbit
+let doc = @html.parse_html_document("<a href=\"javascript:alert(1)\">x</a>")
+for issue in @html.collect_html_validation_issues(doc) {
+  println(issue.message)
+}
+```
+
+```moonbit
+let _ = @html.parse_html_document("<div") catch {
+  err => {
+    let info = @html.classify_html_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @html.parse_html_document("<fallback></fallback>")
+  }
+}
+```
+
+Build on top:
+
+* DOM-ish structure inspectors, unsafe-link scanners, and custom
+  HTML-to-private-IR converters can sit directly on this model
+
 Compatibility surface:
 
 * `HtmlDocument`
@@ -157,6 +190,12 @@ Known limits:
 * namespaces, CSS cascade/layout, script execution, and remote resources are
   out of scope
 * no full HTML5 tree-construction or browser-correction claim is made
+
+Performance note:
+
+* small tokenizer/parser paths are intended to be cheap, but tolerant repair
+  and validation still remain enabled
+* browser-grade timing comparisons are out of scope for this package
 
 Testing:
 

@@ -1,4 +1,5 @@
 ///|
+/// Tokenize HTML source into raw tolerant HTML tokens.
 pub fn tokenize_html_document(text : String) -> Array[HtmlToken] raise {
   let normalized = normalize_html_source(text)
   let tokenizer = HtmlTokenizer::{

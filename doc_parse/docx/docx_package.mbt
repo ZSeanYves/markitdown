@@ -1,4 +1,5 @@
 ///|
+/// Open a `.docx` file from disk and parse it into a semantic document model.
 pub fn open_docx_document(path : String) -> DocxDocument raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise DocxError::OpenFailed(path + ": " + e.to_string())
@@ -10,6 +11,11 @@ pub fn open_docx_document(path : String) -> DocxDocument raise {
 }
 
 ///|
+/// Parse an already-open OOXML package into a source-native DOCX semantic
+/// model.
+///
+/// Final heading, list, table, caption, asset, and Markdown product policy
+/// remain in `convert/docx`.
 pub fn parse_docx_document_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> DocxDocument raise {
@@ -259,6 +265,7 @@ pub fn parse_docx_document_from_package(
 }
 
 ///|
+/// Classify a hard DOCX open or parse failure into a stable error kind.
 pub fn classify_docx_error(err : DocxError) -> DocxErrorInfo {
   let detail = err.to_string()
   let lowered = detail.to_lower()

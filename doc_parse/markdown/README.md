@@ -20,6 +20,28 @@ Stable candidate API:
 * `collect_markdown_validation_issues`
 * `validate_markdown_document`
 
+Minimal examples:
+
+```moonbit
+let doc = @markdown.scan_markdown_document("---\ntitle: demo\n---\n# Hello\n")
+let report = @markdown.inspect_markdown_document(doc)
+
+println("frontmatter=" + report.frontmatter_count.to_string())
+println("headings=" + report.heading_count.to_string())
+```
+
+```moonbit
+let doc = @markdown.scan_markdown_document("```moonbit\nlet x = 1\n")
+for issue in @markdown.collect_markdown_validation_issues(doc) {
+  println(issue.kind.to_string())
+}
+```
+
+Build on top:
+
+* frontmatter scanners, fenced-code auditors, raw block inventory tools, and
+  custom chunkers can reuse this scanner without touching passthrough output
+
 Compatibility surface:
 
 * `MarkdownDocument`
@@ -123,6 +145,12 @@ Known limits:
 * scanner findings do not mutate passthrough output or converter policy
 * the scanner is intentionally lightweight and line-oriented rather than a
   CommonMark AST renderer
+
+Performance note:
+
+* this scanner is designed to stay lightweight on small source files
+* by design there is no hard parse-error classifier; malformed findings are
+  carried as validation issues and inspect signals instead
 
 Testing:
 

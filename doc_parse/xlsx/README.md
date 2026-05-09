@@ -41,6 +41,41 @@ Inspect / validation API:
 * `collect_xlsx_validation_issues`
 * `validate_xlsx_workbook`
 
+Minimal examples:
+
+```moonbit
+let wb = @xlsx.open_xlsx_workbook("samples/benchmark/xlsx/xlsx_small.xlsx")
+let report = @xlsx.inspect_xlsx_workbook(wb)
+
+println("sheets=" + report.sheet_count.to_string())
+println("cells=" + report.cell_count.to_string())
+```
+
+```moonbit
+for sheet in wb.sheets {
+  println(sheet.name)
+  for cell in sheet.cells {
+    println(cell.reference + " = " + cell.display_text)
+  }
+}
+```
+
+```moonbit
+let _ = @xlsx.open_xlsx_workbook("missing.xlsx") catch {
+  err => {
+    let info = @xlsx.classify_xlsx_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @xlsx.open_xlsx_workbook("samples/benchmark/xlsx/xlsx_small.xlsx")
+  }
+}
+```
+
+Build on top:
+
+* workbook analyzers, formula auditors, sheet inventory tools, and custom cell
+  loaders can consume `XlsxWorkbook` directly without pulling in `RichTable`
+
 Compatibility surface:
 
 * `XlsxWorkbook`
@@ -127,6 +162,13 @@ Known limits:
 * charts, pivots, comments, macros, and external links remain out of scope
 * current workbook/sheet/cell field layout is an in-tree candidate
   compatibility surface, not a promise of full standalone Excel semantics
+
+Performance note:
+
+* package and XML parsing costs are heavier than lightweight text formats, so
+  benchmark this layer separately from final table/Markdown lowering
+* current public benchmarks are still product-path timings first, not isolated
+  `doc_parse/xlsx` library timings
 
 Testing:
 

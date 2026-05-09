@@ -1,4 +1,7 @@
 ///|
+/// Parse HTML text into a tolerant, source-native DOM-ish model.
+///
+/// This parser does not execute scripts, fetch remote resources, or apply CSS.
 pub fn parse_html_document(text : String) -> HtmlDocument raise {
   let normalized = normalize_html_source(text)
   let tokens = tokenize_html_document(normalized)
@@ -7,6 +10,7 @@ pub fn parse_html_document(text : String) -> HtmlDocument raise {
 }
 
 ///|
+/// Classify a hard HTML parse failure into a stable error kind.
 pub fn classify_html_error(err : HtmlError) -> HtmlErrorInfo {
   let detail = err.to_string().to_lower()
   let kind = if detail.contains("unterminated comment") {

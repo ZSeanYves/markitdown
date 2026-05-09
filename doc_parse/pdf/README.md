@@ -437,3 +437,12 @@ moon test
 ```
 
 Current sample tests are expected to show no Markdown output changes for C0 documentation/package cleanup.
+
+## Performance Note
+
+Current performance note:
+
+* native text extraction and lower-layer model building should be measured
+  separately from converter-side heading/table/caption heuristics
+* this package does not claim sub-10ms behavior for all PDF rows, and current
+  public benchmark numbers remain repository-level product timings first

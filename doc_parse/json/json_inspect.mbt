@@ -1,4 +1,5 @@
 ///|
+/// Summarize structure for a parsed JSON document.
 pub fn inspect_json_document(doc : JsonDocument) -> JsonInspectReport {
   let root_kind = json_value_kind(doc.root)
   let stats = inspect_json_value(doc.root, 1)

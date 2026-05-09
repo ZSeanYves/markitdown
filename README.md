@@ -155,6 +155,61 @@ Current module strategy:
   reading-order/layout/grouping/caption/image/IR product policy
 * none of these candidate labels claim full spec coverage
 
+## What doc_parse is
+
+`doc_parse` is the parsing foundation under `markitdown`.
+
+It provides source-native document models, structural inspection, validation
+issues, error classification, provenance where available, and safety
+boundaries for real-world document formats.
+
+It is useful for:
+
+* conversion pipelines
+* document inspection
+* validation / quality audits
+* RAG ingestion preprocessing
+* format-specific tooling
+* custom extractors and indexers on top of MoonBit
+
+It is not:
+
+* a Markdown renderer
+* an Office / PDF / browser engine
+* an OCR system
+* a full spec implementation for every format
+* the owner of final output policy
+
+## What Users Can Build On Top
+
+`doc_parse` is intentionally reusable above the lower-layer model boundary.
+
+Typical things users can build on top of it include:
+
+* document structure inspectors
+* broken-reference checkers
+* unsafe archive/path checkers
+* OOXML media and hyperlink auditors
+* EPUB spine / nav validators
+* XLSX workbook and cell analyzers
+* DOCX paragraph / table / link / image extractors
+* PPTX slide / shape / media inventories
+* HTML / XML safety scanners
+* Markdown frontmatter / fence scanners
+* custom converters into a private IR
+* chunking / indexing preprocessors for RAG pipelines
+
+## What Remains In convert
+
+The converter layer still owns product behavior above the `doc_parse` model:
+
+* final Markdown output
+* IR block / inline policy
+* assets export
+* metadata sidecar shaping
+* heading / list / table / caption / layout heuristics
+* product compatibility behavior
+
 ## Core Capabilities
 
 * unified IR across document families

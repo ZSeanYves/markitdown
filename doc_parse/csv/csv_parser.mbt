@@ -1,4 +1,5 @@
 ///|
+/// Construct explicit CSV parse options.
 pub fn new_csv_parse_options(
   delimiter : CsvDelimiter,
   quote_char : Char,
@@ -16,21 +17,25 @@ pub fn new_csv_parse_options(
 }
 
 ///|
+/// Return the default CSV parse options used by `parse_csv_document`.
 pub fn default_csv_parse_options() -> CsvParseOptions {
   new_csv_parse_options(CsvDelimiter::Comma, '"', true, true, true)
 }
 
 ///|
+/// Return TSV-compatible options while reusing the shared CSV parser.
 pub fn csv_parse_options_for_tsv() -> CsvParseOptions {
   new_csv_parse_options(CsvDelimiter::Tab, '"', true, true, true)
 }
 
 ///|
+/// Parse CSV text with the default CSV options.
 pub fn parse_csv_document(text : String) -> CsvDocument raise {
   parse_csv_with_options(text, default_csv_parse_options())
 }
 
 ///|
+/// Parse delimited text into a source-native CSV document model.
 pub fn parse_csv_with_options(
   text : String,
   options : CsvParseOptions,
@@ -40,6 +45,7 @@ pub fn parse_csv_with_options(
 }
 
 ///|
+/// Classify a hard CSV parse failure into a stable error kind.
 pub fn classify_csv_error(err : CsvError) -> CsvErrorInfo {
   let detail = err.to_string().to_lower()
   let kind = if detail.contains("unterminated quoted field") {

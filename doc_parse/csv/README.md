@@ -25,6 +25,33 @@ Stable candidate API:
 * `default_csv_parse_options`
 * `csv_parse_options_for_tsv`
 
+Minimal examples:
+
+```moonbit
+let doc = @csv.parse_csv_document("name,score\nalice,42\n")
+let report = @csv.inspect_csv_document(doc)
+let issues = @csv.collect_csv_validation_issues(doc)
+
+println("rows=" + report.row_count.to_string())
+println("issues=" + issues.length().to_string())
+```
+
+```moonbit
+let custom = @csv.new_csv_parse_options()
+custom.delimiter = @csv.CsvDelimiter::Comma
+custom.trim_fields = true
+let doc = @csv.parse_csv_with_options("a, b\n1, 2\n", custom)
+
+for row in doc.rows {
+  println(row.fields.join(" | "))
+}
+```
+
+Build on top:
+
+* ragged-row auditors, schema-ish CSV validators, and custom `CsvDocument`
+  loaders can sit directly on this model without using `convert/csv`
+
 Debug / inspect API:
 
 * `inspect_csv_document`
@@ -93,6 +120,12 @@ Known limits:
   `convert/csv`
 * exact row/field struct layout is still a compatibility surface first, even
   though it is now intentionally reusable by `convert/csv`
+
+Performance note:
+
+* small in-memory CSV parse/inspect paths are intended to stay lightweight
+* benchmark CLI numbers should still be read separately from direct package
+  usage because startup / I/O / lowering can dominate the total
 
 Testing:
 

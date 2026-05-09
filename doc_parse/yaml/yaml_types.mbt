@@ -1,9 +1,13 @@
 ///|
+/// Hard parse failures for the YAML-subset parser.
 pub(all) suberror YamlError {
   ParseError(String)
 }
 
 ///|
+/// Source-native YAML-subset values.
+///
+/// This model stays intentionally small and does not aim to cover full YAML.
 pub(all) enum YamlValue {
   Mapping(Array[YamlMember])
   Sequence(Array[YamlValue])
@@ -19,6 +23,7 @@ pub struct YamlMember {
 }
 
 ///|
+/// A parsed YAML document with an optional root node.
 pub struct YamlDocument {
   root : YamlValue?
 }
@@ -40,12 +45,14 @@ pub(all) enum YamlErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard YAML parse failures.
 pub struct YamlErrorInfo {
   kind : YamlErrorKind
   detail : String
 }
 
 ///|
+/// Structural summary for a parsed YAML-subset document.
 pub struct YamlInspectReport {
   is_empty : Bool
   node_count : Int

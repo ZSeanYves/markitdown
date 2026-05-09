@@ -1,15 +1,18 @@
 ///|
+/// Hard parse failures for the safe XML parser.
 pub(all) suberror XmlError {
   ParseError(String)
 }
 
 ///|
+/// Line-based source span for XML tokens and nodes.
 pub struct XmlSourceSpan {
   line_start : Int
   line_end : Int
 }
 
 ///|
+/// Public tokenizer output for safe XML scanning.
 pub(all) enum XmlToken {
   Declaration(String, XmlSourceSpan)
   ProcessingInstruction(String, String, XmlSourceSpan)
@@ -22,6 +25,7 @@ pub(all) enum XmlToken {
 }
 
 ///|
+/// Source-native XML nodes produced by the parser.
 pub(all) enum XmlNode {
   Element(XmlElement)
   Text(XmlText)
@@ -31,6 +35,7 @@ pub(all) enum XmlNode {
 }
 
 ///|
+/// Parsed XML attributes with raw quote-style provenance where available.
 pub struct XmlAttribute {
   name : String
   value : String
@@ -39,6 +44,7 @@ pub struct XmlAttribute {
 }
 
 ///|
+/// Parsed XML elements with source-native children.
 pub struct XmlElement {
   name : String
   attributes : Array[XmlAttribute]
@@ -73,6 +79,7 @@ pub struct XmlCData {
 }
 
 ///|
+/// Parsed XML document with root-element and doctype signals.
 pub struct XmlDocument {
   nodes : Array[XmlNode]
   root : XmlElement?
@@ -99,6 +106,7 @@ pub(all) enum XmlErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard XML parse failures.
 pub struct XmlErrorInfo {
   kind : XmlErrorKind
   detail : String
@@ -118,6 +126,7 @@ pub(all) enum XmlValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues reported after a successful XML parse.
 pub struct XmlValidationIssue {
   kind : XmlValidationIssueKind
   severity : XmlValidationSeverity
@@ -127,6 +136,7 @@ pub struct XmlValidationIssue {
 }
 
 ///|
+/// Aggregated XML validation report.
 pub struct XmlValidationReport {
   issue_count : Int
   warning_count : Int
@@ -135,6 +145,7 @@ pub struct XmlValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed XML document.
 pub struct XmlInspectReport {
   node_count : Int
   element_count : Int

@@ -1,4 +1,5 @@
 ///|
+/// Summarize structure for a parsed CSV document.
 pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
   let mut empty_cell_count = 0
   let mut ragged_row_count = 0
@@ -46,6 +47,7 @@ pub fn inspect_csv_document(doc : CsvDocument) -> CsvInspectReport {
 }
 
 ///|
+/// Return CSV validation issues without treating them as hard parse failures.
 pub fn collect_csv_validation_issues(
   doc : CsvDocument,
 ) -> Array[CsvValidationIssue] {
@@ -72,6 +74,7 @@ pub fn collect_csv_validation_issues(
 }
 
 ///|
+/// Aggregate CSV validation counts and issues into a deterministic report.
 pub fn validate_csv_document(doc : CsvDocument) -> CsvValidationReport {
   let issues = collect_csv_validation_issues(doc)
   let mut warning_count = 0

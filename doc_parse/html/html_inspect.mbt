@@ -1,4 +1,5 @@
 ///|
+/// Return HTML validation issues without converting them into hard failures.
 pub fn collect_html_validation_issues(
   doc : HtmlDocument,
 ) -> Array[HtmlValidationIssue] {
@@ -6,6 +7,7 @@ pub fn collect_html_validation_issues(
 }
 
 ///|
+/// Aggregate HTML validation counts and issues into a deterministic report.
 pub fn validate_html_document(doc : HtmlDocument) -> HtmlValidationReport {
   let issues = collect_html_validation_issues(doc)
   let mut warning_count = 0
@@ -20,6 +22,7 @@ pub fn validate_html_document(doc : HtmlDocument) -> HtmlValidationReport {
 }
 
 ///|
+/// Summarize structure for a parsed HTML document.
 pub fn inspect_html_document(doc : HtmlDocument) -> HtmlInspectReport {
   let stats = HtmlInspectStats::{
     node_count: 0,

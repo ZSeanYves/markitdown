@@ -1,4 +1,5 @@
 ///|
+/// Hard open and parse failures for the WordprocessingML semantic layer.
 pub(all) suberror DocxError {
   OpenFailed(String)
   OoxmlFailure(String)
@@ -6,12 +7,14 @@ pub(all) suberror DocxError {
 }
 
 ///|
+/// Relationship target mode preserved from OOXML relationships.
 pub(all) enum DocxTargetMode {
   Internal
   External
 } derive(Eq)
 
 ///|
+/// Raw Word style classes preserved without final output policy.
 pub(all) enum DocxStyleType {
   Paragraph
   Character
@@ -36,6 +39,7 @@ pub(all) enum DocxTextBoxContext {
 } derive(Eq)
 
 ///|
+/// Raw inline inventory preserved inside DOCX runs.
 pub(all) enum DocxInline {
   Text(String)
   Tab
@@ -49,12 +53,14 @@ pub(all) enum DocxInline {
 }
 
 ///|
+/// Source-native top-level body blocks preserved from the main document body.
 pub(all) enum DocxBodyBlock {
   Paragraph(DocxParagraph)
   Table(DocxTable)
 }
 
 ///|
+/// Parsed relationship entry with resolved OOXML target information.
 pub struct DocxRelationship {
   id : String
   rel_type : String
@@ -64,6 +70,7 @@ pub struct DocxRelationship {
 }
 
 ///|
+/// Relationship lookup index for hyperlinks and part-local references.
 pub struct DocxRelationshipIndex {
   relationships : Array[DocxRelationship]
   targets_by_rid : Map[String, String]
@@ -71,6 +78,7 @@ pub struct DocxRelationshipIndex {
 }
 
 ///|
+/// Raw numbering reference preserved on paragraphs and styles.
 pub struct DocxNumberingRef {
   num_id : Int
   ilvl : Int
@@ -78,6 +86,7 @@ pub struct DocxNumberingRef {
 }
 
 ///|
+/// Raw style definition preserved from `styles.xml`.
 pub struct DocxStyle {
   style_id : String
   name : String?
@@ -88,6 +97,7 @@ pub struct DocxStyle {
 }
 
 ///|
+/// Parsed DOCX style inventory.
 pub struct DocxStyles {
   styles : Array[DocxStyle]
 }
@@ -111,12 +121,14 @@ pub struct DocxNumberingInstance {
 }
 
 ///|
+/// Parsed numbering inventory preserved from `numbering.xml`.
 pub struct DocxNumbering {
   abstract_numbers : Array[DocxAbstractNumbering]
   numbering_instances : Array[DocxNumberingInstance]
 }
 
 ///|
+/// Raw hyperlink signal preserved from WordprocessingML.
 pub struct DocxHyperlink {
   relationship_id : String?
   anchor : String?
@@ -126,6 +138,7 @@ pub struct DocxHyperlink {
 }
 
 ///|
+/// Raw media reference preserved from drawings and relationship lookups.
 pub struct DocxMediaRef {
   relationship_id : String?
   target_part : String?
@@ -136,12 +149,14 @@ pub struct DocxMediaRef {
 }
 
 ///|
+/// Source-native DOCX run model.
 pub struct DocxRun {
   style_id : String?
   inlines : Array[DocxInline]
 }
 
 ///|
+/// Source-native DOCX paragraph model.
 pub struct DocxParagraph {
   style_id : String?
   numbering_ref : DocxNumberingRef?
@@ -151,6 +166,7 @@ pub struct DocxParagraph {
 }
 
 ///|
+/// Source-native DOCX table cell model with nested body blocks.
 pub struct DocxTableCell {
   body_blocks : Array[DocxBodyBlock]
   grid_span : Int?
@@ -163,6 +179,7 @@ pub struct DocxTableRow {
 }
 
 ///|
+/// Source-native DOCX table model.
 pub struct DocxTable {
   rows : Array[DocxTableRow]
 }
@@ -190,6 +207,8 @@ pub struct DocxComment {
 }
 
 ///|
+/// Parsed footnotes, endnotes, and comments preserved as raw semantic
+/// structures.
 pub struct DocxNotes {
   footnotes : Array[DocxFootnote]
   endnotes : Array[DocxEndnote]
@@ -213,6 +232,7 @@ pub struct DocxFooter {
 }
 
 ///|
+/// Parsed text box content preserved from body, header, or footer context.
 pub struct DocxTextBox {
   context : DocxTextBoxContext
   source_part : String
@@ -222,6 +242,7 @@ pub struct DocxTextBox {
 }
 
 ///|
+/// Source-native WordprocessingML semantic document model.
 pub struct DocxDocument {
   body_blocks : Array[DocxBodyBlock]
   relationships : DocxRelationshipIndex
@@ -248,6 +269,7 @@ pub(all) enum DocxErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard DOCX open and parse failures.
 pub struct DocxErrorInfo {
   kind : DocxErrorKind
   detail : String
@@ -271,6 +293,7 @@ pub(all) enum DocxValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues surfaced after a successful DOCX semantic parse.
 pub struct DocxValidationIssue {
   kind : DocxValidationIssueKind
   severity : DocxValidationSeverity
@@ -282,6 +305,7 @@ pub struct DocxValidationIssue {
 }
 
 ///|
+/// Aggregated validation report for a parsed DOCX document.
 pub struct DocxValidationReport {
   issue_count : Int
   warning_count : Int
@@ -290,6 +314,7 @@ pub struct DocxValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed DOCX semantic document.
 pub struct DocxInspectReport {
   paragraph_count : Int
   run_count : Int

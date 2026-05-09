@@ -1,4 +1,5 @@
 ///|
+/// Hard open and parse failures for the SpreadsheetML semantic layer.
 pub(all) suberror XlsxError {
   OpenFailed(String)
   OoxmlFailure(String)
@@ -6,6 +7,7 @@ pub(all) suberror XlsxError {
 }
 
 ///|
+/// Raw workbook visibility state preserved from `workbook.xml`.
 pub(all) enum XlsxSheetState {
   Visible
   Hidden
@@ -13,6 +15,7 @@ pub(all) enum XlsxSheetState {
 } derive(Eq)
 
 ///|
+/// Source-native cell storage kinds preserved from worksheet XML.
 pub(all) enum XlsxCellKind {
   SharedString
   InlineString
@@ -24,6 +27,7 @@ pub(all) enum XlsxCellKind {
 } derive(Eq)
 
 ///|
+/// Conservative semantic interpretation for parsed cell values.
 pub(all) enum XlsxCellSemanticType {
   String
   Number
@@ -38,6 +42,7 @@ pub(all) enum XlsxCellSemanticType {
 } derive(Eq)
 
 ///|
+/// Formula handling policy used for cached and best-effort evaluation signals.
 pub(all) enum XlsxFormulaPolicy {
   Cached
   EvaluatedMissingCache
@@ -46,6 +51,7 @@ pub(all) enum XlsxFormulaPolicy {
 } derive(Eq)
 
 ///|
+/// Parsed merged-cell range metadata without visual reconstruction.
 pub struct XlsxMergedRange {
   range_ref : String
   start_row : Int
@@ -55,6 +61,9 @@ pub struct XlsxMergedRange {
 }
 
 ///|
+/// Conservative trace information for formula handling.
+///
+/// This is not a full Excel formula engine.
 pub struct XlsxFormulaTrace {
   policy : XlsxFormulaPolicy
   evaluated_value : String?
@@ -65,6 +74,7 @@ pub struct XlsxFormulaTrace {
 }
 
 ///|
+/// Source-native SpreadsheetML cell model.
 pub struct XlsxCell {
   reference : String
   row : Int
@@ -82,6 +92,7 @@ pub struct XlsxCell {
 }
 
 ///|
+/// Source-native worksheet model with preserved workbook ordering.
 pub struct XlsxSheet {
   name : String
   sheet_id : String?
@@ -101,12 +112,15 @@ pub struct XlsxSheet {
 }
 
 ///|
+/// Minimal styles and number-format information used for conservative cell
+/// interpretation.
 pub struct XlsxStyles {
   xf_numfmts : Array[Int]
   custom_numfmts : Map[Int, String]
 }
 
 ///|
+/// Source-native SpreadsheetML workbook model.
 pub struct XlsxWorkbook {
   shared_strings : Array[String]
   styles : XlsxStyles
@@ -127,6 +141,7 @@ pub(all) enum XlsxErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard XLSX open and parse failures.
 pub struct XlsxErrorInfo {
   kind : XlsxErrorKind
   detail : String
@@ -151,6 +166,8 @@ pub(all) enum XlsxValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues surfaced without changing workbook parsing into a hard
+/// failure.
 pub struct XlsxValidationIssue {
   kind : XlsxValidationIssueKind
   severity : XlsxValidationSeverity
@@ -161,6 +178,7 @@ pub struct XlsxValidationIssue {
 }
 
 ///|
+/// Aggregated validation report for an XLSX workbook.
 pub struct XlsxValidationReport {
   sheet_count : Int
   cell_count : Int
@@ -171,6 +189,7 @@ pub struct XlsxValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed XLSX workbook.
 pub struct XlsxInspectReport {
   sheet_count : Int
   hidden_sheet_count : Int

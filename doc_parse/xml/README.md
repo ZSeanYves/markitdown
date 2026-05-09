@@ -21,6 +21,40 @@ Stable candidate API:
 * `validate_xml_document`
 * `classify_xml_error`
 
+Minimal examples:
+
+```moonbit
+let doc = @xml.parse_xml_document("<root><item id=\"1\">x</item></root>")
+let report = @xml.inspect_xml_document(doc)
+
+println("elements=" + report.element_count.to_string())
+println("depth=" + report.max_depth.to_string())
+```
+
+```moonbit
+let doc = @xml.parse_xml_document("<root><a/></root>")
+for issue in @xml.collect_xml_validation_issues(doc) {
+  println(issue.message)
+}
+```
+
+```moonbit
+let _ = @xml.parse_xml_document("<root>") catch {
+  err => {
+    let info = @xml.classify_xml_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @xml.parse_xml_document("<fallback/>")
+  }
+}
+```
+
+Build on top:
+
+* XML safety scanners, broken-structure checkers, and private XML-to-IR
+  converters can consume this model without using the source-preserving
+  converter path
+
 Compatibility surface:
 
 * `XmlDocument`
@@ -121,6 +155,13 @@ Known limits:
 * namespace prefixes are preserved in raw names only
 * empty documents and multiple-root documents currently fail closed as parse
   errors rather than surfacing only as post-parse validation issues
+
+Performance note:
+
+* small tokenizer/parser paths are intended to stay lightweight, but malformed
+  or deep structures are still validated conservatively
+* benchmark product timings should be interpreted separately from direct
+  tokenizer/parser API use
 
 Testing:
 

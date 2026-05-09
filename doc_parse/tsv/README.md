@@ -19,6 +19,28 @@ Stable candidate API:
 * `validate_tsv_document`
 * `classify_tsv_error`
 
+Minimal examples:
+
+```moonbit
+let doc = @tsv.parse_tsv_document("name\tscore\nalice\t42\n")
+let report = @tsv.inspect_tsv_document(doc)
+
+println("rows=" + report.row_count.to_string())
+println("max_fields=" + report.max_field_count.to_string())
+```
+
+```moonbit
+let doc = @tsv.parse_tsv_document("name\tscore\nalice\t42\tunexpected\n")
+for issue in @tsv.collect_tsv_validation_issues(doc) {
+  println(issue.message)
+}
+```
+
+Build on top:
+
+* TSV row auditors and custom table importers can reuse the shared CSV model
+  directly without taking a Markdown dependency
+
 Debug / inspect API:
 
 * `inspect_tsv_document`
@@ -51,6 +73,12 @@ Known limits:
 
 * follows the same quoted-field and ragged-row behavior as `doc_parse/csv`
 * remains a thin facade rather than an independently deep parser stack
+
+Performance note:
+
+* this facade adds minimal logic on top of the CSV core
+* benchmark rows should still distinguish TSV parsing from converter-side
+  `RichTable` / Markdown work
 
 Versioning note:
 

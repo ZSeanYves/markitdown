@@ -1,4 +1,6 @@
 ///|
+/// Return DOCX validation issues without treating them as default hard
+/// failures.
 pub fn collect_docx_validation_issues(
   doc : DocxDocument,
 ) -> Array[DocxValidationIssue] {
@@ -10,6 +12,7 @@ pub fn collect_docx_validation_issues(
 }
 
 ///|
+/// Aggregate DOCX validation counts and issues into a deterministic report.
 pub fn validate_docx_document(doc : DocxDocument) -> DocxValidationReport {
   let issues = collect_docx_validation_issues(doc)
   let mut warning_count = 0
@@ -107,6 +110,7 @@ fn inspect_docx_blocks(
 }
 
 ///|
+/// Summarize structure and raw semantic signals for a parsed DOCX document.
 pub fn inspect_docx_document(doc : DocxDocument) -> DocxInspectReport {
   let validation = validate_docx_document(doc)
   let paragraph_count : Ref[Int] = { val: 0 }

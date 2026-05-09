@@ -1,4 +1,5 @@
 ///|
+/// Tokenize XML source into raw safe XML tokens.
 pub fn tokenize_xml_document(text : String) -> Array[XmlToken] raise {
   let normalized = normalize_xml_source(text)
   let tokenizer = XmlTokenizer::{

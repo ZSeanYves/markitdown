@@ -1,4 +1,8 @@
 ///|
+/// Parse a YAML-subset document into a source-native model.
+///
+/// This parser is intentionally conservative. Unsupported YAML features raise
+/// hard parse errors instead of being converted into product policy.
 pub fn parse_yaml_document(text : String) -> YamlDocument raise {
   let lines = prepare_yaml_lines(text)
   if lines.length() == 0 {
@@ -16,6 +20,7 @@ pub fn parse_yaml_document(text : String) -> YamlDocument raise {
 }
 
 ///|
+/// Classify a hard YAML parse failure into a stable error kind.
 pub fn classify_yaml_error(err : YamlError) -> YamlErrorInfo {
   let detail = err.to_string().to_lower()
   let kind = if detail.contains("unexpected end of input") {
@@ -570,6 +575,7 @@ fn sequence_item_rest(content : String) -> String {
 }
 
 ///|
+/// Return a stable human-readable kind label for a parsed YAML value.
 pub fn yaml_value_kind(value : YamlValue) -> String {
   match value {
     YamlValue::Mapping(_) => "mapping"

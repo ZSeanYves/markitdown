@@ -127,6 +127,23 @@ They do not exist to be thin aliases over `convert/*`.
 Converters are important consumers, but they are not the design center of the
 lower-layer packages.
 
+## What Users Can Build
+
+These foundations are intended to be useful outside the checked-in converter
+normal paths.
+
+Typical consumers can build:
+
+* document/package inspectors
+* malformed-reference auditors
+* ZIP / OOXML / EPUB inventory tools
+* XLSX workbook and cell analyzers
+* DOCX paragraph / table / media extractors
+* PPTX slide / shape / hyperlink inventories
+* HTML / XML safety scanners
+* Markdown frontmatter / fence scanners
+* custom converters into a private IR or indexing pipeline
+
 ## Responsibilities
 
 `doc_parse/*` packages are responsible for:

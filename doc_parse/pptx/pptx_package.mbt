@@ -1,4 +1,6 @@
 ///|
+/// Open a `.pptx` file from disk and parse it into a semantic presentation
+/// model.
 pub fn open_pptx_presentation(path : String) -> PptxPresentation raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise PptxError::OpenFailed(path + ": " + e.to_string())
@@ -10,6 +12,11 @@ pub fn open_pptx_presentation(path : String) -> PptxPresentation raise {
 }
 
 ///|
+/// Parse an already-open OOXML package into a source-native PPTX semantic
+/// model.
+///
+/// Reading order, layout recovery, grouping, caption policy, asset export, and
+/// final Markdown/IR lowering remain in `convert/pptx`.
 pub fn parse_pptx_presentation_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> PptxPresentation raise {
@@ -120,6 +127,7 @@ pub fn parse_pptx_presentation_from_package(
 }
 
 ///|
+/// Classify a hard PPTX open or parse failure into a stable error kind.
 pub fn classify_pptx_error(err : PptxError) -> PptxErrorInfo {
   let detail = err.to_string()
   let lowered = detail.to_lower()

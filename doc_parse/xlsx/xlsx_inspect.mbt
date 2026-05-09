@@ -1,4 +1,6 @@
 ///|
+/// Return all workbook, sheet, and cell validation issues in deterministic
+/// order.
 pub fn collect_xlsx_validation_issues(
   workbook : XlsxWorkbook,
 ) -> Array[XlsxValidationIssue] {
@@ -22,6 +24,7 @@ pub fn collect_xlsx_validation_issues(
 }
 
 ///|
+/// Aggregate XLSX validation counts and issues into a deterministic report.
 pub fn validate_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxValidationReport {
   let issues = collect_xlsx_validation_issues(workbook)
   let mut warning_count = 0
@@ -50,6 +53,7 @@ pub fn validate_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxValidationReport {
 }
 
 ///|
+/// Summarize workbook structure and semantic signals for inspection use cases.
 pub fn inspect_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxInspectReport {
   let validation = validate_xlsx_workbook(workbook)
   let mut hidden_sheet_count = 0

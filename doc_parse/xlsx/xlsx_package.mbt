@@ -10,6 +10,7 @@ priv struct SheetInfo {
 }
 
 ///|
+/// Open an `.xlsx` file from disk and parse it into a semantic workbook model.
 pub fn open_xlsx_workbook(path : String) -> XlsxWorkbook raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise XlsxError::OpenFailed(path + ": " + e.to_string())
@@ -21,6 +22,10 @@ pub fn open_xlsx_workbook(path : String) -> XlsxWorkbook raise {
 }
 
 ///|
+/// Parse an already-open OOXML package into an XLSX semantic workbook model.
+///
+/// RichTable lowering, Markdown output, and sheet-heading product policy stay
+/// in `convert/xlsx`.
 pub fn parse_xlsx_workbook_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> XlsxWorkbook raise {
@@ -161,6 +166,7 @@ pub fn parse_xlsx_workbook_from_package(
 }
 
 ///|
+/// Classify a hard XLSX open or parse failure into a stable error kind.
 pub fn classify_xlsx_error(err : XlsxError) -> XlsxErrorInfo {
   let detail = err.to_string()
   let lowered = detail.to_lower()

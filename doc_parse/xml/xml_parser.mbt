@@ -1,4 +1,8 @@
 ///|
+/// Parse XML text into a safe, source-native document model.
+///
+/// This parser does not perform DTD expansion, namespace semantic resolution,
+/// or browser-style recovery.
 pub fn parse_xml_document(text : String) -> XmlDocument raise {
   let tokens = tokenize_xml_document(text)
   let parser = XmlParser::{ tokens, pos: 0 }
@@ -6,6 +10,7 @@ pub fn parse_xml_document(text : String) -> XmlDocument raise {
 }
 
 ///|
+/// Classify a hard XML parse failure into a stable error kind.
 pub fn classify_xml_error(err : XmlError) -> XmlErrorInfo {
   let detail = err.to_string().to_lower()
   let kind = if detail.contains("unexpected end") ||

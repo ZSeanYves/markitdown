@@ -1,4 +1,5 @@
 ///|
+/// Parse JSON text into a source-native document model.
 pub fn parse_json_document(text : String) -> JsonDocument raise {
   let normalized = normalize_json_source(text)
   let parser = JsonParser::{ chars: normalized.to_array(), pos: 0 }
@@ -11,6 +12,7 @@ pub fn parse_json_document(text : String) -> JsonDocument raise {
 }
 
 ///|
+/// Classify a hard JSON parse failure into a stable error kind.
 pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
   let detail = err.to_string().to_lower()
   let kind = if detail.contains("trailing content") {
@@ -403,6 +405,7 @@ fn hex_value(ch : Char) -> Int {
 }
 
 ///|
+/// Return a stable human-readable kind label for a parsed JSON value.
 pub fn json_value_kind(value : JsonValue) -> String {
   match value {
     JsonValue::Object(_) => "object"

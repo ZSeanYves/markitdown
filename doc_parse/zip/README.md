@@ -263,6 +263,16 @@ Current lower-layer tests cover:
 Repository-level validation should still include `moon test` and
 `./samples/check.sh` so OOXML/EPUB/ZIP consumers stay regression-safe.
 
+## Performance Note
+
+Current performance note:
+
+- entry inventory and normalized-path validation belong to the lower-layer
+  archive cost of this package
+- product-path benchmark rows should still be read separately from direct
+  `open_zip` / `inspect_zip_archive` usage
+- performance work must not weaken path-safety or validation behavior
+
 ## Versioning / API Stability
 
 Current versioning note:

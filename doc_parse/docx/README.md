@@ -40,6 +40,44 @@ Inspect / validation API:
 * `collect_docx_validation_issues`
 * `validate_docx_document`
 
+Minimal examples:
+
+```moonbit
+let doc = @docx.open_docx_document("samples/main_process/docx/golden.docx")
+let report = @docx.inspect_docx_document(doc)
+
+println("paragraphs=" + report.paragraph_count.to_string())
+println("tables=" + report.table_count.to_string())
+```
+
+```moonbit
+for block in doc.body_blocks {
+  match block {
+    @docx.DocxBodyBlock::Paragraph(p) =>
+      println("paragraph runs=" + p.runs.length().to_string())
+    @docx.DocxBodyBlock::Table(t) =>
+      println("table rows=" + t.rows.length().to_string())
+  }
+}
+```
+
+```moonbit
+let _ = @docx.open_docx_document("missing.docx") catch {
+  err => {
+    let info = @docx.classify_docx_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @docx.open_docx_document("samples/main_process/docx/golden.docx")
+  }
+}
+```
+
+Build on top:
+
+* paragraph/table/media extractors, numbering/style auditors, and DOCX
+  structure indexers can consume `DocxDocument` directly without taking
+  heading/list Markdown policy
+
 Compatibility surface:
 
 * `DocxDocument`
@@ -139,6 +177,13 @@ Known limits:
   stripping in this candidate package
 * complex fields, equations, charts, SmartArt, and deep DrawingML semantics
   remain out of scope
+
+Performance note:
+
+* OOXML package open, XML parsing, and source-native model building should be
+  measured separately from converter-side heading/list/table policy
+* current public benchmark rows are normal-path timings first, not isolated
+  `doc_parse/docx` library timings
 
 Testing:
 

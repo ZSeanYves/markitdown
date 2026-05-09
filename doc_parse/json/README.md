@@ -19,6 +19,32 @@ Stable candidate API:
 * `classify_json_error`
 * `json_value_kind`
 
+Minimal examples:
+
+```moonbit
+let doc = @json.parse_json_document("{\"items\":[1,true,\"x\"]}")
+let report = @json.inspect_json_document(doc)
+
+println("root=" + report.root_kind.unwrap_or("none"))
+println("nodes=" + report.node_count.to_string())
+```
+
+```moonbit
+let _ = @json.parse_json_document("{bad}") catch {
+  err => {
+    let info = @json.classify_json_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @json.parse_json_document("{}")
+  }
+}
+```
+
+Build on top:
+
+* AST walkers, JSON structure checkers, and custom `JsonDocument -> private IR`
+  lowering can reuse this package directly
+
 Debug / inspect API:
 
 * `inspect_json_document`
@@ -86,6 +112,13 @@ Known limits:
   support
 * exact numeric-value representation remains source-preserving string text,
   which is intentional for parser neutrality but still a release-policy choice
+
+Performance note:
+
+* JSON parsing here is string-based and intended for predictable lower-layer
+  AST construction, not streaming ingestion
+* benchmark product timings still include converter and emitter work above this
+  layer
 
 Testing:
 

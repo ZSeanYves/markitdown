@@ -1,4 +1,5 @@
 ///|
+/// Hard open and parse failures for the PresentationML semantic layer.
 pub(all) suberror PptxError {
   OpenFailed(String)
   OoxmlFailure(String)
@@ -6,12 +7,14 @@ pub(all) suberror PptxError {
 }
 
 ///|
+/// Relationship target mode preserved from OOXML relationships.
 pub(all) enum PptxTargetMode {
   Internal
   External
 } derive(Eq)
 
 ///|
+/// Parsed relationship entry with resolved OOXML target information.
 pub struct PptxRelationship {
   id : String
   rel_type : String
@@ -21,6 +24,7 @@ pub struct PptxRelationship {
 }
 
 ///|
+/// Relationship lookup index for presentation-level and slide-level context.
 pub struct PptxRelationshipIndex {
   relationships : Array[PptxRelationship]
   notes_part : String?
@@ -28,6 +32,7 @@ pub struct PptxRelationshipIndex {
 }
 
 ///|
+/// Raw hyperlink signal preserved from slide text and shapes.
 pub struct PptxHyperlink {
   relationship_id : String?
   target : String?
@@ -35,12 +40,14 @@ pub struct PptxHyperlink {
 }
 
 ///|
+/// Raw list/bullet hint preserved on slide text paragraphs.
 pub(all) enum PptxBulletKind {
   Unordered
   Ordered
 } derive(Eq)
 
 ///|
+/// Raw run kinds preserved from PresentationML text content.
 pub(all) enum PptxTextRunKind {
   Text
   Field
@@ -49,6 +56,7 @@ pub(all) enum PptxTextRunKind {
 } derive(Eq)
 
 ///|
+/// Source-native slide text run model.
 pub struct PptxTextRun {
   kind : PptxTextRunKind
   text : String
@@ -58,6 +66,7 @@ pub struct PptxTextRun {
 }
 
 ///|
+/// Source-native slide text paragraph model.
 pub struct PptxTextParagraph {
   runs : Array[PptxTextRun]
   level : Int
@@ -80,12 +89,14 @@ pub struct PptxTableRow {
 }
 
 ///|
+/// Parsed PowerPoint table model from explicit table XML.
 pub struct PptxTable {
   object_ref : String?
   rows : Array[PptxTableRow]
 }
 
 ///|
+/// Raw media classes preserved from relationship and content-type signals.
 pub(all) enum PptxMediaKind {
   Image
   Audio
@@ -94,6 +105,7 @@ pub(all) enum PptxMediaKind {
 } derive(Eq)
 
 ///|
+/// Raw media reference preserved from picture and media shapes.
 pub struct PptxMediaRef {
   relationship_id : String?
   target_part : String?
@@ -106,6 +118,7 @@ pub struct PptxMediaRef {
 }
 
 ///|
+/// Raw shape classes preserved from the slide shape tree.
 pub(all) enum PptxShapeKind {
   Shape
   TextBox
@@ -117,6 +130,7 @@ pub(all) enum PptxShapeKind {
 } derive(Eq)
 
 ///|
+/// Source-native slide shape model with nested group traversal preserved.
 pub struct PptxShape {
   shape_id : String?
   name : String?
@@ -136,12 +150,15 @@ pub struct PptxShape {
 }
 
 ///|
+/// Raw speaker-notes content preserved from a notes part.
 pub struct PptxNotes {
   part_path : String
   paragraphs : Array[PptxTextParagraph]
 }
 
 ///|
+/// Source-native slide model with raw shape, text, table, notes, media, and
+/// hyperlink signals.
 pub struct PptxSlide {
   index : Int
   slide_id : String?
@@ -159,6 +176,7 @@ pub struct PptxSlide {
 }
 
 ///|
+/// Source-native PresentationML semantic presentation model.
 pub struct PptxPresentation {
   slides : Array[PptxSlide]
   relationships : PptxRelationshipIndex
@@ -178,6 +196,7 @@ pub(all) enum PptxErrorKind {
 } derive(Eq)
 
 ///|
+/// Stable classification for hard PPTX open and parse failures.
 pub struct PptxErrorInfo {
   kind : PptxErrorKind
   detail : String
@@ -200,6 +219,7 @@ pub(all) enum PptxValidationIssueKind {
 } derive(Eq)
 
 ///|
+/// Validation issues surfaced after a successful PPTX semantic parse.
 pub struct PptxValidationIssue {
   kind : PptxValidationIssueKind
   severity : PptxValidationSeverity
@@ -210,6 +230,7 @@ pub struct PptxValidationIssue {
 }
 
 ///|
+/// Aggregated validation report for a parsed PPTX presentation.
 pub struct PptxValidationReport {
   issue_count : Int
   warning_count : Int
@@ -218,6 +239,7 @@ pub struct PptxValidationReport {
 }
 
 ///|
+/// Structural summary for a parsed PPTX semantic presentation.
 pub struct PptxInspectReport {
   slide_count : Int
   hidden_slide_count : Int

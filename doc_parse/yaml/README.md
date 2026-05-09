@@ -20,6 +20,32 @@ Stable candidate API:
 * `classify_yaml_error`
 * `yaml_value_kind`
 
+Minimal examples:
+
+```moonbit
+let doc = @yaml.parse_yaml_document("name: alice\nitems:\n  - one\n  - two\n")
+let report = @yaml.inspect_yaml_document(doc)
+
+println("root=" + report.root_kind.unwrap_or("none"))
+println("depth=" + report.max_depth.to_string())
+```
+
+```moonbit
+let _ = @yaml.parse_yaml_document("---\na: 1\n---\n") catch {
+  err => {
+    let info = @yaml.classify_yaml_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @yaml.parse_yaml_document("fallback: true\n")
+  }
+}
+```
+
+Build on top:
+
+* subset-safe YAML validators and custom AST lowering code can sit on this
+  package without inheriting `convert/yaml` table/list policy
+
 Debug / inspect API:
 
 * `inspect_yaml_document`
@@ -87,6 +113,13 @@ Known limits:
   `convert/yaml`
 * unsupported YAML features still fail closed as parse errors rather than a
   richer validation-report family
+
+Performance note:
+
+* this subset parser targets predictable tree-building rather than streaming or
+  permissive YAML import breadth
+* benchmark numbers should separate lower-layer parse cost from later
+  converter-side shaping
 
 Testing:
 

@@ -1,4 +1,5 @@
 ///|
+/// Decode UTF-8 bytes and parse them into a normalized text document.
 pub fn open_text_document(bytes : Bytes) -> TextDocument raise {
   let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
     _ => raise TextError::Utf8DecodeFailed("invalid utf8")
@@ -14,6 +15,7 @@ pub fn open_text_document(bytes : Bytes) -> TextDocument raise {
 }
 
 ///|
+/// Parse plain text that is already available as a `String`.
 pub fn parse_text_document(text : String) -> TextDocument {
   let newline_style = detect_newline_style(text)
   let normalized = normalize_text_source(text)
@@ -33,6 +35,7 @@ pub fn parse_text_document(text : String) -> TextDocument {
 }
 
 ///|
+/// Classify a hard text decoding failure into a stable error kind.
 pub fn classify_text_error(err : TextError) -> TextErrorInfo {
   match err {
     Utf8DecodeFailed(detail) =>

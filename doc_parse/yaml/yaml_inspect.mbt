@@ -1,4 +1,5 @@
 ///|
+/// Summarize structure for a parsed YAML-subset document.
 pub fn inspect_yaml_document(doc : YamlDocument) -> YamlInspectReport {
   match doc.root {
     None =>

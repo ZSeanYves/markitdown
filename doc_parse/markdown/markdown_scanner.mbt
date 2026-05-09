@@ -1,4 +1,8 @@
 ///|
+/// Scan Markdown source into a lightweight raw block inventory.
+///
+/// This scanner always succeeds by design. Ambiguities and malformed fences are
+/// reported as validation issues instead of hard parse errors.
 pub fn scan_markdown_document(text : String) -> MarkdownDocument {
   let normalized = normalize_markdown_source(text)
   let lines = split_markdown_lines(normalized)

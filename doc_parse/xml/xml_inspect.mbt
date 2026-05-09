@@ -1,4 +1,5 @@
 ///|
+/// Return XML validation issues surfaced after a successful parse.
 pub fn collect_xml_validation_issues(
   doc : XmlDocument,
 ) -> Array[XmlValidationIssue] {
@@ -40,6 +41,7 @@ pub fn collect_xml_validation_issues(
 }
 
 ///|
+/// Aggregate XML validation counts and issues into a deterministic report.
 pub fn validate_xml_document(doc : XmlDocument) -> XmlValidationReport {
   let issues = collect_xml_validation_issues(doc)
   let mut warning_count = 0
@@ -56,6 +58,7 @@ pub fn validate_xml_document(doc : XmlDocument) -> XmlValidationReport {
 }
 
 ///|
+/// Summarize structure for a parsed XML document.
 pub fn inspect_xml_document(doc : XmlDocument) -> XmlInspectReport {
   let stats = XmlInspectStats::{
     node_count: 0,

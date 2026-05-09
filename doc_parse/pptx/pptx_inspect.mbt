@@ -1,4 +1,6 @@
 ///|
+/// Return PPTX validation issues without treating them as default hard
+/// failures.
 pub fn collect_pptx_validation_issues(
   pres : PptxPresentation,
 ) -> Array[PptxValidationIssue] {
@@ -10,6 +12,7 @@ pub fn collect_pptx_validation_issues(
 }
 
 ///|
+/// Aggregate PPTX validation counts and issues into a deterministic report.
 pub fn validate_pptx_presentation(
   pres : PptxPresentation,
 ) -> PptxValidationReport {
@@ -74,6 +77,8 @@ fn inspect_shape_tree(
 }
 
 ///|
+/// Summarize structure and raw semantic signals for a parsed PPTX
+/// presentation.
 pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
   let validation = validate_pptx_presentation(pres)
   let shape_count : Ref[Int] = { val: 0 }

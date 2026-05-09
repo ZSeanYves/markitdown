@@ -335,6 +335,17 @@ Current lower-layer coverage includes:
 - normalized part collision failure
 - duplicate normalized content-type override failure
 
+## Performance Note
+
+Current performance note:
+
+- package open, part lookup, relationship parsing, and content-type indexing
+  are lower-layer costs of this package
+- benchmark product timings should still be separated from converter-side
+  semantic lowering
+- performance work must not weaken part-path normalization or relationship
+  safety checks
+
 ## Current Limits
 
 - This package does not implement full OOXML specification coverage.

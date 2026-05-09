@@ -392,3 +392,12 @@ moon check
 moon test
 ./samples/check.sh
 ```
+
+## Performance Note
+
+Current performance note:
+
+- archive open, OPF/nav parsing, and package inventory are lower-layer EPUB
+  costs in this package
+- reading-system behavior and final Markdown aggregation remain above this
+  layer and should not be mixed into package-only performance conclusions

@@ -41,6 +41,41 @@ Inspect / validation API:
 * `collect_pptx_validation_issues`
 * `validate_pptx_presentation`
 
+Minimal examples:
+
+```moonbit
+let pres = @pptx.open_pptx_presentation("samples/main_process/pptx/golden.pptx")
+let report = @pptx.inspect_pptx_presentation(pres)
+
+println("slides=" + report.slide_count.to_string())
+println("shapes=" + report.shape_count.to_string())
+```
+
+```moonbit
+for slide in pres.slides {
+  println("slide " + slide.index.to_string())
+  println("hidden=" + slide.hidden.to_string())
+  println("paragraphs=" + slide.paragraphs.length().to_string())
+}
+```
+
+```moonbit
+let _ = @pptx.open_pptx_presentation("missing.pptx") catch {
+  err => {
+    let info = @pptx.classify_pptx_error(err)
+    println(info.kind.to_string())
+    println(info.detail)
+    @pptx.open_pptx_presentation("samples/main_process/pptx/golden.pptx")
+  }
+}
+```
+
+Build on top:
+
+* slide/shape inventories, hyperlink/media auditors, and custom semantic
+  loaders can reuse `PptxPresentation` without inheriting reading-order or
+  caption policy
+
 Compatibility surface:
 
 * `PptxPresentation`
@@ -131,6 +166,14 @@ Known limits:
   table policy
 * charts, SmartArt, animations, transitions, theme/master/layout inheritance,
   and deeper DrawingML semantics remain out of scope
+
+Performance note:
+
+* PresentationML package open, shape-tree parsing, and notes/media extraction
+  should be measured separately from reading-order and grouping heuristics in
+  `convert/pptx`
+* current benchmark rows remain product-path timings first, not isolated
+  `doc_parse/pptx` library timings
 
 Testing:
 
