@@ -96,6 +96,10 @@ Current contract:
 * `doc_parse/docx`
   WordprocessingML semantic foundation candidate for source-native
   body/inline/table relationships, styles, numbering, notes, and media refs.
+* `doc_parse/pptx`
+  PresentationML semantic foundation Pass 1 for source-native slide order,
+  raw shape tree, text paragraphs/runs, explicit tables, notes, media refs,
+  and hyperlink refs.
 
 ### Simple-format and markup parser foundations
 
@@ -138,7 +142,11 @@ Current module strategy:
 * `convert/docx` still owns the current normal DOCX conversion path and its
   final heading/list/table/caption/code/image product policy; the new
   `doc_parse/docx` semantic package is not the normal converter path yet
-* `pptx` semantic sublayer remains deferred
+* `doc_parse/pptx` now exists in-tree as active semantic foundation Pass 1,
+  while `convert/pptx` still owns the current normal conversion path and its
+  reading-order/layout/grouping/caption/image/IR product policy
+* all OOXML semantic sublayers now exist in-tree:
+  `doc_parse/xlsx`, `doc_parse/docx`, and `doc_parse/pptx`
 * `convert/html` and `convert/markdown` normal paths remain product conversion
   paths and are not switched to the new parser/scanner foundations yet
 * none of these candidate labels claim full spec coverage

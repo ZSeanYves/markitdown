@@ -33,6 +33,9 @@ Current recommendation:
 * keep `doc_parse/docx` in-tree as a DOCX semantic foundation candidate until
   its source-native semantic model surface and future zero-drift convert
   integration story are more stable
+* keep `doc_parse/pptx` in-tree as an active PPTX semantic foundation Pass 1
+  until its source-native raw semantic model surface and future zero-drift
+  convert integration story are more stable
 * keep simple-format parser candidates such as `doc_parse/csv`,
   `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
   inside the same root module until their internal boundaries and future
@@ -83,6 +86,7 @@ Possible future modules could include:
 * `doc_parse_pdf`
 * `doc_parse_xlsx`
 * `doc_parse_docx`
+* `doc_parse_pptx`
 * `doc_parse_csv`
 * `doc_parse_json`
 * `doc_parse_yaml`
@@ -137,8 +141,8 @@ Short term:
   subpackages under `ZSeanYves/markitdown`
 * continue stabilizing both the structured-document foundations and the
   simple-format/XML/HTML/Markdown parser/scanner candidates plus the active
-  DOCX semantic foundation work in-tree before any standalone-module split is
-  attempted
+  OOXML semantic hardening line, including `doc_parse/pptx`, in-tree before
+  any standalone-module split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and
   compatibility boundaries have narrowed further

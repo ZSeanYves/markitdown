@@ -157,6 +157,11 @@ Lower-layer package contract:
     WordprocessingML body/inline/table/relationship/style/numbering/note/media
     model plus inspect/validation/classifier, while `convert/docx` still owns
     the current normal output path
+* current active semantic hardening line also includes:
+  * `doc_parse/pptx`: PPTX semantic foundation Pass 1 with PresentationML
+    presentation/slide/raw-shape/text/table/notes/media/hyperlink model plus
+    inspect/validation/classifier, while `convert/pptx` still owns the
+    current normal output path
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -170,8 +175,8 @@ Lower-layer package contract:
   wiring
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
-* deferred lower-layer work remains:
-  * PPTX semantic sublayer above the OOXML package layer
+* all OOXML semantic sublayers now exist in-tree, with `doc_parse/pptx`
+  still in active hardening rather than candidate closure
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 
@@ -291,6 +296,9 @@ Status:
 
 * `H2++ complete`
 * `H3++ evidence-backed on checked-in native overlap corpus`
+* `doc_parse/pptx` now exists as an active PresentationML semantic
+  foundation Pass 1, while `convert/pptx` still owns the current normal
+  conversion path
 
 Supported:
 
@@ -334,6 +342,9 @@ Known limits:
 * no pixel-perfect grouped-layout or z-order reconstruction
 * not a PowerPoint layout engine
 * no animations / transitions
+* `doc_parse/pptx` does not claim reading-order recovery, layout grouping,
+  image export, final Speaker Notes section policy, or final heading/list
+  classification ownership
 
 ### XLSX
 

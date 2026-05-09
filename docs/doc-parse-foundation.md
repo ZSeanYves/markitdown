@@ -19,6 +19,7 @@ Current audit scope for this contract:
 * `doc_parse/html`
 * `doc_parse/markdown`
 * `doc_parse/docx`
+* `doc_parse/pptx`
 
 ## Contract
 
@@ -57,7 +58,7 @@ Shared contract:
 | `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
 | `doc_parse/xlsx` | XLSX semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
 | `doc_parse/docx` | DOCX semantic foundation candidate | open-document / parse-from-package / inspect / validation / classifier facade | WordprocessingML body / inline / table / relationship / style / numbering / notes semantic model | full WordprocessingML support, IR/Markdown/product output policy | `convert/docx` remains the current normal conversion path and is not switched to the semantic package yet |
-| `pptx` semantic sublayer | deferred semantic sublayer | n/a | possible future PresentationML semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/pptx` |
+| `doc_parse/pptx` | active semantic foundation Pass 1 | open-presentation / parse-from-package / inspect / validation / classifier facade | PresentationML presentation / slide / raw shape / text / table / notes / media / hyperlink semantic model | reading order, layout grouping, caption/image export/product output policy, full PresentationML support | `convert/pptx` remains the current normal conversion path and is not switched to the semantic package yet |
 
 ## Candidate Definitions
 
@@ -85,6 +86,10 @@ Shared contract:
   source-native semantic-model foundation above a lower package substrate,
   with stable candidate API, inspect/error/validation surface, and no
   RichTable/IR/Markdown/product semantics
+* `active semantic foundation Pass 1`
+  source-native semantic-model foundation above a lower package substrate that
+  already exposes open/parse/inspect/validation/classifier surfaces, but is
+  still in active hardening before candidate closure
 * `deferred semantic sublayer`
   format-specific semantic parser/converter split intentionally left above the
   current lower-layer package line
@@ -373,6 +378,61 @@ Known limits:
   stripping in this candidate package
 * complex fields, equations, charts, SmartArt, and deeper DrawingML semantics
   remain out of scope
+
+### `doc_parse/pptx`
+
+Current role:
+
+* PresentationML semantic foundation Pass 1 above the shared OOXML package
+  line
+* source-native presentation / slide / raw shape tree / text / explicit table
+  / notes / media / hyperlink parser/model/inspect/validation package
+
+Current surface:
+
+* `open_pptx_presentation`
+* `parse_pptx_presentation_from_package`
+* `inspect_pptx_presentation`
+* `collect_pptx_validation_issues`
+* `validate_pptx_presentation`
+* `classify_pptx_error`
+
+Current maturity:
+
+* active semantic foundation Pass 1
+* current source-native compatibility surface is centered on
+  `PptxPresentation`, `PptxSlide`, `PptxShape`, `PptxTextParagraph`,
+  `PptxTextRun`, `PptxTable`, `PptxNotes`, `PptxRelationship`,
+  `PptxMediaRef`, and `PptxHyperlink`
+* current semantic scope includes presentation slide order, hidden-slide raw
+  signal, slide relationship context, nested group traversal, raw text
+  paragraphs/runs, hyperlink refs, explicit table objects, notes, and raw
+  media refs
+* current lower-layer tests lock slide order / hidden-slide / raw table /
+  grouped shape / notes / relationship/media validation boundaries without
+  claiming reading-order or layout-recovery ownership
+
+Current boundary:
+
+* `doc_parse/pptx` owns PresentationML source-native semantic parsing/model/
+  inspect/validation/classifier work
+* `convert/pptx` still owns the current normal conversion path, reading order,
+  layout recovery, grouping, title/list/paragraph classification, image
+  caption/export policy, Speaker Notes final product policy, IR lowering, and
+  metadata/origin wiring
+
+Known limits:
+
+* not full PresentationML support
+* not full Office semantic support
+* no reading-order recovery or layout grouping in this package
+* no final heading/list/paragraph/caption/image output policy
+* no image asset export path
+* notes remain source-native raw note paragraphs rather than final Speaker
+  Notes section policy
+* theme/master/layout inheritance, animations, transitions, charts,
+  SmartArt, embedded objects, and deeper DrawingML semantics remain out of
+  scope
 
 ### `doc_parse/zip`
 
@@ -729,22 +789,18 @@ Remaining work:
 * revisit HTML/Markdown lower-layer extraction separately from final conversion
   policy
 
-### Deferred semantic sublayers
+### Active semantic hardening
 
-Current deferred line:
+Current active hardening line:
 
-* `pptx` semantic sublayer remains intentionally deferred above the current
-  OOXML package foundation
-* semantic conversion ownership therefore still lives in:
+* all OOXML semantic sublayers now exist in-tree:
+  * `doc_parse/xlsx`
+  * `doc_parse/docx`
+  * `doc_parse/pptx`
+* `doc_parse/pptx` is the remaining active semantic foundation Pass 1 package
+  in that OOXML semantic line
+* semantic conversion ownership for PPTX output still remains in:
   * `convert/pptx`
-
-Known deferred boundary:
-
-* `pptx` is not a semantic-foundation candidate yet
-* this document does not claim a separate PresentationML semantic parser
-  contract for it
-* any future split here should happen only after the current package/scanner
-  candidate line and converter integration story remain stable
 
 ## Current Repository Strategy
 
@@ -756,8 +812,8 @@ Current repository strategy intentionally focuses on:
    product semantics
 3. documenting which lower-layer packages are already integrated into normal
    convert paths and which are not
-4. deferring standalone module extraction and OOXML semantic sublayer splits
-   until current candidate boundaries are more stable
+4. deferring standalone module extraction while the remaining in-tree semantic
+   hardening line, especially `doc_parse/pptx`, continues to stabilize
 
 Current non-goals for this stage:
 

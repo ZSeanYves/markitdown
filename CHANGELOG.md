@@ -48,6 +48,11 @@
   with source-native body/inline/table/relationship/style/numbering/notes/
   media boundaries documented and lower-layer tests tightened, while keeping
   `convert/docx` on the current zero-drift normal conversion path.
+* Add `doc_parse/pptx` as an active PresentationML semantic foundation
+  Pass 1 with source-native presentation/slide/shape/text/table/notes/media/
+  hyperlink parsing, inspect/validation/classifier surface, and lower-layer
+  tests while keeping `convert/pptx` on the current zero-drift normal
+  conversion path.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.
