@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/csv" @csv,
+}
+
+options(
+  "preferred-target": "native",
+)

@@ -131,6 +131,12 @@ Lower-layer package contract:
   * `doc_parse/pdf`: native text-PDF publishable foundation candidate
   * `doc_parse/zip`: external-decoder-backed publishable foundation candidate
     as the shared container primitive
+* current internal simple-format parser migration line is:
+  * `doc_parse/csv`
+  * `doc_parse/tsv`
+  * `doc_parse/json`
+  * `doc_parse/yaml`
+  * `doc_parse/text`
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -139,6 +145,9 @@ Lower-layer package contract:
   final Markdown conversion, and where helpful should also provide structured
   inspect/report objects plus classifier-friendly error metadata
 * they should not absorb converter-only semantic policy
+* simple-format parser migration currently keeps `convert/*` in place for
+  file-I/O seams, IR shaping, Markdown policy, and product-facing metadata
+  wiring
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 

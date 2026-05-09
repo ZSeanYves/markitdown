@@ -23,6 +23,9 @@ Current recommendation:
 
 * keep `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`, and `doc_parse/zip`
   as importable subpackages under the root module for now
+* keep simple-format parser migrations such as `doc_parse/csv`,
+  `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
+  inside the same root module until their internal boundaries stabilize
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
   parsing foundations continue to stabilize
 
@@ -56,6 +59,10 @@ Possible future modules could include:
 * `doc_parse_ooxml`
 * `doc_parse_epub`
 * `doc_parse_pdf`
+* `doc_parse_csv`
+* `doc_parse_json`
+* `doc_parse_yaml`
+* `doc_parse_text`
 
 That split should wait until all of the following are clearer:
 
@@ -96,6 +103,8 @@ Short term:
 
 * continue shipping `doc_parse/ooxml`, `doc_parse/epub`, and `doc_parse/pdf`
   as importable subpackages under `ZSeanYves/markitdown`
+* continue landing simple-format parser migrations in-tree before any
+  standalone-module split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and
   compatibility boundaries have narrowed further

@@ -51,7 +51,8 @@ pub fn parse_yaml_with_profile(
   let src = @cor.basename(input_path)
 
   let parse_started = @env.now()
-  match parse_yaml_text(raw) {
+  let parsed = @dpyaml.parse_yaml_document(raw)
+  match parsed.root {
     Some(value) => {
       let lower_started = @env.now()
       push_yaml_value_with_profile(doc, value, src)
@@ -109,7 +110,7 @@ fn contains_non_bmp_char(text : String) -> Bool {
 ///|
 fn push_yaml_value_with_profile(
   doc : @cor.Document,
-  value : YamlValue,
+  value : @dpyaml.YamlValue,
   src : String,
 ) -> Unit {
   let origin : @cor.Origin? = Some({
@@ -129,7 +130,7 @@ fn push_yaml_value_with_profile(
   })
 
   match value {
-    YamlValue::Mapping(members) => {
+    @dpyaml.YamlValue::Mapping(members) => {
       let detect_started = @env.now()
       let rows = object_rows(members)
       yaml_profile_add_active_stage(
@@ -143,7 +144,7 @@ fn push_yaml_value_with_profile(
         origin,
       )
     }
-    YamlValue::Sequence(values) =>
+    @dpyaml.YamlValue::Sequence(values) =>
       if values.length() == 0 {
         @cor.push_with_origin(doc, @cor.Block::CodeBlock("[]"), origin)
       } else if is_array_of_scalars(values) {
@@ -198,21 +199,21 @@ fn push_yaml_value_with_profile(
           }
         }
       }
-    YamlValue::String(s) =>
+    @dpyaml.YamlValue::String(s) =>
       @cor.push_with_origin(doc, @cor.Block::Paragraph(s), origin)
-    YamlValue::Bool(b) =>
+    @dpyaml.YamlValue::Bool(b) =>
       @cor.push_with_origin(
         doc,
         @cor.Block::Paragraph(if b { "true" } else { "false" }),
         origin,
       )
-    YamlValue::Null =>
+    @dpyaml.YamlValue::Null =>
       @cor.push_with_origin(doc, @cor.Block::Paragraph("null"), origin)
   }
 }
 
 ///|
-fn object_rows(members : Array[YamlMember]) -> Array[Array[String]] {
+fn object_rows(members : Array[@dpyaml.YamlMember]) -> Array[Array[String]] {
   let rows : Array[Array[String]] = [["Key", "Value"]]
   for entry in members {
     rows.push([entry.key, value_cell(entry.value)])
@@ -221,13 +222,15 @@ fn object_rows(members : Array[YamlMember]) -> Array[Array[String]] {
 }
 
 ///|
-fn array_object_rows(values : Array[YamlValue]) -> Array[Array[String]]? {
+fn array_object_rows(
+  values : Array[@dpyaml.YamlValue],
+) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
   let rows : Array[Array[String]] = []
 
   for i in 0..<values.length() {
     match values[i] {
-      YamlValue::Mapping(members) => {
+      @dpyaml.YamlValue::Mapping(members) => {
         let member_keys = members.map(fn(m) { m.key })
         if i == 0 {
           keys = member_keys
@@ -254,7 +257,10 @@ fn array_object_rows(values : Array[YamlValue]) -> Array[Array[String]]? {
 }
 
 ///|
-fn member_value_cell(members : Array[YamlMember], key : String) -> String {
+fn member_value_cell(
+  members : Array[@dpyaml.YamlMember],
+  key : String,
+) -> String {
   for entry in members {
     if entry.key == key {
       return value_cell(entry.value)
@@ -287,10 +293,12 @@ fn contains_key(keys : Array[String], target : String) -> Bool {
 }
 
 ///|
-fn is_array_of_scalars(values : Array[YamlValue]) -> Bool {
+fn is_array_of_scalars(values : Array[@dpyaml.YamlValue]) -> Bool {
   for v in values {
     match v {
-      YamlValue::String(_) | YamlValue::Bool(_) | YamlValue::Null => ()
+      @dpyaml.YamlValue::String(_)
+      | @dpyaml.YamlValue::Bool(_)
+      | @dpyaml.YamlValue::Null => ()
       _ => return false
     }
   }
@@ -298,29 +306,29 @@ fn is_array_of_scalars(values : Array[YamlValue]) -> Bool {
 }
 
 ///|
-fn value_cell(value : YamlValue) -> String {
+fn value_cell(value : @dpyaml.YamlValue) -> String {
   match value {
-    YamlValue::String(s) => s
-    YamlValue::Bool(b) => if b { "true" } else { "false" }
-    YamlValue::Null => "null"
+    @dpyaml.YamlValue::String(s) => s
+    @dpyaml.YamlValue::Bool(b) => if b { "true" } else { "false" }
+    @dpyaml.YamlValue::Null => "null"
     _ => stringify_yaml_inline(value)
   }
 }
 
 ///|
-fn scalar_text(value : YamlValue) -> String {
+fn scalar_text(value : @dpyaml.YamlValue) -> String {
   match value {
-    YamlValue::String(s) => s
-    YamlValue::Bool(b) => if b { "true" } else { "false" }
-    YamlValue::Null => "null"
+    @dpyaml.YamlValue::String(s) => s
+    @dpyaml.YamlValue::Bool(b) => if b { "true" } else { "false" }
+    @dpyaml.YamlValue::Null => "null"
     _ => stringify_yaml_inline(value)
   }
 }
 
 ///|
-fn stringify_yaml_inline(value : YamlValue) -> String {
+fn stringify_yaml_inline(value : @dpyaml.YamlValue) -> String {
   match value {
-    YamlValue::Mapping(members) => {
+    @dpyaml.YamlValue::Mapping(members) => {
       let parts : Array[String] = []
       for entry in members {
         parts.push(
@@ -331,33 +339,35 @@ fn stringify_yaml_inline(value : YamlValue) -> String {
       }
       "{" + parts.join(", ") + "}"
     }
-    YamlValue::Sequence(values) => {
+    @dpyaml.YamlValue::Sequence(values) => {
       let parts : Array[String] = []
       for item in values {
         parts.push(stringify_yaml_inline(item))
       }
       "[" + parts.join(", ") + "]"
     }
-    YamlValue::String(s) =>
+    @dpyaml.YamlValue::String(s) =>
       if needs_quotes(s) {
         quote_yaml_string(s)
       } else {
         s
       }
-    YamlValue::Bool(b) => if b { "true" } else { "false" }
-    YamlValue::Null => "null"
+    @dpyaml.YamlValue::Bool(b) => if b { "true" } else { "false" }
+    @dpyaml.YamlValue::Null => "null"
   }
 }
 
 ///|
-fn stringify_yaml_block(value : YamlValue, indent : Int) -> String {
+fn stringify_yaml_block(value : @dpyaml.YamlValue, indent : Int) -> String {
   let prefix = "  ".repeat(indent)
   match value {
-    YamlValue::Mapping(members) => {
+    @dpyaml.YamlValue::Mapping(members) => {
       let lines : Array[String] = []
       for entry in members {
         match entry.value {
-          YamlValue::String(_) | YamlValue::Bool(_) | YamlValue::Null =>
+          @dpyaml.YamlValue::String(_)
+          | @dpyaml.YamlValue::Bool(_)
+          | @dpyaml.YamlValue::Null =>
             lines.push(
               prefix +
               stringify_yaml_key(entry.key) +
@@ -372,11 +382,13 @@ fn stringify_yaml_block(value : YamlValue, indent : Int) -> String {
       }
       lines.join("\n")
     }
-    YamlValue::Sequence(values) => {
+    @dpyaml.YamlValue::Sequence(values) => {
       let lines : Array[String] = []
       for item in values {
         match item {
-          YamlValue::String(_) | YamlValue::Bool(_) | YamlValue::Null =>
+          @dpyaml.YamlValue::String(_)
+          | @dpyaml.YamlValue::Bool(_)
+          | @dpyaml.YamlValue::Null =>
             lines.push(prefix + "- " + stringify_yaml_inline(item))
           _ => {
             lines.push(prefix + "-")

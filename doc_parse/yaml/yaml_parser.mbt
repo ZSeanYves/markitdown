@@ -1,16 +1,50 @@
 ///|
-priv enum YamlValue {
-  Mapping(Array[YamlMember])
-  Sequence(Array[YamlValue])
-  String(String)
-  Bool(Bool)
-  Null
+pub fn parse_yaml_document(text : String) -> YamlDocument raise {
+  let lines = prepare_yaml_lines(text)
+  if lines.length() == 0 {
+    return { root: None }
+  }
+
+  let indent = lines[0].indent
+  let (next, root) = parse_block(lines, 0, indent)
+  if next < lines.length() {
+    raise ParseError(
+      "unexpected trailing content at line " + lines[next].line_no.to_string(),
+    )
+  }
+  { root: Some(root) }
 }
 
 ///|
-priv struct YamlMember {
-  key : String
-  value : YamlValue
+pub fn classify_yaml_error(err : YamlError) -> YamlErrorInfo {
+  let detail = err.to_string().to_lower()
+  let kind = if detail.contains("unexpected end of input") {
+    YamlErrorKind::UnexpectedEnd
+  } else if detail.contains("unexpected indentation") {
+    YamlErrorKind::UnexpectedIndentation
+  } else if detail.contains("unexpected trailing content") {
+    YamlErrorKind::TrailingContent
+  } else if detail.contains("empty key") {
+    YamlErrorKind::EmptyKey
+  } else if detail.contains("expected mapping entry") {
+    YamlErrorKind::ExpectedMappingEntry
+  } else if detail.contains("expected sequence item") {
+    YamlErrorKind::ExpectedSequenceItem
+  } else if detail.contains("unterminated double-quoted string") ||
+    detail.contains("unterminated single-quoted string") {
+    YamlErrorKind::UnterminatedQuotedScalar
+  } else if detail.contains("invalid escape") {
+    YamlErrorKind::InvalidEscape
+  } else if detail.contains("tabs are unsupported") {
+    YamlErrorKind::TabsUnsupported
+  } else if detail.contains("multi-document markers are unsupported") {
+    YamlErrorKind::MultiDocumentUnsupported
+  } else if detail.contains("unsupported") {
+    YamlErrorKind::UnsupportedFeature
+  } else {
+    YamlErrorKind::Unknown
+  }
+  { kind, detail: err.to_string() }
 }
 
 ///|
@@ -21,49 +55,19 @@ priv struct YamlLine {
 }
 
 ///|
-fn parse_yaml_text(text : String) -> YamlValue? raise {
-  let prepare_started = @env.now()
-  let lines = prepare_yaml_lines(text)
-  yaml_profile_add_active_stage(
-    "yaml_normalize_or_split_lines",
-    @env.now() - prepare_started,
-    Some("lines=" + lines.length().to_string()),
-  )
-  if lines.length() == 0 {
-    return None
-  }
-
-  let indent = lines[0].indent
-  let parse_lines_started = @env.now()
-  let (next, value) = parse_block(lines, 0, indent)
-  yaml_profile_add_active_stage(
-    "yaml_parse_lines",
-    @env.now() - parse_lines_started,
-    Some("root_indent=" + indent.to_string()),
-  )
-  if next < lines.length() {
-    raise @cor.AppError(
-      "yaml: unexpected trailing content at line " +
-      lines[next].line_no.to_string(),
-    )
-  }
-  Some(value)
-}
-
-///|
 fn parse_block(
   lines : Array[YamlLine],
   start : Int,
   indent : Int,
 ) -> (Int, YamlValue) raise {
   if start >= lines.length() {
-    raise @cor.AppError("yaml: unexpected end of input")
+    raise ParseError("unexpected end of input")
   }
 
   let line = lines[start]
   if line.indent != indent {
-    raise @cor.AppError(
-      "yaml: unexpected indentation at line " + line.line_no.to_string(),
+    raise ParseError(
+      "unexpected indentation at line " + line.line_no.to_string(),
     )
   }
 
@@ -74,9 +78,8 @@ fn parse_block(
       Some(_) => parse_mapping(lines, start, indent)
       None => {
         if start + 1 < lines.length() && lines[start + 1].indent > indent {
-          raise @cor.AppError(
-            "yaml: scalar cannot own nested block at line " +
-            line.line_no.to_string(),
+          raise ParseError(
+            "scalar cannot own nested block at line " + line.line_no.to_string(),
           )
         }
         (start + 1, parse_scalar(line.content, line.line_no))
@@ -91,13 +94,7 @@ fn parse_mapping(
   start : Int,
   indent : Int,
 ) -> (Int, YamlValue) raise {
-  let started = @env.now()
   let (next, members) = consume_mapping_members(lines, start, indent)
-  yaml_profile_add_active_stage(
-    "yaml_parse_mapping",
-    @env.now() - started,
-    Some("members=" + members.length().to_string()),
-  )
   (next, YamlValue::Mapping(members))
 }
 
@@ -116,16 +113,16 @@ fn consume_mapping_members(
       break
     }
     if line.indent > indent {
-      raise @cor.AppError(
-        "yaml: unexpected indentation at line " + line.line_no.to_string(),
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
       )
     }
 
     let (raw_key, raw_value) = match split_mapping_entry(line.content) {
       Some(parts) => parts
       None =>
-        raise @cor.AppError(
-          "yaml: expected mapping entry at line " + line.line_no.to_string(),
+        raise ParseError(
+          "expected mapping entry at line " + line.line_no.to_string(),
         )
     }
 
@@ -155,7 +152,6 @@ fn parse_sequence(
   start : Int,
   indent : Int,
 ) -> (Int, YamlValue) raise {
-  let started = @env.now()
   let values : Array[YamlValue] = []
   let mut i = start
 
@@ -165,13 +161,13 @@ fn parse_sequence(
       break
     }
     if line.indent > indent {
-      raise @cor.AppError(
-        "yaml: unexpected indentation at line " + line.line_no.to_string(),
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
       )
     }
     if !is_sequence_item(line.content) {
-      raise @cor.AppError(
-        "yaml: expected sequence item at line " + line.line_no.to_string(),
+      raise ParseError(
+        "expected sequence item at line " + line.line_no.to_string(),
       )
     }
 
@@ -180,11 +176,6 @@ fn parse_sequence(
     i = next
   }
 
-  yaml_profile_add_active_stage(
-    "yaml_parse_sequence",
-    @env.now() - started,
-    Some("items=" + values.length().to_string()),
-  )
   (i, YamlValue::Sequence(values))
 }
 
@@ -243,11 +234,11 @@ fn parse_sequence_item(
 fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
   let key = raw_key.trim().to_owned()
   if key == "" {
-    raise @cor.AppError("yaml: empty key at line " + line_no.to_string())
+    raise ParseError("empty key at line " + line_no.to_string())
   }
   if key.has_prefix("[") || key.has_prefix("{") || key.has_prefix("?") {
-    raise @cor.AppError(
-      "yaml: complex keys are unsupported at line " + line_no.to_string(),
+    raise ParseError(
+      "complex keys are unsupported at line " + line_no.to_string(),
     )
   }
 
@@ -278,20 +269,18 @@ fn parse_scalar(text : String, line_no : Int) -> YamlValue raise {
   }
 
   if trimmed.has_prefix("|") || trimmed.has_prefix(">") {
-    raise @cor.AppError(
-      "yaml: block scalars are unsupported at line " + line_no.to_string(),
+    raise ParseError(
+      "block scalars are unsupported at line " + line_no.to_string(),
     )
   }
   if trimmed.has_prefix("{") || trimmed.has_prefix("[") {
-    raise @cor.AppError(
-      "yaml: flow style is unsupported at line " + line_no.to_string(),
-    )
+    raise ParseError("flow style is unsupported at line " + line_no.to_string())
   }
   if trimmed.has_prefix("&") ||
     trimmed.has_prefix("*") ||
     trimmed.has_prefix("!") {
-    raise @cor.AppError(
-      "yaml: anchors, aliases, and tags are unsupported at line " +
+    raise ParseError(
+      "anchors, aliases, and tags are unsupported at line " +
       line_no.to_string(),
     )
   }
@@ -310,8 +299,8 @@ fn parse_scalar(text : String, line_no : Int) -> YamlValue raise {
 fn parse_double_quoted_scalar(text : String, line_no : Int) -> String raise {
   let chars = text.to_array()
   if chars.length() < 2 || chars[0] != '"' || chars[chars.length() - 1] != '"' {
-    raise @cor.AppError(
-      "yaml: unterminated double-quoted string at line " + line_no.to_string(),
+    raise ParseError(
+      "unterminated double-quoted string at line " + line_no.to_string(),
     )
   }
 
@@ -321,9 +310,7 @@ fn parse_double_quoted_scalar(text : String, line_no : Int) -> String raise {
     let ch = chars[i]
     if ch == '\\' {
       if i + 1 >= chars.length() - 1 {
-        raise @cor.AppError(
-          "yaml: invalid escape at line " + line_no.to_string(),
-        )
+        raise ParseError("invalid escape at line " + line_no.to_string())
       }
       let esc = chars[i + 1]
       match esc {
@@ -348,8 +335,8 @@ fn parse_double_quoted_scalar(text : String, line_no : Int) -> String raise {
 fn parse_single_quoted_scalar(text : String, line_no : Int) -> String raise {
   let chars = text.to_array()
   if chars.length() < 2 || chars[0] != '\'' || chars[chars.length() - 1] != '\'' {
-    raise @cor.AppError(
-      "yaml: unterminated single-quoted string at line " + line_no.to_string(),
+    raise ParseError(
+      "unterminated single-quoted string at line " + line_no.to_string(),
     )
   }
 
@@ -384,9 +371,8 @@ fn prepare_yaml_lines(text : String) -> Array[YamlLine] raise {
   for i in 0..<raw_lines.length() {
     let raw = if i == 0 { strip_bom(raw_lines[i]) } else { raw_lines[i] }
     if contains_tab(raw) {
-      raise @cor.AppError(
-        "yaml: tabs are unsupported for indentation at line " +
-        (i + 1).to_string(),
+      raise ParseError(
+        "tabs are unsupported for indentation at line " + (i + 1).to_string(),
       )
     }
 
@@ -398,9 +384,8 @@ fn prepare_yaml_lines(text : String) -> Array[YamlLine] raise {
       continue
     }
     if content == "---" || content == "..." {
-      raise @cor.AppError(
-        "yaml: multi-document markers are unsupported at line " +
-        (i + 1).to_string(),
+      raise ParseError(
+        "multi-document markers are unsupported at line " + (i + 1).to_string(),
       )
     }
 
@@ -581,5 +566,16 @@ fn sequence_item_rest(content : String) -> String {
     ""
   } else {
     content[2:].trim().to_owned()
+  }
+}
+
+///|
+pub fn yaml_value_kind(value : YamlValue) -> String {
+  match value {
+    YamlValue::Mapping(_) => "mapping"
+    YamlValue::Sequence(_) => "sequence"
+    YamlValue::String(_) => "string"
+    YamlValue::Bool(_) => "bool"
+    YamlValue::Null => "null"
   }
 }

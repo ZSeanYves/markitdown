@@ -1,0 +1,4 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/csv" @csv,
+  "ZSeanYves/markitdown/doc_parse/tsv" @tsv,
+} for "test"

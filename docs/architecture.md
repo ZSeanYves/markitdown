@@ -73,6 +73,10 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
 * `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
 * `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest, and spine
+* `doc_parse/csv` / `doc_parse/tsv`: delimited table parser/model/inspect
+* `doc_parse/json`: JSON parser / AST / inspect
+* `doc_parse/yaml`: current YAML-subset parser / AST / inspect
+* `doc_parse/text`: plain-text structural document model / inspect
 
 These packages are infrastructure, not final Markdown semantics.
 
@@ -254,9 +258,14 @@ TXT and Markdown are intentionally different:
 CSV / TSV / JSON / YAML / XML are not treated as one semantic family, but they
 share a “conservative and stable” philosophy:
 
-* CSV / TSV -> tables
-* JSON / YAML -> conservative table / list / code-block mapping
-* XML -> source-preserving fenced code-block output
+* `doc_parse/csv` / `doc_parse/tsv` now own delimited parsing while
+  `convert/csv` still owns `RichTable` / IR semantics
+* `doc_parse/json` now owns JSON parsing / AST while `convert/json` still owns
+  table/list/code-block lowering
+* `doc_parse/yaml` now owns current YAML-subset parsing / AST while
+  `convert/yaml` still owns conservative table/list/code-block lowering
+* XML remains source-preserving fenced code-block output for now; a reusable
+  XML parser layer is still deferred
 
 ### Container
 

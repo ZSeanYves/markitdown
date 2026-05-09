@@ -5,6 +5,9 @@
 * Mark `doc_parse/ooxml`, `doc_parse/epub`, and native text-PDF
   `doc_parse/pdf` as foundation candidates after the recent inspect,
   validation, classifier, and lower-layer contract hardening passes.
+* Migrate simple-format parser foundations internally into `doc_parse/csv`,
+  `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
+  while keeping `convert/*` responsible for IR/Markdown/product semantics.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

@@ -1,54 +1,54 @@
 ///|
-priv enum JsonValue {
-  Object(Array[JsonMember])
-  Array(Array[JsonValue])
-  String(String)
-  Number(String)
-  Bool(Bool)
-  Null
-}
-
-///|
-priv struct JsonMember {
-  key : String
-  value : JsonValue
-}
-
-///|
-fn parse_json_text(text : String) -> JsonValue raise {
-  let parser = JsonParser::{ chars: text.to_array(), pos: 0 }
-  let value = parser.parse_value()
+pub fn parse_json_document(text : String) -> JsonDocument raise {
+  let normalized = normalize_json_source(text)
+  let parser = JsonParser::{ chars: normalized.to_array(), pos: 0 }
+  let root = parser.parse_value()
   parser.skip_ws()
   if parser.pos < parser.chars.length() {
-    raise @cor.AppError("json: trailing content")
+    raise ParseError("trailing content")
   }
-  value
+  { root, }
 }
 
 ///|
-fn parse_json_text_profiled(
-  text : String,
-  report : JsonProfileReport?,
-) -> JsonValue raise {
-  let parse_started = @env.now()
-  let parser = JsonParser::{ chars: text.to_array(), pos: 0 }
-  let value = parser.parse_value()
-  parser.skip_ws()
-  if parser.pos < parser.chars.length() {
-    raise @cor.AppError("json: trailing content")
+pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
+  let detail = err.to_string().to_lower()
+  let kind = if detail.contains("trailing content") {
+    JsonErrorKind::TrailingContent
+  } else if detail.contains("unexpected end of input") {
+    JsonErrorKind::UnexpectedEnd
+  } else if detail.contains("unexpected character") {
+    JsonErrorKind::UnexpectedCharacter
+  } else if detail.contains("object key must be a string") {
+    JsonErrorKind::ObjectKeyMustBeString
+  } else if detail.contains("unterminated string") {
+    JsonErrorKind::UnterminatedString
+  } else if detail.contains("unterminated escape") ||
+    detail.contains("invalid escape") {
+    JsonErrorKind::InvalidEscape
+  } else if detail.contains("invalid unicode escape") {
+    JsonErrorKind::InvalidUnicodeEscape
+  } else if detail.contains("invalid unicode surrogate pair") ||
+    detail.contains("lone low surrogate") {
+    JsonErrorKind::InvalidUnicodeSurrogate
+  } else if detail.contains("invalid fraction") {
+    JsonErrorKind::InvalidFraction
+  } else if detail.contains("invalid exponent") {
+    JsonErrorKind::InvalidExponent
+  } else if detail.contains("invalid number") ||
+    detail.contains("invalid leading zero") {
+    JsonErrorKind::InvalidNumber
+  } else if detail.contains("raw newline in string") {
+    JsonErrorKind::RawNewlineInString
+  } else if detail.contains("raw control character in string") {
+    JsonErrorKind::RawControlCharacterInString
+  } else if detail.contains("expected ") ||
+    detail.contains("expected character") {
+    JsonErrorKind::ExpectedToken
+  } else {
+    JsonErrorKind::Unknown
   }
-  json_profile_add_stage(
-    report,
-    "json_parse_total",
-    @env.now() - parse_started,
-    Some(
-      "chars=" +
-      parser.chars.length().to_string() +
-      " root=" +
-      json_value_kind(value),
-    ),
-  )
-  value
+  { kind, detail: err.to_string() }
 }
 
 ///|
@@ -61,7 +61,7 @@ priv struct JsonParser {
 fn JsonParser::parse_value(self : JsonParser) -> JsonValue raise {
   self.skip_ws()
   if self.pos >= self.chars.length() {
-    raise @cor.AppError("json: unexpected end of input")
+    raise ParseError("unexpected end of input")
   }
 
   match self.chars[self.pos] {
@@ -85,7 +85,7 @@ fn JsonParser::parse_value(self : JsonParser) -> JsonValue raise {
       if is_digit(c) {
         JsonValue::Number(self.parse_number())
       } else {
-        raise @cor.AppError("json: unexpected character")
+        raise ParseError("unexpected character")
       }
   }
 }
@@ -103,7 +103,7 @@ fn JsonParser::parse_object(self : JsonParser) -> JsonValue raise {
   while true {
     self.skip_ws()
     if self.pos >= self.chars.length() || self.chars[self.pos] != '"' {
-      raise @cor.AppError("json: object key must be a string")
+      raise ParseError("object key must be a string")
     }
     let key = self.parse_string()
 
@@ -153,14 +153,14 @@ fn JsonParser::parse_string(self : JsonParser) -> String raise {
   while self.pos < self.chars.length() {
     let ch = self.chars[self.pos]
     if ch == '"' {
-      self.pos = self.pos + 1
+      self.pos += 1
       return String::from_array(out)
     }
 
     if ch == '\\' {
-      self.pos = self.pos + 1
+      self.pos += 1
       if self.pos >= self.chars.length() {
-        raise @cor.AppError("json: unterminated escape")
+        raise ParseError("unterminated escape")
       }
       let esc = self.chars[self.pos]
       match esc {
@@ -173,82 +173,80 @@ fn JsonParser::parse_string(self : JsonParser) -> String raise {
         'r' => out.push('\r')
         't' => out.push('\t')
         'u' => self.parse_unicode_escape(out)
-        _ => raise @cor.AppError("json: invalid escape")
+        _ => raise ParseError("invalid escape")
       }
-      self.pos = self.pos + 1
+      self.pos += 1
       continue
     }
 
     if ch == '\n' || ch == '\r' {
-      raise @cor.AppError("json: raw newline in string")
+      raise ParseError("raw newline in string")
     }
 
     if ch.to_int() < 0x20 {
-      raise @cor.AppError("json: raw control character in string")
+      raise ParseError("raw control character in string")
     }
 
     out.push(ch)
-    self.pos = self.pos + 1
+    self.pos += 1
   }
 
-  raise @cor.AppError("json: unterminated string")
+  raise ParseError("unterminated string")
 }
 
 ///|
 fn JsonParser::parse_number(self : JsonParser) -> String raise {
   let start = self.pos
 
-  if self.consume_char('-') {
-    if self.pos >= self.chars.length() {
-      raise @cor.AppError("json: invalid number")
-    }
+  if self.consume_char('-') && self.pos >= self.chars.length() {
+    raise ParseError("invalid number")
   }
 
   if self.consume_char('0') {
     if self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
-      raise @cor.AppError("json: invalid leading zero")
+      raise ParseError("invalid leading zero")
     }
   } else if self.pos < self.chars.length() && is_digit_1_9(self.chars[self.pos]) {
-    self.pos = self.pos + 1
+    self.pos += 1
     while self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
-      self.pos = self.pos + 1
+      self.pos += 1
     }
   } else {
-    raise @cor.AppError("json: invalid number")
+    raise ParseError("invalid number")
   }
 
   if self.consume_char('.') {
     if self.pos >= self.chars.length() || !is_digit(self.chars[self.pos]) {
-      raise @cor.AppError("json: invalid fraction")
+      raise ParseError("invalid fraction")
     }
     while self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
-      self.pos = self.pos + 1
+      self.pos += 1
     }
   }
 
   if self.pos < self.chars.length() &&
     (self.chars[self.pos] == 'e' || self.chars[self.pos] == 'E') {
-    self.pos = self.pos + 1
+    self.pos += 1
     if self.pos < self.chars.length() &&
       (self.chars[self.pos] == '+' || self.chars[self.pos] == '-') {
-      self.pos = self.pos + 1
+      self.pos += 1
     }
     if self.pos >= self.chars.length() || !is_digit(self.chars[self.pos]) {
-      raise @cor.AppError("json: invalid exponent")
+      raise ParseError("invalid exponent")
     }
     while self.pos < self.chars.length() && is_digit(self.chars[self.pos]) {
-      self.pos = self.pos + 1
+      self.pos += 1
     }
   }
 
-  @cor.slice_to_string(self.chars, start, self.pos)
+  slice_chars_to_string(self.chars, start, self.pos)
 }
 
 ///|
 fn JsonParser::skip_ws(self : JsonParser) -> Unit {
   while self.pos < self.chars.length() {
     match self.chars[self.pos] {
-      ' ' | '\n' | '\r' | '\t' => self.pos = self.pos + 1
+      ' ' | '\n' | '\r' | '\t' => self.pos += 1
       _ => return
     }
   }
@@ -260,28 +258,110 @@ fn JsonParser::expect_literal(self : JsonParser, lit : String) -> Unit raise {
   for i in 0..<chars.length() {
     if self.pos + i >= self.chars.length() ||
       self.chars[self.pos + i] != chars[i] {
-      raise @cor.AppError("json: expected " + lit)
+      raise ParseError("expected " + lit)
     }
   }
-  self.pos = self.pos + chars.length()
+  self.pos += chars.length()
 }
 
 ///|
 fn JsonParser::expect_char(self : JsonParser, ch : Char) -> Unit raise {
   if self.pos >= self.chars.length() || self.chars[self.pos] != ch {
-    raise @cor.AppError("json: expected character")
+    raise ParseError("expected character")
   }
-  self.pos = self.pos + 1
+  self.pos += 1
 }
 
 ///|
 fn JsonParser::consume_char(self : JsonParser, ch : Char) -> Bool {
   if self.pos < self.chars.length() && self.chars[self.pos] == ch {
-    self.pos = self.pos + 1
+    self.pos += 1
     true
   } else {
     false
   }
+}
+
+///|
+fn JsonParser::parse_unicode_escape(
+  self : JsonParser,
+  out : Array[Char],
+) -> Unit raise {
+  let code = self.read_hex_quad()
+
+  if is_high_surrogate(code) {
+    self.pos += 1
+    if self.pos >= self.chars.length() || self.chars[self.pos] != '\\' {
+      raise ParseError("invalid unicode surrogate pair")
+    }
+    self.pos += 1
+    if self.pos >= self.chars.length() || self.chars[self.pos] != 'u' {
+      raise ParseError("invalid unicode surrogate pair")
+    }
+    let low = self.read_hex_quad()
+    if !is_low_surrogate(low) {
+      raise ParseError("invalid unicode surrogate pair")
+    }
+    let cp = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+    out.push(Int::unsafe_to_char(cp))
+    return
+  }
+
+  if is_low_surrogate(code) {
+    raise ParseError("lone low surrogate")
+  }
+
+  out.push(Int::unsafe_to_char(code))
+}
+
+///|
+fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
+  let mut code = 0
+  for _ in 0..<4 {
+    self.pos += 1
+    if self.pos >= self.chars.length() || !is_hex(self.chars[self.pos]) {
+      raise ParseError("invalid unicode escape")
+    }
+    code = (code << 4) + hex_value(self.chars[self.pos])
+  }
+  code
+}
+
+///|
+fn normalize_json_source(text : String) -> String {
+  let without_bom = if text.length() > 0 && text[0] == '\u{FEFF}' {
+    text[1:].to_owned()
+  } else {
+    text
+  }
+  let out : Array[Char] = []
+  let chars = without_bom.to_array()
+  let mut i = 0
+
+  while i < chars.length() {
+    if chars[i] == '\r' {
+      out.push('\n')
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      out.push(chars[i])
+      i += 1
+    }
+  }
+
+  String::from_array(out)
+}
+
+///|
+fn slice_chars_to_string(
+  chars : Array[Char],
+  start : Int,
+  end_ : Int,
+) -> String {
+  String::from_array(chars[start:end_].to_owned())
 }
 
 ///|
@@ -299,64 +379,6 @@ fn is_hex(ch : Char) -> Bool {
   (ch >= '0' && ch <= '9') ||
   (ch >= 'a' && ch <= 'f') ||
   (ch >= 'A' && ch <= 'F')
-}
-
-///|
-fn JsonParser::parse_unicode_escape(
-  self : JsonParser,
-  out : Array[Char],
-) -> Unit raise {
-  let code = self.read_hex_quad()
-
-  if is_high_surrogate(code) {
-    self.pos = self.pos + 1
-    if self.pos >= self.chars.length() || self.chars[self.pos] != '\\' {
-      raise @cor.AppError("json: invalid unicode surrogate pair")
-    }
-    self.pos = self.pos + 1
-    if self.pos >= self.chars.length() || self.chars[self.pos] != 'u' {
-      raise @cor.AppError("json: invalid unicode surrogate pair")
-    }
-    let low = self.read_hex_quad()
-    if !is_low_surrogate(low) {
-      raise @cor.AppError("json: invalid unicode surrogate pair")
-    }
-    let cp = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
-    append_codepoint(out, cp)
-    return
-  }
-
-  if is_low_surrogate(code) {
-    raise @cor.AppError("json: lone low surrogate")
-  }
-
-  append_codepoint(out, code)
-}
-
-///|
-fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
-  let mut code = 0
-  for _ in 0..<4 {
-    self.pos = self.pos + 1
-    if self.pos >= self.chars.length() || !is_hex(self.chars[self.pos]) {
-      raise @cor.AppError("json: invalid unicode escape")
-    }
-    code = (code << 4) + hex_value(self.chars[self.pos])
-  }
-  code
-}
-
-///|
-fn append_codepoint(out : Array[Char], cp : Int) -> Unit {
-  if cp <= 0xFFFF {
-    out.push(Int::unsafe_to_char(cp))
-    return
-  }
-
-  let entity = "&#" + cp.to_string() + ";"
-  for ch in @cor.decode_numeric_entities(entity).to_array() {
-    out.push(ch)
-  }
 }
 
 ///|
@@ -381,7 +403,7 @@ fn hex_value(ch : Char) -> Int {
 }
 
 ///|
-fn json_value_kind(value : JsonValue) -> String {
+pub fn json_value_kind(value : JsonValue) -> String {
   match value {
     JsonValue::Object(_) => "object"
     JsonValue::Array(_) => "array"
