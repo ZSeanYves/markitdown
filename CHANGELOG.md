@@ -31,6 +31,10 @@
 * Sync `doc_parse` foundation status after the HTML and Markdown candidate
   closures, and clarify that `convert/html` and `convert/markdown` still own
   their current normal product paths.
+* Add `doc_parse/xlsx` as an active SpreadsheetML semantic foundation Pass 1,
+  route `convert/xlsx` through that semantic workbook model, and keep
+  RichTable / IR / Markdown / product policy in the converter layer without
+  changing output behavior.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

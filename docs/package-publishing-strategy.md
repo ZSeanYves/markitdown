@@ -27,6 +27,9 @@ Current recommendation:
 
 * keep `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`, and `doc_parse/zip`
   as importable subpackages under the root module for now
+* keep `doc_parse/xlsx` in-tree as an active SpreadsheetML semantic
+  foundation package until its semantic model surface and future candidate
+  closure are more stable
 * keep simple-format parser candidates such as `doc_parse/csv`,
   `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`, and `doc_parse/text`
   inside the same root module until their internal boundaries and future
@@ -75,6 +78,7 @@ Possible future modules could include:
 * `doc_parse_ooxml`
 * `doc_parse_epub`
 * `doc_parse_pdf`
+* `doc_parse_xlsx`
 * `doc_parse_csv`
 * `doc_parse_json`
 * `doc_parse_yaml`

@@ -1,15 +1,4 @@
 ///|
-fn clamp_heading(level : Int, max_h : Int) -> Int {
-  if level < 1 {
-    1
-  } else if level > max_h {
-    max_h
-  } else {
-    level
-  }
-}
-
-///|
 fn find_sub(s : String, pat : String, start : Int) -> Int? {
   let n = s.length()
   let m = pat.length()

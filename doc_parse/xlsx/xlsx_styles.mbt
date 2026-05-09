@@ -1,15 +1,4 @@
 ///|
-/// minimal XLSX styles support:
-/// - parse xl/styles.xml
-/// - keep cellXfs style index -> numFmtId
-/// - keep custom numFmtId -> formatCode
-/// - detect date/time-like numFmt
-priv struct XlsxStyles {
-  xf_numfmts : Array[Int]
-  custom_numfmts : Map[Int, String]
-}
-
-///|
 fn empty_styles() -> XlsxStyles {
   { xf_numfmts: [], custom_numfmts: Map::new() }
 }

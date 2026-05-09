@@ -9,6 +9,7 @@ Current audit scope for this contract:
 * `doc_parse/pdf`
 * `doc_parse/epub`
 * `doc_parse/zip`
+* `doc_parse/xlsx`
 * `doc_parse/csv`
 * `doc_parse/tsv`
 * `doc_parse/json`
@@ -53,7 +54,8 @@ Shared contract:
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and the normal XML converter path is not switched |
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
 | `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
-| `docx/pptx/xlsx` semantic sublayers | deferred semantic sublayer | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
+| `doc_parse/xlsx` | active semantic foundation Pass 1 | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
+| `docx/pptx` semantic sublayers | deferred semantic sublayer | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx` and `convert/pptx` |
 
 ## Candidate Definitions
 
@@ -77,6 +79,10 @@ Shared contract:
   lightweight source-scanner foundation with stable candidate API and raw
   block inventory / inspect / validation surface, but without renderer or
   output-mutation ownership
+* `active semantic foundation Pass 1`
+  first-round semantic model foundation above a lower package substrate, with
+  real parser/model/inspect/validation ownership but without candidate-closure
+  API guarantees yet
 * `deferred semantic sublayer`
   format-specific semantic parser/converter split intentionally left above the
   current lower-layer package line
@@ -266,6 +272,50 @@ Future release-policy items:
 * clarify whether lightweight XML text decoding should remain package-local or
   later gain an explicit "XML/text part reader" naming split in a release pass
 
+### `doc_parse/xlsx`
+
+Current role:
+
+* SpreadsheetML semantic foundation Pass 1 above the shared OOXML package line
+* workbook / sheet / cell / shared-string / styles / merged-range /
+  conservative-formula-trace parser/model/inspect/validation package
+
+Current surface:
+
+* `open_xlsx_workbook`
+* `parse_xlsx_workbook_from_package`
+* `inspect_xlsx_workbook`
+* `collect_xlsx_validation_issues`
+* `validate_xlsx_workbook`
+* `classify_xlsx_error`
+
+Current maturity:
+
+* active semantic foundation Pass 1
+* current source-native compatibility surface is centered on `XlsxWorkbook`,
+  `XlsxSheet`, `XlsxCell`, `XlsxStyles`, `XlsxMergedRange`, and
+  `XlsxFormulaTrace`
+* current semantic scope includes workbook ordering, worksheet visibility,
+  worksheet relationship targets, shared strings, style/number-format lookup,
+  conservative datetime-like display formatting, raw formula text, and
+  conservative missing-cache formula trace
+
+Current boundary:
+
+* `doc_parse/xlsx` owns SpreadsheetML semantic parsing/model/inspect/
+  validation/classifier work
+* `convert/xlsx` now consumes that semantic workbook/model and still owns
+  RichTable shaping, IR lowering, Markdown table policy, wording, hints, and
+  product origin/metadata wiring
+
+Known limits:
+
+* not a full Excel engine
+* not a full formula evaluator
+* no chart / pivot / macro / external-link semantic support
+* styles and number formats are conservative semantic formatting aids, not a
+  full Excel style engine
+
 ### `doc_parse/zip`
 
 Current role:
@@ -448,6 +498,8 @@ Current packages:
   inspect/validation candidate
 * `doc_parse/markdown`: lightweight source scanner/raw block inventory/
   inspect/validation candidate
+* `doc_parse/xlsx`: SpreadsheetML semantic foundation Pass 1 above
+  `doc_parse/ooxml`
 
 Current boundary:
 
@@ -458,6 +510,9 @@ Current boundary:
 * `convert/csv`, `convert/json`, `convert/yaml`, and `convert/txt` still own
   IR shaping, Markdown output policy, metadata wiring, and product-facing
   origin semantics
+* `convert/xlsx` now consumes `doc_parse/xlsx` for workbook/sheet/cell
+  semantic parsing while still owning RichTable / IR / Markdown / wording /
+  product metadata policy
 * `convert/xml` still owns source-preserving fenced-XML product semantics even
   though `doc_parse/xml` now provides the tokenizer/parser/model foundation;
   the normal XML converter path is not switched
@@ -490,6 +545,8 @@ Current maturity:
 * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate with
   raw block inventory, frontmatter and fenced-code detection, inspect /
   validation, and a no-renderer boundary
+* `doc_parse/xlsx`: active semantic foundation Pass 1 with workbook/sheet/cell
+  semantic model, inspect, validation, and conservative formula trace signal
 
 Known limits:
 
@@ -610,12 +667,11 @@ Remaining work:
 
 Current deferred line:
 
-* `docx/pptx/xlsx` semantic sublayers remain intentionally deferred above the
+* `docx/pptx` semantic sublayers remain intentionally deferred above the
   current OOXML package foundation
 * semantic conversion ownership therefore still lives in:
   * `convert/docx`
   * `convert/pptx`
-  * `convert/xlsx`
 
 Known deferred boundary:
 

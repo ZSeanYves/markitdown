@@ -148,6 +148,10 @@ Lower-layer package contract:
   * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate
     with raw block inventory, frontmatter detection, fenced code detection,
     and no renderer / no output mutation boundary
+* current semantic hardening line also includes:
+  * `doc_parse/xlsx`: SpreadsheetML semantic foundation Pass 1 with
+    workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
+    model plus inspect/validation
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
@@ -162,7 +166,7 @@ Lower-layer package contract:
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
 * deferred lower-layer work remains:
-  * DOCX / PPTX / XLSX semantic sublayers above the OOXML package layer
+  * DOCX / PPTX semantic sublayers above the OOXML package layer
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 

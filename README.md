@@ -88,6 +88,12 @@ Current contract:
   native text-PDF foundation candidate for page/text/image/annotation lower
   layers, structured inspect, typed issues, and classifier-friendly errors.
 
+### OOXML semantic foundation in hardening
+
+* `doc_parse/xlsx`
+  SpreadsheetML semantic foundation Pass 1 for workbook/sheet/cell/shared
+  strings/styles/merged ranges/formula trace inspect and validation.
+
 ### Simple-format and markup parser foundations
 
 * `doc_parse/csv`
@@ -123,7 +129,10 @@ Current module strategy:
 * these packages are delivered today as importable in-tree subpackages under
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` module extraction is future release work
-* `docx/pptx/xlsx` semantic sublayers remain deferred
+* `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
+  parsing, while still owning RichTable / IR / Markdown / metadata / product
+  output policy
+* `docx/pptx` semantic sublayers remain deferred
 * `convert/html` and `convert/markdown` normal paths remain product conversion
   paths and are not switched to the new parser/scanner foundations yet
 * none of these candidate labels claim full spec coverage
