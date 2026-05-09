@@ -48,20 +48,22 @@ fn parse_docx_table_cell(
   numbering : DocxNumbering,
 ) -> DocxTableCell {
   {
-    body_blocks: parse_docx_body_blocks(tc_inner, ctx, styles, numbering),
+    body_blocks: parse_docx_body_blocks_visible(
+      tc_inner, ctx, styles, numbering,
+    ),
     grid_span: parse_docx_grid_span(tc_inner),
     vertical_merge: parse_docx_vertical_merge(tc_inner),
   }
 }
 
 ///|
-fn parse_docx_table(
+fn parse_docx_table_visible(
   tbl_xml : String,
   ctx : DocxPartParseContext,
   styles : DocxStyles,
   numbering : DocxNumbering,
 ) -> DocxTable {
-  let chars = strip_docx_deleted_revision_xml(tbl_xml).to_array()
+  let chars = tbl_xml.to_array()
   let rows : Array[DocxTableRow] = []
   let mut i = 0
 

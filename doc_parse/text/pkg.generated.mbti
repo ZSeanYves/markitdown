@@ -10,6 +10,12 @@ pub fn open_text_document(Bytes) -> TextDocument raise
 
 pub fn parse_text_document(String) -> TextDocument
 
+pub fn parse_text_document_from_normalized_text(String) -> TextDocument
+
+pub fn profile_text_document(String) -> TextProfiledDocument
+
+pub fn profile_text_document_from_normalized_text(String) -> TextProfiledDocument
+
 // Errors
 pub(all) suberror TextError {
   Utf8DecodeFailed(String)
@@ -63,6 +69,21 @@ pub struct TextParagraph {
   text : String
   line_start : Int
   line_end : Int
+}
+
+pub(all) struct TextParseProfileReport {
+  stages : Array[TextParseProfileStage]
+}
+
+pub(all) struct TextParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct TextProfiledDocument {
+  document : TextDocument
+  report : TextParseProfileReport
 }
 
 // Type aliases

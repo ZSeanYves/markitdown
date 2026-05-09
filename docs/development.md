@@ -116,7 +116,7 @@ Full validation:
 ```
 
 The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
-public validation entrypoints. Helpers under `samples/scripts/` remain
+public validation entrypoints. Helpers under `samples/helpers/` remain
 internal implementation detail or maintainer-only tooling.
 
 Lower-layer package work:
@@ -126,6 +126,8 @@ Lower-layer package work:
   semantics
 * when hardening `doc_parse/*`, prefer direct lower-layer tests over relying
   only on converter Markdown regression
+* use [../doc_parse/README.md](../doc_parse/README.md) for the package map,
+  examples, and lower-layer benchmark location
 * use [docs/doc-parse-foundation.md](./doc-parse-foundation.md) as the package
   maturity contract
 
@@ -158,7 +160,7 @@ Assets regression:
 
 ```bash
 ./samples/check.sh --assets-only
-./samples/scripts/check_debug_contract.sh
+./samples/helpers/check_debug_contract.sh
 ```
 
 Validation runner policy:
@@ -258,18 +260,36 @@ Public batch profiling benchmark:
 ./samples/bench.sh --suite batch-profile --formats csv,json,html,xlsx,docx,pdf --counts 1,3 --memory auto
 ```
 
+Public doc_parse library benchmark:
+
+```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+```
+
+Public product-path attribution benchmark:
+
+```bash
+./samples/bench.sh --suite product-path --help
+./samples/bench.sh --suite product-path --smoke
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+```
+
 Optional maintainer-only warning helper:
 
 ```bash
-./samples/scripts/bench_warn.sh --suite batch_profile
+./samples/helpers/bench_warn.sh --suite batch_profile
 ```
 
-Phase-2 benchmark governance entry points:
+Historical benchmark governance/planning references:
 
-* [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
-* [docs/benchmark-h3-plan.md](./benchmark-h3-plan.md)
+* [docs/archive/benchmark/](./archive/benchmark/)
 * [samples/benchmark/README.md](../samples/benchmark/README.md)
 * `./samples/check.sh --manifest-only`
+
+Current benchmark entrypoints and artifact layout:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance.md](./performance.md)
 
 Notes:
 
@@ -334,7 +354,6 @@ Keep doc responsibilities separated:
 * `README.mbt.md`: product entry and short support summary
 * `docs/README.md`: document map and current primary entrypoints
 * `docs/support-and-limits.md`: detailed support contract
-* `docs/progress.md`: compact current project state and rollout summary
 * `docs/architecture.md`: architecture view
 * `docs/metadata-sidecar.md`: sidecar schema and fill behavior
 * benchmark docs: benchmark-only scope
@@ -395,7 +414,7 @@ The repository intentionally has a third validation layer beyond package tests:
 
 * `convert/convert/test`: cross-format metadata/provenance invariants
 * `samples/check.sh --manifest-only`: enrollment and manifest integrity
-* `samples/scripts/list_sample_inventory.sh`: maintainer-only sample-family
+* `samples/helpers/list_sample_inventory.sh`: maintainer-only sample-family
   inventory summary
 * `samples/check.sh --markdown-only`: focused checked-Markdown regression
 * `samples/check.sh --metadata-only`: focused metadata sidecar

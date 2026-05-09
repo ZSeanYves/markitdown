@@ -18,7 +18,13 @@ fn extract_slide_paragraphs(
   let out : Array[SlideParagraph] = []
   let para_seq : Ref[Int] = { val: 0 }
 
+  let shape_collect_started = @env.now()
   let shapes = collect_slide_shapes(xml)
+  pptx_convert_profile_add_active_stage(
+    "pptx_shape_collect",
+    @env.now() - shape_collect_started,
+    Some("shapes=" + shapes.length().to_string()),
+  )
   if PPTX_SLIDE_DEBUG {
     for sp in shapes {
       let text = normalize_slide_text(
@@ -42,11 +48,25 @@ fn extract_slide_paragraphs(
       )
     }
   }
+  let reading_order_started = @env.now()
   let enriched = enrich_layout_shapes(shapes)
   let (title_shapes, body_shapes) = split_title_shapes(enriched)
   let filtered_bodies = filter_noise_shapes(body_shapes)
   let ordered = flatten_shapes_in_reading_order(title_shapes, filtered_bodies)
+  pptx_convert_profile_add_active_stage(
+    "pptx_reading_order",
+    @env.now() - reading_order_started,
+    Some(
+      "title_shapes=" +
+      title_shapes.length().to_string() +
+      " body_shapes=" +
+      body_shapes.length().to_string() +
+      " ordered_shapes=" +
+      ordered.length().to_string(),
+    ),
+  )
 
+  let text_extract_started = @env.now()
   for sp in ordered {
     let raw = sp.shape
     let paras = extract_shape_paragraphs(
@@ -61,6 +81,11 @@ fn extract_slide_paragraphs(
       out.push(para)
     }
   }
+  pptx_convert_profile_add_active_stage(
+    "pptx_text_extract",
+    @env.now() - text_extract_started,
+    Some("paragraphs=" + out.length().to_string()),
+  )
 
   out
 }

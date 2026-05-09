@@ -82,7 +82,15 @@ fn docx_media_ref_from_relationship(
   relationship_id : String,
   source_xml : String,
 ) -> DocxMediaRef {
-  match lookup_docx_part_target_opt(ctx.rels, relationship_id) {
+  let media_resolution_started = match ctx.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let media_total = match ctx.profile_totals {
+    Some(totals) => Some(totals.media_resolution_elapsed_ms)
+    None => None
+  }
+  let media = match lookup_docx_part_target_opt(ctx.rels, relationship_id) {
     Some(target_part) => {
       if !@ox.has_part(ctx.pkg, target_part) {
         ctx.issues.push(
@@ -134,6 +142,8 @@ fn docx_media_ref_from_relationship(
       }
     }
   }
+  docx_parse_profile_add_elapsed(media_total, media_resolution_started)
+  media
 }
 
 ///|
@@ -142,13 +152,22 @@ fn parse_docx_hyperlink_inline(
   ctx : DocxPartParseContext,
   open_tag : String,
 ) -> DocxHyperlink {
+  let hyperlink_resolution_started = match ctx.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let hyperlink_total = match ctx.profile_totals {
+    Some(totals) => Some(totals.hyperlink_resolution_elapsed_ms)
+    None => None
+  }
   let relationship_id = read_attr_value_in_tag(open_tag, "r:id")
   let anchor = read_attr_value_in_tag(open_tag, "w:anchor")
   let text = text_from_docx_range(block.to_array(), 0, block.length())
   let target = match relationship_id {
     Some(rid) => {
       let resolved = lookup_docx_hyperlink_target(ctx.rels, rid)
-      if resolved.trim() == "" {
+      let trimmed_resolved = resolved.trim()
+      if trimmed_resolved == "" {
         ctx.issues.push(
           docx_issue(
             DocxValidationIssueKind::MissingRelationshipTarget,
@@ -162,22 +181,32 @@ fn parse_docx_hyperlink_inline(
         )
         None
       } else {
-        Some(resolved.trim().to_owned())
+        Some(trimmed_resolved.to_owned())
       }
     }
     None => None
   }
-  {
+  let hyperlink = {
     relationship_id,
     anchor,
     target,
     text: @cor.trim_string(text),
     is_external: target is Some(_),
   }
+  docx_parse_profile_add_elapsed(hyperlink_total, hyperlink_resolution_started)
+  hyperlink
 }
 
 ///|
 fn parse_docx_run_xml(block : String, ctx : DocxPartParseContext) -> DocxRun {
+  let inline_scan_started = match ctx.profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let inline_total = match ctx.profile_totals {
+    Some(totals) => Some(totals.inline_scan_elapsed_ms)
+    None => None
+  }
   let style_id = read_docx_run_style_id(block)
   let chars = block.to_array()
   let out : Array[DocxInline] = []
@@ -317,20 +346,19 @@ fn parse_docx_run_xml(block : String, ctx : DocxPartParseContext) -> DocxRun {
     i = gt + 1
   }
 
-  { style_id, inlines: out }
+  let run = { style_id, inlines: out }
+  docx_parse_profile_add_elapsed(inline_total, inline_scan_started)
+  run
 }
 
 ///|
-fn parse_docx_paragraph(
+fn parse_docx_paragraph_visible(
   p_xml : String,
   ctx : DocxPartParseContext,
   styles : DocxStyles,
   numbering : DocxNumbering,
 ) -> DocxParagraph {
-  let visible_xml = strip_docx_text_box_content_xml(
-    strip_docx_deleted_revision_xml(p_xml),
-  )
-  let style_id = read_docx_paragraph_style_id(visible_xml)
+  let style_id = read_docx_paragraph_style_id(p_xml)
   match style_id {
     Some(v) =>
       if !docx_style_exists(styles, v) && styles.styles.length() > 0 {
@@ -349,7 +377,7 @@ fn parse_docx_paragraph(
     None => ()
   }
 
-  let numbering_ref = read_numbering_ref_from_xml(visible_xml, numbering)
+  let numbering_ref = read_numbering_ref_from_xml(p_xml, numbering)
   match numbering_ref {
     Some(info) =>
       if !docx_numbering_instance_exists(numbering, info.num_id) &&
@@ -371,7 +399,9 @@ fn parse_docx_paragraph(
   }
 
   let runs : Array[DocxRun] = []
-  let chars = visible_xml.to_array()
+  let hyperlink_refs : Array[DocxHyperlink] = []
+  let media_refs : Array[DocxMediaRef] = []
+  let chars = p_xml.to_array()
   let mut i = 0
 
   while i < chars.length() {
@@ -411,6 +441,7 @@ fn parse_docx_paragraph(
       let open_tag = @cor.slice_to_string(chars, p_h, open_end + 1)
       let inner = @cor.slice_to_string(chars, open_end + 1, close)
       let hyperlink = parse_docx_hyperlink_inline(inner, ctx, open_tag)
+      hyperlink_refs.push(hyperlink)
       runs.push({ style_id: None, inlines: [DocxInline::Hyperlink(hyperlink)] })
       i = close + hyperlink_close_tag_chars.length()
       continue
@@ -432,21 +463,16 @@ fn parse_docx_paragraph(
         break
       }
       let run_xml = @cor.slice_to_string(chars, open_end + 1, close)
-      runs.push(parse_docx_run_xml(run_xml, ctx))
+      let run = parse_docx_run_xml(run_xml, ctx)
+      for inline in run.inlines {
+        match inline {
+          DocxInline::DrawingRef(media) => media_refs.push(media)
+          _ => ()
+        }
+      }
+      runs.push(run)
       i = close + wr_close_tag_chars.length()
       continue
-    }
-  }
-
-  let hyperlink_refs : Array[DocxHyperlink] = []
-  let media_refs : Array[DocxMediaRef] = []
-  for run in runs {
-    for inline in run.inlines {
-      match inline {
-        DocxInline::Hyperlink(link) => hyperlink_refs.push(link)
-        DocxInline::DrawingRef(media) => media_refs.push(media)
-        _ => ()
-      }
     }
   }
 

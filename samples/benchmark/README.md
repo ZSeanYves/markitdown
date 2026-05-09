@@ -6,8 +6,11 @@ and warning-policy files.
 It is meant to make performance work reviewable and reproducible. It is not a
 dumping ground for arbitrary local inputs.
 
-For current checked counts and representative benchmark examples, use
-[docs/validation-and-benchmark-summary.md](../../docs/validation-and-benchmark-summary.md).
+For the recommended benchmark command menu and output layout, use
+[docs/benchmarking.md](../../docs/benchmarking.md).
+
+For current performance layers, measured baseline, and caveats, use
+[docs/performance.md](../../docs/performance.md).
 
 ## Checked-in Control Files
 
@@ -15,6 +18,8 @@ For current checked counts and representative benchmark examples, use
 * `compare_corpus.tsv`
 * `perf_thresholds.tsv`
 * `corpus_manifest.example.tsv`
+* `manifests/doc_parse.tsv`
+* `manifests/product_path.tsv`
 
 Related helper:
 
@@ -67,6 +72,8 @@ Current suite roots:
 * smoke: `.tmp/bench/smoke/`
 * compare: `.tmp/bench/compare/`
 * batch profile: `.tmp/bench/batch_profile/`
+* doc-parse library: `.tmp/bench/doc_parse/`
+* product path: `.tmp/bench/product_path/`
 
 Typical outputs:
 
@@ -107,6 +114,37 @@ Batch profiling:
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ```
 
+doc_parse library benchmark:
+
+```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+```
+
+Default manifest:
+
+```text
+samples/benchmark/manifests/doc_parse.tsv
+```
+
+Internal harness package:
+
+```text
+doc_parse/bench
+```
+
+Product-path attribution benchmark:
+
+```bash
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --smoke
+```
+
+Default manifest:
+
+```text
+samples/benchmark/manifests/product_path.tsv
+```
+
 Manifest validation:
 
 ```bash
@@ -116,8 +154,8 @@ Manifest validation:
 Internal direct helper:
 
 ```bash
-./samples/scripts/check_corpus_manifest.sh
-./samples/scripts/check_corpus_manifest.sh samples/benchmark/corpus_manifest.example.tsv
+./samples/helpers/check_corpus_manifest.sh
+./samples/helpers/check_corpus_manifest.sh samples/benchmark/corpus_manifest.example.tsv
 ```
 
 ## Comparability Rules
@@ -130,8 +168,8 @@ Read compare results conservatively:
   compare story
 * PDF compare claims apply only to native text-PDF scope
 
-For detailed runner classes, execution-path labels, and raw field expectations,
-use [docs/benchmark-governance.md](../../docs/benchmark-governance.md).
+For benchmark-layer interpretation and current caveats, use
+[docs/performance.md](../../docs/performance.md).
 
 ## Current Sealed-format Benchmark Scope
 

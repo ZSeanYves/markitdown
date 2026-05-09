@@ -19,6 +19,14 @@ fn scan_document(
   let mut i = 0
   let mut prev_was_list = false
   let ledger = new_docx_reference_ledger()
+  let body_loop_started = @env.now()
+  let mut paragraph_scan_elapsed_ms : UInt64 = 0
+  let mut table_scan_elapsed_ms : UInt64 = 0
+  let mut document_push_elapsed_ms : UInt64 = 0
+  let mut paragraph_count = 0
+  let mut table_count = 0
+  let mut pushed_main_body_blocks = 0
+  let mut inserted_list_blank_lines = 0
 
   while i < chars.length() {
     let p_tbl = find_exact_open_tag(chars, i, wtbl_open_tag_chars)
@@ -37,10 +45,15 @@ fn scan_document(
       }
 
       let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
+      let table_started = @env.now()
       let rows = scan_table_block_with_context(
         tbl_xml, rel_ctx, asset_by_target,
       )
+      table_scan_elapsed_ms = table_scan_elapsed_ms +
+        (@env.now() - table_started)
+      table_count += 1
       if rows.length() > 0 {
+        let push_started = @env.now()
         if prev_was_list {
           @cor.push_with_origin(
             doc,
@@ -61,6 +74,7 @@ fn scan_document(
               key_path: None,
             }),
           )
+          inserted_list_blank_lines += 1
         }
         @cor.push_with_origin(
           doc,
@@ -81,6 +95,9 @@ fn scan_document(
             key_path: None,
           }),
         )
+        document_push_elapsed_ms = document_push_elapsed_ms +
+          (@env.now() - push_started)
+        pushed_main_body_blocks += 1
         prev_was_list = false
       }
 
@@ -105,7 +122,9 @@ fn scan_document(
       }
 
       profile_paragraph_seen()
+      paragraph_count += 1
       let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
+      let paragraph_started = @env.now()
       let blocks = scan_paragraph(
         p_xml,
         rel_ctx,
@@ -115,7 +134,10 @@ fn scan_document(
         max_heading,
         Some(ledger),
       )
+      paragraph_scan_elapsed_ms = paragraph_scan_elapsed_ms +
+        (@env.now() - paragraph_started)
 
+      let push_started = @env.now()
       for b in blocks {
         let cur_is_list = match b {
           @cor.Block::ListItem(_, _, _) => true
@@ -142,6 +164,7 @@ fn scan_document(
               key_path: None,
             }),
           )
+          inserted_list_blank_lines += 1
         }
 
         @cor.push_with_origin(
@@ -163,8 +186,11 @@ fn scan_document(
             key_path: None,
           }),
         )
+        pushed_main_body_blocks += 1
         prev_was_list = cur_is_list
       }
+      document_push_elapsed_ms = document_push_elapsed_ms +
+        (@env.now() - push_started)
 
       i = p3 + 6
       continue
@@ -173,9 +199,61 @@ fn scan_document(
     break
   }
 
+  let body_loop_elapsed_ms = @env.now() - body_loop_started
+  let body_xml_scan_elapsed_ms = if body_loop_elapsed_ms >
+    paragraph_scan_elapsed_ms + table_scan_elapsed_ms + document_push_elapsed_ms {
+    body_loop_elapsed_ms -
+    paragraph_scan_elapsed_ms -
+    table_scan_elapsed_ms -
+    document_push_elapsed_ms
+  } else {
+    0
+  }
+  docx_convert_profile_add_active_stage(
+    "docx_body_xml_scan",
+    body_xml_scan_elapsed_ms,
+    Some(
+      "split=true paragraphs=" +
+      paragraph_count.to_string() +
+      " tables=" +
+      table_count.to_string() +
+      " residual_top_level_traversal=true",
+    ),
+  )
+  docx_convert_profile_add_active_stage(
+    "docx_final_block_build",
+    document_push_elapsed_ms,
+    Some(
+      "split=true source=document_push main_body_blocks=" +
+      pushed_main_body_blocks.to_string() +
+      " list_blank_lines=" +
+      inserted_list_blank_lines.to_string(),
+    ),
+  )
+
+  let appended_started = @env.now()
   append_docx_notes_sections(doc, notes, ledger, source_name)
+  let appended_notes_elapsed_ms = @env.now() - appended_started
+  let appended_headers_started = @env.now()
   append_docx_header_footer_sections(doc, header_footers, source_name)
+  let appended_headers_elapsed_ms = @env.now() - appended_headers_started
+  let appended_text_boxes_started = @env.now()
   append_docx_text_box_sections(doc, text_boxes, source_name)
+  let appended_text_boxes_elapsed_ms = @env.now() - appended_text_boxes_started
+  docx_convert_profile_add_active_stage(
+    "docx_appended_sections",
+    appended_notes_elapsed_ms +
+    appended_headers_elapsed_ms +
+    appended_text_boxes_elapsed_ms,
+    Some(
+      "split=true notes_ms=" +
+      appended_notes_elapsed_ms.to_string() +
+      " headers_footers_ms=" +
+      appended_headers_elapsed_ms.to_string() +
+      " text_boxes_ms=" +
+      appended_text_boxes_elapsed_ms.to_string(),
+    ),
+  )
   doc
 }
 

@@ -17,21 +17,238 @@ pub fn open_text_document(bytes : Bytes) -> TextDocument raise {
 ///|
 /// Parse plain text that is already available as a `String`.
 pub fn parse_text_document(text : String) -> TextDocument {
-  let newline_style = detect_newline_style(text)
-  let normalized = normalize_text_source(text)
-  let line_strings = split_lines_preserve_trailing(normalized)
+  parse_text_document_with_profile(text, None, None)
+}
+
+///|
+/// Parse plain text that is already normalized to LF-only line endings and has
+/// already passed shared low-risk cleanup.
+pub fn parse_text_document_from_normalized_text(text : String) -> TextDocument {
+  parse_normalized_text_document_with_profile(text, None, None)
+}
+
+///|
+/// Benchmark-oriented profiled parse helper used for internal hotspot
+/// attribution.
+///
+/// This does not change the source-native text model or converter behavior.
+pub fn profile_text_document(text : String) -> TextProfiledDocument {
+  let report = new_text_parse_profile_report()
+  let totals = new_text_parse_profile_totals()
+  let document = parse_text_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  text_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
+}
+
+///|
+/// Benchmark-oriented profiled parse helper for LF-normalized text that has
+/// already gone through shared cleanup.
+pub fn profile_text_document_from_normalized_text(
+  text : String,
+) -> TextProfiledDocument {
+  let report = new_text_parse_profile_report()
+  let totals = new_text_parse_profile_totals()
+  let document = parse_normalized_text_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  text_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
+}
+
+///|
+fn parse_text_document_with_profile(
+  text : String,
+  profile : TextParseProfileReport?,
+  profile_totals : TextParseProfileTotals?,
+) -> TextDocument {
+  let chars = text.to_array()
+  let normalized_chars : Array[Char] = []
   let lines : Array[TextLine] = []
-  for i in 0..<line_strings.length() {
-    lines.push({ text: line_strings[i], line_no: i + 1 })
+  let paragraphs : Array[TextParagraph] = []
+  let current_paragraph : Array[String] = []
+  let line_chars : Array[Char] = []
+  let line_start : Ref[Int] = { val: 0 }
+  let line_end : Ref[Int] = { val: 0 }
+  let mut line_no = 1
+  let mut saw_lf = false
+  let mut saw_crlf = false
+  let mut saw_cr = false
+  let mut i = 0
+
+  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
+    i = 1
   }
 
-  {
+  let newline_started = text_parse_profile_stage_started(profile)
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch == '\r' {
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        saw_crlf = true
+        i += 2
+      } else {
+        saw_cr = true
+        i += 1
+      }
+      normalized_chars.push('\n')
+      finish_text_line(
+        line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+        profile_totals,
+      )
+      line_chars.clear()
+      line_no += 1
+      continue
+    }
+
+    if ch == '\n' {
+      saw_lf = true
+      i += 1
+      normalized_chars.push('\n')
+      finish_text_line(
+        line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+        profile_totals,
+      )
+      line_chars.clear()
+      line_no += 1
+      continue
+    }
+
+    normalized_chars.push(ch)
+    line_chars.push(ch)
+    i += 1
+  }
+  let newline_style = summarize_text_newline_style(saw_lf, saw_crlf, saw_cr)
+  text_parse_profile_stage_finished(
+    profile,
+    "newline_scan",
+    newline_started,
+    Some("style=" + text_newline_style_name(newline_style)),
+  )
+
+  if line_chars.length() > 0 ||
+    (
+      normalized_chars.length() > 0 &&
+      normalized_chars[normalized_chars.length() - 1] != '\n'
+    ) {
+    finish_text_line(
+      line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+      profile_totals,
+    )
+  }
+  flush_text_paragraph(
+    current_paragraph, paragraphs, line_start, line_end, profile_totals,
+  )
+
+  build_text_document_from_chars(
+    text, normalized_chars, newline_style, lines, paragraphs, profile,
+  )
+}
+
+///|
+fn parse_normalized_text_document_with_profile(
+  text : String,
+  profile : TextParseProfileReport?,
+  profile_totals : TextParseProfileTotals?,
+) -> TextDocument {
+  let chars = text.to_array()
+  let lines : Array[TextLine] = []
+  let paragraphs : Array[TextParagraph] = []
+  let current_paragraph : Array[String] = []
+  let line_chars : Array[Char] = []
+  let line_start : Ref[Int] = { val: 0 }
+  let line_end : Ref[Int] = { val: 0 }
+  let mut line_no = 1
+
+  let newline_started = text_parse_profile_stage_started(profile)
+  for ch in chars {
+    if ch == '\n' {
+      finish_text_line(
+        line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+        profile_totals,
+      )
+      line_chars.clear()
+      line_no += 1
+    } else {
+      line_chars.push(ch)
+    }
+  }
+  text_parse_profile_stage_finished(
+    profile,
+    "newline_scan",
+    newline_started,
+    Some("style=lf_normalized"),
+  )
+
+  if line_chars.length() > 0 ||
+    (chars.length() > 0 && chars[chars.length() - 1] != '\n') {
+    finish_text_line(
+      line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+      profile_totals,
+    )
+  }
+  flush_text_paragraph(
+    current_paragraph, paragraphs, line_start, line_end, profile_totals,
+  )
+
+  build_text_document_from_chars(
+    text,
+    chars,
+    TextNewlineStyle::LF,
+    lines,
+    paragraphs,
+    profile,
+  )
+}
+
+///|
+fn build_text_document_from_chars(
+  original_text : String,
+  normalized_chars : Array[Char],
+  newline_style : TextNewlineStyle,
+  lines : Array[TextLine],
+  paragraphs : Array[TextParagraph],
+  profile : TextParseProfileReport?,
+) -> TextDocument {
+  let build_started = text_parse_profile_stage_started(profile)
+  let normalized = if text_chars_equal_string(normalized_chars, original_text) {
+    original_text
+  } else {
+    String::from_array(normalized_chars)
+  }
+  let doc = {
     text: normalized,
     byte_count: None,
     newline_style,
     lines,
-    paragraphs: paragraph_spans(normalized),
+    paragraphs,
   }
+  text_parse_profile_stage_finished(
+    profile,
+    "build_document",
+    build_started,
+    Some("chars=" + doc.text.length().to_string()),
+  )
+  doc
+}
+
+///|
+fn text_chars_equal_string(chars : Array[Char], text : String) -> Bool {
+  let original = text.to_array()
+  if chars.length() != original.length() {
+    return false
+  }
+  for i in 0..<chars.length() {
+    if chars[i] != original[i] {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -44,31 +261,22 @@ pub fn classify_text_error(err : TextError) -> TextErrorInfo {
 }
 
 ///|
-fn detect_newline_style(text : String) -> TextNewlineStyle {
-  let chars = text.to_array()
-  let mut saw_lf = false
-  let mut saw_crlf = false
-  let mut saw_cr = false
-  let mut i = 0
-
-  while i < chars.length() {
-    if chars[i] == '\r' {
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        saw_crlf = true
-        i += 2
-      } else {
-        saw_cr = true
-        i += 1
-      }
-      continue
-    }
-
-    if chars[i] == '\n' {
-      saw_lf = true
-    }
-    i += 1
+fn text_newline_style_name(style : TextNewlineStyle) -> String {
+  match style {
+    TextNewlineStyle::None => "none"
+    TextNewlineStyle::LF => "lf"
+    TextNewlineStyle::CRLF => "crlf"
+    TextNewlineStyle::CR => "cr"
+    TextNewlineStyle::Mixed => "mixed"
   }
+}
 
+///|
+fn summarize_text_newline_style(
+  saw_lf : Bool,
+  saw_crlf : Bool,
+  saw_cr : Bool,
+) -> TextNewlineStyle {
   let count = bool_to_int(saw_lf) + bool_to_int(saw_crlf) + bool_to_int(saw_cr)
   if count == 0 {
     TextNewlineStyle::None
@@ -84,93 +292,83 @@ fn detect_newline_style(text : String) -> TextNewlineStyle {
 }
 
 ///|
-fn normalize_text_source(text : String) -> String {
-  let chars = text.to_array()
-  let out : Array[Char] = []
-  let mut i = 0
-
-  if chars.length() > 0 && chars[0] == '\u{FEFF}' {
-    i = 1
+fn finish_text_line(
+  line_chars : Array[Char],
+  line_no : Int,
+  lines : Array[TextLine],
+  current_paragraph : Array[String],
+  paragraphs : Array[TextParagraph],
+  line_start : Ref[Int],
+  line_end : Ref[Int],
+  profile_totals : TextParseProfileTotals?,
+) -> Unit {
+  let line_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
   }
+  let line_total = match profile_totals {
+    Some(totals) => Some(totals.line_build_elapsed_ms)
+    None => None
+  }
+  let line_text = String::from_array(line_chars)
+  lines.push({ text: line_text, line_no })
+  text_parse_profile_add_elapsed(line_total, line_started)
 
-  while i < chars.length() {
-    if chars[i] == '\r' {
-      out.push('\n')
-      if i + 1 < chars.length() && chars[i + 1] == '\n' {
-        i += 2
-      } else {
-        i += 1
-      }
-    } else {
-      out.push(chars[i])
-      i += 1
+  let paragraph_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let paragraph_total = match profile_totals {
+    Some(totals) => Some(totals.paragraph_build_elapsed_ms)
+    None => None
+  }
+  let trimmed = line_text.trim().to_owned()
+  if trimmed == "" {
+    flush_text_paragraph(
+      current_paragraph,
+      paragraphs,
+      line_start,
+      line_end,
+      None,
+    )
+  } else {
+    if current_paragraph.length() == 0 {
+      line_start.val = line_no
     }
+    current_paragraph.push(trimmed)
+    line_end.val = line_no
   }
-
-  String::from_array(out)
+  text_parse_profile_add_elapsed(paragraph_total, paragraph_started)
 }
 
 ///|
-fn paragraph_spans(text : String) -> Array[TextParagraph] {
-  if text == "" {
-    return []
+fn flush_text_paragraph(
+  current_paragraph : Array[String],
+  paragraphs : Array[TextParagraph],
+  line_start : Ref[Int],
+  line_end : Ref[Int],
+  profile_totals : TextParseProfileTotals?,
+) -> Unit {
+  if current_paragraph.length() == 0 {
+    return
   }
-
-  let lines = split_lines_preserve_trailing(text)
-  let out : Array[TextParagraph] = []
-  let current : Array[String] = []
-  let mut line_start = 0
-  let mut line_end = 0
-
-  for i in 0..<lines.length() {
-    let line_no = i + 1
-    let trimmed = lines[i].trim().to_owned()
-    if trimmed == "" {
-      if current.length() > 0 {
-        out.push({ text: current.join(" "), line_start, line_end })
-        current.clear()
-        line_start = 0
-        line_end = 0
-      }
-      continue
-    }
-
-    if current.length() == 0 {
-      line_start = line_no
-    }
-    current.push(trimmed)
-    line_end = line_no
+  let paragraph_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
   }
-
-  if current.length() > 0 {
-    out.push({ text: current.join(" "), line_start, line_end })
+  let paragraph_total = match profile_totals {
+    Some(totals) => Some(totals.paragraph_build_elapsed_ms)
+    None => None
   }
-
-  out
-}
-
-///|
-fn split_lines_preserve_trailing(text : String) -> Array[String] {
-  if text == "" {
-    return []
-  }
-
-  let out : Array[String] = []
-  let line : Array[Char] = []
-
-  for ch in text.to_array() {
-    if ch == '\n' {
-      out.push(String::from_array(line))
-      line.clear()
-    } else {
-      line.push(ch)
-    }
-  }
-
-  if line.length() > 0 || !text.has_suffix("\n") {
-    out.push(String::from_array(line))
-  }
-  out
+  paragraphs.push({
+    text: current_paragraph.join(" "),
+    line_start: line_start.val,
+    line_end: line_end.val,
+  })
+  current_paragraph.clear()
+  line_start.val = 0
+  line_end.val = 0
+  text_parse_profile_add_elapsed(paragraph_total, paragraph_started)
 }
 
 ///|

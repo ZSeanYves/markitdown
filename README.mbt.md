@@ -79,25 +79,37 @@ about all documents of a format family.
 
 ## Performance Snapshot
 
-The H3++ performance evidence is based on the prebuilt-native CLI path, not
-`moon run`.
-
-The checked-in overlap comparison uses Microsoft MarkItDown `0.1.5` on named
-local samples from `samples/benchmark/compare_corpus.tsv`. Representative
-single-run examples currently sit in roughly the `20x` to `50x` range:
+Current repository performance conclusions are scoped to checked-in corpora and
+explicit runner paths. Latest checked overlap comparisons against Microsoft
+MarkItDown `0.1.5` on named local samples from
+`samples/benchmark/compare_corpus.tsv` currently show representative
+single-run gaps like:
 
 | Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
 | --- | ---: | ---: | ---: |
-| XLSX formula cached values | 10 ms | 480 ms | ~48x |
-| DOCX nested lists mixed | 31 ms | 821 ms | ~26x |
-| PPTX title bullets | 18 ms | 710 ms | ~39x |
-| PDF URI link basic | 11 ms | 516 ms | ~47x |
+| XLSX formula cached values | 10 ms | 425 ms | ~42x |
+| DOCX nested lists mixed | 13 ms | 471 ms | ~36x |
+| PPTX title bullets | 12 ms | 476 ms | ~40x |
+| PDF URI link basic | 10 ms | 426 ms | ~43x |
+| HTML figure + figcaption image | 10 ms | 442 ms | ~44x |
+| EPUB nav TOC basic | 12 ms | 448 ms | ~37x |
 
-These measurements are corpus-scoped local benchmark facts, not universal
-performance claims. PDF comparison rows apply only to the native text-PDF
-overlap corpus. Full raw results, representative tables, and caveats live in
-[docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md)
-and [docs/benchmark-governance.md](./docs/benchmark-governance.md).
+Many checked overlap rows currently land in roughly the `35x-45x` faster band
+on this local corpus. Separately from the Microsoft comparison, the direct
+`doc_parse` library benchmark and the same-process product-path benchmark still
+show no obvious `>10 ms` rows in the checked first-pass corpus. Cold CLI
+startup/front-end is tracked separately; latest local checked `noop`,
+`--help`, and minimal TXT cold-start rows sit around `8.7-9.3 ms` external and
+must not be mixed into same-process totals.
+
+These figures are local observations, not cross-machine guarantees. PDF
+comparison rows apply only to the native text-PDF overlap corpus. For the
+current baseline, cold-start attribution closure, and remaining follow-up work,
+use [docs/performance.md](./docs/performance.md). For benchmark commands and
+artifact directories, use [docs/benchmarking.md](./docs/benchmarking.md). For
+overlap corpus scope and output-quality comparisons, use
+[samples/benchmark/README.md](./samples/benchmark/README.md) and
+[docs/quality-comparisons/README.md](./docs/quality-comparisons/README.md).
 
 ## CLI
 
@@ -158,17 +170,21 @@ across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
 `./samples/check.sh --real-world --tags complex` remains available for focused
 reruns.
 
-Detailed validation counts, sample matrices, metadata/assets checks, benchmark
-smoke counts, batch profile results, and MarkItDown comparison runs are tracked
-in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
+Benchmark operations and performance caveats are tracked in
+[docs/benchmarking.md](./docs/benchmarking.md) and
+[docs/performance.md](./docs/performance.md).
 
 ## Documentation
 
 * [Changelog](./CHANGELOG.md)
 * [Documentation Map](./docs/README.md)
-* [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
+* [Performance](./docs/performance.md)
+* [Roadmap](./docs/roadmap.md)
+* [Benchmarking Guide](./docs/benchmarking.md)
 * [Support and Limits](./docs/support-and-limits.md)
-* [Benchmark Governance](./docs/benchmark-governance.md)
+* [doc_parse Overview](./doc_parse/README.md)
+* [doc_parse Foundation](./docs/doc-parse-foundation.md)
+* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
 * [Real-World Corpus](./samples/real_world/README.md)

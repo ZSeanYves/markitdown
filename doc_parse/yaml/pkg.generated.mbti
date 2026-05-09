@@ -8,6 +8,8 @@ pub fn inspect_yaml_document(YamlDocument) -> YamlInspectReport
 
 pub fn parse_yaml_document(String) -> YamlDocument raise
 
+pub fn profile_yaml_document(String) -> YamlProfiledDocument raise
+
 pub fn yaml_value_kind(YamlValue) -> String
 
 // Errors
@@ -54,6 +56,21 @@ pub struct YamlInspectReport {
 pub struct YamlMember {
   key : String
   value : YamlValue
+}
+
+pub struct YamlParseProfileReport {
+  stages : Array[YamlParseProfileStage]
+}
+
+pub struct YamlParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub struct YamlProfiledDocument {
+  document : YamlDocument
+  report : YamlParseProfileReport
 }
 
 pub(all) enum YamlValue {

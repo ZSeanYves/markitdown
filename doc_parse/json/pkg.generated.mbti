@@ -10,6 +10,8 @@ pub fn json_value_kind(JsonValue) -> String
 
 pub fn parse_json_document(String) -> JsonDocument raise
 
+pub fn profile_json_document(String) -> JsonProfiledDocument raise
+
 // Errors
 pub(all) suberror JsonError {
   ParseError(String)
@@ -57,6 +59,21 @@ pub struct JsonInspectReport {
 pub struct JsonMember {
   key : String
   value : JsonValue
+}
+
+pub(all) struct JsonParseProfileReport {
+  stages : Array[JsonParseProfileStage]
+}
+
+pub(all) struct JsonParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct JsonProfiledDocument {
+  document : JsonDocument
+  report : JsonParseProfileReport
 }
 
 pub(all) enum JsonValue {

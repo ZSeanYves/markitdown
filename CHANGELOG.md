@@ -65,6 +65,92 @@
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.
+* Prepare `doc_parse` for future release by documenting release-facing usage,
+  examples, API comments, and parser-vs-converter boundaries without changing
+  runtime behavior.
+* Add `doc_parse` performance strategy, measured baseline, and optimization
+  roadmap notes while keeping benchmark claims scoped to the current native
+  CLI harness and checked local corpus.
+* Add a direct `doc_parse/*` library benchmark harness with a checked manifest,
+  per-stage `open/parse/scan` + `inspect` + `validate` timing, and summary
+  artifacts under `.tmp/bench/doc_parse/` without changing runtime behavior.
+* Record the first direct `doc_parse/*` library baseline and hotspot
+  attribution, and clarify how it differs from the existing CLI/product-path
+  benchmark results.
+* Add XLSX-specific doc_parse benchmark stage profiling and reduce the checked
+  `xlsx_formula_heavy_missing_cache` library parse row from `14.367 ms` to
+  about `2.9 ms` by removing repeated per-formula sheet-context rebuilds,
+  without changing XLSX conversion output or formula-trace semantics.
+* Add DOCX-specific doc_parse benchmark stage profiling and reduce the checked
+  `docx_link_heavy` library parse row from `8.735 ms` to about `5.0 ms` by
+  removing repeated body-scan and no-op text-box scanning work, without
+  changing DOCX conversion output or semantic boundaries.
+* Add YAML-specific doc_parse benchmark stage profiling and reduce the checked
+  `yaml_large` library parse row from about `6.9 ms` to about `5.9 ms` by
+  reducing raw line preparation and repeated trim/copy work, without changing
+  YAML subset semantics or `convert/yaml` output behavior.
+* Add text/JSON/Markdown-specific doc_parse benchmark stage profiling and
+  reduce the checked large-input rows from about `5.0 ms -> 2.0 ms`
+  (`txt_large`), `4.2 ms -> 2.8 ms` (`json_large`), and
+  `3.4 ms -> 2.2 ms` (`markdown_large`) by removing repeated scans and
+  duplicate trim/classification work, without changing parsing semantics or
+  converter output behavior.
+* Sync the post-optimization `doc_parse` performance baseline, clarify that
+  the remaining major work is now product-path attribution rather than parser
+  hot-path cleanup, and add a planning-only `bench_product_path_helper.sh` skeleton
+  that emits stage/sample plan artifacts without changing runtime behavior.
+* Add a first-pass product-path attribution benchmark with hidden
+  benchmark-only CLI entrypoints, a checked manifest for
+  `txt/json/yaml/csv/xlsx/html/docx/pptx`, stage summaries under
+  `.tmp/bench/product_path/`, and documented caveats where `parse`,
+  `convert`, and `assets` are still combined in the current normal path.
+* Refine the product-path attribution benchmark so `txt/json/yaml/csv/xlsx`
+  now report separate `parse` vs `convert` timing, while `html/docx/pptx`
+  keep explicit combined-path reasons and refined asset-discovery/export
+  notes without changing conversion output or parser/converter semantics.
+* Refine rich-format product-path attribution so `html` now reports staged
+  `parse/convert/assets` timing with `html_dom_scan`, `html_block_lowering`,
+  `html_asset_discovery`, and `html_asset_export`, while `docx/pptx` now
+  expose staged package/body/grouping/media rows and keep only the remaining
+  necessary combined seams without changing conversion output, asset naming,
+  or metadata shape.
+* Refine DOCX product-path attribution further so the benchmark now exposes
+  staged `docx_relationships`, `docx_styles`, `docx_numbering`,
+  `docx_notes`, `docx_headers_footers`, `docx_text_boxes`,
+  `docx_asset_map_build`, `docx_media_export`, `docx_asset_origin_attach`,
+  `docx_body_xml_scan`, `docx_paragraph_scan`, `docx_table_scan`,
+  `docx_inline_scan`, `docx_final_block_build`, and `docx_appended_sections`
+  rows while keeping the remaining paragraph-policy / final-IR seam explicitly
+  marked as a partial split and leaving DOCX output unchanged.
+* Refine PPTX product-path attribution further so the benchmark now exposes
+  staged `pptx_presentation_rels`, `pptx_slide_relationships`,
+  `pptx_shape_collect`, `pptx_text_extract`, `pptx_table_extract`,
+  `pptx_reading_order`, `pptx_grouping`, `pptx_classification`,
+  `pptx_image_inventory`, `pptx_image_export`, `pptx_asset_origin_attach`,
+  `pptx_notes_parse`, and `pptx_final_block_build` rows while keeping the
+  remaining slide-loop document-build / policy seam explicitly marked as a
+  partial split and leaving PPTX output unchanged.
+* Optimize the TXT product path without changing output semantics by removing
+  redundant shared cleanup and normalized-text copying on large clean inputs,
+  refining TXT benchmark attribution into parse/literal-wrap/emit-write
+  substages, and reducing the checked `txt_large` same-process product total
+  from about `10.7 ms` to about `7.6 ms`.
+* Sync the post-TXT-optimization performance baseline so the documented
+  library and same-process product-path snapshots, startup caveat, completed
+  optimization passes, and remaining hotspot list all match the latest
+  checked local benchmark results without changing runtime behavior.
+* Finalize the performance narrative after product-path attribution by
+  documenting the three-layer view (`doc_parse` library path, same-process
+  product path, and cold CLI startup), refreshing the latest TXT/DOCX/PPTX/
+  HTML/XLSX baseline notes, and clarifying that product-path PDF attribution
+  is now first-pass covered for the native text-PDF path while direct
+  `doc_parse/pdf` library attribution remains deferred.
+* Add first-pass native text-PDF product-path attribution for
+  `pdf_metadata_uri_link`, including staged `pdf_backend_select`,
+  `pdf_extract_model`, `pdf_line_build`, `pdf_block_build`,
+  `pdf_block_classify`, `pdf_noise_filter`, `pdf_merge`,
+  `pdf_annotation_handling`, and `pdf_final_block_build` rows, without
+  changing PDF conversion output, OCR behavior, or fallback policy.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.
@@ -76,6 +162,17 @@
   part of default converter behavior.
 * Mark older roadmap/progress/audit documents as historical where current
   source-of-truth pages already supersede them.
+* Add a focused cold CLI startup benchmark suite, document the split between
+  same-process `startup_probe` and full process-per-file timing, and reduce
+  avoidable `_bench-noop` CLI front-end work without changing conversion
+  output or normal command behavior.
+* Close cold CLI startup attribution with a hidden main-internal startup
+  profile, `cold_start/startup_profile.*` artifacts, and documentation showing
+  that the remaining checked native process-per-file cost is now dominated by
+  process/runtime startup rather than by CLI main-path work.
+* Add explicit cold-start attribution rows for checked `noop`, `--help`, and
+  minimal TXT conversion, while keeping same-process product totals separate
+  from full process-per-file startup.
 
 ## v0.3.4 - Text normalization rollout and release-readiness documentation draft
 
@@ -262,7 +359,7 @@ This release closes the repository's first full-format H2 milestone.
   * `./samples/check_main_process.sh`
   * `./samples/check_metadata.sh`
   * `./samples/check_assets.sh`
-  * advanced helpers and benchmark tools under `./samples/scripts/`
+  * advanced helpers and benchmark tools under `./samples/helpers/`
 * Validation now prefers a probe-validated native CLI when available and falls
   back to `moon run` only when needed.
 * The PDF lower layer now lives under `doc_parse/pdf`, backed by a

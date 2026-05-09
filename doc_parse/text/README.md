@@ -19,6 +19,28 @@ Stable candidate API:
 * `inspect_text_document`
 * `classify_text_error`
 
+Current public API:
+
+* `open_text_document`
+* `parse_text_document`
+* `parse_text_document_from_normalized_text`
+* `profile_text_document`
+* `profile_text_document_from_normalized_text`
+* `inspect_text_document`
+* `classify_text_error`
+
+Advanced helper surface:
+
+* `parse_text_document_from_normalized_text`
+  specialized entry for callers that already own upstream normalization and do
+  not want the normal byte/string seam repeated
+* `profile_text_document`
+* `profile_text_document_from_normalized_text`
+  benchmark-oriented helpers for internal hotspot attribution and regression
+  investigation
+* these helpers remain public today, but they are not the main stable semantic
+  contract for external consumers
+
 Minimal examples:
 
 ```moonbit

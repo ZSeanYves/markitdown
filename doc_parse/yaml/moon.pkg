@@ -1,3 +1,7 @@
+import {
+  "moonbitlang/core/env" @env,
+}
+
 options(
   "preferred-target": "native",
 )

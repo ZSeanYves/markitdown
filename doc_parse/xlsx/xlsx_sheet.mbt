@@ -20,15 +20,32 @@ fn parse_sheet_model(
   shared : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
+  profile : XlsxParseProfileReport?,
 ) -> XlsxSheetModel {
+  let collect_started = xlsx_parse_profile_stage_started(profile)
   let parsed_cells = collect_sheet_cells(sheet_xml)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":collect_cells",
+    collect_started,
+    Some("parsed_cells=" + parsed_cells.length().to_string()),
+  )
+  let merged_started = xlsx_parse_profile_stage_started(profile)
   let (merged_ranges, merged_issues) = parse_merged_ranges(
     sheet_name, part_target, sheet_xml,
   )
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":merged_ranges",
+    merged_started,
+    Some("merged_ranges=" + merged_ranges.length().to_string()),
+  )
+  let resolve_started = xlsx_parse_profile_stage_started(profile)
   let cells : Array[XlsxCellModel] = []
 
   for parsed in parsed_cells {
     let cell_issues : Array[XlsxValidationIssue] = []
+    let trimmed_value = parsed.value.trim()
     let (row, column) = cell_ref_to_rc(parsed.reference)
     if row <= 0 || column <= 0 {
       cell_issues.push(
@@ -48,7 +65,7 @@ fn parse_sheet_model(
         raw_type: parsed.cell_type,
         kind: XlsxCellKind::Blank,
         display_text: "",
-        source_value: if parsed.value.trim() == "" {
+        source_value: if trimmed_value == "" {
           None
         } else {
           Some(parsed.value)
@@ -111,7 +128,7 @@ fn parse_sheet_model(
       raw_type: parsed.cell_type,
       kind,
       display_text: text,
-      source_value: if parsed.value.trim() == "" {
+      source_value: if trimmed_value == "" {
         None
       } else {
         Some(parsed.value)
@@ -124,10 +141,32 @@ fn parse_sheet_model(
       issues: cell_issues,
     })
   }
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":resolve_cells",
+    resolve_started,
+    Some("cells=" + cells.length().to_string()),
+  )
 
-  apply_formula_policy(sheet_name, part_target, cells)
+  apply_formula_policy(sheet_name, part_target, cells, profile)
+  let used_range_started = xlsx_parse_profile_stage_started(profile)
   let (used_min_row, used_min_col, used_max_row, used_max_col) = used_range_from_cells(
     cells,
+  )
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":used_range",
+    used_range_started,
+    Some(
+      "used_range=" +
+      used_min_row.to_string() +
+      "," +
+      used_min_col.to_string() +
+      "-" +
+      used_max_row.to_string() +
+      "," +
+      used_max_col.to_string(),
+    ),
   )
 
   {
@@ -154,13 +193,29 @@ fn apply_formula_policy(
   sheet_name : String,
   part_target : String?,
   cells : Array[XlsxCellModel],
+  profile : XlsxParseProfileReport?,
 ) -> Unit {
+  let mut formula_context : XlsxFormulaSheetContext? = None
+  let mut formula_context_ready = false
+  let mut formula_eval_started : UInt64? = None
+  let mut formula_cell_count = 0
+  let mut missing_cache_formula_count = 0
+  let mut evaluated_formula_count = 0
+  let mut unsupported_formula_count = 0
+  let mut formula_error_count = 0
   let mut i = 0
   while i < cells.length() {
     let cell = cells[i]
     match cell.formula_text {
       Some(text) =>
         if text.trim() != "" {
+          formula_cell_count += 1
+          if formula_eval_started == None {
+            formula_eval_started = Some(
+              xlsx_parse_profile_stage_started(profile),
+            )
+          }
+          let trimmed_formula_text = text.trim().to_owned()
           let trace = if cell.source_value != None {
             Some({
               policy: XlsxFormulaPolicy::Cached,
@@ -171,11 +226,38 @@ fn apply_formula_policy(
               referenced_ranges: None,
             })
           } else {
-            evaluate_missing_cache_formula(sheet_name, cell, cells)
+            missing_cache_formula_count += 1
+            if !formula_context_ready {
+              let formula_context_started = xlsx_parse_profile_stage_started(
+                profile,
+              )
+              formula_context = Some(build_formula_sheet_context(cells))
+              formula_context_ready = true
+              xlsx_parse_profile_stage_finished(
+                profile,
+                "sheet:" + sheet_name + ":formula_context",
+                formula_context_started,
+                Some("cells=" + cells.length().to_string()),
+              )
+            }
+            match formula_context {
+              Some(context) =>
+                evaluate_missing_cache_formula(
+                  cell, trimmed_formula_text, context,
+                )
+              None => None
+            }
           }
 
           let next_cell = match trace {
             Some(info) => {
+              if info.policy == XlsxFormulaPolicy::EvaluatedMissingCache {
+                evaluated_formula_count += 1
+              } else if info.policy == XlsxFormulaPolicy::UnsupportedFormula {
+                unsupported_formula_count += 1
+              } else if info.policy == XlsxFormulaPolicy::FormulaError {
+                formula_error_count += 1
+              }
               let next_issues : Array[XlsxValidationIssue] = []
               for issue in cell.issues {
                 next_issues.push(issue)
@@ -216,6 +298,28 @@ fn apply_formula_policy(
       None => ()
     }
     i = i + 1
+  }
+
+  match formula_eval_started {
+    Some(started) =>
+      xlsx_parse_profile_stage_finished(
+        profile,
+        "sheet:" + sheet_name + ":formula_eval",
+        started,
+        Some(
+          "formula_cells=" +
+          formula_cell_count.to_string() +
+          " missing_cache=" +
+          missing_cache_formula_count.to_string() +
+          " evaluated=" +
+          evaluated_formula_count.to_string() +
+          " unsupported=" +
+          unsupported_formula_count.to_string() +
+          " errors=" +
+          formula_error_count.to_string(),
+        ),
+      )
+    None => ()
   }
 }
 

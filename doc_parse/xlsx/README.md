@@ -21,6 +21,7 @@ Current public API:
 
 * `open_xlsx_workbook`
 * `parse_xlsx_workbook_from_package`
+* `profile_xlsx_workbook_from_package`
 * `inspect_xlsx_workbook`
 * `collect_xlsx_validation_issues`
 * `validate_xlsx_workbook`
@@ -34,6 +35,13 @@ Stable candidate API:
 * `collect_xlsx_validation_issues`
 * `validate_xlsx_workbook`
 * `classify_xlsx_error`
+
+Benchmark-oriented helper surface:
+
+* `profile_xlsx_workbook_from_package` exists for internal hotspot attribution
+  and benchmark tooling
+* it is not part of the main stable candidate API contract
+* it does not change the semantic workbook model or `convert/xlsx` behavior
 
 Inspect / validation API:
 

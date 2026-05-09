@@ -16,6 +16,8 @@ pub fn open_xlsx_workbook(String) -> XlsxWorkbook raise
 
 pub fn parse_xlsx_workbook_from_package(@ooxml.OoxmlPackage) -> XlsxWorkbook raise
 
+pub fn profile_xlsx_workbook_from_package(@ooxml.OoxmlPackage) -> XlsxProfiledWorkbook raise
+
 pub fn validate_xlsx_workbook(XlsxWorkbook) -> XlsxValidationReport
 
 // Errors
@@ -118,6 +120,21 @@ pub struct XlsxMergedRange {
   start_col : Int
   end_row : Int
   end_col : Int
+}
+
+pub(all) struct XlsxParseProfileReport {
+  stages : Array[XlsxParseProfileStage]
+}
+
+pub(all) struct XlsxParseProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+pub(all) struct XlsxProfiledWorkbook {
+  workbook : XlsxWorkbook
+  report : XlsxParseProfileReport
 }
 
 pub struct XlsxSheet {

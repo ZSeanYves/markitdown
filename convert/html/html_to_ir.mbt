@@ -264,6 +264,7 @@ fn export_local_html_image(
   ctx : HtmlImageExportCtx,
   src_raw : String,
 ) -> String? {
+  let started = @env.now()
   if ctx.out_dir == "" {
     return None
   }
@@ -273,9 +274,11 @@ fn export_local_html_image(
     return None
   }
   if is_remote_or_unsupported_html_image_src(src0) {
+    profile_html_remote_asset_candidate()
     return None
   }
   if src0.contains("..") {
+    profile_html_unresolved_local_asset()
     return None
   }
 
@@ -283,6 +286,7 @@ fn export_local_html_image(
     let rel_out = ctx.by_src.get(src0)
     match rel_out {
       Some(path) => {
+        profile_html_cached_asset_hit()
         if !ctx.src_by_asset_path.contains(path) {
           ctx.src_by_asset_path.set(path, src0)
         }
@@ -293,9 +297,14 @@ fn export_local_html_image(
   }
 
   let abs_path_opt = resolve_html_local_image_path(ctx.input_dir, src0)
+  profile_html_asset_discovery_elapsed_ms(@env.now() - started)
   match abs_path_opt {
-    None => return None
+    None => {
+      profile_html_unresolved_local_asset()
+      return None
+    }
     Some(abs_path) => {
+      let export_started = @env.now()
       let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
       let ext = image_ext_from_src(src0)
       let rel_out = @cor.next_image_asset_rel_path_unique(
@@ -310,6 +319,8 @@ fn export_local_html_image(
 
       ctx.by_src.set(src0, rel_out)
       ctx.src_by_asset_path.set(rel_out, src0)
+      profile_html_local_asset_exported()
+      profile_html_asset_export_elapsed_ms(@env.now() - export_started)
       Some(rel_out)
     }
   }

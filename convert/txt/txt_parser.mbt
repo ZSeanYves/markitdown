@@ -55,7 +55,7 @@ pub fn parse_txt_with_profile(
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
   let split_started = @env.now()
-  let parsed = @dptext.parse_text_document(text)
+  let parsed = @dptext.parse_text_document_from_normalized_text(text)
   let paragraphs = parsed.paragraphs
   txt_profile_add_stage(
     profile,
@@ -66,9 +66,19 @@ pub fn parse_txt_with_profile(
 
   let build_ir_started = @env.now()
   if paragraphs.length() > 0 {
+    let literal_started = @env.now()
     @cor.set_passthrough_markdown(doc, txt_literal_markdown(paragraphs))
+    txt_profile_add_stage(
+      profile,
+      "txt_literal_wrap",
+      @env.now() - literal_started,
+      Some("paragraphs=" + paragraphs.length().to_string()),
+    )
+  } else {
+    txt_profile_add_stage(profile, "txt_literal_wrap", 0, Some("paragraphs=0"))
   }
 
+  let origin_started = @env.now()
   for para in paragraphs {
     @cor.push_with_origin(
       doc,
@@ -90,6 +100,12 @@ pub fn parse_txt_with_profile(
       }),
     )
   }
+  txt_profile_add_stage(
+    profile,
+    "txt_origin_blocks",
+    @env.now() - origin_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
 
   txt_profile_add_stage(
     profile,
@@ -135,11 +151,45 @@ fn contains_non_bmp_char(text : String) -> Bool {
 
 ///|
 fn normalize_txt_text(text : String) -> String {
+  if !txt_text_needs_shared_cleanup(text) {
+    return text
+  }
   @cor.normalize_document_text_cleanup(text)
 }
 
 ///|
+fn txt_text_needs_shared_cleanup(text : String) -> Bool {
+  for ch in text {
+    if ch == '\r' ||
+      ch == '\u{00A0}' ||
+      ch == '\u{00AD}' ||
+      ch == '\u{2007}' ||
+      ch == '\u{2008}' ||
+      ch == '\u{2009}' ||
+      ch == '\u{200A}' ||
+      ch == '\u{202F}' ||
+      ch == '\u{205F}' ||
+      ch == '\u{3000}' ||
+      ch == '\u{200B}' ||
+      ch == '\u{FEFF}' ||
+      ch == 'ﬀ' ||
+      ch == 'ﬁ' ||
+      ch == 'ﬂ' ||
+      ch == 'ﬃ' ||
+      ch == 'ﬄ' ||
+      ch == 'ﬅ' ||
+      ch == 'ﬆ' {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn txt_literal_markdown(paragraphs : Array[@dptext.TextParagraph]) -> String {
+  if paragraphs.length() == 0 {
+    return ""
+  }
   let out = StringBuilder::new()
 
   for i in 0..<paragraphs.length() {
@@ -149,13 +199,8 @@ fn txt_literal_markdown(paragraphs : Array[@dptext.TextParagraph]) -> String {
       out.write_string("\n\n")
     }
   }
-
-  let built = out.to_string()
-  if built == "" {
-    ""
-  } else {
-    built + "\n"
-  }
+  out.write_char('\n')
+  out.to_string()
 }
 
 ///|

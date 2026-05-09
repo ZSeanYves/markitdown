@@ -1,0 +1,10 @@
+format	path	label	size_class	with_metadata	with_assets	notes
+txt	samples/benchmark/txt/txt_large.txt	txt_large	large	false	false	literal-text product-path baseline
+json	samples/main_process/json/metadata/json_metadata_nested.json	json_metadata_nested	medium	true	false	metadata-enabled JSON product-path row
+yaml	samples/main_process/yaml/metadata/yaml_metadata_nested.yaml	yaml_metadata_nested	medium	true	false	metadata-enabled YAML-subset product-path row
+csv	samples/main_process/csv/metadata/csv_metadata_ragged_rows.csv	csv_metadata_ragged_rows	medium	true	false	metadata-enabled CSV product-path row
+xlsx	samples/main_process/xlsx/metadata/xlsx_metadata_formula_or_merged_policy.xlsx	xlsx_metadata_formula_or_merged_policy	medium	true	false	metadata-enabled XLSX product-path row
+pdf	samples/main_process/pdf/metadata/pdf_metadata_uri_link.pdf	pdf_metadata_uri_link	medium	true	false	native text-PDF metadata/link product-path row; OCR excluded
+html	samples/main_process/html/metadata/html_figure_figcaption_basic.html	html_figure_figcaption_basic	medium	true	true	local-assets and metadata HTML product-path row
+docx	samples/main_process/docx/metadata/docx_image_alt_title_basic.docx	docx_image_alt_title_basic	medium	true	true	local-assets and metadata DOCX product-path row
+pptx	samples/main_process/pptx/metadata/pptx_image_alt_title_basic.pptx	pptx_image_alt_title_basic	medium	true	true	local-assets and metadata PPTX product-path row

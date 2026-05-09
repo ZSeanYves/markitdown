@@ -4,19 +4,25 @@
 /// This parser is intentionally conservative. Unsupported YAML features raise
 /// hard parse errors instead of being converted into product policy.
 pub fn parse_yaml_document(text : String) -> YamlDocument raise {
-  let lines = prepare_yaml_lines(text)
-  if lines.length() == 0 {
-    return { root: None }
-  }
+  parse_yaml_document_with_profile(text, None, None)
+}
 
-  let indent = lines[0].indent
-  let (next, root) = parse_block(lines, 0, indent)
-  if next < lines.length() {
-    raise ParseError(
-      "unexpected trailing content at line " + lines[next].line_no.to_string(),
-    )
-  }
-  { root: Some(root) }
+///|
+/// Benchmark-oriented profiled parse helper used for internal hotspot
+/// attribution.
+///
+/// This does not change the source-native YAML subset model or converter
+/// behavior.
+pub fn profile_yaml_document(text : String) -> YamlProfiledDocument raise {
+  let report = new_yaml_parse_profile_report()
+  let totals = new_yaml_parse_profile_totals()
+  let document = parse_yaml_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  yaml_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
 }
 
 ///|
@@ -60,10 +66,56 @@ priv struct YamlLine {
 }
 
 ///|
+fn parse_yaml_document_with_profile(
+  text : String,
+  profile : YamlParseProfileReport?,
+  profile_totals : YamlParseProfileTotals?,
+) -> YamlDocument raise {
+  let lines = prepare_yaml_lines(text, profile_totals)
+  if lines.length() == 0 {
+    let build_started = yaml_parse_profile_stage_started(profile)
+    let doc = { root: None }
+    yaml_parse_profile_stage_finished(
+      profile,
+      "build_document",
+      build_started,
+      Some("root=none"),
+    )
+    return doc
+  }
+
+  let parse_started = yaml_parse_profile_stage_started(profile)
+  let indent = lines[0].indent
+  let (next, root) = parse_block(lines, 0, indent, profile_totals)
+  if next < lines.length() {
+    raise ParseError(
+      "unexpected trailing content at line " + lines[next].line_no.to_string(),
+    )
+  }
+  yaml_parse_profile_stage_finished(
+    profile,
+    "parse_nodes",
+    parse_started,
+    Some("lines=" + lines.length().to_string()),
+  )
+
+  let build_started = yaml_parse_profile_stage_started(profile)
+  let doc = { root: Some(root) }
+  yaml_parse_profile_stage_finished(
+    profile,
+    "build_document",
+    build_started,
+    Some("root=" + yaml_value_kind(root)),
+  )
+  doc
+}
+
+///|
 fn parse_block(
   lines : Array[YamlLine],
   start : Int,
   indent : Int,
+  profile_totals : YamlParseProfileTotals?,
 ) -> (Int, YamlValue) raise {
   if start >= lines.length() {
     raise ParseError("unexpected end of input")
@@ -77,17 +129,20 @@ fn parse_block(
   }
 
   if is_sequence_item(line.content) {
-    parse_sequence(lines, start, indent)
+    parse_sequence(lines, start, indent, profile_totals)
   } else {
     match split_mapping_entry(line.content) {
-      Some(_) => parse_mapping(lines, start, indent)
+      Some(_) => parse_mapping(lines, start, indent, profile_totals)
       None => {
         if start + 1 < lines.length() && lines[start + 1].indent > indent {
           raise ParseError(
             "scalar cannot own nested block at line " + line.line_no.to_string(),
           )
         }
-        (start + 1, parse_scalar(line.content, line.line_no))
+        (
+          start + 1,
+          parse_scalar_trimmed(line.content, line.line_no, profile_totals),
+        )
       }
     }
   }
@@ -98,9 +153,22 @@ fn parse_mapping(
   lines : Array[YamlLine],
   start : Int,
   indent : Int,
+  profile_totals : YamlParseProfileTotals?,
 ) -> (Int, YamlValue) raise {
-  let (next, members) = consume_mapping_members(lines, start, indent)
-  (next, YamlValue::Mapping(members))
+  let mapping_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let mapping_total = match profile_totals {
+    Some(totals) => Some(totals.parse_mapping_elapsed_ms)
+    None => None
+  }
+  let (next, members) = consume_mapping_members(
+    lines, start, indent, profile_totals,
+  )
+  let value = (next, YamlValue::Mapping(members))
+  yaml_parse_profile_add_elapsed(mapping_total, mapping_started)
+  value
 }
 
 ///|
@@ -108,6 +176,7 @@ fn consume_mapping_members(
   lines : Array[YamlLine],
   start : Int,
   indent : Int,
+  profile_totals : YamlParseProfileTotals?,
 ) -> (Int, Array[YamlMember]) raise {
   let members : Array[YamlMember] = []
   let mut i = start
@@ -134,10 +203,12 @@ fn consume_mapping_members(
     let key = parse_key_text(raw_key, line.line_no)
     let mut next = i + 1
     let value = if raw_value != "" {
-      parse_scalar(raw_value, line.line_no)
+      parse_scalar_trimmed(raw_value, line.line_no, profile_totals)
     } else if next < lines.length() && lines[next].indent > indent {
       let child_indent = lines[next].indent
-      let (after, child) = parse_block(lines, next, child_indent)
+      let (after, child) = parse_block(
+        lines, next, child_indent, profile_totals,
+      )
       next = after
       child
     } else {
@@ -156,7 +227,16 @@ fn parse_sequence(
   lines : Array[YamlLine],
   start : Int,
   indent : Int,
+  profile_totals : YamlParseProfileTotals?,
 ) -> (Int, YamlValue) raise {
+  let sequence_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let sequence_total = match profile_totals {
+    Some(totals) => Some(totals.parse_sequence_elapsed_ms)
+    None => None
+  }
   let values : Array[YamlValue] = []
   let mut i = start
 
@@ -176,12 +256,14 @@ fn parse_sequence(
       )
     }
 
-    let (next, value) = parse_sequence_item(lines, i, indent)
+    let (next, value) = parse_sequence_item(lines, i, indent, profile_totals)
     values.push(value)
     i = next
   }
 
-  (i, YamlValue::Sequence(values))
+  let value = (i, YamlValue::Sequence(values))
+  yaml_parse_profile_add_elapsed(sequence_total, sequence_started)
+  value
 }
 
 ///|
@@ -189,13 +271,14 @@ fn parse_sequence_item(
   lines : Array[YamlLine],
   index : Int,
   indent : Int,
+  profile_totals : YamlParseProfileTotals?,
 ) -> (Int, YamlValue) raise {
   let line = lines[index]
   let rest = sequence_item_rest(line.content)
   if rest == "" {
     if index + 1 < lines.length() && lines[index + 1].indent > indent {
       let child_indent = lines[index + 1].indent
-      return parse_block(lines, index + 1, child_indent)
+      return parse_block(lines, index + 1, child_indent, profile_totals)
     }
     return (index + 1, YamlValue::Null)
   }
@@ -206,10 +289,12 @@ fn parse_sequence_item(
       let members : Array[YamlMember] = []
       let mut next = index + 1
       let first_value = if raw_value != "" {
-        parse_scalar(raw_value, line.line_no)
+        parse_scalar_trimmed(raw_value, line.line_no, profile_totals)
       } else if next < lines.length() && lines[next].indent > indent {
         let child_indent = lines[next].indent
-        let (after, child) = parse_block(lines, next, child_indent)
+        let (after, child) = parse_block(
+          lines, next, child_indent, profile_totals,
+        )
         next = after
         child
       } else {
@@ -221,23 +306,23 @@ fn parse_sequence_item(
       if next < lines.length() && lines[next].indent > indent {
         let continuation_indent = lines[next].indent
         let (after, extra_members) = consume_mapping_members(
-          lines, next, continuation_indent,
+          lines, next, continuation_indent, profile_totals,
         )
         for entry in extra_members {
           members.push(entry)
         }
         next = after
       }
-
       (next, YamlValue::Mapping(members))
     }
-    None => (index + 1, parse_scalar(rest, line.line_no))
+    None =>
+      (index + 1, parse_scalar_trimmed(rest, line.line_no, profile_totals))
   }
 }
 
 ///|
 fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
-  let key = raw_key.trim().to_owned()
+  let key = raw_key
   if key == "" {
     raise ParseError("empty key at line " + line_no.to_string())
   }
@@ -257,20 +342,39 @@ fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
 }
 
 ///|
-fn parse_scalar(text : String, line_no : Int) -> YamlValue raise {
-  let trimmed = text.trim().to_owned()
+fn parse_scalar_trimmed(
+  trimmed : String,
+  line_no : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> YamlValue raise {
+  let scalar_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let scalar_total = match profile_totals {
+    Some(totals) => Some(totals.parse_scalar_elapsed_ms)
+    None => None
+  }
   if trimmed == "" {
-    return YamlValue::String("")
+    let value = YamlValue::String("")
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
 
   if trimmed == "true" {
-    return YamlValue::Bool(true)
+    let value = YamlValue::Bool(true)
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
   if trimmed == "false" {
-    return YamlValue::Bool(false)
+    let value = YamlValue::Bool(false)
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
   if trimmed == "null" || trimmed == "~" {
-    return YamlValue::Null
+    let value = YamlValue::Null
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
 
   if trimmed.has_prefix("|") || trimmed.has_prefix(">") {
@@ -291,13 +395,19 @@ fn parse_scalar(text : String, line_no : Int) -> YamlValue raise {
   }
 
   if trimmed.has_prefix("\"") {
-    return YamlValue::String(parse_double_quoted_scalar(trimmed, line_no))
+    let value = YamlValue::String(parse_double_quoted_scalar(trimmed, line_no))
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
   if trimmed.has_prefix("'") {
-    return YamlValue::String(parse_single_quoted_scalar(trimmed, line_no))
+    let value = YamlValue::String(parse_single_quoted_scalar(trimmed, line_no))
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
 
-  YamlValue::String(trimmed)
+  let value = YamlValue::String(trimmed)
+  yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+  value
 }
 
 ///|
@@ -362,42 +472,121 @@ fn parse_single_quoted_scalar(text : String, line_no : Int) -> String raise {
 }
 
 ///|
-fn prepare_yaml_lines(text : String) -> Array[YamlLine] raise {
-  let normalized = text
-    .replace(old="\r\n", new="\n")
-    .replace(old="\r", new="\n")
-  let raw_lines : Array[String] = normalized
-    .split("\n")
-    .map(fn(line) { line.to_owned() })
-    .iter()
-    .collect()
+fn prepare_yaml_lines(
+  text : String,
+  profile_totals : YamlParseProfileTotals?,
+) -> Array[YamlLine] raise {
+  let raw_lines = collect_yaml_raw_lines(text, profile_totals)
 
+  let scan_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
   let lines : Array[YamlLine] = []
   for i in 0..<raw_lines.length() {
-    let raw = if i == 0 { strip_bom(raw_lines[i]) } else { raw_lines[i] }
-    if contains_tab(raw) {
-      raise ParseError(
-        "tabs are unsupported for indentation at line " + (i + 1).to_string(),
-      )
+    match prepare_yaml_line(raw_lines[i], i + 1, i == 0) {
+      Some(line) => lines.push(line)
+      None => ()
     }
-
-    let indent = leading_spaces(raw)
-    let content = strip_inline_comment(raw[indent:].to_owned())
-      .trim()
-      .to_owned()
-    if content == "" {
-      continue
-    }
-    if content == "---" || content == "..." {
-      raise ParseError(
-        "multi-document markers are unsupported at line " + (i + 1).to_string(),
-      )
-    }
-
-    lines.push({ indent, content, line_no: i + 1 })
   }
+  let scan_total = match profile_totals {
+    Some(totals) => Some(totals.scan_lines_elapsed_ms)
+    None => None
+  }
+  yaml_parse_profile_add_elapsed(scan_total, scan_started)
 
   lines
+}
+
+///|
+fn collect_yaml_raw_lines(
+  text : String,
+  profile_totals : YamlParseProfileTotals?,
+) -> Array[String] {
+  let normalize_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let chars = text.to_array()
+  let raw_lines : Array[String] = []
+  let mut current : Array[Char] = []
+  let mut i = 0
+
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch == '\r' {
+      raw_lines.push(String::from_array(current))
+      current = []
+      if i + 1 < chars.length() && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+      continue
+    }
+    if ch == '\n' {
+      raw_lines.push(String::from_array(current))
+      current = []
+      i += 1
+      continue
+    }
+    current.push(ch)
+    i += 1
+  }
+
+  raw_lines.push(String::from_array(current))
+  let normalize_total = match profile_totals {
+    Some(totals) => Some(totals.normalize_lines_elapsed_ms)
+    None => None
+  }
+  yaml_parse_profile_add_elapsed(normalize_total, normalize_started)
+  raw_lines
+}
+
+///|
+fn prepare_yaml_line(
+  raw_line : String,
+  line_no : Int,
+  is_first_line : Bool,
+) -> YamlLine? raise {
+  let raw = if is_first_line { strip_bom(raw_line) } else { raw_line }
+  let chars = raw.to_array()
+  let mut indent = 0
+  let mut in_leading_indent = true
+  let mut needs_inline_comment_scan = false
+
+  for ch in chars {
+    if ch == '\t' {
+      raise ParseError(
+        "tabs are unsupported for indentation at line " + line_no.to_string(),
+      )
+    }
+    if in_leading_indent && ch == ' ' {
+      indent += 1
+      continue
+    }
+    in_leading_indent = false
+    if ch == '#' || ch == '\'' || ch == '"' {
+      needs_inline_comment_scan = true
+    }
+  }
+
+  let body = raw[indent:]
+  let content = if needs_inline_comment_scan {
+    strip_inline_comment(body.to_owned()).trim().to_owned()
+  } else {
+    trim_right_spaces(body)
+  }
+  if content == "" {
+    return None
+  }
+  if content == "---" || content == "..." {
+    raise ParseError(
+      "multi-document markers are unsupported at line " + line_no.to_string(),
+    )
+  }
+
+  Some({ indent, content, line_no })
 }
 
 ///|
@@ -410,23 +599,17 @@ fn strip_bom(line : String) -> String {
 }
 
 ///|
-fn contains_tab(line : String) -> Bool {
-  for ch in line.to_array() {
-    if ch == '\t' {
-      return true
-    }
+fn trim_right_spaces(text : StringView) -> String {
+  let chars = text.to_array()
+  let mut end = chars.length()
+  while end > 0 && chars[end - 1] == ' ' {
+    end -= 1
   }
-  false
-}
-
-///|
-fn leading_spaces(line : String) -> Int {
-  let chars = line.to_array()
-  let mut i = 0
-  while i < chars.length() && chars[i] == ' ' {
-    i += 1
+  if end == chars.length() {
+    text.to_owned()
+  } else {
+    text[:end].to_owned()
   }
-  i
 }
 
 ///|
@@ -495,7 +678,7 @@ fn strip_inline_comment(line : String) -> String {
 fn split_mapping_entry(content : String) -> (String, String)? {
   match find_mapping_colon(content) {
     Some(index) => {
-      let key = content[:index].to_owned()
+      let key = content[:index].trim().to_owned()
       let value = content[index + 1:].trim().to_owned()
       Some((key, value))
     }

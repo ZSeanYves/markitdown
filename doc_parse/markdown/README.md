@@ -20,6 +20,21 @@ Stable candidate API:
 * `collect_markdown_validation_issues`
 * `validate_markdown_document`
 
+Current public API:
+
+* `scan_markdown_document`
+* `profile_markdown_document`
+* `inspect_markdown_document`
+* `collect_markdown_validation_issues`
+* `validate_markdown_document`
+
+Benchmark-oriented helper surface:
+
+* `profile_markdown_document` exists for internal hotspot attribution and
+  benchmark tooling
+* it is not part of the main stable candidate API contract
+* it does not change the scanner model or `convert/markdown` behavior
+
 Minimal examples:
 
 ```moonbit

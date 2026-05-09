@@ -4,8 +4,9 @@ This is the repository’s detailed support contract. When README or older
 historical/progress notes differ, this document should be treated as the
 detailed source of truth for format behavior and limits.
 
-For checked validation totals and benchmark result snapshots, use
-[docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
+For current benchmark commands, performance caveats, and measured baseline, use
+[docs/benchmarking.md](./benchmarking.md) and
+[docs/performance.md](./performance.md).
 
 ## Project Scope
 

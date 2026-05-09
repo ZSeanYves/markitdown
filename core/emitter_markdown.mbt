@@ -246,6 +246,12 @@ fn normalize_markdown_tail(s : String) -> String {
   if s == "" {
     return ""
   }
+  if s.has_suffix("\n") &&
+    !s.has_suffix("\n\n") &&
+    !s.contains("\r") &&
+    s.trim() != "" {
+    return s
+  }
 
   let cs = s.to_array()
   let mut end = cs.length()

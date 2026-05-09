@@ -23,6 +23,17 @@ Important distinction:
 * module publishing/release granularity is driven by `moon.mod.json`, not by a
   package file alone
 
+Current release-surface note:
+
+* stable candidate APIs are the intended package-facing facade for future
+  versioned release work
+* compatibility surfaces remain public today because current in-repo consumers
+  still depend on them
+* diagnostic/profile helpers remain useful, but they should not be promoted as
+  the primary stable semantic contract
+* internal exposed surfaces are the first candidates to narrow in any future
+  standalone-module release pass
+
 Current recommendation:
 
 * keep all current `doc_parse/*` foundations as importable in-tree packages
