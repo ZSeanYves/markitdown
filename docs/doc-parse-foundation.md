@@ -30,10 +30,7 @@ Current candidate line:
 * `doc_parse/json`: simple-format parser foundation candidate
 * `doc_parse/yaml`: YAML-subset parser foundation candidate
 * `doc_parse/text`: plain-text parser foundation candidate
-
-Active hardening line:
-
-* `doc_parse/xml`: XML tokenizer/parser/model/safety boundary hardening Pass 1
+* `doc_parse/xml`: XML parser foundation candidate
 
 Deferred parser-layer migration line:
 
@@ -71,7 +68,7 @@ Across the current candidate line:
 * none of the current candidates claim full spec support
 * simple-format parser migration has already narrowed `convert/*` toward
   model-to-IR / Markdown semantics; it does not remove `convert/*`
-* XML now has an in-tree parser foundation starter under `doc_parse/xml`, but
+* XML now has an in-tree parser foundation candidate under `doc_parse/xml`, but
   `convert/xml` still keeps the normal source-preserving product path until
   the parser layer matures further
 
@@ -452,8 +449,9 @@ Current maturity:
   unsupported-feature boundaries and inspect reporting
 * `doc_parse/text`: plain-text parser foundation candidate with byte-open,
   newline-style detection, paragraph structure, and inspect reporting
-* `doc_parse/xml`: active foundation hardening Pass 1 with safe tokenizer /
-  parser / inspect / validation boundaries, but not yet candidate-closed
+* `doc_parse/xml`: XML parser foundation candidate with safe tokenizer /
+  parser / inspect / validation boundaries and explicit no-XXE / no-DTD-
+  expansion behavior
 
 Known limits:
 
@@ -469,8 +467,9 @@ Remaining work:
 
 * decide which current model fields should remain long-term stable and which
   should later narrow to compatibility-only surfaces
-* continue hardening `doc_parse/xml` toward candidate status without changing
-  source-preserving converter output
+* continue refining `doc_parse/xml` typed unsupported-feature taxonomy and
+  future release-policy boundaries without changing source-preserving converter
+  output
 * revisit HTML/Markdown lower-layer extraction separately from final conversion
   policy
 

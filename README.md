@@ -56,7 +56,7 @@ GitHub Actions validation is currently checked in for Ubuntu and macOS.
 | PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
 | PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
 | CSV / TSV / JSON / YAML / Markdown / TXT | stable structured/text paths | conservative boundaries documented in support docs; not all families are second-round sealed |
-| XML | source-preserving converter path + parser foundation hardening | source-preserving converter output today; `doc_parse/xml` parser foundation is active hardening Pass 1 |
+| XML | source-preserving converter path + parser foundation candidate | source-preserving converter output today; `doc_parse/xml` is now an XML parser foundation candidate |
 
 Benchmark and quality conclusions are limited to the checked-in corpora and
 runner contracts named in the repository docs. They are not blanket claims
@@ -95,12 +95,12 @@ Current simple-format parser foundation candidates:
   plain-text structural document model / inspect foundation consumed by
   `convert/txt`.
 
-Current active parser-foundation hardening:
+Current XML parser foundation candidate:
 
 * `doc_parse/xml`
-  safe XML tokenizer/parser/model/inspect starter with explicit no-XXE and
-  no-DTD-expansion boundary; `convert/xml` still owns source-preserving product
-  output.
+  safe XML tokenizer/parser/model/inspect/validation surface with explicit
+  no-XXE and no-DTD-expansion boundary; `convert/xml` still owns
+  source-preserving product output.
 
 Current module strategy:
 

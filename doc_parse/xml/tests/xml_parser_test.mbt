@@ -67,8 +67,14 @@ test "xml doctype is preserved as unsupported signal and never fetched" {
 
   let validation = @xml.validate_xml_document(doc)
   assert_eq(validation.issue_count, 1)
+  assert_eq(validation.warning_count, 1)
+  assert_eq(validation.error_count, 0)
   assert_true(
     validation.issues[0].kind == @xml.XmlValidationIssueKind::UnsupportedDoctype,
+  )
+  assert_eq(
+    validation.issues[0].message,
+    "doctype is preserved as unsupported syntax and never fetched or expanded",
   )
 }
 
@@ -115,6 +121,61 @@ test "xml parser rejects malformed syntax and classifies" {
     }
     assert_true(info.kind == expected_kind)
   }
+}
+
+///|
+test "xml namespace raw names and source spans are preserved without namespace semantics" {
+  let doc = @xml.parse_xml_document(
+    "<xhtml:body xmlns:xhtml=\"urn:test\"><xhtml:p id=\"a\">ok</xhtml:p></xhtml:body>",
+  )
+  let root = match doc.root {
+    Some(root) => root
+    None => fail("expected root element")
+  }
+  assert_eq(root.name, "xhtml:body")
+  assert_eq(root.attributes[0].name, "xmlns:xhtml")
+  assert_eq(root.span.line_start, 1)
+  assert_eq(root.span.line_end, 1)
+
+  match root.children[0] {
+    @xml.XmlNode::Element(child) => {
+      assert_eq(child.name, "xhtml:p")
+      assert_eq(child.attributes[0].name, "id")
+      assert_eq(child.attributes[0].span.line_start, 1)
+      assert_eq(child.attributes[0].span.line_end, 1)
+    }
+    _ => fail("expected child element")
+  }
+}
+
+///|
+test "xml stable facade and inspect surface smoke" {
+  let tokens = @xml.tokenize_xml_document("<root><a/>text</root>")
+  assert_true(tokens.length() > 0)
+
+  let doc = @xml.parse_xml_document("<root><a/>text</root>")
+  let inspect = @xml.inspect_xml_document(doc)
+  let validation = @xml.validate_xml_document(doc)
+
+  assert_eq(inspect.element_count, 2)
+  assert_eq(inspect.text_node_count, 1)
+  assert_eq(validation.issue_count, 0)
+}
+
+///|
+test "xml multiple root elements and empty document stay fail-closed" {
+  assert_true((try? @xml.parse_xml_document("<a/><b/>")) is Err(_))
+  assert_true((try? @xml.parse_xml_document("")) is Err(_))
+
+  let multiple = @xml.classify_xml_error(
+    @xml.XmlError::ParseError("multiple root elements"),
+  )
+  assert_true(multiple.kind == @xml.XmlErrorKind::MultipleRootElements)
+
+  let empty = @xml.classify_xml_error(
+    @xml.XmlError::ParseError("empty document"),
+  )
+  assert_true(empty.kind == @xml.XmlErrorKind::EmptyDocument)
 }
 
 ///|

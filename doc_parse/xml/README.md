@@ -8,11 +8,11 @@ Purpose:
 
 Current status:
 
-* active foundation hardening Pass 1
-* not a publishable foundation candidate yet
+* XML parser foundation candidate
+* stable as an in-tree safe tokenizer/parser/model/error/inspect surface
 * converter output still remains source-preserving under `convert/xml`
 
-Stable early API:
+Stable candidate API:
 
 * `tokenize_xml_document`
 * `parse_xml_document`
@@ -20,6 +20,29 @@ Stable early API:
 * `collect_xml_validation_issues`
 * `validate_xml_document`
 * `classify_xml_error`
+
+Compatibility surface:
+
+* `XmlDocument`
+* `XmlNode`
+* `XmlElement`
+* `XmlAttribute`
+* `XmlText`
+* `XmlComment`
+* `XmlProcessingInstruction`
+* `XmlCData`
+* `XmlSourceSpan`
+* `XmlErrorInfo`
+* `XmlValidationIssue`
+* `XmlValidationReport`
+* `XmlInspectReport`
+
+Internal exposed surface:
+
+* tokenizer scanning helpers
+* parser recursion / stack helpers
+* predefined-entity decoder helpers
+* these stay implementation details rather than a second public facade
 
 Current model:
 
@@ -45,6 +68,7 @@ Current inspect surface:
 * comment / CDATA / processing-instruction counts
 * max depth
 * doctype presence and unsupported-doctype marker
+* issue / warning / error counts
 
 Safety boundary:
 
@@ -58,6 +82,7 @@ Safety boundary:
   * `&quot;`
   * `&apos;`
 * unknown entities fail closed
+* namespace names are preserved as raw names only, such as `xhtml:body`
 
 Current parser boundary:
 
@@ -94,6 +119,8 @@ Known limits:
 * `DOCTYPE` is surfaced as unsupported rather than semantically interpreted
 * unknown/custom entity references fail closed
 * namespace prefixes are preserved in raw names only
+* empty documents and multiple-root documents currently fail closed as parse
+  errors rather than surfacing only as post-parse validation issues
 
 Testing:
 

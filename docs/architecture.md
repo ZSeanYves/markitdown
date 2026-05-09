@@ -93,7 +93,7 @@ Current candidate line:
 * `doc_parse/json`: simple-format parser foundation candidate
 * `doc_parse/yaml`: YAML-subset parser foundation candidate
 * `doc_parse/text`: plain-text parser foundation candidate
-* `doc_parse/xml`: active XML foundation hardening Pass 1
+* `doc_parse/xml`: XML parser foundation candidate
 
 Current module strategy keeps these as importable subpackages under
 `ZSeanYves/markitdown` rather than as independently split MoonBit modules.

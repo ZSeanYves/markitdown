@@ -137,6 +137,7 @@ Lower-layer package contract:
   * `doc_parse/json`: simple-format parser foundation candidate
   * `doc_parse/yaml`: YAML-subset parser foundation candidate
   * `doc_parse/text`: plain-text parser foundation candidate
+  * `doc_parse/xml`: XML parser foundation candidate
 * current delivery remains importable subpackages under
   `ZSeanYves/markitdown`; they are not yet separately split MoonBit modules
 * they should fail closed or surface structured errors on malformed or unsafe
