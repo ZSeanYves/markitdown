@@ -18,6 +18,8 @@ Important distinction:
 * `moon.pkg` / `moon.pkg.json` defines a package boundary inside a module
 * it does not, by itself, make that package a separately published MoonBit
   module
+* module publishing/release granularity is driven by `moon.mod.json`, not by a
+  package file alone
 
 Current recommendation:
 
@@ -33,6 +35,7 @@ Current recommendation:
   contracts before considering any independent release story
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
   parsing foundations continue to stabilize
+* do not use local path dependencies as the main-branch delivery strategy
 
 ## Why Not Split Modules Yet
 
@@ -77,6 +80,7 @@ That split should wait until all of the following are clearer:
 * the `zip` dependency strategy is explicit
 * release/version policy is explicit
 * cross-package tests can be run and published independently
+* a markitdown integration branch remains green through the split boundary
 
 Current dependency note:
 
@@ -85,6 +89,9 @@ Current dependency note:
   would need an explicit dependency story on top of `doc_parse_zip`
 * ZIP is therefore the package whose release-policy shape constrains the rest
   of the container/package parsing split the most
+* before any fine-grained per-package split, the repository may first prefer a
+  single umbrella `ZSeanYves/doc_parse` module extraction once the in-tree
+  package candidate line is stable enough
 
 ## Nested Module Warning
 
@@ -107,10 +114,11 @@ If you want to experiment with an independently published parsing module:
 
 Short term:
 
-* continue shipping `doc_parse/ooxml`, `doc_parse/epub`, and `doc_parse/pdf`
-  as importable subpackages under `ZSeanYves/markitdown`
-* continue stabilizing the simple-format parser candidates in-tree before any
-  standalone-module split is attempted
+* continue shipping the current `doc_parse/*` line as importable in-tree
+  subpackages under `ZSeanYves/markitdown`
+* continue stabilizing both the structured-document foundations and the
+  simple-format/XML parser candidates in-tree before any standalone-module
+  split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and
   compatibility boundaries have narrowed further

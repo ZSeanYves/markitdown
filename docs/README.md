@@ -20,8 +20,8 @@ Use these pages as the primary current-state entrypoints:
   Reusable lower-layer package contract for the current container, document,
   simple-format, and XML parser foundation lines under `doc_parse/*`.
 * [doc_parse Package Strategy](./package-publishing-strategy.md)
-  Current subpackage delivery strategy, future module-split criteria, and
-  nested-module warning.
+  Current in-tree subpackage delivery strategy, future umbrella/split-module
+  criteria, and nested-module warning.
 * [Development Guide](./development.md)
   Maintainer workflow, validation commands, and format-onboarding practice.
 

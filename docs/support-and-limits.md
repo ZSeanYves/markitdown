@@ -123,8 +123,10 @@ Across the current implementation:
 
 Lower-layer package contract:
 
-* `doc_parse/ooxml`, `doc_parse/pdf`, and `doc_parse/epub` are expected to
-  evolve toward reusable MoonBit parsing foundations
+* `doc_parse/zip`, `doc_parse/ooxml`, `doc_parse/epub`, `doc_parse/pdf`,
+  `doc_parse/csv`, `doc_parse/tsv`, `doc_parse/json`, `doc_parse/yaml`,
+  `doc_parse/text`, and `doc_parse/xml` are now treated as in-tree parsing
+  foundations with package-specific candidate labels
 * current candidate status is:
   * `doc_parse/ooxml`: publishable foundation candidate
   * `doc_parse/epub`: publishable foundation candidate
@@ -151,6 +153,10 @@ Lower-layer package contract:
   wiring
 * current simple-format packages now also carry in-tree package README
   documentation for API, limits, and converter-boundary notes
+* deferred lower-layer work remains:
+  * `doc_parse/html`
+  * `doc_parse/markdown`
+  * DOCX / PPTX / XLSX semantic sublayers above the OOXML package layer
 
 See [docs/doc-parse-foundation.md](./doc-parse-foundation.md).
 

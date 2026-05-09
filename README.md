@@ -67,51 +67,54 @@ about all documents of a format family.
 `doc_parse` is now treated as a reusable parsing foundation layer inside the
 repository rather than as a converter-only helper.
 
-Current foundation candidates:
+Current contract:
 
-* `doc_parse/ooxml`
-  OOXML package / parts / relationships / content types / media / docProps /
-  structured inspect / strict validation.
-* `doc_parse/epub`
-  container / OPF / manifest / spine / nav / NCX / cover / metadata /
-  structured inspect / validation.
-* `doc_parse/pdf`
-  native text-PDF document model / page geometry / text-image-annotation raw
-  signals / structured inspect / typed issues / error classifier.
+* `doc_parse/*` owns parsing, source-native model, inspect, validation, and
+  safety boundary
+* `convert/*` owns IR, Markdown, assets, metadata, and product output policy
+
+### Container and structured-document foundations
+
 * `doc_parse/zip`
-  external-decoder-backed ZIP archive/container primitive / deterministic
-  inspect / validation / classifier surface.
+  external-decoder-backed ZIP foundation candidate for archive structure,
+  inventory, validation, and inspect.
+* `doc_parse/ooxml`
+  OOXML package foundation candidate for parts, relationships, content types,
+  media, docProps, inspect, and strict validation.
+* `doc_parse/epub`
+  EPUB package/spine/nav foundation candidate for container, OPF, manifest,
+  spine, nav/NCX, cover, metadata, inspect, and validation.
+* `doc_parse/pdf`
+  native text-PDF foundation candidate for page/text/image/annotation lower
+  layers, structured inspect, typed issues, and classifier-friendly errors.
 
-Current simple-format parser foundation candidates:
+### Simple-format parser foundations
 
-* `doc_parse/csv` / `doc_parse/tsv`
-  delimited-table parser/model/inspect/validation foundations consumed by
-  `convert/csv`.
+* `doc_parse/csv`
+  CSV parser foundation candidate for delimited table model, inspect, and
+  ragged-row validation.
+* `doc_parse/tsv`
+  TSV parser foundation candidate as the tab-delimited facade over the CSV core.
 * `doc_parse/json`
-  JSON AST/parser/inspect foundation consumed by `convert/json`.
+  JSON parser foundation candidate for AST, inspect, and malformed-input
+  classification.
 * `doc_parse/yaml`
-  YAML-subset AST/parser/inspect foundation consumed by `convert/yaml`.
+  YAML-subset parser foundation candidate for subset AST, inspect, and
+  fail-closed unsupported-feature boundaries.
 * `doc_parse/text`
-  plain-text structural document model / inspect foundation consumed by
-  `convert/txt`.
-
-Current XML parser foundation candidate:
-
+  plain-text parser foundation candidate for bytes/string open, BOM/newline
+  handling, structural model, and inspect.
 * `doc_parse/xml`
-  safe XML tokenizer/parser/model/inspect/validation surface with explicit
-  no-XXE and no-DTD-expansion boundary; `convert/xml` still owns
-  source-preserving product output.
+  XML parser foundation candidate for safe tokenizer/parser/model/inspect/
+  validation with explicit no-XXE and no-DTD-expansion boundary.
 
 Current module strategy:
 
-* these packages are delivered today as importable subpackages under
+* these packages are delivered today as importable in-tree subpackages under
   `ZSeanYves/markitdown`
-* `convert/*` consumes `doc_parse/*`; `doc_parse/*` does not own final Markdown
-  semantics
-* they are foundation candidates, not claims of full OOXML / EPUB / PDF / ZIP
-  spec coverage
-* the simple-format parser candidates are still in-tree package surfaces, not a
-  standalone module split yet
+* standalone `ZSeanYves/doc_parse` module extraction is future release work
+* `html`, `markdown`, and `docx/pptx/xlsx` semantic sublayers remain deferred
+* none of these candidate labels claim full spec coverage
 
 ## Core Capabilities
 

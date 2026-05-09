@@ -1,7 +1,7 @@
-# doc_parse Foundation Contract
+# doc_parse Foundation
 
-This document defines what the repository expects from publishable-quality
-`doc_parse/*` packages.
+This document is the source of truth for the current in-tree `doc_parse/*`
+foundation line inside `ZSeanYves/markitdown`.
 
 Current audit scope for this contract:
 
@@ -16,27 +16,58 @@ Current audit scope for this contract:
 * `doc_parse/text`
 * `doc_parse/xml`
 
-## Current Status
+## Contract
 
-Current candidate line:
+Core ownership split:
 
-* `doc_parse/ooxml`: publishable foundation candidate
-* `doc_parse/epub`: publishable foundation candidate
-* `doc_parse/pdf`: text-PDF publishable foundation candidate
-* `doc_parse/zip`: external-decoder-backed publishable foundation candidate as
-  the shared container primitive
-* `doc_parse/csv`: simple-format parser foundation candidate
-* `doc_parse/tsv`: simple-format parser foundation candidate
-* `doc_parse/json`: simple-format parser foundation candidate
-* `doc_parse/yaml`: YAML-subset parser foundation candidate
-* `doc_parse/text`: plain-text parser foundation candidate
-* `doc_parse/xml`: XML parser foundation candidate
+* `doc_parse/*` owns parser / model / error / inspect / validation /
+  provenance where available / safety boundary
+* `convert/*` owns `doc_parse` model -> IR / Markdown / assets / metadata /
+  product semantics
 
-Deferred parser-layer migration line:
+Shared contract:
 
-* `doc_parse/html` and `doc_parse/markdown`: still deferred
+* inspect / validation are explicit surfaces, not default hard failures unless
+  safety-critical parser behavior already fails closed
+* no remote fetch belongs in the lower-layer package contract
+* none of the current packages claim full format-spec support unless a package
+  README explicitly says so
 
-Current packaging strategy:
+## Current Status Matrix
+
+| Package | Status | Stable surface | Scope | Non-goals | Conversion integration status |
+| --- | --- | --- | --- | --- | --- |
+| `doc_parse/zip` | external-decoder-backed publishable foundation candidate | archive open/read/list, path normalization, inventory, inspect, validation, classifier | ZIP archive/container primitive | full ZIP spec, password recovery, recursive archive policy | consumed by `doc_parse/ooxml`, `doc_parse/epub`, and `convert/zip` |
+| `doc_parse/ooxml` | publishable foundation candidate | open/read/list/query/inspect/strict-validation facade | OOXML package / parts / relationships / content types / media / docProps | Office semantic conversion | consumed by `convert/docx`, `convert/pptx`, `convert/xlsx` |
+| `doc_parse/epub` | publishable foundation candidate | package/rootfile/manifest/spine/nav/cover/inspect/validation facade | EPUB container / OPF / manifest / spine / nav / NCX / cover / metadata | reading-system rendering, DRM, CSS/JS | consumed by `convert/epub` |
+| `doc_parse/pdf` | native text-PDF publishable foundation candidate | `doc_parse/pdf/api` facade, structured inspect/report, typed issue starter | native text-PDF model / page geometry / text / image / annotation raw signal | OCR default, scanned PDF, full layout engine | consumed by `convert/pdf` |
+| `doc_parse/csv` | simple-format parser foundation candidate | parse/options/inspect/validation/classifier | comma-delimited table parser/model | Markdown table / `RichTable` policy | consumed by `convert/csv` |
+| `doc_parse/tsv` | simple-format parser foundation candidate | TSV facade over CSV core | tab-delimited table parser/model | Markdown table / `RichTable` policy | consumed by `convert/csv` |
+| `doc_parse/json` | simple-format parser foundation candidate | parse/AST/inspect/classifier | JSON parser / AST / malformed-input classification | JSON-to-table/list/code-block policy | consumed by `convert/json` |
+| `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | consumed by `convert/yaml` |
+| `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
+| `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
+| `doc_parse/html` | deferred | n/a | future lower-layer HTML parser work | browser renderer / JS / CSS layout | `convert/html` still owns current parser + conversion line |
+| `doc_parse/markdown` | deferred | n/a | future lower-layer Markdown scanner work | Markdown renderer / passthrough product policy | `convert/markdown` still owns current path |
+| `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
+
+## Candidate Definitions
+
+* `publishable foundation candidate`
+  package-facing reusable lower-layer with stable candidate API, inspect/error/
+  validation surfaces, docs, and lower-layer tests
+* `parser foundation candidate`
+  reusable parser/model/error/inspect foundation with stable candidate API and
+  no IR/Markdown/product semantics
+* `subset parser foundation candidate`
+  parser foundation candidate whose subset boundary is explicit and
+  intentionally documented
+* `active hardening`
+  package boundary exists but stable-candidate README/API/test closure is not
+  complete yet
+* `deferred`
+  not yet split into a reusable lower-layer package contract
+## Current Packaging Strategy
 
 * these foundations are delivered today as importable subpackages under
   `ZSeanYves/markitdown`
@@ -48,29 +79,6 @@ Current packaging strategy:
   split is attempted
 
 See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
-
-## Unified Contract
-
-Across the current candidate line:
-
-* `doc_parse/*` owns parsing, lower-layer models, inspect/debug signal, and
-  provenance where available
-* `convert/*` owns Markdown/IR semantic conversion and final output policy
-* no remote fetch is part of the lower-layer foundation contract
-* lower layers should fail closed where safety matters
-* shared container layers such as `doc_parse/zip` may keep compatibility-
-  oriented open/read behavior while surfacing stricter validation and inspect
-  reports explicitly
-* explicit validation or inspect issues do not automatically become default
-  hard failures in normal conversion paths
-* compatibility-oriented default open/read behavior may coexist with explicit
-  strict validation or inspect reporting
-* none of the current candidates claim full spec support
-* simple-format parser migration has already narrowed `convert/*` toward
-  model-to-IR / Markdown semantics; it does not remove `convert/*`
-* XML now has an in-tree parser foundation candidate under `doc_parse/xml`, but
-  `convert/xml` still keeps the normal source-preserving product path until
-  the parser layer matures further
 
 ## Purpose
 
@@ -196,7 +204,7 @@ Commercial-grade `doc_parse` packages should:
 * avoid obvious quadratic common-path behavior
 * keep enough smoke-fixture coverage that regressions are visible
 
-## Current Package Position
+## Package Summaries
 
 ### `doc_parse/ooxml`
 

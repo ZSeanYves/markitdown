@@ -77,7 +77,7 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/json`: JSON parser / AST / inspect
 * `doc_parse/yaml`: current YAML-subset parser / AST / inspect
 * `doc_parse/text`: plain-text structural document model / inspect
-* `doc_parse/xml`: XML tokenizer / parser / inspect / validation starter
+* `doc_parse/xml`: XML tokenizer / parser / inspect / validation foundation
 
 These packages are infrastructure, not final Markdown semantics.
 
@@ -274,7 +274,8 @@ share a “conservative and stable” philosophy:
   `convert/yaml` still owns conservative table/list/code-block lowering
 * `doc_parse/text` now owns UTF-8/open-newline/paragraph structure while
   `convert/txt` still owns cleanup-profile choice and literal-Markdown policy
-* `doc_parse/xml` now owns a safe XML tokenizer/parser/model/inspect starter
+* `doc_parse/xml` now owns a safe XML tokenizer/parser/model/inspect/
+  validation foundation
   while `convert/xml` still keeps the normal source-preserving fenced code-block
   output path
 

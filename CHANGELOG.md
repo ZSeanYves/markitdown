@@ -17,6 +17,9 @@
 * Close `doc_parse/xml` as an in-tree XML parser foundation candidate with
   safe tokenizer/parser/model/error/inspect/validation boundaries while
   keeping `convert/xml` source-preserving.
+* Sync overall `doc_parse` foundation status after the simple-format and XML
+  parser candidate closures, and clarify the `doc_parse` vs `convert`
+  ownership boundary without changing runtime behavior.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.
