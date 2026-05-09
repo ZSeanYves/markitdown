@@ -148,8 +148,8 @@ Lower-layer package contract:
   * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate
     with raw block inventory, frontmatter detection, fenced code detection,
     and no renderer / no output mutation boundary
-* current semantic hardening line also includes:
-  * `doc_parse/xlsx`: SpreadsheetML semantic foundation Pass 1 with
+* current semantic candidate line also includes:
+  * `doc_parse/xlsx`: XLSX semantic foundation candidate with
     workbook/sheet/cell/shared-string/style/merged-range/conservative-formula
     model plus inspect/validation
 * current delivery remains importable subpackages under

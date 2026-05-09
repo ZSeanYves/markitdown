@@ -11,13 +11,22 @@ Purpose:
 
 Current status:
 
-* active semantic foundation Pass 1
+* XLSX semantic foundation candidate
 * in-tree semantic/model/inspect/validation package, not a standalone MoonBit
   module split yet
 * `convert/xlsx` now consumes this semantic workbook model while keeping
   RichTable / IR / Markdown / metadata policy in the converter layer
 
 Current public API:
+
+* `open_xlsx_workbook`
+* `parse_xlsx_workbook_from_package`
+* `inspect_xlsx_workbook`
+* `collect_xlsx_validation_issues`
+* `validate_xlsx_workbook`
+* `classify_xlsx_error`
+
+Stable candidate API:
 
 * `open_xlsx_workbook`
 * `parse_xlsx_workbook_from_package`
@@ -37,9 +46,15 @@ Compatibility surface:
 * `XlsxWorkbook`
 * `XlsxSheet`
 * `XlsxCell`
+* `XlsxFormulaPolicy`
 * `XlsxStyles`
 * `XlsxMergedRange`
 * `XlsxFormulaTrace`
+* `XlsxSheetState`
+* `XlsxCellKind`
+* `XlsxCellSemanticType`
+* `XlsxError`
+* `XlsxErrorInfo`
 * `XlsxInspectReport`
 * `XlsxValidationIssue`
 * `XlsxValidationReport`
@@ -47,7 +62,11 @@ Compatibility surface:
 Internal exposed surface:
 
 * Workbook/worksheet XML scanning helpers remain package-internal
+* cell-reference parsing, merged-range parsing, and shared-string decoding
+  helpers remain internal
 * formula tokenization / parsing / conservative evaluation helpers remain
+  internal
+* style/number-format scanning and datetime-like formatting helpers remain
   internal
 * OOXML relationship lookup and part-target normalization are consumed through
   `doc_parse/ooxml`, not re-exposed here as a second public helper layer
@@ -64,6 +83,21 @@ Current semantic boundary:
 * raw formula text plus conservative formula trace
 * merged ranges
 * inspect counts and validation issue collection
+
+Formula / style / date / merge boundary:
+
+* raw formula text is preserved on cells
+* cached formula values are preserved when present
+* conservative missing-cache evaluation is exposed only through
+  `XlsxFormulaTrace`, not as a full Excel engine contract
+* unsupported formula evaluation is surfaced as validation issue / trace
+  signal, not as blanket hard failure
+* style index and `numFmtId` are preserved where available
+* builtin/custom datetime-like detection is conservative semantic formatting,
+  not final output policy
+* the workbook `date1904` flag is preserved as semantic workbook signal
+* merged-range refs are preserved and invalid merged refs are reported, but no
+  visual reconstruction is attempted
 
 Non-goals:
 
@@ -91,8 +125,8 @@ Known limits:
 * styles and number formats are used only for conservative semantic display,
   not as a full Excel style engine
 * charts, pivots, comments, macros, and external links remain out of scope
-* current workbook/sheet/cell field layout should be treated as a Pass 1
-  compatibility surface rather than a finished standalone release contract
+* current workbook/sheet/cell field layout is an in-tree candidate
+  compatibility surface, not a promise of full standalone Excel semantics
 
 Testing:
 
@@ -105,3 +139,6 @@ Versioning note:
 * future work may still narrow field-level compatibility surfaces, add
   additional open helpers, or split module boundaries after broader internal
   validation
+* candidate status here means the in-tree semantic workbook API and lower-layer
+  tests are stable enough for internal reuse; it does not claim a full Excel
+  engine or a separately published MoonBit module

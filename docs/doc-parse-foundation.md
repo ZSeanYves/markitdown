@@ -54,7 +54,7 @@ Shared contract:
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and the normal XML converter path is not switched |
 | `doc_parse/html` | HTML DOM-ish parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current source/product conversion path and the normal HTML converter path is not switched |
 | `doc_parse/markdown` | Markdown lightweight scanner foundation candidate | scan/inspect/validation facade | lightweight Markdown source scanner / raw block inventory / frontmatter / fenced code detection | Markdown renderer / output normalization / CommonMark full parser | `convert/markdown` still owns the passthrough/product path and the normal Markdown converter path is not switched |
-| `doc_parse/xlsx` | active semantic foundation Pass 1 | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
+| `doc_parse/xlsx` | XLSX semantic foundation candidate | open-workbook / parse-from-package / inspect / validation / classifier facade | SpreadsheetML workbook / sheet / cell / shared strings / styles / merged ranges / conservative formula trace model | full Excel engine, RichTable/Markdown/product output policy | `convert/xlsx` now consumes the semantic workbook/model and still owns RichTable / IR / Markdown / product policy |
 | `docx/pptx` semantic sublayers | deferred semantic sublayer | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx` and `convert/pptx` |
 
 ## Candidate Definitions
@@ -79,10 +79,10 @@ Shared contract:
   lightweight source-scanner foundation with stable candidate API and raw
   block inventory / inspect / validation surface, but without renderer or
   output-mutation ownership
-* `active semantic foundation Pass 1`
-  first-round semantic model foundation above a lower package substrate, with
-  real parser/model/inspect/validation ownership but without candidate-closure
-  API guarantees yet
+* `semantic foundation candidate`
+  source-native semantic-model foundation above a lower package substrate,
+  with stable candidate API, inspect/error/validation surface, and no
+  RichTable/IR/Markdown/product semantics
 * `deferred semantic sublayer`
   format-specific semantic parser/converter split intentionally left above the
   current lower-layer package line
@@ -276,7 +276,8 @@ Future release-policy items:
 
 Current role:
 
-* SpreadsheetML semantic foundation Pass 1 above the shared OOXML package line
+* SpreadsheetML semantic foundation candidate above the shared OOXML package
+  line
 * workbook / sheet / cell / shared-string / styles / merged-range /
   conservative-formula-trace parser/model/inspect/validation package
 
@@ -291,7 +292,7 @@ Current surface:
 
 Current maturity:
 
-* active semantic foundation Pass 1
+* semantic foundation candidate
 * current source-native compatibility surface is centered on `XlsxWorkbook`,
   `XlsxSheet`, `XlsxCell`, `XlsxStyles`, `XlsxMergedRange`, and
   `XlsxFormulaTrace`
@@ -299,6 +300,8 @@ Current maturity:
   worksheet relationship targets, shared strings, style/number-format lookup,
   conservative datetime-like display formatting, raw formula text, and
   conservative missing-cache formula trace
+* formula/style/date/merged-range boundaries are directly locked by
+  lower-layer tests and package README notes
 
 Current boundary:
 
@@ -498,7 +501,7 @@ Current packages:
   inspect/validation candidate
 * `doc_parse/markdown`: lightweight source scanner/raw block inventory/
   inspect/validation candidate
-* `doc_parse/xlsx`: SpreadsheetML semantic foundation Pass 1 above
+* `doc_parse/xlsx`: SpreadsheetML semantic foundation candidate above
   `doc_parse/ooxml`
 
 Current boundary:
@@ -545,7 +548,7 @@ Current maturity:
 * `doc_parse/markdown`: Markdown lightweight scanner foundation candidate with
   raw block inventory, frontmatter and fenced-code detection, inspect /
   validation, and a no-renderer boundary
-* `doc_parse/xlsx`: active semantic foundation Pass 1 with workbook/sheet/cell
+* `doc_parse/xlsx`: semantic foundation candidate with workbook/sheet/cell
   semantic model, inspect, validation, and conservative formula trace signal
 
 Known limits:

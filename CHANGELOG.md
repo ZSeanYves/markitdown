@@ -35,6 +35,10 @@
   route `convert/xlsx` through that semantic workbook model, and keep
   RichTable / IR / Markdown / product policy in the converter layer without
   changing output behavior.
+* Close `doc_parse/xlsx` as an in-tree XLSX semantic foundation candidate
+  with workbook/sheet/cell/sharedStrings/styles/formula/merged-range
+  boundaries documented and lower-layer tests tightened, while keeping
+  `convert/xlsx` zero-drift and product-policy-owned.
 * Clarify the current package publishing strategy: `doc_parse/*` remains
   importable subpackages under `ZSeanYves/markitdown`, not separately split
   MoonBit modules yet.

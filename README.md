@@ -91,7 +91,7 @@ Current contract:
 ### OOXML semantic foundation in hardening
 
 * `doc_parse/xlsx`
-  SpreadsheetML semantic foundation Pass 1 for workbook/sheet/cell/shared
+  SpreadsheetML semantic foundation candidate for workbook/sheet/cell/shared
   strings/styles/merged ranges/formula trace inspect and validation.
 
 ### Simple-format and markup parser foundations
