@@ -27,10 +27,11 @@ Use these pages as the primary current-state entrypoints:
   Release-facing performance positioning, benchmark interpretation, and
   doc_parse-specific baseline notes.
 * [Performance Baseline](./performance-baseline.md)
-  Current measured smoke and batch-profile snapshot for doc_parse release
-  preparation.
+  Current measured smoke, batch-profile, and doc_parse library-harness
+  snapshot for release preparation.
 * [Performance Roadmap](./performance-roadmap.md)
-  Budget-by-format view, current hotspot list, and staged optimization plan.
+  Budget-by-format view, library hotspot attribution, and staged optimization
+  plan.
 * [Development Guide](./development.md)
   Maintainer workflow, validation commands, and format-onboarding practice.
 

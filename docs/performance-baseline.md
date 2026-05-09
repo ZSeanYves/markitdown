@@ -3,15 +3,16 @@
 This page records the measured benchmark snapshot used for the current
 `doc_parse` release-preparation round.
 
-It is intentionally a repository-level measurement note, not a blanket claim
-about isolated library latency for every package.
+It combines repository-level CLI timing with the first direct `doc_parse/*`
+library-harness snapshot. It is still not a blanket cross-machine claim about
+latency for every package and file shape.
 
 ## Capture Metadata
 
 * date: `2026-05-10`
 * repository state: current working tree after documentation/API-comment
   release-prep updates
-* runner preference: prebuilt native CLI
+* runner preference: prebuilt native binaries where available
 * validation before benchmark:
   * `moon build --target native`
   * `moon check`
@@ -25,6 +26,7 @@ Measured commands:
 ```bash
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -39,11 +41,16 @@ Artifacts:
   `.tmp/bench/batch_profile/startup-summary.tsv`
 * batch comparison summary:
   `.tmp/bench/batch_profile/comparison-summary.tsv`
+* doc_parse library summary:
+  `.tmp/bench/doc_parse/summary.tsv`
+* doc_parse library raw runs:
+  `.tmp/bench/doc_parse/summary.runs.tsv`
 
 ## Outcome Summary
 
 * smoke suite: `96` rows, `0` failures
 * batch-profile suite: `48` runs, `0` failures
+* doc_parse library suite: `75` stage rows, `0` failures
 * no expectations or fixtures were changed to make the benchmark pass
 
 ## Smoke Benchmark Highlights
@@ -124,6 +131,69 @@ Observed pattern:
 * heavier OOXML/PDF rows still benefit from batching, but less dramatically
   than the smallest text/structured rows
 
+## doc_parse Library Benchmark Baseline
+
+Command:
+
+```bash
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+```
+
+Coverage in this first harness round:
+
+* `text`
+* `csv`
+* `tsv`
+* `json`
+* `yaml`
+* `xml`
+* `html`
+* `markdown`
+* `zip`
+* `ooxml`
+* `epub`
+* `xlsx`
+* `docx`
+* `pptx`
+
+Current intentional gap:
+
+* `pdf` is still deferred from the first library-only harness
+
+Slowest `open/parse/scan` rows:
+
+* `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms`
+* `docx_link_heavy / parse`: `8.631 ms`
+* `yaml_large / parse`: `7.181 ms`
+* `json_large / parse`: `3.857 ms`
+* `txt_large / parse`: `3.769 ms`
+* `markdown_large / scan`: `3.306 ms`
+* `docx_small / parse`: `2.664 ms`
+* `csv_large / parse`: `2.509 ms`
+* `tsv_large / parse`: `2.330 ms`
+
+Slowest `inspect` rows:
+
+* `txt_large / inspect`: `0.694 ms`
+* `ooxml_xlsx_small / inspect`: `0.215 ms`
+* `json_large / inspect`: `0.144 ms`
+* `zip_large_many_entries / inspect`: `0.138 ms`
+
+Slowest `validate` rows:
+
+* `zip_large_many_entries / validate`: `0.138 ms`
+* `ooxml_xlsx_small / validate`: `0.127 ms`
+* `epub_large_many_chapters / validate`: `0.007 ms`
+* all other checked validation rows are below `0.01 ms` in this snapshot
+
+Small-case rows above `10 ms` in the library harness:
+
+* none
+
+Rows above `10 ms` anywhere in the current library harness:
+
+* `xlsx_formula_heavy_missing_cache / parse`: `14.367 ms`
+
 ## What This Baseline Can And Cannot Tell Us
 
 This baseline can tell us:
@@ -132,12 +202,15 @@ This baseline can tell us:
 * which rows are currently slowest at the repository product level
 * that startup cost is material for small rows
 * that batch amortization is real and measurable
+* current direct `doc_parse/*` package timing for the first library-harness
+  coverage set
 
-This baseline cannot yet tell us directly:
+This baseline still cannot yet tell us directly:
 
-* isolated `doc_parse/*` library-only parse time
-* `parse` vs `convert` vs `emit` vs `metadata/assets` cost split
-* p50 / p95 library-path latency by package
+* `parse` vs `convert` vs `emit` vs `metadata/assets` cost split inside one
+  end-to-end CLI row
+* full-library coverage for every package, especially `pdf`
+* cross-machine release SLOs from one checked local snapshot
 
 ## Current Decision
 

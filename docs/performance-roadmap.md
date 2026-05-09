@@ -65,7 +65,10 @@ Budget:
 
 ## Current Hotspot Tracking
 
-This round is baseline-first, so hotspot ownership is still provisional.
+This page now tracks two benchmark families:
+
+* repository-level CLI/product-path rows
+* direct `doc_parse/*` library rows from `./samples/bench_doc_parse.sh`
 
 Track each hotspot by:
 
@@ -76,20 +79,67 @@ Track each hotspot by:
 * owner layer: `doc_parse` / `convert` / emitter / metadata-assets / CLI
 * next action
 
-## Current Initial Hotspot List
+## doc_parse Library Hotspot Attribution
 
-Initial priorities after this round's baseline:
+Current highest-priority library rows:
 
-* Office semantic rows:
-  verify whether cost is dominated by OOXML open/part read, semantic parsing,
-  or converter lowering
-* PDF rows:
-  keep native text extraction separate from CLI and emitter overhead
-* asset-heavy HTML / EPUB / ZIP rows:
-  distinguish parsing cost from asset/output materialization cost
-* lightweight small rows above the small-case target:
-  confirm whether startup cost, converter policy, or lower-layer parsing is
-  dominant before optimizing
+* `doc_parse/xlsx`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms`
+  suspected owner: SpreadsheetML semantic parse plus conservative
+  formula-evaluation trace on missing cached values
+  next action: isolate workbook open vs sheet parse vs formula trace cost
+
+* `doc_parse/docx`
+  `docx_link_heavy / parse / 8.631 ms`
+  suspected owner: WordprocessingML body/inline scan plus hyperlink
+  relationship resolution
+  next action: profile repeated XML walk and hyperlink/media lookup density
+
+* `doc_parse/yaml`
+  `yaml_large / parse / 7.181 ms`
+  suspected owner: YAML-subset parser scan and tree allocation on large mapping
+  input
+  next action: allocation-focused parser profile before any semantic change
+
+* `doc_parse/text`
+  `txt_large / parse / 3.769 ms`
+  suspected owner: newline normalization and line inventory construction
+  next action: check repeated passes over large text buffers
+
+* `doc_parse/json`
+  `json_large / parse / 3.857 ms`
+  suspected owner: JSON tokenizer plus value-tree allocation
+  next action: inspect allocation churn in object/array recursion
+
+* `doc_parse/markdown`
+  `markdown_large / scan / 3.306 ms`
+  suspected owner: line scanner and raw block inventory traversal
+  next action: confirm whether fence/frontmatter/block classification performs
+  duplicate scans
+
+Lower-priority library observations:
+
+* `inspect` and `validate` rows are mostly sub-`1 ms`
+* `zip`, `ooxml`, and `epub` `open` rows are currently sub-`1 ms` on the
+  checked small/large manifest files
+* the current library baseline suggests the main optimization headroom is in
+  parse/scan stages, not in inspect/validate traversal
+
+## CLI/Product-Path Interpretation
+
+Current CLI smoke and batch-profile numbers still matter because they include:
+
+* startup
+* file I/O
+* converter lowering
+* Markdown / metadata / assets work
+
+That means:
+
+* rows above `10 ms` in CLI smoke are not automatically `doc_parse` problems
+* the library harness is the better owner-attribution tool for parser work
+* PDF and output-heavy HTML/EPUB/ZIP rows still need repo-level measurement in
+  addition to package-local timing
 
 ## Optimization Stages
 
@@ -98,6 +148,7 @@ Initial priorities after this round's baseline:
 Focus:
 
 * better baseline reporting
+* keep library and CLI harnesses side by side
 * same-part repeated-read audit
 * obvious string-concatenation or repeated-scan cleanup
 * no behavior changes and no safety-boundary weakening

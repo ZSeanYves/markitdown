@@ -80,6 +80,7 @@ Current public tooling:
 * `./samples/bench.sh --suite smoke`
 * `./samples/bench.sh --suite compare`
 * `./samples/bench.sh --suite batch-profile`
+* `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -92,12 +93,15 @@ What the current tooling measures well:
   exists
 * batch-vs-normal profiling with startup and grouped outputs
 * per-row summary artifacts under `.tmp/bench/...`
+* direct `doc_parse/*` package timing for `open/parse/scan`, `inspect`, and
+  `validate` on a checked local manifest without calling `convert/*`
 
-What it does not yet measure directly:
+What it still does not measure directly:
 
-* isolated library API cost for `doc_parse/*`
-* `parse` vs `convert` vs `emit` vs `metadata/assets` split
-* per-package `doc_parse` hot-path timing without converter involvement
+* `parse` vs `convert` vs `emit` vs `metadata/assets` split inside one
+  end-to-end CLI row
+* full `doc_parse` coverage for every package and stage in one runner
+  (`pdf` is still deferred in the first library-harness round)
 * broad p50 / p95 distribution rollups across all suites in a release-facing
   report
 
@@ -107,6 +111,42 @@ Current interpretation rule:
 * they are useful for release readiness and hotspot discovery
 * they are not, by themselves, proof that a specific `doc_parse` package is
   solely responsible for a row's cost
+
+## Library Harness
+
+The direct `doc_parse/*` harness is intentionally separate from
+`./samples/bench.sh`:
+
+```bash
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+```
+
+Key design points:
+
+* one native benchmark process performs many in-process iterations
+* the harness calls `doc_parse/*` APIs directly and never routes through
+  `convert/*`
+* the checked manifest lives at `samples/doc_parse_bench/manifest.tsv`
+* summary artifacts are written under `.tmp/bench/doc_parse/`
+
+Measured stage model:
+
+* lightweight text/markup/scanner packages:
+  `parse` or `scan`, then `inspect`, then `validate` where that surface exists
+* package/container foundations:
+  `open`, then `inspect`, then `validate`
+* OOXML semantic sublayers:
+  semantic `parse_*_from_package` is measured on a pre-opened OOXML package so
+  generic ZIP/OOXML open cost can be attributed separately
+
+Interpretation caveats:
+
+* sample file I/O is intentionally excluded from the measured inner loops
+* the harness measures package APIs as they are exposed today, so
+  string-oriented parsers and byte/package-open foundations are not forced into
+  one artificial shape
+* stage columns still use `*_ms`, but the harness records them with sub-ms
+  decimal precision
 
 ## Current Baseline Commands
 
@@ -119,6 +159,7 @@ moon test
 ./samples/check.sh
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
 ## Current Baseline Snapshot
@@ -131,7 +172,9 @@ Interpretation notes stay the same:
 * lightweight text/structured formats are the primary candidates for sub-10ms
   library-path goals
 * Office/package/PDF families need format-local budgets
-* CLI startup and output work remain mixed into current public benchmark rows
+* CLI startup and output work remain mixed into the repository-level smoke rows
+* the library harness is the current source of truth for direct `doc_parse/*`
+  timing and hotspot attribution
 * any row above 10ms in the current smoke benchmark is a hotspot candidate,
   not automatic evidence of a `doc_parse` regression by itself
 

@@ -71,6 +71,12 @@
 * Add `doc_parse` performance strategy, measured baseline, and optimization
   roadmap notes while keeping benchmark claims scoped to the current native
   CLI harness and checked local corpus.
+* Add a direct `doc_parse/*` library benchmark harness with a checked manifest,
+  per-stage `open/parse/scan` + `inspect` + `validate` timing, and summary
+  artifacts under `.tmp/bench/doc_parse/` without changing runtime behavior.
+* Record the first direct `doc_parse/*` library baseline and hotspot
+  attribution, and clarify how it differs from the existing CLI/product-path
+  benchmark results.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.
