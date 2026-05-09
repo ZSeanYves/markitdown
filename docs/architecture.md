@@ -78,6 +78,8 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/yaml`: current YAML-subset parser / AST / inspect
 * `doc_parse/text`: plain-text structural document model / inspect
 * `doc_parse/xml`: XML tokenizer / parser / inspect / validation foundation
+* `doc_parse/html`: tolerant HTML tokenizer / parser / inspect / validation
+  foundation starter
 
 These packages are infrastructure, not final Markdown semantics.
 
@@ -247,11 +249,14 @@ no longer the source of truth for the active design.
 
 ### HTML
 
-HTML is a lightweight semantic converter:
+HTML is still a lightweight semantic converter in the normal product path:
 
 * structural tags map into IR
 * inline links and local images are preserved within current limits
 * browser/CSS/JS semantics are intentionally out of scope
+* `doc_parse/html` now provides a lower-layer tokenizer/parser/model/inspect/
+  validation starter, but `convert/html` still owns the normal HTML -> IR /
+  Markdown / asset/product policy path
 
 ### Text-like
 

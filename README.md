@@ -108,12 +108,19 @@ Current contract:
   XML parser foundation candidate for safe tokenizer/parser/model/inspect/
   validation with explicit no-XXE and no-DTD-expansion boundary.
 
+### Active parser hardening
+
+* `doc_parse/html`
+  active foundation hardening Pass 1 for a tolerant DOM-ish tokenizer/parser/
+  model/inspect/validation layer with explicit no-fetch / no-script-execution
+  boundaries.
+
 Current module strategy:
 
 * these packages are delivered today as importable in-tree subpackages under
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` module extraction is future release work
-* `html`, `markdown`, and `docx/pptx/xlsx` semantic sublayers remain deferred
+* `markdown` and `docx/pptx/xlsx` semantic sublayers remain deferred
 * none of these candidate labels claim full spec coverage
 
 ## Core Capabilities

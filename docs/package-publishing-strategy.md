@@ -31,6 +31,9 @@ Current recommendation:
   release-policy surfaces stabilize
 * keep `doc_parse/xml` in-tree as a candidate parser foundation until its
   parser/model boundary and future convert integration story stabilize further
+* keep `doc_parse/html` in-tree as an active hardening parser foundation until
+  its DOM-ish model boundary and future zero-drift convert integration story
+  stabilize further
 * keep hardening those packages in-tree with package-level README/API/test
   contracts before considering any independent release story
 * keep `convert/*` and `doc_parse/*` co-evolving in one repository while the
@@ -72,6 +75,7 @@ Possible future modules could include:
 * `doc_parse_yaml`
 * `doc_parse_text`
 * `doc_parse_xml`
+* `doc_parse_html`
 
 That split should wait until all of the following are clearer:
 
@@ -117,8 +121,8 @@ Short term:
 * continue shipping the current `doc_parse/*` line as importable in-tree
   subpackages under `ZSeanYves/markitdown`
 * continue stabilizing both the structured-document foundations and the
-  simple-format/XML parser candidates in-tree before any standalone-module
-  split is attempted
+  simple-format/XML parser candidates plus HTML active hardening in-tree before
+  any standalone-module split is attempted
 * prioritize API/documentation/test stability over module splitting
 * revisit independent modules only after the current candidate surfaces and
   compatibility boundaries have narrowed further

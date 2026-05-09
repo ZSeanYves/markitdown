@@ -15,6 +15,7 @@ Current audit scope for this contract:
 * `doc_parse/yaml`
 * `doc_parse/text`
 * `doc_parse/xml`
+* `doc_parse/html`
 
 ## Contract
 
@@ -47,7 +48,7 @@ Shared contract:
 | `doc_parse/yaml` | YAML-subset parser foundation candidate | parse/AST/inspect/classifier | current YAML subset parser / AST | full YAML spec, YAML-to-Markdown policy | consumed by `convert/yaml` |
 | `doc_parse/text` | plain-text parser foundation candidate | bytes-open/string-parse/inspect/classifier | BOM/newline/line/paragraph structural text model | literal Markdown policy / final rendering | consumed by `convert/txt` |
 | `doc_parse/xml` | XML parser foundation candidate | tokenize/parse/inspect/validation/classifier facade | safe XML tokenizer / parser / model / inspect / validation | full XML spec, DTD support, namespace semantics, XML-to-Markdown policy | `convert/xml` remains source-preserving and is not yet parser-driven |
-| `doc_parse/html` | deferred | n/a | future lower-layer HTML parser work | browser renderer / JS / CSS layout | `convert/html` still owns current parser + conversion line |
+| `doc_parse/html` | active hardening | tokenize/parse/inspect/validation/classifier starter | tolerant DOM-ish HTML tokenizer / parser / raw node model / inspect / safety boundary | browser parser, CSS/JS rendering, final HTML-to-Markdown policy | `convert/html` still owns the current normal parser + conversion line |
 | `doc_parse/markdown` | deferred | n/a | future lower-layer Markdown scanner work | Markdown renderer / passthrough product policy | `convert/markdown` still owns current path |
 | `docx/pptx/xlsx` semantic sublayers | deferred | n/a | possible future semantic parser split above OOXML package layer | full semantic converter split this round | semantic ownership remains in `convert/docx`, `convert/pptx`, `convert/xlsx` |
 
@@ -442,8 +443,11 @@ Current boundary:
   origin semantics
 * `convert/xml` still owns source-preserving fenced-XML product semantics even
   though `doc_parse/xml` now provides the tokenizer/parser/model foundation
-* `doc_parse/html` and `doc_parse/markdown` remain deferred until their parser
-  boundaries are clearer or a real lower-layer parser exists
+* `doc_parse/html` now provides a tolerant DOM-ish parser/model/inspect/
+  validation starter, but `convert/html` still owns the current HTML parser +
+  IR/Markdown/product policy path
+* `doc_parse/markdown` remains deferred until its scanner/parser boundary is
+  worth splitting into a real lower-layer package
 
 Current maturity:
 
@@ -460,6 +464,9 @@ Current maturity:
 * `doc_parse/xml`: XML parser foundation candidate with safe tokenizer /
   parser / inspect / validation boundaries and explicit no-XXE / no-DTD-
   expansion behavior
+* `doc_parse/html`: active foundation hardening Pass 1 with tokenizer /
+  tolerant parser / raw node model / inspect / validation / no-fetch safety
+  boundary
 
 Known limits:
 
@@ -468,6 +475,44 @@ Known limits:
 * these candidate labels are lower-layer parser-foundation labels only; they
   are not claims of full format-family spec coverage or final product
   conversion ownership
+
+### `doc_parse/html`
+
+Current role:
+
+* tolerant DOM-ish HTML tokenizer/parser/model/inspect/validation starter
+* explicit lower-layer safety boundary for no remote fetch, no script
+  execution, and no CSS/JS rendering
+
+Current surface:
+
+* `tokenize_html_document`
+* `parse_html_document`
+* `inspect_html_document`
+* `collect_html_validation_issues`
+* `validate_html_document`
+* `classify_html_error`
+
+Current boundary:
+
+* `doc_parse/html` owns raw token/node inventory, validation issues, and
+  inspect reporting
+* `convert/html` still owns normal HTML -> IR / Markdown / assets / metadata /
+  source-preserving product policy
+
+Known limits:
+
+* not a browser parser or HTML5 spec-complete tree-construction engine
+* no remote fetch
+* no script execution
+* no CSS/layout rendering
+* no final Markdown/link/image/caption policy ownership
+
+Remaining closure items:
+
+* candidate-surface review and package README/API stability pass
+* decide whether any current model fields should remain long-term stable
+* evaluate future zero-drift integration opportunities with `convert/html`
 * XML still keeps converter output source-preserving and intentionally does not
   claim full XML spec support, DTD support, or entity-expansion support
 
