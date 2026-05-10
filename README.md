@@ -246,8 +246,9 @@ high-`30x` to high-`40x` range:
 These measurements are corpus-scoped local benchmark facts, not universal
 performance claims. PDF comparison rows apply only to the native text-PDF
 overlap corpus. Full raw results, representative tables, and caveats live in
-[docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md)
-and [docs/benchmark-governance.md](./docs/benchmark-governance.md).
+[docs/performance-baseline.md](./docs/performance-baseline.md),
+[docs/benchmarking.md](./docs/benchmarking.md), and
+[docs/benchmark-governance.md](./docs/benchmark-governance.md).
 
 The direct `doc_parse` library benchmark and the same-process product-path
 benchmark currently show no obvious `>10 ms` rows in the checked first-pass
@@ -296,9 +297,17 @@ moon test
 ./samples/bench.sh --suite smoke --kind smoke
 ```
 
-Current checked totals and representative benchmark rows are tracked in
-[docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
-That page is the source of truth for the latest local snapshot.
+Recommended focused benchmark entrypoints:
+
+```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+```
+
+Benchmark commands and output locations are tracked in
+[docs/benchmarking.md](./docs/benchmarking.md).
+The latest local benchmark snapshot is tracked in
+[docs/performance-baseline.md](./docs/performance-baseline.md).
 
 Checked-in GitHub Actions CI now runs `moon build --target native`,
 `moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
@@ -345,7 +354,8 @@ Current boundary:
 
 * [Changelog](./CHANGELOG.md)
 * [Documentation Map](./docs/README.md)
-* [Validation and Benchmark Summary](./docs/validation-and-benchmark-summary.md)
+* [Benchmarking Guide](./docs/benchmarking.md)
+* [Performance Baseline](./docs/performance-baseline.md)
 * [Support and Limits](./docs/support-and-limits.md)
 * [Benchmark Governance](./docs/benchmark-governance.md)
 * [doc_parse Package Strategy](./docs/package-publishing-strategy.md)

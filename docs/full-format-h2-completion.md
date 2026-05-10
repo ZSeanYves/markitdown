@@ -1,5 +1,12 @@
 # Full-format H2 Completion
 
+Status: historical milestone summary.
+
+For the current support contract and current documentation map, use:
+
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/README.md](./README.md)
+
 This document records the repository-wide H2 completion cleanup after every
 primary format reached an H2-complete support contract.
 

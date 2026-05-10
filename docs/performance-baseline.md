@@ -21,11 +21,21 @@ latency for every package and file shape.
 
 ## Benchmark Commands
 
+Preferred public entrypoint:
+
+```bash
+./samples/bench.sh
+```
+
 Measured commands:
 
 ```bash
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --help
+./samples/bench.sh --suite product-path --smoke
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ./samples/bench_product_path.sh --help
 ./samples/bench_product_path.sh --smoke
@@ -94,7 +104,7 @@ This baseline is intentionally read through three separate layers:
 Measured by:
 
 ```bash
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ```
 
 Interpretation:
@@ -109,7 +119,7 @@ Interpretation:
 Measured by:
 
 ```bash
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 Interpretation:
@@ -365,7 +375,7 @@ Interpretation:
 Current split status:
 
 * split parse vs convert:
-  `txt`, `json`, `yaml`, `csv`, `xlsx`, `html`
+  `txt`, `json`, `yaml`, `csv`, `xlsx`, `pdf`, `html`
 * partially split with remaining combined seams:
   `docx`, `pptx`
 

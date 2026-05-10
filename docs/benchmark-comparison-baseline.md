@@ -1,5 +1,13 @@
 # Benchmark Comparison Baseline
 
+Status: historical overlap-baseline record.
+
+For the current benchmark command menu and current benchmark governance, use:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+* [docs/performance-baseline.md](./performance-baseline.md)
+
 This document records a historical same-machine overlap-only comparison baseline
 between `markitdown-mb` and Microsoft MarkItDown.
 

@@ -9,6 +9,9 @@ future benchmark conclusions comparable, reviewable, and hard to overstate.
 For the current checked validation counts and representative benchmark rows,
 use [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md).
 
+For the recommended benchmark command menu, use
+[docs/benchmarking.md](./benchmarking.md).
+
 ## Goals
 
 Benchmark work in this repository should do three things:
@@ -109,6 +112,10 @@ Interpretation notes:
 
 ## Current Public Suites
 
+Recommended public benchmark entrypoint:
+
+* `./samples/bench.sh`
+
 ### `samples/bench.sh --suite smoke`
 
 Purpose:
@@ -166,6 +173,42 @@ Current limitations:
 * raw schema is useful but not yet formally documented as a repository
   governance contract
 * no "not comparable" concept because this is internal runner profiling only
+
+### `samples/bench.sh --suite doc-parse --kind library`
+
+Purpose:
+
+* measure direct `doc_parse/*` parse/open/scan, inspect, and validate work
+
+Current strengths:
+
+* isolates lower-layer library cost from product emit/metadata/assets work
+* writes stable summary and raw-run TSV artifacts under `.tmp/bench/doc_parse/`
+
+Current limitations:
+
+* helper-focused profile/stage permutations still go through
+  `./samples/bench_doc_parse.sh`
+* PDF direct library attribution is still deferred
+
+### `samples/bench.sh --suite product-path --kind stage`
+
+Purpose:
+
+* measure same-process staged product-path ownership without mixing in
+  `startup_probe`
+
+Current strengths:
+
+* preserves current `.tmp/bench/product_path/` artifact layout
+* keeps `startup_probe` separate from same-process `total`
+* allows plan-only output through `--smoke`
+
+Current limitations:
+
+* `docx/pptx` still keep partial combined seams
+* helper-focused direct control still goes through
+  `./samples/bench_product_path.sh`
 
 ## Result Field Policy
 

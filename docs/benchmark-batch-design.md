@@ -1,5 +1,12 @@
 # Benchmark Batch Design
 
+Status: historical batch-design record.
+
+For the current benchmark entrypoint and current artifact layout, use:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+
 This document captures the H3.2 design for batch benchmarking and future
 product CLI batch mode.
 

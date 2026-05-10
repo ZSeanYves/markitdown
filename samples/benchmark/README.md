@@ -9,6 +9,9 @@ dumping ground for arbitrary local inputs.
 For current checked counts and representative benchmark examples, use
 [docs/validation-and-benchmark-summary.md](../../docs/validation-and-benchmark-summary.md).
 
+For the recommended benchmark command menu and output layout, use
+[docs/benchmarking.md](../../docs/benchmarking.md).
+
 ## Checked-in Control Files
 
 * `corpus.tsv`
@@ -67,6 +70,8 @@ Current suite roots:
 * smoke: `.tmp/bench/smoke/`
 * compare: `.tmp/bench/compare/`
 * batch profile: `.tmp/bench/batch_profile/`
+* doc-parse library: `.tmp/bench/doc_parse/`
+* product path: `.tmp/bench/product_path/`
 
 Typical outputs:
 
@@ -105,6 +110,19 @@ Batch profiling:
 
 ```bash
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+```
+
+doc_parse library benchmark:
+
+```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+```
+
+Product-path attribution benchmark:
+
+```bash
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --smoke
 ```
 
 Manifest validation:

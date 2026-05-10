@@ -7,6 +7,9 @@ benchmark examples, and result-file locations.
 The public repository validation entrypoints are `./samples/check.sh` and
 `./samples/bench.sh`.
 
+For the recommended benchmark command menu and suite layout, use
+[docs/benchmarking.md](./benchmarking.md).
+
 For scope boundaries and support claims, use
 [docs/support-and-limits.md](./support-and-limits.md).
 
@@ -99,6 +102,8 @@ Current suite roots:
 * smoke: `.tmp/bench/smoke/`
 * compare: `.tmp/bench/compare/`
 * batch profile: `.tmp/bench/batch_profile/`
+* doc-parse library: `.tmp/bench/doc_parse/`
+* product path: `.tmp/bench/product_path/`
 
 Typical files:
 
@@ -111,6 +116,14 @@ Typical files:
   `.tmp/bench/batch_profile/summary.tsv`,
   `.tmp/bench/batch_profile/comparison-summary.tsv`,
   `.tmp/bench/batch_profile/startup-summary.tsv`
+* doc-parse library:
+  `.tmp/bench/doc_parse/summary.tsv`,
+  `.tmp/bench/doc_parse/summary.runs.tsv`
+* product path:
+  `.tmp/bench/product_path/summary.tsv`,
+  `.tmp/bench/product_path/summary.runs.tsv`,
+  `.tmp/bench/product_path/stage-plan.tsv`,
+  `.tmp/bench/product_path/sample-plan.tsv`
 
 ## Representative Speed Ratios
 
@@ -168,6 +181,8 @@ Benchmark entrypoints:
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ./samples/bench.sh --suite batch-profile --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 ## Caveats

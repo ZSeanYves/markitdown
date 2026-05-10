@@ -258,18 +258,37 @@ Public batch profiling benchmark:
 ./samples/bench.sh --suite batch-profile --formats csv,json,html,xlsx,docx,pdf --counts 1,3 --memory auto
 ```
 
+Public doc_parse library benchmark:
+
+```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+```
+
+Public product-path attribution benchmark:
+
+```bash
+./samples/bench.sh --suite product-path --help
+./samples/bench.sh --suite product-path --smoke
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+```
+
 Optional maintainer-only warning helper:
 
 ```bash
 ./samples/scripts/bench_warn.sh --suite batch_profile
 ```
 
-Phase-2 benchmark governance entry points:
+Historical benchmark governance/planning references:
 
 * [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
 * [docs/benchmark-h3-plan.md](./benchmark-h3-plan.md)
 * [samples/benchmark/README.md](../samples/benchmark/README.md)
 * `./samples/check.sh --manifest-only`
+
+Current benchmark entrypoints and artifact layout:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance-baseline.md](./performance-baseline.md)
 
 Notes:
 
@@ -334,7 +353,6 @@ Keep doc responsibilities separated:
 * `README.mbt.md`: product entry and short support summary
 * `docs/README.md`: document map and current primary entrypoints
 * `docs/support-and-limits.md`: detailed support contract
-* `docs/progress.md`: compact current project state and rollout summary
 * `docs/architecture.md`: architecture view
 * `docs/metadata-sidecar.md`: sidecar schema and fill behavior
 * benchmark docs: benchmark-only scope

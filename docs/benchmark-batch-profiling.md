@@ -1,5 +1,12 @@
 # Batch Benchmark Profiling
 
+Status: historical local profiling record.
+
+For the current benchmark command menu and current measured snapshot, use:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance-baseline.md](./performance-baseline.md)
+
 This document captures the H3.3 and H3.4 profiling passes for the current CLI
 batch mode v1.
 

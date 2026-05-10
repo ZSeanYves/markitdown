@@ -1,5 +1,12 @@
 # H3 Phase-1 Performance Summary
 
+Status: historical phase summary.
+
+For the current benchmark command menu and current measured snapshot, use:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance-baseline.md](./performance-baseline.md)
+
 This document is the long-term summary of the first H3 performance phase.
 
 It follows:

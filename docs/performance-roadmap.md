@@ -79,8 +79,10 @@ Budget:
 
 This page now tracks three practical performance layers:
 
-* direct `doc_parse/*` library rows from `./samples/bench_doc_parse.sh`
-* same-process product-path rows from `./samples/bench_product_path.sh`
+* direct `doc_parse/*` library rows from
+  `./samples/bench.sh --suite doc-parse --kind library`
+* same-process product-path rows from
+  `./samples/bench.sh --suite product-path --kind stage`
 * cold CLI/process-per-file cost via separate startup-aware measurement
 
 Track each hotspot by:
@@ -220,7 +222,7 @@ The repository now has a refined staged benchmark for the normal product
 path:
 
 ```bash
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 Implemented stages:
@@ -408,7 +410,7 @@ Current interpretation:
 * `startup_probe` is tracked separately and must not be mixed into
   same-process `total`
 * `parse` is now cleanly split from `convert` for
-  `txt/json/yaml/csv/xlsx/html`
+  `txt/json/yaml/csv/xlsx/pdf/html`
 * `docx/pptx` still keep partial combined seams
 * `docx` now already exposes `docx_body_xml_scan`, `docx_paragraph_scan`,
   `docx_table_scan`, `docx_inline_scan`, `docx_final_block_build`, and

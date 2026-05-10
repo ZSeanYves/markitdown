@@ -22,6 +22,8 @@ Usage: ./samples/bench_product_path.sh --help
    or: ./samples/bench_product_path.sh [--manifest PATH] [--iterations N] [--warmup N] [--format txt,json,...] [--output-dir PATH]
 
 Notes:
+  * Recommended public entrypoint:
+      ./samples/bench.sh --suite product-path --kind stage ...
   * This harness measures the markitdown product path, not the direct doc_parse API.
   * It uses a hidden benchmark-only CLI entrypoint and does not change normal CLI behavior.
   * startup_probe is measured separately with a no-op CLI launch.

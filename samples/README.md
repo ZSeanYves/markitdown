@@ -206,10 +206,15 @@ real-world corpus.
 Benchmark entrypoints:
 
 ```bash
-./samples/bench.sh --suite smoke
+./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite compare
 ./samples/bench.sh --suite batch-profile
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
+
+For benchmark commands and output locations, see
+[docs/benchmarking.md](../docs/benchmarking.md).
 
 For benchmark corpus policy, see
 [samples/benchmark/README.md](./benchmark/README.md).

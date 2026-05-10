@@ -1,5 +1,12 @@
 # H3 Phase-2 Benchmark Governance
 
+Status: historical phase-planning reference.
+
+For the current benchmark governance and current benchmark command menu, use:
+
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+* [docs/benchmarking.md](./benchmarking.md)
+
 This document records the next H3 benchmark phase after the first performance
 wave was closed out.
 

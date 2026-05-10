@@ -1,5 +1,14 @@
 # Second-Round Hardening Audit
 
+Status: historical audit record.
+
+For the current documentation map and current support/performance contracts,
+use:
+
+* [docs/README.md](./README.md)
+* [docs/support-and-limits.md](./support-and-limits.md)
+* [docs/benchmarking.md](./benchmarking.md)
+
 This document is the repository's second-round hardening audit for
 `markitdown-mb`.
 

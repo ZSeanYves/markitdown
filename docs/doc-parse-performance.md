@@ -29,7 +29,7 @@ Current performance reporting now uses three intentionally separate layers:
 This is the direct package-level path measured by:
 
 ```bash
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ```
 
 It measures `open/parse/scan`, `inspect`, and `validate` against `doc_parse/*`
@@ -47,7 +47,7 @@ Interpretation:
 This is the staged normal conversion path measured by:
 
 ```bash
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 It measures the markitdown product pipeline inside a warm benchmark runner.
@@ -132,6 +132,11 @@ Current public tooling:
 * `./samples/bench.sh --suite smoke`
 * `./samples/bench.sh --suite compare`
 * `./samples/bench.sh --suite batch-profile`
+* `./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2`
+* `./samples/bench.sh --suite product-path --help`
+* `./samples/bench.sh --suite product-path --smoke`
+* `./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2`
+* focused helper compatibility remains available through:
 * `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
@@ -203,7 +208,7 @@ Current checked state after the focused parser rounds:
 The repository now also keeps a real product-path attribution harness:
 
 ```bash
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 This benchmark differs from `./samples/bench_doc_parse.sh` in two important
@@ -249,7 +254,7 @@ Current first-pass PDF attribution scope:
 Current split status:
 
 * split now available:
-  `txt`, `json`, `yaml`, `csv`, `xlsx`, `html`
+  `txt`, `json`, `yaml`, `csv`, `xlsx`, `pdf`, `html`
 * partially split with combined seams still present:
   `docx`, `pptx`
 
@@ -537,7 +542,7 @@ Current implementation notes:
   `txt/json/yaml/csv/xlsx` it records direct parse/model-build work, `html`
   now records a refined DOM/scan slice, and `docx/pptx` now record partial
   staged converter ownership
-* `convert` is now split for `txt/json/yaml/csv/xlsx/html`; `docx` now
+* `convert` is now split for `txt/json/yaml/csv/xlsx/pdf/html`; `docx` now
   exposes benchmark-only `docx_final_block_build` rows extracted from
   `body_scan`, but paragraph policy and final IR block shape still remain
   partially combined upstream, while `pptx` now exposes a staged
@@ -574,7 +579,7 @@ Interpretation:
 * it is precise enough to show whether startup, parse, emit, metadata, or
   asset-enabled rows dominate a sample
 * the current refinement already split `parse` vs `convert` for
-  `txt/json/yaml/csv/xlsx/html`
+  `txt/json/yaml/csv/xlsx/pdf/html`
 * the current refinement now also gives `docx` explicit body-scan, asset,
   and partial final-block-build attribution without changing behavior
 * the current refinement now also gives `pptx` explicit

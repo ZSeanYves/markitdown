@@ -18,6 +18,8 @@ Usage: ./samples/bench_doc_parse.sh [--manifest PATH] [--iterations N] [--warmup
        ./samples/bench_doc_parse.sh --format yaml --profile yaml --iterations 10 --warmup 2
 
 Notes:
+  * Recommended public entrypoint:
+      ./samples/bench.sh --suite doc-parse --kind library ...
   * This harness measures doc_parse APIs directly inside one benchmark process.
   * It does not call convert/* or the normal CLI conversion path.
   * File I/O is intentionally excluded from measured parse/inspect/validate loops

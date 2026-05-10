@@ -6,10 +6,16 @@ This directory contains the checked manifest for the library-only
 Runner entrypoint:
 
 ```bash
+./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+```
+
+Focused helper compatibility:
+
+```bash
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
-The harness is intentionally different from `./samples/bench.sh`:
+The harness is intentionally different from the smoke/compare/batch suites:
 
 * it calls `doc_parse/*` APIs directly
 * it does not call `convert/*`

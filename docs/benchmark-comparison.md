@@ -1,5 +1,13 @@
 # Benchmark Comparison
 
+Status: historical benchmark-design reference.
+
+For the current benchmark command menu and current checked summary pages, use:
+
+* [docs/benchmarking.md](./benchmarking.md)
+* [docs/validation-and-benchmark-summary.md](./validation-and-benchmark-summary.md)
+* [docs/benchmark-governance.md](./benchmark-governance.md)
+
 This document describes the current overlap-only comparison benchmark between
 `markitdown-mb` and Microsoft MarkItDown.
 
