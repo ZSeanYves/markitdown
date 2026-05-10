@@ -205,8 +205,9 @@ Current assets interpretation:
 
 * `html/docx/pptx` now report asset counts plus discovery/export boundaries in
   the `assets` notes
-* the measured `assets` row is still `0 ms` on those formats in the current
-  harness because export remains embedded inside `parse`
+* the measured `assets` row is now non-zero on the checked `docx/pptx`
+  product-path samples, while the tiny checked `html` sample still rounds to
+  `0 ms`
 * other current first-batch formats report `skipped=assets_disabled`
 
 ### TXT Product-path Interpretation
@@ -221,10 +222,10 @@ The TXT normal path now has a more useful attribution split:
 Current focused TXT findings on the checked sample:
 
 * `doc_parse/text` library parse is about `2 ms`
-* same-process TXT product `parse` is about `2.7 ms`
+* same-process TXT product `parse` is about `3.4 ms`
 * same-process TXT product `convert` is about `3.2 ms`, and is currently
   dominated by `txt_literal_wrap`
-* same-process TXT product `emit` is about `1.6 ms`, with most of that now
+* same-process TXT product `emit` is about `1.3 ms`, with most of that now
   in `txt_emit_write`, not markdown-string generation
 
 This means current TXT product-path work is no longer “just a parser hotspot”.
@@ -481,19 +482,19 @@ Current implementation notes:
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `11.260 ms` avg
+* `startup_probe`: `16.652 ms` avg
 * slowest total rows:
-  * `txt_large`: `13.463 ms`
-  * `docx_image_alt_title_basic`: `3.416 ms`
-  * `pptx_image_alt_title_basic`: `2.058 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
+  * `txt_large`: `7.947 ms`
+  * `docx_image_alt_title_basic`: `4.061 ms`
+  * `pptx_image_alt_title_basic`: `2.328 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
 * slowest stage rows:
-  * `txt_large / parse`: `7.100 ms`
-  * `txt_large / convert`: `3.500 ms`
+  * `txt_large / parse`: `3.400 ms`
+  * `txt_large / convert`: `3.200 ms`
   * `docx_image_alt_title_basic / parse`: `2.200 ms`
-  * `txt_large / emit`: `2.709 ms`
+  * `txt_large / emit`: `1.293 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.726 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.859 ms`
 
 Interpretation:
 

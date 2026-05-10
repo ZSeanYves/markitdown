@@ -213,36 +213,36 @@ Current refined interpretation caveats:
 
 Current startup probe:
 
-* `startup_probe`: `11.519 ms`
+* `startup_probe`: `16.652 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `7.564 ms`
-* `docx_image_alt_title_basic`: `3.416 ms`
-* `pptx_image_alt_title_basic`: `2.058 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
-* `html_figure_figcaption_basic`: `0.816 ms`
+* `txt_large`: `7.947 ms`
+* `docx_image_alt_title_basic`: `4.061 ms`
+* `pptx_image_alt_title_basic`: `2.328 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
+* `html_figure_figcaption_basic`: `1.052 ms`
 * `yaml_metadata_nested`: `< 1 ms`
 * `json_metadata_nested`: `< 1 ms`
 * `csv_metadata_ragged_rows`: `< 1 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / parse`: `2.700 ms`
+* `txt_large / parse`: `3.400 ms`
 * `txt_large / convert`: `3.200 ms`
 * `txt_large / txt_literal_wrap`: `3.200 ms`
-* `txt_large / emit`: `1.556 ms`
-* `txt_large / txt_emit_write`: `1.399 ms`
 * `docx_image_alt_title_basic / parse`: `2.200 ms`
 * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.726 ms`
+* `txt_large / emit`: `1.293 ms`
+* `txt_large / txt_emit_write`: `1.139 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.859 ms`
 
 Supporting observations:
 
 * `dispatch` remains effectively negligible on this checked sample set
-  (`0.007-0.012 ms`)
+  (`0.005-0.007 ms`)
 * standalone `file_read` probes are still small on the checked local corpus
-  (`0.062-0.101 ms` for the rich-format rows shown here)
+  (`0.034-0.063 ms` for the current first-batch rows shown here)
 * refined attribution now shows that `txt_large` is dominated by
   `doc_parse/text` parse plus TXT literal-markdown wrapping and final markdown
   file write, not parser work alone
@@ -263,17 +263,17 @@ Supporting observations:
 
 Current focused checked row:
 
-* `txt_large / total`: `10.659 ms -> 7.564 ms`
-* `txt_large / parse`: `6.400 ms -> 2.700 ms`
+* `txt_large / total`: `10.659 ms -> 7.947 ms`
+* `txt_large / parse`: `6.400 ms -> 3.400 ms`
 * `txt_large / convert`: `2.500 ms -> 3.200 ms`
-* `txt_large / emit`: `1.724 ms -> 1.556 ms`
+* `txt_large / emit`: `1.724 ms -> 1.293 ms`
 
 Current refined TXT substage attribution:
 
 * `txt_literal_wrap`: `3.200 ms`
 * `txt_lowering`: `0.000 ms`
-* `txt_emit_blocks`: `0.158 ms`
-* `txt_emit_write`: `1.399 ms`
+* `txt_emit_blocks`: `0.154 ms`
+* `txt_emit_write`: `1.139 ms`
 
 Interpretation:
 
@@ -318,12 +318,12 @@ Current assets notes:
 The refined product-path harness now makes the main `txt_large` ownership split
 visible:
 
-* `parse`: `16.700 ms`
+* `parse`: `3.400 ms`
   direct `doc_parse/text` document construction, including decode/newline/
   paragraph model work
-* `convert`: `5.100 ms`
+* `convert`: `3.200 ms`
   `convert/txt` lowering into the product `Document` surface
-* `emit`: `3.192 ms`
+* `emit`: `1.293 ms`
   Markdown emit plus markdown file write
 
 Interpretation:
@@ -364,21 +364,21 @@ Current intentional gap:
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `yaml_large / parse`: `7.154 ms`
-* `docx_link_heavy / parse`: `6.342 ms`
-* `json_large / parse`: `3.307 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.245 ms`
-* `csv_large / parse`: `2.768 ms`
-* `markdown_large / scan`: `2.622 ms`
-* `docx_small / parse`: `2.428 ms`
-* `tsv_large / parse`: `2.409 ms`
-* `txt_large / parse`: `2.259 ms`
+* `yaml_large / parse`: `8.253 ms`
+* `docx_link_heavy / parse`: `7.350 ms`
+* `json_large / parse`: `3.501 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.476 ms`
+* `csv_large / parse`: `3.393 ms`
+* `tsv_large / parse`: `2.873 ms`
+* `txt_large / parse`: `2.769 ms`
+* `docx_small / parse`: `2.725 ms`
+* `markdown_large / scan`: `2.686 ms`
 
 Slowest `inspect` rows:
 
-* `txt_large / inspect`: `0.694 ms`
+* `txt_large / inspect`: `0.971 ms`
 * `ooxml_xlsx_small / inspect`: `0.215 ms`
-* `json_large / inspect`: `0.144 ms`
+* `json_large / inspect`: `0.172 ms`
 * `zip_large_many_entries / inspect`: `0.138 ms`
 
 Slowest `validate` rows:
@@ -472,15 +472,15 @@ These profile rows are attribution aids only:
 After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `7.154 ms`
-* `docx_link_heavy / parse`: `6.342 ms`
-* `json_large / parse`: `3.307 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.245 ms`
-* `csv_large / parse`: `2.768 ms`
-* `markdown_large / scan`: `2.622 ms`
-* `docx_small / parse`: `2.428 ms`
-* `tsv_large / parse`: `2.409 ms`
-* `txt_large / parse`: `2.259 ms`
+* `yaml_large / parse`: `8.253 ms`
+* `docx_link_heavy / parse`: `7.350 ms`
+* `json_large / parse`: `3.501 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.476 ms`
+* `csv_large / parse`: `3.393 ms`
+* `tsv_large / parse`: `2.873 ms`
+* `txt_large / parse`: `2.769 ms`
+* `docx_small / parse`: `2.725 ms`
+* `markdown_large / scan`: `2.686 ms`
 
 ## Remaining Library Hotspots
 
@@ -489,6 +489,7 @@ The current remaining library queue is now comparatively narrow:
 * YAML sequence/mapping allocation and nested subset-node build work
 * DOCX `body_scan`
 * JSON tree build after cheaper char preparation
+* TXT literal wrap if TXT becomes a priority again on the product path
 * CSV/TSV large parse only if they rise in a future full-harness snapshot
 * PDF still deferred from the direct library harness
 
@@ -689,8 +690,9 @@ The next measurement step is product-path attribution refinement:
 
 ## Current Decision
 
-This round is baseline-first, but it also includes targeted DOCX and YAML
-hot-path cleanup based on the new profile data.
+This round is baseline-sync only after the focused parser and TXT product-path
+passes. The next step is attribution-guided product-path work rather than more
+blind parser churn.
 
 The next optimization round should start from the remaining hotspots and
 measurement gaps listed in

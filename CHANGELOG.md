@@ -119,6 +119,10 @@
   refining TXT benchmark attribution into parse/literal-wrap/emit-write
   substages, and reducing the checked `txt_large` same-process product total
   from about `10.7 ms` to about `7.6 ms`.
+* Sync the post-TXT-optimization performance baseline so the documented
+  library and same-process product-path snapshots, startup caveat, completed
+  optimization passes, and remaining hotspot list all match the latest
+  checked local benchmark results without changing runtime behavior.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

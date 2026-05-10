@@ -84,7 +84,7 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms -> 7.154 ms`
+  `yaml_large / parse / 6.953 ms -> 8.253 ms`
   owner confirmed: line preparation plus repeated short mapping/scalar trim
   and copy work on a large sequence-of-mappings sample
   remaining breakdown on the checked sample:
@@ -96,13 +96,13 @@ Current highest-priority library rows:
   more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms -> 2.043 ms`
+  `txt_large / parse / 3.966 ms -> 2.769 ms`
   owner confirmed: repeated newline normalization, line splitting, and
   paragraph reconstruction before the single-pass cleanup
   next action: keep on watch only; it is no longer a lead hotspot
 
 * `doc_parse/json`
-  `json_large / parse / 3.605 ms -> 3.307 ms`
+  `json_large / parse / 3.605 ms -> 3.501 ms`
   owner confirmed: normalized char preparation plus plain-string hot-path
   allocation
   remaining breakdown on the checked sample:
@@ -111,7 +111,7 @@ Current highest-priority library rows:
   object/array allocation churn more deeply
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.130 ms -> 2.622 ms`
+  `markdown_large / scan / 3.130 ms -> 2.686 ms`
   owner confirmed: repeated trim/left-trim/block classification on the same
   raw lines before line-view precomputation
   remaining breakdown on the checked sample:
@@ -122,7 +122,7 @@ Current highest-priority library rows:
 Recent focused follow-up results:
 
 * `doc_parse/xlsx`
-  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.245 ms`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.476 ms`
   owner confirmed: SpreadsheetML formula-heavy parse path, specifically
   repeated per-formula sheet-context rebuild before the current fix
   remaining breakdown on the checked sample:
@@ -132,7 +132,7 @@ Recent focused follow-up results:
   priority to YAML first
 
 * `doc_parse/docx`
-  `docx_link_heavy / parse / 8.735 ms -> 6.342 ms`
+  `docx_link_heavy / parse / 8.735 ms -> 7.350 ms`
   owner confirmed: repeated body-level XML cleanup/traversal and no-op
   text-box scanning on a link-heavy sample without text boxes, not
   relationship lookup
@@ -146,9 +146,9 @@ Recent focused follow-up results:
 * `doc_parse/text/json/markdown`
   focused lightweight large-input follow-up is now complete
   current checked large rows:
-  `txt_large / parse / 2.259 ms`,
-  `json_large / parse / 3.307 ms`,
-  `markdown_large / scan / 2.622 ms`
+  `txt_large / parse / 2.769 ms`,
+  `json_large / parse / 3.501 ms`,
+  `markdown_large / scan / 2.686 ms`
   next action: no immediate second pass unless a future baseline regression or
   new evidence re-promotes one of these rows into the top queue
 
@@ -250,10 +250,10 @@ Implemented current format set:
 
 Focused checked TXT product-path row:
 
-* `txt_large / total / 10.659 ms -> 7.564 ms`
-* `txt_large / parse / 6.400 ms -> 2.700 ms`
+* `txt_large / total / 10.659 ms -> 7.947 ms`
+* `txt_large / parse / 6.400 ms -> 3.400 ms`
 * `txt_large / convert / 2.500 ms -> 3.200 ms`
-* `txt_large / emit / 1.724 ms -> 1.556 ms`
+* `txt_large / emit / 1.724 ms -> 1.293 ms`
 
 Interpretation:
 
@@ -350,19 +350,19 @@ Immediate next optimization candidates after attribution is stable:
 
 Current checked observations:
 
-* `startup_probe`: `11.260 ms`
+* `startup_probe`: `16.652 ms`
 * slowest same-process total rows:
-  * `txt_large`: `13.463 ms`
-  * `docx_image_alt_title_basic`: `3.416 ms`
-  * `pptx_image_alt_title_basic`: `2.058 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
+  * `txt_large`: `7.947 ms`
+  * `docx_image_alt_title_basic`: `4.061 ms`
+  * `pptx_image_alt_title_basic`: `2.328 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
 * slowest measured stage rows:
-  * `txt_large / parse`: `7.100 ms`
-  * `txt_large / convert`: `3.500 ms`
+  * `txt_large / parse`: `3.400 ms`
+  * `txt_large / convert`: `3.200 ms`
   * `docx_image_alt_title_basic / parse`: `2.200 ms`
-  * `txt_large / emit`: `2.709 ms`
+  * `txt_large / emit`: `1.293 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.726 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.859 ms`
 
 Current interpretation:
 
