@@ -132,16 +132,16 @@ moon build --target native
 Recommended invocation:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal <input> [output]
+./_build/native/release/build/cli/cli.exe normal <input> [output]
 ```
 
 Other product-path entrypoints:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
-./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/debug/build/cli/cli.exe debug --json <input>
-./_build/native/debug/build/cli/cli.exe ocr <input> [output]
+./_build/native/release/build/cli/cli.exe normal --with-metadata <input> <output.md>
+./_build/native/release/build/cli/cli.exe batch <input_dir> <output_dir>
+./_build/native/release/build/cli/cli.exe debug --json <input>
+./_build/native/release/build/cli/cli.exe ocr <input> [output]
 ```
 
 `moon run` remains a development fallback. It is not the preferred runner for
