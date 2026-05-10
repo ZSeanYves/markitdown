@@ -15,8 +15,7 @@ project is built around a native CLI, a unified IR, deterministic metadata and
 asset sidecars, and checked-in validation and benchmark evidence.
 
 It is inspired by Microsoft MarkItDown, but it is an independent MoonBit-native
-implementation and repository design. It is not a Python package, not a
-Microsoft project, and not affiliated with the AutoGen team.
+implementation and repository design.
 
 Current pipeline:
 
@@ -91,17 +90,36 @@ For overview, architecture contract, and split strategy, use:
 ## Performance Snapshot
 
 Current repository performance conclusions are scoped to checked-in corpora and
-explicit runner paths. The direct `doc_parse` library benchmark and the
-same-process product-path benchmark currently show no obvious `>10 ms` rows in
-the checked first-pass corpus, while cold CLI startup/front-end is tracked
-separately and must not be mixed into same-process totals. Recent local
-cold-start observations place the checked `noop`, `--help`, and one minimal
-TXT conversion path in roughly the `8-10 ms` band.
+explicit runner paths. Latest checked overlap comparisons against Microsoft
+MarkItDown `0.1.5` on named local samples from
+`samples/benchmark/compare_corpus.tsv` currently show representative
+single-run gaps like:
 
-These figures are local observations, not cross-machine guarantees. For the
-current baseline numbers, attribution coverage, and remaining follow-up work,
+| Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
+| --- | ---: | ---: | ---: |
+| XLSX formula cached values | 10 ms | 425 ms | ~42x |
+| DOCX nested lists mixed | 13 ms | 471 ms | ~36x |
+| PPTX title bullets | 12 ms | 476 ms | ~40x |
+| PDF URI link basic | 10 ms | 426 ms | ~43x |
+| HTML figure + figcaption image | 10 ms | 442 ms | ~44x |
+| EPUB nav TOC basic | 12 ms | 448 ms | ~37x |
+
+Many checked overlap rows currently land in roughly the `35x-45x` faster band
+on this local corpus. Separately from the Microsoft comparison, the direct
+`doc_parse` library benchmark and the same-process product-path benchmark still
+show no obvious `>10 ms` rows in the checked first-pass corpus. Cold CLI
+startup/front-end is tracked separately; latest local checked `noop`,
+`--help`, and minimal TXT cold-start rows sit around `8.7-9.3 ms` external and
+must not be mixed into same-process totals.
+
+These figures are local observations, not cross-machine guarantees. PDF
+comparison rows apply only to the native text-PDF overlap corpus. For the
+current baseline, cold-start attribution closure, and remaining follow-up work,
 use [docs/performance.md](./docs/performance.md). For benchmark commands and
-artifact directories, use [docs/benchmarking.md](./docs/benchmarking.md).
+artifact directories, use [docs/benchmarking.md](./docs/benchmarking.md). For
+overlap corpus scope and output-quality comparisons, use
+[samples/benchmark/README.md](./samples/benchmark/README.md) and
+[docs/quality-comparisons/README.md](./docs/quality-comparisons/README.md).
 
 ## CLI
 
