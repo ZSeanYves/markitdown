@@ -139,6 +139,11 @@
   library and same-process product-path snapshots, startup caveat, completed
   optimization passes, and remaining hotspot list all match the latest
   checked local benchmark results without changing runtime behavior.
+* Finalize the performance narrative after product-path attribution by
+  documenting the three-layer view (`doc_parse` library path, same-process
+  product path, and cold CLI startup), refreshing the latest TXT/DOCX/PPTX/
+  HTML/XLSX baseline notes, and keeping PDF explicitly deferred from direct
+  attribution.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

@@ -3,6 +3,18 @@
 This page turns the current benchmark baseline into a concrete optimization
 plan for `doc_parse/*` and the surrounding converter stack.
 
+## Three Performance Layers
+
+Roadmap decisions now distinguish three separate layers:
+
+* `doc_parse` library path:
+  direct package APIs, no CLI startup, mostly no product emit/assets
+* same-process product path:
+  staged normal conversion path inside the benchmark runner, excluding
+  `startup_probe`
+* cold CLI / process-per-file:
+  includes startup and must not be compared directly to same-process `total`
+
 ## Budget By Format Group
 
 ### Lightweight text and structured formats
@@ -65,10 +77,11 @@ Budget:
 
 ## Current Hotspot Tracking
 
-This page now tracks two benchmark families:
+This page now tracks three practical performance layers:
 
-* repository-level CLI/product-path rows
 * direct `doc_parse/*` library rows from `./samples/bench_doc_parse.sh`
+* same-process product-path rows from `./samples/bench_product_path.sh`
+* cold CLI/process-per-file cost via separate startup-aware measurement
 
 Track each hotspot by:
 
@@ -329,54 +342,61 @@ Current refined assets notes:
 
 ## Next Product-path Work
 
-Immediate next attribution targets:
+Immediate next measurement targets:
 
-* keep `html` on the current split path and validate that `dom_scan`,
-  `block_lowering`, `asset_discovery`, and `asset_export` stay attributable
-  without changing output policy
-* further refine `docx` until `body_scan` vs final converter lowering is more
-  explicit without changing appended-section behavior
-* further refine `pptx` until grouping/classification/document-build ownership
-  is more explicit without changing reading-order/caption/export behavior
+* keep the current three-layer reporting stable:
+  library path, same-process product path, and cold CLI/process-per-file
 * keep `startup_probe` separate from same-process `total`
-* expand the manifest carefully only after the current eight-format split is
-  stable
+* add direct PDF attribution only when its current library/product path can be
+  instrumented without distorting the contract
+* extend heavier `docx/pptx` rich-format samples if the current tiny checked
+  rows stay too small to guide prioritization
+* report batch amortization and cold-start effects more explicitly alongside
+  same-process totals
 
-Immediate next optimization candidates after attribution is stable:
+Immediate optimization candidates after measurement hygiene stays stable:
 
+* `txt`:
+  revisit `txt_literal_wrap` only if large TXT becomes a top product-path row
+  again
 * `docx`:
-  now that package/rels/notes/assets/body-scan substages are visible, inspect
-  whether paragraph policy / final IR block shape can be separated more
-  cleanly from `docx_body_scan` without changing output
+  optimize only if heavier samples confirm `docx_body_scan` /
+  `docx_paragraph_scan` stays dominant
 * `pptx`:
-  refine grouping/classification/document-build ownership before any
-  converter-local optimization pass
+  optimize only if heavier samples confirm grouping/classification/document
+  build or metadata stays dominant
 * `yaml`:
   revisit allocation-heavy sequence/mapping work only if it remains the top
-  library hotspot after product-path work is clearer
+  library hotspot after richer product-path evidence is in place
+* metadata/assets:
+  revisit only if they rise materially above parse/convert/emit on checked
+  richer samples
 
 Current checked observations:
 
-* `startup_probe`: `9.025 ms`
+* `startup_probe`: `9.452 ms`
 * slowest same-process total rows:
-  * `txt_large`: `5.755 ms`
-  * `docx_image_alt_title_basic`: `3.432 ms`
-  * `pptx_image_alt_title_basic`: `2.029 ms`
-  * `html_figure_figcaption_basic`: `1.091 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `0.992 ms`
+  * `txt_large`: `5.803 ms`
+  * `docx_image_alt_title_basic`: `3.482 ms`
+  * `pptx_image_alt_title_basic`: `2.042 ms`
+  * `html_figure_figcaption_basic`: `1.095 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
 * slowest measured stage rows:
-  * `txt_large / convert`: `2.600 ms`
+  * `txt_large / convert`: `2.700 ms`
+  * `txt_large / txt_literal_wrap`: `2.600 ms`
   * `txt_large / parse`: `2.100 ms`
-  * `docx_image_alt_title_basic / parse`: `1.300 ms`
+  * `docx_image_alt_title_basic / parse`: `1.200 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-  * `txt_large / emit`: `1.013 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.693 ms`
+  * `txt_large / emit`: `1.000 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.731 ms`
 
 Current interpretation:
 
 * the benchmark is real and uses a hidden benchmark-only CLI entrypoint
 * it does not change normal CLI behavior or `samples/bench.sh`
 * `file_read` is still a standalone probe row
+* `startup_probe` is tracked separately and must not be mixed into
+  same-process `total`
 * `parse` is now cleanly split from `convert` for
   `txt/json/yaml/csv/xlsx/html`
 * `docx/pptx` still keep partial combined seams
@@ -390,17 +410,14 @@ Current interpretation:
   tiny checked sample, several of them currently round to `0 ms`
 * `assets` attribution is now visible for `html/docx/pptx`, but some current
   discovery/export work still shares converter-local seams
+* direct PDF attribution is still deferred
 
 Next attribution refinement:
 
-* keep HTML on the current split path while refining DOCX/PPTX final converter
-  ownership
-* further separate DOCX final paragraph policy / IR block shape from the now
-  visible `docx_body_scan` and `docx_final_block_build` rows where the current
-  normal path safely allows it
-* further separate PPTX grouping/classification/document-build ownership where
-  the current normal path safely allows it
 * keep the benchmark-only instrumentation hidden and out of the default CLI UX
+* extend richer `docx/pptx` samples before doing another seam-splitting pass
+* add direct PDF attribution only when it can be done without distorting the
+  runtime contract
 
 ## Optimization Stages
 

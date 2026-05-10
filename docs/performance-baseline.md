@@ -3,15 +3,15 @@
 This page records the measured benchmark snapshot used for the current
 `doc_parse` release-preparation round.
 
-It combines repository-level CLI timing with the first direct `doc_parse/*`
+It combines repository-level CLI timing with the current direct `doc_parse/*`
 library-harness snapshot. It is still not a blanket cross-machine claim about
 latency for every package and file shape.
 
 ## Capture Metadata
 
 * date: `2026-05-10`
-* repository state: current working tree after documentation/API-comment
-  release-prep updates
+* repository state: current working tree after the parser/product attribution
+  rounds and final performance narrative sync
 * runner preference: prebuilt native binaries where available
 * validation before benchmark:
   * `moon build --target native`
@@ -84,6 +84,49 @@ Artifacts:
 * doc_parse library suite: `75` stage rows, `0` failures
 * product-path suite: `78` stage rows, `0` failures
 * no expectations or fixtures were changed to make the benchmark pass
+
+## Three Performance Layers
+
+This baseline is intentionally read through three separate layers:
+
+### doc_parse library path
+
+Measured by:
+
+```bash
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+```
+
+Interpretation:
+
+* direct package APIs only
+* no CLI startup in measured rows
+* mostly no product emit / metadata / asset work
+* current checked corpus shows no obvious `>10 ms` row
+
+### same-process product path
+
+Measured by:
+
+```bash
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+Interpretation:
+
+* staged normal conversion path inside a warm runner
+* includes `dispatch`, `parse`, `convert`, `emit`, `metadata`, and `assets`
+* excludes `startup_probe`
+* current first-pass checked corpus shows no obvious `>10 ms` row
+
+### cold CLI / process-per-file
+
+Interpretation:
+
+* includes process launch and startup overhead
+* must not be read as the same thing as same-process `total`
+* batch and embedded/warm-runner modes amortize this cost
+* all numbers on this page are local observations, not cross-machine guarantees
 
 ## Smoke Benchmark Highlights
 
@@ -213,29 +256,29 @@ Current refined interpretation caveats:
 
 Current startup probe:
 
-* `startup_probe`: `9.025 ms`
+* `startup_probe`: `9.452 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `5.755 ms`
-* `docx_image_alt_title_basic`: `3.432 ms`
-* `pptx_image_alt_title_basic`: `2.029 ms`
-* `html_figure_figcaption_basic`: `1.091 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `0.992 ms`
+* `txt_large`: `5.803 ms`
+* `docx_image_alt_title_basic`: `3.482 ms`
+* `pptx_image_alt_title_basic`: `2.042 ms`
+* `html_figure_figcaption_basic`: `1.095 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
 * `yaml_metadata_nested`: `< 1 ms`
 * `json_metadata_nested`: `< 1 ms`
 * `csv_metadata_ragged_rows`: `< 1 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / convert`: `2.600 ms`
-* `txt_large / txt_literal_wrap`: `2.500 ms`
+* `txt_large / convert`: `2.700 ms`
+* `txt_large / txt_literal_wrap`: `2.600 ms`
 * `txt_large / parse`: `2.100 ms`
-* `docx_image_alt_title_basic / parse`: `1.300 ms`
+* `docx_image_alt_title_basic / parse`: `1.200 ms`
 * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-* `txt_large / emit`: `1.013 ms`
-* `txt_large / txt_emit_write`: `0.885 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.693 ms`
+* `txt_large / emit`: `1.000 ms`
+* `txt_large / txt_emit_write`: `0.871 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.731 ms`
 
 Supporting observations:
 
@@ -265,6 +308,10 @@ Supporting observations:
   `pptx_notes_parse`, and `pptx_final_block_build` rows; the checked sample is
   small enough that many of these currently round to `0 ms`, but the seam is
   now visible without changing behavior
+* same-process `total` excludes `startup_probe`; cold CLI/process-per-file
+  interpretation must add startup separately
+* direct PDF attribution is still deferred in this first staged product-path
+  benchmark round
 
 ## TXT Focused Product-path Attribution
 
@@ -376,27 +423,27 @@ Current intentional gap:
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `yaml_large / parse`: `5.974 ms`
-* `docx_link_heavy / parse`: `5.098 ms`
-* `json_large / parse`: `2.736 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.687 ms`
-* `csv_large / parse`: `2.410 ms`
-* `markdown_large / scan`: `2.155 ms`
-* `tsv_large / parse`: `2.070 ms`
-* `docx_small / parse`: `1.944 ms`
-* `txt_large / parse`: `1.856 ms`
+* `yaml_large / parse`: `6.017 ms`
+* `docx_link_heavy / parse`: `5.126 ms`
+* `json_large / parse`: `2.850 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.694 ms`
+* `csv_large / parse`: `2.409 ms`
+* `markdown_large / scan`: `2.229 ms`
+* `tsv_large / parse`: `2.083 ms`
+* `docx_small / parse`: `1.948 ms`
+* `txt_large / parse`: `1.871 ms`
 
 Slowest `inspect` rows:
 
-* `txt_large / inspect`: `0.672 ms`
-* `ooxml_xlsx_small / inspect`: `0.203 ms`
-* `zip_large_many_entries / inspect`: `0.138 ms`
-* `json_large / inspect`: `0.137 ms`
+* `txt_large / inspect`: `0.671 ms`
+* `ooxml_xlsx_small / inspect`: `0.201 ms`
+* `zip_large_many_entries / inspect`: `0.140 ms`
+* `json_large / inspect`: `0.132 ms`
 
 Slowest `validate` rows:
 
-* `zip_large_many_entries / validate`: `0.138 ms`
-* `ooxml_xlsx_small / validate`: `0.118 ms`
+* `zip_large_many_entries / validate`: `0.139 ms`
+* `ooxml_xlsx_small / validate`: `0.117 ms`
 * `epub_large_many_chapters / validate`: `0.006 ms`
 * all other checked validation rows are below `0.01 ms` in this snapshot
 
@@ -484,15 +531,15 @@ These profile rows are attribution aids only:
 After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `8.253 ms`
-* `docx_link_heavy / parse`: `7.350 ms`
-* `json_large / parse`: `3.501 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.476 ms`
-* `csv_large / parse`: `3.393 ms`
-* `tsv_large / parse`: `2.873 ms`
-* `txt_large / parse`: `2.769 ms`
-* `docx_small / parse`: `2.725 ms`
-* `markdown_large / scan`: `2.686 ms`
+* `yaml_large / parse`: `5.974 ms`
+* `docx_link_heavy / parse`: `5.098 ms`
+* `json_large / parse`: `2.736 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.687 ms`
+* `csv_large / parse`: `2.410 ms`
+* `markdown_large / scan`: `2.155 ms`
+* `tsv_large / parse`: `2.070 ms`
+* `docx_small / parse`: `1.944 ms`
+* `txt_large / parse`: `1.856 ms`
 
 ## Remaining Library Hotspots
 
@@ -691,20 +738,22 @@ This baseline still cannot yet tell us directly:
 
 ## Next Step
 
-The next measurement step is product-path attribution refinement:
+The next measurement step is no longer “find another parser hotspot blindly”.
+It is:
 
-* keep the current `startup_probe`, `dispatch`, `emit`, `metadata`, and
-  same-process `total` rows
-* split `parse` vs `convert` where the shared normal path allows it safely
-* break out current HTML/DOCX/PPTX asset work from the combined parse path
-* add `pdf` only when its current product path can be instrumented without
-  distorting the measurement contract
+* keep the current three-layer reporting stable
+* add direct PDF attribution only when its product path can be instrumented
+  without distorting the measurement contract
+* extend richer `docx/pptx` samples if current seam rows stay too small to
+  guide prioritization
+* report cold-start/process-per-file and batch amortization more explicitly
+* add a light regression guard only after the current staged baselines settle
 
 ## Current Decision
 
-This round is baseline-sync only after the focused parser and TXT product-path
-passes. The next step is attribution-guided product-path work rather than more
-blind parser churn.
+This round is narrative sync after the parser-focused and product-path
+attribution passes. The next step is attribution-guided product-path work and
+measurement hygiene rather than more blind parser churn.
 
 The next optimization round should start from the remaining hotspots and
 measurement gaps listed in

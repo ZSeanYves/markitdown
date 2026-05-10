@@ -20,6 +20,58 @@ It is intentionally narrower than the repository-wide benchmark docs:
 
 Only the first category belongs directly to `doc_parse`.
 
+## Three Performance Layers
+
+Current performance reporting now uses three intentionally separate layers:
+
+### 1. doc_parse library path
+
+This is the direct package-level path measured by:
+
+```bash
+./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+```
+
+It measures `open/parse/scan`, `inspect`, and `validate` against `doc_parse/*`
+APIs directly.
+
+Interpretation:
+
+* no CLI startup is included
+* sample file I/O is mostly outside the hot inner loops
+* product-layer emit, metadata, and asset work are mostly excluded
+* the current checked corpus has no obvious `>10 ms` library row
+
+### 2. same-process product path
+
+This is the staged normal conversion path measured by:
+
+```bash
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+It measures the markitdown product pipeline inside a warm benchmark runner.
+
+Interpretation:
+
+* `dispatch`, `parse`, `convert`, `emit`, `metadata`, and `assets` are included
+* `startup_probe` is kept separate
+* this is the right layer for product-path ownership and seam attribution
+* the current first-pass checked corpus has no obvious `>10 ms` same-process
+  product row
+
+### 3. cold CLI / process-per-file
+
+This layer is intentionally not the same as same-process `total`.
+
+Interpretation:
+
+* it includes CLI startup and process launch overhead
+* it should not be compared directly against same-process `total`
+* batch mode and embedded/warm-runner mode can amortize startup
+* current benchmark numbers are local observations, not cross-machine absolute
+  guarantees
+
 ## Goal Layers
 
 Performance goals are intentionally tiered.
@@ -226,10 +278,10 @@ The TXT normal path now has a more useful attribution split:
 Current focused TXT findings on the checked sample:
 
 * `doc_parse/text` library parse is about `2 ms`
-* same-process TXT product `parse` is about `3.4 ms`
-* same-process TXT product `convert` is about `3.2 ms`, and is currently
+* same-process TXT product `parse` is about `2.1 ms`
+* same-process TXT product `convert` is about `2.7 ms`, and is currently
   dominated by `txt_literal_wrap`
-* same-process TXT product `emit` is about `1.3 ms`, with most of that now
+* same-process TXT product `emit` is about `1.0 ms`, with most of that now
   in `txt_emit_write`, not markdown-string generation
 
 This means current TXT product-path work is no longer “just a parser hotspot”.
@@ -487,25 +539,28 @@ Current implementation notes:
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `9.025 ms` avg
+* `startup_probe`: `9.452 ms` avg
 * slowest total rows:
-  * `txt_large`: `5.755 ms`
-  * `docx_image_alt_title_basic`: `3.432 ms`
-  * `pptx_image_alt_title_basic`: `2.029 ms`
-  * `html_figure_figcaption_basic`: `1.091 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `0.992 ms`
+  * `txt_large`: `5.803 ms`
+  * `docx_image_alt_title_basic`: `3.482 ms`
+  * `pptx_image_alt_title_basic`: `2.042 ms`
+  * `html_figure_figcaption_basic`: `1.095 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
 * slowest stage rows:
-  * `txt_large / convert`: `2.600 ms`
+  * `txt_large / convert`: `2.700 ms`
+  * `txt_large / txt_literal_wrap`: `2.600 ms`
   * `txt_large / parse`: `2.100 ms`
-  * `docx_image_alt_title_basic / parse`: `1.300 ms`
+  * `docx_image_alt_title_basic / parse`: `1.200 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-  * `txt_large / emit`: `1.013 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.693 ms`
+  * `txt_large / emit`: `1.000 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.731 ms`
 
 Interpretation:
 
 * this harness now makes the repository product path measurable without
   claiming that every stage is perfectly separated already
+* `startup_probe` remains separate from same-process `total` and must not be
+  mixed into cold CLI/process-per-file interpretation
 * it is precise enough to show whether startup, parse, emit, metadata, or
   asset-enabled rows dominate a sample
 * the current refinement already split `parse` vs `convert` for
@@ -517,6 +572,8 @@ Interpretation:
   `pptx_grouping`, `pptx_classification`, `pptx_image_inventory`, and
   `pptx_final_block_build` rows; on the tiny checked sample, several of those
   stages currently round to `0 ms`
+* direct PDF product-path attribution is still deferred in this first staged
+  benchmark round
 * the next refinement should keep `html` stable while pushing `docx/pptx`
   further from partial attribution toward cleaner final converter ownership
   without changing behavior

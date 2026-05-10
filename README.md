@@ -249,6 +249,13 @@ overlap corpus. Full raw results, representative tables, and caveats live in
 [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md)
 and [docs/benchmark-governance.md](./docs/benchmark-governance.md).
 
+The direct `doc_parse` library benchmark and the same-process product-path
+benchmark currently show no obvious `>10 ms` rows in the checked first-pass
+corpus. Cold CLI startup is tracked separately and should not be mixed with
+same-process product totals. These figures are local observations, not
+cross-machine guarantees. See
+[docs/performance-baseline.md](./docs/performance-baseline.md).
+
 ## CLI
 
 Build the native product-path binary:
