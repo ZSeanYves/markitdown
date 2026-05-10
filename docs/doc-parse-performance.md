@@ -104,19 +104,20 @@ What the current tooling measures well:
 * per-row summary artifacts under `.tmp/bench/...`
 * direct `doc_parse/*` package timing for `open/parse/scan`, `inspect`, and
   `validate` on a checked local manifest without calling `convert/*`
-* first-pass product-path attribution for `txt/json/yaml/csv/xlsx/html/docx/`
-  `pptx`, including `startup_probe`, `dispatch`, `parse`, `emit`,
+* refined product-path attribution for `txt/json/yaml/csv/xlsx/html/docx/`
+  `pptx`, including `startup_probe`, `dispatch`, `parse`, `convert`, `emit`,
   `metadata`, `assets`, and same-process `total`
 
 What it still does not measure directly:
 
 * a perfect `parse` vs `convert` split for every current normal-path format;
-  the first-pass product harness still records `convert` as
-  `combined_in_parse_current_path=true` when the shared converter seam is not
-  yet safely split
+  the refined product harness now splits `txt/json/yaml/csv/xlsx`, but still
+  records `convert` as `combined_in_parse_current_path=true` for
+  `html/docx/pptx` where the shared converter seam is not yet safely split
 * a perfect standalone `assets` stage for converter-local asset paths such as
-  HTML, DOCX, and PPTX; the first-pass product harness records the asset count
-  while noting that materialization is still embedded in the parse path
+  HTML, DOCX, and PPTX; the refined product harness now records asset counts
+  plus discovery/export boundaries, but materialization is still embedded in
+  the parse path
 * full `doc_parse` coverage for every package and stage in one runner
   (`pdf` is still deferred in the first library-harness round)
 * broad p50 / p95 distribution rollups across all suites in a release-facing
@@ -133,11 +134,78 @@ Current checked state after the focused parser rounds:
 
 * no direct `doc_parse` library row is currently above `10 ms`
 * `inspect` and `validate` are not the active bottlenecks
-* a first-pass product-path attribution harness now exists for the initial
+* a refined product-path attribution harness now exists for the initial
   normal-path format set
 * the next performance problem is no longer “find a parser hotspot blindly”;
   it is “refine product-path attribution until parse, convert, emit,
   metadata, and assets are cleanly owned”
+
+## Product-path Harness
+
+The repository now also keeps a real product-path attribution harness:
+
+```bash
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+This benchmark differs from `./samples/bench_doc_parse.sh` in two important
+ways:
+
+* it measures the actual markitdown normal product path rather than direct
+  `doc_parse/*` APIs
+* it keeps `startup_probe` separate from same-process `total`
+
+Current measured stages:
+
+* `startup_probe`
+* `file_read`
+* `dispatch`
+* `parse`
+* `convert`
+* `emit`
+* `metadata`
+* `assets`
+* `total`
+
+Current stage ownership interpretation:
+
+* `startup_probe`: hidden benchmark-only no-op CLI launch
+* `file_read`: standalone file-read probe row, not subtracted from `parse`
+* `dispatch`: format detection plus converter selection
+* `parse`: current real normal-path parse/model-build entry
+* `convert`: model lowering / IR construction where the current converter seam
+  can be safely split
+* `emit`: Markdown emit plus markdown write
+* `metadata`: sidecar construction plus write
+* `assets`: asset discovery/export notes; still embedded in parse for current
+  HTML/DOCX/PPTX paths
+* `total`: same-process product path total excluding `startup_probe`
+
+Current split status:
+
+* split now available:
+  `txt`, `json`, `yaml`, `csv`, `xlsx`
+* still combined for now:
+  `html`, `docx`, `pptx`
+
+Current combined reasons:
+
+* `html`:
+  DOM scan, block lowering, and local image export still share the current
+  entrypoint
+* `docx`:
+  package/rels/notes/assets/IR scan still share the current entrypoint
+* `pptx`:
+  slide parse, final classification, and image export still share the current
+  entrypoint
+
+Current assets interpretation:
+
+* `html/docx/pptx` now report asset counts plus discovery/export boundaries in
+  the `assets` notes
+* the measured `assets` row is still `0 ms` on those formats in the current
+  harness because export remains embedded inside `parse`
+* other current first-batch formats report `skipped=assets_disabled`
 
 ## Library Harness
 
@@ -330,8 +398,8 @@ Current interpretation:
 
 ## Product-path Attribution Harness
 
-The next performance phase is now implemented as a first-pass benchmark for
-the repository product path:
+The next performance phase is now implemented as a refined benchmark for the
+repository product path:
 
 ```bash
 ./samples/bench_product_path.sh --help
@@ -370,28 +438,30 @@ Current implementation notes:
 * `file_read` is currently a standalone probe row; it is not subtracted from
   the measured `parse` row
 * `parse` is the real current normal-path parse/conversion entry; for
-  integrated formats it includes `doc_parse` plus converter lowering, and for
-  intentionally unswitched formats it records the converter-local combined
-  path
-* `convert` is recorded as `combined_in_parse_current_path=true` in the first
-  pass where a safe shared split is not yet exposed
-* `assets` is recorded as `embedded_in_parse_current_path=true` for current
-  HTML/DOCX/PPTX asset flows while still reporting the asset count
+  `txt/json/yaml/csv/xlsx` it now records direct parse/model-build work, and
+  for intentionally unswitched formats it still records the converter-local
+  combined path
+* `convert` is now split for `txt/json/yaml/csv/xlsx`, and remains
+  `combined_in_parse_current_path=true` for `html/docx/pptx`
+* `assets` is still recorded as `embedded_in_parse_current_path=true` for
+  current HTML/DOCX/PPTX asset flows while now reporting the current
+  discovery/export boundaries
 
-Current checked baseline snapshot from the first-pass harness:
+Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `8.775 ms` avg
+* `startup_probe`: `12.886 ms` avg
 * slowest total rows:
-  * `txt_large`: `10.499 ms`
-  * `docx_image_alt_title_basic`: `2.941 ms`
-  * `pptx_image_alt_title_basic`: `1.763 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
+  * `txt_large`: `15.744 ms`
+  * `docx_image_alt_title_basic`: `4.857 ms`
+  * `pptx_image_alt_title_basic`: `2.916 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `2.489 ms`
 * slowest stage rows:
-  * `txt_large / parse`: `8.892 ms`
-  * `docx_image_alt_title_basic / parse`: `2.278 ms`
-  * `txt_large / emit`: `1.592 ms`
-  * `pptx_image_alt_title_basic / parse`: `0.833 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.786 ms`
+  * `txt_large / parse`: `9.300 ms`
+  * `txt_large / convert`: `3.600 ms`
+  * `docx_image_alt_title_basic / parse`: `3.666 ms`
+  * `txt_large / emit`: `2.495 ms`
+  * `pptx_image_alt_title_basic / parse`: `1.398 ms`
+  * `pptx_image_alt_title_basic / metadata`: `1.198 ms`
 
 Interpretation:
 
@@ -399,9 +469,11 @@ Interpretation:
   claiming that every stage is perfectly separated already
 * it is precise enough to show whether startup, parse, emit, metadata, or
   asset-enabled rows dominate a sample
-* the next refinement should split `parse` vs `convert` and isolate
-  converter-local `assets` timing more cleanly where the current normal path
-  still combines them
+* the current refinement already split `parse` vs `convert` for
+  `txt/json/yaml/csv/xlsx`
+* the next refinement should isolate converter-local `assets` timing more
+  cleanly and then extend the split to `html/docx/pptx` without changing
+  behavior
 
 ## Library vs CLI Guidance
 

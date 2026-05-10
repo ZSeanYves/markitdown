@@ -27,9 +27,9 @@ Notes:
   * startup_probe is measured separately with a no-op CLI launch.
   * file_read is a standalone probe row; current parse rows still include the
     converter-local file read inside the real conversion path.
-  * convert is recorded as combined_in_parse on the current first-pass harness
-    because the generic converter seam does not yet expose a safe split across
-    all first-batch formats.
+  * parse vs convert is now split for txt/json/yaml/csv/xlsx.
+  * html/docx/pptx still report combined parse/convert ownership because their
+    current normal-path seams also embed asset-aware converter work.
 EOF
 }
 
@@ -106,13 +106,13 @@ generate_plan_artifacts() {
   cat > "$stage_plan" <<'EOF'
 stage	owner_layer	planned_instrumentation	notes
 startup_probe	cli	process launch and empty command baseline	separate fixed startup from format-local work
-file_read	cli-or-probe	standalone file-read probe	in current first pass this is a probe row, not subtracted from parse
+file_read	cli-or-probe	standalone file-read probe	current harness keeps this as a probe row, not subtracted from parse
 dispatch	cli	format detection and option routing	exact stage inside same-process benchmark run
-parse	doc_parse-or-convert	current converter parse entry	in current first pass this may include converter-local file read and lowering
-convert	convert	planned future split	current first pass records combined_in_parse where generic split is unavailable
+parse	doc_parse-or-convert	current converter parse entry	refined harness splits txt/json/yaml/csv/xlsx; html/docx/pptx remain combined
+convert	convert	current lowering seam	refined harness splits txt/json/yaml/csv/xlsx; html/docx/pptx remain combined
 emit	emitter	markdown emission plus markdown write	measured inside same-process benchmark run
 metadata	metadata	sidecar build plus write	measured only when enabled for a manifest row
-assets	assets	asset scan/export/copy	first pass records embedded_in_parse for current converter-local asset paths
+assets	assets	asset scan/export/copy	refined harness reports embedded asset boundaries for current converter-local asset paths
 total	product	full same-process normal path	startup_probe is measured separately
 EOF
 
@@ -353,14 +353,32 @@ while IFS=$'\t' read -r format path label size_class with_metadata with_assets n
   for ((iter = 1; iter <= total_iterations; iter++)); do
     run_root="$WORK_ROOT/${label}.iter-${iter}"
     mkdir -p "$run_root"
-    cmd=("$CLI_BIN" "_bench-product-path" "--input" "$input_path" "--output-root" "$run_root")
+    cmd=()
+    case "$format" in
+      txt)
+        cmd+=("MARKITDOWN_PROFILE_TXT=1")
+        ;;
+      json)
+        cmd+=("MARKITDOWN_PROFILE_JSON=1")
+        ;;
+      yaml)
+        cmd+=("MARKITDOWN_PROFILE_YAML=1")
+        ;;
+      csv|tsv)
+        cmd+=("MARKITDOWN_PROFILE_CSV=1")
+        ;;
+      xlsx)
+        cmd+=("MARKITDOWN_PROFILE_XLSX=1")
+        ;;
+    esac
+    cmd+=("$CLI_BIN" "_bench-product-path" "--input" "$input_path" "--output-root" "$run_root")
     if [[ "$metadata_flag" == true ]]; then
       cmd+=("--with-metadata")
     fi
     if [[ "$assets_flag" == true ]]; then
       cmd+=("--with-assets")
     fi
-    output="$("${cmd[@]}")"
+    output="$(env "${cmd[@]}")"
 
     if (( iter <= WARMUP )); then
       continue

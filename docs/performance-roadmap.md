@@ -201,9 +201,9 @@ That means:
 * PDF and output-heavy HTML/EPUB/ZIP rows still need repo-level measurement in
   addition to package-local timing
 
-## Product-path Attribution First Pass
+## Product-path Attribution
 
-The repository now has a first-pass staged benchmark for the normal product
+The repository now has a refined staged benchmark for the normal product
 path:
 
 ```bash
@@ -225,15 +225,17 @@ Implemented stages:
 Planned ownership split:
 
 * `startup_probe`, `file_read`, `dispatch`: CLI / product-path harness
-* `parse`: the real current normal-path parse entry
-* `convert`: currently recorded as `combined_in_parse_current_path=true` where
-  the shared seam is not safely exposed yet
+* `parse`: direct `doc_parse` parse/model-build work where the current seam is
+  already safely split; otherwise the real combined normal-path parse entry
+* `convert`: model lowering / IR construction where the seam is safely split;
+  otherwise recorded as `combined_in_parse_current_path=true`
 * `emit`: Markdown/string emission plus markdown write
 * `metadata`: sidecar construction plus write
-* `assets`: currently recorded as `embedded_in_parse_current_path=true` where
-  current asset export is still converter-local inside the parse path
+* `assets`: discovery/export notes where possible, but still recorded as
+  `embedded_in_parse_current_path=true` where current asset export remains
+  converter-local inside the parse path
 
-Implemented first format set:
+Implemented current format set:
 
 * `txt`
 * `json`
@@ -258,36 +260,99 @@ Planned output schema:
 * `bytes`
 * `notes`
 
-Current checked first-pass observations:
+## Product-path Attribution Current Split
 
-* `startup_probe`: `8.775 ms`
+Current split-supported formats:
+
+* `txt`
+* `json`
+* `yaml`
+* `csv`
+* `xlsx`
+
+Current still-combined formats:
+
+* `html`
+* `docx`
+* `pptx`
+
+Current blockers:
+
+* `html`:
+  DOM scan, block lowering, and local asset export still share one entrypoint
+* `docx`:
+  package/rels/notes/assets/IR scan still share one entrypoint
+* `pptx`:
+  slide parse, final classification, and image export still share one
+  entrypoint
+
+Current refined assets notes:
+
+* `html`:
+  `asset_discovery_boundary=nodes_to_blocks`,
+  `asset_export_boundary=export_local_html_image`
+* `docx`:
+  `asset_discovery_boundary=build_docx_asset_path_map`,
+  `asset_export_boundary=extract_media_by_relationships`
+* `pptx`:
+  `asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map`,
+  `asset_export_boundary=export_slide_images`
+
+## Next Product-path Work
+
+Immediate next attribution targets:
+
+* split `parse` vs `convert` for `html` without changing current output policy
+* separate `asset_discovery` from `asset_export` timing where current export
+  remains embedded in `parse`
+* keep `startup_probe` separate from same-process `total`
+* expand the manifest carefully only after the current eight-format split is
+  stable
+
+Immediate next optimization candidates after attribution is stable:
+
+* `txt_large`:
+  inspect repeated string copying between `doc_parse/text`, `convert/txt`, and
+  emitter paths
+* `docx`:
+  refine the current combined parse/convert/asset seam before any further
+  parser-local optimization
+* `yaml`:
+  revisit allocation-heavy sequence/mapping work only if it remains the top
+  library hotspot after product-path work is clearer
+
+Current checked observations:
+
+* `startup_probe`: `12.886 ms`
 * slowest same-process total rows:
-  * `txt_large`: `10.499 ms`
-  * `docx_image_alt_title_basic`: `2.941 ms`
-  * `pptx_image_alt_title_basic`: `1.763 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
+  * `txt_large`: `15.744 ms`
+  * `docx_image_alt_title_basic`: `4.857 ms`
+  * `pptx_image_alt_title_basic`: `2.916 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `2.489 ms`
 * slowest measured stage rows:
-  * `txt_large / parse`: `8.892 ms`
-  * `docx_image_alt_title_basic / parse`: `2.278 ms`
-  * `txt_large / emit`: `1.592 ms`
-  * `pptx_image_alt_title_basic / parse`: `0.833 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.786 ms`
+  * `txt_large / parse`: `9.300 ms`
+  * `txt_large / convert`: `3.600 ms`
+  * `docx_image_alt_title_basic / parse`: `3.666 ms`
+  * `txt_large / emit`: `2.495 ms`
+  * `pptx_image_alt_title_basic / parse`: `1.398 ms`
+  * `pptx_image_alt_title_basic / metadata`: `1.198 ms`
 
 Current interpretation:
 
 * the benchmark is real and uses a hidden benchmark-only CLI entrypoint
 * it does not change normal CLI behavior or `samples/bench.sh`
 * `file_read` is still a standalone probe row
-* `parse` still includes current converter-local file read and lowering where
-  that is how the normal path is structured
-* `convert` and some `assets` work are still intentionally coarse attribution
-  seams in this first pass
+* `parse` is now cleanly split from `convert` for
+  `txt/json/yaml/csv/xlsx`
+* `html/docx/pptx` still keep intentionally coarse combined seams
+* some `assets` work still remains intentionally coarse because current
+  HTML/DOCX/PPTX export is embedded in the parse path
 
 Next attribution refinement:
 
-* expose a safe `parse` vs `convert` split where the current converter stack
-  can support it without changing behavior
 * isolate HTML/DOCX/PPTX asset export from the combined parse path
+* expose a safe `parse` vs `convert` split for `html/docx/pptx` where the
+  current converter stack can support it without changing behavior
 * keep the benchmark-only instrumentation hidden and out of the default CLI UX
 
 ## Optimization Stages

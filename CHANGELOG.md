@@ -104,6 +104,10 @@
   `txt/json/yaml/csv/xlsx/html/docx/pptx`, stage summaries under
   `.tmp/bench/product_path/`, and documented caveats where `parse`,
   `convert`, and `assets` are still combined in the current normal path.
+* Refine the product-path attribution benchmark so `txt/json/yaml/csv/xlsx`
+  now report separate `parse` vs `convert` timing, while `html/docx/pptx`
+  keep explicit combined-path reasons and refined asset-discovery/export
+  notes without changing conversion output or parser/converter semantics.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

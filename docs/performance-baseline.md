@@ -196,54 +196,105 @@ Current stage rows:
 * `assets`
 * `total`
 
-Current first-pass interpretation caveats:
+Current refined interpretation caveats:
 
 * `startup_probe` is measured separately with a no-op native CLI launch
 * `file_read` is a standalone probe row and is not subtracted from `parse`
-* `parse` currently measures the real normal-path parse entry, which may still
-  include converter-local file read and lowering
-* `convert` is recorded as `combined_in_parse_current_path=true` where the
-  current normal path does not expose a safe shared split yet
-* `assets` is recorded as `embedded_in_parse_current_path=true` for current
-  HTML/DOCX/PPTX asset flows while still reporting asset counts
+* `parse` now measures direct `doc_parse` parse/model-build work for
+  `txt/json/yaml/csv/xlsx`, but still measures the real combined normal-path
+  entry for `html/docx/pptx`
+* `convert` now records separate lowering work for `txt/json/yaml/csv/xlsx`,
+  but remains `combined_in_parse_current_path=true` for `html/docx/pptx`
+* `assets` now records refined discovery/export boundaries for current
+  `html/docx/pptx` asset flows while still reporting `0 ms` because export is
+  embedded in the current parse path
 
 Current startup probe:
 
-* `startup_probe`: `8.775 ms`
+* `startup_probe`: `8.867 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `10.499 ms`
-* `docx_image_alt_title_basic`: `2.941 ms`
-* `pptx_image_alt_title_basic`: `1.763 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
-* `html_figure_figcaption_basic`: `0.849 ms`
-* `json_metadata_nested`: `0.510 ms`
-* `yaml_metadata_nested`: `0.427 ms`
-* `csv_metadata_ragged_rows`: `0.371 ms`
+* `txt_large`: `10.843 ms`
+* `docx_image_alt_title_basic`: `2.868 ms`
+* `pptx_image_alt_title_basic`: `1.747 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `0.980 ms`
+* `html_figure_figcaption_basic`: `0.566 ms`
+* `yaml_metadata_nested`: `0.432 ms`
+* `json_metadata_nested`: `0.338 ms`
+* `csv_metadata_ragged_rows`: `0.313 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / parse`: `8.892 ms`
-* `docx_image_alt_title_basic / parse`: `2.278 ms`
-* `txt_large / emit`: `1.592 ms`
-* `pptx_image_alt_title_basic / parse`: `0.833 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.786 ms`
-* `xlsx_metadata_formula_or_merged_policy / metadata`: `0.592 ms`
-* `docx_image_alt_title_basic / metadata`: `0.526 ms`
-* `xlsx_metadata_formula_or_merged_policy / parse`: `0.354 ms`
+* `txt_large / parse`: `6.400 ms`
+* `txt_large / convert`: `2.700 ms`
+* `docx_image_alt_title_basic / parse`: `2.247 ms`
+* `txt_large / emit`: `1.710 ms`
+* `pptx_image_alt_title_basic / parse`: `0.863 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.729 ms`
+* `docx_image_alt_title_basic / metadata`: `0.460 ms`
+* `xlsx_metadata_formula_or_merged_policy / metadata`: `0.452 ms`
+* `xlsx_metadata_formula_or_merged_policy / parse`: `0.400 ms`
 
 Supporting observations:
 
 * `dispatch` is effectively negligible on this checked sample set
   (`0.003-0.004 ms`)
 * standalone `file_read` probes are also small on the checked local corpus
-  (`0.013-0.024 ms`)
-* the current first-pass benchmark already shows that `emit` can dominate
-  simple large text rows, while metadata work is comparatively visible on
-  OOXML asset-enabled rows
-* `assets` is currently a count-only attribution seam because HTML/DOCX/PPTX
-  asset export still occurs inside the measured parse path
+  (`0.014-0.031 ms`)
+* refined attribution now shows that `txt_large` is dominated by
+  `parse_doc_parse + convert_lowering + emit`, not parser work alone
+* metadata work is comparatively visible on OOXML asset-enabled rows
+* `assets` now reports refined discovery/export boundaries, but current
+  HTML/DOCX/PPTX asset export still occurs inside the measured parse path
+
+Current split status:
+
+* split parse vs convert:
+  `txt`, `json`, `yaml`, `csv`, `xlsx`
+* still combined:
+  `html`, `docx`, `pptx`
+
+Current combined reasons:
+
+* `html`:
+  DOM scan, block lowering, and asset export still share one entrypoint
+* `docx`:
+  package/rels/notes/assets/IR scan still share one entrypoint
+* `pptx`:
+  slide parse, classification, and image export still share one entrypoint
+
+Current assets notes:
+
+* `html`:
+  `asset_discovery_boundary=nodes_to_blocks`
+  `asset_export_boundary=export_local_html_image`
+* `docx`:
+  `asset_discovery_boundary=build_docx_asset_path_map`
+  `asset_export_boundary=extract_media_by_relationships`
+* `pptx`:
+  `asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map`
+  `asset_export_boundary=export_slide_images`
+
+## txt_large Focused Attribution
+
+The refined product-path harness now makes the main `txt_large` ownership split
+visible:
+
+* `parse`: `6.400 ms`
+  direct `doc_parse/text` document construction, including decode/newline/
+  paragraph model work
+* `convert`: `2.700 ms`
+  `convert/txt` lowering into the product `Document` surface
+* `emit`: `1.710 ms`
+  Markdown emit plus markdown file write
+
+Interpretation:
+
+* the older unsplit `parse` row overstated parser-only ownership because it
+  also included converter-local lowering work
+* the refined split shows that `txt_large` is no longer just a parser hotspot;
+  product-path convert and emit work are both material
 
 ## doc_parse Library Benchmark Baseline
 

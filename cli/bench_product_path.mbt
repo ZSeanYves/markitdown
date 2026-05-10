@@ -15,8 +15,19 @@ priv struct HiddenBenchProductPathOptions {
 ///|
 priv struct HiddenBenchStageRow {
   stage : String
-  elapsed_us : Int64
+  elapsed_us : Int
   notes : String
+}
+
+///|
+priv struct HiddenBenchParseResult {
+  doc : @cor.Document
+  parse_elapsed_us : Int
+  parse_notes : String
+  convert_elapsed_us : Int
+  convert_notes : String
+  assets_elapsed_us : Int
+  assets_notes : String
 }
 
 ///|
@@ -180,29 +191,20 @@ async fn run_hidden_bench_product_path(
     pdf_pipeline_debug: false,
   }
 
-  let parse_started = now_us()
-  let parsed_result = @conv.parse_to_ir(opts.input, convert_opts) catch {
+  let parse_result = run_hidden_bench_parse_stage(format, opts, convert_opts) catch {
     e => raise Failed("parse failed: " + e.to_string())
   }
-  let doc = match parsed_result {
-    Ok(parsed) => parsed
-    Err(err) => raise Failed("parse failed: " + err.to_string())
-  }
-  let parse_elapsed_us = elapsed_us_since(parse_started)
+  let doc = parse_result.doc
   rows.push({
     stage: "parse",
-    elapsed_us: parse_elapsed_us,
-    notes: hidden_bench_parse_stage_notes(
-      format,
-      doc.blocks.val.length(),
-      opts.with_assets,
-    ),
+    elapsed_us: parse_result.parse_elapsed_us,
+    notes: parse_result.parse_notes,
   })
 
   rows.push({
     stage: "convert",
-    elapsed_us: 0,
-    notes: "combined_in_parse_current_path=true",
+    elapsed_us: parse_result.convert_elapsed_us,
+    notes: parse_result.convert_notes,
   })
 
   let emit_started = now_us()
@@ -257,17 +259,11 @@ async fn run_hidden_bench_product_path(
     })
   }
 
-  let asset_count = if opts.with_assets {
-    count_hidden_bench_assets(join_path(opts.output_root, "assets"))
-  } else {
-    0
-  }
-  let asset_notes = if opts.with_assets {
-    "embedded_in_parse_current_path=true asset_count=" + asset_count.to_string()
-  } else {
-    "skipped=assets_disabled"
-  }
-  rows.push({ stage: "assets", elapsed_us: 0, notes: asset_notes })
+  rows.push({
+    stage: "assets",
+    elapsed_us: parse_result.assets_elapsed_us,
+    notes: parse_result.assets_notes,
+  })
 
   rows.push({
     stage: "total",
@@ -279,31 +275,470 @@ async fn run_hidden_bench_product_path(
 }
 
 ///|
-fn hidden_bench_parse_stage_notes(
+async fn run_hidden_bench_parse_stage(
+  format : String,
+  opts : HiddenBenchProductPathOptions,
+  convert_opts : @conv.ConvertOptions,
+) -> HiddenBenchParseResult {
+  match format {
+    "txt" => hidden_bench_split_txt_parse(opts)
+    "json" => hidden_bench_split_json_parse(opts)
+    "yaml" => hidden_bench_split_yaml_parse(opts)
+    "csv" => hidden_bench_split_csv_like_parse(opts, false)
+    "tsv" => hidden_bench_split_csv_like_parse(opts, true)
+    "xlsx" => hidden_bench_split_xlsx_parse(opts)
+    _ => hidden_bench_combined_parse_stage(format, opts, convert_opts)
+  }
+}
+
+///|
+fn hidden_bench_combined_parse_stage_notes(
   format : String,
   block_count : Int,
   with_assets : Bool,
 ) -> String {
-  let integrated = format == "txt" ||
-    format == "json" ||
-    format == "yaml" ||
-    format == "csv" ||
-    format == "tsv" ||
-    format == "xlsx"
-  let parse_kind = if integrated {
-    "doc_parse_plus_convert"
-  } else {
-    "converter_local_combined_path"
-  }
   let asset_mode = if with_assets { "materialized" } else { "disabled" }
   "format=" +
   format +
   " blocks=" +
   block_count.to_string() +
-  " parse_kind=" +
-  parse_kind +
-  " includes_file_read=true combined_convert=true asset_mode=" +
+  " parse_kind=converter_local_combined_path includes_file_read=true combined_convert=true asset_mode=" +
   asset_mode
+}
+
+///|
+async fn hidden_bench_combined_parse_stage(
+  format : String,
+  opts : HiddenBenchProductPathOptions,
+  convert_opts : @conv.ConvertOptions,
+) -> HiddenBenchParseResult {
+  let parse_started = now_us()
+  let parsed_result = @conv.parse_to_ir(opts.input, convert_opts) catch {
+    e => raise Failed(e.to_string())
+  }
+  let doc = match parsed_result {
+    Ok(parsed) => parsed
+    Err(err) => raise Failed(err.to_string())
+  }
+  let parse_elapsed_us = elapsed_us_since(parse_started)
+  let asset_count = if opts.with_assets {
+    count_hidden_bench_assets(join_path(opts.output_root, "assets"))
+  } else {
+    0
+  }
+  {
+    doc,
+    parse_elapsed_us,
+    parse_notes: hidden_bench_combined_parse_stage_notes(
+      format,
+      doc.blocks.val.length(),
+      opts.with_assets,
+    ) +
+    hidden_bench_combined_split_reason(format),
+    convert_elapsed_us: 0,
+    convert_notes: hidden_bench_combined_convert_stage_notes(format),
+    assets_elapsed_us: 0,
+    assets_notes: hidden_bench_assets_stage_notes(
+      format,
+      opts.with_assets,
+      asset_count,
+    ),
+  }
+}
+
+///|
+fn hidden_bench_combined_split_reason(format : String) -> String {
+  match format {
+    "html" =>
+      " split_blocked_by=dom_scan_block_lowering_and_asset_export_share_entrypoint"
+    "docx" =>
+      " split_blocked_by=package_rels_notes_assets_and_ir_scan_share_entrypoint"
+    "pptx" =>
+      " split_blocked_by=slide_parse_classification_and_image_export_share_entrypoint"
+    _ =>
+      " split_blocked_by=current_converter_entrypoint_combines_parse_and_convert"
+  }
+}
+
+///|
+fn hidden_bench_combined_convert_stage_notes(format : String) -> String {
+  "combined_in_parse_current_path=true format=" +
+  format +
+  hidden_bench_combined_split_reason(format)
+}
+
+///|
+fn hidden_bench_assets_stage_notes(
+  format : String,
+  with_assets : Bool,
+  asset_count : Int,
+) -> String {
+  if !with_assets {
+    return "skipped=assets_disabled"
+  }
+
+  match format {
+    "html" =>
+      "embedded_in_parse_current_path=true asset_count=" +
+      asset_count.to_string() +
+      " asset_discovery_boundary=nodes_to_blocks asset_export_boundary=export_local_html_image"
+    "docx" =>
+      "embedded_in_parse_current_path=true asset_count=" +
+      asset_count.to_string() +
+      " asset_discovery_boundary=build_docx_asset_path_map asset_export_boundary=extract_media_by_relationships"
+    "pptx" =>
+      "embedded_in_parse_current_path=true asset_count=" +
+      asset_count.to_string() +
+      " asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map asset_export_boundary=export_slide_images"
+    _ =>
+      "embedded_in_parse_current_path=true asset_count=" +
+      asset_count.to_string()
+  }
+}
+
+///|
+fn hidden_bench_split_txt_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let started = now_us()
+  let (doc, report_opt) = @txt.parse_txt_with_profile(
+    opts.input,
+    "",
+    opts.max_heading,
+  )
+  let total_elapsed_us = elapsed_us_since(started)
+  let report = match report_opt {
+    Some(rep) => rep
+    None =>
+      return hidden_bench_profile_missing_result(
+        "txt", opts, doc, total_elapsed_us,
+      )
+  }
+
+  let file_read_us = hidden_bench_txt_stage_us(report, "txt_file_read")
+  let parse_us = hidden_bench_txt_stage_us(report, "txt_bytes_to_string") +
+    hidden_bench_txt_stage_us(report, "txt_normalize_newlines") +
+    hidden_bench_txt_stage_us(report, "txt_split_paragraphs")
+  let convert_us = hidden_bench_txt_stage_us(report, "txt_build_ir")
+  let gap_us = hidden_bench_residual_us(
+    total_elapsed_us,
+    file_read_us + parse_us + convert_us,
+  )
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=txt blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=doc_parse_text_model_split decode_included=true normalize_included=true file_read_probe_separate=true embedded_file_read_us=" +
+    file_read_us.to_string() +
+    " profile_gap_us=" +
+    gap_us.to_string(),
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=txt_build_ir includes_passthrough_markdown=true includes_origin_blocks=true",
+    assets_elapsed_us: 0,
+    assets_notes: "skipped=assets_disabled",
+  }
+}
+
+///|
+fn hidden_bench_split_json_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let started = now_us()
+  let (doc, report_opt) = @json.parse_json_with_profile(
+    opts.input,
+    "",
+    opts.max_heading,
+  )
+  let total_elapsed_us = elapsed_us_since(started)
+  let report = match report_opt {
+    Some(rep) => rep
+    None =>
+      return hidden_bench_profile_missing_result(
+        "json", opts, doc, total_elapsed_us,
+      )
+  }
+
+  let file_read_us = hidden_bench_json_stage_us(report, "json_file_read")
+  let parse_us = hidden_bench_json_stage_us(report, "json_bytes_to_string") +
+    hidden_bench_json_stage_us(report, "json_parse_total")
+  let convert_us = hidden_bench_json_stage_us(report, "json_lower_to_ir")
+  let gap_us = hidden_bench_residual_us(
+    total_elapsed_us,
+    file_read_us + parse_us + convert_us,
+  )
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=json blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=doc_parse_json_model_split decode_included=true file_read_probe_separate=true embedded_file_read_us=" +
+    file_read_us.to_string() +
+    " profile_gap_us=" +
+    gap_us.to_string(),
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=json_lower_to_ir table_detection_and_nested_stringify_are_internal_substages=true",
+    assets_elapsed_us: 0,
+    assets_notes: "skipped=assets_disabled",
+  }
+}
+
+///|
+fn hidden_bench_split_yaml_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let started = now_us()
+  let (doc, report_opt) = @yaml.parse_yaml_with_profile(
+    opts.input,
+    "",
+    opts.max_heading,
+  )
+  let total_elapsed_us = elapsed_us_since(started)
+  let report = match report_opt {
+    Some(rep) => rep
+    None =>
+      return hidden_bench_profile_missing_result(
+        "yaml", opts, doc, total_elapsed_us,
+      )
+  }
+
+  let file_read_us = hidden_bench_yaml_stage_us(report, "yaml_file_read")
+  let bytes_to_string_us = hidden_bench_yaml_stage_us(
+    report, "yaml_bytes_to_string",
+  )
+  let parse_model_total_us = hidden_bench_yaml_stage_us(
+    report, "yaml_parse_model",
+  )
+  let convert_us = hidden_bench_yaml_stage_us(report, "yaml_to_ir")
+  let parse_model_only_us = if parse_model_total_us > convert_us {
+    parse_model_total_us - convert_us
+  } else {
+    0
+  }
+  let parse_us = bytes_to_string_us + parse_model_only_us
+  let gap_us = hidden_bench_residual_us(
+    total_elapsed_us,
+    file_read_us + parse_us + convert_us,
+  )
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=yaml blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=doc_parse_yaml_model_split decode_included=true file_read_probe_separate=true embedded_file_read_us=" +
+    file_read_us.to_string() +
+    " parse_model_only_us=" +
+    parse_model_only_us.to_string() +
+    " profile_gap_us=" +
+    gap_us.to_string() +
+    " split_source=overlapping_profile_stage_derivation",
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=yaml_to_ir note=yaml_parse_model_profile_stage_overlaps_lowering",
+    assets_elapsed_us: 0,
+    assets_notes: "skipped=assets_disabled",
+  }
+}
+
+///|
+fn hidden_bench_split_csv_like_parse(
+  opts : HiddenBenchProductPathOptions,
+  is_tsv : Bool,
+) -> HiddenBenchParseResult raise {
+  let format = if is_tsv { "tsv" } else { "csv" }
+  let started = now_us()
+  let (doc, report_opt) = if is_tsv {
+    @csv.parse_tsv_with_profile(opts.input, "", opts.max_heading)
+  } else {
+    @csv.parse_csv_with_profile(opts.input, "", opts.max_heading)
+  }
+  let total_elapsed_us = elapsed_us_since(started)
+  let report = match report_opt {
+    Some(rep) => rep
+    None =>
+      return hidden_bench_profile_missing_result(
+        format, opts, doc, total_elapsed_us,
+      )
+  }
+
+  let file_read_us = hidden_bench_csv_stage_us(report, "csv_file_read")
+  let parse_us = hidden_bench_csv_stage_us(report, "csv_bytes_to_string") +
+    hidden_bench_csv_stage_us(report, "csv_parse_records")
+  let convert_us = hidden_bench_csv_stage_us(report, "csv_to_rich_table")
+  let gap_us = hidden_bench_residual_us(
+    total_elapsed_us,
+    file_read_us + parse_us + convert_us,
+  )
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=" +
+    format +
+    " blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=doc_parse_delimited_model_split decode_included=true file_read_probe_separate=true embedded_file_read_us=" +
+    file_read_us.to_string() +
+    " profile_gap_us=" +
+    gap_us.to_string(),
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=csv_to_rich_table format=" +
+    format,
+    assets_elapsed_us: 0,
+    assets_notes: "skipped=assets_disabled",
+  }
+}
+
+///|
+fn hidden_bench_split_xlsx_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let started = now_us()
+  let (doc, report_opt) = @xlsx.parse_xlsx_with_profile(
+    opts.input,
+    "",
+    opts.max_heading,
+  )
+  let total_elapsed_us = elapsed_us_since(started)
+  let report = match report_opt {
+    Some(rep) => rep
+    None =>
+      return hidden_bench_profile_missing_result(
+        "xlsx", opts, doc, total_elapsed_us,
+      )
+  }
+
+  let parse_us = hidden_bench_xlsx_stage_us(report, "semantic_workbook_parse")
+  let convert_us = hidden_bench_xlsx_stage_us(report, "ir_lowering")
+  let gap_us = hidden_bench_residual_us(total_elapsed_us, parse_us + convert_us)
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=xlsx blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=doc_parse_xlsx_semantic_split includes_package_open=true file_read_probe_separate=true profile_gap_us=" +
+    gap_us.to_string(),
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=ir_lowering source=semantic_workbook_model",
+    assets_elapsed_us: 0,
+    assets_notes: "skipped=assets_disabled",
+  }
+}
+
+///|
+fn hidden_bench_residual_us(total_us : Int, attributed_us : Int) -> Int {
+  if total_us <= attributed_us {
+    0
+  } else {
+    total_us - attributed_us
+  }
+}
+
+///|
+fn hidden_bench_profile_missing_result(
+  format : String,
+  opts : HiddenBenchProductPathOptions,
+  doc : @cor.Document,
+  total_elapsed_us : Int,
+) -> HiddenBenchParseResult {
+  let asset_count = if opts.with_assets {
+    count_hidden_bench_assets(join_path(opts.output_root, "assets"))
+  } else {
+    0
+  }
+  {
+    doc,
+    parse_elapsed_us: total_elapsed_us,
+    parse_notes: hidden_bench_combined_parse_stage_notes(
+      format,
+      doc.blocks.val.length(),
+      opts.with_assets,
+    ) +
+    " split_blocked_by=profile_not_enabled",
+    convert_elapsed_us: 0,
+    convert_notes: "combined_in_parse_current_path=true format=" +
+    format +
+    " split_blocked_by=profile_not_enabled",
+    assets_elapsed_us: 0,
+    assets_notes: hidden_bench_assets_stage_notes(
+      format,
+      opts.with_assets,
+      asset_count,
+    ),
+  }
+}
+
+///|
+fn hidden_bench_stage_ms_to_us(elapsed_ms : UInt64) -> Int {
+  elapsed_ms.to_int() * 1000
+}
+
+///|
+fn hidden_bench_txt_stage_us(
+  report : @txt.TxtProfileReport,
+  name : String,
+) -> Int {
+  for stage in report.stages {
+    if stage.name == name {
+      return hidden_bench_stage_ms_to_us(stage.elapsed_ms)
+    }
+  }
+  0
+}
+
+///|
+fn hidden_bench_json_stage_us(
+  report : @json.JsonProfileReport,
+  name : String,
+) -> Int {
+  for stage in report.stages {
+    if stage.name == name {
+      return hidden_bench_stage_ms_to_us(stage.elapsed_ms)
+    }
+  }
+  0
+}
+
+///|
+fn hidden_bench_yaml_stage_us(
+  report : @yaml.YamlProfileReport,
+  name : String,
+) -> Int {
+  for stage in report.stages {
+    if stage.name == name {
+      return hidden_bench_stage_ms_to_us(stage.elapsed_ms)
+    }
+  }
+  0
+}
+
+///|
+fn hidden_bench_csv_stage_us(
+  report : @csv.CsvProfileReport,
+  name : String,
+) -> Int {
+  for stage in report.stages {
+    if stage.name == name {
+      return hidden_bench_stage_ms_to_us(stage.elapsed_ms)
+    }
+  }
+  0
+}
+
+///|
+fn hidden_bench_xlsx_stage_us(
+  report : @xlsx.XlsxProfileReport,
+  name : String,
+) -> Int {
+  for stage in report.stages {
+    if stage.name == name {
+      return hidden_bench_stage_ms_to_us(stage.elapsed_ms)
+    }
+  }
+  0
 }
 
 ///|
@@ -367,11 +802,11 @@ fn sanitize_hidden_bench_note(note : String) -> String {
 }
 
 ///|
-fn elapsed_us_since(started : Int64) -> Int64 {
+fn elapsed_us_since(started : Int64) -> Int {
   let now = now_us()
   if now <= started {
     0
   } else {
-    now - started
+    (now - started).to_int()
   }
 }
