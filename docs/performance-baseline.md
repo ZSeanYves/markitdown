@@ -204,56 +204,59 @@ Current refined interpretation caveats:
   `txt/json/yaml/csv/xlsx`, a refined DOM/scan path for `html`, and partial
   staged converter ownership for `docx/pptx`
 * `convert` now records separate lowering work for `txt/json/yaml/csv/xlsx`
-  and `html`; `docx` still reports
-  `combined_in_parse_current_path=true` because body scan returns final IR
-  blocks and appended sections, while `pptx` now exposes a staged
-  converter-owned grouping/caption/document-build slice
+  and `html`; `docx` now exposes benchmark-only `docx_final_block_build`
+  rows extracted from `body_scan`, but paragraph policy and final IR block
+  shape are still partially embedded upstream, while `pptx` now exposes a
+  staged converter-owned grouping/caption/document-build slice
 * `assets` now records measured discovery/export attribution for
   `html/docx/pptx` rather than only embedded notes
 
 Current startup probe:
 
-* `startup_probe`: `16.652 ms`
+* `startup_probe`: `8.951 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `7.947 ms`
-* `docx_image_alt_title_basic`: `4.061 ms`
-* `pptx_image_alt_title_basic`: `2.328 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
-* `html_figure_figcaption_basic`: `1.052 ms`
+* `txt_large`: `5.738 ms`
+* `docx_image_alt_title_basic`: `3.343 ms`
+* `pptx_image_alt_title_basic`: `1.994 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.024 ms`
+* `html_figure_figcaption_basic`: `0.939 ms`
 * `yaml_metadata_nested`: `< 1 ms`
 * `json_metadata_nested`: `< 1 ms`
 * `csv_metadata_ragged_rows`: `< 1 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / parse`: `3.400 ms`
-* `txt_large / convert`: `3.200 ms`
-* `txt_large / txt_literal_wrap`: `3.200 ms`
-* `docx_image_alt_title_basic / parse`: `2.200 ms`
-* `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-* `txt_large / emit`: `1.293 ms`
-* `txt_large / txt_emit_write`: `1.139 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.859 ms`
+* `txt_large / parse`: `2.200 ms`
+* `txt_large / convert`: `2.100 ms`
+* `txt_large / txt_literal_wrap`: `2.100 ms`
+* `docx_image_alt_title_basic / docx_body_scan`: `1.300 ms`
+* `docx_image_alt_title_basic / parse`: `1.300 ms`
+* `txt_large / emit`: `0.995 ms`
+* `txt_large / txt_emit_write`: `0.867 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.745 ms`
 
 Supporting observations:
 
 * `dispatch` remains effectively negligible on this checked sample set
-  (`0.005-0.007 ms`)
+  (`0.003-0.004 ms`)
 * standalone `file_read` probes are still small on the checked local corpus
-  (`0.034-0.063 ms` for the current first-batch rows shown here)
+  (`0.016-0.029 ms` for the current first-batch rows shown here)
 * refined attribution now shows that `txt_large` is dominated by
   `doc_parse/text` parse plus TXT literal-markdown wrapping and final markdown
   file write, not parser work alone
 * `html` now reports separate `parse`, `convert`, `html_dom_scan`,
   `html_block_lowering`, `html_asset_discovery`, and `html_asset_export`
   rows inside the product-path harness
-* `docx` now reports staged `docx_package_open`, `docx_rels_styles_numbering`,
-  `docx_notes_headers_footers_textboxes`, `docx_asset_map_build`,
-  `docx_media_export`, and `docx_body_scan` rows, while `convert` remains
-  combined because `body_scan` still returns final IR blocks and appended
-  sections
+* `docx` now reports staged `docx_package_open`, `docx_relationships`,
+  `docx_styles`, `docx_numbering`, `docx_notes`, `docx_headers_footers`,
+  `docx_text_boxes`, `docx_asset_map_build`, `docx_media_export`,
+  `docx_asset_origin_attach`, `docx_body_xml_scan`, `docx_paragraph_scan`,
+  `docx_table_scan`, `docx_inline_scan`, `docx_body_scan`,
+  `docx_final_block_build`, and `docx_appended_sections` rows; `convert`
+  is now partially extracted from `body_scan`, but paragraph policy and final
+  IR block shape still share the current normal-path seam
 * `pptx` now reports staged `pptx_package_open`, `pptx_slide_parse`,
   `pptx_shape_collect`, `pptx_grouping`, `pptx_caption_pairing`,
   `pptx_image_export`, and `pptx_notes_parse` rows, while final converter
@@ -263,10 +266,10 @@ Supporting observations:
 
 Current focused checked row:
 
-* `txt_large / total`: `10.659 ms -> 7.947 ms`
-* `txt_large / parse`: `6.400 ms -> 3.400 ms`
-* `txt_large / convert`: `2.500 ms -> 3.200 ms`
-* `txt_large / emit`: `1.724 ms -> 1.293 ms`
+* `txt_large / total`: `10.659 ms -> 5.738 ms`
+* `txt_large / parse`: `6.400 ms -> 2.200 ms`
+* `txt_large / convert`: `2.500 ms -> 2.100 ms`
+* `txt_large / emit`: `1.724 ms -> 0.995 ms`
 
 Current refined TXT substage attribution:
 
@@ -295,8 +298,10 @@ Current split status:
 Current combined reasons:
 
 * `docx`:
-  package/rels/notes/assets are now staged, but body scan still returns final
-  IR blocks and appended sections
+  package/rels/styles/numbering, note/header/footer/text-box loading, asset
+  discovery/export, and body-scan substages are now visible, while final
+  paragraph policy and IR block shape are still only partially extracted from
+  `scan_paragraph`
 * `pptx`:
   slide parse, grouping/classification, notes, and image export are now
   staged, but final converter ownership still spans multiple shared seams
@@ -318,12 +323,12 @@ Current assets notes:
 The refined product-path harness now makes the main `txt_large` ownership split
 visible:
 
-* `parse`: `3.400 ms`
+* `parse`: `2.200 ms`
   direct `doc_parse/text` document construction, including decode/newline/
   paragraph model work
-* `convert`: `3.200 ms`
+* `convert`: `2.100 ms`
   `convert/txt` lowering into the product `Document` surface
-* `emit`: `1.293 ms`
+* `emit`: `0.995 ms`
   Markdown emit plus markdown file write
 
 Interpretation:
@@ -364,28 +369,28 @@ Current intentional gap:
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `yaml_large / parse`: `8.253 ms`
-* `docx_link_heavy / parse`: `7.350 ms`
-* `json_large / parse`: `3.501 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.476 ms`
-* `csv_large / parse`: `3.393 ms`
-* `tsv_large / parse`: `2.873 ms`
-* `txt_large / parse`: `2.769 ms`
-* `docx_small / parse`: `2.725 ms`
-* `markdown_large / scan`: `2.686 ms`
+* `yaml_large / parse`: `6.225 ms`
+* `docx_link_heavy / parse`: `5.438 ms`
+* `json_large / parse`: `2.914 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.706 ms`
+* `csv_large / parse`: `2.452 ms`
+* `tsv_large / parse`: `2.238 ms`
+* `markdown_large / scan`: `2.319 ms`
+* `docx_small / parse`: `1.980 ms`
+* `txt_large / parse`: `1.855 ms`
 
 Slowest `inspect` rows:
 
-* `txt_large / inspect`: `0.971 ms`
-* `ooxml_xlsx_small / inspect`: `0.215 ms`
-* `json_large / inspect`: `0.172 ms`
-* `zip_large_many_entries / inspect`: `0.138 ms`
+* `txt_large / inspect`: `0.718 ms`
+* `ooxml_xlsx_small / inspect`: `0.204 ms`
+* `zip_large_many_entries / inspect`: `0.140 ms`
+* `json_large / inspect`: `0.134 ms`
 
 Slowest `validate` rows:
 
-* `zip_large_many_entries / validate`: `0.138 ms`
-* `ooxml_xlsx_small / validate`: `0.127 ms`
-* `epub_large_many_chapters / validate`: `0.007 ms`
+* `zip_large_many_entries / validate`: `0.141 ms`
+* `ooxml_xlsx_small / validate`: `0.118 ms`
+* `epub_large_many_chapters / validate`: `0.006 ms`
 * all other checked validation rows are below `0.01 ms` in this snapshot
 
 Small-case rows above `10 ms` in the library harness:

@@ -8,6 +8,30 @@ fn scan_paragraph(
   max_heading : Int,
   ledger : DocxReferenceLedger?,
 ) -> Array[@cor.Block] {
+  let started = @env.now()
+  let mut inline_elapsed_ms : UInt64 = 0
+  defer {
+    let total_elapsed_ms = @env.now() - started
+    docx_convert_profile_add_active_stage(
+      "docx_paragraph_scan",
+      total_elapsed_ms,
+      Some(
+        "split=true includes_inline_scan=true includes_heading_list_codeblock_blockquote_policy=true includes_image_context=true",
+      ),
+    )
+    let residual_block_build_ms = if total_elapsed_ms > inline_elapsed_ms {
+      total_elapsed_ms - inline_elapsed_ms
+    } else {
+      0
+    }
+    docx_convert_profile_add_active_stage(
+      "docx_final_block_build",
+      residual_block_build_ms,
+      Some(
+        "split=true source=scan_paragraph residual_without_inline=true includes_paragraph_policy_and_block_array_build=true",
+      ),
+    )
+  }
   let out : Array[@cor.Block] = []
   let visible_xml = strip_docx_text_box_content_xml(
     strip_docx_deleted_revision_xml(p_xml),
@@ -32,7 +56,9 @@ fn scan_paragraph(
   }
 
   // 3) 段落文本
+  let inline_started = @env.now()
   let scan = scan_docx_inline_text(visible_xml, rel_ctx, ledger)
+  inline_elapsed_ms = inline_elapsed_ms + (@env.now() - inline_started)
   let inlines = scan.inlines
   let text = scan.text
   if @cor.is_blank(text) {
@@ -245,6 +271,12 @@ fn scan_table_block_with_context(
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
 ) -> Array[Array[String]] {
+  let started = @env.now()
+  defer docx_convert_profile_add_active_stage(
+    "docx_table_scan",
+    @env.now() - started,
+    Some("split=true includes_cell_paragraph_inline_scan=true"),
+  )
   let chars = strip_docx_deleted_revision_xml(tbl_xml).to_array()
   let mut i = 0
   let rows : Array[Array[String]] = []

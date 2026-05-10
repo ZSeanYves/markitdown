@@ -228,7 +228,8 @@ Planned ownership split:
 * `parse`: direct `doc_parse` parse/model-build work where the current seam is
   already safely split; otherwise the real combined normal-path parse entry
 * `convert`: model lowering / IR construction where the seam is safely split;
-  otherwise recorded as `combined_in_parse_current_path=true`
+  otherwise recorded as a partial split with benchmark-only substages where
+  the current normal-path seam still mixes converter ownership
 * `emit`: Markdown/string emission plus markdown write
 * `metadata`: sidecar construction plus write
 * `assets`: discovery/export notes where possible, with measured rows for
@@ -250,10 +251,10 @@ Implemented current format set:
 
 Focused checked TXT product-path row:
 
-* `txt_large / total / 10.659 ms -> 7.947 ms`
-* `txt_large / parse / 6.400 ms -> 3.400 ms`
-* `txt_large / convert / 2.500 ms -> 3.200 ms`
-* `txt_large / emit / 1.724 ms -> 1.293 ms`
+* `txt_large / total / 10.659 ms -> 5.738 ms`
+* `txt_large / parse / 6.400 ms -> 2.200 ms`
+* `txt_large / convert / 2.500 ms -> 2.100 ms`
+* `txt_large / emit / 1.724 ms -> 0.995 ms`
 
 Interpretation:
 
@@ -303,8 +304,10 @@ Current partially split formats with remaining combined seams:
 Current blockers:
 
 * `docx`:
-  package/rels/notes/assets are now staged, but body scan still returns final
-  IR blocks and appended sections
+  package/rels/styles/numbering, notes/header/footer/text-box loading, asset
+  discovery/export, and body-scan substages are now visible, but final
+  paragraph policy and IR block shape are still only partially extracted from
+  `scan_paragraph`
 * `pptx`:
   slide parse, grouping/classification, notes, and image export are now
   staged, but final converter ownership still spans multiple shared seams
@@ -338,31 +341,32 @@ Immediate next attribution targets:
 
 Immediate next optimization candidates after attribution is stable:
 
-* `txt_large`:
-  inspect repeated string copying between `doc_parse/text`, `convert/txt`, and
-  emitter paths
 * `docx`:
-  refine the current combined parse/convert/asset seam before any further
-  parser-local optimization
+  now that package/rels/notes/assets/body-scan substages are visible, inspect
+  whether paragraph policy / final IR block shape can be separated more
+  cleanly from `docx_body_scan` without changing output
+* `pptx`:
+  refine grouping/classification/document-build ownership before any
+  converter-local optimization pass
 * `yaml`:
   revisit allocation-heavy sequence/mapping work only if it remains the top
   library hotspot after product-path work is clearer
 
 Current checked observations:
 
-* `startup_probe`: `16.652 ms`
+* `startup_probe`: `8.951 ms`
 * slowest same-process total rows:
-  * `txt_large`: `7.947 ms`
-  * `docx_image_alt_title_basic`: `4.061 ms`
-  * `pptx_image_alt_title_basic`: `2.328 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
+  * `txt_large`: `5.738 ms`
+  * `docx_image_alt_title_basic`: `3.343 ms`
+  * `pptx_image_alt_title_basic`: `1.994 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.024 ms`
 * slowest measured stage rows:
-  * `txt_large / parse`: `3.400 ms`
-  * `txt_large / convert`: `3.200 ms`
-  * `docx_image_alt_title_basic / parse`: `2.200 ms`
-  * `txt_large / emit`: `1.293 ms`
-  * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.859 ms`
+  * `txt_large / parse`: `2.200 ms`
+  * `txt_large / convert`: `2.100 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.300 ms`
+  * `docx_image_alt_title_basic / parse`: `1.300 ms`
+  * `txt_large / emit`: `0.995 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.745 ms`
 
 Current interpretation:
 
@@ -372,6 +376,9 @@ Current interpretation:
 * `parse` is now cleanly split from `convert` for
   `txt/json/yaml/csv/xlsx/html`
 * `docx/pptx` still keep partial combined seams
+* `docx` now already exposes `docx_body_xml_scan`, `docx_paragraph_scan`,
+  `docx_table_scan`, `docx_inline_scan`, `docx_final_block_build`, and
+  `docx_appended_sections` benchmark rows inside that partial seam
 * `assets` attribution is now visible for `html/docx/pptx`, but some current
   discovery/export work still shares converter-local seams
 
@@ -379,8 +386,9 @@ Next attribution refinement:
 
 * keep HTML on the current split path while refining DOCX/PPTX final converter
   ownership
-* further separate DOCX body scan from final lowering where the current normal
-  path safely allows it
+* further separate DOCX final paragraph policy / IR block shape from the now
+  visible `docx_body_scan` and `docx_final_block_build` rows where the current
+  normal path safely allows it
 * further separate PPTX grouping/classification/document-build ownership where
   the current normal path safely allows it
 * keep the benchmark-only instrumentation hidden and out of the default CLI UX

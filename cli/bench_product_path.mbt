@@ -211,19 +211,13 @@ async fn run_hidden_bench_product_path(
   let emit_started = now_us()
   let markdown = @cor.emit_markdown(doc)
   let emit_render_elapsed_us = elapsed_us_since(emit_started)
-  rows.push({
-    stage: "txt_emit_blocks",
-    elapsed_us: if format == "txt" {
-      emit_render_elapsed_us
-    } else {
-      0
-    },
-    notes: if format == "txt" {
-      "split=true includes_markdown_build=true"
-    } else {
-      "split=false format=" + format
-    },
-  })
+  if format == "txt" {
+    rows.push({
+      stage: "txt_emit_blocks",
+      elapsed_us: emit_render_elapsed_us,
+      notes: "split=true includes_markdown_build=true",
+    })
+  }
 
   let emit_write_started = now_us()
   ensure_dir_tree(dirname_of_path(markdown_path)) catch {
@@ -239,19 +233,13 @@ async fn run_hidden_bench_product_path(
     notes: "includes_markdown_write=true markdown_bytes=" +
     markdown.length().to_string(),
   })
-  rows.push({
-    stage: "txt_emit_write",
-    elapsed_us: if format == "txt" {
-      emit_write_elapsed_us
-    } else {
-      0
-    },
-    notes: if format == "txt" {
-      "split=true includes_markdown_write=true"
-    } else {
-      "split=false format=" + format
-    },
-  })
+  if format == "txt" {
+    rows.push({
+      stage: "txt_emit_write",
+      elapsed_us: emit_write_elapsed_us,
+      notes: "split=true includes_markdown_write=true",
+    })
+  }
 
   if opts.with_metadata {
     let metadata_started = now_us()
@@ -833,7 +821,7 @@ fn hidden_bench_profile_file_stage_map(
     )
     let elapsed_ms = @string.parse_int(elapsed_ms_raw) catch { _ => 0 }
     if name != "" {
-      stage_us.set(name, elapsed_ms * 1000)
+      stage_us.set(name, stage_us.get(name).unwrap_or(0) + elapsed_ms * 1000)
     }
   }
   (stage_us, summary_notes)
@@ -972,9 +960,16 @@ fn hidden_bench_profiled_docx_parse(
     hidden_bench_stage_map_us(stage_us, "docx_headers_footers") +
     hidden_bench_stage_map_us(stage_us, "docx_text_boxes") +
     hidden_bench_stage_map_us(stage_us, "docx_body_scan")
-  let convert_us = 0
+  let convert_us = hidden_bench_stage_map_us(stage_us, "docx_final_block_build") +
+    hidden_bench_stage_map_us(stage_us, "docx_appended_sections")
   let assets_us = hidden_bench_stage_map_us(stage_us, "docx_asset_map_build") +
-    hidden_bench_stage_map_us(stage_us, "docx_media_export")
+    hidden_bench_stage_map_us(stage_us, "docx_media_export") +
+    hidden_bench_stage_map_us(stage_us, "docx_asset_origin_attach")
+  let parse_only_us = if parse_us > convert_us {
+    parse_us - convert_us
+  } else {
+    0
+  }
 
   let extra_rows : Array[HiddenBenchStageRow] = [
     {
@@ -983,11 +978,41 @@ fn hidden_bench_profiled_docx_parse(
       notes: "split=true",
     },
     {
+      stage: "docx_relationships",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_relationships"),
+      notes: "split=true",
+    },
+    {
+      stage: "docx_styles",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_styles"),
+      notes: "split=true style_load_gated_by_document_features=true",
+    },
+    {
+      stage: "docx_numbering",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_numbering"),
+      notes: "split=true",
+    },
+    {
       stage: "docx_rels_styles_numbering",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_relationships") +
       hidden_bench_stage_map_us(stage_us, "docx_styles") +
       hidden_bench_stage_map_us(stage_us, "docx_numbering"),
       notes: "split=true combined_rels_styles_numbering=true",
+    },
+    {
+      stage: "docx_notes",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_notes"),
+      notes: "split=true raw_note_bundle_load=true",
+    },
+    {
+      stage: "docx_headers_footers",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_headers_footers"),
+      notes: "split=true includes_embedded_media_export_when_assets_enabled=true",
+    },
+    {
+      stage: "docx_text_boxes",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_text_boxes"),
+      notes: "split=true includes_embedded_asset_map_seed_build=true",
     },
     {
       stage: "docx_notes_headers_footers_textboxes",
@@ -999,29 +1024,69 @@ fn hidden_bench_profiled_docx_parse(
     {
       stage: "docx_asset_map_build",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_asset_map_build"),
-      notes: "split=true",
+      notes: "split=true scope=main_document_only",
     },
     {
       stage: "docx_media_export",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_media_export"),
-      notes: "split=true",
+      notes: "split=true scope=main_document_only",
+    },
+    {
+      stage: "docx_asset_origin_attach",
+      elapsed_us: hidden_bench_stage_map_us(
+        stage_us, "docx_asset_origin_attach",
+      ),
+      notes: "split=true asset_origin_metadata_and_path_binding=true",
+    },
+    {
+      stage: "docx_body_xml_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_body_xml_scan"),
+      notes: "split=true residual_top_level_body_traversal=true",
+    },
+    {
+      stage: "docx_paragraph_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_paragraph_scan"),
+      notes: "split=true includes_heading_list_codeblock_blockquote_and_image_policy=true",
+    },
+    {
+      stage: "docx_table_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_table_scan"),
+      notes: "split=true includes_cell_paragraph_and_inline_scan=true",
+    },
+    {
+      stage: "docx_inline_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_inline_scan"),
+      notes: "split=true nested_in=docx_paragraph_scan,docx_table_scan",
     },
     {
       stage: "docx_body_scan",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_body_scan"),
       notes: "split=true",
     },
+    {
+      stage: "docx_final_block_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_final_block_build"),
+      notes: "split=true partial_lowering_visible=true paragraph_policy_still_embedded_upstream=true",
+    },
+    {
+      stage: "docx_appended_sections",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_appended_sections"),
+      notes: "split=true includes_footnotes_endnotes_comments_headers_footers_textboxes=true",
+    },
   ]
 
   {
     doc,
-    parse_elapsed_us: parse_us,
+    parse_elapsed_us: parse_only_us,
     parse_notes: "format=docx blocks=" +
     doc.blocks.val.length().to_string() +
-    " parse_kind=converter_profiled_partial_split combined_ir_lowering_in_body_scan=true " +
+    " parse_kind=converter_profiled_partial_split body_scan_substaged=true partial_convert_extracted_from_body_scan=true " +
     summary_notes,
     convert_elapsed_us: convert_us,
-    convert_notes: "combined_in_parse_current_path=true format=docx split_blocked_by=body_scan_returns_final_ir_blocks_and_appended_sections",
+    convert_notes: "partial_split=true format=docx extracted_from_body_scan=true split_blocked_by=paragraph_policy_and_ir_block_shape_still_mixed_in_scan_paragraph final_block_build_us=" +
+    hidden_bench_stage_map_us(stage_us, "docx_final_block_build").to_string() +
+    " appended_sections_us=" +
+    hidden_bench_stage_map_us(stage_us, "docx_appended_sections").to_string(),
     assets_elapsed_us: assets_us,
     assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
     summary_notes +

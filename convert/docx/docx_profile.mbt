@@ -23,6 +23,11 @@ priv struct DocxConvertProfileReport {
 }
 
 ///|
+let active_docx_convert_profile_report : Ref[DocxConvertProfileReport?] = {
+  val: None,
+}
+
+///|
 fn new_docx_convert_profile_report(
   input_path : String,
 ) -> DocxConvertProfileReport {
@@ -50,6 +55,25 @@ fn docx_convert_profile_add_stage(
   detail : String?,
 ) -> Unit {
   docx_convert_profile_push_stage(report, name, elapsed_ms, detail)
+}
+
+///|
+fn docx_convert_profile_set_active(report : DocxConvertProfileReport?) -> Unit {
+  active_docx_convert_profile_report.val = report
+}
+
+///|
+fn docx_convert_profile_add_active_stage(
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  docx_convert_profile_add_stage(
+    active_docx_convert_profile_report.val,
+    name,
+    elapsed_ms,
+    detail,
+  )
 }
 
 ///|

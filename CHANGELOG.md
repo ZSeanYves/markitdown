@@ -114,6 +114,14 @@
   expose staged package/body/grouping/media rows and keep only the remaining
   necessary combined seams without changing conversion output, asset naming,
   or metadata shape.
+* Refine DOCX product-path attribution further so the benchmark now exposes
+  staged `docx_relationships`, `docx_styles`, `docx_numbering`,
+  `docx_notes`, `docx_headers_footers`, `docx_text_boxes`,
+  `docx_asset_map_build`, `docx_media_export`, `docx_asset_origin_attach`,
+  `docx_body_xml_scan`, `docx_paragraph_scan`, `docx_table_scan`,
+  `docx_inline_scan`, `docx_final_block_build`, and `docx_appended_sections`
+  rows while keeping the remaining paragraph-policy / final-IR seam explicitly
+  marked as a partial split and leaving DOCX output unchanged.
 * Optimize the TXT product path without changing output semantics by removing
   redundant shared cleanup and normalized-text copying on large clean inputs,
   refining TXT benchmark attribution into parse/literal-wrap/emit-write

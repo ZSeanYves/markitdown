@@ -112,9 +112,10 @@ What it still does not measure directly:
 
 * a perfect `parse` vs `convert` split for every current normal-path format;
   the refined product harness now splits `txt/json/yaml/csv/xlsx`, fully
-  splits `html`, and gives partial staged attribution for `docx/pptx`, but
-  still records `convert` as `combined_in_parse_current_path=true` for DOCX
-  where body-scan still returns final IR blocks and appended sections
+  splits `html`, and gives partial staged attribution for `docx/pptx`; DOCX
+  now also exposes `docx_final_block_build` inside the current body-scan seam,
+  but paragraph policy and final IR block shape are still not perfectly clean
+  standalone stages
 * a perfect standalone `assets` stage for every converter-local asset path;
   the refined product harness now records real staged asset discovery/export
   timing for `html/docx/pptx`, but some discovery/export work is still
@@ -195,8 +196,10 @@ Current split status:
 Current combined reasons:
 
 * `docx`:
-  package/rels/notes/assets are now staged, but body scan still returns final
-  IR blocks and appended sections
+  package/rels/styles/numbering, notes/header/footer/text-box loading, asset
+  discovery/export, and body-scan substages are now visible, but final
+  paragraph policy and IR block shape are still only partially extracted from
+  `scan_paragraph`
 * `pptx`:
   slide parse, grouping/classification, notes, and image export are now
   staged, but final converter ownership still spans multiple shared seams
@@ -473,28 +476,29 @@ Current implementation notes:
   `txt/json/yaml/csv/xlsx` it records direct parse/model-build work, `html`
   now records a refined DOM/scan slice, and `docx/pptx` now record partial
   staged converter ownership
-* `convert` is now split for `txt/json/yaml/csv/xlsx/html`; `docx` still
-  reports `combined_in_parse_current_path=true` because body scan returns
-  final IR blocks and appended sections, while `pptx` now exposes a staged
+* `convert` is now split for `txt/json/yaml/csv/xlsx/html`; `docx` now
+  exposes benchmark-only `docx_final_block_build` rows extracted from
+  `body_scan`, but paragraph policy and final IR block shape still remain
+  partially combined upstream, while `pptx` now exposes a staged
   grouping/caption/document-build slice
 * `assets` now records measured discovery/export attribution for
   `html/docx/pptx` rather than only embedded notes
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `16.652 ms` avg
+* `startup_probe`: `8.951 ms` avg
 * slowest total rows:
-  * `txt_large`: `7.947 ms`
-  * `docx_image_alt_title_basic`: `4.061 ms`
-  * `pptx_image_alt_title_basic`: `2.328 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.491 ms`
+  * `txt_large`: `5.738 ms`
+  * `docx_image_alt_title_basic`: `3.343 ms`
+  * `pptx_image_alt_title_basic`: `1.994 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.024 ms`
 * slowest stage rows:
-  * `txt_large / parse`: `3.400 ms`
-  * `txt_large / convert`: `3.200 ms`
-  * `docx_image_alt_title_basic / parse`: `2.200 ms`
-  * `txt_large / emit`: `1.293 ms`
-  * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.859 ms`
+  * `txt_large / parse`: `2.200 ms`
+  * `txt_large / convert`: `2.100 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.300 ms`
+  * `docx_image_alt_title_basic / parse`: `1.300 ms`
+  * `txt_large / emit`: `0.995 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.745 ms`
 
 Interpretation:
 
@@ -504,6 +508,8 @@ Interpretation:
   asset-enabled rows dominate a sample
 * the current refinement already split `parse` vs `convert` for
   `txt/json/yaml/csv/xlsx/html`
+* the current refinement now also gives `docx` explicit body-scan, asset,
+  and partial final-block-build attribution without changing behavior
 * the next refinement should keep `html` stable while pushing `docx/pptx`
   further from partial attribution toward cleaner final converter ownership
   without changing behavior

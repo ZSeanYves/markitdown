@@ -1024,6 +1024,12 @@ fn scan_docx_inline_text(
   rel_ctx : DocxRelationshipContext,
   ledger : DocxReferenceLedger?,
 ) -> DocxInlineScanResult {
+  let started = @env.now()
+  defer docx_convert_profile_add_active_stage(
+    "docx_inline_scan",
+    @env.now() - started,
+    Some("split=true nested_in=docx_paragraph_scan,docx_table_scan"),
+  )
   profile_collect_wt_inlines_call()
   let chars = block.to_array()
   let text_out = StringBuilder::new()

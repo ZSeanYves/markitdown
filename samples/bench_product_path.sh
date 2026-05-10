@@ -28,8 +28,9 @@ Notes:
   * file_read is a standalone probe row; current parse rows still include the
     converter-local file read inside the real conversion path.
   * parse vs convert is now split for txt/json/yaml/csv/xlsx.
-  * html/docx/pptx still report combined parse/convert ownership because their
-    current normal-path seams also embed asset-aware converter work.
+  * html/docx/pptx now expose richer converter-owned substages, but html is the
+    cleanest split; docx/pptx still keep partial combined seams in their current
+    normal-path converters.
 EOF
 }
 
@@ -108,11 +109,11 @@ stage	owner_layer	planned_instrumentation	notes
 startup_probe	cli	process launch and empty command baseline	separate fixed startup from format-local work
 file_read	cli-or-probe	standalone file-read probe	current harness keeps this as a probe row, not subtracted from parse
 dispatch	cli	format detection and option routing	exact stage inside same-process benchmark run
-parse	doc_parse-or-convert	current converter parse entry	refined harness splits txt/json/yaml/csv/xlsx; html/docx/pptx remain combined
-convert	convert	current lowering seam	refined harness splits txt/json/yaml/csv/xlsx; html/docx/pptx remain combined
+parse	doc_parse-or-convert	current converter parse entry	refined harness splits txt/json/yaml/csv/xlsx; html is cleanly split; docx/pptx are partially split with staged converter substages
+convert	convert	current lowering seam	refined harness splits txt/json/yaml/csv/xlsx/html; docx/pptx remain partially combined
 emit	emitter	markdown emission plus markdown write	measured inside same-process benchmark run
 metadata	metadata	sidecar build plus write	measured only when enabled for a manifest row
-assets	assets	asset scan/export/copy	refined harness reports embedded asset boundaries for current converter-local asset paths
+assets	assets	asset scan/export/copy	refined harness reports staged discovery/export boundaries for html/docx/pptx current converter-local asset paths
 total	product	full same-process normal path	startup_probe is measured separately
 EOF
 

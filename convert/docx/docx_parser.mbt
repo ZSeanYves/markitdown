@@ -9,6 +9,8 @@ pub fn parse_docx(
   } else {
     None
   }
+  docx_convert_profile_set_active(profile)
+  defer docx_convert_profile_set_active(None)
 
   let materialize_outputs = out_root.trim() != ""
   if materialize_outputs && !@fs.path_exists(out_root) {
@@ -152,6 +154,7 @@ pub fn parse_docx(
   )
   let src = @cor.basename(path)
   let mut asset_idx = 0
+  let asset_origin_started = @env.now()
   if materialize_outputs {
     for entry in asset_by_target {
       let (target, rel_path) = entry
@@ -172,6 +175,12 @@ pub fn parse_docx(
       })
     }
   }
+  docx_convert_profile_add_stage(
+    profile,
+    "docx_asset_origin_attach",
+    @env.now() - asset_origin_started,
+    Some("asset_count=" + asset_idx.to_string()),
+  )
   maybe_write_docx_convert_profile_log(profile)
   doc
 }
