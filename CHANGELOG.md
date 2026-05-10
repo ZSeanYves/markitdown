@@ -99,6 +99,11 @@
   the remaining major work is now product-path attribution rather than parser
   hot-path cleanup, and add a planning-only `bench_product_path.sh` skeleton
   that emits stage/sample plan artifacts without changing runtime behavior.
+* Add a first-pass product-path attribution benchmark with hidden
+  benchmark-only CLI entrypoints, a checked manifest for
+  `txt/json/yaml/csv/xlsx/html/docx/pptx`, stage summaries under
+  `.tmp/bench/product_path/`, and documented caveats where `parse`,
+  `convert`, and `assets` are still combined in the current normal path.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

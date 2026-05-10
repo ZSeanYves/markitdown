@@ -14,6 +14,7 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/api" @pdfapi,
   "ZSeanYves/markitdown/doc_parse/pdf/model" @pdfmodel,
   "moonbitlang/core/env" @env,
+  "moonbitlang/core/string" @string,
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,

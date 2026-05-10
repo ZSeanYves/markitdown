@@ -79,6 +79,10 @@ async fn main {
     return
   }
 
+  if maybe_run_hidden_bench_command(cli_args) {
+    return
+  }
+
   let value = @clap.SimpleValue::new("markitdown-mb")
   let subcmd_help = parser.parse(value, cli_args[:]) catch {
     e => {

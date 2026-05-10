@@ -87,6 +87,9 @@ Current public tooling:
 * `./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2`
 * `./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2`
+* `./samples/bench_product_path.sh --help`
+* `./samples/bench_product_path.sh --smoke`
+* `./samples/bench_product_path.sh --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -101,11 +104,19 @@ What the current tooling measures well:
 * per-row summary artifacts under `.tmp/bench/...`
 * direct `doc_parse/*` package timing for `open/parse/scan`, `inspect`, and
   `validate` on a checked local manifest without calling `convert/*`
+* first-pass product-path attribution for `txt/json/yaml/csv/xlsx/html/docx/`
+  `pptx`, including `startup_probe`, `dispatch`, `parse`, `emit`,
+  `metadata`, `assets`, and same-process `total`
 
 What it still does not measure directly:
 
-* `parse` vs `convert` vs `emit` vs `metadata/assets` split inside one
-  end-to-end CLI row
+* a perfect `parse` vs `convert` split for every current normal-path format;
+  the first-pass product harness still records `convert` as
+  `combined_in_parse_current_path=true` when the shared converter seam is not
+  yet safely split
+* a perfect standalone `assets` stage for converter-local asset paths such as
+  HTML, DOCX, and PPTX; the first-pass product harness records the asset count
+  while noting that materialization is still embedded in the parse path
 * full `doc_parse` coverage for every package and stage in one runner
   (`pdf` is still deferred in the first library-harness round)
 * broad p50 / p95 distribution rollups across all suites in a release-facing
@@ -122,8 +133,11 @@ Current checked state after the focused parser rounds:
 
 * no direct `doc_parse` library row is currently above `10 ms`
 * `inspect` and `validate` are not the active bottlenecks
-* the next performance problem to solve is stage attribution on the
-  repository product path, not another blind parser rewrite
+* a first-pass product-path attribution harness now exists for the initial
+  normal-path format set
+* the next performance problem is no longer “find a parser hotspot blindly”;
+  it is “refine product-path attribution until parse, convert, emit,
+  metadata, and assets are cleanly owned”
 
 ## Library Harness
 
@@ -314,12 +328,18 @@ Current interpretation:
 * these profile modes exist only for hotspot attribution; they do not widen
   format support or change converter ownership boundaries
 
-## Product-path Attribution Next Step
+## Product-path Attribution Harness
 
-The next performance phase should measure the repository product path
-explicitly.
+The next performance phase is now implemented as a first-pass benchmark for
+the repository product path:
 
-Planned stage model:
+```bash
+./samples/bench_product_path.sh --help
+./samples/bench_product_path.sh --smoke
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+Current stage model:
 
 * `startup_probe`
 * `file_read`
@@ -331,7 +351,7 @@ Planned stage model:
 * `assets`
 * `total`
 
-Planned first format set:
+Current first-batch format set:
 
 * `txt`
 * `json`
@@ -342,16 +362,46 @@ Planned first format set:
 * `docx`
 * `pptx`
 
-Current planning-only helper:
+Current implementation notes:
 
-```bash
-./samples/bench_product_path.sh --help
-./samples/bench_product_path.sh --smoke
-```
+* the harness uses a hidden benchmark-only CLI entrypoint and does not change
+  normal CLI behavior
+* `startup_probe` is measured as a separate no-op process launch
+* `file_read` is currently a standalone probe row; it is not subtracted from
+  the measured `parse` row
+* `parse` is the real current normal-path parse/conversion entry; for
+  integrated formats it includes `doc_parse` plus converter lowering, and for
+  intentionally unswitched formats it records the converter-local combined
+  path
+* `convert` is recorded as `combined_in_parse_current_path=true` in the first
+  pass where a safe shared split is not yet exposed
+* `assets` is recorded as `embedded_in_parse_current_path=true` for current
+  HTML/DOCX/PPTX asset flows while still reporting the asset count
 
-This helper currently emits stage and sample planning artifacts only. It does
-not run the product benchmark yet and is intentionally not wired into
-`./samples/bench.sh` until the real stage instrumentation exists.
+Current checked baseline snapshot from the first-pass harness:
+
+* `startup_probe`: `8.775 ms` avg
+* slowest total rows:
+  * `txt_large`: `10.499 ms`
+  * `docx_image_alt_title_basic`: `2.941 ms`
+  * `pptx_image_alt_title_basic`: `1.763 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
+* slowest stage rows:
+  * `txt_large / parse`: `8.892 ms`
+  * `docx_image_alt_title_basic / parse`: `2.278 ms`
+  * `txt_large / emit`: `1.592 ms`
+  * `pptx_image_alt_title_basic / parse`: `0.833 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.786 ms`
+
+Interpretation:
+
+* this harness now makes the repository product path measurable without
+  claiming that every stage is perfectly separated already
+* it is precise enough to show whether startup, parse, emit, metadata, or
+  asset-enabled rows dominate a sample
+* the next refinement should split `parse` vs `convert` and isolate
+  converter-local `assets` timing more cleanly where the current normal path
+  still combines them
 
 ## Library vs CLI Guidance
 

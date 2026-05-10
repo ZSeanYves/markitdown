@@ -27,6 +27,9 @@ Measured commands:
 ./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+./samples/bench_product_path.sh --help
+./samples/bench_product_path.sh --smoke
+./samples/bench_product_path.sh --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
 ./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
@@ -51,6 +54,10 @@ Artifacts:
   `.tmp/bench/doc_parse/summary.tsv`
 * doc_parse library raw runs:
   `.tmp/bench/doc_parse/summary.runs.tsv`
+* product-path summary:
+  `.tmp/bench/product_path/summary.tsv`
+* product-path raw runs:
+  `.tmp/bench/product_path/summary.runs.tsv`
 * focused XLSX parse summary:
   `.tmp/bench/doc_parse/xlsx_after_parse.tsv`
 * focused XLSX parse profile summary:
@@ -75,6 +82,7 @@ Artifacts:
 * smoke suite: `96` rows, `0` failures
 * batch-profile suite: `48` runs, `0` failures
 * doc_parse library suite: `75` stage rows, `0` failures
+* product-path suite: `65` stage rows, `0` failures
 * no expectations or fixtures were changed to make the benchmark pass
 
 ## Smoke Benchmark Highlights
@@ -155,6 +163,88 @@ Observed pattern:
 * heavier OOXML/PDF rows still benefit from batching, but less dramatically
   than the smallest text/structured rows
 
+## Product-path Benchmark Baseline
+
+Commands:
+
+```bash
+./samples/bench_product_path.sh --help
+./samples/bench_product_path.sh --smoke
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+Current first-batch format coverage:
+
+* `txt`
+* `json`
+* `yaml`
+* `csv`
+* `xlsx`
+* `html`
+* `docx`
+* `pptx`
+
+Current stage rows:
+
+* `startup_probe`
+* `file_read`
+* `dispatch`
+* `parse`
+* `convert`
+* `emit`
+* `metadata`
+* `assets`
+* `total`
+
+Current first-pass interpretation caveats:
+
+* `startup_probe` is measured separately with a no-op native CLI launch
+* `file_read` is a standalone probe row and is not subtracted from `parse`
+* `parse` currently measures the real normal-path parse entry, which may still
+  include converter-local file read and lowering
+* `convert` is recorded as `combined_in_parse_current_path=true` where the
+  current normal path does not expose a safe shared split yet
+* `assets` is recorded as `embedded_in_parse_current_path=true` for current
+  HTML/DOCX/PPTX asset flows while still reporting asset counts
+
+Current startup probe:
+
+* `startup_probe`: `8.775 ms`
+
+Slowest same-process `total` rows:
+
+* `txt_large`: `10.499 ms`
+* `docx_image_alt_title_basic`: `2.941 ms`
+* `pptx_image_alt_title_basic`: `1.763 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
+* `html_figure_figcaption_basic`: `0.849 ms`
+* `json_metadata_nested`: `0.510 ms`
+* `yaml_metadata_nested`: `0.427 ms`
+* `csv_metadata_ragged_rows`: `0.371 ms`
+
+Slowest product-path stage rows:
+
+* `txt_large / parse`: `8.892 ms`
+* `docx_image_alt_title_basic / parse`: `2.278 ms`
+* `txt_large / emit`: `1.592 ms`
+* `pptx_image_alt_title_basic / parse`: `0.833 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.786 ms`
+* `xlsx_metadata_formula_or_merged_policy / metadata`: `0.592 ms`
+* `docx_image_alt_title_basic / metadata`: `0.526 ms`
+* `xlsx_metadata_formula_or_merged_policy / parse`: `0.354 ms`
+
+Supporting observations:
+
+* `dispatch` is effectively negligible on this checked sample set
+  (`0.003-0.004 ms`)
+* standalone `file_read` probes are also small on the checked local corpus
+  (`0.013-0.024 ms`)
+* the current first-pass benchmark already shows that `emit` can dominate
+  simple large text rows, while metadata work is comparatively visible on
+  OOXML asset-enabled rows
+* `assets` is currently a count-only attribution seam because HTML/DOCX/PPTX
+  asset export still occurs inside the measured parse path
+
 ## doc_parse Library Benchmark Baseline
 
 Command:
@@ -186,15 +276,15 @@ Current intentional gap:
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `yaml_large / parse`: `6.851 ms`
-* `docx_link_heavy / parse`: `6.040 ms`
-* `json_large / parse`: `3.247 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.163 ms`
-* `csv_large / parse`: `2.738 ms`
-* `docx_small / parse`: `2.541 ms`
-* `markdown_large / scan`: `2.475 ms`
-* `tsv_large / parse`: `2.460 ms`
-* `txt_large / parse`: `2.247 ms`
+* `yaml_large / parse`: `7.154 ms`
+* `docx_link_heavy / parse`: `6.342 ms`
+* `json_large / parse`: `3.307 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.245 ms`
+* `csv_large / parse`: `2.768 ms`
+* `markdown_large / scan`: `2.622 ms`
+* `docx_small / parse`: `2.428 ms`
+* `tsv_large / parse`: `2.409 ms`
+* `txt_large / parse`: `2.259 ms`
 
 Slowest `inspect` rows:
 
@@ -294,15 +384,15 @@ These profile rows are attribution aids only:
 After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `6.851 ms`
-* `docx_link_heavy / parse`: `6.040 ms`
-* `json_large / parse`: `3.247 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `3.163 ms`
-* `csv_large / parse`: `2.738 ms`
-* `docx_small / parse`: `2.541 ms`
-* `markdown_large / scan`: `2.475 ms`
-* `tsv_large / parse`: `2.460 ms`
-* `txt_large / parse`: `2.247 ms`
+* `yaml_large / parse`: `7.154 ms`
+* `docx_link_heavy / parse`: `6.342 ms`
+* `json_large / parse`: `3.307 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.245 ms`
+* `csv_large / parse`: `2.768 ms`
+* `markdown_large / scan`: `2.622 ms`
+* `docx_small / parse`: `2.428 ms`
+* `tsv_large / parse`: `2.409 ms`
+* `txt_large / parse`: `2.259 ms`
 
 ## Remaining Library Hotspots
 
@@ -492,27 +582,22 @@ This baseline can tell us:
 
 This baseline still cannot yet tell us directly:
 
-* `parse` vs `convert` vs `emit` vs `metadata/assets` cost split inside one
-  end-to-end CLI row
+* a perfect `parse` vs `convert` split for all current normal-path formats
+* a perfect standalone `assets` stage for current HTML/DOCX/PPTX converter
+  flows
 * full-library coverage for every package, especially `pdf`
 * cross-machine release SLOs from one checked local snapshot
 
 ## Next Step
 
-The next measurement step is product-path attribution:
+The next measurement step is product-path attribution refinement:
 
-* CLI startup / process overhead
-* file read / local I/O
-* dispatch / format selection
-* parse/open/scan
-* convert lowering
-* Markdown emission
-* metadata sidecar work
-* asset scan/export work
-* total
-
-This round adds only the planning skeleton for that work. It does not yet
-claim a stage-split product benchmark result.
+* keep the current `startup_probe`, `dispatch`, `emit`, `metadata`, and
+  same-process `total` rows
+* split `parse` vs `convert` where the shared normal path allows it safely
+* break out current HTML/DOCX/PPTX asset work from the combined parse path
+* add `pdf` only when its current product path can be instrumented without
+  distorting the measurement contract
 
 ## Current Decision
 

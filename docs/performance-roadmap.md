@@ -84,7 +84,7 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms -> 6.851 ms`
+  `yaml_large / parse / 6.953 ms -> 7.154 ms`
   owner confirmed: line preparation plus repeated short mapping/scalar trim
   and copy work on a large sequence-of-mappings sample
   remaining breakdown on the checked sample:
@@ -96,13 +96,13 @@ Current highest-priority library rows:
   more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms -> 2.247 ms`
+  `txt_large / parse / 3.966 ms -> 2.259 ms`
   owner confirmed: repeated newline normalization, line splitting, and
   paragraph reconstruction before the single-pass cleanup
   next action: keep on watch only; it is no longer a lead hotspot
 
 * `doc_parse/json`
-  `json_large / parse / 3.605 ms -> 3.247 ms`
+  `json_large / parse / 3.605 ms -> 3.307 ms`
   owner confirmed: normalized char preparation plus plain-string hot-path
   allocation
   remaining breakdown on the checked sample:
@@ -111,7 +111,7 @@ Current highest-priority library rows:
   object/array allocation churn more deeply
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.130 ms -> 2.475 ms`
+  `markdown_large / scan / 3.130 ms -> 2.622 ms`
   owner confirmed: repeated trim/left-trim/block classification on the same
   raw lines before line-view precomputation
   remaining breakdown on the checked sample:
@@ -122,7 +122,7 @@ Current highest-priority library rows:
 Recent focused follow-up results:
 
 * `doc_parse/xlsx`
-  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.163 ms`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.245 ms`
   owner confirmed: SpreadsheetML formula-heavy parse path, specifically
   repeated per-formula sheet-context rebuild before the current fix
   remaining breakdown on the checked sample:
@@ -132,7 +132,7 @@ Recent focused follow-up results:
   priority to YAML first
 
 * `doc_parse/docx`
-  `docx_link_heavy / parse / 8.735 ms -> 6.040 ms`
+  `docx_link_heavy / parse / 8.735 ms -> 6.342 ms`
   owner confirmed: repeated body-level XML cleanup/traversal and no-op
   text-box scanning on a link-heavy sample without text boxes, not
   relationship lookup
@@ -146,9 +146,9 @@ Recent focused follow-up results:
 * `doc_parse/text/json/markdown`
   focused lightweight large-input follow-up is now complete
   current checked large rows:
-  `txt_large / parse / 2.247 ms`,
-  `json_large / parse / 3.247 ms`,
-  `markdown_large / scan / 2.475 ms`
+  `txt_large / parse / 2.259 ms`,
+  `json_large / parse / 3.307 ms`,
+  `markdown_large / scan / 2.622 ms`
   next action: no immediate second pass unless a future baseline regression or
   new evidence re-promotes one of these rows into the top queue
 
@@ -201,12 +201,16 @@ That means:
 * PDF and output-heavy HTML/EPUB/ZIP rows still need repo-level measurement in
   addition to package-local timing
 
-## Product-path Attribution Plan
+## Product-path Attribution First Pass
 
-The next benchmark addition should measure the repository normal path in
-stages, not just as a total.
+The repository now has a first-pass staged benchmark for the normal product
+path:
 
-Planned stages:
+```bash
+./samples/bench_product_path.sh --iterations 10 --warmup 2
+```
+
+Implemented stages:
 
 * `startup_probe`
 * `file_read`
@@ -221,14 +225,15 @@ Planned stages:
 Planned ownership split:
 
 * `startup_probe`, `file_read`, `dispatch`: CLI / product-path harness
-* `parse`: `doc_parse` where integrated, current converter-local parse where
-  the normal path has intentionally not switched
-* `convert`: product lowering into IR or converter-local product blocks
-* `emit`: Markdown/string emission
-* `metadata`: sidecar construction only
-* `assets`: asset scan/export/copy only
+* `parse`: the real current normal-path parse entry
+* `convert`: currently recorded as `combined_in_parse_current_path=true` where
+  the shared seam is not safely exposed yet
+* `emit`: Markdown/string emission plus markdown write
+* `metadata`: sidecar construction plus write
+* `assets`: currently recorded as `embedded_in_parse_current_path=true` where
+  current asset export is still converter-local inside the parse path
 
-Planned first format set:
+Implemented first format set:
 
 * `txt`
 * `json`
@@ -245,18 +250,45 @@ Planned output schema:
 * `sample`
 * `stage`
 * `iterations`
+* `total_ms`
 * `avg_ms`
 * `p50_ms`
 * `p95_ms`
+* `max_ms`
 * `bytes`
 * `notes`
 
-Current low-risk implementation state:
+Current checked first-pass observations:
 
-* `samples/bench_product_path.sh --smoke` now emits planning artifacts only
-* it writes a stage plan and sample plan based on the checked benchmark corpus
-* it does not yet instrument the converter, alter `samples/bench.sh`, or
-  change runtime behavior
+* `startup_probe`: `8.775 ms`
+* slowest same-process total rows:
+  * `txt_large`: `10.499 ms`
+  * `docx_image_alt_title_basic`: `2.941 ms`
+  * `pptx_image_alt_title_basic`: `1.763 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.072 ms`
+* slowest measured stage rows:
+  * `txt_large / parse`: `8.892 ms`
+  * `docx_image_alt_title_basic / parse`: `2.278 ms`
+  * `txt_large / emit`: `1.592 ms`
+  * `pptx_image_alt_title_basic / parse`: `0.833 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.786 ms`
+
+Current interpretation:
+
+* the benchmark is real and uses a hidden benchmark-only CLI entrypoint
+* it does not change normal CLI behavior or `samples/bench.sh`
+* `file_read` is still a standalone probe row
+* `parse` still includes current converter-local file read and lowering where
+  that is how the normal path is structured
+* `convert` and some `assets` work are still intentionally coarse attribution
+  seams in this first pass
+
+Next attribution refinement:
+
+* expose a safe `parse` vs `convert` split where the current converter stack
+  can support it without changing behavior
+* isolate HTML/DOCX/PPTX asset export from the combined parse path
+* keep the benchmark-only instrumentation hidden and out of the default CLI UX
 
 ## Optimization Stages
 
