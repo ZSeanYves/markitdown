@@ -56,9 +56,8 @@ struct BenchSummaryRow {
 
 ///|
 fn main {
-  match run_bench(normalize_cli_args(@sys.get_cli_args())) {
-    Ok(_) => ()
-    Err(e) => {
+  run_bench(normalize_cli_args(@sys.get_cli_args())) catch {
+    e => {
       println("doc_parse bench failed: " + e.to_string())
       @sys.exit(1)
     }
@@ -82,35 +81,27 @@ fn normalize_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-fn run_bench(args : Array[String]) -> Result[Unit, BenchError] {
-  let cfg = parse_args(args) catch { e => return Err(e) }
-  let rows = read_manifest(cfg.manifest) catch { e => return Err(e) }
+fn run_bench(args : Array[String]) -> Unit raise BenchError {
+  let cfg = parse_args(args)
+  let rows = read_manifest(cfg.manifest)
   let filtered = selected_rows(rows, cfg.formats)
   if filtered.length() == 0 {
-    return Err(Failed("no manifest rows selected"))
+    raise Failed("no manifest rows selected")
   }
 
   let summaries : Array[BenchSummaryRow] = []
   let runs : Array[BenchRunRow] = []
 
   for row in filtered {
-    bench_manifest_row(row, cfg, summaries, runs) catch {
-      e => return Err(e)
-    }
+    bench_manifest_row(row, cfg, summaries, runs)
   }
 
   let output_dir = parent_dir(cfg.output)
-  ensure_dir_tree(output_dir) catch {
-    e => return Err(e)
-  }
+  ensure_dir_tree(output_dir)
   let runs_output = raw_output_path(cfg.output)
 
-  write_utf8_text(cfg.output, render_summary_tsv(summaries)) catch {
-    e => return Err(e)
-  }
-  write_utf8_text(runs_output, render_runs_tsv(runs)) catch {
-    e => return Err(e)
-  }
+  write_utf8_text(cfg.output, render_summary_tsv(summaries))
+  write_utf8_text(runs_output, render_runs_tsv(runs))
 
   let slowest = slowest_summary_rows(summaries, 10)
   println("doc_parse benchmark completed")
@@ -132,7 +123,6 @@ fn run_bench(args : Array[String]) -> Result[Unit, BenchError] {
       "ms",
     )
   }
-  Ok(())
 }
 
 ///|
@@ -302,7 +292,7 @@ fn bench_manifest_row(
     "xlsx" => bench_xlsx_row(row, cfg, summaries, runs)
     "docx" => bench_docx_row(row, cfg, summaries, runs)
     "pptx" => bench_pptx_row(row, cfg, summaries, runs)
-    "pdf" => ()
+    "pdf" => bench_pdf_row(row, cfg, summaries, runs)
     other => raise Failed("unsupported manifest format: " + other)
   }
 }
@@ -1874,6 +1864,22 @@ fn bench_pptx_row(
 }
 
 ///|
+fn bench_pdf_row(
+  row : ManifestRow,
+  cfg : BenchConfig,
+  summaries : Array[BenchSummaryRow],
+  runs : Array[BenchRunRow],
+) -> Unit raise BenchError {
+  let _ = row
+  let _ = cfg
+  let _ = summaries
+  let _ = runs
+  raise Failed(
+    "pdf direct library attribution is currently deferred in bench/doc_parse: async PDF API shape does not fit the current typed benchmark runner without wider harness refactor",
+  )
+}
+
+///|
 fn measure_stage(
   row : ManifestRow,
   package_name : String,
@@ -1915,6 +1921,11 @@ fn measure_stage(
   }
 
   summary_row_from_timings(row, package_name, stage, bytes, notes, timings)
+}
+
+///|
+fn _pdf_library_attribution_deferred_note() -> String {
+  "pdf direct library attribution remains deferred: async lower-layer API shape currently mismatches the typed synchronous benchmark runner"
 }
 
 ///|

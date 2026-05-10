@@ -156,9 +156,9 @@ What the current tooling measures well:
 * per-row summary artifacts under `.tmp/bench/...`
 * direct `doc_parse/*` package timing for `open/parse/scan`, `inspect`, and
   `validate` on a checked local manifest without calling `convert/*`
-* refined product-path attribution for `txt/json/yaml/csv/xlsx/html/docx/`
-  `pptx`, including `startup_probe`, `dispatch`, `parse`, `convert`, `emit`,
-  `metadata`, `assets`, and same-process `total`
+* refined product-path attribution for `txt/json/yaml/csv/xlsx/pdf/html/`
+  `docx/pptx`, including `startup_probe`, `dispatch`, `parse`, `convert`,
+  `emit`, `metadata`, `assets`, and same-process `total`
 
 What it still does not measure directly:
 
@@ -172,8 +172,9 @@ What it still does not measure directly:
   the refined product harness now records real staged asset discovery/export
   timing for `html/docx/pptx`, but some discovery/export work is still
   coupled to the current converter seam
-* full `doc_parse` coverage for every package and stage in one runner
-  (`pdf` is still deferred in the first library-harness round)
+* full `doc_parse` coverage for every package and stage in one runner;
+  `pdf` direct library attribution is still deferred because the current
+  typed library runner does not yet absorb the lower-layer async API shape
 * broad p50 / p95 distribution rollups across all suites in a release-facing
   report
 
@@ -237,6 +238,13 @@ Current stage ownership interpretation:
 * `assets`: asset discovery/export attribution; now measured separately for
   `html/docx/pptx` in the refined benchmark path
 * `total`: same-process product path total excluding `startup_probe`
+
+Current first-pass PDF attribution scope:
+
+* native text-PDF path only
+* no OCR
+* no scanned-PDF default benchmark rows
+* no claim that fallback/OCR paths are exercised by default attribution
 
 Current split status:
 
@@ -539,21 +547,23 @@ Current implementation notes:
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `9.452 ms` avg
+* `startup_probe`: `9.290 ms` avg
 * slowest total rows:
-  * `txt_large`: `5.803 ms`
-  * `docx_image_alt_title_basic`: `3.482 ms`
-  * `pptx_image_alt_title_basic`: `2.042 ms`
-  * `html_figure_figcaption_basic`: `1.095 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
+  * `txt_large`: `5.808 ms`
+  * `docx_image_alt_title_basic`: `3.477 ms`
+  * `pptx_image_alt_title_basic`: `2.125 ms`
+  * `html_figure_figcaption_basic`: `1.075 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.059 ms`
+  * `pdf_metadata_uri_link`: `1.003 ms`
 * slowest stage rows:
-  * `txt_large / convert`: `2.700 ms`
-  * `txt_large / txt_literal_wrap`: `2.600 ms`
+  * `txt_large / convert`: `2.800 ms`
+  * `txt_large / txt_literal_wrap`: `2.700 ms`
   * `txt_large / parse`: `2.100 ms`
   * `docx_image_alt_title_basic / parse`: `1.200 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-  * `txt_large / emit`: `1.000 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.731 ms`
+  * `txt_large / emit`: `1.016 ms`
+  * `docx_image_alt_title_basic / assets`: `0.900 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.720 ms`
 
 Interpretation:
 
@@ -572,8 +582,8 @@ Interpretation:
   `pptx_grouping`, `pptx_classification`, `pptx_image_inventory`, and
   `pptx_final_block_build` rows; on the tiny checked sample, several of those
   stages currently round to `0 ms`
-* direct PDF product-path attribution is still deferred in this first staged
-  benchmark round
+* PDF is now included in first-pass product-path attribution for the native
+  text-PDF path
 * the next refinement should keep `html` stable while pushing `docx/pptx`
   further from partial attribution toward cleaner final converter ownership
   without changing behavior

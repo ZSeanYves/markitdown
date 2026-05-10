@@ -311,6 +311,7 @@ async fn run_hidden_bench_parse_stage(
     "tsv" => hidden_bench_split_csv_like_parse(opts, true)
     "xlsx" => hidden_bench_split_xlsx_parse(opts)
     "html" => hidden_bench_profiled_html_parse(opts)
+    "pdf" => hidden_bench_profiled_pdf_parse(opts)
     "docx" => hidden_bench_profiled_docx_parse(opts)
     "pptx" => hidden_bench_profiled_pptx_parse(opts)
     _ => hidden_bench_combined_parse_stage(format, opts, convert_opts)
@@ -417,6 +418,10 @@ fn hidden_bench_assets_stage_notes(
       "embedded_in_parse_current_path=true asset_count=" +
       asset_count.to_string() +
       " asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map asset_export_boundary=export_slide_images"
+    "pdf" =>
+      "embedded_in_parse_current_path=false asset_count=" +
+      asset_count.to_string() +
+      " asset_discovery_boundary=export_convert_page_images asset_export_boundary=export_single_pdf_image text_pdf_only=true ocr_excluded=true"
     _ =>
       "embedded_in_parse_current_path=true asset_count=" +
       asset_count.to_string()
@@ -925,6 +930,114 @@ fn hidden_bench_profiled_html_parse(
     assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
     summary_notes +
     " asset_discovery_boundary=nodes_to_blocks asset_export_boundary=export_local_html_image",
+    extra_rows,
+  }
+}
+
+///|
+async fn hidden_bench_profiled_pdf_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult {
+  let profile_path = join_path(opts.output_root, ".pdf.profile.log")
+  if @fs.path_exists(profile_path) {
+    @fs.remove_file(profile_path) catch {
+      _ => ()
+    }
+  }
+  let parse_started = now_us()
+  let doc = @pdfconv.parse_pdf(
+    opts.input,
+    if opts.with_assets {
+      opts.output_root
+    } else {
+      ""
+    },
+    opts.max_heading,
+    None,
+    false,
+    false,
+    false,
+  )
+  let total_elapsed_us = elapsed_us_since(parse_started)
+  let (stage_us, summary_notes) = hidden_bench_profile_file_stage_map(
+    profile_path, "pdf_convert_profile",
+  )
+  if stage_us.length() == 0 {
+    return hidden_bench_profile_missing_result(
+      "pdf", opts, doc, total_elapsed_us,
+    )
+  }
+
+  let parse_us = hidden_bench_stage_map_us(stage_us, "pdf_backend_select") +
+    hidden_bench_stage_map_us(stage_us, "pdf_extract_model") +
+    hidden_bench_stage_map_us(stage_us, "pdf_line_build") +
+    hidden_bench_stage_map_us(stage_us, "pdf_block_build")
+  let convert_us = hidden_bench_stage_map_us(stage_us, "pdf_block_classify") +
+    hidden_bench_stage_map_us(stage_us, "pdf_noise_filter") +
+    hidden_bench_stage_map_us(stage_us, "pdf_merge") +
+    hidden_bench_stage_map_us(stage_us, "pdf_annotation_handling") +
+    hidden_bench_stage_map_us(stage_us, "pdf_final_block_build")
+  let assets_us = 0
+  let extra_rows : Array[HiddenBenchStageRow] = [
+    {
+      stage: "pdf_backend_select",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_backend_select"),
+      notes: "split=true text_pdf_only=true ocr_excluded=true",
+    },
+    {
+      stage: "pdf_extract_model",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_extract_model"),
+      notes: "split=true native_text_pdf_only=true raw_extract_and_model_build_combined=true " +
+      summary_notes,
+    },
+    {
+      stage: "pdf_line_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_line_build"),
+      notes: "split=true source=build_convert_lines",
+    },
+    {
+      stage: "pdf_block_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_block_build"),
+      notes: "split=true source=build_convert_blocks",
+    },
+    {
+      stage: "pdf_block_classify",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_block_classify"),
+      notes: "split=true source=classify_convert_blocks",
+    },
+    {
+      stage: "pdf_noise_filter",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_noise_filter"),
+      notes: "split=true source=filter_noise_blocks",
+    },
+    {
+      stage: "pdf_merge",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_merge"),
+      notes: "split=true source=merge_convert_blocks",
+    },
+    {
+      stage: "pdf_annotation_handling",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_annotation_handling"),
+      notes: "split=true source=attach_high_confidence_uri_links",
+    },
+    {
+      stage: "pdf_final_block_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pdf_final_block_build"),
+      notes: "split=true source=convert_pdf_blocks_to_ir",
+    },
+  ]
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=pdf blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=native_text_pdf_split text_pdf_only=true ocr_excluded=true fallback_not_exercised=true " +
+    summary_notes,
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=pdf_block_classify+noise_filter+merge+annotation_handling+final_block_build text_pdf_only=true",
+    assets_elapsed_us: assets_us,
+    assets_notes: "skipped=no_pdf_asset_export_in_checked_sample text_pdf_only=true ocr_excluded=true",
     extra_rows,
   }
 }

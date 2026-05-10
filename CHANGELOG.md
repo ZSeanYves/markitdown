@@ -142,8 +142,15 @@
 * Finalize the performance narrative after product-path attribution by
   documenting the three-layer view (`doc_parse` library path, same-process
   product path, and cold CLI startup), refreshing the latest TXT/DOCX/PPTX/
-  HTML/XLSX baseline notes, and keeping PDF explicitly deferred from direct
-  attribution.
+  HTML/XLSX baseline notes, and clarifying that product-path PDF attribution
+  is now first-pass covered for the native text-PDF path while direct
+  `doc_parse/pdf` library attribution remains deferred.
+* Add first-pass native text-PDF product-path attribution for
+  `pdf_metadata_uri_link`, including staged `pdf_backend_select`,
+  `pdf_extract_model`, `pdf_line_build`, `pdf_block_build`,
+  `pdf_block_classify`, `pdf_noise_filter`, `pdf_merge`,
+  `pdf_annotation_handling`, and `pdf_final_block_build` rows, without
+  changing PDF conversion output, OCR behavior, or fallback policy.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

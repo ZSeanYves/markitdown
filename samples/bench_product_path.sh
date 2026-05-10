@@ -27,7 +27,7 @@ Notes:
   * startup_probe is measured separately with a no-op CLI launch.
   * file_read is a standalone probe row; current parse rows still include the
     converter-local file read inside the real conversion path.
-  * parse vs convert is now split for txt/json/yaml/csv/xlsx.
+  * parse vs convert is now split for txt/json/yaml/csv/xlsx and native text-PDF.
   * html/docx/pptx now expose richer converter-owned substages, but html is the
     cleanest split; docx/pptx still keep partial combined seams in their current
     normal-path converters.
@@ -370,6 +370,10 @@ while IFS=$'\t' read -r format path label size_class with_metadata with_assets n
         ;;
       xlsx)
         cmd+=("MARKITDOWN_PROFILE_XLSX=1")
+        ;;
+      pdf)
+        cmd+=("MARKITDOWN_PROFILE_PDF_CONVERT=1")
+        cmd+=("MARKITDOWN_PROFILE_PDF_CONVERT_PATH=$run_root/.pdf.profile.log")
         ;;
       html)
         cmd+=("MARKITDOWN_PROFILE_HTML=1")

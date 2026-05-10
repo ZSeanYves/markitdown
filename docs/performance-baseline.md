@@ -223,6 +223,7 @@ Current first-batch format coverage:
 * `yaml`
 * `csv`
 * `xlsx`
+* `pdf`
 * `html`
 * `docx`
 * `pptx`
@@ -256,36 +257,38 @@ Current refined interpretation caveats:
 
 Current startup probe:
 
-* `startup_probe`: `9.452 ms`
+* `startup_probe`: `9.290 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `5.803 ms`
-* `docx_image_alt_title_basic`: `3.482 ms`
-* `pptx_image_alt_title_basic`: `2.042 ms`
-* `html_figure_figcaption_basic`: `1.095 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
+* `txt_large`: `5.808 ms`
+* `docx_image_alt_title_basic`: `3.477 ms`
+* `pptx_image_alt_title_basic`: `2.125 ms`
+* `html_figure_figcaption_basic`: `1.075 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.059 ms`
+* `pdf_metadata_uri_link`: `1.003 ms`
 * `yaml_metadata_nested`: `< 1 ms`
 * `json_metadata_nested`: `< 1 ms`
 * `csv_metadata_ragged_rows`: `< 1 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / convert`: `2.700 ms`
-* `txt_large / txt_literal_wrap`: `2.600 ms`
+* `txt_large / convert`: `2.800 ms`
+* `txt_large / txt_literal_wrap`: `2.700 ms`
 * `txt_large / parse`: `2.100 ms`
 * `docx_image_alt_title_basic / parse`: `1.200 ms`
 * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-* `txt_large / emit`: `1.000 ms`
-* `txt_large / txt_emit_write`: `0.871 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.731 ms`
+* `txt_large / emit`: `1.016 ms`
+* `docx_image_alt_title_basic / assets`: `0.900 ms`
+* `txt_large / txt_emit_write`: `0.880 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.720 ms`
 
 Supporting observations:
 
 * `dispatch` remains effectively negligible on this checked sample set
   (`0.003-0.004 ms`)
 * standalone `file_read` probes are still small on the checked local corpus
-  (`0.018-0.036 ms` for the current first-batch rows shown here)
+  (`0.015-0.030 ms` for the current first-batch rows shown here)
 * refined attribution now shows that `txt_large` is dominated by
   `doc_parse/text` parse plus TXT literal-markdown wrapping and final markdown
   file write, not parser work alone
@@ -310,8 +313,28 @@ Supporting observations:
   now visible without changing behavior
 * same-process `total` excludes `startup_probe`; cold CLI/process-per-file
   interpretation must add startup separately
-* direct PDF attribution is still deferred in this first staged product-path
-  benchmark round
+* product-path PDF attribution is now first-pass covered for a checked native
+  text-PDF sample
+* OCR/scanned PDF remains excluded from default attribution
+* direct `doc_parse/pdf` library attribution is still deferred because the
+  current typed library runner does not yet absorb the lower-layer async API
+  shape without a wider harness refactor
+
+First-pass product-path PDF row:
+
+* `pdf_metadata_uri_link / total`: `1.003 ms`
+* `pdf_metadata_uri_link / parse`: `0.200 ms`
+* `pdf_metadata_uri_link / pdf_extract_model`: `0.200 ms`
+* `pdf_metadata_uri_link / convert`: `0.300 ms`
+* `pdf_metadata_uri_link / metadata`: `0.147 ms`
+* `pdf_metadata_uri_link / emit`: `0.065 ms`
+
+Current PDF attribution caveats:
+
+* native text-PDF only
+* `ocr_excluded=true`
+* no scanned/OCR sample in the default manifest
+* no claim that OCR fallback is benchmarked by default
 
 ## TXT Focused Product-path Attribution
 
@@ -419,7 +442,9 @@ Coverage in this first harness round:
 
 Current intentional gap:
 
-* `pdf` is still deferred from the first library-only harness
+* `pdf` direct library attribution is still deferred from the first
+  library-only harness because the current typed benchmark runner does not
+  yet absorb the lower-layer async API shape without a wider runner refactor
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 

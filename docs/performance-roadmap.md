@@ -256,9 +256,17 @@ Implemented current format set:
 * `yaml`
 * `csv`
 * `xlsx`
+* `pdf`
 * `html`
 * `docx`
 * `pptx`
+
+Current PDF scope:
+
+* first-pass native text-PDF attribution only
+* OCR/scanned PDF excluded from default benchmark rows
+* product-path PDF is now stage-visible, but direct `doc_parse/pdf` library
+  attribution still needs a future async-capable harness pass
 
 ## Current TXT Product-path Follow-up
 
@@ -374,21 +382,23 @@ Immediate optimization candidates after measurement hygiene stays stable:
 
 Current checked observations:
 
-* `startup_probe`: `9.452 ms`
+* `startup_probe`: `9.290 ms`
 * slowest same-process total rows:
-  * `txt_large`: `5.803 ms`
-  * `docx_image_alt_title_basic`: `3.482 ms`
-  * `pptx_image_alt_title_basic`: `2.042 ms`
-  * `html_figure_figcaption_basic`: `1.095 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.007 ms`
+  * `txt_large`: `5.808 ms`
+  * `docx_image_alt_title_basic`: `3.477 ms`
+  * `pptx_image_alt_title_basic`: `2.125 ms`
+  * `html_figure_figcaption_basic`: `1.075 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.059 ms`
+  * `pdf_metadata_uri_link`: `1.003 ms`
 * slowest measured stage rows:
-  * `txt_large / convert`: `2.700 ms`
-  * `txt_large / txt_literal_wrap`: `2.600 ms`
+  * `txt_large / convert`: `2.800 ms`
+  * `txt_large / txt_literal_wrap`: `2.700 ms`
   * `txt_large / parse`: `2.100 ms`
   * `docx_image_alt_title_basic / parse`: `1.200 ms`
   * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
-  * `txt_large / emit`: `1.000 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.731 ms`
+  * `txt_large / emit`: `1.016 ms`
+  * `docx_image_alt_title_basic / assets`: `0.900 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.720 ms`
 
 Current interpretation:
 
@@ -410,7 +420,8 @@ Current interpretation:
   tiny checked sample, several of them currently round to `0 ms`
 * `assets` attribution is now visible for `html/docx/pptx`, but some current
   discovery/export work still shares converter-local seams
-* direct PDF attribution is still deferred
+* product-path PDF attribution is now first-pass covered for a native text-PDF
+  sample, while direct `doc_parse/pdf` library attribution is still deferred
 
 Next attribution refinement:
 
