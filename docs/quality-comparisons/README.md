@@ -28,8 +28,9 @@ Do not use them for:
 * OCR/cloud/plugin-path claims
 * blanket product-ranking claims outside the recorded sample scope
 
-For runner/corpus/performance governance, use
-[docs/benchmark-governance.md](../benchmark-governance.md).
+For benchmark runner/corpus caveats and current performance context, use
+[docs/benchmarking.md](../benchmarking.md) and
+[docs/performance.md](../performance.md).
 
 ## Verdicts
 

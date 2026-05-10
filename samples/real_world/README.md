@@ -107,7 +107,7 @@ Focused complex rerun:
 
 ```bash
 ./samples/check.sh --real-world --tags complex
-./samples/scripts/check_real_world.sh --tags complex
+./samples/helpers/check_real_world.sh --tags complex
 ```
 
 The default `./samples/check.sh` chain also runs the full real-world corpus.

@@ -62,153 +62,15 @@ Benchmark and quality conclusions are limited to the checked-in corpora and
 runner contracts named in the repository docs. They are not blanket claims
 about all documents of a format family.
 
-## doc_parse Foundation Status
+## doc_parse
 
-`doc_parse` is now treated as a reusable parsing foundation layer inside the
-repository rather than as a converter-only helper.
+`doc_parse/*` is the repository's reusable parsing foundation layer.
 
-Current contract:
+For overview, architecture contract, and split strategy, use:
 
-* `doc_parse/*` owns parsing, source-native model, inspect, validation,
-  provenance where available, and safety boundary
-* `convert/*` owns IR, Markdown, assets, metadata, and product output policy
-
-### Container and package foundations
-
-* `doc_parse/zip`
-  external-decoder-backed ZIP foundation candidate for archive structure,
-  inventory, validation, and inspect.
-* `doc_parse/ooxml`
-  OOXML package foundation candidate for parts, relationships, content types,
-  media, docProps, inspect, and strict validation.
-* `doc_parse/epub`
-  EPUB package/spine/nav foundation candidate for container, OPF, manifest,
-  spine, nav/NCX, cover, metadata, inspect, and validation.
-* `doc_parse/pdf`
-  native text-PDF foundation candidate for page/text/image/annotation lower
-  layers, structured inspect, typed issues, and classifier-friendly errors.
-
-### Simple-format, markup, and scanner foundations
-
-* `doc_parse/csv`
-  CSV parser foundation candidate for delimited table model, inspect, and
-  ragged-row validation.
-* `doc_parse/tsv`
-  TSV parser foundation candidate as the tab-delimited facade over the CSV core.
-* `doc_parse/json`
-  JSON parser foundation candidate for AST, inspect, and malformed-input
-  classification.
-* `doc_parse/yaml`
-  YAML-subset parser foundation candidate for subset AST, inspect, and
-  fail-closed unsupported-feature boundaries.
-* `doc_parse/text`
-  plain-text parser foundation candidate for bytes/string open, BOM/newline
-  handling, structural model, and inspect.
-* `doc_parse/xml`
-  XML parser foundation candidate for safe tokenizer/parser/model/inspect/
-  validation with explicit no-XXE and no-DTD-expansion boundary.
-* `doc_parse/html`
-  HTML DOM-ish parser foundation candidate for tolerant tokenizer/parser/raw
-  node inventory/inspect/validation with explicit no-fetch /
-  no-script-execution boundaries.
-* `doc_parse/markdown`
-  Markdown lightweight scanner foundation candidate for raw block inventory,
-  frontmatter detection, fenced code detection, and inspect/validation.
-
-### OOXML semantic sublayers
-
-* `doc_parse/xlsx`
-  XLSX semantic foundation candidate for workbook/sheet/cell/shared
-  strings/styles/merged ranges/formula trace inspect and validation.
-* `doc_parse/docx`
-  DOCX semantic foundation candidate for source-native
-  body/inline/table relationships, styles, numbering, notes, and media refs.
-* `doc_parse/pptx`
-  PPTX semantic foundation candidate for source-native slide order,
-  raw shape tree, text paragraphs/runs, explicit tables, notes, media refs,
-  and hyperlink refs.
-
-Current module strategy:
-
-* these packages are delivered today as importable in-tree subpackages under
-  `ZSeanYves/markitdown`
-* standalone `ZSeanYves/doc_parse` module extraction is future release work
-* `moon.pkg` defines package configuration inside the current module; publishable
-  module boundaries are still determined by `moon.mod.json`
-* convert normal-path integration status is:
-  * integrated: `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
-  * not switched intentionally: `xml` / `html` / `markdown` / `docx` / `pptx`
-* `convert/csv` consumes `doc_parse/csv` / `doc_parse/tsv` while still owning
-  `RichTable` / IR / Markdown policy
-* `convert/json`, `convert/yaml`, and `convert/txt` consume `doc_parse`
-  parser/model layers while still owning IR / Markdown / product policy
-* `convert/xlsx` now consumes `doc_parse/xlsx` for SpreadsheetML semantic
-  parsing, while still owning RichTable / IR / Markdown / metadata / product
-  output policy
-* `convert/xml` still owns the current source-preserving XML normal path
-* `convert/html` and `convert/markdown` still own their current product
-  conversion paths
-* `convert/docx` still owns the current normal DOCX conversion path and its
-  final heading/list/table/caption/code/image product policy; the new
-  `doc_parse/docx` semantic package is not the normal converter path yet
-* `convert/pptx` still owns the current normal PPTX conversion path and its
-  reading-order/layout/grouping/caption/image/IR product policy
-* none of these candidate labels claim full spec coverage
-
-## What doc_parse is
-
-`doc_parse` is the parsing foundation under `markitdown`.
-
-It provides source-native document models, structural inspection, validation
-issues, error classification, provenance where available, and safety
-boundaries for real-world document formats.
-
-It is useful for:
-
-* conversion pipelines
-* document inspection
-* validation / quality audits
-* RAG ingestion preprocessing
-* format-specific tooling
-* custom extractors and indexers on top of MoonBit
-
-It is not:
-
-* a Markdown renderer
-* an Office / PDF / browser engine
-* an OCR system
-* a full spec implementation for every format
-* the owner of final output policy
-
-## What Users Can Build On Top
-
-`doc_parse` is intentionally reusable above the lower-layer model boundary.
-
-Typical things users can build on top of it include:
-
-* document structure inspectors
-* broken-reference checkers
-* unsafe archive/path checkers
-* OOXML media and hyperlink auditors
-* EPUB spine / nav validators
-* XLSX workbook and cell analyzers
-* DOCX paragraph / table / link / image extractors
-* PPTX slide / shape / media inventories
-* HTML / XML safety scanners
-* Markdown frontmatter / fence scanners
-* custom converters into a private IR
-* chunking / indexing preprocessors for RAG pipelines
-
-## What Remains In convert
-
-The converter layer still owns product behavior above the `doc_parse` model:
-
-* final Markdown output
-* IR block / inline policy
-* assets export
-* metadata sidecar shaping
-* heading / list / table / caption / layout heuristics
-* product compatibility behavior
+* [doc_parse Overview](./doc_parse/README.md)
+* [doc_parse Foundation](./docs/doc-parse-foundation.md)
+* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 
 ## Core Capabilities
 
@@ -228,36 +90,16 @@ The converter layer still owns product behavior above the `doc_parse` model:
 
 ## Performance Snapshot
 
-The H3++ performance evidence is based on the prebuilt-native CLI path, not
-`moon run`.
+Current repository performance conclusions are scoped to checked-in corpora and
+explicit runner paths. The direct `doc_parse` library benchmark and the
+same-process product-path benchmark currently show no obvious `>10 ms` rows in
+the checked first-pass corpus, while cold CLI startup is tracked separately and
+must not be mixed into same-process totals.
 
-The checked-in overlap comparison uses Microsoft MarkItDown `0.1.5` on named
-local samples from `samples/benchmark/compare_corpus.tsv`. Representative
-single-run examples from the latest local compare rerun sit in roughly the
-high-`30x` to high-`40x` range:
-
-| Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
-| --- | ---: | ---: | ---: |
-| XLSX formula cached values | 10 ms | 436 ms | ~44x |
-| DOCX nested lists mixed | 14 ms | 535 ms | ~38x |
-| PPTX title bullets | 11 ms | 442 ms | ~40x |
-| PDF URI link basic | 10 ms | 438 ms | ~44x |
-
-These measurements are corpus-scoped local benchmark facts, not universal
-performance claims. PDF comparison rows apply only to the native text-PDF
-overlap corpus. Full raw results, representative tables, and caveats live in
-[docs/performance-baseline.md](./docs/performance-baseline.md),
-[docs/benchmarking.md](./docs/benchmarking.md), and
-[docs/benchmark-governance.md](./docs/benchmark-governance.md).
-
-The direct `doc_parse` library benchmark and the same-process product-path
-benchmark currently show no obvious `>10 ms` rows in the checked first-pass
-corpus. Cold CLI startup is tracked separately and should not be mixed with
-same-process product totals. These figures are local observations, not
-cross-machine guarantees. Product-path attribution now includes a first-pass
-native text-PDF row; scanned/OCR PDF remains out of default attribution
-scope. See
-[docs/performance-baseline.md](./docs/performance-baseline.md).
+These figures are local observations, not cross-machine guarantees. For the
+current baseline numbers, attribution coverage, and remaining follow-up work,
+use [docs/performance.md](./docs/performance.md). For benchmark commands and
+artifact directories, use [docs/benchmarking.md](./docs/benchmarking.md).
 
 ## CLI
 
@@ -306,8 +148,8 @@ Recommended focused benchmark entrypoints:
 
 Benchmark commands and output locations are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md).
-The latest local benchmark snapshot is tracked in
-[docs/performance-baseline.md](./docs/performance-baseline.md).
+Current performance baseline and caveats are tracked in
+[docs/performance.md](./docs/performance.md).
 
 Checked-in GitHub Actions CI now runs `moon build --target native`,
 `moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
@@ -330,9 +172,9 @@ across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
 `./samples/check.sh --real-world --tags complex` remains available for focused
 reruns.
 
-Detailed validation counts, sample matrices, metadata/assets checks, benchmark
-smoke counts, batch profile results, and MarkItDown comparison runs are tracked
-in [docs/validation-and-benchmark-summary.md](./docs/validation-and-benchmark-summary.md).
+Benchmark operations and performance caveats are tracked in
+[docs/benchmarking.md](./docs/benchmarking.md) and
+[docs/performance.md](./docs/performance.md).
 
 ## Text Cleanup Boundary
 
@@ -354,10 +196,12 @@ Current boundary:
 
 * [Changelog](./CHANGELOG.md)
 * [Documentation Map](./docs/README.md)
+* [Performance](./docs/performance.md)
+* [Roadmap](./docs/roadmap.md)
 * [Benchmarking Guide](./docs/benchmarking.md)
-* [Performance Baseline](./docs/performance-baseline.md)
 * [Support and Limits](./docs/support-and-limits.md)
-* [Benchmark Governance](./docs/benchmark-governance.md)
+* [doc_parse Overview](./doc_parse/README.md)
+* [doc_parse Foundation](./docs/doc-parse-foundation.md)
 * [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)

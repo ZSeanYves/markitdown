@@ -19,6 +19,21 @@ Stable candidate API:
 * `classify_json_error`
 * `json_value_kind`
 
+Current public API:
+
+* `parse_json_document`
+* `profile_json_document`
+* `inspect_json_document`
+* `classify_json_error`
+* `json_value_kind`
+
+Benchmark-oriented helper surface:
+
+* `profile_json_document` exists for internal hotspot attribution and
+  benchmark tooling
+* it is not part of the main stable candidate API contract
+* it does not change the JSON AST or `convert/json` behavior
+
 Minimal examples:
 
 ```moonbit

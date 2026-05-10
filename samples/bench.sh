@@ -30,9 +30,8 @@ Examples:
 
 Notes:
   * samples/bench.sh is the public benchmark entrypoint.
-  * samples/scripts/bench_*.sh remain internal implementation scripts.
-  * samples/bench_doc_parse.sh and samples/bench_product_path.sh remain
-    compatible helper entrypoints for focused work.
+  * suite implementations now live under `samples/helpers/`.
+  * `samples/helpers/bench_*_helper.sh` are internal focused rerun helpers.
 EOF
 }
 
@@ -159,7 +158,7 @@ fi
 
 case "$SUITE" in
   smoke)
-    SCRIPT_PATH="$ROOT/samples/scripts/bench_smoke.sh"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_smoke.sh"
     RESULT_ROOT="$TMP_ROOT/bench/smoke"
     RESULTS_PATH="$RESULT_ROOT/results.jsonl"
     SUMMARY_PATH="$RESULT_ROOT/summary.tsv"
@@ -168,13 +167,13 @@ case "$SUITE" in
     fi
     ;;
   compare)
-    SCRIPT_PATH="$ROOT/samples/scripts/bench_compare_markitdown.sh"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_compare_markitdown.sh"
     RESULT_ROOT="$TMP_ROOT/bench/compare"
     RESULTS_PATH="$RESULT_ROOT/results.jsonl"
     SUMMARY_PATH="$RESULT_ROOT/summary.tsv"
     ;;
   batch-profile)
-    SCRIPT_PATH="$ROOT/samples/scripts/bench_batch_profile.sh"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_batch_profile.sh"
     RESULT_ROOT="$TMP_ROOT/bench/batch_profile"
     RESULTS_PATH="$RESULT_ROOT/results.jsonl"
     SUMMARY_PATH="$RESULT_ROOT/summary.tsv"
@@ -186,7 +185,7 @@ case "$SUITE" in
     ;;
   doc-parse|doc_parse)
     SUITE="doc-parse"
-    SCRIPT_PATH="$ROOT/samples/bench_doc_parse.sh"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_doc_parse_helper.sh"
     kind_value=""
     extract_forward_value "--kind" kind_value
     if [[ -n "$kind_value" && "$kind_value" != "library" ]]; then
@@ -203,7 +202,7 @@ case "$SUITE" in
     ;;
   product-path|product_path)
     SUITE="product-path"
-    SCRIPT_PATH="$ROOT/samples/bench_product_path.sh"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_product_path_helper.sh"
     kind_value=""
     extract_forward_value "--kind" kind_value
     if [[ -n "$kind_value" && "$kind_value" != "stage" ]]; then

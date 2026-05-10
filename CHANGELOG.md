@@ -97,7 +97,7 @@
   converter output behavior.
 * Sync the post-optimization `doc_parse` performance baseline, clarify that
   the remaining major work is now product-path attribution rather than parser
-  hot-path cleanup, and add a planning-only `bench_product_path.sh` skeleton
+  hot-path cleanup, and add a planning-only `bench_product_path_helper.sh` skeleton
   that emits stage/sample plan artifacts without changing runtime behavior.
 * Add a first-pass product-path attribution benchmark with hidden
   benchmark-only CLI entrypoints, a checked manifest for
@@ -348,7 +348,7 @@ This release closes the repository's first full-format H2 milestone.
   * `./samples/check_main_process.sh`
   * `./samples/check_metadata.sh`
   * `./samples/check_assets.sh`
-  * advanced helpers and benchmark tools under `./samples/scripts/`
+  * advanced helpers and benchmark tools under `./samples/helpers/`
 * Validation now prefers a probe-validated native CLI when available and falls
   back to `moon run` only when needed.
 * The PDF lower layer now lives under `doc_parse/pdf`, backed by a

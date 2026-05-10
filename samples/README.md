@@ -9,7 +9,7 @@ families. Each format package keeps its own checked expectations under
 All checked sample inputs and expected outputs are committed to the repository.
 Normal validation and CI do not require running any sample generator step.
 The repository exposes `./samples/check.sh` and `./samples/bench.sh` as the
-public sample entrypoints; everything under `samples/scripts/` is internal
+public sample entrypoints; everything under `samples/helpers/` is internal
 implementation or maintainer-only helper surface.
 
 ## Directory Roles
@@ -20,7 +20,7 @@ implementation or maintainer-only helper surface.
 | `samples/fixtures/` | parser/core/fail-closed fixtures plus lower-layer metadata snapshots | MoonBit tests, contract scripts | fixture inputs and lower-layer snapshots | keep |
 | `samples/benchmark/` | checked-in benchmark corpus | `bench.sh`, internal bench scripts | performance corpus rows | keep |
 | `samples/real_world/` | checked-in complex-scenario corpus that complements `main_process` | `check.sh`, `check.sh --real-world` | Markdown plus optional metadata/assets checks | keep |
-| `samples/scripts/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
+| `samples/helpers/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
 | `docs/quality-comparisons/` | human-readable external comparison records | manual review | narrative comparison docs | keep |
 
 ## Taxonomy
@@ -165,15 +165,15 @@ Interpretation:
 | --- | --- | --- |
 | `samples/check.sh` | public sample-validation entrypoint; default full chain plus focused modes `--markdown-only`, `--metadata-only`, `--assets-only`, `--contracts-only`, `--manifest-only`, and `--real-world` | yes |
 | `samples/bench.sh` | public benchmark entrypoint; suite dispatcher for `--suite smoke`, `--suite compare`, and `--suite batch-profile` | manual |
-| `samples/scripts/check_samples.sh` | internal enrollment-integrity helper used by `check.sh --manifest-only` and the default full chain | yes via `check.sh` |
-| `samples/scripts/check_cli_contract.sh` | internal CLI contract implementation | yes via `check.sh` |
-| `samples/scripts/check_batch_contract.sh` | internal batch contract implementation | yes via `check.sh` |
-| `samples/scripts/check_debug_contract.sh` | internal debug CLI contract implementation | yes via `check.sh` |
-| `samples/scripts/check_corpus_manifest.sh` | internal benchmark manifest helper | yes via `check.sh --manifest-only` |
-| `samples/scripts/check_real_world.sh` | internal real-world corpus helper with `--manifest-only` and `--tags` support | yes via `check.sh` and `check.sh --real-world` |
-| `samples/scripts/bench_*.sh` | internal benchmark suite implementations | yes via `bench.sh` |
-| `samples/scripts/bench_warn.sh` | maintainer-only benchmark warning helper | manual / internal |
-| `samples/scripts/list_sample_inventory.sh` | maintainer-only inventory summary helper | manual / internal |
+| `samples/helpers/check_samples.sh` | internal enrollment-integrity helper used by `check.sh --manifest-only` and the default full chain | yes via `check.sh` |
+| `samples/helpers/check_cli_contract.sh` | internal CLI contract implementation | yes via `check.sh` |
+| `samples/helpers/check_batch_contract.sh` | internal batch contract implementation | yes via `check.sh` |
+| `samples/helpers/check_debug_contract.sh` | internal debug CLI contract implementation | yes via `check.sh` |
+| `samples/helpers/check_corpus_manifest.sh` | internal benchmark manifest helper | yes via `check.sh --manifest-only` |
+| `samples/helpers/check_real_world.sh` | internal real-world corpus helper with `--manifest-only` and `--tags` support | yes via `check.sh` and `check.sh --real-world` |
+| `samples/helpers/bench_*.sh` | internal benchmark suite implementations and rerun helpers | yes via `bench.sh` |
+| `samples/helpers/bench_warn.sh` | maintainer-only benchmark warning helper | manual / internal |
+| `samples/helpers/list_sample_inventory.sh` | maintainer-only inventory summary helper | manual / internal |
 
 ## Validation Commands
 

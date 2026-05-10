@@ -2,22 +2,12 @@
 
 This page is the current benchmark operations guide for the repository.
 
-Recommended public benchmark entrypoint:
+For current measured numbers, layer interpretation, and remaining performance
+work, use [docs/performance.md](./performance.md).
 
-```bash
-./samples/bench.sh
-```
+## Recommended Validation Commands
 
-For current measured numbers, use
-[docs/performance-baseline.md](./performance-baseline.md).
-
-For performance-layer interpretation and ownership boundaries, use
-[docs/doc-parse-performance.md](./doc-parse-performance.md) and
-[docs/performance-roadmap.md](./performance-roadmap.md).
-
-## Validation Before Benchmarking
-
-Recommended verification chain:
+Recommended verification chain before benchmark work:
 
 ```bash
 moon build --target native
@@ -27,6 +17,12 @@ moon test
 ```
 
 ## Recommended Benchmark Commands
+
+Public benchmark entrypoint:
+
+```bash
+./samples/bench.sh
+```
 
 Product smoke:
 
@@ -46,7 +42,7 @@ Same-process product path:
 ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
-Product-path stage/help probes:
+Product-path help and smoke:
 
 ```bash
 ./samples/bench.sh --suite product-path --help
@@ -59,24 +55,25 @@ Batch profile:
 ./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
 ```
 
-Overlap comparison:
+Optional overlap comparison:
 
 ```bash
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
-## Performance Layers
+## Internal Helper Scripts
 
-Keep these layers separate:
+The public recommendation is to go through `./samples/bench.sh`.
 
-* `doc_parse` library path:
-  direct package APIs, no CLI startup, mostly no emit/metadata/assets work
-* same-process product path:
-  staged warm-runner normal conversion path, excluding `startup_probe`
-* cold CLI / process-per-file:
-  includes startup and process launch overhead
+Suite-specific rerun helpers now live under `samples/helpers/`:
 
-Do not mix `startup_probe` into same-process `total`.
+* `./samples/helpers/bench_doc_parse_helper.sh`
+* `./samples/helpers/bench_product_path_helper.sh`
+
+Internal implementation note:
+
+* the direct library harness package now lives at `doc_parse/bench`
+* the default checked manifests now live under `samples/benchmark/manifests/`
 
 ## Output Directories
 
@@ -107,41 +104,19 @@ Typical outputs:
 * doc-parse library:
   `summary.tsv`, `summary.runs.tsv`
 * product path:
-  `summary.tsv`, `summary.runs.tsv`
-* product-path smoke plan:
-  `stage-plan.tsv`, `sample-plan.tsv`
+  `summary.tsv`, `summary.runs.tsv`, `stage-plan.tsv`, `sample-plan.tsv`
 
-Focused profile reruns currently stay under `.tmp/bench/doc_parse/`, for
-example:
-
-* `xlsx_profile.tsv`
-* `docx_profile_after.tsv`
-* `yaml_profile_after.tsv`
-* `text_profile_after_final.tsv`
-* `json_profile_after.tsv`
-* `markdown_profile_after.tsv`
-
-## Focused Helper Scripts
-
-The public recommendation is to go through `./samples/bench.sh`.
-
-These helpers remain compatible for focused work:
-
-* `./samples/bench_doc_parse.sh`
-* `./samples/bench_product_path.sh`
-
-Use them when you need direct stage/profile control without changing the public
-entrypoint contract.
+Focused profile reruns currently stay under `.tmp/bench/doc_parse/`.
 
 ## Caveats
 
 Interpret benchmark output conservatively:
 
-* all numbers are local observations on named checked-in corpora
+* `startup_probe` is tracked separately and should not be mixed into
+  same-process `total`
+* all figures are local observations on named checked-in corpora
 * do not turn one machine's timings into cross-machine guarantees
-* direct `doc_parse` timing and product-path timing answer different questions
+* `doc_parse` library timing and product-path timing answer different questions
 * PDF benchmark scope is native text-PDF by default
 * OCR, scanned-PDF, and fallback paths are excluded unless explicitly called
   out
-* some product-path `parse` vs `convert` splits are still partial for
-  `docx/pptx`

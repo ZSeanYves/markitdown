@@ -116,7 +116,7 @@ Full validation:
 ```
 
 The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
-public validation entrypoints. Helpers under `samples/scripts/` remain
+public validation entrypoints. Helpers under `samples/helpers/` remain
 internal implementation detail or maintainer-only tooling.
 
 Lower-layer package work:
@@ -126,6 +126,8 @@ Lower-layer package work:
   semantics
 * when hardening `doc_parse/*`, prefer direct lower-layer tests over relying
   only on converter Markdown regression
+* use [../doc_parse/README.md](../doc_parse/README.md) for the package map,
+  examples, and lower-layer benchmark location
 * use [docs/doc-parse-foundation.md](./doc-parse-foundation.md) as the package
   maturity contract
 
@@ -158,7 +160,7 @@ Assets regression:
 
 ```bash
 ./samples/check.sh --assets-only
-./samples/scripts/check_debug_contract.sh
+./samples/helpers/check_debug_contract.sh
 ```
 
 Validation runner policy:
@@ -275,20 +277,19 @@ Public product-path attribution benchmark:
 Optional maintainer-only warning helper:
 
 ```bash
-./samples/scripts/bench_warn.sh --suite batch_profile
+./samples/helpers/bench_warn.sh --suite batch_profile
 ```
 
 Historical benchmark governance/planning references:
 
-* [docs/h3-phase-2-benchmark-governance.md](./h3-phase-2-benchmark-governance.md)
-* [docs/benchmark-h3-plan.md](./benchmark-h3-plan.md)
+* [docs/archive/benchmark/](./archive/benchmark/)
 * [samples/benchmark/README.md](../samples/benchmark/README.md)
 * `./samples/check.sh --manifest-only`
 
 Current benchmark entrypoints and artifact layout:
 
 * [docs/benchmarking.md](./benchmarking.md)
-* [docs/performance-baseline.md](./performance-baseline.md)
+* [docs/performance.md](./performance.md)
 
 Notes:
 
@@ -413,7 +414,7 @@ The repository intentionally has a third validation layer beyond package tests:
 
 * `convert/convert/test`: cross-format metadata/provenance invariants
 * `samples/check.sh --manifest-only`: enrollment and manifest integrity
-* `samples/scripts/list_sample_inventory.sh`: maintainer-only sample-family
+* `samples/helpers/list_sample_inventory.sh`: maintainer-only sample-family
   inventory summary
 * `samples/check.sh --markdown-only`: focused checked-Markdown regression
 * `samples/check.sh --metadata-only`: focused metadata sidecar

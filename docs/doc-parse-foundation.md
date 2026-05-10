@@ -3,6 +3,9 @@
 This document is the source of truth for the current in-tree `doc_parse/*`
 foundation line inside `ZSeanYves/markitdown`.
 
+For user-facing package overview, examples, and lower-layer entrypoints, use
+[doc_parse/README.md](../doc_parse/README.md).
+
 Current audit scope for this contract:
 
 * `doc_parse/ooxml`
@@ -39,6 +42,27 @@ Shared contract:
   README explicitly says so
 * introducing a new parser, scanner, or semantic foundation does not
   automatically mean the normal `convert/*` path has switched to it
+
+## API Stability Levels
+
+Use the current `doc_parse/*` surface with four buckets:
+
+* Stable candidate API:
+  the normal package-facing facade for external use; usually `open_*`,
+  `parse_*`, `scan_*`, `read_*`, `list_*`, `inspect_*`, `validate_*`, and
+  `classify_*`
+* Compatibility surface:
+  public model fields and helper-shaped entrypoints that remain exposed because
+  current `convert/*`, CLI, and lower-layer tests still depend on them
+* Diagnostic / profile helpers:
+  profiling, benchmark, dump, and troubleshooting surfaces such as
+  `profile_*`, textual debug dumps, and direct benchmark harness helpers; keep
+  them documented, but do not treat them as the main stable semantic contract
+* Internal exposed surface:
+  lower-level tokenizer, walker, parser, or adapter-shaped surface that is
+  visible today but should not be the recommended external dependency line
+
+Package READMEs own the precise per-package classification details.
 
 ## Current Status Matrix
 
@@ -108,67 +132,25 @@ Shared contract:
 
 See also [docs/package-publishing-strategy.md](./package-publishing-strategy.md).
 
-## Purpose
+## Scope Of This Document
 
-`doc_parse/*` packages are MoonBit parsing substrates.
+This page is architecture-facing. It tracks:
 
-They exist to:
+* the current `doc_parse/*` contract and status matrix
+* `convert/*` vs `doc_parse/*` boundaries
+* candidate-surface and maturity expectations
+* current in-tree packaging strategy and future split direction
 
-* parse source container or document primitives
-* expose structured lower-layer models
-* preserve provenance and source references where available
-* expose inspect/debug-friendly summaries
-* fail closed where the package contract requires it, and otherwise surface
-  structured errors or validation issues on malformed or unsupported input
-* provide stable, reusable public APIs for MoonBit consumers
+Use related source-of-truth pages for adjacent concerns:
 
-They do not exist to be thin aliases over `convert/*`.
-
-Converters are important consumers, but they are not the design center of the
-lower-layer packages.
-
-## What Users Can Build
-
-These foundations are intended to be useful outside the checked-in converter
-normal paths.
-
-Typical consumers can build:
-
-* document/package inspectors
-* malformed-reference auditors
-* ZIP / OOXML / EPUB inventory tools
-* XLSX workbook and cell analyzers
-* DOCX paragraph / table / media extractors
-* PPTX slide / shape / hyperlink inventories
-* HTML / XML safety scanners
-* Markdown frontmatter / fence scanners
-* custom converters into a private IR or indexing pipeline
-
-## Responsibilities
-
-`doc_parse/*` packages are responsible for:
-
-* opening and validating source containers/documents
-* exposing package/document/page/part/spine/object inventories
-* exposing source-native relationships, refs, and lower-layer metadata
-* exposing raw or conservative structural signal for higher consumers
-* surfacing structured errors instead of silently corrupting output
-* exposing inspect/debug summaries that do not depend on Markdown conversion
-
-## Non-goals
-
-`doc_parse/*` packages do not own:
-
-* Markdown rendering
-* unified IR shaping
-* metadata sidecar policy
-* final heading/list/table/caption semantics
-* PDF heading/noise/merge/table/caption final policy
-* DOCX/PPTX/XLSX final semantic conversion behavior
-* EPUB final Markdown aggregation policy beyond lower-layer package/spine/nav
-  signal
-* OCR
-* browser/Word/PowerPoint/PDF/reading-system layout-engine behavior
+* [doc_parse/README.md](../doc_parse/README.md)
+  user-facing overview, package map, and examples
+* [package-publishing-strategy.md](./package-publishing-strategy.md)
+  module-split and release-policy details
+* [performance.md](./performance.md)
+  current performance interpretation and baseline
+* [benchmarking.md](./benchmarking.md)
+  benchmark commands, helper status, and artifact layout
 
 ## Maturity Standard
 
@@ -626,28 +608,11 @@ Current role:
 * simple-format, markup-parser, and lightweight scanner foundations now live
   in `doc_parse/*` and are consumed by `convert/*` where already integrated
 
-Current packages:
+Current repository strategy:
 
-* `doc_parse/csv`: comma-delimited table parser/model/inspect/validation
-* `doc_parse/tsv`: tab-delimited facade over the CSV parser core
-* `doc_parse/json`: JSON parser/AST/inspect
-* `doc_parse/yaml`: current YAML-subset parser/AST/inspect
-* `doc_parse/text`: plain-text structure/paragraph/inspect model
-* `doc_parse/xml`: XML tokenizer/parser/model/inspect/validation candidate
-* `doc_parse/html`: tolerant DOM-ish tokenizer/parser/raw node inventory/
-  inspect/validation candidate
-* `doc_parse/markdown`: lightweight source scanner/raw block inventory/
-  inspect/validation candidate
-* `doc_parse/xlsx`: SpreadsheetML semantic foundation candidate above
-  `doc_parse/ooxml`
-* `doc_parse/docx`: WordprocessingML semantic foundation candidate above
-  `doc_parse/ooxml`
-
-Current boundary:
-
-* these packages own parser/model/error/inspect logic, and the Markdown line
-  specifically owns scanning/inventory rather than rendering
-* package-local README files now document public API, current boundaries, known
+* these packages own parser/model/error/inspect logic, with Markdown staying a
+  scanner/inventory line rather than a renderer
+* package-local README files document public API, current boundaries, known
   limits, and relationship to `convert/*`
 * `convert/csv`, `convert/json`, `convert/yaml`, and `convert/txt` still own
   IR shaping, Markdown output policy, metadata wiring, and product-facing
@@ -655,54 +620,15 @@ Current boundary:
 * `convert/xlsx` now consumes `doc_parse/xlsx` for workbook/sheet/cell
   semantic parsing while still owning RichTable / IR / Markdown / wording /
   product metadata policy
-* `doc_parse/docx` now provides a source-native WordprocessingML semantic
-  package, but `convert/docx` still owns the current normal DOCX conversion
-  path and the normal converter path is not switched
-* `convert/xml` still owns source-preserving fenced-XML product semantics even
-  though `doc_parse/xml` now provides the tokenizer/parser/model foundation;
-  the normal XML converter path is not switched
-* `doc_parse/html` now provides a tolerant DOM-ish parser/model/inspect/
-  validation candidate surface, but `convert/html` still owns the current HTML
-  parser + IR/Markdown/product policy path and the normal HTML converter path
-  is not switched
-* `doc_parse/markdown` now provides a lightweight source scanner/model/inspect
-  candidate surface, but `convert/markdown` still owns passthrough product
-  policy and the normal Markdown converter path is not switched
-
-Current maturity:
-
-* `doc_parse/csv`: simple-format parser foundation candidate with parse
-  options, inspect, validation, and classifier-friendly error metadata
-* `doc_parse/tsv`: simple-format parser foundation candidate as a thin
-  tab-delimited facade over the CSV parser core
-* `doc_parse/json`: simple-format parser foundation candidate with JSON
-  normalization, AST, inspect, and malformed-input classification
-* `doc_parse/yaml`: YAML-subset parser foundation candidate with explicit
-  unsupported-feature boundaries and inspect reporting
-* `doc_parse/text`: plain-text parser foundation candidate with byte-open,
-  newline-style detection, paragraph structure, and inspect reporting
-* `doc_parse/xml`: XML parser foundation candidate with safe tokenizer /
-  parser / inspect / validation boundaries and explicit no-XXE / no-DTD-
-  expansion behavior
-* `doc_parse/html`: HTML DOM-ish parser foundation candidate with tokenizer /
-  tolerant parser / raw node model / inspect / validation / no-fetch safety
-  boundary
-* `doc_parse/markdown`: Markdown lightweight scanner foundation candidate with
-  raw block inventory, frontmatter and fenced-code detection, inspect /
-  validation, and a no-renderer boundary
-* `doc_parse/xlsx`: semantic foundation candidate with workbook/sheet/cell
-  semantic model, inspect, validation, and conservative formula trace signal
-* `doc_parse/docx`: semantic foundation candidate with body/inline/table/
-  relationship/style/numbering/notes/media semantic model and lower-layer
-  tests, while final product policy remains in `convert/docx`
-
-Known limits:
-
-* JSON/YAML/CSV/TXT decoding compatibility and file-I/O seams may still be
-  partially staged in `convert/*` while parser/model ownership is moved inward
-* these candidate labels are lower-layer parser-foundation labels only; they
-  are not claims of full format-family spec coverage or final product
-  conversion ownership
+* `doc_parse/docx` and `doc_parse/pptx` provide source-native semantic
+  packages, but `convert/docx` and `convert/pptx` still own the current normal
+  converter paths
+* `convert/xml`, `convert/html`, and `convert/markdown` still own their current
+  normal product paths even though lower-layer parser/scanner candidates now
+  exist under `doc_parse/*`
+* these candidate labels are lower-layer foundation labels only; they are not
+  claims of full format-family spec coverage or final product conversion
+  ownership
 
 ### `doc_parse/html`
 
