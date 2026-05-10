@@ -7,87 +7,35 @@
 /// Keeping these as explicit subcommands improves explainability for acceptance:
 /// users can map behavior differences to command intent without reading internals.
 async fn main {
+  let startup_profile_started = now_us()
   let args = @sys.get_cli_args()
-
-  let parser = @clap.Parser::new(
-    prog="markitdown-mb",
-    description="Convert documents to Markdown",
-    subcmds={
-      "normal": @clap.SubCommand::new(
-        help="Normal conversion: normal [--with-metadata] <input> [output]",
-        args={
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.txt/.xml/.json/.zip/.epub)",
-          ),
-        },
-      ),
-      "ocr": @clap.SubCommand::new(
-        help="OCR conversion for scanned/image PDFs: ocr [--with-metadata] <input> [output]",
-        args={
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input file (.pdf preferred)",
-          ),
-        },
-      ),
-      "batch": @clap.SubCommand::new(
-        help="Batch conversion: batch [--with-metadata] <input_dir> <output_dir>",
-        args={
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json inside each document output root",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input directory (non-recursive file scan)",
-          ),
-        },
-      ),
-      "debug": @clap.SubCommand::new(
-        help="Debug inspect: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
-        args={
-          "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
-          "with-ir": @clap.Arg::flag(
-            help="Include IR block previews in unified debug inspect",
-          ),
-          "with-metadata-summary": @clap.Arg::flag(
-            help="Include block/asset origin summary in unified debug inspect",
-          ),
-          "with-normalization": @clap.Arg::flag(
-            help="Include normalization summary when available",
-          ),
-          "with-metadata": @clap.Arg::flag(
-            help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Unified debug inspect input, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
-          ),
-        },
-      ),
-    },
-  )
-
-  let help_msg = parser.gen_help_message(["markitdown-mb"], {})
-
+  let args_available_us = elapsed_us_since(startup_profile_started)
   let cli_args : Array[String] = normalize_cli_args(args)
+  let cli_args_ready_us = elapsed_us_since(startup_profile_started)
+
   if cli_args.length() == 0 {
-    println(help_msg)
+    print_cli_help()
     print_cli_usage()
     return
   }
 
-  if maybe_run_hidden_bench_command(cli_args) {
+  if maybe_run_hidden_bench_command(
+      cli_args,
+      startup_profile_started,
+      args.length(),
+      args_available_us,
+      cli_args_ready_us,
+    ) {
     return
   }
+
+  let parser = new_cli_parser()
 
   let value = @clap.SimpleValue::new("markitdown-mb")
   let subcmd_help = parser.parse(value, cli_args[:]) catch {
     e => {
       println(e)
-      println(help_msg)
+      print_cli_help()
       print_cli_usage()
       return
     }
@@ -263,11 +211,81 @@ async fn main {
           }
         }
         None => {
-          println(help_msg)
+          print_cli_help()
           print_cli_usage()
         }
       }
   }
+}
+
+///|
+fn new_cli_parser() -> @clap.Parser {
+  @clap.Parser::new(
+    prog="markitdown-mb",
+    description="Convert documents to Markdown",
+    subcmds={
+      "normal": @clap.SubCommand::new(
+        help="Normal conversion: normal [--with-metadata] <input> [output]",
+        args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json next to markdown output",
+          ),
+          "input": @clap.Arg::positional(
+            help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.txt/.xml/.json/.zip/.epub)",
+          ),
+        },
+      ),
+      "ocr": @clap.SubCommand::new(
+        help="OCR conversion for scanned/image PDFs: ocr [--with-metadata] <input> [output]",
+        args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json next to markdown output",
+          ),
+          "input": @clap.Arg::positional(
+            help="Path to input file (.pdf preferred)",
+          ),
+        },
+      ),
+      "batch": @clap.SubCommand::new(
+        help="Batch conversion: batch [--with-metadata] <input_dir> <output_dir>",
+        args={
+          "with-metadata": @clap.Arg::flag(
+            help="Also write <name>.metadata.json inside each document output root",
+          ),
+          "input": @clap.Arg::positional(
+            help="Path to input directory (non-recursive file scan)",
+          ),
+        },
+      ),
+      "debug": @clap.SubCommand::new(
+        help="Debug inspect: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
+        args={
+          "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
+          "with-ir": @clap.Arg::flag(
+            help="Include IR block previews in unified debug inspect",
+          ),
+          "with-metadata-summary": @clap.Arg::flag(
+            help="Include block/asset origin summary in unified debug inspect",
+          ),
+          "with-normalization": @clap.Arg::flag(
+            help="Include normalization summary when available",
+          ),
+          "with-metadata": @clap.Arg::flag(
+            help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
+          ),
+          "input": @clap.Arg::positional(
+            help="Unified debug inspect input, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
+          ),
+        },
+      ),
+    },
+  )
+}
+
+///|
+fn print_cli_help() -> Unit {
+  let parser = new_cli_parser()
+  println(parser.gen_help_message(["markitdown-mb"], {}))
 }
 
 ///|

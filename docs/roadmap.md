@@ -13,9 +13,12 @@ This page is the current roadmap source of truth for the repository.
   `xlsx / docx / pptx`
 * performance:
   library and same-process product first-pass corpus have no obvious `>10ms`
-  rows
+  rows, and cold-start attribution now shows main-internal CLI work is
+  sub-millisecond while process/runtime cost dominates the remaining
+  process-per-file path
 * benchmark:
-  unified entrypoint through `./samples/bench.sh`
+  unified entrypoint through `./samples/bench.sh`, including the focused
+  cold-start CLI suite with external vs main-internal startup attribution
 
 ## Near-term Release Work
 
@@ -45,9 +48,13 @@ This page is the current roadmap source of truth for the repository.
 ### 4. Performance follow-ups
 
 * PDF direct library attribution
-* startup / batch amortization
+* batch / embedded / warm-runner startup amortization guidance
+* release packaging or runtime-level cold-start follow-up if process-per-file
+  usage remains a priority
 * heavier rich-format corpora
 * optional regression guard
+* no longer prioritize source-level cold CLI micro-optimization for the
+  current checked `noop`/`--help`/minimal-TXT path
 
 ## Later Work
 

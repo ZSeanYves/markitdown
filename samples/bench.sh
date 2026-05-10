@@ -16,6 +16,7 @@ Public suites:
   smoke         checked-in same-machine smoke benchmark
   compare       overlap-only comparison against Microsoft MarkItDown
   batch-profile batch-vs-normal profiling harness
+  cold-start    focused cold CLI startup benchmark
   doc-parse     direct doc_parse library benchmark wrapper
   product-path  same-process product-path attribution benchmark wrapper
 
@@ -24,6 +25,7 @@ Examples:
   ./samples/bench.sh --suite smoke --kind smoke
   ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
   ./samples/bench.sh --suite batch-profile --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
+  ./samples/bench.sh --suite cold-start --kind cli --iterations 50 --warmup 5
   ./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
   ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
   ./samples/bench.sh --suite product-path --smoke
@@ -114,7 +116,7 @@ while [[ $# -gt 0 ]]; do
       SUITE="$2"
       shift 2
       ;;
-    smoke|compare|batch-profile|doc-parse|doc_parse|product-path|product_path)
+    smoke|compare|batch-profile|cold-start|cold_start|doc-parse|doc_parse|product-path|product_path)
       if [[ -z "$SUITE" ]]; then
         SUITE="$1"
       else
@@ -181,6 +183,27 @@ case "$SUITE" in
       "$RESULT_ROOT/startup-summary.tsv"
       "$RESULT_ROOT/comparison-summary.tsv"
       "$RESULT_ROOT/file_results.tsv"
+    )
+    ;;
+  cold-start|cold_start)
+    SUITE="cold-start"
+    SCRIPT_PATH="$ROOT/samples/helpers/bench_cold_start_helper.sh"
+    kind_value=""
+    extract_forward_value "--kind" kind_value
+    if [[ -n "$kind_value" && "$kind_value" != "cli" ]]; then
+      echo "cold-start suite only supports --kind cli" >&2
+      exit 1
+    fi
+    RESULT_ROOT="$(forward_value "--output-dir")"
+    if [[ -z "$RESULT_ROOT" ]]; then
+      RESULT_ROOT="$TMP_ROOT/bench/cold_start"
+    fi
+    SUMMARY_PATH="$RESULT_ROOT/summary.tsv"
+    RESULTS_PATH="$RESULT_ROOT/summary.runs.tsv"
+    RESULTS_LABEL="raw_runs_tsv"
+    EXTRA_PATHS=(
+      "$RESULT_ROOT/startup_profile.runs.tsv"
+      "$RESULT_ROOT/startup_profile.summary.tsv"
     )
     ;;
   doc-parse|doc_parse)

@@ -93,8 +93,10 @@ For overview, architecture contract, and split strategy, use:
 Current repository performance conclusions are scoped to checked-in corpora and
 explicit runner paths. The direct `doc_parse` library benchmark and the
 same-process product-path benchmark currently show no obvious `>10 ms` rows in
-the checked first-pass corpus, while cold CLI startup is tracked separately and
-must not be mixed into same-process totals.
+the checked first-pass corpus, while cold CLI startup/front-end is tracked
+separately and must not be mixed into same-process totals. Recent local
+cold-start observations place the checked `noop`, `--help`, and one minimal
+TXT conversion path in roughly the `8-10 ms` band.
 
 These figures are local observations, not cross-machine guarantees. For the
 current baseline numbers, attribution coverage, and remaining follow-up work,
@@ -132,7 +134,8 @@ H3++ performance conclusions.
 Recommended repository verification:
 
 ```bash
-moon build --target native
+moon fmt
+moon info
 moon check
 moon test
 ./samples/check.sh
@@ -144,6 +147,7 @@ Recommended focused benchmark entrypoints:
 ```bash
 ./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+./samples/bench.sh --suite cold-start --kind cli --iterations 50 --warmup 5
 ```
 
 Benchmark commands and output locations are tracked in

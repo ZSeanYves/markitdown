@@ -13,6 +13,13 @@ priv struct HiddenBenchProductPathOptions {
 }
 
 ///|
+priv struct HiddenBenchStartupProfileOptions {
+  branch : String
+  input : String
+  output : String
+}
+
+///|
 priv struct HiddenBenchStageRow {
   stage : String
   elapsed_us : Int
@@ -32,7 +39,13 @@ priv struct HiddenBenchParseResult {
 }
 
 ///|
-async fn maybe_run_hidden_bench_command(args : Array[String]) -> Bool {
+async fn maybe_run_hidden_bench_command(
+  args : Array[String],
+  startup_profile_started : Int64,
+  raw_arg_count : Int,
+  args_available_us : Int,
+  cli_args_ready_us : Int,
+) -> Bool {
   if args.length() == 0 {
     return false
   }
@@ -42,13 +55,36 @@ async fn maybe_run_hidden_bench_command(args : Array[String]) -> Bool {
     return true
   }
 
-  if command != "_bench-product-path" {
-    return false
-  }
-
   let forwarded : Array[String] = []
   for i in 1..<args.length() {
     forwarded.push(args[i])
+  }
+
+  if command == "_bench-startup-profile" {
+    let opts = parse_hidden_bench_startup_profile_args(forwarded) catch {
+      e => {
+        exit_error("bench-startup-profile: " + hidden_bench_error_message(e))
+        @sys.exit(2)
+        return true
+      }
+    }
+
+    let rows = run_hidden_bench_startup_profile(
+      opts, startup_profile_started, raw_arg_count, args_available_us, cli_args_ready_us,
+    ) catch {
+      e => {
+        exit_error("bench-startup-profile: " + hidden_bench_error_message(e))
+        @sys.exit(1)
+        return true
+      }
+    }
+
+    print_hidden_bench_product_path_rows(rows)
+    return true
+  }
+
+  if command != "_bench-product-path" {
+    return false
   }
 
   let opts = parse_hidden_bench_product_path_args(forwarded) catch {
@@ -69,6 +105,53 @@ async fn maybe_run_hidden_bench_command(args : Array[String]) -> Bool {
 
   print_hidden_bench_product_path_rows(rows)
   true
+}
+
+///|
+fn parse_hidden_bench_startup_profile_args(
+  args : Array[String],
+) -> HiddenBenchStartupProfileOptions raise HiddenBenchError {
+  if args.length() == 0 {
+    raise Failed("missing branch; expected noop, help, or normal_txt_small")
+  }
+
+  let branch = args[0].trim().to_owned()
+  if branch == "noop" || branch == "help" {
+    if args.length() != 1 {
+      raise Failed(branch + " does not accept extra arguments")
+    }
+    return { branch, input: "", output: "" }
+  }
+
+  if branch != "normal_txt_small" {
+    raise Failed("unknown startup-profile branch: " + branch)
+  }
+
+  let mut input = ""
+  let mut output = ""
+  let mut i = 1
+  while i < args.length() {
+    let arg = args[i].trim().to_owned()
+    if arg == "--input" {
+      i = hidden_bench_require_value(args, i, arg)
+      input = args[i].trim().to_owned()
+    } else if arg == "--output" {
+      i = hidden_bench_require_value(args, i, arg)
+      output = args[i].trim().to_owned()
+    } else {
+      raise Failed("unknown argument: " + arg)
+    }
+    i += 1
+  }
+
+  if input == "" {
+    raise Failed("normal_txt_small requires --input")
+  }
+  if output == "" {
+    raise Failed("normal_txt_small requires --output")
+  }
+
+  { branch, input, output }
 }
 
 ///|
@@ -137,6 +220,167 @@ fn hidden_bench_parse_positive_int(
     raise Failed(flag + " must be > 0")
   }
   parsed
+}
+
+///|
+async fn run_hidden_bench_startup_profile(
+  opts : HiddenBenchStartupProfileOptions,
+  startup_profile_started : Int64,
+  raw_arg_count : Int,
+  args_available_us : Int,
+  cli_args_ready_us : Int,
+) -> Array[HiddenBenchStageRow] raise HiddenBenchError {
+  let rows : Array[HiddenBenchStageRow] = [
+    { stage: "entered_main", elapsed_us: 0, notes: "branch=" + opts.branch },
+    {
+      stage: "args_available",
+      elapsed_us: args_available_us,
+      notes: "raw_arg_count=" + raw_arg_count.to_string(),
+    },
+    {
+      stage: "cli_args_normalized",
+      elapsed_us: cli_args_ready_us,
+      notes: "normalized_arg_count=" +
+      hidden_bench_startup_profile_arg_count(opts).to_string(),
+    },
+    {
+      stage: "command_classified",
+      elapsed_us: elapsed_us_since(startup_profile_started),
+      notes: "hidden_command=_bench-startup-profile branch=" + opts.branch,
+    },
+  ]
+
+  match opts.branch {
+    "noop" => {
+      let return_ready_us = elapsed_us_since(startup_profile_started)
+      rows.push({
+        stage: "noop_return_ready",
+        elapsed_us: return_ready_us,
+        notes: "parser_built=false output_emission=excluded",
+      })
+      rows.push({
+        stage: "before_exit",
+        elapsed_us: return_ready_us,
+        notes: "branch=noop output_emission=excluded",
+      })
+      rows
+    }
+    "help" => {
+      let parser = new_cli_parser()
+      rows.push({
+        stage: "help_parser_ready",
+        elapsed_us: elapsed_us_since(startup_profile_started),
+        notes: "subcommands=4",
+      })
+      let value = @clap.SimpleValue::new("markitdown-mb")
+      let help_msg = parser.parse(value, ["--help"]) catch {
+        e => raise Failed("help parse failed: " + e.to_string())
+      }
+      let rendered = match help_msg {
+        Some(msg) => msg
+        None => raise Failed("help parse returned no help message")
+      }
+      let ready_us = elapsed_us_since(startup_profile_started)
+      rows.push({
+        stage: "help_render_ready",
+        elapsed_us: ready_us,
+        notes: "help_bytes=" + rendered.length().to_string(),
+      })
+      rows.push({
+        stage: "before_exit",
+        elapsed_us: ready_us,
+        notes: "branch=help output_emission=excluded",
+      })
+      rows
+    }
+    "normal_txt_small" => {
+      let parser = new_cli_parser()
+      rows.push({
+        stage: "parser_ready",
+        elapsed_us: elapsed_us_since(startup_profile_started),
+        notes: "branch=normal_txt_small",
+      })
+      let value = @clap.SimpleValue::new("markitdown-mb")
+      let parse_help = parser.parse(value, ["normal", opts.input, opts.output]) catch {
+        e => raise Failed("normal_txt_small parse failed: " + e.to_string())
+      }
+      match parse_help {
+        Some(_) =>
+          raise Failed("normal_txt_small unexpectedly returned a help message")
+        None => ()
+      }
+      let sub = match value.subcmd {
+        Some(sub) => sub
+        None => raise Failed("normal_txt_small expected a normal subcommand")
+      }
+      let positional = sub.positional_args
+      let with_metadata = sub.get_flag("with-metadata").unwrap_or(false)
+      if sub.name != "normal" {
+        raise Failed("normal_txt_small resolved unexpected subcommand")
+      }
+      if positional.length() < 1 || positional.length() > 2 {
+        raise Failed("normal_txt_small resolved unexpected positional count")
+      }
+      let input = positional[0]
+      let output_opt = if positional.length() >= 2 {
+        Some(positional[1])
+      } else {
+        None
+      }
+      rows.push({
+        stage: "minimal_dispatch_ready",
+        elapsed_us: elapsed_us_since(startup_profile_started),
+        notes: "subcommand=normal positional_count=" +
+        positional.length().to_string() +
+        " with_metadata=" +
+        hidden_bench_bool_name(with_metadata),
+      })
+      let convert_result = convert_once(
+        input,
+        output_opt,
+        None,
+        6,
+        None,
+        false,
+        false,
+        false,
+        with_metadata,
+      ) catch {
+        e => raise Failed("normal_txt_small convert raised: " + e.to_string())
+      }
+      match convert_result {
+        Ok(_) => ()
+        Err(msg) => raise Failed("normal_txt_small convert failed: " + msg)
+      }
+      let total_us = elapsed_us_since(startup_profile_started)
+      rows.push({
+        stage: "convert_complete",
+        elapsed_us: total_us,
+        notes: "format=" +
+        detect_input_format(input) +
+        " output_written=true metadata=false",
+      })
+      rows.push({
+        stage: "before_exit",
+        elapsed_us: total_us,
+        notes: "branch=normal_txt_small output_emission=excluded",
+      })
+      rows
+    }
+    _ => raise Failed("unknown startup-profile branch: " + opts.branch)
+  }
+}
+
+///|
+fn hidden_bench_startup_profile_arg_count(
+  opts : HiddenBenchStartupProfileOptions,
+) -> Int {
+  match opts.branch {
+    "noop" => 2
+    "help" => 2
+    "normal_txt_small" => 6
+    _ => 0
+  }
 }
 
 ///|

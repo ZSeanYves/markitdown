@@ -162,6 +162,17 @@
   part of default converter behavior.
 * Mark older roadmap/progress/audit documents as historical where current
   source-of-truth pages already supersede them.
+* Add a focused cold CLI startup benchmark suite, document the split between
+  same-process `startup_probe` and full process-per-file timing, and reduce
+  avoidable `_bench-noop` CLI front-end work without changing conversion
+  output or normal command behavior.
+* Close cold CLI startup attribution with a hidden main-internal startup
+  profile, `cold_start/startup_profile.*` artifacts, and documentation showing
+  that the remaining checked native process-per-file cost is now dominated by
+  process/runtime startup rather than by CLI main-path work.
+* Add explicit cold-start attribution rows for checked `noop`, `--help`, and
+  minimal TXT conversion, while keeping same-process product totals separate
+  from full process-per-file startup.
 
 ## v0.3.4 - Text normalization rollout and release-readiness documentation draft
 

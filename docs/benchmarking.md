@@ -10,7 +10,8 @@ work, use [docs/performance.md](./performance.md).
 Recommended verification chain before benchmark work:
 
 ```bash
-moon build --target native
+moon fmt
+moon info
 moon check
 moon test
 ./samples/check.sh
@@ -42,6 +43,12 @@ Same-process product path:
 ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
+Cold CLI startup:
+
+```bash
+./samples/bench.sh --suite cold-start --kind cli --iterations 50 --warmup 5
+```
+
 Product-path help and smoke:
 
 ```bash
@@ -67,6 +74,7 @@ The public recommendation is to go through `./samples/bench.sh`.
 
 Suite-specific rerun helpers now live under `samples/helpers/`:
 
+* `./samples/helpers/bench_cold_start_helper.sh`
 * `./samples/helpers/bench_doc_parse_helper.sh`
 * `./samples/helpers/bench_product_path_helper.sh`
 
@@ -91,6 +99,8 @@ Current suite roots:
   `.tmp/bench/doc_parse/`
 * product path:
   `.tmp/bench/product_path/`
+* cold start:
+  `.tmp/bench/cold_start/`
 
 Typical outputs:
 
@@ -105,6 +115,9 @@ Typical outputs:
   `summary.tsv`, `summary.runs.tsv`
 * product path:
   `summary.tsv`, `summary.runs.tsv`, `stage-plan.tsv`, `sample-plan.tsv`
+* cold start:
+  `summary.tsv`, `summary.runs.tsv`, `startup_profile.runs.tsv`,
+  `startup_profile.summary.tsv`
 
 Focused profile reruns currently stay under `.tmp/bench/doc_parse/`.
 
@@ -114,6 +127,15 @@ Interpret benchmark output conservatively:
 
 * `startup_probe` is tracked separately and should not be mixed into
   same-process `total`
+* cold-start `summary.tsv` records both external wall-clock timing and hidden
+  main-internal startup timing
+* `estimated_process_runtime_ms` is an attribution estimate:
+  `external_avg_ms - main_internal_avg_ms`
+* `_bench-startup-profile` is a hidden benchmark-only command, not a normal
+  user-facing CLI contract
+* main-internal startup timing is not the whole cold-start process cost
+* current cold-start suite records `noop`, `--help`, and one minimal TXT
+  conversion; `--version` is currently recorded as unsupported
 * all figures are local observations on named checked-in corpora
 * do not turn one machine's timings into cross-machine guarantees
 * `doc_parse` library timing and product-path timing answer different questions

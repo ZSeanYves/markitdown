@@ -5,7 +5,7 @@ This page is the current performance source of truth for the repository.
 For benchmark commands and artifact layout, use
 [docs/benchmarking.md](./benchmarking.md).
 
-## Overview
+## Performance Layers
 
 Current performance reporting uses three separate layers:
 
@@ -29,33 +29,80 @@ Current performance reporting uses three separate layers:
 * includes process startup
 * `startup_probe` is tracked separately
 * batch / embedded mode amortizes it
+* focused cold-start CLI cases are benchmarked separately from same-process
+  product totals
+* the cold-start suite records both external wall-clock timing and a hidden
+  main-internal startup profile
 
-## Current Baseline
+## Latest Local Baseline
 
 Current checked first-pass corpus shows no obvious `>10ms` rows in `doc_parse`
 library path or same-process product path.
 
 ### `doc_parse` library path
 
-* `yaml_large / parse`: `5.879 ms`
-* `docx_link_heavy / parse`: `4.984 ms`
-* `json_large / parse`: `2.815 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.690 ms`
-* `markdown_large / scan`: `2.176 ms`
-* `txt_large / parse`: `1.852 ms`
+* `yaml_large / parse`: `5.945 ms`
+* `docx_link_heavy / parse`: `5.029 ms`
+* `json_large / parse`: `2.797 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `2.650 ms`
+* `csv_large / parse`: `2.331 ms`
+* `markdown_large / scan`: `2.187 ms`
+* `txt_large / parse`: `1.841 ms`
 
 ### same-process product path
 
-* `startup_probe`: `9.085 ms`
-* `txt_large total`: `5.727 ms`
-* `docx_image_alt_title_basic total`: `3.637 ms`
-* `pptx_image_alt_title_basic total`: `2.038 ms`
-* `pdf_metadata_uri_link total`: `1.061 ms`
-* `html_figure_figcaption_basic total`: `1.050 ms`
-* `xlsx_metadata_formula_or_merged_policy total`: `1.023 ms`
+* `startup_probe`: `8.815 ms`
+* `txt_large total`: `5.761 ms`
+* `docx_image_alt_title_basic total`: `3.990 ms`
+* `pptx_image_alt_title_basic total`: `2.547 ms`
+* `html_figure_figcaption_basic total`: `1.605 ms`
+* `pdf_metadata_uri_link total`: `1.105 ms`
+* `xlsx_metadata_formula_or_merged_policy total`: `1.029 ms`
+
+### cold CLI / process-per-file
+
+* debug `noop`: external `8.894 ms avg`, `8.812 ms p50`, `9.324 ms p95`;
+  main-internal `0.028 ms avg`; estimated process/runtime `8.866 ms`
+* debug `--help`: external `8.800 ms avg`, `8.775 ms p50`, `9.111 ms p95`;
+  main-internal `0.058 ms avg`; estimated process/runtime `8.742 ms`
+* debug minimal TXT conversion: external `9.311 ms avg`, `9.359 ms p50`,
+  `9.664 ms p95`; main-internal `0.267 ms avg`; estimated process/runtime
+  `9.044 ms`
+* release `noop`: external `9.029 ms avg`, `9.014 ms p50`, `9.415 ms p95`;
+  main-internal `0.018 ms avg`; estimated process/runtime `9.011 ms`
+* release `--help`: external `8.696 ms avg`, `8.697 ms p50`, `8.828 ms p95`;
+  main-internal `0.039 ms avg`; estimated process/runtime `8.657 ms`
+* release minimal TXT conversion: external `9.209 ms avg`, `9.212 ms p50`,
+  `9.616 ms p95`; main-internal `0.234 ms avg`; estimated process/runtime
+  `8.974 ms`
+* `--version` is currently not a supported CLI contract, so the cold-start
+  suite records it as an explicit skip rather than a timed row
 
 Figures are local observations, not cross-machine guarantees.
 Cold CLI startup is tracked separately.
+
+## Cold CLI Startup Attribution Closure
+
+Current local cold-start observations place `noop`, `--help`, and one minimal
+TXT conversion in the same `~8.7-9.3 ms` external band, which means fixed
+startup/front-end cost dominates over parser/converter work in the
+process-per-file path.
+
+Hidden main-internal startup profiling currently shows:
+
+* `noop_return_ready`: about `0.018-0.028 ms`
+* `help_render_ready`: about `0.039-0.058 ms`
+* `minimal_dispatch_ready`: about `0.042 ms` release / `0.064 ms` debug
+* full minimal TXT branch completion: about `0.234-0.267 ms`
+
+That leaves roughly `8.7-9.0 ms` in estimated process/runtime cost for the
+checked native CLI runs. The current attribution closure conclusion is:
+
+* source-level main-path startup work now has limited remaining headroom
+* same-process product-path totals still exclude `startup_probe`
+* future cold-start improvement should focus on batch mode, embedded usage,
+  warm runners, release packaging, or runtime-level work rather than parser
+  semantics
 
 ## Attribution Coverage
 
@@ -63,10 +110,14 @@ Cold CLI startup is tracked separately.
   `text/csv/tsv/json/yaml/xml/html/markdown/zip/ooxml/epub/xlsx/docx/pptx`
 * product path:
   `txt/json/yaml/csv/xlsx/html/docx/pptx/pdf`
+* cold-start path:
+  debug/release `noop`, `--help`, and one minimal TXT conversion, with hidden
+  main-internal startup profiling recorded separately
 * PDF direct library attribution is still deferred
 * PDF caveat:
-  native text-PDF only; OCR/scanned excluded; fallback path not exercised by
-  the default corpus
+  native text-PDF product attribution only; direct async `doc_parse/pdf`
+  library attribution deferred; OCR/scanned/fallback excluded by the default
+  checked corpus
 
 ## Completed Optimization Passes
 
@@ -77,13 +128,16 @@ Cold CLI startup is tracked separately.
 * TXT product-path normalized fast path / cleanup skip / emitter tail fast path
 * rich-format product attribution
 * PDF native text-PDF product attribution
+* cold CLI startup attribution closure
 
 ## Remaining Performance Work
 
 * `doc_parse/pdf` direct async library attribution
 * PDF fallback/scanned/OCR attribution
-* cold-start / process-per-file strategy
-* batch amortization reporting
+* batch / embedded startup amortization reporting
+* embedded or warm-runner strategy for startup-sensitive usage
+* release packaging or runtime-level cold-start work if process-per-file usage
+  becomes a higher priority
 * heavier `docx/pptx/pdf` samples
 * optional perf regression guard
 * TXT literal wrap if large TXT becomes priority
