@@ -186,15 +186,15 @@ Current intentional gap:
 
 Slowest `open/parse/scan` rows in the current full harness snapshot:
 
-* `yaml_large / parse`: `5.943 ms`
-* `docx_link_heavy / parse`: `5.214 ms`
-* `json_large / parse`: `2.854 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.661 ms`
-* `csv_large / parse`: `2.324 ms`
-* `markdown_large / scan`: `2.165 ms`
-* `tsv_large / parse`: `2.061 ms`
-* `txt_large / parse`: `2.010 ms`
-* `docx_small / parse`: `1.965 ms`
+* `yaml_large / parse`: `6.851 ms`
+* `docx_link_heavy / parse`: `6.040 ms`
+* `json_large / parse`: `3.247 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.163 ms`
+* `csv_large / parse`: `2.738 ms`
+* `docx_small / parse`: `2.541 ms`
+* `markdown_large / scan`: `2.475 ms`
+* `tsv_large / parse`: `2.460 ms`
+* `txt_large / parse`: `2.247 ms`
 
 Slowest `inspect` rows:
 
@@ -217,6 +217,33 @@ Small-case rows above `10 ms` in the library harness:
 Rows above `10 ms` anywhere in the current library harness:
 
 * none
+
+Interpretation:
+
+* the current `doc_parse` library layer no longer has an obvious `>10 ms`
+  parse/open/scan hotspot on the checked local corpus
+* `inspect` and `validate` remain secondary costs, not primary performance
+  bottlenecks
+* future performance work should shift from package-local parse cleanup toward
+  repository product-path attribution unless a new library regression appears
+
+## Completed Optimization Passes
+
+Completed checked library-path passes so far:
+
+* XLSX formula context reuse
+* DOCX body/text-box/inline scan cleanup
+* YAML line preprocessing cleanup
+* text single-pass line/paragraph scan
+* JSON direct char buffer plus plain-string fast path
+* Markdown line-view metadata reuse
+
+These passes all preserved:
+
+* converter output behavior
+* validation and classifier signals
+* format support boundaries
+* current `doc_parse` vs `convert` ownership
 
 ## Focused XLSX Formula-heavy Follow-up
 
@@ -267,14 +294,28 @@ These profile rows are attribution aids only:
 After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
 `./samples/bench_doc_parse.sh` slowest rows are now:
 
-* `yaml_large / parse`: `5.943 ms`
-* `docx_link_heavy / parse`: `5.214 ms`
-* `json_large / parse`: `2.854 ms`
-* `xlsx_formula_heavy_missing_cache / parse`: `2.661 ms`
-* `csv_large / parse`: `2.324 ms`
-* `markdown_large / scan`: `2.165 ms`
-* `tsv_large / parse`: `2.061 ms`
-* `txt_large / parse`: `2.010 ms`
+* `yaml_large / parse`: `6.851 ms`
+* `docx_link_heavy / parse`: `6.040 ms`
+* `json_large / parse`: `3.247 ms`
+* `xlsx_formula_heavy_missing_cache / parse`: `3.163 ms`
+* `csv_large / parse`: `2.738 ms`
+* `docx_small / parse`: `2.541 ms`
+* `markdown_large / scan`: `2.475 ms`
+* `tsv_large / parse`: `2.460 ms`
+* `txt_large / parse`: `2.247 ms`
+
+## Remaining Library Hotspots
+
+The current remaining library queue is now comparatively narrow:
+
+* YAML sequence/mapping allocation and nested subset-node build work
+* DOCX `body_scan`
+* JSON tree build after cheaper char preparation
+* CSV/TSV large parse only if they rise in a future full-harness snapshot
+* PDF still deferred from the direct library harness
+
+This means the next optimization phase should prefer product-path attribution
+over more parser-only cleanup unless new evidence re-promotes a library row.
 
 ## Focused Lightweight Large-input Follow-up
 
@@ -455,6 +496,23 @@ This baseline still cannot yet tell us directly:
   end-to-end CLI row
 * full-library coverage for every package, especially `pdf`
 * cross-machine release SLOs from one checked local snapshot
+
+## Next Step
+
+The next measurement step is product-path attribution:
+
+* CLI startup / process overhead
+* file read / local I/O
+* dispatch / format selection
+* parse/open/scan
+* convert lowering
+* Markdown emission
+* metadata sidecar work
+* asset scan/export work
+* total
+
+This round adds only the planning skeleton for that work. It does not yet
+claim a stage-split product benchmark result.
 
 ## Current Decision
 

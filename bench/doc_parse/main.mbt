@@ -381,7 +381,7 @@ fn bench_text_profile_rows(
   package_name : String,
   bytes : Int,
   raw : String,
-) -> Unit raise BenchError {
+) -> Unit {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
   let stage_notes : Map[String, String] = Map::new()
@@ -1146,7 +1146,7 @@ fn bench_markdown_profile_rows(
   package_name : String,
   bytes : Int,
   raw : String,
-) -> Unit raise BenchError {
+) -> Unit {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
   let stage_notes : Map[String, String] = Map::new()

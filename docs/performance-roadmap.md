@@ -84,7 +84,7 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms -> 5.943 ms`
+  `yaml_large / parse / 6.953 ms -> 6.851 ms`
   owner confirmed: line preparation plus repeated short mapping/scalar trim
   and copy work on a large sequence-of-mappings sample
   remaining breakdown on the checked sample:
@@ -96,13 +96,13 @@ Current highest-priority library rows:
   more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms -> 2.010 ms`
+  `txt_large / parse / 3.966 ms -> 2.247 ms`
   owner confirmed: repeated newline normalization, line splitting, and
   paragraph reconstruction before the single-pass cleanup
   next action: keep on watch only; it is no longer a lead hotspot
 
 * `doc_parse/json`
-  `json_large / parse / 3.605 ms -> 2.854 ms`
+  `json_large / parse / 3.605 ms -> 3.247 ms`
   owner confirmed: normalized char preparation plus plain-string hot-path
   allocation
   remaining breakdown on the checked sample:
@@ -111,7 +111,7 @@ Current highest-priority library rows:
   object/array allocation churn more deeply
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.130 ms -> 2.165 ms`
+  `markdown_large / scan / 3.130 ms -> 2.475 ms`
   owner confirmed: repeated trim/left-trim/block classification on the same
   raw lines before line-view precomputation
   remaining breakdown on the checked sample:
@@ -122,7 +122,7 @@ Current highest-priority library rows:
 Recent focused follow-up results:
 
 * `doc_parse/xlsx`
-  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 2.983 ms`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.163 ms`
   owner confirmed: SpreadsheetML formula-heavy parse path, specifically
   repeated per-formula sheet-context rebuild before the current fix
   remaining breakdown on the checked sample:
@@ -132,7 +132,7 @@ Recent focused follow-up results:
   priority to YAML first
 
 * `doc_parse/docx`
-  `docx_link_heavy / parse / 8.735 ms -> 4.985 ms`
+  `docx_link_heavy / parse / 8.735 ms -> 6.040 ms`
   owner confirmed: repeated body-level XML cleanup/traversal and no-op
   text-box scanning on a link-heavy sample without text boxes, not
   relationship lookup
@@ -146,9 +146,9 @@ Recent focused follow-up results:
 * `doc_parse/text/json/markdown`
   focused lightweight large-input follow-up is now complete
   current checked large rows:
-  `txt_large / parse / 2.010 ms`,
-  `json_large / parse / 2.854 ms`,
-  `markdown_large / scan / 2.165 ms`
+  `txt_large / parse / 2.247 ms`,
+  `json_large / parse / 3.247 ms`,
+  `markdown_large / scan / 2.475 ms`
   next action: no immediate second pass unless a future baseline regression or
   new evidence re-promotes one of these rows into the top queue
 
@@ -171,6 +171,20 @@ Lower-priority library observations:
   Markdown or text, so the next lightweight follow-up should be chosen from
   fresh evidence rather than from the old pre-optimization ordering
 
+## Completed Optimization Passes
+
+Completed parser/scanner cleanup passes:
+
+* XLSX formula-heavy parse: per-sheet formula context reuse
+* DOCX link-heavy parse: body/text-box/inline scan cleanup
+* YAML large parse: line preprocessing cleanup
+* text large parse: single-pass newline/line/paragraph scan
+* JSON large parse: direct normalized char buffer plus plain-string fast path
+* Markdown large scan: line-view metadata reuse
+
+These are complete enough that the roadmap should now bias toward
+product-path attribution, not more package-local churn by default.
+
 ## CLI/Product-Path Interpretation
 
 Current CLI smoke and batch-profile numbers still matter because they include:
@@ -186,6 +200,63 @@ That means:
 * the library harness is the better owner-attribution tool for parser work
 * PDF and output-heavy HTML/EPUB/ZIP rows still need repo-level measurement in
   addition to package-local timing
+
+## Product-path Attribution Plan
+
+The next benchmark addition should measure the repository normal path in
+stages, not just as a total.
+
+Planned stages:
+
+* `startup_probe`
+* `file_read`
+* `dispatch`
+* `parse`
+* `convert`
+* `emit`
+* `metadata`
+* `assets`
+* `total`
+
+Planned ownership split:
+
+* `startup_probe`, `file_read`, `dispatch`: CLI / product-path harness
+* `parse`: `doc_parse` where integrated, current converter-local parse where
+  the normal path has intentionally not switched
+* `convert`: product lowering into IR or converter-local product blocks
+* `emit`: Markdown/string emission
+* `metadata`: sidecar construction only
+* `assets`: asset scan/export/copy only
+
+Planned first format set:
+
+* `txt`
+* `json`
+* `yaml`
+* `csv`
+* `xlsx`
+* `html`
+* `docx`
+* `pptx`
+
+Planned output schema:
+
+* `format`
+* `sample`
+* `stage`
+* `iterations`
+* `avg_ms`
+* `p50_ms`
+* `p95_ms`
+* `bytes`
+* `notes`
+
+Current low-risk implementation state:
+
+* `samples/bench_product_path.sh --smoke` now emits planning artifacts only
+* it writes a stage plan and sample plan based on the checked benchmark corpus
+* it does not yet instrument the converter, alter `samples/bench.sh`, or
+  change runtime behavior
 
 ## Optimization Stages
 

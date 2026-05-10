@@ -95,6 +95,10 @@
   `3.4 ms -> 2.2 ms` (`markdown_large`) by removing repeated scans and
   duplicate trim/classification work, without changing parsing semantics or
   converter output behavior.
+* Sync the post-optimization `doc_parse` performance baseline, clarify that
+  the remaining major work is now product-path attribution rather than parser
+  hot-path cleanup, and add a planning-only `bench_product_path.sh` skeleton
+  that emits stage/sample plan artifacts without changing runtime behavior.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

@@ -118,6 +118,13 @@ Current interpretation rule:
 * they are not, by themselves, proof that a specific `doc_parse` package is
   solely responsible for a row's cost
 
+Current checked state after the focused parser rounds:
+
+* no direct `doc_parse` library row is currently above `10 ms`
+* `inspect` and `validate` are not the active bottlenecks
+* the next performance problem to solve is stage attribution on the
+  repository product path, not another blind parser rewrite
+
 ## Library Harness
 
 The direct `doc_parse/*` harness is intentionally separate from
@@ -176,6 +183,8 @@ Interpretation caveats:
   or latency promises
 * text/json/markdown profile rows are stage-attribution aids, not
   release-facing stable API or latency promises
+* these profile helpers exist for benchmark attribution only and are not the
+  main stable candidate API surface of their packages
 
 ## Current Baseline Commands
 
@@ -304,6 +313,45 @@ Current interpretation:
   stops re-trimming and re-classifying the same raw lines
 * these profile modes exist only for hotspot attribution; they do not widen
   format support or change converter ownership boundaries
+
+## Product-path Attribution Next Step
+
+The next performance phase should measure the repository product path
+explicitly.
+
+Planned stage model:
+
+* `startup_probe`
+* `file_read`
+* `dispatch`
+* `parse`
+* `convert`
+* `emit`
+* `metadata`
+* `assets`
+* `total`
+
+Planned first format set:
+
+* `txt`
+* `json`
+* `yaml`
+* `csv`
+* `xlsx`
+* `html`
+* `docx`
+* `pptx`
+
+Current planning-only helper:
+
+```bash
+./samples/bench_product_path.sh --help
+./samples/bench_product_path.sh --smoke
+```
+
+This helper currently emits stage and sample planning artifacts only. It does
+not run the product benchmark yet and is intentionally not wired into
+`./samples/bench.sh` until the real stage instrumentation exists.
 
 ## Library vs CLI Guidance
 
