@@ -20,6 +20,8 @@ pub fn parse_pptx(
   } else {
     None
   }
+  pptx_convert_profile_set_active(profile)
+  defer pptx_convert_profile_set_active(None)
 
   let open_started = @env.now()
   let p = open_pptx(input_path) catch {
@@ -36,7 +38,7 @@ pub fn parse_pptx(
   let slides = list_slide_entries_in_presentation_order(p)
   pptx_convert_profile_add_stage(
     profile,
-    "pptx_slide_list",
+    "pptx_presentation_rels",
     @env.now() - slide_list_started,
     Some("slides=" + slides.length().to_string()),
   )
@@ -102,33 +104,14 @@ pub fn parse_pptx(
       ),
     )
 
-    let image_export_started = @env.now()
     let images = export_slide_images(p, rel_ctx, xml, out_dir, idx, image_idx)
-    pptx_convert_profile_add_stage(
-      profile,
-      "pptx_image_export",
-      @env.now() - image_export_started,
-      Some(
-        "slide=" + idx.to_string() + " images=" + images.length().to_string(),
-      ),
-    )
-
-    let paragraph_started = @env.now()
     let paras = extract_slide_paragraphs(xml, rel_ctx.hyperlinks)
-    pptx_convert_profile_add_stage(
-      profile,
-      "pptx_shape_collect",
-      @env.now() - paragraph_started,
-      Some(
-        "slide=" + idx.to_string() + " paragraphs=" + paras.length().to_string(),
-      ),
-    )
 
     let table_started = @env.now()
     let tables = collect_explicit_table_frames(xml, rel_ctx.hyperlinks)
     pptx_convert_profile_add_stage(
       profile,
-      "pptx_table_collect",
+      "pptx_table_extract",
       @env.now() - table_started,
       Some(
         "slide=" + idx.to_string() + " tables=" + tables.length().to_string(),
@@ -159,7 +142,7 @@ pub fn parse_pptx(
     )
     pptx_convert_profile_add_stage(
       profile,
-      "pptx_grouping_classification",
+      "pptx_classification",
       @env.now() - classify_started,
       Some(
         "slide=" + idx.to_string() + " blocks=" + blocks.length().to_string(),
@@ -179,6 +162,9 @@ pub fn parse_pptx(
         note_paras.length().to_string(),
       ),
     )
+
+    let final_block_build_started = @env.now()
+    let mut asset_origin_attach_elapsed_ms : UInt64 = 0
 
     for i in 0..<images.length() {
       let img = images[i]
@@ -222,6 +208,7 @@ pub fn parse_pptx(
           key_path: None,
         }),
       )
+      let asset_origin_started = @env.now()
       @cor.set_asset_origin(doc, img._path, {
         source_name: Some(src),
         page: None,
@@ -238,6 +225,8 @@ pub fn parse_pptx(
         column_index: None,
         key_path: None,
       })
+      asset_origin_attach_elapsed_ms = asset_origin_attach_elapsed_ms +
+        (@env.now() - asset_origin_started)
     }
 
     if blocks.length() == 0 &&
@@ -471,7 +460,19 @@ pub fn parse_pptx(
           }),
         )
 
+        let note_classify_started = @env.now()
         let note_blocks = classify_slide_paragraphs(note_paras)
+        pptx_convert_profile_add_stage(
+          profile,
+          "pptx_classification",
+          @env.now() - note_classify_started,
+          Some(
+            "slide=" +
+            idx.to_string() +
+            " note_blocks=" +
+            note_blocks.length().to_string(),
+          ),
+        )
         for block in note_blocks {
           match block {
             PptxBlock::Heading(text, inlines, object_ref, relationship_id) => {
@@ -581,6 +582,36 @@ pub fn parse_pptx(
         }
       }
     }
+
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_final_block_build",
+      @env.now() - final_block_build_started - asset_origin_attach_elapsed_ms,
+      Some(
+        "slide=" +
+        idx.to_string() +
+        " blocks=" +
+        blocks.length().to_string() +
+        " tables=" +
+        tables.length().to_string() +
+        " images=" +
+        images.length().to_string() +
+        " note_paragraphs=" +
+        note_paras.length().to_string(),
+      ),
+    )
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_asset_origin_attach",
+      asset_origin_attach_elapsed_ms,
+      Some(
+        "slide=" +
+        idx.to_string() +
+        " images=" +
+        images.length().to_string() +
+        " asset_origin_metadata=true",
+      ),
+    )
 
     @cor.push_with_origin(
       doc,

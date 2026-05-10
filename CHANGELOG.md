@@ -122,6 +122,14 @@
   `docx_inline_scan`, `docx_final_block_build`, and `docx_appended_sections`
   rows while keeping the remaining paragraph-policy / final-IR seam explicitly
   marked as a partial split and leaving DOCX output unchanged.
+* Refine PPTX product-path attribution further so the benchmark now exposes
+  staged `pptx_presentation_rels`, `pptx_slide_relationships`,
+  `pptx_shape_collect`, `pptx_text_extract`, `pptx_table_extract`,
+  `pptx_reading_order`, `pptx_grouping`, `pptx_classification`,
+  `pptx_image_inventory`, `pptx_image_export`, `pptx_asset_origin_attach`,
+  `pptx_notes_parse`, and `pptx_final_block_build` rows while keeping the
+  remaining slide-loop document-build / policy seam explicitly marked as a
+  partial split and leaving PPTX output unchanged.
 * Optimize the TXT product path without changing output semantics by removing
   redundant shared cleanup and normalized-text copying on large clean inputs,
   refining TXT benchmark attribution into parse/literal-wrap/emit-write

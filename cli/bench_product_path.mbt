@@ -1118,18 +1118,20 @@ fn hidden_bench_profiled_pptx_parse(
   }
 
   let parse_us = hidden_bench_stage_map_us(stage_us, "pptx_package_open") +
-    hidden_bench_stage_map_us(stage_us, "pptx_slide_list") +
+    hidden_bench_stage_map_us(stage_us, "pptx_presentation_rels") +
     hidden_bench_stage_map_us(stage_us, "pptx_slide_parse") +
     hidden_bench_stage_map_us(stage_us, "pptx_slide_relationships") +
     hidden_bench_stage_map_us(stage_us, "pptx_shape_collect") +
-    hidden_bench_stage_map_us(stage_us, "pptx_table_collect") +
+    hidden_bench_stage_map_us(stage_us, "pptx_text_extract") +
+    hidden_bench_stage_map_us(stage_us, "pptx_table_extract") +
     hidden_bench_stage_map_us(stage_us, "pptx_notes_parse")
-  let convert_us = hidden_bench_stage_map_us(
-      stage_us, "pptx_grouping_classification",
-    ) +
+  let convert_us = hidden_bench_stage_map_us(stage_us, "pptx_reading_order") +
+    hidden_bench_stage_map_us(stage_us, "pptx_classification") +
     hidden_bench_stage_map_us(stage_us, "pptx_caption_pairing") +
-    hidden_bench_stage_map_us(stage_us, "pptx_document_build")
-  let assets_us = hidden_bench_stage_map_us(stage_us, "pptx_image_export")
+    hidden_bench_stage_map_us(stage_us, "pptx_final_block_build")
+  let assets_us = hidden_bench_stage_map_us(stage_us, "pptx_image_inventory") +
+    hidden_bench_stage_map_us(stage_us, "pptx_image_export") +
+    hidden_bench_stage_map_us(stage_us, "pptx_asset_origin_attach")
 
   let extra_rows : Array[HiddenBenchStageRow] = [
     {
@@ -1138,23 +1140,51 @@ fn hidden_bench_profiled_pptx_parse(
       notes: "split=true",
     },
     {
+      stage: "pptx_presentation_rels",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_presentation_rels"),
+      notes: "split=true includes_slide_order_and_hidden_flags=true",
+    },
+    {
       stage: "pptx_slide_parse",
-      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_slide_parse") +
-      hidden_bench_stage_map_us(stage_us, "pptx_slide_relationships"),
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_slide_parse"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_slide_relationships",
+      elapsed_us: hidden_bench_stage_map_us(
+        stage_us, "pptx_slide_relationships",
+      ),
       notes: "split=true",
     },
     {
       stage: "pptx_shape_collect",
-      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_shape_collect") +
-      hidden_bench_stage_map_us(stage_us, "pptx_table_collect"),
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_shape_collect"),
       notes: "split=true",
     },
     {
-      stage: "pptx_grouping",
-      elapsed_us: hidden_bench_stage_map_us(
-        stage_us, "pptx_grouping_classification",
-      ),
+      stage: "pptx_text_extract",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_text_extract"),
       notes: "split=true",
+    },
+    {
+      stage: "pptx_table_extract",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_table_extract"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_reading_order",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_reading_order"),
+      notes: "split=true includes_layout_recovery=true",
+    },
+    {
+      stage: "pptx_grouping",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_grouping"),
+      notes: "split=true subset_of=pptx_reading_order",
+    },
+    {
+      stage: "pptx_classification",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_classification"),
+      notes: "split=true includes_notes_block_classification=true",
     },
     {
       stage: "pptx_caption_pairing",
@@ -1162,14 +1192,31 @@ fn hidden_bench_profiled_pptx_parse(
       notes: "split=true",
     },
     {
+      stage: "pptx_image_inventory",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_image_inventory"),
+      notes: "split=true asset_discovery_only=true",
+    },
+    {
       stage: "pptx_image_export",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_image_export"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_asset_origin_attach",
+      elapsed_us: hidden_bench_stage_map_us(
+        stage_us, "pptx_asset_origin_attach",
+      ),
       notes: "split=true",
     },
     {
       stage: "pptx_notes_parse",
       elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_notes_parse"),
       notes: "split=true",
+    },
+    {
+      stage: "pptx_final_block_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_final_block_build"),
+      notes: "split=true includes_speaker_notes_section=true",
     },
   ]
 
@@ -1178,14 +1225,14 @@ fn hidden_bench_profiled_pptx_parse(
     parse_elapsed_us: parse_us,
     parse_notes: "format=pptx blocks=" +
     doc.blocks.val.length().to_string() +
-    " parse_kind=converter_profiled_partial_split " +
+    " parse_kind=converter_profiled_partial_split text_and_table_extract_split=true " +
     summary_notes,
     convert_elapsed_us: convert_us,
-    convert_notes: "split_from_profile=true lowering=grouping_caption_pairing_and_document_build reading_order_embedded_in_shape_collect=true",
+    convert_notes: "split_from_profile=true lowering=reading_order_grouping_classification_caption_and_document_build grouping_subset_of_reading_order=true split_blocked_by=document_build_and_policy_still_share_current_slide_loop",
     assets_elapsed_us: assets_us,
     assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
     summary_notes +
-    " asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map asset_export_boundary=export_slide_images",
+    " asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map asset_export_boundary=export_slide_images asset_metadata_attach_boundary=set_asset_origin",
     extra_rows,
   }
 }

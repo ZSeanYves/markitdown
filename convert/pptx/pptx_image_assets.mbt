@@ -45,26 +45,79 @@ fn export_slide_images(
     }
   }
 
+  let inventory_started = @env.now()
   let image_targets = rels_image_target_map(rel_ctx.rels)
   if image_targets.length() == 0 {
+    pptx_convert_profile_add_active_stage(
+      "pptx_image_inventory",
+      @env.now() - inventory_started,
+      Some("targets=0 picture_shapes=0 rids=0"),
+    )
     return []
   }
 
   let picture_shapes = collect_slide_picture_shape_metas(slide_xml)
   if picture_shapes.length() > 0 {
-    return export_picture_shape_images(
+    pptx_convert_profile_add_active_stage(
+      "pptx_image_inventory",
+      @env.now() - inventory_started,
+      Some(
+        "targets=" +
+        image_targets.length().to_string() +
+        " picture_shapes=" +
+        picture_shapes.length().to_string() +
+        " mode=picture_shapes",
+      ),
+    )
+  }
+  if picture_shapes.length() > 0 {
+    let export_started = @env.now()
+    let exported = export_picture_shape_images(
       p, out_dir, slide_no, next_idx, image_targets, picture_shapes,
     )
+    pptx_convert_profile_add_active_stage(
+      "pptx_image_export",
+      @env.now() - export_started,
+      Some("exported=" + exported.length().to_string() + " mode=picture_shapes"),
+    )
+    return exported
   }
 
   let rids = collect_slide_image_rids(slide_xml)
   if rids.length() == 0 {
+    pptx_convert_profile_add_active_stage(
+      "pptx_image_inventory",
+      @env.now() - inventory_started,
+      Some(
+        "targets=" +
+        image_targets.length().to_string() +
+        " picture_shapes=0 rids=0 mode=fallback",
+      ),
+    )
     return []
   }
+  pptx_convert_profile_add_active_stage(
+    "pptx_image_inventory",
+    @env.now() - inventory_started,
+    Some(
+      "targets=" +
+      image_targets.length().to_string() +
+      " picture_shapes=0 rids=" +
+      rids.length().to_string() +
+      " mode=fallback",
+    ),
+  )
 
-  export_fallback_slide_images(
+  let export_started = @env.now()
+  let exported = export_fallback_slide_images(
     p, out_dir, slide_no, next_idx, image_targets, rids,
   )
+  pptx_convert_profile_add_active_stage(
+    "pptx_image_export",
+    @env.now() - export_started,
+    Some("exported=" + exported.length().to_string() + " mode=fallback"),
+  )
+  exported
 }
 
 ///|

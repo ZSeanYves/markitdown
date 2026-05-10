@@ -201,16 +201,17 @@ Current combined reasons:
   paragraph policy and IR block shape are still only partially extracted from
   `scan_paragraph`
 * `pptx`:
-  slide parse, grouping/classification, notes, and image export are now
-  staged, but final converter ownership still spans multiple shared seams
+  package open, presentation rels, slide parse, shape/text/table extract,
+  reading order, grouping, classification, caption pairing, notes parse, and
+  image inventory/export are now staged, but final converter ownership still
+  spans the current slide-loop document build and policy seam
 
 Current assets interpretation:
 
 * `html/docx/pptx` now report asset counts plus discovery/export boundaries in
   the `assets` notes
-* the measured `assets` row is now non-zero on the checked `docx/pptx`
-  product-path samples, while the tiny checked `html` sample still rounds to
-  `0 ms`
+* the measured `assets` row is now non-zero on the checked
+  `html/docx/pptx` product-path samples
 * other current first-batch formats report `skipped=assets_disabled`
 
 ### TXT Product-path Interpretation
@@ -480,25 +481,26 @@ Current implementation notes:
   exposes benchmark-only `docx_final_block_build` rows extracted from
   `body_scan`, but paragraph policy and final IR block shape still remain
   partially combined upstream, while `pptx` now exposes a staged
-  grouping/caption/document-build slice
+  reading-order/grouping/classification/caption/document-build slice
 * `assets` now records measured discovery/export attribution for
   `html/docx/pptx` rather than only embedded notes
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `8.951 ms` avg
+* `startup_probe`: `9.025 ms` avg
 * slowest total rows:
-  * `txt_large`: `5.738 ms`
-  * `docx_image_alt_title_basic`: `3.343 ms`
-  * `pptx_image_alt_title_basic`: `1.994 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.024 ms`
+  * `txt_large`: `5.755 ms`
+  * `docx_image_alt_title_basic`: `3.432 ms`
+  * `pptx_image_alt_title_basic`: `2.029 ms`
+  * `html_figure_figcaption_basic`: `1.091 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `0.992 ms`
 * slowest stage rows:
-  * `txt_large / parse`: `2.200 ms`
-  * `txt_large / convert`: `2.100 ms`
-  * `docx_image_alt_title_basic / docx_body_scan`: `1.300 ms`
+  * `txt_large / convert`: `2.600 ms`
+  * `txt_large / parse`: `2.100 ms`
   * `docx_image_alt_title_basic / parse`: `1.300 ms`
-  * `txt_large / emit`: `0.995 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.745 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
+  * `txt_large / emit`: `1.013 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.693 ms`
 
 Interpretation:
 
@@ -510,6 +512,11 @@ Interpretation:
   `txt/json/yaml/csv/xlsx/html`
 * the current refinement now also gives `docx` explicit body-scan, asset,
   and partial final-block-build attribution without changing behavior
+* the current refinement now also gives `pptx` explicit
+  `pptx_presentation_rels`, `pptx_text_extract`, `pptx_reading_order`,
+  `pptx_grouping`, `pptx_classification`, `pptx_image_inventory`, and
+  `pptx_final_block_build` rows; on the tiny checked sample, several of those
+  stages currently round to `0 ms`
 * the next refinement should keep `html` stable while pushing `docx/pptx`
   further from partial attribution toward cleaner final converter ownership
   without changing behavior

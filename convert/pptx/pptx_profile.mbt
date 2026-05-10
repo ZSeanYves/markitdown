@@ -10,6 +10,11 @@ fn pptx_profile_enabled() -> Bool {
 }
 
 ///|
+let active_pptx_convert_profile_report : Ref[PptxConvertProfileReport?] = {
+  val: None,
+}
+
+///|
 priv struct PptxConvertProfileStage {
   name : String
   elapsed_ms : UInt64
@@ -50,6 +55,25 @@ fn pptx_convert_profile_add_stage(
   detail : String?,
 ) -> Unit {
   pptx_convert_profile_push_stage(report, name, elapsed_ms, detail)
+}
+
+///|
+fn pptx_convert_profile_set_active(report : PptxConvertProfileReport?) -> Unit {
+  active_pptx_convert_profile_report.val = report
+}
+
+///|
+fn pptx_convert_profile_add_active_stage(
+  name : String,
+  elapsed_ms : UInt64,
+  detail : String?,
+) -> Unit {
+  pptx_convert_profile_push_stage(
+    active_pptx_convert_profile_report.val,
+    name,
+    elapsed_ms,
+    detail,
+  )
 }
 
 ///|

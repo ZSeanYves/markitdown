@@ -84,7 +84,7 @@ Track each hotspot by:
 Current highest-priority library rows:
 
 * `doc_parse/yaml`
-  `yaml_large / parse / 6.953 ms -> 8.253 ms`
+  `yaml_large / parse / 6.953 ms -> 5.974 ms`
   owner confirmed: line preparation plus repeated short mapping/scalar trim
   and copy work on a large sequence-of-mappings sample
   remaining breakdown on the checked sample:
@@ -96,13 +96,13 @@ Current highest-priority library rows:
   more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms -> 2.769 ms`
+  `txt_large / parse / 3.966 ms -> 1.856 ms`
   owner confirmed: repeated newline normalization, line splitting, and
   paragraph reconstruction before the single-pass cleanup
   next action: keep on watch only; it is no longer a lead hotspot
 
 * `doc_parse/json`
-  `json_large / parse / 3.605 ms -> 3.501 ms`
+  `json_large / parse / 3.605 ms -> 2.736 ms`
   owner confirmed: normalized char preparation plus plain-string hot-path
   allocation
   remaining breakdown on the checked sample:
@@ -111,7 +111,7 @@ Current highest-priority library rows:
   object/array allocation churn more deeply
 
 * `doc_parse/markdown`
-  `markdown_large / scan / 3.130 ms -> 2.686 ms`
+  `markdown_large / scan / 3.130 ms -> 2.155 ms`
   owner confirmed: repeated trim/left-trim/block classification on the same
   raw lines before line-view precomputation
   remaining breakdown on the checked sample:
@@ -122,7 +122,7 @@ Current highest-priority library rows:
 Recent focused follow-up results:
 
 * `doc_parse/xlsx`
-  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 3.476 ms`
+  `xlsx_formula_heavy_missing_cache / parse / 14.367 ms -> 2.687 ms`
   owner confirmed: SpreadsheetML formula-heavy parse path, specifically
   repeated per-formula sheet-context rebuild before the current fix
   remaining breakdown on the checked sample:
@@ -132,7 +132,7 @@ Recent focused follow-up results:
   priority to YAML first
 
 * `doc_parse/docx`
-  `docx_link_heavy / parse / 8.735 ms -> 7.350 ms`
+  `docx_link_heavy / parse / 8.735 ms -> 5.098 ms`
   owner confirmed: repeated body-level XML cleanup/traversal and no-op
   text-box scanning on a link-heavy sample without text boxes, not
   relationship lookup
@@ -146,9 +146,9 @@ Recent focused follow-up results:
 * `doc_parse/text/json/markdown`
   focused lightweight large-input follow-up is now complete
   current checked large rows:
-  `txt_large / parse / 2.769 ms`,
-  `json_large / parse / 3.501 ms`,
-  `markdown_large / scan / 2.686 ms`
+  `txt_large / parse / 1.856 ms`,
+  `json_large / parse / 2.736 ms`,
+  `markdown_large / scan / 2.155 ms`
   next action: no immediate second pass unless a future baseline regression or
   new evidence re-promotes one of these rows into the top queue
 
@@ -251,10 +251,10 @@ Implemented current format set:
 
 Focused checked TXT product-path row:
 
-* `txt_large / total / 10.659 ms -> 5.738 ms`
-* `txt_large / parse / 6.400 ms -> 2.200 ms`
-* `txt_large / convert / 2.500 ms -> 2.100 ms`
-* `txt_large / emit / 1.724 ms -> 0.995 ms`
+* `txt_large / total / 10.659 ms -> 5.755 ms`
+* `txt_large / parse / 6.400 ms -> 2.100 ms`
+* `txt_large / convert / 2.500 ms -> 2.600 ms`
+* `txt_large / emit / 1.724 ms -> 1.013 ms`
 
 Interpretation:
 
@@ -309,8 +309,10 @@ Current blockers:
   paragraph policy and IR block shape are still only partially extracted from
   `scan_paragraph`
 * `pptx`:
-  slide parse, grouping/classification, notes, and image export are now
-  staged, but final converter ownership still spans multiple shared seams
+  package open, presentation rels, slide parse, shape/text/table extract,
+  reading order, grouping, classification, caption pairing, notes parse, and
+  image inventory/export are now staged, but final converter ownership still
+  spans the current slide-loop document build and policy seam
 
 Current refined assets notes:
 
@@ -322,7 +324,8 @@ Current refined assets notes:
   `asset_export_boundary=extract_media_by_relationships`
 * `pptx`:
   `asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map`,
-  `asset_export_boundary=export_slide_images`
+  `asset_export_boundary=export_slide_images`,
+  `asset_metadata_attach_boundary=set_asset_origin`
 
 ## Next Product-path Work
 
@@ -354,19 +357,20 @@ Immediate next optimization candidates after attribution is stable:
 
 Current checked observations:
 
-* `startup_probe`: `8.951 ms`
+* `startup_probe`: `9.025 ms`
 * slowest same-process total rows:
-  * `txt_large`: `5.738 ms`
-  * `docx_image_alt_title_basic`: `3.343 ms`
-  * `pptx_image_alt_title_basic`: `1.994 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `1.024 ms`
+  * `txt_large`: `5.755 ms`
+  * `docx_image_alt_title_basic`: `3.432 ms`
+  * `pptx_image_alt_title_basic`: `2.029 ms`
+  * `html_figure_figcaption_basic`: `1.091 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `0.992 ms`
 * slowest measured stage rows:
-  * `txt_large / parse`: `2.200 ms`
-  * `txt_large / convert`: `2.100 ms`
-  * `docx_image_alt_title_basic / docx_body_scan`: `1.300 ms`
+  * `txt_large / convert`: `2.600 ms`
+  * `txt_large / parse`: `2.100 ms`
   * `docx_image_alt_title_basic / parse`: `1.300 ms`
-  * `txt_large / emit`: `0.995 ms`
-  * `pptx_image_alt_title_basic / metadata`: `0.745 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.200 ms`
+  * `txt_large / emit`: `1.013 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.693 ms`
 
 Current interpretation:
 
@@ -379,6 +383,11 @@ Current interpretation:
 * `docx` now already exposes `docx_body_xml_scan`, `docx_paragraph_scan`,
   `docx_table_scan`, `docx_inline_scan`, `docx_final_block_build`, and
   `docx_appended_sections` benchmark rows inside that partial seam
+* `pptx` now already exposes `pptx_presentation_rels`, `pptx_text_extract`,
+  `pptx_reading_order`, `pptx_grouping`, `pptx_classification`,
+  `pptx_image_inventory`, `pptx_asset_origin_attach`, and
+  `pptx_final_block_build` benchmark rows inside that partial seam; on the
+  tiny checked sample, several of them currently round to `0 ms`
 * `assets` attribution is now visible for `html/docx/pptx`, but some current
   discovery/export work still shares converter-local seams
 
