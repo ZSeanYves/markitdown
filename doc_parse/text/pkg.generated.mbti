@@ -10,7 +10,11 @@ pub fn open_text_document(Bytes) -> TextDocument raise
 
 pub fn parse_text_document(String) -> TextDocument
 
+pub fn parse_text_document_from_normalized_text(String) -> TextDocument
+
 pub fn profile_text_document(String) -> TextProfiledDocument
+
+pub fn profile_text_document_from_normalized_text(String) -> TextProfiledDocument
 
 // Errors
 pub(all) suberror TextError {

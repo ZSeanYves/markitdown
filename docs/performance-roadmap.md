@@ -96,7 +96,7 @@ Current highest-priority library rows:
   more surgical second YAML pass
 
 * `doc_parse/text`
-  `txt_large / parse / 3.966 ms -> 2.259 ms`
+  `txt_large / parse / 3.966 ms -> 2.043 ms`
   owner confirmed: repeated newline normalization, line splitting, and
   paragraph reconstruction before the single-pass cleanup
   next action: keep on watch only; it is no longer a lead hotspot
@@ -231,9 +231,9 @@ Planned ownership split:
   otherwise recorded as `combined_in_parse_current_path=true`
 * `emit`: Markdown/string emission plus markdown write
 * `metadata`: sidecar construction plus write
-* `assets`: discovery/export notes where possible, but still recorded as
-  `embedded_in_parse_current_path=true` where current asset export remains
-  converter-local inside the parse path
+* `assets`: discovery/export notes where possible, with measured rows for
+  `html/docx/pptx`; some export work still remains coupled to current
+  converter-local seams
 
 Implemented current format set:
 
@@ -245,6 +245,30 @@ Implemented current format set:
 * `html`
 * `docx`
 * `pptx`
+
+## Current TXT Product-path Follow-up
+
+Focused checked TXT product-path row:
+
+* `txt_large / total / 10.659 ms -> 7.564 ms`
+* `txt_large / parse / 6.400 ms -> 2.700 ms`
+* `txt_large / convert / 2.500 ms -> 3.200 ms`
+* `txt_large / emit / 1.724 ms -> 1.556 ms`
+
+Interpretation:
+
+* the parser-side portion was reduced by skipping redundant shared cleanup on
+  already-clean large text and by avoiding another whole-document string copy
+  in the normalized text parser path
+* the remaining largest TXT-specific cost is now `txt_literal_wrap`
+* `emit` is no longer dominated by markdown-string construction; most of the
+  remaining cost is `txt_emit_write`
+
+Next action:
+
+* do not start another TXT parser pass immediately
+* if TXT returns to the top of the product-path queue, the next low-risk seam
+  to inspect is literal passthrough construction, not source parsing
 
 Planned output schema:
 
@@ -269,22 +293,21 @@ Current split-supported formats:
 * `yaml`
 * `csv`
 * `xlsx`
-
-Current still-combined formats:
-
 * `html`
+
+Current partially split formats with remaining combined seams:
+
 * `docx`
 * `pptx`
 
 Current blockers:
 
-* `html`:
-  DOM scan, block lowering, and local asset export still share one entrypoint
 * `docx`:
-  package/rels/notes/assets/IR scan still share one entrypoint
+  package/rels/notes/assets are now staged, but body scan still returns final
+  IR blocks and appended sections
 * `pptx`:
-  slide parse, final classification, and image export still share one
-  entrypoint
+  slide parse, grouping/classification, notes, and image export are now
+  staged, but final converter ownership still spans multiple shared seams
 
 Current refined assets notes:
 
@@ -302,9 +325,13 @@ Current refined assets notes:
 
 Immediate next attribution targets:
 
-* split `parse` vs `convert` for `html` without changing current output policy
-* separate `asset_discovery` from `asset_export` timing where current export
-  remains embedded in `parse`
+* keep `html` on the current split path and validate that `dom_scan`,
+  `block_lowering`, `asset_discovery`, and `asset_export` stay attributable
+  without changing output policy
+* further refine `docx` until `body_scan` vs final converter lowering is more
+  explicit without changing appended-section behavior
+* further refine `pptx` until grouping/classification/document-build ownership
+  is more explicit without changing reading-order/caption/export behavior
 * keep `startup_probe` separate from same-process `total`
 * expand the manifest carefully only after the current eight-format split is
   stable
@@ -323,19 +350,19 @@ Immediate next optimization candidates after attribution is stable:
 
 Current checked observations:
 
-* `startup_probe`: `12.886 ms`
+* `startup_probe`: `11.260 ms`
 * slowest same-process total rows:
-  * `txt_large`: `15.744 ms`
-  * `docx_image_alt_title_basic`: `4.857 ms`
-  * `pptx_image_alt_title_basic`: `2.916 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `2.489 ms`
+  * `txt_large`: `13.463 ms`
+  * `docx_image_alt_title_basic`: `3.416 ms`
+  * `pptx_image_alt_title_basic`: `2.058 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
 * slowest measured stage rows:
-  * `txt_large / parse`: `9.300 ms`
-  * `txt_large / convert`: `3.600 ms`
-  * `docx_image_alt_title_basic / parse`: `3.666 ms`
-  * `txt_large / emit`: `2.495 ms`
-  * `pptx_image_alt_title_basic / parse`: `1.398 ms`
-  * `pptx_image_alt_title_basic / metadata`: `1.198 ms`
+  * `txt_large / parse`: `7.100 ms`
+  * `txt_large / convert`: `3.500 ms`
+  * `docx_image_alt_title_basic / parse`: `2.200 ms`
+  * `txt_large / emit`: `2.709 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.726 ms`
 
 Current interpretation:
 
@@ -343,16 +370,19 @@ Current interpretation:
 * it does not change normal CLI behavior or `samples/bench.sh`
 * `file_read` is still a standalone probe row
 * `parse` is now cleanly split from `convert` for
-  `txt/json/yaml/csv/xlsx`
-* `html/docx/pptx` still keep intentionally coarse combined seams
-* some `assets` work still remains intentionally coarse because current
-  HTML/DOCX/PPTX export is embedded in the parse path
+  `txt/json/yaml/csv/xlsx/html`
+* `docx/pptx` still keep partial combined seams
+* `assets` attribution is now visible for `html/docx/pptx`, but some current
+  discovery/export work still shares converter-local seams
 
 Next attribution refinement:
 
-* isolate HTML/DOCX/PPTX asset export from the combined parse path
-* expose a safe `parse` vs `convert` split for `html/docx/pptx` where the
-  current converter stack can support it without changing behavior
+* keep HTML on the current split path while refining DOCX/PPTX final converter
+  ownership
+* further separate DOCX body scan from final lowering where the current normal
+  path safely allows it
+* further separate PPTX grouping/classification/document-build ownership where
+  the current normal path safely allows it
 * keep the benchmark-only instrumentation hidden and out of the default CLI UX
 
 ## Optimization Stages

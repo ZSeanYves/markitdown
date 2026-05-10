@@ -14,15 +14,81 @@ pub fn parse_html(
     raise @cor.AppError("html: file not found: " + input_path)
   }
 
+  let profile = if html_profile_enabled() {
+    Some(new_html_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let read_started = @env.now()
   let raw_bs = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("html: read failed: " + e.to_string())
   }
+  html_profile_add_stage(
+    profile,
+    "html_file_read",
+    @env.now() - read_started,
+    Some("bytes=" + raw_bs.length().to_string()),
+  )
+
+  let normalize_started = @env.now()
   let bs = normalize_html_input_bytes(raw_bs)
+  html_profile_add_stage(
+    profile,
+    "html_normalize_bytes",
+    @env.now() - normalize_started,
+    Some("bytes=" + bs.length().to_string()),
+  )
 
   let doc = @cor.new_document()
 
+  html_profile_set_active(profile)
+  defer html_profile_set_active(None)
+
+  let scan_started = @env.now()
   let nodes = scan_html_nodes(bs)
+  html_profile_add_stage(
+    profile,
+    "html_dom_scan",
+    @env.now() - scan_started,
+    Some("nodes=" + nodes.length().to_string()),
+  )
+
+  let lowering_started = @env.now()
   let html_blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
+  let local_asset_count = match profile {
+    Some(rep) => rep.local_asset_count.val.to_string()
+    None => "0"
+  }
+  let remote_asset_count = match profile {
+    Some(rep) => rep.remote_asset_count.val.to_string()
+    None => "0"
+  }
+  let unresolved_local_asset_count = match profile {
+    Some(rep) => rep.unresolved_local_asset_count.val.to_string()
+    None => "0"
+  }
+  let cached_asset_count = match profile {
+    Some(rep) => rep.cached_asset_count.val.to_string()
+    None => "0"
+  }
+  html_profile_add_stage(
+    profile,
+    "html_block_lowering",
+    @env.now() - lowering_started,
+    Some(
+      "blocks=" +
+      html_blocks.blocks.length().to_string() +
+      " local_asset_count=" +
+      local_asset_count +
+      " remote_asset_count=" +
+      remote_asset_count +
+      " unresolved_local_asset_count=" +
+      unresolved_local_asset_count +
+      " cached_asset_count=" +
+      cached_asset_count,
+    ),
+  )
   let blocks = html_blocks.blocks
   let src = @cor.basename(input_path)
   let mut asset_idx = 0
@@ -81,6 +147,44 @@ pub fn parse_html(
     )
   }
 
+  html_profile_add_stage(
+    profile,
+    "html_asset_discovery",
+    match profile {
+      Some(rep) => rep.asset_discovery_elapsed_ms.val
+      None => 0
+    },
+    Some(
+      "local_asset_count=" +
+      local_asset_count +
+      " remote_asset_count=" +
+      remote_asset_count +
+      " unresolved_local_asset_count=" +
+      unresolved_local_asset_count,
+    ),
+  )
+  html_profile_add_stage(
+    profile,
+    "html_asset_export",
+    match profile {
+      Some(rep) => rep.asset_export_elapsed_ms.val
+      None => 0
+    },
+    Some(
+      "local_asset_count=" +
+      local_asset_count +
+      " cached_asset_count=" +
+      cached_asset_count,
+    ),
+  )
+  html_profile_add_stage(
+    profile,
+    "html_document_build",
+    0,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+
+  maybe_write_html_profile_log(profile)
   doc
 }
 

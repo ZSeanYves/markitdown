@@ -108,6 +108,17 @@
   now report separate `parse` vs `convert` timing, while `html/docx/pptx`
   keep explicit combined-path reasons and refined asset-discovery/export
   notes without changing conversion output or parser/converter semantics.
+* Refine rich-format product-path attribution so `html` now reports staged
+  `parse/convert/assets` timing with `html_dom_scan`, `html_block_lowering`,
+  `html_asset_discovery`, and `html_asset_export`, while `docx/pptx` now
+  expose staged package/body/grouping/media rows and keep only the remaining
+  necessary combined seams without changing conversion output, asset naming,
+  or metadata shape.
+* Optimize the TXT product path without changing output semantics by removing
+  redundant shared cleanup and normalized-text copying on large clean inputs,
+  refining TXT benchmark attribution into parse/literal-wrap/emit-write
+  substages, and reducing the checked `txt_large` same-process product total
+  from about `10.7 ms` to about `7.6 ms`.
 * Document compatibility surfaces, non-goals, and candidate boundaries for the
   OOXML, EPUB, and PDF parsing foundations without expanding their functional
   scope.

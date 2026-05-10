@@ -28,6 +28,7 @@ priv struct HiddenBenchParseResult {
   convert_notes : String
   assets_elapsed_us : Int
   assets_notes : String
+  extra_rows : Array[HiddenBenchStageRow]
 }
 
 ///|
@@ -209,17 +210,47 @@ async fn run_hidden_bench_product_path(
 
   let emit_started = now_us()
   let markdown = @cor.emit_markdown(doc)
+  let emit_render_elapsed_us = elapsed_us_since(emit_started)
+  rows.push({
+    stage: "txt_emit_blocks",
+    elapsed_us: if format == "txt" {
+      emit_render_elapsed_us
+    } else {
+      0
+    },
+    notes: if format == "txt" {
+      "split=true includes_markdown_build=true"
+    } else {
+      "split=false format=" + format
+    },
+  })
+
+  let emit_write_started = now_us()
   ensure_dir_tree(dirname_of_path(markdown_path)) catch {
     e => raise Failed("create markdown dir failed: " + e.to_string())
   }
   @fs.write_string_to_file(markdown_path, markdown, encoding="utf8") catch {
     e => raise Failed("write markdown failed: " + e.to_string())
   }
+  let emit_write_elapsed_us = elapsed_us_since(emit_write_started)
   rows.push({
     stage: "emit",
-    elapsed_us: elapsed_us_since(emit_started),
+    elapsed_us: emit_render_elapsed_us + emit_write_elapsed_us,
     notes: "includes_markdown_write=true markdown_bytes=" +
     markdown.length().to_string(),
+  })
+  rows.push({
+    stage: "txt_emit_write",
+    elapsed_us: if format == "txt" {
+      emit_write_elapsed_us
+    } else {
+      0
+    },
+    notes: if format == "txt" {
+      "split=true includes_markdown_write=true"
+    } else {
+      "split=false format=" + format
+    },
   })
 
   if opts.with_metadata {
@@ -265,6 +296,10 @@ async fn run_hidden_bench_product_path(
     notes: parse_result.assets_notes,
   })
 
+  for row in parse_result.extra_rows {
+    rows.push(row)
+  }
+
   rows.push({
     stage: "total",
     elapsed_us: elapsed_us_since(total_started),
@@ -287,6 +322,9 @@ async fn run_hidden_bench_parse_stage(
     "csv" => hidden_bench_split_csv_like_parse(opts, false)
     "tsv" => hidden_bench_split_csv_like_parse(opts, true)
     "xlsx" => hidden_bench_split_xlsx_parse(opts)
+    "html" => hidden_bench_profiled_html_parse(opts)
+    "docx" => hidden_bench_profiled_docx_parse(opts)
+    "pptx" => hidden_bench_profiled_pptx_parse(opts)
     _ => hidden_bench_combined_parse_stage(format, opts, convert_opts)
   }
 }
@@ -343,6 +381,7 @@ async fn hidden_bench_combined_parse_stage(
       opts.with_assets,
       asset_count,
     ),
+    extra_rows: [],
   }
 }
 
@@ -419,6 +458,8 @@ fn hidden_bench_split_txt_parse(
   let parse_us = hidden_bench_txt_stage_us(report, "txt_bytes_to_string") +
     hidden_bench_txt_stage_us(report, "txt_normalize_newlines") +
     hidden_bench_txt_stage_us(report, "txt_split_paragraphs")
+  let literal_wrap_us = hidden_bench_txt_stage_us(report, "txt_literal_wrap")
+  let origin_blocks_us = hidden_bench_txt_stage_us(report, "txt_origin_blocks")
   let convert_us = hidden_bench_txt_stage_us(report, "txt_build_ir")
   let gap_us = hidden_bench_residual_us(
     total_elapsed_us,
@@ -435,9 +476,24 @@ fn hidden_bench_split_txt_parse(
     " profile_gap_us=" +
     gap_us.to_string(),
     convert_elapsed_us: convert_us,
-    convert_notes: "split_from_profile=true lowering=txt_build_ir includes_passthrough_markdown=true includes_origin_blocks=true",
+    convert_notes: "split_from_profile=true lowering=txt_build_ir includes_passthrough_markdown=true includes_origin_blocks=true literal_wrap_us=" +
+    literal_wrap_us.to_string() +
+    " origin_blocks_us=" +
+    origin_blocks_us.to_string(),
     assets_elapsed_us: 0,
     assets_notes: "skipped=assets_disabled",
+    extra_rows: [
+      {
+        stage: "txt_literal_wrap",
+        elapsed_us: literal_wrap_us,
+        notes: "split=true source=txt_build_ir",
+      },
+      {
+        stage: "txt_lowering",
+        elapsed_us: origin_blocks_us,
+        notes: "split=true source=txt_build_ir origins_and_blocks_only=true",
+      },
+    ],
   }
 }
 
@@ -482,6 +538,7 @@ fn hidden_bench_split_json_parse(
     convert_notes: "split_from_profile=true lowering=json_lower_to_ir table_detection_and_nested_stringify_are_internal_substages=true",
     assets_elapsed_us: 0,
     assets_notes: "skipped=assets_disabled",
+    extra_rows: [],
   }
 }
 
@@ -539,6 +596,7 @@ fn hidden_bench_split_yaml_parse(
     convert_notes: "split_from_profile=true lowering=yaml_to_ir note=yaml_parse_model_profile_stage_overlaps_lowering",
     assets_elapsed_us: 0,
     assets_notes: "skipped=assets_disabled",
+    extra_rows: [],
   }
 }
 
@@ -588,6 +646,7 @@ fn hidden_bench_split_csv_like_parse(
     format,
     assets_elapsed_us: 0,
     assets_notes: "skipped=assets_disabled",
+    extra_rows: [],
   }
 }
 
@@ -625,6 +684,7 @@ fn hidden_bench_split_xlsx_parse(
     convert_notes: "split_from_profile=true lowering=ir_lowering source=semantic_workbook_model",
     assets_elapsed_us: 0,
     assets_notes: "skipped=assets_disabled",
+    extra_rows: [],
   }
 }
 
@@ -668,6 +728,7 @@ fn hidden_bench_profile_missing_result(
       opts.with_assets,
       asset_count,
     ),
+    extra_rows: [],
   }
 }
 
@@ -739,6 +800,329 @@ fn hidden_bench_xlsx_stage_us(
     }
   }
   0
+}
+
+///|
+fn hidden_bench_profile_file_stage_map(
+  path : String,
+  prefix : String,
+) -> (Map[String, Int], String) {
+  if !@fs.path_exists(path) {
+    return (Map::new(), "")
+  }
+  let text = @fs.read_file_to_string(path, encoding="utf8") catch {
+    _ => return (Map::new(), "")
+  }
+  let stage_us : Map[String, Int] = Map::new()
+  let mut summary_notes = ""
+  for raw_line in text.split("\n") {
+    let line = raw_line.trim().to_owned()
+    if line == "" {
+      continue
+    }
+    if line.has_prefix(prefix + " summary ") {
+      summary_notes = hidden_bench_profile_summary_notes(line)
+      continue
+    }
+    if !line.has_prefix(prefix + " stage=") {
+      continue
+    }
+    let name = hidden_bench_profile_field_value(line, "stage").unwrap_or("")
+    let elapsed_ms_raw = hidden_bench_profile_field_value(line, "elapsed_ms").unwrap_or(
+      "",
+    )
+    let elapsed_ms = @string.parse_int(elapsed_ms_raw) catch { _ => 0 }
+    if name != "" {
+      stage_us.set(name, elapsed_ms * 1000)
+    }
+  }
+  (stage_us, summary_notes)
+}
+
+///|
+fn hidden_bench_profile_summary_notes(line : String) -> String {
+  let out : Array[String] = []
+  for token in line.split(" ") {
+    let trimmed = token.trim().to_owned()
+    if trimmed == "" ||
+      trimmed == "summary" ||
+      trimmed.has_prefix("stages=") ||
+      trimmed.has_prefix("total_elapsed_ms=") {
+      continue
+    }
+    out.push(trimmed)
+  }
+  out.join(" ")
+}
+
+///|
+fn hidden_bench_profile_field_value(line : String, key : String) -> String? {
+  let prefix = key + "="
+  for token in line.split(" ") {
+    let trimmed = token.trim().to_owned()
+    if trimmed.has_prefix(prefix) {
+      return Some(trimmed[prefix.length():].to_owned())
+    }
+  }
+  None
+}
+
+///|
+fn hidden_bench_stage_map_us(stage_us : Map[String, Int], name : String) -> Int {
+  stage_us.get(name).unwrap_or(0)
+}
+
+///|
+fn hidden_bench_profiled_html_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let profile_path = join_path(opts.output_root, ".html.profile.log")
+  if @fs.path_exists(profile_path) {
+    @fs.remove_file(profile_path) catch {
+      _ => ()
+    }
+  }
+  let started = now_us()
+  let doc = @html.parse_html(opts.input, opts.output_root, opts.max_heading)
+  let total_elapsed_us = elapsed_us_since(started)
+  let (stage_us, summary_notes) = hidden_bench_profile_file_stage_map(
+    profile_path, "html_profile",
+  )
+  if stage_us.length() == 0 {
+    return hidden_bench_profile_missing_result(
+      "html", opts, doc, total_elapsed_us,
+    )
+  }
+
+  let parse_us = hidden_bench_stage_map_us(stage_us, "html_file_read") +
+    hidden_bench_stage_map_us(stage_us, "html_normalize_bytes") +
+    hidden_bench_stage_map_us(stage_us, "html_dom_scan")
+  let convert_us = hidden_bench_stage_map_us(stage_us, "html_block_lowering") +
+    hidden_bench_stage_map_us(stage_us, "html_document_build")
+  let assets_us = hidden_bench_stage_map_us(stage_us, "html_asset_discovery") +
+    hidden_bench_stage_map_us(stage_us, "html_asset_export")
+  let extra_rows : Array[HiddenBenchStageRow] = [
+    {
+      stage: "html_dom_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "html_dom_scan"),
+      notes: "split=true",
+    },
+    {
+      stage: "html_block_lowering",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "html_block_lowering"),
+      notes: "split=true",
+    },
+    {
+      stage: "html_asset_discovery",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "html_asset_discovery"),
+      notes: "split=true " + summary_notes,
+    },
+    {
+      stage: "html_asset_export",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "html_asset_export"),
+      notes: "split=true " + summary_notes,
+    },
+  ]
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=html blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=converter_profiled_dom_split split=true " +
+    summary_notes,
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=html_block_lowering_and_document_build",
+    assets_elapsed_us: assets_us,
+    assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
+    summary_notes +
+    " asset_discovery_boundary=nodes_to_blocks asset_export_boundary=export_local_html_image",
+    extra_rows,
+  }
+}
+
+///|
+fn hidden_bench_profiled_docx_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let profile_path = join_path(opts.output_root, ".docx.profile.log")
+  if @fs.path_exists(profile_path) {
+    @fs.remove_file(profile_path) catch {
+      _ => ()
+    }
+  }
+  let started = now_us()
+  let doc = @docx.parse_docx(opts.input, opts.output_root, opts.max_heading)
+  let total_elapsed_us = elapsed_us_since(started)
+  let (stage_us, summary_notes) = hidden_bench_profile_file_stage_map(
+    profile_path, "docx_convert_profile",
+  )
+  if stage_us.length() == 0 {
+    return hidden_bench_profile_missing_result(
+      "docx", opts, doc, total_elapsed_us,
+    )
+  }
+
+  let parse_us = hidden_bench_stage_map_us(stage_us, "docx_package_open") +
+    hidden_bench_stage_map_us(stage_us, "docx_document_xml") +
+    hidden_bench_stage_map_us(stage_us, "docx_relationships") +
+    hidden_bench_stage_map_us(stage_us, "docx_styles") +
+    hidden_bench_stage_map_us(stage_us, "docx_numbering") +
+    hidden_bench_stage_map_us(stage_us, "docx_notes") +
+    hidden_bench_stage_map_us(stage_us, "docx_headers_footers") +
+    hidden_bench_stage_map_us(stage_us, "docx_text_boxes") +
+    hidden_bench_stage_map_us(stage_us, "docx_body_scan")
+  let convert_us = 0
+  let assets_us = hidden_bench_stage_map_us(stage_us, "docx_asset_map_build") +
+    hidden_bench_stage_map_us(stage_us, "docx_media_export")
+
+  let extra_rows : Array[HiddenBenchStageRow] = [
+    {
+      stage: "docx_package_open",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_package_open"),
+      notes: "split=true",
+    },
+    {
+      stage: "docx_rels_styles_numbering",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_relationships") +
+      hidden_bench_stage_map_us(stage_us, "docx_styles") +
+      hidden_bench_stage_map_us(stage_us, "docx_numbering"),
+      notes: "split=true combined_rels_styles_numbering=true",
+    },
+    {
+      stage: "docx_notes_headers_footers_textboxes",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_notes") +
+      hidden_bench_stage_map_us(stage_us, "docx_headers_footers") +
+      hidden_bench_stage_map_us(stage_us, "docx_text_boxes"),
+      notes: "split=true combined_notes_header_footer_textbox=true",
+    },
+    {
+      stage: "docx_asset_map_build",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_asset_map_build"),
+      notes: "split=true",
+    },
+    {
+      stage: "docx_media_export",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_media_export"),
+      notes: "split=true",
+    },
+    {
+      stage: "docx_body_scan",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "docx_body_scan"),
+      notes: "split=true",
+    },
+  ]
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=docx blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=converter_profiled_partial_split combined_ir_lowering_in_body_scan=true " +
+    summary_notes,
+    convert_elapsed_us: convert_us,
+    convert_notes: "combined_in_parse_current_path=true format=docx split_blocked_by=body_scan_returns_final_ir_blocks_and_appended_sections",
+    assets_elapsed_us: assets_us,
+    assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
+    summary_notes +
+    " asset_discovery_boundary=build_docx_asset_path_map asset_export_boundary=extract_media_by_relationships",
+    extra_rows,
+  }
+}
+
+///|
+fn hidden_bench_profiled_pptx_parse(
+  opts : HiddenBenchProductPathOptions,
+) -> HiddenBenchParseResult raise {
+  let profile_path = join_path(opts.output_root, ".pptx.profile.log")
+  if @fs.path_exists(profile_path) {
+    @fs.remove_file(profile_path) catch {
+      _ => ()
+    }
+  }
+  let started = now_us()
+  let doc = @pptx.parse_pptx(opts.input, opts.output_root, opts.max_heading)
+  let total_elapsed_us = elapsed_us_since(started)
+  let (stage_us, summary_notes) = hidden_bench_profile_file_stage_map(
+    profile_path, "pptx_convert_profile",
+  )
+  if stage_us.length() == 0 {
+    return hidden_bench_profile_missing_result(
+      "pptx", opts, doc, total_elapsed_us,
+    )
+  }
+
+  let parse_us = hidden_bench_stage_map_us(stage_us, "pptx_package_open") +
+    hidden_bench_stage_map_us(stage_us, "pptx_slide_list") +
+    hidden_bench_stage_map_us(stage_us, "pptx_slide_parse") +
+    hidden_bench_stage_map_us(stage_us, "pptx_slide_relationships") +
+    hidden_bench_stage_map_us(stage_us, "pptx_shape_collect") +
+    hidden_bench_stage_map_us(stage_us, "pptx_table_collect") +
+    hidden_bench_stage_map_us(stage_us, "pptx_notes_parse")
+  let convert_us = hidden_bench_stage_map_us(
+      stage_us, "pptx_grouping_classification",
+    ) +
+    hidden_bench_stage_map_us(stage_us, "pptx_caption_pairing") +
+    hidden_bench_stage_map_us(stage_us, "pptx_document_build")
+  let assets_us = hidden_bench_stage_map_us(stage_us, "pptx_image_export")
+
+  let extra_rows : Array[HiddenBenchStageRow] = [
+    {
+      stage: "pptx_package_open",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_package_open"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_slide_parse",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_slide_parse") +
+      hidden_bench_stage_map_us(stage_us, "pptx_slide_relationships"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_shape_collect",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_shape_collect") +
+      hidden_bench_stage_map_us(stage_us, "pptx_table_collect"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_grouping",
+      elapsed_us: hidden_bench_stage_map_us(
+        stage_us, "pptx_grouping_classification",
+      ),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_caption_pairing",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_caption_pairing"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_image_export",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_image_export"),
+      notes: "split=true",
+    },
+    {
+      stage: "pptx_notes_parse",
+      elapsed_us: hidden_bench_stage_map_us(stage_us, "pptx_notes_parse"),
+      notes: "split=true",
+    },
+  ]
+
+  {
+    doc,
+    parse_elapsed_us: parse_us,
+    parse_notes: "format=pptx blocks=" +
+    doc.blocks.val.length().to_string() +
+    " parse_kind=converter_profiled_partial_split " +
+    summary_notes,
+    convert_elapsed_us: convert_us,
+    convert_notes: "split_from_profile=true lowering=grouping_caption_pairing_and_document_build reading_order_embedded_in_shape_collect=true",
+    assets_elapsed_us: assets_us,
+    assets_notes: "asset_discovery_only=false embedded_in_parse_current_path=false " +
+    summary_notes +
+    " asset_discovery_boundary=collect_slide_picture_shape_metas+rels_image_target_map asset_export_boundary=export_slide_images",
+    extra_rows,
+  }
 }
 
 ///|

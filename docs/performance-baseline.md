@@ -82,7 +82,7 @@ Artifacts:
 * smoke suite: `96` rows, `0` failures
 * batch-profile suite: `48` runs, `0` failures
 * doc_parse library suite: `75` stage rows, `0` failures
-* product-path suite: `65` stage rows, `0` failures
+* product-path suite: `78` stage rows, `0` failures
 * no expectations or fixtures were changed to make the benchmark pass
 
 ## Smoke Benchmark Highlights
@@ -201,68 +201,105 @@ Current refined interpretation caveats:
 * `startup_probe` is measured separately with a no-op native CLI launch
 * `file_read` is a standalone probe row and is not subtracted from `parse`
 * `parse` now measures direct `doc_parse` parse/model-build work for
-  `txt/json/yaml/csv/xlsx`, but still measures the real combined normal-path
-  entry for `html/docx/pptx`
-* `convert` now records separate lowering work for `txt/json/yaml/csv/xlsx`,
-  but remains `combined_in_parse_current_path=true` for `html/docx/pptx`
-* `assets` now records refined discovery/export boundaries for current
-  `html/docx/pptx` asset flows while still reporting `0 ms` because export is
-  embedded in the current parse path
+  `txt/json/yaml/csv/xlsx`, a refined DOM/scan path for `html`, and partial
+  staged converter ownership for `docx/pptx`
+* `convert` now records separate lowering work for `txt/json/yaml/csv/xlsx`
+  and `html`; `docx` still reports
+  `combined_in_parse_current_path=true` because body scan returns final IR
+  blocks and appended sections, while `pptx` now exposes a staged
+  converter-owned grouping/caption/document-build slice
+* `assets` now records measured discovery/export attribution for
+  `html/docx/pptx` rather than only embedded notes
 
 Current startup probe:
 
-* `startup_probe`: `8.867 ms`
+* `startup_probe`: `11.519 ms`
 
 Slowest same-process `total` rows:
 
-* `txt_large`: `10.843 ms`
-* `docx_image_alt_title_basic`: `2.868 ms`
-* `pptx_image_alt_title_basic`: `1.747 ms`
-* `xlsx_metadata_formula_or_merged_policy`: `0.980 ms`
-* `html_figure_figcaption_basic`: `0.566 ms`
-* `yaml_metadata_nested`: `0.432 ms`
-* `json_metadata_nested`: `0.338 ms`
-* `csv_metadata_ragged_rows`: `0.313 ms`
+* `txt_large`: `7.564 ms`
+* `docx_image_alt_title_basic`: `3.416 ms`
+* `pptx_image_alt_title_basic`: `2.058 ms`
+* `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
+* `html_figure_figcaption_basic`: `0.816 ms`
+* `yaml_metadata_nested`: `< 1 ms`
+* `json_metadata_nested`: `< 1 ms`
+* `csv_metadata_ragged_rows`: `< 1 ms`
 
 Slowest product-path stage rows:
 
-* `txt_large / parse`: `6.400 ms`
-* `txt_large / convert`: `2.700 ms`
-* `docx_image_alt_title_basic / parse`: `2.247 ms`
-* `txt_large / emit`: `1.710 ms`
-* `pptx_image_alt_title_basic / parse`: `0.863 ms`
-* `pptx_image_alt_title_basic / metadata`: `0.729 ms`
-* `docx_image_alt_title_basic / metadata`: `0.460 ms`
-* `xlsx_metadata_formula_or_merged_policy / metadata`: `0.452 ms`
-* `xlsx_metadata_formula_or_merged_policy / parse`: `0.400 ms`
+* `txt_large / parse`: `2.700 ms`
+* `txt_large / convert`: `3.200 ms`
+* `txt_large / txt_literal_wrap`: `3.200 ms`
+* `txt_large / emit`: `1.556 ms`
+* `txt_large / txt_emit_write`: `1.399 ms`
+* `docx_image_alt_title_basic / parse`: `2.200 ms`
+* `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
+* `pptx_image_alt_title_basic / metadata`: `0.726 ms`
 
 Supporting observations:
 
-* `dispatch` is effectively negligible on this checked sample set
-  (`0.003-0.004 ms`)
-* standalone `file_read` probes are also small on the checked local corpus
-  (`0.014-0.031 ms`)
+* `dispatch` remains effectively negligible on this checked sample set
+  (`0.007-0.012 ms`)
+* standalone `file_read` probes are still small on the checked local corpus
+  (`0.062-0.101 ms` for the rich-format rows shown here)
 * refined attribution now shows that `txt_large` is dominated by
-  `parse_doc_parse + convert_lowering + emit`, not parser work alone
-* metadata work is comparatively visible on OOXML asset-enabled rows
-* `assets` now reports refined discovery/export boundaries, but current
-  HTML/DOCX/PPTX asset export still occurs inside the measured parse path
+  `doc_parse/text` parse plus TXT literal-markdown wrapping and final markdown
+  file write, not parser work alone
+* `html` now reports separate `parse`, `convert`, `html_dom_scan`,
+  `html_block_lowering`, `html_asset_discovery`, and `html_asset_export`
+  rows inside the product-path harness
+* `docx` now reports staged `docx_package_open`, `docx_rels_styles_numbering`,
+  `docx_notes_headers_footers_textboxes`, `docx_asset_map_build`,
+  `docx_media_export`, and `docx_body_scan` rows, while `convert` remains
+  combined because `body_scan` still returns final IR blocks and appended
+  sections
+* `pptx` now reports staged `pptx_package_open`, `pptx_slide_parse`,
+  `pptx_shape_collect`, `pptx_grouping`, `pptx_caption_pairing`,
+  `pptx_image_export`, and `pptx_notes_parse` rows, while final converter
+  ownership still spans multiple shared seams
+
+## TXT Focused Product-path Attribution
+
+Current focused checked row:
+
+* `txt_large / total`: `10.659 ms -> 7.564 ms`
+* `txt_large / parse`: `6.400 ms -> 2.700 ms`
+* `txt_large / convert`: `2.500 ms -> 3.200 ms`
+* `txt_large / emit`: `1.724 ms -> 1.556 ms`
+
+Current refined TXT substage attribution:
+
+* `txt_literal_wrap`: `3.200 ms`
+* `txt_lowering`: `0.000 ms`
+* `txt_emit_blocks`: `0.158 ms`
+* `txt_emit_write`: `1.399 ms`
+
+Interpretation:
+
+* the main remaining TXT product-path cost is no longer `doc_parse/text`
+  paragraphization by itself
+* the largest current TXT-specific cost is building passthrough literal
+  markdown for large text bodies
+* markdown string build itself is now small; the remaining emit-side cost is
+  mostly markdown file write plus final same-process string handling
+* these numbers are local benchmark observations, not cross-machine guarantees
 
 Current split status:
 
 * split parse vs convert:
-  `txt`, `json`, `yaml`, `csv`, `xlsx`
-* still combined:
-  `html`, `docx`, `pptx`
+  `txt`, `json`, `yaml`, `csv`, `xlsx`, `html`
+* partially split with remaining combined seams:
+  `docx`, `pptx`
 
 Current combined reasons:
 
-* `html`:
-  DOM scan, block lowering, and asset export still share one entrypoint
 * `docx`:
-  package/rels/notes/assets/IR scan still share one entrypoint
+  package/rels/notes/assets are now staged, but body scan still returns final
+  IR blocks and appended sections
 * `pptx`:
-  slide parse, classification, and image export still share one entrypoint
+  slide parse, grouping/classification, notes, and image export are now
+  staged, but final converter ownership still spans multiple shared seams
 
 Current assets notes:
 
@@ -281,12 +318,12 @@ Current assets notes:
 The refined product-path harness now makes the main `txt_large` ownership split
 visible:
 
-* `parse`: `6.400 ms`
+* `parse`: `16.700 ms`
   direct `doc_parse/text` document construction, including decode/newline/
   paragraph model work
-* `convert`: `2.700 ms`
+* `convert`: `5.100 ms`
   `convert/txt` lowering into the product `Document` surface
-* `emit`: `1.710 ms`
+* `emit`: `3.192 ms`
   Markdown emit plus markdown file write
 
 Interpretation:

@@ -21,6 +21,13 @@ pub fn parse_text_document(text : String) -> TextDocument {
 }
 
 ///|
+/// Parse plain text that is already normalized to LF-only line endings and has
+/// already passed shared low-risk cleanup.
+pub fn parse_text_document_from_normalized_text(text : String) -> TextDocument {
+  parse_normalized_text_document_with_profile(text, None, None)
+}
+
+///|
 /// Benchmark-oriented profiled parse helper used for internal hotspot
 /// attribution.
 ///
@@ -29,6 +36,23 @@ pub fn profile_text_document(text : String) -> TextProfiledDocument {
   let report = new_text_parse_profile_report()
   let totals = new_text_parse_profile_totals()
   let document = parse_text_document_with_profile(
+    text,
+    Some(report),
+    Some(totals),
+  )
+  text_parse_profile_finish_totals(Some(report), Some(totals))
+  { document, report }
+}
+
+///|
+/// Benchmark-oriented profiled parse helper for LF-normalized text that has
+/// already gone through shared cleanup.
+pub fn profile_text_document_from_normalized_text(
+  text : String,
+) -> TextProfiledDocument {
+  let report = new_text_parse_profile_report()
+  let totals = new_text_parse_profile_totals()
+  let document = parse_normalized_text_document_with_profile(
     text,
     Some(report),
     Some(totals),
@@ -121,8 +145,82 @@ fn parse_text_document_with_profile(
     current_paragraph, paragraphs, line_start, line_end, profile_totals,
   )
 
+  build_text_document_from_chars(
+    text, normalized_chars, newline_style, lines, paragraphs, profile,
+  )
+}
+
+///|
+fn parse_normalized_text_document_with_profile(
+  text : String,
+  profile : TextParseProfileReport?,
+  profile_totals : TextParseProfileTotals?,
+) -> TextDocument {
+  let chars = text.to_array()
+  let lines : Array[TextLine] = []
+  let paragraphs : Array[TextParagraph] = []
+  let current_paragraph : Array[String] = []
+  let line_chars : Array[Char] = []
+  let line_start : Ref[Int] = { val: 0 }
+  let line_end : Ref[Int] = { val: 0 }
+  let mut line_no = 1
+
+  let newline_started = text_parse_profile_stage_started(profile)
+  for ch in chars {
+    if ch == '\n' {
+      finish_text_line(
+        line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+        profile_totals,
+      )
+      line_chars.clear()
+      line_no += 1
+    } else {
+      line_chars.push(ch)
+    }
+  }
+  text_parse_profile_stage_finished(
+    profile,
+    "newline_scan",
+    newline_started,
+    Some("style=lf_normalized"),
+  )
+
+  if line_chars.length() > 0 ||
+    (chars.length() > 0 && chars[chars.length() - 1] != '\n') {
+    finish_text_line(
+      line_chars, line_no, lines, current_paragraph, paragraphs, line_start, line_end,
+      profile_totals,
+    )
+  }
+  flush_text_paragraph(
+    current_paragraph, paragraphs, line_start, line_end, profile_totals,
+  )
+
+  build_text_document_from_chars(
+    text,
+    chars,
+    TextNewlineStyle::LF,
+    lines,
+    paragraphs,
+    profile,
+  )
+}
+
+///|
+fn build_text_document_from_chars(
+  original_text : String,
+  normalized_chars : Array[Char],
+  newline_style : TextNewlineStyle,
+  lines : Array[TextLine],
+  paragraphs : Array[TextParagraph],
+  profile : TextParseProfileReport?,
+) -> TextDocument {
   let build_started = text_parse_profile_stage_started(profile)
-  let normalized = String::from_array(normalized_chars)
+  let normalized = if text_chars_equal_string(normalized_chars, original_text) {
+    original_text
+  } else {
+    String::from_array(normalized_chars)
+  }
   let doc = {
     text: normalized,
     byte_count: None,
@@ -134,9 +232,23 @@ fn parse_text_document_with_profile(
     profile,
     "build_document",
     build_started,
-    Some("chars=" + doc.text.to_array().length().to_string()),
+    Some("chars=" + doc.text.length().to_string()),
   )
   doc
+}
+
+///|
+fn text_chars_equal_string(chars : Array[Char], text : String) -> Bool {
+  let original = text.to_array()
+  if chars.length() != original.length() {
+    return false
+  }
+  for i in 0..<chars.length() {
+    if chars[i] != original[i] {
+      return false
+    }
+  }
+  true
 }
 
 ///|

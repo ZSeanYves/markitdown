@@ -15,21 +15,43 @@ pub fn parse_pptx(
   out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
+  let profile = if pptx_profile_enabled() {
+    Some(new_pptx_convert_profile_report(input_path))
+  } else {
+    None
+  }
+
+  let open_started = @env.now()
   let p = open_pptx(input_path) catch {
     e => raise @cor.AppError("pptx: open package failed: " + e.to_string())
   }
+  pptx_convert_profile_add_stage(
+    profile,
+    "pptx_package_open",
+    @env.now() - open_started,
+    None,
+  )
 
+  let slide_list_started = @env.now()
   let slides = list_slide_entries_in_presentation_order(p)
+  pptx_convert_profile_add_stage(
+    profile,
+    "pptx_slide_list",
+    @env.now() - slide_list_started,
+    Some("slides=" + slides.length().to_string()),
+  )
   let doc = @cor.new_document()
 
   if slides.length() == 0 {
     @cor.push(doc, @cor.Block::Paragraph("(no slides found)"))
+    maybe_write_pptx_convert_profile_log(profile)
     return doc
   }
 
   let image_idx : Ref[Int] = { val: 0 }
   let src = @cor.basename(input_path)
   let mut idx = 1
+  let build_started = @env.now()
   for slide in slides {
     let path = slide.part_name
     let slide_heading = if slide.hidden {
@@ -57,18 +79,106 @@ pub fn parse_pptx(
       }),
     )
 
+    let slide_xml_started = @env.now()
     let xml = p.read_bytes_required(path)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_slide_parse",
+      @env.now() - slide_xml_started,
+      Some("slide=" + idx.to_string() + " bytes=" + xml.length().to_string()),
+    )
+
+    let rel_started = @env.now()
     let rel_ctx = build_slide_rel_context(p, path)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_slide_relationships",
+      @env.now() - rel_started,
+      Some(
+        "slide=" +
+        idx.to_string() +
+        " rels=" +
+        rel_ctx.rels.length().to_string(),
+      ),
+    )
+
+    let image_export_started = @env.now()
     let images = export_slide_images(p, rel_ctx, xml, out_dir, idx, image_idx)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_image_export",
+      @env.now() - image_export_started,
+      Some(
+        "slide=" + idx.to_string() + " images=" + images.length().to_string(),
+      ),
+    )
+
+    let paragraph_started = @env.now()
     let paras = extract_slide_paragraphs(xml, rel_ctx.hyperlinks)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_shape_collect",
+      @env.now() - paragraph_started,
+      Some(
+        "slide=" + idx.to_string() + " paragraphs=" + paras.length().to_string(),
+      ),
+    )
+
+    let table_started = @env.now()
     let tables = collect_explicit_table_frames(xml, rel_ctx.hyperlinks)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_table_collect",
+      @env.now() - table_started,
+      Some(
+        "slide=" + idx.to_string() + " tables=" + tables.length().to_string(),
+      ),
+    )
+
+    let caption_started = @env.now()
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
       images, paras,
     )
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_caption_pairing",
+      @env.now() - caption_started,
+      Some(
+        "slide=" +
+        idx.to_string() +
+        " captions=" +
+        image_captions.length().to_string() +
+        " consumed=" +
+        consumed_caption_para_ids.length().to_string(),
+      ),
+    )
+
+    let classify_started = @env.now()
     let blocks = classify_slide_paragraphs(
       drop_consumed_caption_paras(paras, consumed_caption_para_ids),
     )
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_grouping_classification",
+      @env.now() - classify_started,
+      Some(
+        "slide=" + idx.to_string() + " blocks=" + blocks.length().to_string(),
+      ),
+    )
+
+    let notes_started = @env.now()
     let note_paras = extract_speaker_notes(p, rel_ctx)
+    pptx_convert_profile_add_stage(
+      profile,
+      "pptx_notes_parse",
+      @env.now() - notes_started,
+      Some(
+        "slide=" +
+        idx.to_string() +
+        " note_paragraphs=" +
+        note_paras.length().to_string(),
+      ),
+    )
 
     for i in 0..<images.length() {
       let img = images[i]
@@ -494,6 +604,14 @@ pub fn parse_pptx(
     idx = idx + 1
   }
 
+  pptx_convert_profile_add_stage(
+    profile,
+    "pptx_document_build",
+    @env.now() - build_started,
+    Some("blocks=" + doc.blocks.val.length().to_string()),
+  )
+
+  maybe_write_pptx_convert_profile_log(profile)
   doc
 }
 

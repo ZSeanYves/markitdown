@@ -111,13 +111,14 @@ What the current tooling measures well:
 What it still does not measure directly:
 
 * a perfect `parse` vs `convert` split for every current normal-path format;
-  the refined product harness now splits `txt/json/yaml/csv/xlsx`, but still
-  records `convert` as `combined_in_parse_current_path=true` for
-  `html/docx/pptx` where the shared converter seam is not yet safely split
-* a perfect standalone `assets` stage for converter-local asset paths such as
-  HTML, DOCX, and PPTX; the refined product harness now records asset counts
-  plus discovery/export boundaries, but materialization is still embedded in
-  the parse path
+  the refined product harness now splits `txt/json/yaml/csv/xlsx`, fully
+  splits `html`, and gives partial staged attribution for `docx/pptx`, but
+  still records `convert` as `combined_in_parse_current_path=true` for DOCX
+  where body-scan still returns final IR blocks and appended sections
+* a perfect standalone `assets` stage for every converter-local asset path;
+  the refined product harness now records real staged asset discovery/export
+  timing for `html/docx/pptx`, but some discovery/export work is still
+  coupled to the current converter seam
 * full `doc_parse` coverage for every package and stage in one runner
   (`pdf` is still deferred in the first library-harness round)
 * broad p50 / p95 distribution rollups across all suites in a release-facing
@@ -139,6 +140,9 @@ Current checked state after the focused parser rounds:
 * the next performance problem is no longer “find a parser hotspot blindly”;
   it is “refine product-path attribution until parse, convert, emit,
   metadata, and assets are cleanly owned”
+* the current lead same-process product-path row is still `txt_large`, but it
+  is now below `10 ms` on the checked local benchmark after TXT-specific
+  duplicate-scan and duplicate-copy cleanup
 
 ## Product-path Harness
 
@@ -177,27 +181,25 @@ Current stage ownership interpretation:
   can be safely split
 * `emit`: Markdown emit plus markdown write
 * `metadata`: sidecar construction plus write
-* `assets`: asset discovery/export notes; still embedded in parse for current
-  HTML/DOCX/PPTX paths
+* `assets`: asset discovery/export attribution; now measured separately for
+  `html/docx/pptx` in the refined benchmark path
 * `total`: same-process product path total excluding `startup_probe`
 
 Current split status:
 
 * split now available:
-  `txt`, `json`, `yaml`, `csv`, `xlsx`
-* still combined for now:
-  `html`, `docx`, `pptx`
+  `txt`, `json`, `yaml`, `csv`, `xlsx`, `html`
+* partially split with combined seams still present:
+  `docx`, `pptx`
 
 Current combined reasons:
 
-* `html`:
-  DOM scan, block lowering, and local image export still share the current
-  entrypoint
 * `docx`:
-  package/rels/notes/assets/IR scan still share the current entrypoint
+  package/rels/notes/assets are now staged, but body scan still returns final
+  IR blocks and appended sections
 * `pptx`:
-  slide parse, final classification, and image export still share the current
-  entrypoint
+  slide parse, grouping/classification, notes, and image export are now
+  staged, but final converter ownership still spans multiple shared seams
 
 Current assets interpretation:
 
@@ -206,6 +208,28 @@ Current assets interpretation:
 * the measured `assets` row is still `0 ms` on those formats in the current
   harness because export remains embedded inside `parse`
 * other current first-batch formats report `skipped=assets_disabled`
+
+### TXT Product-path Interpretation
+
+The TXT normal path now has a more useful attribution split:
+
+* `parse`: UTF-8 decode, shared cleanup if needed, and source-native text
+  paragraphization through `doc_parse/text`
+* `convert`: TXT literal-markdown wrapping plus origin/block construction
+* `emit`: final markdown build plus markdown write
+
+Current focused TXT findings on the checked sample:
+
+* `doc_parse/text` library parse is about `2 ms`
+* same-process TXT product `parse` is about `2.7 ms`
+* same-process TXT product `convert` is about `3.2 ms`, and is currently
+  dominated by `txt_literal_wrap`
+* same-process TXT product `emit` is about `1.6 ms`, with most of that now
+  in `txt_emit_write`, not markdown-string generation
+
+This means current TXT product-path work is no longer “just a parser hotspot”.
+The remaining cost is mostly TXT-specific literal passthrough construction and
+final output write handling.
 
 ## Library Harness
 
@@ -238,6 +262,13 @@ Key design points:
   attribution without changing JSON validity rules or value semantics
 * `--profile markdown` adds internal Markdown scan sub-stage rows for hotspot
   attribution without turning the scanner into a full Markdown parser
+* `./samples/bench_product_path.sh` now also supports refined current
+  converter-path attribution for `html/docx/pptx` by reading hidden
+  benchmark-only profile logs, without changing normal CLI behavior or
+  exposing new stable public APIs
+* `convert/txt` product-path attribution now also exposes
+  `txt_literal_wrap`, `txt_lowering`, `txt_emit_blocks`, and
+  `txt_emit_write` stage rows without changing TXT output semantics
 
 Measured stage model:
 
@@ -438,30 +469,31 @@ Current implementation notes:
 * `file_read` is currently a standalone probe row; it is not subtracted from
   the measured `parse` row
 * `parse` is the real current normal-path parse/conversion entry; for
-  `txt/json/yaml/csv/xlsx` it now records direct parse/model-build work, and
-  for intentionally unswitched formats it still records the converter-local
-  combined path
-* `convert` is now split for `txt/json/yaml/csv/xlsx`, and remains
-  `combined_in_parse_current_path=true` for `html/docx/pptx`
-* `assets` is still recorded as `embedded_in_parse_current_path=true` for
-  current HTML/DOCX/PPTX asset flows while now reporting the current
-  discovery/export boundaries
+  `txt/json/yaml/csv/xlsx` it records direct parse/model-build work, `html`
+  now records a refined DOM/scan slice, and `docx/pptx` now record partial
+  staged converter ownership
+* `convert` is now split for `txt/json/yaml/csv/xlsx/html`; `docx` still
+  reports `combined_in_parse_current_path=true` because body scan returns
+  final IR blocks and appended sections, while `pptx` now exposes a staged
+  grouping/caption/document-build slice
+* `assets` now records measured discovery/export attribution for
+  `html/docx/pptx` rather than only embedded notes
 
 Current checked baseline snapshot from the refined harness:
 
-* `startup_probe`: `12.886 ms` avg
+* `startup_probe`: `11.260 ms` avg
 * slowest total rows:
-  * `txt_large`: `15.744 ms`
-  * `docx_image_alt_title_basic`: `4.857 ms`
-  * `pptx_image_alt_title_basic`: `2.916 ms`
-  * `xlsx_metadata_formula_or_merged_policy`: `2.489 ms`
+  * `txt_large`: `13.463 ms`
+  * `docx_image_alt_title_basic`: `3.416 ms`
+  * `pptx_image_alt_title_basic`: `2.058 ms`
+  * `xlsx_metadata_formula_or_merged_policy`: `1.148 ms`
 * slowest stage rows:
-  * `txt_large / parse`: `9.300 ms`
-  * `txt_large / convert`: `3.600 ms`
-  * `docx_image_alt_title_basic / parse`: `3.666 ms`
-  * `txt_large / emit`: `2.495 ms`
-  * `pptx_image_alt_title_basic / parse`: `1.398 ms`
-  * `pptx_image_alt_title_basic / metadata`: `1.198 ms`
+  * `txt_large / parse`: `7.100 ms`
+  * `txt_large / convert`: `3.500 ms`
+  * `docx_image_alt_title_basic / parse`: `2.200 ms`
+  * `txt_large / emit`: `2.709 ms`
+  * `docx_image_alt_title_basic / docx_body_scan`: `1.600 ms`
+  * `pptx_image_alt_title_basic / metadata`: `0.726 ms`
 
 Interpretation:
 
@@ -470,10 +502,10 @@ Interpretation:
 * it is precise enough to show whether startup, parse, emit, metadata, or
   asset-enabled rows dominate a sample
 * the current refinement already split `parse` vs `convert` for
-  `txt/json/yaml/csv/xlsx`
-* the next refinement should isolate converter-local `assets` timing more
-  cleanly and then extend the split to `html/docx/pptx` without changing
-  behavior
+  `txt/json/yaml/csv/xlsx/html`
+* the next refinement should keep `html` stable while pushing `docx/pptx`
+  further from partial attribution toward cleaner final converter ownership
+  without changing behavior
 
 ## Library vs CLI Guidance
 

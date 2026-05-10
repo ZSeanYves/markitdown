@@ -370,6 +370,18 @@ while IFS=$'\t' read -r format path label size_class with_metadata with_assets n
       xlsx)
         cmd+=("MARKITDOWN_PROFILE_XLSX=1")
         ;;
+      html)
+        cmd+=("MARKITDOWN_PROFILE_HTML=1")
+        cmd+=("MARKITDOWN_PROFILE_HTML_PATH=$run_root/.html.profile.log")
+        ;;
+      docx)
+        cmd+=("MARKITDOWN_PROFILE_DOCX_CONVERT=1")
+        cmd+=("MARKITDOWN_PROFILE_DOCX_CONVERT_PATH=$run_root/.docx.profile.log")
+        ;;
+      pptx)
+        cmd+=("MARKITDOWN_PROFILE_PPTX_CONVERT=1")
+        cmd+=("MARKITDOWN_PROFILE_PPTX_CONVERT_PATH=$run_root/.pptx.profile.log")
+        ;;
     esac
     cmd+=("$CLI_BIN" "_bench-product-path" "--input" "$input_path" "--output-root" "$run_root")
     if [[ "$metadata_flag" == true ]]; then
