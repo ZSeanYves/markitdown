@@ -64,13 +64,25 @@ This page is the current roadmap source of truth for the repository.
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
 
+### 6. External/private quality intake
+
+* keep `samples/quality_corpus/` as an external/public-dataset/private-local
+  intake framework rather than repopulating it with repository regression
+  samples
+* keep the checked public manifest intentionally empty until rows are manually
+  curated
+* treat private local real documents as the first-class intake path
+* require license review before vendoring any external dataset or tool fixture
+* legacy synthetic `samples/real_world` has been removed and is no longer
+  current release quality evidence
+
 ## Later Work
 
 * optional split into standalone `ZSeanYves/doc_parse`
 * remote dependency integration back into `markitdown`
 * richer PDF fallback/OCR line
 * deeper DOCX/PPTX normal-path integration if justified
-* broader real-world corpus
+* manually curated external/private quality corpus growth
 * fuzz / malformed corpus
 * more ecosystem adapters
 

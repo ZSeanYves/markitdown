@@ -27,6 +27,15 @@ Current non-goals for the default mainflow:
 * OCR-first default conversion
 * LLM-style or visual-semantic reconstruction
 
+Current validation layering:
+
+* `./samples/check.sh` remains the exact regression and contract gate
+* `samples/quality_corpus/` is the signal-level external/private intake path
+* the legacy checked `samples/real_world/` corpus has been removed because it
+  was synthetic/regression-like rather than reliable real-world quality
+  evidence
+* private local quality samples must remain uncommitted
+
 ## CLI Output Contract
 
 Current product-path CLI contract:

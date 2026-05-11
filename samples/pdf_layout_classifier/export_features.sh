@@ -4,25 +4,29 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MANIFEST="$ROOT/samples/pdf_layout_classifier/manifest.tsv"
 OUT_DIR="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}/pdf_layout_classifier/features"
+SPLIT_FILTER=""
 
 run_layout_tool() {
-  local bin="$ROOT/_build/native/debug/build/tools/pdf_layout_classifier/pdf_layout_classifier.exe"
-  if [[ -x "$bin" ]]; then
-    "$bin" "$@"
-  else
-    moon run "$ROOT/tools/pdf_layout_classifier" -- "$@"
-  fi
+  moon run "$ROOT/tools/pdf_layout_classifier" -- "$@"
 }
+
+if [[ "${1-}" == "--split" ]]; then
+  SPLIT_FILTER="${2-}"
+  if [[ -z "$SPLIT_FILTER" ]]; then
+    echo "missing value for --split" >&2
+    exit 1
+  fi
+elif [[ "${1-}" != "" ]]; then
+  echo "usage: ./samples/pdf_layout_classifier/export_features.sh [--split train|heldout]" >&2
+  exit 1
+fi
 
 mkdir -p "$OUT_DIR"
 
-tail -n +2 "$MANIFEST" | while IFS=$'\t' read -r sample_id pdf_path label_source label_path notes; do
+tail -n +2 "$MANIFEST" | while IFS=$'\t' read -r sample_id pdf_path record_kind split label_source label_path notes; do
   [[ -n "$sample_id" ]] || continue
-  record_kind="block"
-  if [[ "$sample_id" == pdf_cross_page_should_merge_phase15 || "$sample_id" == pdf_cross_page_should_not_merge_phase15 ]]; then
-    record_kind="boundary"
-  elif [[ "$sample_id" == pdf_two_column_negative_phase15 ]]; then
-    record_kind="all"
+  if [[ -n "$SPLIT_FILTER" && "$split" != "$SPLIT_FILTER" ]]; then
+    continue
   fi
 
   run_layout_tool export \

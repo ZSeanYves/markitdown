@@ -14,15 +14,13 @@ pub async fn export_pdf_layout_features_tsv(
   let doc1 = build_convert_blocks(doc0)
   let doc2 = classify_convert_blocks(doc1, 6)
   let doc3 = filter_noise_blocks(doc2)
-  let doc4 = merge_convert_blocks(doc3)
-  let doc5 = attach_high_confidence_uri_links(doc4)
 
   let features : Array[PdfLayoutFeature] = []
   let feature_names = default_pdf_layout_feature_names()
 
   if export_kind != PdfLayoutExportKind::BoundaryOnly {
-    let repeated_counts = build_repeated_text_counts(doc5)
-    for page in doc5.pages {
+    let repeated_counts = build_repeated_text_counts(doc2)
+    for page in doc2.pages {
       for i = 0; i < page.blocks.length(); i = i + 1 {
         let block = page.blocks[i]
         let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
@@ -36,7 +34,7 @@ pub async fn export_pdf_layout_features_tsv(
           block,
           prev,
           next,
-          repeated_text_score(repeated_counts, block.text, doc5.pages.length()),
+          repeated_text_score(repeated_counts, block.text, doc2.pages.length()),
           nearest_image_distance(page.images, block._bbox),
         )
         features.push(

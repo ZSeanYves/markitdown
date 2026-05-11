@@ -19,7 +19,7 @@ implementation or maintainer-only helper surface.
 | `samples/main_process/` | checked-in user-visible regression inputs across all formats, with per-format `expected/` subtrees | `check.sh` | source inputs plus expected outputs | keep |
 | `samples/fixtures/` | parser/core/fail-closed fixtures plus lower-layer metadata snapshots | MoonBit tests, contract scripts | fixture inputs and lower-layer snapshots | keep |
 | `samples/benchmark/` | checked-in benchmark corpus | `bench.sh`, internal bench scripts | performance corpus rows | keep |
-| `samples/real_world/` | checked-in complex-scenario corpus that complements `main_process` | `check.sh`, `check.sh --real-world` | Markdown plus optional metadata/assets checks | keep |
+| `samples/quality_corpus/` | signal-level external/private quality intake skeleton | `quality_corpus/check.sh` | intake manifests plus local reports | keep |
 | `samples/helpers/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
 | `docs/quality-comparisons/` | human-readable external comparison records | manual review | narrative comparison docs | keep |
 
@@ -108,45 +108,36 @@ Rules:
 * benchmark presence is not quality proof by itself
 * outputs go to `.tmp/bench/...`
 
-### `samples/real_world/`
+### `samples/quality_corpus/`
 
 Purpose:
 
-* checked-in complex-scenario corpus for richer real-like coverage
-* synthetic or permissively licensed documents that combine multiple structures
-* scenario-style validation that complements, but does not replace,
-  `main_process`
+* signal-level external/private quality intake
+* local gating for real or public samples that should not be forced into exact fixtures
+* optional intake path for manually curated external/public-dataset/tool-fixture rows
 
 Rules:
 
-* this is not a replacement for `main_process`
-* this is not a benchmark corpus by default
-* rows are controlled by `samples/real_world/manifest.tsv`
-* the checked-in corpus is now complex-only
-* the current checked-in set has 11 rows across DOCX, PPTX, XLSX, PDF, HTML,
-  ZIP, and EPUB
-* default `./samples/check.sh` runs the full real-world corpus because the
-  current row set remains fast enough for the default validation chain
-* `./samples/check.sh --real-world` remains the focused rerun entrypoint
-* `./samples/check.sh --real-world --tags complex` provides a complex-only
-  rerun path
-* `./samples/check.sh --manifest-only` is still available when you only want
-  schema and path validation
+* this is not an exact regression replacement for `main_process`
+* public `manifest.tsv` may be intentionally empty until external rows are curated
+* private local rows belong under `samples/quality_corpus/private/`
+* missing private manifests must not fail the checker
+* external/public rows require manual license review before vendoring
 
 ## Coverage Matrix
 
-| Format | main_process | metadata cases | asset cases | metadata expected | benchmark | quality records | real_world slot |
+| Format | main_process | metadata cases | asset cases | metadata expected | benchmark | quality records | quality intake |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | yes | yes | yes | yes | yes | yes | complex |
-| PPTX | yes | yes | yes | yes | yes | yes | complex |
-| XLSX | yes | yes | n/a | yes | yes | yes | complex |
-| PDF | yes | yes | yes | yes | yes | yes | complex |
-| HTML | yes | yes | yes | yes | yes | yes | complex |
-| ZIP | yes | yes | yes | yes | yes | yes / not comparable | complex |
-| EPUB | yes | yes | yes | yes | yes | yes | complex |
-| CSV / TSV | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
-| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
-| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | via complex ZIP |
+| DOCX | yes | yes | yes | yes | yes | yes | external/private |
+| PPTX | yes | yes | yes | yes | yes | yes | external/private |
+| XLSX | yes | yes | n/a | yes | yes | yes | external/private |
+| PDF | yes | yes | yes | yes | yes | yes | external/private |
+| HTML | yes | yes | yes | yes | yes | yes | external/private |
+| ZIP | yes | yes | yes | yes | yes | yes / not comparable | external/private |
+| EPUB | yes | yes | yes | yes | yes | yes | external/private |
+| CSV / TSV | yes | yes | n/a | yes | yes | maybe | external/private |
+| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | external/private |
+| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | external/private |
 
 Interpretation:
 
@@ -156,21 +147,22 @@ Interpretation:
 * `metadata expected`: exact checked sidecar fixtures, when present
 * `benchmark`: performance evidence
 * `quality records`: human comparison docs
-* `real_world slot`: checked-in complex-scenario corpus space, still distinct
-  from the sealed H2++ / H3++ evidence basis and from benchmark claims
+* `quality intake`: signal-level external/private intake, not a current global
+  quality guarantee
 
 ## Script Index
 
 | Script | Purpose | Default gate? |
 | --- | --- | --- |
-| `samples/check.sh` | public sample-validation entrypoint; default full chain plus focused modes `--markdown-only`, `--metadata-only`, `--assets-only`, `--contracts-only`, `--manifest-only`, and `--real-world` | yes |
+| `samples/check.sh` | public sample-validation entrypoint; default full chain plus focused modes `--markdown-only`, `--metadata-only`, `--assets-only`, `--contracts-only`, and `--manifest-only` | yes |
 | `samples/bench.sh` | public benchmark entrypoint; suite dispatcher for `--suite smoke`, `--suite compare`, and `--suite batch-profile` | manual |
+| `samples/quality_corpus/check.sh` | signal-level external/private intake checker | manual |
+| `samples/quality_corpus/compare_tools.sh` | optional tool availability/reference probe | manual |
 | `samples/helpers/check_samples.sh` | internal enrollment-integrity helper used by `check.sh --manifest-only` and the default full chain | yes via `check.sh` |
 | `samples/helpers/check_cli_contract.sh` | internal CLI contract implementation | yes via `check.sh` |
 | `samples/helpers/check_batch_contract.sh` | internal batch contract implementation | yes via `check.sh` |
 | `samples/helpers/check_debug_contract.sh` | internal debug CLI contract implementation | yes via `check.sh` |
 | `samples/helpers/check_corpus_manifest.sh` | internal benchmark manifest helper | yes via `check.sh --manifest-only` |
-| `samples/helpers/check_real_world.sh` | internal real-world corpus helper with `--manifest-only` and `--tags` support | yes via `check.sh` and `check.sh --real-world` |
 | `samples/helpers/bench_*.sh` | internal benchmark suite implementations and rerun helpers | yes via `bench.sh` |
 | `samples/helpers/bench_warn.sh` | maintainer-only benchmark warning helper | manual / internal |
 | `samples/helpers/list_sample_inventory.sh` | maintainer-only inventory summary helper | manual / internal |
@@ -193,15 +185,11 @@ Focused validation:
 ./samples/check.sh --manifest-only
 ```
 
-Focused real-world rerun:
+Signal-level intake check:
 
 ```bash
-./samples/check.sh --real-world
-./samples/check.sh --real-world --tags complex
+bash ./samples/quality_corpus/check.sh
 ```
-
-The default `./samples/check.sh` chain already includes the checked-in
-real-world corpus.
 
 Benchmark entrypoints:
 

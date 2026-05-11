@@ -25,8 +25,8 @@ Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
 native text-PDF scope.
 
 The repository now centers its checked validation surface around
-`./samples/check.sh` and `./samples/bench.sh`, and keeps the checked-in
-`samples/real_world` corpus focused on longer complex-scenario documents.
+`./samples/check.sh` and `./samples/bench.sh`, while keeping external/private
+quality intake separate under `samples/quality_corpus/`.
 
 ## Supported Platforms
 
@@ -187,12 +187,9 @@ Lower-layer parser/core and unsafe-boundary fixtures now live under
 co-located under the same format roots. Each format package now keeps its
 checked Markdown and exact CLI metadata expectations under
 `samples/main_process/<format>/expected/`.
-A checked-in `samples/real_world` corpus now complements the smaller
-feature-focused `samples/main_process` set with complex-only scenario files
-across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
-`./samples/check.sh` chain runs the full real-world set, and
-`./samples/check.sh --real-world --tags complex` remains available for focused
-reruns.
+`samples/quality_corpus` is now reserved for signal-level external/private
+quality intake. Its public manifest may stay intentionally empty until
+externally sourced rows are manually curated and license-reviewed.
 
 Benchmark operations and performance caveats are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md) and
@@ -227,7 +224,7 @@ Current boundary:
 * [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
-* [Real-World Corpus](./samples/real_world/README.md)
+* [Quality Corpus](./samples/quality_corpus/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Architecture Overview](./docs/architecture.md)
 * [Development Guide](./docs/development.md)

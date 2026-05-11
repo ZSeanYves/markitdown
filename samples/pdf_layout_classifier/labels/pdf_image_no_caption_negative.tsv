@@ -1,2 +1,2 @@
 record_kind	page_index	block_index	line_index	next_page_index	next_block_index	next_line_index	label	notes
-block	1	0	0				Caption	caption-only local seed
+block	1	0	0				BodyText	image-adjacent body text, not caption

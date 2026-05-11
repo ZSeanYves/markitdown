@@ -1,0 +1,7 @@
+id	source_name	formats	source_type	url	license_status	redistributable	recommended_use	download_mode	notes
+microsoft_markitdown_tests	microsoft_markitdown_tests	mixed	tool_fixture	https://github.com/microsoft/markitdown	needs_review	unknown	tool_fixture_reference	manual	upstream tool samples may be useful, but code license and sample/data license must be reviewed separately
+pandoc_tests	pandoc_tests	mixed	tool_fixture	https://github.com/jgm/pandoc	needs_review	unknown	tool_fixture_reference	manual	pandoc test inputs may be useful as overlap references; do not vendor before review
+publaynet	publaynet	pdf_layout,image	public_dataset	https://developer.ibm.com/exchanges/data/all/publaynet/	CDLA-Permissive, verify before use	no_by_default	layout_reference	manual	dataset license, redistribution policy, and downstream usage scope must be reviewed manually
+cdla	cdla	pdf_layout,image	public_dataset	https://github.com/buptlihang/CDLA	needs_review	no_by_default	chinese_layout_reference	manual	treat as reference source only until data/license terms are audited
+tablebank	tablebank	pdf_table,image	public_dataset	https://doc-analysis.github.io/tablebank-page/index.html	Apache-2.0, verify before use	no_by_default	table_reference	manual	verify dataset redistribution and subset selection policy before vendoring
+paddleocr_ppstructure_samples	paddleocr_ppstructure_samples	pdf,image	tool_fixture	https://github.com/PaddlePaddle/PaddleOCR	needs_review	unknown	visual_layout_backend_reference	manual	code license, model weights, and sample assets all need separate review

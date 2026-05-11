@@ -1,3 +1,7 @@
 record_kind	page_index	block_index	line_index	next_page_index	next_block_index	next_line_index	label	notes
 block	1	0	0				Heading	chapter title
 block	1	1	1				BodyText	body paragraph
+block	1	2	2				Heading	section heading
+block	1	3	3				BodyText	body paragraph
+block	2	0	0				Heading	chapter title
+block	2	1	1				BodyText	body paragraph

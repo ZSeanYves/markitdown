@@ -21,7 +21,10 @@ Notes:
 
 * This is a training spike, not a production output policy.
 * Not every label currently has enough samples for real training.
-* Phase 1 focuses on `Heading`, `Noise` / `PageNumber` / `HeaderFooter`,
-  `Caption`, and `BodyText`.
-* `TableLike`, `CrossPageMerge`, `CrossPageNoMerge`, and `ColumnBoundary`
-  currently act as export-ready placeholders with only small local coverage.
+* The current held-out pass mainly exercises `Heading`, `BodyText`, `Caption`,
+  `TableLike`, `CrossPageMerge`, `CrossPageNoMerge`, and `Unknown`.
+* `Noise`, `PageNumber`, `HeaderFooter`, and `ColumnBoundary` remain
+  export-ready labels, but the current local corpus does not yet provide
+  enough reliable labeled rows to treat them as evaluated.
+* Held-out results from this directory are small-sample checks only and should
+  not be written up as generalized model quality claims.
