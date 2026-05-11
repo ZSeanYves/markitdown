@@ -2,6 +2,105 @@
 
 ## Unreleased
 
+* Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
+  CMap support, including `codespacerange`, `bfchar`, conservative
+  `bfrange`, greedy multi-byte source-code matching, and UTF-16BE
+  destination decoding, while leaving no-`/ToUnicode` CJK fallback,
+  embedded-font `cmap`, and full predefined-CMap coverage out of scope.
+* Document the current PDF native text-extraction support matrix across the
+  README/support/package/quality docs, including retained no-`/ToUnicode`
+  external boundaries for simple raw-GBK fonts and `Type0 / Identity-H`
+  `CIDFontType2` samples, while keeping OCR, embedded-font `cmap`, and broad
+  CJK fallback claims out of scope.
+* Document the scan-only/OCR PDF boundary strategy: the default native path
+  stays text-first and image-asset-preserving, scan-only rows can remain
+  `reference` in the native quality gate, and OCR remains explicit rather than
+  a hidden normal-path fallback.
+* Add report-only PDF text-signal/OCR-candidate diagnostics to inspect/debug,
+  expand `samples/quality_corpus` into a richer local dashboard with
+  by-format/source/tier rollups plus retained-boundary lists, and document the
+  explicit OCR-provider and advisory layout-assist provider routes without
+  changing default Markdown output.
+* Add lightweight OCR and layout-assist provider skeletons with lazy
+  descriptor/probe/report wiring, stable `noop` baselines, and explicit
+  non-goals around bundled runtimes/models or normal-path decision changes.
+* Add a debug-only provider listing/probe surface so OCR/layout-assist
+  skeletons can be inspected explicitly without changing the normal path or
+  implying that OCR has run.
+* Implement an explicit optional `tesseract-cli` OCR provider for lazy
+  availability probing and page-image text recognition, while keeping OCR
+  out of the default normal path and leaving PDF-level OCR/provider routing
+  broader than single-page images for later work.
+* Wire the explicit `ocr` CLI subcommand to the `tesseract-cli` provider for
+  supported image inputs, including explicit provider/lang selection and clear
+  unavailable/unsupported errors, while keeping `normal` unchanged and leaving
+  direct PDF OCR outside the `tesseract-cli` path.
+* Add an OCR image sample/contract suite for the explicit `ocr` CLI path,
+  covering unknown-provider, unsupported-input, unavailable-provider, and
+  image-route boundary behavior in the default gate, plus an optional local
+  `tesseract-cli` smoke that stays outside CI and does not claim OCR quality.
+* Document the OCRmyPDF provider audit/design boundary for future explicit PDF
+  OCR: OCRmyPDF remains external and unimplemented, image OCR through
+  `tesseract-cli` remains the only shipped OCR execution path, and any future
+  PDF OCR route must stay explicit, provenance-tagged, and outside the normal
+  native-text conversion path.
+* Document the PaddleOCR / PP-Structure heavy-provider boundary: PaddleOCR
+  remains an external unimplemented future provider, model/runtime assets stay
+  user-managed, any future OCR/layout/table route must remain explicit and
+  provenance-tagged, and no heavy-provider output is allowed to bypass the
+  normal text-first conversion path.
+* Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
+  reports, using conservative heuristic-provider signals and provider summaries
+  without changing normal Markdown output or enabling model-backed decisions.
+* Add a debug-only layout-assist evaluation surface that summarizes advisory
+  prediction coverage, label distribution, and top reasons across the local
+  PDF layout-classifier manifest, without claiming accuracy improvements or
+  changing default Markdown output.
+* Document the current external-corpus hardening state across README/support/
+  roadmap/quality-corpus docs: local signal-level intake is now operational,
+  real external rows have already driven fixes for PDF word-boundary repair,
+  ZIP Level 1 data descriptors, YAML single-document markers, PPTX cached
+  chart data, and PPTX comments, and the active local `known_bad` boundary
+  remains `pandoc_biblio_yaml` because true multi-document YAML streams are
+  still unsupported.
+* Extract Level 1 PPTX comments from `ppt/comments/*.xml` plus
+  `ppt/commentAuthors.xml`, preserving minimal author/text semantics in
+  `doc_parse/pptx` and lowering them in `convert/pptx` to a conservative
+  per-slide `Comments` appendix, while leaving bubble rendering, position
+  recovery, threaded replies, and modern comments extensions out of scope.
+* Extract Level 1 cached PPTX chart data from PresentationML chart parts,
+  preserving minimal series/category/value semantics from chart XML cache in
+  `doc_parse/pptx` and lowering aligned cache data to `RichTable` with a
+  conservative text fallback in `convert/pptx`, while leaving full chart
+  rendering, embedded-workbook fallback, and style/axis/legend/layout support
+  out of scope.
+* Accept a narrow Level 1 ZIP data-descriptor case when central-directory
+  sizes/CRC/offsets are known, so OOXML packages can open entries written with
+  bit-3 data descriptors while ZIP64/encrypted/multi-disk/full streaming
+  descriptor support remains unsupported.
+* Expand local `samples/quality_corpus` diagnostics and `known_bad` reporting
+  so real external boundary rows stay visible as `expected_fail` /
+  `unexpected_pass` signals without changing the default conversion output.
+
+* Remove the legacy checked `samples/real_world` corpus because it was
+  synthetic/regression-like rather than reliable real-world quality evidence,
+  and reset `samples/quality_corpus` into an external/private intake skeleton
+  with an intentionally empty public manifest, optional private-local support,
+  and manual external-source registry only.
+* Expand `samples/quality_corpus` into an external intake v1 skeleton with a
+  source catalog, local external manifest convention, local cache guidance,
+  non-downloading helper scripts, and explicit license/file skip gates while
+  keeping default conversion output unchanged and leaving external datasets and
+  tool fixtures unvendored.
+* Add a local-only PDF layout classifier training spike with feature export,
+  manual label manifests, a lightweight Python trainer, MoonBit JSON model
+  loading plus deterministic inference, and evaluation/docs coverage, while
+  keeping default PDF conversion output unchanged and leaving OCR/visual model
+  integration optional and out of the main path.
+* Expand the local-only PDF layout classifier spike with split-aware
+  train/held-out manifests, additional manual labels, and held-out confusion /
+  error reporting, while keeping the work scoped to training-time tooling and
+  leaving default PDF conversion output unchanged.
 * Mark `doc_parse/ooxml`, `doc_parse/epub`, and native text-PDF
   `doc_parse/pdf` as foundation candidates after the recent inspect,
   validation, classifier, and lower-layer contract hardening passes.
@@ -189,6 +288,11 @@ keeping converter defaults stable.
   repository's default converter behavior.
 * Full `NormalizationTest.txt` conformance validation is still pending, so the
   repository does not claim complete ICU/UAX #15 equivalence.
+* Clarify the text-normalization conformance surface: explicit
+  `normalize_nfd/nfc/nfkd/nfkc` and `is_normalized_*` APIs already have
+  curated always-on tests, shared cleanup remains separate from canonical
+  normalization, and any future `NormalizationTest.txt` runner must remain
+  manual-only, user-provided, and outside the default validation gate.
 
 ### Rollout scope
 
@@ -373,3 +477,5 @@ This release closes the repository's first full-format H2 milestone.
   implemented.
 * Known limitations remain documented in
   `docs/support-and-limits.md`.
+* Accept single-document YAML start/end markers (`---` / `...`) while keeping
+  multi-document streams unsupported in the conservative YAML subset parser.

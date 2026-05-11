@@ -7,9 +7,9 @@ test "pptx hidden slide entry parsing reads show flag conservatively" {
     "</p:sldIdLst></p:presentation>"
   let entries = parse_presentation_slide_entries(xml)
   assert_eq(entries.length(), 3)
-  assert_eq(entries[0], ("rId8", false))
-  assert_eq(entries[1], ("rId9", true))
-  assert_eq(entries[2], ("rId10", true))
+  assert_true(entries[0] == ("rId8", false))
+  assert_true(entries[1] == ("rId9", true))
+  assert_true(entries[2] == ("rId10", true))
 }
 
 ///|
@@ -52,10 +52,7 @@ test "pptx explicit table parser keeps rows and breaks" {
     "</a:tr>" +
     "</a:tbl></a:graphicData></a:graphic>" +
     "</p:graphicFrame>"
-  let frames = collect_explicit_table_frames(
-    @utf8.encode(frame_xml),
-    Map::new(),
-  )
+  let frames = collect_explicit_table_frames(@utf8.encode(frame_xml), Map([]))
   assert_eq(frames.length(), 1)
   let frame = frames[0]
   assert_eq(frame.header_rows, 1)
@@ -63,7 +60,7 @@ test "pptx explicit table parser keeps rows and breaks" {
     Some(obj_ref) => assert_eq(obj_ref, "graphicFrame-7")
     None => fail("expected graphic frame object_ref")
   }
-  assert_eq(frame.rows, [["Head", "Value"], ["Q1", "Line 1<br>Line 2"]])
+  assert_true(frame.rows == [["Head", "Value"], ["Q1", "Line 1<br>Line 2"]])
 }
 
 ///|
@@ -132,12 +129,9 @@ test "pptx grouped shape children are still discovered by current scans" {
     None => fail("expected grouped table object_ref")
   }
 
-  let frames = collect_explicit_table_frames(
-    @utf8.encode(slide_xml),
-    Map::new(),
-  )
+  let frames = collect_explicit_table_frames(@utf8.encode(slide_xml), Map([]))
   assert_eq(frames.length(), 1)
-  assert_eq(frames[0].rows, [["H"]])
+  assert_true(frames[0].rows == [["H"]])
   match frames[0].object_ref {
     Some(obj_ref) => assert_eq(obj_ref, "group-9/graphicFrame-7")
     None => fail("expected grouped frame object_ref")
@@ -374,7 +368,7 @@ test "pptx shared cleanup does not change br hyperlink shape-link or fallback be
     fallback_bs,
     0,
     fallback_bs.length(),
-    Map::new(),
+    Map([]),
   )
   assert_eq(fallback.length(), 1)
   match fallback[0] {

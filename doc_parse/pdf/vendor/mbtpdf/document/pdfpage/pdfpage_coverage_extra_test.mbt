@@ -47,7 +47,7 @@ test "pages_of_pagetree treats stream /Contents as singleton array" {
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
   let stream_num = pdf0.addobj(
-    Stream(Ref::new((stream_dict, @pdf.Stream::Got(data)))),
+    Stream(Ref((stream_dict, @pdf.Stream::Got(data)))),
   )
   let page_num = pdf0.addobj(
     Dictionary([

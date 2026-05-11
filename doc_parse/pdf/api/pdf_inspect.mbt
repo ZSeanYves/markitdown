@@ -100,7 +100,11 @@ pub struct PdfPageInspectInfo {
   page_number_candidate_count : Int
   header_footer_candidate_count : Int
   has_text_signal : Bool
+  has_image_signal : Bool
   has_any_signal : Bool
+  text_signal_level : String
+  image_only : Bool
+  ocr_recommended : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
   raw_issue_count : Int
@@ -123,8 +127,15 @@ pub struct PdfDocumentInspectReport {
   has_object_stream : Bool
   has_text_signal : Bool
   has_image_signal : Bool
+  has_embedded_text : Bool
+  has_page_images : Bool
   has_annotation_signal : Bool
   has_any_signal : Bool
+  text_signal_level : String
+  native_text_char_count : Int
+  page_image_count : Int
+  image_only : Bool
+  ocr_recommended : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
   page_failure_count : Int
@@ -359,6 +370,15 @@ fn inspect_pdf_document_core(
     }
   }
 
+  let text_signal_level = classify_document_text_signal_level(
+    total_char_count, has_image_signal, low_signal_page_count,
+  )
+  let has_embedded_text = has_text_signal
+  let has_page_images = has_image_signal
+  let image_only = !has_text_signal && has_image_signal
+  let ocr_recommended = image_only ||
+    (text_signal_level == "low" && has_page_images)
+
   {
     version: doc.version,
     page_count: doc.page_count,
@@ -371,8 +391,15 @@ fn inspect_pdf_document_core(
     has_object_stream: doc.has_object_stream,
     has_text_signal,
     has_image_signal,
+    has_embedded_text,
+    has_page_images,
     has_annotation_signal,
     has_any_signal,
+    text_signal_level,
+    native_text_char_count: total_char_count,
+    page_image_count: total_image_count,
+    image_only,
+    ocr_recommended,
     is_low_signal: !has_text_signal && has_any_signal,
     is_empty_signal: !has_any_signal,
     page_failure_count: failed_page_count,
@@ -531,11 +558,18 @@ fn inspect_pdf_page_core(
     line_count > 0 ||
     span_count > 0 ||
     char_count > 0
+  let has_image_signal = image_count > 0
   let has_any_signal = has_text_signal ||
-    image_count > 0 ||
+    has_image_signal ||
     annotation_count > 0 ||
     vector_count > 0 ||
     form_count > 0
+  let text_signal_level = classify_page_text_signal_level(
+    char_count, has_image_signal, has_any_signal,
+  )
+  let image_only = !has_text_signal && has_image_signal
+  let ocr_recommended = has_image_signal &&
+    (text_signal_level == "none" || text_signal_level == "low")
   let is_empty_signal = !has_any_signal
   let is_low_signal = !has_text_signal && has_any_signal
 
@@ -587,7 +621,11 @@ fn inspect_pdf_page_core(
     page_number_candidate_count,
     header_footer_candidate_count,
     has_text_signal,
+    has_image_signal,
     has_any_signal,
+    text_signal_level,
+    image_only,
+    ocr_recommended,
     is_low_signal,
     is_empty_signal,
     raw_issue_count,
@@ -695,6 +733,49 @@ fn collect_document_model_issues(
     )
   }
   issues
+}
+
+///|
+/// Report-only text-signal summary:
+/// - `none`: no native text chars recovered
+/// - `low`: some native text exists, but page-image signal suggests partial /
+///   mixed extraction where OCR might still help
+/// - `normal`: native text signal is the dominant path
+fn classify_document_text_signal_level(
+  total_char_count : Int,
+  has_image_signal : Bool,
+  low_signal_page_count : Int,
+) -> String {
+  if total_char_count <= 0 {
+    return "none"
+  }
+
+  if has_image_signal && (low_signal_page_count > 0 || total_char_count < 96) {
+    return "low"
+  }
+
+  "normal"
+}
+
+///|
+/// Page-level hint used for inspect/debug only.
+fn classify_page_text_signal_level(
+  char_count : Int,
+  has_image_signal : Bool,
+  has_any_signal : Bool,
+) -> String {
+  if char_count <= 0 {
+    if has_any_signal {
+      return "none"
+    }
+    return "none"
+  }
+
+  if has_image_signal && char_count < 24 {
+    return "low"
+  }
+
+  "normal"
 }
 
 ///|

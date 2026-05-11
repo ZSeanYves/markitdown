@@ -1,12 +1,12 @@
 ///|
 test "renumber_object_parsed handles indirect and stream" {
   let pdf = Pdf::empty()
-  let changes : Map[Int, Int] = Map::new()
+  let changes : Map[Int, Int] = Map([])
   match pdf.renumber_object_parsed(changes, PdfObject::Indirect(5)) {
     PdfObject::Indirect(5) => ()
     _ => fail("expected unchanged indirect")
   }
-  let changes2 : Map[Int, Int] = Map::new()
+  let changes2 : Map[Int, Int] = Map([])
   changes2.set(1, 10)
   let stream = make_stream(
     PdfObject::Dictionary([("/Ref", PdfObject::Indirect(1))]),
@@ -32,7 +32,7 @@ test "renumber keeps root when missing change" {
   pdf.addobj_given_num((6, PdfObject::Integer(2)))
   pdf.objects.object_stream_ids.set(5, 1)
   pdf.objects.object_stream_ids.set(6, 2)
-  let change_table : Map[Int, Int] = Map::new()
+  let change_table : Map[Int, Int] = Map([])
   change_table.set(5, 7)
   let renumbered = pdf.renumber(change_table)
   assert_eq(renumbered.root, pdf.root)

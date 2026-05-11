@@ -27,13 +27,13 @@ test "lookup_immediate_all works on stream dictionaries" {
     ("/A", PdfObject::Integer(1)),
     ("/A", PdfObject::Integer(2)),
   ])
-  let stream_ref = Ref::new((dict, Stream::Got(@pdfio.bytes_of_string("x"))))
+  let stream_ref = Ref((dict, Stream::Got(@pdfio.bytes_of_string("x"))))
   let stream_obj = PdfObject::Stream(stream_ref)
   let values = stream_obj.lookup_immediate_all("/A")
   assert_eq(values.length(), 2)
   assert_eq(stream_obj.lookup_immediate_all("/Missing").length(), 0)
   assert_eq(PdfObject::Integer(1).lookup_immediate_all("/A").length(), 0)
-  let stream_ref_bad = Ref::new(
+  let stream_ref_bad = Ref(
     (PdfObject::Integer(0), Stream::Got(@pdfio.mkbytes(0))),
   )
   let stream_bad = PdfObject::Stream(stream_ref_bad)
@@ -73,7 +73,7 @@ test "to_string_including_data warns when stream cannot be got" {
     r: 5,
   })
   let toget = ToGet::new(input, 0, 3, crypt~)
-  let stream_ref = Ref::new(
+  let stream_ref = Ref(
     (
       PdfObject::Dictionary([("/Length", PdfObject::Integer(3))]),
       Stream::ToGet(toget),

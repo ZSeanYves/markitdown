@@ -47,6 +47,29 @@ fn simple_font_with_tounicode(tounicode_ref : Int) -> @pdf.PdfObject {
 }
 
 ///|
+fn simple_font_with_raw_tounicode_stream(
+  data : String,
+) -> (@pdf.PdfObject, @pdf.Pdf) {
+  let pdf = @pdf.Pdf::empty()
+  let bytes = @pdfio.bytes_of_string(data)
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(bytes))),
+  ])
+  let tounicode_ref = pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(bytes)))))
+  (
+    Dictionary([
+      ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
+      ("/BaseFont", Name(@pdf.PdfName::of_string("/Helvetica"))),
+      ("/FirstChar", Integer(0)),
+      ("/LastChar", Integer(255)),
+      ("/Widths", Array([Integer(500)])),
+      ("/ToUnicode", Indirect(tounicode_ref)),
+    ]),
+    pdf,
+  )
+}
+
+///|
 fn cid_font_dict(encoding_name : String) -> @pdf.PdfObject {
   let descendant : @pdf.PdfObject = Dictionary([
     (
@@ -70,21 +93,21 @@ fn cid_font_dict(encoding_name : String) -> @pdf.PdfObject {
 
 ///|
 test "utf16be conversions" {
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().utf16be_of_codepoint(0x41),
     content="[0, 65]",
   )
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().utf16be_of_codepoint(0x1f600),
     content="[216, 61, 222, 0]",
   )
   let utf16 = @pdftext.PdfTextUtil::new().utf16be_of_codepoints([0x41, 0x1f600])
   let utf16_bytes = @pdfio.int_array_of_string(utf16)
-  inspect(utf16_bytes, content="[254, 255, 0, 65, 216, 61, 222, 0]")
+  debug_inspect(utf16_bytes, content="[254, 255, 0, 65, 216, 61, 222, 0]")
   let decoded = @pdftext.PdfTextUtil::new().codepoints_of_utf16be(
     @pdfio.string_of_int_array([0x00, 0x41, 0xd8, 0x3d, 0xde, 0x00]),
   )
-  inspect(decoded, content="[65, 128888]")
+  debug_inspect(decoded, content="[65, 128888]")
   let invalid_len : Result[Array[Int], Error] = try? @pdftext.PdfTextUtil::new().codepoints_of_utf16be(
     @pdfio.string_of_int_array([0x00]),
   )
@@ -100,11 +123,11 @@ test "pdfdocstring conversions" {
   assert_true(!@pdftext.PdfTextUtil::new().is_unicode("A"))
   let unicode = @pdftext.PdfTextUtil::new().utf16be_of_codepoints([0x41])
   assert_true(@pdftext.PdfTextUtil::new().is_unicode(unicode))
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().codepoints_of_pdfdocstring("A"),
     content="[65]",
   )
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().codepoints_of_pdfdocstring(unicode),
     content="[65]",
   )
@@ -119,7 +142,7 @@ test "pdfdocstring conversions" {
     0x4e2d,
   ])
   assert_true(@pdftext.PdfTextUtil::new().is_unicode(pdfdoc_cjk))
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().codepoints_of_pdfdocstring(pdfdoc_cjk),
     content="[20013]",
   )
@@ -133,7 +156,7 @@ test "pdfdocstring conversions" {
 test "utf8 conversion helpers" {
   let cps = [0x41, 0x20ac, 0x1f600]
   let utf8 = @pdftext.PdfTextUtil::new().utf8_of_codepoints(cps)
-  inspect(
+  debug_inspect(
     @pdftext.PdfTextUtil::new().codepoints_of_utf8(utf8),
     content="[65, 8364, 128512]",
   )
@@ -171,8 +194,8 @@ test "encoding tables and extractors" {
   let pairs = extractor.glyphnames_and_codepoints_of_text("A")
   assert_eq(pairs.length(), 1)
   assert_eq(pairs[0].0, "/A")
-  inspect(pairs[0].1, content="[65]")
-  inspect(extractor.codepoints_of_text("AB"), content="[65, 66]")
+  debug_inspect(pairs[0].1, content="[65]")
+  debug_inspect(extractor.codepoints_of_text("AB"), content="[65, 66]")
   let charcode = ctx.charcode_extractor_of_font(standard_font_dict())
   assert_true(charcode(0x41) == Some(65))
 }
@@ -181,7 +204,7 @@ test "encoding tables and extractors" {
 test "tounicode and cmap extraction" {
   let pdf = @pdf.Pdf::empty()
   let ctx = @pdftext.PdfText::new(pdf)
-  let tounicode : Map[Int, String] = Map::new()
+  let tounicode : Map[Int, String] = Map([])
   tounicode.set(33, @pdfio.string_of_int_array([0x00, 0x42]))
   let tounicode_ref = ctx.write_tounicode(tounicode)
   let extractor = ctx.text_extractor_of_font(
@@ -189,10 +212,10 @@ test "tounicode and cmap extraction" {
   )
   let pairs = extractor.glyphnames_and_codepoints_of_text("!")
   assert_eq(pairs.length(), 1)
-  inspect(pairs[0].1, content="[66]")
+  debug_inspect(pairs[0].1, content="[66]")
   let miss = extractor.glyphnames_and_codepoints_of_text("A")
   assert_eq(miss.length(), 1)
-  inspect(miss[0].1, content="[65]")
+  debug_inspect(miss[0].1, content="[65]")
   let identity_extractor = ctx.text_extractor_of_font(
     cid_font_dict("/Identity-H"),
   )
@@ -201,8 +224,8 @@ test "tounicode and cmap extraction" {
     identity_text,
   )
   assert_eq(identity_pairs.length(), 2)
-  inspect(identity_pairs[0].1, content="[65]")
-  inspect(identity_pairs[1].1, content="[66]")
+  debug_inspect(identity_pairs[0].1, content="[65]")
+  debug_inspect(identity_pairs[1].1, content="[66]")
   let odd_res : Result[Array[(String, Array[Int])], Error] = try? identity_extractor.glyphnames_and_codepoints_of_text(
     @pdfio.string_of_int_array([0x00]),
   )
@@ -215,5 +238,28 @@ test "tounicode and cmap extraction" {
     shift_text,
   )
   assert_eq(shift_pairs.length(), 1)
-  inspect(shift_pairs[0].1, content="[12288]")
+  debug_inspect(shift_pairs[0].1, content="[12288]")
+}
+
+///|
+test "tounicode greedy matching honors codespacerange lengths" {
+  let cmap = "begincodespacerange<00><ff><0000><ffff>endcodespacerange\n" +
+    "beginbfchar<0001><4E00><41><0041>endbfchar\n"
+  let (font, pdf) = simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let text = @pdfio.string_of_int_array([0x00, 0x01, 0x41])
+  let pairs = extractor.glyphnames_and_codepoints_of_text(text)
+  assert_eq(pairs.length(), 2)
+  debug_inspect(pairs[0].1, content="[19968]")
+  debug_inspect(pairs[1].1, content="[65]")
+}
+
+///|
+test "tounicode missing source code falls back safely" {
+  let cmap = "beginbfchar<21><0042>endbfchar"
+  let (font, pdf) = simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let miss = extractor.glyphnames_and_codepoints_of_text("A")
+  assert_eq(miss.length(), 1)
+  debug_inspect(miss[0].1, content="[65]")
 }

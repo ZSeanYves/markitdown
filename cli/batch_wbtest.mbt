@@ -115,11 +115,202 @@ async test "batch_v1 records unsupported files as failures" {
 }
 
 ///|
+async test "ocr cli unsupported provider path returns clear error" {
+  let root = test_tmp_root() + "/ocr-provider-missing"
+  recreate_clean_dir(root)
+  let image = root + "/page.png"
+  write_utf8_text(image, "fake image")
+
+  let result = run_ocr_cli(image, None, Some("missing-provider"), None, false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected missing OCR provider to fail")
+    Err(msg) => assert_contains(msg, "unknown OCR provider")
+  }
+}
+
+///|
+async test "ocr cli unsupported input extension returns stable error" {
+  let root = test_tmp_root() + "/ocr-unsupported-input"
+  recreate_clean_dir(root)
+  let input = root + "/page.bin"
+  write_utf8_text(input, "fake non-image")
+
+  let result = run_ocr_cli(
+    input,
+    None,
+    Some("tesseract-cli"),
+    Some("eng"),
+    false,
+  ) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected unsupported OCR input to fail")
+    Err(msg) => {
+      assert_contains(
+        msg,
+        "OCR input type is unsupported for provider mode: " + input,
+      )
+      assert_contains(
+        msg, "supported image inputs: png/jpg/jpeg/tif/tiff/bmp/webp; PDF stays on explicit PDF OCR path",
+      )
+    }
+  }
+}
+
+///|
+async test "ocr cli image input stays on explicit provider path" {
+  let root = test_tmp_root() + "/ocr-image-explicit"
+  recreate_clean_dir(root)
+  let image = root + "/page.png"
+  write_utf8_text(image, "fake image")
+
+  let result = run_ocr_cli(image, None, Some("noop"), None, false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected noop OCR provider image path to fail closed")
+    Err(msg) =>
+      assert_contains(msg, "noop OCR provider does not perform recognition")
+  }
+}
+
+///|
+async test "ocr cli pdf input keeps explicit pdf path for tesseract" {
+  let pdf = batch_resolve_sample("samples/main_process/pdf/text_simple.pdf")
+
+  let result = run_ocr_cli(pdf, None, Some("tesseract-cli"), Some("eng"), false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => ()
+    Err(msg) =>
+      fail(
+        "expected tesseract PDF OCR path to preserve explicit PDF OCR mode: " +
+        msg,
+      )
+  }
+}
+
+///|
+test "ocr cli parser accepts provider and lang named args" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, [
+    "ocr", "--provider", "tesseract-cli", "--lang", "eng+chi_sim", "page.png", "out.txt",
+  ]) catch {
+    e => fail("OCR parser should accept provider/lang args: " + e.to_string())
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "ocr")
+      let provider = @clap.SimpleValue::get_option(sub, "provider") catch {
+        e => fail("provider option missing: " + e.to_string())
+      }
+      let lang = @clap.SimpleValue::get_option(sub, "lang") catch {
+        e => fail("lang option missing: " + e.to_string())
+      }
+      match provider {
+        Some(name) => assert_eq(name, "tesseract-cli")
+        None => fail("expected provider value")
+      }
+      match lang {
+        Some(code) => assert_eq(code, "eng+chi_sim")
+        None => fail("expected lang value")
+      }
+      assert_true(sub.positional_args == ["page.png", "out.txt"])
+    }
+    None => fail("expected ocr subcommand")
+  }
+}
+
+///|
+test "ocr cli parser accepts missing optional provider and lang" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
+    e =>
+      fail(
+        "OCR parser should accept missing optional provider/lang args: " +
+        e.to_string(),
+      )
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "ocr")
+      let provider : String? = @clap.SimpleValue::get_option(sub, "provider") catch {
+        e => fail("provider option lookup failed: " + e.to_string())
+      }
+      let lang : String? = @clap.SimpleValue::get_option(sub, "lang") catch {
+        e => fail("lang option lookup failed: " + e.to_string())
+      }
+      assert_true(provider == None)
+      assert_true(lang == None)
+      assert_true(sub.positional_args == ["page.png", "out.txt"])
+    }
+    None => fail("expected ocr subcommand")
+  }
+}
+
+///|
+test "debug layout assist eval parser accepts missing optional split" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["debug", "layout-assist-eval"]) catch {
+    e =>
+      fail(
+        "debug layout-assist eval parser should accept missing split: " +
+        e.to_string(),
+      )
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "debug")
+      assert_true(sub.positional_args == ["layout-assist-eval"])
+      let split : String? = @clap.SimpleValue::get_option(sub, "split") catch {
+        e => fail("split option lookup failed: " + e.to_string())
+      }
+      assert_true(split == None)
+    }
+    None => fail("expected debug subcommand")
+  }
+}
+
+///|
+test "ocr cli language parser supports joined codes" {
+  assert_true(parse_ocr_lang_arg(None) == [])
+  assert_true(parse_ocr_lang_arg(Some("eng")) == ["eng"])
+  assert_true(parse_ocr_lang_arg(Some("eng+chi_sim")) == ["eng", "chi_sim"])
+  assert_true(
+    parse_ocr_lang_arg(Some(" eng + chi_sim + ")) == ["eng", "chi_sim"],
+  )
+}
+
+///|
 fn test_tmp_root() -> String {
   match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
     Some(path) => path + "/cli-test"
     None => ".tmp/cli-test"
   }
+}
+
+///|
+fn batch_resolve_sample(path : String) -> String raise {
+  if @fs.path_exists(path) {
+    return path
+  }
+
+  let fallback = "../" + path
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+
+  fail("sample file not found: " + path)
 }
 
 ///|

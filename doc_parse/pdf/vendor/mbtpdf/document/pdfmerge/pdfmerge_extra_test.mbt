@@ -254,12 +254,8 @@ test "merge_pdfs uses highest version and removes duplicates" {
 test "remove_duplicate_fonts updates object_stream_ids" {
   let pdf = @pdf.Pdf::empty()
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(1))])
-  let stream1 : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got([0x01]))),
-  )
-  let stream2 : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got([0x01]))),
-  )
+  let stream1 : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got([0x01]))))
+  let stream2 : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got([0x01]))))
   let obj1 = pdf.addobj(stream1)
   let obj2 = pdf.addobj(stream2)
   pdf.objects.object_stream_ids.set(obj1, 10)
@@ -272,11 +268,9 @@ test "remove_duplicate_fonts updates object_stream_ids" {
 test "remove_duplicate_fonts keeps distinct stream lengths" {
   let pdf = @pdf.Pdf::empty()
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(1))])
-  let stream1 : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got([0x01]))),
-  )
+  let stream1 : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got([0x01]))))
   let stream2 : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got([0x01, 0x02]))),
+    Ref((dict, @pdf.Stream::Got([0x01, 0x02]))),
   )
   ignore(pdf.addobj(stream1))
   ignore(pdf.addobj(stream2))

@@ -180,7 +180,7 @@ fn render_sheet_rows_from_cells(
   max_r : Int,
   max_c : Int,
 ) -> Array[Array[String]] {
-  let cell_texts : Map[String, String] = Map::new()
+  let cell_texts : Map[String, String] = Map([])
   for cell in cells {
     cell_texts.set(
       cell.row.to_string() + "," + cell.column.to_string(),

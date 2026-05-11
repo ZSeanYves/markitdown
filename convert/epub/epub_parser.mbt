@@ -49,13 +49,13 @@ pub fn parse_epub(
   let materialization_skips = materialize_safe_archive_tree(pkg, extracted_root) catch {
     e => raise @cor.AppError("epub: " + e.to_string())
   }
-  let entry_by_path : Map[String, @epubpkg.EpubArchiveEntry] = Map::new()
+  let entry_by_path : Map[String, @epubpkg.EpubArchiveEntry] = Map([])
   for entry in pkg.entries {
     entry_by_path.set(entry.path, entry)
   }
 
   let final_md = StringBuilder::new()
-  let used_ids : Map[String, Int] = Map::new()
+  let used_ids : Map[String, Int] = Map([])
   let nav_in_spine = nav_item_is_in_spine(pkg)
 
   emit_cover_if_present(
@@ -245,7 +245,7 @@ fn materialize_safe_archive_tree(
       )
   }
 
-  let skipped : Map[String, String] = Map::new()
+  let skipped : Map[String, String] = Map([])
   let mut total_materialized = 0
   for i in 0..<pkg.entries.length() {
     let entry = pkg.entries[i]
@@ -619,7 +619,7 @@ fn remap_subdoc_assets(
     return subdoc
   }
 
-  let path_map : Map[String, String] = Map::new()
+  let path_map : Map[String, String] = Map([])
   for old_path in asset_paths {
     path_map.set(old_path, namespaced_asset_path(old_path, entry_id))
   }
@@ -671,7 +671,7 @@ fn remap_subdoc_assets(
 
 ///|
 fn collect_subdoc_asset_paths(doc : @cor.Document) -> Array[String] {
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
 
   for entry in doc.asset_origins.val {
     let (path, _origin) = entry

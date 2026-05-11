@@ -41,7 +41,7 @@ test "page_reference_numbers variants" {
     was_linearized: base2.was_linearized,
     saved_encryption: base2.saved_encryption,
   }
-  assert_eq(pdf2.page_reference_numbers(), [-1])
+  assert_true(pdf2.page_reference_numbers() == [-1])
   let base3 = Pdf::empty()
   let root_only = PdfObject::Dictionary([
     ("/Type", PdfObject::Name(PdfName::of_string("/Catalog"))),

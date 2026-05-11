@@ -381,13 +381,13 @@ test "encrypt AES V2 without metadata and AES256 with long passwords" {
   pdf.addobj_given_num((10, string_obj))
   let stream_dict : @pdf.PdfObject = Dictionary([("/Length", Integer(4))])
   let got_stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(@pdfio.bytes_of_string("data")))),
+    Ref((stream_dict, @pdf.Stream::Got(@pdfio.bytes_of_string("data")))),
   )
   pdf.addobj_given_num((11, got_stream))
   let input = @pdfio.Input::of_string("data", source="stream")
   let toget = @pdf.ToGet::new(input, 0, 4)
   let toget_stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::ToGet(toget))),
+    Ref((stream_dict, @pdf.Stream::ToGet(toget))),
   )
   pdf.addobj_given_num((12, toget_stream))
   let long_pw = "a".repeat(130)

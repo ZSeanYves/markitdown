@@ -46,7 +46,7 @@ fn ccitt_roundtrip(
     ("/Length", Integer(@pdfio.bytes_size(raw))),
     ("/DecodeParms", decodeparms),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(raw)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(raw)))
   let stream_obj = @pdf.PdfObject::Stream(stream_ref)
   let ctx : PdfCodec = PdfCodec::new()
   ctx.encode_pdfstream(pdf, encoding, stream_obj)

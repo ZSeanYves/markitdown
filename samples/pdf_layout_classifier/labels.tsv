@@ -1,0 +1,12 @@
+label	description	stage
+BodyText	Regular paragraph-like body text	phase1
+Heading	Recovered section or chapter heading	phase1
+Noise	Page-edge or structural noise not meant for output	phase1
+PageNumber	Standalone page number-like residue	phase1
+HeaderFooter	Repeated header/footer residue	phase1
+Caption	Image-adjacent caption-like text	phase1
+TableLike	Table-like aligned text block	placeholder
+CrossPageMerge	Page-boundary pair that should merge	placeholder
+CrossPageNoMerge	Page-boundary pair that must stay split	placeholder
+ColumnBoundary	Two-column or layout-boundary signal	placeholder
+Unknown	Unlabeled or ambiguous record	default

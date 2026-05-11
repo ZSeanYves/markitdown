@@ -245,8 +245,8 @@ fn new_html_image_export_ctx(
     input_dir: dirname_of_path(input_path),
     out_dir,
     next_idx: { val: 0 },
-    by_src: Map::new(),
-    src_by_asset_path: Map::new(),
+    by_src: Map([]),
+    src_by_asset_path: Map([]),
   }
 
   if out_dir != "" {

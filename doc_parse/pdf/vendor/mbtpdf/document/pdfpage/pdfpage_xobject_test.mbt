@@ -7,7 +7,7 @@ test "process_xobjects updates form xobject stream" {
   ])
   let data = @pdfio.bytes_of_list([0x01, 0x02])
   let stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(data))),
+    Ref((stream_dict, @pdf.Stream::Got(data))),
   )
   let xobj_num = pdf.addobj(stream)
   let resources : @pdf.PdfObject = Dictionary([
@@ -37,7 +37,7 @@ test "process_xobjects updates form xobject stream" {
       ("/Filter", Name(@pdf.PdfName::of_string("/ASCIIHexDecode"))),
     ])
     let updated_data = @pdfio.bytes_of_list([0x41, 0x42])
-    [Stream(Ref::new((dict_updated, @pdf.Stream::Got(updated_data))))]
+    [Stream(Ref((dict_updated, @pdf.Stream::Got(updated_data))))]
   }
   page.process_xobjects(pdf, update)
   let updated = pdf.lookup_obj(xobj_num)
@@ -54,7 +54,7 @@ test "process_xobjects updates form xobject stream" {
     _ => fail("expected filter removal")
   }
   let updated_bytes = updated.bigarray_of_stream()
-  assert_eq(@pdfio.int_array_of_bytes(updated_bytes), [0x41, 0x42])
+  assert_true(@pdfio.int_array_of_bytes(updated_bytes) == [0x41, 0x42])
 }
 
 ///|
@@ -91,7 +91,7 @@ test "process_xobjects errors when xobject subtype missing" {
   ])
   let data = @pdfio.bytes_of_list([0x01])
   let stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(data))),
+    Ref((stream_dict, @pdf.Stream::Got(data))),
   )
   let xobj_num = pdf.addobj(stream)
   let resources : @pdf.PdfObject = Dictionary([
@@ -125,7 +125,7 @@ test "process_xobjects accepts updated stream with non-dict metadata" {
   ])
   let data = @pdfio.bytes_of_list([0x01, 0x02])
   let stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(data))),
+    Ref((stream_dict, @pdf.Stream::Got(data))),
   )
   let xobj_num = pdf.addobj(stream)
   let resources : @pdf.PdfObject = Dictionary([
@@ -146,7 +146,7 @@ test "process_xobjects accepts updated stream with non-dict metadata" {
   ) -> Array[@pdf.PdfObject] {
     let updated_data = @pdfio.bytes_of_list([0x41, 0x42])
     let dict_updated : @pdf.PdfObject = Integer(0)
-    [Stream(Ref::new((dict_updated, @pdf.Stream::Got(updated_data))))]
+    [Stream(Ref((dict_updated, @pdf.Stream::Got(updated_data))))]
   }
   page.process_xobjects(pdf, update)
   let updated = pdf.lookup_obj(xobj_num)
@@ -155,7 +155,7 @@ test "process_xobjects accepts updated stream with non-dict metadata" {
     _ => fail("expected filter removal")
   }
   let updated_bytes = updated.bigarray_of_stream()
-  assert_eq(@pdfio.int_array_of_bytes(updated_bytes), [0x41, 0x42])
+  assert_true(@pdfio.int_array_of_bytes(updated_bytes) == [0x41, 0x42])
 }
 
 ///|

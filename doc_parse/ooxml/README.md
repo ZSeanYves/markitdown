@@ -302,6 +302,9 @@ Strict validation policy:
 - explicit strict validation reports package hygiene issues such as duplicate
   relationship ids
 - external relationships are reported as validation issues but never fetched
+- OOXML package opening inherits the shared ZIP reader's narrow Level 1
+  data-descriptor compatibility; full ZIP64, encrypted, multi-disk, and
+  streaming data-descriptor support remain unsupported
 
 ## Tests
 

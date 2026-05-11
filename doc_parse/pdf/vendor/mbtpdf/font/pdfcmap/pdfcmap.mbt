@@ -3,12 +3,14 @@
 
 ///|
 pub struct CMap {
+  code_space_lengths : Array[Int]
   map : Array[(String, String)]
   wmode : Int?
 } derive(Debug)
 
 ///|
 priv enum Section {
+  CodeSpaceRange(ArrayView[Char])
   BfChar(ArrayView[Char])
   BfRange(ArrayView[Char])
 }
@@ -59,6 +61,12 @@ let bfchar_token : Array[Char] = "beginbfchar".to_array()
 let end_bfchar_token : Array[Char] = "endbfchar".to_array()
 
 ///|
+let codespacerange_token : Array[Char] = "begincodespacerange".to_array()
+
+///|
+let end_codespacerange_token : Array[Char] = "endcodespacerange".to_array()
+
+///|
 let bfrange_token : Array[Char] = "beginbfrange".to_array()
 
 ///|
@@ -71,6 +79,14 @@ let wmode_token : Array[Char] = "/WMode ".to_array()
 fn get_section(chars : ArrayView[Char], start : Int) -> (Section, Int)? {
   let mut i = start
   while i < chars.length() {
+    if match_at(chars, i, codespacerange_token) {
+      let (numbers, next) = get_until(
+        chars,
+        i + codespacerange_token.length(),
+        end_codespacerange_token,
+      )
+      return Some((Section::CodeSpaceRange(numbers), next))
+    }
     if match_at(chars, i, bfchar_token) {
       let (numbers, next) = get_until(
         chars,
@@ -234,8 +250,38 @@ fn increment_code(code : String, delta : Int) -> String {
 }
 
 ///|
+fn pairs_of_codespace_section(section : Section) -> Array[Int] {
+  match section {
+    Section::CodeSpaceRange(numbers) => {
+      let lengths = Array::new()
+      let mut pos = 0
+      while true {
+        match read_code_opt(numbers, pos) {
+          None => break
+          Some((src1, rest1)) =>
+            match read_code_opt(numbers, rest1) {
+              None => break
+              Some((src2, rest2)) => {
+                let len1 = @pdfio.bytes_of_string(src1).length()
+                let len2 = @pdfio.bytes_of_string(src2).length()
+                if len1 == len2 && len1 > 0 && !lengths.contains(len1) {
+                  lengths.push(len1)
+                }
+                pos = rest2
+              }
+            }
+        }
+      }
+      lengths
+    }
+    _ => []
+  }
+}
+
+///|
 fn pairs_of_section(section : Section) -> Array[(String, String)] {
   match section {
+    Section::CodeSpaceRange(_) => []
     Section::BfChar(numbers) => {
       let results = Array::new()
       let mut pos = 0
@@ -305,6 +351,12 @@ fn pairs_of_section(section : Section) -> Array[(String, String)] {
                           Some((code, rest3)) => {
                             let src_len = @pdfio.bytes_of_string(src1).length()
                             let dest_len = @pdfio.bytes_of_string(code).length()
+                            if dest_len == 0 ||
+                              dest_len % 2 != 0 ||
+                              dest_len != 2 {
+                              pos = rest3
+                              continue
+                            }
                             let mut d = 0
                             while d <= src2_value - src1_value {
                               results.push(
@@ -394,10 +446,17 @@ pub fn CMap::parse(pdf : @pdf.Pdf, cmap : @pdf.PdfObject) -> CMap raise {
               })
               let sections = get_sections(chars)
               let pairs = Array::new()
+              let code_space_lengths = Array::new()
               for section in sections {
+                for length in pairs_of_codespace_section(section) {
+                  if !code_space_lengths.contains(length) {
+                    code_space_lengths.push(length)
+                  }
+                }
                 pairs.append(pairs_of_section(section))
               }
-              { map: pairs, wmode }
+              code_space_lengths.sort_by((a, b) => b - a)
+              { code_space_lengths, map: pairs, wmode }
             }
             @pdf.Stream::ToGet(_) => {
               cmap.getstream()

@@ -236,11 +236,194 @@ fn is_cjk_char_local(ch : Char) -> Bool {
 ///
 /// 第一版直接用 decoded_text 顺序拼接。
 fn join_chars_text(chars : Array[@model.PdfChar]) -> String {
-  let mut buf = ""
-  for ch in chars {
-    buf = buf + ch.decoded_text
+  if chars.is_empty() {
+    return ""
+  }
+
+  let mut buf = chars[0].decoded_text
+  for i = 1; i < chars.length(); i = i + 1 {
+    let prev = chars[i - 1]
+    let cur = chars[i]
+    if should_insert_inferred_word_space(prev, cur) {
+      buf = buf + " "
+    }
+    buf = buf + cur.decoded_text
   }
   buf
+}
+
+///|
+fn should_insert_inferred_word_space(
+  left : @model.PdfChar,
+  right : @model.PdfChar,
+) -> Bool {
+  if has_explicit_space_boundary(left.decoded_text, right.decoded_text) {
+    return false
+  }
+
+  match
+    (
+      last_char_opt_local(left.decoded_text),
+      first_char_opt_local(right.decoded_text),
+    ) {
+    (Some(a), Some(b)) => {
+      if is_cjk_char_local(a) || is_cjk_char_local(b) {
+        return false
+      }
+
+      if is_right_tight_punct_local(b) || is_left_open_punct_local(a) {
+        return false
+      }
+
+      if !is_word_space_candidate_boundary(a, b) {
+        return false
+      }
+
+      inferred_word_space_gap_large_enough(left, right)
+    }
+    _ => false
+  }
+}
+
+///|
+fn has_explicit_space_boundary(left : String, right : String) -> Bool {
+  match (last_char_opt_local(left), first_char_opt_local(right)) {
+    (Some(a), Some(b)) =>
+      is_space_like_char_local(a) || is_space_like_char_local(b)
+    (Some(a), None) => is_space_like_char_local(a)
+    (None, Some(b)) => is_space_like_char_local(b)
+    (None, None) => false
+  }
+}
+
+///|
+fn is_word_space_candidate_boundary(left : Char, right : Char) -> Bool {
+  (is_ascii_wordish_local(left) && is_ascii_wordish_local(right)) ||
+  (is_left_space_worthy_punct_local(left) && !is_spacing_or_punct_local(right)) ||
+  (is_bullet_char_local(left) && !is_spacing_or_punct_local(right))
+}
+
+///|
+fn inferred_word_space_gap_large_enough(
+  left : @model.PdfChar,
+  right : @model.PdfChar,
+) -> Bool {
+  let gap = char_horizontal_gap(left, right)
+  if gap <= 0.0 {
+    return false
+  }
+
+  let ref_size = match (left.font_size, right.font_size) {
+    (Some(a), Some(b)) => if a > b { a } else { b }
+    (Some(a), None) => a
+    (None, Some(b)) => b
+    (None, None) => 12.0
+  }
+
+  gap >= ref_size * 0.18 + 0.5
+}
+
+///|
+fn char_horizontal_gap(left : @model.PdfChar, right : @model.PdfChar) -> Double {
+  char_visual_start_x(right) - char_visual_end_x(left)
+}
+
+///|
+fn char_visual_start_x(ch : @model.PdfChar) -> Double {
+  if ch.bbox.x1 > ch.bbox.x0 {
+    ch.bbox.x0
+  } else {
+    ch.origin.x
+  }
+}
+
+///|
+fn char_visual_end_x(ch : @model.PdfChar) -> Double {
+  if ch.bbox.x1 > ch.bbox.x0 {
+    ch.bbox.x1
+  } else {
+    ch.origin.x + estimate_single_char_width(ch, ch.font_size.unwrap_or(12.0))
+  }
+}
+
+///|
+fn last_char_opt_local(text : String) -> Char? {
+  let mut last : Char? = None
+  for ch in text {
+    last = Some(ch)
+  }
+  last
+}
+
+///|
+fn is_ascii_wordish_local(ch : Char) -> Bool {
+  is_ascii_letter_local(ch) || is_ascii_digit_local(ch)
+}
+
+///|
+fn is_bullet_char_local(ch : Char) -> Bool {
+  ch == '•' || ch == '-' || ch == '*'
+}
+
+///|
+fn is_right_tight_punct_local(ch : Char) -> Bool {
+  ch == '.' ||
+  ch == ',' ||
+  ch == ':' ||
+  ch == ';' ||
+  ch == '!' ||
+  ch == '?' ||
+  ch == ')' ||
+  ch == ']' ||
+  ch == '}' ||
+  ch == '，' ||
+  ch == '。' ||
+  ch == '：' ||
+  ch == '；' ||
+  ch == '！' ||
+  ch == '？' ||
+  ch == '）' ||
+  ch == '】' ||
+  ch == '》'
+}
+
+///|
+fn is_left_open_punct_local(ch : Char) -> Bool {
+  ch == '(' ||
+  ch == '[' ||
+  ch == '{' ||
+  ch == '（' ||
+  ch == '【' ||
+  ch == '《'
+}
+
+///|
+fn is_left_space_worthy_punct_local(ch : Char) -> Bool {
+  ch == ')' ||
+  ch == ']' ||
+  ch == '}' ||
+  ch == ':' ||
+  ch == ';' ||
+  ch == ',' ||
+  ch == '.'
+}
+
+///|
+fn is_spacing_or_punct_local(ch : Char) -> Bool {
+  is_space_like_char_local(ch) || is_right_tight_punct_local(ch)
+}
+
+///|
+fn is_space_like_char_local(ch : Char) -> Bool {
+  ch == ' ' ||
+  ch == '\t' ||
+  ch == '\n' ||
+  ch == '\r' ||
+  ch == '\u{00A0}' ||
+  ch == '\u{2002}' ||
+  ch == '\u{2003}' ||
+  ch == '\u{2009}' ||
+  ch == '　'
 }
 
 ///|

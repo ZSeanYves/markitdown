@@ -531,14 +531,14 @@ fn build_pdf_objects(
   user_password : String?,
   owner_password : String?,
 ) -> @pdf.PdfObjects {
-  let xrefs : Map[Int, XRef] = Map::new()
+  let xrefs : Map[Int, XRef] = Map([])
   for pair in xref_entries {
     xrefs.set(pair.0, pair.1)
   }
-  let objects : @pdf.PdfObjMap = Map::new()
-  let object_stream_ids : Map[Int, Int] = Map::new()
-  let stream_id_seen : Map[Int, Bool] = Map::new()
-  let stream_groups : Map[Int, Array[(Int, Int)]] = Map::new()
+  let objects : @pdf.PdfObjMap = Map([])
+  let object_stream_ids : Map[Int, Int] = Map([])
+  let stream_id_seen : Map[Int, Bool] = Map([])
+  let stream_groups : Map[Int, Array[(Int, Int)]] = Map([])
   let mut max_obj = 0
   let stream_ids = Array::new()
   for pair in xref_entries {
@@ -618,7 +618,7 @@ fn build_pdf_objects(
       }
     }
   } else {
-    let themap : Map[Int, Array[Int]] = Map::new()
+    let themap : Map[Int, Array[Int]] = Map([])
     for group in stream_groups {
       let entries = group.1
       for entry in entries {
@@ -652,10 +652,7 @@ fn build_pdf_objects(
         let out = Array::new(capacity=parsed.length())
         for pair in parsed {
           out.push(
-            (
-              pair.0,
-              (Ref::new(@pdf.ObjectData::ParsedAlreadyDecrypted(pair.1)), 0),
-            ),
+            (pair.0, (Ref(@pdf.ObjectData::ParsedAlreadyDecrypted(pair.1)), 0)),
           )
         }
         out

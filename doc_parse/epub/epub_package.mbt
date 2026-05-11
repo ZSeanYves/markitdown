@@ -23,7 +23,7 @@ pub fn open_epub_package(
   let opf_dir = dirname_of_part(rootfile_path)
   let metadata = parse_opf_metadata(opf_xml)
   let manifest = parse_opf_manifest(opf_xml, opf_dir)
-  let manifest_by_id : Map[String, EpubManifestItem] = Map::new()
+  let manifest_by_id : Map[String, EpubManifestItem] = Map([])
   for item in manifest {
     if manifest_by_id.contains(item.id) {
       raise InvalidXml("duplicate manifest id: " + item.id)
@@ -377,7 +377,7 @@ pub fn collect_epub_validation_issues(
       message: "no EPUB3 nav document or NCX navigation document was discovered",
     })
   }
-  let seen_idrefs : Map[String, Int] = Map::new()
+  let seen_idrefs : Map[String, Int] = Map([])
   for item in pkg.spine {
     if seen_idrefs.contains(item.idref) {
       out.push({
@@ -975,7 +975,7 @@ fn dedupe_cover_candidates(
   candidates : Array[EpubCoverCandidate],
 ) -> Array[EpubCoverCandidate] {
   let out : Array[EpubCoverCandidate] = []
-  let seen : Map[String, Int] = Map::new()
+  let seen : Map[String, Int] = Map([])
   for candidate in candidates {
     let key = cover_candidate_sort_key(candidate)
     if !seen.contains(key) {
@@ -1319,7 +1319,7 @@ fn plan_archive_entries(
   archive : @zip.ZipArchive,
 ) -> (Array[EpubArchiveEntry], Map[String, String]) raise EpubError {
   let out : Array[EpubArchiveEntry] = []
-  let entry_index : Map[String, String] = Map::new()
+  let entry_index : Map[String, String] = Map([])
 
   for meta in @zip.list_entries(archive) {
     if meta.name.has_suffix("/") || meta.name.has_suffix("\\") {

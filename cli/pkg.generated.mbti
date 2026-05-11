@@ -23,6 +23,8 @@ type DebugCliOptions
 
 type DebugParseResult
 
+type LayoutAssistEvalRow
+
 type OriginDimensionCounts
 
 // Type aliases

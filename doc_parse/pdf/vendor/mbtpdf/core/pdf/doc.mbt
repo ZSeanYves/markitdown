@@ -44,7 +44,7 @@ pub(all) struct Pdf {
 
 ///|
 pub fn pdfobjmap_empty() -> PdfObjMap {
-  Map::new()
+  Map([])
 }
 
 ///|
@@ -76,7 +76,7 @@ pub fn Pdf::empty() -> Pdf {
       max_obj_num: 0,
       parse: None,
       objects: pdfobjmap_empty(),
-      object_stream_ids: Map::new(),
+      object_stream_ids: Map([]),
     },
     trailerdict: Dictionary([]),
     was_linearized: false,
@@ -134,10 +134,10 @@ pub fn Pdf::catalog_of_pdf(self : Pdf) -> PdfObject raise {
 
 ///|
 fn deep_copy_pdfobjects(from : Pdf) -> PdfObjMap {
-  let out : PdfObjMap = Map::new(capacity=from.objects.objects.length())
+  let out : PdfObjMap = Map([], capacity=from.objects.objects.length())
   for objnum, entry in from.objects.objects {
     let (obj_ref, gen) = entry
-    out.set(objnum, (Ref::new(deep_copy_objdata(obj_ref.val)), gen))
+    out.set(objnum, (Ref(deep_copy_objdata(obj_ref.val)), gen))
   }
   out
 }

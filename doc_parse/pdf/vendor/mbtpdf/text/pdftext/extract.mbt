@@ -21,7 +21,7 @@ fn PdfText::extract_text_from_page(
   page : @pdfpage.Page,
 ) -> String raise {
   let builder = StringBuilder::new()
-  let visited : Map[Int, Bool] = Map::new()
+  let visited : Map[Int, Bool] = Map([])
   self.append_text_from_streams(builder, page.resources, page.content, visited)
   builder.to_string()
 }
@@ -38,7 +38,7 @@ fn PdfText::append_text_from_streams(
   let mut in_text = false
   let mut current_extractor : TextExtractor? = None
   let mut last_newline = false
-  let extractor_cache : Map[String, TextExtractor] = Map::new()
+  let extractor_cache : Map[String, TextExtractor] = Map([])
   fn append_newline() -> Unit {
     if !builder.is_empty() && !last_newline {
       builder.write_char('\n')

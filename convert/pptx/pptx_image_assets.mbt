@@ -218,7 +218,7 @@ fn synthetic_slide_image_alt_text(slide_no : Int, img_idx : Int) -> String {
 fn rels_image_target_map(
   rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, String] {
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   for rel in rels {
     if rel.rel_type.has_suffix("/image") {
       out.set(rel.id, rel.resolved_target)

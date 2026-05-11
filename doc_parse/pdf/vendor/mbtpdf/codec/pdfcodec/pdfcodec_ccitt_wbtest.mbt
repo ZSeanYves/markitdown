@@ -86,7 +86,7 @@ test "encode_pdfstream ccitt g3 roundtrip" {
     ("/Length", @pdf.PdfObject::Integer(@pdfio.bytes_size(raw))),
     ("/DecodeParms", decodeparms),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(raw)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(raw)))
   let stream_obj = @pdf.PdfObject::Stream(stream_ref)
   ccitt_ctx.encode_pdfstream(pdf, Encoding::CCITT(columns, rows), stream_obj)
   let (encoded_dict, _encoded_stream) = stream_ref.val
@@ -123,7 +123,7 @@ test "encode_pdfstream ccitt g4 roundtrip" {
     ("/Length", @pdf.PdfObject::Integer(@pdfio.bytes_size(raw))),
     ("/DecodeParms", decodeparms),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(raw)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(raw)))
   let stream_obj = @pdf.PdfObject::Stream(stream_ref)
   ccitt_ctx.encode_pdfstream(pdf, Encoding::CCITTG4(columns, rows), stream_obj)
   let (encoded_dict, _encoded_stream) = stream_ref.val

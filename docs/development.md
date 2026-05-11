@@ -228,12 +228,13 @@ GitHub Actions CI:
 * Windows shell validation remains a WSL/POSIX-shell story until a dedicated
   Windows workflow is added
 * `moon publish` remains manual and is not automated by CI
-* `samples/real_world` now holds a checked-in complex-only scenario corpus
-  with 11 long-form or stress rows
-* default `./samples/check.sh` runs the full real-world corpus
-* `./samples/check.sh --real-world` remains the focused rerun entrypoint, and
-  `./samples/check.sh --real-world --tags complex` provides a complex-only
-  rerun path
+* `./samples/check.sh` remains the checked exact-regression and contract gate
+* `samples/quality_corpus/` is the separate signal-level intake framework for
+  externally sourced or private local quality samples
+* the checked public quality manifest may stay intentionally empty until
+  external rows are manually curated and license-reviewed
+* private local quality samples remain the first-class path for real user
+  documents and must stay uncommitted
 
 ## Benchmark Commands
 
@@ -422,9 +423,10 @@ The repository intentionally has a third validation layer beyond package tests:
 * `samples/check.sh --assets-only`: focused asset export and
   asset-reference regression
 * `samples/check.sh --contracts-only`: CLI/debug/batch contract-only validation
-* `samples/check.sh --manifest-only`: enrollment plus benchmark/real_world manifest validation
-* `samples/check.sh --real-world [--tags complex]`: focused rerun of the
-  complex-scenario corpus
+* `samples/check.sh --manifest-only`: enrollment plus benchmark-manifest
+  validation
+* `bash ./samples/quality_corpus/check.sh`: signal-level external/private
+  intake check
 
 These scripts intentionally stay separate:
 

@@ -370,7 +370,7 @@ fn bytes_of_blocks(blocks : Array[Array[Int]]) -> @pdfio.MutableBytes {
 }
 
 ///|
-let rand_state : Ref[@random.Rand] = Ref::new(@random.Rand::new())
+let rand_state : Ref[@random.Rand] = Ref(@random.Rand::new())
 
 ///|
 fn mkiv() -> Array[Int] {

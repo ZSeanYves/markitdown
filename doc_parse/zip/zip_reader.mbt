@@ -18,6 +18,9 @@ const ZIP64_U16_SENTINEL : Int = 0xFFFF
 const ZIP64_U32_SENTINEL : Int = 0xFFFFFFFF
 
 ///|
+const ZIP64_U32_SENTINEL_SIGNED : Int = -1
+
+///|
 const GP_FLAG_ENCRYPTED : Int = 0x0001
 
 ///|
@@ -28,7 +31,7 @@ pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
   let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
   let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
-  let index : Map[String, Int] = Map::new()
+  let index : Map[String, Int] = Map([])
 
   let mut i = 0
   while i < entries.length() {
@@ -144,6 +147,21 @@ pub fn read_entry(
     local_offset + 8,
     "local file header method",
   )
+  let local_crc32 = read_u32_le(
+    archive.bytes,
+    local_offset + 14,
+    "local file header crc32",
+  )
+  let local_compressed_size = read_u32_le(
+    archive.bytes,
+    local_offset + 18,
+    "local file header compressed size",
+  )
+  let local_uncompressed_size = read_u32_le(
+    archive.bytes,
+    local_offset + 22,
+    "local file header uncompressed size",
+  )
   let name_len = read_u16_le(
     archive.bytes,
     local_offset + 26,
@@ -190,11 +208,33 @@ pub fn read_entry(
     )
   }
 
+  if !entry.has_data_descriptor {
+    if local_crc32 != entry.crc32 {
+      raise InvalidStructure(
+        "central/local crc32 mismatch for entry: " + entry.name,
+      )
+    }
+    if local_compressed_size != entry.compressed_size {
+      raise InvalidStructure(
+        "central/local compressed size mismatch for entry: " + entry.name,
+      )
+    }
+    if local_uncompressed_size != entry.uncompressed_size {
+      raise InvalidStructure(
+        "central/local uncompressed size mismatch for entry: " + entry.name,
+      )
+    }
+  }
+
   let data_start = local_name_end + extra_len
   let data_end = data_start + entry.compressed_size
   let compressed = subview(archive.bytes, data_start, data_end, "entry data")
 
-  decompress(entry.compression_method, compressed, max_output_size~) catch {
+  let decoded = decompress(
+    entry.compression_method,
+    compressed,
+    max_output_size~,
+  ) catch {
     UnsupportedCompressionMethod(code) =>
       raise UnsupportedCompressionMethod(code)
     DecodeFailed(msg) =>
@@ -207,6 +247,20 @@ pub fn read_entry(
         actual.to_string(),
       )
   }
+
+  if decoded.length() != entry.uncompressed_size {
+    raise InvalidStructure(
+      "decoded size mismatch for entry: " +
+      entry.name +
+      " expected=" +
+      entry.uncompressed_size.to_string() +
+      " actual=" +
+      decoded.length().to_string(),
+    )
+  }
+
+  validate_crc32(decoded, entry)
+  decoded
 }
 
 ///|
@@ -252,11 +306,46 @@ fn validate_entry_supported_flags(
   if (flags & GP_FLAG_ENCRYPTED) != 0 {
     raise InvalidStructure("encrypted zip is not supported: " + entry_name)
   }
-  if (flags & GP_FLAG_DATA_DESCRIPTOR) != 0 {
+}
+
+///|
+fn validate_crc32(decoded : Bytes, entry : ZipEntryMeta) -> Unit raise ZipError {
+  let actual = crc32_of_bytes(decoded)
+  if actual != entry.crc32 {
     raise InvalidStructure(
-      "data descriptor is not supported in phase-1: " + entry_name,
+      "crc32 mismatch for entry: " +
+      entry.name +
+      " expected=" +
+      entry.crc32.to_string() +
+      " actual=" +
+      actual.to_string(),
     )
   }
+}
+
+///|
+fn crc32_of_bytes(bytes : Bytes) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for b in bytes {
+    let value = b.to_uint()
+    crc = crc32_update_byte(crc, value)
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_byte(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
 }
 
 ///|
@@ -307,8 +396,8 @@ fn parse_eocd(
   }
 
   if total_entries == ZIP64_U16_SENTINEL ||
-    cd_size == ZIP64_U32_SENTINEL ||
-    cd_offset == ZIP64_U32_SENTINEL {
+    is_zip64_u32_sentinel(cd_size) ||
+    is_zip64_u32_sentinel(cd_offset) {
     raise InvalidStructure("ZIP64 is not supported in phase-1")
   }
 
@@ -387,9 +476,9 @@ fn parse_cd_entries(
       "central directory local header offset",
     )
 
-    if compressed_size == ZIP64_U32_SENTINEL ||
-      uncompressed_size == ZIP64_U32_SENTINEL ||
-      local_header_offset == ZIP64_U32_SENTINEL {
+    if is_zip64_u32_sentinel(compressed_size) ||
+      is_zip64_u32_sentinel(uncompressed_size) ||
+      is_zip64_u32_sentinel(local_header_offset) {
       raise InvalidStructure(
         "ZIP64 central directory entry is not supported in phase-1",
       )
@@ -457,9 +546,14 @@ fn has_data_descriptor_flag(flags : Int) -> Bool {
 }
 
 ///|
+fn is_zip64_u32_sentinel(value : Int) -> Bool {
+  value == ZIP64_U32_SENTINEL || value == ZIP64_U32_SENTINEL_SIGNED
+}
+
+///|
 fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let infos0 : Array[ZipEntryInfo] = []
-  let normalized_counts : Map[String, Int] = Map::new()
+  let normalized_counts : Map[String, Int] = Map([])
 
   for meta in archive.entries {
     let info = build_zip_entry_info(meta)
@@ -479,7 +573,7 @@ fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let issues = collect_zip_validation_issues_from_infos(
     infos0, normalized_counts,
   )
-  let issue_counts : Map[String, Int] = Map::new()
+  let issue_counts : Map[String, Int] = Map([])
   let mut warning_count = 0
   let mut error_count = 0
   for issue in issues {
@@ -727,7 +821,8 @@ fn classify_invalid_structure_detail(detail : String) -> ZipErrorInfo {
 
   if detail.contains("data descriptor is not supported in phase-1") ||
     detail.contains("multi-disk zip is not supported") ||
-    detail.contains("ZIP64 is not supported in phase-1") {
+    detail.contains("ZIP64 is not supported in phase-1") ||
+    detail.contains("ZIP64 central directory entry is not supported in phase-1") {
     return {
       kind: ZipErrorKind::UnsupportedFeature,
       mapping: ZipErrorMappingKind::BestEffortMessage,

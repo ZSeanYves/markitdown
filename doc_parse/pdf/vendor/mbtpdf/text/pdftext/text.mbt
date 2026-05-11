@@ -194,9 +194,21 @@ pub fn TextExtractor::new(font : @pdffont.Font) -> TextExtractor {
     }
   }
   let tounicode = PdfTextUtil::new().find_tounicode_bytes(font)
-  let tounicode_lengths = match tounicode {
-    Some(map) => tounicode_length_list(map)
-    None => []
+  let tounicode_lengths = match PdfTextUtil::new().find_tounicode_cmap(font) {
+    Some(cmap) =>
+      if cmap.code_space_lengths.is_empty() {
+        match tounicode {
+          Some(map) => tounicode_length_list(map)
+          None => []
+        }
+      } else {
+        cmap.code_space_lengths
+      }
+    None =>
+      match tounicode {
+        Some(map) => tounicode_length_list(map)
+        None => []
+      }
   }
   { convert, tounicode, tounicode_lengths, font }
 }

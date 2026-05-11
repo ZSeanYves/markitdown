@@ -273,7 +273,7 @@ fn workbook_level_issues(
   sheets : Array[XlsxSheet],
 ) -> Array[XlsxValidationIssue] {
   let issues : Array[XlsxValidationIssue] = []
-  let seen : Map[String, Int] = Map::new()
+  let seen : Map[String, Int] = Map([])
 
   for sheet in sheets {
     let count = seen.get(sheet.name).unwrap_or(0)

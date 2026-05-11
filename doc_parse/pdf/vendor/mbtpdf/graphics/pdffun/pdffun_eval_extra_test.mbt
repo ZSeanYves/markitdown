@@ -30,7 +30,7 @@ test "parse_function sampled order" {
     ("/Length", Integer(1)),
   ])
   let data = @pdfio.bytes_of_list([0x80])
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let parsed = PdfFunction::parse(pdf, stream)
   match parsed.func {
     PdfFunctionKind::Sampled(s) => assert_eq(s.order, 3)

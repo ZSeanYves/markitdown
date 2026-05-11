@@ -20,7 +20,7 @@ fn mk_stream(
   let dict : @pdf.PdfObject = Dictionary(
     dict_entries.add([("/Length", Integer(@pdfio.bytes_size(data)))]),
   )
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(data)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   (pdf, stream_ref, stream_obj)
 }
@@ -527,7 +527,7 @@ test "decode_from_bytes treats null DecodeParms as missing" {
 ///|
 test "encode_pdfstream maps PdfError via map_pdf_error" {
   let ctx = @pdfcodec.PdfCodec::new()
-  let stream_ref : Ref[(@pdf.PdfObject, @pdf.Stream)] = Ref::new(
+  let stream_ref : Ref[(@pdf.PdfObject, @pdf.Stream)] = Ref(
     (@pdf.PdfObject::Integer(1), @pdf.Stream::Got(@pdfio.bytes_of_string("x"))),
   )
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)

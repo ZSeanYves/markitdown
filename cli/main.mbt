@@ -76,7 +76,9 @@ async fn main {
             }
             "ocr" => {
               if positional.length() < 1 || positional.length() > 2 {
-                exit_error("usage: ocr [--with-metadata] <input> [output]")
+                exit_error(
+                  "usage: ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
+                )
                 print_cli_usage()
                 return
               }
@@ -86,17 +88,13 @@ async fn main {
               } else {
                 None
               }
-              cmd_convert(
-                input,
-                output_opt,
-                None,
-                6,
-                Some("ocr"),
-                false,
-                false,
-                false,
-                with_metadata,
-              )
+              let provider_name = @clap.SimpleValue::get_option(sub, "provider") catch {
+                _ => None
+              }
+              let lang_arg = @clap.SimpleValue::get_option(sub, "lang") catch {
+                _ => None
+              }
+              cmd_ocr(input, output_opt, provider_name, lang_arg, with_metadata)
             }
             "batch" => {
               if positional.length() != 2 {
@@ -150,14 +148,66 @@ async fn main {
             "debug" => {
               if positional.length() == 0 {
                 exit_error(
-                  "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input>",
+                  "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> | debug [--json] [--probe] providers [--ocr] [--layout-assist] | debug [--json] layout-assist-eval [--split <train|heldout>]",
                 )
                 print_cli_usage()
                 return
               }
 
               let first = positional[0].trim().to_owned().to_lower()
-              if first == "all" ||
+              if first == "providers" {
+                if positional.length() != 1 {
+                  exit_error(
+                    "usage: debug [--json] [--probe] providers [--ocr] [--layout-assist]",
+                  )
+                  print_cli_usage()
+                  return
+                }
+
+                let output_kind = if sub.get_flag("json").unwrap_or(false) {
+                  @cor.DebugOutputKind::Json
+                } else {
+                  @cor.DebugOutputKind::HumanReadable
+                }
+                let debug_opts : DebugCliOptions = {
+                  output_kind,
+                  with_ir: false,
+                  with_metadata_summary: false,
+                  with_normalization: false,
+                }
+                let include_ocr = sub.get_flag("ocr").unwrap_or(false)
+                let include_layout = sub
+                  .get_flag("layout-assist")
+                  .unwrap_or(false)
+                let probe = sub.get_flag("probe").unwrap_or(false)
+                cmd_debug_providers(
+                  debug_opts, include_ocr, include_layout, probe,
+                )
+              } else if first == "layout-assist-eval" {
+                if positional.length() != 1 {
+                  exit_error(
+                    "usage: debug [--json] layout-assist-eval [--split <train|heldout>]",
+                  )
+                  print_cli_usage()
+                  return
+                }
+
+                let output_kind = if sub.get_flag("json").unwrap_or(false) {
+                  @cor.DebugOutputKind::Json
+                } else {
+                  @cor.DebugOutputKind::HumanReadable
+                }
+                let debug_opts : DebugCliOptions = {
+                  output_kind,
+                  with_ir: false,
+                  with_metadata_summary: false,
+                  with_normalization: false,
+                }
+                let split = @clap.SimpleValue::get_option(sub, "split") catch {
+                  _ => None
+                }
+                cmd_debug_layout_assist_eval(debug_opts, split)
+              } else if first == "all" ||
                 first == "extract" ||
                 first == "raw" ||
                 first == "pipeline" {
@@ -236,13 +286,21 @@ fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="OCR conversion for scanned/image PDFs: ocr [--with-metadata] <input> [output]",
+        help="Explicit OCR mode: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output]",
         args={
+          "provider": @clap.Arg::named(
+            nargs=AtMost(1),
+            help="Explicit OCR provider name (default: tesseract-cli)",
+          ),
+          "lang": @clap.Arg::named(
+            nargs=AtMost(1),
+            help="OCR language code(s), e.g. eng or eng+chi_sim",
+          ),
           "with-metadata": @clap.Arg::flag(
             help="Also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Path to input file (.pdf preferred)",
+            help="Path to input file (.png/.jpg/.jpeg/.tif/.tiff/.bmp/.webp, or explicit OCR PDF path)",
           ),
         },
       ),
@@ -258,7 +316,7 @@ fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "debug": @clap.SubCommand::new(
-        help="Debug inspect: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
+        help="Debug inspect/providers: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; debug [--json] [--probe] providers [--ocr] [--layout-assist] ; debug [--json] layout-assist-eval [--split train|heldout] ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
         args={
           "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
           "with-ir": @clap.Arg::flag(
@@ -270,11 +328,24 @@ fn new_cli_parser() -> @clap.Parser {
           "with-normalization": @clap.Arg::flag(
             help="Include normalization summary when available",
           ),
+          "probe": @clap.Arg::flag(
+            help="Debug provider listing only: explicitly probe OCR provider availability",
+          ),
+          "ocr": @clap.Arg::flag(
+            help="Debug provider listing only: include OCR providers",
+          ),
+          "layout-assist": @clap.Arg::flag(
+            help="Debug provider listing only: include layout-assist providers",
+          ),
+          "split": @clap.Arg::named(
+            nargs=AtMost(1),
+            help="Debug layout-assist eval only: restrict manifest rows to train or heldout split",
+          ),
           "with-metadata": @clap.Arg::flag(
             help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Unified debug inspect input, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
+            help="Unified debug inspect input, provider listing keyword `providers`, eval keyword `layout-assist-eval`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
           ),
         },
       ),
@@ -292,10 +363,18 @@ fn print_cli_help() -> Unit {
 fn print_cli_usage() -> Unit {
   println("Usage:")
   println("  markitdown-mb normal [--with-metadata] <input> [output]")
-  println("  markitdown-mb ocr [--with-metadata] <input> [output]")
+  println(
+    "  markitdown-mb ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
+  )
   println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
   println(
     "  markitdown-mb debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input>",
+  )
+  println(
+    "  markitdown-mb debug [--json] [--probe] providers [--ocr] [--layout-assist]",
+  )
+  println(
+    "  markitdown-mb debug [--json] layout-assist-eval [--split train|heldout]",
   )
   println(
     "  markitdown-mb debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",

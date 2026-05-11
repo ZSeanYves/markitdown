@@ -262,7 +262,7 @@ fn is_annotation_bbox_too_large(
 fn mark_overlapping_annotation_matches(
   results : Array[PdfUriLinkMatchResult],
 ) -> Unit {
-  let matched_lines : Map[Int, Int] = Map::new()
+  let matched_lines : Map[Int, Int] = Map([])
 
   for result in results {
     match result.status {
@@ -372,7 +372,7 @@ fn attach_high_confidence_uri_links(
 
   for page in doc.pages {
     let matches = match_page_uri_links(page)
-    let block_by_line : Map[Int, PdfUriLinkMatchResult] = Map::new()
+    let block_by_line : Map[Int, PdfUriLinkMatchResult] = Map([])
 
     for result in matches {
       match result.status {

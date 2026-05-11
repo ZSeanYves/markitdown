@@ -357,8 +357,8 @@ priv struct DocxPartParseContext {
 fn empty_docx_relationship_index() -> DocxRelationshipIndex {
   {
     relationships: [],
-    targets_by_rid: Map::new(),
-    hyperlink_targets_by_rid: Map::new(),
+    targets_by_rid: Map([]),
+    hyperlink_targets_by_rid: Map([]),
   }
 }
 

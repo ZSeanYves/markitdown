@@ -117,7 +117,7 @@ fn build_xref_stream(
     PdfObject::Integer(@pdfio.bytes_size(data)),
   )
   let stream_obj = PdfObject::Stream(
-    Ref::new((dict_with_length, @pdf.Stream::Got(data))),
+    Ref((dict_with_length, @pdf.Stream::Got(data))),
   )
   stream_obj
 }
@@ -154,7 +154,7 @@ pub fn PdfWrite::pdf_to_output(
   if encrypting {
     pdf.objects.object_stream_ids.remove(pdf.root)
   }
-  let mut object_stream_entries : Map[Int, (Int, Int)] = Map::new()
+  let mut object_stream_entries : Map[Int, (Int, Int)] = Map([])
   if preserve_objstm || generate_objstm {
     if generate_objstm {
       generate_object_stream_hints(pdf, preserve_objstm, encrypting)

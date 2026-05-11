@@ -22,11 +22,61 @@ struct DebugParseResult {
 }
 
 ///|
+struct LayoutAssistEvalRow {
+  sample_id : String
+  split : String
+  file : String
+  page_count : Int
+  feature_count : Int
+  prediction_count : Int
+  provider : String
+  mode : String
+  label_counts : Map[String, Int]
+  reason_counts : Map[String, Int]
+  predictions_truncated : Bool
+  warning_count : Int
+}
+
+///|
 async fn cmd_debug_inspect(input : String, opts : DebugCliOptions) -> Unit {
   match build_debug_report(input, opts) {
     Ok(report) => println(@cor.render_debug_report(report, opts.output_kind))
     Err(msg) => exit_error(msg)
   }
+}
+
+///|
+async fn cmd_debug_layout_assist_eval(
+  opts : DebugCliOptions,
+  split : String?,
+) -> Unit {
+  match render_layout_assist_eval(opts.output_kind, split) {
+    Ok(rendered) => println(rendered)
+    Err(msg) => exit_error(msg)
+  }
+}
+
+///|
+async fn cmd_debug_providers(
+  opts : DebugCliOptions,
+  include_ocr : Bool,
+  include_layout_assist : Bool,
+  probe : Bool,
+) -> Unit {
+  if !include_ocr && !include_layout_assist {
+    exit_error(
+      "debug providers requires at least one target: --ocr or --layout-assist",
+    )
+    return
+  }
+
+  let rendered = render_provider_listing(
+    opts.output_kind,
+    include_ocr,
+    include_layout_assist,
+    probe,
+  )
+  println(rendered)
 }
 
 ///|
@@ -70,6 +120,618 @@ async fn cmd_debug_legacy_pdf(
   }
 
   cmd_convert(input, output, None, 6, None, false, false, false, with_metadata)
+}
+
+///|
+async fn render_provider_listing(
+  output_kind : @cor.DebugOutputKind,
+  include_ocr : Bool,
+  include_layout_assist : Bool,
+  probe : Bool,
+) -> String {
+  let ocr_infos : Array[@pdfocr.OcrProviderInfo] = []
+  if include_ocr {
+    for info in @pdfocr.list_known_ocr_providers() {
+      if probe {
+        match @pdfocr.probe_known_ocr_provider(info.name) {
+          Some(probed) => ocr_infos.push(probed)
+          None => ocr_infos.push(info)
+        }
+      } else {
+        ocr_infos.push(info)
+      }
+    }
+  }
+
+  let layout_infos = if include_layout_assist {
+    @pdfconv.list_layout_assist_providers()
+  } else {
+    []
+  }
+
+  match output_kind {
+    @cor.DebugOutputKind::Json =>
+      render_provider_listing_json(
+        ocr_infos, layout_infos, include_ocr, include_layout_assist, probe,
+      )
+    _ =>
+      render_provider_listing_text(
+        ocr_infos, layout_infos, include_ocr, include_layout_assist, probe,
+      )
+  }
+}
+
+///|
+fn render_provider_listing_json(
+  ocr_infos : Array[@pdfocr.OcrProviderInfo],
+  layout_infos : Array[@pdfconv.LayoutAssistProviderInfo],
+  include_ocr : Bool,
+  include_layout_assist : Bool,
+  probe : Bool,
+) -> String {
+  let fields : Array[String] = [
+    @cor.json_string("kind") + ": " + @cor.json_string("provider_listing"),
+    @cor.json_string("probe_requested") + ": " + @cor.bool_json(probe),
+    @cor.json_string("include_ocr") + ": " + @cor.bool_json(include_ocr),
+    @cor.json_string("include_layout_assist") +
+    ": " +
+    @cor.bool_json(include_layout_assist),
+  ]
+
+  if include_ocr {
+    let items : Array[String] = []
+    for info in ocr_infos {
+      items.push(render_ocr_provider_json(info))
+    }
+    fields.push(
+      @cor.json_string("ocr_providers") + ": " + @cor.array_json(items),
+    )
+  }
+
+  if include_layout_assist {
+    let items : Array[String] = []
+    for info in layout_infos {
+      items.push(render_layout_provider_json(info))
+    }
+    fields.push(
+      @cor.json_string("layout_assist_providers") +
+      ": " +
+      @cor.array_json(items),
+    )
+  }
+
+  @cor.object_json(fields)
+}
+
+///|
+fn render_provider_listing_text(
+  ocr_infos : Array[@pdfocr.OcrProviderInfo],
+  layout_infos : Array[@pdfconv.LayoutAssistProviderInfo],
+  include_ocr : Bool,
+  include_layout_assist : Bool,
+  probe : Bool,
+) -> String {
+  let lines : Array[String] = [
+    "provider listing",
+    "probe_requested=" + probe.to_string(),
+  ]
+
+  if include_ocr {
+    lines.push("")
+    lines.push("[ocr]")
+    for info in ocr_infos {
+      lines.push(render_ocr_provider_text(info))
+    }
+  }
+
+  if include_layout_assist {
+    lines.push("")
+    lines.push("[layout-assist]")
+    for info in layout_infos {
+      lines.push(render_layout_provider_text(info))
+    }
+  }
+
+  lines.join("\n")
+}
+
+///|
+async fn render_layout_assist_eval(
+  output_kind : @cor.DebugOutputKind,
+  split : String?,
+) -> Result[String, String] {
+  let rows = collect_layout_assist_eval_rows(split) catch {
+    e => return Err("layout-assist eval failed: " + e.to_string())
+  }
+  match output_kind {
+    @cor.DebugOutputKind::Json =>
+      Ok(render_layout_assist_eval_json(rows, split))
+    _ => Ok(render_layout_assist_eval_text(rows, split))
+  }
+}
+
+///|
+async fn collect_layout_assist_eval_rows(
+  split : String?,
+) -> Array[LayoutAssistEvalRow] {
+  let manifest_path = resolve_layout_assist_eval_manifest_path()
+  if !@fs.path_exists(manifest_path) {
+    fail("layout-assist eval manifest not found: " + manifest_path)
+  }
+  let text = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
+    e => fail("read layout-assist eval manifest failed: " + e.to_string())
+  }
+  let rows : Array[LayoutAssistEvalRow] = []
+  let want_split = split.map(fn(s) { s.trim().to_lower() })
+  let raw_lines = text.split("\n")
+  let lines : Array[String] = []
+  for raw in raw_lines {
+    let line = raw.replace(old="\r", new="").to_owned()
+    if line != "" {
+      lines.push(line)
+    }
+  }
+  for i = 1; i < lines.length(); i = i + 1 {
+    let raw = lines[i].trim_end().to_owned()
+    if raw.trim() == "" {
+      continue
+    }
+    let cols = split_layout_assist_tsv_line(raw)
+    if cols.length() < 7 {
+      continue
+    }
+    let sample_id = cols[0].trim().to_owned()
+    let pdf_path = cols[1].trim().to_owned()
+    let row_split = cols[3].trim().to_owned()
+    let normalized_split = row_split.to_lower()
+    match want_split {
+      Some(expected) =>
+        if expected.to_owned() != "" && normalized_split != expected.to_owned() {
+          continue
+        }
+      None => ()
+    }
+    let resolved = resolve_layout_assist_sample_path(pdf_path)
+    let model = match
+      @pdfapi.extract_document_model(resolved, @pdfapi.default_pdf_config()) {
+      Ok(doc) => doc
+      Err(e) =>
+        fail(
+          "layout-assist eval pdf extract failed for " +
+          sample_id +
+          ": " +
+          e.to_string(),
+        )
+    }
+    let summary = @pdfconv.build_pdf_layout_assist_summary(model, 6)
+    let provider = choose_layout_assist_eval_provider(summary)
+    let mode = choose_layout_assist_eval_mode(summary)
+    rows.push({
+      sample_id,
+      split: row_split,
+      file: pdf_path,
+      page_count: model.page_count,
+      feature_count: summary.feature_count,
+      prediction_count: summary.prediction_count,
+      provider,
+      mode,
+      label_counts: summary.label_counts,
+      reason_counts: summary.reason_counts,
+      predictions_truncated: summary.prediction_count > 12,
+      warning_count: summary.warning_count,
+    })
+  }
+  rows
+}
+
+///|
+fn render_layout_assist_eval_json(
+  rows : Array[LayoutAssistEvalRow],
+  split : String?,
+) -> String {
+  let fields : Array[String] = [
+    @cor.json_string("kind") + ": " + @cor.json_string("layout_assist_eval"),
+    @cor.json_string("split") + ": " + @cor.json_string_opt(split),
+  ]
+  let summary = layout_assist_eval_summary_json(rows)
+  fields.push(@cor.json_string("summary") + ": " + summary)
+  let items : Array[String] = []
+  for row in rows {
+    items.push(layout_assist_eval_row_json(row))
+  }
+  fields.push(@cor.json_string("rows") + ": " + @cor.array_json(items))
+  @cor.object_json(fields)
+}
+
+///|
+fn render_layout_assist_eval_text(
+  rows : Array[LayoutAssistEvalRow],
+  split : String?,
+) -> String {
+  let lines : Array[String] = ["layout assist eval"]
+  lines.push("split=" + split.unwrap_or("all"))
+  lines.push("sample_count=" + rows.length().to_string())
+  lines.push("summary=" + layout_assist_eval_summary_line(rows))
+  for row in rows {
+    lines.push("")
+    lines.push(
+      "- " + row.sample_id + " split=" + row.split + " file=" + row.file,
+    )
+    lines.push(
+      "  provider=" +
+      row.provider +
+      " mode=" +
+      row.mode +
+      " pages=" +
+      row.page_count.to_string() +
+      " feature_count=" +
+      row.feature_count.to_string() +
+      " prediction_count=" +
+      row.prediction_count.to_string() +
+      " warning_count=" +
+      row.warning_count.to_string(),
+    )
+    lines.push(
+      "  label_counts=" + render_string_int_map_inline(row.label_counts),
+    )
+    lines.push(
+      "  top_reasons=" +
+      render_top_string_int_entries_inline(row.reason_counts, 3),
+    )
+  }
+  lines.join("\n")
+}
+
+///|
+fn layout_assist_eval_summary_json(rows : Array[LayoutAssistEvalRow]) -> String {
+  let label_counts = Map([])
+  let reason_counts = Map([])
+  let mut sample_count = 0
+  let mut zero_prediction_count = 0
+  let mut warning_count = 0
+  let mut total_features = 0
+  let mut total_predictions = 0
+  let files_with_predictions : Array[String] = []
+  let files_without_predictions : Array[String] = []
+  for row in rows {
+    sample_count += 1
+    total_features += row.feature_count
+    total_predictions += row.prediction_count
+    warning_count += row.warning_count
+    if row.prediction_count == 0 {
+      zero_prediction_count += 1
+      files_without_predictions.push(row.sample_id)
+    } else {
+      files_with_predictions.push(row.sample_id)
+    }
+    for entry in sorted_layout_eval_map_entries(row.label_counts) {
+      bump_count_by(label_counts, entry.0, entry.1)
+    }
+    for entry in sorted_layout_eval_map_entries(row.reason_counts) {
+      bump_count_by(reason_counts, entry.0, entry.1)
+    }
+  }
+  @cor.object_json([
+    @cor.json_string("sample_count") + ": " + sample_count.to_string(),
+    @cor.json_string("total_features") + ": " + total_features.to_string(),
+    @cor.json_string("total_predictions") + ": " + total_predictions.to_string(),
+    @cor.json_string("zero_prediction_count") +
+    ": " +
+    zero_prediction_count.to_string(),
+    @cor.json_string("warning_count") + ": " + warning_count.to_string(),
+    @cor.json_string("label_counts") +
+    ": " +
+    @cor.string_int_kv_json(sorted_layout_eval_map_entries(label_counts)),
+    @cor.json_string("top_reasons") +
+    ": " +
+    @cor.string_int_kv_json(
+      take_first_string_int_entries(
+        sorted_layout_eval_map_entries_by_count(reason_counts),
+        5,
+      ),
+    ),
+    @cor.json_string("files_with_predictions") +
+    ": " +
+    @cor.string_array_json(files_with_predictions),
+    @cor.json_string("zero_prediction_files") +
+    ": " +
+    @cor.string_array_json(files_without_predictions),
+  ])
+}
+
+///|
+fn layout_assist_eval_summary_line(rows : Array[LayoutAssistEvalRow]) -> String {
+  let sample_count = rows.length()
+  let mut total_features = 0
+  let mut total_predictions = 0
+  let mut zero_prediction_count = 0
+  for row in rows {
+    total_features += row.feature_count
+    total_predictions += row.prediction_count
+    if row.prediction_count == 0 {
+      zero_prediction_count += 1
+    }
+  }
+  "features=" +
+  total_features.to_string() +
+  " predictions=" +
+  total_predictions.to_string() +
+  " zero_prediction_files=" +
+  zero_prediction_count.to_string() +
+  "/" +
+  sample_count.to_string()
+}
+
+///|
+fn layout_assist_eval_row_json(row : LayoutAssistEvalRow) -> String {
+  @cor.object_json([
+    @cor.json_string("sample_id") + ": " + @cor.json_string(row.sample_id),
+    @cor.json_string("split") + ": " + @cor.json_string(row.split),
+    @cor.json_string("file") + ": " + @cor.json_string(row.file),
+    @cor.json_string("page_count") + ": " + row.page_count.to_string(),
+    @cor.json_string("feature_count") + ": " + row.feature_count.to_string(),
+    @cor.json_string("prediction_count") +
+    ": " +
+    row.prediction_count.to_string(),
+    @cor.json_string("provider") + ": " + @cor.json_string(row.provider),
+    @cor.json_string("mode") + ": " + @cor.json_string(row.mode),
+    @cor.json_string("label_counts") +
+    ": " +
+    @cor.string_int_kv_json(sorted_layout_eval_map_entries(row.label_counts)),
+    @cor.json_string("top_reasons") +
+    ": " +
+    @cor.string_int_kv_json(
+      take_first_string_int_entries(
+        sorted_layout_eval_map_entries_by_count(row.reason_counts),
+        5,
+      ),
+    ),
+    @cor.json_string("predictions_truncated") +
+    ": " +
+    @cor.bool_json(row.predictions_truncated),
+    @cor.json_string("warning_count") + ": " + row.warning_count.to_string(),
+  ])
+}
+
+///|
+fn choose_layout_assist_eval_provider(
+  summary : @pdfconv.LayoutAssistSummary,
+) -> String {
+  if summary.predictions.length() > 0 {
+    return summary.predictions[0].provider
+  }
+  for info in summary.providers {
+    if info.name == "heuristic-layout-assist" {
+      return info.name
+    }
+  }
+  summary.providers[0].name
+}
+
+///|
+fn choose_layout_assist_eval_mode(
+  summary : @pdfconv.LayoutAssistSummary,
+) -> String {
+  if summary.predictions.length() > 0 {
+    return layout_assist_mode_name(summary.predictions[0].mode)
+  }
+  for info in summary.providers {
+    if info.name == "heuristic-layout-assist" {
+      return layout_assist_mode_name(info.mode)
+    }
+  }
+  layout_assist_mode_name(summary.providers[0].mode)
+}
+
+///|
+fn resolve_layout_assist_eval_manifest_path() -> String {
+  let direct = "samples/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(direct) {
+    return direct
+  }
+  let fallback = "../samples/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+  direct
+}
+
+///|
+fn resolve_layout_assist_sample_path(path : String) -> String raise {
+  if @fs.path_exists(path) {
+    return path
+  }
+  let fallback = "../" + path
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+  fail("layout-assist eval sample not found: " + path)
+}
+
+///|
+fn bump_count_by(counts : Map[String, Int], key : String, delta : Int) -> Unit {
+  let prev = counts.get(key).unwrap_or(0)
+  counts.set(key, prev + delta)
+}
+
+///|
+fn sorted_layout_eval_map_entries(
+  counts : Map[String, Int],
+) -> Array[(String, Int)] {
+  let keys : Array[String] = []
+  for k in counts {
+    keys.push(k.0)
+  }
+  keys.sort()
+  let out : Array[(String, Int)] = []
+  for key in keys {
+    out.push((key, counts.get(key).unwrap_or(0)))
+  }
+  out
+}
+
+///|
+fn sorted_layout_eval_map_entries_by_count(
+  counts : Map[String, Int],
+) -> Array[(String, Int)] {
+  let out = sorted_layout_eval_map_entries(counts)
+  for i = 0; i < out.length(); i = i + 1 {
+    for j = i + 1; j < out.length(); j = j + 1 {
+      let a = out[i]
+      let b = out[j]
+      if b.1 > a.1 || (b.1 == a.1 && b.0 < a.0) {
+        out[i] = b
+        out[j] = a
+      }
+    }
+  }
+  out
+}
+
+///|
+fn take_first_string_int_entries(
+  entries : Array[(String, Int)],
+  limit : Int,
+) -> Array[(String, Int)] {
+  let out : Array[(String, Int)] = []
+  let capped = if entries.length() < limit { entries.length() } else { limit }
+  for i = 0; i < capped; i = i + 1 {
+    out.push(entries[i])
+  }
+  out
+}
+
+///|
+fn render_string_int_map_inline(counts : Map[String, Int]) -> String {
+  let parts : Array[String] = []
+  for entry in sorted_layout_eval_map_entries(counts) {
+    parts.push(entry.0 + "=" + entry.1.to_string())
+  }
+  if parts.length() == 0 {
+    "{}"
+  } else {
+    "{" + parts.join(", ") + "}"
+  }
+}
+
+///|
+fn render_top_string_int_entries_inline(
+  counts : Map[String, Int],
+  limit : Int,
+) -> String {
+  let parts : Array[String] = []
+  for
+    entry in take_first_string_int_entries(
+      sorted_layout_eval_map_entries_by_count(counts),
+      limit,
+    ) {
+    parts.push(entry.0 + "=" + entry.1.to_string())
+  }
+  if parts.length() == 0 {
+    "[]"
+  } else {
+    "[" + parts.join(", ") + "]"
+  }
+}
+
+///|
+fn split_layout_assist_tsv_line(line : String) -> Array[String] {
+  let cols : Array[String] = []
+  for part in line.split("\t") {
+    cols.push(part.to_owned())
+  }
+  cols
+}
+
+///|
+fn render_ocr_provider_json(info : @pdfocr.OcrProviderInfo) -> String {
+  @cor.object_json([
+    @cor.json_string("name") + ": " + @cor.json_string(info.name),
+    @cor.json_string("kind") +
+    ": " +
+    @cor.json_string(ocr_provider_kind_name(info.kind)),
+    @cor.json_string("license") + ": " + @cor.json_string_opt(info.license),
+    @cor.json_string("version") + ": " + @cor.json_string_opt(info.version),
+    @cor.json_string("available") + ": " + @cor.bool_json(info.available),
+    @cor.json_string("probe_status") +
+    ": " +
+    @cor.json_string(ocr_probe_status_name(info.probed)),
+    @cor.json_string("unavailable_reason") +
+    ": " +
+    @cor.json_string_opt(info.unavailable_reason),
+  ])
+}
+
+///|
+fn render_layout_provider_json(
+  info : @pdfconv.LayoutAssistProviderInfo,
+) -> String {
+  @cor.object_json([
+    @cor.json_string("name") + ": " + @cor.json_string(info.name),
+    @cor.json_string("mode") +
+    ": " +
+    @cor.json_string(layout_assist_mode_name(info.mode)),
+    @cor.json_string("version") + ": " + @cor.json_string_opt(info.version),
+    @cor.json_string("available") + ": " + @cor.bool_json(info.available),
+  ])
+}
+
+///|
+fn render_ocr_provider_text(info : @pdfocr.OcrProviderInfo) -> String {
+  "- " +
+  info.name +
+  " kind=" +
+  ocr_provider_kind_name(info.kind) +
+  " available=" +
+  info.available.to_string() +
+  " probe_status=" +
+  ocr_probe_status_name(info.probed) +
+  " license=" +
+  info.license.unwrap_or("") +
+  " version=" +
+  info.version.unwrap_or("") +
+  " unavailable_reason=" +
+  info.unavailable_reason.unwrap_or("")
+}
+
+///|
+fn render_layout_provider_text(
+  info : @pdfconv.LayoutAssistProviderInfo,
+) -> String {
+  "- " +
+  info.name +
+  " mode=" +
+  layout_assist_mode_name(info.mode) +
+  " available=" +
+  info.available.to_string() +
+  " version=" +
+  info.version.unwrap_or("")
+}
+
+///|
+fn ocr_provider_kind_name(kind : @pdfocr.OcrProviderKind) -> String {
+  match kind {
+    @pdfocr.OcrProviderKind::Noop => "noop"
+    @pdfocr.OcrProviderKind::ExternalCommand => "external_command"
+  }
+}
+
+///|
+fn ocr_probe_status_name(probed : Bool) -> String {
+  if probed {
+    "probed"
+  } else {
+    "not_run"
+  }
+}
+
+///|
+fn layout_assist_mode_name(mode : @pdfconv.LayoutAssistMode) -> String {
+  match mode {
+    @pdfconv.LayoutAssistMode::ReportOnly => "report_only"
+    @pdfconv.LayoutAssistMode::Advisory => "advisory"
+    @pdfconv.LayoutAssistMode::GatedNormal => "gated_normal"
+  }
 }
 
 ///|
@@ -521,8 +1183,8 @@ fn debug_xlsx_section(
   let mut merged_ranges = 0
   let mut formula_cells = 0
   let mut table_rows = 0
-  let state_counts = Map::new()
-  let semantic_counts = Map::new()
+  let state_counts = Map([])
+  let semantic_counts = Map([])
   for sheet in workbook.sheets {
     merged_ranges += sheet.merged_ranges.length()
     table_rows += sheet.table_rows.length()
@@ -592,9 +1254,9 @@ fn debug_zip_section(
   inspect : @zipconv.ZipInspectReport,
   profile : @zipconv.ZipProfileReport?,
 ) -> @cor.DebugSection {
-  let action_counts = Map::new()
-  let kind_counts = Map::new()
-  let format_counts = Map::new()
+  let action_counts = Map([])
+  let kind_counts = Map([])
+  let format_counts = Map([])
   let mut unsafe_count = 0
   for entry in inspect.entries {
     bump_string_count(action_counts, zip_action_name(entry.action))
@@ -640,7 +1302,7 @@ fn debug_epub_section(
   inspect : @epubpkg.EpubInspectReport,
 ) -> @cor.DebugSection {
   let mut warning_spine_items = 0
-  let actions = Map::new()
+  let actions = Map([])
   for item in inspect.spine_items {
     bump_string_count(actions, item.action)
     if item.action != "convert" {
@@ -746,7 +1408,7 @@ struct BlockStats {
 
 ///|
 fn collect_block_stats(doc : @cor.Document) -> BlockStats {
-  let counts = Map::new()
+  let counts = Map([])
   let mut heading_count = 0
   let mut table_count = 0
   let mut image_count = 0
@@ -926,7 +1588,7 @@ fn paragraph_like_count(doc : @cor.Document) -> Int {
 
 ///|
 fn hidden_slide_count(doc : @cor.Document) -> Int {
-  let seen = Map::new()
+  let seen = Map([])
   for block in doc.blocks.val {
     match block {
       @cor.Block::Heading(_, text) =>
@@ -964,7 +1626,7 @@ fn note_block_count(doc : @cor.Document) -> Int {
 
 ///|
 fn distinct_slide_count(doc : @cor.Document) -> Int {
-  let seen = Map::new()
+  let seen = Map([])
   for origin in doc.block_origins.val {
     match origin {
       Some(v) =>
@@ -991,10 +1653,10 @@ fn sorted_asset_paths(doc : @cor.Document) -> Array[String] {
 
 ///|
 fn metadata_origin_summary_json(doc : @cor.Document) -> String {
-  let block_sources = Map::new()
-  let block_pages = Map::new()
-  let block_slides = Map::new()
-  let block_sheets = Map::new()
+  let block_sources = Map([])
+  let block_pages = Map([])
+  let block_slides = Map([])
+  let block_sheets = Map([])
   for origin in doc.block_origins.val {
     match origin {
       Some(v) => {
@@ -1171,11 +1833,11 @@ fn aggregate_pdf_normalization(
   model : @pdfmodel.PdfDocumentModel,
   profile : @cor.NormalizeProfile,
 ) -> @cor.TextNormalizationSummary {
-  let aggregate_changes = Map::new()
-  let aggregate_rules = Map::new()
-  let aggregate_rule_scopes = Map::new()
-  let aggregate_stages = Map::new()
-  let aggregate_warnings = Map::new()
+  let aggregate_changes = Map([])
+  let aggregate_rules = Map([])
+  let aggregate_rule_scopes = Map([])
+  let aggregate_stages = Map([])
+  let aggregate_warnings = Map([])
   let mut total_changes = 0
 
   for page in model.pages {
@@ -1538,7 +2200,7 @@ fn parse_positive_int(text : String) -> Int {
 
 ///|
 fn html_asset_boundary_summary(doc : @cor.Document) -> String {
-  let counts = Map::new()
+  let counts = Map([])
   for entry in doc.asset_origins.val {
     let (_, origin) = entry
     let src = origin.source_path.unwrap_or("")

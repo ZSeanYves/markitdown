@@ -7,6 +7,14 @@ These records are evidence for H2-quality discussions. They are not
 performance benchmarks, and they are not blanket parity claims for every
 format, feature, or document shape.
 
+They are also separate from the repository's signal-level quality gate:
+
+* `docs/quality-comparisons/` is reviewer-facing narrative comparison
+* `samples/quality_corpus/` is scriptable signal-level gating
+* `./samples/check.sh` remains the exact regression surface
+* `samples/quality_corpus/external_sources.tsv` is a source catalog, not an
+  integrated comparison corpus
+
 ## Goal
 
 Quality comparison in this repository is meant to answer:
@@ -27,6 +35,11 @@ Do not use them for:
 * cold-start or memory conclusions
 * OCR/cloud/plugin-path claims
 * blanket product-ranking claims outside the recorded sample scope
+* global quality guarantees for arbitrary real-world corpora
+
+Large external datasets and upstream tool fixtures may inform future intake,
+but they still require manual sampling, local cache management, and separate
+license review before they become executable quality-corpus rows.
 
 For benchmark runner/corpus caveats and current performance context, use
 [docs/benchmarking.md](../benchmarking.md) and

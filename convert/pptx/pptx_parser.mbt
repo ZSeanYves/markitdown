@@ -117,6 +117,12 @@ pub fn parse_pptx(
         "slide=" + idx.to_string() + " tables=" + tables.length().to_string(),
       ),
     )
+    let semantic_chart_data = maybe_parse_semantic_slide_chart_blocks(
+      p.pkg,
+      path,
+    )
+    let charts = semantic_chart_data.charts
+    let shape_object_orders = semantic_chart_data.shape_object_orders
 
     let caption_started = @env.now()
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
@@ -162,6 +168,7 @@ pub fn parse_pptx(
         note_paras.length().to_string(),
       ),
     )
+    let comment_lines = extract_slide_comments(p, rel_ctx)
 
     let final_block_build_started = @env.now()
     let mut asset_origin_attach_elapsed_ms : UInt64 = 0
@@ -232,6 +239,7 @@ pub fn parse_pptx(
     if blocks.length() == 0 &&
       images.length() == 0 &&
       tables.length() == 0 &&
+      charts.length() == 0 &&
       note_paras.length() == 0 {
       @cor.push_with_origin(
         doc,
@@ -254,8 +262,16 @@ pub fn parse_pptx(
       )
     } else {
       let mut prev_was_list = false
+      let next_chart_index : Ref[Int] = { val: 0 }
 
       for b in blocks {
+        match chart_block_shape_order(shape_object_orders, b) {
+          Some(order_index) =>
+            emit_pending_chart_renderables(
+              doc, charts, next_chart_index, order_index, src, idx,
+            )
+          None => ()
+        }
         match b {
           PptxBlock::Heading(text, inlines, object_ref, relationship_id) => {
             if prev_was_list {
@@ -439,6 +455,52 @@ pub fn parse_pptx(
         prev_was_list = false
       }
 
+      emit_remaining_chart_renderables(doc, charts, next_chart_index, src, idx)
+      prev_was_list = false
+
+      if comment_lines.length() > 0 {
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::Heading(clamp_heading(3, max_heading), "Comments"),
+          Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(idx),
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: Some([slide_heading]),
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: rel_ctx.comments_part,
+            relationship_id: rel_ctx.comments_relationship_id,
+            key_path: rel_ctx.comments_part,
+          }),
+        )
+        for line in comment_lines {
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::ListItem(false, 0, line),
+            Some({
+              source_name: Some(src),
+              page: None,
+              slide: Some(idx),
+              sheet: None,
+              block_index: Some(doc.blocks.val.length()),
+              heading_path: Some([slide_heading, "Comments"]),
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: rel_ctx.comments_part,
+              relationship_id: rel_ctx.comments_relationship_id,
+              key_path: rel_ctx.comments_part,
+            }),
+          )
+        }
+      }
+
       if note_paras.length() > 0 {
         @cor.push_with_origin(
           doc,
@@ -594,6 +656,8 @@ pub fn parse_pptx(
         blocks.length().to_string() +
         " tables=" +
         tables.length().to_string() +
+        " charts=" +
+        charts.length().to_string() +
         " images=" +
         images.length().to_string() +
         " note_paragraphs=" +
@@ -663,7 +727,7 @@ fn infer_slide_image_captions(
   paras : Array[SlideParagraph],
 ) -> (Array[String?], Map[Int, Bool]) {
   let out : Array[String?] = []
-  let consumed : Map[Int, Bool] = Map::new()
+  let consumed : Map[Int, Bool] = Map([])
   for _ in images {
     out.push(None)
   }

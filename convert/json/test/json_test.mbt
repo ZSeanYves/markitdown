@@ -134,7 +134,7 @@ test "json object table uses explicit header semantics" {
   match doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Key", "Value"])
+      assert_true(table.rows[0] == ["Key", "Value"])
     }
     _ => fail("json_object_basic should emit RichTable")
   }
@@ -320,7 +320,7 @@ test "json array lowering keeps stable RichTable and conservative fallback" {
   match table_doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["name", "role"])
+      assert_true(table.rows[0] == ["name", "role"])
     }
     _ => fail("uniform object array should emit RichTable")
   }

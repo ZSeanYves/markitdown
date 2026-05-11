@@ -86,6 +86,21 @@ async test "pdf inspect report covers text simple sample" {
   if !report.has_text_signal || !report.has_any_signal {
     fail("text_simple should have text and structural signal")
   }
+  if !report.has_embedded_text || report.has_page_images {
+    fail("text_simple should expose embedded text without page-image signal")
+  }
+  if report.text_signal_level != "normal" {
+    fail("text_simple should classify as normal text-signal")
+  }
+  if report.native_text_char_count != report.total_char_count {
+    fail("native text char count should mirror total char count for inspect")
+  }
+  if report.page_image_count != report.total_image_count {
+    fail("page image count should mirror total image count")
+  }
+  if report.image_only || report.ocr_recommended {
+    fail("text_simple should not look like an OCR candidate")
+  }
   if report.has_image_signal || report.has_annotation_signal {
     fail("text_simple should not claim image or annotation signal")
   }
@@ -108,6 +123,15 @@ async test "pdf inspect report covers text simple sample" {
   }
   if !page.has_text_signal || !page.has_any_signal {
     fail("first page should have signal")
+  }
+  if page.has_image_signal {
+    fail("text_simple first page should not claim image signal")
+  }
+  if page.text_signal_level != "normal" {
+    fail("text_simple first page should classify as normal text-signal")
+  }
+  if page.image_only || page.ocr_recommended {
+    fail("text_simple first page should not look like OCR-needed")
   }
   if page.is_low_signal || page.is_empty_signal {
     fail("first page should not be low-signal or empty-signal")
@@ -172,8 +196,17 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
   if image_info.has_text_signal {
     fail("image-only synthetic page should not claim text signal")
   }
+  if !image_info.has_image_signal {
+    fail("image-only synthetic page should claim image signal")
+  }
   if !image_info.has_any_signal {
     fail("image-only synthetic page should still have structural signal")
+  }
+  if image_info.text_signal_level != "none" {
+    fail("image-only synthetic page should classify as no text signal")
+  }
+  if !image_info.image_only || !image_info.ocr_recommended {
+    fail("image-only synthetic page should be OCR-recommended image-only")
   }
   if !image_info.is_low_signal || image_info.is_empty_signal {
     fail("image-only synthetic page should be low-signal, not empty")
@@ -215,6 +248,15 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
   if empty_info.has_text_signal || !empty_info.is_empty_signal {
     fail("empty synthetic page should be empty-signal")
   }
+  if empty_info.has_image_signal {
+    fail("empty synthetic page should not claim image signal")
+  }
+  if empty_info.text_signal_level != "none" {
+    fail("empty synthetic page should classify as no text signal")
+  }
+  if empty_info.image_only || empty_info.ocr_recommended {
+    fail("empty synthetic page should not be OCR-recommended image-only")
+  }
   if empty_info.issues.length() != 1 {
     fail("empty synthetic page should surface one issue")
   }
@@ -255,6 +297,18 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
   let image_report = @api.inspect_pdf_document(image_doc)
   if image_report.text_page_count != 0 {
     fail("image-only document should not expose text pages")
+  }
+  if image_report.text_signal_level != "none" {
+    fail("image-only document should classify as no text signal")
+  }
+  if !image_report.has_page_images || !image_report.image_only {
+    fail("image-only document should be tagged as image-only")
+  }
+  if image_report.has_embedded_text {
+    fail("image-only document should not expose embedded text")
+  }
+  if !image_report.ocr_recommended {
+    fail("image-only document should be marked as OCR-recommended")
   }
   if image_report.empty_page_count != 0 ||
     image_report.low_signal_page_count != 1 {
@@ -299,6 +353,185 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
   match partial_report.issues[1].source {
     @api.PdfInspectIssueSource::Model => ()
     _ => fail("partial page failure should be model-sourced")
+  }
+}
+
+///|
+test "pdf inspect report marks mixed text-plus-image document as low signal only when text is tiny" {
+  let span_origin : @model.PdfPoint = { x: 0.0, y: 0.0 }
+  let source_ref : @model.PdfSourceRef = {
+    page_index: 0,
+    source_stream_index: 0,
+    source_op_index: 0,
+    text_object_id: None,
+    content_order_index: None,
+    source_object_ref: None,
+  }
+  let short_text_line : @model.PdfTextLine = {
+    id: "line-0",
+    bbox: { x0: 0.0, y0: 0.0, x1: 40.0, y1: 10.0 },
+    baseline_y: None,
+    ascent: None,
+    descent: None,
+    line_height: None,
+    indent_left: None,
+    indent_right: None,
+    alignment_hint: None,
+    line_gap_before: None,
+    line_gap_after: None,
+    spans: [
+      {
+        id: "span-0",
+        bbox: { x0: 0.0, y0: 0.0, x1: 40.0, y1: 10.0 },
+        origin: span_origin,
+        font_name: Some("TestFont"),
+        font_family: None,
+        font_size: Some(10.0),
+        is_bold: false,
+        is_italic: false,
+        is_monospace: false,
+        fill_color: None,
+        stroke_color: None,
+        char_spacing: None,
+        word_spacing: None,
+        text_rise: None,
+        scale_x: None,
+        text: "Hi",
+        writing_direction: @model.PdfWritingDirection::LeftToRight,
+        language_hint: None,
+        chars: [
+          {
+            unicode: "H",
+            raw_bytes: None,
+            decoded_text: "H",
+            bbox: { x0: 0.0, y0: 0.0, x1: 20.0, y1: 10.0 },
+            origin: span_origin,
+            quad: None,
+            advance_width: None,
+            glyph_width: None,
+            font_name: Some("TestFont"),
+            font_size: Some(10.0),
+            fill_color: None,
+            rotation: None,
+            is_ligature: false,
+            is_compat_glyph: false,
+            decode_confidence: None,
+            source: source_ref,
+            break_before: false,
+            break_reason: None,
+          },
+          {
+            unicode: "i",
+            raw_bytes: None,
+            decoded_text: "i",
+            bbox: { x0: 20.0, y0: 0.0, x1: 40.0, y1: 10.0 },
+            origin: span_origin,
+            quad: None,
+            advance_width: None,
+            glyph_width: None,
+            font_name: Some("TestFont"),
+            font_size: Some(10.0),
+            fill_color: None,
+            rotation: None,
+            is_ligature: false,
+            is_compat_glyph: false,
+            decode_confidence: None,
+            source: source_ref,
+            break_before: false,
+            break_reason: None,
+          },
+        ],
+        source_refs: [source_ref],
+        break_before: false,
+        break_reason: None,
+      },
+    ],
+    is_wrapped_candidate: false,
+    is_same_paragraph_with_prev_candidate: false,
+    source_refs: [source_ref],
+  }
+  let short_text_block : @model.PdfTextBlock = {
+    id: "block-0",
+    bbox: { x0: 0.0, y0: 0.0, x1: 40.0, y1: 10.0 },
+    kind: @model.PdfTextBlockKind::Text,
+    rotation: None,
+    dominant_font_name: Some("TestFont"),
+    dominant_font_size: Some(10.0),
+    dominant_language: None,
+    writing_direction: @model.PdfWritingDirection::LeftToRight,
+    z_index: None,
+    lines: [short_text_line],
+    is_heading_candidate: false,
+    is_header_footer_candidate: false,
+    is_page_number_candidate: false,
+    is_table_cell_candidate: false,
+    is_caption_candidate: false,
+    is_artifact_candidate: false,
+    source_refs: [source_ref],
+  }
+  let mixed_page : @model.PdfPageModel = {
+    page_index: 0,
+    page_label: None,
+    rotation: 0,
+    user_unit: None,
+    boxes: {
+      media_box: { x0: 0.0, y0: 0.0, x1: 100.0, y1: 100.0 },
+      crop_box: None,
+      bleed_box: None,
+      trim_box: None,
+      art_box: None,
+    },
+    text_blocks: [short_text_block],
+    images: [
+      {
+        id: "image-0",
+        bbox: { x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 },
+        width_px: 10,
+        height_px: 10,
+        colorspace: None,
+        bits_per_component: None,
+        image_filter: None,
+        object_ref: None,
+        alt_text: None,
+        inline_image: true,
+        payload: None,
+        source_refs: [],
+      },
+    ],
+    vectors: [],
+    annotations: [],
+    forms: [],
+    reading_order_candidates: [],
+    artifact_candidates: [],
+    raw_content_stream_refs: [],
+  }
+  let mixed_report = @api.inspect_pdf_document({
+    version: "1.7",
+    page_count: 1,
+    metadata: {
+      title: None,
+      author: None,
+      subject: None,
+      keywords: [],
+      creator: None,
+      producer: None,
+      creation_date: None,
+      mod_date: None,
+    },
+    is_encrypted: false,
+    has_xref_stream: false,
+    has_object_stream: false,
+    outlines: [],
+    pages: [mixed_page],
+  })
+  if mixed_report.text_signal_level != "low" {
+    fail("tiny text plus images should classify as low signal")
+  }
+  if mixed_report.image_only {
+    fail("mixed document should not be tagged image-only")
+  }
+  if !mixed_report.ocr_recommended {
+    fail("mixed low-signal document should be marked OCR-recommended")
   }
 }
 

@@ -169,7 +169,7 @@ fn parse_docx_header_footer_references(
   issues : Array[DocxValidationIssue],
 ) -> Array[DocxHeaderFooterReference] {
   let refs : Array[DocxHeaderFooterReference] = []
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   let chars = doc_xml.to_array()
   let mut i = 0
 

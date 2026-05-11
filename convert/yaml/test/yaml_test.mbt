@@ -255,6 +255,53 @@ test "yaml unsupported features fail closed" {
 }
 
 ///|
+test "yaml single-document markers normalize without changing output" {
+  let root = yaml_test_root()
+  let out_dir = root + "/document-markers"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let base_path = out_dir + "/base.yaml"
+  let leading_path = out_dir + "/leading.yaml"
+  let trailing_path = out_dir + "/trailing.yaml"
+  let trailing_comment_path = out_dir + "/trailing-comment.yaml"
+
+  let base_text = "title: Example\ncount: 1\n"
+  write_utf8_text(base_path, base_text)
+  write_utf8_text(leading_path, "---\n" + base_text)
+  write_utf8_text(trailing_path, base_text + "...\n")
+  write_utf8_text(trailing_comment_path, base_text + "...\n# end comment\n")
+
+  let base_doc = @yaml.parse_yaml(base_path, "", 6)
+  let base_md = @cor.emit_markdown(base_doc)
+
+  let leading_doc = @yaml.parse_yaml(leading_path, "", 6)
+  assert_eq(@cor.emit_markdown(leading_doc), base_md)
+
+  let trailing_doc = @yaml.parse_yaml(trailing_path, "", 6)
+  assert_eq(@cor.emit_markdown(trailing_doc), base_md)
+
+  let trailing_comment_doc = @yaml.parse_yaml(trailing_comment_path, "", 6)
+  assert_eq(@cor.emit_markdown(trailing_comment_doc), base_md)
+}
+
+///|
+test "yaml real multi-document content stays unsupported" {
+  let root = yaml_test_root()
+  let out_dir = root + "/multi-doc-unsupported"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let second_doc_path = out_dir + "/second-doc.yaml"
+  write_utf8_text(second_doc_path, "---\na: 1\n---\nb: 2\n")
+  assert_true((try? @yaml.parse_yaml(second_doc_path, "", 6)) is Err(_))
+
+  let after_end_path = out_dir + "/after-end.yaml"
+  write_utf8_text(after_end_path, "a: 1\n...\nb: 2\n")
+  assert_true((try? @yaml.parse_yaml(after_end_path, "", 6)) is Err(_))
+}
+
+///|
 test "yaml comments blank lines and quoted colons stay deterministic" {
   let comments_doc = @yaml.parse_yaml(
     resolve_sample_path("samples/main_process/yaml/yaml_comments.yaml"),

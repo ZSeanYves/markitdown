@@ -18,7 +18,7 @@ test "serialization includes stream data when requested" {
   let dict : PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(bytes))),
   ])
-  let stream_ref = Ref::new((dict, Stream::Got(bytes)))
+  let stream_ref = Ref((dict, Stream::Got(bytes)))
   let obj = PdfObject::Stream(stream_ref)
   let rendered = obj.to_string_including_data()
   assert_true(rendered.contains("stream"))

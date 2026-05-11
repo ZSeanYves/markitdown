@@ -37,6 +37,7 @@ fn inspect_shape_tree(
   paragraph_count : Ref[Int],
   text_run_count : Ref[Int],
   table_count : Ref[Int],
+  chart_count : Ref[Int],
 ) -> Unit {
   for shape in shapes {
     shape_count.val += 1
@@ -64,6 +65,10 @@ fn inspect_shape_tree(
       }
       None => ()
     }
+    match shape.chart {
+      Some(_) => chart_count.val += 1
+      None => ()
+    }
     inspect_shape_tree(
       shape.children,
       shape_count,
@@ -72,6 +77,7 @@ fn inspect_shape_tree(
       paragraph_count,
       text_run_count,
       table_count,
+      chart_count,
     )
   }
 }
@@ -87,9 +93,11 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
   let paragraph_count : Ref[Int] = { val: 0 }
   let text_run_count : Ref[Int] = { val: 0 }
   let table_count : Ref[Int] = { val: 0 }
+  let chart_count : Ref[Int] = { val: 0 }
   let mut hidden_slide_count = 0
   let mut image_ref_count = 0
   let mut notes_count = 0
+  let mut comment_count = 0
 
   for slide in pres.slides {
     if slide.hidden {
@@ -103,6 +111,7 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
       paragraph_count,
       text_run_count,
       table_count,
+      chart_count,
     )
     match slide.notes {
       Some(note_doc) => {
@@ -114,6 +123,7 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
       }
       None => ()
     }
+    comment_count += slide.comments.length()
     for media in slide.media_refs {
       if media.kind == PptxMediaKind::Image {
         image_ref_count += 1
@@ -130,10 +140,12 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
     paragraph_count: paragraph_count.val,
     text_run_count: text_run_count.val,
     table_count: table_count.val,
+    chart_count: chart_count.val,
     image_ref_count,
     media_ref_count: pres.media_refs.length(),
     hyperlink_count: pres.hyperlink_refs.length(),
     notes_count,
+    comment_count,
     issue_count: validation.issue_count,
     warning_count: validation.warning_count,
     error_count: validation.error_count,

@@ -291,7 +291,7 @@ test "parse_rectangle" {
     @pdf.PdfObject::Real(792.0),
   ])
   let (minx, miny, maxx, maxy) = pdf.parse_rectangle(rect)
-  inspect((minx, miny, maxx, maxy), content="(0, 0, 612, 792)")
+  debug_inspect((minx, miny, maxx, maxy), content="(0, 0, 612, 792)")
 }
 ```
 

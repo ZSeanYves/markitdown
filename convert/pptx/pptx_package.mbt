@@ -120,20 +120,32 @@ fn build_slide_rel_context(
     _ =>
       return {
         rels: [],
-        hyperlinks: Map::new(),
+        hyperlinks: Map([]),
         notes_part: None,
         notes_relationship_id: None,
+        comments_part: None,
+        comments_relationship_id: None,
       }
   }
   let mut notes_part : String? = None
   let mut notes_relationship_id : String? = None
+  let mut comments_part : String? = None
+  let mut comments_relationship_id : String? = None
   for rel in slide_rels {
     if rel.rel_type.has_suffix("/notesSlide") &&
       rel.resolved_target.has_prefix("ppt/notesSlides/") &&
       rel.resolved_target.has_suffix(".xml") {
       notes_part = Some(rel.resolved_target)
       notes_relationship_id = Some(rel.id)
-      break
+    }
+    if (
+        rel.rel_type.has_suffix("/comments") ||
+        rel.rel_type.contains("relationships/comments")
+      ) &&
+      rel.resolved_target.has_prefix("ppt/comments/") &&
+      rel.resolved_target.has_suffix(".xml") {
+      comments_part = Some(rel.resolved_target)
+      comments_relationship_id = Some(rel.id)
     }
   }
   {
@@ -141,6 +153,8 @@ fn build_slide_rel_context(
     hyperlinks: hyperlink_map_from_rels(slide_rels),
     notes_part,
     notes_relationship_id,
+    comments_part,
+    comments_relationship_id,
   }
 }
 
@@ -148,7 +162,7 @@ fn build_slide_rel_context(
 fn hyperlink_map_from_rels(
   rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, String] {
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   for rel in rels {
     if rel.rel_type.has_suffix("/hyperlink") &&
       rel.target_mode == @ox.OoxmlTargetMode::External &&

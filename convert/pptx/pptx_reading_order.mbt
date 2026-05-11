@@ -1075,7 +1075,7 @@ fn text_digit_signature(s : String) -> String {
       out.push(ch)
     }
   }
-  return out.to_string()
+  return String::from_array(out)
 }
 
 ///|

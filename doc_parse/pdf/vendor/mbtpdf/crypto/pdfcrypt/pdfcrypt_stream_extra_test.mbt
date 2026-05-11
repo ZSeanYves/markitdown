@@ -36,7 +36,7 @@ test "decrypt_single_stream skips metadata when EncryptMetadata is false" {
     ("/Length", Integer(4)),
   ])
   let data = @pdfio.bytes_of_string("meta")
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let out = @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
     Some("user"),
     None,
@@ -74,7 +74,7 @@ test "decrypt_single_stream skips identity crypt filters" {
     ("/Length", Integer(3)),
   ])
   let data = @pdfio.bytes_of_string("abc")
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let out = @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
     Some("user"),
     None,
@@ -102,7 +102,7 @@ test "decrypt_single_stream skips identity crypt filters" {
     ("/Length", Integer(3)),
   ])
   let stream_array : @pdf.PdfObject = Stream(
-    Ref::new((dict_array, @pdf.Stream::Got(@pdfio.bytes_of_string("abc")))),
+    Ref((dict_array, @pdf.Stream::Got(@pdfio.bytes_of_string("abc")))),
   )
   let out_array = @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
     Some("user"),
@@ -134,7 +134,7 @@ test "decrypt_single_stream handles AES256 streams" {
   )
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(4))])
   let got_stream : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string("data")))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string("data")))),
   )
   let got_out = @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
     Some("user"),
@@ -155,7 +155,7 @@ test "decrypt_single_stream handles AES256 streams" {
   let input = @pdfio.Input::of_string("data", source="stream")
   let toget = @pdf.ToGet::new(input, 0, 4)
   let toget_stream : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::ToGet(toget))),
+    Ref((dict, @pdf.Stream::ToGet(toget))),
   )
   let toget_out = @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
     Some("user"),

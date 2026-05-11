@@ -160,7 +160,7 @@ pub fn PdfText::write_tounicode(self : PdfText, u : Map[Int, String]) -> Int {
   let dict = PdfObject::Dictionary([
     ("/Length", PdfObject::Integer(@pdfio.bytes_size(bytes))),
   ])
-  self.pdf.addobj(PdfObject::Stream(Ref::new((dict, @pdf.Stream::Got(bytes)))))
+  self.pdf.addobj(PdfObject::Stream(Ref((dict, @pdf.Stream::Got(bytes)))))
 }
 
 ///|

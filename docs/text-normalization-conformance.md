@@ -26,6 +26,9 @@ Current repository status:
 * default converter behavior still does not enable canonical normalization
 * canonical normalization remains separate from shared document cleanup
 * full standards-conformance validation is still pending
+* no Unicode conformance corpus is bundled in the repository today
+* no `NormalizationTest.txt` runner is part of `samples/check.sh` or the
+  default release-style gate
 
 Current smoke coverage already includes:
 
@@ -35,6 +38,37 @@ Current smoke coverage already includes:
 * `is_normalized_*` positive and negative checks for basic examples
 
 These tests are useful, but they are not full conformance evidence.
+
+## Current Test Surface Audit
+
+Current always-on coverage is broader than a single facade smoke test, but it
+is still intentionally curated rather than standards-complete.
+
+Current `core/test/text_normalization_test.mbt` coverage includes:
+
+* explicit `normalize_nfd/nfc/nfkd/nfkc` examples
+* explicit `is_normalized_*` positive and negative checks
+* compatibility examples such as ligatures and fullwidth forms
+* combining-mark ordering cases
+* Hangul composition/decomposition cases
+* guardrails that prove default shared cleanup profiles do **not** implicitly
+  enable canonical normalization
+
+Current format-local guardrails also exist:
+
+* PDF comparison/noise text uses shared cleanup only where intended
+* TXT shared cleanup keeps paragraph semantics local
+* HTML text-node cleanup stays separate from `pre/code` literal behavior
+* DOCX `w:t` plain-text cleanup stays narrow and keeps canonical
+  normalization disabled by default
+* PPTX `<a:t>` plain-text cleanup stays narrow and keeps canonical
+  normalization disabled by default
+
+This is enough to support the current claim:
+
+* explicit canonical normalization facade exists
+* curated correctness evidence exists
+* full UAX #15 conformance is still not claimed
 
 ## Why Current Coverage Is Not Enough
 
@@ -69,6 +103,28 @@ Planned controls for that future step:
 
 This avoids mixing fast day-to-day regression tests with a heavier standards
 validation path.
+
+## Shared Cleanup vs Canonical Normalization
+
+The repository intentionally keeps two different surfaces:
+
+* shared cleanup:
+  * low-risk, profile-driven document cleanup used by the normal product path
+  * examples: line endings, NBSP/unicode-space cleanup, selected zero-width
+    removal, soft-hyphen stripping, common ligature expansion, and limited
+    profile-gated spacing repair
+* canonical normalization:
+  * explicit `NFD/NFC/NFKD/NFKC` APIs behind the project facade
+  * never enabled implicitly by current converter defaults
+
+Why the default converter still does not enable canonical normalization:
+
+* current output stability is more important than speculative text mutation
+* literal/source-preserving paths would be easy to over-normalize
+* full `NormalizationTest.txt` evidence is still absent from the default test
+  story
+* shared cleanup and canonical normalization solve different problems and
+  should not be conflated in release claims
 
 ## Three-Layer Test Strategy
 
@@ -138,6 +194,35 @@ Why keep it opt-in:
 * runtime may be higher than normal edit-compile-test loops should assume
 * version pinning and update process need explicit governance
 
+## Manual Conformance Runner Contract
+
+The recommended future runner should stay manual-only.
+
+Recommended contract:
+
+* input:
+  * user-provided path to `NormalizationTest.txt`
+* default behavior without that file:
+  * skip/pass with a clear message
+* repository policy:
+  * do not download Unicode data automatically
+  * do not vendor `NormalizationTest.txt`
+  * do not add the runner to `samples/check.sh`
+  * do not make it part of default `moon test`
+
+Recommended future output:
+
+* clear pass/fail summary by normalization form
+* total tested rows / skipped rows
+* exact Unicode file path used
+* exact Unicode/version note used for the run
+
+Recommended future execution policy:
+
+* manual maintainer/investigation workflow only at first
+* optional local artifact, not checked into the repository
+* only after stable governance should the project consider a stronger CI story
+
 ## Proposed Future Inputs
 
 When the project is ready for broader curated coverage, prioritize:
@@ -164,6 +249,8 @@ Recommended next step after P13:
 * add only a very small curated layer in-tree
 * defer full `NormalizationTest.txt` integration to a separate opt-in
   validation task
+* if a runner is added later, keep it manual-only with a user-supplied
+  `NormalizationTest.txt` path and no bundled Unicode data
 
 This keeps the project honest about standards claims while still improving
 confidence in the explicit canonical normalization facade.

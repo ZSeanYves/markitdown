@@ -25,7 +25,7 @@ test "parse_cmap parses bfchar and bfrange" {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
-  let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let cmap : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_true(parsed.wmode == Some(1))
   let key01 = @pdfio.string_of_int_array([0x01])
@@ -40,6 +40,38 @@ test "parse_cmap parses bfchar and bfrange" {
 }
 
 ///|
+test "parse_cmap records codespacerange lengths and multi-byte bfchar" {
+  let data = @pdfio.bytes_of_string(
+    "begincodespacerange<00><ff><0000><ffff>endcodespacerange" +
+    " beginbfchar<0001><4E00>endbfchar",
+  )
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(data))),
+  ])
+  let cmap : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  assert_eq(parsed.code_space_lengths.length(), 2)
+  assert_eq(parsed.code_space_lengths[0], 2)
+  assert_eq(parsed.code_space_lengths[1], 1)
+  let key = @pdfio.string_of_int_array([0x00, 0x01])
+  let value = @pdfio.string_of_int_array([0x4e, 0x00])
+  assert_true(find_value(parsed.map, key) == Some(value))
+}
+
+///|
+test "parse_cmap preserves surrogate pair destinations" {
+  let data = @pdfio.bytes_of_string("beginbfchar<0001><D83DDE00>endbfchar")
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(data))),
+  ])
+  let cmap : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  let key = @pdfio.string_of_int_array([0x00, 0x01])
+  let value = @pdfio.string_of_int_array([0xd8, 0x3d, 0xde, 0x00])
+  assert_true(find_value(parsed.map, key) == Some(value))
+}
+
+///|
 test "parse_cmap parses bfrange array mapping" {
   let data = @pdfio.bytes_of_string(
     "beginbfrange<01><02>[<0041><0042>]endbfrange",
@@ -47,7 +79,7 @@ test "parse_cmap parses bfrange array mapping" {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
-  let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let cmap : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_true(parsed.wmode == None)
   let key01 = @pdfio.string_of_int_array([0x01])
@@ -63,9 +95,7 @@ test "parse_cmap handles ToGet streams" {
   let data = "beginbfchar<01><0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let toget = @pdf.ToGet::new(@pdfio.Input::of_string(data), 0, data.length())
-  let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::ToGet(toget))),
-  )
+  let cmap : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::ToGet(toget))))
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
   let u0041 = @pdfio.string_of_int_array([0x00, 0x41])
@@ -86,7 +116,7 @@ test "parse_cmap ignores bad hex values" {
   let data = "beginbfchar<0G><0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -97,7 +127,7 @@ test "parse_cmap skips reversed bfrange entries" {
   let data = "beginbfrange<02><01><0041>endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -108,7 +138,7 @@ test "parse_cmap ignores invalid wmode digits" {
   let data = "/WMode X beginbfchar<01><0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_true(parsed.wmode == None)
@@ -119,7 +149,7 @@ test "parse_cmap tolerates missing endbfchar" {
   let data = "beginbfchar<01><0041>"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
@@ -132,7 +162,7 @@ test "parse_cmap skips junk between code and unicode" {
   let data = "beginbfchar<01>xx<0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   let key01 = @pdfio.string_of_int_array([0x01])
@@ -145,7 +175,7 @@ test "parse_cmap ignores unterminated hex code" {
   let data = "beginbfchar<01"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -156,7 +186,7 @@ test "parse_cmap ignores odd-length hex codes" {
   let data = "beginbfchar<0><0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -167,7 +197,7 @@ test "parse_cmap skips bfrange without destination" {
   let data = "beginbfrange<01><02>endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -178,7 +208,7 @@ test "parse_cmap bfrange skips junk before dest marker" {
   let data = "beginbfrange<01><02>foo<0041>endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 2)
@@ -189,7 +219,7 @@ test "parse_cmap bfrange ignores invalid dest code" {
   let data = "beginbfrange<01><02><0>endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 0)
@@ -200,7 +230,7 @@ test "parse_cmap bfrange array stops on invalid entry" {
   let data = "beginbfrange<01><02>[<0041><0>]endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 1)
@@ -211,10 +241,21 @@ test "parse_cmap bfrange array missing closing bracket" {
   let data = "beginbfrange<01><02>[<0041><0042>endbfrange"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 2)
+}
+
+///|
+test "parse_cmap bfrange sequential skips multi-codepoint destination" {
+  let data = "beginbfrange<0001><0002><00660069>endbfrange"
+  let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
+  let cmap : @pdf.PdfObject = Stream(
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+  )
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  assert_eq(parsed.map.length(), 0)
 }
 
 ///|
@@ -222,7 +263,7 @@ test "parse_cmap ignores overflowing wmode" {
   let data = "/WMode 999999999999999999999999999999999999 beginbfchar<01><0041>endbfchar"
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
   let cmap : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+    Ref((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_true(parsed.wmode == None)

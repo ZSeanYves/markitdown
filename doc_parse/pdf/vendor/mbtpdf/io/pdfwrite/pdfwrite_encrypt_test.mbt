@@ -8,7 +8,7 @@ fn build_minimal_pdf_for_encrypt() -> @pdf.Pdf {
       max_obj_num: 0,
       parse: None,
       objects: @pdf.pdfobjmap_empty(),
-      object_stream_ids: Map::new(),
+      object_stream_ids: Map([]),
     },
     trailerdict: Dictionary([]),
     was_linearized: false,
@@ -20,7 +20,7 @@ fn build_minimal_pdf_for_encrypt() -> @pdf.Pdf {
     ("/Length", Integer(@pdfio.bytes_size(stream_bytes))),
   ])
   let stream_obj : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(stream_bytes))),
+    Ref((stream_dict, @pdf.Stream::Got(stream_bytes))),
   )
   let font_dict : @pdf.PdfObject = Dictionary([
     ("/Type", Name(@pdf.PdfName::of_string("/Font"))),

@@ -169,7 +169,7 @@ pub fn new_document() -> Document {
   {
     blocks: { val: [] },
     block_origins: { val: [] },
-    asset_origins: { val: Map::new() },
+    asset_origins: { val: Map([]) },
     passthrough_markdown: { val: None },
   }
 }

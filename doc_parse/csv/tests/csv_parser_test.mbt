@@ -4,7 +4,7 @@ test "csv parser handles simple rows and inspect counts" {
   assert_eq(doc.rows.length(), 3)
   assert_eq(doc.column_count, 2)
   assert_eq(doc.line_count, 3)
-  assert_eq(doc.rows[1].fields, ["Ada", "12"])
+  assert_true(doc.rows[1].fields == ["Ada", "12"])
 
   let report = @csv.inspect_csv_document(doc)
   assert_eq(report.row_count, 3)
@@ -34,7 +34,7 @@ test "csv parser handles quoted field escaped quote and multiline field" {
 test "csv validation reports ragged rows and empty cells" {
   let doc = @csv.parse_csv_document("a,b,c\n1,2\n3,,5\n")
   assert_eq(doc.column_count, 3)
-  assert_eq(doc.rows[1].fields, ["1", "2", ""])
+  assert_true(doc.rows[1].fields == ["1", "2", ""])
 
   let issues = @csv.collect_csv_validation_issues(doc)
   assert_eq(issues.length(), 1)
@@ -71,8 +71,8 @@ test "csv parse options stay header-neutral and can preserve blank rows" {
   )
 
   assert_eq(doc.rows.length(), 4)
-  assert_eq(doc.rows[1].fields, [""])
-  assert_eq(doc.rows[3].fields, ["solo"])
+  assert_true(doc.rows[1].fields == [""])
+  assert_true(doc.rows[3].fields == ["solo"])
   assert_eq(doc.rows[3].original_field_count, 1)
 
   let issues = @csv.collect_csv_validation_issues(doc)

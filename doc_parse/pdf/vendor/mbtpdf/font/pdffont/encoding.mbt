@@ -27,14 +27,14 @@ fn add_encoding(table : Map[Int, String], encoding : Encoding) -> Unit {
 
 ///|
 pub fn Encoding::table(self : Encoding) -> Map[Int, String] {
-  let table : Map[Int, String] = Map::new(capacity=203)
+  let table : Map[Int, String] = Map([], capacity=203)
   add_encoding(table, self)
   table
 }
 
 ///|
 pub fn Encoding::reverse_table(self : Encoding) -> Map[String, Int] {
-  let table : Map[String, Int] = Map::new(capacity=203)
+  let table : Map[String, Int] = Map([], capacity=203)
   let addvals = (vals : Array[(String, Int)]) => {
     for pair in vals {
       table.set(pair.0, pair.1)

@@ -85,7 +85,7 @@ fn add_fontfile_stream(pdf : @pdf.Pdf) -> Int {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
-  pdf.addobj(Stream(Ref::new((dict, @pdf.Stream::Got(data)))))
+  pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(data)))))
 }
 
 ///|
@@ -94,7 +94,7 @@ fn add_tounicode_stream(pdf : @pdf.Pdf) -> Int {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(bytes))),
   ])
-  pdf.addobj(Stream(Ref::new((dict, @pdf.Stream::Got(bytes)))))
+  pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(bytes)))))
 }
 
 ///|

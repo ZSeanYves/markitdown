@@ -6,7 +6,7 @@ test "md5 matches known vector" {
     0x90, 0x01, 0x50, 0x98, 0x3c, 0xd2, 0x4f, 0xb0, 0xd6, 0x96, 0x3f, 0x7d, 0x28,
     0xe1, 0x7f, 0x72,
   ])
-  assert_eq(digest, expected)
+  assert_true(digest == expected)
 }
 
 ///|
@@ -17,7 +17,7 @@ test "arc4 crypt matches known vector" {
   let expected = @pdfio.bytes_of_list([
     0xbb, 0xf3, 0x16, 0xe8, 0xd9, 0x40, 0xaf, 0x0a, 0xd3,
   ])
-  assert_eq(out, expected)
+  assert_true(out == expected)
 }
 
 ///|
@@ -37,14 +37,14 @@ test "aes ecb encrypt/decrypt uses standard vector" {
     0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30, 0xd8, 0xcd, 0xb7, 0x80, 0x70,
     0xb4, 0xc5, 0x5a,
   ])
-  assert_eq(encrypted, expected)
+  assert_true(encrypted == expected)
   let decrypted = @pdfcryptprimitives.PdfCryptPrimitives::new().aes_decrypt_data_ecb(
     4,
     key,
     encrypted,
     remove_padding=false,
   )
-  assert_eq(decrypted, plaintext)
+  assert_true(decrypted == plaintext)
 }
 
 ///|

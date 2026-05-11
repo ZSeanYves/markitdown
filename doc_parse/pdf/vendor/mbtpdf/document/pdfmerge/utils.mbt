@@ -107,7 +107,7 @@ fn[T] collate(items : Array[T], cmp : (T, T) -> Int) -> Array[Array[T]] {
 
 ///|
 fn setify_strings(values : Array[String]) -> Array[String] {
-  let seen = Map::new(capacity=values.length())
+  let seen = Map([], capacity=values.length())
   let out = Array::new()
   for value in values {
     if seen.get(value) is None {

@@ -43,6 +43,7 @@ pub(all) struct FontDescriptor {
   charset : Array[String]?
   tounicode : Map[Int, String]?
   tounicode_bytes : Map[String, String]?
+  tounicode_cmap : @pdfcmap.CMap?
 }
 
 ///|

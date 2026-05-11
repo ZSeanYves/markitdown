@@ -807,7 +807,7 @@ test "read_annotation errors on popup stream and add_annotation requires diction
     ("/Subtype", Name(@pdf.PdfName::of_string("/Popup"))),
     ("/Rect", rect),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(['x'.to_int().to_byte()])))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(['x'.to_int().to_byte()])))
   let stream_obj = @pdf.PdfObject::Stream(stream_ref)
   let objnum = pdf.addobj(stream_obj)
   let rest : @pdf.PdfObject = Dictionary([

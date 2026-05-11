@@ -38,8 +38,8 @@ pub fn PdfCryptPrimitives::crypt(
     return @pdfio.copybytes(data)
   }
   let s = Array::make(256, 0)
-  let pi : Ref[Int] = Ref::new(0)
-  let pj : Ref[Int] = Ref::new(0)
+  let pi : Ref[Int] = Ref(0)
+  let pj : Ref[Int] = Ref(0)
   let out = @pdfio.mkbytes(@pdfio.bytes_size(data))
   ksa(s, key)
   let mut x = 0

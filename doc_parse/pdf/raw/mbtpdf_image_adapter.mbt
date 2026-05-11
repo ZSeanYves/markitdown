@@ -537,9 +537,9 @@ fn collect_images_from_ops(
   initial_ctm : @pdftransform.TransformMatrix,
 ) -> Array[RawImageInfo] raise {
   let out : Array[RawImageInfo] = Array::new()
-  let visited_forms : Map[Int, Bool] = Map::new()
+  let visited_forms : Map[Int, Bool] = Map([])
 
-  let image_ctm = Ref::new(initial_ctm)
+  let image_ctm = Ref(initial_ctm)
   let image_ctm_stack : Array[@pdftransform.TransformMatrix] = Array::new()
 
   for i = 0; i < ops.length(); i = i + 1 {

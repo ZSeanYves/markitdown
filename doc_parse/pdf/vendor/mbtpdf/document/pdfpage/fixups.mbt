@@ -264,7 +264,7 @@ fn fixup_link(
 /// Duplicate shared annotations across pages.
 pub fn PdfPageDoc::fixup_duplicate_annots(self : PdfPageDoc) -> Unit raise {
   let pdf = self.pdf
-  let src = Ref::new(pdf.objects.max_obj_num)
+  let src = Ref(pdf.objects.max_obj_num)
   let pages = PdfPageDoc::new(pdf).pages_of_pagetree()
   let existing_annots = pages.map(page => {
     match pdf.lookup_direct("/Annots", page.rest) {
@@ -278,7 +278,7 @@ pub fn PdfPageDoc::fixup_duplicate_annots(self : PdfPageDoc) -> Unit raise {
       _ => []
     }
   })
-  let seen : Map[Int, Unit] = Map::new()
+  let seen : Map[Int, Unit] = Map([])
   let to_copy : Array[(Int, Int)] = Array::new()
   let new_annots = existing_annots.map(annots => {
     let out = Array::new(capacity=annots.length())
@@ -303,7 +303,7 @@ pub fn PdfPageDoc::fixup_duplicate_annots(self : PdfPageDoc) -> Unit raise {
   for i in 0..<existing_annots.length() {
     let old_annots = existing_annots[i]
     let updated_annots = new_annots[i]
-    let assoc : Map[Int, Int] = Map::new(capacity=old_annots.length())
+    let assoc : Map[Int, Int] = Map([], capacity=old_annots.length())
     for j in 0..<old_annots.length() {
       assoc.set(old_annots[j], updated_annots[j])
     }

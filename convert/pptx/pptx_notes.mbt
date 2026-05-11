@@ -25,7 +25,7 @@ fn extract_speaker_notes(
       shape.shape.xml,
       false,
       true,
-      Map::new(),
+      Map([]),
       para_seq,
       shape.shape.object_ref,
     )

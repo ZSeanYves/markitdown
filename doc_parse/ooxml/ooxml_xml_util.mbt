@@ -103,7 +103,7 @@ fn end_tag_local_name(tag : String) -> String {
 
 ///|
 fn parse_tag_attributes(tag : String) -> Map[String, String] {
-  let attrs : Map[String, String] = Map::new()
+  let attrs : Map[String, String] = Map([])
   let chars = tag.to_array()
   let n = chars.length()
 

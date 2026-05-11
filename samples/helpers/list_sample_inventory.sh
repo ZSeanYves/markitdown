@@ -37,15 +37,31 @@ count_main_process_samples() {
     | wc -l | tr -d '[:space:]'
 }
 
-printf 'format\tmain_process\tmetadata_cases\tasset_cases\tfixtures\tbenchmark\treal_world\tquality_records\tmetadata_expected\n'
+count_quality_manifest_rows() {
+  local fmt="$1"
+  local manifest="$ROOT/samples/quality_corpus/manifest.tsv"
+  if [[ ! -f "$manifest" ]]; then
+    printf '0'
+    return
+  fi
+  awk -F '\t' -v fmt="$fmt" '
+    NR == 1 { next }
+    /^[[:space:]]*$/ { next }
+    /^[[:space:]]*#/ { next }
+    $2 == fmt { count++ }
+    END { print count + 0 }
+  ' "$manifest"
+}
+
+printf 'format\tmain_process\tmetadata_cases\tasset_cases\tfixtures\tbenchmark\tquality_records\tquality_intake_public\tmetadata_expected\n'
 for fmt in "${formats[@]}"; do
   main_count="$(count_main_process_samples "$fmt")"
   meta_count="$(count_files "$ROOT/samples/main_process/$fmt/metadata")"
   assets_count="$(count_files "$ROOT/samples/main_process/$fmt/assets")"
   fixture_count="$(count_files "$ROOT/samples/fixtures/$fmt")"
   bench_count="$(count_files "$ROOT/samples/benchmark/$fmt")"
-  real_world_count="$(count_files "$ROOT/samples/real_world/input/$fmt")"
   quality_count="$(find "$ROOT/docs/quality-comparisons" -maxdepth 1 -type f -name "${fmt}*.md" | wc -l | tr -d '[:space:]')"
+  quality_manifest_count="$(count_quality_manifest_rows "$fmt")"
   metadata_expected_count="$(find "$ROOT/samples/main_process/$fmt/expected" -type f -name '*.metadata.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$fmt" \
@@ -54,7 +70,7 @@ for fmt in "${formats[@]}"; do
     "$assets_count" \
     "$fixture_count" \
     "$bench_count" \
-    "$real_world_count" \
     "$quality_count" \
+    "$quality_manifest_count" \
     "$metadata_expected_count"
 done

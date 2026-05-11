@@ -68,6 +68,12 @@ Optional overlap comparison:
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
+Optional PDF layout classifier spike evaluation:
+
+```bash
+./samples/pdf_layout_classifier/evaluate.sh --smoke
+```
+
 ## Internal Helper Scripts
 
 The public recommendation is to go through `./samples/bench.sh`.
@@ -142,3 +148,5 @@ Interpret benchmark output conservatively:
 * PDF benchmark scope is native text-PDF by default
 * OCR, scanned-PDF, and fallback paths are excluded unless explicitly called
   out
+* `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
+  not part of the default benchmark evidence story

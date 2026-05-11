@@ -92,15 +92,40 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int)],
+  central : Array[(String, Int, Int, Int)],
   name : String,
   data : String,
 ) -> Unit {
   let local_offset = out.length()
   let name_bytes = bytes_of_string(name)
   let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
 
   append_u32_le(out, 0x04034b50)
   append_u16_le(out, 20)
@@ -108,7 +133,7 @@ fn add_store_entry(
   append_u16_le(out, 0)
   append_u16_le(out, 0)
   append_u16_le(out, 0)
-  append_u32_le(out, 0)
+  append_u32_le(out, crc32)
   append_u32_le(out, data_bytes.length())
   append_u32_le(out, data_bytes.length())
   append_u16_le(out, name_bytes.length())
@@ -120,13 +145,13 @@ fn add_store_entry(
     out.push(b)
   }
 
-  central.push((name, data_bytes.length(), local_offset))
+  central.push((name, data_bytes.length(), local_offset, crc32))
 }
 
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int)] = []
+  let central : Array[(String, Int, Int, Int)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -135,7 +160,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 
   let cd_offset = out.length()
   for entry in central {
-    let (name, size, local_offset) = entry
+    let (name, size, local_offset, crc32) = entry
     let name_bytes = bytes_of_string(name)
     append_u32_le(out, 0x02014b50)
     append_u16_le(out, 20)
@@ -144,7 +169,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
     append_u16_le(out, 0)
     append_u16_le(out, 0)
     append_u16_le(out, 0)
-    append_u32_le(out, 0)
+    append_u32_le(out, crc32)
     append_u32_le(out, size)
     append_u32_le(out, size)
     append_u16_le(out, name_bytes.length())

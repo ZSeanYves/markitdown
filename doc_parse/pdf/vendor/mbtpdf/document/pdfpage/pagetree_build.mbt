@@ -1,6 +1,6 @@
 ///|
 fn source(start : Int) -> () -> Int {
-  let counter = Ref::new(start)
+  let counter = Ref(start)
   fn() {
     counter.val = counter.val + 1
     counter.val

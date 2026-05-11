@@ -25,8 +25,9 @@ Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
 native text-PDF scope.
 
 The repository now centers its checked validation surface around
-`./samples/check.sh` and `./samples/bench.sh`, and keeps the checked-in
-`samples/real_world` corpus focused on longer complex-scenario documents.
+`./samples/check.sh` and `./samples/bench.sh`, while keeping external/private
+quality intake separate under `samples/quality_corpus/`. External quality
+sources remain manual-curated and local-cache driven rather than checked-in.
 
 ## Supported Platforms
 
@@ -141,8 +142,13 @@ Other product-path entrypoints:
 ./_build/native/release/build/cli/cli.exe normal --with-metadata <input> <output.md>
 ./_build/native/release/build/cli/cli.exe batch <input_dir> <output_dir>
 ./_build/native/release/build/cli/cli.exe debug --json <input>
-./_build/native/release/build/cli/cli.exe ocr <input> [output]
+./_build/native/release/build/cli/cli.exe ocr --provider tesseract-cli --lang eng+chi_sim <input-image> [output.txt]
 ```
+
+The explicit `ocr` subcommand remains separate from `normal`. Today it can
+route image inputs through the optional external `tesseract-cli` provider when
+users install Tesseract and language data; direct PDF OCR remains a future
+provider/PDF-wrapper path rather than part of the default converter.
 
 `moon run` remains a development fallback. It is not the preferred runner for
 H3++ performance conclusions.
@@ -187,12 +193,26 @@ Lower-layer parser/core and unsafe-boundary fixtures now live under
 co-located under the same format roots. Each format package now keeps its
 checked Markdown and exact CLI metadata expectations under
 `samples/main_process/<format>/expected/`.
-A checked-in `samples/real_world` corpus now complements the smaller
-feature-focused `samples/main_process` set with complex-only scenario files
-across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB. The default
-`./samples/check.sh` chain runs the full real-world set, and
-`./samples/check.sh --real-world --tags complex` remains available for focused
-reruns.
+`samples/quality_corpus` is now reserved for signal-level external/private
+quality intake. Its public manifest may stay intentionally empty until
+externally sourced rows are manually curated and license-reviewed.
+Current local hardening has already exercised manually curated rows from
+Microsoft MarkItDown tests, Pandoc tests, `python-pptx`, and Open XML SDK
+fixtures. Those rows are signal-level evidence only, not format or tool
+oracles; the current remaining local `known_bad` boundary is
+`pandoc_biblio_yaml`, a true multi-document YAML stream that remains
+unsupported.
+Current PDF hardening notes are intentionally conservative: the native path now
+supports Level 1 `/ToUnicode` extraction, including current Type0/CIDFont
+positive rows, while retained local `known_bad` rows still cover raw-GBK
+simple fonts and `Identity-H` no-`/ToUnicode` CIDFont boundaries. For the
+current matrix and limits, use [Support and Limits](./docs/support-and-limits.md)
+and [doc_parse/pdf/README.md](./doc_parse/pdf/README.md).
+Image-only PDFs stay on native image/assets output unless users explicitly
+choose OCR.
+PDF inspect/debug now also surfaces report-only text-signal and OCR-candidate
+diagnostics, while OCR and layout assistance remain explicit provider paths
+rather than default-path behavior.
 
 Benchmark operations and performance caveats are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md) and
@@ -222,12 +242,14 @@ Current boundary:
 * [Roadmap](./docs/roadmap.md)
 * [Benchmarking Guide](./docs/benchmarking.md)
 * [Support and Limits](./docs/support-and-limits.md)
+* [OCR Provider Design](./docs/ocr-provider-design.md)
+* [Layout-Assist Provider Design](./docs/layout-assist-provider-design.md)
 * [doc_parse Overview](./doc_parse/README.md)
 * [doc_parse Foundation](./docs/doc-parse-foundation.md)
 * [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
 * [Quality Comparisons](./docs/quality-comparisons/README.md)
 * [Samples Overview](./samples/README.md)
-* [Real-World Corpus](./samples/real_world/README.md)
+* [Quality Corpus](./samples/quality_corpus/README.md)
 * [Benchmark Corpus Policy](./samples/benchmark/README.md)
 * [Architecture Overview](./docs/architecture.md)
 * [Development Guide](./docs/development.md)

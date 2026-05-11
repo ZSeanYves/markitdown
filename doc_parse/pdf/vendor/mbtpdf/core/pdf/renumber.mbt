@@ -21,7 +21,7 @@ fn check_object_contains_renumbering(
 /// Calculate the change table required to renumber objects 1..n.
 pub fn Pdf::changes(self : Pdf) -> Map[Int, Int] {
   let keys = self.objnumbers()
-  let table : Map[Int, Int] = Map::new(capacity=keys.length())
+  let table : Map[Int, Int] = Map([], capacity=keys.length())
   let mut num = 1
   for key in keys {
     table.set(key, num)
@@ -51,7 +51,7 @@ pub fn Pdf::renumber(
   }
   let entries = self.objects.objects.to_array()
   entries.sort_by((a, b) => a.0 - b.0)
-  let objects : PdfObjMap = Map::new(capacity=entries.length())
+  let objects : PdfObjMap = Map([], capacity=entries.length())
   let mut max_obj_num = 0
   for entry in entries {
     let old_num = entry.0
@@ -70,7 +70,8 @@ pub fn Pdf::renumber(
       max_obj_num = new_num
     }
   }
-  let object_stream_ids = Map::new(
+  let object_stream_ids = Map(
+    [],
     capacity=self.objects.object_stream_ids.length(),
   )
   for key, value in self.objects.object_stream_ids {
@@ -102,7 +103,7 @@ pub fn renumber_pdfs(pdfs : Array[Pdf]) -> Array[Pdf] {
   let mut base = 1
   for pdf in pdfs {
     let keys = pdf.objnumbers()
-    let changes : Map[Int, Int] = Map::new(capacity=keys.length())
+    let changes : Map[Int, Int] = Map([], capacity=keys.length())
     let mut i = 0
     for key in keys {
       changes.set(key, base + i)

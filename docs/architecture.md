@@ -280,6 +280,9 @@ Current text-normalization layering is also intentional:
   and marker spacing
 * shared document-text cleanup is already reused by PDF, TXT, HTML, DOCX, and
   PPTX, while full conformance validation remains a future opt-in step
+* future Unicode conformance validation should stay manual/user-provided first:
+  no bundled `NormalizationTest.txt`, no automatic Unicode-data download, and
+  no default-gate canonical-normalization runner
 * PDF keeps layout-aware repair such as word-fragment recovery, line-wrap
   hyphen repair, noise filtering, heading/table/caption decisions, and other
   geometry/source-ref heuristics in `doc_parse/pdf`

@@ -191,7 +191,7 @@ fn add_embedded_file(
     ("/Length", Integer(@pdfio.bytes_size(bytes))),
   ])
   let stream_obj : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(bytes))),
+    Ref((stream_dict, @pdf.Stream::Got(bytes))),
   )
   let stream_num = pdf.addobj(stream_obj)
   let filespec : @pdf.PdfObject = Dictionary([
@@ -213,7 +213,7 @@ fn make_ap_stream(payload : String) -> @pdf.PdfObject {
     ("/Resources", Dictionary([])),
     ("/Length", Integer(@pdfio.bytes_size(bytes))),
   ])
-  Stream(Ref::new((dict, @pdf.Stream::Got(bytes))))
+  Stream(Ref((dict, @pdf.Stream::Got(bytes))))
 }
 
 ///|

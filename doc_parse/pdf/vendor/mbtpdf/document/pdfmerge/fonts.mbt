@@ -52,7 +52,7 @@ pub fn PdfMergeDoc::remove_duplicate_fonts(self : PdfMergeDoc) -> Unit {
   for group in toprocess {
     match group {
       [keep, .. rest] => {
-        let changetable : Map[Int, Int] = Map::new(capacity=rest.length())
+        let changetable : Map[Int, Int] = Map([], capacity=rest.length())
         for item in rest {
           changetable.set(item, keep)
         }

@@ -3,6 +3,7 @@ package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftext"
 
 import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdffont",
 }
 
@@ -51,6 +52,7 @@ pub fn PdfTextUtil::codepoints_of_utf16be(Self, String) -> Array[Int] raise
 pub fn PdfTextUtil::codepoints_of_utf8(Self, String) -> Array[Int] raise
 pub fn PdfTextUtil::find_tounicode(Self, @pdffont.Font) -> Map[Int, String]?
 pub fn PdfTextUtil::find_tounicode_bytes(Self, @pdffont.Font) -> Map[String, String]?
+pub fn PdfTextUtil::find_tounicode_cmap(Self, @pdffont.Font) -> @pdfcmap.CMap?
 pub fn PdfTextUtil::get_utf8_chars(Self, Int) -> Array[Int] raise
 pub fn PdfTextUtil::hex(Self, String) -> String
 pub fn PdfTextUtil::is_unicode(Self, String) -> Bool

@@ -1,0 +1,16 @@
+signal	form	args	description
+no_empty_output	flag		output markdown must not be empty after trimming
+contains	prefix	<text>	output markdown must contain the given text
+contains_all	prefix	<a>|<b>|<c>	output markdown must contain all listed text fragments
+not_contains	prefix	<text>	output markdown must not contain the given text
+heading_marker	prefix	<text>	output markdown must contain a heading line with the given text
+table_marker	flag		output markdown should contain a markdown table marker
+image_ref	flag		output markdown should contain at least one local markdown image reference
+link_ref	flag		output markdown should contain at least one markdown link
+metadata_file	flag		`normal --with-metadata` should emit a metadata sidecar
+asset_count_min	prefix	<n>	materialized asset file count should be at least the given integer
+order	prefix	<a>|<b>|<c>	the listed text fragments should appear in the given order
+line_fragmentation_max	prefix	<n>	count short non-empty lines and require the count to stay within the integer threshold
+max_long_token_len	prefix	<n>	ignore URLs and markdown target paths, then require every non-whitespace token length to stay within the integer threshold
+page_noise_absent	prefix	<text>	output markdown must not contain the given page-noise fragment
+review_note	prefix	<text>	record a non-blocking review note in summary output

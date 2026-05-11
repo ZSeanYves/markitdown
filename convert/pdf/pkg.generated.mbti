@@ -9,11 +9,168 @@ import {
 // Values
 pub fn build_pdf_debug_sections(@model.PdfDocumentModel, Int) -> Array[@core.DebugSection]
 
+pub fn build_pdf_layout_assist_summary(@model.PdfDocumentModel, Int) -> LayoutAssistSummary
+
+pub fn classify_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature) -> Result[PdfLayoutModelDecision, PdfLayoutModelError]
+
+pub fn classify_pdf_layout_features(PdfLayoutModel, Array[PdfLayoutFeature]) -> Result[Array[PdfLayoutModelDecision], PdfLayoutModelError]
+
+pub fn default_pdf_layout_feature_names() -> Array[String]
+
+pub fn default_pdf_layout_feature_tsv_columns() -> Array[String]
+
+pub async fn export_pdf_layout_features_tsv(String, String, String) -> String
+
+pub fn heuristic_layout_assist_provider_info() -> LayoutAssistProviderInfo
+
+pub fn infer_pdf_layout_features_tsv(String, String) -> Result[String, PdfLayoutModelError]
+
+pub fn list_layout_assist_providers() -> Array[LayoutAssistProviderInfo]
+
+pub fn make_pdf_layout_feature(String, String, PdfLayoutRecordKind, Int, Int, Int, Int?, Int?, Int?, String, String?, String?, Map[String, Double]) -> PdfLayoutFeature
+
+pub fn noop_layout_assist_provider_info() -> LayoutAssistProviderInfo
+
 pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
+
+pub fn parse_pdf_layout_features_tsv(String) -> Result[Array[PdfLayoutFeature], PdfLayoutModelError]
+
+pub fn parse_pdf_layout_model_json(String) -> Result[PdfLayoutModel, PdfLayoutModelError]
+
+pub fn predict_with_heuristic_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
+
+pub fn predict_with_noop_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
+
+pub fn render_pdf_layout_decisions_tsv(Array[PdfLayoutFeature], Array[PdfLayoutModelDecision]) -> String
+
+pub fn render_pdf_layout_feature_row(PdfLayoutFeature, Array[String]) -> Array[String]
+
+pub fn render_pdf_layout_feature_tsv(Array[PdfLayoutFeature], Array[String]) -> String
+
+pub fn score_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature, Array[Double]) -> Array[PdfLayoutModelDecision]
+
+pub fn summarize_layout_assist_predictions(Array[LayoutAssistFeature], Array[LayoutAssistPrediction]) -> LayoutAssistSummary
+
+pub fn validate_pdf_layout_model(PdfLayoutModel) -> Result[Unit, PdfLayoutModelError]
 
 // Errors
 
 // Types and methods
+pub struct LayoutAssistFeature {
+  target_id : String
+  text : String
+  page_index : Int
+  block_kind_hint : String?
+  metrics_json : String?
+}
+
+pub enum LayoutAssistMode {
+  ReportOnly
+  Advisory
+  GatedNormal
+} derive(Eq)
+
+pub struct LayoutAssistPrediction {
+  target_id : String
+  page_index : Int
+  suggested_label : String
+  confidence : Double?
+  provider : String
+  mode : LayoutAssistMode
+  reasons : Array[String]
+}
+
+pub struct LayoutAssistProviderInfo {
+  name : String
+  version : String?
+  mode : LayoutAssistMode
+  available : Bool
+}
+
+pub struct LayoutAssistSummary {
+  provider_count : Int
+  feature_count : Int
+  prediction_count : Int
+  label_counts : Map[String, Int]
+  reason_counts : Map[String, Int]
+  warning_count : Int
+  providers : Array[LayoutAssistProviderInfo]
+  predictions : Array[LayoutAssistPrediction]
+}
+
+pub struct PdfLayoutFeature {
+  sample_id : String
+  source_path : String
+  record_kind : PdfLayoutRecordKind
+  label : String?
+  page_index : Int
+  block_index : Int
+  line_index : Int
+  next_page_index : Int?
+  next_block_index : Int?
+  next_line_index : Int?
+  text : String
+  notes : String?
+  feature_values : Map[String, Double]
+}
+
+pub struct PdfLayoutLabelWeights {
+  label : String
+  bias : Double
+  values : Array[Double]
+}
+
+pub struct PdfLayoutModel {
+  version : Int
+  task : String
+  model_type : String
+  labels : Array[String]
+  features : Array[String]
+  normalization_mean : Array[Double]
+  normalization_scale : Array[Double]
+  weights : Array[PdfLayoutLabelWeights]
+  thresholds : Array[PdfLayoutThreshold]
+  metadata : Map[String, String]
+}
+
+pub struct PdfLayoutModelDecision {
+  label : String
+  score : Double
+  confidence : Double
+  threshold : Double
+  accepted : Bool
+  reasons : Array[String]
+  page_index : Int
+  block_index : Int
+  line_index : Int
+  record_kind : PdfLayoutRecordKind
+}
+
+pub struct PdfLayoutModelError {
+  kind : PdfLayoutModelErrorKind
+  message : String
+}
+
+pub enum PdfLayoutModelErrorKind {
+  InvalidJson
+  MissingField
+  WrongType
+  InvalidValue
+  UnknownFeature
+  MissingWeight
+} derive(Eq)
+
+pub enum PdfLayoutRecordKind {
+  Line
+  Block
+  Boundary
+} derive(Eq)
+
+pub struct PdfLayoutThreshold {
+  label : String
+  min_score : Double
+  min_confidence : Double
+}
 
 // Type aliases
 

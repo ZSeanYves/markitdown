@@ -28,7 +28,7 @@ fn evaluate_missing_cache_formula(
       })
   }
 
-  let state = { visited: Map::new() }
+  let state = { visited: Map([]) }
   state.visited.set(cell.reference, true)
   match eval_formula_ast(context, ast, cell.reference, 0, state) {
     XlsxFormulaEvalResult::Evaluated(value, _semantic_type, refs, ranges) =>
@@ -65,7 +65,7 @@ fn evaluate_missing_cache_formula(
 fn build_formula_sheet_context(
   cells : Array[XlsxCellModel],
 ) -> XlsxFormulaSheetContext {
-  let map : Map[String, XlsxFormulaCellRecord] = Map::new()
+  let map : Map[String, XlsxFormulaCellRecord] = Map([])
   for cell in cells {
     map.set(cell.reference, {
       display_text: cell.display_text,

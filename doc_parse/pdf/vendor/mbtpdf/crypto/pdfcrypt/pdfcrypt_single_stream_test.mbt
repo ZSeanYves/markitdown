@@ -19,7 +19,7 @@ fn pdf_with_stream() -> @pdf.Pdf raise {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let mediabox : @pdf.PdfObject = Array([
     Real(0.0),
     Real(0.0),
@@ -94,8 +94,8 @@ test "decrypt_single_stream restores AES256 stream bytes" {
       match r.val.1 {
         @pdf.Stream::Got(bytes) => {
           assert_eq(@pdfio.bytes_size(bytes), @pdfio.bytes_size(orig_bytes))
-          assert_eq(
-            @pdfio.int_array_of_bytes(bytes),
+          assert_true(
+            @pdfio.int_array_of_bytes(bytes) ==
             @pdfio.int_array_of_bytes(orig_bytes),
           )
         }

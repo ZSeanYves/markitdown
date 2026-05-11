@@ -4,7 +4,7 @@ fn infer_page_image_captions(
   pipeline_debug : Bool,
 ) -> (Array[String?], Map[Int, Bool]) {
   let out : Array[String?] = []
-  let consumed : Map[Int, Bool] = Map::new()
+  let consumed : Map[Int, Bool] = Map([])
   for _ in page.images {
     out.push(None)
   }

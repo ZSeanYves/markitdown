@@ -261,7 +261,7 @@ fn scan_table_block(tbl_xml : String) -> Array[Array[String]] {
   scan_table_block_with_context(
     tbl_xml,
     empty_docx_relationship_context(),
-    Map::new(),
+    Map([]),
   )
 }
 

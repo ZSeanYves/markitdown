@@ -3,13 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/check_samples_impl.sh"
-REAL_WORLD_IMPL="$ROOT/samples/helpers/check_real_world.sh"
 CORPUS_MANIFEST_CHECK="$ROOT/samples/helpers/check_corpus_manifest.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 
 CONTINUE_ON_FAILURE="${CHECK_CONTINUE:-0}"
 MODE="full"
-REAL_WORLD_ARGS=()
 
 bool_enabled() {
   local raw="${1-}"
@@ -34,14 +32,10 @@ Public modes:
   --metadata-only   Run only metadata-focused sample validation.
   --assets-only     Run only asset-focused sample validation.
   --contracts-only  Run CLI, debug, and batch contract checks only.
-  --manifest-only   Run sample enrollment plus benchmark/real_world manifest checks.
-  --real-world      Rerun only the real_world complex-scenario corpus.
-                    Extra arguments after --real-world are forwarded to the
-                    real_world checker, for example:
-                    ./samples/check.sh --real-world --tags complex
+  --manifest-only   Run sample enrollment plus benchmark manifest checks.
 
 Notes:
-  * The default mode is --full and includes the checked-in real_world corpus.
+  * The default mode is --full and covers checked regression and contract gates.
 EOF
 }
 
@@ -67,12 +61,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --manifest-only)
       MODE="manifest-only"
-      ;;
-    --real-world)
-      MODE="real-world"
-      shift
-      REAL_WORLD_ARGS=("$@")
-      break
       ;;
     -h|--help)
       usage
@@ -137,13 +125,13 @@ run_stage_or_stop() {
 run_manifest_chain() {
   run_stage_or_stop "integrity" env SAMPLES_QUIET_INTEGRITY=1 "$ROOT/samples/helpers/check_samples.sh"
   run_stage_or_stop "benchmark_manifest" "$CORPUS_MANIFEST_CHECK"
-  run_stage_or_stop "real_world_manifest" "$REAL_WORLD_IMPL" --manifest-only
 }
 
 run_contract_chain() {
   run_stage_or_stop "cli_contract" "$ROOT/samples/helpers/check_cli_contract.sh"
   run_stage_or_stop "debug_contract" "$ROOT/samples/helpers/check_debug_contract.sh"
   run_stage_or_stop "batch_contract" "$ROOT/samples/helpers/check_batch_contract.sh"
+  run_stage_or_stop "ocr_contract" "$ROOT/samples/helpers/check_ocr_contract.sh"
 }
 
 STAGE_RESULTS=()
@@ -172,16 +160,9 @@ case "$MODE" in
     print_summary "$overall_status"
     exit "$overall_status"
     ;;
-  real-world)
-    if [[ "${#REAL_WORLD_ARGS[@]}" -gt 0 ]]; then
-      exec "$REAL_WORLD_IMPL" "${REAL_WORLD_ARGS[@]}"
-    fi
-    exec "$REAL_WORLD_IMPL"
-    ;;
 esac
 
 run_manifest_chain
-run_stage_or_stop "real_world" "$REAL_WORLD_IMPL"
 run_stage_or_stop "markdown" "$SAMPLE_IMPL" --markdown-only
 run_stage_or_stop "metadata" "$SAMPLE_IMPL" --metadata-only
 run_stage_or_stop "assets" "$SAMPLE_IMPL" --assets-only

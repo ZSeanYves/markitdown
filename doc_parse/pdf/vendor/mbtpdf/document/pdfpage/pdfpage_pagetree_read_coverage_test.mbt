@@ -50,7 +50,7 @@ fn sample_page_crop_rect() -> @pdf.PdfObject {
 ///|
 fn empty_stream(pdf : @pdf.Pdf) -> Int {
   let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(0))])
-  pdf.addobj(Stream(Ref::new((dict, @pdf.Stream::Got(@pdfio.mkbytes(0))))))
+  pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(@pdfio.mkbytes(0))))))
 }
 
 ///|

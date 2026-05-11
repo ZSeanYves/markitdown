@@ -492,6 +492,12 @@ fn render_document_inspect_dump(
     report.total_char_count.to_string() +
     ", images=" +
     report.total_image_count.to_string() +
+    ", text_signal_level=" +
+    report.text_signal_level +
+    ", image_only=" +
+    report.image_only.to_string() +
+    ", ocr_recommended=" +
+    report.ocr_recommended.to_string() +
     ", annotations=" +
     report.total_annotation_count.to_string() +
     ", issues=" +
@@ -536,8 +542,16 @@ fn render_document_inspect_dump(
     out.push(
       "  quality: has_text_signal=" +
       page_report.has_text_signal.to_string() +
+      ", has_image_signal=" +
+      page_report.has_image_signal.to_string() +
       ", has_any_signal=" +
       page_report.has_any_signal.to_string() +
+      ", text_signal_level=" +
+      page_report.text_signal_level +
+      ", image_only=" +
+      page_report.image_only.to_string() +
+      ", ocr_recommended=" +
+      page_report.ocr_recommended.to_string() +
       ", low_signal=" +
       page_report.is_low_signal.to_string() +
       ", empty_signal=" +

@@ -29,6 +29,8 @@ pub struct PptxRelationshipIndex {
   relationships : Array[PptxRelationship]
   notes_part : String?
   notes_relationship_id : String?
+  comments_part : String?
+  comments_relationship_id : String?
 }
 
 ///|
@@ -96,6 +98,24 @@ pub struct PptxTable {
 }
 
 ///|
+/// Cached chart series data preserved from a PresentationML chart part.
+pub struct PptxChartSeries {
+  name : String
+  categories : Array[String]
+  values : Array[String]
+}
+
+///|
+/// Cached chart data preserved from a PresentationML chart part.
+pub struct PptxChartData {
+  title : String?
+  series : Array[PptxChartSeries]
+  source_part : String
+  relationship_id : String?
+  has_external_data : Bool
+}
+
+///|
 /// Raw media classes preserved from relationship and content-type signals.
 pub(all) enum PptxMediaKind {
   Image
@@ -124,6 +144,7 @@ pub(all) enum PptxShapeKind {
   TextBox
   Picture
   Table
+  Chart
   Group
   Placeholder
   Unknown
@@ -145,6 +166,7 @@ pub struct PptxShape {
   children : Array[PptxShape]
   text_paragraphs : Array[PptxTextParagraph]
   table : PptxTable?
+  chart : PptxChartData?
   media_ref : PptxMediaRef?
   hyperlink_refs : Array[PptxHyperlink]
 }
@@ -154,6 +176,22 @@ pub struct PptxShape {
 pub struct PptxNotes {
   part_path : String
   paragraphs : Array[PptxTextParagraph]
+}
+
+///|
+pub struct PptxCommentAuthor {
+  id : String
+  name : String
+  initials : String?
+}
+
+///|
+pub struct PptxComment {
+  author_id : String
+  author_name : String?
+  text : String
+  idx : String?
+  datetime : String?
 }
 
 ///|
@@ -171,6 +209,7 @@ pub struct PptxSlide {
   tables : Array[PptxTable]
   media_refs : Array[PptxMediaRef]
   hyperlink_refs : Array[PptxHyperlink]
+  comments : Array[PptxComment]
   notes : PptxNotes?
   issues : Array[PptxValidationIssue]
 }
@@ -182,6 +221,7 @@ pub struct PptxPresentation {
   relationships : PptxRelationshipIndex
   media_refs : Array[PptxMediaRef]
   hyperlink_refs : Array[PptxHyperlink]
+  comment_authors : Array[PptxCommentAuthor]
   issues : Array[PptxValidationIssue]
 }
 
@@ -249,10 +289,12 @@ pub struct PptxInspectReport {
   paragraph_count : Int
   text_run_count : Int
   table_count : Int
+  chart_count : Int
   image_ref_count : Int
   media_ref_count : Int
   hyperlink_count : Int
   notes_count : Int
+  comment_count : Int
   issue_count : Int
   warning_count : Int
   error_count : Int
@@ -287,7 +329,13 @@ priv struct PptxShapeParseContext {
 
 ///|
 fn empty_pptx_relationship_index() -> PptxRelationshipIndex {
-  { relationships: [], notes_part: None, notes_relationship_id: None }
+  {
+    relationships: [],
+    notes_part: None,
+    notes_relationship_id: None,
+    comments_part: None,
+    comments_relationship_id: None,
+  }
 }
 
 ///|

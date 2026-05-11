@@ -117,7 +117,7 @@ fn select_page_ref(refs : Array[Int], index_1 : Int) -> Int raise {
 
 ///|
 fn range_to_set(range : Array[Int]) -> Map[Int, Unit] {
-  let out = Map::new(capacity=range.length())
+  let out = Map([], capacity=range.length())
   for page in range {
     out.set(page, ())
   }
@@ -126,7 +126,7 @@ fn range_to_set(range : Array[Int]) -> Map[Int, Unit] {
 
 ///|
 fn build_fastrefnums(refnums : Array[Int]) -> Map[Int, Int] {
-  let out = Map::new(capacity=refnums.length())
+  let out = Map([], capacity=refnums.length())
   for i in 0..<refnums.length() {
     out.set(refnums[i], i + 1)
   }

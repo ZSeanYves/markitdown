@@ -55,10 +55,10 @@ priv struct PdfNoiseDecision {
 fn build_repeated_edge_noise_index(
   doc : PdfConvertDocument,
 ) -> PdfRepeatedEdgeNoiseIndex {
-  let head_count = Map::new()
-  let tail_count = Map::new()
-  let head_prefix_count = Map::new()
-  let tail_prefix_count = Map::new()
+  let head_count = Map([])
+  let tail_count = Map([])
+  let head_prefix_count = Map([])
+  let tail_prefix_count = Map([])
 
   for page in doc.pages {
     let blocks = normalized_nonempty_blocks(page)

@@ -27,6 +27,18 @@ Current non-goals for the default mainflow:
 * OCR-first default conversion
 * LLM-style or visual-semantic reconstruction
 
+Current validation layering:
+
+* `./samples/check.sh` remains the exact regression and contract gate
+* `samples/quality_corpus/` is the signal-level external/private intake path
+* the legacy checked `samples/real_world/` corpus has been removed because it
+  was synthetic/regression-like rather than reliable real-world quality
+  evidence
+* private local quality samples must remain uncommitted
+* external quality rows must stay locally curated until license review is
+  approved
+* upstream tool fixtures and public datasets are references, not oracles
+
 ## CLI Output Contract
 
 Current product-path CLI contract:
@@ -213,6 +225,9 @@ Shared text-normalization substrate:
 * default converter behavior still does not enable canonical normalization
 * the repository does not claim full ICU/UAX #15 or
   `NormalizationTest.txt`-verified conformance yet
+* no Unicode normalization conformance corpus is bundled in the repository,
+  and any future `NormalizationTest.txt` validation path must remain
+  user-provided and opt-in rather than part of the default sample/test gate
 * this substrate is deterministic preprocessing, not OCR, not a layout engine,
   and not a semantic classifier
 * PDF-only artifact cleanup, line-wrap repair, and other geometry-dependent
@@ -312,10 +327,14 @@ Supported:
 * table-like / callout-like / caption-like region handling
 * run-level and basic shape-level external hyperlink recovery
 * slide-local speaker notes extraction
+* per-slide comments/commentAuthors extraction with conservative author/text
+  appendix output
+* cached chart-data extraction from PresentationML chart-part XML cache
 * hidden slide annotation with content-preserving output
 * exported images through unified `ImageBlock`
 * OOXML document properties in the explicit `--with-metadata` sidecar path
-* relationship/source provenance for hyperlinks, tables, images, and notes
+* relationship/source provenance for hyperlinks, tables, images, notes, and
+  comments
 
 Conservative behavior:
 
@@ -325,6 +344,11 @@ Conservative behavior:
   `a:tblPr firstRow="0|false"` disables it
 * speaker notes are emitted under the owning slide as a conservative append
   subsection
+* comments are emitted under the owning slide as a conservative append
+  subsection with minimal `author: text` lines rather than inline bubble
+  reconstruction
+* aligned cached chart-data can lower to `RichTable`, while irregular cache
+  falls back to conservative text
 * heuristic "table-like" recovery still exists for non-table shape layouts
 * grouped shapes preserve conservative `object_ref` provenance through
   reading-order text lowering when lower-layer shape identity is available
@@ -334,17 +358,20 @@ Conservative behavior:
 Known limits:
 
 * no advanced multi-image caption pairing
-* no comments output yet
 * no semantic table IR for heuristic table-like regions
 * no visual merged-table reconstruction
 * no internal/action/media hyperlink promotion
-* no chart / SmartArt / OLE / embedded-media semantics
+* no chart rendering or embedded-workbook chart fallback
+* no chart style/color/axis/legend/layout semantics
+* no comment bubble positioning, shape-anchor recovery, or threaded/modern
+  comments semantics
+* no SmartArt / OLE / embedded-media semantics
 * no pixel-perfect grouped-layout or z-order reconstruction
 * not a PowerPoint layout engine
 * no animations / transitions
 * `doc_parse/pptx` does not claim reading-order recovery, layout grouping,
-  image export, final Speaker Notes section policy, or final heading/list
-  classification ownership
+  image export, final Speaker Notes / Comments section policy, or final
+  heading/list classification ownership
 
 ### XLSX
 
@@ -412,7 +439,11 @@ Status label:
 
 Supported:
 
+* the default native PDF path extracts embedded text plus page/image assets
 * native text-oriented structural recovery
+* Level 1 `/ToUnicode` CMap text decoding
+* text PDFs whose fonts expose usable `/ToUnicode`, including conservative
+  Type0/CIDFont positive paths when the native text layer is already recoverable
 * headings / paragraphs / list-like text recovery
 * repeated-header/footer cleanup
 * cross-page paragraph merge
@@ -443,6 +474,20 @@ Conservative behavior:
   line / adjacent-span context, source-ref adjacency, font/font-size/style
   consistency, gap/baseline proximity, punctuation boundaries, and casing
   signals over pure short-word guessing
+* `/ToUnicode` decoding currently supports `codespacerange`, `bfchar`, and
+  conservative `bfrange` handling, including multi-byte source-code matching
+  and UTF-16BE destinations
+* Type0/CIDFont text recovery is expected to prefer `/ToUnicode` whenever the
+  source PDF provides it; current Arabic and other non-ASCII positive rows are
+  evidence for this path, not a claim of full bidi/typography fidelity
+* image-only or scan-only PDFs in `normal` mode currently degrade to exported
+  page/image assets rather than synthesized OCR text
+* inspect/debug now exposes report-only PDF text-signal diagnostics such as
+  `text_signal_level`, `image_only`, `ocr_recommended`, and native text/image
+  counts without changing Markdown output
+* the checked-in `samples/pdf_layout_classifier` training spike is export/train/
+  infer tooling only; it does not change default PDF Markdown output, does not
+  enable OCR, and does not connect a visual layout runtime into the normal path
 
 Known limits:
 
@@ -451,12 +496,41 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
+* no full predefined-CMap coverage for Type0/CIDFont PDFs that rely on
+  `UniGB-UCS2-H`, `UniJIS-UCS2-H`, `UniCNS-UCS2-H`, `UniKS-UCS2-H`, or similar
+  predefined mappings without `/ToUnicode`
+* no embedded TrueType/OpenType `cmap` fallback for Type0/CIDFont PDFs with
+  `/Identity-H` and no `/ToUnicode`
+* no reliable general extraction contract for `/Identity-H` no-`/ToUnicode`
+  PDFs; current local external evidence keeps these as retained boundaries
+* no GBK/GB18030 fallback strategy for simple raw-GBK, no-`/ToUnicode`
+  simple-font PDFs
 * no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
 * H3++ performance claims apply only to the checked-in native text-PDF corpus
 * OCR remains an explicit separate path; OCR cleanup has not been rolled into
   the shared default normalization policy
+* scan-only/image-only PDFs may surface as OCR candidates in debug/inspect or
+  quality-report workflows, but that does not change the default `normal` mode
+  output contract
+* OCR and layout-assist backends are expected to stay behind explicit provider
+  or plugin routes rather than broad hidden fallbacks in `normal`
+* lightweight OCR/layout-assist provider skeletons may exist for lazy
+  descriptor/probe/report wiring, but they do not imply bundled OCR engines,
+  bundled model files, or normal-path activation
+* layout-assist advisory predictions may surface in PDF debug/inspect reports,
+  but they do not participate in the normal conversion decision path
+* the explicit `tesseract-cli` provider is optional and external: it can probe
+  availability and OCR page images when users explicitly choose it, but it is
+  not bundled and is not part of the default `normal` path
+* debug-only provider listing/probe surfaces may expose provider availability
+  state, but availability does not mean OCR has been run
+* the current lightweight layout classifier spike is local-corpus-only and is
+  not wired into the default conversion decision path
+* bad `/ToUnicode` maps can still legitimately yield replacement characters or
+  other low-value output; the repository does not currently promise rescue
+  beyond the declared Level 1 parser behavior
 
 ### HTML / HTM
 
@@ -596,6 +670,7 @@ Supported:
 * UTF-8 BOM removal
 * CRLF / CR normalization
 * `'...'` / `"..."` quoted scalar support
+* single-document leading `---` and trailing `...` marker compatibility
 * comment-only / blank-line-only input handling
 
 Conservative behavior:
@@ -611,7 +686,8 @@ Conservative behavior:
 Known limits:
 
 * no anchors / aliases / tags
-* no block scalar / flow style / multi-document input
+* no block scalar / flow style
+* no true multi-document input stream support
 * no full YAML spec support
 * no nested provenance beyond root `key_path`
 * duplicate keys keep parser source order; no merge-key semantics are added
@@ -734,6 +810,8 @@ Supported:
 * safe normalized entry traversal
 * directory and common macOS metadata skip
 * normalized path ordering
+* Level 1 bit-3 data-descriptor handling when central-directory sizes/CRC are
+  available
 * supported nested entries:
   * Markdown / CSV / TSV / TXT / XML / JSON / YAML / static HTML
   * self-contained DOCX / PPTX / XLSX / PDF
@@ -760,7 +838,9 @@ Known limits:
 * no remote HTML asset fetch
 * no absolute / root-relative / parent / scheme-like / backslash HTML local-image export
 * normalized collisions and unsupported low-level ZIP features fail closed
-* no ZIP64 / data-descriptor / encrypted-ZIP support in the current H2 path
+* no ZIP64 / encrypted-ZIP / multi-disk ZIP support
+* no full streaming data-descriptor parser beyond the current Level 1
+  central-directory-known-size case
 
 Current second-round note:
 
@@ -863,6 +943,35 @@ It should currently be understood as:
 
 * available for explicit use
 * dependent on external tooling
+* now accompanied by lightweight provider skeletons and design docs
+* currently includes an explicit `tesseract-cli` page-image provider route
+* the `ocr` CLI path can now route explicit image inputs through
+  `--provider tesseract-cli` and `--lang ...`
+* the checked-in OCR image suite verifies explicit CLI/provider boundary
+  behavior such as unknown providers, unsupported extensions, lazy
+  unavailable-provider messages, and image-path routing without turning OCR
+  into a normal-path gate
+* an optional local `tesseract-cli` smoke can be run manually when external
+  tooling is present, but it is not part of the default CI/sample gate and is
+  not treated as an OCR quality benchmark
+* the repository also carries an OCRmyPDF provider audit/design document for a
+  future explicit PDF OCR route, but OCRmyPDF is not implemented as a runtime
+  path yet
+* the repository also treats PaddleOCR / PP-Structure as a future heavy
+  provider boundary only: it is not implemented, not bundled, and not part of
+  the default OCR contract
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion
+* provider availability/probing should remain explicit and lazy rather than
+  part of normal CLI startup
+* direct PDF OCR through the provider layer is still out of scope here;
+  `tesseract-cli` is page-image OCR only
+* any future OCRmyPDF path must remain explicit, external, and
+  provenance-tagged: OCR sidecar text is OCR output rather than native
+  embedded PDF text, and normal PDF conversion must continue to avoid provider
+  probing or hidden OCR fallback
+* any future PaddleOCR route must also remain explicit, external, and
+  heavy-provider-only: Python/runtime/model installation is user-managed,
+  model downloads are not automatic, and layout/table/document-analysis output
+  must not be mixed into normal Markdown by default

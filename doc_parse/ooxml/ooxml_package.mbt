@@ -13,7 +13,7 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
     e => raise ZipError(e.to_string())
   }
 
-  let part_index : Map[String, Int] = Map::new()
+  let part_index : Map[String, Int] = Map([])
   let entries = @zip.list_entries(archive)
   let mut i = 0
   while i < entries.length() {

@@ -1,5 +1,6 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/pptx" @pptx_sem,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/env" @env,

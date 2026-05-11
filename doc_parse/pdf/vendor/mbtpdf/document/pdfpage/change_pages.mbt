@@ -264,7 +264,7 @@ fn change_pages_process_openaction(
 
 ///|
 fn[K : Hash + Eq, V] map_of_pairs(pairs : Array[(K, V)]) -> Map[K, V] {
-  let m = Map::new(capacity=pairs.length())
+  let m = Map([], capacity=pairs.length())
   for pair in pairs {
     m.set(pair.0, pair.1)
   }
@@ -346,7 +346,7 @@ pub fn PdfPageDoc::change_pages(
       Some(matpairs) => {
         let refnums = pdf.page_reference_numbers()
         let mattable = map_of_pairs(matpairs)
-        let refnumstable = Map::new(capacity=refnums.length())
+        let refnumstable = Map([], capacity=refnums.length())
         for i in 0..<refnums.length() {
           refnumstable.set(refnums[i], i + 1)
         }

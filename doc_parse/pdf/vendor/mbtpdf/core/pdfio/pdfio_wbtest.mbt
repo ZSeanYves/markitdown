@@ -39,7 +39,7 @@ test "peek_char and read_char_back" {
 test "read_lines reads all lines" {
   let input = Input::of_string("first\nsecond\n")
   let lines = input.read_lines()
-  assert_eq(lines, ["first", "second"])
+  assert_true(lines == ["first", "second"])
 }
 
 ///|

@@ -1957,7 +1957,7 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
               fail("expected visible sheet_state in metadata policy sample")
             }
             match hints.merged_ranges {
-              Some(ranges) => assert_eq(ranges, ["B3:C4"])
+              Some(ranges) => assert_true(ranges == ["B3:C4"])
               None =>
                 fail("xlsx metadata policy sample should expose merged ranges")
             }

@@ -8,7 +8,7 @@ test "encode/decode flate stream" {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(original))),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(original)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(original)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(pdf, Encoding::Flate, stream_obj)
   let (encoded_dict, encoded_stream) = stream_ref.val
@@ -56,7 +56,7 @@ fn roundtrip_encoding(
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(original))),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(original)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(original)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(pdf, encoding, stream_obj, only_if_smaller=false)
   ctx.decode_pdfstream_onestage(pdf, stream_obj)
@@ -102,7 +102,7 @@ test "encode_pdfstream prepends filter when name already set" {
     ("/Length", Integer(@pdfio.bytes_size(data))),
     ("/Filter", Name(@pdf.PdfName::of_string("/ASCII85Decode"))),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(data)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(pdf, Encoding::Flate, stream_obj)
   match (pdf.lookup_direct("/Filter", stream_ref.val.0) : @pdf.PdfObject?) {
@@ -125,7 +125,7 @@ test "encode_pdfstream prepends filter when array already set" {
     ("/Length", Integer(@pdfio.bytes_size(data))),
     ("/Filter", Array([Name(@pdf.PdfName::of_string("/ASCIIHexDecode"))])),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(data)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(pdf, Encoding::Flate, stream_obj)
   match (pdf.lookup_direct("/Filter", stream_ref.val.0) : @pdf.PdfObject?) {
@@ -145,7 +145,7 @@ test "encode_pdfstream keeps data when only_if_smaller" {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(data))),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(data)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(pdf, Encoding::Flate, stream_obj, only_if_smaller=true)
   match pdf.lookup_direct("/Filter", stream_ref.val.0) {
@@ -161,7 +161,7 @@ test "decode_pdfstream handles filter arrays" {
   let dict : @pdf.PdfObject = Dictionary([
     ("/Length", Integer(@pdfio.bytes_size(original))),
   ])
-  let stream_ref = Ref::new((dict, @pdf.Stream::Got(original)))
+  let stream_ref = Ref((dict, @pdf.Stream::Got(original)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
   ctx.encode_pdfstream(
     pdf,

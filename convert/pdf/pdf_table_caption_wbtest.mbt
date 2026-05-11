@@ -178,8 +178,8 @@ test "pdf table detector matches simple grid rows" {
   let tables = detect_pdf_tables(page, false)
   assert_eq(tables.length(), 1)
   assert_eq(tables[0].header_rows, 1)
-  assert_eq(tables[0].rows[0], ["Quarter", "Revenue", "Profit"])
-  assert_eq(tables[0].rows[1], ["Q1", "120", "30"])
+  assert_true(tables[0].rows[0] == ["Quarter", "Revenue", "Profit"])
+  assert_true(tables[0].rows[1] == ["Q1", "120", "30"])
 }
 
 ///|
@@ -297,7 +297,7 @@ test "pdf table detector supports numeric columns with headerless rows" {
   )
   let tables = detect_pdf_tables(page, false)
   assert_eq(tables.length(), 1)
-  assert_eq(tables[0].rows[0], ["Alpha", "12", "4.5%"])
+  assert_true(tables[0].rows[0] == ["Alpha", "12", "4.5%"])
   assert_eq(tables[0].header_rows, 0)
 }
 

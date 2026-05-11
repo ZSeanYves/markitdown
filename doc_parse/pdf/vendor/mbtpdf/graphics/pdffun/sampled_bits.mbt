@@ -5,7 +5,7 @@ fn read_samples(
   bits_per_sample : Int,
 ) -> Array[Int] {
   let out = Array::new(capacity=count)
-  let bit_pos = Ref::new(0)
+  let bit_pos = Ref(0)
   for _ in 0..<count {
     out.push(read_bits(data, bit_pos, bits_per_sample))
   }

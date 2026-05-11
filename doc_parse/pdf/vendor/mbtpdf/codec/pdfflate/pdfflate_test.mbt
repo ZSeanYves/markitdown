@@ -81,7 +81,7 @@ test "uncompress stored zlib" {
     FlateError::Error(stage, msg) => fail("\{stage}: \{msg}")
   }
   let ints = out.map(b => b.to_int())
-  inspect(
+  debug_inspect(
     ints,
     content="[104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]",
   )
@@ -96,7 +96,7 @@ test "uncompress fixed huffman" {
     FlateError::Error(stage, msg) => fail("\{stage}: \{msg}")
   }
   let ints = out.map(b => b.to_int())
-  inspect(
+  debug_inspect(
     ints,
     content="[104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]",
   )
@@ -126,7 +126,7 @@ test "uncompress dynamic huffman" {
     FlateError::Error(stage, msg) => fail("\{stage}: \{msg}")
   }
   let expected = @pdfio.bytes_of_string("abcde".repeat(1000))
-  assert_eq(out, expected)
+  assert_true(out == expected)
 }
 
 ///|

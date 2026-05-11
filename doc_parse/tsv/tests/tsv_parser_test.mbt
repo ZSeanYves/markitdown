@@ -5,7 +5,7 @@ test "tsv parser uses tab delimiter and keeps ragged rows visible" {
   )
   assert_true(doc.delimiter == @csv.CsvDelimiter::Tab)
   assert_eq(doc.column_count, 3)
-  assert_eq(doc.rows[1].fields, ["Ada", "12", ""])
+  assert_true(doc.rows[1].fields == ["Ada", "12", ""])
 
   let issues = @tsv.collect_tsv_validation_issues(doc)
   assert_eq(issues.length(), 1)
