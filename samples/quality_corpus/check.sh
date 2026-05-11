@@ -14,17 +14,39 @@ OUTPUT_DIR="$OUT_ROOT/outputs"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
 MODE="all"
+FILTER_ID=""
+FILTER_SOURCE=""
+FILTER_FORMAT=""
+LIST_ONLY=0
+METADATA_ENABLED=1
+PROFILE_ENABLED=0
+PROFILE_TSV="$OUT_ROOT/profile.tsv"
 
 PUBLIC_HEADER=$'id\tformat\tpath\tsource_type\tlicense_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\tnotes'
 EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
   cat <<'EOF'
-usage: ./samples/quality_corpus/check.sh [--public-only | --private-only]
+usage: ./samples/quality_corpus/check.sh [--public-only | --private-only] [--id <id>] [--source <source_id>] [--format <format>] [--list] [--no-metadata] [--profile]
 
 Modes:
   --public-only   run only checked-in public intake rows
   --private-only  run only local private intake rows
+  --list          list merged manifest rows after filters, without running conversion
+  --no-metadata   run conversion without --with-metadata for profiling
+  --profile       write per-row timing diagnostics to .tmp/quality_corpus/profile.tsv
+
+Filters:
+  --id <id>           match one exact row id
+  --source <source>   match external rows by source_id
+  --format <format>   match rows by format
+
+Filter semantics:
+  * multiple filters are combined with AND
+  * source_id filtering only matches external rows
+  * filters do not bypass license or file-presence gate semantics
+  * --no-metadata disables sidecar metadata generation but keeps all other checks
+  * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
   * empty public manifest is valid
@@ -44,6 +66,42 @@ while [[ $# -gt 0 ]]; do
     --private-only)
       MODE="private"
       ;;
+    --id)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --id" >&2
+        usage >&2
+        exit 1
+      }
+      FILTER_ID="$2"
+      shift
+      ;;
+    --source)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --source" >&2
+        usage >&2
+        exit 1
+      }
+      FILTER_SOURCE="$2"
+      shift
+      ;;
+    --format)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --format" >&2
+        usage >&2
+        exit 1
+      }
+      FILTER_FORMAT="$2"
+      shift
+      ;;
+    --list)
+      LIST_ONLY=1
+      ;;
+    --no-metadata)
+      METADATA_ENABLED=0
+      ;;
+    --profile)
+      PROFILE_ENABLED=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -59,8 +117,6 @@ done
 
 mkdir -p "$OUTPUT_DIR"
 
-resolve_markitdown_cli
-
 trim_cr() {
   local value="${1-}"
   value="${value%$'\r'}"
@@ -75,6 +131,21 @@ import sys
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 text = text.replace("\r\n", "\n").replace("\r", "\n")
 sys.stdout.write(text)
+PY
+}
+
+check_non_empty_output_file() {
+  local path="$1"
+  python3 - "$path" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8", errors="replace") as f:
+    for chunk in iter(lambda: f.read(65536), ""):
+        for ch in chunk:
+            if not ch.isspace():
+                raise SystemExit(0)
+raise SystemExit(1)
 PY
 }
 
@@ -201,6 +272,154 @@ collect_manifest_rows() {
   printf '%s\n' "${rows[@]}"
 }
 
+filter_summary_value() {
+  local value="${1-}"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+  else
+    printf '*'
+  fi
+}
+
+metadata_summary_value() {
+  if [[ "$METADATA_ENABLED" -ne 0 ]]; then
+    printf 'true'
+  else
+    printf 'false'
+  fi
+}
+
+profile_now_ms() {
+  python3 - <<'PY'
+import time
+print(int(time.time() * 1000))
+PY
+}
+
+profile_enabled_summary_value() {
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    printf 'true'
+  else
+    printf 'false'
+  fi
+}
+
+profile_init() {
+  if [[ "$PROFILE_ENABLED" -eq 0 ]]; then
+    return
+  fi
+  mkdir -p "$OUT_ROOT"
+  printf 'row_id\tstage\telapsed_ms\tnotes\n' > "$PROFILE_TSV"
+}
+
+profile_record() {
+  local row_id="$1"
+  local stage="$2"
+  local elapsed_ms="$3"
+  local notes="${4-}"
+  if [[ "$PROFILE_ENABLED" -eq 0 ]]; then
+    return
+  fi
+  printf '%s\t%s\t%s\t%s\n' "$row_id" "$stage" "$elapsed_ms" "$notes" >> "$PROFILE_TSV"
+}
+
+profile_signal_stage_name() {
+  local signal="${1-}"
+  case "$signal" in
+    no_empty_output)
+      printf 'no_empty_output'
+      ;;
+    contains:*)
+      printf 'contains'
+      ;;
+    contains_all:*)
+      printf 'contains_all'
+      ;;
+    not_contains:*)
+      printf 'not_contains'
+      ;;
+    order:*)
+      printf 'order'
+      ;;
+    page_noise_absent:*)
+      printf 'page_noise_absent'
+      ;;
+    max_long_token_len:*)
+      printf 'max_long_token_len'
+      ;;
+    line_fragmentation_max:*)
+      printf 'line_fragmentation_max'
+      ;;
+    heading_marker:*)
+      printf 'heading_marker'
+      ;;
+    table_marker)
+      printf 'table_marker'
+      ;;
+    image_ref)
+      printf 'image_ref'
+      ;;
+    link_ref)
+      printf 'link_ref'
+      ;;
+    metadata_file)
+      printf 'metadata_file'
+      ;;
+    review_note:*)
+      printf 'review_note'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
+profile_signal_notes() {
+  local signal="${1-}"
+  local status="${2-}"
+  python3 - "$signal" "$status" <<'PY'
+import sys
+signal = sys.argv[1]
+status = sys.argv[2]
+signal = signal.replace("\t", " ").replace("\n", " ")
+if len(signal) > 80:
+    signal = signal[:77] + "..."
+print(f"{status}; {signal}")
+PY
+}
+
+row_matches_filters() {
+  local row="$1"
+  local delimiter=$'\x1f'
+  local converted="${row//$'\t'/$delimiter}"
+  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
+  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+
+  if [[ -n "$FILTER_ID" && "$id" != "$FILTER_ID" ]]; then
+    return 1
+  fi
+  if [[ -n "$FILTER_SOURCE" && "$source_id" != "$FILTER_SOURCE" ]]; then
+    return 1
+  fi
+  if [[ -n "$FILTER_FORMAT" && "$format" != "$FILTER_FORMAT" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+print_filtered_rows() {
+  printf 'id\tformat\tsource_id\tlicense_gate\tpath\n'
+  local row
+  for row in "${FILTERED_ROWS[@]-}"; do
+    [[ -n "$row" ]] || continue
+    local delimiter=$'\x1f'
+    local converted="${row//$'\t'/$delimiter}"
+    local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
+    IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$format" "$source_id" "$license_review_status" "$path"
+  done
+}
+
 count_assets_on_disk() {
   local out_dir="$1"
   if [[ ! -d "$out_dir/assets" ]]; then
@@ -234,7 +453,7 @@ check_signal() {
 
   case "$signal" in
     no_empty_output)
-      [[ -n "${normalized_text//[$'\n\t\r ']}" ]]
+      check_non_empty_output_file "$markdown_path"
       ;;
     contains:*)
       [[ "$normalized_text" == *"${signal#contains:}"* ]]
@@ -339,13 +558,25 @@ summary_add() {
 
 run_row() {
   local row="$1"
+  local row_start_ms=0
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    row_start_ms="$(profile_now_ms)"
+  fi
   local delimiter=$'\x1f'
   local converted="${row//$'\t'/$delimiter}"
   local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
   IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
 
+  local stage_start_ms=0
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    stage_start_ms="$(profile_now_ms)"
+  fi
   if [[ "$source_scope" == "external" ]]; then
     if [[ "$license_review_status" != "approved" ]]; then
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "license_gate"
+        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_license"
+      fi
       summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
       return
     fi
@@ -357,6 +588,10 @@ run_row() {
   fi
 
   if [[ ! -f "$abs_path" ]]; then
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "missing_input"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "missing_input"
+    fi
     case "$source_scope" in
       external)
         summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_missing_file" 0 0 "external cache file missing"
@@ -374,16 +609,39 @@ run_row() {
   local row_dir="$OUTPUT_DIR/$id"
   rm -rf "$row_dir"
   mkdir -p "$row_dir"
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "row_dir_ready"
+  fi
 
   local output_md="$row_dir/$id.md"
-  if ! run_markitdown_cli normal --with-metadata "$abs_path" "$output_md" >/dev/null 2>&1; then
+  local cli_args=("normal")
+  if [[ "$METADATA_ENABLED" -ne 0 ]]; then
+    cli_args+=("--with-metadata")
+  fi
+  cli_args+=("$abs_path" "$output_md")
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    stage_start_ms="$(profile_now_ms)"
+  fi
+  if ! run_markitdown_cli "${cli_args[@]}" >/dev/null 2>&1; then
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "cli_failed"
+    fi
     summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" 0 0 "cli conversion failed"
     return
+  fi
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "metadata=$(metadata_summary_value)"
+    stage_start_ms="$(profile_now_ms)"
   fi
 
   local metadata_path="$row_dir/metadata/$id.metadata.json"
   local normalized_text
   normalized_text="$(normalize_text "$output_md")"
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$id" "load_output" "$(( $(profile_now_ms) - stage_start_ms ))" "markdown_loaded"
+    stage_start_ms="$(profile_now_ms)"
+  fi
 
   local total_signals=0
   local passed_signals=0
@@ -395,16 +653,35 @@ run_row() {
     signal="$(printf '%s' "$signal" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
     [[ -z "$signal" ]] && continue
     if [[ "$signal" == review_note:* ]]; then
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "signal_start:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "review")"
+        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "review")"
+      fi
       review_notes+=("${signal#review_note:}")
       continue
     fi
     total_signals=$((total_signals + 1))
+    local signal_start_ms=0
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "signal_start:$(profile_signal_stage_name "$signal")" 0 "$(profile_signal_notes "$signal" "start")"
+      signal_start_ms="$(profile_now_ms)"
+    fi
     if check_signal "$signal" "$output_md" "$metadata_path" "$row_dir" "$normalized_text"; then
       passed_signals=$((passed_signals + 1))
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" "$(( $(profile_now_ms) - signal_start_ms ))" "$(profile_signal_notes "$signal" "pass")"
+      fi
     else
       failed_details+=("$signal")
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "signal:$(profile_signal_stage_name "$signal")" "$(( $(profile_now_ms) - signal_start_ms ))" "$(profile_signal_notes "$signal" "fail")"
+      fi
     fi
   done
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$id" "signal_check" "$(( $(profile_now_ms) - stage_start_ms ))" "signals=$total_signals"
+    stage_start_ms="$(profile_now_ms)"
+  fi
 
   if [[ "$total_signals" -eq 0 ]]; then
     local note_text="no expected signals configured"
@@ -412,6 +689,10 @@ run_row() {
       note_text="$note_text; review: ${review_notes[*]}"
     fi
     summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip" 0 0 "$note_text"
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "skip"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip"
+    fi
     return
   fi
 
@@ -421,6 +702,10 @@ run_row() {
       note_text="$note_text; review: ${review_notes[*]}"
     fi
     summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" "$passed_signals" "$total_signals" "$note_text"
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "fail"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "fail"
+    fi
     return
   fi
 
@@ -429,6 +714,10 @@ run_row() {
     note_text="$note_text; review: ${review_notes[*]}"
   fi
   summary_add "$id" "$format" "$source_scope" "$quality_tier" "pass" "$passed_signals" "$total_signals" "$note_text"
+  if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+    profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "pass"
+    profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "pass"
+  fi
 }
 
 write_summary() {
@@ -439,10 +728,16 @@ write_summary() {
   local skipped_license="$5"
   local skipped_missing_file="$6"
   local no_manifest_rows="$7"
+  local no_matching_rows="$8"
 
   mkdir -p "$OUT_ROOT"
   {
     printf 'id\tformat\tscope\tquality_tier\tstatus\tpassed_signals\ttotal_signals\tnotes\n'
+    printf 'PROFILE_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(profile_enabled_summary_value)"
+    printf 'METADATA_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_summary_value)"
+    printf 'FILTER_ID\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_ID")"
+    printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
+    printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"
     local row
     for row in "${SUMMARY_ROWS[@]-}"; do
       [[ -z "$row" ]] && continue
@@ -455,10 +750,23 @@ write_summary() {
     printf 'SKIPPED_LICENSE\t-\t-\t-\t-\t%s\t-\tskipped because license_review_status was not approved\n' "$skipped_license"
     printf 'SKIPPED_MISSING_FILE\t-\t-\t-\t-\t%s\t-\tskipped because the local cache or private file was missing\n' "$skipped_missing_file"
     printf 'NO_MANIFEST_ROWS\t-\t-\t-\t-\t%s\t-\t1 means no rows selected\n' "$no_manifest_rows"
+    printf 'NO_MATCHING_ROWS\t-\t-\t-\t-\t%s\t-\t1 means filters matched zero rows\n' "$no_matching_rows"
   } > "$SUMMARY_TSV"
 
   {
     echo "# Quality Corpus Summary"
+    echo
+    echo "Profile: $(if [[ "$PROFILE_ENABLED" -ne 0 ]]; then printf 'enabled'; else printf 'disabled'; fi)"
+    if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+      echo "Profile path: $PROFILE_TSV"
+    fi
+    echo
+    echo "Metadata: $(if [[ "$METADATA_ENABLED" -ne 0 ]]; then printf 'enabled'; else printf 'disabled'; fi)"
+    echo
+    echo "Filters:"
+    echo "- id: $(filter_summary_value "$FILTER_ID")"
+    echo "- source: $(filter_summary_value "$FILTER_SOURCE")"
+    echo "- format: $(filter_summary_value "$FILTER_FORMAT")"
     echo
     echo "- total: $total"
     echo "- passed: $passed"
@@ -467,8 +775,11 @@ write_summary() {
     echo "- skipped_license: $skipped_license"
     echo "- skipped_missing_file: $skipped_missing_file"
     echo "- no_manifest_rows: $no_manifest_rows"
+    echo "- no_matching_rows: $no_matching_rows"
     echo
-    if [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 ]]; then
+    if [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 && "$no_matching_rows" -ne 0 ]]; then
+      echo "No manifest rows matched the active filters."
+    elif [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 ]]; then
       echo "No manifest rows selected."
     else
       echo "| ID | Format | Scope | Tier | Status | Passed | Total | Notes |"
@@ -490,16 +801,39 @@ while IFS= read -r row; do
 done < <(collect_manifest_rows)
 
 if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 0 0 1
+  write_summary 0 0 0 0 0 0 1 0
   echo "QUALITY CORPUS PASSED (no manifest rows selected)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
   exit 0
 fi
 
-validation_progress_init "quality_corpus" "${#MANIFEST_ROWS[@]}"
-
+FILTERED_ROWS=()
 for row in "${MANIFEST_ROWS[@]}"; do
+  if row_matches_filters "$row"; then
+    FILTERED_ROWS+=("$row")
+  fi
+done
+
+if [[ "${#FILTERED_ROWS[@]}" -eq 0 ]]; then
+  write_summary 0 0 0 0 0 0 0 1
+  echo "QUALITY CORPUS PASSED (no rows matched filters)"
+  echo "summary: $SUMMARY_TSV"
+  echo "report: $SUMMARY_MD"
+  exit 0
+fi
+
+if [[ "$LIST_ONLY" -ne 0 ]]; then
+  print_filtered_rows
+  exit 0
+fi
+
+profile_init
+resolve_markitdown_cli
+
+validation_progress_init "quality_corpus" "${#FILTERED_ROWS[@]}"
+
+for row in "${FILTERED_ROWS[@]}"; do
   IFS=$'\t' read -r source_scope id _ <<< "$row"
   validation_progress_step "$id"
   run_row "$row"
@@ -539,7 +873,7 @@ for row in "${SUMMARY_ROWS[@]-}"; do
   esac
 done
 
-write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" 0
+write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" 0 0
 
 if [[ "$failed_rows" -ne 0 ]]; then
   echo "QUALITY CORPUS FAILED"

@@ -110,6 +110,12 @@ Run the intake checker:
 ./samples/quality_corpus/check.sh
 ```
 
+List merged rows after filters without running conversion:
+
+```bash
+bash samples/quality_corpus/check.sh --list
+```
+
 Run only public rows:
 
 ```bash
@@ -120,6 +126,51 @@ Run only private local rows:
 
 ```bash
 ./samples/quality_corpus/check.sh --private-only
+```
+
+Run one specific row:
+
+```bash
+bash samples/quality_corpus/check.sh --id pandoc_usersguide_docx
+```
+
+Run one specific row without metadata sidecar generation:
+
+```bash
+bash samples/quality_corpus/check.sh --id pandoc_usersguide_docx --no-metadata
+```
+
+Run one specific row with timing diagnostics:
+
+```bash
+bash samples/quality_corpus/check.sh --id pandoc_usersguide_docx --no-metadata --profile
+cat .tmp/quality_corpus/profile.tsv
+```
+
+`--profile` records both `signal_start:<kind>` and `signal:<kind>`; `signal_start`
+helps identify a long-running signal even if the row does not finish.
+
+`no_empty_output` uses a file-level non-whitespace check, so `--profile` will
+show `signal_start:no_empty_output` / `signal:no_empty_output` instead of the
+generic `unknown` marker for that first check.
+
+Profile signal-level diagnostics on a larger EPUB row:
+
+```bash
+bash samples/quality_corpus/check.sh --id pandoc_manual_epub --no-metadata --profile
+cat .tmp/quality_corpus/profile.tsv
+```
+
+Run one external source:
+
+```bash
+bash samples/quality_corpus/check.sh --source pandoc_tests
+```
+
+Combine filters:
+
+```bash
+bash samples/quality_corpus/check.sh --source pandoc_tests --format epub
 ```
 
 Print the external source catalog:
