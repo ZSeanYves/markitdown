@@ -112,3 +112,21 @@ test "pdf char join does not add space before tight punctuation" {
   assert_eq(spans.length(), 1)
   assert_eq(spans[0].text, "models(")
 }
+
+///|
+test "pdf char join does not duplicate inferred space when raw text already contains one" {
+  let chars = append_chars(
+    [
+      make_char("W", 0.0, 6.0, 10),
+      make_char("h", 6.0, 12.0, 10),
+      make_char("i", 12.0, 18.0, 10),
+      make_char("l", 18.0, 24.0, 10),
+      make_char("e", 24.0, 30.0, 10),
+      make_char(" ", 30.0, 34.0, 10),
+    ],
+    make_ascii_word_chars("there", 42.0, 6.0, 10),
+  )
+  let spans = build_spans_from_chars(chars)
+  assert_eq(spans.length(), 1)
+  assert_eq(spans[0].text, "While there")
+}
