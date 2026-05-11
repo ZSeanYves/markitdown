@@ -7,12 +7,16 @@ source "$ROOT/samples/helpers/validation_helpers.sh"
 
 MANIFEST_PATH="$ROOT/samples/quality_corpus/manifest.tsv"
 PRIVATE_MANIFEST_PATH="$ROOT/samples/quality_corpus/private/manifest.local.tsv"
+EXTERNAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 OUT_ROOT="$TMP_ROOT/quality_corpus"
 OUTPUT_DIR="$OUT_ROOT/outputs"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
 MODE="all"
+
+PUBLIC_HEADER=$'id\tformat\tpath\tsource_type\tlicense_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\tnotes'
+EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
   cat <<'EOF'
@@ -25,6 +29,8 @@ Modes:
 Notes:
   * empty public manifest is valid
   * missing private manifest is skipped
+  * missing external manifest is skipped
+  * non-approved external rows are skipped
   * missing external/private files are recorded as skipped when appropriate
   * this is a signal-level intake checker, not an exact-output regression gate
 EOF
@@ -72,12 +78,81 @@ sys.stdout.write(text)
 PY
 }
 
+normalized_text_without_asset_urls() {
+  local path="$1"
+  python3 - "$path" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+# Strip markdown image/link target paths and raw URLs before token-length checks.
+text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'!\1', text)
+text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1', text)
+text = re.sub(r'https?://\S+', '', text)
+
+sys.stdout.write(text)
+PY
+}
+
+normalize_public_row() {
+  local scope="$1"
+  local raw_line="$2"
+  local delimiter=$'\x1f'
+  local converted="${raw_line//$'\t'/$delimiter}"
+  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes
+  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes <<< "$converted"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$scope" \
+    "$id" \
+    "$format" \
+    "$path" \
+    "$source_type" \
+    "" \
+    "$license_status" \
+    "approved" \
+    "$privacy" \
+    "$size_class" \
+    "$features" \
+    "$expected_signals" \
+    "$quality_tier" \
+    "" \
+    "$notes"
+}
+
+normalize_external_row() {
+  local raw_line="$1"
+  local delimiter=$'\x1f'
+  local converted="${raw_line//$'\t'/$delimiter}"
+  local id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes
+  IFS="$delimiter" read -r id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url local_cache_path notes <<< "$converted"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "external" \
+    "$id" \
+    "$format" \
+    "$path" \
+    "$source_type" \
+    "$source_id" \
+    "$license_status" \
+    "$license_review_status" \
+    "$privacy" \
+    "$size_class" \
+    "$features" \
+    "$expected_signals" \
+    "$quality_tier" \
+    "$original_url" \
+    "$notes"
+}
+
 manifest_rows_from_file() {
   local manifest_path="$1"
-  local source_scope="$2"
+  local scope="$2"
+  local expected_header="$3"
+  local normalizer="$4"
   [[ -f "$manifest_path" ]] || return 0
 
-  local expected_header=$'id\tformat\tpath\tsource_type\tlicense_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\tnotes'
   local line_no=0
   while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
     raw_line="$(trim_cr "$raw_line")"
@@ -93,8 +168,14 @@ manifest_rows_from_file() {
     fi
     [[ -z "$raw_line" ]] && continue
     [[ "${raw_line#\#}" != "$raw_line" ]] && continue
-    printf '%s\t%s\n' "$source_scope" "$raw_line"
+    "$normalizer" "$scope" "$raw_line"
   done < "$manifest_path"
+}
+
+normalize_external_manifest_entry() {
+  local _scope="$1"
+  local raw_line="$2"
+  normalize_external_row "$raw_line"
 }
 
 collect_manifest_rows() {
@@ -102,12 +183,17 @@ collect_manifest_rows() {
   if [[ "$MODE" != "private" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
-    done < <(manifest_rows_from_file "$MANIFEST_PATH" "public")
+    done < <(manifest_rows_from_file "$MANIFEST_PATH" "public" "$PUBLIC_HEADER" normalize_public_row)
   fi
   if [[ "$MODE" != "public" && -f "$PRIVATE_MANIFEST_PATH" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
-    done < <(manifest_rows_from_file "$PRIVATE_MANIFEST_PATH" "private")
+    done < <(manifest_rows_from_file "$PRIVATE_MANIFEST_PATH" "private" "$PUBLIC_HEADER" normalize_public_row)
+  fi
+  if [[ "$MODE" != "public" && -f "$EXTERNAL_MANIFEST_PATH" ]]; then
+    while IFS= read -r row; do
+      [[ -n "$row" ]] && rows+=("$row")
+    done < <(manifest_rows_from_file "$EXTERNAL_MANIFEST_PATH" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
   fi
   if [[ "${#rows[@]}" -eq 0 ]]; then
     return 0
@@ -152,6 +238,17 @@ check_signal() {
       ;;
     contains:*)
       [[ "$normalized_text" == *"${signal#contains:}"* ]]
+      ;;
+    contains_all:*)
+      local rest="${signal#contains_all:}"
+      python3 - "$normalized_text" "$rest" <<'PY'
+import sys
+text = sys.argv[1]
+parts = [p for p in sys.argv[2].split("|") if p]
+for part in parts:
+    if part not in text:
+        raise SystemExit(1)
+PY
       ;;
     not_contains:*)
       [[ "$normalized_text" != *"${signal#not_contains:}"* ]]
@@ -200,8 +297,26 @@ PY
       [[ "$actual" =~ ^[0-9]+$ ]] || return 1
       (( actual <= limit ))
       ;;
+    max_long_token_len:*)
+      local limit="${signal#max_long_token_len:}"
+      local token_text
+      token_text="$(normalized_text_without_asset_urls "$markdown_path")"
+      python3 - "$token_text" "$limit" <<'PY'
+import re
+import sys
+text = sys.argv[1]
+limit = int(sys.argv[2])
+tokens = re.findall(r'\S+', text)
+for token in tokens:
+    if len(token) > limit:
+        raise SystemExit(1)
+PY
+      ;;
     page_noise_absent:*)
       [[ "$normalized_text" != *"${signal#page_noise_absent:}"* ]]
+      ;;
+    review_note:*)
+      return 0
       ;;
     *)
       echo "unknown quality signal: $signal" >&2
@@ -210,26 +325,31 @@ PY
   esac
 }
 
-should_skip_missing_path() {
-  local source_type="$1"
-  local privacy="$2"
-  case "$source_type" in
-    external_manual|private_local|public_dataset|tool_fixture|self_real)
-      if [[ "$privacy" == "private_local" || "$source_type" == "external_manual" || "$source_type" == "private_local" ]]; then
-        return 0
-      fi
-      ;;
-  esac
-  return 1
+summary_add() {
+  local id="$1"
+  local format="$2"
+  local scope="$3"
+  local quality_tier="$4"
+  local status="$5"
+  local passed_signals="$6"
+  local total_signals="$7"
+  local notes="$8"
+  SUMMARY_ROWS+=("$id|$format|$scope|$quality_tier|$status|$passed_signals|$total_signals|$notes")
 }
 
 run_row() {
-  local source_scope="$1"
-  local row="$2"
+  local row="$1"
   local delimiter=$'\x1f'
   local converted="${row//$'\t'/$delimiter}"
-  local id format path source_type license_status privacy size_class features expected_signals quality_tier notes
-  IFS="$delimiter" read -r id format path source_type license_status privacy size_class features expected_signals quality_tier notes <<< "$converted"
+  local source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes
+  IFS="$delimiter" read -r source_scope id format path source_type source_id license_status license_review_status privacy size_class features expected_signals quality_tier original_url notes <<< "$converted"
+
+  if [[ "$source_scope" == "external" ]]; then
+    if [[ "$license_review_status" != "approved" ]]; then
+      summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
+      return
+    fi
+  fi
 
   local abs_path="$path"
   if [[ "$abs_path" != /* ]]; then
@@ -237,11 +357,17 @@ run_row() {
   fi
 
   if [[ ! -f "$abs_path" ]]; then
-    if should_skip_missing_path "$source_type" "$privacy"; then
-      SUMMARY_ROWS+=("$id|$format|$source_scope|$quality_tier|skip|0|0|input file missing but allowed to skip")
-    else
-      SUMMARY_ROWS+=("$id|$format|$source_scope|$quality_tier|fail|0|0|input file missing")
-    fi
+    case "$source_scope" in
+      external)
+        summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_missing_file" 0 0 "external cache file missing"
+        ;;
+      private)
+        summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_missing_file" 0 0 "private local file missing"
+        ;;
+      *)
+        summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" 0 0 "input file missing"
+        ;;
+    esac
     return
   fi
 
@@ -251,7 +377,7 @@ run_row() {
 
   local output_md="$row_dir/$id.md"
   if ! run_markitdown_cli normal --with-metadata "$abs_path" "$output_md" >/dev/null 2>&1; then
-    SUMMARY_ROWS+=("$id|$format|$source_scope|$quality_tier|fail|0|0|cli conversion failed")
+    summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" 0 0 "cli conversion failed"
     return
   fi
 
@@ -262,11 +388,16 @@ run_row() {
   local total_signals=0
   local passed_signals=0
   local failed_details=()
+  local review_notes=()
   local signal
   IFS=';' read -r -a signals <<< "$expected_signals"
   for signal in "${signals[@]}"; do
     signal="$(printf '%s' "$signal" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
     [[ -z "$signal" ]] && continue
+    if [[ "$signal" == review_note:* ]]; then
+      review_notes+=("${signal#review_note:}")
+      continue
+    fi
     total_signals=$((total_signals + 1))
     if check_signal "$signal" "$output_md" "$metadata_path" "$row_dir" "$normalized_text"; then
       passed_signals=$((passed_signals + 1))
@@ -276,17 +407,28 @@ run_row() {
   done
 
   if [[ "$total_signals" -eq 0 ]]; then
-    SUMMARY_ROWS+=("$id|$format|$source_scope|$quality_tier|skip|0|0|no expected signals configured")
+    local note_text="no expected signals configured"
+    if [[ "${#review_notes[@]}" -gt 0 ]]; then
+      note_text="$note_text; review: ${review_notes[*]}"
+    fi
+    summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip" 0 0 "$note_text"
     return
   fi
 
-  local status="pass"
-  local notes_out="all signals passed"
   if [[ "${#failed_details[@]}" -gt 0 ]]; then
-    status="fail"
-    notes_out="failed: ${failed_details[*]}"
+    local note_text="failed: ${failed_details[*]}"
+    if [[ "${#review_notes[@]}" -gt 0 ]]; then
+      note_text="$note_text; review: ${review_notes[*]}"
+    fi
+    summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" "$passed_signals" "$total_signals" "$note_text"
+    return
   fi
-  SUMMARY_ROWS+=("$id|$format|$source_scope|$quality_tier|$status|$passed_signals|$total_signals|$notes_out")
+
+  local note_text="all signals passed"
+  if [[ "${#review_notes[@]}" -gt 0 ]]; then
+    note_text="$note_text; review: ${review_notes[*]}"
+  fi
+  summary_add "$id" "$format" "$source_scope" "$quality_tier" "pass" "$passed_signals" "$total_signals" "$note_text"
 }
 
 write_summary() {
@@ -294,7 +436,9 @@ write_summary() {
   local passed="$2"
   local failed="$3"
   local skipped="$4"
-  local no_manifest_rows="$5"
+  local skipped_license="$5"
+  local skipped_missing_file="$6"
+  local no_manifest_rows="$7"
 
   mkdir -p "$OUT_ROOT"
   {
@@ -308,6 +452,8 @@ write_summary() {
     printf 'PASSED\t-\t-\t-\t-\t%s\t-\tpassed rows\n' "$passed"
     printf 'FAILED\t-\t-\t-\t-\t%s\t-\tfailed rows\n' "$failed"
     printf 'SKIPPED\t-\t-\t-\t-\t%s\t-\tskipped rows\n' "$skipped"
+    printf 'SKIPPED_LICENSE\t-\t-\t-\t-\t%s\t-\tskipped because license_review_status was not approved\n' "$skipped_license"
+    printf 'SKIPPED_MISSING_FILE\t-\t-\t-\t-\t%s\t-\tskipped because the local cache or private file was missing\n' "$skipped_missing_file"
     printf 'NO_MANIFEST_ROWS\t-\t-\t-\t-\t%s\t-\t1 means no rows selected\n' "$no_manifest_rows"
   } > "$SUMMARY_TSV"
 
@@ -318,6 +464,8 @@ write_summary() {
     echo "- passed: $passed"
     echo "- failed: $failed"
     echo "- skipped: $skipped"
+    echo "- skipped_license: $skipped_license"
+    echo "- skipped_missing_file: $skipped_missing_file"
     echo "- no_manifest_rows: $no_manifest_rows"
     echo
     if [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 ]]; then
@@ -342,7 +490,7 @@ while IFS= read -r row; do
 done < <(collect_manifest_rows)
 
 if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 1
+  write_summary 0 0 0 0 0 0 1
   echo "QUALITY CORPUS PASSED (no manifest rows selected)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
@@ -354,25 +502,44 @@ validation_progress_init "quality_corpus" "${#MANIFEST_ROWS[@]}"
 for row in "${MANIFEST_ROWS[@]}"; do
   IFS=$'\t' read -r source_scope id _ <<< "$row"
   validation_progress_step "$id"
-  run_row "$source_scope" "${row#*$'\t'}"
+  run_row "$row"
 done
 
 validation_progress_done
 
-total_rows=${#SUMMARY_ROWS[@]}
+total_rows=0
 passed_rows=0
 failed_rows=0
 skipped_rows=0
-for row in "${SUMMARY_ROWS[@]}"; do
+skipped_license_rows=0
+skipped_missing_file_rows=0
+
+for row in "${SUMMARY_ROWS[@]-}"; do
+  [[ -z "$row" ]] && continue
+  total_rows=$((total_rows + 1))
   IFS='|' read -r _ _ _ _ status _ _ _ <<< "$row"
   case "$status" in
-    pass) passed_rows=$((passed_rows + 1)) ;;
-    fail) failed_rows=$((failed_rows + 1)) ;;
-    skip) skipped_rows=$((skipped_rows + 1)) ;;
+    pass)
+      passed_rows=$((passed_rows + 1))
+      ;;
+    fail)
+      failed_rows=$((failed_rows + 1))
+      ;;
+    skip)
+      skipped_rows=$((skipped_rows + 1))
+      ;;
+    skip_license)
+      skipped_rows=$((skipped_rows + 1))
+      skipped_license_rows=$((skipped_license_rows + 1))
+      ;;
+    skip_missing_file)
+      skipped_rows=$((skipped_rows + 1))
+      skipped_missing_file_rows=$((skipped_missing_file_rows + 1))
+      ;;
   esac
 done
 
-write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" 0
+write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" 0
 
 if [[ "$failed_rows" -ne 0 ]]; then
   echo "QUALITY CORPUS FAILED"

@@ -1,0 +1,2 @@
+id	format	path	source_type	source_id	license_status	license_review_status	privacy	size_class	features	expected_signals	quality_tier	original_url	local_cache_path	notes
+markitdown_docx_basic	docx	.external/quality_corpus/markitdown/tests/test_files/basic.docx	tool_fixture	microsoft_markitdown_tests	needs_review	pending_review	external_cache	small	heading;table;link	no_empty_output;contains:Heading;link_ref	reference	https://github.com/microsoft/markitdown	.external/quality_corpus/markitdown	change license_review_status to approved only after local review

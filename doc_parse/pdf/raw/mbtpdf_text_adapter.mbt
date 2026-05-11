@@ -449,7 +449,10 @@ fn collect_text_ops_from_ops(
       return
     }
 
-    let parts = extract_text_fragments_from_tj_array(obj)
+    let parts = extract_text_fragments_from_tj_array(
+      obj,
+      current_effective_font_size(),
+    )
     if parts.is_empty() {
       return
     }
@@ -624,7 +627,10 @@ fn collect_text_ops_from_ops(
         debug_text_state("after Tj")
       }
       @pdfops.Op::OpTJ(obj) => {
-        let parts = extract_text_fragments_from_tj_array(obj)
+        let parts = extract_text_fragments_from_tj_array(
+          obj,
+          current_effective_font_size(),
+        )
         let joined = parts.join("")
         debug_op("TJ text=" + joined)
         debug_text_state("before TJ")
@@ -706,20 +712,52 @@ fn collect_text_ops_from_ops(
 ///
 /// 当前先复用 MBTPDF 现有 extract_text 行为：
 /// 只消费 string 元素，忽略数值间距项。
-fn extract_text_fragments_from_tj_array(obj : @pdf.PdfObject) -> Array[String] {
+fn extract_text_fragments_from_tj_array(
+  obj : @pdf.PdfObject,
+  font_size : Double?,
+) -> Array[String] {
   let out = Array::new()
   match obj {
-    @pdf.PdfObject::Array(values) =>
+    @pdf.PdfObject::Array(values) => {
+      let mut previous_was_text = false
       for value in values {
         match value {
-          @pdf.PdfObject::String(text) => out.push(text)
+          @pdf.PdfObject::String(text) => {
+            out.push(text)
+            previous_was_text = true
+          }
+          @pdf.PdfObject::Integer(n) => {
+            if previous_was_text &&
+              tj_spacing_value_needs_word_space(n.to_double(), font_size) {
+              out.push(" ")
+            }
+            previous_was_text = false
+          }
+          @pdf.PdfObject::Real(x) => {
+            if previous_was_text &&
+              tj_spacing_value_needs_word_space(x, font_size) {
+              out.push(" ")
+            }
+            previous_was_text = false
+          }
           _ => ()
         }
       }
+    }
     @pdf.PdfObject::String(text) => out.push(text)
     _ => ()
   }
   out
+}
+
+///|
+fn tj_spacing_value_needs_word_space(
+  value : Double,
+  font_size : Double?,
+) -> Bool {
+  let fs = font_size.unwrap_or(12.0)
+  let threshold = fs * 12.0
+  value <= -threshold
 }
 
 ///|

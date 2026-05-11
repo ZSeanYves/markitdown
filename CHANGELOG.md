@@ -7,6 +7,11 @@
   and reset `samples/quality_corpus` into an external/private intake skeleton
   with an intentionally empty public manifest, optional private-local support,
   and manual external-source registry only.
+* Expand `samples/quality_corpus` into an external intake v1 skeleton with a
+  source catalog, local external manifest convention, local cache guidance,
+  non-downloading helper scripts, and explicit license/file skip gates while
+  keeping default conversion output unchanged and leaving external datasets and
+  tool fixtures unvendored.
 * Add a local-only PDF layout classifier training spike with feature export,
   manual label manifests, a lightweight Python trainer, MoonBit JSON model
   loading plus deterministic inference, and evaluation/docs coverage, while

@@ -72,6 +72,10 @@ This page is the current roadmap source of truth for the repository.
 * keep the checked public manifest intentionally empty until rows are manually
   curated
 * treat private local real documents as the first-class intake path
+* treat `external_sources.tsv` as a source catalog rather than an integrated
+  corpus
+* keep `external_manifest.local.tsv` local-only and license-gated
+* prioritize MarkItDown/Pandoc fixture intake before large layout datasets
 * require license review before vendoring any external dataset or tool fixture
 * legacy synthetic `samples/real_world` has been removed and is no longer
   current release quality evidence

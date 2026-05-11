@@ -20,6 +20,8 @@ Current scope:
 * public `manifest.tsv` is intentionally empty until external rows are manually curated
 * private local rows are supported through `private/manifest.local.tsv`
 * external source candidates are tracked in `external_sources.tsv`
+* local external rows are supported through `external_manifest.local.tsv`
+* local caches are expected under `.external/quality_corpus/...`
 
 Current limitations:
 
@@ -35,14 +37,21 @@ samples/quality_corpus/
   README.md
   manifest.tsv
   external_sources.tsv
+  external_manifest.example.tsv
+  external_manifest.local.tsv  # optional, gitignored
   check.sh
   compare_tools.sh
+  external/
+    README.md
   schemas/signals.tsv
   private/
     README.md
     manifest.example.tsv
     manifest.local.tsv   # optional, gitignored
     files/               # optional, gitignored
+  tools/
+    fetch_external_samples.sh
+    curate_external_sample.sh
 ```
 
 ## Manifest
@@ -65,12 +74,33 @@ Signal syntax lives in [`schemas/signals.tsv`](./schemas/signals.tsv).
 
 Multiple signals are separated with `;`.
 
+Useful signal patterns for early external intake:
+
+* `contains_all:a|b|c` for multiple required anchors
+* `not_contains:text` for obvious bad artifacts
+* `max_long_token_len:n` for token-join / spacing regressions
+* `review_note:text` for non-blocking reviewer notes
+
 The checked-in public manifest is intentionally empty until rows are manually
 curated from:
 
 * public datasets
 * upstream tool fixtures
 * manually reviewed self-real/public samples
+
+Local external rows belong in `external_manifest.local.tsv`.
+
+That local manifest adds:
+
+* `source_id`
+* `original_url`
+* `local_cache_path`
+* `license_review_status`
+
+Only `license_review_status=approved` external rows are executed.
+
+Pending or missing external rows are recorded as skipped rather than causing CI
+failure.
 
 ## Commands
 
@@ -92,6 +122,18 @@ Run only private local rows:
 ./samples/quality_corpus/check.sh --private-only
 ```
 
+Print the external source catalog:
+
+```bash
+bash ./samples/quality_corpus/tools/fetch_external_samples.sh --list-sources
+```
+
+Prepare local external cache roots:
+
+```bash
+bash ./samples/quality_corpus/tools/fetch_external_samples.sh --prepare-cache
+```
+
 Optional comparison against local tools if installed:
 
 ```bash
@@ -105,7 +147,7 @@ Private local samples are supported through:
 * `samples/quality_corpus/private/manifest.local.tsv`
 * `samples/quality_corpus/private/files/`
 
-That file is optional and should not be committed.
+That manifest is optional and should not be committed.
 
 Use it for:
 
@@ -120,6 +162,39 @@ Do not commit:
 * generated outputs from private runs
 
 All generated outputs go under `.tmp/quality_corpus/`.
+
+## External Intake
+
+External intake is manual-curated and local-only.
+
+Tracked files:
+
+* [`external_sources.tsv`](./external_sources.tsv): source catalog only
+* [`external_manifest.example.tsv`](./external_manifest.example.tsv): local row example
+* [`external/README.md`](./external/README.md): cache convention
+
+Ignored local files:
+
+* `samples/quality_corpus/external_manifest.local.tsv`
+* `.external/quality_corpus/...`
+
+Rules:
+
+* `external_sources.tsv` is not an integrated corpus
+* external rows require manual license review before execution
+* tool and dataset outputs are references, not oracles
+* large datasets such as PubLayNet, CDLA, and TableBank should be sampled
+  manually rather than mirrored wholesale
+* layout/table datasets are mainly structural references, not direct text-PDF
+  Markdown gold
+
+Practical priority today:
+
+* MarkItDown tool fixtures are `p0`
+* Pandoc tool fixtures are `p1`
+* PaddleOCR PP-Structure samples are `p1` reference material only
+* TableBank and CDLA are `p2`
+* PubLayNet is `p3`
 
 ## Tool Comparison
 

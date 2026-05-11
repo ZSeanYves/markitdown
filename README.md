@@ -26,7 +26,8 @@ native text-PDF scope.
 
 The repository now centers its checked validation surface around
 `./samples/check.sh` and `./samples/bench.sh`, while keeping external/private
-quality intake separate under `samples/quality_corpus/`.
+quality intake separate under `samples/quality_corpus/`. External quality
+sources remain manual-curated and local-cache driven rather than checked-in.
 
 ## Supported Platforms
 

@@ -35,6 +35,9 @@ Current validation layering:
   was synthetic/regression-like rather than reliable real-world quality
   evidence
 * private local quality samples must remain uncommitted
+* external quality rows must stay locally curated until license review is
+  approved
+* upstream tool fixtures and public datasets are references, not oracles
 
 ## CLI Output Contract
 

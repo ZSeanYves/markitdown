@@ -121,7 +121,10 @@ Rules:
 * this is not an exact regression replacement for `main_process`
 * public `manifest.tsv` may be intentionally empty until external rows are curated
 * private local rows belong under `samples/quality_corpus/private/`
+* local external rows belong under `samples/quality_corpus/external_manifest.local.tsv`
 * missing private manifests must not fail the checker
+* missing external manifests must not fail the checker
+* external rows require explicit license review before execution
 * external/public rows require manual license review before vendoring
 
 ## Coverage Matrix
@@ -189,6 +192,7 @@ Signal-level intake check:
 
 ```bash
 bash ./samples/quality_corpus/check.sh
+bash ./samples/quality_corpus/tools/fetch_external_samples.sh --list-sources
 ```
 
 Benchmark entrypoints:
