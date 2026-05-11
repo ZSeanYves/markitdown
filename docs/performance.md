@@ -118,6 +118,9 @@ checked native CLI runs. The current attribution closure conclusion is:
   native text-PDF product attribution only; direct async `doc_parse/pdf`
   library attribution deferred; OCR/scanned/fallback excluded by the default
   checked corpus
+* PDF layout classifier training/evaluation scripts under
+  `samples/pdf_layout_classifier` are developer tooling only and are not part
+  of the default product-path performance contract
 
 ## Completed Optimization Passes
 

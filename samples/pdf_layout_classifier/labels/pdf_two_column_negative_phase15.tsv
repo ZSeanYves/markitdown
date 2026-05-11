@@ -1,0 +1,4 @@
+record_kind	page_index	block_index	line_index	next_page_index	next_block_index	next_line_index	label	notes
+block	1	0	0				Unknown	two-column placeholder
+block	1	1	1				Unknown	two-column placeholder
+boundary	1	1	1	2	0	0	ColumnBoundary	two-column negative boundary placeholder

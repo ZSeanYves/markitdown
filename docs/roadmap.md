@@ -56,6 +56,14 @@ This page is the current roadmap source of truth for the repository.
 * no longer prioritize source-level cold CLI micro-optimization for the
   current checked `noop`/`--help`/minimal-TXT path
 
+### 5. PDF layout classifier follow-up
+
+* keep the current `samples/pdf_layout_classifier` work scoped as a training
+  spike
+* expand local labels only if the text-layer classifier shows useful signal
+* keep plugin/backend/OCR/visual-model integration optional and outside the
+  default fast main path
+
 ## Later Work
 
 * optional split into standalone `ZSeanYves/doc_parse`

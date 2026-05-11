@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Add a local-only PDF layout classifier training spike with feature export,
+  manual label manifests, a lightweight Python trainer, MoonBit JSON model
+  loading plus deterministic inference, and evaluation/docs coverage, while
+  keeping default PDF conversion output unchanged and leaving OCR/visual model
+  integration optional and out of the main path.
 * Mark `doc_parse/ooxml`, `doc_parse/epub`, and native text-PDF
   `doc_parse/pdf` as foundation candidates after the recent inspect,
   validation, classifier, and lower-layer contract hardening passes.

@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/tools/pdf_layout_classifier"
+
+// Values
+
+// Errors
+type PdfLayoutToolError
+
+// Types and methods
+type ExportArgs
+
+type InferArgs
+
+// Type aliases
+
+// Traits
+

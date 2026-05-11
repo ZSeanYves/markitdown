@@ -1,0 +1,9 @@
+sample_id	pdf_path	label_source	label_path	notes
+heading_basic	samples/main_process/pdf/heading_basic.pdf	manual	samples/pdf_layout_classifier/labels/heading_basic.tsv	heading/body local seed
+pdf_page_noise_cleanup	samples/main_process/pdf/pdf_page_noise_cleanup.pdf	manual	samples/pdf_layout_classifier/labels/pdf_page_noise_cleanup.tsv	page number and body local seed
+pdf_repeated_header_footer	samples/main_process/pdf/pdf_repeated_header_footer.pdf	manual	samples/pdf_layout_classifier/labels/pdf_repeated_header_footer.tsv	repeated header footer local seed
+pdf_image_caption_like	samples/main_process/pdf/pdf_image_caption_like.pdf	manual	samples/pdf_layout_classifier/labels/pdf_image_caption_like.tsv	image caption local seed
+pdf_simple_table_like	samples/main_process/pdf/pdf_simple_table_like.pdf	manual	samples/pdf_layout_classifier/labels/pdf_simple_table_like.tsv	table-like placeholder seed
+pdf_cross_page_should_merge_phase15	samples/main_process/pdf/pdf_cross_page_should_merge_phase15.pdf	manual	samples/pdf_layout_classifier/labels/pdf_cross_page_should_merge_phase15.tsv	cross-page merge boundary seed
+pdf_cross_page_should_not_merge_phase15	samples/main_process/pdf/pdf_cross_page_should_not_merge_phase15.pdf	manual	samples/pdf_layout_classifier/labels/pdf_cross_page_should_not_merge_phase15.tsv	cross-page no-merge boundary seed
+pdf_two_column_negative_phase15	samples/main_process/pdf/pdf_two_column_negative_phase15.pdf	manual	samples/pdf_layout_classifier/labels/pdf_two_column_negative_phase15.tsv	two-column negative placeholder seed

@@ -443,6 +443,9 @@ Conservative behavior:
   line / adjacent-span context, source-ref adjacency, font/font-size/style
   consistency, gap/baseline proximity, punctuation boundaries, and casing
   signals over pure short-word guessing
+* the checked-in `samples/pdf_layout_classifier` training spike is export/train/
+  infer tooling only; it does not change default PDF Markdown output, does not
+  enable OCR, and does not connect a visual layout runtime into the normal path
 
 Known limits:
 
@@ -457,6 +460,8 @@ Known limits:
 * H3++ performance claims apply only to the checked-in native text-PDF corpus
 * OCR remains an explicit separate path; OCR cleanup has not been rolled into
   the shared default normalization policy
+* the current lightweight layout classifier spike is local-corpus-only and is
+  not wired into the default conversion decision path
 
 ### HTML / HTM
 

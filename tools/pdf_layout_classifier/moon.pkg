@@ -1,0 +1,11 @@
+import {
+  "ZSeanYves/markitdown/convert/pdf" @pdf,
+  "moonbitlang/async",
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+}
+
+options(
+  "is-main": true,
+  "preferred-target": "native",
+)
