@@ -90,17 +90,32 @@ This page is the current roadmap source of truth for the repository.
 ### 7. External hardening follow-ups
 
 * find more PDF table/layout samples with small, stable external signals
+* add more CJK / `/ToUnicode` positive PDF samples so the native text matrix is
+  not anchored on only one non-ASCII positive path
+* find a small `Type0 + predefined CMap + no /ToUnicode` PDF sample before
+  considering a predefined-CMap implementation pass
 * add more XLSX external rows around formula cache and merged-cell boundaries
 * add heavier DOCX rows for footnotes/comments/hyperlinks where the files stay
   small and license-clean
 * keep true multi-document YAML support as optional future work rather than
   a release blocker
+* keep scan-only PDF rows as boundary evidence rather than claiming OCR-first
+  default support
 
 ## Later Work
 
 * optional split into standalone `ZSeanYves/doc_parse`
 * remote dependency integration back into `markitdown`
 * richer PDF fallback/OCR line
+* optional simple-font GB18030 fallback for raw-GBK no-`/ToUnicode` PDFs if
+  it is isolated to a well-evidenced boundary such as `SimFang-variant.pdf`
+* optional embedded-font `cmap` fallback only when a future sample shows:
+  `FontFile2`, a usable `cmap`, and `CIDToGIDMap` identity or another safely
+  resolvable mapping
+* keep vendoring full Adobe predefined-CMap resources de-prioritized until a
+  small external sample set clearly pressures that path
+* keep broad mojibake heuristics de-prioritized in favor of evidence-driven,
+  format/font-specific fallback work
 * deeper DOCX/PPTX normal-path integration if justified
 * manually curated external/private quality corpus growth
 * fuzz / malformed corpus

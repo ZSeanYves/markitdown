@@ -438,6 +438,8 @@ Supported:
 
 * native text-oriented structural recovery
 * Level 1 `/ToUnicode` CMap text decoding
+* text PDFs whose fonts expose usable `/ToUnicode`, including conservative
+  Type0/CIDFont positive paths when the native text layer is already recoverable
 * headings / paragraphs / list-like text recovery
 * repeated-header/footer cleanup
 * cross-page paragraph merge
@@ -471,6 +473,9 @@ Conservative behavior:
 * `/ToUnicode` decoding currently supports `codespacerange`, `bfchar`, and
   conservative `bfrange` handling, including multi-byte source-code matching
   and UTF-16BE destinations
+* Type0/CIDFont text recovery is expected to prefer `/ToUnicode` whenever the
+  source PDF provides it; current Arabic and other non-ASCII positive rows are
+  evidence for this path, not a claim of full bidi/typography fidelity
 * the checked-in `samples/pdf_layout_classifier` training spike is export/train/
   infer tooling only; it does not change default PDF Markdown output, does not
   enable OCR, and does not connect a visual layout runtime into the normal path
@@ -482,8 +487,15 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
-* no full predefined-CMap, embedded-font-`cmap`, or GBK/GB18030 fallback
-  strategy for no-`/ToUnicode` CJK PDFs
+* no full predefined-CMap coverage for Type0/CIDFont PDFs that rely on
+  `UniGB-UCS2-H`, `UniJIS-UCS2-H`, `UniCNS-UCS2-H`, `UniKS-UCS2-H`, or similar
+  predefined mappings without `/ToUnicode`
+* no embedded TrueType/OpenType `cmap` fallback for Type0/CIDFont PDFs with
+  `/Identity-H` and no `/ToUnicode`
+* no reliable general extraction contract for `/Identity-H` no-`/ToUnicode`
+  PDFs; current local external evidence keeps these as retained boundaries
+* no GBK/GB18030 fallback strategy for simple raw-GBK, no-`/ToUnicode`
+  simple-font PDFs
 * no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction
@@ -492,6 +504,9 @@ Known limits:
   the shared default normalization policy
 * the current lightweight layout classifier spike is local-corpus-only and is
   not wired into the default conversion decision path
+* bad `/ToUnicode` maps can still legitimately yield replacement characters or
+  other low-value output; the repository does not currently promise rescue
+  beyond the declared Level 1 parser behavior
 
 ### HTML / HTM
 

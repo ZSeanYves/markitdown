@@ -452,6 +452,8 @@ What is supported today:
 - `beginbfrange` array form
 - multi-byte source-code greedy matching using the declared code-space lengths
 - UTF-16BE destination decoding, including surrogate-pair destinations
+- conservative Type0/CIDFont positive paths when the source PDF provides a
+  usable `/ToUnicode` map
 
 What remains out of scope:
 
@@ -465,6 +467,23 @@ Known external boundary:
 - the local external row `pdf_cjk_text_pdfjs_simfang_variant` remains a
   `known_bad` because it is a raw-GBK, no-`/ToUnicode` simple-font case rather
   than a missing `/ToUnicode` parser case
+- the local external row
+  `pdf_type0_identity_no_tounicode_pdfjs_arial_unicode_en_cidfont` remains a
+  `known_bad` because it is a `Type0 / CIDFontType2 / Identity-H` sample with
+  no `/ToUnicode`, a `CIDToGIDMap` stream, and an embedded subset `FontFile2`
+  that does not carry a usable `cmap` table for a narrow fallback
+
+Current support matrix shorthand:
+
+- simple font + `/ToUnicode`: supported on the current native text path
+- Type0/CIDFont + `/ToUnicode`: supported conservatively when the map is
+  usable; current local Arabic positive rows exercise this path
+- Type0/CIDFont + bad `/ToUnicode`: retained boundary; replacement characters
+  may still be the correct outcome when the map itself is low-value
+- Type0/CIDFont + `/Identity-H` + no `/ToUnicode`: not a reliable extraction
+  contract today
+- simple font + raw GBK + no `/ToUnicode`: separate unsupported boundary; no
+  GBK/GB18030 fallback is active in the default native path
 
 ## Performance Note
 

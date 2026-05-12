@@ -7,6 +7,11 @@
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE
   destination decoding, while leaving no-`/ToUnicode` CJK fallback,
   embedded-font `cmap`, and full predefined-CMap coverage out of scope.
+* Document the current PDF native text-extraction support matrix across the
+  README/support/package/quality docs, including retained no-`/ToUnicode`
+  external boundaries for simple raw-GBK fonts and `Type0 / Identity-H`
+  `CIDFontType2` samples, while keeping OCR, embedded-font `cmap`, and broad
+  CJK fallback claims out of scope.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

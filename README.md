@@ -197,6 +197,12 @@ fixtures. Those rows are signal-level evidence only, not format or tool
 oracles; the current remaining local `known_bad` boundary is
 `pandoc_biblio_yaml`, a true multi-document YAML stream that remains
 unsupported.
+Current PDF hardening notes are intentionally conservative: the native path now
+supports Level 1 `/ToUnicode` extraction, including current Type0/CIDFont
+positive rows, while retained local `known_bad` rows still cover raw-GBK
+simple fonts and `Identity-H` no-`/ToUnicode` CIDFont boundaries. For the
+current matrix and limits, use [Support and Limits](./docs/support-and-limits.md)
+and [doc_parse/pdf/README.md](./doc_parse/pdf/README.md).
 
 Benchmark operations and performance caveats are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md) and

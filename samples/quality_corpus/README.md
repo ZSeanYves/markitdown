@@ -131,6 +131,29 @@ Current local source status:
   hyperlink rows
 * `openxml_sdk_tests`: currently exercises a small PPTX comments/commentAuthors
   row
+* `pdfjs_tests`: currently exercises `/ToUnicode` Unicode positives plus
+  retained PDF CJK/Type0 no-`/ToUnicode` boundaries
+
+Current locally exercised PDF reference rows include:
+
+* `pdf_tounicode_unicode_markitdown_test`
+* `pdf_tounicode_unicode_pdfjs_arabic_cidtruetype`
+* `pdf_scan_boundary_markitdown_medrpt` as a scan/image-only boundary note row
+
+Current retained PDF `known_bad` rows include:
+
+* `pdf_cjk_text_pdfjs_simfang_variant`
+  * simple `TrueType` / `WinAnsiEncoding` / no `/ToUnicode` / raw-GBK boundary
+* `pdf_type0_identity_no_tounicode_pdfjs_arial_unicode_en_cidfont`
+  * `Type0 / CIDFontType2 / Identity-H` / no `/ToUnicode` / `CIDToGIDMap`
+    stream boundary
+
+These retained rows are healthy local evidence, not regressions:
+
+* `known_bad` means the boundary is intentionally kept visible
+* `expected_fail` is the healthy status while that boundary remains unsupported
+* `unexpected_pass` means a real implementation may now cover the case and the
+  row should be reviewed for retiering
 
 Current locally exercised PPTX coverage includes:
 
