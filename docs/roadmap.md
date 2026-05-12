@@ -94,6 +94,9 @@ This page is the current roadmap source of truth for the repository.
   not anchored on only one non-ASCII positive path
 * find a small `Type0 + predefined CMap + no /ToUnicode` PDF sample before
   considering a predefined-CMap implementation pass
+* keep scan-only/image-only PDF rows on report-only detection first by
+  reusing existing inspect/debug signal rather than turning the native suite
+  into an OCR expectation
 * add more XLSX external rows around formula cache and merged-cell boundaries
 * add heavier DOCX rows for footnotes/comments/hyperlinks where the files stay
   small and license-clean
@@ -107,6 +110,9 @@ This page is the current roadmap source of truth for the repository.
 * optional split into standalone `ZSeanYves/doc_parse`
 * remote dependency integration back into `markitdown`
 * richer PDF fallback/OCR line
+* refine the explicit `ocr` CLI path so OCR-enabled runs can report
+  `ocr_used=true` and OCR-source metadata without changing the default native
+  path contract
 * optional simple-font GB18030 fallback for raw-GBK no-`/ToUnicode` PDFs if
   it is isolated to a well-evidenced boundary such as `SimFang-variant.pdf`
 * optional embedded-font `cmap` fallback only when a future sample shows:
@@ -116,6 +122,8 @@ This page is the current roadmap source of truth for the repository.
   small external sample set clearly pressures that path
 * keep broad mojibake heuristics de-prioritized in favor of evidence-driven,
   format/font-specific fallback work
+* prefer plugin/external OCR provider interfaces over bundling OCR runtimes
+  into the default fast native package
 * deeper DOCX/PPTX normal-path integration if justified
 * manually curated external/private quality corpus growth
 * fuzz / malformed corpus

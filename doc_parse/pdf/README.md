@@ -484,6 +484,9 @@ Current support matrix shorthand:
   contract today
 - simple font + raw GBK + no `/ToUnicode`: separate unsupported boundary; no
   GBK/GB18030 fallback is active in the default native path
+- inspect/report already exposes low-text/image-only signal such as
+  `has_text_signal`, `has_image_signal`, low-signal counts, and
+  `native_signal_empty`; the default native parse path still does not OCR
 
 ## Performance Note
 

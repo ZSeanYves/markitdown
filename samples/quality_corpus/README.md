@@ -140,6 +140,17 @@ Current locally exercised PDF reference rows include:
 * `pdf_tounicode_unicode_pdfjs_arabic_cidtruetype`
 * `pdf_scan_boundary_markitdown_medrpt` as a scan/image-only boundary note row
 
+Current scan-only row strategy:
+
+* scan-only/image-only PDF rows can stay `reference` when the default native
+  contract is to emit page images/assets rather than OCR text
+* `pdf_scan_boundary_markitdown_medrpt` records this default native behavior
+  through `image_ref`-style signals
+* these rows should not be promoted to `known_bad` unless an OCR-specific suite
+  intentionally expects body text
+* future OCR quality work should stay in a separate OCR suite or OCR-specific
+  gate rather than changing the native text-PDF gate semantics
+
 Current retained PDF `known_bad` rows include:
 
 * `pdf_cjk_text_pdfjs_simfang_variant`

@@ -436,6 +436,7 @@ Status label:
 
 Supported:
 
+* the default native PDF path extracts embedded text plus page/image assets
 * native text-oriented structural recovery
 * Level 1 `/ToUnicode` CMap text decoding
 * text PDFs whose fonts expose usable `/ToUnicode`, including conservative
@@ -476,6 +477,8 @@ Conservative behavior:
 * Type0/CIDFont text recovery is expected to prefer `/ToUnicode` whenever the
   source PDF provides it; current Arabic and other non-ASCII positive rows are
   evidence for this path, not a claim of full bidi/typography fidelity
+* image-only or scan-only PDFs in `normal` mode currently degrade to exported
+  page/image assets rather than synthesized OCR text
 * the checked-in `samples/pdf_layout_classifier` training spike is export/train/
   infer tooling only; it does not change default PDF Markdown output, does not
   enable OCR, and does not connect a visual layout runtime into the normal path
@@ -502,6 +505,9 @@ Known limits:
 * H3++ performance claims apply only to the checked-in native text-PDF corpus
 * OCR remains an explicit separate path; OCR cleanup has not been rolled into
   the shared default normalization policy
+* scan-only/image-only PDFs may surface as OCR candidates in debug/inspect or
+  quality-report workflows, but that does not change the default `normal` mode
+  output contract
 * the current lightweight layout classifier spike is local-corpus-only and is
   not wired into the default conversion decision path
 * bad `/ToUnicode` maps can still legitimately yield replacement characters or
