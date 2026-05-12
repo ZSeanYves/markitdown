@@ -230,12 +230,23 @@ Current limits:
 - no password or encrypted ZIP recovery
 - no multi-disk ZIP support
 - no ZIP64 support
+- no full streaming/data-descriptor parser
 - no full compression-method matrix
 - no recursive archive conversion policy
 - no full zip-bomb guarantee beyond bounded entry reads and explicit archive
   validation signals
 - unsupported-feature classification still mixes direct variant mapping with
   best-effort message-based detail mapping
+
+Narrow data-descriptor compatibility:
+
+- current reader now accepts a narrow Level 1 data-descriptor case when the
+  central directory already provides non-ZIP64 CRC, compressed size,
+  uncompressed size, and local-header offset metadata
+- this path remains restricted to single-disk, unencrypted archives using the
+  existing supported compression methods
+- entry extraction still uses central-directory-known compressed sizes and does
+  not claim full streaming/data-descriptor parsing support
 
 ## Relationship To Other Packages
 

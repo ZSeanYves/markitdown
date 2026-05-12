@@ -48,15 +48,47 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
+fn add_raw_bytes(out : Array[Byte], bytes : Array[Int]) -> Unit {
+  for value in bytes {
+    out.push(value.to_byte())
+  }
+}
+
+///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int)],
+  central : Array[(String, Int, Int, Int)],
   name : String,
   data : String,
 ) -> Unit {
   let local_offset = out.length()
   let name_bytes = bytes_of_string(name)
   let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
 
   append_u32_le(out, 0x04034b50)
   append_u16_le(out, 20)
@@ -64,7 +96,7 @@ fn add_store_entry(
   append_u16_le(out, 0)
   append_u16_le(out, 0)
   append_u16_le(out, 0)
-  append_u32_le(out, 0)
+  append_u32_le(out, crc32)
   append_u32_le(out, data_bytes.length())
   append_u32_le(out, data_bytes.length())
   append_u16_le(out, name_bytes.length())
@@ -76,13 +108,13 @@ fn add_store_entry(
     out.push(b)
   }
 
-  central.push((name, data_bytes.length(), local_offset))
+  central.push((name, data_bytes.length(), local_offset, crc32))
 }
 
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int)] = []
+  let central : Array[(String, Int, Int, Int)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -91,7 +123,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 
   let cd_offset = out.length()
   for entry in central {
-    let (name, size, local_offset) = entry
+    let (name, size, local_offset, crc32) = entry
     let name_bytes = bytes_of_string(name)
     append_u32_le(out, 0x02014b50)
     append_u16_le(out, 20)
@@ -100,9 +132,141 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
     append_u16_le(out, 0)
     append_u16_le(out, 0)
     append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
     append_u32_le(out, 0)
-    append_u32_le(out, size)
-    append_u32_le(out, size)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn build_data_descriptor_ooxml_zip() -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int, Int, Int)] = []
+  let entries : Array[(String, Array[Int], Int, Int)] = [
+    (
+      "[Content_Types].xml",
+      [
+        125, 80, 205, 78, 195, 48, 12, 126, 149, 40, 87, 212, 186, 227, 128, 16,
+        106, 187, 3, 131, 35, 112, 24, 15, 96, 37, 110, 23, 209, 216, 81, 146, 141,
+        241, 246, 184, 12, 237, 192, 129, 163, 253, 253, 218, 253, 246, 28, 23, 115,
+        162, 92, 130, 240, 96, 55, 109, 103, 13, 177, 19, 31, 120, 30, 236, 251,
+        254, 185, 185, 183, 219, 177, 223, 127, 37, 42, 70, 169, 92, 6, 123, 168,
+        53, 61, 0, 20, 119, 160, 136, 165, 149, 68, 172, 200, 36, 57, 98, 213, 49,
+        207, 144, 208, 125, 224, 76, 112, 219, 117, 119, 224, 132, 43, 113, 109,
+        234, 234, 97, 199, 126, 71, 19, 30, 151, 106, 158, 206, 186, 190, 196, 170,
+        220, 154, 199, 11, 111, 141, 26, 44, 166, 180, 4, 135, 85, 97, 88, 81, 24,
+        251, 87, 109, 153, 131, 39, 243, 134, 185, 190, 96, 84, 22, 124, 74, 246,
+        224, 197, 29, 163, 42, 219, 255, 109, 78, 236, 255, 116, 109, 100, 154, 130,
+        163, 171, 126, 117, 75, 89, 28, 149, 162, 231, 199, 165, 189, 34, 17, 3,
+        223, 252, 246, 128, 159, 103, 140, 223,
+      ],
+      314,
+      0x7198c69a,
+    ),
+    (
+      "_rels/.rels",
+      [
+        85, 78, 187, 14, 194, 32, 20, 253, 21, 114, 119, 123, 91, 7, 99, 12, 180,
+        139, 49, 233, 106, 234, 7, 16, 184, 165, 196, 242, 8, 224, 235, 239, 101,
+        112, 176, 227, 121, 31, 62, 188, 221, 202, 158, 148, 178, 13, 94, 64, 215,
+        180, 192, 200, 171, 160, 173, 55, 2, 110, 211, 101, 119, 132, 161, 231, 87,
+        90, 101, 169, 142, 188, 216, 152, 89, 141, 248, 44, 96, 41, 37, 158, 16,
+        179, 90, 200, 201, 220, 132, 72, 190, 42, 115, 72, 78, 150, 10, 147, 193,
+        40, 213, 93, 26, 194, 125, 219, 30, 48, 253, 119, 192, 182, 147, 141, 90,
+        64, 26, 117, 7, 108, 250, 68, 18, 16, 230, 217, 42, 58, 7, 245, 112, 228,
+        75, 101, 101, 50, 84, 4, 188, 66, 210, 168, 127, 116, 83, 231, 0, 123, 142,
+        155, 123, 253, 23,
+      ],
+      212,
+      0x7cb357a5,
+    ),
+    (
+      "word/document.xml",
+      [
+        69, 142, 205, 14, 194, 32, 16, 132, 95, 133, 112, 183, 91, 61, 24, 211, 244,
+        231, 210, 24, 31, 64, 31, 160, 2, 182, 77, 96, 151, 44, 40, 250, 246, 66,
+        61, 120, 249, 38, 147, 153, 157, 108, 59, 188, 157, 21, 47, 195, 97, 37,
+        236, 228, 190, 170, 165, 48, 168, 72, 175, 56, 119, 242, 118, 61, 239, 78,
+        114, 232, 219, 212, 104, 82, 79, 103, 48, 138, 220, 199, 208, 164, 78, 46,
+        49, 250, 6, 32, 168, 197, 184, 41, 84, 228, 13, 230, 236, 65, 236, 166, 152,
+        45, 207, 144, 136, 181, 103, 82, 38, 132, 60, 231, 44, 28, 234, 250, 8, 110,
+        90, 81, 150, 201, 59, 233, 79, 81, 95, 192, 5, 177, 191, 24, 107, 73, 140,
+        99, 11, 197, 21, 242, 70, 191, 241, 119, 1, 255, 111, 250, 47,
+      ],
+      192,
+      0x6a1ed62e,
+    ),
+  ]
+
+  for entry in entries {
+    let (name, compressed_data, uncompressed_size, crc32) = entry
+    let local_offset = out.length()
+    let name_bytes = bytes_of_string(name)
+    let compressed_size = compressed_data.length()
+    let flags = 0x0008
+    let method_code = 8
+
+    append_u32_le(out, 0x04034b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, flags)
+    append_u16_le(out, method_code)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, 0)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    for b in name_bytes {
+      out.push(b)
+    }
+    add_raw_bytes(out, compressed_data)
+    append_u32_le(out, 0x08074b50)
+    append_u32_le(out, crc32)
+    append_u32_le(out, compressed_size)
+    append_u32_le(out, uncompressed_size)
+
+    central.push(
+      (name, compressed_size, uncompressed_size, crc32, local_offset),
+    )
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, compressed_size, uncompressed_size, crc32, local_offset) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0x0008)
+    append_u16_le(out, 8)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, compressed_size)
+    append_u32_le(out, uncompressed_size)
     append_u16_le(out, name_bytes.length())
     append_u16_le(out, 0)
     append_u16_le(out, 0)
@@ -538,6 +702,29 @@ test "ooxml compatible validation stays empty for duplicate relationship ids" {
   assert_eq(report.issue_count, 0)
   assert_eq(report.error_count, 0)
   assert_eq(report.warning_count, 0)
+}
+
+///|
+test "ooxml package supports central-directory data descriptor entries" {
+  let pkg = @ox.open_ooxml_package(build_data_descriptor_ooxml_zip()) catch {
+    e =>
+      fail(
+        "open_ooxml_package failed for data-descriptor ooxml zip: " +
+        e.to_string(),
+      )
+  }
+
+  assert_core_readable(pkg, "word/document.xml")
+
+  let text = @ox.read_part_text(pkg, "word/document.xml") catch {
+    e =>
+      fail(
+        "read_part_text failed for data-descriptor ooxml zip: " + e.to_string(),
+      )
+  }
+  if !text.contains("Hello DD") {
+    fail("expected data-descriptor OOXML text payload to round-trip")
+  }
 }
 
 ///|

@@ -49,6 +49,30 @@ fn bytes_to_string(bytes : Bytes) -> String {
 }
 
 ///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
 fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
@@ -63,9 +87,24 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
+fn write_u32_le(out : Array[Byte], offset : Int, value : Int) -> Unit {
+  out[offset] = (value & 0xFF).to_byte()
+  out[offset + 1] = ((value >> 8) & 0xFF).to_byte()
+  out[offset + 2] = ((value >> 16) & 0xFF).to_byte()
+  out[offset + 3] = ((value >> 24) & 0xFF).to_byte()
+}
+
+///|
+fn add_raw_bytes(out : Array[Byte], bytes : Array[Int]) -> Unit {
+  for value in bytes {
+    out.push(value.to_byte())
+  }
+}
+
+///|
 fn add_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int, Int, Int, Int)],
   name : String,
   data : String,
   method_code? : Int = 0,
@@ -73,6 +112,7 @@ fn add_entry(
   let local_offset = out.length()
   let name_bytes = bytes_of_string(name)
   let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
 
   append_u32_le(out, 0x04034b50)
   append_u16_le(out, 20)
@@ -80,7 +120,7 @@ fn add_entry(
   append_u16_le(out, method_code)
   append_u16_le(out, 0)
   append_u16_le(out, 0)
-  append_u32_le(out, 0)
+  append_u32_le(out, crc32)
   append_u32_le(out, data_bytes.length())
   append_u32_le(out, data_bytes.length())
   append_u16_le(out, name_bytes.length())
@@ -92,13 +132,13 @@ fn add_entry(
     out.push(b)
   }
 
-  central.push((name, data_bytes.length(), local_offset, method_code))
+  central.push((name, data_bytes.length(), local_offset, method_code, crc32))
 }
 
 ///|
 fn build_zip(entries : Array[(String, String, Int)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int, Int, Int, Int)] = []
 
   for entry in entries {
     let (name, data, method_code) = entry
@@ -107,7 +147,7 @@ fn build_zip(entries : Array[(String, String, Int)]) -> Bytes {
 
   let cd_offset = out.length()
   for entry in central {
-    let (name, size, local_offset, method_code) = entry
+    let (name, size, local_offset, method_code, crc32) = entry
     let name_bytes = bytes_of_string(name)
     append_u32_le(out, 0x02014b50)
     append_u16_le(out, 20)
@@ -116,7 +156,7 @@ fn build_zip(entries : Array[(String, String, Int)]) -> Bytes {
     append_u16_le(out, method_code)
     append_u16_le(out, 0)
     append_u16_le(out, 0)
-    append_u32_le(out, 0)
+    append_u32_le(out, crc32)
     append_u32_le(out, size)
     append_u32_le(out, size)
     append_u16_le(out, name_bytes.length())
@@ -158,6 +198,107 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 fn open_inline_zip(entries : Array[(String, String)]) -> @zip.ZipArchive raise {
   @zip.open_zip(build_store_zip(entries)) catch {
     e => fail("open inline zip failed: " + e.to_string())
+  }
+}
+
+///|
+fn build_data_descriptor_zip(
+  entries : Array[(String, Array[Int], Int, Int, Bool, Int)],
+  flags_override? : Int = 0,
+) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int, Int, Int, Int)] = []
+
+  for entry in entries {
+    let (name, compressed_data, uncompressed_size, crc32, with_sig, method_code) = entry
+    let local_offset = out.length()
+    let name_bytes = bytes_of_string(name)
+    let compressed_size = compressed_data.length()
+    let flags = 0x0008 | flags_override
+
+    append_u32_le(out, 0x04034b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, flags)
+    append_u16_le(out, method_code)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, 0)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    for b in name_bytes {
+      out.push(b)
+    }
+    add_raw_bytes(out, compressed_data)
+    if with_sig {
+      append_u32_le(out, 0x08074b50)
+    }
+    append_u32_le(out, crc32)
+    append_u32_le(out, compressed_size)
+    append_u32_le(out, uncompressed_size)
+
+    central.push(
+      (
+        name,
+        compressed_size,
+        uncompressed_size,
+        crc32,
+        local_offset,
+        flags | (method_code << 16),
+      ),
+    )
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, compressed_size, uncompressed_size, crc32, local_offset, packed) = entry
+    let name_bytes = bytes_of_string(name)
+    let flags = packed & 0xFFFF
+    let method_code = (packed >> 16) & 0xFFFF
+
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, flags)
+    append_u16_le(out, method_code)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, compressed_size)
+    append_u32_le(out, uncompressed_size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn open_data_descriptor_zip(
+  entries : Array[(String, Array[Int], Int, Int, Bool, Int)],
+  flags_override? : Int = 0,
+) -> @zip.ZipArchive raise {
+  @zip.open_zip(build_data_descriptor_zip(entries, flags_override~)) catch {
+    e => fail("open data-descriptor zip failed: " + e.to_string())
   }
 }
 
@@ -487,5 +628,148 @@ test "zip error classifier distinguishes direct and best-effort mappings" {
     read_failed.mapping != @zip.ZipErrorMappingKind::DirectVariant ||
     read_failed.entry_name != Some("bad.bin") {
     fail("decode failure should retain entry context")
+  }
+}
+
+///|
+test "zip reader supports central-directory data descriptor entries" {
+  let archive = open_data_descriptor_zip([
+    (
+      "hello.txt",
+      [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+      10,
+      0x4811c948,
+      false,
+      8,
+    ),
+  ])
+
+  let entries = @zip.list_entries(archive)
+  if entries.length() != 1 || !entries[0].has_data_descriptor {
+    fail("expected a single data-descriptor entry")
+  }
+
+  let bytes = @zip.read_entry(archive, "hello.txt") catch {
+    e => fail("read_entry failed for data-descriptor entry: " + e.to_string())
+  }
+  if bytes_to_string(bytes) != "hello zip\n" {
+    fail("unexpected decoded content for data-descriptor entry")
+  }
+}
+
+///|
+test "zip reader supports data descriptor entries with descriptor signature" {
+  let archive = open_data_descriptor_zip([
+    (
+      "hello.txt",
+      [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+      10,
+      0x4811c948,
+      true,
+      8,
+    ),
+  ])
+
+  let bytes = @zip.read_entry(archive, "hello.txt") catch {
+    e =>
+      fail(
+        "read_entry failed for signature-prefixed descriptor: " + e.to_string(),
+      )
+  }
+  if bytes_to_string(bytes) != "hello zip\n" {
+    fail("unexpected decoded content for signature-prefixed descriptor")
+  }
+}
+
+///|
+test "zip reader still supports equivalent stored inline entry" {
+  let archive = open_inline_zip([("hello.txt", "hello zip\n")])
+  let bytes = @zip.read_entry(archive, "hello.txt") catch {
+    e => fail("read_entry failed for stored entry: " + e.to_string())
+  }
+  if bytes_to_string(bytes) != "hello zip\n" {
+    fail("stored entry content changed unexpectedly")
+  }
+}
+
+///|
+test "zip reader still rejects encrypted data descriptor entries" {
+  let result = try? @zip.open_zip(
+    build_data_descriptor_zip(
+      [
+        (
+          "hello.txt",
+          [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+          10,
+          0x4811c948,
+          false,
+          8,
+        ),
+      ],
+      flags_override=0x0001,
+    ),
+  )
+  match result {
+    Ok(_) => fail("encrypted data-descriptor entry should fail")
+    Err(err) => {
+      let info = @zip.classify_zip_error(err)
+      if info.kind != @zip.ZipErrorKind::EncryptedEntry {
+        fail("encrypted data-descriptor entry should classify distinctly")
+      }
+    }
+  }
+}
+
+///|
+test "zip reader still rejects zip64 sentinel sizes on data descriptor entries" {
+  let bytes = build_data_descriptor_zip([
+    (
+      "hello.txt",
+      [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+      10,
+      0x4811c948,
+      false,
+      8,
+    ),
+  ])
+  let out : Array[Byte] = []
+  for b in bytes {
+    out.push(b)
+  }
+  let cd_offset = out.length() - 22 - 46 - "hello.txt".length()
+  write_u32_le(out, cd_offset + 20, 0xFFFFFFFF)
+  let result = try? @zip.open_zip(Bytes::from_array(out))
+  match result {
+    Ok(_) => fail("zip64 sentinel size should fail")
+    Err(err) => {
+      let info = @zip.classify_zip_error(err)
+      if info.kind != @zip.ZipErrorKind::UnsupportedFeature {
+        fail("zip64 sentinel should stay unsupported")
+      }
+    }
+  }
+}
+
+///|
+test "zip reader still rejects unsupported compression on data descriptor entries" {
+  let archive = open_data_descriptor_zip([
+    (
+      "hello.txt",
+      [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+      10,
+      0x4811c948,
+      false,
+      99,
+    ),
+  ])
+  let result = try? @zip.read_entry(archive, "hello.txt")
+  match result {
+    Ok(_) => fail("unsupported compression should fail on read")
+    Err(err) => {
+      let info = @zip.classify_zip_error(err)
+      if info.kind != @zip.ZipErrorKind::UnsupportedCompressionMethod {
+        fail("unsupported compression should retain existing classification")
+      }
+    }
   }
 }
