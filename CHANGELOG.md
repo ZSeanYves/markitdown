@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Accept a narrow Level 1 ZIP data-descriptor case when central-directory
+  sizes/CRC/offsets are known, so OOXML packages can open entries written with
+  bit-3 data descriptors while ZIP64/encrypted/multi-disk/full streaming
+  descriptor support remains unsupported.
+
 * Remove the legacy checked `samples/real_world` corpus because it was
   synthetic/regression-like rather than reliable real-world quality evidence,
   and reset `samples/quality_corpus` into an external/private intake skeleton
@@ -392,3 +397,5 @@ This release closes the repository's first full-format H2 milestone.
   implemented.
 * Known limitations remain documented in
   `docs/support-and-limits.md`.
+* Accept single-document YAML start/end markers (`---` / `...`) while keeping
+  multi-document streams unsupported in the conservative YAML subset parser.

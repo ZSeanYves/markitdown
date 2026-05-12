@@ -46,7 +46,7 @@ println("depth=" + report.max_depth.to_string())
 ```
 
 ```moonbit
-let _ = @yaml.parse_yaml_document("---\na: 1\n---\n") catch {
+let _ = @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n") catch {
   err => {
     let info = @yaml.classify_yaml_error(err)
     println(info.kind.to_string())
@@ -107,7 +107,14 @@ Current subset boundary:
 * nested mappings/sequences/scalars
 * quoted and plain scalars
 * conservative comments stripping
+* optional single-document start/end markers (`---` / `...`)
 * unsupported YAML features fail closed instead of being silently ignored
+
+Marker compatibility note:
+
+* a single-document YAML file may start with `---`
+* a single-document YAML file may end with `...`
+* real multi-document streams remain unsupported
 
 Non-goals:
 

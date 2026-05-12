@@ -495,7 +495,63 @@ fn prepare_yaml_lines(
   }
   yaml_parse_profile_add_elapsed(scan_total, scan_started)
 
-  lines
+  normalize_single_document_markers(lines)
+}
+
+///|
+fn normalize_single_document_markers(
+  lines : Array[YamlLine],
+) -> Array[YamlLine] raise {
+  let normalized : Array[YamlLine] = []
+  let mut saw_content = false
+  let mut saw_start_marker = false
+  let mut saw_end_marker = false
+
+  for line in lines {
+    if is_yaml_document_start_marker(line) {
+      if saw_content || saw_start_marker || saw_end_marker {
+        raise ParseError(
+          "multi-document markers are unsupported at line " +
+          line.line_no.to_string(),
+        )
+      }
+      saw_start_marker = true
+      continue
+    }
+
+    if is_yaml_document_end_marker(line) {
+      if saw_end_marker || (!saw_content && !saw_start_marker) {
+        raise ParseError(
+          "multi-document markers are unsupported at line " +
+          line.line_no.to_string(),
+        )
+      }
+      saw_end_marker = true
+      continue
+    }
+
+    if saw_end_marker {
+      raise ParseError(
+        "multi-document markers are unsupported at line " +
+        line.line_no.to_string(),
+      )
+    }
+
+    saw_content = true
+    normalized.push(line)
+  }
+
+  normalized
+}
+
+///|
+fn is_yaml_document_start_marker(line : YamlLine) -> Bool {
+  line.indent == 0 && line.content == "---"
+}
+
+///|
+fn is_yaml_document_end_marker(line : YamlLine) -> Bool {
+  line.indent == 0 && line.content == "..."
 }
 
 ///|
@@ -580,7 +636,7 @@ fn prepare_yaml_line(
   if content == "" {
     return None
   }
-  if content == "---" || content == "..." {
+  if indent != 0 && (content == "---" || content == "...") {
     raise ParseError(
       "multi-document markers are unsupported at line " + line_no.to_string(),
     )
