@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* Extract Level 1 cached PPTX chart data from PresentationML chart parts,
+  preserving minimal series/category/value semantics from chart XML cache in
+  `doc_parse/pptx` and lowering aligned cache data to `RichTable` with a
+  conservative text fallback in `convert/pptx`, while leaving full chart
+  rendering, embedded-workbook fallback, and style/axis/legend/layout support
+  out of scope.
 * Accept a narrow Level 1 ZIP data-descriptor case when central-directory
   sizes/CRC/offsets are known, so OOXML packages can open entries written with
   bit-3 data descriptors while ZIP64/encrypted/multi-disk/full streaming

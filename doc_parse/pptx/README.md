@@ -115,6 +115,7 @@ Current semantic boundary:
 * source-native shape tree with nested group traversal
 * raw text paragraphs/runs/bullet-level signal
 * explicit table rows/cells/paragraphs
+* cached chart part signal for minimal series/category/value extraction
 * raw media refs and hyperlink refs
 * inspect counts and explicit validation issue collection
 
@@ -129,6 +130,9 @@ Current slide / shape / text / table / notes / media boundary:
   heading/list/paragraph classification
 * explicit `a:tbl` objects preserve raw rows/cells/paragraphs without Markdown
   table rendering
+* chart graphic frames can preserve cached chart-part series/category/value
+  data without owning final chart rendering, workbook fallback, or layout
+  policy
 * notes preserve raw speaker-notes paragraphs without final section
   naming/order policy
 * media refs preserve relationship id / target part / content type / alt/title
@@ -164,8 +168,9 @@ Known limits:
 * raw notes are preserved without final Speaker Notes section policy
 * explicit tables are preserved as raw cell/paragraph structures, not Markdown
   table policy
-* charts, SmartArt, animations, transitions, theme/master/layout inheritance,
-  and deeper DrawingML semantics remain out of scope
+* full chart rendering, embedded workbook fallback, chart style/color/axis/
+  legend/layout semantics, SmartArt, animations, transitions, theme/master/
+  layout inheritance, and deeper DrawingML semantics remain out of scope
 
 Performance note:
 

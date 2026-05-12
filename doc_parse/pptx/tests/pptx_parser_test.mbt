@@ -44,15 +44,40 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int)],
+  central : Array[(String, Int, Int, Int)],
   name : String,
   data : String,
 ) -> Unit {
   let local_offset = out.length()
   let name_bytes = bytes_of_string(name)
   let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
 
   append_u32_le(out, 0x04034b50)
   append_u16_le(out, 20)
@@ -60,7 +85,7 @@ fn add_store_entry(
   append_u16_le(out, 0)
   append_u16_le(out, 0)
   append_u16_le(out, 0)
-  append_u32_le(out, 0)
+  append_u32_le(out, crc32)
   append_u32_le(out, data_bytes.length())
   append_u32_le(out, data_bytes.length())
   append_u16_le(out, name_bytes.length())
@@ -72,13 +97,13 @@ fn add_store_entry(
     out.push(b)
   }
 
-  central.push((name, data_bytes.length(), local_offset))
+  central.push((name, data_bytes.length(), local_offset, crc32))
 }
 
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int)] = []
+  let central : Array[(String, Int, Int, Int)] = []
   for entry in entries {
     let (name, data) = entry
     add_store_entry(out, central, name, data)
@@ -86,7 +111,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 
   let cd_offset = out.length()
   for entry in central {
-    let (name, size, local_offset) = entry
+    let (name, size, local_offset, crc32) = entry
     let name_bytes = bytes_of_string(name)
     append_u32_le(out, 0x02014b50)
     append_u16_le(out, 20)
@@ -95,7 +120,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
     append_u16_le(out, 0)
     append_u16_le(out, 0)
     append_u16_le(out, 0)
-    append_u32_le(out, 0)
+    append_u32_le(out, crc32)
     append_u32_le(out, size)
     append_u32_le(out, size)
     append_u16_le(out, name_bytes.length())
@@ -287,6 +312,116 @@ fn validation_pptx_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn chart_pptx_pkg(
+  chart_xml : String,
+  slide_rels_inner : String,
+) -> @ox.OoxmlPackage raise {
+  let slide_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
+    "xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" " +
+    "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" " +
+    "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<p:cSld><p:spTree>" +
+    "<p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>" +
+    "<p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>" +
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Chart Title\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>" +
+    "<p:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"10\" cy=\"10\"/></a:xfrm></p:spPr>" +
+    "<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>A chart to test parsing:</a:t></a:r></a:p></p:txBody></p:sp>" +
+    "<p:graphicFrame>" +
+    "<p:nvGraphicFramePr><p:cNvPr id=\"7\" name=\"Chart Frame\"/></p:nvGraphicFramePr>" +
+    "<p:xfrm><a:off x=\"100\" y=\"200\"/><a:ext cx=\"300\" cy=\"200\"/></p:xfrm>" +
+    "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">" +
+    "<c:chart r:id=\"rIdChart\"/>" +
+    "</a:graphicData></a:graphic>" +
+    "</p:graphicFrame>" +
+    "</p:spTree></p:cSld></p:sld>"
+  generated_pptx_pkg([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+        "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+        "<Override PartName=\"/ppt/charts/chart1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/presentation.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+    ),
+    (
+      "ppt/_rels/presentation.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+      ),
+    ),
+    ("ppt/slides/slide1.xml", slide_xml),
+    ("ppt/charts/chart1.xml", chart_xml),
+    ("ppt/slides/_rels/slide1.xml.rels", minimal_rels_xml(slide_rels_inner)),
+  ])
+}
+
+///|
+fn single_series_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" " +
+  "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
+  "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+  "<c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>Chart UUID</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+  "<c:plotArea><c:barChart><c:ser><c:idx val=\"0\"/><c:order val=\"0\"/>" +
+  "<c:tx><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>Series 1</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+  "<c:cat><c:numRef><c:numCache>" +
+  "<c:pt idx=\"0\"><c:v>2000</c:v></c:pt><c:pt idx=\"1\"><c:v>2001</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>2002</c:v></c:pt><c:pt idx=\"3\"><c:v>2003</c:v></c:pt>" +
+  "</c:numCache></c:numRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache>" +
+  "<c:pt idx=\"0\"><c:v>4.3</c:v></c:pt><c:pt idx=\"1\"><c:v>2.5</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>3.7</c:v></c:pt><c:pt idx=\"3\"><c:v>6.1</c:v></c:pt>" +
+  "</c:numCache></c:numRef></c:val></c:ser></c:barChart></c:plotArea>" +
+  "<c:externalData r:id=\"rIdWorkbook\"/></c:chart></c:chartSpace>"
+}
+
+///|
+fn multi_series_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" " +
+  "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+  "<c:chart><c:plotArea><c:lineChart>" +
+  "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>A</c:v></c:pt><c:pt idx=\"1\"><c:v>B</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>1</c:v></c:pt><c:pt idx=\"1\"><c:v>2</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>" +
+  "<c:ser><c:idx val=\"1\"/><c:order val=\"1\"/><c:tx><c:v>Series 2</c:v></c:tx>" +
+  "<c:cat><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>A</c:v></c:pt><c:pt idx=\"1\"><c:v>B</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>3</c:v></c:pt><c:pt idx=\"1\"><c:v>4</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>" +
+  "</c:lineChart></c:plotArea></c:chart></c:chartSpace>"
+}
+
+///|
+fn mismatch_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">" +
+  "<c:chart><c:plotArea><c:barChart><c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>A</c:v></c:pt><c:pt idx=\"1\"><c:v>B</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>9</c:v></c:pt></c:numCache></c:numRef></c:val>" +
+  "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+}
+
+///|
+fn no_cache_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" " +
+  "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+  "<c:chart><c:plotArea><c:barChart><c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:numRef><c:f>Sheet1!$A$1:$A$2</c:f></c:numRef></c:cat>" +
+  "<c:val><c:numRef><c:f>Sheet1!$B$1:$B$2</c:f></c:numRef></c:val>" +
+  "</c:ser></c:barChart></c:plotArea><c:externalData r:id=\"rIdWorkbook\"/></c:chart></c:chartSpace>"
+}
+
+///|
 fn malformed_presentation_pptx_pkg() -> @ox.OoxmlPackage raise {
   generated_pptx_pkg([
     (
@@ -468,6 +603,104 @@ test "pptx semantic grouped shape tree preserves nested children object refs and
   assert_eq(inspect.notes_count, 1)
   assert_eq(inspect.media_ref_count, 1)
   assert_eq(inspect.hyperlink_count, 1)
+}
+
+///|
+test "pptx semantic chart cache preserves single-series data" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      single_series_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let slide = doc.slides[0]
+  assert_eq(slide.shape_tree.length(), 2)
+  let chart = slide.shape_tree[1]
+  assert_true(chart.kind == @pptx.PptxShapeKind::Chart)
+  match chart.chart {
+    Some(data) => {
+      assert_eq(data.source_part, "ppt/charts/chart1.xml")
+      assert_true(data.has_external_data)
+      assert_eq(data.series.length(), 1)
+      assert_eq(data.series[0].name, "Series 1")
+      assert_eq(data.series[0].categories[0], "2000")
+      assert_eq(data.series[0].values[3], "6.1")
+    }
+    None => fail("expected chart data")
+  }
+  let inspect = @pptx.inspect_pptx_presentation(doc)
+  assert_eq(inspect.chart_count, 1)
+}
+
+///|
+test "pptx semantic chart cache preserves multiple aligned series" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      multi_series_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  match chart.chart {
+    Some(data) => {
+      assert_eq(data.series.length(), 2)
+      assert_eq(data.series[0].categories, ["A", "B"])
+      assert_eq(data.series[1].values, ["3", "4"])
+    }
+    None => fail("expected chart data")
+  }
+}
+
+///|
+test "pptx semantic chart cache preserves mismatch without crashing" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      mismatch_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  match chart.chart {
+    Some(data) => {
+      assert_eq(data.series.length(), 1)
+      assert_eq(data.series[0].categories.length(), 2)
+      assert_eq(data.series[0].values.length(), 1)
+    }
+    None => fail("expected chart data")
+  }
+}
+
+///|
+test "pptx semantic chart externalData without cache stays non-crashing" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      no_cache_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  match chart.chart {
+    Some(data) => {
+      assert_true(data.has_external_data)
+      assert_eq(data.series.length(), 1)
+      assert_eq(data.series[0].categories.length(), 0)
+      assert_eq(data.series[0].values.length(), 0)
+    }
+    None => fail("expected chart data")
+  }
+}
+
+///|
+test "pptx semantic chart missing relationship remains unknown" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(single_series_chart_xml(), ""),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  assert_true(chart.kind == @pptx.PptxShapeKind::Unknown)
+  match chart.chart {
+    None => ()
+    Some(_) => fail("expected no chart data")
+  }
 }
 
 ///|

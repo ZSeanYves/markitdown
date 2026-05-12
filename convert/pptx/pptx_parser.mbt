@@ -117,6 +117,12 @@ pub fn parse_pptx(
         "slide=" + idx.to_string() + " tables=" + tables.length().to_string(),
       ),
     )
+    let semantic_chart_data = maybe_parse_semantic_slide_chart_blocks(
+      p.pkg,
+      path,
+    )
+    let charts = semantic_chart_data.charts
+    let shape_object_orders = semantic_chart_data.shape_object_orders
 
     let caption_started = @env.now()
     let (image_captions, consumed_caption_para_ids) = infer_slide_image_captions(
@@ -232,6 +238,7 @@ pub fn parse_pptx(
     if blocks.length() == 0 &&
       images.length() == 0 &&
       tables.length() == 0 &&
+      charts.length() == 0 &&
       note_paras.length() == 0 {
       @cor.push_with_origin(
         doc,
@@ -254,8 +261,16 @@ pub fn parse_pptx(
       )
     } else {
       let mut prev_was_list = false
+      let next_chart_index : Ref[Int] = { val: 0 }
 
       for b in blocks {
+        match chart_block_shape_order(shape_object_orders, b) {
+          Some(order_index) =>
+            emit_pending_chart_renderables(
+              doc, charts, next_chart_index, order_index, src, idx,
+            )
+          None => ()
+        }
         match b {
           PptxBlock::Heading(text, inlines, object_ref, relationship_id) => {
             if prev_was_list {
@@ -439,6 +454,9 @@ pub fn parse_pptx(
         prev_was_list = false
       }
 
+      emit_remaining_chart_renderables(doc, charts, next_chart_index, src, idx)
+      prev_was_list = false
+
       if note_paras.length() > 0 {
         @cor.push_with_origin(
           doc,
@@ -594,6 +612,8 @@ pub fn parse_pptx(
         blocks.length().to_string() +
         " tables=" +
         tables.length().to_string() +
+        " charts=" +
+        charts.length().to_string() +
         " images=" +
         images.length().to_string() +
         " note_paragraphs=" +

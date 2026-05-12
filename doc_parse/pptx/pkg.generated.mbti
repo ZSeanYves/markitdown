@@ -32,6 +32,20 @@ pub(all) enum PptxBulletKind {
   Ordered
 } derive(Eq)
 
+pub struct PptxChartData {
+  title : String?
+  series : Array[PptxChartSeries]
+  source_part : String
+  relationship_id : String?
+  has_external_data : Bool
+}
+
+pub struct PptxChartSeries {
+  name : String
+  categories : Array[String]
+  values : Array[String]
+}
+
 pub struct PptxErrorInfo {
   kind : PptxErrorKind
   detail : String
@@ -61,6 +75,7 @@ pub struct PptxInspectReport {
   paragraph_count : Int
   text_run_count : Int
   table_count : Int
+  chart_count : Int
   image_ref_count : Int
   media_ref_count : Int
   hyperlink_count : Int
@@ -129,6 +144,7 @@ pub struct PptxShape {
   children : Array[PptxShape]
   text_paragraphs : Array[PptxTextParagraph]
   table : PptxTable?
+  chart : PptxChartData?
   media_ref : PptxMediaRef?
   hyperlink_refs : Array[PptxHyperlink]
 }
@@ -138,6 +154,7 @@ pub(all) enum PptxShapeKind {
   TextBox
   Picture
   Table
+  Chart
   Group
   Placeholder
   Unknown

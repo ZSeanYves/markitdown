@@ -96,6 +96,24 @@ pub struct PptxTable {
 }
 
 ///|
+/// Cached chart series data preserved from a PresentationML chart part.
+pub struct PptxChartSeries {
+  name : String
+  categories : Array[String]
+  values : Array[String]
+}
+
+///|
+/// Cached chart data preserved from a PresentationML chart part.
+pub struct PptxChartData {
+  title : String?
+  series : Array[PptxChartSeries]
+  source_part : String
+  relationship_id : String?
+  has_external_data : Bool
+}
+
+///|
 /// Raw media classes preserved from relationship and content-type signals.
 pub(all) enum PptxMediaKind {
   Image
@@ -124,6 +142,7 @@ pub(all) enum PptxShapeKind {
   TextBox
   Picture
   Table
+  Chart
   Group
   Placeholder
   Unknown
@@ -145,6 +164,7 @@ pub struct PptxShape {
   children : Array[PptxShape]
   text_paragraphs : Array[PptxTextParagraph]
   table : PptxTable?
+  chart : PptxChartData?
   media_ref : PptxMediaRef?
   hyperlink_refs : Array[PptxHyperlink]
 }
@@ -249,6 +269,7 @@ pub struct PptxInspectReport {
   paragraph_count : Int
   text_run_count : Int
   table_count : Int
+  chart_count : Int
   image_ref_count : Int
   media_ref_count : Int
   hyperlink_count : Int

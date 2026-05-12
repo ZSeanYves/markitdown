@@ -105,6 +105,7 @@ fn parse_group_shape(
     children: parse_shape_container(inner, child_ctx, ctx),
     text_paragraphs: [],
     table: None,
+    chart: None,
     media_ref: None,
     hyperlink_refs: [],
   }
@@ -140,6 +141,7 @@ fn parse_text_shape(
     children: [],
     text_paragraphs: paragraphs,
     table: None,
+    chart: None,
     media_ref: None,
     hyperlink_refs,
   }
@@ -171,6 +173,7 @@ fn parse_picture_shape(
     children: [],
     text_paragraphs: [],
     table: None,
+    chart: None,
     media_ref: read_picture_media_ref(pic_xml, ctx, object_ref),
     hyperlink_refs: [],
   }
@@ -189,6 +192,10 @@ fn parse_graphic_frame_shape(
     group_ctx.group_ref_prefix,
   )
   let table = parse_pptx_table_from_frame(frame_xml, ctx, object_ref)
+  let chart = match table {
+    Some(_) => None
+    None => read_chart_data_from_frame(frame_xml, ctx, object_ref)
+  }
   let hyperlink_refs = match table {
     Some(t) => collect_hyperlinks_from_table(t)
     None => []
@@ -198,7 +205,11 @@ fn parse_graphic_frame_shape(
     name: read_cnvpr_name(frame_xml),
     kind: match table {
       Some(_) => PptxShapeKind::Table
-      None => PptxShapeKind::Unknown
+      None =>
+        match chart {
+          Some(_) => PptxShapeKind::Chart
+          None => PptxShapeKind::Unknown
+        }
     },
     object_ref,
     x: apply_group_transform_axis(group_ctx, lx, true),
@@ -210,6 +221,7 @@ fn parse_graphic_frame_shape(
     children: [],
     text_paragraphs: [],
     table,
+    chart,
     media_ref: None,
     hyperlink_refs,
   }
