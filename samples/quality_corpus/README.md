@@ -81,6 +81,17 @@ Useful signal patterns for early external intake:
 * `max_long_token_len:n` for token-join / spacing regressions
 * `review_note:text` for non-blocking reviewer notes
 
+Useful `quality_tier` values:
+
+* `gate`, `reference`, `stress`: normal pass/fail behavior
+* `known_bad`: keep a real boundary sample visible without failing the whole run
+
+For `known_bad` rows:
+
+* conversion failure or signal failure is recorded as `expected_fail`
+* a full green run is recorded as `unexpected_pass`
+* both outcomes stay visible in summary output
+
 The checked-in public manifest is intentionally empty until rows are manually
 curated from:
 
@@ -101,6 +112,12 @@ Only `license_review_status=approved` external rows are executed.
 
 Pending or missing external rows are recorded as skipped rather than causing CI
 failure.
+
+Example local boundary row:
+
+* `pandoc_biblio_yaml`
+  * `quality_tier=known_bad`
+  * `notes=current YAML converter does not support multi-document markers`
 
 ## Commands
 

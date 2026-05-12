@@ -289,6 +289,11 @@ metadata_summary_value() {
   fi
 }
 
+is_known_bad_tier() {
+  local quality_tier="${1-}"
+  [[ "$quality_tier" == "known_bad" ]]
+}
+
 profile_now_ms() {
   python3 - <<'PY'
 import time
@@ -623,11 +628,17 @@ run_row() {
     stage_start_ms="$(profile_now_ms)"
   fi
   if ! run_markitdown_cli "${cli_args[@]}" >/dev/null 2>&1; then
+    local failure_status="fail"
+    local failure_note="cli conversion failed"
+    if is_known_bad_tier "$quality_tier"; then
+      failure_status="expected_fail"
+      failure_note="expected converter failure: cli conversion failed"
+    fi
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
       profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "cli_failed"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$failure_status"
     fi
-    summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" 0 0 "cli conversion failed"
+    summary_add "$id" "$format" "$source_scope" "$quality_tier" "$failure_status" 0 0 "$failure_note"
     return
   fi
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
@@ -698,25 +709,41 @@ run_row() {
 
   if [[ "${#failed_details[@]}" -gt 0 ]]; then
     local note_text="failed: ${failed_details[*]}"
+    local row_status="fail"
     if [[ "${#review_notes[@]}" -gt 0 ]]; then
       note_text="$note_text; review: ${review_notes[*]}"
     fi
-    summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" "$passed_signals" "$total_signals" "$note_text"
+    if is_known_bad_tier "$quality_tier"; then
+      row_status="expected_fail"
+      note_text="expected fail: ${failed_details[*]}"
+      if [[ "${#review_notes[@]}" -gt 0 ]]; then
+        note_text="$note_text; review: ${review_notes[*]}"
+      fi
+    fi
+    summary_add "$id" "$format" "$source_scope" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "fail"
-      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "fail"
+      profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
+      profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
     fi
     return
   fi
 
   local note_text="all signals passed"
+  local row_status="pass"
   if [[ "${#review_notes[@]}" -gt 0 ]]; then
     note_text="$note_text; review: ${review_notes[*]}"
   fi
-  summary_add "$id" "$format" "$source_scope" "$quality_tier" "pass" "$passed_signals" "$total_signals" "$note_text"
+  if is_known_bad_tier "$quality_tier"; then
+    row_status="unexpected_pass"
+    note_text="known_bad row passed all signals; possible fix candidate"
+    if [[ "${#review_notes[@]}" -gt 0 ]]; then
+      note_text="$note_text; review: ${review_notes[*]}"
+    fi
+  fi
+  summary_add "$id" "$format" "$source_scope" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
-    profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "pass"
-    profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "pass"
+    profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
+    profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
   fi
 }
 
@@ -727,8 +754,10 @@ write_summary() {
   local skipped="$4"
   local skipped_license="$5"
   local skipped_missing_file="$6"
-  local no_manifest_rows="$7"
-  local no_matching_rows="$8"
+  local expected_fail="$7"
+  local unexpected_pass="$8"
+  local no_manifest_rows="$9"
+  local no_matching_rows="${10}"
 
   mkdir -p "$OUT_ROOT"
   {
@@ -749,6 +778,8 @@ write_summary() {
     printf 'SKIPPED\t-\t-\t-\t-\t%s\t-\tskipped rows\n' "$skipped"
     printf 'SKIPPED_LICENSE\t-\t-\t-\t-\t%s\t-\tskipped because license_review_status was not approved\n' "$skipped_license"
     printf 'SKIPPED_MISSING_FILE\t-\t-\t-\t-\t%s\t-\tskipped because the local cache or private file was missing\n' "$skipped_missing_file"
+    printf 'EXPECTED_FAIL\t-\t-\t-\t-\t%s\t-\tknown_bad rows that failed as expected\n' "$expected_fail"
+    printf 'UNEXPECTED_PASS\t-\t-\t-\t-\t%s\t-\tknown_bad rows that passed all checks unexpectedly\n' "$unexpected_pass"
     printf 'NO_MANIFEST_ROWS\t-\t-\t-\t-\t%s\t-\t1 means no rows selected\n' "$no_manifest_rows"
     printf 'NO_MATCHING_ROWS\t-\t-\t-\t-\t%s\t-\t1 means filters matched zero rows\n' "$no_matching_rows"
   } > "$SUMMARY_TSV"
@@ -774,6 +805,8 @@ write_summary() {
     echo "- skipped: $skipped"
     echo "- skipped_license: $skipped_license"
     echo "- skipped_missing_file: $skipped_missing_file"
+    echo "- expected_fail: $expected_fail"
+    echo "- unexpected_pass: $unexpected_pass"
     echo "- no_manifest_rows: $no_manifest_rows"
     echo "- no_matching_rows: $no_matching_rows"
     echo
@@ -790,6 +823,32 @@ write_summary() {
         IFS='|' read -r id format scope tier status passed_count total_count notes_out <<< "$row"
         echo "| $id | $format | $scope | $tier | $status | $passed_count | $total_count | $notes_out |"
       done
+      echo
+      echo "## Expected Failures"
+      echo
+      if [[ "$expected_fail" -eq 0 ]]; then
+        echo "None."
+      else
+        for row in "${SUMMARY_ROWS[@]-}"; do
+          [[ -z "$row" ]] && continue
+          IFS='|' read -r id format scope tier status passed_count total_count notes_out <<< "$row"
+          [[ "$status" == "expected_fail" ]] || continue
+          echo "- $id ($format, $tier): $notes_out"
+        done
+      fi
+      echo
+      echo "## Unexpected Passes"
+      echo
+      if [[ "$unexpected_pass" -eq 0 ]]; then
+        echo "None."
+      else
+        for row in "${SUMMARY_ROWS[@]-}"; do
+          [[ -z "$row" ]] && continue
+          IFS='|' read -r id format scope tier status passed_count total_count notes_out <<< "$row"
+          [[ "$status" == "unexpected_pass" ]] || continue
+          echo "- $id ($format, $tier): $notes_out"
+        done
+      fi
     fi
   } > "$SUMMARY_MD"
 }
@@ -801,7 +860,7 @@ while IFS= read -r row; do
 done < <(collect_manifest_rows)
 
 if [[ "${#MANIFEST_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 0 0 1 0
+  write_summary 0 0 0 0 0 0 0 0 1 0
   echo "QUALITY CORPUS PASSED (no manifest rows selected)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
@@ -816,7 +875,7 @@ for row in "${MANIFEST_ROWS[@]}"; do
 done
 
 if [[ "${#FILTERED_ROWS[@]}" -eq 0 ]]; then
-  write_summary 0 0 0 0 0 0 0 1
+  write_summary 0 0 0 0 0 0 0 0 0 1
   echo "QUALITY CORPUS PASSED (no rows matched filters)"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
@@ -847,6 +906,8 @@ failed_rows=0
 skipped_rows=0
 skipped_license_rows=0
 skipped_missing_file_rows=0
+expected_fail_rows=0
+unexpected_pass_rows=0
 
 for row in "${SUMMARY_ROWS[@]-}"; do
   [[ -z "$row" ]] && continue
@@ -870,10 +931,16 @@ for row in "${SUMMARY_ROWS[@]-}"; do
       skipped_rows=$((skipped_rows + 1))
       skipped_missing_file_rows=$((skipped_missing_file_rows + 1))
       ;;
+    expected_fail)
+      expected_fail_rows=$((expected_fail_rows + 1))
+      ;;
+    unexpected_pass)
+      unexpected_pass_rows=$((unexpected_pass_rows + 1))
+      ;;
   esac
 done
 
-write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" 0 0
+write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skipped_license_rows" "$skipped_missing_file_rows" "$expected_fail_rows" "$unexpected_pass_rows" 0 0
 
 if [[ "$failed_rows" -ne 0 ]]; then
   echo "QUALITY CORPUS FAILED"
@@ -882,6 +949,10 @@ if [[ "$failed_rows" -ne 0 ]]; then
   exit 1
 fi
 
-echo "QUALITY CORPUS PASSED ($total_rows rows; $skipped_rows skipped)"
+if [[ "$unexpected_pass_rows" -ne 0 ]]; then
+  echo "QUALITY CORPUS PASSED WITH UNEXPECTED PASSES ($total_rows rows; $skipped_rows skipped; $expected_fail_rows expected_fail; $unexpected_pass_rows unexpected_pass)"
+else
+  echo "QUALITY CORPUS PASSED ($total_rows rows; $skipped_rows skipped; $expected_fail_rows expected_fail)"
+fi
 echo "summary: $SUMMARY_TSV"
 echo "report: $SUMMARY_MD"
