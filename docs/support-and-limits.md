@@ -437,6 +437,7 @@ Status label:
 Supported:
 
 * native text-oriented structural recovery
+* Level 1 `/ToUnicode` CMap text decoding
 * headings / paragraphs / list-like text recovery
 * repeated-header/footer cleanup
 * cross-page paragraph merge
@@ -467,6 +468,9 @@ Conservative behavior:
   line / adjacent-span context, source-ref adjacency, font/font-size/style
   consistency, gap/baseline proximity, punctuation boundaries, and casing
   signals over pure short-word guessing
+* `/ToUnicode` decoding currently supports `codespacerange`, `bfchar`, and
+  conservative `bfrange` handling, including multi-byte source-code matching
+  and UTF-16BE destinations
 * the checked-in `samples/pdf_layout_classifier` training spike is export/train/
   infer tooling only; it does not change default PDF Markdown output, does not
   enable OCR, and does not connect a visual layout runtime into the normal path
@@ -478,6 +482,8 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
+* no full predefined-CMap, embedded-font-`cmap`, or GBK/GB18030 fallback
+  strategy for no-`/ToUnicode` CJK PDFs
 * no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction

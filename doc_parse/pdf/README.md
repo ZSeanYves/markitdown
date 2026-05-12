@@ -438,6 +438,34 @@ moon test
 
 Current sample tests are expected to show no Markdown output changes for C0 documentation/package cleanup.
 
+## ToUnicode Level 1
+
+Current native text extraction now includes a Level 1 `/ToUnicode` CMap path
+in the vendored `mbtpdf` layer.
+
+What is supported today:
+
+- `begincodespacerange`
+- `beginbfchar`
+- `beginbfrange` sequential form when the destination is a single UTF-16BE
+  codepoint
+- `beginbfrange` array form
+- multi-byte source-code greedy matching using the declared code-space lengths
+- UTF-16BE destination decoding, including surrogate-pair destinations
+
+What remains out of scope:
+
+- full predefined CMap coverage beyond the small existing backend subset
+- embedded font `cmap` fallback
+- GBK / GB18030 byte-decoding fallback
+- broad no-`/ToUnicode` CJK rescue
+
+Known external boundary:
+
+- the local external row `pdf_cjk_text_pdfjs_simfang_variant` remains a
+  `known_bad` because it is a raw-GBK, no-`/ToUnicode` simple-font case rather
+  than a missing `/ToUnicode` parser case
+
 ## Performance Note
 
 Current performance note:

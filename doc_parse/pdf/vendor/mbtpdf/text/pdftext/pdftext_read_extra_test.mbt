@@ -482,6 +482,7 @@ test "find_tounicode returns none for simple fonts without descriptor" {
   let font = ctx.read_simple_font(fontdict)
   assert_true(@pdftext.PdfTextUtil::new().find_tounicode(font) is None)
   assert_true(@pdftext.PdfTextUtil::new().find_tounicode_bytes(font) is None)
+  assert_true(@pdftext.PdfTextUtil::new().find_tounicode_cmap(font) is None)
 }
 
 ///|
@@ -677,6 +678,7 @@ test "find_tounicode uses descriptor fields when present" {
   ])
   let font = ctx.read_simple_font(fontdict)
   assert_true(@pdftext.PdfTextUtil::new().find_tounicode(font) is None)
+  assert_true(@pdftext.PdfTextUtil::new().find_tounicode_cmap(font) is None)
   let descendant : @pdf.PdfObject = Dictionary([
     (
       "/CIDSystemInfo",
@@ -697,4 +699,32 @@ test "find_tounicode uses descriptor fields when present" {
   let cid = ctx.read_cidkeyed_font(cid_font)
   assert_true(@pdftext.PdfTextUtil::new().find_tounicode(cid) is None)
   assert_true(@pdftext.PdfTextUtil::new().find_tounicode_bytes(cid) is None)
+  assert_true(@pdftext.PdfTextUtil::new().find_tounicode_cmap(cid) is None)
+}
+
+///|
+test "find_tounicode_cmap returns parsed cmap when present" {
+  let pdf = @pdf.Pdf::empty()
+  let ctx = @pdftext.PdfText::new(pdf)
+  let tounicode : Map[Int, String] = Map::new()
+  tounicode.set(33, @pdfio.string_of_int_array([0x00, 0x42]))
+  let tounicode_ref = ctx.write_tounicode(tounicode)
+  let font = ctx.read_font(
+    Dictionary([
+      ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
+      ("/BaseFont", Name(@pdf.PdfName::of_string("/Helvetica"))),
+      ("/FirstChar", Integer(33)),
+      ("/LastChar", Integer(33)),
+      ("/Widths", Array([Integer(500)])),
+      ("/ToUnicode", Indirect(tounicode_ref)),
+    ]),
+  )
+  match @pdftext.PdfTextUtil::new().find_tounicode_cmap(font) {
+    Some(cmap) => {
+      assert_eq(cmap.code_space_lengths.length(), 1)
+      assert_eq(cmap.code_space_lengths[0], 1)
+      assert_eq(cmap.map.length(), 1)
+    }
+    None => fail("expected parsed tounicode cmap")
+  }
 }

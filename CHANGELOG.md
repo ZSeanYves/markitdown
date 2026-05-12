@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
+  CMap support, including `codespacerange`, `bfchar`, conservative
+  `bfrange`, greedy multi-byte source-code matching, and UTF-16BE
+  destination decoding, while leaving no-`/ToUnicode` CJK fallback,
+  embedded-font `cmap`, and full predefined-CMap coverage out of scope.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

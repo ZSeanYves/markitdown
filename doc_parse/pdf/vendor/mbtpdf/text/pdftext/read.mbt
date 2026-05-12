@@ -154,6 +154,7 @@ pub fn PdfText::read_fontdescriptor(
         stemv: 0.0,
         tounicode: None,
         tounicode_bytes: None,
+        tounicode_cmap: None,
       })
     }
   }
@@ -631,7 +632,7 @@ pub fn PdfText::add_tounicode(
     value
   }
 
-  let (tounicode, tounicode_bytes) = match
+  let (tounicode, tounicode_bytes, tounicode_cmap) = match
     self.pdf.lookup_direct("/ToUnicode", fontdict) {
     Some(tounicode) =>
       try {
@@ -643,15 +644,15 @@ pub fn PdfText::add_tounicode(
           (code_int_of_string(pair.0), pair.1)
         })
         let int_map = @pdfutil.PdfUtil::new().hashtable_of_dictionary(int_pairs)
-        (Some(int_map), Some(bytes_map))
+        (Some(int_map), Some(bytes_map), Some(parsed))
       } catch {
         err => {
           @pdfe.log("bad tounicode\n")
           let _ = err
-          (None, None)
+          (None, None, None)
         }
       }
-    None => (None, None)
+    None => (None, None, None)
   }
   match font {
     SimpleFont(simple) =>
@@ -672,6 +673,7 @@ pub fn PdfText::add_tounicode(
             charset: fd.charset,
             tounicode,
             tounicode_bytes,
+            tounicode_cmap,
           }
           SimpleFont({
             fonttype: simple.fonttype,
@@ -700,6 +702,7 @@ pub fn PdfText::add_tounicode(
             charset: None,
             tounicode,
             tounicode_bytes,
+            tounicode_cmap,
           }
           SimpleFont({
             fonttype: simple.fonttype,
@@ -729,6 +732,7 @@ pub fn PdfText::add_tounicode(
         charset: composite.cid_fontdescriptor.charset,
         tounicode,
         tounicode_bytes,
+        tounicode_cmap,
       }
       let updated_composite : @pdffont.CompositeCIDFont = {
         cid_system_info: composite.cid_system_info,
@@ -772,6 +776,22 @@ pub fn PdfTextUtil::find_tounicode_bytes(
       }
     CIDKeyedFont(_, composite, _) =>
       composite.cid_fontdescriptor.tounicode_bytes
+    _ => None
+  }
+}
+
+///|
+pub fn PdfTextUtil::find_tounicode_cmap(
+  _self : PdfTextUtil,
+  font : @pdffont.Font,
+) -> @pdfcmap.CMap? {
+  match font {
+    SimpleFont(simple) =>
+      match simple.fontdescriptor {
+        Some(fd) => fd.tounicode_cmap
+        None => None
+      }
+    CIDKeyedFont(_, composite, _) => composite.cid_fontdescriptor.tounicode_cmap
     _ => None
   }
 }

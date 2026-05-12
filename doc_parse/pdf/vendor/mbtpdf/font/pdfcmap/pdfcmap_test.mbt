@@ -40,6 +40,38 @@ test "parse_cmap parses bfchar and bfrange" {
 }
 
 ///|
+test "parse_cmap records codespacerange lengths and multi-byte bfchar" {
+  let data = @pdfio.bytes_of_string(
+    "begincodespacerange<00><ff><0000><ffff>endcodespacerange" +
+    " beginbfchar<0001><4E00>endbfchar",
+  )
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(data))),
+  ])
+  let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  assert_eq(parsed.code_space_lengths.length(), 2)
+  assert_eq(parsed.code_space_lengths[0], 2)
+  assert_eq(parsed.code_space_lengths[1], 1)
+  let key = @pdfio.string_of_int_array([0x00, 0x01])
+  let value = @pdfio.string_of_int_array([0x4e, 0x00])
+  assert_true(find_value(parsed.map, key) == Some(value))
+}
+
+///|
+test "parse_cmap preserves surrogate pair destinations" {
+  let data = @pdfio.bytes_of_string("beginbfchar<0001><D83DDE00>endbfchar")
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(data))),
+  ])
+  let cmap : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  let key = @pdfio.string_of_int_array([0x00, 0x01])
+  let value = @pdfio.string_of_int_array([0xd8, 0x3d, 0xde, 0x00])
+  assert_true(find_value(parsed.map, key) == Some(value))
+}
+
+///|
 test "parse_cmap parses bfrange array mapping" {
   let data = @pdfio.bytes_of_string(
     "beginbfrange<01><02>[<0041><0042>]endbfrange",
@@ -215,6 +247,17 @@ test "parse_cmap bfrange array missing closing bracket" {
   )
   let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
   assert_eq(parsed.map.length(), 2)
+}
+
+///|
+test "parse_cmap bfrange sequential skips multi-codepoint destination" {
+  let data = "beginbfrange<0001><0002><00660069>endbfrange"
+  let dict : @pdf.PdfObject = Dictionary([("/Length", Integer(data.length()))])
+  let cmap : @pdf.PdfObject = Stream(
+    Ref::new((dict, @pdf.Stream::Got(@pdfio.bytes_of_string(data)))),
+  )
+  let parsed = @pdfcmap.CMap::parse(@pdf.Pdf::empty(), cmap)
+  assert_eq(parsed.map.length(), 0)
 }
 
 ///|

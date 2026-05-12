@@ -4,6 +4,7 @@ package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdffont"
 import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdftransform",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap",
   "moonbitlang/core/debug",
 }
 
@@ -66,6 +67,7 @@ pub(all) struct FontDescriptor {
   charset : Array[String]?
   tounicode : Map[Int, String]?
   tounicode_bytes : Map[String, String]?
+  tounicode_cmap : @pdfcmap.CMap?
 }
 
 pub(all) enum FontFile {

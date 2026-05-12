@@ -47,6 +47,31 @@ fn simple_font_with_tounicode(tounicode_ref : Int) -> @pdf.PdfObject {
 }
 
 ///|
+fn simple_font_with_raw_tounicode_stream(
+  data : String,
+) -> (@pdf.PdfObject, @pdf.Pdf) {
+  let pdf = @pdf.Pdf::empty()
+  let bytes = @pdfio.bytes_of_string(data)
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(bytes))),
+  ])
+  let tounicode_ref = pdf.addobj(
+    Stream(Ref::new((dict, @pdf.Stream::Got(bytes)))),
+  )
+  (
+    Dictionary([
+      ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
+      ("/BaseFont", Name(@pdf.PdfName::of_string("/Helvetica"))),
+      ("/FirstChar", Integer(0)),
+      ("/LastChar", Integer(255)),
+      ("/Widths", Array([Integer(500)])),
+      ("/ToUnicode", Indirect(tounicode_ref)),
+    ]),
+    pdf,
+  )
+}
+
+///|
 fn cid_font_dict(encoding_name : String) -> @pdf.PdfObject {
   let descendant : @pdf.PdfObject = Dictionary([
     (
@@ -216,4 +241,27 @@ test "tounicode and cmap extraction" {
   )
   assert_eq(shift_pairs.length(), 1)
   inspect(shift_pairs[0].1, content="[12288]")
+}
+
+///|
+test "tounicode greedy matching honors codespacerange lengths" {
+  let cmap = "begincodespacerange<00><ff><0000><ffff>endcodespacerange\n" +
+    "beginbfchar<0001><4E00><41><0041>endbfchar\n"
+  let (font, pdf) = simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let text = @pdfio.string_of_int_array([0x00, 0x01, 0x41])
+  let pairs = extractor.glyphnames_and_codepoints_of_text(text)
+  assert_eq(pairs.length(), 2)
+  inspect(pairs[0].1, content="[19968]")
+  inspect(pairs[1].1, content="[65]")
+}
+
+///|
+test "tounicode missing source code falls back safely" {
+  let cmap = "beginbfchar<21><0042>endbfchar"
+  let (font, pdf) = simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let miss = extractor.glyphnames_and_codepoints_of_text("A")
+  assert_eq(miss.length(), 1)
+  inspect(miss[0].1, content="[65]")
 }
