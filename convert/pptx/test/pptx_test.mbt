@@ -340,6 +340,105 @@ fn mismatch_chart_xml() -> String {
 }
 
 ///|
+fn comments_pptx_bytes(
+  comments_xml : String,
+  slide_rels_inner : String,
+  comment_authors_xml : String?,
+  notes_xml : String?,
+) -> Bytes {
+  let slide_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
+    "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+    "<p:cSld><p:spTree>" +
+    "<p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>" +
+    "<p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>" +
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Title\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>" +
+    "<p:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"10\" cy=\"10\"/></a:xfrm></p:spPr>" +
+    "<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Visible Slide Text</a:t></a:r></a:p></p:txBody>" +
+    "</p:sp>" +
+    "</p:spTree></p:cSld></p:sld>"
+  let overrides = if notes_xml == None {
+    if comment_authors_xml == None {
+      "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+      "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+      "<Override PartName=\"/ppt/comments/comment1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\"/>"
+    } else {
+      "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+      "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+      "<Override PartName=\"/ppt/comments/comment1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\"/>" +
+      "<Override PartName=\"/ppt/commentAuthors.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml\"/>"
+    }
+  } else {
+    "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+    "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+    "<Override PartName=\"/ppt/comments/comment1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\"/>" +
+    "<Override PartName=\"/ppt/commentAuthors.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml\"/>" +
+    "<Override PartName=\"/ppt/notesSlides/notesSlide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml\"/>"
+  }
+  let entries : Array[(String, String)] = [
+    ("[Content_Types].xml", minimal_content_types_xml(overrides)),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/presentation.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+    ),
+    (
+      "ppt/_rels/presentation.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+      ),
+    ),
+    ("ppt/slides/slide1.xml", slide_xml),
+    ("ppt/slides/_rels/slide1.xml.rels", minimal_rels_xml(slide_rels_inner)),
+    ("ppt/comments/comment1.xml", comments_xml),
+  ]
+  match comment_authors_xml {
+    Some(authors) => entries.push(("ppt/commentAuthors.xml", authors))
+    None => ()
+  }
+  match notes_xml {
+    Some(notes) => entries.push(("ppt/notesSlides/notesSlide1.xml", notes))
+    None => ()
+  }
+  build_store_zip(entries)
+}
+
+///|
+fn comment_authors_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<p:cmAuthorLst xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+  "<p:cmAuthor id=\"0\" name=\"Harshal Doshi\" initials=\"HD\"/>" +
+  "</p:cmAuthorLst>"
+}
+
+///|
+fn comment_list_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<p:cmLst xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+  "<p:cm authorId=\"0\" idx=\"1\"><p:text>PowerPoint Rocks!!!</p:text></p:cm>" +
+  "<p:cm authorId=\"0\" idx=\"2\"><p:text>PowerPoint Logo!</p:text></p:cm>" +
+  "</p:cmLst>"
+}
+
+///|
+fn note_slide_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<p:notes xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+  "<p:cSld><p:spTree>" +
+  "<p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>" +
+  "<p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>" +
+  "<p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Notes\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr>" +
+  "<p:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"10\" cy=\"10\"/></a:xfrm></p:spPr>" +
+  "<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Speaker note body</a:t></a:r></a:p></p:txBody>" +
+  "</p:sp>" +
+  "</p:spTree></p:cSld></p:notes>"
+}
+
+///|
 test "pptx baseline samples keep existing body extraction stable" {
   let doc = @pptx.parse_pptx(
     resolve_sample_path("samples/main_process/pptx/pptx_simple.pptx"),
@@ -489,4 +588,59 @@ test "pptx cached chart mismatch falls back to stable text instead of crashing" 
   assert_true(markdown.contains("A chart to test parsing:"))
   assert_true(markdown.contains("Chart<br>Series: Series 1<br>A: 1"))
   assert_true(!markdown.contains("| Category | Series 1 |"))
+}
+
+///|
+test "pptx comments emit stable appendix with author and text" {
+  let root = test_tmp_root()
+  ensure_dir_tree(root)
+  let case_dir = root + "/comments-basic"
+  recreate_clean_dir(case_dir)
+  defer cleanup_temp_dir(case_dir)
+  let path = case_dir + "/sample.pptx"
+  write_bytes(
+    path,
+    comments_pptx_bytes(
+      comment_list_xml(),
+      "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>",
+      Some(comment_authors_xml()),
+      None,
+    ),
+  )
+
+  let doc = @pptx.parse_pptx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("### Comments"))
+  assert_true(markdown.contains("Harshal Doshi: PowerPoint Rocks!!!"))
+  assert_true(markdown.contains("Harshal Doshi: PowerPoint Logo!"))
+}
+
+///|
+test "pptx comments preserve order and stay before speaker notes" {
+  let root = test_tmp_root()
+  ensure_dir_tree(root)
+  let case_dir = root + "/comments-and-notes"
+  recreate_clean_dir(case_dir)
+  defer cleanup_temp_dir(case_dir)
+  let path = case_dir + "/sample.pptx"
+  write_bytes(
+    path,
+    comments_pptx_bytes(
+      comment_list_xml(),
+      "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>" +
+      "<Relationship Id=\"rIdNotes\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide\" Target=\"../notesSlides/notesSlide1.xml\"/>",
+      Some(comment_authors_xml()),
+      Some(note_slide_xml()),
+    ),
+  )
+
+  let doc = @pptx.parse_pptx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(
+    markdown.contains(
+      "### Comments\n\n- Harshal Doshi: PowerPoint Rocks!!!\n- Harshal Doshi: PowerPoint Logo!\n\n### Speaker Notes",
+    ),
+  )
+  assert_true(markdown.contains("Harshal Doshi: PowerPoint Rocks!!!"))
+  assert_true(markdown.contains("Speaker note body"))
 }

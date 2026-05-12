@@ -97,6 +97,7 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
   let mut hidden_slide_count = 0
   let mut image_ref_count = 0
   let mut notes_count = 0
+  let mut comment_count = 0
 
   for slide in pres.slides {
     if slide.hidden {
@@ -122,6 +123,7 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
       }
       None => ()
     }
+    comment_count += slide.comments.length()
     for media in slide.media_refs {
       if media.kind == PptxMediaKind::Image {
         image_ref_count += 1
@@ -143,6 +145,7 @@ pub fn inspect_pptx_presentation(pres : PptxPresentation) -> PptxInspectReport {
     media_ref_count: pres.media_refs.length(),
     hyperlink_count: pres.hyperlink_refs.length(),
     notes_count,
+    comment_count,
     issue_count: validation.issue_count,
     warning_count: validation.warning_count,
     error_count: validation.error_count,

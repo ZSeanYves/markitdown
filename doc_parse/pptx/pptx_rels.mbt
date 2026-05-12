@@ -41,6 +41,8 @@ fn read_pptx_relationship_index(
   let out : Array[PptxRelationship] = []
   let mut notes_part : String? = None
   let mut notes_relationship_id : String? = None
+  let mut comments_part : String? = None
+  let mut comments_relationship_id : String? = None
   for rel in rels {
     let parsed = to_pptx_relationship(rel)
     if parsed.rel_type.has_suffix("/notesSlide") &&
@@ -49,9 +51,24 @@ fn read_pptx_relationship_index(
       notes_part = Some(parsed.resolved_target)
       notes_relationship_id = Some(parsed.id)
     }
+    if (
+        parsed.rel_type.has_suffix("/comments") ||
+        parsed.rel_type.contains("relationships/comments")
+      ) &&
+      parsed.resolved_target.has_prefix("ppt/comments/") &&
+      parsed.resolved_target.has_suffix(".xml") {
+      comments_part = Some(parsed.resolved_target)
+      comments_relationship_id = Some(parsed.id)
+    }
     out.push(parsed)
   }
-  { relationships: out, notes_part, notes_relationship_id }
+  {
+    relationships: out,
+    notes_part,
+    notes_relationship_id,
+    comments_part,
+    comments_relationship_id,
+  }
 }
 
 ///|

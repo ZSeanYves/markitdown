@@ -18,6 +18,8 @@ priv struct PptxSlideRelContext {
   hyperlinks : Map[String, String]
   notes_part : String?
   notes_relationship_id : String?
+  comments_part : String?
+  comments_relationship_id : String?
 }
 
 ///|

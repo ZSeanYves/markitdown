@@ -472,6 +472,78 @@ fn malformed_slide_pptx_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn comments_pptx_pkg(
+  comments_xml : String,
+  slide_rels_inner : String,
+  comment_authors_xml : String?,
+) -> @ox.OoxmlPackage raise {
+  let slide_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
+    "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+    "<p:cSld><p:spTree>" +
+    "<p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>" +
+    "<p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>" +
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Title\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>" +
+    "<p:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"10\" cy=\"10\"/></a:xfrm></p:spPr>" +
+    "<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Visible Slide Text</a:t></a:r></a:p></p:txBody>" +
+    "</p:sp>" +
+    "</p:spTree></p:cSld></p:sld>"
+  let overrides = if comment_authors_xml == None {
+    "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+    "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+    "<Override PartName=\"/ppt/comments/comment1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\"/>"
+  } else {
+    "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+    "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>" +
+    "<Override PartName=\"/ppt/comments/comment1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\"/>" +
+    "<Override PartName=\"/ppt/commentAuthors.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml\"/>"
+  }
+  let entries : Array[(String, String)] = [
+    ("[Content_Types].xml", minimal_content_types_xml(overrides)),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    (
+      "ppt/presentation.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+    ),
+    (
+      "ppt/_rels/presentation.xml.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+      ),
+    ),
+    ("ppt/slides/slide1.xml", slide_xml),
+    ("ppt/slides/_rels/slide1.xml.rels", minimal_rels_xml(slide_rels_inner)),
+    ("ppt/comments/comment1.xml", comments_xml),
+  ]
+  match comment_authors_xml {
+    Some(authors) => entries.push(("ppt/commentAuthors.xml", authors))
+    None => ()
+  }
+  generated_pptx_pkg(entries)
+}
+
+///|
+fn comment_authors_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<p:cmAuthorLst xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+  "<p:cmAuthor id=\"0\" name=\"Harshal Doshi\" initials=\"HD\" lastIdx=\"2\" clrIdx=\"0\"/>" +
+  "</p:cmAuthorLst>"
+}
+
+///|
+fn comment_list_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<p:cmLst xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">" +
+  "<p:cm authorId=\"0\" dt=\"2008-02-01T13:48:50.465\" idx=\"1\"><p:text>PowerPoint Rocks!!!</p:text></p:cm>" +
+  "<p:cm authorId=\"0\" dt=\"2008-02-01T13:49:03.280\" idx=\"2\"><p:text>PowerPoint Logo!</p:text></p:cm>" +
+  "</p:cmLst>"
+}
+
+///|
 test "pptx semantic presentation preserves slide order hidden signal hyperlinks notes and media refs" {
   let order_doc = @pptx.open_pptx_presentation(
     resolve_sample_path("samples/main_process/pptx/pptx_slide_order.pptx"),
@@ -603,6 +675,100 @@ test "pptx semantic grouped shape tree preserves nested children object refs and
   assert_eq(inspect.notes_count, 1)
   assert_eq(inspect.media_ref_count, 1)
   assert_eq(inspect.hyperlink_count, 1)
+}
+
+///|
+test "pptx semantic comment authors and slide comments preserve author mapping and order" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    comments_pptx_pkg(
+      comment_list_xml(),
+      "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>",
+      Some(comment_authors_xml()),
+    ),
+  )
+  assert_eq(doc.comment_authors.length(), 1)
+  assert_eq(doc.comment_authors[0].id, "0")
+  assert_eq(doc.comment_authors[0].name, "Harshal Doshi")
+  let slide = doc.slides[0]
+  assert_eq(slide.comments.length(), 2)
+  assert_eq(slide.comments[0].author_id, "0")
+  match slide.comments[0].author_name {
+    Some(name) => assert_eq(name, "Harshal Doshi")
+    None => fail("expected author name")
+  }
+  assert_eq(slide.comments[0].text, "PowerPoint Rocks!!!")
+  assert_eq(slide.comments[1].text, "PowerPoint Logo!")
+  let inspect = @pptx.inspect_pptx_presentation(doc)
+  assert_eq(inspect.comment_count, 2)
+}
+
+///|
+test "pptx semantic comments fall back when commentAuthors part is missing" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    comments_pptx_pkg(
+      comment_list_xml(),
+      "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>",
+      None,
+    ),
+  )
+  let slide = doc.slides[0]
+  assert_eq(slide.comments.length(), 2)
+  match slide.comments[0].author_name {
+    Some(_) => fail("expected missing author name fallback")
+    None => ()
+  }
+  assert_eq(slide.comments[0].author_id, "0")
+}
+
+///|
+test "pptx semantic comments missing relationship keep existing behavior unchanged" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    comments_pptx_pkg(comment_list_xml(), "", Some(comment_authors_xml())),
+  )
+  assert_eq(doc.slides[0].comments.length(), 0)
+}
+
+///|
+test "pptx semantic comments missing part does not crash" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    generated_pptx_pkg([
+      (
+        "[Content_Types].xml",
+        minimal_content_types_xml(
+          "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>" +
+          "<Override PartName=\"/ppt/slides/slide1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>",
+        ),
+      ),
+      (
+        "_rels/.rels",
+        minimal_rels_xml(
+          "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+        ),
+      ),
+      (
+        "ppt/presentation.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>",
+      ),
+      (
+        "ppt/_rels/presentation.xml.rels",
+        minimal_rels_xml(
+          "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide1.xml\"/>",
+        ),
+      ),
+      (
+        "ppt/slides/slide1.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Title\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"10\" cy=\"10\"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Visible Slide Text</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>",
+      ),
+      (
+        "ppt/slides/_rels/slide1.xml.rels",
+        minimal_rels_xml(
+          "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>",
+        ),
+      ),
+      ("ppt/commentAuthors.xml", comment_authors_xml()),
+    ]),
+  )
+  assert_eq(doc.slides[0].comments.length(), 0)
+  let issues = @pptx.collect_pptx_validation_issues(doc)
+  assert_true(issues.length() > 0)
 }
 
 ///|

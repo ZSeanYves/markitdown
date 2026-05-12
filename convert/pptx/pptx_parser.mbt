@@ -168,6 +168,7 @@ pub fn parse_pptx(
         note_paras.length().to_string(),
       ),
     )
+    let comment_lines = extract_slide_comments(p, rel_ctx)
 
     let final_block_build_started = @env.now()
     let mut asset_origin_attach_elapsed_ms : UInt64 = 0
@@ -456,6 +457,49 @@ pub fn parse_pptx(
 
       emit_remaining_chart_renderables(doc, charts, next_chart_index, src, idx)
       prev_was_list = false
+
+      if comment_lines.length() > 0 {
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::Heading(clamp_heading(3, max_heading), "Comments"),
+          Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(idx),
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: Some([slide_heading]),
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: rel_ctx.comments_part,
+            relationship_id: rel_ctx.comments_relationship_id,
+            key_path: rel_ctx.comments_part,
+          }),
+        )
+        for line in comment_lines {
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::ListItem(false, 0, line),
+            Some({
+              source_name: Some(src),
+              page: None,
+              slide: Some(idx),
+              sheet: None,
+              block_index: Some(doc.blocks.val.length()),
+              heading_path: Some([slide_heading, "Comments"]),
+              line_start: None,
+              line_end: None,
+              row_index: None,
+              column_index: None,
+              object_ref: rel_ctx.comments_part,
+              relationship_id: rel_ctx.comments_relationship_id,
+              key_path: rel_ctx.comments_part,
+            }),
+          )
+        }
+      }
 
       if note_paras.length() > 0 {
         @cor.push_with_origin(

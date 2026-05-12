@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Extract Level 1 PPTX comments from `ppt/comments/*.xml` plus
+  `ppt/commentAuthors.xml`, preserving minimal author/text semantics in
+  `doc_parse/pptx` and lowering them in `convert/pptx` to a conservative
+  per-slide `Comments` appendix, while leaving bubble rendering, position
+  recovery, threaded replies, and modern comments extensions out of scope.
 * Extract Level 1 cached PPTX chart data from PresentationML chart parts,
   preserving minimal series/category/value semantics from chart XML cache in
   `doc_parse/pptx` and lowering aligned cache data to `RichTable` with a

@@ -71,6 +71,7 @@ fn parse_pptx_slide(
   pkg : @ox.OoxmlPackage,
   entry : PptxSlideEntry,
   index : Int,
+  author_map : Map[String, PptxCommentAuthor],
 ) -> PptxSlide raise {
   let slide_xml = @ox.read_part_bytes(pkg, entry.part_name) catch {
     e => raise PptxError::ParseError("malformed slide xml: " + e.to_string())
@@ -94,6 +95,7 @@ fn parse_pptx_slide(
   let tables = collect_shape_tables(shape_tree)
   let media_refs = collect_shape_media_refs(shape_tree)
   let hyperlink_refs = collect_shape_hyperlinks(shape_tree)
+  let comments = parse_pptx_slide_comments(pkg, rels, author_map, issues)
   let notes = parse_pptx_notes(pkg, rels, issues)
   for link in collect_note_hyperlinks(notes) {
     hyperlink_refs.push(link)
@@ -111,6 +113,7 @@ fn parse_pptx_slide(
     tables,
     media_refs,
     hyperlink_refs,
+    comments,
     notes,
     issues,
   }

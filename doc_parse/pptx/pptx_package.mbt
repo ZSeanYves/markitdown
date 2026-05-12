@@ -33,6 +33,8 @@ pub fn parse_pptx_presentation_from_package(
 
   let issues : Array[PptxValidationIssue] = []
   let relationships = read_pptx_relationship_index(pkg, "ppt/presentation.xml")
+  let comment_authors = read_pptx_comment_authors(pkg)
+  let comment_author_map = build_pptx_comment_author_map(comment_authors)
   let raw_entries = parse_presentation_slide_entries(pres_xml)
   let slide_entries : Array[PptxSlideEntry] = []
 
@@ -109,7 +111,7 @@ pub fn parse_pptx_presentation_from_package(
       index += 1
       continue
     }
-    let slide = parse_pptx_slide(pkg, entry, index)
+    let slide = parse_pptx_slide(pkg, entry, index, comment_author_map)
     for issue in slide.issues {
       issues.push(issue)
     }
@@ -123,7 +125,7 @@ pub fn parse_pptx_presentation_from_package(
     index += 1
   }
 
-  { slides, relationships, media_refs, hyperlink_refs, issues }
+  { slides, relationships, media_refs, hyperlink_refs, comment_authors, issues }
 }
 
 ///|

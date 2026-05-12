@@ -29,6 +29,8 @@ pub struct PptxRelationshipIndex {
   relationships : Array[PptxRelationship]
   notes_part : String?
   notes_relationship_id : String?
+  comments_part : String?
+  comments_relationship_id : String?
 }
 
 ///|
@@ -177,6 +179,22 @@ pub struct PptxNotes {
 }
 
 ///|
+pub struct PptxCommentAuthor {
+  id : String
+  name : String
+  initials : String?
+}
+
+///|
+pub struct PptxComment {
+  author_id : String
+  author_name : String?
+  text : String
+  idx : String?
+  datetime : String?
+}
+
+///|
 /// Source-native slide model with raw shape, text, table, notes, media, and
 /// hyperlink signals.
 pub struct PptxSlide {
@@ -191,6 +209,7 @@ pub struct PptxSlide {
   tables : Array[PptxTable]
   media_refs : Array[PptxMediaRef]
   hyperlink_refs : Array[PptxHyperlink]
+  comments : Array[PptxComment]
   notes : PptxNotes?
   issues : Array[PptxValidationIssue]
 }
@@ -202,6 +221,7 @@ pub struct PptxPresentation {
   relationships : PptxRelationshipIndex
   media_refs : Array[PptxMediaRef]
   hyperlink_refs : Array[PptxHyperlink]
+  comment_authors : Array[PptxCommentAuthor]
   issues : Array[PptxValidationIssue]
 }
 
@@ -274,6 +294,7 @@ pub struct PptxInspectReport {
   media_ref_count : Int
   hyperlink_count : Int
   notes_count : Int
+  comment_count : Int
   issue_count : Int
   warning_count : Int
   error_count : Int
@@ -308,7 +329,13 @@ priv struct PptxShapeParseContext {
 
 ///|
 fn empty_pptx_relationship_index() -> PptxRelationshipIndex {
-  { relationships: [], notes_part: None, notes_relationship_id: None }
+  {
+    relationships: [],
+    notes_part: None,
+    notes_relationship_id: None,
+    comments_part: None,
+    comments_relationship_id: None,
+  }
 }
 
 ///|
