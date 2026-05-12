@@ -28,7 +28,9 @@ Current limitations:
 * this intake surface does not currently prove any repository-wide quality level
 * signals are intentionally lightweight and incomplete
 * no global quality percentage is claimed
-* current PDF and PPTX quality remain active hardening work
+* signal-level passes are not full-output oracles
+* current local hardening remains ongoing for heavier PDF, DOCX, XLSX, and
+  PPTX boundary samples
 
 ## Layout
 
@@ -117,7 +119,34 @@ Example local boundary row:
 
 * `pandoc_biblio_yaml`
   * `quality_tier=known_bad`
-  * `notes=current YAML converter does not support multi-document markers`
+  * `notes=true multi-document YAML stream remains unsupported`
+
+Current local source status:
+
+* `microsoft_markitdown_tests`: fixed `known_bad` rows have been retired; the
+  current locally approved set passes
+* `pandoc_tests`: still keeps `pandoc_biblio_yaml` as the one active
+  `known_bad` row because true multi-document YAML streams remain unsupported
+* `python_pptx_tests`: currently exercises small PPTX notes and visible
+  hyperlink rows
+* `openxml_sdk_tests`: currently exercises a small PPTX comments/commentAuthors
+  row
+
+Current locally exercised PPTX coverage includes:
+
+* image / alt / caption
+* table
+* grouped shapes
+* cached chart data
+* speaker notes
+* visible hyperlinks
+* comments / commentAuthors
+
+Typical row lifecycle for a real boundary sample:
+
+* `known_bad` while the unsupported boundary is being tracked
+* `unexpected_pass` once a real fix lands
+* local retier to `reference` after the row is rechecked and passes cleanly
 
 ## Commands
 
@@ -251,6 +280,8 @@ Rules:
 * `external_sources.tsv` is not an integrated corpus
 * external rows require manual license review before execution
 * tool and dataset outputs are references, not oracles
+* local external rows live in ignored manifests and should not be committed
+* external files stay outside git under local cache roots
 * large datasets such as PubLayNet, CDLA, and TableBank should be sampled
   manually rather than mirrored wholesale
 * layout/table datasets are mainly structural references, not direct text-PDF

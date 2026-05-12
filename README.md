@@ -191,6 +191,12 @@ checked Markdown and exact CLI metadata expectations under
 `samples/quality_corpus` is now reserved for signal-level external/private
 quality intake. Its public manifest may stay intentionally empty until
 externally sourced rows are manually curated and license-reviewed.
+Current local hardening has already exercised manually curated rows from
+Microsoft MarkItDown tests, Pandoc tests, `python-pptx`, and Open XML SDK
+fixtures. Those rows are signal-level evidence only, not format or tool
+oracles; the current remaining local `known_bad` boundary is
+`pandoc_biblio_yaml`, a true multi-document YAML stream that remains
+unsupported.
 
 Benchmark operations and performance caveats are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md) and

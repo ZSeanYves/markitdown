@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* Document the current external-corpus hardening state across README/support/
+  roadmap/quality-corpus docs: local signal-level intake is now operational,
+  real external rows have already driven fixes for PDF word-boundary repair,
+  ZIP Level 1 data descriptors, YAML single-document markers, PPTX cached
+  chart data, and PPTX comments, and the active local `known_bad` boundary
+  remains `pandoc_biblio_yaml` because true multi-document YAML streams are
+  still unsupported.
 * Extract Level 1 PPTX comments from `ppt/comments/*.xml` plus
   `ppt/commentAuthors.xml`, preserving minimal author/text semantics in
   `doc_parse/pptx` and lowering them in `convert/pptx` to a conservative
@@ -17,6 +24,9 @@
   sizes/CRC/offsets are known, so OOXML packages can open entries written with
   bit-3 data descriptors while ZIP64/encrypted/multi-disk/full streaming
   descriptor support remains unsupported.
+* Expand local `samples/quality_corpus` diagnostics and `known_bad` reporting
+  so real external boundary rows stay visible as `expected_fail` /
+  `unexpected_pass` signals without changing the default conversion output.
 
 * Remove the legacy checked `samples/real_world` corpus because it was
   synthetic/regression-like rather than reliable real-world quality evidence,

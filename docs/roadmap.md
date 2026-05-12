@@ -19,6 +19,11 @@ This page is the current roadmap source of truth for the repository.
 * benchmark:
   unified entrypoint through `./samples/bench.sh`, including the focused
   cold-start CLI suite with external vs main-internal startup attribution
+* external/private quality gate:
+  `samples/quality_corpus/` is now operational as a local signal-level intake
+  path, with real external rows already used to validate fixes for PDF word
+  boundaries, ZIP Level 1 data descriptors, YAML single-document markers,
+  PPTX cached chart data, and PPTX comments
 
 ## Near-term Release Work
 
@@ -79,6 +84,17 @@ This page is the current roadmap source of truth for the repository.
 * require license review before vendoring any external dataset or tool fixture
 * legacy synthetic `samples/real_world` has been removed and is no longer
   current release quality evidence
+* continue turning real external `known_bad` rows into passing `reference`
+  rows only when the converter behavior is actually verified locally
+
+### 7. External hardening follow-ups
+
+* find more PDF table/layout samples with small, stable external signals
+* add more XLSX external rows around formula cache and merged-cell boundaries
+* add heavier DOCX rows for footnotes/comments/hyperlinks where the files stay
+  small and license-clean
+* keep true multi-document YAML support as optional future work rather than
+  a release blocker
 
 ## Later Work
 

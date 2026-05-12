@@ -324,10 +324,14 @@ Supported:
 * table-like / callout-like / caption-like region handling
 * run-level and basic shape-level external hyperlink recovery
 * slide-local speaker notes extraction
+* per-slide comments/commentAuthors extraction with conservative author/text
+  appendix output
+* cached chart-data extraction from PresentationML chart-part XML cache
 * hidden slide annotation with content-preserving output
 * exported images through unified `ImageBlock`
 * OOXML document properties in the explicit `--with-metadata` sidecar path
-* relationship/source provenance for hyperlinks, tables, images, and notes
+* relationship/source provenance for hyperlinks, tables, images, notes, and
+  comments
 
 Conservative behavior:
 
@@ -337,6 +341,11 @@ Conservative behavior:
   `a:tblPr firstRow="0|false"` disables it
 * speaker notes are emitted under the owning slide as a conservative append
   subsection
+* comments are emitted under the owning slide as a conservative append
+  subsection with minimal `author: text` lines rather than inline bubble
+  reconstruction
+* aligned cached chart-data can lower to `RichTable`, while irregular cache
+  falls back to conservative text
 * heuristic "table-like" recovery still exists for non-table shape layouts
 * grouped shapes preserve conservative `object_ref` provenance through
   reading-order text lowering when lower-layer shape identity is available
@@ -346,17 +355,20 @@ Conservative behavior:
 Known limits:
 
 * no advanced multi-image caption pairing
-* no comments output yet
 * no semantic table IR for heuristic table-like regions
 * no visual merged-table reconstruction
 * no internal/action/media hyperlink promotion
-* no chart / SmartArt / OLE / embedded-media semantics
+* no chart rendering or embedded-workbook chart fallback
+* no chart style/color/axis/legend/layout semantics
+* no comment bubble positioning, shape-anchor recovery, or threaded/modern
+  comments semantics
+* no SmartArt / OLE / embedded-media semantics
 * no pixel-perfect grouped-layout or z-order reconstruction
 * not a PowerPoint layout engine
 * no animations / transitions
 * `doc_parse/pptx` does not claim reading-order recovery, layout grouping,
-  image export, final Speaker Notes section policy, or final heading/list
-  classification ownership
+  image export, final Speaker Notes / Comments section policy, or final
+  heading/list classification ownership
 
 ### XLSX
 
@@ -613,6 +625,7 @@ Supported:
 * UTF-8 BOM removal
 * CRLF / CR normalization
 * `'...'` / `"..."` quoted scalar support
+* single-document leading `---` and trailing `...` marker compatibility
 * comment-only / blank-line-only input handling
 
 Conservative behavior:
@@ -628,7 +641,8 @@ Conservative behavior:
 Known limits:
 
 * no anchors / aliases / tags
-* no block scalar / flow style / multi-document input
+* no block scalar / flow style
+* no true multi-document input stream support
 * no full YAML spec support
 * no nested provenance beyond root `key_path`
 * duplicate keys keep parser source order; no merge-key semantics are added
@@ -751,6 +765,8 @@ Supported:
 * safe normalized entry traversal
 * directory and common macOS metadata skip
 * normalized path ordering
+* Level 1 bit-3 data-descriptor handling when central-directory sizes/CRC are
+  available
 * supported nested entries:
   * Markdown / CSV / TSV / TXT / XML / JSON / YAML / static HTML
   * self-contained DOCX / PPTX / XLSX / PDF
@@ -777,7 +793,9 @@ Known limits:
 * no remote HTML asset fetch
 * no absolute / root-relative / parent / scheme-like / backslash HTML local-image export
 * normalized collisions and unsupported low-level ZIP features fail closed
-* no ZIP64 / data-descriptor / encrypted-ZIP support in the current H2 path
+* no ZIP64 / encrypted-ZIP / multi-disk ZIP support
+* no full streaming data-descriptor parser beyond the current Level 1
+  central-directory-known-size case
 
 Current second-round note:
 
