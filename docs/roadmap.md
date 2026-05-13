@@ -116,6 +116,9 @@ This page is the current roadmap source of truth for the repository.
   probe APIs, and report wiring before any real engine integration
 * keep the first real provider narrow: explicit `tesseract-cli` page-image OCR
   before any broader PDF-wrapper or model-backed OCR route
+* keep OCR image-suite validation focused on explicit CLI/provider boundaries
+  first, with optional local `tesseract-cli` smoke outside the default sample
+  gate and without turning the suite into an OCR-quality claim
 * keep direct PDF OCR in the explicit-provider/future-PDF-wrapper lane rather
   than forcing `tesseract-cli` image assumptions onto the normal converter
 * keep layout assistance advisory/report-only first; only consider guarded

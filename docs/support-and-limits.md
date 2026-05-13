@@ -944,6 +944,13 @@ It should currently be understood as:
 * currently includes an explicit `tesseract-cli` page-image provider route
 * the `ocr` CLI path can now route explicit image inputs through
   `--provider tesseract-cli` and `--lang ...`
+* the checked-in OCR image suite verifies explicit CLI/provider boundary
+  behavior such as unknown providers, unsupported extensions, lazy
+  unavailable-provider messages, and image-path routing without turning OCR
+  into a normal-path gate
+* an optional local `tesseract-cli` smoke can be run manually when external
+  tooling is present, but it is not part of the default CI/sample gate and is
+  not treated as an OCR quality benchmark
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion

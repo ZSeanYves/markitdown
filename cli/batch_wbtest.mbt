@@ -131,6 +131,53 @@ async test "ocr cli unsupported provider path returns clear error" {
 }
 
 ///|
+async test "ocr cli unsupported input extension returns stable error" {
+  let root = test_tmp_root() + "/ocr-unsupported-input"
+  recreate_clean_dir(root)
+  let input = root + "/page.bin"
+  write_utf8_text(input, "fake non-image")
+
+  let result = run_ocr_cli(
+    input,
+    None,
+    Some("tesseract-cli"),
+    Some("eng"),
+    false,
+  ) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected unsupported OCR input to fail")
+    Err(msg) => {
+      assert_contains(
+        msg,
+        "OCR input type is unsupported for provider mode: " + input,
+      )
+      assert_contains(
+        msg, "supported image inputs: png/jpg/jpeg/tif/tiff/bmp/webp; PDF stays on explicit PDF OCR path",
+      )
+    }
+  }
+}
+
+///|
+async test "ocr cli image input stays on explicit provider path" {
+  let root = test_tmp_root() + "/ocr-image-explicit"
+  recreate_clean_dir(root)
+  let image = root + "/page.png"
+  write_utf8_text(image, "fake image")
+
+  let result = run_ocr_cli(image, None, Some("noop"), None, false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected noop OCR provider image path to fail closed")
+    Err(msg) =>
+      assert_contains(msg, "noop OCR provider does not perform recognition")
+  }
+}
+
+///|
 async test "ocr cli pdf input keeps explicit pdf path for tesseract" {
   let pdf = batch_resolve_sample("samples/main_process/pdf/text_simple.pdf")
 
@@ -174,6 +221,35 @@ test "ocr cli parser accepts provider and lang named args" {
         Some(code) => assert_eq(code, "eng+chi_sim")
         None => fail("expected lang value")
       }
+      assert_true(sub.positional_args == ["page.png", "out.txt"])
+    }
+    None => fail("expected ocr subcommand")
+  }
+}
+
+///|
+test "ocr cli parser accepts missing optional provider and lang" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
+    e =>
+      fail(
+        "OCR parser should accept missing optional provider/lang args: " +
+        e.to_string(),
+      )
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "ocr")
+      let provider : String? = @clap.SimpleValue::get_option(sub, "provider") catch {
+        e => fail("provider option lookup failed: " + e.to_string())
+      }
+      let lang : String? = @clap.SimpleValue::get_option(sub, "lang") catch {
+        e => fail("lang option lookup failed: " + e.to_string())
+      }
+      assert_true(provider == None)
+      assert_true(lang == None)
       assert_true(sub.positional_args == ["page.png", "out.txt"])
     }
     None => fail("expected ocr subcommand")

@@ -131,6 +131,7 @@ run_contract_chain() {
   run_stage_or_stop "cli_contract" "$ROOT/samples/helpers/check_cli_contract.sh"
   run_stage_or_stop "debug_contract" "$ROOT/samples/helpers/check_debug_contract.sh"
   run_stage_or_stop "batch_contract" "$ROOT/samples/helpers/check_batch_contract.sh"
+  run_stage_or_stop "ocr_contract" "$ROOT/samples/helpers/check_ocr_contract.sh"
 }
 
 STAGE_RESULTS=()

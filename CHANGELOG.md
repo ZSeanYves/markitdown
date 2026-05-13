@@ -35,6 +35,10 @@
   supported image inputs, including explicit provider/lang selection and clear
   unavailable/unsupported errors, while keeping `normal` unchanged and leaving
   direct PDF OCR outside the `tesseract-cli` path.
+* Add an OCR image sample/contract suite for the explicit `ocr` CLI path,
+  covering unknown-provider, unsupported-input, unavailable-provider, and
+  image-route boundary behavior in the default gate, plus an optional local
+  `tesseract-cli` smoke that stays outside CI and does not claim OCR quality.
 * Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
   reports, using conservative heuristic-provider signals and provider summaries
   without changing normal Markdown output or enabling model-backed decisions.

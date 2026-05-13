@@ -109,6 +109,10 @@ async fn run_image_ocr_cli(
     provider_name.trim().to_owned()
   }
 
+  if !is_known_image_ocr_provider(provider) {
+    return Err("unknown OCR provider: " + provider)
+  }
+
   let probed = @pdfocr.probe_known_ocr_provider(provider)
   match probed {
     Some(info) =>
@@ -138,6 +142,14 @@ async fn run_image_ocr_cli(
   }
 
   Ok(())
+}
+
+///|
+fn is_known_image_ocr_provider(name : String) -> Bool {
+  name == "noop" ||
+  name == "tesseract-cli" ||
+  name == "ocrmypdf-cli" ||
+  name == "paddleocr"
 }
 
 ///|

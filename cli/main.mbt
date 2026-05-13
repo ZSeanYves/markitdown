@@ -289,11 +289,11 @@ fn new_cli_parser() -> @clap.Parser {
         help="Explicit OCR mode: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output]",
         args={
           "provider": @clap.Arg::named(
-            nargs=Fixed(1),
+            nargs=AtMost(1),
             help="Explicit OCR provider name (default: tesseract-cli)",
           ),
           "lang": @clap.Arg::named(
-            nargs=Fixed(1),
+            nargs=AtMost(1),
             help="OCR language code(s), e.g. eng or eng+chi_sim",
           ),
           "with-metadata": @clap.Arg::flag(
