@@ -105,6 +105,16 @@ This page is the current roadmap source of truth for the repository.
 * keep scan-only PDF rows as boundary evidence rather than claiming OCR-first
   default support
 
+### 8. Report-only diagnostics and explicit provider routes
+
+* keep PDF scan/image-only detection report-first by reusing current
+  inspect/debug signal rather than changing Markdown output
+* make the local quality corpus more dashboard-like with by-format/source/tier
+  rollups and retained-boundary lists
+* refine explicit OCR around provider contracts and lazy availability probing
+* keep layout assistance advisory/report-only first; only consider guarded
+  normal-path use after benchmark and corpus evidence
+
 ## Later Work
 
 * optional split into standalone `ZSeanYves/doc_parse`
@@ -124,6 +134,8 @@ This page is the current roadmap source of truth for the repository.
   format/font-specific fallback work
 * prefer plugin/external OCR provider interfaces over bundling OCR runtimes
   into the default fast native package
+* keep layout-assist providers advisory by default; do not let model-backed
+  assistance silently replace the rule-driven main chain
 * deeper DOCX/PPTX normal-path integration if justified
 * manually curated external/private quality corpus growth
 * fuzz / malformed corpus

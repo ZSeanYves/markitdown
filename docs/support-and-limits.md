@@ -479,6 +479,9 @@ Conservative behavior:
   evidence for this path, not a claim of full bidi/typography fidelity
 * image-only or scan-only PDFs in `normal` mode currently degrade to exported
   page/image assets rather than synthesized OCR text
+* inspect/debug now exposes report-only PDF text-signal diagnostics such as
+  `text_signal_level`, `image_only`, `ocr_recommended`, and native text/image
+  counts without changing Markdown output
 * the checked-in `samples/pdf_layout_classifier` training spike is export/train/
   infer tooling only; it does not change default PDF Markdown output, does not
   enable OCR, and does not connect a visual layout runtime into the normal path
@@ -508,6 +511,8 @@ Known limits:
 * scan-only/image-only PDFs may surface as OCR candidates in debug/inspect or
   quality-report workflows, but that does not change the default `normal` mode
   output contract
+* OCR and layout-assist backends are expected to stay behind explicit provider
+  or plugin routes rather than broad hidden fallbacks in `normal`
 * the current lightweight layout classifier spike is local-corpus-only and is
   not wired into the default conversion decision path
 * bad `/ToUnicode` maps can still legitimately yield replacement characters or

@@ -486,7 +486,9 @@ Current support matrix shorthand:
   GBK/GB18030 fallback is active in the default native path
 - inspect/report already exposes low-text/image-only signal such as
   `has_text_signal`, `has_image_signal`, low-signal counts, and
-  `native_signal_empty`; the default native parse path still does not OCR
+  `native_signal_empty`; report-only diagnostics now also summarize
+  `text_signal_level`, `image_only`, `ocr_recommended`, and native
+  char/image counts; the default native parse path still does not OCR
 
 ## Performance Note
 

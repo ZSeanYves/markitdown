@@ -16,6 +16,11 @@
   stays text-first and image-asset-preserving, scan-only rows can remain
   `reference` in the native quality gate, and OCR remains explicit rather than
   a hidden normal-path fallback.
+* Add report-only PDF text-signal/OCR-candidate diagnostics to inspect/debug,
+  expand `samples/quality_corpus` into a richer local dashboard with
+  by-format/source/tier rollups plus retained-boundary lists, and document the
+  explicit OCR-provider and advisory layout-assist provider routes without
+  changing default Markdown output.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

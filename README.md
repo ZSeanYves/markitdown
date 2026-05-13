@@ -205,6 +205,9 @@ current matrix and limits, use [Support and Limits](./docs/support-and-limits.md
 and [doc_parse/pdf/README.md](./doc_parse/pdf/README.md).
 Image-only PDFs stay on native image/assets output unless users explicitly
 choose OCR.
+PDF inspect/debug now also surfaces report-only text-signal and OCR-candidate
+diagnostics, while OCR and layout assistance remain explicit provider paths
+rather than default-path behavior.
 
 Benchmark operations and performance caveats are tracked in
 [docs/benchmarking.md](./docs/benchmarking.md) and
@@ -234,6 +237,8 @@ Current boundary:
 * [Roadmap](./docs/roadmap.md)
 * [Benchmarking Guide](./docs/benchmarking.md)
 * [Support and Limits](./docs/support-and-limits.md)
+* [OCR Provider Design](./docs/ocr-provider-design.md)
+* [Layout-Assist Provider Design](./docs/layout-assist-provider-design.md)
 * [doc_parse Overview](./doc_parse/README.md)
 * [doc_parse Foundation](./docs/doc-parse-foundation.md)
 * [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
