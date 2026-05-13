@@ -88,6 +88,51 @@ async test "debug inspect report works for zip" {
 }
 
 ///|
+async test "debug providers ocr listing stays lazy without probe" {
+  let rendered = render_provider_listing(
+    @cor.DebugOutputKind::Json,
+    true,
+    false,
+    false,
+  )
+  debug_assert_contains(rendered, "\"kind\": \"provider_listing\"")
+  debug_assert_contains(rendered, "\"probe_requested\": false")
+  debug_assert_contains(rendered, "\"ocr_providers\"")
+  debug_assert_contains(rendered, "\"name\": \"noop\"")
+  debug_assert_contains(rendered, "\"name\": \"tesseract-cli\"")
+  debug_assert_contains(rendered, "\"name\": \"ocrmypdf-cli\"")
+  debug_assert_contains(rendered, "\"name\": \"paddleocr\"")
+  debug_assert_contains(rendered, "\"probe_status\": \"not_run\"")
+}
+
+///|
+async test "debug providers layout assist listing is stable" {
+  let rendered = render_provider_listing(
+    @cor.DebugOutputKind::Json,
+    false,
+    true,
+    false,
+  )
+  debug_assert_contains(rendered, "\"layout_assist_providers\"")
+  debug_assert_contains(rendered, "\"name\": \"noop-layout-assist\"")
+  debug_assert_contains(rendered, "\"name\": \"heuristic-layout-assist\"")
+  debug_assert_contains(rendered, "\"mode\": \"report_only\"")
+}
+
+///|
+async test "debug providers probe path is explicit and skip safe" {
+  let rendered = render_provider_listing(
+    @cor.DebugOutputKind::Json,
+    true,
+    false,
+    true,
+  )
+  debug_assert_contains(rendered, "\"probe_requested\": true")
+  debug_assert_contains(rendered, "\"ocr_providers\"")
+  debug_assert_contains(rendered, "\"name\": \"noop\"")
+}
+
+///|
 fn unwrap_or_fail(
   result : Result[@cor.DebugReport, String],
   message : String,

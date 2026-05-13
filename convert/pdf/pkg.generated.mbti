@@ -19,15 +19,25 @@ pub fn default_pdf_layout_feature_tsv_columns() -> Array[String]
 
 pub async fn export_pdf_layout_features_tsv(String, String, String) -> String
 
+pub fn heuristic_layout_assist_provider_info() -> LayoutAssistProviderInfo
+
 pub fn infer_pdf_layout_features_tsv(String, String) -> Result[String, PdfLayoutModelError]
 
+pub fn list_layout_assist_providers() -> Array[LayoutAssistProviderInfo]
+
 pub fn make_pdf_layout_feature(String, String, PdfLayoutRecordKind, Int, Int, Int, Int?, Int?, Int?, String, String?, String?, Map[String, Double]) -> PdfLayoutFeature
+
+pub fn noop_layout_assist_provider_info() -> LayoutAssistProviderInfo
 
 pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
 
 pub fn parse_pdf_layout_features_tsv(String) -> Result[Array[PdfLayoutFeature], PdfLayoutModelError]
 
 pub fn parse_pdf_layout_model_json(String) -> Result[PdfLayoutModel, PdfLayoutModelError]
+
+pub fn predict_with_heuristic_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
+
+pub fn predict_with_noop_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
 
 pub fn render_pdf_layout_decisions_tsv(Array[PdfLayoutFeature], Array[PdfLayoutModelDecision]) -> String
 
@@ -42,6 +52,36 @@ pub fn validate_pdf_layout_model(PdfLayoutModel) -> Result[Unit, PdfLayoutModelE
 // Errors
 
 // Types and methods
+pub struct LayoutAssistFeature {
+  target_id : String
+  text : String
+  page_index : Int
+  block_kind_hint : String?
+  metrics_json : String?
+}
+
+pub enum LayoutAssistMode {
+  ReportOnly
+  Advisory
+  GatedNormal
+} derive(Eq)
+
+pub struct LayoutAssistPrediction {
+  target_id : String
+  suggested_label : String
+  confidence : Double?
+  provider : String
+  mode : LayoutAssistMode
+  reasons : Array[String]
+}
+
+pub struct LayoutAssistProviderInfo {
+  name : String
+  version : String?
+  mode : LayoutAssistMode
+  available : Bool
+}
+
 pub struct PdfLayoutFeature {
   sample_id : String
   source_path : String

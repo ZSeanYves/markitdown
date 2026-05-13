@@ -36,6 +36,8 @@ But:
 
 * held-out quality is still limited
 * current results are useful for experiments, not for default output control
+* the repository now carries a light provider skeleton, but it stays
+  report-only and does not load model files by default
 
 ## Provider interface
 
@@ -50,6 +52,15 @@ LayoutAssistProvider
   predict_block_features(features) -> Result[LayoutAssistPrediction, LayoutAssistError]
   predict_page(features) -> Result[Array[LayoutAssistPrediction], LayoutAssistError]
 ```
+
+Current implementation status:
+
+* `noop-layout-assist` exists as a stable always-available skeleton provider
+* `heuristic-layout-assist` exists as a conservative report-only wrapper
+* both providers stay inside the existing rule/feature world
+* no external model runtime or model file is loaded by default
+* debug-only provider listing can surface these providers without enabling
+  predictions in the normal conversion path
 
 Suggested prediction shape:
 
@@ -90,6 +101,7 @@ LayoutAssistPrediction
 Current recommendation:
 
 * keep the default provider route at `report_only`
+* do not wire provider predictions into normal conversion decisions yet
 
 ## Suggested providers
 
@@ -124,6 +136,8 @@ Near term:
 
 * surface a provider design and optionally a light skeleton
 * keep layout assistance report-only
+* use the skeleton for tests/debug/report wiring before any main-chain
+  integration
 
 Mid term:
 

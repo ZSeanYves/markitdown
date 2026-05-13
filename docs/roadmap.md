@@ -112,8 +112,12 @@ This page is the current roadmap source of truth for the repository.
 * make the local quality corpus more dashboard-like with by-format/source/tier
   rollups and retained-boundary lists
 * refine explicit OCR around provider contracts and lazy availability probing
+* keep OCR provider rollout on lightweight skeletons first: descriptors, lazy
+  probe APIs, and report wiring before any real engine integration
 * keep layout assistance advisory/report-only first; only consider guarded
   normal-path use after benchmark and corpus evidence
+* keep layout-assist rollout on report-only skeletons before any model-backed
+  or normal-path experiment
 
 ## Later Work
 

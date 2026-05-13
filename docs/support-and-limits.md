@@ -513,6 +513,11 @@ Known limits:
   output contract
 * OCR and layout-assist backends are expected to stay behind explicit provider
   or plugin routes rather than broad hidden fallbacks in `normal`
+* lightweight OCR/layout-assist provider skeletons may exist for lazy
+  descriptor/probe/report wiring, but they do not imply bundled OCR engines,
+  bundled model files, or normal-path activation
+* debug-only provider listing/probe surfaces may expose provider availability
+  state, but availability does not mean OCR has been run
 * the current lightweight layout classifier spike is local-corpus-only and is
   not wired into the default conversion decision path
 * bad `/ToUnicode` maps can still legitimately yield replacement characters or
@@ -930,6 +935,9 @@ It should currently be understood as:
 
 * available for explicit use
 * dependent on external tooling
+* now accompanied by lightweight provider skeletons and design docs
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion
+* provider availability/probing should remain explicit and lazy rather than
+  part of normal CLI startup

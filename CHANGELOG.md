@@ -21,6 +21,12 @@
   by-format/source/tier rollups plus retained-boundary lists, and document the
   explicit OCR-provider and advisory layout-assist provider routes without
   changing default Markdown output.
+* Add lightweight OCR and layout-assist provider skeletons with lazy
+  descriptor/probe/report wiring, stable `noop` baselines, and explicit
+  non-goals around bundled runtimes/models or normal-path decision changes.
+* Add a debug-only provider listing/probe surface so OCR/layout-assist
+  skeletons can be inspected explicitly without changing the normal path or
+  implying that OCR has run.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

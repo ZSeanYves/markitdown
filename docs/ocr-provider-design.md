@@ -36,6 +36,16 @@ Current CLI paths:
   * explicit OCR path
   * today backed by the existing OCR pipeline and external runtime probing
 
+Current provider skeleton state:
+
+* the repository now carries a lightweight OCR provider skeleton
+* the skeleton exposes:
+  * static provider descriptors
+  * a lazy explicit probe API
+  * a `noop` provider for report/test wiring
+* the skeleton does **not** execute OCR engines yet
+* no OCR runtime is bundled into the default build
+
 Current repository policy:
 
 * scan-only/image-only PDFs are not native-text failures
@@ -44,8 +54,8 @@ Current repository policy:
 
 ## Provider interface
 
-Future OCR should sit behind a provider interface so the CLI and converter
-layer do not depend on a single engine.
+OCR should sit behind a provider interface so the CLI and converter layer do
+not depend on a single engine.
 
 Suggested interface shape:
 
@@ -59,6 +69,19 @@ OcrProvider
   recognize_page_image(page_image, options) -> Result[OcrPageResult, OcrError]
   recognize_pdf(path, options) -> Result[OcrDocumentResult, OcrError]
 ```
+
+Current implementation status:
+
+* provider descriptors exist for:
+  * `noop`
+  * `tesseract-cli`
+  * `ocrmypdf-cli`
+  * `paddleocr`
+* known providers stay unprobed until explicit probe calls
+* recognition APIs currently fail closed with `unavailable` /
+  `not implemented` rather than spawning external commands
+* debug-only provider listing now exists, and `--probe` is required before any
+  availability check runs
 
 Suggested result shapes:
 
@@ -101,6 +124,14 @@ Provider availability should stay lazy:
 * do not scan model directories on every CLI run
 * only resolve OCR provider availability when the user explicitly requests OCR
   or an OCR-specific debug/bench flow
+
+Current skeleton follows that rule:
+
+* listing known providers is pure/static
+* normal CLI does not probe provider availability
+* the skeleton does not scan model directories
+* the skeleton does not spawn subprocesses unless an explicit probe API is
+  called
 
 ## Candidate providers
 
@@ -146,6 +177,7 @@ Near term:
 * keep OCR explicit
 * improve report-only OCR-needed detection
 * document provider contract
+* keep the provider skeleton runtime-free by default
 
 Mid term:
 
