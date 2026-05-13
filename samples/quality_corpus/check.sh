@@ -13,6 +13,13 @@ OUT_ROOT="$TMP_ROOT/quality_corpus"
 OUTPUT_DIR="$OUT_ROOT/outputs"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
+ROWS_TSV="$OUT_ROOT/rows.tsv"
+SUMMARY_BY_FORMAT_TSV="$OUT_ROOT/summary.by_format.tsv"
+SUMMARY_BY_SOURCE_TSV="$OUT_ROOT/summary.by_source.tsv"
+SUMMARY_BY_TIER_TSV="$OUT_ROOT/summary.by_tier.tsv"
+KNOWN_BAD_TSV="$OUT_ROOT/known_bad.tsv"
+UNEXPECTED_PASS_TSV="$OUT_ROOT/unexpected_pass.tsv"
+SKIPPED_LICENSE_TSV="$OUT_ROOT/skipped_license.tsv"
 MODE="all"
 FILTER_ID=""
 FILTER_SOURCE=""
@@ -549,16 +556,113 @@ PY
   esac
 }
 
+dashboard_add() {
+  local id="$1"
+  local format="$2"
+  local scope="$3"
+  local source_id="$4"
+  local quality_tier="$5"
+  local status="$6"
+  local passed_signals="$7"
+  local total_signals="$8"
+  local notes="$9"
+  DASHBOARD_ROWS+=("$id|$format|$scope|$source_id|$quality_tier|$status|$passed_signals|$total_signals|$notes")
+}
+
 summary_add() {
   local id="$1"
   local format="$2"
   local scope="$3"
-  local quality_tier="$4"
-  local status="$5"
-  local passed_signals="$6"
-  local total_signals="$7"
-  local notes="$8"
+  local source_id="$4"
+  local quality_tier="$5"
+  local status="$6"
+  local passed_signals="$7"
+  local total_signals="$8"
+  local notes="$9"
   SUMMARY_ROWS+=("$id|$format|$scope|$quality_tier|$status|$passed_signals|$total_signals|$notes")
+  dashboard_add "$id" "$format" "$scope" "$source_id" "$quality_tier" "$status" "$passed_signals" "$total_signals" "$notes"
+}
+
+write_dashboard_views() {
+  mkdir -p "$OUT_ROOT"
+  {
+    printf 'id\tformat\tscope\tsource_id\tquality_tier\tstatus\tpassed_signals\ttotal_signals\tnotes\n'
+    local row
+    for row in "${DASHBOARD_ROWS[@]-}"; do
+      [[ -z "$row" ]] && continue
+      printf '%s\n' "${row//|/$'\t'}"
+    done
+  } > "$ROWS_TSV"
+
+  python3 - "$ROWS_TSV" "$SUMMARY_BY_FORMAT_TSV" "$SUMMARY_BY_SOURCE_TSV" "$SUMMARY_BY_TIER_TSV" "$KNOWN_BAD_TSV" "$UNEXPECTED_PASS_TSV" "$SKIPPED_LICENSE_TSV" <<'PY'
+import csv
+import sys
+from collections import defaultdict
+
+rows_path, by_format_path, by_source_path, by_tier_path, known_bad_path, unexpected_pass_path, skipped_license_path = sys.argv[1:]
+
+with open(rows_path, "r", encoding="utf-8", newline="") as f:
+    rows = list(csv.DictReader(f, delimiter="\t"))
+
+STATUSES = [
+    "pass",
+    "fail",
+    "skip",
+    "skip_license",
+    "skip_missing_file",
+    "expected_fail",
+    "unexpected_pass",
+]
+TIERS = ["gate", "reference", "stress", "known_bad"]
+
+def write_rollup(path, key_name, key_fn):
+    groups = defaultdict(lambda: {k: 0 for k in (["total"] + STATUSES + TIERS)})
+    for row in rows:
+        key = key_fn(row)
+        group = groups[key]
+        group["total"] += 1
+        status = row["status"]
+        tier = row["quality_tier"]
+        if status in STATUSES:
+            group[status] += 1
+        if tier in TIERS:
+            group[tier] += 1
+
+    fieldnames = [key_name, "total"] + STATUSES + TIERS
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+        for key in sorted(groups):
+            row = {key_name: key}
+            row.update(groups[key])
+            writer.writerow(row)
+
+def write_filtered(path, predicate):
+    fieldnames = [
+        "id",
+        "format",
+        "scope",
+        "source_id",
+        "quality_tier",
+        "status",
+        "passed_signals",
+        "total_signals",
+        "notes",
+    ]
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+        for row in rows:
+            if predicate(row):
+                writer.writerow({k: row[k] for k in fieldnames})
+
+write_rollup(by_format_path, "format", lambda row: row["format"] or "-")
+write_rollup(by_source_path, "source_id", lambda row: row["source_id"] or "-")
+write_rollup(by_tier_path, "quality_tier", lambda row: row["quality_tier"] or "-")
+write_filtered(known_bad_path, lambda row: row["quality_tier"] == "known_bad")
+write_filtered(unexpected_pass_path, lambda row: row["status"] == "unexpected_pass")
+write_filtered(skipped_license_path, lambda row: row["status"] == "skip_license")
+PY
 }
 
 run_row() {
@@ -582,7 +686,7 @@ run_row() {
         profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "license_gate"
         profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip_license"
       fi
-      summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
+      summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_license" 0 0 "license_review_status=$license_review_status"
       return
     fi
   fi
@@ -599,13 +703,13 @@ run_row() {
     fi
     case "$source_scope" in
       external)
-        summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_missing_file" 0 0 "external cache file missing"
+        summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "external cache file missing"
         ;;
       private)
-        summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip_missing_file" 0 0 "private local file missing"
+        summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "private local file missing"
         ;;
       *)
-        summary_add "$id" "$format" "$source_scope" "$quality_tier" "fail" 0 0 "input file missing"
+        summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "fail" 0 0 "input file missing"
         ;;
     esac
     return
@@ -638,7 +742,7 @@ run_row() {
       profile_record "$id" "convert" "$(( $(profile_now_ms) - stage_start_ms ))" "cli_failed"
       profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$failure_status"
     fi
-    summary_add "$id" "$format" "$source_scope" "$quality_tier" "$failure_status" 0 0 "$failure_note"
+    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$failure_status" 0 0 "$failure_note"
     return
   fi
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
@@ -699,7 +803,7 @@ run_row() {
     if [[ "${#review_notes[@]}" -gt 0 ]]; then
       note_text="$note_text; review: ${review_notes[*]}"
     fi
-    summary_add "$id" "$format" "$source_scope" "$quality_tier" "skip" 0 0 "$note_text"
+    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip" 0 0 "$note_text"
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
       profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "skip"
       profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "skip"
@@ -720,7 +824,7 @@ run_row() {
         note_text="$note_text; review: ${review_notes[*]}"
       fi
     fi
-    summary_add "$id" "$format" "$source_scope" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
+    summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
     if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
       profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
       profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
@@ -740,7 +844,7 @@ run_row() {
       note_text="$note_text; review: ${review_notes[*]}"
     fi
   fi
-  summary_add "$id" "$format" "$source_scope" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
+  summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "$row_status" "$passed_signals" "$total_signals" "$note_text"
   if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
     profile_record "$id" "summary_row_write" "$(( $(profile_now_ms) - stage_start_ms ))" "$row_status"
     profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "$row_status"
@@ -851,9 +955,12 @@ write_summary() {
       fi
     fi
   } > "$SUMMARY_MD"
+
+  write_dashboard_views
 }
 
 SUMMARY_ROWS=()
+DASHBOARD_ROWS=()
 MANIFEST_ROWS=()
 while IFS= read -r row; do
   [[ -n "$row" ]] && MANIFEST_ROWS+=("$row")

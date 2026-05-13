@@ -234,6 +234,25 @@ helps identify a long-running signal even if the row does not finish.
 show `signal_start:no_empty_output` / `signal:no_empty_output` instead of the
 generic `unknown` marker for that first check.
 
+Current dashboard artifacts under `.tmp/quality_corpus/` include:
+
+* `summary.tsv`
+* `summary.md`
+* `rows.tsv`
+* `summary.by_format.tsv`
+* `summary.by_source.tsv`
+* `summary.by_tier.tsv`
+* `known_bad.tsv`
+* `unexpected_pass.tsv`
+* `skipped_license.tsv`
+
+These are reporting aids, not new gate semantics:
+
+* `known_bad.tsv` is a retained-boundary view, not a regression list
+* `unexpected_pass.tsv` highlights rows that may now deserve retiering
+* scan-only/image-only native rows should stay in the native dashboard and
+  only move to OCR-specific expectations in a future OCR suite
+
 Profile signal-level diagnostics on a larger EPUB row:
 
 ```bash
