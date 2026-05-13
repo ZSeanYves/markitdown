@@ -64,6 +64,10 @@ Current implementation status:
 * PDF debug/inspect can now surface advisory `layout_assist` provider summaries
   plus conservative report-only predictions without changing normal Markdown
   output
+* a debug-only evaluation surface can now summarize advisory prediction
+  coverage, label distribution, and top reasons across the local
+  `samples/pdf_layout_classifier` manifest without claiming production-quality
+  accuracy
 
 Suggested prediction shape:
 
@@ -108,6 +112,8 @@ Current recommendation:
 * do not wire provider predictions into normal conversion decisions yet
 * keep debug/inspect output explicit that these are advisory predictions rather
   than final block classifications
+* use evaluation output for coverage/distribution observation first; only
+  consider any stronger rollout if the local corpus evidence materially improves
 
 ## Suggested providers
 

@@ -181,6 +181,31 @@ test "ocr cli parser accepts provider and lang named args" {
 }
 
 ///|
+test "debug layout assist eval parser accepts missing optional split" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["debug", "layout-assist-eval"]) catch {
+    e =>
+      fail(
+        "debug layout-assist eval parser should accept missing split: " +
+        e.to_string(),
+      )
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "debug")
+      assert_eq(sub.positional_args, ["layout-assist-eval"])
+      let split : String? = @clap.SimpleValue::get_option(sub, "split") catch {
+        e => fail("split option lookup failed: " + e.to_string())
+      }
+      assert_eq(split, None)
+    }
+    None => fail("expected debug subcommand")
+  }
+}
+
+///|
 test "ocr cli language parser supports joined codes" {
   assert_eq(parse_ocr_lang_arg(None), [])
   assert_eq(parse_ocr_lang_arg(Some("eng")), ["eng"])

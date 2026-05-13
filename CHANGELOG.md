@@ -38,6 +38,10 @@
 * Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
   reports, using conservative heuristic-provider signals and provider summaries
   without changing normal Markdown output or enabling model-backed decisions.
+* Add a debug-only layout-assist evaluation surface that summarizes advisory
+  prediction coverage, label distribution, and top reasons across the local
+  PDF layout-classifier manifest, without claiming accuracy improvements or
+  changing default Markdown output.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

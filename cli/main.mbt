@@ -148,7 +148,7 @@ async fn main {
             "debug" => {
               if positional.length() == 0 {
                 exit_error(
-                  "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> | debug [--json] [--probe] providers [--ocr] [--layout-assist]",
+                  "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> | debug [--json] [--probe] providers [--ocr] [--layout-assist] | debug [--json] layout-assist-eval [--split <train|heldout>]",
                 )
                 print_cli_usage()
                 return
@@ -183,6 +183,30 @@ async fn main {
                 cmd_debug_providers(
                   debug_opts, include_ocr, include_layout, probe,
                 )
+              } else if first == "layout-assist-eval" {
+                if positional.length() != 1 {
+                  exit_error(
+                    "usage: debug [--json] layout-assist-eval [--split <train|heldout>]",
+                  )
+                  print_cli_usage()
+                  return
+                }
+
+                let output_kind = if sub.get_flag("json").unwrap_or(false) {
+                  @cor.DebugOutputKind::Json
+                } else {
+                  @cor.DebugOutputKind::HumanReadable
+                }
+                let debug_opts : DebugCliOptions = {
+                  output_kind,
+                  with_ir: false,
+                  with_metadata_summary: false,
+                  with_normalization: false,
+                }
+                let split = @clap.SimpleValue::get_option(sub, "split") catch {
+                  _ => None
+                }
+                cmd_debug_layout_assist_eval(debug_opts, split)
               } else if first == "all" ||
                 first == "extract" ||
                 first == "raw" ||
@@ -292,7 +316,7 @@ fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "debug": @clap.SubCommand::new(
-        help="Debug inspect/providers: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; debug [--json] [--probe] providers [--ocr] [--layout-assist] ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
+        help="Debug inspect/providers: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; debug [--json] [--probe] providers [--ocr] [--layout-assist] ; debug [--json] layout-assist-eval [--split train|heldout] ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
         args={
           "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
           "with-ir": @clap.Arg::flag(
@@ -313,11 +337,15 @@ fn new_cli_parser() -> @clap.Parser {
           "layout-assist": @clap.Arg::flag(
             help="Debug provider listing only: include layout-assist providers",
           ),
+          "split": @clap.Arg::named(
+            nargs=AtMost(1),
+            help="Debug layout-assist eval only: restrict manifest rows to train or heldout split",
+          ),
           "with-metadata": @clap.Arg::flag(
             help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Unified debug inspect input, provider listing keyword `providers`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
+            help="Unified debug inspect input, provider listing keyword `providers`, eval keyword `layout-assist-eval`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
           ),
         },
       ),
@@ -344,6 +372,9 @@ fn print_cli_usage() -> Unit {
   )
   println(
     "  markitdown-mb debug [--json] [--probe] providers [--ocr] [--layout-assist]",
+  )
+  println(
+    "  markitdown-mb debug [--json] layout-assist-eval [--split train|heldout]",
   )
   println(
     "  markitdown-mb debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",

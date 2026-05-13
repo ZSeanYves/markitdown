@@ -22,9 +22,36 @@ struct DebugParseResult {
 }
 
 ///|
+struct LayoutAssistEvalRow {
+  sample_id : String
+  split : String
+  file : String
+  page_count : Int
+  feature_count : Int
+  prediction_count : Int
+  provider : String
+  mode : String
+  label_counts : Map[String, Int]
+  reason_counts : Map[String, Int]
+  predictions_truncated : Bool
+  warning_count : Int
+}
+
+///|
 async fn cmd_debug_inspect(input : String, opts : DebugCliOptions) -> Unit {
   match build_debug_report(input, opts) {
     Ok(report) => println(@cor.render_debug_report(report, opts.output_kind))
+    Err(msg) => exit_error(msg)
+  }
+}
+
+///|
+async fn cmd_debug_layout_assist_eval(
+  opts : DebugCliOptions,
+  split : String?,
+) -> Unit {
+  match render_layout_assist_eval(opts.output_kind, split) {
+    Ok(rendered) => println(rendered)
     Err(msg) => exit_error(msg)
   }
 }
@@ -206,6 +233,414 @@ fn render_provider_listing_text(
   }
 
   lines.join("\n")
+}
+
+///|
+async fn render_layout_assist_eval(
+  output_kind : @cor.DebugOutputKind,
+  split : String?,
+) -> Result[String, String] {
+  let rows = collect_layout_assist_eval_rows(split) catch {
+    e => return Err("layout-assist eval failed: " + e.to_string())
+  }
+  match output_kind {
+    @cor.DebugOutputKind::Json =>
+      Ok(render_layout_assist_eval_json(rows, split))
+    _ => Ok(render_layout_assist_eval_text(rows, split))
+  }
+}
+
+///|
+async fn collect_layout_assist_eval_rows(
+  split : String?,
+) -> Array[LayoutAssistEvalRow] {
+  let manifest_path = resolve_layout_assist_eval_manifest_path()
+  if !@fs.path_exists(manifest_path) {
+    fail("layout-assist eval manifest not found: " + manifest_path)
+  }
+  let text = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
+    e => fail("read layout-assist eval manifest failed: " + e.to_string())
+  }
+  let rows : Array[LayoutAssistEvalRow] = []
+  let want_split = split.map(fn(s) { s.trim().to_lower() })
+  let raw_lines = text.split("\n")
+  let lines : Array[String] = []
+  for raw in raw_lines {
+    let line = raw.replace(old="\r", new="").to_owned()
+    if line != "" {
+      lines.push(line)
+    }
+  }
+  for i = 1; i < lines.length(); i = i + 1 {
+    let raw = lines[i].trim_end().to_owned()
+    if raw.trim() == "" {
+      continue
+    }
+    let cols = split_layout_assist_tsv_line(raw)
+    if cols.length() < 7 {
+      continue
+    }
+    let sample_id = cols[0].trim().to_owned()
+    let pdf_path = cols[1].trim().to_owned()
+    let row_split = cols[3].trim().to_owned()
+    let normalized_split = row_split.to_lower()
+    match want_split {
+      Some(expected) =>
+        if expected.to_owned() != "" && normalized_split != expected.to_owned() {
+          continue
+        }
+      None => ()
+    }
+    let resolved = resolve_layout_assist_sample_path(pdf_path)
+    let model = match
+      @pdfapi.extract_document_model(resolved, @pdfapi.default_pdf_config()) {
+      Ok(doc) => doc
+      Err(e) =>
+        fail(
+          "layout-assist eval pdf extract failed for " +
+          sample_id +
+          ": " +
+          e.to_string(),
+        )
+    }
+    let summary = @pdfconv.build_pdf_layout_assist_summary(model, 6)
+    let provider = choose_layout_assist_eval_provider(summary)
+    let mode = choose_layout_assist_eval_mode(summary)
+    rows.push({
+      sample_id,
+      split: row_split,
+      file: pdf_path,
+      page_count: model.page_count,
+      feature_count: summary.feature_count,
+      prediction_count: summary.prediction_count,
+      provider,
+      mode,
+      label_counts: summary.label_counts,
+      reason_counts: summary.reason_counts,
+      predictions_truncated: summary.prediction_count > 12,
+      warning_count: summary.warning_count,
+    })
+  }
+  rows
+}
+
+///|
+fn render_layout_assist_eval_json(
+  rows : Array[LayoutAssistEvalRow],
+  split : String?,
+) -> String {
+  let fields : Array[String] = [
+    @cor.json_string("kind") + ": " + @cor.json_string("layout_assist_eval"),
+    @cor.json_string("split") + ": " + @cor.json_string_opt(split),
+  ]
+  let summary = layout_assist_eval_summary_json(rows)
+  fields.push(@cor.json_string("summary") + ": " + summary)
+  let items : Array[String] = []
+  for row in rows {
+    items.push(layout_assist_eval_row_json(row))
+  }
+  fields.push(@cor.json_string("rows") + ": " + @cor.array_json(items))
+  @cor.object_json(fields)
+}
+
+///|
+fn render_layout_assist_eval_text(
+  rows : Array[LayoutAssistEvalRow],
+  split : String?,
+) -> String {
+  let lines : Array[String] = ["layout assist eval"]
+  lines.push("split=" + split.unwrap_or("all"))
+  lines.push("sample_count=" + rows.length().to_string())
+  lines.push("summary=" + layout_assist_eval_summary_line(rows))
+  for row in rows {
+    lines.push("")
+    lines.push(
+      "- " + row.sample_id + " split=" + row.split + " file=" + row.file,
+    )
+    lines.push(
+      "  provider=" +
+      row.provider +
+      " mode=" +
+      row.mode +
+      " pages=" +
+      row.page_count.to_string() +
+      " feature_count=" +
+      row.feature_count.to_string() +
+      " prediction_count=" +
+      row.prediction_count.to_string() +
+      " warning_count=" +
+      row.warning_count.to_string(),
+    )
+    lines.push(
+      "  label_counts=" + render_string_int_map_inline(row.label_counts),
+    )
+    lines.push(
+      "  top_reasons=" +
+      render_top_string_int_entries_inline(row.reason_counts, 3),
+    )
+  }
+  lines.join("\n")
+}
+
+///|
+fn layout_assist_eval_summary_json(rows : Array[LayoutAssistEvalRow]) -> String {
+  let label_counts = Map::new()
+  let reason_counts = Map::new()
+  let mut sample_count = 0
+  let mut zero_prediction_count = 0
+  let mut warning_count = 0
+  let mut total_features = 0
+  let mut total_predictions = 0
+  let files_with_predictions : Array[String] = []
+  let files_without_predictions : Array[String] = []
+  for row in rows {
+    sample_count += 1
+    total_features += row.feature_count
+    total_predictions += row.prediction_count
+    warning_count += row.warning_count
+    if row.prediction_count == 0 {
+      zero_prediction_count += 1
+      files_without_predictions.push(row.sample_id)
+    } else {
+      files_with_predictions.push(row.sample_id)
+    }
+    for entry in sorted_layout_eval_map_entries(row.label_counts) {
+      bump_count_by(label_counts, entry.0, entry.1)
+    }
+    for entry in sorted_layout_eval_map_entries(row.reason_counts) {
+      bump_count_by(reason_counts, entry.0, entry.1)
+    }
+  }
+  @cor.object_json([
+    @cor.json_string("sample_count") + ": " + sample_count.to_string(),
+    @cor.json_string("total_features") + ": " + total_features.to_string(),
+    @cor.json_string("total_predictions") + ": " + total_predictions.to_string(),
+    @cor.json_string("zero_prediction_count") +
+    ": " +
+    zero_prediction_count.to_string(),
+    @cor.json_string("warning_count") + ": " + warning_count.to_string(),
+    @cor.json_string("label_counts") +
+    ": " +
+    @cor.string_int_kv_json(sorted_layout_eval_map_entries(label_counts)),
+    @cor.json_string("top_reasons") +
+    ": " +
+    @cor.string_int_kv_json(
+      take_first_string_int_entries(
+        sorted_layout_eval_map_entries_by_count(reason_counts),
+        5,
+      ),
+    ),
+    @cor.json_string("files_with_predictions") +
+    ": " +
+    @cor.string_array_json(files_with_predictions),
+    @cor.json_string("zero_prediction_files") +
+    ": " +
+    @cor.string_array_json(files_without_predictions),
+  ])
+}
+
+///|
+fn layout_assist_eval_summary_line(rows : Array[LayoutAssistEvalRow]) -> String {
+  let sample_count = rows.length()
+  let mut total_features = 0
+  let mut total_predictions = 0
+  let mut zero_prediction_count = 0
+  for row in rows {
+    total_features += row.feature_count
+    total_predictions += row.prediction_count
+    if row.prediction_count == 0 {
+      zero_prediction_count += 1
+    }
+  }
+  "features=" +
+  total_features.to_string() +
+  " predictions=" +
+  total_predictions.to_string() +
+  " zero_prediction_files=" +
+  zero_prediction_count.to_string() +
+  "/" +
+  sample_count.to_string()
+}
+
+///|
+fn layout_assist_eval_row_json(row : LayoutAssistEvalRow) -> String {
+  @cor.object_json([
+    @cor.json_string("sample_id") + ": " + @cor.json_string(row.sample_id),
+    @cor.json_string("split") + ": " + @cor.json_string(row.split),
+    @cor.json_string("file") + ": " + @cor.json_string(row.file),
+    @cor.json_string("page_count") + ": " + row.page_count.to_string(),
+    @cor.json_string("feature_count") + ": " + row.feature_count.to_string(),
+    @cor.json_string("prediction_count") +
+    ": " +
+    row.prediction_count.to_string(),
+    @cor.json_string("provider") + ": " + @cor.json_string(row.provider),
+    @cor.json_string("mode") + ": " + @cor.json_string(row.mode),
+    @cor.json_string("label_counts") +
+    ": " +
+    @cor.string_int_kv_json(sorted_layout_eval_map_entries(row.label_counts)),
+    @cor.json_string("top_reasons") +
+    ": " +
+    @cor.string_int_kv_json(
+      take_first_string_int_entries(
+        sorted_layout_eval_map_entries_by_count(row.reason_counts),
+        5,
+      ),
+    ),
+    @cor.json_string("predictions_truncated") +
+    ": " +
+    @cor.bool_json(row.predictions_truncated),
+    @cor.json_string("warning_count") + ": " + row.warning_count.to_string(),
+  ])
+}
+
+///|
+fn choose_layout_assist_eval_provider(
+  summary : @pdfconv.LayoutAssistSummary,
+) -> String {
+  if summary.predictions.length() > 0 {
+    return summary.predictions[0].provider
+  }
+  for info in summary.providers {
+    if info.name == "heuristic-layout-assist" {
+      return info.name
+    }
+  }
+  summary.providers[0].name
+}
+
+///|
+fn choose_layout_assist_eval_mode(
+  summary : @pdfconv.LayoutAssistSummary,
+) -> String {
+  if summary.predictions.length() > 0 {
+    return layout_assist_mode_name(summary.predictions[0].mode)
+  }
+  for info in summary.providers {
+    if info.name == "heuristic-layout-assist" {
+      return layout_assist_mode_name(info.mode)
+    }
+  }
+  layout_assist_mode_name(summary.providers[0].mode)
+}
+
+///|
+fn resolve_layout_assist_eval_manifest_path() -> String {
+  let direct = "samples/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(direct) {
+    return direct
+  }
+  let fallback = "../samples/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+  direct
+}
+
+///|
+fn resolve_layout_assist_sample_path(path : String) -> String raise {
+  if @fs.path_exists(path) {
+    return path
+  }
+  let fallback = "../" + path
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+  fail("layout-assist eval sample not found: " + path)
+}
+
+///|
+fn bump_count_by(counts : Map[String, Int], key : String, delta : Int) -> Unit {
+  let prev = counts.get(key).unwrap_or(0)
+  counts.set(key, prev + delta)
+}
+
+///|
+fn sorted_layout_eval_map_entries(
+  counts : Map[String, Int],
+) -> Array[(String, Int)] {
+  let keys : Array[String] = []
+  for k in counts {
+    keys.push(k.0)
+  }
+  keys.sort()
+  let out : Array[(String, Int)] = []
+  for key in keys {
+    out.push((key, counts.get(key).unwrap_or(0)))
+  }
+  out
+}
+
+///|
+fn sorted_layout_eval_map_entries_by_count(
+  counts : Map[String, Int],
+) -> Array[(String, Int)] {
+  let out = sorted_layout_eval_map_entries(counts)
+  for i = 0; i < out.length(); i = i + 1 {
+    for j = i + 1; j < out.length(); j = j + 1 {
+      let a = out[i]
+      let b = out[j]
+      if b.1 > a.1 || (b.1 == a.1 && b.0 < a.0) {
+        out[i] = b
+        out[j] = a
+      }
+    }
+  }
+  out
+}
+
+///|
+fn take_first_string_int_entries(
+  entries : Array[(String, Int)],
+  limit : Int,
+) -> Array[(String, Int)] {
+  let out : Array[(String, Int)] = []
+  let capped = if entries.length() < limit { entries.length() } else { limit }
+  for i = 0; i < capped; i = i + 1 {
+    out.push(entries[i])
+  }
+  out
+}
+
+///|
+fn render_string_int_map_inline(counts : Map[String, Int]) -> String {
+  let parts : Array[String] = []
+  for entry in sorted_layout_eval_map_entries(counts) {
+    parts.push(entry.0 + "=" + entry.1.to_string())
+  }
+  if parts.length() == 0 {
+    "{}"
+  } else {
+    "{" + parts.join(", ") + "}"
+  }
+}
+
+///|
+fn render_top_string_int_entries_inline(
+  counts : Map[String, Int],
+  limit : Int,
+) -> String {
+  let parts : Array[String] = []
+  for
+    entry in take_first_string_int_entries(
+      sorted_layout_eval_map_entries_by_count(counts),
+      limit,
+    ) {
+    parts.push(entry.0 + "=" + entry.1.to_string())
+  }
+  if parts.length() == 0 {
+    "[]"
+  } else {
+    "[" + parts.join(", ") + "]"
+  }
+}
+
+///|
+fn split_layout_assist_tsv_line(line : String) -> Array[String] {
+  let cols : Array[String] = []
+  for part in line.split("\t") {
+    cols.push(part.to_owned())
+  }
+  cols
 }
 
 ///|

@@ -124,6 +124,9 @@ This page is the current roadmap source of truth for the repository.
   or normal-path experiment
 * prefer surfacing advisory layout-assist predictions in debug/inspect before
   any normal-path integration attempt
+* use debug-only layout-assist evaluation to measure coverage, label
+  distribution, and suspicious no-prediction / many-prediction cases before
+  discussing any stronger integration
 
 ## Later Work
 

@@ -23,6 +23,19 @@ pub fn build_pdf_debug_sections(
 }
 
 ///|
+pub fn build_pdf_layout_assist_summary(
+  model : @model.PdfDocumentModel,
+  max_heading : Int,
+) -> LayoutAssistSummary {
+  let doc0 = build_convert_lines(model, "")
+  let doc1 = build_convert_blocks(doc0)
+  let doc2 = classify_convert_blocks(doc1, max_heading)
+  let features = build_layout_assist_features(doc1, doc2)
+  let predictions = predict_with_heuristic_layout_assist(features)
+  summarize_layout_assist_predictions(features, predictions)
+}
+
+///|
 fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
   let report = @api.inspect_pdf_document(model)
   @cor.debug_section(
@@ -269,9 +282,11 @@ fn pdf_layout_assist_section(
   raw_doc : PdfConvertDocument,
   classified_doc : PdfConvertDocument,
 ) -> @cor.DebugSection {
-  let providers = list_layout_assist_providers()
+  let features = build_layout_assist_features(raw_doc, classified_doc)
+  let predictions = predict_with_heuristic_layout_assist(features)
+  let summary = summarize_layout_assist_predictions(features, predictions)
   let provider_items : Array[String] = []
-  for info in providers {
+  for info in summary.providers {
     provider_items.push(
       @cor.object_json([
         @cor.json_string("name") + ": " + @cor.json_string(info.name),
@@ -283,10 +298,9 @@ fn pdf_layout_assist_section(
       ]),
     )
   }
-
-  let features = build_layout_assist_features(raw_doc, classified_doc)
-  let predictions = predict_with_heuristic_layout_assist(features)
-  let preview = take_layout_assist_predictions(predictions, 12)
+  let label_counts_json = map_string_int_json(summary.label_counts)
+  let reason_counts_json = map_string_int_json(summary.reason_counts)
+  let preview = take_layout_assist_predictions(summary.predictions, 12)
   let prediction_items : Array[String] = []
   for prediction in preview {
     prediction_items.push(layout_assist_prediction_json(prediction))
@@ -300,15 +314,24 @@ fn pdf_layout_assist_section(
       "advisory/report-only layout-assist provider summary and conservative candidate predictions",
     ),
     @cor.object_json([
-      @cor.json_string("provider_count") + ": " + providers.length().to_string(),
+      @cor.json_string("provider_count") +
+      ": " +
+      summary.provider_count.to_string(),
       @cor.json_string("providers") + ": " + @cor.array_json(provider_items),
-      @cor.json_string("feature_count") + ": " + features.length().to_string(),
+      @cor.json_string("feature_count") +
+      ": " +
+      summary.feature_count.to_string(),
       @cor.json_string("prediction_count") +
       ": " +
-      predictions.length().to_string(),
+      summary.prediction_count.to_string(),
+      @cor.json_string("label_counts") + ": " + label_counts_json,
+      @cor.json_string("reason_counts") + ": " + reason_counts_json,
+      @cor.json_string("warning_count") +
+      ": " +
+      summary.warning_count.to_string(),
       @cor.json_string("predictions_truncated") +
       ": " +
-      @cor.bool_json(predictions.length() > preview.length()),
+      @cor.bool_json(summary.prediction_count > preview.length()),
       @cor.json_string("predictions") + ": " + @cor.array_json(prediction_items),
     ]),
   )

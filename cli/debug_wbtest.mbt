@@ -89,6 +89,8 @@ async test "debug inspect report includes layout assist advisory predictions" {
   debug_assert_contains(rendered, "\"provider\": \"heuristic-layout-assist\"")
   debug_assert_contains(rendered, "\"mode\": \"report_only\"")
   debug_assert_contains(rendered, "\"target_id\"")
+  debug_assert_contains(rendered, "\"label_counts\"")
+  debug_assert_contains(rendered, "\"reason_counts\"")
 }
 
 ///|
@@ -158,12 +160,50 @@ async test "debug providers probe path is explicit and skip safe" {
 }
 
 ///|
+async test "debug layout assist eval json includes summary fields" {
+  let rendered = render_layout_assist_eval(
+      @cor.DebugOutputKind::Json,
+      Some("heldout"),
+    )
+    |> unwrap_string_or_fail("render layout-assist eval json failed")
+  debug_assert_contains(rendered, "\"kind\": \"layout_assist_eval\"")
+  debug_assert_contains(rendered, "\"sample_count\"")
+  debug_assert_contains(rendered, "\"label_counts\"")
+  debug_assert_contains(rendered, "\"provider\": \"heuristic-layout-assist\"")
+  debug_assert_contains(rendered, "\"mode\": \"report_only\"")
+}
+
+///|
+async test "debug layout assist eval text reports zero-prediction files" {
+  let rendered = render_layout_assist_eval(
+      @cor.DebugOutputKind::HumanReadable,
+      Some("heldout"),
+    )
+    |> unwrap_string_or_fail("render layout-assist eval text failed")
+  debug_assert_contains(rendered, "layout assist eval")
+  debug_assert_contains(rendered, "summary=features=")
+  debug_assert_contains(rendered, "zero_prediction_files=")
+  debug_assert_contains(rendered, "label_counts=")
+}
+
+///|
 fn unwrap_or_fail(
   result : Result[@cor.DebugReport, String],
   message : String,
 ) -> @cor.DebugReport raise {
   match result {
     Ok(report) => report
+    Err(err) => fail(message + ": " + err)
+  }
+}
+
+///|
+fn unwrap_string_or_fail(
+  result : Result[String, String],
+  message : String,
+) -> String raise {
+  match result {
+    Ok(text) => text
     Err(err) => fail(message + ": " + err)
   }
 }

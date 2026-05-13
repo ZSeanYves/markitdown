@@ -34,6 +34,18 @@ pub struct LayoutAssistPrediction {
 }
 
 ///|
+pub struct LayoutAssistSummary {
+  provider_count : Int
+  feature_count : Int
+  prediction_count : Int
+  label_counts : Map[String, Int]
+  reason_counts : Map[String, Int]
+  warning_count : Int
+  providers : Array[LayoutAssistProviderInfo]
+  predictions : Array[LayoutAssistPrediction]
+}
+
+///|
 pub fn noop_layout_assist_provider_info() -> LayoutAssistProviderInfo {
   {
     name: "noop-layout-assist",
@@ -111,7 +123,7 @@ fn heuristic_layout_assist_prediction(
       make_layout_assist_prediction(
         feature.target_id,
         feature.page_index,
-        "table_candidate",
+        "table_like_candidate",
         Some(0.80),
         "heuristic-layout-assist",
         reasons,
@@ -169,4 +181,40 @@ fn make_layout_assist_prediction(
     mode: LayoutAssistMode::ReportOnly,
     reasons,
   }
+}
+
+///|
+pub fn summarize_layout_assist_predictions(
+  features : Array[LayoutAssistFeature],
+  predictions : Array[LayoutAssistPrediction],
+) -> LayoutAssistSummary {
+  let providers = list_layout_assist_providers()
+  let label_counts = Map::new()
+  let reason_counts = Map::new()
+  let mut warning_count = 0
+  for prediction in predictions {
+    bump_layout_assist_count(label_counts, prediction.suggested_label)
+    if prediction.reasons.length() == 0 {
+      warning_count += 1
+    }
+    for reason in prediction.reasons {
+      bump_layout_assist_count(reason_counts, reason)
+    }
+  }
+  {
+    provider_count: providers.length(),
+    feature_count: features.length(),
+    prediction_count: predictions.length(),
+    label_counts,
+    reason_counts,
+    warning_count,
+    providers,
+    predictions,
+  }
+}
+
+///|
+fn bump_layout_assist_count(counts : Map[String, Int], key : String) -> Unit {
+  let prev = counts.get(key).unwrap_or(0)
+  counts.set(key, prev + 1)
 }

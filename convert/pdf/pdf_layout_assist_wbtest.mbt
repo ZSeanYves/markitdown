@@ -73,7 +73,7 @@ test "layout assist heuristic provider respects block kind hints" {
   assert_eq(predictions[0].reasons, ["block_kind_hint=heading"])
   assert_eq(predictions[1].target_id, "b-table")
   assert_eq(predictions[1].page_index, 1)
-  assert_eq(predictions[1].suggested_label, "table_candidate")
+  assert_eq(predictions[1].suggested_label, "table_like_candidate")
   assert_eq(predictions[1].reasons, ["block_kind_hint=table"])
 }
 
@@ -89,4 +89,33 @@ test "layout assist heuristic provider can stay empty" {
     },
   ])
   assert_eq(predictions.length(), 0)
+}
+
+///|
+test "layout assist summary reports stable label counts" {
+  let features = [
+    {
+      target_id: "b-caption",
+      text: "Figure 1 Overview",
+      page_index: 0,
+      block_kind_hint: None,
+      metrics_json: None,
+    },
+    {
+      target_id: "b-table",
+      text: "Revenue | Cost | Margin",
+      page_index: 0,
+      block_kind_hint: Some("table"),
+      metrics_json: None,
+    },
+  ]
+  let predictions = predict_with_heuristic_layout_assist(features)
+  let summary = summarize_layout_assist_predictions(features, predictions)
+  assert_eq(summary.provider_count >= 2, true)
+  assert_eq(summary.feature_count, 2)
+  assert_eq(summary.prediction_count, 2)
+  assert_eq(summary.warning_count, 0)
+  assert_eq(summary.label_counts.get("caption_candidate").unwrap_or(0), 1)
+  assert_eq(summary.label_counts.get("table_like_candidate").unwrap_or(0), 1)
+  assert_eq(summary.reason_counts.get("caption_prefix").unwrap_or(0), 1)
 }
