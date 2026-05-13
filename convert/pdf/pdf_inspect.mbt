@@ -23,6 +23,7 @@ pub fn build_pdf_debug_sections(
 
 ///|
 fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
+  let report = @api.inspect_pdf_document(model)
   @cor.debug_section(
     "pdf_backend",
     "pdf",
@@ -32,6 +33,25 @@ fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
       @cor.json_string("backend") + ": " + @cor.json_string("mbtpdf"),
       @cor.json_string("ocr_mode") + ": " + @cor.json_string("native"),
       @cor.json_string("ocr_used") + ": " + @cor.bool_json(false),
+      @cor.json_string("text_signal_level") +
+      ": " +
+      @cor.json_string(report.text_signal_level),
+      @cor.json_string("native_text_char_count") +
+      ": " +
+      report.native_text_char_count.to_string(),
+      @cor.json_string("page_image_count") +
+      ": " +
+      report.page_image_count.to_string(),
+      @cor.json_string("has_embedded_text") +
+      ": " +
+      @cor.bool_json(report.has_embedded_text),
+      @cor.json_string("has_page_images") +
+      ": " +
+      @cor.bool_json(report.has_page_images),
+      @cor.json_string("image_only") + ": " + @cor.bool_json(report.image_only),
+      @cor.json_string("ocr_recommended") +
+      ": " +
+      @cor.bool_json(report.ocr_recommended),
       @cor.json_string("native_signal_empty") +
       ": " +
       @cor.bool_json(is_effectively_empty_pdf_doc(model)),
@@ -56,8 +76,11 @@ fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
 fn pdf_pages_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
   let page_items : Array[String] = []
   let mut raw_content_stream_ref_total = 0
+  let report = @api.inspect_pdf_document(model)
 
-  for page in model.pages {
+  for i = 0; i < model.pages.length(); i = i + 1 {
+    let page = model.pages[i]
+    let page_report = report.pages[i]
     raw_content_stream_ref_total += page.raw_content_stream_refs.length()
     page_items.push(
       @cor.object_json([
@@ -92,6 +115,21 @@ fn pdf_pages_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
         @cor.json_string("char_count") +
         ": " +
         @model.page_char_count(page).to_string(),
+        @cor.json_string("text_signal_level") +
+        ": " +
+        @cor.json_string(page_report.text_signal_level),
+        @cor.json_string("has_text_signal") +
+        ": " +
+        @cor.bool_json(page_report.has_text_signal),
+        @cor.json_string("has_image_signal") +
+        ": " +
+        @cor.bool_json(page_report.has_image_signal),
+        @cor.json_string("image_only") +
+        ": " +
+        @cor.bool_json(page_report.image_only),
+        @cor.json_string("ocr_recommended") +
+        ": " +
+        @cor.bool_json(page_report.ocr_recommended),
         @cor.json_string("image_count") +
         ": " +
         page.images.length().to_string(),

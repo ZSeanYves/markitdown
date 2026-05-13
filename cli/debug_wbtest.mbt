@@ -62,6 +62,8 @@ async test "debug inspect report includes pdf normalization section" {
   debug_assert_contains(rendered, "\"output_profile\": \"PdfText\"")
   debug_assert_contains(rendered, "\"outline_count\"")
   debug_assert_contains(rendered, "\"heading_status_counts\"")
+  debug_assert_contains(rendered, "\"text_signal_level\": \"normal\"")
+  debug_assert_contains(rendered, "\"ocr_recommended\": false")
 }
 
 ///|

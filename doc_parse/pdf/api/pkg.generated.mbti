@@ -51,8 +51,15 @@ pub struct PdfDocumentInspectReport {
   has_object_stream : Bool
   has_text_signal : Bool
   has_image_signal : Bool
+  has_embedded_text : Bool
+  has_page_images : Bool
   has_annotation_signal : Bool
   has_any_signal : Bool
+  text_signal_level : String
+  native_text_char_count : Int
+  page_image_count : Int
+  image_only : Bool
+  ocr_recommended : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
   page_failure_count : Int
@@ -172,7 +179,11 @@ pub struct PdfPageInspectInfo {
   page_number_candidate_count : Int
   header_footer_candidate_count : Int
   has_text_signal : Bool
+  has_image_signal : Bool
   has_any_signal : Bool
+  text_signal_level : String
+  image_only : Bool
+  ocr_recommended : Bool
   is_low_signal : Bool
   is_empty_signal : Bool
   raw_issue_count : Int
