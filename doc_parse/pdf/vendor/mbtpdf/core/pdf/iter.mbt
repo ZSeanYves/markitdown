@@ -120,7 +120,7 @@ fn Pdf::nullify_deleted_page_references(self : Pdf) -> Unit raise {
   })
   let refnums = self.page_reference_numbers()
   if refnums.length() != page_object_numbers.length() {
-    let table = Map::new(capacity=page_object_numbers.length())
+    let table = Map([], capacity=page_object_numbers.length())
     for num in page_object_numbers {
       table.set(num, true)
     }

@@ -384,8 +384,8 @@ fn render_layout_assist_eval_text(
 
 ///|
 fn layout_assist_eval_summary_json(rows : Array[LayoutAssistEvalRow]) -> String {
-  let label_counts = Map::new()
-  let reason_counts = Map::new()
+  let label_counts = Map([])
+  let reason_counts = Map([])
   let mut sample_count = 0
   let mut zero_prediction_count = 0
   let mut warning_count = 0
@@ -1183,8 +1183,8 @@ fn debug_xlsx_section(
   let mut merged_ranges = 0
   let mut formula_cells = 0
   let mut table_rows = 0
-  let state_counts = Map::new()
-  let semantic_counts = Map::new()
+  let state_counts = Map([])
+  let semantic_counts = Map([])
   for sheet in workbook.sheets {
     merged_ranges += sheet.merged_ranges.length()
     table_rows += sheet.table_rows.length()
@@ -1254,9 +1254,9 @@ fn debug_zip_section(
   inspect : @zipconv.ZipInspectReport,
   profile : @zipconv.ZipProfileReport?,
 ) -> @cor.DebugSection {
-  let action_counts = Map::new()
-  let kind_counts = Map::new()
-  let format_counts = Map::new()
+  let action_counts = Map([])
+  let kind_counts = Map([])
+  let format_counts = Map([])
   let mut unsafe_count = 0
   for entry in inspect.entries {
     bump_string_count(action_counts, zip_action_name(entry.action))
@@ -1302,7 +1302,7 @@ fn debug_epub_section(
   inspect : @epubpkg.EpubInspectReport,
 ) -> @cor.DebugSection {
   let mut warning_spine_items = 0
-  let actions = Map::new()
+  let actions = Map([])
   for item in inspect.spine_items {
     bump_string_count(actions, item.action)
     if item.action != "convert" {
@@ -1408,7 +1408,7 @@ struct BlockStats {
 
 ///|
 fn collect_block_stats(doc : @cor.Document) -> BlockStats {
-  let counts = Map::new()
+  let counts = Map([])
   let mut heading_count = 0
   let mut table_count = 0
   let mut image_count = 0
@@ -1588,7 +1588,7 @@ fn paragraph_like_count(doc : @cor.Document) -> Int {
 
 ///|
 fn hidden_slide_count(doc : @cor.Document) -> Int {
-  let seen = Map::new()
+  let seen = Map([])
   for block in doc.blocks.val {
     match block {
       @cor.Block::Heading(_, text) =>
@@ -1626,7 +1626,7 @@ fn note_block_count(doc : @cor.Document) -> Int {
 
 ///|
 fn distinct_slide_count(doc : @cor.Document) -> Int {
-  let seen = Map::new()
+  let seen = Map([])
   for origin in doc.block_origins.val {
     match origin {
       Some(v) =>
@@ -1653,10 +1653,10 @@ fn sorted_asset_paths(doc : @cor.Document) -> Array[String] {
 
 ///|
 fn metadata_origin_summary_json(doc : @cor.Document) -> String {
-  let block_sources = Map::new()
-  let block_pages = Map::new()
-  let block_slides = Map::new()
-  let block_sheets = Map::new()
+  let block_sources = Map([])
+  let block_pages = Map([])
+  let block_slides = Map([])
+  let block_sheets = Map([])
   for origin in doc.block_origins.val {
     match origin {
       Some(v) => {
@@ -1833,11 +1833,11 @@ fn aggregate_pdf_normalization(
   model : @pdfmodel.PdfDocumentModel,
   profile : @cor.NormalizeProfile,
 ) -> @cor.TextNormalizationSummary {
-  let aggregate_changes = Map::new()
-  let aggregate_rules = Map::new()
-  let aggregate_rule_scopes = Map::new()
-  let aggregate_stages = Map::new()
-  let aggregate_warnings = Map::new()
+  let aggregate_changes = Map([])
+  let aggregate_rules = Map([])
+  let aggregate_rule_scopes = Map([])
+  let aggregate_stages = Map([])
+  let aggregate_warnings = Map([])
   let mut total_changes = 0
 
   for page in model.pages {
@@ -2200,7 +2200,7 @@ fn parse_positive_int(text : String) -> Int {
 
 ///|
 fn html_asset_boundary_summary(doc : @cor.Document) -> String {
-  let counts = Map::new()
+  let counts = Map([])
   for entry in doc.asset_origins.val {
     let (_, origin) = entry
     let src = origin.source_path.unwrap_or("")

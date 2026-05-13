@@ -25,7 +25,7 @@ test "get_image_24bpp decodes raw rgb image" {
     ("/Length", Integer(3)),
   ])
   let data = @pdfio.bytes_of_list([0x10, 0x20, 0x30])
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let image = @pdfimage.Image::get_image_24bpp(pdf, Dictionary([]), stream)
   match image {
     Image::Raw(w, h, _, bytes) => {
@@ -50,7 +50,7 @@ test "get_image_24bpp applies decode for 1bpp" {
     ("/Length", Integer(1)),
   ])
   let data = @pdfio.bytes_of_list([0x00])
-  let stream : @pdf.PdfObject = Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let image = @pdfimage.Image::get_image_24bpp(pdf, Dictionary([]), stream)
   match image {
     Image::Raw(w, h, _, bytes) => {

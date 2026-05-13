@@ -90,7 +90,7 @@ fn build_table(
   if @pdfio.bytes_size(data) < total {
     raise @pdf.PdfError::Msg("Pdfspace: bad table")
   }
-  let table : Map[Int, Array[Int]] = Map::new(capacity=hival + 1)
+  let table : Map[Int, Array[Int]] = Map([], capacity=hival + 1)
   let mut offset = 0
   for x in 0..<=hival {
     let row = Array::new(capacity=components)
@@ -469,7 +469,7 @@ fn write_iccbased(pdf : @pdf.Pdf, icc : ICCBased) -> PdfObject {
       }
       let entries = ensure_length(entries, stream_data)
       let stream_obj : PdfObject = Stream(
-        Ref::new((Dictionary(entries), stream_data)),
+        Ref((Dictionary(entries), stream_data)),
       )
       let objnum = pdf.addobj(stream_obj)
       Indirect(objnum)

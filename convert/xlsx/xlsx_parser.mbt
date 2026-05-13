@@ -395,7 +395,7 @@ fn sheet_semantic_type_matrix(sheet : XlsxSheetModel) -> Array[Array[String]]? {
     return None
   }
 
-  let lookup : Map[String, String] = Map::new()
+  let lookup : Map[String, String] = Map([])
   for cell in sheet.cells {
     lookup.set(
       cell.row.to_string() + "," + cell.column.to_string(),

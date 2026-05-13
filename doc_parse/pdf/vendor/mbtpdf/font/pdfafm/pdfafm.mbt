@@ -154,7 +154,8 @@ fn get_tables(
       Some(read_char_metrics_line(line))
     }
   })
-  let charmetrics_hash : Map[String, (Int, Int)] = Map::new(
+  let charmetrics_hash : Map[String, (Int, Int)] = Map(
+    [],
     capacity=charmetrics.length(),
   )
   for entry in charmetrics {

@@ -14,7 +14,7 @@ priv struct PptxSemanticChartSlideData {
 
 ///|
 fn empty_semantic_chart_slide_data() -> PptxSemanticChartSlideData {
-  { charts: [], shape_object_orders: Map::new() }
+  { charts: [], shape_object_orders: Map([]) }
 }
 
 ///|
@@ -43,7 +43,7 @@ fn maybe_parse_semantic_slide_chart_blocks(
   }
   for slide in pres.slides {
     if slide.part_path == slide_part {
-      let shape_object_orders : Map[String, Int] = Map::new()
+      let shape_object_orders : Map[String, Int] = Map([])
       let next_order : Ref[Int] = { val: 0 }
       return {
         charts: collect_chart_renderables_from_shapes(

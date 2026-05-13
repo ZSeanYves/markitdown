@@ -409,7 +409,7 @@ pub fn PdfMarks::add_bookmarks(
   if parsed.length() == 0 {
     self.remove_bookmarks()
   } else {
-    let source = Ref::new(0)
+    let source = Ref(0)
     let tree = make_outline_ntree(source, pdf, parsed[:])
     let tree = tree.map(add_firstlast)
     let tree = match add_next(add_prev(Br(0, PdfObject::Null, tree, false))) {
@@ -551,14 +551,8 @@ pub fn PdfMarks::read_bookmarks(
       match pdf.lookup_direct("/Outlines", catalog) {
         None => []
         Some(outlines) => {
-          let out = Ref::new(Array::new())
-          traverse_outlines_lb(
-            pdf,
-            outlines,
-            Ref::new(0),
-            preserve_actions,
-            out,
-          )
+          let out = Ref(Array::new())
+          traverse_outlines_lb(pdf, outlines, Ref(0), preserve_actions, out)
           out.val
         }
       }

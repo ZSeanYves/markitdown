@@ -140,7 +140,7 @@ pub fn PdfFunction::to_pdf_object(
         ("/Length", PdfObject::Integer(@pdfio.bytes_size(data))),
       ])
       PdfObject::Stream(
-        Ref::new(
+        Ref(
           (PdfObject::Dictionary(entries_with_length), @pdf.Stream::Got(data)),
         ),
       )
@@ -152,7 +152,7 @@ pub fn PdfFunction::to_pdf_object(
         ("/Length", PdfObject::Integer(@pdfio.bytes_size(data))),
       ])
       PdfObject::Stream(
-        Ref::new(
+        Ref(
           (PdfObject::Dictionary(entries_with_length), @pdf.Stream::Got(data)),
         ),
       )

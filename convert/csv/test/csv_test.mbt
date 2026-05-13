@@ -151,7 +151,7 @@ test "csv core samples stay stable" {
   match basic_doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Name", "Role"])
+      assert_true(table.rows[0] == ["Name", "Role"])
     }
     _ => fail("csv_basic should emit RichTable")
   }
@@ -252,7 +252,7 @@ test "tsv samples stay stable" {
   match basic_doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Name", "Role"])
+      assert_true(table.rows[0] == ["Name", "Role"])
     }
     _ => fail("tsv_basic should emit RichTable")
   }
@@ -275,8 +275,8 @@ test "csv parser keeps trailing empty cells and skips blank rows" {
   match doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.rows.length(), 2)
-      assert_eq(table.rows[0], ["a", "b", ""])
-      assert_eq(table.rows[1], ["c", "d", ""])
+      assert_true(table.rows[0] == ["a", "b", ""])
+      assert_true(table.rows[1] == ["c", "d", ""])
     }
     _ => fail("csv trailing delimiter case should emit RichTable")
   }
@@ -302,8 +302,8 @@ test "csv parser handles single-column cells quoted delimiters and quoted newlin
   let quoted_doc = @csv.parse_csv(quoted_path, "", 6)
   match quoted_doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
-      assert_eq(table.rows[0], ["a,b", "c"])
-      assert_eq(table.rows[1], ["a\"b", "d"])
+      assert_true(table.rows[0] == ["a,b", "c"])
+      assert_true(table.rows[1] == ["a\"b", "d"])
     }
     _ => fail("csv quoted delimiter sample should emit RichTable")
   }

@@ -139,7 +139,7 @@ fn parse_finish(
       Lexeme(LexEndStream),
       Lexeme(LexEndObj),
       ..,
-    ] => return (o, Stream(Ref::new((Dictionary(dict), stream))))
+    ] => return (o, Stream(Ref((Dictionary(dict), stream))))
     [
       Parsed(Integer(o)),
       Parsed(Integer(_)),

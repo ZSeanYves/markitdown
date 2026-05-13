@@ -268,7 +268,7 @@ test "html semantic wrappers and table header semantics are stable" {
   match thead_doc.blocks.val[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Name", "Score"])
+      assert_true(table.rows[0] == ["Name", "Score"])
     }
     _ => fail("thead/th table should emit RichTable")
   }

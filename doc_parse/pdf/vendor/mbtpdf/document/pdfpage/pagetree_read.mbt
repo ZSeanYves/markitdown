@@ -300,7 +300,7 @@ pub fn PdfPageDoc::pages_of_pagetree_quick(self : PdfPageDoc) -> Int raise {
       let pages = pdf.lookup_fail(
         "No or malformed /Pages", "/Pages", document_catalog,
       )
-      let stack : Map[Int, Bool] = Map::new()
+      let stack : Map[Int, Bool] = Map([])
       find_pages_quick(0, pages, pdf, stack)
     }
   }

@@ -1,6 +1,6 @@
 ///|
 fn empty_styles() -> XlsxStyles {
-  { xf_numfmts: [], custom_numfmts: Map::new() }
+  { xf_numfmts: [], custom_numfmts: Map([]) }
 }
 
 ///|
@@ -9,7 +9,7 @@ fn empty_styles() -> XlsxStyles {
 /// - <cellXfs><xf numFmtId="...">...</xf></cellXfs>
 fn parse_styles_xml(styles_xml : String) -> XlsxStyles {
   let xf_numfmts : Array[Int] = []
-  let custom_numfmts : Map[Int, String] = Map::new()
+  let custom_numfmts : Map[Int, String] = Map([])
 
   // 1) parse custom numFmts
   let numfmts0 = find_sub(styles_xml, "<numFmts", 0)

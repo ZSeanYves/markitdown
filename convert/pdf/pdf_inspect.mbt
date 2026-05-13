@@ -199,8 +199,8 @@ fn pdf_text_model_section(model : @model.PdfDocumentModel) -> @cor.DebugSection 
   let mut artifact_candidate_count = 0
   let mut caption_candidate_count = 0
   let mut table_cell_candidate_count = 0
-  let writing_direction_counts = Map::new()
-  let source_kind_counts = Map::new()
+  let writing_direction_counts = Map([])
+  let source_kind_counts = Map([])
 
   for page in model.pages {
     block_count += page.text_blocks.length()
@@ -535,8 +535,8 @@ fn double_opt_json(v : Double?) -> String {
 
 ///|
 fn pdf_images_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
-  let filter_counts = Map::new()
-  let colorspace_counts = Map::new()
+  let filter_counts = Map([])
+  let colorspace_counts = Map([])
   let mut image_count = 0
   let mut inline_image_count = 0
   let mut with_object_ref_count = 0
@@ -596,7 +596,7 @@ fn pdf_images_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
 fn pdf_annotations_section(
   model : @model.PdfDocumentModel,
 ) -> @cor.DebugSection {
-  let subtype_counts = Map::new()
+  let subtype_counts = Map([])
   let mut annotation_count = 0
   let mut uri_count = 0
   let mut dest_count = 0
@@ -644,7 +644,7 @@ fn pdf_annotations_section(
 
 ///|
 fn pdf_links_section(doc : PdfConvertDocument) -> @cor.DebugSection {
-  let match_status_counts = Map::new()
+  let match_status_counts = Map([])
   let mut matched_link_count = 0
   let mut visible_text_total = 0
 
@@ -691,12 +691,12 @@ fn pdf_pipeline_section(
   doc5 : PdfConvertDocument,
   max_heading : Int,
 ) -> @cor.DebugSection {
-  let heading_status_counts = Map::new()
-  let heading_reason_counts = Map::new()
-  let noise_status_counts = Map::new()
-  let noise_reason_counts = Map::new()
-  let merge_status_counts = Map::new()
-  let merge_reason_counts = Map::new()
+  let heading_status_counts = Map([])
+  let heading_reason_counts = Map([])
+  let noise_status_counts = Map([])
+  let noise_reason_counts = Map([])
+  let merge_status_counts = Map([])
+  let merge_reason_counts = Map([])
 
   for page in doc1.pages {
     for i = 0; i < page.blocks.length(); i = i + 1 {

@@ -158,7 +158,7 @@ test "trim_structure_tree updates nested k arrays" {
   let root_num = install_struct_root(pdf, root_dict)
   let stream_dict : @pdf.PdfObject = Dictionary([("/Length", Integer(0))])
   let stream_obj : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(([] : Array[Byte])))),
+    Ref((stream_dict, @pdf.Stream::Got(([] : Array[Byte])))),
   )
   ignore(pdf.addobj(stream_obj))
   PdfStructTree::new(pdf).trim_structure_tree([1])
@@ -179,7 +179,7 @@ test "trim_structure_tree updates nested k arrays" {
 test "renumber_parent_trees with empty parents" {
   let pdf1 = build_two_page_pdf()
   let pdf2 = build_two_page_pdf()
-  inspect(
+  debug_inspect(
     try? PdfStructTrees::new([pdf1, pdf2]).renumber_parent_trees(),
     content="Ok(())",
   )
@@ -209,7 +209,7 @@ test "renumber_parent_trees remaps struct parents" {
     ("/StructParent", Integer(0)),
   ])
   let stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(([] : Array[Byte])))),
+    Ref((stream_dict, @pdf.Stream::Got(([] : Array[Byte])))),
   )
   let stream_num = pdf2.addobj(stream)
   let tree1 = @pdftree.PdfTree::new(pdf1).build_name_tree(true, [("0", Null)])

@@ -137,7 +137,7 @@ test "text extractor handles missing glyph hashes" {
   let pairs = extractor.glyphnames_and_codepoints_of_text("F")
   assert_eq(pairs.length(), 1)
   assert_true(pairs[0].0.contains("NotAGlyph"))
-  inspect(pairs[0].1, content="[70]")
+  debug_inspect(pairs[0].1, content="[70]")
   let names = extractor.glyphnames_of_text("F")
   assert_eq(names.length(), 1)
 }
@@ -146,7 +146,7 @@ test "text extractor handles missing glyph hashes" {
 test "charcode extractor uses tounicode bytes map" {
   let pdf = @pdf.Pdf::empty()
   let ctx = @pdftext.PdfText::new(pdf)
-  let tounicode : Map[Int, String] = Map::new()
+  let tounicode : Map[Int, String] = Map([])
   tounicode.set(33, @pdfio.string_of_int_array([0x00, 0x42]))
   let tounicode_ref = ctx.write_tounicode(tounicode)
   let charcode = ctx.charcode_extractor_of_font(
@@ -177,7 +177,10 @@ test "codepoints_of_utf16be rejects invalid surrogate pairs" {
 ///|
 test "codepoints_of_utf8 handles two byte sequences" {
   let utf8 = @pdftext.PdfTextUtil::new().utf8_of_codepoints([0x00e9])
-  inspect(@pdftext.PdfTextUtil::new().codepoints_of_utf8(utf8), content="[233]")
+  debug_inspect(
+    @pdftext.PdfTextUtil::new().codepoints_of_utf8(utf8),
+    content="[233]",
+  )
 }
 
 ///|

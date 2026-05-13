@@ -219,7 +219,7 @@ fn fix_stream(
 
 ///|
 fn add_prefix_impl(pdf : @pdf.Pdf, prefix : String) -> Unit raise {
-  let fixed_streams : Map[Int, Unit] = Map::new()
+  let fixed_streams : Map[Int, Unit] = Map([])
   pdf.objselfmap(fn(obj : @pdf.PdfObject) -> @pdf.PdfObject raise {
     match obj {
       @pdf.PdfObject::Dictionary(dict) =>
@@ -343,7 +343,7 @@ fn merge_content_streams(pdf : @pdf.Pdf) -> Unit raise {
                       }
                       let merged = @pdfops.Op::concat_bytess(rawstreams)
                       let stream = @pdf.PdfObject::Stream(
-                        Ref::new(
+                        Ref(
                           (
                             @pdf.PdfObject::Dictionary([
                               (

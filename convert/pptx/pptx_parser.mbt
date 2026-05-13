@@ -727,7 +727,7 @@ fn infer_slide_image_captions(
   paras : Array[SlideParagraph],
 ) -> (Array[String?], Map[Int, Bool]) {
   let out : Array[String?] = []
-  let consumed : Map[Int, Bool] = Map::new()
+  let consumed : Map[Int, Bool] = Map([])
   for _ in images {
     out.push(None)
   }

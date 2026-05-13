@@ -651,7 +651,7 @@ test "read_cidkeyed_font rejects bad descendants and encoding streams" {
   assert_true(res_desc is Err(_))
   let stream_dict : @pdf.PdfObject = Dictionary([])
   let stream : @pdf.PdfObject = Stream(
-    Ref::new((stream_dict, @pdf.Stream::Got(@pdfio.bytes_of_string("cmap")))),
+    Ref((stream_dict, @pdf.Stream::Got(@pdfio.bytes_of_string("cmap")))),
   )
   let bad_encoding : @pdf.PdfObject = Dictionary([
     ("/BaseFont", Name(@pdf.PdfName::of_string("/CIDFontType0"))),
@@ -706,7 +706,7 @@ test "find_tounicode uses descriptor fields when present" {
 test "find_tounicode_cmap returns parsed cmap when present" {
   let pdf = @pdf.Pdf::empty()
   let ctx = @pdftext.PdfText::new(pdf)
-  let tounicode : Map[Int, String] = Map::new()
+  let tounicode : Map[Int, String] = Map([])
   tounicode.set(33, @pdfio.string_of_int_array([0x00, 0x42]))
   let tounicode_ref = ctx.write_tounicode(tounicode)
   let font = ctx.read_font(

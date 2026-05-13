@@ -3696,7 +3696,7 @@ fn contains_digit(s : String) -> Bool {
 fn revglyph_hashtable_of_dictionary(
   pairs : Array[(Array[Int], String)],
 ) -> Map[Array[Int], String] {
-  let table : Map[Array[Int], String] = Map::new(capacity=pairs.length())
+  let table : Map[Array[Int], String] = Map([], capacity=pairs.length())
   for pair in pairs {
     let key = pair.0
     let value = pair.1

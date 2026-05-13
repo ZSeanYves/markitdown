@@ -134,7 +134,7 @@ pub fn parse_pdf_layout_features_tsv(
       )
     }
 
-    let feature_values : Map[String, Double] = Map::new()
+    let feature_values : Map[String, Double] = Map([])
     for col_index = 0; col_index < header.length(); col_index = col_index + 1 {
       let name = header[col_index]
       if reserved.contains(name) {
@@ -344,7 +344,7 @@ fn parse_record_kind_name(raw : String) -> PdfLayoutRecordKind? {
 
 ///|
 fn build_repeated_text_counts(doc : PdfConvertDocument) -> Map[String, Int] {
-  let counts : Map[String, Int] = Map::new()
+  let counts : Map[String, Int] = Map([])
   for page in doc.pages {
     for block in page.blocks {
       let key = normalize_noise_key(block.text)
@@ -432,7 +432,7 @@ fn block_feature_notes(block : PdfConvertBlock) -> String {
 
 ///|
 fn header_index(header : Array[String]) -> Map[String, Int] {
-  let out : Map[String, Int] = Map::new()
+  let out : Map[String, Int] = Map([])
   for i = 0; i < header.length(); i = i + 1 {
     out.set(header[i], i)
   }

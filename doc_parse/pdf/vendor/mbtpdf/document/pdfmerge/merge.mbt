@@ -166,7 +166,7 @@ pub fn PdfMerger::merge_pdfs(
   }
   let new_page_numbers = pdf.page_reference_numbers()
   let changes = combine(old_page_numbers, new_page_numbers)
-  let changes_map : Map[Int, Int] = Map::new(capacity=changes.length())
+  let changes_map : Map[Int, Int] = Map([], capacity=changes.length())
   for pair in changes {
     changes_map.set(pair.0, pair.1)
   }

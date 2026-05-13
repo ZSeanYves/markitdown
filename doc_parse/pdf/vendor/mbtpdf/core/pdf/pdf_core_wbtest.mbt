@@ -21,7 +21,7 @@ test "objmap basics" {
 
 ///|
 fn make_stream(dict : PdfObject, data : @pdfio.MutableBytes) -> PdfObject {
-  PdfObject::Stream(Ref::new((dict, Stream::Got(data))))
+  PdfObject::Stream(Ref((dict, Stream::Got(data))))
 }
 
 ///|
@@ -251,13 +251,13 @@ test "lookup and chains" {
   let dict_alt = PdfObject::Dictionary([("/Alt", PdfObject::Integer(3))])
   assert_some_integer(pdf.lookup_direct_orelse("/Missing", "/Alt", dict_alt), 3)
   let pdf_parse = Pdf::empty()
-  pdf_parse.objects.objects.set(10, (Ref::new(ObjectData::ToParse), 0))
+  pdf_parse.objects.objects.set(10, (Ref(ObjectData::ToParse), 0))
   match pdf_parse.lookup_obj(10) {
     PdfObject::Null => ()
     _ => fail("expected null")
   }
-  let map_none : Map[Int, Array[Int]] = Map::new()
-  let ref_none = Ref::new(
+  let map_none : Map[Int, Array[Int]] = Map([])
+  let ref_none = Ref(
     ObjectData::ToParseFromObjectStream(map_none, 5, 0, (_stream, _idx) => []),
   )
   pdf_parse.objects.objects.set(11, (ref_none, 0))
@@ -265,11 +265,11 @@ test "lookup and chains" {
     PdfObject::Null => ()
     _ => fail("expected null")
   }
-  let map_missing : Map[Int, Array[Int]] = Map::new()
+  let map_missing : Map[Int, Array[Int]] = Map([])
   map_missing.set(12, [0])
-  let ref_missing = Ref::new(
+  let ref_missing = Ref(
     ObjectData::ToParseFromObjectStream(map_missing, 6, 0, (_stream, _idx) => {
-      [(13, (Ref::new(ObjectData::Parsed(PdfObject::Integer(7))), 0))]
+      [(13, (Ref(ObjectData::Parsed(PdfObject::Integer(7))), 0))]
     }),
   )
   pdf_parse.objects.objects.set(12, (ref_missing, 0))
@@ -277,11 +277,11 @@ test "lookup and chains" {
     PdfObject::Null => ()
     _ => fail("expected null")
   }
-  let map_found : Map[Int, Array[Int]] = Map::new()
+  let map_found : Map[Int, Array[Int]] = Map([])
   map_found.set(14, [0])
-  let ref_found = Ref::new(
+  let ref_found = Ref(
     ObjectData::ToParseFromObjectStream(map_found, 7, 0, (_stream, _idx) => {
-      [(14, (Ref::new(ObjectData::Parsed(PdfObject::Integer(8))), 0))]
+      [(14, (Ref(ObjectData::Parsed(PdfObject::Integer(8))), 0))]
     }),
   )
   pdf_parse.objects.objects.set(14, (ref_found, 0))

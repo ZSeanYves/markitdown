@@ -130,8 +130,8 @@ fn read_pdf_internal(
     let mut xref_offset = read_startxref(input)
     let mut first_trailer = true
     let mut trailerdict = @pdf.PdfObject::Dictionary([])
-    let xrefs : Map[Int, XRef] = Map::new()
-    let postdeletes : Map[Int, Bool] = Map::new()
+    let xrefs : Map[Int, XRef] = Map([])
+    let postdeletes : Map[Int, Bool] = Map([])
     fn add_entries(
       entries : Array[(Int, XRef)],
       xrefs : Map[Int, XRef],

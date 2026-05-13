@@ -325,7 +325,7 @@ test "docx style-linked numbering fallback and ordered heuristic stay conservati
   let list_blocks = scan_paragraph(
     "<w:pPr><w:pStyle w:val=\"ListNumber2\"/></w:pPr><w:r><w:t>ordered item</w:t></w:r>",
     empty_docx_relationship_context(),
-    Map::new(),
+    Map([]),
     styles,
     numbering,
     6,
@@ -346,7 +346,7 @@ test "docx style-linked numbering fallback and ordered heuristic stay conservati
   let fallback_blocks = scan_paragraph(
     "<w:numPr/><w:r><w:t>1. ordered fallback</w:t></w:r>",
     empty_docx_relationship_context(),
-    Map::new(),
+    Map([]),
     empty_styles(),
     empty_numbering(),
     6,
@@ -493,7 +493,7 @@ test "docx w:t cleanup does not break hyperlink code-like or table assembly beha
     "<w:r><w:br/></w:r>" +
     "<w:r><w:t>return\u{00A0}x;</w:t></w:r>",
     empty_docx_relationship_context(),
-    Map::new(),
+    Map([]),
     parse_styles_xml(
       "<w:styles>" +
       "<w:style w:type=\"paragraph\" w:styleId=\"Code\">" +
@@ -738,7 +738,7 @@ test "docx table cell hyperlink is preserved as markdown link when relationship 
     "<w:tc><w:p><w:hyperlink r:id=\"rIdHyper1\"><w:r><w:t>OpenAI Docs</w:t></w:r></w:hyperlink></w:p></w:tc>" +
     "</w:tr>",
     rel_ctx,
-    Map::new(),
+    Map([]),
   )
   assert_eq(rows.length(), 1)
   assert_eq(rows[0].length(), 2)

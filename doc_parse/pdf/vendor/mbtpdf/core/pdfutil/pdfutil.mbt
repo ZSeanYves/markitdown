@@ -1,21 +1,21 @@
 ///|
 /// Buffered stdout text (rendered via println in async-only environments).
-let stdout_buffer : Ref[String] = Ref::new("")
+let stdout_buffer : Ref[String] = Ref("")
 
 ///|
 /// Buffered stderr text (rendered via println in async-only environments).
-let stderr_buffer : Ref[String] = Ref::new("")
+let stderr_buffer : Ref[String] = Ref("")
 
 ///|
 /// When true, PdfUtil printing is suppressed (used to keep tests quiet).
-pub let quiet : Ref[Bool] = Ref::new(false)
+pub let quiet : Ref[Bool] = Ref(false)
 
 ///|
 pub type Printer = (String) -> Unit
 
 ///|
 /// Where PdfUtil printing is sent (defaults to println). Tests can override.
-pub let printer : Ref[Printer] = Ref::new(fn(line) { println(line) })
+pub let printer : Ref[Printer] = Ref(fn(line) { println(line) })
 
 ///|
 pub struct PdfUtil {
@@ -63,7 +63,7 @@ pub fn PdfUtil::fleprint(self : PdfUtil, message : String) -> Unit {
 ///|
 /// Memoize a nullary function (cache the first computed value).
 pub fn[T] PdfUtil::memoize(_self : PdfUtil, f : () -> T raise) -> () -> T raise {
-  let cached : Ref[T?] = Ref::new(None)
+  let cached : Ref[T?] = Ref(None)
   () => {
     match cached.val {
       Some(value) => value
@@ -82,7 +82,7 @@ pub fn[K : Hash + Eq, V] PdfUtil::hashtable_of_dictionary(
   _self : PdfUtil,
   pairs : Array[(K, V)],
 ) -> Map[K, V] {
-  let table : Map[K, V] = Map::new(capacity=pairs.length() * 2)
+  let table : Map[K, V] = Map([], capacity=pairs.length() * 2)
   for pair in pairs {
     table.set(pair.0, pair.1)
   }
@@ -91,8 +91,8 @@ pub fn[K : Hash + Eq, V] PdfUtil::hashtable_of_dictionary(
 
 ///|
 /// Construct an empty hash table.
-pub fn[K, V] PdfUtil::null_hash(_self : PdfUtil) -> Map[K, V] {
-  Map::new(capacity=0)
+pub fn[K : Hash + Eq, V] PdfUtil::null_hash(_self : PdfUtil) -> Map[K, V] {
+  Map([], capacity=0)
 }
 
 ///|

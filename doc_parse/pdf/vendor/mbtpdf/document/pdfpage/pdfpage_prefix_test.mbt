@@ -450,7 +450,7 @@ test "add_prefix merges non-iso content streams" {
   let first = bytes[:mid].to_owned()
   let second = bytes[mid:].to_owned()
   let stream1 : @pdf.PdfObject = Stream(
-    Ref::new(
+    Ref(
       (
         Dictionary([("/Length", Integer(@pdfio.bytes_size(first)))]),
         @pdf.Stream::Got(first),
@@ -458,7 +458,7 @@ test "add_prefix merges non-iso content streams" {
     ),
   )
   let stream2 : @pdf.PdfObject = Stream(
-    Ref::new(
+    Ref(
       (
         Dictionary([("/Length", Integer(@pdfio.bytes_size(second)))]),
         @pdf.Stream::Got(second),

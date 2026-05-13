@@ -40,6 +40,7 @@ pub struct OcrPageResult {
 }
 
 ///|
+#warnings("-struct_never_constructed")
 pub struct OcrDocumentResult {
   provider : OcrProviderInfo
   pages : Array[OcrPageResult]

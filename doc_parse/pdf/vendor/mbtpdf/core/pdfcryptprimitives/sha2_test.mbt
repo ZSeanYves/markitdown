@@ -16,7 +16,7 @@ test "sha256 digest matches vector" {
   ]
   let primitives = @pdfcryptprimitives.PdfCryptPrimitives::new()
   let got = digest_bytes(input => primitives.sha256(input), "abc")
-  assert_eq(got, expected)
+  assert_true(got == expected)
 }
 
 ///|
@@ -29,7 +29,7 @@ test "sha384 digest matches vector" {
   ]
   let primitives = @pdfcryptprimitives.PdfCryptPrimitives::new()
   let got = digest_bytes(input => primitives.sha384(input), "abc")
-  assert_eq(got, expected)
+  assert_true(got == expected)
 }
 
 ///|
@@ -43,5 +43,5 @@ test "sha512 digest matches vector" {
   ]
   let primitives = @pdfcryptprimitives.PdfCryptPrimitives::new()
   let got = digest_bytes(input => primitives.sha512(input), "abc")
-  assert_eq(got, expected)
+  assert_true(got == expected)
 }

@@ -374,7 +374,7 @@ fn bench_text_profile_rows(
 ) -> Unit {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(@text.profile_text_document(raw))
@@ -670,7 +670,7 @@ fn bench_json_profile_rows(
 ) -> Unit raise BenchError {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(
@@ -826,7 +826,7 @@ fn bench_yaml_profile_rows(
 ) -> Unit raise BenchError {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(
@@ -1139,7 +1139,7 @@ fn bench_markdown_profile_rows(
 ) -> Unit {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(@markdown.profile_markdown_document(raw))
@@ -1530,7 +1530,7 @@ fn bench_xlsx_profile_rows(
 ) -> Unit raise BenchError {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(
@@ -1708,7 +1708,7 @@ fn bench_docx_profile_rows(
 ) -> Unit raise BenchError {
   let profile_runs : Array[BenchRunRow] = []
   let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map::new()
+  let stage_notes : Map[String, String] = Map([])
 
   for _ in 0..<cfg.warmup {
     ignore(

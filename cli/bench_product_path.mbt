@@ -1045,12 +1045,12 @@ fn hidden_bench_profile_file_stage_map(
   prefix : String,
 ) -> (Map[String, Int], String) {
   if !@fs.path_exists(path) {
-    return (Map::new(), "")
+    return (Map([]), "")
   }
   let text = @fs.read_file_to_string(path, encoding="utf8") catch {
-    _ => return (Map::new(), "")
+    _ => return (Map([]), "")
   }
-  let stage_us : Map[String, Int] = Map::new()
+  let stage_us : Map[String, Int] = Map([])
   let mut summary_notes = ""
   for raw_line in text.split("\n") {
     let line = raw_line.trim().to_owned()

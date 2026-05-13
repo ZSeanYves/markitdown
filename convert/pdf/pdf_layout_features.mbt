@@ -147,7 +147,7 @@ fn block_layout_feature_values(
   repeated_text_score : Double,
   near_image_distance : Double?,
 ) -> Map[String, Double] {
-  let out : Map[String, Double] = Map::new()
+  let out : Map[String, Double] = Map([])
   let page_box = effective_page_box_for_convert_page(page)
   let page_width = @model.rect_width(page_box)
   let page_height = @model.rect_height(page_box)
@@ -298,7 +298,7 @@ fn boundary_layout_feature_values(
   prev_page : PdfConvertPage,
   cur_page : PdfConvertPage,
 ) -> Map[String, Double] {
-  let out : Map[String, Double] = Map::new()
+  let out : Map[String, Double] = Map([])
   let decision = collect_page_boundary_merge_evidence(prev_page, cur_page)
   set_feature(out, "text_len", 0.0)
   set_feature(out, "normalized_text_len", 0.0)

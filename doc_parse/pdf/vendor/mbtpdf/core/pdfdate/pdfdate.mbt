@@ -215,9 +215,9 @@ pub fn Date::of_pdf_string(s : String) -> Date raise BadDate {
     pos = next
     value
   }
-  let hour_offset = Ref::new(0)
-  let minute_offset = Ref::new(0)
-  let sign = Ref::new(0)
+  let hour_offset = Ref(0)
+  let minute_offset = Ref(0)
+  let sign = Ref(0)
   let (month, pos) = optional_twochar(
     chars, pos, 1, hour_offset, minute_offset, sign,
   )

@@ -11,7 +11,7 @@ fn make_stream(
   dict : @pdf.PdfObject,
   data : @pdfio.MutableBytes,
 ) -> @pdf.PdfObject {
-  @pdf.PdfObject::Stream(Ref::new((dict, @pdf.Stream::Got(data))))
+  @pdf.PdfObject::Stream(Ref((dict, @pdf.Stream::Got(data))))
 }
 
 ///|

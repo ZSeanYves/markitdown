@@ -52,7 +52,7 @@ fn sampled_bytes(samples : Array[Int], bits : Int) -> @pdfio.MutableBytes {
   let total_bits = samples.length() * bits
   let byte_len = if total_bits == 0 { 0 } else { (total_bits + 7) / 8 }
   let data = @pdfio.mkbytes(byte_len)
-  let bit_pos = Ref::new(0)
+  let bit_pos = Ref(0)
   let max_value = max_value_for_bits(bits)
   for sample in samples {
     let clamped = if sample < 0 {

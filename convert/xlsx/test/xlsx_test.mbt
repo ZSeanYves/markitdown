@@ -74,7 +74,7 @@ test "xlsx sheets now emit RichTable with explicit header semantics" {
   match doc.blocks.val[1] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Name", "Value", "备注"])
+      assert_true(table.rows[0] == ["Name", "Value", "备注"])
     }
     _ => fail("sheet_simple should emit RichTable")
   }
@@ -365,7 +365,7 @@ test "xlsx RichTable hints expose formula, merged, semantic-type, and sheet-stat
       match table.hints {
         Some(hints) =>
           match hints.merged_ranges {
-            Some(ranges) => assert_eq(ranges, ["B2:C2", "B3:C4", "B5:C5"])
+            Some(ranges) => assert_true(ranges == ["B2:C2", "B3:C4", "B5:C5"])
             None => fail("merged policy should expose merged_ranges")
           }
         None => fail("merged policy should expose hints")
@@ -432,7 +432,7 @@ test "xlsx metadata hints expose evaluated, unsupported, and error formula polic
                 fail("expected IF sample evaluated value high")
               }
               match cells[0].referenced_cells {
-                Some(refs) => assert_eq(refs, ["A2"])
+                Some(refs) => assert_true(refs == ["A2"])
                 None => fail("expected IF sample referenced_cells")
               }
             }

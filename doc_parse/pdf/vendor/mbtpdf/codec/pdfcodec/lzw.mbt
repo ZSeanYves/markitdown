@@ -133,10 +133,10 @@ fn encode_lzw(
   let eod_code = 257
   let mut code_length = 9
   let mut next_code = 258
-  let mut dict : Map[Int, Int] = Map::new(capacity=4096)
+  let mut dict : Map[Int, Int] = Map([], capacity=4096)
   let out = @pdfio.BitstreamWrite::new()
   fn reset_table() -> Unit {
-    dict = Map::new(capacity=4096)
+    dict = Map([], capacity=4096)
     next_code = 258
     code_length = 9
   }

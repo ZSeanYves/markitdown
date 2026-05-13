@@ -22,7 +22,7 @@ test "read parses simple AFM data" {
   assert_eq(widths[0].0, 65)
   assert_eq(widths[0].1, 600)
   assert_eq(kerns.length(), 1)
-  assert_eq(kerns[0], (65, 66, -50))
+  assert_true(kerns[0] == (65, 66, -50))
   assert_eq(widths_prime.length(), 2)
   assert_eq(widths_prime[0].0, "A")
   assert_eq(widths_prime[0].1, 600)

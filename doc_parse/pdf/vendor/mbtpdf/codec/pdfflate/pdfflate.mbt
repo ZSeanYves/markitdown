@@ -97,7 +97,7 @@ fn build_huffman(lengths : Array[Int]) -> Huffman {
     code = (code + count[bits - 1]) << 1
     next[bits] = code
   }
-  let table = Array::makei(max_len + 1, _i => Map::new())
+  let table = Array::makei(max_len + 1, _i => Map([]))
   for i in 0..<lengths.length() {
     let len = lengths[i]
     if len > 0 {

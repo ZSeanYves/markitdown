@@ -31,7 +31,7 @@ pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
   let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
   let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
-  let index : Map[String, Int] = Map::new()
+  let index : Map[String, Int] = Map([])
 
   let mut i = 0
   while i < entries.length() {
@@ -553,7 +553,7 @@ fn is_zip64_u32_sentinel(value : Int) -> Bool {
 ///|
 fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let infos0 : Array[ZipEntryInfo] = []
-  let normalized_counts : Map[String, Int] = Map::new()
+  let normalized_counts : Map[String, Int] = Map([])
 
   for meta in archive.entries {
     let info = build_zip_entry_info(meta)
@@ -573,7 +573,7 @@ fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let issues = collect_zip_validation_issues_from_infos(
     infos0, normalized_counts,
   )
-  let issue_counts : Map[String, Int] = Map::new()
+  let issue_counts : Map[String, Int] = Map([])
   let mut warning_count = 0
   let mut error_count = 0
   for issue in issues {

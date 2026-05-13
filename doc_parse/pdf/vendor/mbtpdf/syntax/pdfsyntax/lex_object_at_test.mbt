@@ -21,7 +21,7 @@ test "lex_object_at captures array tokens" {
   for token in tokens {
     rendered.push(syntax.string_of_lexeme(token))
   }
-  assert_eq(rendered, ["[", "1", "2", "]"])
+  assert_true(rendered == ["[", "1", "2", "]"])
 }
 
 ///|
@@ -32,7 +32,7 @@ test "lex_object_at captures dictionary tokens" {
   for token in tokens {
     rendered.push(syntax.string_of_lexeme(token))
   }
-  assert_eq(rendered, ["<<", "/Type", "/Example", "/Count", "2", ">>"])
+  assert_true(rendered == ["<<", "/Type", "/Example", "/Count", "2", ">>"])
 }
 
 ///|
@@ -43,5 +43,5 @@ test "lex_object_at reads until endobj when not oneonly" {
   for token in tokens {
     rendered.push(syntax.string_of_lexeme(token))
   }
-  assert_eq(rendered, ["1", "0", "obj", "7", "endobj"])
+  assert_true(rendered == ["1", "0", "obj", "7", "endobj"])
 }

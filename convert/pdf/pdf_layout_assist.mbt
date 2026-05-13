@@ -1,4 +1,5 @@
 ///|
+#warnings("-unused_constructor")
 pub enum LayoutAssistMode {
   ReportOnly
   Advisory
@@ -189,8 +190,8 @@ pub fn summarize_layout_assist_predictions(
   predictions : Array[LayoutAssistPrediction],
 ) -> LayoutAssistSummary {
   let providers = list_layout_assist_providers()
-  let label_counts = Map::new()
-  let reason_counts = Map::new()
+  let label_counts = Map([])
+  let reason_counts = Map([])
   let mut warning_count = 0
   for prediction in predictions {
     bump_layout_assist_count(label_counts, prediction.suggested_label)

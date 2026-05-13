@@ -3,8 +3,8 @@
 fn detect_repeated_page_noise(
   pages : Array[String],
 ) -> (Array[String], Array[String]) {
-  let head_count = Map::new()
-  let tail_count = Map::new()
+  let head_count = Map([])
+  let tail_count = Map([])
 
   for page in pages {
     let lines = normalized_nonempty_lines(page)

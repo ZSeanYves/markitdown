@@ -24,8 +24,8 @@ fn build_docx_relationship_index(
   rels : Array[@ox.OoxmlRelationship],
 ) -> DocxRelationshipIndex {
   let relationships : Array[DocxRelationship] = []
-  let targets_by_rid : Map[String, String] = Map::new()
-  let hyperlink_targets_by_rid : Map[String, String] = Map::new()
+  let targets_by_rid : Map[String, String] = Map([])
+  let hyperlink_targets_by_rid : Map[String, String] = Map([])
 
   for rel in rels {
     let docx_rel = docx_relationship_from_ooxml(rel)

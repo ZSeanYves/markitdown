@@ -120,7 +120,7 @@ fn build_slide_rel_context(
     _ =>
       return {
         rels: [],
-        hyperlinks: Map::new(),
+        hyperlinks: Map([]),
         notes_part: None,
         notes_relationship_id: None,
         comments_part: None,
@@ -162,7 +162,7 @@ fn build_slide_rel_context(
 fn hyperlink_map_from_rels(
   rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, String] {
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   for rel in rels {
     if rel.rel_type.has_suffix("/hyperlink") &&
       rel.target_mode == @ox.OoxmlTargetMode::External &&

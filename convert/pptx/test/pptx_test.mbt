@@ -499,7 +499,7 @@ test "pptx explicit tables emit RichTable when present" {
       @cor.Block::RichTable(table) => {
         saw_table = true
         assert_eq(table.header_rows, 1)
-        assert_eq(table.rows[0], ["Quarter", "Revenue", "Profit"])
+        assert_true(table.rows[0] == ["Quarter", "Revenue", "Profit"])
       }
       _ => ()
     }

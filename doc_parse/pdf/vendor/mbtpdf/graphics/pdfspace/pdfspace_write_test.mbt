@@ -28,7 +28,7 @@ test "write/read CalGray" {
 ///|
 test "write/read Indexed" {
   let pdf = @pdf.Pdf::empty()
-  let table : Map[Int, Array[Int]] = Map::new()
+  let table : Map[Int, Array[Int]] = Map([])
   table.set(0, [0, 0, 0])
   table.set(1, [255, 255, 255])
   let space = @pdfspace.ColourSpace::Indexed(
@@ -61,9 +61,7 @@ test "write/read ICCBased" {
   let pdf = @pdf.Pdf::empty()
   let dict : @pdf.PdfObject = Dictionary([])
   let data = @pdfio.bytes_of_string("ICC")
-  let stream_obj : @pdf.PdfObject = Stream(
-    Ref::new((dict, @pdf.Stream::Got(data))),
-  )
+  let stream_obj : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
   let icc = @pdfspace.ICCBased::{
     icc_n: 3,
     icc_alternate: @pdfspace.ColourSpace::DeviceRGB,

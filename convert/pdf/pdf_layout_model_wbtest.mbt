@@ -4,7 +4,7 @@ fn test_layout_feature(
   label : String?,
   values : Array[(String, Double)],
 ) -> PdfLayoutFeature {
-  let map : Map[String, Double] = Map::new()
+  let map : Map[String, Double] = Map([])
   for pair in values {
     let (key, value) = pair
     map.set(key, value)

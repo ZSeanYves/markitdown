@@ -51,9 +51,7 @@ test "decrypt_pdf treats /Crypt with non-Identity name as decryptable" {
   ])
   let stream_bytes = @pdfio.bytes_of_string("abc")
   ignore(
-    enc.addobj(
-      Stream(Ref::new((crypt_stream_dict, @pdf.Stream::Got(stream_bytes)))),
-    ),
+    enc.addobj(Stream(Ref((crypt_stream_dict, @pdf.Stream::Got(stream_bytes))))),
   )
   let (dec, _) = @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc.deep_copy())
   assert_true(dec is Some(_))

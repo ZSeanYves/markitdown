@@ -245,9 +245,9 @@ fn collect_text_ops_from_ops(
   page_index : Int,
 ) -> Array[RawTextOp] raise {
   let out = Array::new()
-  let extractor_cache : Map[String, @pdftext.TextExtractor] = Map::new()
-  let visited : Map[Int, Bool] = Map::new()
-  let state = Ref::new(default_text_state())
+  let extractor_cache : Map[String, @pdftext.TextExtractor] = Map([])
+  let visited : Map[Int, Bool] = Map([])
+  let state = Ref(default_text_state())
 
   fn next_content_order() -> Int {
     let v = state.val.content_order_index

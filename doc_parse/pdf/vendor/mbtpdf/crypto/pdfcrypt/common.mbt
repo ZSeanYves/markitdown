@@ -83,7 +83,7 @@ fn make_utf8(pw : String) -> String {
 let zero_iv : String = @pdfio.string_of_bytes(@pdfio.mkbytes(16))
 
 ///|
-let rand_state : Ref[@random.Rand] = Ref::new(@random.Rand::new())
+let rand_state : Ref[@random.Rand] = Ref(@random.Rand::new())
 
 ///|
 fn mksalt() -> String {

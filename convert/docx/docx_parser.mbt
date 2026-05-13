@@ -53,7 +53,7 @@ pub fn parse_docx(
   let asset_by_target = if materialize_outputs {
     build_docx_asset_path_map(rel_ctx, out_root)
   } else {
-    Map::new()
+    Map([])
   }
   docx_convert_profile_add_stage(
     profile,

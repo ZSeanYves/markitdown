@@ -39,7 +39,7 @@ pub fn collect_ooxml_validation_issues(
     let source_part = source_part_for_rels_part(rels_part_name)
     let rels_xml = read_part_text(pkg, rels_part_name) catch { _ => continue }
     let tags = collect_start_tags(rels_xml, "Relationship")
-    let seen_ids : Map[String, Int] = Map::new()
+    let seen_ids : Map[String, Int] = Map([])
 
     for tag in tags {
       let attrs = parse_tag_attributes(tag)

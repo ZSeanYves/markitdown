@@ -174,7 +174,7 @@ test "ocr cli parser accepts provider and lang named args" {
         Some(code) => assert_eq(code, "eng+chi_sim")
         None => fail("expected lang value")
       }
-      assert_eq(sub.positional_args, ["page.png", "out.txt"])
+      assert_true(sub.positional_args == ["page.png", "out.txt"])
     }
     None => fail("expected ocr subcommand")
   }
@@ -195,11 +195,11 @@ test "debug layout assist eval parser accepts missing optional split" {
   match value.subcmd {
     Some(sub) => {
       assert_eq(sub.name, "debug")
-      assert_eq(sub.positional_args, ["layout-assist-eval"])
+      assert_true(sub.positional_args == ["layout-assist-eval"])
       let split : String? = @clap.SimpleValue::get_option(sub, "split") catch {
         e => fail("split option lookup failed: " + e.to_string())
       }
-      assert_eq(split, None)
+      assert_true(split == None)
     }
     None => fail("expected debug subcommand")
   }
@@ -207,10 +207,12 @@ test "debug layout assist eval parser accepts missing optional split" {
 
 ///|
 test "ocr cli language parser supports joined codes" {
-  assert_eq(parse_ocr_lang_arg(None), [])
-  assert_eq(parse_ocr_lang_arg(Some("eng")), ["eng"])
-  assert_eq(parse_ocr_lang_arg(Some("eng+chi_sim")), ["eng", "chi_sim"])
-  assert_eq(parse_ocr_lang_arg(Some(" eng + chi_sim + ")), ["eng", "chi_sim"])
+  assert_true(parse_ocr_lang_arg(None) == [])
+  assert_true(parse_ocr_lang_arg(Some("eng")) == ["eng"])
+  assert_true(parse_ocr_lang_arg(Some("eng+chi_sim")) == ["eng", "chi_sim"])
+  assert_true(
+    parse_ocr_lang_arg(Some(" eng + chi_sim + ")) == ["eng", "chi_sim"],
+  )
 }
 
 ///|

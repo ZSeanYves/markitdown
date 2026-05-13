@@ -180,7 +180,7 @@ fn DocxPackage::load_header_footer_bundle(
     }
     let rel_ctx = build_docx_relationship_context(rels)
     let asset_by_target = if out_root.trim() == "" {
-      Map::new()
+      Map([])
     } else {
       build_docx_asset_path_map_with_seed(rel_ctx, out_root, next_idx)
     }
@@ -226,7 +226,7 @@ fn DocxPackage::load_text_box_bundle(
 ) -> DocxTextBoxBundle {
   let doc_rels = p.read_document_relationship_context(None)
   let asset_by_target = if out_root.trim() == "" {
-    Map::new()
+    Map([])
   } else {
     build_docx_asset_path_map(doc_rels, out_root)
   }
@@ -258,7 +258,7 @@ fn DocxPackage::load_text_box_bundle(
     }
     let rel_ctx = build_docx_relationship_context(rels)
     let part_asset_by_target = if out_root.trim() == "" {
-      Map::new()
+      Map([])
     } else {
       build_docx_asset_path_map_with_seed(rel_ctx, out_root, {
         val: asset_by_target.length() + items.length() + 1000,
@@ -291,7 +291,7 @@ fn DocxPackage::load_text_box_bundle(
     }
     let rel_ctx = build_docx_relationship_context(rels)
     let part_asset_by_target = if out_root.trim() == "" {
-      Map::new()
+      Map([])
     } else {
       build_docx_asset_path_map_with_seed(rel_ctx, out_root, {
         val: asset_by_target.length() + items.length() + 2000,

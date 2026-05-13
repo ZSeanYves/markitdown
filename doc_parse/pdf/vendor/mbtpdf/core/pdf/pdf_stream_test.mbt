@@ -5,7 +5,7 @@ test "streams and transforms" {
   let input = @pdfio.Input::of_string("abcd", source="stream")
   let t = ToGet::new(input, 0, 4)
   let dict = PdfObject::Dictionary([("/Length", PdfObject::Integer(0))])
-  let stream_ref = Ref::new((dict, Stream::ToGet(t)))
+  let stream_ref = Ref((dict, Stream::ToGet(t)))
   let stream_obj = PdfObject::Stream(stream_ref)
   stream_obj.getstream()
   match stream_ref.val {
@@ -26,7 +26,7 @@ test "streams and transforms" {
   assert_eq(pdf.getnum(PdfObject::Integer(4)), 4.0)
   assert_eq(pdf.getnum(PdfObject::Indirect(1)), 7.0)
   assert_is_err(try? pdf.getnum(PdfObject::Name(PdfName::of_string("/A"))))
-  assert_eq(
+  assert_true(
     pdf.parse_rectangle(
       PdfObject::Array([
         PdfObject::Integer(2),
@@ -34,7 +34,7 @@ test "streams and transforms" {
         PdfObject::Integer(4),
         PdfObject::Integer(3),
       ]),
-    ),
+    ) ==
     (2.0, 1.0, 4.0, 3.0),
   )
   assert_is_err(
@@ -182,14 +182,12 @@ test "getstream error cases" {
     r: 5,
   })
   let toget_crypt = ToGet::new(input, 0, 3, crypt~)
-  let crypt_ref = Ref::new(
-    (PdfObject::Dictionary([]), Stream::ToGet(toget_crypt)),
-  )
+  let crypt_ref = Ref((PdfObject::Dictionary([]), Stream::ToGet(toget_crypt)))
   let crypt_stream = PdfObject::Stream(crypt_ref)
   assert_is_err(try? crypt_stream.getstream())
   let plain = @pdfio.Input::of_string("abc", source="plain")
   let toget_plain = ToGet::new(plain, 0, 3)
-  let plain_ref = Ref::new((PdfObject::Integer(9), Stream::ToGet(toget_plain)))
+  let plain_ref = Ref((PdfObject::Integer(9), Stream::ToGet(toget_plain)))
   let plain_stream = PdfObject::Stream(plain_ref)
   plain_stream.getstream()
   match plain_ref.val {

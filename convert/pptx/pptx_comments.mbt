@@ -21,7 +21,7 @@ fn extract_slide_comments(
 
 ///|
 fn parse_comment_author_names(xml : String) -> Map[String, String] raise {
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   if xml.trim() == "" {
     return out
   }

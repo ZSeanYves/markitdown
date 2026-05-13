@@ -32,7 +32,7 @@ fn ilist(start : Int, finish : Int) -> Array[Int] {
 
 ///|
 fn setminus(full : Array[Int], remove : Array[Int]) -> Array[Int] {
-  let remove_set = Map::new(capacity=remove.length())
+  let remove_set = Map([], capacity=remove.length())
   for v in remove {
     remove_set.set(v, ())
   }
@@ -47,7 +47,7 @@ fn setminus(full : Array[Int], remove : Array[Int]) -> Array[Int] {
 
 ///|
 fn set_of_ints(values : Array[Int]) -> Map[Int, Unit] {
-  let out = Map::new(capacity=values.length())
+  let out = Map([], capacity=values.length())
   for v in values {
     out.set(v, ())
   }
@@ -68,7 +68,7 @@ fn dedup_ints(values : Array[Int]) -> Array[Int] {
 fn dedup_pairs(
   values : Array[(Int, @pdf.PdfObject)],
 ) -> Array[(Int, @pdf.PdfObject)] {
-  let set = Map::new(capacity=values.length())
+  let set = Map([], capacity=values.length())
   for pair in values {
     set.set(pair.0, pair.1)
   }
@@ -234,7 +234,7 @@ pub fn PdfStructTrees::renumber_parent_trees(
   for tree in parent_trees {
     total_entries = total_entries + tree.length()
   }
-  let mapping : Map[(Int, Int), Int] = Map::new(capacity=total_entries)
+  let mapping : Map[(Int, Int), Int] = Map([], capacity=total_entries)
   let mut next = 0
   for i, tree in parent_trees {
     let pdfn = i + 1

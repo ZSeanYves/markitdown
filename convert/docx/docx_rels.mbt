@@ -2,8 +2,8 @@
 fn empty_docx_relationship_context() -> DocxRelationshipContext {
   {
     document_relationships: [],
-    targets_by_rid: Map::new(),
-    hyperlink_targets_by_rid: Map::new(),
+    targets_by_rid: Map([]),
+    hyperlink_targets_by_rid: Map([]),
   }
 }
 
@@ -11,8 +11,8 @@ fn empty_docx_relationship_context() -> DocxRelationshipContext {
 fn build_docx_relationship_context(
   rels : Array[@ox.OoxmlRelationship],
 ) -> DocxRelationshipContext {
-  let targets_by_rid : Map[String, String] = Map::new()
-  let hyperlink_targets_by_rid : Map[String, String] = Map::new()
+  let targets_by_rid : Map[String, String] = Map([])
+  let hyperlink_targets_by_rid : Map[String, String] = Map([])
 
   for rel in rels {
     targets_by_rid.set(rel.id, rel.resolved_target)
@@ -116,7 +116,7 @@ fn build_docx_asset_path_map_with_seed(
   }
   media_targets.sort()
 
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   for target in media_targets {
     if out.contains(target) {
       continue

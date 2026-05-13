@@ -95,7 +95,7 @@ pub fn validate_pdf_layout_model(
     )
   }
 
-  let feature_seen : Map[String, Bool] = Map::new()
+  let feature_seen : Map[String, Bool] = Map([])
   for feature in model.features {
     if feature.trim() == "" {
       return Err(model_error(InvalidValue, "feature names must be non-empty"))
@@ -106,7 +106,7 @@ pub fn validate_pdf_layout_model(
     feature_seen.set(feature, true)
   }
 
-  let label_seen : Map[String, Bool] = Map::new()
+  let label_seen : Map[String, Bool] = Map([])
   for label in model.labels {
     if label.trim() == "" {
       return Err(model_error(InvalidValue, "labels must be non-empty"))
@@ -117,7 +117,7 @@ pub fn validate_pdf_layout_model(
     label_seen.set(label, true)
   }
 
-  let threshold_seen : Map[String, Bool] = Map::new()
+  let threshold_seen : Map[String, Bool] = Map([])
   for threshold in model.thresholds {
     if !label_seen.contains(threshold.label) {
       return Err(
@@ -138,7 +138,7 @@ pub fn validate_pdf_layout_model(
     threshold_seen.set(threshold.label, true)
   }
 
-  let weight_seen : Map[String, Bool] = Map::new()
+  let weight_seen : Map[String, Bool] = Map([])
   for weight in model.weights {
     if !label_seen.contains(weight.label) {
       return Err(
@@ -319,7 +319,7 @@ fn parse_thresholds(
 fn parse_stringish_metadata(
   members : Array[@dpjson.JsonMember]?,
 ) -> Map[String, String] {
-  let out : Map[String, String] = Map::new()
+  let out : Map[String, String] = Map([])
   match members {
     None => out
     Some(items) => {

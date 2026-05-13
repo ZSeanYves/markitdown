@@ -252,7 +252,8 @@ pub fn PdfAnnot::annotations_of_page(
 ) -> Array[Annotation] raise {
   match self.pdf.lookup_direct("/Annots", page.rest) {
     Some(Array(annotations)) => {
-      let popup_parents : Map[Int, Unit] = Map::new(
+      let popup_parents : Map[Int, Unit] = Map(
+        [],
         capacity=annotations.length(),
       )
       for annot in annotations {

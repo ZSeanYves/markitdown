@@ -47,7 +47,7 @@ fn read_malformed_pdf_objects(
   input : @pdfio.Input,
   read_stream_data : Bool,
 ) -> (@pdf.PdfObjMap, Int) raise {
-  let objects : @pdf.PdfObjMap = Map::new()
+  let objects : @pdf.PdfObjMap = Map([])
   let mut max_obj = 0
   (input.seek_in)(0)
   while true {
@@ -244,7 +244,7 @@ fn read_malformed_pdf(
     max_obj_num: max_obj,
     parse: None,
     objects,
-    object_stream_ids: Map::new(),
+    object_stream_ids: Map([]),
   }
   let pdf_tmp = @pdf.Pdf::{
     major: major_header,

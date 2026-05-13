@@ -25,7 +25,7 @@ fn merge_pdfs_renumber(
   if names.length() != pdfs.length() {
     raise @pdf.PdfError::Msg("merge_pdfs_renumber: length mismatch")
   }
-  let table : Map[String, @pdf.Pdf] = Map::new(capacity=names.length())
+  let table : Map[String, @pdf.Pdf] = Map([], capacity=names.length())
   for i in 0..<names.length() {
     table.set(names[i], pdfs[i])
   }
@@ -36,7 +36,7 @@ fn merge_pdfs_renumber(
     unique_pdfs.push(pdf)
   }
   let renumbered = @pdf.renumber_pdfs(unique_pdfs)
-  let mapping : Map[String, @pdf.Pdf] = Map::new(capacity=unique_names.length())
+  let mapping : Map[String, @pdf.Pdf] = Map([], capacity=unique_names.length())
   for i, name in unique_names {
     mapping.set(name, renumbered[i])
   }

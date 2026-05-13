@@ -64,8 +64,8 @@ pub fn lookup_content_type_override(
 fn parse_content_types(
   xml : String,
 ) -> (Map[String, String], Map[String, String]) raise OoxmlError {
-  let defaults : Map[String, String] = Map::new()
-  let overrides : Map[String, String] = Map::new()
+  let defaults : Map[String, String] = Map([])
+  let overrides : Map[String, String] = Map([])
 
   for tag in collect_start_tags(xml, "Default") {
     let attrs = parse_tag_attributes(tag)

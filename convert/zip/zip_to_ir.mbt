@@ -192,7 +192,7 @@ pub async fn parse_zip_with_profile(
   )
 
   let final_md = StringBuilder::new()
-  let used_ids : Map[String, Int] = Map::new()
+  let used_ids : Map[String, Int] = Map([])
   let mut total_decoded = 0
   let mut converted_entries = 0
   let mut warning_entries = 0
@@ -634,7 +634,7 @@ fn remap_subdoc_assets(
     return subdoc
   }
 
-  let path_map : Map[String, String] = Map::new()
+  let path_map : Map[String, String] = Map([])
   for old_path in asset_paths {
     path_map.set(old_path, namespaced_asset_path(old_path, entry_id))
   }
@@ -910,7 +910,7 @@ fn rewrite_block_for_zip(
 
 ///|
 fn collect_subdoc_asset_paths(doc : @cor.Document) -> Array[String] {
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
 
   for entry in doc.asset_origins.val {
     let (path, _origin) = entry
@@ -1543,7 +1543,7 @@ fn base_inspect_entry(meta : @zipraw.ZipEntryMeta) -> ZipInspectEntry {
 fn detect_normalized_collisions(
   plans : Array[PlannedEntry],
 ) -> Array[(Int, String)] {
-  let seen : Map[String, PlannedEntry] = Map::new()
+  let seen : Map[String, PlannedEntry] = Map([])
   let out : Array[(Int, String)] = []
   for plan in plans {
     match seen.get(plan.path) {

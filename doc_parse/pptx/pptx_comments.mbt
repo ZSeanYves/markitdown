@@ -61,7 +61,7 @@ fn parse_pptx_comment_authors_xml(
 fn build_pptx_comment_author_map(
   authors : Array[PptxCommentAuthor],
 ) -> Map[String, PptxCommentAuthor] {
-  let out : Map[String, PptxCommentAuthor] = Map::new()
+  let out : Map[String, PptxCommentAuthor] = Map([])
   for author in authors {
     out.set(author.id, author)
   }

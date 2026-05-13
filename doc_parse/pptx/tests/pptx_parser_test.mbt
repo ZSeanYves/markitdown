@@ -810,8 +810,8 @@ test "pptx semantic chart cache preserves multiple aligned series" {
   match chart.chart {
     Some(data) => {
       assert_eq(data.series.length(), 2)
-      assert_eq(data.series[0].categories, ["A", "B"])
-      assert_eq(data.series[1].values, ["3", "4"])
+      assert_true(data.series[0].categories == ["A", "B"])
+      assert_true(data.series[1].values == ["3", "4"])
     }
     None => fail("expected chart data")
   }

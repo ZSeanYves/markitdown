@@ -1,6 +1,6 @@
 ///|
 fn refset_empty() -> Map[Int, Bool] {
-  Map::new()
+  Map([])
 }
 
 ///|

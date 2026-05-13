@@ -184,7 +184,7 @@ fn is_within_x_span(x : Double, rect : @model.PdfRect) -> Bool {
 fn table_consumed_block_indices(
   tables : Array[PdfTableCandidate],
 ) -> Map[Int, Bool] {
-  let out : Map[Int, Bool] = Map::new()
+  let out : Map[Int, Bool] = Map([])
   for table in tables {
     for block_index in table.block_indices {
       out.set(block_index, true)

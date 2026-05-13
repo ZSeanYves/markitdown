@@ -428,9 +428,9 @@ async test "convert/pdf emits conservative RichTable for simple aligned table" {
   match tables[0] {
     @cor.Block::RichTable(table) => {
       assert_eq(table.header_rows, 1)
-      assert_eq(table.rows[0], ["Product", "Region", "Status"])
-      assert_eq(table.rows[1], ["Alpha", "East", "Open"])
-      assert_eq(table.rows[2], ["Beta", "West", "Closed"])
+      assert_true(table.rows[0] == ["Product", "Region", "Status"])
+      assert_true(table.rows[1] == ["Alpha", "East", "Open"])
+      assert_true(table.rows[2] == ["Beta", "West", "Closed"])
     }
     _ => fail("expected RichTable block")
   }
@@ -539,7 +539,7 @@ async test "convert/pdf supports headerless numeric table with header_rows=0" {
       @cor.Block::RichTable(table) => {
         saw_table = true
         assert_eq(table.header_rows, 0)
-        assert_eq(table.rows[0], ["Alpha", "12", "4.5%"])
+        assert_true(table.rows[0] == ["Alpha", "12", "4.5%"])
       }
       _ => ()
     }
