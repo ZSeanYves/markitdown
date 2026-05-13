@@ -58,6 +58,15 @@ pub fn default_ocr_options() -> OcrOptions {
 }
 
 ///|
+pub fn make_ocr_options(
+  languages : Array[String],
+  page_range : String?,
+  output_text_only : Bool,
+) -> OcrOptions {
+  { languages, page_range, output_text_only }
+}
+
+///|
 pub fn noop_ocr_provider_info() -> OcrProviderInfo {
   {
     name: "noop",

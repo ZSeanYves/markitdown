@@ -34,7 +34,10 @@ Current CLI paths:
   * no OCR by default
 * `ocr <input> [output]`
   * explicit OCR path
-  * today backed by the existing OCR pipeline and external runtime probing
+  * today can route explicit image inputs through the optional
+    `tesseract-cli` provider
+  * direct PDF OCR remains on the existing explicit PDF-OCR route / future
+    provider path rather than the `tesseract-cli` image route
 
 Current provider skeleton state:
 
@@ -81,6 +84,8 @@ Current implementation status:
 * `tesseract-cli` now implements:
   * explicit availability probing via `tesseract --version`
   * explicit page-image OCR via `tesseract <image> stdout -l <langs>`
+* the explicit `ocr` CLI path now defaults to `tesseract-cli` for supported
+  image inputs unless users choose another provider explicitly
 * `ocrmypdf-cli` and `paddleocr` still fail closed with `unavailable`
 * debug-only provider listing now exists, and `--probe` is required before any
   availability check runs

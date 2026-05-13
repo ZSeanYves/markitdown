@@ -940,6 +940,8 @@ It should currently be understood as:
 * dependent on external tooling
 * now accompanied by lightweight provider skeletons and design docs
 * currently includes an explicit `tesseract-cli` page-image provider route
+* the `ocr` CLI path can now route explicit image inputs through
+  `--provider tesseract-cli` and `--lang ...`
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion

@@ -115,11 +115,99 @@ async test "batch_v1 records unsupported files as failures" {
 }
 
 ///|
+async test "ocr cli unsupported provider path returns clear error" {
+  let root = test_tmp_root() + "/ocr-provider-missing"
+  recreate_clean_dir(root)
+  let image = root + "/page.png"
+  write_utf8_text(image, "fake image")
+
+  let result = run_ocr_cli(image, None, Some("missing-provider"), None, false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => fail("expected missing OCR provider to fail")
+    Err(msg) => assert_contains(msg, "unknown OCR provider")
+  }
+}
+
+///|
+async test "ocr cli pdf input keeps explicit pdf path for tesseract" {
+  let pdf = batch_resolve_sample("samples/main_process/pdf/text_simple.pdf")
+
+  let result = run_ocr_cli(pdf, None, Some("tesseract-cli"), Some("eng"), false) catch {
+    e => fail("run_ocr_cli raised: " + e.to_string())
+  }
+  match result {
+    Ok(_) => ()
+    Err(msg) =>
+      fail(
+        "expected tesseract PDF OCR path to preserve explicit PDF OCR mode: " +
+        msg,
+      )
+  }
+}
+
+///|
+test "ocr cli parser accepts provider and lang named args" {
+  let parser = new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, [
+    "ocr", "--provider", "tesseract-cli", "--lang", "eng+chi_sim", "page.png", "out.txt",
+  ]) catch {
+    e => fail("OCR parser should accept provider/lang args: " + e.to_string())
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "ocr")
+      let provider = @clap.SimpleValue::get_option(sub, "provider") catch {
+        e => fail("provider option missing: " + e.to_string())
+      }
+      let lang = @clap.SimpleValue::get_option(sub, "lang") catch {
+        e => fail("lang option missing: " + e.to_string())
+      }
+      match provider {
+        Some(name) => assert_eq(name, "tesseract-cli")
+        None => fail("expected provider value")
+      }
+      match lang {
+        Some(code) => assert_eq(code, "eng+chi_sim")
+        None => fail("expected lang value")
+      }
+      assert_eq(sub.positional_args, ["page.png", "out.txt"])
+    }
+    None => fail("expected ocr subcommand")
+  }
+}
+
+///|
+test "ocr cli language parser supports joined codes" {
+  assert_eq(parse_ocr_lang_arg(None), [])
+  assert_eq(parse_ocr_lang_arg(Some("eng")), ["eng"])
+  assert_eq(parse_ocr_lang_arg(Some("eng+chi_sim")), ["eng", "chi_sim"])
+  assert_eq(parse_ocr_lang_arg(Some(" eng + chi_sim + ")), ["eng", "chi_sim"])
+}
+
+///|
 fn test_tmp_root() -> String {
   match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
     Some(path) => path + "/cli-test"
     None => ".tmp/cli-test"
   }
+}
+
+///|
+fn batch_resolve_sample(path : String) -> String raise {
+  if @fs.path_exists(path) {
+    return path
+  }
+
+  let fallback = "../" + path
+  if @fs.path_exists(fallback) {
+    return fallback
+  }
+
+  fail("sample file not found: " + path)
 }
 
 ///|

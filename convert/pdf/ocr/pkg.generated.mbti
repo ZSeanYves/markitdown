@@ -10,6 +10,8 @@ pub fn default_ocr_options() -> OcrOptions
 
 pub fn list_known_ocr_providers() -> Array[OcrProviderInfo]
 
+pub fn make_ocr_options(Array[String], String?, Bool) -> OcrOptions
+
 pub fn noop_ocr_provider_info() -> OcrProviderInfo
 
 pub async fn parse_pdf_via_ocr(String, String, Int, Bool) -> @core.Document

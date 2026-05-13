@@ -76,7 +76,9 @@ async fn main {
             }
             "ocr" => {
               if positional.length() < 1 || positional.length() > 2 {
-                exit_error("usage: ocr [--with-metadata] <input> [output]")
+                exit_error(
+                  "usage: ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
+                )
                 print_cli_usage()
                 return
               }
@@ -86,17 +88,13 @@ async fn main {
               } else {
                 None
               }
-              cmd_convert(
-                input,
-                output_opt,
-                None,
-                6,
-                Some("ocr"),
-                false,
-                false,
-                false,
-                with_metadata,
-              )
+              let provider_name = @clap.SimpleValue::get_option(sub, "provider") catch {
+                _ => None
+              }
+              let lang_arg = @clap.SimpleValue::get_option(sub, "lang") catch {
+                _ => None
+              }
+              cmd_ocr(input, output_opt, provider_name, lang_arg, with_metadata)
             }
             "batch" => {
               if positional.length() != 2 {
@@ -264,13 +262,21 @@ fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="OCR conversion for scanned/image PDFs: ocr [--with-metadata] <input> [output]",
+        help="Explicit OCR mode: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output]",
         args={
+          "provider": @clap.Arg::named(
+            nargs=Fixed(1),
+            help="Explicit OCR provider name (default: tesseract-cli)",
+          ),
+          "lang": @clap.Arg::named(
+            nargs=Fixed(1),
+            help="OCR language code(s), e.g. eng or eng+chi_sim",
+          ),
           "with-metadata": @clap.Arg::flag(
             help="Also write <name>.metadata.json next to markdown output",
           ),
           "input": @clap.Arg::positional(
-            help="Path to input file (.pdf preferred)",
+            help="Path to input file (.png/.jpg/.jpeg/.tif/.tiff/.bmp/.webp, or explicit OCR PDF path)",
           ),
         },
       ),
@@ -329,7 +335,9 @@ fn print_cli_help() -> Unit {
 fn print_cli_usage() -> Unit {
   println("Usage:")
   println("  markitdown-mb normal [--with-metadata] <input> [output]")
-  println("  markitdown-mb ocr [--with-metadata] <input> [output]")
+  println(
+    "  markitdown-mb ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
+  )
   println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
   println(
     "  markitdown-mb debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input>",

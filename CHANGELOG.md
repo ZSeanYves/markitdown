@@ -31,6 +31,10 @@
   availability probing and page-image text recognition, while keeping OCR
   out of the default normal path and leaving PDF-level OCR/provider routing
   broader than single-page images for later work.
+* Wire the explicit `ocr` CLI subcommand to the `tesseract-cli` provider for
+  supported image inputs, including explicit provider/lang selection and clear
+  unavailable/unsupported errors, while keeping `normal` unchanged and leaving
+  direct PDF OCR outside the `tesseract-cli` path.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

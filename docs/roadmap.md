@@ -116,6 +116,8 @@ This page is the current roadmap source of truth for the repository.
   probe APIs, and report wiring before any real engine integration
 * keep the first real provider narrow: explicit `tesseract-cli` page-image OCR
   before any broader PDF-wrapper or model-backed OCR route
+* keep direct PDF OCR in the explicit-provider/future-PDF-wrapper lane rather
+  than forcing `tesseract-cli` image assumptions onto the normal converter
 * keep layout assistance advisory/report-only first; only consider guarded
   normal-path use after benchmark and corpus evidence
 * keep layout-assist rollout on report-only skeletons before any model-backed
