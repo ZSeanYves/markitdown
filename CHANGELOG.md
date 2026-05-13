@@ -39,6 +39,11 @@
   covering unknown-provider, unsupported-input, unavailable-provider, and
   image-route boundary behavior in the default gate, plus an optional local
   `tesseract-cli` smoke that stays outside CI and does not claim OCR quality.
+* Document the OCRmyPDF provider audit/design boundary for future explicit PDF
+  OCR: OCRmyPDF remains external and unimplemented, image OCR through
+  `tesseract-cli` remains the only shipped OCR execution path, and any future
+  PDF OCR route must stay explicit, provenance-tagged, and outside the normal
+  native-text conversion path.
 * Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
   reports, using conservative heuristic-provider signals and provider summaries
   without changing normal Markdown output or enabling model-backed decisions.

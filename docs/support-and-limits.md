@@ -951,6 +951,9 @@ It should currently be understood as:
 * an optional local `tesseract-cli` smoke can be run manually when external
   tooling is present, but it is not part of the default CI/sample gate and is
   not treated as an OCR quality benchmark
+* the repository also carries an OCRmyPDF provider audit/design document for a
+  future explicit PDF OCR route, but OCRmyPDF is not implemented as a runtime
+  path yet
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion
@@ -958,3 +961,7 @@ It should currently be understood as:
   part of normal CLI startup
 * direct PDF OCR through the provider layer is still out of scope here;
   `tesseract-cli` is page-image OCR only
+* any future OCRmyPDF path must remain explicit, external, and
+  provenance-tagged: OCR sidecar text is OCR output rather than native
+  embedded PDF text, and normal PDF conversion must continue to avoid provider
+  probing or hidden OCR fallback

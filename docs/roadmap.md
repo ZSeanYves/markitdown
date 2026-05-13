@@ -121,6 +121,11 @@ This page is the current roadmap source of truth for the repository.
   gate and without turning the suite into an OCR-quality claim
 * keep direct PDF OCR in the explicit-provider/future-PDF-wrapper lane rather
   than forcing `tesseract-cli` image assumptions onto the normal converter
+* treat OCRmyPDF as an audited future explicit PDF OCR provider only after
+  sidecar/provenance semantics, temp-file cleanup, exit-code mapping, and
+  explicit provider metadata are settled
+* keep any future OCRmyPDF route external and user-installed rather than
+  bundled, and avoid probing it from `normal` or from default CLI startup
 * keep layout assistance advisory/report-only first; only consider guarded
   normal-path use after benchmark and corpus evidence
 * keep layout-assist rollout on report-only skeletons before any model-backed
