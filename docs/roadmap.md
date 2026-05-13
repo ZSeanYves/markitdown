@@ -122,6 +122,8 @@ This page is the current roadmap source of truth for the repository.
   normal-path use after benchmark and corpus evidence
 * keep layout-assist rollout on report-only skeletons before any model-backed
   or normal-path experiment
+* prefer surfacing advisory layout-assist predictions in debug/inspect before
+  any normal-path integration attempt
 
 ## Later Work
 

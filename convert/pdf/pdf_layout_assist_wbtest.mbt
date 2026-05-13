@@ -41,9 +41,40 @@ test "layout assist heuristic provider emits stable advisory caption" {
     },
   ])
   assert_eq(predictions.length(), 1)
+  assert_eq(predictions[0].page_index, 0)
   assert_eq(predictions[0].suggested_label, "caption_candidate")
   assert_true(predictions[0].mode == LayoutAssistMode::ReportOnly)
   assert_eq(predictions[0].provider, "heuristic-layout-assist")
+  assert_eq(predictions[0].reasons, ["caption_prefix"])
+}
+
+///|
+test "layout assist heuristic provider respects block kind hints" {
+  let predictions = predict_with_heuristic_layout_assist([
+    {
+      target_id: "b-heading",
+      text: "Introduction",
+      page_index: 1,
+      block_kind_hint: Some("heading"),
+      metrics_json: None,
+    },
+    {
+      target_id: "b-table",
+      text: "Revenue | Cost | Margin",
+      page_index: 1,
+      block_kind_hint: Some("table"),
+      metrics_json: None,
+    },
+  ])
+  assert_eq(predictions.length(), 2)
+  assert_eq(predictions[0].target_id, "b-heading")
+  assert_eq(predictions[0].page_index, 1)
+  assert_eq(predictions[0].suggested_label, "heading_candidate")
+  assert_eq(predictions[0].reasons, ["block_kind_hint=heading"])
+  assert_eq(predictions[1].target_id, "b-table")
+  assert_eq(predictions[1].page_index, 1)
+  assert_eq(predictions[1].suggested_label, "table_candidate")
+  assert_eq(predictions[1].reasons, ["block_kind_hint=table"])
 }
 
 ///|

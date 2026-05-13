@@ -25,6 +25,7 @@ pub struct LayoutAssistFeature {
 ///|
 pub struct LayoutAssistPrediction {
   target_id : String
+  page_index : Int
   suggested_label : String
   confidence : Double?
   provider : String
@@ -95,6 +96,7 @@ fn heuristic_layout_assist_prediction(
     return Some(
       make_layout_assist_prediction(
         feature.target_id,
+        feature.page_index,
         "caption_candidate",
         Some(0.85),
         "heuristic-layout-assist",
@@ -108,6 +110,7 @@ fn heuristic_layout_assist_prediction(
     return Some(
       make_layout_assist_prediction(
         feature.target_id,
+        feature.page_index,
         "table_candidate",
         Some(0.80),
         "heuristic-layout-assist",
@@ -121,6 +124,7 @@ fn heuristic_layout_assist_prediction(
     return Some(
       make_layout_assist_prediction(
         feature.target_id,
+        feature.page_index,
         "heading_candidate",
         Some(0.75),
         "heuristic-layout-assist",
@@ -135,6 +139,7 @@ fn heuristic_layout_assist_prediction(
     return Some(
       make_layout_assist_prediction(
         feature.target_id,
+        feature.page_index,
         "caption_candidate",
         Some(0.70),
         "heuristic-layout-assist",
@@ -149,6 +154,7 @@ fn heuristic_layout_assist_prediction(
 ///|
 fn make_layout_assist_prediction(
   target_id : String,
+  page_index : Int,
   suggested_label : String,
   confidence : Double?,
   provider : String,
@@ -156,6 +162,7 @@ fn make_layout_assist_prediction(
 ) -> LayoutAssistPrediction {
   {
     target_id,
+    page_index,
     suggested_label,
     confidence,
     provider,

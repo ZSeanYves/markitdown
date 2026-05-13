@@ -68,6 +68,7 @@ pub enum LayoutAssistMode {
 
 pub struct LayoutAssistPrediction {
   target_id : String
+  page_index : Int
   suggested_label : String
   confidence : Double?
   provider : String

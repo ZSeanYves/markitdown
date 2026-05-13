@@ -14,6 +14,7 @@ pub fn build_pdf_debug_sections(
     pdf_backend_section(model),
     pdf_pages_section(model),
     pdf_text_model_section(model),
+    pdf_layout_assist_section(doc1, doc2),
     pdf_images_section(model),
     pdf_annotations_section(model),
     pdf_links_section(doc1),
@@ -261,6 +262,252 @@ fn pdf_text_model_section(model : @model.PdfDocumentModel) -> @cor.DebugSection 
       map_string_int_json(source_kind_counts),
     ]),
   )
+}
+
+///|
+fn pdf_layout_assist_section(
+  raw_doc : PdfConvertDocument,
+  classified_doc : PdfConvertDocument,
+) -> @cor.DebugSection {
+  let providers = list_layout_assist_providers()
+  let provider_items : Array[String] = []
+  for info in providers {
+    provider_items.push(
+      @cor.object_json([
+        @cor.json_string("name") + ": " + @cor.json_string(info.name),
+        @cor.json_string("mode") +
+        ": " +
+        @cor.json_string(layout_assist_mode_name(info.mode)),
+        @cor.json_string("version") + ": " + @cor.json_string_opt(info.version),
+        @cor.json_string("available") + ": " + @cor.bool_json(info.available),
+      ]),
+    )
+  }
+
+  let features = build_layout_assist_features(raw_doc, classified_doc)
+  let predictions = predict_with_heuristic_layout_assist(features)
+  let preview = take_layout_assist_predictions(predictions, 12)
+  let prediction_items : Array[String] = []
+  for prediction in preview {
+    prediction_items.push(layout_assist_prediction_json(prediction))
+  }
+
+  @cor.debug_section(
+    "layout_assist",
+    "pdf",
+    true,
+    Some(
+      "advisory/report-only layout-assist provider summary and conservative candidate predictions",
+    ),
+    @cor.object_json([
+      @cor.json_string("provider_count") + ": " + providers.length().to_string(),
+      @cor.json_string("providers") + ": " + @cor.array_json(provider_items),
+      @cor.json_string("feature_count") + ": " + features.length().to_string(),
+      @cor.json_string("prediction_count") +
+      ": " +
+      predictions.length().to_string(),
+      @cor.json_string("predictions_truncated") +
+      ": " +
+      @cor.bool_json(predictions.length() > preview.length()),
+      @cor.json_string("predictions") + ": " + @cor.array_json(prediction_items),
+    ]),
+  )
+}
+
+///|
+fn build_layout_assist_features(
+  raw_doc : PdfConvertDocument,
+  classified_doc : PdfConvertDocument,
+) -> Array[LayoutAssistFeature] {
+  let out : Array[LayoutAssistFeature] = []
+  let page_count = min_layout_assist_int(
+    raw_doc.pages.length(),
+    classified_doc.pages.length(),
+  )
+  for page_index = 0; page_index < page_count; page_index = page_index + 1 {
+    let raw_page = raw_doc.pages[page_index]
+    let classified_page = classified_doc.pages[page_index]
+    let block_count = min_layout_assist_int(
+      raw_page.blocks.length(),
+      classified_page.blocks.length(),
+    )
+    for block_index = 0
+        block_index < block_count
+        block_index = block_index + 1 {
+      let raw_block = raw_page.blocks[block_index]
+      let classified_block = classified_page.blocks[block_index]
+      let hint = classify_layout_assist_block_hint(raw_block, classified_block)
+      let metrics = layout_assist_metrics_json(
+        raw_page, raw_block, classified_block,
+      )
+      out.push({
+        target_id: "p" +
+        (raw_block._page_index + 1).to_string() +
+        ".b" +
+        raw_block.block_index.to_string(),
+        text: raw_block.text,
+        page_index: raw_block._page_index,
+        block_kind_hint: hint,
+        metrics_json: Some(metrics),
+      })
+    }
+  }
+  out
+}
+
+///|
+fn classify_layout_assist_block_hint(
+  raw_block : PdfConvertBlock,
+  classified_block : PdfConvertBlock,
+) -> String? {
+  if raw_block.is_caption_candidate {
+    return Some("caption")
+  }
+  if raw_block.is_table_cell_candidate {
+    return Some("table")
+  }
+  if raw_block.is_artifact_candidate || raw_block.is_noise_candidate {
+    return Some("noise")
+  }
+  match classified_block.kind {
+    PdfConvertBlockKind::Heading => Some("heading")
+    PdfConvertBlockKind::Paragraph => None
+    PdfConvertBlockKind::Noise => Some("noise")
+  }
+}
+
+///|
+fn layout_assist_metrics_json(
+  page : PdfConvertPage,
+  raw_block : PdfConvertBlock,
+  classified_block : PdfConvertBlock,
+) -> String {
+  let near_image = block_near_any_image(page.images, raw_block, 18.0)
+  @cor.object_json([
+    @cor.json_string("line_count") + ": " + raw_block.line_count.to_string(),
+    @cor.json_string("text_length") + ": " + raw_block.text.length().to_string(),
+    @cor.json_string("near_image") + ": " + @cor.bool_json(near_image),
+    @cor.json_string("is_heading_candidate") +
+    ": " +
+    @cor.bool_json(raw_block.is_heading_candidate),
+    @cor.json_string("is_caption_candidate") +
+    ": " +
+    @cor.bool_json(raw_block.is_caption_candidate),
+    @cor.json_string("is_table_cell_candidate") +
+    ": " +
+    @cor.bool_json(raw_block.is_table_cell_candidate),
+    @cor.json_string("final_kind") +
+    ": " +
+    @cor.json_string(layout_assist_block_kind_name(classified_block.kind)),
+  ])
+}
+
+///|
+fn block_near_any_image(
+  images : Array[PdfConvertImage],
+  block : PdfConvertBlock,
+  threshold : Double,
+) -> Bool {
+  for image in images {
+    if layout_assist_rects_overlap_or_near(block._bbox, image._bbox, threshold) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn layout_assist_rects_overlap_or_near(
+  a : @model.PdfRect,
+  b : @model.PdfRect,
+  threshold : Double,
+) -> Bool {
+  let horizontal_gap = if a.x1 < b.x0 {
+    b.x0 - a.x1
+  } else if b.x1 < a.x0 {
+    a.x0 - b.x1
+  } else {
+    0.0
+  }
+  let vertical_gap = if a.y1 < b.y0 {
+    b.y0 - a.y1
+  } else if b.y1 < a.y0 {
+    a.y0 - b.y1
+  } else {
+    0.0
+  }
+  horizontal_gap <= threshold && vertical_gap <= threshold
+}
+
+///|
+fn layout_assist_prediction_json(prediction : LayoutAssistPrediction) -> String {
+  @cor.object_json([
+    @cor.json_string("target_id") +
+    ": " +
+    @cor.json_string(prediction.target_id),
+    @cor.json_string("page_index") + ": " + prediction.page_index.to_string(),
+    @cor.json_string("suggested_label") +
+    ": " +
+    @cor.json_string(prediction.suggested_label),
+    @cor.json_string("confidence") +
+    ": " +
+    double_opt_json(prediction.confidence),
+    @cor.json_string("provider") + ": " + @cor.json_string(prediction.provider),
+    @cor.json_string("mode") +
+    ": " +
+    @cor.json_string(layout_assist_mode_name(prediction.mode)),
+    @cor.json_string("reasons") +
+    ": " +
+    @cor.string_array_json(prediction.reasons),
+  ])
+}
+
+///|
+fn layout_assist_mode_name(mode : LayoutAssistMode) -> String {
+  match mode {
+    LayoutAssistMode::ReportOnly => "report_only"
+    LayoutAssistMode::Advisory => "advisory"
+    LayoutAssistMode::GatedNormal => "gated_normal"
+  }
+}
+
+///|
+fn layout_assist_block_kind_name(kind : PdfConvertBlockKind) -> String {
+  match kind {
+    PdfConvertBlockKind::Heading => "heading"
+    PdfConvertBlockKind::Paragraph => "paragraph"
+    PdfConvertBlockKind::Noise => "noise"
+  }
+}
+
+///|
+fn take_layout_assist_predictions(
+  predictions : Array[LayoutAssistPrediction],
+  limit : Int,
+) -> Array[LayoutAssistPrediction] {
+  let out : Array[LayoutAssistPrediction] = []
+  let capped = min_layout_assist_int(predictions.length(), limit)
+  for i = 0; i < capped; i = i + 1 {
+    out.push(predictions[i])
+  }
+  out
+}
+
+///|
+fn min_layout_assist_int(a : Int, b : Int) -> Int {
+  if a < b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn double_opt_json(v : Double?) -> String {
+  match v {
+    Some(x) => x.to_string()
+    None => "null"
+  }
 }
 
 ///|

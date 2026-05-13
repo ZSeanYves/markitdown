@@ -64,6 +64,31 @@ async test "debug inspect report includes pdf normalization section" {
   debug_assert_contains(rendered, "\"heading_status_counts\"")
   debug_assert_contains(rendered, "\"text_signal_level\": \"normal\"")
   debug_assert_contains(rendered, "\"ocr_recommended\": false")
+  debug_assert_contains(rendered, "\"name\": \"layout_assist\"")
+  debug_assert_contains(rendered, "\"provider_count\"")
+  debug_assert_contains(rendered, "\"prediction_count\"")
+  debug_assert_contains(rendered, "\"heuristic-layout-assist\"")
+}
+
+///|
+async test "debug inspect report includes layout assist advisory predictions" {
+  let input = debug_resolve_sample(
+    "samples/main_process/pdf/pdf_heading_vs_short_sentence.pdf",
+  )
+  let report = build_debug_report(input, {
+      output_kind: @cor.DebugOutputKind::Json,
+      with_ir: false,
+      with_metadata_summary: false,
+      with_normalization: false,
+    })
+    |> unwrap_or_fail("build layout-assist debug report failed")
+
+  let rendered = @cor.render_debug_report(report, @cor.DebugOutputKind::Json)
+  debug_assert_contains(rendered, "\"name\": \"layout_assist\"")
+  debug_assert_contains(rendered, "\"suggested_label\": \"heading_candidate\"")
+  debug_assert_contains(rendered, "\"provider\": \"heuristic-layout-assist\"")
+  debug_assert_contains(rendered, "\"mode\": \"report_only\"")
+  debug_assert_contains(rendered, "\"target_id\"")
 }
 
 ///|

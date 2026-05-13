@@ -516,6 +516,8 @@ Known limits:
 * lightweight OCR/layout-assist provider skeletons may exist for lazy
   descriptor/probe/report wiring, but they do not imply bundled OCR engines,
   bundled model files, or normal-path activation
+* layout-assist advisory predictions may surface in PDF debug/inspect reports,
+  but they do not participate in the normal conversion decision path
 * the explicit `tesseract-cli` provider is optional and external: it can probe
   availability and OCR page images when users explicitly choose it, but it is
   not bundled and is not part of the default `normal` path

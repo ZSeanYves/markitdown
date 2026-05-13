@@ -35,6 +35,9 @@
   supported image inputs, including explicit provider/lang selection and clear
   unavailable/unsupported errors, while keeping `normal` unchanged and leaving
   direct PDF OCR outside the `tesseract-cli` path.
+* Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
+  reports, using conservative heuristic-provider signals and provider summaries
+  without changing normal Markdown output or enabling model-backed decisions.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

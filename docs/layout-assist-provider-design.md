@@ -61,12 +61,16 @@ Current implementation status:
 * no external model runtime or model file is loaded by default
 * debug-only provider listing can surface these providers without enabling
   predictions in the normal conversion path
+* PDF debug/inspect can now surface advisory `layout_assist` provider summaries
+  plus conservative report-only predictions without changing normal Markdown
+  output
 
 Suggested prediction shape:
 
 ```text
 LayoutAssistPrediction
   target_id
+  page_index
   suggested_label
   confidence
   provider
@@ -102,6 +106,8 @@ Current recommendation:
 
 * keep the default provider route at `report_only`
 * do not wire provider predictions into normal conversion decisions yet
+* keep debug/inspect output explicit that these are advisory predictions rather
+  than final block classifications
 
 ## Suggested providers
 
