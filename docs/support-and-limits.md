@@ -225,6 +225,9 @@ Shared text-normalization substrate:
 * default converter behavior still does not enable canonical normalization
 * the repository does not claim full ICU/UAX #15 or
   `NormalizationTest.txt`-verified conformance yet
+* no Unicode normalization conformance corpus is bundled in the repository,
+  and any future `NormalizationTest.txt` validation path must remain
+  user-provided and opt-in rather than part of the default sample/test gate
 * this substrate is deterministic preprocessing, not OCR, not a layout engine,
   and not a semantic classifier
 * PDF-only artifact cleanup, line-wrap repair, and other geometry-dependent

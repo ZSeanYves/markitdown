@@ -288,6 +288,11 @@ keeping converter defaults stable.
   repository's default converter behavior.
 * Full `NormalizationTest.txt` conformance validation is still pending, so the
   repository does not claim complete ICU/UAX #15 equivalence.
+* Clarify the text-normalization conformance surface: explicit
+  `normalize_nfd/nfc/nfkd/nfkc` and `is_normalized_*` APIs already have
+  curated always-on tests, shared cleanup remains separate from canonical
+  normalization, and any future `NormalizationTest.txt` runner must remain
+  manual-only, user-provided, and outside the default validation gate.
 
 ### Rollout scope
 

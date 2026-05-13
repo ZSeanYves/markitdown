@@ -176,6 +176,9 @@ This page is the current roadmap source of truth for the repository.
 * full browser HTML engine
 * full CommonMark renderer
 * full ICU/UAX #15 canonical normalization
+  * explicit facade APIs and curated tests exist, but full
+    `NormalizationTest.txt` conformance should remain manual/opt-in unless a
+    user-provided runner proves stable and governance is settled
 * replacing Pandoc/Tika
 * claiming cross-machine absolute benchmark guarantees
 
