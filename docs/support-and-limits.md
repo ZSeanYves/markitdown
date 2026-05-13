@@ -954,6 +954,9 @@ It should currently be understood as:
 * the repository also carries an OCRmyPDF provider audit/design document for a
   future explicit PDF OCR route, but OCRmyPDF is not implemented as a runtime
   path yet
+* the repository also treats PaddleOCR / PP-Structure as a future heavy
+  provider boundary only: it is not implemented, not bundled, and not part of
+  the default OCR contract
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion
@@ -965,3 +968,7 @@ It should currently be understood as:
   provenance-tagged: OCR sidecar text is OCR output rather than native
   embedded PDF text, and normal PDF conversion must continue to avoid provider
   probing or hidden OCR fallback
+* any future PaddleOCR route must also remain explicit, external, and
+  heavy-provider-only: Python/runtime/model installation is user-managed,
+  model downloads are not automatic, and layout/table/document-analysis output
+  must not be mixed into normal Markdown by default

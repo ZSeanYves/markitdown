@@ -9,6 +9,8 @@ Current boundary:
 * optional layout assistance must not replace the main chain by default
 * current lightweight classifier work is still a local training spike
 * default output should not depend on external models or heavy runtimes
+* heavy document-analysis systems such as PaddleOCR / PP-Structure remain
+  future audit/design topics rather than current runtime dependencies
 
 ## Goals
 
@@ -68,6 +70,16 @@ Current implementation status:
   coverage, label distribution, and top reasons across the local
   `samples/pdf_layout_classifier` manifest without claiming production-quality
   accuracy
+
+Heavy-provider audit note:
+
+* PaddleOCR / PP-Structure is better understood as a possible heavy
+  document-analysis provider than as a lightweight replacement for the current
+  rule/heuristic layout-assist chain
+* any future use of its layout/table/caption-like output should start as
+  advisory/report-only debug or evaluation data
+* those outputs should not directly rewrite heading/table/caption/noise final
+  classifications in the normal conversion path
 
 Suggested prediction shape:
 
@@ -130,6 +142,14 @@ Current recommendation:
 * default disabled
 * should remain advisory until evidence is strong
 
+### HeavyDocumentAnalysisProvider
+
+* future-only
+* candidate examples include PaddleOCR / PP-Structure-style pipelines
+* may emit OCR, layout, table, caption, formula, or KIE-like signals
+* must remain explicit, external, and report-first
+* should not be treated as a drop-in layout-assist replacement
+
 ## Reporting contract
 
 Predictions should stay explainable:
@@ -142,6 +162,16 @@ Predictions should stay explainable:
 This makes provider output auditable and keeps it from becoming a black-box
 replacement for the main chain.
 
+If a future heavy provider is used for advisory layout assistance, reports
+should also record:
+
+* provider runtime family
+* model identifiers
+* language hints
+* device/CPU/GPU selection
+* whether the signal came from OCR text, region layout, table parsing, or some
+  other document-analysis stage
+
 ## Recommended rollout
 
 Near term:
@@ -150,11 +180,15 @@ Near term:
 * keep layout assistance report-only
 * use the skeleton for tests/debug/report wiring before any main-chain
   integration
+* keep heavy-provider ideas such as PaddleOCR design-only until model/runtime,
+  licensing, and reproducibility boundaries are documented
 
 Mid term:
 
 * compare heuristic vs optional provider suggestions in debug/report output
 * expand labels only if held-out evidence improves
+* if heavy providers are explored, start in debug/eval JSON rather than normal
+  Markdown control
 
 Long term:
 
@@ -170,3 +204,6 @@ Do not:
 * load heavy layout models in `normal`
 * let advisory output silently override heuristic output
 * present current spike results as generalized model quality claims
+* lower heavy-provider table/caption/layout output directly into normal
+  heading/table/caption decisions without explicit provenance and benchmark
+  evidence

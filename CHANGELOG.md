@@ -44,6 +44,11 @@
   `tesseract-cli` remains the only shipped OCR execution path, and any future
   PDF OCR route must stay explicit, provenance-tagged, and outside the normal
   native-text conversion path.
+* Document the PaddleOCR / PP-Structure heavy-provider boundary: PaddleOCR
+  remains an external unimplemented future provider, model/runtime assets stay
+  user-managed, any future OCR/layout/table route must remain explicit and
+  provenance-tagged, and no heavy-provider output is allowed to bypass the
+  normal text-first conversion path.
 * Surface report-only `layout_assist` advisory predictions in PDF debug/inspect
   reports, using conservative heuristic-provider signals and provider summaries
   without changing normal Markdown output or enabling model-backed decisions.

@@ -13,6 +13,8 @@ Current boundary:
   selection path
 * OCR output is an augmentation path, not native embedded text
 * direct PDF OCR through OCRmyPDF remains audited/design-only for now
+* PaddleOCR / PP-Structure remains audited/design-only as a future heavy
+  provider route rather than a current runtime path
 
 ## Goals
 
@@ -179,6 +181,80 @@ Recommendation:
   * provider-selected
   * provenance-tagged
   * absent from the normal path
+
+## PaddleOCR Audit: Fit For Heavy OCR And Document Analysis
+
+PaddleOCR is a reasonable **future heavy provider candidate**, but it should
+not be treated as a lightweight drop-in OCR backend.
+
+Why it differs from the current OCR path:
+
+* the official runtime expects a Python package plus an inference engine
+* current official quick start documents both PaddlePaddle and Transformers
+  engine options, plus CPU/GPU-specific installation paths
+* the official package exposes broader document-analysis capabilities than
+  plain OCR, including PP-Structure pipelines for layout, tables, formulas,
+  and related document-analysis tasks
+* the official examples also document model download/storage behavior rather
+  than a zero-download native binary contract
+
+Why it must stay heavy/optional:
+
+* it depends on Python/runtime stacks that are outside the repository's native
+  default contract
+* model assets can be large, numerous, and task-specific
+* CPU/GPU choice materially changes performance, startup, and reproducibility
+* pipeline composition is richer than the current `OcrPageResult` /
+  `OcrDocumentResult` contract
+
+Design conclusion:
+
+* `paddleocr` should be treated as a **future heavy provider**, not as the next
+  default OCR provider
+* it is better framed as:
+  * explicit OCR provider for page/document analysis, and/or
+  * explicit advisory/report provider for layout/table/document-analysis output
+* it should stay:
+  * external
+  * user-installed
+  * explicit
+  * provenance-tagged
+  * absent from `normal`
+  * absent from default startup probing
+
+## PaddleOCR Capability Mapping
+
+PaddleOCR and PP-Structure can emit several kinds of output that exceed the
+current lightweight OCR interface.
+
+Likely output classes:
+
+* plain OCR text lines with confidence
+* detection boxes and text orientation signals
+* layout-region labels such as text/title/table/image/list
+* table-structure output
+* formula recognition output
+* richer document-analysis or KIE-style structures
+
+Mapping guidance:
+
+* plain OCR text can map to the existing OCR provider contract only if the
+  emitted provenance records:
+  * `text_source = ocr`
+  * `ocr_provider = paddleocr`
+  * `ocr_languages = [...]`
+  * `ocr_model_id`
+  * `ocr_runtime = paddlepaddle | transformers`
+* layout/table/caption-like output should **not** be silently lowered into
+  normal Markdown
+* richer structure should first live in:
+  * explicit debug/report JSON
+  * explicit evaluation output
+  * future dedicated heavy-provider artifacts
+
+This means PaddleOCR is currently a poor fit for the narrow
+`OcrDocumentResult.pages[text]` shape unless the result contract grows
+additively.
 
 ## OCRmyPDF Behavioral Boundaries
 
@@ -361,6 +437,8 @@ This mirrors the current repository direction for OCR providers:
 * normal path: no probe
 * debug providers: explicit listing, optional explicit probe
 * OCR command path: explicit provider selection only
+* heavy providers such as PaddleOCR should follow the same rule: no runtime
+  discovery or model probing during normal startup
 
 ## Licensing And Dependency Policy
 
@@ -374,6 +452,74 @@ OCRmyPDF is MPL-2.0 and should be treated as:
 No models or OCRmyPDF runtime dependencies should be downloaded or shipped by
 default as part of `markitdown-mb`.
 
+PaddleOCR-specific audit note:
+
+* the PaddleOCR codebase is Apache-2.0, but that is not a sufficient review
+  for product integration by itself
+* model licenses, pretrained-weight provenance, font/assets use, and runtime
+  engine dependencies still require separate review
+* the repository should not auto-download PaddleOCR models, cache them into
+  the repo tree, or vendor them as part of the default native package
+
+## Resource, Timeout, And Cleanup Policy For Heavy Providers
+
+If PaddleOCR is ever integrated, the provider contract should require stricter
+runtime controls than the current `tesseract-cli` image path.
+
+Recommended controls:
+
+* explicit timeout configuration
+* full stdout/stderr capture without pipe deadlocks
+* temp-directory isolation and cleanup on both success and failure
+* clear CPU/GPU/device selection recorded in metadata
+* memory/parallelism limits where practical
+* explicit debug-only retention of temp artifacts
+
+This is important because PP-Structure-style pipelines can be much slower and
+more resource-intensive than a single CLI OCR pass.
+
+## OCRmyPDF vs PaddleOCR
+
+The two future providers solve different problems and should not be collapsed
+into one boundary.
+
+OCRmyPDF is better suited to:
+
+* explicit PDF-wrapper OCR
+* sidecar-oriented text extraction
+* conservative text-preserving handling of mixed/image-only PDFs
+
+PaddleOCR is better suited to:
+
+* explicit image/document OCR with heavier runtime assumptions
+* explicit document-analysis tasks such as layout, table, and formula parsing
+* advisory/report-first heavy-provider experiments
+
+Shared policy:
+
+* neither belongs in `normal`
+* neither should be probed during default CLI startup
+* both should remain external and user-installed
+* both require explicit provenance and provider metadata
+
+## Testing Strategy For Heavy Providers
+
+If PaddleOCR is integrated in the future, testing should remain explicit and
+off the default gate at first.
+
+Recommended progression:
+
+* default gate:
+  * keep contract tests limited to unknown-provider / unavailable-provider /
+    explicit-path boundary behavior
+* optional local smoke:
+  * only run when the user has already installed the required runtime/models
+  * do not claim OCR quality or layout quality
+* debug/eval:
+  * prefer JSON/report surfaces that record provider, model, runtime, device,
+    and timing metadata
+* no default CI dependency on Python, Paddle, or downloaded models
+
 ## Recommended Rollout
 
 Near term:
@@ -381,6 +527,8 @@ Near term:
 * keep OCR explicit
 * keep direct PDF OCR unimplemented in the provider runtime
 * document OCRmyPDF sidecar/provenance semantics before any implementation
+* document PaddleOCR as a heavy optional provider boundary before any
+  implementation
 * keep provider descriptors/probe surfaces lightweight and lazy
 
 Mid term:
@@ -389,12 +537,16 @@ Mid term:
 * add an explicit OCRmyPDF provider implementation only after temp-file,
   exit-code, and sidecar semantics are settled
 * keep the first OCRmyPDF execution path scoped to explicit PDF OCR only
+* if PaddleOCR ever lands, start with explicit/local heavy-provider routes or
+  debug/eval reporting rather than normal Markdown generation
 
 Long term:
 
 * support richer explicit OCR PDF artifacts if needed
 * consider provenance-aware native+OCR text merge only as a separate, explicit
   design
+* support richer explicit heavy-provider artifacts for layout/table/document
+  analysis without changing native mode
 * support plugin/external-provider registration without changing native mode
 
 ## Explicit Non-recommendations
@@ -403,7 +555,9 @@ Do not:
 
 * run OCR silently in `normal`
 * probe OCRmyPDF in the normal path
+* probe PaddleOCR models/runtimes in the normal path
 * treat OCRmyPDF sidecar text as embedded/native PDF text
 * wire OCRmyPDF into the default native quality gate
 * ship Python/OCR runtimes in the default build
+* auto-download heavy OCR models as part of normal CLI behavior
 * implement direct PDF OCR before provenance is explicit and auditable

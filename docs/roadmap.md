@@ -126,6 +126,12 @@ This page is the current roadmap source of truth for the repository.
   explicit provider metadata are settled
 * keep any future OCRmyPDF route external and user-installed rather than
   bundled, and avoid probing it from `normal` or from default CLI startup
+* treat PaddleOCR / PP-Structure as a separate heavy-provider lane: useful for
+  future explicit OCR/layout/table analysis, but only after runtime/model,
+  licensing, provenance, and reproducibility boundaries are documented
+* keep any future PaddleOCR route off the normal path and off the default
+  sample/test gate, starting instead from explicit commands or debug/eval
+  reporting
 * keep layout assistance advisory/report-only first; only consider guarded
   normal-path use after benchmark and corpus evidence
 * keep layout-assist rollout on report-only skeletons before any model-backed
