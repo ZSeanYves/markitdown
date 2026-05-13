@@ -9,6 +9,7 @@ pub enum OcrProviderErrorKind {
   UnknownProvider
   Unavailable
   NotImplemented
+  RecognitionFailed
 } derive(Eq)
 
 ///|
@@ -101,7 +102,7 @@ pub async fn probe_known_ocr_provider(name : String) -> OcrProviderInfo? {
         probe_external_ocr_provider(
           "tesseract-cli",
           Some("Apache-2.0"),
-          "tesseract",
+          provider_command_path("tesseract-cli", "tesseract"),
           ["--version"],
         ),
       )
@@ -128,11 +129,11 @@ pub async fn probe_known_ocr_provider(name : String) -> OcrProviderInfo? {
 }
 
 ///|
-pub fn recognize_page_with_ocr_provider(
+pub async fn recognize_page_with_ocr_provider(
   provider_name : String,
-  _page_index : Int,
-  _page_image_path : String,
-  _options : OcrOptions,
+  page_index : Int,
+  page_image_path : String,
+  options : OcrOptions,
 ) -> Result[OcrPageResult, OcrProviderError] {
   match canonical_ocr_provider_name(provider_name) {
     Some("noop") =>
@@ -142,7 +143,9 @@ pub fn recognize_page_with_ocr_provider(
           "noop OCR provider does not perform recognition",
         ),
       )
-    Some("tesseract-cli") | Some("ocrmypdf-cli") | Some("paddleocr") =>
+    Some("tesseract-cli") =>
+      recognize_page_with_tesseract(page_index, page_image_path, options)
+    Some("ocrmypdf-cli") | Some("paddleocr") =>
       Err(
         ocr_provider_error(
           OcrProviderErrorKind::Unavailable,
@@ -162,7 +165,7 @@ pub fn recognize_page_with_ocr_provider(
 ///|
 pub fn recognize_pdf_with_ocr_provider(
   provider_name : String,
-  _input_path : String,
+  input_path : String,
   _options : OcrOptions,
 ) -> Result[OcrDocumentResult, OcrProviderError] {
   match canonical_ocr_provider_name(provider_name) {
@@ -173,7 +176,15 @@ pub fn recognize_pdf_with_ocr_provider(
           "noop OCR provider does not perform recognition",
         ),
       )
-    Some("tesseract-cli") | Some("ocrmypdf-cli") | Some("paddleocr") =>
+    Some("tesseract-cli") =>
+      Err(
+        ocr_provider_error(
+          OcrProviderErrorKind::NotImplemented,
+          "tesseract-cli provider currently supports page-image OCR only: " +
+          input_path,
+        ),
+      )
+    Some("ocrmypdf-cli") | Some("paddleocr") =>
       Err(
         ocr_provider_error(
           OcrProviderErrorKind::Unavailable,
@@ -204,6 +215,54 @@ fn deferred_external_ocr_provider_info(
     available: false,
     unavailable_reason: Some(reason),
     probed: false,
+  }
+}
+
+///|
+async fn recognize_page_with_tesseract(
+  page_index : Int,
+  page_image_path : String,
+  options : OcrOptions,
+) -> Result[OcrPageResult, OcrProviderError] {
+  let langs = normalized_ocr_languages(options.languages)
+  let cmd = provider_command_path("tesseract-cli", "tesseract")
+  let args = build_tesseract_page_args(page_image_path, langs)
+  run_tesseract_page_command(cmd, args, page_index, langs)
+}
+
+///|
+async fn run_tesseract_page_command(
+  command : String,
+  args : Array[String],
+  page_index : Int,
+  langs : String,
+) -> Result[OcrPageResult, OcrProviderError] {
+  match collect_process_output(command, args) {
+    Ok((status, stdout, stderr)) =>
+      if status == 0 {
+        let warnings = collect_ocr_warnings(stderr)
+        Ok({
+          page_index,
+          text: stdout,
+          confidence: None,
+          language: Some(langs),
+          warnings,
+        })
+      } else {
+        Err(
+          ocr_provider_error(
+            OcrProviderErrorKind::RecognitionFailed,
+            render_tesseract_failure_message(status, stderr, langs),
+          ),
+        )
+      }
+    Err(err) =>
+      Err(
+        ocr_provider_error(
+          OcrProviderErrorKind::Unavailable,
+          "tesseract-cli unavailable: " + err,
+        ),
+      )
   }
 }
 
@@ -250,6 +309,101 @@ async fn probe_external_ocr_provider(
         probed: true,
       }
   }
+}
+
+///|
+fn build_tesseract_page_args(
+  page_image_path : String,
+  langs : String,
+) -> Array[String] {
+  [page_image_path, "stdout", "-l", langs]
+}
+
+///|
+fn normalized_ocr_languages(languages : Array[String]) -> String {
+  let kept : Array[String] = []
+  for raw in languages {
+    let lang = raw.trim().to_owned()
+    if lang == "" || !is_valid_ocr_language_token(lang) {
+      continue
+    }
+    kept.push(lang)
+  }
+  if kept.length() == 0 {
+    "eng"
+  } else {
+    kept.join("+")
+  }
+}
+
+///|
+fn is_valid_ocr_language_token(token : String) -> Bool {
+  for ch in token.to_array() {
+    if !is_valid_ocr_language_char(ch) {
+      return false
+    }
+  }
+  token != ""
+}
+
+///|
+fn is_valid_ocr_language_char(ch : Char) -> Bool {
+  let code = ch.to_int()
+  (code >= 48 && code <= 57) ||
+  (code >= 65 && code <= 90) ||
+  (code >= 97 && code <= 122) ||
+  ch == '_' ||
+  ch == '-' ||
+  ch == '.'
+}
+
+///|
+fn collect_ocr_warnings(stderr : String) -> Array[String] {
+  let warnings : Array[String] = []
+  match first_nonempty_line(stderr) {
+    Some(line) => warnings.push(line)
+    None => ()
+  }
+  warnings
+}
+
+///|
+fn render_tesseract_failure_message(
+  status : Int,
+  stderr : String,
+  langs : String,
+) -> String {
+  let base = "tesseract-cli recognition failed with status " +
+    status.to_string() +
+    " (langs=" +
+    langs +
+    ")"
+  match first_nonempty_line(stderr) {
+    Some(line) => base + ": " + line
+    None => base
+  }
+}
+
+///|
+fn provider_command_path(name : String, default_command : String) -> String {
+  let env_name = provider_command_path_env_name(name)
+  match @sys.get_env_var(env_name) {
+    Some(raw) => {
+      let trimmed = raw.trim().to_owned()
+      if trimmed == "" {
+        default_command
+      } else {
+        trimmed
+      }
+    }
+    None => default_command
+  }
+}
+
+///|
+fn provider_command_path_env_name(name : String) -> String {
+  "MARKITDOWN_OCR_PROVIDER_CMD_" +
+  name.replace(old="-", new="_").replace(old=".", new="_").to_upper()
 }
 
 ///|

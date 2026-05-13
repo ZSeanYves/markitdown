@@ -516,6 +516,9 @@ Known limits:
 * lightweight OCR/layout-assist provider skeletons may exist for lazy
   descriptor/probe/report wiring, but they do not imply bundled OCR engines,
   bundled model files, or normal-path activation
+* the explicit `tesseract-cli` provider is optional and external: it can probe
+  availability and OCR page images when users explicitly choose it, but it is
+  not bundled and is not part of the default `normal` path
 * debug-only provider listing/probe surfaces may expose provider availability
   state, but availability does not mean OCR has been run
 * the current lightweight layout classifier spike is local-corpus-only and is
@@ -936,8 +939,11 @@ It should currently be understood as:
 * available for explicit use
 * dependent on external tooling
 * now accompanied by lightweight provider skeletons and design docs
+* currently includes an explicit `tesseract-cli` page-image provider route
 * not the default `normal` mainflow
 * not a claim that the repository is OCR-first by default
 * separate from any cloud / Document Intelligence / LLM-style path discussion
 * provider availability/probing should remain explicit and lazy rather than
   part of normal CLI startup
+* direct PDF OCR through the provider layer is still out of scope here;
+  `tesseract-cli` is page-image OCR only

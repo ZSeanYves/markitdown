@@ -27,6 +27,10 @@
 * Add a debug-only provider listing/probe surface so OCR/layout-assist
   skeletons can be inspected explicitly without changing the normal path or
   implying that OCR has run.
+* Implement an explicit optional `tesseract-cli` OCR provider for lazy
+  availability probing and page-image text recognition, while keeping OCR
+  out of the default normal path and leaving PDF-level OCR/provider routing
+  broader than single-page images for later work.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

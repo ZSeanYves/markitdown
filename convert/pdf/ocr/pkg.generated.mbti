@@ -16,7 +16,7 @@ pub async fn parse_pdf_via_ocr(String, String, Int, Bool) -> @core.Document
 
 pub async fn probe_known_ocr_provider(String) -> OcrProviderInfo?
 
-pub fn recognize_page_with_ocr_provider(String, Int, String, OcrOptions) -> Result[OcrPageResult, OcrProviderError]
+pub async fn recognize_page_with_ocr_provider(String, Int, String, OcrOptions) -> Result[OcrPageResult, OcrProviderError]
 
 pub fn recognize_pdf_with_ocr_provider(String, String, OcrOptions) -> Result[OcrDocumentResult, OcrProviderError]
 
@@ -52,6 +52,7 @@ pub enum OcrProviderErrorKind {
   UnknownProvider
   Unavailable
   NotImplemented
+  RecognitionFailed
 } derive(Eq)
 
 pub struct OcrProviderInfo {

@@ -78,8 +78,10 @@ Current implementation status:
   * `ocrmypdf-cli`
   * `paddleocr`
 * known providers stay unprobed until explicit probe calls
-* recognition APIs currently fail closed with `unavailable` /
-  `not implemented` rather than spawning external commands
+* `tesseract-cli` now implements:
+  * explicit availability probing via `tesseract --version`
+  * explicit page-image OCR via `tesseract <image> stdout -l <langs>`
+* `ocrmypdf-cli` and `paddleocr` still fail closed with `unavailable`
 * debug-only provider listing now exists, and `--probe` is required before any
   availability check runs
 
@@ -143,6 +145,10 @@ Current skeleton follows that rule:
   * common packaging
   * multi-language
   * easier to expose as optional dependency
+* current implementation:
+  * explicit provider only
+  * page-image OCR only
+  * requires user-installed `tesseract` plus language data
 * recommendation:
   * strong candidate for a light explicit external provider
 
@@ -181,8 +187,9 @@ Near term:
 
 Mid term:
 
-* add provider registry / availability probe
+* refine provider registry / availability probe reporting
 * improve `ocr` CLI error reporting and engine reporting
+* optionally route explicit OCR flows through provider selection
 
 Long term:
 
