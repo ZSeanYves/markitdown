@@ -218,6 +218,42 @@ fn generated_xlsx_workbook_date1904_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn generated_xlsx_pkg_with_hidden_rows() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"HiddenRows\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row>" +
+    "<row r=\"2\" hidden=\"1\"><c r=\"A2\" t=\"s\"><v>1</v></c></row>" +
+    "<row r=\"3\"><c r=\"A3\" t=\"s\"><v>2</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"3\" uniqueCount=\"3\">" +
+    "<si><t>Visible Header</t></si>" +
+    "<si><t>Hidden Secret</t></si>" +
+    "<si><t>Visible Public</t></si>" +
+    "</sst>"
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/sharedStrings.xml", shared_strings_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+  )
+}
+
+///|
 fn generated_xlsx_pkg_with_validation_edges() -> @ox.OoxmlPackage raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -540,6 +576,12 @@ test "xlsx semantic inspect counts hidden sheets merged ranges and formulas" {
   let hidden_inspect = @xlsx.inspect_xlsx_workbook(hidden)
   assert_true(hidden_inspect.hidden_sheet_count > 0)
 
+  let hidden_rows = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_hidden_rows(),
+  )
+  let hidden_rows_inspect = @xlsx.inspect_xlsx_workbook(hidden_rows)
+  assert_eq(hidden_rows_inspect.hidden_row_count, 1)
+
   let formula = @xlsx.open_xlsx_workbook(
     resolve_sample_path(
       "samples/main_process/xlsx/xlsx_formula_eval_ranges.xlsx",
@@ -603,4 +645,20 @@ test "xlsx classifier is stable for open and parse failures" {
   if parse_info.kind != @xlsx.XlsxErrorKind::InvalidCellReference {
     fail("expected InvalidCellReference classification")
   }
+}
+
+///|
+test "xlsx semantic workbook preserves hidden row numbers without dropping cells" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_hidden_rows(),
+  )
+  assert_eq(workbook.sheets.length(), 1)
+  assert_true(workbook.sheets[0].hidden_rows == [2])
+  let mut saw_hidden_cell = false
+  for cell in workbook.sheets[0].cells {
+    if cell.reference == "A2" && cell.display_text == "Hidden Secret" {
+      saw_hidden_cell = true
+    }
+  }
+  assert_true(saw_hidden_cell)
 }

@@ -103,7 +103,9 @@ pub struct XlsxSheetModel {
   has_sheet_xml : Bool
   cells : Array[XlsxCellModel]
   merged_ranges : Array[XlsxMergedRange]
+  hidden_rows : Array[Int]
   table_rows : Array[Array[String]]
+  table_row_numbers : Array[Int]
   header_rows : Int
   used_min_row : Int
   used_min_col : Int

@@ -102,6 +102,7 @@ pub struct XlsxFormulaTrace {
 pub struct XlsxInspectReport {
   sheet_count : Int
   hidden_sheet_count : Int
+  hidden_row_count : Int
   cell_count : Int
   non_empty_cell_count : Int
   formula_cell_count : Int
@@ -148,6 +149,7 @@ pub struct XlsxSheet {
   has_sheet_xml : Bool
   cells : Array[XlsxCell]
   merged_ranges : Array[XlsxMergedRange]
+  hidden_rows : Array[Int]
   used_min_row : Int
   used_min_col : Int
   used_max_row : Int

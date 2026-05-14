@@ -25,8 +25,11 @@ fn compat_workbook_model_from_semantic(
 fn compat_sheet_model_from_semantic(
   sheet : @dpxlsx.XlsxSheet,
 ) -> XlsxSheetModel {
-  let rows = render_sheet_rows_from_cells(
-    compat_cells_from_semantic(sheet.cells),
+  let cells = compat_cells_from_semantic(sheet.cells)
+  let hidden_rows = copy_hidden_rows(sheet.hidden_rows)
+  let (rows, row_numbers) = render_sheet_rows_from_cells(
+    cells,
+    hidden_rows,
     sheet.used_min_row,
     sheet.used_min_col,
     sheet.used_max_row,
@@ -40,15 +43,26 @@ fn compat_sheet_model_from_semantic(
     state: compat_sheet_state_from_semantic(sheet.state),
     is_supported_worksheet: sheet.is_supported_worksheet,
     has_sheet_xml: sheet.has_sheet_xml,
-    cells: compat_cells_from_semantic(sheet.cells),
+    cells,
     merged_ranges: compat_merged_ranges_from_semantic(sheet.merged_ranges),
+    hidden_rows,
     table_rows: rows,
+    table_row_numbers: row_numbers,
     header_rows: xlsx_header_rows(rows),
     used_min_row: sheet.used_min_row,
     used_min_col: sheet.used_min_col,
     used_max_row: sheet.used_max_row,
     used_max_col: sheet.used_max_col,
   }
+}
+
+///|
+fn copy_hidden_rows(rows : Array[Int]) -> Array[Int] {
+  let out : Array[Int] = []
+  for row in rows {
+    out.push(row)
+  }
+  out
 }
 
 ///|
@@ -175,11 +189,12 @@ fn compat_formula_policy_from_semantic(
 ///|
 fn render_sheet_rows_from_cells(
   cells : Array[XlsxCellModel],
+  hidden_rows : Array[Int],
   min_r : Int,
   min_c : Int,
   max_r : Int,
   max_c : Int,
-) -> Array[Array[String]] {
+) -> (Array[Array[String]], Array[Int]) {
   let cell_texts : Map[String, String] = Map([])
   for cell in cells {
     cell_texts.set(
@@ -187,33 +202,46 @@ fn render_sheet_rows_from_cells(
       cell.display_text,
     )
   }
-  render_sheet_rows(cell_texts, min_r, min_c, max_r, max_c)
+  render_sheet_rows(cell_texts, hidden_rows, min_r, min_c, max_r, max_c)
 }
 
 ///|
 fn render_sheet_rows(
   cells : Map[String, String],
+  hidden_rows : Array[Int],
   min_r : Int,
   min_c : Int,
   max_r : Int,
   max_c : Int,
-) -> Array[Array[String]] {
+) -> (Array[Array[String]], Array[Int]) {
   if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
-    return []
+    return ([], [])
+  }
+
+  let hidden_lookup : Map[String, Bool] = Map([])
+  for row in hidden_rows {
+    hidden_lookup.set(row.to_string(), true)
   }
 
   let table0 : Array[Array[String]] = []
+  let row_numbers0 : Array[Int] = []
   for r in min_r..<(max_r + 1) {
+    if hidden_lookup.get(r.to_string()).unwrap_or(false) {
+      continue
+    }
     let row : Array[String] = []
     for c in min_c..<(max_c + 1) {
       let k = r.to_string() + "," + c.to_string()
       row.push(cells.get(k).unwrap_or(""))
     }
     table0.push(trim_row_right(row))
+    row_numbers0.push(r)
   }
 
-  let table1 = trim_table_bottom(table0)
-  normalize_table_width(table1)
+  let (table1, row_numbers1) = trim_table_bottom_with_row_numbers(
+    table0, row_numbers0,
+  )
+  (normalize_table_width(table1), row_numbers1)
 }
 
 ///|
@@ -261,6 +289,19 @@ fn trim_table_bottom(table : Array[Array[String]]) -> Array[Array[String]] {
     out.push(table[i])
   }
   out
+}
+
+///|
+fn trim_table_bottom_with_row_numbers(
+  table : Array[Array[String]],
+  row_numbers : Array[Int],
+) -> (Array[Array[String]], Array[Int]) {
+  let trimmed = trim_table_bottom(table)
+  let out_rows : Array[Int] = []
+  for i in 0..<trimmed.length() {
+    out_rows.push(row_numbers[i])
+  }
+  (trimmed, out_rows)
 }
 
 ///|

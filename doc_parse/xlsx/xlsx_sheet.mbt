@@ -30,6 +30,14 @@ fn parse_sheet_model(
     collect_started,
     Some("parsed_cells=" + parsed_cells.length().to_string()),
   )
+  let hidden_rows_started = xlsx_parse_profile_stage_started(profile)
+  let hidden_rows = collect_hidden_rows(sheet_xml)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":hidden_rows",
+    hidden_rows_started,
+    Some("hidden_rows=" + hidden_rows.length().to_string()),
+  )
   let merged_started = xlsx_parse_profile_stage_started(profile)
   let (merged_ranges, merged_issues) = parse_merged_ranges(
     sheet_name, part_target, sheet_xml,
@@ -180,6 +188,7 @@ fn parse_sheet_model(
     has_sheet_xml: true,
     cells,
     merged_ranges,
+    hidden_rows,
     used_min_row,
     used_min_col,
     used_max_row,
@@ -388,12 +397,48 @@ fn empty_sheet_model(
     has_sheet_xml,
     cells: [],
     merged_ranges: [],
+    hidden_rows: [],
     used_min_row: 0,
     used_min_col: 0,
     used_max_row: 0,
     used_max_col: 0,
     issues,
   }
+}
+
+///|
+fn collect_hidden_rows(sheet_xml : String) -> Array[Int] {
+  let out : Array[Int] = []
+  let mut pos = 0
+
+  while true {
+    let row0 = find_sub(sheet_xml, "<row ", pos)
+    match row0 {
+      None => break
+      Some(i0) => {
+        let row1 = find_sub(sheet_xml, ">", i0)
+        match row1 {
+          None => break
+          Some(i1) => {
+            let tag = sheet_xml[i0:i1 + 1].to_owned()
+            let row_ref = parse_int(get_attr(tag, "r").unwrap_or(""))
+            let hidden_attr = get_attr(tag, "hidden").unwrap_or("")
+            if row_ref > 0 &&
+              (
+                hidden_attr == "1" ||
+                hidden_attr == "true" ||
+                hidden_attr == "TRUE"
+              ) {
+              out.push(row_ref)
+            }
+            pos = i1 + 1
+          }
+        }
+      }
+    }
+  }
+
+  out
 }
 
 ///|

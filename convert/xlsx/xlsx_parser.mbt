@@ -5,7 +5,7 @@
 /// - cached values are used when present
 /// - a lightweight evaluator is only used for safe missing-cache formulas
 /// - merged ranges are detected but not visually reconstructed
-/// - hidden sheets are emitted in workbook order
+/// - hidden sheets remain inspect-visible but are skipped in normal markdown output
 /// - output remains conservative heading + table lowering
 pub fn parse_xlsx(
   input_path : String,
@@ -109,11 +109,57 @@ fn build_xlsx_document(
     return doc
   }
 
-  for sheet in workbook.sheets {
+  let visible_sheets = workbook_visible_sheets(workbook)
+  if visible_sheets.length() == 0 {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::Paragraph("(no visible sheets found)"),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: None,
+        relationship_id: None,
+        key_path: None,
+      }),
+    )
+    return doc
+  }
+
+  for sheet in visible_sheets {
     push_sheet_blocks(doc, src, sheet, max_heading)
   }
 
   doc
+}
+
+///|
+fn workbook_visible_sheets(
+  workbook : XlsxWorkbookModel,
+) -> Array[XlsxSheetModel] {
+  let out : Array[XlsxSheetModel] = []
+  for sheet in workbook.sheets {
+    if sheet_state_emits_in_normal_output(sheet.state) {
+      out.push(sheet)
+    }
+  }
+  out
+}
+
+///|
+fn sheet_state_emits_in_normal_output(state : XlsxSheetState) -> Bool {
+  match state {
+    XlsxSheetState::Visible => true
+    XlsxSheetState::Hidden => false
+    XlsxSheetState::VeryHidden => false
+  }
 }
 
 ///|
@@ -406,7 +452,11 @@ fn sheet_semantic_type_matrix(sheet : XlsxSheetModel) -> Array[Array[String]]? {
   let out : Array[Array[String]] = []
   for row_offset in 0..<sheet.table_rows.length() {
     let row : Array[String] = []
-    let actual_row = sheet.used_min_row + row_offset
+    let actual_row = if row_offset < sheet.table_row_numbers.length() {
+      sheet.table_row_numbers[row_offset]
+    } else {
+      sheet.used_min_row + row_offset
+    }
     for col_offset in 0..<max_col {
       let actual_col = sheet.used_min_col + col_offset
       row.push(
