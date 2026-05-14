@@ -89,6 +89,14 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
 
+            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+              Some(skip_end) => {
+                pos = skip_end
+                continue
+              }
+              None => ()
+            }
+
             if tag.has_prefix("<script") {
               let j0 = find_bytes(bs, close_script, q + 1)
               match j0 {
@@ -457,6 +465,16 @@ fn scan_li_children(
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
 
+            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+              Some(skip_end) =>
+                if skip_end <= end_ {
+                  flush_pending_paragraph(out, pending_para)
+                  pos = skip_end
+                  continue
+                }
+              None => ()
+            }
+
             if tag.has_prefix("<p") {
               flush_pending_paragraph(out, pending_para)
 
@@ -633,6 +651,15 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+              Some(skip_end) => {
+                flush_pending_paragraph(out, pending_para)
+                pos = skip_end
+                continue
+              }
+              None => ()
+            }
 
             if tag.has_prefix("<script") {
               let j0 = find_bytes(bs, close_script, q + 1)
@@ -945,6 +972,10 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
 
   let lt = pat("<")
   let gt = pat(">")
+  let close_script = pat("</script>")
+  let close_style = pat("</style>")
+  let close_noscript = pat("</noscript>")
+  let close_head = pat("</head>")
   let mut pos = 0
   let n = inner.length()
 
@@ -976,6 +1007,42 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
 
             if tag.has_prefix("<br") {
               out.push(HtmlInline::Break)
+            } else if tag.has_prefix("<script") {
+              let end0 = find_bytes(inner, close_script, j0 + 1)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_script.length()
+                  continue
+                }
+                None => ()
+              }
+            } else if tag.has_prefix("<style") {
+              let end0 = find_bytes(inner, close_style, j0 + 1)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_style.length()
+                  continue
+                }
+                None => ()
+              }
+            } else if tag.has_prefix("<noscript") {
+              let end0 = find_bytes(inner, close_noscript, j0 + 1)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_noscript.length()
+                  continue
+                }
+                None => ()
+              }
+            } else if tag.has_prefix("<head") {
+              let end0 = find_bytes(inner, close_head, j0 + 1)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_head.length()
+                  continue
+                }
+                None => ()
+              }
             } else if tag.has_prefix("<a") {
               let href = sanitize_html_href(
                   read_html_attr_value(tag0, "href").unwrap_or(""),
@@ -1152,6 +1219,135 @@ fn find_figure_caption_inlines(inner : Bytes) -> Array[HtmlInline] {
       }
     }
   }
+}
+
+///|
+fn find_skippable_html_noise_subtree_end(
+  bs : Bytes,
+  open_idx : Int,
+  tag : String,
+) -> Int? {
+  let tag_name = html_open_tag_name(tag)
+  match tag_name {
+    None => None
+    Some(name) =>
+      if !html_should_skip_noise_subtree(name, tag) {
+        None
+      } else {
+        match find_matching_tag_end(bs, open_idx, name) {
+          None => None
+          Some(close_idx) => Some(close_idx + ("</" + name + ">").length())
+        }
+      }
+  }
+}
+
+///|
+fn html_open_tag_name(tag : String) -> String? {
+  let s = tag.to_lower()
+  let n = s.length()
+  let mut i = 0
+
+  while i < n && s[i] != '<' {
+    i += 1
+  }
+  if i >= n {
+    return None
+  }
+  i += 1
+
+  while i < n && (s[i] == ' ' || s[i] == '\n' || s[i] == '\t' || s[i] == '/') {
+    i += 1
+  }
+  if i >= n {
+    return None
+  }
+
+  let start = i
+  while i < n {
+    let ch = s[i]
+    if ch == ' ' || ch == '\n' || ch == '\t' || ch == '>' || ch == '/' {
+      break
+    }
+    i += 1
+  }
+
+  if i <= start {
+    None
+  } else {
+    Some(s[start:i].to_owned())
+  }
+}
+
+///|
+fn html_should_skip_noise_subtree(tag_name : String, tag : String) -> Bool {
+  if tag_name == "nav" || tag_name == "footer" {
+    return true
+  }
+
+  if html_role_is_noise(tag) {
+    return true
+  }
+
+  if html_attr_value_has_noise_token(tag, "id") ||
+    html_attr_value_has_noise_token(tag, "class") {
+    return true
+  }
+
+  false
+}
+
+///|
+fn html_role_is_noise(tag : String) -> Bool {
+  let role = read_html_attr_value(tag, "role")
+    .map(fn(value) { value.to_lower().trim().to_owned() })
+    .unwrap_or("")
+  role == "navigation" ||
+  role == "banner" ||
+  role == "contentinfo" ||
+  role == "search"
+}
+
+///|
+fn html_attr_value_has_noise_token(tag : String, attr_name : String) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => html_contains_noise_token(value.to_lower())
+  }
+}
+
+///|
+fn html_contains_noise_token(value : String) -> Bool {
+  value.contains("toc") ||
+  value.contains("table-of-contents") ||
+  value.contains("navbox") ||
+  value.contains("navbar") ||
+  value.contains("navigation") ||
+  value.contains("sidebar") ||
+  value.contains("side-bar") ||
+  value.contains("infobox") ||
+  value.contains("metadata") ||
+  value.contains("mw-editsection") ||
+  value.contains("editsection") ||
+  value.contains("reflist") ||
+  value.contains("authority-control") ||
+  value.contains("catlinks") ||
+  value.contains("portal") ||
+  value.contains("footer") ||
+  value.contains("search") ||
+  value.contains("menu") ||
+  value.contains("toolbar") ||
+  value.contains("breadcrumb") ||
+  value.contains("language") ||
+  value.contains("languages") ||
+  value.contains("interlanguage") ||
+  value.contains("vector-menu") ||
+  value.contains("mw-jump") ||
+  value.contains("sitenotice") ||
+  value.contains("centralnotice") ||
+  value.contains("printfooter") ||
+  value.contains("sistersitebox") ||
+  value.contains("vertical-navbox")
 }
 
 ///|

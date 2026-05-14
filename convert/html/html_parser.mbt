@@ -33,11 +33,17 @@ pub fn parse_html(
 
   let normalize_started = @env.now()
   let bs = normalize_html_input_bytes(raw_bs)
+  let scoped_bs = narrow_html_content_scope(bs)
   html_profile_add_stage(
     profile,
     "html_normalize_bytes",
     @env.now() - normalize_started,
-    Some("bytes=" + bs.length().to_string()),
+    Some(
+      "bytes=" +
+      bs.length().to_string() +
+      " scoped_bytes=" +
+      scoped_bs.length().to_string(),
+    ),
   )
 
   let doc = @cor.new_document()
@@ -46,7 +52,7 @@ pub fn parse_html(
   defer html_profile_set_active(None)
 
   let scan_started = @env.now()
-  let nodes = scan_html_nodes(bs)
+  let nodes = scan_html_nodes(scoped_bs)
   html_profile_add_stage(
     profile,
     "html_dom_scan",
@@ -214,6 +220,36 @@ fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
   }
 
   Bytes::from_array(out)
+}
+
+///|
+fn narrow_html_content_scope(bs : Bytes) -> Bytes {
+  match
+    find_container_block_inner_by_attr_contains(
+      bs, "div", "id", "mw-content-text",
+    ) {
+    Some(inner) => inner
+    None =>
+      match
+        find_container_block_inner_by_attr_contains(
+          bs, "div", "id", "bodycontent",
+        ) {
+        Some(inner) => inner
+        None =>
+          match find_tag_block_inner(bs, "article") {
+            Some(inner) => inner
+            None =>
+              match find_tag_block_inner(bs, "main") {
+                Some(inner) => inner
+                None =>
+                  match find_tag_block_inner(bs, "body") {
+                    Some(inner) => inner
+                    None => bs
+                  }
+              }
+          }
+      }
+  }
 }
 
 ///|

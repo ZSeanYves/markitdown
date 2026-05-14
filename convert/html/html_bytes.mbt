@@ -70,6 +70,179 @@ fn strip_tags_bytes(inner : Bytes) -> Bytes {
 }
 
 ///|
+fn find_tag_block_inner(bs : Bytes, tag_name : String) -> Bytes? {
+  let open_pat = pat("<" + tag_name)
+  let close_pat = pat("</" + tag_name + ">")
+  let gt_pat = pat(">")
+
+  let open0 = find_bytes_case_insensitive(bs, open_pat, 0)
+  match open0 {
+    None => None
+    Some(open_idx) => {
+      let gt0 = find_bytes(bs, gt_pat, open_idx)
+      match gt0 {
+        None => None
+        Some(gt_idx) => {
+          let inner_start = gt_idx + 1
+          let close0 = find_bytes_case_insensitive(bs, close_pat, inner_start)
+          match close0 {
+            None => None
+            Some(close_idx) => Some(bs[inner_start:close_idx].to_owned())
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn find_container_block_inner_by_attr_contains(
+  bs : Bytes,
+  tag_name : String,
+  attr_name : String,
+  attr_value_token : String,
+) -> Bytes? {
+  let open_pat = pat("<" + tag_name)
+  let gt_pat = pat(">")
+  let attr_pat = pat(attr_name.to_lower() + "=")
+  let token_pat = pat(attr_value_token.to_lower())
+
+  fn search(search_from : Int) -> Bytes? {
+    let open0 = find_bytes_case_insensitive(bs, open_pat, search_from)
+    match open0 {
+      None => None
+      Some(open_idx) => {
+        let gt0 = find_bytes(bs, gt_pat, open_idx)
+        match gt0 {
+          None => None
+          Some(gt_idx) => {
+            let tag_slice = bs[open_idx:gt_idx + 1].to_owned()
+            let attr0 = find_bytes_case_insensitive(tag_slice, attr_pat, 0)
+            let token0 = find_bytes_case_insensitive(tag_slice, token_pat, 0)
+            if attr0 is Some(_) && token0 is Some(_) {
+              let inner_start = gt_idx + 1
+              let close0 = find_matching_tag_end(bs, open_idx, tag_name)
+              match close0 {
+                None => None
+                Some(close_idx) => Some(bs[inner_start:close_idx].to_owned())
+              }
+            } else {
+              search(gt_idx + 1)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  search(0)
+}
+
+///|
+fn find_matching_tag_end(
+  bs : Bytes,
+  start_open : Int,
+  tag_name : String,
+) -> Int? {
+  let open_pat = pat("<" + tag_name)
+  let close_pat = pat("</" + tag_name + ">")
+  let gt_pat = pat(">")
+
+  let mut depth = 0
+  let mut pos = start_open
+  let n = bs.length()
+
+  while pos < n {
+    let open0 = find_bytes_case_insensitive(bs, open_pat, pos)
+    let close0 = find_bytes_case_insensitive(bs, close_pat, pos)
+
+    match (open0, close0) {
+      (None, None) => return None
+      (Some(i), None) => {
+        let gt0 = find_bytes(bs, gt_pat, i)
+        match gt0 {
+          None => return None
+          Some(gt) => {
+            depth = depth + 1
+            pos = gt + 1
+          }
+        }
+      }
+      (None, Some(j)) => {
+        depth = depth - 1
+        if depth == 0 {
+          return Some(j)
+        }
+        pos = j + close_pat.length()
+      }
+      (Some(i), Some(j)) =>
+        if i < j {
+          let gt0 = find_bytes(bs, gt_pat, i)
+          match gt0 {
+            None => return None
+            Some(gt) => {
+              depth = depth + 1
+              pos = gt + 1
+            }
+          }
+        } else {
+          depth = depth - 1
+          if depth == 0 {
+            return Some(j)
+          }
+          pos = j + close_pat.length()
+        }
+    }
+  }
+
+  None
+}
+
+///|
+fn find_bytes_case_insensitive(
+  hay : Bytes,
+  needle_ascii : Bytes,
+  start : Int,
+) -> Int? {
+  let n = hay.length()
+  let m = needle_ascii.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start > n - m {
+    return None
+  }
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    let mut ok = true
+    let mut j = 0
+    while j < m {
+      if ascii_lower_byte(hay[i + j]) != needle_ascii[j] {
+        ok = false
+        break
+      }
+      j = j + 1
+    }
+    if ok {
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+fn ascii_lower_byte(b : Byte) -> Byte {
+  let k = b.to_int()
+  if k >= 65 && k <= 90 {
+    (k + 32).to_byte()
+  } else {
+    b
+  }
+}
+
+///|
 fn html_unescape(s : String) -> String {
   let t = s
     .replace(old="&lt;", new="<")

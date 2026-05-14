@@ -435,6 +435,99 @@ test "html text nodes use shared cleanup while pre/code stays literal" {
 }
 
 ///|
+test "html prefers main content and skips nested script style noise" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_main_scope_noise.html"
+  write_utf8_text(
+    sample_path, "<html><head><title>Ignored title</title><style>.global{display:none}.recommendationsTableTitle{color:red}</style><script>window.headNoise=function(){return 'HEAD_NOISE';}</script></head><body><header><a href=\"/\">Home</a><form><textarea>Search query</textarea><button>Go</button></form><script>window.headerNoise=function(){return 'HEADER_NOISE';}</script></header><main><article><h1>Main Title</h1><p>Visible body <script>window.innerNoise=function(){return 'INNER_NOISE';}</script><style>.inner{color:blue}</style>tail.</p><ul><li>First<script>window.itemNoise=1</script></li><li><a href=\"https://example.com\">Docs</a></li></ul></article></main><footer><p>Privacy and Cookies</p></footer></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Main Title"))
+  assert_true(markdown.contains("Visible body tail."))
+  assert_true(markdown.contains("- First"))
+  assert_true(markdown.contains("[Docs](https://example.com)"))
+
+  assert_false(markdown.contains("HEAD_NOISE"))
+  assert_false(markdown.contains("HEADER_NOISE"))
+  assert_false(markdown.contains("INNER_NOISE"))
+  assert_false(markdown.contains("recommendationsTableTitle"))
+  assert_false(markdown.contains("Privacy and Cookies"))
+  assert_false(markdown.contains("Search query"))
+  assert_false(markdown.contains("Home"))
+}
+
+///|
+test "html prefers inner content root over main shell chrome" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_inner_content_root_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><main id=\"content\"><header><button>Toggle the table of contents</button><div class=\"lang-menu\">154 languages</div></header><div id=\"bodyContent\"><div id=\"mw-content-text\"><div class=\"lead\"><p>Lead summary.</p></div><div class=\"content-body\"><h1>Actual Title</h1><p>Actual article body.</p><ul><li>Fact A</li><li>Fact B</li></ul></div></div></div><footer><p>Footer legal</p></footer></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Lead summary."))
+  assert_true(markdown.contains("# Actual Title"))
+  assert_true(markdown.contains("Actual article body."))
+  assert_true(markdown.contains("- Fact A"))
+  assert_true(markdown.contains("- Fact B"))
+
+  assert_false(markdown.contains("Toggle the table of contents"))
+  assert_false(markdown.contains("154 languages"))
+  assert_false(markdown.contains("Footer legal"))
+}
+
+///|
+test "html skips strong-noise containers but preserves ordinary content tables" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_noise_container_pruning.html"
+  write_utf8_text(
+    sample_path, "<html><body><main><article><header><h1>Article Title</h1></header><div class=\"infobox\"><table><tr><th>Noise</th><td>Skip me</td></tr></table></div><nav role=\"navigation\"><ul><li>Section chrome</li></ul></nav><p>Lead paragraph.</p><table><thead><tr><th>Name</th><th>Score</th></tr></thead><tbody><tr><td>Alice</td><td>42</td></tr></tbody></table><div class=\"navbox\">Related series</div></article></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Article Title"))
+  assert_true(markdown.contains("Lead paragraph."))
+  assert_true(markdown.contains("| Name | Score |"))
+  assert_true(markdown.contains("| Alice | 42 |"))
+
+  assert_false(markdown.contains("Skip me"))
+  assert_false(markdown.contains("Section chrome"))
+  assert_false(markdown.contains("Related series"))
+}
+
+///|
+test "html keeps ordinary article header and does not over-prune body content" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_article_header_not_pruned.html"
+  write_utf8_text(
+    sample_path, "<html><body><article><header><h1>Release Notes</h1><p>Updated May 2026.</p></header><section><p>Main body survives.</p><blockquote><p>Important quote.</p></blockquote></section></article></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Release Notes"))
+  assert_true(markdown.contains("Updated May 2026."))
+  assert_true(markdown.contains("Main body survives."))
+  assert_true(markdown.contains("> Important quote."))
+}
+
+///|
 fn trim_one_trailing_newline(text : String) -> String {
   if text.has_suffix("\n") {
     text[:text.length() - 1].to_owned()

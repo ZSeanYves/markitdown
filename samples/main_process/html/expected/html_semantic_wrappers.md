@@ -3,5 +3,3 @@
 Wrapped body
 
 Side note
-
-Tail note
