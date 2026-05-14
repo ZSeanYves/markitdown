@@ -9,7 +9,7 @@ priv enum PdfUriLinkFilterStatus {
 }
 
 ///|
-priv enum PdfUriLinkMatchStatus {
+pub enum PdfUriLinkMatchStatus {
   Matched
   RejectedEmptyUri
   RejectedUnsupportedScheme
@@ -23,7 +23,7 @@ priv enum PdfUriLinkMatchStatus {
 }
 
 ///|
-priv struct PdfUriLinkMatchResult {
+pub struct PdfUriLinkMatchResult {
   _page_index : Int
   _annotation_index : Int
   status : PdfUriLinkMatchStatus
@@ -70,7 +70,9 @@ fn filter_uri_link_annotation(
 }
 
 ///|
-fn match_page_uri_links(page : PdfConvertPage) -> Array[PdfUriLinkMatchResult] {
+pub fn match_page_uri_links(
+  page : PdfConvertPage,
+) -> Array[PdfUriLinkMatchResult] {
   let out : Array[PdfUriLinkMatchResult] = []
 
   for annotation in page.annotations {
@@ -309,63 +311,7 @@ fn overlap_1d(a0 : Double, a1 : Double, b0 : Double, b1 : Double) -> Double {
 }
 
 ///|
-fn render_pdf_link_match_status(status : PdfUriLinkMatchStatus) -> String {
-  match status {
-    PdfUriLinkMatchStatus::Matched => "matched"
-    PdfUriLinkMatchStatus::RejectedEmptyUri => "rejected_empty_uri"
-    PdfUriLinkMatchStatus::RejectedUnsupportedScheme =>
-      "rejected_unsupported_scheme"
-    PdfUriLinkMatchStatus::RejectedDestOnly => "rejected_dest_only"
-    PdfUriLinkMatchStatus::RejectedNoBbox => "rejected_no_bbox"
-    PdfUriLinkMatchStatus::RejectedNonLink => "rejected_non_link"
-    PdfUriLinkMatchStatus::NoVisibleText => "no_visible_text"
-    PdfUriLinkMatchStatus::Ambiguous => "ambiguous"
-    PdfUriLinkMatchStatus::TooLarge => "too_large"
-    PdfUriLinkMatchStatus::OverlappingAnnotations => "overlapping_annotations"
-  }
-}
-
-///|
-fn render_pdf_link_match(result : PdfUriLinkMatchResult) -> String {
-  let mut out = "[pdf-link-match] page=" +
-    result._page_index.to_string() +
-    " annot=" +
-    result._annotation_index.to_string() +
-    " status=" +
-    render_pdf_link_match_status(result.status)
-
-  match result.uri {
-    Some(uri) => out = out + " uri=" + uri
-    None => ()
-  }
-  match result.dest {
-    Some(dest) => out = out + " dest=" + dest
-    None => ()
-  }
-  match result.matched_line_index {
-    Some(i) => out = out + " line=" + i.to_string()
-    None => ()
-  }
-  out = out + " matched_line_count=" + result.matched_line_count.to_string()
-  match result.matched_text {
-    Some(text) => out = out + " text=\"" + text + "\""
-    None => ()
-  }
-  match result.overlap_ratio {
-    Some(v) => out = out + " overlap=" + v.to_string()
-    None => ()
-  }
-  out = out + " annot_bbox=" + rect_str(result.annotation_bbox)
-  match result.line_bbox {
-    Some(b) => out = out + " line_bbox=" + rect_str(b)
-    None => ()
-  }
-
-  out
-}
-
-///|
-fn attach_high_confidence_uri_links(
+pub fn attach_high_confidence_uri_links(
   doc : PdfConvertDocument,
 ) -> PdfConvertDocument {
   let pages = Array::new()

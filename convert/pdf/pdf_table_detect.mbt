@@ -1,5 +1,5 @@
 ///|
-priv struct PdfTableCandidate {
+pub struct PdfTableCandidate {
   line_start : Int
   line_end : Int
   block_indices : Array[Int]
@@ -19,7 +19,7 @@ priv struct PdfTableCellBlock {
 }
 
 ///|
-fn detect_pdf_tables(
+pub fn detect_pdf_tables(
   page : PdfConvertPage,
   pipeline_debug : Bool,
 ) -> Array[PdfTableCandidate] {

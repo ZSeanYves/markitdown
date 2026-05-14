@@ -37,7 +37,7 @@ async test "pdf inspect dump smoke on text_simple" {
   }
 
   let dump = match
-    @api.extract_document_inspect_dump(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_dump(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_dump failed: " + e.to_string())
   }

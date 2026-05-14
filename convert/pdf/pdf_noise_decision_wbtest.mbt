@@ -107,6 +107,30 @@ fn make_annotation_for_noise(
 }
 
 ///|
+fn edge_reason_tags(
+  evidence : PdfEdgeNoiseEvidence,
+) -> Array[String] {
+  let out : Array[String] = []
+  push_edge_reason_tags(out, evidence)
+  if evidence.two_column_guard {
+    out.push("two_column_guard")
+  }
+  if evidence.body_like_guard {
+    out.push("body_like_guard")
+  }
+  if evidence.image_caption_guard {
+    out.push("image_caption_guard")
+  }
+  if evidence.link_or_annotation_nearby {
+    out.push("link_or_annotation_nearby")
+  }
+  if evidence.long_sentence_guard {
+    out.push("long_sentence_guard")
+  }
+  out
+}
+
+///|
 test "pdf noise evidence marks repeated top edge short text" {
   let block0 = make_noise_block(
     0,

@@ -101,10 +101,12 @@ test "malformed pdf skips bad objects and trailers" {
 }
 
 ///|
-async test "revision -1 returns revisions error" {
-  let input = @pdfiofs.input_of_file(
-    fixture_path_pdfread_malformed("testdata/pdfjs_identity_tounicode.pdf"),
-  )
+test "revision -1 returns revisions error" {
+  let path = fixture_path_pdfread_malformed("testdata/pdfjs_identity_tounicode.pdf")
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read fixture failed: " + e.to_string())
+  }
+  let input = @pdfio.Input::of_bytes(bytes.to_array(), source=path)
   let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
     PdfRead::new(logger=_ => ()).pdf_of_input(revision=-1, None, None, input)
   })

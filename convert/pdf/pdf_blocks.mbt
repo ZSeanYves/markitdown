@@ -4,7 +4,7 @@
 /// This stage groups one-line seeds into block objects and interleaves images
 /// into a shared page object stream. We do this before semantic recovery so
 /// heading/caption heuristics can use unified local neighborhood context.
-fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+pub fn build_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   let pages = Array::new()
 
   for page in doc.pages {

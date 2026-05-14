@@ -7,7 +7,7 @@
 /// 这是启发式恢复层，不追求“全召回”：
 /// - 歧义场景优先保守降级到 paragraph，避免错误结构污染主链路
 /// - heading 误判的代价通常高于漏判（会影响章节结构与后续消费）
-fn classify_convert_blocks(
+pub fn classify_convert_blocks(
   doc : PdfConvertDocument,
   max_heading : Int,
 ) -> PdfConvertDocument {

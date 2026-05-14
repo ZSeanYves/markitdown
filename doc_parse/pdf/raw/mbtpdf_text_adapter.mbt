@@ -104,7 +104,7 @@ fn default_text_state() -> TextState {
 pub async fn extract_raw_document_with_mbtpdf(
   path : String,
 ) -> Result[RawPdfDocumentExtract, MbtPdfAdapterError] {
-  let pdf = @mbtpdf.read_file(path) catch {
+  let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, path) catch {
     err => {
       let _ = err
       return Err(MbtPdfAdapterError::OpenFailed(path))

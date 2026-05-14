@@ -8,7 +8,7 @@
 ///
 /// This separation is crucial for explainability: downstream block/classify
 /// heuristics can be reasoned about without reopening raw extraction details.
-fn build_convert_lines(
+pub fn build_convert_lines(
   doc : @model.PdfDocumentModel,
   out_dir : String,
 ) -> PdfConvertDocument {

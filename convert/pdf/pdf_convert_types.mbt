@@ -1,5 +1,5 @@
 ///|
-priv struct PdfConvertLine {
+pub struct PdfConvertLine {
   _page_index : Int
   line_index : Int
   text : String
@@ -34,14 +34,14 @@ priv struct PdfConvertLine {
 }
 
 ///|
-priv enum PdfConvertBlockKind {
+pub enum PdfConvertBlockKind {
   Heading
   Paragraph
   Noise
 } derive(Eq)
 
 ///|
-priv struct PdfConvertBlock {
+pub struct PdfConvertBlock {
   _page_index : Int
   block_index : Int
   kind : PdfConvertBlockKind
@@ -90,7 +90,7 @@ priv struct PdfConvertBlock {
 }
 
 ///|
-priv struct PdfConvertImage {
+pub struct PdfConvertImage {
   _page_index : Int
   _image_index : Int
   path : String
@@ -111,14 +111,14 @@ priv struct PdfConvertImage {
 }
 
 ///|
-priv struct PdfConvertColor {
+pub struct PdfConvertColor {
   r : Int
   g : Int
   b : Int
 }
 
 ///|
-priv struct PdfConvertAnnotation {
+pub struct PdfConvertAnnotation {
   _page_index : Int
   _annotation_index : Int
   subtype : String
@@ -132,13 +132,13 @@ priv struct PdfConvertAnnotation {
 }
 
 ///|
-priv enum PdfConvertPageObject {
+pub enum PdfConvertPageObject {
   TextBlock(PdfConvertBlock)
   Image(PdfConvertImage)
 }
 
 ///|
-priv struct PdfConvertPage {
+pub struct PdfConvertPage {
   _page_index : Int
   media_box : @model.PdfRect?
   crop_box : @model.PdfRect?
@@ -150,6 +150,6 @@ priv struct PdfConvertPage {
 }
 
 ///|
-priv struct PdfConvertDocument {
+pub struct PdfConvertDocument {
   pages : Array[PdfConvertPage]
 }

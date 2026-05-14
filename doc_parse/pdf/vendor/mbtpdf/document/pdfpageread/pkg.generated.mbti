@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpageread"
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Page {
+  content : Array[@pdf.PdfObject]
+  mediabox : @pdf.PdfObject
+  cropbox : @pdf.PdfObject?
+  resources : @pdf.PdfObject
+  rotate : Rotation
+  rest : @pdf.PdfObject
+}
+pub fn Page::custom(@pdf.PdfObject) -> Self
+
+pub struct PdfPageDoc {
+  pdf : @pdf.Pdf
+}
+pub fn PdfPageDoc::endpage(Self) -> Int raise
+pub fn PdfPageDoc::endpage_fast(Self) -> Int raise
+pub fn PdfPageDoc::new(@pdf.Pdf) -> Self
+pub fn PdfPageDoc::page_object_number(Self, Int) -> Int? raise
+pub fn PdfPageDoc::pages_of_pagetree(Self) -> Array[Page] raise
+pub fn PdfPageDoc::pages_of_pagetree_quick(Self) -> Int raise
+
+pub(all) enum Rotation {
+  Rotate0
+  Rotate90
+  Rotate180
+  Rotate270
+} derive(@debug.Debug)
+pub fn Rotation::from_int(Int) -> Self raise
+pub fn Rotation::to_int(Self) -> Int
+
+// Type aliases
+
+// Traits
+

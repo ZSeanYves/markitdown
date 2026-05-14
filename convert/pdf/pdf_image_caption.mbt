@@ -1,5 +1,5 @@
 ///|
-fn infer_page_image_captions(
+pub fn infer_page_image_captions(
   page : PdfConvertPage,
   pipeline_debug : Bool,
 ) -> (Array[String?], Map[Int, Bool]) {

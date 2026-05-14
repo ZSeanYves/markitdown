@@ -7,7 +7,7 @@
 /// - repeated header/footer noise can distort paragraph/heading boundaries
 /// - removing them early improves downstream block merge stability
 /// - policy is conservative to reduce accidental deletion in multi-column/short pages
-fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+pub fn filter_noise_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc
   }
