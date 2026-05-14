@@ -301,6 +301,52 @@ fn write_utf8_shared_string_xlsx(path : String) -> Unit raise {
   write_bytes(path, bytes)
 }
 
+///|
+fn write_hidden_row_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"HiddenRows\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row>" +
+    "<row r=\"2\" hidden=\"1\"><c r=\"A2\" t=\"s\"><v>1</v></c></row>" +
+    "<row r=\"3\"><c r=\"A3\" t=\"s\"><v>2</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"3\" uniqueCount=\"3\">" +
+    "<si><t>Visible Header</t></si>" +
+    "<si><t>Hidden Secret</t></si>" +
+    "<si><t>Visible Public</t></si>" +
+    "</sst>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/sharedStrings.xml", shared_strings_xml),
+  ])
+  write_bytes(path, bytes)
+}
 
 ///|
 test "xlsx main process samples stay stable" {
@@ -341,6 +387,7 @@ test "xlsx main process samples stay stable" {
     ),
   )
   assert_eq(@cor.emit_markdown(hidden_doc), hidden_expected)
+  assert_true(!@cor.emit_markdown(hidden_doc).contains("## HiddenData"))
 }
 
 ///|
@@ -359,6 +406,37 @@ test "xlsx converter preserves utf8 shared strings from OOXML parts" {
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("Cäsar"))
   assert_true(!markdown.contains("CÃ¤sar"))
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx converter skips hidden rows in normal markdown while inspect keeps them" {
+  let root = test_tmp_root()
+  let case_dir = root + "/xlsx-hidden-rows"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate_clean_dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/hidden_rows.xlsx"
+  write_hidden_row_xlsx(path) catch {
+    e => fail("write_hidden_row_xlsx failed: " + e.to_string())
+  }
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Visible Header"))
+  assert_true(markdown.contains("Visible Public"))
+  assert_true(!markdown.contains("Hidden Secret"))
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  assert_true(inspected.sheets[0].hidden_rows == [2])
+  let mut saw_hidden_cell = false
+  for cell in inspected.sheets[0].cells {
+    if cell.reference == "A2" && cell.display_text == "Hidden Secret" {
+      saw_hidden_cell = true
+    }
+  }
+  assert_true(saw_hidden_cell)
 
   cleanup_temp_dir(case_dir)
 }
@@ -516,7 +594,10 @@ test "xlsx second-round policy samples stay stable" {
     "",
     6,
   )
-  assert_eq(@cor.emit_markdown(hidden_doc), hidden_expected)
+  let hidden_markdown = @cor.emit_markdown(hidden_doc)
+  assert_eq(hidden_markdown, hidden_expected)
+  assert_true(!hidden_markdown.contains("## HiddenData"))
+  assert_true(!hidden_markdown.contains("## VeryHiddenAudit"))
 
   let typed_expected = read_utf8_text(
     resolve_sample_path(
