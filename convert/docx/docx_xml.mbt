@@ -116,6 +116,24 @@ let txbx_content_open_tag_chars : Array[Char] = "<w:txbxContent".to_array()
 let txbx_content_close_tag_chars : Array[Char] = "</w:txbxContent>".to_array()
 
 ///|
+let omath_open_tag_chars : Array[Char] = "<m:oMath".to_array()
+
+///|
+let omath_close_tag_chars : Array[Char] = "</m:oMath>".to_array()
+
+///|
+let omathpara_open_tag_chars : Array[Char] = "<m:oMathPara".to_array()
+
+///|
+let omathpara_close_tag_chars : Array[Char] = "</m:oMathPara>".to_array()
+
+///|
+let math_text_open_tag_chars : Array[Char] = "<m:t".to_array()
+
+///|
+let math_text_close_tag_chars : Array[Char] = "</m:t>".to_array()
+
+///|
 let del_open_tag_chars : Array[Char] = "<w:del".to_array()
 
 ///|
@@ -1050,6 +1068,52 @@ fn scan_docx_inline_text(
     }
 
     if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), omathpara_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        omathpara_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let inner = profiled_slice_to_string(chars, gt + 1, close)
+      let math_text = collect_docx_math_visible_text(inner)
+      if math_text != "" {
+        text_out.write_string(math_text)
+        out.push(@cor.Inline::Text(math_text))
+      }
+      i = close + omathpara_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), omath_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        omath_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let inner = profiled_slice_to_string(chars, gt + 1, close)
+      let math_text = collect_docx_math_visible_text(inner)
+      if math_text != "" {
+        text_out.write_string(math_text)
+        out.push(@cor.Inline::Text(math_text))
+      }
+      i = close + omath_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
       tag_prefix_matches(chars, lt, chars.length(), hyperlink_open_tag_chars) {
       profile_hyperlink_node_seen()
       let close = find_pattern_in_range(
@@ -1213,6 +1277,66 @@ fn scan_docx_inline_text(
   }
 
   { inlines: out, text: @cor.trim_string(text_out.to_string()) }
+}
+
+///|
+fn collect_docx_math_visible_text(xml : String) -> String {
+  let chars = xml.to_array()
+  let mut i = 0
+  let out = StringBuilder::new()
+  while i < chars.length() {
+    let lt = find_char_in_range(chars, i, chars.length(), '<')
+    if lt < 0 {
+      break
+    }
+    let gt = find_char_in_range(chars, lt + 1, chars.length(), '>')
+    if gt < 0 {
+      break
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), math_text_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        math_text_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+      let text = @cor.trim_string(
+        xml_unescape(profiled_slice_to_string(chars, gt + 1, close)),
+      )
+      if text != "" {
+        out.write_string(text)
+      }
+      i = close + math_text_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      (
+        tag_prefix_matches(chars, lt, chars.length(), omath_open_tag_chars) ||
+        tag_prefix_matches(chars, lt, chars.length(), omathpara_open_tag_chars)
+      ) {
+      i = gt + 1
+      continue
+    }
+
+    if chars[lt + 1] == '/' &&
+      (
+        tag_prefix_matches(chars, lt, chars.length(), omath_close_tag_chars) ||
+        tag_prefix_matches(chars, lt, chars.length(), omathpara_close_tag_chars)
+      ) {
+      i = gt + 1
+      continue
+    }
+
+    i = gt + 1
+  }
+  out.to_string()
 }
 
 ///|

@@ -465,6 +465,26 @@ test "docx w:t plain text cleanup stays narrow and does not enable canonical nor
 }
 
 ///|
+test "docx OMML math text degrades conservatively to visible linear text" {
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>For </w:t></w:r>" +
+    "<m:oMath><m:r><m:t>m</m:t></m:r><m:r><m:t>=1</m:t></m:r></m:oMath>" +
+    "<w:r><w:t>,</w:t></w:r>" +
+    "<w:r><w:t>The angle is </w:t></w:r>" +
+    "<m:oMath><m:r><m:t>θ</m:t></m:r><m:r><m:t>=</m:t></m:r><m:sSup><m:e><m:r><m:t>sin</m:t></m:r></m:e><m:sup><m:r><m:t>-1</m:t></m:r></m:sup></m:sSup><m:r><m:t>⁡</m:t></m:r><m:d><m:e><m:r><m:t>2.2×</m:t></m:r><m:sSup><m:e><m:r><m:t>10</m:t></m:r></m:e><m:sup><m:r><m:t>-4</m:t></m:r></m:sup></m:sSup></m:e></m:d></m:oMath>" +
+    "<w:r><w:t>.</w:t></w:r>",
+    empty_docx_relationship_context(),
+    None,
+  )
+
+  assert_true(scan.text.contains("For m=1,"))
+  assert_true(scan.text.contains("The angle is θ=sin-1⁡2.2×10-4."))
+  let rendered = render_docx_inline_markdown(scan.inlines, scan.text)
+  assert_true(rendered.contains("For m=1,"))
+  assert_true(rendered.contains("The angle is θ=sin-1⁡2.2×10-4."))
+}
+
+///|
 test "docx w:t cleanup does not break hyperlink code-like or table assembly behavior" {
   let rel_ctx : DocxRelationshipContext = {
     document_relationships: [],
