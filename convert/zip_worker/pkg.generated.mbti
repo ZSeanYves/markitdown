@@ -1,8 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/convert/zip"
+package "ZSeanYves/markitdown/convert/zip_worker"
 
 import {
   "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/doc_parse/zip",
 }
 
 // Values
@@ -31,7 +32,7 @@ pub struct ZipInspectEntry {
   normalized_path : String?
   entry_kind : ZipInspectEntryKind
   action : ZipInspectAction
-  compression_method : @ZSeanYves/markitdown/doc_parse/zip.CompressionMethod
+  compression_method : @zip.CompressionMethod
   compressed_size : Int
   uncompressed_size : Int
   flags : Int

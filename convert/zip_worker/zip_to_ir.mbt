@@ -601,18 +601,12 @@ async fn delegate_pdf_entry(
   out_dir : String,
 ) -> @cor.Document {
   let worker_cli = resolve_worker_cli_path(
-    "ZIP PDF entry conversion",
-    "cli_pdf",
-    "MARKITDOWN_PDF_CLI",
+    "ZIP PDF entry conversion", "cli_pdf", "MARKITDOWN_PDF_CLI",
   ) catch {
     e => raise @cor.AppError(e.to_string())
   }
   let output_md = out_dir + "/entry.md"
-  let args : Array[String] = [
-    "normal",
-    input_path,
-    output_md,
-  ]
+  let args : Array[String] = ["normal", input_path, output_md]
   let delegated = @process.collect_output(worker_cli, args) catch {
     e =>
       raise @cor.AppError(

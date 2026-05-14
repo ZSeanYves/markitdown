@@ -215,7 +215,6 @@ fn decrypt(
   }
 }
 
-
 ///|
 /// Read encryption parameters from an encrypted PDF.
 pub fn PdfCrypt::get_encryption_values(

@@ -588,9 +588,7 @@ fn build_pdf_objects(
   }
   if read_stream_data {
     for stream_id in stream_ids {
-      let parsed = parse_object_stream(
-        input, xrefs, stream_id, partial_pdf,
-      ) catch {
+      let parsed = parse_object_stream(input, xrefs, stream_id, partial_pdf) catch {
         _ => {
           (ctx.logger)("Warning: unable to parse object stream \{stream_id}\n")
           Array::new()

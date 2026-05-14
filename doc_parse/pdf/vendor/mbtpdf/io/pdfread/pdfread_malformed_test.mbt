@@ -102,7 +102,9 @@ test "malformed pdf skips bad objects and trailers" {
 
 ///|
 test "revision -1 returns revisions error" {
-  let path = fixture_path_pdfread_malformed("testdata/pdfjs_identity_tounicode.pdf")
+  let path = fixture_path_pdfread_malformed(
+    "testdata/pdfjs_identity_tounicode.pdf",
+  )
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => fail("read fixture failed: " + e.to_string())
   }

@@ -107,9 +107,7 @@ fn make_annotation_for_noise(
 }
 
 ///|
-fn edge_reason_tags(
-  evidence : PdfEdgeNoiseEvidence,
-) -> Array[String] {
+fn edge_reason_tags(evidence : PdfEdgeNoiseEvidence) -> Array[String] {
   let out : Array[String] = []
   push_edge_reason_tags(out, evidence)
   if evidence.two_column_guard {

@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadfs"
+package "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadfscore"
 
 import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadcore",
   "moonbitlang/async/fs",
 }
 
@@ -13,12 +13,10 @@ import {
 
 // Types and methods
 pub struct PdfReadFs {
-  reader : @pdfread.PdfRead
+  reader : @pdfreadcore.PdfRead
 }
 pub fn PdfReadFs::new() -> Self
-pub fn PdfReadFs::of_reader(@pdfread.PdfRead) -> Self
 pub async fn PdfReadFs::pdf_of_channel(Self, revision? : Int, source? : String, String?, String?, @fs.File) -> @pdf.Pdf
-pub async fn PdfReadFs::pdf_of_channel_lazy(Self, revision? : Int, source? : String, String?, String?, @fs.File) -> @pdf.Pdf
 pub async fn PdfReadFs::pdf_of_file(Self, revision? : Int, String?, String?, String) -> @pdf.Pdf
 
 // Type aliases
