@@ -1,0 +1,24 @@
+import {
+  "ZSeanYves/markitdown/cli_support" @clisup,
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/csv" @csv,
+  "ZSeanYves/markitdown/convert/convert" @conv,
+  "ZSeanYves/markitdown/convert/docx" @docx,
+  "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/convert/json" @json,
+  "ZSeanYves/markitdown/convert/pdf" @pdfconv,
+  "ZSeanYves/markitdown/convert/pptx" @pptx,
+  "ZSeanYves/markitdown/convert/txt" @txt,
+  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
+  "ZSeanYves/markitdown/convert/yaml" @yaml,
+  "moonbitlang/core/string" @string,
+  "moonbitlang/x/sys" @sys,
+  "moonbitlang/x/fs" @fs,
+  "TheWaWaR/clap" @clap,
+  "moonbitlang/async",
+}
+
+options(
+  "is-main": true,
+  "preferred-target": "native",
+)

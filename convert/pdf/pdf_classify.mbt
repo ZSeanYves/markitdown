@@ -7,7 +7,7 @@
 /// 这是启发式恢复层，不追求“全召回”：
 /// - 歧义场景优先保守降级到 paragraph，避免错误结构污染主链路
 /// - heading 误判的代价通常高于漏判（会影响章节结构与后续消费）
-fn classify_convert_blocks(
+pub fn classify_convert_blocks(
   doc : PdfConvertDocument,
   max_heading : Int,
 ) -> PdfConvertDocument {
@@ -452,6 +452,10 @@ fn looks_like_short_cjk_heading(text : String) -> Bool {
     return false
   }
 
+  if !contains_cjk_char_text(t) {
+    return false
+  }
+
   true
 }
 
@@ -633,6 +637,16 @@ fn contains_body_like_phrase(text : String) -> Bool {
   text.contains("This is") ||
   text.contains("It is ") ||
   text.contains("It should ")
+}
+
+///|
+fn contains_cjk_char_text(text : String) -> Bool {
+  for ch in text {
+    if is_cjk_char(ch) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

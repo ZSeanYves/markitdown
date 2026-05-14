@@ -10,12 +10,24 @@ fn make_test_line(
   text : String,
   bbox : @model.PdfRect,
 ) -> PdfConvertLine {
+  make_test_line_in_block(page_index, line_index, line_index, 1, text, bbox)
+}
+
+///|
+fn make_test_line_in_block(
+  page_index : Int,
+  line_index : Int,
+  source_block_index : Int,
+  source_block_line_count : Int,
+  text : String,
+  bbox : @model.PdfRect,
+) -> PdfConvertLine {
   {
     _page_index: page_index,
     line_index,
     text,
-    _source_block_index: 0,
-    source_block_line_count: 1,
+    _source_block_index: source_block_index,
+    source_block_line_count,
     source_block_kind: @model.PdfTextBlockKind::Text,
     source_block_bbox: bbox,
     source_block_dominant_font_size: Some(12.0),
@@ -59,6 +71,7 @@ fn make_test_annotation(
     _bbox: bbox,
     uri,
     dest,
+    target_page: None,
     object_ref: Some("12 0 R"),
     contents: None,
     subject: None,
@@ -72,7 +85,7 @@ fn make_test_page(
   annotations : Array[PdfConvertAnnotation],
   media_box : @model.PdfRect?,
 ) -> PdfConvertPage {
-  {
+  build_convert_page_blocks({
     _page_index: 0,
     media_box,
     crop_box: None,
@@ -81,7 +94,7 @@ fn make_test_page(
     images: [],
     annotations,
     objects: [],
-  }
+  })
 }
 
 ///|
@@ -165,6 +178,56 @@ test "pdf uri link matcher matches one high-confidence line" {
 }
 
 ///|
+test "pdf uri link matcher matches wrapped lines in one source block" {
+  let page = make_test_page(
+    [
+      make_test_line_in_block(
+        0,
+        0,
+        7,
+        2,
+        "Visit the example website",
+        rect(10.0, 30.0, 140.0, 40.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        7,
+        2,
+        "for details.",
+        rect(10.0, 18.0, 70.0, 28.0),
+      ),
+    ],
+    [
+      make_test_annotation(
+        0,
+        0,
+        "/Link",
+        rect(12.0, 18.0, 142.0, 40.0),
+        Some("https://example.com"),
+        None,
+      ),
+    ],
+    Some(rect(0.0, 0.0, 200.0, 200.0)),
+  )
+  let results = match_page_uri_links(page)
+  assert_eq(results.length(), 1)
+  match results[0].status {
+    PdfUriLinkMatchStatus::Matched => ()
+    _ => fail("expected wrapped multi-line URI link match")
+  }
+  match results[0].matched_text {
+    Some("Visit the example website for details.") => ()
+    _ => fail("expected joined wrapped block text")
+  }
+  match results[0].matched_line_index {
+    Some(0) => ()
+    _ => fail("expected wrapped match to start at first line")
+  }
+  assert_eq(results[0].matched_line_count, 2)
+}
+
+///|
 test "pdf uri link matcher rejects no-visible-text and too-large boxes" {
   let no_visible_page = make_test_page(
     [make_test_line(0, 0, "Body", rect(10.0, 10.0, 40.0, 20.0))],
@@ -211,8 +274,22 @@ test "pdf uri link matcher rejects no-visible-text and too-large boxes" {
 test "pdf uri link matcher marks ambiguous and overlapping cases" {
   let ambiguous_page = make_test_page(
     [
-      make_test_line(0, 0, "Line A", rect(10.0, 30.0, 90.0, 40.0)),
-      make_test_line(0, 1, "Line B", rect(10.0, 18.0, 90.0, 28.0)),
+      make_test_line_in_block(
+        0,
+        0,
+        10,
+        1,
+        "Line A",
+        rect(10.0, 30.0, 90.0, 40.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        11,
+        1,
+        "Line B",
+        rect(10.0, 18.0, 90.0, 28.0),
+      ),
     ],
     [
       make_test_annotation(
@@ -262,5 +339,54 @@ test "pdf uri link matcher marks ambiguous and overlapping cases" {
   match overlapping[1].status {
     PdfUriLinkMatchStatus::OverlappingAnnotations => ()
     _ => fail("expected overlapping-annotations result for second link")
+  }
+}
+
+///|
+test "pdf uri link attachment upgrades wrapped block to rich paragraph" {
+  let page = make_test_page(
+    [
+      make_test_line_in_block(
+        0,
+        0,
+        7,
+        2,
+        "Visit the example website",
+        rect(10.0, 30.0, 140.0, 40.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        7,
+        2,
+        "for details.",
+        rect(10.0, 18.0, 70.0, 28.0),
+      ),
+    ],
+    [
+      make_test_annotation(
+        0,
+        0,
+        "/Link",
+        rect(12.0, 18.0, 142.0, 40.0),
+        Some("https://example.com"),
+        None,
+      ),
+    ],
+    Some(rect(0.0, 0.0, 200.0, 200.0)),
+  )
+  let doc = attach_high_confidence_uri_links({ pages: [page] })
+  assert_eq(doc.pages.length(), 1)
+  assert_eq(doc.pages[0].blocks.length(), 1)
+  match doc.pages[0].blocks[0].rich_inlines {
+    Some(
+      [
+        @cor.Inline::Link(
+          "Visit the example website for details.",
+          "https://example.com"
+        ),
+      ]
+    ) => ()
+    _ => fail("expected wrapped block to become a single rich link")
   }
 }

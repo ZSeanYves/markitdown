@@ -23,7 +23,7 @@ pub fn[K : Hash + Eq, V] PdfUtil::hashtable_of_dictionary(Self, Array[(K, V)]) -
 pub fn[K, V] PdfUtil::list_of_hashtbl(Self, Map[K, V]) -> Array[(K, V)]
 pub fn[T] PdfUtil::memoize(Self, () -> T raise) -> () -> T raise
 pub fn PdfUtil::new() -> Self
-pub fn[K, V] PdfUtil::null_hash(Self) -> Map[K, V]
+pub fn[K : Hash + Eq, V] PdfUtil::null_hash(Self) -> Map[K, V]
 
 // Type aliases
 pub type Printer = (String) -> Unit

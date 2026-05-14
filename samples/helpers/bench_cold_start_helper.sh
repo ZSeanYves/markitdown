@@ -18,8 +18,9 @@ Notes:
   * This harness measures both external cold-start wall-clock time and hidden
     main-internal startup timing.
   * same-process product-path totals are intentionally tracked elsewhere.
-  * --version is currently not a supported CLI contract, so version cases are
-    recorded as skipped observations.
+  * The main CLI now supports --version, but this helper still focuses on
+    noop/help/minimal-conversion startup rows, so version cases are recorded
+    as skipped observations.
 EOF
 }
 
@@ -308,11 +309,11 @@ STAGE_SUMMARY_PATH="$OUTPUT_DIR/startup_profile.summary.tsv"
 
 echo "==> cold-start CLI benchmark"
 echo "output_dir: $OUTPUT_DIR"
-DEBUG_BIN="$ROOT/_build/native/debug/build/cli/cli.exe"
-RELEASE_BIN="$ROOT/_build/native/release/build/cli/cli.exe"
+DEBUG_BIN="$ROOT/_build/native/debug/build/bench/bench.exe"
+RELEASE_BIN="$ROOT/_build/native/release/build/bench/bench.exe"
 
 echo "==> refreshing debug native CLI"
-(cd "$ROOT" && moon build --target native >/dev/null)
+(cd "$ROOT" && moon build bench --target native >/dev/null)
 
 [[ -x "$DEBUG_BIN" ]] || { echo "missing debug native CLI binary: $DEBUG_BIN" >&2; exit 1; }
 
@@ -327,7 +328,7 @@ measure_case "normal_txt_small" "debug-native" "$DEBUG_BIN" "normal txt_small ->
 
 release_build_supported=true
 echo "==> refreshing release native CLI"
-if ! (cd "$ROOT" && moon build --target native --release >/dev/null 2>&1); then
+if ! (cd "$ROOT" && moon build bench --target native --release >/dev/null 2>&1); then
   release_build_supported=false
 fi
 
@@ -336,11 +337,11 @@ if [[ "$release_build_supported" == true && -x "$RELEASE_BIN" ]]; then
   measure_case "noop" "release-native" "$RELEASE_BIN" "_bench-noop" "runner_path=$RELEASE_BIN command_class=noop timed_externally=true main_internal_hidden_profile=true equivalent_to=product_path_startup_probe" "_bench-noop"
   measure_case "help" "release-native" "$RELEASE_BIN" "--help" "runner_path=$RELEASE_BIN command_class=help timed_externally=true main_internal_hidden_profile=true" "--help"
   measure_case "normal_txt_small" "release-native" "$RELEASE_BIN" "normal txt_small -> tmp.md" "runner_path=$RELEASE_BIN command_class=minimal_real_conversion timed_externally=true main_internal_hidden_profile=true"
-  emit_skip_row "version" "debug-native" "--version" "skip_reason=unsupported_cli_contract"
-  emit_skip_row "version" "release-native" "--version" "skip_reason=unsupported_cli_contract"
+  emit_skip_row "version" "debug-native" "--version" "skip_reason=not_in_cold_start_suite"
+  emit_skip_row "version" "release-native" "--version" "skip_reason=not_in_cold_start_suite"
 else
   echo "runner: release-native unavailable"
-  emit_skip_row "version" "debug-native" "--version" "skip_reason=unsupported_cli_contract"
+  emit_skip_row "version" "debug-native" "--version" "skip_reason=not_in_cold_start_suite"
   emit_skip_row "version" "release-native" "--version" "skip_reason=release_build_unsupported_or_missing_binary"
 fi
 

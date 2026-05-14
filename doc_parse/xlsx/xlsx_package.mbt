@@ -212,6 +212,15 @@ fn parse_xlsx_workbook_from_package_with_profile(
       Some("bytes=" + sheet_xml.length().to_string()),
     )
 
+    let comments_started = xlsx_parse_profile_stage_started(profile)
+    let comments = read_sheet_comments(pkg, normalized_target)
+    xlsx_parse_profile_stage_finished(
+      profile,
+      "sheet:" + info.name + ":comments",
+      comments_started,
+      Some("comments=" + comments.length().to_string()),
+    )
+
     let sheet = parse_sheet_model(
       info.name,
       info.sheet_id,
@@ -220,6 +229,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
       Some(normalized_target),
       info.state,
       sheet_xml,
+      comments,
       shared_strings,
       styles,
       uses_date_1904,
@@ -238,6 +248,34 @@ fn parse_xlsx_workbook_from_package_with_profile(
   )
 
   { shared_strings, styles, uses_date_1904, sheets, issues }
+}
+
+///|
+fn read_sheet_comments(
+  pkg : @ox.OoxmlPackage,
+  sheet_part : String,
+) -> Array[XlsxComment] {
+  let rels = @ox.read_part_relationships(pkg, sheet_part) catch {
+    _ => return []
+  }
+
+  for rel in rels {
+    if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
+      (
+        rel.rel_type.has_suffix("/comments") ||
+        rel.rel_type.contains("relationships/comments")
+      ) &&
+      rel.resolved_target.has_prefix("xl/") &&
+      rel.resolved_target.has_suffix(".xml") &&
+      @ox.has_part(pkg, rel.resolved_target) {
+      let comments_xml = @ox.read_part_text(pkg, rel.resolved_target) catch {
+        _ => return []
+      }
+      return parse_sheet_comments_xml(comments_xml)
+    }
+  }
+
+  []
 }
 
 ///|

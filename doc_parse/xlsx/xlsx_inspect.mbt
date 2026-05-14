@@ -57,6 +57,7 @@ pub fn validate_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxValidationReport {
 pub fn inspect_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxInspectReport {
   let validation = validate_xlsx_workbook(workbook)
   let mut hidden_sheet_count = 0
+  let mut hidden_row_count = 0
   let mut cell_count = 0
   let mut non_empty_cell_count = 0
   let mut formula_cell_count = 0
@@ -68,6 +69,7 @@ pub fn inspect_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxInspectReport {
         hidden_sheet_count += 1
       _ => ()
     }
+    hidden_row_count += sheet.hidden_rows.length()
     cell_count += sheet.cells.length()
     merged_range_count += sheet.merged_ranges.length()
 
@@ -85,6 +87,7 @@ pub fn inspect_xlsx_workbook(workbook : XlsxWorkbook) -> XlsxInspectReport {
   {
     sheet_count: workbook.sheets.length(),
     hidden_sheet_count,
+    hidden_row_count,
     cell_count,
     non_empty_cell_count,
     formula_cell_count,

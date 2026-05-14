@@ -237,6 +237,25 @@ test "html details summary and script style handling are explicit" {
 }
 
 ///|
+test "html comments do not leak commented markup into output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_comment_ignored.html"
+  write_utf8_text(
+    sample_path, "<article><h1>Visible</h1><p>Before.</p><!-- <section><h2>Hidden</h2><p><a href=\"https://example.com/secret\">Secret Link</a></p></section> --><p>After.</p></article>\n",
+  )
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("# Visible"))
+  assert_true(markdown.contains("Before."))
+  assert_true(markdown.contains("After."))
+  assert_false(markdown.contains("Hidden"))
+  assert_false(markdown.contains("Secret Link"))
+  assert_false(markdown.contains("-->"))
+}
+
+///|
 test "html semantic wrappers and table header semantics are stable" {
   let wrappers_doc = @html.parse_html(
     resolve_html_parser_sample_path(
@@ -432,6 +451,193 @@ test "html text nodes use shared cleanup while pre/code stays literal" {
       assert_eq(text, "Alpha Beta\u{2009}Gamma\u{200B}hy\u{00AD}phen ﬁ")
     _ => fail("expected second html block to stay a code block")
   }
+}
+
+///|
+test "html prefers main content and skips nested script style noise" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_main_scope_noise.html"
+  write_utf8_text(
+    sample_path, "<html><head><title>Ignored title</title><style>.global{display:none}.recommendationsTableTitle{color:red}</style><script>window.headNoise=function(){return 'HEAD_NOISE';}</script></head><body><header><a href=\"/\">Home</a><form><textarea>Search query</textarea><button>Go</button></form><script>window.headerNoise=function(){return 'HEADER_NOISE';}</script></header><main><article><h1>Main Title</h1><p>Visible body <script>window.innerNoise=function(){return 'INNER_NOISE';}</script><style>.inner{color:blue}</style>tail.</p><ul><li>First<script>window.itemNoise=1</script></li><li><a href=\"https://example.com\">Docs</a></li></ul></article></main><footer><p>Privacy and Cookies</p></footer></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Main Title"))
+  assert_true(markdown.contains("Visible body tail."))
+  assert_true(markdown.contains("- First"))
+  assert_true(markdown.contains("[Docs](https://example.com)"))
+
+  assert_false(markdown.contains("HEAD_NOISE"))
+  assert_false(markdown.contains("HEADER_NOISE"))
+  assert_false(markdown.contains("INNER_NOISE"))
+  assert_false(markdown.contains("recommendationsTableTitle"))
+  assert_false(markdown.contains("Privacy and Cookies"))
+  assert_false(markdown.contains("Search query"))
+  assert_false(markdown.contains("Home"))
+}
+
+///|
+test "html prefers inner content root over main shell chrome" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_inner_content_root_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><main id=\"content\"><header><button>Toggle the table of contents</button><div class=\"lang-menu\">154 languages</div></header><div id=\"bodyContent\"><div id=\"mw-content-text\"><div class=\"lead\"><p>Lead summary.</p></div><div class=\"content-body\"><h1>Actual Title</h1><p>Actual article body.</p><ul><li>Fact A</li><li>Fact B</li></ul></div></div></div><footer><p>Footer legal</p></footer></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Lead summary."))
+  assert_true(markdown.contains("# Actual Title"))
+  assert_true(markdown.contains("Actual article body."))
+  assert_true(markdown.contains("- Fact A"))
+  assert_true(markdown.contains("- Fact B"))
+
+  assert_false(markdown.contains("Toggle the table of contents"))
+  assert_false(markdown.contains("154 languages"))
+  assert_false(markdown.contains("Footer legal"))
+}
+
+///|
+test "html skips strong-noise containers but preserves ordinary content tables" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_noise_container_pruning.html"
+  write_utf8_text(
+    sample_path, "<html><body><main><article><header><h1>Article Title</h1></header><div class=\"infobox\"><table><tr><th>Noise</th><td>Skip me</td></tr></table></div><nav role=\"navigation\"><ul><li>Section chrome</li></ul></nav><p>Lead paragraph.</p><table><thead><tr><th>Name</th><th>Score</th></tr></thead><tbody><tr><td>Alice</td><td>42</td></tr></tbody></table><div class=\"navbox\">Related series</div></article></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Article Title"))
+  assert_true(markdown.contains("Lead paragraph."))
+  assert_true(markdown.contains("| Name | Score |"))
+  assert_true(markdown.contains("| Alice | 42 |"))
+
+  assert_false(markdown.contains("Skip me"))
+  assert_false(markdown.contains("Section chrome"))
+  assert_false(markdown.contains("Related series"))
+}
+
+///|
+test "html preserves toc-nav sections when they contain substantial prose" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_toc_nav_contentful_section.html"
+  write_utf8_text(
+    sample_path, "<html><body><article><section id=\"toc-nav\"><h2><code>toc nav</code></h2><p>Tests whether the toc nav can be accessed and whether document-level linking works for real reading-system scenarios.</p><p>To complete this test, first bring up the table of contents and activate the glossary link.</p></section></article></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("## toc nav"))
+  assert_true(markdown.contains("Tests whether the toc nav can be accessed"))
+  assert_true(markdown.contains("activate the glossary link"))
+}
+
+///|
+test "html keeps ordinary article header and does not over-prune body content" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_article_header_not_pruned.html"
+  write_utf8_text(
+    sample_path, "<html><body><article><header><h1>Release Notes</h1><p>Updated May 2026.</p></header><section><p>Main body survives.</p><blockquote><p>Important quote.</p></blockquote></section></article></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Release Notes"))
+  assert_true(markdown.contains("Updated May 2026."))
+  assert_true(markdown.contains("Main body survives."))
+  assert_true(markdown.contains("> Important quote."))
+}
+
+///|
+test "html prefers strong content root over teaser article shell" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_role_main_beats_teaser_article.html"
+  write_utf8_text(
+    sample_path, "<html><body><article class=\"summary-card\"><h2>Teaser</h2><p>Short promo.</p></article><div role=\"main\"><h1>Release Plan</h1><p>Actual body.</p></div></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Release Plan"))
+  assert_true(markdown.contains("Actual body."))
+  assert_false(markdown.contains("Teaser"))
+  assert_false(markdown.contains("Short promo."))
+}
+
+///|
+test "html prefers post content root over outer main chrome" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_post_content_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><main><header><a href=\"/\">Home</a><p>Search</p></header><section class=\"post-content\"><h1>Guide</h1><p>Useful text.</p></section><footer><p>Legal</p></footer></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Guide"))
+  assert_true(markdown.contains("Useful text."))
+  assert_false(markdown.contains("Home"))
+  assert_false(markdown.contains("Search"))
+  assert_false(markdown.contains("Legal"))
+}
+
+///|
+test "html strong content heuristic skips article footer noise before real body" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_article_footer_noise_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><section class=\"content-section article-footer\"><p>Footer CTA</p></section><section class=\"post-content\"><h1>Guide</h1><p>Actual body.</p></section></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Guide"))
+  assert_true(markdown.contains("Actual body."))
+  assert_false(markdown.contains("Footer CTA"))
+}
+
+///|
+test "html prefers exact content id over body chrome fallback" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_content_id_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><div class=\"site-header\"><p>Docs nav</p></div><div id=\"content\"><h1>FAQ</h1><p>Real answer.</p></div><aside><p>Sidebar tip</p></aside></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# FAQ"))
+  assert_true(markdown.contains("Real answer."))
+  assert_false(markdown.contains("Docs nav"))
+  assert_false(markdown.contains("Sidebar tip"))
 }
 
 ///|

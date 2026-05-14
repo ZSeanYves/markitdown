@@ -2,6 +2,95 @@
 
 ## Unreleased
 
+* Rename the split native packages to their current product/tool names:
+  `cli_debug -> debug`, `cli_bench -> bench`, `cli_ocr -> ocr`,
+  `cli_pdf -> pdf`, and `cli_zip -> zip`, while keeping `cli` as the
+  unified user-facing product entrypoint.
+* Split the native CLI surface into lightweight `cli` plus explicit
+  `pdf`, `zip`, `debug`, `ocr`, and `bench` binaries,
+  move heavy PDF and ZIP normal-path conversion out of the lightweight binary,
+  and update helper scripts so normal validation/bench flows reuse `cli`
+  while PDF/ZIP/debug/OCR/hidden benchmark routes build their own binaries
+  only on demand; the local audit reduced normal `cli.c` from about
+  `37M / 824k` lines to about `17M / 380k` lines, removed vendored `mbtpdf`
+  from normal `cli` entirely, and reduced one measured full native rebuild
+  from about `476-500s` to about `265s`, while leaving normal Markdown output
+  unchanged, keeping the heavy PDF native-text closure behind `pdf`, and
+  making `zip` delegate embedded PDF entries so ZIP no longer embeds
+  vendored `mbtpdf`.
+* Refine the split product CLI into a product-grade launcher/component shape:
+  shared runtime and component discovery now live in `cli_common`, `pdf` no
+  longer pulls OOXML/EPUB metadata helpers through `cli_support`, `cli ocr`
+  delegates transparently to `ocr` as part of the product entry, and the
+  current Ubuntu audit runner now measures one recent cold native build at
+  about `16s` for `cli`, `16s` for `pdf`, `15s` for `zip`, and `10s`
+  for `ocr`.
+* Reintegrate PDF and ZIP into the user-visible product CLI surface without
+  blowing up the main binary: `cli` now supports bare `<input>`, `help`,
+  `version`, and normal PDF/ZIP entrypoints again, while a guardrail audit
+  keeps the heavy PDF/container closures behind transparently discovered
+  bundled `pdf` / `zip` components after a direct in-process attempt
+  pushed `cli` up to about `30M / 653k` generated-C lines and about `24.6s`
+  cold rebuild time on the current Ubuntu runner.
+* Trim the heavy native PDF component further without changing converter
+  semantics: the product path now imports a parse-only `pdfopsread` subset
+  instead of the broader graphics facade, large vendored Shift-JIS and glyph
+  lookup payloads now compile from compact blobs instead of thousands of
+  source literals, encrypted PDFs still fail closed, and a recent cold native
+  `pdf` build on the current Ubuntu runner dropped from about
+  `109s / 454k` generated-C lines to about `16s / 381k` lines while
+  `moon test`, `./samples/check.sh`, PDF contracts, and the quality corpus
+  stayed green.
+* Refresh README and the main `docs/` authority pages so they match the current
+  package/component architecture, bundled PDF/ZIP product routing, OCR
+  explicit-only boundary, build guardrails, and quality-corpus hygiene rules.
+* Tighten HTML content-root selection against real external documentation pages:
+  prefer explicit `id="content"` / `role="main"` roots before fuzzier
+  `post/article/content` matches, reject obvious footer/sidebar noise from the
+  strong-content heuristic, and keep large static HTML pages like MDN from
+  collapsing to empty output.
+* Stop leaking commented HTML/XHTML markup into normal Markdown output:
+  comment blocks now stay non-content in the shared HTML scanner, so EPUB/XHTML
+  samples with commented-out optional sections no longer surface stray
+  commented headings, links, or trailing `-->` text.
+* Broaden conservative XML source-preserving intake under external-corpus
+  pressure: `.xml` conversion now honors BOM- or declaration-driven UTF-16
+  and ISO-8859-1 inputs instead of hard-failing all non-UTF-8 sources, while
+  broad legacy-charset guessing remains out of scope.
+* Harden EPUB package-open robustness under external-corpus pressure:
+  remote/scheme manifest sidecars no longer abort otherwise-local books, and
+  commented-out OPF manifest markup is now ignored instead of being mistaken
+  for duplicate live entries.
+* Preserve richer DOCX note/comment semantics under external-corpus pressure:
+  bookmark-only hyperlinks now lower to internal fragment links, OOXML
+  address-plus-anchor hyperlinks keep their fragment target instead of dropping
+  the anchor, and comment/footnote/endnote appendices now preserve
+  conservative Markdown links plus exported image refs when the note part
+  carries its own hyperlink/media relationships.
+* Improve PPTX cached-chart lowering under external-corpus pressure:
+  explicit chart titles from PresentationML chart parts now reach normal
+  Markdown output instead of being dropped, and cached Excel date-serial
+  categories now lower to stable readable ISO-style dates rather than raw
+  `37261.0`-style floats.
+* Lower stable non-link PDF annotations conservatively into a trailing
+  `Annotations` appendix: `/Text`, `/Highlight`, and `/FileAttachment`
+  samples from pdf.js now preserve visible subject/content payload instead of
+  silently dropping everything except the page text, while ambiguous or
+  non-user-visible annotation cases remain out of the normal-path contract.
+* Lower stable PDF internal destinations conservatively under external-corpus
+  pressure: visible `/GoTo` link annotations now preserve resolved target-page
+  notes in the `Annotations` appendix, and outline-only PDFs can emit a
+  readable trailing `Bookmarks` appendix instead of collapsing to empty
+  output.
+* Harden the PDF annotation appendix further against real pdf.js fixtures:
+  stable `/FreeText`, `/Line`, `/Square`, `/Circle`, `/Underline`,
+  `/StrikeOut`, and printable `/Ink` payloads now have external-corpus
+  coverage, while degenerate subject-only shell annotations are filtered out
+  instead of surfacing redundant low-value appendix lines.
+* Extract Level 1 XLSX worksheet comments from `comments*.xml` parts and lower
+  them conservatively after each owning sheet table as a `Comments` appendix,
+  while leaving inline note rendering, floating comment placement, and broader
+  workbook annotation semantics out of scope.
 * Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
   CMap support, including `codespacerange`, `bfchar`, conservative
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE
@@ -27,6 +116,72 @@
 * Add a debug-only provider listing/probe surface so OCR/layout-assist
   skeletons can be inspected explicitly without changing the normal path or
   implying that OCR has run.
+* Add local-only PDF layout-assist dataset intake and ablation tooling:
+  `fetch_tiny_subsets.py`, `export_manifest_features.py`, and
+  `local_eval.py`, plus first-round documentation for report-only
+  rules-vs-model ablations and conservative gated rollout criteria.
+* Expand the local-only PDF layout-assist eval loop with richer footer/link/
+  code-like features, extra doc-style `epubcheck` / `BookReporter` weak-label
+  samples, and multi-round ablation notes showing a best-so-far report-only
+  gated configuration plus an overfit round that correctly failed held-out
+  checks.
+* Freeze the current report-only PDF layout-assist baseline as the named
+  `gated_conservative_v1` preset, add cheap caption-marker and short
+  annotation-anchor features/guards, expand held-out controls for caption/link/
+  repeated-header cases, and keep the work strictly local-only/report-only
+  after the expanded held-out loop reached a newer best gated score without
+  held-out regressions.
+* Expand the report-only PDF layout-assist loop with receipt / BookReporter /
+  repeated-shell hard negatives, stronger local heading/list precision guards,
+  and a larger `206 / 161` train/held-out split; the current
+  `gated_conservative_v1` run now reaches `0.9130` held-out micro F1 with
+  `0` held-out regressions while normal PDF output still stays unchanged.
+* Extend the report-only PDF layout-assist loop again with more CJK
+  short-sentence negatives, command/help-text `keep_as_text` rows, and
+  annotation-adjacent link controls; the current `gated_conservative_v1` run
+  now reaches `0.9231` held-out micro F1 on a `217 / 169` split with
+  `0` held-out regressions, higher `heading` precision, and no normal-path
+  output change or runtime model dependency.
+* Correct standalone-bullet hard negatives in the local-only `epubcheck`
+  training slice, add a new `annotation-freetext` held-out negative, and keep
+  the PDF layout-assist work strictly report-only/eval-only; the current
+  `gated_conservative_v1` run now reaches `0.9667` held-out micro F1 on a
+  `220 / 180` split with `0` held-out regressions, while `link_text` and
+  `caption` positive support still remain too small for any normal-path
+  proposal.
+* Expand the real held-out PDF layout-assist support set with Apache / NIST /
+  IETF fixtures for `link_text` and `caption`, keep the work strictly
+  report-only/eval-only, and confirm that `gated_conservative_v1` still beats
+  rules-only on the harder `195`-row held-out slice with `0` regressions;
+  real held-out support now reaches `link_text = 9` and `caption = 8`, but
+  long TOC / page-number-like / paragraph-with-URL anchors still block any
+  later normal-path proposal.
+* Add a cheap deterministic link/caption feature pass for the report-only PDF
+  layout-assist loop: export link coverage / target-kind / partial-link /
+  page-number-link / TOC-anchor / visible-URL and caption lead-in /
+  object-proximity signals, then tighten the local-only arbiter so long
+  named/internal paragraph anchors stop forcing `link_text`; the harder
+  `223 / 195` held-out run now reaches `0.9487` for
+  `gated_conservative_v1` vs `0.9231` for `rules_only`, keeps held-out
+  regressions at `0`, and still does not change the normal PDF path.
+* Add a later residual feature pass for the report-only PDF layout-assist
+  loop: export technical-literal, receipt/payment, cleanup-shell, and URL
+  boundary features; tighten the local-only arbiter around `keep_as_text` and
+  `form_row`; and raise the same harder `223 / 195` held-out run again to
+  `0.9744` for `gated_conservative_v1` vs `0.9538` for `rules_only`, while
+  still keeping held-out regressions at `0`, keeping normal output unchanged,
+  and leaving the remaining blocker set at `Summary` plus a few
+  `paragraph`/`keep_as_text` boundary rows.
+* Add a later paragraph-boundary feature pass for the report-only PDF
+  layout-assist loop: export figure/section-reference sentence guards in the
+  Moon feature exporter, keep the work strictly local-only/report-only, and
+  raise the same harder `223 / 195` held-out run again to `0.9846` for
+  `gated_conservative_v1` vs `0.9641` for `rules_only`, while still keeping
+  held-out regressions at `0`, keeping normal output unchanged, and shifting
+  the remaining blocker set down to `Summary`, a standalone visible URL row,
+  and one small receipt/body boundary row after a very narrow report-only
+  figure-reference sentence exception safely fixed the checked
+  `Figure 6 illustrates ...` residual.
 * Implement an explicit optional `tesseract-cli` OCR provider for lazy
   availability probing and page-image text recognition, while keeping OCR
   out of the default normal path and leaving PDF-level OCR/provider routing
@@ -56,6 +211,28 @@
   prediction coverage, label distribution, and top reasons across the local
   PDF layout-classifier manifest, without claiming accuracy improvements or
   changing default Markdown output.
+* Extend the lightweight PDF layout-assist path toward a real report-only
+  pipeline: the feature export now includes richer cheap native-text layout
+  signals, debug/inspect predictions now expose `rule_label_hint`,
+  `disagreement`, deterministic constraints, and a conservative
+  `would_change_output` estimate, and the dataset/license audit plus the
+  recommended offline-training/held-out rollout plan are now documented in
+  `docs/pdf-layout-model.md` without changing normal PDF Markdown output.
+* Add a first gated-normal PDF layout-assist v1 in pure MoonBit:
+  normal PDF conversion now includes a tiny distilled arbiter for two
+  low-risk cases only, weak heading demotion and separator/false-bullet
+  suppression; the gate keeps text-decoding/link/table hard facts above the
+  override path, exposes debug reasons and blocked-override traces, ships no
+  model weights or Python runtime dependency, can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`, and passes the full validation/build gate
+  without turning the broader provider/report-only pipeline into a general
+  normal-path model rollout.
+* Refresh the public docs/README quality and performance story around measured
+  facts only: the local external corpus currently passes at `142` rows with
+  `1` skipped row and `5` unexpected passes, clean native build guardrails
+  are documented with the current local binary/line-count snapshot, and
+  mainstream quality percentages or speed multiples are now only claimed when
+  a pinned compare suite and metric definition are available.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

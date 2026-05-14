@@ -116,6 +116,24 @@ let txbx_content_open_tag_chars : Array[Char] = "<w:txbxContent".to_array()
 let txbx_content_close_tag_chars : Array[Char] = "</w:txbxContent>".to_array()
 
 ///|
+let omath_open_tag_chars : Array[Char] = "<m:oMath".to_array()
+
+///|
+let omath_close_tag_chars : Array[Char] = "</m:oMath>".to_array()
+
+///|
+let omathpara_open_tag_chars : Array[Char] = "<m:oMathPara".to_array()
+
+///|
+let omathpara_close_tag_chars : Array[Char] = "</m:oMathPara>".to_array()
+
+///|
+let math_text_open_tag_chars : Array[Char] = "<m:t".to_array()
+
+///|
+let math_text_close_tag_chars : Array[Char] = "</m:t>".to_array()
+
+///|
 let del_open_tag_chars : Array[Char] = "<w:del".to_array()
 
 ///|
@@ -217,32 +235,73 @@ fn find_matching_docx_element_close(
 
   let mut depth = 1
   let mut i = open_end + 1
+  let open_len = open_pat.length()
+  let close_len = close_pat.length()
 
   while i < chars.length() {
-    let next_open = find_exact_open_tag(chars, i, open_pat)
-    let next_close = find_pattern_in_range(chars, i, chars.length(), close_pat)
-    if next_close < 0 {
-      return -1
-    }
-
-    if next_open >= 0 && next_open < next_close {
-      let next_open_end = find_sub(chars, next_open, ">")
-      if next_open_end < 0 {
-        return -1
+    if chars[i] == '<' {
+      if i + close_len <= chars.length() {
+        let mut close_ok = true
+        for k in 0..<close_len {
+          if chars[i + k] != close_pat[k] {
+            close_ok = false
+            break
+          }
+        }
+        if close_ok {
+          depth -= 1
+          if depth == 0 {
+            return i
+          }
+          i = i + close_len
+          continue
+        }
       }
-      depth += 1
-      i = next_open_end + 1
-      continue
+
+      if i + open_len < chars.length() {
+        let mut open_ok = true
+        for k in 0..<open_len {
+          if chars[i + k] != open_pat[k] {
+            open_ok = false
+            break
+          }
+        }
+        if open_ok && is_delim_for_tag(chars[i + open_len]) {
+          let next_open_end = find_sub(chars, i, ">")
+          if next_open_end < 0 {
+            return -1
+          }
+          if !open_tag_is_self_closing(chars, i, next_open_end) {
+            depth += 1
+          }
+          i = next_open_end + 1
+          continue
+        }
+      }
     }
 
-    depth -= 1
-    if depth == 0 {
-      return next_close
-    }
-    i = next_close + close_pat.length()
+    i += 1
   }
 
   -1
+}
+
+///|
+fn pattern_matches_at(
+  chars : Array[Char],
+  pos : Int,
+  pat : Array[Char],
+) -> Bool {
+  let plen = pat.length()
+  if pos + plen > chars.length() {
+    return false
+  }
+  for i in 0..<plen {
+    if chars[pos + i] != pat[i] {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -339,7 +398,13 @@ fn text_from_docx_range(chars : Array[Char], start : Int, end_ : Int) -> String 
 }
 
 ///|
-fn parse_footnotes_xml(xml : String) -> Map[Int, DocxFootnote] {
+fn parse_footnotes_xml(
+  xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> Map[Int, DocxFootnote] {
   let out : Map[Int, DocxFootnote] = {}
   if xml.trim() == "" {
     return out
@@ -353,15 +418,24 @@ fn parse_footnotes_xml(xml : String) -> Map[Int, DocxFootnote] {
       return
     }
     let text = collect_docx_paragraph_texts(inner)
-    if text != "" {
-      out[id] = { text, }
+    let markdown = render_docx_note_entry_markdown(
+      inner, rel_ctx, asset_by_target, styles, numbering,
+    )
+    if text != "" || markdown != "" {
+      out[id] = { text, markdown }
     }
   })
   out
 }
 
 ///|
-fn parse_endnotes_xml(xml : String) -> Map[Int, DocxEndnote] {
+fn parse_endnotes_xml(
+  xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> Map[Int, DocxEndnote] {
   let out : Map[Int, DocxEndnote] = {}
   if xml.trim() == "" {
     return out
@@ -375,15 +449,24 @@ fn parse_endnotes_xml(xml : String) -> Map[Int, DocxEndnote] {
       return
     }
     let text = collect_docx_paragraph_texts(inner)
-    if text != "" {
-      out[id] = { text, }
+    let markdown = render_docx_note_entry_markdown(
+      inner, rel_ctx, asset_by_target, styles, numbering,
+    )
+    if text != "" || markdown != "" {
+      out[id] = { text, markdown }
     }
   })
   out
 }
 
 ///|
-fn parse_comments_xml(xml : String) -> Map[Int, DocxComment] {
+fn parse_comments_xml(
+  xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> Map[Int, DocxComment] {
   let out : Map[Int, DocxComment] = {}
   if xml.trim() == "" {
     return out
@@ -394,7 +477,10 @@ fn parse_comments_xml(xml : String) -> Map[Int, DocxComment] {
     inner,
   ) {
     let text = collect_docx_paragraph_texts(inner)
-    if text == "" {
+    let markdown = render_docx_note_entry_markdown(
+      inner, rel_ctx, asset_by_target, styles, numbering,
+    )
+    if text == "" && markdown == "" {
       return
     }
     out[id] = {
@@ -402,6 +488,7 @@ fn parse_comments_xml(xml : String) -> Map[Int, DocxComment] {
         read_attr_value_in_tag(open_tag, "w:author"),
       ),
       text,
+      markdown,
     }
   })
   out
@@ -519,6 +606,91 @@ fn collect_docx_paragraph_texts(xml : String) -> String {
   } else {
     parts.join("\n")
   }
+}
+
+///|
+fn render_docx_note_entry_markdown(
+  xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> String {
+  let visible_xml = strip_docx_text_box_content_xml(
+    strip_docx_deleted_revision_xml(xml),
+  )
+  let chars = visible_xml.to_array()
+  let note_doc = @cor.new_document()
+  let mut i = 0
+
+  while i < chars.length() {
+    let p_tbl = find_exact_open_tag(chars, i, wtbl_open_tag_chars)
+    let p_p = find_exact_open_tag(chars, i, wp_open_tag_chars)
+
+    if p_tbl >= 0 && (p_p < 0 || p_tbl < p_p) {
+      let t2 = find_sub(chars, p_tbl, ">")
+      if t2 < 0 {
+        break
+      }
+      let t3 = find_matching_docx_element_close(
+        chars, p_tbl, wtbl_open_tag_chars, wtbl_close_tag_chars,
+      )
+      if t3 < 0 {
+        break
+      }
+      let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
+      let rows = scan_table_block_with_context_and_ledger(
+        tbl_xml,
+        rel_ctx,
+        asset_by_target,
+        None,
+      )
+      if rows.length() > 0 {
+        @cor.push(
+          note_doc,
+          @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
+        )
+      }
+      i = t3 + 8
+      continue
+    }
+
+    if p_p >= 0 {
+      let p2 = find_sub(chars, p_p, ">")
+      if p2 < 0 {
+        break
+      }
+      if open_tag_is_self_closing(chars, p_p, p2) {
+        i = p2 + 1
+        continue
+      }
+      let p3 = find_matching_docx_element_close(
+        chars, p_p, wp_open_tag_chars, wp_close_tag_chars,
+      )
+      if p3 < 0 {
+        break
+      }
+      let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
+      let blocks = scan_paragraph(
+        p_xml,
+        rel_ctx,
+        asset_by_target,
+        styles,
+        numbering,
+        0,
+        None,
+      )
+      for block in blocks {
+        @cor.push(note_doc, block)
+      }
+      i = p3 + 6
+      continue
+    }
+
+    break
+  }
+
+  @cor.emit_markdown(note_doc).trim().to_owned()
 }
 
 ///|
@@ -1050,6 +1222,52 @@ fn scan_docx_inline_text(
     }
 
     if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), omathpara_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        omathpara_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let inner = profiled_slice_to_string(chars, gt + 1, close)
+      let math_text = collect_docx_math_visible_text(inner)
+      if math_text != "" {
+        text_out.write_string(math_text)
+        out.push(@cor.Inline::Text(math_text))
+      }
+      i = close + omathpara_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), omath_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        omath_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+
+      let inner = profiled_slice_to_string(chars, gt + 1, close)
+      let math_text = collect_docx_math_visible_text(inner)
+      if math_text != "" {
+        text_out.write_string(math_text)
+        out.push(@cor.Inline::Text(math_text))
+      }
+      i = close + omath_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
       tag_prefix_matches(chars, lt, chars.length(), hyperlink_open_tag_chars) {
       profile_hyperlink_node_seen()
       let close = find_pattern_in_range(
@@ -1069,7 +1287,11 @@ fn scan_docx_inline_text(
 
       let text = @cor.trim_string(raw_text)
       let rid = read_attr_value_in_tag(open_tag, "r:id").unwrap_or("")
-      let url = lookup_doc_hyperlink_target(rel_ctx, rid)
+      let anchor = read_attr_value_in_tag(open_tag, "w:anchor")
+      let url = combine_docx_hyperlink_target(
+        lookup_doc_hyperlink_target(rel_ctx, rid),
+        anchor,
+      )
       if text != "" {
         if url.trim() == "" {
           out.push(@cor.Inline::Text(text))
@@ -1137,7 +1359,10 @@ fn scan_docx_inline_text(
               Some(x) => record_docx_comment_reference_and_get_index(x, id)
               None => 1
             }
-            let marker = " [comment " + index.to_string() + "]"
+            let marker = docx_comment_marker_text(
+              index,
+              last_inline_text_for_spacing(out),
+            )
             text_out.write_string(marker)
             out.push(@cor.Inline::Text(marker))
           }
@@ -1182,10 +1407,22 @@ fn scan_docx_inline_text(
 
       let text = xml_unescape(profiled_slice_to_string(chars, gt + 1, close))
       if text != "" {
-        text_out.write_string(text)
         let cleaned = @cor.normalize_document_text_cleanup(text)
         if cleaned != "" {
+          let needs_comment_spacing = should_insert_space_after_comment_marker(
+            out, cleaned,
+          )
+          if needs_comment_spacing {
+            text_out.write_string(" ")
+            out.push(@cor.Inline::Text(" "))
+          }
+          text_out.write_string(text)
           out.push(@cor.Inline::Text(cleaned))
+        } else {
+          text_out.write_string(text)
+          if is_whitespace_only_docx_text(text) {
+            out.push(@cor.Inline::Text(text))
+          }
         }
       }
 
@@ -1212,7 +1449,512 @@ fn scan_docx_inline_text(
     i = gt + 1
   }
 
-  { inlines: out, text: @cor.trim_string(text_out.to_string()) }
+  let normalized_inlines = normalize_docx_note_marker_spacing_inlines(out)
+  let normalized_text = normalize_docx_note_marker_spacing_text(
+    text_out.to_string(),
+  )
+  { inlines: normalized_inlines, text: @cor.trim_string(normalized_text) }
+}
+
+///|
+fn normalize_docx_note_marker_spacing_text(text : String) -> String {
+  let chars = text.to_array()
+  let out : Array[Char] = []
+  let mut i = 0
+
+  while i < chars.length() {
+    let marker_end = docx_note_marker_end(chars, i)
+    if marker_end > i {
+      let moved_space = trim_trailing_ascii_whitespace_before_note_marker(out)
+      if moved_space &&
+        has_only_ascii_whitespace_after_docx_note_marker(chars, marker_end) {
+        out.push(' ')
+      }
+      for j in i..<marker_end {
+        out.push(chars[j])
+      }
+      if marker_end < chars.length() &&
+        should_insert_space_after_docx_note_marker_char(chars[marker_end]) {
+        out.push(' ')
+      }
+      i = marker_end
+      continue
+    }
+
+    out.push(chars[i])
+    i = i + 1
+  }
+
+  String::from_array(out)
+}
+
+///|
+fn docx_note_marker_end(chars : Array[Char], start : Int) -> Int {
+  if start + 3 >= chars.length() ||
+    chars[start] != '[' ||
+    chars[start + 1] != '^' {
+    return -1
+  }
+
+  let mut i = start + 2
+  if chars[i] == 'e' {
+    i = i + 1
+    if i >= chars.length() {
+      return -1
+    }
+  }
+
+  let digits_start = i
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch < '0' || ch > '9' {
+      break
+    }
+    i = i + 1
+  }
+  if i == digits_start || i >= chars.length() || chars[i] != ']' {
+    return -1
+  }
+
+  i + 1
+}
+
+///|
+fn trim_trailing_ascii_whitespace_before_note_marker(out : Array[Char]) -> Bool {
+  if out.length() == 0 {
+    return false
+  }
+
+  let mut trim_idx = out.length()
+  while trim_idx > 0 {
+    let ch = out[trim_idx - 1]
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      trim_idx = trim_idx - 1
+    } else {
+      break
+    }
+  }
+
+  if trim_idx == out.length() || trim_idx == 0 {
+    return false
+  }
+
+  let prev = out[trim_idx - 1]
+  if prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r' {
+    return false
+  }
+
+  out.truncate(trim_idx)
+  true
+}
+
+///|
+fn has_only_ascii_whitespace_after_docx_note_marker(
+  chars : Array[Char],
+  start : Int,
+) -> Bool {
+  let mut i = start
+  while i < chars.length() {
+    let ch = chars[i]
+    if !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      return false
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+fn should_insert_space_after_docx_note_marker_char(ch : Char) -> Bool {
+  !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '[') &&
+  !is_docx_inline_follow_punctuation(ch)
+}
+
+///|
+fn normalize_docx_note_marker_spacing_inlines(
+  inlines : Array[@cor.Inline],
+) -> Array[@cor.Inline] {
+  let out : Array[@cor.Inline] = []
+  let mut pending_space_after_note = false
+  let mut i = 0
+
+  while i < inlines.length() {
+    let inline = inlines[i]
+    match inline {
+      @cor.Inline::Text(text) if is_docx_note_marker_text(text) => {
+        let moved_space = trim_trailing_docx_whitespace_from_last_text_inline(
+          out,
+        )
+        if moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1) {
+          out.push(@cor.Inline::Text(" "))
+          pending_space_after_note = false
+        }
+        out.push(inline)
+        if !(moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1)) {
+          pending_space_after_note = moved_space
+        }
+      }
+      @cor.Inline::Text(text) => {
+        let mut emitted = text
+        if pending_space_after_note {
+          if is_whitespace_only_docx_text(text) {
+            pending_space_after_note = false
+          } else if should_insert_space_after_docx_note_marker(text) {
+            emitted = " " + text
+            pending_space_after_note = false
+          } else {
+            pending_space_after_note = false
+          }
+        }
+        out.push(@cor.Inline::Text(emitted))
+      }
+      @cor.Inline::Link(text, href) => {
+        if pending_space_after_note &&
+          should_insert_space_after_docx_note_marker(text) {
+          out.push(@cor.Inline::Text(" "))
+        }
+        pending_space_after_note = false
+        out.push(@cor.Inline::Link(text, href))
+      }
+      _ => {
+        pending_space_after_note = false
+        out.push(inline)
+      }
+    }
+    i = i + 1
+  }
+
+  out
+}
+
+///|
+fn trim_trailing_docx_whitespace_from_last_text_inline(
+  out : Array[@cor.Inline],
+) -> Bool {
+  if out.length() == 0 {
+    return false
+  }
+
+  let last = out.length() - 1
+  match out[last] {
+    @cor.Inline::Text(text) => {
+      let trimmed = trim_trailing_docx_inline_whitespace(text)
+      if trimmed == text {
+        false
+      } else {
+        out[last] = @cor.Inline::Text(trimmed)
+        true
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn trim_trailing_docx_inline_whitespace(text : String) -> String {
+  let chars = text.to_array()
+  let mut end = chars.length()
+  while end > 0 {
+    let ch = chars[end - 1]
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+  if end == chars.length() {
+    text
+  } else {
+    String::from_array(chars[:end])
+  }
+}
+
+///|
+fn remaining_docx_inlines_are_whitespace_only(
+  inlines : Array[@cor.Inline],
+  start : Int,
+) -> Bool {
+  let mut i = start
+  while i < inlines.length() {
+    match inlines[i] {
+      @cor.Inline::Text(text) =>
+        if is_whitespace_only_docx_text(text) {
+          i = i + 1
+          continue
+        } else {
+          return false
+        }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn should_insert_space_after_docx_note_marker(next_text : String) -> Bool {
+  if next_text == "" {
+    return false
+  }
+
+  let chars = next_text.to_array()
+  if chars.length() == 0 {
+    return false
+  }
+
+  let first = chars[0]
+  if first == ' ' ||
+    first == '\t' ||
+    first == '\n' ||
+    first == '\r' ||
+    first == '[' {
+    return false
+  }
+
+  !is_docx_inline_follow_punctuation(first)
+}
+
+///|
+fn should_insert_space_after_comment_marker(
+  out : Array[@cor.Inline],
+  next_text : String,
+) -> Bool {
+  if next_text == "" || out.length() == 0 {
+    return false
+  }
+
+  let last_text = match out[out.length() - 1] {
+    @cor.Inline::Text(text) => text
+    _ => return false
+  }
+  if !is_docx_comment_marker_text(last_text) {
+    return false
+  }
+
+  let chars = next_text.to_array()
+  if chars.length() == 0 {
+    return false
+  }
+  let first = chars[0]
+  if first == ' ' || first == '\t' || first == '\n' || first == '\r' {
+    return false
+  }
+
+  !is_docx_inline_follow_punctuation(first)
+}
+
+///|
+fn docx_comment_marker_text(index : Int, prev_text : String?) -> String {
+  let prefix = if docx_inline_needs_space_before_comment_marker(prev_text) {
+    " "
+  } else {
+    ""
+  }
+  prefix + "[comment " + index.to_string() + "]"
+}
+
+///|
+fn docx_inline_needs_space_before_comment_marker(prev_text : String?) -> Bool {
+  match prev_text {
+    Some(text) =>
+      match last_non_empty_char(text) {
+        Some(ch) => !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn last_inline_text_for_spacing(out : Array[@cor.Inline]) -> String? {
+  if out.length() == 0 {
+    return None
+  }
+
+  let mut i = out.length()
+  while i > 0 {
+    i = i - 1
+    match out[i] {
+      @cor.Inline::Text(text) =>
+        if is_whitespace_only_docx_text(text) {
+          continue
+        } else {
+          return Some(text)
+        }
+      _ => return None
+    }
+  }
+
+  None
+}
+
+///|
+fn last_non_empty_char(text : String) -> Char? {
+  let chars = text.to_array()
+  if chars.length() == 0 {
+    return None
+  }
+  Some(chars[chars.length() - 1])
+}
+
+///|
+fn is_whitespace_only_docx_text(text : String) -> Bool {
+  if text == "" {
+    return false
+  }
+
+  for ch in text {
+    if !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
+fn is_docx_comment_marker_text(text : String) -> Bool {
+  text.contains("[comment ") && text.has_suffix("]")
+}
+
+///|
+fn is_docx_note_marker_text(text : String) -> Bool {
+  if !text.has_prefix("[^") || !text.has_suffix("]") {
+    return false
+  }
+
+  let inner = text[2:text.length() - 1]
+  if inner == "" {
+    return false
+  }
+
+  let chars = inner.to_array()
+  let mut i = 0
+  if chars[0] == 'e' {
+    if chars.length() == 1 {
+      return false
+    }
+    i = 1
+  }
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch < '0' || ch > '9' {
+      return false
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+fn is_docx_inline_follow_punctuation(ch : Char) -> Bool {
+  ch == '.' ||
+  ch == ',' ||
+  ch == ';' ||
+  ch == ':' ||
+  ch == '!' ||
+  ch == '?' ||
+  ch == ')' ||
+  ch == ']' ||
+  ch == '}' ||
+  ch == '，' ||
+  ch == '。' ||
+  ch == '；' ||
+  ch == '：' ||
+  ch == '！' ||
+  ch == '？' ||
+  ch == '）' ||
+  ch == '】' ||
+  ch == '》'
+}
+
+///|
+fn combine_docx_hyperlink_target(target : String, anchor : String?) -> String {
+  let base = target.trim().to_owned()
+  let fragment = match anchor {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        ""
+      } else if trimmed.has_prefix("#") {
+        trimmed
+      } else {
+        "#" + trimmed
+      }
+    }
+    None => ""
+  }
+  if fragment == "" {
+    return base
+  }
+  if base == "" {
+    return fragment
+  }
+  if base.contains("#") {
+    return base
+  }
+  base + fragment
+}
+
+///|
+fn collect_docx_math_visible_text(xml : String) -> String {
+  let chars = xml.to_array()
+  let mut i = 0
+  let out = StringBuilder::new()
+  while i < chars.length() {
+    let lt = find_char_in_range(chars, i, chars.length(), '<')
+    if lt < 0 {
+      break
+    }
+    let gt = find_char_in_range(chars, lt + 1, chars.length(), '>')
+    if gt < 0 {
+      break
+    }
+
+    if chars[lt + 1] != '/' &&
+      tag_prefix_matches(chars, lt, chars.length(), math_text_open_tag_chars) {
+      let close = find_pattern_in_range(
+        chars,
+        gt + 1,
+        chars.length(),
+        math_text_close_tag_chars,
+      )
+      if close < 0 {
+        i = gt + 1
+        continue
+      }
+      let text = @cor.trim_string(
+        xml_unescape(profiled_slice_to_string(chars, gt + 1, close)),
+      )
+      if text != "" {
+        out.write_string(text)
+      }
+      i = close + math_text_close_tag_chars.length()
+      continue
+    }
+
+    if chars[lt + 1] != '/' &&
+      (
+        tag_prefix_matches(chars, lt, chars.length(), omath_open_tag_chars) ||
+        tag_prefix_matches(chars, lt, chars.length(), omathpara_open_tag_chars)
+      ) {
+      i = gt + 1
+      continue
+    }
+
+    if chars[lt + 1] == '/' &&
+      (
+        tag_prefix_matches(chars, lt, chars.length(), omath_close_tag_chars) ||
+        tag_prefix_matches(chars, lt, chars.length(), omathpara_close_tag_chars)
+      ) {
+      i = gt + 1
+      continue
+    }
+
+    i = gt + 1
+  }
+  out.to_string()
 }
 
 ///|
@@ -1224,6 +1966,7 @@ fn collect_tc_text_with_relationships(
   tc_inner : String,
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
+  ledger : DocxReferenceLedger?,
 ) -> String {
   let stripped_inner = strip_docx_text_box_content_xml(tc_inner)
   let chars = stripped_inner.to_array()
@@ -1248,7 +1991,7 @@ fn collect_tc_text_with_relationships(
 
     let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
     let text = @cor.trim_string(
-      collect_tc_paragraph_text(p_xml, rel_ctx, asset_by_target),
+      collect_tc_paragraph_text(p_xml, rel_ctx, asset_by_target, ledger),
     )
     if !@cor.is_blank(text) {
       parts.push(text)
@@ -1269,8 +2012,9 @@ fn collect_tc_paragraph_text(
   p_xml : String,
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
+  ledger : DocxReferenceLedger?,
 ) -> String {
-  let scan = scan_docx_inline_text(p_xml, rel_ctx, None)
+  let scan = scan_docx_inline_text(p_xml, rel_ctx, ledger)
   let inline_text = render_docx_inline_markdown(scan.inlines, scan.text)
   match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
     Some(img) =>

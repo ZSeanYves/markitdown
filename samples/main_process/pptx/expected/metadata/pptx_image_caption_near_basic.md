@@ -1,4 +1,4 @@
 ## Slide 1
 
-![img_red.jpg](assets/image01.jpg)
+![slide-1-image-1](assets/image01.jpg)
 Revenue trend chart

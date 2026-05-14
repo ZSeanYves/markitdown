@@ -9,7 +9,7 @@ priv enum PdfUriLinkFilterStatus {
 }
 
 ///|
-priv enum PdfUriLinkMatchStatus {
+pub enum PdfUriLinkMatchStatus {
   Matched
   RejectedEmptyUri
   RejectedUnsupportedScheme
@@ -23,7 +23,7 @@ priv enum PdfUriLinkMatchStatus {
 }
 
 ///|
-priv struct PdfUriLinkMatchResult {
+pub struct PdfUriLinkMatchResult {
   _page_index : Int
   _annotation_index : Int
   status : PdfUriLinkMatchStatus
@@ -35,6 +35,50 @@ priv struct PdfUriLinkMatchResult {
   annotation_bbox : @model.PdfRect
   line_bbox : @model.PdfRect?
   overlap_ratio : Double?
+}
+
+///|
+fn matched_block_text_for_lines(
+  page : PdfConvertPage,
+  matched_lines : Array[(Int, Double)],
+) -> (Int, Int, String, Double)? {
+  if matched_lines.is_empty() {
+    return None
+  }
+
+  let first_line_index = matched_lines[0].0
+  let first_line = page.lines[first_line_index]
+  let source_block_index = first_line._source_block_index
+  let mut last_line_index = first_line_index
+  let mut min_ratio = matched_lines[0].1
+
+  for i = 0; i < matched_lines.length(); i = i + 1 {
+    let (line_index, ratio) = matched_lines[i]
+    let line = page.lines[line_index]
+    if line._source_block_index != source_block_index {
+      return None
+    }
+    if i > 0 && line_index != last_line_index + 1 {
+      return None
+    }
+    if ratio < min_ratio {
+      min_ratio = ratio
+    }
+    last_line_index = line_index
+  }
+
+  for block in page.blocks {
+    if block.source_block_index == source_block_index &&
+      block.line_start == first_line_index &&
+      block.line_end == last_line_index {
+      let text = block.text.trim().to_owned()
+      if text != "" {
+        return Some((first_line_index, matched_lines.length(), text, min_ratio))
+      }
+    }
+  }
+
+  None
 }
 
 ///|
@@ -70,7 +114,9 @@ fn filter_uri_link_annotation(
 }
 
 ///|
-fn match_page_uri_links(page : PdfConvertPage) -> Array[PdfUriLinkMatchResult] {
+pub fn match_page_uri_links(
+  page : PdfConvertPage,
+) -> Array[PdfUriLinkMatchResult] {
   let out : Array[PdfUriLinkMatchResult] = []
 
   for annotation in page.annotations {
@@ -142,19 +188,36 @@ fn match_single_uri_link_annotation(
     }
   }
 
-  if matched_lines.length() != 1 {
-    return {
-      _page_index: annotation._page_index,
-      _annotation_index: annotation._annotation_index,
-      status: PdfUriLinkMatchStatus::Ambiguous,
-      uri: annotation.uri,
-      dest: annotation.dest,
-      matched_text: None,
-      matched_line_index: None,
-      matched_line_count: matched_lines.length(),
-      annotation_bbox: annotation._bbox,
-      line_bbox: None,
-      overlap_ratio: None,
+  if matched_lines.length() > 1 {
+    match matched_block_text_for_lines(page, matched_lines) {
+      Some((matched_line_index, matched_line_count, matched_text, ratio)) =>
+        return {
+          _page_index: annotation._page_index,
+          _annotation_index: annotation._annotation_index,
+          status: PdfUriLinkMatchStatus::Matched,
+          uri: annotation.uri,
+          dest: annotation.dest,
+          matched_text: Some(matched_text),
+          matched_line_index: Some(matched_line_index),
+          matched_line_count,
+          annotation_bbox: annotation._bbox,
+          line_bbox: None,
+          overlap_ratio: Some(ratio),
+        }
+      None =>
+        return {
+          _page_index: annotation._page_index,
+          _annotation_index: annotation._annotation_index,
+          status: PdfUriLinkMatchStatus::Ambiguous,
+          uri: annotation.uri,
+          dest: annotation.dest,
+          matched_text: None,
+          matched_line_index: None,
+          matched_line_count: matched_lines.length(),
+          annotation_bbox: annotation._bbox,
+          line_bbox: None,
+          overlap_ratio: None,
+        }
     }
   }
 
@@ -309,76 +372,24 @@ fn overlap_1d(a0 : Double, a1 : Double, b0 : Double, b1 : Double) -> Double {
 }
 
 ///|
-fn render_pdf_link_match_status(status : PdfUriLinkMatchStatus) -> String {
-  match status {
-    PdfUriLinkMatchStatus::Matched => "matched"
-    PdfUriLinkMatchStatus::RejectedEmptyUri => "rejected_empty_uri"
-    PdfUriLinkMatchStatus::RejectedUnsupportedScheme =>
-      "rejected_unsupported_scheme"
-    PdfUriLinkMatchStatus::RejectedDestOnly => "rejected_dest_only"
-    PdfUriLinkMatchStatus::RejectedNoBbox => "rejected_no_bbox"
-    PdfUriLinkMatchStatus::RejectedNonLink => "rejected_non_link"
-    PdfUriLinkMatchStatus::NoVisibleText => "no_visible_text"
-    PdfUriLinkMatchStatus::Ambiguous => "ambiguous"
-    PdfUriLinkMatchStatus::TooLarge => "too_large"
-    PdfUriLinkMatchStatus::OverlappingAnnotations => "overlapping_annotations"
-  }
-}
-
-///|
-fn render_pdf_link_match(result : PdfUriLinkMatchResult) -> String {
-  let mut out = "[pdf-link-match] page=" +
-    result._page_index.to_string() +
-    " annot=" +
-    result._annotation_index.to_string() +
-    " status=" +
-    render_pdf_link_match_status(result.status)
-
-  match result.uri {
-    Some(uri) => out = out + " uri=" + uri
-    None => ()
-  }
-  match result.dest {
-    Some(dest) => out = out + " dest=" + dest
-    None => ()
-  }
-  match result.matched_line_index {
-    Some(i) => out = out + " line=" + i.to_string()
-    None => ()
-  }
-  out = out + " matched_line_count=" + result.matched_line_count.to_string()
-  match result.matched_text {
-    Some(text) => out = out + " text=\"" + text + "\""
-    None => ()
-  }
-  match result.overlap_ratio {
-    Some(v) => out = out + " overlap=" + v.to_string()
-    None => ()
-  }
-  out = out + " annot_bbox=" + rect_str(result.annotation_bbox)
-  match result.line_bbox {
-    Some(b) => out = out + " line_bbox=" + rect_str(b)
-    None => ()
-  }
-
-  out
-}
-
-///|
-fn attach_high_confidence_uri_links(
+pub fn attach_high_confidence_uri_links(
   doc : PdfConvertDocument,
 ) -> PdfConvertDocument {
   let pages = Array::new()
 
   for page in doc.pages {
     let matches = match_page_uri_links(page)
-    let block_by_line : Map[Int, PdfUriLinkMatchResult] = Map([])
+    let block_by_line_span : Map[String, PdfUriLinkMatchResult] = Map([])
 
     for result in matches {
       match result.status {
         PdfUriLinkMatchStatus::Matched =>
           match result.matched_line_index {
-            Some(line_index) => block_by_line.set(line_index, result)
+            Some(line_index) => {
+              let line_end = line_index + result.matched_line_count - 1
+              let key = line_index.to_string() + ":" + line_end.to_string()
+              block_by_line_span.set(key, result)
+            }
             None => ()
           }
         _ => ()
@@ -387,25 +398,19 @@ fn attach_high_confidence_uri_links(
 
     let blocks : Array[PdfConvertBlock] = []
     for block in page.blocks {
-      let patched = if block.line_start == block.line_end {
-        match block_by_line.get(block.line_start) {
-          Some(result) =>
-            match (result.uri, result.matched_text) {
-              (Some(uri), Some(text)) =>
-                if text.trim() != "" && text == block.text {
-                  {
-                    ..block,
-                    rich_inlines: Some([@cor.Inline::Link(text, uri)]),
-                  }
-                } else {
-                  block
-                }
-              _ => block
-            }
-          None => block
-        }
-      } else {
-        block
+      let key = block.line_start.to_string() + ":" + block.line_end.to_string()
+      let patched = match block_by_line_span.get(key) {
+        Some(result) =>
+          match (result.uri, result.matched_text) {
+            (Some(uri), Some(text)) =>
+              if text.trim() != "" && text == block.text {
+                { ..block, rich_inlines: Some([@cor.Inline::Link(text, uri)]) }
+              } else {
+                block
+              }
+            _ => block
+          }
+        None => block
       }
       blocks.push(patched)
     }

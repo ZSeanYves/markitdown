@@ -1,5 +1,5 @@
 ///|
-priv enum PdfMergeDecisionStatus {
+pub enum PdfMergeDecisionStatus {
   Merge
   KeepSplit
 }
@@ -37,13 +37,13 @@ priv struct PdfMergeBoundaryEvidence {
 }
 
 ///|
-priv struct PdfMergeDecision {
+pub struct PdfMergeDecision {
   status : PdfMergeDecisionStatus
   reason_tags : Array[String]
 }
 
 ///|
-fn decide_page_boundary_merge(
+pub fn decide_page_boundary_merge(
   prev_page : PdfConvertPage,
   cur_page : PdfConvertPage,
 ) -> PdfMergeDecision {
@@ -473,53 +473,6 @@ fn rects_merge_overlap_or_near(
   let x_overlap = a.x0 <= b.x1 + pad && a.x1 + pad >= b.x0
   let y_overlap = a.y0 <= b.y1 + pad && a.y1 + pad >= b.y0
   x_overlap && y_overlap
-}
-
-///|
-fn render_pdf_merge_decision(
-  prev_page_index : Int,
-  prev_block_index : Int,
-  next_page_index : Int,
-  next_block_index : Int,
-  decision : PdfMergeDecision,
-  prev_text : String,
-  next_text : String,
-) -> String {
-  "[pdf-merge] prev=page" +
-  prev_page_index.to_string() +
-  ":block" +
-  prev_block_index.to_string() +
-  " next=page" +
-  next_page_index.to_string() +
-  ":block" +
-  next_block_index.to_string() +
-  " status=" +
-  render_pdf_merge_status(decision.status) +
-  " reason=" +
-  render_pdf_merge_reason_tags(decision.reason_tags) +
-  " text_prev=\"" +
-  prev_text +
-  "\"" +
-  " text_next=\"" +
-  next_text +
-  "\""
-}
-
-///|
-fn render_pdf_merge_status(status : PdfMergeDecisionStatus) -> String {
-  match status {
-    PdfMergeDecisionStatus::Merge => "merge"
-    PdfMergeDecisionStatus::KeepSplit => "keep_split"
-  }
-}
-
-///|
-fn render_pdf_merge_reason_tags(reason_tags : Array[String]) -> String {
-  if reason_tags.is_empty() {
-    "none"
-  } else {
-    reason_tags.join("+")
-  }
 }
 
 ///|

@@ -265,12 +265,27 @@ test "yaml single-document markers normalize without changing output" {
   let leading_path = out_dir + "/leading.yaml"
   let trailing_path = out_dir + "/trailing.yaml"
   let trailing_comment_path = out_dir + "/trailing-comment.yaml"
+  let trailing_start_path = out_dir + "/trailing-start.yaml"
+  let trailing_start_comment_path = out_dir + "/trailing-start-comment.yaml"
+  let leading_trailing_start_path = out_dir + "/leading-trailing-start.yaml"
+  let leading_trailing_start_comment_path = out_dir +
+    "/leading-trailing-start-comment.yaml"
 
   let base_text = "title: Example\ncount: 1\n"
   write_utf8_text(base_path, base_text)
   write_utf8_text(leading_path, "---\n" + base_text)
   write_utf8_text(trailing_path, base_text + "...\n")
   write_utf8_text(trailing_comment_path, base_text + "...\n# end comment\n")
+  write_utf8_text(trailing_start_path, base_text + "---\n")
+  write_utf8_text(
+    trailing_start_comment_path,
+    base_text + "---\n# end comment\n",
+  )
+  write_utf8_text(leading_trailing_start_path, "---\n" + base_text + "---\n")
+  write_utf8_text(
+    leading_trailing_start_comment_path,
+    "---\n" + base_text + "---\n# end comment\n",
+  )
 
   let base_doc = @yaml.parse_yaml(base_path, "", 6)
   let base_md = @cor.emit_markdown(base_doc)
@@ -283,6 +298,24 @@ test "yaml single-document markers normalize without changing output" {
 
   let trailing_comment_doc = @yaml.parse_yaml(trailing_comment_path, "", 6)
   assert_eq(@cor.emit_markdown(trailing_comment_doc), base_md)
+
+  let trailing_start_doc = @yaml.parse_yaml(trailing_start_path, "", 6)
+  assert_eq(@cor.emit_markdown(trailing_start_doc), base_md)
+
+  let trailing_start_comment_doc = @yaml.parse_yaml(
+    trailing_start_comment_path, "", 6,
+  )
+  assert_eq(@cor.emit_markdown(trailing_start_comment_doc), base_md)
+
+  let leading_trailing_start_doc = @yaml.parse_yaml(
+    leading_trailing_start_path, "", 6,
+  )
+  assert_eq(@cor.emit_markdown(leading_trailing_start_doc), base_md)
+
+  let leading_trailing_start_comment_doc = @yaml.parse_yaml(
+    leading_trailing_start_comment_path, "", 6,
+  )
+  assert_eq(@cor.emit_markdown(leading_trailing_start_comment_doc), base_md)
 }
 
 ///|
@@ -299,6 +332,31 @@ test "yaml real multi-document content stays unsupported" {
   let after_end_path = out_dir + "/after-end.yaml"
   write_utf8_text(after_end_path, "a: 1\n...\nb: 2\n")
   assert_true((try? @yaml.parse_yaml(after_end_path, "", 6)) is Err(_))
+}
+
+///|
+test "yaml bibliography-style nested sequence mappings stay parseable" {
+  let root = yaml_test_root()
+  let out_dir = root + "/bibliography-style"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let path = out_dir + "/biblio-like.yaml"
+  write_utf8_text(
+    path,
+    "---\n" +
+    "references:\n" +
+    "- author:\n" +
+    "  - family: Doe\n" +
+    "    given: John\n" +
+    "  id: item1\n" +
+    "---\n",
+  )
+
+  let doc = @yaml.parse_yaml(path, "", 6)
+  let md = @cor.emit_markdown(doc)
+  assert_true(md.contains("Doe"))
+  assert_true(md.contains("item1"))
 }
 
 ///|

@@ -73,15 +73,28 @@ pub fn parse_epub(
     let content_path = match spine_item.resolved_path {
       Some(v) => v
       None => {
-        let missing_entry_path = missing_manifest_entry_path(spine_item)
-        append_warning_entry(
-          doc,
-          final_md,
-          epub_name,
-          missing_entry_path,
-          "Skipped: spine item references missing manifest item: " +
-          spine_item.idref,
-        )
+        match spine_item.manifest_item {
+          Some(manifest_item) =>
+            append_warning_entry(
+              doc,
+              final_md,
+              epub_name,
+              non_package_spine_entry_path(spine_item, manifest_item.href),
+              "Skipped: spine item targets non-package resource: " +
+              manifest_item.href,
+            )
+          None => {
+            let missing_entry_path = missing_manifest_entry_path(spine_item)
+            append_warning_entry(
+              doc,
+              final_md,
+              epub_name,
+              missing_entry_path,
+              "Skipped: spine item references missing manifest item: " +
+              spine_item.idref,
+            )
+          }
+        }
         continue
       }
     }
@@ -602,6 +615,18 @@ fn missing_manifest_entry_path(spine_item : @epubpkg.EpubSpineItem) -> String {
   spine_item.spine_index.to_string() +
   ": " +
   spine_item.idref +
+  ")"
+}
+
+///|
+fn non_package_spine_entry_path(
+  spine_item : @epubpkg.EpubSpineItem,
+  href : String,
+) -> String {
+  "(non-package spine target #" +
+  spine_item.spine_index.to_string() +
+  ": " +
+  href +
   ")"
 }
 

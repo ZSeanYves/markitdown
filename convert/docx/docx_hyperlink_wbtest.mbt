@@ -99,6 +99,17 @@ fn docx_test_out_dir(name : String) -> String raise {
 }
 
 ///|
+fn has_docx_link(xs : Array[@cor.Inline], text : String, href : String) -> Bool {
+  for x in xs {
+    match x {
+      @cor.Inline::Link(t, h) => if t == text && h == href { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn write_profile_report(
   path : String,
   counters : DocxProfilingCounters,
@@ -204,10 +215,8 @@ fn inline_text_for_docx_test(inlines : Array[@cor.Inline]) -> String {
 }
 
 ///|
-test "docx hyperlink profiling captures hot path counters" {
-  let out_dir = docx_test_out_dir("link_many_performance_guard")
-  let counter : Ref[Int] = { val: 0 }
-  let profile : DocxProfilingCounters = {
+fn new_docx_test_profile_counters() -> DocxProfilingCounters {
+  {
     paragraphs_seen: { val: 0 },
     hyperlink_nodes_seen: { val: 0 },
     collect_wt_inlines_calls: { val: 0 },
@@ -231,6 +240,13 @@ test "docx hyperlink profiling captures hot path counters" {
     document_has_pstyle: { val: false },
     document_has_numpr: { val: false },
   }
+}
+
+///|
+test "docx hyperlink profiling captures hot path counters" {
+  let out_dir = docx_test_out_dir("link_many_performance_guard")
+  let counter : Ref[Int] = { val: 0 }
+  let profile = new_docx_test_profile_counters()
   let prev_profile = current_docx_profile.val
   let prev_enabled = docx_profile_enabled.val
   current_docx_profile.val = profile
@@ -362,6 +378,64 @@ test "docx style-linked numbering fallback and ordered heuristic stay conservati
 }
 
 ///|
+test "docx numbering defaults omitted ilvl to level zero" {
+  let styles = parse_styles_xml(
+    "<w:styles>" +
+    "<w:style w:type=\"paragraph\" w:styleId=\"ListNumber\">" +
+    "<w:name w:val=\"List Number\"/>" +
+    "<w:pPr><w:numPr><w:numId w:val=\"6\"/></w:numPr></w:pPr>" +
+    "</w:style>" +
+    "</w:styles>",
+  )
+  let numbering = parse_numbering_xml(
+    "<w:numbering>" +
+    "<w:abstractNum w:abstractNumId=\"8\">" +
+    "<w:lvl w:ilvl=\"0\"><w:numFmt w:val=\"decimal\"/></w:lvl>" +
+    "</w:abstractNum>" +
+    "<w:num w:numId=\"6\"><w:abstractNumId w:val=\"8\"/></w:num>" +
+    "</w:numbering>",
+  )
+
+  let style_blocks = scan_paragraph(
+    "<w:pPr><w:pStyle w:val=\"ListNumber\"/></w:pPr><w:r><w:t>style-linked default level</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Map([]),
+    styles,
+    numbering,
+    6,
+    None,
+  )
+  match style_blocks[0] {
+    @cor.Block::RichListItem(true, 0, inlines) =>
+      assert_eq(
+        inline_text_for_docx_test(inlines),
+        "style-linked default level",
+      )
+    @cor.Block::ListItem(true, 0, text) =>
+      assert_eq(text, "style-linked default level")
+    _ =>
+      fail("style-linked numId-only list should default to ordered level zero")
+  }
+
+  let direct_blocks = scan_paragraph(
+    "<w:pPr><w:numPr><w:numId w:val=\"6\"/></w:numPr></w:pPr><w:r><w:t>direct default level</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    numbering,
+    6,
+    None,
+  )
+  match direct_blocks[0] {
+    @cor.Block::RichListItem(true, 0, inlines) =>
+      assert_eq(inline_text_for_docx_test(inlines), "direct default level")
+    @cor.Block::ListItem(true, 0, text) =>
+      assert_eq(text, "direct default level")
+    _ => fail("direct numId-only list should default to ordered level zero")
+  }
+}
+
+///|
 test "docx notes parser and append sections stay conservative and deterministic" {
   let footnotes = parse_footnotes_xml(
     "<w:footnotes>" +
@@ -369,16 +443,28 @@ test "docx notes parser and append sections stay conservative and deterministic"
     "<w:footnote w:id=\"2\"><w:p><w:r><w:t>Second footnote</w:t></w:r></w:p></w:footnote>" +
     "<w:footnote w:id=\"1\"><w:p><w:r><w:t>First footnote</w:t></w:r></w:p></w:footnote>" +
     "</w:footnotes>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
   )
   let endnotes = parse_endnotes_xml(
     "<w:endnotes>" +
     "<w:endnote w:id=\"1\"><w:p><w:r><w:t>Only endnote</w:t></w:r></w:p></w:endnote>" +
     "</w:endnotes>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
   )
   let comments = parse_comments_xml(
     "<w:comments>" +
     "<w:comment w:id=\"3\" w:author=\"Alice\" w:initials=\"A\"><w:p><w:r><w:t>Review comment</w:t></w:r></w:p></w:comment>" +
     "</w:comments>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
   )
 
   assert_eq(footnotes.length(), 2)
@@ -426,6 +512,249 @@ test "docx notes parser and append sections stay conservative and deterministic"
 }
 
 ///|
+test "docx note markers absorb preceding source space and keep following prose spaced" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">tilaka </w:t></w:r>" +
+    "<w:r><w:endnoteReference w:id=\"2\"/></w:r>" +
+    "<w:r><w:t>or 'tika'</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "tilaka[^e1] or 'tika'")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "tilaka[^e1] or 'tika'")
+  assert_eq(ledger.endnote_order.length(), 1)
+  assert_eq(ledger.endnote_order[0], 2)
+}
+
+///|
+test "docx footnote markers move preserved spacer after the marker" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">a </w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:t>powerful way</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "a[^1] powerful way")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "a[^1] powerful way")
+  assert_eq(ledger.footnote_order.length(), 1)
+  assert_eq(ledger.footnote_order[0], 1)
+}
+
+///|
+test "docx terminal note markers keep preserved spacer before the marker" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">second </w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"2\"/></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "second [^1]")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "second [^1]")
+  assert_eq(ledger.footnote_order.length(), 1)
+  assert_eq(ledger.footnote_order[0], 2)
+}
+
+///|
+test "docx table cells record footnote endnote and comment references in ledger" {
+  let footnotes = parse_footnotes_xml(
+    "<w:footnotes>" +
+    "<w:footnote w:id=\"1\"><w:p><w:r><w:t>Table footnote</w:t></w:r></w:p></w:footnote>" +
+    "</w:footnotes>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
+  )
+  let endnotes = parse_endnotes_xml(
+    "<w:endnotes>" +
+    "<w:endnote w:id=\"2\"><w:p><w:r><w:t>Table endnote</w:t></w:r></w:p></w:endnote>" +
+    "</w:endnotes>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
+  )
+  let comments = parse_comments_xml(
+    "<w:comments>" +
+    "<w:comment w:id=\"3\" w:author=\"Alice\"><w:p><w:r><w:t>Table comment</w:t></w:r></w:p></w:comment>" +
+    "</w:comments>",
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
+  )
+
+  let ledger = new_docx_reference_ledger()
+  let rows = scan_table_block_with_context_and_ledger(
+    "<w:tr>" +
+    "<w:tc><w:p><w:r><w:t>Cell</w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:endnoteReference w:id=\"2\"/></w:r>" +
+    "<w:r><w:commentReference w:id=\"3\"/></w:r>" +
+    "</w:p></w:tc>" +
+    "</w:tr>",
+    empty_docx_relationship_context(),
+    Map([]),
+    Some(ledger),
+  )
+
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].length(), 1)
+  assert_eq(rows[0][0], "Cell[^1][^e1] [comment 1]")
+  assert_eq(ledger.footnote_order.length(), 1)
+  assert_eq(ledger.footnote_order[0], 1)
+  assert_eq(ledger.endnote_order.length(), 1)
+  assert_eq(ledger.endnote_order[0], 2)
+  assert_eq(ledger.comment_order.length(), 1)
+  assert_eq(ledger.comment_order[0], 3)
+
+  let doc = @cor.new_document()
+  @cor.push(doc, @cor.Block::RichTable({ rows, header_rows: 1, hints: None }))
+  append_docx_notes_sections(
+    doc,
+    {
+      footnotes_by_id: footnotes,
+      endnotes_by_id: endnotes,
+      comments_by_id: comments,
+    },
+    ledger,
+    "table-notes.docx",
+  )
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Cell[^1][^e1] [comment 1]"))
+  assert_true(markdown.contains("## Footnotes"))
+  assert_true(markdown.contains("[^1]: Table footnote"))
+  assert_true(markdown.contains("## Endnotes"))
+  assert_true(markdown.contains("[^e1]: Table endnote"))
+  assert_true(markdown.contains("## Comments"))
+  assert_true(markdown.contains("1. Alice: Table comment"))
+}
+
+///|
+test "docx hyperlink scan preserves bookmark anchors and address fragments" {
+  let rel_ctx : DocxRelationshipContext = {
+    document_relationships: [],
+    targets_by_rid: Map([
+      ("rId6", "http://foo.com/"),
+      ("rId7", "https://foo.com?q=bar#baz"),
+    ]),
+    hyperlink_targets_by_rid: Map([
+      ("rId6", "http://foo.com/"),
+      ("rId7", "https://foo.com?q=bar#baz"),
+    ]),
+  }
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">Two with </w:t></w:r>" +
+    "<w:hyperlink w:anchor=\"linkedBookmark\" w:history=\"1\"><w:r><w:rPr><w:rStyle w:val=\"Hyperlink\"/></w:rPr><w:t>link to bookmark</w:t></w:r></w:hyperlink>" +
+    "<w:r><w:t>.</w:t></w:r>" +
+    "<w:r><w:t xml:space=\"preserve\">Five with link to </w:t></w:r>" +
+    "<w:hyperlink r:id=\"rId6\" w:anchor=\"intro\" w:history=\"1\"><w:r><w:rPr><w:rStyle w:val=\"Hyperlink\"/></w:rPr><w:t>http://foo.com#introduction</w:t></w:r></w:hyperlink>" +
+    "<w:r><w:t>.</w:t></w:r>" +
+    "<w:r><w:t xml:space=\"preserve\">Six with link to </w:t></w:r>" +
+    "<w:hyperlink r:id=\"rId7\" w:history=\"1\"><w:r><w:rPr><w:rStyle w:val=\"Hyperlink\"/></w:rPr><w:t>https://foo.com?q=bar#the-bar</w:t></w:r></w:hyperlink>" +
+    "<w:r><w:t>.</w:t></w:r>",
+    rel_ctx,
+    None,
+  )
+
+  assert_true(
+    has_docx_link(scan.inlines, "link to bookmark", "#linkedBookmark"),
+  )
+  assert_true(
+    has_docx_link(
+      scan.inlines,
+      "http://foo.com#introduction",
+      "http://foo.com/#intro",
+    ),
+  )
+  assert_true(
+    has_docx_link(
+      scan.inlines,
+      "https://foo.com?q=bar#the-bar",
+      "https://foo.com?q=bar#baz",
+    ),
+  )
+}
+
+///|
+test "docx comment notes preserve hyperlink and inline image markdown" {
+  let rel_ctx : DocxRelationshipContext = {
+    document_relationships: [],
+    targets_by_rid: Map([
+      ("rId1", "https://google.com"),
+      ("rId2", "word/media/python-icon.jpeg"),
+    ]),
+    hyperlink_targets_by_rid: Map([("rId1", "https://google.com")]),
+  }
+  let comments = parse_comments_xml(
+    "<w:comments xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<w:comment w:id=\"0\" w:author=\"Steve Canny\">" +
+    "<w:p><w:r><w:t xml:space=\"preserve\">Text with hyperlink </w:t></w:r>" +
+    "<w:hyperlink r:id=\"rId1\"><w:r><w:rPr><w:rStyle w:val=\"Hyperlink\"/></w:rPr><w:t>https://google.com</w:t></w:r></w:hyperlink>" +
+    "<w:r><w:t xml:space=\"preserve\"> embedded.</w:t></w:r></w:p>" +
+    "</w:comment>" +
+    "<w:comment w:id=\"1\" w:author=\"\">" +
+    "<w:p><w:r><w:t xml:space=\"preserve\">Text with inline image </w:t></w:r>" +
+    "<w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\"><wp:docPr id=\"1\" name=\"Picture 1\"/><a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:nvPicPr><pic:cNvPr id=\"1\" name=\"python-icon.jpeg\"/></pic:nvPicPr><pic:blipFill><a:blip r:embed=\"rId2\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>" +
+    "<w:r><w:t xml:space=\"preserve\"> in the middle.</w:t></w:r></w:p>" +
+    "</w:comment>" +
+    "</w:comments>",
+    rel_ctx,
+    Map([("word/media/python-icon.jpeg", "assets/image5001.jpeg")]),
+    empty_styles(),
+    empty_numbering(),
+  )
+
+  let rich_comment = comments.get(0).unwrap()
+  assert_true(
+    rich_comment.markdown.contains("[https://google.com](https://google.com)"),
+  )
+  let image_comment = comments.get(1).unwrap()
+  assert_true(
+    image_comment.markdown.contains("![image](assets/image5001.jpeg)"),
+  )
+}
+
+///|
+test "docx comment reference keeps a boundary before immediately following text" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>this is a comment </w:t></w:r>" +
+    "<w:r><w:commentReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:t>paragraph!</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "this is a comment [comment 1] paragraph!")
+  assert_eq(ledger.comment_order.length(), 1)
+  assert_eq(ledger.comment_order[0], 1)
+}
+
+///|
+test "docx preserved source space before comment marker survives inline emission" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>Body</w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:t xml:space=\"preserve\"> </w:t></w:r>" +
+    "<w:r><w:commentReference w:id=\"1\"/></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "Body[^1]  [comment 1]")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "Body[^1]  [comment 1]")
+}
+
+///|
 test "docx w:t plain text cleanup stays narrow and does not enable canonical normalization" {
   let scan = scan_docx_inline_text(
     "<w:r><w:t>A\u{00A0}B\u{2009}C\u{200B}hy\u{00AD}phen ﬁ</w:t></w:r>" +
@@ -462,6 +791,26 @@ test "docx w:t plain text cleanup stays narrow and does not enable canonical nor
     @cor.Inline::Text(text) => assert_eq(text, "Tail")
     _ => fail("expected tail plain text inline")
   }
+}
+
+///|
+test "docx OMML math text degrades conservatively to visible linear text" {
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>For </w:t></w:r>" +
+    "<m:oMath><m:r><m:t>m</m:t></m:r><m:r><m:t>=1</m:t></m:r></m:oMath>" +
+    "<w:r><w:t>,</w:t></w:r>" +
+    "<w:r><w:t>The angle is </w:t></w:r>" +
+    "<m:oMath><m:r><m:t>θ</m:t></m:r><m:r><m:t>=</m:t></m:r><m:sSup><m:e><m:r><m:t>sin</m:t></m:r></m:e><m:sup><m:r><m:t>-1</m:t></m:r></m:sup></m:sSup><m:r><m:t>⁡</m:t></m:r><m:d><m:e><m:r><m:t>2.2×</m:t></m:r><m:sSup><m:e><m:r><m:t>10</m:t></m:r></m:e><m:sup><m:r><m:t>-4</m:t></m:r></m:sup></m:sSup></m:e></m:d></m:oMath>" +
+    "<w:r><w:t>.</w:t></w:r>",
+    empty_docx_relationship_context(),
+    None,
+  )
+
+  assert_true(scan.text.contains("For m=1,"))
+  assert_true(scan.text.contains("The angle is θ=sin-1⁡2.2×10-4."))
+  let rendered = render_docx_inline_markdown(scan.inlines, scan.text)
+  assert_true(rendered.contains("For m=1,"))
+  assert_true(rendered.contains("The angle is θ=sin-1⁡2.2×10-4."))
 }
 
 ///|
@@ -680,6 +1029,77 @@ test "docx nested table scan stays content-preserving for outer and inner cells"
   assert_eq(rows[0][0], "Outer A")
   assert_true(rows[0][1].contains("Outer B"))
   assert_true(rows[0][1].contains("Inner 1"))
+}
+
+///|
+test "docx nested table scan handles deeper nesting without losing deepest text" {
+  let mut inner = "<w:p><w:r><w:t>Nested level 0</w:t></w:r></w:p>"
+  for depth = 1; depth <= 12; depth = depth + 1 {
+    inner = "<w:tbl><w:tr><w:tc>" +
+      inner +
+      "<w:p><w:r><w:t>Nested level " +
+      depth.to_string() +
+      "</w:t></w:r></w:p>" +
+      "</w:tc></w:tr></w:tbl>"
+  }
+
+  let rows = scan_table_block(
+    "<w:tr><w:tc>" +
+    "<w:p><w:r><w:t>Outer</w:t></w:r></w:p>" +
+    inner +
+    "</w:tc></w:tr>",
+  )
+
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].length(), 1)
+  assert_true(rows[0][0].contains("Outer"))
+  assert_true(rows[0][0].contains("Nested level 0"))
+  assert_true(rows[0][0].contains("Nested level 12"))
+}
+
+///|
+test "docx document scan keeps deep nested tables content-preserving without pathological xml rescans" {
+  let profile = new_docx_test_profile_counters()
+  let prev_profile = current_docx_profile.val
+  let prev_enabled = docx_profile_enabled.val
+  current_docx_profile.val = profile
+  docx_profile_enabled.val = true
+  defer {
+    current_docx_profile.val = prev_profile
+    docx_profile_enabled.val = prev_enabled
+  }
+
+  let max_depth = 128
+  let mut table_xml = ""
+  for depth = max_depth; depth >= 0; depth = depth - 1 {
+    table_xml = "<w:tbl><w:tr><w:tc>" +
+      "<w:p><w:r><w:t>Nested level " +
+      depth.to_string() +
+      "</w:t></w:r></w:p>" +
+      table_xml +
+      "</w:tc></w:tr></w:tbl>"
+  }
+
+  reset_docx_scan_profile_counters()
+  let doc = scan_document(
+    table_xml,
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
+    empty_docx_note_bundle(),
+    empty_docx_header_footer_bundle(),
+    empty_docx_text_box_bundle(),
+    6,
+    "deep-nested-table.docx",
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Nested level 0"))
+  assert_true(markdown.contains("Nested level 128"))
+  assert_true(
+    profile.xml_tag_scan_total_search_len.val < table_xml.length() * 700,
+  )
 }
 
 ///|

@@ -240,6 +240,320 @@ test "line_text merges ligature fragment spans with pdf context signals" {
 }
 
 ///|
+test "line_text preserves semantic raw hyphen joins on the same line" {
+  let line = make_line([
+    {
+      ..make_word_merge_span("chat", 0.0, 20.0, 100.0, 10),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(19.0, 92.0, 20.0, 102.0),
+          origin: { x: 19.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 10, Some(10)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    make_word_merge_span("optimized", 20.8, 58.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "chat-optimized")
+}
+
+///|
+test "line_text removes raw hyphen for wrapped continuation on the next line" {
+  let line = make_line([
+    {
+      ..make_word_merge_span("inter", 0.0, 24.0, 100.0, 10),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(23.0, 92.0, 24.0, 102.0),
+          origin: { x: 23.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 10, Some(10)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    {
+      ..make_word_merge_span("national", 2.0, 44.0, 88.0, 11),
+      break_before: true,
+    },
+  ])
+
+  assert_eq(@model.line_text(line), "international")
+}
+
+///|
+test "line_text preserves semantic wrapped hyphen compounds on the next line" {
+  let chat = make_line([
+    {
+      ..make_word_merge_span("chat", 0.0, 20.0, 100.0, 10),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(19.0, 92.0, 20.0, 102.0),
+          origin: { x: 19.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 10, Some(10)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    {
+      ..make_word_merge_span("optimized", 2.0, 44.0, 88.0, 11),
+      break_before: true,
+    },
+  ])
+  assert_eq(@model.line_text(chat), "chat-optimized")
+
+  let conversation = make_line([
+    {
+      ..make_word_merge_span("conversation", 0.0, 52.0, 100.0, 20),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(51.0, 92.0, 52.0, 102.0),
+          origin: { x: 51.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 20, Some(20)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    {
+      ..make_word_merge_span("centric", 2.0, 34.0, 88.0, 21),
+      break_before: true,
+    },
+  ])
+  assert_eq(@model.line_text(conversation), "conversation-centric")
+}
+
+///|
+test "line_text keeps coordinator boundary after semantic wrapped hyphen" {
+  let line = make_line([
+    make_word_merge_span("single-", 0.0, 28.0, 100.0, 10),
+    { ..make_word_merge_span("or", 2.0, 12.0, 88.0, 11), break_before: true },
+  ])
+
+  assert_eq(@model.line_text(line), "single- or")
+}
+
+///|
+test "line_text still drops wrapped hyphen for suffix continuation" {
+  let line = make_line([
+    {
+      ..make_word_merge_span("flexibil", 0.0, 36.0, 100.0, 10),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(35.0, 92.0, 36.0, 102.0),
+          origin: { x: 35.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 10, Some(10)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    { ..make_word_merge_span("ity", 2.0, 14.0, 88.0, 11), break_before: true },
+  ])
+
+  assert_eq(@model.line_text(line), "flexibility")
+
+  let confirming = make_line([
+    {
+      ..make_word_merge_span("con", 0.0, 18.0, 100.0, 20),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(17.0, 92.0, 18.0, 102.0),
+          origin: { x: 17.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 20, Some(20)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    {
+      ..make_word_merge_span("firming", 2.0, 34.0, 88.0, 21),
+      break_before: true,
+    },
+  ])
+  assert_eq(@model.line_text(confirming), "confirming")
+
+  let complex = make_line([
+    {
+      ..make_word_merge_span("com", 0.0, 18.0, 100.0, 25),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(17.0, 92.0, 18.0, 102.0),
+          origin: { x: 17.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 25, Some(25)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    { ..make_word_merge_span("plex", 2.0, 22.0, 88.0, 26), break_before: true },
+  ])
+  assert_eq(@model.line_text(complex), "complex")
+
+  let programming = make_line([
+    {
+      ..make_word_merge_span("program", 0.0, 36.0, 100.0, 30),
+      chars: [
+        {
+          unicode: "-",
+          raw_bytes: None,
+          decoded_text: "-",
+          bbox: make_rect(35.0, 92.0, 36.0, 102.0),
+          origin: { x: 35.0, y: 100.0 },
+          quad: None,
+          advance_width: None,
+          glyph_width: None,
+          font_name: Some("Dummy"),
+          font_size: Some(12.0),
+          fill_color: None,
+          rotation: None,
+          is_ligature: false,
+          is_compat_glyph: false,
+          decode_confidence: None,
+          source: make_source_ref(0, 0, 30, Some(30)),
+          break_before: false,
+          break_reason: None,
+        },
+      ],
+    },
+    { ..make_word_merge_span("ming", 2.0, 18.0, 88.0, 31), break_before: true },
+  ])
+  assert_eq(@model.line_text(programming), "programming")
+}
+
+///|
+test "line_text merges very tight short ascii fragment spans" {
+  let second = make_line([
+    make_word_merge_span("sec", 0.0, 18.0, 100.0, 10),
+    make_word_merge_span("ond", 18.4, 36.0, 100.1, 11),
+  ])
+  assert_eq(@model.line_text(second), "second")
+
+  let simple = make_line([
+    make_word_merge_span("si", 0.0, 10.0, 100.0, 10),
+    make_word_merge_span("m", 10.2, 14.0, 100.0, 11),
+    make_word_merge_span("pl", 14.2, 23.0, 100.0, 12),
+    make_word_merge_span("e", 23.2, 27.0, 100.0, 13),
+  ])
+  assert_eq(@model.line_text(simple), "simple")
+
+  let pdf = make_line([
+    make_word_merge_span("pd", 0.0, 10.0, 100.0, 20),
+    make_word_merge_span("f", 10.2, 14.0, 100.0, 21),
+  ])
+  assert_eq(@model.line_text(pdf), "pdf")
+}
+
+///|
+test "line_text inserts spaces between ascii and other script words" {
+  let line = make_line([
+    make_word_merge_span("Hello", 0.0, 20.0, 100.0, 10),
+    {
+      ..make_word_merge_span("ﺪﻤﺤﻣ", 20.8, 36.0, 100.0, 11),
+      writing_direction: @model.PdfWritingDirection::RightToLeft,
+    },
+    make_word_merge_span("World.", 36.8, 60.0, 100.0, 12),
+  ])
+
+  assert_eq(@model.line_text(line), "Hello ﺪﻤﺤﻣ World.")
+}
+
+///|
 test "line_text keeps normal short words separated" {
   let line = make_line([
     make_word_merge_span("to", 0.0, 10.0, 100.0, 10),
@@ -247,6 +561,78 @@ test "line_text keeps normal short words separated" {
   ])
 
   assert_eq(@model.line_text(line), "to flow")
+}
+
+///|
+test "line_text preserves citation surname boundary before et al" {
+  let line = make_line([
+    make_word_merge_span("Xi", 0.0, 12.0, 100.0, 10),
+    make_word_merge_span("et al., 2023", 12.2, 48.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "Xi et al., 2023")
+}
+
+///|
+test "line_text keeps signed numeric spans tight" {
+  let negative = make_line([
+    make_word_merge_span("-", 0.0, 4.0, 100.0, 10),
+    make_word_merge_span("23", 8.0, 18.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(negative), "-23")
+
+  let positive = make_line([
+    make_word_merge_span("+", 0.0, 4.0, 100.0, 20),
+    make_word_merge_span("15", 8.0, 18.0, 100.0, 21),
+  ])
+  assert_eq(@model.line_text(positive), "+15")
+}
+
+///|
+test "line_text keeps numeric separators tight" {
+  let amount = make_line([
+    make_word_merge_span("$11,", 0.0, 18.0, 100.0, 10),
+    make_word_merge_span("250.00", 18.8, 46.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(amount), "$11,250.00")
+
+  let time = make_line([
+    make_word_merge_span("14:", 0.0, 12.0, 100.0, 20),
+    make_word_merge_span("30:", 12.8, 24.0, 100.0, 21),
+    make_word_merge_span("22", 24.8, 32.0, 100.0, 22),
+  ])
+  assert_eq(@model.line_text(time), "14:30:22")
+}
+
+///|
+test "line_text still spaces bullet marker from body text" {
+  let line = make_line([
+    make_word_merge_span("-", 0.0, 4.0, 100.0, 10),
+    make_word_merge_span("item", 8.0, 26.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "- item")
+}
+
+///|
+test "line_text keeps common short right words separated" {
+  let ended_yet = make_line([
+    make_word_merge_span("ended", 0.0, 24.0, 100.0, 10),
+    make_word_merge_span("yet", 24.2, 42.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(ended_yet), "ended yet")
+
+  let confirms_the = make_line([
+    make_word_merge_span("confirms", 0.0, 32.0, 100.0, 10),
+    make_word_merge_span("the", 32.2, 46.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(confirms_the), "confirms the")
+
+  let not_be = make_line([
+    make_word_merge_span("not", 0.0, 14.0, 100.0, 10),
+    make_word_merge_span("be", 14.2, 24.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(not_be), "not be")
 }
 
 ///|
@@ -267,6 +653,31 @@ test "line_text does not merge across punctuation boundary" {
   ])
 
   assert_eq(@model.line_text(line), "word. next")
+}
+
+///|
+test "line_text keeps ascii sentence punctuation separated from following text" {
+  let question = make_line([
+    make_word_merge_span("capacities?", 0.0, 54.0, 100.0, 10),
+    make_word_merge_span("We", 54.8, 66.0, 100.0, 11),
+  ])
+  assert_eq(@model.line_text(question), "capacities? We")
+
+  let parenthetical = make_line([
+    make_word_merge_span("collaboration?", 0.0, 72.0, 100.0, 20),
+    make_word_merge_span("(2)", 72.8, 84.0, 100.0, 21),
+  ])
+  assert_eq(@model.line_text(parenthetical), "collaboration? (2)")
+}
+
+///|
+test "line_text inserts space before parenthetical prose spans" {
+  let line = make_line([
+    make_word_merge_span("models", 0.0, 28.0, 100.0, 10),
+    make_word_merge_span("(LLMs)", 29.2, 52.0, 100.0, 11),
+  ])
+
+  assert_eq(@model.line_text(line), "models (LLMs)")
 }
 
 ///|

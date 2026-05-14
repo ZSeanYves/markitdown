@@ -66,6 +66,27 @@ test "yaml parser accepts single-document start and end markers" {
     _ => fail("expected mapping root for commented leading marker case")
   }
 
+  let leading_and_trailing_start = @yaml.parse_yaml_document(
+    "---\ntitle: Example\n---\n",
+  )
+  match leading_and_trailing_start.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      assert_eq(members[0].key, "title")
+    _ => fail("expected mapping root for leading + trailing start marker case")
+  }
+
+  let leading_and_trailing_start_with_comment = @yaml.parse_yaml_document(
+    "---\ntitle: Example\n---\n# end comment\n",
+  )
+  match leading_and_trailing_start_with_comment.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      assert_eq(members[0].key, "title")
+    _ =>
+      fail(
+        "expected mapping root for leading + trailing start marker comment case",
+      )
+  }
+
   let trailing = @yaml.parse_yaml_document("title: Example\n...\n")
   match trailing.root {
     Some(@yaml.YamlValue::Mapping(members)) =>
@@ -82,6 +103,23 @@ test "yaml parser accepts single-document start and end markers" {
     _ => fail("expected mapping root for trailing marker with comment case")
   }
 
+  let trailing_start_marker = @yaml.parse_yaml_document("title: Example\n---\n")
+  match trailing_start_marker.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      assert_eq(members[0].key, "title")
+    _ => fail("expected mapping root for trailing start marker case")
+  }
+
+  let trailing_start_marker_with_comment = @yaml.parse_yaml_document(
+    "title: Example\n---\n# end comment\n",
+  )
+  match trailing_start_marker_with_comment.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      assert_eq(members[0].key, "title")
+    _ =>
+      fail("expected mapping root for trailing start marker with comment case")
+  }
+
   let marker_only = @yaml.parse_yaml_document("---\n...\n")
   let marker_only_report = @yaml.inspect_yaml_document(marker_only)
   assert_true(marker_only_report.is_empty)
@@ -93,7 +131,7 @@ test "yaml parser keeps multi-document stream markers unsupported" {
     (try? @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n")) is Err(_),
   )
   assert_true((try? @yaml.parse_yaml_document("a: 1\n...\nb: 2\n")) is Err(_))
-  assert_true((try? @yaml.parse_yaml_document("a: 1\n---\n")) is Err(_))
+  assert_true((try? @yaml.parse_yaml_document("a: 1\n---\nb: 2\n")) is Err(_))
 }
 
 ///|
@@ -128,4 +166,19 @@ test "yaml parser handles empty documents and nested sequences deterministically
   assert_eq(nested_report.mapping_count, 2)
   assert_eq(nested_report.sequence_count, 1)
   assert_eq(nested_report.scalar_count, 2)
+}
+
+///|
+test "yaml parser handles mapping child sequence followed by sibling keys" {
+  let doc = @yaml.parse_yaml_document(
+    "references:\n" +
+    "- author:\n" +
+    "  - family: Doe\n" +
+    "    given: John\n" +
+    "  id: item1\n",
+  )
+  let report = @yaml.inspect_yaml_document(doc)
+  assert_eq(report.mapping_count, 3)
+  assert_eq(report.sequence_count, 2)
+  assert_eq(report.scalar_count, 3)
 }

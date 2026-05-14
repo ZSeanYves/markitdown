@@ -17,6 +17,7 @@ fn parse_sheet_model(
   part_target : String?,
   state : XlsxSheetState,
   sheet_xml : String,
+  comments : Array[XlsxComment],
   shared : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
@@ -29,6 +30,14 @@ fn parse_sheet_model(
     "sheet:" + sheet_name + ":collect_cells",
     collect_started,
     Some("parsed_cells=" + parsed_cells.length().to_string()),
+  )
+  let hidden_rows_started = xlsx_parse_profile_stage_started(profile)
+  let hidden_rows = collect_hidden_rows(sheet_xml)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":hidden_rows",
+    hidden_rows_started,
+    Some("hidden_rows=" + hidden_rows.length().to_string()),
   )
   let merged_started = xlsx_parse_profile_stage_started(profile)
   let (merged_ranges, merged_issues) = parse_merged_ranges(
@@ -180,6 +189,8 @@ fn parse_sheet_model(
     has_sheet_xml: true,
     cells,
     merged_ranges,
+    comments,
+    hidden_rows,
     used_min_row,
     used_min_col,
     used_max_row,
@@ -388,12 +399,49 @@ fn empty_sheet_model(
     has_sheet_xml,
     cells: [],
     merged_ranges: [],
+    comments: [],
+    hidden_rows: [],
     used_min_row: 0,
     used_min_col: 0,
     used_max_row: 0,
     used_max_col: 0,
     issues,
   }
+}
+
+///|
+fn collect_hidden_rows(sheet_xml : String) -> Array[Int] {
+  let out : Array[Int] = []
+  let mut pos = 0
+
+  while true {
+    let row0 = find_sub(sheet_xml, "<row ", pos)
+    match row0 {
+      None => break
+      Some(i0) => {
+        let row1 = find_sub(sheet_xml, ">", i0)
+        match row1 {
+          None => break
+          Some(i1) => {
+            let tag = sheet_xml[i0:i1 + 1].to_owned()
+            let row_ref = parse_int(get_attr(tag, "r").unwrap_or(""))
+            let hidden_attr = get_attr(tag, "hidden").unwrap_or("")
+            if row_ref > 0 &&
+              (
+                hidden_attr == "1" ||
+                hidden_attr == "true" ||
+                hidden_attr == "TRUE"
+              ) {
+              out.push(row_ref)
+            }
+            pos = i1 + 1
+          }
+        }
+      }
+    }
+  }
+
+  out
 }
 
 ///|
@@ -744,6 +792,169 @@ fn parse_inline_str(inner : String) -> String {
   }
 
   acc
+}
+
+///|
+fn parse_sheet_comments_xml(xml : String) -> Array[XlsxComment] {
+  let authors = parse_xlsx_comment_authors(xml)
+  let out : Array[XlsxComment] = []
+  let mut pos = 0
+
+  while true {
+    let c0 = find_exact_start_tag(xml, "comment", pos)
+    match c0 {
+      None => break
+      Some(i0) => {
+        let ctag_end0 = find_sub(xml, ">", i0)
+        match ctag_end0 {
+          None => break
+          Some(i1) => {
+            let tag = xml[i0:i1 + 1].to_owned()
+            let c_end0 = find_sub(xml, "</comment>", i1 + 1)
+            match c_end0 {
+              None => break
+              Some(c_end) => {
+                let reference = @cor.trim_string(
+                  get_attr(tag, "ref").unwrap_or(""),
+                )
+                let author_name = lookup_xlsx_comment_author_name(
+                  authors,
+                  parse_int(get_attr(tag, "authorId").unwrap_or("")),
+                )
+                let inner = xml[i1 + 1:c_end].to_owned()
+                let raw_text = parse_inline_str(
+                  tag_text(inner, "text").unwrap_or(""),
+                )
+                let text = normalize_xlsx_comment_text(raw_text, author_name)
+                let (row, column) = cell_ref_to_rc(reference)
+                if reference != "" && text != "" && row > 0 && column > 0 {
+                  out.push({ reference, row, column, author_name, text })
+                }
+                pos = c_end + 10
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn parse_xlsx_comment_authors(xml : String) -> Array[String] {
+  let out : Array[String] = []
+  let mut pos = 0
+
+  while true {
+    let a0 = find_exact_start_tag(xml, "author", pos)
+    match a0 {
+      None => break
+      Some(i0) => {
+        let atag_end0 = find_sub(xml, ">", i0)
+        match atag_end0 {
+          None => break
+          Some(i1) => {
+            let a_end0 = find_sub(xml, "</author>", i1 + 1)
+            match a_end0 {
+              None => break
+              Some(a_end) => {
+                out.push(
+                  normalize_xlsx_comment_author_name(
+                    xml_unescape(xml[i1 + 1:a_end].to_owned()),
+                  ),
+                )
+                pos = a_end + 9
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn find_exact_start_tag(xml : String, name : String, start : Int) -> Int? {
+  let pat = "<" + name
+  let chars = xml.to_array()
+  let mut pos = start
+  while true {
+    let found = find_sub(xml, pat, pos)
+    match found {
+      None => return None
+      Some(idx) => {
+        let end_idx = idx + pat.length()
+        if end_idx >= chars.length() {
+          return None
+        }
+        let next = chars[end_idx]
+        if next == '>' ||
+          next == ' ' ||
+          next == '\t' ||
+          next == '\n' ||
+          next == '\r' {
+          return Some(idx)
+        }
+        pos = idx + 1
+      }
+    }
+  }
+  None
+}
+
+///|
+fn lookup_xlsx_comment_author_name(
+  authors : Array[String],
+  author_idx : Int,
+) -> String? {
+  if author_idx < 0 || author_idx >= authors.length() {
+    None
+  } else {
+    let author = authors[author_idx]
+    if author == "" {
+      None
+    } else {
+      Some(author)
+    }
+  }
+}
+
+///|
+fn normalize_xlsx_comment_author_name(text : String) -> String {
+  @cor.trim_string(@cor.collapse_space_like_runs(text))
+}
+
+///|
+fn normalize_xlsx_comment_text(text : String, author_name : String?) -> String {
+  let normalized = @cor.trim_string(@cor.collapse_space_like_runs(text))
+  if normalized == "" {
+    return ""
+  }
+
+  match author_name {
+    Some(author) => {
+      let trimmed_author = @cor.trim_string(author)
+      if trimmed_author == "" {
+        normalized
+      } else if normalized.has_prefix(trimmed_author + ":") {
+        let stripped = @cor.trim_string(
+          normalized[(trimmed_author + ":").length():].to_owned(),
+        )
+        if stripped == "" {
+          normalized
+        } else {
+          stripped
+        }
+      } else {
+        normalized
+      }
+    }
+    None => normalized
+  }
 }
 
 ///|

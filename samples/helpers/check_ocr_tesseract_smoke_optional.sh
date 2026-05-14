@@ -9,15 +9,9 @@ OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "ocr_tesseract_smoke")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
-resolve_markitdown_cli
-if [[ "$CLI_RUNNER_KIND" == "prebuilt-native" ]]; then
-  probe_out="$OUT_DIR/ocr_runner_probe.txt"
-  "$CLI_BIN" ocr --provider tesseract-cli --lang eng "$ROOT/samples/main_process/txt/txt_plain.txt" >"$probe_out" 2>&1 || true
-  if grep -Fq 'usage: ocr [--with-metadata] <input> [output]' "$probe_out"; then
-    CLI_RUNNER_KIND="moon-run"
-    CLI_RUNNER_NOTE="prebuilt native OCR CLI probe failed; using moon run for OCR smoke"
-    CLI_BIN=""
-  fi
+if ! resolve_markitdown_ocr_cli; then
+  echo "OCR TESSERACT SMOKE SKIPPED: native CLI runner unavailable"
+  exit 0
 fi
 echo "runner: $CLI_RUNNER_KIND"
 echo "runner_class: $(runner_class_for_kind "$CLI_RUNNER_KIND")"
@@ -96,7 +90,7 @@ generate_tiny_ocr_ppm "$PPM_INPUT"
 sips -s format bmp "$PPM_INPUT" --out "$BMP_INPUT" >/dev/null
 
 echo "==> optional explicit ocr smoke"
-run_markitdown_cli ocr --provider tesseract-cli "$BMP_INPUT" "$TXT_OUTPUT"
+run_markitdown_ocr_cli --provider tesseract-cli "$BMP_INPUT" "$TXT_OUTPUT"
 assert_file_exists "$TXT_OUTPUT"
 
 if [[ ! -s "$TXT_OUTPUT" ]]; then

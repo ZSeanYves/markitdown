@@ -46,9 +46,16 @@ fn raw_ref_from_pdf_object(obj : @pdf.PdfObject) -> RawPdfRef? {
 }
 
 ///|
+fn decode_pdf_string(value : String) -> String {
+  @pdftext.PdfTextUtil::new().utf8_of_pdfdocstring(value) catch {
+    _ => value
+  }
+}
+
+///|
 fn string_from_pdf_object(obj : @pdf.PdfObject?) -> String? {
   match obj {
-    Some(@pdf.PdfObject::String(s)) => Some(s)
+    Some(@pdf.PdfObject::String(s)) => Some(decode_pdf_string(s))
     _ => None
   }
 }

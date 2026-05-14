@@ -99,11 +99,34 @@ fn make_annotation_for_noise(
     _bbox: bbox,
     uri: Some("https://example.com"),
     dest: None,
+    target_page: None,
     object_ref: None,
     contents: None,
     subject: None,
     color: None,
   }
+}
+
+///|
+fn edge_reason_tags(evidence : PdfEdgeNoiseEvidence) -> Array[String] {
+  let out : Array[String] = []
+  push_edge_reason_tags(out, evidence)
+  if evidence.two_column_guard {
+    out.push("two_column_guard")
+  }
+  if evidence.body_like_guard {
+    out.push("body_like_guard")
+  }
+  if evidence.image_caption_guard {
+    out.push("image_caption_guard")
+  }
+  if evidence.link_or_annotation_nearby {
+    out.push("link_or_annotation_nearby")
+  }
+  if evidence.long_sentence_guard {
+    out.push("long_sentence_guard")
+  }
+  out
 }
 
 ///|
@@ -308,6 +331,34 @@ test "pdf noise decision drops top edge dash page label candidate" {
   }
   if !decision.reason_tags.contains("core_header_footer_candidate") {
     fail("expected core_header_footer_candidate reason")
+  }
+}
+
+///|
+test "pdf noise decision drops bottom edge slash page label artifact" {
+  let block = make_noise_block(
+    0,
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "/",
+    noise_rect(196.0, 10.0, 204.0, 22.0),
+  )
+  let repeated = build_repeated_edge_noise_index(
+    make_noise_doc([make_noise_page(0, [block], [])]),
+  )
+  let decision = decide_noise_block(
+    make_noise_page(0, [block], []),
+    0,
+    block,
+    repeated,
+  )
+
+  match decision.status {
+    PdfNoiseDecisionStatus::Drop => ()
+    _ => fail("expected bottom-edge slash page label to drop")
+  }
+  if !decision.reason_tags.contains("page_count_pattern") {
+    fail("expected page_count_pattern reason")
   }
 }
 

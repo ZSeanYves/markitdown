@@ -22,8 +22,11 @@ This page is the current roadmap source of truth for the repository.
 * external/private quality gate:
   `samples/quality_corpus/` is now operational as a local signal-level intake
   path, with real external rows already used to validate fixes for PDF word
-  boundaries, ZIP Level 1 data descriptors, YAML single-document markers,
-  PPTX cached chart data, and PPTX comments
+  boundaries, PDF non-link annotation appendix lowering, ZIP Level 1 data
+  descriptors, YAML single-document markers, PPTX cached chart data, PPTX
+  comments, HTML content-root selection, XLSX worksheet comments, DOCX
+  note/comment hyperlink-anchor preservation, and PPTX chart-title/date-category
+  lowering
 
 ## Near-term Release Work
 
@@ -65,6 +68,12 @@ This page is the current roadmap source of truth for the repository.
 
 * keep the current `samples/pdf_layout_classifier` work scoped as a training
   spike
+* keep the broader offline/training/eval loop in `docs/pdf-layout-model.md`,
+  while treating the new tiny gated-normal v1 as a separate distilled
+  implementation rather than “the model now runs in normal”
+* the first normal-path gate is now intentionally tiny:
+  weak heading demotion plus separator/list suppression only, with hard
+  constraints, debug reasons, and a disable switch
 * expand local labels only if the text-layer classifier shows useful signal
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
@@ -97,9 +106,16 @@ This page is the current roadmap source of truth for the repository.
 * keep scan-only/image-only PDF rows on report-only detection first by
   reusing existing inspect/debug signal rather than turning the native suite
   into an OCR expectation
-* add more XLSX external rows around formula cache and merged-cell boundaries
-* add heavier DOCX rows for footnotes/comments/hyperlinks where the files stay
-  small and license-clean
+* add more XLSX external rows around hyperlink/comment appendix stability,
+  formula cache, and merged-cell boundaries
+* add heavier PDF/PPTX external rows around PDF link annotations,
+  multi-column reading order, PPTX grouped-shape layout, and richer
+  speaker-notes/comment combinations
+* keep expanding EPUB external rows around OPF/package robustness, especially
+  commented-out manifest markup and remote/scheme sidecar resources that
+  should not abort local spine conversion
+* add more XML external rows around non-UTF-8 declaration handling and keep
+  broad legacy-charset guessing out of scope unless real samples justify it
 * keep true multi-document YAML support as optional future work rather than
   a release blocker
 * keep scan-only PDF rows as boundary evidence rather than claiming OCR-first
@@ -132,15 +148,47 @@ This page is the current roadmap source of truth for the repository.
 * keep any future PaddleOCR route off the normal path and off the default
   sample/test gate, starting instead from explicit commands or debug/eval
   reporting
-* keep layout assistance advisory/report-only first; only consider guarded
-  normal-path use after benchmark and corpus evidence
-* keep layout-assist rollout on report-only skeletons before any model-backed
-  or normal-path experiment
+* keep provider-backed layout assistance advisory/report-only first; only
+  consider broader normal-path use after benchmark and corpus evidence
+* keep wider layout-assist rollout on report-only skeletons before any
+  broader model-backed normal-path experiment
 * prefer surfacing advisory layout-assist predictions in debug/inspect before
-  any normal-path integration attempt
+  widening the current tiny weak-heading/list normal-path gate
 * use debug-only layout-assist evaluation to measure coverage, label
   distribution, and suspicious no-prediction / many-prediction cases before
   discussing any stronger integration
+* require explicit dataset/license review and held-out ablation before
+  widening the layout-assist label set or gating any output changes
+* keep collecting more unique-source real labels for `link_text`, `caption`,
+  and short-title `heading` boundaries before proposing any later widening of
+  the normal-path gate; the latest held-out expansion finally raised
+  `link_text` / `caption` support to `9` / `8`, but long annotated anchors
+  are still not robust enough
+* keep the current best report-only arbiter pinned to
+  `gated_conservative_v1`, which now uses the `220 / 180` local split plus
+  later heading/list precision guards, corrected standalone-bullet negatives,
+  and CJK/help-text/annotation-negative features, still beats rules-only on
+  the expanded held-out split, and still avoids held-out regressions
+* keep the newer cheap deterministic link/caption feature pass in the
+  report-only lane as well: a later residual feature pass on the same harder
+  `223 / 195` split now reaches `0.9744` for `gated_conservative_v1` vs
+  `0.9538` for `rules_only`, and the remaining blockers have shifted again to
+  `Summary` plus a few `paragraph` vs `keep_as_text` boundary rows rather
+  than missing `link_text` / `caption` support alone
+* keep the newer paragraph-boundary feature pass in the report-only lane too:
+  the same harder `223 / 195` split now reaches `0.9846` for
+  `gated_conservative_v1` vs `0.9641` for `rules_only`, still keeps held-out
+  regressions at `0`, and shows that the broader blocker set has shifted away
+  from `link_text` / `caption` support to a much smaller set of `Summary`,
+  visible-URL, and receipt/body boundary residuals
+* keep the first checked gated-normal v1 frozen at weak heading demotion plus
+  separator/list suppression only until those remaining residuals and wider
+  benchmark/build questions are re-audited
+* if the local quality manifest keeps reporting `unexpected_pass` rows, prefer
+  curating the manifest semantics explicitly rather than collapsing that state
+  into a vague product-quality percentage claim
+* add more pinned mainstream compare runs before making any broader README
+  quality-percentage or speed-multiple claims
 
 ## Later Work
 
@@ -152,6 +200,7 @@ This page is the current roadmap source of truth for the repository.
   path contract
 * optional simple-font GB18030 fallback for raw-GBK no-`/ToUnicode` PDFs if
   it is isolated to a well-evidenced boundary such as `SimFang-variant.pdf`
+  or `XiaoBiaoSong.pdf`
 * optional embedded-font `cmap` fallback only when a future sample shows:
   `FontFile2`, a usable `cmap`, and `CIDToGIDMap` identity or another safely
   resolvable mapping

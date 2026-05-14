@@ -75,11 +75,71 @@ library path or same-process product path.
 * release minimal TXT conversion: external `9.209 ms avg`, `9.212 ms p50`,
   `9.616 ms p95`; main-internal `0.234 ms avg`; estimated process/runtime
   `8.974 ms`
-* `--version` is currently not a supported CLI contract, so the cold-start
-  suite records it as an explicit skip rather than a timed row
+* `--version` is now a supported CLI contract, but the checked cold-start
+  suite still focuses on `noop`, `--help`, and one minimal TXT conversion
+  unless explicitly extended
 
 Figures are local observations, not cross-machine guarantees.
 Cold CLI startup is tracked separately.
+
+## Current Native Build Guardrail
+
+Current checked local clean-build snapshot:
+
+* `cli build`: `62.73s`
+* `pdf build`: `67.42s`
+* `zip build`: `61.88s`
+* `ocr build`: `53.14s`
+* `cli.exe`: `3649640` bytes
+* `pdf.exe`: `4278680` bytes
+* `zip.exe`: `3442056` bytes
+* `ocr.exe`: `1644328` bytes
+* `cli.c`: `394425` lines
+* `pdf.c`: `442901` lines
+* `zip.c`: `370607` lines
+* `ocr.c`: `154425` lines
+* `cli mbtpdf count`: `0`
+
+These numbers are a local clean native build snapshot, not a cross-machine
+guarantee.
+
+## Build Guardrail Snapshot
+
+The repository also tracks build-size/build-time guardrails for the split
+product surface.
+
+Current interpretation:
+
+* main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
+* heavy native text-PDF cost stays behind bundled `pdf`
+* `zip` uses `convert/zip_worker` and delegates embedded PDF entries to `pdf`
+  so it does not directly absorb the full PDF closure
+* a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
+  `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
+  recent Ubuntu audit runner, so the repository keeps the bundled-component
+  design as an explicit performance guardrail
+
+## Current Overlap-Only Compare Timing
+
+The repository can also run an overlap-only compare suite against Microsoft
+MarkItDown when a pinned Python runner is available locally.
+
+Current checked local run:
+
+* date: `2026-05-17`
+* machine: `macOS 15.3`, `arm64`
+* competitor: `Microsoft MarkItDown 0.1.5`
+* corpus: `samples/benchmark/compare_corpus.tsv`
+* rows: `47` overlap samples per runner
+* `markitdown-mb` average sample time: `11.064 ms`
+* `markitdown-python` average sample time: `435.660 ms`
+* observed ratio on this overlap corpus: Python runner about `39.4x` slower
+
+Interpret this conservatively:
+
+* this is timing only, not a blanket Markdown-quality score
+* this excludes OCR, scanned-PDF, metadata semantics, and assets semantics
+* this is sample-scoped and corpus-scoped, not a universal product multiple
 
 ## Cold CLI Startup Attribution Closure
 

@@ -930,6 +930,84 @@ test "epub package keeps remote-resource handling above lower-layer package open
 }
 
 ///|
+test "epub package keeps remote manifest resources without aborting open" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf(
+        [
+          ("chap", "chapter.xhtml", "application/xhtml+xml", None),
+          ("audio", "https://example.com/media/theme.mp3", "audio/mpeg", None),
+        ],
+        [("chap", None)],
+      ),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Remote manifest sidecar should not block package open.</body></html>",
+    ),
+  ])
+
+  assert_eq(pkg.manifest.length(), 2)
+  match @epub.find_epub_manifest_item(pkg, "audio") {
+    Some(item) =>
+      assert_eq(item.resolved_path, "https://example.com/media/theme.mp3")
+    None => fail("expected remote manifest item")
+  }
+  let reading_order = @epub.list_epub_spine_reading_order(pkg)
+  assert_eq(reading_order.length(), 1)
+  assert_eq(reading_order[0], "OPS/chapter.xhtml")
+  assert_eq(@epub.has_part(pkg, "https://example.com/media/theme.mp3"), false)
+}
+
+///|
+test "epub package ignores commented-out manifest items" {
+  let pkg = open_inline_epub([
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\">" +
+      "<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>Inline EPUB</dc:title></metadata>" +
+      "<manifest>" +
+      "<!-- <item id=\"chap\" href=\"chapter.xhtml\" media-type=\"application/xhtml+xml\" properties=\"scripted\"/> -->" +
+      "<item id=\"chap\" href=\"chapter.xhtml\" media-type=\"application/xhtml+xml\"/>" +
+      "<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>" +
+      "</manifest>" +
+      "<spine><itemref idref=\"chap\"/></spine>" +
+      "</package>",
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Commented manifest item should stay ignored.</body></html>",
+    ),
+    (
+      "OPS/nav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav epub:type=\"toc\"><a href=\"chapter.xhtml\">One</a></nav></body></html>",
+    ),
+  ])
+
+  assert_eq(pkg.manifest.length(), 2)
+  let reading_order = @epub.list_epub_spine_reading_order(pkg)
+  assert_eq(reading_order.length(), 1)
+  assert_eq(reading_order[0], "OPS/chapter.xhtml")
+  match @epub.find_epub_manifest_item(pkg, "chap") {
+    Some(item) => assert_eq(item.resolved_path, "OPS/chapter.xhtml")
+    None => fail("expected chapter manifest item")
+  }
+}
+
+///|
 test "epub package duplicate manifest id classifier stays additive" {
   let sample = resolve_sample_path(
     "samples/fixtures/epub/epub_duplicate_manifest_id.epub",

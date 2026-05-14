@@ -456,6 +456,50 @@ count_short_lines() {
   ' "$path"
 }
 
+stdin_contains_all_parts() {
+  local parts="$1"
+  python3 -c '
+import sys
+
+text = sys.stdin.read()
+parts = [part for part in sys.argv[1].split("|") if part]
+for part in parts:
+    if part not in text:
+        raise SystemExit(1)
+' "$parts"
+}
+
+stdin_parts_in_order() {
+  local parts="$1"
+  python3 -c '
+import sys
+
+text = sys.stdin.read()
+parts = [part for part in sys.argv[1].split("|") if part]
+pos = -1
+for part in parts:
+    nxt = text.find(part, pos + 1)
+    if nxt < 0:
+        raise SystemExit(1)
+    pos = nxt
+' "$parts"
+}
+
+stdin_max_long_token_len() {
+  local limit="$1"
+  python3 -c '
+import re
+import sys
+
+text = sys.stdin.read()
+limit = int(sys.argv[1])
+tokens = re.findall(r"\S+", text)
+for token in tokens:
+    if len(token) > limit:
+        raise SystemExit(1)
+' "$limit"
+}
+
 check_signal() {
   local signal="$1"
   local markdown_path="$2"
@@ -472,14 +516,7 @@ check_signal() {
       ;;
     contains_all:*)
       local rest="${signal#contains_all:}"
-      python3 - "$normalized_text" "$rest" <<'PY'
-import sys
-text = sys.argv[1]
-parts = [p for p in sys.argv[2].split("|") if p]
-for part in parts:
-    if part not in text:
-        raise SystemExit(1)
-PY
+      printf '%s' "$normalized_text" | stdin_contains_all_parts "$rest"
       ;;
     not_contains:*)
       [[ "$normalized_text" != *"${signal#not_contains:}"* ]]
@@ -509,17 +546,7 @@ PY
       ;;
     order:*)
       local rest="${signal#order:}"
-      python3 - "$normalized_text" "$rest" <<'PY'
-import sys
-text = sys.argv[1]
-parts = [p for p in sys.argv[2].split("|") if p]
-pos = -1
-for part in parts:
-    nxt = text.find(part, pos + 1)
-    if nxt < 0:
-        raise SystemExit(1)
-    pos = nxt
-PY
+      printf '%s' "$normalized_text" | stdin_parts_in_order "$rest"
       ;;
     line_fragmentation_max:*)
       local limit="${signal#line_fragmentation_max:}"
@@ -532,16 +559,7 @@ PY
       local limit="${signal#max_long_token_len:}"
       local token_text
       token_text="$(normalized_text_without_asset_urls "$markdown_path")"
-      python3 - "$token_text" "$limit" <<'PY'
-import re
-import sys
-text = sys.argv[1]
-limit = int(sys.argv[2])
-tokens = re.findall(r'\S+', text)
-for token in tokens:
-    if len(token) > limit:
-        raise SystemExit(1)
-PY
+      printf '%s' "$token_text" | stdin_max_long_token_len "$limit"
       ;;
     page_noise_absent:*)
       [[ "$normalized_text" != *"${signal#page_noise_absent:}"* ]]
@@ -862,6 +880,7 @@ write_summary() {
   local unexpected_pass="$8"
   local no_manifest_rows="$9"
   local no_matching_rows="${10}"
+  local summary_row_count="${#SUMMARY_ROWS[@]}"
 
   mkdir -p "$OUT_ROOT"
   {
@@ -914,9 +933,9 @@ write_summary() {
     echo "- no_manifest_rows: $no_manifest_rows"
     echo "- no_matching_rows: $no_matching_rows"
     echo
-    if [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 && "$no_matching_rows" -ne 0 ]]; then
+    if [[ "$summary_row_count" -eq 0 && "$no_matching_rows" -ne 0 ]]; then
       echo "No manifest rows matched the active filters."
-    elif [[ "${#SUMMARY_ROWS[@]-0}" -eq 0 ]]; then
+    elif [[ "$summary_row_count" -eq 0 ]]; then
       echo "No manifest rows selected."
     else
       echo "| ID | Format | Scope | Tier | Status | Passed | Total | Notes |"

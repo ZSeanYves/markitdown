@@ -35,6 +35,25 @@ fn custom_encoding_font_dict() -> @pdf.PdfObject {
 }
 
 ///|
+fn gbk_simple_font_dict(
+  basefont? : String = "/FangSong_GB2312",
+) -> @pdf.PdfObject {
+  Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/TrueType"))),
+    ("/BaseFont", Name(@pdf.PdfName::of_string(basefont))),
+    ("/FirstChar", Integer(0)),
+    ("/LastChar", Integer(255)),
+    ("/Widths", Array([Integer(500)])),
+    ("/Encoding", Name(@pdf.PdfName::of_string("/WinAnsiEncoding"))),
+  ])
+}
+
+///|
+fn raw_gbk_basefont_name() -> String {
+  @pdfio.string_of_int_array([47, 0xcb, 0xce, 0xcc, 0xe5])
+}
+
+///|
 fn simple_font_with_tounicode(tounicode_ref : Int) -> @pdf.PdfObject {
   Dictionary([
     ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
@@ -70,6 +89,29 @@ fn simple_font_with_raw_tounicode_stream(
 }
 
 ///|
+fn gbk_simple_font_with_raw_tounicode_stream(
+  data : String,
+) -> (@pdf.PdfObject, @pdf.Pdf) {
+  let pdf = @pdf.Pdf::empty()
+  let bytes = @pdfio.bytes_of_string(data)
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(bytes))),
+  ])
+  let tounicode_ref = pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(bytes)))))
+  (
+    Dictionary([
+      ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
+      ("/BaseFont", Name(@pdf.PdfName::of_string(raw_gbk_basefont_name()))),
+      ("/FirstChar", Integer(0)),
+      ("/LastChar", Integer(255)),
+      ("/Widths", Array([Integer(500)])),
+      ("/ToUnicode", Indirect(tounicode_ref)),
+    ]),
+    pdf,
+  )
+}
+
+///|
 fn cid_font_dict(encoding_name : String) -> @pdf.PdfObject {
   let descendant : @pdf.PdfObject = Dictionary([
     (
@@ -89,6 +131,52 @@ fn cid_font_dict(encoding_name : String) -> @pdf.PdfObject {
     ("/DescendantFonts", Array([descendant])),
     ("/Encoding", Name(@pdf.PdfName::of_string(encoding_name))),
   ])
+}
+
+///|
+fn cid_font_with_raw_tounicode_stream(
+  encoding_name : String,
+  data : String,
+) -> (@pdf.PdfObject, @pdf.Pdf) {
+  let pdf = @pdf.Pdf::empty()
+  let bytes = @pdfio.bytes_of_string(data)
+  let dict : @pdf.PdfObject = Dictionary([
+    ("/Length", Integer(@pdfio.bytes_size(bytes))),
+  ])
+  let tounicode_ref = pdf.addobj(Stream(Ref((dict, @pdf.Stream::Got(bytes)))))
+  let descendant : @pdf.PdfObject = Dictionary([
+    (
+      "/CIDSystemInfo",
+      Dictionary([
+        ("/Registry", String("Adobe")),
+        ("/Ordering", String("Identity")),
+        ("/Supplement", Integer(0)),
+      ]),
+    ),
+    ("/BaseFont", Name(@pdf.PdfName::of_string("/CIDFont"))),
+    ("/FontDescriptor", Dictionary([])),
+  ])
+  (
+    Dictionary([
+      ("/Subtype", Name(@pdf.PdfName::of_string("/Type0"))),
+      ("/BaseFont", Name(@pdf.PdfName::of_string("/CIDFontType0"))),
+      ("/DescendantFonts", Array([descendant])),
+      ("/Encoding", Name(@pdf.PdfName::of_string(encoding_name))),
+      ("/ToUnicode", Indirect(tounicode_ref)),
+    ]),
+    pdf,
+  )
+}
+
+///|
+fn identity_h_shifted_text(text : String, shift : Int) -> String {
+  let bytes = Array::new(capacity=text.length() * 2)
+  for ch in text {
+    let shifted = ch.to_int() - shift
+    bytes.push((shifted >> 8) & 255)
+    bytes.push(shifted & 255)
+  }
+  @pdfio.string_of_int_array(bytes)
 }
 
 ///|
@@ -239,6 +327,112 @@ test "tounicode and cmap extraction" {
   )
   assert_eq(shift_pairs.length(), 1)
   debug_inspect(shift_pairs[0].1, content="[12288]")
+  let rescued_text = identity_h_shifted_text(
+    "This is an Arial Unicode PDF from OpenOffice.", 31,
+  )
+  assert_eq(
+    @pdftext.PdfTextUtil::new().utf8_of_codepoints(
+      identity_extractor.codepoints_of_text(rescued_text),
+    ),
+    "This is an Arial Unicode PDF from OpenOffice.",
+  )
+}
+
+///|
+test "gbk helper decodes mixed ascii and chinese" {
+  let decoded = @pdftext.PdfTextUtil::new().codepoints_of_gbk([
+    0xc4, 0xbf, 0xc2, 0xbc, 0x20,
+  ])
+  match decoded {
+    Some(codepoints) =>
+      assert_eq(
+        @pdftext.PdfTextUtil::new().utf8_of_codepoints(codepoints),
+        "目录 ",
+      )
+    None => fail("expected valid gbk decode")
+  }
+}
+
+///|
+test "gbk helper rejects invalid trailing byte" {
+  let decoded = @pdftext.PdfTextUtil::new().codepoints_of_gbk([0xc4, 0x20])
+  assert_true(decoded is None)
+}
+
+///|
+test "gbk helper decodes fullwidth punctuation and spaces" {
+  let decoded = @pdftext.PdfTextUtil::new().codepoints_of_gbk([
+    0xa3, 0xac, 0x20, 0xa3, 0xb1, 0x20, 0xa1, 0xa1,
+  ])
+  match decoded {
+    Some(codepoints) =>
+      assert_eq(
+        @pdftext.PdfTextUtil::new().utf8_of_codepoints(codepoints),
+        "， １ 　",
+      )
+    None => fail("expected valid gbk punctuation decode")
+  }
+}
+
+///|
+test "simple font gbk fallback decodes conservative cjk snippets" {
+  let pdf = @pdf.Pdf::empty()
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(
+    gbk_simple_font_dict(basefont=raw_gbk_basefont_name()),
+  )
+  let text = @pdfio.string_of_int_array([0xc4, 0xbf, 0x20, 0xc2, 0xbc, 0x20])
+  assert_eq(
+    @pdftext.PdfTextUtil::new().utf8_of_codepoints(
+      extractor.codepoints_of_text(text),
+    ),
+    "目 录 ",
+  )
+}
+
+///|
+test "simple font gbk fallback rescues punctuation only chunks" {
+  let pdf = @pdf.Pdf::empty()
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(
+    gbk_simple_font_dict(basefont=raw_gbk_basefont_name()),
+  )
+  let punct = @pdfio.string_of_int_array([0xa3, 0xac, 0x20, 0xa3, 0xb1, 0x20])
+  assert_eq(
+    @pdftext.PdfTextUtil::new().utf8_of_codepoints(
+      extractor.codepoints_of_text(punct),
+    ),
+    "， １ ",
+  )
+  let ideographic_space = @pdfio.string_of_int_array([0xa1, 0xa1])
+  assert_eq(
+    @pdftext.PdfTextUtil::new().utf8_of_codepoints(
+      extractor.codepoints_of_text(ideographic_space),
+    ),
+    "　",
+  )
+}
+
+///|
+test "latin simple fonts do not trigger gbk fallback" {
+  let pdf = @pdf.Pdf::empty()
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(
+    gbk_simple_font_dict(basefont="/Helvetica"),
+  )
+  let pairs = extractor.glyphnames_and_codepoints_of_text(
+    @pdfio.string_of_int_array([0xc4, 0xbf, 0x20]),
+  )
+  assert_eq(pairs.length(), 3)
+  debug_inspect(pairs.map(pair => pair.1[0]), content="[196, 191, 32]")
+}
+
+///|
+test "gbk fallback does not override tounicode" {
+  let cmap = "begincodespacerange<00><ff>endcodespacerange\n" +
+    "beginbfchar<21><0042>endbfchar\n"
+  let (font, pdf) = gbk_simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let pairs = extractor.glyphnames_and_codepoints_of_text("!")
+  assert_eq(pairs.length(), 1)
+  debug_inspect(pairs[0].1, content="[66]")
 }
 
 ///|
@@ -262,4 +456,28 @@ test "tounicode missing source code falls back safely" {
   let miss = extractor.glyphnames_and_codepoints_of_text("A")
   assert_eq(miss.length(), 1)
   debug_inspect(miss[0].1, content="[65]")
+}
+
+///|
+test "simple font fallback ignores overly wide tounicode codespacerange" {
+  let cmap = "1 begincodespacerange\n<0000><ffff>\nendcodespacerange\n" +
+    "2 beginbfchar\n<30><0030>\n<31><0031>\nendbfchar\n"
+  let (font, pdf) = simple_font_with_raw_tounicode_stream(cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let pairs = extractor.glyphnames_and_codepoints_of_text("10")
+  assert_eq(pairs.length(), 2)
+  debug_inspect(pairs[0].1, content="[49]")
+  debug_inspect(pairs[1].1, content="[48]")
+}
+
+///|
+test "invalid tounicode values fall back without splitting multibyte codes" {
+  let cmap = "1 begincodespacerange\n<0000><ffff>\nendcodespacerange\n" +
+    "1 beginbfchar\n<19d2><ffff>\nendbfchar\n"
+  let (font, pdf) = cid_font_with_raw_tounicode_stream("/Identity-H", cmap)
+  let extractor = @pdftext.PdfText::new(pdf).text_extractor_of_font(font)
+  let text = @pdfio.string_of_int_array([0x19, 0xd2])
+  let pairs = extractor.glyphnames_and_codepoints_of_text(text)
+  assert_eq(pairs.length(), 1)
+  debug_inspect(pairs[0].1, content="[6610]")
 }

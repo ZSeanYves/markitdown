@@ -381,12 +381,6 @@ if [[ ! -f "$CORPUS_PATH" ]]; then
   exit 1
 fi
 
-echo "==> warming Moon build"
-if ! (cd "$ROOT" && moon build >/dev/null); then
-  echo "moon build failed" >&2
-  exit 1
-fi
-
 if ! resolve_markitdown_cli; then
   echo "failed to resolve markitdown runner" >&2
   exit 1

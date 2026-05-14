@@ -9,8 +9,11 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfcmap",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/font/pdfglyphlist",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdfops",
-  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadfs",
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/syntax/pdfsyntax",
-  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
 }
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadfs",
+  "moonbitlang/async",
+} for "test"

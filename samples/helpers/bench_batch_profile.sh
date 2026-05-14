@@ -1318,12 +1318,6 @@ for count in "${COUNTS[@]}"; do
   fi
 done
 
-echo "==> warming Moon build"
-if ! (cd "$ROOT" && moon build >/dev/null); then
-  echo "moon build failed" >&2
-  exit 1
-fi
-
 resolve_mb_runner
 detect_time_probe
 

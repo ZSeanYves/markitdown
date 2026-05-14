@@ -1,7 +1,7 @@
 ///|
 /// 第一阶段最小 cross-page merge：
 /// - 只处理“上一页最后段 + 下一页第一段”的高置信续段
-fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
+pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
   if doc.pages.is_empty() {
     return doc
   }

@@ -202,11 +202,15 @@ fn consume_mapping_members(
 
     let key = parse_key_text(raw_key, line.line_no)
     let mut next = i + 1
+    let has_sequence_child_at_same_indent = next < lines.length() &&
+      lines[next].indent == indent &&
+      is_sequence_item(lines[next].content)
     let value = if raw_value != "" {
       parse_scalar_trimmed(raw_value, line.line_no, profile_totals)
-    } else if next < lines.length() && lines[next].indent > indent {
+    } else if next < lines.length() &&
+      (lines[next].indent > indent || has_sequence_child_at_same_indent) {
       let child_indent = lines[next].indent
-      let (after, child) = parse_block(
+      let (after, child) = parse_mapping_child_block(
         lines, next, child_indent, profile_totals,
       )
       next = after
@@ -220,6 +224,20 @@ fn consume_mapping_members(
   }
 
   (i, members)
+}
+
+///|
+fn parse_mapping_child_block(
+  lines : Array[YamlLine],
+  start : Int,
+  indent : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> (Int, YamlValue) raise {
+  if start < lines.length() && is_sequence_item(lines[start].content) {
+    parse_sequence_mapping_child(lines, start, indent, profile_totals)
+  } else {
+    parse_block(lines, start, indent, profile_totals)
+  }
 }
 
 ///|
@@ -267,6 +285,48 @@ fn parse_sequence(
 }
 
 ///|
+fn parse_sequence_mapping_child(
+  lines : Array[YamlLine],
+  start : Int,
+  indent : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> (Int, YamlValue) raise {
+  let sequence_started = match profile_totals {
+    Some(_) => @env.now()
+    None => 0
+  }
+  let sequence_total = match profile_totals {
+    Some(totals) => Some(totals.parse_sequence_elapsed_ms)
+    None => None
+  }
+  let values : Array[YamlValue] = []
+  let mut i = start
+
+  while i < lines.length() {
+    let line = lines[i]
+    if line.indent < indent {
+      break
+    }
+    if line.indent > indent {
+      raise ParseError(
+        "unexpected indentation at line " + line.line_no.to_string(),
+      )
+    }
+    if !is_sequence_item(line.content) {
+      break
+    }
+
+    let (next, value) = parse_sequence_item(lines, i, indent, profile_totals)
+    values.push(value)
+    i = next
+  }
+
+  let value = (i, YamlValue::Sequence(values))
+  yaml_parse_profile_add_elapsed(sequence_total, sequence_started)
+  value
+}
+
+///|
 fn parse_sequence_item(
   lines : Array[YamlLine],
   index : Int,
@@ -288,11 +348,15 @@ fn parse_sequence_item(
       let key = parse_key_text(raw_key, line.line_no)
       let members : Array[YamlMember] = []
       let mut next = index + 1
+      let has_sequence_child_at_same_indent = next < lines.length() &&
+        lines[next].indent == indent &&
+        is_sequence_item(lines[next].content)
       let first_value = if raw_value != "" {
         parse_scalar_trimmed(raw_value, line.line_no, profile_totals)
-      } else if next < lines.length() && lines[next].indent > indent {
+      } else if next < lines.length() &&
+        (lines[next].indent > indent || has_sequence_child_at_same_indent) {
         let child_indent = lines[next].indent
-        let (after, child) = parse_block(
+        let (after, child) = parse_mapping_child_block(
           lines, next, child_indent, profile_totals,
         )
         next = after
@@ -507,9 +571,25 @@ fn normalize_single_document_markers(
   let mut saw_start_marker = false
   let mut saw_end_marker = false
 
-  for line in lines {
+  for i in 0..<lines.length() {
+    let line = lines[i]
     if is_yaml_document_start_marker(line) {
-      if saw_content || saw_start_marker || saw_end_marker {
+      if saw_end_marker {
+        raise ParseError(
+          "multi-document markers are unsupported at line " +
+          line.line_no.to_string(),
+        )
+      }
+      if saw_content {
+        if i == lines.length() - 1 {
+          continue
+        }
+        raise ParseError(
+          "multi-document markers are unsupported at line " +
+          line.line_no.to_string(),
+        )
+      }
+      if saw_start_marker {
         raise ParseError(
           "multi-document markers are unsupported at line " +
           line.line_no.to_string(),

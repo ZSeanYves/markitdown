@@ -52,7 +52,7 @@
       },
       "image": {
         "path": "assets/image01.png",
-        "alt_text": "tmpug_opwhs.png",
+        "alt_text": "slide-1-image-1",
         "title": null,
         "caption": "Figure 1. Revenue trend"
       }
@@ -77,7 +77,7 @@
     {
       "path": "assets/image01.png",
       "asset_type": "image",
-      "alt_text": "tmpug_opwhs.png",
+      "alt_text": "slide-1-image-1",
       "title": null,
       "caption": "Figure 1. Revenue trend",
       "origin": {

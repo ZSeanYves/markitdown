@@ -13,6 +13,13 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
+fn read_utf8_text(path : String) -> String raise {
+  @fs.read_file_to_string(path, encoding="utf8") catch {
+    e => fail("read sample failed: " + e.to_string())
+  }
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -126,6 +133,60 @@ async fn write_uri_link_pdf(path : String) -> Unit {
 }
 
 ///|
+async fn write_wrapped_uri_link_pdf(path : String) -> Unit {
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(200.0),
+  ])
+  let ops : Array[@pdfops.Op] = [
+    @pdfops.Op::OpBT,
+    @pdfops.Op::OpTf("/F0", 12.0),
+    @pdfops.Op::OpTd(10.0, 40.0),
+    @pdfops.Op::OpTj("Visit the example website"),
+    @pdfops.Op::OpTd(0.0, -14.0),
+    @pdfops.Op::OpTj("for details."),
+    @pdfops.Op::OpET,
+  ]
+  let stream = @pdfops.Op::stream_of_ops(ops)
+  let font : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Type", Name(@mbtpdf_core.PdfName::of_string("/Font"))),
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Type1"))),
+    ("/BaseFont", Name(@mbtpdf_core.PdfName::of_string("/Times-Roman"))),
+  ])
+  let page : @pdfpage.Page = {
+    content: [stream],
+    mediabox: rect,
+    cropbox: None,
+    resources: Dictionary([("/Font", Dictionary([("/F0", font)]))]),
+    rotate: @pdfpage.Rotation::Rotate0,
+    rest: Dictionary([]),
+  }
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  let refs = pdf.page_reference_numbers()
+  let annot : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(9.0), Real(25.0), Real(180.0), Real(55.0)])),
+    ("/Contents", String("Visit the example website for details.")),
+    (
+      "/A",
+      Dictionary([
+        ("/S", Name(@mbtpdf_core.PdfName::of_string("/URI"))),
+        ("/URI", String("https://example.com")),
+      ]),
+    ),
+  ])
+  let annot_num = pdf.addobj(annot)
+  let page_obj = pdf.lookup_obj(refs[0])
+  let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
+  pdf.addobj_given_num((refs[0], updated_page))
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
 async fn write_internal_dest_pdf(path : String) -> Unit {
   let pdf0 = @mbtpdf_core.Pdf::empty()
   let rect : @mbtpdf_core.PdfObject = Array([
@@ -155,6 +216,64 @@ async fn write_internal_dest_pdf(path : String) -> Unit {
   let annot_num = pdf.addobj(annot)
   let page_obj = pdf.lookup_obj(refs[0])
   let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
+  pdf.addobj_given_num((refs[0], updated_page))
+  @mbtpdf.write_file(pdf, path)
+}
+
+///|
+async fn write_named_destination_collision_pdf(path : String) -> Unit {
+  let pdf0 = @mbtpdf_core.Pdf::empty()
+  let rect : @mbtpdf_core.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(400.0),
+    Real(200.0),
+  ])
+  let page = link_test_page("Named destination links.", rect)
+  let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
+  let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
+  let refs = pdf.page_reference_numbers()
+
+  let foo_dest : @mbtpdf_core.PdfObject = Array([
+    Indirect(refs[0]),
+    Name(@mbtpdf_core.PdfName::of_string("/Fit")),
+  ])
+  let bar_dest : @mbtpdf_core.PdfObject = Array([
+    Indirect(refs[0]),
+    Name(@mbtpdf_core.PdfName::of_string("/Fit")),
+  ])
+  let dest_tree : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Names", Array([String("foo"), foo_dest, String("bar"), bar_dest])),
+  ])
+  let dest_tree_num = pdf.addobj(dest_tree)
+  let rootnum = pdf.root
+  let root = pdf.lookup_obj(rootnum)
+  let names : @mbtpdf_core.PdfObject = match pdf.lookup_direct("/Names", root) {
+    Some(obj) => obj
+    None => Dictionary([])
+  }
+  let updated_names = names.add_entry("/Dests", Indirect(dest_tree_num))
+  let updated_root = root.add_entry("/Names", updated_names)
+  pdf.addobj_given_num((rootnum, updated_root))
+  pdf.trailerdict = pdf.trailerdict.add_entry("/Root", Indirect(rootnum))
+
+  let foo_annot : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(9.0), Real(9.0), Real(120.0), Real(30.0)])),
+    ("/Dest", String("foo")),
+  ])
+  let bar_annot : @mbtpdf_core.PdfObject = Dictionary([
+    ("/Subtype", Name(@mbtpdf_core.PdfName::of_string("/Link"))),
+    ("/Rect", Array([Real(9.0), Real(35.0), Real(120.0), Real(56.0)])),
+    ("/Dest", String("bar")),
+  ])
+  let foo_annot_num = pdf.addobj(foo_annot)
+  let bar_annot_num = pdf.addobj(bar_annot)
+  let page_obj = pdf.lookup_obj(refs[0])
+  let updated_page = page_obj.add_entry(
+    "/Annots",
+    Array([Indirect(foo_annot_num), Indirect(bar_annot_num)]),
+  )
   pdf.addobj_given_num((refs[0], updated_page))
   @mbtpdf.write_file(pdf, path)
 }
@@ -200,6 +319,66 @@ async test "convert/pdf smoke parses text_simple" {
 }
 
 ///|
+async test "convert/pdf merges hardwrapped sample markdown conservatively" {
+  let hardwrap_en_input = resolve_sample_path(
+    "samples/main_process/pdf/hardwrap_en.pdf",
+  )
+  let hardwrap_en_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/pdf/expected/hardwrap_en.md"),
+  )
+  let hardwrap_en_doc = @pdf.parse_pdf(
+    hardwrap_en_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  if @cor.emit_markdown(hardwrap_en_doc) != hardwrap_en_expected {
+    fail("unexpected markdown for hardwrap_en.pdf")
+  }
+
+  let hardwrap_zh_input = resolve_sample_path(
+    "samples/main_process/pdf/hardwrap_zh.pdf",
+  )
+  let hardwrap_zh_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/pdf/expected/hardwrap_zh.md"),
+  )
+  let hardwrap_zh_doc = @pdf.parse_pdf(
+    hardwrap_zh_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  if @cor.emit_markdown(hardwrap_zh_doc) != hardwrap_zh_expected {
+    fail("unexpected markdown for hardwrap_zh.pdf")
+  }
+
+  let text_hardwrap_input = resolve_sample_path(
+    "samples/main_process/pdf/text_hardwrap.pdf",
+  )
+  let text_hardwrap_expected = read_utf8_text(
+    resolve_sample_path("samples/main_process/pdf/expected/text_hardwrap.md"),
+  )
+  let text_hardwrap_doc = @pdf.parse_pdf(
+    text_hardwrap_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  if @cor.emit_markdown(text_hardwrap_doc) != text_hardwrap_expected {
+    fail("unexpected markdown for text_hardwrap.pdf")
+  }
+}
+
+///|
 async test "convert/pdf emits rich paragraph link for high-confidence URI link" {
   let input = create_pdf_fixture("uri_link.pdf")
   write_uri_link_pdf(input)
@@ -232,6 +411,38 @@ async test "convert/pdf emits rich paragraph link for high-confidence URI link" 
 }
 
 ///|
+async test "convert/pdf emits rich paragraph link for wrapped URI link" {
+  let input = create_pdf_fixture("uri_link_wrapped.pdf")
+  write_wrapped_uri_link_pdf(input)
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+
+  if doc.blocks.val.length() == 0 {
+    fail("pdf parse should produce a block for wrapped uri link pdf")
+  }
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      match inlines {
+        [
+          @cor.Inline::Link(
+            "Visit the example website for details.",
+            "https://example.com"
+          ),
+        ] => ()
+        _ => fail("expected wrapped paragraph to become single Inline::Link")
+      }
+    _ => fail("expected RichParagraph for wrapped URI link")
+  }
+
+  let markdown = @cor.emit_markdown(doc)
+  if !markdown.contains(
+      "[Visit the example website for details.](https://example.com)",
+    ) {
+    fail("wrapped uri link markdown should contain emitted uri link")
+  }
+}
+
+///|
 async test "convert/pdf keeps internal dest pdf as plain paragraph" {
   let input = create_pdf_fixture("internal_dest.pdf")
   write_internal_dest_pdf(input)
@@ -252,6 +463,47 @@ async test "convert/pdf keeps internal dest pdf as plain paragraph" {
   let markdown = @cor.emit_markdown(doc)
   if markdown.contains("](") {
     fail("internal dest pdf should not emit markdown link")
+  }
+}
+
+///|
+async test "convert/pdf keeps distinct named destinations when they resolve to the same page" {
+  let input = create_pdf_fixture("named_dest_collision.pdf")
+  write_named_destination_collision_pdf(input)
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+
+  let actual = doc.blocks.val.map(fn(block) {
+    match block {
+      @cor.Block::Heading(level, text) => "H" + level.to_string() + ":" + text
+      @cor.Block::Paragraph(text) => "P:" + text
+      @cor.Block::RichParagraph(_) => "RICH"
+      _ => "OTHER"
+    }
+  })
+  let expected = [
+    "P:Named destination links.", "H2:Annotations", "P:Link (page 1): destination foo -> page 1",
+    "P:Link (page 1): destination bar -> page 1",
+  ]
+  if actual.length() != expected.length() {
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
+  }
+  for i = 0; i < expected.length(); i = i + 1 {
+    if actual[i] != expected[i] {
+      fail(
+        "named-destination parse mismatch at " +
+        i.to_string() +
+        ": expected `" +
+        expected[i] +
+        "`, got `" +
+        actual[i] +
+        "`",
+      )
+    }
   }
 }
 
@@ -449,7 +701,7 @@ async test "convert/pdf simple table fixture keeps visible table signal in inspe
   let input = create_pdf_fixture("simple_table.pdf")
   write_simple_table_pdf(input)
   let dump = match
-    @api.extract_document_inspect_dump(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_dump(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_dump failed: " + e.to_string())
   }

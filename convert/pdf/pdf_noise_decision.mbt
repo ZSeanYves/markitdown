@@ -1,11 +1,11 @@
 ///|
-priv enum PdfNoiseDecisionStatus {
+pub enum PdfNoiseDecisionStatus {
   Drop
   Keep
 }
 
 ///|
-priv struct PdfRepeatedEdgeNoiseIndex {
+pub struct PdfRepeatedEdgeNoiseIndex {
   repeated_heads : Array[String]
   repeated_tails : Array[String]
   repeated_head_prefixes : Array[String]
@@ -46,13 +46,13 @@ priv struct PdfEdgeNoiseEvidence {
 }
 
 ///|
-priv struct PdfNoiseDecision {
+pub struct PdfNoiseDecision {
   status : PdfNoiseDecisionStatus
   reason_tags : Array[String]
 }
 
 ///|
-fn build_repeated_edge_noise_index(
+pub fn build_repeated_edge_noise_index(
   doc : PdfConvertDocument,
 ) -> PdfRepeatedEdgeNoiseIndex {
   let head_count = Map([])
@@ -147,6 +147,7 @@ fn collect_edge_noise_evidence(
   let page_number_with_label = looks_like_simple_english_page_label(text) ||
     looks_like_simple_cjk_page_label(text)
   let page_count_pattern = looks_like_fraction_page_label(text) ||
+    looks_like_slash_page_label_artifact(text) ||
     looks_like_dash_page_label(text)
   let page_number_like = page_number_numeric ||
     page_number_roman ||
@@ -221,7 +222,7 @@ fn collect_edge_noise_evidence(
 }
 
 ///|
-fn decide_noise_block(
+pub fn decide_noise_block(
   page : PdfConvertPage,
   block_index : Int,
   block : PdfConvertBlock,
@@ -326,6 +327,12 @@ fn strong_page_number_drop(evidence : PdfEdgeNoiseEvidence) -> Bool {
     edge_page_number &&
     evidence.page_number_short_centered &&
     evidence.bottom_edge
+  ) ||
+  (
+    edge_page_number &&
+    evidence.page_count_pattern &&
+    evidence.isolated_line &&
+    (evidence.top_edge || evidence.bottom_edge)
   ) ||
   (edge_page_number && evidence.page_number_with_label) ||
   (
@@ -481,98 +488,6 @@ fn push_edge_reason_tags(
   }
   if evidence.last_nonempty_block {
     out.push("last_nonempty_block")
-  }
-}
-
-///|
-fn edge_reason_tags(evidence : PdfEdgeNoiseEvidence) -> Array[String] {
-  let out : Array[String] = []
-  push_edge_reason_tags(out, evidence)
-  if evidence.two_column_guard {
-    out.push("two_column_guard")
-  }
-  if evidence.body_like_guard {
-    out.push("body_like_guard")
-  }
-  if evidence.image_caption_guard {
-    out.push("image_caption_guard")
-  }
-  if evidence.link_or_annotation_nearby {
-    out.push("link_or_annotation_nearby")
-  }
-  if evidence.long_sentence_guard {
-    out.push("long_sentence_guard")
-  }
-  out
-}
-
-///|
-fn render_pdf_noise_decision(
-  page_index : Int,
-  block_index : Int,
-  decision : PdfNoiseDecision,
-  text : String,
-) -> String {
-  "[pdf-noise] page=" +
-  page_index.to_string() +
-  " block=" +
-  block_index.to_string() +
-  " status=" +
-  render_pdf_noise_status(decision.status) +
-  " reason=" +
-  render_noise_reason_tags(decision.reason_tags) +
-  " text=\"" +
-  text +
-  "\""
-}
-
-///|
-fn render_pdf_edge_evidence(
-  page_index : Int,
-  block_index : Int,
-  evidence : PdfEdgeNoiseEvidence,
-  text : String,
-) -> String {
-  "[pdf-edge] page=" +
-  page_index.to_string() +
-  " block=" +
-  block_index.to_string() +
-  " region=" +
-  edge_region_str(evidence) +
-  " reason=" +
-  render_noise_reason_tags(edge_reason_tags(evidence)) +
-  " text=\"" +
-  text +
-  "\""
-}
-
-///|
-fn render_pdf_noise_status(status : PdfNoiseDecisionStatus) -> String {
-  match status {
-    PdfNoiseDecisionStatus::Drop => "drop"
-    PdfNoiseDecisionStatus::Keep => "keep"
-  }
-}
-
-///|
-fn render_noise_reason_tags(reason_tags : Array[String]) -> String {
-  if reason_tags.is_empty() {
-    "none"
-  } else {
-    reason_tags.join("+")
-  }
-}
-
-///|
-fn edge_region_str(evidence : PdfEdgeNoiseEvidence) -> String {
-  if evidence.top_edge && evidence.bottom_edge {
-    "top_bottom_edge"
-  } else if evidence.top_edge {
-    "top_edge"
-  } else if evidence.bottom_edge {
-    "bottom_edge"
-  } else {
-    "body_band"
   }
 }
 

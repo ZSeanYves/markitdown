@@ -291,29 +291,52 @@ fn find_matching_docx_element_close(
 
   let mut depth = 1
   let mut i = open_end + 1
+  let open_len = open_pat.length()
+  let close_len = close_pat.length()
 
   while i < chars.length() {
-    let next_open = find_exact_open_tag(chars, i, open_pat)
-    let next_close = find_pattern_in_range(chars, i, chars.length(), close_pat)
-    if next_close < 0 {
-      return -1
-    }
-
-    if next_open >= 0 && next_open < next_close {
-      let next_open_end = find_sub(chars, next_open, ">")
-      if next_open_end < 0 {
-        return -1
+    if chars[i] == '<' {
+      if i + close_len <= chars.length() {
+        let mut close_ok = true
+        for k in 0..<close_len {
+          if chars[i + k] != close_pat[k] {
+            close_ok = false
+            break
+          }
+        }
+        if close_ok {
+          depth -= 1
+          if depth == 0 {
+            return i
+          }
+          i = i + close_len
+          continue
+        }
       }
-      depth += 1
-      i = next_open_end + 1
-      continue
+
+      if i + open_len < chars.length() {
+        let mut open_ok = true
+        for k in 0..<open_len {
+          if chars[i + k] != open_pat[k] {
+            open_ok = false
+            break
+          }
+        }
+        if open_ok && is_delim_for_tag(chars[i + open_len]) {
+          let next_open_end = find_sub(chars, i, ">")
+          if next_open_end < 0 {
+            return -1
+          }
+          if !open_tag_is_self_closing(chars, i, next_open_end) {
+            depth += 1
+          }
+          i = next_open_end + 1
+          continue
+        }
+      }
     }
 
-    depth -= 1
-    if depth == 0 {
-      return next_close
-    }
-    i = next_close + close_pat.length()
+    i += 1
   }
 
   -1

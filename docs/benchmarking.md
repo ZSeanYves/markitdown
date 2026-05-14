@@ -10,11 +10,12 @@ work, use [docs/performance.md](./performance.md).
 Recommended verification chain before benchmark work:
 
 ```bash
-moon fmt
 moon info
+moon fmt
 moon check
 moon test
 ./samples/check.sh
+bash samples/quality_corpus/check.sh
 ```
 
 ## Recommended Benchmark Commands
@@ -68,6 +69,17 @@ Optional overlap comparison:
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
+Before reporting any percentage or speed multiple against a mainstream tool,
+record all of the following:
+
+* competitor tool name and version
+* machine and OS
+* date
+* corpus path and row count
+* benchmark suite name
+* metric definition
+* whether OCR, scanned-PDF, metadata, and assets semantics are excluded
+
 Optional PDF layout classifier spike evaluation:
 
 ```bash
@@ -88,6 +100,43 @@ Internal implementation note:
 
 * the direct library harness package now lives at `doc_parse/bench`
 * the default checked manifests now live under `samples/benchmark/manifests/`
+* smoke and normal-path benchmark helpers prefer an existing probe-validated
+  native `cli`; if absent, they build `cli` once with
+  `moon build cli --target native`
+* when a normal-path benchmark row needs bundled PDF or ZIP support, helpers
+  also resolve `pdf` / `zip` and build each component at most once
+* hidden benchmark helpers (`product-path`, `cold-start`) prefer an existing
+  probe-validated native `bench`; if absent, they build `bench` once
+  with `moon build bench --target native`
+* benchmark helpers do not silently use `moon run` unless
+  `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
+
+## Build Guardrail Snapshot
+
+Current checked local clean-build snapshot:
+
+* `cli build`: `62.73s`
+* `pdf build`: `67.42s`
+* `zip build`: `61.88s`
+* `ocr build`: `53.14s`
+* `cli.exe`: `3649640` bytes
+* `pdf.exe`: `4278680` bytes
+* `zip.exe`: `3442056` bytes
+* `ocr.exe`: `1644328` bytes
+* `cli.c`: `394425` lines
+* `pdf.c`: `442901` lines
+* `zip.c`: `370607` lines
+* `ocr.c`: `154425` lines
+* `cli mbtpdf count`: `0`
+
+Current guardrail notes:
+
+* main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
+* a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
+  `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
+  recent Ubuntu audit runner
+* the accepted design therefore keeps PDF and ZIP on the user-visible `cli`
+  surface while routing execution through bundled `pdf` / `zip`
 
 ## Output Directories
 
@@ -141,12 +190,37 @@ Interpret benchmark output conservatively:
   user-facing CLI contract
 * main-internal startup timing is not the whole cold-start process cost
 * current cold-start suite records `noop`, `--help`, and one minimal TXT
-  conversion; `--version` is currently recorded as unsupported
+  conversion; the main CLI now supports `--version`, but the checked helper
+  still focuses on those three startup cases unless explicitly extended
 * all figures are local observations on named checked-in corpora
 * do not turn one machine's timings into cross-machine guarantees
 * `doc_parse` library timing and product-path timing answer different questions
 * PDF benchmark scope is native text-PDF by default
 * OCR, scanned-PDF, and fallback paths are excluded unless explicitly called
   out
+* a clean native CLI rebuild can be dramatically slower than incremental
+  `moon build cli --target native`; avoid `moon clean` during routine benchmark
+  iteration unless you are deliberately measuring full rebuild cost
+* the native CLI surface is now split: treat lightweight `cli` numbers as the
+  user-facing product-path baseline, treat `pdf` / `zip` as bundled
+  PDF/ZIP support components kept for build guardrails, and treat `debug`,
+  `ocr`, and `bench` numbers as dev/auxiliary surfaces rather than
+  default-user startup costs
+* the current local Ubuntu audit keeps normal `cli` out of the vendored PDF
+  closure, trims `pdf` further through a parse-only `pdfopsread` package
+  plus compact Shift-JIS and glyph lookup payloads, and measures one recent
+  cold native rebuild at about `16s` for `cli`, `16s` for `pdf`,
+  `15s` for `zip`, and `10s` for `ocr`; one direct in-process
+  reintegration attempt for PDF/ZIP pushed `cli` to about `24.6s` and
+  `30M / 653k` generated C, so the current bundled-component packaging is an
+  intentional performance guardrail choice; the same `pdf` audit reduced
+  generated C from about `21M / 454k` lines to about `18M / 381k`
+* `cli ocr ...` is now part of the unified product CLI experience, but the
+  actual OCR runtime closure still lives behind `ocr`; do not mix its
+  timings into default non-OCR product-path claims
 * `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
   not part of the default benchmark evidence story
+* do not turn the smoke suite into a “faster than mainstream” claim by itself
+* do not turn clean build time into a runtime speed claim
+* do not turn the overlap-only compare suite into a blanket Markdown-quality
+  percentage

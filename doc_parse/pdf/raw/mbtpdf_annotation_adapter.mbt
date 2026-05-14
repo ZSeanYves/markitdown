@@ -61,6 +61,47 @@ fn dest_string_from_annotation(
 }
 
 ///|
+fn target_page_from_destination(
+  pdf : @pdf.Pdf,
+  dest_obj : @pdf.PdfObject,
+) -> Int? {
+  try {
+    let target = @pdfdest.Destination::read(pdf, dest_obj)
+    let target_page = @pdfpage.PdfPageDoc::new(pdf).pagenumber_of_target(target)
+    if target_page > 0 {
+      Some(target_page)
+    } else {
+      None
+    }
+  } catch {
+    _ => None
+  }
+}
+
+///|
+fn target_page_from_annotation(
+  pdf : @pdf.Pdf,
+  annot_obj : @pdf.PdfObject,
+) -> Int? {
+  match pdf.lookup_direct("/Dest", annot_obj) {
+    Some(dest) => target_page_from_destination(pdf, dest)
+    None =>
+      match pdf.lookup_direct("/A", annot_obj) {
+        Some(action) =>
+          match pdf.lookup_direct("/S", action) {
+            Some(@pdf.PdfObject::Name(name)) if name.equal_string_bytes("/GoTo") =>
+              match pdf.lookup_direct("/D", action) {
+                Some(dest) => target_page_from_destination(pdf, dest)
+                None => None
+              }
+            _ => None
+          }
+        None => None
+      }
+  }
+}
+
+///|
 fn annotation_issue(
   kind : PdfRawIssueKind,
   severity : PdfRawIssueSeverity,
@@ -114,7 +155,7 @@ fn annotation_from_pdf_object(
             ),
             uri: uri_from_annotation_action(pdf, action),
             dest: dest_string_from_annotation(pdf, annot_obj),
-            target_page: None,
+            target_page: target_page_from_annotation(pdf, annot_obj),
             color: color_from_pdf_object(
               pdf,
               pdf.lookup_direct("/C", annot_obj),

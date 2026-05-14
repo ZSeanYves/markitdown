@@ -13,7 +13,7 @@ pub async fn parse_pdf(
   enhance_mode : String?,
   _extract_debug : Bool,
   _dump_selected_raw : Bool,
-  pipeline_debug : Bool,
+  _pipeline_debug : Bool,
 ) -> @cor.Document {
   if !@fs.path_exists(input_path) {
     raise @cor.AppError("pdf: file not found: " + input_path)
@@ -39,19 +39,10 @@ pub async fn parse_pdf(
     Some("ocr_mode=" + pdf_ocr_mode_name(ocr_mode)),
   )
 
-  // Force mode is an explicit user decision: bypass native extraction entirely.
-  if ocr_mode == PdfOcrMode::Force {
-    return @ocr.parse_pdf_via_ocr(
-      input_path, _out_dir, max_heading, pipeline_debug,
+  if ocr_mode != PdfOcrMode::Disabled {
+    raise @cor.AppError(
+      "pdf OCR mode moved to ocr; use the explicit OCR runner instead of the normal cli binary",
     )
-  }
-
-  if pipeline_debug {
-    let cfg = @api.default_pdf_config()
-    match @api.extract_document_block_debug(input_path, cfg) {
-      Ok(s) => println(s)
-      Err(e) => println("pdf debug error: " + e.to_string())
-    }
   }
 
   let extract_started = @env.now()
@@ -65,15 +56,6 @@ pub async fn parse_pdf(
       core_doc.pages.length().to_string(),
     ),
   )
-
-  // AutoFallback is conservative degradation: only fallback when native result
-  // is effectively empty, to avoid mixing two extraction semantics by default.
-  if ocr_mode == PdfOcrMode::AutoFallback &&
-    is_effectively_empty_pdf_doc(core_doc) {
-    return @ocr.parse_pdf_via_ocr(
-      input_path, _out_dir, max_heading, pipeline_debug,
-    )
-  }
 
   let lines_started = @env.now()
   let doc0 = build_convert_lines(core_doc, _out_dir)
@@ -92,22 +74,6 @@ pub async fn parse_pdf(
     Some("pages=" + doc1.pages.length().to_string()),
   )
 
-  if pipeline_debug {
-    println(debug_convert_document_summary(doc1))
-
-    for page in doc1.pages {
-      debug_print_convert_lines(page)
-      debug_print_convert_images(page)
-      debug_print_convert_annotations(page)
-      debug_print_convert_blocks(page)
-      debug_print_heading_decisions(page, max_heading)
-    }
-
-    debug_print_page_edge_blocks(doc1)
-    debug_print_repeated_edge_texts(doc1)
-    debug_print_header_footer_like_blocks(doc1)
-  }
-
   let classify_started = @env.now()
   let doc2 = classify_convert_blocks(doc1, max_heading)
   pdf_convert_profile_add_stage(
@@ -116,8 +82,17 @@ pub async fn parse_pdf(
     @env.now() - classify_started,
     Some("max_heading=" + max_heading.to_string()),
   )
+  let gate_started = @env.now()
+  let gate_cfg = default_pdf_layout_gate_config()
+  let doc2g = apply_pdf_layout_gate(doc2, config=gate_cfg)
+  pdf_convert_profile_add_stage(
+    profile,
+    "pdf_layout_gate",
+    @env.now() - gate_started,
+    Some("enabled=" + gate_cfg.enabled.to_string()),
+  )
   let filter_started = @env.now()
-  let doc3 = filter_noise_blocks(doc2)
+  let doc3 = filter_noise_blocks(doc2g)
   pdf_convert_profile_add_stage(
     profile,
     "pdf_noise_filter",
@@ -141,15 +116,10 @@ pub async fn parse_pdf(
     Some("high_confidence_uri_attach=true"),
   )
 
-  if pipeline_debug {
-    debug_print_noise_decisions(doc2)
-    debug_print_merge_decisions(doc3)
-    println(debug_convert_document_summary(doc5))
-  }
-
   let src = @cor.basename(input_path)
   let ir_started = @env.now()
   let out = convert_pdf_blocks_to_ir(doc5, max_heading, src)
+  append_pdf_outlines_to_ir(out, core_doc.outlines, src)
   pdf_convert_profile_add_stage(
     profile,
     "pdf_final_block_build",
@@ -190,30 +160,4 @@ fn pdf_ocr_mode_name(mode : PdfOcrMode) -> String {
     PdfOcrMode::AutoFallback => "auto_fallback"
     PdfOcrMode::Force => "force"
   }
-}
-
-///|
-/// 判断 native PDF lower-layer parser 结果是否几乎没有可用文本。
-fn is_effectively_empty_pdf_doc(doc : @model.PdfDocumentModel) -> Bool {
-  let mut signal_chars = 0
-
-  for page in doc.pages {
-    for block in page.text_blocks {
-      let t = @model.block_text(block).trim().to_owned()
-      if t == "" {
-        continue
-      }
-
-      for ch in t.to_array() {
-        if ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' {
-          signal_chars = signal_chars + 1
-          if signal_chars >= 24 {
-            return false
-          }
-        }
-      }
-    }
-  }
-
-  true
 }

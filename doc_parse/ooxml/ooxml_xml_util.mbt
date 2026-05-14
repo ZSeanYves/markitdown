@@ -1,9 +1,16 @@
 ///|
 /// Convert ZIP entry bytes to XML text.
 ///
-/// OOXML XML parts in our samples are UTF-8-compatible ASCII/UTF-8 text; this
-/// helper preserves the existing lightweight byte-to-char behavior.
+/// OOXML XML parts are UTF-8 text in mainstream DOCX/XLSX/PPTX packages.
+/// Decode as UTF-8 first so non-ASCII shared strings and text runs stay
+/// readable, while preserving the historical byte-to-char fallback for odd
+/// malformed payloads.
 fn bytes_to_xml_text(bytes : Bytes) -> String {
+  match (try? @utf8.decode(bytes, ignore_bom=false) : Result[String, Error]) {
+    Ok(text) => return text
+    Err(_) => ()
+  }
+
   let chars : Array[Char] = []
   for b in bytes {
     chars.push(Int::unsafe_to_char(byte_to_int(b)))

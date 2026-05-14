@@ -108,6 +108,11 @@ markitdown --version || true
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
+Do not turn this overlap-only suite into a blanket quality percentage by
+itself.
+Record the competitor version, machine, corpus size, and exact metric before
+publishing any README claim.
+
 Batch profiling:
 
 ```bash

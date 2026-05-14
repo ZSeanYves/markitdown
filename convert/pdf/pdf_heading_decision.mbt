@@ -1,5 +1,5 @@
 ///|
-priv enum PdfHeadingDecisionStatus {
+pub enum PdfHeadingDecisionStatus {
   PromoteHeading
   KeepHeading
   DemoteToParagraph
@@ -43,13 +43,13 @@ priv struct PdfHeadingEvidence {
 }
 
 ///|
-priv struct PdfHeadingDecision {
+pub struct PdfHeadingDecision {
   status : PdfHeadingDecisionStatus
   reason_tags : Array[String]
 }
 
 ///|
-fn decide_heading_classification(
+pub fn decide_heading_classification(
   prev : PdfConvertBlock?,
   block : PdfConvertBlock,
   next : PdfConvertBlock?,
@@ -363,9 +363,9 @@ fn page_lead_heading_reason_tags(
     return None
   }
 
-  if !(evidence.gap_before ||
-    evidence.font_size_delta ||
-    evidence.core_candidate) {
+  if !(evidence.font_size_delta ||
+    evidence.core_candidate ||
+    (evidence.gap_before && (evidence.next_body || evidence.next_list))) {
     return None
   }
 
@@ -512,45 +512,4 @@ fn guard_reason_tags(evidence : PdfHeadingEvidence) -> Array[String] {
   }
 
   out
-}
-
-///|
-fn heading_decision_status_str(status : PdfHeadingDecisionStatus) -> String {
-  match status {
-    PdfHeadingDecisionStatus::PromoteHeading => "promote"
-    PdfHeadingDecisionStatus::KeepHeading => "keep_heading"
-    PdfHeadingDecisionStatus::DemoteToParagraph => "demote"
-    PdfHeadingDecisionStatus::ToNoise => "noise"
-    PdfHeadingDecisionStatus::KeepParagraph => "keep_paragraph"
-    PdfHeadingDecisionStatus::KeepNoise => "keep_noise"
-  }
-}
-
-///|
-fn render_heading_reason_tags(reason_tags : Array[String]) -> String {
-  if reason_tags.is_empty() {
-    "none"
-  } else {
-    reason_tags.join("+")
-  }
-}
-
-///|
-fn render_pdf_heading_decision(
-  page_index : Int,
-  block_index : Int,
-  decision : PdfHeadingDecision,
-  text : String,
-) -> String {
-  "[pdf-heading] page=" +
-  page_index.to_string() +
-  " block=" +
-  block_index.to_string() +
-  " status=" +
-  heading_decision_status_str(decision.status) +
-  " reason=" +
-  render_heading_reason_tags(decision.reason_tags) +
-  " text=\"" +
-  text +
-  "\""
 }

@@ -46,8 +46,11 @@ fn scan_document(
 
       let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
       let table_started = @env.now()
-      let rows = scan_table_block_with_context(
-        tbl_xml, rel_ctx, asset_by_target,
+      let rows = scan_table_block_with_context_and_ledger(
+        tbl_xml,
+        rel_ctx,
+        asset_by_target,
+        Some(ledger),
       )
       table_scan_elapsed_ms = table_scan_elapsed_ms +
         (@env.now() - table_started)
@@ -417,7 +420,7 @@ fn append_docx_footnotes_section(
   for i in 0..<ledger.footnote_order.length() {
     let id = ledger.footnote_order[i]
     let body = match notes.footnotes_by_id.get(id) {
-      Some(note) => note.text
+      Some(note) => if note.markdown != "" { note.markdown } else { note.text }
       None => "[missing footnote " + id.to_string() + "]"
     }
     let marker = "[^" + (i + 1).to_string() + "]: "
@@ -440,7 +443,7 @@ fn append_docx_endnotes_section(
   for i in 0..<ledger.endnote_order.length() {
     let id = ledger.endnote_order[i]
     let body = match notes.endnotes_by_id.get(id) {
-      Some(note) => note.text
+      Some(note) => if note.markdown != "" { note.markdown } else { note.text }
       None => "[missing endnote " + id.to_string() + "]"
     }
     let marker = "[^e" + (i + 1).to_string() + "]: "
@@ -483,7 +486,12 @@ fn render_docx_comment_entry(comment : DocxComment) -> String {
     }
     None => ""
   }
-  prefix + comment.text
+  let body = if comment.markdown != "" {
+    comment.markdown
+  } else {
+    comment.text
+  }
+  prefix + body
 }
 
 ///|

@@ -1,5 +1,5 @@
 ///|
-priv struct PdfTableCandidate {
+pub struct PdfTableCandidate {
   line_start : Int
   line_end : Int
   block_indices : Array[Int]
@@ -19,7 +19,7 @@ priv struct PdfTableCellBlock {
 }
 
 ///|
-fn detect_pdf_tables(
+pub fn detect_pdf_tables(
   page : PdfConvertPage,
   pipeline_debug : Bool,
 ) -> Array[PdfTableCandidate] {
@@ -59,11 +59,11 @@ fn collect_pdf_table_cell_blocks(
     if text == "" {
       continue
     }
-    if block.kind != PdfConvertBlockKind::Paragraph {
+    if block.kind != PdfConvertBlockKind::Paragraph &&
+      block.kind != PdfConvertBlockKind::Heading {
       continue
     }
-    if block.is_heading_candidate ||
-      block.is_artifact_candidate ||
+    if block.is_artifact_candidate ||
       block.is_caption_candidate ||
       block.first_is_wrapped_candidate ||
       block.last_is_wrapped_candidate ||
@@ -86,7 +86,7 @@ fn collect_pdf_table_cell_blocks(
       line_index: block.line_start,
       text,
       bbox: block._bbox,
-      center_y: (block._bbox.y0 + block._bbox.y1) / 2.0,
+      center_y: pdf_table_block_row_y(block),
       left_x: block.left_x,
     })
   }
@@ -96,6 +96,14 @@ fn collect_pdf_table_cell_blocks(
     insert_pdf_table_cell_sorted(sorted, cell)
   }
   sorted
+}
+
+///|
+fn pdf_table_block_row_y(block : PdfConvertBlock) -> Double {
+  match block.first_baseline_y {
+    Some(y) => y
+    None => (block._bbox.y0 + block._bbox.y1) / 2.0
+  }
 }
 
 ///|
@@ -168,8 +176,7 @@ fn insert_pdf_table_cell_sorted(
 
 ///|
 fn compare_pdf_table_cells(a : PdfTableCellBlock, b : PdfTableCellBlock) -> Int {
-  let dy = abs_table_f64(a.center_y - b.center_y)
-  if dy > 8.0 {
+  if !same_pdf_table_row(a, b) {
     if a.center_y > b.center_y {
       return -1
     } else {
@@ -187,6 +194,32 @@ fn compare_pdf_table_cells(a : PdfTableCellBlock, b : PdfTableCellBlock) -> Int 
 }
 
 ///|
+fn same_pdf_table_row(a : PdfTableCellBlock, b : PdfTableCellBlock) -> Bool {
+  let dy = abs_table_f64(a.center_y - b.center_y)
+  if dy <= 4.0 {
+    return true
+  }
+
+  let overlap = pdf_table_vertical_overlap(a.bbox, b.bbox)
+  let min_height = min_table_f64(
+    @model.rect_height(a.bbox),
+    @model.rect_height(b.bbox),
+  )
+  min_height > 0.0 && overlap / min_height >= 0.55
+}
+
+///|
+fn pdf_table_vertical_overlap(a : @model.PdfRect, b : @model.PdfRect) -> Double {
+  let top = min_table_f64(a.y1, b.y1)
+  let bottom = max_table_f64(a.y0, b.y0)
+  if top > bottom {
+    top - bottom
+  } else {
+    0.0
+  }
+}
+
+///|
 fn cluster_pdf_table_rows(
   cells : Array[PdfTableCellBlock],
 ) -> Array[Array[PdfTableCellBlock]] {
@@ -199,8 +232,7 @@ fn cluster_pdf_table_rows(
 
     let last = rows[rows.length() - 1]
     let ref_cell = last[0]
-    let dy = abs_table_f64(ref_cell.center_y - cell.center_y)
-    if dy <= 8.0 {
+    if same_pdf_table_row(ref_cell, cell) {
       last.push(cell)
     } else {
       rows.push([cell])
@@ -258,18 +290,31 @@ fn finalize_pdf_table_rows(
     }
 
     let run : Array[Array[PdfTableCellBlock]] = [first]
+    let anchor_positions = row_pdf_table_anchor_positions(first)
+    if anchor_positions.length() < 2 {
+      i = i + 1
+      continue
+    }
+    let anchor_ref : Ref[Array[Double]] = { val: anchor_positions }
     let mut j = i + 1
     while j < rows.length() {
       let next = rows[j]
-      if pdf_table_rows_compatible(run[run.length() - 1], next) {
-        run.push(next)
-        j = j + 1
-      } else {
-        break
+      match
+        next_pdf_table_anchor_positions(
+          anchor_ref.val,
+          run[run.length() - 1],
+          next,
+        ) {
+        Some(merged) => {
+          anchor_ref.val = merged
+          run.push(next)
+          j = j + 1
+        }
+        None => break
       }
     }
 
-    match build_pdf_table_candidate(page, run) {
+    match build_pdf_table_candidate(page, run, anchor_ref.val) {
       Some(table) => {
         out.push(table)
         i = j
@@ -282,44 +327,134 @@ fn finalize_pdf_table_rows(
 }
 
 ///|
-fn pdf_table_rows_compatible(
+fn next_pdf_table_anchor_positions(
+  anchor_positions : Array[Double],
   left : Array[PdfTableCellBlock],
   right : Array[PdfTableCellBlock],
-) -> Bool {
-  if left.length() != right.length() {
-    return false
+) -> Array[Double]? {
+  if anchor_positions.length() < 2 || left.length() < 2 || right.length() < 2 {
+    return None
   }
 
-  for i in 0..<left.length() {
-    let dx = abs_table_f64(left[i].left_x - right[i].left_x)
-    if dx > 16.0 {
-      return false
-    }
+  let merged = match merge_pdf_table_anchor_positions(anchor_positions, right) {
+    Some(value) => value
+    None => return None
   }
 
   let left_y = left[0].center_y
   let right_y = right[0].center_y
   let dy = abs_table_f64(left_y - right_y)
   if dy > 32.0 {
-    return false
+    return None
   }
 
   let left_height = pdf_table_row_height(left)
   let right_height = pdf_table_row_height(right)
   let height_gap = abs_table_f64(left_height - right_height)
-  height_gap <= max_table_f64(10.0, max_table_f64(left_height, right_height))
+  if height_gap > max_table_f64(10.0, max_table_f64(left_height, right_height)) {
+    return None
+  }
+
+  Some(merged)
+}
+
+///|
+fn row_pdf_table_anchor_positions(
+  row : Array[PdfTableCellBlock],
+) -> Array[Double] {
+  let out : Array[Double] = []
+  for cell in row {
+    match merge_single_pdf_table_anchor_position(out, cell.left_x) {
+      Some(merged) => {
+        out.clear()
+        for x in merged {
+          out.push(x)
+        }
+      }
+      None => return []
+    }
+  }
+  out
+}
+
+///|
+fn merge_pdf_table_anchor_positions(
+  anchor_positions : Array[Double],
+  row : Array[PdfTableCellBlock],
+) -> Array[Double]? {
+  let merged : Array[Double] = []
+  for x in anchor_positions {
+    merged.push(x)
+  }
+  for cell in row {
+    match merge_single_pdf_table_anchor_position(merged, cell.left_x) {
+      Some(next) => {
+        merged.clear()
+        for x in next {
+          merged.push(x)
+        }
+      }
+      None => return None
+    }
+  }
+
+  if pdf_table_row_anchor_indices_for_positions(merged, row) is None {
+    None
+  } else {
+    Some(merged)
+  }
+}
+
+///|
+fn merge_single_pdf_table_anchor_position(
+  anchor_positions : Array[Double],
+  x : Double,
+) -> Array[Double]? {
+  let out : Array[Double] = []
+  let mut inserted = false
+  let mut merged_existing = false
+
+  for anchor in anchor_positions {
+    let dx = abs_table_f64(anchor - x)
+    if dx <= 32.0 {
+      if merged_existing {
+        return None
+      }
+      out.push((anchor + x) / 2.0)
+      inserted = true
+      merged_existing = true
+      continue
+    }
+
+    if !inserted && x < anchor {
+      out.push(x)
+      inserted = true
+    }
+    out.push(anchor)
+  }
+
+  if !inserted {
+    out.push(x)
+  }
+
+  if out.length() > 6 {
+    None
+  } else {
+    Some(out)
+  }
 }
 
 ///|
 fn build_pdf_table_candidate(
   page : PdfConvertPage,
   run : Array[Array[PdfTableCellBlock]],
+  anchor_positions : Array[Double],
 ) -> PdfTableCandidate? {
-  if run.length() < 3 {
+  if run.length() < 2 {
     return None
   }
 
-  let col_count = run[0].length()
+  let col_count = anchor_positions.length()
   if col_count < 2 {
     return None
   }
@@ -330,9 +465,11 @@ fn build_pdf_table_candidate(
   let mut line_start = run[0][0].line_index
   let mut line_end = run[0][0].line_index
   for row in run {
-    let texts : Array[String] = []
+    let texts = match normalize_pdf_table_row(anchor_positions, row) {
+      Some(value) => value
+      None => return None
+    }
     for cell in row {
-      texts.push(cell.text)
       block_indices.push(cell.block_index)
       bbox = @model.union_rect(bbox, cell.bbox)
       if cell.line_index < line_start {
@@ -377,6 +514,75 @@ fn build_pdf_table_candidate(
     header_rows: infer_pdf_table_header_rows(rows),
     reason_tags: ["stable_columns", "aligned_rows", "min_rows", "min_cols"],
   })
+}
+
+///|
+fn pdf_table_row_anchor_indices_for_positions(
+  anchor_positions : Array[Double],
+  row : Array[PdfTableCellBlock],
+) -> Array[Int]? {
+  if row.length() > anchor_positions.length() {
+    return None
+  }
+
+  let out : Array[Int] = []
+  let mut anchor_start = 0
+  for cell in row {
+    let matched = match
+      find_pdf_table_anchor_position_index(
+        anchor_positions,
+        cell.left_x,
+        anchor_start,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    out.push(matched)
+    anchor_start = matched + 1
+  }
+  Some(out)
+}
+
+///|
+fn find_pdf_table_anchor_position_index(
+  anchor_positions : Array[Double],
+  cell_left_x : Double,
+  anchor_start : Int,
+) -> Int? {
+  let mut best_idx = -1
+  let mut best_dx = 0.0
+  for i in anchor_start..<anchor_positions.length() {
+    let dx = abs_table_f64(anchor_positions[i] - cell_left_x)
+    if dx <= 32.0 && (best_idx < 0 || dx < best_dx) {
+      best_idx = i
+      best_dx = dx
+    }
+  }
+  if best_idx < 0 {
+    None
+  } else {
+    Some(best_idx)
+  }
+}
+
+///|
+fn normalize_pdf_table_row(
+  anchor_positions : Array[Double],
+  row : Array[PdfTableCellBlock],
+) -> Array[String]? {
+  let anchor_indices = match
+    pdf_table_row_anchor_indices_for_positions(anchor_positions, row) {
+    Some(value) => value
+    None => return None
+  }
+  let out : Array[String] = []
+  for _ in 0..<anchor_positions.length() {
+    out.push("")
+  }
+  for i in 0..<row.length() {
+    out[anchor_indices[i]] = normalize_pdf_table_cell_text(row[i].text)
+  }
+  Some(out)
 }
 
 ///|
@@ -435,6 +641,41 @@ fn looks_like_numeric_table_cell(text : String) -> Bool {
 }
 
 ///|
+fn normalize_pdf_table_cell_text(text : String) -> String {
+  if !looks_like_numeric_table_cell(text) {
+    return text
+  }
+
+  let chars = text.to_array()
+  if chars.length() < 3 {
+    return text
+  }
+
+  let sign = chars[0]
+  if sign != '+' && sign != '-' {
+    return text
+  }
+
+  let mut index = 1
+  let mut saw_space = false
+  while index < chars.length() && chars[index] == ' ' {
+    saw_space = true
+    index = index + 1
+  }
+
+  if !saw_space || index >= chars.length() {
+    return text
+  }
+
+  let next = chars[index]
+  if !(next >= '0' && next <= '9') && next != '.' {
+    return text
+  }
+
+  sign.to_string() + text[index:].to_owned()
+}
+
+///|
 fn count_short_label_cells(row : Array[String]) -> Int {
   let mut out = 0
   for cell in row {
@@ -472,6 +713,9 @@ fn looks_like_paragraph_table_reject_block(text : String) -> Bool {
 fn looks_like_list_like_table_reject_block(text : String) -> Bool {
   let t = normalize_pdf_comparison_text(text)
   if t == "" {
+    return false
+  }
+  if looks_like_numeric_table_cell(t) {
     return false
   }
 
@@ -721,6 +965,15 @@ fn abs_table_f64(v : Double) -> Double {
     -v
   } else {
     v
+  }
+}
+
+///|
+fn min_table_f64(a : Double, b : Double) -> Double {
+  if a < b {
+    a
+  } else {
+    b
   }
 }
 

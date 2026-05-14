@@ -23,6 +23,81 @@ fn read_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn test_tmp_root() -> String {
+  ".tmp/convert-xml-test"
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    if !@fs.path_exists(next) {
+      @fs.create_dir(next)
+    }
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+
+  @fs.remove_dir(path)
+}
+
+///|
+fn cleanup_temp_dir(path : String) -> Unit {
+  ignore(try? remove_dir_recursive(path))
+}
+
+///|
+fn write_bytes(path : String, bytes : Bytes) -> Unit raise {
+  @fs.write_bytes_to_file(path, bytes) catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
 test "xml preserves source as fenced xml block" {
   let sample = resolve_sample_path("samples/main_process/xml/xml_basic.xml")
   let expected = read_utf8_text(
@@ -205,4 +280,41 @@ test "xml source preserving covers processing instruction cdata namespace and en
     ),
   )
   assert_eq(@cor.emit_markdown(entity_doc), entity_expected)
+}
+
+///|
+test "xml honors declared latin1 and utf16 source encodings" {
+  let out_dir = test_tmp_root()
+  ensure_dir_tree(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let latin1_path = out_dir + "/xml_latin1_decl.xml"
+  write_bytes(
+    latin1_path,
+    Bytes::from_array([
+      0x3C, 0x3F, 0x78, 0x6D, 0x6C, 0x20, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+      0x3D, 0x22, 0x31, 0x2E, 0x30, 0x22, 0x20, 0x65, 0x6E, 0x63, 0x6F, 0x64, 0x69,
+      0x6E, 0x67, 0x3D, 0x22, 0x69, 0x73, 0x6F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D,
+      0x31, 0x22, 0x3F, 0x3E, 0x0A, 0x3C, 0x72, 0x6F, 0x6F, 0x74, 0x3E, 0x63, 0x61,
+      0x66, 0xE9, 0x20, 0x26, 0x20, 0x70, 0x69, 0xF1, 0x61, 0x74, 0x61, 0x3C, 0x2F,
+      0x72, 0x6F, 0x6F, 0x74, 0x3E, 0x0A,
+    ]),
+  )
+  let latin1_doc = @xml.parse_xml(latin1_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(latin1_doc),
+    "```xml\n<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<root>café & piñata</root>\n```\n",
+  )
+
+  let utf16_path = out_dir + "/xml_utf16_decl.xml"
+  let utf16_source = "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<root>Wide</root>\n"
+  write_bytes(
+    utf16_path,
+    @utf16.encode(utf16_source, bom=true, endianness=@utf16.Endian::Little),
+  )
+  let utf16_doc = @xml.parse_xml(utf16_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(utf16_doc),
+    "```xml\n<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<root>Wide</root>\n```\n",
+  )
 }

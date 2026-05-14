@@ -3,5 +3,3 @@
 Body paragraph.
 
 Side note.
-
-Nav text.

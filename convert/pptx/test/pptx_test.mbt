@@ -340,6 +340,29 @@ fn mismatch_chart_xml() -> String {
 }
 
 ///|
+fn titled_date_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+  "<c:date1904 val=\"0\"/>" +
+  "<c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>On The Radar</a:t></a:r></a:p></c:rich></c:tx></c:title><c:plotArea><c:radarChart>" +
+  "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:numRef><c:numCache><c:formatCode>m/d/yy</c:formatCode>" +
+  "<c:pt idx=\"0\"><c:v>37261.0</c:v></c:pt>" +
+  "<c:pt idx=\"1\"><c:v>37262.0</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>37263.0</c:v></c:pt>" +
+  "<c:pt idx=\"3\"><c:v>37264.0</c:v></c:pt>" +
+  "<c:pt idx=\"4\"><c:v>37265.0</c:v></c:pt>" +
+  "</c:numCache></c:numRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache>" +
+  "<c:pt idx=\"0\"><c:v>32.0</c:v></c:pt>" +
+  "<c:pt idx=\"1\"><c:v>32.0</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>28.0</c:v></c:pt>" +
+  "<c:pt idx=\"3\"><c:v>12.0</c:v></c:pt>" +
+  "<c:pt idx=\"4\"><c:v>15.0</c:v></c:pt>" +
+  "</c:numCache></c:numRef></c:val></c:ser></c:radarChart></c:plotArea></c:chart></c:chartSpace>"
+}
+
+///|
 fn comments_pptx_bytes(
   comments_xml : String,
   slide_rels_inner : String,
@@ -586,8 +609,33 @@ test "pptx cached chart mismatch falls back to stable text instead of crashing" 
   let doc = @pptx.parse_pptx(path, "", 6)
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("A chart to test parsing:"))
-  assert_true(markdown.contains("Chart<br>Series: Series 1<br>A: 1"))
+  assert_true(markdown.contains("Chart\n\n- Series: Series 1\n  - A: 1"))
+  assert_true(!markdown.contains("Chart<br>"))
   assert_true(!markdown.contains("| Category | Series 1 |"))
+}
+
+///|
+test "pptx cached chart rendering keeps chart title and readable date categories" {
+  let root = test_tmp_root()
+  ensure_dir_tree(root)
+  let case_dir = root + "/chart-title-date"
+  recreate_clean_dir(case_dir)
+  defer cleanup_temp_dir(case_dir)
+  let path = case_dir + "/sample.pptx"
+  write_bytes(
+    path,
+    chart_pptx_bytes(
+      titled_date_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+
+  let doc = @pptx.parse_pptx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("A chart to test parsing:"))
+  assert_true(markdown.contains("On The Radar"))
+  assert_true(markdown.contains("| 2002-01-05 | 32.0 |"))
+  assert_true(markdown.contains("| 2002-01-09 | 15.0 |"))
 }
 
 ///|

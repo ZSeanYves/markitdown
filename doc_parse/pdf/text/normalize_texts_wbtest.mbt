@@ -121,6 +121,36 @@ test "pdf lower layer no longer applies phrase or slash post patches globally" {
 }
 
 ///|
+test "single span normalization repairs compact citation and ligature word boundaries" {
+  let citation = normalize_single_span(make_span("Xiet al., 2023"))
+  assert_eq(citation.text, "Xi et al., 2023")
+
+  let ligature = normalize_single_span(
+    make_span("developers may prefer theflexibility to program"),
+  )
+  assert_eq(ligature.text, "developers may prefer the flexibility to program")
+
+  let connector = normalize_single_span(
+    make_span("conversation patterns, such as single-or multi-turn dialogs"),
+  )
+  assert_eq(
+    connector.text,
+    "conversation patterns, such as single- or multi-turn dialogs",
+  )
+}
+
+///|
+test "pdf line span normalization repairs citation et-al boundary across spans" {
+  let spans = normalize_line_spans_with_glue([
+    make_span("Xiet"),
+    make_span("al., 2023"),
+  ])
+  assert_eq(spans.length(), 2)
+  assert_eq(spans[0].text, "Xi et")
+  assert_eq(spans[1].text, "al., 2023")
+}
+
+///|
 test "pdf span fragment merge repairs tight broken english words without phrase whitelist" {
   let spans = normalize_line_spans_with_glue([
     make_span("confi"),
@@ -147,6 +177,75 @@ test "pdf span fragment merge keeps normal short word boundaries" {
 }
 
 ///|
+test "pdf span fragment merge keeps common short right words separated" {
+  let ended_yet = normalize_line_spans_with_glue([
+    {
+      ..make_span("ended"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("yet"),
+      bbox: { x0: 24.2, y0: 0.0, x1: 42.0, y1: 10.0 },
+      origin: { x: 24.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(ended_yet.length(), 2)
+  assert_eq(ended_yet[0].text + " " + ended_yet[1].text, "ended yet")
+
+  let confirms_the = normalize_line_spans_with_glue([
+    {
+      ..make_span("confirms"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 32.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("the"),
+      bbox: { x0: 32.2, y0: 0.0, x1: 46.0, y1: 10.0 },
+      origin: { x: 32.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(confirms_the.length(), 2)
+  assert_eq(confirms_the[0].text + " " + confirms_the[1].text, "confirms the")
+
+  let not_be = normalize_line_spans_with_glue([
+    {
+      ..make_span("not"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 14.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("be"),
+      bbox: { x0: 14.2, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 14.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(not_be.length(), 2)
+  assert_eq(not_be[0].text + " " + not_be[1].text, "not be")
+}
+
+///|
 test "pdf span fragment merge repairs bound prefix and ligature fragments" {
   let international = normalize_line_spans_with_glue([
     make_span("inter"),
@@ -154,6 +253,133 @@ test "pdf span fragment merge repairs bound prefix and ligature fragments" {
   ])
   assert_eq(international.length(), 1)
   assert_eq(international[0].text, "international")
+}
+
+///|
+test "pdf span fragment merge repairs very tight short suffix pieces" {
+  let second = normalize_line_spans_with_glue([
+    {
+      ..make_span("sec"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 18.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+    },
+    {
+      ..make_span("ond"),
+      bbox: { x0: 18.4, y0: 0.0, x1: 36.0, y1: 10.0 },
+      origin: { x: 18.4, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(second.length(), 1)
+  assert_eq(second[0].text, "second")
+
+  let simple = normalize_line_spans_with_glue([
+    {
+      ..make_span("si"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 10.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+    },
+    {
+      ..make_span("m"),
+      bbox: { x0: 10.2, y0: 0.0, x1: 15.0, y1: 10.0 },
+      origin: { x: 10.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+    {
+      ..make_span("pl"),
+      bbox: { x0: 15.2, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 15.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 6,
+          content_order_index: Some(8),
+        },
+      ],
+    },
+    {
+      ..make_span("e"),
+      bbox: { x0: 24.2, y0: 0.0, x1: 28.0, y1: 10.0 },
+      origin: { x: 24.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 7,
+          content_order_index: Some(9),
+        },
+      ],
+    },
+  ])
+  assert_eq(simple.length(), 1)
+  assert_eq(simple[0].text, "simple")
+}
+
+///|
+test "pdf span fragment merge repairs single-letter prefix and domain suffix fragments" {
+  let mozilla = normalize_line_spans_with_glue([
+    {
+      ..make_span("m"),
+      bbox: { x0: 70.86, y0: 0.0, x1: 77.45, y1: 10.0 },
+      origin: { x: 70.86, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 19,
+          content_order_index: Some(2),
+        },
+      ],
+    },
+    {
+      ..make_span("ozilla."),
+      bbox: { x0: 79.64, y0: 0.0, x1: 105.36, y1: 10.0 },
+      origin: { x: 79.64, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 23,
+          content_order_index: Some(3),
+        },
+      ],
+    },
+    {
+      ..make_span("org"),
+      bbox: { x0: 105.38, y0: 0.0, x1: 120.18, y1: 10.0 },
+      origin: { x: 105.38, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 27,
+          content_order_index: Some(4),
+        },
+      ],
+    },
+  ])
+  assert_eq(mozilla.length(), 1)
+  assert_eq(mozilla[0].text, "mozilla.org")
 }
 
 ///|

@@ -1,0 +1,8 @@
+import {
+  "ZSeanYves/markitdown/cli_support" @clisup,
+  "TheWaWaR/clap" @clap,
+  "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+} for "test"

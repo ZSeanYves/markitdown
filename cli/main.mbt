@@ -1,42 +1,166 @@
 ///|
-/// CLI entrypoint exposing three operational profiles:
-/// - normal: default production path
-/// - ocr: force OCR-oriented PDF path for scanned/image-heavy PDFs
-/// - debug: keep normal parsing but enable scoped PDF debug artifacts/logging
-///
-/// Keeping these as explicit subcommands improves explainability for acceptance:
-/// users can map behavior differences to command intent without reading internals.
+fn maybe_report_relocated_hidden_command(args : Array[String]) -> Bool {
+  if args.length() == 0 {
+    return false
+  }
+
+  let command = args[0].trim().to_owned()
+  if command == "_bench-noop" ||
+    command == "_bench-startup-profile" ||
+    command == "_bench-product-path" {
+    @clisup.exit_error(
+      "hidden benchmark commands moved to bench; run `moon build bench --target native` or `moon run bench -- ...`",
+    )
+    return true
+  }
+
+  false
+}
+
+///|
+fn is_help_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "help" || normalized == "--help" || normalized == "-h"
+}
+
+///|
+fn is_version_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "version" || normalized == "--version"
+}
+
+///|
+fn is_product_subcommand(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "normal" ||
+  normalized == "batch" ||
+  normalized == "ocr" ||
+  normalized == "debug"
+}
+
+///|
+fn is_relocated_product_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "bench"
+}
+
+///|
+fn normalize_product_cli_args(args : Array[String]) -> Array[String] {
+  if args.length() == 0 {
+    return []
+  }
+
+  let first = args[0].trim().to_owned()
+  if is_product_subcommand(first) ||
+    is_relocated_product_command(first) ||
+    is_help_command(first) ||
+    is_version_command(first) {
+    return args
+  }
+
+  let out : Array[String] = ["normal"]
+  for arg in args {
+    out.push(arg)
+  }
+  out
+}
+
+///|
+fn report_relocated_command(command : String, package_name : String) -> Unit {
+  let scope = if command == "debug" || command == "bench" {
+    "developer tool"
+  } else {
+    "component"
+  }
+  @clisup.exit_error(
+    command +
+    " " +
+    scope +
+    " lives in `" +
+    package_name +
+    "`; run `moon build " +
+    package_name +
+    " --target native` or `moon run " +
+    package_name +
+    " -- ...`",
+  )
+}
+
+///|
+fn maybe_print_top_level_help_or_version(args : Array[String]) -> Bool {
+  if args.length() == 0 {
+    return false
+  }
+
+  let first = args[0]
+  if is_help_command(first) {
+    @clisup.print_cli_help()
+    @clisup.print_cli_usage()
+    return true
+  }
+  if is_version_command(first) {
+    @clisup.print_cli_version()
+    return true
+  }
+  false
+}
+
+///|
+async fn maybe_delegate_product_worker_command(args : Array[String]) -> Bool {
+  if args.length() == 0 {
+    return false
+  }
+
+  let command = args[0].trim().to_owned().to_lower()
+  if command == "ocr" {
+    match
+      @clicom.delegate_external_command(
+        "OCR conversion", "ocr", "MARKITDOWN_OCR_CLI", args,
+      ) {
+      Ok(_) => ()
+      Err(msg) => @clicom.exit_error(msg)
+    }
+    return true
+  }
+
+  false
+}
+
+///|
 async fn main {
-  let startup_profile_started = now_us()
-  let args = @sys.get_cli_args()
-  let args_available_us = elapsed_us_since(startup_profile_started)
-  let cli_args : Array[String] = normalize_cli_args(args)
-  let cli_args_ready_us = elapsed_us_since(startup_profile_started)
+  let cli_args : Array[String] = normalize_product_cli_args(
+    @clicom.normalize_cli_args(@sys.get_cli_args()),
+  )
 
   if cli_args.length() == 0 {
-    print_cli_help()
-    print_cli_usage()
+    @clisup.print_cli_help()
+    @clisup.print_cli_usage()
     return
   }
 
-  if maybe_run_hidden_bench_command(
-      cli_args,
-      startup_profile_started,
-      args.length(),
-      args_available_us,
-      cli_args_ready_us,
-    ) {
+  if maybe_report_relocated_hidden_command(cli_args) {
+    return
+  }
+  if is_relocated_product_command(cli_args[0]) {
+    report_relocated_command("bench", "bench")
+    @clisup.print_cli_usage()
+    @sys.exit(2)
+    return
+  }
+  if maybe_print_top_level_help_or_version(cli_args) {
+    return
+  }
+  if maybe_delegate_product_worker_command(cli_args) {
     return
   }
 
-  let parser = new_cli_parser()
-
+  let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
   let subcmd_help = parser.parse(value, cli_args[:]) catch {
     e => {
       println(e)
-      print_cli_help()
-      print_cli_usage()
+      @clisup.print_cli_help()
+      @clisup.print_cli_usage()
       return
     }
   }
@@ -52,8 +176,10 @@ async fn main {
           match sub.name {
             "normal" => {
               if positional.length() < 1 || positional.length() > 2 {
-                exit_error("usage: normal [--with-metadata] <input> [output]")
-                print_cli_usage()
+                @clisup.exit_error(
+                  "usage: normal [--with-metadata] <input> [output]",
+                )
+                @clisup.print_cli_usage()
                 return
               }
               let input = positional[0]
@@ -62,7 +188,7 @@ async fn main {
               } else {
                 None
               }
-              cmd_convert(
+              @clisup.cmd_convert(
                 input,
                 output_opt,
                 None,
@@ -74,34 +200,12 @@ async fn main {
                 with_metadata,
               )
             }
-            "ocr" => {
-              if positional.length() < 1 || positional.length() > 2 {
-                exit_error(
-                  "usage: ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
-                )
-                print_cli_usage()
-                return
-              }
-              let input = positional[0]
-              let output_opt = if positional.length() >= 2 {
-                Some(positional[1])
-              } else {
-                None
-              }
-              let provider_name = @clap.SimpleValue::get_option(sub, "provider") catch {
-                _ => None
-              }
-              let lang_arg = @clap.SimpleValue::get_option(sub, "lang") catch {
-                _ => None
-              }
-              cmd_ocr(input, output_opt, provider_name, lang_arg, with_metadata)
-            }
             "batch" => {
               if positional.length() != 2 {
-                exit_error(
+                @clisup.exit_error(
                   "usage: batch [--with-metadata] <input_dir> <output_dir>",
                 )
-                print_cli_usage()
+                @clisup.print_cli_usage()
                 @sys.exit(2)
                 return
               }
@@ -110,7 +214,7 @@ async fn main {
               let output_dir = positional[1]
 
               if !@fs.path_exists(input_dir) {
-                exit_error(
+                @clisup.exit_error(
                   "batch input_dir must be an existing directory: " + input_dir,
                 )
                 @sys.exit(2)
@@ -119,265 +223,54 @@ async fn main {
 
               let input_is_dir = @fs.is_dir(input_dir) catch {
                 e => {
-                  exit_error("batch input_dir check failed: " + e.to_string())
+                  @clisup.exit_error(
+                    "batch input_dir check failed: " + e.to_string(),
+                  )
                   @sys.exit(2)
                   return
                 }
               }
               if !input_is_dir {
-                exit_error(
+                @clisup.exit_error(
                   "batch input_dir must be an existing directory: " + input_dir,
                 )
                 @sys.exit(2)
                 return
               }
 
-              match run_batch(input_dir, output_dir, with_metadata) {
+              match @clisup.run_batch(input_dir, output_dir, with_metadata) {
                 Ok(result) => {
-                  println(batch_summary_line(result))
+                  println(@clisup.batch_summary_line(result))
                   if result.had_error {
                     @sys.exit(1)
                   }
                 }
                 Err(msg) => {
-                  exit_error(msg)
+                  @clisup.exit_error(msg)
                   @sys.exit(2)
                 }
               }
             }
+            "ocr" =>
+              @clicom.exit_error(
+                "ocr command delegation should have happened before parser dispatch; rebuild cli and ocr together if this persists",
+              )
             "debug" => {
-              if positional.length() == 0 {
-                exit_error(
-                  "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> | debug [--json] [--probe] providers [--ocr] [--layout-assist] | debug [--json] layout-assist-eval [--split <train|heldout>]",
-                )
-                print_cli_usage()
-                return
-              }
-
-              let first = positional[0].trim().to_owned().to_lower()
-              if first == "providers" {
-                if positional.length() != 1 {
-                  exit_error(
-                    "usage: debug [--json] [--probe] providers [--ocr] [--layout-assist]",
-                  )
-                  print_cli_usage()
-                  return
-                }
-
-                let output_kind = if sub.get_flag("json").unwrap_or(false) {
-                  @cor.DebugOutputKind::Json
-                } else {
-                  @cor.DebugOutputKind::HumanReadable
-                }
-                let debug_opts : DebugCliOptions = {
-                  output_kind,
-                  with_ir: false,
-                  with_metadata_summary: false,
-                  with_normalization: false,
-                }
-                let include_ocr = sub.get_flag("ocr").unwrap_or(false)
-                let include_layout = sub
-                  .get_flag("layout-assist")
-                  .unwrap_or(false)
-                let probe = sub.get_flag("probe").unwrap_or(false)
-                cmd_debug_providers(
-                  debug_opts, include_ocr, include_layout, probe,
-                )
-              } else if first == "layout-assist-eval" {
-                if positional.length() != 1 {
-                  exit_error(
-                    "usage: debug [--json] layout-assist-eval [--split <train|heldout>]",
-                  )
-                  print_cli_usage()
-                  return
-                }
-
-                let output_kind = if sub.get_flag("json").unwrap_or(false) {
-                  @cor.DebugOutputKind::Json
-                } else {
-                  @cor.DebugOutputKind::HumanReadable
-                }
-                let debug_opts : DebugCliOptions = {
-                  output_kind,
-                  with_ir: false,
-                  with_metadata_summary: false,
-                  with_normalization: false,
-                }
-                let split = @clap.SimpleValue::get_option(sub, "split") catch {
-                  _ => None
-                }
-                cmd_debug_layout_assist_eval(debug_opts, split)
-              } else if first == "all" ||
-                first == "extract" ||
-                first == "raw" ||
-                first == "pipeline" {
-                if positional.length() < 2 || positional.length() > 3 {
-                  exit_error(
-                    "usage: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
-                  )
-                  print_cli_usage()
-                  return
-                }
-
-                let scope = first
-                let input = positional[1]
-                let output_opt = if positional.length() == 3 {
-                  Some(positional[2])
-                } else {
-                  None
-                }
-                cmd_debug_legacy_pdf(scope, input, output_opt, with_metadata)
-              } else {
-                if positional.length() != 1 {
-                  exit_error(
-                    "usage: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input>",
-                  )
-                  print_cli_usage()
-                  return
-                }
-
-                let output_kind = if sub.get_flag("json").unwrap_or(false) {
-                  @cor.DebugOutputKind::Json
-                } else {
-                  @cor.DebugOutputKind::HumanReadable
-                }
-                let debug_opts : DebugCliOptions = {
-                  output_kind,
-                  with_ir: sub.get_flag("with-ir").unwrap_or(false),
-                  with_metadata_summary: sub
-                  .get_flag("with-metadata-summary")
-                  .unwrap_or(false),
-                  with_normalization: sub
-                  .get_flag("with-normalization")
-                  .unwrap_or(false),
-                }
-                cmd_debug_inspect(positional[0], debug_opts)
-              }
+              report_relocated_command("debug", "debug")
+              @clisup.print_cli_usage()
+              @sys.exit(2)
             }
             _ => {
-              exit_error("unsupported subcommand")
-              print_cli_usage()
+              @clisup.exit_error("unsupported subcommand")
+              @clisup.print_cli_usage()
+              @sys.exit(2)
             }
           }
         }
         None => {
-          print_cli_help()
-          print_cli_usage()
+          @clisup.print_cli_help()
+          @clisup.print_cli_usage()
         }
       }
   }
-}
-
-///|
-fn new_cli_parser() -> @clap.Parser {
-  @clap.Parser::new(
-    prog="markitdown-mb",
-    description="Convert documents to Markdown",
-    subcmds={
-      "normal": @clap.SubCommand::new(
-        help="Normal conversion: normal [--with-metadata] <input> [output]",
-        args={
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.txt/.xml/.json/.zip/.epub)",
-          ),
-        },
-      ),
-      "ocr": @clap.SubCommand::new(
-        help="Explicit OCR mode: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output]",
-        args={
-          "provider": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="Explicit OCR provider name (default: tesseract-cli)",
-          ),
-          "lang": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="OCR language code(s), e.g. eng or eng+chi_sim",
-          ),
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input file (.png/.jpg/.jpeg/.tif/.tiff/.bmp/.webp, or explicit OCR PDF path)",
-          ),
-        },
-      ),
-      "batch": @clap.SubCommand::new(
-        help="Batch conversion: batch [--with-metadata] <input_dir> <output_dir>",
-        args={
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json inside each document output root",
-          ),
-          "input": @clap.Arg::positional(
-            help="Path to input directory (non-recursive file scan)",
-          ),
-        },
-      ),
-      "debug": @clap.SubCommand::new(
-        help="Debug inspect/providers: debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input> ; debug [--json] [--probe] providers [--ocr] [--layout-assist] ; debug [--json] layout-assist-eval [--split train|heldout] ; legacy PDF: debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
-        args={
-          "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
-          "with-ir": @clap.Arg::flag(
-            help="Include IR block previews in unified debug inspect",
-          ),
-          "with-metadata-summary": @clap.Arg::flag(
-            help="Include block/asset origin summary in unified debug inspect",
-          ),
-          "with-normalization": @clap.Arg::flag(
-            help="Include normalization summary when available",
-          ),
-          "probe": @clap.Arg::flag(
-            help="Debug provider listing only: explicitly probe OCR provider availability",
-          ),
-          "ocr": @clap.Arg::flag(
-            help="Debug provider listing only: include OCR providers",
-          ),
-          "layout-assist": @clap.Arg::flag(
-            help="Debug provider listing only: include layout-assist providers",
-          ),
-          "split": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="Debug layout-assist eval only: restrict manifest rows to train or heldout split",
-          ),
-          "with-metadata": @clap.Arg::flag(
-            help="Legacy PDF debug: also write <name>.metadata.json next to markdown output",
-          ),
-          "input": @clap.Arg::positional(
-            help="Unified debug inspect input, provider listing keyword `providers`, eval keyword `layout-assist-eval`, or legacy PDF debug args: <all|extract|raw|pipeline> <input> [output]",
-          ),
-        },
-      ),
-    },
-  )
-}
-
-///|
-fn print_cli_help() -> Unit {
-  let parser = new_cli_parser()
-  println(parser.gen_help_message(["markitdown-mb"], {}))
-}
-
-///|
-fn print_cli_usage() -> Unit {
-  println("Usage:")
-  println("  markitdown-mb normal [--with-metadata] <input> [output]")
-  println(
-    "  markitdown-mb ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
-  )
-  println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
-  println(
-    "  markitdown-mb debug [--json] [--with-ir] [--with-metadata-summary] [--with-normalization] <input>",
-  )
-  println(
-    "  markitdown-mb debug [--json] [--probe] providers [--ocr] [--layout-assist]",
-  )
-  println(
-    "  markitdown-mb debug [--json] layout-assist-eval [--split train|heldout]",
-  )
-  println(
-    "  markitdown-mb debug [--with-metadata] <all|extract|raw|pipeline> <input> [output]",
-  )
-  println("  dev fallback: moon run cli -- <subcommand> ...")
 }

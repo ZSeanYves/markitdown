@@ -5,263 +5,341 @@
 ![CLI](https://img.shields.io/badge/CLI-prebuilt--native-16a34a)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-6b7280)
 ![Formats](https://img.shields.io/badge/formats-14%2B-0ea5e9)
-![Status](https://img.shields.io/badge/status-H2%2B%2B%20sealed%20%7C%20H3%2B%2B%20scoped-16a34a)
 ![Validation](https://img.shields.io/badge/validation-passing-16a34a)
 ![License](https://img.shields.io/badge/license-Apache--2.0-f59e0b)
 
-`markitdown-mb` is a MoonBit-native document-to-Markdown converter for local
-document structure extraction, RAG ingestion, and knowledge-base import. The
-project is built around a native CLI, a unified IR, deterministic metadata and
-asset sidecars, and checked-in validation and benchmark evidence.
+`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown CLI for
+local structure extraction, RAG ingestion, and knowledge-base import.
 
-It is inspired by Microsoft MarkItDown, but it is an independent MoonBit-native
-implementation and repository design.
+It is inspired by Microsoft MarkItDown, but optimized for lightweight native
+execution, explicit component boundaries, and conservative normal-path
+contracts.
 
 Current pipeline:
 
 **multi-format input -> unified IR -> Markdown / assets / metadata sidecar**
 
-Sealed `H2++ / H3++` scope: XLSX, HTML, ZIP, EPUB, DOCX, PPTX, and PDF for
-native text-PDF scope.
+The product entrypoint is `cli`.
 
-The repository now centers its checked validation surface around
-`./samples/check.sh` and `./samples/bench.sh`, while keeping external/private
-quality intake separate under `samples/quality_corpus/`. External quality
-sources remain manual-curated and local-cache driven rather than checked-in.
+* `cli <input> [output]` and `cli normal <input> [output]` are the normal
+  conversion path
+* PDF and ZIP are available directly through `cli`
+* `cli ocr ...` is explicit-only and stays out of the normal path
+* `debug` and `bench` are separate developer tools
+* `core` stays CLI-free
 
-## Supported Platforms
+PDF and ZIP are integrated into the user experience without pulling the heavy
+native PDF closure back into the lightweight main binary. The current launcher
+keeps `cli` as the unified product surface and routes PDF/ZIP through bundled
+`pdf` / `zip` components so the main build stays small and predictable.
 
-`markitdown-mb` targets MoonBit native builds on:
+OCR remains explicit-only.
 
-* Windows
-* Linux
-* macOS
+## Current Quality Snapshot
 
-The core converter is designed as a MoonBit-native CLI across those platforms.
-The repository's validation and benchmark scripts are shell-based and are
-primarily exercised in Unix-like environments; Windows users can use the native
-build path and run the sample/benchmark script layer through WSL or an
-equivalent POSIX shell until a dedicated Windows CI/script layer is added.
-GitHub Actions validation is currently checked in for Ubuntu and macOS.
+Current local external corpus status:
 
-## Current Status
+* rows: `142`
+* result: pass
+* skipped: `1`
+* expected_fail: `0`
+* unexpected_pass: `5`
 
-| Format | Current status | Scope |
-| --- | --- | --- |
-| XLSX | H2++ complete / H3++ evidence-backed | native overlap corpus; lightweight formula evaluator v1, merged-cell boundary, typed cells, sheet state |
-| HTML / HTM | H2++ complete / H3++ evidence-backed | lightweight safe parser; no browser-grade parsing, JS, CSS layout, or remote fetch |
-| ZIP | H2++ complete / H3++ evidence-backed | safe container conversion; nested dispatch and asset remap; no nested archive recursion |
-| EPUB | H2++ complete / H3++ evidence-backed | ZIP + OPF + spine + nav/NCX + XHTML chapters; no DRM/CSS/JS/remote fetch |
-| DOCX | H2++ complete / H3++ evidence-backed | Word document structure recovery; not a Word layout engine |
-| PPTX | H2++ complete / H3++ evidence-backed | presentation information structure recovery; not a PowerPoint layout engine |
-| PDF | H2++ complete for native text-PDF scope / H3++ evidence-backed | native text-PDF only; no default OCR/scanned-PDF claim; no full PDF layout engine |
-| CSV / TSV / JSON / YAML / TXT | stable structured/text paths | conservative boundaries documented in support docs; Markdown is handled separately as a lightweight scanner candidate |
-| XML | source-preserving converter path + parser foundation candidate | source-preserving converter output today; `doc_parse/xml` is now an XML parser foundation candidate |
+Interpretation:
 
-Benchmark and quality conclusions are limited to the checked-in corpora and
-runner contracts named in the repository docs. They are not blanket claims
-about all documents of a format family.
+* the current quality gate is green
+* the `unexpected_pass` rows are older local manifest boundaries that the
+  current implementation already exceeds
+* they are not validation failures
 
-## doc_parse
+Local-only quality assets:
 
-`doc_parse/*` is the repository's reusable parsing foundation layer.
+* `.external/quality_corpus`
+* `samples/quality_corpus/external_manifest.local.tsv`
 
-For overview, architecture contract, and split strategy, use:
+These remain local-only and should not be committed.
 
-* [doc_parse Overview](./doc_parse/README.md)
-* [doc_parse Foundation](./docs/doc-parse-foundation.md)
-* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
+## Mainstream Comparison Policy
 
-## Core Capabilities
+This README does not claim a blanket “mainstream quality percentage” unless a
+local reproducible compare run defines the tool version, corpus, and metric.
 
-* unified IR across document families
-* shared rule-driven text-normalization substrate for output-safe cleanup
-* profile/policy-gated cleanup reuse across PDF, TXT, HTML, DOCX, and PPTX,
-  while canonical `NFD/NFC/NFKD/NFKC` remains explicit-only API surface
-* conservative literal/source-preserving/structured-data paths that do not
-  inherit aggressive cleanup by default
-* Markdown main output
-* `assets/` export for materialized local images
-* metadata sidecar via `--with-metadata`
-* batch conversion with isolated per-document roots
-* unified multi-format debug inspect CLI
-* benchmark governance and checked-in benchmark corpora
-* prebuilt-native runner preference for validation and benchmark work
+Current measured quality is tracked by the `142`-row local external corpus plus
+the repository validation suites.
 
-## Performance Snapshot
+If you want a competitor percentage, run a pinned compare workflow first and
+record:
 
-Current repository performance conclusions are scoped to checked-in corpora and
-explicit runner paths. Latest checked overlap comparisons against Microsoft
-MarkItDown `0.1.5` on named local samples from
-`samples/benchmark/compare_corpus.tsv` currently show representative
-single-run gaps like:
+* competitor tool name and version
+* corpus and row count
+* metric definition
+* date and machine
+* whether OCR/scanned/boundary cases are excluded
 
-| Format / case | markitdown-mb | Microsoft MarkItDown 0.1.5 | Ratio |
-| --- | ---: | ---: | ---: |
-| XLSX formula cached values | 10 ms | 425 ms | ~42x |
-| DOCX nested lists mixed | 13 ms | 471 ms | ~36x |
-| PPTX title bullets | 12 ms | 476 ms | ~40x |
-| PDF URI link basic | 10 ms | 426 ms | ~43x |
-| HTML figure + figcaption image | 10 ms | 442 ms | ~44x |
-| EPUB nav TOC basic | 12 ms | 448 ms | ~37x |
+The repository already provides an overlap-only compare harness for Microsoft
+MarkItDown timing, but it is not a blanket Markdown-quality percentage.
 
-Many checked overlap rows currently land in roughly the `35x-45x` faster band
-on this local corpus. Separately from the Microsoft comparison, the direct
-`doc_parse` library benchmark and the same-process product-path benchmark still
-show no obvious `>10 ms` rows in the checked first-pass corpus. Cold CLI
-startup/front-end is tracked separately; latest local checked `noop`,
-`--help`, and minimal TXT cold-start rows sit around `8.7-9.3 ms` external and
-must not be mixed into same-process totals.
+## Quick Start
 
-These figures are local observations, not cross-machine guarantees. PDF
-comparison rows apply only to the native text-PDF overlap corpus. For the
-current baseline, cold-start attribution closure, and remaining follow-up work,
-use [docs/performance.md](./docs/performance.md). For benchmark commands and
-artifact directories, use [docs/benchmarking.md](./docs/benchmarking.md). For
-overlap corpus scope and output-quality comparisons, use
-[samples/benchmark/README.md](./samples/benchmark/README.md) and
-[docs/quality-comparisons/README.md](./docs/quality-comparisons/README.md).
-
-## CLI
-
-Build the native product-path binary:
+Build the product entrypoint and the bundled PDF/ZIP components:
 
 ```bash
-moon build --target native
+moon build cli --target native
+moon build pdf --target native
+moon build zip --target native
 ```
 
-Recommended invocation:
+Optional component and developer-tool builds:
 
 ```bash
-./_build/native/release/build/cli/cli.exe normal <input> [output]
+moon build ocr --target native
+moon build debug --target native
+moon build bench --target native
 ```
 
-Other product-path entrypoints:
+Recommended product-path usage:
 
 ```bash
-./_build/native/release/build/cli/cli.exe normal --with-metadata <input> <output.md>
-./_build/native/release/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/release/build/cli/cli.exe debug --json <input>
-./_build/native/release/build/cli/cli.exe ocr --provider tesseract-cli --lang eng+chi_sim <input-image> [output.txt]
+./_build/native/debug/build/cli/cli.exe --help
+./_build/native/debug/build/cli/cli.exe --version
+./_build/native/debug/build/cli/cli.exe <input> [output]
+./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
+./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
+./_build/native/debug/build/cli/cli.exe ocr [--provider <name>] [--lang <code>] <input> [output]
 ```
 
-The explicit `ocr` subcommand remains separate from `normal`. Today it can
-route image inputs through the optional external `tesseract-cli` provider when
-users install Tesseract and language data; direct PDF OCR remains a future
-provider/PDF-wrapper path rather than part of the default converter.
+`moon run cli -- ...` is still a development fallback, but native binaries are
+the recommended runner for validation and benchmark work.
 
-`moon run` remains a development fallback. It is not the preferred runner for
-H3++ performance conclusions.
+## Commands
+
+Current product commands:
+
+* `cli <input> [output]`
+* `cli normal <input> [output]`
+* `cli normal --with-metadata <input> <output.md>`
+* `cli batch <input_dir> <output_dir>`
+* `cli ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]`
+* `cli help`
+* `cli --help`
+* `cli -h`
+* `cli version`
+* `cli --version`
+
+Developer tools stay separate:
+
+* `debug`: inspect/report surface
+* `bench`: benchmark-only surface
+
+## Supported Formats
+
+| Format | Current scope |
+| --- | --- |
+| XLSX | native workbook/sheet/cell conversion with conservative formula/merged-cell policy |
+| DOCX | document structure recovery, not a Word layout engine |
+| PPTX | presentation structure recovery, not a PowerPoint layout engine |
+| PDF | native text-PDF scope only; no default OCR; encrypted PDFs fail closed |
+| ZIP | archive/container conversion with nested dispatch and PDF routing |
+| EPUB | ZIP + OPF + spine + nav/NCX + XHTML chapters |
+| HTML / HTM | lightweight safe parser; no browser engine, JS, or CSS layout |
+| CSV / TSV / JSON / YAML / TXT / XML / Markdown | conservative structured/text paths |
+
+For detailed format behavior and limits, use
+[docs/support-and-limits.md](./docs/support-and-limits.md).
+
+## Product Architecture Summary
+
+Current package responsibilities:
+
+* `cli`: unified user-facing product entrypoint
+* `cli_common`: lightweight CLI/component runtime and component discovery
+* `cli_support`: parser/help/version glue plus product-path dispatch/routing
+* `pdf`: bundled PDF product component
+* `zip`: bundled ZIP product component
+* `ocr`: explicit OCR component surfaced by `cli ocr`
+* `debug`: developer inspect tool
+* `bench`: developer benchmark tool
+* `core`: CLI-free document model, metadata model, emitters, and pure helpers
+* `convert/*`: format conversion layer
+* `doc_parse/*`: lower-layer parser/model/inspect foundations
+
+Build guardrail:
+
+* main `cli` intentionally stays out of the vendored PDF closure and should
+  remain `mbtpdf=0`
+* a direct in-process PDF reintegration experiment pushed `cli` to about
+  `30M / 653k` generated-C lines, so it was rejected
+* the current bundled-component design keeps the user surface unified while
+  bounding build cost
+
+Current clean native build snapshot on the checked local machine:
+
+* `cli build`: `62.73s`
+* `pdf build`: `67.42s`
+* `zip build`: `61.88s`
+* `ocr build`: `53.14s`
+* `cli.exe`: `3649640` bytes
+* `pdf.exe`: `4278680` bytes
+* `zip.exe`: `3442056` bytes
+* `ocr.exe`: `1644328` bytes
+* `cli.c`: `394425` lines
+* `pdf.c`: `442901` lines
+* `zip.c`: `370607` lines
+* `ocr.c`: `154425` lines
+* `cli mbtpdf count`: `0`
+
+These are local clean-build measurements, not cross-machine guarantees.
+
+## PDF Layout Gate
+
+The first gated-normal PDF layout gate is intentionally narrow.
+
+Current normal-path scope:
+
+* weak heading demotion
+* separator / false-bullet suppression
+
+Current normal-path non-goals:
+
+* table promotion/demotion
+* link/caption rewrite
+* annotation/link-target changes
+* text-decoding changes
+* OCR/provider probing
+* external/model runtime loading
+
+Current implementation:
+
+* pure MoonBit compact distilled logic
+* default on
+* disable with `MARKITDOWN_PDF_LAYOUT_GATE=0`
+* no Python runtime
+* no external/model JSON
+* no committed weights
+* no `.external/layout_model` runtime dependency
+
+Hard constraints still outrank the gate, including:
+
+* text decoding correctness
+* explicit annotation/link payload
+* table/caption geometry
+* OCR / scan-only boundaries
 
 ## Validation
 
-Recommended repository verification:
+Recommended serial verification:
 
 ```bash
-moon fmt
 moon info
+moon fmt
 moon check
 moon test
 ./samples/check.sh
+bash samples/quality_corpus/check.sh
 ./samples/bench.sh --suite smoke --kind smoke
+bash samples/helpers/check_cli_contract.sh
+bash samples/helpers/check_pdf_contract.sh
+bash samples/helpers/check_zip_contract.sh
+bash samples/helpers/check_batch_contract.sh
+bash samples/helpers/check_debug_contract.sh
+bash samples/helpers/check_ocr_contract.sh
 ```
 
-Recommended focused benchmark entrypoints:
+Optional local OCR smoke:
 
 ```bash
+bash samples/helpers/check_ocr_tesseract_smoke_optional.sh
+```
+
+Run Moon commands serially. Avoid parallel `moon` processes and avoid habitual
+`moon clean` during normal iteration.
+
+Quality corpus refresh and validation:
+
+```bash
+bash samples/quality_corpus/tools/fetch_external_samples.sh --prepare-cache
+bash samples/quality_corpus/check.sh
+```
+
+## Benchmarks
+
+Public benchmark entrypoint:
+
+```bash
+./samples/bench.sh
+```
+
+Useful suites:
+
+```bash
+./samples/bench.sh --suite smoke --kind smoke
 ./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ./samples/bench.sh --suite cold-start --kind cli --iterations 50 --warmup 5
+./samples/bench.sh --suite product-path --smoke
+./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
-Benchmark commands and output locations are tracked in
-[docs/benchmarking.md](./docs/benchmarking.md).
-Current performance baseline and caveats are tracked in
-[docs/performance.md](./docs/performance.md).
+Use [docs/benchmarking.md](./docs/benchmarking.md) for commands and artifact
+layout, and [docs/performance.md](./docs/performance.md) for measured baselines
+and caveats.
 
-Checked-in GitHub Actions CI now runs `moon build --target native`,
-`moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
-`macos-latest` for `push` and `pull_request`. `./samples/bench.sh --suite smoke
---kind smoke` remains available locally and as a manual `workflow_dispatch`
-job; it is not part of the default PR gate. Windows core native support
-remains documented, but the shell validation suite still targets WSL or
-another POSIX shell rather than native Windows CI. `moon publish` remains a
-manual release step.
-Lower-layer parser/core and unsafe-boundary fixtures now live under
-`samples/fixtures`; user-visible regression inputs now live under one unified
-`samples/main_process` tree, with metadata-heavy and asset-heavy subcases
-co-located under the same format roots. Each format package now keeps its
-checked Markdown and exact CLI metadata expectations under
-`samples/main_process/<format>/expected/`.
-`samples/quality_corpus` is now reserved for signal-level external/private
-quality intake. Its public manifest may stay intentionally empty until
-externally sourced rows are manually curated and license-reviewed.
-Current local hardening has already exercised manually curated rows from
-Microsoft MarkItDown tests, Pandoc tests, `python-pptx`, and Open XML SDK
-fixtures. Those rows are signal-level evidence only, not format or tool
-oracles; the current remaining local `known_bad` boundary is
-`pandoc_biblio_yaml`, a true multi-document YAML stream that remains
-unsupported.
-Current PDF hardening notes are intentionally conservative: the native path now
-supports Level 1 `/ToUnicode` extraction, including current Type0/CIDFont
-positive rows, while retained local `known_bad` rows still cover raw-GBK
-simple fonts and `Identity-H` no-`/ToUnicode` CIDFont boundaries. For the
-current matrix and limits, use [Support and Limits](./docs/support-and-limits.md)
-and [doc_parse/pdf/README.md](./doc_parse/pdf/README.md).
-Image-only PDFs stay on native image/assets output unless users explicitly
-choose OCR.
-PDF inspect/debug now also surfaces report-only text-signal and OCR-candidate
-diagnostics, while OCR and layout assistance remain explicit provider paths
-rather than default-path behavior.
+Measured speed claims are generated from `samples/bench.sh`.
+Do not mix clean build time, cold-start CLI time, same-process product-path
+time, and competitor overlap timing into one headline number.
 
-Benchmark operations and performance caveats are tracked in
-[docs/benchmarking.md](./docs/benchmarking.md) and
-[docs/performance.md](./docs/performance.md).
+Current measured overlap-only compare timing:
 
-## Text Cleanup Boundary
+* date: `2026-05-17`
+* machine: `macOS 15.3`, `arm64`
+* competitor: `Microsoft MarkItDown 0.1.5`
+* corpus: `samples/benchmark/compare_corpus.tsv`
+* rows: `47` overlap samples per runner
+* average sample time:
+  * `markitdown-mb`: `11.064 ms`
+  * `markitdown-python`: `435.660 ms`
+* observed ratio on this checked overlap corpus:
+  * Python runner about `39.4x` slower than the native runner
 
-Text normalization in this repository is a conversion-quality substrate, not a
-standalone product surface.
+This is an overlap-only local timing result, not a universal speed guarantee.
+It does not measure OCR, scanned-PDF paths, metadata semantics, assets
+semantics, or full Markdown-quality equivalence.
 
-Current boundary:
+## External Quality Corpus
 
-* core owns rule-driven, profile/policy-gated pure string cleanup
-* PDF output-safe extracted-text cleanup goes through that shared core layer
-* PDF span/line/layout-aware repair stays in PDF-local text/model layers
-* the default converter path does not enable canonical `NFD/NFC/NFKD/NFKC`
-* literal/source-preserving/structured-data paths stay conservative
-* the native PDF path no longer depends on known-phrase replacement, known
-  split-word lists, global `replace_all("- ", "")`, or global slash-artifact
-  cleanup as its main text-quality mechanism
+`samples/quality_corpus/` is the signal-level external/private intake path.
 
-## Documentation
+Keep these files local-only:
 
-* [Changelog](./CHANGELOG.md)
+* `.external/`
+* `samples/quality_corpus/external_manifest.local.tsv`
+* private local quality samples
+* benchmark outputs and OCR/model artifacts
+* macOS AppleDouble `._*` files
+
+Do not commit local manifests, local caches, or quality-corpus outputs.
+
+## Development Docs
+
+Current authoritative docs:
+
 * [Documentation Map](./docs/README.md)
-* [Performance](./docs/performance.md)
-* [Roadmap](./docs/roadmap.md)
-* [Benchmarking Guide](./docs/benchmarking.md)
+* [Architecture](./docs/architecture.md)
+* [Development](./docs/development.md)
 * [Support and Limits](./docs/support-and-limits.md)
-* [OCR Provider Design](./docs/ocr-provider-design.md)
-* [Layout-Assist Provider Design](./docs/layout-assist-provider-design.md)
-* [doc_parse Overview](./doc_parse/README.md)
-* [doc_parse Foundation](./docs/doc-parse-foundation.md)
-* [doc_parse Package Strategy](./docs/package-publishing-strategy.md)
-* [Quality Comparisons](./docs/quality-comparisons/README.md)
-* [Samples Overview](./samples/README.md)
+* [Benchmarking](./docs/benchmarking.md)
+* [Performance](./docs/performance.md)
+* [Metadata Sidecar](./docs/metadata-sidecar.md)
+* [Roadmap](./docs/roadmap.md)
 * [Quality Corpus](./samples/quality_corpus/README.md)
-* [Benchmark Corpus Policy](./samples/benchmark/README.md)
-* [Architecture Overview](./docs/architecture.md)
-* [Development Guide](./docs/development.md)
+* [doc_parse Overview](./doc_parse/README.md)
 
 ## Non-goals
 
 `markitdown-mb` does not aim to be:
 
-* a Word, PowerPoint, or PDF visual layout engine
-* a browser-grade HTML renderer
+* a full PDF, Word, PowerPoint, or browser layout engine
 * an OCR-first default converter
-* a DRM/CSS/JS/remote-fetch pipeline
-* a full Excel formula engine
-* a full Unicode/ICU/UAX #15 conformance claim
-* a benchmark claim beyond the checked-in corpora
+* a bundled OCR/model runtime distribution
+* a remote-fetch or JS/CSS execution pipeline
+* a benchmark claim beyond the named checked corpora and runner paths

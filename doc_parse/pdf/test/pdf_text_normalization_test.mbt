@@ -17,3 +17,27 @@ test "pdf lower layer shared cleanup preserves previous basic space collapse beh
   )
   assert_eq(normalized, "A Bhyphen fi")
 }
+
+///|
+test "pdf lower layer shared cleanup repairs missing ascii punctuation spaces in prose-like text" {
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("capacities?We desire"),
+    "capacities? We desire",
+  )
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("collaboration?(2)"),
+    "collaboration? (2)",
+  )
+  assert_eq(@cor.normalize_pdf_text_cleanup("models(LLMs)"), "models (LLMs)")
+  assert_eq(@cor.normalize_pdf_text_cleanup("e.g., GPT-4"), "e.g., GPT-4")
+  assert_eq(@cor.normalize_pdf_text_cleanup("human(s)"), "human(s)")
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("Uses drawImage(), which should work."),
+    "Uses drawImage(), which should work.",
+  )
+  assert_eq(
+    @cor.normalize_pdf_text_cleanup("Print Date 12/15/2024 14: 30: 22"),
+    "Print Date 12/15/2024 14:30:22",
+  )
+  assert_eq(@cor.normalize_pdf_text_cleanup("$11, 250.00"), "$11,250.00")
+}

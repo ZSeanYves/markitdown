@@ -422,6 +422,24 @@ fn no_cache_chart_xml() -> String {
 }
 
 ///|
+fn date_category_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" " +
+  "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">" +
+  "<c:date1904 val=\"0\"/>" +
+  "<c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>On The Radar</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+  "<c:plotArea><c:radarChart>" +
+  "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:numRef><c:numCache><c:formatCode>m/d/yy</c:formatCode>" +
+  "<c:pt idx=\"0\"><c:v>37261.0</c:v></c:pt><c:pt idx=\"1\"><c:v>37262.0</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>37263.0</c:v></c:pt><c:pt idx=\"3\"><c:v>37264.0</c:v></c:pt>" +
+  "<c:pt idx=\"4\"><c:v>37265.0</c:v></c:pt></c:numCache></c:numRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>32.0</c:v></c:pt><c:pt idx=\"1\"><c:v>32.0</c:v></c:pt>" +
+  "<c:pt idx=\"2\"><c:v>28.0</c:v></c:pt><c:pt idx=\"3\"><c:v>12.0</c:v></c:pt><c:pt idx=\"4\"><c:v>15.0</c:v></c:pt>" +
+  "</c:numCache></c:numRef></c:val></c:ser></c:radarChart></c:plotArea></c:chart></c:chartSpace>"
+}
+
+///|
 fn malformed_presentation_pptx_pkg() -> @ox.OoxmlPackage raise {
   generated_pptx_pkg([
     (
@@ -796,6 +814,30 @@ test "pptx semantic chart cache preserves single-series data" {
   }
   let inspect = @pptx.inspect_pptx_presentation(doc)
   assert_eq(inspect.chart_count, 1)
+}
+
+///|
+test "pptx semantic chart cache formats date-like category serials and keeps titles" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      date_category_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  match chart.chart {
+    Some(data) => {
+      match data.title {
+        Some("On The Radar") => ()
+        _ => fail("expected chart title to stay available")
+      }
+      assert_true(
+        data.series[0].categories ==
+        ["2002-01-05", "2002-01-06", "2002-01-07", "2002-01-08", "2002-01-09"],
+      )
+    }
+    None => fail("expected chart data")
+  }
 }
 
 ///|

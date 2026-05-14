@@ -21,6 +21,7 @@ pub async fn export_pdf_layout_features_tsv(
   if export_kind != PdfLayoutExportKind::BoundaryOnly {
     let repeated_counts = build_repeated_text_counts(doc2)
     for page in doc2.pages {
+      let page_font_median = page_median_font_size(page)
       for i = 0; i < page.blocks.length(); i = i + 1 {
         let block = page.blocks[i]
         let prev = if i > 0 { Some(page.blocks[i - 1]) } else { None }
@@ -36,6 +37,7 @@ pub async fn export_pdf_layout_features_tsv(
           next,
           repeated_text_score(repeated_counts, block.text, doc2.pages.length()),
           nearest_image_distance(page.images, block._bbox),
+          page_font_median,
         )
         features.push(
           make_pdf_layout_feature(

@@ -1,13 +1,13 @@
 ## Slide 1
 
-![_tmp_multi_1.png](assets/image01.png)
+![slide-1-image-1](assets/image01.png)
 
-![_tmp_multi_2.png](assets/image02.png)
+![slide-1-image-2](assets/image02.png)
 
 This is page one text.
 
 
 ## Slide 2
 
-![_tmp_multi_2.png](assets/image03.png)
+![slide-2-image-1](assets/image03.png)
 This is page two text.

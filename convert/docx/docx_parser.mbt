@@ -83,7 +83,7 @@ pub fn parse_docx(
   )
 
   let notes_started = @env.now()
-  let notes = pkg.load_note_bundle()
+  let notes = pkg.load_note_bundle(out_root, styles, numbering)
   docx_convert_profile_add_stage(
     profile,
     "docx_notes",

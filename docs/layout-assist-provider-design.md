@@ -11,6 +11,11 @@ Current boundary:
 * default output should not depend on external models or heavy runtimes
 * heavy document-analysis systems such as PaddleOCR / PP-Structure remain
   future audit/design topics rather than current runtime dependencies
+* the fuller dataset/license audit plus the current feature/label/arbiter plan
+  now live in `docs/pdf-layout-model.md`
+* a first tiny gated-normal path now exists, but it is a pure-MoonBit
+  distilled gate for only weak heading demotion and separator/list
+  suppression; it is not a provider-backed runtime model loader
 
 ## Goals
 
@@ -37,9 +42,12 @@ The repository already contains:
 But:
 
 * held-out quality is still limited
-* current results are useful for experiments, not for default output control
+* current offline model results are useful for experiments, not for broad
+  default output control
 * the repository now carries a light provider skeleton, but it stays
   report-only and does not load model files by default
+* a separate tiny normal-path gate now exists for two low-risk cases only,
+  still without loading model files or Python at runtime
 
 ## Provider interface
 
@@ -70,6 +78,48 @@ Current implementation status:
   coverage, label distribution, and top reasons across the local
   `samples/pdf_layout_classifier` manifest without claiming production-quality
   accuracy
+* report-only predictions can now also carry `rule_label_hint`,
+  `disagreement`, `blocked_by_constraints`, and a conservative
+  `would_change_output` estimate for future gated-normal ablation
+* local-only subset intake plus external-corpus ablation tooling now lives in
+  `tools/pdf_layout_classifier/fetch_tiny_subsets.py`,
+  `tools/pdf_layout_classifier/export_manifest_features.py`, and
+  `tools/pdf_layout_classifier/local_eval.py`
+* the local-only ablation loop now includes a harder doc-style `epubcheck` /
+  `BookReporter` held-out split in addition to the earlier seed rows
+* the current best result is still report-only:
+  the named `gated_conservative_v1` preset now reaches `0.9846` micro F1 on
+  the current harder `223 / 195` expanded held-out split, beats the stronger
+  `rules_only` floor of `0.9641`, keeps held-out regressions at `0`, and
+  keeps `link_text`, `caption`, `list_item`, `footer_header_noise`, and
+  `form_row` stable on the checked split, while model-only remains too weak
+  for normal-path control
+* a later overfit round also proved the value of the held-out loop:
+  simply adding more `keep_as_text` train rows made the gate worse again, so
+  the arbiter must stay evidence-driven rather than “more labels at all costs”
+* the later real-support expansion plus cheap link/caption feature pass raised
+  held-out `link_text` / `caption` support to `9` / `8`, then used
+  link-coverage, partial-link, TOC-anchor, page-number-link, and
+  caption-lead-in features to recover the harder held-out slice without
+  changing the normal path
+* the current harder `223 / 195` report-only held-out run now reaches
+  `0.9846` micro F1 for `gated_conservative_v1` vs `0.9641` for `rules_only`,
+  keeps held-out regressions at `0`, fixes the earlier BookReporter /
+  receipt / cleanup-shell residuals, and also recovers the checked
+  figure-reference sentence boundary with a very narrow report-only conflict
+  exception, still without changing the normal path
+* `gated_conservative_tuned` no longer regresses on the current split, but it
+  still trails `v1` on the harder feature-augmented split, so the pinned
+  report-only baseline remains `gated_conservative_v1`
+* the broader offline pipeline still remains report-only/eval-only:
+  the remaining checked residuals are now `Summary` plus a few
+  `paragraph` vs `keep_as_text` or receipt/body boundary rows, so there is
+  still no case for any broader model-backed normal-path discussion
+* the first checked normal-path gate is intentionally smaller than the
+  report-only arbiter:
+  it only demotes weak headings or suppresses false list bullets, keeps hard
+  facts above the gate, exposes debug reasons, and can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`
 
 Heavy-provider audit note:
 
@@ -111,8 +161,9 @@ LayoutAssistPrediction
 
 ### `gated_normal`
 
-* only for future use
-* should require:
+* now used only in a very small internal PDF gate
+* not implemented through provider-backed runtime model loading
+* still requires:
   * very light runtime
   * measurable corpus win
   * clear benchmark evidence
@@ -121,11 +172,12 @@ LayoutAssistPrediction
 Current recommendation:
 
 * keep the default provider route at `report_only`
-* do not wire provider predictions into normal conversion decisions yet
+* do not wire provider predictions themselves into normal conversion decisions
 * keep debug/inspect output explicit that these are advisory predictions rather
   than final block classifications
-* use evaluation output for coverage/distribution observation first; only
-  consider any stronger rollout if the local corpus evidence materially improves
+* use evaluation output for coverage/distribution observation first; keep any
+  normal-path use narrower than the provider route until the local corpus
+  evidence materially improves again
 
 ## Suggested providers
 
@@ -155,9 +207,13 @@ Current recommendation:
 Predictions should stay explainable:
 
 * provider name
+* current rule label hint
 * suggested label
 * confidence
 * optional reasons / feature summary
+* whether deterministic constraints blocked the suggestion
+* whether a conservative gated-normal experiment would even consider changing
+  output
 
 This makes provider output auditable and keeps it from becoming a black-box
 replacement for the main chain.
@@ -177,7 +233,7 @@ should also record:
 Near term:
 
 * surface a provider design and optionally a light skeleton
-* keep layout assistance report-only
+* keep provider-backed layout assistance report-only
 * use the skeleton for tests/debug/report wiring before any main-chain
   integration
 * keep heavy-provider ideas such as PaddleOCR design-only until model/runtime,
@@ -196,6 +252,8 @@ Long term:
   * the model is tiny
   * startup remains lazy
   * corpus and benchmark evidence show real value
+  * the current tiny weak-heading/list gate has remained stable long enough to
+    justify any wider scope
 
 ## Explicit non-recommendations
 

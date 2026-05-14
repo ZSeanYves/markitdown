@@ -8,15 +8,19 @@ TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "ocr_contract")"
 ALLOW_MOON_RUN="${MARKITDOWN_OCR_CONTRACT_ALLOW_MOON_RUN:-0}"
 
+if [[ "$ALLOW_MOON_RUN" == "1" ]]; then
+  export MARKITDOWN_ALLOW_MOON_RUN=1
+fi
+
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
-resolve_markitdown_cli
+resolve_markitdown_ocr_cli
 if [[ "$CLI_RUNNER_KIND" == "prebuilt-native" || "$CLI_RUNNER_KIND" == "override" ]]; then
   probe_image="$OUT_DIR/ocr_runner_probe.png"
   printf 'fake image\n' > "$probe_image"
   probe_out="$OUT_DIR/ocr_runner_probe.txt"
   set +e
-  "$CLI_BIN" ocr --provider noop "$probe_image" >"$probe_out" 2>&1
+  "$CLI_BIN" --provider noop "$probe_image" >"$probe_out" 2>&1
   probe_status=$?
   set -e
   if grep -Fq 'noop OCR provider does not perform recognition' "$probe_out"; then
@@ -114,25 +118,26 @@ TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
 TXT_OUTPUT="$OUT_DIR/txt_plain.md"
 
 echo "==> ocr unknown provider fails clearly"
-run_and_capture "$OUT_DIR/unknown_provider.txt" run_markitdown_cli ocr --provider missing-provider "$FAKE_IMAGE"
+run_and_capture "$OUT_DIR/unknown_provider.txt" run_markitdown_ocr_cli --provider missing-provider "$FAKE_IMAGE"
 assert_contains "$OUT_DIR/unknown_provider.txt" 'error: unknown OCR provider: missing-provider'
 
 echo "==> ocr unsupported extension fails clearly"
-run_and_capture "$OUT_DIR/unsupported_input.txt" run_markitdown_cli ocr --provider tesseract-cli "$UNSUPPORTED_INPUT"
+run_and_capture "$OUT_DIR/unsupported_input.txt" run_markitdown_ocr_cli --provider tesseract-cli "$UNSUPPORTED_INPUT"
 assert_contains "$OUT_DIR/unsupported_input.txt" 'error: OCR input type is unsupported for provider mode:'
 assert_contains "$OUT_DIR/unsupported_input.txt" 'supported image inputs: png/jpg/jpeg/tif/tiff/bmp/webp; PDF stays on explicit PDF OCR path'
 
 echo "==> ocr unavailable provider stays explicit"
-MARKITDOWN_OCR_PROVIDER_CMD_TESSERACT_CLI=missing-tesseract-cli-for-contract run_and_capture "$OUT_DIR/unavailable_provider.txt" run_markitdown_cli ocr --provider tesseract-cli "$FAKE_IMAGE"
+MARKITDOWN_OCR_PROVIDER_CMD_TESSERACT_CLI=missing-tesseract-cli-for-contract run_and_capture "$OUT_DIR/unavailable_provider.txt" run_markitdown_ocr_cli --provider tesseract-cli "$FAKE_IMAGE"
 assert_contains "$OUT_DIR/unavailable_provider.txt" 'error: tesseract-cli unavailable: install Tesseract and language data, or choose another provider'
 
 echo "==> ocr image input routes through explicit provider path"
-run_with_fake_tesseract "$OUT_DIR/fake_ocr_stdout.txt" run_markitdown_cli ocr --provider tesseract-cli "$FAKE_IMAGE" "$FAKE_TEXT"
+run_with_fake_tesseract "$OUT_DIR/fake_ocr_stdout.txt" run_markitdown_ocr_cli --provider tesseract-cli "$FAKE_IMAGE" "$FAKE_TEXT"
 assert_file_exists "$FAKE_TEXT"
 assert_contains "$FAKE_TEXT" 'Fake OCR text'
 assert_file_not_exists "$OUT_DIR/metadata/page.metadata.json"
 
 echo "==> normal path does not auto ocr or probe providers"
+resolve_markitdown_cli
 MARKITDOWN_OCR_PROVIDER_CMD_TESSERACT_CLI=missing-tesseract-cli-for-contract run_markitdown_cli normal "$TXT_INPUT" "$TXT_OUTPUT"
 assert_file_exists "$TXT_OUTPUT"
 assert_not_contains "$TXT_OUTPUT" 'Fake OCR text'

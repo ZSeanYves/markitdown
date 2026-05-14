@@ -15,7 +15,7 @@
 ### A2. Structured Output (Markdown)
 
 - [x] A stable Markdown primary output path has been established (conversion can be invoked from normal/ocr/debug).  
-  Evidence: `cli/main.mbt`, `cli/cli_app.mbt`, `core/emitter_markdown.mbt`
+  Evidence: `cli/main.mbt`, `cli_support/cli_app.mbt`, `core/emitter_markdown.mbt`
 
 ### A3. Explainability and Engineering Consumption
 
@@ -31,10 +31,10 @@
 
 ### B1. CLI Tool and Usage
 
-- [x] The three subcommands `normal / ocr / debug` are available.  
-  Evidence: `cli/main.mbt`
+- [x] The unified product entrypoint supports bare-input normal conversion, explicit `normal`, `batch`, `ocr`, `help`, and `version`, while `debug` remains a separate developer binary.  
+  Evidence: `cli/main.mbt`, `cli_support/cli_app.mbt`, `debug/main.mbt`
 - [x] `--with-metadata` enables sidecar output.  
-  Evidence: `cli/main.mbt`, `cli/cli_app.mbt`
+  Evidence: `cli/main.mbt`, `cli_support/cli_app.mbt`
 
 ### B2. Regression Sample System
 
@@ -72,14 +72,14 @@
 ### D1. PDF
 
 - [x] The normal mainline path already uses native structural recovery (non-OCR default path).  
-  Evidence: `README.mbt.md`, `cli/assets/main.mbt`
+  Evidence: `README.mbt.md`, `pdf/main.mbt`, `convert/pdf`
 - [~] Complex multi-column layouts and heavy mixed-layout cases are still being improved.  
   Evidence: `docs/support-and-limits.md`
 
 ### D2. OCR
 
 - [x] OCR is available as an independent subcommand path.  
-  Evidence: `cli/main.mbt`
+  Evidence: `cli/main.mbt`, `ocr/main.mbt`
 - [~] OCR quality is coupled with the external toolchain environment and requires separate environment-level acceptance.  
   Evidence: `README.mbt.md` (external dependencies), `docs/support-and-limits.md`
 
@@ -106,7 +106,7 @@
 
 ## F. Recommended Acceptance Execution Order
 
-1. Run `samples/check.sh --manifest-only` to verify sample enrollment plus benchmark and real-world manifest consistency.
+1. Run `samples/check.sh --manifest-only` to verify sample enrollment plus benchmark-manifest consistency.
 2. Run `samples/check.sh` for the full release-style validation chain.
 3. Run `samples/check.sh --markdown-only` for isolated main pipeline regression when needed.
 4. Run `samples/check.sh --metadata-only` to independently verify metadata semantic stability.

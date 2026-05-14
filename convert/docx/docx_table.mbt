@@ -271,6 +271,21 @@ fn scan_table_block_with_context(
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
 ) -> Array[Array[String]] {
+  scan_table_block_with_context_and_ledger(
+    tbl_xml,
+    rel_ctx,
+    asset_by_target,
+    None,
+  )
+}
+
+///|
+fn scan_table_block_with_context_and_ledger(
+  tbl_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  ledger : DocxReferenceLedger?,
+) -> Array[Array[String]] {
   let started = @env.now()
   defer docx_convert_profile_add_active_stage(
     "docx_table_scan",
@@ -280,68 +295,87 @@ fn scan_table_block_with_context(
   let chars = strip_docx_deleted_revision_xml(tbl_xml).to_array()
   let mut i = 0
   let rows : Array[Array[String]] = []
+  let current_cells : Ref[Array[String]] = { val: [] }
+  let mut row_active = false
+  let mut cell_active = false
+  let mut nested_table_depth = 0
+  let mut cell_content_start = -1
 
-  while true {
-    let tr1 = find_exact_open_tag(chars, i, wtr_open_tag_chars)
-    if tr1 < 0 {
+  while i < chars.length() {
+    let lt = find_char_in_range(chars, i, chars.length(), '<')
+    if lt < 0 || lt + 1 >= chars.length() {
       break
     }
-    let tr2 = find_sub(chars, tr1, ">")
-    if tr2 < 0 {
-      break
-    }
-    let tr3 = find_matching_docx_element_close(
-      chars, tr1, wtr_open_tag_chars, wtr_close_tag_chars,
-    )
-    if tr3 < 0 {
+    let gt = find_char_in_range(chars, lt + 1, chars.length(), '>')
+    if gt < 0 {
       break
     }
 
-    let tr_inner = profiled_slice_to_string(chars, tr2 + 1, tr3)
-    let tr_chars = tr_inner.to_array()
-
-    let mut j = 0
-    let cells : Array[String] = []
-
-    while true {
-      let tc1 = find_exact_open_tag(tr_chars, j, wtc_open_tag_chars)
-      if tc1 < 0 {
-        break
+    if chars[lt + 1] != '/' {
+      if tag_prefix_matches(chars, lt, chars.length(), wtbl_open_tag_chars) {
+        if cell_active && !open_tag_is_self_closing(chars, lt, gt) {
+          nested_table_depth += 1
+        }
+        i = gt + 1
+        continue
       }
 
-      let tc2 = find_sub(tr_chars, tc1, ">")
-      if tc2 < 0 {
-        break
+      if tag_prefix_matches(chars, lt, chars.length(), wtr_open_tag_chars) {
+        if nested_table_depth == 0 && !open_tag_is_self_closing(chars, lt, gt) {
+          row_active = true
+          current_cells.val = []
+        }
+        i = gt + 1
+        continue
       }
 
-      let tc3 = find_matching_docx_element_close(
-        tr_chars, tc1, wtc_open_tag_chars, wtc_close_tag_chars,
-      )
-      if tc3 < 0 {
-        break
+      if tag_prefix_matches(chars, lt, chars.length(), wtc_open_tag_chars) {
+        if nested_table_depth == 0 &&
+          row_active &&
+          !open_tag_is_self_closing(chars, lt, gt) {
+          cell_active = true
+          cell_content_start = gt + 1
+        }
+        i = gt + 1
+        continue
+      }
+    } else {
+      if pattern_matches_at(chars, lt, wtbl_close_tag_chars) {
+        if cell_active && nested_table_depth > 0 {
+          nested_table_depth -= 1
+        }
+        i = lt + wtbl_close_tag_chars.length()
+        continue
       }
 
-      let tc_inner = profiled_slice_to_string(tr_chars, tc2 + 1, tc3)
+      if pattern_matches_at(chars, lt, wtc_close_tag_chars) {
+        if cell_active && nested_table_depth == 0 && cell_content_start >= 0 {
+          let tc_inner = profiled_slice_to_string(chars, cell_content_start, lt)
+          let cell_text = collect_tc_text_with_relationships(
+            tc_inner, rel_ctx, asset_by_target, ledger,
+          )
+          current_cells.val.push(cell_text)
+          cell_active = false
+          cell_content_start = -1
+        }
+        i = lt + wtc_close_tag_chars.length()
+        continue
+      }
 
-      // 只从 tc_inner 里抽 w:t
-      let cell_text = collect_tc_text_with_relationships(
-        tc_inner, rel_ctx, asset_by_target,
-      )
-      //println("[DBG] cell_text=" + cell_text)
-      //println("[DBG] cell_len=" + cell_text.length().to_string())
-
-      cells.push(cell_text)
-
-      // 游标推进："</w:tc>" 长度 7
-      j = tc3 + 7
+      if pattern_matches_at(chars, lt, wtr_close_tag_chars) {
+        if row_active && nested_table_depth == 0 {
+          if current_cells.val.length() > 0 {
+            rows.push(current_cells.val)
+          }
+          row_active = false
+          current_cells.val = []
+        }
+        i = lt + wtr_close_tag_chars.length()
+        continue
+      }
     }
 
-    if cells.length() > 0 {
-      rows.push(cells)
-    }
-
-    // "</w:tr>" 长度 7
-    i = tr3 + 7
+    i = gt + 1
   }
 
   rows

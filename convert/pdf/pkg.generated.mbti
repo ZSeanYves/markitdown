@@ -7,29 +7,51 @@ import {
 }
 
 // Values
-pub fn build_pdf_debug_sections(@model.PdfDocumentModel, Int) -> Array[@core.DebugSection]
+pub fn apply_pdf_layout_gate(PdfConvertDocument, config? : PdfLayoutGateConfig) -> PdfConvertDocument
 
-pub fn build_pdf_layout_assist_summary(@model.PdfDocumentModel, Int) -> LayoutAssistSummary
+pub fn attach_high_confidence_uri_links(PdfConvertDocument) -> PdfConvertDocument
+
+pub fn build_convert_blocks(PdfConvertDocument) -> PdfConvertDocument
+
+pub fn build_convert_lines(@model.PdfDocumentModel, String) -> PdfConvertDocument
+
+pub fn build_pdf_layout_gate_summary(PdfConvertDocument, PdfConvertDocument, config? : PdfLayoutGateConfig) -> PdfLayoutGateSummary
+
+pub fn build_repeated_edge_noise_index(PdfConvertDocument) -> PdfRepeatedEdgeNoiseIndex
+
+pub fn classify_convert_blocks(PdfConvertDocument, Int) -> PdfConvertDocument
 
 pub fn classify_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature) -> Result[PdfLayoutModelDecision, PdfLayoutModelError]
 
 pub fn classify_pdf_layout_features(PdfLayoutModel, Array[PdfLayoutFeature]) -> Result[Array[PdfLayoutModelDecision], PdfLayoutModelError]
 
+pub fn decide_heading_classification(PdfConvertBlock?, PdfConvertBlock, PdfConvertBlock?, Int) -> PdfHeadingDecision
+
+pub fn decide_noise_block(PdfConvertPage, Int, PdfConvertBlock, PdfRepeatedEdgeNoiseIndex) -> PdfNoiseDecision
+
+pub fn decide_page_boundary_merge(PdfConvertPage, PdfConvertPage) -> PdfMergeDecision
+
 pub fn default_pdf_layout_feature_names() -> Array[String]
 
 pub fn default_pdf_layout_feature_tsv_columns() -> Array[String]
 
+pub fn default_pdf_layout_gate_config() -> PdfLayoutGateConfig
+
+pub fn detect_pdf_tables(PdfConvertPage, Bool) -> Array[PdfTableCandidate]
+
 pub async fn export_pdf_layout_features_tsv(String, String, String) -> String
 
-pub fn heuristic_layout_assist_provider_info() -> LayoutAssistProviderInfo
+pub fn filter_noise_blocks(PdfConvertDocument) -> PdfConvertDocument
+
+pub fn infer_page_image_captions(PdfConvertPage, Bool) -> (Array[String?], Map[Int, Bool])
 
 pub fn infer_pdf_layout_features_tsv(String, String) -> Result[String, PdfLayoutModelError]
 
-pub fn list_layout_assist_providers() -> Array[LayoutAssistProviderInfo]
-
 pub fn make_pdf_layout_feature(String, String, PdfLayoutRecordKind, Int, Int, Int, Int?, Int?, Int?, String, String?, String?, Map[String, Double]) -> PdfLayoutFeature
 
-pub fn noop_layout_assist_provider_info() -> LayoutAssistProviderInfo
+pub fn match_page_uri_links(PdfConvertPage) -> Array[PdfUriLinkMatchResult]
+
+pub fn merge_convert_blocks(PdfConvertDocument) -> PdfConvertDocument
 
 pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
 
@@ -37,9 +59,7 @@ pub fn parse_pdf_layout_features_tsv(String) -> Result[Array[PdfLayoutFeature], 
 
 pub fn parse_pdf_layout_model_json(String) -> Result[PdfLayoutModel, PdfLayoutModelError]
 
-pub fn predict_with_heuristic_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
-
-pub fn predict_with_noop_layout_assist(Array[LayoutAssistFeature]) -> Array[LayoutAssistPrediction]
+pub fn pdf_layout_gate_enabled() -> Bool
 
 pub fn render_pdf_layout_decisions_tsv(Array[PdfLayoutFeature], Array[PdfLayoutModelDecision]) -> String
 
@@ -49,53 +69,167 @@ pub fn render_pdf_layout_feature_tsv(Array[PdfLayoutFeature], Array[String]) -> 
 
 pub fn score_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature, Array[Double]) -> Array[PdfLayoutModelDecision]
 
-pub fn summarize_layout_assist_predictions(Array[LayoutAssistFeature], Array[LayoutAssistPrediction]) -> LayoutAssistSummary
-
 pub fn validate_pdf_layout_model(PdfLayoutModel) -> Result[Unit, PdfLayoutModelError]
 
 // Errors
 
 // Types and methods
-pub struct LayoutAssistFeature {
-  target_id : String
-  text : String
-  page_index : Int
-  block_kind_hint : String?
-  metrics_json : String?
+pub struct PdfConvertAnnotation {
+  _page_index : Int
+  _annotation_index : Int
+  subtype : String
+  _bbox : @model.PdfRect
+  uri : String?
+  dest : String?
+  target_page : Int?
+  object_ref : String?
+  contents : String?
+  subject : String?
+  color : PdfConvertColor?
 }
 
-pub enum LayoutAssistMode {
-  ReportOnly
-  Advisory
-  GatedNormal
+pub struct PdfConvertBlock {
+  _page_index : Int
+  block_index : Int
+  kind : PdfConvertBlockKind
+  text : String
+  rich_inlines : Array[@core.Inline]?
+  line_start : Int
+  line_end : Int
+  source_block_index : Int
+  source_block_line_count : Int
+  source_block_kind : @model.PdfTextBlockKind
+  source_block_bbox : @model.PdfRect
+  source_block_dominant_font_size : Double?
+  source_block_dominant_font_name : String?
+  is_heading_candidate : Bool
+  is_noise_candidate : Bool
+  is_header_footer_candidate : Bool
+  is_artifact_candidate : Bool
+  is_caption_candidate : Bool
+  is_table_cell_candidate : Bool
+  dominant_language : String?
+  writing_direction : @model.PdfWritingDirection
+  _bbox : @model.PdfRect
+  dominant_font_size : Double?
+  dominant_font_name : String?
+  top_y : Double
+  left_x : Double
+  line_count : Int
+  first_indent_left : Double?
+  last_indent_left : Double?
+  first_indent_right : Double?
+  last_indent_right : Double?
+  first_alignment_hint : String?
+  last_alignment_hint : String?
+  first_line_gap_before : Double?
+  last_line_gap_after : Double?
+  first_line_height : Double?
+  last_line_height : Double?
+  first_baseline_y : Double?
+  last_baseline_y : Double?
+  first_is_wrapped_candidate : Bool
+  last_is_wrapped_candidate : Bool
+  first_is_same_paragraph_with_prev_candidate : Bool
+  last_is_same_paragraph_with_prev_candidate : Bool
+}
+
+pub enum PdfConvertBlockKind {
+  Heading
+  Paragraph
+  Noise
 } derive(Eq)
 
-pub struct LayoutAssistPrediction {
-  target_id : String
-  page_index : Int
-  suggested_label : String
-  confidence : Double?
-  provider : String
-  mode : LayoutAssistMode
-  reasons : Array[String]
+pub struct PdfConvertColor {
+  r : Int
+  g : Int
+  b : Int
 }
 
-pub struct LayoutAssistProviderInfo {
-  name : String
-  version : String?
-  mode : LayoutAssistMode
-  available : Bool
+pub struct PdfConvertDocument {
+  pages : Array[PdfConvertPage]
 }
 
-pub struct LayoutAssistSummary {
-  provider_count : Int
-  feature_count : Int
-  prediction_count : Int
-  label_counts : Map[String, Int]
-  reason_counts : Map[String, Int]
-  warning_count : Int
-  providers : Array[LayoutAssistProviderInfo]
-  predictions : Array[LayoutAssistPrediction]
+pub struct PdfConvertImage {
+  _page_index : Int
+  _image_index : Int
+  path : String
+  alt_text : String?
+  _caption : String?
+  _bbox : @model.PdfRect
+  top_y : Double
+  left_x : Double
+  _width_px : Int
+  _height_px : Int
+  colorspace : String?
+  bits_per_component : Int?
+  image_filter : String?
+  object_ref : String?
+  inline_image : Bool
+  source_refs_count : Int
+  source_image_id : String
+}
+
+pub struct PdfConvertLine {
+  _page_index : Int
+  line_index : Int
+  text : String
+  _source_block_index : Int
+  source_block_line_count : Int
+  source_block_kind : @model.PdfTextBlockKind
+  source_block_bbox : @model.PdfRect
+  source_block_dominant_font_size : Double?
+  source_block_dominant_font_name : String?
+  is_heading_candidate : Bool
+  is_page_number_candidate : Bool
+  is_header_footer_candidate : Bool
+  is_artifact_candidate : Bool
+  is_caption_candidate : Bool
+  is_table_cell_candidate : Bool
+  dominant_language : String?
+  writing_direction : @model.PdfWritingDirection
+  _bbox : @model.PdfRect
+  font_size : Double?
+  font_name : String?
+  indent_left : Double?
+  indent_right : Double?
+  alignment_hint : String?
+  line_gap_before : Double?
+  _line_gap_after : Double?
+  line_height : Double?
+  baseline_y : Double?
+  is_wrapped_candidate : Bool
+  is_same_paragraph_with_prev_candidate : Bool
+}
+
+pub struct PdfConvertPage {
+  _page_index : Int
+  media_box : @model.PdfRect?
+  crop_box : @model.PdfRect?
+  lines : Array[PdfConvertLine]
+  blocks : Array[PdfConvertBlock]
+  images : Array[PdfConvertImage]
+  annotations : Array[PdfConvertAnnotation]
+  objects : Array[PdfConvertPageObject]
+}
+
+pub enum PdfConvertPageObject {
+  TextBlock(PdfConvertBlock)
+  Image(PdfConvertImage)
+}
+
+pub struct PdfHeadingDecision {
+  status : PdfHeadingDecisionStatus
+  reason_tags : Array[String]
+}
+
+pub enum PdfHeadingDecisionStatus {
+  PromoteHeading
+  KeepHeading
+  DemoteToParagraph
+  ToNoise
+  KeepParagraph
+  KeepNoise
 }
 
 pub struct PdfLayoutFeature {
@@ -112,6 +246,44 @@ pub struct PdfLayoutFeature {
   text : String
   notes : String?
   feature_values : Map[String, Double]
+}
+
+pub struct PdfLayoutGateConfig {
+  enabled : Bool
+}
+
+pub struct PdfLayoutGateDecision {
+  stage : PdfLayoutGateStage
+  target_id : String
+  page_index : Int
+  block_index : Int
+  text : String
+  rule_label : String
+  suggested_label : String?
+  final_label : String
+  output_kind : String
+  score : Double
+  confidence : Double
+  hard_constraints_applied : Array[String]
+  override_allowed : Bool
+  override_reason : String?
+  override_blocked_reason : String?
+  reason_tags : Array[String]
+}
+
+pub enum PdfLayoutGateStage {
+  HeadingDemotion
+  ListSuppression
+} derive(Eq)
+
+pub struct PdfLayoutGateSummary {
+  enabled : Bool
+  heading_candidate_count : Int
+  list_candidate_count : Int
+  decision_count : Int
+  changed_count : Int
+  blocked_count : Int
+  decisions : Array[PdfLayoutGateDecision]
 }
 
 pub struct PdfLayoutLabelWeights {
@@ -170,6 +342,69 @@ pub struct PdfLayoutThreshold {
   label : String
   min_score : Double
   min_confidence : Double
+}
+
+pub struct PdfMergeDecision {
+  status : PdfMergeDecisionStatus
+  reason_tags : Array[String]
+}
+
+pub enum PdfMergeDecisionStatus {
+  Merge
+  KeepSplit
+}
+
+pub struct PdfNoiseDecision {
+  status : PdfNoiseDecisionStatus
+  reason_tags : Array[String]
+}
+
+pub enum PdfNoiseDecisionStatus {
+  Drop
+  Keep
+}
+
+pub struct PdfRepeatedEdgeNoiseIndex {
+  repeated_heads : Array[String]
+  repeated_tails : Array[String]
+  repeated_head_prefixes : Array[String]
+  repeated_tail_prefixes : Array[String]
+}
+
+pub struct PdfTableCandidate {
+  line_start : Int
+  line_end : Int
+  block_indices : Array[Int]
+  rows : Array[Array[String]]
+  header_rows : Int
+  reason_tags : Array[String]
+}
+
+pub struct PdfUriLinkMatchResult {
+  _page_index : Int
+  _annotation_index : Int
+  status : PdfUriLinkMatchStatus
+  uri : String?
+  dest : String?
+  matched_text : String?
+  matched_line_index : Int?
+  matched_line_count : Int
+  annotation_bbox : @model.PdfRect
+  line_bbox : @model.PdfRect?
+  overlap_ratio : Double?
+}
+
+pub enum PdfUriLinkMatchStatus {
+  Matched
+  RejectedEmptyUri
+  RejectedUnsupportedScheme
+  RejectedDestOnly
+  RejectedNoBbox
+  RejectedNonLink
+  NoVisibleText
+  Ambiguous
+  TooLarge
+  OverlappingAnnotations
 }
 
 // Type aliases

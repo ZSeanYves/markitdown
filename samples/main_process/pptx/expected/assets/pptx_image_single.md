@@ -1,3 +1,3 @@
 ## Slide 1
 
-![_tmp_single.png](assets/image01.png)
+![slide-1-image-1](assets/image01.png)

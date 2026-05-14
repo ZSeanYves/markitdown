@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "moonbitlang/async/process" @process,
+  "moonbitlang/async/stdio" @stdio,
+  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+}
+
+options(
+  "preferred-target": "native",
+)
