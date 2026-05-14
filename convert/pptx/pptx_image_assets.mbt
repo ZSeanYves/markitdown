@@ -152,8 +152,12 @@ fn export_picture_shape_images(
     }
 
     let synthetic_alt = synthetic_slide_image_alt_text(slide_no, img_idx)
+    let normalized_alt = normalize_picture_descr_for_alt_text(
+      picture.descr,
+      synthetic_alt,
+    )
     out.push({
-      _alt_text: picture.descr.unwrap_or(synthetic_alt),
+      _alt_text: normalized_alt,
       _title: picture.title,
       _path: rel_out,
       _object_ref: picture.object_ref,
@@ -313,6 +317,51 @@ fn normalize_optional_pptx_image_attr(value : String?) -> String? {
     }
     None => None
   }
+}
+
+///|
+fn normalize_picture_descr_for_alt_text(
+  descr : String?,
+  fallback : String,
+) -> String {
+  match descr {
+    Some(raw) => {
+      let trimmed = raw.trim().to_owned()
+      if trimmed == "" || looks_like_local_file_path_or_name(trimmed) {
+        fallback
+      } else {
+        trimmed
+      }
+    }
+    None => fallback
+  }
+}
+
+///|
+fn looks_like_local_file_path_or_name(text : String) -> Bool {
+  let s = text.trim().to_owned()
+  if s == "" {
+    return false
+  }
+
+  let lower = s.to_lower()
+  if lower.contains("\\") || lower.contains("/") {
+    return true
+  }
+
+  if lower.contains(".png") ||
+    lower.contains(".jpg") ||
+    lower.contains(".jpeg") ||
+    lower.contains(".gif") ||
+    lower.contains(".bmp") ||
+    lower.contains(".tif") ||
+    lower.contains(".tiff") ||
+    lower.contains(".webp") ||
+    lower.contains(".svg") {
+    return true
+  }
+
+  false
 }
 
 ///|

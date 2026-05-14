@@ -139,6 +139,27 @@ test "pptx grouped shape children are still discovered by current scans" {
 }
 
 ///|
+test "pptx image descr keeps human alt but drops local path-like noise" {
+  let kept = normalize_picture_descr_for_alt_text(
+    Some("Product screenshot"),
+    "slide-1-image-1",
+  )
+  assert_eq(kept, "Product screenshot")
+
+  let dropped_windows_path = normalize_picture_descr_for_alt_text(
+    Some("F:\\Users\\hdoshi\\Pictures\\powerpoint-logo.jpg"),
+    "slide-1-image-1",
+  )
+  assert_eq(dropped_windows_path, "slide-1-image-1")
+
+  let dropped_file_name = normalize_picture_descr_for_alt_text(
+    Some("powerpoint-logo.jpg"),
+    "slide-1-image-2",
+  )
+  assert_eq(dropped_file_name, "slide-1-image-2")
+}
+
+///|
 test "pptx nested group traversal preserves nested object refs and order" {
   let slide_xml = "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
     "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" " +

@@ -1,4 +1,4 @@
 ## Slide 1
 
-![_tmp_mixed.png](assets/image01.png)
+![slide-1-image-1](assets/image01.png)
 This is mixed slide text.

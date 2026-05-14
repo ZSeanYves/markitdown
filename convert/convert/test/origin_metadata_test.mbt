@@ -1096,8 +1096,8 @@ test "origin_metadata/pptx_xlsx_minimal_closure" {
   assert_image_caption_mirrors_asset_origin(pptx_doc)
   match first_image_block(pptx_doc) {
     Some(img) => {
-      if img.alt_text != Some("tmpug_opwhs.png") {
-        fail("pptx image alt_text should come from p:cNvPr descr")
+      if img.alt_text != Some("slide-1-image-1") {
+        fail("pptx image alt_text should drop path-like descr values")
       }
       if img.title != None {
         fail("pptx image title should be None")
@@ -2968,8 +2968,10 @@ test "image_context/pptx_caption_association" {
   )
   match first_image_block(doc) {
     Some(img) => {
-      if img.alt_text != Some("tmpug_opwhs.png") {
-        fail("pptx caption-like image alt_text should come from p:cNvPr descr")
+      if img.alt_text != Some("slide-1-image-1") {
+        fail(
+          "pptx caption-like image alt_text should drop path-like descr values",
+        )
       }
       if img.title != None {
         fail("pptx caption-like image title should be None")
