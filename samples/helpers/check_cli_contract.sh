@@ -37,9 +37,22 @@ assert_file_not_exists() {
   [[ ! -e "$path" ]] || fail "unexpected path exists: $path"
 }
 
+assert_matches_expected() {
+  local expected="$1"
+  local actual="$2"
+  diff -u "$expected" "$actual" >/dev/null || fail "output mismatch: $actual"
+}
+
 TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
 DOCX_INPUT="$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx"
 XLSX_INPUT="$ROOT/samples/main_process/xlsx/xlsx_formula_cached_values.xlsx"
+PDF_INPUT="$ROOT/samples/main_process/pdf/text_simple.pdf"
+PDF_EXPECTED="$ROOT/samples/main_process/pdf/expected/text_simple.md"
+PDF_META_INPUT="$ROOT/samples/main_process/pdf/metadata/pdf_metadata_uri_link.pdf"
+PDF_META_EXPECTED="$ROOT/samples/main_process/pdf/expected/metadata/pdf_metadata_uri_link.md"
+PDF_META_JSON_EXPECTED="$ROOT/samples/main_process/pdf/expected/metadata/pdf_metadata_uri_link.metadata.json"
+ZIP_INPUT="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
+ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
 
 NO_META_DIR="$OUT_DIR/no_meta"
 WITH_META_DIR="$OUT_DIR/with_meta"
@@ -51,6 +64,9 @@ TXT_WITH_META_MD="$WITH_META_DIR/txt_plain.md"
 DOCX_NO_META_MD="$NO_META_DIR/docx_image_alt_title_basic.md"
 DOCX_WITH_META_MD="$WITH_META_DIR/docx_image_alt_title_basic.md"
 XLSX_WITH_META_MD="$WITH_META_DIR/xlsx_formula_cached_values.md"
+PDF_NO_META_MD="$NO_META_DIR/text_simple.md"
+PDF_WITH_META_MD="$WITH_META_DIR/pdf_metadata_uri_link.md"
+ZIP_NO_META_MD="$NO_META_DIR/zip_basic_structured.md"
 
 echo "==> normal without metadata"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_NO_META_MD"
@@ -78,6 +94,24 @@ echo "==> xlsx with metadata"
 run_markitdown_cli normal --with-metadata "$XLSX_INPUT" "$XLSX_WITH_META_MD"
 assert_file_exists "$XLSX_WITH_META_MD"
 assert_file_exists "$WITH_META_DIR/metadata/xlsx_formula_cached_values.metadata.json"
+
+echo "==> pdf delegation without metadata"
+run_markitdown_cli normal "$PDF_INPUT" "$PDF_NO_META_MD"
+assert_file_exists "$PDF_NO_META_MD"
+assert_file_not_exists "$NO_META_DIR/metadata/text_simple.metadata.json"
+assert_matches_expected "$PDF_EXPECTED" "$PDF_NO_META_MD"
+
+echo "==> pdf delegation with metadata"
+run_markitdown_cli normal --with-metadata "$PDF_META_INPUT" "$PDF_WITH_META_MD"
+assert_file_exists "$PDF_WITH_META_MD"
+assert_file_exists "$WITH_META_DIR/metadata/pdf_metadata_uri_link.metadata.json"
+assert_matches_expected "$PDF_META_EXPECTED" "$PDF_WITH_META_MD"
+assert_matches_expected "$PDF_META_JSON_EXPECTED" "$WITH_META_DIR/metadata/pdf_metadata_uri_link.metadata.json"
+
+echo "==> zip delegation"
+run_markitdown_cli normal "$ZIP_INPUT" "$ZIP_NO_META_MD"
+assert_file_exists "$ZIP_NO_META_MD"
+assert_matches_expected "$ZIP_EXPECTED" "$ZIP_NO_META_MD"
 
 echo "==> stdout contract"
 STDOUT_MD="$STDOUT_DIR/stdout.md"

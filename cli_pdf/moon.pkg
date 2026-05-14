@@ -1,7 +1,7 @@
 import {
   "ZSeanYves/markitdown/cli_support" @clisup,
+  "ZSeanYves/markitdown/convert/pdf" @pdf,
   "moonbitlang/x/sys" @sys,
-  "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,
   "moonbitlang/async",
 }

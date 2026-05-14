@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/cli_debug"
+
+// Values
+
+// Errors
+
+// Types and methods
+type BlockStats
+
+type DebugCliOptions
+
+type DebugParseResult
+
+type LayoutAssistEvalRow
+
+type OriginDimensionCounts
+
+// Type aliases
+
+// Traits
+

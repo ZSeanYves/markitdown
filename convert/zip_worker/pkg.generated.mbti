@@ -1,0 +1,80 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/zip"
+
+import {
+  "ZSeanYves/markitdown/core",
+}
+
+// Values
+pub fn inspect_zip(String) -> ZipInspectReport raise
+
+pub async fn parse_zip(String, String, Int) -> @core.Document
+
+pub async fn parse_zip_with_profile(String, String, Int) -> (@core.Document, ZipProfileReport?)
+
+pub fn zip_profile_add_stage(ZipProfileReport?, String, UInt64, String?) -> Unit
+
+pub fn zip_profile_render_report(ZipProfileReport) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum ZipInspectAction {
+  Convert
+  Skip
+  Warn
+  Fail
+} derive(Eq)
+
+pub struct ZipInspectEntry {
+  raw_name : String
+  normalized_path : String?
+  entry_kind : ZipInspectEntryKind
+  action : ZipInspectAction
+  compression_method : @ZSeanYves/markitdown/doc_parse/zip.CompressionMethod
+  compressed_size : Int
+  uncompressed_size : Int
+  flags : Int
+  has_data_descriptor : Bool
+  is_encrypted : Bool
+  uses_zip64 : Bool
+  local_header_offset : Int
+  crc32 : Int
+  dispatch_format : String?
+  note : String?
+}
+
+pub(all) enum ZipInspectEntryKind {
+  Supported
+  NestedArchive
+  Unsupported
+  Directory
+  HiddenMetadata
+  UnsafePath
+  EntryLimitExceeded
+  EntryTooLarge
+  TotalDecodedLimitExceeded
+} derive(Eq)
+
+pub struct ZipInspectReport {
+  source_name : String
+  entry_count : Int
+  entries : Array[ZipInspectEntry]
+}
+
+pub struct ZipProfileReport {
+  input_path : String
+  summary_lines : Array[String]
+  stages : Array[ZipProfileStage]
+}
+
+pub struct ZipProfileStage {
+  name : String
+  elapsed_ms : UInt64
+  detail : String?
+}
+
+// Type aliases
+
+// Traits
+

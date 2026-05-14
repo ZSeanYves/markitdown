@@ -449,7 +449,7 @@ async test "convert/pdf simple table fixture keeps visible table signal in inspe
   let input = create_pdf_fixture("simple_table.pdf")
   write_simple_table_pdf(input)
   let dump = match
-    @api.extract_document_inspect_dump(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_dump(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_dump failed: " + e.to_string())
   }

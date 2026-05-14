@@ -546,12 +546,6 @@ resolve_python_runner
 probe_python_runner
 resolve_python_version
 
-echo "==> warming Moon build"
-if ! (cd "$ROOT" && moon build >/dev/null); then
-  echo "moon build failed" >&2
-  exit 1
-fi
-
 resolve_mb_runner
 
 rm -rf "$COMPARE_ROOT"

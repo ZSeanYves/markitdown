@@ -1,0 +1,71 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/cli_support"
+
+import {
+  "TheWaWaR/clap",
+  "ZSeanYves/markitdown/core",
+  "moonbitlang/x/fs",
+}
+
+// Values
+pub fn batch_summary_line(BatchRunResult) -> String
+
+pub async fn cmd_convert(String, String?, String?, Int, String?, Bool, Bool, Bool, Bool) -> Unit
+
+pub async fn convert_once(String, String?, String?, Int, String?, Bool, Bool, Bool, Bool) -> Result[Unit, String]
+
+pub fn detect_input_format(String) -> String
+
+pub fn detect_ocr_image_format(String) -> String?
+
+pub fn dirname_of_path(String) -> String
+
+pub fn ensure_dir_tree(String) -> Unit raise @fs.IOError
+
+pub fn exit_error(String) -> Unit
+
+pub fn input_stem(String) -> String
+
+pub fn join_path(String, String) -> String
+
+pub fn metadata_output_path(String) -> String
+
+pub fn new_cli_parser() -> @clap.Parser
+
+pub fn normalize_cli_args(Array[String]) -> Array[String]
+
+pub fn now_ms() -> Int64
+
+pub fn now_us() -> Int64
+
+pub fn parse_ocr_lang_arg(String?) -> Array[String]
+
+pub fn print_cli_help() -> Unit
+
+pub fn print_cli_usage() -> Unit
+
+pub fn read_document_properties(String, String) -> @core.MetadataDocumentProperties?
+
+pub fn resolve_output_path(String, String?) -> String?
+
+pub async fn run_batch(String, String, Bool) -> Result[BatchRunResult, String]
+
+pub fn write_document_output(String, String, @core.Document, String?, Bool) -> Result[Unit, String]
+
+// Errors
+
+// Types and methods
+pub struct BatchRunResult {
+  total_count : Int
+  success_count : Int
+  failure_count : Int
+  unsupported_count : Int
+  skipped_directory_count : Int
+  had_error : Bool
+  summary_path : String
+}
+
+// Type aliases
+
+// Traits
+

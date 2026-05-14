@@ -1,0 +1,23 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/zip" @zipraw,
+  "ZSeanYves/markitdown/convert/docx" @doc,
+  "ZSeanYves/markitdown/convert/pptx" @pptx,
+  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
+  "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/convert/csv" @csv,
+  "ZSeanYves/markitdown/convert/txt" @txt,
+  "ZSeanYves/markitdown/convert/xml" @xml,
+  "ZSeanYves/markitdown/convert/json" @json,
+  "ZSeanYves/markitdown/convert/markdown" @md,
+  "ZSeanYves/markitdown/convert/yaml" @yaml,
+  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/async/process" @process,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+}
+
+options(
+  "preferred-target": "native",
+)

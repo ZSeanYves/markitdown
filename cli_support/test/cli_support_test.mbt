@@ -17,7 +17,7 @@ async test "batch_v1 writes isolated doc roots and summary" {
   }
   write_utf8_text(input_dir + "/nested/ignored.txt", "ignored\n")
 
-  let result = run_batch(input_dir, output_dir, false)
+  let result = @clisup.run_batch(input_dir, output_dir, false)
   let result = match result {
     Ok(r) => r
     Err(msg) => fail("batch should succeed: " + msg)
@@ -64,7 +64,7 @@ async test "batch_v1 supports metadata and stem collisions" {
   write_utf8_text(input_dir + "/same.txt", "same txt\n")
   write_utf8_text(input_dir + "/same.md", "# same md\n")
 
-  let result = run_batch(input_dir, output_dir, true)
+  let result = @clisup.run_batch(input_dir, output_dir, true)
   let result = match result {
     Ok(r) => r
     Err(msg) => fail("batch should succeed: " + msg)
@@ -97,7 +97,7 @@ async test "batch_v1 records unsupported files as failures" {
 
   write_utf8_text(input_dir + "/bad.bin", "not supported\n")
 
-  let result = run_batch(input_dir, output_dir, false)
+  let result = @clisup.run_batch(input_dir, output_dir, false)
   let result = match result {
     Ok(r) => r
     Err(msg) => fail("batch should still write summary: " + msg)
@@ -115,88 +115,8 @@ async test "batch_v1 records unsupported files as failures" {
 }
 
 ///|
-async test "ocr cli unsupported provider path returns clear error" {
-  let root = test_tmp_root() + "/ocr-provider-missing"
-  recreate_clean_dir(root)
-  let image = root + "/page.png"
-  write_utf8_text(image, "fake image")
-
-  let result = run_ocr_cli(image, None, Some("missing-provider"), None, false) catch {
-    e => fail("run_ocr_cli raised: " + e.to_string())
-  }
-  match result {
-    Ok(_) => fail("expected missing OCR provider to fail")
-    Err(msg) => assert_contains(msg, "unknown OCR provider")
-  }
-}
-
-///|
-async test "ocr cli unsupported input extension returns stable error" {
-  let root = test_tmp_root() + "/ocr-unsupported-input"
-  recreate_clean_dir(root)
-  let input = root + "/page.bin"
-  write_utf8_text(input, "fake non-image")
-
-  let result = run_ocr_cli(
-    input,
-    None,
-    Some("tesseract-cli"),
-    Some("eng"),
-    false,
-  ) catch {
-    e => fail("run_ocr_cli raised: " + e.to_string())
-  }
-  match result {
-    Ok(_) => fail("expected unsupported OCR input to fail")
-    Err(msg) => {
-      assert_contains(
-        msg,
-        "OCR input type is unsupported for provider mode: " + input,
-      )
-      assert_contains(
-        msg, "supported image inputs: png/jpg/jpeg/tif/tiff/bmp/webp; PDF stays on explicit PDF OCR path",
-      )
-    }
-  }
-}
-
-///|
-async test "ocr cli image input stays on explicit provider path" {
-  let root = test_tmp_root() + "/ocr-image-explicit"
-  recreate_clean_dir(root)
-  let image = root + "/page.png"
-  write_utf8_text(image, "fake image")
-
-  let result = run_ocr_cli(image, None, Some("noop"), None, false) catch {
-    e => fail("run_ocr_cli raised: " + e.to_string())
-  }
-  match result {
-    Ok(_) => fail("expected noop OCR provider image path to fail closed")
-    Err(msg) =>
-      assert_contains(msg, "noop OCR provider does not perform recognition")
-  }
-}
-
-///|
-async test "ocr cli pdf input keeps explicit pdf path for tesseract" {
-  let pdf = batch_resolve_sample("samples/main_process/pdf/text_simple.pdf")
-
-  let result = run_ocr_cli(pdf, None, Some("tesseract-cli"), Some("eng"), false) catch {
-    e => fail("run_ocr_cli raised: " + e.to_string())
-  }
-  match result {
-    Ok(_) => ()
-    Err(msg) =>
-      fail(
-        "expected tesseract PDF OCR path to preserve explicit PDF OCR mode: " +
-        msg,
-      )
-  }
-}
-
-///|
 test "ocr cli parser accepts provider and lang named args" {
-  let parser = new_cli_parser()
+  let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
   let help = parser.parse(value, [
     "ocr", "--provider", "tesseract-cli", "--lang", "eng+chi_sim", "page.png", "out.txt",
@@ -229,7 +149,7 @@ test "ocr cli parser accepts provider and lang named args" {
 
 ///|
 test "ocr cli parser accepts missing optional provider and lang" {
-  let parser = new_cli_parser()
+  let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
   let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
     e =>
@@ -258,7 +178,7 @@ test "ocr cli parser accepts missing optional provider and lang" {
 
 ///|
 test "debug layout assist eval parser accepts missing optional split" {
-  let parser = new_cli_parser()
+  let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
   let help = parser.parse(value, ["debug", "layout-assist-eval"]) catch {
     e =>
@@ -283,11 +203,13 @@ test "debug layout assist eval parser accepts missing optional split" {
 
 ///|
 test "ocr cli language parser supports joined codes" {
-  assert_true(parse_ocr_lang_arg(None) == [])
-  assert_true(parse_ocr_lang_arg(Some("eng")) == ["eng"])
-  assert_true(parse_ocr_lang_arg(Some("eng+chi_sim")) == ["eng", "chi_sim"])
+  assert_true(@clisup.parse_ocr_lang_arg(None) == [])
+  assert_true(@clisup.parse_ocr_lang_arg(Some("eng")) == ["eng"])
   assert_true(
-    parse_ocr_lang_arg(Some(" eng + chi_sim + ")) == ["eng", "chi_sim"],
+    @clisup.parse_ocr_lang_arg(Some("eng+chi_sim")) == ["eng", "chi_sim"],
+  )
+  assert_true(
+    @clisup.parse_ocr_lang_arg(Some(" eng + chi_sim + ")) == ["eng", "chi_sim"],
   )
 }
 
@@ -297,20 +219,6 @@ fn test_tmp_root() -> String {
     Some(path) => path + "/cli-test"
     None => ".tmp/cli-test"
   }
-}
-
-///|
-fn batch_resolve_sample(path : String) -> String raise {
-  if @fs.path_exists(path) {
-    return path
-  }
-
-  let fallback = "../" + path
-  if @fs.path_exists(fallback) {
-    return fallback
-  }
-
-  fail("sample file not found: " + path)
 }
 
 ///|
@@ -352,6 +260,51 @@ fn read_utf8_text(path : String) -> String raise {
   @utf8.decode(bytes, ignore_bom=false) catch {
     _ => fail("utf8 decode failed")
   }
+}
+
+///|
+fn ensure_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
 }
 
 ///|

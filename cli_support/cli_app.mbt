@@ -3,12 +3,13 @@
 ///
 /// Responsibility split:
 /// - parse/validate runtime IO choices (output file vs stdout, metadata switch)
-/// - call converter dispatcher and emit markdown
+/// - dispatch non-PDF conversion in-process and delegate PDF to `cli_pdf`
+/// - emit markdown and metadata sidecar
 /// - optionally emit metadata sidecar
 ///
 /// Non-goal:
 /// - does not implement format-specific parsing strategy
-async fn cmd_convert(
+pub async fn cmd_convert(
   input : String,
   output : String?,
   out_dir : String?,
@@ -30,130 +31,13 @@ async fn cmd_convert(
 }
 
 ///|
-async fn cmd_ocr(
-  input : String,
-  output : String?,
-  provider_name : String?,
-  lang_arg : String?,
-  with_metadata : Bool,
-) -> Unit {
-  match run_ocr_cli(input, output, provider_name, lang_arg, with_metadata) {
-    Ok(_) => ()
-    Err(msg) => exit_error(msg)
-  }
-}
-
-///|
-async fn run_ocr_cli(
-  input : String,
-  output : String?,
-  provider_name : String?,
-  lang_arg : String?,
-  with_metadata : Bool,
-) -> Result[Unit, String] {
-  let provider = provider_name
-    .map(fn(name) { name.trim().to_owned() })
-    .unwrap_or("tesseract-cli")
-  let langs = parse_ocr_lang_arg(lang_arg)
-  let image_format = detect_ocr_image_format(input)
-
-  if image_format != None {
-    let options = @pdfocr.make_ocr_options(langs, None, !with_metadata)
-    return run_image_ocr_cli(provider, input, output, options)
-  }
-
-  if detect_input_format(input) == "pdf" {
-    if provider == "tesseract-cli" || provider == "" {
-      return convert_once(
-        input,
-        output,
-        None,
-        6,
-        Some("ocr"),
-        false,
-        false,
-        false,
-        with_metadata,
-      )
-    }
-
-    return Err(
-      "direct PDF OCR is not implemented for provider " +
-      provider +
-      "; use image input or a future OCRmyPDF/provider route",
-    )
-  }
-
-  Err(
-    "OCR input type is unsupported for provider mode: " +
-    input +
-    " (supported image inputs: png/jpg/jpeg/tif/tiff/bmp/webp; PDF stays on explicit PDF OCR path)",
-  )
-}
-
-///|
 pub fn exit_error(msg : String) -> Unit {
   println("error: " + msg)
+  @sys.exit(1)
 }
 
 ///|
-async fn run_image_ocr_cli(
-  provider_name : String,
-  input : String,
-  output : String?,
-  options : @pdfocr.OcrOptions,
-) -> Result[Unit, String] {
-  let provider = if provider_name.trim() == "" {
-    "tesseract-cli"
-  } else {
-    provider_name.trim().to_owned()
-  }
-
-  if !is_known_image_ocr_provider(provider) {
-    return Err("unknown OCR provider: " + provider)
-  }
-
-  let probed = @pdfocr.probe_known_ocr_provider(provider)
-  match probed {
-    Some(info) =>
-      if !info.available {
-        return Err(render_unavailable_ocr_provider_message(info))
-      }
-    None => ()
-  }
-
-  let page = match
-    @pdfocr.recognize_page_with_ocr_provider(provider, 0, input, options) {
-    Ok(page) => page
-    Err(err) => return Err(render_ocr_provider_error(provider, err))
-  }
-
-  match output {
-    Some(path) => {
-      let parent = dirname_of_path(path)
-      ensure_dir_tree(parent) catch {
-        e => return Err("create OCR output dir failed: " + e.to_string())
-      }
-      @fs.write_string_to_file(path, page.text, encoding="utf8") catch {
-        e => return Err("write OCR output failed: " + e.to_string())
-      }
-    }
-    None => println(page.text)
-  }
-
-  Ok(())
-}
-
-///|
-fn is_known_image_ocr_provider(name : String) -> Bool {
-  name == "noop" ||
-  name == "tesseract-cli" ||
-  name == "ocrmypdf-cli" ||
-  name == "paddleocr"
-}
-
-///|
-async fn convert_once(
+pub async fn convert_once(
   input : String,
   output : String?,
   out_dir : String?,
@@ -166,6 +50,22 @@ async fn convert_once(
 ) -> Result[Unit, String] {
   let resolved_output = resolve_output_path(input, output)
   let format = detect_input_format(input)
+  if format == "pdf" {
+    if pdf_mode is Some(mode) && mode.trim() != "" {
+      return Err(
+        "pdf OCR/debug modes moved out of the normal cli; use cli_pdf for normal PDF conversion, cli_ocr for explicit OCR, or cli_debug for debug inspect",
+      )
+    }
+    if pdf_extract_debug || pdf_dump_selected_raw || pdf_pipeline_debug {
+      return Err(
+        "pdf debug extraction moved to cli_debug; the normal cli only delegates plain PDF conversion via cli_pdf",
+      )
+    }
+    return delegate_pdf_conversion(input, output, with_metadata)
+  }
+  if format == "zip" {
+    return delegate_zip_conversion(input, output, with_metadata)
+  }
   let xlsx_profile_enabled = format == "xlsx" && debug_profile_xlsx_enabled()
   let csv_profile_enabled = (format == "csv" || format == "tsv") &&
     debug_profile_csv_enabled()
@@ -173,13 +73,11 @@ async fn convert_once(
   let txt_profile_enabled = format == "txt" && debug_profile_txt_enabled()
   let yaml_profile_enabled = (format == "yaml" || format == "yml") &&
     debug_profile_yaml_enabled()
-  let zip_profile_enabled = format == "zip" && debug_profile_zip_enabled()
   let xlsx_profile_report : Ref[@xlsx.XlsxProfileReport?] = { val: None }
   let csv_profile_report : Ref[@csv.CsvProfileReport?] = { val: None }
   let json_profile_report : Ref[@json.JsonProfileReport?] = { val: None }
   let txt_profile_report : Ref[@txt.TxtProfileReport?] = { val: None }
   let yaml_profile_report : Ref[@yaml.YamlProfileReport?] = { val: None }
-  let zip_profile_report : Ref[@zipconv.ZipProfileReport?] = { val: None }
 
   let output_root_opt = match out_dir {
     Some(d) => Some(d)
@@ -195,15 +93,6 @@ async fn convert_once(
     ensure_dir_tree(out_root) catch {
       e => return Err(e.to_string())
     }
-  }
-
-  let opts : @conv.ConvertOptions = {
-    out_dir: output_root_opt,
-    max_heading: Some(max_heading),
-    pdf_enhance_mode: pdf_mode,
-    pdf_extract_debug,
-    pdf_dump_selected_raw,
-    pdf_pipeline_debug,
   }
 
   let parse_started = @env.now()
@@ -271,20 +160,8 @@ async fn convert_once(
         d
       }
     }
-  } else if zip_profile_enabled {
-    let profiled = @zipconv.parse_zip_with_profile(
-      input, parse_out_dir, max_heading,
-    ) catch {
-      e => return Err("parse failed: " + e.to_string())
-    }
-    match profiled {
-      (d, profile) => {
-        zip_profile_report.val = profile
-        d
-      }
-    }
   } else {
-    match @conv.parse_to_ir(input, opts) {
+    match parse_non_pdf_to_ir(input, format, parse_out_dir, max_heading) {
       Ok(d) => d
       Err(e) => return Err("parse failed: " + e.to_string())
     }
@@ -319,12 +196,6 @@ async fn convert_once(
     @env.now() - parse_started,
     Some("blocks=" + doc.blocks.val.length().to_string()),
   )
-  zip_profile_push_cli_stage(
-    zip_profile_report.val,
-    "cli_parse_total",
-    @env.now() - parse_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
-  )
 
   let emit_started = @env.now()
   let md = @cor.emit_markdown(doc)
@@ -354,12 +225,6 @@ async fn convert_once(
   )
   yaml_profile_push_cli_stage(
     yaml_profile_report.val,
-    "markdown_emit",
-    @env.now() - emit_started,
-    Some("markdown_bytes=" + md.length().to_string()),
-  )
-  zip_profile_push_cli_stage(
-    zip_profile_report.val,
     "markdown_emit",
     @env.now() - emit_started,
     Some("markdown_bytes=" + md.length().to_string()),
@@ -405,12 +270,6 @@ async fn convert_once(
         @env.now() - write_markdown_started,
         Some("path=" + p),
       )
-      zip_profile_push_cli_stage(
-        zip_profile_report.val,
-        "markdown_write",
-        @env.now() - write_markdown_started,
-        Some("path=" + p),
-      )
 
       if with_metadata {
         let markdown_file = @cor.basename(p)
@@ -450,12 +309,6 @@ async fn convert_once(
           @env.now() - docprops_started,
           Some("available=" + document_available),
         )
-        zip_profile_push_cli_stage(
-          zip_profile_report.val,
-          "metadata_document_properties",
-          @env.now() - docprops_started,
-          Some("available=" + document_available),
-        )
         let metadata_emit_started = @env.now()
         let metadata_json = @cor.emit_metadata_json_with_document_properties(
           doc,
@@ -490,12 +343,6 @@ async fn convert_once(
         )
         yaml_profile_push_cli_stage(
           yaml_profile_report.val,
-          "metadata_json_emit",
-          @env.now() - metadata_emit_started,
-          Some("metadata_bytes=" + metadata_json.length().to_string()),
-        )
-        zip_profile_push_cli_stage(
-          zip_profile_report.val,
           "metadata_json_emit",
           @env.now() - metadata_emit_started,
           Some("metadata_bytes=" + metadata_json.length().to_string()),
@@ -541,12 +388,6 @@ async fn convert_once(
           @env.now() - metadata_write_started,
           Some("path=" + metadata_path),
         )
-        zip_profile_push_cli_stage(
-          zip_profile_report.val,
-          "metadata_write",
-          @env.now() - metadata_write_started,
-          Some("path=" + metadata_path),
-        )
       }
 
       let _ = write_xlsx_profile_log_if_enabled(
@@ -584,14 +425,6 @@ async fn convert_once(
       ) catch {
         e => return Err("write yaml profile failed: " + e.to_string())
       }
-      let _ = write_zip_profile_log_if_enabled(
-        zip_profile_report.val,
-        p,
-        with_metadata,
-      ) catch {
-        e => return Err("write zip profile failed: " + e.to_string())
-      }
-
       Ok(())
     }
     None => {
@@ -604,7 +437,317 @@ async fn convert_once(
 }
 
 ///|
-struct BatchItemResult {
+fn parse_non_pdf_to_ir(
+  input_path : String,
+  format : String,
+  out_dir : String,
+  max_heading : Int,
+) -> Result[@cor.Document, Error] {
+  match format {
+    "docx" => try? @doc.parse_docx(input_path, out_dir, max_heading)
+    "xlsx" => try? @xlsx.parse_xlsx(input_path, out_dir, max_heading)
+    "pptx" => try? @pptx.parse_pptx(input_path, out_dir, max_heading)
+    "html" => try? @html.parse_html(input_path, out_dir, max_heading)
+    "htm" => try? @html.parse_html(input_path, out_dir, max_heading)
+    "csv" => try? @csv.parse_csv(input_path, out_dir, max_heading)
+    "tsv" => try? @csv.parse_tsv(input_path, out_dir, max_heading)
+    "txt" => try? @txt.parse_txt(input_path, out_dir, max_heading)
+    "xml" => try? @xml.parse_xml(input_path, out_dir, max_heading)
+    "json" => try? @json.parse_json(input_path, out_dir, max_heading)
+    "yaml" => try? @yaml.parse_yaml(input_path, out_dir, max_heading)
+    "yml" => try? @yaml.parse_yaml(input_path, out_dir, max_heading)
+    "md" => try? @md.parse_markdown(input_path, out_dir, max_heading)
+    "markdown" => try? @md.parse_markdown(input_path, out_dir, max_heading)
+    "epub" => try? @epub.parse_epub(input_path, out_dir, max_heading)
+    _ => Err(@cor.AppError("Unsupported file type: " + format))
+  }
+}
+
+///|
+async fn delegate_pdf_conversion(
+  input : String,
+  output : String?,
+  with_metadata : Bool,
+) -> Result[Unit, String] {
+  delegate_external_conversion(
+    "PDF conversion",
+    "cli_pdf",
+    "MARKITDOWN_PDF_CLI",
+    external_worker_args(input, output, with_metadata),
+    output,
+  )
+}
+
+///|
+async fn delegate_zip_conversion(
+  input : String,
+  output : String?,
+  with_metadata : Bool,
+) -> Result[Unit, String] {
+  delegate_external_conversion(
+    "ZIP conversion",
+    "cli_zip",
+    "MARKITDOWN_ZIP_CLI",
+    external_worker_args(input, output, with_metadata),
+    output,
+  )
+}
+
+///|
+fn external_worker_args(
+  input : String,
+  output : String?,
+  with_metadata : Bool,
+) -> Array[String] {
+  let args : Array[String] = ["normal"]
+  if with_metadata {
+    args.push("--with-metadata")
+  }
+  args.push(input)
+  match output {
+    Some(out) => args.push(out)
+    None => ()
+  }
+  args
+}
+
+///|
+async fn delegate_external_conversion(
+  capability_name : String,
+  package_name : String,
+  env_name : String,
+  args : Array[String],
+  output : String?,
+) -> Result[Unit, String] {
+  let worker_cli = match
+    resolve_worker_cli_path(capability_name, package_name, env_name) {
+    Ok(path) => path
+    Err(msg) => return Err(msg)
+  }
+
+  let delegated = @process.collect_output(worker_cli, args) catch {
+    e =>
+      return Err(
+        "launch " +
+        package_name +
+        " failed: " +
+        e.to_string() +
+        ". Run `moon build " +
+        package_name +
+        " --target native` or set " +
+        env_name,
+      )
+  }
+
+  match delegated {
+    (0, stdout, stderr) => {
+      let stdout_text = stdout.text()
+      let stderr_text = stderr.text()
+      if output == None && stdout_text != "" {
+        @stdio.stdout.write(stdout_text)
+      }
+      if stderr_text != "" {
+        @stdio.stderr.write(stderr_text)
+      }
+      Ok(())
+    }
+    (code, stdout, stderr) => {
+      let stderr_text = stderr.text().trim().to_owned()
+      let stdout_text = stdout.text().trim().to_owned()
+      let raw_message = if stderr_text != "" {
+        stderr_text
+      } else if stdout_text != "" {
+        stdout_text
+      } else {
+        package_name + " exited with code " + code.to_string()
+      }
+      Err(strip_error_prefix(raw_message))
+    }
+  }
+}
+
+///|
+fn resolve_worker_cli_path(
+  capability_name : String,
+  package_name : String,
+  env_name : String,
+) -> Result[String, String] {
+  match @sys.get_env_var(env_name) {
+    Some(raw) => {
+      let override_path = raw.trim().to_owned()
+      if override_path == "" {
+        Err(
+          env_name +
+          " is set but empty; run `moon build " +
+          package_name +
+          " --target native` or point " +
+          env_name +
+          " at an executable " +
+          package_name +
+          " binary",
+        )
+      } else if @fs.path_exists(override_path) {
+        Ok(override_path)
+      } else {
+        Err(
+          env_name +
+          " points to a missing path: " +
+          override_path +
+          ". Run `moon build " +
+          package_name +
+          " --target native` or fix " +
+          env_name,
+        )
+      }
+    }
+    None => {
+      for candidate in worker_cli_candidates(package_name) {
+        if candidate != "" && @fs.path_exists(candidate) {
+          return Ok(candidate)
+        }
+      }
+      Err(
+        capability_name +
+        " is provided by " +
+        package_name +
+        "; run `moon build " +
+        package_name +
+        " --target native` or set " +
+        env_name,
+      )
+    }
+  }
+}
+
+///|
+fn worker_cli_candidates(package_name : String) -> Array[String] {
+  let out : Array[String] = []
+  add_worker_cli_candidate(out, infer_sibling_worker_path(package_name))
+  add_worker_cli_candidate(
+    out,
+    Some(
+      "_build/native/debug/build/" + package_name + "/" + package_name + ".exe",
+    ),
+  )
+  add_worker_cli_candidate(
+    out,
+    Some(
+      "_build/native/release/build/" +
+      package_name +
+      "/" +
+      package_name +
+      ".exe",
+    ),
+  )
+  add_worker_cli_candidate(
+    out,
+    Some("target/native/debug/build/" + package_name + "/" + package_name),
+  )
+  add_worker_cli_candidate(
+    out,
+    Some("target/native/release/build/" + package_name + "/" + package_name),
+  )
+  out
+}
+
+///|
+fn add_worker_cli_candidate(out : Array[String], path : String?) -> Unit {
+  match path {
+    Some(candidate) => {
+      let normalized = candidate.trim().to_owned()
+      if normalized == "" {
+        return
+      }
+      for existing in out {
+        if existing == normalized {
+          return
+        }
+      }
+      out.push(normalized)
+    }
+    None => ()
+  }
+}
+
+///|
+fn infer_sibling_worker_path(package_name : String) -> String? {
+  let cli_args = @sys.get_cli_args()
+  if cli_args.length() == 0 {
+    return None
+  }
+
+  let argv0 = cli_args[0].trim().to_owned()
+  if argv0 == "" || (!argv0.contains("/") && !argv0.contains("\\")) {
+    return None
+  }
+
+  let current_dir = dirname_of_path(argv0)
+  let build_dir = dirname_of_path(current_dir)
+  Some(join_path(join_path(build_dir, package_name), package_name + ".exe"))
+}
+
+///|
+fn strip_error_prefix(text : String) -> String {
+  let trimmed = text.trim().to_owned()
+  if trimmed.has_prefix("error: ") {
+    trimmed[7:].trim().to_owned()
+  } else {
+    trimmed
+  }
+}
+
+///|
+pub fn write_document_output(
+  input : String,
+  format : String,
+  doc : @cor.Document,
+  output : String?,
+  with_metadata : Bool,
+) -> Result[Unit, String] {
+  let resolved_output = resolve_output_path(input, output)
+  let md = @cor.emit_markdown(doc)
+
+  match resolved_output {
+    Some(p) => {
+      let parent = dirname_of_path(p)
+      ensure_dir_tree(parent) catch {
+        e => return Err("create output dir failed: " + e.to_string())
+      }
+      @fs.write_string_to_file(p, md, encoding="utf8") catch {
+        e => return Err("write output failed: " + e.to_string())
+      }
+
+      if with_metadata {
+        let markdown_file = @cor.basename(p)
+        let document = read_document_properties(input, format)
+        let metadata_json = @cor.emit_metadata_json_with_document_properties(
+          doc,
+          @cor.basename(input),
+          format,
+          markdown_file,
+          document,
+        )
+        let metadata_path = metadata_output_path(p)
+        let metadata_dir = dirname_of_path(metadata_path)
+        ensure_dir_tree(metadata_dir) catch {
+          e => return Err("create metadata dir failed: " + e.to_string())
+        }
+        @fs.write_string_to_file(metadata_path, metadata_json, encoding="utf8") catch {
+          e => return Err("write metadata failed: " + e.to_string())
+        }
+      }
+
+      Ok(())
+    }
+    None => {
+      println(md)
+      Ok(())
+    }
+  }
+}
+
+///|
+priv struct BatchItemResult {
   index : Int
   input_path : String
   output_md : String?
@@ -615,7 +758,7 @@ struct BatchItemResult {
 }
 
 ///|
-struct BatchRunResult {
+pub struct BatchRunResult {
   total_count : Int
   success_count : Int
   failure_count : Int
@@ -626,7 +769,7 @@ struct BatchRunResult {
 }
 
 ///|
-fn batch_summary_line(result : BatchRunResult) -> String {
+pub fn batch_summary_line(result : BatchRunResult) -> String {
   "batch summary: " +
   result.success_count.to_string() +
   " ok, " +
@@ -642,7 +785,7 @@ fn batch_summary_line(result : BatchRunResult) -> String {
 }
 
 ///|
-async fn run_batch(
+pub async fn run_batch(
   input_dir : String,
   output_dir : String,
   with_metadata : Bool,
@@ -763,13 +906,13 @@ async fn run_batch(
 }
 
 ///|
-enum BatchInputKind {
+priv enum BatchInputKind {
   File
   Directory
 }
 
 ///|
-struct BatchInputEntry {
+priv struct BatchInputEntry {
   path : String
   kind : BatchInputKind
 }
@@ -912,7 +1055,7 @@ fn elapsed_ms_since(started : Int64) -> Int {
 }
 
 ///|
-fn resolve_output_path(input : String, output : String?) -> String? {
+pub fn resolve_output_path(input : String, output : String?) -> String? {
   match output {
     None => None
     Some(raw) => {
@@ -949,7 +1092,7 @@ fn looks_like_output_dir(path : String) -> Bool {
 }
 
 ///|
-fn dirname_of_path(path : String) -> String {
+pub fn dirname_of_path(path : String) -> String {
   let chars = path.to_array()
   let mut last = -1
   for i in 0..<chars.length() {
@@ -965,7 +1108,7 @@ fn dirname_of_path(path : String) -> String {
 }
 
 ///|
-fn join_path(dir : String, file : String) -> String {
+pub fn join_path(dir : String, file : String) -> String {
   if dir.has_suffix("/") {
     dir + file
   } else {
@@ -974,7 +1117,7 @@ fn join_path(dir : String, file : String) -> String {
 }
 
 ///|
-fn input_stem(path : String) -> String {
+pub fn input_stem(path : String) -> String {
   let base = @cor.basename(path)
   let mut dot = -1
   for i in 0..<base.length() {
@@ -990,7 +1133,7 @@ fn input_stem(path : String) -> String {
 }
 
 ///|
-fn metadata_output_path(markdown_path : String) -> String {
+pub fn metadata_output_path(markdown_path : String) -> String {
   let base = @cor.basename(markdown_path)
   let dir = dirname_of_path(markdown_path)
 
@@ -1009,7 +1152,7 @@ fn metadata_output_path(markdown_path : String) -> String {
 }
 
 ///|
-fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
+pub fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
   let normalized = path.trim().to_owned()
   if normalized == "" || normalized == "." {
     return
@@ -1043,7 +1186,7 @@ fn ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
 }
 
 ///|
-fn read_document_properties(
+pub fn read_document_properties(
   input : String,
   format : String,
 ) -> @cor.MetadataDocumentProperties? {
@@ -1112,17 +1255,6 @@ fn debug_profile_yaml_enabled() -> Bool {
 }
 
 ///|
-fn debug_profile_zip_enabled() -> Bool {
-  match @sys.get_env_var("MARKITDOWN_PROFILE_ZIP") {
-    Some(raw) => {
-      let value = raw.trim().to_lower()
-      value == "1" || value == "true" || value == "yes" || value == "on"
-    }
-    None => false
-  }
-}
-
-///|
 fn xlsx_profile_push_cli_stage(
   profile : @xlsx.XlsxProfileReport?,
   name : String,
@@ -1170,16 +1302,6 @@ fn yaml_profile_push_cli_stage(
   detail : String?,
 ) -> Unit {
   @yaml.yaml_profile_add_stage(profile, name, elapsed_ms, detail)
-}
-
-///|
-fn zip_profile_push_cli_stage(
-  profile : @zipconv.ZipProfileReport?,
-  name : String,
-  elapsed_ms : UInt64,
-  detail : String?,
-) -> Unit {
-  @zipconv.zip_profile_add_stage(profile, name, elapsed_ms, detail)
 }
 
 ///|
@@ -1328,35 +1450,6 @@ fn write_yaml_profile_log_if_enabled(
 }
 
 ///|
-fn write_zip_profile_log_if_enabled(
-  profile : @zipconv.ZipProfileReport?,
-  markdown_path : String,
-  with_metadata : Bool,
-) -> Unit raise @fs.IOError {
-  match profile {
-    None => ()
-    Some(rep) => {
-      let debug_dir = join_path(dirname_of_path(markdown_path), "debug")
-      ensure_dir_tree(debug_dir)
-      let profile_path = join_path(
-        debug_dir,
-        input_stem(markdown_path) + ".zip.profile.log",
-      )
-      let lines : Array[String] = [
-        @zipconv.zip_profile_render_report(rep),
-        "zip_profile cli markdown_output=" + markdown_path,
-        "zip_profile cli metadata_enabled=" + with_metadata.to_string(),
-      ]
-      @fs.write_string_to_file(
-        profile_path,
-        lines.join("\n") + "\n",
-        encoding="utf8",
-      )
-    }
-  }
-}
-
-///|
 fn read_ooxml_document_properties(
   input : String,
 ) -> @cor.MetadataDocumentProperties? {
@@ -1418,7 +1511,7 @@ fn read_epub_document_properties(
 }
 
 ///|
-fn detect_input_format(path : String) -> String {
+pub fn detect_input_format(path : String) -> String {
   let base = @cor.basename(path).to_lower()
   if base.has_suffix(".docx") {
     "docx"
@@ -1454,7 +1547,7 @@ fn detect_input_format(path : String) -> String {
 }
 
 ///|
-fn detect_ocr_image_format(path : String) -> String? {
+pub fn detect_ocr_image_format(path : String) -> String? {
   let base = @cor.basename(path).to_lower()
   if base.has_suffix(".png") {
     Some("png")
@@ -1472,7 +1565,7 @@ fn detect_ocr_image_format(path : String) -> String? {
 }
 
 ///|
-fn parse_ocr_lang_arg(raw : String?) -> Array[String] {
+pub fn parse_ocr_lang_arg(raw : String?) -> Array[String] {
   match raw {
     Some(value) => {
       let trimmed = value.trim().to_owned()
@@ -1490,36 +1583,5 @@ fn parse_ocr_lang_arg(raw : String?) -> Array[String] {
       }
     }
     None => []
-  }
-}
-
-///|
-fn render_unavailable_ocr_provider_message(
-  info : @pdfocr.OcrProviderInfo,
-) -> String {
-  let base = info.name +
-    " unavailable: install Tesseract and language data, or choose another provider"
-  match info.unavailable_reason {
-    Some(reason) =>
-      if reason.trim() == "" {
-        base
-      } else {
-        base + " (" + reason + ")"
-      }
-    None => base
-  }
-}
-
-///|
-fn render_ocr_provider_error(
-  provider_name : String,
-  err : @pdfocr.OcrProviderError,
-) -> String {
-  match err.kind {
-    @pdfocr.OcrProviderErrorKind::UnknownProvider =>
-      "unknown OCR provider: " + provider_name
-    @pdfocr.OcrProviderErrorKind::Unavailable => err.message
-    @pdfocr.OcrProviderErrorKind::NotImplemented => err.message
-    @pdfocr.OcrProviderErrorKind::RecognitionFailed => err.message
   }
 }

@@ -1,7 +1,7 @@
 ///|
 test "pdf error classifier maps detail kinds" {
   let encrypted = classify_pdf_error(
-    PdfError::AdapterFailed("open failed: encrypted document"),
+    @api.make_pdf_adapter_failed_error("open failed: encrypted document"),
   )
   match encrypted.kind {
     PdfErrorKind::Encrypted => ()
@@ -14,7 +14,7 @@ test "pdf error classifier maps detail kinds" {
   assert_eq(encrypted.message, "AdapterFailed: open failed: encrypted document")
 
   let partial = classify_pdf_error(
-    PdfError::BuildFailed("raw pages length != block pages length"),
+    @api.make_pdf_build_failed_error("raw pages length != block pages length"),
   )
   match partial.kind {
     PdfErrorKind::PartialPageFailure => ()
@@ -26,7 +26,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let object_stream = classify_pdf_error(
-    PdfError::Unsupported("object stream not supported"),
+    @api.make_pdf_unsupported_error("object stream not supported"),
   )
   match object_stream.kind {
     PdfErrorKind::UnsupportedObjectStream => ()
@@ -38,7 +38,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let filter = classify_pdf_error(
-    PdfError::Unsupported("unsupported filter /LZWDecode"),
+    @api.make_pdf_unsupported_error("unsupported filter /LZWDecode"),
   )
   match filter.kind {
     PdfErrorKind::UnsupportedFilter => ()
@@ -50,7 +50,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let malformed = classify_pdf_error(
-    PdfError::AdapterFailed("malformed content stream"),
+    @api.make_pdf_adapter_failed_error("malformed content stream"),
   )
   match malformed.kind {
     PdfErrorKind::MalformedContentStream => ()
@@ -65,7 +65,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let font_encoding = classify_pdf_error(
-    PdfError::Unsupported("missing font encoding"),
+    @api.make_pdf_unsupported_error("missing font encoding"),
   )
   match font_encoding.kind {
     PdfErrorKind::MissingFontEncoding => ()
@@ -77,7 +77,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let to_unicode = classify_pdf_error(
-    PdfError::Unsupported("bad ToUnicode map"),
+    @api.make_pdf_unsupported_error("bad ToUnicode map"),
   )
   match to_unicode.kind {
     PdfErrorKind::BadToUnicode => ()
@@ -89,7 +89,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let low_signal = classify_pdf_error(
-    PdfError::Unsupported("low signal extraction"),
+    @api.make_pdf_unsupported_error("low signal extraction"),
   )
   match low_signal.kind {
     PdfErrorKind::LowSignalExtraction => ()
@@ -101,7 +101,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let adapter = classify_pdf_error(
-    PdfError::AdapterFailed("open failed: missing file"),
+    @api.make_pdf_adapter_failed_error("open failed: missing file"),
   )
   match adapter.kind {
     PdfErrorKind::AdapterFailed => ()
@@ -113,7 +113,7 @@ test "pdf error classifier maps detail kinds" {
   }
 
   let unsupported = classify_pdf_error(
-    PdfError::Unsupported("some unsupported detail"),
+    @api.make_pdf_unsupported_error("some unsupported detail"),
   )
   match unsupported.kind {
     PdfErrorKind::Unsupported => ()
@@ -128,7 +128,7 @@ test "pdf error classifier maps detail kinds" {
 ///|
 test "pdf error classifier avoids over-reporting reserved kinds" {
   let malformed = classify_pdf_error(
-    PdfError::AdapterFailed("invalid pdf trailer"),
+    @api.make_pdf_adapter_failed_error("invalid pdf trailer"),
   )
   match malformed.kind {
     PdfErrorKind::Malformed => ()
@@ -140,7 +140,7 @@ test "pdf error classifier avoids over-reporting reserved kinds" {
   }
 
   let generic_build = classify_pdf_error(
-    PdfError::BuildFailed("unexpected internal build failure"),
+    @api.make_pdf_build_failed_error("unexpected internal build failure"),
   )
   match generic_build.kind {
     PdfErrorKind::BuildFailed => ()
@@ -152,7 +152,7 @@ test "pdf error classifier avoids over-reporting reserved kinds" {
   }
 
   let generic_unsupported = classify_pdf_error(
-    PdfError::Unsupported("unsupported annotation subtype"),
+    @api.make_pdf_unsupported_error("unsupported annotation subtype"),
   )
   match generic_unsupported.kind {
     PdfErrorKind::Unsupported => ()
@@ -190,7 +190,7 @@ test "pdf typed issue classifier helpers prefer inspect issues" {
   }
 
   let err = classify_pdf_error_with_issues(
-    PdfError::BuildFailed("generic build failure"),
+    @api.make_pdf_build_failed_error("generic build failure"),
     [issue],
   )
   match err.kind {
@@ -222,7 +222,7 @@ test "pdf raw warning issues do not over-promote reserved kinds" {
   }
 
   let info = classify_pdf_error_with_issues(
-    PdfError::Unsupported("unsupported filter /LZWDecode"),
+    @api.make_pdf_unsupported_error("unsupported filter /LZWDecode"),
     [raw_warning],
   )
   match info.kind {

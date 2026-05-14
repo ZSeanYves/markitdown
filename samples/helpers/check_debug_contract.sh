@@ -9,7 +9,7 @@ OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "debug_contract")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
-resolve_markitdown_cli
+resolve_markitdown_debug_cli
 echo "runner: $CLI_RUNNER_KIND"
 echo "runner_class: $(runner_class_for_kind "$CLI_RUNNER_KIND")"
 echo "runner_command: $(markitdown_runner_command_prefix)"
@@ -31,7 +31,7 @@ assert_contains() {
 run_debug_json() {
   local input="$1"
   local out="$2"
-  run_markitdown_cli debug --json "$input" > "$out"
+  run_markitdown_debug_cli --json "$input" > "$out"
 }
 
 TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
@@ -77,7 +77,7 @@ assert_contains "$OUT_DIR/docx.json" '"sections"'
 assert_contains "$OUT_DIR/xlsx.json" '"format_specific"'
 
 echo "==> legacy pdf debug remains compatible"
-run_markitdown_cli debug pipeline "$PDF_INPUT" "$OUT_DIR/pdf_legacy.md" > "$OUT_DIR/pdf_legacy.txt"
+run_markitdown_debug_cli pipeline "$PDF_INPUT" "$OUT_DIR/pdf_legacy.md" > "$OUT_DIR/pdf_legacy.txt"
 [[ -f "$OUT_DIR/pdf_legacy.md" ]] || fail "expected legacy pdf debug markdown output"
 assert_contains "$OUT_DIR/pdf_legacy.txt" 'legacy PDF debug mode is deprecated'
 assert_contains "$OUT_DIR/pdf_legacy.txt" 'scope "pipeline" now maps to unified debug inspect output'

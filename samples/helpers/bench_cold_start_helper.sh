@@ -308,11 +308,11 @@ STAGE_SUMMARY_PATH="$OUTPUT_DIR/startup_profile.summary.tsv"
 
 echo "==> cold-start CLI benchmark"
 echo "output_dir: $OUTPUT_DIR"
-DEBUG_BIN="$ROOT/_build/native/debug/build/cli/cli.exe"
-RELEASE_BIN="$ROOT/_build/native/release/build/cli/cli.exe"
+DEBUG_BIN="$ROOT/_build/native/debug/build/cli_bench/cli_bench.exe"
+RELEASE_BIN="$ROOT/_build/native/release/build/cli_bench/cli_bench.exe"
 
 echo "==> refreshing debug native CLI"
-(cd "$ROOT" && moon build --target native >/dev/null)
+(cd "$ROOT" && moon build cli_bench --target native >/dev/null)
 
 [[ -x "$DEBUG_BIN" ]] || { echo "missing debug native CLI binary: $DEBUG_BIN" >&2; exit 1; }
 
@@ -327,7 +327,7 @@ measure_case "normal_txt_small" "debug-native" "$DEBUG_BIN" "normal txt_small ->
 
 release_build_supported=true
 echo "==> refreshing release native CLI"
-if ! (cd "$ROOT" && moon build --target native --release >/dev/null 2>&1); then
+if ! (cd "$ROOT" && moon build cli_bench --target native --release >/dev/null 2>&1); then
   release_build_supported=false
 fi
 

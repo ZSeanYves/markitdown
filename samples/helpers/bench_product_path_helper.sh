@@ -301,17 +301,17 @@ echo "==> product-path attribution benchmark"
 echo "manifest: $MANIFEST_PATH"
 echo "output_dir: $OUTPUT_DIR"
 echo "==> warming Moon build"
-(cd "$ROOT" && moon build --target native)
+(cd "$ROOT" && moon build cli_bench --target native)
 
 CLI_BIN=""
 while IFS= read -r candidate; do
   [[ -n "$candidate" ]] || continue
   CLI_BIN="$candidate"
   break
-done < <(find "$ROOT/_build/native" -path "*/cli/*.exe" -type f 2>/dev/null | sort)
+done < <(find "$ROOT/_build/native" -path "*/cli_bench/*.exe" -type f 2>/dev/null | sort)
 
 if [[ -z "$CLI_BIN" || ! -x "$CLI_BIN" ]]; then
-  echo "failed to locate native CLI binary under _build/native" >&2
+  echo "failed to locate native cli_bench binary under _build/native" >&2
   exit 1
 fi
 

@@ -185,6 +185,30 @@ fn make_layout_assist_prediction(
 }
 
 ///|
+fn looks_like_image_caption_prefix(text : String) -> Bool {
+  let trimmed = text.trim().to_owned()
+  let lower = trimmed.to_lower()
+  lower.has_prefix("figure ") ||
+  lower.has_prefix("figure") ||
+  lower.has_prefix("fig. ") ||
+  lower.has_prefix("fig.") ||
+  lower.has_prefix("image ") ||
+  lower.has_prefix("photo ") ||
+  trimmed.has_prefix("图 ") ||
+  trimmed.has_prefix("图") ||
+  trimmed.has_prefix("图片 ")
+}
+
+///|
+fn looks_like_table_caption_prefix(text : String) -> Bool {
+  let trimmed = text.trim().to_owned()
+  let lower = trimmed.to_lower()
+  lower.has_prefix("table ") ||
+  lower.has_prefix("table") ||
+  trimmed.has_prefix("表 ")
+}
+
+///|
 pub fn summarize_layout_assist_predictions(
   features : Array[LayoutAssistFeature],
   predictions : Array[LayoutAssistPrediction],

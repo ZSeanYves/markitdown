@@ -164,7 +164,7 @@ pub struct PdfDocumentInspectReport {
 
 ///|
 /// Classify a public PDF error into a structured kind/message pair.
-pub fn classify_pdf_error(err : PdfError) -> PdfErrorInfo {
+pub fn classify_pdf_error(err : @api.PdfError) -> PdfErrorInfo {
   let message = err.to_string()
   let detail = pdf_error_detail(err)
   let lower = detail.to_lower()
@@ -191,7 +191,7 @@ pub fn classify_pdf_inspect_issue(issue : PdfInspectIssue) -> PdfErrorInfo? {
 /// Prefer typed inspect issues when they provide a stronger classification than
 /// a top-level error variant alone.
 pub fn classify_pdf_error_with_issues(
-  err : PdfError,
+  err : @api.PdfError,
   issues : Array[PdfInspectIssue],
 ) -> PdfErrorInfo {
   for issue in issues {
@@ -226,10 +226,10 @@ pub fn inspect_pdf_document(
 /// Structured report entrypoint for path-based consumers.
 pub async fn extract_document_inspect_report(
   path : String,
-  config : PdfConfig,
-) -> Result[PdfDocumentInspectReport, PdfError] {
-  match extract_document_debug_bundle(path, config) {
-    Ok(bundle) => Ok(inspect_pdf_document_core(Some(bundle.raw), bundle.doc))
+  config : @api.PdfConfig,
+) -> Result[PdfDocumentInspectReport, @api.PdfError] {
+  match @api.extract_document_raw_model(path, config) {
+    Ok((raw, doc)) => Ok(inspect_pdf_document_core(Some(raw), doc))
     Err(err) => Err(err)
   }
 }
@@ -429,18 +429,18 @@ fn inspect_pdf_document_core(
 
 ///|
 fn classify_pdf_error_kind(
-  err : PdfError,
+  err : @api.PdfError,
   lower : String,
 ) -> (PdfErrorKind, PdfErrorMappingKind) {
   match classify_best_effort_pdf_error_kind(lower) {
     Some(kind) => (kind, PdfErrorMappingKind::BestEffortMessage)
     None =>
       match err {
-        PdfError::AdapterFailed(_) =>
+        @api.PdfError::AdapterFailed(_) =>
           (PdfErrorKind::AdapterFailed, PdfErrorMappingKind::DirectVariant)
-        PdfError::BuildFailed(_) =>
+        @api.PdfError::BuildFailed(_) =>
           (PdfErrorKind::BuildFailed, PdfErrorMappingKind::DirectVariant)
-        PdfError::Unsupported(_) =>
+        @api.PdfError::Unsupported(_) =>
           (PdfErrorKind::Unsupported, PdfErrorMappingKind::DirectVariant)
       }
   }
@@ -519,11 +519,11 @@ fn classify_best_effort_pdf_error_kind(lower : String) -> PdfErrorKind? {
 }
 
 ///|
-fn pdf_error_detail(err : PdfError) -> String {
+fn pdf_error_detail(err : @api.PdfError) -> String {
   match err {
-    PdfError::AdapterFailed(msg) => msg
-    PdfError::BuildFailed(msg) => msg
-    PdfError::Unsupported(msg) => msg
+    @api.PdfError::AdapterFailed(msg) => msg
+    @api.PdfError::BuildFailed(msg) => msg
+    @api.PdfError::Unsupported(msg) => msg
   }
 }
 

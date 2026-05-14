@@ -119,7 +119,42 @@ async fn cmd_debug_legacy_pdf(
     }
   }
 
-  cmd_convert(input, output, None, 6, None, false, false, false, with_metadata)
+  let resolved_output = @clisup.resolve_output_path(input, output)
+  let output_root_opt = match resolved_output {
+    Some(path) => Some(@clisup.dirname_of_path(path))
+    None => None
+  }
+  let parse_out_dir = output_root_opt.unwrap_or("")
+
+  if output_root_opt is Some(out_root) {
+    @clisup.ensure_dir_tree(out_root) catch {
+      e => {
+        exit_error("create output dir failed: " + e.to_string())
+        return
+      }
+    }
+  }
+
+  let doc = @pdfconv.parse_pdf(
+    input,
+    parse_out_dir,
+    6,
+    None,
+    false,
+    false,
+    false,
+  ) catch {
+    e => {
+      exit_error("parse failed: " + e.to_string())
+      return
+    }
+  }
+
+  match
+    @clisup.write_document_output(input, "pdf", doc, output, with_metadata) {
+    Ok(_) => ()
+    Err(msg) => exit_error(msg)
+  }
 }
 
 ///|
@@ -144,7 +179,7 @@ async fn render_provider_listing(
   }
 
   let layout_infos = if include_layout_assist {
-    @pdfconv.list_layout_assist_providers()
+    @pdfdebug.list_layout_assist_providers()
   } else {
     []
   }
@@ -164,7 +199,7 @@ async fn render_provider_listing(
 ///|
 fn render_provider_listing_json(
   ocr_infos : Array[@pdfocr.OcrProviderInfo],
-  layout_infos : Array[@pdfconv.LayoutAssistProviderInfo],
+  layout_infos : Array[@pdfdebug.LayoutAssistProviderInfo],
   include_ocr : Bool,
   include_layout_assist : Bool,
   probe : Bool,
@@ -206,7 +241,7 @@ fn render_provider_listing_json(
 ///|
 fn render_provider_listing_text(
   ocr_infos : Array[@pdfocr.OcrProviderInfo],
-  layout_infos : Array[@pdfconv.LayoutAssistProviderInfo],
+  layout_infos : Array[@pdfdebug.LayoutAssistProviderInfo],
   include_ocr : Bool,
   include_layout_assist : Bool,
   probe : Bool,
@@ -303,7 +338,7 @@ async fn collect_layout_assist_eval_rows(
           e.to_string(),
         )
     }
-    let summary = @pdfconv.build_pdf_layout_assist_summary(model, 6)
+    let summary = @pdfdebug.build_pdf_layout_assist_summary(model, 6)
     let provider = choose_layout_assist_eval_provider(summary)
     let mode = choose_layout_assist_eval_mode(summary)
     rows.push({
@@ -495,7 +530,7 @@ fn layout_assist_eval_row_json(row : LayoutAssistEvalRow) -> String {
 
 ///|
 fn choose_layout_assist_eval_provider(
-  summary : @pdfconv.LayoutAssistSummary,
+  summary : @pdfdebug.LayoutAssistSummary,
 ) -> String {
   if summary.predictions.length() > 0 {
     return summary.predictions[0].provider
@@ -510,7 +545,7 @@ fn choose_layout_assist_eval_provider(
 
 ///|
 fn choose_layout_assist_eval_mode(
-  summary : @pdfconv.LayoutAssistSummary,
+  summary : @pdfdebug.LayoutAssistSummary,
 ) -> String {
   if summary.predictions.length() > 0 {
     return layout_assist_mode_name(summary.predictions[0].mode)
@@ -664,7 +699,7 @@ fn render_ocr_provider_json(info : @pdfocr.OcrProviderInfo) -> String {
 
 ///|
 fn render_layout_provider_json(
-  info : @pdfconv.LayoutAssistProviderInfo,
+  info : @pdfdebug.LayoutAssistProviderInfo,
 ) -> String {
   @cor.object_json([
     @cor.json_string("name") + ": " + @cor.json_string(info.name),
@@ -696,7 +731,7 @@ fn render_ocr_provider_text(info : @pdfocr.OcrProviderInfo) -> String {
 
 ///|
 fn render_layout_provider_text(
-  info : @pdfconv.LayoutAssistProviderInfo,
+  info : @pdfdebug.LayoutAssistProviderInfo,
 ) -> String {
   "- " +
   info.name +
@@ -726,11 +761,11 @@ fn ocr_probe_status_name(probed : Bool) -> String {
 }
 
 ///|
-fn layout_assist_mode_name(mode : @pdfconv.LayoutAssistMode) -> String {
+fn layout_assist_mode_name(mode : @pdfdebug.LayoutAssistMode) -> String {
   match mode {
-    @pdfconv.LayoutAssistMode::ReportOnly => "report_only"
-    @pdfconv.LayoutAssistMode::Advisory => "advisory"
-    @pdfconv.LayoutAssistMode::GatedNormal => "gated_normal"
+    @pdfdebug.LayoutAssistMode::ReportOnly => "report_only"
+    @pdfdebug.LayoutAssistMode::Advisory => "advisory"
+    @pdfdebug.LayoutAssistMode::GatedNormal => "gated_normal"
   }
 }
 
@@ -887,7 +922,7 @@ async fn parse_for_debug(input : String, format : String) -> DebugParseResult {
         Ok(doc) => doc
         Err(e) => raise @cor.AppError("pdf inspect failed: " + e.to_string())
       }
-      let pdf_sections = @pdfconv.build_pdf_debug_sections(model, 6)
+      let pdf_sections = @pdfdebug.build_pdf_debug_sections(model, 6)
       let opts : @conv.ConvertOptions = {
         out_dir: None,
         max_heading: Some(6),

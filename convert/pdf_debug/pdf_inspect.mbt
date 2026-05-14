@@ -3,12 +3,12 @@ pub fn build_pdf_debug_sections(
   model : @model.PdfDocumentModel,
   max_heading : Int,
 ) -> Array[@cor.DebugSection] {
-  let doc0 = build_convert_lines(model, "")
-  let doc1 = build_convert_blocks(doc0)
-  let doc2 = classify_convert_blocks(doc1, max_heading)
-  let doc3 = filter_noise_blocks(doc2)
-  let doc4 = merge_convert_blocks(doc3)
-  let doc5 = attach_high_confidence_uri_links(doc4)
+  let doc0 = @pdfcore.build_convert_lines(model, "")
+  let doc1 = @pdfcore.build_convert_blocks(doc0)
+  let doc2 = @pdfcore.classify_convert_blocks(doc1, max_heading)
+  let doc3 = @pdfcore.filter_noise_blocks(doc2)
+  let doc4 = @pdfcore.merge_convert_blocks(doc3)
+  let doc5 = @pdfcore.attach_high_confidence_uri_links(doc4)
 
   [
     pdf_backend_section(model),
@@ -27,9 +27,9 @@ pub fn build_pdf_layout_assist_summary(
   model : @model.PdfDocumentModel,
   max_heading : Int,
 ) -> LayoutAssistSummary {
-  let doc0 = build_convert_lines(model, "")
-  let doc1 = build_convert_blocks(doc0)
-  let doc2 = classify_convert_blocks(doc1, max_heading)
+  let doc0 = @pdfcore.build_convert_lines(model, "")
+  let doc1 = @pdfcore.build_convert_blocks(doc0)
+  let doc2 = @pdfcore.classify_convert_blocks(doc1, max_heading)
   let features = build_layout_assist_features(doc1, doc2)
   let predictions = predict_with_heuristic_layout_assist(features)
   summarize_layout_assist_predictions(features, predictions)
@@ -37,7 +37,7 @@ pub fn build_pdf_layout_assist_summary(
 
 ///|
 fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
-  let report = @api.inspect_pdf_document(model)
+  let report = @pdfinspect.inspect_pdf_document(model)
   @cor.debug_section(
     "pdf_backend",
     "pdf",
@@ -90,7 +90,7 @@ fn pdf_backend_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
 fn pdf_pages_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
   let page_items : Array[String] = []
   let mut raw_content_stream_ref_total = 0
-  let report = @api.inspect_pdf_document(model)
+  let report = @pdfinspect.inspect_pdf_document(model)
 
   for i = 0; i < model.pages.length(); i = i + 1 {
     let page = model.pages[i]
@@ -279,8 +279,8 @@ fn pdf_text_model_section(model : @model.PdfDocumentModel) -> @cor.DebugSection 
 
 ///|
 fn pdf_layout_assist_section(
-  raw_doc : PdfConvertDocument,
-  classified_doc : PdfConvertDocument,
+  raw_doc : @pdfcore.PdfConvertDocument,
+  classified_doc : @pdfcore.PdfConvertDocument,
 ) -> @cor.DebugSection {
   let features = build_layout_assist_features(raw_doc, classified_doc)
   let predictions = predict_with_heuristic_layout_assist(features)
@@ -339,8 +339,8 @@ fn pdf_layout_assist_section(
 
 ///|
 fn build_layout_assist_features(
-  raw_doc : PdfConvertDocument,
-  classified_doc : PdfConvertDocument,
+  raw_doc : @pdfcore.PdfConvertDocument,
+  classified_doc : @pdfcore.PdfConvertDocument,
 ) -> Array[LayoutAssistFeature] {
   let out : Array[LayoutAssistFeature] = []
   let page_count = min_layout_assist_int(
@@ -380,8 +380,8 @@ fn build_layout_assist_features(
 
 ///|
 fn classify_layout_assist_block_hint(
-  raw_block : PdfConvertBlock,
-  classified_block : PdfConvertBlock,
+  raw_block : @pdfcore.PdfConvertBlock,
+  classified_block : @pdfcore.PdfConvertBlock,
 ) -> String? {
   if raw_block.is_caption_candidate {
     return Some("caption")
@@ -393,17 +393,17 @@ fn classify_layout_assist_block_hint(
     return Some("noise")
   }
   match classified_block.kind {
-    PdfConvertBlockKind::Heading => Some("heading")
-    PdfConvertBlockKind::Paragraph => None
-    PdfConvertBlockKind::Noise => Some("noise")
+    @pdfcore.PdfConvertBlockKind::Heading => Some("heading")
+    @pdfcore.PdfConvertBlockKind::Paragraph => None
+    @pdfcore.PdfConvertBlockKind::Noise => Some("noise")
   }
 }
 
 ///|
 fn layout_assist_metrics_json(
-  page : PdfConvertPage,
-  raw_block : PdfConvertBlock,
-  classified_block : PdfConvertBlock,
+  page : @pdfcore.PdfConvertPage,
+  raw_block : @pdfcore.PdfConvertBlock,
+  classified_block : @pdfcore.PdfConvertBlock,
 ) -> String {
   let near_image = block_near_any_image(page.images, raw_block, 18.0)
   @cor.object_json([
@@ -427,8 +427,8 @@ fn layout_assist_metrics_json(
 
 ///|
 fn block_near_any_image(
-  images : Array[PdfConvertImage],
-  block : PdfConvertBlock,
+  images : Array[@pdfcore.PdfConvertImage],
+  block : @pdfcore.PdfConvertBlock,
   threshold : Double,
 ) -> Bool {
   for image in images {
@@ -495,11 +495,11 @@ fn layout_assist_mode_name(mode : LayoutAssistMode) -> String {
 }
 
 ///|
-fn layout_assist_block_kind_name(kind : PdfConvertBlockKind) -> String {
+fn layout_assist_block_kind_name(kind : @pdfcore.PdfConvertBlockKind) -> String {
   match kind {
-    PdfConvertBlockKind::Heading => "heading"
-    PdfConvertBlockKind::Paragraph => "paragraph"
-    PdfConvertBlockKind::Noise => "noise"
+    @pdfcore.PdfConvertBlockKind::Heading => "heading"
+    @pdfcore.PdfConvertBlockKind::Paragraph => "paragraph"
+    @pdfcore.PdfConvertBlockKind::Noise => "noise"
   }
 }
 
@@ -643,19 +643,19 @@ fn pdf_annotations_section(
 }
 
 ///|
-fn pdf_links_section(doc : PdfConvertDocument) -> @cor.DebugSection {
+fn pdf_links_section(doc : @pdfcore.PdfConvertDocument) -> @cor.DebugSection {
   let match_status_counts = Map([])
   let mut matched_link_count = 0
   let mut visible_text_total = 0
 
   for page in doc.pages {
-    for result in match_page_uri_links(page) {
+    for result in @pdfcore.match_page_uri_links(page) {
       let status_name = pdf_uri_link_match_status_name(result.status)
       bump_string_count(match_status_counts, status_name)
 
       match result.status {
-        PdfUriLinkMatchStatus::Matched => matched_link_count += 1
-        PdfUriLinkMatchStatus::NoVisibleText => visible_text_total += 0
+        @pdfcore.PdfUriLinkMatchStatus::Matched => matched_link_count += 1
+        @pdfcore.PdfUriLinkMatchStatus::NoVisibleText => visible_text_total += 0
         _ => ()
       }
 
@@ -684,11 +684,11 @@ fn pdf_links_section(doc : PdfConvertDocument) -> @cor.DebugSection {
 
 ///|
 fn pdf_pipeline_section(
-  doc1 : PdfConvertDocument,
-  doc2 : PdfConvertDocument,
-  doc3 : PdfConvertDocument,
-  doc4 : PdfConvertDocument,
-  doc5 : PdfConvertDocument,
+  doc1 : @pdfcore.PdfConvertDocument,
+  doc2 : @pdfcore.PdfConvertDocument,
+  doc3 : @pdfcore.PdfConvertDocument,
+  doc4 : @pdfcore.PdfConvertDocument,
+  doc5 : @pdfcore.PdfConvertDocument,
   max_heading : Int,
 ) -> @cor.DebugSection {
   let heading_status_counts = Map([])
@@ -706,7 +706,7 @@ fn pdf_pipeline_section(
       } else {
         None
       }
-      let decision = decide_heading_classification(
+      let decision = @pdfcore.decide_heading_classification(
         prev,
         page.blocks[i],
         next,
@@ -720,11 +720,11 @@ fn pdf_pipeline_section(
     }
   }
 
-  let repeated = build_repeated_edge_noise_index(doc2)
+  let repeated = @pdfcore.build_repeated_edge_noise_index(doc2)
   for page in doc2.pages {
     for i = 0; i < page.blocks.length(); i = i + 1 {
       let block = page.blocks[i]
-      let decision = decide_noise_block(page, i, block, repeated)
+      let decision = @pdfcore.decide_noise_block(page, i, block, repeated)
       bump_string_count(
         noise_status_counts,
         pdf_noise_decision_status_name(decision.status),
@@ -734,7 +734,10 @@ fn pdf_pipeline_section(
   }
 
   for i = 1; i < doc3.pages.length(); i = i + 1 {
-    let decision = decide_page_boundary_merge(doc3.pages[i - 1], doc3.pages[i])
+    let decision = @pdfcore.decide_page_boundary_merge(
+      doc3.pages[i - 1],
+      doc3.pages[i],
+    )
     bump_string_count(
       merge_status_counts,
       pdf_merge_decision_status_name(decision.status),
@@ -747,8 +750,8 @@ fn pdf_pipeline_section(
   let mut image_count = 0
   let mut linked_block_count = 0
   for page in doc5.pages {
-    table_candidate_count += detect_pdf_tables(page, false).length()
-    let (captions, _) = infer_page_image_captions(page, false)
+    table_candidate_count += @pdfcore.detect_pdf_tables(page, false).length()
+    let (captions, _) = @pdfcore.infer_page_image_captions(page, false)
     image_count += page.images.length()
     for caption in captions {
       if caption is Some(_) {
@@ -839,7 +842,7 @@ fn pdf_pipeline_section(
 }
 
 ///|
-fn convert_line_count(doc : PdfConvertDocument) -> Int {
+fn convert_line_count(doc : @pdfcore.PdfConvertDocument) -> Int {
   let mut total = 0
   for page in doc.pages {
     total += page.lines.length()
@@ -848,7 +851,7 @@ fn convert_line_count(doc : PdfConvertDocument) -> Int {
 }
 
 ///|
-fn convert_block_count(doc : PdfConvertDocument) -> Int {
+fn convert_block_count(doc : @pdfcore.PdfConvertDocument) -> Int {
   let mut total = 0
   for page in doc.pages {
     total += page.blocks.length()
@@ -935,47 +938,79 @@ fn pdf_writing_direction_name(dir : @model.PdfWritingDirection) -> String {
 
 ///|
 fn pdf_heading_decision_status_name(
-  status : PdfHeadingDecisionStatus,
+  status : @pdfcore.PdfHeadingDecisionStatus,
 ) -> String {
   match status {
-    PdfHeadingDecisionStatus::PromoteHeading => "PromoteHeading"
-    PdfHeadingDecisionStatus::KeepHeading => "KeepHeading"
-    PdfHeadingDecisionStatus::DemoteToParagraph => "DemoteToParagraph"
-    PdfHeadingDecisionStatus::ToNoise => "ToNoise"
-    PdfHeadingDecisionStatus::KeepParagraph => "KeepParagraph"
-    PdfHeadingDecisionStatus::KeepNoise => "KeepNoise"
+    @pdfcore.PdfHeadingDecisionStatus::PromoteHeading => "PromoteHeading"
+    @pdfcore.PdfHeadingDecisionStatus::KeepHeading => "KeepHeading"
+    @pdfcore.PdfHeadingDecisionStatus::DemoteToParagraph => "DemoteToParagraph"
+    @pdfcore.PdfHeadingDecisionStatus::ToNoise => "ToNoise"
+    @pdfcore.PdfHeadingDecisionStatus::KeepParagraph => "KeepParagraph"
+    @pdfcore.PdfHeadingDecisionStatus::KeepNoise => "KeepNoise"
   }
 }
 
 ///|
-fn pdf_noise_decision_status_name(status : PdfNoiseDecisionStatus) -> String {
+fn pdf_noise_decision_status_name(
+  status : @pdfcore.PdfNoiseDecisionStatus,
+) -> String {
   match status {
-    PdfNoiseDecisionStatus::Drop => "Drop"
-    PdfNoiseDecisionStatus::Keep => "Keep"
+    @pdfcore.PdfNoiseDecisionStatus::Drop => "Drop"
+    @pdfcore.PdfNoiseDecisionStatus::Keep => "Keep"
   }
 }
 
 ///|
-fn pdf_merge_decision_status_name(status : PdfMergeDecisionStatus) -> String {
+fn pdf_merge_decision_status_name(
+  status : @pdfcore.PdfMergeDecisionStatus,
+) -> String {
   match status {
-    PdfMergeDecisionStatus::Merge => "Merge"
-    PdfMergeDecisionStatus::KeepSplit => "KeepSplit"
+    @pdfcore.PdfMergeDecisionStatus::Merge => "Merge"
+    @pdfcore.PdfMergeDecisionStatus::KeepSplit => "KeepSplit"
   }
 }
 
 ///|
-fn pdf_uri_link_match_status_name(status : PdfUriLinkMatchStatus) -> String {
+fn pdf_uri_link_match_status_name(
+  status : @pdfcore.PdfUriLinkMatchStatus,
+) -> String {
   match status {
-    PdfUriLinkMatchStatus::Matched => "Matched"
-    PdfUriLinkMatchStatus::RejectedEmptyUri => "RejectedEmptyUri"
-    PdfUriLinkMatchStatus::RejectedUnsupportedScheme =>
+    @pdfcore.PdfUriLinkMatchStatus::Matched => "Matched"
+    @pdfcore.PdfUriLinkMatchStatus::RejectedEmptyUri => "RejectedEmptyUri"
+    @pdfcore.PdfUriLinkMatchStatus::RejectedUnsupportedScheme =>
       "RejectedUnsupportedScheme"
-    PdfUriLinkMatchStatus::RejectedDestOnly => "RejectedDestOnly"
-    PdfUriLinkMatchStatus::RejectedNoBbox => "RejectedNoBbox"
-    PdfUriLinkMatchStatus::RejectedNonLink => "RejectedNonLink"
-    PdfUriLinkMatchStatus::NoVisibleText => "NoVisibleText"
-    PdfUriLinkMatchStatus::Ambiguous => "Ambiguous"
-    PdfUriLinkMatchStatus::TooLarge => "TooLarge"
-    PdfUriLinkMatchStatus::OverlappingAnnotations => "OverlappingAnnotations"
+    @pdfcore.PdfUriLinkMatchStatus::RejectedDestOnly => "RejectedDestOnly"
+    @pdfcore.PdfUriLinkMatchStatus::RejectedNoBbox => "RejectedNoBbox"
+    @pdfcore.PdfUriLinkMatchStatus::RejectedNonLink => "RejectedNonLink"
+    @pdfcore.PdfUriLinkMatchStatus::NoVisibleText => "NoVisibleText"
+    @pdfcore.PdfUriLinkMatchStatus::Ambiguous => "Ambiguous"
+    @pdfcore.PdfUriLinkMatchStatus::TooLarge => "TooLarge"
+    @pdfcore.PdfUriLinkMatchStatus::OverlappingAnnotations =>
+      "OverlappingAnnotations"
   }
+}
+
+///|
+fn is_effectively_empty_pdf_doc(doc : @model.PdfDocumentModel) -> Bool {
+  let mut signal_chars = 0
+
+  for page in doc.pages {
+    for block in page.text_blocks {
+      let text = @model.block_text(block).trim().to_owned()
+      if text == "" {
+        continue
+      }
+
+      for ch in text.to_array() {
+        if ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' {
+          signal_chars += 1
+          if signal_chars >= 24 {
+            return false
+          }
+        }
+      }
+    }
+  }
+
+  true
 }

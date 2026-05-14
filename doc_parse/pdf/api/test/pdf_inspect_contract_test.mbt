@@ -13,6 +13,59 @@ fn resolve_pdf_inspect_sample_path(path : String) -> String raise {
 }
 
 ///|
+fn ensure_test_dir(path : String) -> Unit raise {
+  if path.trim() == "" {
+    return
+  }
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+fn ensure_test_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_test_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn test_tmp_root() -> String {
+  ".tmp"
+}
+
+///|
 async fn write_malformed_annotation_pdf(path : String) -> Unit {
   let pdf0 = @pdf.Pdf::empty()
   let page = @pdfpage.Page::custom(
@@ -54,7 +107,7 @@ async test "pdf inspect report covers text simple sample" {
     "samples/main_process/pdf/text_simple.pdf",
   )
   let report = match
-    @api.extract_document_inspect_report(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_report(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_report failed: " + e.to_string())
   }
@@ -192,7 +245,7 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     raw_content_stream_refs: [],
   }
 
-  let image_info = @api.inspect_pdf_page(image_page)
+  let image_info = @inspect.inspect_pdf_page(image_page)
   if image_info.has_text_signal {
     fail("image-only synthetic page should not claim text signal")
   }
@@ -224,11 +277,11 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     fail("image-only synthetic page should surface only one model issue")
   }
   match image_info.issues[0].kind {
-    @api.PdfInspectIssueKind::LowSignalPage => ()
+    @inspect.PdfInspectIssueKind::LowSignalPage => ()
     _ => fail("image-only synthetic page should report low-signal page")
   }
   match image_info.issues[0].source {
-    @api.PdfInspectIssueSource::Model => ()
+    @inspect.PdfInspectIssueSource::Model => ()
     _ => fail("image-only synthetic page issue should be model-sourced")
   }
   if image_info.issues[0].object_ref is Some(_) ||
@@ -236,12 +289,12 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     fail("synthetic model issue should not expose raw refs")
   }
   match image_info.issues[0].severity {
-    @api.PdfInspectSeverity::Warning => ()
+    @inspect.PdfInspectSeverity::Warning => ()
     _ => fail("low-signal issue should be warning severity")
   }
 
   let empty_page : @model.PdfPageModel = { ..image_page, images: [] }
-  let empty_info = @api.inspect_pdf_page(empty_page)
+  let empty_info = @inspect.inspect_pdf_page(empty_page)
   if empty_info.has_any_signal {
     fail("empty synthetic page should not have structural signal")
   }
@@ -267,11 +320,11 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     fail("empty synthetic page should surface only one model issue")
   }
   match empty_info.issues[0].kind {
-    @api.PdfInspectIssueKind::EmptyPage => ()
+    @inspect.PdfInspectIssueKind::EmptyPage => ()
     _ => fail("empty synthetic page should report empty page")
   }
   match empty_info.issues[0].severity {
-    @api.PdfInspectSeverity::Error => ()
+    @inspect.PdfInspectSeverity::Error => ()
     _ => fail("empty extraction issue should be error severity")
   }
 
@@ -294,7 +347,7 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     outlines: [],
     pages: [image_page],
   }
-  let image_report = @api.inspect_pdf_document(image_doc)
+  let image_report = @inspect.inspect_pdf_document(image_doc)
   if image_report.text_page_count != 0 {
     fail("image-only document should not expose text pages")
   }
@@ -324,11 +377,11 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     fail("image-only document should surface only model-derived issues")
   }
   match image_report.issues[0].kind {
-    @api.PdfInspectIssueKind::LowSignalPage => ()
+    @inspect.PdfInspectIssueKind::LowSignalPage => ()
     _ => fail("image-only document should keep page-level issue first")
   }
   match image_report.issues[1].kind {
-    @api.PdfInspectIssueKind::LowSignalExtraction => ()
+    @inspect.PdfInspectIssueKind::LowSignalExtraction => ()
     _ =>
       fail(
         "image-only document should surface document-level low-signal extraction issue",
@@ -336,7 +389,7 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
   }
 
   let partial_doc : @model.PdfDocumentModel = { ..image_doc, page_count: 2 }
-  let partial_report = @api.inspect_pdf_document(partial_doc)
+  let partial_report = @inspect.inspect_pdf_document(partial_doc)
   if partial_report.page_failure_count != 1 {
     fail("partial synthetic document should expose page failure count")
   }
@@ -347,11 +400,11 @@ test "pdf inspect page reports low and empty signal for synthetic pages" {
     fail("partial synthetic document should keep all issues model-derived")
   }
   match partial_report.issues[1].kind {
-    @api.PdfInspectIssueKind::PartialPageFailure => ()
+    @inspect.PdfInspectIssueKind::PartialPageFailure => ()
     _ => fail("partial synthetic document should surface partial page failure")
   }
   match partial_report.issues[1].source {
-    @api.PdfInspectIssueSource::Model => ()
+    @inspect.PdfInspectIssueSource::Model => ()
     _ => fail("partial page failure should be model-sourced")
   }
 }
@@ -505,7 +558,7 @@ test "pdf inspect report marks mixed text-plus-image document as low signal only
     artifact_candidates: [],
     raw_content_stream_refs: [],
   }
-  let mixed_report = @api.inspect_pdf_document({
+  let mixed_report = @inspect.inspect_pdf_document({
     version: "1.7",
     page_count: 1,
     metadata: {
@@ -541,7 +594,7 @@ async test "pdf inspect report exposes annotation signal" {
     "samples/main_process/pdf/pdf_uri_link_basic.pdf",
   )
   let report = match
-    @api.extract_document_inspect_report(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_report(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_report failed: " + e.to_string())
   }
@@ -573,7 +626,7 @@ async test "pdf inspect report surfaces raw annotation parse warnings" {
     "pdf_inspect_malformed_annotation",
   )
   let report = match
-    @api.extract_document_inspect_report(input, @api.default_pdf_config()) {
+    @inspect.extract_document_inspect_report(input, @api.default_pdf_config()) {
     Ok(v) => v
     Err(e) => fail("extract_document_inspect_report failed: " + e.to_string())
   }
@@ -585,8 +638,8 @@ async test "pdf inspect report surfaces raw annotation parse warnings" {
   for issue in report.issues {
     match (issue.source, issue.kind) {
       (
-        @api.PdfInspectIssueSource::Raw,
-        @api.PdfInspectIssueKind::AnnotationParseWarning,
+        @inspect.PdfInspectIssueSource::Raw,
+        @inspect.PdfInspectIssueKind::AnnotationParseWarning,
       ) => {
         found_raw_annotation = true
         if issue.page_index != Some(0) {
