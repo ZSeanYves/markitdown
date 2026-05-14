@@ -8,7 +8,9 @@ It focuses on workflow, validation, and format-onboarding practice.
 Recommended product-path build:
 
 ```bash
-moon build --target native
+moon build cli --target native
+moon build cli_pdf --target native
+moon build cli_zip --target native
 ```
 
 Recommended product-path invocation:
@@ -23,10 +25,23 @@ Normal conversion:
 ./_build/native/debug/build/cli/cli.exe normal <input> [output]
 ```
 
+PDF worker:
+
+```bash
+./_build/native/debug/build/cli_pdf/cli_pdf.exe [normal] [--with-metadata] <input.pdf> [output]
+```
+
+ZIP worker:
+
+```bash
+./_build/native/debug/build/cli_zip/cli_zip.exe [normal] [--with-metadata] <input.zip> [output]
+```
+
 OCR path:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe ocr <input> [output]
+moon build cli_ocr --target native
+./_build/native/debug/build/cli_ocr/cli_ocr.exe [ocr] <input> [output]
 ```
 
 Batch path:
@@ -38,9 +53,17 @@ Batch path:
 Debug path:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe debug --json <input>
-./_build/native/debug/build/cli/cli.exe debug --with-ir --with-metadata-summary --with-normalization <input>
-./_build/native/debug/build/cli/cli.exe debug <all|extract|raw|pipeline> <input> [output]
+moon build cli_debug --target native
+./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --json <input>
+./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --with-ir --with-metadata-summary --with-normalization <input>
+./_build/native/debug/build/cli_debug/cli_debug.exe [debug] <all|extract|raw|pipeline> <input> [output]
+```
+
+Benchmark/dev path:
+
+```bash
+moon build cli_bench --target native
+./_build/native/debug/build/cli_bench/cli_bench.exe _bench-noop
 ```
 
 Unified debug inspect notes:
@@ -58,6 +81,10 @@ Unified debug inspect notes:
 * legacy `debug <all|extract|raw|pipeline> ...` is a deprecated PDF alias; it
   prints the unified inspect report and only materializes Markdown when
   `[output]` is provided
+* lightweight `cli` no longer hosts `debug`, `ocr`, or hidden benchmark
+  commands; those routes now live behind explicit binaries
+* lightweight `cli` also no longer embeds the heavy native PDF path; it
+  delegates `.pdf` inputs to `cli_pdf` and `.zip` inputs to `cli_zip`
 
 ## Convert package API hygiene
 
@@ -84,6 +111,32 @@ Development fallback remains:
 ```bash
 moon run cli -- normal <input> [output]
 ```
+
+Build-performance policy:
+
+* prefer reusing an existing native CLI binary under `_build/native/*/build/cli/`
+* validation and benchmark helpers now try a probe-validated native CLI first
+* if no working native CLI is present, helpers build `cli` once with
+  `moon build cli --target native`
+* if a normal/product-path run needs `.pdf`, helpers resolve `cli_pdf` first
+  and build `cli_pdf` once only when needed
+* if a normal/product-path run needs `.zip`, helpers resolve `cli_zip` first
+  and build `cli_zip` once only when needed
+* `cli_zip` delegates embedded PDF entries to `cli_pdf`, so ZIP validation no
+  longer recompiles the vendored PDF native-text closure
+* debug helpers build `cli_debug` only when an explicit debug/dev surface is
+  requested
+* OCR helpers build `cli_ocr` only when an explicit OCR surface is requested
+* product-path and cold-start benchmark helpers build `cli_bench` only when
+  hidden benchmark commands are requested
+* helpers no longer silently fall back to `moon run` unless
+  `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
+* avoid running multiple `moon` commands in parallel; Moon lock contention and
+  duplicate native builds can hide the real bottleneck
+* avoid routine `moon clean`; a clean native CLI rebuild can be far slower than
+  incremental `moon build cli --target native`
+* if a lock looks stale, first confirm there is no active `moon`, `clang`,
+  `cc`, or `ld` process before removing lock files or cleaning
 
 Output rules:
 
@@ -166,9 +219,19 @@ Assets regression:
 Validation runner policy:
 
 * sample validation prefers a probe-validated native CLI when one is available
-* if the discovered native binary fails a small golden-output probe, validation
-  falls back to `moon run`
+* if no working native CLI is available, validation builds `cli` once with
+  `moon build cli --target native`
+* if a validation row needs PDF or ZIP, validation resolves `cli_pdf` or
+  `cli_zip` and passes those worker paths to lightweight `cli`
+* debug/OCR-specific validation uses `cli_debug` / `cli_ocr` rather than asking
+  lightweight `cli` to host those command trees
+* validation only falls back to `moon run` when
+  `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
 * set `MARKITDOWN_CLI=/abs/path/to/cli` to force a specific native/prebuilt CLI
+* set `MARKITDOWN_PDF_CLI` or `MARKITDOWN_ZIP_CLI` to force specific normal-path
+  worker binaries
+* set `MARKITDOWN_DEBUG_CLI`, `MARKITDOWN_OCR_CLI`, or `MARKITDOWN_BENCH_CLI`
+  to force dedicated debug/OCR/bench binaries
 * explicit native override is useful for speed, but only when the caller knows
   the binary matches the current source state
 * `moon run` is slower because it includes MoonBit wrapper overhead and should
@@ -203,7 +266,9 @@ Behavior:
 Default verification set:
 
 ```bash
-moon build --target native
+moon build cli --target native
+moon build cli_pdf --target native
+moon build cli_zip --target native
 moon fmt
 moon info
 moon check

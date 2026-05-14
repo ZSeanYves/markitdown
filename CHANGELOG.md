@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+* Split the native CLI surface into lightweight `cli` plus explicit
+  `cli_pdf`, `cli_zip`, `cli_debug`, `cli_ocr`, and `cli_bench` binaries,
+  move heavy PDF and ZIP normal-path conversion out of the lightweight binary,
+  and update helper scripts so normal validation/bench flows reuse `cli`
+  while PDF/ZIP/debug/OCR/hidden benchmark routes build their own binaries
+  only on demand; the local audit reduced normal `cli.c` from about
+  `37M / 824k` lines to about `17M / 380k` lines, removed vendored `mbtpdf`
+  from normal `cli` entirely, and reduced one measured full native rebuild
+  from about `476-500s` to about `265s`, while leaving normal Markdown output
+  unchanged, keeping the heavy PDF native-text closure behind `cli_pdf`, and
+  making `cli_zip` delegate embedded PDF entries so ZIP no longer embeds
+  vendored `mbtpdf`.
 * Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
   CMap support, including `codespacerange`, `bfchar`, conservative
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE

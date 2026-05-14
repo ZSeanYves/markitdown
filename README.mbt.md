@@ -116,7 +116,9 @@ overlap corpus scope and output-quality comparisons, use
 Build the native product-path binary:
 
 ```bash
-moon build --target native
+moon build cli --target native
+moon build cli_pdf --target native
+moon build cli_zip --target native
 ```
 
 Recommended invocation:
@@ -130,26 +132,45 @@ Other product-path entrypoints:
 ```bash
 ./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
 ./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/debug/build/cli/cli.exe debug --json <input>
-./_build/native/debug/build/cli/cli.exe ocr <input> [output]
+./_build/native/debug/build/cli_pdf/cli_pdf.exe [normal] [--with-metadata] <input.pdf> [output]
+./_build/native/debug/build/cli_zip/cli_zip.exe [normal] [--with-metadata] <input.zip> [output]
+./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --json <input>
+./_build/native/debug/build/cli_ocr/cli_ocr.exe [ocr] <input> [output]
+./_build/native/debug/build/cli_bench/cli_bench.exe _bench-noop
 ```
 
 `moon run` remains a development fallback. It is not the preferred runner for
 H3++ performance conclusions.
+
+The lightweight `cli` binary now owns the non-heavy normal product path
+(`normal` and `batch`) and delegates PDF and ZIP conversion to explicit worker
+binaries. `debug`, `ocr`, and hidden benchmark commands also live on explicit
+native binaries. The compatibility surface on `cli` prints a relocation error
+instead of silently falling back to `moon run`.
+
+For repository scripts, prefer reusing the native CLI binary. Validation and
+benchmark helpers probe existing native binaries first and only build
+`cli`, `cli_pdf`, and `cli_zip` once when needed; they do not silently use
+`moon run` unless `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly. Native
+runner overrides are available through `MARKITDOWN_CLI`,
+`MARKITDOWN_PDF_CLI`, `MARKITDOWN_ZIP_CLI`, `MARKITDOWN_DEBUG_CLI`,
+`MARKITDOWN_OCR_CLI`, and `MARKITDOWN_BENCH_CLI`.
 
 ## Validation
 
 Recommended repository verification:
 
 ```bash
-moon build --target native
+moon build cli --target native
+moon build cli_pdf --target native
+moon build cli_zip --target native
 moon check
 moon test
 ./samples/check.sh
 ./samples/bench.sh --suite smoke --kind smoke
 ```
 
-Checked-in GitHub Actions CI now runs `moon build --target native`,
+Checked-in GitHub Actions CI now runs `moon build cli --target native`,
 `moon check`, `moon test`, and `./samples/check.sh` on `ubuntu-latest` and
 `macos-latest` for `push` and `pull_request`. `./samples/bench.sh --suite smoke
 --kind smoke` remains available locally and as a manual `workflow_dispatch`
@@ -157,6 +178,25 @@ job; it is not part of the default PR gate. Windows core native support
 remains documented, but the shell validation suite still targets WSL or
 another POSIX shell rather than native Windows CI. `moon publish` remains a
 manual release step.
+
+Build-performance notes:
+
+* `moon check` and incremental `moon build cli --target native` still carry
+  noticeable fixed overhead
+* the native CLI surface is now split across `cli`, `cli_pdf`, `cli_zip`,
+  `cli_debug`, `cli_ocr`, and `cli_bench`; normal validation and benchmark
+  gates should stay on lightweight `cli`
+* the local audit reduced normal `cli.c` from about `37M / 824k` lines to
+  about `17M / 380k` lines, removed vendored `mbtpdf` from normal `cli`
+  entirely, and reduced one measured clean native rebuild from about
+  `476-500s` to about `265s`
+* the remaining heavy native text-PDF closure now lives behind `cli_pdf`
+* `cli_zip` now delegates embedded PDF entries to `cli_pdf`, so ZIP no longer
+  embeds vendored `mbtpdf` even though archive conversion can recurse into PDF
+  entries
+* avoid parallel `moon` commands and avoid habitual `moon clean`
+* if scripts need the CLI, prefer one native build plus binary reuse across the
+  whole validation or benchmark run
 Lower-layer parser/core and unsafe-boundary fixtures now live under
 `samples/fixtures`; user-visible regression inputs now live under one unified
 `samples/main_process` tree, with metadata-heavy and asset-heavy subcases

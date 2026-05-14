@@ -53,8 +53,17 @@ Current product-path CLI contract:
   top-level files only
 * `batch --with-metadata` writes one sidecar per generated Markdown file inside
   each isolated batch document root
-* `ocr` and `debug` follow the same explicit metadata-gating rule when writing
-  on-disk outputs
+* lightweight `cli` now owns `normal` and `batch`, but delegates `.pdf` inputs
+  to `cli_pdf` and `.zip` inputs to `cli_zip`
+* `cli_zip` delegates embedded PDF entries to `cli_pdf`, so the ZIP worker no
+  longer embeds the full PDF native-text closure
+* explicit OCR and debug surfaces live on dedicated binaries:
+  `cli_ocr` and `cli_debug`
+* hidden benchmark commands live on dedicated `cli_bench`
+* worker overrides are explicit: `MARKITDOWN_PDF_CLI` selects the PDF worker
+  and `MARKITDOWN_ZIP_CLI` selects the ZIP worker
+* `ocr` and `debug` still follow the same explicit metadata-gating rule when
+  writing on-disk outputs
 * `debug <input>` is now the unified multi-format inspect/report path
 * unified debug inspect does not write Markdown, metadata sidecars, or assets
   by default
@@ -892,6 +901,8 @@ Conservative behavior:
 Known limits:
 
 * no DRM / encryption support
+* encrypted PDFs are fail-closed in the native product path; they are not
+  decrypted in-place or downgraded into partial best-effort text extraction
 * no CSS rendering
 * no JS
 * no remote fetch

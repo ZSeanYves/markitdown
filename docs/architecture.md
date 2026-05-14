@@ -16,12 +16,22 @@ separate enough that behavior stays explainable and regression-verifiable.
 
 ### CLI
 
+The CLI surface is now intentionally split:
+
+* `cli/`: lightweight normal/batch product path plus worker delegation
+* `cli_pdf/`: explicit normal PDF worker
+* `cli_zip/`: explicit ZIP worker that delegates embedded PDF entries to
+  `cli_pdf`
+* `cli_debug/`: debug inspect / provider / layout-assist developer surface
+* `cli_ocr/`: explicit OCR surface
+* `cli_bench/`: hidden benchmark/dev surface
+
 `cli/` is responsible for:
 
 * subcommand parsing
 * output path coordination
 * explicit `--with-metadata` sidecar gating
-* debug/ocr mode selection
+* explicit worker selection for PDF/ZIP delegation
 * batch-v1 per-document output-root coordination
 
 It does not implement format-specific parsing or recovery.
@@ -33,9 +43,11 @@ Current CLI contract:
   `<markdown_dir>/metadata/<stem>.metadata.json`
 * stdout mode is Markdown-only and should not create sidecar or `out/`
   directories
+* `.pdf` inputs are delegated to `cli_pdf`; `.zip` inputs are delegated to
+  `cli_zip`
 * `batch` is non-recursive, serial v1, and writes one isolated document root
   per top-level input file plus `batch-summary.tsv`
-* `debug <input>` is the unified multi-format inspect path and emits a
+* `debug <input>` now lives behind `cli_debug` and emits a
   developer-facing report instead of Markdown output
 * `debug --json` is the stable scriptable form; human-readable report text is
   the default interactive form
@@ -73,7 +85,8 @@ It only chooses the converter; it does not own recovery strategy.
 * `doc_parse/ooxml`: OOXML package / relationships / media / docProps helpers
 * `doc_parse/epub`: EPUB package parsing for `container.xml`, OPF, manifest,
   and spine
-* `doc_parse/pdf`: native PDF substrate and inspect/debug-facing raw data
+* `doc_parse/pdf`: product-trimmed native PDF reader substrate plus
+  inspect/debug-facing raw data
 * `doc_parse/csv` / `doc_parse/tsv`: delimited table parser/model/inspect
 * `doc_parse/json`: JSON parser / AST / inspect
 * `doc_parse/yaml`: current YAML-subset parser / AST / inspect
@@ -95,7 +108,8 @@ Current candidate line:
 
 * `doc_parse/ooxml`: OOXML package foundation candidate
 * `doc_parse/epub`: EPUB package/spine/nav foundation candidate
-* `doc_parse/pdf`: native text-PDF foundation candidate
+* `doc_parse/pdf`: native text-PDF foundation candidate with a trimmed
+  read-only subset for product-path extraction
 * `doc_parse/zip`: external-decoder-backed ZIP foundation candidate as
   the shared container primitive
 * `doc_parse/csv`: simple-format parser foundation candidate

@@ -88,6 +88,16 @@ Internal implementation note:
 
 * the direct library harness package now lives at `doc_parse/bench`
 * the default checked manifests now live under `samples/benchmark/manifests/`
+* smoke and normal-path benchmark helpers prefer an existing probe-validated
+  native `cli`; if absent, they build `cli` once with
+  `moon build cli --target native`
+* when a normal-path benchmark row needs `.pdf` or `.zip`, helpers also
+  resolve `cli_pdf` / `cli_zip` and build each worker at most once
+* hidden benchmark helpers (`product-path`, `cold-start`) prefer an existing
+  probe-validated native `cli_bench`; if absent, they build `cli_bench` once
+  with `moon build cli_bench --target native`
+* benchmark helpers do not silently use `moon run` unless
+  `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
 
 ## Output Directories
 
@@ -148,5 +158,18 @@ Interpret benchmark output conservatively:
 * PDF benchmark scope is native text-PDF by default
 * OCR, scanned-PDF, and fallback paths are excluded unless explicitly called
   out
+* a clean native CLI rebuild can be dramatically slower than incremental
+  `moon build cli --target native`; avoid `moon clean` during routine benchmark
+  iteration unless you are deliberately measuring full rebuild cost
+* the native CLI surface is now split: treat lightweight `cli` numbers as the
+  non-heavy product-path baseline, treat `cli_pdf` / `cli_zip` as explicit
+  normal-path workers for heavy PDF/container closure, and treat `cli_debug`,
+  `cli_ocr`, and `cli_bench` numbers as dev/auxiliary surfaces rather than
+  default-user startup costs
+* the current local audit removed vendored `mbtpdf` from normal `cli` and
+  reduced one measured clean native rebuild from about `476-500s` to about
+  `265s`; heavy native text-PDF cost now sits behind `cli_pdf`, while
+  `cli_zip` now delegates embedded PDF entries and no longer carries the
+  vendored PDF closure itself
 * `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
   not part of the default benchmark evidence story

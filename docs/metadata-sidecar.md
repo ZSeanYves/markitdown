@@ -9,6 +9,12 @@ is for provenance, indexing, and auditing, not for the main reading flow.
 moon run cli -- normal --with-metadata <input> <output.md>
 ```
 
+Recommended product-path invocation:
+
+```bash
+./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
+```
+
 The sidecar is written to:
 
 ```text
