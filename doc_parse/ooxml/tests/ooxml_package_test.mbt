@@ -161,6 +161,97 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 }
 
 ///|
+fn build_store_zip_bytes(entries : Array[(String, Bytes)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data_bytes_raw) = entry
+    let local_offset = out.length()
+    let name_bytes = bytes_of_string(name)
+    let data_bytes = data_bytes_raw.to_array()
+    let crc32 = crc32_of_bytes(data_bytes_raw)
+
+    append_u32_le(out, 0x04034b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, data_bytes.length())
+    append_u32_le(out, data_bytes.length())
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    for b in name_bytes {
+      out.push(b)
+    }
+    for b in data_bytes {
+      out.push(b)
+    }
+
+    central.push((name, data_bytes.length(), local_offset, crc32))
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset, crc32) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn crc32_of_bytes(bytes : Bytes) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for b in bytes {
+    crc = crc32_update_uint(crc, byte_to_int(b).reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn byte_to_int(b : Byte) -> Int {
+  let v = b.to_int()
+  if v >= 0 {
+    v
+  } else {
+    v + 256
+  }
+}
+
+///|
 fn build_data_descriptor_ooxml_zip() -> Bytes {
   let out : Array[Byte] = []
   let central : Array[(String, Int, Int, Int, Int)] = []
@@ -511,6 +602,60 @@ test "ooxml package phase-2 can read part text" {
   }
   if !text.contains("document") && !text.contains("w:document") {
     fail("expected xml-ish text content from part text reader")
+  }
+}
+
+///|
+test "ooxml read_part_text preserves utf8 non-ascii xml payload" {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row></sheetData>" +
+    "</worksheet>"
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\">" +
+    "<si><t>Cäsar</t></si>" +
+    "</sst>"
+
+  let bytes = build_store_zip_bytes([
+    (
+      "[Content_Types].xml",
+      @utf8.encode(
+        minimal_content_types_xml(
+          "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+          "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+          "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+        ),
+      ),
+    ),
+    (
+      "_rels/.rels",
+      @utf8.encode(
+        minimal_rels_xml(
+          "<Relationship Id=\"rId1\" Type=\"officeDocument\" Target=\"xl/workbook.xml\"/>",
+        ),
+      ),
+    ),
+    ("xl/workbook.xml", @utf8.encode(workbook_xml)),
+    ("xl/_rels/workbook.xml.rels", @utf8.encode(workbook_rels_xml)),
+    ("xl/worksheets/sheet1.xml", @utf8.encode(sheet_xml)),
+    ("xl/sharedStrings.xml", @utf8.encode(shared_strings_xml)),
+  ])
+
+  let pkg = @ox.open_ooxml_package(bytes) catch {
+    e => fail("open_ooxml_package failed: " + e.to_string())
+  }
+  let text = @ox.read_part_text(pkg, "xl/sharedStrings.xml") catch {
+    e => fail("read_part_text failed: " + e.to_string())
+  }
+  if !text.contains("Cäsar") {
+    fail("expected utf8 shared string text to stay readable")
   }
 }
 

@@ -23,6 +23,286 @@ fn read_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn ensure_dir(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    @fs.create_dir(path)
+  }
+}
+
+///|
+fn ensure_dir_tree(path : String) -> Unit raise {
+  let trimmed = path.trim()
+  if trimmed == "" {
+    return
+  }
+
+  let chars = trimmed.to_array()
+  let mut current = if chars.length() > 0 && chars[0] == '/' { "/" } else { "" }
+  let part : Array[Char] = []
+
+  fn flush(part : Array[Char], current : String) -> String raise {
+    if part.length() == 0 {
+      return current
+    }
+
+    let segment = String::from_array(part)
+    part.clear()
+    let next = if current == "" || current == "/" {
+      current + segment
+    } else {
+      current + "/" + segment
+    }
+    ensure_dir(next)
+    next
+  }
+
+  for ch in chars {
+    if ch == '/' {
+      current = flush(part, current)
+    } else {
+      part.push(ch)
+    }
+  }
+
+  ignore(flush(part, current))
+}
+
+///|
+fn test_tmp_root() -> String {
+  ".tmp/convert-xlsx-test"
+}
+
+///|
+fn write_bytes(path : String, bytes : Bytes) -> Unit raise {
+  @fs.write_bytes_to_file(path, bytes) catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
+fn remove_dir_recursive(path : String) -> Unit raise {
+  if !@fs.path_exists(path) {
+    return
+  }
+
+  for name in @fs.read_dir(path) {
+    let child = path + "/" + name
+    if @fs.is_dir(child) {
+      remove_dir_recursive(child)
+    } else if @fs.is_file(child) {
+      @fs.remove_file(child)
+    }
+  }
+
+  @fs.remove_dir(path)
+}
+
+///|
+fn recreate_clean_dir(path : String) -> Unit raise {
+  if @fs.path_exists(path) {
+    remove_dir_recursive(path)
+  }
+  ensure_dir_tree(path)
+}
+
+///|
+fn cleanup_temp_dir(path : String) -> Unit {
+  ignore(try? remove_dir_recursive(path))
+}
+
+///|
+fn bytes_of_string(s : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in s.to_array() {
+    out.push(ch.to_int().to_byte())
+  }
+  out
+}
+
+///|
+fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
+fn add_store_entry(
+  out : Array[Byte],
+  central : Array[(String, Int, Int, Int)],
+  name : String,
+  data : String,
+) -> Unit {
+  let local_offset = out.length()
+  let name_bytes = bytes_of_string(name)
+  let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
+
+  append_u32_le(out, 0x04034b50)
+  append_u16_le(out, 20)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u32_le(out, crc32)
+  append_u32_le(out, data_bytes.length())
+  append_u32_le(out, data_bytes.length())
+  append_u16_le(out, name_bytes.length())
+  append_u16_le(out, 0)
+  for b in name_bytes {
+    out.push(b)
+  }
+  for b in data_bytes {
+    out.push(b)
+  }
+
+  central.push((name, data_bytes.length(), local_offset, crc32))
+}
+
+///|
+fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data) = entry
+    add_store_entry(out, central, name, data)
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset, crc32) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn minimal_content_types_xml(overrides : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+  "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+  overrides +
+  "</Types>"
+}
+
+///|
+fn minimal_rels_xml(inner : String) -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+  inner +
+  "</Relationships>"
+}
+
+///|
+fn write_utf8_shared_string_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"UTF8\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"s\"><v>1</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"2\" uniqueCount=\"2\">" +
+    "<si><t>Name</t></si>" +
+    "<si><t>Cäsar</t></si>" +
+    "</sst>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/sharedStrings.xml", shared_strings_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+
+///|
 test "xlsx main process samples stay stable" {
   let simple_doc = @xlsx.parse_xlsx(
     resolve_sample_path("samples/main_process/xlsx/sheet_simple.xlsx"),
@@ -61,6 +341,26 @@ test "xlsx main process samples stay stable" {
     ),
   )
   assert_eq(@cor.emit_markdown(hidden_doc), hidden_expected)
+}
+
+///|
+test "xlsx converter preserves utf8 shared strings from OOXML parts" {
+  let root = test_tmp_root()
+  let case_dir = root + "/xlsx-utf8-shared-strings"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate_clean_dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/utf8_shared_strings.xlsx"
+  write_utf8_shared_string_xlsx(path) catch {
+    e => fail("write_utf8_shared_string_xlsx failed: " + e.to_string())
+  }
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Cäsar"))
+  assert_true(!markdown.contains("CÃ¤sar"))
+
+  cleanup_temp_dir(case_dir)
 }
 
 ///|
