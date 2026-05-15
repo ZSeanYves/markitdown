@@ -75,11 +75,35 @@ library path or same-process product path.
 * release minimal TXT conversion: external `9.209 ms avg`, `9.212 ms p50`,
   `9.616 ms p95`; main-internal `0.234 ms avg`; estimated process/runtime
   `8.974 ms`
-* `--version` is currently not a supported CLI contract, so the cold-start
-  suite records it as an explicit skip rather than a timed row
+* `--version` is now a supported CLI contract, but the checked cold-start
+  suite still focuses on `noop`, `--help`, and one minimal TXT conversion
+  unless explicitly extended
 
 Figures are local observations, not cross-machine guarantees.
 Cold CLI startup is tracked separately.
+
+## Build Guardrail Snapshot
+
+The repository also tracks build-size/build-time guardrails for the split
+product surface.
+
+Recent Ubuntu native measurements:
+
+* `cli`: about `16s`, `18M / 382k` generated-C lines
+* `pdf`: about `16s`, `18M / 381k`
+* `zip`: about `15s`, `17M / 359k`
+* `ocr`: about `9-10s`, `7.6M / 154k`
+
+Current interpretation:
+
+* main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
+* heavy native text-PDF cost stays behind bundled `pdf`
+* `zip` uses `convert/zip_worker` and delegates embedded PDF entries to `pdf`
+  so it does not directly absorb the full PDF closure
+* a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
+  `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
+  recent Ubuntu audit runner, so the repository keeps the bundled-component
+  design as an explicit performance guardrail
 
 ## Cold CLI Startup Attribution Closure
 

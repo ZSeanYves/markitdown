@@ -2,7 +2,7 @@
 
 This document records the conformance-validation plan for the explicit
 canonical normalization facade in
-[`core/text_normalization.mbt`](/Users/winter/Documents/Moonbit/markitdown/core/text_normalization.mbt:1).
+[`core/text_normalization.mbt`](../core/text_normalization.mbt).
 
 It is intentionally a planning document, not a claim that full Unicode
 normalization conformance is already complete.

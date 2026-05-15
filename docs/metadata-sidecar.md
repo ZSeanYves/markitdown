@@ -6,14 +6,17 @@ is for provenance, indexing, and auditing, not for the main reading flow.
 ## Enable It
 
 ```bash
+./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
+```
+
+Development fallback:
+
+```bash
 moon run cli -- normal --with-metadata <input> <output.md>
 ```
 
-Recommended product-path invocation:
-
-```bash
-./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
-```
+Bare `cli <input>` is the normal conversion alias, but metadata sidecars still
+require the explicit `normal --with-metadata` form.
 
 The sidecar is written to:
 

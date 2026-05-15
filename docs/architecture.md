@@ -12,55 +12,114 @@ The current project follows this layered flow:
 The key idea is to keep parsing, recovery, representation, and output concerns
 separate enough that behavior stays explainable and regression-verifiable.
 
-## Main Layers
+## Boundary Principles
 
-### CLI
+Current architectural rules:
 
-The CLI surface is now intentionally split:
+* `core` is CLI-free and contains document/domain models, emitters, metadata,
+  and pure utilities
+* `cli_common` is the lightweight CLI/component runtime layer
+* `cli_support` is the unified product-CLI support layer
+* `cli` is the only user-facing product entrypoint
+* `pdf`, `zip`, and `ocr` are bundled product components, not the primary user
+  commands
+* `debug` and `bench` are developer tools and must stay out of the normal
+  product closure
+* `convert/*` owns format-to-IR conversion policy
+* `doc_parse/*` owns lower-layer parser/model/inspect foundations
 
-* `cli/`: lightweight normal/batch product path plus worker delegation
-* `cli_common/`: shared runtime/path/output/delegation helpers for product
-  binaries
-* `cli_pdf/`: explicit normal PDF worker
-* `cli_zip/`: explicit ZIP worker that delegates embedded PDF entries to
-  `cli_pdf`
-* `cli_debug/`: debug inspect / provider / layout-assist developer surface
-* `cli_ocr/`: explicit OCR surface
-* `cli_bench/`: hidden benchmark/dev surface
+## Package Boundary Summary
+
+| Package | Role | User-facing | Heavy closure | Imported by main `cli` |
+| --- | --- | --- | --- | --- |
+| `core` | CLI-free domain core | no | no | yes |
+| `cli_common` | runtime/path/env/process/delegation helpers | internal | no | yes |
+| `cli_support` | parser/help/version glue and product routing | internal | no | yes |
+| `cli` | unified product entrypoint | yes | guarded light closure | n/a |
+| `pdf` | bundled PDF product component | implementation detail | yes | no |
+| `zip` | bundled ZIP product component | implementation detail | medium | no |
+| `ocr` | explicit OCR component surfaced by `cli ocr` | implementation detail | medium | no |
+| `debug` | developer inspect/report tool | developer only | yes | no |
+| `bench` | developer benchmark tool | developer only | yes | no |
+| `convert/*` | format conversion layer | internal/importable | varies | selected light paths only |
+| `doc_parse/*` | lower-layer parser/model/inspect packages | internal/importable | varies | never directly from `cli` for PDF heavy path |
+
+## Product Entry And Bundled Components
+
+The CLI surface is intentionally layered:
+
+* `cli/`: lightweight normal/batch/help/version product path
+* `cli_common/`: shared runtime/path/output/delegation helpers
+* `cli_support/`: normal/batch parser and product-routing support
+* `pdf/`: bundled PDF component used transparently for `.pdf` inputs
+* `zip/`: bundled ZIP component used transparently for `.zip` inputs
+* `ocr/`: explicit OCR component surfaced as `cli ocr ...`
+* `debug/`: developer inspect / provider / layout-assist surface
+* `bench/`: benchmark/dev surface
 
 `cli/` is responsible for:
 
 * subcommand parsing
+* top-level help/version and bare-input normalization
 * output path coordination
 * explicit `--with-metadata` sidecar gating
-* explicit worker selection for PDF/ZIP/OCR delegation
+* transparent bundled-component selection for PDF/ZIP/OCR
 * batch-v1 per-document output-root coordination
 
 It does not implement format-specific parsing or recovery.
 
-Current CLI contract:
+Current product contract:
 
-* `normal` default emits Markdown plus necessary assets only
+* `<input> [output]` is a product alias for `normal <input> [output]`
+* `normal` emits Markdown plus necessary assets only
 * `normal --with-metadata` additionally emits
   `<markdown_dir>/metadata/<stem>.metadata.json`
-* stdout mode is Markdown-only and should not create sidecar or `out/`
+* `help` / `--help` / `-h` and `version` / `--version` are top-level fast
+  paths and must not trigger OCR/provider probing
+* stdout mode is Markdown-only and should not create sidecar or default output
   directories
-* `.pdf` inputs are delegated to `cli_pdf`; `.zip` inputs are delegated to
-  `cli_zip`
-* `ocr ...` remains a user-visible product subcommand on `cli`, but execution
-  is delegated to `cli_ocr`
+* `.pdf` and `.zip` stay on the normal product surface even though execution
+  is routed through bundled `pdf` / `zip`
+* users should not need to know or invoke `pdf` / `zip` directly for normal
+  conversion
+* `ocr ...` remains an explicit user-visible product subcommand on `cli`, but
+  execution is delegated to `ocr`
 * `batch` is non-recursive, serial v1, and writes one isolated document root
   per top-level input file plus `batch-summary.tsv`
-* `debug <input>` now lives behind `cli_debug` and emits a
-  developer-facing report instead of Markdown output
+* `debug <input>` now lives behind `debug` and emits a developer-facing report
+  instead of Markdown output
 * `debug --json` is the stable scriptable form; human-readable report text is
   the default interactive form
 * legacy `debug <all|extract|raw|pipeline> <input> [output]` is a deprecated
   PDF alias over the unified inspect surface; Markdown materialization only
   happens when `[output]` is explicitly provided
-* packaged product installs are expected to place `cli`, `cli_pdf`,
-  `cli_zip`, and `cli_ocr` side by side so the launcher can discover them
+* packaged product installs are expected to place `cli`, `pdf`, `zip`,
+  and `ocr` side by side so the launcher can discover bundled components
   without `moon run`
+
+## Build Guardrails
+
+The current product shape is intentionally not "one huge binary".
+
+Why:
+
+* the normal product path should stay lightweight and predictable
+* `convert/pdf` pulls a large native text-PDF substrate through
+  `doc_parse/pdf/vendor/mbtpdf`
+* a direct in-process PDF reintegration experiment pushed main `cli` to about
+  `30M / 653k` generated-C lines on the recent Ubuntu audit runner
+* the accepted product design therefore keeps PDF and ZIP on the user-visible
+  `cli` surface while routing execution through bundled components
+
+Current guardrail intent:
+
+* main `cli` should remain outside the vendored PDF closure and should stay
+  `mbtpdf=0`
+* heavy PDF native-text build cost belongs to `pdf`
+* ZIP should reuse `convert/zip_worker` and delegate embedded PDF entries to
+  `pdf` rather than pulling `convert/pdf` directly into `zip`
+* `debug` and `bench` must not be reintroduced into the normal product
+  closure
 
 ### Dispatcher
 
@@ -270,6 +329,9 @@ Converter responsibility is intentionally separated:
   debug-facing raw/model surfaces
 * `doc_parse/pdf` also exposes a structured inspect/report view plus
   classifier-friendly errors for package-level audit use
+* the product component intentionally stays on a read-only vendored subset:
+  parse-only `pdfopsread`, page/text readers, and compact lookup payloads
+  rather than the broader write/render-oriented facade
 * the recommended package-facing candidate facade is `doc_parse/pdf/api`
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
   noise, merge, table, caption, and link decisions

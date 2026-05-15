@@ -43,27 +43,33 @@ Current validation layering:
 
 Current product-path CLI contract:
 
+* `<input> [output]` is a product alias for `normal <input> [output]`
 * `normal <input> [output]` writes Markdown and any required materialized
   assets, but does not write metadata sidecars by default
 * `normal --with-metadata <input> [output]` additionally writes
   `<markdown_dir>/metadata/<stem>.metadata.json`
+* `help` / `--help` / `-h` and `version` / `--version` are stable top-level
+  commands and must return without triggering OCR/provider probing
 * stdout mode prints Markdown only; it does not create sidecar or default
   output directories
 * `batch <input_dir> <output_dir>` is a serial, non-recursive v1 runner over
   top-level files only
 * `batch --with-metadata` writes one sidecar per generated Markdown file inside
   each isolated batch document root
-* lightweight `cli` now owns `normal` and `batch`, but delegates `.pdf` inputs
-  to `cli_pdf` and `.zip` inputs to `cli_zip`
-* `cli_zip` delegates embedded PDF entries to `cli_pdf`, so the ZIP worker no
-  longer embeds the full PDF native-text closure
+* lightweight `cli` now owns the user-visible normal/batch/PDF/ZIP surface;
+  `.pdf` inputs are routed through bundled `pdf` and `.zip` inputs through
+  bundled `zip` so the main binary stays under build-size guardrails
+* bundled `pdf` / `zip` components are an implementation detail of the
+  product packaging; normal users should stay on `cli`
+* `zip` delegates embedded PDF entries to `pdf`, so the ZIP component
+  no longer embeds the full PDF native-text closure
 * explicit OCR remains a user-visible product subcommand on `cli`, but the
-  launcher delegates execution to `cli_ocr`
-* debug surfaces live on dedicated binaries such as `cli_debug`
-* hidden benchmark commands live on dedicated `cli_bench`
-* worker overrides are explicit: `MARKITDOWN_PDF_CLI` selects the PDF worker
-  and `MARKITDOWN_ZIP_CLI` selects the ZIP worker; `MARKITDOWN_OCR_CLI`
-  selects the OCR component
+  launcher delegates execution to `ocr`
+* debug surfaces live on dedicated binaries such as `debug`
+* hidden benchmark commands live on dedicated `bench`
+* component overrides are explicit: `MARKITDOWN_PDF_CLI` selects the bundled
+  PDF component, `MARKITDOWN_ZIP_CLI` selects the bundled ZIP component, and
+  `MARKITDOWN_OCR_CLI` selects the OCR component
 * `ocr` and `debug` still follow the same explicit metadata-gating rule when
   writing on-disk outputs
 * `debug <input>` is now the unified multi-format inspect/report path
@@ -507,6 +513,8 @@ Known limits:
 * no general PDF table engine or complex table reconstruction
 * no outlines / bookmarks emission
 * no tagged-PDF semantic interpretation contract
+* encrypted PDFs are fail-closed in the native product path; there is no
+  in-place decryption or best-effort partial recovery contract
 * no full predefined-CMap coverage for Type0/CIDFont PDFs that rely on
   `UniGB-UCS2-H`, `UniJIS-UCS2-H`, `UniCNS-UCS2-H`, `UniKS-UCS2-H`, or similar
   predefined mappings without `/ToUnicode`
@@ -516,6 +524,12 @@ Known limits:
   PDFs; current local external evidence keeps these as retained boundaries
 * no GBK/GB18030 fallback strategy for simple raw-GBK, no-`/ToUnicode`
   simple-font PDFs
+* no PDF writer, renderer, or rasterization contract in the product build
+  closure; the default path is text-first extraction plus conservative asset
+  export
+* no broad image-pixel decode guarantee beyond the checked-in export rows; the
+  product path is optimized for text recovery and lightweight image provenance,
+  not general bitmap reconstruction
 * no default smart-quote/dash/fullwidth/CJK-punctuation rewriting policy
 * no OCR-first default path
 * no full complex-layout or advanced multi-column reconstruction

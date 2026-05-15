@@ -9,40 +9,45 @@ Recommended product-path build:
 
 ```bash
 moon build cli --target native
-moon build cli_pdf --target native
-moon build cli_zip --target native
-moon build cli_ocr --target native
+moon build pdf --target native
+moon build zip --target native
+moon build ocr --target native
+moon build debug --target native
+moon build bench --target native
 ```
 
 Recommended product-path invocation:
 
 ```bash
-./_build/native/debug/build/cli/cli.exe normal <input> [output]
+./_build/native/debug/build/cli/cli.exe <input> [output]
 ```
 
 Normal conversion:
 
 ```bash
+./_build/native/debug/build/cli/cli.exe --help
+./_build/native/debug/build/cli/cli.exe --version
+./_build/native/debug/build/cli/cli.exe <input> [output]
 ./_build/native/debug/build/cli/cli.exe normal <input> [output]
 ```
 
-PDF worker:
+Bundled PDF component:
 
 ```bash
-./_build/native/debug/build/cli_pdf/cli_pdf.exe [normal] [--with-metadata] <input.pdf> [output]
+./_build/native/debug/build/pdf/pdf.exe [normal] [--with-metadata] <input.pdf> [output]
 ```
 
-ZIP worker:
+Bundled ZIP component:
 
 ```bash
-./_build/native/debug/build/cli_zip/cli_zip.exe [normal] [--with-metadata] <input.zip> [output]
+./_build/native/debug/build/zip/zip.exe [normal] [--with-metadata] <input.zip> [output]
 ```
 
 OCR path:
 
 ```bash
 ./_build/native/debug/build/cli/cli.exe ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]
-./_build/native/debug/build/cli_ocr/cli_ocr.exe [ocr] <input> [output]
+./_build/native/debug/build/ocr/ocr.exe [ocr] <input> [output]
 ```
 
 Batch path:
@@ -54,17 +59,17 @@ Batch path:
 Debug path:
 
 ```bash
-moon build cli_debug --target native
-./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --json <input>
-./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --with-ir --with-metadata-summary --with-normalization <input>
-./_build/native/debug/build/cli_debug/cli_debug.exe [debug] <all|extract|raw|pipeline> <input> [output]
+moon build debug --target native
+./_build/native/debug/build/debug/debug.exe [debug] --json <input>
+./_build/native/debug/build/debug/debug.exe [debug] --with-ir --with-metadata-summary --with-normalization <input>
+./_build/native/debug/build/debug/debug.exe [debug] <all|extract|raw|pipeline> <input> [output]
 ```
 
 Benchmark/dev path:
 
 ```bash
-moon build cli_bench --target native
-./_build/native/debug/build/cli_bench/cli_bench.exe _bench-noop
+moon build bench --target native
+./_build/native/debug/build/bench/bench.exe _bench-noop
 ```
 
 Unified debug inspect notes:
@@ -83,11 +88,12 @@ Unified debug inspect notes:
   prints the unified inspect report and only materializes Markdown when
   `[output]` is provided
 * lightweight `cli` still exposes product-path `ocr`, but delegates execution
-  to `cli_ocr`
+  to `ocr`
 * lightweight `cli` no longer hosts `debug` or hidden benchmark commands;
   those routes now live behind explicit binaries
-* lightweight `cli` also no longer embeds the heavy native PDF path; it
-  delegates `.pdf` inputs to `cli_pdf` and `.zip` inputs to `cli_zip`
+* lightweight `cli` owns the user-visible PDF/ZIP product surface, but routes
+  those inputs through bundled `pdf` / `zip` components so the main
+  binary stays under build-size guardrails
 
 ## Convert package API hygiene
 
@@ -112,7 +118,8 @@ Metadata sidecar:
 Development fallback remains:
 
 ```bash
-moon run cli -- normal <input> [output]
+moon run cli -- <input> [output]
+moon run cli -- normal --with-metadata <input> <output.md>
 ```
 
 Build-performance policy:
@@ -121,22 +128,20 @@ Build-performance policy:
 * validation and benchmark helpers now try a probe-validated native CLI first
 * if no working native CLI is present, helpers build `cli` once with
   `moon build cli --target native`
-* if a normal/product-path run needs `.pdf`, helpers resolve `cli_pdf` first
-  and build `cli_pdf` once only when needed
-* if a normal/product-path run needs `.zip`, helpers resolve `cli_zip` first
-  and build `cli_zip` once only when needed
-* `cli_zip` delegates embedded PDF entries to `cli_pdf`, so ZIP validation no
+* if a normal/product-path run needs bundled PDF or ZIP support, helpers also
+  resolve `pdf` / `zip` and build each component once only when needed
+* `zip` delegates embedded PDF entries to `pdf`, so ZIP validation no
   longer recompiles the vendored PDF native-text closure
-* debug helpers build `cli_debug` only when an explicit debug/dev surface is
+* debug helpers build `debug` only when an explicit debug/dev surface is
   requested
-* OCR helpers build `cli_ocr` only when an explicit OCR surface is requested
-* product-path and cold-start benchmark helpers build `cli_bench` only when
+* OCR helpers build `ocr` only when an explicit OCR surface is requested
+* product-path and cold-start benchmark helpers build `bench` only when
   hidden benchmark commands are requested
 * helpers no longer silently fall back to `moon run` unless
   `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
-* packaged/product installs should keep `cli`, `cli_pdf`, `cli_zip`, and
-  `cli_ocr` in the same directory so the launcher can auto-discover product
-  components without environment overrides
+* packaged/product installs should keep `cli`, `pdf`, `zip`, and
+  `ocr` in the same directory so the launcher can auto-discover bundled
+  product components without environment overrides
 * avoid running multiple `moon` commands in parallel; Moon lock contention and
   duplicate native builds can hide the real bottleneck
 * avoid routine `moon clean`; a clean native CLI rebuild can be far slower than
@@ -174,9 +179,10 @@ Full validation:
 ./samples/check.sh
 ```
 
-The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the only
-public validation entrypoints. Helpers under `samples/helpers/` remain
-internal implementation detail or maintainer-only tooling.
+The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the main
+public validation entrypoints. Most helpers under `samples/helpers/` remain
+internal or maintainer-oriented, except the explicit contract/smoke scripts
+that are documented elsewhere in this guide.
 
 Lower-layer package work:
 
@@ -203,6 +209,17 @@ doc_parse/pdf/vendor/mbtpdf
 This vendored tree is maintained as part of the repository rather than through
 a path-only external dependency in the root `moon.mod.json`.
 
+Current product-trim rule:
+
+* keep `pdf` on the narrow read-only subset under `doc_parse/pdf/raw`
+* avoid reintroducing the broad vendored `@mbtpdf` facade into the product
+  component build closure
+* prefer parse-only/product-only packages such as `graphics/pdfopsread`
+  instead of write/render-oriented facades when product code only needs read
+  paths
+* large static decode tables in the product path should stay compactly encoded
+  where practical so native generated-C size does not balloon again
+
 Main regression:
 
 ```bash
@@ -227,21 +244,38 @@ Validation runner policy:
 * sample validation prefers a probe-validated native CLI when one is available
 * if no working native CLI is available, validation builds `cli` once with
   `moon build cli --target native`
-* if a validation row needs PDF or ZIP, validation resolves `cli_pdf` or
-  `cli_zip` and passes those worker paths to lightweight `cli`
-* debug/OCR-specific validation uses `cli_debug` / `cli_ocr` rather than asking
+* if a validation row needs PDF or ZIP, validation resolves the bundled
+  `pdf` / `zip` components and passes those paths to lightweight `cli`
+* debug/OCR-specific validation uses `debug` / `ocr` rather than asking
   lightweight `cli` to host those command trees
 * validation only falls back to `moon run` when
   `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
 * set `MARKITDOWN_CLI=/abs/path/to/cli` to force a specific native/prebuilt CLI
-* set `MARKITDOWN_PDF_CLI` or `MARKITDOWN_ZIP_CLI` to force specific normal-path
-  worker binaries
+* set `MARKITDOWN_PDF_CLI` or `MARKITDOWN_ZIP_CLI` to force specific bundled
+  PDF/ZIP component binaries
 * set `MARKITDOWN_DEBUG_CLI`, `MARKITDOWN_OCR_CLI`, or `MARKITDOWN_BENCH_CLI`
   to force dedicated debug/OCR/bench binaries
 * explicit native override is useful for speed, but only when the caller knows
   the binary matches the current source state
 * `moon run` is slower because it includes MoonBit wrapper overhead and should
   not be used as the H3++ native-performance proof point
+
+## External Quality Corpus Hygiene
+
+Keep the external/private quality intake local and reproducible:
+
+* `.external/` is a local cache/work area and must not be committed
+* `samples/quality_corpus/external_manifest.local.tsv` is local-only and must
+  not be committed
+* macOS AppleDouble `._*` files under `samples/quality_corpus/` should be
+  removed rather than checked in
+* private local samples are first-class quality evidence, but they must remain
+  uncommitted
+* benchmark outputs, OCR/model artifacts, and local corpus outputs stay out of
+  version control
+* the Ubuntu shell-portability fixes for `samples/quality_corpus/check.sh`
+  are now part of the checked workflow, so Bash array/argv assumptions should
+  be validated on both macOS and Linux before changing the script again
 
 Vendored PDF e2e policy:
 
@@ -272,26 +306,27 @@ Behavior:
 Default verification set:
 
 ```bash
-moon build cli --target native
-moon build cli_pdf --target native
-moon build cli_zip --target native
-moon fmt
 moon info
+moon fmt
 moon check
 moon test
 ./samples/check.sh
-./samples/check.sh --markdown-only
-./samples/check.sh --metadata-only
-./samples/check.sh --assets-only
-./samples/check.sh --manifest-only
+bash samples/quality_corpus/check.sh
+./samples/bench.sh --suite smoke --kind smoke
+bash samples/helpers/check_cli_contract.sh
+bash samples/helpers/check_pdf_contract.sh
+bash samples/helpers/check_zip_contract.sh
+bash samples/helpers/check_batch_contract.sh
+bash samples/helpers/check_debug_contract.sh
+bash samples/helpers/check_ocr_contract.sh
 ```
 
 GitHub Actions CI:
 
 * checked-in workflow: `.github/workflows/ci.yml`
 * default validation matrix: `ubuntu-latest`, `macos-latest`
-* default CI commands: `moon build --target native`, `moon check`, `moon test`,
-  `./samples/check.sh`
+* default CI commands: `moon build cli --target native`, `moon check`,
+  `moon test`, `./samples/check.sh`
 * manual benchmark job: `./samples/bench.sh --suite smoke --kind smoke` on
   `workflow_dispatch` only
 * benchmark compare and batch profile remain local/manual rather than mandatory
@@ -424,6 +459,7 @@ When adding samples, keep both sides in sync:
 Keep doc responsibilities separated:
 
 * `README.mbt.md`: product entry and short support summary
+* `README.md`: repository landing page and product quick start
 * `docs/README.md`: document map and current primary entrypoints
 * `docs/support-and-limits.md`: detailed support contract
 * `docs/architecture.md`: architecture view

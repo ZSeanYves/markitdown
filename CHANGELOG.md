@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+* Rename the split native packages to their current product/tool names:
+  `cli_debug -> debug`, `cli_bench -> bench`, `cli_ocr -> ocr`,
+  `cli_pdf -> pdf`, and `cli_zip -> zip`, while keeping `cli` as the
+  unified user-facing product entrypoint.
 * Split the native CLI surface into lightweight `cli` plus explicit
-  `cli_pdf`, `cli_zip`, `cli_debug`, `cli_ocr`, and `cli_bench` binaries,
+  `pdf`, `zip`, `debug`, `ocr`, and `bench` binaries,
   move heavy PDF and ZIP normal-path conversion out of the lightweight binary,
   and update helper scripts so normal validation/bench flows reuse `cli`
   while PDF/ZIP/debug/OCR/hidden benchmark routes build their own binaries
@@ -11,15 +15,35 @@
   `37M / 824k` lines to about `17M / 380k` lines, removed vendored `mbtpdf`
   from normal `cli` entirely, and reduced one measured full native rebuild
   from about `476-500s` to about `265s`, while leaving normal Markdown output
-  unchanged, keeping the heavy PDF native-text closure behind `cli_pdf`, and
-  making `cli_zip` delegate embedded PDF entries so ZIP no longer embeds
+  unchanged, keeping the heavy PDF native-text closure behind `pdf`, and
+  making `zip` delegate embedded PDF entries so ZIP no longer embeds
   vendored `mbtpdf`.
 * Refine the split product CLI into a product-grade launcher/component shape:
-  shared runtime and worker discovery now live in `cli_common`, `cli_pdf` no
+  shared runtime and component discovery now live in `cli_common`, `pdf` no
   longer pulls OOXML/EPUB metadata helpers through `cli_support`, `cli ocr`
-  delegates transparently to `cli_ocr` as part of the product entry, and the
-  latest local clean-ish native builds dropped further to about `161s` for
-  `cli`, `272s` for `cli_pdf`, and `158s` for `cli_zip`.
+  delegates transparently to `ocr` as part of the product entry, and the
+  current Ubuntu audit runner now measures one recent cold native build at
+  about `16s` for `cli`, `16s` for `pdf`, `15s` for `zip`, and `10s`
+  for `ocr`.
+* Reintegrate PDF and ZIP into the user-visible product CLI surface without
+  blowing up the main binary: `cli` now supports bare `<input>`, `help`,
+  `version`, and normal PDF/ZIP entrypoints again, while a guardrail audit
+  keeps the heavy PDF/container closures behind transparently discovered
+  bundled `pdf` / `zip` components after a direct in-process attempt
+  pushed `cli` up to about `30M / 653k` generated-C lines and about `24.6s`
+  cold rebuild time on the current Ubuntu runner.
+* Trim the heavy native PDF component further without changing converter
+  semantics: the product path now imports a parse-only `pdfopsread` subset
+  instead of the broader graphics facade, large vendored Shift-JIS and glyph
+  lookup payloads now compile from compact blobs instead of thousands of
+  source literals, encrypted PDFs still fail closed, and a recent cold native
+  `pdf` build on the current Ubuntu runner dropped from about
+  `109s / 454k` generated-C lines to about `16s / 381k` lines while
+  `moon test`, `./samples/check.sh`, PDF contracts, and the quality corpus
+  stayed green.
+* Refresh README and the main `docs/` authority pages so they match the current
+  package/component architecture, bundled PDF/ZIP product routing, OCR
+  explicit-only boundary, build guardrails, and quality-corpus hygiene rules.
 * Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
   CMap support, including `codespacerange`, `bfchar`, conservative
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE
