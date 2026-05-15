@@ -14,6 +14,12 @@
   unchanged, keeping the heavy PDF native-text closure behind `cli_pdf`, and
   making `cli_zip` delegate embedded PDF entries so ZIP no longer embeds
   vendored `mbtpdf`.
+* Refine the split product CLI into a product-grade launcher/component shape:
+  shared runtime and worker discovery now live in `cli_common`, `cli_pdf` no
+  longer pulls OOXML/EPUB metadata helpers through `cli_support`, `cli ocr`
+  delegates transparently to `cli_ocr` as part of the product entry, and the
+  latest local clean-ish native builds dropped further to about `161s` for
+  `cli`, `272s` for `cli_pdf`, and `158s` for `cli_zip`.
 * Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
   CMap support, including `codespacerange`, `bfchar`, conservative
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE

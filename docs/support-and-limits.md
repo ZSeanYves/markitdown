@@ -57,11 +57,13 @@ Current product-path CLI contract:
   to `cli_pdf` and `.zip` inputs to `cli_zip`
 * `cli_zip` delegates embedded PDF entries to `cli_pdf`, so the ZIP worker no
   longer embeds the full PDF native-text closure
-* explicit OCR and debug surfaces live on dedicated binaries:
-  `cli_ocr` and `cli_debug`
+* explicit OCR remains a user-visible product subcommand on `cli`, but the
+  launcher delegates execution to `cli_ocr`
+* debug surfaces live on dedicated binaries such as `cli_debug`
 * hidden benchmark commands live on dedicated `cli_bench`
 * worker overrides are explicit: `MARKITDOWN_PDF_CLI` selects the PDF worker
-  and `MARKITDOWN_ZIP_CLI` selects the ZIP worker
+  and `MARKITDOWN_ZIP_CLI` selects the ZIP worker; `MARKITDOWN_OCR_CLI`
+  selects the OCR component
 * `ocr` and `debug` still follow the same explicit metadata-gating rule when
   writing on-disk outputs
 * `debug <input>` is now the unified multi-format inspect/report path

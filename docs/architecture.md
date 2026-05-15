@@ -19,6 +19,8 @@ separate enough that behavior stays explainable and regression-verifiable.
 The CLI surface is now intentionally split:
 
 * `cli/`: lightweight normal/batch product path plus worker delegation
+* `cli_common/`: shared runtime/path/output/delegation helpers for product
+  binaries
 * `cli_pdf/`: explicit normal PDF worker
 * `cli_zip/`: explicit ZIP worker that delegates embedded PDF entries to
   `cli_pdf`
@@ -31,7 +33,7 @@ The CLI surface is now intentionally split:
 * subcommand parsing
 * output path coordination
 * explicit `--with-metadata` sidecar gating
-* explicit worker selection for PDF/ZIP delegation
+* explicit worker selection for PDF/ZIP/OCR delegation
 * batch-v1 per-document output-root coordination
 
 It does not implement format-specific parsing or recovery.
@@ -45,6 +47,8 @@ Current CLI contract:
   directories
 * `.pdf` inputs are delegated to `cli_pdf`; `.zip` inputs are delegated to
   `cli_zip`
+* `ocr ...` remains a user-visible product subcommand on `cli`, but execution
+  is delegated to `cli_ocr`
 * `batch` is non-recursive, serial v1, and writes one isolated document root
   per top-level input file plus `batch-summary.tsv`
 * `debug <input>` now lives behind `cli_debug` and emits a
@@ -54,6 +58,9 @@ Current CLI contract:
 * legacy `debug <all|extract|raw|pipeline> <input> [output]` is a deprecated
   PDF alias over the unified inspect surface; Markdown materialization only
   happens when `[output]` is explicitly provided
+* packaged product installs are expected to place `cli`, `cli_pdf`,
+  `cli_zip`, and `cli_ocr` side by side so the launcher can discover them
+  without `moon run`
 
 ### Dispatcher
 

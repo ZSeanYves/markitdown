@@ -167,9 +167,13 @@ Interpret benchmark output conservatively:
   `cli_ocr`, and `cli_bench` numbers as dev/auxiliary surfaces rather than
   default-user startup costs
 * the current local audit removed vendored `mbtpdf` from normal `cli` and
-  reduced one measured clean native rebuild from about `476-500s` to about
-  `265s`; heavy native text-PDF cost now sits behind `cli_pdf`, while
-  `cli_zip` now delegates embedded PDF entries and no longer carries the
-  vendored PDF closure itself
+  reduced one recent clean native rebuild from about `476-500s` to about
+  `161s`; heavy native text-PDF cost now sits behind `cli_pdf` at about
+  `272s`, while `cli_zip` now delegates embedded PDF entries and no longer
+  carries the vendored PDF closure itself, with a recent clean-ish build of
+  about `158s`
+* `cli ocr ...` is now part of the unified product CLI experience, but the
+  actual OCR runtime closure still lives behind `cli_ocr`; do not mix its
+  timings into default non-OCR product-path claims
 * `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
   not part of the default benchmark evidence story

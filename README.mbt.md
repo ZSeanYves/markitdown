@@ -119,6 +119,7 @@ Build the native product-path binary:
 moon build cli --target native
 moon build cli_pdf --target native
 moon build cli_zip --target native
+moon build cli_ocr --target native
 ```
 
 Recommended invocation:
@@ -132,6 +133,7 @@ Other product-path entrypoints:
 ```bash
 ./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
 ./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
+./_build/native/debug/build/cli/cli.exe ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]
 ./_build/native/debug/build/cli_pdf/cli_pdf.exe [normal] [--with-metadata] <input.pdf> [output]
 ./_build/native/debug/build/cli_zip/cli_zip.exe [normal] [--with-metadata] <input.zip> [output]
 ./_build/native/debug/build/cli_debug/cli_debug.exe [debug] --json <input>
@@ -142,11 +144,12 @@ Other product-path entrypoints:
 `moon run` remains a development fallback. It is not the preferred runner for
 H3++ performance conclusions.
 
-The lightweight `cli` binary now owns the non-heavy normal product path
-(`normal` and `batch`) and delegates PDF and ZIP conversion to explicit worker
-binaries. `debug`, `ocr`, and hidden benchmark commands also live on explicit
-native binaries. The compatibility surface on `cli` prints a relocation error
-instead of silently falling back to `moon run`.
+The lightweight `cli` binary now owns the product-path user entry surface:
+`normal`, `batch`, and explicit `ocr`. It delegates PDF conversion to
+`cli_pdf`, ZIP conversion to `cli_zip`, and OCR execution to `cli_ocr`, so the
+user-facing product entry stays unified while the heavy native closures remain
+split behind component binaries. `debug` and hidden benchmark commands remain
+explicit dev binaries. The launcher never silently falls back to `moon run`.
 
 For repository scripts, prefer reusing the native CLI binary. Validation and
 benchmark helpers probe existing native binaries first and only build
@@ -187,13 +190,16 @@ Build-performance notes:
   `cli_debug`, `cli_ocr`, and `cli_bench`; normal validation and benchmark
   gates should stay on lightweight `cli`
 * the local audit reduced normal `cli.c` from about `37M / 824k` lines to
-  about `17M / 380k` lines, removed vendored `mbtpdf` from normal `cli`
-  entirely, and reduced one measured clean native rebuild from about
-  `476-500s` to about `265s`
-* the remaining heavy native text-PDF closure now lives behind `cli_pdf`
+  about `18M / 381k` lines, removed vendored `mbtpdf` from normal `cli`
+  entirely, and reduced one recent clean native rebuild from about
+  `476-500s` to about `161s`
+* the remaining heavy native text-PDF closure now lives behind `cli_pdf`;
+  the latest measured clean-ish `cli_pdf` build is about `272s`
 * `cli_zip` now delegates embedded PDF entries to `cli_pdf`, so ZIP no longer
   embeds vendored `mbtpdf` even though archive conversion can recurse into PDF
-  entries
+  entries; the latest measured clean-ish `cli_zip` build is about `158s`
+* `cli ocr ...` now stays on the unified product CLI surface while delegating
+  execution to `cli_ocr`
 * avoid parallel `moon` commands and avoid habitual `moon clean`
 * if scripts need the CLI, prefer one native build plus binary reuse across the
   whole validation or benchmark run

@@ -11,6 +11,7 @@ Recommended product-path build:
 moon build cli --target native
 moon build cli_pdf --target native
 moon build cli_zip --target native
+moon build cli_ocr --target native
 ```
 
 Recommended product-path invocation:
@@ -40,7 +41,7 @@ ZIP worker:
 OCR path:
 
 ```bash
-moon build cli_ocr --target native
+./_build/native/debug/build/cli/cli.exe ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]
 ./_build/native/debug/build/cli_ocr/cli_ocr.exe [ocr] <input> [output]
 ```
 
@@ -81,8 +82,10 @@ Unified debug inspect notes:
 * legacy `debug <all|extract|raw|pipeline> ...` is a deprecated PDF alias; it
   prints the unified inspect report and only materializes Markdown when
   `[output]` is provided
-* lightweight `cli` no longer hosts `debug`, `ocr`, or hidden benchmark
-  commands; those routes now live behind explicit binaries
+* lightweight `cli` still exposes product-path `ocr`, but delegates execution
+  to `cli_ocr`
+* lightweight `cli` no longer hosts `debug` or hidden benchmark commands;
+  those routes now live behind explicit binaries
 * lightweight `cli` also no longer embeds the heavy native PDF path; it
   delegates `.pdf` inputs to `cli_pdf` and `.zip` inputs to `cli_zip`
 
@@ -131,6 +134,9 @@ Build-performance policy:
   hidden benchmark commands are requested
 * helpers no longer silently fall back to `moon run` unless
   `MARKITDOWN_ALLOW_MOON_RUN=1` is set explicitly
+* packaged/product installs should keep `cli`, `cli_pdf`, `cli_zip`, and
+  `cli_ocr` in the same directory so the launcher can auto-discover product
+  components without environment overrides
 * avoid running multiple `moon` commands in parallel; Moon lock contention and
   duplicate native builds can hide the real bottleneck
 * avoid routine `moon clean`; a clean native CLI rebuild can be far slower than
