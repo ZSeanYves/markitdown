@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/cli_support" @clisup,
+  "ZSeanYves/markitdown/cli_common" @clicom,
   "ZSeanYves/markitdown/convert/pdf" @pdf,
   "moonbitlang/x/sys" @sys,
   "TheWaWaR/clap" @clap,

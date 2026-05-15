@@ -27,7 +27,7 @@ pub fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="Moved: build/use cli_ocr for explicit OCR conversion",
+        help="Explicit OCR conversion: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output] (delegates to cli_ocr component)",
         args={
           "provider": @clap.Arg::named(
             nargs=AtMost(1),
@@ -95,7 +95,7 @@ pub fn print_cli_usage() -> Unit {
   println("  markitdown-mb normal [--with-metadata] <input> [output]")
   println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
   println(
-    "  markitdown-mb ocr ...    (moved to cli_ocr; build with: moon build cli_ocr --target native)",
+    "  markitdown-mb ocr ...    (product OCR entry; delegates to bundled cli_ocr or MARKITDOWN_OCR_CLI)",
   )
   println(
     "  markitdown-mb debug ...  (moved to cli_debug; build with: moon build cli_debug --target native)",

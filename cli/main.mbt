@@ -32,8 +32,29 @@ fn report_relocated_command(command : String, package_name : String) -> Unit {
 }
 
 ///|
+async fn maybe_delegate_product_worker_command(args : Array[String]) -> Bool {
+  if args.length() == 0 {
+    return false
+  }
+
+  let command = args[0].trim().to_owned().to_lower()
+  if command == "ocr" {
+    match
+      @clicom.delegate_external_command(
+        "OCR conversion", "cli_ocr", "MARKITDOWN_OCR_CLI", args,
+      ) {
+      Ok(_) => ()
+      Err(msg) => @clicom.exit_error(msg)
+    }
+    return true
+  }
+
+  false
+}
+
+///|
 async fn main {
-  let cli_args : Array[String] = @clisup.normalize_cli_args(@sys.get_cli_args())
+  let cli_args : Array[String] = @clicom.normalize_cli_args(@sys.get_cli_args())
 
   if cli_args.length() == 0 {
     @clisup.print_cli_help()
@@ -42,6 +63,9 @@ async fn main {
   }
 
   if maybe_report_relocated_hidden_command(cli_args) {
+    return
+  }
+  if maybe_delegate_product_worker_command(cli_args) {
     return
   }
 
@@ -142,11 +166,10 @@ async fn main {
                 }
               }
             }
-            "ocr" => {
-              report_relocated_command("ocr", "cli_ocr")
-              @clisup.print_cli_usage()
-              @sys.exit(2)
-            }
+            "ocr" =>
+              @clicom.exit_error(
+                "ocr command delegation should have happened before parser dispatch; rebuild cli and cli_ocr together if this persists",
+              )
             "debug" => {
               report_relocated_command("debug", "cli_debug")
               @clisup.print_cli_usage()

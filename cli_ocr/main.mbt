@@ -18,7 +18,7 @@ fn ocr_cli_args(args : Array[String]) -> Array[String] {
 
 ///|
 async fn main {
-  let cli_args = ocr_cli_args(@clisup.normalize_cli_args(@sys.get_cli_args()))
+  let cli_args = ocr_cli_args(@clicom.normalize_cli_args(@sys.get_cli_args()))
   if cli_args.length() == 0 {
     print_ocr_help()
     print_ocr_usage()
@@ -43,7 +43,7 @@ async fn main {
         Some(sub) => {
           let positional = sub.positional_args
           if positional.length() < 1 || positional.length() > 2 {
-            @clisup.exit_error(
+            @clicom.exit_error(
               "usage: ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
             )
             print_ocr_usage()

@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/cli_common" @clicom,
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/csv" @csv,
   "ZSeanYves/markitdown/convert/docx" @doc,
@@ -13,8 +14,6 @@ import {
   "ZSeanYves/markitdown/convert/xlsx" @xlsx,
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
-  "moonbitlang/async/process" @process,
-  "moonbitlang/async/stdio" @stdio,
   "moonbitlang/core/env" @env,
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,

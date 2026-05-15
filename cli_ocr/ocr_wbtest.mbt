@@ -121,7 +121,7 @@ fn remove_dir_recursive(path : String) -> Unit raise {
 ///|
 fn recreate_clean_dir(path : String) -> Unit raise {
   ignore(try? remove_dir_recursive(path))
-  @clisup.ensure_dir_tree(path)
+  @clicom.ensure_dir_tree(path)
 }
 
 ///|

@@ -18,7 +18,7 @@ fn zip_cli_args(args : Array[String]) -> Array[String] {
 
 ///|
 async fn main {
-  let cli_args = zip_cli_args(@clisup.normalize_cli_args(@sys.get_cli_args()))
+  let cli_args = zip_cli_args(@clicom.normalize_cli_args(@sys.get_cli_args()))
   if cli_args.length() == 0 {
     print_zip_help()
     print_zip_usage()
@@ -43,7 +43,7 @@ async fn main {
         Some(sub) => {
           let positional = sub.positional_args
           if positional.length() < 1 || positional.length() > 2 {
-            @clisup.exit_error(
+            @clicom.exit_error(
               "usage: [normal] [--with-metadata] <input.zip> [output]",
             )
             print_zip_usage()
@@ -73,22 +73,22 @@ async fn cmd_zip_normal(
   output : String?,
   with_metadata : Bool,
 ) -> Unit {
-  if @clisup.detect_input_format(input) != "zip" {
-    @clisup.exit_error("cli_zip only supports .zip input: " + input)
+  if @clicom.detect_input_format(input) != "zip" {
+    @clicom.exit_error("cli_zip only supports .zip input: " + input)
     return
   }
 
-  let resolved_output = @clisup.resolve_output_path(input, output)
+  let resolved_output = @clicom.resolve_output_path(input, output)
   let output_root_opt = match resolved_output {
-    Some(path) => Some(@clisup.dirname_of_path(path))
+    Some(path) => Some(@clicom.dirname_of_path(path))
     None => None
   }
   let parse_out_dir = output_root_opt.unwrap_or("")
 
   if output_root_opt is Some(out_root) {
-    @clisup.ensure_dir_tree(out_root) catch {
+    @clicom.ensure_dir_tree(out_root) catch {
       e => {
-        @clisup.exit_error("create output dir failed: " + e.to_string())
+        @clicom.exit_error("create output dir failed: " + e.to_string())
         return
       }
     }
@@ -96,15 +96,15 @@ async fn cmd_zip_normal(
 
   let doc = @zipconv.parse_zip(input, parse_out_dir, 6) catch {
     e => {
-      @clisup.exit_error("parse failed: " + e.to_string())
+      @clicom.exit_error("parse failed: " + e.to_string())
       return
     }
   }
 
   match
-    @clisup.write_document_output(input, "zip", doc, output, with_metadata) {
+    @clicom.write_document_output(input, "zip", doc, output, with_metadata) {
     Ok(_) => ()
-    Err(msg) => @clisup.exit_error(msg)
+    Err(msg) => @clicom.exit_error(msg)
   }
 }
 

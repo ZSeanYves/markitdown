@@ -8,7 +8,7 @@ async fn cmd_ocr(
 ) -> Unit {
   match run_ocr_cli(input, output, provider_name, lang_arg, with_metadata) {
     Ok(_) => ()
-    Err(msg) => @clisup.exit_error(msg)
+    Err(msg) => @clicom.exit_error(msg)
   }
 }
 
@@ -23,18 +23,18 @@ async fn run_ocr_cli(
   let provider = provider_name
     .map(fn(name) { name.trim().to_owned() })
     .unwrap_or("tesseract-cli")
-  let langs = @clisup.parse_ocr_lang_arg(lang_arg)
-  let image_format = @clisup.detect_ocr_image_format(input)
+  let langs = @clicom.parse_ocr_lang_arg(lang_arg)
+  let image_format = @clicom.detect_ocr_image_format(input)
 
   if image_format != None {
     let options = @pdfocr.make_ocr_options(langs, None, !with_metadata)
     return run_image_ocr_cli(provider, input, output, options)
   }
 
-  if @clisup.detect_input_format(input) == "pdf" {
+  if @clicom.detect_input_format(input) == "pdf" {
     if provider == "tesseract-cli" || provider == "" {
       let doc = @pdfocr.parse_pdf_via_ocr(input, "", 6, false)
-      return @clisup.write_document_output(
+      return @clicom.write_document_output(
         input, "pdf", doc, output, with_metadata,
       )
     }
@@ -87,8 +87,8 @@ async fn run_image_ocr_cli(
 
   match output {
     Some(path) => {
-      let parent = @clisup.dirname_of_path(path)
-      @clisup.ensure_dir_tree(parent) catch {
+      let parent = @clicom.dirname_of_path(path)
+      @clicom.ensure_dir_tree(parent) catch {
         e => return Err("create OCR output dir failed: " + e.to_string())
       }
       @fs.write_string_to_file(path, page.text, encoding="utf8") catch {
