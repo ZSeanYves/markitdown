@@ -74,7 +74,7 @@ async fn cmd_zip_normal(
   with_metadata : Bool,
 ) -> Unit {
   if @clicom.detect_input_format(input) != "zip" {
-    @clicom.exit_error("cli_zip only supports .zip input: " + input)
+    @clicom.exit_error("zip only supports .zip input: " + input)
     return
   }
 
@@ -112,10 +112,10 @@ async fn cmd_zip_normal(
 fn new_zip_cli_parser() -> @clap.Parser {
   @clap.Parser::new(
     prog="markitdown-mb-zip",
-    description="ZIP conversion worker",
+    description="Bundled ZIP conversion component",
     subcmds={
       "normal": @clap.SubCommand::new(
-        help="Normal ZIP conversion: [normal] [--with-metadata] <input.zip> [output]",
+        help="Bundled ZIP conversion component: [normal] [--with-metadata] <input.zip> [output]",
         args={
           "with-metadata": @clap.Arg::flag(
             help="Also write <name>.metadata.json next to markdown output",

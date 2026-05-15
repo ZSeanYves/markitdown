@@ -1,7 +1,28 @@
 ///|
+const PRODUCT_NAME : String = "markitdown-mb"
+
+///|
+const PRODUCT_VERSION : String = "0.3.4"
+
+///|
+pub fn product_name() -> String {
+  PRODUCT_NAME
+}
+
+///|
+pub fn product_version() -> String {
+  PRODUCT_VERSION
+}
+
+///|
+pub fn print_cli_version() -> Unit {
+  println(product_name() + " " + product_version())
+}
+
+///|
 pub fn new_cli_parser() -> @clap.Parser {
   @clap.Parser::new(
-    prog="markitdown-mb",
+    prog=PRODUCT_NAME,
     description="Convert documents to Markdown",
     subcmds={
       "normal": @clap.SubCommand::new(
@@ -27,7 +48,7 @@ pub fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="Explicit OCR conversion: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output] (delegates to cli_ocr component)",
+        help="Explicit OCR conversion: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output] (delegates to ocr component)",
         args={
           "provider": @clap.Arg::named(
             nargs=AtMost(1),
@@ -46,7 +67,7 @@ pub fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "debug": @clap.SubCommand::new(
-        help="Moved: build/use cli_debug for debug inspect/providers",
+        help="Moved: build/use debug for debug inspect/providers",
         args={
           "json": @clap.Arg::flag(help="Emit stable JSON debug report"),
           "with-ir": @clap.Arg::flag(
@@ -86,21 +107,44 @@ pub fn new_cli_parser() -> @clap.Parser {
 ///|
 pub fn print_cli_help() -> Unit {
   let parser = new_cli_parser()
-  println(parser.gen_help_message(["markitdown-mb"], {}))
+  println(parser.gen_help_message([product_name()], {}))
 }
 
 ///|
 pub fn print_cli_usage() -> Unit {
   println("Usage:")
-  println("  markitdown-mb normal [--with-metadata] <input> [output]")
-  println("  markitdown-mb batch [--with-metadata] <input_dir> <output_dir>")
   println(
-    "  markitdown-mb ocr ...    (product OCR entry; delegates to bundled cli_ocr or MARKITDOWN_OCR_CLI)",
+    "  " + product_name() + " [normal] [--with-metadata] <input> [output]",
   )
   println(
-    "  markitdown-mb debug ...  (moved to cli_debug; build with: moon build cli_debug --target native)",
+    "  " + product_name() + " batch [--with-metadata] <input_dir> <output_dir>",
   )
   println(
-    "  hidden bench commands moved to cli_bench; build with: moon build cli_bench --target native",
+    "  " +
+    product_name() +
+    " ocr ...    (explicit OCR entry; delegates to bundled ocr or MARKITDOWN_OCR_CLI)",
+  )
+  println(
+    "  " +
+    product_name() +
+    " debug ...  (moved to debug; build with: moon build debug --target native)",
+  )
+  println(
+    "  hidden bench commands moved to bench; build with: moon build bench --target native",
+  )
+  println("  " + product_name() + " help | --help | -h")
+  println("  " + product_name() + " version | --version")
+  println("")
+  println(
+    "Supported normal formats: docx, pdf, xlsx, pptx, html, csv, tsv, txt, xml, json, yaml, yml, md, markdown, epub, zip",
+  )
+  println(
+    "PDF and ZIP stay on the normal product surface through bundled `pdf` / `zip` components; users do not need to run those components directly.",
+  )
+  println(
+    "OCR stays explicit and isolated from normal conversion; debug and benchmark tooling stay in debug and bench.",
+  )
+  println(
+    "Runtime overrides still supported: MARKITDOWN_OCR_CLI for the OCR component, MARKITDOWN_OCR_PROVIDER_CMD_TESSERACT_CLI for explicit Tesseract provider wiring.",
   )
 }

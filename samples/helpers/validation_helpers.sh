@@ -56,38 +56,38 @@ resolve_markitdown_cli() {
   resolve_markitdown_package_cli "cli" "MARKITDOWN_CLI" || return 1
   if [[ -n "${PDF_CLI_BIN:-}" ]]; then
     if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
-      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; pdf worker: $PDF_CLI_BIN"
+      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; bundled pdf component: $PDF_CLI_BIN"
     else
-      CLI_RUNNER_NOTE="pdf worker: $PDF_CLI_BIN"
+      CLI_RUNNER_NOTE="bundled pdf component: $PDF_CLI_BIN"
     fi
   fi
   if [[ -n "${ZIP_CLI_BIN:-}" ]]; then
     if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
-      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; zip worker: $ZIP_CLI_BIN"
+      CLI_RUNNER_NOTE="$CLI_RUNNER_NOTE; bundled zip component: $ZIP_CLI_BIN"
     else
-      CLI_RUNNER_NOTE="zip worker: $ZIP_CLI_BIN"
+      CLI_RUNNER_NOTE="bundled zip component: $ZIP_CLI_BIN"
     fi
   fi
 }
 
 resolve_markitdown_pdf_cli() {
-  resolve_markitdown_package_cli "cli_pdf" "MARKITDOWN_PDF_CLI"
+  resolve_markitdown_package_cli "pdf" "MARKITDOWN_PDF_CLI"
 }
 
 resolve_markitdown_zip_cli() {
-  resolve_markitdown_package_cli "cli_zip" "MARKITDOWN_ZIP_CLI"
+  resolve_markitdown_package_cli "zip" "MARKITDOWN_ZIP_CLI"
 }
 
 resolve_markitdown_debug_cli() {
-  resolve_markitdown_package_cli "cli_debug" "MARKITDOWN_DEBUG_CLI"
+  resolve_markitdown_package_cli "debug" "MARKITDOWN_DEBUG_CLI"
 }
 
 resolve_markitdown_ocr_cli() {
-  resolve_markitdown_package_cli "cli_ocr" "MARKITDOWN_OCR_CLI"
+  resolve_markitdown_package_cli "ocr" "MARKITDOWN_OCR_CLI"
 }
 
 resolve_markitdown_bench_cli() {
-  resolve_markitdown_package_cli "cli_bench" "MARKITDOWN_BENCH_CLI"
+  resolve_markitdown_package_cli "bench" "MARKITDOWN_BENCH_CLI"
 }
 
 resolve_markitdown_package_cli() {
@@ -229,16 +229,16 @@ EOF
 probe_markitdown_cli() {
   local package="$1"
   local cli_bin="$2"
-  if [[ "$package" == "cli_bench" ]]; then
+  if [[ "$package" == "bench" ]]; then
     "$cli_bin" _bench-noop >/dev/null 2>&1
     return $?
   fi
-  if [[ "$package" == "cli_pdf" ]]; then
+  if [[ "$package" == "pdf" ]]; then
     local pdf_input="$ROOT/samples/main_process/pdf/text_simple.pdf"
     local pdf_expected="$ROOT/samples/main_process/pdf/expected/text_simple.md"
     local pdf_tmp_root="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
     local pdf_probe_dir
-    pdf_probe_dir="$(sample_make_isolated_tmp_dir "$pdf_tmp_root" "cli_pdf_probe")"
+    pdf_probe_dir="$(sample_make_isolated_tmp_dir "$pdf_tmp_root" "pdf_probe")"
     local pdf_out="$pdf_probe_dir/text_simple.md"
     local status=0
     if ! "$cli_bin" "$pdf_input" "$pdf_out" >/dev/null 2>&1; then
@@ -249,12 +249,12 @@ probe_markitdown_cli() {
     rm -rf "$pdf_probe_dir"
     return "$status"
   fi
-  if [[ "$package" == "cli_zip" ]]; then
+  if [[ "$package" == "zip" ]]; then
     local zip_input="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
     local zip_expected="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
     local zip_tmp_root="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
     local zip_probe_dir
-    zip_probe_dir="$(sample_make_isolated_tmp_dir "$zip_tmp_root" "cli_zip_probe")"
+    zip_probe_dir="$(sample_make_isolated_tmp_dir "$zip_tmp_root" "zip_probe")"
     local zip_out="$zip_probe_dir/zip_basic_structured.md"
     local status=0
     if ! "$cli_bin" "$zip_input" "$zip_out" >/dev/null 2>&1; then

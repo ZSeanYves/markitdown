@@ -3,9 +3,11 @@
 ///
 /// Responsibility split:
 /// - parse/validate runtime IO choices (output file vs stdout, metadata switch)
-/// - dispatch non-PDF conversion in-process and delegate PDF to `cli_pdf`
+/// - dispatch core product conversion in-process
+/// - route PDF and ZIP through bundled product components when that keeps the
+///   main CLI build closure under control
 /// - emit markdown and metadata sidecar
-/// - optionally emit metadata sidecar
+/// - keep OCR explicit via `cli ocr ...` and debug tooling separate
 ///
 /// Non-goal:
 /// - does not implement format-specific parsing strategy
@@ -52,12 +54,12 @@ pub async fn convert_once(
   if format == "pdf" {
     if pdf_mode is Some(mode) && mode.trim() != "" {
       return Err(
-        "pdf OCR/debug modes moved out of the normal cli; use cli_pdf for normal PDF conversion, cli_ocr for explicit OCR, or cli_debug for debug inspect",
+        "pdf OCR/debug modes moved out of the normal cli; use `markitdown-mb ocr ...` for explicit OCR or debug for debug inspect",
       )
     }
     if pdf_extract_debug || pdf_dump_selected_raw || pdf_pipeline_debug {
       return Err(
-        "pdf debug extraction moved to cli_debug; the normal cli only delegates plain PDF conversion via cli_pdf",
+        "pdf debug extraction moved to debug; the normal cli only supports plain product PDF conversion",
       )
     }
     return delegate_pdf_conversion(input, output, with_metadata)
@@ -160,7 +162,8 @@ pub async fn convert_once(
       }
     }
   } else {
-    match parse_non_pdf_to_ir(input, format, parse_out_dir, max_heading) {
+    match
+      parse_core_product_input_to_ir(input, format, parse_out_dir, max_heading) {
       Ok(d) => d
       Err(e) => return Err("parse failed: " + e.to_string())
     }
@@ -436,7 +439,7 @@ pub async fn convert_once(
 }
 
 ///|
-fn parse_non_pdf_to_ir(
+fn parse_core_product_input_to_ir(
   input_path : String,
   format : String,
   out_dir : String,
@@ -468,12 +471,21 @@ async fn delegate_pdf_conversion(
   output : String?,
   with_metadata : Bool,
 ) -> Result[Unit, String] {
-  @clicom.delegate_external_command(
-    "PDF conversion",
-    "cli_pdf",
-    "MARKITDOWN_PDF_CLI",
-    external_worker_args(input, output, with_metadata),
-  )
+  match
+    @clicom.delegate_external_command(
+      "bundled PDF support component",
+      "pdf",
+      "MARKITDOWN_PDF_CLI",
+      external_component_args(input, output, with_metadata),
+    ) {
+    Ok(_) => Ok(())
+    Err(msg) =>
+      Err(
+        "pdf support is unavailable in this product bundle: " +
+        msg +
+        ". Rebuild pdf alongside cli, or set MARKITDOWN_PDF_CLI for an explicit component path.",
+      )
+  }
 }
 
 ///|
@@ -482,16 +494,25 @@ async fn delegate_zip_conversion(
   output : String?,
   with_metadata : Bool,
 ) -> Result[Unit, String] {
-  @clicom.delegate_external_command(
-    "ZIP conversion",
-    "cli_zip",
-    "MARKITDOWN_ZIP_CLI",
-    external_worker_args(input, output, with_metadata),
-  )
+  match
+    @clicom.delegate_external_command(
+      "bundled ZIP support component",
+      "zip",
+      "MARKITDOWN_ZIP_CLI",
+      external_component_args(input, output, with_metadata),
+    ) {
+    Ok(_) => Ok(())
+    Err(msg) =>
+      Err(
+        "zip support is unavailable in this product bundle: " +
+        msg +
+        ". Rebuild zip alongside cli, or set MARKITDOWN_ZIP_CLI for an explicit component path.",
+      )
+  }
 }
 
 ///|
-fn external_worker_args(
+fn external_component_args(
   input : String,
   output : String?,
   with_metadata : Bool,

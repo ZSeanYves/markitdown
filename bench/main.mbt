@@ -62,7 +62,7 @@ async fn main {
           let with_metadata = sub.get_flag("with-metadata").unwrap_or(false)
           if sub.name != "normal" {
             exit_error(
-              "cli_bench only supports hidden bench commands and `normal` for cold-start benchmarks",
+              "bench only supports hidden bench commands and `normal` for cold-start benchmarks",
             )
             print_bench_usage()
             @sys.exit(2)

@@ -43,6 +43,21 @@ assert_matches_expected() {
   diff -u "$expected" "$actual" >/dev/null || fail "output mismatch: $actual"
 }
 
+assert_contains() {
+  local path="$1"
+  local needle="$2"
+  grep -Fq "$needle" "$path" || fail "expected $path to contain: $needle"
+}
+
+run_and_capture() {
+  local out="$1"
+  shift
+  set +e
+  "$@" >"$out" 2>&1
+  CAPTURED_STATUS=$?
+  set -e
+}
+
 TXT_INPUT="$ROOT/samples/main_process/txt/txt_plain.txt"
 DOCX_INPUT="$ROOT/samples/main_process/docx/metadata/docx_image_alt_title_basic.docx"
 XLSX_INPUT="$ROOT/samples/main_process/xlsx/xlsx_formula_cached_values.xlsx"
@@ -59,14 +74,50 @@ WITH_META_DIR="$OUT_DIR/with_meta"
 STDOUT_DIR="$OUT_DIR/stdout"
 mkdir -p "$STDOUT_DIR"
 
+HELP_STDOUT="$STDOUT_DIR/help.txt"
+HELP_ALIAS_STDOUT="$STDOUT_DIR/help_alias.txt"
+HELP_SHORT_STDOUT="$STDOUT_DIR/help_short.txt"
+VERSION_STDOUT="$STDOUT_DIR/version.txt"
+VERSION_ALIAS_STDOUT="$STDOUT_DIR/version_alias.txt"
+
 TXT_NO_META_MD="$NO_META_DIR/txt_plain.md"
 TXT_WITH_META_MD="$WITH_META_DIR/txt_plain.md"
 DOCX_NO_META_MD="$NO_META_DIR/docx_image_alt_title_basic.md"
 DOCX_WITH_META_MD="$WITH_META_DIR/docx_image_alt_title_basic.md"
 XLSX_WITH_META_MD="$WITH_META_DIR/xlsx_formula_cached_values.md"
+TXT_ALIAS_MD="$NO_META_DIR/txt_plain_alias.md"
 PDF_NO_META_MD="$NO_META_DIR/text_simple.md"
+PDF_ALIAS_MD="$NO_META_DIR/text_simple_alias.md"
 PDF_WITH_META_MD="$WITH_META_DIR/pdf_metadata_uri_link.md"
 ZIP_NO_META_MD="$NO_META_DIR/zip_basic_structured.md"
+ZIP_ALIAS_MD="$NO_META_DIR/zip_basic_structured_alias.md"
+
+echo "==> top-level help aliases stay local and list product surface"
+MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
+assert_contains "$HELP_STDOUT" 'markitdown-mb [normal] [--with-metadata] <input> [output]'
+assert_contains "$HELP_STDOUT" 'Supported normal formats:'
+assert_contains "$HELP_STDOUT" 'markitdown-mb ocr ...'
+assert_contains "$HELP_STDOUT" 'bundled `pdf` / `zip` components'
+assert_contains "$HELP_STDOUT" 'debug'
+assert_contains "$HELP_STDOUT" 'bench'
+
+MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "help alias should succeed"
+assert_contains "$HELP_ALIAS_STDOUT" 'markitdown-mb help | --help | -h'
+
+MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_SHORT_STDOUT" run_markitdown_cli -h
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "-h should succeed"
+assert_contains "$HELP_SHORT_STDOUT" 'markitdown-mb version | --version'
+
+echo "==> top-level version aliases stay local and stable"
+MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$VERSION_STDOUT" run_markitdown_cli --version
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--version should succeed"
+assert_contains "$VERSION_STDOUT" 'markitdown-mb 0.3.4'
+
+MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
+[[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
+assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 
 echo "==> normal without metadata"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_NO_META_MD"
@@ -95,23 +146,37 @@ run_markitdown_cli normal --with-metadata "$XLSX_INPUT" "$XLSX_WITH_META_MD"
 assert_file_exists "$XLSX_WITH_META_MD"
 assert_file_exists "$WITH_META_DIR/metadata/xlsx_formula_cached_values.metadata.json"
 
-echo "==> pdf delegation without metadata"
+echo "==> bare normal alias"
+run_markitdown_cli "$TXT_INPUT" "$TXT_ALIAS_MD"
+assert_file_exists "$TXT_ALIAS_MD"
+
+echo "==> pdf product path without metadata"
 run_markitdown_cli normal "$PDF_INPUT" "$PDF_NO_META_MD"
 assert_file_exists "$PDF_NO_META_MD"
 assert_file_not_exists "$NO_META_DIR/metadata/text_simple.metadata.json"
 assert_matches_expected "$PDF_EXPECTED" "$PDF_NO_META_MD"
 
-echo "==> pdf delegation with metadata"
+echo "==> pdf product path with metadata"
 run_markitdown_cli normal --with-metadata "$PDF_META_INPUT" "$PDF_WITH_META_MD"
 assert_file_exists "$PDF_WITH_META_MD"
 assert_file_exists "$WITH_META_DIR/metadata/pdf_metadata_uri_link.metadata.json"
 assert_matches_expected "$PDF_META_EXPECTED" "$PDF_WITH_META_MD"
 assert_matches_expected "$PDF_META_JSON_EXPECTED" "$WITH_META_DIR/metadata/pdf_metadata_uri_link.metadata.json"
 
-echo "==> zip delegation"
+echo "==> bare pdf alias"
+run_markitdown_cli "$PDF_INPUT" "$PDF_ALIAS_MD"
+assert_file_exists "$PDF_ALIAS_MD"
+assert_matches_expected "$PDF_EXPECTED" "$PDF_ALIAS_MD"
+
+echo "==> zip product path"
 run_markitdown_cli normal "$ZIP_INPUT" "$ZIP_NO_META_MD"
 assert_file_exists "$ZIP_NO_META_MD"
 assert_matches_expected "$ZIP_EXPECTED" "$ZIP_NO_META_MD"
+
+echo "==> bare zip alias"
+run_markitdown_cli "$ZIP_INPUT" "$ZIP_ALIAS_MD"
+assert_file_exists "$ZIP_ALIAS_MD"
+assert_matches_expected "$ZIP_EXPECTED" "$ZIP_ALIAS_MD"
 
 echo "==> stdout contract"
 STDOUT_MD="$STDOUT_DIR/stdout.md"

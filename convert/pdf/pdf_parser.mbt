@@ -41,7 +41,7 @@ pub async fn parse_pdf(
 
   if ocr_mode != PdfOcrMode::Disabled {
     raise @cor.AppError(
-      "pdf OCR mode moved to cli_ocr; use the explicit OCR runner instead of the normal cli binary",
+      "pdf OCR mode moved to ocr; use the explicit OCR runner instead of the normal cli binary",
     )
   }
 

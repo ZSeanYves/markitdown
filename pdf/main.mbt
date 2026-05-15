@@ -74,7 +74,7 @@ async fn cmd_pdf_normal(
   with_metadata : Bool,
 ) -> Unit {
   if @clicom.detect_input_format(input) != "pdf" {
-    @clicom.exit_error("cli_pdf only supports .pdf input: " + input)
+    @clicom.exit_error("pdf only supports .pdf input: " + input)
     return
   }
 
@@ -94,7 +94,15 @@ async fn cmd_pdf_normal(
     }
   }
 
-  let doc = @pdf.parse_pdf(input, parse_out_dir, 6, None, false, false, false) catch {
+  let doc = @pdfconv.parse_pdf(
+    input,
+    parse_out_dir,
+    6,
+    None,
+    false,
+    false,
+    false,
+  ) catch {
     e => {
       @clicom.exit_error("parse failed: " + e.to_string())
       return
@@ -112,10 +120,10 @@ async fn cmd_pdf_normal(
 fn new_pdf_cli_parser() -> @clap.Parser {
   @clap.Parser::new(
     prog="markitdown-mb-pdf",
-    description="Normal PDF conversion worker",
+    description="Bundled PDF conversion component",
     subcmds={
       "normal": @clap.SubCommand::new(
-        help="Normal PDF conversion: [normal] [--with-metadata] <input.pdf> [output]",
+        help="Bundled PDF conversion component: [normal] [--with-metadata] <input.pdf> [output]",
         args={
           "with-metadata": @clap.Arg::flag(
             help="Also write <name>.metadata.json next to markdown output",

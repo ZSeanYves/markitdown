@@ -9,7 +9,7 @@ fn maybe_report_relocated_hidden_command(args : Array[String]) -> Bool {
     command == "_bench-startup-profile" ||
     command == "_bench-product-path" {
     @clisup.exit_error(
-      "hidden benchmark commands moved to cli_bench; run `moon build cli_bench --target native` or `moon run cli_bench -- ...`",
+      "hidden benchmark commands moved to bench; run `moon build bench --target native` or `moon run bench -- ...`",
     )
     return true
   }
@@ -18,17 +18,91 @@ fn maybe_report_relocated_hidden_command(args : Array[String]) -> Bool {
 }
 
 ///|
+fn is_help_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "help" || normalized == "--help" || normalized == "-h"
+}
+
+///|
+fn is_version_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "version" || normalized == "--version"
+}
+
+///|
+fn is_product_subcommand(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "normal" ||
+  normalized == "batch" ||
+  normalized == "ocr" ||
+  normalized == "debug"
+}
+
+///|
+fn is_relocated_product_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "bench"
+}
+
+///|
+fn normalize_product_cli_args(args : Array[String]) -> Array[String] {
+  if args.length() == 0 {
+    return []
+  }
+
+  let first = args[0].trim().to_owned()
+  if is_product_subcommand(first) ||
+    is_relocated_product_command(first) ||
+    is_help_command(first) ||
+    is_version_command(first) {
+    return args
+  }
+
+  let out : Array[String] = ["normal"]
+  for arg in args {
+    out.push(arg)
+  }
+  out
+}
+
+///|
 fn report_relocated_command(command : String, package_name : String) -> Unit {
+  let scope = if command == "debug" || command == "bench" {
+    "developer tool"
+  } else {
+    "component"
+  }
   @clisup.exit_error(
     command +
-    " command moved to " +
+    " " +
+    scope +
+    " lives in `" +
     package_name +
-    "; run `moon build " +
+    "`; run `moon build " +
     package_name +
     " --target native` or `moon run " +
     package_name +
     " -- ...`",
   )
+}
+
+///|
+fn maybe_print_top_level_help_or_version(args : Array[String]) -> Bool {
+  if args.length() == 0 {
+    return false
+  }
+
+  let first = args[0]
+  if is_help_command(first) {
+    @clisup.print_cli_help()
+    @clisup.print_cli_usage()
+    return true
+  }
+  if is_version_command(first) {
+    @clisup.print_cli_version()
+    return true
+  }
+  false
 }
 
 ///|
@@ -41,7 +115,7 @@ async fn maybe_delegate_product_worker_command(args : Array[String]) -> Bool {
   if command == "ocr" {
     match
       @clicom.delegate_external_command(
-        "OCR conversion", "cli_ocr", "MARKITDOWN_OCR_CLI", args,
+        "OCR conversion", "ocr", "MARKITDOWN_OCR_CLI", args,
       ) {
       Ok(_) => ()
       Err(msg) => @clicom.exit_error(msg)
@@ -54,7 +128,9 @@ async fn maybe_delegate_product_worker_command(args : Array[String]) -> Bool {
 
 ///|
 async fn main {
-  let cli_args : Array[String] = @clicom.normalize_cli_args(@sys.get_cli_args())
+  let cli_args : Array[String] = normalize_product_cli_args(
+    @clicom.normalize_cli_args(@sys.get_cli_args()),
+  )
 
   if cli_args.length() == 0 {
     @clisup.print_cli_help()
@@ -63,6 +139,15 @@ async fn main {
   }
 
   if maybe_report_relocated_hidden_command(cli_args) {
+    return
+  }
+  if is_relocated_product_command(cli_args[0]) {
+    report_relocated_command("bench", "bench")
+    @clisup.print_cli_usage()
+    @sys.exit(2)
+    return
+  }
+  if maybe_print_top_level_help_or_version(cli_args) {
     return
   }
   if maybe_delegate_product_worker_command(cli_args) {
@@ -168,10 +253,10 @@ async fn main {
             }
             "ocr" =>
               @clicom.exit_error(
-                "ocr command delegation should have happened before parser dispatch; rebuild cli and cli_ocr together if this persists",
+                "ocr command delegation should have happened before parser dispatch; rebuild cli and ocr together if this persists",
               )
             "debug" => {
-              report_relocated_command("debug", "cli_debug")
+              report_relocated_command("debug", "debug")
               @clisup.print_cli_usage()
               @sys.exit(2)
             }

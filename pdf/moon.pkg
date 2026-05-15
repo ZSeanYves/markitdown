@@ -1,6 +1,6 @@
 import {
   "ZSeanYves/markitdown/cli_common" @clicom,
-  "ZSeanYves/markitdown/convert/pdf" @pdf,
+  "ZSeanYves/markitdown/convert/pdf" @pdfconv,
   "moonbitlang/x/sys" @sys,
   "TheWaWaR/clap" @clap,
   "moonbitlang/async",

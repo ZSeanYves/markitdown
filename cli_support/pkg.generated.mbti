@@ -44,6 +44,12 @@ pub fn print_cli_help() -> Unit
 
 pub fn print_cli_usage() -> Unit
 
+pub fn print_cli_version() -> Unit
+
+pub fn product_name() -> String
+
+pub fn product_version() -> String
+
 pub fn read_document_properties(String, String) -> @core.MetadataDocumentProperties?
 
 pub fn resolve_output_path(String, String?) -> String?

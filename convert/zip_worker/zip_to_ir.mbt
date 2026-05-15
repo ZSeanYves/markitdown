@@ -601,7 +601,7 @@ async fn delegate_pdf_entry(
   out_dir : String,
 ) -> @cor.Document {
   let worker_cli = resolve_worker_cli_path(
-    "ZIP PDF entry conversion", "cli_pdf", "MARKITDOWN_PDF_CLI",
+    "ZIP PDF entry conversion", "pdf", "MARKITDOWN_PDF_CLI",
   ) catch {
     e => raise @cor.AppError(e.to_string())
   }
@@ -610,9 +610,9 @@ async fn delegate_pdf_entry(
   let delegated = @process.collect_output(worker_cli, args) catch {
     e =>
       raise @cor.AppError(
-        "launch cli_pdf failed: " +
+        "launch pdf failed: " +
         e.to_string() +
-        ". Run `moon build cli_pdf --target native` or set MARKITDOWN_PDF_CLI",
+        ". Run `moon build pdf --target native` or set MARKITDOWN_PDF_CLI",
       )
   }
   match delegated {
@@ -625,7 +625,7 @@ async fn delegate_pdf_entry(
       } else if stdout_text != "" {
         stdout_text
       } else {
-        "cli_pdf exited with code " + code.to_string()
+        "pdf exited with code " + code.to_string()
       }
       raise @cor.AppError(strip_error_prefix(raw_message))
     }
