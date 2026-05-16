@@ -59,6 +59,7 @@ fn make_test_annotation(
     _bbox: bbox,
     uri,
     dest,
+    target_page: None,
     object_ref: Some("12 0 R"),
     contents: None,
     subject: None,

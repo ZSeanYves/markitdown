@@ -45,6 +45,7 @@ fn compat_sheet_model_from_semantic(
     has_sheet_xml: sheet.has_sheet_xml,
     cells,
     merged_ranges: compat_merged_ranges_from_semantic(sheet.merged_ranges),
+    comments: compat_comments_from_semantic(sheet.comments),
     hidden_rows,
     table_rows: rows,
     table_row_numbers: row_numbers,
@@ -54,6 +55,23 @@ fn compat_sheet_model_from_semantic(
     used_max_row: sheet.used_max_row,
     used_max_col: sheet.used_max_col,
   }
+}
+
+///|
+fn compat_comments_from_semantic(
+  comments : Array[@dpxlsx.XlsxComment],
+) -> Array[XlsxComment] {
+  let out : Array[XlsxComment] = []
+  for comment in comments {
+    out.push({
+      reference: comment.reference,
+      row: comment.row,
+      column: comment.column,
+      author_name: comment.author_name,
+      text: comment.text,
+    })
+  }
+  out
 }
 
 ///|

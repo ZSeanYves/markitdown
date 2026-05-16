@@ -254,6 +254,56 @@ fn generated_xlsx_pkg_with_hidden_rows() -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn generated_xlsx_pkg_with_comments() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Comments\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c><c r=\"B1\" t=\"s\"><v>1</v></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"s\"><v>2</v></c><c r=\"B2\" t=\"s\"><v>3</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments1.xml\"/>",
+  )
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"4\" uniqueCount=\"4\">" +
+    "<si><t>Name</t></si>" +
+    "<si><t>Value</t></si>" +
+    "<si><t>Row A</t></si>" +
+    "<si><t>Row B</t></si>" +
+    "</sst>"
+  let comments_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<comments xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<authors><author>Analyst</author></authors>" +
+    "<commentList>" +
+    "<comment ref=\"B1\" authorId=\"0\"><text><r><t>Analyst:</t></r><r><t xml:space=\"preserve\"> First insight</t></r></text></comment>" +
+    "<comment ref=\"A2\" authorId=\"0\"><text><r><t>Second insight</t></r></text></comment>" +
+    "</commentList>" +
+    "</comments>"
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+      ("xl/sharedStrings.xml", shared_strings_xml),
+      ("xl/comments1.xml", comments_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>" +
+    "<Override PartName=\"/xl/comments1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml\"/>",
+  )
+}
+
+///|
 fn generated_xlsx_pkg_with_validation_edges() -> @ox.OoxmlPackage raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -661,4 +711,23 @@ test "xlsx semantic workbook preserves hidden row numbers without dropping cells
     }
   }
   assert_true(saw_hidden_cell)
+}
+
+///|
+test "xlsx semantic workbook preserves worksheet comments with author and cell refs" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_comments(),
+  )
+  assert_eq(workbook.sheets.length(), 1)
+  assert_eq(workbook.sheets[0].comments.length(), 2)
+  assert_eq(workbook.sheets[0].comments[0].reference, "B1")
+  match workbook.sheets[0].comments[0].author_name {
+    Some(author) => assert_eq(author, "Analyst")
+    None => fail("expected author name on first worksheet comment")
+  }
+  assert_eq(workbook.sheets[0].comments[0].text, "First insight")
+  assert_eq(workbook.sheets[0].comments[1].reference, "A2")
+  assert_eq(workbook.sheets[0].comments[1].row, 2)
+  assert_eq(workbook.sheets[0].comments[1].column, 1)
+  assert_eq(workbook.sheets[0].comments[1].text, "Second insight")
 }

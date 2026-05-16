@@ -99,6 +99,7 @@ fn make_annotation_for_noise(
     _bbox: bbox,
     uri: Some("https://example.com"),
     dest: None,
+    target_page: None,
     object_ref: None,
     contents: None,
     subject: None,

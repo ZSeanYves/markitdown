@@ -429,3 +429,53 @@ test "pdf heading decision uses prev heading guard on colon label" {
     fail("expected prev_heading_guard reason")
   }
 }
+
+///|
+test "pdf heading decision does not treat domain-like page lead as cjk heading" {
+  let block = make_test_block(
+    1,
+    PdfConvertBlockKind::Paragraph,
+    "mozilla.org",
+    Some(12.0),
+    740.0,
+    Some(12.0),
+  )
+
+  let decision = decide_heading_classification(None, block, None, 6)
+  match decision.status {
+    PdfHeadingDecisionStatus::KeepParagraph => ()
+    _ => fail("expected KeepParagraph decision")
+  }
+  if !decision.reason_tags.contains("insufficient_heading_context") {
+    fail("expected insufficient_heading_context reason")
+  }
+}
+
+///|
+test "pdf heading decision requires stronger page lead support for short english label" {
+  let prev = make_test_block(
+    1,
+    PdfConvertBlockKind::Paragraph,
+    "mozilla.org",
+    Some(12.0),
+    724.0,
+    Some(12.0),
+  )
+  let block = make_test_block(
+    2,
+    PdfConvertBlockKind::Paragraph,
+    "Text",
+    Some(12.0),
+    700.0,
+    Some(12.0),
+  )
+
+  let decision = decide_heading_classification(Some(prev), block, None, 6)
+  match decision.status {
+    PdfHeadingDecisionStatus::KeepParagraph => ()
+    _ => fail("expected KeepParagraph decision")
+  }
+  if !decision.reason_tags.contains("insufficient_heading_context") {
+    fail("expected insufficient_heading_context reason")
+  }
+}

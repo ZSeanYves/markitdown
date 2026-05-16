@@ -28,7 +28,8 @@ fn explain_should_merge_lines(
   if looks_like_heading_line(lt) && looks_like_heading_line(rt) {
     return "split: consecutive headings"
   }
-  if looks_like_broken_english_word_pair(lt, rt) {
+  if looks_like_broken_english_word_pair(lt, rt) &&
+    lines_have_tight_fragment_continuation(left, right) {
     return "join: broken english word pair"
   }
   if looks_like_cjk_continuation_pair(lt, rt) {
@@ -107,7 +108,8 @@ fn should_merge_lines(
     return true
   }
 
-  if looks_like_broken_english_word_pair(lt, rt) {
+  if looks_like_broken_english_word_pair(lt, rt) &&
+    lines_have_tight_fragment_continuation(left, right) {
     return true
   }
 
@@ -228,6 +230,17 @@ fn line_gap_paragraph_like(left : @model.PdfTextLine) -> Bool {
 }
 
 ///|
+fn lines_have_tight_fragment_continuation(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Bool {
+  line_font_size_close(left, right) &&
+  line_indent_close(left, right) &&
+  line_vertical_distance_close(left, right) &&
+  line_gap_paragraph_like(left)
+}
+
+///|
 fn line_dominant_font_size(line : @model.PdfTextLine) -> Double? {
   if line.spans.is_empty() {
     return None
@@ -278,7 +291,7 @@ fn should_join_same_line(
       }
 
       if span_is_empty(left) || span_is_empty(right) {
-        return true
+        return !has_strong_vertical_separation(current_spans, right)
       }
 
       let current_text = normalize_text(spans_text(current_spans))
@@ -298,14 +311,20 @@ fn should_join_same_line(
         .trim()
         .to_owned()
       let right_text = normalize_text(right.text).trim().to_owned()
+      let vertically_separated = has_strong_vertical_separation(
+        current_spans,
+        right,
+      )
 
       // 先看版面：不像同一视觉行，直接断开
       if looks_like_new_visual_chunk(current_spans, right) {
-        if looks_like_broken_english_word_pair(current_text, right_text) {
+        if !vertically_separated &&
+          looks_like_broken_english_word_pair(current_text, right_text) {
           return true
         }
 
-        if looks_like_heading_prefix_text(current_text) &&
+        if !vertically_separated &&
+          looks_like_heading_prefix_text(current_text) &&
           looks_like_short_cjk_heading_completion(right_text) {
           return true
         }
@@ -1465,6 +1484,72 @@ fn current_line_left_x(spans : Array[@model.PdfTextSpan]) -> Double {
 }
 
 ///|
+fn current_line_top_y(spans : Array[@model.PdfTextSpan]) -> Double {
+  if spans.is_empty() {
+    return 0.0
+  }
+
+  let mut y = spans[0].bbox.y1
+  for span in spans {
+    if span.bbox.y1 > y {
+      y = span.bbox.y1
+    }
+  }
+  y
+}
+
+///|
+fn current_line_bottom_y(spans : Array[@model.PdfTextSpan]) -> Double {
+  if spans.is_empty() {
+    return 0.0
+  }
+
+  let mut y = spans[0].bbox.y0
+  for span in spans {
+    if span.bbox.y0 < y {
+      y = span.bbox.y0
+    }
+  }
+  y
+}
+
+///|
+fn current_line_vertical_gap(
+  current_spans : Array[@model.PdfTextSpan],
+  right : @model.PdfTextSpan,
+) -> Double {
+  let cur_top = current_line_top_y(current_spans)
+  let cur_bottom = current_line_bottom_y(current_spans)
+  let overlap_top = if cur_top < right.bbox.y1 { cur_top } else { right.bbox.y1 }
+  let overlap_bottom = if cur_bottom > right.bbox.y0 {
+    cur_bottom
+  } else {
+    right.bbox.y0
+  }
+  let overlap = overlap_top - overlap_bottom
+  if overlap > 0.0 {
+    0.0
+  } else if right.bbox.y0 > cur_top {
+    right.bbox.y0 - cur_top
+  } else if cur_bottom > right.bbox.y1 {
+    cur_bottom - right.bbox.y1
+  } else {
+    0.0
+  }
+}
+
+///|
+fn has_strong_vertical_separation(
+  current_spans : Array[@model.PdfTextSpan],
+  right : @model.PdfTextSpan,
+) -> Bool {
+  let cur_fs = current_line_font_size(current_spans).unwrap_or(12.0)
+  let right_fs = right.font_size.unwrap_or(cur_fs)
+  let ref_h = if cur_fs > right_fs { cur_fs } else { right_fs }
+  current_line_vertical_gap(current_spans, right) > ref_h * 0.25
+}
+
+///|
 /// 是否像“同一视觉行里的跨列切换”。
 ///
 /// 典型场景：
@@ -1578,7 +1663,13 @@ fn nearly_same_visual_line(
   let right_y = right.origin.y
   let cur_fs = current_line_font_size(current_spans).unwrap_or(12.0)
   let right_fs = right.font_size.unwrap_or(cur_fs)
-  let tol = (if cur_fs > right_fs { cur_fs } else { right_fs }) * 0.35
+  let ref_h = if cur_fs > right_fs { cur_fs } else { right_fs }
+
+  if has_strong_vertical_separation(current_spans, right) {
+    return false
+  }
+
+  let tol = ref_h * 0.35
 
   abs_double_rule(cur_y - right_y) <= tol
 }

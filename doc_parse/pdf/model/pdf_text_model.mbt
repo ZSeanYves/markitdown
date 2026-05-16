@@ -221,6 +221,14 @@ pub fn glue_between_spans(left : String, right : String) -> String {
         return " "
       }
 
+      if is_ascii_wordish(a) && is_other_script_word_char(b) {
+        return " "
+      }
+
+      if is_other_script_word_char(a) && is_ascii_wordish(b) {
+        return " "
+      }
+
       // CJK + ASCII 正文，通常补空格
       if is_cjk_char(a) && is_ascii_wordish(b) {
         return " "
@@ -368,7 +376,10 @@ fn should_glue_english_word_piece_with_context(
     return true
   }
 
-  looks_like_joinable_english_fragment_word(left_word, right_word)
+  looks_like_joinable_english_fragment_word(left_word, right_word) ||
+  looks_like_tight_short_ascii_fragment_pair(
+    left_span, right_span, left_word, right_word,
+  )
 }
 
 ///|
@@ -475,6 +486,38 @@ fn looks_like_joinable_english_fragment_word(
 }
 
 ///|
+fn looks_like_tight_short_ascii_fragment_pair(
+  left_span : PdfTextSpan,
+  right_span : PdfTextSpan,
+  left_suffix : String,
+  right_prefix : String,
+) -> Bool {
+  let left_len = left_suffix.length()
+  let right_len = right_prefix.length()
+  let word = left_suffix + right_prefix
+  if word.length() < 3 || word.length() > 24 {
+    return false
+  }
+
+  if !all_ascii_letters(word) {
+    return false
+  }
+
+  let gap_ok = if left_len <= 2 || right_len <= 2 {
+    span_gap_short_fragment_fallback_for_word_merge(left_span, right_span)
+  } else {
+    span_gap_very_tight_for_word_merge(left_span, right_span)
+  }
+
+  if !gap_ok {
+    return false
+  }
+
+  (left_len >= 3 && right_len <= 3) ||
+  (left_len <= 2 && right_len <= 2)
+}
+
+///|
 fn is_ascii_letter(ch : Char) -> Bool {
   (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
@@ -495,6 +538,21 @@ fn is_cjk_char(ch : Char) -> Bool {
   (code >= 0x4E00 && code <= 0x9FFF) ||
   (code >= 0x3400 && code <= 0x4DBF) ||
   (code >= 0xF900 && code <= 0xFAFF)
+}
+
+///|
+fn is_other_script_word_char(ch : Char) -> Bool {
+  let code = ch.to_int()
+  !is_ascii_wordish(ch) &&
+  !is_cjk_char(ch) &&
+  !is_spacing_or_punct(ch) &&
+  (
+    (code >= 0x0370 && code <= 0x052F) ||
+    (code >= 0x0590 && code <= 0x05FF) ||
+    (code >= 0x0600 && code <= 0x08FF) ||
+    (code >= 0xFB1D && code <= 0xFDFF) ||
+    (code >= 0xFE70 && code <= 0xFEFF)
+  )
 }
 
 ///|
@@ -733,6 +791,34 @@ fn span_gap_tight_for_word_merge(
 
   let ref_size = span_word_merge_ref_size(left, right)
   gap <= ref_size * 0.22 + 1.5
+}
+
+///|
+fn span_gap_very_tight_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  let gap = right.bbox.x0 - left.bbox.x1
+  if gap <= 0.0 {
+    return true
+  }
+
+  let ref_size = span_word_merge_ref_size(left, right)
+  gap <= ref_size * 0.08 + 0.6
+}
+
+///|
+fn span_gap_short_fragment_fallback_for_word_merge(
+  left : PdfTextSpan,
+  right : PdfTextSpan,
+) -> Bool {
+  let gap = right.bbox.x0 - left.bbox.x1
+  if gap <= 0.0 {
+    return true
+  }
+
+  let ref_size = span_word_merge_ref_size(left, right)
+  gap <= ref_size * 0.16 + 1.0
 }
 
 ///|

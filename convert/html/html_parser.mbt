@@ -224,32 +224,248 @@ fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
 
 ///|
 fn narrow_html_content_scope(bs : Bytes) -> Bytes {
-  match
-    find_container_block_inner_by_attr_contains(
-      bs, "div", "id", "mw-content-text",
-    ) {
+  match find_html_content_scope_inner(bs) {
     Some(inner) => inner
     None =>
-      match
-        find_container_block_inner_by_attr_contains(
-          bs, "div", "id", "bodycontent",
-        ) {
+      match find_tag_block_inner(bs, "body") {
         Some(inner) => inner
+        None => bs
+      }
+  }
+}
+
+///|
+fn find_html_content_scope_inner(bs : Bytes) -> Bytes? {
+  match find_html_scope_inner_with_exact_root_token(bs) {
+    Some(inner) => Some(inner)
+    None =>
+      match find_html_scope_inner_with_exact_content_id(bs) {
+        Some(inner) => Some(inner)
         None =>
-          match find_tag_block_inner(bs, "article") {
-            Some(inner) => inner
+          match find_html_scope_inner_with_role_main(bs) {
+            Some(inner) => Some(inner)
             None =>
-              match find_tag_block_inner(bs, "main") {
-                Some(inner) => inner
+              match find_html_scope_inner_with_strong_content_attr(bs) {
+                Some(inner) => Some(inner)
                 None =>
-                  match find_tag_block_inner(bs, "body") {
-                    Some(inner) => inner
-                    None => bs
+                  match find_tag_block_inner(bs, "article") {
+                    Some(inner) => Some(inner)
+                    None => find_tag_block_inner(bs, "main")
                   }
               }
           }
       }
   }
+}
+
+///|
+fn find_html_scope_inner_with_exact_root_token(bs : Bytes) -> Bytes? {
+  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
+    html_scope_is_candidate_tag(tag_name) &&
+    (
+      html_scope_attr_contains_exact_root_token(tag, "id") ||
+      html_scope_attr_contains_exact_root_token(tag, "class")
+    )
+  })
+}
+
+///|
+fn find_html_scope_inner_with_strong_content_attr(bs : Bytes) -> Bytes? {
+  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
+    html_scope_is_candidate_tag(tag_name) &&
+    !html_attr_value_has_noise_token(tag, "id") &&
+    !html_attr_value_has_noise_token(tag, "class") &&
+    (
+      html_scope_attr_is_strong_content_root(tag, "id") ||
+      html_scope_attr_is_strong_content_root(tag, "class")
+    )
+  })
+}
+
+///|
+fn find_html_scope_inner_with_exact_content_id(bs : Bytes) -> Bytes? {
+  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
+    html_scope_is_candidate_tag(tag_name) &&
+    html_scope_attr_is_exact_content_id(tag, "id")
+  })
+}
+
+///|
+fn find_html_scope_inner_with_role_main(bs : Bytes) -> Bytes? {
+  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
+    html_scope_is_candidate_tag(tag_name) && html_scope_role_is_main(tag)
+  })
+}
+
+///|
+fn find_html_container_block_inner_matching(
+  bs : Bytes,
+  matcher : (String, String) -> Bool,
+) -> Bytes? {
+  let lt = pat("<")
+  let gt = pat(">")
+  let mut pos = 0
+  let n = bs.length()
+
+  while pos < n {
+    let open0 = find_bytes(bs, lt, pos)
+    match open0 {
+      None => return None
+      Some(open_idx) =>
+        match find_bytes(bs, gt, open_idx) {
+          None => return None
+          Some(gt_idx) => {
+            let tag_bs = bs[open_idx:gt_idx + 1].to_owned()
+            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+            match html_scope_open_tag_name(tag) {
+              Some(tag_name) =>
+                if matcher(tag_name, tag) {
+                  let inner_start = gt_idx + 1
+                  match find_matching_tag_end(bs, open_idx, tag_name) {
+                    Some(close_idx) =>
+                      return Some(bs[inner_start:close_idx].to_owned())
+                    None => ()
+                  }
+                }
+              None => ()
+            }
+            pos = gt_idx + 1
+          }
+        }
+    }
+  }
+
+  None
+}
+
+///|
+fn html_scope_open_tag_name(tag : String) -> String? {
+  let lower = tag.to_lower()
+  if !lower.has_prefix("<") ||
+    lower.has_prefix("</") ||
+    lower.has_prefix("<!") ||
+    lower.has_prefix("<?") {
+    return None
+  }
+
+  let n = lower.length()
+  let mut i = 1
+  while i < n && (lower[i] == ' ' || lower[i] == '\n' || lower[i] == '\t') {
+    i += 1
+  }
+  let start = i
+  while i < n {
+    let ch = lower[i]
+    if ch == ' ' || ch == '\n' || ch == '\t' || ch == '>' || ch == '/' {
+      break
+    }
+    i += 1
+  }
+
+  if i > start {
+    Some(lower[start:i].to_owned())
+  } else {
+    None
+  }
+}
+
+///|
+fn html_scope_is_candidate_tag(tag_name : String) -> Bool {
+  tag_name == "div" ||
+  tag_name == "section" ||
+  tag_name == "article" ||
+  tag_name == "main"
+}
+
+///|
+fn html_scope_attr_contains_exact_root_token(
+  tag : String,
+  attr_name : String,
+) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => {
+      let lower = value.to_lower()
+      lower.contains("mw-content-text") || lower.contains("bodycontent")
+    }
+  }
+}
+
+///|
+fn html_scope_attr_is_strong_content_root(
+  tag : String,
+  attr_name : String,
+) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => {
+      let words = html_scope_attr_words(value)
+      let has_body = html_scope_words_contain(words, "body")
+      let has_content = html_scope_words_contain(words, "content")
+      (has_body && has_content) ||
+      (html_scope_words_contain(words, "article") && (has_body || has_content)) ||
+      (html_scope_words_contain(words, "post") && (has_body || has_content)) ||
+      (html_scope_words_contain(words, "entry") && (has_body || has_content)) ||
+      (html_scope_words_contain(words, "story") && (has_body || has_content)) ||
+      (html_scope_words_contain(words, "chapter") && (has_body || has_content))
+    }
+  }
+}
+
+///|
+fn html_scope_attr_is_exact_content_id(
+  tag : String,
+  attr_name : String,
+) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => {
+      let lower = value.to_lower().trim().to_owned()
+      lower == "content" || lower == "maincontent"
+    }
+  }
+}
+
+///|
+fn html_scope_role_is_main(tag : String) -> Bool {
+  read_html_attr_value(tag, "role")
+  .map(fn(value) { value.to_lower().trim().to_owned() })
+  .unwrap_or("") ==
+  "main"
+}
+
+///|
+fn html_scope_attr_words(value : String) -> Array[String] {
+  let out : Array[String] = []
+  let part : Array[Char] = []
+
+  fn flush(out : Array[String], part : Array[Char]) -> Unit {
+    if part.length() == 0 {
+      return
+    }
+    out.push(String::from_array(part))
+    part.clear()
+  }
+
+  for ch in value.to_lower() {
+    if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
+      part.push(ch)
+    } else {
+      flush(out, part)
+    }
+  }
+  flush(out, part)
+  out
+}
+
+///|
+fn html_scope_words_contain(words : Array[String], needle : String) -> Bool {
+  for word in words {
+    if word == needle {
+      return true
+    }
+  }
+  false
 }
 
 ///|

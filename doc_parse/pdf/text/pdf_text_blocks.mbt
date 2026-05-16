@@ -129,7 +129,8 @@ fn should_merge_lines_in_block(
     return true
   }
 
-  looks_like_continuation_line(right)
+  looks_like_continuation_line(right) &&
+  lines_have_tight_fragment_continuation(left, right)
 }
 
 ///|

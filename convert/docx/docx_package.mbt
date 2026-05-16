@@ -130,17 +130,90 @@ fn DocxPackage::load_numbering(p : DocxPackage) -> DocxNumbering {
 }
 
 ///|
-fn DocxPackage::load_note_bundle(p : DocxPackage) -> DocxNoteBundle {
+fn DocxPackage::load_note_bundle(
+  p : DocxPackage,
+  out_root : String,
+  styles : DocxStyles,
+  numbering : DocxNumbering,
+) -> DocxNoteBundle {
   ignore(empty_docx_note_bundle())
+  let footnote_xml = p.read_text_optional("word/footnotes.xml")
+  let endnote_xml = p.read_text_optional("word/endnotes.xml")
+  let comments_xml = p.read_text_optional("word/comments.xml")
+  let footnote_rels = if footnote_xml.trim() == "" {
+    empty_docx_relationship_context()
+  } else {
+    build_docx_relationship_context(
+      @ox.read_part_relationships(p.pkg, "word/footnotes.xml") catch {
+        _ => []
+      },
+    )
+  }
+  let endnote_rels = if endnote_xml.trim() == "" {
+    empty_docx_relationship_context()
+  } else {
+    build_docx_relationship_context(
+      @ox.read_part_relationships(p.pkg, "word/endnotes.xml") catch {
+        _ => []
+      },
+    )
+  }
+  let comment_rels = if comments_xml.trim() == "" {
+    empty_docx_relationship_context()
+  } else {
+    build_docx_relationship_context(
+      @ox.read_part_relationships(p.pkg, "word/comments.xml") catch {
+        _ => []
+      },
+    )
+  }
+  let footnote_asset_by_target = if out_root.trim() == "" {
+    Map([])
+  } else {
+    build_docx_asset_path_map_with_seed(footnote_rels, out_root, { val: 3000 })
+  }
+  let endnote_asset_by_target = if out_root.trim() == "" {
+    Map([])
+  } else {
+    build_docx_asset_path_map_with_seed(endnote_rels, out_root, { val: 4000 })
+  }
+  let comment_asset_by_target = if out_root.trim() == "" {
+    Map([])
+  } else {
+    build_docx_asset_path_map_with_seed(comment_rels, out_root, { val: 5000 })
+  }
+  if out_root.trim() != "" {
+    p.extract_media_by_relationships(
+      footnote_rels,
+      footnote_asset_by_target,
+      out_root + "/assets",
+    ) catch {
+      _ => ()
+    }
+    p.extract_media_by_relationships(
+      endnote_rels,
+      endnote_asset_by_target,
+      out_root + "/assets",
+    ) catch {
+      _ => ()
+    }
+    p.extract_media_by_relationships(
+      comment_rels,
+      comment_asset_by_target,
+      out_root + "/assets",
+    ) catch {
+      _ => ()
+    }
+  }
   {
     footnotes_by_id: parse_footnotes_xml(
-      p.read_text_optional("word/footnotes.xml"),
+      footnote_xml, footnote_rels, footnote_asset_by_target, styles, numbering,
     ),
     endnotes_by_id: parse_endnotes_xml(
-      p.read_text_optional("word/endnotes.xml"),
+      endnote_xml, endnote_rels, endnote_asset_by_target, styles, numbering,
     ),
     comments_by_id: parse_comments_xml(
-      p.read_text_optional("word/comments.xml"),
+      comments_xml, comment_rels, comment_asset_by_target, styles, numbering,
     ),
   }
 }

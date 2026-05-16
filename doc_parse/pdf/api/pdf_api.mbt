@@ -56,7 +56,10 @@ pub async fn extract_document_model(
     Err(err) => return Err(err)
   }
 
-  build_document_model_from_raw(raw)
+  match build_document_model_from_raw(raw) {
+    Ok(doc) => Ok(attach_document_outlines(path, doc))
+    Err(err) => Err(err)
+  }
 }
 
 ///|
@@ -83,7 +86,7 @@ pub async fn extract_document_raw_model(
   }
 
   match build_document_model_from_raw(raw) {
-    Ok(doc) => Ok((raw, doc))
+    Ok(doc) => Ok((raw, attach_document_outlines(path, doc)))
     Err(err) => Err(err)
   }
 }
@@ -157,12 +160,140 @@ fn render_document_summary(doc : @model.PdfDocumentModel) -> String {
 }
 
 ///|
+priv struct FlatOutlineItem {
+  level : Int
+  title : String
+  page_index : Int?
+  dest : String?
+}
+
+///|
 fn map_adapter_error(err : @raw.MbtPdfAdapterError) -> PdfError {
   match err {
     OpenFailed(msg) => PdfError::AdapterFailed("open failed: " + msg)
     ExtractFailed(msg) => PdfError::AdapterFailed("extract failed: " + msg)
     Unsupported(msg) => PdfError::Unsupported(msg)
   }
+}
+
+///|
+async fn open_pdf_file_silently(path : String) -> @pdf.Pdf raise {
+  let input = @pdfiofs.input_of_file(path, source=path)
+  @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
+}
+
+///|
+async fn attach_document_outlines(
+  path : String,
+  doc : @model.PdfDocumentModel,
+) -> @model.PdfDocumentModel {
+  { ..doc, outlines: read_document_outlines(path) }
+}
+
+///|
+async fn read_document_outlines(path : String) -> Array[@model.PdfOutlineItem] {
+  let pdf = open_pdf_file_silently(path) catch {
+    _ => return []
+  }
+  let page_doc = @pdfpage.PdfPageDoc::new(pdf)
+  let bookmarks = @pdfmarks.PdfMarks::new(pdf).read_bookmarks() catch {
+    _ => return []
+  }
+  build_outline_tree_from_bookmarks(page_doc, bookmarks)
+}
+
+///|
+fn build_outline_tree_from_bookmarks(
+  page_doc : @pdfpage.PdfPageDoc,
+  bookmarks : Array[@pdfmarks.Bookmark],
+) -> Array[@model.PdfOutlineItem] {
+  let flat : Array[FlatOutlineItem] = []
+  for bookmark in bookmarks {
+    flat.push({
+      level: if bookmark.level < 0 { 0 } else { bookmark.level },
+      title: decode_outline_title(bookmark.text),
+      page_index: resolve_outline_page_index(page_doc, bookmark.target),
+      dest: outline_dest_label(bookmark.target),
+    })
+  }
+
+  let index = Ref(0)
+  build_outline_items_at_level(flat, index, 0)
+}
+
+///|
+fn decode_outline_title(value : String) -> String {
+  let decoded = @pdftext.PdfTextUtil::new().utf8_of_pdfdocstring(value) catch {
+    _ => value
+  }
+  decoded.trim().to_owned()
+}
+
+///|
+fn resolve_outline_page_index(
+  page_doc : @pdfpage.PdfPageDoc,
+  dest : @pdfdest.Destination,
+) -> Int? {
+  let page_number = page_doc.pagenumber_of_target(dest) catch {
+    _ => return None
+  }
+  if page_number <= 0 {
+    None
+  } else {
+    Some(page_number - 1)
+  }
+}
+
+///|
+fn outline_dest_label(dest : @pdfdest.Destination) -> String? {
+  let raw = match dest {
+    @pdfdest.Destination::NamedDestination(name) => Some(name.to_string_bytes())
+    @pdfdest.Destination::StringDestination(value) => Some(value)
+    _ => None
+  }
+  match raw {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" { None } else { Some(trimmed) }
+    }
+    None => None
+  }
+}
+
+///|
+fn build_outline_items_at_level(
+  flat : Array[FlatOutlineItem],
+  index : Ref[Int],
+  level : Int,
+) -> Array[@model.PdfOutlineItem] {
+  let out : Array[@model.PdfOutlineItem] = []
+
+  while index.val < flat.length() {
+    let cur = flat[index.val]
+    if cur.level < level {
+      break
+    }
+    if cur.level > level {
+      index.val = index.val + 1
+      continue
+    }
+
+    index.val = index.val + 1
+    let children = build_outline_items_at_level(flat, index, level + 1)
+    let has_title = cur.title != ""
+    let has_target = cur.page_index is Some(_) || cur.dest is Some(_)
+    if !has_title && !has_target && children.is_empty() {
+      continue
+    }
+    out.push({
+      title: cur.title,
+      page_index: cur.page_index,
+      dest: cur.dest,
+      children,
+    })
+  }
+
+  out
 }
 
 ///|

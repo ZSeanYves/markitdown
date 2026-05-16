@@ -363,9 +363,12 @@ fn page_lead_heading_reason_tags(
     return None
   }
 
-  if !(evidence.gap_before ||
-    evidence.font_size_delta ||
-    evidence.core_candidate) {
+  if !(evidence.font_size_delta ||
+    evidence.core_candidate ||
+    (
+      evidence.gap_before &&
+      (evidence.next_body || evidence.next_list)
+    )) {
     return None
   }
 

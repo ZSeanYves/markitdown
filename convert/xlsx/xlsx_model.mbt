@@ -48,6 +48,15 @@ pub struct XlsxMergedRange {
 }
 
 ///|
+pub struct XlsxComment {
+  reference : String
+  row : Int
+  column : Int
+  author_name : String?
+  text : String
+}
+
+///|
 pub struct XlsxFormulaTrace {
   policy : XlsxFormulaPolicy
   evaluated_value : String?
@@ -83,6 +92,7 @@ pub struct XlsxSheetModel {
   has_sheet_xml : Bool
   cells : Array[XlsxCellModel]
   merged_ranges : Array[XlsxMergedRange]
+  comments : Array[XlsxComment]
   hidden_rows : Array[Int]
   table_rows : Array[Array[String]]
   table_row_numbers : Array[Int]

@@ -110,6 +110,7 @@ pub async fn parse_pdf(
   let src = @cor.basename(input_path)
   let ir_started = @env.now()
   let out = convert_pdf_blocks_to_ir(doc5, max_heading, src)
+  append_pdf_outlines_to_ir(out, core_doc.outlines, src)
   pdf_convert_profile_add_stage(
     profile,
     "pdf_final_block_build",

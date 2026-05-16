@@ -84,17 +84,20 @@ priv struct DocxImageContext {
 ///|
 priv struct DocxFootnote {
   text : String
+  markdown : String
 }
 
 ///|
 priv struct DocxEndnote {
   text : String
+  markdown : String
 }
 
 ///|
 priv struct DocxComment {
   author : String?
   text : String
+  markdown : String
 }
 
 ///|

@@ -109,6 +109,23 @@ fn normalize_line_spans_with_glue(
       None => ()
     }
 
+    match try_merge_domain_fragment_span(prev, cur) {
+      Some((merged_prev_text, remaining_cur_text)) => {
+        let remain = remaining_cur_text.trim().to_owned()
+        out[out.length() - 1] = if remain == "" {
+          merge_fully_consumed_fragment_span(prev, cur, merged_prev_text)
+        } else {
+          { ..prev, text: merged_prev_text }
+        }
+
+        if remain != "" {
+          out.push({ ..cur, text: remain })
+        }
+        continue
+      }
+      None => ()
+    }
+
     if should_merge_hyphenated_word_piece(prev_text, cur_text) {
       let merged_prev_text = trim_hyphen_suffix(prev_text)
       out[out.length() - 1] = { ..prev, text: merged_prev_text }
@@ -196,14 +213,66 @@ fn try_merge_english_word_fragment_span(
     return Some((left_prefix + left_suffix + right_prefix, remain))
   }
 
-  if !looks_like_joinable_english_fragment_word(left_suffix, right_prefix) {
+  if !looks_like_joinable_english_fragment_word(left_suffix, right_prefix) &&
+    !looks_like_single_letter_prefix_fragment(left_suffix, right_prefix) &&
+    !looks_like_tight_short_ascii_fragment_pair(
+      left_span, right_span, left_suffix, right_prefix,
+    ) {
     return None
   }
 
   let left_prefix = remove_trailing_ascii_letters(l)
-  let remain = r[right_prefix.length():].to_owned()
+  let remain0 = r[right_prefix.length():].to_owned()
+  let merged_word = left_prefix + left_suffix + right_prefix
 
-  Some((left_prefix + left_suffix + right_prefix, remain))
+  if is_tight_terminal_punct_text(remain0) {
+    return Some((merged_word + remain0, ""))
+  }
+
+  Some((merged_word, remain0))
+}
+
+///|
+fn try_merge_domain_fragment_span(
+  left_span : @model.PdfTextSpan,
+  right_span : @model.PdfTextSpan,
+) -> (String, String)? {
+  let l = left_span.text
+  let r = right_span.text.trim().to_owned()
+
+  if l.trim().to_owned() == "" || r == "" {
+    return None
+  }
+
+  if !l.has_suffix(".") {
+    return None
+  }
+
+  let left_body = trailing_ascii_letters(l[:l.length() - 1].to_owned())
+  let right_prefix = leading_ascii_letters(r)
+
+  if left_body.length() < 2 || right_prefix.length() < 2 || right_prefix.length() > 12 {
+    return None
+  }
+
+  if !all_ascii_letters(left_body + right_prefix) {
+    return None
+  }
+
+  if !starts_with_lower_ascii(right_prefix) {
+    return None
+  }
+
+  if has_explicit_space_boundary_for_word_merge(left_span, right_span) {
+    return None
+  }
+
+  if !looks_like_tight_english_fragment_context(left_span, right_span) {
+    return None
+  }
+
+  let remain = r[right_prefix.length():].to_owned()
+  Some((l + right_prefix, remain))
 }
 
 ///|
@@ -318,6 +387,65 @@ fn looks_like_joinable_english_fragment_word(
   }
 
   false
+}
+
+///|
+fn is_tight_terminal_punct_text(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t.length() != 1 {
+    return false
+  }
+
+  t == "." || t == "," || t == ":" || t == ";" || t == "!" || t == "?"
+}
+
+///|
+fn looks_like_single_letter_prefix_fragment(
+  left_suffix : String,
+  right_prefix : String,
+) -> Bool {
+  if left_suffix.length() != 1 || right_prefix.length() < 4 || right_prefix.length() > 24 {
+    return false
+  }
+
+  if !all_ascii_letters(left_suffix + right_prefix) {
+    return false
+  }
+
+  let left = left_suffix.to_lower()
+  left != "a" && left != "i"
+}
+
+///|
+fn looks_like_tight_short_ascii_fragment_pair(
+  left_span : @model.PdfTextSpan,
+  right_span : @model.PdfTextSpan,
+  left_suffix : String,
+  right_prefix : String,
+) -> Bool {
+  let left_len = left_suffix.length()
+  let right_len = right_prefix.length()
+  let word = left_suffix + right_prefix
+  if word.length() < 3 || word.length() > 24 {
+    return false
+  }
+
+  if !all_ascii_letters(word) {
+    return false
+  }
+
+  let gap_ok = if left_len <= 2 || right_len <= 2 {
+    span_gap_short_fragment_fallback_for_word_merge(left_span, right_span)
+  } else {
+    span_gap_very_tight_for_word_merge(left_span, right_span)
+  }
+
+  if !gap_ok {
+    return false
+  }
+
+  (left_len >= 3 && right_len <= 3) ||
+  (left_len <= 2 && right_len <= 2)
 }
 
 ///|
@@ -439,6 +567,46 @@ fn span_gap_tight_for_word_merge(
   }
 
   gap <= ref_size * 0.22 + 1.5
+}
+
+///|
+fn span_gap_very_tight_for_word_merge(
+  left : @model.PdfTextSpan,
+  right : @model.PdfTextSpan,
+) -> Bool {
+  let gap = right.bbox.x0 - left.bbox.x1
+  if gap <= 0.0 {
+    return true
+  }
+
+  let ref_size = match (left.font_size, right.font_size) {
+    (Some(a), Some(b)) => if a > b { a } else { b }
+    (Some(a), None) => a
+    (None, Some(b)) => b
+    (None, None) => 12.0
+  }
+
+  gap <= ref_size * 0.08 + 0.6
+}
+
+///|
+fn span_gap_short_fragment_fallback_for_word_merge(
+  left : @model.PdfTextSpan,
+  right : @model.PdfTextSpan,
+) -> Bool {
+  let gap = right.bbox.x0 - left.bbox.x1
+  if gap <= 0.0 {
+    return true
+  }
+
+  let ref_size = match (left.font_size, right.font_size) {
+    (Some(a), Some(b)) => if a > b { a } else { b }
+    (Some(a), None) => a
+    (None, Some(b)) => b
+    (None, None) => 12.0
+  }
+
+  gap <= ref_size * 0.16 + 1.0
 }
 
 ///|

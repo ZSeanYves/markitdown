@@ -22,8 +22,11 @@ This page is the current roadmap source of truth for the repository.
 * external/private quality gate:
   `samples/quality_corpus/` is now operational as a local signal-level intake
   path, with real external rows already used to validate fixes for PDF word
-  boundaries, ZIP Level 1 data descriptors, YAML single-document markers,
-  PPTX cached chart data, and PPTX comments
+  boundaries, PDF non-link annotation appendix lowering, ZIP Level 1 data
+  descriptors, YAML single-document markers, PPTX cached chart data, PPTX
+  comments, HTML content-root selection, XLSX worksheet comments, DOCX
+  note/comment hyperlink-anchor preservation, and PPTX chart-title/date-category
+  lowering
 
 ## Near-term Release Work
 
@@ -97,9 +100,16 @@ This page is the current roadmap source of truth for the repository.
 * keep scan-only/image-only PDF rows on report-only detection first by
   reusing existing inspect/debug signal rather than turning the native suite
   into an OCR expectation
-* add more XLSX external rows around formula cache and merged-cell boundaries
-* add heavier DOCX rows for footnotes/comments/hyperlinks where the files stay
-  small and license-clean
+* add more XLSX external rows around hyperlink/comment appendix stability,
+  formula cache, and merged-cell boundaries
+* add heavier PDF/PPTX external rows around PDF link annotations,
+  multi-column reading order, PPTX grouped-shape layout, and richer
+  speaker-notes/comment combinations
+* keep expanding EPUB external rows around OPF/package robustness, especially
+  commented-out manifest markup and remote/scheme sidecar resources that
+  should not abort local spine conversion
+* add more XML external rows around non-UTF-8 declaration handling and keep
+  broad legacy-charset guessing out of scope unless real samples justify it
 * keep true multi-document YAML support as optional future work rather than
   a release blocker
 * keep scan-only PDF rows as boundary evidence rather than claiming OCR-first
@@ -152,6 +162,7 @@ This page is the current roadmap source of truth for the repository.
   path contract
 * optional simple-font GB18030 fallback for raw-GBK no-`/ToUnicode` PDFs if
   it is isolated to a well-evidenced boundary such as `SimFang-variant.pdf`
+  or `XiaoBiaoSong.pdf`
 * optional embedded-font `cmap` fallback only when a future sample shows:
   `FontFile2`, a usable `cmap`, and `CIDToGIDMap` identity or another safely
   resolvable mapping

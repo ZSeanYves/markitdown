@@ -237,6 +237,26 @@ test "html details summary and script style handling are explicit" {
 }
 
 ///|
+test "html comments do not leak commented markup into output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_comment_ignored.html"
+  write_utf8_text(
+    sample_path,
+    "<article><h1>Visible</h1><p>Before.</p><!-- <section><h2>Hidden</h2><p><a href=\"https://example.com/secret\">Secret Link</a></p></section> --><p>After.</p></article>\n",
+  )
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("# Visible"))
+  assert_true(markdown.contains("Before."))
+  assert_true(markdown.contains("After."))
+  assert_false(markdown.contains("Hidden"))
+  assert_false(markdown.contains("Secret Link"))
+  assert_false(markdown.contains("-->"))
+}
+
+///|
 test "html semantic wrappers and table header semantics are stable" {
   let wrappers_doc = @html.parse_html(
     resolve_html_parser_sample_path(
@@ -525,6 +545,82 @@ test "html keeps ordinary article header and does not over-prune body content" {
   assert_true(markdown.contains("Updated May 2026."))
   assert_true(markdown.contains("Main body survives."))
   assert_true(markdown.contains("> Important quote."))
+}
+
+///|
+test "html prefers strong content root over teaser article shell" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_role_main_beats_teaser_article.html"
+  write_utf8_text(
+    sample_path, "<html><body><article class=\"summary-card\"><h2>Teaser</h2><p>Short promo.</p></article><div role=\"main\"><h1>Release Plan</h1><p>Actual body.</p></div></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Release Plan"))
+  assert_true(markdown.contains("Actual body."))
+  assert_false(markdown.contains("Teaser"))
+  assert_false(markdown.contains("Short promo."))
+}
+
+///|
+test "html prefers post content root over outer main chrome" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_post_content_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><main><header><a href=\"/\">Home</a><p>Search</p></header><section class=\"post-content\"><h1>Guide</h1><p>Useful text.</p></section><footer><p>Legal</p></footer></main></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Guide"))
+  assert_true(markdown.contains("Useful text."))
+  assert_false(markdown.contains("Home"))
+  assert_false(markdown.contains("Search"))
+  assert_false(markdown.contains("Legal"))
+}
+
+///|
+test "html strong content heuristic skips article footer noise before real body" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_article_footer_noise_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><section class=\"content-section article-footer\"><p>Footer CTA</p></section><section class=\"post-content\"><h1>Guide</h1><p>Actual body.</p></section></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Guide"))
+  assert_true(markdown.contains("Actual body."))
+  assert_false(markdown.contains("Footer CTA"))
+}
+
+///|
+test "html prefers exact content id over body chrome fallback" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_content_id_scope.html"
+  write_utf8_text(
+    sample_path, "<html><body><div class=\"site-header\"><p>Docs nav</p></div><div id=\"content\"><h1>FAQ</h1><p>Real answer.</p></div><aside><p>Sidebar tip</p></aside></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# FAQ"))
+  assert_true(markdown.contains("Real answer."))
+  assert_false(markdown.contains("Docs nav"))
+  assert_false(markdown.contains("Sidebar tip"))
 }
 
 ///|

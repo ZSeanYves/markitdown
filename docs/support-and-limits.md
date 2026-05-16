@@ -277,6 +277,8 @@ Supported:
 * code-like paragraphs
 * hyperlinks in paragraph / heading / list contexts
 * multi-run hyperlinks
+* internal bookmark links and external hyperlinks with separate OOXML anchor
+  fragments
 * footnotes / endnotes / comments
 * headers / footers
 * text boxes, including table-contained text boxes
@@ -305,7 +307,9 @@ Conservative behavior:
   but `convert/docx` still owns the current normal heading/list/table/caption/
   code/image output policy
 * footnotes/endnotes/comments use explicit append-section ordering rather than
-  inline Word review semantics
+  inline Word review semantics, but the appendix body now preserves
+  conservative Markdown links and exported image refs when the note/comment
+  part carries those OOXML relationships
 * deleted / moved-from revision markup is skipped while inserted / moved-to
   visible text is preserved conservatively
 
@@ -314,9 +318,9 @@ Known limits:
 * not a Word layout engine
 * no macro / VBA handling
 * no run-level bold / italic / code-span preservation yet
-* no internal bookmark / anchor hyperlink promotion
-* footnotes/endnotes/comments currently use conservative append-section output
-  rather than richer inline semantics
+* footnotes/endnotes/comments still use conservative append-section output
+  rather than threaded review UI, inline anchor placement, or full Word note
+  layout semantics
 * no tracked-changes UI / richer review semantics
 * no floating-object or complex DrawingML visual reconstruction
 * no full style rendering
@@ -347,6 +351,8 @@ Supported:
 * per-slide comments/commentAuthors extraction with conservative author/text
   appendix output
 * cached chart-data extraction from PresentationML chart-part XML cache
+* explicit chart-title lowering from chart-part XML into normal slide output
+* readable ISO-style lowering for cached Excel date-serial chart categories
 * hidden slide annotation with content-preserving output
 * exported images through unified `ImageBlock`
 * OOXML document properties in the explicit `--with-metadata` sidecar path
@@ -366,6 +372,10 @@ Conservative behavior:
   reconstruction
 * aligned cached chart-data can lower to `RichTable`, while irregular cache
   falls back to conservative text
+* chart-part titles are emitted conservatively as surrounding slide text
+  instead of being dropped
+* date-like chart category caches render stable readable dates rather than raw
+  Excel serial floats when the cache exposes a date-ish `formatCode`
 * heuristic "table-like" recovery still exists for non-table shape layouts
 * grouped shapes preserve conservative `object_ref` provenance through
   reading-order text lowering when lower-layer shape identity is available
@@ -410,6 +420,7 @@ Supported:
 * formula text and cached-value policy hints in metadata sidecar
 * lightweight missing-cache formula evaluation for a safe local subset
 * merged-range detection in the lower layer
+* worksheet comment extraction with conservative per-sheet appendix output
 * hidden / veryHidden sheet-state capture in the lower layer
 * sheet-state emission in metadata sidecar
 * source row/column provenance
@@ -431,6 +442,8 @@ Conservative behavior:
   in metadata sidecar hints when available
 * hidden sheets are currently emitted in workbook order
 * merged ranges currently preserve only the top-left visible value
+* comments are emitted after the owning sheet table as a conservative appendix
+  instead of inline cell-note reconstruction
 * formula text is preserved in the lower layer and metadata sidecar when present
 * sparse sheets are lowered through a used bounding box, not a full grid
 
@@ -443,7 +456,7 @@ Known limits:
 * no workbook recalc or compatibility guarantee beyond the checked-in
   evaluator-v1 subset
 * no hidden-sheet annotation in emitted Markdown beyond sheet headings
-* no charts / pivots / comments / image export
+* no charts / pivots / image export
 * no full memory / RSS benchmark evidence yet
 
 ### PDF
@@ -485,8 +498,22 @@ Conservative behavior:
   are resolved later by edge-aware noise policy so middle-body numeric table
   cells are still available to the conservative table detector
 * image caption attachment only triggers for short, figure-like nearby text
-* PDF annotation links only emit for a narrow, high-confidence URI subset; all
-  other annotation/link cases remain conservative and debug-visible
+* PDF annotation links only emit for a narrow, high-confidence URI subset
+* stable internal-destination `/GoTo` annotations now lower conservatively into
+  the PDF `Annotations` appendix when the target page can be resolved without
+  inventing inline Markdown link syntax
+* stable PDF outlines/bookmarks now lower conservatively into a trailing
+  `Bookmarks` appendix, including nested outline items when the source catalog
+  exposes a readable tree and target page
+* non-link PDF annotations with stable visible payloads such as `/Text`,
+  `/Highlight`, `/FileAttachment`, `/FreeText`, `/Line`, `/Square`,
+  `/Circle`, `/Underline`, `/StrikeOut`, and printable `/Ink` now lower
+  conservatively into an `Annotations` appendix rather than silently
+  disappearing
+* degenerate subject-only annotation shells with near-zero geometry are
+  treated as non-user-visible and skipped from the appendix
+* ambiguous or non-user-visible annotation/link cases still remain
+  conservative and debug-visible
 * no-context text glue fallback is intentionally narrow and now prefers same
   line / adjacent-span context, source-ref adjacency, font/font-size/style
   consistency, gap/baseline proximity, punctuation boundaries, and casing
@@ -508,10 +535,14 @@ Conservative behavior:
 
 Known limits:
 
-* no internal-destination / GoTo link emission
+* no inline Markdown internal-link emission for PDF `/GoTo` targets; the
+  current contract is a conservative appendix note rather than a clickable
+  reconstructed anchor
 * no multiline or ambiguous PDF link emission
 * no general PDF table engine or complex table reconstruction
-* no outlines / bookmarks emission
+* no full PDF outline/TOC reconstruction beyond the conservative `Bookmarks`
+  appendix; exact viewer behavior, page labels, and richer action semantics
+  remain out of scope
 * no tagged-PDF semantic interpretation contract
 * encrypted PDFs are fail-closed in the native product path; there is no
   in-place decryption or best-effort partial recovery contract
@@ -523,7 +554,8 @@ Known limits:
 * no reliable general extraction contract for `/Identity-H` no-`/ToUnicode`
   PDFs; current local external evidence keeps these as retained boundaries
 * no GBK/GB18030 fallback strategy for simple raw-GBK, no-`/ToUnicode`
-  simple-font PDFs
+  simple-font PDFs; current retained local evidence includes both
+  `SimFang-variant.pdf` and `XiaoBiaoSong.pdf`
 * no PDF writer, renderer, or rasterization contract in the product build
   closure; the default path is text-first extraction plus conservative asset
   export
@@ -574,6 +606,8 @@ Supported:
 * conservative HTML provenance through block-level `object_ref` / `key_path`
   where the current unified metadata schema permits it
 * table span-boundary hints in metadata sidecars through `span_cells`
+* explicit content-root heuristics for common static-page wrappers such as
+  `id="content"`, `role="main"`, and `post/article/content` containers
 
 Conservative behavior:
 
@@ -585,6 +619,8 @@ Conservative behavior:
 * comments / doctype are ignored
 * semantic wrappers such as `main` / `section` / `header` / `footer` preserve
   child content conservatively
+* main-content scoping prefers explicit `id="content"` / `role="main"` roots
+  over fuzzier content-class matches and avoids obvious footer/sidebar noise
 * `script` / `style` / `head` / `noscript` are skipped rather than executed,
   rendered, or browser-expanded
 * `thead` / `tbody` / `tr` / `th` / `td` lower to stable Markdown table rows
@@ -791,6 +827,8 @@ Supported:
 
 * `.xml` routing
 * UTF-8 BOM removal
+* BOM- or declaration-driven source decoding for UTF-8, UTF-16LE/BE, and
+  ISO-8859-1 XML inputs
 * CRLF / CR normalization
 * source-preserving fenced `xml` code-block output
 * XML declaration / processing instruction / comments / CDATA / attributes /
@@ -806,6 +844,8 @@ Conservative behavior:
 * metadata treats the whole source as one conservative `CodeBlock` summary block
 * parser-layer XML inspection now exists, but the normal converter still keeps
   source-preserving fenced output
+* declared non-UTF-8 XML is only accepted when a conservative BOM/prefix or
+  XML declaration gives a stable source encoding signal
 * XML does not opt into PDF-specific artifact cleanup or aggressive text
   rewriting beyond conservative source cleanup
 
@@ -815,6 +855,8 @@ Known limits:
 * no namespace interpretation
 * no external entity loading
 * no DTD expansion
+* no broad legacy-charset support beyond the conservative UTF-8 / UTF-16 /
+  ISO-8859-1 path
 * no custom entity expansion; only predefined XML entities are decoded in the
   parser foundation
 * no `SYSTEM` / `PUBLIC` external-resource resolution
@@ -912,7 +954,11 @@ Conservative behavior:
 * missing manifest spine references degrade per item instead of aborting the
   whole book
 * local assets are remapped into archive-scoped `assets/archive/...`
-* remote/data images are not fetched or materialized
+* commented-out OPF markup is ignored by the lower-layer package scanner
+  rather than being mistaken for live manifest/spine entries
+* remote/scheme manifest sidecars and remote/data image references are not
+  fetched or materialized, but they do not abort package open when the local
+  spine remains valid
 
 Known limits:
 

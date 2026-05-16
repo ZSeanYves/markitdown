@@ -97,6 +97,13 @@ fn default_text_state() -> TextState {
 }
 
 ///|
+async fn open_pdf_file_with_mbtpdf(path : String) -> @pdf.Pdf raise {
+  // Keep recoverable parser diagnostics out of normal/debug user-facing output.
+  let input = @pdfiofs.input_of_file(path, source=path)
+  @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
+}
+
+///|
 /// 对外主入口：
 /// - 读文件
 /// - 枚举 pages
@@ -104,7 +111,7 @@ fn default_text_state() -> TextState {
 pub async fn extract_raw_document_with_mbtpdf(
   path : String,
 ) -> Result[RawPdfDocumentExtract, MbtPdfAdapterError] {
-  let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(None, None, path) catch {
+  let pdf = open_pdf_file_with_mbtpdf(path) catch {
     err => {
       let _ = err
       return Err(MbtPdfAdapterError::OpenFailed(path))

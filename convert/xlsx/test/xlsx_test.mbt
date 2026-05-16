@@ -120,6 +120,28 @@ fn bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
+fn find_substring(haystack : String, needle : String, start : Int) -> Int? {
+  let n = haystack.length()
+  let m = needle.length()
+  if m == 0 {
+    return Some(start)
+  }
+  if start < 0 || start >= n || n < m {
+    return None
+  }
+
+  let last = n - m
+  let mut i = start
+  while i <= last {
+    if haystack[i:i + m] == needle {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
 fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
@@ -349,6 +371,66 @@ fn write_hidden_row_xlsx(path : String) -> Unit raise {
 }
 
 ///|
+fn write_xlsx_with_comments(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Comments\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c><c r=\"B1\" t=\"s\"><v>1</v></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"s\"><v>2</v></c><c r=\"B2\"><v>42</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments1.xml\"/>",
+  )
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"3\" uniqueCount=\"3\">" +
+    "<si><t>Name</t></si>" +
+    "<si><t>Value</t></si>" +
+    "<si><t>alpha</t></si>" +
+    "</sst>"
+  let comments_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<comments xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<authors><author>Analyst</author></authors>" +
+    "<commentList>" +
+    "<comment ref=\"B1\" authorId=\"0\"><text><r><t>Analyst:</t></r><r><t xml:space=\"preserve\"> First insight</t></r></text></comment>" +
+    "<comment ref=\"A2\" authorId=\"0\"><text><r><t>Second insight</t></r></text></comment>" +
+    "</commentList>" +
+    "</comments>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>" +
+        "<Override PartName=\"/xl/comments1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ("xl/sharedStrings.xml", shared_strings_xml),
+    ("xl/comments1.xml", comments_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
 test "xlsx main process samples stay stable" {
   let simple_doc = @xlsx.parse_xlsx(
     resolve_sample_path("samples/main_process/xlsx/sheet_simple.xlsx"),
@@ -437,6 +519,35 @@ test "xlsx converter skips hidden rows in normal markdown while inspect keeps th
     }
   }
   assert_true(saw_hidden_cell)
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx comment parts emit conservative appendix blocks after table content" {
+  let case_dir = test_tmp_root() + "/comments"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate comments case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/comments.xlsx"
+  write_xlsx_with_comments(path) catch {
+    e => fail("write_xlsx_with_comments failed: " + e.to_string())
+  }
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("### Comments"))
+  assert_true(markdown.contains("- B1 (Analyst): First insight"))
+  assert_true(markdown.contains("- A2 (Analyst): Second insight"))
+  let table_pos = find_substring(markdown, "| Name | Value |", 0).unwrap_or_else(() => {
+      fail("expected worksheet table in markdown")
+    },
+  )
+  let comments_pos = find_substring(markdown, "### Comments", 0).unwrap_or_else(() => {
+      fail("expected comments appendix heading in markdown")
+    },
+  )
+  assert_true(comments_pos > table_pos)
 
   cleanup_temp_dir(case_dir)
 }

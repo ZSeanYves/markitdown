@@ -44,6 +44,53 @@
 * Refresh README and the main `docs/` authority pages so they match the current
   package/component architecture, bundled PDF/ZIP product routing, OCR
   explicit-only boundary, build guardrails, and quality-corpus hygiene rules.
+* Tighten HTML content-root selection against real external documentation pages:
+  prefer explicit `id="content"` / `role="main"` roots before fuzzier
+  `post/article/content` matches, reject obvious footer/sidebar noise from the
+  strong-content heuristic, and keep large static HTML pages like MDN from
+  collapsing to empty output.
+* Stop leaking commented HTML/XHTML markup into normal Markdown output:
+  comment blocks now stay non-content in the shared HTML scanner, so EPUB/XHTML
+  samples with commented-out optional sections no longer surface stray
+  commented headings, links, or trailing `-->` text.
+* Broaden conservative XML source-preserving intake under external-corpus
+  pressure: `.xml` conversion now honors BOM- or declaration-driven UTF-16
+  and ISO-8859-1 inputs instead of hard-failing all non-UTF-8 sources, while
+  broad legacy-charset guessing remains out of scope.
+* Harden EPUB package-open robustness under external-corpus pressure:
+  remote/scheme manifest sidecars no longer abort otherwise-local books, and
+  commented-out OPF manifest markup is now ignored instead of being mistaken
+  for duplicate live entries.
+* Preserve richer DOCX note/comment semantics under external-corpus pressure:
+  bookmark-only hyperlinks now lower to internal fragment links, OOXML
+  address-plus-anchor hyperlinks keep their fragment target instead of dropping
+  the anchor, and comment/footnote/endnote appendices now preserve
+  conservative Markdown links plus exported image refs when the note part
+  carries its own hyperlink/media relationships.
+* Improve PPTX cached-chart lowering under external-corpus pressure:
+  explicit chart titles from PresentationML chart parts now reach normal
+  Markdown output instead of being dropped, and cached Excel date-serial
+  categories now lower to stable readable ISO-style dates rather than raw
+  `37261.0`-style floats.
+* Lower stable non-link PDF annotations conservatively into a trailing
+  `Annotations` appendix: `/Text`, `/Highlight`, and `/FileAttachment`
+  samples from pdf.js now preserve visible subject/content payload instead of
+  silently dropping everything except the page text, while ambiguous or
+  non-user-visible annotation cases remain out of the normal-path contract.
+* Lower stable PDF internal destinations conservatively under external-corpus
+  pressure: visible `/GoTo` link annotations now preserve resolved target-page
+  notes in the `Annotations` appendix, and outline-only PDFs can emit a
+  readable trailing `Bookmarks` appendix instead of collapsing to empty
+  output.
+* Harden the PDF annotation appendix further against real pdf.js fixtures:
+  stable `/FreeText`, `/Line`, `/Square`, `/Circle`, `/Underline`,
+  `/StrikeOut`, and printable `/Ink` payloads now have external-corpus
+  coverage, while degenerate subject-only shell annotations are filtered out
+  instead of surfacing redundant low-value appendix lines.
+* Extract Level 1 XLSX worksheet comments from `comments*.xml` parts and lower
+  them conservatively after each owning sheet table as a `Comments` appendix,
+  while leaving inline note rendering, floating comment placement, and broader
+  workbook annotation semantics out of scope.
 * Strengthen vendored PDF native text extraction with Level 1 `/ToUnicode`
   CMap support, including `codespacerange`, `bfchar`, conservative
   `bfrange`, greedy multi-byte source-code matching, and UTF-16BE

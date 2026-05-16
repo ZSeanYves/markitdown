@@ -125,6 +125,7 @@ pub struct PdfConvertAnnotation {
   _bbox : @model.PdfRect
   uri : String?
   dest : String?
+  target_page : Int?
   object_ref : String?
   contents : String?
   subject : String?

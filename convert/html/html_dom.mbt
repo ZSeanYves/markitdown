@@ -50,6 +50,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
   let close_noscript = pat("</noscript>")
   let close_details = pat("</details>")
   let close_summary = pat("</summary>")
+  let close_comment = pat("-->")
 
   let mut pos = 0
   let n = bs.length()
@@ -88,6 +89,17 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            if tag.has_prefix("<!--") {
+              let end0 = find_bytes(bs, close_comment, p + 4)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_comment.length()
+                  continue
+                }
+                None => break
+              }
+            }
 
             match find_skippable_html_noise_subtree_end(bs, p, tag) {
               Some(skip_end) => {
@@ -411,6 +423,7 @@ fn scan_li_children(
   let close_blockquote = pat("</blockquote>")
   let close_pre = pat("</pre>")
   let close_table = pat("</table>")
+  let close_comment = pat("-->")
 
   let mut pos = start
 
@@ -464,6 +477,18 @@ fn scan_li_children(
 
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            if tag.has_prefix("<!--") {
+              let end0 = find_bytes(bs, close_comment, p + 4)
+              match end0 {
+                Some(end) =>
+                  if end <= end_ {
+                    pos = end + close_comment.length()
+                    continue
+                  }
+                None => break
+              }
+            }
 
             match find_skippable_html_noise_subtree_end(bs, p, tag) {
               Some(skip_end) =>
@@ -612,6 +637,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
   let close_noscript = pat("</noscript>")
   let close_details = pat("</details>")
   let close_summary = pat("</summary>")
+  let close_comment = pat("-->")
 
   let mut pos = 0
   let n = bs.length()
@@ -651,6 +677,17 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            if tag.has_prefix("<!--") {
+              let end0 = find_bytes(bs, close_comment, p + 4)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_comment.length()
+                  continue
+                }
+                None => break
+              }
+            }
 
             match find_skippable_html_noise_subtree_end(bs, p, tag) {
               Some(skip_end) => {
@@ -976,6 +1013,7 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
   let close_style = pat("</style>")
   let close_noscript = pat("</noscript>")
   let close_head = pat("</head>")
+  let close_comment = pat("-->")
   let mut pos = 0
   let n = inner.length()
 
@@ -1007,6 +1045,15 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
 
             if tag.has_prefix("<br") {
               out.push(HtmlInline::Break)
+            } else if tag.has_prefix("<!--") {
+              let end0 = find_bytes(inner, close_comment, i0 + 4)
+              match end0 {
+                Some(end) => {
+                  pos = end + close_comment.length()
+                  continue
+                }
+                None => break
+              }
             } else if tag.has_prefix("<script") {
               let end0 = find_bytes(inner, close_script, j0 + 1)
               match end0 {

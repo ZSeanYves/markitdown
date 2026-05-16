@@ -226,6 +226,7 @@ fn core_annotation_to_convert_annotation(
     _bbox: annotation.bbox,
     uri: annotation.uri,
     dest: annotation.dest,
+    target_page: annotation.target_page,
     object_ref: annotation.object_ref,
     contents: annotation.contents,
     subject: annotation.subject,

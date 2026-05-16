@@ -74,8 +74,43 @@ pub fn build_spans_from_chars(
 /// 判断两个字符是否应属于同一个最小 span。
 fn should_join_same_span(left : @model.PdfChar, right : @model.PdfChar) -> Bool {
   same_source_group(left.source, right.source) &&
+  !chars_have_strong_vertical_separation(left, right) &&
   left.font_name == right.font_name &&
   left.font_size == right.font_size
+}
+
+///|
+fn chars_have_strong_vertical_separation(
+  left : @model.PdfChar,
+  right : @model.PdfChar,
+) -> Bool {
+  let overlap_top = if left.bbox.y1 < right.bbox.y1 {
+    left.bbox.y1
+  } else {
+    right.bbox.y1
+  }
+  let overlap_bottom = if left.bbox.y0 > right.bbox.y0 {
+    left.bbox.y0
+  } else {
+    right.bbox.y0
+  }
+  let overlap = overlap_top - overlap_bottom
+  if overlap > 0.0 {
+    return false
+  }
+
+  let gap = if right.bbox.y0 > left.bbox.y1 {
+    right.bbox.y0 - left.bbox.y1
+  } else if left.bbox.y0 > right.bbox.y1 {
+    left.bbox.y0 - right.bbox.y1
+  } else {
+    0.0
+  }
+
+  let left_fs = left.font_size.unwrap_or(12.0)
+  let right_fs = right.font_size.unwrap_or(left_fs)
+  let ref_h = if left_fs > right_fs { left_fs } else { right_fs }
+  gap > ref_h * 0.25
 }
 
 ///|
@@ -139,7 +174,7 @@ pub fn make_span_from_chars(
 ///|
 /// 当前 bbox 是否真的可用，而不是默认零矩形。
 fn is_useful_rect(rect : @model.PdfRect) -> Bool {
-  @model.is_rect_valid(rect) && (rect.x1 > rect.x0 || rect.y1 > rect.y0)
+  @model.is_rect_valid(rect) && rect.x1 > rect.x0 && rect.y1 > rect.y0
 }
 
 ///|
@@ -187,21 +222,30 @@ fn estimate_single_char_width(
   ch : @model.PdfChar,
   font_size : Double,
 ) -> Double {
-  let text = ch.decoded_text
-  let c = first_char_opt_local(text)
+  let mut total = 0.0
+  let mut seen = false
+  for ch0 in ch.decoded_text {
+    total = total + estimate_scalar_char_width(ch0, font_size)
+    seen = true
+  }
 
-  match c {
-    Some(x) =>
-      if is_cjk_char_local(x) {
-        font_size
-      } else if x == ' ' || x == '\t' {
-        font_size * 0.33
-      } else if is_ascii_letter_local(x) || is_ascii_digit_local(x) {
-        font_size * 0.6
-      } else {
-        font_size * 0.5
-      }
-    None => font_size * 0.5
+  if seen {
+    total
+  } else {
+    font_size * 0.5
+  }
+}
+
+///|
+fn estimate_scalar_char_width(ch : Char, font_size : Double) -> Double {
+  if is_cjk_char_local(ch) {
+    font_size
+  } else if ch == ' ' || ch == '\t' {
+    font_size * 0.33
+  } else if is_ascii_letter_local(ch) || is_ascii_digit_local(ch) {
+    font_size * 0.6
+  } else {
+    font_size * 0.5
   }
 }
 

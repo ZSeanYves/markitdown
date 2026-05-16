@@ -12,6 +12,13 @@ priv enum PdfIrHeadingRole {
 }
 
 ///|
+priv struct PdfVisibleAnnotationNote {
+  _annotation_index : Int
+  text : String
+  object_ref : String?
+}
+
+///|
 const DEBUG_TO_IR = false
 
 ///|
@@ -28,6 +35,7 @@ fn convert_pdf_blocks_to_ir(
 ) -> @cor.Document {
   let out = @cor.new_document()
   let has_document_title = detect_document_title_presence_for_ir(doc)
+  let mut emitted_annotations_heading = false
 
   for page in doc.pages {
     let page_tables = detect_pdf_tables(page, DEBUG_TO_IR)
@@ -124,9 +132,295 @@ fn convert_pdf_blocks_to_ir(
         }
       }
     }
+
+    let annotation_notes = collect_visible_annotation_notes(page)
+    if !annotation_notes.is_empty() {
+      if !emitted_annotations_heading {
+        @cor.push(
+          out,
+          @cor.Block::Heading(2, "Annotations"),
+        )
+        emitted_annotations_heading = true
+      }
+
+      emit_pdf_annotation_notes_to_ir(
+        out,
+        source_name,
+        page._page_index,
+        annotation_notes,
+      )
+    }
   }
 
   out
+}
+
+///|
+fn append_pdf_outlines_to_ir(
+  out : @cor.Document,
+  outlines : Array[@model.PdfOutlineItem],
+  source_name : String,
+) -> Unit {
+  if !has_renderable_pdf_outline_items(outlines) {
+    return
+  }
+  @cor.push(out, @cor.Block::Heading(2, "Bookmarks"))
+  emit_pdf_outline_items_to_ir(out, source_name, outlines, 0)
+}
+
+///|
+fn has_renderable_pdf_outline_items(items : Array[@model.PdfOutlineItem]) -> Bool {
+  for item in items {
+    if render_pdf_outline_item_text(item) is Some(_) {
+      return true
+    }
+    if has_renderable_pdf_outline_items(item.children) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn emit_pdf_outline_items_to_ir(
+  out : @cor.Document,
+  source_name : String,
+  items : Array[@model.PdfOutlineItem],
+  level : Int,
+) -> Unit {
+  for item in items {
+    match render_pdf_outline_item_text(item) {
+      Some(text) => {
+        let origin : @cor.Origin = {
+          source_name: Some(source_name),
+          page: item.page_index.map(fn(idx) { idx + 1 }),
+          slide: None,
+          sheet: None,
+          block_index: Some(out.blocks.val.length()),
+          heading_path: Some(["Bookmarks"]),
+          line_start: None,
+          line_end: None,
+          row_index: None,
+          column_index: None,
+          object_ref: None,
+          relationship_id: None,
+          key_path: None,
+        }
+        @cor.push_with_origin(
+          out,
+          @cor.Block::ListItem(false, level, text),
+          Some(origin),
+        )
+      }
+      None => ()
+    }
+
+    if !item.children.is_empty() {
+      emit_pdf_outline_items_to_ir(out, source_name, item.children, level + 1)
+    }
+  }
+}
+
+///|
+fn render_pdf_outline_item_text(item : @model.PdfOutlineItem) -> String? {
+  let title = item.title.trim().to_owned()
+  let target = match item.page_index {
+    Some(page_index) =>
+      if page_index >= 0 {
+        Some("page " + (page_index + 1).to_string())
+      } else {
+        None
+      }
+    None =>
+      match normalized_optional_annotation_field(item.dest) {
+        Some(dest) => Some("destination " + dest)
+        None => None
+      }
+  }
+
+  match (title, target) {
+    ("", Some(dest)) => Some(dest)
+    ("", None) => None
+    (title, Some(dest)) => Some(title + " -> " + dest)
+    (title, None) => Some(title)
+  }
+}
+
+///|
+fn collect_visible_annotation_notes(
+  page : PdfConvertPage,
+) -> Array[PdfVisibleAnnotationNote] {
+  let out : Array[PdfVisibleAnnotationNote] = []
+
+  for annotation in page.annotations {
+    match render_visible_annotation_note(annotation, page._page_index) {
+      Some(text) =>
+        out.push({
+          _annotation_index: annotation._annotation_index,
+          text,
+          object_ref: annotation.object_ref,
+        })
+      None => ()
+    }
+  }
+
+  out
+}
+
+///|
+fn render_visible_annotation_note(
+  annotation : PdfConvertAnnotation,
+  page_index : Int,
+) -> String? {
+  if annotation.subtype == "/Popup" {
+    return None
+  }
+  if annotation.subtype == "/Link" {
+    return render_visible_link_annotation_note(annotation, page_index)
+  }
+
+  let label = annotation_label(annotation)
+  let subject = normalized_optional_annotation_field(annotation.subject)
+  let contents = normalized_optional_annotation_field(annotation.contents)
+  let dest = normalized_optional_annotation_field(annotation.dest)
+  let subject_only =
+    subject is Some(_) &&
+    contents is None &&
+    dest is None
+
+  if subject_only && is_degenerate_annotation_shell(annotation) {
+    return None
+  }
+
+  let payload = match (subject, contents, dest) {
+    (Some(s), Some(c), _) => Some(s + " — " + c)
+    (Some(s), None, Some(d)) => Some(s + " — " + d)
+    (Some(s), None, None) => Some(s)
+    (None, Some(c), _) => Some(c)
+    (None, None, Some(d)) => Some(d)
+    (None, None, None) => None
+  }
+
+  match payload {
+    Some(body) =>
+      if body.trim() == "" {
+        None
+      } else {
+        Some(label + " (page " + (page_index + 1).to_string() + "): " + body)
+      }
+    None => None
+  }
+}
+
+///|
+fn render_visible_link_annotation_note(
+  annotation : PdfConvertAnnotation,
+  page_index : Int,
+) -> String? {
+  if normalized_optional_annotation_field(annotation.uri) is Some(_) {
+    return None
+  }
+
+  let target = normalized_internal_link_target(annotation)
+  match target {
+    Some(target) => {
+      let subject = normalized_optional_annotation_field(annotation.subject)
+      let contents = normalized_optional_annotation_field(annotation.contents)
+      let payload = match (subject, contents) {
+        (Some(s), Some(c)) => s + " — " + c + " — " + target
+        (Some(s), None) => s + " — " + target
+        (None, Some(c)) => c + " — " + target
+        (None, None) => target
+      }
+      Some("Link (page " + (page_index + 1).to_string() + "): " + payload)
+    }
+    None => None
+  }
+}
+
+///|
+fn normalized_internal_link_target(annotation : PdfConvertAnnotation) -> String? {
+  match annotation.target_page {
+    Some(page_number) =>
+      if page_number > 0 {
+        Some("page " + page_number.to_string())
+      } else {
+        None
+      }
+    None =>
+      match normalized_optional_annotation_field(annotation.dest) {
+        Some(dest) => Some("destination " + dest)
+        None => None
+      }
+  }
+}
+
+///|
+fn rect_extent(lo : Double, hi : Double) -> Double {
+  if hi >= lo {
+    hi - lo
+  } else {
+    lo - hi
+  }
+}
+
+///|
+fn is_degenerate_annotation_shell(annotation : PdfConvertAnnotation) -> Bool {
+  let width = rect_extent(annotation._bbox.x0, annotation._bbox.x1)
+  let height = rect_extent(annotation._bbox.y0, annotation._bbox.y1)
+  width < 2.0 || height < 2.0
+}
+
+///|
+fn annotation_label(annotation : PdfConvertAnnotation) -> String {
+  let raw = annotation.subtype.trim().to_owned()
+  if raw.has_prefix("/") {
+    raw[1:].to_owned()
+  } else {
+    raw
+  }
+}
+
+///|
+fn normalized_optional_annotation_field(field : String?) -> String? {
+  match field {
+    Some(v) => {
+      let t = v.trim().to_owned()
+      if t == "" { None } else { Some(t) }
+    }
+    None => None
+  }
+}
+
+///|
+fn emit_pdf_annotation_notes_to_ir(
+  out : @cor.Document,
+  source_name : String,
+  page_index : Int,
+  notes : Array[PdfVisibleAnnotationNote],
+) -> Unit {
+  for note in notes {
+    let origin : @cor.Origin = {
+      source_name: Some(source_name),
+      page: Some(page_index + 1),
+      slide: None,
+      sheet: None,
+      block_index: Some(out.blocks.val.length()),
+      heading_path: Some(["Annotations"]),
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: note.object_ref,
+      relationship_id: None,
+      key_path: None,
+    }
+    @cor.push_with_origin(
+      out,
+      @cor.Block::Paragraph(note.text),
+      Some(origin),
+    )
+  }
 }
 
 ///|
@@ -353,13 +647,15 @@ fn emit_text_block_to_ir(
       }
 
       match role {
-        PdfIrHeadingRole::DocumentTitle =>
+        PdfIrHeadingRole::DocumentTitle => {
+          let level = clamp_heading_level(1, max_heading)
+          let block_ir = match block.rich_inlines {
+            Some(inlines) => @cor.Block::RichHeading(level, inlines)
+            None => @cor.Block::Heading(level, heading_text)
+          }
           @cor.push_with_origin(
             out,
-            @cor.Block::Heading(
-              clamp_heading_level(1, max_heading),
-              heading_text,
-            ),
+            block_ir,
             Some({
               source_name: Some(source_name),
               page: Some(_page_index + 1),
@@ -376,13 +672,18 @@ fn emit_text_block_to_ir(
               key_path: None,
             }),
           )
+        }
         PdfIrHeadingRole::SectionHeading => {
           let level = map_section_depth_to_heading_level_for_ir(
             depth, has_document_title, max_heading,
           )
+          let block_ir = match block.rich_inlines {
+            Some(inlines) => @cor.Block::RichHeading(level, inlines)
+            None => @cor.Block::Heading(level, heading_text)
+          }
           @cor.push_with_origin(
             out,
-            @cor.Block::Heading(level, heading_text),
+            block_ir,
             Some({
               source_name: Some(source_name),
               page: Some(_page_index + 1),

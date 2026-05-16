@@ -61,6 +61,16 @@ pub struct XlsxMergedRange {
 }
 
 ///|
+/// Source-native worksheet comment metadata preserved from `comments*.xml`.
+pub struct XlsxComment {
+  reference : String
+  row : Int
+  column : Int
+  author_name : String?
+  text : String
+}
+
+///|
 /// Conservative trace information for formula handling.
 ///
 /// This is not a full Excel formula engine.
@@ -104,6 +114,7 @@ pub struct XlsxSheet {
   has_sheet_xml : Bool
   cells : Array[XlsxCell]
   merged_ranges : Array[XlsxMergedRange]
+  comments : Array[XlsxComment]
   hidden_rows : Array[Int]
   used_min_row : Int
   used_min_col : Int

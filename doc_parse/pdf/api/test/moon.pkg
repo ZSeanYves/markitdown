@@ -5,6 +5,8 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/inspect" @inspect,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf" @mbtpdf,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf" @pdf,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfdest" @pdfdest,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfmarks" @pdfmarks,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpage" @pdfpage,
   "moonbitlang/async",
 } for "test"

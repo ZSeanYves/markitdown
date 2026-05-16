@@ -157,6 +157,133 @@ test "pdf span fragment merge repairs bound prefix and ligature fragments" {
 }
 
 ///|
+test "pdf span fragment merge repairs very tight short suffix pieces" {
+  let second = normalize_line_spans_with_glue([
+    {
+      ..make_span("sec"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 18.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+    },
+    {
+      ..make_span("ond"),
+      bbox: { x0: 18.4, y0: 0.0, x1: 36.0, y1: 10.0 },
+      origin: { x: 18.4, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(second.length(), 1)
+  assert_eq(second[0].text, "second")
+
+  let simple = normalize_line_spans_with_glue([
+    {
+      ..make_span("si"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 10.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+    },
+    {
+      ..make_span("m"),
+      bbox: { x0: 10.2, y0: 0.0, x1: 15.0, y1: 10.0 },
+      origin: { x: 10.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+    {
+      ..make_span("pl"),
+      bbox: { x0: 15.2, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 15.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 6,
+          content_order_index: Some(8),
+        },
+      ],
+    },
+    {
+      ..make_span("e"),
+      bbox: { x0: 24.2, y0: 0.0, x1: 28.0, y1: 10.0 },
+      origin: { x: 24.2, y: 8.0 },
+      font_name: Some("Dummy"),
+      font_size: Some(12.0),
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 7,
+          content_order_index: Some(9),
+        },
+      ],
+    },
+  ])
+  assert_eq(simple.length(), 1)
+  assert_eq(simple[0].text, "simple")
+}
+
+///|
+test "pdf span fragment merge repairs single-letter prefix and domain suffix fragments" {
+  let mozilla = normalize_line_spans_with_glue([
+    {
+      ..make_span("m"),
+      bbox: { x0: 70.86, y0: 0.0, x1: 77.45, y1: 10.0 },
+      origin: { x: 70.86, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 19,
+          content_order_index: Some(2),
+        },
+      ],
+    },
+    {
+      ..make_span("ozilla."),
+      bbox: { x0: 79.64, y0: 0.0, x1: 105.36, y1: 10.0 },
+      origin: { x: 79.64, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 23,
+          content_order_index: Some(3),
+        },
+      ],
+    },
+    {
+      ..make_span("org"),
+      bbox: { x0: 105.38, y0: 0.0, x1: 120.18, y1: 10.0 },
+      origin: { x: 105.38, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 27,
+          content_order_index: Some(4),
+        },
+      ],
+    },
+  ])
+  assert_eq(mozilla.length(), 1)
+  assert_eq(mozilla[0].text, "mozilla.org")
+}
+
+///|
 test "pdf line merge repairs wrapped hyphen with line context only" {
   let merged = merge_two_lines(
     0,

@@ -96,49 +96,6 @@ fn find_tag_block_inner(bs : Bytes, tag_name : String) -> Bytes? {
 }
 
 ///|
-fn find_container_block_inner_by_attr_contains(
-  bs : Bytes,
-  tag_name : String,
-  attr_name : String,
-  attr_value_token : String,
-) -> Bytes? {
-  let open_pat = pat("<" + tag_name)
-  let gt_pat = pat(">")
-  let attr_pat = pat(attr_name.to_lower() + "=")
-  let token_pat = pat(attr_value_token.to_lower())
-
-  fn search(search_from : Int) -> Bytes? {
-    let open0 = find_bytes_case_insensitive(bs, open_pat, search_from)
-    match open0 {
-      None => None
-      Some(open_idx) => {
-        let gt0 = find_bytes(bs, gt_pat, open_idx)
-        match gt0 {
-          None => None
-          Some(gt_idx) => {
-            let tag_slice = bs[open_idx:gt_idx + 1].to_owned()
-            let attr0 = find_bytes_case_insensitive(tag_slice, attr_pat, 0)
-            let token0 = find_bytes_case_insensitive(tag_slice, token_pat, 0)
-            if attr0 is Some(_) && token0 is Some(_) {
-              let inner_start = gt_idx + 1
-              let close0 = find_matching_tag_end(bs, open_idx, tag_name)
-              match close0 {
-                None => None
-                Some(close_idx) => Some(bs[inner_start:close_idx].to_owned())
-              }
-            } else {
-              search(gt_idx + 1)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  search(0)
-}
-
-///|
 fn find_matching_tag_end(
   bs : Bytes,
   start_open : Int,

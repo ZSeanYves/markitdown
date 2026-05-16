@@ -277,6 +277,8 @@ fn push_sheet_blocks(
     )
   }
 
+  push_sheet_comment_blocks(doc, src, sheet, max_heading)
+
   @cor.push_with_origin(
     doc,
     @cor.Block::BlankLine,
@@ -296,6 +298,73 @@ fn push_sheet_blocks(
       key_path: None,
     }),
   )
+}
+
+///|
+fn push_sheet_comment_blocks(
+  doc : @cor.Document,
+  src : String,
+  sheet : XlsxSheetModel,
+  max_heading : Int,
+) -> Unit {
+  if sheet.comments.length() == 0 {
+    return
+  }
+
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Heading(clamp_heading(3, max_heading), "Comments"),
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
+
+  for comment in sheet.comments {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::ListItem(false, 0, render_xlsx_comment_line(comment)),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: Some([sheet.name, "Comments"]),
+        line_start: Some(comment.row),
+        line_end: Some(comment.row),
+        row_index: Some(comment.row),
+        column_index: Some(comment.column),
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  }
+}
+
+///|
+fn render_xlsx_comment_line(comment : XlsxComment) -> String {
+  match comment.author_name {
+    Some(author) =>
+      if author.trim() != "" {
+        comment.reference + " (" + author + "): " + comment.text
+      } else {
+        comment.reference + ": " + comment.text
+      }
+    None => comment.reference + ": " + comment.text
+  }
 }
 
 ///|

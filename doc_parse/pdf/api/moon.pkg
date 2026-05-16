@@ -2,4 +2,11 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
   "ZSeanYves/markitdown/doc_parse/pdf/raw" @raw,
   "ZSeanYves/markitdown/doc_parse/pdf/text" @text,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf" @pdf,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfdest" @pdfdest,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfmarks" @pdfmarks,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpage" @pdfpage,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfiofs" @pdfiofs,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfreadcore" @pdfread,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftextread" @pdftext,
 }

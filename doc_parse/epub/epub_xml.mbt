@@ -18,9 +18,9 @@ fn collect_start_tags(xml : String, local_name : String) -> Array[String] {
       continue
     }
 
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i += 1
+    let skipped = advance_past_non_start_tag(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
       continue
     }
 
@@ -146,9 +146,9 @@ fn tag_text(xml : String, local_name : String) -> String? {
       continue
     }
 
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i += 1
+    let skipped = advance_past_non_start_tag(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
       continue
     }
 
@@ -198,9 +198,9 @@ fn tag_text_with_attr(
       i += 1
       continue
     }
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i += 1
+    let skipped = advance_past_non_start_tag(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
       continue
     }
 
@@ -253,9 +253,9 @@ fn tag_attr_with_attr(
       i += 1
       continue
     }
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i += 1
+    let skipped = advance_past_non_start_tag(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
       continue
     }
 
@@ -299,9 +299,9 @@ fn first_start_tag_with_attr(
       i += 1
       continue
     }
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i += 1
+    let skipped = advance_past_non_start_tag(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
       continue
     }
 
@@ -421,7 +421,17 @@ fn find_closing_tag_by_local_name(
   let mut i = start
 
   while i < n {
-    if chars[i] != '<' || i + 1 >= n || chars[i + 1] != '/' {
+    if chars[i] != '<' {
+      i += 1
+      continue
+    }
+
+    let skipped = advance_past_special_markup(xml, chars, i, n)
+    if skipped > i {
+      i = skipped
+      continue
+    }
+    if i + 1 >= n || chars[i + 1] != '/' {
       i += 1
       continue
     }
@@ -442,6 +452,75 @@ fn find_closing_tag_by_local_name(
   }
 
   None
+}
+
+///|
+fn advance_past_non_start_tag(
+  xml : String,
+  chars : Array[Char],
+  i : Int,
+  n : Int,
+) -> Int {
+  if i + 1 >= n {
+    return i
+  }
+
+  match chars[i + 1] {
+    '/' => advance_to_tag_close(chars, i + 2, n)
+    '?' | '!' => advance_past_special_markup(xml, chars, i, n)
+    _ => i
+  }
+}
+
+///|
+fn advance_past_special_markup(
+  xml : String,
+  chars : Array[Char],
+  i : Int,
+  n : Int,
+) -> Int {
+  if i + 1 >= n {
+    return i
+  }
+  if chars[i + 1] == '?' {
+    return advance_to_sequence_end(xml, "?>", i + 2, n)
+  }
+  if chars[i + 1] != '!' {
+    return i
+  }
+  if i + 4 <= n && xml[i:i + 4] == "<!--" {
+    return advance_to_sequence_end(xml, "-->", i + 4, n)
+  }
+  if i + 9 <= n && xml[i:i + 9] == "<![CDATA[" {
+    return advance_to_sequence_end(xml, "]]>", i + 9, n)
+  }
+  advance_to_tag_close(chars, i + 2, n)
+}
+
+///|
+fn advance_to_sequence_end(
+  xml : String,
+  marker : String,
+  start : Int,
+  n : Int,
+) -> Int {
+  match find_substring(xml, marker, start) {
+    Some(pos) => pos + marker.length()
+    None => n
+  }
+}
+
+///|
+fn advance_to_tag_close(chars : Array[Char], start : Int, n : Int) -> Int {
+  let mut i = start
+  while i < n && chars[i] != '>' {
+    i += 1
+  }
+  if i < n {
+    i + 1
+  } else {
+    n
+  }
 }
 
 ///|

@@ -16,17 +16,17 @@ fn parse_numbering_xml(xml : String) -> DocxNumbering {
 
 ///|
 fn read_paragraph_list_info(p_xml : String) -> ParagraphListInfo? {
-  let ilvl = match read_attr_value(p_xml, "<w:ilvl w:val=\"") {
-    Some(v) => parse_int_default(v, -1)
-    None => -1
-  }
-
   let num_id = match read_attr_value(p_xml, "<w:numId w:val=\"") {
     Some(v) => parse_int_default(v, -1)
     None => -1
   }
 
-  if ilvl >= 0 && num_id >= 0 {
+  let ilvl = match read_attr_value(p_xml, "<w:ilvl w:val=\"") {
+    Some(v) => parse_int_default(v, -1)
+    None => if num_id >= 0 { 0 } else { -1 }
+  }
+
+  if num_id >= 0 && ilvl >= 0 {
     Some({ num_id, ilvl })
   } else {
     None

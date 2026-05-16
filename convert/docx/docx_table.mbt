@@ -271,6 +271,21 @@ fn scan_table_block_with_context(
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
 ) -> Array[Array[String]] {
+  scan_table_block_with_context_and_ledger(
+    tbl_xml,
+    rel_ctx,
+    asset_by_target,
+    None,
+  )
+}
+
+///|
+fn scan_table_block_with_context_and_ledger(
+  tbl_xml : String,
+  rel_ctx : DocxRelationshipContext,
+  asset_by_target : Map[String, String],
+  ledger : DocxReferenceLedger?,
+) -> Array[Array[String]] {
   let started = @env.now()
   defer docx_convert_profile_add_active_stage(
     "docx_table_scan",
@@ -322,17 +337,12 @@ fn scan_table_block_with_context(
       }
 
       let tc_inner = profiled_slice_to_string(tr_chars, tc2 + 1, tc3)
-
-      // 只从 tc_inner 里抽 w:t
       let cell_text = collect_tc_text_with_relationships(
-        tc_inner, rel_ctx, asset_by_target,
+        tc_inner, rel_ctx, asset_by_target, ledger,
       )
-      //println("[DBG] cell_text=" + cell_text)
-      //println("[DBG] cell_len=" + cell_text.length().to_string())
 
       cells.push(cell_text)
 
-      // 游标推进："</w:tc>" 长度 7
       j = tc3 + 7
     }
 
@@ -340,7 +350,6 @@ fn scan_table_block_with_context(
       rows.push(cells)
     }
 
-    // "</w:tr>" 长度 7
     i = tr3 + 7
   }
 

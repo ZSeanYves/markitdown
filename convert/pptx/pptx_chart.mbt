@@ -3,6 +3,7 @@ priv struct PptxChartRenderable {
   order_index : Int
   object_ref : String?
   relationship_id : String?
+  title : String?
   block : @cor.Block
 }
 
@@ -89,6 +90,7 @@ fn collect_chart_renderables_from_shapes(
                 Some(v) => Some(v)
                 None => default_relationship_id
               },
+              title: chart.title,
               block,
             })
           None => ()
@@ -184,6 +186,32 @@ fn push_chart_renderable(
   src : String,
   slide_index : Int,
 ) -> Unit {
+  match chart.title {
+    Some(title) =>
+      if title.trim() != "" {
+        @cor.push_with_origin(
+          doc,
+          @cor.Block::Paragraph(title),
+          Some({
+            source_name: Some(src),
+            page: None,
+            slide: Some(slide_index),
+            sheet: None,
+            block_index: Some(doc.blocks.val.length()),
+            heading_path: None,
+            line_start: None,
+            line_end: None,
+            row_index: None,
+            column_index: None,
+            object_ref: chart.object_ref,
+            relationship_id: chart.relationship_id,
+            key_path: None,
+          }),
+        )
+      }
+    None => ()
+  }
+
   @cor.push_with_origin(
     doc,
     chart.block,

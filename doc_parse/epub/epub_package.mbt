@@ -430,18 +430,22 @@ pub fn collect_epub_validation_issues(
     match item.resolved_path {
       Some(_) => ()
       None =>
-        out.push({
-          kind: EpubValidationIssueKind::MissingSpineTarget,
-          severity: EpubValidationSeverity::Error,
-          rootfile_path: pkg.rootfile_path,
-          manifest_id: Some(item.idref),
-          spine_idref: Some(item.idref),
-          part_name: None,
-          href: item.manifest_item.map(fn(entry) { entry.href }),
-          media_type: item.manifest_item.bind(fn(entry) { entry.media_type }),
-          spine_index: Some(item.spine_index),
-          message: "spine item has no resolved target path: " + item.idref,
-        })
+        match item.manifest_item {
+          Some(_) => ()
+          None =>
+            out.push({
+              kind: EpubValidationIssueKind::MissingSpineTarget,
+              severity: EpubValidationSeverity::Error,
+              rootfile_path: pkg.rootfile_path,
+              manifest_id: Some(item.idref),
+              spine_idref: Some(item.idref),
+              part_name: None,
+              href: item.manifest_item.map(fn(entry) { entry.href }),
+              media_type: item.manifest_item.bind(fn(entry) { entry.media_type }),
+              spine_index: Some(item.spine_index),
+              message: "spine item has no resolved target path: " + item.idref,
+            })
+        }
     }
   }
   out.sort_by(fn(a, b) { compare_validation_issue(a, b) })
@@ -697,7 +701,7 @@ fn parse_opf_manifest(
       href,
       media_type,
       properties,
-      resolved_path: resolve_opf_href(opf_dir, href),
+      resolved_path: resolve_manifest_href(opf_dir, href),
     })
   }
 
@@ -1201,7 +1205,11 @@ fn parse_opf_spine(
           linear,
           spine_index,
           manifest_item: Some(item),
-          resolved_path: Some(item.resolved_path),
+          resolved_path: if manifest_href_is_non_local(item.href) {
+            None
+          } else {
+            Some(item.resolved_path)
+          },
         })
       None =>
         out.push({
@@ -1278,6 +1286,21 @@ fn resolve_opf_href(opf_dir : String, href : String) -> String raise EpubError {
 }
 
 ///|
+fn resolve_manifest_href(
+  opf_dir : String,
+  href : String,
+) -> String raise EpubError {
+  let href0 = strip_fragment_and_query(href.trim().to_owned())
+  if href0 == "" {
+    raise InvalidPath(href)
+  }
+  if manifest_href_is_non_local(href0) {
+    return href0
+  }
+  resolve_opf_href(opf_dir, href)
+}
+
+///|
 fn ensure_no_dot_segments(
   path : String,
   original : String,
@@ -1312,6 +1335,12 @@ fn has_scheme_like_prefix(src : String) -> Bool {
     }
   }
   false
+}
+
+///|
+fn manifest_href_is_non_local(href : String) -> Bool {
+  let normalized = strip_fragment_and_query(href.trim().to_owned())
+  normalized.has_prefix("//") || has_scheme_like_prefix(normalized.to_lower())
 }
 
 ///|

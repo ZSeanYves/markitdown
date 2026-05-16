@@ -240,6 +240,43 @@ test "line_text merges ligature fragment spans with pdf context signals" {
 }
 
 ///|
+test "line_text merges very tight short ascii fragment spans" {
+  let second = make_line([
+    make_word_merge_span("sec", 0.0, 18.0, 100.0, 10),
+    make_word_merge_span("ond", 18.4, 36.0, 100.1, 11),
+  ])
+  assert_eq(@model.line_text(second), "second")
+
+  let simple = make_line([
+    make_word_merge_span("si", 0.0, 10.0, 100.0, 10),
+    make_word_merge_span("m", 10.2, 14.0, 100.0, 11),
+    make_word_merge_span("pl", 14.2, 23.0, 100.0, 12),
+    make_word_merge_span("e", 23.2, 27.0, 100.0, 13),
+  ])
+  assert_eq(@model.line_text(simple), "simple")
+
+  let pdf = make_line([
+    make_word_merge_span("pd", 0.0, 10.0, 100.0, 20),
+    make_word_merge_span("f", 10.2, 14.0, 100.0, 21),
+  ])
+  assert_eq(@model.line_text(pdf), "pdf")
+}
+
+///|
+test "line_text inserts spaces between ascii and other script words" {
+  let line = make_line([
+    make_word_merge_span("Hello", 0.0, 20.0, 100.0, 10),
+    {
+      ..make_word_merge_span("ﺪﻤﺤﻣ", 20.8, 36.0, 100.0, 11),
+      writing_direction: @model.PdfWritingDirection::RightToLeft,
+    },
+    make_word_merge_span("World.", 36.8, 60.0, 100.0, 12),
+  ])
+
+  assert_eq(@model.line_text(line), "Hello ﺪﻤﺤﻣ World.")
+}
+
+///|
 test "line_text keeps normal short words separated" {
   let line = make_line([
     make_word_merge_span("to", 0.0, 10.0, 100.0, 10),

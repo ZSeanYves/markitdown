@@ -452,6 +452,10 @@ fn looks_like_short_cjk_heading(text : String) -> Bool {
     return false
   }
 
+  if !contains_cjk_char_text(t) {
+    return false
+  }
+
   true
 }
 
@@ -633,6 +637,16 @@ fn contains_body_like_phrase(text : String) -> Bool {
   text.contains("This is") ||
   text.contains("It is ") ||
   text.contains("It should ")
+}
+
+///|
+fn contains_cjk_char_text(text : String) -> Bool {
+  for ch in text {
+    if is_cjk_char(ch) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

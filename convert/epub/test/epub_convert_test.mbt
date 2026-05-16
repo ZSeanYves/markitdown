@@ -114,6 +114,206 @@ fn assert_contains(text : String, expected : String) -> Unit raise {
 }
 
 ///|
+fn bytes_of_string(s : String) -> Array[Byte] {
+  let out : Array[Byte] = []
+  for ch in s.to_array() {
+    out.push(ch.to_int().to_byte())
+  }
+  out
+}
+
+///|
+fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+}
+
+///|
+fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+  out.push((value & 0xFF).to_byte())
+  out.push(((value >> 8) & 0xFF).to_byte())
+  out.push(((value >> 16) & 0xFF).to_byte())
+  out.push(((value >> 24) & 0xFF).to_byte())
+}
+
+///|
+fn crc32_of_string(s : String) -> Int {
+  let mut crc : UInt = 0xFFFFFFFF
+  for ch in s.to_array() {
+    crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
+  }
+  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+}
+
+///|
+fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
+  let mut acc = UInt::lxor(crc, value)
+  let mut i = 0
+  while i < 8 {
+    if UInt::land(acc, 1) != 0 {
+      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    } else {
+      acc = acc >> 1
+    }
+    i = i + 1
+  }
+  acc
+}
+
+///|
+fn add_store_entry(
+  out : Array[Byte],
+  central : Array[(String, Int, Int, Int)],
+  name : String,
+  data : String,
+) -> Unit {
+  let local_offset = out.length()
+  let name_bytes = bytes_of_string(name)
+  let data_bytes = bytes_of_string(data)
+  let crc32 = crc32_of_string(data)
+
+  append_u32_le(out, 0x04034b50)
+  append_u16_le(out, 20)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u32_le(out, crc32)
+  append_u32_le(out, data_bytes.length())
+  append_u32_le(out, data_bytes.length())
+  append_u16_le(out, name_bytes.length())
+  append_u16_le(out, 0)
+  for b in name_bytes {
+    out.push(b)
+  }
+  for b in data_bytes {
+    out.push(b)
+  }
+
+  central.push((name, data_bytes.length(), local_offset, crc32))
+}
+
+///|
+fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
+  let out : Array[Byte] = []
+  let central : Array[(String, Int, Int, Int)] = []
+
+  for entry in entries {
+    let (name, data) = entry
+    add_store_entry(out, central, name, data)
+  }
+
+  let cd_offset = out.length()
+  for entry in central {
+    let (name, size, local_offset, crc32) = entry
+    let name_bytes = bytes_of_string(name)
+    append_u32_le(out, 0x02014b50)
+    append_u16_le(out, 20)
+    append_u16_le(out, 20)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, crc32)
+    append_u32_le(out, size)
+    append_u32_le(out, size)
+    append_u16_le(out, name_bytes.length())
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u16_le(out, 0)
+    append_u32_le(out, 0)
+    append_u32_le(out, local_offset)
+    for b in name_bytes {
+      out.push(b)
+    }
+  }
+  let cd_size = out.length() - cd_offset
+
+  append_u32_le(out, 0x06054b50)
+  append_u16_le(out, 0)
+  append_u16_le(out, 0)
+  append_u16_le(out, central.length())
+  append_u16_le(out, central.length())
+  append_u32_le(out, cd_size)
+  append_u32_le(out, cd_offset)
+  append_u16_le(out, 0)
+
+  Bytes::from_array(out)
+}
+
+///|
+fn minimal_container(rootfiles : Array[(String, String?)]) -> String {
+  let children : Array[String] = []
+  for entry in rootfiles {
+    let (path, media_type) = entry
+    let media = match media_type {
+      Some(v) => " media-type=\"" + v + "\""
+      None => ""
+    }
+    children.push("<rootfile full-path=\"" + path + "\"" + media + "/>")
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">" +
+  "<rootfiles>" +
+  children.join("") +
+  "</rootfiles>" +
+  "</container>"
+}
+
+///|
+fn minimal_opf(
+  manifest_items : Array[(String, String, String, String?)],
+  spine_items : Array[(String, String?)],
+) -> String {
+  let manifest_xml : Array[String] = []
+  for entry in manifest_items {
+    let (id, href, media_type, properties) = entry
+    let props = match properties {
+      Some(v) => " properties=\"" + v + "\""
+      None => ""
+    }
+    manifest_xml.push(
+      "<item id=\"" +
+      id +
+      "\" href=\"" +
+      href +
+      "\" media-type=\"" +
+      media_type +
+      "\"" +
+      props +
+      "/>",
+    )
+  }
+  let spine_xml : Array[String] = []
+  for entry in spine_items {
+    let (idref, linear) = entry
+    let linear_attr = match linear {
+      Some(v) => " linear=\"" + v + "\""
+      None => ""
+    }
+    spine_xml.push("<itemref idref=\"" + idref + "\"" + linear_attr + "/>")
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\">" +
+  "<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>Inline EPUB</dc:title></metadata>" +
+  "<manifest>" +
+  manifest_xml.join("") +
+  "</manifest>" +
+  "<spine>" +
+  spine_xml.join("") +
+  "</spine>" +
+  "</package>"
+}
+
+///|
+fn write_inline_epub(path : String, entries : Array[(String, String)]) -> Unit raise {
+  @fs.write_bytes_to_file(path, build_store_zip(entries)) catch {
+    e => fail("write inline epub failed: " + e.to_string())
+  }
+}
+
+///|
 test "epub convert main_process basic spine sample" {
   let out_dir = test_tmp_root() + "/epub-convert-basic"
   recreate_clean_dir(out_dir)
@@ -160,6 +360,48 @@ test "epub convert remote image falls back without asset export" {
   }
   if doc.asset_origins.val.length() != 0 {
     fail("remote EPUB image should not create asset origins")
+  }
+}
+
+///|
+test "epub convert ignores remote manifest sidecars and keeps local spine" {
+  let root = test_tmp_root() + "/epub-convert-remote-manifest"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input = root + "/remote-manifest.epub"
+  write_inline_epub(input, [
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([("OPS/content.opf", Some("application/oebps-package+xml"))]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf(
+        [
+          ("chap", "chapter.xhtml", "application/xhtml+xml", None),
+          ("audio", "https://example.com/media/theme.mp3", "audio/mpeg", None),
+        ],
+        [("chap", None)],
+      ),
+    ),
+    (
+      "OPS/chapter.xhtml",
+      "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><p>Remote manifest sidecar should not block conversion.</p></body></html>",
+    ),
+  ])
+
+  let out_dir = root + "/out"
+  recreate_clean_dir(out_dir)
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_contains(markdown, "# OPS/chapter.xhtml")
+  assert_contains(
+    markdown, "Remote manifest sidecar should not block conversion.",
+  )
+  if markdown.contains("theme.mp3") {
+    fail("remote manifest sidecar should not surface as converted spine content")
   }
 }
 
