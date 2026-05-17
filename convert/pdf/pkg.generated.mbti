@@ -7,11 +7,15 @@ import {
 }
 
 // Values
+pub fn apply_pdf_layout_gate(PdfConvertDocument, config? : PdfLayoutGateConfig) -> PdfConvertDocument
+
 pub fn attach_high_confidence_uri_links(PdfConvertDocument) -> PdfConvertDocument
 
 pub fn build_convert_blocks(PdfConvertDocument) -> PdfConvertDocument
 
 pub fn build_convert_lines(@model.PdfDocumentModel, String) -> PdfConvertDocument
+
+pub fn build_pdf_layout_gate_summary(PdfConvertDocument, PdfConvertDocument, config? : PdfLayoutGateConfig) -> PdfLayoutGateSummary
 
 pub fn build_repeated_edge_noise_index(PdfConvertDocument) -> PdfRepeatedEdgeNoiseIndex
 
@@ -30,6 +34,8 @@ pub fn decide_page_boundary_merge(PdfConvertPage, PdfConvertPage) -> PdfMergeDec
 pub fn default_pdf_layout_feature_names() -> Array[String]
 
 pub fn default_pdf_layout_feature_tsv_columns() -> Array[String]
+
+pub fn default_pdf_layout_gate_config() -> PdfLayoutGateConfig
 
 pub fn detect_pdf_tables(PdfConvertPage, Bool) -> Array[PdfTableCandidate]
 
@@ -52,6 +58,8 @@ pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.
 pub fn parse_pdf_layout_features_tsv(String) -> Result[Array[PdfLayoutFeature], PdfLayoutModelError]
 
 pub fn parse_pdf_layout_model_json(String) -> Result[PdfLayoutModel, PdfLayoutModelError]
+
+pub fn pdf_layout_gate_enabled() -> Bool
 
 pub fn render_pdf_layout_decisions_tsv(Array[PdfLayoutFeature], Array[PdfLayoutModelDecision]) -> String
 
@@ -238,6 +246,44 @@ pub struct PdfLayoutFeature {
   text : String
   notes : String?
   feature_values : Map[String, Double]
+}
+
+pub struct PdfLayoutGateConfig {
+  enabled : Bool
+}
+
+pub struct PdfLayoutGateDecision {
+  stage : PdfLayoutGateStage
+  target_id : String
+  page_index : Int
+  block_index : Int
+  text : String
+  rule_label : String
+  suggested_label : String?
+  final_label : String
+  output_kind : String
+  score : Double
+  confidence : Double
+  hard_constraints_applied : Array[String]
+  override_allowed : Bool
+  override_reason : String?
+  override_blocked_reason : String?
+  reason_tags : Array[String]
+}
+
+pub enum PdfLayoutGateStage {
+  HeadingDemotion
+  ListSuppression
+} derive(Eq)
+
+pub struct PdfLayoutGateSummary {
+  enabled : Bool
+  heading_candidate_count : Int
+  list_candidate_count : Int
+  decision_count : Int
+  changed_count : Int
+  blocked_count : Int
+  decisions : Array[PdfLayoutGateDecision]
 }
 
 pub struct PdfLayoutLabelWeights {

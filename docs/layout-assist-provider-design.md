@@ -13,6 +13,9 @@ Current boundary:
   future audit/design topics rather than current runtime dependencies
 * the fuller dataset/license audit plus the current feature/label/arbiter plan
   now live in `docs/pdf-layout-model.md`
+* a first tiny gated-normal path now exists, but it is a pure-MoonBit
+  distilled gate for only weak heading demotion and separator/list
+  suppression; it is not a provider-backed runtime model loader
 
 ## Goals
 
@@ -39,9 +42,12 @@ The repository already contains:
 But:
 
 * held-out quality is still limited
-* current results are useful for experiments, not for default output control
+* current offline model results are useful for experiments, not for broad
+  default output control
 * the repository now carries a light provider skeleton, but it stays
   report-only and does not load model files by default
+* a separate tiny normal-path gate now exists for two low-risk cases only,
+  still without loading model files or Python at runtime
 
 ## Provider interface
 
@@ -105,10 +111,15 @@ Current implementation status:
 * `gated_conservative_tuned` no longer regresses on the current split, but it
   still trails `v1` on the harder feature-augmented split, so the pinned
   report-only baseline remains `gated_conservative_v1`
-* the work still remains report-only/eval-only:
+* the broader offline pipeline still remains report-only/eval-only:
   the remaining checked residuals are now `Summary` plus a few
   `paragraph` vs `keep_as_text` or receipt/body boundary rows, so there is
-  still no case for any later normal-path discussion
+  still no case for any broader model-backed normal-path discussion
+* the first checked normal-path gate is intentionally smaller than the
+  report-only arbiter:
+  it only demotes weak headings or suppresses false list bullets, keeps hard
+  facts above the gate, exposes debug reasons, and can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`
 
 Heavy-provider audit note:
 
@@ -150,8 +161,9 @@ LayoutAssistPrediction
 
 ### `gated_normal`
 
-* only for future use
-* should require:
+* now used only in a very small internal PDF gate
+* not implemented through provider-backed runtime model loading
+* still requires:
   * very light runtime
   * measurable corpus win
   * clear benchmark evidence
@@ -160,11 +172,12 @@ LayoutAssistPrediction
 Current recommendation:
 
 * keep the default provider route at `report_only`
-* do not wire provider predictions into normal conversion decisions yet
+* do not wire provider predictions themselves into normal conversion decisions
 * keep debug/inspect output explicit that these are advisory predictions rather
   than final block classifications
-* use evaluation output for coverage/distribution observation first; only
-  consider any stronger rollout if the local corpus evidence materially improves
+* use evaluation output for coverage/distribution observation first; keep any
+  normal-path use narrower than the provider route until the local corpus
+  evidence materially improves again
 
 ## Suggested providers
 
@@ -220,7 +233,7 @@ should also record:
 Near term:
 
 * surface a provider design and optionally a light skeleton
-* keep layout assistance report-only
+* keep provider-backed layout assistance report-only
 * use the skeleton for tests/debug/report wiring before any main-chain
   integration
 * keep heavy-provider ideas such as PaddleOCR design-only until model/runtime,
@@ -239,6 +252,8 @@ Long term:
   * the model is tiny
   * startup remains lazy
   * corpus and benchmark evidence show real value
+  * the current tiny weak-heading/list gate has remained stable long enough to
+    justify any wider scope
 
 ## Explicit non-recommendations
 

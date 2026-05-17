@@ -36,6 +36,8 @@ fn convert_pdf_blocks_to_ir(
   let out = @cor.new_document()
   let has_document_title = detect_document_title_presence_for_ir(doc)
   let mut emitted_annotations_heading = false
+  let list_gate_cfg = default_pdf_layout_gate_config()
+  let list_gate_ctx = build_pdf_layout_gate_doc_context(doc)
 
   for page in doc.pages {
     let page_tables = detect_pdf_tables(page, DEBUG_TO_IR)
@@ -44,6 +46,7 @@ fn convert_pdf_blocks_to_ir(
       DEBUG_TO_IR,
     )
     let consumed_table_block_indices = table_consumed_block_indices(page_tables)
+    let page_font_median = page_median_font_size(page)
     let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {
@@ -68,10 +71,14 @@ fn convert_pdf_blocks_to_ir(
           emit_text_block_to_ir(
             out,
             source_name,
+            list_gate_ctx,
+            list_gate_cfg,
+            page,
             page._page_index,
             block,
             prev,
             next,
+            page_font_median,
             has_document_title,
             max_heading,
           )
@@ -722,10 +729,14 @@ fn find_next_text_block_in_objects(
 fn emit_text_block_to_ir(
   out : @cor.Document,
   source_name : String,
+  list_gate_ctx : PdfLayoutGateDocContext,
+  list_gate_cfg : PdfLayoutGateConfig,
+  page : PdfConvertPage,
   _page_index : Int,
   block : PdfConvertBlock,
   prev : PdfConvertBlock?,
   next : PdfConvertBlock?,
+  page_font_median : Double?,
   has_document_title : Bool,
   max_heading : Int,
 ) -> Unit {
@@ -835,25 +846,76 @@ fn emit_text_block_to_ir(
       let pt = text.trim().to_owned()
       match try_parse_bullet_list_item_for_ir(pt) {
         Some(item_text) =>
-          @cor.push_with_origin(
-            out,
-            @cor.Block::ListItem(false, 0, item_text),
-            Some({
-              source_name: Some(source_name),
-              page: Some(_page_index + 1),
-              slide: None,
-              sheet: None,
-              block_index: Some(out.blocks.val.length()),
-              heading_path: None,
-              line_start: None,
-              line_end: None,
-              row_index: None,
-              column_index: None,
-              object_ref: None,
-              relationship_id: None,
-              key_path: None,
-            }),
-          )
+          if should_emit_pdf_bullet_list_item(
+              list_gate_ctx,
+              page,
+              block.block_index,
+              page_font_median,
+              list_gate_cfg,
+            ) {
+            @cor.push_with_origin(
+              out,
+              @cor.Block::ListItem(false, 0, item_text),
+              Some({
+                source_name: Some(source_name),
+                page: Some(_page_index + 1),
+                slide: None,
+                sheet: None,
+                block_index: Some(out.blocks.val.length()),
+                heading_path: None,
+                line_start: None,
+                line_end: None,
+                row_index: None,
+                column_index: None,
+                object_ref: None,
+                relationship_id: None,
+                key_path: None,
+              }),
+            )
+          } else {
+            match block.rich_inlines {
+              Some(inlines) =>
+                @cor.push_with_origin(
+                  out,
+                  @cor.Block::RichParagraph(inlines),
+                  Some({
+                    source_name: Some(source_name),
+                    page: Some(_page_index + 1),
+                    slide: None,
+                    sheet: None,
+                    block_index: Some(out.blocks.val.length()),
+                    heading_path: None,
+                    line_start: None,
+                    line_end: None,
+                    row_index: None,
+                    column_index: None,
+                    object_ref: None,
+                    relationship_id: None,
+                    key_path: None,
+                  }),
+                )
+              None =>
+                @cor.push_with_origin(
+                  out,
+                  @cor.Block::Paragraph(pt),
+                  Some({
+                    source_name: Some(source_name),
+                    page: Some(_page_index + 1),
+                    slide: None,
+                    sheet: None,
+                    block_index: Some(out.blocks.val.length()),
+                    heading_path: None,
+                    line_start: None,
+                    line_end: None,
+                    row_index: None,
+                    column_index: None,
+                    object_ref: None,
+                    relationship_id: None,
+                    key_path: None,
+                  }),
+                )
+            }
+          }
         None =>
           match block.rich_inlines {
             Some(inlines) =>

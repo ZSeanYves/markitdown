@@ -534,6 +534,16 @@ Conservative behavior:
   enable OCR, does not connect a visual layout runtime into the normal path,
   and now feeds a report-only lightweight layout-assist audit documented in
   `docs/pdf-layout-model.md`
+* normal PDF conversion now also carries a tiny pure-MoonBit gated layout
+  arbiter for two low-risk ambiguity classes only:
+  weak heading demotion and separator/false-bullet suppression
+* that gate does not load Python, ONNX, Torch, TensorFlow, PaddleOCR,
+  OCRmyPDF, or external model files at runtime
+* deterministic PDF facts such as text decoding, explicit link payload,
+  annotation payload, caption/table geometry, and scan-only boundaries remain
+  above the gate
+* the gate is explainable in debug output and can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`
 
 Known limits:
 
@@ -582,13 +592,17 @@ Known limits:
   and may now expose `rule_label_hint`, `disagreement`,
   `blocked_by_constraints`, and `would_change_output`, but they still do not
   participate in the normal conversion decision path
+* the current normal-path layout gate is intentionally much narrower than the
+  report-only provider/model pipeline and does not imply broad model-backed PDF
+  control
 * the explicit `tesseract-cli` provider is optional and external: it can probe
   availability and OCR page images when users explicitly choose it, but it is
   not bundled and is not part of the default `normal` path
 * debug-only provider listing/probe surfaces may expose provider availability
   state, but availability does not mean OCR has been run
-* the current lightweight layout classifier spike is local-corpus-only and is
-  not wired into the default conversion decision path
+* the broader lightweight layout classifier spike remains local-corpus-only
+  and is not wired into the default conversion decision path as a runtime
+  model loader
 * bad `/ToUnicode` maps can still legitimately yield replacement characters or
   other low-value output; the repository does not currently promise rescue
   beyond the declared Level 1 parser behavior

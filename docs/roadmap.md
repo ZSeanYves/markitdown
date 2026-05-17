@@ -68,9 +68,12 @@ This page is the current roadmap source of truth for the repository.
 
 * keep the current `samples/pdf_layout_classifier` work scoped as a training
   spike
-* evolve that spike toward the audited lightweight layout-assist plan in
-  `docs/pdf-layout-model.md`, starting with report-only feature/schema/
-  disagreement reporting rather than normal-path control
+* keep the broader offline/training/eval loop in `docs/pdf-layout-model.md`,
+  while treating the new tiny gated-normal v1 as a separate distilled
+  implementation rather than “the model now runs in normal”
+* the first normal-path gate is now intentionally tiny:
+  weak heading demotion plus separator/list suppression only, with hard
+  constraints, debug reasons, and a disable switch
 * expand local labels only if the text-layer classifier shows useful signal
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
@@ -145,22 +148,22 @@ This page is the current roadmap source of truth for the repository.
 * keep any future PaddleOCR route off the normal path and off the default
   sample/test gate, starting instead from explicit commands or debug/eval
   reporting
-* keep layout assistance advisory/report-only first; only consider guarded
-  normal-path use after benchmark and corpus evidence
-* keep layout-assist rollout on report-only skeletons before any model-backed
-  or normal-path experiment
+* keep provider-backed layout assistance advisory/report-only first; only
+  consider broader normal-path use after benchmark and corpus evidence
+* keep wider layout-assist rollout on report-only skeletons before any
+  broader model-backed normal-path experiment
 * prefer surfacing advisory layout-assist predictions in debug/inspect before
-  any normal-path integration attempt
+  widening the current tiny weak-heading/list normal-path gate
 * use debug-only layout-assist evaluation to measure coverage, label
   distribution, and suspicious no-prediction / many-prediction cases before
   discussing any stronger integration
 * require explicit dataset/license review and held-out ablation before
   widening the layout-assist label set or gating any output changes
 * keep collecting more unique-source real labels for `link_text`, `caption`,
-  and short-title `heading` boundaries before proposing any later
-  gated-normal PDF layout-assist trial; the latest held-out expansion finally
-  raised `link_text` / `caption` support to `9` / `8`, but long annotated
-  anchors are still not robust enough
+  and short-title `heading` boundaries before proposing any later widening of
+  the normal-path gate; the latest held-out expansion finally raised
+  `link_text` / `caption` support to `9` / `8`, but long annotated anchors
+  are still not robust enough
 * keep the current best report-only arbiter pinned to
   `gated_conservative_v1`, which now uses the `220 / 180` local split plus
   later heading/list precision guards, corrected standalone-bullet negatives,
@@ -175,9 +178,12 @@ This page is the current roadmap source of truth for the repository.
 * keep the newer paragraph-boundary feature pass in the report-only lane too:
   the same harder `223 / 195` split now reaches `0.9846` for
   `gated_conservative_v1` vs `0.9641` for `rules_only`, still keeps held-out
-  regressions at `0`, and now shows that the blocker has shifted away from
-  `link_text` / `caption` support to a much smaller set of `Summary`,
+  regressions at `0`, and shows that the broader blocker set has shifted away
+  from `link_text` / `caption` support to a much smaller set of `Summary`,
   visible-URL, and receipt/body boundary residuals
+* keep the first checked gated-normal v1 frozen at weak heading demotion plus
+  separator/list suppression only until those remaining residuals and wider
+  benchmark/build questions are re-audited
 
 ## Later Work
 

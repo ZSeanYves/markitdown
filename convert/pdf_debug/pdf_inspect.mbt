@@ -6,7 +6,8 @@ pub fn build_pdf_debug_sections(
   let doc0 = @pdfcore.build_convert_lines(model, "")
   let doc1 = @pdfcore.build_convert_blocks(doc0)
   let doc2 = @pdfcore.classify_convert_blocks(doc1, max_heading)
-  let doc3 = @pdfcore.filter_noise_blocks(doc2)
+  let doc2g = @pdfcore.apply_pdf_layout_gate(doc2)
+  let doc3 = @pdfcore.filter_noise_blocks(doc2g)
   let doc4 = @pdfcore.merge_convert_blocks(doc3)
   let doc5 = @pdfcore.attach_high_confidence_uri_links(doc4)
 
@@ -15,10 +16,11 @@ pub fn build_pdf_debug_sections(
     pdf_pages_section(model),
     pdf_text_model_section(model),
     pdf_layout_assist_section(doc1, doc2),
+    pdf_layout_gate_section(doc2, doc4),
     pdf_images_section(model),
     pdf_annotations_section(model),
     pdf_links_section(doc1),
-    pdf_pipeline_section(doc1, doc2, doc3, doc4, doc5, max_heading),
+    pdf_pipeline_section(doc1, doc2, doc2g, doc3, doc4, doc5, max_heading),
   ]
 }
 
@@ -344,6 +346,58 @@ fn pdf_layout_assist_section(
 }
 
 ///|
+fn pdf_layout_gate_section(
+  classified_doc : @pdfcore.PdfConvertDocument,
+  merged_doc : @pdfcore.PdfConvertDocument,
+) -> @cor.DebugSection {
+  let cfg = @pdfcore.default_pdf_layout_gate_config()
+  let summary = @pdfcore.build_pdf_layout_gate_summary(
+    classified_doc,
+    merged_doc,
+    config=cfg,
+  )
+  let preview = take_layout_gate_decisions(summary.decisions, 12)
+  let items : Array[String] = []
+  for decision in preview {
+    items.push(layout_gate_decision_json(decision))
+  }
+
+  @cor.debug_section(
+    "layout_gate",
+    "pdf",
+    true,
+    Some(
+      "gated-normal PDF layout override summary for weak heading demotion and bullet/separator suppression only",
+    ),
+    @cor.object_json([
+      @cor.json_string("enabled") + ": " + @cor.bool_json(summary.enabled),
+      @cor.json_string("disable_env") +
+      ": " +
+      @cor.json_string("MARKITDOWN_PDF_LAYOUT_GATE=0"),
+      @cor.json_string("heading_candidate_count") +
+      ": " +
+      summary.heading_candidate_count.to_string(),
+      @cor.json_string("list_candidate_count") +
+      ": " +
+      summary.list_candidate_count.to_string(),
+      @cor.json_string("decision_count") +
+      ": " +
+      summary.decision_count.to_string(),
+      @cor.json_string("changed_count") +
+      ": " +
+      summary.changed_count.to_string(),
+      @cor.json_string("blocked_count") +
+      ": " +
+      summary.blocked_count.to_string(),
+      @cor.json_string("decisions_truncated") +
+      ": " +
+      @cor.bool_json(summary.decision_count > preview.length()),
+      @cor.json_string("decisions") + ": " + @cor.array_json(items),
+    ]),
+  )
+}
+
+///|
 fn build_layout_assist_features(
   raw_doc : @pdfcore.PdfConvertDocument,
   classified_doc : @pdfcore.PdfConvertDocument,
@@ -589,6 +643,71 @@ fn double_opt_json(v : Double?) -> String {
 }
 
 ///|
+fn layout_gate_decision_json(
+  decision : @pdfcore.PdfLayoutGateDecision,
+) -> String {
+  @cor.object_json([
+    @cor.json_string("stage") +
+    ": " +
+    @cor.json_string(layout_gate_stage_name(decision.stage)),
+    @cor.json_string("target_id") + ": " + @cor.json_string(decision.target_id),
+    @cor.json_string("page_index") + ": " + decision.page_index.to_string(),
+    @cor.json_string("block_index") + ": " + decision.block_index.to_string(),
+    @cor.json_string("rule_label") +
+    ": " +
+    @cor.json_string(decision.rule_label),
+    @cor.json_string("suggested_label") +
+    ": " +
+    @cor.json_string_opt(decision.suggested_label),
+    @cor.json_string("final_label") +
+    ": " +
+    @cor.json_string(decision.final_label),
+    @cor.json_string("output_kind") +
+    ": " +
+    @cor.json_string(decision.output_kind),
+    @cor.json_string("score") + ": " + decision.score.to_string(),
+    @cor.json_string("confidence") + ": " + decision.confidence.to_string(),
+    @cor.json_string("override_allowed") +
+    ": " +
+    @cor.bool_json(decision.override_allowed),
+    @cor.json_string("override_reason") +
+    ": " +
+    @cor.json_string_opt(decision.override_reason),
+    @cor.json_string("override_blocked_reason") +
+    ": " +
+    @cor.json_string_opt(decision.override_blocked_reason),
+    @cor.json_string("hard_constraints_applied") +
+    ": " +
+    @cor.string_array_json(decision.hard_constraints_applied),
+    @cor.json_string("reason_tags") +
+    ": " +
+    @cor.string_array_json(decision.reason_tags),
+    @cor.json_string("text") + ": " + @cor.json_string(decision.text),
+  ])
+}
+
+///|
+fn layout_gate_stage_name(stage : @pdfcore.PdfLayoutGateStage) -> String {
+  match stage {
+    @pdfcore.PdfLayoutGateStage::HeadingDemotion => "heading_demotion"
+    @pdfcore.PdfLayoutGateStage::ListSuppression => "list_suppression"
+  }
+}
+
+///|
+fn take_layout_gate_decisions(
+  decisions : Array[@pdfcore.PdfLayoutGateDecision],
+  limit : Int,
+) -> Array[@pdfcore.PdfLayoutGateDecision] {
+  let out : Array[@pdfcore.PdfLayoutGateDecision] = []
+  let capped = min_layout_assist_int(decisions.length(), limit)
+  for i = 0; i < capped; i = i + 1 {
+    out.push(decisions[i])
+  }
+  out
+}
+
+///|
 fn pdf_images_section(model : @model.PdfDocumentModel) -> @cor.DebugSection {
   let filter_counts = Map([])
   let colorspace_counts = Map([])
@@ -741,6 +860,7 @@ fn pdf_links_section(doc : @pdfcore.PdfConvertDocument) -> @cor.DebugSection {
 fn pdf_pipeline_section(
   doc1 : @pdfcore.PdfConvertDocument,
   doc2 : @pdfcore.PdfConvertDocument,
+  doc2g : @pdfcore.PdfConvertDocument,
   doc3 : @pdfcore.PdfConvertDocument,
   doc4 : @pdfcore.PdfConvertDocument,
   doc5 : @pdfcore.PdfConvertDocument,
@@ -775,8 +895,8 @@ fn pdf_pipeline_section(
     }
   }
 
-  let repeated = @pdfcore.build_repeated_edge_noise_index(doc2)
-  for page in doc2.pages {
+  let repeated = @pdfcore.build_repeated_edge_noise_index(doc2g)
+  for page in doc2g.pages {
     for i = 0; i < page.blocks.length(); i = i + 1 {
       let block = page.blocks[i]
       let decision = @pdfcore.decide_noise_block(page, i, block, repeated)
@@ -838,6 +958,9 @@ fn pdf_pipeline_section(
         @cor.json_string("classified_block_count") +
         ": " +
         convert_block_count(doc2).to_string(),
+        @cor.json_string("gated_block_count") +
+        ": " +
+        convert_block_count(doc2g).to_string(),
         @cor.json_string("noise_filtered_block_count") +
         ": " +
         convert_block_count(doc3).to_string(),

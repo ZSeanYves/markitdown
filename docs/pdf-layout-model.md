@@ -18,7 +18,8 @@ Normal-path guardrails:
 * no Python dependency in runtime
 * no ONNX / Torch / TensorFlow / Paddle runtime in runtime
 * no large model artifact in the product build
-* model output stays report-only until held-out evidence says otherwise
+* offline model output stays report-only unless a smaller distilled
+  normal-path rule has already been justified from held-out evidence
 * deterministic decoding/link/table facts remain higher priority than model
 
 ## Dataset Audit
@@ -176,7 +177,7 @@ Example deterministic constraints:
 * explicit rich-inline payload already attached
 * header/footer/artifact candidates that the current rule chain already trusts
 
-This arbiter stays report-only for now.
+This arbiter stays report-only for offline evaluation and debug-first analysis.
 
 ## Training / Evaluation Pipeline
 
@@ -204,6 +205,81 @@ Avoid in runtime:
 * neural nets
 * large boosted forests
 * heavy inference engines
+
+## First Gated-Normal V1
+
+The current checked-in normal-path integration is intentionally much narrower
+than the offline report-only pipeline.
+
+It does not load Python, JSON weights, model files, or `.external` assets at
+runtime.
+Instead it uses a tiny pure-MoonBit gate distilled from the report-only
+feature/held-out loop.
+
+Current enabled scope:
+
+* weak `heading` demotion only
+* separator / false-bullet suppression only
+
+Current out of scope for normal-path gating:
+
+* table promotion/demotion
+* form-row promotion
+* `link_text` / `caption` rewrites
+* annotation or link-target decisions
+* text-decoding fallback behavior
+* scan-only / OCR-needed behavior
+
+Current hard constraints that block the gate:
+
+* `table_geometry`
+* `caption_geometry`
+* `link_payload`
+* page-reference integrity checks such as page-number-like linked rows
+
+Current normal-path decision shape:
+
+```text
+candidate
+  -> hard constraints
+  -> rule label
+  -> compact gate score
+  -> final normal label
+```
+
+Current allowed normal-path overrides:
+
+* weak `heading -> paragraph`
+* weak `heading -> keep_as_text`
+* weak `heading -> form_row`
+* weak `heading -> footer_header_noise`
+* weak `list_item -> paragraph`
+* weak `list_item -> keep_as_text`
+* weak `list_item -> separator`
+
+Current explainability/debug contract:
+
+* `original_rule_label`
+* `suggested_label`
+* `final_label`
+* `score`
+* `confidence`
+* `hard_constraints_applied`
+* `override_allowed`
+* `override_reason`
+* `override_blocked_reason`
+* `reason_tags`
+
+Current disable switch:
+
+* `MARKITDOWN_PDF_LAYOUT_GATE=0`
+
+Current default:
+
+* on, because the checked gate is tiny, explainable, pure MoonBit, leaves
+  hard facts above the gate, keeps report-only training/model artifacts out of
+  runtime, and passed the full validation + sample/contract gate without
+  needing expected-output updates
 
 ## Local-Only Eval Loop
 
@@ -352,7 +428,9 @@ Current interpretation:
     `Next Reward: $50 gift card at 5,000 pts (1,753 to go)`
   * checked CJK controls are green again, but the real short-title support is
     still too thin to call that boundary closed
-* report-only should continue; normal-path activation still stays off
+* broader model-backed expansion should still stay report-only; the new normal
+  gate is intentionally much narrower than the offline report-only arbiter and
+  does not make a case for wider model-backed activation yet
 
 Current notable round-11 rule/model conflict counts on held-out rows:
 
@@ -385,18 +463,22 @@ Current project-local PDF seeds that should remain held out:
 
 These rows are more valuable as evaluation seeds than as training rows.
 
-## Normal-Path Rollout Gate
+## Wider Rollout Gate
 
-Do not enable model-backed normal output unless all of the following are true:
+Do not widen the current gated-normal scope unless all of the following are
+true:
 
 * held-out and quality-corpus evidence improve
 * PDF contracts stay green
 * runtime latency remains negligible
 * generated code size stays small
-* model artifact stays tiny
+* model artifact stays tiny or the runtime still uses compact in-tree logic
 * the chosen override policy is explainable in debug output
+* hard constraints still outrank the gate
+* disable/rollback switches remain available
 
-Until then, the layout-assist model pipeline remains:
+Until a later widening pass is justified, the broader layout-assist model
+pipeline remains:
 
 * offline-trained
 * report-only

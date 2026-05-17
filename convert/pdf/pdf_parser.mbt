@@ -82,8 +82,17 @@ pub async fn parse_pdf(
     @env.now() - classify_started,
     Some("max_heading=" + max_heading.to_string()),
   )
+  let gate_started = @env.now()
+  let gate_cfg = default_pdf_layout_gate_config()
+  let doc2g = apply_pdf_layout_gate(doc2, config=gate_cfg)
+  pdf_convert_profile_add_stage(
+    profile,
+    "pdf_layout_gate",
+    @env.now() - gate_started,
+    Some("enabled=" + gate_cfg.enabled.to_string()),
+  )
   let filter_started = @env.now()
-  let doc3 = filter_noise_blocks(doc2)
+  let doc3 = filter_noise_blocks(doc2g)
   pdf_convert_profile_add_stage(
     profile,
     "pdf_noise_filter",

@@ -414,6 +414,81 @@ test "pdf to ir bullet parser ignores pure separator lines" {
 }
 
 ///|
+test "pdf to ir layout gate suppresses technical bullets in normal output" {
+  let block = {
+    ..make_ir_block(0, PdfConvertBlockKind::Paragraph, "- --timeout 30", None),
+    is_heading_candidate: false,
+    source_block_kind: @model.PdfTextBlockKind::Text,
+    dominant_font_size: Some(12.0),
+    source_block_dominant_font_size: Some(12.0),
+    first_line_gap_before: Some(4.0),
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  match doc.blocks.val[0] {
+    @cor.Block::Paragraph("- --timeout 30") => ()
+    _ => fail("technical bullet should stay paragraph when gate is enabled")
+  }
+}
+
+///|
+test "pdf to ir layout gate keeps real bullets as list items" {
+  let block = {
+    ..make_ir_block(
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "* Important note about rollout.",
+      None,
+    ),
+    is_heading_candidate: false,
+    source_block_kind: @model.PdfTextBlockKind::Text,
+    dominant_font_size: Some(12.0),
+    source_block_dominant_font_size: Some(12.0),
+    first_line_gap_before: Some(4.0),
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  match doc.blocks.val[0] {
+    @cor.Block::ListItem(false, 0, "Important note about rollout.") => ()
+    _ => fail("real bullet should remain a list item")
+  }
+}
+
+///|
 test "pdf to ir skips redundant bookmark appendix when headings already surface the same titles" {
   let out = @cor.new_document()
   @cor.push(out, @cor.Block::Heading(2, "Summary"))

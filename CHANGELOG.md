@@ -218,6 +218,15 @@
   `would_change_output` estimate, and the dataset/license audit plus the
   recommended offline-training/held-out rollout plan are now documented in
   `docs/pdf-layout-model.md` without changing normal PDF Markdown output.
+* Add a first gated-normal PDF layout-assist v1 in pure MoonBit:
+  normal PDF conversion now includes a tiny distilled arbiter for two
+  low-risk cases only, weak heading demotion and separator/false-bullet
+  suppression; the gate keeps text-decoding/link/table hard facts above the
+  override path, exposes debug reasons and blocked-override traces, ships no
+  model weights or Python runtime dependency, can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`, and passes the full validation/build gate
+  without turning the broader provider/report-only pipeline into a general
+  normal-path model rollout.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,
