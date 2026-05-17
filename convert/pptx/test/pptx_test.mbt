@@ -609,7 +609,8 @@ test "pptx cached chart mismatch falls back to stable text instead of crashing" 
   let doc = @pptx.parse_pptx(path, "", 6)
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("A chart to test parsing:"))
-  assert_true(markdown.contains("Chart<br>Series: Series 1<br>A: 1"))
+  assert_true(markdown.contains("Chart\n\n- Series: Series 1\n  - A: 1"))
+  assert_true(!markdown.contains("Chart<br>"))
   assert_true(!markdown.contains("| Category | Series 1 |"))
 }
 

@@ -327,14 +327,74 @@ fn normalize_picture_descr_for_alt_text(
   match descr {
     Some(raw) => {
       let trimmed = raw.trim().to_owned()
-      if trimmed == "" || looks_like_local_file_path_or_name(trimmed) {
+      if trimmed == "" ||
+        looks_like_local_file_path_or_name(trimmed) ||
+        looks_like_uuidish_text(trimmed) {
         fallback
       } else {
-        trimmed
+        let cleaned = trim_trailing_uuidish_suffix(trimmed)
+        if cleaned == "" {
+          fallback
+        } else {
+          cleaned
+        }
       }
     }
     None => fallback
   }
+}
+
+///|
+fn looks_like_uuidish_text(text : String) -> Bool {
+  let chars = text.trim().to_array()
+  if chars.length() != 36 {
+    return false
+  }
+  for i = 0; i < chars.length(); i = i + 1 {
+    if i == 8 || i == 13 || i == 18 || i == 23 {
+      if chars[i] != '-' {
+        return false
+      }
+    } else if !is_uuid_hex_char(chars[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn is_uuid_hex_char(ch : Char) -> Bool {
+  (ch >= '0' && ch <= '9') ||
+  (ch >= 'a' && ch <= 'f') ||
+  (ch >= 'A' && ch <= 'F')
+}
+
+///|
+fn trim_trailing_uuidish_suffix(text : String) -> String {
+  let trimmed = text.trim().to_owned()
+  let chars = trimmed.to_array()
+  if chars.length() <= 36 {
+    return trimmed
+  }
+  let suffix_start = chars.length() - 36
+  if suffix_start == 0 || !is_ascii_space_char(chars[suffix_start - 1]) {
+    return trimmed
+  }
+  let suffix = String::from_array(chars[suffix_start:])
+  if !looks_like_uuidish_text(suffix) {
+    return trimmed
+  }
+  let prefix = String::from_array(chars[:suffix_start - 1]).trim().to_owned()
+  if prefix == "" {
+    trimmed
+  } else {
+    prefix
+  }
+}
+
+///|
+fn is_ascii_space_char(ch : Char) -> Bool {
+  ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
 ///|

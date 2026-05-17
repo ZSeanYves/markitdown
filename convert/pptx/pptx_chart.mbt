@@ -4,7 +4,7 @@ priv struct PptxChartRenderable {
   object_ref : String?
   relationship_id : String?
   title : String?
-  block : @cor.Block
+  blocks : Array[@cor.Block]
 }
 
 ///|
@@ -81,8 +81,8 @@ fn collect_chart_renderables_from_shapes(
 
     match shape.chart {
       Some(chart) =>
-        match lower_chart_data_to_block(chart) {
-          Some(block) =>
+        match lower_chart_data_to_blocks(chart) {
+          Some(blocks) =>
             out.push({
               order_index,
               object_ref: shape.object_ref,
@@ -91,7 +91,7 @@ fn collect_chart_renderables_from_shapes(
                 None => default_relationship_id
               },
               title: chart.title,
-              block,
+              blocks,
             })
           None => ()
         }
@@ -212,38 +212,42 @@ fn push_chart_renderable(
     None => ()
   }
 
-  @cor.push_with_origin(
-    doc,
-    chart.block,
-    Some({
-      source_name: Some(src),
-      page: None,
-      slide: Some(slide_index),
-      sheet: None,
-      block_index: Some(doc.blocks.val.length()),
-      heading_path: None,
-      line_start: None,
-      line_end: None,
-      row_index: Some(0),
-      column_index: Some(0),
-      object_ref: chart.object_ref,
-      relationship_id: chart.relationship_id,
-      key_path: None,
-    }),
-  )
+  for block in chart.blocks {
+    @cor.push_with_origin(
+      doc,
+      block,
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: Some(slide_index),
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: Some(0),
+        column_index: Some(0),
+        object_ref: chart.object_ref,
+        relationship_id: chart.relationship_id,
+        key_path: None,
+      }),
+    )
+  }
 }
 
 ///|
-fn lower_chart_data_to_block(chart : @pptx_sem.PptxChartData) -> @cor.Block? {
+fn lower_chart_data_to_blocks(
+  chart : @pptx_sem.PptxChartData,
+) -> Array[@cor.Block]? {
   if chart.series.length() == 0 || !chart_has_any_cached_points(chart) {
-    return Some(
+    return Some([
       @cor.Block::Paragraph("[Chart data not embedded in chart cache]"),
-    )
+    ])
   }
 
   match lower_chart_data_to_table(chart) {
-    Some(table) => Some(@cor.Block::RichTable(table))
-    None => Some(@cor.Block::Paragraph(render_chart_fallback_text(chart)))
+    Some(table) => Some([@cor.Block::RichTable(table)])
+    None => Some(render_chart_fallback_blocks(chart))
   }
 }
 
@@ -299,27 +303,35 @@ fn lower_chart_data_to_table(
 }
 
 ///|
-fn render_chart_fallback_text(chart : @pptx_sem.PptxChartData) -> String {
-  let lines : Array[String] = ["Chart"]
+fn render_chart_fallback_blocks(
+  chart : @pptx_sem.PptxChartData,
+) -> Array[@cor.Block] {
+  let blocks : Array[@cor.Block] = [@cor.Block::Paragraph("Chart")]
   for series in chart.series {
-    lines.push("Series: " + series.name)
+    blocks.push(@cor.Block::ListItem(false, 0, "Series: " + series.name))
     let pair_count = if series.categories.length() < series.values.length() {
       series.categories.length()
     } else {
       series.values.length()
     }
     for i in 0..<pair_count {
-      lines.push(series.categories[i] + ": " + series.values[i])
+      blocks.push(
+        @cor.Block::ListItem(
+          false,
+          1,
+          series.categories[i] + ": " + series.values[i],
+        ),
+      )
     }
     if pair_count == 0 && series.values.length() > 0 {
       for value in series.values {
-        lines.push(value)
+        blocks.push(@cor.Block::ListItem(false, 1, value))
       }
     }
   }
-  if lines.length() == 1 {
-    "[Chart data not embedded in chart cache]"
+  if blocks.length() == 1 {
+    [@cor.Block::Paragraph("[Chart data not embedded in chart cache]")]
   } else {
-    lines.join("\n")
+    blocks
   }
 }

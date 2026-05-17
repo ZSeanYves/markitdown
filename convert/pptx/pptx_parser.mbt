@@ -769,7 +769,8 @@ fn infer_slide_image_captions(
     }
     if is_non_bullet &&
       t.to_array().length() <= 60 &&
-      !looks_like_sentence_like_body_text(t) {
+      !looks_like_sentence_like_body_text(t) &&
+      !looks_like_uuidish_text(t) {
       nearby_candidates.push((para.source_para_id, t))
     }
   }
@@ -779,6 +780,27 @@ fn infer_slide_image_captions(
     out[0] = Some(caption)
     consumed.set(para_id, true)
   }
+
+  if images.length() == 1 {
+    let uuid_noise_para_ids : Array[Int] = []
+    let mut has_non_uuid_body = false
+    for para in paras {
+      let t = para.text.trim().to_owned()
+      if t == "" {
+        continue
+      }
+      if looks_like_uuidish_text(t) {
+        uuid_noise_para_ids.push(para.source_para_id)
+      } else if looks_like_sentence_like_body_text(t) ||
+        t.to_array().length() > 60 {
+        has_non_uuid_body = true
+      }
+    }
+    if uuid_noise_para_ids.length() == 1 && has_non_uuid_body {
+      consumed.set(uuid_noise_para_ids[0], true)
+    }
+  }
+
   (out, consumed)
 }
 

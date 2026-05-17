@@ -157,6 +157,63 @@ test "pptx image descr keeps human alt but drops local path-like noise" {
     "slide-1-image-2",
   )
   assert_eq(dropped_file_name, "slide-1-image-2")
+
+  let dropped_uuid_tail = normalize_picture_descr_for_alt_text(
+    Some("Product screenshot  44bf7d06-5e7a-4a40-a2e1-a2e42ef28c8a"),
+    "slide-1-image-3",
+  )
+  assert_eq(dropped_uuid_tail, "Product screenshot")
+
+  let dropped_uuid_only = normalize_picture_descr_for_alt_text(
+    Some("44bf7d06-5e7a-4a40-a2e1-a2e42ef28c8a"),
+    "slide-1-image-4",
+  )
+  assert_eq(dropped_uuid_only, "slide-1-image-4")
+}
+
+///|
+test "pptx single-image uuid sidecar paragraph is dropped instead of becoming caption" {
+  let images : Array[PptxSlideImage] = [
+    {
+      _alt_text: "slide-1-image-1",
+      _title: None,
+      _path: "assets/image01.png",
+      _object_ref: Some("picture-5"),
+      _relationship_id: Some("rId2"),
+      _source_path: Some("ppt/media/image1.png"),
+    },
+  ]
+  let paras : Array[SlideParagraph] = [
+    {
+      source_para_id: 7,
+      text: "2cdda5c8-e50e-4db4-b5f0-9722a649f455",
+      inlines: [],
+      bullet_kind: None,
+      level: 0,
+      from_title_shape: false,
+      from_body_shape: true,
+      associated_with_image_caption: false,
+      object_ref: Some("shape-7"),
+      relationship_id: None,
+    },
+    {
+      source_para_id: 8,
+      text: "A normal paragraph on the same slide keeps the UUID sidecar out of body output.",
+      inlines: [],
+      bullet_kind: None,
+      level: 0,
+      from_title_shape: false,
+      from_body_shape: true,
+      associated_with_image_caption: false,
+      object_ref: Some("shape-8"),
+      relationship_id: None,
+    },
+  ]
+  let (captions, consumed) = infer_slide_image_captions(images, paras)
+  assert_eq(captions.length(), 1)
+  assert_true(captions[0] is None)
+  assert_eq(consumed.length(), 1)
+  assert_true(consumed.contains(7))
 }
 
 ///|
