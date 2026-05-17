@@ -146,6 +146,18 @@ fn make_table_test_page(
 }
 
 ///|
+fn render_table_rows_for_test(tables : Array[PdfTableCandidate]) -> String {
+  let out : Array[String] = []
+  for i = 0; i < tables.length(); i = i + 1 {
+    out.push("table[" + i.to_string() + "]")
+    for row in tables[i].rows {
+      out.push("  " + row.join(" | "))
+    }
+  }
+  out.join("\n")
+}
+
+///|
 test "pdf table detector matches simple grid rows" {
   let lines : Array[PdfConvertLine] = []
   let blocks = [
@@ -380,6 +392,154 @@ test "pdf table detector rejects list-like aligned rows" {
 }
 
 ///|
+test "pdf table detector supports sparse borderless rows with heading cells" {
+  let page = make_table_test_page(
+    [],
+    [
+      {
+        ..make_table_test_block(
+          0,
+          0,
+          "Product Code",
+          table_rect(40.0, 700.0, 110.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      {
+        ..make_table_test_block(
+          1,
+          1,
+          "Location",
+          table_rect(120.0, 700.0, 180.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      {
+        ..make_table_test_block(
+          2,
+          2,
+          "Expected",
+          table_rect(200.0, 700.0, 260.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      make_table_test_block(
+        3,
+        3,
+        "Actual",
+        table_rect(290.0, 700.0, 340.0, 714.0),
+      ),
+      {
+        ..make_table_test_block(
+          4,
+          4,
+          "Variance",
+          table_rect(380.0, 700.0, 450.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      make_table_test_block(
+        5,
+        5,
+        "Status",
+        table_rect(470.0, 700.0, 520.0, 714.0),
+      ),
+      {
+        ..make_table_test_block(
+          6,
+          6,
+          "SKU-8847",
+          table_rect(40.0, 678.0, 100.0, 692.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      make_table_test_block(
+        7,
+        7,
+        "A-12",
+        table_rect(120.0, 678.0, 150.0, 692.0),
+      ),
+      make_table_test_block(8, 8, "450", table_rect(200.0, 678.0, 225.0, 692.0)),
+      make_table_test_block(
+        9,
+        9,
+        "B-07",
+        table_rect(120.0, 656.0, 150.0, 670.0),
+      ),
+      make_table_test_block(
+        10,
+        10,
+        "289",
+        table_rect(290.0, 656.0, 315.0, 670.0),
+      ),
+      make_table_test_block(
+        11,
+        11,
+        "- 23",
+        table_rect(380.0, 656.0, 410.0, 670.0),
+      ),
+      {
+        ..make_table_test_block(
+          12,
+          12,
+          "SKU-9201",
+          table_rect(40.0, 634.0, 100.0, 648.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      make_table_test_block(
+        13,
+        13,
+        "780",
+        table_rect(200.0, 634.0, 225.0, 648.0),
+      ),
+      make_table_test_block(
+        14,
+        14,
+        "778",
+        table_rect(290.0, 634.0, 315.0, 648.0),
+      ),
+      make_table_test_block(
+        15,
+        15,
+        "OK",
+        table_rect(470.0, 634.0, 490.0, 648.0),
+      ),
+      make_table_test_block(
+        16,
+        16,
+        "C-15",
+        table_rect(120.0, 612.0, 150.0, 626.0),
+      ),
+      make_table_test_block(
+        17,
+        17,
+        "+15",
+        table_rect(380.0, 612.0, 410.0, 626.0),
+      ),
+    ],
+    [],
+  )
+  let tables = detect_pdf_tables(page, false)
+  assert_eq(tables.length(), 1)
+  assert_eq(tables[0].header_rows, 1)
+  assert_true(
+    tables[0].rows[0] ==
+    ["Product Code", "Location", "Expected", "Actual", "Variance", "Status"],
+  )
+  assert_true(tables[0].rows[1] == ["SKU-8847", "A-12", "450", "", "", ""])
+  assert_true(tables[0].rows[2] == ["", "B-07", "", "289", "-23", ""])
+  assert_true(tables[0].rows[3] == ["SKU-9201", "", "780", "778", "", "OK"])
+  assert_true(tables[0].rows[4] == ["", "C-15", "", "", "+15", ""])
+}
+
+///|
 test "pdf image caption inference supports caption above image" {
   let image = make_caption_test_image(table_rect(80.0, 420.0, 280.0, 560.0), 1)
   let caption_block = {
@@ -419,6 +579,383 @@ test "pdf image caption inference supports chinese figure prefix" {
     _ => fail("expected chinese figure caption to match")
   }
   assert_true(consumed.contains(0))
+}
+
+///|
+test "pdf table detector grows union anchors for form-style offset rows" {
+  let page = make_table_test_page(
+    [],
+    [
+      {
+        ..make_table_test_block(
+          0,
+          0,
+          "Customer Information",
+          table_rect(120.0, 700.0, 238.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      {
+        ..make_table_test_block(
+          1,
+          1,
+          "Vehicle Information",
+          table_rect(350.0, 700.0, 462.0, 714.0),
+        ),
+        kind: PdfConvertBlockKind::Heading,
+        is_heading_candidate: true,
+      },
+      make_table_test_block(
+        2,
+        2,
+        "Insured name",
+        table_rect(80.0, 678.0, 156.0, 692.0),
+      ),
+      make_table_test_block(
+        3,
+        3,
+        "Bruce Wayne",
+        table_rect(167.0, 678.0, 237.0, 692.0),
+      ),
+      make_table_test_block(
+        4,
+        4,
+        "Year",
+        table_rect(333.0, 678.0, 360.0, 692.0),
+      ),
+      make_table_test_block(
+        5,
+        5,
+        "2025",
+        table_rect(398.0, 678.0, 425.0, 692.0),
+      ),
+      make_table_test_block(
+        6,
+        6,
+        "Claim #",
+        table_rect(80.0, 656.0, 122.0, 670.0),
+      ),
+      make_table_test_block(7, 7, "999", table_rect(256.0, 656.0, 276.0, 670.0)),
+      make_table_test_block(
+        8,
+        8,
+        "Make",
+        table_rect(333.0, 656.0, 360.0, 670.0),
+      ),
+      make_table_test_block(
+        9,
+        9,
+        "Batman",
+        table_rect(398.0, 656.0, 438.0, 670.0),
+      ),
+      make_table_test_block(
+        10,
+        10,
+        "Email",
+        table_rect(80.0, 634.0, 112.0, 648.0),
+      ),
+      make_table_test_block(
+        11,
+        11,
+        "batman@wayneindustries.com",
+        table_rect(167.0, 634.0, 337.0, 648.0),
+      ),
+      make_table_test_block(
+        12,
+        12,
+        "VIN",
+        table_rect(333.0, 634.0, 353.0, 648.0),
+      ),
+      make_table_test_block(
+        13,
+        13,
+        "XXX",
+        table_rect(398.0, 634.0, 418.0, 648.0),
+      ),
+    ],
+    [],
+  )
+
+  let tables = detect_pdf_tables(page, false)
+  assert_eq(tables.length(), 1)
+  assert_eq(tables[0].header_rows, 1)
+  assert_true(
+    tables[0].rows[0] ==
+    ["", "Customer Information", "", "", "Vehicle Information", ""],
+  )
+  assert_true(
+    tables[0].rows[1] == ["Insured name", "", "Bruce Wayne", "", "Year", "2025"],
+  )
+  assert_true(tables[0].rows[2] == ["Claim #", "", "", "999", "Make", "Batman"])
+  assert_true(
+    tables[0].rows[3] ==
+    ["Email", "", "batman@wayneindustries.com", "", "VIN", "XXX"],
+  )
+}
+
+///|
+test "pdf table detector keeps alternating sparse form rows in one table" {
+  let page = make_table_test_page(
+    [],
+    [
+      make_table_test_block(0, 0, "Name:", table_rect(50.0, 700.0, 80.0, 714.0)),
+      make_table_test_block(
+        1,
+        1,
+        "Premier Entertainment Group",
+        table_rect(150.0, 700.0, 280.0, 714.0),
+      ),
+      make_table_test_block(
+        2,
+        2,
+        "Billing Type:",
+        table_rect(350.0, 694.0, 412.0, 708.0),
+      ),
+      make_table_test_block(
+        3,
+        3,
+        "Net 30",
+        table_rect(450.0, 694.0, 490.0, 708.0),
+      ),
+      make_table_test_block(
+        4,
+        4,
+        "Contact:",
+        table_rect(50.0, 688.0, 92.0, 702.0),
+      ),
+      make_table_test_block(
+        5,
+        5,
+        "Michael Chen",
+        table_rect(150.0, 688.0, 224.0, 702.0),
+      ),
+      make_table_test_block(
+        6,
+        6,
+        "Payment Terms:",
+        table_rect(350.0, 682.0, 420.0, 696.0),
+      ),
+      make_table_test_block(
+        7,
+        7,
+        "Corporate",
+        table_rect(450.0, 682.0, 510.0, 696.0),
+      ),
+      make_table_test_block(
+        8,
+        8,
+        "Billing Contact:",
+        table_rect(50.0, 676.0, 128.0, 690.0),
+      ),
+      make_table_test_block(
+        9,
+        9,
+        "accounting@premierent.com",
+        table_rect(150.0, 676.0, 320.0, 690.0),
+      ),
+      make_table_test_block(
+        10,
+        10,
+        "Commission:",
+        table_rect(350.0, 670.0, 410.0, 684.0),
+      ),
+      make_table_test_block(
+        11,
+        11,
+        "10%",
+        table_rect(450.0, 670.0, 476.0, 684.0),
+      ),
+    ],
+    [],
+  )
+
+  let tables = detect_pdf_tables(page, false)
+  if tables.length() != 1 {
+    fail(render_table_rows_for_test(tables))
+  }
+  let flattened = tables[0].rows.map(row => row.join(" | ")).join("\n")
+  if !flattened.contains("Name: | Premier Entertainment Group") ||
+    !flattened.contains("Contact: | Michael Chen") ||
+    !flattened.contains("Billing Type: | Net 30") {
+    fail(render_table_rows_for_test(tables))
+  }
+}
+
+///|
+test "pdf table detector supports two-row summary tables" {
+  let page = make_table_test_page(
+    [],
+    [
+      make_table_test_block(
+        0,
+        0,
+        "Start Date",
+        table_rect(50.0, 700.0, 96.0, 714.0),
+      ),
+      make_table_test_block(
+        1,
+        1,
+        "End Date",
+        table_rect(140.0, 700.0, 182.0, 714.0),
+      ),
+      make_table_test_block(
+        2,
+        2,
+        "# Shows",
+        table_rect(220.0, 700.0, 260.0, 714.0),
+      ),
+      make_table_test_block(
+        3,
+        3,
+        "Gross Amount",
+        table_rect(300.0, 700.0, 358.0, 714.0),
+      ),
+      make_table_test_block(
+        4,
+        4,
+        "Net Amount",
+        table_rect(400.0, 700.0, 452.0, 714.0),
+      ),
+      make_table_test_block(
+        5,
+        5,
+        "12/20/24",
+        table_rect(50.0, 678.0, 90.0, 692.0),
+      ),
+      make_table_test_block(
+        6,
+        6,
+        "12/31/24",
+        table_rect(140.0, 678.0, 182.0, 692.0),
+      ),
+      make_table_test_block(7, 7, "48", table_rect(230.0, 678.0, 242.0, 692.0)),
+      make_table_test_block(
+        8,
+        8,
+        "$12,500.00",
+        table_rect(300.0, 678.0, 354.0, 692.0),
+      ),
+      make_table_test_block(
+        9,
+        9,
+        "$11,250.00",
+        table_rect(400.0, 678.0, 454.0, 692.0),
+      ),
+    ],
+    [],
+  )
+
+  let tables = detect_pdf_tables(page, false)
+  assert_eq(tables.length(), 1)
+  assert_eq(tables[0].header_rows, 1)
+  assert_true(
+    tables[0].rows[0] ==
+    ["Start Date", "End Date", "# Shows", "Gross Amount", "Net Amount"],
+  )
+  assert_true(
+    tables[0].rows[1] ==
+    ["12/20/24", "12/31/24", "48", "$12,500.00", "$11,250.00"],
+  )
+}
+
+///|
+test "pdf table detector breaks table run across skipped section label rows" {
+  let page = make_table_test_page(
+    [],
+    [
+      make_table_test_block(
+        0,
+        0,
+        "Hours",
+        table_rect(258.0, 700.0, 288.0, 714.0),
+      ),
+      make_table_test_block(
+        1,
+        1,
+        "Rate",
+        table_rect(310.0, 700.0, 334.0, 714.0),
+      ),
+      make_table_test_block(
+        2,
+        2,
+        "Cost",
+        table_rect(370.0, 700.0, 394.0, 714.0),
+      ),
+      make_table_test_block(
+        3,
+        3,
+        "Parts",
+        table_rect(80.0, 678.0, 108.0, 692.0),
+      ),
+      make_table_test_block(
+        4,
+        4,
+        "2,100",
+        table_rect(370.0, 678.0, 400.0, 692.0),
+      ),
+      make_table_test_block(
+        5,
+        5,
+        "Body Labor",
+        table_rect(80.0, 656.0, 142.0, 670.0),
+      ),
+      make_table_test_block(6, 6, "2", table_rect(258.0, 656.0, 264.0, 670.0)),
+      make_table_test_block(7, 7, "150", table_rect(310.0, 656.0, 328.0, 670.0)),
+      make_table_test_block(8, 8, "300", table_rect(370.0, 656.0, 388.0, 670.0)),
+      make_table_test_block(
+        9,
+        9,
+        "Supplies",
+        table_rect(80.0, 634.0, 132.0, 648.0),
+      ),
+      make_table_test_block(
+        10,
+        10,
+        "Paint Supplies",
+        table_rect(160.0, 612.0, 240.0, 626.0),
+      ),
+      make_table_test_block(
+        11,
+        11,
+        "60",
+        table_rect(370.0, 612.0, 382.0, 626.0),
+      ),
+      make_table_test_block(
+        12,
+        12,
+        "Body Supplies",
+        table_rect(160.0, 590.0, 236.0, 604.0),
+      ),
+      make_table_test_block(
+        13,
+        13,
+        "30",
+        table_rect(370.0, 590.0, 382.0, 604.0),
+      ),
+      make_table_test_block(
+        14,
+        14,
+        "Other Charges",
+        table_rect(80.0, 568.0, 154.0, 582.0),
+      ),
+      make_table_test_block(
+        15,
+        15,
+        "15",
+        table_rect(370.0, 568.0, 382.0, 582.0),
+      ),
+    ],
+    [],
+  )
+
+  let tables = detect_pdf_tables(page, false)
+  assert_eq(tables.length(), 2)
+  assert_true(tables[0].rows[0] == ["", "Hours", "Rate", "Cost"])
+  assert_true(tables[0].rows[1] == ["Parts", "", "", "2,100"])
+  assert_true(tables[1].rows[0] == ["", "Paint Supplies", "60"])
+  assert_true(tables[1].rows[1] == ["", "Body Supplies", "30"])
+  assert_true(tables[1].rows[2] == ["Other Charges", "", "15"])
 }
 
 ///|

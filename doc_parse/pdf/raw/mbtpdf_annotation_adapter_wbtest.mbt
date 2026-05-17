@@ -95,10 +95,13 @@ test "annotation adapter resolves target page for GoTo link annotations" {
   let annot_ref : @pdf.PdfObject = Dictionary([
     ("/Subtype", Name(@pdf.PdfName::of_string("/Link"))),
     ("/Rect", rect),
-    ("/A", Dictionary([
-      ("/S", Name(@pdf.PdfName::of_string("/GoTo"))),
-      ("/D", Array([Indirect(3), Name(@pdf.PdfName::of_string("/Fit"))])),
-    ])),
+    (
+      "/A",
+      Dictionary([
+        ("/S", Name(@pdf.PdfName::of_string("/GoTo"))),
+        ("/D", Array([Indirect(3), Name(@pdf.PdfName::of_string("/Fit"))])),
+      ]),
+    ),
   ])
 
   let annotation = match annotation_from_pdf_object(pdf, annot_ref, 0, 0) {

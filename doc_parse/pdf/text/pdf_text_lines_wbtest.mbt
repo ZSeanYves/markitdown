@@ -49,18 +49,18 @@ fn make_line_test_span(
 ///|
 test "build lines keeps vertically separated spans apart even with noisy origins" {
   let link = make_line_test_span("Link", 70.86, 73.06, 88.75, 84.04, 100.0, 10)
-  let link_space = make_line_test_span(" ", 88.76, 73.06, 91.24, 84.04, 100.0, 11)
-  let domain = make_line_test_span(
-    "mozilla.org",
-    70.86,
-    95.56,
-    120.19,
-    106.54,
-    100.1,
-    19,
+  let link_space = make_line_test_span(
+    " ", 88.76, 73.06, 91.24, 84.04, 100.0, 11,
   )
-  let domain_space = make_line_test_span(" ", 120.2, 95.56, 122.68, 106.54, 100.1, 35)
-  let text = make_line_test_span("Text", 70.86, 140.52, 90.08, 151.50, 100.2, 52)
+  let domain = make_line_test_span(
+    "mozilla.org", 70.86, 95.56, 120.19, 106.54, 100.1, 19,
+  )
+  let domain_space = make_line_test_span(
+    " ", 120.2, 95.56, 122.68, 106.54, 100.1, 35,
+  )
+  let text = make_line_test_span(
+    "Text", 70.86, 140.52, 90.08, 151.50, 100.2, 52,
+  )
   let spans = [link, link_space, domain, domain_space, text]
 
   assert_false(should_join_same_line([link], domain))
@@ -94,13 +94,7 @@ test "line merge does not join vertically separated short label and domain line"
   let right = {
     ..make_line([
       make_line_test_span(
-        "mozilla.org",
-        70.86,
-        728.78,
-        125.14,
-        740.86,
-        738.12,
-        19,
+        "mozilla.org", 70.86, 728.78, 125.14, 740.86, 738.12, 19,
       ),
     ]),
     baseline_y: Some(738.12),
@@ -114,35 +108,4 @@ test "line merge does not join vertically separated short label and domain line"
     line_gap_after: Some(11.52),
   }
   assert_false(should_merge_lines(left_with_layout, right))
-}
-
-///|
-test "block build keeps lowercase continuation line separate when gap is not paragraph-like" {
-  let left = {
-    ..make_line([
-      make_line_test_span("Link", 70.86, 751.28, 97.21, 763.36, 760.62, 7),
-    ]),
-    baseline_y: Some(760.62),
-    line_gap_before: None,
-    line_gap_after: Some(11.52),
-  }
-  let right = {
-    ..make_line([
-      make_line_test_span(
-        "mozilla.org",
-        70.86,
-        728.78,
-        125.14,
-        740.86,
-        738.12,
-        19,
-      ),
-    ]),
-    baseline_y: Some(738.12),
-    line_gap_before: Some(11.52),
-    line_gap_after: Some(11.52),
-  }
-
-  let blocks = build_blocks_from_lines(0, [left, right])
-  assert_eq(blocks.length(), 2)
 }

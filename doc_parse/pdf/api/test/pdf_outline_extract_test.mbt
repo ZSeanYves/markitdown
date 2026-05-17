@@ -19,11 +19,12 @@ fn outline_rect() -> @pdf.PdfObject {
 }
 
 ///|
-async fn write_outline_fixture(path : String) -> Unit raise {
+async fn write_outline_fixture(path : String) -> Unit {
   let page1 = @pdfpage.Page::custom(outline_rect())
   let page2 = @pdfpage.Page::custom(outline_rect())
-  let (pdf0, pageroot) = @pdfpage.PdfPageDoc::new(@pdf.Pdf::empty()).add_pagetree(
-    [page1, page2],
+  let (pdf0, pageroot) = @pdfpage.PdfPageDoc::new(@pdf.Pdf::empty()).add_pagetree([
+      page1, page2,
+    ],
   )
   let pdf1 = @pdfpage.PdfPageDoc::new(pdf0).add_root(pageroot, [])
   let page1_obj = match @pdfpage.PdfPageDoc::new(pdf1).page_object_number(1) {
@@ -38,7 +39,9 @@ async fn write_outline_fixture(path : String) -> Unit raise {
     {
       level: 0,
       text: "Parent",
-      target: @pdfdest.Destination::Fit(@pdfdest.TargetPage::PageObject(page1_obj)),
+      target: @pdfdest.Destination::Fit(
+        @pdfdest.TargetPage::PageObject(page1_obj),
+      ),
       isopen: true,
       colour: (0.0, 0.0, 0.0),
       flags: 0,
@@ -46,7 +49,9 @@ async fn write_outline_fixture(path : String) -> Unit raise {
     {
       level: 1,
       text: "Child",
-      target: @pdfdest.Destination::Fit(@pdfdest.TargetPage::PageObject(page2_obj)),
+      target: @pdfdest.Destination::Fit(
+        @pdfdest.TargetPage::PageObject(page2_obj),
+      ),
       isopen: false,
       colour: (0.0, 0.0, 0.0),
       flags: 0,
@@ -68,7 +73,9 @@ async test "extract document model keeps pdf bookmark outlines" {
   }
 
   if doc.outlines.length() != 1 {
-    fail("expected 1 top-level outline, got " + doc.outlines.length().to_string())
+    fail(
+      "expected 1 top-level outline, got " + doc.outlines.length().to_string(),
+    )
   }
   let parent = doc.outlines[0]
   if parent.title != "Parent" {

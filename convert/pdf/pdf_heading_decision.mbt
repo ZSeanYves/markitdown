@@ -365,10 +365,7 @@ fn page_lead_heading_reason_tags(
 
   if !(evidence.font_size_delta ||
     evidence.core_candidate ||
-    (
-      evidence.gap_before &&
-      (evidence.next_body || evidence.next_list)
-    )) {
+    (evidence.gap_before && (evidence.next_body || evidence.next_list))) {
     return None
   }
 

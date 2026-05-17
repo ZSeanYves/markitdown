@@ -38,6 +38,50 @@ pub struct PdfUriLinkMatchResult {
 }
 
 ///|
+fn matched_block_text_for_lines(
+  page : PdfConvertPage,
+  matched_lines : Array[(Int, Double)],
+) -> (Int, Int, String, Double)? {
+  if matched_lines.is_empty() {
+    return None
+  }
+
+  let first_line_index = matched_lines[0].0
+  let first_line = page.lines[first_line_index]
+  let source_block_index = first_line._source_block_index
+  let mut last_line_index = first_line_index
+  let mut min_ratio = matched_lines[0].1
+
+  for i = 0; i < matched_lines.length(); i = i + 1 {
+    let (line_index, ratio) = matched_lines[i]
+    let line = page.lines[line_index]
+    if line._source_block_index != source_block_index {
+      return None
+    }
+    if i > 0 && line_index != last_line_index + 1 {
+      return None
+    }
+    if ratio < min_ratio {
+      min_ratio = ratio
+    }
+    last_line_index = line_index
+  }
+
+  for block in page.blocks {
+    if block.source_block_index == source_block_index &&
+      block.line_start == first_line_index &&
+      block.line_end == last_line_index {
+      let text = block.text.trim().to_owned()
+      if text != "" {
+        return Some((first_line_index, matched_lines.length(), text, min_ratio))
+      }
+    }
+  }
+
+  None
+}
+
+///|
 fn filter_uri_link_annotation(
   annotation : PdfConvertAnnotation,
 ) -> PdfUriLinkFilterStatus {
@@ -144,19 +188,36 @@ fn match_single_uri_link_annotation(
     }
   }
 
-  if matched_lines.length() != 1 {
-    return {
-      _page_index: annotation._page_index,
-      _annotation_index: annotation._annotation_index,
-      status: PdfUriLinkMatchStatus::Ambiguous,
-      uri: annotation.uri,
-      dest: annotation.dest,
-      matched_text: None,
-      matched_line_index: None,
-      matched_line_count: matched_lines.length(),
-      annotation_bbox: annotation._bbox,
-      line_bbox: None,
-      overlap_ratio: None,
+  if matched_lines.length() > 1 {
+    match matched_block_text_for_lines(page, matched_lines) {
+      Some((matched_line_index, matched_line_count, matched_text, ratio)) =>
+        return {
+          _page_index: annotation._page_index,
+          _annotation_index: annotation._annotation_index,
+          status: PdfUriLinkMatchStatus::Matched,
+          uri: annotation.uri,
+          dest: annotation.dest,
+          matched_text: Some(matched_text),
+          matched_line_index: Some(matched_line_index),
+          matched_line_count,
+          annotation_bbox: annotation._bbox,
+          line_bbox: None,
+          overlap_ratio: Some(ratio),
+        }
+      None =>
+        return {
+          _page_index: annotation._page_index,
+          _annotation_index: annotation._annotation_index,
+          status: PdfUriLinkMatchStatus::Ambiguous,
+          uri: annotation.uri,
+          dest: annotation.dest,
+          matched_text: None,
+          matched_line_index: None,
+          matched_line_count: matched_lines.length(),
+          annotation_bbox: annotation._bbox,
+          line_bbox: None,
+          overlap_ratio: None,
+        }
     }
   }
 
@@ -318,13 +379,17 @@ pub fn attach_high_confidence_uri_links(
 
   for page in doc.pages {
     let matches = match_page_uri_links(page)
-    let block_by_line : Map[Int, PdfUriLinkMatchResult] = Map([])
+    let block_by_line_span : Map[String, PdfUriLinkMatchResult] = Map([])
 
     for result in matches {
       match result.status {
         PdfUriLinkMatchStatus::Matched =>
           match result.matched_line_index {
-            Some(line_index) => block_by_line.set(line_index, result)
+            Some(line_index) => {
+              let line_end = line_index + result.matched_line_count - 1
+              let key = line_index.to_string() + ":" + line_end.to_string()
+              block_by_line_span.set(key, result)
+            }
             None => ()
           }
         _ => ()
@@ -333,25 +398,19 @@ pub fn attach_high_confidence_uri_links(
 
     let blocks : Array[PdfConvertBlock] = []
     for block in page.blocks {
-      let patched = if block.line_start == block.line_end {
-        match block_by_line.get(block.line_start) {
-          Some(result) =>
-            match (result.uri, result.matched_text) {
-              (Some(uri), Some(text)) =>
-                if text.trim() != "" && text == block.text {
-                  {
-                    ..block,
-                    rich_inlines: Some([@cor.Inline::Link(text, uri)]),
-                  }
-                } else {
-                  block
-                }
-              _ => block
-            }
-          None => block
-        }
-      } else {
-        block
+      let key = block.line_start.to_string() + ":" + block.line_end.to_string()
+      let patched = match block_by_line_span.get(key) {
+        Some(result) =>
+          match (result.uri, result.matched_text) {
+            (Some(uri), Some(text)) =>
+              if text.trim() != "" && text == block.text {
+                { ..block, rich_inlines: Some([@cor.Inline::Link(text, uri)]) }
+              } else {
+                block
+              }
+            _ => block
+          }
+        None => block
       }
       blocks.push(patched)
     }

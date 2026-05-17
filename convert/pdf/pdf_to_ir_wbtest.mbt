@@ -1,5 +1,10 @@
 ///|
-fn ir_rect(x0 : Double, y0 : Double, x1 : Double, y1 : Double) -> @model.PdfRect {
+fn ir_rect(
+  x0 : Double,
+  y0 : Double,
+  x1 : Double,
+  y1 : Double,
+) -> @model.PdfRect {
   { x0, y0, x1, y1 }
 }
 
@@ -168,13 +173,16 @@ test "pdf to ir appends meaningful non-link annotations in appendix" {
     }
   })
   let expected = [
-    "P:Body paragraph",
-    "H2:Annotations",
-    "P:Text (page 1): Reviewer — Important note",
+    "P:Body paragraph", "H2:Annotations", "P:Text (page 1): Reviewer — Important note",
     "P:Highlight (page 1): Comment — Marked text",
   ]
   if actual.length() != expected.length() {
-    fail("expected " + expected.length().to_string() + " blocks, got " + actual.length().to_string())
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
   }
   for i = 0; i < expected.length(); i = i + 1 {
     if actual[i] != expected[i] {
@@ -233,18 +241,88 @@ test "pdf to ir appends internal destination links conservatively in appendix" {
       _ => "OTHER"
     }
   })
-  let expected = [
-    "P:Go to page 2",
-    "H2:Annotations",
-    "P:Link (page 1): page 2",
-  ]
+  let expected = ["P:Go to page 2", "H2:Annotations", "P:Link (page 1): page 2"]
   if actual.length() != expected.length() {
-    fail("expected " + expected.length().to_string() + " blocks, got " + actual.length().to_string())
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
   }
   for i = 0; i < expected.length(); i = i + 1 {
     if actual[i] != expected[i] {
       fail(
         "internal link appendix mismatch at " +
+        i.to_string() +
+        ": expected `" +
+        expected[i] +
+        "`, got `" +
+        actual[i] +
+        "`",
+      )
+    }
+  }
+}
+
+///|
+test "pdf to ir keeps named destination labels when internal links resolve to a page" {
+  let block = {
+    ..make_ir_block(
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "Named destination link",
+      None,
+    ),
+    is_heading_candidate: false,
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [
+            {
+              ..make_ir_annotation(0, "/Link", None, None),
+              dest: Some("(chapter-one)"),
+              target_page: Some(2),
+            },
+          ],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  let actual = doc.blocks.val.map(fn(block) {
+    match block {
+      @cor.Block::Heading(level, text) => "H" + level.to_string() + ":" + text
+      @cor.Block::Paragraph(text) => "P:" + text
+      _ => "OTHER"
+    }
+  })
+  let expected = [
+    "P:Named destination link", "H2:Annotations", "P:Link (page 1): destination chapter-one -> page 2",
+  ]
+  if actual.length() != expected.length() {
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
+  }
+  for i = 0; i < expected.length(); i = i + 1 {
+    if actual[i] != expected[i] {
+      fail(
+        "named-destination annotation appendix mismatch at " +
         i.to_string() +
         ": expected `" +
         expected[i] +
@@ -267,16 +345,17 @@ test "pdf to ir appends bookmark outline items conservatively" {
         page_index: Some(0),
         dest: None,
         children: [
+          { title: "Child", page_index: Some(1), dest: None, children: [] },
           {
-            title: "Child",
-            page_index: Some(1),
-            dest: None,
+            title: "Named target",
+            page_index: Some(2),
+            dest: Some("section-2"),
             children: [],
           },
           {
-            title: "Named target",
+            title: "Detached target",
             page_index: None,
-            dest: Some("section-2"),
+            dest: Some("appendix-a"),
             children: [],
           },
         ],
@@ -294,13 +373,16 @@ test "pdf to ir appends bookmark outline items conservatively" {
     }
   })
   let expected = [
-    "H2:Bookmarks",
-    "LI0:Parent -> page 1",
-    "LI1:Child -> page 2",
-    "LI1:Named target -> destination section-2",
+    "H2:Bookmarks", "LI0:Parent -> page 1", "LI1:Child -> page 2", "LI1:Named target -> destination section-2 -> page 3",
+    "LI1:Detached target -> destination appendix-a",
   ]
   if actual.length() != expected.length() {
-    fail("expected " + expected.length().to_string() + " blocks, got " + actual.length().to_string())
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
   }
   for i = 0; i < expected.length(); i = i + 1 {
     if actual[i] != expected[i] {
@@ -315,6 +397,40 @@ test "pdf to ir appends bookmark outline items conservatively" {
       )
     }
   }
+}
+
+///|
+test "pdf to ir bullet parser ignores pure separator lines" {
+  match
+    try_parse_bullet_list_item_for_ir("- ----------------------------------") {
+    None => ()
+    Some(_) => fail("separator line should not become bullet list item")
+  }
+
+  match try_parse_bullet_list_item_for_ir("* Important note") {
+    Some("Important note") => ()
+    _ => fail("real bullet item should still parse")
+  }
+}
+
+///|
+test "pdf to ir skips redundant bookmark appendix when headings already surface the same titles" {
+  let out = @cor.new_document()
+  @cor.push(out, @cor.Block::Heading(2, "Summary"))
+  @cor.push(out, @cor.Block::Heading(2, "Details"))
+  @cor.push(out, @cor.Block::Heading(2, "Conclusion"))
+
+  append_pdf_outlines_to_ir(
+    out,
+    [
+      { title: "Summary", page_index: Some(0), dest: None, children: [] },
+      { title: "Details", page_index: Some(1), dest: None, children: [] },
+      { title: "Conclusion", page_index: Some(2), dest: None, children: [] },
+    ],
+    "sample.pdf",
+  )
+
+  assert_eq(out.blocks.val.length(), 3)
 }
 
 ///|
@@ -360,12 +476,15 @@ test "pdf to ir skips degenerate subject-only annotation shells" {
     }
   })
   let expected = [
-    "P:Body paragraph",
-    "H2:Annotations",
-    "P:Ink (page 1): Pencil",
+    "P:Body paragraph", "H2:Annotations", "P:Ink (page 1): Pencil",
   ]
   if actual.length() != expected.length() {
-    fail("expected " + expected.length().to_string() + " blocks, got " + actual.length().to_string())
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
   }
   for i = 0; i < expected.length(); i = i + 1 {
     if actual[i] != expected[i] {

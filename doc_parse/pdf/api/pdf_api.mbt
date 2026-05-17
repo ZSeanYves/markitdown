@@ -177,7 +177,7 @@ fn map_adapter_error(err : @raw.MbtPdfAdapterError) -> PdfError {
 }
 
 ///|
-async fn open_pdf_file_silently(path : String) -> @pdf.Pdf raise {
+async fn open_pdf_file_silently(path : String) -> @pdf.Pdf {
   let input = @pdfiofs.input_of_file(path, source=path)
   @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
 }
@@ -192,9 +192,7 @@ async fn attach_document_outlines(
 
 ///|
 async fn read_document_outlines(path : String) -> Array[@model.PdfOutlineItem] {
-  let pdf = open_pdf_file_silently(path) catch {
-    _ => return []
-  }
+  let pdf = open_pdf_file_silently(path) catch { _ => return [] }
   let page_doc = @pdfpage.PdfPageDoc::new(pdf)
   let bookmarks = @pdfmarks.PdfMarks::new(pdf).read_bookmarks() catch {
     _ => return []
@@ -210,7 +208,11 @@ fn build_outline_tree_from_bookmarks(
   let flat : Array[FlatOutlineItem] = []
   for bookmark in bookmarks {
     flat.push({
-      level: if bookmark.level < 0 { 0 } else { bookmark.level },
+      level: if bookmark.level < 0 {
+        0
+      } else {
+        bookmark.level
+      },
       title: decode_outline_title(bookmark.text),
       page_index: resolve_outline_page_index(page_doc, bookmark.target),
       dest: outline_dest_label(bookmark.target),
@@ -254,7 +256,11 @@ fn outline_dest_label(dest : @pdfdest.Destination) -> String? {
   match raw {
     Some(value) => {
       let trimmed = value.trim().to_owned()
-      if trimmed == "" { None } else { Some(trimmed) }
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
     }
     None => None
   }
