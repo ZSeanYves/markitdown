@@ -97,7 +97,7 @@ fn default_text_state() -> TextState {
 }
 
 ///|
-async fn open_pdf_file_with_mbtpdf(path : String) -> @pdf.Pdf raise {
+async fn open_pdf_file_with_mbtpdf(path : String) -> @pdf.Pdf {
   // Keep recoverable parser diagnostics out of normal/debug user-facing output.
   let input = @pdfiofs.input_of_file(path, source=path)
   @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
@@ -956,9 +956,11 @@ fn decode_glyphs(
         for pair in pairs {
           let glyph_name = pair.0
           let cps = pair.1
-          let decoded_text = @pdftext.PdfTextUtil::new().utf8_of_codepoints(cps) catch {
-            _ => glyph_name
-          }
+          let decoded_text = sanitize_decoded_pdf_text_fragment(
+            @pdftext.PdfTextUtil::new().utf8_of_codepoints(cps) catch {
+              _ => glyph_name
+            },
+          )
           out.push({
             unicode: decoded_text,
             raw_bytes: None,
@@ -992,6 +994,20 @@ fn decode_glyphs(
 }
 
 ///|
+fn sanitize_decoded_pdf_text_fragment(text : String) -> String {
+  let out = StringBuilder::new()
+  for ch in text {
+    let code = ch.to_int()
+    if code < 0x20 && ch != '\n' && ch != '\r' && ch != '\t' {
+      out.write_char(' ')
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
 fn make_fallback_glyph(
   text : String,
   source : RawSourceRef,
@@ -999,10 +1015,11 @@ fn make_fallback_glyph(
   font_size : Double?,
   run_origin : @model.PdfPoint?,
 ) -> RawDecodedGlyph {
+  let sanitized = sanitize_decoded_pdf_text_fragment(text)
   {
-    unicode: text,
+    unicode: sanitized,
     raw_bytes: None,
-    decoded_text: text,
+    decoded_text: sanitized,
     origin: run_origin,
     bbox: None,
     advance_width: None,

@@ -121,6 +121,36 @@ test "pdf lower layer no longer applies phrase or slash post patches globally" {
 }
 
 ///|
+test "single span normalization repairs compact citation and ligature word boundaries" {
+  let citation = normalize_single_span(make_span("Xiet al., 2023"))
+  assert_eq(citation.text, "Xi et al., 2023")
+
+  let ligature = normalize_single_span(
+    make_span("developers may prefer theflexibility to program"),
+  )
+  assert_eq(ligature.text, "developers may prefer the flexibility to program")
+
+  let connector = normalize_single_span(
+    make_span("conversation patterns, such as single-or multi-turn dialogs"),
+  )
+  assert_eq(
+    connector.text,
+    "conversation patterns, such as single- or multi-turn dialogs",
+  )
+}
+
+///|
+test "pdf line span normalization repairs citation et-al boundary across spans" {
+  let spans = normalize_line_spans_with_glue([
+    make_span("Xiet"),
+    make_span("al., 2023"),
+  ])
+  assert_eq(spans.length(), 2)
+  assert_eq(spans[0].text, "Xi et")
+  assert_eq(spans[1].text, "al., 2023")
+}
+
+///|
 test "pdf span fragment merge repairs tight broken english words without phrase whitelist" {
   let spans = normalize_line_spans_with_glue([
     make_span("confi"),
@@ -144,6 +174,75 @@ test "pdf span fragment merge keeps normal short word boundaries" {
   assert_eq(flow.length(), 2)
   assert_eq(flow[0].text, "to")
   assert_eq(flow[1].text, "flow")
+}
+
+///|
+test "pdf span fragment merge keeps common short right words separated" {
+  let ended_yet = normalize_line_spans_with_glue([
+    {
+      ..make_span("ended"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("yet"),
+      bbox: { x0: 24.2, y0: 0.0, x1: 42.0, y1: 10.0 },
+      origin: { x: 24.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(ended_yet.length(), 2)
+  assert_eq(ended_yet[0].text + " " + ended_yet[1].text, "ended yet")
+
+  let confirms_the = normalize_line_spans_with_glue([
+    {
+      ..make_span("confirms"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 32.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("the"),
+      bbox: { x0: 32.2, y0: 0.0, x1: 46.0, y1: 10.0 },
+      origin: { x: 32.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(confirms_the.length(), 2)
+  assert_eq(confirms_the[0].text + " " + confirms_the[1].text, "confirms the")
+
+  let not_be = normalize_line_spans_with_glue([
+    {
+      ..make_span("not"),
+      bbox: { x0: 0.0, y0: 0.0, x1: 14.0, y1: 10.0 },
+      origin: { x: 0.0, y: 8.0 },
+    },
+    {
+      ..make_span("be"),
+      bbox: { x0: 14.2, y0: 0.0, x1: 24.0, y1: 10.0 },
+      origin: { x: 14.2, y: 8.0 },
+      source_refs: [
+        {
+          ..dummy_source_ref(),
+          source_op_index: 5,
+          content_order_index: Some(7),
+        },
+      ],
+    },
+  ])
+  assert_eq(not_be.length(), 2)
+  assert_eq(not_be[0].text + " " + not_be[1].text, "not be")
 }
 
 ///|

@@ -164,9 +164,79 @@ fn line_vertical_distance_close(
   left : @model.PdfTextLine,
   right : @model.PdfTextLine,
 ) -> Bool {
-  match (left.baseline_y, right.baseline_y, left.line_height) {
-    (Some(a), Some(b), Some(h)) => abs_double_rule(a - b) <= h * 1.8
-    _ => true
+  match line_bbox_vertical_gap(left, right) {
+    Some(gap) => gap <= line_vertical_gap_threshold(left, right)
+    None =>
+      match (left.baseline_y, right.baseline_y) {
+        (Some(a), Some(b)) =>
+          abs_double_rule(a - b) <=
+          line_vertical_baseline_threshold(left, right)
+        _ => true
+      }
+  }
+}
+
+///|
+fn line_bbox_vertical_gap(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Double? {
+  if !@model.is_rect_valid(left.bbox) || !@model.is_rect_valid(right.bbox) {
+    return None
+  }
+
+  let overlap_top = if left.bbox.y1 < right.bbox.y1 {
+    left.bbox.y1
+  } else {
+    right.bbox.y1
+  }
+  let overlap_bottom = if left.bbox.y0 > right.bbox.y0 {
+    left.bbox.y0
+  } else {
+    right.bbox.y0
+  }
+
+  if overlap_top > overlap_bottom {
+    return Some(0.0)
+  }
+
+  if left.bbox.y0 > right.bbox.y1 {
+    return Some(left.bbox.y0 - right.bbox.y1)
+  }
+
+  if right.bbox.y0 > left.bbox.y1 {
+    return Some(right.bbox.y0 - left.bbox.y1)
+  }
+
+  Some(0.0)
+}
+
+///|
+fn line_vertical_gap_threshold(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Double {
+  line_vertical_reference_height(left, right) * 0.8
+}
+
+///|
+fn line_vertical_baseline_threshold(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Double {
+  line_vertical_reference_height(left, right) * 1.8
+}
+
+///|
+fn line_vertical_reference_height(
+  left : @model.PdfTextLine,
+  right : @model.PdfTextLine,
+) -> Double {
+  match (left.line_height, right.line_height) {
+    (Some(a), Some(b)) => if a > b { a } else { b }
+    (Some(a), None) => a
+    (None, Some(b)) => b
+    (None, None) => 12.0
   }
 }
 
@@ -312,8 +382,7 @@ fn should_join_same_line(
         .to_owned()
       let right_text = normalize_text(right.text).trim().to_owned()
       let vertically_separated = has_strong_vertical_separation(
-        current_spans,
-        right,
+        current_spans, right,
       )
 
       // 先看版面：不像同一视觉行，直接断开
@@ -1520,7 +1589,11 @@ fn current_line_vertical_gap(
 ) -> Double {
   let cur_top = current_line_top_y(current_spans)
   let cur_bottom = current_line_bottom_y(current_spans)
-  let overlap_top = if cur_top < right.bbox.y1 { cur_top } else { right.bbox.y1 }
+  let overlap_top = if cur_top < right.bbox.y1 {
+    cur_top
+  } else {
+    right.bbox.y1
+  }
   let overlap_bottom = if cur_bottom > right.bbox.y0 {
     cur_bottom
   } else {

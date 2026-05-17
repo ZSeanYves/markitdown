@@ -224,6 +224,12 @@ fn apply_normalize_ascii_punctuation_spacing_rule(
 
   while i < chars.length() {
     let ch = chars[i]
+
+    if should_insert_ascii_space_before_open_punct(chars, i) {
+      out.write_char(' ')
+      count = count + 1
+    }
+
     out.write_char(ch)
 
     if is_ascii_spacing_punct(ch) {
@@ -232,11 +238,26 @@ fn apply_normalize_ascii_punctuation_spacing_rule(
         j = j + 1
       }
 
+      if j > i + 1 &&
+        j < chars.length() &&
+        should_tighten_ascii_numeric_separator(chars, i, j) {
+        count = count + (j - i - 1)
+        i = j
+        continue
+      }
+
       if j > i + 1 && j < chars.length() {
         out.write_char(' ')
         count = count + (j - i - 2)
         i = j
         continue
+      }
+
+      if j == i + 1 &&
+        j < chars.length() &&
+        should_insert_missing_ascii_space_after_punct(chars, i) {
+        out.write_char(' ')
+        count = count + 1
       }
     }
 
@@ -363,6 +384,112 @@ fn estimate_length_preserving_change_count(
 ///|
 fn is_ascii_spacing_punct(ch : Char) -> Bool {
   ch == '.' || ch == ',' || ch == ':' || ch == ';' || ch == '!' || ch == '?'
+}
+
+///|
+fn should_insert_missing_ascii_space_after_punct(
+  chars : Array[Char],
+  index : Int,
+) -> Bool {
+  let punct = chars[index]
+  let next = chars[index + 1]
+  if punct == '.' && is_ascii_digit_spacing(next) {
+    return false
+  }
+
+  if punct == '.' &&
+    index > 0 &&
+    is_ascii_letter_spacing(chars[index - 1]) &&
+    is_ascii_letter_spacing(next) {
+    return false
+  }
+
+  is_ascii_wordish_spacing(next) || is_ascii_open_punct(next)
+}
+
+///|
+fn should_insert_ascii_space_before_open_punct(
+  chars : Array[Char],
+  index : Int,
+) -> Bool {
+  if index <= 0 || !is_ascii_open_punct(chars[index]) {
+    return false
+  }
+
+  let prev = chars[index - 1]
+  if prev == ' ' || prev == '\n' || prev == '\r' || prev == '\t' {
+    return false
+  }
+
+  if is_tight_ascii_parenthetical_suffix(chars, index) {
+    return false
+  }
+
+  if is_empty_ascii_parenthetical_call(chars, index) {
+    return false
+  }
+
+  is_ascii_wordish_spacing(prev)
+}
+
+///|
+fn is_empty_ascii_parenthetical_call(chars : Array[Char], index : Int) -> Bool {
+  chars[index] == '(' && index + 1 < chars.length() && chars[index + 1] == ')'
+}
+
+///|
+fn should_tighten_ascii_numeric_separator(
+  chars : Array[Char],
+  index : Int,
+  next_index : Int,
+) -> Bool {
+  if index <= 0 || next_index >= chars.length() {
+    return false
+  }
+
+  let separator = chars[index]
+  if separator != ',' &&
+    separator != ':' &&
+    separator != '.' &&
+    separator != '/' {
+    return false
+  }
+
+  is_ascii_digit_spacing(chars[index - 1]) &&
+  is_ascii_digit_spacing(chars[next_index])
+}
+
+///|
+fn is_ascii_open_punct(ch : Char) -> Bool {
+  ch == '(' || ch == '['
+}
+
+///|
+fn is_ascii_wordish_spacing(ch : Char) -> Bool {
+  is_ascii_letter_spacing(ch) || is_ascii_digit_spacing(ch)
+}
+
+///|
+fn is_ascii_letter_spacing(ch : Char) -> Bool {
+  (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
+}
+
+///|
+fn is_ascii_digit_spacing(ch : Char) -> Bool {
+  ch >= '0' && ch <= '9'
+}
+
+///|
+fn is_tight_ascii_parenthetical_suffix(
+  chars : Array[Char],
+  index : Int,
+) -> Bool {
+  if index + 2 >= chars.length() || chars[index] != '(' {
+    return false
+  }
+
+  let inner = chars[index + 1]
+  chars[index + 2] == ')' && inner >= 'a' && inner <= 'z'
 }
 
 ///|

@@ -103,7 +103,11 @@ fn find_last_substring(haystack : String, needle : String) -> Int? {
     }
     j = j + 1
   }
-  if matched { Some(0) } else { None }
+  if matched {
+    Some(0)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -142,8 +146,8 @@ fn build_malformed_xref_stream_pdf() -> Array[Byte] raise {
     fail("malformed offset changed width")
   }
   let corrupted = (text[:startxref_index] +
-    malformed_offset_text +
-    text[eof_index:]).to_owned()
+  malformed_offset_text +
+  text[eof_index:]).to_owned()
   bytes_of_string(corrupted)
 }
 
@@ -154,7 +158,12 @@ async test "extract raw document keeps malformed xref repair logs out of adapter
   let _ = try? @fs.mkdir(out_dir, permission=0o755, recursive=true)
   let path = out_dir + "/minimal_bad_xref_stream_offset.pdf"
   let _ = try? @fs.remove(path)
-  @fs.write_file(path, Bytes::from_array(corrupted), create=0o644, truncate=true) catch {
+  @fs.write_file(
+    path,
+    Bytes::from_array(corrupted),
+    create=0o644,
+    truncate=true,
+  ) catch {
     e => fail("write corrupted fixture failed: " + e.to_string())
   }
 
@@ -201,6 +210,15 @@ test "TJ small kerning does not insert space inside split word" {
     10.0,
   )
   assert_eq(text, "Largelanguage")
+}
+
+///|
+test "sanitize decoded pdf text fragment maps control separators to spaces" {
+  assert_eq(sanitize_decoded_pdf_text_fragment("A\u{0001}B"), "A B")
+  assert_eq(
+    sanitize_decoded_pdf_text_fragment("Line1\nLine2\t\u{0002}Tail"),
+    "Line1\nLine2\t Tail",
+  )
 }
 
 ///|

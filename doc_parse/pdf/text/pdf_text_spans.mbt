@@ -342,9 +342,19 @@ fn has_explicit_space_boundary(left : String, right : String) -> Bool {
 
 ///|
 fn is_word_space_candidate_boundary(left : Char, right : Char) -> Bool {
+  if is_sign_prefix_for_number_local(left, right) {
+    return false
+  }
+
   (is_ascii_wordish_local(left) && is_ascii_wordish_local(right)) ||
+  (is_ascii_wordish_local(left) && is_left_open_punct_local(right)) ||
   (is_left_space_worthy_punct_local(left) && !is_spacing_or_punct_local(right)) ||
   (is_bullet_char_local(left) && !is_spacing_or_punct_local(right))
+}
+
+///|
+fn is_sign_prefix_for_number_local(left : Char, right : Char) -> Bool {
+  (left == '+' || left == '-') && (is_ascii_digit_local(right) || right == '.')
 }
 
 ///|
@@ -449,7 +459,9 @@ fn is_left_space_worthy_punct_local(ch : Char) -> Bool {
   ch == ':' ||
   ch == ';' ||
   ch == ',' ||
-  ch == '.'
+  ch == '.' ||
+  ch == '!' ||
+  ch == '?'
 }
 
 ///|

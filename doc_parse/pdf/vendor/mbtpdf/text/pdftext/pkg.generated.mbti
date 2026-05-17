@@ -46,6 +46,7 @@ pub struct PdfTextUtil {
   unit : Unit
 }
 pub fn PdfTextUtil::codepoint_of_pdfdocencoding_character(Self, Int) -> Int raise
+pub fn PdfTextUtil::codepoints_of_gbk(Self, Array[Int]) -> Array[Int]?
 pub fn PdfTextUtil::codepoints_of_pdfdocstring(Self, String) -> Array[Int] raise
 pub fn PdfTextUtil::codepoints_of_shift_jis(Self, Array[Int]) -> Array[Int]
 pub fn PdfTextUtil::codepoints_of_utf16be(Self, String) -> Array[Int] raise
@@ -77,6 +78,7 @@ pub struct TextExtractor {
   tounicode : Map[String, String]?
   tounicode_lengths : Array[Int]
   font : @pdffont.Font
+  simple_font_gbk_signal : Bool
 }
 pub fn TextExtractor::codepoints_of_text(Self, String) -> Array[Int] raise
 pub fn TextExtractor::glyphnames_and_codepoints_of_text(Self, String) -> Array[(String, Array[Int])] raise
