@@ -11,6 +11,8 @@ Current boundary:
 * default output should not depend on external models or heavy runtimes
 * heavy document-analysis systems such as PaddleOCR / PP-Structure remain
   future audit/design topics rather than current runtime dependencies
+* the fuller dataset/license audit plus the current feature/label/arbiter plan
+  now live in `docs/pdf-layout-model.md`
 
 ## Goals
 
@@ -70,6 +72,43 @@ Current implementation status:
   coverage, label distribution, and top reasons across the local
   `samples/pdf_layout_classifier` manifest without claiming production-quality
   accuracy
+* report-only predictions can now also carry `rule_label_hint`,
+  `disagreement`, `blocked_by_constraints`, and a conservative
+  `would_change_output` estimate for future gated-normal ablation
+* local-only subset intake plus external-corpus ablation tooling now lives in
+  `tools/pdf_layout_classifier/fetch_tiny_subsets.py`,
+  `tools/pdf_layout_classifier/export_manifest_features.py`, and
+  `tools/pdf_layout_classifier/local_eval.py`
+* the local-only ablation loop now includes a harder doc-style `epubcheck` /
+  `BookReporter` held-out split in addition to the earlier seed rows
+* the current best result is still report-only:
+  the named `gated_conservative_v1` preset now reaches `0.9846` micro F1 on
+  the current harder `223 / 195` expanded held-out split, beats the stronger
+  `rules_only` floor of `0.9641`, keeps held-out regressions at `0`, and
+  keeps `link_text`, `caption`, `list_item`, `footer_header_noise`, and
+  `form_row` stable on the checked split, while model-only remains too weak
+  for normal-path control
+* a later overfit round also proved the value of the held-out loop:
+  simply adding more `keep_as_text` train rows made the gate worse again, so
+  the arbiter must stay evidence-driven rather than “more labels at all costs”
+* the later real-support expansion plus cheap link/caption feature pass raised
+  held-out `link_text` / `caption` support to `9` / `8`, then used
+  link-coverage, partial-link, TOC-anchor, page-number-link, and
+  caption-lead-in features to recover the harder held-out slice without
+  changing the normal path
+* the current harder `223 / 195` report-only held-out run now reaches
+  `0.9846` micro F1 for `gated_conservative_v1` vs `0.9641` for `rules_only`,
+  keeps held-out regressions at `0`, fixes the earlier BookReporter /
+  receipt / cleanup-shell residuals, and also recovers the checked
+  figure-reference sentence boundary with a very narrow report-only conflict
+  exception, still without changing the normal path
+* `gated_conservative_tuned` no longer regresses on the current split, but it
+  still trails `v1` on the harder feature-augmented split, so the pinned
+  report-only baseline remains `gated_conservative_v1`
+* the work still remains report-only/eval-only:
+  the remaining checked residuals are now `Summary` plus a few
+  `paragraph` vs `keep_as_text` or receipt/body boundary rows, so there is
+  still no case for any later normal-path discussion
 
 Heavy-provider audit note:
 
@@ -155,9 +194,13 @@ Current recommendation:
 Predictions should stay explainable:
 
 * provider name
+* current rule label hint
 * suggested label
 * confidence
 * optional reasons / feature summary
+* whether deterministic constraints blocked the suggestion
+* whether a conservative gated-normal experiment would even consider changing
+  output
 
 This makes provider output auditable and keeps it from becoming a black-box
 replacement for the main chain.

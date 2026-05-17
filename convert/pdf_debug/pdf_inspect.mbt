@@ -326,6 +326,12 @@ fn pdf_layout_assist_section(
       summary.prediction_count.to_string(),
       @cor.json_string("label_counts") + ": " + label_counts_json,
       @cor.json_string("reason_counts") + ": " + reason_counts_json,
+      @cor.json_string("disagreement_count") +
+      ": " +
+      summary.disagreement_count.to_string(),
+      @cor.json_string("change_candidate_count") +
+      ": " +
+      summary.change_candidate_count.to_string(),
       @cor.json_string("warning_count") +
       ": " +
       summary.warning_count.to_string(),
@@ -371,6 +377,12 @@ fn build_layout_assist_features(
         text: raw_block.text,
         page_index: raw_block._page_index,
         block_kind_hint: hint,
+        rule_label_hint: Some(
+          layout_assist_block_kind_name(classified_block.kind),
+        ),
+        deterministic_constraints: layout_assist_deterministic_constraints(
+          raw_block,
+        ),
         metrics_json: Some(metrics),
       })
     }
@@ -406,6 +418,7 @@ fn layout_assist_metrics_json(
   classified_block : @pdfcore.PdfConvertBlock,
 ) -> String {
   let near_image = block_near_any_image(page.images, raw_block, 18.0)
+  let constraints = layout_assist_deterministic_constraints(raw_block)
   @cor.object_json([
     @cor.json_string("line_count") + ": " + raw_block.line_count.to_string(),
     @cor.json_string("text_length") + ": " + raw_block.text.length().to_string(),
@@ -419,10 +432,37 @@ fn layout_assist_metrics_json(
     @cor.json_string("is_table_cell_candidate") +
     ": " +
     @cor.bool_json(raw_block.is_table_cell_candidate),
+    @cor.json_string("deterministic_constraints") +
+    ": " +
+    @cor.string_array_json(constraints),
     @cor.json_string("final_kind") +
     ": " +
     @cor.json_string(layout_assist_block_kind_name(classified_block.kind)),
   ])
+}
+
+///|
+fn layout_assist_deterministic_constraints(
+  raw_block : @pdfcore.PdfConvertBlock,
+) -> Array[String] {
+  let out : Array[String] = []
+  if raw_block.is_table_cell_candidate {
+    out.push("table_geometry")
+  }
+  if raw_block.is_caption_candidate {
+    out.push("caption_geometry")
+  }
+  if raw_block.is_artifact_candidate {
+    out.push("artifact_candidate")
+  }
+  if raw_block.is_header_footer_candidate {
+    out.push("header_footer_candidate")
+  }
+  match raw_block.rich_inlines {
+    Some(_) => out.push("rich_inline_payload")
+    None => ()
+  }
+  out
 }
 
 ///|
@@ -479,6 +519,21 @@ fn layout_assist_prediction_json(prediction : LayoutAssistPrediction) -> String 
     @cor.json_string("mode") +
     ": " +
     @cor.json_string(layout_assist_mode_name(prediction.mode)),
+    @cor.json_string("secondary_label") +
+    ": " +
+    @cor.json_string_opt(prediction.secondary_label),
+    @cor.json_string("rule_label_hint") +
+    ": " +
+    @cor.json_string_opt(prediction.rule_label_hint),
+    @cor.json_string("disagreement") +
+    ": " +
+    @cor.bool_json(prediction.disagreement),
+    @cor.json_string("blocked_by_constraints") +
+    ": " +
+    @cor.string_array_json(prediction.blocked_by_constraints),
+    @cor.json_string("would_change_output") +
+    ": " +
+    @cor.bool_json(prediction.would_change_output),
     @cor.json_string("reasons") +
     ": " +
     @cor.string_array_json(prediction.reasons),

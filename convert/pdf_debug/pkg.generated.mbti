@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/convert/pdf_debug"
 
 import {
+  "ZSeanYves/markitdown/convert/pdf",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/doc_parse/pdf/model",
 }
@@ -10,6 +11,8 @@ import {
 pub fn build_pdf_debug_sections(@model.PdfDocumentModel, Int) -> Array[@core.DebugSection]
 
 pub fn build_pdf_layout_assist_summary(@model.PdfDocumentModel, Int) -> LayoutAssistSummary
+
+pub fn classify_model_decisions_as_layout_assist(Array[LayoutAssistFeature], Array[@pdf.PdfLayoutModelDecision], provider? : String, mode? : LayoutAssistMode) -> Array[LayoutAssistPrediction]
 
 pub fn heuristic_layout_assist_provider_info() -> LayoutAssistProviderInfo
 
@@ -31,6 +34,8 @@ pub struct LayoutAssistFeature {
   text : String
   page_index : Int
   block_kind_hint : String?
+  rule_label_hint : String?
+  deterministic_constraints : Array[String]
   metrics_json : String?
 }
 
@@ -48,6 +53,11 @@ pub struct LayoutAssistPrediction {
   provider : String
   mode : LayoutAssistMode
   reasons : Array[String]
+  secondary_label : String?
+  rule_label_hint : String?
+  disagreement : Bool
+  blocked_by_constraints : Array[String]
+  would_change_output : Bool
 }
 
 pub struct LayoutAssistProviderInfo {
@@ -63,6 +73,8 @@ pub struct LayoutAssistSummary {
   prediction_count : Int
   label_counts : Map[String, Int]
   reason_counts : Map[String, Int]
+  disagreement_count : Int
+  change_candidate_count : Int
   warning_count : Int
   providers : Array[LayoutAssistProviderInfo]
   predictions : Array[LayoutAssistPrediction]
