@@ -1465,7 +1465,11 @@ fn normalize_docx_note_marker_spacing_text(text : String) -> String {
   while i < chars.length() {
     let marker_end = docx_note_marker_end(chars, i)
     if marker_end > i {
-      trim_trailing_ascii_whitespace_before_note_marker(out)
+      let moved_space = trim_trailing_ascii_whitespace_before_note_marker(out)
+      if moved_space &&
+        has_only_ascii_whitespace_after_docx_note_marker(chars, marker_end) {
+        out.push(' ')
+      }
       for j in i..<marker_end {
         out.push(chars[j])
       }
@@ -1516,9 +1520,9 @@ fn docx_note_marker_end(chars : Array[Char], start : Int) -> Int {
 }
 
 ///|
-fn trim_trailing_ascii_whitespace_before_note_marker(out : Array[Char]) -> Unit {
+fn trim_trailing_ascii_whitespace_before_note_marker(out : Array[Char]) -> Bool {
   if out.length() == 0 {
-    return
+    return false
   }
 
   let mut trim_idx = out.length()
@@ -1532,15 +1536,32 @@ fn trim_trailing_ascii_whitespace_before_note_marker(out : Array[Char]) -> Unit 
   }
 
   if trim_idx == out.length() || trim_idx == 0 {
-    return
+    return false
   }
 
   let prev = out[trim_idx - 1]
   if prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r' {
-    return
+    return false
   }
 
   out.truncate(trim_idx)
+  true
+}
+
+///|
+fn has_only_ascii_whitespace_after_docx_note_marker(
+  chars : Array[Char],
+  start : Int,
+) -> Bool {
+  let mut i = start
+  while i < chars.length() {
+    let ch = chars[i]
+    if !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      return false
+    }
+    i = i + 1
+  }
+  true
 }
 
 ///|
@@ -1555,15 +1576,25 @@ fn normalize_docx_note_marker_spacing_inlines(
 ) -> Array[@cor.Inline] {
   let out : Array[@cor.Inline] = []
   let mut pending_space_after_note = false
+  let mut i = 0
 
-  for inline in inlines {
+  while i < inlines.length() {
+    let inline = inlines[i]
     match inline {
       @cor.Inline::Text(text) if is_docx_note_marker_text(text) => {
         let moved_space = trim_trailing_docx_whitespace_from_last_text_inline(
           out,
         )
+        if moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1) {
+          out.push(@cor.Inline::Text(" "))
+          pending_space_after_note = false
+        }
         out.push(inline)
-        pending_space_after_note = moved_space
+        if !(moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1)) {
+          pending_space_after_note = moved_space
+        }
       }
       @cor.Inline::Text(text) => {
         let mut emitted = text
@@ -1592,6 +1623,7 @@ fn normalize_docx_note_marker_spacing_inlines(
         out.push(inline)
       }
     }
+    i = i + 1
   }
 
   out
@@ -1637,6 +1669,27 @@ fn trim_trailing_docx_inline_whitespace(text : String) -> String {
   } else {
     String::from_array(chars[:end])
   }
+}
+
+///|
+fn remaining_docx_inlines_are_whitespace_only(
+  inlines : Array[@cor.Inline],
+  start : Int,
+) -> Bool {
+  let mut i = start
+  while i < inlines.length() {
+    match inlines[i] {
+      @cor.Inline::Text(text) =>
+        if is_whitespace_only_docx_text(text) {
+          i = i + 1
+          continue
+        } else {
+          return false
+        }
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|

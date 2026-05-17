@@ -335,6 +335,34 @@ test "pdf noise decision drops top edge dash page label candidate" {
 }
 
 ///|
+test "pdf noise decision drops bottom edge slash page label artifact" {
+  let block = make_noise_block(
+    0,
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "/",
+    noise_rect(196.0, 10.0, 204.0, 22.0),
+  )
+  let repeated = build_repeated_edge_noise_index(
+    make_noise_doc([make_noise_page(0, [block], [])]),
+  )
+  let decision = decide_noise_block(
+    make_noise_page(0, [block], []),
+    0,
+    block,
+    repeated,
+  )
+
+  match decision.status {
+    PdfNoiseDecisionStatus::Drop => ()
+    _ => fail("expected bottom-edge slash page label to drop")
+  }
+  if !decision.reason_tags.contains("page_count_pattern") {
+    fail("expected page_count_pattern reason")
+  }
+}
+
+///|
 test "pdf noise decision drops trailing numeric page number candidate" {
   let body = make_noise_block(
     0,

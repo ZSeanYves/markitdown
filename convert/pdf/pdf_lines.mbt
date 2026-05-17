@@ -81,7 +81,10 @@ fn build_convert_segments_from_core_line(
   line : @model.PdfTextLine,
   repeated_anchors : Array[ConvertRepeatedAnchor],
 ) -> Array[PdfConvertLine] {
-  if should_split_convert_line_into_cell_segments(line, repeated_anchors) {
+  let line_text = normalize_convert_line_text(@model.line_text(line))
+  if should_split_block_line_into_cell_segments(
+      block, line, line_text, repeated_anchors,
+    ) {
     let out : Array[PdfConvertLine] = []
     for span in line.spans {
       let text = normalize_convert_line_text(span.text)
@@ -99,8 +102,7 @@ fn build_convert_segments_from_core_line(
     }
   }
 
-  let text = normalize_convert_line_text(@model.line_text(line))
-  if text == "" {
+  if line_text == "" {
     []
   } else {
     [
@@ -198,15 +200,38 @@ fn register_repeated_convert_anchor(
 }
 
 ///|
+fn should_split_block_line_into_cell_segments(
+  block : @model.PdfTextBlock,
+  line : @model.PdfTextLine,
+  text : String,
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+) -> Bool {
+  if block.is_heading_candidate ||
+    block.is_page_number_candidate ||
+    block.is_header_footer_candidate ||
+    block.is_artifact_candidate {
+    return false
+  }
+
+  if looks_like_convert_headingish_line(text) ||
+    looks_like_convert_list_line(text) ||
+    looks_like_short_page_label_for_convert_split(text) {
+    return false
+  }
+
+  should_split_convert_line_into_cell_segments(line, text, repeated_anchors)
+}
+
+///|
 fn should_split_convert_line_into_cell_segments(
   line : @model.PdfTextLine,
+  text : String,
   repeated_anchors : Array[ConvertRepeatedAnchor],
 ) -> Bool {
   if line.spans.length() < 2 || line.spans.length() > 4 {
     return false
   }
 
-  let text = normalize_convert_line_text(@model.line_text(line))
   if text == "" || convert_line_split_word_count(text) > 8 {
     return false
   }
@@ -220,6 +245,110 @@ fn should_split_convert_line_into_cell_segments(
     repeated_anchors,
   )
   recurring_hits >= 2 && recurring_hits == line.spans.length()
+}
+
+///|
+fn looks_like_convert_headingish_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if t.has_prefix("第") &&
+    (t.contains("章") || t.contains("节") || t.contains("部分")) {
+    return true
+  }
+
+  looks_like_convert_numbered_heading_prefix(t)
+}
+
+///|
+fn looks_like_convert_numbered_heading_prefix(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  let chars = t.to_array()
+  match chars[0] {
+    ch => if ch < '0' || ch > '9' { return false }
+  }
+
+  t.contains(". ") ||
+  t.contains(") ") ||
+  t.has_prefix("1.") ||
+  t.has_prefix("2.") ||
+  t.has_prefix("3.") ||
+  t.has_prefix("1.1") ||
+  t.has_prefix("1.2") ||
+  t.has_prefix("2.1")
+}
+
+///|
+fn looks_like_convert_list_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if t == "•" ||
+    t.has_prefix("• ") ||
+    t.has_prefix("- ") ||
+    t.has_prefix("* ") {
+    return true
+  }
+
+  let chars = t.to_array()
+  let mut i = 0
+  let mut has_digit = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      has_digit = true
+      i = i + 1
+      continue
+    }
+    break
+  }
+
+  has_digit &&
+  i + 1 < chars.length() &&
+  (chars[i] == '.' || chars[i] == '、' || chars[i] == ')' || chars[i] == '）') &&
+  chars[i + 1] == ' '
+}
+
+///|
+fn looks_like_short_page_label_for_convert_split(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" || t.length() > 5 {
+    return false
+  }
+
+  let mut has_digit = false
+  for ch in t {
+    if (ch >= '0' && ch <= '9') ||
+      ch == '０' ||
+      ch == '１' ||
+      ch == '２' ||
+      ch == '３' ||
+      ch == '４' ||
+      ch == '５' ||
+      ch == '６' ||
+      ch == '７' ||
+      ch == '８' ||
+      ch == '９' {
+      has_digit = true
+      continue
+    }
+
+    if ch == '/' || ch == '-' || ch == '／' {
+      continue
+    }
+
+    return false
+  }
+
+  has_digit
 }
 
 ///|

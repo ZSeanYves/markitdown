@@ -109,6 +109,21 @@ fn line_test_block(lines : Array[@model.PdfTextLine]) -> @model.PdfTextBlock {
 }
 
 ///|
+fn line_test_block_with_flags(
+  lines : Array[@model.PdfTextLine],
+  is_heading_candidate : Bool,
+  is_page_number_candidate : Bool,
+  is_header_footer_candidate : Bool,
+) -> @model.PdfTextBlock {
+  {
+    ..line_test_block(lines),
+    is_heading_candidate,
+    is_page_number_candidate,
+    is_header_footer_candidate,
+  }
+}
+
+///|
 fn line_test_page(blocks : Array[@model.PdfTextBlock]) -> @model.PdfPageModel {
   {
     page_index: 0,
@@ -217,4 +232,99 @@ test "pdf convert lines keep citation-like span pairs unsplit even on repeated a
   assert_eq(converted.pages.length(), 1)
   assert_eq(converted.pages[0].lines.length(), 5)
   assert_eq(converted.pages[0].lines[4].text, "Xi et al.")
+}
+
+///|
+test "pdf convert lines keep repeated-anchor heading candidates unsplit" {
+  let doc = line_test_document([
+    line_test_block([
+      line_test_line([
+        line_test_span("Insured name", 80.0, 148.0, 480.0, 1),
+        line_test_span("Gabriel Diaz", 160.0, 228.0, 480.0, 2),
+      ]),
+    ]),
+    line_test_block([
+      line_test_line([
+        line_test_span("Claim #", 80.0, 118.0, 466.0, 3),
+        line_test_span("SF-1008", 160.0, 200.0, 466.0, 4),
+      ]),
+    ]),
+    line_test_block_with_flags(
+      [
+        line_test_line([
+          line_test_span("1.1 研究", 80.0, 138.0, 452.0, 5),
+          line_test_span("目", 160.0, 172.0, 452.0, 6),
+          line_test_span("标", 196.0, 208.0, 452.0, 7),
+        ]),
+      ],
+      false,
+      false,
+      false,
+    ),
+  ])
+
+  let converted = build_convert_lines(doc, "")
+  assert_eq(converted.pages[0].lines.length(), 5)
+  assert_eq(converted.pages[0].lines[4].text, "1.1 研究目标")
+}
+
+///|
+test "pdf convert lines keep repeated-anchor bullet rows unsplit" {
+  let doc = line_test_document([
+    line_test_block([
+      line_test_line([
+        line_test_span("Insured name", 80.0, 148.0, 480.0, 1),
+        line_test_span("Gabriel Diaz", 160.0, 228.0, 480.0, 2),
+      ]),
+    ]),
+    line_test_block([
+      line_test_line([
+        line_test_span("Claim #", 80.0, 118.0, 466.0, 3),
+        line_test_span("SF-1008", 160.0, 200.0, 466.0, 4),
+      ]),
+    ]),
+    line_test_block([
+      line_test_line([
+        line_test_span("•", 80.0, 88.0, 452.0, 5),
+        line_test_span("First item", 160.0, 220.0, 452.0, 6),
+      ]),
+    ]),
+  ])
+
+  let converted = build_convert_lines(doc, "")
+  assert_eq(converted.pages[0].lines.length(), 5)
+  assert_eq(converted.pages[0].lines[4].text, "• First item")
+}
+
+///|
+test "pdf convert lines keep repeated-anchor short page labels unsplit" {
+  let doc = line_test_document([
+    line_test_block([
+      line_test_line([
+        line_test_span("Insured name", 80.0, 148.0, 480.0, 1),
+        line_test_span("Gabriel Diaz", 160.0, 228.0, 480.0, 2),
+      ]),
+    ]),
+    line_test_block([
+      line_test_line([
+        line_test_span("Claim #", 80.0, 118.0, 466.0, 3),
+        line_test_span("SF-1008", 160.0, 200.0, 466.0, 4),
+      ]),
+    ]),
+    line_test_block_with_flags(
+      [
+        line_test_line([
+          line_test_span("/", 80.0, 88.0, 452.0, 5),
+          line_test_span("2", 160.0, 168.0, 452.0, 6),
+        ]),
+      ],
+      false,
+      true,
+      true,
+    ),
+  ])
+
+  let converted = build_convert_lines(doc, "")
+  assert_eq(converted.pages[0].lines.length(), 5)
+  assert_eq(converted.pages[0].lines[4].text, "/2")
 }

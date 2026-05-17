@@ -246,6 +246,10 @@ fn is_probable_page_number_like(text : String) -> Bool {
     return true
   }
 
+  if looks_like_slash_page_label_artifact(t) {
+    return true
+  }
+
   if looks_like_dash_page_label(t) {
     return true
   }
@@ -305,6 +309,12 @@ fn looks_like_fraction_page_label(text : String) -> Bool {
   right.length() <= 4 &&
   all_ascii_digits(left) &&
   all_ascii_digits(right)
+}
+
+///|
+fn looks_like_slash_page_label_artifact(text : String) -> Bool {
+  let t = normalize_pdf_comparison_text(text)
+  t == "/" || t == "／" || t == "\\"
 }
 
 ///|

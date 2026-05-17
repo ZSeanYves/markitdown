@@ -546,6 +546,22 @@ test "docx footnote markers move preserved spacer after the marker" {
 }
 
 ///|
+test "docx terminal note markers keep preserved spacer before the marker" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">second </w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"2\"/></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "second [^1]")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "second [^1]")
+  assert_eq(ledger.footnote_order.length(), 1)
+  assert_eq(ledger.footnote_order[0], 2)
+}
+
+///|
 test "docx table cells record footnote endnote and comment references in ledger" {
   let footnotes = parse_footnotes_xml(
     "<w:footnotes>" +

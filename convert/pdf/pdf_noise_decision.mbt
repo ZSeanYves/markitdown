@@ -147,6 +147,7 @@ fn collect_edge_noise_evidence(
   let page_number_with_label = looks_like_simple_english_page_label(text) ||
     looks_like_simple_cjk_page_label(text)
   let page_count_pattern = looks_like_fraction_page_label(text) ||
+    looks_like_slash_page_label_artifact(text) ||
     looks_like_dash_page_label(text)
   let page_number_like = page_number_numeric ||
     page_number_roman ||
@@ -326,6 +327,12 @@ fn strong_page_number_drop(evidence : PdfEdgeNoiseEvidence) -> Bool {
     edge_page_number &&
     evidence.page_number_short_centered &&
     evidence.bottom_edge
+  ) ||
+  (
+    edge_page_number &&
+    evidence.page_count_pattern &&
+    evidence.isolated_line &&
+    (evidence.top_edge || evidence.bottom_edge)
   ) ||
   (edge_page_number && evidence.page_number_with_label) ||
   (
