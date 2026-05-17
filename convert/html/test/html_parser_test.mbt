@@ -243,8 +243,7 @@ test "html comments do not leak commented markup into output" {
 
   let sample_path = dir + "/html_comment_ignored.html"
   write_utf8_text(
-    sample_path,
-    "<article><h1>Visible</h1><p>Before.</p><!-- <section><h2>Hidden</h2><p><a href=\"https://example.com/secret\">Secret Link</a></p></section> --><p>After.</p></article>\n",
+    sample_path, "<article><h1>Visible</h1><p>Before.</p><!-- <section><h2>Hidden</h2><p><a href=\"https://example.com/secret\">Secret Link</a></p></section> --><p>After.</p></article>\n",
   )
 
   let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
@@ -526,6 +525,24 @@ test "html skips strong-noise containers but preserves ordinary content tables" 
   assert_false(markdown.contains("Skip me"))
   assert_false(markdown.contains("Section chrome"))
   assert_false(markdown.contains("Related series"))
+}
+
+///|
+test "html preserves toc-nav sections when they contain substantial prose" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_toc_nav_contentful_section.html"
+  write_utf8_text(
+    sample_path, "<html><body><article><section id=\"toc-nav\"><h2><code>toc nav</code></h2><p>Tests whether the toc nav can be accessed and whether document-level linking works for real reading-system scenarios.</p><p>To complete this test, first bring up the table of contents and activate the glossary link.</p></section></article></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("## toc nav"))
+  assert_true(markdown.contains("Tests whether the toc nav can be accessed"))
+  assert_true(markdown.contains("activate the glossary link"))
 }
 
 ///|

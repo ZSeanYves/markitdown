@@ -935,7 +935,9 @@ test "epub package keeps remote manifest resources without aborting open" {
     ("mimetype", "application/epub+zip"),
     (
       "META-INF/container.xml",
-      minimal_container([("OPS/content.opf", Some("application/oebps-package+xml"))]),
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
     ),
     (
       "OPS/content.opf",
@@ -948,8 +950,7 @@ test "epub package keeps remote manifest resources without aborting open" {
       ),
     ),
     (
-      "OPS/chapter.xhtml",
-      "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Remote manifest sidecar should not block package open.</body></html>",
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Remote manifest sidecar should not block package open.</body></html>",
     ),
   ])
 
@@ -971,7 +972,9 @@ test "epub package ignores commented-out manifest items" {
     ("mimetype", "application/epub+zip"),
     (
       "META-INF/container.xml",
-      minimal_container([("OPS/content.opf", Some("application/oebps-package+xml"))]),
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
     ),
     (
       "OPS/content.opf",
@@ -987,12 +990,10 @@ test "epub package ignores commented-out manifest items" {
       "</package>",
     ),
     (
-      "OPS/chapter.xhtml",
-      "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Commented manifest item should stay ignored.</body></html>",
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body>Commented manifest item should stay ignored.</body></html>",
     ),
     (
-      "OPS/nav.xhtml",
-      "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav epub:type=\"toc\"><a href=\"chapter.xhtml\">One</a></nav></body></html>",
+      "OPS/nav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><nav epub:type=\"toc\"><a href=\"chapter.xhtml\">One</a></nav></body></html>",
     ),
   ])
 

@@ -101,7 +101,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
               }
             }
 
-            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+            match find_skippable_html_noise_subtree_end(bs, p, q, tag) {
               Some(skip_end) => {
                 pos = skip_end
                 continue
@@ -490,7 +490,7 @@ fn scan_li_children(
               }
             }
 
-            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+            match find_skippable_html_noise_subtree_end(bs, p, q, tag) {
               Some(skip_end) =>
                 if skip_end <= end_ {
                   flush_pending_paragraph(out, pending_para)
@@ -689,7 +689,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
               }
             }
 
-            match find_skippable_html_noise_subtree_end(bs, p, tag) {
+            match find_skippable_html_noise_subtree_end(bs, p, q, tag) {
               Some(skip_end) => {
                 flush_pending_paragraph(out, pending_para)
                 pos = skip_end
@@ -1272,6 +1272,7 @@ fn find_figure_caption_inlines(inner : Bytes) -> Array[HtmlInline] {
 fn find_skippable_html_noise_subtree_end(
   bs : Bytes,
   open_idx : Int,
+  open_tag_end_idx : Int,
   tag : String,
 ) -> Int? {
   let tag_name = html_open_tag_name(tag)
@@ -1283,7 +1284,14 @@ fn find_skippable_html_noise_subtree_end(
       } else {
         match find_matching_tag_end(bs, open_idx, name) {
           None => None
-          Some(close_idx) => Some(close_idx + ("</" + name + ">").length())
+          Some(close_idx) => {
+            let inner = bs[open_tag_end_idx + 1:close_idx].to_owned()
+            if html_noise_subtree_should_be_preserved(name, tag, inner) {
+              None
+            } else {
+              Some(close_idx + ("</" + name + ">").length())
+            }
+          }
         }
       }
   }
@@ -1342,6 +1350,76 @@ fn html_should_skip_noise_subtree(tag_name : String, tag : String) -> Bool {
   }
 
   false
+}
+
+///|
+fn html_noise_subtree_should_be_preserved(
+  tag_name : String,
+  tag : String,
+  inner : Bytes,
+) -> Bool {
+  if !html_tag_has_navigation_like_noise_token(tag_name, tag) {
+    return false
+  }
+  html_noise_subtree_has_substantial_prose(inner)
+}
+
+///|
+fn html_tag_has_navigation_like_noise_token(
+  tag_name : String,
+  tag : String,
+) -> Bool {
+  if tag_name == "nav" {
+    return true
+  }
+
+  if html_role_is_navigation_like(tag) {
+    return true
+  }
+
+  html_attr_value_has_navigation_like_noise_token(tag, "id") ||
+  html_attr_value_has_navigation_like_noise_token(tag, "class")
+}
+
+///|
+fn html_role_is_navigation_like(tag : String) -> Bool {
+  let role = read_html_attr_value(tag, "role")
+    .map(fn(value) { value.to_lower().trim().to_owned() })
+    .unwrap_or("")
+  role == "navigation" || role == "menu"
+}
+
+///|
+fn html_attr_value_has_navigation_like_noise_token(
+  tag : String,
+  attr_name : String,
+) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => html_contains_navigation_like_noise_token(value.to_lower())
+  }
+}
+
+///|
+fn html_contains_navigation_like_noise_token(value : String) -> Bool {
+  value.contains("toc") ||
+  value.contains("table-of-contents") ||
+  value.contains("navbox") ||
+  value.contains("navbar") ||
+  value.contains("navigation") ||
+  value.contains("menu") ||
+  value.contains("breadcrumb") ||
+  value.contains("vector-menu")
+}
+
+///|
+fn html_noise_subtree_has_substantial_prose(inner : Bytes) -> Bool {
+  if find_bytes(inner, pat("<p"), 0) is None {
+    return false
+  }
+
+  let text = html_pre_text_from_bytes(inner)
+  text.length() >= 80
 }
 
 ///|

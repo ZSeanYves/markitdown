@@ -307,7 +307,10 @@ fn minimal_opf(
 }
 
 ///|
-fn write_inline_epub(path : String, entries : Array[(String, String)]) -> Unit raise {
+fn write_inline_epub(
+  path : String,
+  entries : Array[(String, String)],
+) -> Unit raise {
   @fs.write_bytes_to_file(path, build_store_zip(entries)) catch {
     e => fail("write inline epub failed: " + e.to_string())
   }
@@ -374,7 +377,9 @@ test "epub convert ignores remote manifest sidecars and keeps local spine" {
     ("mimetype", "application/epub+zip"),
     (
       "META-INF/container.xml",
-      minimal_container([("OPS/content.opf", Some("application/oebps-package+xml"))]),
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
     ),
     (
       "OPS/content.opf",
@@ -387,8 +392,7 @@ test "epub convert ignores remote manifest sidecars and keeps local spine" {
       ),
     ),
     (
-      "OPS/chapter.xhtml",
-      "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><p>Remote manifest sidecar should not block conversion.</p></body></html>",
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><p>Remote manifest sidecar should not block conversion.</p></body></html>",
     ),
   ])
 
@@ -401,7 +405,9 @@ test "epub convert ignores remote manifest sidecars and keeps local spine" {
     markdown, "Remote manifest sidecar should not block conversion.",
   )
   if markdown.contains("theme.mp3") {
-    fail("remote manifest sidecar should not surface as converted spine content")
+    fail(
+      "remote manifest sidecar should not surface as converted spine content",
+    )
   }
 }
 

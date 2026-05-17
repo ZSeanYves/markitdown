@@ -47,11 +47,10 @@ pub fn parse_xml(
 ///|
 fn decode_xml_source_text(bytes : Bytes) -> String raise {
   match sniff_xml_utf16_endianness(bytes) {
-    Some(endianness) => {
-      return @utf16.decode(bytes, ignore_bom=false, endianness=endianness) catch {
+    Some(endianness) =>
+      return @utf16.decode(bytes, ignore_bom=false, endianness~) catch {
         _ => raise @cor.AppError("xml: utf16 decode failed")
       }
-    }
     None => ()
   }
 
@@ -138,9 +137,7 @@ fn sniff_xml_declared_encoding(bytes : Bytes) -> String? {
   let decl_end = lower.find("?>").unwrap_or(lower.length())
   let decl = lower[:decl_end]
   let encoding_index = decl.find("encoding")
-  guard encoding_index is Some(start0) else {
-    return None
-  }
+  guard encoding_index is Some(start0) else { return None }
 
   let chars = probe.to_array()
   let mut i = start0 + "encoding".length()
