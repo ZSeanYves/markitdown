@@ -68,6 +68,9 @@ This page is the current roadmap source of truth for the repository.
 
 * keep the current `samples/pdf_layout_classifier` work scoped as a training
   spike
+* evolve that spike toward the audited lightweight layout-assist plan in
+  `docs/pdf-layout-model.md`, starting with report-only feature/schema/
+  disagreement reporting rather than normal-path control
 * expand local labels only if the text-layer classifier shows useful signal
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
@@ -151,6 +154,30 @@ This page is the current roadmap source of truth for the repository.
 * use debug-only layout-assist evaluation to measure coverage, label
   distribution, and suspicious no-prediction / many-prediction cases before
   discussing any stronger integration
+* require explicit dataset/license review and held-out ablation before
+  widening the layout-assist label set or gating any output changes
+* keep collecting more unique-source real labels for `link_text`, `caption`,
+  and short-title `heading` boundaries before proposing any later
+  gated-normal PDF layout-assist trial; the latest held-out expansion finally
+  raised `link_text` / `caption` support to `9` / `8`, but long annotated
+  anchors are still not robust enough
+* keep the current best report-only arbiter pinned to
+  `gated_conservative_v1`, which now uses the `220 / 180` local split plus
+  later heading/list precision guards, corrected standalone-bullet negatives,
+  and CJK/help-text/annotation-negative features, still beats rules-only on
+  the expanded held-out split, and still avoids held-out regressions
+* keep the newer cheap deterministic link/caption feature pass in the
+  report-only lane as well: a later residual feature pass on the same harder
+  `223 / 195` split now reaches `0.9744` for `gated_conservative_v1` vs
+  `0.9538` for `rules_only`, and the remaining blockers have shifted again to
+  `Summary` plus a few `paragraph` vs `keep_as_text` boundary rows rather
+  than missing `link_text` / `caption` support alone
+* keep the newer paragraph-boundary feature pass in the report-only lane too:
+  the same harder `223 / 195` split now reaches `0.9846` for
+  `gated_conservative_v1` vs `0.9641` for `rules_only`, still keeps held-out
+  regressions at `0`, and now shows that the blocker has shifted away from
+  `link_text` / `caption` support to a much smaller set of `Summary`,
+  visible-URL, and receipt/body boundary residuals
 
 ## Later Work
 

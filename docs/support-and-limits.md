@@ -531,7 +531,9 @@ Conservative behavior:
   counts without changing Markdown output
 * the checked-in `samples/pdf_layout_classifier` training spike is export/train/
   infer tooling only; it does not change default PDF Markdown output, does not
-  enable OCR, and does not connect a visual layout runtime into the normal path
+  enable OCR, does not connect a visual layout runtime into the normal path,
+  and now feeds a report-only lightweight layout-assist audit documented in
+  `docs/pdf-layout-model.md`
 
 Known limits:
 
@@ -577,7 +579,9 @@ Known limits:
   descriptor/probe/report wiring, but they do not imply bundled OCR engines,
   bundled model files, or normal-path activation
 * layout-assist advisory predictions may surface in PDF debug/inspect reports,
-  but they do not participate in the normal conversion decision path
+  and may now expose `rule_label_hint`, `disagreement`,
+  `blocked_by_constraints`, and `would_change_output`, but they still do not
+  participate in the normal conversion decision path
 * the explicit `tesseract-cli` provider is optional and external: it can probe
   availability and OCR page images when users explicitly choose it, but it is
   not bundled and is not part of the default `normal` path

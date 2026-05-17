@@ -116,6 +116,72 @@
 * Add a debug-only provider listing/probe surface so OCR/layout-assist
   skeletons can be inspected explicitly without changing the normal path or
   implying that OCR has run.
+* Add local-only PDF layout-assist dataset intake and ablation tooling:
+  `fetch_tiny_subsets.py`, `export_manifest_features.py`, and
+  `local_eval.py`, plus first-round documentation for report-only
+  rules-vs-model ablations and conservative gated rollout criteria.
+* Expand the local-only PDF layout-assist eval loop with richer footer/link/
+  code-like features, extra doc-style `epubcheck` / `BookReporter` weak-label
+  samples, and multi-round ablation notes showing a best-so-far report-only
+  gated configuration plus an overfit round that correctly failed held-out
+  checks.
+* Freeze the current report-only PDF layout-assist baseline as the named
+  `gated_conservative_v1` preset, add cheap caption-marker and short
+  annotation-anchor features/guards, expand held-out controls for caption/link/
+  repeated-header cases, and keep the work strictly local-only/report-only
+  after the expanded held-out loop reached a newer best gated score without
+  held-out regressions.
+* Expand the report-only PDF layout-assist loop with receipt / BookReporter /
+  repeated-shell hard negatives, stronger local heading/list precision guards,
+  and a larger `206 / 161` train/held-out split; the current
+  `gated_conservative_v1` run now reaches `0.9130` held-out micro F1 with
+  `0` held-out regressions while normal PDF output still stays unchanged.
+* Extend the report-only PDF layout-assist loop again with more CJK
+  short-sentence negatives, command/help-text `keep_as_text` rows, and
+  annotation-adjacent link controls; the current `gated_conservative_v1` run
+  now reaches `0.9231` held-out micro F1 on a `217 / 169` split with
+  `0` held-out regressions, higher `heading` precision, and no normal-path
+  output change or runtime model dependency.
+* Correct standalone-bullet hard negatives in the local-only `epubcheck`
+  training slice, add a new `annotation-freetext` held-out negative, and keep
+  the PDF layout-assist work strictly report-only/eval-only; the current
+  `gated_conservative_v1` run now reaches `0.9667` held-out micro F1 on a
+  `220 / 180` split with `0` held-out regressions, while `link_text` and
+  `caption` positive support still remain too small for any normal-path
+  proposal.
+* Expand the real held-out PDF layout-assist support set with Apache / NIST /
+  IETF fixtures for `link_text` and `caption`, keep the work strictly
+  report-only/eval-only, and confirm that `gated_conservative_v1` still beats
+  rules-only on the harder `195`-row held-out slice with `0` regressions;
+  real held-out support now reaches `link_text = 9` and `caption = 8`, but
+  long TOC / page-number-like / paragraph-with-URL anchors still block any
+  later normal-path proposal.
+* Add a cheap deterministic link/caption feature pass for the report-only PDF
+  layout-assist loop: export link coverage / target-kind / partial-link /
+  page-number-link / TOC-anchor / visible-URL and caption lead-in /
+  object-proximity signals, then tighten the local-only arbiter so long
+  named/internal paragraph anchors stop forcing `link_text`; the harder
+  `223 / 195` held-out run now reaches `0.9487` for
+  `gated_conservative_v1` vs `0.9231` for `rules_only`, keeps held-out
+  regressions at `0`, and still does not change the normal PDF path.
+* Add a later residual feature pass for the report-only PDF layout-assist
+  loop: export technical-literal, receipt/payment, cleanup-shell, and URL
+  boundary features; tighten the local-only arbiter around `keep_as_text` and
+  `form_row`; and raise the same harder `223 / 195` held-out run again to
+  `0.9744` for `gated_conservative_v1` vs `0.9538` for `rules_only`, while
+  still keeping held-out regressions at `0`, keeping normal output unchanged,
+  and leaving the remaining blocker set at `Summary` plus a few
+  `paragraph`/`keep_as_text` boundary rows.
+* Add a later paragraph-boundary feature pass for the report-only PDF
+  layout-assist loop: export figure/section-reference sentence guards in the
+  Moon feature exporter, keep the work strictly local-only/report-only, and
+  raise the same harder `223 / 195` held-out run again to `0.9846` for
+  `gated_conservative_v1` vs `0.9641` for `rules_only`, while still keeping
+  held-out regressions at `0`, keeping normal output unchanged, and shifting
+  the remaining blocker set down to `Summary`, a standalone visible URL row,
+  and one small receipt/body boundary row after a very narrow report-only
+  figure-reference sentence exception safely fixed the checked
+  `Figure 6 illustrates ...` residual.
 * Implement an explicit optional `tesseract-cli` OCR provider for lazy
   availability probing and page-image text recognition, while keeping OCR
   out of the default normal path and leaving PDF-level OCR/provider routing
@@ -145,6 +211,13 @@
   prediction coverage, label distribution, and top reasons across the local
   PDF layout-classifier manifest, without claiming accuracy improvements or
   changing default Markdown output.
+* Extend the lightweight PDF layout-assist path toward a real report-only
+  pipeline: the feature export now includes richer cheap native-text layout
+  signals, debug/inspect predictions now expose `rule_label_hint`,
+  `disagreement`, deterministic constraints, and a conservative
+  `would_change_output` estimate, and the dataset/license audit plus the
+  recommended offline-training/held-out rollout plan are now documented in
+  `docs/pdf-layout-model.md` without changing normal PDF Markdown output.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,
