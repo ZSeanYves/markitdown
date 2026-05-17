@@ -215,10 +215,8 @@ fn inline_text_for_docx_test(inlines : Array[@cor.Inline]) -> String {
 }
 
 ///|
-test "docx hyperlink profiling captures hot path counters" {
-  let out_dir = docx_test_out_dir("link_many_performance_guard")
-  let counter : Ref[Int] = { val: 0 }
-  let profile : DocxProfilingCounters = {
+fn new_docx_test_profile_counters() -> DocxProfilingCounters {
+  {
     paragraphs_seen: { val: 0 },
     hyperlink_nodes_seen: { val: 0 },
     collect_wt_inlines_calls: { val: 0 },
@@ -242,6 +240,13 @@ test "docx hyperlink profiling captures hot path counters" {
     document_has_pstyle: { val: false },
     document_has_numpr: { val: false },
   }
+}
+
+///|
+test "docx hyperlink profiling captures hot path counters" {
+  let out_dir = docx_test_out_dir("link_many_performance_guard")
+  let counter : Ref[Int] = { val: 0 }
+  let profile = new_docx_test_profile_counters()
   let prev_profile = current_docx_profile.val
   let prev_enabled = docx_profile_enabled.val
   current_docx_profile.val = profile
@@ -507,6 +512,40 @@ test "docx notes parser and append sections stay conservative and deterministic"
 }
 
 ///|
+test "docx note markers absorb preceding source space and keep following prose spaced" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">tilaka </w:t></w:r>" +
+    "<w:r><w:endnoteReference w:id=\"2\"/></w:r>" +
+    "<w:r><w:t>or 'tika'</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "tilaka[^e1] or 'tika'")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "tilaka[^e1] or 'tika'")
+  assert_eq(ledger.endnote_order.length(), 1)
+  assert_eq(ledger.endnote_order[0], 2)
+}
+
+///|
+test "docx footnote markers move preserved spacer after the marker" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t xml:space=\"preserve\">a </w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:t>powerful way</w:t></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "a[^1] powerful way")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "a[^1] powerful way")
+  assert_eq(ledger.footnote_order.length(), 1)
+  assert_eq(ledger.footnote_order[0], 1)
+}
+
+///|
 test "docx table cells record footnote endnote and comment references in ledger" {
   let footnotes = parse_footnotes_xml(
     "<w:footnotes>" +
@@ -561,10 +600,7 @@ test "docx table cells record footnote endnote and comment references in ledger"
   assert_eq(ledger.comment_order[0], 3)
 
   let doc = @cor.new_document()
-  @cor.push(
-    doc,
-    @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
-  )
+  @cor.push(doc, @cor.Block::RichTable({ rows, header_rows: 1, hints: None }))
   append_docx_notes_sections(
     doc,
     {
@@ -684,6 +720,22 @@ test "docx comment reference keeps a boundary before immediately following text"
   assert_eq(scan.text, "this is a comment [comment 1] paragraph!")
   assert_eq(ledger.comment_order.length(), 1)
   assert_eq(ledger.comment_order[0], 1)
+}
+
+///|
+test "docx preserved source space before comment marker survives inline emission" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>Body</w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
+    "<w:r><w:t xml:space=\"preserve\"> </w:t></w:r>" +
+    "<w:r><w:commentReference w:id=\"1\"/></w:r>",
+    empty_docx_relationship_context(),
+    Some(ledger),
+  )
+
+  assert_eq(scan.text, "Body[^1]  [comment 1]")
+  assert_eq(inline_text_for_docx_test(scan.inlines), "Body[^1]  [comment 1]")
 }
 
 ///|
@@ -987,6 +1039,51 @@ test "docx nested table scan handles deeper nesting without losing deepest text"
   assert_true(rows[0][0].contains("Outer"))
   assert_true(rows[0][0].contains("Nested level 0"))
   assert_true(rows[0][0].contains("Nested level 12"))
+}
+
+///|
+test "docx document scan keeps deep nested tables content-preserving without pathological xml rescans" {
+  let profile = new_docx_test_profile_counters()
+  let prev_profile = current_docx_profile.val
+  let prev_enabled = docx_profile_enabled.val
+  current_docx_profile.val = profile
+  docx_profile_enabled.val = true
+  defer {
+    current_docx_profile.val = prev_profile
+    docx_profile_enabled.val = prev_enabled
+  }
+
+  let max_depth = 128
+  let mut table_xml = ""
+  for depth = max_depth; depth >= 0; depth = depth - 1 {
+    table_xml = "<w:tbl><w:tr><w:tc>" +
+      "<w:p><w:r><w:t>Nested level " +
+      depth.to_string() +
+      "</w:t></w:r></w:p>" +
+      table_xml +
+      "</w:tc></w:tr></w:tbl>"
+  }
+
+  reset_docx_scan_profile_counters()
+  let doc = scan_document(
+    table_xml,
+    empty_docx_relationship_context(),
+    Map([]),
+    empty_styles(),
+    empty_numbering(),
+    empty_docx_note_bundle(),
+    empty_docx_header_footer_bundle(),
+    empty_docx_text_box_bundle(),
+    6,
+    "deep-nested-table.docx",
+  )
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("Nested level 0"))
+  assert_true(markdown.contains("Nested level 128"))
+  assert_true(
+    profile.xml_tag_scan_total_search_len.val < table_xml.length() * 700,
+  )
 }
 
 ///|

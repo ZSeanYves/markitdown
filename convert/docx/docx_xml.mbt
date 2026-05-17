@@ -287,6 +287,24 @@ fn find_matching_docx_element_close(
 }
 
 ///|
+fn pattern_matches_at(
+  chars : Array[Char],
+  pos : Int,
+  pat : Array[Char],
+) -> Bool {
+  let plen = pat.length()
+  if pos + plen > chars.length() {
+    return false
+  }
+  for i in 0..<plen {
+    if chars[pos + i] != pat[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn tag_prefix_matches(
   chars : Array[Char],
   pos : Int,
@@ -622,7 +640,10 @@ fn render_docx_note_entry_markdown(
       }
       let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
       let rows = scan_table_block_with_context_and_ledger(
-        tbl_xml, rel_ctx, asset_by_target, None,
+        tbl_xml,
+        rel_ctx,
+        asset_by_target,
+        None,
       )
       if rows.length() > 0 {
         @cor.push(
@@ -1389,8 +1410,7 @@ fn scan_docx_inline_text(
         let cleaned = @cor.normalize_document_text_cleanup(text)
         if cleaned != "" {
           let needs_comment_spacing = should_insert_space_after_comment_marker(
-            out,
-            cleaned,
+            out, cleaned,
           )
           if needs_comment_spacing {
             text_out.write_string(" ")
@@ -1400,6 +1420,9 @@ fn scan_docx_inline_text(
           out.push(@cor.Inline::Text(cleaned))
         } else {
           text_out.write_string(text)
+          if is_whitespace_only_docx_text(text) {
+            out.push(@cor.Inline::Text(text))
+          }
         }
       }
 
@@ -1426,7 +1449,217 @@ fn scan_docx_inline_text(
     i = gt + 1
   }
 
-  { inlines: out, text: @cor.trim_string(text_out.to_string()) }
+  let normalized_inlines = normalize_docx_note_marker_spacing_inlines(out)
+  let normalized_text = normalize_docx_note_marker_spacing_text(
+    text_out.to_string(),
+  )
+  { inlines: normalized_inlines, text: @cor.trim_string(normalized_text) }
+}
+
+///|
+fn normalize_docx_note_marker_spacing_text(text : String) -> String {
+  let chars = text.to_array()
+  let out : Array[Char] = []
+  let mut i = 0
+
+  while i < chars.length() {
+    let marker_end = docx_note_marker_end(chars, i)
+    if marker_end > i {
+      trim_trailing_ascii_whitespace_before_note_marker(out)
+      for j in i..<marker_end {
+        out.push(chars[j])
+      }
+      if marker_end < chars.length() &&
+        should_insert_space_after_docx_note_marker_char(chars[marker_end]) {
+        out.push(' ')
+      }
+      i = marker_end
+      continue
+    }
+
+    out.push(chars[i])
+    i = i + 1
+  }
+
+  String::from_array(out)
+}
+
+///|
+fn docx_note_marker_end(chars : Array[Char], start : Int) -> Int {
+  if start + 3 >= chars.length() ||
+    chars[start] != '[' ||
+    chars[start + 1] != '^' {
+    return -1
+  }
+
+  let mut i = start + 2
+  if chars[i] == 'e' {
+    i = i + 1
+    if i >= chars.length() {
+      return -1
+    }
+  }
+
+  let digits_start = i
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch < '0' || ch > '9' {
+      break
+    }
+    i = i + 1
+  }
+  if i == digits_start || i >= chars.length() || chars[i] != ']' {
+    return -1
+  }
+
+  i + 1
+}
+
+///|
+fn trim_trailing_ascii_whitespace_before_note_marker(out : Array[Char]) -> Unit {
+  if out.length() == 0 {
+    return
+  }
+
+  let mut trim_idx = out.length()
+  while trim_idx > 0 {
+    let ch = out[trim_idx - 1]
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      trim_idx = trim_idx - 1
+    } else {
+      break
+    }
+  }
+
+  if trim_idx == out.length() || trim_idx == 0 {
+    return
+  }
+
+  let prev = out[trim_idx - 1]
+  if prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r' {
+    return
+  }
+
+  out.truncate(trim_idx)
+}
+
+///|
+fn should_insert_space_after_docx_note_marker_char(ch : Char) -> Bool {
+  !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '[') &&
+  !is_docx_inline_follow_punctuation(ch)
+}
+
+///|
+fn normalize_docx_note_marker_spacing_inlines(
+  inlines : Array[@cor.Inline],
+) -> Array[@cor.Inline] {
+  let out : Array[@cor.Inline] = []
+  let mut pending_space_after_note = false
+
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Text(text) if is_docx_note_marker_text(text) => {
+        let moved_space = trim_trailing_docx_whitespace_from_last_text_inline(
+          out,
+        )
+        out.push(inline)
+        pending_space_after_note = moved_space
+      }
+      @cor.Inline::Text(text) => {
+        let mut emitted = text
+        if pending_space_after_note {
+          if is_whitespace_only_docx_text(text) {
+            pending_space_after_note = false
+          } else if should_insert_space_after_docx_note_marker(text) {
+            emitted = " " + text
+            pending_space_after_note = false
+          } else {
+            pending_space_after_note = false
+          }
+        }
+        out.push(@cor.Inline::Text(emitted))
+      }
+      @cor.Inline::Link(text, href) => {
+        if pending_space_after_note &&
+          should_insert_space_after_docx_note_marker(text) {
+          out.push(@cor.Inline::Text(" "))
+        }
+        pending_space_after_note = false
+        out.push(@cor.Inline::Link(text, href))
+      }
+      _ => {
+        pending_space_after_note = false
+        out.push(inline)
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn trim_trailing_docx_whitespace_from_last_text_inline(
+  out : Array[@cor.Inline],
+) -> Bool {
+  if out.length() == 0 {
+    return false
+  }
+
+  let last = out.length() - 1
+  match out[last] {
+    @cor.Inline::Text(text) => {
+      let trimmed = trim_trailing_docx_inline_whitespace(text)
+      if trimmed == text {
+        false
+      } else {
+        out[last] = @cor.Inline::Text(trimmed)
+        true
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn trim_trailing_docx_inline_whitespace(text : String) -> String {
+  let chars = text.to_array()
+  let mut end = chars.length()
+  while end > 0 {
+    let ch = chars[end - 1]
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+  if end == chars.length() {
+    text
+  } else {
+    String::from_array(chars[:end])
+  }
+}
+
+///|
+fn should_insert_space_after_docx_note_marker(next_text : String) -> Bool {
+  if next_text == "" {
+    return false
+  }
+
+  let chars = next_text.to_array()
+  if chars.length() == 0 {
+    return false
+  }
+
+  let first = chars[0]
+  if first == ' ' ||
+    first == '\t' ||
+    first == '\n' ||
+    first == '\r' ||
+    first == '[' {
+    return false
+  }
+
+  !is_docx_inline_follow_punctuation(first)
 }
 
 ///|
@@ -1473,8 +1706,7 @@ fn docx_inline_needs_space_before_comment_marker(prev_text : String?) -> Bool {
   match prev_text {
     Some(text) =>
       match last_non_empty_char(text) {
-        Some(ch) =>
-          !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
+        Some(ch) => !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
         None => false
       }
     None => false
@@ -1486,10 +1718,22 @@ fn last_inline_text_for_spacing(out : Array[@cor.Inline]) -> String? {
   if out.length() == 0 {
     return None
   }
-  match out[out.length() - 1] {
-    @cor.Inline::Text(text) => Some(text)
-    _ => None
+
+  let mut i = out.length()
+  while i > 0 {
+    i = i - 1
+    match out[i] {
+      @cor.Inline::Text(text) =>
+        if is_whitespace_only_docx_text(text) {
+          continue
+        } else {
+          return Some(text)
+        }
+      _ => return None
+    }
   }
+
+  None
 }
 
 ///|
@@ -1502,8 +1746,52 @@ fn last_non_empty_char(text : String) -> Char? {
 }
 
 ///|
+fn is_whitespace_only_docx_text(text : String) -> Bool {
+  if text == "" {
+    return false
+  }
+
+  for ch in text {
+    if !(ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      return false
+    }
+  }
+
+  true
+}
+
+///|
 fn is_docx_comment_marker_text(text : String) -> Bool {
   text.contains("[comment ") && text.has_suffix("]")
+}
+
+///|
+fn is_docx_note_marker_text(text : String) -> Bool {
+  if !text.has_prefix("[^") || !text.has_suffix("]") {
+    return false
+  }
+
+  let inner = text[2:text.length() - 1]
+  if inner == "" {
+    return false
+  }
+
+  let chars = inner.to_array()
+  let mut i = 0
+  if chars[0] == 'e' {
+    if chars.length() == 1 {
+      return false
+    }
+    i = 1
+  }
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch < '0' || ch > '9' {
+      return false
+    }
+    i = i + 1
+  }
+  true
 }
 
 ///|

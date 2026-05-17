@@ -47,7 +47,10 @@ fn scan_document(
       let tbl_xml = profiled_slice_to_string(chars, t2 + 1, t3)
       let table_started = @env.now()
       let rows = scan_table_block_with_context_and_ledger(
-        tbl_xml, rel_ctx, asset_by_target, Some(ledger),
+        tbl_xml,
+        rel_ctx,
+        asset_by_target,
+        Some(ledger),
       )
       table_scan_elapsed_ms = table_scan_elapsed_ms +
         (@env.now() - table_started)
