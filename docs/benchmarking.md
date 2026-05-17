@@ -69,6 +69,17 @@ Optional overlap comparison:
 ./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
+Before reporting any percentage or speed multiple against a mainstream tool,
+record all of the following:
+
+* competitor tool name and version
+* machine and OS
+* date
+* corpus path and row count
+* benchmark suite name
+* metric definition
+* whether OCR, scanned-PDF, metadata, and assets semantics are excluded
+
 Optional PDF layout classifier spike evaluation:
 
 ```bash
@@ -102,12 +113,21 @@ Internal implementation note:
 
 ## Build Guardrail Snapshot
 
-Recent Ubuntu native measurements for the current product/component split:
+Current checked local clean-build snapshot:
 
-* `cli`: about `16s`, `18M / 382k` generated-C lines
-* `pdf`: about `16s`, `18M / 381k`
-* `zip`: about `15s`, `17M / 359k`
-* `ocr`: about `9-10s`, `7.6M / 154k`
+* `cli build`: `62.73s`
+* `pdf build`: `67.42s`
+* `zip build`: `61.88s`
+* `ocr build`: `53.14s`
+* `cli.exe`: `3649640` bytes
+* `pdf.exe`: `4278680` bytes
+* `zip.exe`: `3442056` bytes
+* `ocr.exe`: `1644328` bytes
+* `cli.c`: `394425` lines
+* `pdf.c`: `442901` lines
+* `zip.c`: `370607` lines
+* `ocr.c`: `154425` lines
+* `cli mbtpdf count`: `0`
 
 Current guardrail notes:
 
@@ -200,3 +220,7 @@ Interpret benchmark output conservatively:
   timings into default non-OCR product-path claims
 * `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
   not part of the default benchmark evidence story
+* do not turn the smoke suite into a “faster than mainstream” claim by itself
+* do not turn clean build time into a runtime speed claim
+* do not turn the overlap-only compare suite into a blanket Markdown-quality
+  percentage

@@ -80,6 +80,9 @@ Current product contract:
   directories
 * `.pdf` and `.zip` stay on the normal product surface even though execution
   is routed through bundled `pdf` / `zip`
+* the current PDF normal path now also includes a tiny pure-MoonBit
+  gated-normal layout arbiter for weak heading demotion and false-bullet
+  suppression only
 * users should not need to know or invoke `pdf` / `zip` directly for normal
   conversion
 * `ocr ...` remains an explicit user-visible product subcommand on `cli`, but
@@ -120,6 +123,8 @@ Current guardrail intent:
   `pdf` rather than pulling `convert/pdf` directly into `zip`
 * `debug` and `bench` must not be reintroduced into the normal product
   closure
+* the narrow PDF layout gate must not grow into a runtime Python/model loader
+  or reintroduce heavy OCR/layout dependencies into `cli`
 
 ### Dispatcher
 

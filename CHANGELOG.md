@@ -227,6 +227,12 @@
   `MARKITDOWN_PDF_LAYOUT_GATE=0`, and passes the full validation/build gate
   without turning the broader provider/report-only pipeline into a general
   normal-path model rollout.
+* Refresh the public docs/README quality and performance story around measured
+  facts only: the local external corpus currently passes at `142` rows with
+  `1` skipped row and `5` unexpected passes, clean native build guardrails
+  are documented with the current local binary/line-count snapshot, and
+  mainstream quality percentages or speed multiples are now only claimed when
+  a pinned compare suite and metric definition are available.
 * Document the current external-corpus hardening state across README/support/
   roadmap/quality-corpus docs: local signal-level intake is now operational,
   real external rows have already driven fixes for PDF word-boundary repair,

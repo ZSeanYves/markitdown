@@ -595,6 +595,10 @@ Known limits:
 * the current normal-path layout gate is intentionally much narrower than the
   report-only provider/model pipeline and does not imply broad model-backed PDF
   control
+* the local external quality corpus currently passes at `142` rows with
+  `1` skipped row, `0` expected failures, and `5` unexpected passes; those
+  unexpected passes reflect older local manifest boundaries that the current
+  implementation already exceeds, not a failing validation state
 * the explicit `tesseract-cli` provider is optional and external: it can probe
   availability and OCR page images when users explicitly choose it, but it is
   not bundled and is not part of the default `normal` path

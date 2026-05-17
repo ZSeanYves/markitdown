@@ -11,6 +11,10 @@
 `markitdown-mb` is a MoonBit-native multi-format document-to-Markdown CLI for
 local structure extraction, RAG ingestion, and knowledge-base import.
 
+It is inspired by Microsoft MarkItDown, but optimized for lightweight native
+execution, explicit component boundaries, and conservative normal-path
+contracts.
+
 Current pipeline:
 
 **multi-format input -> unified IR -> Markdown / assets / metadata sidecar**
@@ -28,6 +32,52 @@ PDF and ZIP are integrated into the user experience without pulling the heavy
 native PDF closure back into the lightweight main binary. The current launcher
 keeps `cli` as the unified product surface and routes PDF/ZIP through bundled
 `pdf` / `zip` components so the main build stays small and predictable.
+
+OCR remains explicit-only.
+
+## Current Quality Snapshot
+
+Current local external corpus status:
+
+* rows: `142`
+* result: pass
+* skipped: `1`
+* expected_fail: `0`
+* unexpected_pass: `5`
+
+Interpretation:
+
+* the current quality gate is green
+* the `unexpected_pass` rows are older local manifest boundaries that the
+  current implementation already exceeds
+* they are not validation failures
+
+Local-only quality assets:
+
+* `.external/quality_corpus`
+* `samples/quality_corpus/external_manifest.local.tsv`
+
+These remain local-only and should not be committed.
+
+## Mainstream Comparison Policy
+
+This README does not claim a blanket “mainstream quality percentage” unless a
+local reproducible compare run defines the tool version, corpus, and metric.
+
+Current measured quality is tracked by the `142`-row local external corpus plus
+the repository validation suites.
+
+If you want a competitor percentage, run a pinned compare workflow first and
+record:
+
+* competitor tool name and version
+* corpus and row count
+* metric definition
+* date and machine
+* whether OCR/scanned/boundary cases are excluded
+
+The repository already provides an overlap-only compare harness for Microsoft
+MarkItDown timing, but it is not a blanket Markdown-quality percentage.
 
 ## Quick Start
 
@@ -122,14 +172,58 @@ Build guardrail:
 * the current bundled-component design keeps the user surface unified while
   bounding build cost
 
-Recent Ubuntu native measurements:
+Current clean native build snapshot on the checked local machine:
 
-* `cli`: about `16s`, `18M / 382k` generated-C lines
-* `pdf`: about `16s`, `18M / 381k`
-* `zip`: about `15s`, `17M / 359k`
-* `ocr`: about `9-10s`, `7.6M / 154k`
+* `cli build`: `62.73s`
+* `pdf build`: `67.42s`
+* `zip build`: `61.88s`
+* `ocr build`: `53.14s`
+* `cli.exe`: `3649640` bytes
+* `pdf.exe`: `4278680` bytes
+* `zip.exe`: `3442056` bytes
+* `ocr.exe`: `1644328` bytes
+* `cli.c`: `394425` lines
+* `pdf.c`: `442901` lines
+* `zip.c`: `370607` lines
+* `ocr.c`: `154425` lines
+* `cli mbtpdf count`: `0`
 
-These are recent local measurements, not cross-machine guarantees.
+These are local clean-build measurements, not cross-machine guarantees.
+
+## PDF Layout Gate
+
+The first gated-normal PDF layout gate is intentionally narrow.
+
+Current normal-path scope:
+
+* weak heading demotion
+* separator / false-bullet suppression
+
+Current normal-path non-goals:
+
+* table promotion/demotion
+* link/caption rewrite
+* annotation/link-target changes
+* text-decoding changes
+* OCR/provider probing
+* external/model runtime loading
+
+Current implementation:
+
+* pure MoonBit compact distilled logic
+* default on
+* disable with `MARKITDOWN_PDF_LAYOUT_GATE=0`
+* no Python runtime
+* no external/model JSON
+* no committed weights
+* no `.external/layout_model` runtime dependency
+
+Hard constraints still outrank the gate, including:
+
+* text decoding correctness
+* explicit annotation/link payload
+* table/caption geometry
+* OCR / scan-only boundaries
 
 ## Validation
 
@@ -160,6 +254,13 @@ bash samples/helpers/check_ocr_tesseract_smoke_optional.sh
 Run Moon commands serially. Avoid parallel `moon` processes and avoid habitual
 `moon clean` during normal iteration.
 
+Quality corpus refresh and validation:
+
+```bash
+bash samples/quality_corpus/tools/fetch_external_samples.sh --prepare-cache
+bash samples/quality_corpus/check.sh
+```
+
 ## Benchmarks
 
 Public benchmark entrypoint:
@@ -175,11 +276,34 @@ Useful suites:
 ./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ./samples/bench.sh --suite cold-start --kind cli --iterations 50 --warmup 5
+./samples/bench.sh --suite product-path --smoke
+./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
 Use [docs/benchmarking.md](./docs/benchmarking.md) for commands and artifact
 layout, and [docs/performance.md](./docs/performance.md) for measured baselines
 and caveats.
+
+Measured speed claims are generated from `samples/bench.sh`.
+Do not mix clean build time, cold-start CLI time, same-process product-path
+time, and competitor overlap timing into one headline number.
+
+Current measured overlap-only compare timing:
+
+* date: `2026-05-17`
+* machine: `macOS 15.3`, `arm64`
+* competitor: `Microsoft MarkItDown 0.1.5`
+* corpus: `samples/benchmark/compare_corpus.tsv`
+* rows: `47` overlap samples per runner
+* average sample time:
+  * `markitdown-mb`: `11.064 ms`
+  * `markitdown-python`: `435.660 ms`
+* observed ratio on this checked overlap corpus:
+  * Python runner about `39.4x` slower than the native runner
+
+This is an overlap-only local timing result, not a universal speed guarantee.
+It does not measure OCR, scanned-PDF paths, metadata semantics, assets
+semantics, or full Markdown-quality equivalence.
 
 ## External Quality Corpus
 

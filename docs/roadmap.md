@@ -184,6 +184,11 @@ This page is the current roadmap source of truth for the repository.
 * keep the first checked gated-normal v1 frozen at weak heading demotion plus
   separator/list suppression only until those remaining residuals and wider
   benchmark/build questions are re-audited
+* if the local quality manifest keeps reporting `unexpected_pass` rows, prefer
+  curating the manifest semantics explicitly rather than collapsing that state
+  into a vague product-quality percentage claim
+* add more pinned mainstream compare runs before making any broader README
+  quality-percentage or speed-multiple claims
 
 ## Later Work
 

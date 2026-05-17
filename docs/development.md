@@ -94,6 +94,9 @@ Unified debug inspect notes:
 * lightweight `cli` owns the user-visible PDF/ZIP product surface, but routes
   those inputs through bundled `pdf` / `zip` components so the main
   binary stays under build-size guardrails
+* the first gated-normal PDF layout gate is enabled by default in the normal
+  PDF path, but it is intentionally narrow and can be disabled with
+  `MARKITDOWN_PDF_LAYOUT_GATE=0`
 
 ## Convert package API hygiene
 
@@ -255,6 +258,8 @@ Validation runner policy:
   PDF/ZIP component binaries
 * set `MARKITDOWN_DEBUG_CLI`, `MARKITDOWN_OCR_CLI`, or `MARKITDOWN_BENCH_CLI`
   to force dedicated debug/OCR/bench binaries
+* set `MARKITDOWN_PDF_LAYOUT_GATE=0` to disable the narrow normal-path PDF
+  layout gate during regression triage
 * explicit native override is useful for speed, but only when the caller knows
   the binary matches the current source state
 * `moon run` is slower because it includes MoonBit wrapper overhead and should

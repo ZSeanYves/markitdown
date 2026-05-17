@@ -14,6 +14,18 @@ Purpose:
 * validate MoonBit JSON loading and deterministic inference
 * compare train and held-out results without changing default PDF output
 
+Current relationship to the normal product path:
+
+* the broader offline model/training/eval loop in this directory remains
+  local-only and report-only
+* the checked product path does not load these Python tools, local manifests,
+  `.external/layout_model`, or trained weights at runtime
+* a separate tiny pure-MoonBit gated-normal PDF layout gate now exists in the
+  normal path, but it only covers weak heading demotion and separator /
+  false-bullet suppression
+* do not treat that narrow in-tree gate as proof that the broader local model
+  pipeline is production-ready or generally activated in normal mode
+
 Current scope:
 
 * text-layer features only
