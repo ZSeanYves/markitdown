@@ -833,3 +833,77 @@ async test "convert/pdf appends real pdfjs text widget forms with normalized mul
     fail("expected multiline text widget markdown to strip raw HTML/CR breaks")
   }
 }
+
+///|
+async test "convert/pdf keeps printable hidden annotations but suppresses hidden no-view widgets" {
+  let hidden_print_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_print.pdf",
+  )
+  let hidden_print_doc = @pdf.parse_pdf(
+    hidden_print_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let hidden_print_markdown = @cor.emit_markdown(hidden_print_doc)
+
+  if !hidden_print_markdown.contains("## Annotations") ||
+    !hidden_print_markdown.contains("Ink (page 1): Pencil") {
+    fail(
+      "expected hidden-print sample to keep printable annotation appendix, got: " +
+      hidden_print_markdown,
+    )
+  }
+  if hidden_print_markdown.contains("## Forms") {
+    fail(
+      "expected hidden-print sample to avoid forms appendix leakage, got: " +
+      hidden_print_markdown,
+    )
+  }
+
+  let hidden_noview_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_noview.pdf",
+  )
+  let hidden_noview_doc = @pdf.parse_pdf(
+    hidden_noview_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let hidden_noview_markdown = @cor.emit_markdown(hidden_noview_doc)
+
+  if hidden_noview_markdown.contains("## Forms") ||
+    hidden_noview_markdown.contains("## Annotations") ||
+    hidden_noview_markdown.contains("World") ||
+    hidden_noview_markdown.contains("Text1") ||
+    hidden_noview_markdown.contains("Text2") {
+    fail(
+      "expected hidden-no-view sample to suppress widget/annotation visibility output, got: " +
+      hidden_noview_markdown,
+    )
+  }
+}
+
+///|
+async test "convert/pdf keeps pdfjs non-widget annotations without appearance streams" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-squiggly-without-appearance.pdf",
+  )
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+  let markdown = @cor.emit_markdown(doc)
+
+  if !markdown.contains("# Squiggly (without appearance stream)") ||
+    !markdown.contains("## Annotations") ||
+    !markdown.contains("Squiggly (page 1): Squiggly content") {
+    fail(
+      "expected without-appearance squiggly sample to keep readable annotation output, got: " +
+      markdown,
+    )
+  }
+}

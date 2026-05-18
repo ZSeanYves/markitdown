@@ -286,3 +286,61 @@ async test "pdf lower-layer preserves pdfjs widget visibility flags for hidden n
 }
 
 ///|
+async test "pdf lower-layer preserves printable hidden annotation flags for pdfjs sample" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_print.pdf",
+  )
+  let doc = match
+    @api.extract_document_model(input, @api.default_pdf_config()) {
+    Ok(v) => v
+    Err(e) => fail("extract_document_model failed: " + e.to_string())
+  }
+
+  if doc.pages.length() != 1 {
+    fail("expected one page in annotation_hidden_print.pdf")
+  }
+
+  let page = doc.pages[0]
+  if page.forms.length() != 0 {
+    fail(
+      "expected hidden print sample to expose no widget forms, got " +
+      page.forms.length().to_string(),
+    )
+  }
+  if page.annotations.length() != 2 {
+    fail(
+      "expected 2 annotations in annotation_hidden_print.pdf, got " +
+      page.annotations.length().to_string(),
+    )
+  }
+
+  let dump = page.annotations
+    .map(fn(annotation) {
+      let contents = match annotation.contents {
+        Some(v) => v
+        None => "None"
+      }
+      annotation.subtype +
+      "|contents=" +
+      contents +
+      "|flags=" +
+      annotation.flags.to_string() +
+      "|view_visible=" +
+      @model.pdf_annotation_is_view_visible(annotation.flags).to_string() +
+      "|printable=" +
+      @model.pdf_annotation_is_printable(annotation.flags).to_string()
+    })
+    .join(" || ")
+
+  if page.annotations[0].subtype != "/Ink" || page.annotations[0].flags != 6 {
+    fail("expected first hidden-print annotation to be /Ink with flags=6; annots=" + dump)
+  }
+  if @model.pdf_annotation_is_view_visible(page.annotations[0].flags) {
+    fail("expected hidden-print /Ink annotation to be non-view-visible; annots=" + dump)
+  }
+  if !@model.pdf_annotation_is_printable(page.annotations[0].flags) {
+    fail("expected hidden-print /Ink annotation to remain printable; annots=" + dump)
+  }
+}
+
+///|

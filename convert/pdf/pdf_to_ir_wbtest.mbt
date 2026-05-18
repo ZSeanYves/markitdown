@@ -694,6 +694,96 @@ test "pdf to ir filters hidden and no-view widget forms but keeps printable anno
 }
 
 ///|
+test "pdf to ir treats no-view and invisible printable annotations as hidden from normal output" {
+  let block = {
+    ..make_ir_block(0, PdfConvertBlockKind::Paragraph, "Document body", None),
+    is_heading_candidate: false,
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [
+            {
+              ..make_ir_annotation(0, "/Text", Some("Print-only note"), Some("keep me")),
+              flags: @model.pdf_annotation_flag_print,
+            },
+            {
+              ..make_ir_annotation(1, "/Text", Some("NoView print note"), Some("skip me")),
+              flags: @model.pdf_annotation_flag_no_view +
+              @model.pdf_annotation_flag_print,
+            },
+            {
+              ..make_ir_annotation(2, "/Text", Some("Invisible print note"), Some("skip me too")),
+              flags: @model.pdf_annotation_flag_invisible +
+              @model.pdf_annotation_flag_print,
+            },
+          ],
+          forms: [
+            {
+              ..make_ir_form(
+                0,
+                "/Tx",
+                Some("NoView print field"),
+                Some("Ghost"),
+                [],
+                None,
+              ),
+              flags: @model.pdf_annotation_flag_no_view +
+              @model.pdf_annotation_flag_print,
+            },
+            {
+              ..make_ir_form(
+                1,
+                "/Tx",
+                Some("Invisible print field"),
+                Some("Phantom"),
+                [],
+                None,
+              ),
+              flags: @model.pdf_annotation_flag_invisible +
+              @model.pdf_annotation_flag_print,
+            },
+          ],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  let actual = @cor.emit_markdown(doc)
+  if !actual.contains("Text (page 1): Print-only note — keep me") {
+    fail("expected printable visible annotation note to remain, got: " + actual)
+  }
+  if actual.contains("NoView print note") ||
+    actual.contains("skip me") ||
+    actual.contains("Invisible print note") ||
+    actual.contains("skip me too") {
+    fail(
+      "expected no-view/invisible printable annotations to stay hidden from normal markdown, got: " +
+      actual,
+    )
+  }
+  if actual.contains("NoView print field") ||
+    actual.contains("Ghost") ||
+    actual.contains("Invisible print field") ||
+    actual.contains("Phantom") {
+    fail(
+      "expected no-view/invisible printable widget forms to be suppressed, got: " +
+      actual,
+    )
+  }
+}
+
+///|
 test "pdf to ir skips redundant bookmark appendix when headings already surface the same titles" {
   let out = @cor.new_document()
   @cor.push(out, @cor.Block::Heading(2, "Summary"))
