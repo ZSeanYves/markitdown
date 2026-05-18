@@ -800,3 +800,36 @@ async test "convert/pdf supports headerless numeric table with header_rows=0" {
     fail("expected headerless numeric table to emit RichTable")
   }
 }
+
+///|
+async test "convert/pdf appends real pdfjs text widget forms with normalized multiline values" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+  )
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+  let markdown = @cor.emit_markdown(doc)
+
+  if !markdown.contains("## Forms") {
+    fail("expected text widget sample to append a Forms section")
+  }
+  if !markdown.contains(
+      "Text (page 1): Single line, unlimited length — Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    ) {
+    fail("expected first text widget value to be preserved in markdown")
+  }
+  if !markdown.contains(
+      "Text (page 1): Single line, combs — abcdefghijklmnopqrstuvwxyz",
+    ) {
+    fail("expected comb text widget value to be preserved in markdown")
+  }
+  if !markdown.contains(
+      "Text (page 1): Multiline — Lorem ipsum dolor sit amet, consectetur adipiscing elit. / Aliquam vitae felis ac lectus bibendum ultricies quis non diam. / Morbi id porttitor quam, a iaculis dui. / Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. / Nulla consectetur, ligula in tincidunt placerat, velit augue consectetur orci, / sed mattis libero nunc ut massa. / Etiam facilisis tempus interdum.",
+    ) {
+    fail(
+      "expected multiline text widget value to normalize HTML/CR line breaks",
+    )
+  }
+  if markdown.contains("<br>") || markdown.contains("\r") {
+    fail("expected multiline text widget markdown to strip raw HTML/CR breaks")
+  }
+}
