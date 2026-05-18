@@ -1,4 +1,15 @@
 ///|
+fn zip_profile_enabled() -> Bool {
+  match @sys.get_env_var("MARKITDOWN_PROFILE_ZIP") {
+    Some(raw) => {
+      let value = raw.trim().to_lower()
+      value == "1" || value == "true" || value == "yes" || value == "on"
+    }
+    None => false
+  }
+}
+
+///|
 pub struct ZipProfileStage {
   name : String
   elapsed_ms : UInt64
@@ -10,6 +21,25 @@ pub struct ZipProfileReport {
   input_path : String
   summary_lines : Array[String]
   stages : Array[ZipProfileStage]
+}
+
+///|
+fn new_zip_profile_report(input_path : String) -> ZipProfileReport {
+  { input_path, summary_lines: [], stages: [] }
+}
+
+///|
+fn zip_profile_add_summary(
+  report : ZipProfileReport?,
+  summary : String,
+) -> Unit {
+  match report {
+    Some(rep) =>
+      if summary.trim() != "" {
+        rep.summary_lines.push(summary.trim().to_owned())
+      }
+    None => ()
+  }
 }
 
 ///|
