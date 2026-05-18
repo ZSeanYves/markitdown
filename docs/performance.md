@@ -86,19 +86,20 @@ Cold CLI startup is tracked separately.
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `62.73s`
-* `pdf build`: `67.42s`
-* `zip build`: `61.88s`
-* `ocr build`: `53.14s`
+* `cli build`: `61.08s`
+* `pdf build`: `66.33s`
+* `zip build`: `60.46s`
+* `ocr build`: `51.74s`
 * `cli.exe`: `3649640` bytes
-* `pdf.exe`: `4278680` bytes
-* `zip.exe`: `3442056` bytes
+* `pdf.exe`: `4354040` bytes
+* `zip.exe`: `3444632` bytes
 * `ocr.exe`: `1644328` bytes
 * `cli.c`: `394425` lines
-* `pdf.c`: `442901` lines
-* `zip.c`: `370607` lines
+* `pdf.c`: `450869` lines
+* `zip.c`: `371589` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
+* `zip mbtpdf count`: `0`
 
 These numbers are a local clean native build snapshot, not a cross-machine
 guarantee.
@@ -112,8 +113,14 @@ Current interpretation:
 
 * main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
 * heavy native text-PDF cost stays behind bundled `pdf`
-* `zip` uses `convert/zip_worker` and delegates embedded PDF entries to `pdf`
-  so it does not directly absorb the full PDF closure
+* `convert/pdf` keeps the normal PDF runtime only; layout model / JSON / TSV
+  export / infer tooling lives in `convert/pdf_layout` and is consumed by
+  debug/tooling surfaces instead
+* product `zip` uses `convert/zip_worker` and delegates embedded PDF entries
+  to `pdf`, so it stays `mbtpdf=0`
+* shared ZIP traversal / asset remap / metadata / origin logic now lives in
+  `convert/zip_core` instead of being duplicated between full and delegated
+  ZIP paths
 * a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
   `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
   recent Ubuntu audit runner, so the repository keeps the bundled-component

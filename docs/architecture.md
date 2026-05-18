@@ -21,8 +21,12 @@ Current architectural rules:
 * `cli_common` is the lightweight CLI/component runtime layer
 * `cli_support` is the unified product-CLI support layer
 * `cli` is the only user-facing product entrypoint
+* main `cli` should stay lightweight, keep `mbtpdf=0`, and avoid depending on
+  the full `convert/convert` aggregator
 * `pdf`, `zip`, and `ocr` are bundled product components, not the primary user
   commands
+* `convert/pdf_layout` and `convert/pdf_debug` are debug/offline surfaces, not
+  normal runtime
 * `debug` and `bench` are developer tools and must stay out of the normal
   product closure
 * `convert/*` owns format-to-IR conversion policy
@@ -36,11 +40,16 @@ Current architectural rules:
 | `cli_common` | runtime/path/env/process/delegation helpers | internal | no | yes |
 | `cli_support` | parser/help/version glue and product routing | internal | no | yes |
 | `cli` | unified product entrypoint | yes | guarded light closure | n/a |
-| `pdf` | bundled PDF product component | implementation detail | yes | no |
-| `zip` | bundled ZIP product component | implementation detail | medium | no |
+| `pdf` | normal PDF runtime with narrow gated-normal layout gate | implementation detail | yes | no |
+| `pdf_layout` | layout model / infer / TSV export / offline tooling | developer/internal | medium | no |
+| `pdf_debug` | inspect / layout assist / explainability surface | developer only | medium | no |
+| `zip` | full ZIP library path and bundled ZIP product component | implementation detail | medium | no |
+| `zip_core` | shared ZIP traversal / asset remap / metadata / origin core | internal | no | no |
+| `zip_worker` | lightweight delegated ZIP product path | internal | no | no |
 | `ocr` | explicit OCR component surfaced by `cli ocr` | implementation detail | medium | no |
 | `debug` | developer inspect/report tool | developer only | yes | no |
 | `bench` | developer benchmark tool | developer only | yes | no |
+| `convert/convert` | full cross-format aggregator for debug / bench / library use | internal/importable | yes | no |
 | `convert/*` | format conversion layer | internal/importable | varies | selected light paths only |
 | `doc_parse/*` | lower-layer parser/model/inspect packages | internal/importable | varies | never directly from `cli` for PDF heavy path |
 
@@ -52,7 +61,13 @@ The CLI surface is intentionally layered:
 * `cli_common/`: shared runtime/path/output/delegation helpers
 * `cli_support/`: normal/batch parser and product-routing support
 * `pdf/`: bundled PDF component used transparently for `.pdf` inputs
+* `convert/pdf/`: normal PDF runtime logic only
+* `convert/pdf_layout/`: layout model / infer / export / offline tooling
+* `convert/pdf_debug/`: debug/developer PDF assist and explainability
 * `zip/`: bundled ZIP component used transparently for `.zip` inputs
+* `convert/zip/`: full ZIP library path with direct embedded PDF parsing
+* `convert/zip_core/`: shared ZIP traversal / remap / metadata / origin core
+* `convert/zip_worker/`: lightweight delegated ZIP product path
 * `ocr/`: explicit OCR component surfaced as `cli ocr ...`
 * `debug/`: developer inspect / provider / layout-assist surface
 * `bench/`: benchmark/dev surface
@@ -83,6 +98,8 @@ Current product contract:
 * the current PDF normal path now also includes a tiny pure-MoonBit
   gated-normal layout arbiter for weak heading demotion and false-bullet
   suppression only
+* `cli` does not depend on the full `convert/convert` aggregator to preserve a
+  bounded product closure
 * users should not need to know or invoke `pdf` / `zip` directly for normal
   conversion
 * `ocr ...` remains an explicit user-visible product subcommand on `cli`, but
@@ -119,8 +136,17 @@ Current guardrail intent:
 * main `cli` should remain outside the vendored PDF closure and should stay
   `mbtpdf=0`
 * heavy PDF native-text build cost belongs to `pdf`
-* ZIP should reuse `convert/zip_worker` and delegate embedded PDF entries to
-  `pdf` rather than pulling `convert/pdf` directly into `zip`
+* `convert/pdf` should keep only the normal PDF runtime, while layout model /
+  JSON / TSV export / infer tooling stays in `convert/pdf_layout`
+* `pdf_debug` and `tools/pdf_layout_classifier` should consume
+  `convert/pdf_layout` rather than reintroducing tooling into the normal PDF
+  runtime
+* ZIP product builds should reuse `convert/zip_worker` and delegate embedded
+  PDF entries to `pdf` rather than pulling `convert/pdf` directly into
+  product `zip`
+* shared ZIP traversal / asset remap / metadata / origin logic should stay in
+  `convert/zip_core`, not duplicated between `convert/zip` and
+  `convert/zip_worker`
 * `debug` and `bench` must not be reintroduced into the normal product
   closure
 * the narrow PDF layout gate must not grow into a runtime Python/model loader
@@ -129,6 +155,10 @@ Current guardrail intent:
 ### Dispatcher
 
 `convert/convert/dispatcher.mbt` is responsible for extension-based routing.
+
+`convert/convert` itself is the full cross-format aggregator used by debug,
+bench, and full-library flows; it is intentionally not the lightweight product
+CLI path.
 
 It currently routes:
 
@@ -339,7 +369,12 @@ Converter responsibility is intentionally separated:
   rather than the broader write/render-oriented facade
 * the recommended package-facing candidate facade is `doc_parse/pdf/api`
 * `convert/pdf` consumes those lower-layer signals for conservative heading,
-  noise, merge, table, caption, and link decisions
+  noise, merge, table, caption, link, and narrow gated-normal layout decisions
+* `convert/pdf` no longer owns layout model / JSON / TSV export / infer
+  tooling
+* `convert/pdf_layout` owns layout model / infer / TSV export / offline
+  tooling and is consumed by `convert/pdf_debug` plus
+  `tools/pdf_layout_classifier`
 * `core/text_normalization.mbt` provides the shared text-normalization facade
   and rule pipeline used by the PDF path for deterministic pure-string cleanup
   before higher-level heuristics run
@@ -490,3 +525,9 @@ The repository includes explicit non-production support layers:
 
 These are part of the architecture in practice because they enforce contract
 stability and provide explainability beyond “the converter happened to run”.
+
+The quality corpus runner under `samples/quality_corpus/check.sh` is part of
+that contract surface as well. It now supports `exact_count`, `min_count`, and
+`max_count` assertions so duplicate appendix blocks, repeated headings,
+duplicate table rows, repeated metadata blocks, and similar over-emission
+regressions can be expressed without committing full-output oracles.

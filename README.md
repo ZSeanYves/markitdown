@@ -39,18 +39,18 @@ OCR remains explicit-only.
 
 Current local external corpus status:
 
-* rows: `142`
+* rows: `145`
 * result: pass
 * skipped: `1`
 * expected_fail: `0`
-* unexpected_pass: `5`
 
 Interpretation:
 
 * the current quality gate is green
-* the `unexpected_pass` rows are older local manifest boundaries that the
-  current implementation already exceeds
-* they are not validation failures
+* this snapshot is a local checked validation state, not a repository-wide
+  quality percentage
+* private/local rows remain intentionally separate from checked-in exact
+  regression samples
 
 Local-only quality assets:
 
@@ -59,12 +59,22 @@ Local-only quality assets:
 
 These remain local-only and should not be committed.
 
+The quality corpus runner now also supports:
+
+* `exact_count:text=n`
+* `min_count:text=n`
+* `max_count:text=n`
+
+These assertions are useful for duplicate appendix / heading / row and
+over-emission checks without turning the quality corpus into a full-output
+oracle.
+
 ## Mainstream Comparison Policy
 
 This README does not claim a blanket “mainstream quality percentage” unless a
 local reproducible compare run defines the tool version, corpus, and metric.
 
-Current measured quality is tracked by the `142`-row local external corpus plus
+Current measured quality is tracked by the `145`-row local external corpus plus
 the repository validation suites.
 
 If you want a competitor percentage, run a pinned compare workflow first and
@@ -151,14 +161,28 @@ For detailed format behavior and limits, use
 
 Current package responsibilities:
 
-* `cli`: unified user-facing product entrypoint
+* `cli`: lightweight user-facing product entrypoint; keeps the normal product
+  surface unified while remaining `mbtpdf=0` and not depending on the full
+  `convert/convert` aggregator
 * `cli_common`: lightweight CLI/component runtime and component discovery
 * `cli_support`: parser/help/version glue plus product-path dispatch/routing
-* `pdf`: bundled PDF product component
-* `zip`: bundled ZIP product component
+* `pdf`: normal PDF runtime component with the narrow gated-normal layout gate;
+  it no longer carries layout model / JSON / TSV export / infer tooling
+* `pdf_layout`: layout model / infer / TSV export / offline tooling consumed by
+  `pdf_debug` and `tools/pdf_layout_classifier`; not part of the normal
+  runtime path
+* `pdf_debug`: developer inspect / layout assist / explainability surface
+* `zip`: full ZIP library/product component path; keeps direct embedded PDF
+  parsing for the full library API
+* `zip_core`: shared ZIP traversal / asset remap / metadata / origin /
+  profile-aware main loop, without pulling in PDF
+* `zip_worker`: lightweight delegated ZIP product path; embedded PDF entries
+  are routed to bundled `pdf`, so product `zip` remains `mbtpdf=0`
 * `ocr`: explicit OCR component surfaced by `cli ocr`
 * `debug`: developer inspect tool
 * `bench`: developer benchmark tool
+* `convert/convert`: full aggregator for debug / bench / full-library paths;
+  not used by the lightweight product CLI path
 * `core`: CLI-free document model, metadata model, emitters, and pure helpers
 * `convert/*`: format conversion layer
 * `doc_parse/*`: lower-layer parser/model/inspect foundations
@@ -174,21 +198,23 @@ Build guardrail:
 
 Current clean native build snapshot on the checked local machine:
 
-* `cli build`: `62.73s`
-* `pdf build`: `67.42s`
-* `zip build`: `61.88s`
-* `ocr build`: `53.14s`
+* `cli build`: `61.08s`
+* `pdf build`: `66.33s`
+* `zip build`: `60.46s`
+* `ocr build`: `51.74s`
 * `cli.exe`: `3649640` bytes
-* `pdf.exe`: `4278680` bytes
-* `zip.exe`: `3442056` bytes
+* `pdf.exe`: `4354040` bytes
+* `zip.exe`: `3444632` bytes
 * `ocr.exe`: `1644328` bytes
 * `cli.c`: `394425` lines
-* `pdf.c`: `442901` lines
-* `zip.c`: `370607` lines
+* `pdf.c`: `450869` lines
+* `zip.c`: `371589` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
+* `zip mbtpdf count`: `0`
 
-These are local clean-build measurements, not cross-machine guarantees.
+These are local clean-build measurements on one checked machine, not
+cross-machine guarantees or universal speed claims.
 
 ## PDF Layout Gate
 

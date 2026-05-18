@@ -115,26 +115,28 @@ Internal implementation note:
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `62.73s`
-* `pdf build`: `67.42s`
-* `zip build`: `61.88s`
-* `ocr build`: `53.14s`
+* `cli build`: `61.08s`
+* `pdf build`: `66.33s`
+* `zip build`: `60.46s`
+* `ocr build`: `51.74s`
 * `cli.exe`: `3649640` bytes
-* `pdf.exe`: `4278680` bytes
-* `zip.exe`: `3442056` bytes
+* `pdf.exe`: `4354040` bytes
+* `zip.exe`: `3444632` bytes
 * `ocr.exe`: `1644328` bytes
 * `cli.c`: `394425` lines
-* `pdf.c`: `442901` lines
-* `zip.c`: `370607` lines
+* `pdf.c`: `450869` lines
+* `zip.c`: `371589` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
+* `zip mbtpdf count`: `0`
 
 Current guardrail notes:
 
 * main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
+* product `zip` stays on the delegated `convert/zip_worker` path and should
+  remain `mbtpdf=0`
 * a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
-  `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
-  recent Ubuntu audit runner
+  `30M / 653k` generated-C lines on the recent Ubuntu audit runner
 * the accepted design therefore keeps PDF and ZIP on the user-visible `cli`
   surface while routing execution through bundled `pdf` / `zip`
 
