@@ -40,12 +40,16 @@ fn convert_pdf_blocks_to_ir(
       DEBUG_TO_IR,
     )
     let consumed_table_block_indices = table_consumed_block_indices(page_tables)
+    let table_start_lookup = build_table_start_lookup(page_tables)
+    let (prev_text_blocks, next_text_blocks) = build_page_object_text_neighbors(
+      page.objects,
+    )
     let page_font_median = page_median_font_size(page)
     let mut page_image_idx = 0
     for i = 0; i < page.objects.length(); i = i + 1 {
       match page.objects[i] {
         PdfConvertPageObject::TextBlock(block) => {
-          match find_table_starting_at_block(page_tables, block) {
+          match find_table_starting_at_block(table_start_lookup, block) {
             Some(table) => {
               emit_pdf_table_to_ir(out, source_name, page._page_index, table)
               continue
@@ -59,8 +63,8 @@ fn convert_pdf_blocks_to_ir(
           if consumed_caption_block_indices.contains(block.block_index) {
             continue
           }
-          let prev = find_prev_text_block_in_objects(page.objects, i)
-          let next = find_next_text_block_in_objects(page.objects, i)
+          let prev = prev_text_blocks[i]
+          let next = next_text_blocks[i]
 
           emit_text_block_to_ir(
             out,
@@ -243,16 +247,24 @@ fn table_consumed_block_indices(
 }
 
 ///|
-fn find_table_starting_at_block(
+fn build_table_start_lookup(
   tables : Array[PdfTableCandidate],
-  block : PdfConvertBlock,
-) -> PdfTableCandidate? {
+) -> Map[Int, PdfTableCandidate] {
+  let out : Map[Int, PdfTableCandidate] = Map([], capacity=tables.length())
   for table in tables {
-    if block.line_start == table.line_start {
-      return Some(table)
+    if out.get(table.line_start) is None {
+      out.set(table.line_start, table)
     }
   }
-  None
+  out
+}
+
+///|
+fn find_table_starting_at_block(
+  table_start_lookup : Map[Int, PdfTableCandidate],
+  block : PdfConvertBlock,
+) -> PdfTableCandidate? {
+  table_start_lookup.get(block.line_start)
 }
 
 ///|
@@ -308,41 +320,39 @@ fn max_f64(a : Double, b : Double) -> Double {
 }
 
 ///|
-fn find_prev_text_block_in_objects(
+fn build_page_object_text_neighbors(
   objects : Array[PdfConvertPageObject],
-  index : Int,
-) -> PdfConvertBlock? {
-  let mut i = index - 1
-  while i >= 0 {
+) -> (Array[PdfConvertBlock?], Array[PdfConvertBlock?]) {
+  let prev_text_blocks : Array[PdfConvertBlock?] = Array::makei(
+    objects.length(),
+    _ => None,
+  )
+  let next_text_blocks : Array[PdfConvertBlock?] = Array::makei(
+    objects.length(),
+    _ => None,
+  )
+
+  let mut prev_text : PdfConvertBlock? = None
+  for i = 0; i < objects.length(); i = i + 1 {
+    prev_text_blocks[i] = prev_text
     match objects[i] {
-      PdfConvertPageObject::TextBlock(block) => return Some(block)
+      PdfConvertPageObject::TextBlock(block) => prev_text = Some(block)
       PdfConvertPageObject::Image(_) => ()
     }
+  }
 
-    if i == 0 {
-      break
-    }
+  let mut next_text : PdfConvertBlock? = None
+  let mut i = objects.length()
+  while i > 0 {
     i = i - 1
-  }
-
-  None
-}
-
-///|
-fn find_next_text_block_in_objects(
-  objects : Array[PdfConvertPageObject],
-  index : Int,
-) -> PdfConvertBlock? {
-  let mut i = index + 1
-  while i < objects.length() {
+    next_text_blocks[i] = next_text
     match objects[i] {
-      PdfConvertPageObject::TextBlock(block) => return Some(block)
+      PdfConvertPageObject::TextBlock(block) => next_text = Some(block)
       PdfConvertPageObject::Image(_) => ()
     }
-    i = i + 1
   }
 
-  None
+  (prev_text_blocks, next_text_blocks)
 }
 
 ///|
