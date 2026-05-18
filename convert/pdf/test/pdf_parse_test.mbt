@@ -947,16 +947,22 @@ async test "convert/pdf deduplicates appendix notes for pdfjs square-circle with
   let without_input = resolve_sample_path(
     ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
   )
-  let without_doc = @pdf.parse_pdf(without_input, "", 6, None, false, false, false)
+  let without_doc = @pdf.parse_pdf(
+    without_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
   let without_markdown = @cor.emit_markdown(without_doc)
 
   let without_square_count = count_occurrences(
-    without_markdown,
-    "Square (page 1): Square content",
+    without_markdown, "Square (page 1): Square content",
   )
   let without_circle_count = count_occurrences(
-    without_markdown,
-    "Circle (page 1): Circle content",
+    without_markdown, "Circle (page 1): Circle content",
   )
 
   if without_square_count != 1 || without_circle_count != 1 {
@@ -973,16 +979,22 @@ async test "convert/pdf deduplicates appendix notes for pdfjs square-circle with
   let normal_input = resolve_sample_path(
     ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle.pdf",
   )
-  let normal_doc = @pdf.parse_pdf(normal_input, "", 6, None, false, false, false)
+  let normal_doc = @pdf.parse_pdf(
+    normal_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
   let normal_markdown = @cor.emit_markdown(normal_doc)
 
   let normal_square_count = count_occurrences(
-    normal_markdown,
-    "Square (page 1): Rectangle — Square content",
+    normal_markdown, "Square (page 1): Rectangle — Square content",
   )
   let normal_circle_count = count_occurrences(
-    normal_markdown,
-    "Circle (page 1): Oval — Circle content",
+    normal_markdown, "Circle (page 1): Oval — Circle content",
   )
 
   if normal_square_count != 1 || normal_circle_count != 1 {

@@ -333,13 +333,22 @@ async test "pdf lower-layer preserves printable hidden annotation flags for pdfj
     .join(" || ")
 
   if page.annotations[0].subtype != "/Ink" || page.annotations[0].flags != 6 {
-    fail("expected first hidden-print annotation to be /Ink with flags=6; annots=" + dump)
+    fail(
+      "expected first hidden-print annotation to be /Ink with flags=6; annots=" +
+      dump,
+    )
   }
   if @model.pdf_annotation_is_view_visible(page.annotations[0].flags) {
-    fail("expected hidden-print /Ink annotation to be non-view-visible; annots=" + dump)
+    fail(
+      "expected hidden-print /Ink annotation to be non-view-visible; annots=" +
+      dump,
+    )
   }
   if !@model.pdf_annotation_is_printable(page.annotations[0].flags) {
-    fail("expected hidden-print /Ink annotation to remain printable; annots=" + dump)
+    fail(
+      "expected hidden-print /Ink annotation to remain printable; annots=" +
+      dump,
+    )
   }
 }
 
@@ -392,12 +401,12 @@ async test "pdf lower-layer keeps distinct square and circle annotations from pd
     })
     .join(" || ")
 
-  let square_count = page.annotations.filter(fn(annotation) {
-    annotation.subtype == "/Square"
-  }).length()
-  let circle_count = page.annotations.filter(fn(annotation) {
-    annotation.subtype == "/Circle"
-  }).length()
+  let square_count = page.annotations
+    .filter(fn(annotation) { annotation.subtype == "/Square" })
+    .length()
+  let circle_count = page.annotations
+    .filter(fn(annotation) { annotation.subtype == "/Circle" })
+    .length()
 
   if square_count != 2 || circle_count != 2 {
     fail(

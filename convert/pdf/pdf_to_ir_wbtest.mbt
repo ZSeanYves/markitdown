@@ -711,16 +711,31 @@ test "pdf to ir treats no-view and invisible printable annotations as hidden fro
           images: [],
           annotations: [
             {
-              ..make_ir_annotation(0, "/Text", Some("Print-only note"), Some("keep me")),
+              ..make_ir_annotation(
+                0,
+                "/Text",
+                Some("Print-only note"),
+                Some("keep me"),
+              ),
               flags: @model.pdf_annotation_flag_print,
             },
             {
-              ..make_ir_annotation(1, "/Text", Some("NoView print note"), Some("skip me")),
+              ..make_ir_annotation(
+                1,
+                "/Text",
+                Some("NoView print note"),
+                Some("skip me"),
+              ),
               flags: @model.pdf_annotation_flag_no_view +
               @model.pdf_annotation_flag_print,
             },
             {
-              ..make_ir_annotation(2, "/Text", Some("Invisible print note"), Some("skip me too")),
+              ..make_ir_annotation(
+                2,
+                "/Text",
+                Some("Invisible print note"),
+                Some("skip me too"),
+              ),
               flags: @model.pdf_annotation_flag_invisible +
               @model.pdf_annotation_flag_print,
             },
