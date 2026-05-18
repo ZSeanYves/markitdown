@@ -478,6 +478,22 @@ fn parse_object_stream(
   let mut idx = 0
   let mut current_index = 0
   let mut wanted_pos = 0
+
+  fn object_bytes_for_index(
+    offset : Int,
+    next_offset : Int?,
+  ) -> @pdfio.MutableBytes raise {
+    let start = offset + first
+    let finish = match next_offset {
+      Some(v) => v + first
+      None => raw.length()
+    }
+    if start < 0 || finish < start || finish > raw.length() {
+      raise @pdf.PdfError::Msg(@pdf.input_pdferror(input, "Bad objstm"))
+    }
+    raw[start:finish].to_owned()
+  }
+
   while idx < rawnums.length() {
     if use_indexes && wanted_pos >= sorted_indexes.length() {
       break
@@ -505,10 +521,15 @@ fn parse_object_stream(
       true
     }
     if should_parse {
-      (stm_input.seek_in)(offset + first)
+      let next_offset = match rawnums.get(idx + 3) {
+        Some(value) => Some(value)
+        None => None
+      }
+      let object_bytes = object_bytes_for_index(offset, next_offset)
+      let object_input = @pdfio.Input::of_bytes(object_bytes, source="objstm")
       let lexemes = @pdfsyntax.PdfSyntax::new().lex_object_at(
         true,
-        stm_input,
+        object_input,
         true,
         _ => [],
       )
@@ -599,8 +620,18 @@ fn build_pdf_objects(
   }
   if read_stream_data {
     for stream_id in stream_ids {
+      let indexes = match stream_groups.get(stream_id) {
+        Some(entries) => entries.map(entry => entry.1)
+        None => Array::new()
+      }
       let parsed = parse_object_stream(
-        input, xrefs, stream_id, user_password, owner_password, partial_pdf,
+        input,
+        xrefs,
+        stream_id,
+        user_password,
+        owner_password,
+        partial_pdf,
+        indexes~,
       ) catch {
         _ => {
           (ctx.logger)("Warning: unable to parse object stream \{stream_id}\n")
