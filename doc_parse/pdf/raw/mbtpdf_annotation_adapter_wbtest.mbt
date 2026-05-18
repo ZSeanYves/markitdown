@@ -5,9 +5,7 @@ fn utf16be_pdf_string(text : String) -> String raise {
 }
 
 ///|
-fn resolve_sample_path(path : String) -> String raise {
-  let fallback = "../../" + path
-  let _ = fallback
+fn resolve_sample_path(path : String) -> String {
   path
 }
 

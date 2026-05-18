@@ -161,7 +161,7 @@ fn ascii_char_eq_ignore_case(ch : Char, expected_lower : Char) -> Bool {
   if ch == expected_lower {
     true
   } else if expected_lower >= 'a' && expected_lower <= 'z' {
-    let expected_upper = Char::from_int(
+    let expected_upper = Int::unsafe_to_char(
       expected_lower.to_int() - ('a'.to_int() - 'A'.to_int()),
     )
     ch == expected_upper
