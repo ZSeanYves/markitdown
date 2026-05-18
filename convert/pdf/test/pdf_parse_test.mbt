@@ -73,6 +73,40 @@ fn test_tmp_root() -> String {
 }
 
 ///|
+fn count_occurrences(text : String, needle : String) -> Int {
+  if needle == "" {
+    return 0
+  }
+
+  let haystack = text.to_array()
+  let pattern = needle.to_array()
+  if pattern.length() > haystack.length() {
+    return 0
+  }
+
+  let mut count = 0
+  let mut i = 0
+  while i + pattern.length() <= haystack.length() {
+    let mut matched = true
+    let mut j = 0
+    while j < pattern.length() {
+      if haystack[i + j] != pattern[j] {
+        matched = false
+        break
+      }
+      j = j + 1
+    }
+    if matched {
+      count = count + 1
+      i = i + pattern.length()
+    } else {
+      i = i + 1
+    }
+  }
+  count
+}
+
+///|
 fn link_test_page(
   text : String,
   rect : @mbtpdf_core.PdfObject,
@@ -904,6 +938,61 @@ async test "convert/pdf keeps pdfjs non-widget annotations without appearance st
     fail(
       "expected without-appearance squiggly sample to keep readable annotation output, got: " +
       markdown,
+    )
+  }
+}
+
+///|
+async test "convert/pdf deduplicates appendix notes for pdfjs square-circle without appearance sample" {
+  let without_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
+  )
+  let without_doc = @pdf.parse_pdf(without_input, "", 6, None, false, false, false)
+  let without_markdown = @cor.emit_markdown(without_doc)
+
+  let without_square_count = count_occurrences(
+    without_markdown,
+    "Square (page 1): Square content",
+  )
+  let without_circle_count = count_occurrences(
+    without_markdown,
+    "Circle (page 1): Circle content",
+  )
+
+  if without_square_count != 1 || without_circle_count != 1 {
+    fail(
+      "expected without-appearance square/circle appendix notes to deduplicate to one each; square=" +
+      without_square_count.to_string() +
+      ", circle=" +
+      without_circle_count.to_string() +
+      ", markdown=" +
+      without_markdown,
+    )
+  }
+
+  let normal_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle.pdf",
+  )
+  let normal_doc = @pdf.parse_pdf(normal_input, "", 6, None, false, false, false)
+  let normal_markdown = @cor.emit_markdown(normal_doc)
+
+  let normal_square_count = count_occurrences(
+    normal_markdown,
+    "Square (page 1): Rectangle — Square content",
+  )
+  let normal_circle_count = count_occurrences(
+    normal_markdown,
+    "Circle (page 1): Oval — Circle content",
+  )
+
+  if normal_square_count != 1 || normal_circle_count != 1 {
+    fail(
+      "expected normal square/circle appearance sample to remain one note each; square=" +
+      normal_square_count.to_string() +
+      ", circle=" +
+      normal_circle_count.to_string() +
+      ", markdown=" +
+      normal_markdown,
     )
   }
 }

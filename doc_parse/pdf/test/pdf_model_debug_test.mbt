@@ -344,3 +344,66 @@ async test "pdf lower-layer preserves printable hidden annotation flags for pdfj
 }
 
 ///|
+async test "pdf lower-layer keeps distinct square and circle annotations from pdfjs without-appearance sample" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
+  )
+  let doc = match
+    @api.extract_document_model(input, @api.default_pdf_config()) {
+    Ok(v) => v
+    Err(e) => fail("extract_document_model failed: " + e.to_string())
+  }
+
+  if doc.pages.length() != 1 {
+    fail("expected one page in annotation-square-circle-without-appearance.pdf")
+  }
+
+  let page = doc.pages[0]
+  if page.annotations.length() != 4 {
+    fail(
+      "expected 4 raw/model annotations in without-appearance square/circle sample, got " +
+      page.annotations.length().to_string(),
+    )
+  }
+
+  let dump = page.annotations
+    .map(fn(annotation) {
+      let contents = match annotation.contents {
+        Some(v) => v
+        None => "None"
+      }
+      let subject = match annotation.subject {
+        Some(v) => v
+        None => "None"
+      }
+      let object_ref = match annotation.object_ref {
+        Some(v) => v
+        None => "None"
+      }
+      annotation.subtype +
+      "|" +
+      subject +
+      "|" +
+      contents +
+      "|flags=" +
+      annotation.flags.to_string() +
+      "|ref=" +
+      object_ref
+    })
+    .join(" || ")
+
+  let square_count = page.annotations.filter(fn(annotation) {
+    annotation.subtype == "/Square"
+  }).length()
+  let circle_count = page.annotations.filter(fn(annotation) {
+    annotation.subtype == "/Circle"
+  }).length()
+
+  if square_count != 2 || circle_count != 2 {
+    fail(
+      "expected 2 square and 2 circle lower-layer annotations; annots=" + dump,
+    )
+  }
+}
+
+///|

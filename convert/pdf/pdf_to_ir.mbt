@@ -351,23 +351,40 @@ fn collect_visible_annotation_notes(
   page : PdfConvertPage,
 ) -> Array[PdfVisibleAnnotationNote] {
   let out : Array[PdfVisibleAnnotationNote] = []
+  let seen_keys : Map[String, Bool] = Map([])
 
   for annotation in page.annotations {
     if !should_emit_annotation_note_in_markdown(annotation) {
       continue
     }
     match render_visible_annotation_note(annotation, page._page_index) {
-      Some(text) =>
+      Some(text) => {
+        let dedupe_key = visible_annotation_note_dedupe_key(annotation, text)
+        if seen_keys.contains(dedupe_key) {
+          continue
+        }
+        seen_keys.set(dedupe_key, true)
         out.push({
           _annotation_index: annotation._annotation_index,
           text,
           object_ref: annotation.object_ref,
         })
+      }
       None => ()
     }
   }
 
   out
+}
+
+///|
+fn visible_annotation_note_dedupe_key(
+  annotation : PdfConvertAnnotation,
+  text : String,
+) -> String {
+  let subtype = annotation.subtype.trim().to_owned()
+  let normalized_text = text.trim().to_owned()
+  subtype + "|" + annotation.flags.to_string() + "|" + normalized_text
 }
 
 ///|
