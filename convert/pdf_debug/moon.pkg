@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/convert/pdf" @pdfcore,
+  "ZSeanYves/markitdown/convert/pdf_layout" @pdflayout,
   "ZSeanYves/markitdown/doc_parse/pdf/inspect" @pdfinspect,
   "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
 }

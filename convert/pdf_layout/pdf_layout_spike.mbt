@@ -10,10 +10,10 @@ pub async fn export_pdf_layout_features_tsv(
 
   let export_kind = parse_layout_export_kind(record_kind)
   let core_doc = extract_pdf_document_model(input_path)
-  let doc0 = build_convert_lines(core_doc, "")
-  let doc1 = build_convert_blocks(doc0)
-  let doc2 = classify_convert_blocks(doc1, 6)
-  let doc3 = filter_noise_blocks(doc2)
+  let doc0 = @pdfcore.build_convert_lines(core_doc, "")
+  let doc1 = @pdfcore.build_convert_blocks(doc0)
+  let doc2 = @pdfcore.classify_convert_blocks(doc1, 6)
+  let doc3 = @pdfcore.filter_noise_blocks(doc2)
 
   let features : Array[PdfLayoutFeature] = []
   let feature_names = default_pdf_layout_feature_names()
@@ -30,7 +30,7 @@ pub async fn export_pdf_layout_features_tsv(
         } else {
           None
         }
-        let values = block_layout_feature_values(
+        let values = @pdfcore.build_pdf_layout_block_feature_values(
           page,
           block,
           prev,
@@ -70,7 +70,9 @@ pub async fn export_pdf_layout_features_tsv(
 
       let left = prev_page.blocks[prev_page.blocks.length() - 1]
       let right = cur_page.blocks[0]
-      let merge_decision = decide_page_boundary_merge(prev_page, cur_page)
+      let merge_decision = @pdfcore.decide_page_boundary_merge(
+        prev_page, cur_page,
+      )
       features.push(
         make_pdf_layout_feature(
           sample_id,
@@ -85,7 +87,7 @@ pub async fn export_pdf_layout_features_tsv(
           left.text.trim().to_owned() + " || " + right.text.trim().to_owned(),
           None,
           Some(merge_decision.reason_tags.join(",")),
-          boundary_layout_feature_values(prev_page, cur_page),
+          @pdfcore.build_pdf_layout_boundary_feature_values(prev_page, cur_page),
         ),
       )
     }
@@ -345,7 +347,9 @@ fn parse_record_kind_name(raw : String) -> PdfLayoutRecordKind? {
 }
 
 ///|
-fn build_repeated_text_counts(doc : PdfConvertDocument) -> Map[String, Int] {
+fn build_repeated_text_counts(
+  doc : @pdfcore.PdfConvertDocument,
+) -> Map[String, Int] {
   let counts : Map[String, Int] = Map([])
   for page in doc.pages {
     for block in page.blocks {
@@ -378,8 +382,29 @@ fn repeated_text_score(
 }
 
 ///|
+fn page_median_font_size(page : @pdfcore.PdfConvertPage) -> Double? {
+  let values : Array[Double] = []
+  for block in page.blocks {
+    match block.dominant_font_size {
+      Some(v) => if v > 0.0 { values.push(v) }
+      None => ()
+    }
+  }
+  if values.is_empty() {
+    return None
+  }
+  values.sort()
+  let mid = values.length() / 2
+  if values.length() % 2 == 1 {
+    Some(values[mid])
+  } else {
+    Some((values[mid - 1] + values[mid]) / 2.0)
+  }
+}
+
+///|
 fn nearest_image_distance(
-  images : Array[PdfConvertImage],
+  images : Array[@pdfcore.PdfConvertImage],
   block_box : @model.PdfRect,
 ) -> Double? {
   if images.is_empty() {
@@ -409,7 +434,7 @@ fn rect_vertical_distance(a : @model.PdfRect, b : @model.PdfRect) -> Double {
 }
 
 ///|
-fn block_feature_notes(block : PdfConvertBlock) -> String {
+fn block_feature_notes(block : @pdfcore.PdfConvertBlock) -> String {
   let tags : Array[String] = []
   if block.is_heading_candidate {
     tags.push("heading_candidate")
@@ -430,6 +455,71 @@ fn block_feature_notes(block : PdfConvertBlock) -> String {
     tags.push("table_cell_candidate")
   }
   tags.join(",")
+}
+
+///|
+async fn extract_pdf_document_model(
+  input_path : String,
+) -> @model.PdfDocumentModel {
+  let cfg = @api.default_pdf_config()
+  match @api.extract_document_model(input_path, cfg) {
+    Ok(doc) => doc
+    Err(e) =>
+      raise @cor.AppError(
+        "pdf: extract_document_model failed: " + e.to_string(),
+      )
+  }
+}
+
+///|
+fn normalize_pdf_comparison_text(text : String) -> String {
+  @cor.normalize_text_with_profile(text, @cor.NormalizeProfile::PdfCompareText)
+}
+
+///|
+fn lowercase_pdf_comparison_text(text : String) -> String {
+  let out = StringBuilder::new()
+  for ch in normalize_pdf_comparison_text(text) {
+    if ch >= 'A' && ch <= 'Z' {
+      out.write_char(Int::unsafe_to_char(ch.to_int() + 32))
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn normalize_noise_key(s : String) -> String {
+  let t = lowercase_pdf_comparison_text(s)
+  if t == "" {
+    return ""
+  }
+
+  let mut out = ""
+  let mut prev_space = false
+
+  for c in t {
+    let ch = if c >= '0' && c <= '9' {
+      '#'
+    } else if c == ' ' || c == '\t' {
+      ' '
+    } else {
+      c
+    }
+
+    if ch == ' ' {
+      if !prev_space {
+        out = out + " "
+        prev_space = true
+      }
+    } else {
+      out = out + ch.to_string()
+      prev_space = false
+    }
+  }
+
+  out.trim().to_owned()
 }
 
 ///|

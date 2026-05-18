@@ -161,7 +161,7 @@ test "layout assist model bridge records disagreement and constraints" {
     },
   ]
   let model = match
-    @pdfcore.parse_pdf_layout_model_json(
+    @pdflayout.parse_pdf_layout_model_json(
       "{\n" +
       "  \"version\": 1,\n" +
       "  \"task\": \"pdf_layout_classifier\",\n" +
@@ -183,7 +183,7 @@ test "layout assist model bridge records disagreement and constraints" {
     Err(err) => fail(err.message)
   }
   let feature_rows = match
-    @pdfcore.parse_pdf_layout_features_tsv(
+    @pdflayout.parse_pdf_layout_features_tsv(
       "sample_id\tsource_path\trecord_kind\tpage_index\tblock_index\tline_index\tnext_page_index\tnext_block_index\tnext_line_index\ttext\tlabel\tcontains_currency\tlooks_like_address\tis_heading_candidate\tnotes\n" +
       "sample\tsample.pdf\tblock\t1\t0\t0\t\t\t\tTOTAL $821.14\t\t1\t0\t1\tmanual\n",
     ) {
@@ -191,7 +191,7 @@ test "layout assist model bridge records disagreement and constraints" {
     Err(err) => fail(err.message)
   }
   let decisions = match
-    @pdfcore.classify_pdf_layout_features(model, feature_rows) {
+    @pdflayout.classify_pdf_layout_features(model, feature_rows) {
     Ok(v) => v
     Err(err) => fail(err.message)
   }

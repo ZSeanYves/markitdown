@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/convert/pdf" @pdf,
+  "ZSeanYves/markitdown/convert/pdf_layout" @pdf,
   "moonbitlang/async",
   "moonbitlang/x/fs" @fs,
   "moonbitlang/x/sys" @sys,

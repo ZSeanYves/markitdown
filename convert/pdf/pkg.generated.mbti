@@ -15,15 +15,15 @@ pub fn build_convert_blocks(PdfConvertDocument) -> PdfConvertDocument
 
 pub fn build_convert_lines(@model.PdfDocumentModel, String) -> PdfConvertDocument
 
+pub fn build_pdf_layout_block_feature_values(PdfConvertPage, PdfConvertBlock, PdfConvertBlock?, PdfConvertBlock?, Double, Double?, Double?) -> Map[String, Double]
+
+pub fn build_pdf_layout_boundary_feature_values(PdfConvertPage, PdfConvertPage) -> Map[String, Double]
+
 pub fn build_pdf_layout_gate_summary(PdfConvertDocument, PdfConvertDocument, config? : PdfLayoutGateConfig) -> PdfLayoutGateSummary
 
 pub fn build_repeated_edge_noise_index(PdfConvertDocument) -> PdfRepeatedEdgeNoiseIndex
 
 pub fn classify_convert_blocks(PdfConvertDocument, Int) -> PdfConvertDocument
-
-pub fn classify_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature) -> Result[PdfLayoutModelDecision, PdfLayoutModelError]
-
-pub fn classify_pdf_layout_features(PdfLayoutModel, Array[PdfLayoutFeature]) -> Result[Array[PdfLayoutModelDecision], PdfLayoutModelError]
 
 pub fn decide_heading_classification(PdfConvertBlock?, PdfConvertBlock, PdfConvertBlock?, Int) -> PdfHeadingDecision
 
@@ -31,23 +31,13 @@ pub fn decide_noise_block(PdfConvertPage, Int, PdfConvertBlock, PdfRepeatedEdgeN
 
 pub fn decide_page_boundary_merge(PdfConvertPage, PdfConvertPage) -> PdfMergeDecision
 
-pub fn default_pdf_layout_feature_names() -> Array[String]
-
-pub fn default_pdf_layout_feature_tsv_columns() -> Array[String]
-
 pub fn default_pdf_layout_gate_config() -> PdfLayoutGateConfig
 
 pub fn detect_pdf_tables(PdfConvertPage, Bool) -> Array[PdfTableCandidate]
 
-pub async fn export_pdf_layout_features_tsv(String, String, String) -> String
-
 pub fn filter_noise_blocks(PdfConvertDocument) -> PdfConvertDocument
 
 pub fn infer_page_image_captions(PdfConvertPage, Bool) -> (Array[String?], Map[Int, Bool])
-
-pub fn infer_pdf_layout_features_tsv(String, String) -> Result[String, PdfLayoutModelError]
-
-pub fn make_pdf_layout_feature(String, String, PdfLayoutRecordKind, Int, Int, Int, Int?, Int?, Int?, String, String?, String?, Map[String, Double]) -> PdfLayoutFeature
 
 pub fn match_page_uri_links(PdfConvertPage) -> Array[PdfUriLinkMatchResult]
 
@@ -55,21 +45,7 @@ pub fn merge_convert_blocks(PdfConvertDocument) -> PdfConvertDocument
 
 pub async fn parse_pdf(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document
 
-pub fn parse_pdf_layout_features_tsv(String) -> Result[Array[PdfLayoutFeature], PdfLayoutModelError]
-
-pub fn parse_pdf_layout_model_json(String) -> Result[PdfLayoutModel, PdfLayoutModelError]
-
 pub fn pdf_layout_gate_enabled() -> Bool
-
-pub fn render_pdf_layout_decisions_tsv(Array[PdfLayoutFeature], Array[PdfLayoutModelDecision]) -> String
-
-pub fn render_pdf_layout_feature_row(PdfLayoutFeature, Array[String]) -> Array[String]
-
-pub fn render_pdf_layout_feature_tsv(Array[PdfLayoutFeature], Array[String]) -> String
-
-pub fn score_pdf_layout_feature(PdfLayoutModel, PdfLayoutFeature, Array[Double]) -> Array[PdfLayoutModelDecision]
-
-pub fn validate_pdf_layout_model(PdfLayoutModel) -> Result[Unit, PdfLayoutModelError]
 
 // Errors
 
@@ -246,22 +222,6 @@ pub enum PdfHeadingDecisionStatus {
   KeepNoise
 }
 
-pub struct PdfLayoutFeature {
-  sample_id : String
-  source_path : String
-  record_kind : PdfLayoutRecordKind
-  label : String?
-  page_index : Int
-  block_index : Int
-  line_index : Int
-  next_page_index : Int?
-  next_block_index : Int?
-  next_line_index : Int?
-  text : String
-  notes : String?
-  feature_values : Map[String, Double]
-}
-
 pub struct PdfLayoutGateConfig {
   enabled : Bool
 }
@@ -298,64 +258,6 @@ pub struct PdfLayoutGateSummary {
   changed_count : Int
   blocked_count : Int
   decisions : Array[PdfLayoutGateDecision]
-}
-
-pub struct PdfLayoutLabelWeights {
-  label : String
-  bias : Double
-  values : Array[Double]
-}
-
-pub struct PdfLayoutModel {
-  version : Int
-  task : String
-  model_type : String
-  labels : Array[String]
-  features : Array[String]
-  normalization_mean : Array[Double]
-  normalization_scale : Array[Double]
-  weights : Array[PdfLayoutLabelWeights]
-  thresholds : Array[PdfLayoutThreshold]
-  metadata : Map[String, String]
-}
-
-pub struct PdfLayoutModelDecision {
-  label : String
-  score : Double
-  confidence : Double
-  threshold : Double
-  accepted : Bool
-  reasons : Array[String]
-  page_index : Int
-  block_index : Int
-  line_index : Int
-  record_kind : PdfLayoutRecordKind
-}
-
-pub struct PdfLayoutModelError {
-  kind : PdfLayoutModelErrorKind
-  message : String
-}
-
-pub enum PdfLayoutModelErrorKind {
-  InvalidJson
-  MissingField
-  WrongType
-  InvalidValue
-  UnknownFeature
-  MissingWeight
-} derive(Eq)
-
-pub enum PdfLayoutRecordKind {
-  Line
-  Block
-  Boundary
-} derive(Eq)
-
-pub struct PdfLayoutThreshold {
-  label : String
-  min_score : Double
-  min_confidence : Double
 }
 
 pub struct PdfMergeDecision {
