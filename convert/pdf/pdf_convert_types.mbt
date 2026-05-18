@@ -122,6 +122,7 @@ pub struct PdfConvertAnnotation {
   _page_index : Int
   _annotation_index : Int
   subtype : String
+  flags : Int
   _bbox : @model.PdfRect
   uri : String?
   dest : String?
@@ -130,6 +131,19 @@ pub struct PdfConvertAnnotation {
   contents : String?
   subject : String?
   color : PdfConvertColor?
+}
+
+///|
+pub struct PdfConvertFormField {
+  _page_index : Int
+  _form_index : Int
+  field_type : String
+  flags : Int
+  field_name : String?
+  field_value : String?
+  options : Array[String]
+  checked_state : Bool?
+  _bbox : @model.PdfRect?
 }
 
 ///|
@@ -147,6 +161,7 @@ pub struct PdfConvertPage {
   blocks : Array[PdfConvertBlock]
   images : Array[PdfConvertImage]
   annotations : Array[PdfConvertAnnotation]
+  forms : Array[PdfConvertFormField]
   objects : Array[PdfConvertPageObject]
 }
 

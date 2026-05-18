@@ -141,6 +141,7 @@ fn make_table_test_page(
     blocks,
     images,
     annotations: [],
+    forms: [],
     objects: build_page_objects(blocks, images),
   }
 }

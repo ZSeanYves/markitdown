@@ -398,7 +398,7 @@ fn build_page_model_from_blocks(
     images: build_page_images_from_raw(raw_page.images),
     vectors: [],
     annotations: build_page_annotations_from_raw(raw_page.annotations),
-    forms: [],
+    forms: build_page_forms_from_raw(raw_page.forms),
     reading_order_candidates: [],
     artifact_candidates: [],
     raw_content_stream_refs: raw_page.raw_content_stream_refs,
@@ -418,6 +418,7 @@ fn build_page_annotations_from_raw(
         let annotation : @model.PdfAnnotationObject = {
           id: raw_annotation.id,
           subtype: raw_annotation.subtype,
+          flags: raw_annotation.flags,
           bbox,
           contents: raw_annotation.contents,
           subject: raw_annotation.subject,
@@ -432,6 +433,34 @@ fn build_page_annotations_from_raw(
       }
       None => ()
     }
+  }
+
+  out
+}
+
+///|
+fn build_page_forms_from_raw(
+  raw_forms : Array[@raw.RawFormFieldInfo],
+) -> Array[@model.PdfFormField] {
+  let out : Array[@model.PdfFormField] = Array::new()
+
+  for raw_form in raw_forms {
+    let form : @model.PdfFormField = {
+      id: raw_form.id,
+      field_type: raw_form.field_type,
+      flags: raw_form.flags,
+      field_name: match raw_form.field_label {
+        Some(label) => Some(label)
+        None => raw_form.field_name
+      },
+      field_value: raw_form.field_value,
+      bbox: raw_form.bbox,
+      page_index: raw_form.page_index,
+      options: raw_form.options,
+      checked_state: raw_form.checked_state,
+      source_refs: build_source_refs_from_raw(raw_form.source_refs),
+    }
+    out.push(form)
   }
 
   out

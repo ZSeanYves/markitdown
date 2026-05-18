@@ -244,6 +244,8 @@ fn render_document_block_debug(
       page.images.length().to_string() +
       ", annotations=" +
       page.annotations.length().to_string() +
+      ", forms=" +
+      page.forms.length().to_string() +
       ", page_objects=" +
       @model.page_object_count(page).to_string() +
       "\n"
@@ -290,6 +292,8 @@ fn render_document_block_debug(
           "] " +
           "subtype=" +
           annotation.subtype +
+          ", flags=" +
+          annotation.flags.to_string() +
           ", uri=" +
           opt_str_or_none(annotation.uri) +
           ", dest=" +
@@ -300,6 +304,37 @@ fn render_document_block_debug(
           opt_str_or_none(annotation.object_ref) +
           ", bbox=" +
           rect_str(annotation.bbox) +
+          "\n"
+      }
+    }
+
+    if page.forms.is_empty() {
+      out = out + "  forms=[]\n"
+    } else {
+      for j = 0; j < page.forms.length(); j = j + 1 {
+        let form = page.forms[j]
+        let checked = match form.checked_state {
+          Some(v) => v.to_string()
+          None => "None"
+        }
+        out = out +
+          "  [form " +
+          j.to_string() +
+          "] " +
+          "type=" +
+          form.field_type +
+          ", flags=" +
+          form.flags.to_string() +
+          ", name=" +
+          opt_str_or_none(form.field_name) +
+          ", value=" +
+          opt_str_or_none(form.field_value) +
+          ", checked=" +
+          checked +
+          ", options=" +
+          string_array_str(form.options) +
+          ", bbox=" +
+          opt_rect_str(form.bbox) +
           "\n"
       }
     }
@@ -442,6 +477,8 @@ fn render_document_inspect_dump(
       page_report.image_count.to_string() +
       ", annotations=" +
       page_report.annotation_count.to_string() +
+      ", forms=" +
+      page_report.form_count.to_string() +
       ", object_count=" +
       page_report.object_count.to_string(),
     )
@@ -667,6 +704,8 @@ fn render_document_inspect_dump(
           annotation.id +
           " subtype=" +
           annotation.subtype +
+          " flags=" +
+          annotation.flags.to_string() +
           " bbox=" +
           rect_str(annotation.bbox) +
           " uri=" +
@@ -686,6 +725,38 @@ fn render_document_inspect_dump(
             @model.source_ref_to_string(annotation.source_refs[0]),
           )
         }
+      }
+    }
+
+    if page.forms.is_empty() {
+      out.push("  forms=[]")
+    } else {
+      for form_index = 0
+          form_index < page.forms.length()
+          form_index = form_index + 1 {
+        let form = page.forms[form_index]
+        let checked = match form.checked_state {
+          Some(v) => v.to_string()
+          None => "None"
+        }
+        out.push(
+          "  [form " +
+          form_index.to_string() +
+          "] type=" +
+          form.field_type +
+          " flags=" +
+          form.flags.to_string() +
+          " name=" +
+          opt_str_or_none(form.field_name) +
+          " value=" +
+          opt_str_or_none(form.field_value) +
+          " checked=" +
+          checked +
+          " options=" +
+          string_array_str(form.options) +
+          " bbox=" +
+          opt_rect_str(form.bbox),
+        )
       }
     }
   }

@@ -155,6 +155,7 @@ pub(all) struct RawAnnotationInfo {
   page_index : Int
   object_ref : RawPdfRef?
   subtype : String
+  flags : Int
   bbox : @model.PdfRect?
   contents : String?
   subject : String?
@@ -162,6 +163,23 @@ pub(all) struct RawAnnotationInfo {
   dest : String?
   target_page : Int?
   color : @model.PdfColor?
+  source_refs : Array[RawSourceRef]
+}
+
+///|
+/// 原始表单字段信息。
+pub(all) struct RawFormFieldInfo {
+  id : String
+  page_index : Int
+  object_ref : RawPdfRef?
+  field_type : String
+  flags : Int
+  field_name : String?
+  field_label : String?
+  field_value : String?
+  bbox : @model.PdfRect?
+  options : Array[String]
+  checked_state : Bool?
   source_refs : Array[RawSourceRef]
 }
 
@@ -176,6 +194,7 @@ pub struct RawPdfPageExtract {
   text_ops : Array[RawTextOp]
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]
+  forms : Array[RawFormFieldInfo]
   raw_content_stream_refs : Array[String]
   issues : Array[PdfRawIssue]
 }

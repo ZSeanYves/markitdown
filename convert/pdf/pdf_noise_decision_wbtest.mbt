@@ -77,6 +77,7 @@ fn make_noise_page(
     blocks,
     images: [],
     annotations,
+    forms: [],
     objects: [],
   }
 }
@@ -96,6 +97,7 @@ fn make_annotation_for_noise(
     _page_index: page_index,
     _annotation_index: annotation_index,
     subtype: "Link",
+    flags: 0,
     _bbox: bbox,
     uri: Some("https://example.com"),
     dest: None,

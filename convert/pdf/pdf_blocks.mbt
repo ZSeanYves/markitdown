@@ -47,6 +47,7 @@ fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
     blocks,
     images: page.images,
     annotations: page.annotations,
+    forms: page.forms,
     objects,
   }
 }

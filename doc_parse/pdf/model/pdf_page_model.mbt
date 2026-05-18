@@ -56,6 +56,7 @@ pub(all) struct PdfVectorObject {
 pub(all) struct PdfAnnotationObject {
   id : String
   subtype : String
+  flags : Int
   bbox : PdfRect
   contents : String?
   subject : String?
@@ -72,6 +73,7 @@ pub(all) struct PdfAnnotationObject {
 pub(all) struct PdfFormField {
   id : String
   field_type : String
+  flags : Int
   field_name : String?
   field_value : String?
   bbox : PdfRect?
@@ -248,6 +250,68 @@ pub fn page_page_number_candidate_count(page : PdfPageModel) -> Int {
     }
   }
   total
+}
+
+///|
+pub let pdf_annotation_flag_invisible = 1
+
+///|
+pub let pdf_annotation_flag_hidden = 2
+
+///|
+pub let pdf_annotation_flag_print = 4
+
+///|
+pub let pdf_annotation_flag_no_zoom = 8
+
+///|
+pub let pdf_annotation_flag_no_rotate = 16
+
+///|
+pub let pdf_annotation_flag_no_view = 32
+
+///|
+pub let pdf_annotation_flag_read_only = 64
+
+///|
+pub let pdf_annotation_flag_locked = 128
+
+///|
+pub let pdf_annotation_flag_toggle_no_view = 256
+
+///|
+pub let pdf_annotation_flag_locked_contents = 512
+
+///|
+pub fn pdf_annotation_has_flag(flags : Int, flag : Int) -> Bool {
+  Int::land(flags, flag) != 0
+}
+
+///|
+pub fn pdf_annotation_is_invisible(flags : Int) -> Bool {
+  pdf_annotation_has_flag(flags, pdf_annotation_flag_invisible)
+}
+
+///|
+pub fn pdf_annotation_is_hidden(flags : Int) -> Bool {
+  pdf_annotation_has_flag(flags, pdf_annotation_flag_hidden)
+}
+
+///|
+pub fn pdf_annotation_is_printable(flags : Int) -> Bool {
+  pdf_annotation_has_flag(flags, pdf_annotation_flag_print)
+}
+
+///|
+pub fn pdf_annotation_is_no_view(flags : Int) -> Bool {
+  pdf_annotation_has_flag(flags, pdf_annotation_flag_no_view)
+}
+
+///|
+pub fn pdf_annotation_is_view_visible(flags : Int) -> Bool {
+  !pdf_annotation_is_hidden(flags) &&
+  !pdf_annotation_is_no_view(flags) &&
+  !pdf_annotation_is_invisible(flags)
 }
 
 ///|

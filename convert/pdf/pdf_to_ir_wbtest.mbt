@@ -74,6 +74,7 @@ fn make_ir_annotation(
     _page_index: 0,
     _annotation_index: annotation_index,
     subtype,
+    flags: 0,
     _bbox: ir_rect(40.0, 700.0, 120.0, 720.0),
     uri: None,
     dest: None,
@@ -82,6 +83,28 @@ fn make_ir_annotation(
     contents,
     subject,
     color: None,
+  }
+}
+
+///|
+fn make_ir_form(
+  form_index : Int,
+  field_type : String,
+  field_name : String?,
+  field_value : String?,
+  options : Array[String],
+  checked_state : Bool?,
+) -> PdfConvertFormField {
+  {
+    _page_index: 0,
+    _form_index: form_index,
+    field_type,
+    flags: 0,
+    field_name,
+    field_value,
+    options,
+    checked_state,
+    _bbox: Some(ir_rect(40.0, 660.0, 140.0, 680.0)),
   }
 }
 
@@ -104,6 +127,7 @@ test "pdf to ir preserves rich heading links when block already has rich inlines
           blocks: [block],
           images: [],
           annotations: [],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -156,6 +180,7 @@ test "pdf to ir appends meaningful non-link annotations in appendix" {
               uri: Some("https://example.com"),
             },
           ],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -226,6 +251,7 @@ test "pdf to ir appends internal destination links conservatively in appendix" {
               uri: Some("https://example.com"),
             },
           ],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -293,6 +319,7 @@ test "pdf to ir keeps named destination labels when internal links resolve to a 
               target_page: Some(2),
             },
           ],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -434,6 +461,7 @@ test "pdf to ir layout gate suppresses technical bullets in normal output" {
           blocks: [block],
           images: [],
           annotations: [],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -474,6 +502,7 @@ test "pdf to ir layout gate keeps real bullets as list items" {
           blocks: [block],
           images: [],
           annotations: [],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],
@@ -485,6 +514,182 @@ test "pdf to ir layout gate keeps real bullets as list items" {
   match doc.blocks.val[0] {
     @cor.Block::ListItem(false, 0, "Important note about rollout.") => ()
     _ => fail("real bullet should remain a list item")
+  }
+}
+
+///|
+test "pdf to ir appends visible forms conservatively in appendix" {
+  let block = {
+    ..make_ir_block(0, PdfConvertBlockKind::Paragraph, "Document body", None),
+    is_heading_candidate: false,
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [],
+          forms: [
+            make_ir_form(
+              0,
+              "/Tx",
+              Some("Single line, unlimited length"),
+              Some("Lorem ipsum"),
+              [],
+              None,
+            ),
+            make_ir_form(
+              1,
+              "/Ch",
+              Some("List box, multiple selection"),
+              Some("Ipsum, Amet, Elit"),
+              ["Lorem", "Ipsum", "Amet", "Elit"],
+              None,
+            ),
+            make_ir_form(
+              2,
+              "/Btn",
+              Some("Check box, checked"),
+              Some("/Yes"),
+              [],
+              Some(true),
+            ),
+          ],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  let actual = doc.blocks.val.map(fn(block) {
+    match block {
+      @cor.Block::Heading(level, text) => "H" + level.to_string() + ":" + text
+      @cor.Block::Paragraph(text) => "P:" + text
+      _ => "OTHER"
+    }
+  })
+  let expected = [
+    "P:Document body", "H2:Forms", "P:Text (page 1): Single line, unlimited length — Lorem ipsum",
+    "P:Choice (page 1): List box, multiple selection — Ipsum, Amet, Elit", "P:Button (page 1): Check box, checked — checked",
+  ]
+  if actual.length() != expected.length() {
+    fail(
+      "expected " +
+      expected.length().to_string() +
+      " blocks, got " +
+      actual.length().to_string(),
+    )
+  }
+  for i = 0; i < expected.length(); i = i + 1 {
+    if actual[i] != expected[i] {
+      fail(
+        "forms appendix mismatch at " +
+        i.to_string() +
+        ": expected `" +
+        expected[i] +
+        "`, got `" +
+        actual[i] +
+        "`",
+      )
+    }
+  }
+}
+
+///|
+test "pdf to ir filters hidden and no-view widget forms but keeps printable annotations" {
+  let block = {
+    ..make_ir_block(0, PdfConvertBlockKind::Paragraph, "Document body", None),
+    is_heading_candidate: false,
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [
+            {
+              ..make_ir_annotation(0, "/Ink", Some("Pencil"), None),
+              flags: @model.pdf_annotation_flag_hidden +
+              @model.pdf_annotation_flag_print,
+            },
+            {
+              ..make_ir_annotation(1, "/Text", Some("Note"), Some("skip me")),
+              flags: @model.pdf_annotation_flag_no_view,
+            },
+          ],
+          forms: [
+            {
+              ..make_ir_form(
+                0,
+                "/Tx",
+                Some("Hidden text field"),
+                Some("Secret"),
+                [],
+                None,
+              ),
+              flags: @model.pdf_annotation_flag_hidden,
+            },
+            {
+              ..make_ir_form(
+                1,
+                "/Tx",
+                Some("NoView text field"),
+                Some("World"),
+                [],
+                None,
+              ),
+              flags: @model.pdf_annotation_flag_no_view,
+            },
+            {
+              ..make_ir_form(
+                2,
+                "/Tx",
+                Some("Visible text field"),
+                Some("Hello"),
+                [],
+                None,
+              ),
+              flags: @model.pdf_annotation_flag_print,
+            },
+          ],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  let actual = @cor.emit_markdown(doc)
+  if actual.contains("Hidden text field") ||
+    actual.contains("NoView text field") ||
+    actual.contains("Secret") ||
+    actual.contains("World") {
+    fail(
+      "expected hidden/no-view widget forms to be suppressed, got: " + actual,
+    )
+  }
+  if !actual.contains("Text (page 1): Visible text field — Hello") {
+    fail("expected view-visible widget form to remain, got: " + actual)
+  }
+  if !actual.contains("## Annotations") ||
+    !actual.contains("Ink (page 1): Pencil") {
+    fail("expected printable annotation appendix to remain, got: " + actual)
+  }
+  if actual.contains("Note") || actual.contains("skip me") {
+    fail("expected no-view annotation note to be suppressed, got: " + actual)
   }
 }
 
@@ -534,6 +739,7 @@ test "pdf to ir skips degenerate subject-only annotation shells" {
               _bbox: ir_rect(174.391, 632.654, 285.965, 729.449),
             },
           ],
+          forms: [],
           objects: [PdfConvertPageObject::TextBlock(block)],
         },
       ],

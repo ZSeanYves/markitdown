@@ -5,6 +5,23 @@ fn utf16be_pdf_string(text : String) -> String raise {
 }
 
 ///|
+fn resolve_sample_path(path : String) -> String raise {
+  let fallback = "../../" + path
+  let _ = fallback
+  path
+}
+
+///|
+async fn open_sample_pdf(path : String) -> @pdf.Pdf {
+  let resolved = resolve_sample_path(path)
+  let fallback = "../../" + path
+  let input = @pdfiofs.input_of_file(resolved, source=resolved) catch {
+    _ => @pdfiofs.input_of_file(fallback, source=fallback)
+  }
+  @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
+}
+
+///|
 fn build_annotation_target_pdf() -> @pdf.Pdf {
   let pdf : @pdf.Pdf = {
     major: 1,
@@ -112,5 +129,196 @@ test "annotation adapter resolves target page for GoTo link annotations" {
   match annotation.target_page {
     Some(2) => ()
     _ => fail("expected GoTo annotation target_page to resolve to page 2")
+  }
+}
+
+///|
+test "annotation adapter resolves widget fields through parent chain" {
+  let pdf = @pdf.Pdf::empty()
+  let rect : @pdf.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(10.0),
+    Real(10.0),
+  ])
+  let parent : @pdf.PdfObject = Dictionary([
+    ("/FT", Name(@pdf.PdfName::of_string("/Tx"))),
+    ("/T", String("InternalName")),
+    ("/TU", String("Visible label")),
+    ("/V", String("Filled value")),
+  ])
+  pdf.addobj_given_num((1, parent))
+  let annot_ref : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Widget"))),
+    ("/Rect", rect),
+    ("/Parent", Indirect(1)),
+  ])
+
+  let form = match form_field_from_pdf_object(pdf, annot_ref, 0, 0) {
+    Some(v) => v
+    None => fail("expected widget form field")
+  }
+
+  match form.field_type {
+    "/Tx" => ()
+    _ => fail("expected inherited /FT field type")
+  }
+  match form.field_name {
+    Some("InternalName") => ()
+    _ => fail("expected inherited /T field name")
+  }
+  match form.field_label {
+    Some("Visible label") => ()
+    _ => fail("expected inherited /TU field label")
+  }
+  match form.field_value {
+    Some("Filled value") => ()
+    _ => fail("expected inherited /V field value")
+  }
+}
+
+///|
+test "annotation adapter resolves button state and options through parent chain" {
+  let pdf = @pdf.Pdf::empty()
+  let rect : @pdf.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(10.0),
+    Real(10.0),
+  ])
+  let parent : @pdf.PdfObject = Dictionary([
+    ("/FT", Name(@pdf.PdfName::of_string("/Btn"))),
+    ("/TU", String("Accept terms")),
+    ("/V", Name(@pdf.PdfName::of_string("/Yes"))),
+    ("/Opt", Array([String("Yes"), String("No")])),
+  ])
+  pdf.addobj_given_num((1, parent))
+  let annot_ref : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Widget"))),
+    ("/Rect", rect),
+    ("/Parent", Indirect(1)),
+  ])
+
+  let form = match form_field_from_pdf_object(pdf, annot_ref, 0, 0) {
+    Some(v) => v
+    None => fail("expected widget form field")
+  }
+
+  match form.checked_state {
+    Some(true) => ()
+    _ => fail("expected inherited button checked_state")
+  }
+  match form.field_value {
+    Some("/Yes") => ()
+    _ => fail("expected inherited button field value")
+  }
+  if form.options.length() != 2 ||
+    form.options[0] != "Yes" ||
+    form.options[1] != "No" {
+    fail("expected inherited options")
+  }
+}
+
+///|
+test "annotation adapter parses widget annotation flags from /F" {
+  let pdf = @pdf.Pdf::empty()
+  let rect : @pdf.PdfObject = Array([
+    Real(0.0),
+    Real(0.0),
+    Real(10.0),
+    Real(10.0),
+  ])
+  let annot_ref : @pdf.PdfObject = Dictionary([
+    ("/Subtype", Name(@pdf.PdfName::of_string("/Widget"))),
+    ("/Rect", rect),
+    ("/FT", Name(@pdf.PdfName::of_string("/Tx"))),
+    ("/T", String("HiddenField")),
+    ("/V", String("Secret")),
+    ("/F", Integer(36)),
+  ])
+
+  let form = match form_field_from_pdf_object(pdf, annot_ref, 0, 0) {
+    Some(v) => v
+    None => fail("expected widget form field")
+  }
+  if form.flags != 36 {
+    fail("expected widget /F flags=36, got " + form.flags.to_string())
+  }
+
+  let annotation = match annotation_from_pdf_object(pdf, annot_ref, 0, 0) {
+    Ok(v) => v
+    Err(e) => fail("expected widget annotation, got issue: " + e.message)
+  }
+  if annotation.flags != 36 {
+    fail("expected annotation /F flags=36, got " + annotation.flags.to_string())
+  }
+}
+
+///|
+async test "annotation adapter sees direct text widget /V strings in real pdfjs sample" {
+  let pdf = open_sample_pdf(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+  )
+  let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree() catch {
+    e => fail("pages_of_pagetree failed: " + e.to_string())
+  }
+  if pages.length() != 1 {
+    fail("expected one page")
+  }
+
+  let annots = match pdf.lookup_direct("/Annots", pages[0].rest) {
+    Some(@pdf.PdfObject::Array(items)) => items
+    _ => fail("expected page /Annots array")
+  }
+  if annots.length() < 7 {
+    fail("expected at least 7 annotations")
+  }
+
+  let first = pdf.direct(annots[0])
+  let value_obj = pdf.lookup_direct("/V", first)
+  let subtype_obj = pdf.lookup_direct("/Subtype", first)
+  let field_type_obj = pdf.lookup_direct("/FT", first)
+  let label_obj = pdf.lookup_direct("/TU", first)
+  let immediate_values = first.lookup_immediate_all("/V")
+  let subtype_str = match subtype_obj {
+    Some(v) => v.to_string()
+    None => "None"
+  }
+  let field_type_str = match field_type_obj {
+    Some(v) => v.to_string()
+    None => "None"
+  }
+  let label_str = match label_obj {
+    Some(v) => v.to_string()
+    None => "None"
+  }
+  match value_obj {
+    Some(@pdf.PdfObject::String(s)) =>
+      if s == "" {
+        fail("expected non-empty direct /V string")
+      }
+    Some(other) =>
+      fail(
+        "expected first text widget /V to be String, got " + other.to_string(),
+      )
+    None =>
+      fail(
+        "expected first text widget /V; subtype=" +
+        subtype_str +
+        "; field_type=" +
+        field_type_str +
+        "; label=" +
+        label_str +
+        "; immediate_v_count=" +
+        immediate_values.length().to_string() +
+        "; annot=" +
+        first.to_string(),
+      )
+  }
+
+  match field_value_from_pdf_object(pdf, value_obj) {
+    Some("Lorem ipsum dolor sit amet, consectetur adipiscing elit.") => ()
+    Some(v) => fail("unexpected decoded value: " + v)
+    None => fail("expected field_value_from_pdf_object to decode direct /V")
   }
 }
