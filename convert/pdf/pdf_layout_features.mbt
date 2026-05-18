@@ -2073,19 +2073,27 @@ fn citation_reference_signal(text : String) -> Bool {
 fn page_label_pattern_signal(text : String) -> Bool {
   let parts = text.trim().split(" ")
   let mut saw_page = false
+  let mut saw_page_number = false
   for part in parts {
     let token = part.trim().to_owned().to_lower()
     if token == "" {
       continue
     }
     if saw_page {
-      return all_ascii_digits_feature(token)
+      if !saw_page_number {
+        if !all_ascii_digits_feature(token) {
+          return false
+        }
+        saw_page_number = true
+        continue
+      }
+      return false
     }
     if token == "page" {
       saw_page = true
     }
   }
-  false
+  saw_page && saw_page_number
 }
 
 ///|

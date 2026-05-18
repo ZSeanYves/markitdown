@@ -80,6 +80,7 @@ fn make_gate_page(blocks : Array[PdfConvertBlock]) -> PdfConvertPage {
     blocks,
     images: [],
     annotations: [],
+    forms: [],
     objects: blocks.map(fn(block) { PdfConvertPageObject::TextBlock(block) }),
   }
 }
@@ -270,6 +271,110 @@ test "pdf layout gate keeps real bullet list items" {
       )
     }
     None => fail("expected list decision")
+  }
+}
+
+///|
+test "pdf layout gate keeps short bullets when list context is present" {
+  let lead_in = make_gate_block(
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "Key points:",
+    Some(12.0),
+    784.0,
+    Some(8.0),
+  )
+  let first = make_gate_block(
+    1,
+    PdfConvertBlockKind::Paragraph,
+    "• First item",
+    Some(12.0),
+    760.0,
+    Some(4.0),
+  )
+  let second = make_gate_block(
+    2,
+    PdfConvertBlockKind::Paragraph,
+    "• Second item",
+    Some(12.0),
+    736.0,
+    Some(4.0),
+  )
+  let page = make_gate_page([lead_in, first, second])
+  let doc = { pages: [page] }
+  let ctx = build_pdf_layout_gate_doc_context(doc)
+  let page_font_median = page_median_font_size(page)
+
+  match
+    decide_pdf_layout_list_gate(ctx, page, 1, page_font_median, {
+      enabled: true,
+    }) {
+    Some(decision) => {
+      assert_eq(decision.final_label, "list_item")
+      assert_eq(decision.output_kind, "list_item")
+      assert_true(
+        match decision.override_blocked_reason {
+          Some(reason) => reason == "strong_list_support"
+          None => false
+        },
+      )
+    }
+    None => fail("expected first short bullet decision")
+  }
+
+  match
+    decide_pdf_layout_list_gate(ctx, page, 2, page_font_median, {
+      enabled: true,
+    }) {
+    Some(decision) => {
+      assert_eq(decision.final_label, "list_item")
+      assert_eq(decision.output_kind, "list_item")
+      assert_true(
+        match decision.override_blocked_reason {
+          Some(reason) => reason == "strong_list_support"
+          None => false
+        },
+      )
+    }
+    None => fail("expected second short bullet decision")
+  }
+}
+
+///|
+test "pdf layout gate keeps page section heading with trailing section text" {
+  let heading = make_gate_block(
+    0,
+    PdfConvertBlockKind::Heading,
+    "page 2 new section",
+    Some(12.0),
+    760.0,
+    Some(10.0),
+  )
+  let next = make_gate_block(
+    1,
+    PdfConvertBlockKind::Paragraph,
+    "1. New section starts here.",
+    Some(12.0),
+    736.0,
+    Some(4.0),
+  )
+  let doc = { pages: [make_gate_page([heading, next])] }
+  let gated = apply_pdf_layout_gate(doc, config={ enabled: true })
+  assert_true(gated.pages[0].blocks[0].kind == PdfConvertBlockKind::Heading)
+
+  let summary = build_pdf_layout_gate_summary(doc, gated, config={
+    enabled: true,
+  })
+  match
+    decision_for_target(summary, "p1.b0", PdfLayoutGateStage::HeadingDemotion) {
+    Some(decision) =>
+      assert_true(
+        match decision.override_blocked_reason {
+          Some(reason) => reason == "strong_heading_support"
+          None => false
+        },
+      )
+    None => fail("expected page section heading decision")
   }
 }
 

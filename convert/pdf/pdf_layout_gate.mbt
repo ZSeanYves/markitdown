@@ -192,7 +192,9 @@ fn decide_pdf_layout_list_gate(
     doc_ctx, page, block, prev, next, page_font_median,
   )
   let constraints = gate_hard_constraints(features, false)
-  let strong_support = gate_strong_list_item_support(features, item_text)
+  let strong_support = gate_strong_list_item_support(
+    prev, next, features, item_text,
+  )
   let candidate = select_list_suppression_candidate(features, text, item_text)
   let suggested = candidate_label_opt(candidate)
   let reason_tags = match candidate {
@@ -745,6 +747,8 @@ fn gate_strong_heading_support(
 
 ///|
 fn gate_strong_list_item_support(
+  prev : PdfConvertBlock?,
+  next : PdfConvertBlock?,
   features : Map[String, Double],
   item_text : String,
 ) -> Bool {
@@ -760,6 +764,11 @@ fn gate_strong_list_item_support(
   }
 
   let word_count = count_feature_words(item_text)
+  let contextual_support = gate_neighboring_list_context(prev, next)
+  if contextual_support && word_count >= 2 {
+    return true
+  }
+
   if word_count >= 5 {
     return true
   }
@@ -770,6 +779,26 @@ fn gate_strong_list_item_support(
     gate_feature_bool(features, "has_terminal_period") ||
     gate_feature_bool(features, "contains_clause_punctuation")
   )
+}
+
+///|
+fn gate_neighboring_list_context(
+  prev : PdfConvertBlock?,
+  next : PdfConvertBlock?,
+) -> Bool {
+  let prev_list_item = match prev {
+    Some(block) =>
+      looks_like_bullet_item(block.text) ||
+      looks_like_numbered_body_sentence(block.text)
+    None => false
+  }
+  let prev_list_lead_in = match prev {
+    Some(block) =>
+      looks_like_colon_label(normalize_pdf_comparison_text(block.text))
+    None => false
+  }
+
+  prev_list_item || prev_list_lead_in || next_block_looks_like_list_item(next)
 }
 
 ///|
