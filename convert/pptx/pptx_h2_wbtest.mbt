@@ -64,6 +64,26 @@ test "pptx explicit table parser keeps rows and breaks" {
 }
 
 ///|
+test "pptx explicit table parser drops fully empty placeholder tables" {
+  let frame_xml = "<p:graphicFrame>" +
+    "<p:nvGraphicFramePr><p:cNvPr id=\"8\" name=\"Table 1\"/></p:nvGraphicFramePr>" +
+    "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\">" +
+    "<a:tbl><a:tblPr firstRow=\"1\"/>" +
+    "<a:tr>" +
+    "<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>" +
+    "<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>" +
+    "</a:tr>" +
+    "<a:tr>" +
+    "<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>" +
+    "<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>" +
+    "</a:tr>" +
+    "</a:tbl></a:graphicData></a:graphic>" +
+    "</p:graphicFrame>"
+  let frames = collect_explicit_table_frames(@utf8.encode(frame_xml), Map([]))
+  assert_eq(frames.length(), 0)
+}
+
+///|
 test "pptx grouped shape children are still discovered by current scans" {
   let slide_xml = "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
     "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" " +

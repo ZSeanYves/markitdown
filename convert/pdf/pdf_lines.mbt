@@ -54,6 +54,7 @@ fn build_convert_page_lines(
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
   let annotations = build_convert_page_annotations(page)
+  let forms = build_convert_page_forms(page)
 
   {
     _page_index: page.page_index,
@@ -63,6 +64,7 @@ fn build_convert_page_lines(
     blocks: [],
     images,
     annotations,
+    forms,
     objects: [],
   }
 }
@@ -181,6 +183,28 @@ fn page_repeated_span_x_anchors(
     }
   }
   filtered
+}
+
+///|
+fn build_convert_page_forms(
+  page : @model.PdfPageModel,
+) -> Array[PdfConvertFormField] {
+  let out : Array[PdfConvertFormField] = []
+  for i = 0; i < page.forms.length(); i = i + 1 {
+    let form = page.forms[i]
+    out.push({
+      _page_index: page.page_index,
+      _form_index: i,
+      field_type: form.field_type,
+      flags: form.flags,
+      field_name: form.field_name,
+      field_value: form.field_value,
+      options: form.options,
+      checked_state: form.checked_state,
+      _bbox: form.bbox,
+    })
+  }
+  out
 }
 
 ///|
@@ -572,6 +596,7 @@ fn core_annotation_to_convert_annotation(
     _page_index,
     _annotation_index,
     subtype: annotation.subtype,
+    flags: annotation.flags,
     _bbox: annotation.bbox,
     uri: annotation.uri,
     dest: annotation.dest,

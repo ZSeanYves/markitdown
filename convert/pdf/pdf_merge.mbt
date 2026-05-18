@@ -109,6 +109,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
       blocks: merged_prev,
       images: prev_page.images,
       annotations: prev_page.annotations,
+      forms: prev_page.forms,
       objects: [],
     })
 
@@ -122,6 +123,7 @@ pub fn merge_convert_blocks(doc : PdfConvertDocument) -> PdfConvertDocument {
         blocks: merged_cur,
         images: cur_page.images,
         annotations: cur_page.annotations,
+        forms: cur_page.forms,
         objects: [],
       }),
     )

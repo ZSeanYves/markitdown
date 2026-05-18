@@ -187,5 +187,6 @@ test "pdf layout feature receipt signals separate sku line items from payment ro
 ///|
 test "pdf layout feature page label pattern catches generated shell headings" {
   assert_true(page_label_pattern_signal("Body paragraph page 1"))
+  assert_true(!page_label_pattern_signal("page 2 new section"))
   assert_true(!page_label_pattern_signal("Project Report"))
 }

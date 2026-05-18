@@ -68,6 +68,7 @@ fn make_test_annotation(
     _page_index: page_index,
     _annotation_index: annotation_index,
     subtype,
+    flags: 0,
     _bbox: bbox,
     uri,
     dest,
@@ -93,6 +94,7 @@ fn make_test_page(
     blocks: [],
     images: [],
     annotations,
+    forms: [],
     objects: [],
   })
 }

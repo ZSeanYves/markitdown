@@ -423,6 +423,7 @@ pub fn attach_high_confidence_uri_links(
       blocks,
       images: page.images,
       annotations: page.annotations,
+      forms: page.forms,
       objects: build_page_objects(blocks, page.images),
     })
   }

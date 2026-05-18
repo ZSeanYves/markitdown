@@ -39,18 +39,34 @@ OCR remains explicit-only.
 
 Current local external corpus status:
 
-* rows: `142`
+* rows: `270`
 * result: pass
 * skipped: `1`
 * expected_fail: `0`
-* unexpected_pass: `5`
+* focused Office rows:
+  * `DOCX`: `59`
+  * `PPTX`: `54`
+  * `XLSX`: `49`
+* focused horizontal rows:
+  * `ZIP`: `11`
+  * `EPUB`: `15`
+  * `XML`: `9`
+  * `CSV`: `9`
+  * `HTML`: `5`
 
 Interpretation:
 
 * the current quality gate is green
-* the `unexpected_pass` rows are older local manifest boundaries that the
-  current implementation already exceeds
-* they are not validation failures
+* this snapshot is a local checked validation state, not a repository-wide
+  quality percentage
+* this is a local-only external corpus snapshot, not a release artifact
+* private/local rows remain intentionally separate from checked-in exact
+  regression samples
+* current corpus expansion is external-fixture-driven, not
+  synthetic-only
+* known policy boundaries remain documented separately
+* `expected_fail: 0` does not mean every boundary case is universally covered
+* OCR/scanned content remains explicit-only
 
 Local-only quality assets:
 
@@ -59,12 +75,44 @@ Local-only quality assets:
 
 These remain local-only and should not be committed.
 
+The quality corpus runner now also supports:
+
+* `exact_count:text=n`
+* `min_count:text=n`
+* `max_count:text=n`
+* `order:a|b|c`
+* `not_contains:text`
+* `table_marker`
+* asset / image guards such as `image_ref` and `asset_count_min:n`
+
+These assertions are useful for duplicate appendix / heading / row and
+over-emission checks without turning the quality corpus into a full-output
+oracle.
+
+Current Office hardening coverage includes:
+
+* DOCX: comments, footnotes, endnotes, images, SVG, hyperlinks, body order,
+  and paragraph/table interleaving
+* PPTX: notes, comments, charts, tables, hyperlinks, alignment, and grouped
+  content
+* XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
+  ordering, and table boundaries
+
+Current horizontal hardening coverage includes:
+
+* ZIP: metadata, assets, entry-origin headings, asset remap, and container
+  boundaries
+* EPUB: nav/spine, layout-flow, multimedia, styling, and chapter/section order
+* XML: namespaces, long attributes, pronunciation lexicons, and encoding
+  boundaries
+* CSV: quoted-field structure plus cp932/mskanji fallback coverage
+
 ## Mainstream Comparison Policy
 
 This README does not claim a blanket “mainstream quality percentage” unless a
 local reproducible compare run defines the tool version, corpus, and metric.
 
-Current measured quality is tracked by the `142`-row local external corpus plus
+Current measured quality is tracked by the `270`-row local external corpus plus
 the repository validation suites.
 
 If you want a competitor percentage, run a pinned compare workflow first and
@@ -151,14 +199,28 @@ For detailed format behavior and limits, use
 
 Current package responsibilities:
 
-* `cli`: unified user-facing product entrypoint
+* `cli`: lightweight user-facing product entrypoint; keeps the normal product
+  surface unified while remaining `mbtpdf=0` and not depending on the full
+  `convert/convert` aggregator
 * `cli_common`: lightweight CLI/component runtime and component discovery
 * `cli_support`: parser/help/version glue plus product-path dispatch/routing
-* `pdf`: bundled PDF product component
-* `zip`: bundled ZIP product component
+* `pdf`: normal PDF runtime component with the narrow gated-normal layout gate;
+  it no longer carries layout model / JSON / TSV export / infer tooling
+* `pdf_layout`: layout model / infer / TSV export / offline tooling consumed by
+  `pdf_debug` and `tools/pdf_layout_classifier`; not part of the normal
+  runtime path
+* `pdf_debug`: developer inspect / layout assist / explainability surface
+* `zip`: full ZIP library/product component path; keeps direct embedded PDF
+  parsing for the full library API
+* `zip_core`: shared ZIP traversal / asset remap / metadata / origin /
+  profile-aware main loop, without pulling in PDF
+* `zip_worker`: lightweight delegated ZIP product path; embedded PDF entries
+  are routed to bundled `pdf`, so product `zip` remains `mbtpdf=0`
 * `ocr`: explicit OCR component surfaced by `cli ocr`
 * `debug`: developer inspect tool
 * `bench`: developer benchmark tool
+* `convert/convert`: full aggregator for debug / bench / full-library paths;
+  not used by the lightweight product CLI path
 * `core`: CLI-free document model, metadata model, emitters, and pure helpers
 * `convert/*`: format conversion layer
 * `doc_parse/*`: lower-layer parser/model/inspect foundations
@@ -174,21 +236,25 @@ Build guardrail:
 
 Current clean native build snapshot on the checked local machine:
 
-* `cli build`: `62.73s`
-* `pdf build`: `67.42s`
-* `zip build`: `61.88s`
-* `ocr build`: `53.14s`
-* `cli.exe`: `3649640` bytes
-* `pdf.exe`: `4278680` bytes
-* `zip.exe`: `3442056` bytes
-* `ocr.exe`: `1644328` bytes
-* `cli.c`: `394425` lines
-* `pdf.c`: `442901` lines
-* `zip.c`: `370607` lines
+* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
+* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
+* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
+* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli.exe`: `3790168` bytes (~`3.6M`)
+* `pdf.exe`: `4354040` bytes
+* `zip.exe`: `3601656` bytes (~`3.4M`)
+* `ocr.exe`: `1644328` bytes (~`1.6M`)
+* `cli.c`: `401407` lines
+* `pdf.c`: `450869` lines
+* `zip.c`: `378571` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
+* `zip mbtpdf count`: `0`
+* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
+  closure into product `cli` or delegated product `zip`
 
-These are local clean-build measurements, not cross-machine guarantees.
+These are local clean-build measurements on one checked machine, not
+cross-machine guarantees or universal speed claims.
 
 ## PDF Layout Gate
 
@@ -290,16 +356,17 @@ time, and competitor overlap timing into one headline number.
 
 Current measured overlap-only compare timing:
 
-* date: `2026-05-17`
+* date: `2026-05-19`
 * machine: `macOS 15.3`, `arm64`
 * competitor: `Microsoft MarkItDown 0.1.5`
 * corpus: `samples/benchmark/compare_corpus.tsv`
 * rows: `47` overlap samples per runner
+* total runs: `282`
+* failures: `0`
+* compare meaning: `sample-scoped`
 * average sample time:
-  * `markitdown-mb`: `11.064 ms`
-  * `markitdown-python`: `435.660 ms`
-* observed ratio on this checked overlap corpus:
-  * Python runner about `39.4x` slower than the native runner
+  * `markitdown-mb`: `11.009 ms`
+  * `markitdown-python`: `421.715 ms`
 
 This is an overlap-only local timing result, not a universal speed guarantee.
 It does not measure OCR, scanned-PDF paths, metadata semantics, assets

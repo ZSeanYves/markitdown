@@ -2,6 +2,9 @@ signal	form	args	description
 no_empty_output	flag		output markdown must not be empty after trimming
 contains	prefix	<text>	output markdown must contain the given text
 contains_all	prefix	<a>|<b>|<c>	output markdown must contain all listed text fragments
+exact_count	prefix	<text>=<n>	output markdown must contain the given text exactly n times (non-overlapping substring count)
+min_count	prefix	<text>=<n>	output markdown must contain the given text at least n times (non-overlapping substring count)
+max_count	prefix	<text>=<n>	output markdown must contain the given text at most n times (non-overlapping substring count)
 not_contains	prefix	<text>	output markdown must not contain the given text
 heading_marker	prefix	<text>	output markdown must contain a heading line with the given text
 table_marker	flag		output markdown should contain a markdown table marker

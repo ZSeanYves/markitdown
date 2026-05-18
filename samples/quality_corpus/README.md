@@ -32,6 +32,21 @@ Current limitations:
 * current local hardening remains ongoing for heavier PDF, DOCX, XLSX, and
   PPTX boundary samples
 
+Current local external snapshot:
+
+* current pass status: `270` rows, `1` skipped, `0` expected_fail
+* focused Office rows: `DOCX 59`, `PPTX 54`, `XLSX 49`
+* focused horizontal rows: `ZIP 11`, `EPUB 15`, `XML 9`, `CSV 9`, `HTML 5`
+* this is a local-only external corpus snapshot, not a release artifact
+* `.external/quality_corpus` stays local-only and is not committed
+* `samples/quality_corpus/external_manifest.local.tsv` stays local-only and is
+  not committed
+* current corpus expansion is external-fixture-driven, not
+  synthetic-only
+* `expected_fail: 0` here does not mean universal support for every boundary
+* known policy boundaries remain documented separately
+* OCR/scanned content remains explicit-only
+
 ## Layout
 
 ```text
@@ -79,6 +94,9 @@ Multiple signals are separated with `;`.
 Useful signal patterns for early external intake:
 
 * `contains_all:a|b|c` for multiple required anchors
+* `exact_count:text=1` to require an exact non-overlapping substring count
+* `min_count:text=2` to require at least N non-overlapping occurrences
+* `max_count:text=1` to guard against duplicate appendix/headings/rows
 * `not_contains:text` for obvious bad artifacts
 * `max_long_token_len:n` for token-join / spacing regressions
 * `review_note:text` for non-blocking reviewer notes
@@ -134,6 +152,34 @@ Current local source status:
 * `pdfjs_tests`: currently exercises `/ToUnicode` Unicode positives plus
   retained PDF CJK/Type0 no-`/ToUnicode` boundaries
 
+Current Office expansion focus includes:
+
+* DOCX: comments, footnotes, endnotes, images, SVG, hyperlinks, body order,
+  and paragraph/table interleaving
+* PPTX: notes, comments, charts, tables, hyperlinks, alignment, and grouped
+  content
+* XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
+  ordering, and table boundaries
+
+Current horizontal expansion focus includes:
+
+* ZIP: metadata, assets, entry-origin headings, asset remap, and container
+  boundaries
+* EPUB: nav/spine, layout-flow, multimedia, styling, and chapter/section order
+* XML: namespaces, long attributes, pronunciation lexicons, and encoding
+  boundaries
+* CSV: quoted-field structure plus cp932/mskanji fallback coverage
+
+The current local corpus relies heavily on signal assertions such as:
+
+* `exact_count`
+* `min_count`
+* `max_count`
+* `order`
+* `not_contains`
+* `table_marker`
+* asset / image guards such as `image_ref` and `asset_count_min:n`
+
 Current locally exercised PDF reference rows include:
 
 * `pdf_tounicode_unicode_markitdown_test`
@@ -168,13 +214,13 @@ These retained rows are healthy local evidence, not regressions:
 
 Current locally exercised PPTX coverage includes:
 
-* image / alt / caption
-* table
-* grouped shapes
-* cached chart data
-* speaker notes
-* visible hyperlinks
+* notes and speaker notes
 * comments / commentAuthors
+* charts and cached chart data
+* tables
+* grouped shapes
+* visible hyperlinks
+* image / alt / caption paths
 
 Typical row lifecycle for a real boundary sample:
 

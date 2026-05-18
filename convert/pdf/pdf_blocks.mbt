@@ -47,6 +47,7 @@ fn build_convert_page_blocks(page : PdfConvertPage) -> PdfConvertPage {
     blocks,
     images: page.images,
     annotations: page.annotations,
+    forms: page.forms,
     objects,
   }
 }
@@ -295,29 +296,26 @@ fn join_convert_source_block_text(lines : Array[PdfConvertLine]) -> String {
 
 ///|
 fn append_convert_line_text(left : String, right : String) -> String {
-  let l = left.trim().to_owned()
-  let r = right.trim().to_owned()
-
-  if l == "" {
-    return r
+  if left == "" {
+    return right
   }
-  if r == "" {
-    return l
+  if right == "" {
+    return left
   }
 
-  if should_repair_convert_line_wrap_hyphen(l, r) {
-    return trim_convert_line_wrap_hyphen(l) + r
+  if should_repair_convert_line_wrap_hyphen(left, right) {
+    return trim_convert_line_wrap_hyphen(left) + right
   }
 
-  if should_keep_convert_line_hyphen_without_space(l, r) {
-    return l + r
+  if should_keep_convert_line_hyphen_without_space(left, right) {
+    return left + right
   }
 
-  if should_join_convert_line_text_without_space(l, r) {
-    return l + r
+  if should_join_convert_line_text_without_space(left, right) {
+    return left + right
   }
 
-  l + " " + r
+  left + " " + right
 }
 
 ///|
@@ -669,40 +667,15 @@ fn build_page_objects(
   let out : Array[PdfConvertPageObject] = []
 
   for block in blocks {
-    insert_page_object_sorted(out, PdfConvertPageObject::TextBlock(block))
+    out.push(PdfConvertPageObject::TextBlock(block))
   }
 
   for image in images {
-    insert_page_object_sorted(out, PdfConvertPageObject::Image(image))
+    out.push(PdfConvertPageObject::Image(image))
   }
 
+  out.sort_by(compare_page_object_layout)
   out
-}
-
-///|
-fn insert_page_object_sorted(
-  out : Array[PdfConvertPageObject],
-  obj : PdfConvertPageObject,
-) -> Unit {
-  let inserted = Array::new()
-  let mut placed = false
-
-  for existing in out {
-    if !placed && compare_page_object_layout(obj, existing) < 0 {
-      inserted.push(obj)
-      placed = true
-    }
-    inserted.push(existing)
-  }
-
-  if !placed {
-    inserted.push(obj)
-  }
-
-  out.clear()
-  for x in inserted {
-    out.push(x)
-  }
 }
 
 ///|

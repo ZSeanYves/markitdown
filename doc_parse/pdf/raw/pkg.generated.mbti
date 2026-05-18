@@ -43,6 +43,7 @@ pub(all) struct RawAnnotationInfo {
   page_index : Int
   object_ref : RawPdfRef?
   subtype : String
+  flags : Int
   bbox : @model.PdfRect?
   contents : String?
   subject : String?
@@ -84,6 +85,21 @@ pub struct RawFontInfo {
   word_spacing : Double?
   text_rise : Double?
   scale_x : Double?
+}
+
+pub(all) struct RawFormFieldInfo {
+  id : String
+  page_index : Int
+  object_ref : RawPdfRef?
+  field_type : String
+  flags : Int
+  field_name : String?
+  field_label : String?
+  field_value : String?
+  bbox : @model.PdfRect?
+  options : Array[String]
+  checked_state : Bool?
+  source_refs : Array[RawSourceRef]
 }
 
 pub(all) struct RawImageInfo {
@@ -136,6 +152,7 @@ pub struct RawPdfPageExtract {
   text_ops : Array[RawTextOp]
   images : Array[RawImageInfo]
   annotations : Array[RawAnnotationInfo]
+  forms : Array[RawFormFieldInfo]
   raw_content_stream_refs : Array[String]
   issues : Array[PdfRawIssue]
 }

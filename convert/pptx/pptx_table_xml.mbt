@@ -30,7 +30,7 @@ fn parse_explicit_table_frame(
   }
 
   let rows = parse_pptx_table_rows(frame_xml, hyperlinks)
-  if rows.length() == 0 {
+  if rows.length() == 0 || !pptx_table_rows_have_nonempty_cell(rows) {
     return None
   }
 
@@ -46,6 +46,19 @@ fn parse_explicit_table_frame(
         )
     },
   })
+}
+
+///|
+fn pptx_table_rows_have_nonempty_cell(rows : Array[Array[String]]) -> Bool {
+  for row in rows {
+    for cell in row {
+      if cell.trim() != "" {
+        return true
+      }
+    }
+  }
+
+  false
 }
 
 ///|

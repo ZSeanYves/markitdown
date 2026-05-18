@@ -49,6 +49,14 @@ assert_contains() {
   grep -Fq "$needle" "$path" || fail "expected $path to contain: $needle"
 }
 
+assert_mbtpdf_count_zero() {
+  local path="$1"
+  assert_file_exists "$path"
+  local count
+  count="$( (grep -o 'mbtpdf' "$path" || true) | wc -l | tr -d '[:space:]')"
+  [[ "$count" == "0" ]] || fail "expected mbtpdf count 0 in $path, got $count"
+}
+
 run_and_capture() {
   local out="$1"
   shift
@@ -79,6 +87,7 @@ HELP_ALIAS_STDOUT="$STDOUT_DIR/help_alias.txt"
 HELP_SHORT_STDOUT="$STDOUT_DIR/help_short.txt"
 VERSION_STDOUT="$STDOUT_DIR/version.txt"
 VERSION_ALIAS_STDOUT="$STDOUT_DIR/version_alias.txt"
+CLI_C="$ROOT/_build/native/debug/build/cli/cli.c"
 
 TXT_NO_META_MD="$NO_META_DIR/txt_plain.md"
 TXT_WITH_META_MD="$WITH_META_DIR/txt_plain.md"
@@ -118,6 +127,9 @@ assert_contains "$VERSION_STDOUT" 'markitdown-mb 0.3.4'
 MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
+
+echo "==> cli product stays out of vendored pdf closure"
+assert_mbtpdf_count_zero "$CLI_C"
 
 echo "==> normal without metadata"
 run_markitdown_cli normal "$TXT_INPUT" "$TXT_NO_META_MD"

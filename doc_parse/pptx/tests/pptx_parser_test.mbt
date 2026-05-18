@@ -440,6 +440,21 @@ fn date_category_chart_xml() -> String {
 }
 
 ///|
+fn multilevel_category_chart_xml() -> String {
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">" +
+  "<c:chart><c:plotArea><c:barChart>" +
+  "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Series 1</c:v></c:tx>" +
+  "<c:cat><c:multiLvlStrRef><c:multiLvlStrCache><c:ptCount val=\"4\"/>" +
+  "<c:lvl><c:pt idx=\"0\"><c:v>US</c:v></c:pt><c:pt idx=\"2\"><c:v>UK</c:v></c:pt></c:lvl>" +
+  "<c:lvl><c:pt idx=\"0\"><c:v>CA</c:v></c:pt><c:pt idx=\"2\"><c:v>GB</c:v></c:pt></c:lvl>" +
+  "<c:lvl><c:pt idx=\"0\"><c:v>SF</c:v></c:pt><c:pt idx=\"1\"><c:v>LA</c:v></c:pt><c:pt idx=\"2\"><c:v>London</c:v></c:pt><c:pt idx=\"3\"><c:v>Surrey</c:v></c:pt></c:lvl>" +
+  "</c:multiLvlStrCache></c:multiLvlStrRef></c:cat>" +
+  "<c:val><c:numRef><c:numCache><c:pt idx=\"0\"><c:v>4.3</c:v></c:pt><c:pt idx=\"1\"><c:v>2.5</c:v></c:pt><c:pt idx=\"2\"><c:v>3.5</c:v></c:pt><c:pt idx=\"3\"><c:v>4.5</c:v></c:pt></c:numCache></c:numRef></c:val>" +
+  "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+}
+
+///|
 fn malformed_presentation_pptx_pkg() -> @ox.OoxmlPackage raise {
   generated_pptx_pkg([
     (
@@ -854,6 +869,27 @@ test "pptx semantic chart cache preserves multiple aligned series" {
       assert_eq(data.series.length(), 2)
       assert_true(data.series[0].categories == ["A", "B"])
       assert_true(data.series[1].values == ["3", "4"])
+    }
+    None => fail("expected chart data")
+  }
+}
+
+///|
+test "pptx semantic chart cache uses deepest multi-level category labels" {
+  let doc = @pptx.parse_pptx_presentation_from_package(
+    chart_pptx_pkg(
+      multilevel_category_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  let chart = doc.slides[0].shape_tree[1]
+  match chart.chart {
+    Some(data) => {
+      assert_eq(data.series.length(), 1)
+      assert_true(
+        data.series[0].categories == ["SF", "LA", "London", "Surrey"],
+      )
+      assert_true(data.series[0].values == ["4.3", "2.5", "3.5", "4.5"])
     }
     None => fail("expected chart data")
   }

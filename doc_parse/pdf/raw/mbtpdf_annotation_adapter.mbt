@@ -1,6 +1,7 @@
 ///|
 priv struct RawAnnotationCollectResult {
   annotations : Array[RawAnnotationInfo]
+  forms : Array[RawFormFieldInfo]
   issues : Array[PdfRawIssue]
 }
 
@@ -120,6 +121,214 @@ fn annotation_issue(
 }
 
 ///|
+fn bool_from_pdf_name_flag(name : String?) -> Bool? {
+  match name {
+    Some(raw) => if raw == "/Off" { Some(false) } else { Some(true) }
+    None => None
+  }
+}
+
+///|
+fn lookup_form_field_in_chain(
+  pdf : @pdf.Pdf,
+  annot_obj : @pdf.PdfObject,
+  key : String,
+) -> @pdf.PdfObject? {
+  let current = Ref(Some(annot_obj))
+  let visited : Map[Int, Bool] = Map([])
+
+  while current.val is Some(_) {
+    let obj = current.val.unwrap()
+    match pdf.lookup_direct(key, obj) {
+      Some(value) => return Some(value)
+      None => ()
+    }
+
+    let parent = pdf.lookup_direct("/Parent", obj)
+    match parent {
+      Some(@pdf.PdfObject::Indirect(obj_num)) =>
+        match visited.get(obj_num) {
+          Some(_) => return None
+          None => {
+            visited.set(obj_num, true)
+            current.val = Some(pdf.direct(@pdf.PdfObject::Indirect(obj_num)))
+          }
+        }
+      Some(parent_obj) => current.val = Some(pdf.direct(parent_obj))
+      None => current.val = None
+    }
+  }
+
+  None
+}
+
+///|
+fn lookup_form_field_name_in_chain(
+  pdf : @pdf.Pdf,
+  annot_obj : @pdf.PdfObject,
+  key : String,
+) -> String? {
+  name_string_from_pdf_object(lookup_form_field_in_chain(pdf, annot_obj, key))
+}
+
+///|
+fn field_options_from_pdf_object(
+  _pdf : @pdf.Pdf,
+  obj : @pdf.PdfObject?,
+) -> Array[String] {
+  let out : Array[String] = []
+  match obj {
+    Some(@pdf.PdfObject::Array(items)) =>
+      for item in items {
+        match item {
+          @pdf.PdfObject::String(_) =>
+            match string_from_pdf_object(Some(item)) {
+              Some(text) => out.push(text)
+              None => ()
+            }
+          @pdf.PdfObject::Array(pair) =>
+            if pair.length() >= 2 {
+              match pair[1] {
+                @pdf.PdfObject::String(_) =>
+                  match string_from_pdf_object(Some(pair[1])) {
+                    Some(text) => out.push(text)
+                    None => ()
+                  }
+                _ =>
+                  match pair[0] {
+                    @pdf.PdfObject::String(_) =>
+                      match string_from_pdf_object(Some(pair[0])) {
+                        Some(text) => out.push(text)
+                        None => ()
+                      }
+                    _ => ()
+                  }
+              }
+            } else {
+              ()
+            }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  out
+}
+
+///|
+fn field_value_from_pdf_object(
+  _pdf : @pdf.Pdf,
+  obj : @pdf.PdfObject?,
+) -> String? {
+  match obj {
+    Some(@pdf.PdfObject::String(_)) =>
+      match string_from_pdf_object(obj) {
+        Some(text) => if text.trim() == "" { None } else { Some(text) }
+        None => None
+      }
+    Some(@pdf.PdfObject::Name(name)) => Some(name.to_string_bytes())
+    Some(@pdf.PdfObject::Array(items)) => {
+      let values : Array[String] = []
+      for item in items {
+        match item {
+          @pdf.PdfObject::String(_) =>
+            match string_from_pdf_object(Some(item)) {
+              Some(text) => if text.trim() != "" { values.push(text) }
+              None => ()
+            }
+          @pdf.PdfObject::Name(name) => values.push(name.to_string_bytes())
+          _ => ()
+        }
+      }
+      if values.is_empty() {
+        None
+      } else {
+        Some(values.join(", "))
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn annotation_flags_from_pdf_object(
+  pdf : @pdf.Pdf,
+  annot_obj : @pdf.PdfObject,
+) -> Int {
+  match pdf.lookup_direct("/F", annot_obj) {
+    Some(@pdf.PdfObject::Integer(flags)) => flags
+    Some(value) => pdf.getnum(value).to_int() catch { _ => 0 }
+    None => 0
+  }
+}
+
+///|
+fn form_field_from_pdf_object(
+  pdf : @pdf.Pdf,
+  annot_ref : @pdf.PdfObject,
+  page_index : Int,
+  annotation_index : Int,
+) -> RawFormFieldInfo? {
+  let annot_obj = pdf.direct(annot_ref)
+  match annot_obj {
+    @pdf.PdfObject::Dictionary(_) => {
+      let subtype = name_string_from_pdf_object(
+        pdf.lookup_direct("/Subtype", annot_obj),
+      )
+      if subtype != Some("/Widget") {
+        return None
+      }
+
+      let field_type = lookup_form_field_name_in_chain(pdf, annot_obj, "/FT")
+      match field_type {
+        Some(ft) => {
+          let bbox = match pdf.lookup_direct("/Rect", annot_obj) {
+            Some(rect_obj) => parse_pdf_rect(pdf, rect_obj)
+            None => None
+          }
+          let flags = annotation_flags_from_pdf_object(pdf, annot_obj)
+          Some({
+            id: "form-" +
+            page_index.to_string() +
+            "-" +
+            annotation_index.to_string(),
+            page_index,
+            object_ref: raw_ref_from_pdf_object(annot_ref),
+            field_type: ft,
+            flags,
+            field_name: string_from_pdf_object(
+              lookup_form_field_in_chain(pdf, annot_obj, "/T"),
+            ),
+            field_label: string_from_pdf_object(
+              lookup_form_field_in_chain(pdf, annot_obj, "/TU"),
+            ),
+            field_value: field_value_from_pdf_object(
+              pdf,
+              lookup_form_field_in_chain(pdf, annot_obj, "/V"),
+            ),
+            bbox,
+            options: field_options_from_pdf_object(
+              pdf,
+              lookup_form_field_in_chain(pdf, annot_obj, "/Opt"),
+            ),
+            checked_state: if ft == "/Btn" {
+              bool_from_pdf_name_flag(
+                lookup_form_field_name_in_chain(pdf, annot_obj, "/V"),
+              )
+            } else {
+              None
+            },
+            source_refs: [],
+          })
+        }
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn annotation_from_pdf_object(
   pdf : @pdf.Pdf,
   annot_ref : @pdf.PdfObject,
@@ -136,6 +345,7 @@ fn annotation_from_pdf_object(
       match bbox {
         Some(bbox) => {
           let action = pdf.lookup_direct("/A", annot_obj)
+          let flags = annotation_flags_from_pdf_object(pdf, annot_obj)
           Ok({
             id: "annot-" +
             page_index.to_string() +
@@ -146,6 +356,7 @@ fn annotation_from_pdf_object(
             subtype: name_string_from_pdf_object(
               pdf.lookup_direct("/Subtype", annot_obj),
             ).unwrap_or(""),
+            flags,
             bbox: Some(bbox),
             contents: string_from_pdf_object(
               pdf.lookup_direct("/Contents", annot_obj),
@@ -196,10 +407,15 @@ fn collect_annotations_from_page(
   page_index : Int,
 ) -> RawAnnotationCollectResult {
   let out : Array[RawAnnotationInfo] = Array::new()
+  let forms : Array[RawFormFieldInfo] = Array::new()
   let issues : Array[PdfRawIssue] = Array::new()
   match pdf.lookup_direct("/Annots", page.rest) {
     Some(@pdf.PdfObject::Array(annots)) =>
       for i = 0; i < annots.length(); i = i + 1 {
+        match form_field_from_pdf_object(pdf, annots[i], page_index, i) {
+          Some(form) => forms.push(form)
+          None => ()
+        }
         match annotation_from_pdf_object(pdf, annots[i], page_index, i) {
           Ok(annotation) => out.push(annotation)
           Err(issue) => issues.push(issue)
@@ -216,5 +432,5 @@ fn collect_annotations_from_page(
       })
     _ => ()
   }
-  { annotations: out, issues }
+  { annotations: out, forms, issues }
 }

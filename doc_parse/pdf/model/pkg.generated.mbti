@@ -48,6 +48,38 @@ pub fn page_span_count(PdfPageModel) -> Int
 
 pub fn page_text_block_count(PdfPageModel) -> Int
 
+pub let pdf_annotation_flag_hidden : Int
+
+pub let pdf_annotation_flag_invisible : Int
+
+pub let pdf_annotation_flag_locked : Int
+
+pub let pdf_annotation_flag_locked_contents : Int
+
+pub let pdf_annotation_flag_no_rotate : Int
+
+pub let pdf_annotation_flag_no_view : Int
+
+pub let pdf_annotation_flag_no_zoom : Int
+
+pub let pdf_annotation_flag_print : Int
+
+pub let pdf_annotation_flag_read_only : Int
+
+pub let pdf_annotation_flag_toggle_no_view : Int
+
+pub fn pdf_annotation_has_flag(Int, Int) -> Bool
+
+pub fn pdf_annotation_is_hidden(Int) -> Bool
+
+pub fn pdf_annotation_is_invisible(Int) -> Bool
+
+pub fn pdf_annotation_is_no_view(Int) -> Bool
+
+pub fn pdf_annotation_is_printable(Int) -> Bool
+
+pub fn pdf_annotation_is_view_visible(Int) -> Bool
+
 pub fn rect_center(PdfRect) -> PdfPoint
 
 pub fn rect_height(PdfRect) -> Double
@@ -72,6 +104,7 @@ pub fn union_rect(PdfRect, PdfRect) -> PdfRect
 pub(all) struct PdfAnnotationObject {
   id : String
   subtype : String
+  flags : Int
   bbox : PdfRect
   contents : String?
   subject : String?
@@ -135,6 +168,7 @@ pub(all) struct PdfDocumentModel {
 pub(all) struct PdfFormField {
   id : String
   field_type : String
+  flags : Int
   field_name : String?
   field_value : String?
   bbox : PdfRect?

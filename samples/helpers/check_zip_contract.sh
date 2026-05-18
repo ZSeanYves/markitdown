@@ -33,9 +33,21 @@ assert_matches_expected() {
   diff -u "$expected" "$actual" >/dev/null || fail "output mismatch: $actual"
 }
 
+assert_mbtpdf_count_zero() {
+  local path="$1"
+  [[ -f "$path" ]] || fail "expected file missing: $path"
+  local count
+  count="$( (grep -o 'mbtpdf' "$path" || true) | wc -l | tr -d '[:space:]')"
+  [[ "$count" == "0" ]] || fail "expected mbtpdf count 0 in $path, got $count"
+}
+
 ZIP_INPUT="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
 ZIP_EXPECTED="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
 ZIP_OUT="$OUT_DIR/zip_basic_structured.md"
+ZIP_C="$ROOT/_build/native/debug/build/zip/zip.c"
+
+echo "==> zip product stays out of vendored pdf closure"
+assert_mbtpdf_count_zero "$ZIP_C"
 
 echo "==> direct zip markdown output"
 run_markitdown_zip_cli "$ZIP_INPUT" "$ZIP_OUT"

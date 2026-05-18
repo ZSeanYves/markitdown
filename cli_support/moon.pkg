@@ -18,7 +18,6 @@ import {
   "moonbitlang/x/sys" @sys,
   "moonbitlang/x/fs" @fs,
   "TheWaWaR/clap" @clap,
-  "moonbitlang/core/encoding/utf8" @utf8,
 }
 
 options(

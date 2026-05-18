@@ -73,6 +73,40 @@ fn test_tmp_root() -> String {
 }
 
 ///|
+fn count_occurrences(text : String, needle : String) -> Int {
+  if needle == "" {
+    return 0
+  }
+
+  let haystack = text.to_array()
+  let pattern = needle.to_array()
+  if pattern.length() > haystack.length() {
+    return 0
+  }
+
+  let mut count = 0
+  let mut i = 0
+  while i + pattern.length() <= haystack.length() {
+    let mut matched = true
+    let mut j = 0
+    while j < pattern.length() {
+      if haystack[i + j] != pattern[j] {
+        matched = false
+        break
+      }
+      j = j + 1
+    }
+    if matched {
+      count = count + 1
+      i = i + pattern.length()
+    } else {
+      i = i + 1
+    }
+  }
+  count
+}
+
+///|
 fn link_test_page(
   text : String,
   rect : @mbtpdf_core.PdfObject,
@@ -798,5 +832,179 @@ async test "convert/pdf supports headerless numeric table with header_rows=0" {
   }
   if !saw_table {
     fail("expected headerless numeric table to emit RichTable")
+  }
+}
+
+///|
+async test "convert/pdf appends real pdfjs text widget forms with normalized multiline values" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+  )
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+  let markdown = @cor.emit_markdown(doc)
+
+  if !markdown.contains("## Forms") {
+    fail("expected text widget sample to append a Forms section")
+  }
+  if !markdown.contains(
+      "Text (page 1): Single line, unlimited length — Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    ) {
+    fail("expected first text widget value to be preserved in markdown")
+  }
+  if !markdown.contains(
+      "Text (page 1): Single line, combs — abcdefghijklmnopqrstuvwxyz",
+    ) {
+    fail("expected comb text widget value to be preserved in markdown")
+  }
+  if !markdown.contains(
+      "Text (page 1): Multiline — Lorem ipsum dolor sit amet, consectetur adipiscing elit. / Aliquam vitae felis ac lectus bibendum ultricies quis non diam. / Morbi id porttitor quam, a iaculis dui. / Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. / Nulla consectetur, ligula in tincidunt placerat, velit augue consectetur orci, / sed mattis libero nunc ut massa. / Etiam facilisis tempus interdum.",
+    ) {
+    fail(
+      "expected multiline text widget value to normalize HTML/CR line breaks",
+    )
+  }
+  if markdown.contains("<br>") || markdown.contains("\r") {
+    fail("expected multiline text widget markdown to strip raw HTML/CR breaks")
+  }
+}
+
+///|
+async test "convert/pdf keeps printable hidden annotations but suppresses hidden no-view widgets" {
+  let hidden_print_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_print.pdf",
+  )
+  let hidden_print_doc = @pdf.parse_pdf(
+    hidden_print_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let hidden_print_markdown = @cor.emit_markdown(hidden_print_doc)
+
+  if !hidden_print_markdown.contains("## Annotations") ||
+    !hidden_print_markdown.contains("Ink (page 1): Pencil") {
+    fail(
+      "expected hidden-print sample to keep printable annotation appendix, got: " +
+      hidden_print_markdown,
+    )
+  }
+  if hidden_print_markdown.contains("## Forms") {
+    fail(
+      "expected hidden-print sample to avoid forms appendix leakage, got: " +
+      hidden_print_markdown,
+    )
+  }
+
+  let hidden_noview_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_noview.pdf",
+  )
+  let hidden_noview_doc = @pdf.parse_pdf(
+    hidden_noview_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let hidden_noview_markdown = @cor.emit_markdown(hidden_noview_doc)
+
+  if hidden_noview_markdown.contains("## Forms") ||
+    hidden_noview_markdown.contains("## Annotations") ||
+    hidden_noview_markdown.contains("World") ||
+    hidden_noview_markdown.contains("Text1") ||
+    hidden_noview_markdown.contains("Text2") {
+    fail(
+      "expected hidden-no-view sample to suppress widget/annotation visibility output, got: " +
+      hidden_noview_markdown,
+    )
+  }
+}
+
+///|
+async test "convert/pdf keeps pdfjs non-widget annotations without appearance streams" {
+  let input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-squiggly-without-appearance.pdf",
+  )
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+  let markdown = @cor.emit_markdown(doc)
+
+  if !markdown.contains("# Squiggly (without appearance stream)") ||
+    !markdown.contains("## Annotations") ||
+    !markdown.contains("Squiggly (page 1): Squiggly content") {
+    fail(
+      "expected without-appearance squiggly sample to keep readable annotation output, got: " +
+      markdown,
+    )
+  }
+}
+
+///|
+async test "convert/pdf deduplicates appendix notes for pdfjs square-circle without appearance sample" {
+  let without_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
+  )
+  let without_doc = @pdf.parse_pdf(
+    without_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let without_markdown = @cor.emit_markdown(without_doc)
+
+  let without_square_count = count_occurrences(
+    without_markdown, "Square (page 1): Square content",
+  )
+  let without_circle_count = count_occurrences(
+    without_markdown, "Circle (page 1): Circle content",
+  )
+
+  if without_square_count != 1 || without_circle_count != 1 {
+    fail(
+      "expected without-appearance square/circle appendix notes to deduplicate to one each; square=" +
+      without_square_count.to_string() +
+      ", circle=" +
+      without_circle_count.to_string() +
+      ", markdown=" +
+      without_markdown,
+    )
+  }
+
+  let normal_input = resolve_sample_path(
+    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle.pdf",
+  )
+  let normal_doc = @pdf.parse_pdf(
+    normal_input,
+    "",
+    6,
+    None,
+    false,
+    false,
+    false,
+  )
+  let normal_markdown = @cor.emit_markdown(normal_doc)
+
+  let normal_square_count = count_occurrences(
+    normal_markdown, "Square (page 1): Rectangle — Square content",
+  )
+  let normal_circle_count = count_occurrences(
+    normal_markdown, "Circle (page 1): Oval — Circle content",
+  )
+
+  if normal_square_count != 1 || normal_circle_count != 1 {
+    fail(
+      "expected normal square/circle appearance sample to remain one note each; square=" +
+      normal_square_count.to_string() +
+      ", circle=" +
+      normal_circle_count.to_string() +
+      ", markdown=" +
+      normal_markdown,
+    )
   }
 }

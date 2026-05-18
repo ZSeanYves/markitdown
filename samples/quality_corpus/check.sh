@@ -347,6 +347,15 @@ profile_signal_stage_name() {
     contains_all:*)
       printf 'contains_all'
       ;;
+    exact_count:*)
+      printf 'exact_count'
+      ;;
+    min_count:*)
+      printf 'min_count'
+      ;;
+    max_count:*)
+      printf 'max_count'
+      ;;
     not_contains:*)
       printf 'not_contains'
       ;;
@@ -500,6 +509,44 @@ for token in tokens:
 ' "$limit"
 }
 
+stdin_count_occurrences() {
+  local kind="$1"
+  local spec="$2"
+  python3 -c '
+import sys
+
+kind = sys.argv[1]
+spec = sys.argv[2]
+text = sys.stdin.read()
+
+if "=" not in spec:
+    raise SystemExit(f"{kind}: invalid spec (expected TEXT=N): {spec}")
+
+needle, expected_raw = spec.rsplit("=", 1)
+if needle == "":
+    raise SystemExit(f"{kind}: empty needle in spec: {spec}")
+if not expected_raw.isdigit():
+    raise SystemExit(f"{kind}: invalid count {expected_raw!r} for needle {needle!r}")
+
+expected = int(expected_raw)
+actual = text.count(needle)
+
+if kind == "exact_count":
+    ok = actual == expected
+elif kind == "min_count":
+    ok = actual >= expected
+elif kind == "max_count":
+    ok = actual <= expected
+else:
+    raise SystemExit(f"unknown count assertion kind: {kind}")
+
+if not ok:
+    raise SystemExit(
+        f"{kind}: needle={needle!r} expected={expected} actual={actual}"
+    )
+' "$kind" "$spec"
+}
+
 check_signal() {
   local signal="$1"
   local markdown_path="$2"
@@ -517,6 +564,18 @@ check_signal() {
     contains_all:*)
       local rest="${signal#contains_all:}"
       printf '%s' "$normalized_text" | stdin_contains_all_parts "$rest"
+      ;;
+    exact_count:*)
+      local spec="${signal#exact_count:}"
+      printf '%s' "$normalized_text" | stdin_count_occurrences "exact_count" "$spec"
+      ;;
+    min_count:*)
+      local spec="${signal#min_count:}"
+      printf '%s' "$normalized_text" | stdin_count_occurrences "min_count" "$spec"
+      ;;
+    max_count:*)
+      local spec="${signal#max_count:}"
+      printf '%s' "$normalized_text" | stdin_count_occurrences "max_count" "$spec"
       ;;
     not_contains:*)
       [[ "$normalized_text" != *"${signal#not_contains:}"* ]]

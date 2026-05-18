@@ -228,6 +228,7 @@ fn extract_raw_page_from_page(
     text_ops,
     images,
     annotations: annotation_result.annotations,
+    forms: annotation_result.forms,
     raw_content_stream_refs: content_stream_refs(page.content),
     issues,
   }

@@ -67,8 +67,8 @@ fn parse_delimited_file_with_profile_impl(
   )
 
   let decode_started = @env.now()
-  let text = decode_delimited_utf8_text(bytes) catch {
-    e => raise @cor.AppError("csv: utf8 decode failed: " + e.to_string())
+  let text = decode_delimited_text(bytes, format) catch {
+    e => raise @cor.AppError("csv: text decode failed: " + e.to_string())
   }
   csv_profile_add_stage(
     profile,
@@ -157,15 +157,68 @@ fn format_label(format : DelimitedFormat) -> String {
 }
 
 ///|
+fn decode_delimited_text(
+  bytes : Bytes,
+  format : DelimitedFormat,
+) -> String raise {
+  let utf8_result = try? decode_delimited_utf8_text(bytes)
+  match utf8_result {
+    Ok(text) => text
+    Err(_) =>
+      match decode_delimited_cp932_text(bytes) {
+        Some(text) =>
+          if looks_like_delimited_text(text, format) {
+            normalize_delimited_text_non_bmp(text)
+          } else {
+            raise @cor.AppError("csv: unsupported text encoding")
+          }
+        None => raise @cor.AppError("csv: unsupported text encoding")
+      }
+  }
+}
+
+///|
 fn decode_delimited_utf8_text(bytes : Bytes) -> String raise {
   let decoded = @utf8.decode(bytes, ignore_bom=false) catch {
     _ => raise @cor.Utf8DecodeError("csv: invalid utf8")
   }
+  normalize_delimited_text_non_bmp(decoded)
+}
 
+///|
+fn looks_like_delimited_text(text : String, format : DelimitedFormat) -> Bool {
+  if has_disallowed_delimited_control_char(text) {
+    return false
+  }
+  text.contains(delimiter_for_format(format)) ||
+  text.contains("\n") ||
+  text.contains("\r")
+}
+
+///|
+fn delimiter_for_format(format : DelimitedFormat) -> String {
+  match format {
+    DelimitedFormat::Csv => ","
+    DelimitedFormat::Tsv => "\t"
+  }
+}
+
+///|
+fn has_disallowed_delimited_control_char(text : String) -> Bool {
+  for ch in text.to_array() {
+    let cp = ch.to_int()
+    if cp < 0x20 && ch != '\n' && ch != '\r' && ch != '\t' {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn normalize_delimited_text_non_bmp(decoded : String) -> String {
   if !contains_non_bmp_char(decoded) {
     return decoded
   }
-
   let out = StringBuilder::new()
   for ch in decoded.to_array() {
     let cp = ch.to_int()

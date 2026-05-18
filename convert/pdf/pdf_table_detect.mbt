@@ -75,10 +75,10 @@ fn collect_pdf_table_cell_blocks(
       !allow_numeric_table_candidate_block(page, block, text) {
       continue
     }
-    if looks_like_paragraph_table_reject_block(text) ||
-      looks_like_list_like_table_reject_block(text) ||
-      looks_like_toc_like_table_reject_block(text) ||
-      looks_like_caption_like_table_reject_block(text) {
+    if looks_like_paragraph_table_reject_block_normalized(text) ||
+      looks_like_list_like_table_reject_block_normalized(text) ||
+      looks_like_toc_like_table_reject_block_normalized(text) ||
+      looks_like_caption_like_table_reject_block_normalized(text) {
       continue
     }
     out.push({
@@ -112,11 +112,11 @@ fn allow_numeric_table_candidate_block(
   block : PdfConvertBlock,
   text : String,
 ) -> Bool {
-  if !looks_like_numeric_table_cell(text) {
+  if !looks_like_numeric_table_cell_normalized(text) {
     return false
   }
 
-  if normalize_pdf_comparison_text(block.text).length() > 8 {
+  if text.length() > 8 {
     return false
   }
 
@@ -617,32 +617,12 @@ fn count_numeric_like_cells(row : Array[String]) -> Int {
 
 ///|
 fn looks_like_numeric_table_cell(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
-  if t == "" {
-    return false
-  }
-  let mut digit = 0
-  let mut other = 0
-  for ch in t.to_array() {
-    if ch >= '0' && ch <= '9' {
-      digit = digit + 1
-    } else if ch == '.' ||
-      ch == ',' ||
-      ch == '%' ||
-      ch == '-' ||
-      ch == '+' ||
-      ch == ' ' {
-      ()
-    } else {
-      other = other + 1
-    }
-  }
-  digit > 0 && other == 0
+  looks_like_numeric_table_cell_normalized(normalize_pdf_comparison_text(text))
 }
 
 ///|
 fn normalize_pdf_table_cell_text(text : String) -> String {
-  if !looks_like_numeric_table_cell(text) {
+  if !looks_like_numeric_table_cell_normalized(text) {
     return text
   }
 
@@ -682,8 +662,8 @@ fn count_short_label_cells(row : Array[String]) -> Int {
     let t = normalize_pdf_comparison_text(cell)
     if t != "" &&
       t.length() <= 24 &&
-      !ends_like_sentence_for_pdf_table(t) &&
-      !looks_like_numeric_table_cell(t) {
+      !ends_like_sentence_for_pdf_table_normalized(t) &&
+      !looks_like_numeric_table_cell_normalized(t) {
       out = out + 1
     }
   }
@@ -691,31 +671,31 @@ fn count_short_label_cells(row : Array[String]) -> Int {
 }
 
 ///|
-fn looks_like_paragraph_table_reject_block(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
+fn looks_like_paragraph_table_reject_block_normalized(text : String) -> Bool {
+  let t = text
   if t == "" {
     return true
   }
   if @text.looks_like_intro_phrase(t) {
     return true
   }
-  let words = pdf_table_word_count(t)
+  let words = pdf_table_word_count_normalized(t)
   if words >= 14 {
     return true
   }
-  if ends_like_sentence_for_pdf_table(t) && words >= 6 {
+  if ends_like_sentence_for_pdf_table_normalized(t) && words >= 6 {
     return true
   }
   false
 }
 
 ///|
-fn looks_like_list_like_table_reject_block(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
+fn looks_like_list_like_table_reject_block_normalized(text : String) -> Bool {
+  let t = text
   if t == "" {
     return false
   }
-  if looks_like_numeric_table_cell(t) {
+  if looks_like_numeric_table_cell_normalized(t) {
     return false
   }
 
@@ -763,14 +743,14 @@ fn is_space_like_table_char(ch : Char) -> Bool {
 }
 
 ///|
-fn looks_like_toc_like_table_reject_block(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
+fn looks_like_toc_like_table_reject_block_normalized(text : String) -> Bool {
+  let t = text
   t.contains("....") || t.contains(". . . .") || t.contains("\u{2026}")
 }
 
 ///|
-fn looks_like_caption_like_table_reject_block(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
+fn looks_like_caption_like_table_reject_block_normalized(text : String) -> Bool {
+  let t = text
   let lower = t.to_lower()
   lower.has_prefix("figure ") ||
   lower.has_prefix("fig. ") ||
@@ -781,8 +761,8 @@ fn looks_like_caption_like_table_reject_block(text : String) -> Bool {
 }
 
 ///|
-fn ends_like_sentence_for_pdf_table(text : String) -> Bool {
-  let t = normalize_pdf_comparison_text(text)
+fn ends_like_sentence_for_pdf_table_normalized(text : String) -> Bool {
+  let t = text
   t.has_suffix(".") ||
   t.has_suffix("!") ||
   t.has_suffix("?") ||
@@ -792,10 +772,10 @@ fn ends_like_sentence_for_pdf_table(text : String) -> Bool {
 }
 
 ///|
-fn pdf_table_word_count(text : String) -> Int {
+fn pdf_table_word_count_normalized(text : String) -> Int {
   let mut count = 0
   let mut in_word = false
-  for ch in normalize_pdf_comparison_text(text).to_array() {
+  for ch in text.to_array() {
     if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
       if in_word {
         in_word = false
@@ -842,7 +822,7 @@ fn looks_like_two_column_table_false_positive(
   let mut longish_cells = 0
   for row in run {
     for cell in row {
-      if pdf_table_word_count(cell.text) >= 5 {
+      if pdf_table_word_count_normalized(cell.text) >= 5 {
         longish_cells = longish_cells + 1
       }
     }
@@ -860,11 +840,11 @@ fn looks_like_paragraphish_table_region(
   for row in run {
     for cell in row {
       total += 1
-      let words = pdf_table_word_count(cell.text)
+      let words = pdf_table_word_count_normalized(cell.text)
       if words >= 6 {
         longish += 1
       }
-      if ends_like_sentence_for_pdf_table(cell.text) {
+      if ends_like_sentence_for_pdf_table_normalized(cell.text) {
         sentence_like += 1
       }
     }
@@ -886,7 +866,7 @@ fn looks_like_list_like_table_region(
   for row in run {
     for cell in row {
       total += 1
-      if looks_like_list_like_table_reject_block(cell.text) {
+      if looks_like_list_like_table_reject_block_normalized(cell.text) {
         list_like += 1
       }
     }
@@ -903,7 +883,7 @@ fn looks_like_toc_like_table_region(
   for row in run {
     for cell in row {
       total += 1
-      if looks_like_toc_like_table_reject_block(cell.text) {
+      if looks_like_toc_like_table_reject_block_normalized(cell.text) {
         toc_like += 1
       }
     }
@@ -920,12 +900,37 @@ fn looks_like_caption_like_table_region(
   for row in run {
     for cell in row {
       total += 1
-      if looks_like_caption_like_table_reject_block(cell.text) {
+      if looks_like_caption_like_table_reject_block_normalized(cell.text) {
         caption_like += 1
       }
     }
   }
   total > 0 && caption_like * 2 >= total
+}
+
+///|
+fn looks_like_numeric_table_cell_normalized(text : String) -> Bool {
+  let t = text
+  if t == "" {
+    return false
+  }
+  let mut digit = 0
+  let mut other = 0
+  for ch in t.to_array() {
+    if ch >= '0' && ch <= '9' {
+      digit = digit + 1
+    } else if ch == '.' ||
+      ch == ',' ||
+      ch == '%' ||
+      ch == '-' ||
+      ch == '+' ||
+      ch == ' ' {
+      ()
+    } else {
+      other = other + 1
+    }
+  }
+  digit > 0 && other == 0
 }
 
 ///|

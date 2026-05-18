@@ -79,6 +79,7 @@ fn make_merge_page(
     blocks,
     images,
     annotations: [],
+    forms: [],
     objects: [],
   }
 }

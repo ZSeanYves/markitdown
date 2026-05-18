@@ -1541,7 +1541,16 @@ fn read_html_attr_value(tag : String, attr_name : String) -> String? {
 
 ///|
 fn sanitize_html_href(raw_href : String) -> String? {
-  let href = html_unescape(raw_href).trim().to_owned()
+  let href0 = html_unescape(raw_href).trim().to_owned()
+  let href = match unwrap_known_html_redirect_href(href0) {
+    Some(target) => target
+    None =>
+      if is_known_html_redirect_href(href0) {
+        return None
+      } else {
+        href0
+      }
+  }
   if href == "" {
     return None
   }
@@ -1554,6 +1563,67 @@ fn sanitize_html_href(raw_href : String) -> String? {
   }
 
   Some(href)
+}
+
+///|
+fn is_known_html_redirect_href(href : String) -> Bool {
+  let lower = href.to_lower()
+  lower.has_prefix("https://www.bing.com/ck/a") ||
+  lower.has_prefix("http://www.bing.com/ck/a") ||
+  lower.has_prefix("https://bing.com/ck/a") ||
+  lower.has_prefix("http://bing.com/ck/a")
+}
+
+///|
+fn unwrap_known_html_redirect_href(href : String) -> String? {
+  if !is_known_html_redirect_href(href) {
+    return None
+  }
+  let parts = href.split("?").to_array()
+  if parts.length() < 2 {
+    None
+  } else {
+    extract_bing_click_redirect_target(parts[1].to_owned())
+  }
+}
+
+///|
+fn extract_bing_click_redirect_target(query : String) -> String? {
+  for part in query.split("&") {
+    let item = part.to_owned()
+    if item.has_prefix("u=") {
+      let raw = item[2:item.length()].trim().to_owned()
+      if raw == "" {
+        return None
+      }
+      if raw.has_prefix("http://") ||
+        raw.has_prefix("https://") ||
+        raw.has_prefix("/") {
+        return Some(raw)
+      }
+      if raw.has_prefix("a1") {
+        let payload = raw[2:raw.length()]
+        try @base64.decode(payload, url_safe=false) catch {
+          _ => ()
+        } noraise {
+          bytes =>
+            try @utf8.decode(bytes, ignore_bom=false) catch {
+              _ => ()
+            } noraise {
+              decoded => {
+                let target = decoded.trim().to_owned()
+                if target.has_prefix("http://") ||
+                  target.has_prefix("https://") ||
+                  target.has_prefix("/") {
+                  return Some(target)
+                }
+              }
+            }
+        }
+      }
+    }
+  }
+  None
 }
 
 ///|

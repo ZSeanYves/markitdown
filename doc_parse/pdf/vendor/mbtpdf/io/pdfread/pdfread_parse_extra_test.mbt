@@ -69,3 +69,34 @@ test "parse returns null when failure_is_ok" {
     _ => fail("expected null fallback object")
   }
 }
+
+///|
+test "lex_object_at parses consecutive object-stream-like dictionaries independently" {
+  let data = "<</AP<</N 75 0 R>>/TU(One)/Type/Annot/V(A)>><</AP<</N 74 0 R>>/TU(Two)/Type/Annot/V(B)>>"
+  let bytes = @pdfio.bytes_of_string(data)
+  let first_input = @pdfio.Input::of_bytes(bytes[:44].to_owned())
+  let first_tokens = @pdfsyntax.PdfSyntax::new().lex_object_at(
+    true,
+    first_input,
+    true,
+    _ => [],
+  )
+  let (_, first_obj) = @pdfsyntax.PdfSyntax::new().parse(first_tokens)
+  match @pdf.Pdf::empty().lookup_direct("/V", first_obj) {
+    Some(@pdf.PdfObject::String("A")) => ()
+    _ => fail("expected first object /V")
+  }
+
+  let second_input = @pdfio.Input::of_bytes(bytes[44:].to_owned())
+  let second_tokens = @pdfsyntax.PdfSyntax::new().lex_object_at(
+    true,
+    second_input,
+    true,
+    _ => [],
+  )
+  let (_, second_obj) = @pdfsyntax.PdfSyntax::new().parse(second_tokens)
+  match @pdf.Pdf::empty().lookup_direct("/V", second_obj) {
+    Some(@pdf.PdfObject::String("B")) => ()
+    _ => fail("expected second object /V")
+  }
+}

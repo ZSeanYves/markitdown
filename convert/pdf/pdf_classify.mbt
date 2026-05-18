@@ -54,6 +54,7 @@ fn classify_convert_page_blocks(
     blocks,
     images: page.images,
     annotations: page.annotations,
+    forms: page.forms,
     objects: page.objects,
   })
 }

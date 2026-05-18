@@ -5,13 +5,13 @@ fn zip_test_root() -> String raise {
     None => ".tmp"
   }
   let out = root + "/zip-tests"
-  ensure_dir_tree(out)
+  @zipcore.ensure_dir_tree(out)
   out
 }
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(try? @zipcore.remove_dir_recursive(path))
 }
 
 ///|
@@ -29,28 +29,24 @@ fn assert_opt_string_eq(
 test "zip remap_subdoc_assets rewrites paths and asset origins" {
   let root = zip_test_root()
   let out_dir = root + "/remap_subdoc_assets"
-  recreate_clean_dir(out_dir)
+  @zipcore.recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
   let entry_out_dir = out_dir + "/entry"
   let archive_out_dir = out_dir + "/archive"
-  ensure_dir_tree(entry_out_dir + "/assets")
-  ensure_dir_tree(archive_out_dir)
+  @zipcore.ensure_dir_tree(entry_out_dir + "/assets")
+  @zipcore.ensure_dir_tree(archive_out_dir)
 
   @fs.write_string_to_file(
     entry_out_dir + "/assets/image01.png",
     "docx-image",
     encoding="utf8",
-  ) catch {
-    e => fail("write image01 failed: " + e.to_string())
-  }
+  )
   @fs.write_string_to_file(
     entry_out_dir + "/assets/image02.jpg",
     "legacy-image",
     encoding="utf8",
-  ) catch {
-    e => fail("write image02 failed: " + e.to_string())
-  }
+  )
 
   let doc = @cor.new_document()
   @cor.push(
@@ -79,7 +75,7 @@ test "zip remap_subdoc_assets rewrites paths and asset origins" {
     key_path: None,
   })
 
-  let remapped = remap_subdoc_assets(
+  let remapped = @zipcore.remap_subdoc_assets(
     doc, "docs_report.docx", entry_out_dir, archive_out_dir, "bundle.zip", "docs/report.docx",
   )
 
@@ -177,11 +173,11 @@ test "zip remap_subdoc_assets rewrites paths and asset origins" {
 test "zip remap_subdoc_assets namespaces duplicate asset names per entry" {
   let root = zip_test_root()
   let out_dir = root + "/remap_duplicate_names"
-  recreate_clean_dir(out_dir)
+  @zipcore.recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
   let archive_out_dir = out_dir + "/archive"
-  ensure_dir_tree(archive_out_dir)
+  @zipcore.ensure_dir_tree(archive_out_dir)
 
   fn build_image_doc(path : String) -> @cor.Document {
     let doc = @cor.new_document()
@@ -214,25 +210,21 @@ test "zip remap_subdoc_assets namespaces duplicate asset names per entry" {
 
   let first_entry_out = out_dir + "/first"
   let second_entry_out = out_dir + "/second"
-  ensure_dir_tree(first_entry_out + "/assets")
-  ensure_dir_tree(second_entry_out + "/assets")
+  @zipcore.ensure_dir_tree(first_entry_out + "/assets")
+  @zipcore.ensure_dir_tree(second_entry_out + "/assets")
   @fs.write_string_to_file(
     first_entry_out + "/assets/image01.png",
     "first",
     encoding="utf8",
-  ) catch {
-    e => fail("write first asset failed: " + e.to_string())
-  }
+  )
   @fs.write_string_to_file(
     second_entry_out + "/assets/image01.png",
     "second",
     encoding="utf8",
-  ) catch {
-    e => fail("write second asset failed: " + e.to_string())
-  }
+  )
 
   ignore(
-    remap_subdoc_assets(
+    @zipcore.remap_subdoc_assets(
       build_image_doc("assets/image01.png"),
       "docs_report.docx",
       first_entry_out,
@@ -242,7 +234,7 @@ test "zip remap_subdoc_assets namespaces duplicate asset names per entry" {
     ),
   )
   ignore(
-    remap_subdoc_assets(
+    @zipcore.remap_subdoc_assets(
       build_image_doc("assets/image01.png"),
       "slides_overview.pptx",
       second_entry_out,
@@ -254,14 +246,10 @@ test "zip remap_subdoc_assets namespaces duplicate asset names per entry" {
 
   let first_bytes = @fs.read_file_to_bytes(
     archive_out_dir + "/assets/archive/docs_report.docx/image01.png",
-  ) catch {
-    e => fail("read first copied asset failed: " + e.to_string())
-  }
+  )
   let second_bytes = @fs.read_file_to_bytes(
     archive_out_dir + "/assets/archive/slides_overview.pptx/image01.png",
-  ) catch {
-    e => fail("read second copied asset failed: " + e.to_string())
-  }
+  )
 
   if first_bytes == second_bytes {
     fail("expected namespaced archive assets to keep distinct contents")

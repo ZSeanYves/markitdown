@@ -236,7 +236,7 @@ fn make_layout_assist_prediction(
 ///|
 pub fn classify_model_decisions_as_layout_assist(
   features : Array[LayoutAssistFeature],
-  decisions : Array[@pdfcore.PdfLayoutModelDecision],
+  decisions : Array[@pdflayout.PdfLayoutModelDecision],
   provider? : String = "linear-layout-assist",
   mode? : LayoutAssistMode = LayoutAssistMode::ReportOnly,
 ) -> Array[LayoutAssistPrediction] {

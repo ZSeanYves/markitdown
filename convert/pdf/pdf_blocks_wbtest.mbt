@@ -58,6 +58,7 @@ fn make_block_test_page(lines : Array[PdfConvertLine]) -> PdfConvertPage {
     blocks: [],
     images: [],
     annotations: [],
+    forms: [],
     objects: [],
   }
 }

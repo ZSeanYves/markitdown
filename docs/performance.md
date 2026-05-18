@@ -86,19 +86,22 @@ Cold CLI startup is tracked separately.
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `62.73s`
-* `pdf build`: `67.42s`
-* `zip build`: `61.88s`
-* `ocr build`: `53.14s`
-* `cli.exe`: `3649640` bytes
-* `pdf.exe`: `4278680` bytes
-* `zip.exe`: `3442056` bytes
-* `ocr.exe`: `1644328` bytes
-* `cli.c`: `394425` lines
-* `pdf.c`: `442901` lines
-* `zip.c`: `370607` lines
+* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
+* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
+* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
+* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli.exe`: `3790168` bytes (~`3.6M`)
+* `pdf.exe`: `4354040` bytes
+* `zip.exe`: `3601656` bytes (~`3.4M`)
+* `ocr.exe`: `1644328` bytes (~`1.6M`)
+* `cli.c`: `401407` lines
+* `pdf.c`: `450869` lines
+* `zip.c`: `378571` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
+* `zip mbtpdf count`: `0`
+* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
+  closure into product `cli` or delegated product `zip`
 
 These numbers are a local clean native build snapshot, not a cross-machine
 guarantee.
@@ -112,8 +115,14 @@ Current interpretation:
 
 * main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
 * heavy native text-PDF cost stays behind bundled `pdf`
-* `zip` uses `convert/zip_worker` and delegates embedded PDF entries to `pdf`
-  so it does not directly absorb the full PDF closure
+* `convert/pdf` keeps the normal PDF runtime only; layout model / JSON / TSV
+  export / infer tooling lives in `convert/pdf_layout` and is consumed by
+  debug/tooling surfaces instead
+* product `zip` uses `convert/zip_worker` and delegates embedded PDF entries
+  to `pdf`, so it stays `mbtpdf=0`
+* shared ZIP traversal / asset remap / metadata / origin logic now lives in
+  `convert/zip_core` instead of being duplicated between full and delegated
+  ZIP paths
 * a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
   `30M / 653k` generated-C lines and about `24.6s` cold rebuild time on the
   recent Ubuntu audit runner, so the repository keeps the bundled-component
@@ -126,14 +135,16 @@ MarkItDown when a pinned Python runner is available locally.
 
 Current checked local run:
 
-* date: `2026-05-17`
+* date: `2026-05-19`
 * machine: `macOS 15.3`, `arm64`
 * competitor: `Microsoft MarkItDown 0.1.5`
 * corpus: `samples/benchmark/compare_corpus.tsv`
 * rows: `47` overlap samples per runner
-* `markitdown-mb` average sample time: `11.064 ms`
-* `markitdown-python` average sample time: `435.660 ms`
-* observed ratio on this overlap corpus: Python runner about `39.4x` slower
+* total runs: `282`
+* failures: `0`
+* compare meaning: `sample-scoped`
+* `markitdown-mb` average sample time: `11.009 ms`
+* `markitdown-python` average sample time: `421.715 ms`
 
 Interpret this conservatively:
 

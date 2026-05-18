@@ -202,12 +202,12 @@ fn ascii_lower_byte(b : Byte) -> Byte {
 ///|
 fn html_unescape(s : String) -> String {
   let t = s
-    .replace(old="&lt;", new="<")
-    .replace(old="&gt;", new=">")
-    .replace(old="&amp;", new="&")
-    .replace(old="&quot;", new="\"")
-    .replace(old="&nbsp;", new=" ")
-    .replace(old="&apos;", new="'")
+    .replace_all(old="&lt;", new="<")
+    .replace_all(old="&gt;", new=">")
+    .replace_all(old="&amp;", new="&")
+    .replace_all(old="&quot;", new="\"")
+    .replace_all(old="&nbsp;", new=" ")
+    .replace_all(old="&apos;", new="'")
   @cor.decode_numeric_entities(t)
 }
 

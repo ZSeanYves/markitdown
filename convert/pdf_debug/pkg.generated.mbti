@@ -2,7 +2,7 @@
 package "ZSeanYves/markitdown/convert/pdf_debug"
 
 import {
-  "ZSeanYves/markitdown/convert/pdf",
+  "ZSeanYves/markitdown/convert/pdf_layout",
   "ZSeanYves/markitdown/core",
   "ZSeanYves/markitdown/doc_parse/pdf/model",
 }
@@ -12,7 +12,7 @@ pub fn build_pdf_debug_sections(@model.PdfDocumentModel, Int) -> Array[@core.Deb
 
 pub fn build_pdf_layout_assist_summary(@model.PdfDocumentModel, Int) -> LayoutAssistSummary
 
-pub fn classify_model_decisions_as_layout_assist(Array[LayoutAssistFeature], Array[@pdf.PdfLayoutModelDecision], provider? : String, mode? : LayoutAssistMode) -> Array[LayoutAssistPrediction]
+pub fn classify_model_decisions_as_layout_assist(Array[LayoutAssistFeature], Array[@pdf_layout.PdfLayoutModelDecision], provider? : String, mode? : LayoutAssistMode) -> Array[LayoutAssistPrediction]
 
 pub fn heuristic_layout_assist_provider_info() -> LayoutAssistProviderInfo
 
