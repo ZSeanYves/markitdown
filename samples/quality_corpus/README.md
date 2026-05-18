@@ -79,6 +79,9 @@ Multiple signals are separated with `;`.
 Useful signal patterns for early external intake:
 
 * `contains_all:a|b|c` for multiple required anchors
+* `exact_count:text=1` to require an exact non-overlapping substring count
+* `min_count:text=2` to require at least N non-overlapping occurrences
+* `max_count:text=1` to guard against duplicate appendix/headings/rows
 * `not_contains:text` for obvious bad artifacts
 * `max_long_token_len:n` for token-join / spacing regressions
 * `review_note:text` for non-blocking reviewer notes
