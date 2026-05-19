@@ -595,16 +595,23 @@ Known limits:
 * the current normal-path layout gate is intentionally much narrower than the
   report-only provider/model pipeline and does not imply broad model-backed PDF
   control
-* the local external quality corpus currently passes at `223` rows with
+* the local external quality corpus currently passes at `270` rows with
   `1` skipped row and `0` expected failures; this is a local-only validation
   snapshot rather than a blanket quality percentage or release artifact
-* current focused Office coverage in that local snapshot is `54` DOCX rows,
-  `50` PPTX rows, and `38` XLSX rows
+* current focused Office coverage in that local snapshot is `59` DOCX rows,
+  `54` PPTX rows, and `49` XLSX rows
+* current focused horizontal coverage in that local snapshot is `11` ZIP rows,
+  `15` EPUB rows, `9` XML rows, `9` CSV rows, and `5` HTML rows
 * current Office external-fixture-driven hardening coverage includes:
   DOCX comments/footnotes/endnotes/images/SVG/hyperlinks/body-order/table
   interleaving; PPTX notes/comments/charts/tables/hyperlinks/alignment/grouped
   content; XLSX tables/formulas/hidden sheets/hidden rows/comments/multi-sheet
   ordering/table boundaries
+* current horizontal external-fixture-driven hardening coverage includes:
+  ZIP metadata/assets/entry-origin/asset-remap/container boundaries; EPUB
+  nav/spine/layout-flow/multimedia/styling order; XML
+  namespaces/long-attributes/pronunciation-lexicon/encoding boundaries; and
+  CSV cp932 fallback coverage
 * those local rows now rely heavily on signal assertions such as
   `exact_count`, `min_count`, `max_count`, `order`, `not_contains`,
   `table_marker`, and asset/image guards rather than full-output snapshots

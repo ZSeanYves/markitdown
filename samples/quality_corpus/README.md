@@ -34,13 +34,14 @@ Current limitations:
 
 Current local external snapshot:
 
-* current pass status: `223` rows, `1` skipped, `0` expected_fail
-* focused Office rows: `DOCX 54`, `PPTX 50`, `XLSX 38`
+* current pass status: `270` rows, `1` skipped, `0` expected_fail
+* focused Office rows: `DOCX 59`, `PPTX 54`, `XLSX 49`
+* focused horizontal rows: `ZIP 11`, `EPUB 15`, `XML 9`, `CSV 9`, `HTML 5`
 * this is a local-only external corpus snapshot, not a release artifact
 * `.external/quality_corpus` stays local-only and is not committed
 * `samples/quality_corpus/external_manifest.local.tsv` stays local-only and is
   not committed
-* current Office corpus expansion is external-fixture-driven, not
+* current corpus expansion is external-fixture-driven, not
   synthetic-only
 * `expected_fail: 0` here does not mean universal support for every boundary
 * known policy boundaries remain documented separately
@@ -159,6 +160,15 @@ Current Office expansion focus includes:
   content
 * XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
   ordering, and table boundaries
+
+Current horizontal expansion focus includes:
+
+* ZIP: metadata, assets, entry-origin headings, asset remap, and container
+  boundaries
+* EPUB: nav/spine, layout-flow, multimedia, styling, and chapter/section order
+* XML: namespaces, long attributes, pronunciation lexicons, and encoding
+  boundaries
+* CSV: quoted-field structure plus cp932/mskanji fallback coverage
 
 The current local corpus relies heavily on signal assertions such as:
 

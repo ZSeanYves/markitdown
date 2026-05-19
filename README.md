@@ -39,14 +39,20 @@ OCR remains explicit-only.
 
 Current local external corpus status:
 
-* rows: `223`
+* rows: `270`
 * result: pass
 * skipped: `1`
 * expected_fail: `0`
 * focused Office rows:
-  * `DOCX`: `54`
-  * `PPTX`: `50`
-  * `XLSX`: `38`
+  * `DOCX`: `59`
+  * `PPTX`: `54`
+  * `XLSX`: `49`
+* focused horizontal rows:
+  * `ZIP`: `11`
+  * `EPUB`: `15`
+  * `XML`: `9`
+  * `CSV`: `9`
+  * `HTML`: `5`
 
 Interpretation:
 
@@ -56,7 +62,7 @@ Interpretation:
 * this is a local-only external corpus snapshot, not a release artifact
 * private/local rows remain intentionally separate from checked-in exact
   regression samples
-* current Office corpus expansion is external-fixture-driven, not
+* current corpus expansion is external-fixture-driven, not
   synthetic-only
 * known policy boundaries remain documented separately
 * `expected_fail: 0` does not mean every boundary case is universally covered
@@ -92,12 +98,21 @@ Current Office hardening coverage includes:
 * XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
   ordering, and table boundaries
 
+Current horizontal hardening coverage includes:
+
+* ZIP: metadata, assets, entry-origin headings, asset remap, and container
+  boundaries
+* EPUB: nav/spine, layout-flow, multimedia, styling, and chapter/section order
+* XML: namespaces, long attributes, pronunciation lexicons, and encoding
+  boundaries
+* CSV: quoted-field structure plus cp932/mskanji fallback coverage
+
 ## Mainstream Comparison Policy
 
 This README does not claim a blanket “mainstream quality percentage” unless a
 local reproducible compare run defines the tool version, corpus, and metric.
 
-Current measured quality is tracked by the `223`-row local external corpus plus
+Current measured quality is tracked by the `270`-row local external corpus plus
 the repository validation suites.
 
 If you want a competitor percentage, run a pinned compare workflow first and
