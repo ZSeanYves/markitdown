@@ -263,3 +263,25 @@ test "html text cleanup does not alter href src alt or title attributes" {
     _ => fail("expected exported image block for local html image")
   }
 }
+
+///|
+test "html unwraps bing click redirect links to canonical targets" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_bing_redirect.html"
+  write_utf8_text(
+    sample_path,
+    "<p><a href=\"https://www.bing.com/ck/a?!&&amp;p=abc&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9kb2Nz&amp;ntb=1\">Docs</a></p>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_eq(markdown, "[Docs](https://example.com/docs)\n")
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(has_link(inlines, "Docs", "https://example.com/docs"))
+    _ => fail("expected rich paragraph for bing redirect sample")
+  }
+}
