@@ -63,6 +63,9 @@ Current product-path CLI contract:
   product packaging; normal users should stay on `cli`
 * `zip` delegates embedded PDF entries to `pdf`, so the ZIP component
   no longer embeds the full PDF native-text closure
+* recent CSV `cp932/mskanji` fallback hardening is now sealed behind a
+  CSV-local decoding helper and no longer pulls vendored PDF closure into the
+  lightweight product `cli` or delegated product `zip`
 * explicit OCR remains a user-visible product subcommand on `cli`, but the
   launcher delegates execution to `ocr`
 * debug surfaces live on dedicated binaries such as `debug`

@@ -115,17 +115,17 @@ Internal implementation note:
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `61.08s`
-* `pdf build`: `66.33s`
-* `zip build`: `60.46s`
-* `ocr build`: `51.74s`
-* `cli.exe`: `3649640` bytes
+* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
+* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
+* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
+* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli.exe`: `3790168` bytes (~`3.6M`)
 * `pdf.exe`: `4354040` bytes
-* `zip.exe`: `3444632` bytes
-* `ocr.exe`: `1644328` bytes
-* `cli.c`: `394425` lines
+* `zip.exe`: `3601656` bytes (~`3.4M`)
+* `ocr.exe`: `1644328` bytes (~`1.6M`)
+* `cli.c`: `401407` lines
 * `pdf.c`: `450869` lines
-* `zip.c`: `371589` lines
+* `zip.c`: `378571` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
 * `zip mbtpdf count`: `0`
@@ -135,6 +135,8 @@ Current guardrail notes:
 * main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
 * product `zip` stays on the delegated `convert/zip_worker` path and should
   remain `mbtpdf=0`
+* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
+  closure into product `cli` or delegated product `zip`
 * a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
   `30M / 653k` generated-C lines on the recent Ubuntu audit runner
 * the accepted design therefore keeps PDF and ZIP on the user-visible `cli`
@@ -208,6 +210,9 @@ Interpret benchmark output conservatively:
   PDF/ZIP support components kept for build guardrails, and treat `debug`,
   `ocr`, and `bench` numbers as dev/auxiliary surfaces rather than
   default-user startup costs
+* the current checked local compare run against Microsoft MarkItDown 0.1.5
+  completed `282` runs with `0` failures and remains `sample-scoped`; do not
+  turn that overlap corpus into a universal speed guarantee
 * the current local Ubuntu audit keeps normal `cli` out of the vendored PDF
   closure, trims `pdf` further through a parse-only `pdfopsread` package
   plus compact Shift-JIS and glyph lookup payloads, and measures one recent

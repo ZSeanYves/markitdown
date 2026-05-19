@@ -86,20 +86,22 @@ Cold CLI startup is tracked separately.
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `61.08s`
-* `pdf build`: `66.33s`
-* `zip build`: `60.46s`
-* `ocr build`: `51.74s`
-* `cli.exe`: `3649640` bytes
+* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
+* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
+* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
+* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli.exe`: `3790168` bytes (~`3.6M`)
 * `pdf.exe`: `4354040` bytes
-* `zip.exe`: `3444632` bytes
-* `ocr.exe`: `1644328` bytes
-* `cli.c`: `394425` lines
+* `zip.exe`: `3601656` bytes (~`3.4M`)
+* `ocr.exe`: `1644328` bytes (~`1.6M`)
+* `cli.c`: `401407` lines
 * `pdf.c`: `450869` lines
-* `zip.c`: `371589` lines
+* `zip.c`: `378571` lines
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
 * `zip mbtpdf count`: `0`
+* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
+  closure into product `cli` or delegated product `zip`
 
 These numbers are a local clean native build snapshot, not a cross-machine
 guarantee.
@@ -133,14 +135,16 @@ MarkItDown when a pinned Python runner is available locally.
 
 Current checked local run:
 
-* date: `2026-05-17`
+* date: `2026-05-19`
 * machine: `macOS 15.3`, `arm64`
 * competitor: `Microsoft MarkItDown 0.1.5`
 * corpus: `samples/benchmark/compare_corpus.tsv`
 * rows: `47` overlap samples per runner
-* `markitdown-mb` average sample time: `11.064 ms`
-* `markitdown-python` average sample time: `435.660 ms`
-* observed ratio on this overlap corpus: Python runner about `39.4x` slower
+* total runs: `282`
+* failures: `0`
+* compare meaning: `sample-scoped`
+* `markitdown-mb` average sample time: `11.009 ms`
+* `markitdown-python` average sample time: `421.715 ms`
 
 Interpret this conservatively:
 
