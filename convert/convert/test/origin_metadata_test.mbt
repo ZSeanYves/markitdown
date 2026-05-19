@@ -87,6 +87,24 @@ fn write_utf8_text(path : String, text : String) -> Unit raise {
 }
 
 ///|
+fn write_origin_metadata_test_pdf(
+  path : String,
+  pdf : @mbtpdf_core.Pdf,
+) -> Unit raise {
+  let (output, buffer) = @pdfio.Output::of_bytes(2048)
+  @pdfwrite.PdfWrite::new().pdf_to_output(
+    preserve_objstm=true,
+    generate_objstm=false,
+    compress_objstm=true,
+    None,
+    true,
+    pdf,
+    output,
+  )
+  @fs.write_bytes_to_file(path, Bytes::from_array(output.extract_bytes(buffer)))
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -212,7 +230,7 @@ async fn write_metadata_simple_table_pdf(path : String) -> Unit {
   let page = metadata_pdf_page_from_ops(ops, rect)
   let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  @mbtpdf.write_file(pdf, path)
+  write_origin_metadata_test_pdf(path, pdf)
 }
 
 ///|
@@ -275,7 +293,7 @@ async fn write_metadata_headerless_numeric_table_pdf(path : String) -> Unit {
   let page = metadata_pdf_page_from_ops(ops, rect)
   let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  @mbtpdf.write_file(pdf, path)
+  write_origin_metadata_test_pdf(path, pdf)
 }
 
 ///|

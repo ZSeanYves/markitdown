@@ -57,7 +57,7 @@ async fn write_outline_fixture(path : String) -> Unit {
       flags: 0,
     },
   ])
-  @mbtpdf.write_file(pdf, path)
+  write_pdf_api_test_fixture(path, pdf)
 }
 
 ///|

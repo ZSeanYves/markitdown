@@ -1,0 +1,26 @@
+This directory contains repository-local PDF support code for `markitdown-mb`.
+
+Origin:
+- Originally derived from the upstream MoonBit package `bobzhang/mbtpdf`
+- Baseline vendoring source recorded by the repository as package version `0.1.2`
+
+Current status:
+- Maintained locally under `doc_parse/pdf/vendor/mbtpdf`
+- Trimmed and adapted for this repository's PDF parsing/runtime needs
+- Not maintained as a full upstream package mirror
+
+Repository boundary:
+- `doc_parse/pdf/raw` may import packages in this subtree directly
+- Higher `doc_parse/pdf` and `convert/pdf` layers should depend on repository
+  abstractions instead of exposing vendored package paths
+
+Attribution and licensing:
+- Upstream copyright and license terms remain governed by the preserved
+  `LICENSE` file in this directory
+- Local modifications in this repository are layered on top of that upstream
+  codebase
+
+Maintenance note:
+- When pruning unused files from this subtree, keep the required provenance and
+  license information intact even if package-local docs, scripts, or examples
+  are removed

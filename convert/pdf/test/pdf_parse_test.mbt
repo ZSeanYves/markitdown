@@ -65,6 +65,24 @@ fn ensure_dir_tree(path : String) -> Unit raise {
 }
 
 ///|
+fn write_convert_pdf_test_fixture(
+  path : String,
+  pdf : @mbtpdf_core.Pdf,
+) -> Unit raise {
+  let (output, buffer) = @pdfio.Output::of_bytes(2048)
+  @pdfwrite.PdfWrite::new().pdf_to_output(
+    preserve_objstm=true,
+    generate_objstm=false,
+    compress_objstm=true,
+    None,
+    true,
+    pdf,
+    output,
+  )
+  @fs.write_bytes_to_file(path, Bytes::from_array(output.extract_bytes(buffer)))
+}
+
+///|
 fn test_tmp_root() -> String {
   match @sys.get_env_var("MARKITDOWN_TMP_DIR") {
     Some(dir) => if dir.trim() == "" { ".tmp" } else { dir }
@@ -163,7 +181,7 @@ async fn write_uri_link_pdf(path : String) -> Unit {
   let page_obj = pdf.lookup_obj(refs[0])
   let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
   pdf.addobj_given_num((refs[0], updated_page))
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|
@@ -217,7 +235,7 @@ async fn write_wrapped_uri_link_pdf(path : String) -> Unit {
   let page_obj = pdf.lookup_obj(refs[0])
   let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
   pdf.addobj_given_num((refs[0], updated_page))
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|
@@ -251,7 +269,7 @@ async fn write_internal_dest_pdf(path : String) -> Unit {
   let page_obj = pdf.lookup_obj(refs[0])
   let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
   pdf.addobj_given_num((refs[0], updated_page))
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|
@@ -309,7 +327,7 @@ async fn write_named_destination_collision_pdf(path : String) -> Unit {
     Array([Indirect(foo_annot_num), Indirect(bar_annot_num)]),
   )
   pdf.addobj_given_num((refs[0], updated_page))
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|
@@ -692,7 +710,7 @@ async fn write_simple_table_pdf(path : String) -> Unit {
   let page = simple_pdf_page_from_ops(ops, rect)
   let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|
@@ -810,7 +828,7 @@ async fn write_headerless_numeric_table_pdf(path : String) -> Unit {
   let page = simple_pdf_page_from_ops(ops, rect)
   let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  @mbtpdf.write_file(pdf, path)
+  write_convert_pdf_test_fixture(path, pdf)
 }
 
 ///|

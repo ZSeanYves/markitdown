@@ -61,6 +61,21 @@ fn ensure_test_dir_tree(path : String) -> Unit raise {
 }
 
 ///|
+fn write_pdf_api_test_fixture(path : String, pdf : @pdf.Pdf) -> Unit raise {
+  let (output, buffer) = @pdfio.Output::of_bytes(2048)
+  @pdfwrite.PdfWrite::new().pdf_to_output(
+    preserve_objstm=true,
+    generate_objstm=false,
+    compress_objstm=true,
+    None,
+    true,
+    pdf,
+    output,
+  )
+  @fs.write_bytes_to_file(path, Bytes::from_array(output.extract_bytes(buffer)))
+}
+
+///|
 fn test_tmp_root() -> String {
   ".tmp"
 }
@@ -89,7 +104,7 @@ async fn write_malformed_annotation_pdf(path : String) -> Unit {
   let page_obj = pdf.lookup_obj(refs[0])
   let updated_page = page_obj.add_entry("/Annots", Array([Indirect(annot_num)]))
   pdf.addobj_given_num((refs[0], updated_page))
-  @mbtpdf.write_file(pdf, path)
+  write_pdf_api_test_fixture(path, pdf)
 }
 
 ///|

@@ -1,6 +1,6 @@
 ///|
 fn encoding_string(pdf : @pdf.Pdf, font : @pdf.PdfObject) -> String raise {
-  @pdftext.PdfText::new(pdf).read_encoding(font).to_string()
+  PdfText::new(pdf).read_encoding(font).to_string()
 }
 
 ///|
@@ -24,7 +24,7 @@ test "string_of_standard_font covers all names" {
   for pair in cases {
     let name = pair.0
     let expected = pair.1
-    match @pdftext.PdfTextUtil::new().standard_font_of_name(name) {
+    match PdfTextUtil::new().standard_font_of_name(name) {
       Some(font) => assert_eq(font.to_string(), expected)
       None => fail("expected standard font")
     }
@@ -34,7 +34,7 @@ test "string_of_standard_font covers all names" {
 ///|
 test "string_of_fonttype covers variants" {
   let pdf = @pdf.Pdf::empty()
-  let ctx = @pdftext.PdfText::new(pdf)
+  let ctx = PdfText::new(pdf)
   let dummy : @pdf.PdfObject = Dictionary([])
   match ctx.simple_fonttype_of_string(dummy, "/Type1") {
     Some(ft) => assert_eq(ft.to_string(), "Type 1")
@@ -124,7 +124,7 @@ test "string_of_encoding covers variants" {
 ///|
 test "string_of_simple_font formats details" {
   let pdf = @pdf.Pdf::empty()
-  let ctx = @pdftext.PdfText::new(pdf)
+  let ctx = PdfText::new(pdf)
   let font : @pdf.PdfObject = Dictionary([
     ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
     ("/BaseFont", Name(@pdf.PdfName::of_string("/Helvetica"))),
@@ -155,7 +155,7 @@ test "string_of_simple_font formats details" {
 ///|
 test "string_of_font covers variants" {
   let pdf = @pdf.Pdf::empty()
-  let ctx = @pdftext.PdfText::new(pdf)
+  let ctx = PdfText::new(pdf)
   let standard_font : @pdf.PdfObject = Dictionary([
     ("/Subtype", Name(@pdf.PdfName::of_string("/Type1"))),
     ("/BaseFont", Name(@pdf.PdfName::of_string("/Helvetica"))),

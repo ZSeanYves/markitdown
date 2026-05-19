@@ -77,12 +77,15 @@ let encryption = @pdfwrite.Encryption::new(
   ],
 )
 
-@pdfwritefs.PdfWriteFs::new().pdf_to_file_options(
+let (output, data) = @pdfio.Output::of_bytes(65536)
+@pdfwrite.PdfWrite::new().pdf_to_output(
   encryption=Some(encryption),
   build_new_id=true,
   pdf~,
-  filename="encrypted.pdf",
+  output~,
 )
+let bytes = output.extract_bytes(data)
+ignore(bytes)
 ```
 
 ## Decrypting Documents
@@ -93,19 +96,21 @@ When reading encrypted PDFs:
 // With user password
 
 ///|
-let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
-  user_password=Some("user123"),
-  owner_password=None,
-  filename="encrypted.pdf",
+let input = @pdfiofs.input_of_file("encrypted.pdf", source="encrypted.pdf")
+let pdf = @pdfread.PdfRead::new().pdf_of_input(
+  Some("user123"),
+  None,
+  input,
 )
 
 // With owner password (full access)
 
 ///|
-let pdf = @pdfreadfs.PdfReadFs::new().pdf_of_file(
-  user_password=None,
-  owner_password=Some("owner456"),
-  filename="encrypted.pdf",
+let input = @pdfiofs.input_of_file("encrypted.pdf", source="encrypted.pdf")
+let pdf = @pdfread.PdfRead::new().pdf_of_input(
+  None,
+  Some("owner456"),
+  input,
 )
 ```
 

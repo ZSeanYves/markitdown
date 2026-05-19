@@ -1,79 +1,53 @@
-# ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf
+# Local PDF Support: `mbtpdf`
 
-This directory contains a repository-local maintained fork of the upstream
-MoonBit PDF project originally published as `bobzhang/mbtpdf`.
+This directory contains repository-local PDF support code for `markitdown-mb`.
+It began as a copy of the upstream MoonBit package `bobzhang/mbtpdf`, but it is
+now maintained here as a trimmed local subtree rather than as a full external
+package mirror.
 
-It is vendored into `markitdown-mb` and maintained here because the PDF
-lower-layer parser depends on local modifications that are not treated as a
-drop-in mirror of upstream.
+## Role in this repository
 
-## Status in this repository
+The active dependency boundary is:
 
-`doc_parse/pdf/vendor/mbtpdf` is used as an in-repository package tree under the root module.
-It is not referenced through a path-only external dependency in the root
-`moon.mod.json`.
+* `doc_parse/pdf/raw` imports the packages in this subtree directly.
+* `doc_parse/pdf` exposes repository-owned raw/model/api types.
+* `convert/pdf` depends on `doc_parse/pdf`, not on internal `mbtpdf` package
+  paths.
 
-The active lower-layer boundary is:
+There is no repository runtime dependency on a broad `@mbtpdf` root facade.
+The root directory only keeps a small test-only package shell so
+`moon test doc_parse/pdf/vendor/mbtpdf` continues to exercise local fs read/write
+helpers without pulling a convenience facade into product code.
 
-* `doc_parse/pdf/raw` imports vendored `mbtpdf` packages directly
-* `doc_parse/pdf` exposes repository-owned raw/model/api types
-* `convert/pdf` depends on `doc_parse/pdf`, not on vendored `mbtpdf` internals
+Within that boundary, this subtree remains responsible for low-level PDF
+parsing concerns such as object reading, stream decoding, glyph mapping, CMap
+handling, annotation extraction, and raw text extraction.
 
-Text-normalization boundary:
+## Local maintenance policy
 
-* vendored `mbtpdf` is responsible for PDF-specific decoding such as
-  `ToUnicode`, CMap, font encoding, glyph mapping, and raw text extraction.
-* Cross-format cleanup and explicit canonical normalization policy live in the
-  repository's `core/text_normalization.mbt` facade, not in this vendored
-  backend.
+This directory is maintained for the needs of `markitdown-mb`, not as a
+complete upstream package checkout. We may:
 
-## Test policy
+* trim unused packages, tests, scripts, and documentation residue
+* keep only the package surface required by repository runtime and tests
+* make repository-specific fixes for parsing behavior
 
-Root repository policy:
+We should not remove provenance or license information when trimming files from
+this subtree.
 
-* root `moon test` should pass without depending on vendored generated PDFs
-  under `doc_parse/pdf/vendor/mbtpdf/.tmp` or `.tmp/scratch/mbtpdf/e2e`
-* package/unit-style vendored tests still participate in the normal root test
-  surface unless intentionally marked otherwise
-* `doc_parse/pdf/vendor/mbtpdf/e2e` is preserved as optional/manual coverage rather than a
-  default root-suite requirement
+## Validation
 
-Manual optional e2e entrypoint:
+Changes in this subtree should be validated through the repository's PDF-facing
+entry points, including:
 
 ```bash
-moon test doc_parse/pdf/vendor/mbtpdf/e2e --include-skipped
+moon test doc_parse/pdf/raw --target native
+moon test doc_parse/pdf/test --target native
+moon test convert/pdf --target native
+bash samples/helpers/check_pdf_contract.sh
 ```
 
-These e2e tests write generated outputs under `.tmp/scratch/mbtpdf/e2e` and
-read them back for roundtrip validation.
+## Provenance and license
 
-## Upstream provenance
-
-Original upstream project:
-
-* `bobzhang/mbtpdf`
-
-See also:
-
-* [docs/e2e-tests.md](./docs/e2e-tests.md)
-* [UPSTREAM.md](./UPSTREAM.md)
-* preserved upstream `LICENSE`
-* preserved upstream `README.mbt.md`
-
-## Local modification scope
-
-This vendored fork is maintained for `markitdown-mb` PDF parsing needs,
-including repository-local changes in areas such as:
-
-* PDF text extraction and text-state signals
-* page/object/image/annotation hooks needed by the PDF lower layer
-* APIs relied on by `doc_parse/pdf/raw` and PDF tests
-
-The repository should assume this tree may differ materially from upstream.
-Changes here should be reviewed as part of the PDF lower-layer implementation,
-not as a passive mirror refresh.
-
-## License / notices
-
-Upstream provenance and licensing files are intentionally preserved in this
-directory. Do not remove them when updating the vendored fork.
+See [NOTICE](./NOTICE) for upstream provenance and local maintenance notes.
+The upstream [LICENSE](./LICENSE) is intentionally preserved.

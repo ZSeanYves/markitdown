@@ -8,6 +8,51 @@ fn render_tj_text(values : Array[@pdf.PdfObject], font_size : Double) -> String 
 }
 
 ///|
+fn extract_test_mediabox() -> @pdf.PdfObject {
+  Array([Real(0.0), Real(0.0), Real(100.0), Real(100.0)])
+}
+
+///|
+fn extract_test_page(
+  ops : Array[@pdfopswrite.Op],
+  resources : @pdf.PdfObject,
+) -> @pdfpage.Page raise {
+  let stream = @pdfopswrite.Op::stream_of_ops(ops)
+  {
+    content: [stream],
+    mediabox: extract_test_mediabox(),
+    cropbox: None,
+    resources,
+    rotate: @pdfpage.Rotation::Rotate0,
+    rest: Dictionary([]),
+  }
+}
+
+///|
+fn add_pages_to_pdf(
+  pages : Array[@pdfpage.Page],
+  pdf : @pdf.Pdf,
+) -> @pdf.Pdf raise {
+  let (pdf, pageroot) = @pdfpage.PdfPageDoc::new(pdf).add_pagetree(pages)
+  @pdfpage.PdfPageDoc::new(pdf).add_root(pageroot, [])
+}
+
+///|
+fn render_raw_page_text(page : RawPdfPageExtract) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < page.text_ops.length(); i = i + 1 {
+    let op = page.text_ops[i]
+    if op.break_before && i > 0 {
+      out.write_char('\n')
+    }
+    for glyph in op.glyphs {
+      out.write_string(glyph.unicode)
+    }
+  }
+  out.to_string()
+}
+
+///|
 fn build_minimal_pdf() -> @pdf.Pdf {
   let pdf : @pdf.Pdf = {
     major: 2,
@@ -324,4 +369,63 @@ test "TJ decimal fragments stay tight before following word" {
     10.0,
   )
   assert_eq(text, "3.14 value")
+}
+
+///|
+test "raw adapter sanitizes invalid unicode bytes and ignores missing xobjects" {
+  let invalid_unicode = @pdfio.string_of_bytes(
+    @pdfio.bytes_of_int_array([0xfe, 0xff, 0x00]),
+  )
+  let ops : Array[@pdfopswrite.Op] = [
+    @pdfopswrite.Op::OpBT,
+    @pdfopswrite.Op::OpTj(invalid_unicode),
+    @pdfopswrite.Op::OpET,
+    @pdfopswrite.Op::OpDo("/NoXObject"),
+  ]
+  let page = extract_test_page(ops, Dictionary([]))
+  let pdf = add_pages_to_pdf([page], @pdf.Pdf::empty())
+  let page_extract = extract_raw_page_from_page(
+    pdf,
+    @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()[0],
+    0,
+  )
+  assert_eq(render_raw_page_text(page_extract), "þÿ ")
+}
+
+///|
+test "raw adapter falls back across missing invalid and unknown fonts" {
+  let bad_font : @pdf.PdfObject = Dictionary([])
+  let resources_bad : @pdf.PdfObject = Dictionary([
+    ("/Font", Dictionary([("/Bad", bad_font)])),
+  ])
+  let ops_missing_font : Array[@pdfopswrite.Op] = [
+    @pdfopswrite.Op::OpBT,
+    @pdfopswrite.Op::OpTf("/F0", 12.0),
+    @pdfopswrite.Op::OpTj("A"),
+    @pdfopswrite.Op::OpET,
+  ]
+  let ops_bad_font : Array[@pdfopswrite.Op] = [
+    @pdfopswrite.Op::OpBT,
+    @pdfopswrite.Op::OpTf("/Bad", 12.0),
+    @pdfopswrite.Op::OpTj("B"),
+    @pdfopswrite.Op::OpET,
+  ]
+  let ops_unknown_font : Array[@pdfopswrite.Op] = [
+    @pdfopswrite.Op::OpBT,
+    @pdfopswrite.Op::OpTf("/Missing", 12.0),
+    @pdfopswrite.Op::OpTj("C"),
+    @pdfopswrite.Op::OpET,
+  ]
+  let page1 = extract_test_page(ops_missing_font, Dictionary([]))
+  let page2 = extract_test_page(ops_bad_font, resources_bad)
+  let page3 = extract_test_page(ops_unknown_font, resources_bad)
+  let pdf = add_pages_to_pdf([page1, page2, page3], @pdf.Pdf::empty())
+  let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
+  let rendered = Array::new()
+  for i = 0; i < pages.length(); i = i + 1 {
+    rendered.push(
+      render_raw_page_text(extract_raw_page_from_page(pdf, pages[i], i)),
+    )
+  }
+  assert_eq(rendered.join("\n"), "A\nB\nC")
 }

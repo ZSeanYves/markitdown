@@ -282,17 +282,6 @@ Keep the external/private quality intake local and reproducible:
   are now part of the checked workflow, so Bash array/argv assumptions should
   be validated on both macOS and Linux before changing the script again
 
-Vendored PDF e2e policy:
-
-* root `moon test` should pass without requiring generated vendored PDFs under
-  `.tmp/scratch/mbtpdf/e2e`
-* package/unit-style vendored PDF tests still run in the normal root suite
-* optional vendored e2e remains available through:
-
-```bash
-moon test doc_parse/pdf/vendor/mbtpdf/e2e --include-skipped
-```
-
 Validation UX controls:
 
 ```bash
