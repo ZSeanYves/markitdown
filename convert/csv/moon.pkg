@@ -1,6 +1,7 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/csv" @dpcsv,
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftextread" @pdftextread,
   "ZSeanYves/markitdown/doc_parse/tsv" @dptsv,
   "moonbitlang/core/env" @env,
   "moonbitlang/core/encoding/utf8" @utf8,
