@@ -117,7 +117,7 @@ fn cp932_private_use_codepoint(code : Int) -> Int? {
 }
 
 ///|
-fn cp932_codepoint_of_pair(util : @pdftextread.PdfTextUtil, code : Int) -> Int? {
+fn cp932_codepoint_of_pair(code : Int) -> Int? {
   match cp932_explicit_delta_map.get(code) {
     Some(cp) => return Some(cp)
     None => ()
@@ -130,7 +130,7 @@ fn cp932_codepoint_of_pair(util : @pdftextread.PdfTextUtil, code : Int) -> Int? 
 
   let b1 = (code >> 8) & 0xFF
   let b2 = code & 0xFF
-  let cps = util.codepoints_of_shift_jis([b1, b2])
+  let cps = codepoints_of_shift_jis([b1, b2])
   if cps.length() != 1 || cps[0] == 0xFFFD {
     return None
   }
@@ -138,8 +138,19 @@ fn cp932_codepoint_of_pair(util : @pdftextread.PdfTextUtil, code : Int) -> Int? 
 }
 
 ///|
+fn string_of_codepoints(codepoints : Array[Int]) -> String? {
+  let chars : Array[Char] = []
+  for cp in codepoints {
+    if cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF) {
+      return None
+    }
+    chars.push(Int::unsafe_to_char(cp))
+  }
+  Some(String::from_array(chars))
+}
+
+///|
 fn decode_delimited_cp932_text(bytes : Bytes) -> String? {
-  let util = @pdftextread.PdfTextUtil::new()
   let raw = bytes.to_array()
   let cps : Array[Int] = []
   let mut i = 0
@@ -164,7 +175,7 @@ fn decode_delimited_cp932_text(bytes : Bytes) -> String? {
         return None
       }
       let code = (b << 8) | b2
-      match cp932_codepoint_of_pair(util, code) {
+      match cp932_codepoint_of_pair(code) {
         Some(cp) => cps.push(cp)
         None => return None
       }
@@ -173,6 +184,5 @@ fn decode_delimited_cp932_text(bytes : Bytes) -> String? {
     }
     return None
   }
-  let text = util.utf8_of_codepoints(cps) catch { _ => return None }
-  Some(text)
+  string_of_codepoints(cps)
 }
