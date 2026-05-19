@@ -134,6 +134,48 @@ fn parse_chart_cache_values(
 }
 
 ///|
+fn parse_chart_multilevel_string_cache(scope_xml : Bytes) -> Array[String] raise {
+  match extract_first_named_block(scope_xml, "<c:multiLvlStrCache", "c:multiLvlStrCache") {
+    Some(cache_xml) => {
+      let levels : Array[Array[String]] = []
+      let mut pos = 0
+      while pos < cache_xml.length() {
+        let lvl_start = find_bytes(cache_xml, pat("<c:lvl"), pos).unwrap_or(-1)
+        if lvl_start < 0 {
+          break
+        }
+        let lvl_end = find_matching_named_element_close(
+          cache_xml,
+          lvl_start,
+          "c:lvl",
+        ).unwrap_or(-1)
+        if lvl_end < 0 {
+          break
+        }
+        let lvl_xml = cache_xml[lvl_start:lvl_end].to_owned()
+        let values = parse_chart_points_from_cache(lvl_xml)
+        if values.length() > 0 {
+          levels.push(values)
+        }
+        pos = lvl_end
+      }
+
+      if levels.length() == 0 {
+        return []
+      }
+
+      let last = levels[levels.length() - 1]
+      if last.length() > 0 {
+        last
+      } else {
+        []
+      }
+    }
+    None => []
+  }
+}
+
+///|
 fn parse_chart_series_name(
   series_xml : Bytes,
   fallback_index : Int,
@@ -434,6 +476,10 @@ fn parse_chart_series_categories(
 ) -> Array[String] raise {
   match extract_first_named_block(series_xml, "<c:cat", "c:cat") {
     Some(cat_xml) => {
+      let multilevel_strings = parse_chart_multilevel_string_cache(cat_xml)
+      if multilevel_strings.length() > 0 {
+        multilevel_strings
+      } else {
       let strings = parse_chart_cache_values(
         cat_xml, "<c:strCache", "c:strCache",
       )
@@ -455,6 +501,7 @@ fn parse_chart_series_categories(
           )
         }
         formatted
+      }
       }
     }
     None => []
