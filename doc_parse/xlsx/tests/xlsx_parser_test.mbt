@@ -304,6 +304,53 @@ fn generated_xlsx_pkg_with_comments() -> @ox.OoxmlPackage raise {
 }
 
 ///|
+fn generated_xlsx_pkg_with_self_closing_blank_cells() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"SharedLinks\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<dimension ref=\"A1:B5\"/>" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" s=\"1\" t=\"s\"><v>0</v></c><c r=\"B1\" s=\"1\"/></row>" +
+    "<row r=\"2\"><c r=\"A2\" s=\"1\"/><c r=\"B2\" s=\"1\"/></row>" +
+    "<row r=\"3\"><c r=\"A3\" s=\"1\" t=\"s\"><v>0</v></c><c r=\"B3\" s=\"1\"/></row>" +
+    "<row r=\"4\"><c r=\"A4\" s=\"1\" t=\"s\"><v>0</v></c></row>" +
+    "<row r=\"5\"><c r=\"A5\" s=\"1\" t=\"s\"><v>0</v></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+  let styles_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>" +
+    "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
+    "<borders count=\"1\"><border/></borders>" +
+    "<cellStyleXfs count=\"1\"><xf/></cellStyleXfs>" +
+    "<cellXfs count=\"2\"><xf/><xf/></cellXfs>" +
+    "</styleSheet>"
+  let shared_strings_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"4\" uniqueCount=\"1\">" +
+    "<si><t>http://www.apache.org</t></si>" +
+    "</sst>"
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/sharedStrings.xml", shared_strings_xml),
+      ("xl/styles.xml", styles_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>" +
+    "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>",
+  )
+}
+
+///|
 fn generated_xlsx_pkg_with_validation_edges() -> @ox.OoxmlPackage raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -730,4 +777,42 @@ test "xlsx semantic workbook preserves worksheet comments with author and cell r
   assert_eq(workbook.sheets[0].comments[1].row, 2)
   assert_eq(workbook.sheets[0].comments[1].column, 1)
   assert_eq(workbook.sheets[0].comments[1].text, "Second insight")
+}
+
+///|
+test "xlsx semantic parser keeps self-closing blank cells blank" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_self_closing_blank_cells(),
+  )
+  assert_eq(workbook.sheets.length(), 1)
+  let sheet = workbook.sheets[0]
+  assert_eq(sheet.used_min_row, 1)
+  assert_eq(sheet.used_min_col, 1)
+  assert_eq(sheet.used_max_row, 5)
+  assert_eq(sheet.used_max_col, 1)
+
+  let mut saw_a1 = false
+  let mut saw_b1 = false
+  let mut saw_b3 = false
+  for cell in sheet.cells {
+    if cell.reference == "A1" {
+      saw_a1 = true
+      assert_eq(cell.display_text, "http://www.apache.org")
+    } else if cell.reference == "B1" {
+      saw_b1 = true
+      if cell.kind != @xlsx.XlsxCellKind::Blank {
+        fail("B1 should stay blank for self-closing styled cell")
+      }
+      assert_eq(cell.display_text, "")
+    } else if cell.reference == "B3" {
+      saw_b3 = true
+      if cell.kind != @xlsx.XlsxCellKind::Blank {
+        fail("B3 should stay blank for self-closing styled cell")
+      }
+      assert_eq(cell.display_text, "")
+    }
+  }
+  assert_true(saw_a1)
+  assert_true(saw_b1)
+  assert_true(saw_b3)
 }

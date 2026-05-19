@@ -462,22 +462,34 @@ fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
             let rref = get_attr(ctag, "r").unwrap_or("")
             let cell_type = get_attr(ctag, "t").unwrap_or("")
             let style_idx = parse_int(get_attr(ctag, "s").unwrap_or(""))
-            let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
-            match c_end0 {
-              None => break
-              Some(c_end) => {
-                let inner = sheet_xml[i1 + 1:c_end].to_owned()
-                let value = tag_text(inner, "v").unwrap_or("")
-                let formula_text = tag_text(inner, "f")
-                out.push({
-                  reference: rref,
-                  cell_type,
-                  style_index: style_idx,
-                  value,
-                  formula_text,
-                  inner,
-                })
-                pos = c_end + 4
+            if ctag.has_suffix("/>") {
+              out.push({
+                reference: rref,
+                cell_type,
+                style_index: style_idx,
+                value: "",
+                formula_text: None,
+                inner: "",
+              })
+              pos = i1 + 1
+            } else {
+              let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
+              match c_end0 {
+                None => break
+                Some(c_end) => {
+                  let inner = sheet_xml[i1 + 1:c_end].to_owned()
+                  let value = tag_text(inner, "v").unwrap_or("")
+                  let formula_text = tag_text(inner, "f")
+                  out.push({
+                    reference: rref,
+                    cell_type,
+                    style_index: style_idx,
+                    value,
+                    formula_text,
+                    inner,
+                  })
+                  pos = c_end + 4
+                }
               }
             }
           }
