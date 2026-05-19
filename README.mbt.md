@@ -39,18 +39,28 @@ OCR remains explicit-only.
 
 Current local external corpus status:
 
-* rows: `145`
+* rows: `223`
 * result: pass
 * skipped: `1`
 * expected_fail: `0`
+* focused Office rows:
+  * `DOCX`: `54`
+  * `PPTX`: `50`
+  * `XLSX`: `38`
 
 Interpretation:
 
 * the current quality gate is green
 * this snapshot is a local checked validation state, not a repository-wide
   quality percentage
+* this is a local-only external corpus snapshot, not a release artifact
 * private/local rows remain intentionally separate from checked-in exact
   regression samples
+* current Office corpus expansion is external-fixture-driven, not
+  synthetic-only
+* known policy boundaries remain documented separately
+* `expected_fail: 0` does not mean every boundary case is universally covered
+* OCR/scanned content remains explicit-only
 
 Local-only quality assets:
 
@@ -64,17 +74,30 @@ The quality corpus runner now also supports:
 * `exact_count:text=n`
 * `min_count:text=n`
 * `max_count:text=n`
+* `order:a|b|c`
+* `not_contains:text`
+* `table_marker`
+* asset / image guards such as `image_ref` and `asset_count_min:n`
 
 These assertions are useful for duplicate appendix / heading / row and
 over-emission checks without turning the quality corpus into a full-output
 oracle.
+
+Current Office hardening coverage includes:
+
+* DOCX: comments, footnotes, endnotes, images, SVG, hyperlinks, body order,
+  and paragraph/table interleaving
+* PPTX: notes, comments, charts, tables, hyperlinks, alignment, and grouped
+  content
+* XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
+  ordering, and table boundaries
 
 ## Mainstream Comparison Policy
 
 This README does not claim a blanket “mainstream quality percentage” unless a
 local reproducible compare run defines the tool version, corpus, and metric.
 
-Current measured quality is tracked by the `145`-row local external corpus plus
+Current measured quality is tracked by the `223`-row local external corpus plus
 the repository validation suites.
 
 If you want a competitor percentage, run a pinned compare workflow first and

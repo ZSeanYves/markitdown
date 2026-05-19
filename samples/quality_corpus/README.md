@@ -32,6 +32,20 @@ Current limitations:
 * current local hardening remains ongoing for heavier PDF, DOCX, XLSX, and
   PPTX boundary samples
 
+Current local external snapshot:
+
+* current pass status: `223` rows, `1` skipped, `0` expected_fail
+* focused Office rows: `DOCX 54`, `PPTX 50`, `XLSX 38`
+* this is a local-only external corpus snapshot, not a release artifact
+* `.external/quality_corpus` stays local-only and is not committed
+* `samples/quality_corpus/external_manifest.local.tsv` stays local-only and is
+  not committed
+* current Office corpus expansion is external-fixture-driven, not
+  synthetic-only
+* `expected_fail: 0` here does not mean universal support for every boundary
+* known policy boundaries remain documented separately
+* OCR/scanned content remains explicit-only
+
 ## Layout
 
 ```text
@@ -137,6 +151,25 @@ Current local source status:
 * `pdfjs_tests`: currently exercises `/ToUnicode` Unicode positives plus
   retained PDF CJK/Type0 no-`/ToUnicode` boundaries
 
+Current Office expansion focus includes:
+
+* DOCX: comments, footnotes, endnotes, images, SVG, hyperlinks, body order,
+  and paragraph/table interleaving
+* PPTX: notes, comments, charts, tables, hyperlinks, alignment, and grouped
+  content
+* XLSX: tables, formulas, hidden sheets, hidden rows, comments, multi-sheet
+  ordering, and table boundaries
+
+The current local corpus relies heavily on signal assertions such as:
+
+* `exact_count`
+* `min_count`
+* `max_count`
+* `order`
+* `not_contains`
+* `table_marker`
+* asset / image guards such as `image_ref` and `asset_count_min:n`
+
 Current locally exercised PDF reference rows include:
 
 * `pdf_tounicode_unicode_markitdown_test`
@@ -171,13 +204,13 @@ These retained rows are healthy local evidence, not regressions:
 
 Current locally exercised PPTX coverage includes:
 
-* image / alt / caption
-* table
-* grouped shapes
-* cached chart data
-* speaker notes
-* visible hyperlinks
+* notes and speaker notes
 * comments / commentAuthors
+* charts and cached chart data
+* tables
+* grouped shapes
+* visible hyperlinks
+* image / alt / caption paths
 
 Typical row lifecycle for a real boundary sample:
 

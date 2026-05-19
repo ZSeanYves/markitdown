@@ -595,9 +595,19 @@ Known limits:
 * the current normal-path layout gate is intentionally much narrower than the
   report-only provider/model pipeline and does not imply broad model-backed PDF
   control
-* the local external quality corpus currently passes at `145` rows with
-  `1` skipped row and `0` expected failures; this is a local validation
-  snapshot rather than a blanket quality percentage
+* the local external quality corpus currently passes at `223` rows with
+  `1` skipped row and `0` expected failures; this is a local-only validation
+  snapshot rather than a blanket quality percentage or release artifact
+* current focused Office coverage in that local snapshot is `54` DOCX rows,
+  `50` PPTX rows, and `38` XLSX rows
+* current Office external-fixture-driven hardening coverage includes:
+  DOCX comments/footnotes/endnotes/images/SVG/hyperlinks/body-order/table
+  interleaving; PPTX notes/comments/charts/tables/hyperlinks/alignment/grouped
+  content; XLSX tables/formulas/hidden sheets/hidden rows/comments/multi-sheet
+  ordering/table boundaries
+* those local rows now rely heavily on signal assertions such as
+  `exact_count`, `min_count`, `max_count`, `order`, `not_contains`,
+  `table_marker`, and asset/image guards rather than full-output snapshots
 * the explicit `tesseract-cli` provider is optional and external: it can probe
   availability and OCR page images when users explicitly choose it, but it is
   not bundled and is not part of the default `normal` path
