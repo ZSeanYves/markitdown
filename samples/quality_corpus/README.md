@@ -17,7 +17,7 @@ Purpose:
 
 Current scope:
 
-* public `manifest.tsv` is intentionally empty until external rows are manually curated
+* public `manifest.tsv` now carries a small checked-in repo-tracked baseline for stable local samples
 * private local rows are supported through `private/manifest.local.tsv`
 * external source candidates are tracked in `external_sources.tsv`
 * local external rows are supported through `external_manifest.local.tsv`
@@ -29,23 +29,28 @@ Current limitations:
 * signals are intentionally lightweight and incomplete
 * no global quality percentage is claimed
 * signal-level passes are not full-output oracles
-* current local hardening remains ongoing for heavier PDF, DOCX, XLSX, and
-  PPTX boundary samples
+* `0 expected_fail` does not mean every format boundary is universally covered
+* OCR/scanned behavior remains explicit-only unless an OCR-specific suite says
+  otherwise
 
-Current local external snapshot:
+Current local quality snapshot:
 
-* current pass status: `270` rows, `1` skipped, `0` expected_fail
-* focused Office rows: `DOCX 59`, `PPTX 54`, `XLSX 49`
-* focused horizontal rows: `ZIP 11`, `EPUB 15`, `XML 9`, `CSV 9`, `HTML 5`
+* current pass status: `330` rows, `1` skipped, `0` expected_fail
+* focused PDF rows: `PDF 101`, public-only checked-in `PDF 24`
+* focused Office rows: `DOCX 60`, `PPTX 55`, `XLSX 51`
+* focused horizontal rows: `ZIP 15`, `EPUB 16`, `XML 9`, `CSV 15`, `HTML 5`
 * this is a local-only external corpus snapshot, not a release artifact
 * `.external/quality_corpus` stays local-only and is not committed
 * `samples/quality_corpus/external_manifest.local.tsv` stays local-only and is
   not committed
-* current corpus expansion is external-fixture-driven, not
-  synthetic-only
-* `expected_fail: 0` here does not mean universal support for every boundary
+* current corpus expansion is external-fixture-driven, not synthetic-only
+* checked-in public rows remain intentionally separate from local-only
+  external rows
 * known policy boundaries remain documented separately
-* OCR/scanned content remains explicit-only
+* current local-only hardening covers PDF external second-pass
+  CJK/`/ToUnicode`/annotations/forms/links/images, Office second-cycle
+  comments/merged/images/media boundaries, and horizontal EPUB/ZIP/XML/CSV
+  tails
 
 ## Layout
 
@@ -73,7 +78,7 @@ samples/quality_corpus/
 
 ## Manifest
 
-`manifest.tsv` columns are still stable even when the public file is empty:
+`manifest.tsv` columns are stable for checked-in public rows:
 
 * `id`
 * `format`
@@ -112,9 +117,9 @@ For `known_bad` rows:
 * a full green run is recorded as `unexpected_pass`
 * both outcomes stay visible in summary output
 
-The checked-in public manifest is intentionally empty until rows are manually
-curated from:
+The checked-in public manifest is intended for manually curated rows from:
 
+* repository-tracked local samples
 * public datasets
 * upstream tool fixtures
 * manually reviewed self-real/public samples
@@ -170,6 +175,15 @@ Current horizontal expansion focus includes:
   boundaries
 * CSV: quoted-field structure plus cp932/mskanji fallback coverage
 
+Current PDF expansion focus includes:
+
+* repo-tracked public guards for text, layout, heading, table-like, link, and
+  image boundaries
+* local-only external second-pass coverage for CJK / `/ToUnicode` /
+  annotations / forms / links / images
+* scan-only/image-only rows that stay explicit rather than silently becoming
+  OCR-text expectations
+
 The current local corpus relies heavily on signal assertions such as:
 
 * `exact_count`
@@ -182,6 +196,12 @@ The current local corpus relies heavily on signal assertions such as:
 
 Current locally exercised PDF reference rows include:
 
+* `pdf_heading_basic_repo_sample`
+* `pdf_cross_page_merge_repo_sample`
+* `pdf_cross_page_no_merge_repo_sample`
+* `pdf_two_column_negative_repo_sample`
+* `pdf_image_caption_repo_sample`
+* `pdf_repeated_header_footer_repo_sample`
 * `pdf_tounicode_unicode_markitdown_test`
 * `pdf_tounicode_unicode_pdfjs_arabic_cidtruetype`
 * `pdf_scan_boundary_markitdown_medrpt` as a scan/image-only boundary note row

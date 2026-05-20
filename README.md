@@ -37,21 +37,24 @@ OCR remains explicit-only.
 
 ## Current Quality Snapshot
 
-Current local external corpus status:
+Current checked local quality-corpus status:
 
-* rows: `270`
+* rows: `330`
 * result: pass
 * skipped: `1`
 * expected_fail: `0`
+* focused PDF rows:
+  * `PDF`: `101`
+  * public-only checked-in `PDF`: `24`
 * focused Office rows:
-  * `DOCX`: `59`
-  * `PPTX`: `54`
-  * `XLSX`: `49`
+  * `DOCX`: `60`
+  * `PPTX`: `55`
+  * `XLSX`: `51`
 * focused horizontal rows:
-  * `ZIP`: `11`
-  * `EPUB`: `15`
+  * `ZIP`: `15`
+  * `EPUB`: `16`
   * `XML`: `9`
-  * `CSV`: `9`
+  * `CSV`: `15`
   * `HTML`: `5`
 
 Interpretation:
@@ -60,10 +63,9 @@ Interpretation:
 * this snapshot is a local checked validation state, not a repository-wide
   quality percentage
 * this is a local-only external corpus snapshot, not a release artifact
-* private/local rows remain intentionally separate from checked-in exact
-  regression samples
-* current corpus expansion is external-fixture-driven, not
-  synthetic-only
+* checked-in public rows remain intentionally separate from local-only
+  external rows
+* current corpus expansion is external-fixture-driven, not synthetic-only
 * known policy boundaries remain documented separately
 * `expected_fail: 0` does not mean every boundary case is universally covered
 * OCR/scanned content remains explicit-only
@@ -89,6 +91,15 @@ These assertions are useful for duplicate appendix / heading / row and
 over-emission checks without turning the quality corpus into a full-output
 oracle.
 
+Current PDF hardening coverage includes:
+
+* repo-tracked public guards for text, layout, heading, table-like, link, and
+  image boundaries
+* local-only external second-pass coverage for CJK / `/ToUnicode` /
+  annotations / forms / links / images
+* scan-only/OCR boundaries kept explicit rather than silently promoted into
+  the default text path
+
 Current Office hardening coverage includes:
 
 * DOCX: comments, footnotes, endnotes, images, SVG, hyperlinks, body order,
@@ -112,7 +123,7 @@ Current horizontal hardening coverage includes:
 This README does not claim a blanket “mainstream quality percentage” unless a
 local reproducible compare run defines the tool version, corpus, and metric.
 
-Current measured quality is tracked by the `270`-row local external corpus plus
+Current measured quality is tracked by the `330`-row local quality corpus plus
 the repository validation suites.
 
 If you want a competitor percentage, run a pinned compare workflow first and
@@ -216,6 +227,10 @@ Current package responsibilities:
   profile-aware main loop, without pulling in PDF
 * `zip_worker`: lightweight delegated ZIP product path; embedded PDF entries
   are routed to bundled `pdf`, so product `zip` remains `mbtpdf=0`
+* `doc_parse/pdf/vendor/mbtpdf`: trimmed local PDF support subtree retained
+  for runtime-critical low-level parsing and attribution; it is no longer
+  maintained as a full upstream mirror, and stale residue / command / side /
+  text-facade / e2e packages have been pruned
 * `ocr`: explicit OCR component surfaced by `cli ocr`
 * `debug`: developer inspect tool
 * `bench`: developer benchmark tool
@@ -236,10 +251,10 @@ Build guardrail:
 
 Current clean native build snapshot on the checked local machine:
 
-* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
-* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
-* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
-* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli build`: `real 64.06s`, `user 49.17s`, `sys 9.76s`
+* `pdf build`: `real 69.07s`, `user 52.52s`, `sys 9.24s`
+* `zip build`: `real 63.48s`, `user 46.48s`, `sys 8.90s`
+* `ocr build`: `real 54.72s`, `user 37.89s`, `sys 8.73s`
 * `cli.exe`: `3790168` bytes (~`3.6M`)
 * `pdf.exe`: `4354040` bytes
 * `zip.exe`: `3601656` bytes (~`3.4M`)
@@ -250,8 +265,9 @@ Current clean native build snapshot on the checked local machine:
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
 * `zip mbtpdf count`: `0`
-* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
-  closure into product `cli` or delegated product `zip`
+* `pdf mbtpdf count`: `23339`
+* the retained `mbtpdf` subtree now covers only runtime-critical PDF support
+  plus attribution; `cli` and delegated `zip` still stay out of that closure
 
 These are local clean-build measurements on one checked machine, not
 cross-machine guarantees or universal speed claims.
@@ -316,6 +332,16 @@ Optional local OCR smoke:
 ```bash
 bash samples/helpers/check_ocr_tesseract_smoke_optional.sh
 ```
+
+Current checked local validation snapshot:
+
+* `moon test`: `1575 passed`
+* `./samples/check.sh`: `444` markdown samples, `85` metadata samples,
+  `90` asset samples, `0` failures
+* `./samples/bench.sh --suite smoke --kind smoke`: `96` samples, `0`
+  failures
+* `bash samples/helpers/check_ocr_tesseract_smoke_optional.sh`: passed on the
+  checked local machine
 
 Run Moon commands serially. Avoid parallel `moon` processes and avoid habitual
 `moon clean` during normal iteration.

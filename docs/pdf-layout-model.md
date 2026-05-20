@@ -432,6 +432,257 @@ Current interpretation:
   gate is intentionally much narrower than the offline report-only arbiter and
   does not make a case for wider model-backed activation yet
 
+### Receipt Residual Audit
+
+We re-checked the current user-visible receipt residuals against the live
+normal output plus local feature exports instead of relying only on the
+report-only held-out labels.
+
+Current external receipt output still surfaces three heading false positives:
+
+* `## TOTAL $821.14`
+* `## PAYMENT METHOD`
+* `## Electronics must be unopened`
+
+The same study also re-confirmed that:
+
+* `www.techmart.example.com` is still a report-only paragraph vs
+  `keep_as_text` ambiguity, but it is not a visible normal-path regression
+* `Next Reward: $50 gift card at 5,000 pts (1,753 to go)` is still a real
+  receipt/body boundary ambiguity and should remain deferred
+
+The important split is that these receipt rows do not share the same evidence
+profile:
+
+* `TOTAL $821.14` behaves like a narrow settlement line candidate
+  * it sits between separator rows
+  * it carries strong amount evidence
+  * it is a weak heading candidate rather than a table/link/caption case in
+    the checked receipt fixture
+* `PAYMENT METHOD` does not currently carry strong deterministic receipt/form
+  evidence
+  * it mainly looks like a short all-caps heading shell followed by a payment
+    value row
+* `Electronics must be unopened` is even riskier
+  * it is plain body text under a policy shell
+  * current features do not distinguish it cleanly from legitimate short
+    heading/body structures
+
+We also checked invoice-like counterexamples before widening anything:
+
+* in the local multipage repair invoice fixture, rows such as `Sales Tax` and
+  `GRAND TOTAL` already live inside table geometry and must keep the existing
+  hard `table_geometry` protection
+* this means any future receipt settlement-line demotion must stay strictly
+  weaker than “contains amount => not heading”
+
+Current conclusion:
+
+* there is still no safe normal-path fix for `PAYMENT METHOD`
+* there is still no safe normal-path fix for `Electronics must be unopened`
+* the only plausible future narrow candidate is a settlement-line demotion for
+  rows like `TOTAL $...` or `SUBTOTAL $...`, but only if it is backed by:
+  * existing hard constraints for table/caption/link/page-reference integrity
+  * explicit receipt settlement evidence, not exact text
+  * counterexample tests that keep real headings and table totals unchanged
+
+Until those conditions are met, receipt/layout residuals should stay
+report-only or no-action rather than pushing the current conservative normal
+gate wider.
+
+#### Receipt Settlement Follow-Up
+
+The later checked fix in `599e7cc` implements only the narrowest candidate
+from the audit above:
+
+* separator-bracketed weak heading settlement lines such as `TOTAL $...`
+* same-line amount / currency evidence is required
+* the existing hard constraints still win first:
+  * `table_geometry`
+  * `caption_geometry`
+  * `link_payload`
+  * page-reference integrity checks
+* `MARKITDOWN_PDF_LAYOUT_GATE=0` still disables the override
+
+This is intentionally not a generic receipt/body demotion:
+
+* `PAYMENT METHOD` stays deferred
+* `Electronics must be unopened` stays deferred
+* `Next Reward: ...` stays deferred
+* invoice/report table totals must continue to rely on table structure, not on
+  a broad “amount means paragraph” rule
+
+The post-fix probe confirms the intended boundary:
+
+* the checked retail receipt now keeps `TOTAL $821.14` as body text
+* the same receipt still leaves broader label/body ambiguities unchanged
+* the checked repair invoice still keeps totals inside table output
+* the checked heading counterexamples still preserve true headings
+
+#### Non-Receipt Follow-Up: Heading Promotion Residual
+
+The next user-visible non-receipt residual we re-probed is
+`.external/quality_corpus/markitdown_repo/packages/markitdown/tests/test_files/test.pdf`,
+where the current normal output still starts with:
+
+* `1 Introduction`
+
+instead of promoting that chapter title to a Markdown heading.
+
+This is a real visible layout miss, but it does not fit the current safe narrow
+gate envelope:
+
+* the row is not a checked weak-heading demotion case
+* the exported feature shape is weaker than the checked heading retainers
+  * `is_heading_candidate=0`
+  * no clear heading-like gap-before signal
+  * only modest relative font lift (`~1.20`)
+* fixing it would require either:
+  * broader heading-candidate detection upstream, or
+  * a new `paragraph -> heading` promotion path in the normal gate
+
+That is materially riskier than the checked receipt settlement demotion:
+
+* it would widen gated-normal rather than keep it demotion-only
+* it would need fresh counterexamples for short heading-like body rows such as
+  `Key points:` and numbered-body cases
+* it would need to prove that it does not regress current heading false-positive
+  protections
+
+We also re-probed `pdf_header_footer_variants_phase15` and confirmed that a
+held-out report-only heading/noise miss there is not a current user-visible
+normal-path issue, so it does not justify widening the gate either.
+
+Current conclusion:
+
+* `1 Introduction` is a deferred no-action residual for the current gate
+* it is a candidate for a future proof study only if we decide to explore a
+  tightly bounded heading-promotion design with explicit counterexamples first
+
+#### Numbered Heading Promotion Proof Study
+
+We also isolated the next possible promotion-shaped residual instead of another
+demotion case:
+
+* `.external/.../test.pdf` still starts with `1 Introduction` as plain body
+  text in the current normal output
+
+That makes it a real user-visible miss, but the current proof study does not
+support promoting it inside the checked gated-normal path yet.
+
+Positive evidence:
+
+* the row is short (`word_count=2`)
+* it has some typography lift over page median (`relative_font_size~1.20`)
+* it is followed by long body paragraphs rather than table/link payload
+* it is not currently marked as table, caption, repeated noise, or page-link
+  payload
+
+Counterexamples we re-probed and compared:
+
+* `1. this is a numbered sentence inside paragraph context.`
+  * must stay body text
+  * also arrives as plain paragraph / not already a heading candidate
+* `Key points:`
+  * lead-in text must stay body text
+* `Product` / `Alpha` from the checked table-like sample
+  * currently stay out of heading promotion without relying on table geometry
+    flags alone
+* checked true headings such as `Introduction`, `Method`, and
+  `第一章 项目概述`
+  * remain stable today, but they have stronger heading-like support than
+    `1 Introduction`
+
+Why this still stays deferred:
+
+* the positive row is not already a weak heading candidate
+* it does not show the same strong gap / font / context pattern as the checked
+  heading retainers
+* a safe fix would require a new `paragraph -> heading` promotion path rather
+  than another conservative demotion/suppression
+* the current cheap feature surface does not cleanly separate numbered chapter
+  titles from numbered body sentences and other short title-like prose without
+  widening normal-path risk
+
+Current conclusion:
+
+* there is still no bounded, deterministic, low-risk numbered heading
+  promotion rule ready for the current normal gate
+* `1 Introduction` remains a deferred residual
+* any future promotion study must first prove stronger counterexample coverage
+  for:
+  * numbered body sentences
+  * lead-in labels such as `Key points:`
+  * short table-like cells / row stubs
+  * heading-like short prose that should stay body
+
+#### Heading Promotion Counterexample Study
+
+We then expanded the proof study from one positive residual to a small
+counterexample set, without changing the runtime gate.
+
+Representative buckets:
+
+| Bucket | Fixture | Line text | Current normal | Desired | Why it matters |
+| --- | --- | --- | --- | --- | --- |
+| A positive candidate | `test.pdf` | `1 Introduction` | paragraph | heading | real visible residual, but only modest typography lift and no existing heading-candidate signal |
+| B hard negative | `pdf_heading_false_positive_phase15.pdf` | `1. this is a numbered sentence inside paragraph context.` | paragraph | paragraph | numbered body sentence must never promote |
+| B hard negative | `pdf_heading_vs_short_sentence.pdf` | `Key points:` | paragraph lead-in | paragraph | short lead-in / label-like prose |
+| B hard negative | `pdf_simple_table_like.pdf` | `Product`, `Alpha` | table cells | not heading | short table stubs share weak title-like text shape |
+| B hard negative | `page_with_number_and_link.pdf` | `1` / `Go to page 2` | page label + linked row | not heading | numbered page markers and link-adjacent rows must stay out |
+| C already correct heading | `pdf_heading_vs_short_sentence.pdf` | `Introduction`, `Method` | heading | heading | true heading retainers are already stronger than the residual positive |
+| C already correct heading | `heading_basic.pdf` | `第一章 项目概述` | heading | heading | checked chapter-style heading already works |
+| D no-action ambiguity | `masterformat_partial_numbering.pdf` | `1.` / `INTENT` / `.1` | fragmented numbering shell | mixed / ambiguous | numbering and heading text can be split across adjacent blocks, so regex-on-one-line promotion is unsafe |
+
+Feature highlights from the study:
+
+* `1 Introduction`
+  * `word_count=2`
+  * `relative_font_size≈1.20`
+  * not table/caption/link/page-number
+  * but `is_heading_candidate=0`
+* numbered body sentence
+  * `word_count=9`
+  * `sentence_like_signal=1`
+  * `has_terminal_period=1`
+* `Key points:`
+  * `word_count=2`
+  * `form_key_value_signal=1`
+  * `contains_clause_punctuation=1`
+* table stubs such as `Product` / `Alpha`
+  * short, non-sentence, non-heading rows
+  * no existing table-geometry flag on the exported single block itself, so a
+    promotion rule cannot rely on geometry hard constraints alone
+* page/link sample
+  * isolated page number `1` and nearby `Go to page 2` show that numeric
+    shells and link-adjacent rows are easy to confuse if promotion becomes too
+    eager
+* `masterformat_partial_numbering.pdf`
+  * shows a more dangerous real-world pattern where numbering and heading text
+    are split across adjacent blocks (`1.` / `INTENT` / `.1`)
+
+Study result:
+
+* a naive numbered-title rule such as “short numeric shell + title-case text +
+  body after it” is still not bounded enough
+* current counterexamples show that safe promotion would need more than regex:
+  * stronger heading-candidate evidence
+  * more reliable block grouping for split numbering/title shells
+  * additional negatives for page labels, table stubs, and lead-in prose
+* therefore heading promotion remains deferred for the current normal gate
+
+Required before any future implementation:
+
+* explicit tests for:
+  * `1 Introduction` positive promotion
+  * numbered body sentence non-promotion
+  * `Key points:` non-promotion
+  * table-stub non-promotion
+  * page-number / link-adjacent non-promotion
+  * split-shell cases such as `1.` + `INTENT`
+* a bounded rule that still respects existing hard constraints and does not
+  widen current heading false-positive risk
+
 Current notable round-11 rule/model conflict counts on held-out rows:
 
 * `footer_header_noise -> separator`: `8`

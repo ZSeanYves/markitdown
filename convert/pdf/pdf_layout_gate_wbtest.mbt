@@ -209,6 +209,181 @@ test "pdf layout gate hard constraints block weak heading override" {
 }
 
 ///|
+test "pdf layout gate demotes separator-bracketed receipt settlement heading" {
+  let sep0 = make_gate_block(
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "===================================",
+    Some(8.0),
+    784.0,
+    Some(2.0),
+  )
+  let heading = make_gate_block(
+    1,
+    PdfConvertBlockKind::Heading,
+    "TOTAL $821.14",
+    Some(9.0),
+    760.0,
+    Some(6.0),
+  )
+  let sep1 = make_gate_block(
+    2,
+    PdfConvertBlockKind::Paragraph,
+    "===================================",
+    Some(8.0),
+    736.0,
+    Some(0.0),
+  )
+  let doc = { pages: [make_gate_page([sep0, heading, sep1])] }
+  let gated = apply_pdf_layout_gate(doc, config={ enabled: true })
+  assert_true(gated.pages[0].blocks[1].kind == PdfConvertBlockKind::Paragraph)
+
+  let summary = build_pdf_layout_gate_summary(doc, gated, config={
+    enabled: true,
+  })
+  match
+    decision_for_target(summary, "p1.b1", PdfLayoutGateStage::HeadingDemotion) {
+    Some(decision) => {
+      assert_true(decision.override_allowed)
+      assert_eq(decision.final_label, "paragraph")
+      assert_eq(decision.output_kind, "paragraph")
+      assert_eq(
+        decision.override_reason |> Option::unwrap_or(""),
+        "weak_heading_receipt_settlement_line",
+      )
+    }
+    None => fail("expected settlement heading gate decision")
+  }
+}
+
+///|
+test "pdf layout gate keeps payment label without settlement amount evidence" {
+  let sep = make_gate_block(
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "===================================",
+    Some(7.0),
+    784.0,
+    Some(2.0),
+  )
+  let heading = make_gate_block(
+    1,
+    PdfConvertBlockKind::Heading,
+    "PAYMENT METHOD",
+    Some(8.0),
+    760.0,
+    Some(6.0),
+  )
+  let value = make_gate_block(
+    2,
+    PdfConvertBlockKind::Paragraph,
+    "Visa Card ending in 4782",
+    Some(8.0),
+    736.0,
+    Some(1.0),
+  )
+  let doc = { pages: [make_gate_page([sep, heading, value])] }
+  let gated = apply_pdf_layout_gate(doc, config={ enabled: true })
+  assert_true(gated.pages[0].blocks[1].kind == PdfConvertBlockKind::Heading)
+
+  let summary = build_pdf_layout_gate_summary(doc, gated, config={
+    enabled: true,
+  })
+  match
+    decision_for_target(summary, "p1.b1", PdfLayoutGateStage::HeadingDemotion) {
+    Some(decision) => {
+      assert_true(!decision.override_allowed)
+      assert_eq(decision.final_label, "heading")
+    }
+    None => fail("expected payment label heading decision")
+  }
+}
+
+///|
+test "pdf layout gate keeps true heading with body context" {
+  let heading = make_gate_block(
+    0,
+    PdfConvertBlockKind::Heading,
+    "Introduction",
+    Some(12.0),
+    760.0,
+    Some(8.0),
+  )
+  let body = make_gate_block(
+    1,
+    PdfConvertBlockKind::Paragraph,
+    "This section explains the document workflow in plain language.",
+    Some(9.0),
+    736.0,
+    Some(4.0),
+  )
+  let doc = { pages: [make_gate_page([heading, body])] }
+  let gated = apply_pdf_layout_gate(doc, config={ enabled: true })
+  assert_true(gated.pages[0].blocks[0].kind == PdfConvertBlockKind::Heading)
+
+  let summary = build_pdf_layout_gate_summary(doc, gated, config={
+    enabled: true,
+  })
+  match
+    decision_for_target(summary, "p1.b0", PdfLayoutGateStage::HeadingDemotion) {
+    Some(decision) =>
+      assert_true(
+        match decision.override_blocked_reason {
+          Some(reason) => reason == "strong_heading_support"
+          None => false
+        },
+      )
+    None => fail("expected strong heading decision")
+  }
+}
+
+///|
+test "pdf layout gate disable switch keeps receipt settlement heading behavior" {
+  let sep0 = make_gate_block(
+    0,
+    PdfConvertBlockKind::Paragraph,
+    "===================================",
+    Some(8.0),
+    784.0,
+    Some(2.0),
+  )
+  let heading = make_gate_block(
+    1,
+    PdfConvertBlockKind::Heading,
+    "TOTAL $821.14",
+    Some(9.0),
+    760.0,
+    Some(6.0),
+  )
+  let sep1 = make_gate_block(
+    2,
+    PdfConvertBlockKind::Paragraph,
+    "===================================",
+    Some(8.0),
+    736.0,
+    Some(0.0),
+  )
+  let doc = { pages: [make_gate_page([sep0, heading, sep1])] }
+  let gated = apply_pdf_layout_gate(doc, config={ enabled: false })
+  assert_true(gated.pages[0].blocks[1].kind == PdfConvertBlockKind::Heading)
+
+  let summary = build_pdf_layout_gate_summary(doc, gated, config={
+    enabled: false,
+  })
+  match
+    decision_for_target(summary, "p1.b1", PdfLayoutGateStage::HeadingDemotion) {
+    Some(decision) =>
+      assert_true(
+        match decision.override_blocked_reason {
+          Some(reason) => reason == "gate_disabled"
+          None => false
+        },
+      )
+    None => fail("expected disabled settlement heading decision")
+  }
+}
+
+///|
 test "pdf layout gate suppresses technical bullets" {
   let block = make_gate_block(
     0,

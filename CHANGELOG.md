@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+* Summarize the current post-pruning / cross-format baseline:
+  vendored `mbtpdf` is now maintained as a trimmed local PDF support subtree
+  rather than as a full upstream mirror; stale residue, command/example
+  packages, unused side packages, the old text facade, and the remaining e2e
+  surface have been pruned, while runtime-critical parser/text/image/layout
+  support plus local attribution files remain in place.
+* Record the current product-closure boundary explicitly:
+  `cli mbtpdf count = 0`, `zip mbtpdf count = 0`, and `pdf mbtpdf count =
+  23339`; recent CSV `cp932/mskanji` fallback hardening stays sealed behind a
+  CSV-local helper and does not pull PDF closure back into lightweight `cli`
+  or delegated product `zip`.
+* Freeze the current checked local quality snapshot as the post-pruning
+  cross-format baseline:
+  `330` rows / `1` skipped / `0 expected_fail`, with focused rows at
+  `PDF 101`, public-only checked-in `PDF 24`, `DOCX 60`, `PPTX 55`,
+  `XLSX 51`, `EPUB 16`, `ZIP 15`, `XML 9`, `CSV 15`, and `HTML 5`.
+  This remains an external-fixture-driven local validation state rather than a
+  release artifact; `.external/quality_corpus` and
+  `samples/quality_corpus/external_manifest.local.tsv` stay local-only.
+* Capture the current quality-strengthening scope without widening claims:
+  checked-in repo-tracked PDF guards now cover text, layout,
+  paragraph/noise, links, and images; local-only external PDF guards cover
+  CJK/`/ToUnicode`, annotations, forms, links, and images; second-cycle
+  local-only guards also now cover XLSX/DOCX/PPTX plus EPUB/ZIP/XML/CSV tail
+  cases.
+* Keep the boundary language conservative:
+  `0 expected_fail` is not a universal-support claim, OCR/scanned content
+  remains explicit-only, and benchmark/compare numbers remain local and
+  sample-scoped rather than release-grade guarantees.
+
 * Rename the split native packages to their current product/tool names:
   `cli_debug -> debug`, `cli_bench -> bench`, `cli_ocr -> ocr`,
   `cli_pdf -> pdf`, and `cli_zip -> zip`, while keeping `cli` as the

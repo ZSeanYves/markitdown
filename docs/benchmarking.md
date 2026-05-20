@@ -115,10 +115,10 @@ Internal implementation note:
 
 Current checked local clean-build snapshot:
 
-* `cli build`: `real 62.80s`, `user 49.36s`, `sys 9.12s`
-* `pdf build`: `real 67.25s`, `user 52.28s`, `sys 8.24s`
-* `zip build`: `real 61.53s`, `user 46.25s`, `sys 7.83s`
-* `ocr build`: `real 52.96s`, `user 37.82s`, `sys 7.73s`
+* `cli build`: `real 64.06s`, `user 49.17s`, `sys 9.76s`
+* `pdf build`: `real 69.07s`, `user 52.52s`, `sys 9.24s`
+* `zip build`: `real 63.48s`, `user 46.48s`, `sys 8.90s`
+* `ocr build`: `real 54.72s`, `user 37.89s`, `sys 8.73s`
 * `cli.exe`: `3790168` bytes (~`3.6M`)
 * `pdf.exe`: `4354040` bytes
 * `zip.exe`: `3601656` bytes (~`3.4M`)
@@ -129,18 +129,28 @@ Current checked local clean-build snapshot:
 * `ocr.c`: `154425` lines
 * `cli mbtpdf count`: `0`
 * `zip mbtpdf count`: `0`
+* `pdf mbtpdf count`: `23339`
 
 Current guardrail notes:
 
 * main `cli` stays out of vendored `mbtpdf` and should remain `mbtpdf=0`
 * product `zip` stays on the delegated `convert/zip_worker` path and should
   remain `mbtpdf=0`
-* recent CSV `cp932/mskanji` fallback hardening no longer pulls vendored PDF
-  closure into product `cli` or delegated product `zip`
+* the retained `mbtpdf` subtree now covers runtime-critical PDF support plus
+  attribution only; stale residue / command / side / text-facade / e2e
+  surfaces have been pruned while `cli` and delegated `zip` stay outside that
+  closure
 * a direct in-process PDF/ZIP reintegration experiment pushed `cli` to about
   `30M / 653k` generated-C lines on the recent Ubuntu audit runner
 * the accepted design therefore keeps PDF and ZIP on the user-visible `cli`
   surface while routing execution through bundled `pdf` / `zip`
+
+Current checked local smoke benchmark run:
+
+* suite: `smoke`
+* samples run: `96`
+* failures: `0`
+* result root: `.tmp/bench/smoke`
 
 ## Output Directories
 

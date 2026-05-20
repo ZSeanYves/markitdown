@@ -393,7 +393,7 @@ fn decide_pdf_layout_heading_gate(
   )
   let constraints = gate_hard_constraints(features, true)
   let strong_support = gate_strong_heading_support(block, prev, next, features)
-  let candidate = select_heading_demotion_candidate(block, next, features)
+  let candidate = select_heading_demotion_candidate(block, prev, next, features)
   let suggested = candidate_label_opt(candidate)
   let reason_tags = match candidate {
     Some(c) => c.reason_tags
@@ -545,6 +545,7 @@ fn apply_heading_gate_decision(
 ///|
 fn select_heading_demotion_candidate(
   block : PdfConvertBlock,
+  prev : PdfConvertBlock?,
   next : PdfConvertBlock?,
   features : Map[String, Double],
 ) -> PdfLayoutGateCandidateScore? {
@@ -597,6 +598,20 @@ fn select_heading_demotion_candidate(
       score,
       confidence: cap_gate_confidence(score),
       reason: "weak_heading_receipt_form_row",
+      reason_tags: collect_gate_reason_tags(features, reasons),
+    })
+  }
+
+  if gate_receipt_settlement_heading_evidence(block, prev, next, features) {
+    let score = 0.90
+    let reasons : Array[String] = [
+      "contains_currency", "word_count", "relative_font_size",
+    ]
+    candidates.push({
+      label: "paragraph",
+      score,
+      confidence: cap_gate_confidence(score),
+      reason: "weak_heading_receipt_settlement_line",
       reason_tags: collect_gate_reason_tags(features, reasons),
     })
   }
@@ -716,7 +731,8 @@ fn gate_strong_heading_support(
 ) -> Bool {
   if gate_technical_keep_as_text_evidence(features) ||
     gate_receipt_form_evidence(features) ||
-    gate_footer_noise_evidence(features) {
+    gate_footer_noise_evidence(features) ||
+    gate_receipt_settlement_heading_evidence(block, prev, next, features) {
     return false
   }
 
@@ -826,6 +842,80 @@ fn gate_receipt_form_evidence(features : Map[String, Double]) -> Bool {
   gate_feature_bool(features, "receipt_line_item_signal") ||
   gate_feature_bool(features, "payment_card_signal") ||
   gate_feature_bool(features, "quantity_price_signal")
+}
+
+///|
+fn gate_receipt_settlement_heading_evidence(
+  block : PdfConvertBlock,
+  prev : PdfConvertBlock?,
+  next : PdfConvertBlock?,
+  features : Map[String, Double],
+) -> Bool {
+  if !gate_feature_bool(features, "is_heading_candidate") {
+    return false
+  }
+  if gate_feature_bool(features, "sentence_like_signal") ||
+    gate_feature_bool(features, "contains_clause_punctuation") ||
+    gate_feature_bool(features, "has_terminal_period") {
+    return false
+  }
+  if !gate_feature_bool(features, "contains_currency") {
+    return false
+  }
+  let word_count = gate_feature_num(features, "word_count")
+  if word_count <= 0.0 || word_count > 3.0 {
+    return false
+  }
+  let relative_font = gate_feature_num(features, "relative_font_size")
+  if relative_font < 1.0 || relative_font > 1.2 {
+    return false
+  }
+
+  let text = normalize_pdf_comparison_text(block.text)
+  if !looks_like_receipt_settlement_heading_text(text) {
+    return false
+  }
+
+  let prev_separator = block_neighbor_is_separator(prev)
+  let next_separator = block_neighbor_is_separator(next)
+
+  prev_separator && next_separator
+}
+
+///|
+fn looks_like_receipt_settlement_heading_text(text : String) -> Bool {
+  let upper = text.trim().to_upper()
+  if upper == "" {
+    return false
+  }
+
+  let words : Array[String] = []
+  for part in upper.split(" ") {
+    if part != "" {
+      words.push(part.to_owned())
+    }
+  }
+  if words.length() == 0 {
+    return false
+  }
+  let head = words[0]
+  let second = if words.length() > 1 { words[1] } else { "" }
+
+  head == "TOTAL" ||
+  head == "SUBTOTAL" ||
+  head == "DISCOUNT" ||
+  (head == "SALES" && second == "TAX") ||
+  (head == "REWARDS" && second == "APPLIED") ||
+  (head == "BALANCE" && second == "DUE") ||
+  (head == "AMOUNT" && second == "DUE")
+}
+
+///|
+fn block_neighbor_is_separator(block : PdfConvertBlock?) -> Bool {
+  match block {
+    Some(value) => looks_like_separator_line_for_ir(value.text.trim().to_owned())
+    None => false
+  }
 }
 
 ///|

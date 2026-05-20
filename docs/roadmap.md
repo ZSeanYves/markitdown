@@ -19,6 +19,16 @@ This page is the current roadmap source of truth for the repository.
 * benchmark:
   unified entrypoint through `./samples/bench.sh`, including the focused
   cold-start CLI suite with external vs main-internal startup attribution
+* post-pruning PDF support subtree:
+  `doc_parse/pdf/vendor/mbtpdf` is now maintained as a trimmed local support
+  subtree rather than a full upstream mirror; stale residue, command/example
+  packages, unused side packages, the old text facade, and the remaining e2e
+  surface have been pruned while runtime-critical support and attribution
+  remain
+* product closure:
+  `cli mbtpdf count = 0`, `zip mbtpdf count = 0`, and
+  `pdf mbtpdf count = 23339`; recent CSV `cp932/mskanji` fallback hardening
+  stays out of the lightweight `cli` / delegated `zip` closure
 * external/private quality gate:
   `samples/quality_corpus/` is now operational as a local signal-level intake
   path, with real external rows already used to validate fixes for PDF word
@@ -27,6 +37,15 @@ This page is the current roadmap source of truth for the repository.
   comments, HTML content-root selection, XLSX worksheet comments, DOCX
   note/comment hyperlink-anchor preservation, and PPTX chart-title/date-category
   lowering
+* checked local cross-format quality baseline:
+  `330` rows / `1` skipped / `0 expected_fail`, with focused rows at
+  `PDF 101`, public-only checked-in `PDF 24`, `DOCX 60`, `PPTX 55`,
+  `XLSX 51`, `EPUB 16`, `ZIP 15`, `XML 9`, `CSV 15`, and `HTML 5`
+* current quality evidence remains external-fixture-driven and local:
+  `.external/quality_corpus` and
+  `samples/quality_corpus/external_manifest.local.tsv` are not release
+  artifacts, `0 expected_fail` is not a universal-support claim, and
+  OCR/scanned behavior remains explicit-only
 
 ## Near-term Release Work
 
@@ -52,6 +71,10 @@ This page is the current roadmap source of truth for the repository.
 * examples
 * support/limits
 * performance caveats
+* lightweight release-note summaries for major pruning / quality / closure
+  phases
+* release checklist hygiene so docs-only snapshots stay consistent with the
+  checked local validation chain
 
 ### 4. Performance follow-ups
 
@@ -64,7 +87,7 @@ This page is the current roadmap source of truth for the repository.
 * no longer prioritize source-level cold CLI micro-optimization for the
   current checked `noop`/`--help`/minimal-TXT path
 
-### 5. PDF layout classifier follow-up
+### 5. PDF layout/model follow-up
 
 * keep the current `samples/pdf_layout_classifier` work scoped as a training
   spike
@@ -74,6 +97,12 @@ This page is the current roadmap source of truth for the repository.
 * the first normal-path gate is now intentionally tiny:
   weak heading demotion plus separator/list suppression only, with hard
   constraints, debug reasons, and a disable switch
+* widen the gated-normal path only after a fresh residual audit shows a clear
+  low-risk win
+* keep table/layout/heading/list work split into explicit risk buckets rather
+  than broad “layout quality” language
+* keep benchmark/build guardrails and disable-switch behavior in scope for any
+  future widening
 * expand local labels only if the text-layer classifier shows useful signal
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
@@ -83,8 +112,9 @@ This page is the current roadmap source of truth for the repository.
 * keep `samples/quality_corpus/` as an external/public-dataset/private-local
   intake framework rather than repopulating it with repository regression
   samples
-* keep the checked public manifest intentionally empty until rows are manually
-  curated
+* keep the checked public manifest small and manually curated around stable
+  repo-tracked rows; the current checked-in public baseline is PDF-focused and
+  should only grow when a new row adds clear signal
 * treat private local real documents as the first-class intake path
 * treat `external_sources.tsv` as a source catalog rather than an integrated
   corpus
@@ -96,30 +126,21 @@ This page is the current roadmap source of truth for the repository.
 * continue turning real external `known_bad` rows into passing `reference`
   rows only when the converter behavior is actually verified locally
 
-### 7. External hardening follow-ups
+### 7. Format follow-up after the baseline snapshot
 
-* find more PDF table/layout samples with small, stable external signals
-* add more CJK / `/ToUnicode` positive PDF samples so the native text matrix is
-  not anchored on only one non-ASCII positive path
-* find a small `Type0 + predefined CMap + no /ToUnicode` PDF sample before
-  considering a predefined-CMap implementation pass
-* keep scan-only/image-only PDF rows on report-only detection first by
-  reusing existing inspect/debug signal rather than turning the native suite
-  into an OCR expectation
-* add more XLSX external rows around hyperlink/comment appendix stability,
-  formula cache, and merged-cell boundaries
-* add heavier PDF/PPTX external rows around PDF link annotations,
-  multi-column reading order, PPTX grouped-shape layout, and richer
-  speaker-notes/comment combinations
-* keep expanding EPUB external rows around OPF/package robustness, especially
-  commented-out manifest markup and remote/scheme sidecar resources that
-  should not abort local spine conversion
-* add more XML external rows around non-UTF-8 declaration handling and keep
-  broad legacy-charset guessing out of scope unless real samples justify it
-* keep true multi-document YAML support as optional future work rather than
-  a release blocker
-* keep scan-only PDF rows as boundary evidence rather than claiming OCR-first
-  default support
+* Office next-pass work should stay evidence-led:
+  prioritize real failures around XLSX formulas / hidden sheets / hyperlinks,
+  PPTX media / charts / comments, and DOCX links / text boxes / notes / images
+  before adding broader corpus breadth
+* PDF next-pass work should stay narrow:
+  continue table/layout/heading/list residual audits before any normal-path
+  widening, keep scan-only rows as explicit boundary evidence, and do not
+  widen claims around OCR or broad CJK fallback without new sample-backed wins
+* Horizontal follow-up should be tail-only:
+  revisit EPUB/ZIP/XML/CSV mainly when a real failure or clear signal gap
+  appears, rather than treating them as open-ended corpus-expansion lanes
+* keep true multi-document YAML support as optional future work rather than a
+  release blocker
 
 ### 8. Report-only diagnostics and explicit provider routes
 
@@ -189,6 +210,15 @@ This page is the current roadmap source of truth for the repository.
   into a vague product-quality percentage claim
 * add more pinned mainstream compare runs before making any broader README
   quality-percentage or speed-multiple claims
+
+### 9. Release pipeline follow-up
+
+* automate release-note summary assembly from the checked local snapshot rather
+  than rewriting the same phase summary by hand
+* add a lightweight release checklist pass for docs / quality / contracts /
+  smoke-bench consistency
+* keep artifact-build scripting explicit and reproducible without turning local
+  corpus state or benchmark caches into release artifacts
 
 ## Later Work
 

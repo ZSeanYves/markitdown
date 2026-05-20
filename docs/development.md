@@ -182,6 +182,15 @@ Full validation:
 ./samples/check.sh
 ```
 
+Release-candidate readiness helper:
+
+```bash
+bash samples/helpers/check_release_candidate.sh
+bash samples/helpers/check_release_candidate.sh --skip-bench
+bash samples/helpers/check_release_candidate.sh --full
+bash samples/helpers/print_release_summary.sh
+```
+
 The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the main
 public validation entrypoints. Most helpers under `samples/helpers/` remain
 internal or maintainer-oriented, except the explicit contract/smoke scripts

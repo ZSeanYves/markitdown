@@ -38,6 +38,17 @@ Current validation layering:
 * external quality rows must stay locally curated until license review is
   approved
 * upstream tool fixtures and public datasets are references, not oracles
+* current checked local quality snapshot is `330` rows / `1` skipped /
+  `0 expected_fail`, with focused rows at `PDF 101`, public-only checked-in
+  `PDF 24`, `DOCX 60`, `PPTX 55`, `XLSX 51`, `EPUB 16`, `ZIP 15`, `XML 9`,
+  `CSV 15`, and `HTML 5`
+* that snapshot is external-fixture-driven and local validation only; it is
+  not a release artifact or a blanket repository-wide quality percentage
+* `.external/quality_corpus` and
+  `samples/quality_corpus/external_manifest.local.tsv` remain intentionally
+  local-only
+* `0 expected_fail` does not mean every format boundary is fully covered, and
+  OCR/scanned behavior remains explicit-only
 
 ## CLI Output Contract
 
