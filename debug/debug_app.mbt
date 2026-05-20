@@ -560,15 +560,37 @@ fn choose_layout_assist_eval_mode(
 
 ///|
 fn resolve_layout_assist_eval_manifest_path() -> String {
-  let direct = "samples/pdf_layout_classifier/manifest.tsv"
-  if @fs.path_exists(direct) {
-    return direct
+  let quality_lab_root = match @sys.get_env_var("MARKITDOWN_QUALITY_LAB") {
+    Some(root) =>
+      if root.trim() != "" {
+        Some(trim_trailing_slash(root.trim().to_owned()))
+      } else {
+        None
+      }
+    None => None
   }
-  let fallback = "../samples/pdf_layout_classifier/manifest.tsv"
-  if @fs.path_exists(fallback) {
-    return fallback
+  match quality_lab_root {
+    Some(root) => {
+      let path = root + "/pdf_layout_classifier/manifest.tsv"
+      if @fs.path_exists(path) {
+        return path
+      }
+    }
+    None => ()
   }
-  direct
+  let repo_local_lab = "markitdown-quality-lab/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(repo_local_lab) {
+    return repo_local_lab
+  }
+  let repo_tracked = "debug/testdata/layout_assist_eval/manifest.tsv"
+  if @fs.path_exists(repo_tracked) {
+    return repo_tracked
+  }
+  let sibling_lab = "../markitdown-quality-lab/pdf_layout_classifier/manifest.tsv"
+  if @fs.path_exists(sibling_lab) {
+    return sibling_lab
+  }
+  repo_tracked
 }
 
 ///|
@@ -576,11 +598,125 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
+  let quality_corpus_root = match @sys.get_env_var("MARKITDOWN_QUALITY_CORPUS") {
+    Some(root) =>
+      if root.trim() != "" {
+        Some(trim_trailing_slash(root.trim().to_owned()))
+      } else {
+        None
+      }
+    None => None
+  }
+  if path.has_prefix(".external/quality_corpus/") {
+    let suffix = path[25:].to_owned()
+    match quality_corpus_root {
+      Some(root) => {
+        let candidate = root + "/" + suffix
+        if @fs.path_exists(candidate) {
+          return candidate
+        }
+      }
+      None => ()
+    }
+    match @sys.get_env_var("MARKITDOWN_QUALITY_LAB") {
+      Some(root) => {
+        if root.trim() != "" {
+          let candidate = trim_trailing_slash(root.trim().to_owned()) + "/corpus/" + suffix
+          if @fs.path_exists(candidate) {
+            return candidate
+          }
+        }
+      }
+      None => ()
+    }
+    let repo_local_candidate = "markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(repo_local_candidate) {
+      return repo_local_candidate
+    }
+    let sibling_candidate = "../markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(sibling_candidate) {
+      return sibling_candidate
+    }
+  }
+  if path.has_prefix(".external/layout_model/") {
+    let suffix = path[23:].to_owned()
+    let quality_lab_layout_root = match @sys.get_env_var("MARKITDOWN_LAYOUT_LAB") {
+      Some(root) =>
+        if root.trim() != "" {
+          Some(trim_trailing_slash(root.trim().to_owned()))
+        } else {
+          None
+        }
+      None =>
+        match @sys.get_env_var("MARKITDOWN_QUALITY_LAB") {
+          Some(root) =>
+            if root.trim() != "" {
+              Some(
+                trim_trailing_slash(root.trim().to_owned()) +
+                "/pdf_layout_classifier",
+              )
+            } else {
+              None
+            }
+          None => None
+        }
+    }
+    let mapped = map_layout_lab_legacy_suffix(suffix)
+    match quality_lab_layout_root {
+      Some(root) => {
+        let candidate = root + "/" + mapped
+        if @fs.path_exists(candidate) {
+          return candidate
+        }
+      }
+      None => ()
+    }
+    let repo_local_candidate = "markitdown-quality-lab/pdf_layout_classifier/" + mapped
+    if @fs.path_exists(repo_local_candidate) {
+      return repo_local_candidate
+    }
+    let sibling_candidate = "../markitdown-quality-lab/pdf_layout_classifier/" + mapped
+    if @fs.path_exists(sibling_candidate) {
+      return sibling_candidate
+    }
+  }
   let fallback = "../" + path
   if @fs.path_exists(fallback) {
     return fallback
   }
   fail("layout-assist eval sample not found: " + path)
+}
+
+///|
+fn map_layout_lab_legacy_suffix(suffix : String) -> String {
+  if suffix.has_prefix("datasets/") {
+    return suffix
+  }
+  if suffix.has_prefix("labels/") {
+    return suffix
+  }
+  if suffix.has_prefix("models/") {
+    return suffix
+  }
+  if suffix.has_prefix("features/") {
+    return "local_eval/" + suffix
+  }
+  if suffix.has_prefix("eval/") {
+    return "local_eval/" + suffix
+  }
+  if suffix.has_prefix("eval_") {
+    return "reports/" + suffix
+  }
+  "reports/" + suffix
+}
+
+///|
+fn trim_trailing_slash(path : String) -> String {
+  if path.length() > 1 && path[path.length() - 1] == '/' {
+    path[:path.length() - 1].to_owned()
+  } else {
+    path
+  }
 }
 
 ///|

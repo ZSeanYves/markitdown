@@ -29,9 +29,10 @@ This page is the current roadmap source of truth for the repository.
   `cli mbtpdf count = 0`, `zip mbtpdf count = 0`, and
   `pdf mbtpdf count = 23339`; recent CSV `cp932/mskanji` fallback hardening
   stays out of the lightweight `cli` / delegated `zip` closure
-* external/private quality gate:
-  `samples/quality_corpus/` is now operational as a local signal-level intake
-  path, with real external rows already used to validate fixes for PDF word
+* quality-lab-backed quality gate:
+  `samples/quality_corpus/` is now operational as a signal-level gate over the
+  checked-in public baseline plus lab-managed external/full local rows, with
+  real external rows already used to validate fixes for PDF word
   boundaries, PDF non-link annotation appendix lowering, ZIP Level 1 data
   descriptors, YAML single-document markers, PPTX cached chart data, PPTX
   comments, HTML content-root selection, XLSX worksheet comments, DOCX
@@ -42,10 +43,9 @@ This page is the current roadmap source of truth for the repository.
   `PDF 101`, public-only checked-in `PDF 24`, `DOCX 60`, `PPTX 55`,
   `XLSX 51`, `EPUB 16`, `ZIP 15`, `XML 9`, `CSV 15`, and `HTML 5`
 * current quality evidence remains external-fixture-driven and local:
-  `.external/quality_corpus` and
-  `samples/quality_corpus/external_manifest.local.tsv` are not release
-  artifacts, `0 expected_fail` is not a universal-support claim, and
-  OCR/scanned behavior remains explicit-only
+  `markitdown-quality-lab/` is not a release artifact,
+  `0 expected_fail` is not a universal-support claim, and OCR/scanned behavior
+  remains explicit-only
 
 ## Near-term Release Work
 
@@ -89,8 +89,8 @@ This page is the current roadmap source of truth for the repository.
 
 ### 5. PDF layout/model follow-up
 
-* keep the current `samples/pdf_layout_classifier` work scoped as a training
-  spike
+* keep the current quality-lab `pdf_layout_classifier` work scoped as a
+  training spike
 * keep the broader offline/training/eval loop in `docs/pdf-layout-model.md`,
   while treating the new tiny gated-normal v1 as a separate distilled
   implementation rather than “the model now runs in normal”
@@ -107,24 +107,60 @@ This page is the current roadmap source of truth for the repository.
 * keep plugin/backend/OCR/visual-model integration optional and outside the
   default fast main path
 
-### 6. External/private quality intake
+### 6. Quality-lab quality intake
 
-* keep `samples/quality_corpus/` as an external/public-dataset/private-local
-  intake framework rather than repopulating it with repository regression
-  samples
+* keep `samples/quality_corpus/` as the runner for a repo-owned public baseline
+  plus quality-lab-managed external/full local rows rather than repopulating
+  it with repository regression samples
 * keep the checked public manifest small and manually curated around stable
   repo-tracked rows; the current checked-in public baseline is PDF-focused and
   should only grow when a new row adds clear signal
-* treat private local real documents as the first-class intake path
-* treat `external_sources.tsv` as a source catalog rather than an integrated
-  corpus
-* keep `external_manifest.local.tsv` local-only and license-gated
+* treat `markitdown-quality-lab/quality_rows/source_catalog.tsv` as the
+  external source catalog
+* treat `markitdown-quality-lab/quality_rows/manifest.tsv` as the tracked full
+  external/local quality-row manifest
+* keep any legacy `external_manifest.local.tsv` fallback local-only and
+  migration-window only
 * prioritize MarkItDown/Pandoc fixture intake before large layout datasets
 * require license review before vendoring any external dataset or tool fixture
 * legacy synthetic `samples/real_world` has been removed and is no longer
   current release quality evidence
 * continue turning real external `known_bad` rows into passing `reference`
   rows only when the converter behavior is actually verified locally
+
+Legacy-fallback exit criteria:
+
+* remove `external_manifest.local.tsv`, sibling quality-lab lookup, and
+  `.external/...` path fallbacks only after:
+  * repo-root quality-lab full quality keeps passing `330 / 1 / 0`
+  * public-only keeps passing `24 / 0 / 0`
+  * `moon test` plus `./samples/check.sh` pass in the same cycle
+  * no non-doc runtime/product reference depends on `.external/...`
+  * no active maintainer workflow still depends on local
+    `external_manifest.local.tsv`
+  * quality-lab keeps tracked `quality_rows/manifest.tsv` and `corpus/MANIFEST.tsv`
+  * at least one full post-migration cycle has completed
+
+Legacy-fallback removal phases:
+
+* Phase 1: stop recommending legacy paths in docs and helper examples; keep
+  only lifecycle notes plus explicit migration-window wording
+* Phase 2: remove optional sibling `../markitdown-quality-lab` lookup from
+  runner/helper/debug code after repo-root `markitdown-quality-lab/` has stayed
+  stable for at least one full cycle
+* Phase 3: remove `samples/quality_corpus/external_manifest.local.tsv` as a
+  runner fallback once no active maintainer workflow still depends on the local
+  private/external split and `--lab-manifest` / tracked lab rows cover the same
+  workflow
+* Phase 4: remove legacy `.external/quality_corpus/...` row-path resolution
+  from runner/helper code once full quality has been exercised from
+  `markitdown-quality-lab/corpus` for at least one full cycle without fallback
+* Phase 5: remove legacy `.external/layout_model/...` mapping from
+  debug/layout-assist eval once repo-root quality-lab layout scripts and the
+  repo-tracked `doc_parse/pdf/layout_model_tool` entrypoint have remained
+  stable for at least one full cycle
+* Phase 6: already satisfied once docs, scripts, and maintainer workflow no
+  longer reference a local `pdf_layout_classifier` sample directory directly
 
 ### 7. Format follow-up after the baseline snapshot
 
@@ -243,7 +279,7 @@ This page is the current roadmap source of truth for the repository.
 * keep layout-assist providers advisory by default; do not let model-backed
   assistance silently replace the rule-driven main chain
 * deeper DOCX/PPTX normal-path integration if justified
-* manually curated external/private quality corpus growth
+* manually curated quality-lab corpus growth
 * fuzz / malformed corpus
 * more ecosystem adapters
 

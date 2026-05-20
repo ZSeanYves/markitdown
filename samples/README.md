@@ -19,7 +19,7 @@ implementation or maintainer-only helper surface.
 | `samples/main_process/` | checked-in user-visible regression inputs across all formats, with per-format `expected/` subtrees | `check.sh` | source inputs plus expected outputs | keep |
 | `samples/fixtures/` | parser/core/fail-closed fixtures plus lower-layer metadata snapshots | MoonBit tests, contract scripts | fixture inputs and lower-layer snapshots | keep |
 | `samples/benchmark/` | checked-in benchmark corpus | `bench.sh`, internal bench scripts | performance corpus rows | keep |
-| `samples/quality_corpus/` | signal-level external/private quality intake skeleton | `quality_corpus/check.sh` | intake manifests plus local reports | keep |
+| `samples/quality_corpus/` | internal signal-level quality runner implementation plus schema/helpers | `check_quality.sh` | public manifest plus runner/helpers | keep |
 | `samples/helpers/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
 | `docs/quality-comparisons/` | human-readable external comparison records | manual review | narrative comparison docs | keep |
 
@@ -112,18 +112,18 @@ Rules:
 
 Purpose:
 
-* signal-level external/private quality intake
-* local gating for real or public samples that should not be forced into exact fixtures
+* signal-level quality gate for checked-in public rows plus quality-lab-managed
+  local rows
+* local gating for real or public samples that should not be forced into exact
+  fixtures
 * optional intake path for manually curated external/public-dataset/tool-fixture rows
 
 Rules:
 
 * this is not an exact regression replacement for `main_process`
-* public `manifest.tsv` may be intentionally empty until external rows are curated
-* private local rows belong under `samples/quality_corpus/private/`
-* local external rows belong under `samples/quality_corpus/external_manifest.local.tsv`
-* missing private manifests must not fail the checker
-* missing external manifests must not fail the checker
+* public `manifest.tsv` is the repo-owned checked-in baseline
+* broader local/full rows are loaded from `markitdown-quality-lab/quality_rows/manifest.tsv`
+* missing quality-lab manifests must not fail public-only checks
 * external rows require explicit license review before execution
 * external/public rows require manual license review before vendoring
 
@@ -131,16 +131,16 @@ Rules:
 
 | Format | main_process | metadata cases | asset cases | metadata expected | benchmark | quality records | quality intake |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | yes | yes | yes | yes | yes | yes | external/private |
-| PPTX | yes | yes | yes | yes | yes | yes | external/private |
-| XLSX | yes | yes | n/a | yes | yes | yes | external/private |
-| PDF | yes | yes | yes | yes | yes | yes | external/private |
-| HTML | yes | yes | yes | yes | yes | yes | external/private |
-| ZIP | yes | yes | yes | yes | yes | yes / not comparable | external/private |
-| EPUB | yes | yes | yes | yes | yes | yes | external/private |
-| CSV / TSV | yes | yes | n/a | yes | yes | maybe | external/private |
-| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | external/private |
-| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | external/private |
+| DOCX | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
+| PPTX | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
+| XLSX | yes | yes | n/a | yes | yes | yes | public baseline + quality-lab |
+| PDF | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
+| HTML | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
+| ZIP | yes | yes | yes | yes | yes | yes / not comparable | public baseline + quality-lab |
+| EPUB | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
+| CSV / TSV | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
+| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
+| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
 
 Interpretation:
 
@@ -150,7 +150,7 @@ Interpretation:
 * `metadata expected`: exact checked sidecar fixtures, when present
 * `benchmark`: performance evidence
 * `quality records`: human comparison docs
-* `quality intake`: signal-level external/private intake, not a current global
+* `quality intake`: signal-level public-baseline plus quality-lab gate, not a current global
   quality guarantee
 
 ## Script Index
@@ -159,7 +159,8 @@ Interpretation:
 | --- | --- | --- |
 | `samples/check.sh` | public sample-validation entrypoint; default full chain plus focused modes `--markdown-only`, `--metadata-only`, `--assets-only`, `--contracts-only`, and `--manifest-only` | yes |
 | `samples/bench.sh` | public benchmark entrypoint; suite dispatcher for `--suite smoke`, `--suite compare`, and `--suite batch-profile` | manual |
-| `samples/quality_corpus/check.sh` | signal-level external/private intake checker | manual |
+| `samples/check_quality.sh` | optional full quality validation entrypoint; delegates to the internal quality runner | manual |
+| `samples/quality_corpus/check.sh` | internal signal-level quality runner used by `check_quality.sh` | manual |
 | `samples/quality_corpus/compare_tools.sh` | optional tool availability/reference probe | manual |
 | `samples/helpers/check_samples.sh` | internal enrollment-integrity helper used by `check.sh --manifest-only` and the default full chain | yes via `check.sh` |
 | `samples/helpers/check_cli_contract.sh` | internal CLI contract implementation | yes via `check.sh` |
@@ -191,8 +192,20 @@ Focused validation:
 Signal-level intake check:
 
 ```bash
-bash ./samples/quality_corpus/check.sh
+bash ./samples/check_quality.sh
 bash ./samples/quality_corpus/tools/fetch_external_samples.sh --list-sources
+```
+
+Behavior notes:
+
+* `./samples/check.sh` is the repo-local sample validation entrypoint and does
+  not require `markitdown-quality-lab`
+* `bash ./samples/check_quality.sh` is the optional full quality gate and does
+  require `markitdown-quality-lab`
+* clone the quality-lab with:
+
+```bash
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
 Benchmark entrypoints:

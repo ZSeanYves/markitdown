@@ -191,6 +191,95 @@ bash samples/helpers/check_release_candidate.sh --full
 bash samples/helpers/print_release_summary.sh
 ```
 
+Quality-corpus root discovery:
+
+* checked-in public rows run directly from the main repository
+* external/local rows now resolve payloads from, in order:
+  `--corpus-root`, `MARKITDOWN_QUALITY_CORPUS`,
+  `MARKITDOWN_QUALITY_LAB/corpus`,
+  `markitdown-quality-lab/corpus`,
+  optional sibling fallback `../markitdown-quality-lab/corpus`,
+  then legacy `.external/quality_corpus`
+* the recommended repo-local external-lab layout is:
+  `markitdown-quality-lab/corpus`
+* the preferred real migration path is now supported and exercised locally:
+  `markitdown-quality-lab` can carry both the external quality corpus and
+  the PDF layout-classifier lab without changing product/runtime behavior
+* the recommended clone command is:
+
+```bash
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+```
+
+* the recommended local shell setup, when you want explicit non-default roots, is:
+
+```bash
+export MARKITDOWN_QUALITY_LAB="$(pwd)/markitdown-quality-lab"
+export MARKITDOWN_QUALITY_CORPUS="$MARKITDOWN_QUALITY_LAB/corpus"
+export MARKITDOWN_LAYOUT_LAB="$MARKITDOWN_QUALITY_LAB/pdf_layout_classifier"
+```
+
+* runner/tool lookup now auto-discovers `markitdown-quality-lab/` at the repo root
+* the environment variables are optional and mainly useful for non-standard paths
+* the quality-lab is a nested independent Git repository, not a submodule
+* the main repository `.gitignore` ignores `markitdown-quality-lab/`
+* checked-in public-only validation does not require cloning the quality-lab
+* normal product/runtime paths do not read the quality-lab
+* `moon test` and `./samples/check.sh` should also pass without the
+  quality-lab; the main repository now keeps only the small repo-tracked
+  fixtures they directly require
+* local external manifests should prefer corpus-root-relative payload paths
+  under `sources/...`
+* legacy `.external/quality_corpus/...` paths remain fallback-only during the
+  migration window
+* sibling `../markitdown-quality-lab` and legacy `.external` fallbacks remain
+  temporary migration-window compatibility only
+
+Legacy fallback lifecycle:
+
+* current primary workflow is repo-local:
+  `markitdown-quality-lab/corpus`,
+  `markitdown-quality-lab/quality_rows/manifest.tsv`,
+  and `markitdown-quality-lab/pdf_layout_classifier`
+* the remaining migration-window fallbacks are:
+  * `samples/quality_corpus/external_manifest.local.tsv`
+  * legacy `.external/quality_corpus/...` path resolution
+  * legacy `.external/layout_model/...` path mapping
+  * optional sibling `../markitdown-quality-lab`
+  * debug/layout-assist fallback for older local manifests
+* remove those fallbacks only after all of the following are true:
+  * repo-root `markitdown-quality-lab` full quality still passes
+    `330 / 1 / 0`
+  * public-only quality still passes `24 / 0 / 0`
+  * `moon test` and `./samples/check.sh` still pass
+  * no non-doc runtime/product reference depends on `.external/...`
+  * no active workflow still depends on `external_manifest.local.tsv`
+  * quality-lab continues to track `quality_rows/manifest.tsv` and
+    `corpus/MANIFEST.tsv`
+  * at least one full post-migration validation cycle has completed
+
+Recommended external-lab smoke:
+
+```bash
+bash samples/quality_corpus/check.sh --corpus-root "$MARKITDOWN_QUALITY_CORPUS"
+python3 markitdown-quality-lab/pdf_layout_classifier/scripts/export_manifest_features.py \
+  --manifest markitdown-quality-lab/pdf_layout_classifier/manifest.tsv \
+  --corpus-root markitdown-quality-lab/corpus \
+  --sample-id heading_basic \
+  --output-dir .tmp/pdf_layout_classifier/quality_lab_smoke_features
+```
+
+Main-repo layout-model entrypoint:
+
+```bash
+moon build doc_parse/pdf/layout_model_tool --target native
+moon run doc_parse/pdf/layout_model_tool -- --help
+```
+
+This MoonBit tool is the repo-tracked export/infer entrypoint that quality-lab
+scripts call into. Training/eval scripts and larger model/report assets remain
+in `markitdown-quality-lab/pdf_layout_classifier`.
+
 The repository keeps `./samples/check.sh` and `./samples/bench.sh` as the main
 public validation entrypoints. Most helpers under `samples/helpers/` remain
 internal or maintainer-oriented, except the explicit contract/smoke scripts
@@ -276,15 +365,16 @@ Validation runner policy:
 
 ## External Quality Corpus Hygiene
 
-Keep the external/private quality intake local and reproducible:
+Keep the quality-lab-backed external intake local and reproducible:
 
-* `.external/` is a local cache/work area and must not be committed
-* `samples/quality_corpus/external_manifest.local.tsv` is local-only and must
-  not be committed
+* `markitdown-quality-lab/` is an independent local Git repository and must
+  not be added to the main repo
+* any legacy `samples/quality_corpus/external_manifest.local.tsv` is local-only
+  and must not be committed
 * macOS AppleDouble `._*` files under `samples/quality_corpus/` should be
   removed rather than checked in
-* private local samples are first-class quality evidence, but they must remain
-  uncommitted
+* lab-only quality rows and local sample payloads must remain outside the main
+  repository
 * benchmark outputs, OCR/model artifacts, and local corpus outputs stay out of
   version control
 * the Ubuntu shell-portability fixes for `samples/quality_corpus/check.sh`
@@ -338,12 +428,12 @@ GitHub Actions CI:
   Windows workflow is added
 * `moon publish` remains manual and is not automated by CI
 * `./samples/check.sh` remains the checked exact-regression and contract gate
-* `samples/quality_corpus/` is the separate signal-level intake framework for
-  externally sourced or private local quality samples
-* the checked public quality manifest may stay intentionally empty until
-  external rows are manually curated and license-reviewed
-* private local quality samples remain the first-class path for real user
-  documents and must stay uncommitted
+* `samples/quality_corpus/` is the separate signal-level gate for checked-in
+  public rows plus quality-lab-managed external/full local rows
+* the checked public quality manifest stays small and repo-owned; the broader
+  full/local row set is managed from `markitdown-quality-lab/quality_rows`
+* local real documents and licensed fixture payloads remain lab-only and must
+  stay out of the main repository
 
 ## Benchmark Commands
 
@@ -535,8 +625,8 @@ The repository intentionally has a third validation layer beyond package tests:
 * `samples/check.sh --contracts-only`: CLI/debug/batch contract-only validation
 * `samples/check.sh --manifest-only`: enrollment plus benchmark-manifest
   validation
-* `bash ./samples/quality_corpus/check.sh`: signal-level external/private
-  intake check
+* `bash ./samples/quality_corpus/check.sh`: signal-level public-baseline plus
+  quality-lab quality check
 
 These scripts intentionally stay separate:
 

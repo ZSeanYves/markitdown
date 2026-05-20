@@ -138,7 +138,7 @@ Current guardrail intent:
 * heavy PDF native-text build cost belongs to `pdf`
 * `convert/pdf` should keep only the normal PDF runtime, while layout model /
   JSON / TSV export / infer tooling stays in `convert/pdf_layout`
-* `pdf_debug` and `tools/pdf_layout_classifier` should consume
+* `pdf_debug` and `doc_parse/pdf/layout_model_tool` should consume
   `convert/pdf_layout` rather than reintroducing tooling into the normal PDF
   runtime
 * ZIP product builds should reuse `convert/zip_worker` and delegate embedded
@@ -374,7 +374,7 @@ Converter responsibility is intentionally separated:
   tooling
 * `convert/pdf_layout` owns layout model / infer / TSV export / offline
   tooling and is consumed by `convert/pdf_debug` plus
-  `tools/pdf_layout_classifier`
+  `doc_parse/pdf/layout_model_tool`
 * `core/text_normalization.mbt` provides the shared text-normalization facade
   and rule pipeline used by the PDF path for deterministic pure-string cleanup
   before higher-level heuristics run

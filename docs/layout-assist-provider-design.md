@@ -74,17 +74,23 @@ Current implementation status:
 * PDF debug/inspect can now surface advisory `layout_assist` provider summaries
   plus conservative report-only predictions without changing normal Markdown
   output
+* the main repository now keeps only the small repo-tracked PDF fixtures needed
+  by `moon test`, plus the MoonBit export/infer entrypoint at
+  `doc_parse/pdf/layout_model_tool`
 * a debug-only evaluation surface can now summarize advisory prediction
   coverage, label distribution, and top reasons across the local
-  `samples/pdf_layout_classifier` manifest without claiming production-quality
-  accuracy
+  layout-classifier manifest without claiming production-quality accuracy;
+  the recommended home for that local-only corpus is the repo-local
+  `markitdown-quality-lab/pdf_layout_classifier`, while the main repository
+  keeps only repo-tracked fixtures and the MoonBit export/infer entrypoint
 * report-only predictions can now also carry `rule_label_hint`,
   `disagreement`, `blocked_by_constraints`, and a conservative
   `would_change_output` estimate for future gated-normal ablation
 * local-only subset intake plus external-corpus ablation tooling now lives in
-  `tools/pdf_layout_classifier/fetch_tiny_subsets.py`,
-  `tools/pdf_layout_classifier/export_manifest_features.py`, and
-  `tools/pdf_layout_classifier/local_eval.py`
+  `markitdown-quality-lab/pdf_layout_classifier/scripts/fetch_tiny_subsets.py`,
+  `markitdown-quality-lab/pdf_layout_classifier/scripts/export_manifest_features.py`,
+  and
+  `markitdown-quality-lab/pdf_layout_classifier/scripts/local_eval.py`
 * the local-only ablation loop now includes a harder doc-style `epubcheck` /
   `BookReporter` held-out split in addition to the earlier seed rows
 * the current best result is still report-only:
@@ -120,6 +126,9 @@ Current implementation status:
   it only demotes weak headings or suppresses false list bullets, keeps hard
   facts above the gate, exposes debug reasons, and can be disabled with
   `MARKITDOWN_PDF_LAYOUT_GATE=0`
+* no checked runtime/product path loads model JSON or quality-lab assets
+  directly; quality-lab remains training/eval/debug infrastructure rather than
+  a normal conversion dependency
 
 Heavy-provider audit note:
 

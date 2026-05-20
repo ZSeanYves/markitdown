@@ -83,7 +83,7 @@ record all of the following:
 Optional PDF layout classifier spike evaluation:
 
 ```bash
-./samples/pdf_layout_classifier/evaluate.sh --smoke
+python3 markitdown-quality-lab/pdf_layout_classifier/scripts/train.py --help
 ```
 
 ## Internal Helper Scripts
@@ -235,8 +235,8 @@ Interpret benchmark output conservatively:
 * `cli ocr ...` is now part of the unified product CLI experience, but the
   actual OCR runtime closure still lives behind `ocr`; do not mix its
   timings into default non-OCR product-path claims
-* `samples/pdf_layout_classifier/*` is developer training/evaluation tooling,
-  not part of the default benchmark evidence story
+* `markitdown-quality-lab/pdf_layout_classifier/*` is developer
+  training/evaluation tooling, not part of the default benchmark evidence story
 * do not turn the smoke suite into a “faster than mainstream” claim by itself
 * do not turn clean build time into a runtime speed claim
 * do not turn the overlap-only compare suite into a blanket Markdown-quality

@@ -4,6 +4,32 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
+  if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    let name = path.split("/").last().unwrap_or("").to_owned()
+    if name != "" {
+      let repo_tracked = "doc_parse/pdf/testdata/pdfjs/" + name
+      if @fs.path_exists(repo_tracked) {
+        return repo_tracked
+      }
+      let repo_tracked_fallback = "../../" + repo_tracked
+      if @fs.path_exists(repo_tracked_fallback) {
+        return repo_tracked_fallback
+      }
+    }
+  }
+
+  if path.has_prefix(".external/quality_corpus/") {
+    let suffix = path[25:].to_owned()
+    let repo_local_lab = "markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(repo_local_lab) {
+      return repo_local_lab
+    }
+    let sibling_lab = "../markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(sibling_lab) {
+      return sibling_lab
+    }
+  }
+
   let fallback = "../../" + path
   if @fs.path_exists(fallback) {
     return fallback
@@ -88,7 +114,7 @@ async test "pdf lower-layer groups hardwrapped sample into shared text blocks" {
 ///|
 async test "pdf lower-layer surfaces text widget form values from real pdfjs sample" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-text-widget.pdf",
   )
   let doc = match
     @api.extract_document_model(input, @api.default_pdf_config()) {
@@ -162,7 +188,7 @@ async test "pdf lower-layer surfaces text widget form values from real pdfjs sam
 ///|
 async test "pdf lower-layer surfaces choice widget selections from real pdfjs sample" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-choice-widget.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-choice-widget.pdf",
   )
   let doc = match
     @api.extract_document_model(input, @api.default_pdf_config()) {
@@ -221,7 +247,7 @@ async test "pdf lower-layer surfaces choice widget selections from real pdfjs sa
 ///|
 async test "pdf lower-layer preserves pdfjs widget visibility flags for hidden no-view sample" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_noview.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation_hidden_noview.pdf",
   )
   let doc = match
     @api.extract_document_model(input, @api.default_pdf_config()) {
@@ -288,7 +314,7 @@ async test "pdf lower-layer preserves pdfjs widget visibility flags for hidden n
 ///|
 async test "pdf lower-layer preserves printable hidden annotation flags for pdfjs sample" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_print.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation_hidden_print.pdf",
   )
   let doc = match
     @api.extract_document_model(input, @api.default_pdf_config()) {
@@ -355,7 +381,7 @@ async test "pdf lower-layer preserves printable hidden annotation flags for pdfj
 ///|
 async test "pdf lower-layer keeps distinct square and circle annotations from pdfjs without-appearance sample" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-square-circle-without-appearance.pdf",
   )
   let doc = match
     @api.extract_document_model(input, @api.default_pdf_config()) {

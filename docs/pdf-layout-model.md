@@ -50,17 +50,21 @@ Do not auto-download full datasets by default.
 
 Recommended workflow:
 
-1. Keep fetch scripts under `tools/pdf_layout_classifier/` or
-   `tools/pdf_layout_model/`.
-2. Download only small license-verified subsets into
-   `.external/layout_model/...`.
-3. Record:
+1. Keep fetch scripts in the repo-local quality-lab rather than in the main
+   repository.
+2. Prefer a repo-local quality-lab repository for local-only dataset/model/report
+   assets:
+   `markitdown-quality-lab/pdf_layout_classifier/`.
+   The paired external quality corpus should live at
+   `markitdown-quality-lab/corpus/`.
+3. Download only small license-verified subsets into that quality-lab root.
+4. Record:
    * source URL
    * sha256
    * byte size
    * split purpose: train / calibration / heldout
-4. Keep local subset manifests untracked.
-5. Do not commit dataset payloads unless the license and repository policy are
+5. Keep local subset manifests untracked.
+6. Do not commit dataset payloads unless the license and repository policy are
    explicitly reviewed.
 
 Current first-round local-only intake status:
@@ -78,8 +82,10 @@ Current first-round local-only intake status:
   * fetched: `datasets-server` `first-rows` train JSON
   * status: useful for table/form metadata audit
 
-All of the above land only in `.external/layout_model/datasets/...` and stay
-local-only.
+All of the above stay local-only. The recommended home is the repo-local
+quality-lab tree. The main repository no longer keeps a local
+`pdf_layout_classifier` asset directory once the repo-local quality-lab is
+present.
 
 ## Recommended Task Split
 
@@ -216,6 +222,11 @@ runtime.
 Instead it uses a tiny pure-MoonBit gate distilled from the report-only
 feature/held-out loop.
 
+The runtime/product path also does not read the external quality-lab.
+Only developer tooling and local eval/report workflows should resolve
+`markitdown-quality-lab/pdf_layout_classifier`, with sibling and legacy
+fallbacks kept only during the migration window.
+
 Current enabled scope:
 
 * weak `heading` demotion only
@@ -281,13 +292,40 @@ Current default:
   runtime, and passed the full validation + sample/contract gate without
   needing expected-output updates
 
+## Repository Boundary
+
+After the quality-lab migration, the repository boundary is intentionally:
+
+* normal runtime/product code does not load Python, model JSON, or quality-lab
+  payloads
+* the main repository keeps only the small repo-tracked fixtures that are
+  directly required by `moon test`
+* the current repo-tracked PDF fixture subset lives under
+  `doc_parse/pdf/testdata/`
+* the main-repo MoonBit export/infer entrypoint now lives at
+  `doc_parse/pdf/layout_model_tool`
+* training/eval scripts, larger corpora, model reports, and generated model
+  experiments live in `markitdown-quality-lab/pdf_layout_classifier`
+
+Current consequence:
+
+* `moon test` and `./samples/check.sh` should pass without cloning
+  `markitdown-quality-lab`
+* `bash samples/quality_corpus/check.sh --public-only` should pass without the
+  quality-lab
+* full external quality and local eval/report workflows still require the
+  quality-lab
+* no runtime model JSON has to be copied back into the main repository because
+  the checked normal gate is distilled MoonBit logic rather than a runtime JSON
+  model loader
+
 ## Local-Only Eval Loop
 
 The local-only external-corpus ablation loop now runs through:
 
-* `python3 tools/pdf_layout_classifier/fetch_tiny_subsets.py`
-* `python3 tools/pdf_layout_classifier/export_manifest_features.py ...`
-* `python3 tools/pdf_layout_classifier/local_eval.py ...`
+* `python3 markitdown-quality-lab/pdf_layout_classifier/scripts/fetch_tiny_subsets.py`
+* `python3 markitdown-quality-lab/pdf_layout_classifier/scripts/export_manifest_features.py ...`
+* `python3 markitdown-quality-lab/pdf_layout_classifier/scripts/local_eval.py ...`
 
 Current local-only eval set:
 
@@ -304,7 +342,7 @@ Current local-only eval set:
   `223` / `195` selected-train follow-up that did not move the held-out
   result
 * local-only model artifacts stay tiny and local-only under
-  `.external/layout_model/models/...`
+  `markitdown-quality-lab/pdf_layout_classifier/models/...`
 * the current label surface is still strongest on:
   * `footer_header_noise`
   * `form_row`
@@ -522,7 +560,7 @@ The post-fix probe confirms the intended boundary:
 #### Non-Receipt Follow-Up: Heading Promotion Residual
 
 The next user-visible non-receipt residual we re-probed is
-`.external/quality_corpus/markitdown_repo/packages/markitdown/tests/test_files/test.pdf`,
+`markitdown-quality-lab/corpus/sources/markitdown/packages/markitdown/tests/test_files/test.pdf`,
 where the current normal output still starts with:
 
 * `1 Introduction`
@@ -564,7 +602,7 @@ Current conclusion:
 We also isolated the next possible promotion-shaped residual instead of another
 demotion case:
 
-* `.external/.../test.pdf` still starts with `1 Introduction` as plain body
+* the checked `test.pdf` fixture still starts with `1 Introduction` as plain body
   text in the current normal output
 
 That makes it a real user-visible miss, but the current proof study does not

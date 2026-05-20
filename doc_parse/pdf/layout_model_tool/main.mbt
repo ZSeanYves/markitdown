@@ -54,7 +54,7 @@ async fn run_tool(args : Array[String]) -> Unit raise PdfLayoutToolError {
 ///|
 fn print_usage() -> Unit {
   println(
-    "usage: moon run tools/pdf_layout_classifier -- <export|infer> [args]",
+    "usage: moon run doc_parse/pdf/layout_model_tool -- <export|infer> [args]",
   )
   println(
     "  export --sample-id ID --input PATH [--output PATH] [--record-kind block|boundary]",

@@ -24,7 +24,7 @@ Default behavior:
   * require prohibited paths to stay clean
   * run `moon check`
   * run `./samples/check.sh`
-  * run `bash samples/quality_corpus/check.sh`
+  * run `bash samples/check_quality.sh`
   * run bench smoke unless `--skip-bench` is set
   * run release-facing contract helpers, including the optional OCR smoke
 
@@ -124,7 +124,7 @@ section "samples check"
 run ./samples/check.sh
 
 section "quality corpus"
-run bash samples/quality_corpus/check.sh
+run bash samples/check_quality.sh
 
 if [[ "$RUN_BENCH" -eq 1 ]]; then
   section "bench smoke"

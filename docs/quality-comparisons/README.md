@@ -12,8 +12,8 @@ They are also separate from the repository's signal-level quality gate:
 * `docs/quality-comparisons/` is reviewer-facing narrative comparison
 * `samples/quality_corpus/` is scriptable signal-level gating
 * `./samples/check.sh` remains the exact regression surface
-* `samples/quality_corpus/external_sources.tsv` is a source catalog, not an
-  integrated comparison corpus
+* `markitdown-quality-lab/quality_rows/source_catalog.tsv` is a source
+  catalog, not an integrated comparison corpus
 
 ## Goal
 

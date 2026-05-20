@@ -5,6 +5,7 @@ target/
 .moonagent/
 .tmp/
 .external/
+markitdown-quality-lab/
 .codex
 .codex/
 samples/quality_corpus/private/manifest.local.tsv

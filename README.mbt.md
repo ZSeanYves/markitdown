@@ -70,12 +70,13 @@ Interpretation:
 * `expected_fail: 0` does not mean every boundary case is universally covered
 * OCR/scanned content remains explicit-only
 
-Local-only quality assets:
+Local quality-lab assets:
 
-* `.external/quality_corpus`
-* `samples/quality_corpus/external_manifest.local.tsv`
+* `markitdown-quality-lab/corpus`
+* `markitdown-quality-lab/quality_rows/manifest.tsv`
 
-These remain local-only and should not be committed.
+These are local developer assets, not release artifacts, and are managed by
+the ignored nested quality-lab repository rather than by the main repo.
 
 The quality corpus runner now also supports:
 
@@ -218,7 +219,7 @@ Current package responsibilities:
 * `pdf`: normal PDF runtime component with the narrow gated-normal layout gate;
   it no longer carries layout model / JSON / TSV export / infer tooling
 * `pdf_layout`: layout model / infer / TSV export / offline tooling consumed by
-  `pdf_debug` and `tools/pdf_layout_classifier`; not part of the normal
+  `pdf_debug` and `doc_parse/pdf/layout_model_tool`; not part of the normal
   runtime path
 * `pdf_debug`: developer inspect / layout assist / explainability surface
 * `zip`: full ZIP library/product component path; keeps direct embedded PDF
@@ -400,17 +401,19 @@ semantics, or full Markdown-quality equivalence.
 
 ## External Quality Corpus
 
-`samples/quality_corpus/` is the signal-level external/private intake path.
+`samples/quality_corpus/` is the signal-level quality gate for:
+
+* checked-in public baseline rows in the main repository
+* lab-managed full/local rows from `markitdown-quality-lab/quality_rows/manifest.tsv`
 
 Keep these files local-only:
 
-* `.external/`
-* `samples/quality_corpus/external_manifest.local.tsv`
-* private local quality samples
+* `markitdown-quality-lab/`
+* any legacy `samples/quality_corpus/external_manifest.local.tsv`
 * benchmark outputs and OCR/model artifacts
 * macOS AppleDouble `._*` files
 
-Do not commit local manifests, local caches, or quality-corpus outputs.
+Do not commit local caches, lab-only manifests, or quality-corpus outputs.
 
 ## Development Docs
 

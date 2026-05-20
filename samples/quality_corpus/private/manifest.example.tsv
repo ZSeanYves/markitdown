@@ -1,2 +1,0 @@
-id	format	path	source_type	license_status	privacy	size_class	features	expected_signals	quality_tier	notes
-proposal_pdf	pdf	samples/quality_corpus/private/files/proposal.pdf	self_real	private	private_local	medium	heading;paragraph_order;page_noise	contains:项目简介;contains:拟实现的核心功能;order:基本信息|项目简介|拟实现的核心功能;no_empty_output	gate	本地真实申报书 PDF，不提交

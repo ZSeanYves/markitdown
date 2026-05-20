@@ -6,15 +6,62 @@ fn utf16be_pdf_string(text : String) -> String raise {
 
 ///|
 fn resolve_sample_path(path : String) -> String {
+  if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    let name = path.split("/").last().unwrap_or("").to_owned()
+    if name != "" {
+      return "doc_parse/pdf/testdata/pdfjs/" + name
+    }
+  }
+  if path.has_prefix(".external/quality_corpus/") {
+    let suffix = path[25:].to_owned()
+    return "markitdown-quality-lab/corpus/" + suffix
+  }
   path
 }
 
 ///|
 async fn open_sample_pdf(path : String) -> @pdf.Pdf {
   let resolved = resolve_sample_path(path)
+  let repo_tracked = if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    let name = path.split("/").last().unwrap_or("").to_owned()
+    if name != "" {
+      Some("../testdata/pdfjs/" + name)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+  let sibling_lab = if path.has_prefix(".external/quality_corpus/") {
+    let suffix = path[25:].to_owned()
+    Some("../markitdown-quality-lab/corpus/" + suffix)
+  } else {
+    None
+  }
   let fallback = "../../" + path
   let input = @pdfiofs.input_of_file(resolved, source=resolved) catch {
-    _ => @pdfiofs.input_of_file(fallback, source=fallback)
+    _ =>
+      match repo_tracked {
+        Some(candidate) =>
+          @pdfiofs.input_of_file(candidate, source=candidate) catch {
+            _ =>
+              match sibling_lab {
+                Some(sibling) =>
+                  @pdfiofs.input_of_file(sibling, source=sibling) catch {
+                    _ => @pdfiofs.input_of_file(fallback, source=fallback)
+                  }
+                None => @pdfiofs.input_of_file(fallback, source=fallback)
+              }
+          }
+        None =>
+          match sibling_lab {
+            Some(candidate) =>
+              @pdfiofs.input_of_file(candidate, source=candidate) catch {
+                _ => @pdfiofs.input_of_file(fallback, source=fallback)
+              }
+            None => @pdfiofs.input_of_file(fallback, source=fallback)
+          }
+      }
   }
   @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
 }
@@ -255,7 +302,7 @@ test "annotation adapter parses widget annotation flags from /F" {
 ///|
 async test "annotation adapter sees direct text widget /V strings in real pdfjs sample" {
   let pdf = open_sample_pdf(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-text-widget.pdf",
   )
   let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree() catch {
     e => fail("pages_of_pagetree failed: " + e.to_string())

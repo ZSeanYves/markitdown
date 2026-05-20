@@ -6,8 +6,7 @@ source "$ROOT/samples/helpers/tmp_helpers.sh"
 source "$ROOT/samples/helpers/validation_helpers.sh"
 
 MANIFEST_PATH="$ROOT/samples/quality_corpus/manifest.tsv"
-PRIVATE_MANIFEST_PATH="$ROOT/samples/quality_corpus/private/manifest.local.tsv"
-EXTERNAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
+LEGACY_EXTERNAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 OUT_ROOT="$TMP_ROOT/quality_corpus"
 OUTPUT_DIR="$OUT_ROOT/outputs"
@@ -28,17 +27,30 @@ LIST_ONLY=0
 METADATA_ENABLED=1
 PROFILE_ENABLED=0
 PROFILE_TSV="$OUT_ROOT/profile.tsv"
+CORPUS_ROOT_OVERRIDE=""
+LAB_MANIFEST_OVERRIDE=""
+REQUIRE_LAB=0
+CORPUS_ROOT=""
+CORPUS_ROOT_SOURCE=""
+CORPUS_ROOT_CANDIDATES=()
+CORPUS_ROOT_CANDIDATE_LABELS=()
+QUALITY_ROWS_MANIFEST=""
+QUALITY_ROWS_MANIFEST_SOURCE=""
+QUALITY_ROWS_MANIFEST_CANDIDATES=()
+QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS=()
+RESOLVED_EXTERNAL_PATH=""
+TRIED_EXTERNAL_PATHS=()
 
 PUBLIC_HEADER=$'id\tformat\tpath\tsource_type\tlicense_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\tnotes'
 EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
   cat <<'EOF'
-usage: ./samples/quality_corpus/check.sh [--public-only | --private-only] [--id <id>] [--source <source_id>] [--format <format>] [--list] [--no-metadata] [--profile]
+usage: ./samples/quality_corpus/check.sh [--public-only | --private-only] [--id <id>] [--source <source_id>] [--format <format>] [--corpus-root <path>] [--lab-manifest <path>] [--require-lab] [--list] [--no-metadata] [--profile]
 
 Modes:
   --public-only   run only checked-in public intake rows
-  --private-only  run only local private intake rows
+  --private-only  legacy mode: run only the legacy local fallback manifest
   --list          list merged manifest rows after filters, without running conversion
   --no-metadata   run conversion without --with-metadata for profiling
   --profile       write per-row timing diagnostics to .tmp/quality_corpus/profile.tsv
@@ -47,20 +59,40 @@ Filters:
   --id <id>           match one exact row id
   --source <source>   match external rows by source_id
   --format <format>   match rows by format
+  --corpus-root <path>
+                      resolve external corpus payloads from this root first
+  --lab-manifest <path>
+                      resolve tracked external/local quality rows from this
+                      manifest first
+  --require-lab       fail if no lab quality-row manifest is available
 
 Filter semantics:
   * multiple filters are combined with AND
   * source_id filtering only matches external rows
   * filters do not bypass license or file-presence gate semantics
+  * external payload discovery checks, in order:
+      --corpus-root
+      MARKITDOWN_QUALITY_CORPUS
+      MARKITDOWN_QUALITY_LAB/corpus
+      markitdown-quality-lab/corpus
+      ../markitdown-quality-lab/corpus
+      .external/quality_corpus (legacy fallback)
+  * lab quality-row manifest discovery checks, in order:
+      --lab-manifest
+      MARKITDOWN_QUALITY_MANIFEST
+      MARKITDOWN_QUALITY_LAB/quality_rows/manifest.tsv
+      markitdown-quality-lab/quality_rows/manifest.tsv
+      ../markitdown-quality-lab/quality_rows/manifest.tsv
+      legacy samples/quality_corpus/external_manifest.local.tsv
   * --no-metadata disables sidecar metadata generation but keeps all other checks
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
   * empty public manifest is valid
-  * missing private manifest is skipped
-  * missing external manifest is skipped
+  * missing lab quality-row manifest falls back to the legacy local manifest
+    unless --require-lab is set
   * non-approved external rows are skipped
-  * missing external/private files are recorded as skipped when appropriate
+  * missing external legacy files are recorded as skipped when appropriate
   * this is a signal-level intake checker, not an exact-output regression gate
 EOF
 }
@@ -100,6 +132,27 @@ while [[ $# -gt 0 ]]; do
       FILTER_FORMAT="$2"
       shift
       ;;
+    --corpus-root)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --corpus-root" >&2
+        usage >&2
+        exit 1
+      }
+      CORPUS_ROOT_OVERRIDE="$2"
+      shift
+      ;;
+    --lab-manifest)
+      [[ $# -ge 2 ]] || {
+        echo "missing value for --lab-manifest" >&2
+        usage >&2
+        exit 1
+      }
+      LAB_MANIFEST_OVERRIDE="$2"
+      shift
+      ;;
+    --require-lab)
+      REQUIRE_LAB=1
+      ;;
     --list)
       LIST_ONLY=1
       ;;
@@ -128,6 +181,184 @@ trim_cr() {
   local value="${1-}"
   value="${value%$'\r'}"
   printf '%s' "$value"
+}
+
+add_corpus_root_candidate() {
+  local label="$1"
+  local path="${2-}"
+  if [[ -z "$path" ]]; then
+    return 0
+  fi
+  CORPUS_ROOT_CANDIDATE_LABELS+=("$label")
+  CORPUS_ROOT_CANDIDATES+=("$path")
+}
+
+add_quality_rows_manifest_candidate() {
+  local label="$1"
+  local path="${2-}"
+  if [[ -z "$path" ]]; then
+    return 0
+  fi
+  QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS+=("$label")
+  QUALITY_ROWS_MANIFEST_CANDIDATES+=("$path")
+}
+
+detect_corpus_root() {
+  CORPUS_ROOT=""
+  CORPUS_ROOT_SOURCE=""
+  CORPUS_ROOT_CANDIDATES=()
+  CORPUS_ROOT_CANDIDATE_LABELS=()
+
+  add_corpus_root_candidate "--corpus-root" "$CORPUS_ROOT_OVERRIDE"
+  add_corpus_root_candidate "MARKITDOWN_QUALITY_CORPUS" "${MARKITDOWN_QUALITY_CORPUS:-}"
+  if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
+    add_corpus_root_candidate "MARKITDOWN_QUALITY_LAB/corpus" "${MARKITDOWN_QUALITY_LAB%/}/corpus"
+  fi
+  add_corpus_root_candidate "repo-local quality lab" "$ROOT/markitdown-quality-lab/corpus"
+  add_corpus_root_candidate "sibling quality lab" "$ROOT/../markitdown-quality-lab/corpus"
+  add_corpus_root_candidate "legacy sibling corpus" "$ROOT/../markitdown-quality-corpus"
+  add_corpus_root_candidate "legacy .external fallback" "$ROOT/.external/quality_corpus"
+
+  local i
+  for i in "${!CORPUS_ROOT_CANDIDATES[@]}"; do
+    local candidate="${CORPUS_ROOT_CANDIDATES[$i]}"
+    local label="${CORPUS_ROOT_CANDIDATE_LABELS[$i]}"
+    local abs="$candidate"
+    if [[ "$abs" != /* ]]; then
+      abs="$ROOT/$abs"
+    fi
+    local parent
+    parent="$(dirname "$abs")"
+    if [[ ! -d "$parent" ]]; then
+      continue
+    fi
+    abs="$(cd "$parent" && pwd)/$(basename "$abs")"
+    if [[ -d "$abs" ]]; then
+      CORPUS_ROOT="$abs"
+      CORPUS_ROOT_SOURCE="$label"
+      return
+    fi
+  done
+}
+
+detect_quality_rows_manifest() {
+  QUALITY_ROWS_MANIFEST=""
+  QUALITY_ROWS_MANIFEST_SOURCE=""
+  QUALITY_ROWS_MANIFEST_CANDIDATES=()
+  QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS=()
+
+  add_quality_rows_manifest_candidate "--lab-manifest" "$LAB_MANIFEST_OVERRIDE"
+  add_quality_rows_manifest_candidate "MARKITDOWN_QUALITY_MANIFEST" "${MARKITDOWN_QUALITY_MANIFEST:-}"
+  if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
+    add_quality_rows_manifest_candidate \
+      "MARKITDOWN_QUALITY_LAB/quality_rows/manifest.tsv" \
+      "${MARKITDOWN_QUALITY_LAB%/}/quality_rows/manifest.tsv"
+  fi
+  add_quality_rows_manifest_candidate \
+    "repo-local quality rows manifest" \
+    "$ROOT/markitdown-quality-lab/quality_rows/manifest.tsv"
+  add_quality_rows_manifest_candidate \
+    "sibling quality rows manifest" \
+    "$ROOT/../markitdown-quality-lab/quality_rows/manifest.tsv"
+  add_quality_rows_manifest_candidate \
+    "legacy local external manifest" \
+    "$LEGACY_EXTERNAL_MANIFEST_PATH"
+
+  local i
+  for i in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
+    local candidate="${QUALITY_ROWS_MANIFEST_CANDIDATES[$i]}"
+    local label="${QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS[$i]}"
+    local abs="$candidate"
+    if [[ "$abs" != /* ]]; then
+      abs="$ROOT/$abs"
+    fi
+    local parent
+    parent="$(dirname "$abs")"
+    if [[ ! -d "$parent" ]]; then
+      continue
+    fi
+    abs="$(cd "$parent" && pwd)/$(basename "$abs")"
+    if [[ -f "$abs" ]]; then
+      QUALITY_ROWS_MANIFEST="$abs"
+      QUALITY_ROWS_MANIFEST_SOURCE="$label"
+      return
+    fi
+  done
+}
+
+append_unique_path() {
+  local value="$1"
+  if [[ -z "$value" ]]; then
+    return 0
+  fi
+  local existing
+  for existing in "${TRIED_EXTERNAL_PATHS[@]-}"; do
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+  TRIED_EXTERNAL_PATHS+=("$value")
+}
+
+resolve_external_input_path() {
+  local original_path="$1"
+  RESOLVED_EXTERNAL_PATH=""
+  TRIED_EXTERNAL_PATHS=()
+
+  local path="$original_path"
+  if [[ "$path" == /* ]]; then
+    append_unique_path "$path"
+    if [[ -f "$path" ]]; then
+      RESOLVED_EXTERNAL_PATH="$path"
+      return 0
+    fi
+  else
+    local repo_candidate="$ROOT/$path"
+    local legacy_prefix=".external/quality_corpus/"
+    local legacy_abs_prefix="$ROOT/.external/quality_corpus/"
+    local relative_suffix=""
+    if [[ "$path" == "$legacy_prefix"* ]]; then
+      relative_suffix="${path#$legacy_prefix}"
+    elif [[ "$repo_candidate" == "$legacy_abs_prefix"* ]]; then
+      relative_suffix="${repo_candidate#$legacy_abs_prefix}"
+    elif [[ -n "$CORPUS_ROOT" ]]; then
+      relative_suffix="$path"
+    fi
+
+    if [[ -n "$CORPUS_ROOT" && -n "$relative_suffix" ]]; then
+      local corpus_candidate="$CORPUS_ROOT/$relative_suffix"
+      append_unique_path "$corpus_candidate"
+      if [[ -f "$corpus_candidate" ]]; then
+        RESOLVED_EXTERNAL_PATH="$corpus_candidate"
+        return 0
+      fi
+    fi
+
+    append_unique_path "$repo_candidate"
+    if [[ -f "$repo_candidate" ]]; then
+      RESOLVED_EXTERNAL_PATH="$repo_candidate"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+format_missing_external_note() {
+  local original_path="$1"
+  if [[ "${#TRIED_EXTERNAL_PATHS[@]}" -eq 0 ]]; then
+    printf 'external file missing: %s; set MARKITDOWN_QUALITY_CORPUS or pass --corpus-root' "$original_path"
+    return
+  fi
+  local joined=""
+  local item
+  for item in "${TRIED_EXTERNAL_PATHS[@]}"; do
+    if [[ -n "$joined" ]]; then
+      joined="$joined | "
+    fi
+    joined="$joined$item"
+  done
+  printf 'external file missing: %s; tried: %s; hint: set MARKITDOWN_QUALITY_CORPUS or pass --corpus-root' "$original_path" "$joined"
 }
 
 normalize_text() {
@@ -263,21 +494,35 @@ collect_manifest_rows() {
       [[ -n "$row" ]] && rows+=("$row")
     done < <(manifest_rows_from_file "$MANIFEST_PATH" "public" "$PUBLIC_HEADER" normalize_public_row)
   fi
-  if [[ "$MODE" != "public" && -f "$PRIVATE_MANIFEST_PATH" ]]; then
+  if [[ "$MODE" != "public" && -n "$QUALITY_ROWS_MANIFEST" ]]; then
     while IFS= read -r row; do
       [[ -n "$row" ]] && rows+=("$row")
-    done < <(manifest_rows_from_file "$PRIVATE_MANIFEST_PATH" "private" "$PUBLIC_HEADER" normalize_public_row)
-  fi
-  if [[ "$MODE" != "public" && -f "$EXTERNAL_MANIFEST_PATH" ]]; then
-    while IFS= read -r row; do
-      [[ -n "$row" ]] && rows+=("$row")
-    done < <(manifest_rows_from_file "$EXTERNAL_MANIFEST_PATH" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
+    done < <(manifest_rows_from_file "$QUALITY_ROWS_MANIFEST" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
+  else
+    if [[ "$MODE" != "public" && -f "$LEGACY_EXTERNAL_MANIFEST_PATH" ]]; then
+      while IFS= read -r row; do
+        [[ -n "$row" ]] && rows+=("$row")
+      done < <(manifest_rows_from_file "$LEGACY_EXTERNAL_MANIFEST_PATH" "external" "$EXTERNAL_HEADER" normalize_external_manifest_entry)
+    fi
   fi
   if [[ "${#rows[@]}" -eq 0 ]]; then
     return 0
   fi
   printf '%s\n' "${rows[@]}"
 }
+
+detect_corpus_root
+detect_quality_rows_manifest
+
+if [[ "$REQUIRE_LAB" -ne 0 && -z "$QUALITY_ROWS_MANIFEST" ]]; then
+  echo "quality_corpus lab manifest not found" >&2
+  local_manifest_idx=0
+  for local_manifest_idx in "${!QUALITY_ROWS_MANIFEST_CANDIDATES[@]}"; do
+    echo "tried: ${QUALITY_ROWS_MANIFEST_CANDIDATE_LABELS[$local_manifest_idx]} -> ${QUALITY_ROWS_MANIFEST_CANDIDATES[$local_manifest_idx]}" >&2
+  done
+  echo "hint: pass --lab-manifest or set MARKITDOWN_QUALITY_MANIFEST / MARKITDOWN_QUALITY_LAB" >&2
+  exit 1
+fi
 
 filter_summary_value() {
   local value="${1-}"
@@ -769,8 +1014,30 @@ run_row() {
   fi
 
   local abs_path="$path"
-  if [[ "$abs_path" != /* ]]; then
-    abs_path="$ROOT/$abs_path"
+  if [[ "$source_scope" == "external" ]]; then
+    if ! resolve_external_input_path "$path"; then
+      if [[ "$PROFILE_ENABLED" -ne 0 ]]; then
+        profile_record "$id" "row_prepare" "$(( $(profile_now_ms) - stage_start_ms ))" "missing_input"
+        profile_record "$id" "row_total" "$(( $(profile_now_ms) - row_start_ms ))" "missing_input"
+      fi
+      abs_path=""
+      summary_add \
+        "$id" \
+        "$format" \
+        "$source_scope" \
+        "$source_id" \
+        "$quality_tier" \
+        "skip_missing_file" \
+        0 \
+        0 \
+        "$(format_missing_external_note "$path")"
+      return
+    fi
+    abs_path="$RESOLVED_EXTERNAL_PATH"
+  else
+    if [[ "$abs_path" != /* ]]; then
+      abs_path="$ROOT/$abs_path"
+    fi
   fi
 
   if [[ ! -f "$abs_path" ]]; then
@@ -780,7 +1047,7 @@ run_row() {
     fi
     case "$source_scope" in
       external)
-        summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "external cache file missing"
+        summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "$(format_missing_external_note "$path")"
         ;;
       private)
         summary_add "$id" "$format" "$source_scope" "$source_id" "$quality_tier" "skip_missing_file" 0 0 "private local file missing"
@@ -946,6 +1213,10 @@ write_summary() {
     printf 'id\tformat\tscope\tquality_tier\tstatus\tpassed_signals\ttotal_signals\tnotes\n'
     printf 'PROFILE_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(profile_enabled_summary_value)"
     printf 'METADATA_ENABLED\t-\t-\t-\t-\t0\t0\t%s\n' "$(metadata_summary_value)"
+    printf 'CORPUS_ROOT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT")"
+    printf 'CORPUS_ROOT_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$CORPUS_ROOT_SOURCE")"
+    printf 'QUALITY_ROWS_MANIFEST\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST")"
+    printf 'QUALITY_ROWS_MANIFEST_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$QUALITY_ROWS_MANIFEST_SOURCE")"
     printf 'FILTER_ID\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_ID")"
     printf 'FILTER_SOURCE\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_SOURCE")"
     printf 'FILTER_FORMAT\t-\t-\t-\t-\t0\t0\t%s\n' "$(filter_summary_value "$FILTER_FORMAT")"

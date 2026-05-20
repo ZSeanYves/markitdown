@@ -30,11 +30,12 @@ Current non-goals for the default mainflow:
 Current validation layering:
 
 * `./samples/check.sh` remains the exact regression and contract gate
-* `samples/quality_corpus/` is the signal-level external/private intake path
+* `samples/quality_corpus/` is the signal-level quality gate for a checked-in
+  public baseline plus lab-managed external/full local rows
 * the legacy checked `samples/real_world/` corpus has been removed because it
   was synthetic/regression-like rather than reliable real-world quality
   evidence
-* private local quality samples must remain uncommitted
+* lab-managed local quality samples must remain uncommitted in the main repo
 * external quality rows must stay locally curated until license review is
   approved
 * upstream tool fixtures and public datasets are references, not oracles
@@ -44,11 +45,24 @@ Current validation layering:
   `CSV 15`, and `HTML 5`
 * that snapshot is external-fixture-driven and local validation only; it is
   not a release artifact or a blanket repository-wide quality percentage
-* `.external/quality_corpus` and
+* `markitdown-quality-lab/` and any legacy
   `samples/quality_corpus/external_manifest.local.tsv` remain intentionally
   local-only
 * `0 expected_fail` does not mean every format boundary is fully covered, and
   OCR/scanned behavior remains explicit-only
+
+Migration-window fallback policy:
+
+* repo-local `markitdown-quality-lab/` is the primary workflow
+* legacy `.external/...`, sibling quality-lab lookup, and legacy local
+  manifest resolution remain compatibility-only
+* they should be removed only after a full post-migration cycle confirms:
+  * repo-root quality-lab full quality still passes `330 / 1 / 0`
+  * public-only still passes `24 / 0 / 0`
+  * `moon test` and `./samples/check.sh` still pass
+  * no non-doc runtime/product path depends on `.external/...`
+  * no active workflow still depends on
+    `samples/quality_corpus/external_manifest.local.tsv`
 
 ## CLI Output Contract
 
@@ -543,10 +557,11 @@ Conservative behavior:
 * inspect/debug now exposes report-only PDF text-signal diagnostics such as
   `text_signal_level`, `image_only`, `ocr_recommended`, and native text/image
   counts without changing Markdown output
-* the checked-in `samples/pdf_layout_classifier` training spike is export/train/
-  infer tooling only; it does not change default PDF Markdown output, does not
-  enable OCR, does not connect a visual layout runtime into the normal path,
-  and now feeds a report-only lightweight layout-assist audit documented in
+* the recommended local-only home for training/eval/model/report assets is the
+  repo-local `markitdown-quality-lab/pdf_layout_classifier`
+* neither location changes default PDF Markdown output, enables OCR, or
+  connects a visual layout runtime into the normal path; the shipped product
+  path still uses only the distilled report-backed MoonBit gate documented in
   `docs/pdf-layout-model.md`
 * normal PDF conversion now also carries a tiny pure-MoonBit gated layout
   arbiter for two low-risk ambiguity classes only:

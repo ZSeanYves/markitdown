@@ -10,18 +10,23 @@ It is intentionally different from the existing sample surfaces:
 
 Purpose:
 
-* provide a framework for external/public/private real quality samples
+* provide a framework for checked-in public quality rows plus lab-managed real quality samples
 * express real-world quality expectations as signals instead of full-output oracles
-* support private local samples that must not be committed
 * allow optional tool comparison without treating external tools as oracles
 
 Current scope:
 
 * public `manifest.tsv` now carries a small checked-in repo-tracked baseline for stable local samples
-* private local rows are supported through `private/manifest.local.tsv`
-* external source candidates are tracked in `external_sources.tsv`
-* local external rows are supported through `external_manifest.local.tsv`
-* local caches are expected under `.external/quality_corpus/...`
+* external source candidates are tracked in `markitdown-quality-lab/quality_rows/source_catalog.tsv`
+* tracked lab quality rows are loaded from `markitdown-quality-lab/quality_rows/manifest.tsv`
+* `samples/quality_corpus/external_manifest.local.tsv` remains only as a legacy local fallback during the migration window
+* local caches are resolved from a corpus root, in this order:
+  `--corpus-root`, `MARKITDOWN_QUALITY_CORPUS`,
+  `MARKITDOWN_QUALITY_LAB/corpus`,
+  `markitdown-quality-lab/corpus`,
+  optional sibling fallback `../markitdown-quality-lab/corpus`,
+  optional legacy sibling corpus `../markitdown-quality-corpus`,
+  then the legacy `.external/quality_corpus/...` fallback
 
 Current limitations:
 
@@ -40,9 +45,33 @@ Current local quality snapshot:
 * focused Office rows: `DOCX 60`, `PPTX 55`, `XLSX 51`
 * focused horizontal rows: `ZIP 15`, `EPUB 16`, `XML 9`, `CSV 15`, `HTML 5`
 * this is a local-only external corpus snapshot, not a release artifact
-* `.external/quality_corpus` stays local-only and is not committed
-* `samples/quality_corpus/external_manifest.local.tsv` stays local-only and is
-  not committed
+* the recommended external-corpus home is repo-local:
+  `markitdown-quality-lab/corpus`
+* the recommended tracked full/local row manifest is:
+  `markitdown-quality-lab/quality_rows/manifest.tsv`
+* the recommended clone command is:
+
+```bash
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
+```
+
+* the recommended environment setup, when you want explicit non-default roots, is:
+
+```bash
+export MARKITDOWN_QUALITY_LAB="$(pwd)/markitdown-quality-lab"
+export MARKITDOWN_QUALITY_CORPUS="$MARKITDOWN_QUALITY_LAB/corpus"
+export MARKITDOWN_LAYOUT_LAB="$MARKITDOWN_QUALITY_LAB/pdf_layout_classifier"
+```
+
+* runner/tool lookup now auto-discovers `markitdown-quality-lab/` at the repo root
+* the quality-lab is a nested independent Git repository, not a submodule
+* the main repository `.gitignore` ignores `markitdown-quality-lab/`
+* public-only checks do not require cloning the quality-lab
+* normal product/runtime paths do not read the quality-lab
+* local external manifests should now prefer corpus-root-relative canonical
+  payload paths under `sources/...`
+* legacy `.external/quality_corpus/...` paths remain fallback-only during the
+  migration window and should not be reintroduced as the canonical path style
 * current corpus expansion is external-fixture-driven, not synthetic-only
 * checked-in public rows remain intentionally separate from local-only
   external rows
@@ -52,25 +81,34 @@ Current local quality snapshot:
   comments/merged/images/media boundaries, and horizontal EPUB/ZIP/XML/CSV
   tails
 
+Migration-window fallback lifecycle:
+
+* current primary workflow is:
+  * `markitdown-quality-lab/corpus`
+  * `markitdown-quality-lab/quality_rows/manifest.tsv`
+* the remaining legacy fallbacks are:
+  * `samples/quality_corpus/external_manifest.local.tsv`
+  * legacy `.external/quality_corpus/...` row-path resolution
+  * optional sibling `../markitdown-quality-lab/corpus`
+* remove those fallbacks only after all of the following are true:
+  * repo-root quality-lab full quality passes `330 / 1 / 0`
+  * public-only still passes `24 / 0 / 0`
+  * `moon test` and `./samples/check.sh` pass on the same cycle
+  * no non-doc runtime/product reference depends on `.external/...`
+  * no active workflow still depends on `external_manifest.local.tsv`
+  * quality-lab continues to track `quality_rows/manifest.tsv` and
+    `corpus/MANIFEST.tsv`
+  * at least one full post-migration cycle has completed
+
 ## Layout
 
 ```text
 samples/quality_corpus/
   README.md
   manifest.tsv
-  external_sources.tsv
-  external_manifest.example.tsv
-  external_manifest.local.tsv  # optional, gitignored
   check.sh
   compare_tools.sh
-  external/
-    README.md
   schemas/signals.tsv
-  private/
-    README.md
-    manifest.example.tsv
-    manifest.local.tsv   # optional, gitignored
-    files/               # optional, gitignored
   tools/
     fetch_external_samples.sh
     curate_external_sample.sh
@@ -124,19 +162,30 @@ The checked-in public manifest is intended for manually curated rows from:
 * upstream tool fixtures
 * manually reviewed self-real/public samples
 
-Local external rows belong in `external_manifest.local.tsv`.
+The tracked full/local lab manifest lives in the repo-local quality-lab:
 
-That local manifest adds:
+* `markitdown-quality-lab/quality_rows/manifest.tsv`
+
+That manifest adds:
 
 * `source_id`
 * `original_url`
 * `local_cache_path`
 * `license_review_status`
 
-Only `license_review_status=approved` external rows are executed.
+Only `license_review_status=approved` lab rows are executed.
 
-Pending or missing external rows are recorded as skipped rather than causing CI
+Pending or missing lab rows are recorded as skipped rather than causing CI
 failure.
+
+Typical quality-lab-backed validation:
+
+```bash
+bash samples/quality_corpus/check.sh --public-only
+bash samples/quality_corpus/check.sh --public-only --format pdf
+bash samples/quality_corpus/check.sh --corpus-root "$MARKITDOWN_QUALITY_CORPUS" --format pdf
+bash samples/quality_corpus/check.sh --corpus-root "$MARKITDOWN_QUALITY_CORPUS"
+```
 
 Example local boundary row:
 
@@ -205,12 +254,6 @@ Current locally exercised PDF reference rows include:
 * `pdf_tounicode_unicode_markitdown_test`
 * `pdf_tounicode_unicode_pdfjs_arabic_cidtruetype`
 * `pdf_scan_boundary_markitdown_medrpt` as a scan/image-only boundary note row
-
-Current scan-only row strategy:
-
-* scan-only/image-only PDF rows can stay `reference` when the default native
-  contract is to emit page images/assets rather than OCR text
-* `pdf_scan_boundary_markitdown_medrpt` records this default native behavior
   through `image_ref`-style signals
 * these rows should not be promoted to `known_bad` unless an OCR-specific suite
   intentionally expects body text
@@ -268,7 +311,7 @@ Run only public rows:
 ./samples/quality_corpus/check.sh --public-only
 ```
 
-Run only private local rows:
+Run only legacy local fallback rows:
 
 ```bash
 ./samples/quality_corpus/check.sh --private-only
@@ -356,54 +399,34 @@ Optional comparison against local tools if installed:
 ./samples/quality_corpus/compare_tools.sh
 ```
 
-## Private Local Samples
+## Lab-Managed Quality Rows
 
-Private local samples are supported through:
+Tracked full/local quality rows now live in the repo-local quality-lab:
 
-* `samples/quality_corpus/private/manifest.local.tsv`
-* `samples/quality_corpus/private/files/`
+* `markitdown-quality-lab/quality_rows/manifest.tsv`
+* `markitdown-quality-lab/quality_rows/source_catalog.tsv`
 
-That manifest is optional and should not be committed.
+The main repository keeps only:
 
-Use it for:
+* checked-in public rows in [`manifest.tsv`](./manifest.tsv)
+* the runner and helper scripts in this directory
 
-* local real PDFs
-* local PPTX/DOCX/XLSX/HTML samples
-* customer or internal files that cannot enter the repository
-
-Do not commit:
-
-* private source files
-* private manifests with sensitive paths
-* generated outputs from private runs
-
-All generated outputs go under `.tmp/quality_corpus/`.
-
-## External Intake
-
-External intake is manual-curated and local-only.
-
-Tracked files:
-
-* [`external_sources.tsv`](./external_sources.tsv): source catalog only
-* [`external_manifest.example.tsv`](./external_manifest.example.tsv): local row example
-* [`external/README.md`](./external/README.md): cache convention
-
-Ignored local files:
+Ignored legacy local files:
 
 * `samples/quality_corpus/external_manifest.local.tsv`
 * `.external/quality_corpus/...`
 
-Rules:
+Current policy:
 
-* `external_sources.tsv` is not an integrated corpus
+* quality-lab `quality_rows/manifest.tsv` is the tracked source of truth for
+  external/full local quality rows
+* canonical payload paths should use corpus-root-relative `sources/...`
+* source-catalog curation lives in quality-lab, not in the main repository
 * external rows require manual license review before execution
 * tool and dataset outputs are references, not oracles
-* local external rows live in ignored manifests and should not be committed
-* external files stay outside git under local cache roots
-* large datasets such as PubLayNet, CDLA, and TableBank should be sampled
-  manually rather than mirrored wholesale
-* layout/table datasets are mainly structural references, not direct text-PDF
+* large datasets such as PubLayNet, CDLA, and TableBank should still be
+  sampled manually rather than mirrored wholesale
+* layout/table datasets remain structural references, not direct text-PDF
   Markdown gold
 
 Practical priority today:
@@ -427,9 +450,9 @@ Current optional probes:
 
 Missing tools are skipped and do not fail the script.
 
-## External Sources
+## Source Catalog
 
-`external_sources.tsv` tracks candidate intake sources only.
+The quality-lab source catalog tracks candidate intake sources only.
 
 It does not mean:
 

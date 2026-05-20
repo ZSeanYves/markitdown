@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-SOURCES_PATH="$ROOT/samples/quality_corpus/external_sources.tsv"
+QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
+SOURCES_PATH="$QUALITY_LAB_ROOT/quality_rows/source_catalog.tsv"
 HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
@@ -24,6 +25,10 @@ usage:
 
 This helper prints one TSV row template to stdout. It does not copy files and
 does not modify any manifest automatically.
+
+Canonical row paths should prefer corpus-root-relative payload paths under
+`sources/...`. Legacy `.external/quality_corpus/...` paths remain fallback-only
+during the migration window.
 EOF
 }
 
@@ -33,7 +38,16 @@ trim_cr() {
   printf '%s' "$value"
 }
 
+detect_sources_path() {
+  if [[ ! -f "$SOURCES_PATH" ]]; then
+    echo "source catalog not found: $SOURCES_PATH" >&2
+    echo "clone the quality-lab into markitdown-quality-lab/ or set MARKITDOWN_QUALITY_LAB" >&2
+    exit 1
+  fi
+}
+
 lookup_source() {
+  detect_sources_path
   local wanted_id="$1"
   local line_no=0
   while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do

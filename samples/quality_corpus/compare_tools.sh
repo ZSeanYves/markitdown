@@ -6,7 +6,28 @@ TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 OUT_ROOT="$TMP_ROOT/quality_corpus"
 OUT_PATH="$OUT_ROOT/comparison.tsv"
 MANIFEST_PATH="$ROOT/samples/quality_corpus/manifest.tsv"
-EXTERNAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
+LEGACY_EXTERNAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
+QUALITY_ROWS_MANIFEST=""
+
+detect_quality_rows_manifest() {
+  local candidates=()
+  candidates+=("${MARKITDOWN_QUALITY_MANIFEST:-}")
+  if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
+    candidates+=("${MARKITDOWN_QUALITY_LAB%/}/quality_rows/manifest.tsv")
+  fi
+  candidates+=("$ROOT/markitdown-quality-lab/quality_rows/manifest.tsv")
+  candidates+=("$ROOT/../markitdown-quality-lab/quality_rows/manifest.tsv")
+  candidates+=("$LEGACY_EXTERNAL_MANIFEST_PATH")
+
+  local candidate=""
+  for candidate in "${candidates[@]}"; do
+    [[ -n "$candidate" ]] || continue
+    if [[ -f "$candidate" ]]; then
+      QUALITY_ROWS_MANIFEST="$candidate"
+      return 0
+    fi
+  done
+}
 
 mkdir -p "$OUT_ROOT"
 
@@ -61,7 +82,7 @@ has_public_rows() {
 
 count_approved_existing_external_rows() {
   local count=0
-  if [[ -f "$EXTERNAL_MANIFEST_PATH" ]]; then
+  if [[ -f "$QUALITY_ROWS_MANIFEST" ]]; then
     while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
       raw_line="$(trim_cr "$raw_line")"
       count=$((count + 1))
@@ -77,11 +98,12 @@ count_approved_existing_external_rows() {
       [[ -f "$abs_path" ]] || continue
       printf '1'
       return
-    done < "$EXTERNAL_MANIFEST_PATH"
+    done < "$QUALITY_ROWS_MANIFEST"
   fi
   printf '0'
 }
 
+detect_quality_rows_manifest
 public_rows="$(has_public_rows)"
 approved_external_rows="$(count_approved_existing_external_rows)"
 

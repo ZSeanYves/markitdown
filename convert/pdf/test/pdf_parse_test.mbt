@@ -4,6 +4,32 @@ fn resolve_sample_path(path : String) -> String raise {
     return path
   }
 
+  if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    let name = path.split("/").last().unwrap_or("").to_owned()
+    if name != "" {
+      let repo_tracked = "doc_parse/pdf/testdata/pdfjs/" + name
+      if @fs.path_exists(repo_tracked) {
+        return repo_tracked
+      }
+      let repo_tracked_fallback = "../../" + repo_tracked
+      if @fs.path_exists(repo_tracked_fallback) {
+        return repo_tracked_fallback
+      }
+    }
+  }
+
+  if path.has_prefix(".external/quality_corpus/") {
+    let suffix = path[25:].to_owned()
+    let repo_local_lab = "markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(repo_local_lab) {
+      return repo_local_lab
+    }
+    let sibling_lab = "../markitdown-quality-lab/corpus/" + suffix
+    if @fs.path_exists(sibling_lab) {
+      return sibling_lab
+    }
+  }
+
   let fallback = "../../" + path
   if @fs.path_exists(fallback) {
     return fallback
@@ -856,7 +882,7 @@ async test "convert/pdf supports headerless numeric table with header_rows=0" {
 ///|
 async test "convert/pdf appends real pdfjs text widget forms with normalized multiline values" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-text-widget.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-text-widget.pdf",
   )
   let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
   let markdown = @cor.emit_markdown(doc)
@@ -889,7 +915,7 @@ async test "convert/pdf appends real pdfjs text widget forms with normalized mul
 ///|
 async test "convert/pdf keeps printable hidden annotations but suppresses hidden no-view widgets" {
   let hidden_print_input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_print.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation_hidden_print.pdf",
   )
   let hidden_print_doc = @pdf.parse_pdf(
     hidden_print_input,
@@ -917,7 +943,7 @@ async test "convert/pdf keeps printable hidden annotations but suppresses hidden
   }
 
   let hidden_noview_input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation_hidden_noview.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation_hidden_noview.pdf",
   )
   let hidden_noview_doc = @pdf.parse_pdf(
     hidden_noview_input,
@@ -945,7 +971,7 @@ async test "convert/pdf keeps printable hidden annotations but suppresses hidden
 ///|
 async test "convert/pdf keeps pdfjs non-widget annotations without appearance streams" {
   let input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-squiggly-without-appearance.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-squiggly-without-appearance.pdf",
   )
   let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
   let markdown = @cor.emit_markdown(doc)
@@ -963,7 +989,7 @@ async test "convert/pdf keeps pdfjs non-widget annotations without appearance st
 ///|
 async test "convert/pdf deduplicates appendix notes for pdfjs square-circle without appearance sample" {
   let without_input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle-without-appearance.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-square-circle-without-appearance.pdf",
   )
   let without_doc = @pdf.parse_pdf(
     without_input,
@@ -995,7 +1021,7 @@ async test "convert/pdf deduplicates appendix notes for pdfjs square-circle with
   }
 
   let normal_input = resolve_sample_path(
-    ".external/quality_corpus/pdf_external/pdfjs/annotation-square-circle.pdf",
+    "doc_parse/pdf/testdata/pdfjs/annotation-square-circle.pdf",
   )
   let normal_doc = @pdf.parse_pdf(
     normal_input,

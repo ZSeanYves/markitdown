@@ -2,8 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-SOURCES_PATH="$ROOT/samples/quality_corpus/external_sources.tsv"
-CACHE_ROOT="$ROOT/.external/quality_corpus"
+QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
+SOURCES_PATH="$QUALITY_LAB_ROOT/quality_rows/source_catalog.tsv"
+LEGACY_CACHE_ROOT="$ROOT/.external/quality_corpus"
+DEFAULT_CACHE_ROOT="$QUALITY_LAB_ROOT/corpus"
+CACHE_ROOT="${MARKITDOWN_QUALITY_CORPUS:-$DEFAULT_CACHE_ROOT}"
 
 usage() {
   cat <<'EOF'
@@ -16,6 +19,7 @@ Notes:
   * this helper does not auto-download large datasets
   * this helper does not auto-clone repositories
   * it only prints source catalog rows, cache prep actions, and manual guidance
+  * source catalog discovery prefers markitdown-quality-lab/quality_rows/source_catalog.tsv
 EOF
 }
 
@@ -23,6 +27,14 @@ trim_cr() {
   local value="${1-}"
   value="${value%$'\r'}"
   printf '%s' "$value"
+}
+
+detect_sources_path() {
+  if [[ ! -f "$SOURCES_PATH" ]]; then
+    echo "source catalog not found: $SOURCES_PATH" >&2
+    echo "clone the quality-lab into markitdown-quality-lab/ or set MARKITDOWN_QUALITY_LAB" >&2
+    exit 1
+  fi
 }
 
 source_row_by_id() {
@@ -44,10 +56,12 @@ source_row_by_id() {
 }
 
 list_sources() {
+  detect_sources_path
   cat "$SOURCES_PATH"
 }
 
 prepare_cache() {
+  detect_sources_path
   local created=0
   local line_no=0
   while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
@@ -58,14 +72,24 @@ prepare_cache() {
     [[ "${raw_line#\#}" != "$raw_line" ]] && continue
     IFS=$'\t' read -r _ _ _ _ _ _ _ _ _ local_cache _ _ <<< "$raw_line"
     [[ -z "$local_cache" ]] && continue
-    mkdir -p "$ROOT/$local_cache"
+    local target_dir=""
+    if [[ "$local_cache" == .external/quality_corpus/* ]]; then
+      local suffix="${local_cache#.external/quality_corpus/}"
+      target_dir="$CACHE_ROOT/$suffix"
+    elif [[ "$local_cache" == /* ]]; then
+      target_dir="$local_cache"
+    else
+      target_dir="$ROOT/$local_cache"
+    fi
+    mkdir -p "$target_dir"
     created=$((created + 1))
-    printf 'prepared %s\n' "$local_cache"
+    printf 'prepared %s\n' "$target_dir"
   done < "$SOURCES_PATH"
   printf 'prepared %s external cache directories under %s\n' "$created" "$CACHE_ROOT"
 }
 
 print_source_help() {
+  detect_sources_path
   local source_id="$1"
   local row
   if ! row="$(source_row_by_id "$source_id")"; then
@@ -94,10 +118,12 @@ manual guidance:
   2. prepare the cache root with:
      bash ./samples/quality_corpus/tools/fetch_external_samples.sh --prepare-cache
   3. place only a small manually selected subset under:
-     $local_cache
+     $CACHE_ROOT
   4. register local rows in:
-     samples/quality_corpus/external_manifest.local.tsv
-  5. keep license_review_status as pending_review until your local review is complete
+     markitdown-quality-lab/quality_rows/manifest.tsv
+  5. prefer canonical corpus-relative row paths under:
+     sources/...
+  6. keep license_review_status as pending_review until your local review is complete
 EOF
 
   case "$id" in
