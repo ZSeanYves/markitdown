@@ -1,0 +1,66 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/vision"
+
+// Values
+pub fn is_unknown_bbox(VisionBBox) -> Bool
+
+pub fn make_empty_ocr_page_model(Int, String, String) -> OcrPageModel
+
+pub fn make_ocr_document_model(Array[OcrPageModel], String, Array[String]) -> OcrDocumentModel
+
+pub fn make_text_only_ocr_page_model(String, String) -> OcrPageModel
+
+pub fn ocr_page_line_count(OcrPageModel) -> Int
+
+pub fn ocr_page_text(OcrPageModel) -> String
+
+pub fn ocr_page_word_count(OcrPageModel) -> Int
+
+pub fn unknown_bbox() -> VisionBBox
+
+// Errors
+
+// Types and methods
+pub struct OcrDocumentModel {
+  pages : Array[OcrPageModel]
+  provider : String
+  warnings : Array[String]
+}
+
+pub struct OcrPageModel {
+  page_index : Int
+  width : Double
+  height : Double
+  lines : Array[OcrSignalLine]
+  words : Array[OcrSignalWord]
+  provider : String
+  source_kind : String
+  warnings : Array[String]
+}
+
+pub struct OcrSignalLine {
+  text : String
+  bbox : VisionBBox
+  confidence : Double
+  words : Array[OcrSignalWord]
+  line_index : Int
+}
+
+pub struct OcrSignalWord {
+  text : String
+  bbox : VisionBBox
+  confidence : Double
+  word_index : Int
+}
+
+pub struct VisionBBox {
+  x : Double
+  y : Double
+  width : Double
+  height : Double
+}
+
+// Type aliases
+
+// Traits
+

@@ -115,32 +115,16 @@ async test "batch_v1 records unsupported files as failures" {
 }
 
 ///|
-test "ocr cli parser accepts provider and lang named args" {
+test "ocr cli parser accepts rebuild stub positional args" {
   let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
-  let help = parser.parse(value, [
-    "ocr", "--provider", "tesseract-cli", "--lang", "eng+chi_sim", "page.png", "out.txt",
-  ]) catch {
-    e => fail("OCR parser should accept provider/lang args: " + e.to_string())
+  let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
+    e => fail("OCR parser should accept positional args: " + e.to_string())
   }
   assert_true(help == None)
   match value.subcmd {
     Some(sub) => {
       assert_eq(sub.name, "ocr")
-      let provider = @clap.SimpleValue::get_option(sub, "provider") catch {
-        e => fail("provider option missing: " + e.to_string())
-      }
-      let lang = @clap.SimpleValue::get_option(sub, "lang") catch {
-        e => fail("lang option missing: " + e.to_string())
-      }
-      match provider {
-        Some(name) => assert_eq(name, "tesseract-cli")
-        None => fail("expected provider value")
-      }
-      match lang {
-        Some(code) => assert_eq(code, "eng+chi_sim")
-        None => fail("expected lang value")
-      }
       assert_true(sub.positional_args == ["page.png", "out.txt"])
     }
     None => fail("expected ocr subcommand")
@@ -148,13 +132,13 @@ test "ocr cli parser accepts provider and lang named args" {
 }
 
 ///|
-test "ocr cli parser accepts missing optional provider and lang" {
+test "ocr cli parser keeps missing optional rebuild args absent" {
   let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
   let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
     e =>
       fail(
-        "OCR parser should accept missing optional provider/lang args: " +
+        "OCR parser should accept missing optional rebuild args: " +
         e.to_string(),
       )
   }
@@ -162,14 +146,6 @@ test "ocr cli parser accepts missing optional provider and lang" {
   match value.subcmd {
     Some(sub) => {
       assert_eq(sub.name, "ocr")
-      let provider : String? = @clap.SimpleValue::get_option(sub, "provider") catch {
-        e => fail("provider option lookup failed: " + e.to_string())
-      }
-      let lang : String? = @clap.SimpleValue::get_option(sub, "lang") catch {
-        e => fail("lang option lookup failed: " + e.to_string())
-      }
-      assert_true(provider == None)
-      assert_true(lang == None)
       assert_true(sub.positional_args == ["page.png", "out.txt"])
     }
     None => fail("expected ocr subcommand")
@@ -199,18 +175,6 @@ test "debug layout assist eval parser accepts missing optional split" {
     }
     None => fail("expected debug subcommand")
   }
-}
-
-///|
-test "ocr cli language parser supports joined codes" {
-  assert_true(@clisup.parse_ocr_lang_arg(None) == [])
-  assert_true(@clisup.parse_ocr_lang_arg(Some("eng")) == ["eng"])
-  assert_true(
-    @clisup.parse_ocr_lang_arg(Some("eng+chi_sim")) == ["eng", "chi_sim"],
-  )
-  assert_true(
-    @clisup.parse_ocr_lang_arg(Some(" eng + chi_sim + ")) == ["eng", "chi_sim"],
-  )
 }
 
 ///|

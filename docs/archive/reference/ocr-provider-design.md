@@ -1,17 +1,17 @@
-# OCR Provider Design
+# OCR Provider Design (Historical Prototype)
 
-This document describes the OCR provider boundary for `markitdown-mb` and
-records the current OCRmyPDF audit. It is intentionally design-first: the
-repository currently implements explicit image OCR through `tesseract-cli`, but
-does **not** implement OCRmyPDF execution as a product path yet.
+This document describes a retired OCR prototype boundary for `markitdown-mb`
+and records an older OCRmyPDF audit. It is intentionally historical:
+the text-only `tesseract-cli` prototype described here has been retired in
+favor of a new provider-independent `OCRPageModel` rebuild direction.
 
-Current boundary:
+Historical prototype boundary:
 
 * default `normal` conversion remains native-text-first
 * default `normal` conversion does **not** run OCR
-* OCR stays explicit through the `ocr` CLI path or a future explicit provider
+* OCR stayed explicit through the `ocr` CLI path or a future explicit provider
   selection path
-* OCR output is an augmentation path, not native embedded text
+* OCR output was treated as an augmentation path, not native embedded text
 * direct PDF OCR through OCRmyPDF remains audited/design-only for now
 * PaddleOCR / PP-Structure remains audited/design-only as a future heavy
   provider route rather than a current runtime path
@@ -34,7 +34,7 @@ Current boundary:
 * implementing OCRmyPDF in the default gate before provenance semantics are
   settled
 
-## Current Implementation Audit
+## Historical Prototype Audit
 
 Current CLI paths:
 
@@ -43,15 +43,15 @@ Current CLI paths:
   * no OCR by default
 * `ocr <input> [output]`
   * explicit OCR path
-  * today can route explicit image inputs through the optional
+  * the old prototype could route explicit image inputs through the optional
     `tesseract-cli` provider
-  * direct PDF OCR remains a future provider route rather than the current
+  * direct PDF OCR remained a future provider route rather than the current
     image-ocr path
 
-Current provider skeleton state:
+Historical provider skeleton state:
 
-* the repository carries a lightweight OCR provider skeleton in
-  `convert/pdf/ocr/provider.mbt`
+* the repository carried a lightweight OCR provider skeleton in
+  `ocr/provider/provider.mbt`
 * the skeleton exposes:
   * static provider descriptors
   * a lazy explicit probe API
@@ -59,10 +59,10 @@ Current provider skeleton state:
   * a `noop` provider for report/test wiring
 * the skeleton keeps `ocrmypdf-cli` and `paddleocr` as explicit future
   descriptors that currently fail closed with `unavailable`
-* normal CLI does not probe providers and debug-only listing requires explicit
+* normal CLI did not probe providers and debug-only listing required explicit
   `providers --probe`
 
-Current result/model state:
+Historical result/model state:
 
 * `OcrOptions` currently exposes:
   * `languages`
@@ -79,7 +79,7 @@ Current result/model state:
   * `pages`
   * `warnings`
 
-Current PDF-specific audit:
+Historical PDF-specific audit:
 
 * PDF inspect/debug already surfaces:
   * `text_signal_level`
@@ -87,12 +87,14 @@ Current PDF-specific audit:
   * `ocr_recommended`
   * page/image/native-text object counts
 * these diagnostics are report-only and do not trigger OCR
-* there is also an older `convert/pdf/ocr/pdf_ocr.mbt` prototype that shells
+* there was also an older PDF-scoped `pdf_ocr.mbt` prototype that shelled
   out to OCRmyPDF sidecar mode, but it is not the current product contract
   because it does not carry sufficient provenance, uses a simplistic temp-file
   policy, and would risk polluting the native PDF path if reused as-is
 
 ## Provider Interface
+
+This section is historical and does not describe the current build.
 
 OCR should sit behind a provider interface so the CLI and converter layer do
 not depend on a single engine.
@@ -104,8 +106,7 @@ list_known_ocr_providers() -> Array[OcrProviderInfo]
 probe_known_ocr_provider(name) -> OcrProviderInfo?
 recognize_page_with_ocr_provider(name, page_index, page_image_path, options)
   -> Result[OcrPageResult, OcrProviderError]
-recognize_pdf_with_ocr_provider(name, input_path, options)
-  -> Result[OcrDocumentResult, OcrProviderError]
+PDF OCR is intentionally not part of the current shipped provider API surface.
 ```
 
 Current implementation status:

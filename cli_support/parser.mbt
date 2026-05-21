@@ -48,21 +48,10 @@ pub fn new_cli_parser() -> @clap.Parser {
         },
       ),
       "ocr": @clap.SubCommand::new(
-        help="Explicit OCR conversion: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output] (delegates to ocr component)",
+        help="OCR rebuild entrypoint: ocr <input> [output] (delegates to the bundled ocr stub while OCRPageModel and layout recovery are rebuilt)",
         args={
-          "provider": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="Explicit OCR provider name (default: tesseract-cli)",
-          ),
-          "lang": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="OCR language code(s), e.g. eng or eng+chi_sim",
-          ),
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
           "input": @clap.Arg::positional(
-            help="Path to OCR input file (.png/.jpg/.jpeg/.tif/.tiff/.bmp/.webp, or explicit OCR PDF path)",
+            help="Path to OCR candidate input; current build returns a rebuild notice instead of executing providers",
           ),
         },
       ),
@@ -145,6 +134,6 @@ pub fn print_cli_usage() -> Unit {
     "OCR stays explicit and isolated from normal conversion; debug and benchmark tooling stay in debug and bench.",
   )
   println(
-    "Runtime overrides still supported: MARKITDOWN_OCR_CLI for the OCR component, MARKITDOWN_OCR_PROVIDER_CMD_TESSERACT_CLI for explicit Tesseract provider wiring.",
+    "Runtime override still supported: MARKITDOWN_OCR_CLI for the OCR stub component.",
   )
 }

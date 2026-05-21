@@ -49,7 +49,13 @@ Use the product CLI:
 ./_build/native/debug/build/cli/cli.exe <input> [output]
 ./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
 ./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/debug/build/cli/cli.exe ocr [--provider <name>] [--lang <code>] <input> [output]
+./_build/native/debug/build/cli/cli.exe ocr <input> [output]
+```
+
+Current OCR boundary:
+
+```bash
+./_build/native/debug/build/cli/cli.exe ocr samples/fixtures/ocr/tiny_ocr_sample.png
 ```
 
 Recommended validation entrypoints:
@@ -152,6 +158,8 @@ Current developer binaries:
 * `debug`: inspect/report surface
 * `bench`: benchmark surface
 * `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
+* `ocr`: explicit OCR rebuild stub
+* `convert/vision`: provider-independent OCRPageModel scaffold
 
 Important limits:
 
@@ -159,6 +167,16 @@ Important limits:
 * normal runtime does not read model JSON
 * PDF layout behavior in the normal path is distilled into MoonBit rules/gates
 * OCR remains explicit-only
+* normal conversion never OCRs and never probes OCR providers
+* previous text-only OCR prototype has been retired
+* OCR is being rebuilt around provider-independent `OCRPageModel`
+* current OCR provider execution is not wired in this build
+* future path is provider signal -> `OCRPageModel` -> MoonBit layout recovery ->
+  unified IR -> Markdown
+* PDF OCR is not wired in this build; future PDF OCR must stay on an explicit
+  provider path
+* main-repo OCR fixtures are tiny fixture-policy groundwork, not a current OCR
+  accuracy gate
 * PDF and ZIP stay on the product surface without pulling the full PDF closure into lightweight `cli`
 
 ## Performance Snapshot

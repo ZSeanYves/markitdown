@@ -58,7 +58,13 @@ Current PDF/OCR rules:
 * OCR remains explicit-only
 * encrypted PDFs fail closed
 * image/scanned PDFs are not silently upgraded into OCR
+* PDF OCR remains a future explicit provider path
 * default layout cleanup stays narrow and deterministic
+* previous text-only OCR prototype has been retired
+* OCR is being rebuilt around provider-independent `OCRPageModel`
+* future provider signal may start from image inputs such as
+  `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, and `tiff`
+* current shipped build does not wire OCR provider execution
 
 Still out of scope for the normal path:
 
@@ -66,6 +72,14 @@ Still out of scope for the normal path:
 * provider-backed runtime model loading
 * broad offline-model-driven heading or receipt classification
 * hidden OCR promotion
+
+OCR groundwork now lives under `convert/vision`; the PDF converter does not own
+OCR providers, and the normal dispatcher still does not route through OCR.
+
+Main-repo OCR samples should stay tiny, license-clean, and provider-independent
+where possible. Real-world OCR corpora belong in `markitdown-quality-lab`, and
+the optional OCR smoke should be read as a future wiring placeholder rather
+than an accuracy gate.
 
 See [pdf.md](./pdf.md) for the detailed PDF text/layout/OCR boundary.
 

@@ -185,7 +185,7 @@ Current capability findings:
 | --- | --- | --- | --- |
 | Single-file conversion | Stable main path through `normal` | `cmd_convert -> convert_once -> parse_to_ir -> emit_markdown` | Stability depends on format-specific lower layer quality |
 | Batch conversion | Implemented as Batch v1 | `run_batch` in `cli/cli_app.mbt`, `cli/batch_wbtest.mbt` | Non-recursive, serial only |
-| OCR path | Explicit separate PDF path | `ocr` subcommand and `convert/pdf/ocr` | Should not be mixed into default performance claims |
+| OCR path | Explicit separate enhancement path | `ocr` subcommand and `ocr/provider` | Should not be mixed into default performance claims |
 | Debug inspect | Explicit PDF-focused modes | `debug` subcommand and `pipeline_debug` behavior | Debug surface is not yet a uniform cross-format contract |
 | Assets output | Generally unified under `assets/` | CLI output-root convention plus format-specific exporters | ZIP/EPUB use namespaced remap; some formats emit no assets |
 | Metadata sidecar | Unified output path contract | `metadata_output_path()` and `emit_metadata_json_with_document_properties()` | Core contract is now validated; fixture coverage is still uneven across formats |

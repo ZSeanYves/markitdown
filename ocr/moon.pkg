@@ -1,10 +1,7 @@
 import {
   "ZSeanYves/markitdown/cli_common" @clicom,
-  "ZSeanYves/markitdown/convert/pdf/ocr" @pdfocr,
-  "moonbitlang/x/fs" @fs,
   "moonbitlang/x/sys" @sys,
   "TheWaWaR/clap" @clap,
-  "moonbitlang/async",
 }
 
 options(

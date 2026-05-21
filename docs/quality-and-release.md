@@ -59,6 +59,20 @@ Current checked facts:
 Use this path for normal development, refactors, bug fixes, and most CI-facing
 work.
 
+Optional OCR smoke stays outside this default native quality gate. OCR remains
+an explicit-only path that is currently being rebuilt around
+provider-independent `OCRPageModel`. Main-repo OCR
+samples should stay tiny, license-clean, and provider-independent where
+possible; real-world OCR corpora belong in `markitdown-quality-lab`. Optional
+OCR smoke is not the native quality accuracy gate and should be read as future
+wiring coverage rather than a current OCR product benchmark.
+
+`samples/helpers/validation/check_ocr_fixtures.sh` is a fixture-policy check,
+not an OCR run. It validates manifest structure, path safety, expected-text
+presence, self-generated/project-license policy, and the checked-in size limit
+for `samples/fixtures/ocr/`. It does not require `tesseract`, does not run
+OCR, and does not act as an accuracy gate.
+
 ## Optional Full Quality
 
 The optional full quality gate uses the repo-root quality-lab:

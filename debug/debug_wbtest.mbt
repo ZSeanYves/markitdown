@@ -124,12 +124,11 @@ async test "debug providers ocr listing stays lazy without probe" {
   )
   debug_assert_contains(rendered, "\"kind\": \"provider_listing\"")
   debug_assert_contains(rendered, "\"probe_requested\": false")
-  debug_assert_contains(rendered, "\"ocr_providers\"")
-  debug_assert_contains(rendered, "\"name\": \"noop\"")
-  debug_assert_contains(rendered, "\"name\": \"tesseract-cli\"")
-  debug_assert_contains(rendered, "\"name\": \"ocrmypdf-cli\"")
-  debug_assert_contains(rendered, "\"name\": \"paddleocr\"")
-  debug_assert_contains(rendered, "\"probe_status\": \"not_run\"")
+  debug_assert_contains(rendered, "\"ocr_status\"")
+  debug_assert_contains(rendered, "\"state\": \"rebuilding\"")
+  debug_assert_contains(
+    rendered, "\"message\": \"OCR provider execution has been retired while the OCRPageModel pipeline is rebuilt.\"",
+  )
 }
 
 ///|
@@ -155,8 +154,8 @@ async test "debug providers probe path is explicit and skip safe" {
     true,
   )
   debug_assert_contains(rendered, "\"probe_requested\": true")
-  debug_assert_contains(rendered, "\"ocr_providers\"")
-  debug_assert_contains(rendered, "\"name\": \"noop\"")
+  debug_assert_contains(rendered, "\"ocr_status\"")
+  debug_assert_contains(rendered, "\"state\": \"rebuilding\"")
 }
 
 ///|

@@ -29,6 +29,9 @@ Current priorities:
 * keep PDF layout work narrow, explicit, and evidence-led
 * continue failure-driven hardening across Office and horizontal formats
 * keep performance claims sample-scoped and reproducible
+* keep OCR explicit-only and fail closed until an explicit PDF OCR provider is wired
+* rebuild OCR around provider signal -> `OCRPageModel` -> MoonBit layout
+  recovery -> unified IR -> Markdown
 
 ## Legacy Fallback Exit Criteria
 
@@ -60,3 +63,12 @@ Long-term direction remains:
 * main repo for runtime, tests, samples, and public baseline
 * quality-lab for external corpus, full quality rows, and offline training/eval/model/report assets
 * narrow, explicit, evidence-backed normal-path changes only
+* future OCR expansion only through explicit provider paths such as TSV/HOCR
+  signal providers and a later PDF OCR provider, with OCRmyPDF/heavy providers
+  kept opt-in
+* main-repo OCR fixtures should stay tiny and license-clean; real-world OCR rows should live in quality-lab
+* optional tesseract smoke should stay outside the default native quality gate
+* future OCR follow-ups should stay explicit and auditable:
+  `OCRPageModel`, TSV/HOCR signal providers, MoonBit layout recovery,
+  OCR-to-IR lowering, OCRmyPDF provider audit, heavy OCR/layout provider audit,
+  and preprocessing such as deskew/denoise only on explicit paths

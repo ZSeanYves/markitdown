@@ -54,6 +54,12 @@ the repo-local quality-lab:
 git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
+Current OCR boundary:
+
+```bash
+./_build/native/debug/build/cli/cli.exe ocr samples/fixtures/ocr/tiny_ocr_sample.png
+```
+
 ## Package Shape
 
 High-level boundaries:
@@ -64,6 +70,8 @@ High-level boundaries:
 * `core`: shared document/metadata/emitter layer
 * `convert/*`: format-to-IR conversion policy
 * `doc_parse/*`: lower-layer parser/model/inspect foundations
+* `convert/vision`: provider-independent OCRPageModel scaffold
+* `ocr/*`: explicit OCR rebuild stub and future OCR entry surface
 * `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
 
 Important current facts:
@@ -72,6 +80,11 @@ Important current facts:
 * normal runtime does not read model JSON
 * PDF layout normal behavior is distilled into MoonBit rules/gates
 * `cli` stays out of the vendored PDF closure and should remain `mbtpdf=0`
+* normal conversion never OCRs and never probes OCR providers
+* previous text-only OCR prototype has been retired
+* OCR is being rebuilt around provider-independent `OCRPageModel`
+* current OCR provider execution is not wired in this build
+* PDF OCR is not wired in this build and remains future explicit provider work
 
 ## Current Checked Facts
 

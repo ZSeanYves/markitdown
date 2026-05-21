@@ -21,6 +21,7 @@ Important facts:
 * no runtime quality-lab dependency
 * no OCR/page-raster model in the normal path
 * no provider-backed runtime classifier
+* native PDF conversion stays limited to text, assets, and metadata extraction
 
 Current enabled normal-path scope stays intentionally small:
 
@@ -33,8 +34,16 @@ Current enabled normal-path scope stays intentionally small:
 OCR remains explicit-only:
 
 * OCR lives behind `ocr` and `cli ocr`
+* OCR is being rebuilt around provider-independent `OCRPageModel` under
+  `convert/vision`
 * the normal path does not auto-probe OCR providers
 * scanned PDFs are not silently upgraded into OCR-driven normal output
+* scanned/image-only PDFs stay fail-closed in the normal path
+* PDF OCR is not wired in this build
+* previous text-only OCR prototype has been retired
+* future PDF OCR must stay on an explicit provider path
+* a future PDF OCR route requires an explicit provider audit, such as an
+  OCRmyPDF-style path, rather than a normal-path fallback
 
 ## Quality-Lab Relation
 
@@ -64,12 +73,17 @@ Current main-repo PDF-related entrypoints:
 * `convert/pdf`: normal PDF conversion logic
 * `convert/pdf_layout`: feature and gate logic used by report/debug/dev surfaces
 * `convert/pdf_debug`: explainability/debug-oriented PDF surface
+* `ocr`: explicit OCR rebuild stub
+* `convert/vision`: OCRPageModel scaffold for future provider signal and layout
+  recovery
 * `doc_parse/pdf/layout_model_tool`: MoonBit dev export/infer entrypoint
 
 Important boundary:
 
 * `doc_parse/pdf/layout_model_tool` is a dev/export/infer tool
 * it is not part of product runtime
+* `convert/pdf` owns native PDF text/assets/metadata extraction only
+* `convert/pdf` does not own OCR providers
 
 ## Guardrails
 
@@ -86,6 +100,7 @@ Still out of scope for the normal path:
 * numbered heading promotion from model output
 * broad table/link/caption rewrite from model output
 * provider-backed runtime model loading
+* automatic PDF OCR fallback or provider probing
 
 ## Current Checked Boundary
 

@@ -94,7 +94,7 @@ Recommended commands:
 | `samples/helpers/shared/` | shared shell helper libraries for temp dirs and runner resolution |
 | `samples/helpers/validation/` | internal sample enrollment, manifest, and inventory helpers |
 | `samples/helpers/quality/` | internal quality runner implementation and schema/helpers |
-| `samples/ocr/` | OCR-oriented sample notes and artifacts |
+| `samples/fixtures/ocr/` | tiny license-clean OCR fixtures, manifest, and expected text for OCR policy/docs/optional smoke |
 
 ## Current Facts
 
@@ -115,6 +115,18 @@ Current quality validation:
 
 * `samples/helpers/*` are internal focused rerun helpers, not the main user
   entrypoints
+* `samples/fixtures/ocr/` is reserved for tiny, self-generated,
+  project-license fixtures that stay provider-independent where possible
+* OCR sample growth should stay split: tiny provider-independent fixtures in
+  the main repo, real-world OCR corpus in `markitdown-quality-lab`
+* the previous text-only OCR prototype has been retired; current OCR helper
+  coverage is about fixture policy and future rebuild boundaries
+* `samples/helpers/validation/check_ocr_fixtures.sh` validates OCR fixture
+  manifest/licensing, path safety, and fixture-size policy without running OCR
+  or requiring tesseract
+* `bash samples/helpers/contracts/check_ocr_tesseract_smoke_optional.sh` is
+  a skip-safe future wiring placeholder, not a required main entrypoint path or
+  native quality gate
 * `samples/helpers/quality/check.sh` remains available for compatibility, but
   it is an internal runner implementation rather than the preferred top-level
   entry

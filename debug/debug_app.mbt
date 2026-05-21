@@ -57,7 +57,7 @@ async fn cmd_debug_layout_assist_eval(
 }
 
 ///|
-async fn cmd_debug_providers(
+fn cmd_debug_providers(
   opts : DebugCliOptions,
   include_ocr : Bool,
   include_layout_assist : Bool,
@@ -158,26 +158,12 @@ async fn cmd_debug_legacy_pdf(
 }
 
 ///|
-async fn render_provider_listing(
+fn render_provider_listing(
   output_kind : @cor.DebugOutputKind,
   include_ocr : Bool,
   include_layout_assist : Bool,
   probe : Bool,
 ) -> String {
-  let ocr_infos : Array[@pdfocr.OcrProviderInfo] = []
-  if include_ocr {
-    for info in @pdfocr.list_known_ocr_providers() {
-      if probe {
-        match @pdfocr.probe_known_ocr_provider(info.name) {
-          Some(probed) => ocr_infos.push(probed)
-          None => ocr_infos.push(info)
-        }
-      } else {
-        ocr_infos.push(info)
-      }
-    }
-  }
-
   let layout_infos = if include_layout_assist {
     @pdfdebug.list_layout_assist_providers()
   } else {
@@ -187,18 +173,17 @@ async fn render_provider_listing(
   match output_kind {
     @cor.DebugOutputKind::Json =>
       render_provider_listing_json(
-        ocr_infos, layout_infos, include_ocr, include_layout_assist, probe,
+        layout_infos, include_ocr, include_layout_assist, probe,
       )
     _ =>
       render_provider_listing_text(
-        ocr_infos, layout_infos, include_ocr, include_layout_assist, probe,
+        layout_infos, include_ocr, include_layout_assist, probe,
       )
   }
 }
 
 ///|
 fn render_provider_listing_json(
-  ocr_infos : Array[@pdfocr.OcrProviderInfo],
   layout_infos : Array[@pdfdebug.LayoutAssistProviderInfo],
   include_ocr : Bool,
   include_layout_assist : Bool,
@@ -214,12 +199,18 @@ fn render_provider_listing_json(
   ]
 
   if include_ocr {
-    let items : Array[String] = []
-    for info in ocr_infos {
-      items.push(render_ocr_provider_json(info))
-    }
     fields.push(
-      @cor.json_string("ocr_providers") + ": " + @cor.array_json(items),
+      @cor.json_string("ocr_status") +
+      ": " +
+      @cor.object_json([
+        @cor.json_string("state") + ": " + @cor.json_string("rebuilding"),
+        @cor.json_string("probe_requested") + ": " + @cor.bool_json(probe),
+        @cor.json_string("message") +
+        ": " +
+        @cor.json_string(
+          "OCR provider execution has been retired while the OCRPageModel pipeline is rebuilt.",
+        ),
+      ]),
     )
   }
 
@@ -240,7 +231,6 @@ fn render_provider_listing_json(
 
 ///|
 fn render_provider_listing_text(
-  ocr_infos : Array[@pdfocr.OcrProviderInfo],
   layout_infos : Array[@pdfdebug.LayoutAssistProviderInfo],
   include_ocr : Bool,
   include_layout_assist : Bool,
@@ -254,9 +244,11 @@ fn render_provider_listing_text(
   if include_ocr {
     lines.push("")
     lines.push("[ocr]")
-    for info in ocr_infos {
-      lines.push(render_ocr_provider_text(info))
-    }
+    lines.push("state=rebuilding")
+    lines.push("probe_requested=" + probe.to_string())
+    lines.push(
+      "message=OCR provider execution has been retired while the OCRPageModel pipeline is rebuilt.",
+    )
   }
 
   if include_layout_assist {
@@ -820,25 +812,6 @@ fn split_layout_assist_tsv_line(line : String) -> Array[String] {
 }
 
 ///|
-fn render_ocr_provider_json(info : @pdfocr.OcrProviderInfo) -> String {
-  @cor.object_json([
-    @cor.json_string("name") + ": " + @cor.json_string(info.name),
-    @cor.json_string("kind") +
-    ": " +
-    @cor.json_string(ocr_provider_kind_name(info.kind)),
-    @cor.json_string("license") + ": " + @cor.json_string_opt(info.license),
-    @cor.json_string("version") + ": " + @cor.json_string_opt(info.version),
-    @cor.json_string("available") + ": " + @cor.bool_json(info.available),
-    @cor.json_string("probe_status") +
-    ": " +
-    @cor.json_string(ocr_probe_status_name(info.probed)),
-    @cor.json_string("unavailable_reason") +
-    ": " +
-    @cor.json_string_opt(info.unavailable_reason),
-  ])
-}
-
-///|
 fn render_layout_provider_json(
   info : @pdfdebug.LayoutAssistProviderInfo,
 ) -> String {
@@ -853,24 +826,6 @@ fn render_layout_provider_json(
 }
 
 ///|
-fn render_ocr_provider_text(info : @pdfocr.OcrProviderInfo) -> String {
-  "- " +
-  info.name +
-  " kind=" +
-  ocr_provider_kind_name(info.kind) +
-  " available=" +
-  info.available.to_string() +
-  " probe_status=" +
-  ocr_probe_status_name(info.probed) +
-  " license=" +
-  info.license.unwrap_or("") +
-  " version=" +
-  info.version.unwrap_or("") +
-  " unavailable_reason=" +
-  info.unavailable_reason.unwrap_or("")
-}
-
-///|
 fn render_layout_provider_text(
   info : @pdfdebug.LayoutAssistProviderInfo,
 ) -> String {
@@ -882,23 +837,6 @@ fn render_layout_provider_text(
   info.available.to_string() +
   " version=" +
   info.version.unwrap_or("")
-}
-
-///|
-fn ocr_provider_kind_name(kind : @pdfocr.OcrProviderKind) -> String {
-  match kind {
-    @pdfocr.OcrProviderKind::Noop => "noop"
-    @pdfocr.OcrProviderKind::ExternalCommand => "external_command"
-  }
-}
-
-///|
-fn ocr_probe_status_name(probed : Bool) -> String {
-  if probed {
-    "probed"
-  } else {
-    "not_run"
-  }
 }
 
 ///|

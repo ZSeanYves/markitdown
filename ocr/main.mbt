@@ -17,7 +17,7 @@ fn ocr_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-async fn main {
+fn main {
   let cli_args = ocr_cli_args(@clicom.normalize_cli_args(@sys.get_cli_args()))
   if cli_args.length() == 0 {
     print_ocr_help()
@@ -43,9 +43,7 @@ async fn main {
         Some(sub) => {
           let positional = sub.positional_args
           if positional.length() < 1 || positional.length() > 2 {
-            @clicom.exit_error(
-              "usage: ocr [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
-            )
+            @clicom.exit_error("usage: ocr <input> [output]")
             print_ocr_usage()
             return
           }
@@ -56,14 +54,7 @@ async fn main {
           } else {
             None
           }
-          let provider_name = @clap.SimpleValue::get_option(sub, "provider") catch {
-            _ => None
-          }
-          let lang_arg = @clap.SimpleValue::get_option(sub, "lang") catch {
-            _ => None
-          }
-          let with_metadata = sub.get_flag("with-metadata").unwrap_or(false)
-          cmd_ocr(input, output_opt, provider_name, lang_arg, with_metadata)
+          cmd_ocr(input, output_opt)
         }
         None => {
           print_ocr_help()
@@ -77,24 +68,13 @@ async fn main {
 fn new_ocr_cli_parser() -> @clap.Parser {
   @clap.Parser::new(
     prog="markitdown-mb-ocr",
-    description="Explicit OCR conversion entrypoint",
+    description="OCR rebuild entrypoint; provider execution is not wired in this build",
     subcmds={
       "ocr": @clap.SubCommand::new(
-        help="Explicit OCR mode: ocr [--provider tesseract-cli] [--lang eng+chi_sim] [--with-metadata] <input> [output]",
+        help="OCR rebuild entrypoint; current provider execution is retired while OCRPageModel and layout recovery are rebuilt",
         args={
-          "provider": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="Explicit OCR provider name (default: tesseract-cli)",
-          ),
-          "lang": @clap.Arg::named(
-            nargs=AtMost(1),
-            help="OCR language code(s), e.g. eng or eng+chi_sim",
-          ),
-          "with-metadata": @clap.Arg::flag(
-            help="Also write <name>.metadata.json next to markdown output",
-          ),
           "input": @clap.Arg::positional(
-            help="Path to input file (.png/.jpg/.jpeg/.tif/.tiff/.bmp/.webp, or explicit OCR PDF path)",
+            help="Path to OCR candidate input; current build returns a rebuild notice instead of executing providers",
           ),
         },
       ),
@@ -111,7 +91,17 @@ fn print_ocr_help() -> Unit {
 ///|
 fn print_ocr_usage() -> Unit {
   println("Usage:")
+  println("  markitdown-mb-ocr [ocr] <input> [output]")
+  println("")
+  println("Current OCR boundary:")
   println(
-    "  markitdown-mb-ocr [ocr] [--provider <name>] [--lang <code>] [--with-metadata] <input> [output]",
+    "  * explicit-only: normal conversion does not auto OCR or probe providers",
   )
+  println("  * OCR is being rebuilt around provider-independent OCRPageModel")
+  println("  * previous text-only OCR prototype has been retired")
+  println("  * current OCR provider execution is not wired in this build")
+  println(
+    "  * PDF OCR remains fail closed and will require an explicit provider",
+  )
+  println("  * no bundled tessdata and no automatic model downloads")
 }
