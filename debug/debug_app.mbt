@@ -598,7 +598,8 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
-  let quality_corpus_root = match @sys.get_env_var("MARKITDOWN_QUALITY_CORPUS") {
+  let quality_corpus_root = match
+    @sys.get_env_var("MARKITDOWN_QUALITY_CORPUS") {
     Some(root) =>
       if root.trim() != "" {
         Some(trim_trailing_slash(root.trim().to_owned()))
@@ -619,14 +620,15 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
       None => ()
     }
     match @sys.get_env_var("MARKITDOWN_QUALITY_LAB") {
-      Some(root) => {
+      Some(root) =>
         if root.trim() != "" {
-          let candidate = trim_trailing_slash(root.trim().to_owned()) + "/corpus/" + suffix
+          let candidate = trim_trailing_slash(root.trim().to_owned()) +
+            "/corpus/" +
+            suffix
           if @fs.path_exists(candidate) {
             return candidate
           }
         }
-      }
       None => ()
     }
     let repo_local_candidate = "markitdown-quality-lab/corpus/" + suffix
@@ -640,7 +642,8 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
   }
   if path.has_prefix(".external/layout_model/") {
     let suffix = path[23:].to_owned()
-    let quality_lab_layout_root = match @sys.get_env_var("MARKITDOWN_LAYOUT_LAB") {
+    let quality_lab_layout_root = match
+      @sys.get_env_var("MARKITDOWN_LAYOUT_LAB") {
       Some(root) =>
         if root.trim() != "" {
           Some(trim_trailing_slash(root.trim().to_owned()))
@@ -671,11 +674,13 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
       }
       None => ()
     }
-    let repo_local_candidate = "markitdown-quality-lab/pdf_layout_classifier/" + mapped
+    let repo_local_candidate = "markitdown-quality-lab/pdf_layout_classifier/" +
+      mapped
     if @fs.path_exists(repo_local_candidate) {
       return repo_local_candidate
     }
-    let sibling_candidate = "../markitdown-quality-lab/pdf_layout_classifier/" + mapped
+    let sibling_candidate = "../markitdown-quality-lab/pdf_layout_classifier/" +
+      mapped
     if @fs.path_exists(sibling_candidate) {
       return sibling_candidate
     }

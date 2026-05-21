@@ -55,16 +55,16 @@ The repository's default validation bar is:
 moon build --target native
 moon check
 moon test
-./samples/check.sh
+bash samples/check.sh
 ```
 
 Supporting validation chains:
 
-* `./samples/check.sh --markdown-only`
-* `./samples/check.sh --metadata-only`
-* `./samples/check.sh --assets-only`
-* `./samples/check.sh --contracts-only`
-* `./samples/check.sh --manifest-only`
+* `bash samples/check.sh --markdown-only`
+* `bash samples/check.sh --metadata-only`
+* `bash samples/check.sh --assets-only`
+* `bash samples/check.sh --contracts-only`
+* `bash samples/check.sh --manifest-only`
 
 ## Benchmark Surface
 

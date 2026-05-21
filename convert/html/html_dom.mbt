@@ -1544,12 +1544,7 @@ fn sanitize_html_href(raw_href : String) -> String? {
   let href0 = html_unescape(raw_href).trim().to_owned()
   let href = match unwrap_known_html_redirect_href(href0) {
     Some(target) => target
-    None =>
-      if is_known_html_redirect_href(href0) {
-        return None
-      } else {
-        href0
-      }
+    None => if is_known_html_redirect_href(href0) { return None } else { href0 }
   }
   if href == "" {
     return None

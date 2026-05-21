@@ -22,7 +22,9 @@ fn resolve_sample_path(path : String) -> String {
 ///|
 async fn open_sample_pdf(path : String) -> @pdf.Pdf {
   let resolved = resolve_sample_path(path)
-  let repo_tracked = if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+  let repo_tracked = if path.has_prefix(
+      ".external/quality_corpus/pdf_external/pdfjs/",
+    ) {
     let name = path.split("/").last().unwrap_or("").to_owned()
     if name != "" {
       Some("../testdata/pdfjs/" + name)

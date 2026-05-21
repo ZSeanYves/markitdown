@@ -33,14 +33,14 @@ Use for routine development confidence:
 
 ```bash
 moon check
-./samples/check.sh
-./samples/scripts/bench_warn.sh --all
+bash samples/check.sh
+bash samples/scripts/bench_warn.sh --all
 ```
 
 Optional targeted fast rerun:
 
 ```bash
-./samples/bench.sh --suite smoke --kind smoke --format <format>
+bash samples/bench.sh --suite smoke --kind smoke --format <format>
 ```
 
 Daily notes:
@@ -59,11 +59,11 @@ moon fmt
 moon info
 moon check
 moon test
-./samples/check.sh
-./samples/bench.sh --suite smoke
-./samples/bench.sh --suite compare
-./samples/bench.sh --suite batch-profile
-./samples/scripts/bench_warn.sh --all
+bash samples/check.sh
+bash samples/bench.sh --suite smoke
+bash samples/bench.sh --suite compare
+bash samples/bench.sh --suite batch-profile
+bash samples/scripts/bench_warn.sh --all
 moon publish
 ```
 
@@ -85,7 +85,7 @@ MARKITDOWN_PROFILE_TXT=1 ...
 MARKITDOWN_PROFILE_CSV=1 ...
 MARKITDOWN_PROFILE_YAML=1 ...
 MARKITDOWN_PROFILE_ZIP=1 ...
-./samples/bench.sh --suite smoke --kind smoke --format yaml --warmup 3 --iterations 10
+bash samples/bench.sh --suite smoke --kind smoke --format yaml --warmup 3 --iterations 10
 ```
 
 Manual notes:
@@ -203,12 +203,12 @@ for the checked-in policy/template entry point.
 Checker entry point:
 
 ```bash
-./samples/check.sh --manifest-only
+bash samples/check.sh --manifest-only
 ```
 
 The lower-level `samples/scripts/check_corpus_manifest.sh` helper remains
 available for maintainer-only direct checks, but the public entrypoint is now
-`./samples/check.sh --manifest-only`.
+`bash samples/check.sh --manifest-only`.
 
 ## 5. Memory / RSS
 

@@ -2,18 +2,18 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-QUALITY_CHECK="$ROOT/samples/quality_corpus/check.sh"
+QUALITY_CHECK="$ROOT/samples/helpers/quality/check.sh"
 QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
 
 usage() {
   cat <<'EOF'
-usage: bash ./samples/check_quality.sh [quality-corpus args]
+usage: bash ./samples/check_quality.sh [quality runner args]
 
 Run the optional signal-level quality validation entrypoint.
 
 Default behavior:
   * requires the repo-local quality-lab for the full local/external row set
-  * delegates to samples/quality_corpus/check.sh
+  * delegates to samples/helpers/quality/check.sh
 
 Examples:
   bash ./samples/check_quality.sh

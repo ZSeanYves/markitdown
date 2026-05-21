@@ -97,21 +97,17 @@ When reading encrypted PDFs:
 
 ///|
 let input = @pdfiofs.input_of_file("encrypted.pdf", source="encrypted.pdf")
-let pdf = @pdfread.PdfRead::new().pdf_of_input(
-  Some("user123"),
-  None,
-  input,
-)
+
+///|
+let pdf = @pdfread.PdfRead::new().pdf_of_input(Some("user123"), None, input)
 
 // With owner password (full access)
 
 ///|
 let input = @pdfiofs.input_of_file("encrypted.pdf", source="encrypted.pdf")
-let pdf = @pdfread.PdfRead::new().pdf_of_input(
-  None,
-  Some("owner456"),
-  input,
-)
+
+///|
+let pdf = @pdfread.PdfRead::new().pdf_of_input(None, Some("owner456"), input)
 ```
 
 ## Checking Encryption

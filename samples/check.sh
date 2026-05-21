@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SAMPLE_IMPL="$ROOT/samples/helpers/check_samples_impl.sh"
-CORPUS_MANIFEST_CHECK="$ROOT/samples/helpers/check_corpus_manifest.sh"
+SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
+CORPUS_MANIFEST_CHECK="$ROOT/samples/helpers/validation/check_corpus_manifest.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 
 CONTINUE_ON_FAILURE="${CHECK_CONTINUE:-0}"
@@ -123,15 +123,15 @@ run_stage_or_stop() {
 }
 
 run_manifest_chain() {
-  run_stage_or_stop "integrity" env SAMPLES_QUIET_INTEGRITY=1 "$ROOT/samples/helpers/check_samples.sh"
+  run_stage_or_stop "integrity" env SAMPLES_QUIET_INTEGRITY=1 "$ROOT/samples/helpers/validation/check_samples.sh"
   run_stage_or_stop "benchmark_manifest" "$CORPUS_MANIFEST_CHECK"
 }
 
 run_contract_chain() {
-  run_stage_or_stop "cli_contract" "$ROOT/samples/helpers/check_cli_contract.sh"
-  run_stage_or_stop "debug_contract" "$ROOT/samples/helpers/check_debug_contract.sh"
-  run_stage_or_stop "batch_contract" "$ROOT/samples/helpers/check_batch_contract.sh"
-  run_stage_or_stop "ocr_contract" "$ROOT/samples/helpers/check_ocr_contract.sh"
+  run_stage_or_stop "cli_contract" "$ROOT/samples/helpers/contracts/check_cli_contract.sh"
+  run_stage_or_stop "debug_contract" "$ROOT/samples/helpers/contracts/check_debug_contract.sh"
+  run_stage_or_stop "batch_contract" "$ROOT/samples/helpers/contracts/check_batch_contract.sh"
+  run_stage_or_stop "ocr_contract" "$ROOT/samples/helpers/contracts/check_ocr_contract.sh"
 }
 
 STAGE_RESULTS=()

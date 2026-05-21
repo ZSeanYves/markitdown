@@ -80,9 +80,9 @@ Budget:
 This page now tracks three practical performance layers:
 
 * direct `doc_parse/*` library rows from
-  `./samples/bench.sh --suite doc-parse --kind library`
+  `bash samples/bench.sh --suite doc-parse --kind library`
 * same-process product-path rows from
-  `./samples/bench.sh --suite product-path --kind stage`
+  `bash samples/bench.sh --suite product-path --kind stage`
 * cold CLI/process-per-file cost via separate startup-aware measurement
 
 Track each hotspot by:
@@ -222,7 +222,7 @@ The repository now has a refined staged benchmark for the normal product
 path:
 
 ```bash
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 Implemented stages:

@@ -886,9 +886,7 @@ test "pptx semantic chart cache uses deepest multi-level category labels" {
   match chart.chart {
     Some(data) => {
       assert_eq(data.series.length(), 1)
-      assert_true(
-        data.series[0].categories == ["SF", "LA", "London", "Surrey"],
-      )
+      assert_true(data.series[0].categories == ["SF", "LA", "London", "Surrey"])
       assert_true(data.series[0].values == ["4.3", "2.5", "3.5", "4.5"])
     }
     None => fail("expected chart data")

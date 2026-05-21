@@ -17,35 +17,36 @@ latency for every package and file shape.
   * `moon build --target native`
   * `moon check`
   * `moon test`
-  * `./samples/check.sh`
+  * `bash samples/check.sh`
 
 ## Benchmark Commands
 
 Preferred public entrypoint:
 
-```bash
-./samples/bench.sh
-```
+* `samples/bench.sh`
+* `bash samples/bench.sh --help` shows available benchmark suites.
+* `bash samples/bench.sh --suite smoke --kind smoke` is the lightweight
+  paste-safe smoke benchmark.
 
 Measured commands:
 
 ```bash
-./samples/bench.sh --suite smoke --kind smoke
-./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
-./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
-./samples/bench.sh --suite product-path --help
-./samples/bench.sh --suite product-path --smoke
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
-./samples/bench_product_path.sh --help
-./samples/bench_product_path.sh --smoke
-./samples/bench_product_path.sh --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
+bash samples/bench.sh --suite smoke --kind smoke
+bash samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+bash samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --help
+bash samples/bench.sh --suite product-path --smoke
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --iterations 10 --warmup 2
+bash samples/bench_product_path.sh --help
+bash samples/bench_product_path.sh --smoke
+bash samples/bench_product_path.sh --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
 ```
 
 Artifacts:
@@ -104,7 +105,7 @@ This baseline is intentionally read through three separate layers:
 Measured by:
 
 ```bash
-./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+bash samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ```
 
 Interpretation:
@@ -119,7 +120,7 @@ Interpretation:
 Measured by:
 
 ```bash
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 Interpretation:
@@ -221,9 +222,9 @@ Observed pattern:
 Commands:
 
 ```bash
-./samples/bench_product_path.sh --help
-./samples/bench_product_path.sh --smoke
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+bash samples/bench_product_path.sh --help
+bash samples/bench_product_path.sh --smoke
+bash samples/bench_product_path.sh --iterations 10 --warmup 2
 ```
 
 Current first-batch format coverage:
@@ -430,7 +431,7 @@ Interpretation:
 Command:
 
 ```bash
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
 Coverage in this first harness round:
@@ -522,8 +523,8 @@ These passes all preserved:
 Follow-up commands:
 
 ```bash
-./samples/bench_doc_parse.sh --format xlsx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_after_parse.tsv
-./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_profile.tsv
+bash samples/bench_doc_parse.sh --format xlsx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_after_parse.tsv
+bash samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/xlsx_profile.tsv
 ```
 
 Before this optimization round, the checked XLSX library baseline showed:
@@ -564,7 +565,7 @@ These profile rows are attribution aids only:
 ## Post-optimization Library Snapshot
 
 After the focused XLSX, DOCX, YAML, text, JSON, and Markdown changes, the full
-`./samples/bench_doc_parse.sh` slowest rows are now:
+`bash samples/bench_doc_parse.sh` slowest rows are now:
 
 * `yaml_large / parse`: `5.974 ms`
 * `docx_link_heavy / parse`: `5.098 ms`
@@ -595,12 +596,12 @@ over more parser-only cleanup unless new evidence re-promotes a library row.
 Follow-up commands:
 
 ```bash
-./samples/bench_doc_parse.sh --format text --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_before_parse.tsv
-./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_profile_after_final.tsv
-./samples/bench_doc_parse.sh --format json --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_before_parse.tsv
-./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_profile_after.tsv
-./samples/bench_doc_parse.sh --format markdown --stage scan --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_before_scan.tsv
-./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_profile_after.tsv
+bash samples/bench_doc_parse.sh --format text --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_before_parse.tsv
+bash samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/text_profile_after_final.tsv
+bash samples/bench_doc_parse.sh --format json --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_before_parse.tsv
+bash samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/json_profile_after.tsv
+bash samples/bench_doc_parse.sh --format markdown --stage scan --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_before_scan.tsv
+bash samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/markdown_profile_after.tsv
 ```
 
 Focused before/after rows:
@@ -651,10 +652,10 @@ Interpretation:
 Follow-up commands:
 
 ```bash
-./samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_before_parse.tsv
-./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_before.tsv
-./samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_after_parse.tsv
-./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_after.tsv
+bash samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_before_parse.tsv
+bash samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_before.tsv
+bash samples/bench_doc_parse.sh --format docx --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_after_parse.tsv
+bash samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/docx_profile_after.tsv
 ```
 
 Before this optimization round, the checked DOCX library baseline showed:
@@ -706,10 +707,10 @@ Interpretation:
 Follow-up commands:
 
 ```bash
-./samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_before_parse.tsv
-./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 2 --warmup 0 --output .tmp/bench/doc_parse/yaml_profile_before.tsv
-./samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_after_parse.tsv
-./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_profile_after.tsv
+bash samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_before_parse.tsv
+bash samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 2 --warmup 0 --output .tmp/bench/doc_parse/yaml_profile_before.tsv
+bash samples/bench_doc_parse.sh --format yaml --stage parse --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_after_parse.tsv
+bash samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2 --output .tmp/bench/doc_parse/yaml_profile_after.tsv
 ```
 
 Before this optimization round, the focused YAML parse run showed:

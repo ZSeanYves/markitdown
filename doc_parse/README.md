@@ -153,7 +153,7 @@ Related repository entrypoints:
   implementation package for the direct library benchmark harness
 * `../samples/bench.sh --suite doc-parse --kind library`
   recommended public benchmark entrypoint
-* `../samples/helpers/bench_doc_parse_helper.sh`
+* `../samples/helpers/bench/bench_doc_parse_helper.sh`
   internal focused rerun helper behind the public benchmark entrypoint
 * `../samples/benchmark/manifests/doc_parse.tsv`
   checked manifest for the library benchmark corpus

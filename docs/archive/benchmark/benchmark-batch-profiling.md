@@ -52,7 +52,7 @@ one process startup + directory enumeration + repeated parse/convert/emit/write
 Harness:
 
 ```bash
-./samples/bench.sh --suite batch-profile
+bash samples/bench.sh --suite batch-profile
 ```
 
 Key properties:
@@ -474,8 +474,8 @@ Recommended next steps:
 The repository now has a manual warning helper:
 
 ```bash
-./samples/scripts/bench_warn.sh --suite batch_profile
-./samples/scripts/bench_warn.sh --strict --suite batch_profile
+bash samples/scripts/bench_warn.sh --suite batch_profile
+bash samples/scripts/bench_warn.sh --strict --suite batch_profile
 ```
 
 How it works:

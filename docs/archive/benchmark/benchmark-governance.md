@@ -114,7 +114,9 @@ Interpretation notes:
 
 Recommended public benchmark entrypoint:
 
-* `./samples/bench.sh`
+* `samples/bench.sh`
+* `bash samples/bench.sh --help`
+* `bash samples/bench.sh --suite smoke --kind smoke`
 
 ### `samples/bench.sh --suite smoke`
 
@@ -188,7 +190,7 @@ Current strengths:
 Current limitations:
 
 * helper-focused profile/stage permutations still go through
-  `./samples/bench_doc_parse.sh`
+  `bash samples/bench_doc_parse.sh`
 * PDF direct library attribution is still deferred
 
 ### `samples/bench.sh --suite product-path --kind stage`
@@ -208,7 +210,7 @@ Current limitations:
 
 * `docx/pptx` still keep partial combined seams
 * helper-focused direct control still goes through
-  `./samples/bench_product_path.sh`
+  `bash samples/bench_product_path.sh`
 
 ## Result Field Policy
 

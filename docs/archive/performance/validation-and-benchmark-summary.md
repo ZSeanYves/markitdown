@@ -4,8 +4,8 @@ This document is the repository's detailed validation and benchmark snapshot.
 It is the authoritative location for checked-in counts, representative local
 benchmark examples, and result-file locations.
 
-The public repository validation entrypoints are `./samples/check.sh` and
-`./samples/bench.sh`.
+The public repository validation entrypoints are `samples/check.sh` and
+`samples/bench.sh`.
 
 For the recommended benchmark command menu and suite layout, use
 [docs/benchmarking.md](./benchmarking.md).
@@ -43,9 +43,9 @@ Latest local verification used for this snapshot:
 moon fmt
 moon check
 moon test
-./samples/check.sh
-./samples/bench.sh --suite smoke --kind smoke
-./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
+bash samples/check.sh
+bash samples/bench.sh --suite smoke --kind smoke
+bash samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
 ```
 
 ## GitHub Actions CI
@@ -59,13 +59,13 @@ Default CI gate:
 * triggers: `push`, `pull_request`
 * matrix: `ubuntu-latest`, `macos-latest`
 * commands: `moon build --target native`, `moon check`, `moon test`,
-  `./samples/check.sh`
+  `bash samples/check.sh`
 
 Manual benchmark lane:
 
 * trigger: `workflow_dispatch`
 * runner: `ubuntu-latest`
-* command: `./samples/bench.sh --suite smoke --kind smoke`
+* command: `bash samples/bench.sh --suite smoke --kind smoke`
 * rationale: smoke benchmark is lightweight and reproducible, but it remains an
   engineering signal rather than a required semantic-validation gate
 
@@ -151,26 +151,26 @@ Primary repository validation:
 moon build --target native
 moon check
 moon test
-./samples/check.sh
+bash samples/check.sh
 ```
 
 Supporting validation chains:
 
 ```bash
-./samples/check.sh --markdown-only
-./samples/check.sh --metadata-only
-./samples/check.sh --assets-only
-./samples/check.sh --manifest-only
+bash samples/check.sh --markdown-only
+bash samples/check.sh --metadata-only
+bash samples/check.sh --assets-only
+bash samples/check.sh --manifest-only
 ```
 
 Complex-scenario corpus:
 
 * `samples/real_world/manifest.tsv` now defines a checked-in complex-only
   corpus with 11 rows across DOCX, PPTX, XLSX, PDF, HTML, ZIP, and EPUB
-* default `./samples/check.sh` runs the full real-world corpus in addition to
+* default `bash samples/check.sh` runs the full real-world corpus in addition to
   the smaller `main_process` regressions
-* `./samples/check.sh --real-world` remains the focused rerun path
-* `./samples/check.sh --real-world --tags complex` is the focused rerun path
+* `bash samples/check.sh --real-world` remains the focused rerun path
+* `bash samples/check.sh --real-world --tags complex` is the focused rerun path
   for the long-form complex layer
 * the real-world corpus is still not a benchmark corpus and does not change the
   sealed H2++ / H3++ evidence basis by itself
@@ -178,11 +178,11 @@ Complex-scenario corpus:
 Benchmark entrypoints:
 
 ```bash
-./samples/bench.sh --suite smoke --kind smoke
-./samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
-./samples/bench.sh --suite batch-profile --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
-./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench.sh --suite smoke --kind smoke
+bash samples/bench.sh --suite compare --iterations 1 --warmup 0 --corpus samples/benchmark/compare_corpus.tsv
+bash samples/bench.sh --suite batch-profile --formats xlsx,html,zip,epub,docx,pptx,pdf --counts 1,3 --iterations 1 --warmup 0 --memory auto
+bash samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 ## Caveats

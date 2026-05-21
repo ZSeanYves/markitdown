@@ -174,7 +174,7 @@ fn parse_args(args : Array[String]) -> BenchConfig raise BenchError {
 ///|
 fn print_usage() -> Unit {
   println(
-    "usage: ./samples/helpers/bench_doc_parse_helper.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--profile text|json|markdown|xlsx|docx|yaml] [--output PATH]",
+    "usage: ./samples/helpers/bench/bench_doc_parse_helper.sh [--manifest PATH] [--iterations N] [--warmup N] [--format csv,json,...] [--stage parse,inspect,validate] [--profile text|json|markdown|xlsx|docx|yaml] [--output PATH]",
   )
 }
 

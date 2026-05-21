@@ -29,7 +29,7 @@ Current performance reporting now uses three intentionally separate layers:
 This is the direct package-level path measured by:
 
 ```bash
-./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
+bash samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
 ```
 
 It measures `open/parse/scan`, `inspect`, and `validate` against `doc_parse/*`
@@ -47,7 +47,7 @@ Interpretation:
 This is the staged normal conversion path measured by:
 
 ```bash
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
 It measures the markitdown product pipeline inside a warm benchmark runner.
@@ -129,24 +129,24 @@ Batch mode is a separate concern:
 
 Current public tooling:
 
-* `./samples/bench.sh --suite smoke`
-* `./samples/bench.sh --suite compare`
-* `./samples/bench.sh --suite batch-profile`
-* `./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2`
-* `./samples/bench.sh --suite product-path --help`
-* `./samples/bench.sh --suite product-path --smoke`
-* `./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2`
+* `bash samples/bench.sh --suite smoke`
+* `bash samples/bench.sh --suite compare`
+* `bash samples/bench.sh --suite batch-profile`
+* `bash samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2`
+* `bash samples/bench.sh --suite product-path --help`
+* `bash samples/bench.sh --suite product-path --smoke`
+* `bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2`
 * focused helper compatibility remains available through:
-* `./samples/bench_doc_parse.sh --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2`
-* `./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2`
-* `./samples/bench_product_path.sh --help`
-* `./samples/bench_product_path.sh --smoke`
-* `./samples/bench_product_path.sh --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2`
+* `bash samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2`
+* `bash samples/bench_product_path.sh --help`
+* `bash samples/bench_product_path.sh --smoke`
+* `bash samples/bench_product_path.sh --iterations 10 --warmup 2`
 
 Current benchmark corpus location:
 
@@ -208,10 +208,10 @@ Current checked state after the focused parser rounds:
 The repository now also keeps a real product-path attribution harness:
 
 ```bash
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
+bash samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
 ```
 
-This benchmark differs from `./samples/bench_doc_parse.sh` in two important
+This benchmark differs from `bash samples/bench_doc_parse.sh` in two important
 ways:
 
 * it measures the actual markitdown normal product path rather than direct
@@ -304,10 +304,10 @@ final output write handling.
 ## Library Harness
 
 The direct `doc_parse/*` harness is intentionally separate from
-`./samples/bench.sh`:
+`samples/bench.sh`:
 
 ```bash
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
 Key design points:
@@ -332,7 +332,7 @@ Key design points:
   attribution without changing JSON validity rules or value semantics
 * `--profile markdown` adds internal Markdown scan sub-stage rows for hotspot
   attribution without turning the scanner into a full Markdown parser
-* `./samples/bench_product_path.sh` now also supports refined current
+* `bash samples/bench_product_path.sh` now also supports refined current
   converter-path attribution for `html/docx/pptx` by reading hidden
   benchmark-only profile logs, without changing normal CLI behavior or
   exposing new stable public APIs
@@ -377,10 +377,10 @@ Release-facing baseline commands for this round:
 moon build --target native
 moon check
 moon test
-./samples/check.sh
-./samples/bench.sh --suite smoke --kind smoke
-./samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
-./samples/bench_doc_parse.sh --iterations 10 --warmup 2
+bash samples/check.sh
+bash samples/bench.sh --suite smoke --kind smoke
+bash samples/bench.sh --suite batch-profile --counts 1,3 --iterations 1 --warmup 0 --memory auto
+bash samples/bench_doc_parse.sh --iterations 10 --warmup 2
 ```
 
 ## Current Baseline Snapshot
@@ -404,7 +404,7 @@ Interpretation notes stay the same:
 The current harness now includes an XLSX-specific profile mode:
 
 ```bash
-./samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format xlsx --stage parse --profile xlsx --iterations 10 --warmup 2
 ```
 
 This mode exists to answer a narrow question: where the time goes inside
@@ -422,7 +422,7 @@ Current interpretation:
 The current harness also includes a DOCX-specific profile mode:
 
 ```bash
-./samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format docx --stage parse --profile docx --iterations 10 --warmup 2
 ```
 
 This mode exists to answer a similarly narrow question: where the time goes
@@ -447,7 +447,7 @@ Current interpretation:
 The current harness also includes a YAML-specific profile mode:
 
 ```bash
-./samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format yaml --stage parse --profile yaml --iterations 10 --warmup 2
 ```
 
 This mode exists to answer a narrower parser question: where the time goes
@@ -474,9 +474,9 @@ The current harness also includes focused profile modes for text, JSON, and
 Markdown:
 
 ```bash
-./samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
-./samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format text --stage parse --profile text --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format json --stage parse --profile json --iterations 10 --warmup 2
+bash samples/bench_doc_parse.sh --format markdown --stage scan --profile markdown --iterations 10 --warmup 2
 ```
 
 Current checked follow-up results:
@@ -503,9 +503,9 @@ The next performance phase is now implemented as a refined benchmark for the
 repository product path:
 
 ```bash
-./samples/bench_product_path.sh --help
-./samples/bench_product_path.sh --smoke
-./samples/bench_product_path.sh --iterations 10 --warmup 2
+bash samples/bench_product_path.sh --help
+bash samples/bench_product_path.sh --smoke
+bash samples/bench_product_path.sh --iterations 10 --warmup 2
 ```
 
 Current stage model:

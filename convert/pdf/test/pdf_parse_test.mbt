@@ -179,7 +179,7 @@ fn link_test_page(
 }
 
 ///|
-async fn write_uri_link_pdf(path : String) -> Unit {
+fn write_uri_link_pdf(path : String) -> Unit raise {
   let pdf0 = @mbtpdf_core.Pdf::empty()
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
@@ -211,7 +211,7 @@ async fn write_uri_link_pdf(path : String) -> Unit {
 }
 
 ///|
-async fn write_wrapped_uri_link_pdf(path : String) -> Unit {
+fn write_wrapped_uri_link_pdf(path : String) -> Unit raise {
   let pdf0 = @mbtpdf_core.Pdf::empty()
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
@@ -265,7 +265,7 @@ async fn write_wrapped_uri_link_pdf(path : String) -> Unit {
 }
 
 ///|
-async fn write_internal_dest_pdf(path : String) -> Unit {
+fn write_internal_dest_pdf(path : String) -> Unit raise {
   let pdf0 = @mbtpdf_core.Pdf::empty()
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
@@ -299,7 +299,7 @@ async fn write_internal_dest_pdf(path : String) -> Unit {
 }
 
 ///|
-async fn write_named_destination_collision_pdf(path : String) -> Unit {
+fn write_named_destination_collision_pdf(path : String) -> Unit raise {
   let pdf0 = @mbtpdf_core.Pdf::empty()
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
@@ -677,7 +677,7 @@ fn simple_pdf_page_from_ops(
 }
 
 ///|
-async fn write_simple_table_pdf(path : String) -> Unit {
+fn write_simple_table_pdf(path : String) -> Unit raise {
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
     Real(0.0),
@@ -795,7 +795,7 @@ async test "convert/pdf simple table fixture keeps visible table signal in inspe
 }
 
 ///|
-async fn write_headerless_numeric_table_pdf(path : String) -> Unit {
+fn write_headerless_numeric_table_pdf(path : String) -> Unit raise {
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
     Real(0.0),

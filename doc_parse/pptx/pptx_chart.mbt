@@ -134,8 +134,13 @@ fn parse_chart_cache_values(
 }
 
 ///|
-fn parse_chart_multilevel_string_cache(scope_xml : Bytes) -> Array[String] raise {
-  match extract_first_named_block(scope_xml, "<c:multiLvlStrCache", "c:multiLvlStrCache") {
+fn parse_chart_multilevel_string_cache(
+  scope_xml : Bytes,
+) -> Array[String] raise {
+  match
+    extract_first_named_block(
+      scope_xml, "<c:multiLvlStrCache", "c:multiLvlStrCache",
+    ) {
     Some(cache_xml) => {
       let levels : Array[Array[String]] = []
       let mut pos = 0
@@ -145,9 +150,7 @@ fn parse_chart_multilevel_string_cache(scope_xml : Bytes) -> Array[String] raise
           break
         }
         let lvl_end = find_matching_named_element_close(
-          cache_xml,
-          lvl_start,
-          "c:lvl",
+          cache_xml, lvl_start, "c:lvl",
         ).unwrap_or(-1)
         if lvl_end < 0 {
           break
@@ -480,28 +483,28 @@ fn parse_chart_series_categories(
       if multilevel_strings.length() > 0 {
         multilevel_strings
       } else {
-      let strings = parse_chart_cache_values(
-        cat_xml, "<c:strCache", "c:strCache",
-      )
-      if strings.length() > 0 {
-        strings
-      } else {
-        let numbers = parse_chart_cache_values(
-          cat_xml, "<c:numCache", "c:numCache",
+        let strings = parse_chart_cache_values(
+          cat_xml, "<c:strCache", "c:strCache",
         )
-        let format_code = read_chart_cache_format_code(
-          cat_xml, "<c:numCache", "c:numCache",
-        )
-        let formatted : Array[String] = []
-        for value in numbers {
-          formatted.push(
-            format_chart_cached_category_value(
-              value, format_code, uses_date_1904,
-            ),
+        if strings.length() > 0 {
+          strings
+        } else {
+          let numbers = parse_chart_cache_values(
+            cat_xml, "<c:numCache", "c:numCache",
           )
+          let format_code = read_chart_cache_format_code(
+            cat_xml, "<c:numCache", "c:numCache",
+          )
+          let formatted : Array[String] = []
+          for value in numbers {
+            formatted.push(
+              format_chart_cached_category_value(
+                value, format_code, uses_date_1904,
+              ),
+            )
+          }
+          formatted
         }
-        formatted
-      }
       }
     }
     None => []

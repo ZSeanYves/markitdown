@@ -127,11 +127,11 @@ moon fmt
 moon info
 moon check
 moon test
-./samples/check.sh
-./samples/check.sh --manifest-only
-./samples/check.sh --markdown-only
-./samples/check.sh --metadata-only
-./samples/check.sh --assets-only
+bash samples/check.sh
+bash samples/check.sh --manifest-only
+bash samples/check.sh --markdown-only
+bash samples/check.sh --metadata-only
+bash samples/check.sh --assets-only
 ```
 
 Format-specific `test/` subpackages are used for blackbox/package tests where

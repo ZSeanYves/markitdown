@@ -153,7 +153,7 @@ For PDF H2-complete support coverage, the smoke corpus now includes:
 ## Baseline Command
 
 ```bash
-BENCH_WARMUP=1 BENCH_ITERATIONS=3 ./samples/bench.sh --suite smoke --kind smoke
+BENCH_WARMUP=1 BENCH_ITERATIONS=3 bash samples/bench.sh --suite smoke --kind smoke
 ```
 
 Artifacts are written under:

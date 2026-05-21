@@ -28,7 +28,6 @@ Related planning context:
 * [docs/archive/benchmark/benchmark-h3-plan.md](./benchmark-h3-plan.md)
 * [docs/archive/benchmark/benchmark-baseline.md](./benchmark-baseline.md)
 * [docs/archive/benchmark/benchmark-comparison.md](./benchmark-comparison.md)
-* [docs/metadata-sidecar.md](./metadata-sidecar.md)
 
 ## 1. Definitions
 

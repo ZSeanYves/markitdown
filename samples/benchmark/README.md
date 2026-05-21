@@ -159,8 +159,8 @@ Manifest validation:
 Internal direct helper:
 
 ```bash
-./samples/helpers/check_corpus_manifest.sh
-./samples/helpers/check_corpus_manifest.sh samples/benchmark/corpus_manifest.example.tsv
+./samples/helpers/validation/check_corpus_manifest.sh
+./samples/helpers/validation/check_corpus_manifest.sh samples/benchmark/corpus_manifest.example.tsv
 ```
 
 ## Comparability Rules

@@ -19,7 +19,7 @@ fn outline_rect() -> @pdf.PdfObject {
 }
 
 ///|
-async fn write_outline_fixture(path : String) -> Unit {
+fn write_outline_fixture(path : String) -> Unit raise {
   let page1 = @pdfpage.Page::custom(outline_rect())
   let page2 = @pdfpage.Page::custom(outline_rect())
   let (pdf0, pageroot) = @pdfpage.PdfPageDoc::new(@pdf.Pdf::empty()).add_pagetree([

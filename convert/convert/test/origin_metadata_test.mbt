@@ -171,7 +171,7 @@ fn metadata_pdf_page_from_ops(
 }
 
 ///|
-async fn write_metadata_simple_table_pdf(path : String) -> Unit {
+fn write_metadata_simple_table_pdf(path : String) -> Unit raise {
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
     Real(0.0),
@@ -234,7 +234,7 @@ async fn write_metadata_simple_table_pdf(path : String) -> Unit {
 }
 
 ///|
-async fn write_metadata_headerless_numeric_table_pdf(path : String) -> Unit {
+fn write_metadata_headerless_numeric_table_pdf(path : String) -> Unit raise {
   let rect : @mbtpdf_core.PdfObject = Array([
     Real(0.0),
     Real(0.0),

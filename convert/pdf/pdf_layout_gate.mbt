@@ -913,7 +913,8 @@ fn looks_like_receipt_settlement_heading_text(text : String) -> Bool {
 ///|
 fn block_neighbor_is_separator(block : PdfConvertBlock?) -> Bool {
   match block {
-    Some(value) => looks_like_separator_line_for_ir(value.text.trim().to_owned())
+    Some(value) =>
+      looks_like_separator_line_for_ir(value.text.trim().to_owned())
     None => false
   }
 }

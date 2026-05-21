@@ -1,225 +1,126 @@
-# Samples Overview
+# Samples
 
-The `samples/` tree now uses one unified checked-in input corpus under
-`samples/main_process/`. Metadata-heavy and asset-heavy cases still exist, but
-they now live under the same format trees instead of separate top-level sample
-families. Each format package keeps its own checked expectations under
-`samples/main_process/<format>/expected/`.
+The `samples/` tree contains the repo-tracked validation corpus and developer
+entrypoints.
 
-All checked sample inputs and expected outputs are committed to the repository.
-Normal validation and CI do not require running any sample generator step.
-The repository exposes `./samples/check.sh` and `./samples/bench.sh` as the
-public sample entrypoints; everything under `samples/helpers/` is internal
-implementation or maintainer-only helper surface.
+Repository docs entrypoints:
 
-## Directory Roles
+* [docs/architecture.md](../docs/architecture.md)
+* [docs/supported-formats.md](../docs/supported-formats.md)
+* [docs/quality-and-release.md](../docs/quality-and-release.md)
+* [docs/pdf.md](../docs/pdf.md)
+* [docs/performance.md](../docs/performance.md)
+* [docs/roadmap.md](../docs/roadmap.md)
 
-| Path | Current role | Checked by | Output type | Status |
-| --- | --- | --- | --- | --- |
-| `samples/main_process/` | checked-in user-visible regression inputs across all formats, with per-format `expected/` subtrees | `check.sh` | source inputs plus expected outputs | keep |
-| `samples/fixtures/` | parser/core/fail-closed fixtures plus lower-layer metadata snapshots | MoonBit tests, contract scripts | fixture inputs and lower-layer snapshots | keep |
-| `samples/benchmark/` | checked-in benchmark corpus | `bench.sh`, internal bench scripts | performance corpus rows | keep |
-| `samples/quality_corpus/` | internal signal-level quality runner implementation plus schema/helpers | `check_quality.sh` | public manifest plus runner/helpers | keep |
-| `samples/helpers/` | internal validation, benchmark, and maintainer-only helper scripts | developer/manual | shell implementation and maintenance helpers | document |
-| `docs/quality-comparisons/` | human-readable external comparison records | manual review | narrative comparison docs | keep |
+Current primary commands:
 
-## Taxonomy
+* `bash samples/check.sh --manifest-only` runs the lightweight repo-local
+  quick check.
+* `bash samples/check_quality.sh --public-only` runs the checked-in public
+  quality baseline.
+* `bash samples/bench.sh --suite smoke --kind smoke` runs the benchmark smoke
+  suite.
 
-### `samples/main_process/`
+## Entry Points
 
-Purpose:
+### `samples/check.sh`
 
-* stable Markdown output regression
-* format-focused cases plus richer metadata/asset scenarios
-* the single checked-in user-visible input corpus
+Repo-local validation entrypoint.
 
-Layout rules:
+Use it for:
 
-* primary format inputs live under `samples/main_process/<format>/`
-* metadata-heavy or asset-heavy subcases may live in nested subdirs such as
-  `metadata/` or `assets/` when they need local resource isolation or naming
-  separation
-* checked Markdown and exact CLI metadata expectations live under
-  `samples/main_process/<format>/expected/`
-* local support files such as HTML `img/` resources may live alongside the
-  subcases that need them
+* checked sample regression
+* metadata sidecar validation
+* asset validation
+* contract validation
 
-### `samples/main_process/<format>/expected/`
+Recommended commands:
 
-Purpose:
+* `bash samples/check.sh --manifest-only` for the lightweight quick check
+* `bash samples/check.sh` for the full repo-local validation suite
 
-* checked Markdown expectations for every enrolled sample
-* exact CLI metadata sidecar fixtures for selected metadata cases
+It does not require `markitdown-quality-lab`.
 
-Rules:
+### `samples/check_quality.sh`
 
-* expected Markdown mirrors the sample relative path beneath its format root
-* example:
-  `samples/main_process/html/metadata/html_metadata_basic.html`
-  maps to
-  `samples/main_process/html/expected/metadata/html_metadata_basic.md`
-* not every sample has a checked metadata fixture
-* when a fixture exists, it mirrors the sample relative path
-* metadata fixtures use the same `expected/` subtree with
-  `.metadata.json` filenames, for example
-  `samples/main_process/html/expected/metadata/html_metadata_basic.metadata.json`
-* the validator still checks sidecar structure for metadata-enabled cases even
-  when no exact fixture is checked in
+Optional full quality entrypoint.
 
-### `samples/fixtures/metadata/`
+Use it for:
 
-Purpose:
+* the broader signal-level quality gate
+* quality-lab-backed rows
+* focused format checks such as `--format pdf`
 
-* lower-layer metadata JSON snapshots for MoonBit tests
-* parser/emitter-level provenance checks that do not have to match the CLI
-  sidecar exactly
+Recommended commands:
 
-Rules:
+* `bash samples/check_quality.sh --public-only` for the checked-in public
+  baseline
+* `bash samples/check_quality.sh` for optional full quality when
+  `markitdown-quality-lab/` is available
 
-* this directory is distinct from the CLI-facing
-  `samples/main_process/<format>/expected/*.metadata.json` fixtures
-* use it for MoonBit snapshot-style metadata evidence, not for release-style
-  shell validation
-
-### `samples/fixtures/`
-
-Purpose:
-
-* lower-layer parser/core fixtures
-* fail-closed boundaries
-* unsafe archives and malformed packages
-
-Rules:
-
-* fixtures here are not the user-visible regression corpus
-* ZIP and EPUB boundary fixtures stay here
-
-### `samples/benchmark/`
-
-Purpose:
-
-* checked-in performance corpus
-* explicit benchmark governance rows
-* reproducible local smoke and comparison evidence
-
-Rules:
-
-* corpus membership is controlled by `corpus.tsv` and `compare_corpus.tsv`
-* benchmark presence is not quality proof by itself
-* outputs go to `.tmp/bench/...`
-
-### `samples/quality_corpus/`
-
-Purpose:
-
-* signal-level quality gate for checked-in public rows plus quality-lab-managed
-  local rows
-* local gating for real or public samples that should not be forced into exact
-  fixtures
-* optional intake path for manually curated external/public-dataset/tool-fixture rows
-
-Rules:
-
-* this is not an exact regression replacement for `main_process`
-* public `manifest.tsv` is the repo-owned checked-in baseline
-* broader local/full rows are loaded from `markitdown-quality-lab/quality_rows/manifest.tsv`
-* missing quality-lab manifests must not fail public-only checks
-* external rows require explicit license review before execution
-* external/public rows require manual license review before vendoring
-
-## Coverage Matrix
-
-| Format | main_process | metadata cases | asset cases | metadata expected | benchmark | quality records | quality intake |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| DOCX | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
-| PPTX | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
-| XLSX | yes | yes | n/a | yes | yes | yes | public baseline + quality-lab |
-| PDF | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
-| HTML | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
-| ZIP | yes | yes | yes | yes | yes | yes / not comparable | public baseline + quality-lab |
-| EPUB | yes | yes | yes | yes | yes | yes | public baseline + quality-lab |
-| CSV / TSV | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
-| JSON / YAML / XML | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
-| TXT / Markdown | yes | yes | n/a | yes | yes | maybe | public baseline + quality-lab |
-
-Interpretation:
-
-* `main_process`: checked input corpus and Markdown regression
-* `metadata cases`: cases typically exercised with `--with-metadata`
-* `asset cases`: cases expected to materialize local assets or asset refs
-* `metadata expected`: exact checked sidecar fixtures, when present
-* `benchmark`: performance evidence
-* `quality records`: human comparison docs
-* `quality intake`: signal-level public-baseline plus quality-lab gate, not a current global
-  quality guarantee
-
-## Script Index
-
-| Script | Purpose | Default gate? |
-| --- | --- | --- |
-| `samples/check.sh` | public sample-validation entrypoint; default full chain plus focused modes `--markdown-only`, `--metadata-only`, `--assets-only`, `--contracts-only`, and `--manifest-only` | yes |
-| `samples/bench.sh` | public benchmark entrypoint; suite dispatcher for `--suite smoke`, `--suite compare`, and `--suite batch-profile` | manual |
-| `samples/check_quality.sh` | optional full quality validation entrypoint; delegates to the internal quality runner | manual |
-| `samples/quality_corpus/check.sh` | internal signal-level quality runner used by `check_quality.sh` | manual |
-| `samples/quality_corpus/compare_tools.sh` | optional tool availability/reference probe | manual |
-| `samples/helpers/check_samples.sh` | internal enrollment-integrity helper used by `check.sh --manifest-only` and the default full chain | yes via `check.sh` |
-| `samples/helpers/check_cli_contract.sh` | internal CLI contract implementation | yes via `check.sh` |
-| `samples/helpers/check_batch_contract.sh` | internal batch contract implementation | yes via `check.sh` |
-| `samples/helpers/check_debug_contract.sh` | internal debug CLI contract implementation | yes via `check.sh` |
-| `samples/helpers/check_corpus_manifest.sh` | internal benchmark manifest helper | yes via `check.sh --manifest-only` |
-| `samples/helpers/bench_*.sh` | internal benchmark suite implementations and rerun helpers | yes via `bench.sh` |
-| `samples/helpers/bench_warn.sh` | maintainer-only benchmark warning helper | manual / internal |
-| `samples/helpers/list_sample_inventory.sh` | maintainer-only inventory summary helper | manual / internal |
-
-## Validation Commands
-
-Default validation:
-
-```bash
-./samples/check.sh
-```
-
-Focused validation:
-
-```bash
-./samples/check.sh --metadata-only
-./samples/check.sh --assets-only
-./samples/check.sh --markdown-only
-./samples/check.sh --contracts-only
-./samples/check.sh --manifest-only
-```
-
-Signal-level intake check:
-
-```bash
-bash ./samples/check_quality.sh
-bash ./samples/quality_corpus/tools/fetch_external_samples.sh --list-sources
-```
-
-Behavior notes:
-
-* `./samples/check.sh` is the repo-local sample validation entrypoint and does
-  not require `markitdown-quality-lab`
-* `bash ./samples/check_quality.sh` is the optional full quality gate and does
-  require `markitdown-quality-lab`
-* clone the quality-lab with:
+It requires the repo-root quality-lab:
 
 ```bash
 git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-Benchmark entrypoints:
+### `samples/bench.sh`
 
-```bash
-./samples/bench.sh --suite smoke --kind smoke
-./samples/bench.sh --suite compare
-./samples/bench.sh --suite batch-profile
-./samples/bench.sh --suite doc-parse --kind library --iterations 10 --warmup 2
-./samples/bench.sh --suite product-path --kind stage --iterations 10 --warmup 2
-```
+Benchmark and compare entrypoint.
 
-For benchmark commands and output locations, see
-[docs/benchmarking.md](../docs/benchmarking.md).
+Use it for:
 
-For benchmark corpus policy, see
-[samples/benchmark/README.md](./benchmark/README.md).
+* smoke benchmark
+* compare benchmark
+* batch/profile runs
+
+Recommended commands:
+
+* `bash samples/bench.sh --suite smoke --kind smoke` for the smoke suite
+* `bash samples/bench.sh --help` to list available suites
+
+`samples/bench.sh` requires an explicit suite. Do not run it bare.
+
+## Directory Roles
+
+| Path | Role |
+| --- | --- |
+| `samples/main_process/` | repo-tracked user-visible sample corpus and expected outputs |
+| `samples/fixtures/` | lower-layer and fail-closed fixtures |
+| `samples/benchmark/` | checked benchmark corpus and manifests |
+| `samples/helpers/bench/` | internal benchmark suite implementations and warning helpers |
+| `samples/helpers/contracts/` | internal CLI, PDF, ZIP, batch, debug, and OCR contract checks |
+| `samples/helpers/release/` | internal release-candidate and release-summary helpers |
+| `samples/helpers/shared/` | shared shell helper libraries for temp dirs and runner resolution |
+| `samples/helpers/validation/` | internal sample enrollment, manifest, and inventory helpers |
+| `samples/helpers/quality/` | internal quality runner implementation and schema/helpers |
+| `samples/ocr/` | OCR-oriented sample notes and artifacts |
+
+## Current Facts
+
+Current checked sample validation:
+
+* markdown: `444`
+* metadata: `85`
+* assets: `90`
+* failures: `0`
+
+Current quality validation:
+
+* public-only: `24 / 0 / 0`
+* full quality: `330 / 1 / 0`
+* focused PDF quality: `101 / 1 / 0`
+
+## Notes
+
+* `samples/helpers/*` are internal focused rerun helpers, not the main user
+  entrypoints
+* `samples/helpers/quality/check.sh` remains available for compatibility, but
+  it is an internal runner implementation rather than the preferred top-level
+  entry
+* the rest of `samples/helpers/` is now organized by role instead of a flat
+  script list
+* `samples/quality_corpus/` has been removed from the user-visible samples tree
+* `samples/pdf_layout_classifier/` no longer exists in the main repo
+* training/eval/model/report assets live in the repo-root quality-lab, not in
+  `samples/`

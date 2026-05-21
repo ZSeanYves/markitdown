@@ -44,7 +44,7 @@ entry points, including:
 moon test doc_parse/pdf/raw --target native
 moon test doc_parse/pdf/test --target native
 moon test convert/pdf --target native
-bash samples/helpers/check_pdf_contract.sh
+bash samples/helpers/contracts/check_pdf_contract.sh
 ```
 
 ## Provenance and license

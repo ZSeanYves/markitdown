@@ -271,8 +271,7 @@ test "html unwraps bing click redirect links to canonical targets" {
 
   let sample_path = dir + "/html_bing_redirect.html"
   write_utf8_text(
-    sample_path,
-    "<p><a href=\"https://www.bing.com/ck/a?!&&amp;p=abc&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9kb2Nz&amp;ntb=1\">Docs</a></p>\n",
+    sample_path, "<p><a href=\"https://www.bing.com/ck/a?!&&amp;p=abc&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9kb2Nz&amp;ntb=1\">Docs</a></p>\n",
   )
 
   let doc = @html.parse_html(sample_path, "", 6)

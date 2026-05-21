@@ -124,11 +124,11 @@ The phase-1 consolidation refresh used:
 
 ```bash
 moon check
-./samples/check.sh
-./samples/bench.sh --suite smoke
-./samples/bench.sh --suite compare
-./samples/bench.sh --suite batch-profile
-./samples/scripts/bench_warn.sh --all
+bash samples/check.sh
+bash samples/bench.sh --suite smoke
+bash samples/bench.sh --suite compare
+bash samples/bench.sh --suite batch-profile
+bash samples/scripts/bench_warn.sh --all
 ```
 
 Current local status after the serial normalized rerun:

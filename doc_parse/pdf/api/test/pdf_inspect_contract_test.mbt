@@ -81,7 +81,7 @@ fn test_tmp_root() -> String {
 }
 
 ///|
-async fn write_malformed_annotation_pdf(path : String) -> Unit {
+fn write_malformed_annotation_pdf(path : String) -> Unit raise {
   let pdf0 = @pdf.Pdf::empty()
   let page = @pdfpage.Page::custom(
     Array([Real(0.0), Real(0.0), Real(200.0), Real(200.0)]),
@@ -108,7 +108,7 @@ async fn write_malformed_annotation_pdf(path : String) -> Unit {
 }
 
 ///|
-async fn create_malformed_annotation_fixture(name : String) -> String {
+fn create_malformed_annotation_fixture(name : String) -> String raise {
   let dir = test_tmp_root() + "/pdf"
   ensure_test_dir_tree(dir)
   let path = dir + "/" + name + ".pdf"

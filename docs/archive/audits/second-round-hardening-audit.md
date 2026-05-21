@@ -2293,10 +2293,10 @@ Requested validation:
 * `moon test`
 * `moon bench`
 * existing sample scripts that actually exist:
-  * `./samples/check.sh`
-  * `./samples/check.sh --metadata-only`
-  * `./samples/check.sh --assets-only`
-  * `./samples/check.sh --manifest-only`
+  * `bash samples/check.sh`
+  * `bash samples/check.sh --metadata-only`
+  * `bash samples/check.sh --assets-only`
+  * `bash samples/check.sh --manifest-only`
 
 Local pre-audit existence check:
 

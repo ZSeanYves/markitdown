@@ -10,8 +10,8 @@ format, feature, or document shape.
 They are also separate from the repository's signal-level quality gate:
 
 * `docs/quality-comparisons/` is reviewer-facing narrative comparison
-* `samples/quality_corpus/` is scriptable signal-level gating
-* `./samples/check.sh` remains the exact regression surface
+* `samples/helpers/quality/` is scriptable signal-level gating
+* `bash samples/check.sh` remains the exact repo-local regression surface
 * `markitdown-quality-lab/quality_rows/source_catalog.tsv` is a source
   catalog, not an integrated comparison corpus
 
@@ -42,7 +42,6 @@ but they still require manual sampling, local cache management, and separate
 license review before they become executable quality-corpus rows.
 
 For benchmark runner/corpus caveats and current performance context, use
-[docs/benchmarking.md](../benchmarking.md) and
 [docs/performance.md](../performance.md).
 
 ## Verdicts
