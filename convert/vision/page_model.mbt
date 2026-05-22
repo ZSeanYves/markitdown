@@ -62,6 +62,71 @@ pub fn is_unknown_bbox(bbox : VisionBBox) -> Bool {
 }
 
 ///|
+pub fn bbox_is_valid(bbox : VisionBBox) -> Bool {
+  !is_unknown_bbox(bbox) &&
+  bbox.x >= 0.0 &&
+  bbox.y >= 0.0 &&
+  bbox.width >= 0.0 &&
+  bbox.height >= 0.0
+}
+
+///|
+pub fn bbox_right(bbox : VisionBBox) -> Double {
+  if bbox_is_valid(bbox) {
+    bbox.x + bbox.width
+  } else {
+    -1.0
+  }
+}
+
+///|
+pub fn bbox_bottom(bbox : VisionBBox) -> Double {
+  if bbox_is_valid(bbox) {
+    bbox.y + bbox.height
+  } else {
+    -1.0
+  }
+}
+
+///|
+pub fn bbox_area(bbox : VisionBBox) -> Double {
+  if bbox_is_valid(bbox) {
+    bbox.width * bbox.height
+  } else {
+    -1.0
+  }
+}
+
+///|
+pub fn bbox_union(a : VisionBBox, b : VisionBBox) -> VisionBBox {
+  let a_valid = bbox_is_valid(a)
+  let b_valid = bbox_is_valid(b)
+  if !a_valid && !b_valid {
+    return unknown_bbox()
+  }
+  if !a_valid {
+    return b
+  }
+  if !b_valid {
+    return a
+  }
+
+  let left = if a.x < b.x { a.x } else { b.x }
+  let top = if a.y < b.y { a.y } else { b.y }
+  let right = if bbox_right(a) > bbox_right(b) {
+    bbox_right(a)
+  } else {
+    bbox_right(b)
+  }
+  let bottom = if bbox_bottom(a) > bbox_bottom(b) {
+    bbox_bottom(a)
+  } else {
+    bbox_bottom(b)
+  }
+  { x: left, y: top, width: right - left, height: bottom - top }
+}
+
+///|
 pub fn make_empty_ocr_page_model(
   page_index : Int,
   provider : String,
@@ -143,6 +208,30 @@ pub fn ocr_page_text(page : OcrPageModel) -> String {
 }
 
 ///|
+pub fn ocr_line_word_count(line : OcrSignalLine) -> Int {
+  line.words.length()
+}
+
+///|
+pub fn ocr_line_text_from_words(line : OcrSignalLine) -> String {
+  if line.words.length() == 0 {
+    return line.text
+  }
+  let out : Array[String] = []
+  for word in line.words {
+    let text = word.text.trim().to_owned()
+    if text != "" {
+      out.push(text)
+    }
+  }
+  if out.length() == 0 {
+    line.text
+  } else {
+    out.join(" ")
+  }
+}
+
+///|
 pub fn ocr_page_line_count(page : OcrPageModel) -> Int {
   page.lines.length()
 }
@@ -150,6 +239,66 @@ pub fn ocr_page_line_count(page : OcrPageModel) -> Int {
 ///|
 pub fn ocr_page_word_count(page : OcrPageModel) -> Int {
   page.words.length()
+}
+
+///|
+pub fn ocr_page_has_geometry(page : OcrPageModel) -> Bool {
+  if page.width > 0.0 && page.height > 0.0 {
+    return true
+  }
+  for line in page.lines {
+    if bbox_is_valid(line.bbox) {
+      return true
+    }
+  }
+  for word in page.words {
+    if bbox_is_valid(word.bbox) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+pub fn ocr_page_has_confidence(page : OcrPageModel) -> Bool {
+  ocr_page_average_confidence(page) >= 0.0
+}
+
+///|
+pub fn ocr_page_average_confidence(page : OcrPageModel) -> Double {
+  let word_average = average_known_word_confidence(page.words)
+  if word_average >= 0.0 {
+    return word_average
+  }
+  average_known_line_confidence(page.lines)
+}
+
+///|
+pub fn ocr_page_warning_count(page : OcrPageModel) -> Int {
+  page.warnings.length()
+}
+
+///|
+pub fn ocr_document_page_count(doc : OcrDocumentModel) -> Int {
+  doc.pages.length()
+}
+
+///|
+pub fn ocr_document_text(doc : OcrDocumentModel) -> String {
+  let pages : Array[String] = []
+  for page in doc.pages {
+    pages.push(ocr_page_text(page))
+  }
+  pages.join("\n\n")
+}
+
+///|
+pub fn ocr_document_warning_count(doc : OcrDocumentModel) -> Int {
+  let mut total = doc.warnings.length()
+  for page in doc.pages {
+    total = total + ocr_page_warning_count(page)
+  }
+  total
 }
 
 ///|
@@ -191,4 +340,43 @@ fn split_text_only_words(text : String) -> Array[String] {
     }
   }
   out
+}
+
+///|
+fn is_known_confidence(confidence : Double) -> Bool {
+  confidence >= 0.0
+}
+
+///|
+fn average_known_word_confidence(words : Array[OcrSignalWord]) -> Double {
+  let mut total = 0.0
+  let mut count = 0
+  for word in words {
+    if is_known_confidence(word.confidence) {
+      total = total + word.confidence
+      count = count + 1
+    }
+  }
+  if count == 0 {
+    -1.0
+  } else {
+    total / count.to_double()
+  }
+}
+
+///|
+fn average_known_line_confidence(lines : Array[OcrSignalLine]) -> Double {
+  let mut total = 0.0
+  let mut count = 0
+  for line in lines {
+    if is_known_confidence(line.confidence) {
+      total = total + line.confidence
+      count = count + 1
+    }
+  }
+  if count == 0 {
+    -1.0
+  } else {
+    total / count.to_double()
+  }
 }

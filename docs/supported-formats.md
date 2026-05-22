@@ -31,7 +31,7 @@ Current non-goals for the default path:
 | DOCX | headings, paragraphs, links, notes, comments, images, tables, text boxes | not a Word layout engine |
 | PPTX | titles, bullets, links, notes, tables, grouped content, images | not a PowerPoint visual layout engine |
 | XLSX | workbook/sheet/cell lowering, typed cells, conservative formula handling | no full spreadsheet recalculation engine |
-| PDF | native text-PDF extraction, links, images, annotations, narrow layout cleanup | OCR explicit-only; no page-raster/runtime model path |
+| PDF | native text-PDF extraction, links, images, annotations, narrow layout cleanup | no scanned/image-only OCR in the normal path; PDF OCR not wired |
 | ZIP | supported-entry dispatch, assets, metadata, origin tracking | no recursive archive explosion |
 | EPUB | OPF/spine/nav/NCX/XHTML chapter lowering | unsupported media stays explicit |
 | HTML / HTM | safe tolerant parsing and structural lowering | no JS, CSS layout, or browser engine |
@@ -55,7 +55,7 @@ Across the normal product path:
 Current PDF/OCR rules:
 
 * the normal path targets native text PDFs
-* OCR remains explicit-only
+* normal conversion never OCRs and never probes OCR providers
 * encrypted PDFs fail closed
 * image/scanned PDFs are not silently upgraded into OCR
 * PDF OCR remains a future explicit provider path
@@ -64,7 +64,14 @@ Current PDF/OCR rules:
 * OCR is being rebuilt around provider-independent `OCRPageModel`
 * future provider signal may start from image inputs such as
   `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, and `tiff`
-* current shipped build does not wire OCR provider execution
+* current shipped build does not wire OCR product execution
+* the current Vision/OCR chain is internal/dev only:
+  `tesseract TSV -> OCRPageModel -> layout -> Markdown preview`
+* that internal/dev chain is not yet exposed as supported product conversion
+* current semantic hints such as `TableLike`, `KeyValueLike`, and
+  `CaptionLike` are a side-channel only
+* those hints do not currently reconstruct Markdown tables, key-value layouts,
+  or captions
 
 Still out of scope for the normal path:
 

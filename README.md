@@ -8,8 +8,9 @@
 ![Validation](https://img.shields.io/badge/validation-passing-16a34a)
 ![License](https://img.shields.io/badge/license-Apache--2.0-f59e0b)
 
-`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown CLI for
-local structure extraction, RAG ingestion, and knowledge-base import.
+`markitdown-mb` is a MoonBit-first, lightweight multi-format
+document-to-Markdown CLI for local structure extraction, RAG ingestion, and
+knowledge-base import.
 
 It is inspired by Microsoft MarkItDown, but the repository is intentionally
 organized around:
@@ -38,7 +39,6 @@ Optional developer binaries:
 
 ```bash
 moon build debug --target native
-moon build ocr --target native
 moon build bench --target native
 ```
 
@@ -49,14 +49,20 @@ Use the product CLI:
 ./_build/native/debug/build/cli/cli.exe <input> [output]
 ./_build/native/debug/build/cli/cli.exe normal --with-metadata <input> <output.md>
 ./_build/native/debug/build/cli/cli.exe batch <input_dir> <output_dir>
-./_build/native/debug/build/cli/cli.exe ocr <input> [output]
 ```
 
 Current OCR boundary:
 
-```bash
-./_build/native/debug/build/cli/cli.exe ocr samples/fixtures/ocr/tiny_ocr_sample.png
-```
+* OCR product execution is currently not wired in this build.
+* normal conversion never OCRs and never probes OCR providers.
+* Vision/OCR work is being rebuilt around provider-independent
+  `OCRPageModel`.
+* current OCR/Vision work is internal/dev scaffold, not a product OCR CLI.
+* repo-root `markitdown-quality-lab/` is an optional external corpus/artifact
+  repo, not a runtime dependency.
+* see [docs/roadmap.md](./docs/roadmap.md) and
+  [docs/quality-and-release.md](./docs/quality-and-release.md) for the
+  current rebuild status and optional local helpers.
 
 Recommended validation entrypoints:
 
@@ -151,14 +157,13 @@ Current user-facing binaries:
 * `cli`: normal product entrypoint
 * `pdf`: bundled PDF runtime component
 * `zip`: bundled ZIP runtime component
-* `ocr`: explicit OCR component
 
 Current developer binaries:
 
 * `debug`: inspect/report surface
 * `bench`: benchmark surface
-* `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
 * `ocr`: explicit OCR rebuild stub
+* `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
 * `convert/vision`: provider-independent OCRPageModel scaffold
 
 Important limits:
@@ -166,11 +171,11 @@ Important limits:
 * normal runtime does not read quality-lab assets
 * normal runtime does not read model JSON
 * PDF layout behavior in the normal path is distilled into MoonBit rules/gates
-* OCR remains explicit-only
 * normal conversion never OCRs and never probes OCR providers
 * previous text-only OCR prototype has been retired
 * OCR is being rebuilt around provider-independent `OCRPageModel`
-* current OCR provider execution is not wired in this build
+* current OCR product execution is not wired in this build
+* current OCR/Vision work is internal/dev scaffold rather than a product CLI
 * future path is provider signal -> `OCRPageModel` -> MoonBit layout recovery ->
   unified IR -> Markdown
 * PDF OCR is not wired in this build; future PDF OCR must stay on an explicit

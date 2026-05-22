@@ -31,9 +31,9 @@ Current enabled normal-path scope stays intentionally small:
 
 ## OCR Boundary
 
-OCR remains explicit-only:
+Current OCR/Vision boundary:
 
-* OCR lives behind `ocr` and `cli ocr`
+* OCR product execution is not wired in this build
 * OCR is being rebuilt around provider-independent `OCRPageModel` under
   `convert/vision`
 * the normal path does not auto-probe OCR providers
@@ -44,6 +44,8 @@ OCR remains explicit-only:
 * future PDF OCR must stay on an explicit provider path
 * a future PDF OCR route requires an explicit provider audit, such as an
   OCRmyPDF-style path, rather than a normal-path fallback
+* current Vision/OCR work is internal/dev scaffold, not a product PDF OCR path
+* current OCR/Vision scaffold does not change the native PDF text path
 
 ## Quality-Lab Relation
 
@@ -93,6 +95,8 @@ Normal-path PDF/layout work must keep these guardrails:
 * OCR remains explicit-only
 * quality-lab remains offline training/eval infrastructure
 * runtime behavior stays explainable and bounded
+* any future scan-only PDF detection should start as report-only diagnostics
+  before any OCR execution path is considered
 
 Still out of scope for the normal path:
 

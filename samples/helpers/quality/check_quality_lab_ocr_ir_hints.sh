@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+LAB_ROOT="$ROOT/markitdown-quality-lab"
+OCR_DIR="$LAB_ROOT/ocr_samples"
+MANIFEST="$OCR_DIR/manifest.tsv"
+TSV_DIR="$OCR_DIR/provider_outputs/tesseract_tsv"
+DEFAULT_HINT_DIR="$OCR_DIR/provider_outputs/ir_hints"
+RESEGMENTED_HINT_DIR="$OCR_DIR/provider_outputs/ir_hints_resegmented"
+TMP_DIR="$ROOT/.tmp/quality_lab_ocr_ir_hints"
+TSV_PREVIEW_TOOL="${TSV_PREVIEW_TOOL:-}"
+
+row_count=0
+default_pass_count=0
+default_fail_count=0
+resegmented_pass_count=0
+resegmented_fail_count=0
+
+fail() {
+  echo "[fail] $1" >&2
+  exit 1
+}
+
+trim_value() {
+  local value="${1-}"
+  value="${value#"${value%%[!$' \t\r\n']*}"}"
+  value="${value%"${value##*[!$' \t\r\n']}"}"
+  printf '%s' "$value"
+}
+
+normalize_file() {
+  python3 - "$1" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+text = text.replace('\r\n', '\n').replace('\r', '\n')
+lines = [line.rstrip(' \t') for line in text.split('\n')]
+while lines and lines[-1] == '':
+    lines.pop()
+if not lines:
+    sys.stdout.write('')
+else:
+    sys.stdout.write('\n'.join(lines) + '\n')
+PY
+}
+
+print_diff() {
+  python3 - "$1" "$2" <<'PY'
+from pathlib import Path
+import difflib
+import sys
+
+def normalize(path: Path) -> str:
+    text = path.read_text(encoding='utf-8')
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    lines = [line.rstrip(' \t') for line in text.split('\n')]
+    while lines and lines[-1] == '':
+        lines.pop()
+    if not lines:
+        return ''
+    return '\n'.join(lines) + '\n'
+
+expected = normalize(Path(sys.argv[1])).splitlines()
+actual = normalize(Path(sys.argv[2])).splitlines()
+for line in list(difflib.unified_diff(expected, actual, fromfile='expected', tofile='actual', n=2))[:20]:
+    print(line)
+PY
+}
+
+reject_unsafe_rel_path() {
+  local kind="$1"
+  local value="$2"
+  local line_no="$3"
+  local row_id="$4"
+
+  case "$value" in
+    /*) fail "$kind path on line $line_no ($row_id) must not be absolute: $value" ;;
+  esac
+
+  case "$value" in
+    *..*) fail "$kind path on line $line_no ($row_id) must not contain '..': $value" ;;
+  esac
+}
+
+resolve_tsv_preview_tool() {
+  if [[ -n "$TSV_PREVIEW_TOOL" ]]; then
+    [[ -x "$TSV_PREVIEW_TOOL" ]] || fail "TSV_PREVIEW_TOOL is not executable: $TSV_PREVIEW_TOOL"
+    printf '%s\n' "$TSV_PREVIEW_TOOL"
+    return 0
+  fi
+
+  local candidate
+  while IFS= read -r candidate; do
+    [[ -n "$candidate" ]] || continue
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done <<EOF
+$ROOT/_build/native/debug/build/convert/vision/tsv_preview_tool/tsv_preview_tool.exe
+$ROOT/_build/native/release/build/convert/vision/tsv_preview_tool/tsv_preview_tool.exe
+EOF
+
+  fail $'tsv_preview_tool native executable not found\nRun: moon build convert/vision/tsv_preview_tool --target native\nOr set TSV_PREVIEW_TOOL=/path/to/tsv_preview_tool.exe'
+}
+
+compare_artifact() {
+  local row_id="$1"
+  local artifact_kind="$2"
+  local expected_file="$3"
+  local actual_file="$4"
+
+  local expected_norm
+  local actual_norm
+  expected_norm="$(normalize_file "$expected_file")"
+  actual_norm="$(normalize_file "$actual_file")"
+
+  if [[ "$expected_norm" == "$actual_norm" ]]; then
+    echo "[ok] $row_id ($artifact_kind)"
+    return 0
+  fi
+
+  echo "[mismatch] $row_id ($artifact_kind)"
+  echo "  expected=$expected_file"
+  echo "  actual=$actual_file"
+  print_diff "$expected_file" "$actual_file"
+  return 1
+}
+
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "QUALITY-LAB OCR IR HINT CHECK SKIPPED: missing $MANIFEST"
+  exit 0
+fi
+
+if [[ ! -d "$TSV_DIR" ]]; then
+  echo "QUALITY-LAB OCR IR HINT CHECK SKIPPED: missing $TSV_DIR"
+  exit 0
+fi
+
+if [[ ! -d "$DEFAULT_HINT_DIR" ]]; then
+  echo "QUALITY-LAB OCR IR HINT CHECK SKIPPED: missing $DEFAULT_HINT_DIR"
+  exit 0
+fi
+
+if [[ ! -d "$RESEGMENTED_HINT_DIR" ]]; then
+  echo "QUALITY-LAB OCR IR HINT CHECK SKIPPED: missing $RESEGMENTED_HINT_DIR"
+  exit 0
+fi
+
+TOOL_BIN="$(resolve_tsv_preview_tool)"
+
+rm -rf "$TMP_DIR"
+mkdir -p "$TMP_DIR/default" "$TMP_DIR/resegmented"
+
+line_no=0
+while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+  line_no=$((line_no + 1))
+  if [[ "$line_no" -eq 1 ]]; then
+    continue
+  fi
+
+  [[ -z "$(trim_value "$raw_line")" ]] && continue
+
+  IFS=$'\t' read -r id image_path expected_text_path expected_markdown_path source_id language script document_kind layout_kind provider_required notes <<< "$raw_line"
+
+  id="$(trim_value "$id")"
+  row_count=$((row_count + 1))
+
+  [[ -n "$id" ]] || fail "manifest line $line_no is missing id"
+
+  reject_unsafe_rel_path "tsv artifact" "provider_outputs/tesseract_tsv/${id}.tsv" "$line_no" "$id"
+  reject_unsafe_rel_path "default ir hint artifact" "provider_outputs/ir_hints/${id}.tsv" "$line_no" "$id"
+  reject_unsafe_rel_path "resegmented ir hint artifact" "provider_outputs/ir_hints_resegmented/${id}.tsv" "$line_no" "$id"
+
+  tsv_file="$TSV_DIR/${id}.tsv"
+  expected_default="$DEFAULT_HINT_DIR/${id}.tsv"
+  expected_resegmented="$RESEGMENTED_HINT_DIR/${id}.tsv"
+  actual_default="$TMP_DIR/default/${id}.tsv"
+  actual_resegmented="$TMP_DIR/resegmented/${id}.tsv"
+
+  [[ -f "$tsv_file" ]] || fail "manifest line $line_no ($id) missing TSV artifact: $tsv_file"
+  [[ -f "$expected_default" ]] || fail "manifest line $line_no ($id) missing default IR hint artifact: $expected_default"
+  [[ -f "$expected_resegmented" ]] || fail "manifest line $line_no ($id) missing resegmented IR hint artifact: $expected_resegmented"
+
+  "$TOOL_BIN" \
+    --tsv "$tsv_file" \
+    --dump-ir-hints \
+    --output "$actual_default"
+  [[ -f "$actual_default" ]] || fail "failed to generate default IR hint artifact for $id: $actual_default"
+
+  "$TOOL_BIN" \
+    --tsv "$tsv_file" \
+    --resegment-lines \
+    --dump-ir-hints \
+    --output "$actual_resegmented"
+  [[ -f "$actual_resegmented" ]] || fail "failed to generate resegmented IR hint artifact for $id: $actual_resegmented"
+
+  if compare_artifact "$id" "default" "$expected_default" "$actual_default"; then
+    default_pass_count=$((default_pass_count + 1))
+  else
+    default_fail_count=$((default_fail_count + 1))
+  fi
+
+  if compare_artifact "$id" "resegmented" "$expected_resegmented" "$actual_resegmented"; then
+    resegmented_pass_count=$((resegmented_pass_count + 1))
+  else
+    resegmented_fail_count=$((resegmented_fail_count + 1))
+  fi
+done < "$MANIFEST"
+
+if (( default_fail_count > 0 || resegmented_fail_count > 0 )); then
+  echo "QUALITY-LAB OCR IR HINT CHECK FAILED ($row_count rows; default $default_pass_count passed / $default_fail_count failed; resegmented $resegmented_pass_count passed / $resegmented_fail_count failed)"
+  exit 1
+fi
+
+echo "QUALITY-LAB OCR IR HINT CHECK PASSED ($row_count rows; default $default_pass_count passed / $default_fail_count failed; resegmented $resegmented_pass_count passed / $resegmented_fail_count failed)"

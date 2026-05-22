@@ -1,20 +1,114 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/convert/vision"
 
+import {
+  "ZSeanYves/markitdown/core",
+}
+
 // Values
+pub fn bbox_area(VisionBBox) -> Double
+
+pub fn bbox_bottom(VisionBBox) -> Double
+
+pub fn bbox_is_valid(VisionBBox) -> Bool
+
+pub fn bbox_right(VisionBBox) -> Double
+
+pub fn bbox_union(VisionBBox, VisionBBox) -> VisionBBox
+
+pub fn build_tesseract_tsv_command(String, String, TesseractSignalOptions) -> TesseractTsvCommandPlan
+
+pub fn classify_ocr_layout_block(OcrLayoutBlock, OcrPageModel) -> OcrLayoutBlock
+
+pub fn classify_ocr_layout_blocks(Array[OcrLayoutBlock], OcrPageModel) -> Array[OcrLayoutBlock]
+
+pub fn collect_ocr_layout_block_ir_hint(OcrLayoutBlock, Int, Int) -> OcrIrBlockHint?
+
+pub fn collect_ocr_layout_page_ir_hints(OcrLayoutPage) -> OcrIrDocumentHints
+
+pub fn collect_ocr_layout_pages_ir_hints(Array[OcrLayoutPage]) -> OcrIrDocumentHints
+
+pub fn convert_ocr_layout_block_to_ir(OcrLayoutBlock, Int, Int) -> (@core.Block, @core.Origin)?
+
+pub fn convert_ocr_layout_page_to_ir(OcrLayoutPage) -> @core.Document
+
+pub fn convert_ocr_layout_pages_to_ir(Array[OcrLayoutPage]) -> @core.Document
+
+pub fn group_ordered_lines_into_paragraphs(Array[OcrSignalLine]) -> Array[OcrLayoutBlock]
+
 pub fn is_unknown_bbox(VisionBBox) -> Bool
 
 pub fn make_empty_ocr_page_model(Int, String, String) -> OcrPageModel
 
 pub fn make_ocr_document_model(Array[OcrPageModel], String, Array[String]) -> OcrDocumentModel
 
+pub fn make_tesseract_signal_options(executable? : String, lang? : String, psm? : String, oem? : String) -> TesseractSignalOptions
+
 pub fn make_text_only_ocr_page_model(String, String) -> OcrPageModel
+
+pub fn make_unknown_ocr_layout_block(String, Array[Int], Array[String]) -> OcrLayoutBlock
+
+pub fn ocr_document_page_count(OcrDocumentModel) -> Int
+
+pub fn ocr_document_text(OcrDocumentModel) -> String
+
+pub fn ocr_document_warning_count(OcrDocumentModel) -> Int
+
+pub fn ocr_layout_block_line_count(OcrLayoutBlock) -> Int
+
+pub fn ocr_layout_page_block_count(OcrLayoutPage) -> Int
+
+pub fn ocr_layout_page_text(OcrLayoutPage) -> String
+
+pub fn ocr_line_text_from_words(OcrSignalLine) -> String
+
+pub fn ocr_line_word_count(OcrSignalLine) -> Int
+
+pub fn ocr_page_average_confidence(OcrPageModel) -> Double
+
+pub fn ocr_page_has_confidence(OcrPageModel) -> Bool
+
+pub fn ocr_page_has_geometry(OcrPageModel) -> Bool
 
 pub fn ocr_page_line_count(OcrPageModel) -> Int
 
 pub fn ocr_page_text(OcrPageModel) -> String
 
+pub fn ocr_page_warning_count(OcrPageModel) -> Int
+
 pub fn ocr_page_word_count(OcrPageModel) -> Int
+
+pub fn order_ocr_lines_for_reading(OcrPageModel) -> Array[OcrSignalLine]
+
+pub fn parse_tesseract_tsv_page(String) -> Result[OcrPageModel, TesseractTsvParseError]
+
+pub fn parse_tesseract_tsv_page_with_provider(String, String) -> Result[OcrPageModel, TesseractTsvParseError]
+
+pub fn parse_tesseract_tsv_signal(String, String) -> Result[OcrPageModel, TesseractTsvParseError]
+
+pub fn recover_ocr_layout_page(OcrPageModel) -> OcrLayoutPage
+
+pub fn render_ocr_ir_block_hint_tsv_row(OcrIrBlockHint) -> String
+
+pub fn render_ocr_ir_document_hints_tsv(OcrIrDocumentHints) -> String
+
+pub fn render_ocr_ir_document_markdown(@core.Document) -> String
+
+pub fn render_ocr_layout_block_markdown(OcrLayoutBlock) -> String
+
+pub fn render_ocr_layout_blocks_markdown(Array[OcrLayoutBlock]) -> String
+
+pub fn render_ocr_layout_page_markdown(OcrLayoutPage) -> String
+
+pub fn render_ocr_layout_page_via_ir_markdown(OcrLayoutPage) -> String
+
+pub fn render_ocr_layout_pages_via_ir_markdown(Array[OcrLayoutPage]) -> String
+
+pub fn resegment_ocr_page_lines_from_words(OcrPageModel) -> OcrPageModel
+
+pub fn resegment_ocr_words_into_lines(Array[OcrSignalWord]) -> Array[OcrSignalLine]
+
+pub async fn run_tesseract_tsv_signal(String, String, TesseractSignalOptions) -> Result[OcrPageModel, TesseractSignalError]
 
 pub fn unknown_bbox() -> VisionBBox
 
@@ -24,6 +118,55 @@ pub fn unknown_bbox() -> VisionBBox
 pub struct OcrDocumentModel {
   pages : Array[OcrPageModel]
   provider : String
+  warnings : Array[String]
+}
+
+pub struct OcrIrBlockHint {
+  page_index : Int
+  ir_block_index : Int
+  kind : OcrIrBlockHintKind
+  source_line_indices : Array[Int]
+  confidence : Double
+  reasons : Array[String]
+  text : String
+}
+
+pub enum OcrIrBlockHintKind {
+  Paragraph
+  Heading
+  ListItem
+  TableLike
+  KeyValueLike
+  CaptionLike
+  Unknown
+} derive(Eq)
+
+pub struct OcrIrDocumentHints {
+  block_hints : Array[OcrIrBlockHint]
+  warnings : Array[String]
+}
+
+pub struct OcrLayoutBlock {
+  kind : OcrLayoutBlockKind
+  text : String
+  bbox : VisionBBox
+  confidence : Double
+  line_indices : Array[Int]
+  reasons : Array[String]
+}
+
+pub enum OcrLayoutBlockKind {
+  Paragraph
+  TableLike
+  Heading
+  ListItem
+  Noise
+  Unknown
+} derive(Eq)
+
+pub struct OcrLayoutPage {
+  page_index : Int
+  blocks : Array[OcrLayoutBlock]
   warnings : Array[String]
 }
 
@@ -52,6 +195,46 @@ pub struct OcrSignalWord {
   confidence : Double
   word_index : Int
 }
+
+pub struct TesseractSignalError {
+  kind : TesseractSignalErrorKind
+  message : String
+  exit_code : Int?
+  output_path : String?
+}
+pub impl Show for TesseractSignalError
+
+pub enum TesseractSignalErrorKind {
+  InvalidOutputBase
+  CommandFailed
+  MissingTsvOutput
+  TsvParseFailed
+} derive(Eq)
+
+pub struct TesseractSignalOptions {
+  executable : String
+  lang : String
+  psm : String
+  oem : String
+}
+
+pub struct TesseractTsvCommandPlan {
+  executable : String
+  argv : Array[String]
+  output_base : String
+}
+
+pub struct TesseractTsvParseError {
+  kind : TesseractTsvParseErrorKind
+  line : Int
+  message : String
+}
+pub impl Show for TesseractTsvParseError
+
+pub enum TesseractTsvParseErrorKind {
+  MissingHeader
+  MissingRequiredColumn
+} derive(Eq)
 
 pub struct VisionBBox {
   x : Double

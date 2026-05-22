@@ -5,6 +5,10 @@ and records an older OCRmyPDF audit. It is intentionally historical:
 the text-only `tesseract-cli` prototype described here has been retired in
 favor of a new provider-independent `OCRPageModel` rebuild direction.
 
+It does not describe the current shipped OCR/Vision surface. In the current
+build, product OCR execution is not wired; the active work is an internal/dev
+`OCRPageModel` rebuild under `convert/vision`.
+
 Historical prototype boundary:
 
 * default `normal` conversion remains native-text-first

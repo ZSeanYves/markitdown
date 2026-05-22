@@ -29,9 +29,42 @@ Current priorities:
 * keep PDF layout work narrow, explicit, and evidence-led
 * continue failure-driven hardening across Office and horizontal formats
 * keep performance claims sample-scoped and reproducible
-* keep OCR explicit-only and fail closed until an explicit PDF OCR provider is wired
+* keep OCR explicit-only and fail closed until an explicit product decision
+  exists
 * rebuild OCR around provider signal -> `OCRPageModel` -> MoonBit layout
   recovery -> unified IR -> Markdown
+
+Completed internal Vision/OCR groundwork:
+
+* provider-independent `OCRPageModel` / `OcrDocumentModel`
+* tesseract TSV parser and internal/dev tooling, including
+  `convert/vision/tsv_preview_tool`
+* optional word-level line resegmentation from OCR word geometry
+* OCR layout recovery into `OCRLayoutPage` / `OCRLayoutBlock`
+* OCR layout -> shared document IR adapter through the current core document
+  path
+* OCR/Vision semantic hint side-channel for recovered block meaning
+* current `TableLike`, `KeyValueLike`, and `CaptionLike` hint coverage
+* quality-lab default preview, resegmented preview, and IR hint artifact checks
+* read-only OCR quality-lab summary helper
+
+Next OCR/Vision steps:
+
+* real license-clean OCR corpus audit
+* hint artifact drift summaries or dashboards for OCR semantic changes
+* product-path attribution benchmark
+* PDF scan-only report-only diagnostics
+* eventual table reconstruction beyond `TableLike` hints
+* eventual product OCR decision and any future product CLI shape
+* PDF OCR provider audit
+* future heavier OCR/layout provider audit only on explicit paths
+
+Still not current:
+
+* product OCR CLI
+* normal path OCR
+* PDF OCR
+* Markdown table, key-value, or caption reconstruction
 
 ## Legacy Fallback Exit Criteria
 
@@ -68,6 +101,15 @@ Long-term direction remains:
   kept opt-in
 * main-repo OCR fixtures should stay tiny and license-clean; real-world OCR rows should live in quality-lab
 * optional tesseract smoke should stay outside the default native quality gate
+* OCR/Vision quality-lab artifact checks remain internal/dev-only and do not
+  imply current product OCR support
+* current OCR/Vision semantic hints are limited to vision-side side-channel
+  tracking; they do not imply Markdown table, key-value, or caption
+  reconstruction in the shipped build
+* current conservative two-column reading order only helps after the provider
+  signal already exposes separate line candidates; some natural two-column
+  pages still need future word-level line resegmentation before layout
+  recovery can reorder them
 * future OCR follow-ups should stay explicit and auditable:
   `OCRPageModel`, TSV/HOCR signal providers, MoonBit layout recovery,
   OCR-to-IR lowering, OCRmyPDF provider audit, heavy OCR/layout provider audit,

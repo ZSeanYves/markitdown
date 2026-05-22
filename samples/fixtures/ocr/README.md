@@ -3,6 +3,9 @@
 This directory is reserved for tiny, license-clean OCR fixtures that are safe
 to keep in the main repository.
 
+These fixtures are policy/dev fixtures only. They are not evidence that a
+product OCR path is currently shipped.
+
 Current policy:
 
 * prefer self-generated tiny text images
@@ -13,7 +16,7 @@ Current policy:
 * do not require Tesseract, tessdata, or any OCR runtime in the default
   repo-local validation path
 * do not store real-world or large OCR corpora in the main repo
-* current OCR provider execution is not wired in this build
+* current OCR product execution is not wired in this build
 * the previous text-only OCR prototype has been retired
 * optional OCR smoke is only a future wiring placeholder; it is not part of
   the default native quality gate
@@ -64,6 +67,19 @@ Generation note:
   running OCR
 * these fixtures are groundwork for a future `OCRPageModel` corpus, not a
   current OCR accuracy gate
+* the real OCR corpus, expected preview baselines, and provider outputs live in
+  `markitdown-quality-lab`
 
 Real-world OCR rows, multilingual scans, noisy captures, and larger benchmark
 payloads should live in `markitdown-quality-lab`.
+
+Recommended external OCR corpus scaffold:
+
+* `markitdown-quality-lab/ocr_samples/README.md`
+* `markitdown-quality-lab/ocr_samples/manifest.tsv`
+* `markitdown-quality-lab/ocr_samples/source_catalog.tsv`
+* `markitdown-quality-lab/ocr_samples/images/`
+* `markitdown-quality-lab/ocr_samples/expected_text/`
+* `markitdown-quality-lab/ocr_samples/expected_markdown/`
+* `markitdown-quality-lab/ocr_samples/provider_outputs/tesseract_tsv/`
+* `markitdown-quality-lab/ocr_samples/provider_outputs/layout_preview/`

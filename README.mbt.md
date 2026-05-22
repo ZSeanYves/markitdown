@@ -6,26 +6,28 @@ overview lives in [README.md](./README.md).
 
 ## Core Commands
 
-Build the product binaries:
+Build the main product binaries:
 
 ```bash
 moon build cli --target native
 moon build pdf --target native
 moon build zip --target native
-moon build ocr --target native
-moon build debug --target native
-moon build bench --target native
 ```
 
-Validation:
+Optional internal/dev binaries:
 
-```bash
-moon check
-moon test
-bash samples/check.sh --manifest-only
-bash samples/check_quality.sh --public-only
-bash samples/bench.sh --suite smoke --kind smoke
-```
+* `moon build debug --target native`
+* `moon build bench --target native`
+* `moon build ocr --target native` builds the current OCR rebuild stub, not a
+  product OCR CLI
+
+Recommended validation entrypoints:
+
+* `moon check`
+* `moon test`
+* `bash samples/check.sh --manifest-only`
+* `bash samples/check_quality.sh --public-only`
+* `bash samples/bench.sh --suite smoke --kind smoke`
 
 Public sample entrypoints:
 
@@ -56,16 +58,23 @@ git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality
 
 Current OCR boundary:
 
-```bash
-./_build/native/debug/build/cli/cli.exe ocr samples/fixtures/ocr/tiny_ocr_sample.png
-```
+* OCR product execution is currently not wired in this build.
+* normal conversion never OCRs and never probes OCR providers.
+* Vision/OCR work is being rebuilt around provider-independent
+  `OCRPageModel`.
+* current OCR/Vision work is internal/dev scaffold, not a product OCR CLI.
+* repo-root `markitdown-quality-lab/` is an optional external corpus/artifact
+  repo, not a runtime dependency.
+* see [docs/roadmap.md](./docs/roadmap.md) and
+  [docs/quality-and-release.md](./docs/quality-and-release.md) for rebuild
+  status and optional local helpers.
 
 ## Package Shape
 
 High-level boundaries:
 
 * `cli`: lightweight product entrypoint
-* `pdf`, `zip`, `ocr`: bundled product components
+* `pdf`, `zip`: bundled product components
 * `debug`, `bench`: developer tools
 * `core`: shared document/metadata/emitter layer
 * `convert/*`: format-to-IR conversion policy
@@ -83,7 +92,8 @@ Important current facts:
 * normal conversion never OCRs and never probes OCR providers
 * previous text-only OCR prototype has been retired
 * OCR is being rebuilt around provider-independent `OCRPageModel`
-* current OCR provider execution is not wired in this build
+* current OCR product execution is not wired in this build
+* current OCR/Vision work is internal/dev scaffold, not a product OCR CLI
 * PDF OCR is not wired in this build and remains future explicit provider work
 
 ## Current Checked Facts
