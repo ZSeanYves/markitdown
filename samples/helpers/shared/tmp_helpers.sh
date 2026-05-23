@@ -16,7 +16,7 @@ sample_tmp_keep_enabled() {
 sample_make_isolated_tmp_dir() {
   local tmp_root="$1"
   local script_name="$2"
-  local parent="$tmp_root/samples"
+  local parent="$tmp_root"
   mkdir -p "$parent"
   mktemp -d "$parent/${script_name}.XXXXXX"
 }

@@ -563,14 +563,14 @@ fn resolve_layout_assist_eval_manifest_path() -> String {
   }
   match quality_lab_root {
     Some(root) => {
-      let path = root + "/pdf_layout_classifier/manifest.tsv"
+      let path = root + "/pdf_model_training/manifest.tsv"
       if @fs.path_exists(path) {
         return path
       }
     }
     None => ()
   }
-  let repo_local_lab = "markitdown-quality-lab/pdf_layout_classifier/manifest.tsv"
+  let repo_local_lab = "markitdown-quality-lab/pdf_model_training/manifest.tsv"
   if @fs.path_exists(repo_local_lab) {
     return repo_local_lab
   }
@@ -578,7 +578,7 @@ fn resolve_layout_assist_eval_manifest_path() -> String {
   if @fs.path_exists(repo_tracked) {
     return repo_tracked
   }
-  let sibling_lab = "../markitdown-quality-lab/pdf_layout_classifier/manifest.tsv"
+  let sibling_lab = "../markitdown-quality-lab/pdf_model_training/manifest.tsv"
   if @fs.path_exists(sibling_lab) {
     return sibling_lab
   }
@@ -615,7 +615,7 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
       Some(root) =>
         if root.trim() != "" {
           let candidate = trim_trailing_slash(root.trim().to_owned()) +
-            "/corpus/" +
+            "/external_quality/" +
             suffix
           if @fs.path_exists(candidate) {
             return candidate
@@ -623,11 +623,11 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
         }
       None => ()
     }
-    let repo_local_candidate = "markitdown-quality-lab/corpus/" + suffix
+    let repo_local_candidate = "markitdown-quality-lab/external_quality/" + suffix
     if @fs.path_exists(repo_local_candidate) {
       return repo_local_candidate
     }
-    let sibling_candidate = "../markitdown-quality-lab/corpus/" + suffix
+    let sibling_candidate = "../markitdown-quality-lab/external_quality/" + suffix
     if @fs.path_exists(sibling_candidate) {
       return sibling_candidate
     }
@@ -648,7 +648,7 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
             if root.trim() != "" {
               Some(
                 trim_trailing_slash(root.trim().to_owned()) +
-                "/pdf_layout_classifier",
+                "/pdf_model_training",
               )
             } else {
               None
@@ -666,12 +666,12 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
       }
       None => ()
     }
-    let repo_local_candidate = "markitdown-quality-lab/pdf_layout_classifier/" +
+    let repo_local_candidate = "markitdown-quality-lab/pdf_model_training/" +
       mapped
     if @fs.path_exists(repo_local_candidate) {
       return repo_local_candidate
     }
-    let sibling_candidate = "../markitdown-quality-lab/pdf_layout_classifier/" +
+    let sibling_candidate = "../markitdown-quality-lab/pdf_model_training/" +
       mapped
     if @fs.path_exists(sibling_candidate) {
       return sibling_candidate

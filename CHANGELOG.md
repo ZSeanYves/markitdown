@@ -4,8 +4,8 @@
 
 ### Current baseline
 
-* main-repo runtime, `moon test`, `./samples/check.sh`, and public-only quality are self-contained
-* optional full quality now runs through `bash ./samples/check_quality.sh`
+* main-repo runtime, `moon test`, and `./samples/check.sh` remain self-contained
+* optional external quality now runs through `bash ./samples/check_quality.sh`
 * repo-root `markitdown-quality-lab/` is the primary home for:
   * external corpus payloads
   * tracked local/full quality rows
@@ -42,6 +42,12 @@
   `doc_parse/pdf/layout_model_tool`
 * `samples/pdf_layout_classifier/` has been removed from the main repo
 * `samples/check_quality.sh` is now the preferred optional full-quality entrypoint
+* `samples/check.sh` now defaults to full repo-local validation instead of light manifest checks
+* `samples/bench.sh` now defaults to the recommended smoke suite and writes summaries under `.tmp/bench/`
+* README entry points were cleaned for faster first-read onboarding
+* top-level docs navigation and archive/current-doc boundaries were polished
+* stale OCR archive notes and legacy TSV-signal helper references were pruned
+* current image OCR and PDF OCR boundaries were clarified across docs
 
 ### Current caution notes
 

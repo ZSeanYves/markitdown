@@ -82,10 +82,6 @@ resolve_markitdown_debug_cli() {
   resolve_markitdown_package_cli "debug" "MARKITDOWN_DEBUG_CLI"
 }
 
-resolve_markitdown_ocr_cli() {
-  resolve_markitdown_package_cli "ocr" "MARKITDOWN_OCR_CLI"
-}
-
 resolve_markitdown_bench_cli() {
   resolve_markitdown_package_cli "bench" "MARKITDOWN_BENCH_CLI"
 }
@@ -114,12 +110,12 @@ resolve_markitdown_package_cli() {
     return 0
   fi
 
-  if resolve_probe_validated_native_cli "$package"; then
+  if resolve_probe_validated_native_cli_with_retries "$package" 1; then
     return 0
   fi
 
   if build_markitdown_cli_native_once "$package"; then
-    if resolve_probe_validated_native_cli "$package"; then
+    if resolve_probe_validated_native_cli_with_retries "$package" 25; then
       CLI_RUNNER_NOTE="built native CLI once via moon build $package --target native"
       return 0
     fi
@@ -136,18 +132,25 @@ resolve_markitdown_package_cli() {
   return 1
 }
 
+validation_cli_tmp_root() {
+  local base="${MARKITDOWN_CLI_TMP_DIR:-${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}}"
+  printf '%s' "$base"
+}
+
 run_markitdown_cli() {
+  local cli_tmp_root
+  cli_tmp_root="$(validation_cli_tmp_root)"
   if [[ "${CLI_RUNNER_KIND:-moon-run}" == "prebuilt-native" || "${CLI_RUNNER_KIND:-moon-run}" == "override" ]]; then
     if [[ "${CLI_PACKAGE:-cli}" == "cli" && -n "${PDF_CLI_BIN:-}" ]]; then
-      MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$CLI_BIN" "$@"
+      MARKITDOWN_TMP_DIR="$cli_tmp_root" MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$CLI_BIN" "$@"
     else
-      "$CLI_BIN" "$@"
+      MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
     fi
   else
     if [[ "${CLI_PACKAGE:-cli}" == "cli" && -n "${PDF_CLI_BIN:-}" ]]; then
-      MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" moon run "$ROOT/$CLI_PACKAGE" -- "$@"
+      MARKITDOWN_TMP_DIR="$cli_tmp_root" MARKITDOWN_PDF_CLI="$PDF_CLI_BIN" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" moon run "$ROOT/$CLI_PACKAGE" -- "$@"
     else
-      moon run "$ROOT/$CLI_PACKAGE" -- "$@"
+      MARKITDOWN_TMP_DIR="$cli_tmp_root" moon run "$ROOT/$CLI_PACKAGE" -- "$@"
     fi
   fi
 }
@@ -161,10 +164,6 @@ run_markitdown_zip_cli() {
 }
 
 run_markitdown_debug_cli() {
-  run_markitdown_cli "$@"
-}
-
-run_markitdown_ocr_cli() {
   run_markitdown_cli "$@"
 }
 
@@ -194,6 +193,24 @@ resolve_probe_validated_native_cli() {
       return 0
     fi
   done < <(markitdown_cli_candidates "$package")
+  return 1
+}
+
+resolve_probe_validated_native_cli_with_retries() {
+  local package="${1-}"
+  local attempts="${2:-1}"
+  local attempt=1
+
+  while (( attempt <= attempts )); do
+    if resolve_probe_validated_native_cli "$package"; then
+      return 0
+    fi
+    if (( attempt < attempts )); then
+      sleep 0.2
+    fi
+    attempt=$((attempt + 1))
+  done
+
   return 1
 }
 
@@ -229,19 +246,21 @@ EOF
 probe_markitdown_cli() {
   local package="$1"
   local cli_bin="$2"
+  local probe_tmp_root
+  probe_tmp_root="$(validation_cli_tmp_root)"
   if [[ "$package" == "bench" ]]; then
-    "$cli_bin" _bench-noop >/dev/null 2>&1
+    MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" _bench-noop >/dev/null 2>&1
     return $?
   fi
   if [[ "$package" == "pdf" ]]; then
     local pdf_input="$ROOT/samples/main_process/pdf/text_simple.pdf"
     local pdf_expected="$ROOT/samples/main_process/pdf/expected/text_simple.md"
-    local pdf_tmp_root="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+    local pdf_tmp_root="$probe_tmp_root"
     local pdf_probe_dir
     pdf_probe_dir="$(sample_make_isolated_tmp_dir "$pdf_tmp_root" "pdf_probe")"
     local pdf_out="$pdf_probe_dir/text_simple.md"
     local status=0
-    if ! "$cli_bin" "$pdf_input" "$pdf_out" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" "$pdf_input" "$pdf_out" >/dev/null 2>&1; then
       status=1
     elif ! diff -u "$pdf_expected" "$pdf_out" >/dev/null 2>&1; then
       status=1
@@ -252,12 +271,12 @@ probe_markitdown_cli() {
   if [[ "$package" == "zip" ]]; then
     local zip_input="$ROOT/samples/main_process/zip/zip_basic_structured.zip"
     local zip_expected="$ROOT/samples/main_process/zip/expected/zip_basic_structured.md"
-    local zip_tmp_root="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+    local zip_tmp_root="$probe_tmp_root"
     local zip_probe_dir
     zip_probe_dir="$(sample_make_isolated_tmp_dir "$zip_tmp_root" "zip_probe")"
     local zip_out="$zip_probe_dir/zip_basic_structured.md"
     local status=0
-    if ! "$cli_bin" "$zip_input" "$zip_out" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" "$zip_input" "$zip_out" >/dev/null 2>&1; then
       status=1
     elif ! diff -u "$zip_expected" "$zip_out" >/dev/null 2>&1; then
       status=1
@@ -266,10 +285,10 @@ probe_markitdown_cli() {
     return "$status"
   fi
   if [[ "$package" != "cli" ]]; then
-    "$cli_bin" --help >/dev/null 2>&1
+    MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help >/dev/null 2>&1
     return $?
   fi
-  local tmp_root="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+  local tmp_root="$probe_tmp_root"
   local probe_dir
   probe_dir="$(sample_make_isolated_tmp_dir "$tmp_root" "cli_probe")"
   local status=0
@@ -280,7 +299,7 @@ probe_markitdown_cli() {
     input_abs="$ROOT/$input_rel"
     expected_abs="$ROOT/$expected_rel"
     out="$probe_dir/$(basename "${input_rel%.*}").md"
-    if ! MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$input_abs" "$out" >/dev/null 2>&1; then
       status=1
       break
     fi
@@ -291,11 +310,19 @@ probe_markitdown_cli() {
   done < <(validation_probe_cases)
 
   if [[ "$status" -eq 0 ]]; then
+    local help_out
+    help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
+    if [[ "$status" -eq 0 ]] && ! grep -Fq -- '[--ocr-lang LANG]' <<<"$help_out"; then
+      status=1
+    fi
+  fi
+
+  if [[ "$status" -eq 0 ]]; then
     local contract_dir="$probe_dir/contract"
     local contract_input="$ROOT/samples/main_process/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
-    if ! MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
+    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" MARKITDOWN_PDF_CLI="${PDF_CLI_BIN:-${MARKITDOWN_PDF_CLI:-}}" MARKITDOWN_ZIP_CLI="${ZIP_CLI_BIN:-${MARKITDOWN_ZIP_CLI:-}}" "$cli_bin" normal "$contract_input" "$contract_output" >/dev/null 2>&1; then
       status=1
     elif [[ -e "$contract_dir/metadata/txt_plain.metadata.json" ]]; then
       status=1

@@ -369,14 +369,9 @@ fn noise_drop_reason_tags(
 ) -> Array[String] {
   let out : Array[String] = []
 
-  if from_noise_kind {
-    out.push("core_noise_kind")
-  }
+  push_reason_if(out, from_noise_kind, "core_noise_kind")
   push_edge_reason_tags(out, evidence)
-
-  if out.is_empty() {
-    out.push("drop_noise_block")
-  }
+  push_reason_if_empty(out, "drop_noise_block")
 
   out
 }
@@ -385,35 +380,31 @@ fn noise_drop_reason_tags(
 fn noise_keep_reason_tags(evidence : PdfEdgeNoiseEvidence) -> Array[String] {
   let out : Array[String] = []
 
-  if evidence.body_like_guard {
-    out.push("body_like_guard")
-  }
-  if evidence.long_sentence_guard {
-    out.push("long_sentence_guard")
-  }
-  if evidence.two_column_guard {
-    out.push("two_column_guard")
-  }
-  if evidence.link_or_annotation_nearby {
-    out.push("link_or_annotation_nearby")
-  }
-  if evidence.image_caption_guard {
-    out.push("image_caption_guard")
-  }
-  if evidence.repeated_across_pages &&
-    (evidence.top_edge || evidence.bottom_edge) {
-    out.push("repeated_across_pages")
-  }
-  if (evidence.top_edge || evidence.bottom_edge) &&
-    !evidence.repeated_across_pages {
-    out.push("not_repeated_across_pages")
-  }
-  if !evidence.top_edge && !evidence.bottom_edge {
-    out.push("not_edge_block")
-  }
-  if out.is_empty() {
-    out.push("keep_content_block")
-  }
+  push_reason_if(out, evidence.body_like_guard, "body_like_guard")
+  push_reason_if(out, evidence.long_sentence_guard, "long_sentence_guard")
+  push_reason_if(out, evidence.two_column_guard, "two_column_guard")
+  push_reason_if(
+    out,
+    evidence.link_or_annotation_nearby,
+    "link_or_annotation_nearby",
+  )
+  push_reason_if(out, evidence.image_caption_guard, "image_caption_guard")
+  push_reason_if(
+    out,
+    evidence.repeated_across_pages && (evidence.top_edge || evidence.bottom_edge),
+    "repeated_across_pages",
+  )
+  push_reason_if(
+    out,
+    (evidence.top_edge || evidence.bottom_edge) && !evidence.repeated_across_pages,
+    "not_repeated_across_pages",
+  )
+  push_reason_if(
+    out,
+    !evidence.top_edge && !evidence.bottom_edge,
+    "not_edge_block",
+  )
+  push_reason_if_empty(out, "keep_content_block")
 
   out
 }
@@ -423,72 +414,52 @@ fn push_edge_reason_tags(
   out : Array[String],
   evidence : PdfEdgeNoiseEvidence,
 ) -> Unit {
-  if evidence.top_edge {
-    out.push("top_edge")
-  }
-  if evidence.bottom_edge {
-    out.push("bottom_edge")
-  }
-  if evidence.near_page_margin {
-    out.push("near_page_margin")
-  }
-  if evidence.outside_body_band {
-    out.push("outside_body_band")
-  }
-  if evidence.small_height {
-    out.push("small_height")
-  }
-  if evidence.short_text {
-    out.push("short_text")
-  }
-  if evidence.large_gap_before {
-    out.push("large_gap_before")
-  }
-  if evidence.repeated_across_pages {
-    out.push("repeated_across_pages")
-  }
-  if evidence.same_text_same_edge {
-    out.push("same_text_same_edge")
-  }
-  if evidence.same_prefix_same_edge {
-    out.push("same_prefix_same_edge")
-  }
-  if evidence.page_count_pattern {
-    out.push("page_count_pattern")
-  }
-  if evidence.page_number_numeric {
-    out.push("page_number_numeric")
-  }
-  if evidence.page_number_roman {
-    out.push("page_number_roman")
-  }
-  if evidence.page_number_with_label {
-    out.push("page_number_with_label")
-  }
-  if evidence.page_number_short_centered {
-    out.push("page_number_short_centered")
-  }
-  if evidence.page_number_edge {
-    out.push("page_number_edge")
-  }
-  if evidence.heading_like_but_repeated_edge {
-    out.push("heading_like_but_repeated_edge")
-  }
-  if evidence.core_page_number_candidate {
-    out.push("core_page_number_candidate")
-  }
-  if evidence.core_header_footer_candidate {
-    out.push("core_header_footer_candidate")
-  }
-  if evidence.core_artifact_candidate {
-    out.push("core_artifact_candidate")
-  }
-  if evidence.first_nonempty_block {
-    out.push("first_nonempty_block")
-  }
-  if evidence.last_nonempty_block {
-    out.push("last_nonempty_block")
-  }
+  push_reason_if(out, evidence.top_edge, "top_edge")
+  push_reason_if(out, evidence.bottom_edge, "bottom_edge")
+  push_reason_if(out, evidence.near_page_margin, "near_page_margin")
+  push_reason_if(out, evidence.outside_body_band, "outside_body_band")
+  push_reason_if(out, evidence.small_height, "small_height")
+  push_reason_if(out, evidence.short_text, "short_text")
+  push_reason_if(out, evidence.large_gap_before, "large_gap_before")
+  push_reason_if(out, evidence.repeated_across_pages, "repeated_across_pages")
+  push_reason_if(out, evidence.same_text_same_edge, "same_text_same_edge")
+  push_reason_if(out, evidence.same_prefix_same_edge, "same_prefix_same_edge")
+  push_reason_if(out, evidence.page_count_pattern, "page_count_pattern")
+  push_reason_if(out, evidence.page_number_numeric, "page_number_numeric")
+  push_reason_if(out, evidence.page_number_roman, "page_number_roman")
+  push_reason_if(
+    out,
+    evidence.page_number_with_label,
+    "page_number_with_label",
+  )
+  push_reason_if(
+    out,
+    evidence.page_number_short_centered,
+    "page_number_short_centered",
+  )
+  push_reason_if(out, evidence.page_number_edge, "page_number_edge")
+  push_reason_if(
+    out,
+    evidence.heading_like_but_repeated_edge,
+    "heading_like_but_repeated_edge",
+  )
+  push_reason_if(
+    out,
+    evidence.core_page_number_candidate,
+    "core_page_number_candidate",
+  )
+  push_reason_if(
+    out,
+    evidence.core_header_footer_candidate,
+    "core_header_footer_candidate",
+  )
+  push_reason_if(
+    out,
+    evidence.core_artifact_candidate,
+    "core_artifact_candidate",
+  )
+  push_reason_if(out, evidence.first_nonempty_block, "first_nonempty_block")
+  push_reason_if(out, evidence.last_nonempty_block, "last_nonempty_block")
 }
 
 ///|

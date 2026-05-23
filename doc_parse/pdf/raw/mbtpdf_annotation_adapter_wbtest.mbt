@@ -14,7 +14,7 @@ fn resolve_sample_path(path : String) -> String {
   }
   if path.has_prefix(".external/quality_corpus/") {
     let suffix = path[25:].to_owned()
-    return "markitdown-quality-lab/corpus/" + suffix
+    return "markitdown-quality-lab/external_quality/" + suffix
   }
   path
 }
@@ -36,7 +36,7 @@ async fn open_sample_pdf(path : String) -> @pdf.Pdf {
   }
   let sibling_lab = if path.has_prefix(".external/quality_corpus/") {
     let suffix = path[25:].to_owned()
-    Some("../markitdown-quality-lab/corpus/" + suffix)
+    Some("../markitdown-quality-lab/external_quality/" + suffix)
   } else {
     None
   }

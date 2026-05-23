@@ -3,8 +3,8 @@
 This directory is reserved for tiny, license-clean OCR fixtures that are safe
 to keep in the main repository.
 
-These fixtures are policy/dev fixtures only. They are not evidence that a
-product OCR path is currently shipped.
+These fixtures are policy/dev fixtures for the shipped image OCR path. They
+are not evidence of scanned-PDF OCR support or broader OCR quality guarantees.
 
 Current policy:
 
@@ -16,10 +16,11 @@ Current policy:
 * do not require Tesseract, tessdata, or any OCR runtime in the default
   repo-local validation path
 * do not store real-world or large OCR corpora in the main repo
-* current OCR product execution is not wired in this build
-* the previous text-only OCR prototype has been retired
-* optional OCR smoke is only a future wiring placeholder; it is not part of
-  the default native quality gate
+* current release builds now ship product image OCR through the main CLI
+* product image OCR depends on local `tesseract` and language data
+* `--ocr-lang <LANG>` now selects the Tesseract language value for the main
+  CLI image-OCR path when matching tessdata is installed
+* optional OCR diagnostics are still not part of the default native quality gate
 
 `manifest.tsv` currently records:
 
@@ -65,8 +66,8 @@ Generation note:
 * `samples/helpers/validation/check_ocr_fixtures.sh` validates manifest
   structure, path safety, size limits, and license/source policy without
   running OCR
-* these fixtures are groundwork for a future `OCRPageModel` corpus, not a
-  current OCR accuracy gate
+* these fixtures support the shipped image OCR path, but they are still not a
+  broad OCR accuracy gate
 * the real OCR corpus, expected preview baselines, and provider outputs live in
   `markitdown-quality-lab`
 
@@ -75,11 +76,11 @@ payloads should live in `markitdown-quality-lab`.
 
 Recommended external OCR corpus scaffold:
 
-* `markitdown-quality-lab/ocr_samples/README.md`
-* `markitdown-quality-lab/ocr_samples/manifest.tsv`
-* `markitdown-quality-lab/ocr_samples/source_catalog.tsv`
-* `markitdown-quality-lab/ocr_samples/images/`
-* `markitdown-quality-lab/ocr_samples/expected_text/`
-* `markitdown-quality-lab/ocr_samples/expected_markdown/`
-* `markitdown-quality-lab/ocr_samples/provider_outputs/tesseract_tsv/`
-* `markitdown-quality-lab/ocr_samples/provider_outputs/layout_preview/`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/README.md`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/manifest.tsv`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/source_catalog.tsv`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/images/`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/expected_text/`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/expected_markdown/`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/provider_outputs/tesseract_tsv/`
+* `markitdown-quality-lab/external_quality/ocr/_legacy_samples/provider_outputs/layout_preview/`

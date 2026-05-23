@@ -8,8 +8,13 @@ source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 MANIFEST_PATH="$ROOT/samples/helpers/quality/manifest.tsv"
 LEGACY_LOCAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_ROOT="$TMP_ROOT/quality"
+QUALITY_TMP_ROOT="${QUALITY_TMP_ROOT:-$TMP_ROOT/quality}"
+QUALITY_RUN_ID="${QUALITY_RUN_ID:-manual-$(date +%Y%m%d-%H%M%S)-$$}"
+OUT_ROOT="${QUALITY_TMP_DIR:-$QUALITY_TMP_ROOT/runs/$QUALITY_RUN_ID}"
+CLI_TMP_ROOT="${MARKITDOWN_CLI_TMP_DIR:-$OUT_ROOT/workspace}"
 OUTPUT_DIR="$OUT_ROOT/outputs"
+DIFF_DIR="$OUT_ROOT/diffs"
+LOG_DIR="$OUT_ROOT/logs"
 SUMMARY_TSV="$OUT_ROOT/summary.tsv"
 SUMMARY_MD="$OUT_ROOT/summary.md"
 ROWS_TSV="$OUT_ROOT/rows.tsv"
@@ -46,14 +51,14 @@ EXTERNAL_HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlice
 
 usage() {
   cat <<'EOF'
-usage: ./samples/helpers/quality/check.sh [--public-only | --private-only] [--id <id>] [--source <source_id>] [--format <format>] [--corpus-root <path>] [--lab-manifest <path>] [--require-lab] [--list] [--no-metadata] [--profile]
+usage: ./samples/helpers/quality/check.sh [internal/debug args]
 
-Modes:
+Internal/debug modes:
   --public-only   run only checked-in public intake rows
-  --private-only  legacy mode: run only the legacy local fallback manifest
+  --private-only  run only external/lab-managed rows
   --list          list merged manifest rows after filters, without running conversion
   --no-metadata   run conversion without --with-metadata for profiling
-  --profile       write per-row timing diagnostics to .tmp/quality/profile.tsv
+  --profile       write per-row timing diagnostics to a run-local profile.tsv
 
 Filters:
   --id <id>           match one exact row id
@@ -62,7 +67,7 @@ Filters:
   --corpus-root <path>
                       resolve external corpus payloads from this root first
   --lab-manifest <path>
-                      resolve tracked external/local quality rows from this
+                      resolve external/lab-managed quality rows from this
                       manifest first
   --require-lab       fail if no lab quality-row manifest is available
 
@@ -73,24 +78,27 @@ Filter semantics:
   * external payload discovery checks, in order:
       --corpus-root
       MARKITDOWN_QUALITY_CORPUS
-      MARKITDOWN_QUALITY_LAB/corpus
-      markitdown-quality-lab/corpus
-      ../markitdown-quality-lab/corpus
+      MARKITDOWN_QUALITY_LAB/external_quality
+      markitdown-quality-lab/external_quality
+      ../markitdown-quality-lab/external_quality
       .external/quality_corpus (legacy fallback)
   * lab quality-row manifest discovery checks, in order:
       --lab-manifest
       MARKITDOWN_QUALITY_MANIFEST
-      MARKITDOWN_QUALITY_LAB/quality_rows/manifest.tsv
-      markitdown-quality-lab/quality_rows/manifest.tsv
-      ../markitdown-quality-lab/quality_rows/manifest.tsv
+      MARKITDOWN_QUALITY_LAB/external_quality/_quality_rows_staging/manifest.tsv
+      markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv
+      ../markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv
       legacy samples/quality_corpus/external_manifest.local.tsv
   * --no-metadata disables sidecar metadata generation but keeps all other checks
   * --profile is diagnostic-only and does not change pass/fail semantics
 
 Notes:
+  * the preferred user entrypoint is bash samples/check_quality.sh
   * empty public manifest is valid
-  * missing lab quality-row manifest falls back to the legacy local manifest
-    unless --require-lab is set
+  * bash samples/check_quality.sh always passes --private-only plus explicit
+    lab paths and --require-lab; it does not fall back to repo-local rows
+  * legacy local-manifest fallback remains internal compatibility only when
+    maintainers call this helper directly without --require-lab
   * non-approved external rows are skipped
   * missing external legacy files are recorded as skipped when appropriate
   * this is a signal-level intake checker, not an exact-output regression gate
@@ -176,6 +184,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "$DIFF_DIR"
+mkdir -p "$LOG_DIR"
 
 trim_cr() {
   local value="${1-}"
@@ -212,10 +222,10 @@ detect_corpus_root() {
   add_corpus_root_candidate "--corpus-root" "$CORPUS_ROOT_OVERRIDE"
   add_corpus_root_candidate "MARKITDOWN_QUALITY_CORPUS" "${MARKITDOWN_QUALITY_CORPUS:-}"
   if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
-    add_corpus_root_candidate "MARKITDOWN_QUALITY_LAB/corpus" "${MARKITDOWN_QUALITY_LAB%/}/corpus"
+    add_corpus_root_candidate "MARKITDOWN_QUALITY_LAB/external_quality" "${MARKITDOWN_QUALITY_LAB%/}/external_quality"
   fi
-  add_corpus_root_candidate "repo-local quality lab" "$ROOT/markitdown-quality-lab/corpus"
-  add_corpus_root_candidate "sibling quality lab" "$ROOT/../markitdown-quality-lab/corpus"
+  add_corpus_root_candidate "repo-local quality lab" "$ROOT/markitdown-quality-lab/external_quality"
+  add_corpus_root_candidate "sibling quality lab" "$ROOT/../markitdown-quality-lab/external_quality"
   add_corpus_root_candidate "legacy sibling corpus" "$ROOT/../markitdown-quality-corpus"
   add_corpus_root_candidate "legacy .external fallback" "$ROOT/.external/quality_corpus"
 
@@ -251,15 +261,15 @@ detect_quality_rows_manifest() {
   add_quality_rows_manifest_candidate "MARKITDOWN_QUALITY_MANIFEST" "${MARKITDOWN_QUALITY_MANIFEST:-}"
   if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
     add_quality_rows_manifest_candidate \
-      "MARKITDOWN_QUALITY_LAB/quality_rows/manifest.tsv" \
-      "${MARKITDOWN_QUALITY_LAB%/}/quality_rows/manifest.tsv"
+      "MARKITDOWN_QUALITY_LAB/external_quality/_quality_rows_staging/manifest.tsv" \
+      "${MARKITDOWN_QUALITY_LAB%/}/external_quality/_quality_rows_staging/manifest.tsv"
   fi
   add_quality_rows_manifest_candidate \
     "repo-local quality rows manifest" \
-    "$ROOT/markitdown-quality-lab/quality_rows/manifest.tsv"
+    "$ROOT/markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv"
   add_quality_rows_manifest_candidate \
     "sibling quality rows manifest" \
-    "$ROOT/../markitdown-quality-lab/quality_rows/manifest.tsv"
+    "$ROOT/../markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv"
   add_quality_rows_manifest_candidate \
     "legacy local manifest" \
     "$LEGACY_LOCAL_MANIFEST_PATH"
@@ -314,11 +324,17 @@ resolve_external_input_path() {
     fi
   else
     local repo_candidate="$ROOT/$path"
+    local repo_quality_lab_candidate="$ROOT/markitdown-quality-lab/$path"
+    local sibling_quality_lab_candidate="$ROOT/../markitdown-quality-lab/$path"
     local legacy_prefix=".external/quality_corpus/"
     local legacy_abs_prefix="$ROOT/.external/quality_corpus/"
     local relative_suffix=""
     if [[ "$path" == "$legacy_prefix"* ]]; then
       relative_suffix="${path#$legacy_prefix}"
+    elif [[ "$path" == external_quality/* ]]; then
+      relative_suffix="${path#external_quality/}"
+    elif [[ "$path" == markitdown-quality-lab/external_quality/* ]]; then
+      relative_suffix="${path#markitdown-quality-lab/external_quality/}"
     elif [[ "$repo_candidate" == "$legacy_abs_prefix"* ]]; then
       relative_suffix="${repo_candidate#$legacy_abs_prefix}"
     elif [[ -n "$CORPUS_ROOT" ]]; then
@@ -337,6 +353,18 @@ resolve_external_input_path() {
     append_unique_path "$repo_candidate"
     if [[ -f "$repo_candidate" ]]; then
       RESOLVED_EXTERNAL_PATH="$repo_candidate"
+      return 0
+    fi
+
+    append_unique_path "$repo_quality_lab_candidate"
+    if [[ -f "$repo_quality_lab_candidate" ]]; then
+      RESOLVED_EXTERNAL_PATH="$repo_quality_lab_candidate"
+      return 0
+    fi
+
+    append_unique_path "$sibling_quality_lab_candidate"
+    if [[ -f "$sibling_quality_lab_candidate" ]]; then
+      RESOLVED_EXTERNAL_PATH="$sibling_quality_lab_candidate"
       return 0
     fi
   fi
@@ -1400,6 +1428,14 @@ write_summary "$total_rows" "$passed_rows" "$failed_rows" "$skipped_rows" "$skip
 
 if [[ "$failed_rows" -ne 0 ]]; then
   echo "QUALITY CHECK FAILED"
+  echo "quality_rows: $total_rows"
+  echo "failed: $failed_rows"
+  echo "skipped: $skipped_rows"
+  echo "expected_fail: $expected_fail_rows"
+  echo "quality_rows_manifest: $QUALITY_ROWS_MANIFEST"
+  echo "quality_lab_path: $CORPUS_ROOT"
+  echo "quality_tmp_dir: $OUT_ROOT"
+  echo "quality_cli_tmp_dir: $CLI_TMP_ROOT"
   echo "summary: $SUMMARY_TSV"
   echo "report: $SUMMARY_MD"
   exit 1
@@ -1410,5 +1446,13 @@ if [[ "$unexpected_pass_rows" -ne 0 ]]; then
 else
   echo "QUALITY CHECK PASSED ($total_rows rows; $skipped_rows skipped; $expected_fail_rows expected_fail)"
 fi
+echo "quality_rows: $total_rows"
+echo "failed: $failed_rows"
+echo "skipped: $skipped_rows"
+echo "expected_fail: $expected_fail_rows"
+echo "quality_rows_manifest: $QUALITY_ROWS_MANIFEST"
+echo "quality_lab_path: $CORPUS_ROOT"
+echo "quality_tmp_dir: $OUT_ROOT"
+echo "quality_cli_tmp_dir: $CLI_TMP_ROOT"
 echo "summary: $SUMMARY_TSV"
 echo "report: $SUMMARY_MD"

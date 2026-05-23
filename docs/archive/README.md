@@ -3,8 +3,17 @@
 This directory preserves historical planning, audit, benchmark, and migration
 documents that are no longer the current release-state source of truth.
 
+Historical notes only:
+
+* this archive does not define current product behavior
+* this archive does not define current OCR or PDF support
+* current release/readiness, OCR, and PDF semantics live in the top-level docs
+* some archived notes describe experiments or designs that were retired or
+  replaced by the shipped main-CLI image OCR path
+
 Use current docs first:
 
+* [Documentation Index](../README.md)
 * [Performance](../performance.md)
 * [Roadmap](../roadmap.md)
 * [Architecture](../architecture.md)
@@ -25,4 +34,5 @@ Use current docs first:
 * [normalization/](./normalization/README.md)
   Historical text-normalization migration and option-audit docs.
 * [reference/](./reference/)
-  Narrower reference pages that are no longer top-level project docs.
+  Historical reference pages that are no longer part of the current product
+  documentation.

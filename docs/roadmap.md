@@ -9,13 +9,14 @@ Current checked baseline:
 * `moon test`: `1579 passed`
 * `bash samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0`
   failures
-* public-only quality: `24 / 0 / 0`
-* full quality with quality-lab: `330 / 1 / 0`
-* focused PDF quality with quality-lab: `101 / 1 / 0`
+* `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
+  on the checked-out `markitdown-quality-lab` contents
+* `bash samples/check_quality.sh --format pdf`: focused PDF slice of that same
+  external corpus
 
 Current structural baseline:
 
-* runtime/test/public-only flow is self-contained in the main repo
+* runtime/test/repo-local validation flow is self-contained in the main repo
 * repo-root `markitdown-quality-lab/` carries external corpus, full quality
   rows, and offline training/eval assets
 * normal PDF layout behavior is distilled into MoonBit rules/gates
@@ -26,15 +27,16 @@ Current structural baseline:
 Current priorities:
 
 * keep docs aligned with the current release-state workflow
+* keep release dry-run helpers explicit about required vs optional diagnostics
 * keep PDF layout work narrow, explicit, and evidence-led
 * continue failure-driven hardening across Office and horizontal formats
 * keep performance claims sample-scoped and reproducible
-* keep OCR explicit-only and fail closed until an explicit product decision
-  exists
-* rebuild OCR around provider signal -> `OCRPageModel` -> MoonBit layout
-  recovery -> unified IR -> Markdown
+* keep normal document conversion no-OCR outside the explicit image OCR path
+* keep image OCR explicit about its local `tesseract` runtime dependency
+* rebuild product OCR around provider signal -> `OCRPageModel` -> MoonBit
+  layout recovery -> unified IR -> Markdown
 
-Completed internal Vision/OCR groundwork:
+Completed OCR/Vision groundwork:
 
 * provider-independent `OCRPageModel` / `OcrDocumentModel`
 * tesseract TSV parser and internal/dev tooling, including
@@ -47,16 +49,62 @@ Completed internal Vision/OCR groundwork:
 * current `TableLike`, `KeyValueLike`, and `CaptionLike` hint coverage
 * quality-lab default preview, resegmented preview, and IR hint artifact checks
 * read-only OCR quality-lab summary helper
+* main-CLI image OCR landing while keeping normal-path no-OCR contracts intact
+* Phase 2a main-CLI OCR policy parser/decision layer:
+  `--ocr`, `--no-ocr`, image auto-OCR recognition, and fail-closed behavior
+  without OCR execution
+* Phase 2b main-CLI image OCR execution wiring through `convert/vision`
+  with local `tesseract` dependency and fail-clear runtime errors
+* Phase 2c minimal image-OCR language option:
+  `--ocr-lang <LANG>` for Tesseract language selection on image inputs only
+
+## Image OCR MVP Status
+
+Completed:
+
+* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
+  shipped
+* image inputs now auto-OCR on the main CLI
+* image `--ocr` and image `--no-ocr` are wired with fail-closed behavior
+* image `--ocr-lang <LANG>` passes a Tesseract language value to image OCR
+  only
+* the shipped OCR execution path is the MoonBit-owned
+  `convert/vision` pipeline:
+  `tesseract TSV -> OCRPageModel -> line resegmentation -> layout recovery ->
+  shared IR -> Markdown`
+* the image OCR product contract is covered by
+  `bash samples/helpers/contracts/check_ocr_contract.sh`
+* the image OCR attribution smoke exists as a separate optional helper:
+  `bash samples/helpers/bench/check_image_ocr_attribution_smoke.sh`
+
+Still future:
+
+* explicit PDF OCR provider wiring
+* OCR provider selection beyond the current fixed local `tesseract` image path
+* `--psm` / `--oem` product options if they are ever proven necessary
+* real-world OCR corpus expansion beyond tiny main-repo fixtures
+* Markdown reconstruction for OCR-derived tables, key-value layouts, and
+  captions
+* deeper OCR performance attribution beyond the current directional smoke
+
+Release-stage meaning:
+
+* image OCR is now a shipped product path for common image formats
+* normal document conversion still stays no-OCR outside explicit image inputs
+* PDF OCR is still out of scope for the shipped path
+* image OCR remains dependent on local `tesseract` plus installed tessdata
+* optional quality-lab OCR artifacts and OCR timing helpers remain optional
+  diagnostics, not public-gate requirements
 
 Next OCR/Vision steps:
 
 * real license-clean OCR corpus audit
 * hint artifact drift summaries or dashboards for OCR semantic changes
-* product-path attribution benchmark
 * extend PDF scan-only report-only diagnostics beyond the current debug/helper baseline when more explicit sample coverage is needed
 * eventual table reconstruction beyond `TableLike` hints
-* eventual product OCR decision and any future product CLI shape
 * PDF OCR provider audit
+* OCR provider options beyond `--ocr-lang`
+* OCR performance deeper attribution when more phase-level evidence is needed
 * future heavier OCR/layout provider audit only on explicit paths
 
 Completed PDF diagnostic groundwork:
@@ -66,11 +114,27 @@ Completed PDF diagnostic groundwork:
 * report-only PDF inspect/debug signal for `ocr_recommended`
 * explicit contract/helper coverage for low-text vs normal-text PDF scan diagnostics
 
+## Future Milestone: PDF OCR Explicit Provider Path
+
+This milestone is future-only. It does not describe current shipped behavior.
+
+Planned design tracks:
+
+* provider policy for explicit, local, audited PDF OCR providers
+* explicit CLI behavior for PDF OCR without changing the native default PDF
+  path
+* PDF OCR corpus and quality-lab sample policy for future explicit-provider
+  evaluation
+* PDF OCR performance attribution kept separate from native PDF and current
+  image OCR timing
+* fail-closed PDF OCR contracts for missing provider runtime support or
+  missing language data
+
 Still not current:
 
-* product OCR CLI
-* normal path OCR
+* normal path OCR beyond explicit image inputs
 * PDF OCR
+* image OCR without local `tesseract`
 * Markdown table, key-value, or caption reconstruction
 
 ## Legacy Fallback Exit Criteria
@@ -78,12 +142,15 @@ Still not current:
 Legacy fallback removal should wait until all of the following stay true on the
 same cycle:
 
-1. repo-root quality-lab full quality still passes `330 / 1 / 0`
-2. public-only still passes `24 / 0 / 0`
+1. repo-root quality-lab full quality still passes on the current checked-out
+   corpus
+2. external quality still passes on the current checked-out
+   `markitdown-quality-lab` corpus
 3. `moon test` and `bash samples/check.sh` still pass
 4. no non-doc runtime/product path depends on `.external/...`
 5. no active workflow still depends on `external_manifest.local.tsv`
-6. quality-lab still tracks `quality_rows/manifest.tsv` and `corpus/MANIFEST.tsv`
+6. quality-lab tracked workflows are fully anchored on
+   `external_quality/` and `pdf_model_training/`
 7. at least one full post-migration cycle has completed
 
 ## Legacy Fallback Removal Plan
@@ -103,13 +170,13 @@ Long-term direction remains:
 * main repo for runtime, tests, samples, and public baseline
 * quality-lab for external corpus, full quality rows, and offline training/eval/model/report assets
 * narrow, explicit, evidence-backed normal-path changes only
-* future OCR expansion only through explicit provider paths such as TSV/HOCR
-  signal providers and a later PDF OCR provider, with OCRmyPDF/heavy providers
-  kept opt-in
+* future OCR expansion only through `convert/vision`, image-input main-CLI
+  wiring, explicit `--ocr` / `--no-ocr` controls, and a later PDF OCR
+  provider path, with OCRmyPDF/heavy providers kept opt-in
 * main-repo OCR fixtures should stay tiny and license-clean; real-world OCR rows should live in quality-lab
 * optional tesseract smoke should stay outside the default native quality gate
-* OCR/Vision quality-lab artifact checks remain internal/dev-only and do not
-  imply current product OCR support
+* OCR/Vision quality-lab artifact checks remain internal/dev diagnostics and do
+  not imply scanned-PDF OCR support or broader OCR quality guarantees
 * current OCR/Vision semantic hints are limited to vision-side side-channel
   tracking; they do not imply Markdown table, key-value, or caption
   reconstruction in the shipped build

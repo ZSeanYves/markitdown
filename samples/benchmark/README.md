@@ -97,8 +97,13 @@ performance reference.
 Smoke benchmark:
 
 ```bash
-./samples/bench.sh --suite smoke --kind smoke
+./samples/bench.sh
 ```
+
+Default smoke results are written to:
+
+* `.tmp/bench/smoke/summary.tsv`
+* `.tmp/bench/smoke/results.jsonl`
 
 Overlap comparison:
 
@@ -150,10 +155,10 @@ Default manifest:
 samples/benchmark/manifests/product_path.tsv
 ```
 
-Manifest validation:
+Repo-local sample validation:
 
 ```bash
-./samples/check.sh --manifest-only
+./samples/check.sh
 ```
 
 Internal direct helper:

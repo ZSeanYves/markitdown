@@ -293,45 +293,43 @@ fn should_merge_with_evidence(evidence : PdfMergeBoundaryEvidence) -> Bool {
 fn merge_reason_tags(evidence : PdfMergeBoundaryEvidence) -> Array[String] {
   let out : Array[String] = []
 
-  if evidence.body_to_body {
-    out.push("body_to_body")
-  }
-  if evidence.same_paragraph_candidate {
-    out.push("same_paragraph_candidate")
-  }
-  if evidence.previous_no_sentence_end {
-    out.push("previous_no_sentence_end")
-  }
-  if evidence.next_starts_lowercase {
-    out.push("next_starts_lowercase")
-  }
-  if evidence.next_continues_sentence {
-    out.push("next_continues_sentence")
-  }
-  if evidence.similar_indent {
-    out.push("similar_indent")
-  }
-  if evidence.compatible_line_width {
-    out.push("compatible_line_width")
-  }
-  if evidence.small_page_boundary_gap {
-    out.push("small_page_boundary_gap")
-  }
-  if evidence.wrapped_line_continuation {
-    out.push("wrapped_line_continuation")
-  }
-  if evidence.same_column_band {
-    out.push("same_column_band")
-  }
-  if evidence.layout_compatible {
-    out.push("layout_compatible")
-  }
-  if evidence.core_continuation_support {
-    out.push("core_continuation_support")
-  }
-  if out.is_empty() {
-    out.push("merge_page_boundary")
-  }
+  push_reason_if(out, evidence.body_to_body, "body_to_body")
+  push_reason_if(
+    out,
+    evidence.same_paragraph_candidate,
+    "same_paragraph_candidate",
+  )
+  push_reason_if(
+    out,
+    evidence.previous_no_sentence_end,
+    "previous_no_sentence_end",
+  )
+  push_reason_if(out, evidence.next_starts_lowercase, "next_starts_lowercase")
+  push_reason_if(
+    out,
+    evidence.next_continues_sentence,
+    "next_continues_sentence",
+  )
+  push_reason_if(out, evidence.similar_indent, "similar_indent")
+  push_reason_if(out, evidence.compatible_line_width, "compatible_line_width")
+  push_reason_if(
+    out,
+    evidence.small_page_boundary_gap,
+    "small_page_boundary_gap",
+  )
+  push_reason_if(
+    out,
+    evidence.wrapped_line_continuation,
+    "wrapped_line_continuation",
+  )
+  push_reason_if(out, evidence.same_column_band, "same_column_band")
+  push_reason_if(out, evidence.layout_compatible, "layout_compatible")
+  push_reason_if(
+    out,
+    evidence.core_continuation_support,
+    "core_continuation_support",
+  )
+  push_reason_if_empty(out, "merge_page_boundary")
 
   out
 }
@@ -340,51 +338,25 @@ fn merge_reason_tags(evidence : PdfMergeBoundaryEvidence) -> Array[String] {
 fn keep_split_reason_tags(evidence : PdfMergeBoundaryEvidence) -> Array[String] {
   let out : Array[String] = []
 
-  if evidence.kind_mismatch {
-    out.push("kind_mismatch")
-  }
-  if evidence.previous_sentence_end {
-    out.push("previous_sentence_end")
-  }
-  if evidence.next_starts_heading_like {
-    out.push("next_starts_heading_like")
-  }
-  if evidence.next_starts_list_like {
-    out.push("next_starts_list_like")
-  }
-  if evidence.heading_guard {
-    out.push("heading_guard")
-  }
-  if evidence.list_guard {
-    out.push("list_guard")
-  }
-  if evidence.table_guard {
-    out.push("table_guard")
-  }
-  if evidence.image_guard {
-    out.push("image_guard")
-  }
-  if evidence.noise_guard {
-    out.push("noise_guard")
-  }
-  if evidence.page_number_guard {
-    out.push("page_number_guard")
-  }
-  if evidence.large_indent_shift {
-    out.push("large_indent_shift")
-  }
-  if evidence.column_shift_guard {
-    out.push("column_shift_guard")
-  }
-  if evidence.two_column_guard {
-    out.push("two_column_guard")
-  }
-  if evidence.short_fragment_guard {
-    out.push("short_fragment_guard")
-  }
-  if evidence.caption_guard {
-    out.push("caption_guard")
-  }
+  push_reason_if(out, evidence.kind_mismatch, "kind_mismatch")
+  push_reason_if(out, evidence.previous_sentence_end, "previous_sentence_end")
+  push_reason_if(
+    out,
+    evidence.next_starts_heading_like,
+    "next_starts_heading_like",
+  )
+  push_reason_if(out, evidence.next_starts_list_like, "next_starts_list_like")
+  push_reason_if(out, evidence.heading_guard, "heading_guard")
+  push_reason_if(out, evidence.list_guard, "list_guard")
+  push_reason_if(out, evidence.table_guard, "table_guard")
+  push_reason_if(out, evidence.image_guard, "image_guard")
+  push_reason_if(out, evidence.noise_guard, "noise_guard")
+  push_reason_if(out, evidence.page_number_guard, "page_number_guard")
+  push_reason_if(out, evidence.large_indent_shift, "large_indent_shift")
+  push_reason_if(out, evidence.column_shift_guard, "column_shift_guard")
+  push_reason_if(out, evidence.two_column_guard, "two_column_guard")
+  push_reason_if(out, evidence.short_fragment_guard, "short_fragment_guard")
+  push_reason_if(out, evidence.caption_guard, "caption_guard")
   out
 }
 
@@ -394,9 +366,7 @@ fn keep_split_reason_tags_with_fallback(
   fallback : String,
 ) -> Array[String] {
   let out = keep_split_reason_tags(evidence)
-  if out.is_empty() {
-    out.push(fallback)
-  }
+  push_reason_if_empty(out, fallback)
   out
 }
 

@@ -1,19 +1,21 @@
 # Documentation
 
-Read the top-level theme pages first. They are the current project
-documentation and the only docs recommended for routine use:
+Start here if you want the current project docs rather than historical notes.
+
+## Current Theme Docs
 
 * [Architecture](./architecture.md)
 * [Supported Formats](./supported-formats.md)
-* [Quality And Release](./quality-and-release.md)
 * [PDF](./pdf.md)
+* [Quality And Release](./quality-and-release.md)
 * [Performance](./performance.md)
 * [Roadmap](./roadmap.md)
 
 Additional narrative comparison records live in
 [docs/quality-comparisons/](./quality-comparisons/README.md).
 
+## Historical Notes
+
 [docs/archive/](./archive/README.md) keeps historical planning, audits,
-benchmark operations notes, and migration material. Within that archive,
-`docs/archive/reference/` is reserved for a small set of future design
-reference notes and is not part of the current product documentation.
+benchmark operations notes, and migration material. It is historical only and
+should not be read as the current OCR, PDF, or release-state contract.

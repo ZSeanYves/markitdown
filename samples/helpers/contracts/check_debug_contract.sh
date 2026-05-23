@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "debug_contract")"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "inspect_contract")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 

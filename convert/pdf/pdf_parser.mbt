@@ -5,7 +5,7 @@
 /// Layering intent:
 /// - keep each stage locally explainable and testable
 /// - allow conservative rollback/downgrade in intermediate stages
-/// - isolate OCR path as an explicit alternative pipeline
+/// - keep future OCR intent explicit and fail closed in the current build
 pub async fn parse_pdf(
   input_path : String,
   _out_dir : String,
@@ -41,7 +41,7 @@ pub async fn parse_pdf(
 
   if ocr_mode != PdfOcrMode::Disabled {
     raise @cor.AppError(
-      "pdf OCR mode moved to ocr; use the explicit OCR runner instead of the normal cli binary",
+      "PDF OCR is not wired in this build. Image OCR is planned for future main-CLI `--ocr` / `--no-ocr` controls; PDF OCR will require an explicit PDF OCR provider.",
     )
   }
 

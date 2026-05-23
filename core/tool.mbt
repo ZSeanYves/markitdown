@@ -70,6 +70,53 @@ pub fn basename(path : String) -> String {
 }
 
 ///|
+pub fn file_ext_lower(path : String) -> String {
+  let n = path.length()
+  if n == 0 {
+    return ""
+  }
+
+  let mut i = n - 1
+  while i >= 0 {
+    if path[i] == '.' {
+      if i == n - 1 {
+        return ""
+      }
+      return path[i + 1:].to_owned().to_lower()
+    }
+    i = i - 1
+  }
+  ""
+}
+
+///|
+pub fn known_image_ext_from_path(path : String) -> String? {
+  let b = basename(path).to_lower()
+  if b.has_suffix(".png") {
+    return Some("png")
+  }
+  if b.has_suffix(".jpg") {
+    return Some("jpg")
+  }
+  if b.has_suffix(".jpeg") {
+    return Some("jpeg")
+  }
+  if b.has_suffix(".gif") {
+    return Some("gif")
+  }
+  if b.has_suffix(".bmp") {
+    return Some("bmp")
+  }
+  if b.has_suffix(".tif") || b.has_suffix(".tiff") {
+    return Some("tiff")
+  }
+  if b.has_suffix(".webp") {
+    return Some("webp")
+  }
+  None
+}
+
+///|
 pub fn next_image_asset_rel_path(
   next_idx : Ref[Int],
   ext_raw : String,

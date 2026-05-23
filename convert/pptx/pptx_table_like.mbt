@@ -217,16 +217,7 @@ fn collect_bucketed_center_x(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Array[Int] {
-  let out : Array[Int] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_x, step)
-    if !int_in_array(out, q) {
-      out.push(q)
-    }
-  }
-
-  out
+  collect_bucketed_center_values(shapes, step, true)
 }
 
 ///|
@@ -234,10 +225,28 @@ fn collect_bucketed_center_y(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Array[Int] {
+  collect_bucketed_center_values(shapes, step, false)
+}
+
+///|
+fn bucketed_center_coord(sp : LayoutShape, step : Int, use_x : Bool) -> Int {
+  if use_x {
+    quantize_coord(sp.center_x, step)
+  } else {
+    quantize_coord(sp.center_y, step)
+  }
+}
+
+///|
+fn collect_bucketed_center_values(
+  shapes : Array[LayoutShape],
+  step : Int,
+  use_x : Bool,
+) -> Array[Int] {
   let out : Array[Int] = []
 
   for sp in shapes {
-    let q = quantize_coord(sp.center_y, step)
+    let q = bucketed_center_coord(sp, step, use_x)
     if !int_in_array(out, q) {
       out.push(q)
     }
@@ -647,7 +656,7 @@ fn count_distinct_bucketed_center_x(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  collect_bucketed_center_x(shapes, step).length()
+  collect_bucketed_center_values(shapes, step, true).length()
 }
 
 ///|
@@ -655,7 +664,61 @@ fn count_distinct_bucketed_center_y(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  collect_bucketed_center_y(shapes, step).length()
+  collect_bucketed_center_values(shapes, step, false).length()
+}
+
+///|
+fn collect_bucket_population(
+  shapes : Array[LayoutShape],
+  step : Int,
+  use_x : Bool,
+) -> Array[(Int, Int)] {
+  let buckets : Array[(Int, Int)] = []
+
+  for sp in shapes {
+    let q = bucketed_center_coord(sp, step, use_x)
+    let mut found = false
+    for i in 0..<buckets.length() {
+      let (k, v) = buckets[i]
+      if k == q {
+        buckets[i] = (k, v + 1)
+        found = true
+        break
+      }
+    }
+    if !found {
+      buckets.push((q, 1))
+    }
+  }
+
+  buckets
+}
+
+///|
+fn bucket_population_max(buckets : Array[(Int, Int)]) -> Int {
+  let mut best = 0
+  for i in 0..<buckets.length() {
+    let (_, v) = buckets[i]
+    if v > best {
+      best = v
+    }
+  }
+  best
+}
+
+///|
+fn bucket_population_count_at_least(
+  buckets : Array[(Int, Int)],
+  min_pop : Int,
+) -> Int {
+  let mut cnt = 0
+  for i in 0..<buckets.length() {
+    let (_, v) = buckets[i]
+    if v >= min_pop {
+      cnt += 1
+    }
+  }
+  cnt
 }
 
 ///|
@@ -663,32 +726,7 @@ fn max_bucket_population_center_x(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let buckets : Array[(Int, Int)] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_x, step)
-    let mut found = false
-    for i in 0..<buckets.length() {
-      let (k, v) = buckets[i]
-      if k == q {
-        buckets[i] = (k, v + 1)
-        found = true
-        break
-      }
-    }
-    if !found {
-      buckets.push((q, 1))
-    }
-  }
-
-  let mut best = 0
-  for i in 0..<buckets.length() {
-    let (_, v) = buckets[i]
-    if v > best {
-      best = v
-    }
-  }
-  best
+  bucket_population_max(collect_bucket_population(shapes, step, true))
 }
 
 ///|
@@ -696,32 +734,7 @@ fn max_bucket_population_center_y(
   shapes : Array[LayoutShape],
   step : Int,
 ) -> Int {
-  let buckets : Array[(Int, Int)] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_y, step)
-    let mut found = false
-    for i in 0..<buckets.length() {
-      let (k, v) = buckets[i]
-      if k == q {
-        buckets[i] = (k, v + 1)
-        found = true
-        break
-      }
-    }
-    if !found {
-      buckets.push((q, 1))
-    }
-  }
-
-  let mut best = 0
-  for i in 0..<buckets.length() {
-    let (_, v) = buckets[i]
-    if v > best {
-      best = v
-    }
-  }
-  best
+  bucket_population_max(collect_bucket_population(shapes, step, false))
 }
 
 ///|
@@ -730,32 +743,10 @@ fn count_bucketed_center_x_with_min_population(
   step : Int,
   min_pop : Int,
 ) -> Int {
-  let buckets : Array[(Int, Int)] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_x, step)
-    let mut found = false
-    for i in 0..<buckets.length() {
-      let (k, v) = buckets[i]
-      if k == q {
-        buckets[i] = (k, v + 1)
-        found = true
-        break
-      }
-    }
-    if !found {
-      buckets.push((q, 1))
-    }
-  }
-
-  let mut cnt = 0
-  for i in 0..<buckets.length() {
-    let (_, v) = buckets[i]
-    if v >= min_pop {
-      cnt += 1
-    }
-  }
-  cnt
+  bucket_population_count_at_least(
+    collect_bucket_population(shapes, step, true),
+    min_pop,
+  )
 }
 
 ///|
@@ -764,30 +755,8 @@ fn count_bucketed_center_y_with_min_population(
   step : Int,
   min_pop : Int,
 ) -> Int {
-  let buckets : Array[(Int, Int)] = []
-
-  for sp in shapes {
-    let q = quantize_coord(sp.center_y, step)
-    let mut found = false
-    for i in 0..<buckets.length() {
-      let (k, v) = buckets[i]
-      if k == q {
-        buckets[i] = (k, v + 1)
-        found = true
-        break
-      }
-    }
-    if !found {
-      buckets.push((q, 1))
-    }
-  }
-
-  let mut cnt = 0
-  for i in 0..<buckets.length() {
-    let (_, v) = buckets[i]
-    if v >= min_pop {
-      cnt += 1
-    }
-  }
-  cnt
+  bucket_population_count_at_least(
+    collect_bucket_population(shapes, step, false),
+    min_pop,
+  )
 }

@@ -8,6 +8,4 @@ target/
 markitdown-quality-lab/
 .codex
 .codex/
-samples/quality_corpus/private/manifest.local.tsv
-samples/quality_corpus/external_manifest.local.tsv
-samples/quality_corpus/private/files/
+

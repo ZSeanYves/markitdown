@@ -113,7 +113,7 @@ pub fn parse_epub(
       None => ()
     }
 
-    let ext = file_ext_lower(content_path)
+    let ext = @cor.file_ext_lower(content_path)
     let media_type = spine_media_type_lower(spine_item)
     if !is_supported_spine_item(media_type, ext) {
       append_warning_entry(
@@ -1010,25 +1010,6 @@ fn is_supported_spine_item(media_type : String, ext : String) -> Bool {
         _ => false
       }
   }
-}
-
-///|
-fn file_ext_lower(path : String) -> String {
-  let n = path.length()
-  if n == 0 {
-    return ""
-  }
-  let mut i = n - 1
-  while i >= 0 {
-    if path[i] == '.' {
-      if i == n - 1 {
-        return ""
-      }
-      return path[i + 1:].to_owned().to_lower()
-    }
-    i -= 1
-  }
-  ""
 }
 
 ///|

@@ -224,7 +224,7 @@ pub async fn parse_zip_with_profile(
       continue
     }
 
-    let ext = file_ext_lower(plan.path)
+    let ext = @cor.file_ext_lower(plan.path)
     if is_nested_archive_ext(ext) {
       warning_entries += 1
       append_warning_entry(
@@ -1471,7 +1471,7 @@ fn inspect_entry(
         None,
       )
     EntryPlan::Visible(path) => {
-      let ext = file_ext_lower(path)
+      let ext = @cor.file_ext_lower(path)
       let entry_kind = if is_nested_archive_ext(ext) {
         ZipInspectEntryKind::NestedArchive
       } else if is_supported_entry_ext(ext) {
@@ -1725,25 +1725,6 @@ pub fn is_nested_archive_ext(ext : String) -> Bool {
     "zip" | "jar" | "epub" => true
     _ => false
   }
-}
-
-///|
-fn file_ext_lower(path : String) -> String {
-  let n = path.length()
-  if n == 0 {
-    return ""
-  }
-  let mut i = n - 1
-  while i >= 0 {
-    if path[i] == '.' {
-      if i == n - 1 {
-        return ""
-      }
-      return path[i + 1:].to_owned().to_lower()
-    }
-    i -= 1
-  }
-  ""
 }
 
 ///|

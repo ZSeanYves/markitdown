@@ -148,9 +148,9 @@ declare -a CASES=(
   "image_xobject|$ROOT/samples/main_process/pdf/assets/pdf_image_xobject.pdf"
 )
 
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-mkdir -p "$TMP_ROOT/helpers"
-WORK_DIR="$(mktemp -d "$TMP_ROOT/helpers/pdf_scan_summary.XXXXXX")"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/validation}"
+mkdir -p "$TMP_ROOT"
+WORK_DIR="$(mktemp -d "$TMP_ROOT/pdf_scan_summary.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 printf 'case\tinput\tpage_count\tnative_text_char_count\tpage_image_count\thas_embedded_text\thas_page_images\timage_only\ttext_signal_level\tocr_recommended\tocr_mode\tocr_used\treasons\n'

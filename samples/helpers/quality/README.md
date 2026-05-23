@@ -20,34 +20,40 @@ Most users should start from `./samples/check.sh` or
 
 ## Validation Modes
 
-Public-only:
-
-```bash
-bash samples/helpers/quality/check.sh --public-only
-```
-
-Optional full quality through the preferred top-level entry:
+Preferred top-level entrypoints:
 
 ```bash
 bash ./samples/check_quality.sh
 bash ./samples/check_quality.sh --format pdf
 ```
 
+Each top-level run writes isolated generated artifacts under:
+
+```text
+.tmp/quality/runs/<run_id>/
+```
+
+That run directory contains the current `summary.tsv`, `summary.md`,
+`rows.tsv`, row-scoped `outputs/`, and a nested `workspace/` scratch root for
+converter-local temporary files. This keeps full and filtered quality runs safe
+to launch in parallel without sharing a single `.tmp/quality` workspace.
+
 Current checked facts:
 
-* public-only: `24 rows / 0 skipped / 0 expected_fail`
-* full quality: `330 rows / 1 skipped / 0 expected_fail`
-* focused PDF quality: `101 rows / 1 skipped / 0 expected_fail`
+* `bash ./samples/check_quality.sh` runs only external/lab-managed rows
+* row counts depend on the checked-out `markitdown-quality-lab` contents
+* `bash ./samples/check_quality.sh --format pdf` is the focused PDF slice of
+  that same external corpus
 
 ## Quality-Lab Boundary
 
 Tracked lab-managed rows live in:
 
-* `markitdown-quality-lab/quality_rows/manifest.tsv`
+* `markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv`
 
 Payloads live in:
 
-* `markitdown-quality-lab/corpus`
+* `markitdown-quality-lab/external_quality/`
 
 Clone the quality-lab into the repo root:
 
@@ -61,7 +67,11 @@ The quality-lab is:
 * not a submodule
 * not a release artifact
 
-## Legacy Note
+## Internal Note
 
-Legacy local manifests and legacy `.external/...` resolution still exist during
-the migration window, but they are no longer the recommended path.
+Internal/debug-only filters such as `--public-only`, `--private-only`, `--id`,
+`--source`, and `--list` remain available here for maintainer use, but they are
+not the recommended user entrypoints.
+
+The top-level `bash ./samples/check_quality.sh` entrypoint now always requires
+the external quality corpus and does not fall back to repo-local quality rows.

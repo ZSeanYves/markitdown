@@ -17,11 +17,11 @@ reconstruction.
 
 Current repository split:
 
-* the main repo carries runtime code, tests, checked samples, public-only
-  quality baseline, and benchmark/release entrypoints
+* the main repo carries runtime code, tests, checked samples,
+  external-quality entrypoints, and benchmark/release entrypoints
 * `markitdown-quality-lab/` is an optional repo-local external repository for
   full quality rows, external corpus payloads, and offline PDF layout work
-* normal runtime, `moon test`, and `bash samples/check.sh --manifest-only`
+* normal runtime, `moon test`, and `bash samples/check.sh`
   remain self-contained in the main repo
 
 ## Product Surfaces
@@ -31,7 +31,6 @@ Current repository split:
 | `cli` | normal product entrypoint | yes | no |
 | `pdf` | bundled PDF runtime component | indirectly | no |
 | `zip` | bundled ZIP runtime component | indirectly | no |
-| `ocr` | explicit OCR component | yes via `cli ocr` | no |
 | `debug` | inspect/report tool | developer | optional |
 | `bench` | benchmark tool | developer | no |
 | `doc_parse/pdf/layout_model_tool` | PDF layout export/infer tool | developer | optional |
@@ -41,8 +40,9 @@ Current product contract:
 * users stay on `cli`
 * `.pdf` inputs route through bundled `pdf`
 * `.zip` inputs route through bundled `zip`
-* `cli ocr ...` delegates to `ocr`
 * `debug` and `bench` stay explicit developer tools
+* image OCR is available through the main CLI
+* PDF OCR is not wired in the shipped product path
 
 ## Package Responsibilities
 
@@ -81,7 +81,20 @@ Current ZIP split:
 
 Current OCR rule:
 
-* OCR remains explicit-only behind `ocr` and `cli ocr`
+* normal document conversion remains no-OCR
+* future product OCR will re-enter through the main CLI only
+* `convert/vision` remains the sole OCR/Vision implementation path
+
+Current path split:
+
+* normal conversion path: dispatcher -> format converter -> unified IR ->
+  Markdown / assets / metadata
+* shipped image OCR path: dispatcher -> `convert/vision` -> unified IR ->
+  Markdown
+* future PDF OCR path should remain an explicit side path that rejoins the
+  shared IR/Markdown flow only after explicit OCR selection
+* native PDF extraction must remain unchanged unless that explicit PDF OCR path
+  is selected
 
 Important current facts:
 
@@ -115,9 +128,9 @@ Current user entrypoints:
 
 Recommended copy-paste-safe commands:
 
-* `bash samples/check.sh --manifest-only`
-* `bash samples/check_quality.sh --public-only`
-* `bash samples/bench.sh --suite smoke --kind smoke`
+* `bash samples/check.sh`
+* `bash samples/check_quality.sh`
+* `bash samples/bench.sh`
 
 See also:
 

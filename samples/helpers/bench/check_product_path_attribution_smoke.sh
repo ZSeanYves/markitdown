@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}/bench/helpers"
 TMP_DIR=""
 CLI_BIN=""
 PDF_CLI_BIN=""

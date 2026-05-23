@@ -31,7 +31,8 @@ Current non-goals for the default path:
 | DOCX | headings, paragraphs, links, notes, comments, images, tables, text boxes | not a Word layout engine |
 | PPTX | titles, bullets, links, notes, tables, grouped content, images | not a PowerPoint visual layout engine |
 | XLSX | workbook/sheet/cell lowering, typed cells, conservative formula handling | no full spreadsheet recalculation engine |
-| PDF | native text-PDF extraction, links, images, annotations, narrow layout cleanup | no scanned/image-only OCR in the normal path; PDF OCR not wired |
+| PDF | native text-PDF extraction, links, images, annotations, narrow layout cleanup; report-only scan diagnostics on explicit debug/helper paths | no scanned/image-only OCR in the normal path; PDF OCR not wired |
+| PNG / JPG / JPEG / BMP / WEBP / TIF / TIFF | image OCR supported through `convert/vision` on the main CLI | requires local `tesseract`; `--ocr-lang <LANG>` is supported for image OCR; `--no-ocr` fails clearly because no native image path exists; PDF OCR is still not wired |
 | ZIP | supported-entry dispatch, assets, metadata, origin tracking | no recursive archive explosion |
 | EPUB | OPF/spine/nav/NCX/XHTML chapter lowering | unsupported media stays explicit |
 | HTML / HTM | safe tolerant parsing and structural lowering | no JS, CSS layout, or browser engine |
@@ -56,20 +57,32 @@ Current PDF/OCR rules:
 
 * the normal path targets native text PDFs
 * normal conversion never OCRs and never probes OCR providers
+* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
+  supported
+* image inputs now auto-OCR through `convert/vision`
+* product image OCR depends on a local `tesseract` executable and language
+  data
+* `markitdown-mb image.png --ocr-lang eng` passes `eng` to Tesseract image OCR
+  and still requires installed tessdata; there is no language auto-detection
+* current image OCR is shipped for common image formats
+* no `--psm`, `--oem`, or OCR provider-selection CLI options are wired yet
 * encrypted PDFs fail closed
 * image/scanned PDFs are not silently upgraded into OCR
+* scanned PDF OCR is not supported yet
+* image inputs fail clearly when local `tesseract` is unavailable instead of
+  silently falling through the native converter
+* forcing `--ocr` on PDF currently fails closed because no explicit PDF OCR
+  provider path is wired
 * report-only PDF scan diagnostics may flag low-text or image-heavy PDFs on
   explicit debug/helper paths, but they do not change normal conversion output
+* image OCR support does not imply scanned-PDF OCR support
 * PDF OCR remains a future explicit provider path
+* any future PDF OCR path must stay explicit opt-in and must not auto-fallback
+  from native PDF extraction
 * default layout cleanup stays narrow and deterministic
-* previous text-only OCR prototype has been retired
-* OCR is being rebuilt around provider-independent `OCRPageModel`
-* future provider signal may start from image inputs such as
-  `png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, and `tiff`
-* current shipped build does not wire OCR product execution
-* the current Vision/OCR chain is internal/dev only:
+* image OCR shares the MoonBit-owned `convert/vision` path
+* the current Vision/OCR chain remains the only OCR implementation path:
   `tesseract TSV -> OCRPageModel -> layout -> Markdown preview`
-* that internal/dev chain is not yet exposed as supported product conversion
 * current semantic hints such as `TableLike`, `KeyValueLike`, and
   `CaptionLike` are a side-channel only
 * those hints do not currently reconstruct Markdown tables, key-value layouts,
@@ -86,9 +99,7 @@ OCR groundwork now lives under `convert/vision`; the PDF converter does not own
 OCR providers, and the normal dispatcher still does not route through OCR.
 
 Main-repo OCR samples should stay tiny, license-clean, and provider-independent
-where possible. Real-world OCR corpora belong in `markitdown-quality-lab`, and
-the optional OCR smoke should be read as a future wiring placeholder rather
-than an accuracy gate.
+where possible. Real-world OCR corpora belong in `markitdown-quality-lab`.
 
 See [pdf.md](./pdf.md) for the detailed PDF text/layout/OCR boundary.
 
@@ -98,8 +109,7 @@ The main repo remains self-contained for:
 
 * runtime
 * `moon test`
-* `bash samples/check.sh --manifest-only`
-* public-only quality validation
+* `bash samples/check.sh`
 
 The optional repo-root quality-lab is used for:
 

@@ -7,7 +7,7 @@ source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 
 SAMPLES_DIR="$ROOT/samples/main_process"
 FIXTURE_METADATA_DIR="$ROOT/samples/fixtures/metadata"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
 
 MODE="full"

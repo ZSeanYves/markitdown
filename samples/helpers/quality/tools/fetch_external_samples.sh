@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
-SOURCES_PATH="$QUALITY_LAB_ROOT/quality_rows/source_catalog.tsv"
+SOURCES_PATH="$QUALITY_LAB_ROOT/external_quality/_quality_rows_staging/source_catalog.tsv"
 LEGACY_CACHE_ROOT="$ROOT/.external/quality_corpus"
-DEFAULT_CACHE_ROOT="$QUALITY_LAB_ROOT/corpus"
+DEFAULT_CACHE_ROOT="$QUALITY_LAB_ROOT/external_quality"
 CACHE_ROOT="${MARKITDOWN_QUALITY_CORPUS:-$DEFAULT_CACHE_ROOT}"
 
 usage() {
@@ -19,7 +19,7 @@ Notes:
   * this helper does not auto-download large datasets
   * this helper does not auto-clone repositories
   * it only prints source catalog rows, cache prep actions, and manual guidance
-  * source catalog discovery prefers markitdown-quality-lab/quality_rows/source_catalog.tsv
+  * source catalog discovery prefers markitdown-quality-lab/external_quality/_quality_rows_staging/source_catalog.tsv
 EOF
 }
 
@@ -76,6 +76,8 @@ prepare_cache() {
     if [[ "$local_cache" == .external/quality_corpus/* ]]; then
       local suffix="${local_cache#.external/quality_corpus/}"
       target_dir="$CACHE_ROOT/$suffix"
+    elif [[ "$local_cache" == external_quality/* || "$local_cache" == pdf_model_training/* ]]; then
+      target_dir="$QUALITY_LAB_ROOT/$local_cache"
     elif [[ "$local_cache" == /* ]]; then
       target_dir="$local_cache"
     else
@@ -120,9 +122,9 @@ manual guidance:
   3. place only a small manually selected subset under:
      $CACHE_ROOT
   4. register local rows in:
-     markitdown-quality-lab/quality_rows/manifest.tsv
-  5. prefer canonical corpus-relative row paths under:
-     sources/...
+     markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv
+  5. prefer canonical external-quality row paths under:
+     external_quality/<format>/<source>/...
   6. keep license_review_status as pending_review until your local review is complete
 EOF
 

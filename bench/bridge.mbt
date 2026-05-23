@@ -26,8 +26,17 @@ async fn cmd_convert(
   with_metadata : Bool,
 ) -> Unit {
   @clisup.cmd_convert(
-    input, output, out_dir, max_heading, pdf_mode, pdf_extract_debug, pdf_dump_selected_raw,
-    pdf_pipeline_debug, with_metadata,
+    input,
+    output,
+    out_dir,
+    max_heading,
+    pdf_mode,
+    pdf_extract_debug,
+    pdf_dump_selected_raw,
+    pdf_pipeline_debug,
+    with_metadata,
+    @clisup.default_ocr_policy(),
+    None,
   )
 }
 
@@ -44,8 +53,17 @@ async fn convert_once(
   with_metadata : Bool,
 ) -> Result[Unit, String] {
   @clisup.convert_once(
-    input, output, out_dir, max_heading, pdf_mode, pdf_extract_debug, pdf_dump_selected_raw,
-    pdf_pipeline_debug, with_metadata,
+    input,
+    output,
+    out_dir,
+    max_heading,
+    pdf_mode,
+    pdf_extract_debug,
+    pdf_dump_selected_raw,
+    pdf_pipeline_debug,
+    with_metadata,
+    @clisup.default_ocr_policy(),
+    None,
   )
 }
 

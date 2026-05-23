@@ -12,7 +12,9 @@ They are also separate from the repository's signal-level quality gate:
 * `docs/quality-comparisons/` is reviewer-facing narrative comparison
 * `samples/helpers/quality/` is scriptable signal-level gating
 * `bash samples/check.sh` remains the exact repo-local regression surface
-* `markitdown-quality-lab/quality_rows/source_catalog.tsv` is a source
+* `bash samples/check_quality.sh` remains the external-corpus-only quality
+  entrypoint
+* `markitdown-quality-lab/external_quality/_quality_rows_staging/source_catalog.tsv` is a source
   catalog, not an integrated comparison corpus
 
 ## Goal

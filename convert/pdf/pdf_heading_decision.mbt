@@ -462,54 +462,22 @@ fn demotion_reason_tags(evidence : PdfHeadingEvidence) -> Array[String] {
 fn guard_reason_tags(evidence : PdfHeadingEvidence) -> Array[String] {
   let out : Array[String] = []
 
-  if evidence.empty_text {
-    out.push("empty_text")
-  }
-  if evidence.max_heading_disabled {
-    out.push("max_heading_disabled")
-  }
-  if evidence.noise_guard {
-    out.push("noise_guard")
-  }
-  if evidence.single_token_too_short {
-    out.push("single_token_too_short")
-  }
-  if evidence.bullet_guard {
-    out.push("bullet_guard")
-  }
-  if evidence.list_item_guard {
-    out.push("list_item_guard")
-  }
-  if evidence.colon_guard {
-    out.push("colon_guard")
-  }
-  if evidence.side_marker_guard {
-    out.push("side_marker_guard")
-  }
-  if evidence.intro_phrase_guard {
-    out.push("intro_phrase_guard")
-  }
-  if evidence.caption_guard {
-    out.push("caption_guard")
-  }
-  if evidence.noise_tail_guard {
-    out.push("noise_tail_guard")
-  }
-  if evidence.numbered_body_guard {
-    out.push("numbered_body_guard")
-  }
-  if evidence.sentence_like_guard {
-    out.push("sentence_like")
-  }
-  if evidence.punctuation_guard {
-    out.push("punctuation_guard")
-  }
-  if evidence.too_long_guard {
-    out.push("too_long")
-  }
-  if evidence.prev_heading_guard {
-    out.push("prev_heading_guard")
-  }
+  push_reason_if(out, evidence.empty_text, "empty_text")
+  push_reason_if(out, evidence.max_heading_disabled, "max_heading_disabled")
+  push_reason_if(out, evidence.noise_guard, "noise_guard")
+  push_reason_if(out, evidence.single_token_too_short, "single_token_too_short")
+  push_reason_if(out, evidence.bullet_guard, "bullet_guard")
+  push_reason_if(out, evidence.list_item_guard, "list_item_guard")
+  push_reason_if(out, evidence.colon_guard, "colon_guard")
+  push_reason_if(out, evidence.side_marker_guard, "side_marker_guard")
+  push_reason_if(out, evidence.intro_phrase_guard, "intro_phrase_guard")
+  push_reason_if(out, evidence.caption_guard, "caption_guard")
+  push_reason_if(out, evidence.noise_tail_guard, "noise_tail_guard")
+  push_reason_if(out, evidence.numbered_body_guard, "numbered_body_guard")
+  push_reason_if(out, evidence.sentence_like_guard, "sentence_like")
+  push_reason_if(out, evidence.punctuation_guard, "punctuation_guard")
+  push_reason_if(out, evidence.too_long_guard, "too_long")
+  push_reason_if(out, evidence.prev_heading_guard, "prev_heading_guard")
 
   out
 }

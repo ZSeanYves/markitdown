@@ -24,7 +24,7 @@ pub async fn parse_to_ir(
   input_path : String,
   opts : ConvertOptions,
 ) -> Result[@cor.Document, @cor.AppError] {
-  let ext = file_ext_lower(input_path)
+  let ext = @cor.file_ext_lower(input_path)
 
   let out_dir_str = match opts.out_dir {
     None => ""
@@ -63,24 +63,4 @@ pub async fn parse_to_ir(
     "epub" => Ok(@epub.parse_epub(input_path, out_dir_str, max_h))
     _ => Err(@cor.AppError("Unsupported file type: " + ext))
   }
-}
-
-///|
-fn file_ext_lower(path : String) -> String {
-  let n = path.length()
-  if n == 0 {
-    return ""
-  }
-
-  let mut i = n - 1
-  while i >= 0 {
-    if path[i] == '.' {
-      if i == n - 1 {
-        return ""
-      }
-      return path[i + 1:].to_owned().to_lower()
-    }
-    i = i - 1
-  }
-  ""
 }

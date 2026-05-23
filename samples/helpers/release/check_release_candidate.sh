@@ -15,7 +15,7 @@ Run the maintainer-oriented release-candidate readiness checks from the repo roo
 
 Modes:
   --full        additionally run `moon test`
-  --skip-bench  skip `./samples/bench.sh --suite smoke --kind smoke`
+  --skip-bench  skip `./samples/bench.sh`
   --help        show this help
 
 Default behavior:
@@ -128,7 +128,7 @@ run bash samples/check_quality.sh
 
 if [[ "$RUN_BENCH" -eq 1 ]]; then
   section "bench smoke"
-  run ./samples/bench.sh --suite smoke --kind smoke
+  run ./samples/bench.sh
 else
   section "bench smoke"
   echo "skipped (--skip-bench)"

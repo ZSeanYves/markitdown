@@ -26,10 +26,20 @@ pub fn new_cli_parser() -> @clap.Parser {
     description="Convert documents to Markdown",
     subcmds={
       "normal": @clap.SubCommand::new(
-        help="Normal conversion: normal [--with-metadata] <input> [output]",
+        help="Normal conversion: normal [--with-metadata] [--ocr|--no-ocr] [--ocr-lang LANG] <input> [output]",
         args={
           "with-metadata": @clap.Arg::flag(
             help="Also write <name>.metadata.json next to markdown output",
+          ),
+          "ocr": @clap.Arg::flag(
+            help="Force OCR policy for this input; image OCR runs through convert/vision when local tesseract is available",
+          ),
+          "no-ocr": @clap.Arg::flag(
+            help="Disable OCR policy for this input; image inputs then fail because no native image-to-markdown path exists",
+          ),
+          "ocr-lang": @clap.Arg::named(
+            nargs=AtMost(1),
+            help="Image OCR only: pass a tesseract language value such as `eng` or `eng+chi_sim`",
           ),
           "input": @clap.Arg::positional(
             help="Path to input file (.docx/.pdf/.xlsx/.pptx/.html/.csv/.tsv/.txt/.xml/.json/.zip/.epub)",
@@ -44,14 +54,6 @@ pub fn new_cli_parser() -> @clap.Parser {
           ),
           "input": @clap.Arg::positional(
             help="Path to input directory (non-recursive file scan)",
-          ),
-        },
-      ),
-      "ocr": @clap.SubCommand::new(
-        help="OCR rebuild entrypoint: ocr <input> [output] (delegates to the bundled ocr stub while OCRPageModel and layout recovery are rebuilt)",
-        args={
-          "input": @clap.Arg::positional(
-            help="Path to OCR candidate input; current build returns a rebuild notice instead of executing providers",
           ),
         },
       ),
@@ -103,15 +105,12 @@ pub fn print_cli_help() -> Unit {
 pub fn print_cli_usage() -> Unit {
   println("Usage:")
   println(
-    "  " + product_name() + " [normal] [--with-metadata] <input> [output]",
+    "  " +
+    product_name() +
+    " [normal] [--with-metadata] [--ocr|--no-ocr] [--ocr-lang LANG] <input> [output]",
   )
   println(
     "  " + product_name() + " batch [--with-metadata] <input_dir> <output_dir>",
-  )
-  println(
-    "  " +
-    product_name() +
-    " ocr ...    (explicit OCR entry; delegates to bundled ocr or MARKITDOWN_OCR_CLI)",
   )
   println(
     "  " +
@@ -131,9 +130,12 @@ pub fn print_cli_usage() -> Unit {
     "PDF and ZIP stay on the normal product surface through bundled `pdf` / `zip` components; users do not need to run those components directly.",
   )
   println(
-    "OCR stays explicit and isolated from normal conversion; debug and benchmark tooling stay in debug and bench.",
+    "Normal document conversion stays no-OCR; debug and benchmark tooling stay in debug and bench.",
   )
   println(
-    "Runtime override still supported: MARKITDOWN_OCR_CLI for the OCR stub component.",
+    "Image inputs now auto-OCR through convert/vision when local tesseract is available; PDF OCR remains unavailable.",
+  )
+  println(
+    "Use --ocr-lang LANG to pass a tesseract language value for image OCR only.",
   )
 }

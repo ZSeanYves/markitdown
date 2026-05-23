@@ -32,16 +32,19 @@ fn is_version_command(arg : String) -> Bool {
 ///|
 fn is_product_subcommand(arg : String) -> Bool {
   let normalized = arg.trim().to_owned().to_lower()
-  normalized == "normal" ||
-  normalized == "batch" ||
-  normalized == "ocr" ||
-  normalized == "debug"
+  normalized == "normal" || normalized == "batch" || normalized == "debug"
 }
 
 ///|
 fn is_relocated_product_command(arg : String) -> Bool {
   let normalized = arg.trim().to_owned().to_lower()
   normalized == "bench"
+}
+
+///|
+fn is_retired_product_command(arg : String) -> Bool {
+  let normalized = arg.trim().to_owned().to_lower()
+  normalized == "ocr"
 }
 
 ///|
@@ -52,6 +55,7 @@ fn normalize_product_cli_args(args : Array[String]) -> Array[String] {
 
   let first = args[0].trim().to_owned()
   if is_product_subcommand(first) ||
+    is_retired_product_command(first) ||
     is_relocated_product_command(first) ||
     is_help_command(first) ||
     is_version_command(first) {
@@ -63,6 +67,31 @@ fn normalize_product_cli_args(args : Array[String]) -> Array[String] {
     out.push(arg)
   }
   out
+}
+
+///|
+fn report_retired_product_command(command : String) -> Unit {
+  @clisup.exit_error(
+    command +
+    " product surface has been retired in this build; image OCR now lives on the main CLI with explicit `--ocr` / `--no-ocr` controls, while PDF OCR remains unavailable",
+  )
+}
+
+///|
+fn validate_top_level_ocr_lang_args(args : Array[String]) -> String? {
+  for i in 0..<args.length() {
+    if args[i].trim() != "--ocr-lang" {
+      continue
+    }
+    if i + 1 >= args.length() {
+      return Some("missing value for --ocr-lang")
+    }
+    let next = args[i + 1].trim().to_owned()
+    if next == "" || next.has_prefix("-") {
+      return Some("missing value for --ocr-lang")
+    }
+  }
+  None
 }
 
 ///|
@@ -106,27 +135,6 @@ fn maybe_print_top_level_help_or_version(args : Array[String]) -> Bool {
 }
 
 ///|
-async fn maybe_delegate_product_worker_command(args : Array[String]) -> Bool {
-  if args.length() == 0 {
-    return false
-  }
-
-  let command = args[0].trim().to_owned().to_lower()
-  if command == "ocr" {
-    match
-      @clicom.delegate_external_command(
-        "OCR conversion", "ocr", "MARKITDOWN_OCR_CLI", args,
-      ) {
-      Ok(_) => ()
-      Err(msg) => @clicom.exit_error(msg)
-    }
-    return true
-  }
-
-  false
-}
-
-///|
 async fn main {
   let cli_args : Array[String] = normalize_product_cli_args(
     @clicom.normalize_cli_args(@sys.get_cli_args()),
@@ -147,11 +155,22 @@ async fn main {
     @sys.exit(2)
     return
   }
+  if is_retired_product_command(cli_args[0]) {
+    report_retired_product_command("ocr")
+    @clisup.print_cli_usage()
+    @sys.exit(2)
+    return
+  }
   if maybe_print_top_level_help_or_version(cli_args) {
     return
   }
-  if maybe_delegate_product_worker_command(cli_args) {
-    return
+  match validate_top_level_ocr_lang_args(cli_args) {
+    Some(msg) => {
+      @clisup.exit_error(msg)
+      @clisup.print_cli_usage()
+      return
+    }
+    None => ()
   }
 
   let parser = @clisup.new_cli_parser()
@@ -177,10 +196,30 @@ async fn main {
             "normal" => {
               if positional.length() < 1 || positional.length() > 2 {
                 @clisup.exit_error(
-                  "usage: normal [--with-metadata] <input> [output]",
+                  "usage: normal [--with-metadata] [--ocr|--no-ocr] [--ocr-lang LANG] <input> [output]",
                 )
                 @clisup.print_cli_usage()
                 return
+              }
+              let force_ocr = sub.get_flag("ocr").unwrap_or(false)
+              let disable_ocr = sub.get_flag("no-ocr").unwrap_or(false)
+              let ocr_lang : String? = @clap.SimpleValue::get_option(
+                sub, "ocr-lang",
+              ) catch {
+                e => {
+                  @clisup.exit_error(e.to_string())
+                  @clisup.print_cli_usage()
+                  return
+                }
+              }
+              let ocr_policy = match
+                @clisup.parse_ocr_policy_flags(force_ocr, disable_ocr) {
+                Ok(policy) => policy
+                Err(msg) => {
+                  @clisup.exit_error(msg)
+                  @clisup.print_cli_usage()
+                  return
+                }
               }
               let input = positional[0]
               let output_opt = if positional.length() >= 2 {
@@ -198,6 +237,8 @@ async fn main {
                 false,
                 false,
                 with_metadata,
+                ocr_policy,
+                ocr_lang,
               )
             }
             "batch" => {
@@ -251,10 +292,6 @@ async fn main {
                 }
               }
             }
-            "ocr" =>
-              @clicom.exit_error(
-                "ocr command delegation should have happened before parser dispatch; rebuild cli and ocr together if this persists",
-              )
             "debug" => {
               report_relocated_command("debug", "debug")
               @clisup.print_cli_usage()

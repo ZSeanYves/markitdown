@@ -2,13 +2,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 LAB_ROOT="$ROOT/markitdown-quality-lab"
-OCR_DIR="$LAB_ROOT/ocr_samples"
+OCR_DIR="$LAB_ROOT/external_quality/ocr/_legacy_samples"
 MANIFEST="$OCR_DIR/manifest.tsv"
 TSV_DIR="$OCR_DIR/provider_outputs/tesseract_tsv"
 DEFAULT_HINT_DIR="$OCR_DIR/provider_outputs/ir_hints"
 RESEGMENTED_HINT_DIR="$OCR_DIR/provider_outputs/ir_hints_resegmented"
-TMP_DIR="$ROOT/.tmp/quality_lab_ocr_ir_hints"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}/quality/ocr_helpers"
+TMP_DIR=""
 TSV_PREVIEW_TOOL="${TSV_PREVIEW_TOOL:-}"
 
 row_count=0
@@ -21,6 +23,12 @@ fail() {
   echo "[fail] $1" >&2
   exit 1
 }
+
+cleanup() {
+  sample_cleanup_tmp_dir "$TMP_DIR"
+}
+
+trap cleanup EXIT
 
 trim_value() {
   local value="${1-}"
@@ -151,8 +159,7 @@ if [[ ! -d "$RESEGMENTED_HINT_DIR" ]]; then
 fi
 
 TOOL_BIN="$(resolve_tsv_preview_tool)"
-
-rm -rf "$TMP_DIR"
+TMP_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "quality_lab_ocr_ir_hints")"
 mkdir -p "$TMP_DIR/default" "$TMP_DIR/resegmented"
 
 line_no=0

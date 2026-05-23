@@ -115,41 +115,170 @@ async test "batch_v1 records unsupported files as failures" {
 }
 
 ///|
-test "ocr cli parser accepts rebuild stub positional args" {
+test "debug providers parser accepts explicit ocr target" {
   let parser = @clisup.new_cli_parser()
   let value = @clap.SimpleValue::new("markitdown-mb")
-  let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
-    e => fail("OCR parser should accept positional args: " + e.to_string())
-  }
-  assert_true(help == None)
-  match value.subcmd {
-    Some(sub) => {
-      assert_eq(sub.name, "ocr")
-      assert_true(sub.positional_args == ["page.png", "out.txt"])
-    }
-    None => fail("expected ocr subcommand")
-  }
-}
-
-///|
-test "ocr cli parser keeps missing optional rebuild args absent" {
-  let parser = @clisup.new_cli_parser()
-  let value = @clap.SimpleValue::new("markitdown-mb")
-  let help = parser.parse(value, ["ocr", "page.png", "out.txt"]) catch {
+  let help = parser.parse(value, ["debug", "--ocr", "providers"]) catch {
     e =>
       fail(
-        "OCR parser should accept missing optional rebuild args: " +
+        "debug providers parser should accept explicit ocr target: " +
         e.to_string(),
       )
   }
   assert_true(help == None)
   match value.subcmd {
     Some(sub) => {
-      assert_eq(sub.name, "ocr")
-      assert_true(sub.positional_args == ["page.png", "out.txt"])
+      assert_eq(sub.name, "debug")
+      assert_true(sub.positional_args == ["providers"])
+      assert_true(sub.get_flag("ocr").unwrap_or(false))
     }
-    None => fail("expected ocr subcommand")
+    None => fail("expected debug subcommand")
   }
+}
+
+///|
+test "normal cli parser accepts explicit ocr policy flags" {
+  let parser = @clisup.new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["normal", "--ocr", "page.png"]) catch {
+    e => fail("normal parser should accept --ocr flag: " + e.to_string())
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "normal")
+      assert_true(sub.positional_args == ["page.png"])
+      assert_true(sub.get_flag("ocr").unwrap_or(false))
+      assert_true(!sub.get_flag("no-ocr").unwrap_or(false))
+    }
+    None => fail("expected normal subcommand")
+  }
+}
+
+///|
+test "normal cli parser accepts explicit no-ocr policy flag" {
+  let parser = @clisup.new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, ["normal", "--no-ocr", "page.png"]) catch {
+    e => fail("normal parser should accept --no-ocr flag: " + e.to_string())
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "normal")
+      assert_true(sub.positional_args == ["page.png"])
+      assert_true(!sub.get_flag("ocr").unwrap_or(false))
+      assert_true(sub.get_flag("no-ocr").unwrap_or(false))
+    }
+    None => fail("expected normal subcommand")
+  }
+}
+
+///|
+test "normal cli parser accepts explicit ocr language option" {
+  let parser = @clisup.new_cli_parser()
+  let value = @clap.SimpleValue::new("markitdown-mb")
+  let help = parser.parse(value, [
+    "normal", "--ocr-lang", "eng+chi_sim", "page.png",
+  ]) catch {
+    e => fail("normal parser should accept --ocr-lang: " + e.to_string())
+  }
+  assert_true(help == None)
+  match value.subcmd {
+    Some(sub) => {
+      assert_eq(sub.name, "normal")
+      assert_true(sub.positional_args == ["page.png"])
+      let lang : String? = @clap.SimpleValue::get_option(sub, "ocr-lang") catch {
+        e => fail("expected --ocr-lang option: " + e.to_string())
+      }
+      assert_true(lang == Some("eng+chi_sim"))
+    }
+    None => fail("expected normal subcommand")
+  }
+}
+
+///|
+test "ocr policy flags conflict clearly" {
+  match @clisup.parse_ocr_policy_flags(true, true) {
+    Err(msg) => assert_eq(msg, "--ocr and --no-ocr cannot be used together")
+    Ok(_) => fail("expected conflicting OCR flags to fail")
+  }
+}
+
+///|
+test "ocr lang parser normalizes tesseract language list" {
+  let langs = @clisup.parse_ocr_lang_arg(Some(" eng + chi_sim "))
+  assert_true(langs == ["eng", "chi_sim"])
+}
+
+///|
+test "image auto ocr policy executes through image ocr path" {
+  let decision = @clisup.decide_ocr_policy(
+    "page.png",
+    @clisup.default_ocr_policy(),
+  )
+  assert_true(decision.use_ocr)
+  assert_true(!decision.continue_native)
+  assert_true(decision.fail_closed_message == None)
+}
+
+///|
+test "image no-ocr policy fails because no native image path exists" {
+  let decision = @clisup.decide_ocr_policy(
+    "page.png",
+    @clisup.disable_ocr_policy(),
+  )
+  assert_true(!decision.use_ocr)
+  assert_true(!decision.continue_native)
+  assert_true(
+    decision.fail_closed_message ==
+    Some(
+      "OCR disabled for image input; no native image-to-markdown conversion is available.",
+    ),
+  )
+}
+
+///|
+test "pdf force ocr policy fails closed" {
+  let decision = @clisup.decide_ocr_policy(
+    "scan.pdf",
+    @clisup.force_ocr_policy(),
+  )
+  assert_true(decision.use_ocr)
+  assert_true(!decision.continue_native)
+  assert_true(
+    decision.fail_closed_message ==
+    Some(
+      "PDF OCR is not wired in this build. Image OCR will use the main CLI OCR path; PDF OCR will require an explicit PDF OCR provider.",
+    ),
+  )
+}
+
+///|
+test "pdf auto policy stays on native path" {
+  let decision = @clisup.decide_ocr_policy(
+    "scan.pdf",
+    @clisup.default_ocr_policy(),
+  )
+  assert_true(!decision.use_ocr)
+  assert_true(decision.continue_native)
+  assert_true(decision.fail_closed_message == None)
+}
+
+///|
+test "non-image force ocr policy fails closed" {
+  let decision = @clisup.decide_ocr_policy(
+    "note.txt",
+    @clisup.force_ocr_policy(),
+  )
+  assert_true(decision.use_ocr)
+  assert_true(!decision.continue_native)
+  assert_true(
+    decision.fail_closed_message ==
+    Some(
+      "OCR is only recognized for image inputs in this build; PDF OCR is not wired.",
+    ),
+  )
 }
 
 ///|

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "cli_contract")"
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
@@ -46,7 +46,7 @@ assert_matches_expected() {
 assert_contains() {
   local path="$1"
   local needle="$2"
-  grep -Fq "$needle" "$path" || fail "expected $path to contain: $needle"
+  grep -Fq -- "$needle" "$path" || fail "expected $path to contain: $needle"
 }
 
 assert_mbtpdf_count_zero() {
@@ -102,29 +102,29 @@ ZIP_NO_META_MD="$NO_META_DIR/zip_basic_structured.md"
 ZIP_ALIAS_MD="$NO_META_DIR/zip_basic_structured_alias.md"
 
 echo "==> top-level help aliases stay local and list product surface"
-MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
+run_and_capture "$HELP_STDOUT" run_markitdown_cli --help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--help should succeed"
-assert_contains "$HELP_STDOUT" 'markitdown-mb [normal] [--with-metadata] <input> [output]'
+assert_contains "$HELP_STDOUT" 'markitdown-mb [normal] [--with-metadata] [--ocr|--no-ocr] [--ocr-lang LANG] <input> [output]'
 assert_contains "$HELP_STDOUT" 'Supported normal formats:'
-assert_contains "$HELP_STDOUT" 'markitdown-mb ocr ...'
 assert_contains "$HELP_STDOUT" 'bundled `pdf` / `zip` components'
 assert_contains "$HELP_STDOUT" 'debug'
 assert_contains "$HELP_STDOUT" 'bench'
+assert_contains "$HELP_STDOUT" 'Image inputs now auto-OCR through convert/vision when local tesseract is available'
 
-MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
+run_and_capture "$HELP_ALIAS_STDOUT" run_markitdown_cli help
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "help alias should succeed"
 assert_contains "$HELP_ALIAS_STDOUT" 'markitdown-mb help | --help | -h'
 
-MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$HELP_SHORT_STDOUT" run_markitdown_cli -h
+run_and_capture "$HELP_SHORT_STDOUT" run_markitdown_cli -h
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "-h should succeed"
 assert_contains "$HELP_SHORT_STDOUT" 'markitdown-mb version | --version'
 
 echo "==> top-level version aliases stay local and stable"
-MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$VERSION_STDOUT" run_markitdown_cli --version
+run_and_capture "$VERSION_STDOUT" run_markitdown_cli --version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "--version should succeed"
 assert_contains "$VERSION_STDOUT" 'markitdown-mb 0.3.4'
 
-MARKITDOWN_OCR_CLI="$OUT_DIR/missing-ocr-cli" run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
+run_and_capture "$VERSION_ALIAS_STDOUT" run_markitdown_cli version
 [[ "$CAPTURED_STATUS" -eq 0 ]] || fail "version alias should succeed"
 assert_matches_expected "$VERSION_STDOUT" "$VERSION_ALIAS_STDOUT"
 

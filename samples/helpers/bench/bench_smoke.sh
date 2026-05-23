@@ -6,6 +6,7 @@ source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 BENCH_ROOT="$TMP_ROOT/bench/smoke"
+CLI_TMP_ROOT="${MARKITDOWN_CLI_TMP_DIR:-$BENCH_ROOT/workspace}"
 CORPUS_PATH="$ROOT/samples/benchmark/corpus.tsv"
 RESULTS_PATH="$BENCH_ROOT/results.jsonl"
 RUNS_TSV_PATH="$BENCH_ROOT/.runs.tsv"
@@ -385,6 +386,7 @@ if ! resolve_markitdown_cli; then
   echo "failed to resolve markitdown runner" >&2
   exit 1
 fi
+export MARKITDOWN_CLI_TMP_DIR="$CLI_TMP_ROOT"
 build_smoke_runner_state
 
 rm -rf "$BENCH_ROOT"
@@ -404,6 +406,7 @@ if [[ -n "$FORMAT_FILTER" ]]; then
 fi
 echo "==> runner: $SMOKE_RUNNER_LABEL"
 echo "==> runner command: $SMOKE_RUNNER_COMMAND_BASE"
+echo "==> cli tmp root: $CLI_TMP_ROOT"
 if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
   echo "==> runner note: $CLI_RUNNER_NOTE"
 fi

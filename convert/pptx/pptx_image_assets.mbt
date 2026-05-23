@@ -457,29 +457,8 @@ fn collect_slide_image_rids(slide_xml : Bytes) -> Array[String] raise {
 
 ///|
 fn image_ext_from_target(target : String) -> String {
-  let b = @cor.basename(target).to_lower()
-
-  if b.has_suffix(".png") {
-    return "png"
+  match @cor.known_image_ext_from_path(target) {
+    Some(ext) => ext
+    None => ""
   }
-  if b.has_suffix(".jpg") {
-    return "jpg"
-  }
-  if b.has_suffix(".jpeg") {
-    return "jpeg"
-  }
-  if b.has_suffix(".gif") {
-    return "gif"
-  }
-  if b.has_suffix(".bmp") {
-    return "bmp"
-  }
-  if b.has_suffix(".tif") || b.has_suffix(".tiff") {
-    return "tiff"
-  }
-  if b.has_suffix(".webp") {
-    return "webp"
-  }
-
-  ""
 }

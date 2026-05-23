@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SAMPLE_IMPL="$ROOT/samples/helpers/validation/check_samples_impl.sh"
 CORPUS_MANIFEST_CHECK="$ROOT/samples/helpers/validation/check_corpus_manifest.sh"
-TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
+TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
+CLI_TMP_ROOT="${MARKITDOWN_CLI_TMP_DIR:-$TMP_ROOT/workspace}"
 
 CONTINUE_ON_FAILURE="${CHECK_CONTINUE:-0}"
 MODE="full"
@@ -24,18 +25,25 @@ bool_enabled() {
 
 usage() {
   cat <<'EOF'
-Usage: ./samples/check.sh [MODE]
+Usage: ./samples/check.sh [--help] [internal/debug mode]
 
-Public modes:
-  --full            Run the default release-style validation chain.
-  --markdown-only   Run only checked Markdown regression for enrolled samples.
-  --metadata-only   Run only metadata-focused sample validation.
-  --assets-only     Run only asset-focused sample validation.
-  --contracts-only  Run CLI, debug, and batch contract checks only.
-  --manifest-only   Run sample enrollment plus benchmark manifest checks.
+Main entrypoint:
+  no args            Run the full repo-local sample validation chain.
 
 Notes:
-  * The default mode is --full and covers checked regression and contract gates.
+  * Default behavior validates repo-local enrolled samples under
+    samples/main_process/ and then runs CLI/debug/batch/OCR contract checks.
+  * This is the main local validation entrypoint; failures should be treated as
+    real regressions or path/config issues, not skipped by default.
+  * Internal focused rerun modes still exist for maintainers/debugging:
+      --full
+      --main-process
+      --markdown-only
+      --metadata-only
+      --assets-only
+      --contracts-only
+      --manifest-only
+    They are internal/debug surfaces and are not the recommended user entry.
 EOF
 }
 
@@ -82,7 +90,7 @@ run_stage() {
   start="$(date +%s 2>/dev/null || printf '0')"
   echo "==> $stage"
   set +e
-  "$@"
+  env MARKITDOWN_CLI_TMP_DIR="$CLI_TMP_ROOT" "$@"
   status=$?
   set -e
   end="$(date +%s 2>/dev/null || printf '0')"
@@ -110,6 +118,7 @@ print_summary() {
     echo "- $stage: $status ($elapsed)"
   done
   echo "- temp_root: $TMP_ROOT"
+  echo "- cli_tmp_root: $CLI_TMP_ROOT"
 }
 
 run_stage_or_stop() {
@@ -128,10 +137,10 @@ run_manifest_chain() {
 }
 
 run_contract_chain() {
-  run_stage_or_stop "cli_contract" "$ROOT/samples/helpers/contracts/check_cli_contract.sh"
-  run_stage_or_stop "debug_contract" "$ROOT/samples/helpers/contracts/check_debug_contract.sh"
-  run_stage_or_stop "batch_contract" "$ROOT/samples/helpers/contracts/check_batch_contract.sh"
-  run_stage_or_stop "ocr_contract" "$ROOT/samples/helpers/contracts/check_ocr_contract.sh"
+  run_stage_or_stop "cli_contract" bash "$ROOT/samples/helpers/contracts/check_cli_contract.sh"
+  run_stage_or_stop "debug_contract" bash "$ROOT/samples/helpers/contracts/check_debug_contract.sh"
+  run_stage_or_stop "batch_contract" bash "$ROOT/samples/helpers/contracts/check_batch_contract.sh"
+  run_stage_or_stop "ocr_contract" bash "$ROOT/samples/helpers/contracts/check_ocr_contract.sh"
 }
 
 STAGE_RESULTS=()
@@ -167,6 +176,33 @@ run_stage_or_stop "markdown" "$SAMPLE_IMPL" --markdown-only
 run_stage_or_stop "metadata" "$SAMPLE_IMPL" --metadata-only
 run_stage_or_stop "assets" "$SAMPLE_IMPL" --assets-only
 run_contract_chain
+
+summary_stages=0
+summary_passed=0
+summary_failed=0
+
+count_totals_from_stage_results() {
+  local record stage status elapsed
+  for record in "${STAGE_RESULTS[@]}"; do
+    IFS='|' read -r stage status elapsed <<< "$record"
+    summary_stages=$((summary_stages + 1))
+    if [[ "$status" == "passed" ]]; then
+      summary_passed=$((summary_passed + 1))
+    else
+      summary_failed=$((summary_failed + 1))
+    fi
+  done
+}
+
+count_totals_from_stage_results
+
+echo "LOCAL SAMPLE VALIDATION SUMMARY"
+echo "- entrypoint: samples/check.sh"
+echo "- stage_count: $summary_stages"
+echo "- passed stages: $summary_passed"
+echo "- failed stages: $summary_failed"
+echo "- temp_root: $TMP_ROOT"
+echo "- cli_tmp_root: $CLI_TMP_ROOT"
 
 print_summary "$overall_status"
 exit "$overall_status"

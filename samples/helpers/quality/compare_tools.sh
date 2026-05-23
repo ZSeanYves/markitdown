@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
-OUT_ROOT="$TMP_ROOT/quality"
+OUT_ROOT="${QUALITY_TMP_DIR:-${QUALITY_TMP_ROOT:-$TMP_ROOT/quality}/compare_tools/manual-$(date +%Y%m%d-%H%M%S)-$$}"
 OUT_PATH="$OUT_ROOT/comparison.tsv"
 MANIFEST_PATH="$ROOT/samples/helpers/quality/manifest.tsv"
 LEGACY_LOCAL_MANIFEST_PATH="$ROOT/samples/quality_corpus/external_manifest.local.tsv"
@@ -13,10 +13,10 @@ detect_quality_rows_manifest() {
   local candidates=()
   candidates+=("${MARKITDOWN_QUALITY_MANIFEST:-}")
   if [[ -n "${MARKITDOWN_QUALITY_LAB:-}" ]]; then
-    candidates+=("${MARKITDOWN_QUALITY_LAB%/}/quality_rows/manifest.tsv")
+    candidates+=("${MARKITDOWN_QUALITY_LAB%/}/external_quality/_quality_rows_staging/manifest.tsv")
   fi
-  candidates+=("$ROOT/markitdown-quality-lab/quality_rows/manifest.tsv")
-  candidates+=("$ROOT/../markitdown-quality-lab/quality_rows/manifest.tsv")
+  candidates+=("$ROOT/markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv")
+  candidates+=("$ROOT/../markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv")
   candidates+=("$LEGACY_LOCAL_MANIFEST_PATH")
 
   local candidate=""

@@ -32,7 +32,7 @@ Source project:
 
 When refreshing these fixtures:
 
-1. update the canonical source copy in `markitdown-quality-lab/corpus`
+1. update the canonical source copy in `markitdown-quality-lab/external_quality/pdf/`
 2. copy only the minimal test-required subset back into this directory
 3. do not move training/eval corpora or large fixture sets back into the main
    repository

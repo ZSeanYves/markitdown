@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
-SOURCES_PATH="$QUALITY_LAB_ROOT/quality_rows/source_catalog.tsv"
+SOURCES_PATH="$QUALITY_LAB_ROOT/external_quality/_quality_rows_staging/source_catalog.tsv"
 HEADER=$'id\tformat\tpath\tsource_type\tsource_id\tlicense_status\tlicense_review_status\tprivacy\tsize_class\tfeatures\texpected_signals\tquality_tier\toriginal_url\tlocal_cache_path\tnotes'
 
 usage() {
@@ -26,9 +26,9 @@ usage:
 This helper prints one TSV row template to stdout. It does not copy files and
 does not modify any manifest automatically.
 
-Canonical row paths should prefer corpus-root-relative payload paths under
-`sources/...`. Legacy `.external/quality_corpus/...` paths remain fallback-only
-during the migration window.
+Canonical row paths should prefer repo-relative payload paths under
+`external_quality/<format>/<source>/...`. Legacy `.external/quality_corpus/...`
+paths remain fallback-only during the migration window.
 EOF
 }
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 LAB_ROOT="$ROOT/markitdown-quality-lab"
-OCR_DIR="$LAB_ROOT/ocr_samples"
+OCR_DIR="$LAB_ROOT/external_quality/ocr/_legacy_samples"
 MANIFEST="$OCR_DIR/manifest.tsv"
 PREVIEW_DIR="$OCR_DIR/provider_outputs/layout_preview"
 
