@@ -47,6 +47,57 @@ Current OCR/Vision boundary:
 * current Vision/OCR work is internal/dev scaffold, not a product PDF OCR path
 * current OCR/Vision scaffold does not change the native PDF text path
 
+## Scan-Only Diagnostics
+
+Current scan-only / low-text PDF diagnostics are report-only.
+
+They exist to help maintainers answer:
+
+* does this PDF expose native embedded text?
+* is the current extraction signal low enough that a future explicit OCR path
+  might help?
+* is this file image-heavy without changing current product behavior?
+
+Current explicit entrypoints:
+
+* `moon build debug --target native`
+* `./_build/native/debug/build/debug/debug.exe --json <input.pdf>`
+* `bash samples/helpers/contracts/check_pdf_scan_diagnostics.sh`
+* `bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+
+Current report fields come from the existing PDF inspect/debug surface and
+include:
+
+* `page_count`
+* `text_signal_level`
+* `native_text_char_count`
+* `page_image_count`
+* `has_embedded_text`
+* `has_page_images`
+* `image_only`
+* `ocr_recommended`
+
+Current interpretation rules:
+
+* these signals are diagnostic only
+* they do not trigger OCR
+* they do not probe providers
+* they do not change normal PDF Markdown output
+* they do not turn the shipped runtime into scanned-PDF support
+* `ocr_recommended` means future explicit OCR may be worth evaluating, not
+  that OCR was attempted
+
+Current summary helper contract:
+
+* `bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh` emits a
+  stable TSV summary for a tiny repo-local PDF sample set
+* it requires a prebuilt debug binary from
+  `moon build debug --target native`
+* it also supports an explicit override such as
+  `MARKITDOWN_DEBUG=_build/native/debug/build/debug/debug.exe bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+* it reads existing `debug --json` output and does not change that schema
+* it is an optional report/debug aid, not a release hard gate
+
 ## Quality-Lab Relation
 
 The repo-root quality-lab carries the offline PDF layout lab:

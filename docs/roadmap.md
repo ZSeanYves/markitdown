@@ -53,11 +53,18 @@ Next OCR/Vision steps:
 * real license-clean OCR corpus audit
 * hint artifact drift summaries or dashboards for OCR semantic changes
 * product-path attribution benchmark
-* PDF scan-only report-only diagnostics
+* extend PDF scan-only report-only diagnostics beyond the current debug/helper baseline when more explicit sample coverage is needed
 * eventual table reconstruction beyond `TableLike` hints
 * eventual product OCR decision and any future product CLI shape
 * PDF OCR provider audit
 * future heavier OCR/layout provider audit only on explicit paths
+
+Completed PDF diagnostic groundwork:
+
+* report-only PDF inspect/debug signal for `text_signal_level`
+* report-only PDF inspect/debug signal for `image_only`
+* report-only PDF inspect/debug signal for `ocr_recommended`
+* explicit contract/helper coverage for low-text vs normal-text PDF scan diagnostics
 
 Still not current:
 

@@ -46,6 +46,17 @@ cost boundaries before a release candidate. It does not enter
 `bash samples/check_quality.sh --public-only`, and it is not a release hard
 gate.
 
+Optional PDF scan diagnostics also stay outside this quick-check gate:
+
+* `moon build debug --target native`
+* `bash samples/helpers/contracts/check_pdf_scan_diagnostics.sh`
+* `bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+* `MARKITDOWN_DEBUG=_build/native/debug/build/debug/debug.exe bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+
+These helpers are report-only PDF diagnostics. They reuse the explicit debug
+path, do not run OCR, do not probe providers, do not change normal PDF output,
+and do not enter `bash samples/check_quality.sh --public-only`.
+
 Current checked facts:
 
 * `moon check`: pass

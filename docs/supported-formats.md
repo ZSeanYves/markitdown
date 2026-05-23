@@ -58,6 +58,8 @@ Current PDF/OCR rules:
 * normal conversion never OCRs and never probes OCR providers
 * encrypted PDFs fail closed
 * image/scanned PDFs are not silently upgraded into OCR
+* report-only PDF scan diagnostics may flag low-text or image-heavy PDFs on
+  explicit debug/helper paths, but they do not change normal conversion output
 * PDF OCR remains a future explicit provider path
 * default layout cleanup stays narrow and deterministic
 * previous text-only OCR prototype has been retired

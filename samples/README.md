@@ -89,6 +89,32 @@ That helper:
 * writes transient output under `.tmp/` only
 * is a smoke/diagnostic tool, not a release gate or performance promise
 
+## PDF Diagnostics Helpers
+
+Current report-only PDF scan diagnostics entrypoints:
+
+* `moon build debug --target native`
+* `bash samples/helpers/contracts/check_pdf_scan_diagnostics.sh`
+* `bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+
+That helper:
+
+* uses the explicit debug CLI path rather than the normal product path
+* checks that a normal text PDF stays `ocr_recommended=false`
+* checks that a low-text, image-heavy PDF surfaces a report-only warning signal
+* does not run OCR or `tesseract`
+* does not probe OCR providers
+* does not change normal Markdown output
+
+The summary helper:
+
+* emits stable TSV for a tiny repo-local PDF sample set
+* requires a prebuilt debug binary and does not build internally
+* supports a fixed-path override such as
+  `MARKITDOWN_DEBUG=_build/native/debug/build/debug/debug.exe bash samples/helpers/validation/summarize_pdf_scan_diagnostics.sh`
+* reuses current `debug --json` output rather than a new PDF analyzer
+* is an optional diagnostic, not a release hard gate
+
 ## Current Facts
 
 Current checked sample validation:

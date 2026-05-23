@@ -71,6 +71,32 @@ async test "debug inspect report includes pdf normalization section" {
 }
 
 ///|
+async test "debug inspect report surfaces report-only pdf scan diagnostics" {
+  let input = debug_resolve_sample(
+    "samples/main_process/pdf/assets/pdf_image_xobject.pdf",
+  )
+  let report = build_debug_report(input, {
+      output_kind: @cor.DebugOutputKind::Json,
+      with_ir: false,
+      with_metadata_summary: false,
+      with_normalization: false,
+    })
+    |> unwrap_or_fail("build low-text pdf debug report failed")
+
+  let rendered = @cor.render_debug_report(report, @cor.DebugOutputKind::Json)
+  debug_assert_contains(rendered, "\"detected_format\": \"pdf\"")
+  debug_assert_contains(rendered, "\"name\": \"pdf_backend\"")
+  debug_assert_contains(rendered, "\"ocr_mode\": \"native\"")
+  debug_assert_contains(rendered, "\"ocr_used\": false")
+  debug_assert_contains(rendered, "\"text_signal_level\": \"low\"")
+  debug_assert_contains(rendered, "\"has_page_images\": true")
+  debug_assert_contains(rendered, "\"page_image_count\": 1")
+  debug_assert_contains(rendered, "\"image_only\": false")
+  debug_assert_contains(rendered, "\"ocr_recommended\": true")
+  debug_assert_contains(rendered, "\"name\": \"pdf_pages\"")
+}
+
+///|
 async test "debug inspect report includes layout assist advisory predictions" {
   let input = debug_resolve_sample(
     "samples/main_process/pdf/pdf_heading_vs_short_sentence.pdf",
