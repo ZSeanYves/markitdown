@@ -379,38 +379,14 @@ pub fn attach_high_confidence_uri_links(
 
   for page in doc.pages {
     let matches = match_page_uri_links(page)
-    let block_by_line_span : Map[String, PdfUriLinkMatchResult] = Map([])
-
-    for result in matches {
-      match result.status {
-        PdfUriLinkMatchStatus::Matched =>
-          match result.matched_line_index {
-            Some(line_index) => {
-              let line_end = line_index + result.matched_line_count - 1
-              let key = line_index.to_string() + ":" + line_end.to_string()
-              block_by_line_span.set(key, result)
-            }
-            None => ()
-          }
-        _ => ()
-      }
-    }
 
     let blocks : Array[PdfConvertBlock] = []
     for block in page.blocks {
-      let key = block.line_start.to_string() + ":" + block.line_end.to_string()
-      let patched = match block_by_line_span.get(key) {
-        Some(result) =>
-          match (result.uri, result.matched_text) {
-            (Some(uri), Some(text)) =>
-              if text.trim() != "" && text == block.text {
-                { ..block, rich_inlines: Some([@cor.Inline::Link(text, uri)]) }
-              } else {
-                block
-              }
-            _ => block
-          }
-        None => block
+      let mut patched = block
+      for result in matches {
+        if uri_link_match_is_inside_block(result, patched) {
+          patched = attach_uri_link_to_block(patched, result)
+        }
       }
       blocks.push(patched)
     }
@@ -429,4 +405,144 @@ pub fn attach_high_confidence_uri_links(
   }
 
   { pages, }
+}
+
+///|
+fn uri_link_match_is_inside_block(
+  result : PdfUriLinkMatchResult,
+  block : PdfConvertBlock,
+) -> Bool {
+  match result.status {
+    PdfUriLinkMatchStatus::Matched => ()
+    _ => return false
+  }
+
+  match result.matched_line_index {
+    Some(line_index) => {
+      let line_end = line_index + result.matched_line_count - 1
+      line_index >= block.line_start && line_end <= block.line_end
+    }
+    None => false
+  }
+}
+
+///|
+fn attach_uri_link_to_block(
+  block : PdfConvertBlock,
+  result : PdfUriLinkMatchResult,
+) -> PdfConvertBlock {
+  match (result.uri, result.matched_text) {
+    (Some(uri), Some(text)) => {
+      let label = text.trim().to_owned()
+      if label == "" {
+        return block
+      }
+      if label == block.text {
+        match block.rich_inlines {
+          Some(inlines) =>
+            if !pdf_link_text_only_inlines(inlines) {
+              return block
+            }
+          None => ()
+        }
+        return { ..block, rich_inlines: Some([@cor.Inline::Link(label, uri)]) }
+      }
+
+      match block.rich_inlines {
+        Some(inlines) =>
+          match unique_inline_link_for_text_inlines(inlines, label, uri) {
+            Some(patched) => { ..block, rich_inlines: Some(patched) }
+            None => block
+          }
+        None =>
+          match unique_inline_link_for_block_text(block.text, label, uri) {
+            Some(inlines) => { ..block, rich_inlines: Some(inlines) }
+            None => block
+          }
+      }
+    }
+    _ => block
+  }
+}
+
+///|
+fn unique_inline_link_for_text_inlines(
+  inlines : Array[@cor.Inline],
+  label : String,
+  uri : String,
+) -> Array[@cor.Inline]? {
+  if !pdf_link_text_only_inlines(inlines) {
+    return None
+  }
+
+  unique_inline_link_for_block_text(
+    pdf_link_text_from_inlines(inlines), label, uri,
+  )
+}
+
+///|
+fn pdf_link_text_only_inlines(inlines : Array[@cor.Inline]) -> Bool {
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Text(_) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn pdf_link_text_from_inlines(inlines : Array[@cor.Inline]) -> String {
+  let mut out = ""
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Text(text) => out = out + text
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn unique_inline_link_for_block_text(
+  block_text : String,
+  label : String,
+  uri : String,
+) -> Array[@cor.Inline]? {
+  match unique_substring_range(block_text, label) {
+    Some((start, end)) => {
+      let inlines : Array[@cor.Inline] = []
+      let prefix = block_text[:start].to_owned()
+      let matched = block_text[start:end].to_owned()
+      let suffix = block_text[end:].to_owned()
+
+      if prefix != "" {
+        inlines.push(@cor.Inline::Text(prefix))
+      }
+      inlines.push(@cor.Inline::Link(matched, uri))
+      if suffix != "" {
+        inlines.push(@cor.Inline::Text(suffix))
+      }
+      Some(inlines)
+    }
+    None => None
+  }
+}
+
+///|
+fn unique_substring_range(text : String, needle : String) -> (Int, Int)? {
+  if needle == "" {
+    return None
+  }
+
+  match text.find(needle) {
+    Some(start) => {
+      let end = start + needle.length()
+      match text[end:].find(needle) {
+        Some(_) => None
+        None => Some((start, end))
+      }
+    }
+    None => None
+  }
 }

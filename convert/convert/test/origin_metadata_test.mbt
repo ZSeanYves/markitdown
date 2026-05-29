@@ -2506,8 +2506,20 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
     docx_notes_out_dir + "/docx",
     6,
   )
-  if docx_notes_doc.blocks.val.length() != 6 {
-    fail("docx notes metadata sample should emit six blocks")
+  if docx_notes_doc.blocks.val.length() != 4 {
+    fail("docx notes metadata sample should emit four body blocks")
+  }
+  // Keep the structured note IR guard aligned with the metadata sidecar
+  // snapshot below.
+  if docx_notes_doc.note_definitions.val.length() != 1 {
+    fail("docx notes metadata sample should retain one note definition")
+  }
+  let docx_note = docx_notes_doc.note_definitions.val[0]
+  if docx_note.note_id != "1" {
+    fail("docx notes metadata sample should preserve footnote id 1")
+  }
+  if docx_note.blocks.length() != 1 {
+    fail("docx notes metadata sample should retain footnote body block")
   }
   assert_metadata_snapshot(
     @cor.emit_metadata_json_with_document_properties(
@@ -2522,6 +2534,77 @@ async test "metadata_sidecar/structured_text_origin_snapshots" {
       ),
     ),
     "docx_notes_metadata.metadata.json",
+  )
+
+  let docx_notes_comments_out_dir = origin_tmp_root() +
+    "/metadata_sidecar_docx_notes_comments"
+  recreate_clean_dir(docx_notes_comments_out_dir)
+  defer cleanup_temp_dir(docx_notes_comments_out_dir)
+  ensure_dir(docx_notes_comments_out_dir + "/docx")
+  let docx_notes_comments_doc = @doc.parse_docx(
+    resolve_sample_path(
+      "samples/main_process/docx/metadata/docx_metadata_notes_comments.docx",
+    ),
+    docx_notes_comments_out_dir + "/docx",
+    6,
+  )
+  if docx_notes_comments_doc.blocks.val.length() != 4 {
+    fail("docx notes/comments metadata sample should emit four body blocks")
+  }
+  if docx_notes_comments_doc.note_definitions.val.length() != 2 {
+    fail(
+      "docx notes/comments metadata sample should retain footnote and endnote definitions",
+    )
+  }
+  let docx_footnote = docx_notes_comments_doc.note_definitions.val[0]
+  assert_eq(docx_footnote.note_id, "1")
+  assert_eq(docx_footnote.marker, "1")
+  assert_true(docx_footnote.kind == @cor.NoteKind::Footnote)
+  assert_true(
+    docx_footnote.source_kind == @cor.NoteSourceKind::DocxFootnoteBody,
+  )
+  assert_true(docx_footnote.body_status == @cor.NoteBodyStatus::Resolved)
+  if docx_footnote.blocks.length() != 1 {
+    fail("docx notes/comments metadata sample should retain footnote body")
+  }
+  match docx_footnote.blocks[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Footnote body.")
+    _ => fail("docx notes/comments footnote body should be a paragraph")
+  }
+  let docx_endnote = docx_notes_comments_doc.note_definitions.val[1]
+  assert_eq(docx_endnote.note_id, "e1")
+  assert_eq(docx_endnote.marker, "e1")
+  assert_true(docx_endnote.kind == @cor.NoteKind::Endnote)
+  assert_true(docx_endnote.source_kind == @cor.NoteSourceKind::DocxEndnoteBody)
+  assert_true(docx_endnote.body_status == @cor.NoteBodyStatus::Resolved)
+  if docx_endnote.blocks.length() != 1 {
+    fail("docx notes/comments metadata sample should retain endnote body")
+  }
+  match docx_endnote.blocks[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Endnote body.")
+    _ => fail("docx notes/comments endnote body should be a paragraph")
+  }
+  match docx_notes_comments_doc.blocks.val[2] {
+    @cor.Block::Heading(_, text) => assert_eq(text, "Comments")
+    _ => fail("docx notes/comments sample should retain comments heading")
+  }
+  match docx_notes_comments_doc.blocks.val[3] {
+    @cor.Block::ListItem(_, _, text) => assert_eq(text, "Alice: Comment body.")
+    _ => fail("docx notes/comments sample should retain comment body block")
+  }
+  assert_metadata_snapshot(
+    @cor.emit_metadata_json_with_document_properties(
+      docx_notes_comments_doc,
+      "docx_metadata_notes_comments.docx",
+      "docx",
+      "docx_metadata_notes_comments.md",
+      read_ooxml_metadata_document_properties(
+        resolve_sample_path(
+          "samples/main_process/docx/metadata/docx_metadata_notes_comments.docx",
+        ),
+      ),
+    ),
+    "docx_metadata_notes_comments.metadata.json",
   )
 
   let docx_header_footer_out_dir = origin_tmp_root() +

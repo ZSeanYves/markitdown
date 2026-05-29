@@ -6,6 +6,7 @@ fn scan_paragraph(
   styles : DocxStyles,
   numbering : DocxNumbering,
   max_heading : Int,
+  notes : DocxNoteBundle?,
   ledger : DocxReferenceLedger?,
 ) -> Array[@cor.Block] {
   let started = @env.now()
@@ -57,7 +58,7 @@ fn scan_paragraph(
 
   // 3) 段落文本
   let inline_started = @env.now()
-  let scan = scan_docx_inline_text(visible_xml, rel_ctx, ledger)
+  let scan = scan_docx_inline_text(visible_xml, rel_ctx, notes, ledger)
   inline_elapsed_ms = inline_elapsed_ms + (@env.now() - inline_started)
   let inlines = scan.inlines
   let text = scan.text
@@ -276,6 +277,7 @@ fn scan_table_block_with_context(
     rel_ctx,
     asset_by_target,
     None,
+    None,
   )
 }
 
@@ -284,6 +286,7 @@ fn scan_table_block_with_context_and_ledger(
   tbl_xml : String,
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
+  notes : DocxNoteBundle?,
   ledger : DocxReferenceLedger?,
 ) -> Array[Array[String]] {
   let started = @env.now()
@@ -352,7 +355,7 @@ fn scan_table_block_with_context_and_ledger(
         if cell_active && nested_table_depth == 0 && cell_content_start >= 0 {
           let tc_inner = profiled_slice_to_string(chars, cell_content_start, lt)
           let cell_text = collect_tc_text_with_relationships(
-            tc_inner, rel_ctx, asset_by_target, ledger,
+            tc_inner, rel_ctx, asset_by_target, notes, ledger,
           )
           current_cells.val.push(cell_text)
           cell_active = false

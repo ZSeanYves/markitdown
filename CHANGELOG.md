@@ -15,10 +15,12 @@
 ### Validation snapshot
 
 * `moon test`: `1579 passed`
-* `./samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0` failures
+* `./samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
 * public-only quality: `24 rows / 0 skipped / 0 expected_fail`
-* full quality: `330 rows / 1 skipped / 0 expected_fail`
-* focused PDF quality: `101 rows / 1 skipped / 0 expected_fail`
+* full quality: external-corpus scoped; row counts depend on the checked-out
+  `markitdown-quality-lab` manifest
+* focused PDF quality: `79 rows / 0 failed / 1 skipped / 0 expected_fail`
 
 ### Product/runtime boundary
 
@@ -32,6 +34,26 @@
 
 ### Recent structural changes
 
+* PDF native text-flow recovery has been tightened for:
+  * paragraph soft merge across nearby fragments
+  * superscript-style note marker attachment through shared note refs
+  * numbered heading split/promotion when the text signal is strong
+  * two-column negative guards that prevent cross-column paragraph merge
+* PDF annotation-link handling now upgrades a high-confidence URI annotation to
+  Markdown link syntax when the visible label is a unique substring inside a
+  merged text block, while duplicate-label or invisible-only annotations stay
+  conservative
+* shared note IR support now covers:
+  * `Inline::NoteRef` for inline references
+  * document-level `Document.note_definitions` for resolved note bodies
+  * metadata sidecar `note_definitions` plus `summary.note_definition_count`
+    for resolved note bodies
+  * DOCX structured footnotes and endnotes as full Markdown footnotes
+  * Markdown native footnote passthrough and normalization as full Markdown
+    footnotes when bodies exist
+  * EPUB explicit strong noterefs as full Markdown footnotes
+  * PDF marker-only fallback when the marker is known but body association is
+    not reliable
 * quality-lab migration completed for:
   * external corpus payloads
   * tracked full/local quality rows
@@ -53,5 +75,22 @@
 
 * `0 expected_fail` is not a blanket format-completeness claim
 * OCR/scanned behavior remains explicit-only
+* PDF footnote body association is still future work; PDF note output remains
+  marker-only unless a resolved body exists
+* broader HTML conservative noteref inference remains future work beyond the
+  explicit same-document noteref/body pairs already recognized
+* runtime model/gate loading and OCR provider expansion remain out of the
+  normal product path
 * benchmark and compare numbers remain local and sample-scoped
 * quality-lab is not a release artifact
+
+### Architecture consolidation audit
+
+* added a current-state architecture/package/rule-system consolidation audit
+  covering package boundaries, PDF rule layers, metadata sidecar status, OCR
+  boundary requirements, and the next safe refactor sequence
+* fixed current-doc navigation for the doc-parse package notes
+* expanded metadata sidecars to include document-level note definitions only
+  when resolved note bodies are present
+* no package move, runtime model hook, OCR provider implementation, or default
+  converter Markdown semantic change is included in this pass

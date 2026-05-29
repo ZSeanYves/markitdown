@@ -25,6 +25,7 @@ priv struct DocumentMetadata {
   markdown_file : String
   document : MetadataDocumentProperties?
   summary : MetadataSummary
+  note_definitions : Array[MetadataNoteDefinition]
   // Block-oriented view: aligns with markdown/IR order.
   blocks : Array[MetadataBlock]
   // Asset-oriented view: aligns with asset index and external retrieval needs.
@@ -98,6 +99,19 @@ pub fn metadata_document_properties_with_extras(
 priv struct MetadataSummary {
   block_count : Int
   asset_count : Int
+  note_definition_count : Int
+}
+
+///|
+priv struct MetadataNoteDefinition {
+  note_id : String
+  marker : String
+  kind : String
+  source_kind : String
+  body_status : String
+  placement : String
+  text_preview : String
+  block_count : Int
 }
 
 ///|
@@ -220,6 +234,7 @@ fn build_document_metadata(
 ) -> DocumentMetadata {
   let blocks = build_metadata_blocks(doc, format)
   let assets = build_metadata_assets(doc, format)
+  let note_definitions = build_metadata_note_definitions(doc)
 
   {
     version: "1",
@@ -227,7 +242,12 @@ fn build_document_metadata(
     format,
     markdown_file,
     document,
-    summary: { block_count: blocks.length(), asset_count: assets.length() },
+    summary: {
+      block_count: blocks.length(),
+      asset_count: assets.length(),
+      note_definition_count: note_definitions.length(),
+    },
+    note_definitions,
     blocks,
     assets,
   }
@@ -386,6 +406,19 @@ fn inline_text(inlines : Array[Inline]) -> String {
       Inline::Text(text) => out.write_string(text)
       Inline::Break => out.write_string("\n")
       Inline::Link(text, _url) => out.write_string(text)
+      Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out.write_string("[^" + note.note_id.trim().to_owned() + "]")
+        } else if marker != "" {
+          if marker.has_prefix("^") {
+            out.write_string(marker)
+          } else {
+            out.write_string("^" + marker)
+          }
+        }
+      }
     }
   }
 
@@ -410,6 +443,88 @@ fn table_text(rows : Array[Array[String]]) -> String {
   }
 
   out.to_string()
+}
+
+///|
+fn build_metadata_note_definitions(
+  doc : Document,
+) -> Array[MetadataNoteDefinition] {
+  let out : Array[MetadataNoteDefinition] = []
+
+  for note in doc.note_definitions.val {
+    out.push({
+      note_id: note.note_id,
+      marker: note.marker,
+      kind: note_kind_metadata_name(note.kind),
+      source_kind: note_source_kind_metadata_name(note.source_kind),
+      body_status: note_body_status_metadata_name(note.body_status),
+      placement: note_placement_metadata_name(note.placement),
+      text_preview: note_definition_text_preview(note.blocks),
+      block_count: note.blocks.length(),
+    })
+  }
+
+  out
+}
+
+///|
+fn note_definition_text_preview(blocks : Array[Block]) -> String {
+  let parts : Array[String] = []
+  for block in blocks {
+    let text = block_text_for_metadata(block).trim().to_owned()
+    if text != "" {
+      parts.push(text)
+    }
+  }
+  parts.join("\n")
+}
+
+///|
+fn note_kind_metadata_name(kind : NoteKind) -> String {
+  match kind {
+    NoteKind::Footnote => "footnote"
+    NoteKind::Endnote => "endnote"
+    NoteKind::Citation => "citation"
+    NoteKind::Unknown => "unknown"
+  }
+}
+
+///|
+fn note_source_kind_metadata_name(kind : NoteSourceKind) -> String {
+  match kind {
+    NoteSourceKind::PdfSuperscript => "pdf_superscript"
+    NoteSourceKind::DocxFootnoteRef => "docx_footnote_ref"
+    NoteSourceKind::DocxEndnoteRef => "docx_endnote_ref"
+    NoteSourceKind::DocxFootnoteBody => "docx_footnote_body"
+    NoteSourceKind::DocxEndnoteBody => "docx_endnote_body"
+    NoteSourceKind::HtmlSup => "html_sup"
+    NoteSourceKind::HtmlNoteRef => "html_note_ref"
+    NoteSourceKind::HtmlFootnoteBody => "html_footnote_body"
+    NoteSourceKind::MarkdownFootnoteRef => "markdown_footnote_ref"
+    NoteSourceKind::MarkdownFootnoteBody => "markdown_footnote_body"
+    NoteSourceKind::EpubNoteRef => "epub_note_ref"
+    NoteSourceKind::EpubFootnoteBody => "epub_footnote_body"
+    NoteSourceKind::Unknown => "unknown"
+  }
+}
+
+///|
+fn note_body_status_metadata_name(status : NoteBodyStatus) -> String {
+  match status {
+    NoteBodyStatus::Resolved => "resolved"
+    NoteBodyStatus::Missing => "missing"
+    NoteBodyStatus::Unknown => "unknown"
+  }
+}
+
+///|
+fn note_placement_metadata_name(placement : NotePlacement) -> String {
+  match placement {
+    NotePlacement::PageBottom => "page_bottom"
+    NotePlacement::DocumentEnd => "document_end"
+    NotePlacement::InlineSection => "inline_section"
+    NotePlacement::Unknown => "unknown"
+  }
 }
 
 ///|
@@ -628,6 +743,13 @@ pub fn emit_metadata_json_with_document_properties(
 
 ///|
 fn serialize_document_metadata(meta : DocumentMetadata) -> String {
+  let note_definitions_json = if meta.note_definitions.is_empty() {
+    ""
+  } else {
+    "  \"note_definitions\": " +
+    serialize_note_definitions(meta.note_definitions) +
+    ",\n"
+  }
   "{\n" +
   "  \"version\": " +
   meta_json_string(meta.version) +
@@ -647,6 +769,7 @@ fn serialize_document_metadata(meta : DocumentMetadata) -> String {
   "  \"summary\": " +
   serialize_summary(meta.summary) +
   ",\n" +
+  note_definitions_json +
   "  \"blocks\": " +
   serialize_blocks(meta.blocks) +
   ",\n" +
@@ -693,14 +816,15 @@ fn serialize_document_properties(
 
 ///|
 fn serialize_summary(summary : MetadataSummary) -> String {
-  "{\n" +
-  "    \"block_count\": " +
-  summary.block_count.to_string() +
-  ",\n" +
-  "    \"asset_count\": " +
-  summary.asset_count.to_string() +
-  "\n" +
-  "  }"
+  let fields : Array[String] = []
+  fields.push("\"block_count\": " + summary.block_count.to_string())
+  fields.push("\"asset_count\": " + summary.asset_count.to_string())
+  if summary.note_definition_count > 0 {
+    fields.push(
+      "\"note_definition_count\": " + summary.note_definition_count.to_string(),
+    )
+  }
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 4) + "\n  }"
 }
 
 ///|
@@ -902,6 +1026,29 @@ fn push_json_table_field(
     Some(v) => fields.push("\"" + name + "\": " + serialize_table_block(v))
     None => ()
   }
+}
+
+///|
+fn serialize_note_definitions(notes : Array[MetadataNoteDefinition]) -> String {
+  let parts : Array[String] = []
+  for note in notes {
+    parts.push(serialize_note_definition(note))
+  }
+  "[\n" + meta_indent_lines(meta_join_json_items(parts), 4) + "\n  ]"
+}
+
+///|
+fn serialize_note_definition(note : MetadataNoteDefinition) -> String {
+  let fields : Array[String] = []
+  fields.push("\"note_id\": " + meta_json_string(note.note_id))
+  fields.push("\"marker\": " + meta_json_string(note.marker))
+  fields.push("\"kind\": " + meta_json_string(note.kind))
+  fields.push("\"source_kind\": " + meta_json_string(note.source_kind))
+  fields.push("\"body_status\": " + meta_json_string(note.body_status))
+  fields.push("\"placement\": " + meta_json_string(note.placement))
+  fields.push("\"text_preview\": " + meta_json_string(note.text_preview))
+  fields.push("\"block_count\": " + note.block_count.to_string())
+  "{\n" + meta_indent_lines(meta_join_json_fields(fields), 2) + "\n}"
 }
 
 ///|

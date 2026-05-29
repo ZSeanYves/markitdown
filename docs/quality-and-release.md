@@ -113,10 +113,12 @@ Future PDF OCR quality boundary:
 Current checked facts:
 
 * `moon check`: pass
-* `bash samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0`
-  failures
-* `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
-  on the checked-out `markitdown-quality-lab` contents
+* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local quality-lab checkout
+* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
+  `0` expected_fail on the current repo-local quality-lab checkout
 
 ## Broader Repo-Local Validation
 
@@ -252,7 +254,18 @@ Current checked facts:
 * `bash samples/check_quality.sh` runs only lab-managed rows from
   `markitdown-quality-lab/external_quality/_quality_rows_staging/manifest.tsv`
 * `bash samples/check_quality.sh --format pdf` runs the focused PDF slice of
-  that same external corpus
+  that same external corpus; current local snapshot is `79` rows / `0` failed /
+  `1` skipped / `0` expected_fail
+* `bash samples/check_quality.sh` currently passes on `315` approved rows with
+  `0` failed / `1` skipped / `0` expected_fail in the repo-local quality-lab
+  checkout
+
+The current external corpus includes focused signal-level rows for
+Python-Markdown footnote fixtures, official IRS/NIOSH PDF form/manual samples,
+and DOCX note-definition behavior after footnotes/endnotes moved out of normal
+body appendix sections. License-clear external EPUB/HTML strong-noteref samples
+remain a future expansion target; current strong-noteref behavior is still
+covered by repo-local synthetic samples.
 
 Each `bash samples/check_quality.sh` invocation now creates an isolated
 `.tmp/quality/runs/<run_id>/` workspace. Full and filtered runs can therefore

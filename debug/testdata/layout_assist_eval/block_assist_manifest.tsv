@@ -1,0 +1,5 @@
+sample_id	pdf_path	record_kind	split	label_source	label_path	notes
+pdf_heading_vs_short_sentence	samples/main_process/pdf/pdf_heading_vs_short_sentence.pdf	block	heldout	manual	debug/testdata/layout_assist_eval/pdf_heading_vs_short_sentence.tsv	heading/body/caption held-out sample
+pdf_heading_false_positive_phase15	samples/main_process/pdf/pdf_heading_false_positive_phase15.pdf	block	heldout	manual	debug/testdata/layout_assist_eval/pdf_heading_false_positive_phase15.tsv	heading false-positive held-out sample
+pdf_header_footer_variants_phase15	samples/main_process/pdf/pdf_header_footer_variants_phase15.pdf	block	heldout	manual	debug/testdata/layout_assist_eval/pdf_header_footer_variants_phase15.tsv	header/footer and body held-out sample
+pdf_image_no_caption_negative	samples/main_process/pdf/metadata/pdf_image_no_caption_negative.pdf	block	heldout	manual	debug/testdata/layout_assist_eval/pdf_image_no_caption_negative.tsv	body near image but not caption held-out sample

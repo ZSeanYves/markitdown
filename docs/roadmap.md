@@ -7,12 +7,12 @@ This page tracks the current forward-looking direction for the repository.
 Current checked baseline:
 
 * `moon test`: `1579 passed`
-* `bash samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0`
-  failures
-* `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
-  on the checked-out `markitdown-quality-lab` contents
-* `bash samples/check_quality.sh --format pdf`: focused PDF slice of that same
-  external corpus
+* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local quality-lab checkout
+* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
+  `0` expected_fail on the current repo-local quality-lab checkout
 
 Current structural baseline:
 
@@ -20,7 +20,22 @@ Current structural baseline:
 * repo-root `markitdown-quality-lab/` carries external corpus, full quality
   rows, and offline training/eval assets
 * normal PDF layout behavior is distilled into MoonBit rules/gates
+* shared note IR covers PDF marker-only refs, DOCX and Markdown structured
+  notes, EPUB explicit noteref bodies, and explicit HTML noteref/body pairs
 * no runtime model JSON dependency exists today
+
+Recently completed:
+
+* PDF text-flow hardening for paragraph soft merge, superscript marker
+  attachment, numbered heading split/promotion, and two-column negative guards
+* PDF annotation-link quality closure for high-confidence visible URI labels
+  inside merged text blocks
+* DOCX note sidecar snapshot alignment after notes moved from body paragraphs
+  to document-level note definitions
+* unified note IR support for DOCX, Markdown, EPUB strong noteref, and PDF
+  marker-only fallback
+* external quality corpus refresh for Python-Markdown footnote fixtures,
+  official IRS/NIOSH PDF samples, and DOCX note-definition signal alignment
 
 ## Near-Term Direction
 
@@ -81,6 +96,9 @@ Still future:
 
 * explicit PDF OCR provider wiring
 * OCR provider selection beyond the current fixed local `tesseract` image path
+* conservative HTML footnote inference beyond explicit noteref/body semantics
+* PDF footnote body association after reliable body matching exists
+* richer HTML/EPUB footnote body blocks when nested structure matters
 * `--psm` / `--oem` product options if they are ever proven necessary
 * real-world OCR corpus expansion beyond tiny main-repo fixtures
 * Markdown reconstruction for OCR-derived tables, key-value layouts, and

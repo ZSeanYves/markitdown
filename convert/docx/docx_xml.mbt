@@ -644,6 +644,7 @@ fn render_docx_note_entry_markdown(
         rel_ctx,
         asset_by_target,
         None,
+        None,
       )
       if rows.length() > 0 {
         @cor.push(
@@ -678,6 +679,7 @@ fn render_docx_note_entry_markdown(
         styles,
         numbering,
         0,
+        None,
         None,
       )
       for block in blocks {
@@ -1194,6 +1196,7 @@ fn scan_docx_text_box_blocks(
 fn scan_docx_inline_text(
   block : String,
   rel_ctx : DocxRelationshipContext,
+  notes : DocxNoteBundle?,
   ledger : DocxReferenceLedger?,
 ) -> DocxInlineScanResult {
   let started = @env.now()
@@ -1317,7 +1320,11 @@ fn scan_docx_inline_text(
             }
             let marker = "[^" + index.to_string() + "]"
             text_out.write_string(marker)
-            out.push(@cor.Inline::Text(marker))
+            out.push(
+              @cor.Inline::NoteRef(
+                make_docx_footnote_note_ref(index, id, notes),
+              ),
+            )
           }
         }
         None => ()
@@ -1339,7 +1346,9 @@ fn scan_docx_inline_text(
             }
             let marker = "[^e" + index.to_string() + "]"
             text_out.write_string(marker)
-            out.push(@cor.Inline::Text(marker))
+            out.push(
+              @cor.Inline::NoteRef(make_docx_endnote_note_ref(index, id, notes)),
+            )
           }
         }
         None => ()
@@ -1454,6 +1463,64 @@ fn scan_docx_inline_text(
     text_out.to_string(),
   )
   { inlines: normalized_inlines, text: @cor.trim_string(normalized_text) }
+}
+
+///|
+fn docx_footnote_note_id(index : Int) -> String {
+  index.to_string()
+}
+
+///|
+fn docx_endnote_note_id(index : Int) -> String {
+  "e" + index.to_string()
+}
+
+///|
+fn make_docx_footnote_note_ref(
+  index : Int,
+  source_id : Int,
+  notes : DocxNoteBundle?,
+) -> @cor.NoteRef {
+  let resolved = match notes {
+    Some(bundle) => bundle.footnotes_by_id.contains(source_id)
+    None => false
+  }
+  {
+    note_id: docx_footnote_note_id(index),
+    marker: index.to_string(),
+    kind: @cor.NoteKind::Footnote,
+    source_kind: @cor.NoteSourceKind::DocxFootnoteRef,
+    confidence: @cor.NoteConfidence::High,
+    body_status: if resolved {
+      @cor.NoteBodyStatus::Resolved
+    } else {
+      @cor.NoteBodyStatus::Missing
+    },
+  }
+}
+
+///|
+fn make_docx_endnote_note_ref(
+  index : Int,
+  source_id : Int,
+  notes : DocxNoteBundle?,
+) -> @cor.NoteRef {
+  let resolved = match notes {
+    Some(bundle) => bundle.endnotes_by_id.contains(source_id)
+    None => false
+  }
+  {
+    note_id: docx_endnote_note_id(index),
+    marker: "e" + index.to_string(),
+    kind: @cor.NoteKind::Endnote,
+    source_kind: @cor.NoteSourceKind::DocxEndnoteRef,
+    confidence: @cor.NoteConfidence::High,
+    body_status: if resolved {
+      @cor.NoteBodyStatus::Resolved
+    } else {
+      @cor.NoteBodyStatus::Missing
+    },
+  }
 }
 
 ///|
@@ -1582,6 +1649,21 @@ fn normalize_docx_note_marker_spacing_inlines(
     let inline = inlines[i]
     match inline {
       @cor.Inline::Text(text) if is_docx_note_marker_text(text) => {
+        let moved_space = trim_trailing_docx_whitespace_from_last_text_inline(
+          out,
+        )
+        if moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1) {
+          out.push(@cor.Inline::Text(" "))
+          pending_space_after_note = false
+        }
+        out.push(inline)
+        if !(moved_space &&
+          remaining_docx_inlines_are_whitespace_only(inlines, i + 1)) {
+          pending_space_after_note = moved_space
+        }
+      }
+      @cor.Inline::NoteRef(_note) => {
         let moved_space = trim_trailing_docx_whitespace_from_last_text_inline(
           out,
         )
@@ -1782,11 +1864,31 @@ fn last_inline_text_for_spacing(out : Array[@cor.Inline]) -> String? {
         } else {
           return Some(text)
         }
+      @cor.Inline::NoteRef(note) =>
+        return Some(docx_note_ref_display_text(note))
       _ => return None
     }
   }
 
   None
+}
+
+///|
+fn docx_note_ref_display_text(note : @cor.NoteRef) -> String {
+  if note.body_status == @cor.NoteBodyStatus::Resolved &&
+    note.note_id.trim() != "" {
+    return "[^" + note.note_id.trim().to_owned() + "]"
+  }
+
+  if note.marker.trim() == "" {
+    return ""
+  }
+
+  if note.marker.has_prefix("^") {
+    note.marker
+  } else {
+    "^" + note.marker
+  }
 }
 
 ///|
@@ -1966,6 +2068,7 @@ fn collect_tc_text_with_relationships(
   tc_inner : String,
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
+  notes : DocxNoteBundle?,
   ledger : DocxReferenceLedger?,
 ) -> String {
   let stripped_inner = strip_docx_text_box_content_xml(tc_inner)
@@ -1991,7 +2094,7 @@ fn collect_tc_text_with_relationships(
 
     let p_xml = profiled_slice_to_string(chars, p2 + 1, p3)
     let text = @cor.trim_string(
-      collect_tc_paragraph_text(p_xml, rel_ctx, asset_by_target, ledger),
+      collect_tc_paragraph_text(p_xml, rel_ctx, asset_by_target, notes, ledger),
     )
     if !@cor.is_blank(text) {
       parts.push(text)
@@ -2012,9 +2115,10 @@ fn collect_tc_paragraph_text(
   p_xml : String,
   rel_ctx : DocxRelationshipContext,
   asset_by_target : Map[String, String],
+  notes : DocxNoteBundle?,
   ledger : DocxReferenceLedger?,
 ) -> String {
-  let scan = scan_docx_inline_text(p_xml, rel_ctx, ledger)
+  let scan = scan_docx_inline_text(p_xml, rel_ctx, notes, ledger)
   let inline_text = render_docx_inline_markdown(scan.inlines, scan.text)
   match read_docx_image_context(p_xml, rel_ctx, asset_by_target) {
     Some(img) =>
@@ -2049,6 +2153,17 @@ fn render_docx_inline_markdown(
       @cor.Inline::Break => out.write_string("\n")
       @cor.Inline::Link(text, href) =>
         out.write_string("[" + text + "](" + href + ")")
+      @cor.Inline::NoteRef(note) =>
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out.write_string("[^" + note.note_id.trim().to_owned() + "]")
+        } else if note.marker.trim() != "" {
+          if note.marker.has_prefix("^") {
+            out.write_string(note.marker)
+          } else {
+            out.write_string("^" + note.marker)
+          }
+        }
     }
   }
   @cor.trim_string(out.to_string())

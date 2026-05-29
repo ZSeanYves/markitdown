@@ -156,6 +156,14 @@ Current developer-only tools and diagnostics:
 
 ## Quick Start
 
+Minimum environment for development and validation:
+
+* MoonBit native toolchain with `moon`
+* `bash` plus common POSIX/coreutils shell tools for sample helpers
+* Python for selected validation/quality helper scripts, not for normal runtime
+* optional `tesseract` plus installed tessdata for image OCR
+* optional repo-root `markitdown-quality-lab/` for external quality checks
+
 Build the product binaries:
 
 ```bash
@@ -228,13 +236,13 @@ Other public entrypoints:
 
 | Format | Current scope |
 | --- | --- |
-| DOCX | conservative document structure, links, notes, images, tables, and text boxes |
+| DOCX | conservative document structure, links, structured footnotes/endnotes, images, tables, and text boxes |
 | PPTX | conservative presentation structure, notes, links, tables, grouped content, and images |
 | XLSX | workbook/sheet/cell extraction with conservative formula and merged-cell policy |
-| PDF | native text-PDF path with explicit OCR boundary and narrow gated-normal layout cleanup |
+| PDF | native text-PDF path with explicit OCR boundary, high-confidence annotation links, marker-only note fallback, and narrow text-flow/layout cleanup |
 | ZIP | archive/container conversion with nested dispatch and delegated PDF handling |
-| EPUB | ZIP + OPF + spine + nav/NCX + XHTML chapter lowering |
-| HTML / HTM | lightweight safe parser; no browser engine or JS execution |
+| EPUB | ZIP + OPF + spine + nav/NCX + XHTML chapter lowering, explicit strong noteref footnotes |
+| HTML / HTM | lightweight safe parser with explicit noteref/body support; no browser engine, JS execution, or generic `<sup>` footnote inference |
 | CSV / TSV | structured table lowering with conservative encoding/dialect handling |
 | JSON / YAML / XML / TXT / Markdown | source-preserving or conservative structured/text paths |
 
@@ -246,10 +254,14 @@ support matrix and explicit limits.
 Main-repo validation is currently green:
 
 * `moon test`: `1579 passed`
-* `bash samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0`
-  failures
-* `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
-  on the checked-out `markitdown-quality-lab` contents
+* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local
+  `markitdown-quality-lab` checkout
+* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
+  `0` expected_fail on the current repo-local `markitdown-quality-lab`
+  checkout
 
 Interpretation:
 

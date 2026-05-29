@@ -292,6 +292,66 @@ test "pdf to ir appends internal destination links conservatively in appendix" {
 }
 
 ///|
+test "pdf to ir splits run-in numbered heading from paragraph body" {
+  let block = {
+    ..make_ir_block(
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "1 Customizable and conversable agents. AutoGen uses a generic design of agents that can leverage LLMs, human inputs, tools, or a combination of them.",
+      None,
+    ),
+    is_heading_candidate: false,
+    source_block_kind: @model.PdfTextBlockKind::Text,
+    source_block_dominant_font_size: Some(12.0),
+    dominant_font_size: Some(12.0),
+    first_line_height: Some(12.0),
+    last_line_height: Some(12.0),
+  }
+  let doc = convert_pdf_blocks_to_ir(
+    {
+      pages: [
+        {
+          _page_index: 0,
+          media_box: Some(ir_rect(0.0, 0.0, 595.0, 842.0)),
+          crop_box: None,
+          lines: [],
+          blocks: [block],
+          images: [],
+          annotations: [],
+          forms: [],
+          objects: [PdfConvertPageObject::TextBlock(block)],
+        },
+      ],
+    },
+    6,
+    "sample.pdf",
+  )
+
+  if doc.blocks.val.length() != 2 {
+    fail(
+      "expected run-in numbered heading split into 2 blocks, got " +
+      doc.blocks.val.length().to_string(),
+    )
+  }
+
+  match doc.blocks.val[0] {
+    @cor.Block::Heading(level, text) => {
+      assert_eq(level, 1)
+      assert_eq(text, "1 Customizable and conversable agents.")
+    }
+    _ => fail("expected first block to be heading")
+  }
+
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) =>
+      assert_eq(
+        text, "AutoGen uses a generic design of agents that can leverage LLMs, human inputs, tools, or a combination of them.",
+      )
+    _ => fail("expected second block to be paragraph")
+  }
+}
+
+///|
 test "pdf to ir keeps named destination labels when internal links resolve to a page" {
   let block = {
     ..make_ir_block(

@@ -5,6 +5,7 @@ Start here if you want the current project docs rather than historical notes.
 ## Current Theme Docs
 
 * [Architecture](./architecture.md)
+* [Architecture Consolidation Audit](./architecture-consolidation-audit.md)
 * [Supported Formats](./supported-formats.md)
 * [PDF](./pdf.md)
 * [Quality And Release](./quality-and-release.md)

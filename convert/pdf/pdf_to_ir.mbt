@@ -474,6 +474,30 @@ fn emit_text_block_to_ir(
     }
     PdfConvertBlockKind::Paragraph => {
       let pt = text.trim().to_owned()
+      match try_split_run_in_numbered_heading_for_ir(pt) {
+        Some((heading_text, body_text, depth)) =>
+          if !should_never_emit_heading(heading_text) {
+            let level = map_section_depth_to_heading_level_for_ir(
+              depth, has_document_title, max_heading,
+            )
+            push_pdf_block_with_origin(
+              out,
+              source_name,
+              _page_index,
+              @cor.Block::Heading(level, heading_text),
+            )
+            if body_text != "" {
+              push_pdf_block_with_origin(
+                out,
+                source_name,
+                _page_index,
+                @cor.Block::Paragraph(body_text),
+              )
+            }
+            return
+          }
+        None => ()
+      }
       match try_parse_bullet_list_item_for_ir(pt) {
         Some(item_text) =>
           if should_emit_pdf_bullet_list_item(
@@ -505,93 +529,69 @@ fn emit_text_block_to_ir(
           } else {
             match block.rich_inlines {
               Some(inlines) =>
-                @cor.push_with_origin(
+                push_pdf_block_with_origin(
                   out,
+                  source_name,
+                  _page_index,
                   @cor.Block::RichParagraph(inlines),
-                  Some({
-                    source_name: Some(source_name),
-                    page: Some(_page_index + 1),
-                    slide: None,
-                    sheet: None,
-                    block_index: Some(out.blocks.val.length()),
-                    heading_path: None,
-                    line_start: None,
-                    line_end: None,
-                    row_index: None,
-                    column_index: None,
-                    object_ref: None,
-                    relationship_id: None,
-                    key_path: None,
-                  }),
                 )
               None =>
-                @cor.push_with_origin(
+                push_pdf_block_with_origin(
                   out,
+                  source_name,
+                  _page_index,
                   @cor.Block::Paragraph(pt),
-                  Some({
-                    source_name: Some(source_name),
-                    page: Some(_page_index + 1),
-                    slide: None,
-                    sheet: None,
-                    block_index: Some(out.blocks.val.length()),
-                    heading_path: None,
-                    line_start: None,
-                    line_end: None,
-                    row_index: None,
-                    column_index: None,
-                    object_ref: None,
-                    relationship_id: None,
-                    key_path: None,
-                  }),
                 )
             }
           }
         None =>
           match block.rich_inlines {
             Some(inlines) =>
-              @cor.push_with_origin(
+              push_pdf_block_with_origin(
                 out,
+                source_name,
+                _page_index,
                 @cor.Block::RichParagraph(inlines),
-                Some({
-                  source_name: Some(source_name),
-                  page: Some(_page_index + 1),
-                  slide: None,
-                  sheet: None,
-                  block_index: Some(out.blocks.val.length()),
-                  heading_path: None,
-                  line_start: None,
-                  line_end: None,
-                  row_index: None,
-                  column_index: None,
-                  object_ref: None,
-                  relationship_id: None,
-                  key_path: None,
-                }),
               )
             None =>
-              @cor.push_with_origin(
+              push_pdf_block_with_origin(
                 out,
+                source_name,
+                _page_index,
                 @cor.Block::Paragraph(pt),
-                Some({
-                  source_name: Some(source_name),
-                  page: Some(_page_index + 1),
-                  slide: None,
-                  sheet: None,
-                  block_index: Some(out.blocks.val.length()),
-                  heading_path: None,
-                  line_start: None,
-                  line_end: None,
-                  row_index: None,
-                  column_index: None,
-                  object_ref: None,
-                  relationship_id: None,
-                  key_path: None,
-                }),
               )
           }
       }
     }
   }
+}
+
+///|
+fn push_pdf_block_with_origin(
+  out : @cor.Document,
+  source_name : String,
+  page_index : Int,
+  block : @cor.Block,
+) -> Unit {
+  @cor.push_with_origin(
+    out,
+    block,
+    Some({
+      source_name: Some(source_name),
+      page: Some(page_index + 1),
+      slide: None,
+      sheet: None,
+      block_index: Some(out.blocks.val.length()),
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: None,
+      key_path: None,
+    }),
+  )
 }
 
 ///|
@@ -616,6 +616,148 @@ fn try_parse_bullet_list_item_for_ir(text : String) -> String? {
   }
 
   None
+}
+
+///|
+fn try_split_run_in_numbered_heading_for_ir(
+  text : String,
+) -> (String, String, Int)? {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return None
+  }
+
+  let arr = t.to_array()
+  if arr.is_empty() || !(arr[0] >= '0' && arr[0] <= '9') {
+    return None
+  }
+
+  let heading_end = find_run_in_heading_end_for_ir(arr)
+  if heading_end <= 0 || heading_end >= arr.length() {
+    return None
+  }
+
+  let heading = t[:heading_end].trim().to_owned()
+  let body = t[heading_end:].trim().to_owned()
+  if heading == "" || body == "" {
+    return None
+  }
+
+  if !looks_like_run_in_heading_text_for_ir(heading, body) {
+    return None
+  }
+
+  let depth = infer_section_depth_for_ir(heading)
+  Some((heading, body, if depth > 0 { depth } else { 1 }))
+}
+
+///|
+fn find_run_in_heading_end_for_ir(chars : Array[Char]) -> Int {
+  let mut i = 0
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch == '.' || ch == '。' || ch == ':' || ch == '：' {
+      return i + 1
+    }
+    i += 1
+  }
+  -1
+}
+
+///|
+fn looks_like_run_in_heading_text_for_ir(
+  heading : String,
+  body : String,
+) -> Bool {
+  let h = heading.trim().to_owned()
+  let b = body.trim().to_owned()
+  if h == "" || b == "" {
+    return false
+  }
+
+  if is_probable_page_number_for_ir(h) ||
+    looks_like_list_item_sentence_for_ir(h) ||
+    looks_like_figure_or_table_caption_for_ir(h) ||
+    looks_like_intro_phrase_for_ir(h) {
+    return false
+  }
+
+  if infer_section_depth_for_ir(h) <= 0 {
+    return false
+  }
+
+  if !starts_with_upper_ascii_or_digit_section_for_ir(h) {
+    return false
+  }
+
+  if !body_looks_like_paragraph_start_for_ir(b) {
+    return false
+  }
+
+  let words = heading_word_count_for_ir(h)
+  words >= 2 && words <= 8
+}
+
+///|
+fn starts_with_upper_ascii_or_digit_section_for_ir(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  let arr = t.to_array()
+  let mut i = 0
+  while i < arr.length() && arr[i] >= '0' && arr[i] <= '9' {
+    i += 1
+  }
+  while i < arr.length() &&
+        (arr[i] == '.' || arr[i] == ')' || arr[i] == '）' || arr[i] == ' ') {
+    i += 1
+  }
+  if i >= arr.length() {
+    return false
+  }
+
+  let ch = arr[i]
+  (ch >= 'A' && ch <= 'Z') || is_cjkish_for_ir(ch)
+}
+
+///|
+fn body_looks_like_paragraph_start_for_ir(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if looks_like_list_item_sentence_for_ir(t) ||
+    looks_like_figure_or_table_caption_for_ir(t) ||
+    is_probable_page_number_for_ir(t) {
+    return false
+  }
+
+  t.length() > 24 || heading_word_count_for_ir(t) >= 5
+}
+
+///|
+fn heading_word_count_for_ir(text : String) -> Int {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return 0
+  }
+
+  let mut count = 0
+  let mut in_word = false
+  for ch in t {
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      if in_word {
+        in_word = false
+      }
+    } else if !in_word {
+      count += 1
+      in_word = true
+    }
+  }
+  count
 }
 
 ///|

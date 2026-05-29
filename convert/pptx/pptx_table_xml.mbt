@@ -357,6 +357,16 @@ fn render_pptx_table_inlines(xs : Array[@cor.Inline]) -> String {
           out = out + "[" + t + "](" + h + ")"
         }
       }
+      @cor.Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out = out + "[^" + note.note_id.trim().to_owned() + "]"
+        } else if marker != "" {
+          out = out +
+            (if marker.has_prefix("^") { marker } else { "^" + marker })
+        }
+      }
     }
   }
   out

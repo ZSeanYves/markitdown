@@ -209,6 +209,17 @@ fn inline_text_for_docx_test(inlines : Array[@cor.Inline]) -> String {
       @cor.Inline::Text(text) => out.write_string(text)
       @cor.Inline::Break => out.write_string("\n")
       @cor.Inline::Link(text, _href) => out.write_string(text)
+      @cor.Inline::NoteRef(note) =>
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out.write_string("[^" + note.note_id.trim().to_owned() + "]")
+        } else if note.marker.trim() != "" {
+          if note.marker.has_prefix("^") {
+            out.write_string(note.marker)
+          } else {
+            out.write_string("^" + note.marker)
+          }
+        }
     }
   }
   out.to_string()
@@ -346,6 +357,7 @@ test "docx style-linked numbering fallback and ordered heuristic stay conservati
     numbering,
     6,
     None,
+    None,
   )
   match list_blocks[0] {
     @cor.Block::RichListItem(true, level, inlines) => {
@@ -366,6 +378,7 @@ test "docx style-linked numbering fallback and ordered heuristic stay conservati
     empty_styles(),
     empty_numbering(),
     6,
+    None,
     None,
   )
   match fallback_blocks[0] {
@@ -404,6 +417,7 @@ test "docx numbering defaults omitted ilvl to level zero" {
     numbering,
     6,
     None,
+    None,
   )
   match style_blocks[0] {
     @cor.Block::RichListItem(true, 0, inlines) =>
@@ -424,6 +438,7 @@ test "docx numbering defaults omitted ilvl to level zero" {
     empty_styles(),
     numbering,
     6,
+    None,
     None,
   )
   match direct_blocks[0] {
@@ -480,6 +495,11 @@ test "docx notes parser and append sections stay conservative and deterministic"
     "<w:r><w:endnoteReference w:id=\"1\"/></w:r>" +
     "<w:r><w:commentReference w:id=\"3\"/></w:r>",
     empty_docx_relationship_context(),
+    Some({
+      footnotes_by_id: footnotes,
+      endnotes_by_id: endnotes,
+      comments_by_id: comments,
+    }),
     Some(ledger),
   )
   assert_eq(scan.text, "Body[^1][^e1] [comment 1]")
@@ -487,6 +507,26 @@ test "docx notes parser and append sections stay conservative and deterministic"
   assert_eq(ledger.footnote_order[0], 2)
   assert_eq(ledger.endnote_order[0], 1)
   assert_eq(ledger.comment_order[0], 3)
+  match scan.inlines[1] {
+    @cor.Inline::NoteRef(note) => {
+      assert_eq(note.note_id, "1")
+      assert_eq(note.marker, "1")
+      assert_true(note.kind == @cor.NoteKind::Footnote)
+      assert_true(note.source_kind == @cor.NoteSourceKind::DocxFootnoteRef)
+      assert_true(note.body_status == @cor.NoteBodyStatus::Resolved)
+    }
+    _ => fail("expected DOCX footnote ref inline")
+  }
+  match scan.inlines[2] {
+    @cor.Inline::NoteRef(note) => {
+      assert_eq(note.note_id, "e1")
+      assert_eq(note.marker, "e1")
+      assert_true(note.kind == @cor.NoteKind::Endnote)
+      assert_true(note.source_kind == @cor.NoteSourceKind::DocxEndnoteRef)
+      assert_true(note.body_status == @cor.NoteBodyStatus::Resolved)
+    }
+    _ => fail("expected DOCX endnote ref inline")
+  }
 
   let doc = @cor.new_document()
   @cor.push(doc, @cor.Block::RichParagraph(scan.inlines))
@@ -503,22 +543,29 @@ test "docx notes parser and append sections stay conservative and deterministic"
 
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("Body[^1][^e1] [comment 1]"))
-  assert_true(markdown.contains("## Footnotes"))
   assert_true(markdown.contains("[^1]: Second footnote"))
-  assert_true(markdown.contains("## Endnotes"))
   assert_true(markdown.contains("[^e1]: Only endnote"))
   assert_true(markdown.contains("## Comments"))
   assert_true(markdown.contains("1. Alice: Review comment"))
+  assert_eq(doc.note_definitions.val.length(), 2)
+  assert_true(!markdown.contains("## Footnotes"))
+  assert_true(!markdown.contains("## Endnotes"))
 }
 
 ///|
 test "docx note markers absorb preceding source space and keep following prose spaced" {
   let ledger = new_docx_reference_ledger()
+  let notes : DocxNoteBundle = {
+    footnotes_by_id: {},
+    endnotes_by_id: { 2: { text: "Only endnote", markdown: "" } },
+    comments_by_id: {},
+  }
   let scan = scan_docx_inline_text(
     "<w:r><w:t xml:space=\"preserve\">tilaka </w:t></w:r>" +
     "<w:r><w:endnoteReference w:id=\"2\"/></w:r>" +
     "<w:r><w:t>or 'tika'</w:t></w:r>",
     empty_docx_relationship_context(),
+    Some(notes),
     Some(ledger),
   )
 
@@ -531,11 +578,17 @@ test "docx note markers absorb preceding source space and keep following prose s
 ///|
 test "docx footnote markers move preserved spacer after the marker" {
   let ledger = new_docx_reference_ledger()
+  let notes : DocxNoteBundle = {
+    footnotes_by_id: { 1: { text: "Footnote body.", markdown: "" } },
+    endnotes_by_id: {},
+    comments_by_id: {},
+  }
   let scan = scan_docx_inline_text(
     "<w:r><w:t xml:space=\"preserve\">a </w:t></w:r>" +
     "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
     "<w:r><w:t>powerful way</w:t></w:r>",
     empty_docx_relationship_context(),
+    Some(notes),
     Some(ledger),
   )
 
@@ -548,10 +601,16 @@ test "docx footnote markers move preserved spacer after the marker" {
 ///|
 test "docx terminal note markers keep preserved spacer before the marker" {
   let ledger = new_docx_reference_ledger()
+  let notes : DocxNoteBundle = {
+    footnotes_by_id: { 2: { text: "Second footnote", markdown: "" } },
+    endnotes_by_id: {},
+    comments_by_id: {},
+  }
   let scan = scan_docx_inline_text(
     "<w:r><w:t xml:space=\"preserve\">second </w:t></w:r>" +
     "<w:r><w:footnoteReference w:id=\"2\"/></w:r>",
     empty_docx_relationship_context(),
+    Some(notes),
     Some(ledger),
   )
 
@@ -602,6 +661,11 @@ test "docx table cells record footnote endnote and comment references in ledger"
     "</w:tr>",
     empty_docx_relationship_context(),
     Map([]),
+    Some({
+      footnotes_by_id: footnotes,
+      endnotes_by_id: endnotes,
+      comments_by_id: comments,
+    }),
     Some(ledger),
   )
 
@@ -629,12 +693,46 @@ test "docx table cells record footnote endnote and comment references in ledger"
   )
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("Cell[^1][^e1] [comment 1]"))
-  assert_true(markdown.contains("## Footnotes"))
   assert_true(markdown.contains("[^1]: Table footnote"))
-  assert_true(markdown.contains("## Endnotes"))
   assert_true(markdown.contains("[^e1]: Table endnote"))
   assert_true(markdown.contains("## Comments"))
   assert_true(markdown.contains("1. Alice: Table comment"))
+  assert_true(!markdown.contains("## Footnotes"))
+  assert_true(!markdown.contains("## Endnotes"))
+}
+
+///|
+test "docx missing note body falls back to marker-only without definition" {
+  let ledger = new_docx_reference_ledger()
+  let scan = scan_docx_inline_text(
+    "<w:r><w:t>Hello</w:t></w:r>" +
+    "<w:r><w:footnoteReference w:id=\"7\"/></w:r>",
+    empty_docx_relationship_context(),
+    Some(empty_docx_note_bundle()),
+    Some(ledger),
+  )
+
+  assert_eq(inline_text_for_docx_test(scan.inlines), "Hello^1")
+  match scan.inlines[1] {
+    @cor.Inline::NoteRef(note) => {
+      assert_eq(note.note_id, "1")
+      assert_eq(note.marker, "1")
+      assert_true(note.body_status == @cor.NoteBodyStatus::Missing)
+    }
+    _ => fail("expected DOCX footnote ref inline")
+  }
+
+  let doc = @cor.new_document()
+  @cor.push(doc, @cor.Block::RichParagraph(scan.inlines))
+  append_docx_notes_sections(
+    doc,
+    empty_docx_note_bundle(),
+    ledger,
+    "missing.docx",
+  )
+  let markdown = @cor.emit_markdown(doc)
+  assert_eq(markdown, "Hello^1\n")
+  assert_eq(doc.note_definitions.val.length(), 0)
 }
 
 ///|
@@ -661,6 +759,7 @@ test "docx hyperlink scan preserves bookmark anchors and address fragments" {
     "<w:hyperlink r:id=\"rId7\" w:history=\"1\"><w:r><w:rPr><w:rStyle w:val=\"Hyperlink\"/></w:rPr><w:t>https://foo.com?q=bar#the-bar</w:t></w:r></w:hyperlink>" +
     "<w:r><w:t>.</w:t></w:r>",
     rel_ctx,
+    None,
     None,
   )
 
@@ -730,6 +829,7 @@ test "docx comment reference keeps a boundary before immediately following text"
     "<w:r><w:commentReference w:id=\"1\"/></w:r>" +
     "<w:r><w:t>paragraph!</w:t></w:r>",
     empty_docx_relationship_context(),
+    None,
     Some(ledger),
   )
 
@@ -741,12 +841,18 @@ test "docx comment reference keeps a boundary before immediately following text"
 ///|
 test "docx preserved source space before comment marker survives inline emission" {
   let ledger = new_docx_reference_ledger()
+  let notes : DocxNoteBundle = {
+    footnotes_by_id: { 1: { text: "Footnote body.", markdown: "" } },
+    endnotes_by_id: {},
+    comments_by_id: {},
+  }
   let scan = scan_docx_inline_text(
     "<w:r><w:t>Body</w:t></w:r>" +
     "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" +
     "<w:r><w:t xml:space=\"preserve\"> </w:t></w:r>" +
     "<w:r><w:commentReference w:id=\"1\"/></w:r>",
     empty_docx_relationship_context(),
+    Some(notes),
     Some(ledger),
   )
 
@@ -763,6 +869,7 @@ test "docx w:t plain text cleanup stays narrow and does not enable canonical nor
     "<w:r><w:br/></w:r>" +
     "<w:r><w:t>Tail</w:t></w:r>",
     empty_docx_relationship_context(),
+    None,
     None,
   )
 
@@ -804,6 +911,7 @@ test "docx OMML math text degrades conservatively to visible linear text" {
     "<w:r><w:t>.</w:t></w:r>",
     empty_docx_relationship_context(),
     None,
+    None,
   )
 
   assert_true(scan.text.contains("For m=1,"))
@@ -824,6 +932,7 @@ test "docx w:t cleanup does not break hyperlink code-like or table assembly beha
   let hyperlink_scan = scan_docx_inline_text(
     "<w:hyperlink r:id=\"rIdHyper1\"><w:r><w:t>OpenAI\u{00A0}Docs</w:t></w:r></w:hyperlink>",
     rel_ctx,
+    None,
     None,
   )
   assert_eq(hyperlink_scan.text, "OpenAI\u{00A0}Docs")
@@ -852,6 +961,7 @@ test "docx w:t cleanup does not break hyperlink code-like or table assembly beha
     ),
     empty_numbering(),
     6,
+    None,
     None,
   )
   assert_eq(code_blocks.length(), 1)
@@ -1004,6 +1114,7 @@ test "docx revision stripping preserves inserted text while skipping deleted and
   let scan = scan_docx_inline_text(
     strip_docx_deleted_revision_xml(xml),
     empty_docx_relationship_context(),
+    None,
     None,
   )
   assert_eq(scan.text, "Keep inserted moved")

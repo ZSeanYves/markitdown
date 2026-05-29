@@ -673,6 +673,64 @@ test "epub convert keeps internal anchors conservatively" {
 }
 
 ///|
+test "epub convert emits structured notes from explicit noterefs" {
+  let root = test_tmp_root() + "/epub-convert-explicit-noteref"
+  recreate_clean_dir(root)
+  defer cleanup_temp_dir(root)
+
+  let input = root + "/explicit-noteref.epub"
+  write_inline_epub(input, [
+    ("mimetype", "application/epub+zip"),
+    (
+      "META-INF/container.xml",
+      minimal_container([
+        ("OPS/content.opf", Some("application/oebps-package+xml")),
+      ]),
+    ),
+    (
+      "OPS/content.opf",
+      minimal_opf([("chap", "chapter.xhtml", "application/xhtml+xml", None)], [
+        ("chap", None),
+      ]),
+    ),
+    (
+      "OPS/chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\"><body><p>EPUB text<a epub:type=\"noteref\" href=\"#fn1\">1</a>.</p><aside epub:type=\"footnote\" id=\"fn1\">EPUB footnote.</aside></body></html>",
+    ),
+  ])
+
+  let out_dir = root + "/out"
+  recreate_clean_dir(out_dir)
+  let doc = @epub.parse_epub(input, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_eq(
+    markdown, "# OPS/chapter.xhtml\n\nEPUB text[^OPS_chapter.xhtml-fn1].\n\n[^OPS_chapter.xhtml-fn1]: EPUB footnote.\n",
+  )
+  assert_eq(doc.note_definitions.val.length(), 1)
+
+  match doc.blocks.val[1] {
+    @cor.Block::RichParagraph(inlines) =>
+      match inlines[1] {
+        @cor.Inline::NoteRef(note) => {
+          assert_eq(note.note_id, "OPS_chapter.xhtml-fn1")
+          assert_eq(note.marker, "1")
+          assert_true(note.source_kind == @cor.NoteSourceKind::EpubNoteRef)
+        }
+        _ => fail("epub noteref should lower to NoteRef")
+      }
+    _ => fail("epub noteref content should stay a rich paragraph")
+  }
+
+  let note = doc.note_definitions.val[0]
+  assert_eq(note.note_id, "OPS_chapter.xhtml-fn1")
+  assert_eq(note.marker, "1")
+  assert_true(note.source_kind == @cor.NoteSourceKind::EpubFootnoteBody)
+  match note.blocks[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "EPUB footnote.")
+    _ => fail("epub note definition should keep body text")
+  }
+}
+
+///|
 test "epub convert local-image and cover samples stay stable across repeated conversions" {
   let first_out = test_tmp_root() + "/epub-convert-repeat-1"
   let second_out = test_tmp_root() + "/epub-convert-repeat-2"

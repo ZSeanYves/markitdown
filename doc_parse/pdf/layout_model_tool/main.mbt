@@ -1,4 +1,13 @@
 ///|
+/// Compatibility note:
+/// - `layout_model_tool` is a legacy umbrella name
+/// - the tool can still export `record-kind block|boundary` rows for historical
+///   compatibility
+/// - `block` rows correspond to convert-layer block-semantic experiments
+/// - `boundary` rows correspond to parser/layout boundary experiments
+/// - current HGB teacher and distillation work in quality-lab should not treat
+///   this mixed export tool as the primary training entrypoint
+///|
 suberror PdfLayoutToolError {
   Failed(String)
 }
@@ -55,6 +64,9 @@ async fn run_tool(args : Array[String]) -> Unit raise PdfLayoutToolError {
 fn print_usage() -> Unit {
   println(
     "usage: moon run doc_parse/pdf/layout_model_tool -- <export|infer> [args]",
+  )
+  println(
+    "  compatibility surface: use --record-kind to keep block and boundary flows separate",
   )
   println(
     "  export --sample-id ID --input PATH [--output PATH] [--record-kind block|boundary]",

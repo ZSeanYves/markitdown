@@ -1,4 +1,11 @@
 ///|
+/// Legacy naming note:
+/// - this file still uses the broad `layout` name for compatibility
+/// - it exposes both block-semantic feature values and boundary feature values
+/// - callers should keep block (`Task A`) and boundary (`Task B`) exports in
+///   separate manifests, reports, and training routes
+
+///|
 pub fn build_pdf_layout_block_feature_values(
   page : PdfConvertPage,
   block : PdfConvertBlock,
@@ -1164,6 +1171,7 @@ fn has_rich_inline_payload(block : PdfConvertBlock) -> Bool {
       for inline in inlines {
         match inline {
           @cor.Inline::Text(_) => ()
+          @cor.Inline::NoteRef(_) => return true
           _ => return true
         }
       }
@@ -1180,6 +1188,7 @@ fn has_link_inline(block : PdfConvertBlock) -> Bool {
       for inline in inlines {
         match inline {
           @cor.Inline::Link(_, _) => return true
+          @cor.Inline::NoteRef(_) => ()
           _ => ()
         }
       }
@@ -1197,6 +1206,7 @@ fn link_inline_count(block : PdfConvertBlock) -> Int {
       for inline in inlines {
         match inline {
           @cor.Inline::Link(_, _) => count += 1
+          @cor.Inline::NoteRef(_) => ()
           _ => ()
         }
       }

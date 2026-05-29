@@ -4,16 +4,12 @@ Comment here [comment 1]
 
 Endnote here[^e1]
 
-## Footnotes
+## Comments
+
+1. Bob: Comment body.
 
 [^1]: Second footnote body.
 
 [^2]: First footnote body.
 
-## Endnotes
-
 [^e1]: Endnote body.
-
-## Comments
-
-1. Bob: Comment body.

@@ -9,8 +9,9 @@ and metadata output.
 
 Release-facing contract and packaging notes live in:
 
-* [doc_parse Foundation](../docs/doc-parse-foundation.md)
-* [doc_parse Package Strategy](../docs/package-publishing-strategy.md)
+* [Architecture](../docs/architecture.md)
+* [Architecture Consolidation Audit](../docs/architecture-consolidation-audit.md)
+* [archived Package Strategy](../docs/archive/reference/package-publishing-strategy.md)
 
 ## What It Is
 

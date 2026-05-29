@@ -63,6 +63,79 @@ Current rules:
 * `doc_parse/*` owns parser/model/inspect foundations
 * quality-lab stays developer infrastructure, not runtime dependency
 
+## Unified IR Notes
+
+Current shared IR now includes note semantics in addition to basic blocks and
+inlines:
+
+* inline note references use `Inline::NoteRef(NoteRef)` rather than
+  format-private Markdown string patches
+* note bodies use document-level `Document.note_definitions`, with each body
+  represented as a shared `NoteDefinition`
+* `NoteDefinition` carries the note id, marker, kind, placement, source kind,
+  body status, and body blocks
+* Markdown emission supports two safe modes:
+  * full footnote emission when a reference and a resolved definition are both
+    present
+  * marker-only fallback when only the reference marker is known
+* metadata sidecars reflect inline `NoteRef` markers as part of block text and
+  serialize document-level `note_definitions` when resolved note bodies are
+  present
+
+Current intent:
+
+* structured sources with reliable body stores should prefer full
+  `NoteRef` + `NoteDefinition` output
+* visual or weak sources should fail closed to marker-only output rather than
+  dangling Markdown footnotes
+* PDF can attach superscript markers through shared `NoteRef` without claiming
+  full footnote-body recovery
+* DOCX now lowers structured footnote/endnote references and bodies through the
+  shared note IR and emits full Markdown footnotes when the body is available
+* Markdown native footnotes lower through the same `NoteRef` and
+  `NoteDefinition` path while preserving passthrough behavior for ordinary
+  Markdown
+* EPUB note support is structure-led rather than based on bare superscript
+  text:
+  * explicit same-document references with `epub:type="noteref"` or
+    `role="doc-noteref"` lower to shared `NoteRef` when their target body is
+    resolved
+  * resolved body targets such as `<aside>`, `<section>`, `<li>`, or `<div>`
+    with footnote-like `epub:type`, `role`, `class`, or id lower to document
+    `NoteDefinition`
+  * EPUB spine merging namespaces document-local note ids with the spine entry
+    id and carries `NoteDefinition` records into the merged EPUB document
+* HTML uses the same explicit same-document noteref/body machinery where the
+  markup already provides strong noteref semantics, but broader conservative
+  inference for common HTML footnote patterns remains future work
+* for HTML and EPUB alike:
+  * ordinary `<sup>1</sup>`, `<sup>TM</sup>`, math exponents, and orphan
+    anchors should remain plain text or normal links until a body can be
+    resolved safely
+  * broad conservative HTML inference, including `<sup><a href="#id">...</a></sup>`
+    without explicit noteref semantics, remains future work
+
+## PDF Text-Flow And Annotation Links
+
+Native PDF conversion remains rule-driven and bounded. Current normal-path
+cleanup covers:
+
+* paragraph soft merge for high-confidence same-flow fragments
+* numbered heading split/promotion when the text signal is strong
+* superscript-style marker attachment through shared `NoteRef` marker fallback
+* two-column guards that avoid merging nearby lines across separate x-bands
+* high-confidence URI annotation links when the visible label is unique inside
+  the extracted text block
+
+The annotation-link policy is intentionally conservative:
+
+* visible text plus an aligned URI annotation can emit `[text](url)`
+* invisible annotation internals are not dumped as body text
+* duplicate-label or ambiguous matches stay plain text
+* popup/text annotations keep using the annotation appendix policy
+
+These rules do not add runtime models, OCR, or PDF footnote body association.
+
 ## PDF, ZIP, And OCR Boundaries
 
 Current PDF split:

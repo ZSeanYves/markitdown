@@ -44,6 +44,14 @@ If you need the detailed boundaries, read in this order:
 
 ## Core Commands
 
+Minimum development environment:
+
+* MoonBit native toolchain with `moon`
+* `bash` plus common POSIX/coreutils shell tools for sample helpers
+* Python for selected validation/quality helper scripts, not normal runtime
+* optional `tesseract` plus installed tessdata for image OCR
+* optional repo-root `markitdown-quality-lab/` for external quality checks
+
 Build the main product binaries:
 
 ```bash
@@ -149,14 +157,19 @@ Important current facts:
 ## Current Checked Facts
 
 * `moon test`: `1579 passed`
-* `bash samples/check.sh`: `444` markdown / `85` metadata / `90` assets / `0`
-  failures
-* `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
-  on the checked-out `markitdown-quality-lab` contents
+* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local
+  `markitdown-quality-lab` checkout
+* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
+  `0` expected_fail on the current repo-local `markitdown-quality-lab`
+  checkout
 
 ## Primary Docs
 
 * [docs/architecture.md](./docs/architecture.md)
+* [docs/architecture-consolidation-audit.md](./docs/architecture-consolidation-audit.md)
 * [docs/supported-formats.md](./docs/supported-formats.md)
 * [docs/quality-and-release.md](./docs/quality-and-release.md)
 * [docs/pdf.md](./docs/pdf.md)

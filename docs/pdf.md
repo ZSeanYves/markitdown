@@ -28,6 +28,50 @@ Current enabled normal-path scope stays intentionally small:
 * weak heading demotion
 * separator / false-bullet suppression
 * a narrow receipt settlement-line demotion
+* paragraph soft merge for nearby same-flow fragments
+* numbered heading split/promotion when the extracted text signal is strong
+* superscript-style marker attachment through shared note refs
+* high-confidence URI annotation links when the visible label is unique and
+  aligned with extracted text
+* two-column guards that prevent nearby fragments from being merged across
+  separate x-bands
+
+## Native Text-Flow And Annotation Links
+
+Current native text-flow cleanup is conservative and evidence-led. It is meant
+to recover common text-PDF reading structure without turning the converter into
+a visual reconstruction engine.
+
+Current shipped behavior includes:
+
+* page-local paragraph soft merge when geometry and text signals indicate the
+  fragments belong to the same paragraph
+* cross-page paragraph continuation on narrow, high-confidence cases
+* numbered heading split/promotion for patterns such as `1. Heading` when the
+  heading signal is strong enough
+* superscript-style marker attachment that lowers into shared `NoteRef`
+  semantics while still using PDF marker-only fallback
+* same-column / x-overlap guards so two-column nearby lines do not merge into
+  one paragraph
+
+Current annotation-link behavior:
+
+* URI link annotations can emit Markdown links when the annotation is matched
+  to visible extracted text with high confidence
+* if a matched URI label is a unique substring inside a merged text block, only
+  that visible label is upgraded to `[label](url)`
+* duplicate visible labels, invisible-only annotation internals, and ambiguous
+  matches stay plain text
+* popup/text annotations are emitted only through the existing annotation
+  appendix policy; they are not dumped into body text or attached to unrelated
+  content
+
+Still out of scope:
+
+* PDF footnote body association
+* broad page-bottom note harvesting
+* OCR or page-raster inference
+* runtime model/gate loading
 
 ## OCR Boundary
 
@@ -215,6 +259,37 @@ Important boundary:
 * `convert/pdf` does not own OCR providers
 * `convert/vision` remains the only OCR/Vision implementation path
 
+## PDF Note Marker Boundary
+
+Current PDF footnote/endnote behavior is intentionally narrow:
+
+* superscript-like inline markers can be recognized on the native text path
+* recognized markers now lower into shared IR `NoteRef` semantics instead of a
+  PDF-private raw-string patch
+* current PDF Markdown output uses marker-only fallback such as `^3` when the
+  body association is not reliable
+* current PDF conversion avoids dangling full Markdown footnotes like `[^3]`
+  because no reliable PDF note body association is shipped yet
+* full Markdown footnotes are emitted only when a resolved note body exists in
+  shared IR
+* structured formats such as DOCX, Markdown, and explicit HTML/EPUB noterefs can
+  emit full Markdown footnotes through shared `NoteRef` and `NoteDefinition`
+
+Current non-goals for the shipped PDF path:
+
+* no full PDF footnote-body association yet
+* no broad page-bottom note harvesting heuristic
+* no visual guess that turns every superscript into a body-backed footnote
+* no PDF-private note syntax that bypasses shared IR
+
+Future intended direction:
+
+* keep note semantics in shared IR
+* prefer full note-definition recovery first in formats with strong structure
+  such as DOCX/HTML/EPUB/Markdown
+* add PDF body association only after it is reliable enough to avoid dangling
+  footnotes
+
 ## Guardrails
 
 Normal-path PDF/layout work must keep these guardrails:
@@ -239,11 +314,12 @@ Still out of scope for the normal path:
 Current checked facts:
 
 * `moon test`: `1579 passed`
-* repo-local sample validation: `bash samples/check.sh`
+* repo-local sample validation: `bash samples/check.sh` passes 9 stages,
+  including `444` markdown / `85` metadata / `90` assets / `0` failures
 * `bash samples/check_quality.sh`: external-corpus-only gate; row counts depend
   on the checked-out `markitdown-quality-lab` contents
-* `bash samples/check_quality.sh --format pdf`: focused PDF slice of that same
-  external corpus
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local quality-lab checkout
 
 Interpretation:
 

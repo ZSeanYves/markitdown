@@ -7,6 +7,7 @@ pub fn emit_markdown(doc : Document) -> String {
 
   let mut out = ""
   let blocks = doc.blocks.val
+  let notes = doc.note_definitions.val
 
   for i in 0..<blocks.length() {
     let b = blocks[i]
@@ -154,6 +155,18 @@ pub fn emit_markdown(doc : Document) -> String {
     }
   }
 
+  let note_markdown = render_note_definitions(notes)
+  if note_markdown != "" {
+    if out != "" && !out.has_suffix("\n\n") {
+      if out.has_suffix("\n") {
+        out = out + "\n"
+      } else {
+        out = out + "\n\n"
+      }
+    }
+    out = out + note_markdown
+  }
+
   normalize_markdown_tail(out)
 }
 
@@ -297,7 +310,89 @@ fn render_inlines(xs : Array[Inline]) -> String {
           out = out + "[" + escape_inline_text(t0) + "](" + u0 + ")"
         }
       }
+      NoteRef(note) => out = out + render_note_ref(note)
     }
   }
   out.trim().to_owned()
+}
+
+///|
+fn render_note_ref(note : NoteRef) -> String {
+  let marker = note.marker.trim().to_owned()
+  let note_id = note.note_id.trim().to_owned()
+
+  if note.body_status == NoteBodyStatus::Resolved && note_id != "" {
+    return "[^" + note_id + "]"
+  }
+
+  if marker == "" {
+    return ""
+  }
+
+  if marker.has_prefix("^") {
+    marker
+  } else {
+    "^" + marker
+  }
+}
+
+///|
+fn render_note_definitions(notes : Array[NoteDefinition]) -> String {
+  if notes.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+  let mut first = true
+  for note in notes {
+    let note_id = note.note_id.trim().to_owned()
+    if note.body_status != NoteBodyStatus::Resolved || note_id == "" {
+      continue
+    }
+
+    let body = render_note_definition_body(note.blocks)
+    if body == "" {
+      continue
+    }
+
+    if first {
+      first = false
+    } else {
+      out = out + "\n"
+    }
+
+    let lines = body
+      .replace(old="\r\n", new="\n")
+      .replace(old="\r", new="\n")
+      .split("\n")
+      .map(fn(x) { x.to_owned() })
+      .filter(fn(x) { x.trim() != "" })
+      .iter()
+      .collect()
+
+    if lines.length() == 0 {
+      continue
+    }
+
+    out = out + "[^" + note_id + "]: " + lines[0] + "\n"
+    for i in 1..<lines.length() {
+      out = out + "    " + lines[i] + "\n"
+    }
+  }
+
+  out
+}
+
+///|
+fn render_note_definition_body(blocks : Array[Block]) -> String {
+  let note_doc : Document = {
+    blocks: { val: blocks.copy() },
+    block_origins: { val: [] },
+    asset_origins: { val: Map([]) },
+    passthrough_markdown: { val: None },
+    note_definitions: { val: [] },
+  }
+
+  let rendered = emit_markdown(note_doc).trim().to_owned()
+  rendered
 }

@@ -50,6 +50,7 @@ fn scan_document(
         tbl_xml,
         rel_ctx,
         asset_by_target,
+        Some(notes),
         Some(ledger),
       )
       table_scan_elapsed_ms = table_scan_elapsed_ms +
@@ -135,6 +136,7 @@ fn scan_document(
         styles,
         numbering,
         max_heading,
+        Some(notes),
         Some(ledger),
       )
       paragraph_scan_elapsed_ms = paragraph_scan_elapsed_ms +
@@ -412,19 +414,27 @@ fn append_docx_footnotes_section(
   ledger : DocxReferenceLedger,
   source_name : String,
 ) -> Unit {
-  if ledger.footnote_order.length() == 0 {
-    return
-  }
-
-  push_docx_append_heading(doc, "Footnotes", source_name)
   for i in 0..<ledger.footnote_order.length() {
     let id = ledger.footnote_order[i]
-    let body = match notes.footnotes_by_id.get(id) {
-      Some(note) => if note.markdown != "" { note.markdown } else { note.text }
-      None => "[missing footnote " + id.to_string() + "]"
+    match notes.footnotes_by_id.get(id) {
+      Some(note) => {
+        let note_id = (i + 1).to_string()
+        let blocks = docx_note_definition_blocks(note.markdown, note.text)
+        if blocks.length() > 0 {
+          @cor.push_note_definition(doc, {
+            note_id,
+            marker: note_id,
+            kind: @cor.NoteKind::Footnote,
+            blocks,
+            placement: @cor.NotePlacement::DocumentEnd,
+            source_kind: @cor.NoteSourceKind::DocxFootnoteBody,
+            body_status: @cor.NoteBodyStatus::Resolved,
+            origin: Some(docx_appended_origin(source_name)),
+          })
+        }
+      }
+      None => ()
     }
-    let marker = "[^" + (i + 1).to_string() + "]: "
-    push_docx_append_paragraph(doc, marker + body, source_name)
   }
 }
 
@@ -435,19 +445,27 @@ fn append_docx_endnotes_section(
   ledger : DocxReferenceLedger,
   source_name : String,
 ) -> Unit {
-  if ledger.endnote_order.length() == 0 {
-    return
-  }
-
-  push_docx_append_heading(doc, "Endnotes", source_name)
   for i in 0..<ledger.endnote_order.length() {
     let id = ledger.endnote_order[i]
-    let body = match notes.endnotes_by_id.get(id) {
-      Some(note) => if note.markdown != "" { note.markdown } else { note.text }
-      None => "[missing endnote " + id.to_string() + "]"
+    match notes.endnotes_by_id.get(id) {
+      Some(note) => {
+        let note_id = "e" + (i + 1).to_string()
+        let blocks = docx_note_definition_blocks(note.markdown, note.text)
+        if blocks.length() > 0 {
+          @cor.push_note_definition(doc, {
+            note_id,
+            marker: note_id,
+            kind: @cor.NoteKind::Endnote,
+            blocks,
+            placement: @cor.NotePlacement::DocumentEnd,
+            source_kind: @cor.NoteSourceKind::DocxEndnoteBody,
+            body_status: @cor.NoteBodyStatus::Resolved,
+            origin: Some(docx_appended_origin(source_name)),
+          })
+        }
+      }
+      None => ()
     }
-    let marker = "[^e" + (i + 1).to_string() + "]: "
-    push_docx_append_paragraph(doc, marker + body, source_name)
   }
 }
 
@@ -492,6 +510,42 @@ fn render_docx_comment_entry(comment : DocxComment) -> String {
     comment.text
   }
   prefix + body
+}
+
+///|
+fn docx_appended_origin(source_name : String) -> @cor.Origin {
+  {
+    source_name: Some(source_name),
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: None,
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: None,
+    relationship_id: None,
+    key_path: None,
+  }
+}
+
+///|
+fn docx_note_definition_blocks(
+  markdown : String,
+  text : String,
+) -> Array[@cor.Block] {
+  let body = if markdown.trim() != "" {
+    markdown.trim().to_owned()
+  } else {
+    text.trim().to_owned()
+  }
+  if body == "" {
+    return []
+  }
+
+  [@cor.Block::Paragraph(body)]
 }
 
 ///|
@@ -548,15 +602,6 @@ fn push_docx_append_heading_with_origin(
       key_path: None,
     }),
   )
-}
-
-///|
-fn push_docx_append_paragraph(
-  doc : @cor.Document,
-  text : String,
-  source_name : String,
-) -> Unit {
-  push_docx_append_paragraph_with_origin(doc, text, source_name, None, None)
 }
 
 ///|

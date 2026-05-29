@@ -623,11 +623,13 @@ fn resolve_layout_assist_sample_path(path : String) -> String raise {
         }
       None => ()
     }
-    let repo_local_candidate = "markitdown-quality-lab/external_quality/" + suffix
+    let repo_local_candidate = "markitdown-quality-lab/external_quality/" +
+      suffix
     if @fs.path_exists(repo_local_candidate) {
       return repo_local_candidate
     }
-    let sibling_candidate = "../markitdown-quality-lab/external_quality/" + suffix
+    let sibling_candidate = "../markitdown-quality-lab/external_quality/" +
+      suffix
     if @fs.path_exists(sibling_candidate) {
       return sibling_candidate
     }
@@ -1624,6 +1626,17 @@ fn render_inline_preview(xs : Array[@cor.Inline]) -> String {
         out.write_string(" -> ")
         out.write_string(href)
       }
+      @cor.Inline::NoteRef(note) =>
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out.write_string("[^" + note.note_id.trim().to_owned() + "]")
+        } else if note.marker.trim() != "" {
+          if note.marker.has_prefix("^") {
+            out.write_string(note.marker)
+          } else {
+            out.write_string("^" + note.marker)
+          }
+        }
     }
   }
   out.to_string()

@@ -392,3 +392,153 @@ test "pdf uri link attachment upgrades wrapped block to rich paragraph" {
     _ => fail("expected wrapped block to become a single rich link")
   }
 }
+
+///|
+test "pdf uri link attachment links visible label inside merged block" {
+  let page = make_test_page(
+    [
+      make_test_line_in_block(
+        0,
+        0,
+        7,
+        2,
+        "Link",
+        rect(10.0, 36.0, 40.0, 48.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        7,
+        2,
+        "mozilla.org",
+        rect(10.0, 20.0, 92.0, 32.0),
+      ),
+    ],
+    [
+      make_test_annotation(
+        0,
+        0,
+        "/Link",
+        rect(10.0, 20.0, 92.0, 32.0),
+        Some("http://www.mozilla.org/"),
+        None,
+      ),
+    ],
+    Some(rect(0.0, 0.0, 200.0, 200.0)),
+  )
+  let doc = attach_high_confidence_uri_links({ pages: [page] })
+  assert_eq(doc.pages.length(), 1)
+  assert_eq(doc.pages[0].blocks.length(), 1)
+  assert_eq(doc.pages[0].blocks[0].text, "Link mozilla.org")
+  match doc.pages[0].blocks[0].rich_inlines {
+    Some(
+      [
+        @cor.Inline::Text("Link "),
+        @cor.Inline::Link("mozilla.org", "http://www.mozilla.org/")
+      ]
+    ) => ()
+    _ => fail("expected only the visible URI label to become a markdown link")
+  }
+}
+
+///|
+test "pdf uri link attachment rewrites text-only rich inlines from merge" {
+  let page0 = make_test_page(
+    [
+      make_test_line_in_block(
+        0,
+        0,
+        7,
+        2,
+        "Link",
+        rect(10.0, 36.0, 40.0, 48.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        7,
+        2,
+        "mozilla.org",
+        rect(10.0, 20.0, 92.0, 32.0),
+      ),
+    ],
+    [
+      make_test_annotation(
+        0,
+        0,
+        "/Link",
+        rect(10.0, 20.0, 92.0, 32.0),
+        Some("http://www.mozilla.org/"),
+        None,
+      ),
+    ],
+    Some(rect(0.0, 0.0, 200.0, 200.0)),
+  )
+  let page = {
+    ..page0,
+    blocks: [{
+      ..page0.blocks[0],
+      text: "Link mozilla.org",
+      rich_inlines: Some([
+        @cor.Inline::Text("Link "),
+        @cor.Inline::Text("mozilla.org"),
+      ]),
+      line_start: 0,
+      line_end: 1,
+    }],
+  }
+  let doc = attach_high_confidence_uri_links({ pages: [page] })
+  assert_eq(doc.pages.length(), 1)
+  assert_eq(doc.pages[0].blocks.length(), 1)
+  match doc.pages[0].blocks[0].rich_inlines {
+    Some(
+      [
+        @cor.Inline::Text("Link "),
+        @cor.Inline::Link("mozilla.org", "http://www.mozilla.org/")
+      ]
+    ) => ()
+    _ => fail("text-only rich inlines should be rewritten with local link")
+  }
+}
+
+///|
+test "pdf uri link attachment rejects repeated visible label" {
+  let page = make_test_page(
+    [
+      make_test_line_in_block(
+        0,
+        0,
+        7,
+        2,
+        "mozilla.org",
+        rect(10.0, 36.0, 92.0, 48.0),
+      ),
+      make_test_line_in_block(
+        0,
+        1,
+        7,
+        2,
+        "mozilla.org",
+        rect(10.0, 20.0, 92.0, 32.0),
+      ),
+    ],
+    [
+      make_test_annotation(
+        0,
+        0,
+        "/Link",
+        rect(10.0, 20.0, 92.0, 32.0),
+        Some("http://www.mozilla.org/"),
+        None,
+      ),
+    ],
+    Some(rect(0.0, 0.0, 200.0, 200.0)),
+  )
+  let doc = attach_high_confidence_uri_links({ pages: [page] })
+  assert_eq(doc.pages.length(), 1)
+  assert_eq(doc.pages[0].blocks.length(), 1)
+  match doc.pages[0].blocks[0].rich_inlines {
+    None => ()
+    Some(_) => fail("ambiguous repeated labels should stay plain text")
+  }
+}

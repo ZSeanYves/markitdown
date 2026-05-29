@@ -1,4 +1,11 @@
 ///|
+/// Legacy naming note:
+/// - this file keeps the historical `layout_assist` name for compatibility
+/// - current predictions here are report-only debug assists
+/// - block-style suggestions such as `heading_candidate` or `table_like_candidate`
+///   should be read as convert-layer debug hints, not as parser/layout recovery
+/// - this surface does not imply runtime model activation
+///|
 #warnings("-unused_constructor")
 pub enum LayoutAssistMode {
   ReportOnly

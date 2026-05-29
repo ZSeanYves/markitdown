@@ -75,6 +75,37 @@ fn write_bytes(path : String, bytes : Bytes) -> Unit raise {
 }
 
 ///|
+fn write_utf8_text(path : String, text : String) -> Unit raise {
+  @fs.write_string_to_file(path, text, encoding="utf8") catch {
+    e => fail("write sample failed: " + e.to_string())
+  }
+}
+
+///|
+fn markdown_inline_text_for_test(inlines : Array[@cor.Inline]) -> String {
+  let out = StringBuilder::new()
+  for inline in inlines {
+    match inline {
+      @cor.Inline::Text(text) => out.write_string(text)
+      @cor.Inline::Break => out.write_string("\n")
+      @cor.Inline::Link(text, _href) => out.write_string(text)
+      @cor.Inline::NoteRef(note) =>
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out.write_string("[^" + note.note_id.trim().to_owned() + "]")
+        } else if note.marker.trim() != "" {
+          if note.marker.has_prefix("^") {
+            out.write_string(note.marker)
+          } else {
+            out.write_string("^" + note.marker)
+          }
+        }
+    }
+  }
+  out.to_string()
+}
+
+///|
 test "markdown passthrough preserves basic heading and paragraph" {
   let input = resolve_sample_path(
     "samples/main_process/markdown/markdown_basic_heading_paragraph.md",
@@ -204,4 +235,153 @@ test "markdown true empty file and cr-only input normalize conservatively" {
   let cr_only_doc = @md.parse_markdown(cr_only_path, "", 6)
   assert_eq(@cor.emit_markdown(cr_only_doc), "# A\n\nB\n")
   assert_eq(cr_only_doc.blocks.val.length(), 2)
+}
+
+///|
+test "markdown footnotes map to unified note ir and preserve full output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let path = dir + "/markdown_footnote_basic.md"
+  write_utf8_text(path, "Text with note[^1].\n\n[^1]: Footnote body.\n")
+
+  let doc = @md.parse_markdown(path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "Text with note[^1].\n\n[^1]: Footnote body.\n",
+  )
+  assert_eq(doc.note_definitions.val.length(), 1)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) => {
+      assert_eq(markdown_inline_text_for_test(inlines), "Text with note[^1].")
+      match inlines[1] {
+        @cor.Inline::NoteRef(note) => {
+          assert_eq(note.note_id, "1")
+          assert_eq(note.marker, "1")
+          assert_true(note.kind == @cor.NoteKind::Footnote)
+          assert_true(
+            note.source_kind == @cor.NoteSourceKind::MarkdownFootnoteRef,
+          )
+          assert_true(note.body_status == @cor.NoteBodyStatus::Resolved)
+        }
+        _ => fail("expected markdown footnote ref inline")
+      }
+    }
+    _ => fail("expected markdown footnote paragraph to become rich paragraph")
+  }
+  let definition = doc.note_definitions.val[0]
+  assert_eq(definition.note_id, "1")
+  assert_eq(definition.marker, "1")
+  assert_true(definition.kind == @cor.NoteKind::Footnote)
+  assert_true(
+    definition.source_kind == @cor.NoteSourceKind::MarkdownFootnoteBody,
+  )
+  assert_true(definition.body_status == @cor.NoteBodyStatus::Resolved)
+}
+
+///|
+test "markdown missing footnote body falls back to marker-only output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let path = dir + "/markdown_footnote_missing.md"
+  write_utf8_text(path, "Text with note[^missing].\n")
+
+  let doc = @md.parse_markdown(path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "Text with note^missing.\n")
+  assert_eq(doc.note_definitions.val.length(), 0)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) => {
+      assert_eq(
+        markdown_inline_text_for_test(inlines),
+        "Text with note^missing.",
+      )
+      match inlines[1] {
+        @cor.Inline::NoteRef(note) => {
+          assert_eq(note.note_id, "missing")
+          assert_eq(note.marker, "missing")
+          assert_true(note.body_status == @cor.NoteBodyStatus::Missing)
+        }
+        _ => fail("expected markdown footnote ref inline")
+      }
+    }
+    _ =>
+      fail(
+        "expected markdown missing-footnote paragraph to become rich paragraph",
+      )
+  }
+}
+
+///|
+test "markdown multiline paragraph keeps cached missing footnote refs" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let path = dir + "/markdown_footnote_missing_multiline.md"
+  write_utf8_text(path, "Text with note[^missing]\nwrapped to second line.\n")
+
+  let doc = @md.parse_markdown(path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "Text with note^missing\nwrapped to second line.\n",
+  )
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) => {
+      assert_eq(
+        markdown_inline_text_for_test(inlines),
+        "Text with note^missing\nwrapped to second line.",
+      )
+      assert_true(inlines[2] is @cor.Inline::Break)
+      match inlines[1] {
+        @cor.Inline::NoteRef(note) => {
+          assert_eq(note.note_id, "missing")
+          assert_true(note.body_status == @cor.NoteBodyStatus::Missing)
+        }
+        _ => fail("expected markdown multiline footnote ref inline")
+      }
+    }
+    _ =>
+      fail("expected markdown multiline missing-footnote paragraph to be rich")
+  }
+}
+
+///|
+test "markdown orphan footnote definition stays stable and is recorded in note definitions" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let path = dir + "/markdown_footnote_orphan.md"
+  write_utf8_text(path, "[^orphan]: Orphan note.\n")
+
+  let doc = @md.parse_markdown(path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "[^orphan]: Orphan note.\n")
+  assert_eq(doc.note_definitions.val.length(), 1)
+  assert_eq(doc.note_definitions.val[0].note_id, "orphan")
+}
+
+///|
+test "markdown code fence inline code and reference links do not misparse footnotes" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let fence_path = dir + "/markdown_footnote_code_fence.md"
+  write_utf8_text(fence_path, "```\n[^1]: not a note\n```\n")
+  let fence_doc = @md.parse_markdown(fence_path, "", 6)
+  assert_eq(@cor.emit_markdown(fence_doc), "```\n[^1]: not a note\n```\n")
+  assert_eq(fence_doc.note_definitions.val.length(), 0)
+  assert_true(fence_doc.blocks.val[0] is @cor.Block::CodeBlock(_))
+
+  let inline_code_path = dir + "/markdown_footnote_inline_code.md"
+  write_utf8_text(
+    inline_code_path, "Use `[^1]` literally.\n\n[^1]: Footnote body.\n",
+  )
+  let inline_code_doc = @md.parse_markdown(inline_code_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(inline_code_doc),
+    "Use `[^1]` literally.\n\n[^1]: Footnote body.\n",
+  )
+  assert_eq(inline_code_doc.note_definitions.val.length(), 1)
+  assert_true(inline_code_doc.blocks.val[0] is @cor.Block::Paragraph(_))
+
+  let ref_link_path = dir + "/markdown_reference_link.md"
+  write_utf8_text(ref_link_path, "[foo]: https://example.com\n")
+  let ref_link_doc = @md.parse_markdown(ref_link_path, "", 6)
+  assert_eq(@cor.emit_markdown(ref_link_doc), "[foo]: https://example.com\n")
+  assert_eq(ref_link_doc.note_definitions.val.length(), 0)
 }

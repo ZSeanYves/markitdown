@@ -375,8 +375,8 @@ test "docx footnotes endnotes and comments append conservative sections" {
   )
   let multi_markdown = @cor.emit_markdown(multi_doc)
   assert_eq(multi_markdown, multi_expected)
-  assert_true(multi_markdown.contains("## Footnotes"))
-  assert_true(multi_markdown.contains("## Endnotes"))
+  assert_true(!multi_markdown.contains("## Footnotes"))
+  assert_true(!multi_markdown.contains("## Endnotes"))
   assert_true(multi_markdown.contains("## Comments"))
 }
 

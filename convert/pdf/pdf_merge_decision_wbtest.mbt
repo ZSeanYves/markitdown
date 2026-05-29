@@ -445,3 +445,229 @@ test "pdf merge evidence keeps split on noise guard" {
     fail("expected noise_guard reason")
   }
 }
+
+///|
+test "pdf merge repairs local superscript marker and soft continuation" {
+  let left = {
+    ..make_merge_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "While there is contemporaneous exploration of multi-agent approaches,",
+      merge_rect(40.0, 620.0, 330.0, 638.0),
+      Some(40.0),
+      Some(4.0),
+    ),
+    dominant_font_size: Some(11.5),
+    last_line_height: Some(11.5),
+    last_baseline_y: Some(628.0),
+  }
+  let marker = {
+    ..make_merge_block(
+      0,
+      1,
+      PdfConvertBlockKind::Paragraph,
+      "3",
+      merge_rect(334.0, 626.0, 338.0, 634.0),
+      Some(334.0),
+      Some(0.0),
+    ),
+    dominant_font_size: Some(7.0),
+    first_line_height: Some(7.0),
+    first_baseline_y: Some(631.0),
+    last_baseline_y: Some(631.0),
+  }
+  let cont1 = {
+    ..make_merge_block(
+      0,
+      2,
+      PdfConvertBlockKind::Paragraph,
+      "we present AutoGen, a",
+      merge_rect(40.0, 600.0, 170.0, 618.0),
+      Some(40.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+    first_baseline_y: Some(608.0),
+  }
+  let cont2 = {
+    ..make_merge_block(
+      0,
+      3,
+      PdfConvertBlockKind::Paragraph,
+      "generalized multi-agent conversation framework (Figure 1), based on the following new concepts.",
+      merge_rect(40.0, 582.0, 420.0, 600.0),
+      Some(40.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+    first_baseline_y: Some(590.0),
+  }
+
+  let merged = merge_convert_blocks({
+    pages: [make_merge_page(0, [left, marker, cont1, cont2], [])],
+  })
+  let blocks = merged.pages[0].blocks
+  assert_eq(blocks.length(), 1)
+  assert_eq(
+    blocks[0].text,
+    "While there is contemporaneous exploration of multi-agent approaches,^3 we present AutoGen, a generalized multi-agent conversation framework (Figure 1), based on the following new concepts.",
+  )
+  match blocks[0].rich_inlines {
+    Some(inlines) => {
+      let mut found = false
+      for inline in inlines {
+        match inline {
+          @cor.Inline::NoteRef(note) => {
+            found = true
+            assert_eq(note.marker, "3")
+            assert_true(note.source_kind == @cor.NoteSourceKind::PdfSuperscript)
+            assert_true(note.body_status == @cor.NoteBodyStatus::Missing)
+          }
+          _ => ()
+        }
+      }
+      assert_true(found)
+    }
+    None =>
+      fail("expected superscript marker merge to preserve rich note inlines")
+  }
+}
+
+///|
+test "pdf merge repairs local soft line wrap with trailing article" {
+  let left = {
+    ..make_merge_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "we present AutoGen, a",
+      merge_rect(40.0, 600.0, 170.0, 618.0),
+      Some(40.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+    last_line_height: Some(11.5),
+  }
+  let right = {
+    ..make_merge_block(
+      0,
+      1,
+      PdfConvertBlockKind::Paragraph,
+      "generalized multi-agent conversation framework ...",
+      merge_rect(40.0, 582.0, 320.0, 600.0),
+      Some(40.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+  }
+
+  let merged = merge_convert_blocks({
+    pages: [make_merge_page(0, [left, right], [])],
+  })
+  assert_eq(merged.pages[0].blocks.length(), 1)
+  assert_eq(
+    merged.pages[0].blocks[0].text,
+    "we present AutoGen, a generalized multi-agent conversation framework ...",
+  )
+}
+
+///|
+test "pdf merge repairs same-row adjacent fragment" {
+  let left = {
+    ..make_merge_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "we present AutoGen, a",
+      merge_rect(40.0, 600.0, 170.0, 618.0),
+      Some(40.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+    last_line_height: Some(11.5),
+    first_baseline_y: Some(608.0),
+    last_baseline_y: Some(608.0),
+  }
+  let right = {
+    ..make_merge_block(
+      0,
+      1,
+      PdfConvertBlockKind::Paragraph,
+      "generalized framework",
+      merge_rect(178.0, 600.0, 320.0, 618.0),
+      Some(178.0),
+      Some(0.0),
+    ),
+    dominant_font_size: Some(11.5),
+    first_line_height: Some(11.5),
+    last_line_height: Some(11.5),
+    first_baseline_y: Some(608.0),
+    last_baseline_y: Some(608.0),
+  }
+
+  let merged = merge_convert_blocks({
+    pages: [make_merge_page(0, [left, right], [])],
+  })
+  assert_eq(merged.pages[0].blocks.length(), 1)
+  assert_eq(
+    merged.pages[0].blocks[0].text,
+    "we present AutoGen, a generalized framework",
+  )
+}
+
+///|
+test "pdf merge keeps same-row two-column blocks split" {
+  let left = {
+    ..make_merge_block(
+      0,
+      0,
+      PdfConvertBlockKind::Paragraph,
+      "LEFT-A2 It should stay before LEFT-A3 and LEFT-A4.",
+      merge_rect(56.0, 123.0, 345.0, 140.0),
+      Some(56.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(12.0),
+    first_line_height: Some(12.0),
+    last_line_height: Some(12.0),
+    first_baseline_y: Some(136.0),
+    last_baseline_y: Some(136.0),
+    last_is_wrapped_candidate: true,
+  }
+  let right = {
+    ..make_merge_block(
+      0,
+      1,
+      PdfConvertBlockKind::Paragraph,
+      "RIGHT-B2 It should not merge into LEFT-A4.",
+      merge_rect(320.0, 123.0, 560.0, 140.0),
+      Some(320.0),
+      Some(2.0),
+    ),
+    dominant_font_size: Some(12.0),
+    first_line_height: Some(12.0),
+    last_line_height: Some(12.0),
+    first_baseline_y: Some(136.0),
+    last_baseline_y: Some(136.0),
+    first_is_wrapped_candidate: true,
+  }
+
+  let merged = merge_convert_blocks({
+    pages: [make_merge_page(0, [left, right], [])],
+  })
+  assert_eq(merged.pages[0].blocks.length(), 2)
+  assert_eq(
+    merged.pages[0].blocks[0].text,
+    "LEFT-A2 It should stay before LEFT-A3 and LEFT-A4.",
+  )
+  assert_eq(
+    merged.pages[0].blocks[1].text,
+    "RIGHT-B2 It should not merge into LEFT-A4.",
+  )
+}

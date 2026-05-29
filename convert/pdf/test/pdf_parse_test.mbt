@@ -1052,3 +1052,48 @@ async test "convert/pdf deduplicates appendix notes for pdfjs square-circle with
     )
   }
 }
+
+///|
+async test "convert/pdf repairs markitdown test pdf text flow and numbered headings" {
+  let input = resolve_sample_path(
+    "markitdown-quality-lab/external_quality/pdf/markitdown/test.pdf",
+  )
+  let doc = @pdf.parse_pdf(input, "", 6, None, false, false, false)
+  let markdown = @cor.emit_markdown(doc)
+
+  if !markdown.contains(
+      "While there is contemporaneous exploration of multi-agent approaches,^3 we present AutoGen, a generalized multi-agent conversation framework (Figure 1), based on the following new concepts.",
+    ) {
+    fail(
+      "expected AutoGen flow paragraph to merge footnote marker and soft wrap; markdown=" +
+      markdown,
+    )
+  }
+
+  if markdown.contains("\n3\n") {
+    fail(
+      "expected superscript marker 3 to stop emitting as a standalone paragraph; markdown=" +
+      markdown,
+    )
+  }
+
+  if markdown.contains("approaches,3 we present") {
+    fail(
+      "expected superscript marker to emit as marker-only note fallback; markdown=" +
+      markdown,
+    )
+  }
+
+  if !markdown.contains("# 1 Customizable and conversable agents.") {
+    fail(
+      "expected first numbered heading to emit as heading; markdown=" + markdown,
+    )
+  }
+
+  if !markdown.contains("# 2 Conversation programming.") {
+    fail(
+      "expected second numbered heading to emit as heading; markdown=" +
+      markdown,
+    )
+  }
+}

@@ -161,6 +161,7 @@ fn paragraph_inlines_to_blocks(
           buf.push(@cor.Inline::Text(t))
         }
       }
+      HtmlInline::NoteRef(note) => buf.push(@cor.Inline::NoteRef(note))
       HtmlInline::Image(alt, title, src) => {
         if render_ir_inlines(buf).trim() != "" {
           out.push(@cor.Block::RichParagraph(buf))
@@ -208,6 +209,7 @@ fn html_inlines_to_ir(xs : Array[HtmlInline]) -> Array[@cor.Inline] {
       HtmlInline::Text(t) => out.push(@cor.Inline::Text(t))
       HtmlInline::Break => out.push(@cor.Inline::Break)
       HtmlInline::Link(text, href) => out.push(@cor.Inline::Link(text, href))
+      HtmlInline::NoteRef(note) => out.push(@cor.Inline::NoteRef(note))
       HtmlInline::Image(alt, _title, _src) =>
         out.push(
           @cor.Inline::Text(
@@ -231,6 +233,16 @@ fn render_ir_inlines(xs : Array[@cor.Inline]) -> String {
       @cor.Inline::Text(t) => out = out + t
       @cor.Inline::Break => out = out + "<br>"
       @cor.Inline::Link(text, href) => out = out + text + href
+      @cor.Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out = out + "[^" + note.note_id.trim().to_owned() + "]"
+        } else if marker != "" {
+          out = out +
+            (if marker.has_prefix("^") { marker } else { "^" + marker })
+        }
+      }
     }
   }
   out
@@ -488,6 +500,7 @@ fn html_inlines_are_simple_inline_only(xs : Array[HtmlInline]) -> Bool {
       HtmlInline::Text(_) => ()
       HtmlInline::Break => ()
       HtmlInline::Link(_, _) => ()
+      HtmlInline::NoteRef(_) => ()
       HtmlInline::Image(_, _, _) => return false
     }
   }

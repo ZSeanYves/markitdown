@@ -4,6 +4,22 @@ priv enum HtmlInline {
   Break
   Image(String, String?, String) // alt, title, src
   Link(String, String) // text, href
+  NoteRef(@cor.NoteRef)
+}
+
+///|
+priv struct HtmlNotePlan {
+  refs_by_signature : Map[String, @cor.NoteRef]
+  body_ranges : Array[(Int, Int)]
+  definitions : Array[@cor.NoteDefinition]
+}
+
+///|
+priv struct HtmlNoteTarget {
+  id : String
+  body : String
+  open_start : Int
+  end_after_close : Int
 }
 
 ///|
@@ -35,6 +51,20 @@ priv struct HtmlTableSpanCell {
 
 ///|
 fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
+  let note_plan = build_html_note_plan(bs)
+  scan_html_nodes_with_notes(bs, note_plan)
+}
+
+///|
+fn scan_html_notes(bs : Bytes) -> Array[@cor.NoteDefinition] {
+  build_html_note_plan(bs).definitions
+}
+
+///|
+fn scan_html_nodes_with_notes(
+  bs : Bytes,
+  note_plan : HtmlNotePlan,
+) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
 
   let lt = pat("<")
@@ -60,7 +90,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
     match lt0 {
       None => {
         let tail = bs[pos:n].to_owned()
-        let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+        let xs = trim_inlines_to_paragraph(
+          html_inlines_from_bytes_with_notes(tail, note_plan),
+        )
         if !inlines_is_blank(xs) {
           out.push(HtmlNode::Paragraph(xs))
         }
@@ -70,7 +102,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
         // 顶层裸文本补出，并去掉源码缩进空白
         if p > pos {
           let head = bs[pos:p].to_owned()
-          let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(head))
+          let xs = trim_inlines_to_paragraph(
+            html_inlines_from_bytes_with_notes(head, note_plan),
+          )
           if !inlines_is_blank(xs) {
             out.push(HtmlNode::Paragraph(xs))
           }
@@ -80,7 +114,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
         match gt0 {
           None => {
             let tail = bs[p:n].to_owned()
-            let xs = trim_inlines_to_paragraph(html_inlines_from_bytes(tail))
+            let xs = trim_inlines_to_paragraph(
+              html_inlines_from_bytes_with_notes(tail, note_plan),
+            )
             if !inlines_is_blank(xs) {
               out.push(HtmlNode::Paragraph(xs))
             }
@@ -89,6 +125,14 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            match html_note_body_range_end(note_plan, p) {
+              Some(skip_end) => {
+                pos = skip_end
+                continue
+              }
+              None => ()
+            }
 
             if tag.has_prefix("<!--") {
               let end0 = find_bytes(bs, close_comment, p + 4)
@@ -156,7 +200,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                   None => ()
                   Some(end) => {
                     let inner = bs[inner_start:end].to_owned()
-                    let xs = html_inlines_from_bytes(inner)
+                    let xs = html_inlines_from_bytes_with_notes(
+                      inner, note_plan,
+                    )
                     if !inlines_is_blank(xs) {
                       out.push(HtmlNode::Heading(lvl, xs))
                     }
@@ -174,7 +220,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let children = scan_html_nodes_in_container(inner)
+                  let children = scan_html_nodes_in_container_with_notes(
+                    inner, note_plan,
+                  )
                   if !quote_children_is_blank(children) {
                     out.push(HtmlNode::BlockQuote(children))
                   }
@@ -208,7 +256,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let xs = html_inlines_from_bytes(inner)
+                  let xs = html_inlines_from_bytes_with_notes(inner, note_plan)
                   if !inlines_is_blank(xs) {
                     out.push(HtmlNode::Paragraph(xs))
                   }
@@ -225,7 +273,9 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let children = scan_html_nodes_in_container(inner)
+                  let children = scan_html_nodes_in_container_with_notes(
+                    inner, note_plan,
+                  )
                   for child in children {
                     out.push(child)
                   }
@@ -242,7 +292,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let xs = html_inlines_from_bytes(inner)
+                  let xs = html_inlines_from_bytes_with_notes(inner, note_plan)
                   if !inlines_is_blank(xs) {
                     out.push(HtmlNode::Paragraph(xs))
                   }
@@ -285,7 +335,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                   let inner_end = end
 
                   let items = scan_list_nodes(
-                    bs, inner_start, inner_end, is_ol, 0,
+                    bs, inner_start, inner_end, is_ol, 0, note_plan,
                   )
                   for item in items {
                     out.push(item)
@@ -305,7 +355,7 @@ fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let table = html_table_from_bytes(inner)
+                  let table = html_table_from_bytes_with_notes(inner, note_plan)
                   if table.rows.length() > 0 {
                     out.push(HtmlNode::Table(table))
                   }
@@ -333,6 +383,7 @@ fn scan_list_nodes(
   end_ : Int,
   ordered : Bool,
   level : Int,
+  note_plan : HtmlNotePlan,
 ) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
 
@@ -348,6 +399,15 @@ fn scan_list_nodes(
       Some(i0) => {
         if i0 >= end_ {
           break
+        }
+
+        match html_note_body_range_end(note_plan, i0) {
+          Some(skip_end) =>
+            if skip_end <= end_ {
+              pos = skip_end
+              continue
+            }
+          None => ()
         }
 
         let gt0 = find_bytes(bs, gt_pat, i0)
@@ -373,6 +433,7 @@ fn scan_list_nodes(
                   inner_start,
                   li_end,
                   level + 1,
+                  note_plan,
                 )
 
                 if !list_item_children_is_blank(children) {
@@ -399,6 +460,7 @@ fn scan_li_children(
   start : Int,
   end_ : Int,
   next_level : Int,
+  note_plan : HtmlNotePlan,
 ) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
   let pending_para : Array[HtmlInline] = []
@@ -409,7 +471,7 @@ fn scan_li_children(
   // do not split into multiple paragraph nodes.
   if !has_block_like_tag_in_range(bs, start, end_) {
     let inner = bs[start:end_].to_owned()
-    let xs = html_inlines_from_bytes(inner)
+    let xs = html_inlines_from_bytes_with_notes(inner, note_plan)
     if !inlines_is_blank(xs) {
       out.push(HtmlNode::Paragraph(xs))
     }
@@ -432,7 +494,7 @@ fn scan_li_children(
     match lt0 {
       None => {
         let tail = bs[pos:end_].to_owned()
-        let xs = html_inlines_from_bytes(tail)
+        let xs = html_inlines_from_bytes_with_notes(tail, note_plan)
         if !inlines_is_blank(xs) {
           append_inlines(pending_para, xs)
         }
@@ -442,7 +504,7 @@ fn scan_li_children(
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_owned()
-          let xs = html_inlines_from_bytes(head)
+          let xs = html_inlines_from_bytes_with_notes(head, note_plan)
           if !inlines_is_blank(xs) {
             append_inlines(pending_para, xs)
           }
@@ -457,7 +519,7 @@ fn scan_li_children(
         match gt0 {
           None => {
             let tail = bs[p:end_].to_owned()
-            let xs = html_inlines_from_bytes(tail)
+            let xs = html_inlines_from_bytes_with_notes(tail, note_plan)
             if !inlines_is_blank(xs) {
               append_inlines(pending_para, xs)
             }
@@ -467,7 +529,7 @@ fn scan_li_children(
           Some(q) => {
             if q >= end_ {
               let tail = bs[p:end_].to_owned()
-              let xs = html_inlines_from_bytes(tail)
+              let xs = html_inlines_from_bytes_with_notes(tail, note_plan)
               if !inlines_is_blank(xs) {
                 append_inlines(pending_para, xs)
               }
@@ -477,6 +539,16 @@ fn scan_li_children(
 
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            match html_note_body_range_end(note_plan, p) {
+              Some(skip_end) =>
+                if skip_end <= end_ {
+                  flush_pending_paragraph(out, pending_para)
+                  pos = skip_end
+                  continue
+                }
+              None => ()
+            }
 
             if tag.has_prefix("<!--") {
               let end0 = find_bytes(bs, close_comment, p + 4)
@@ -510,7 +582,9 @@ fn scan_li_children(
                 Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_owned()
-                    let xs = html_inlines_from_bytes(inner)
+                    let xs = html_inlines_from_bytes_with_notes(
+                      inner, note_plan,
+                    )
                     if !inlines_is_blank(xs) {
                       out.push(HtmlNode::Paragraph(xs))
                     }
@@ -530,7 +604,9 @@ fn scan_li_children(
                 Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_owned()
-                    let children = scan_html_nodes_in_container(inner)
+                    let children = scan_html_nodes_in_container_with_notes(
+                      inner, note_plan,
+                    )
                     if !quote_children_is_blank(children) {
                       out.push(HtmlNode::BlockQuote(children))
                     }
@@ -570,7 +646,9 @@ fn scan_li_children(
                 Some(end) =>
                   if end <= end_ {
                     let inner = bs[inner_start:end].to_owned()
-                    let table = html_table_from_bytes(inner)
+                    let table = html_table_from_bytes_with_notes(
+                      inner, note_plan,
+                    )
                     if table.rows.length() > 0 {
                       out.push(HtmlNode::Table(table))
                     }
@@ -594,7 +672,7 @@ fn scan_li_children(
                     let inner_end = end
 
                     let items = scan_list_nodes(
-                      bs, inner_start, inner_end, is_ol, next_level,
+                      bs, inner_start, inner_end, is_ol, next_level, note_plan,
                     )
                     for item in items {
                       out.push(item)
@@ -620,7 +698,10 @@ fn scan_li_children(
 }
 
 ///|
-fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
+fn scan_html_nodes_in_container_with_notes(
+  bs : Bytes,
+  note_plan : HtmlNotePlan,
+) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
   let pending_para : Array[HtmlInline] = []
 
@@ -647,7 +728,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
     match lt0 {
       None => {
         let tail = bs[pos:n].to_owned()
-        let xs = html_inlines_from_bytes(tail)
+        let xs = html_inlines_from_bytes_with_notes(tail, note_plan)
         if !inlines_is_blank(xs) {
           append_inlines(pending_para, xs)
         }
@@ -657,7 +738,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
       Some(p) => {
         if p > pos {
           let head = bs[pos:p].to_owned()
-          let xs = html_inlines_from_bytes(head)
+          let xs = html_inlines_from_bytes_with_notes(head, note_plan)
           if !inlines_is_blank(xs) {
             append_inlines(pending_para, xs)
           }
@@ -667,7 +748,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
         match gt0 {
           None => {
             let tail = bs[p:n].to_owned()
-            let xs = html_inlines_from_bytes(tail)
+            let xs = html_inlines_from_bytes_with_notes(tail, note_plan)
             if !inlines_is_blank(xs) {
               append_inlines(pending_para, xs)
             }
@@ -677,6 +758,15 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
             let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+
+            match html_note_body_range_end(note_plan, p) {
+              Some(skip_end) => {
+                flush_pending_paragraph(out, pending_para)
+                pos = skip_end
+                continue
+              }
+              None => ()
+            }
 
             if tag.has_prefix("<!--") {
               let end0 = find_bytes(bs, close_comment, p + 4)
@@ -747,7 +837,9 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                   None => ()
                   Some(end) => {
                     let inner = bs[inner_start:end].to_owned()
-                    let xs = html_inlines_from_bytes(inner)
+                    let xs = html_inlines_from_bytes_with_notes(
+                      inner, note_plan,
+                    )
                     if !inlines_is_blank(xs) {
                       out.push(HtmlNode::Heading(lvl, xs))
                     }
@@ -767,7 +859,9 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let children = scan_html_nodes_in_container(inner)
+                  let children = scan_html_nodes_in_container_with_notes(
+                    inner, note_plan,
+                  )
                   if !quote_children_is_blank(children) {
                     out.push(HtmlNode::BlockQuote(children))
                   }
@@ -805,7 +899,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let xs = html_inlines_from_bytes(inner)
+                  let xs = html_inlines_from_bytes_with_notes(inner, note_plan)
                   if !inlines_is_blank(xs) {
                     out.push(HtmlNode::Paragraph(xs))
                   }
@@ -824,7 +918,9 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let children = scan_html_nodes_in_container(inner)
+                  let children = scan_html_nodes_in_container_with_notes(
+                    inner, note_plan,
+                  )
                   for child in children {
                     out.push(child)
                   }
@@ -843,7 +939,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let xs = html_inlines_from_bytes(inner)
+                  let xs = html_inlines_from_bytes_with_notes(inner, note_plan)
                   if !inlines_is_blank(xs) {
                     out.push(HtmlNode::Paragraph(xs))
                   }
@@ -866,7 +962,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                   let inner_end = end
 
                   let items = scan_list_nodes(
-                    bs, inner_start, inner_end, is_ol, 0,
+                    bs, inner_start, inner_end, is_ol, 0, note_plan,
                   )
                   for item in items {
                     out.push(item)
@@ -888,7 +984,7 @@ fn scan_html_nodes_in_container(bs : Bytes) -> Array[HtmlNode] raise {
                 None => ()
                 Some(end) => {
                   let inner = bs[inner_start:end].to_owned()
-                  let table = html_table_from_bytes(inner)
+                  let table = html_table_from_bytes_with_notes(inner, note_plan)
                   if table.rows.length() > 0 {
                     out.push(HtmlNode::Table(table))
                   }
@@ -1005,6 +1101,14 @@ fn html_pre_text_from_bytes(inner : Bytes) -> String {
 
 ///|
 fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
+  html_inlines_from_bytes_with_notes(inner, empty_html_note_plan())
+}
+
+///|
+fn html_inlines_from_bytes_with_notes(
+  inner : Bytes,
+  note_plan : HtmlNotePlan,
+) -> Array[HtmlInline] {
   let out : Array[HtmlInline] = []
 
   let lt = pat("<")
@@ -1108,7 +1212,11 @@ fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
                       .trim()
                       .to_owned()
                     if text != "" {
-                      out.push(HtmlInline::Link(text, href))
+                      let signature = html_note_ref_signature(href, text)
+                      match note_plan.refs_by_signature.get(signature) {
+                        Some(note) => out.push(HtmlInline::NoteRef(note))
+                        None => out.push(HtmlInline::Link(text, href))
+                      }
                     }
                     pos = a_end + close_a.length()
                     continue
@@ -1178,6 +1286,7 @@ fn merge_adjacent_text_inlines(xs : Array[HtmlInline]) -> Array[HtmlInline] {
       HtmlInline::Image(alt, title, src) =>
         out.push(HtmlInline::Image(alt, title, src))
       HtmlInline::Link(text, href) => out.push(HtmlInline::Link(text, href))
+      HtmlInline::NoteRef(note) => out.push(HtmlInline::NoteRef(note))
     }
   }
   out
@@ -1205,6 +1314,7 @@ fn render_inlines(xs : Array[HtmlInline]) -> String {
           s = s + "[" + t + "](" + h + ")"
         }
       }
+      HtmlInline::NoteRef(note) => s = s + render_html_note_ref_inline(note)
     }
   }
   s
@@ -1629,6 +1739,321 @@ fn append_inlines(dst : Array[HtmlInline], src : Array[HtmlInline]) -> Unit {
 }
 
 ///|
+fn empty_html_note_plan() -> HtmlNotePlan {
+  { refs_by_signature: Map([]), body_ranges: [], definitions: [] }
+}
+
+///|
+fn build_html_note_plan(bs : Bytes) -> HtmlNotePlan {
+  let refs_by_signature : Map[String, @cor.NoteRef] = {}
+  let body_ranges : Array[(Int, Int)] = []
+  let definitions : Array[@cor.NoteDefinition] = []
+  let targets = collect_html_note_targets(bs)
+  if targets.length() == 0 {
+    return { refs_by_signature, body_ranges, definitions }
+  }
+
+  let seen_targets : Map[String, Bool] = {}
+  let open_a = pat("<a")
+  let close_a = pat("</a>")
+  let gt_pat = pat(">")
+  let mut pos = 0
+  while true {
+    let a0 = find_bytes_case_insensitive(bs, open_a, pos)
+    match a0 {
+      None => break
+      Some(i0) => {
+        let gt0 = find_bytes(bs, gt_pat, i0)
+        match gt0 {
+          None => break
+          Some(q0) => {
+            let tag0 = @utf8.decode(bs[i0:q0 + 1].to_owned(), ignore_bom=false) catch {
+              _ => ""
+            }
+            let href = sanitize_html_href(
+                read_html_attr_value(tag0, "href").unwrap_or(""),
+              )
+              .unwrap_or("")
+              .trim()
+              .to_owned()
+            match html_fragment_id_from_href(href) {
+              None => ()
+              Some(target_id) =>
+                match find_html_note_target(targets, target_id) {
+                  None => ()
+                  Some(target) =>
+                    if html_anchor_is_strong_noteref(tag0) {
+                      let inner_start = q0 + 1
+                      let a_end0 = find_bytes_case_insensitive(
+                        bs, close_a, inner_start,
+                      )
+                      match a_end0 {
+                        None => ()
+                        Some(a_end) => {
+                          let marker = html_note_marker_from_bytes(
+                            bs[inner_start:a_end].to_owned(),
+                          )
+                          if marker != "" {
+                            let note_id = html_clean_note_id(target.id)
+                            let note = make_html_note_ref(note_id, marker)
+                            refs_by_signature[html_note_ref_signature(
+                              href, marker,
+                            )] = note
+                            if !seen_targets.contains(note_id) {
+                              seen_targets[note_id] = true
+                              body_ranges.push(
+                                (target.open_start, target.end_after_close),
+                              )
+                              definitions.push(
+                                make_html_note_definition(
+                                  note_id, marker, target,
+                                ),
+                              )
+                            }
+                          }
+                        }
+                      }
+                    }
+                }
+            }
+            pos = q0 + 1
+          }
+        }
+      }
+    }
+  }
+
+  { refs_by_signature, body_ranges, definitions }
+}
+
+///|
+fn collect_html_note_targets(bs : Bytes) -> Array[HtmlNoteTarget] {
+  let out : Array[HtmlNoteTarget] = []
+  let lt = pat("<")
+  let gt = pat(">")
+  let mut pos = 0
+  while true {
+    let p0 = find_bytes(bs, lt, pos)
+    match p0 {
+      None => break
+      Some(p) => {
+        let q0 = find_bytes(bs, gt, p)
+        match q0 {
+          None => break
+          Some(q) => {
+            let tag0 = @utf8.decode(bs[p:q + 1].to_owned(), ignore_bom=false) catch {
+              _ => ""
+            }
+            match html_open_tag_name(tag0) {
+              None => ()
+              Some(tag_name) =>
+                match read_html_attr_value(tag0, "id") {
+                  None => ()
+                  Some(raw_id) => {
+                    let id = html_unescape(raw_id).trim().to_owned()
+                    if id != "" &&
+                      html_tag_can_be_note_body(tag_name) &&
+                      html_tag_is_footnote_like(tag_name, tag0, id) {
+                      match find_matching_tag_end(bs, p, tag_name) {
+                        None => ()
+                        Some(close_idx) => {
+                          let body = html_note_body_from_bytes(
+                            bs[q + 1:close_idx].to_owned(),
+                          )
+                          if body != "" {
+                            out.push({
+                              id,
+                              body,
+                              open_start: p,
+                              end_after_close: close_idx +
+                              ("</" + tag_name + ">").length(),
+                            })
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+            }
+            pos = q + 1
+          }
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
+fn find_html_note_target(
+  targets : Array[HtmlNoteTarget],
+  id : String,
+) -> HtmlNoteTarget? {
+  let wanted = id.trim().to_owned()
+  for target in targets {
+    if target.id == wanted {
+      return Some(target)
+    }
+  }
+  None
+}
+
+///|
+fn html_note_body_range_end(plan : HtmlNotePlan, start : Int) -> Int? {
+  for range in plan.body_ranges {
+    let (range_start, range_end) = range
+    if range_start == start {
+      return Some(range_end)
+    }
+  }
+  None
+}
+
+///|
+fn html_anchor_is_strong_noteref(tag : String) -> Bool {
+  html_attr_token_contains(tag, "epub:type", "noteref") ||
+  html_attr_token_contains(tag, "role", "doc-noteref")
+}
+
+///|
+fn html_tag_is_footnote_like(
+  tag_name : String,
+  tag : String,
+  id : String,
+) -> Bool {
+  html_attr_token_contains(tag, "epub:type", "footnote") ||
+  html_attr_token_contains(tag, "role", "doc-footnote") ||
+  html_footnote_like_text(tag_name) ||
+  html_footnote_like_text(id) ||
+  read_html_attr_value(tag, "class")
+  .map(fn(value) { html_footnote_like_text(value) })
+  .unwrap_or(false)
+}
+
+///|
+fn html_tag_can_be_note_body(tag_name : String) -> Bool {
+  tag_name == "aside" ||
+  tag_name == "section" ||
+  tag_name == "li" ||
+  tag_name == "div"
+}
+
+///|
+fn html_attr_token_contains(
+  tag : String,
+  attr_name : String,
+  token : String,
+) -> Bool {
+  match read_html_attr_value(tag, attr_name) {
+    None => false
+    Some(value) => html_token_text_contains(value, token)
+  }
+}
+
+///|
+fn html_token_text_contains(value : String, token : String) -> Bool {
+  let lower = value.to_lower()
+  let wanted = token.to_lower()
+  lower.contains(wanted)
+}
+
+///|
+fn html_footnote_like_text(value : String) -> Bool {
+  let lower = value.to_lower()
+  lower.contains("footnote") ||
+  lower.contains("endnote") ||
+  lower == "fn" ||
+  lower.has_prefix("fn-") ||
+  lower.has_prefix("fn_") ||
+  lower.has_prefix("fn:")
+}
+
+///|
+fn html_fragment_id_from_href(href : String) -> String? {
+  let trimmed = href.trim().to_owned()
+  if !trimmed.has_prefix("#") || trimmed.length() <= 1 {
+    return None
+  }
+  Some(html_unescape(trimmed[1:].to_owned()).trim().to_owned())
+}
+
+///|
+fn html_clean_note_id(id : String) -> String {
+  let trimmed = id.trim().to_owned()
+  if trimmed.has_prefix("fn:") && trimmed.length() > 3 {
+    trimmed[3:].to_owned()
+  } else {
+    trimmed
+  }
+}
+
+///|
+fn html_note_marker_from_bytes(bs : Bytes) -> String {
+  let marker = render_inlines(html_inlines_from_bytes(bs)).trim().to_owned()
+  if marker == "" {
+    ""
+  } else {
+    marker
+  }
+}
+
+///|
+fn html_note_body_from_bytes(bs : Bytes) -> String {
+  render_inlines(html_inlines_from_bytes(bs)).trim().to_owned()
+}
+
+///|
+fn make_html_note_ref(note_id : String, marker : String) -> @cor.NoteRef {
+  {
+    note_id,
+    marker,
+    kind: @cor.NoteKind::Footnote,
+    source_kind: @cor.NoteSourceKind::HtmlNoteRef,
+    confidence: @cor.NoteConfidence::High,
+    body_status: @cor.NoteBodyStatus::Resolved,
+  }
+}
+
+///|
+fn make_html_note_definition(
+  note_id : String,
+  marker : String,
+  target : HtmlNoteTarget,
+) -> @cor.NoteDefinition {
+  {
+    note_id,
+    marker,
+    kind: @cor.NoteKind::Footnote,
+    blocks: [@cor.Block::Paragraph(target.body)],
+    placement: @cor.NotePlacement::DocumentEnd,
+    source_kind: @cor.NoteSourceKind::HtmlFootnoteBody,
+    body_status: @cor.NoteBodyStatus::Resolved,
+    origin: None,
+  }
+}
+
+///|
+fn html_note_ref_signature(href : String, marker : String) -> String {
+  href.trim().to_owned() + "\u{1F}" + marker.trim().to_owned()
+}
+
+///|
+fn render_html_note_ref_inline(note : @cor.NoteRef) -> String {
+  if note.body_status == @cor.NoteBodyStatus::Resolved &&
+    note.note_id.trim() != "" {
+    return "[^" + note.note_id.trim().to_owned() + "]"
+  }
+  let marker = note.marker.trim().to_owned()
+  if marker == "" {
+    ""
+  } else if marker.has_prefix("^") {
+    marker
+  } else {
+    "^" + marker
+  }
+}
+
+///|
 /// trim one pending paragraph as a whole:
 /// - preserve internal spaces between raw text fragments
 /// - strip only leading/trailing whitespace introduced by source indentation
@@ -1681,7 +2106,10 @@ fn trim_inlines_to_paragraph(xs : Array[HtmlInline]) -> Array[HtmlInline] {
 }
 
 ///|
-fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
+fn html_table_from_bytes_with_notes(
+  inner : Bytes,
+  note_plan : HtmlNotePlan,
+) -> HtmlTable {
   let out : Array[Array[Array[HtmlInline]]] = []
   let span_cells : Array[HtmlTableSpanCell] = []
 
@@ -1707,7 +2135,7 @@ fn html_table_from_bytes(inner : Bytes) -> HtmlTable {
                 let tr_inner = inner[row_start:end].to_owned()
                 let row_index = out.length() + 1
                 let (cells, row_spans) = html_table_row_from_bytes(
-                  tr_inner, row_index,
+                  tr_inner, row_index, note_plan,
                 )
                 if cells.length() > 0 {
                   out.push(cells)
@@ -1776,6 +2204,7 @@ fn html_table_header_rows(inner : Bytes) -> Int {
 fn html_table_row_from_bytes(
   tr_inner : Bytes,
   row_index : Int,
+  note_plan : HtmlNotePlan,
 ) -> (Array[Array[HtmlInline]], Array[HtmlTableSpanCell]) {
   let out : Array[Array[HtmlInline]] = []
   let spans : Array[HtmlTableSpanCell] = []
@@ -1824,7 +2253,9 @@ fn html_table_row_from_bytes(
               None => break
               Some(end) => {
                 let cell_inner = tr_inner[cell_start:end].to_owned()
-                let xs = html_inlines_from_bytes(cell_inner)
+                let xs = html_inlines_from_bytes_with_notes(
+                  cell_inner, note_plan,
+                )
                 let tag_bs = tr_inner[i0:q0 + 1].to_owned()
                 let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch {
                   _ => ""

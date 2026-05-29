@@ -32,6 +32,8 @@ pub fn emit_metadata_json(Document, String, String, String) -> String
 
 pub fn emit_metadata_json_with_document_properties(Document, String, String, String, MetadataDocumentProperties?) -> String
 
+pub fn file_ext_lower(String) -> String
+
 pub fn int_json(Int) -> String
 
 pub fn is_blank(String) -> Bool
@@ -47,6 +49,8 @@ pub fn is_normalized_nfkd(String) -> Bool
 pub fn json_string(String) -> String
 
 pub fn json_string_opt(String?) -> String
+
+pub fn known_image_ext_from_path(String) -> String?
 
 pub fn metadata_document_properties(String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?, String?) -> MetadataDocumentProperties
 
@@ -89,6 +93,8 @@ pub fn normalize_unicode_spaces(String) -> String
 pub fn object_json(Array[String]) -> String
 
 pub fn push(Document, Block) -> Unit
+
+pub fn push_note_definition(Document, NoteDefinition) -> Unit
 
 pub fn push_with_origin(Document, Block, Origin?) -> Unit
 
@@ -201,6 +207,7 @@ pub struct Document {
   block_origins : @ref.Ref[Array[Origin?]]
   asset_origins : @ref.Ref[Map[String, AssetOrigin]]
   passthrough_markdown : @ref.Ref[String?]
+  note_definitions : @ref.Ref[Array[NoteDefinition]]
 }
 
 pub(all) struct ImageData {
@@ -215,6 +222,7 @@ pub(all) enum Inline {
   Text(String)
   Break
   Link(String, String)
+  NoteRef(NoteRef)
 }
 
 pub struct MetadataDocumentProperties {
@@ -243,6 +251,68 @@ pub(all) enum NormalizeProfile {
   HtmlText
   OoxmlText
   StructuredDataText
+} derive(Eq)
+
+pub(all) enum NoteBodyStatus {
+  Resolved
+  Missing
+  Unknown
+} derive(Eq)
+
+pub(all) enum NoteConfidence {
+  High
+  Medium
+  Low
+} derive(Eq)
+
+pub(all) struct NoteDefinition {
+  note_id : String
+  marker : String
+  kind : NoteKind
+  blocks : Array[Block]
+  placement : NotePlacement
+  source_kind : NoteSourceKind
+  body_status : NoteBodyStatus
+  origin : Origin?
+}
+
+pub(all) enum NoteKind {
+  Footnote
+  Endnote
+  Citation
+  Unknown
+} derive(Eq)
+
+pub(all) enum NotePlacement {
+  PageBottom
+  DocumentEnd
+  InlineSection
+  Unknown
+} derive(Eq)
+
+pub(all) struct NoteRef {
+  note_id : String
+  marker : String
+  kind : NoteKind
+  source_kind : NoteSourceKind
+  confidence : NoteConfidence
+  body_status : NoteBodyStatus
+}
+
+pub(all) enum NoteSourceKind {
+  PdfSuperscript
+  DocxFootnoteRef
+  DocxEndnoteRef
+  DocxFootnoteBody
+  DocxEndnoteBody
+  HtmlSup
+  HtmlNoteRef
+  HtmlFootnoteBody
+  MarkdownFootnoteRef
+  MarkdownFootnoteBody
+  EpubNoteRef
+  EpubFootnoteBody
+  Unknown
 } derive(Eq)
 
 pub(all) struct Origin {

@@ -715,6 +715,7 @@ fn has_link_inline(xs : Array[@cor.Inline]) -> Bool {
   for x in xs {
     match x {
       @cor.Inline::Link(_, _) => return true
+      @cor.Inline::NoteRef(_) => ()
       _ => ()
     }
   }

@@ -47,6 +47,7 @@ pub fn parse_html(
   )
 
   let doc = @cor.new_document()
+  let note_definitions = scan_html_notes(scoped_bs)
 
   html_profile_set_active(profile)
   defer html_profile_set_active(None)
@@ -151,6 +152,10 @@ pub fn parse_html(
         doc.blocks.val.length(),
       ),
     )
+  }
+
+  for note in note_definitions {
+    @cor.push_note_definition(doc, note)
   }
 
   html_profile_add_stage(

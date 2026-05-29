@@ -168,6 +168,7 @@ fn extract_single_hyperlink_relationship_id(
           None => seen_url = Some(trimmed)
         }
       }
+      @cor.Inline::NoteRef(_) => ()
       _ => ()
     }
   }
@@ -215,6 +216,16 @@ fn render_plain_text_inlines(xs : Array[@cor.Inline]) -> String {
       @cor.Inline::Text(t) => out = out + t
       @cor.Inline::Break => out = out + "\n"
       @cor.Inline::Link(text, _url) => out = out + text
+      @cor.Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out = out + "[^" + note.note_id.trim().to_owned() + "]"
+        } else if marker != "" {
+          out = out +
+            (if marker.has_prefix("^") { marker } else { "^" + marker })
+        }
+      }
     }
   }
   out

@@ -83,6 +83,76 @@ pub(all) enum Inline {
   Text(String)
   Break
   Link(String, String) // text, url
+  NoteRef(NoteRef)
+}
+
+///|
+pub(all) enum NoteKind {
+  Footnote
+  Endnote
+  Citation
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) enum NoteSourceKind {
+  PdfSuperscript
+  DocxFootnoteRef
+  DocxEndnoteRef
+  DocxFootnoteBody
+  DocxEndnoteBody
+  HtmlSup
+  HtmlNoteRef
+  HtmlFootnoteBody
+  MarkdownFootnoteRef
+  MarkdownFootnoteBody
+  EpubNoteRef
+  EpubFootnoteBody
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) enum NoteConfidence {
+  High
+  Medium
+  Low
+} derive(Eq)
+
+///|
+pub(all) enum NoteBodyStatus {
+  Resolved
+  Missing
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) enum NotePlacement {
+  PageBottom
+  DocumentEnd
+  InlineSection
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) struct NoteRef {
+  note_id : String
+  marker : String
+  kind : NoteKind
+  source_kind : NoteSourceKind
+  confidence : NoteConfidence
+  body_status : NoteBodyStatus
+}
+
+///|
+pub(all) struct NoteDefinition {
+  note_id : String
+  marker : String
+  kind : NoteKind
+  blocks : Array[Block]
+  placement : NotePlacement
+  source_kind : NoteSourceKind
+  body_status : NoteBodyStatus
+  origin : Origin?
 }
 
 ///|
@@ -162,6 +232,7 @@ pub struct Document {
   block_origins : Ref[Array[Origin?]]
   asset_origins : Ref[Map[String, AssetOrigin]]
   passthrough_markdown : Ref[String?]
+  note_definitions : Ref[Array[NoteDefinition]]
 }
 
 ///|
@@ -171,6 +242,7 @@ pub fn new_document() -> Document {
     block_origins: { val: [] },
     asset_origins: { val: Map([]) },
     passthrough_markdown: { val: None },
+    note_definitions: { val: [] },
   }
 }
 
@@ -203,7 +275,12 @@ pub fn set_passthrough_markdown(doc : Document, markdown : String) -> Unit {
 }
 
 ///|
-pub impl Show for Origin with to_string(self : Origin) -> String {
+pub fn push_note_definition(doc : Document, note : NoteDefinition) -> Unit {
+  doc.note_definitions.val.push(note)
+}
+
+///|
+pub impl Show for Origin with fn to_string(self : Origin) -> String {
   let out = StringBuilder::new()
   out.write_string("Origin{")
 
@@ -257,6 +334,6 @@ pub impl Show for Origin with to_string(self : Origin) -> String {
 }
 
 ///|
-pub impl Show for Origin with output(self : Origin, logger : &Logger) -> Unit {
+pub impl Show for Origin with fn output(self : Origin, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

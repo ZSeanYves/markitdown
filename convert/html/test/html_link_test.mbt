@@ -45,6 +45,38 @@ fn has_any_link(xs : Array[@cor.Inline]) -> Bool {
 }
 
 ///|
+fn has_note_ref(
+  xs : Array[@cor.Inline],
+  note_id : String,
+  marker : String,
+  source_kind : @cor.NoteSourceKind,
+) -> Bool {
+  for x in xs {
+    match x {
+      @cor.Inline::NoteRef(note) =>
+        if note.note_id == note_id &&
+          note.marker == marker &&
+          note.source_kind == source_kind {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn has_any_note_ref(xs : Array[@cor.Inline]) -> Bool {
+  for x in xs {
+    match x {
+      @cor.Inline::NoteRef(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 test "html links are preserved in rich paragraph inlines" {
   let basic_doc = @html.parse_html(
     resolve_sample_path("samples/main_process/html/html_link_basic.html"),
@@ -282,5 +314,107 @@ test "html unwraps bing click redirect links to canonical targets" {
     @cor.Block::RichParagraph(inlines) =>
       assert_true(has_link(inlines, "Docs", "https://example.com/docs"))
     _ => fail("expected rich paragraph for bing redirect sample")
+  }
+}
+
+///|
+test "html explicit epub noteref emits note ir and suppresses body" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_epub_noteref.html"
+  write_utf8_text(
+    sample_path, "<html><body><p>Text<a epub:type=\"noteref\" href=\"#fn1\">1</a>.</p><aside epub:type=\"footnote\" id=\"fn1\">Footnote body.</aside></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "Text[^fn1].\n\n[^fn1]: Footnote body.\n")
+  assert_eq(doc.blocks.val.length(), 1)
+  assert_eq(doc.note_definitions.val.length(), 1)
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(
+        has_note_ref(inlines, "fn1", "1", @cor.NoteSourceKind::HtmlNoteRef),
+      )
+    _ => fail("explicit noteref should stay in a rich paragraph")
+  }
+
+  let note = doc.note_definitions.val[0]
+  assert_eq(note.note_id, "fn1")
+  assert_eq(note.marker, "1")
+  assert_true(note.source_kind == @cor.NoteSourceKind::HtmlFootnoteBody)
+  match note.blocks[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Footnote body.")
+    _ => fail("html note definition should keep body text")
+  }
+}
+
+///|
+test "html role noteref variant emits resolved note definition" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_role_noteref.html"
+  write_utf8_text(
+    sample_path, "<html><body><p>Role<a role=\"doc-noteref\" href=\"#note-a\">a</a>.</p><section role=\"doc-footnote\" id=\"note-a\">Role body.</section></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "Role[^note-a].\n\n[^note-a]: Role body.\n",
+  )
+  assert_eq(doc.blocks.val.length(), 1)
+  assert_eq(doc.note_definitions.val.length(), 1)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(
+        has_note_ref(inlines, "note-a", "a", @cor.NoteSourceKind::HtmlNoteRef),
+      )
+    _ => fail("role noteref should stay in a rich paragraph")
+  }
+}
+
+///|
+test "html explicit noteref suppresses li note body targets" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_li_noteref.html"
+  write_utf8_text(
+    sample_path, "<html><body><p>Item<a epub:type=\"noteref\" href=\"#fn-li\">li</a>.</p><ol><li id=\"fn-li\" epub:type=\"footnote\">List note body.</li></ol></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "Item[^fn-li].\n\n[^fn-li]: List note body.\n",
+  )
+  assert_eq(doc.blocks.val.length(), 1)
+  assert_eq(doc.note_definitions.val.length(), 1)
+}
+
+///|
+test "html plain sup normal anchors and missing noteref targets stay non-note" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_non_note_links.html"
+  write_utf8_text(
+    sample_path, "<html><body><p>Plain<sup>1</sup> <a href=\"#section1\">go</a> <a epub:type=\"noteref\" href=\"#missing\">2</a>.</p><section id=\"section1\">Section body.</section></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Plain1 [go](#section1) [2](#missing)."))
+  assert_eq(doc.note_definitions.val.length(), 0)
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) => {
+      assert_true(has_link(inlines, "go", "#section1"))
+      assert_true(has_link(inlines, "2", "#missing"))
+      assert_true(!has_any_note_ref(inlines))
+    }
+    _ => fail("non-note anchor sample should stay a rich paragraph")
   }
 }
