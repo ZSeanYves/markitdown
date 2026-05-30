@@ -4,15 +4,15 @@ Status: historical snapshot retained for traceability.
 
 Current source of truth for project state now lives in:
 
-* [README](../../README.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [README](../../../README.md)
+* [docs/supported-formats.md](../../supported-formats.md)
 * [docs/archive/performance/validation-and-benchmark-summary.md](../performance/validation-and-benchmark-summary.md)
 * [docs/archive/roadmap/second-round-summary.md](./second-round-summary.md)
 
 This document summarizes the repository's current project state.
 
 For detailed per-format behavior, use
-[docs/support-and-limits.md](../../support-and-limits.md).
+[docs/supported-formats.md](../../supported-formats.md).
 
 For the current document map and primary current-state entrypoints, use
 [docs/README.md](../../README.md).
@@ -104,4 +104,4 @@ Current rollout status:
 For the detailed rollout boundary, use
 [docs/archive/normalization/text-normalization-migration-plan.md](../normalization/text-normalization-migration-plan.md)
 and
-[docs/text-normalization-conformance.md](./text-normalization-conformance.md).
+[docs/archive/reference/text-normalization-conformance.md](../reference/text-normalization-conformance.md).

@@ -1,7 +1,7 @@
 import {
-  "ZSeanYves/markitdown/convert/vision" @vision,
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "ZSeanYves/markitdown/convert/vision",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 }
 
 options(

@@ -28,7 +28,10 @@ pub fn parse_html(
     profile,
     "html_file_read",
     @env.now() - read_started,
-    Some("bytes=" + raw_bs.length().to_string()),
+    match profile {
+      Some(_) => Some("bytes=" + raw_bs.length().to_string())
+      None => None
+    },
   )
 
   let normalize_started = @env.now()
@@ -38,12 +41,16 @@ pub fn parse_html(
     profile,
     "html_normalize_bytes",
     @env.now() - normalize_started,
-    Some(
-      "bytes=" +
-      bs.length().to_string() +
-      " scoped_bytes=" +
-      scoped_bs.length().to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "bytes=" +
+          bs.length().to_string() +
+          " scoped_bytes=" +
+          scoped_bs.length().to_string(),
+        )
+      None => None
+    },
   )
 
   let doc = @cor.new_document()
@@ -58,43 +65,34 @@ pub fn parse_html(
     profile,
     "html_dom_scan",
     @env.now() - scan_started,
-    Some("nodes=" + nodes.length().to_string()),
+    match profile {
+      Some(_) => Some("nodes=" + nodes.length().to_string())
+      None => None
+    },
   )
 
   let lowering_started = @env.now()
   let html_blocks = nodes_to_blocks(nodes, max_heading, input_path, out_dir)
-  let local_asset_count = match profile {
-    Some(rep) => rep.local_asset_count.val.to_string()
-    None => "0"
-  }
-  let remote_asset_count = match profile {
-    Some(rep) => rep.remote_asset_count.val.to_string()
-    None => "0"
-  }
-  let unresolved_local_asset_count = match profile {
-    Some(rep) => rep.unresolved_local_asset_count.val.to_string()
-    None => "0"
-  }
-  let cached_asset_count = match profile {
-    Some(rep) => rep.cached_asset_count.val.to_string()
-    None => "0"
-  }
   html_profile_add_stage(
     profile,
     "html_block_lowering",
     @env.now() - lowering_started,
-    Some(
-      "blocks=" +
-      html_blocks.blocks.length().to_string() +
-      " local_asset_count=" +
-      local_asset_count +
-      " remote_asset_count=" +
-      remote_asset_count +
-      " unresolved_local_asset_count=" +
-      unresolved_local_asset_count +
-      " cached_asset_count=" +
-      cached_asset_count,
-    ),
+    match profile {
+      Some(rep) =>
+        Some(
+          "blocks=" +
+          html_blocks.blocks.length().to_string() +
+          " local_asset_count=" +
+          rep.local_asset_count.val.to_string() +
+          " remote_asset_count=" +
+          rep.remote_asset_count.val.to_string() +
+          " unresolved_local_asset_count=" +
+          rep.unresolved_local_asset_count.val.to_string() +
+          " cached_asset_count=" +
+          rep.cached_asset_count.val.to_string(),
+        )
+      None => None
+    },
   )
   let blocks = html_blocks.blocks
   let src = @cor.basename(input_path)
@@ -165,14 +163,18 @@ pub fn parse_html(
       Some(rep) => rep.asset_discovery_elapsed_ms.val
       None => 0
     },
-    Some(
-      "local_asset_count=" +
-      local_asset_count +
-      " remote_asset_count=" +
-      remote_asset_count +
-      " unresolved_local_asset_count=" +
-      unresolved_local_asset_count,
-    ),
+    match profile {
+      Some(rep) =>
+        Some(
+          "local_asset_count=" +
+          rep.local_asset_count.val.to_string() +
+          " remote_asset_count=" +
+          rep.remote_asset_count.val.to_string() +
+          " unresolved_local_asset_count=" +
+          rep.unresolved_local_asset_count.val.to_string(),
+        )
+      None => None
+    },
   )
   html_profile_add_stage(
     profile,
@@ -181,18 +183,25 @@ pub fn parse_html(
       Some(rep) => rep.asset_export_elapsed_ms.val
       None => 0
     },
-    Some(
-      "local_asset_count=" +
-      local_asset_count +
-      " cached_asset_count=" +
-      cached_asset_count,
-    ),
+    match profile {
+      Some(rep) =>
+        Some(
+          "local_asset_count=" +
+          rep.local_asset_count.val.to_string() +
+          " cached_asset_count=" +
+          rep.cached_asset_count.val.to_string(),
+        )
+      None => None
+    },
   )
   html_profile_add_stage(
     profile,
     "html_document_build",
     0,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
+    match profile {
+      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+      None => None
+    },
   )
 
   maybe_write_html_profile_log(profile)

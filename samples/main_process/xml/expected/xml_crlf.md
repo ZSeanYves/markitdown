@@ -1,6 +1,4 @@
-```xml
-<root>
-  <line>Alpha</line>
-  <line>Beta</line>
-</root>
-```
+# <root>
+
+- line: Alpha
+- line: Beta

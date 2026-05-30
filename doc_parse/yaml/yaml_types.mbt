@@ -64,13 +64,13 @@ pub struct YamlInspectReport {
 }
 
 ///|
-pub impl Show for YamlError with to_string(self : YamlError) -> String {
+pub impl Show for YamlError with fn to_string(self : YamlError) -> String {
   match self {
     ParseError(msg) => "yaml parse error: " + msg
   }
 }
 
 ///|
-pub impl Show for YamlError with output(self : YamlError, logger : &Logger) -> Unit {
+pub impl Show for YamlError with fn output(self : YamlError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

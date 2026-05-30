@@ -5,14 +5,14 @@ import {
   "ZSeanYves/markitdown/convert/epub" @epubconv,
   "ZSeanYves/markitdown/convert/pdf" @pdfconv,
   "ZSeanYves/markitdown/convert/pdf_debug" @pdfdebug,
-  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
+  "ZSeanYves/markitdown/convert/xlsx",
   "ZSeanYves/markitdown/convert/zip" @zipconv,
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
   "ZSeanYves/markitdown/doc_parse/pdf/api" @pdfapi,
   "ZSeanYves/markitdown/doc_parse/pdf/model" @pdfmodel,
-  "moonbitlang/x/sys" @sys,
-  "moonbitlang/x/fs" @fs,
-  "TheWaWaR/clap" @clap,
+  "moonbitlang/x/sys",
+  "moonbitlang/x/fs",
+  "TheWaWaR/clap",
   "moonbitlang/async",
 }
 

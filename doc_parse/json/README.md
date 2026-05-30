@@ -40,7 +40,7 @@ Minimal examples:
 let doc = @json.parse_json_document("{\"items\":[1,true,\"x\"]}")
 let report = @json.inspect_json_document(doc)
 
-println("root=" + report.root_kind.unwrap_or("none"))
+println("root=" + report.root_kind)
 println("nodes=" + report.node_count.to_string())
 ```
 

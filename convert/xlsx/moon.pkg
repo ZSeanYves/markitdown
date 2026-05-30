@@ -1,8 +1,8 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/xlsx" @dpxlsx,
-  "moonbitlang/core/env" @env,
-  "moonbitlang/x/sys" @sys,
+  "moonbitlang/core/env",
+  "moonbitlang/x/sys",
 }
 
 options(

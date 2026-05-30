@@ -4,7 +4,7 @@ Status: historical smoke-baseline record.
 
 For the current benchmark command menu and current measured snapshot, use:
 
-* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance.md](../../performance.md)
 * [docs/archive/performance/performance-baseline.md](../performance/performance-baseline.md)
 
 This document records the current checked-in smoke benchmark baseline for

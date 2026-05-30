@@ -5,7 +5,7 @@ Status: historical phase-planning reference.
 For the current benchmark governance and current benchmark command menu, use:
 
 * [docs/archive/benchmark/benchmark-governance.md](../benchmark/benchmark-governance.md)
-* [docs/benchmarking.md](../../benchmarking.md)
+* [docs/performance.md](../../performance.md)
 
 This document records the next H3 benchmark phase after the first performance
 wave was closed out.
@@ -196,8 +196,8 @@ Local or private investigation corpora may be used for:
 Those corpora should inform decisions without being confused with the public
 checked-in baseline contract.
 
-See [samples/benchmark/README.md](../samples/benchmark/README.md) and
-[samples/benchmark/corpus_manifest.example.tsv](../samples/benchmark/corpus_manifest.example.tsv)
+See [samples/benchmark/README.md](../../../samples/benchmark/README.md) and
+[samples/benchmark/corpus_manifest.example.tsv](../../../samples/benchmark/corpus_manifest.example.tsv)
 for the checked-in policy/template entry point.
 
 Checker entry point:

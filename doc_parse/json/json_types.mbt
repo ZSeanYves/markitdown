@@ -66,13 +66,13 @@ pub struct JsonInspectReport {
 }
 
 ///|
-pub impl Show for JsonError with to_string(self : JsonError) -> String {
+pub impl Show for JsonError with fn to_string(self : JsonError) -> String {
   match self {
     ParseError(msg) => "json parse error: " + msg
   }
 }
 
 ///|
-pub impl Show for JsonError with output(self : JsonError, logger : &Logger) -> Unit {
+pub impl Show for JsonError with fn output(self : JsonError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

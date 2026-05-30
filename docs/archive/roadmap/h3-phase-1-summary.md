@@ -4,7 +4,7 @@ Status: historical phase summary.
 
 For the current benchmark command menu and current measured snapshot, use:
 
-* [docs/benchmarking.md](../../benchmarking.md)
+* [docs/performance.md](../../performance.md)
 * [docs/archive/performance/performance-baseline.md](../performance/performance-baseline.md)
 
 This document is the long-term summary of the first H3 performance phase.

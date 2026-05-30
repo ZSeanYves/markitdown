@@ -4,8 +4,8 @@ Status: historical milestone summary.
 
 For the current support contract and current documentation map, use:
 
-* [docs/support-and-limits.md](./support-and-limits.md)
-* [docs/README.md](./README.md)
+* [docs/supported-formats.md](../../supported-formats.md)
+* [docs/README.md](../../README.md)
 
 This document records the repository-wide H2 completion cleanup after every
 primary format reached an H2-complete support contract.
@@ -103,7 +103,7 @@ Across the repository, H2 completion now includes:
 ## Known limitations by format
 
 The detailed support contract remains in
-[docs/support-and-limits.md](./support-and-limits.md). The important H2
+[docs/supported-formats.md](../../supported-formats.md). The important H2
 milestone rule is:
 
 * limitations remain explicit
@@ -235,13 +235,12 @@ The repository now prefers a smaller stable document set for current product
 status:
 
 * `README.mbt.md`
-* `docs/support-and-limits.md`
+* `docs/README.md`
+* `docs/supported-formats.md`
+* `docs/quality-and-release.md`
 * `docs/architecture.md`
-* `docs/progress.md`
-* `docs/development.md`
-* `docs/full-format-h2-completion.md`
-* `docs/h3-phase-1-summary.md`
-* benchmark docs
+* `docs/performance.md`
+* archived roadmap and benchmark docs for historical milestone detail
 
 Most transition-era milestone, gap-review, and profiling notes should now be
 treated as merged historical material rather than as the primary source of

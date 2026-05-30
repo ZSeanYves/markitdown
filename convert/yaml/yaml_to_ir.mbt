@@ -33,7 +33,10 @@ pub fn parse_yaml_with_profile(
     profile,
     "yaml_file_read",
     @env.now() - read_started,
-    Some("bytes=" + bytes.length().to_string()),
+    match profile {
+      Some(_) => Some("bytes=" + bytes.length().to_string())
+      None => None
+    },
   )
 
   let decode_started = @env.now()
@@ -44,7 +47,10 @@ pub fn parse_yaml_with_profile(
     profile,
     "yaml_bytes_to_string",
     @env.now() - decode_started,
-    Some("chars=" + raw.length().to_string()),
+    match profile {
+      Some(_) => Some("chars=" + raw.length().to_string())
+      None => None
+    },
   )
 
   let doc = @cor.new_document()
@@ -60,7 +66,10 @@ pub fn parse_yaml_with_profile(
         profile,
         "yaml_to_ir",
         @env.now() - lower_started,
-        Some("blocks=" + doc.blocks.val.length().to_string()),
+        match profile {
+          Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+          None => None
+        },
       )
     }
     None => ()
@@ -69,7 +78,10 @@ pub fn parse_yaml_with_profile(
     profile,
     "yaml_parse_model",
     @env.now() - parse_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
+    match profile {
+      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+      None => None
+    },
   )
 
   (doc, profile)
@@ -136,7 +148,11 @@ fn push_yaml_value_with_profile(
       yaml_profile_add_active_stage(
         "yaml_detect_table",
         @env.now() - detect_started,
-        Some("kind=mapping rows=" + rows.length().to_string()),
+        if yaml_profile_active_enabled() {
+          Some("kind=mapping rows=" + rows.length().to_string())
+        } else {
+          None
+        },
       )
       @cor.push_with_origin(
         doc,
@@ -177,7 +193,11 @@ fn push_yaml_value_with_profile(
             yaml_profile_add_active_stage(
               "yaml_detect_table",
               @env.now() - detect_started,
-              Some("kind=sequence_table rows=" + rows.length().to_string()),
+              if yaml_profile_active_enabled() {
+                Some("kind=sequence_table rows=" + rows.length().to_string())
+              } else {
+                None
+              },
             )
             @cor.push_with_origin(
               doc,
@@ -189,7 +209,11 @@ fn push_yaml_value_with_profile(
             yaml_profile_add_active_stage(
               "yaml_detect_table",
               @env.now() - detect_started,
-              Some("kind=sequence_fallback"),
+              if yaml_profile_active_enabled() {
+                Some("kind=sequence_fallback")
+              } else {
+                None
+              },
             )
             @cor.push_with_origin(
               doc,

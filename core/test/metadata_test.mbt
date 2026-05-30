@@ -101,6 +101,102 @@ test "metadata sidecar omits legacy table structure" {
 }
 
 ///|
+test "metadata sidecar serializes structured inline links" {
+  let doc = @cor.new_document()
+  let origin : @cor.Origin = {
+    source_name: Some("sample.html"),
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: Some(0),
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: Some("html:a:1"),
+    relationship_id: None,
+    key_path: Some("$.html[1].paragraph"),
+  }
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::RichParagraph([
+      @cor.Inline::Text("Visit "),
+      @cor.Inline::Link("Docs", "https://example.com/docs"),
+      @cor.Inline::Text("."),
+    ]),
+    Some(origin),
+  )
+
+  let json = @cor.emit_metadata_json(doc, "sample.html", "html", "sample.md")
+  if !json.contains("\"link_count\": 1") {
+    fail("metadata summary should count structured links")
+  }
+  if !json.contains("\"links\": [") {
+    fail("metadata should include links section when inline links are present")
+  }
+  if !json.contains("\"link_index\": 0") {
+    fail("metadata link should include stable link index")
+  }
+  if !json.contains("\"block_index\": 0") ||
+    !json.contains("\"inline_index\": 1") {
+    fail("metadata link should retain block and inline position")
+  }
+  if !json.contains("\"text_start\": 6") || !json.contains("\"text_end\": 10") {
+    fail("metadata link should retain range inside block text")
+  }
+  if !json.contains("\"text\": \"Docs\"") ||
+    !json.contains("\"url\": \"https://example.com/docs\"") {
+    fail("metadata link should retain text and url")
+  }
+  if !json.contains("\"source_kind\": \"html_href\"") {
+    fail("metadata link should classify HTML href source")
+  }
+  if !json.contains("\"object_ref\": \"html:a:1\"") {
+    fail("metadata link should mirror block provenance")
+  }
+}
+
+///|
+test "metadata sidecar classifies pdf uri annotation links" {
+  let doc = @cor.new_document()
+  let origin : @cor.Origin = {
+    source_name: Some("sample.pdf"),
+    page: Some(1),
+    slide: None,
+    sheet: None,
+    block_index: Some(0),
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: None,
+    relationship_id: None,
+    key_path: None,
+  }
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::RichParagraph([
+      @cor.Inline::Text("Visit "),
+      @cor.Inline::Link("website", "https://example.com"),
+    ]),
+    Some(origin),
+  )
+
+  let json = @cor.emit_metadata_json(doc, "sample.pdf", "pdf", "sample.md")
+  if !json.contains("\"source_kind\": \"pdf_uri_annotation\"") {
+    fail("pdf links should be classified as URI annotation links")
+  }
+  if !json.contains("\"text_start\": 6") || !json.contains("\"text_end\": 13") {
+    fail("pdf link metadata should retain block-text range")
+  }
+  if !json.contains("\"page\": 1") {
+    fail("pdf link metadata should retain page provenance")
+  }
+}
+
+///|
 test "metadata sidecar serializes note definitions when present" {
   let doc = @cor.new_document()
   @cor.push(
@@ -154,5 +250,8 @@ test "metadata sidecar omits empty note definitions section" {
   }
   if json.contains("\"note_definition_count\":") {
     fail("metadata should not add zero note_definition_count churn")
+  }
+  if json.contains("\"links\":") || json.contains("\"link_count\":") {
+    fail("metadata should not add empty link churn")
   }
 }

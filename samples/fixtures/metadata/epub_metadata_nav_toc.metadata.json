@@ -19,8 +19,53 @@
 },
   "summary": {
     "block_count": 10,
-    "asset_count": 0
+    "asset_count": 0,
+    "link_count": 2
   },
+  "links": [
+    {
+      "link_index": 0,
+      "block_index": 1,
+      "inline_index": 0,
+      "text_start": 0,
+      "text_end": 11,
+      "block_type": "list_item",
+      "text": "Section One",
+      "url": "chapter.xhtml#section-1",
+      "source_kind": "epub_href",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_nav_toc.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": ["Table of Contents"],
+        "key_path": "OPS/nav.xhtml"
+      }
+    },
+    {
+      "link_index": 1,
+      "block_index": 2,
+      "inline_index": 0,
+      "text_start": 0,
+      "text_end": 11,
+      "block_type": "list_item",
+      "text": "Section Two",
+      "url": "chapter.xhtml#section-2",
+      "source_kind": "epub_href",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_nav_toc.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": ["Table of Contents"],
+        "key_path": "OPS/nav.xhtml"
+      }
+    }
+  ],
   "blocks": [
     {
       "block_index": 0,

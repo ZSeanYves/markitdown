@@ -119,7 +119,7 @@ priv enum BulletKind {
 const PPTX_SLIDE_DEBUG = false
 
 ///|
-impl Eq for ShapeGroupKind with equal(
+impl Eq for ShapeGroupKind with fn equal(
   self : ShapeGroupKind,
   other : ShapeGroupKind,
 ) -> Bool {

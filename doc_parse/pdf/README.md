@@ -165,7 +165,7 @@ Pass 3 typed raw issue starter:
 - `pdf_text_spans.mbt`: character grouping.
 - `pdf_text_lines.mbt`: line construction, normalization, merging, and page-line filtering.
 - `pdf_text_blocks.mbt`: block construction.
-- `normalize_texts.mbt`, `unicode_compat.mbt`, and `rule.mbt`: normalization and recovery heuristics.
+- `pdf_text_normalization.mbt`, `unicode_compat.mbt`, and `pdf_text_rules.mbt`: normalization and recovery heuristics.
 
 This layer is heuristic-heavy by design. Rules should stay conservative, explainable, and regression-backed.
 
@@ -410,13 +410,13 @@ Current responsibilities are mostly separated:
 
 Recent cleanup:
 
-- R1 split the raw adapter into `mbtpdf_text_adapter.mbt`, `mbtpdf_page_adapter.mbt`, `mbtpdf_image_adapter.mbt`, `mbtpdf_annotation_adapter.mbt`, and `mbtpdf_adapter_util.mbt`.
+- R1 split the raw adapter into `mbtpdf_text_adapter.mbt`, `mbtpdf_page_adapter.mbt`, `mbtpdf_image_adapter.mbt`, `mbtpdf_annotation_adapter.mbt`, and `mbtpdf_object_helpers.mbt`.
 
 Files that are still large enough to consider splitting later:
 
 - `raw/mbtpdf_text_adapter.mbt`: text-state and text-op logic are still concentrated in one file.
-- `text/rule.mbt`: many unrelated recovery predicates live together.
-- `text/normalize_texts.mbt`: normalization and hardwrap behavior could be grouped by concern.
+- `text/pdf_text_rules.mbt`: many unrelated recovery predicates live together.
+- `text/pdf_text_normalization.mbt`: normalization and hardwrap behavior could be grouped by concern.
 - `api/test/pdf_api_test.mbt`: broad integration coverage in one test file.
 
 Suggested future splits, without changing behavior now:

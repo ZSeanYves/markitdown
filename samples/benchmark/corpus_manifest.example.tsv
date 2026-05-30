@@ -1,6 +1,0 @@
-id	format	tier	path_or_uri	size_bytes	license	provenance	include_daily	include_pre_release	notes
-json_large	json	smoke	samples/benchmark/json/json_large.json	0	Project-generated	Checked-in benchmark smoke sample	false	true	Large structured JSON smoke sample
-xlsx_large	xlsx	smoke	samples/benchmark/xlsx/xlsx_large.xlsx	0	Project-generated	Checked-in benchmark smoke sample	false	true	Large workbook smoke sample
-zip_large_many_entries	zip	smoke	samples/benchmark/zip/zip_large_many_entries.zip	0	Project-generated	Checked-in benchmark smoke sample	false	true	Many-entry ZIP smoke sample
-# Public/private/manual corpora should use local manifests derived from this template.
-# Keep private paths out of the repository.

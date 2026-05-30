@@ -63,7 +63,10 @@ fn parse_delimited_file_with_profile_impl(
     profile,
     "csv_file_read",
     @env.now() - read_started,
-    Some("bytes=" + bytes.length().to_string()),
+    match profile {
+      Some(_) => Some("bytes=" + bytes.length().to_string())
+      None => None
+    },
   )
 
   let decode_started = @env.now()
@@ -74,9 +77,16 @@ fn parse_delimited_file_with_profile_impl(
     profile,
     "csv_bytes_to_string",
     @env.now() - decode_started,
-    Some(
-      "format=" + format_label(format) + " chars=" + text.length().to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "format=" +
+          format_label(format) +
+          " chars=" +
+          text.length().to_string(),
+        )
+      None => None
+    },
   )
 
   let parse_started = @env.now()
@@ -88,12 +98,16 @@ fn parse_delimited_file_with_profile_impl(
     profile,
     "csv_parse_records",
     @env.now() - parse_started,
-    Some(
-      "format=" +
-      format_label(format) +
-      " rows=" +
-      parsed.rows.length().to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "format=" +
+          format_label(format) +
+          " rows=" +
+          parsed.rows.length().to_string(),
+        )
+      None => None
+    },
   )
   let rows : Array[Array[String]] = []
   for row in parsed.rows {
@@ -108,7 +122,10 @@ fn parse_delimited_file_with_profile_impl(
       profile,
       "csv_to_rich_table",
       0,
-      Some("format=" + format_label(format) + " blocks=0"),
+      match profile {
+        Some(_) => Some("format=" + format_label(format) + " blocks=0")
+        None => None
+      },
     )
     return (doc, profile)
   }
@@ -137,12 +154,16 @@ fn parse_delimited_file_with_profile_impl(
     profile,
     "csv_to_rich_table",
     @env.now() - table_started,
-    Some(
-      "format=" +
-      format_label(format) +
-      " blocks=" +
-      doc.blocks.val.length().to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "format=" +
+          format_label(format) +
+          " blocks=" +
+          doc.blocks.val.length().to_string(),
+        )
+      None => None
+    },
   )
 
   (doc, profile)

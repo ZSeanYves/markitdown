@@ -182,3 +182,125 @@ test "yaml parser handles mapping child sequence followed by sibling keys" {
   assert_eq(report.sequence_count, 2)
   assert_eq(report.scalar_count, 3)
 }
+
+///|
+test "yaml parser handles conservative flow sequence" {
+  let doc = @yaml.parse_yaml_document("[one, two, true, null]")
+  match doc.root {
+    Some(@yaml.YamlValue::Sequence(values)) => {
+      assert_eq(values.length(), 4)
+      match values[2] {
+        @yaml.YamlValue::Bool(value) => assert_true(value)
+        _ => fail("expected bool flow item")
+      }
+      match values[3] {
+        @yaml.YamlValue::Null => ()
+        _ => fail("expected null flow item")
+      }
+    }
+    _ => fail("expected flow sequence root")
+  }
+}
+
+///|
+test "yaml parser handles flow values in mappings" {
+  let sequence_doc = @yaml.parse_yaml_document("items: [one, two]\n")
+  match sequence_doc.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      match members[0].value {
+        @yaml.YamlValue::Sequence(values) => assert_eq(values.length(), 2)
+        _ => fail("expected flow sequence value")
+      }
+    _ => fail("expected mapping root")
+  }
+
+  let object_doc = @yaml.parse_yaml_document(
+    "person: {name: Ada, active: true}\n",
+  )
+  match object_doc.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      match members[0].value {
+        @yaml.YamlValue::Mapping(person) => {
+          assert_eq(person[0].key, "name")
+          match person[1].value {
+            @yaml.YamlValue::Bool(value) => assert_true(value)
+            _ => fail("expected bool flow mapping value")
+          }
+        }
+        _ => fail("expected flow mapping value")
+      }
+    _ => fail("expected mapping root")
+  }
+}
+
+///|
+test "yaml parser handles nested and quoted flow values" {
+  let nested = @yaml.parse_yaml_document(
+    "root: {items: [one, {two: three}]}\n",
+  )
+  let nested_report = @yaml.inspect_yaml_document(nested)
+  assert_eq(nested_report.mapping_count, 3)
+  assert_eq(nested_report.sequence_count, 1)
+  assert_eq(nested_report.scalar_count, 2)
+
+  let quoted = @yaml.parse_yaml_document("text: [\"a,b\", \"x:y\"]\n")
+  match quoted.root {
+    Some(@yaml.YamlValue::Mapping(members)) =>
+      match members[0].value {
+        @yaml.YamlValue::Sequence(values) => {
+          match values[0] {
+            @yaml.YamlValue::String(value) => assert_eq(value, "a,b")
+            _ => fail("expected quoted comma string")
+          }
+          match values[1] {
+            @yaml.YamlValue::String(value) => assert_eq(value, "x:y")
+            _ => fail("expected quoted colon string")
+          }
+        }
+        _ => fail("expected quoted flow sequence")
+      }
+    _ => fail("expected mapping root")
+  }
+}
+
+///|
+test "yaml parser handles empty flow collections" {
+  let doc = @yaml.parse_yaml_document("empty_list: []\nempty_map: {}\n")
+  match doc.root {
+    Some(@yaml.YamlValue::Mapping(members)) => {
+      match members[0].value {
+        @yaml.YamlValue::Sequence(values) => assert_eq(values.length(), 0)
+        _ => fail("expected empty flow sequence")
+      }
+      match members[1].value {
+        @yaml.YamlValue::Mapping(values) => assert_eq(values.length(), 0)
+        _ => fail("expected empty flow mapping")
+      }
+    }
+    _ => fail("expected mapping root")
+  }
+}
+
+///|
+test "yaml parser rejects malformed flow collections" {
+  assert_true((try? @yaml.parse_yaml_document("[one, two")) is Err(_))
+  assert_true((try? @yaml.parse_yaml_document("{name Ada}")) is Err(_))
+  assert_true((try? @yaml.parse_yaml_document("{name: Ada,}")) is Err(_))
+}
+
+///|
+test "yaml profile keeps stage details" {
+  let profiled = @yaml.profile_yaml_document("name: Ada\n")
+  assert_true(profiled.report.stages.length() > 0)
+  let mut has_root_detail = false
+  for stage in profiled.report.stages {
+    match stage.detail {
+      Some(detail) =>
+        if detail.contains("root=") {
+          has_root_detail = true
+        }
+      None => ()
+    }
+  }
+  assert_true(has_root_detail)
+}

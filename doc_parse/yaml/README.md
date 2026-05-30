@@ -100,12 +100,15 @@ Current error surface:
 * `YamlErrorInfo`
 * classifier kinds for indentation/trailing-content issues and currently
   unsupported subset boundaries such as block scalars, multi-document markers,
-  tabs, anchors, aliases, tags, and flow style
+  tabs, anchors, aliases, tags, and full flow-style semantics beyond the
+  conservative single-line subset
 
 Current subset boundary:
 
 * nested mappings/sequences/scalars
 * quoted and plain scalars
+* conservative single-line flow sequences and mappings (`[...]` / `{...}`)
+  without full YAML flow semantics
 * conservative comments stripping
 * optional single-document start/end markers (`---` / `...`)
 * unsupported YAML features fail closed instead of being silently ignored
@@ -133,7 +136,8 @@ Known limits:
 * current package intentionally supports a subset only
 * file I/O and converter-side UTF-8 compatibility policy remain in
   `convert/yaml`
-* unsupported YAML features still fail closed as parse errors rather than a
+* block scalars, anchors, aliases, tags, real multi-document streams, and other
+  unsupported YAML features still fail closed as parse errors rather than a
   richer validation-report family
 
 Performance note:

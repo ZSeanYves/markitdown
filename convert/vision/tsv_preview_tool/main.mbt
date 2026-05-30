@@ -4,7 +4,7 @@ suberror VisionTsvPreviewToolError {
 }
 
 ///|
-impl Show for VisionTsvPreviewToolError with to_string(
+impl Show for VisionTsvPreviewToolError with fn to_string(
   self : VisionTsvPreviewToolError,
 ) -> String {
   match self {

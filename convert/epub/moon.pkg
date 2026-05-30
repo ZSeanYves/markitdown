@@ -1,10 +1,10 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/convert/html" @html,
+  "ZSeanYves/markitdown/convert/html",
   "ZSeanYves/markitdown/doc_parse/epub" @epubpkg,
-  "moonbitlang/core/env" @env,
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 }
 
 options(

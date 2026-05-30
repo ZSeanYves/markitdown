@@ -167,13 +167,13 @@ pub struct HtmlInspectReport {
 }
 
 ///|
-pub impl Show for HtmlError with to_string(self : HtmlError) -> String {
+pub impl Show for HtmlError with fn to_string(self : HtmlError) -> String {
   match self {
     ParseError(msg) => "html parse error: " + msg
   }
 }
 
 ///|
-pub impl Show for HtmlError with output(self : HtmlError, logger : &Logger) -> Unit {
+pub impl Show for HtmlError with fn output(self : HtmlError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

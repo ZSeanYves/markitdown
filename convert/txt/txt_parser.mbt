@@ -31,7 +31,10 @@ pub fn parse_txt_with_profile(
     profile,
     "txt_file_read",
     @env.now() - read_started,
-    Some("bytes=" + bytes.length().to_string()),
+    match profile {
+      Some(_) => Some("bytes=" + bytes.length().to_string())
+      None => None
+    },
   )
 
   let decode_started = @env.now()
@@ -40,7 +43,10 @@ pub fn parse_txt_with_profile(
     profile,
     "txt_bytes_to_string",
     @env.now() - decode_started,
-    Some("chars=" + raw.length().to_string()),
+    match profile {
+      Some(_) => Some("chars=" + raw.length().to_string())
+      None => None
+    },
   )
 
   let normalize_started = @env.now()
@@ -49,7 +55,10 @@ pub fn parse_txt_with_profile(
     profile,
     "txt_normalize_newlines",
     @env.now() - normalize_started,
-    Some("chars=" + text.length().to_string()),
+    match profile {
+      Some(_) => Some("chars=" + text.length().to_string())
+      None => None
+    },
   )
 
   let doc = @cor.new_document()
@@ -61,7 +70,10 @@ pub fn parse_txt_with_profile(
     profile,
     "txt_split_paragraphs",
     @env.now() - split_started,
-    Some("paragraphs=" + paragraphs.length().to_string()),
+    match profile {
+      Some(_) => Some("paragraphs=" + paragraphs.length().to_string())
+      None => None
+    },
   )
 
   let build_ir_started = @env.now()
@@ -72,10 +84,21 @@ pub fn parse_txt_with_profile(
       profile,
       "txt_literal_wrap",
       @env.now() - literal_started,
-      Some("paragraphs=" + paragraphs.length().to_string()),
+      match profile {
+        Some(_) => Some("paragraphs=" + paragraphs.length().to_string())
+        None => None
+      },
     )
   } else {
-    txt_profile_add_stage(profile, "txt_literal_wrap", 0, Some("paragraphs=0"))
+    txt_profile_add_stage(
+      profile,
+      "txt_literal_wrap",
+      0,
+      match profile {
+        Some(_) => Some("paragraphs=0")
+        None => None
+      },
+    )
   }
 
   let origin_started = @env.now()
@@ -104,14 +127,20 @@ pub fn parse_txt_with_profile(
     profile,
     "txt_origin_blocks",
     @env.now() - origin_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
+    match profile {
+      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+      None => None
+    },
   )
 
   txt_profile_add_stage(
     profile,
     "txt_build_ir",
     @env.now() - build_ir_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
+    match profile {
+      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+      None => None
+    },
   )
 
   (doc, profile)

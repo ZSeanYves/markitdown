@@ -10,7 +10,7 @@ For the current checked validation counts and representative benchmark rows,
 use [docs/archive/performance/validation-and-benchmark-summary.md](../performance/validation-and-benchmark-summary.md).
 
 For the recommended benchmark command menu, use
-[docs/benchmarking.md](./benchmarking.md).
+[docs/performance.md](../../performance.md).
 
 ## Goals
 

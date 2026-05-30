@@ -141,14 +141,14 @@ pub async fn run_tesseract_tsv_signal(
 }
 
 ///|
-pub impl Show for TesseractSignalError with to_string(
+pub impl Show for TesseractSignalError with fn to_string(
   self : TesseractSignalError,
 ) -> String {
   self.message
 }
 
 ///|
-pub impl Show for TesseractSignalError with output(
+pub impl Show for TesseractSignalError with fn output(
   self : TesseractSignalError,
   logger : &Logger,
 ) -> Unit {

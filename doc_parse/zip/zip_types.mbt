@@ -9,7 +9,7 @@ pub(all) suberror ZipError {
 }
 
 ///|
-pub impl Show for ZipError with to_string(self : ZipError) -> String {
+pub impl Show for ZipError with fn to_string(self : ZipError) -> String {
   match self {
     UnexpectedEOF(context) => "unexpected EOF: " + context
     InvalidSignature(context, expected, actual) =>
@@ -28,7 +28,7 @@ pub impl Show for ZipError with to_string(self : ZipError) -> String {
 }
 
 ///|
-pub impl Show for ZipError with output(self : ZipError, logger : &Logger) -> Unit {
+pub impl Show for ZipError with fn output(self : ZipError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

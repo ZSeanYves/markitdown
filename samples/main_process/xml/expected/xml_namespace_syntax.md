@@ -1,5 +1,4 @@
-```xml
-<x:root xmlns:x="urn:test">
-  <x:item>Namespaced</x:item>
-</x:root>
-```
+# <x:root>
+
+- @xmlns:x: urn:test
+- x:item: Namespaced

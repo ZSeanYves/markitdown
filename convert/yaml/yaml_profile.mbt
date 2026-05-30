@@ -73,6 +73,14 @@ fn yaml_profile_add_active_stage(
 }
 
 ///|
+fn yaml_profile_active_enabled() -> Bool {
+  match yaml_active_profile_report.val {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 pub fn yaml_profile_render_report(report : YamlProfileReport) -> String {
   let lines : Array[String] = []
   lines.push("yaml_profile input=" + report.input_path)

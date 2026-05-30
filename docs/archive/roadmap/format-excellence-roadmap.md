@@ -5,9 +5,9 @@ closure.
 
 For current sealed-scope wording and detailed support boundaries, use:
 
-* [README](../../README.md)
+* [README](../../../README.md)
 * [docs/archive/roadmap/second-round-summary.md](./second-round-summary.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [docs/supported-formats.md](../../supported-formats.md)
 
 This document defines the repository's second-round format hardening model.
 
@@ -83,7 +83,7 @@ The following families remain intentionally narrower in current scope:
 * TXT
 
 Their current support level should be read from
-[docs/support-and-limits.md](../../support-and-limits.md), not inferred from the
+[docs/supported-formats.md](../../supported-formats.md), not inferred from the
 sealed-format table above.
 
 ## Future Work Guidance
@@ -106,7 +106,7 @@ Future format work should avoid:
 ## Related Documents
 
 * [docs/archive/roadmap/second-round-summary.md](./second-round-summary.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [docs/supported-formats.md](../../supported-formats.md)
 * [docs/archive/benchmark/benchmark-governance.md](../benchmark/benchmark-governance.md)
 * [docs/quality-comparisons/README.md](../../quality-comparisons/README.md)
 * [docs/archive/audits/second-round-hardening-audit.md](../audits/second-round-hardening-audit.md)

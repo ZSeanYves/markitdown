@@ -25,6 +25,7 @@ Strict behavior:
 This helper:
   * does not build tools automatically
   * does not run full quality by default
+  * does not run benchmarks by default
   * does not run OCR or `tesseract`
   * does not probe providers
 EOF
@@ -132,7 +133,9 @@ printf 'REQUIRED\n'
 run_required "moon-check" moon check
 run_required "samples-check" bash samples/check.sh
 run_required "samples-quality" bash samples/check_quality.sh
-run_required "bench-default" bash samples/bench.sh
+
+printf '\nOPTIONAL EXTERNAL BENCH\n'
+skip "external_bench" "manual benchmark only; see docs/performance.md"
 
 printf '\nOPTIONAL QUALITY-LAB\n'
 run_optional_quality_lab \
@@ -170,13 +173,6 @@ run_optional_with_tool \
   "$ROOT/_build/native/debug/build/debug/debug.exe" \
   "moon build debug --target native" \
   bash samples/helpers/contracts/check_pdf_scan_diagnostics.sh
-
-printf '\nOPTIONAL PRODUCT PATH ATTRIBUTION\n'
-run_optional_with_tool \
-  "product-path-attribution-smoke" \
-  "$ROOT/_build/native/debug/build/cli/cli.exe" \
-  "moon build cli --target native" \
-  bash samples/helpers/bench/check_product_path_attribution_smoke.sh
 
 printf '\nSUMMARY\n'
 if [[ "$FAILED" -eq 0 ]]; then

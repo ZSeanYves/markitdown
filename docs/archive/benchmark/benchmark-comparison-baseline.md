@@ -4,7 +4,7 @@ Status: historical overlap-baseline record.
 
 For the current benchmark command menu and current benchmark governance, use:
 
-* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance.md](../../performance.md)
 * [docs/archive/benchmark/benchmark-governance.md](./benchmark-governance.md)
 * [docs/archive/performance/performance-baseline.md](../performance/performance-baseline.md)
 
@@ -13,7 +13,7 @@ between `markitdown-mb` and Microsoft MarkItDown.
 
 It is a local reference, not a pass/fail performance target.
 Use [docs/archive/benchmark/benchmark-governance.md](./benchmark-governance.md) and
-[samples/benchmark/README.md](../samples/benchmark/README.md) for the current
+[samples/benchmark/README.md](../../../samples/benchmark/README.md) for the current
 runner/corpus contract.
 
 ## Current PDF Overlap Baseline

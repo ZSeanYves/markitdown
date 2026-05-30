@@ -2,9 +2,9 @@ import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/zip" @zipraw,
   "ZSeanYves/markitdown/convert/zip_core" @zipcore,
-  "moonbitlang/async/process" @process,
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "moonbitlang/async/process",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 }
 
 options(

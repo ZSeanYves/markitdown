@@ -4,9 +4,18 @@
 /// This parser does not execute scripts, fetch remote resources, or apply CSS.
 pub fn parse_html_document(text : String) -> HtmlDocument raise {
   let normalized = normalize_html_source(text)
-  let tokens = tokenize_html_document(normalized)
+  let tokens = tokenize_normalized_html_document(normalized)
   let parser = HtmlParser::{ tokens, pos: 0 }
-  parser.parse_document(normalized.to_array().length())
+  parser.parse_document(count_html_source_chars(normalized))
+}
+
+///|
+fn count_html_source_chars(text : String) -> Int {
+  let mut count = 0
+  for _ in text {
+    count += 1
+  }
+  count
 }
 
 ///|

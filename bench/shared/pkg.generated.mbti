@@ -1,0 +1,95 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/bench/shared"
+
+// Values
+pub fn enabled_tier_action(String) -> EnabledTierAction
+
+pub fn ensure_dir_tree(String) -> Unit raise BenchSharedError
+
+pub fn escape(String) -> String
+
+pub fn header(Array[String]) -> String
+
+pub fn list_contains_token(String, String) -> Bool
+
+pub fn parent_dir(String) -> String
+
+pub fn parse_external_bench_manifest(String, String, String, require_parser_stages~ : Bool) -> Array[ExternalBenchRow] raise BenchSharedError
+
+pub fn percentile_int(Array[Int], Int) -> Int
+
+pub fn percentile_int64(Array[Int64], Int) -> Int64
+
+pub fn raw_output_path(String) -> String
+
+pub fn read_external_bench_manifest(String, String, require_parser_stages~ : Bool) -> Array[ExternalBenchRow] raise BenchSharedError
+
+pub fn reject_forbidden_benchmark_path(String) -> Unit raise BenchSharedError
+
+pub fn require_external_bench_header(Array[String], Map[String, Int], require_parser_stages~ : Bool) -> Unit raise BenchSharedError
+
+pub fn resolve_manifest_rel_path(String, String) -> String
+
+pub fn row(Array[String]) -> String
+
+pub fn sorted_int(Array[Int]) -> Array[Int]
+
+pub fn sorted_int64(Array[Int64]) -> Array[Int64]
+
+pub fn split_tokens(String) -> Array[String]
+
+pub fn summarize_int(Array[Int]) -> IntStats
+
+pub fn summarize_int64(Array[Int64]) -> Int64Stats
+
+// Errors
+pub(all) suberror BenchSharedError {
+  Failed(String)
+}
+pub impl Show for BenchSharedError
+
+// Types and methods
+pub(all) enum EnabledTierAction {
+  Run
+  Skip
+  Error
+} derive(Eq)
+
+pub(all) struct ExternalBenchRow {
+  bench_id : String
+  format : String
+  rel_path : String
+  path : String
+  size_class : String
+  bench_layers : String
+  enabled_tier : String
+  source_group : String
+  bench_profile : String
+  workload_tags : String
+  parser_stages : String
+}
+
+pub(all) struct Int64Stats {
+  count : Int
+  total : Int64
+  min : Int64
+  p50 : Int64
+  p95 : Int64
+  max : Int64
+  avg : Int64
+}
+
+pub(all) struct IntStats {
+  count : Int
+  total : Int
+  min : Int
+  p50 : Int
+  p95 : Int
+  max : Int
+  avg : Int
+}
+
+// Type aliases
+
+// Traits
+

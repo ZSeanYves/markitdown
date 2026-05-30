@@ -6,8 +6,33 @@
   "document": null,
   "summary": {
     "block_count": 2,
-    "asset_count": 1
+    "asset_count": 1,
+    "link_count": 1
   },
+  "links": [
+    {
+      "link_index": 0,
+      "block_index": 0,
+      "inline_index": 1,
+      "text_start": 6,
+      "text_end": 14,
+      "block_type": "paragraph",
+      "text": "the docs",
+      "url": "docs/page.html",
+      "source_kind": "html_href",
+      "origin": {
+        "format": "html",
+        "source_name": "html_metadata_link_image.html",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "object_ref": "html:paragraph:1",
+        "key_path": "$.html[1].paragraph"
+      }
+    }
+  ],
   "blocks": [
     {
       "block_index": 0,

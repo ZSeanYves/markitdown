@@ -239,19 +239,6 @@ test "yaml unsupported features fail closed" {
   )
   assert_true(multiline_result is Err(_))
 
-  let empty_mapping_result = try? @yaml.parse_yaml(
-    resolve_sample_path("samples/main_process/yaml/yaml_empty_mapping.key"),
-    "",
-    6,
-  )
-  assert_true(empty_mapping_result is Err(_))
-
-  let empty_sequence_result = try? @yaml.parse_yaml(
-    resolve_sample_path("samples/main_process/yaml/yaml_empty_sequence.key"),
-    "",
-    6,
-  )
-  assert_true(empty_sequence_result is Err(_))
 }
 
 ///|
@@ -419,8 +406,6 @@ test "yaml unsupported subset features fail closed from direct cases" {
   defer cleanup_temp_dir(out_dir)
 
   let cases = [
-    ("flow_mapping.yaml", "item: {a: 1}\n"),
-    ("flow_sequence.yaml", "item: [1, 2]\n"),
     ("tag.yaml", "item: !Thing value\n"),
     ("folded_scalar.yaml", "item: >\n  folded\n"),
     ("bad_indent.yaml", "name: Alice\n role: Engineer\n"),
@@ -438,6 +423,22 @@ test "yaml unsupported subset features fail closed from direct cases" {
       assert_true((try? @yaml.parse_yaml(path, "", 6)) is Err(_))
     }
   }
+}
+
+///|
+test "yaml flow collections convert through parser model" {
+  let root = yaml_test_root()
+  let out_dir = root + "/flow-collections"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let path = out_dir + "/flow.yaml"
+  write_utf8_text(path, "items: [1, 2]\nperson: {name: Ada}\n")
+
+  let doc = @yaml.parse_yaml(path, "", 6)
+  let md = @cor.emit_markdown(doc)
+  assert_true(md.contains("[1, 2]"))
+  assert_true(md.contains("{name: Ada}"))
 }
 
 ///|

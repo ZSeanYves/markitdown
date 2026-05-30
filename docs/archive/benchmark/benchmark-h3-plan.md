@@ -77,8 +77,8 @@ for the working phase-2 governance outline.
 
 Phase-2 corpus policy templates now live in:
 
-* [samples/benchmark/README.md](../samples/benchmark/README.md)
-* [samples/benchmark/corpus_manifest.example.tsv](../samples/benchmark/corpus_manifest.example.tsv)
+* [samples/benchmark/README.md](../../../samples/benchmark/README.md)
+* [samples/benchmark/corpus_manifest.example.tsv](../../../samples/benchmark/corpus_manifest.example.tsv)
 
 ## Active Benchmark Docs
 

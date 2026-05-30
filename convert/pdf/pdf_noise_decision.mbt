@@ -391,12 +391,14 @@ fn noise_keep_reason_tags(evidence : PdfEdgeNoiseEvidence) -> Array[String] {
   push_reason_if(out, evidence.image_caption_guard, "image_caption_guard")
   push_reason_if(
     out,
-    evidence.repeated_across_pages && (evidence.top_edge || evidence.bottom_edge),
+    evidence.repeated_across_pages &&
+    (evidence.top_edge || evidence.bottom_edge),
     "repeated_across_pages",
   )
   push_reason_if(
     out,
-    (evidence.top_edge || evidence.bottom_edge) && !evidence.repeated_across_pages,
+    (evidence.top_edge || evidence.bottom_edge) &&
+    !evidence.repeated_across_pages,
     "not_repeated_across_pages",
   )
   push_reason_if(
@@ -427,11 +429,7 @@ fn push_edge_reason_tags(
   push_reason_if(out, evidence.page_count_pattern, "page_count_pattern")
   push_reason_if(out, evidence.page_number_numeric, "page_number_numeric")
   push_reason_if(out, evidence.page_number_roman, "page_number_roman")
-  push_reason_if(
-    out,
-    evidence.page_number_with_label,
-    "page_number_with_label",
-  )
+  push_reason_if(out, evidence.page_number_with_label, "page_number_with_label")
   push_reason_if(
     out,
     evidence.page_number_short_centered,

@@ -351,7 +351,7 @@ fn pptx_issue(
 }
 
 ///|
-pub impl Show for PptxError with to_string(self : PptxError) -> String {
+pub impl Show for PptxError with fn to_string(self : PptxError) -> String {
   match self {
     OpenFailed(msg) => "pptx open failed: " + msg
     OoxmlFailure(msg) => "pptx ooxml failure: " + msg
@@ -360,6 +360,6 @@ pub impl Show for PptxError with to_string(self : PptxError) -> String {
 }
 
 ///|
-pub impl Show for PptxError with output(self : PptxError, logger : &Logger) -> Unit {
+pub impl Show for PptxError with fn output(self : PptxError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

@@ -1,4 +1,10 @@
 ///|
+const MAX_STRUCTURED_XML_BYTES : Int = 2 * 1024 * 1024
+
+///|
+const MAX_STRUCTURED_XML_SCALAR_CHARS : Int = 512
+
+///|
 pub fn parse_xml(
   input_path : String,
   _out_dir : String,
@@ -14,34 +20,370 @@ pub fn parse_xml(
 
   let raw = decode_xml_source_text(bytes)
 
-  let text = normalize_xml_text(raw)
-  let doc = @cor.new_document()
   let src = @cor.basename(input_path)
+  if raw.trim() == "" {
+    return @cor.new_document()
+  }
 
-  if text.trim() != "" {
-    @cor.set_passthrough_markdown(doc, xml_fenced_markdown(text))
+  if bytes.length() > MAX_STRUCTURED_XML_BYTES {
+    return xml_fallback_document(normalize_xml_text(raw), src)
+  }
+
+  let parsed = try? @dpxml.parse_xml_document(raw)
+  match parsed {
+    Ok(xml_doc) =>
+      if xml_can_lower_structured(xml_doc) {
+        xml_structured_document(xml_doc, src)
+      } else {
+        xml_fallback_document(normalize_xml_text(raw), src)
+      }
+    Err(_) => xml_fallback_document(normalize_xml_text(raw), src)
+  }
+}
+
+///|
+fn xml_fallback_document(text : String, src : String) -> @cor.Document {
+  let doc = @cor.new_document()
+  if text.trim() == "" {
+    return doc
+  }
+
+  @cor.set_passthrough_markdown(doc, xml_fenced_markdown(text))
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::CodeBlock(text),
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: None,
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: Some(1),
+      line_end: Some(physical_line_count(text)),
+      row_index: None,
+      column_index: None,
+      object_ref: None,
+      relationship_id: None,
+      key_path: None,
+    }),
+  )
+  doc
+}
+
+///|
+fn xml_can_lower_structured(doc : @dpxml.XmlDocument) -> Bool {
+  if doc.has_unsupported_doctype {
+    return false
+  }
+  let root = match doc.root {
+    Some(root) => root
+    None => return false
+  }
+  if doc.nodes.length() == 0 {
+    return false
+  }
+  for node in doc.nodes {
+    match node {
+      @dpxml.XmlNode::Element(_) => ()
+      @dpxml.XmlNode::Text(text) =>
+        if text.text.trim() != "" {
+          return false
+        }
+      @dpxml.XmlNode::CData(cdata) =>
+        if cdata.text.trim() != "" {
+          return false
+        }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+  !xml_has_complex_mixed_content(root) &&
+  !xml_has_markdown_fence_text(root) &&
+  !xml_has_default_namespace(root) &&
+  !xml_has_large_structured_scalar(root)
+}
+
+///|
+fn xml_has_complex_mixed_content(element : @dpxml.XmlElement) -> Bool {
+  let mut has_nonempty_text = false
+  let mut has_element_child = false
+
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Element(child_element) => {
+        has_element_child = true
+        if xml_has_complex_mixed_content(child_element) {
+          return true
+        }
+      }
+      @dpxml.XmlNode::Text(text) =>
+        if text.text.trim() != "" {
+          has_nonempty_text = true
+        }
+      @dpxml.XmlNode::CData(cdata) =>
+        if cdata.text.trim() != "" {
+          has_nonempty_text = true
+        }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+
+  has_nonempty_text && has_element_child
+}
+
+///|
+fn xml_has_markdown_fence_text(element : @dpxml.XmlElement) -> Bool {
+  for attr in element.attributes {
+    if attr.value.contains("```") {
+      return true
+    }
+  }
+
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Element(child_element) =>
+        if xml_has_markdown_fence_text(child_element) {
+          return true
+        }
+      @dpxml.XmlNode::Text(text) =>
+        if text.text.contains("```") {
+          return true
+        }
+      @dpxml.XmlNode::CData(cdata) =>
+        if cdata.text.contains("```") {
+          return true
+        }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+
+  false
+}
+
+///|
+fn xml_has_default_namespace(element : @dpxml.XmlElement) -> Bool {
+  for attr in element.attributes {
+    if attr.name == "xmlns" {
+      return true
+    }
+  }
+
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Element(child_element) =>
+        if xml_has_default_namespace(child_element) {
+          return true
+        }
+      @dpxml.XmlNode::Text(_) => ()
+      @dpxml.XmlNode::CData(_) => ()
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+
+  false
+}
+
+///|
+fn xml_has_large_structured_scalar(element : @dpxml.XmlElement) -> Bool {
+  for attr in element.attributes {
+    if xml_scalar_too_large_for_structured(attr.value) {
+      return true
+    }
+  }
+
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Element(child_element) =>
+        if xml_has_large_structured_scalar(child_element) {
+          return true
+        }
+      @dpxml.XmlNode::Text(text) =>
+        if xml_scalar_too_large_for_structured(text.text.trim().to_owned()) {
+          return true
+        }
+      @dpxml.XmlNode::CData(cdata) =>
+        if xml_scalar_too_large_for_structured(cdata.text.trim().to_owned()) {
+          return true
+        }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+
+  false
+}
+
+///|
+fn xml_scalar_too_large_for_structured(value : String) -> Bool {
+  value.contains("\n") ||
+  value.contains("\r") ||
+  value.to_array().length() > MAX_STRUCTURED_XML_SCALAR_CHARS
+}
+
+///|
+fn xml_structured_document(
+  xml_doc : @dpxml.XmlDocument,
+  src : String,
+) -> @cor.Document {
+  let doc = @cor.new_document()
+  match xml_doc.root {
+    Some(root) => {
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::Heading(1, xml_element_label(root.name)),
+        xml_origin(src, doc.blocks.val.length(), root.span.line_start, root.span.line_end),
+      )
+      push_xml_element_children(doc, root, src, 0)
+    }
+    None => ()
+  }
+  doc
+}
+
+///|
+fn push_xml_element_children(
+  doc : @cor.Document,
+  element : @dpxml.XmlElement,
+  src : String,
+  level : Int,
+) -> Unit {
+  for attr in element.attributes {
     @cor.push_with_origin(
       doc,
-      @cor.Block::CodeBlock(text),
-      Some({
-        source_name: Some(src),
-        page: None,
-        slide: None,
-        sheet: None,
-        block_index: Some(doc.blocks.val.length()),
-        heading_path: None,
-        line_start: Some(1),
-        line_end: Some(physical_line_count(text)),
-        row_index: None,
-        column_index: None,
-        object_ref: None,
-        relationship_id: None,
-        key_path: None,
-      }),
+      @cor.Block::ListItem(false, level, "@" + attr.name + ": " + attr.value),
+      xml_origin(src, doc.blocks.val.length(), attr.span.line_start, attr.span.line_end),
     )
   }
 
-  doc
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Element(child_element) =>
+        push_xml_child_element(doc, child_element, src, level)
+      @dpxml.XmlNode::Text(text) => {
+        let value = text.text.trim().to_owned()
+        if value != "" {
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::ListItem(false, level, value),
+            xml_origin(
+              src,
+              doc.blocks.val.length(),
+              text.span.line_start,
+              text.span.line_end,
+            ),
+          )
+        }
+      }
+      @dpxml.XmlNode::CData(cdata) => {
+        let value = cdata.text.trim().to_owned()
+        if value != "" {
+          @cor.push_with_origin(
+            doc,
+            @cor.Block::ListItem(false, level, value),
+            xml_origin(
+              src,
+              doc.blocks.val.length(),
+              cdata.span.line_start,
+              cdata.span.line_end,
+            ),
+          )
+        }
+      }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+    }
+  }
+}
+
+///|
+fn push_xml_child_element(
+  doc : @cor.Document,
+  element : @dpxml.XmlElement,
+  src : String,
+  level : Int,
+) -> Unit {
+  match xml_simple_text_value(element) {
+    Some(value) =>
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::ListItem(false, level, element.name + ": " + value),
+        xml_origin(src, doc.blocks.val.length(), element.span.line_start, element.span.line_end),
+      )
+    None => {
+      @cor.push_with_origin(
+        doc,
+        @cor.Block::ListItem(false, level, xml_element_label(element.name)),
+        xml_origin(src, doc.blocks.val.length(), element.span.line_start, element.span.line_end),
+      )
+      push_xml_element_children(doc, element, src, level + 1)
+    }
+  }
+}
+
+///|
+fn xml_simple_text_value(element : @dpxml.XmlElement) -> String? {
+  if element.attributes.length() > 0 {
+    return None
+  }
+  let parts : Array[String] = []
+  for child in element.children {
+    match child {
+      @dpxml.XmlNode::Text(text) => {
+        let value = text.text.trim().to_owned()
+        if value != "" {
+          parts.push(value)
+        }
+      }
+      @dpxml.XmlNode::CData(cdata) => {
+        let value = cdata.text.trim().to_owned()
+        if value != "" {
+          parts.push(value)
+        }
+      }
+      @dpxml.XmlNode::Comment(_) => ()
+      @dpxml.XmlNode::ProcessingInstruction(_) => ()
+      @dpxml.XmlNode::Element(_) => return None
+    }
+  }
+
+  if parts.length() == 0 {
+    None
+  } else {
+    Some(parts.join(" "))
+  }
+}
+
+///|
+fn xml_element_label(name : String) -> String {
+  "<" + name + ">"
+}
+
+///|
+fn xml_origin(
+  src : String,
+  block_index : Int,
+  line_start : Int,
+  line_end : Int,
+) -> @cor.Origin? {
+  Some({
+    source_name: Some(src),
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: Some(block_index),
+    heading_path: None,
+    line_start: Some(line_start),
+    line_end: Some(line_end),
+    row_index: None,
+    column_index: None,
+    object_ref: None,
+    relationship_id: None,
+    key_path: None,
+  })
 }
 
 ///|

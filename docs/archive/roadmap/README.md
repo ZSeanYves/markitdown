@@ -7,7 +7,7 @@ Current sources of truth:
 
 * [Roadmap](../../roadmap.md)
 * [Performance](../../performance.md)
-* [Support and Limits](../../support-and-limits.md)
+* [Supported Formats](../../supported-formats.md)
 
 Historical docs:
 

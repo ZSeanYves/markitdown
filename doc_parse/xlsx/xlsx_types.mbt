@@ -225,7 +225,7 @@ type XlsxSheetModel = XlsxSheet
 type XlsxCellModel = XlsxCell
 
 ///|
-pub impl Show for XlsxError with to_string(self : XlsxError) -> String {
+pub impl Show for XlsxError with fn to_string(self : XlsxError) -> String {
   match self {
     OpenFailed(msg) => "xlsx open failed: " + msg
     OoxmlFailure(msg) => "xlsx ooxml failure: " + msg
@@ -234,6 +234,6 @@ pub impl Show for XlsxError with to_string(self : XlsxError) -> String {
 }
 
 ///|
-pub impl Show for XlsxError with output(self : XlsxError, logger : &Logger) -> Unit {
+pub impl Show for XlsxError with fn output(self : XlsxError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

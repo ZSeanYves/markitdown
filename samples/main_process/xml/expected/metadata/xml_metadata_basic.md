@@ -1,5 +1,3 @@
-```xml
-<root>
-  <item>metadata</item>
-</root>
-```
+# <root>
+
+- item: metadata

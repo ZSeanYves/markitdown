@@ -8,10 +8,10 @@ The public repository validation entrypoints are `samples/check.sh` and
 `samples/bench.sh`.
 
 For the recommended benchmark command menu and suite layout, use
-[docs/benchmarking.md](./benchmarking.md).
+[docs/performance.md](../../performance.md).
 
 For scope boundaries and support claims, use
-[docs/support-and-limits.md](./support-and-limits.md).
+[docs/supported-formats.md](../../supported-formats.md).
 
 For second-round sealed-format status, use
 [docs/archive/roadmap/second-round-summary.md](../roadmap/second-round-summary.md).

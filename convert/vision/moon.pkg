@@ -1,8 +1,8 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/async/process" @process,
-  "moonbitlang/core/string" @string,
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/async/process",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
 }
 
 import {

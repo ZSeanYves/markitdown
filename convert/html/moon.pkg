@@ -1,10 +1,10 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/core/env" @env,
-  "moonbitlang/x/codec/base64" @base64,
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/x/codec/base64",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 }
 
 options(

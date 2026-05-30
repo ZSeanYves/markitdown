@@ -2,12 +2,12 @@ import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/zip" @zipraw,
   "ZSeanYves/markitdown/convert/zip_core" @zipcore,
-  "ZSeanYves/markitdown/convert/pdf" @pdf,
+  "ZSeanYves/markitdown/convert/pdf",
 }
 
 import {
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
 } for "wbtest"
 
 options(

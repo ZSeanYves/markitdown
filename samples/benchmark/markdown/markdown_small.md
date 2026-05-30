@@ -1,3 +1,0 @@
-# Small
-
-One paragraph.

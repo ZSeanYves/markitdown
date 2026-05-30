@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
 SOURCES_PATH="$QUALITY_LAB_ROOT/external_quality/_quality_rows_staging/source_catalog.tsv"
-LEGACY_CACHE_ROOT="$ROOT/.external/quality_corpus"
 DEFAULT_CACHE_ROOT="$QUALITY_LAB_ROOT/external_quality"
 CACHE_ROOT="${MARKITDOWN_QUALITY_CORPUS:-$DEFAULT_CACHE_ROOT}"
 
@@ -73,10 +72,7 @@ prepare_cache() {
     IFS=$'\t' read -r _ _ _ _ _ _ _ _ _ local_cache _ _ <<< "$raw_line"
     [[ -z "$local_cache" ]] && continue
     local target_dir=""
-    if [[ "$local_cache" == .external/quality_corpus/* ]]; then
-      local suffix="${local_cache#.external/quality_corpus/}"
-      target_dir="$CACHE_ROOT/$suffix"
-    elif [[ "$local_cache" == external_quality/* || "$local_cache" == pdf_model_training/* ]]; then
+    if [[ "$local_cache" == external_quality/* || "$local_cache" == pdf_model_training/* ]]; then
       target_dir="$QUALITY_LAB_ROOT/$local_cache"
     elif [[ "$local_cache" == /* ]]; then
       target_dir="$local_cache"

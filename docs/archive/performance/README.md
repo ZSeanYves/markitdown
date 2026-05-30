@@ -8,7 +8,7 @@ Current sources of truth:
 
 * [Performance](../../performance.md)
 * [Roadmap](../../roadmap.md)
-* [Benchmarking](../../benchmarking.md)
+* [Quality And Release](../../quality-and-release.md)
 
 Historical docs:
 

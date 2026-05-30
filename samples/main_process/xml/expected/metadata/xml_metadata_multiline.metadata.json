@@ -5,14 +5,14 @@
   "markdown_file": "xml_metadata_multiline.md",
   "document": null,
   "summary": {
-    "block_count": 1,
+    "block_count": 3,
     "asset_count": 0
   },
   "blocks": [
     {
       "block_index": 0,
-      "block_type": "code_block",
-      "text": "<?xml version=\"1.0\"?>\n<root>\n  <item>Alpha</item>\n  <!-- keep comment -->\n  <item>Beta</item>\n</root>\n",
+      "block_type": "heading",
+      "text": "<root>",
       "origin": {
         "format": "xml",
         "source_name": "xml_metadata_multiline.xml",
@@ -21,8 +21,42 @@
         "sheet": null,
         "block_index": 0,
         "heading_path": null,
-        "line_start": 1,
+        "line_start": 2,
         "line_end": 6
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "list_item",
+      "text": "item: Alpha",
+      "origin": {
+        "format": "xml",
+        "source_name": "xml_metadata_multiline.xml",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "line_start": 3,
+        "line_end": 3
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "list_item",
+      "text": "item: Beta",
+      "origin": {
+        "format": "xml",
+        "source_name": "xml_metadata_multiline.xml",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "line_start": 5,
+        "line_end": 5
       },
       "image": null
     }

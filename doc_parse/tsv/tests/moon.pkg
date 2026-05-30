@@ -1,4 +1,4 @@
 import {
-  "ZSeanYves/markitdown/doc_parse/csv" @csv,
-  "ZSeanYves/markitdown/doc_parse/tsv" @tsv,
+  "ZSeanYves/markitdown/doc_parse/csv",
+  "ZSeanYves/markitdown/doc_parse/tsv",
 } for "test"

@@ -1,6 +1,6 @@
 import {
-  "ZSeanYves/markitdown/convert/xlsx" @xlsx,
+  "ZSeanYves/markitdown/convert/xlsx",
   "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
 } for "test"

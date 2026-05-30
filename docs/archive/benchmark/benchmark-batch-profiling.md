@@ -4,7 +4,7 @@ Status: historical local profiling record.
 
 For the current benchmark command menu and current measured snapshot, use:
 
-* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance.md](../../performance.md)
 * [docs/archive/performance/performance-baseline.md](../performance/performance-baseline.md)
 
 This document captures the H3.3 and H3.4 profiling passes for the current CLI

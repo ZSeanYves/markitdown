@@ -6,7 +6,7 @@ Its core boundary conclusions remain useful, but current PDF support status and
 architecture should be read from:
 
 * [README](../../README.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [docs/pdf.md](../../pdf.md)
 * [docs/architecture.md](../../architecture.md)
 * [docs/archive/roadmap/second-round-summary.md](../roadmap/second-round-summary.md)
 

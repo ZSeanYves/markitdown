@@ -44,7 +44,7 @@ pub(all) enum OoxmlValidationIssueKind {
 } derive(Eq)
 
 ///|
-pub impl Show for OoxmlError with to_string(self : OoxmlError) -> String {
+pub impl Show for OoxmlError with fn to_string(self : OoxmlError) -> String {
   match self {
     ZipError(msg) => "zip error: " + msg
     MissingPart(path) => "missing OOXML part: " + path
@@ -56,7 +56,7 @@ pub impl Show for OoxmlError with to_string(self : OoxmlError) -> String {
 }
 
 ///|
-pub impl Show for OoxmlError with output(self : OoxmlError, logger : &Logger) -> Unit {
+pub impl Show for OoxmlError with fn output(self : OoxmlError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

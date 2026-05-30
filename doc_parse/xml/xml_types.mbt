@@ -164,13 +164,13 @@ pub struct XmlInspectReport {
 }
 
 ///|
-pub impl Show for XmlError with to_string(self : XmlError) -> String {
+pub impl Show for XmlError with fn to_string(self : XmlError) -> String {
   match self {
     ParseError(msg) => "xml parse error: " + msg
   }
 }
 
 ///|
-pub impl Show for XmlError with output(self : XmlError, logger : &Logger) -> Unit {
+pub impl Show for XmlError with fn output(self : XmlError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

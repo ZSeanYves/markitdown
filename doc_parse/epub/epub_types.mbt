@@ -47,7 +47,7 @@ pub(all) enum EpubValidationIssueKind {
 } derive(Eq)
 
 ///|
-pub impl Show for EpubError with to_string(self : EpubError) -> String {
+pub impl Show for EpubError with fn to_string(self : EpubError) -> String {
   match self {
     ZipError(msg) => "zip error: " + msg
     MissingPart(path) => "missing EPUB part: " + path
@@ -59,7 +59,7 @@ pub impl Show for EpubError with to_string(self : EpubError) -> String {
 }
 
 ///|
-pub impl Show for EpubError with output(self : EpubError, logger : &Logger) -> Unit {
+pub impl Show for EpubError with fn output(self : EpubError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

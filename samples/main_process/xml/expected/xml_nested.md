@@ -1,8 +1,5 @@
-```xml
-<root>
-  <section>
-    <item>One</item>
-    <item>Two</item>
-  </section>
-</root>
-```
+# <root>
+
+- <section>
+  - item: One
+  - item: Two

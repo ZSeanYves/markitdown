@@ -386,7 +386,7 @@ fn docx_issue(
 }
 
 ///|
-pub impl Show for DocxError with to_string(self : DocxError) -> String {
+pub impl Show for DocxError with fn to_string(self : DocxError) -> String {
   match self {
     OpenFailed(msg) => "docx open failed: " + msg
     OoxmlFailure(msg) => "docx ooxml failure: " + msg
@@ -395,6 +395,6 @@ pub impl Show for DocxError with to_string(self : DocxError) -> String {
 }
 
 ///|
-pub impl Show for DocxError with output(self : DocxError, logger : &Logger) -> Unit {
+pub impl Show for DocxError with fn output(self : DocxError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

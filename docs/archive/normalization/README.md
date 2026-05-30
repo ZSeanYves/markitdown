@@ -6,7 +6,7 @@ traceability and should not be read as the current normalization contract.
 Current sources of truth:
 
 * [Roadmap](../../roadmap.md)
-* [Support and Limits](../../support-and-limits.md)
+* [Supported Formats](../../supported-formats.md)
 
 Historical docs:
 

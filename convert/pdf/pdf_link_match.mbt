@@ -476,7 +476,9 @@ fn unique_inline_link_for_text_inlines(
   }
 
   unique_inline_link_for_block_text(
-    pdf_link_text_from_inlines(inlines), label, uri,
+    pdf_link_text_from_inlines(inlines),
+    label,
+    uri,
   )
 }
 

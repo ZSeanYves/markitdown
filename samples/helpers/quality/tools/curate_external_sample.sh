@@ -26,9 +26,8 @@ usage:
 This helper prints one TSV row template to stdout. It does not copy files and
 does not modify any manifest automatically.
 
-Canonical row paths should prefer repo-relative payload paths under
-`external_quality/<format>/<source>/...`. Legacy `.external/quality_corpus/...`
-paths remain fallback-only during the migration window.
+Canonical row paths should use repo-relative payload paths under
+`external_quality/<format>/<source>/...`.
 EOF
 }
 

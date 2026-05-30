@@ -35,7 +35,10 @@ pub fn parse_json_with_profile(
     profile,
     "json_file_read",
     @env.now() - read_started,
-    Some("bytes=" + bytes.length().to_string()),
+    match profile {
+      Some(_) => Some("bytes=" + bytes.length().to_string())
+      None => None
+    },
   )
 
   let decode_started = @env.now()
@@ -46,7 +49,10 @@ pub fn parse_json_with_profile(
     profile,
     "json_bytes_to_string",
     @env.now() - decode_started,
-    Some("chars=" + text.length().to_string()),
+    match profile {
+      Some(_) => Some("chars=" + text.length().to_string())
+      None => None
+    },
   )
 
   let parse_started = @env.now()
@@ -56,12 +62,16 @@ pub fn parse_json_with_profile(
     profile,
     "json_parse_total",
     @env.now() - parse_started,
-    Some(
-      "chars=" +
-      text.length().to_string() +
-      " root=" +
-      @dpjson.json_value_kind(value),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "chars=" +
+          text.length().to_string() +
+          " root=" +
+          @dpjson.json_value_kind(value),
+        )
+      None => None
+    },
   )
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
@@ -80,29 +90,40 @@ pub fn parse_json_with_profile(
     profile,
     "json_detect_uniform_table",
     uniform_table_detect_elapsed_ms,
-    Some(
-      "rows=" +
-      uniform_table_rows_seen.to_string() +
-      " columns=" +
-      uniform_table_columns_seen.to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "rows=" +
+          uniform_table_rows_seen.to_string() +
+          " columns=" +
+          uniform_table_columns_seen.to_string(),
+        )
+      None => None
+    },
   )
   json_profile_add_stage(
     profile,
     "json_compact_stringify_nested",
     nested_stringify_elapsed_ms,
-    Some(
-      "value_cell_calls=" +
-      value_cell_stringify_calls.to_string() +
-      " scalar_calls=" +
-      scalar_text_stringify_calls.to_string(),
-    ),
+    match profile {
+      Some(_) =>
+        Some(
+          "value_cell_calls=" +
+          value_cell_stringify_calls.to_string() +
+          " scalar_calls=" +
+          scalar_text_stringify_calls.to_string(),
+        )
+      None => None
+    },
   )
   json_profile_add_stage(
     profile,
     "json_lower_to_ir",
     @env.now() - lowering_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
+    match profile {
+      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
+      None => None
+    },
   )
   (doc, profile)
 }

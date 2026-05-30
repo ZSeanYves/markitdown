@@ -11,13 +11,31 @@ TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
 OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
 
 MODE="full"
+FORMAT_FILTER=""
+FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
 
 trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
-Internal usage: check_samples_impl.sh [--markdown-only | --metadata-only | --assets-only]
+Internal usage: check_samples_impl.sh [--markdown-only | --metadata-only | --assets-only] [--format FMT]
 EOF
+}
+
+supported_formats() {
+  local IFS=","
+  echo "${FORMATS[*]}"
+}
+
+format_is_supported() {
+  local target="$1"
+  local fmt
+  for fmt in "${FORMATS[@]}"; do
+    if [[ "$fmt" == "$target" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -31,6 +49,15 @@ while [[ $# -gt 0 ]]; do
     --assets-only)
       MODE="assets-only"
       ;;
+    --format)
+      shift
+      if [[ $# -eq 0 || "${1:-}" == --* ]]; then
+        echo "--format requires a value" >&2
+        usage >&2
+        exit 1
+      fi
+      FORMAT_FILTER="$1"
+      ;;
     -h|--help)
       usage
       exit 0
@@ -43,6 +70,12 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ -n "$FORMAT_FILTER" ]] && ! format_is_supported "$FORMAT_FILTER"; then
+  echo "unsupported format: $FORMAT_FILTER" >&2
+  echo "supported formats: $(supported_formats)" >&2
+  exit 1
+fi
 
 require_python3() {
   if command -v python3 >/dev/null 2>&1; then
@@ -404,10 +437,13 @@ if [[ -n "${CLI_RUNNER_NOTE:-}" ]]; then
   echo "runner-note: $CLI_RUNNER_NOTE"
 fi
 
-FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
+ACTIVE_FORMATS=("${FORMATS[@]}")
+if [[ -n "$FORMAT_FILTER" ]]; then
+  ACTIVE_FORMATS=("$FORMAT_FILTER")
+fi
 
 SAMPLE_LIST=()
-for fmt in "${FORMATS[@]}"; do
+for fmt in "${ACTIVE_FORMATS[@]}"; do
   in_dir="$SAMPLES_DIR/$fmt"
   [[ -d "$in_dir" ]] || continue
   while IFS= read -r f; do
@@ -427,28 +463,62 @@ for entry in "${SAMPLE_LIST[@]}"; do
 done
 
 if [[ ${#FILTERED_LIST[@]} -eq 0 ]]; then
-  echo "No enrolled sample files matched mode=$MODE under $SAMPLES_DIR"
+  if [[ "$MODE" == "assets-only" ]]; then
+    label="main_process_assets"
+    success_message="ALL MAIN PROCESS ASSET TESTS PASSED"
+    failure_message="FAILED MAIN PROCESS ASSET SAMPLES"
+    if [[ -n "$FORMAT_FILTER" ]]; then
+      label="${label}_${FORMAT_FILTER}"
+      success_message="$success_message ($FORMAT_FILTER)"
+      failure_message="$failure_message ($FORMAT_FILTER)"
+    fi
+    validation_progress_init "$label" 0
+    echo "No assets samples matched selected filters; treating as clean skip."
+    validation_finish "$success_message" "$failure_message"
+    exit 0
+  fi
+  echo "No enrolled sample files matched mode=$MODE format=${FORMAT_FILTER:-all} under $SAMPLES_DIR"
   exit 1
 fi
 
 label="main_process"
 success_message="ALL MAIN PROCESS TESTS PASSED"
 failure_message="FAILED MAIN PROCESS SAMPLES"
+if [[ -n "$FORMAT_FILTER" ]]; then
+  label="${label}_${FORMAT_FILTER}"
+  success_message="$success_message ($FORMAT_FILTER)"
+  failure_message="$failure_message ($FORMAT_FILTER)"
+fi
 case "$MODE" in
   metadata-only)
     label="main_process_metadata"
     success_message="ALL MAIN PROCESS METADATA TESTS PASSED"
     failure_message="FAILED MAIN PROCESS METADATA SAMPLES"
+    if [[ -n "$FORMAT_FILTER" ]]; then
+      label="${label}_${FORMAT_FILTER}"
+      success_message="$success_message ($FORMAT_FILTER)"
+      failure_message="$failure_message ($FORMAT_FILTER)"
+    fi
     ;;
   assets-only)
     label="main_process_assets"
     success_message="ALL MAIN PROCESS ASSET TESTS PASSED"
     failure_message="FAILED MAIN PROCESS ASSET SAMPLES"
+    if [[ -n "$FORMAT_FILTER" ]]; then
+      label="${label}_${FORMAT_FILTER}"
+      success_message="$success_message ($FORMAT_FILTER)"
+      failure_message="$failure_message ($FORMAT_FILTER)"
+    fi
     ;;
   markdown-only)
     label="main_process_markdown"
     success_message="ALL MAIN PROCESS MARKDOWN TESTS PASSED"
     failure_message="FAILED MAIN PROCESS MARKDOWN SAMPLES"
+    if [[ -n "$FORMAT_FILTER" ]]; then
+      label="${label}_${FORMAT_FILTER}"
+      success_message="$success_message ($FORMAT_FILTER)"
+      failure_message="$failure_message ($FORMAT_FILTER)"
+    fi
     ;;
 esac
 

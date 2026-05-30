@@ -19,8 +19,31 @@
 },
   "summary": {
     "block_count": 2,
-    "asset_count": 1
+    "asset_count": 1,
+    "link_count": 1
   },
+  "links": [
+    {
+      "link_index": 0,
+      "block_index": 0,
+      "inline_index": 1,
+      "text_start": 4,
+      "text_end": 10,
+      "block_type": "paragraph",
+      "text": "OpenAI",
+      "url": "https://openai.com",
+      "source_kind": "docx_hyperlink",
+      "origin": {
+        "format": "docx",
+        "source_name": "docx_metadata_links_images.docx",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null
+      }
+    }
+  ],
   "blocks": [
     {
       "block_index": 0,

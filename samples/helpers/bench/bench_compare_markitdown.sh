@@ -4,9 +4,12 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT/samples/helpers/shared/tmp_helpers.sh"
 source "$ROOT/samples/helpers/shared/validation_helpers.sh"
+source "$ROOT/samples/helpers/bench/bench_v2_common.sh"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp}"
 COMPARE_ROOT="$TMP_ROOT/bench/compare"
-CORPUS_PATH="$ROOT/samples/benchmark/compare_corpus.tsv"
+MANIFEST_PATH=""
+MANIFEST_DIR=""
+FORMAT_FILTER=""
 RESULTS_PATH="$COMPARE_ROOT/results.jsonl"
 RUNS_TSV_PATH="$COMPARE_ROOT/.runs.tsv"
 SUMMARY_PATH="$COMPARE_ROOT/summary.tsv"
@@ -24,6 +27,7 @@ MARKITDOWN_MB_CMD="${MARKITDOWN_MB_CMD:-}"
 MB_VERSION=""
 MB_RUNNER_KIND="unknown"
 PYTHON_VERSION="unknown"
+declare -A MANIFEST_FIELD_INDEX=()
 
 json_escape() {
   local s="${1-}"
@@ -46,13 +50,9 @@ lower_field() {
   printf '%s' "${1-}" | tr '[:upper:]' '[:lower:]'
 }
 
-resolve_input_path() {
+resolve_manifest_rel_path() {
   local path="${1-}"
-  if [[ "$path" == /* ]]; then
-    printf '%s' "$path"
-  else
-    printf '%s/%s' "$ROOT" "$path"
-  fi
+  bench_v2_resolve_rel_path "$MANIFEST_DIR" "$path"
 }
 
 file_size_bytes() {
@@ -102,7 +102,7 @@ git_rev() {
 
 usage() {
   cat <<EOF
-usage: ./samples/bench.sh --suite compare [--iterations N] [--warmup N] [--corpus PATH]
+usage: ./samples/bench.sh --layer compare [--manifest PATH] [--format fmt[,fmt]] [--iterations N] [--warmup N] [--output-dir DIR]
 
 Environment overrides:
   BENCH_ITERATIONS            number of measured iterations per sample (default: 1)
@@ -114,12 +114,24 @@ Environment overrides:
 
 Notes:
   * This is an overlap-only benchmark between this repository runner and Microsoft MarkItDown.
+  * Corpus rows come only from quality-lab external_bench/MANIFEST.tsv.
   * It does not compare metadata semantics, assets semantics, or Markdown similarity.
   * It does not enable OCR plugins, Azure Document Intelligence, or other optional plugin paths.
   * By default the comparison harness builds once, then prefers the prebuilt native cli binary.
   * If no prebuilt cli binary is available, it falls back to "moon run", which includes wrapper overhead.
   * It does not create or manage a Python virtual environment inside this repository.
 EOF
+}
+
+set_compare_root() {
+  COMPARE_ROOT="$1"
+  RESULTS_PATH="$COMPARE_ROOT/results.jsonl"
+  RUNS_TSV_PATH="$COMPARE_ROOT/.runs.tsv"
+  SUMMARY_PATH="$COMPARE_ROOT/summary.tsv"
+  PYTHON_ENV_ROOT="$COMPARE_ROOT/python_env"
+  PYTHON_TMPDIR="$PYTHON_ENV_ROOT/tmp"
+  PYTHON_CACHE_HOME="$PYTHON_ENV_ROOT/cache"
+  PYTHON_HOME="$PYTHON_ENV_ROOT/home"
 }
 
 is_non_negative_int() {
@@ -241,9 +253,9 @@ Install Microsoft MarkItDown into a user-managed environment, for example:
   python -m pip install 'markitdown[all]==0.1.5'
 
 Then rerun using one of:
-  markitdown available in PATH
-  MARKITDOWN_COMPARE_CMD=/path/to/markitdown ./samples/bench.sh --suite compare
-  MARKITDOWN_COMPARE_PY_BIN=/path/to/python ./samples/bench.sh --suite compare
+  install markitdown on PATH
+  MARKITDOWN_COMPARE_CMD=/path/to/markitdown ./samples/bench.sh --layer compare
+  MARKITDOWN_COMPARE_PY_BIN=/path/to/python ./samples/bench.sh --layer compare
 
 The comparison harness does not create or manage a repository-local .venv.
 EOF
@@ -321,13 +333,104 @@ python_runner_class() {
   fi
 }
 
-is_compare_header_row() {
-  local format="${1-}"
-  local sample="${2-}"
-  local input_path="${3-}"
-  [[ "$(lower_field "$format")" == "format" ]] &&
-    [[ "$(lower_field "$sample")" == "sample" ]] &&
-    [[ "$(lower_field "$input_path")" == "input_path" ]]
+external_bench_required() {
+  bench_v2_fail_missing_manifest
+}
+
+resolve_manifest_path() {
+  if [[ -n "$MANIFEST_PATH" ]]; then
+    if [[ ! -f "$MANIFEST_PATH" ]]; then
+      echo "external_bench manifest missing: $MANIFEST_PATH" >&2
+      external_bench_required
+      exit 1
+    fi
+  else
+    if ! MANIFEST_PATH="$(bench_v2_resolve_manifest "$ROOT")"; then
+      external_bench_required
+      exit 1
+    fi
+  fi
+
+  bench_v2_require_external_bench_header "$MANIFEST_PATH"
+  MANIFEST_DIR="$(bench_v2_manifest_dir "$MANIFEST_PATH")"
+}
+
+manifest_field() {
+  local name="$1"
+  local -n row_ref="$2"
+  if [[ -z "${MANIFEST_FIELD_INDEX[$name]+set}" ]]; then
+    printf ''
+    return
+  fi
+  local index="${MANIFEST_FIELD_INDEX[$name]}"
+  trim_field "${row_ref[$index]-}"
+}
+
+split_tsv_fields() {
+  local line="$1"
+  local -n out_ref="$2"
+  local sentinel=$'\037'
+  local encoded
+  local last
+  encoded="${line//$'\t'/$sentinel}"
+  encoded="${encoded}${sentinel}_"
+  IFS="$sentinel" read -r -a out_ref <<< "$encoded"
+  last=$((${#out_ref[@]} - 1))
+  unset "out_ref[$last]"
+}
+
+parse_manifest_header() {
+  local raw_line line header
+  header=""
+
+  while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+    line="$(trim_field "$raw_line")"
+    [[ -z "$line" ]] && continue
+    [[ "${line#\#}" != "$line" ]] && continue
+    header="$raw_line"
+    break
+  done < "$MANIFEST_PATH"
+
+  if [[ -z "$header" ]]; then
+    echo "external_bench manifest is empty: $MANIFEST_PATH" >&2
+    exit 1
+  fi
+
+  local -a header_fields=()
+  local i key
+  IFS=$'\t' read -r -a header_fields <<< "$header"
+
+  if [[ "$(lower_field "$(trim_field "${header_fields[0]-}")")" == "format" ]] &&
+    [[ "$(lower_field "$(trim_field "${header_fields[1]-}")")" == "sample" ]] &&
+    [[ "$(lower_field "$(trim_field "${header_fields[2]-}")")" == "input_path" ]]; then
+    echo "legacy compare manifest schema is not supported; use quality-lab external_bench/MANIFEST.tsv" >&2
+    exit 1
+  fi
+
+  MANIFEST_FIELD_INDEX=()
+  for i in "${!header_fields[@]}"; do
+    key="$(lower_field "$(trim_field "${header_fields[$i]}")")"
+    [[ -z "$key" ]] && continue
+    MANIFEST_FIELD_INDEX["$key"]="$i"
+  done
+
+  local required
+  for required in bench_id format rel_path size_class bench_layers enabled_tier; do
+    if [[ -z "${MANIFEST_FIELD_INDEX[$required]+set}" ]]; then
+      echo "external_bench manifest missing required field: $required" >&2
+      exit 1
+    fi
+  done
+}
+
+list_contains_token() {
+  bench_v2_list_contains_token "$1" "$2"
+}
+
+format_filter_matches() {
+  local format="$(lower_field "$(trim_field "${1-}")")"
+  [[ -z "$FORMAT_FILTER" ]] && return 0
+  bench_v2_list_contains_token "$FORMAT_FILTER" "$format"
 }
 
 probe_python_runner() {
@@ -420,6 +523,12 @@ write_result() {
   local git_revision="${15}"
   local tmp_root="${16}"
   local timer_precision="${17}"
+  local source_group="${18-}"
+  local size_class="${19-}"
+  local bench_profile="${20-}"
+  local workload_tags="${21-}"
+  local bench_layers="${22-}"
+  local enabled_tier="${23-}"
   local runner_kind="unknown"
   local runner_class="unknown"
   local runner_command=""
@@ -450,6 +559,13 @@ write_result() {
   printf '"version":"%s",' "$(json_escape "$version")" >> "$RESULTS_PATH"
   printf '"format":"%s",' "$(json_escape "$format")" >> "$RESULTS_PATH"
   printf '"sample":"%s",' "$(json_escape "$sample")" >> "$RESULTS_PATH"
+  printf '"bench_id":"%s",' "$(json_escape "$sample")" >> "$RESULTS_PATH"
+  printf '"source_group":"%s",' "$(json_escape "$source_group")" >> "$RESULTS_PATH"
+  printf '"size_class":"%s",' "$(json_escape "$size_class")" >> "$RESULTS_PATH"
+  printf '"bench_profile":"%s",' "$(json_escape "$bench_profile")" >> "$RESULTS_PATH"
+  printf '"workload_tags":"%s",' "$(json_escape "$workload_tags")" >> "$RESULTS_PATH"
+  printf '"bench_layers":"%s",' "$(json_escape "$bench_layers")" >> "$RESULTS_PATH"
+  printf '"enabled_tier":"%s",' "$(json_escape "$enabled_tier")" >> "$RESULTS_PATH"
   printf '"input_path":"%s",' "$(json_escape "$input_path")" >> "$RESULTS_PATH"
   printf '"file_size":%s,' "$file_size" >> "$RESULTS_PATH"
   printf '"input_bytes":%s,' "$file_size" >> "$RESULTS_PATH"
@@ -483,6 +599,37 @@ write_result() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --layer)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --layer" >&2
+        usage >&2
+        exit 1
+      }
+      if [[ "$2" != "compare" ]]; then
+        echo "bench_compare_markitdown only supports --layer compare" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    --manifest)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --manifest" >&2
+        usage >&2
+        exit 1
+      }
+      MANIFEST_PATH="$2"
+      shift 2
+      ;;
+    --format)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --format" >&2
+        usage >&2
+        exit 1
+      }
+      bench_v2_require_non_empty_token_filter "$1" "$2" || exit 1
+      FORMAT_FILTER="$2"
+      shift 2
+      ;;
     --iterations)
       [[ $# -lt 2 ]] && {
         echo "missing value for --iterations" >&2
@@ -501,14 +648,32 @@ while [[ $# -gt 0 ]]; do
       WARMUP="$2"
       shift 2
       ;;
-    --corpus)
+    --output-dir)
       [[ $# -lt 2 ]] && {
-        echo "missing value for --corpus" >&2
+        echo "missing value for --output-dir" >&2
         usage >&2
         exit 1
       }
-      CORPUS_PATH="$2"
+      set_compare_root "$2"
       shift 2
+      ;;
+    --output)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --output" >&2
+        usage >&2
+        exit 1
+      }
+      echo "compare layer writes results under an output directory; use --output-dir DIR" >&2
+      exit 1
+      ;;
+    --profile)
+      [[ $# -lt 2 ]] && {
+        echo "missing value for --profile" >&2
+        usage >&2
+        exit 1
+      }
+      echo "compare layer does not support --profile; select rows with external_bench manifest fields instead" >&2
+      exit 1
       ;;
     --help|-h)
       usage
@@ -537,10 +702,8 @@ if [[ "$ITERATIONS" -eq 0 ]]; then
   exit 1
 fi
 
-if [[ ! -f "$CORPUS_PATH" ]]; then
-  echo "comparison corpus missing: $CORPUS_PATH" >&2
-  exit 1
-fi
+resolve_manifest_path
+parse_manifest_header
 
 resolve_python_runner
 probe_python_runner
@@ -560,7 +723,11 @@ fail_count=0
 
 echo "==> iterations: $ITERATIONS"
 echo "==> warmup: $WARMUP"
-echo "==> corpus: $CORPUS_PATH"
+echo "==> manifest: $MANIFEST_PATH"
+echo "==> manifest dir: $MANIFEST_DIR"
+if [[ -n "$FORMAT_FILTER" ]]; then
+  echo "==> format filter: $FORMAT_FILTER"
+fi
 echo "==> mb runner: ${MB_COMPARE_CMD[*]}"
 echo "==> mb runner kind: $MB_RUNNER_KIND"
 if [[ -n "${CLI_RUNNER_NOTE:-}" && -z "$MARKITDOWN_MB_CMD" ]]; then
@@ -574,21 +741,67 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   [[ -z "$line" ]] && continue
   [[ "${line#\#}" != "$line" ]] && continue
 
-  IFS=$'\t' read -r format sample input_path _extra <<< "$raw_line"
-  format="$(trim_field "$format")"
-  sample="$(trim_field "$sample")"
-  input_path="$(trim_field "$input_path")"
+  split_tsv_fields "$raw_line" row_fields
+  bench_id="$(manifest_field bench_id row_fields)"
+  format="$(lower_field "$(manifest_field format row_fields)")"
+  rel_path="$(manifest_field rel_path row_fields)"
+  bench_layers="$(manifest_field bench_layers row_fields)"
+  enabled_tier="$(lower_field "$(manifest_field enabled_tier row_fields)")"
+  source_group="$(manifest_field source_group row_fields)"
+  size_class="$(lower_field "$(manifest_field size_class row_fields)")"
+  bench_profile="$(manifest_field bench_profile row_fields)"
+  workload_tags="$(manifest_field workload_tags row_fields)"
 
-  if is_compare_header_row "$format" "$sample" "$input_path"; then
+  if [[ "$(lower_field "$bench_id")" == "bench_id" ]] &&
+    [[ "$(lower_field "$format")" == "format" ]] &&
+    [[ "$(lower_field "$rel_path")" == "rel_path" ]]; then
     continue
   fi
 
-  if [[ -z "$format" || -z "$sample" || -z "$input_path" ]]; then
-    echo "skip malformed comparison row: $raw_line" >&2
+  if [[ -z "$bench_id" ]]; then
+    echo "external_bench compare row has empty bench_id: $raw_line" >&2
+    exit 1
+  fi
+
+  if [[ -z "$format" ]]; then
+    echo "external_bench compare row has empty format: $bench_id" >&2
+    exit 1
+  fi
+
+  if [[ -z "$rel_path" ]]; then
+    echo "external_bench compare row has empty rel_path: $bench_id" >&2
+    exit 1
+  fi
+
+  case "$(bench_v2_enabled_tier_action "$enabled_tier")" in
+    run)
+      ;;
+    skip)
+      continue
+      ;;
+    error)
+      echo "external_bench compare row has unsupported enabled_tier '$enabled_tier': $bench_id" >&2
+      exit 1
+      ;;
+  esac
+
+  if ! list_contains_token "$bench_layers" "compare"; then
     continue
   fi
 
-  input_abs="$(resolve_input_path "$input_path")"
+  if ! format_filter_matches "$format"; then
+    continue
+  fi
+
+  sample="$bench_id"
+  input_path="$rel_path"
+  bench_v2_reject_forbidden_path "$ROOT" "$rel_path" || exit 1
+  input_abs="$(resolve_manifest_rel_path "$rel_path")"
+  bench_v2_reject_forbidden_path "$ROOT" "$input_abs" || exit 1
+  if [[ ! -f "$input_abs" ]]; then
+    echo "external_bench input missing: $input_abs" >&2
+    exit 1
+  fi
   file_size="$(file_size_bytes "$input_abs")"
 
   if [[ "$WARMUP" -gt 0 ]]; then
@@ -680,7 +893,13 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
         "$timestamp" \
         "$GIT_REV" \
         "$TMP_ROOT" \
-        "$timer_precision"
+        "$timer_precision" \
+        "$source_group" \
+        "$size_class" \
+        "$bench_profile" \
+        "$workload_tags" \
+        "$bench_layers" \
+        "$enabled_tier"
 
       printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$runner_name" \
@@ -698,7 +917,7 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
       fi
     done
   done
-done < "$CORPUS_PATH"
+done < "$MANIFEST_PATH"
 
 generate_summary
 
@@ -715,7 +934,7 @@ echo "==> runs: $run_count"
 echo "==> failures: $fail_count"
 
 if [[ "$run_count" -eq 0 ]]; then
-  echo "no comparison rows executed" >&2
+  echo "no enabled compare benchmark rows selected from external_bench; check enabled_tier, bench_layers, or format filters" >&2
   exit 1
 fi
 

@@ -62,7 +62,7 @@ pub suberror CodecError {
 /// - Some filters are intentionally unsupported in the synchronous path
 ///   (notably `/JBIG2Decode`), and must raise `CodecError::DecodeNotSupported`.
 pub trait PdfFilterNameDecode {
-  decode_stage(
+  fn decode_stage(
     Self,
     ctx : PdfCodec,
     pdf : @pdf.Pdf,

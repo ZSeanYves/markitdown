@@ -4,7 +4,7 @@ Status: historical benchmark-design reference.
 
 For the current benchmark command menu and current checked summary pages, use:
 
-* [docs/benchmarking.md](./benchmarking.md)
+* [docs/performance.md](../../performance.md)
 * [docs/archive/performance/validation-and-benchmark-summary.md](../performance/validation-and-benchmark-summary.md)
 * [docs/archive/benchmark/benchmark-governance.md](./benchmark-governance.md)
 

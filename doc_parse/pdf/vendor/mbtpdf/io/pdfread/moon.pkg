@@ -11,5 +11,5 @@ import {
 
 import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpage",
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/fs",
 } for "test"

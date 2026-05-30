@@ -48,9 +48,9 @@ Current implementation status after the rule-engine rollout:
 
 Current source of truth for active behavior:
 
-* [README](../README.md)
-* [docs/support-and-limits.md](./support-and-limits.md)
-* [docs/architecture.md](./architecture.md)
+* [docs/README.md](../../README.md)
+* [docs/supported-formats.md](../../supported-formats.md)
+* [docs/architecture.md](../../architecture.md)
 * [docs/archive/performance/validation-and-benchmark-summary.md](../performance/validation-and-benchmark-summary.md)
 
 ## Goal

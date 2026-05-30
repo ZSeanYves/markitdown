@@ -84,7 +84,7 @@ pub fn PdfName::lexical_compare(self : PdfName, other : PdfName) -> Int {
 }
 
 ///|
-pub impl Compare for PdfName with compare(self : PdfName, other : PdfName) -> Int {
+pub impl Compare for PdfName with fn compare(self : PdfName, other : PdfName) -> Int {
   self.lexical_compare(other)
 }
 
@@ -114,6 +114,6 @@ pub fn PdfName::equal_string_bytes(self : PdfName, key : String) -> Bool {
 /// This is convenient for tests and logs, but keep in mind it is *not* a
 /// Unicode decode. Non-ASCII bytes will be rendered as code units with the
 /// same numeric value (0..255).
-pub impl Show for PdfName with output(self : PdfName, logger : &Logger) -> Unit {
+pub impl Show for PdfName with fn output(self : PdfName, logger : &Logger) -> Unit {
   logger.write_string(self.to_string_bytes())
 }

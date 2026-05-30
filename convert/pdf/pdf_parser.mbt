@@ -32,12 +32,22 @@ pub async fn parse_pdf(
 
   let backend_started = @env.now()
   let ocr_mode = parse_pdf_ocr_mode(enhance_mode)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_backend_select",
-    @env.now() - backend_started,
-    Some("ocr_mode=" + pdf_ocr_mode_name(ocr_mode)),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_backend_select",
+        @env.now() - backend_started,
+        Some("ocr_mode=" + pdf_ocr_mode_name(ocr_mode)),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_backend_select",
+        @env.now() - backend_started,
+        None,
+      )
+  }
 
   if ocr_mode != PdfOcrMode::Disabled {
     raise @cor.AppError(
@@ -47,50 +57,100 @@ pub async fn parse_pdf(
 
   let extract_started = @env.now()
   let core_doc = extract_pdf_document_model(input_path)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_extract_model",
-    @env.now() - extract_started,
-    Some(
-      "text_pdf_only=true ocr_excluded=true pages=" +
-      core_doc.pages.length().to_string(),
-    ),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_extract_model",
+        @env.now() - extract_started,
+        Some(
+          "text_pdf_only=true ocr_excluded=true pages=" +
+          core_doc.pages.length().to_string(),
+        ),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_extract_model",
+        @env.now() - extract_started,
+        None,
+      )
+  }
 
   let lines_started = @env.now()
   let doc0 = build_convert_lines(core_doc, _out_dir)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_line_build",
-    @env.now() - lines_started,
-    Some("pages=" + doc0.pages.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_line_build",
+        @env.now() - lines_started,
+        Some("pages=" + doc0.pages.length().to_string()),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_line_build",
+        @env.now() - lines_started,
+        None,
+      )
+  }
   let blocks_started = @env.now()
   let doc1 = build_convert_blocks(doc0)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_block_build",
-    @env.now() - blocks_started,
-    Some("pages=" + doc1.pages.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_block_build",
+        @env.now() - blocks_started,
+        Some("pages=" + doc1.pages.length().to_string()),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_block_build",
+        @env.now() - blocks_started,
+        None,
+      )
+  }
 
   let classify_started = @env.now()
   let doc2 = classify_convert_blocks(doc1, max_heading)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_block_classify",
-    @env.now() - classify_started,
-    Some("max_heading=" + max_heading.to_string()),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_block_classify",
+        @env.now() - classify_started,
+        Some("max_heading=" + max_heading.to_string()),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_block_classify",
+        @env.now() - classify_started,
+        None,
+      )
+  }
   let gate_started = @env.now()
   let gate_cfg = default_pdf_layout_gate_config()
   let doc2g = apply_pdf_layout_gate(doc2, config=gate_cfg)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_layout_gate",
-    @env.now() - gate_started,
-    Some("enabled=" + gate_cfg.enabled.to_string()),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_layout_gate",
+        @env.now() - gate_started,
+        Some("enabled=" + gate_cfg.enabled.to_string()),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_layout_gate",
+        @env.now() - gate_started,
+        None,
+      )
+  }
   let filter_started = @env.now()
   let doc3 = filter_noise_blocks(doc2g)
   pdf_convert_profile_add_stage(
@@ -109,23 +169,43 @@ pub async fn parse_pdf(
   )
   let annotation_started = @env.now()
   let doc5 = attach_high_confidence_uri_links(doc4)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_annotation_handling",
-    @env.now() - annotation_started,
-    Some("high_confidence_uri_attach=true"),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_annotation_handling",
+        @env.now() - annotation_started,
+        Some("high_confidence_uri_attach=true"),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_annotation_handling",
+        @env.now() - annotation_started,
+        None,
+      )
+  }
 
   let src = @cor.basename(input_path)
   let ir_started = @env.now()
   let out = convert_pdf_blocks_to_ir(doc5, max_heading, src)
   append_pdf_outlines_to_ir(out, core_doc.outlines, src)
-  pdf_convert_profile_add_stage(
-    profile,
-    "pdf_final_block_build",
-    @env.now() - ir_started,
-    Some("blocks=" + out.blocks.val.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_final_block_build",
+        @env.now() - ir_started,
+        Some("blocks=" + out.blocks.val.length().to_string()),
+      )
+    None =>
+      pdf_convert_profile_add_stage(
+        profile,
+        "pdf_final_block_build",
+        @env.now() - ir_started,
+        None,
+      )
+  }
   out
 }
 

@@ -8,8 +8,8 @@ validation surface and a checked-in complex-only `samples/real_world` corpus.
 
 It is the concise project-level companion to:
 
-* [CHANGELOG.md](../../CHANGELOG.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [CHANGELOG.md](../../../CHANGELOG.md)
+* [docs/supported-formats.md](../../supported-formats.md)
 * [docs/archive/benchmark/benchmark-governance.md](../benchmark/benchmark-governance.md)
 * [docs/archive/performance/validation-and-benchmark-summary.md](../performance/validation-and-benchmark-summary.md)
 * [docs/quality-comparisons/README.md](../../quality-comparisons/README.md)
@@ -63,7 +63,7 @@ Second-round quality conclusions are admitted only when:
 * non-goals are kept outside the verdict claim
 
 Quality records live in
-[docs/quality-comparisons/README.md](./quality-comparisons/README.md).
+[docs/quality-comparisons/README.md](../../quality-comparisons/README.md).
 
 ## Performance Evidence Rules
 

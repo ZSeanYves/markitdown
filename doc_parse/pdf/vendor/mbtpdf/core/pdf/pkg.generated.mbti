@@ -168,7 +168,7 @@ pub type PdfObjMap = Map[Int, (@ref.Ref[ObjectData], Int)]
 
 // Traits
 pub trait ToPdfNumber {
-  to_pdf_number(Self) -> PdfObject
+  fn to_pdf_number(Self) -> PdfObject
 }
 pub impl ToPdfNumber for Int
 pub impl ToPdfNumber for Double

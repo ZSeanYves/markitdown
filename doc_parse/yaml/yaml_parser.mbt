@@ -75,12 +75,16 @@ fn parse_yaml_document_with_profile(
   if lines.length() == 0 {
     let build_started = yaml_parse_profile_stage_started(profile)
     let doc = { root: None }
-    yaml_parse_profile_stage_finished(
-      profile,
-      "build_document",
-      build_started,
-      Some("root=none"),
-    )
+    match profile {
+      Some(_) =>
+        yaml_parse_profile_stage_finished(
+          profile,
+          "build_document",
+          build_started,
+          Some("root=none"),
+        )
+      None => ()
+    }
     return doc
   }
 
@@ -92,21 +96,29 @@ fn parse_yaml_document_with_profile(
       "unexpected trailing content at line " + lines[next].line_no.to_string(),
     )
   }
-  yaml_parse_profile_stage_finished(
-    profile,
-    "parse_nodes",
-    parse_started,
-    Some("lines=" + lines.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      yaml_parse_profile_stage_finished(
+        profile,
+        "parse_nodes",
+        parse_started,
+        Some("lines=" + lines.length().to_string()),
+      )
+    None => ()
+  }
 
   let build_started = yaml_parse_profile_stage_started(profile)
   let doc = { root: Some(root) }
-  yaml_parse_profile_stage_finished(
-    profile,
-    "build_document",
-    build_started,
-    Some("root=" + yaml_value_kind(root)),
-  )
+  match profile {
+    Some(_) =>
+      yaml_parse_profile_stage_finished(
+        profile,
+        "build_document",
+        build_started,
+        Some("root=" + yaml_value_kind(root)),
+      )
+    None => ()
+  }
   doc
 }
 
@@ -130,6 +142,16 @@ fn parse_block(
 
   if is_sequence_item(line.content) {
     parse_sequence(lines, start, indent, profile_totals)
+  } else if line.content.has_prefix("[") || line.content.has_prefix("{") {
+    if start + 1 < lines.length() && lines[start + 1].indent > indent {
+      raise ParseError(
+        "scalar cannot own nested block at line " + line.line_no.to_string(),
+      )
+    }
+    (
+      start + 1,
+      parse_scalar_trimmed(line.content, line.line_no, profile_totals),
+    )
   } else {
     match split_mapping_entry(line.content) {
       Some(_) => parse_mapping(lines, start, indent, profile_totals)
@@ -342,6 +364,9 @@ fn parse_sequence_item(
     }
     return (index + 1, YamlValue::Null)
   }
+  if rest.has_prefix("[") || rest.has_prefix("{") {
+    return (index + 1, parse_scalar_trimmed(rest, line.line_no, profile_totals))
+  }
 
   match split_mapping_entry(rest) {
     Some((raw_key, raw_value)) => {
@@ -395,6 +420,15 @@ fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
       "complex keys are unsupported at line " + line_no.to_string(),
     )
   }
+  if key == "<<" ||
+    key.has_prefix("&") ||
+    key.has_prefix("*") ||
+    key.has_prefix("!") {
+    raise ParseError(
+      "anchors, aliases, and tags are unsupported at line " +
+      line_no.to_string(),
+    )
+  }
 
   if key.has_prefix("\"") {
     parse_double_quoted_scalar(key, line_no)
@@ -446,8 +480,15 @@ fn parse_scalar_trimmed(
       "block scalars are unsupported at line " + line_no.to_string(),
     )
   }
-  if trimmed.has_prefix("{") || trimmed.has_prefix("[") {
-    raise ParseError("flow style is unsupported at line " + line_no.to_string())
+  if trimmed.has_prefix("[") {
+    let value = parse_flow_sequence(trimmed, line_no, profile_totals)
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
+  }
+  if trimmed.has_prefix("{") {
+    let value = parse_flow_mapping(trimmed, line_no, profile_totals)
+    yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
+    return value
   }
   if trimmed.has_prefix("&") ||
     trimmed.has_prefix("*") ||
@@ -472,6 +513,246 @@ fn parse_scalar_trimmed(
   let value = YamlValue::String(trimmed)
   yaml_parse_profile_add_elapsed(scalar_total, scalar_started)
   value
+}
+
+///|
+fn parse_flow_value(
+  text : String,
+  line_no : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> YamlValue raise {
+  let trimmed = text.trim().to_owned()
+  if trimmed == "" {
+    raise ParseError("empty flow value at line " + line_no.to_string())
+  }
+  parse_scalar_trimmed(trimmed, line_no, profile_totals)
+}
+
+///|
+fn parse_flow_sequence(
+  text : String,
+  line_no : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> YamlValue raise {
+  let chars = text.to_array()
+  if chars.length() < 2 || chars[0] != '[' {
+    raise ParseError("malformed flow sequence at line " + line_no.to_string())
+  }
+  if chars[chars.length() - 1] != ']' {
+    raise ParseError("malformed flow sequence at line " + line_no.to_string())
+  }
+
+  let end = chars.length() - 1
+  let inner = text[1:end].to_owned().trim().to_owned()
+  let values : Array[YamlValue] = []
+  if inner == "" {
+    return YamlValue::Sequence(values)
+  }
+
+  let parts = split_flow_items(inner, line_no)
+  for part in parts {
+    values.push(parse_flow_value(part, line_no, profile_totals))
+  }
+  YamlValue::Sequence(values)
+}
+
+///|
+fn parse_flow_mapping(
+  text : String,
+  line_no : Int,
+  profile_totals : YamlParseProfileTotals?,
+) -> YamlValue raise {
+  let chars = text.to_array()
+  if chars.length() < 2 || chars[0] != '{' {
+    raise ParseError("malformed flow mapping at line " + line_no.to_string())
+  }
+  if chars[chars.length() - 1] != '}' {
+    raise ParseError("malformed flow mapping at line " + line_no.to_string())
+  }
+
+  let end = chars.length() - 1
+  let inner = text[1:end].to_owned().trim().to_owned()
+  let members : Array[YamlMember] = []
+  if inner == "" {
+    return YamlValue::Mapping(members)
+  }
+
+  let parts = split_flow_items(inner, line_no)
+  for part in parts {
+    let colon = find_flow_mapping_colon(part, line_no)
+    let raw_key = part[:colon].trim().to_owned()
+    let raw_value = part[colon + 1:].trim().to_owned()
+    if raw_value == "" {
+      raise ParseError("empty flow value at line " + line_no.to_string())
+    }
+    let key = parse_key_text(raw_key, line_no)
+    members.push({
+      key,
+      value: parse_flow_value(raw_value, line_no, profile_totals),
+    })
+  }
+  YamlValue::Mapping(members)
+}
+
+///|
+fn split_flow_items(text : String, line_no : Int) -> Array[String] raise {
+  let chars = text.to_array()
+  let items : Array[String] = []
+  let mut start = 0
+  let mut i = 0
+  let mut bracket_depth = 0
+  let mut brace_depth = 0
+  let mut in_single = false
+  let mut in_double = false
+
+  while i < chars.length() {
+    let ch = chars[i]
+
+    if in_single {
+      if ch == '\'' {
+        if i + 1 < chars.length() && chars[i + 1] == '\'' {
+          i += 2
+          continue
+        }
+        in_single = false
+      }
+      i += 1
+      continue
+    }
+
+    if in_double {
+      if ch == '\\' && i + 1 < chars.length() {
+        i += 2
+        continue
+      }
+      if ch == '"' {
+        in_double = false
+      }
+      i += 1
+      continue
+    }
+
+    match ch {
+      '\'' => {
+        in_single = true
+        i += 1
+        continue
+      }
+      '"' => {
+        in_double = true
+        i += 1
+        continue
+      }
+      '[' => bracket_depth += 1
+      ']' => {
+        bracket_depth -= 1
+        if bracket_depth < 0 {
+          raise ParseError("malformed flow sequence at line " + line_no.to_string())
+        }
+      }
+      '{' => brace_depth += 1
+      '}' => {
+        brace_depth -= 1
+        if brace_depth < 0 {
+          raise ParseError("malformed flow mapping at line " + line_no.to_string())
+        }
+      }
+      ',' =>
+        if bracket_depth == 0 && brace_depth == 0 {
+          let item = text[start:i].trim().to_owned()
+          if item == "" {
+            raise ParseError("malformed flow collection at line " + line_no.to_string())
+          }
+          items.push(item)
+          start = i + 1
+        }
+      _ => ()
+    }
+    i += 1
+  }
+
+  if in_single || in_double || bracket_depth != 0 || brace_depth != 0 {
+    raise ParseError("malformed flow collection at line " + line_no.to_string())
+  }
+  let item = text[start:].trim().to_owned()
+  if item == "" {
+    raise ParseError("malformed flow collection at line " + line_no.to_string())
+  }
+  items.push(item)
+  items
+}
+
+///|
+fn find_flow_mapping_colon(text : String, line_no : Int) -> Int raise {
+  let chars = text.to_array()
+  let mut i = 0
+  let mut bracket_depth = 0
+  let mut brace_depth = 0
+  let mut in_single = false
+  let mut in_double = false
+
+  while i < chars.length() {
+    let ch = chars[i]
+
+    if in_single {
+      if ch == '\'' {
+        if i + 1 < chars.length() && chars[i + 1] == '\'' {
+          i += 2
+          continue
+        }
+        in_single = false
+      }
+      i += 1
+      continue
+    }
+
+    if in_double {
+      if ch == '\\' && i + 1 < chars.length() {
+        i += 2
+        continue
+      }
+      if ch == '"' {
+        in_double = false
+      }
+      i += 1
+      continue
+    }
+
+    match ch {
+      '\'' => {
+        in_single = true
+        i += 1
+        continue
+      }
+      '"' => {
+        in_double = true
+        i += 1
+        continue
+      }
+      '[' => bracket_depth += 1
+      ']' => {
+        bracket_depth -= 1
+        if bracket_depth < 0 {
+          raise ParseError("malformed flow sequence at line " + line_no.to_string())
+        }
+      }
+      '{' => brace_depth += 1
+      '}' => {
+        brace_depth -= 1
+        if brace_depth < 0 {
+          raise ParseError("malformed flow mapping at line " + line_no.to_string())
+        }
+      }
+      ':' =>
+        if bracket_depth == 0 && brace_depth == 0 {
+          return i
+        }
+      _ => ()
+    }
+    i += 1
+  }
+
+  raise ParseError("malformed flow mapping at line " + line_no.to_string())
 }
 
 ///|

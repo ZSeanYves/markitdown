@@ -6,7 +6,16 @@
 pub fn parse_xml_document(text : String) -> XmlDocument raise {
   let tokens = tokenize_xml_document(text)
   let parser = XmlParser::{ tokens, pos: 0 }
-  parser.parse_document(text.to_array().length())
+  parser.parse_document(count_xml_source_chars(text))
+}
+
+///|
+fn count_xml_source_chars(text : String) -> Int {
+  let mut count = 0
+  for _ in text {
+    count += 1
+  }
+  count
 }
 
 ///|

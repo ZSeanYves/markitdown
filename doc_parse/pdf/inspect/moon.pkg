@@ -1,5 +1,5 @@
 import {
-  "ZSeanYves/markitdown/doc_parse/pdf/api" @api,
-  "ZSeanYves/markitdown/doc_parse/pdf/model" @model,
-  "ZSeanYves/markitdown/doc_parse/pdf/raw" @raw,
+  "ZSeanYves/markitdown/doc_parse/pdf/api",
+  "ZSeanYves/markitdown/doc_parse/pdf/model",
+  "ZSeanYves/markitdown/doc_parse/pdf/raw",
 }

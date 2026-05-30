@@ -78,12 +78,16 @@ fn parse_json_document_with_profile(
 ) -> JsonDocument raise {
   let tokenize_started = json_parse_profile_stage_started(profile)
   let chars = normalize_json_chars(text)
-  json_parse_profile_stage_finished(
-    profile,
-    "tokenize",
-    tokenize_started,
-    Some("chars=" + chars.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      json_parse_profile_stage_finished(
+        profile,
+        "tokenize",
+        tokenize_started,
+        Some("chars=" + chars.length().to_string()),
+      )
+    None => ()
+  }
 
   let parser = JsonParser::{ chars, pos: 0, profile_totals }
   let parse_started = json_parse_profile_stage_started(profile)
@@ -92,21 +96,29 @@ fn parse_json_document_with_profile(
   if parser.pos < parser.chars.length() {
     raise ParseError("trailing content")
   }
-  json_parse_profile_stage_finished(
-    profile,
-    "parse_value",
-    parse_started,
-    Some("root=" + json_value_kind(root)),
-  )
+  match profile {
+    Some(_) =>
+      json_parse_profile_stage_finished(
+        profile,
+        "parse_value",
+        parse_started,
+        Some("root=" + json_value_kind(root)),
+      )
+    None => ()
+  }
 
   let build_started = json_parse_profile_stage_started(profile)
   let doc = { root, }
-  json_parse_profile_stage_finished(
-    profile,
-    "build_document",
-    build_started,
-    Some("root=" + json_value_kind(doc.root)),
-  )
+  match profile {
+    Some(_) =>
+      json_parse_profile_stage_finished(
+        profile,
+        "build_document",
+        build_started,
+        Some("root=" + json_value_kind(doc.root)),
+      )
+    None => ()
+  }
   doc
 }
 

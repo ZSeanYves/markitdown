@@ -34,12 +34,16 @@ fn scan_markdown_document_with_profile(
   let normalize_started = markdown_parse_profile_stage_started(profile)
   let normalized = normalize_markdown_source(text)
   let lines = build_markdown_line_views(split_markdown_lines(normalized))
-  markdown_parse_profile_stage_finished(
-    profile,
-    "normalize_lines",
-    normalize_started,
-    Some("lines=" + lines.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      markdown_parse_profile_stage_finished(
+        profile,
+        "normalize_lines",
+        normalize_started,
+        Some("lines=" + lines.length().to_string()),
+      )
+    None => ()
+  }
   let blocks : Array[MarkdownBlock] = []
   let issues : Array[MarkdownValidationIssue] = []
   let mut frontmatter : MarkdownFrontmatter? = None
@@ -65,16 +69,21 @@ fn scan_markdown_document_with_profile(
     }
     None => ()
   }
-  let has_frontmatter = match frontmatter {
-    Some(_) => "true"
-    None => "false"
+  match profile {
+    Some(_) => {
+      let has_frontmatter = match frontmatter {
+        Some(_) => "true"
+        None => "false"
+      }
+      markdown_parse_profile_stage_finished(
+        profile,
+        "frontmatter",
+        frontmatter_started,
+        Some("has_frontmatter=" + has_frontmatter),
+      )
+    }
+    None => ()
   }
-  markdown_parse_profile_stage_finished(
-    profile,
-    "frontmatter",
-    frontmatter_started,
-    Some("has_frontmatter=" + has_frontmatter),
-  )
 
   let scan_started = markdown_parse_profile_stage_started(profile)
   while i < lines.length() {
@@ -210,28 +219,45 @@ fn scan_markdown_document_with_profile(
     })
     i = j
   }
-  markdown_parse_profile_stage_finished(
-    profile,
-    "scan_lines",
-    scan_started,
-    Some("blocks=" + blocks.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      markdown_parse_profile_stage_finished(
+        profile,
+        "scan_lines",
+        scan_started,
+        Some("blocks=" + blocks.length().to_string()),
+      )
+    None => ()
+  }
 
   let build_started = markdown_parse_profile_stage_started(profile)
   let doc = {
-    source_length: normalized.to_array().length(),
+    source_length: count_markdown_source_chars(normalized),
     line_count: lines.length(),
     blocks,
     frontmatter,
     issues,
   }
-  markdown_parse_profile_stage_finished(
-    profile,
-    "build_document",
-    build_started,
-    Some("issues=" + doc.issues.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      markdown_parse_profile_stage_finished(
+        profile,
+        "build_document",
+        build_started,
+        Some("issues=" + doc.issues.length().to_string()),
+      )
+    None => ()
+  }
   doc
+}
+
+///|
+fn count_markdown_source_chars(text : String) -> Int {
+  let mut count = 0
+  for _ in text {
+    count += 1
+  }
+  count
 }
 
 ///|

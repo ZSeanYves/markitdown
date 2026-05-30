@@ -65,13 +65,13 @@ pub struct TextInspectReport {
 }
 
 ///|
-pub impl Show for TextError with to_string(self : TextError) -> String {
+pub impl Show for TextError with fn to_string(self : TextError) -> String {
   match self {
     Utf8DecodeFailed(msg) => "text decode failed: " + msg
   }
 }
 
 ///|
-pub impl Show for TextError with output(self : TextError, logger : &Logger) -> Unit {
+pub impl Show for TextError with fn output(self : TextError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

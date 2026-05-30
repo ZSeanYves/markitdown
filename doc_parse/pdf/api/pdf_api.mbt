@@ -13,7 +13,7 @@ pub enum PdfError {
 }
 
 ///|
-pub impl Show for PdfError with to_string(self : PdfError) -> String {
+pub impl Show for PdfError with fn to_string(self : PdfError) -> String {
   match self {
     AdapterFailed(msg) => "AdapterFailed: " + msg
     BuildFailed(msg) => "BuildFailed: " + msg
@@ -22,7 +22,7 @@ pub impl Show for PdfError with to_string(self : PdfError) -> String {
 }
 
 ///|
-pub impl Show for PdfError with output(self : PdfError, logger : &Logger) -> Unit {
+pub impl Show for PdfError with fn output(self : PdfError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 

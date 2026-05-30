@@ -6,19 +6,20 @@ fn fixture_path_pdfread_object_stream(path : String) -> String {
   } else if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
     let name = path.split("/").last().unwrap_or("").to_owned()
     if name != "" {
-        let repo_tracked = "../../../../testdata/pdfjs/" + name
-        if @fs.path_exists(repo_tracked) {
-          repo_tracked
+      let repo_tracked = "../../../../testdata/pdfjs/" + name
+      if @fs.path_exists(repo_tracked) {
+        repo_tracked
+      } else {
+        let suffix = path[25:].to_owned()
+        let repo_local_lab = "markitdown-quality-lab/external_quality/" + suffix
+        if @fs.path_exists(repo_local_lab) {
+          repo_local_lab
         } else {
-          let suffix = path[25:].to_owned()
-          let repo_local_lab = "markitdown-quality-lab/external_quality/" + suffix
-          if @fs.path_exists(repo_local_lab) {
-            repo_local_lab
+          let sibling_lab = "../markitdown-quality-lab/external_quality/" +
+            suffix
+          if @fs.path_exists(sibling_lab) {
+            sibling_lab
           } else {
-            let sibling_lab = "../markitdown-quality-lab/external_quality/" + suffix
-            if @fs.path_exists(sibling_lab) {
-              sibling_lab
-            } else {
             "../../../../../" + path
           }
         }

@@ -47,7 +47,7 @@ print_missing_corpus() {
   echo >&2
   echo "* expected: $(display_path "$QUALITY_CORPUS_ROOT")/" >&2
   echo "* missing: $(display_path "$missing_path")" >&2
-  echo "* clone/place markitdown-quality-lab next to this repo" >&2
+  echo "* clone/place markitdown-quality-lab in the repo root" >&2
   echo "* clone: git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab" >&2
   echo "* local-only validation: bash samples/check.sh" >&2
 }

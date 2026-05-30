@@ -124,12 +124,16 @@ fn parse_text_document_with_profile(
     i += 1
   }
   let newline_style = summarize_text_newline_style(saw_lf, saw_crlf, saw_cr)
-  text_parse_profile_stage_finished(
-    profile,
-    "newline_scan",
-    newline_started,
-    Some("style=" + text_newline_style_name(newline_style)),
-  )
+  match profile {
+    Some(_) =>
+      text_parse_profile_stage_finished(
+        profile,
+        "newline_scan",
+        newline_started,
+        Some("style=" + text_newline_style_name(newline_style)),
+      )
+    None => ()
+  }
 
   if line_chars.length() > 0 ||
     (
@@ -178,12 +182,16 @@ fn parse_normalized_text_document_with_profile(
       line_chars.push(ch)
     }
   }
-  text_parse_profile_stage_finished(
-    profile,
-    "newline_scan",
-    newline_started,
-    Some("style=lf_normalized"),
-  )
+  match profile {
+    Some(_) =>
+      text_parse_profile_stage_finished(
+        profile,
+        "newline_scan",
+        newline_started,
+        Some("style=lf_normalized"),
+      )
+    None => ()
+  }
 
   if line_chars.length() > 0 ||
     (chars.length() > 0 && chars[chars.length() - 1] != '\n') {
@@ -228,12 +236,16 @@ fn build_text_document_from_chars(
     lines,
     paragraphs,
   }
-  text_parse_profile_stage_finished(
-    profile,
-    "build_document",
-    build_started,
-    Some("chars=" + doc.text.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      text_parse_profile_stage_finished(
+        profile,
+        "build_document",
+        build_started,
+        Some("chars=" + doc.text.length().to_string()),
+      )
+    None => ()
+  }
   doc
 }
 

@@ -96,3 +96,20 @@ test "json parser stays model-only and does not lower to conversion policy" {
     _ => fail("expected array root")
   }
 }
+
+///|
+test "json profile keeps stage details" {
+  let profiled = @json.profile_json_document("{\"a\":1}")
+  assert_true(profiled.report.stages.length() > 0)
+  let mut has_root_detail = false
+  for stage in profiled.report.stages {
+    match stage.detail {
+      Some(detail) =>
+        if detail.contains("root=") {
+          has_root_detail = true
+        }
+      None => ()
+    }
+  }
+  assert_true(has_root_detail)
+}

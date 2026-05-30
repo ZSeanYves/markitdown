@@ -53,8 +53,9 @@ Use package READMEs with four release-surface buckets in mind:
   points; these may narrow in a future standalone-module release
 * Diagnostic / profile helpers:
   benchmark, profiling, dump, and troubleshooting helpers such as
-  `profile_*`, textual debug dumps, and `doc_parse/bench`; these are useful,
-  but they are not the primary stable semantic API
+  `profile_*`, textual debug dumps, and the parser benchmark layer under
+  `../bench/parser_layer`; these are useful, but they are not the primary
+  stable semantic API
 * Internal exposed surface:
   visible today because of package structure or current in-repo layering, but
   not recommended as an external dependency line for new consumers
@@ -150,15 +151,18 @@ Package-specific READMEs live next to each package directory.
 Related repository entrypoints:
 
 * [doc_parse examples](./examples/README.md)
-* `doc_parse/bench`
-  implementation package for the direct library benchmark harness
-* `../samples/bench.sh --suite doc-parse --kind library`
-  recommended public benchmark entrypoint
+* `../bench/parser_layer`
+  parser benchmark layer; it measures doc_parse parser APIs, is not parser
+  runtime, and exists only as an opt-in performance harness
+* `../samples/bench.sh --layer parser`
+  layer-first public benchmark entrypoint
 * `../samples/helpers/bench/bench_doc_parse_helper.sh`
   internal focused rerun helper behind the public benchmark entrypoint
-* `../samples/benchmark/manifests/doc_parse.tsv`
-  checked manifest for the library benchmark corpus
+* `markitdown-quality-lab/external_bench/MANIFEST.tsv`
+  only supported benchmark manifest/corpus source for doc_parse performance
+  rows; selected rows must include `bench_layers=parser`;
+  `samples/main_process` is not a benchmark corpus
 * [docs/performance.md](../docs/performance.md)
   current performance interpretation and baseline
-* [docs/benchmarking.md](../docs/benchmarking.md)
-  benchmark commands, helper status, and output layout
+* [archived benchmark docs](../docs/archive/benchmark/README.md)
+  historical benchmark planning and governance notes

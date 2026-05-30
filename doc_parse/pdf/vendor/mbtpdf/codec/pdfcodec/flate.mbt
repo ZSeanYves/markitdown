@@ -288,7 +288,7 @@ pub fn PdfCodec::decode_pdfstream_onestage(
 /// This keeps the set of supported filter names and their parameter handling
 /// in one place, while leaving higher-level `/Filter` array trimming and
 /// dictionary mutation to `decode_pdfstream_onestage`.
-pub impl PdfFilterNameDecode for @pdf.PdfName with decode_stage(
+pub impl PdfFilterNameDecode for @pdf.PdfName with fn decode_stage(
   filter_name : @pdf.PdfName,
   ctx : PdfCodec,
   pdf : @pdf.Pdf,

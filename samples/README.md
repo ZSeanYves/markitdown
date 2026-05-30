@@ -14,10 +14,12 @@ Repository docs entrypoints:
 
 Current primary commands:
 
-* `bash samples/check.sh` runs the full repo-local sample validation entrypoint.
+* `bash samples/check.sh` runs repo-local `samples/main_process` regression
+  checks for Markdown, metadata, and assets.
 * `bash samples/check_quality.sh` runs only the external quality corpus from
   `markitdown-quality-lab/external_quality/`.
-* `bash samples/bench.sh` runs the default smoke benchmark suite.
+* `bash samples/bench.sh` runs the benchmark v2 layer entrypoint using
+  `markitdown-quality-lab/external_bench/`.
 * `.tmp/` is generated workspace only and must stay uncommitted.
 
 ## Primary Entry Points
@@ -25,11 +27,21 @@ Current primary commands:
 These entrypoints are the normal onboarding surface:
 
 * `bash samples/check.sh`
+* `bash samples/check.sh --markdown-only`
+* `bash samples/check.sh --metadata-only`
+* `bash samples/check.sh --assets-only`
+* `bash samples/check.sh --format yaml --markdown-only`
+* `bash samples/check.sh --format yaml`
 * `bash samples/check_quality.sh`
 * `bash samples/check_quality.sh --format pdf` runs the focused PDF quality
   slice
 * `bash samples/bench.sh`
 * `bash samples/bench.sh --help`
+
+`samples/check.sh` is intentionally scoped to repo-local
+`samples/main_process` regression checks. Contract checks are independent helper
+entrypoints under `samples/helpers/contracts/` rather than part of
+`samples/check.sh`.
 
 The optional full quality gate expects the repo-root quality-lab:
 
@@ -47,7 +59,7 @@ Current top-level layout:
 
 * `.tmp/check/` for repo-local sample validation and contract scratch output
 * `.tmp/quality/runs/<run_id>/` for isolated external quality runs
-* `.tmp/bench/<suite>/` for benchmark summaries and raw timing output
+* `.tmp/bench/` for benchmark summaries and raw timing output
 * `.tmp/validation/` for report-only validation helpers
 * `.tmp/bench/helpers/` and `.tmp/quality/ocr_helpers/` for focused helper-only
   diagnostics
@@ -58,7 +70,7 @@ into ad-hoc `.tmp/*` roots:
 
 * `samples/check.sh` uses `.tmp/check/workspace/`
 * `samples/check_quality.sh` uses `.tmp/quality/runs/<run_id>/workspace/`
-* `samples/bench.sh` uses `.tmp/bench/<suite>/workspace/`
+* `samples/bench.sh` uses nested benchmark workspaces under `.tmp/bench/`
 
 `bash samples/check_quality.sh` now creates a unique run directory every time,
 so full and filtered runs can be executed concurrently without clobbering each
@@ -70,8 +82,8 @@ other's `outputs/` or `summary.tsv`.
 | --- | --- |
 | `samples/main_process/` | repo-tracked user-visible sample corpus and expected outputs |
 | `samples/fixtures/` | lower-layer and fail-closed fixtures |
-| `samples/benchmark/` | checked benchmark corpus and manifests |
-| `samples/helpers/bench/` | internal benchmark suite implementations and warning helpers |
+| `samples/benchmark/` | retired legacy benchmark area; do not add benchmark payloads here |
+| `samples/helpers/bench/` | internal benchmark v2 layer helpers and diagnostics |
 | `samples/helpers/contracts/` | internal CLI, PDF, ZIP, batch, debug, and no-implicit-OCR contract checks |
 | `samples/helpers/release/` | internal release-candidate and release-summary helpers |
 | `samples/helpers/shared/` | shared shell helper libraries for temp dirs and runner resolution |
@@ -85,6 +97,11 @@ Current public benchmark entrypoint:
 
 * `bash samples/bench.sh`
 * `bash samples/bench.sh --help`
+
+Benchmark v2 corpus rows and payloads live in
+`markitdown-quality-lab/external_bench/`. The repo-local
+`samples/benchmark/` tree is a retired legacy area and must not be used for new
+benchmark payloads or treated as an active benchmark corpus.
 
 Current lightweight product-path diagnostic helper:
 
@@ -260,8 +277,9 @@ The release-readiness snapshot helper:
 * `samples/helpers/quality/check.sh` remains available for compatibility, but
   it is an internal runner implementation rather than the preferred top-level
   entry
-* internal/debug-only focused modes such as `--manifest-only` and
-  `--public-only` are no longer recommended user entrypoints
+* legacy `samples/check.sh` modes such as `--full`, `--main-process`,
+  `--contracts-only`, and `--manifest-only` are no longer supported; use the
+  documented main-process flags or the focused helper scripts directly
 * the rest of `samples/helpers/` is organized by role instead of a flat script
   list
 * `samples/quality_corpus/` has been removed from the user-visible samples tree

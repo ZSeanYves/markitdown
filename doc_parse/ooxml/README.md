@@ -203,7 +203,7 @@ for issue in report.issues {
   resolution.
 - `ooxml_assets.mbt`: package-level media asset indexing.
 - `ooxml_props.mbt`: lightweight docProps reading.
-- `ooxml_xml_util.mbt`: small XML tag/attribute/text helpers used by this
+- `ooxml_xml_scan.mbt`: small XML tag/attribute/text helpers used by this
   package.
 - `ooxml_dump.mbt`: read-only human-readable debug summaries.
 - `ooxml_types.mbt`: public data types and errors.

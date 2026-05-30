@@ -1,5 +1,3 @@
-```xml
-<root>
-  <item>Hello</item>
-</root>
-```
+# <root>
+
+- item: Hello

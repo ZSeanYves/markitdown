@@ -1,6 +1,6 @@
 import {
-  "ZSeanYves/markitdown/convert/yaml" @yaml,
+  "ZSeanYves/markitdown/convert/yaml",
   "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
 } for "test"

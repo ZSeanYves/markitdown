@@ -6,8 +6,8 @@ For the current documentation map and current support/performance contracts,
 use:
 
 * [docs/README.md](../../README.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
-* [docs/benchmarking.md](../../benchmarking.md)
+* [docs/supported-formats.md](../../supported-formats.md)
+* [docs/performance.md](../../performance.md)
 
 This document is the repository's second-round hardening audit for
 `markitdown-mb`.
@@ -27,16 +27,16 @@ Non-goal of this round:
 
 Primary local evidence used:
 
-* [README.mbt.md](./../README.mbt.md)
-* [docs/support-and-limits.md](../../support-and-limits.md)
+* [README.mbt.md](../../../README.mbt.md)
+* [docs/supported-formats.md](../../supported-formats.md)
 * [docs/architecture.md](../../architecture.md)
 * [docs/archive/roadmap/progress.md](../roadmap/progress.md)
-* [core/ir.mbt](../core/ir.mbt)
-* [core/emitter_markdown.mbt](../core/emitter_markdown.mbt)
-* [core/metadata.mbt](../core/metadata.mbt)
-* [cli/main.mbt](../cli/main.mbt)
-* [cli/cli_app.mbt](../cli/cli_app.mbt)
-* [convert/convert/dispatcher.mbt](../convert/convert/dispatcher.mbt)
+* [core/ir.mbt](../../../core/ir.mbt)
+* [core/emitter_markdown.mbt](../../../core/emitter_markdown.mbt)
+* [core/metadata.mbt](../../../core/metadata.mbt)
+* [cli/main.mbt](../../../cli/main.mbt)
+* [cli_support/cli_app.mbt](../../../cli_support/cli_app.mbt)
+* [convert/convert/dispatcher.mbt](../../../convert/convert/dispatcher.mbt)
 * `convert/*`, `doc_parse/*`, `samples/*`, and benchmark scripts
 
 External reference scope:
@@ -153,7 +153,7 @@ Remaining archival notes from the original hardening pass:
 
 ### 2.1 Product Entry Capability
 
-Current product entrypoints are defined in [cli/main.mbt](../cli/main.mbt) and orchestrated in [cli/cli_app.mbt](../cli/cli_app.mbt).
+Current product entrypoints are defined in [cli/main.mbt](../../../cli/main.mbt) and orchestrated in [cli_support/cli_app.mbt](../../../cli_support/cli_app.mbt).
 
 Current subcommands:
 
@@ -302,7 +302,7 @@ Cross-format behavior inconsistencies worth recording:
 
 ### 2.2 Unified IR / Markdown Emitter / Metadata Capability
 
-Unified IR is defined in [core/ir.mbt](../core/ir.mbt). Markdown emission is in [core/emitter_markdown.mbt](../core/emitter_markdown.mbt). Metadata sidecar emission is in [core/metadata.mbt](../core/metadata.mbt).
+Unified IR is defined in [core/ir.mbt](../../../core/ir.mbt). Markdown emission is in [core/emitter_markdown.mbt](../../../core/emitter_markdown.mbt). Metadata sidecar emission is in [core/metadata.mbt](../../../core/metadata.mbt).
 
 Current block types:
 
@@ -1561,9 +1561,9 @@ Recommended template:
 Current rollout status:
 
 * a dedicated checked-in directory now exists at
-  [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
+  [docs/quality-comparisons/README.md](../../quality-comparisons/README.md)
 * a reusable template now exists at
-  [docs/quality-comparisons/template.md](./quality-comparisons/template.md)
+  [docs/quality-comparisons/template.md](../../quality-comparisons/template.md)
 * the current seed set is intentionally small and sample-scoped; it is not a
   blanket parity conclusion
 
@@ -1585,8 +1585,8 @@ Impact:
 Modules:
 
 * `README.mbt.md`
-* `docs/support-and-limits.md`
-* `docs/progress.md`
+* `docs/supported-formats.md`
+* `docs/archive/roadmap/progress.md`
 * this audit
 
 Samples / benchmark:
@@ -1604,7 +1604,7 @@ Done when:
 Current status:
 
 * fixed in this follow-up for `README.mbt.md`,
-  `docs/support-and-limits.md`, `docs/progress.md`, and this audit
+  `docs/supported-formats.md`, `docs/archive/roadmap/progress.md`, and this audit
 * remaining work is to keep older milestone documents from being read as
   product-level "final done" claims
 
@@ -1727,7 +1727,7 @@ Current status:
 
 * fixed in this follow-up:
   * checked-in quality comparison docs now exist under
-    [docs/quality-comparisons/README.md](./quality-comparisons/README.md)
+    [docs/quality-comparisons/README.md](../../quality-comparisons/README.md)
   * the repository now has a reusable comparison template plus seed records for
     DOCX / PPTX / XLSX / HTML / CSV / Markdown / TXT / PDF
   * each seed record names the concrete sample, commands, comparable scope, and
@@ -2204,7 +2204,7 @@ Current issues to record at audit start, with current follow-up status:
 
 Evidence:
 
-* [README.mbt.md](./../README.mbt.md) and
+* [README.mbt.md](../../../README.mbt.md) and
   [docs/archive/roadmap/progress.md](../roadmap/progress.md)
   present the repo as post-H2 and post-H3-phase-1 complete across the main
   format set.

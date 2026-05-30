@@ -7,13 +7,14 @@
 /// - `boundary` rows correspond to parser/layout boundary experiments
 /// - current HGB teacher and distillation work in quality-lab should not treat
 ///   this mixed export tool as the primary training entrypoint
+
 ///|
 suberror PdfLayoutToolError {
   Failed(String)
 }
 
 ///|
-impl Show for PdfLayoutToolError with to_string(self : PdfLayoutToolError) -> String {
+impl Show for PdfLayoutToolError with fn to_string(self : PdfLayoutToolError) -> String {
   match self {
     Failed(msg) => msg
   }

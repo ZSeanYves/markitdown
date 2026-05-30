@@ -15,7 +15,7 @@ Run the maintainer-oriented release-candidate readiness checks from the repo roo
 
 Modes:
   --full        additionally run `moon test`
-  --skip-bench  skip `./samples/bench.sh`
+  --skip-bench  accepted for compatibility; benchmarks are manual by default
   --help        show this help
 
 Default behavior:
@@ -25,7 +25,7 @@ Default behavior:
   * run `moon check`
   * run `./samples/check.sh`
   * run `bash samples/check_quality.sh`
-  * run bench smoke unless `--skip-bench` is set
+  * do not run benchmark smoke by default
   * run release-facing contract helpers, including the optional OCR smoke
 
 Notes:
@@ -126,13 +126,9 @@ run ./samples/check.sh
 section "quality check"
 run bash samples/check_quality.sh
 
-if [[ "$RUN_BENCH" -eq 1 ]]; then
-  section "bench smoke"
-  run ./samples/bench.sh
-else
-  section "bench smoke"
-  echo "skipped (--skip-bench)"
-fi
+section "bench smoke"
+echo "manual only; --skip-bench is accepted for compatibility"
+echo "see docs/performance.md for external_bench commands"
 
 section "contracts"
 run bash samples/helpers/contracts/check_cli_contract.sh
@@ -146,9 +142,5 @@ run_optional_ocr_smoke
 section "summary"
 echo "RELEASE CANDIDATE CHECK PASSED"
 echo "mode: $MODE"
-if [[ "$RUN_BENCH" -eq 1 ]]; then
-  echo "bench: run"
-else
-  echo "bench: skipped"
-fi
+echo "bench: manual"
 echo "optional_ocr: $OCR_OPTIONAL_STATUS"

@@ -100,13 +100,13 @@ pub struct CsvInspectReport {
 }
 
 ///|
-pub impl Show for CsvError with to_string(self : CsvError) -> String {
+pub impl Show for CsvError with fn to_string(self : CsvError) -> String {
   match self {
     ParseError(msg) => "csv parse error: " + msg
   }
 }
 
 ///|
-pub impl Show for CsvError with output(self : CsvError, logger : &Logger) -> Unit {
+pub impl Show for CsvError with fn output(self : CsvError, logger : &Logger) -> Unit {
   logger.write_string(self.to_string())
 }

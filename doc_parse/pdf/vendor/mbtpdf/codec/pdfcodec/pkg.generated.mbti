@@ -51,7 +51,7 @@ pub(all) enum Predictor {
 
 // Traits
 pub trait PdfFilterNameDecode {
-  decode_stage(Self, PdfCodec, @pdf.Pdf, @pdf.PdfObject?, Array[Byte], String?) -> Array[Byte] raise CodecError
+  fn decode_stage(Self, PdfCodec, @pdf.Pdf, @pdf.PdfObject?, Array[Byte], String?) -> Array[Byte] raise CodecError
 }
 pub impl PdfFilterNameDecode for @pdf.PdfName
 

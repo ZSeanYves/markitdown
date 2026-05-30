@@ -1,7 +1,7 @@
 import {
-  "ZSeanYves/markitdown/convert/xml" @xml,
+  "ZSeanYves/markitdown/convert/xml",
   "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/core/encoding/utf16" @utf16,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/core/encoding/utf16",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/fs",
 } for "test"

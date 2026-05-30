@@ -196,3 +196,68 @@ test "xml parser handles single quotes self closing tags and mixed top-level syn
   assert_eq(report.comment_count, 1)
   assert_eq(report.text_node_count, 1)
 }
+
+///|
+test "xml model preserves simple attributes repeated children namespace and cdata" {
+  let doc = @xml.parse_xml_document(
+    "<x:root xmlns:x=\"urn:test\" id=\"r1\">" +
+    "<x:item>One</x:item>" +
+    "<x:item>Two</x:item>" +
+    "<payload><![CDATA[<safe>&literal;]]></payload>" +
+    "</x:root>",
+  )
+  let root = match doc.root {
+    Some(root) => root
+    None => fail("expected root element")
+  }
+  assert_eq(root.name, "x:root")
+  assert_eq(root.attributes.length(), 2)
+  assert_eq(root.attributes[0].name, "xmlns:x")
+  assert_eq(root.attributes[1].name, "id")
+  assert_eq(root.children.length(), 3)
+
+  match root.children[0] {
+    @xml.XmlNode::Element(item) => {
+      assert_eq(item.name, "x:item")
+      match item.children[0] {
+        @xml.XmlNode::Text(text) => assert_eq(text.text, "One")
+        _ => fail("expected item text")
+      }
+    }
+    _ => fail("expected repeated child element")
+  }
+  match root.children[1] {
+    @xml.XmlNode::Element(item) => assert_eq(item.name, "x:item")
+    _ => fail("expected second repeated child element")
+  }
+  match root.children[2] {
+    @xml.XmlNode::Element(payload) =>
+      match payload.children[0] {
+        @xml.XmlNode::CData(cdata) => assert_eq(cdata.text, "<safe>&literal;")
+        _ => fail("expected cdata node")
+      }
+    _ => fail("expected payload element")
+  }
+}
+
+///|
+test "xml mixed content is visible through text and element child order" {
+  let doc = @xml.parse_xml_document("<p>Lead <b>bold</b> tail</p>")
+  let root = match doc.root {
+    Some(root) => root
+    None => fail("expected root element")
+  }
+  assert_eq(root.children.length(), 3)
+  match root.children[0] {
+    @xml.XmlNode::Text(text) => assert_eq(text.text, "Lead ")
+    _ => fail("expected leading text")
+  }
+  match root.children[1] {
+    @xml.XmlNode::Element(child) => assert_eq(child.name, "b")
+    _ => fail("expected embedded element")
+  }
+  match root.children[2] {
+    @xml.XmlNode::Text(text) => assert_eq(text.text, " tail")
+    _ => fail("expected trailing text")
+  }
+}

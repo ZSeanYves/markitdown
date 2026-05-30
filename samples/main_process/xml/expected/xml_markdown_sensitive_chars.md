@@ -1,6 +1,4 @@
-```xml
-<root>
-  <item># heading | [link](x) *em*</item>
-  <item><![CDATA[not actually parsed]]></item>
-</root>
-```
+# <root>
+
+- item: # heading | [link](x) *em*
+- item: not actually parsed

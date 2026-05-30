@@ -112,7 +112,7 @@ pub fn parse_tesseract_tsv_page(
 }
 
 ///|
-pub impl Show for TesseractTsvParseError with to_string(
+pub impl Show for TesseractTsvParseError with fn to_string(
   self : TesseractTsvParseError,
 ) -> String {
   "tesseract tsv parse error at line " +
@@ -122,7 +122,7 @@ pub impl Show for TesseractTsvParseError with to_string(
 }
 
 ///|
-pub impl Show for TesseractTsvParseError with output(
+pub impl Show for TesseractTsvParseError with fn output(
   self : TesseractTsvParseError,
   logger : &Logger,
 ) -> Unit {
