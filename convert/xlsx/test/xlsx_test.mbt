@@ -23,6 +23,14 @@ fn read_utf8_text(path : String) -> String raise {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 fn ensure_dir(path : String) -> Unit raise {
   if !@fs.path_exists(path) {
     @fs.create_dir(path)
@@ -431,6 +439,45 @@ fn write_xlsx_with_comments(path : String) -> Unit raise {
 }
 
 ///|
+fn write_huge_sparse_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"HugeSparse\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<dimension ref=\"A1:ALL2000\"/>" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Header</t></is></c></row>" +
+    "<row r=\"2000\"><c r=\"ALL2000\" t=\"inlineStr\"><is><t>Far Edge</t></is></c></row>" +
+    "</sheetData>" +
+    "</worksheet>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
 fn write_self_closing_blank_cells_xlsx(path : String) -> Unit raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -606,6 +653,68 @@ test "xlsx comment parts emit conservative appendix blocks after table content" 
     },
   )
   assert_true(comments_pos > table_pos)
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx profile disabled returns no report for normal parse" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_XLSX")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_XLSX", prev_enabled)
+  }
+  @sys.unset_env_var("MARKITDOWN_PROFILE_XLSX")
+
+  let (doc, profile) = @xlsx.parse_xlsx_with_profile(
+    resolve_sample_path("samples/main_process/xlsx/sheet_simple.xlsx"),
+    "",
+    6,
+  )
+  assert_true(@cor.emit_markdown(doc).contains("| Bob | 2.5 | emoji🙂 |"))
+  match profile {
+    None => ()
+    Some(_) => fail("disabled xlsx profile should not create a report")
+  }
+}
+
+///|
+test "xlsx huge sparse sheet uses bounded fallback instead of dense RichTable" {
+  let case_dir = test_tmp_root() + "/huge-sparse"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate huge sparse case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/huge_sparse.xlsx"
+  write_huge_sparse_xlsx(path) catch {
+    e => fail("write_huge_sparse_xlsx failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  assert_eq(inspected.sheets[0].table_rows.length(), 0)
+  assert_eq(inspected.sheets[0].used_min_row, 1)
+  assert_eq(inspected.sheets[0].used_min_col, 1)
+  assert_eq(inspected.sheets[0].used_max_row, 2000)
+  assert_eq(inspected.sheets[0].used_max_col, 1000)
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  match doc.blocks.val[1] {
+    @cor.Block::Paragraph(text) => {
+      assert_true(text.contains("large sparse sheet"))
+      assert_true(text.contains("2000000 cells exceeds cap 1000000"))
+      assert_true(text.contains("showing 2 of 2 visible non-empty cells"))
+    }
+    _ => fail("huge sparse sheet should emit bounded paragraph fallback")
+  }
+  let mut rich_table_count = 0
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::RichTable(_) => rich_table_count = rich_table_count + 1
+      _ => ()
+    }
+  }
+  assert_eq(rich_table_count, 0)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("- A1 (row=1 col=1): Header"))
+  assert_true(markdown.contains("- ALL2000 (row=2000 col=1000): Far Edge"))
 
   cleanup_temp_dir(case_dir)
 }

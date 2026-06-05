@@ -201,14 +201,43 @@ fn ascii_lower_byte(b : Byte) -> Byte {
 
 ///|
 fn html_unescape(s : String) -> String {
-  let t = s
-    .replace_all(old="&lt;", new="<")
-    .replace_all(old="&gt;", new=">")
-    .replace_all(old="&amp;", new="&")
-    .replace_all(old="&quot;", new="\"")
-    .replace_all(old="&nbsp;", new=" ")
-    .replace_all(old="&apos;", new="'")
-  @cor.decode_numeric_entities(t)
+  @dphtml.decode_html_entities(s)
+}
+
+///|
+fn find_open_tag_with_name(
+  bs : Bytes,
+  tag_name : String,
+  start : Int,
+) -> (Int, Int)? {
+  let open_pat = pat("<" + tag_name)
+  let gt_pat = pat(">")
+  let mut pos = start
+  while pos < bs.length() {
+    let open0 = find_bytes_case_insensitive(bs, open_pat, pos)
+    match open0 {
+      None => return None
+      Some(open_idx) => {
+        let gt0 = find_bytes(bs, gt_pat, open_idx)
+        match gt0 {
+          None => return None
+          Some(gt_idx) => {
+            let tag0 = @utf8.decode(
+              bs[open_idx:gt_idx + 1].to_owned(),
+              ignore_bom=false,
+            ) catch {
+              _ => ""
+            }
+            if html_open_tag_name(tag0).unwrap_or("") == tag_name {
+              return Some((open_idx, gt_idx))
+            }
+            pos = open_idx + 1
+          }
+        }
+      }
+    }
+  }
+  None
 }
 
 ///|
@@ -219,29 +248,21 @@ fn find_matching_list_end(
   start_open : Int,
   tag_name : String,
 ) -> Int? {
-  let open_pat = pat("<" + tag_name)
   let close_pat = pat("</" + tag_name + ">")
-  let gt_pat = pat(">")
 
   let mut depth = 0
   let mut pos = start_open
   let n = bs.length()
 
   while pos < n {
-    let open0 = find_bytes(bs, open_pat, pos)
-    let close0 = find_bytes(bs, close_pat, pos)
+    let open0 = find_open_tag_with_name(bs, tag_name, pos)
+    let close0 = find_bytes_case_insensitive(bs, close_pat, pos)
 
     match (open0, close0) {
       (None, None) => return None
-      (Some(i), None) => {
-        let gt0 = find_bytes(bs, gt_pat, i)
-        match gt0 {
-          None => return None
-          Some(gt) => {
-            depth = depth + 1
-            pos = gt + 1
-          }
-        }
+      (Some((_, gt)), None) => {
+        depth = depth + 1
+        pos = gt + 1
       }
       (None, Some(j)) => {
         depth = depth - 1
@@ -250,16 +271,10 @@ fn find_matching_list_end(
         }
         pos = j + close_pat.length()
       }
-      (Some(i), Some(j)) =>
+      (Some((i, gt)), Some(j)) =>
         if i < j {
-          let gt0 = find_bytes(bs, gt_pat, i)
-          match gt0 {
-            None => return None
-            Some(gt) => {
-              depth = depth + 1
-              pos = gt + 1
-            }
-          }
+          depth = depth + 1
+          pos = gt + 1
         } else {
           depth = depth - 1
           if depth == 0 {
@@ -276,29 +291,21 @@ fn find_matching_list_end(
 ///|
 /// find matching </li> for a <li ...> starting at start_open
 fn find_matching_li_end(bs : Bytes, start_open : Int) -> Int? {
-  let open_li = pat("<li")
   let close_li = pat("</li>")
-  let gt_pat = pat(">")
 
   let mut depth = 0
   let mut pos = start_open
   let n = bs.length()
 
   while pos < n {
-    let open0 = find_bytes(bs, open_li, pos)
-    let close0 = find_bytes(bs, close_li, pos)
+    let open0 = find_open_tag_with_name(bs, "li", pos)
+    let close0 = find_bytes_case_insensitive(bs, close_li, pos)
 
     match (open0, close0) {
       (None, None) => return None
-      (Some(i), None) => {
-        let gt0 = find_bytes(bs, gt_pat, i)
-        match gt0 {
-          None => return None
-          Some(gt) => {
-            depth = depth + 1
-            pos = gt + 1
-          }
-        }
+      (Some((_, gt)), None) => {
+        depth = depth + 1
+        pos = gt + 1
       }
       (None, Some(j)) => {
         depth = depth - 1
@@ -307,16 +314,10 @@ fn find_matching_li_end(bs : Bytes, start_open : Int) -> Int? {
         }
         pos = j + close_li.length()
       }
-      (Some(i), Some(j)) =>
+      (Some((i, gt)), Some(j)) =>
         if i < j {
-          let gt0 = find_bytes(bs, gt_pat, i)
-          match gt0 {
-            None => return None
-            Some(gt) => {
-              depth = depth + 1
-              pos = gt + 1
-            }
-          }
+          depth = depth + 1
+          pos = gt + 1
         } else {
           depth = depth - 1
           if depth == 0 {

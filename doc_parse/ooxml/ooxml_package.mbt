@@ -12,6 +12,8 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
   let archive = @zip.open_zip(bytes) catch {
     e => raise ZipError(e.to_string())
   }
+  let part_cache = new_ooxml_part_cache()
+  let relationship_cache = new_ooxml_relationship_cache()
 
   let part_index : Map[String, Int] = Map([])
   let entries = @zip.list_entries(archive)
@@ -47,6 +49,62 @@ pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
     part_index,
     content_types_default: defaults,
     content_types_override: overrides,
+    part_cache,
+    relationship_cache,
+  }
+}
+
+///|
+fn new_ooxml_part_cache() -> OoxmlPartCache {
+  {
+    bytes_by_part: Map([]),
+    text_by_part: Map([]),
+    bytes_hit_count: { val: 0 },
+    bytes_miss_count: { val: 0 },
+    text_hit_count: { val: 0 },
+    text_decode_count: { val: 0 },
+  }
+}
+
+///|
+fn new_ooxml_relationship_cache() -> OoxmlRelationshipCache {
+  {
+    index_by_rels_part: Map([]),
+    relationships_hit_count: { val: 0 },
+    relationships_miss_count: { val: 0 },
+    by_id_hit_count: { val: 0 },
+    by_id_miss_count: { val: 0 },
+    by_type_query_count: { val: 0 },
+  }
+}
+
+///|
+/// Inspect package-local OOXML part cache reuse.
+pub fn inspect_ooxml_part_cache_stats(
+  pkg : OoxmlPackage,
+) -> OoxmlPartCacheStats {
+  {
+    bytes_hit_count: pkg.part_cache.bytes_hit_count.val,
+    bytes_miss_count: pkg.part_cache.bytes_miss_count.val,
+    text_hit_count: pkg.part_cache.text_hit_count.val,
+    text_decode_count: pkg.part_cache.text_decode_count.val,
+    bytes_entry_count: pkg.part_cache.bytes_by_part.length(),
+    text_entry_count: pkg.part_cache.text_by_part.length(),
+  }
+}
+
+///|
+/// Inspect package-local OOXML relationship index reuse.
+pub fn inspect_ooxml_relationship_cache_stats(
+  pkg : OoxmlPackage,
+) -> OoxmlRelationshipCacheStats {
+  {
+    relationships_hit_count: pkg.relationship_cache.relationships_hit_count.val,
+    relationships_miss_count: pkg.relationship_cache.relationships_miss_count.val,
+    by_id_hit_count: pkg.relationship_cache.by_id_hit_count.val,
+    by_id_miss_count: pkg.relationship_cache.by_id_miss_count.val,
+    by_type_query_count: pkg.relationship_cache.by_type_query_count.val,
+    entry_count: pkg.relationship_cache.index_by_rels_part.length(),
   }
 }
 
@@ -64,10 +122,29 @@ pub fn read_part_bytes(
   part_name : String,
 ) -> Bytes raise OoxmlError {
   let normalized = normalize_part_name(part_name)
-  @zip.read_entry(pkg.archive, normalized) catch {
+  read_part_bytes_normalized(pkg, normalized)
+}
+
+///|
+fn read_part_bytes_normalized(
+  pkg : OoxmlPackage,
+  normalized : String,
+) -> Bytes raise OoxmlError {
+  match pkg.part_cache.bytes_by_part.get(normalized) {
+    Some(bytes) => {
+      pkg.part_cache.bytes_hit_count.val += 1
+      return bytes
+    }
+    None => ()
+  }
+
+  let bytes = @zip.read_entry(pkg.archive, normalized) catch {
     @zip.EntryNotFound(path) => raise MissingPart(path)
     e => raise ZipError(e.to_string())
   }
+  pkg.part_cache.bytes_miss_count.val += 1
+  pkg.part_cache.bytes_by_part.set(normalized, bytes)
+  bytes
 }
 
 ///|
@@ -80,8 +157,20 @@ pub fn read_part_text(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> String raise OoxmlError {
-  let bytes = read_part_bytes(pkg, part_name)
-  bytes_to_xml_text(bytes)
+  let normalized = normalize_part_name(part_name)
+  match pkg.part_cache.text_by_part.get(normalized) {
+    Some(text) => {
+      pkg.part_cache.text_hit_count.val += 1
+      return text
+    }
+    None => ()
+  }
+
+  let bytes = read_part_bytes_normalized(pkg, normalized)
+  let text = bytes_to_xml_text(bytes)
+  pkg.part_cache.text_decode_count.val += 1
+  pkg.part_cache.text_by_part.set(normalized, text)
+  text
 }
 
 ///|

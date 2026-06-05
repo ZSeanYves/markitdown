@@ -112,17 +112,21 @@ test "origin_metadata/structured_text_block_origins" {
     6,
   )
   let xml_origin = block_origin_at(xml_doc, 0)
-  if xml_origin.line_start != Some(1) {
-    fail("xml code block should start at line 1")
+  if xml_origin.line_start != Some(2) {
+    fail("xml root heading should start at line 2 after leading comment")
   }
   if xml_origin.line_end != Some(5) {
-    fail("xml code block should end at physical line 5")
+    fail("xml root heading should span through line 5")
   }
   if xml_origin.key_path != None {
-    fail("xml code block should not set key_path")
+    fail("xml structured root heading should not set key_path")
   }
   if xml_origin.source_name != Some("xml_comments.xml") {
-    fail("xml code block should preserve source_name")
+    fail("xml root heading should preserve source_name")
+  }
+  let xml_item_origin = block_origin_at(xml_doc, 1)
+  if xml_item_origin.line_start != Some(4) {
+    fail("xml child item should start at line 4")
   }
 
   let markdown_code_doc = @md.parse_markdown(

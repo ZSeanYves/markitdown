@@ -7,10 +7,24 @@ priv struct PlannedEntry {
 }
 
 ///|
+priv struct ZipConversionPlan {
+  inspect : ZipInspectReport
+  plans : Array[PlannedEntry]
+}
+
+///|
 fn inspect_zip_archive(
   archive : @zipraw.ZipArchive,
   source_name : String,
 ) -> ZipInspectReport {
+  build_zip_conversion_plan(archive, source_name).inspect
+}
+
+///|
+fn build_zip_conversion_plan(
+  archive : @zipraw.ZipArchive,
+  source_name : String,
+) -> ZipConversionPlan {
   let entries : Array[ZipInspectEntry] = []
   let visible : Array[PlannedEntry] = []
   let mut running_total = 0
@@ -76,7 +90,8 @@ fn inspect_zip_archive(
     entries[plan.inspect_index] = upgraded
   }
 
-  { source_name, entry_count: entries.length(), entries }
+  let inspect = { source_name, entry_count: entries.length(), entries }
+  { inspect, plans: visible }
 }
 
 ///|
@@ -206,10 +221,7 @@ fn detect_normalized_collisions(
 }
 
 ///|
-fn build_planned_entries(
-  inspect : ZipInspectReport,
-) -> Array[PlannedEntry] raise {
-  let plans : Array[PlannedEntry] = []
+fn fail_on_inspect_plan_errors(inspect : ZipInspectReport) -> Unit raise {
   for entry in inspect.entries {
     match entry.action {
       ZipInspectAction::Fail =>
@@ -219,31 +231,6 @@ fn build_planned_entries(
       _ => ()
     }
   }
-
-  for i in 0..<inspect.entries.length() {
-    let entry = inspect.entries[i]
-    if entry.action == ZipInspectAction::Convert {
-      plans.push({
-        raw_path: entry.raw_name,
-        path: entry.normalized_path.unwrap_or(entry.raw_name),
-        uncompressed_size: entry.uncompressed_size,
-        inspect_index: i,
-      })
-    } else if entry.entry_kind == ZipInspectEntryKind::EntryLimitExceeded ||
-      entry.entry_kind == ZipInspectEntryKind::EntryTooLarge ||
-      entry.entry_kind == ZipInspectEntryKind::TotalDecodedLimitExceeded ||
-      entry.entry_kind == ZipInspectEntryKind::NestedArchive ||
-      entry.entry_kind == ZipInspectEntryKind::Unsupported {
-      plans.push({
-        raw_path: entry.raw_name,
-        path: entry.normalized_path.unwrap_or(entry.raw_name),
-        uncompressed_size: entry.uncompressed_size,
-        inspect_index: i,
-      })
-    }
-  }
-  plans.sort_by((a, b) => compare_zip_path(a.path, b.path))
-  plans
 }
 
 ///|

@@ -140,7 +140,15 @@ pub struct RawPdfDocumentExtract {
   metadata_creation_date : String?
   metadata_mod_date : String?
   issues : Array[PdfRawIssue]
+  outlines : Array[RawPdfOutlineItem]
   pages : Array[RawPdfPageExtract]
+}
+
+pub struct RawPdfOutlineItem {
+  title : String
+  page_index : Int?
+  dest : String?
+  children : Array[RawPdfOutlineItem]
 }
 
 pub struct RawPdfPageExtract {

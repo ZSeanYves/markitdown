@@ -1,6 +1,7 @@
 ///|
 fn materialize_safe_archive_tree(
   pkg : @epubpkg.EpubPackage,
+  part_cache : EpubPartCache,
   extracted_root : String,
 ) -> Map[String, String] raise {
   recreate_clean_dir(extracted_root) catch {
@@ -43,7 +44,7 @@ fn materialize_safe_archive_tree(
         )
     }
 
-    let entry_bytes = @epubpkg.read_part_bytes(pkg, entry.path) catch {
+    let entry_bytes = read_epub_part_bytes_cached(part_cache, pkg, entry.path) catch {
       e =>
         raise @cor.AppError(
           "epub extracted tree failed: read entry failed for " +

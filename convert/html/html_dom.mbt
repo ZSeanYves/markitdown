@@ -10,9 +10,12 @@ priv enum HtmlNode {
 }
 
 ///|
-fn scan_html_nodes(bs : Bytes) -> Array[HtmlNode] raise {
+fn scan_html_nodes_with_skip_ranges(
+  bs : Bytes,
+  skip_ranges : Array[HtmlByteRange],
+) -> Array[HtmlNode] raise {
   let note_plan = build_html_note_plan(bs)
-  scan_html_nodes_with_notes(bs, note_plan)
+  scan_html_nodes_with_notes(bs, note_plan, skip_ranges)
 }
 
 ///|
@@ -24,6 +27,7 @@ fn scan_html_notes(bs : Bytes) -> Array[@cor.NoteDefinition] {
 fn scan_html_nodes_with_notes(
   bs : Bytes,
   note_plan : HtmlNotePlan,
+  skip_ranges : Array[HtmlByteRange],
 ) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
 
@@ -84,7 +88,10 @@ fn scan_html_nodes_with_notes(
           }
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
+            let tag = tag0.to_lower()
+            let tag_name = html_open_tag_name(tag0).unwrap_or("")
+            let is_close_tag = tag.has_prefix("</")
 
             match html_note_body_range_end(note_plan, p) {
               Some(skip_end) => {
@@ -106,6 +113,14 @@ fn scan_html_nodes_with_notes(
             }
 
             match find_skippable_html_noise_subtree_end(bs, p, q, tag) {
+              Some(skip_end) => {
+                pos = skip_end
+                continue
+              }
+              None => ()
+            }
+
+            match html_skip_range_end_at(skip_ranges, p) {
               Some(skip_end) => {
                 pos = skip_end
                 continue
@@ -211,7 +226,7 @@ fn scan_html_nodes_with_notes(
 
             if tag.has_prefix("<p") {
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_p, inner_start)
+              let end0 = find_bytes_case_insensitive(bs, close_p, inner_start)
               match end0 {
                 None => ()
                 Some(end) => {
@@ -284,8 +299,8 @@ fn scan_html_nodes_with_notes(
               }
             }
 
-            if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
-              let is_ol = tag.has_prefix("<ol")
+            if !is_close_tag && (tag_name == "ul" || tag_name == "ol") {
+              let is_ol = tag_name == "ol"
               let list_name = if is_ol { "ol" } else { "ul" }
 
               match find_matching_list_end(bs, p, list_name) {
@@ -308,9 +323,11 @@ fn scan_html_nodes_with_notes(
               }
             }
 
-            if tag.has_prefix("<table") {
+            if !is_close_tag && tag_name == "table" {
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_table, inner_start)
+              let end0 = find_bytes_case_insensitive(
+                bs, close_table, inner_start,
+              )
               match end0 {
                 None => ()
                 Some(end) => {
@@ -336,6 +353,19 @@ fn scan_html_nodes_with_notes(
 }
 
 ///|
+fn html_skip_range_end_at(
+  skip_ranges : Array[HtmlByteRange],
+  start : Int,
+) -> Int? {
+  for range in skip_ranges {
+    if range.start == start && range.end_ > start {
+      return Some(range.end_)
+    }
+  }
+  None
+}
+
+///|
 /// scan one <ul>/<ol> block body and emit list items with ordered/level
 fn scan_list_nodes(
   bs : Bytes,
@@ -347,16 +377,14 @@ fn scan_list_nodes(
 ) -> Array[HtmlNode] raise {
   let out : Array[HtmlNode] = []
 
-  let open_li = pat("<li")
   let close_li = pat("</li>")
-  let gt_pat = pat(">")
 
   let mut pos = start
   while pos < end_ {
-    let li0 = find_bytes(bs, open_li, pos)
+    let li0 = find_open_tag_with_name(bs, "li", pos)
     match li0 {
       None => break
-      Some(i0) => {
+      Some((i0, q0)) => {
         if i0 >= end_ {
           break
         }
@@ -370,39 +398,33 @@ fn scan_list_nodes(
           None => ()
         }
 
-        let gt0 = find_bytes(bs, gt_pat, i0)
-        match gt0 {
+        if q0 >= end_ {
+          break
+        }
+
+        let inner_start = q0 + 1
+
+        let end_li0 = find_matching_li_end(bs, i0)
+        match end_li0 {
           None => break
-          Some(q0) => {
-            if q0 >= end_ {
+          Some(li_end) => {
+            if li_end > end_ {
               break
             }
 
-            let inner_start = q0 + 1
+            let children = scan_li_children(
+              bs,
+              inner_start,
+              li_end,
+              level + 1,
+              note_plan,
+            )
 
-            let end_li0 = find_matching_li_end(bs, i0)
-            match end_li0 {
-              None => break
-              Some(li_end) => {
-                if li_end > end_ {
-                  break
-                }
-
-                let children = scan_li_children(
-                  bs,
-                  inner_start,
-                  li_end,
-                  level + 1,
-                  note_plan,
-                )
-
-                if !list_item_children_is_blank(children) {
-                  out.push(HtmlNode::ListItem(ordered, level, children))
-                }
-
-                pos = li_end + close_li.length()
-              }
+            if !list_item_children_is_blank(children) {
+              out.push(HtmlNode::ListItem(ordered, level, children))
             }
+
+            pos = li_end + close_li.length()
           }
         }
       }
@@ -498,7 +520,10 @@ fn scan_li_children(
             }
 
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
+            let tag = tag0.to_lower()
+            let tag_name = html_open_tag_name(tag0).unwrap_or("")
+            let is_close_tag = tag.has_prefix("</")
 
             match html_note_body_range_end(note_plan, p) {
               Some(skip_end) =>
@@ -536,7 +561,7 @@ fn scan_li_children(
               flush_pending_paragraph(out, pending_para)
 
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_p, inner_start)
+              let end0 = find_bytes_case_insensitive(bs, close_p, inner_start)
               match end0 {
                 None => ()
                 Some(end) =>
@@ -596,11 +621,13 @@ fn scan_li_children(
               }
             }
 
-            if tag.has_prefix("<table") {
+            if !is_close_tag && tag_name == "table" {
               flush_pending_paragraph(out, pending_para)
 
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_table, inner_start)
+              let end0 = find_bytes_case_insensitive(
+                bs, close_table, inner_start,
+              )
               match end0 {
                 None => ()
                 Some(end) =>
@@ -618,8 +645,8 @@ fn scan_li_children(
               }
             }
 
-            if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
-              let is_ol = tag.has_prefix("<ol")
+            if !is_close_tag && (tag_name == "ul" || tag_name == "ol") {
+              let is_ol = tag_name == "ol"
               let list_name = if is_ol { "ol" } else { "ul" }
 
               match find_matching_list_end(bs, p, list_name) {
@@ -717,7 +744,10 @@ fn scan_html_nodes_in_container_with_notes(
           }
           Some(q) => {
             let tag_bs = bs[p:q + 1].to_owned()
-            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
+            let tag = tag0.to_lower()
+            let tag_name = html_open_tag_name(tag0).unwrap_or("")
+            let is_close_tag = tag.has_prefix("</")
 
             match html_note_body_range_end(note_plan, p) {
               Some(skip_end) => {
@@ -854,7 +884,7 @@ fn scan_html_nodes_in_container_with_notes(
               flush_pending_paragraph(out, pending_para)
 
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_p, inner_start)
+              let end0 = find_bytes_case_insensitive(bs, close_p, inner_start)
               match end0 {
                 None => ()
                 Some(end) => {
@@ -909,8 +939,8 @@ fn scan_html_nodes_in_container_with_notes(
               }
             }
 
-            if tag.has_prefix("<ul") || tag.has_prefix("<ol") {
-              let is_ol = tag.has_prefix("<ol")
+            if !is_close_tag && (tag_name == "ul" || tag_name == "ol") {
+              let is_ol = tag_name == "ol"
               let list_name = if is_ol { "ol" } else { "ul" }
 
               match find_matching_list_end(bs, p, list_name) {
@@ -935,11 +965,13 @@ fn scan_html_nodes_in_container_with_notes(
               }
             }
 
-            if tag.has_prefix("<table") {
+            if !is_close_tag && tag_name == "table" {
               flush_pending_paragraph(out, pending_para)
 
               let inner_start = q + 1
-              let end0 = find_bytes(bs, close_table, inner_start)
+              let end0 = find_bytes_case_insensitive(
+                bs, close_table, inner_start,
+              )
               match end0 {
                 None => ()
                 Some(end) => {

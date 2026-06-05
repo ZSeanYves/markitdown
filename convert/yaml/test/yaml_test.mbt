@@ -119,6 +119,14 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 test "yaml mapping emits key-value table" {
   let input = resolve_sample_path(
     "samples/main_process/yaml/yaml_mapping_basic.yaml",
@@ -136,6 +144,51 @@ test "yaml mapping emits key-value table" {
     @cor.Block::RichTable(table) => assert_eq(table.header_rows, 1)
     _ => fail("yaml_mapping_basic should emit RichTable")
   }
+}
+
+///|
+test "yaml profile disabled returns no report" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_YAML")
+  defer restore_env_var("MARKITDOWN_PROFILE_YAML", prev_enabled)
+  @sys.unset_env_var("MARKITDOWN_PROFILE_YAML")
+
+  let (doc, profile) = @yaml.parse_yaml_with_profile(
+    resolve_sample_path("samples/main_process/yaml/yaml_mapping_basic.yaml"),
+    "",
+    6,
+  )
+  assert_true(@cor.emit_markdown(doc).contains("| Key | Value |"))
+  match profile {
+    None => ()
+    Some(_) => fail("disabled yaml profile should not create a report")
+  }
+}
+
+///|
+test "yaml profile enabled preserves stage details" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_YAML")
+  defer restore_env_var("MARKITDOWN_PROFILE_YAML", prev_enabled)
+  @sys.set_env_var("MARKITDOWN_PROFILE_YAML", "1")
+
+  let (_doc, profile) = @yaml.parse_yaml_with_profile(
+    resolve_sample_path(
+      "samples/main_process/yaml/yaml_sequence_objects_table.yaml",
+    ),
+    "",
+    6,
+  )
+  let report = match profile {
+    Some(rep) => @yaml.yaml_profile_render_report(rep)
+    None => fail("enabled yaml profile should create a report")
+  }
+  assert_true(report.contains("yaml_profile stage=yaml_file_read"))
+  assert_true(report.contains("detail=bytes="))
+  assert_true(report.contains("yaml_profile stage=yaml_bytes_to_string"))
+  assert_true(report.contains("chars="))
+  assert_true(report.contains("yaml_profile stage=yaml_detect_table"))
+  assert_true(report.contains("kind=sequence_table rows="))
+  assert_true(report.contains("yaml_profile stage=yaml_to_ir"))
+  assert_true(report.contains("blocks="))
 }
 
 ///|

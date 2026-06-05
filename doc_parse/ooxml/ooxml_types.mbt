@@ -265,12 +265,64 @@ pub struct OoxmlPackageInspectReport {
 }
 
 ///|
-/// Opened OOXML package with a ZIP archive and cached content-type maps.
+priv struct OoxmlPartCache {
+  bytes_by_part : Map[String, Bytes]
+  text_by_part : Map[String, String]
+  bytes_hit_count : Ref[Int]
+  bytes_miss_count : Ref[Int]
+  text_hit_count : Ref[Int]
+  text_decode_count : Ref[Int]
+}
+
+///|
+priv struct OoxmlRelationshipIndex {
+  relationships : Array[OoxmlRelationship]
+  by_id : Map[String, OoxmlRelationship]
+  by_type : Map[String, Array[OoxmlRelationship]]
+}
+
+///|
+priv struct OoxmlRelationshipCache {
+  index_by_rels_part : Map[String, OoxmlRelationshipIndex]
+  relationships_hit_count : Ref[Int]
+  relationships_miss_count : Ref[Int]
+  by_id_hit_count : Ref[Int]
+  by_id_miss_count : Ref[Int]
+  by_type_query_count : Ref[Int]
+}
+
+///|
+/// Read-only observability for package-local OOXML part cache reuse.
+pub struct OoxmlPartCacheStats {
+  bytes_hit_count : Int
+  bytes_miss_count : Int
+  text_hit_count : Int
+  text_decode_count : Int
+  bytes_entry_count : Int
+  text_entry_count : Int
+}
+
+///|
+/// Read-only observability for package-local OOXML relationship index reuse.
+pub struct OoxmlRelationshipCacheStats {
+  relationships_hit_count : Int
+  relationships_miss_count : Int
+  by_id_hit_count : Int
+  by_id_miss_count : Int
+  by_type_query_count : Int
+  entry_count : Int
+}
+
+///|
+/// Opened OOXML package with a ZIP archive, cached content-type maps, and a
+/// per-package part / relationship cache.
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, Int]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
+  priv part_cache : OoxmlPartCache
+  priv relationship_cache : OoxmlRelationshipCache
 }
 
 ///|

@@ -26,6 +26,22 @@ priv struct HtmlProfileReport {
   cached_asset_count : Ref[Int]
   asset_discovery_elapsed_ms : Ref[UInt64]
   asset_export_elapsed_ms : Ref[UInt64]
+  parser_issue_count : Ref[Int]
+  parser_warning_count : Ref[Int]
+  parser_error_count : Ref[Int]
+  parser_script_count : Ref[Int]
+  parser_style_count : Ref[Int]
+  parser_unsafe_url_count : Ref[Int]
+  parser_duplicate_attr_count : Ref[Int]
+  parser_unexpected_closing_count : Ref[Int]
+  parser_unclosed_count : Ref[Int]
+  parser_used_fallback : Ref[Bool]
+  parser_skipped_large_input : Ref[Bool]
+  parser_analysis_attempted : Ref[Bool]
+  parser_analysis_used : Ref[Bool]
+  parser_scope_from_events : Ref[Bool]
+  parser_skip_range_count : Ref[Int]
+  parser_scope_fallback_reason : Ref[String]
 }
 
 ///|
@@ -42,6 +58,22 @@ fn new_html_profile_report(input_path : String) -> HtmlProfileReport {
     cached_asset_count: { val: 0 },
     asset_discovery_elapsed_ms: { val: 0 },
     asset_export_elapsed_ms: { val: 0 },
+    parser_issue_count: { val: 0 },
+    parser_warning_count: { val: 0 },
+    parser_error_count: { val: 0 },
+    parser_script_count: { val: 0 },
+    parser_style_count: { val: 0 },
+    parser_unsafe_url_count: { val: 0 },
+    parser_duplicate_attr_count: { val: 0 },
+    parser_unexpected_closing_count: { val: 0 },
+    parser_unclosed_count: { val: 0 },
+    parser_used_fallback: { val: false },
+    parser_skipped_large_input: { val: false },
+    parser_analysis_attempted: { val: false },
+    parser_analysis_used: { val: false },
+    parser_scope_from_events: { val: false },
+    parser_skip_range_count: { val: 0 },
+    parser_scope_fallback_reason: { val: "" },
   }
 }
 
@@ -66,6 +98,98 @@ fn html_profile_add_stage(
   detail : String?,
 ) -> Unit {
   html_profile_push_stage(report, name, elapsed_ms, detail)
+}
+
+///|
+fn html_profile_start_tick(report : HtmlProfileReport?) -> UInt64? {
+  match report {
+    Some(_) => Some(@env.now())
+    None => None
+  }
+}
+
+///|
+fn html_active_profile_start_tick() -> UInt64? {
+  html_profile_start_tick(html_active_profile_report.val)
+}
+
+///|
+fn html_profile_elapsed_since(started : UInt64?) -> UInt64 {
+  match started {
+    Some(tick) => @env.now() - tick
+    None => 0
+  }
+}
+
+///|
+fn html_profile_set_parser_issue_summary(
+  report : HtmlProfileReport?,
+  summary : HtmlParserIssueSummary,
+) -> Unit {
+  match report {
+    Some(rep) => {
+      rep.parser_issue_count.val = summary.issue_count
+      rep.parser_warning_count.val = summary.warning_count
+      rep.parser_error_count.val = summary.error_count
+      rep.parser_script_count.val = summary.script_count
+      rep.parser_style_count.val = summary.style_count
+      rep.parser_unsafe_url_count.val = summary.unsafe_url_count
+      rep.parser_duplicate_attr_count.val = summary.duplicate_attribute_count
+      rep.parser_unexpected_closing_count.val =
+        summary.unexpected_closing_count
+      rep.parser_unclosed_count.val = summary.unclosed_element_count
+    }
+    None => ()
+  }
+}
+
+///|
+fn html_profile_mark_parser_fallback(report : HtmlProfileReport?) -> Unit {
+  match report {
+    Some(rep) => rep.parser_used_fallback.val = true
+    None => ()
+  }
+}
+
+///|
+fn html_profile_mark_parser_skipped_large_input(report : HtmlProfileReport?) -> Unit {
+  match report {
+    Some(rep) => rep.parser_skipped_large_input.val = true
+    None => ()
+  }
+}
+
+///|
+fn html_profile_mark_parser_analysis_attempted(report : HtmlProfileReport?) -> Unit {
+  match report {
+    Some(rep) => rep.parser_analysis_attempted.val = true
+    None => ()
+  }
+}
+
+///|
+fn html_profile_mark_parser_analysis_used(report : HtmlProfileReport?) -> Unit {
+  match report {
+    Some(rep) => rep.parser_analysis_used.val = true
+    None => ()
+  }
+}
+
+///|
+fn html_profile_set_scope_observability(
+  report : HtmlProfileReport?,
+  scope_from_events : Bool,
+  skip_range_count : Int,
+  fallback_reason : String,
+) -> Unit {
+  match report {
+    Some(rep) => {
+      rep.parser_scope_from_events.val = scope_from_events
+      rep.parser_skip_range_count.val = skip_range_count
+      rep.parser_scope_fallback_reason.val = fallback_reason
+    }
+    None => ()
+  }
 }
 
 ///|
@@ -152,7 +276,39 @@ fn html_profile_render_report(report : HtmlProfileReport) -> String {
     " asset_discovery_elapsed_ms=" +
     report.asset_discovery_elapsed_ms.val.to_string() +
     " asset_export_elapsed_ms=" +
-    report.asset_export_elapsed_ms.val.to_string(),
+    report.asset_export_elapsed_ms.val.to_string() +
+    " parser_issue_count=" +
+    report.parser_issue_count.val.to_string() +
+    " parser_warning_count=" +
+    report.parser_warning_count.val.to_string() +
+    " parser_error_count=" +
+    report.parser_error_count.val.to_string() +
+    " parser_script_count=" +
+    report.parser_script_count.val.to_string() +
+    " parser_style_count=" +
+    report.parser_style_count.val.to_string() +
+    " parser_unsafe_url_count=" +
+    report.parser_unsafe_url_count.val.to_string() +
+    " parser_duplicate_attr_count=" +
+    report.parser_duplicate_attr_count.val.to_string() +
+    " parser_unexpected_closing_count=" +
+    report.parser_unexpected_closing_count.val.to_string() +
+    " parser_unclosed_count=" +
+    report.parser_unclosed_count.val.to_string() +
+    " parser_used_fallback=" +
+    report.parser_used_fallback.val.to_string() +
+    " parser_skipped_large_input=" +
+    report.parser_skipped_large_input.val.to_string() +
+    " parser_analysis_attempted=" +
+    report.parser_analysis_attempted.val.to_string() +
+    " parser_analysis_used=" +
+    report.parser_analysis_used.val.to_string() +
+    " parser_scope_from_events=" +
+    report.parser_scope_from_events.val.to_string() +
+    " parser_skip_range_count=" +
+    report.parser_skip_range_count.val.to_string() +
+    " parser_scope_fallback_reason=" +
+    report.parser_scope_fallback_reason.val,
   )
 
   for stage in report.stages {

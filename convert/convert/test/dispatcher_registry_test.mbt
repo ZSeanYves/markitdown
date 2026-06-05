@@ -72,3 +72,27 @@ test "dispatcher registry keeps OCR and future provider routes explicit" {
     None => fail("expected future provider boundary row")
   }
 }
+
+///|
+test "docx runtime uses current package without legacy reintroduction" {
+  match @conv.lookup_converter_registry_entry("docx") {
+    Some(entry) => {
+      if entry.format != "docx" {
+        fail("docx extension should normalize to docx format")
+      }
+      if !entry.default_enabled {
+        fail("docx should stay default-enabled")
+      }
+      if entry.capability != @conv.ConverterCapability::NativeDocument {
+        fail("docx should remain a native document route")
+      }
+      if !entry.notes.contains("OOXML document conversion") {
+        fail("docx registry notes should document native OOXML conversion")
+      }
+    }
+    None => fail("expected docx registry entry")
+  }
+
+  // Compile-time link guard: DOCX resolves through the current convert/docx API.
+  ignore(try? @doc.open_docx_model("__docx_guard_missing__.docx"))
+}

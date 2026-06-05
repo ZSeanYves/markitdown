@@ -117,6 +117,14 @@ fn test_tmp_root() -> String {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 fn count_occurrences(text : String, needle : String) -> Int {
   if needle == "" {
     return 0
@@ -394,6 +402,36 @@ async test "convert/pdf smoke parses text_simple" {
   if !markdown.contains("English") {
     fail("pdf markdown should contain English text")
   }
+}
+
+///|
+async test "convert/pdf profile enabled preserves stage details" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_PDF_CONVERT")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_PDF_CONVERT_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_PDF_CONVERT", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_PDF_CONVERT_PATH", prev_path)
+  }
+
+  let out_dir = create_pdf_out_dir("profile_smoke")
+  let profile_path = out_dir + "/profile.txt"
+  @sys.set_env_var("MARKITDOWN_PROFILE_PDF_CONVERT", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_PDF_CONVERT_PATH", profile_path)
+
+  let input = resolve_sample_path("samples/main_process/pdf/text_simple.pdf")
+  let doc = @pdf.parse_pdf(input, out_dir, 6, None, false, false, false)
+  assert_true(@cor.emit_markdown(doc).contains("English"))
+
+  let report = read_utf8_text(profile_path)
+  assert_true(report.contains("pdf_convert_profile stage=pdf_backend_select"))
+  assert_true(report.contains("detail=ocr_mode=disabled"))
+  assert_true(report.contains("pdf_convert_profile stage=pdf_extract_model"))
+  assert_true(report.contains("text_pdf_only=true ocr_excluded=true pages="))
+  assert_true(report.contains("pdf_convert_profile stage=pdf_line_build"))
+  assert_true(report.contains("pdf_convert_profile stage=pdf_layout_gate"))
+  assert_true(report.contains("detail=enabled="))
+  assert_true(report.contains("pdf_convert_profile stage=pdf_final_block_build"))
+  assert_true(report.contains("blocks="))
 }
 
 ///|

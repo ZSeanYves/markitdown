@@ -22,6 +22,7 @@ fn empty_semantic_chart_slide_data() -> PptxSemanticChartSlideData {
 fn maybe_parse_semantic_slide_chart_blocks(
   pkg : @ox.OoxmlPackage,
   slide_part : String,
+  parser_inventory : PptxParserInventorySummary,
 ) -> PptxSemanticChartSlideData {
   let rels = @ox.read_part_relationships(pkg, slide_part) catch {
     _ => return empty_semantic_chart_slide_data()
@@ -39,8 +40,9 @@ fn maybe_parse_semantic_slide_chart_blocks(
     return empty_semantic_chart_slide_data()
   }
 
-  let pres = @pptx_sem.parse_pptx_presentation_from_package(pkg) catch {
-    _ => return empty_semantic_chart_slide_data()
+  let pres = match parser_inventory.presentation {
+    Some(pres) => pres
+    None => return empty_semantic_chart_slide_data()
   }
   for slide in pres.slides {
     if slide.part_path == slide_part {

@@ -114,6 +114,14 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 fn read_utf8_text(path : String) -> String raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => fail("read sample failed: " + e.to_string())
@@ -138,6 +146,51 @@ test "json object table uses explicit header semantics" {
     }
     _ => fail("json_object_basic should emit RichTable")
   }
+}
+
+///|
+test "json profile disabled returns no report" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_JSON")
+  defer restore_env_var("MARKITDOWN_PROFILE_JSON", prev_enabled)
+  @sys.unset_env_var("MARKITDOWN_PROFILE_JSON")
+
+  let (doc, profile) = @json.parse_json_with_profile(
+    resolve_sample_path("samples/main_process/json/json_object_basic.json"),
+    "",
+    6,
+  )
+  assert_true(@cor.emit_markdown(doc).contains("| Key | Value |"))
+  match profile {
+    None => ()
+    Some(_) => fail("disabled json profile should not create a report")
+  }
+}
+
+///|
+test "json profile enabled preserves stage details" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_JSON")
+  defer restore_env_var("MARKITDOWN_PROFILE_JSON", prev_enabled)
+  @sys.set_env_var("MARKITDOWN_PROFILE_JSON", "1")
+
+  let (_doc, profile) = @json.parse_json_with_profile(
+    resolve_sample_path(
+      "samples/main_process/json/json_array_objects_table.json",
+    ),
+    "",
+    6,
+  )
+  let report = match profile {
+    Some(rep) => @json.json_profile_render_report(rep)
+    None => fail("enabled json profile should create a report")
+  }
+  assert_true(report.contains("json_profile stage=json_file_read"))
+  assert_true(report.contains("detail=bytes="))
+  assert_true(report.contains("json_profile stage=json_parse_total"))
+  assert_true(report.contains("root=array"))
+  assert_true(report.contains("json_profile stage=json_detect_uniform_table"))
+  assert_true(report.contains("rows="))
+  assert_true(report.contains("json_profile stage=json_lower_to_ir"))
+  assert_true(report.contains("blocks="))
 }
 
 ///|

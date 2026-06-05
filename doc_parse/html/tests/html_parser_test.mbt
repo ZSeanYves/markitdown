@@ -283,3 +283,94 @@ test "html inspect inventory and validation ordering stay deterministic" {
     validation.issues[1].kind == @html.HtmlValidationIssueKind::StyleElement,
   )
 }
+
+///|
+test "html validation issue bundle stays stable for script style unsafe duplicate and malformed close mix" {
+  let doc = @html.parse_html_document(
+    "<html><body><script>bad()</script><style>.x{}</style><a href='javascript:bad'>x</a><div class='a' class='b'><p>ok</div></span></body></html>",
+  )
+  let validation = @html.validate_html_document(doc)
+
+  assert_eq(validation.issue_count, 6)
+  let kinds = validation.issues.map(fn(issue) { issue.kind })
+  assert_true(kinds[0] == @html.HtmlValidationIssueKind::ScriptElement)
+  assert_true(kinds[1] == @html.HtmlValidationIssueKind::StyleElement)
+  assert_true(kinds[2] == @html.HtmlValidationIssueKind::UnsafeUrl)
+  assert_true(kinds[3] == @html.HtmlValidationIssueKind::DuplicateAttribute)
+  assert_true(kinds[4] == @html.HtmlValidationIssueKind::UnclosedElement)
+  assert_true(kinds[5] == @html.HtmlValidationIssueKind::UnexpectedClosingTag)
+}
+
+///|
+test "html shared primitive helpers expose source facts without product policy" {
+  let tag = "<A data-href='https://wrong.example/' HREF=\"https://example.com/a?x=1&amp;y=2\" title='A&nbsp;&#169;' disabled>"
+
+  assert_eq(@html.html_tag_name(tag).unwrap_or(""), "a")
+  assert_eq(@html.html_tag_name("</SECTION>").unwrap_or(""), "section")
+  assert_true(@html.html_tag_name("<!-- hidden -->") is None)
+
+  assert_eq(
+    @html.html_raw_attr_value(tag, "href").unwrap_or(""),
+    "https://example.com/a?x=1&amp;y=2",
+  )
+  assert_eq(
+    @html.html_attr_value(tag, "href").unwrap_or(""),
+    "https://example.com/a?x=1&y=2",
+  )
+  assert_eq(@html.html_attr_value(tag, "title").unwrap_or(""), "A ©")
+  assert_true(@html.html_raw_attr_value(tag, "disabled") is None)
+  assert_true(@html.html_raw_attr_value(tag, "src") is None)
+
+  assert_eq(
+    @html.decode_html_entities("A &amp; B &nbsp; &#169; &#x1F600; &copy;"),
+    "A & B   © 😀 &copy;",
+  )
+}
+
+///|
+test "html token events expose matching spans attrs and malformed boundaries" {
+  let source = "<main id='root'><section data-x=\"1&amp;2\"><p>A</p><section><p>B</p></section></section><script>if (a < b) ok()</script><div>"
+  let events = @html.tokenize_html_events(source)
+
+  assert_true(@html.html_token_event_is_open_tag(events[0], "main"))
+  assert_true(@html.html_token_event_is_open_tag(events[1], "section"))
+  assert_eq(
+    @html.html_token_event_attr_value(events[1], "data-x").unwrap_or(""),
+    "1&2",
+  )
+
+  assert_eq(@html.html_tokens_find_matching_close(events, 1).unwrap_or(-1), 10)
+  assert_eq(@html.html_tokens_find_matching_close(events, 5).unwrap_or(-1), 9)
+  assert_true(@html.html_token_event_is_close_tag(events[10], "section"))
+
+  assert_true(@html.html_token_event_is_open_tag(events[11], "script"))
+  assert_eq(source[events[12].source_start:events[12].source_end].to_owned(), "if (a < b) ok()")
+  assert_true(@html.html_token_event_is_close_tag(events[13], "script"))
+
+  assert_true(@html.html_token_event_is_open_tag(events[14], "div"))
+  assert_true(@html.html_tokens_find_matching_close(events, 14) is None)
+  assert_true((try? @html.tokenize_html_events("<div class=\"x>")) is Err(_))
+}
+
+///|
+test "html token event element ranges cover skip tags without unclosed ranges" {
+  let source = "<html><head><script>HEAD</script><style>.x{}</style></head><body><noscript><p>No JS</p></noscript><p>Visible</p><script>BODY</script><script>UNCLOSED"
+  let events = @html.tokenize_html_events(source)
+  let ranges = @html.html_tokens_collect_element_ranges(
+    events,
+    ["script", "style", "head", "noscript"],
+  )
+
+  assert_eq(ranges.length(), 5)
+  assert_true(source[ranges[0].source_start:ranges[0].source_end].to_owned().has_prefix("<head>"))
+  assert_true(source[ranges[0].source_start:ranges[0].source_end].to_owned().has_suffix("</head>"))
+  assert_eq(source[ranges[1].source_start:ranges[1].source_end].to_owned(), "<script>HEAD</script>")
+  assert_eq(source[ranges[2].source_start:ranges[2].source_end].to_owned(), "<style>.x{}</style>")
+  assert_eq(
+    source[ranges[3].source_start:ranges[3].source_end].to_owned(),
+    "<noscript><p>No JS</p></noscript>",
+  )
+  assert_eq(source[ranges[4].source_start:ranges[4].source_end].to_owned(), "<script>BODY</script>")
+  assert_true(!source[ranges[4].source_end:].to_owned().contains("</script>"))
+  assert_true((try? @html.tokenize_html_events("<script data=\"broken>")) is Err(_))
+}

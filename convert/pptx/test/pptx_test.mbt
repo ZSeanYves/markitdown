@@ -13,6 +13,64 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
+fn read_utf8_text(path : String) -> String raise {
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    e => fail("read file failed: " + e.to_string())
+  }
+  @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => fail("utf8 decode failed")
+  }
+}
+
+///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
+fn find_substring(haystack : String, needle : String, start : Int) -> Int? {
+  let h = haystack.to_array()
+  let n = needle.to_array()
+  if n.length() == 0 {
+    return Some(start)
+  }
+  if h.length() < n.length() || start >= h.length() {
+    return None
+  }
+  let mut i = start
+  while i <= h.length() - n.length() {
+    let mut ok = true
+    let mut j = 0
+    while j < n.length() {
+      if h[i + j] != n[j] {
+        ok = false
+        break
+      }
+      j += 1
+    }
+    if ok {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn assert_order(markdown : String, first : String, second : String) -> Unit raise {
+  let first_pos = find_substring(markdown, first, 0).unwrap_or_else(() => {
+    fail("missing first text: " + first)
+  })
+  let second_pos = find_substring(markdown, second, 0).unwrap_or_else(() => {
+    fail("missing second text: " + second)
+  })
+  assert_true(first_pos < second_pos)
+}
+
+///|
 fn bytes_of_string(s : String) -> Array[Byte] {
   let out : Array[Byte] = []
   for ch in s.to_array() {
@@ -636,6 +694,85 @@ test "pptx cached chart rendering keeps chart title and readable date categories
   assert_true(markdown.contains("On The Radar"))
   assert_true(markdown.contains("| 2002-01-05 | 32.0 |"))
   assert_true(markdown.contains("| 2002-01-09 | 15.0 |"))
+}
+
+///|
+test "pptx convert consumes parser inventory profile and reuses it for chart output" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT", "1")
+
+  let root = test_tmp_root()
+  ensure_dir_tree(root)
+  let chart_dir = root + "/parser-inventory-chart"
+  recreate_clean_dir(chart_dir)
+  defer cleanup_temp_dir(chart_dir)
+  let chart_path = chart_dir + "/sample.pptx"
+  let chart_profile = chart_dir + "/profile.txt"
+  write_bytes(
+    chart_path,
+    chart_pptx_bytes(
+      titled_date_chart_xml(),
+      "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>",
+    ),
+  )
+  @sys.set_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT_PATH", chart_profile)
+  let chart_doc = @pptx.parse_pptx(chart_path, "", 6)
+  let chart_markdown = @cor.emit_markdown(chart_doc)
+  assert_true(chart_markdown.contains("A chart to test parsing:"))
+  assert_true(chart_markdown.contains("On The Radar"))
+  assert_true(chart_markdown.contains("| 2002-01-05 | 32.0 |"))
+  assert_order(chart_markdown, "A chart to test parsing:", "On The Radar")
+
+  let chart_report = read_utf8_text(chart_profile)
+  assert_true(
+    chart_report.contains("pptx_convert_profile stage=pptx_parser_inventory"),
+  )
+  assert_true(chart_report.contains("parser_ok=true"))
+  assert_true(chart_report.contains("slides=1"))
+  assert_true(chart_report.contains("slide_ids=256"))
+  assert_true(chart_report.contains("slide_parts=ppt/slides/slide1.xml"))
+  assert_true(chart_report.contains("charts=1"))
+  assert_true(chart_report.contains("chart_titles=On The Radar"))
+  assert_true(
+    chart_report.contains(
+      "chart_source_slides=1:ppt/slides/slide1.xml",
+    ),
+  )
+
+  let notes_dir = root + "/parser-inventory-comments-notes"
+  recreate_clean_dir(notes_dir)
+  defer cleanup_temp_dir(notes_dir)
+  let notes_path = notes_dir + "/sample.pptx"
+  let notes_profile = notes_dir + "/profile.txt"
+  write_bytes(
+    notes_path,
+    comments_pptx_bytes(
+      comment_list_xml(),
+      "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments/comment1.xml\"/>" +
+      "<Relationship Id=\"rIdNotes\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide\" Target=\"../notesSlides/notesSlide1.xml\"/>",
+      Some(comment_authors_xml()),
+      Some(note_slide_xml()),
+    ),
+  )
+  @sys.set_env_var("MARKITDOWN_PROFILE_PPTX_CONVERT_PATH", notes_profile)
+  let notes_doc = @pptx.parse_pptx(notes_path, "", 6)
+  let notes_markdown = @cor.emit_markdown(notes_doc)
+  assert_true(notes_markdown.contains("### Comments"))
+  assert_true(notes_markdown.contains("### Speaker Notes"))
+  assert_true(notes_markdown.contains("Speaker note body"))
+  let notes_report = read_utf8_text(notes_profile)
+  assert_true(notes_report.contains("parser_ok=true"))
+  assert_true(notes_report.contains("slides=1"))
+  assert_true(notes_report.contains("shapes=1"))
+  assert_true(notes_report.contains("text_shapes=1"))
+  assert_true(notes_report.contains("notes=1"))
+  assert_true(notes_report.contains("comments=2"))
+  assert_true(notes_report.contains("authors=1"))
 }
 
 ///|

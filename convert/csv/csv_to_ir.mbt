@@ -55,28 +55,40 @@ fn parse_delimited_file_with_profile_impl(
     None
   }
 
-  let read_started = @env.now()
+  let read_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("csv: read failed: " + e.to_string())
   }
   csv_profile_add_stage(
     profile,
     "csv_file_read",
-    @env.now() - read_started,
+    match profile {
+      Some(_) => @env.now() - read_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("bytes=" + bytes.length().to_string())
       None => None
     },
   )
 
-  let decode_started = @env.now()
+  let decode_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let text = decode_delimited_text(bytes, format) catch {
     e => raise @cor.AppError("csv: text decode failed: " + e.to_string())
   }
   csv_profile_add_stage(
     profile,
     "csv_bytes_to_string",
-    @env.now() - decode_started,
+    match profile {
+      Some(_) => @env.now() - decode_started
+      None => 0
+    },
     match profile {
       Some(_) =>
         Some(
@@ -89,7 +101,10 @@ fn parse_delimited_file_with_profile_impl(
     },
   )
 
-  let parse_started = @env.now()
+  let parse_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let parsed = match format {
     DelimitedFormat::Csv => @dpcsv.parse_csv_document(text)
     DelimitedFormat::Tsv => @dptsv.parse_tsv_document(text)
@@ -97,7 +112,10 @@ fn parse_delimited_file_with_profile_impl(
   csv_profile_add_stage(
     profile,
     "csv_parse_records",
-    @env.now() - parse_started,
+    match profile {
+      Some(_) => @env.now() - parse_started
+      None => 0
+    },
     match profile {
       Some(_) =>
         Some(
@@ -130,7 +148,10 @@ fn parse_delimited_file_with_profile_impl(
     return (doc, profile)
   }
 
-  let table_started = @env.now()
+  let table_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   @cor.push_with_origin(
     doc,
     @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
@@ -153,7 +174,10 @@ fn parse_delimited_file_with_profile_impl(
   csv_profile_add_stage(
     profile,
     "csv_to_rich_table",
-    @env.now() - table_started,
+    match profile {
+      Some(_) => @env.now() - table_started
+      None => 0
+    },
     match profile {
       Some(_) =>
         Some(

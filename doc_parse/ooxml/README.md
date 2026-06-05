@@ -27,8 +27,9 @@ Current status:
 `doc_parse/ooxml` is the shared low-level OOXML package substrate for DOCX,
 PPTX, and XLSX support.
 
-It sits below `convert/docx`, `convert/pptx`, and `convert/xlsx`. The package
-understands the OOXML ZIP container, package parts, content types,
+It sits below `doc_parse/docx`, `doc_parse/pptx`, `doc_parse/xlsx`, and the
+corresponding convert packages. The package understands the OOXML ZIP
+container, package parts, content types,
 relationships, media parts, and lightweight document properties. It does not
 recover final Markdown structure.
 
@@ -382,8 +383,8 @@ Current performance note:
 
 ## Relationship to `convert/*`
 
-- `convert/docx`, `convert/pptx`, and `convert/xlsx` are consumers of this
-  lower-layer package.
+- DOCX, PPTX, and XLSX parser/converter layers consume this lower-layer
+  package.
 - They own final semantic conversion behavior.
 - `doc_parse/ooxml` stays package-oriented and does not absorb higher-layer
   converter heuristics.

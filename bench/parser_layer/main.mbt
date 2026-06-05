@@ -1742,10 +1742,10 @@ fn bench_docx_row(
         "inspect",
         cfg,
         bytes.length(),
-        "inspect_docx_document on pre-parsed semantic document; parse and I/O excluded",
+        "docx typed model traversal on pre-parsed semantic document; parse and I/O excluded",
         runs,
         fn() {
-          ignore(@docx.inspect_docx_document(doc))
+          ignore(inspect_docx_document_for_bench(doc))
           Ok(())
         },
       ),
@@ -1759,10 +1759,10 @@ fn bench_docx_row(
         "validate",
         cfg,
         bytes.length(),
-        "validate_docx_document on pre-parsed semantic document; parse and I/O excluded",
+        "docx warning scan on pre-parsed semantic document; parse and I/O excluded",
         runs,
         fn() {
-          ignore(@docx.validate_docx_document(doc))
+          ignore(validate_docx_document_for_bench(doc))
           Ok(())
         },
       ),
@@ -1781,12 +1781,12 @@ fn bench_docx_profile_rows(
   pkg : @ooxml.OoxmlPackage,
 ) -> Unit raise BenchError {
   let profile_runs : Array[BenchRunRow] = []
-  let stage_order : Array[String] = []
-  let stage_notes : Map[String, String] = Map([])
+  let stage_name = "profile:docx_parse"
+  let notes = docx_profile_stage_notes(None)
 
   for _ in 0..<cfg.warmup {
     ignore(
-      @docx.profile_docx_document_from_package(pkg) catch {
+      @docx.parse_docx_document_from_package(pkg) catch {
         e =>
           raise Failed(
             "docx profile parse failed for " + row.path + " : " + e.to_string(),
@@ -1796,64 +1796,103 @@ fn bench_docx_profile_rows(
   }
 
   for i in 0..<cfg.iterations {
-    let profiled = @docx.profile_docx_document_from_package(pkg) catch {
-      e =>
-        raise Failed(
-          "docx profile parse failed for " + row.path + " : " + e.to_string(),
-        )
+    let started = now_us()
+    ignore(
+      @docx.parse_docx_document_from_package(pkg) catch {
+        e =>
+          raise Failed(
+            "docx profile parse failed for " + row.path + " : " + e.to_string(),
+          )
+      },
+    )
+    let run = {
+      format: row.format,
+      package_name,
+      sample: row.label,
+      size_class: row.size_class,
+      stage: stage_name,
+      iteration: i + 1,
+      elapsed_us: elapsed_us_since(started),
+      bytes,
+      notes,
     }
-    for stage in profiled.report.stages {
-      let stage_name = "profile:" + stage.name
-      if stage_notes.get(stage_name) == None {
-        stage_order.push(stage_name)
-        stage_notes.set(stage_name, docx_profile_stage_notes(stage.detail))
-      }
-      let run = {
-        format: row.format,
-        package_name,
-        sample: row.label,
-        size_class: row.size_class,
-        stage: stage_name,
-        iteration: i + 1,
-        elapsed_us: stage.elapsed_ms.to_int() * 1000,
-        bytes,
-        notes: stage_notes.get(stage_name).unwrap_or(""),
-      }
-      runs.push(run)
-      profile_runs.push(run)
-    }
+    runs.push(run)
+    profile_runs.push(run)
   }
 
-  for stage_name in stage_order {
-    let timings : Array[Int] = []
-    let notes = stage_notes.get(stage_name).unwrap_or("")
-    for run in profile_runs {
-      if run.stage == stage_name {
-        timings.push(run.elapsed_us)
-      }
-    }
-    if timings.length() > 0 {
-      summaries.push(
-        summary_row_from_timings(
-          row, package_name, stage_name, bytes, notes, timings,
-        ),
-      )
-    }
+  let timings : Array[Int] = []
+  for run in profile_runs {
+    timings.push(run.elapsed_us)
+  }
+  if timings.length() > 0 {
+    summaries.push(
+      summary_row_from_timings(
+        row, package_name, stage_name, bytes, notes, timings,
+      ),
+    )
   }
 }
 
 ///|
-fn docx_profile_stage_notes(detail : String?) -> String {
-  let base = "docx internal parse sub-stage from profile_docx_document_from_package; durations are rounded to package-local milliseconds"
-  match detail {
-    Some(text) =>
-      if text.trim() == "" {
-        base
-      } else {
-        base + " detail=" + text.trim().to_owned()
-      }
-    None => base
+fn inspect_docx_document_for_bench(doc : @docx.DocxDocument) -> Int {
+  let mut count = 0
+  count += doc.body.length()
+  count += doc.footnotes.length()
+  count += doc.endnotes.length()
+  count += doc.comments.length()
+  count += doc.headers.length()
+  count += doc.footers.length()
+  count += doc.textboxes.length()
+  for block in doc.body {
+    count += count_docx_block_for_bench(block)
   }
+  count
+}
+
+///|
+fn validate_docx_document_for_bench(doc : @docx.DocxDocument) -> Int {
+  let mut count = 0
+  for warning in doc.warnings {
+    match warning.severity {
+      @docx.DocxWarningSeverity::Warning => count += 1
+      @docx.DocxWarningSeverity::Error => count += 10
+    }
+  }
+  count
+}
+
+///|
+fn count_docx_block_for_bench(block : @docx.DocxBlock) -> Int {
+  match block {
+    @docx.DocxBlock::Paragraph(p) => p.inlines.length() + p.runs.length()
+    @docx.DocxBlock::Table(table) => {
+      let mut count = table.rows.length()
+      for row in table.rows {
+        count += row.cells.length()
+        for cell in row.cells {
+          for child in cell.blocks {
+            count += count_docx_block_for_bench(child)
+          }
+        }
+      }
+      count
+    }
+    @docx.DocxBlock::ContentControl(control) => {
+      let mut count = control.inlines.length()
+      for child in control.blocks {
+        count += count_docx_block_for_bench(child)
+      }
+      count
+    }
+    @docx.DocxBlock::TablePlaceholder(_)
+    | @docx.DocxBlock::StructuralMarker(_)
+    | @docx.DocxBlock::Unsupported(_) => 1
+  }
+}
+
+///|
+fn docx_profile_stage_notes(_detail : String?) -> String {
+  "docx package parse on pre-opened OOXML package; disk I/O and package open excluded"
 }
 
 ///|

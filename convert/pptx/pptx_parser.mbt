@@ -34,6 +34,15 @@ pub fn parse_pptx(
     None,
   )
 
+  let parser_inventory_started = @env.now()
+  let parser_inventory = collect_pptx_parser_inventory_summary(p.pkg)
+  pptx_convert_profile_add_stage(
+    profile,
+    "pptx_parser_inventory",
+    @env.now() - parser_inventory_started,
+    Some(render_pptx_parser_inventory_summary_detail(parser_inventory)),
+  )
+
   let slide_list_started = @env.now()
   let slides = list_slide_entries_in_presentation_order(p)
   pptx_convert_profile_add_stage(
@@ -120,6 +129,7 @@ pub fn parse_pptx(
     let semantic_chart_data = maybe_parse_semantic_slide_chart_blocks(
       p.pkg,
       path,
+      parser_inventory,
     )
     let charts = semantic_chart_data.charts
     let shape_object_orders = semantic_chart_data.shape_object_orders

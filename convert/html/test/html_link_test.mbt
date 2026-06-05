@@ -297,6 +297,45 @@ test "html text cleanup does not alter href src alt or title attributes" {
 }
 
 ///|
+test "html shared parser primitives keep tricky attributes stable" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let img_dir = dir + "/img"
+  ensure_dir_tree(img_dir)
+
+  let sample_path = dir + "/html_shared_primitive_attrs.html"
+  let image_path = img_dir + "/test%20asset.png"
+  write_utf8_text(image_path, "not-a-real-png-but-good-enough-for-export")
+  write_utf8_text(
+    sample_path,
+    "<main><p><a data-href=\"https://wrong.example/\" href='https://example.com/a?x=1&amp;y=2'>A&nbsp;&#169;</a></p><p><img data-src=\"missing.png\" src='img/test%20asset.png?cache=1&amp;size=2' alt='Alt&nbsp;&#169;' title='Title &amp; More'></p></main>\n",
+  )
+
+  let out_dir = dir + "/shared-out"
+  ensure_dir_tree(out_dir)
+  let doc = @html.parse_html(sample_path, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.has_prefix("[A ©](https://example.com/a?x=1&y=2)\n\n"))
+  assert_true(!markdown.contains("wrong.example"))
+  assert_true(markdown.contains("![Alt ©](assets/image"))
+  assert_true(markdown.contains("\n*Title & More*\n"))
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) =>
+      assert_true(has_link(inlines, "A ©", "https://example.com/a?x=1&y=2"))
+    _ => fail("expected first block to be a rich paragraph with link")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::ImageBlock(img) => {
+      assert_eq(img.alt_text.unwrap_or(""), "Alt ©")
+      assert_eq(img.title.unwrap_or(""), "Title & More")
+      assert_true(img.path.has_prefix("assets/image"))
+    }
+    _ => fail("expected second block to be an exported image")
+  }
+}
+
+///|
 test "html unwraps bing click redirect links to canonical targets" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)

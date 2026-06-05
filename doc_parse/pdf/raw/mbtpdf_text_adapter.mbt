@@ -106,6 +106,125 @@ async fn open_pdf_file_with_mbtpdf(path : String) -> @pdf.Pdf {
 }
 
 ///|
+priv struct FlatRawOutlineItem {
+  level : Int
+  title : String
+  page_index : Int?
+  dest : String?
+}
+
+///|
+fn extract_raw_outlines_from_pdf(pdf : @pdf.Pdf) -> Array[RawPdfOutlineItem] {
+  let page_doc = @pdfpage.PdfPageDoc::new(pdf)
+  let bookmarks = @pdfmarks.PdfMarks::new(pdf).read_bookmarks() catch {
+    _ => return []
+  }
+  build_raw_outline_tree_from_bookmarks(page_doc, bookmarks)
+}
+
+///|
+fn build_raw_outline_tree_from_bookmarks(
+  page_doc : @pdfpage.PdfPageDoc,
+  bookmarks : Array[@pdfmarks.Bookmark],
+) -> Array[RawPdfOutlineItem] {
+  let flat : Array[FlatRawOutlineItem] = []
+  for bookmark in bookmarks {
+    flat.push({
+      level: if bookmark.level < 0 {
+        0
+      } else {
+        bookmark.level
+      },
+      title: decode_raw_outline_title(bookmark.text),
+      page_index: resolve_raw_outline_page_index(page_doc, bookmark.target),
+      dest: raw_outline_dest_label(bookmark.target),
+    })
+  }
+
+  let index = Ref(0)
+  build_raw_outline_items_at_level(flat, index, 0)
+}
+
+///|
+fn decode_raw_outline_title(value : String) -> String {
+  let decoded = @pdftext.PdfTextUtil::new().utf8_of_pdfdocstring(value) catch {
+    _ => value
+  }
+  decoded.trim().to_owned()
+}
+
+///|
+fn resolve_raw_outline_page_index(
+  page_doc : @pdfpage.PdfPageDoc,
+  dest : @pdfdest.Destination,
+) -> Int? {
+  let page_number = page_doc.pagenumber_of_target(dest) catch {
+    _ => return None
+  }
+  if page_number <= 0 {
+    None
+  } else {
+    Some(page_number - 1)
+  }
+}
+
+///|
+fn raw_outline_dest_label(dest : @pdfdest.Destination) -> String? {
+  let raw = match dest {
+    @pdfdest.Destination::NamedDestination(name) => Some(name.to_string_bytes())
+    @pdfdest.Destination::StringDestination(value) => Some(value)
+    _ => None
+  }
+  match raw {
+    Some(value) => {
+      let trimmed = value.trim().to_owned()
+      if trimmed == "" {
+        None
+      } else {
+        Some(trimmed)
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn build_raw_outline_items_at_level(
+  flat : Array[FlatRawOutlineItem],
+  index : Ref[Int],
+  level : Int,
+) -> Array[RawPdfOutlineItem] {
+  let out : Array[RawPdfOutlineItem] = []
+
+  while index.val < flat.length() {
+    let cur = flat[index.val]
+    if cur.level < level {
+      break
+    }
+    if cur.level > level {
+      index.val = index.val + 1
+      continue
+    }
+
+    index.val = index.val + 1
+    let children = build_raw_outline_items_at_level(flat, index, level + 1)
+    let has_title = cur.title != ""
+    let has_target = cur.page_index is Some(_) || cur.dest is Some(_)
+    if !has_title && !has_target && children.is_empty() {
+      continue
+    }
+    out.push({
+      title: cur.title,
+      page_index: cur.page_index,
+      dest: cur.dest,
+      children,
+    })
+  }
+
+  out
+}
+
+///|
 /// 对外主入口：
 /// - 读文件
 /// - 枚举 pages
@@ -144,6 +263,7 @@ pub async fn extract_raw_document_with_mbtpdf(
     raw_pages.push(raw_page)
   }
 
+  let outlines = extract_raw_outlines_from_pdf(pdf)
   let has_xref_stream = false
   let has_object_stream = false
   let issues : Array[PdfRawIssue] = Array::new()
@@ -183,6 +303,7 @@ pub async fn extract_raw_document_with_mbtpdf(
     metadata_creation_date: None,
     metadata_mod_date: None,
     issues,
+    outlines,
     pages: raw_pages,
   })
 }

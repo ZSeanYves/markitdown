@@ -2,15 +2,37 @@
 package "ZSeanYves/markitdown/doc_parse/html"
 
 // Values
+pub fn analyze_html_source(String) -> HtmlSourceAnalysis raise
+
 pub fn classify_html_error(HtmlError) -> HtmlErrorInfo
 
 pub fn collect_html_validation_issues(HtmlDocument) -> Array[HtmlValidationIssue]
+
+pub fn decode_html_entities(String) -> String
+
+pub fn html_attr_value(String, String) -> String?
+
+pub fn html_raw_attr_value(String, String) -> String?
+
+pub fn html_tag_name(String) -> String?
+
+pub fn html_token_event_attr_value(HtmlTokenEvent, String) -> String?
+
+pub fn html_token_event_is_close_tag(HtmlTokenEvent, String) -> Bool
+
+pub fn html_token_event_is_open_tag(HtmlTokenEvent, String) -> Bool
+
+pub fn html_tokens_collect_element_ranges(Array[HtmlTokenEvent], Array[String]) -> Array[HtmlTokenSourceRange]
+
+pub fn html_tokens_find_matching_close(Array[HtmlTokenEvent], Int) -> Int?
 
 pub fn inspect_html_document(HtmlDocument) -> HtmlInspectReport
 
 pub fn parse_html_document(String) -> HtmlDocument raise
 
 pub fn tokenize_html_document(String) -> Array[HtmlToken] raise
+
+pub fn tokenize_html_events(String) -> Array[HtmlTokenEvent] raise
 
 pub fn validate_html_document(HtmlDocument) -> HtmlValidationReport
 
@@ -111,6 +133,11 @@ pub struct HtmlSourceSpan {
   line_end : Int
 }
 
+pub struct HtmlSourceAnalysis {
+  document : HtmlDocument
+  events : Array[HtmlTokenEvent]
+}
+
 pub struct HtmlText {
   text : String
   span : HtmlSourceSpan
@@ -123,6 +150,29 @@ pub(all) enum HtmlToken {
   Comment(String, HtmlSourceSpan)
   Doctype(String, HtmlSourceSpan)
 }
+
+pub struct HtmlTokenEvent {
+  kind : HtmlTokenEventKind
+  tag_name : String
+  attributes : Array[HtmlAttribute]
+  self_closing : Bool
+  source_start : Int
+  source_end : Int
+  span : HtmlSourceSpan
+}
+
+pub struct HtmlTokenSourceRange {
+  source_start : Int
+  source_end : Int
+}
+
+pub(all) enum HtmlTokenEventKind {
+  StartTag
+  EndTag
+  Text
+  Comment
+  Doctype
+} derive(Eq)
 
 pub struct HtmlValidationIssue {
   kind : HtmlValidationIssueKind
@@ -159,4 +209,3 @@ pub(all) enum HtmlValidationSeverity {
 // Type aliases
 
 // Traits
-

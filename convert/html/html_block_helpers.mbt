@@ -1,46 +1,10 @@
 ///|
 fn has_block_like_tag_in_range(bs : Bytes, start : Int, end_ : Int) -> Bool {
-  let open_p = pat("<p")
-  let open_blockquote = pat("<blockquote")
-  let open_pre = pat("<pre")
-  let open_table = pat("<table")
-  let open_ul = pat("<ul")
-  let open_ol = pat("<ol")
-
-  let p0 = find_bytes(bs, open_p, start)
-  match p0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
-  }
-
-  let q0 = find_bytes(bs, open_blockquote, start)
-  match q0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
-  }
-
-  let r0 = find_bytes(bs, open_pre, start)
-  match r0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
-  }
-
-  let s0 = find_bytes(bs, open_table, start)
-  match s0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
-  }
-
-  let t0 = find_bytes(bs, open_ul, start)
-  match t0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
-  }
-
-  let u0 = find_bytes(bs, open_ol, start)
-  match u0 {
-    Some(i) => if i < end_ { return true }
-    None => ()
+  for tag_name in ["p", "blockquote", "pre", "table", "ul", "ol"] {
+    match find_open_tag_with_name(bs, tag_name, start) {
+      Some((i, _)) => if i < end_ { return true }
+      None => ()
+    }
   }
 
   false

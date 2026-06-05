@@ -184,15 +184,11 @@ Split later:
   same-package `epub_cover.mbt`; EPUB3 nav and NCX nav-point parsing now live in
   same-package `epub_nav.mbt`, while public open/inspect/validation entrypoints
   and OPF metadata/manifest/spine orchestration remain in the main package file.
-* `convert/docx/docx_xml.mbt` is `976` lines; inline note/comment marker id,
-  display-text, whitespace, and punctuation spacing rules now live in
-  same-package `docx_inline_markers.mbt`; header/footer reference extraction,
-  rendered header/footer text, page-field stripping, and page-number-only
-  filtering now live in same-package `docx_header_footer.mbt`; deleted-revision
-  stripping, text-box content filtering, and text-box block extraction now live
-  in same-package `docx_text_boxes.mbt`; footnote/endnote/comment body parsing
-  and Markdown rendering now live in same-package `docx_note_bodies.mbt`, while
-  paragraph/table/inline XML scan orchestration remains in the main XML file.
+* `convert/docx/docx_to_ir.mbt` is the current DOCX product lowering
+  layer. It consumes `doc_parse/docx` typed source/model output for body
+  blocks, notes, comments, headers/footers, text boxes, drawings, shapes,
+  tables, lists, media/assets, and content-bearing unknowns without the deleted
+  v1 XML scanner runtime.
 * `convert/html/html_dom.mbt` is `972` lines; HTML inline scanning/rendering,
   figure image/caption helpers, and href sanitization/redirect unwrapping now
   live in same-package `html_inlines.mbt`; HTML note-plan construction,

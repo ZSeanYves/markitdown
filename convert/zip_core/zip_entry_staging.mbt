@@ -23,10 +23,61 @@ fn zip_entry_uses_flat_staging(ext : String) -> Bool {
 }
 
 ///|
+priv struct ZipEntryByteCache {
+  entries : Map[String, Bytes]
+  total_bytes : Ref[Int]
+}
+
+///|
+fn new_zip_entry_byte_cache() -> ZipEntryByteCache {
+  { entries: Map([]), total_bytes: { val: 0 } }
+}
+
+///|
+fn zip_entry_cache_put(
+  cache : ZipEntryByteCache,
+  raw_path : String,
+  bytes : Bytes,
+) -> Unit {
+  if bytes.length() > MAX_SINGLE_ENTRY_BYTES {
+    return
+  }
+  if cache.total_bytes.val + bytes.length() > MAX_SINGLE_ENTRY_BYTES {
+    return
+  }
+  if cache.entries.contains(raw_path) {
+    return
+  }
+  cache.entries.set(raw_path, bytes)
+  cache.total_bytes.val += bytes.length()
+}
+
+///|
+fn read_entry_for_materialization(
+  archive : @zipraw.ZipArchive,
+  plan : PlannedEntry,
+  cache : ZipEntryByteCache,
+) -> Bytes raise {
+  match cache.entries.get(plan.raw_path) {
+    Some(bytes) => bytes
+    None => {
+      let bytes = @zipraw.read_entry(
+        archive,
+        plan.raw_path,
+        max_output_size=MAX_SINGLE_ENTRY_BYTES,
+      )
+      zip_entry_cache_put(cache, plan.raw_path, bytes)
+      bytes
+    }
+  }
+}
+
+///|
 fn materialize_safe_archive_tree(
   archive : @zipraw.ZipArchive,
   plans : Array[PlannedEntry],
   extracted_root : String,
+  entry_cache : ZipEntryByteCache,
 ) -> Unit raise {
   recreate_clean_dir(extracted_root) catch {
     e =>
@@ -59,10 +110,8 @@ fn materialize_safe_archive_tree(
         )
     }
 
-    let entry_bytes = @zipraw.read_entry(
-      archive,
-      plan.raw_path,
-      max_output_size=MAX_SINGLE_ENTRY_BYTES,
+    let entry_bytes = read_entry_for_materialization(
+      archive, plan, entry_cache,
     ) catch {
       e =>
         raise @cor.AppError(

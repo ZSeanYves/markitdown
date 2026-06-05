@@ -34,6 +34,5 @@ pub fn read_app_properties(pkg : OoxmlPackage) -> OoxmlAppProperties {
 
 ///|
 fn read_optional_xml_text(pkg : OoxmlPackage, part_name : String) -> String {
-  let bytes = read_part_bytes(pkg, part_name) catch { _ => return "" }
-  bytes_to_xml_text(bytes)
+  read_part_text(pkg, part_name) catch { _ => "" }
 }

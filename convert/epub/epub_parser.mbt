@@ -24,6 +24,7 @@ pub fn parse_epub(
   let pkg = @epubpkg.open_epub_package(bytes, epub_name) catch {
     e => raise @cor.AppError("epub: open failed: " + e.to_string())
   }
+  let part_cache = new_epub_part_cache(MAX_SINGLE_ENTRY_BYTES)
 
   let doc = @cor.new_document()
   let tmp_root = allocate_archive_run_dir(epub_tmp_dir(input_path), "run")
@@ -46,7 +47,9 @@ pub fn parse_epub(
   }
 
   let extracted_root = tmp_root + "/extracted"
-  let materialization_skips = materialize_safe_archive_tree(pkg, extracted_root) catch {
+  let materialization_skips = materialize_safe_archive_tree(
+    pkg, part_cache, extracted_root,
+  ) catch {
     e => raise @cor.AppError("epub: " + e.to_string())
   }
   let entry_by_path : Map[String, @epubpkg.EpubArchiveEntry] = Map([])
@@ -59,7 +62,7 @@ pub fn parse_epub(
   let nav_in_spine = nav_item_is_in_spine(pkg)
 
   emit_cover_if_present(
-    doc, final_md, pkg, extracted_root, archive_out_dir, used_ids,
+    doc, final_md, pkg, part_cache, extracted_root, archive_out_dir, used_ids,
   )
   if !nav_in_spine {
     emit_nav_toc_if_present(doc, final_md, pkg)
@@ -332,6 +335,7 @@ fn emit_cover_if_present(
   doc : @cor.Document,
   final_md : StringBuilder,
   pkg : @epubpkg.EpubPackage,
+  part_cache : EpubPartCache,
   extracted_root : String,
   archive_out_dir : String,
   used_ids : Map[String, Int],
@@ -356,7 +360,12 @@ fn emit_cover_if_present(
   ensure_parent_dir(out_path) catch {
     _ => return
   }
-  let data = @fs.read_file_to_bytes(cover_src) catch { _ => return }
+  let data = read_epub_part_bytes_cached(part_cache, pkg, normalized_cover) catch {
+    _ =>
+      @fs.read_file_to_bytes(cover_src) catch {
+        _ => return
+      }
+  }
   @fs.write_bytes_to_file(out_path, data) catch {
     _ => return
   }

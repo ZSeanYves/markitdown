@@ -118,6 +118,14 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 fn csv_test_root() -> String raise {
   ensure_dir_tree(test_tmp_root())
   let dir = test_tmp_root() + "/cases"
@@ -155,6 +163,75 @@ test "csv core samples stay stable" {
     }
     _ => fail("csv_basic should emit RichTable")
   }
+}
+
+///|
+test "csv and tsv profile disabled return no report" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_CSV")
+  defer restore_env_var("MARKITDOWN_PROFILE_CSV", prev_enabled)
+  @sys.unset_env_var("MARKITDOWN_PROFILE_CSV")
+
+  let (csv_doc, csv_profile) = @csv.parse_csv_with_profile(
+    resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
+    "",
+    6,
+  )
+  assert_true(@cor.emit_markdown(csv_doc).contains("| Name | Role |"))
+  match csv_profile {
+    None => ()
+    Some(_) => fail("disabled csv profile should not create a report")
+  }
+
+  let (tsv_doc, tsv_profile) = @csv.parse_tsv_with_profile(
+    resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
+    "",
+    6,
+  )
+  assert_true(@cor.emit_markdown(tsv_doc).contains("| Name | Role |"))
+  match tsv_profile {
+    None => ()
+    Some(_) => fail("disabled tsv profile should not create a report")
+  }
+}
+
+///|
+test "csv and tsv profile enabled preserve stage details" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_CSV")
+  defer restore_env_var("MARKITDOWN_PROFILE_CSV", prev_enabled)
+  @sys.set_env_var("MARKITDOWN_PROFILE_CSV", "1")
+
+  let (_csv_doc, csv_profile) = @csv.parse_csv_with_profile(
+    resolve_sample_path("samples/main_process/csv/csv_basic.csv"),
+    "",
+    6,
+  )
+  let csv_report = match csv_profile {
+    Some(rep) => @csv.csv_profile_render_report(rep)
+    None => fail("enabled csv profile should create a report")
+  }
+  assert_true(csv_report.contains("csv_profile input="))
+  assert_true(csv_report.contains("format=csv"))
+  assert_true(csv_report.contains("csv_profile stage=csv_file_read"))
+  assert_true(csv_report.contains("detail=bytes="))
+  assert_true(csv_report.contains("csv_profile stage=csv_bytes_to_string"))
+  assert_true(csv_report.contains("chars="))
+  assert_true(csv_report.contains("csv_profile stage=csv_parse_records"))
+  assert_true(csv_report.contains("rows="))
+  assert_true(csv_report.contains("csv_profile stage=csv_to_rich_table"))
+  assert_true(csv_report.contains("blocks="))
+
+  let (_tsv_doc, tsv_profile) = @csv.parse_tsv_with_profile(
+    resolve_sample_path("samples/main_process/tsv/tsv_basic.tsv"),
+    "",
+    6,
+  )
+  let tsv_report = match tsv_profile {
+    Some(rep) => @csv.csv_profile_render_report(rep)
+    None => fail("enabled tsv profile should create a report")
+  }
+  assert_true(tsv_report.contains("format=tsv"))
+  assert_true(tsv_report.contains("csv_profile stage=csv_parse_records"))
+  assert_true(tsv_report.contains("rows="))
 }
 
 ///|

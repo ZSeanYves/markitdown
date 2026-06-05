@@ -57,10 +57,11 @@ for sheet in wb.sheets {
 ## DOCX Structure
 
 ```moonbit
-let doc = @docx.open_docx_document("samples/main_process/docx/golden.docx")
-let report = @docx.inspect_docx_document(doc)
-println("paragraphs=" + report.paragraph_count.to_string())
-println("tables=" + report.table_count.to_string())
+let bytes = @fs.read_file_to_bytes("samples/main_process/docx/golden.docx")
+let pkg = @ooxml.open_ooxml_package(bytes)
+let doc = @docx.parse_docx_document_from_package(pkg)
+println("body blocks=" + doc.body.length().to_string())
+println("warnings=" + doc.warnings.length().to_string())
 ```
 
 ## PPTX Inventory

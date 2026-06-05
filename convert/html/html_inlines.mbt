@@ -54,8 +54,10 @@ fn html_inlines_from_bytes_with_notes(
             let tag_bs = inner[i0:j0 + 1].to_owned()
             let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
             let tag = tag0.to_lower()
+            let tag_name = html_open_tag_name(tag0).unwrap_or("")
+            let is_close_tag = tag.has_prefix("</")
 
-            if tag.has_prefix("<br") {
+            if !is_close_tag && tag_name == "br" {
               out.push(HtmlInline::Break)
             } else if tag.has_prefix("<!--") {
               let end0 = find_bytes(inner, close_comment, i0 + 4)
@@ -66,8 +68,10 @@ fn html_inlines_from_bytes_with_notes(
                 }
                 None => break
               }
-            } else if tag.has_prefix("<script") {
-              let end0 = find_bytes(inner, close_script, j0 + 1)
+            } else if !is_close_tag && tag_name == "script" {
+              let end0 = find_bytes_case_insensitive(
+                inner, close_script, j0 + 1,
+              )
               match end0 {
                 Some(end) => {
                   pos = end + close_script.length()
@@ -75,8 +79,10 @@ fn html_inlines_from_bytes_with_notes(
                 }
                 None => ()
               }
-            } else if tag.has_prefix("<style") {
-              let end0 = find_bytes(inner, close_style, j0 + 1)
+            } else if !is_close_tag && tag_name == "style" {
+              let end0 = find_bytes_case_insensitive(
+                inner, close_style, j0 + 1,
+              )
               match end0 {
                 Some(end) => {
                   pos = end + close_style.length()
@@ -84,8 +90,10 @@ fn html_inlines_from_bytes_with_notes(
                 }
                 None => ()
               }
-            } else if tag.has_prefix("<noscript") {
-              let end0 = find_bytes(inner, close_noscript, j0 + 1)
+            } else if !is_close_tag && tag_name == "noscript" {
+              let end0 = find_bytes_case_insensitive(
+                inner, close_noscript, j0 + 1,
+              )
               match end0 {
                 Some(end) => {
                   pos = end + close_noscript.length()
@@ -93,8 +101,10 @@ fn html_inlines_from_bytes_with_notes(
                 }
                 None => ()
               }
-            } else if tag.has_prefix("<head") {
-              let end0 = find_bytes(inner, close_head, j0 + 1)
+            } else if !is_close_tag && tag_name == "head" {
+              let end0 = find_bytes_case_insensitive(
+                inner, close_head, j0 + 1,
+              )
               match end0 {
                 Some(end) => {
                   pos = end + close_head.length()
@@ -102,7 +112,7 @@ fn html_inlines_from_bytes_with_notes(
                 }
                 None => ()
               }
-            } else if tag.has_prefix("<a") {
+            } else if !is_close_tag && tag_name == "a" {
               let href = sanitize_html_href(
                   read_html_attr_value(tag0, "href").unwrap_or(""),
                 )
@@ -112,7 +122,9 @@ fn html_inlines_from_bytes_with_notes(
               if href != "" {
                 let close_a = pat("</a>")
                 let inner_start = j0 + 1
-                let a_end0 = find_bytes(inner, close_a, inner_start)
+                let a_end0 = find_bytes_case_insensitive(
+                  inner, close_a, inner_start,
+                )
                 match a_end0 {
                   Some(a_end) => {
                     let inner_bs = inner[inner_start:a_end].to_owned()
@@ -132,7 +144,7 @@ fn html_inlines_from_bytes_with_notes(
                   None => ()
                 }
               }
-            } else if tag.has_prefix("<img") {
+            } else if !is_close_tag && tag_name == "img" {
               let src = html_unescape(
                   read_html_attr_value(tag0, "src").unwrap_or(""),
                 )

@@ -96,24 +96,30 @@ pub async fn parse_zip_with_profile(
   } else {
     None
   }
+  let profile_active = zip_profile_active(profile)
 
-  let open_started = @env.now()
+  let open_started = zip_profile_now(profile)
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("zip: read failed: " + e.to_string())
   }
   let archive = @zipraw.open_zip(bytes) catch {
     e => raise @cor.AppError("zip: open failed: " + e.to_string())
   }
-  zip_profile_add_stage(
-    profile,
-    "zip_open",
-    @env.now() - open_started,
-    Some("archive_bytes=" + bytes.length().to_string()),
-  )
+  if profile_active {
+    zip_profile_add_stage(
+      profile,
+      "zip_open",
+      zip_profile_elapsed(profile, open_started),
+      Some("archive_bytes=" + bytes.length().to_string()),
+    )
+  }
 
-  let inspect_started = @env.now()
-  let inspect = inspect_zip_archive(archive, @cor.basename(input_path))
-  let inspect_elapsed = @env.now() - inspect_started
+  let inspect_started = zip_profile_now(profile)
+  let conversion_plan = build_zip_conversion_plan(
+    archive, @cor.basename(input_path),
+  )
+  let inspect_elapsed = zip_profile_elapsed(profile, inspect_started)
+  let inspect = conversion_plan.inspect
 
   let doc = @cor.new_document()
   let zip_name = inspect.source_name
@@ -143,47 +149,64 @@ pub async fn parse_zip_with_profile(
       )
   }
 
-  let filter_counts = summarize_inspect_entries(inspect)
-  zip_profile_add_summary(
-    profile,
-    "counts total_entries=" +
-    inspect.entry_count.to_string() +
-    " converted_entries=" +
-    filter_counts.converted_entries.to_string() +
-    " skipped_entries=" +
-    filter_counts.skipped_entries.to_string() +
-    " unsupported_entries=" +
-    filter_counts.unsupported_entries.to_string() +
-    " nested_archive_entries=" +
-    filter_counts.nested_archive_entries.to_string(),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_list_entries",
-    inspect_elapsed,
-    Some("entries=" + inspect.entry_count.to_string()),
-  )
+  let filter_counts = if profile_active {
+    Some(summarize_inspect_entries(inspect))
+  } else {
+    None
+  }
+  match filter_counts {
+    Some(counts) =>
+    zip_profile_add_summary(
+      profile,
+      "counts total_entries=" +
+      inspect.entry_count.to_string() +
+      " converted_entries=" +
+      counts.converted_entries.to_string() +
+      " skipped_entries=" +
+      counts.skipped_entries.to_string() +
+      " unsupported_entries=" +
+      counts.unsupported_entries.to_string() +
+      " nested_archive_entries=" +
+      counts.nested_archive_entries.to_string(),
+    )
+    None => ()
+  }
+  if profile_active {
+    zip_profile_add_stage(
+      profile,
+      "zip_list_entries",
+      inspect_elapsed,
+      Some("entries=" + inspect.entry_count.to_string()),
+    )
+  }
 
-  let plan_started = @env.now()
-  let plans = build_planned_entries(inspect)
-  let plan_elapsed = @env.now() - plan_started
-  zip_profile_add_stage(
-    profile,
-    "zip_filter_entries",
-    plan_elapsed,
-    Some(
-      "plans=" +
-      plans.length().to_string() +
-      " convertible=" +
-      filter_counts.converted_entries.to_string(),
-    ),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_sort_entries",
-    0,
-    Some("planned_entries_sorted=" + plans.length().to_string()),
-  )
+  let plan_started = zip_profile_now(profile)
+  fail_on_inspect_plan_errors(inspect)
+  let plans = conversion_plan.plans
+  let plan_elapsed = zip_profile_elapsed(profile, plan_started)
+  match filter_counts {
+    Some(counts) =>
+    zip_profile_add_stage(
+      profile,
+      "zip_filter_entries",
+      plan_elapsed,
+      Some(
+        "plans=" +
+        plans.length().to_string() +
+        " convertible=" +
+        counts.converted_entries.to_string(),
+      ),
+    )
+    None => ()
+  }
+  if profile_active {
+    zip_profile_add_stage(
+      profile,
+      "zip_sort_entries",
+      0,
+      Some("planned_entries_sorted=" + plans.length().to_string()),
+    )
+  }
 
   let final_md = StringBuilder::new()
   let used_ids : Map[String, Int] = Map([])
@@ -201,11 +224,14 @@ pub async fn parse_zip_with_profile(
   let mut staged_input_entries = 0
   let mut shared_input_entries = 0
   let mut output_dir_entries = 0
+  let entry_cache = new_zip_entry_byte_cache()
 
   for i in 0..<plans.length() {
     let plan = plans[i]
     if i >= MAX_ZIP_ENTRIES {
-      warning_entries += 1
+      if profile_active {
+        warning_entries += 1
+      }
       append_warning_entry(
         doc,
         final_md,
@@ -218,7 +244,9 @@ pub async fn parse_zip_with_profile(
 
     let ext = @cor.file_ext_lower(plan.path)
     if is_nested_archive_ext(ext) {
-      warning_entries += 1
+      if profile_active {
+        warning_entries += 1
+      }
       append_warning_entry(
         doc,
         final_md,
@@ -229,7 +257,9 @@ pub async fn parse_zip_with_profile(
       continue
     }
     if !is_supported_entry_ext(ext) {
-      warning_entries += 1
+      if profile_active {
+        warning_entries += 1
+      }
       append_warning_entry(
         doc,
         final_md,
@@ -240,7 +270,9 @@ pub async fn parse_zip_with_profile(
       continue
     }
     if plan.uncompressed_size > MAX_SINGLE_ENTRY_BYTES {
-      warning_entries += 1
+      if profile_active {
+        warning_entries += 1
+      }
       append_warning_entry(
         doc,
         final_md,
@@ -253,7 +285,9 @@ pub async fn parse_zip_with_profile(
       continue
     }
     if total_decoded + plan.uncompressed_size > MAX_TOTAL_ENTRY_BYTES {
-      warning_entries += 1
+      if profile_active {
+        warning_entries += 1
+      }
       append_warning_entry(
         doc,
         final_md,
@@ -264,14 +298,14 @@ pub async fn parse_zip_with_profile(
       continue
     }
 
-    let read_started = @env.now()
-    let entry_bytes = @zipraw.read_entry(
-      archive,
-      plan.raw_path,
-      max_output_size=MAX_SINGLE_ENTRY_BYTES,
+    let read_started = zip_profile_now(profile)
+    let entry_bytes = read_entry_for_materialization(
+      archive, plan, entry_cache,
     ) catch {
       e => {
-        warning_entries += 1
+        if profile_active {
+          warning_entries += 1
+        }
         append_warning_entry(
           doc,
           final_md,
@@ -282,16 +316,22 @@ pub async fn parse_zip_with_profile(
         continue
       }
     }
-    extract_elapsed.val = extract_elapsed.val + (@env.now() - read_started)
+    zip_entry_cache_put(entry_cache, plan.raw_path, entry_bytes)
+    extract_elapsed.val = extract_elapsed.val +
+      zip_profile_elapsed(profile, read_started)
     total_decoded += entry_bytes.length()
 
     let use_shared_extracted_input = is_html_entry_ext(ext) &&
       html_entry_has_local_image_refs(entry_bytes)
     if use_shared_extracted_input && !shared_extracted_ready {
-      let shared_extract_started = @env.now()
-      materialize_safe_archive_tree(archive, plans, extracted_root) catch {
+      let shared_extract_started = zip_profile_now(profile)
+      materialize_safe_archive_tree(
+        archive, plans, extracted_root, entry_cache,
+      ) catch {
         e => {
-          warning_entries += 1
+          if profile_active {
+            warning_entries += 1
+          }
           append_warning_entry(
             doc,
             final_md,
@@ -303,7 +343,7 @@ pub async fn parse_zip_with_profile(
         }
       }
       extract_elapsed.val = extract_elapsed.val +
-        (@env.now() - shared_extract_started)
+        zip_profile_elapsed(profile, shared_extract_started)
       shared_extracted_ready = true
     }
 
@@ -313,7 +353,7 @@ pub async fn parse_zip_with_profile(
     } else {
       None
     }
-    let stage_started = @env.now()
+    let stage_started = zip_profile_now(profile)
     let dispatch_out_dir = match entry_out {
       Some(dir) => {
         ensure_dir_tree(dir) catch {
@@ -329,16 +369,22 @@ pub async fn parse_zip_with_profile(
             continue
           }
         }
-        output_dir_entries += 1
+        if profile_active {
+          output_dir_entries += 1
+        }
         dir
       }
       None => ""
     }
     let input_path = if use_shared_extracted_input {
-      shared_input_entries += 1
+      if profile_active {
+        shared_input_entries += 1
+      }
       extracted_entry_path(extracted_root, plan.path) catch {
         e => {
-          warning_entries += 1
+          if profile_active {
+            warning_entries += 1
+          }
           append_warning_entry(
             doc,
             final_md,
@@ -370,10 +416,14 @@ pub async fn parse_zip_with_profile(
           }
         }
       }
-      staged_input_entries += 1
+      if profile_active {
+        staged_input_entries += 1
+      }
       @fs.write_bytes_to_file(entry_path, entry_bytes) catch {
         e => {
-          warning_entries += 1
+          if profile_active {
+            warning_entries += 1
+          }
           append_warning_entry(
             doc,
             final_md,
@@ -386,14 +436,17 @@ pub async fn parse_zip_with_profile(
       }
       entry_path
     }
-    stage_elapsed.val = stage_elapsed.val + (@env.now() - stage_started)
+    stage_elapsed.val = stage_elapsed.val +
+      zip_profile_elapsed(profile, stage_started)
 
-    let dispatch_started = @env.now()
+    let dispatch_started = zip_profile_now(profile)
     let subdoc = parse_supported_entry(
       input_path, ext, dispatch_out_dir, max_heading, parse_pdf_entry,
     ) catch {
       e => {
-        warning_entries += 1
+        if profile_active {
+          warning_entries += 1
+        }
         append_warning_entry(
           doc,
           final_md,
@@ -405,10 +458,10 @@ pub async fn parse_zip_with_profile(
       }
     }
     dispatch_elapsed.val = dispatch_elapsed.val +
-      (@env.now() - dispatch_started)
+      zip_profile_elapsed(profile, dispatch_started)
 
     let remapped_subdoc = if doc_has_assets(subdoc) {
-      let remap_started = @env.now()
+      let remap_started = zip_profile_now(profile)
       let remapped = remap_subdoc_assets(
         subdoc,
         entry_id,
@@ -418,7 +471,9 @@ pub async fn parse_zip_with_profile(
         plan.path,
       ) catch {
         e => {
-          warning_entries += 1
+          if profile_active {
+            warning_entries += 1
+          }
           append_warning_entry(
             doc,
             final_md,
@@ -429,13 +484,16 @@ pub async fn parse_zip_with_profile(
           continue
         }
       }
-      remap_elapsed.val = remap_elapsed.val + (@env.now() - remap_started)
-      asset_remap_entries += 1
+      remap_elapsed.val = remap_elapsed.val +
+        zip_profile_elapsed(profile, remap_started)
+      if profile_active {
+        asset_remap_entries += 1
+      }
       remapped
     } else {
       subdoc
     }
-    let aggregate_started = @env.now()
+    let aggregate_started = zip_profile_now(profile)
     append_converted_entry(
       doc,
       final_md,
@@ -445,62 +503,66 @@ pub async fn parse_zip_with_profile(
       @cor.emit_markdown(remapped_subdoc),
     )
     aggregate_elapsed.val = aggregate_elapsed.val +
-      (@env.now() - aggregate_started)
-    converted_entries += 1
+      zip_profile_elapsed(profile, aggregate_started)
+    if profile_active {
+      converted_entries += 1
+    }
   }
 
-  zip_profile_add_summary(
-    profile,
-    "result total_entries=" +
-    inspect.entry_count.to_string() +
-    " converted_entries=" +
-    converted_entries.to_string() +
-    " warning_entries=" +
-    warning_entries.to_string() +
-    " total_decompressed_bytes=" +
-    total_decoded.to_string() +
-    " output_markdown_bytes=" +
-    final_md.to_string().length().to_string() +
-    " asset_count=" +
-    doc.asset_origins.val.length().to_string(),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_extract_entry_total",
-    extract_elapsed.val,
-    Some("total_decompressed_bytes=" + total_decoded.to_string()),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_stage_entry_total",
-    stage_elapsed.val,
-    Some(
-      "staged_input_entries=" +
-      staged_input_entries.to_string() +
-      " shared_input_entries=" +
-      shared_input_entries.to_string() +
-      " output_dir_entries=" +
-      output_dir_entries.to_string(),
-    ),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_dispatch_entry_total",
-    dispatch_elapsed.val,
-    Some("converted_entries=" + converted_entries.to_string()),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_markdown_aggregate",
-    aggregate_elapsed.val,
-    Some("markdown_bytes=" + final_md.to_string().length().to_string()),
-  )
-  zip_profile_add_stage(
-    profile,
-    "zip_asset_remap",
-    remap_elapsed.val,
-    Some("asset_entries=" + asset_remap_entries.to_string()),
-  )
+  if profile_active {
+    zip_profile_add_summary(
+      profile,
+      "result total_entries=" +
+      inspect.entry_count.to_string() +
+      " converted_entries=" +
+      converted_entries.to_string() +
+      " warning_entries=" +
+      warning_entries.to_string() +
+      " total_decompressed_bytes=" +
+      total_decoded.to_string() +
+      " output_markdown_bytes=" +
+      final_md.to_string().length().to_string() +
+      " asset_count=" +
+      doc.asset_origins.val.length().to_string(),
+    )
+    zip_profile_add_stage(
+      profile,
+      "zip_extract_entry_total",
+      extract_elapsed.val,
+      Some("total_decompressed_bytes=" + total_decoded.to_string()),
+    )
+    zip_profile_add_stage(
+      profile,
+      "zip_stage_entry_total",
+      stage_elapsed.val,
+      Some(
+        "staged_input_entries=" +
+        staged_input_entries.to_string() +
+        " shared_input_entries=" +
+        shared_input_entries.to_string() +
+        " output_dir_entries=" +
+        output_dir_entries.to_string(),
+      ),
+    )
+    zip_profile_add_stage(
+      profile,
+      "zip_dispatch_entry_total",
+      dispatch_elapsed.val,
+      Some("converted_entries=" + converted_entries.to_string()),
+    )
+    zip_profile_add_stage(
+      profile,
+      "zip_markdown_aggregate",
+      aggregate_elapsed.val,
+      Some("markdown_bytes=" + final_md.to_string().length().to_string()),
+    )
+    zip_profile_add_stage(
+      profile,
+      "zip_asset_remap",
+      remap_elapsed.val,
+      Some("asset_entries=" + asset_remap_entries.to_string()),
+    )
+  }
 
   @cor.set_passthrough_markdown(doc, final_md.to_string())
   (doc, profile)

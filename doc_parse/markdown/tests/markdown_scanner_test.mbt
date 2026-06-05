@@ -261,3 +261,58 @@ test "markdown scanner counts both atx and setext headings" {
   assert_eq(doc.blocks[2].line_start, 3)
   assert_eq(doc.blocks[2].line_end, 4)
 }
+
+///|
+test "markdown scanner preserves frontmatter heading and fence order with stable spans" {
+  let doc = @md.scan_markdown_document(
+    "---\n" +
+    "title: Demo\n" +
+    "---\n" +
+    "\n" +
+    "# Heading\n" +
+    "```md\n" +
+    "body\n" +
+    "```\n",
+  )
+
+  match doc.frontmatter {
+    Some(frontmatter) => {
+      assert_eq(frontmatter.line_start, 1)
+      assert_eq(frontmatter.line_end, 3)
+      assert_true(frontmatter.closed)
+    }
+    None => fail("expected frontmatter")
+  }
+  assert_eq(doc.blocks.length(), 3)
+  assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::BlankLine)
+  assert_true(doc.blocks[1].kind == @md.MarkdownBlockKind::HeadingAtx)
+  assert_eq(doc.blocks[1].line_start, 5)
+  assert_eq(doc.blocks[1].line_end, 5)
+  assert_true(doc.blocks[2].kind == @md.MarkdownBlockKind::FencedCode)
+  assert_eq(doc.blocks[2].line_start, 6)
+  assert_eq(doc.blocks[2].line_end, 8)
+}
+
+///|
+test "markdown scanner keeps mixed block inventory order across signals" {
+  let doc = @md.scan_markdown_document(
+    "# Head\n" +
+    "- item\n" +
+    "> quote\n" +
+    "| a | b |\n" +
+    "<div>\n" +
+    "```txt\n" +
+    "x\n" +
+    "```\n",
+  )
+
+  assert_eq(doc.blocks.length(), 6)
+  assert_true(doc.blocks[0].kind == @md.MarkdownBlockKind::HeadingAtx)
+  assert_true(doc.blocks[1].kind == @md.MarkdownBlockKind::ListItem)
+  assert_true(doc.blocks[2].kind == @md.MarkdownBlockKind::BlockQuote)
+  assert_true(doc.blocks[3].kind == @md.MarkdownBlockKind::TableLikeRow)
+  assert_true(doc.blocks[4].kind == @md.MarkdownBlockKind::HtmlBlockCandidate)
+  assert_true(doc.blocks[5].kind == @md.MarkdownBlockKind::FencedCode)
+  assert_eq(doc.blocks[5].line_start, 6)
+  assert_eq(doc.blocks[5].line_end, 8)
+}

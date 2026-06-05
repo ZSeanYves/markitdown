@@ -523,6 +523,25 @@ fn assert_asset_origin_source_path(
 }
 
 ///|
+fn assert_docx_image_origin_present(
+  img : @cor.ImageData,
+  expected_source_name : String,
+) -> Unit raise {
+  match img.origin {
+    Some(origin) => {
+      if origin.source_name != Some(expected_source_name) {
+        fail("docx image origin should preserve product source_name")
+      }
+      match origin.block_index {
+        Some(_) => ()
+        None => fail("docx image origin should expose block_index")
+      }
+    }
+    None => fail("docx image origin should be present")
+  }
+}
+
+///|
 /// Guard rail for metadata chain:
 /// ImageData.caption should mirror asset nearby_caption when pairing is made.
 fn assert_image_caption_mirrors_asset_origin(doc : @cor.Document) -> Unit raise {

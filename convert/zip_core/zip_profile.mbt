@@ -10,6 +10,32 @@ fn zip_profile_enabled() -> Bool {
 }
 
 ///|
+fn zip_profile_active(report : ZipProfileReport?) -> Bool {
+  match report {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn zip_profile_now(report : ZipProfileReport?) -> UInt64 {
+  if zip_profile_active(report) {
+    @env.now()
+  } else {
+    0
+  }
+}
+
+///|
+fn zip_profile_elapsed(report : ZipProfileReport?, started : UInt64) -> UInt64 {
+  if zip_profile_active(report) {
+    @env.now() - started
+  } else {
+    0
+  }
+}
+
+///|
 pub struct ZipProfileStage {
   name : String
   elapsed_ms : UInt64

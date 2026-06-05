@@ -75,6 +75,21 @@ fn write_utf8_text(path : String, text : String) -> Unit raise {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
+fn remove_file_if_exists(path : String) -> Unit {
+  if @fs.path_exists(path) {
+    @fs.remove_file(path) catch { _ => () }
+  }
+}
+
+///|
 test "html strips utf8 bom and normalizes crlf" {
   let doc = @html.parse_html(
     resolve_html_parser_sample_path(
@@ -237,6 +252,89 @@ test "html details summary and script style handling are explicit" {
 }
 
 ///|
+test "html parser validation summary is available for convert integration" {
+  let summary = @html.collect_html_parser_issue_summary_from_text(
+    "<html><body><script>bad()</script><style>.x{}</style><a href='javascript:bad'>x</a><div class='a' class='b'><p>ok</div></span></body></html>",
+  ).unwrap_or_else(() => {
+    fail("expected parser issue summary")
+  })
+
+  assert_eq(summary.issue_count, 6)
+  assert_eq(summary.warning_count, 6)
+  assert_eq(summary.error_count, 0)
+  assert_eq(summary.script_count, 1)
+  assert_eq(summary.style_count, 1)
+  assert_eq(summary.unsafe_url_count, 1)
+  assert_eq(summary.duplicate_attribute_count, 1)
+  assert_eq(summary.unexpected_closing_count, 1)
+  assert_eq(summary.unclosed_element_count, 1)
+}
+
+///|
+test "html profile reports parser analysis scope and skip observability" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_profile_observability.html"
+  let profile_path = dir + "/html-profile-observability.txt"
+  write_utf8_text(
+    sample_path,
+    "<html><body><article><h1>Profile Title</h1><script>skip()</script><p>Visible body <a href='https://example.com/profile'>link</a><a epub:type='noteref' href='#fn-profile'>1</a>.</p><table><tr><th>K</th><th>V</th></tr><tr><td>A</td><td>B</td></tr></table><aside epub:type='footnote' id='fn-profile'>Profile note.</aside></article></body></html>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_true(@cor.emit_markdown(doc).contains("Visible body"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("parser_analysis_attempted=true"))
+  assert_true(report.contains("parser_analysis_used=true"))
+  assert_true(report.contains("parser_scope_from_events=true"))
+  assert_true(report.contains("parser_skip_range_count=1"))
+  assert_true(report.contains("parser_scope_fallback_reason="))
+  assert_true(report.contains("table_count=1"))
+  assert_true(report.contains("image_count=0"))
+  assert_true(report.contains("link_count=1"))
+  assert_true(report.contains("note_definition_count=1"))
+  assert_true(report.contains("note_ref_count=1"))
+}
+
+///|
+test "html profile disabled does not write profile report" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_profile_disabled.html"
+  let profile_path = dir + "/html-profile-disabled.txt"
+  write_utf8_text(
+    sample_path,
+    "<html><body><article><p>No profile output.</p></article></body></html>\n",
+  )
+  remove_file_if_exists(profile_path)
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.unset_env_var("MARKITDOWN_PROFILE_HTML")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_true(@cor.emit_markdown(doc).contains("No profile output."))
+  assert_false(@fs.path_exists(profile_path))
+}
+
+///|
 test "html comments do not leak commented markup into output" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
@@ -382,6 +480,54 @@ test "html table span boundaries and local image boundaries are explicit" {
     ),
   )
   assert_eq(@cor.emit_markdown(image_doc), image_expected)
+}
+
+///|
+test "html table list note primitives keep mixed casing and decoded attrs stable" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_mixed_case_table_list_note.html"
+  write_utf8_text(
+    sample_path,
+    "<HTML><BODY><ARTICLE><TABLE><THEAD><TR><TH>Name&nbsp;A</TH><TH>Score</TH></TR></THEAD><TBODY><TR><TD ROWSPAN='2'>A&amp;B</TD><TD COLSPAN='2'>42</TD></TR><TR><TD>Tail</TD></TR></TBODY></TABLE><OL><LI>One&nbsp;item</LI><LI><UL><LI>Nested item</LI></UL></LI></OL><P>Note<A EPUB:TYPE='noteref' HREF='#fn&amp;1'>1</A>.</P><ASIDE EPUB:TYPE='footnote' ID='fn&amp;1'>Foot&nbsp;note.</ASIDE></ARTICLE></BODY></HTML>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  match doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 1)
+      assert_eq(table.rows[0][0], "Name A")
+      assert_eq(table.rows[1][0], "A&B")
+      assert_eq(table.rows[1][1], "42")
+      match table.hints {
+        Some(hints) =>
+          match hints.span_cells {
+            Some(span_cells) => {
+              assert_eq(span_cells.length(), 2)
+              assert_eq(span_cells[0].rowspan, 2)
+              assert_eq(span_cells[1].colspan, 2)
+            }
+            None => fail("expected span hints for mixed-case table")
+          }
+        None => fail("expected hints for mixed-case table")
+      }
+    }
+    _ => fail("mixed-case table should emit RichTable")
+  }
+
+  assert_true(markdown.contains("One item"))
+  assert_true(markdown.contains("Nested item"))
+  assert_true(markdown.contains("Note[^fn&1]."))
+  assert_eq(doc.note_definitions.val.length(), 1)
+  let note = doc.note_definitions.val[0]
+  assert_eq(note.note_id, "fn&1")
+  assert_eq(note.marker, "1")
+  match note.blocks[0] {
+    @cor.Block::Paragraph(text) => assert_eq(text, "Foot note.")
+    _ => fail("mixed-case note should keep body text")
+  }
 }
 
 ///|
@@ -565,6 +711,53 @@ test "html keeps ordinary article header and does not over-prune body content" {
 }
 
 ///|
+test "html token scope keeps nested article tail and skips script style" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_token_scope_nested_article.html"
+  write_utf8_text(
+    sample_path, "<html><head><title>Ignored</title><script>HEAD_NOISE</script></head><body><p>\u{524D}\u{7F6E} ignored</p><article><h1>Outer Title</h1><article><p>Inner body.</p><script>INNER_NOISE</script><style>.inner{display:none}</style></article><p>Outer tail survives.</p></article><footer><p>Footer noise</p></footer></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Outer Title"))
+  assert_true(markdown.contains("Inner body."))
+  assert_true(markdown.contains("Outer tail survives."))
+  assert_false(markdown.contains("HEAD_NOISE"))
+  assert_false(markdown.contains("INNER_NOISE"))
+  assert_false(markdown.contains("display:none"))
+  assert_false(markdown.contains("ignored"))
+  assert_false(markdown.contains("Footer noise"))
+}
+
+///|
+test "html token skip ranges coexist with scope and preserve pre text" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_token_skip_ranges.html"
+  write_utf8_text(
+    sample_path, "<html><head><noscript>HEAD_NOSCRIPT</noscript><script>HEAD_SKIP</script><style>.head{}</style></head><body><main><article><h1>Skip Range Title</h1><script>ARTICLE_SKIP</script><style>.article{}</style><noscript><p>NO_SCRIPT_BODY</p></noscript><p>Visible <script>INLINE_SKIP</script>tail.</p><pre><script>literal code</script></pre></article></main><footer>Footer noise</footer></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+
+  assert_true(markdown.contains("# Skip Range Title"))
+  assert_true(markdown.contains("Visible tail."))
+  assert_true(markdown.contains("literal code"))
+  assert_false(markdown.contains("HEAD_NOSCRIPT"))
+  assert_false(markdown.contains("HEAD_SKIP"))
+  assert_false(markdown.contains("ARTICLE_SKIP"))
+  assert_false(markdown.contains("INLINE_SKIP"))
+  assert_false(markdown.contains("NO_SCRIPT_BODY"))
+  assert_false(markdown.contains("Footer noise"))
+}
+
+///|
 test "html prefers strong content root over teaser article shell" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
@@ -638,6 +831,23 @@ test "html prefers exact content id over body chrome fallback" {
   assert_true(markdown.contains("Real answer."))
   assert_false(markdown.contains("Docs nav"))
   assert_false(markdown.contains("Sidebar tip"))
+}
+
+///|
+test "html parse_html keeps malformed unsafe signal sample output stable" {
+  let doc = @html.parse_html(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/html_parser_signal_malformed_unsafe.html",
+    ),
+    "",
+    6,
+  )
+  let expected = read_html_parser_utf8_text(
+    resolve_html_parser_sample_path(
+      "samples/main_process/html/expected/html_parser_signal_malformed_unsafe.md",
+    ),
+  )
+  assert_eq(@cor.emit_markdown(doc), expected)
 }
 
 ///|

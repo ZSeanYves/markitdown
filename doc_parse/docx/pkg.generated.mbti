@@ -6,260 +6,759 @@ import {
 }
 
 // Values
-pub fn classify_docx_error(DocxError) -> DocxErrorInfo
+pub fn docx_find_comment(DocxDocument, String) -> DocxComment?
 
-pub fn collect_docx_validation_issues(DocxDocument) -> Array[DocxValidationIssue]
+pub fn docx_find_endnote(DocxDocument, String) -> DocxNote?
 
-pub fn inspect_docx_document(DocxDocument) -> DocxInspectReport
+pub fn docx_find_footnote(DocxDocument, String) -> DocxNote?
 
-pub fn open_docx_document(String) -> DocxDocument raise
+pub fn docx_find_numbering_num(DocxNumbering, String) -> DocxNumberingNum?
 
-pub fn parse_docx_document_from_package(@ooxml.OoxmlPackage) -> DocxDocument raise
+pub fn docx_find_style(DocxStyles, String) -> DocxStyle?
 
-pub fn profile_docx_document_from_package(@ooxml.OoxmlPackage) -> DocxProfiledDocument raise
+pub fn docx_resolve_numbering_level(DocxNumbering, DocxNumberingRef) -> DocxNumberingLevel?
 
-pub fn validate_docx_document(DocxDocument) -> DocxValidationReport
+pub fn docx_resolve_numbering_level_by_id(DocxNumbering, String, String?) -> DocxNumberingLevel?
+
+pub fn docx_resolve_paragraph_numbering_level(DocxDocument, DocxParagraph) -> DocxNumberingLevel?
+
+pub fn docx_resolve_paragraph_style(DocxDocument, DocxParagraph) -> DocxStyle?
+
+pub fn normalize_docx_source(DocxSourceDocument) -> DocxDocument
+
+pub fn parse_docx_document_from_package(@ooxml.OoxmlPackage) -> DocxDocument raise DocxError
+
+pub fn parse_docx_source_document_xml(String, String) -> DocxSourceDocument raise DocxError
+
+pub fn parse_docx_source_from_package(@ooxml.OoxmlPackage) -> DocxSourceDocument raise DocxError
 
 // Errors
 pub(all) suberror DocxError {
-  OpenFailed(String)
   OoxmlFailure(String)
-  ParseError(String)
+  MissingMainDocument
+  MalformedDocument(String)
 }
 pub impl Show for DocxError
 
 // Types and methods
-pub struct DocxAbstractNumbering {
-  abstract_num_id : Int
-  levels : Array[DocxNumberingLevel]
-}
-
-pub(all) enum DocxBodyBlock {
+pub(all) enum DocxBlock {
   Paragraph(DocxParagraph)
   Table(DocxTable)
+  TablePlaceholder(DocxTablePlaceholder)
+  ContentControl(DocxContentControl)
+  StructuralMarker(DocxStructuralMarker)
+  Unsupported(DocxWarning)
 }
+
+pub struct DocxBookmark {
+  kind : DocxBookmarkKind
+  bookmark_id : String?
+  name : String?
+  source_key : DocxSourceKey
+}
+
+pub(all) enum DocxBookmarkKind {
+  Start
+  End
+} derive(Eq)
+
+pub struct DocxBreak {
+  kind : DocxBreakKind
+  break_type : String?
+  source_key : DocxSourceKey
+}
+
+pub(all) enum DocxBreakKind {
+  Line
+  Page
+  Column
+  TextWrapping
+  CarriageReturn
+  Unknown
+} derive(Eq)
 
 pub struct DocxComment {
-  id : Int
+  comment_id : String
   author : String?
-  body_blocks : Array[DocxBodyBlock]
-  text : String
+  date : String?
+  part_name : String
+  blocks : Array[DocxBlock]
+  source_key : DocxSourceKey
 }
+
+pub struct DocxContentControl {
+  tag : String
+  blocks : Array[DocxBlock]
+  inlines : Array[DocxInline]
+  text : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxDiscoveredPart {
+  part_name : String
+  kind : DocxDiscoveredPartKind
+  source : DocxPartDiscoverySource
+  relationship_id : String?
+  source_part : String?
+  content_type : String?
+}
+
+pub(all) enum DocxDiscoveredPartKind {
+  MainDocument
+  Footnotes
+  Endnotes
+  Comments
+  Header
+  Footer
+  Numbering
+  Styles
+  Media
+  Unknown
+} derive(Eq)
 
 pub struct DocxDocument {
-  body_blocks : Array[DocxBodyBlock]
-  relationships : DocxRelationshipIndex
+  main_part : String
+  part_graph : DocxPartGraph
+  body : Array[DocxBlock]
   styles : DocxStyles
   numbering : DocxNumbering
-  notes : DocxNotes
-  headers : Array[DocxHeader]
-  footers : Array[DocxFooter]
-  text_boxes : Array[DocxTextBox]
-  media_refs : Array[DocxMediaRef]
-  hyperlink_refs : Array[DocxHyperlink]
-  issues : Array[DocxValidationIssue]
+  footnotes : Array[DocxNote]
+  endnotes : Array[DocxNote]
+  comments : Array[DocxComment]
+  headers : Array[DocxPartBody]
+  footers : Array[DocxPartBody]
+  textboxes : Array[DocxTextBox]
+  warnings : Array[DocxWarning]
 }
 
-pub struct DocxEndnote {
-  id : Int
-  body_blocks : Array[DocxBodyBlock]
-  text : String
+pub struct DocxDrawing {
+  anchor_id : String
+  owner_part : String
+  source_key : DocxSourceKey
+  doc_pr_id : String?
+  doc_pr_name : String?
+  descr : String?
+  title : String?
+  media : DocxMediaRef?
+  text_box_ref : DocxTextBoxRef?
+  child_inlines : Array[DocxInline]
 }
 
-pub struct DocxErrorInfo {
-  kind : DocxErrorKind
-  detail : String
+pub struct DocxField {
+  kind : String
+  instruction : String?
+  field_char_type : String?
+  result_text : String?
+  child_inlines : Array[DocxInline]
+  source_key : DocxSourceKey
 }
-
-pub(all) enum DocxErrorKind {
-  OpenFailed
-  OoxmlFailure
-  MissingMainDocument
-  MalformedDocumentXml
-  MalformedStylesXml
-  MalformedNumberingXml
-  Unknown
-} derive(Eq)
-
-pub struct DocxFooter {
-  ref_type : DocxHeaderFooterRefType
-  relationship_id : String
-  part_name : String
-  body_blocks : Array[DocxBodyBlock]
-}
-
-pub struct DocxFootnote {
-  id : Int
-  body_blocks : Array[DocxBodyBlock]
-  text : String
-}
-
-pub struct DocxHeader {
-  ref_type : DocxHeaderFooterRefType
-  relationship_id : String
-  part_name : String
-  body_blocks : Array[DocxBodyBlock]
-}
-
-pub(all) enum DocxHeaderFooterRefType {
-  Default
-  First
-  Even
-  Unknown
-} derive(Eq)
 
 pub struct DocxHyperlink {
   relationship_id : String?
   anchor : String?
   target : String?
   text : String
-  is_external : Bool
+  target_mode : DocxTargetMode?
+  source_key : DocxSourceKey
 }
+
+pub struct DocxHyphen {
+  kind : DocxHyphenKind
+  source_key : DocxSourceKey
+}
+
+pub(all) enum DocxHyphenKind {
+  Soft
+  NoBreak
+} derive(Eq)
 
 pub(all) enum DocxInline {
   Text(String)
   Tab
   LineBreak
+  Break(DocxBreak)
   Hyperlink(DocxHyperlink)
-  FootnoteRef(Int)
-  EndnoteRef(Int)
-  CommentRef(Int)
-  DrawingRef(DocxMediaRef)
+  Media(DocxMediaRef)
+  TextBoxRef(DocxTextBoxRef)
+  Drawing(DocxDrawing)
+  Shape(DocxShape)
+  ContentControl(DocxContentControl)
+  FieldUnsupported(DocxField)
+  Math(DocxMath)
+  Bookmark(DocxBookmark)
+  TrackedChange(DocxTrackedChange)
+  SmartTag(DocxSmartTag)
+  Symbol(DocxSymbol)
+  Hyphen(DocxHyphen)
+  FootnoteRef(String)
+  EndnoteRef(String)
+  CommentRef(String)
+  StructuralMarker(DocxStructuralMarker)
+  UnsupportedInline(DocxUnsupportedInline)
   Unsupported(String)
 }
 
-pub struct DocxInspectReport {
-  paragraph_count : Int
-  run_count : Int
-  text_run_count : Int
-  table_count : Int
-  table_row_count : Int
-  table_cell_count : Int
-  hyperlink_count : Int
-  media_ref_count : Int
-  image_ref_count : Int
-  numbering_ref_count : Int
-  style_count : Int
-  note_count : Int
-  header_count : Int
-  footer_count : Int
-  text_box_count : Int
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+pub struct DocxMath {
+  kind : String
+  text_signature : String?
+  child_inlines : Array[DocxInline]
+  source_key : DocxSourceKey
 }
+
+pub(all) enum DocxMediaContainerKind {
+  Drawing
+  Pict
+} derive(Eq)
 
 pub struct DocxMediaRef {
   relationship_id : String?
+  relationship_kind : DocxMediaRelationshipKind
+  container_kind : DocxMediaContainerKind
+  target : String?
+  resolved_target : String?
+  target_mode : DocxTargetMode?
   target_part : String?
+  target_exists : Bool?
   content_type : String?
   alt_text : String?
   title : String?
-  source_part : String?
+  source_key : DocxSourceKey
 }
 
-pub struct DocxNotes {
-  footnotes : Array[DocxFootnote]
-  endnotes : Array[DocxEndnote]
-  comments : Array[DocxComment]
+pub(all) enum DocxMediaRelationshipKind {
+  Embed
+  Link
+  Unknown
+} derive(Eq)
+
+pub struct DocxNote {
+  kind : DocxNoteKind
+  note_id : String
+  part_name : String
+  blocks : Array[DocxBlock]
+  source_key : DocxSourceKey
 }
+
+pub(all) enum DocxNoteKind {
+  Footnote
+  Endnote
+} derive(Eq)
 
 pub struct DocxNumbering {
-  abstract_numbers : Array[DocxAbstractNumbering]
-  numbering_instances : Array[DocxNumberingInstance]
-}
-
-pub struct DocxNumberingInstance {
-  num_id : Int
-  abstract_num_id : Int
+  part_name : String?
+  nums : Array[DocxNumberingNum]
+  levels : Array[DocxNumberingLevel]
 }
 
 pub struct DocxNumberingLevel {
-  ilvl : Int
-  num_format : String?
+  abstract_num_id : String
+  ilvl : String
+  num_fmt : String?
+  start : String?
+  lvl_text : String?
+  paragraph_style_id : String?
+  style_link : String?
+  num_style_link : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxNumberingNum {
+  num_id : String
+  abstract_num_id : String?
+  start_overrides : Array[DocxNumberingStartOverride]
+  source_key : DocxSourceKey
 }
 
 pub struct DocxNumberingRef {
-  num_id : Int
-  ilvl : Int
-  num_format : String?
+  num_id : String
+  ilvl : String?
+}
+
+pub struct DocxNumberingStartOverride {
+  ilvl : String
+  start : String?
 }
 
 pub struct DocxParagraph {
   style_id : String?
+  alignment : String?
   numbering_ref : DocxNumberingRef?
   runs : Array[DocxRun]
-  hyperlink_refs : Array[DocxHyperlink]
-  media_refs : Array[DocxMediaRef]
+  inlines : Array[DocxInline]
+  text : String
+  source_key : DocxSourceKey
 }
 
-pub(all) struct DocxParseProfileReport {
-  stages : Array[DocxParseProfileStage]
+pub struct DocxPartBody {
+  kind : DocxPartBodyKind
+  relationship_id : String?
+  part_name : String
+  blocks : Array[DocxBlock]
+  source_key : DocxSourceKey
 }
 
-pub(all) struct DocxParseProfileStage {
-  name : String
-  elapsed_ms : UInt64
-  detail : String?
-}
+pub(all) enum DocxPartBodyKind {
+  Header
+  Footer
+  Textbox
+} derive(Eq)
 
-pub(all) struct DocxProfiledDocument {
-  document : DocxDocument
-  report : DocxParseProfileReport
-}
+pub(all) enum DocxPartDiscoverySource {
+  Relationship
+  ContentType
+  ConventionalPath
+} derive(Eq)
 
-pub struct DocxRelationship {
-  id : String
-  rel_type : String
-  target : String
-  target_mode : DocxTargetMode
-  resolved_target : String
-}
-
-pub struct DocxRelationshipIndex {
-  relationships : Array[DocxRelationship]
-  targets_by_rid : Map[String, String]
-  hyperlink_targets_by_rid : Map[String, String]
+pub struct DocxPartGraph {
+  main_part : String
+  parts : Array[DocxDiscoveredPart]
 }
 
 pub struct DocxRun {
   style_id : String?
+  bold : Bool
   inlines : Array[DocxInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxShape {
+  anchor_id : String
+  owner_part : String
+  source_key : DocxSourceKey
+  shape_id : String?
+  shape_type : String?
+  style : String?
+  alt_text : String?
+  title : String?
+  media : DocxMediaRef?
+  text_box_ref : DocxTextBoxRef?
+  child_inlines : Array[DocxInline]
+}
+
+pub struct DocxSmartTag {
+  tag : String
+  child_inlines : Array[DocxInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceBlock {
+  kind : DocxSourceBlockKind
+  source_key : DocxSourceKey
+  paragraph_style_id : String?
+  paragraph_alignment : String?
+  numbering_ref : DocxNumberingRef?
+  runs : Array[DocxSourceRun]
+  table : DocxSourceTable?
+  content_control : DocxSourceContentControl?
+  text : String
+  inlines : Array[DocxSourceInline]
+  structural_kind : DocxStructuralKind?
+  raw_tag : String?
+}
+
+pub(all) enum DocxSourceBlockKind {
+  Paragraph
+  Table
+  ContentControl
+  Structural
+  Unknown
+} derive(Eq)
+
+pub struct DocxSourceBookmark {
+  kind : DocxBookmarkKind
+  bookmark_id : String?
+  name : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceBreak {
+  kind : DocxBreakKind
+  break_type : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceComment {
+  comment_id : String
+  author : String?
+  date : String?
+  part_name : String
+  blocks : Array[DocxSourceBlock]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceContentControl {
+  tag : String
+  blocks : Array[DocxSourceBlock]
+  inlines : Array[DocxSourceInline]
+  text : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceDocument {
+  main_part : String
+  part_graph : DocxPartGraph
+  parts : Array[DocxSourcePart]
+  styles : DocxSourceStyles
+  numbering : DocxSourceNumbering
+  footnotes : Array[DocxSourceNote]
+  endnotes : Array[DocxSourceNote]
+  comments : Array[DocxSourceComment]
+  headers : Array[DocxSourcePartBody]
+  footers : Array[DocxSourcePartBody]
+  textboxes : Array[DocxSourceTextBox]
+  warnings : Array[DocxSourceWarning]
+}
+
+pub struct DocxSourceDrawing {
+  anchor_id : String
+  owner_part : String
+  source_key : DocxSourceKey
+  doc_pr_id : String?
+  doc_pr_name : String?
+  descr : String?
+  title : String?
+  media : DocxSourceMediaRef?
+  text_box_ref : DocxSourceTextBoxRef?
+  child_inlines : Array[DocxSourceInline]
+}
+
+pub struct DocxSourceField {
+  kind : String
+  instruction : String?
+  field_char_type : String?
+  result_text : String?
+  child_inlines : Array[DocxSourceInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceHyperlink {
+  relationship_id : String?
+  anchor : String?
+  target : String?
+  text : String
+  target_mode : DocxTargetMode?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceHyphen {
+  kind : DocxHyphenKind
+  source_key : DocxSourceKey
+}
+
+pub(all) enum DocxSourceInline {
+  Text(String)
+  Tab
+  LineBreak
+  Break(DocxSourceBreak)
+  Hyperlink(DocxSourceHyperlink)
+  Media(DocxSourceMediaRef)
+  TextBoxRef(DocxSourceTextBoxRef)
+  Drawing(DocxSourceDrawing)
+  Shape(DocxSourceShape)
+  ContentControl(DocxSourceContentControl)
+  FieldUnsupported(DocxSourceField)
+  Math(DocxSourceMath)
+  Bookmark(DocxSourceBookmark)
+  TrackedChange(DocxSourceTrackedChange)
+  SmartTag(DocxSourceSmartTag)
+  Symbol(DocxSourceSymbol)
+  Hyphen(DocxSourceHyphen)
+  FootnoteRef(String)
+  EndnoteRef(String)
+  CommentRef(String)
+  StructuralMarker(DocxSourceStructuralMarker)
+  UnsupportedInline(DocxSourceUnsupportedInline)
+  Unsupported(String)
+}
+
+pub struct DocxSourceKey {
+  part_name : String
+  block_index : Int
+  node_key : String
+}
+
+pub struct DocxSourceMath {
+  kind : String
+  text_signature : String?
+  child_inlines : Array[DocxSourceInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceMediaRef {
+  relationship_id : String?
+  relationship_kind : DocxMediaRelationshipKind
+  container_kind : DocxMediaContainerKind
+  target : String?
+  resolved_target : String?
+  target_mode : DocxTargetMode?
+  target_part : String?
+  target_exists : Bool?
+  content_type : String?
+  alt_text : String?
+  title : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceNote {
+  kind : DocxNoteKind
+  note_id : String
+  part_name : String
+  blocks : Array[DocxSourceBlock]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceNumbering {
+  part_name : String?
+  nums : Array[DocxSourceNumberingNum]
+  levels : Array[DocxSourceNumberingLevel]
+}
+
+pub struct DocxSourceNumberingLevel {
+  abstract_num_id : String
+  ilvl : String
+  num_fmt : String?
+  start : String?
+  lvl_text : String?
+  paragraph_style_id : String?
+  style_link : String?
+  num_style_link : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceNumberingNum {
+  num_id : String
+  abstract_num_id : String?
+  start_overrides : Array[DocxNumberingStartOverride]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourcePart {
+  part_name : String
+  blocks : Array[DocxSourceBlock]
+  warnings : Array[DocxSourceWarning]
+}
+
+pub struct DocxSourcePartBody {
+  kind : DocxPartBodyKind
+  relationship_id : String?
+  part_name : String
+  blocks : Array[DocxSourceBlock]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceRun {
+  style_id : String?
+  bold : Bool
+  inlines : Array[DocxSourceInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceShape {
+  anchor_id : String
+  owner_part : String
+  source_key : DocxSourceKey
+  shape_id : String?
+  shape_type : String?
+  style : String?
+  alt_text : String?
+  title : String?
+  media : DocxSourceMediaRef?
+  text_box_ref : DocxSourceTextBoxRef?
+  child_inlines : Array[DocxSourceInline]
+}
+
+pub struct DocxSourceSmartTag {
+  tag : String
+  child_inlines : Array[DocxSourceInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceStructuralMarker {
+  kind : DocxStructuralKind
+  tag : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceStyle {
+  style_id : String
+  style_type : String?
+  name : String?
+  based_on : String?
+  paragraph_properties : Array[String]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceStyles {
+  part_name : String?
+  styles : Array[DocxSourceStyle]
+}
+
+pub struct DocxSourceSymbol {
+  font : String?
+  char_hex : String?
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceTable {
+  rows : Array[DocxSourceTableRow]
+  nesting_depth : Int
+  max_nested_depth : Int
+  deep_table_guard_triggered : Bool
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceTableCell {
+  row_index : Int
+  cell_index : Int
+  blocks : Array[DocxSourceBlock]
+  text : String
+  grid_span : String?
+  vertical_merge : String?
+  has_nested_table : Bool
+  nesting_depth : Int
+  max_nested_depth : Int
+  deep_table_guard_triggered : Bool
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceTableRow {
+  row_index : Int
+  is_header : Bool
+  cells : Array[DocxSourceTableCell]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceTextBox {
+  anchor_id : String
+  owner_part : String
+  relationship_id : String?
+  part_name : String
+  blocks : Array[DocxSourceBlock]
+  source_key : DocxSourceKey
+  shape_id : String?
+  doc_pr_id : String?
+  doc_pr_name : String?
+  descr : String?
+  title : String?
+}
+
+pub struct DocxSourceTextBoxRef {
+  anchor_id : String?
+  owner_part : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceTrackedChange {
+  kind : String
+  text : String
+  child_inlines : Array[DocxSourceInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceUnsupportedInline {
+  tag : String
+  reason : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxSourceWarning {
+  kind : DocxSourceWarningKind
+  message : String
+  source_key : DocxSourceKey?
+}
+
+pub(all) enum DocxSourceWarningKind {
+  MissingMainDocument
+  MalformedDocumentXml
+  MissingHyperlinkTarget
+  MissingMediaTarget
+  MissingMediaPart
+  UnsupportedMedia
+  UnsupportedMath
+  MissingStylesPart
+  MissingNumberingPart
+  MissingContainerPart
+  NestedTable
+  UnsupportedTextbox
+  UnknownBodyNode
+  UnsupportedTable
+  UnsupportedField
+  UnsupportedBookmark
+  TrackedChange
+  UnsupportedInline
+  UnresolvedFootnoteRef
+  UnresolvedEndnoteRef
+  UnresolvedCommentRef
+} derive(Eq)
+
+pub(all) enum DocxStructuralKind {
+  SectionProperties
+  BookmarkBoundary
+  ProofError
+  PermissionBoundary
+  CommentRangeBoundary
+  MoveRangeBoundary
+  LastRenderedPageBreak
+  UnknownNonVisible
+} derive(Eq)
+
+pub struct DocxStructuralMarker {
+  kind : DocxStructuralKind
+  tag : String
+  source_key : DocxSourceKey
 }
 
 pub struct DocxStyle {
   style_id : String
+  style_type : String?
   name : String?
-  style_type : DocxStyleType
   based_on : String?
-  raw_heading_level : Int?
-  linked_numbering : DocxNumberingRef?
+  paragraph_properties : Array[String]
+  source_key : DocxSourceKey
 }
 
-pub(all) enum DocxStyleType {
-  Paragraph
-  Character
-  Table
-  Numbering
-  Unknown
-} derive(Eq)
-
 pub struct DocxStyles {
+  part_name : String?
   styles : Array[DocxStyle]
+}
+
+pub struct DocxSymbol {
+  font : String?
+  char_hex : String?
+  source_key : DocxSourceKey
 }
 
 pub struct DocxTable {
   rows : Array[DocxTableRow]
+  nesting_depth : Int
+  max_nested_depth : Int
+  deep_table_guard_triggered : Bool
+  source_key : DocxSourceKey
 }
 
 pub struct DocxTableCell {
-  body_blocks : Array[DocxBodyBlock]
-  grid_span : Int?
+  row_index : Int
+  cell_index : Int
+  blocks : Array[DocxBlock]
+  text : String
+  grid_span : String?
   vertical_merge : String?
+  has_nested_table : Bool
+  nesting_depth : Int
+  max_nested_depth : Int
+  deep_table_guard_triggered : Bool
+  source_key : DocxSourceKey
+}
+
+pub struct DocxTablePlaceholder {
+  source_key : DocxSourceKey
 }
 
 pub struct DocxTableRow {
+  row_index : Int
+  is_header : Bool
   cells : Array[DocxTableCell]
+  source_key : DocxSourceKey
 }
 
 pub(all) enum DocxTargetMode {
@@ -268,47 +767,70 @@ pub(all) enum DocxTargetMode {
 } derive(Eq)
 
 pub struct DocxTextBox {
-  context : DocxTextBoxContext
-  source_part : String
+  anchor_id : String
+  owner_part : String
   relationship_id : String?
-  textbox_index : Int
-  body_blocks : Array[DocxBodyBlock]
+  part_name : String
+  blocks : Array[DocxBlock]
+  source_key : DocxSourceKey
+  shape_id : String?
+  doc_pr_id : String?
+  doc_pr_name : String?
+  descr : String?
+  title : String?
 }
 
-pub(all) enum DocxTextBoxContext {
-  Body
-  Header
-  Footer
-} derive(Eq)
+pub struct DocxTextBoxRef {
+  anchor_id : String?
+  owner_part : String
+  source_key : DocxSourceKey
+}
 
-pub struct DocxValidationIssue {
-  kind : DocxValidationIssueKind
-  severity : DocxValidationSeverity
-  part_name : String?
-  relationship_id : String?
-  style_id : String?
-  num_id : Int?
+pub struct DocxTrackedChange {
+  kind : String
+  text : String
+  child_inlines : Array[DocxInline]
+  source_key : DocxSourceKey
+}
+
+pub struct DocxUnsupportedInline {
+  tag : String
+  reason : String
+  source_key : DocxSourceKey
+}
+
+pub struct DocxWarning {
+  kind : DocxWarningKind
+  severity : DocxWarningSeverity
   message : String
+  source_key : DocxSourceKey?
 }
 
-pub(all) enum DocxValidationIssueKind {
-  MissingRelationshipTarget
+pub(all) enum DocxWarningKind {
+  MissingMainDocument
+  MalformedDocumentXml
+  MissingHyperlinkTarget
+  MissingMediaTarget
   MissingMediaPart
-  MissingStyle
-  MissingNumbering
-  UnsupportedElement
-  UnsupportedDrawing
-  Unknown
+  UnsupportedMedia
+  UnsupportedMath
+  MissingStylesPart
+  MissingNumberingPart
+  MissingContainerPart
+  NestedTable
+  UnsupportedTextbox
+  UnknownBodyNode
+  UnsupportedTable
+  UnsupportedField
+  UnsupportedBookmark
+  TrackedChange
+  UnsupportedInline
+  UnresolvedFootnoteRef
+  UnresolvedEndnoteRef
+  UnresolvedCommentRef
 } derive(Eq)
 
-pub struct DocxValidationReport {
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
-  issues : Array[DocxValidationIssue]
-}
-
-pub(all) enum DocxValidationSeverity {
+pub(all) enum DocxWarningSeverity {
   Warning
   Error
 } derive(Eq)

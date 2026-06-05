@@ -1,5 +1,8 @@
 import {
   "ZSeanYves/markitdown/doc_parse/docx",
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
-  "moonbitlang/x/fs",
 } for "test"
+
+options(
+  "preferred-target": "native",
+)

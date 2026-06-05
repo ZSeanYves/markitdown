@@ -73,9 +73,7 @@ test "origin_metadata/html_docx_minimal_closure" {
       if img.caption != None {
         fail("docx golden image caption should be None")
       }
-      if img.origin != None {
-        fail("docx golden image origin should be None")
-      }
+      assert_docx_image_origin_present(img, "golden.docx")
       match docx_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
           if asset_origin.relationship_id != Some("rId4") {
@@ -295,9 +293,7 @@ test "image_context/docx_alt_title_and_no_alt" {
       if img.caption != None {
         fail("docx alt-title image caption should be None")
       }
-      if img.origin != None {
-        fail("docx alt-title image origin should be None")
-      }
+      assert_docx_image_origin_present(img, "docx_image_alt_title_basic.docx")
       match alt_title_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
           if asset_origin.relationship_id != Some("rId4") {
@@ -334,9 +330,7 @@ test "image_context/docx_alt_title_and_no_alt" {
       if img.caption != None {
         fail("docx no-alt image caption should be None")
       }
-      if img.origin != None {
-        fail("docx no-alt image origin should be None")
-      }
+      assert_docx_image_origin_present(img, "docx_image_no_alt_negative.docx")
       match no_alt_doc.asset_origins.val.get(img.path) {
         Some(asset_origin) => {
           if asset_origin.relationship_id != Some("rId4") {
@@ -820,8 +814,8 @@ test "metadata_sidecar/document_properties_ooxml_and_non_ooxml" {
   if !xml_json.contains("\"source_name\": \"xml_basic.xml\"") {
     fail("xml metadata should contain source_name")
   }
-  if !xml_json.contains("\"block_count\": 1") {
-    fail("xml metadata should contain one code block")
+  if !xml_json.contains("\"block_count\": 2") {
+    fail("xml metadata should contain structured heading and list blocks")
   }
   if !xml_json.contains("\"asset_count\": 0") {
     fail("xml metadata should contain zero assets")

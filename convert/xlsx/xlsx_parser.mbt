@@ -28,14 +28,21 @@ pub fn parse_xlsx_with_profile(
   max_heading : Int,
 ) -> (@cor.Document, XlsxProfileReport?) raise {
   let (workbook, profile) = inspect_xlsx_with_profile(input_path)
-  let build_started = @env.now()
+  let build_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let doc = build_xlsx_document(workbook, max_heading)
-  xlsx_profile_push_stage(
-    profile,
-    "ir_lowering",
-    @env.now() - build_started,
-    Some("blocks=" + doc.blocks.val.length().to_string()),
-  )
+  match profile {
+    Some(_) =>
+      xlsx_profile_push_stage(
+        profile,
+        "ir_lowering",
+        @env.now() - build_started,
+        Some("blocks=" + doc.blocks.val.length().to_string()),
+      )
+    None => ()
+  }
   (doc, profile)
 }
 
@@ -49,24 +56,31 @@ pub fn inspect_xlsx_with_profile(
     None
   }
 
-  let semantic_started = @env.now()
+  let semantic_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let semantic = @dpxlsx.open_xlsx_workbook(input_path) catch {
     e =>
       raise @cor.AppError(
         "xlsx: semantic workbook parse failed: " + e.to_string(),
       )
   }
-  xlsx_profile_push_stage(
-    profile,
-    "semantic_workbook_parse",
-    @env.now() - semantic_started,
-    Some(
-      "sheets=" +
-      semantic.sheets.length().to_string() +
-      " shared_strings=" +
-      semantic.shared_strings.length().to_string(),
-    ),
-  )
+  match profile {
+    Some(_) =>
+      xlsx_profile_push_stage(
+        profile,
+        "semantic_workbook_parse",
+        @env.now() - semantic_started,
+        Some(
+          "sheets=" +
+          semantic.sheets.length().to_string() +
+          " shared_strings=" +
+          semantic.shared_strings.length().to_string(),
+        ),
+      )
+    None => ()
+  }
 
   let workbook = compat_workbook_model_from_semantic(
     @cor.basename(input_path),
@@ -231,6 +245,13 @@ fn push_sheet_blocks(
         key_path: None,
       }),
     )
+  } else if xlsx_dense_sheet_guard_triggered(
+    sheet.used_min_row,
+    sheet.used_min_col,
+    sheet.used_max_row,
+    sheet.used_max_col,
+  ) {
+    push_sparse_guard_sheet_blocks(doc, src, sheet)
   } else if sheet.table_rows.length() == 0 {
     @cor.push_with_origin(
       doc,
@@ -298,6 +319,133 @@ fn push_sheet_blocks(
       key_path: None,
     }),
   )
+}
+
+///|
+fn push_sparse_guard_sheet_blocks(
+  doc : @cor.Document,
+  src : String,
+  sheet : XlsxSheetModel,
+) -> Unit {
+  let preview = xlsx_sparse_preview_cells(sheet)
+  @cor.push_with_origin(
+    doc,
+    @cor.Block::Paragraph(
+      "(large sparse sheet: dense used range " +
+      xlsx_dense_sheet_area_string(
+        sheet.used_min_row,
+        sheet.used_min_col,
+        sheet.used_max_row,
+        sheet.used_max_col,
+      ) +
+      " cells exceeds cap " +
+      xlsx_dense_sheet_area_cap().to_string() +
+      "; showing " +
+      preview.length().to_string() +
+      " of " +
+      xlsx_visible_nonblank_cell_count(sheet).to_string() +
+      " visible non-empty cells)",
+    ),
+    Some({
+      source_name: Some(src),
+      page: None,
+      slide: None,
+      sheet: Some(sheet.name),
+      block_index: Some(doc.blocks.val.length()),
+      heading_path: None,
+      line_start: Some(sheet.used_min_row),
+      line_end: Some(sheet.used_max_row),
+      row_index: Some(sheet.used_min_row),
+      column_index: Some(sheet.used_min_col),
+      object_ref: None,
+      relationship_id: sheet.relationship_id,
+      key_path: None,
+    }),
+  )
+
+  for cell in preview {
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::ListItem(false, 0, xlsx_sparse_preview_cell_line(cell)),
+      Some({
+        source_name: Some(src),
+        page: None,
+        slide: None,
+        sheet: Some(sheet.name),
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: Some([sheet.name]),
+        line_start: Some(cell.row),
+        line_end: Some(cell.row),
+        row_index: Some(cell.row),
+        column_index: Some(cell.column),
+        object_ref: None,
+        relationship_id: sheet.relationship_id,
+        key_path: None,
+      }),
+    )
+  }
+}
+
+///|
+fn xlsx_sparse_preview_cells(sheet : XlsxSheetModel) -> Array[XlsxCellModel] {
+  let hidden_lookup = xlsx_hidden_row_lookup(sheet.hidden_rows)
+  let out : Array[XlsxCellModel] = []
+  for cell in sheet.cells {
+    if hidden_lookup.get(cell.row.to_string()).unwrap_or(false) ||
+      @cor.trim_string(cell.display_text) == "" {
+      continue
+    }
+    out.push(cell)
+  }
+  out.sort_by(fn(a, b) {
+    if a.row == b.row {
+      a.column - b.column
+    } else {
+      a.row - b.row
+    }
+  })
+  let cap = xlsx_sparse_preview_cell_cap()
+  let preview : Array[XlsxCellModel] = []
+  let limit = if out.length() < cap { out.length() } else { cap }
+  for i in 0..<limit {
+    preview.push(out[i])
+  }
+  preview
+}
+
+///|
+fn xlsx_visible_nonblank_cell_count(sheet : XlsxSheetModel) -> Int {
+  let hidden_lookup = xlsx_hidden_row_lookup(sheet.hidden_rows)
+  let mut count = 0
+  for cell in sheet.cells {
+    if hidden_lookup.get(cell.row.to_string()).unwrap_or(false) {
+      continue
+    }
+    if @cor.trim_string(cell.display_text) != "" {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+fn xlsx_hidden_row_lookup(hidden_rows : Array[Int]) -> Map[String, Bool] {
+  let out : Map[String, Bool] = Map([])
+  for row in hidden_rows {
+    out.set(row.to_string(), true)
+  }
+  out
+}
+
+///|
+fn xlsx_sparse_preview_cell_line(cell : XlsxCellModel) -> String {
+  cell.reference +
+  " (row=" +
+  cell.row.to_string() +
+  " col=" +
+  cell.column.to_string() +
+  "): " +
+  cell.display_text
 }
 
 ///|

@@ -213,6 +213,10 @@ fn render_sheet_rows_from_cells(
   max_r : Int,
   max_c : Int,
 ) -> (Array[Array[String]], Array[Int]) {
+  if xlsx_dense_sheet_guard_triggered(min_r, min_c, max_r, max_c) {
+    return ([], [])
+  }
+
   let cell_texts : Map[String, String] = Map([])
   for cell in cells {
     cell_texts.set(
@@ -221,6 +225,47 @@ fn render_sheet_rows_from_cells(
     )
   }
   render_sheet_rows(cell_texts, hidden_rows, min_r, min_c, max_r, max_c)
+}
+
+///|
+fn xlsx_dense_sheet_area_cap() -> Int {
+  1_000_000
+}
+
+///|
+fn xlsx_sparse_preview_cell_cap() -> Int {
+  100
+}
+
+///|
+fn xlsx_dense_sheet_guard_triggered(
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> Bool {
+  if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
+    return false
+  }
+
+  let rows = max_r - min_r + 1
+  let cols = max_c - min_c + 1
+  let cap = xlsx_dense_sheet_area_cap()
+  rows > cap / cols
+}
+
+///|
+fn xlsx_dense_sheet_area_string(
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> String {
+  if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
+    return "0"
+  }
+
+  ((max_r - min_r + 1) * (max_c - min_c + 1)).to_string()
 }
 
 ///|

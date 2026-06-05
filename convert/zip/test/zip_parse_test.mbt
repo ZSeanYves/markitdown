@@ -100,6 +100,14 @@ fn cleanup_temp_dir(path : String) -> Unit {
 }
 
 ///|
+fn restore_env_var(name : String, previous : String?) -> Unit {
+  match previous {
+    Some(value) => @sys.set_env_var(name, value)
+    None => @sys.unset_env_var(name)
+  }
+}
+
+///|
 fn first_image_block_by_path(
   doc : @cor.Document,
   path : String,
@@ -125,6 +133,46 @@ fn assert_not_contains(haystack : String, needle : String) -> Unit raise {
   if haystack.contains(needle) {
     fail("expected text to exclude: " + needle + "\nactual:\n" + haystack)
   }
+}
+
+///|
+fn find_substring(haystack : String, needle : String, start : Int) -> Int? {
+  let h = haystack.to_array()
+  let n = needle.to_array()
+  if n.length() == 0 {
+    return Some(start)
+  }
+  if h.length() < n.length() || start >= h.length() {
+    return None
+  }
+  let mut i = start
+  while i <= h.length() - n.length() {
+    let mut ok = true
+    let mut j = 0
+    while j < n.length() {
+      if h[i + j] != n[j] {
+        ok = false
+        break
+      }
+      j += 1
+    }
+    if ok {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn assert_order(markdown : String, first : String, second : String) -> Unit raise {
+  let first_pos = find_substring(markdown, first, 0).unwrap_or_else(() => {
+    fail("missing first text: " + first)
+  })
+  let second_pos = find_substring(markdown, second, 0).unwrap_or_else(() => {
+    fail("missing second text: " + second)
+  })
+  assert_true(first_pos < second_pos)
 }
 
 ///|
@@ -376,6 +424,82 @@ test "zip inspect reports supported, nested, and unsafe entry policies" {
     Some("data/person.json"),
     "expected normalized json path",
   )
+}
+
+///|
+async test "zip parse keeps sorted entry order with reused inspect plan" {
+  let root = zip_test_root()
+  let out_dir = root + "/parse_zip_sorted_plan"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let doc = @zipconv.parse_zip(
+    resolve_sample_path("samples/main_process/zip/zip_sorted_entries.zip"),
+    out_dir,
+    6,
+  )
+  let md = @cor.emit_markdown(doc)
+
+  assert_order(md, "# a-first.md", "# m-middle.csv")
+  assert_order(md, "# m-middle.csv", "# z-last.txt")
+  assert_contains(md, "# First")
+  assert_contains(md, "| Ada | Engineer |")
+  assert_contains(md, "Last entry text.")
+}
+
+///|
+async test "zip profile disabled returns no report and keeps output stable" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_ZIP")
+  defer restore_env_var("MARKITDOWN_PROFILE_ZIP", prev_enabled)
+  @sys.unset_env_var("MARKITDOWN_PROFILE_ZIP")
+
+  let root = zip_test_root()
+  let out_dir = root + "/parse_zip_profile_disabled"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let (doc, profile) = @zipconv.parse_zip_with_profile(
+    resolve_sample_path("samples/main_process/zip/zip_sorted_entries.zip"),
+    out_dir,
+    6,
+  )
+  match profile {
+    Some(_) => fail("zip profile should be disabled by default")
+    None => ()
+  }
+  let md = @cor.emit_markdown(doc)
+  assert_order(md, "# a-first.md", "# m-middle.csv")
+  assert_order(md, "# m-middle.csv", "# z-last.txt")
+}
+
+///|
+async test "zip profile enabled preserves detail for html shared materialization" {
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_ZIP")
+  defer restore_env_var("MARKITDOWN_PROFILE_ZIP", prev_enabled)
+  @sys.set_env_var("MARKITDOWN_PROFILE_ZIP", "1")
+
+  let root = zip_test_root()
+  let out_dir = root + "/parse_zip_profile_enabled_html_assets"
+  recreate_clean_dir(out_dir)
+  defer cleanup_temp_dir(out_dir)
+
+  let (doc, profile) = @zipconv.parse_zip_with_profile(
+    resolve_sample_path("samples/fixtures/zip/zip_html_local_image.zip"),
+    out_dir,
+    6,
+  )
+  let report = match profile {
+    Some(rep) => @zipconv.zip_profile_render_report(rep)
+    None => fail("zip profile should be enabled")
+  }
+  let md = @cor.emit_markdown(doc)
+  assert_contains(md, "![single](assets/archive/site_page.html/image01.png)")
+  assert_contains(report, "zip_profile counts total_entries=")
+  assert_contains(report, "zip_profile result total_entries=")
+  assert_contains(report, "stage=zip_filter_entries")
+  assert_contains(report, "planned_entries_sorted=")
+  assert_contains(report, "shared_input_entries=1")
+  assert_contains(report, "asset_entries=1")
 }
 
 ///|

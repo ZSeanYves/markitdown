@@ -42,6 +42,11 @@ fn json_profile_begin(enabled : Bool) -> Unit {
 }
 
 ///|
+fn json_profile_active_enabled() -> Bool {
+  json_profile_enabled.val
+}
+
+///|
 fn json_profile_finish() -> (Int, Int, Int, Int, UInt64, UInt64) {
   json_profile_enabled.val = false
   (

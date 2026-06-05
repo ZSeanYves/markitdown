@@ -144,6 +144,51 @@ test "markdown passthrough preserves fenced code and frontmatter as conservative
 }
 
 ///|
+test "markdown convert consumes parser scanner block inventory for frontmatter and fences" {
+  let scanned = @dpmd.scan_markdown_document(
+    read_utf8_text(
+      resolve_sample_path(
+        "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+      ),
+    ),
+  )
+  assert_true(scanned.frontmatter is Some(_))
+  assert_true(scanned.blocks[0].kind == @dpmd.MarkdownBlockKind::BlankLine)
+  assert_true(scanned.blocks[1].kind == @dpmd.MarkdownBlockKind::HeadingAtx)
+
+  let frontmatter_doc = @md.parse_markdown(
+    resolve_sample_path(
+      "samples/main_process/markdown/markdown_frontmatter_passthrough.markdown",
+    ),
+    "",
+    6,
+  )
+  assert_eq(frontmatter_doc.blocks.val.length(), 3)
+  match frontmatter_doc.block_origins.val[0] {
+    Some(origin) => {
+      assert_eq(origin.line_start, Some(1))
+      assert_eq(origin.line_end, Some(5))
+    }
+    None => fail("expected frontmatter origin")
+  }
+
+  let fence_doc = @md.parse_markdown(
+    resolve_sample_path("samples/main_process/markdown/markdown_code_fence.md"),
+    "",
+    6,
+  )
+  assert_eq(fence_doc.blocks.val.length(), 1)
+  assert_true(fence_doc.blocks.val[0] is @cor.Block::CodeBlock(_))
+  match fence_doc.block_origins.val[0] {
+    Some(origin) => {
+      assert_eq(origin.line_start, Some(1))
+      assert_eq(origin.line_end, Some(5))
+    }
+    None => fail("expected fenced code origin")
+  }
+}
+
+///|
 test "markdown passthrough normalizes missing trailing newline only at output" {
   let input = resolve_sample_path(
     "samples/main_process/markdown/markdown_no_trailing_newline.md",
@@ -384,4 +429,41 @@ test "markdown code fence inline code and reference links do not misparse footno
   let ref_link_doc = @md.parse_markdown(ref_link_path, "", 6)
   assert_eq(@cor.emit_markdown(ref_link_doc), "[foo]: https://example.com\n")
   assert_eq(ref_link_doc.note_definitions.val.length(), 0)
+}
+
+///|
+test "markdown frontmatter and html candidate lines do not become footnotes" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let frontmatter_path = dir + "/markdown_footnote_frontmatter.md"
+  write_utf8_text(
+    frontmatter_path,
+    "---\n" +
+    "[^meta]: not a footnote\n" +
+    "---\n" +
+    "Body only.\n",
+  )
+  let frontmatter_doc = @md.parse_markdown(frontmatter_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(frontmatter_doc),
+    "---\n[^meta]: not a footnote\n---\nBody only.\n",
+  )
+  assert_eq(frontmatter_doc.note_definitions.val.length(), 0)
+  assert_true(frontmatter_doc.blocks.val[0] is @cor.Block::Paragraph(_))
+
+  let html_path = dir + "/markdown_footnote_html_candidate.md"
+  write_utf8_text(
+    html_path,
+    "<div>\n" +
+    "[^1]: still html candidate text\n" +
+    "</div>\n",
+  )
+  let html_doc = @md.parse_markdown(html_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(html_doc),
+    "<div>\n[^1]: still html candidate text\n</div>\n",
+  )
+  assert_eq(html_doc.note_definitions.val.length(), 0)
+  assert_eq(html_doc.blocks.val.length(), 1)
 }

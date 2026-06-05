@@ -23,11 +23,28 @@ Current scope:
 * EPUB
 * PDF
 
+## Parser / Convert Contract Principle
+
+* Parser packages own source facts: syntax, source-native structure, spans,
+  relationships, validation signals, and package/part facts.
+* Convert packages own product policy: Markdown / IR lowering, rendering choices,
+  metadata, origin attachment, asset export, provider gates, and fallbacks.
+* Parser / convert integration may use a full model, token / event stream, query
+  API, shared scanner / helper primitive, cache / index, or inventory /
+  validation signal.
+* Full parser model consumption is optional, not mandatory.
+* Duplicate source parsing is a defect only when it is unnecessary and
+  unjustified.
+* Convert-local semantic logic is acceptable when it is product policy and
+  benchmark-stable.
+
 ## 1. JSON
 
 ### Status
 
 * `doc_parse/json` has a healthy parser / AST / inspect separation.
+* `convert/json consumes doc_parse/json`.
+* No adapter is needed.
 * `convert/json` owns Markdown and IR lowering policy.
 * The parser layer remains string-based and source-native.
 
@@ -62,6 +79,8 @@ Current scope:
 ### Status
 
 * `doc_parse/yaml` is a conservative YAML subset parser.
+* `convert/yaml consumes doc_parse/yaml`.
+* No adapter is needed.
 * `convert/yaml` owns Markdown and IR lowering policy.
 * The parser intentionally fails closed for unsupported YAML features.
 
@@ -80,6 +99,7 @@ Current scope:
 * Anchors, aliases, tags, merge keys, and complex keys remain unsupported.
 * Real multi-document streams remain unsupported.
 * Recursive YAML parsing has no explicit depth guard.
+* The parser is not streaming and currently expects a full String input.
 * `profile_yaml_document` is public even though it is mostly an internal
   attribution surface.
 
@@ -136,11 +156,17 @@ Current scope:
 * `doc_parse/csv` owns the shared CSV / delimited parser core.
 * `doc_parse/tsv` is a thin facade over `doc_parse/csv` with tab delimiter
   options.
+* `convert/csv consumes doc_parse/csv`.
+* `convert/csv parse_tsv consumes doc_parse/tsv`.
+* No adapter is needed.
 * `convert/csv` owns header, table, and Markdown policy.
 
-### Fixed in current pass
+### Current boundary
 
-* None in code. Audit only.
+* Parser packages own source/delimiter parsing and row materialization.
+* Header detection, RichTable construction, encoding fallback, and Markdown /
+  IR output policy remain convert-owned.
+* TSV remains a thin input-format facade over the shared delimited parser.
 
 ### Deferred defects / risks
 
@@ -151,6 +177,11 @@ Current scope:
   overhead.
 * There is no streaming parser; large delimited files remain full-String parser
   inputs.
+* CSV/TSV rows are fully materialized before convert lowering.
+* Delimiter support follows explicit parser options; automatic dialect
+  detection beyond current parser policy is deferred.
+* Parser inputs are decoded Strings; file bytes and encoding fallback remain
+  convert-owned where applicable.
 
 ### Not-a-bug decisions
 
@@ -215,12 +246,15 @@ Current scope:
 * It scans raw block inventory, frontmatter, fences, headings, lists,
   blockquotes, table-like rows, and HTML-candidate signals.
 * It is not a renderer, CommonMark parser, or passthrough converter.
-* `convert/markdown` currently does not consume this scanner and owns
-  passthrough, footnote, and conservative block logic.
+* `convert/markdown` consumes the `doc_parse/markdown` scanner for block
+  inventory, frontmatter, fence, and HTML-candidate ranges.
+* `convert/markdown` still owns source-preserving passthrough output and
+  footnote policy.
 
 ### Fixed in current pass
 
-* None yet.
+* `convert/markdown` now consumes `doc_parse/markdown` scanner output for block
+  inventory / frontmatter / fence / HTML-candidate ranges.
 
 ### Deferred defects / risks
 
@@ -231,23 +265,22 @@ Current scope:
   and raw block joins.
 * `profile_markdown_document` and profile report structs are public but mostly
   internal attribution surface.
-* `convert/markdown` not consuming `doc_parse/markdown` scanner output is a
-  deferred architecture decision.
+* Large Markdown inputs still deserve explicit benchmark-driven review because
+  the scanner remains a full-buffer normalization / line-oriented pass.
 
 ### Not-a-bug decisions
 
-* Do not implement full CommonMark in this package.
-* Do not force the scanner into `convert/markdown` before a separate
-  product-output design.
 * Keeping the scanner package is reasonable because it contains real structural
   signal extraction, not an empty wrapper.
+* CommonMark completeness, full Markdown AST work, HTML sanitization, remote
+  link/image fetch, and other product-facing Markdown behavior belong in
+  `docs/format-limits.md`, not this defect list.
 
 ### Future actions
 
 * Avoid profile detail construction in normal scan.
 * Replace the `source_length` char-array count with a lower-allocation helper if
   low-risk.
-* Decide whether / when `convert/markdown` should consume scanner output.
 * Record profile API boundary with other parser packages.
 
 ## HTML
@@ -260,26 +293,63 @@ Current scope:
   CSS, or JS execution.
 * It includes parser-layer safety / diagnostic issues such as duplicate
   attributes, unsafe URL scheme, and script / style warnings.
-
-### Fixed in current pass
-
-* None yet.
+* `convert/html` consumes `doc_parse/html` parser validation / security
+  signals.
+* HTML-2A shared low-level parser primitives are complete for entity decode,
+  raw tag-name extraction, and raw / decoded attribute value helpers.
+* HTML-2B selective token / event traversal is complete for source-offset token
+  events and depth-aware matching helpers used by `convert/html` scope
+  selection.
+* HTML-2C token-event skip ranges are complete for closed
+  script/style/head/noscript element source ranges.
+* HTML-2D inline/link/image primitive convergence is complete for convert-side
+  inline tag dispatch through the shared parser raw-tag helper.
+* HTML-2D parser-analysis observability is available in the `convert/html`
+  profile path for parser analysis, event scope, skip ranges, fallback reason,
+  and large-input guard signals.
+* HTML-2E table/list/note primitive convergence is complete where applicable:
+  structural table/list matching uses parser-backed tag-name verification, table
+  span attrs use decoded parser attrs, and note/ref paths keep parser-backed
+  attr/entity helpers.
+* HTML-2E profile hot-path audit is complete for HTML profile timing and
+  enabled-only conversion counters.
+* `convert/html` now routes low-level attr / entity / raw-tag helpers through
+  `doc_parse/html` primitives.
+* `convert/html` uses parser token events for main / article / body scope range
+  selection while keeping semantic lowering policy local.
+* `convert/html` uses parser token-event ranges to skip closed
+  script/style/head/noscript elements in the main block scanner while preserving
+  fallback raw scanning.
+* `convert/html` may keep semantic body / noise / table / link / image policy.
+* Full parser DOM adoption remains non-default and requires benchmark / quality
+  proof.
 
 ### Deferred defects / risks
 
 * `parse_html_document` and `tokenize_html_document` currently perform double
-  normalization and an extra `source_length` char-array pass.
+  normalization plus an extra `source_length` char-array / `to_array`-style
+  pass.
 * `inspect_html_document` recursively visits children; very deep DOM trees can
   hit recursion depth risk.
 * Entity-heavy HTML can allocate through repeated text, attribute, and entity
   decoding.
-* `tokenize_html_document` and `HtmlToken` may be wider public surface than
-  needed.
+* The private `convert/html` semantic traversal still uses byte search / matching
+  for block, inline, table, list, note, and noise product policy; this is
+  separate from the shared attr / entity / raw-tag primitives, scope event
+  traversal, and token-event skip ranges completed in HTML-2A / HTML-2B /
+  HTML-2C, inline tag dispatch completed in HTML-2D, and table/list/note
+  structural primitive convergence completed in HTML-2E.
+* Large HTML can hit double-parse risk when parser validation and private
+  semantic scanning both run; very large inputs keep the parser-validation guard
+  and fall back to byte scope selection.
+* `tokenize_html_document`, `HtmlToken`, token event, and token source-range
+  helper APIs may be wider public surface than needed.
+* Parser model / validation issue public shapes such as `HtmlDocument`,
+  `HtmlNode`, `HtmlValidationIssueKind`, and validation reports now cross a real
+  package boundary and should remain source-oriented and compatibility-aware.
 * `HtmlValidationIssueKind` includes safety diagnostics such as `UnsafeUrl`,
-  `ScriptElement`, and `StyleElement`, which must not evolve into convert
-  output policy without explicit design.
-* `convert/html` currently does not consume the `doc_parse/html` model; it uses
-  its own private semantic DOM and converter logic.
+  `ScriptElement`, and `StyleElement`; these must not quietly evolve into
+  convert output policy without explicit design.
 
 ### Not-a-bug decisions
 
@@ -287,15 +357,27 @@ Current scope:
 * `doc_parse/html` does not decide Markdown, IR, table, list, heading, image, or
   link output policy.
 * `doc_parse/html` does not copy assets or render links.
-* Unknown named entities may remain literal; external fetch and JS / CSS
-  execution are out of scope.
+* Unknown named entities may remain literal.
+* JS / CSS execution, sanitizer mode, browser-grade tree building, and remote
+  asset fetch belong in `docs/format-limits.md`, not this defect list.
 
 ### Future actions
 
 * Reduce double normalization and `source_length` allocation if low-risk.
+* HTML-2A shared low-level parser primitive convergence is complete.
+* HTML-2B selective token / event stream traversal is complete for content-scope
+  range selection.
+* HTML-2C token-event skip ranges are complete for closed
+  script/style/head/noscript elements.
+* HTML-2D inline/link/image primitive convergence and profile observability are
+  complete where applicable.
+* HTML-2E table/list/note primitive convergence and profile hot-path audit are
+  complete where applicable.
+* Do not make full parser DOM adoption the default target without benchmark /
+  quality proof.
 * Keep safety diagnostics separate from convert output policy.
-* Decide separately whether `convert/html` should consume the `doc_parse/html`
-  model.
+* Evaluate whether token / validation public surface can be narrowed without
+  breaking legitimate parser consumers.
 * Consider depth guard strategy with other recursive parsers.
 
 ## ZIP
@@ -307,11 +389,16 @@ Current scope:
   normalization diagnostics, entry bytes reading, and Store / DeflateRaw decode.
 * It performs no Markdown / IR conversion, no entry dispatch policy, and no file
   I/O.
+* `convert/zip_core` consumes `doc_parse/zip`.
+* No parser integration problem remains.
 * `convert/zip_core` owns archive conversion policy and entry format dispatch.
+* convert-side inspect-plan/profile/cache cleanup completed in ZIP-1.
 
 ### Fixed in current pass
 
-* None in code. Audit only.
+* ZIP-1 completed convert-side inspect-plan/profile/cache cleanup; repeated
+  inspect plan rebuild, profile-disabled detail/stat traversal, and repeated
+  `read_entry` cache gaps are no longer parser unresolved defects.
 
 ### Deferred defects / risks
 
@@ -320,10 +407,11 @@ Current scope:
 * Deflate decode currently completes before `max_output_size` is checked,
   creating peak-memory risk for hostile compressed data.
 * CRC32 validation scans decoded bytes after decode.
-* Inspect / list helpers may rebuild reports and sorted views repeatedly.
 * There is no streaming entry reader.
 * ZIP64, encryption / password recovery, multidisk archives, and unsupported
   compression methods remain unsupported.
+* Public API surface is broad: archive, entry, inspect, diagnostic, list, and
+  read helpers are all exposed.
 * Unsafe entry paths are validation diagnostics at the `doc_parse` level;
   `convert/zip_core` decides fail policy.
 
@@ -341,8 +429,9 @@ Current scope:
 
 * Consider deflate output cap before or during decompression if the backend
   supports it.
-* Consider caching inspect / list reports if repeated calls become measurable.
 * Consider streaming entry read only if real workloads require it.
+* Consider narrowing the public API surface after convert/test consumers are
+  reviewed.
 * Keep convert policy in `convert/zip_core`.
 
 ## OOXML
@@ -411,30 +500,40 @@ Current scope:
   `doc_parse/ooxml`.
 * It parses DOCX package parts into a `DocxDocument` model: body blocks,
   paragraphs, runs, tables, styles, numbering, relationships, footnotes /
-  endnotes, comments, headers / footers, text boxes, and media references.
+  endnotes, comments, headers / footers, text boxes, drawings, shapes, media,
+  fields, math, tracked changes, content controls, smart tags, and
+  content-bearing unknowns.
 * It does not produce Markdown / IR, copy or export assets, or own metadata
   sidecar policy.
 * `doc_parse/ooxml` sits below it; `convert/docx` sits above it.
+* The old `doc_parse/docx` parser/runtime directory was removed in commit
+  `8ed4a3b`; normal DOCX conversion no longer has a v1 parser fallback.
+* The parser/model preserves source order, owner part, stable source keys,
+  part graph relationships, table merge/nesting facts, media references, and
+  structured warnings for unsupported source constructs.
+* `convert/docx` retains Markdown / assets / origin / rendering policy.
 
 ### Fixed in current pass
 
-* None in code. Audit only.
+* DOCX source/model/lowering replaced the old DOCX parser/runtime path and
+  removed normal runtime fallback/oracle behavior.
+* Package part reads, relationship lookup, styles, numbering, media inventory,
+  source order, table facts, note/comment/header/footer/textbox bodies,
+  drawing/shape anchors, and content-bearing unknowns are represented in v2
+  source/model records.
+* Parser-owned facts remain source-oriented: Markdown, IR, asset paths,
+  appendix placement, origin policy, field evaluation, OMML conversion, and
+  full tracked-change rendering stay out of the parser.
 
 ### Deferred defects / risks
 
 * `open_docx_document(path)` performs file I/O inside the parser package; this
   is a convenience facade but not a pure parser boundary.
-* `convert/docx` currently does not consume `DocxDocument` from
-  `doc_parse/docx` and instead uses OOXML / self-owned conversion logic.
-* Parse / profile stages may still construct profile-only detail strings on the
-  normal parse path.
-* Repeated part reads may occur for comments, notes, headers / footers,
-  relationships, and styles / numbering.
-* XML string scanning in `docx_xml.mbt` and per-feature parsers can involve
-  multiple scans / slices.
-* Style and numbering lookups may be linear in places.
-* `profile_docx_document_from_package` and profile report structs are public
-  but mostly internal attribution surface.
+* Keep future DOCX inventory/debug helpers out of profile-disabled normal
+  conversion paths.
+* Word layout fidelity, field evaluation, OMML conversion, arbitrary-depth
+  table rendering, object/chart/smart-art/audio/video rendering, and full
+  tracked-change display policy remain explicit product limits.
 * Large public model structs make future schema evolution harder.
 
 ### Not-a-bug decisions
@@ -450,12 +549,6 @@ Current scope:
 
 ### Future actions
 
-* Consider removing or de-emphasizing `open_docx_document(path)` if parser
-  packages should be String / Bytes / package-only.
-* Decide separately whether `convert/docx` should consume `DocxDocument`.
-* Avoid normal-path profile detail construction if low-risk.
-* Consider relationship / part / style / numbering lookup caching only if
-  measurable.
 * Keep Markdown / IR / asset policy in `convert/docx`.
 
 ## PPTX
@@ -472,29 +565,35 @@ Current scope:
   sidecar policy.
 * `doc_parse/ooxml` sits below it; `convert/pptx` sits above it.
 
-### Fixed in current pass
+### Current adapter boundary
 
-* None in code. Audit only.
+* `convert/pptx` consumes `doc_parse/pptx` through a PPTX-1 parser inventory
+  adapter.
+* `convert/pptx` reuses the same `OoxmlPackage` and avoids path double-open.
+* Chart conversion reuses the parsed `PptxPresentation` instead of reparsing
+  the whole deck.
+* Legacy slide / text / table / image / output lowering remains in
+  `convert/pptx`.
 
 ### Deferred defects / risks
 
 * `open_pptx_presentation(path)` performs file I/O inside the parser package;
   this is a convenience facade but not a pure parser boundary.
-* `convert/pptx` only partially consumes `doc_parse/pptx`: chart semantic data
-  uses `parse_pptx_presentation_from_package`, but the main slide / text /
-  image / notes / rendering pipeline still uses convert-owned OOXML logic and
-  private types.
+* Parser and legacy convert paths can still read some of the same package parts
+  during the normal PPTX conversion path.
 * Repeated part reads may occur across slides, slide relationships, notes,
   comments, and charts.
-* Chart semantic paths may reparse the presentation for each chart-related
-  conversion path.
 * XML string scanning in `pptx_xml.mbt` and per-feature parsers can involve
   multiple scans / slices.
 * Relationship lookup can be linear in places such as
   `find_pptx_relationship_by_id`.
 * Group shape traversal and inspect recurse through shape trees and can hit
   depth risk on extreme documents.
-* Layout / master / theme inheritance remains deferred.
+* Chart, table, and media models still preserve source-native signals rather
+  than full PowerPoint rendering semantics.
+* `inspect_pptx_presentation`, validation reports, and public model structs are
+  mostly internal attribution / adapter surface and should remain
+  compatibility-aware.
 * Large public model structs make future schema evolution harder.
 
 ### Not-a-bug decisions
@@ -508,14 +607,14 @@ Current scope:
   `convert/pptx`.
 * Cached chart data extraction is parser-model signal, not final chart
   rendering policy.
-* Layout / master / theme inheritance is intentionally not implemented in this
-  pass.
+* Full PowerPoint layout, animation / timing rendering, external link
+  execution, and exact theme rendering belong in `docs/format-limits.md`, not
+  this defect list.
 
 ### Future actions
 
-* Decide separately whether `convert/pptx` should fully consume
-  `PptxPresentation`.
-* Consider avoiding repeated presentation parsing in chart paths if measurable.
+* Keep the parser inventory adapter narrow while PPTX-2 gradually replaces
+  legacy output paths with `PptxPresentation` consumption.
 * Consider relationship lookup indexing if slide / shape-heavy decks show
   bottlenecks.
 * Keep Markdown / IR / asset / notes rendering policy in `convert/pptx`.
@@ -530,40 +629,52 @@ Current scope:
 * It parses SpreadsheetML package parts into an `XlsxWorkbook` model: workbook
   sheets, worksheet cells, shared strings, inline strings, styles / number
   formats, merged ranges, comments, hidden rows / sheets, formulas, cached
-  values, and conservative formula trace / evaluation signals.
+  values, and conservative formula trace signals.
 * It does not produce Markdown / IR / RichTable output, copy or export assets,
   or own metadata sidecar policy.
 * `doc_parse/ooxml` sits below it; `convert/xlsx` sits above it.
-* Unlike DOCX / PPTX, `convert/xlsx` already consumes `doc_parse/xlsx` as its
-  primary semantic workbook source, while still keeping convert-side
-  compatibility / output models.
+* `convert/xlsx` already consumes `doc_parse/xlsx` as the source model.
+* No hybrid adapter is needed; unlike DOCX / PPTX, the normal XLSX convert path
+  already uses `XlsxWorkbook`, `XlsxSheet`, and `XlsxCell` through a convert
+  compatibility model.
 
 ### Fixed in current pass
 
-* None in code. Audit only.
+* No parser architecture change was needed: `convert/xlsx` already consumes
+  `doc_parse/xlsx` as the source model.
+* XLSX-1C fixed the convert-side huge sparse output risk with a dense-range
+  guard; that is no longer an unresolved parser defect.
 
 ### Deferred defects / risks
 
 * `open_xlsx_workbook(path)` performs file I/O inside the parser package; this
   is a convenience facade but not a pure parser boundary.
+* XLSX parsing inherits full-buffer OOXML / package reads from
+  `doc_parse/ooxml`.
+* Shared strings, styles, workbook sheets, worksheet cells, hidden-row data,
+  comments, and merged ranges are fully materialized.
 * Date / time and number-format interpretation are relatively thick
   parser-layer semantics via `display_text` and `semantic_type`; this must
   remain source-model signal, not product rendering policy.
-* Formula parsing / evaluation / trace is intentionally conservative but can
-  become expensive on formula-heavy workbooks.
-* Normal parse may still construct profile-only detail strings such as
-  `bytes=` and `count=` on the non-profile path.
+* Parser-side profile helper calls may still construct parser-only detail
+  strings such as `bytes=` and `count=` on the non-profile path; this is
+  separate from the XLSX-1C convert-side profile-disabled hot-path fix.
 * Shared strings are loaded into a full in-memory array.
 * Cell `display_text` can copy or spread shared string / formatted value text
   across many cells.
 * Worksheet, styles, shared strings, and formula parsing rely on XML string
   scanning / slicing; large worksheets can be hot.
-* Formula context and convert table materialization may build separate
-  coordinate maps, duplicating memory.
-* Drawings / images / media and hyperlinks are not currently represented as
-  parser model features.
+* Formula context can build coordinate maps, duplicating memory with the full
+  workbook model.
+* Drawings / images / media are not currently represented as parser model
+  features.
+* Hyperlink target metadata is not currently represented as parser model
+  feature beyond visible cell text and relationship-level sheet metadata.
 * Large public model structs and compatibility aliases such as `XlsxSheetModel`
   and `XlsxCellModel` make future schema evolution harder.
+* Streaming parser support for very large workbooks is deferred.
+* Convert/xlsx now bounds huge sparse used-range outputs with a dense-range
+  guard, but the parser remains full-materialization and non-streaming.
 
 ### Not-a-bug decisions
 
@@ -571,21 +682,22 @@ Current scope:
   `doc_parse/xlsx` as source-model signals.
 * Markdown table rendering, sheet heading / output policy, row / column
   trimming, metadata sidecar, and origin policy belong in `convert/xlsx`.
-* Conservative formula evaluation is parser semantic signal, not a full Excel
-  engine.
 * Date / number display hints are acceptable parser-model signals as long as
   convert keeps final output policy.
 * Drawings / images / media are intentionally out of current XLSX parser scope.
+* Full Excel formula evaluation, macro execution, external link fetching, and
+  full Excel layout / rendering fidelity belong in `docs/format-limits.md`, not
+  this defect list.
 
 ### Future actions
 
-* Avoid normal-path profile detail construction if low-risk.
+* Avoid parser-side normal-path profile detail construction if low-risk.
 * Consider formula / style / date hot-path work only with XLSX samples or
   benchmark evidence.
 * Consider shared string / `display_text` memory reductions only if real
   workloads show pressure.
 * Keep RichTable / Markdown / sheet output policy in `convert/xlsx`.
-* Audit EPUB next.
+* EPUB audit and EPUB-1 convert-side cache cleanup are complete; audit PDF last.
 
 ## EPUB
 
@@ -602,23 +714,29 @@ Current scope:
 * `convert/epub` already consumes `doc_parse/epub` and owns
   reading-order-to-Markdown, asset remap / export, link rewriting, warnings,
   and origin metadata policy.
+* No hybrid adapter is needed.
+* `convert/epub` has a per-run part cache for repeated conversion part reads.
 
 ### Fixed in current pass
 
-* None in code. Audit only.
+* EPUB-1 added a `convert/epub` per-run part cache for repeated conversion
+  reads; materialization and cover export now use cached part bytes where
+  applicable.
 
 ### Deferred defects / risks
 
 * `EpubPackage` exposes archive, `entry_index`, manifest / spine / nav
   internals, and public container-like read / list helpers; this is broad but
   currently useful.
-* EPUB inherits full-buffer ZIP behavior and full decoded entry reads from
-  `doc_parse/zip`.
-* Public `read_part_bytes` and `read_part_text` can cause repeated ZIP entry
-  reads without caching.
-* `convert/epub` may materialize safe archive trees and then feed XHTML / HTML
-  content into `convert/html`, creating additional full-buffer reads / writes.
+* `doc_parse/epub` inherits full-buffer ZIP behavior and full decoded entry
+  reads from `doc_parse/zip`; there is no streaming archive reader.
+* Public `read_part_bytes` and `read_part_text` remain a broad package/read-part
+  surface, even though `convert/epub` now caches repeated reads within one
+  conversion run.
+* Full safe archive tree materialization and staged XHTML / HTML conversion
+  remain convert-side performance risks tracked in `docs/convert-defects.md`.
 * EPUB3 nav and NCX toc traversal can hit depth risk on extreme files.
+* Path normalization and external href/resource safety must remain guarded.
 * Path resolution uses repeated `split` / `replace` / `to_array` style
   operations; large manifests / resources may accumulate overhead.
 * EPUB3 nav hrefs are kept as raw toc signals, while NCX unsafe hrefs are
@@ -633,12 +751,15 @@ Current scope:
 * External links / resources are preserved but not fetched.
 * `doc_parse/epub` does not parse XHTML body content; `convert/epub` delegates
   body conversion to `convert/html`.
+* `doc_parse/epub` remains a package/source model layer only; Markdown / IR /
+  asset / origin policy stays in `convert/epub`.
 * `META-INF/encryption.xml` remains unsupported / fail-closed.
 
 ### Future actions
 
-* Consider caching part reads only if repeated reads become measurable.
 * Consider nav / toc depth guard with other recursive parser decisions.
+* Consider streaming ZIP / EPUB package reading only as a separately designed
+  parser project.
 * Keep link rewrite, asset export, Markdown rendering, and metadata sidecar
   policy in `convert/epub`.
 * Audit PDF last.
@@ -653,6 +774,10 @@ Current scope:
   testdata, and a large vendored `mbtpdf` tree.
 * Normal conversion goes through `convert/pdf` -> `doc_parse/pdf/api` -> raw
   `mbtpdf` extraction -> text / model builders -> `convert/pdf` policy.
+* PDF-6 outline second-open fix complete.
+* Raw extraction carries outlines / bookmarks from the first opened PDF object.
+* `RawPdfDocumentExtract.outlines` feeds `PdfDocumentModel.outlines`.
+* Normal extraction path no longer reopens PDF for bookmarks / outlines.
 * `doc_parse/pdf` is the largest known compile-size / time risk in the parser
   layer.
 
@@ -858,11 +983,10 @@ Current scope:
 * OCR / vision mode is a convert policy gate; non-disabled OCR modes fail
   closed unless runtime support is wired.
 
-### PDF-5 confirmed convert/pdf risks
+### PDF-5 convert/pdf status / risks
 
-* `pdf_parser.mbt` constructs profile-only detail strings even when profile is
-  `None`, including `ocr_mode=`, `pages=`, `max_heading=`, `enabled=`,
-  `high_confidence_uri_attach=true`, and `blocks=`.
+* Profile-only detail string construction is guarded behind profile `Some`;
+  profile-disabled `convert/pdf` paths no longer build those details.
 * `convert/pdf` public API is broad: many stage builders, decision helpers,
   intermediate structs, layout summaries / features, table / link / noise /
   merge helpers are exposed.
@@ -887,8 +1011,8 @@ Current scope:
 
 * PDF-0 mapped `doc_parse/pdf` as a layered stack with runtime, raw, model,
   text, inspect, `layout_model_tool`, tests, and vendored `mbtpdf`.
-* PDF-1 confirmed the normal runtime chain and two hot-path risks: outline
-  second open and `convert/pdf` profile detail overhead.
+* PDF-1 confirmed the normal runtime chain and initially identified outline
+  second-open and `convert/pdf` profile detail overhead risks.
 * PDF-2 identified vendor compile-size hotspots: `pdfpage`, `pdfcodec`,
   `pdfops`, `pdfglyphlist`, `core/pdf`, and related rare-filter / write
   surfaces.
@@ -899,32 +1023,36 @@ Current scope:
   quality-lab fallback and fixture policy concerns.
 * PDF-5 confirmed `convert/pdf` owns product conversion policy and does not
   mix raw / vendor parser responsibilities.
-* Overall, PDF should remain a phased refactor target. The first safe code fix
-  is profile detail guarding; outline second open and vendor package splits
-  require deeper design.
+* PDF-6 outline second-open fix complete: raw extraction carries outlines from
+  the first opened PDF object, `RawPdfDocumentExtract.outlines` feeds
+  `PdfDocumentModel.outlines`, and normal extraction no longer reopens the PDF
+  for bookmarks / outlines.
+* Overall, PDF should remain a phased parser refactor target. PDF-6 outline
+  second-open removal is complete; remaining parser-side work is around
+  path-oriented API shape, full raw / text / model materialization, text / model
+  multi-pass behavior, vendor compile-size / package closure, raw / model / text
+  API breadth, and bytes / input-handle support.
 
 ### Confirmed runtime defects / risks
 
 * Parser-facing PDF API is path-oriented; public `api` / `raw` entries accept
   filesystem paths rather than bytes or input handles.
-* `extract_document_model` opens / parses the PDF once for raw extraction and
-  then `attach_document_outlines` opens / parses the PDF again to read outlines
-  / bookmarks.
-* `convert/pdf` constructs profile-only detail strings on the normal path even
-  when profile is `None`.
-* Raw -> chars -> spans -> lines -> blocks is staged full materialization; this
-  is intentional but memory-heavy.
+* No broad bytes / input-handle PDF API exists yet.
+* PDF extraction still uses full raw / text / model materialization.
+* Raw ops -> chars -> spans -> lines -> blocks remains a staged multi-pass text
+  pipeline; this is intentional but memory-heavy.
 * `build_page_lines` performs multiple enrich / merge / filter passes and
   contains disabled debug helpers in the same file.
 * `raw`, `model`, and `text` expose broad public surfaces; `convert/pdf` needs
   only a subset of this API.
+* Vendor compile-size / package closure, including deflate / font / image / text
+  extraction costs, remains a parser-side hotspot.
 
 ### Deferred defects / risks
 
 * Normal runtime may compile more vendor code than strictly needed, including
   writer / crypto / rare filter / debug-adjacent surfaces.
-* `api.extract_document_model` is path / I/O oriented and may reopen the PDF
-  for outline extraction.
+* `api.extract_document_model` remains path / I/O oriented.
 * `doc_parse/pdf/text` is large and may mix runtime extraction, rules, and
   helper / debug-adjacent logic.
 * `layout_model_tool` depends on `convert/pdf_layout`, creating a
@@ -952,8 +1080,8 @@ Current scope:
 
 ### Future PDF audit plan
 
-* PDF-1 runtime parser chain: `api`, `raw`, `text`, `model`, path I/O, outline
-  second open, profile / detail, and model-building scans.
+* PDF-1 runtime parser chain: `api`, `raw`, `text`, `model`, path I/O,
+  profile / detail, and model-building scans.
 * PDF-2 raw / vendor / compile-size: `pdfpage`, `pdfcodec`,
   `pdfops` / `pdfopsread`, `pdfglyphlist`, crypto / write / test-only closure.
 * PDF-3 layout / model / debug / tool: `layout_model_tool`,
@@ -998,7 +1126,6 @@ Current scope:
 
 ### Future PDF-5 actions
 
-* Do a narrow profile-detail hot-path fix in `convert/pdf/pdf_parser.mbt`.
 * Defer public API narrowing until debug / layout / test dependencies are
   reviewed.
 * Consider splitting `pdf_lines` line model building from asset export only if
@@ -1007,10 +1134,8 @@ Current scope:
 
 ### Future PDF-1 actions
 
-* Investigate fixing outline second open by extracting outlines during the
-  first raw / vendor read if the `mbtpdf` API allows it.
-* Guard `convert/pdf` profile detail construction behind profile `Some`.
 * Defer bytes / input-handle PDF API until the vendor integration plan is clear.
+* Revisit full raw / text / model materialization only with benchmark evidence.
 * Continue PDF-2 vendor compile-size audit before broad refactor.
 
 ## 5. Cross-cutting parser issues
@@ -1037,6 +1162,7 @@ less clear because they expose internal attribution details.
 
 ### Convert layer parser-model consumption
 
-`convert/json`, `convert/yaml`, and `convert/xml` consume parser models.
-`convert/markdown` currently does not; it remains conservative passthrough and
-scanner-oriented.
+`convert/json`, `convert/yaml`, `convert/xml`, and `convert/csv` consume parser
+models. The `convert/csv` TSV path consumes `doc_parse/tsv`. `convert/markdown`
+now consumes `doc_parse/markdown` scanner ranges while retaining conservative
+passthrough output and convert-owned footnote policy.

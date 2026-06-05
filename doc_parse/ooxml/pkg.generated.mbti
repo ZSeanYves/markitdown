@@ -34,6 +34,8 @@ pub fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory
 
 pub fn inspect_ooxml_package(OoxmlPackage) -> OoxmlPackageInspectReport
 
+pub fn inspect_ooxml_part_cache_stats(OoxmlPackage) -> OoxmlPartCacheStats
+
 pub fn list_content_type_infos(OoxmlPackage) -> Array[OoxmlContentTypeInfo]
 
 pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
@@ -155,6 +157,7 @@ pub struct OoxmlPackage {
   part_index : Map[String, Int]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
+  // private fields
 }
 
 pub struct OoxmlPackageInspectReport {
@@ -184,6 +187,15 @@ pub struct OoxmlPackageInventory {
   media_asset_count : Int
   has_core_properties : Bool
   has_app_properties : Bool
+}
+
+pub struct OoxmlPartCacheStats {
+  bytes_hit_count : Int
+  bytes_miss_count : Int
+  text_hit_count : Int
+  text_decode_count : Int
+  bytes_entry_count : Int
+  text_entry_count : Int
 }
 
 pub struct OoxmlPartInfo {

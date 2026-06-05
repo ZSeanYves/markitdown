@@ -25,7 +25,8 @@ pub fn parse_markdown(
 
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
-  let normalized = normalize_markdown_footnotes(text, src)
+  let scanned_source = @dpmd.scan_markdown_document(text)
+  let normalized = normalize_markdown_footnotes(text, src, scanned_source)
   let output_text = match normalized {
     Some(result) => {
       for note in result.note_definitions {
@@ -37,29 +38,29 @@ pub fn parse_markdown(
   }
   @cor.set_passthrough_markdown(doc, output_text)
 
-  let output_lines = match normalized {
-    Some(result) => result.normalized_lines
-    None => markdown_lines(output_text)
-  }
-  let line_contexts = match normalized {
-    Some(result) => result.line_contexts
-    None => classify_markdown_line_contexts(output_lines)
+  let scanned = match normalized {
+    Some(_) => @dpmd.scan_markdown_document(output_text)
+    None => scanned_source
   }
   let inline_cache_by_line = match normalized {
     Some(result) => result.inline_cache_by_line
     None => []
   }
   let definition_start_lines = collect_markdown_footnote_definition_start_lines(
-    output_lines, line_contexts,
+    scanned,
   )
   let resolved_note_ids = match normalized {
     Some(result) => result.resolved_note_ids
     None => Map([])
   }
 
-  for block in conservative_markdown_blocks(output_text) {
-    let block_value = upgrade_markdown_conservative_block(
-      block, line_contexts, definition_start_lines, inline_cache_by_line, resolved_note_ids,
+  for block in scanner_backed_markdown_blocks(scanned) {
+    let block_value = upgrade_scanner_backed_markdown_block(
+      block,
+      scanned,
+      definition_start_lines,
+      inline_cache_by_line,
+      resolved_note_ids,
     )
     @cor.push_with_origin(
       doc,
@@ -114,13 +115,6 @@ fn normalize_markdown_source(text : String) -> String {
 }
 
 ///|
-priv enum MarkdownLineContext {
-  Normal
-  Frontmatter
-  CodeFence
-} derive(Eq)
-
-///|
 priv struct MarkdownFootnoteDefinitionDraft {
   note_id : String
   body : String
@@ -131,8 +125,6 @@ priv struct MarkdownFootnoteDefinitionDraft {
 ///|
 priv struct MarkdownFootnoteNormalization {
   normalized_markdown : String
-  normalized_lines : Array[String]
-  line_contexts : Array[MarkdownLineContext]
   inline_cache_by_line : Array[MarkdownInlineScanResult?]
   note_definitions : Array[@cor.NoteDefinition]
   resolved_note_ids : Map[String, Bool]
@@ -146,21 +138,30 @@ priv struct MarkdownInlineScanResult {
 }
 
 ///|
+priv struct ScannerBackedMarkdownBlock {
+  block : @cor.Block
+  line_start : Int
+  line_end : Int
+}
+
+///|
 fn normalize_markdown_footnotes(
   text : String,
   source_name : String,
+  scanned : @dpmd.MarkdownDocument,
 ) -> MarkdownFootnoteNormalization? {
   let lines = markdown_lines(text)
-  let contexts = classify_markdown_line_contexts(lines)
   let definition_starts : Map[Int, Int] = {}
   let definitions : Array[MarkdownFootnoteDefinitionDraft] = []
   let resolved_note_ids : Map[String, Bool] = {}
   let body_inline_cache : Array[MarkdownInlineScanResult?] = []
+  let body_lines : Array[String] = []
+  let mutable_normal_line_allowed = markdown_normal_line_allowance(scanned)
   let mut has_note_ref = false
   let mut i = 0
 
   while i < lines.length() {
-    if contexts[i] != MarkdownLineContext::Normal {
+    if !markdown_line_is_normal_allowed(mutable_normal_line_allowed, i) {
       i += 1
       continue
     }
@@ -175,13 +176,12 @@ fn normalize_markdown_footnotes(
     }
   }
 
-  let body_lines : Array[String] = []
   i = 0
   while i < lines.length() {
     match definition_starts.get(i) {
       Some(next_index) => i = next_index
       None => {
-        if contexts[i] == MarkdownLineContext::Normal {
+        if markdown_line_is_normal_allowed(mutable_normal_line_allowed, i) {
           let scan = scan_markdown_note_inlines(lines[i], resolved_note_ids)
           if scan.found_note_ref {
             has_note_ref = true
@@ -212,11 +212,8 @@ fn normalize_markdown_footnotes(
     body_inline_cache, definitions,
   )
   let normalized_markdown = normalized_lines.join("\n")
-  let line_contexts = classify_markdown_line_contexts(normalized_lines)
   Some({
     normalized_markdown,
-    normalized_lines,
-    line_contexts,
     inline_cache_by_line,
     note_definitions,
     resolved_note_ids,
@@ -224,9 +221,68 @@ fn normalize_markdown_footnotes(
 }
 
 ///|
-fn upgrade_markdown_conservative_block(
-  block : ConservativeMarkdownBlock,
-  contexts : Array[MarkdownLineContext],
+fn scanner_backed_markdown_blocks(
+  scanned : @dpmd.MarkdownDocument,
+) -> Array[ScannerBackedMarkdownBlock] {
+  let out : Array[ScannerBackedMarkdownBlock] = []
+  match scanned.frontmatter {
+    Some(frontmatter) =>
+      out.push({
+        block: @cor.Block::Paragraph(frontmatter_raw_text(frontmatter)),
+        line_start: frontmatter.line_start,
+        line_end: frontmatter.line_end,
+      })
+    None => ()
+  }
+
+  let mut i = 0
+  while i < scanned.blocks.length() {
+    let current = scanned.blocks[i]
+    if current.kind == @dpmd.MarkdownBlockKind::BlankLine {
+      i += 1
+      continue
+    }
+    if current.kind == @dpmd.MarkdownBlockKind::FencedCode {
+      out.push({
+        block: @cor.Block::CodeBlock(current.raw_text),
+        line_start: current.line_start,
+        line_end: current.line_end,
+      })
+      i += 1
+      continue
+    }
+
+    let chunk_lines : Array[String] = [current.raw_text]
+    let line_start = current.line_start
+    let mut line_end = current.line_end
+    i += 1
+
+    while i < scanned.blocks.length() {
+      let candidate = scanned.blocks[i]
+      if candidate.kind == @dpmd.MarkdownBlockKind::BlankLine ||
+        candidate.kind == @dpmd.MarkdownBlockKind::FencedCode ||
+        candidate.line_start != line_end + 1 {
+        break
+      }
+      chunk_lines.push(candidate.raw_text)
+      line_end = candidate.line_end
+      i += 1
+    }
+
+    out.push({
+      block: @cor.Block::Paragraph(chunk_lines.join("\n")),
+      line_start,
+      line_end,
+    })
+  }
+
+  out
+}
+
+///|
+fn upgrade_scanner_backed_markdown_block(
+  block : ScannerBackedMarkdownBlock,
+  scanned : @dpmd.MarkdownDocument,
   definition_start_lines : Map[Int, Bool],
   inline_cache_by_line : Array[MarkdownInlineScanResult?],
   resolved_note_ids : Map[String, Bool],
@@ -236,7 +292,7 @@ fn upgrade_markdown_conservative_block(
       let start_index = block.line_start - 1
       if definition_start_lines.contains(start_index) ||
         !markdown_block_lines_are_normal(
-          contexts,
+          scanned,
           block.line_start,
           block.line_end,
         ) {
@@ -270,55 +326,158 @@ fn markdown_lines(text : String) -> Array[String] {
 }
 
 ///|
-fn classify_markdown_line_contexts(
+fn markdown_lines_from_scanner(
+  scanned : @dpmd.MarkdownDocument,
+) -> Array[String] {
+  if scanned.line_count == 0 {
+    return []
+  }
+
+  let lines : Array[String] = []
+  for _ in 0..<scanned.line_count {
+    lines.push("")
+  }
+
+  match scanned.frontmatter {
+    Some(frontmatter) =>
+      assign_markdown_block_lines(lines, frontmatter.line_start, frontmatter.line_end, markdown_lines(frontmatter_raw_text(frontmatter)))
+    None => ()
+  }
+
+  for block in scanned.blocks {
+    assign_markdown_block_lines(
+      lines,
+      block.line_start,
+      block.line_end,
+      markdown_lines(block.raw_text),
+    )
+  }
+
+  lines
+}
+
+///|
+fn assign_markdown_block_lines(
   lines : Array[String],
-) -> Array[MarkdownLineContext] {
-  let contexts : Array[MarkdownLineContext] = []
-  let mut in_frontmatter = false
-  let mut frontmatter_marker = ""
-  let mut in_fence = false
-  let mut fence_char = '`'
-  let mut fence_len = 0
+  line_start : Int,
+  line_end : Int,
+  block_lines : Array[String],
+) -> Unit {
+  if line_start < 1 || line_end < line_start {
+    return
+  }
 
-  for i in 0..<lines.length() {
-    let line = lines[i]
-    let trimmed = line.trim().to_owned()
+  let mut line_no = line_start
+  let mut i = 0
+  while line_no <= line_end && i < block_lines.length() && line_no <= lines.length() {
+    lines[line_no - 1] = block_lines[i]
+    line_no += 1
+    i += 1
+  }
+}
 
-    if in_frontmatter {
-      contexts.push(MarkdownLineContext::Frontmatter)
-      if line == frontmatter_marker {
-        in_frontmatter = false
-      }
-      continue
+///|
+fn frontmatter_raw_text(frontmatter : @dpmd.MarkdownFrontmatter) -> String {
+  let marker = match frontmatter.kind {
+    @dpmd.MarkdownFrontmatterKind::Toml => "+++"
+    _ => "---"
+  }
+  if frontmatter.closed {
+    if frontmatter.content == "" {
+      marker + "\n" + marker
+    } else {
+      marker + "\n" + frontmatter.content + "\n" + marker
     }
+  } else if frontmatter.content == "" {
+    marker
+  } else {
+    marker + "\n" + frontmatter.content
+  }
+}
 
-    if in_fence {
-      contexts.push(MarkdownLineContext::CodeFence)
-      if is_fence_close(trimmed, fence_char, fence_len) {
-        in_fence = false
-      }
-      continue
-    }
+///|
+fn markdown_normal_line_allowance(
+  scanned : @dpmd.MarkdownDocument,
+) -> Array[Bool] {
+  let out : Array[Bool] = []
+  for _ in 0..<scanned.line_count {
+    out.push(true)
+  }
 
-    if i == 0 && (line == "---" || line == "+++") {
-      contexts.push(MarkdownLineContext::Frontmatter)
-      in_frontmatter = true
-      frontmatter_marker = line
-      continue
-    }
+  match scanned.frontmatter {
+    Some(frontmatter) =>
+      mark_markdown_line_range_false(
+        out,
+        frontmatter.line_start,
+        frontmatter.line_end,
+      )
+    None => ()
+  }
 
-    match fence_marker(trimmed) {
-      Some((ch, len)) => {
-        contexts.push(MarkdownLineContext::CodeFence)
-        in_fence = true
-        fence_char = ch
-        fence_len = len
-      }
-      None => contexts.push(MarkdownLineContext::Normal)
+  for block in scanned.blocks {
+    match block.kind {
+      @dpmd.MarkdownBlockKind::FencedCode =>
+        mark_markdown_line_range_false(out, block.line_start, block.line_end)
+      _ => ()
     }
   }
 
-  contexts
+  let mut i = 0
+  while i < scanned.blocks.length() {
+    let block = scanned.blocks[i]
+    if block.kind == @dpmd.MarkdownBlockKind::BlankLine ||
+      block.kind == @dpmd.MarkdownBlockKind::FencedCode {
+      i += 1
+      continue
+    }
+
+    let chunk_start = block.line_start
+    let mut chunk_end = block.line_end
+    let mut has_html_candidate =
+      block.kind == @dpmd.MarkdownBlockKind::HtmlBlockCandidate
+    i += 1
+
+    while i < scanned.blocks.length() {
+      let candidate = scanned.blocks[i]
+      if candidate.kind == @dpmd.MarkdownBlockKind::BlankLine ||
+        candidate.kind == @dpmd.MarkdownBlockKind::FencedCode ||
+        candidate.line_start != chunk_end + 1 {
+        break
+      }
+      if candidate.kind == @dpmd.MarkdownBlockKind::HtmlBlockCandidate {
+        has_html_candidate = true
+      }
+      chunk_end = candidate.line_end
+      i += 1
+    }
+
+    if has_html_candidate {
+      mark_markdown_line_range_false(out, chunk_start, chunk_end)
+    }
+  }
+
+  out
+}
+
+///|
+fn mark_markdown_line_range_false(
+  lines : Array[Bool],
+  line_start : Int,
+  line_end : Int,
+) -> Unit {
+  if line_start < 1 || line_end < line_start {
+    return
+  }
+  let mut i = line_start - 1
+  while i < line_end && i < lines.length() {
+    lines[i] = false
+    i += 1
+  }
+}
+
+///|
+fn markdown_line_is_normal_allowed(lines : Array[Bool], index : Int) -> Bool {
+  index >= 0 && index < lines.length() && lines[index]
 }
 
 ///|
@@ -596,12 +755,13 @@ fn render_markdown_footnote_normalized_lines(
 
 ///|
 fn collect_markdown_footnote_definition_start_lines(
-  lines : Array[String],
-  contexts : Array[MarkdownLineContext],
+  scanned : @dpmd.MarkdownDocument,
 ) -> Map[Int, Bool] {
   let out : Map[Int, Bool] = {}
+  let allowed = markdown_normal_line_allowance(scanned)
+  let lines = markdown_lines_from_scanner(scanned)
   for i in 0..<lines.length() {
-    if contexts[i] == MarkdownLineContext::Normal &&
+    if markdown_line_is_normal_allowed(allowed, i) &&
       parse_markdown_footnote_definition_head(lines[i]) is Some(_) {
       out[i] = true
     }
@@ -611,16 +771,17 @@ fn collect_markdown_footnote_definition_start_lines(
 
 ///|
 fn markdown_block_lines_are_normal(
-  contexts : Array[MarkdownLineContext],
+  scanned : @dpmd.MarkdownDocument,
   line_start : Int,
   line_end : Int,
 ) -> Bool {
   if line_start < 1 || line_end < line_start {
     return false
   }
+  let allowed = markdown_normal_line_allowance(scanned)
   let mut i = line_start - 1
-  while i < line_end && i < contexts.length() {
-    if contexts[i] != MarkdownLineContext::Normal {
+  while i < line_end && i < allowed.length() {
+    if !allowed[i] {
       return false
     }
     i += 1

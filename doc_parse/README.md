@@ -122,9 +122,10 @@ needed.
 * [doc_parse/xlsx](./xlsx/README.md)
   XLSX semantic foundation candidate for workbook/sheet/cell/shared
   strings/styles/merged ranges/formula trace inspect and validation
-* [doc_parse/docx](./docx/README.md)
-  DOCX semantic foundation candidate for source-native body/inline/table
-  relationships, styles, numbering, notes, and media refs
+* [doc_parse/docx](./docx/)
+  DOCX semantic model for source-native body/inline/table relationships,
+  styles, numbering, notes, media refs, textboxes, drawings, and typed
+  content-bearing unknowns
 * [doc_parse/pptx](./pptx/README.md)
   PPTX semantic foundation candidate for source-native slide order, raw shape
   tree, text paragraphs/runs, explicit tables, notes, media refs, and
@@ -138,9 +139,9 @@ Current delivery model:
   `ZSeanYves/markitdown`
 * standalone `ZSeanYves/doc_parse` extraction remains later release work
 * integrated normal paths today:
-  `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx`
+  `csv` / `tsv` / `json` / `yaml` / `text` / `xlsx` / `docx`
 * intentionally not switched as the normal converter path:
-  `xml` / `html` / `markdown` / `docx` / `pptx`
+  `xml` / `html` / `markdown` / `pptx`
 * `convert/*` still owns final Markdown, assets, metadata, heading/list/table/
   caption/layout heuristics, and compatibility behavior
 

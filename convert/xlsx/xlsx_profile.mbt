@@ -55,6 +55,11 @@ fn xlsx_profile_record_sheet(
   report : XlsxProfileReport?,
   sheet : XlsxSheetModel,
 ) -> Unit {
+  match report {
+    None => return
+    Some(_) => ()
+  }
+
   let mut table_cells = 0
   for row in sheet.table_rows {
     table_cells = table_cells + row.length()

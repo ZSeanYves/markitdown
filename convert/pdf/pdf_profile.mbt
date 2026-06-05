@@ -48,6 +48,24 @@ fn pdf_convert_profile_add_stage(
 }
 
 ///|
+fn pdf_convert_profile_stage_start(report : PdfConvertProfileReport?) -> UInt64? {
+  match report {
+    Some(_) => Some(@env.now())
+    None => None
+  }
+}
+
+///|
+fn pdf_convert_profile_add_stage_since(
+  report : PdfConvertProfileReport?,
+  name : String,
+  started : UInt64,
+  detail : String?,
+) -> Unit {
+  pdf_convert_profile_add_stage(report, name, @env.now() - started, detail)
+}
+
+///|
 fn pdf_convert_profile_set_active(report : PdfConvertProfileReport?) -> Unit {
   active_pdf_convert_profile_report.val = report
 }

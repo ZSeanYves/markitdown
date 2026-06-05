@@ -27,41 +27,59 @@ pub fn parse_json_with_profile(
     None => false
   }
 
-  let read_started = @env.now()
+  let read_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("json: read failed: " + e.to_string())
   }
   json_profile_add_stage(
     profile,
     "json_file_read",
-    @env.now() - read_started,
+    match profile {
+      Some(_) => @env.now() - read_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("bytes=" + bytes.length().to_string())
       None => None
     },
   )
 
-  let decode_started = @env.now()
+  let decode_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let text = @utf8.decode(bytes, ignore_bom=false) catch {
     _ => raise @cor.AppError("json: utf8 decode failed: " + input_path)
   }
   json_profile_add_stage(
     profile,
     "json_bytes_to_string",
-    @env.now() - decode_started,
+    match profile {
+      Some(_) => @env.now() - decode_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("chars=" + text.length().to_string())
       None => None
     },
   )
 
-  let parse_started = @env.now()
+  let parse_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let parsed = @dpjson.parse_json_document(text)
   let value = parsed.root
   json_profile_add_stage(
     profile,
     "json_parse_total",
-    @env.now() - parse_started,
+    match profile {
+      Some(_) => @env.now() - parse_started
+      None => 0
+    },
     match profile {
       Some(_) =>
         Some(
@@ -75,56 +93,50 @@ pub fn parse_json_with_profile(
   )
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
-  let lowering_started = @env.now()
-  json_profile_begin(profile_enabled)
-  push_json_value(doc, value, src)
-  let (
-    value_cell_stringify_calls,
-    scalar_text_stringify_calls,
-    uniform_table_rows_seen,
-    uniform_table_columns_seen,
-    nested_stringify_elapsed_ms,
-    uniform_table_detect_elapsed_ms,
-  ) = json_profile_finish()
-  json_profile_add_stage(
-    profile,
-    "json_detect_uniform_table",
-    uniform_table_detect_elapsed_ms,
-    match profile {
-      Some(_) =>
+  match profile {
+    Some(_) => {
+      let lowering_started = @env.now()
+      json_profile_begin(profile_enabled)
+      push_json_value(doc, value, src)
+      let (
+        value_cell_stringify_calls,
+        scalar_text_stringify_calls,
+        uniform_table_rows_seen,
+        uniform_table_columns_seen,
+        nested_stringify_elapsed_ms,
+        uniform_table_detect_elapsed_ms,
+      ) = json_profile_finish()
+      json_profile_add_stage(
+        profile,
+        "json_detect_uniform_table",
+        uniform_table_detect_elapsed_ms,
         Some(
           "rows=" +
           uniform_table_rows_seen.to_string() +
           " columns=" +
           uniform_table_columns_seen.to_string(),
-        )
-      None => None
-    },
-  )
-  json_profile_add_stage(
-    profile,
-    "json_compact_stringify_nested",
-    nested_stringify_elapsed_ms,
-    match profile {
-      Some(_) =>
+        ),
+      )
+      json_profile_add_stage(
+        profile,
+        "json_compact_stringify_nested",
+        nested_stringify_elapsed_ms,
         Some(
           "value_cell_calls=" +
           value_cell_stringify_calls.to_string() +
           " scalar_calls=" +
           scalar_text_stringify_calls.to_string(),
-        )
-      None => None
-    },
-  )
-  json_profile_add_stage(
-    profile,
-    "json_lower_to_ir",
-    @env.now() - lowering_started,
-    match profile {
-      Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
-      None => None
-    },
-  )
+        ),
+      )
+      json_profile_add_stage(
+        profile,
+        "json_lower_to_ir",
+        @env.now() - lowering_started,
+        Some("blocks=" + doc.blocks.val.length().to_string()),
+      )
+    }
+    None => push_json_value(doc, value, src)
+  }
   (doc, profile)
 }
 
@@ -188,11 +200,19 @@ fn push_json_value(
           )
         }
       } else {
-        let detect_started = @env.now()
+        let detect_started = if json_profile_active_enabled() {
+          @env.now()
+        } else {
+          0
+        }
         match array_object_rows(values) {
           Some(rows) => {
             profile_uniform_table_detect_elapsed_ms(
-              @env.now() - detect_started,
+              if json_profile_active_enabled() {
+                @env.now() - detect_started
+              } else {
+                0
+              },
               rows.length(),
               if rows.length() == 0 {
                 0
@@ -208,13 +228,25 @@ fn push_json_value(
           }
           None => {
             profile_uniform_table_detect_elapsed_ms(
-              @env.now() - detect_started,
+              if json_profile_active_enabled() {
+                @env.now() - detect_started
+              } else {
+                0
+              },
               0,
               0,
             )
-            let stringify_started = @env.now()
+            let stringify_started = if json_profile_active_enabled() {
+              @env.now()
+            } else {
+              0
+            }
             let text = stringify_json(value)
-            profile_nested_stringify_elapsed_ms(@env.now() - stringify_started)
+            if json_profile_active_enabled() {
+              profile_nested_stringify_elapsed_ms(
+                @env.now() - stringify_started,
+              )
+            }
             @cor.push_with_origin(doc, @cor.Block::CodeBlock(text), origin)
           }
         }
@@ -337,9 +369,15 @@ fn value_cell(value : @dpjson.JsonValue) -> String {
     @dpjson.JsonValue::Null => "null"
     _ => {
       profile_value_cell_stringify_call()
-      let started = @env.now()
+      let started = if json_profile_active_enabled() {
+        @env.now()
+      } else {
+        0
+      }
       let text = stringify_json(value)
-      profile_nested_stringify_elapsed_ms(@env.now() - started)
+      if json_profile_active_enabled() {
+        profile_nested_stringify_elapsed_ms(@env.now() - started)
+      }
       text
     }
   }
@@ -354,9 +392,15 @@ fn scalar_text(value : @dpjson.JsonValue) -> String {
     @dpjson.JsonValue::Null => "null"
     _ => {
       profile_scalar_text_stringify_call()
-      let started = @env.now()
+      let started = if json_profile_active_enabled() {
+        @env.now()
+      } else {
+        0
+      }
       let text = stringify_json(value)
-      profile_nested_stringify_elapsed_ms(@env.now() - started)
+      if json_profile_active_enabled() {
+        profile_nested_stringify_elapsed_ms(@env.now() - started)
+      }
       text
     }
   }

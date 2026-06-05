@@ -6,6 +6,12 @@ pub fn tokenize_html_document(text : String) -> Array[HtmlToken] raise {
 }
 
 ///|
+pub fn tokenize_html_events(text : String) -> Array[HtmlTokenEvent] raise {
+  let normalized = normalize_html_source(text)
+  tokenize_normalized_html_event_scan(normalized).events
+}
+
+///|
 fn tokenize_normalized_html_document(
   normalized : String,
 ) -> Array[HtmlToken] raise {
@@ -13,8 +19,31 @@ fn tokenize_normalized_html_document(
     chars: normalized.to_array(),
     pos: 0,
     line: 1,
+    collect_events: false,
+    events: [],
   }
   tokenizer.parse_tokens()
+}
+
+///|
+fn tokenize_normalized_html_event_scan(
+  normalized : String,
+) -> HtmlTokenEventScan raise {
+  let tokenizer = HtmlTokenizer::{
+    chars: normalized.to_array(),
+    pos: 0,
+    line: 1,
+    collect_events: true,
+    events: [],
+  }
+  let tokens = tokenizer.parse_tokens()
+  { tokens, events: tokenizer.events }
+}
+
+///|
+priv struct HtmlTokenEventScan {
+  tokens : Array[HtmlToken]
+  events : Array[HtmlTokenEvent]
 }
 
 ///|
@@ -22,6 +51,8 @@ priv struct HtmlTokenizer {
   chars : Array[Char]
   mut pos : Int
   mut line : Int
+  collect_events : Bool
+  events : Array[HtmlTokenEvent]
 }
 
 ///|
@@ -30,80 +61,190 @@ fn HtmlTokenizer::parse_tokens(self : HtmlTokenizer) -> Array[HtmlToken] raise {
 
   while self.pos < self.chars.length() {
     let start_line = self.line
+    let start_pos = self.pos
     if self.chars[self.pos] == '<' {
       if self.starts_with("<!--") {
+        let comment = self.read_comment()
+        let span = {
+          line_start: start_line,
+          line_end: self.line,
+        }
         out.push(
-          HtmlToken::Comment(self.read_comment(), {
-            line_start: start_line,
-            line_end: self.line,
-          }),
+          HtmlToken::Comment(comment, span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::Comment,
+          "",
+          [],
+          false,
+          start_pos,
+          self.pos,
+          span,
         )
       } else if self.starts_with("</") && self.has_end_tag_name() {
+        let tag_name = self.read_end_tag()
+        let span = {
+          line_start: start_line,
+          line_end: self.line,
+        }
         out.push(
-          HtmlToken::EndTag(self.read_end_tag(), {
-            line_start: start_line,
-            line_end: self.line,
-          }),
+          HtmlToken::EndTag(tag_name, span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::EndTag,
+          tag_name,
+          [],
+          false,
+          start_pos,
+          self.pos,
+          span,
         )
       } else if self.starts_with_case_insensitive("<!doctype") {
+        let text = self.read_doctype_like()
+        let span = {
+          line_start: start_line,
+          line_end: self.line,
+        }
         out.push(
-          HtmlToken::Doctype(self.read_doctype_like(), {
-            line_start: start_line,
-            line_end: self.line,
-          }),
+          HtmlToken::Doctype(text, span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::Doctype,
+          "",
+          [],
+          false,
+          start_pos,
+          self.pos,
+          span,
         )
       } else if self.pos + 1 < self.chars.length() &&
         is_html_name_start(self.chars[self.pos + 1]) {
         let (name, attrs, self_closing) = self.read_start_tag()
+        let span = {
+          line_start: start_line,
+          line_end: self.line,
+        }
         out.push(
-          HtmlToken::StartTag(name, attrs, self_closing, {
-            line_start: start_line,
-            line_end: self.line,
-          }),
+          HtmlToken::StartTag(name, attrs, self_closing, span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::StartTag,
+          name,
+          attrs,
+          self_closing,
+          start_pos,
+          self.pos,
+          span,
         )
         if is_html_raw_text_tag(name) {
           let raw_start = self.line
+          let raw_start_pos = self.pos
           let raw_text = self.read_raw_text_body(name)
           if raw_text != "" {
+            let raw_span = {
+              line_start: raw_start,
+              line_end: self.line,
+            }
             out.push(
-              HtmlToken::Text(raw_text, {
-                line_start: raw_start,
-                line_end: self.line,
-              }),
+              HtmlToken::Text(raw_text, raw_span),
+            )
+            self.push_event(
+              HtmlTokenEventKind::Text,
+              "",
+              [],
+              false,
+              raw_start_pos,
+              self.pos,
+              raw_span,
             )
           }
           let close_start = self.line
+          let close_start_pos = self.pos
           if self.consume_case_insensitive("</" + name) {
             self.skip_spaces()
             self.expect_char('>', "unterminated raw-text closing tag")
+            let close_span = {
+              line_start: close_start,
+              line_end: self.line,
+            }
             out.push(
-              HtmlToken::EndTag(name, {
-                line_start: close_start,
-                line_end: self.line,
-              }),
+              HtmlToken::EndTag(name, close_span),
+            )
+            self.push_event(
+              HtmlTokenEventKind::EndTag,
+              name,
+              [],
+              false,
+              close_start_pos,
+              self.pos,
+              close_span,
             )
           }
         }
       } else {
+        let span = { line_start: start_line, line_end: start_line }
         out.push(
-          HtmlToken::Text("<", { line_start: start_line, line_end: start_line }),
+          HtmlToken::Text("<", span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::Text,
+          "",
+          [],
+          false,
+          start_pos,
+          start_pos + 1,
+          span,
         )
         self.pos += 1
       }
     } else {
       let text_node = self.read_text()
       if text_node != "" {
+        let span = {
+          line_start: start_line,
+          line_end: self.line,
+        }
         out.push(
-          HtmlToken::Text(text_node, {
-            line_start: start_line,
-            line_end: self.line,
-          }),
+          HtmlToken::Text(text_node, span),
+        )
+        self.push_event(
+          HtmlTokenEventKind::Text,
+          "",
+          [],
+          false,
+          start_pos,
+          self.pos,
+          span,
         )
       }
     }
   }
 
   out
+}
+
+///|
+fn HtmlTokenizer::push_event(
+  self : HtmlTokenizer,
+  kind : HtmlTokenEventKind,
+  tag_name : String,
+  attributes : Array[HtmlAttribute],
+  self_closing : Bool,
+  source_start : Int,
+  source_end : Int,
+  span : HtmlSourceSpan,
+) -> Unit {
+  if self.collect_events {
+    self.events.push({
+      kind,
+      tag_name,
+      attributes,
+      self_closing,
+      source_start,
+      source_end,
+      span,
+    })
+  }
 }
 
 ///|
@@ -444,7 +585,7 @@ fn normalize_html_source(text : String) -> String {
 }
 
 ///|
-fn decode_html_entities(text : String) -> String {
+pub fn decode_html_entities(text : String) -> String {
   let chars = text.to_array()
   let out : Array[Char] = []
   let mut i = 0
@@ -470,6 +611,253 @@ fn decode_html_entities(text : String) -> String {
     i += 1
   }
   String::from_array(out)
+}
+
+///|
+/// Return the lowercase tag name from a raw `<...>` tag fragment.
+pub fn html_tag_name(tag : String) -> String? {
+  let chars = tag.to_array()
+  let n = chars.length()
+  let mut i = 0
+  while i < n && chars[i] != '<' {
+    i += 1
+  }
+  if i >= n {
+    return None
+  }
+  i += 1
+  while i < n && is_html_space(chars[i]) {
+    i += 1
+  }
+  if i < n && chars[i] == '/' {
+    i += 1
+    while i < n && is_html_space(chars[i]) {
+      i += 1
+    }
+  }
+  if i >= n || !is_html_name_start(chars[i]) {
+    return None
+  }
+  let start = i
+  while i < n && is_html_name_char(chars[i]) {
+    i += 1
+  }
+  Some(lower_ascii_html_string(slice_chars(chars, start, i)))
+}
+
+///|
+/// Read an attribute value from a raw tag fragment without entity decoding.
+pub fn html_raw_attr_value(tag : String, attr_name : String) -> String? {
+  let wanted = attr_name.to_lower().trim().to_owned()
+  if wanted == "" {
+    return None
+  }
+  let chars = tag.to_array()
+  let lower = tag.to_lower().to_array()
+  let n = chars.length()
+  let mut i = html_attr_scan_start(chars)
+  while i < n {
+    while i < n && is_html_space(chars[i]) {
+      i += 1
+    }
+    if i >= n || chars[i] == '>' {
+      return None
+    }
+    if chars[i] == '/' {
+      i += 1
+      continue
+    }
+    if !is_html_name_start(chars[i]) {
+      i += 1
+      continue
+    }
+
+    let name_start = i
+    while i < n && is_html_name_char(chars[i]) {
+      i += 1
+    }
+    let name = slice_chars(lower, name_start, i)
+    while i < n && is_html_space(chars[i]) {
+      i += 1
+    }
+    if i >= n || chars[i] != '=' {
+      continue
+    }
+    i += 1
+    while i < n && is_html_space(chars[i]) {
+      i += 1
+    }
+    if i >= n {
+      return None
+    }
+
+    let (value_start, value_end, next_i) = if chars[i] == '"' || chars[i] == '\'' {
+      let quote = chars[i]
+      i += 1
+      let start = i
+      while i < n && chars[i] != quote {
+        i += 1
+      }
+      if i >= n {
+        return None
+      }
+      (start, i, i + 1)
+    } else {
+      let start = i
+      while i < n && !is_html_space(chars[i]) && chars[i] != '>' {
+        i += 1
+      }
+      (start, i, i)
+    }
+    i = next_i
+
+    if name == wanted {
+      return Some(slice_chars(chars, value_start, value_end))
+    }
+  }
+  None
+}
+
+///|
+/// Read an attribute value from a raw tag fragment with parser entity decoding.
+pub fn html_attr_value(tag : String, attr_name : String) -> String? {
+  html_raw_attr_value(tag, attr_name).map(decode_html_entities)
+}
+
+///|
+pub fn html_token_event_is_open_tag(
+  event : HtmlTokenEvent,
+  tag_name : String,
+) -> Bool {
+  event.kind == HtmlTokenEventKind::StartTag &&
+  event.tag_name == tag_name.to_lower()
+}
+
+///|
+pub fn html_token_event_is_close_tag(
+  event : HtmlTokenEvent,
+  tag_name : String,
+) -> Bool {
+  event.kind == HtmlTokenEventKind::EndTag &&
+  event.tag_name == tag_name.to_lower()
+}
+
+///|
+pub fn html_token_event_attr_value(
+  event : HtmlTokenEvent,
+  attr_name : String,
+) -> String? {
+  let wanted = attr_name.to_lower().trim().to_owned()
+  if wanted == "" {
+    return None
+  }
+  for attr in event.attributes {
+    if attr.name == wanted {
+      return Some(attr.value)
+    }
+  }
+  None
+}
+
+///|
+pub fn html_tokens_find_matching_close(
+  events : Array[HtmlTokenEvent],
+  open_index : Int,
+) -> Int? {
+  if open_index < 0 || open_index >= events.length() {
+    return None
+  }
+  let open_event = events[open_index]
+  if open_event.kind != HtmlTokenEventKind::StartTag ||
+    open_event.self_closing {
+    return None
+  }
+  let tag_name = open_event.tag_name
+  let mut depth = 0
+  for i in open_index..<events.length() {
+    let event = events[i]
+    if event.kind == HtmlTokenEventKind::StartTag &&
+      event.tag_name == tag_name &&
+      !event.self_closing {
+      depth += 1
+    } else if event.kind == HtmlTokenEventKind::EndTag &&
+      event.tag_name == tag_name {
+      depth -= 1
+      if depth == 0 {
+        return Some(i)
+      }
+    }
+  }
+  None
+}
+
+///|
+pub fn html_tokens_collect_element_ranges(
+  events : Array[HtmlTokenEvent],
+  tag_names : Array[String],
+) -> Array[HtmlTokenSourceRange] {
+  let wanted : Array[String] = []
+  for name in tag_names {
+    let normalized = name.to_lower().trim().to_owned()
+    if normalized != "" {
+      wanted.push(normalized)
+    }
+  }
+
+  let ranges : Array[HtmlTokenSourceRange] = []
+  for i in 0..<events.length() {
+    let event = events[i]
+    if event.kind == HtmlTokenEventKind::StartTag &&
+      html_tag_name_is_in(event.tag_name, wanted) {
+      match html_tokens_find_matching_close(events, i) {
+        Some(close_i) =>
+          ranges.push({
+            source_start: event.source_start,
+            source_end: events[close_i].source_end,
+          })
+        None => ()
+      }
+    }
+  }
+  ranges
+}
+
+///|
+fn html_tag_name_is_in(tag_name : String, names : Array[String]) -> Bool {
+  for name in names {
+    if tag_name == name {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn html_attr_scan_start(chars : Array[Char]) -> Int {
+  let n = chars.length()
+  let mut i = 0
+  while i < n && chars[i] != '<' {
+    i += 1
+  }
+  if i >= n {
+    return 0
+  }
+  i += 1
+  while i < n && is_html_space(chars[i]) {
+    i += 1
+  }
+  if i < n && chars[i] == '/' {
+    i += 1
+  }
+  while i < n && is_html_space(chars[i]) {
+    i += 1
+  }
+  if i < n && is_html_name_start(chars[i]) {
+    while i < n && is_html_name_char(chars[i]) {
+      i += 1
+    }
+  }
+  i
 }
 
 ///|
@@ -565,6 +953,20 @@ fn append_chars(out : Array[Char], text : String) -> Unit {
   for ch in text.to_array() {
     out.push(ch)
   }
+}
+
+///|
+fn lower_ascii_html_string(text : String) -> String {
+  let out : Array[Char] = []
+  for ch in text {
+    out.push(lower_ascii_html_char(ch))
+  }
+  String::from_array(out)
+}
+
+///|
+fn is_html_space(ch : Char) -> Bool {
+  ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
 ///|

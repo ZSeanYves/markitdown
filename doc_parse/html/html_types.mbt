@@ -29,6 +29,38 @@ pub(all) enum HtmlToken {
 }
 
 ///|
+pub(all) enum HtmlTokenEventKind {
+  StartTag
+  EndTag
+  Text
+  Comment
+  Doctype
+} derive(Eq)
+
+///|
+pub struct HtmlTokenEvent {
+  kind : HtmlTokenEventKind
+  tag_name : String
+  attributes : Array[HtmlAttribute]
+  self_closing : Bool
+  source_start : Int
+  source_end : Int
+  span : HtmlSourceSpan
+}
+
+///|
+pub struct HtmlTokenSourceRange {
+  source_start : Int
+  source_end : Int
+}
+
+///|
+pub struct HtmlSourceAnalysis {
+  document : HtmlDocument
+  events : Array[HtmlTokenEvent]
+}
+
+///|
 /// Source-native HTML nodes preserved by the DOM-ish parser.
 pub(all) enum HtmlNode {
   Element(HtmlElement)

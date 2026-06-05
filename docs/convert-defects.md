@@ -17,6 +17,16 @@ architecture decisions. Current scope: Convert-0 global map.
 - The dispatcher currently statically imports default format packages.
 - Debug/tool/layout packages should stay out of normal runtime.
 
+### Parser / Convert Contract Principle
+
+- Convert does not have to consume a full parser model.
+- Convert must not duplicate source parsing without reason.
+- Product policy may remain convert-local.
+- Contract choices include full model, token / event stream, query API, shared
+  scanner / helper primitive, cache / index, and inventory / validation signal.
+- Parser packages provide source facts; convert packages keep Markdown / IR /
+  assets / origin policy.
+
 ### Package Map Summary
 
 - `convert/convert`: dispatcher + tests.
@@ -25,7 +35,8 @@ architecture decisions. Current scope: Convert-0 global map.
   runtimes.
 - `convert/zip`, `convert/zip_core`, `convert/zip_worker`: archive runtime and
   nested dispatch/asset remap.
-- `convert/epub`: EPUB conversion and asset/link/origin policy.
+- `convert/epub`: EPUB conversion, per-run part cache, and
+  asset/link/origin policy.
 - `convert/docx`, `convert/pptx`, `convert/xlsx`: Office format runtimes.
 - `convert/pdf`: heavy PDF product conversion policy.
 - `convert/pdf_debug`: debug-only bridge.
@@ -161,8 +172,10 @@ architecture decisions. Current scope: Convert-0 global map.
 
 - `convert/txt` consumes `doc_parse/text`, owns plain-text-to-IR lowering,
   literal Markdown passthrough, origin policy, and profile reporting.
-- `convert/markdown` is a conservative Markdown passthrough converter. It does
-  not currently consume `doc_parse/markdown`.
+- `convert/markdown` consumes `doc_parse/markdown` scanner output for block
+  inventory, frontmatter, fence, and HTML-candidate ranges.
+- `convert/markdown` retains source-preserving passthrough output and
+  convert-owned footnote policy.
 - `convert/json` consumes `doc_parse/json` and lowers `JsonValue` to
   table/list/paragraph/code fallback IR.
 - `convert/yaml` consumes `doc_parse/yaml` and lowers `YamlValue` to
@@ -171,13 +184,24 @@ architecture decisions. Current scope: Convert-0 global map.
   keeping bytes decode / encoding sniff in convert.
 - `convert/csv` consumes `doc_parse/csv` and `doc_parse/tsv`, owns CSV/TSV
   table output policy and text encoding fallback.
+- Lightweight-1 profile timing guard complete for JSON/YAML/CSV/TSV.
+- JSON/YAML/CSV/TSV consume parser models; no adapter is needed.
+- JSON/YAML/CSV/TSV profile-disabled paths avoid `@env.now()`, detail
+  construction, and profile-only timing.
 
 ### Confirmed Boundary Findings
 
 - `json`, `yaml`, `txt`, `xml`, and `csv` mostly avoid reimplementing parser
   logic and rely on `doc_parse`.
-- `markdown` performs conservative passthrough/block/footnote scanning in
-  convert; this is currently convert policy, not a full Markdown parser.
+- `convert/json` consumes `doc_parse/json`.
+- `convert/yaml` consumes `doc_parse/yaml`.
+- `convert/csv` consumes `doc_parse/csv`.
+- The `convert/csv` TSV path consumes `doc_parse/tsv`.
+- JSON/YAML/CSV/TSV profile-enabled behavior and detail strings are preserved,
+  while profile-disabled paths skip timing-only work.
+- `markdown` now relies on `doc_parse/markdown` scanner output for
+  block/frontmatter/fence/HTML-candidate ranges while keeping convert-owned
+  passthrough and footnote handling.
 - `xml` performs encoding sniff/decode in convert, parses safe small XML once
   through `doc_parse/xml`, and lowers only conservative element trees.
 - Unsafe, unsupported, complex, malformed, or large XML falls back to
@@ -188,19 +212,32 @@ architecture decisions. Current scope: Convert-0 global map.
   pollution was found.
 - samples/main_process references are test-only.
 
+### Quality Status
+
+- JSON external quality rows pass: 1 row, failed 0.
+- YAML external quality rows pass: 1 row, failed 0.
+- CSV external quality rows pass: 15 rows, failed 0.
+- TSV external quality rows: 0 rows, failed 0.
+
 ### Deferred Defects / Risks
 
-- `convert/markdown` not consuming `doc_parse/markdown` is a deferred
-  architecture decision.
-- `txt`, `json`, `yaml`, and `csv` normal paths may still construct
-  profile-only detail strings such as `bytes=`, `chars=`, `blocks=`, or
-  `rows=`.
+- `txt` normal paths may still construct profile-only detail strings such as
+  `bytes=`, `chars=`, or `blocks=`.
 - Large JSON/YAML nested fallback can stringify large ASTs and allocate
   heavily.
 - JSON/YAML uniform table detection can become hot for large arrays of objects.
 - CSV/TSV table conversion is full-document/full-table memory behavior.
-- Markdown passthrough keeps source while scanning lines/blocks/footnotes; large
-  Markdown can incur multiple scans.
+- CSV/TSV RichTable construction remains full-memory.
+- CSV/TSV ragged or dense rows can expand output to the maximum observed column
+  count.
+- TSV external quality sample coverage is still missing.
+- Source/license/hash strict quality metadata closure should be audited
+  separately where not already closed.
+- Markdown can still incur more than one scan when footnote-normalized output
+  changes the text.
+- Markdown still keeps convert-side normalize/split helpers around footnote and
+  passthrough policy, so large files remain worth watching for repeated
+  full-buffer work.
 - XML still decodes the full byte buffer before parse/fallback.
 - Large XML currently uses a conservative fallback threshold before parser-model
   lowering.
@@ -213,8 +250,7 @@ architecture decisions. Current scope: Convert-0 global map.
 
 ### Not-a-bug Decisions
 
-- Markdown conservative passthrough is acceptable until a separate design
-  connects `doc_parse/markdown`.
+- Markdown source-preserving passthrough is product policy, not a defect.
 - XML conservative fallback is acceptable for unsupported, unsafe, complex, or
   large inputs.
 - CSV/JSON/YAML table/list/stringify decisions are convert output policy.
@@ -225,10 +261,8 @@ architecture decisions. Current scope: Convert-0 global map.
 
 ### Future Actions
 
-- Consider narrow profile-detail hot-path fixes for `txt`, `json`, `yaml`, and
-  `csv`.
-- Decide separately whether `convert/markdown` should consume
-  `doc_parse/markdown`.
+- Consider narrow profile-detail hot-path fixes for `txt` and other remaining
+  formats where profile-disabled paths still build profile-only details.
 - Mature XML structured lowering only with explicit samples and real-corpus
   coverage.
 - Close the Microsoft RSS license review before treating it as strict XML-real
@@ -241,41 +275,98 @@ architecture decisions. Current scope: Convert-0 global map.
 ### HTML Status
 
 - `convert/html` is a full HTML product conversion runtime.
-- It reads HTML files, performs a private lightweight DOM / semantic scan,
-  extracts body scope, skips script/style/head/noscript/noise, lowers content to
-  core IR, and owns link/image/assets/origin/note/table/heading/list policy.
-- It is not a simple `doc_parse/html` model-to-IR adapter.
-- Public API is narrow; most internal surfaces are private.
+- `parse_html` consumes `doc_parse/html` parser validation / security signals on
+  the normal-size path and feeds them into the convert profile / report path.
+- HTML-1 still reads HTML files, performs a private lightweight DOM / semantic
+  scan, extracts body scope, skips script/style/head/noscript/noise, lowers
+  content to core IR, and owns link/image/assets/origin/note/table/heading/list
+  policy.
+- HTML-2A shared primitive convergence is complete for attr / entity / raw-tag
+  helpers.
+- HTML-2B selective token / event traversal is complete for content-scope range
+  selection.
+- HTML-2C token-event skip ranges are complete for closed
+  script/style/head/noscript elements in the main block scanner.
+- HTML-2D inline/link/image primitive convergence is complete for inline tag
+  dispatch, with href/src/alt/title attr and entity paths already routed through
+  shared parser primitives.
+- HTML-2D parser-analysis observability is complete in the HTML profile summary
+  for attempted/used analysis, event scope, skip-range count, fallback reason,
+  and large-input guard signals.
+- HTML-2E table/list/note primitive convergence is complete where applicable:
+  table/list structural matching uses parser-backed tag names, table span attrs
+  use decoded parser attrs, and note/ref attr/entity paths stay parser-backed.
+- HTML-2E profile hot-path audit is complete: disabled profile paths avoid HTML
+  timing work, and enabled profiles report table/image/link/note conversion
+  counters.
+- Full DOM adoption is not the default target.
+- Public API is still mostly narrow, though HTML-1 added parser-validation
+  helper surface and HTML-2B / HTML-2C added token event / source-range helper
+  surface that may be wider than ideal.
 
 ### HTML Boundary Findings
 
-- `convert/html` does not currently consume `doc_parse/html`.
-- It maintains private `HtmlNode`, tag scanning, inline parsing, entity decode,
-  table/list/note lowering.
-- This duplicates some parser foundation responsibilities already present in
-  `doc_parse/html`, but the private scanner is tightly coupled to output
-  policy.
+- `convert/html` now consumes `doc_parse/html` validation / security signals.
+- HTML-1 keeps private `HtmlNode`, semantic byte traversal, inline parsing,
+  table/list/note lowering, and body-scope/noise policy.
+- This still duplicates some parser foundation responsibilities already present
+  in `doc_parse/html`; HTML-2A now routes attr / entity / raw-tag helpers through
+  shared low-level parser primitives while keeping output policy in convert.
+- HTML-2B routes main / article / body scope tag traversal through parser token
+  events and depth-aware matching helpers.
+- HTML-2C routes closed script/style/head/noscript skip ranges through parser
+  token event source ranges for the main block scanner.
+- HTML-2D routes inline link/image tag-name decisions through parser-backed raw
+  tag-name extraction while preserving link sanitize, redirect unwrap, image
+  export, and table/list/note policy in convert.
+- HTML-2E routes table/list structural tag matching through parser-backed
+  tag-name extraction and keeps RichTable/list/note lowering policy in convert.
 - Link/href handling, unsafe scheme filtering, redirect unwrap, image asset
   export, note definitions, block origin, and asset origin are convert policy.
 - `script`, `style`, `head`, `noscript`, and noise skipping are conversion
   safety/output policy.
 - HTML table/list/heading/body lowering belongs to convert/html.
+- Large HTML currently skips parser validation to avoid parser + private-scan
+  double work on very large inputs.
 
 ### HTML Deferred Defects / Risks
 
-- Whether `convert/html` should consume `doc_parse/html` is a deferred
-  architecture decision.
+- HTML-1 small/normal inputs still run a parser-validation path plus private
+  semantic scan / lowering path, but the parser analysis now also supplies token
+  events for scope selection rather than adding a separate tokenizer pass.
+- HTML-2A removed duplicated attr / entity / raw-tag helper logic from the
+  unresolved list.
+- HTML-2B removed the unresolved raw byte scope-selection traversal from the
+  normal-size main path.
+- HTML-2C removed normal-path raw close-tag lookup for closed
+  script/style/head/noscript elements in the main block scanner; raw lookup
+  remains fallback for large, malformed, unclosed, and inner-slice paths.
+- HTML-2D removes remaining inline-link/image low-level tag dispatch from the
+  unresolved primitive-convergence list and adds profile visibility for parser
+  analysis adoption decisions.
+- HTML-2E removes table/list/note low-level primitive convergence from the
+  unresolved list where localized; broad semantic traversal remains convert
+  policy.
+- Remaining private semantic traversal byte matching is block / inline / table /
+  list / note / noise product-policy traversal, not a reason to force full DOM
+  adoption.
+- Full parser DOM adoption is non-default and requires benchmark / quality
+  proof.
 - The HTML pipeline is multi-stage full-buffer behavior: read bytes,
   normalize/scope, note scan, DOM scan, block lowering, asset discovery/export.
+- Large HTML intentionally skips parser validation, so parser signal coverage is
+  not uniform across all input sizes.
 - Repeated byte/tag scanning and case-insensitive matching can become hot on
-  large HTML.
+  large HTML outside the scope-selection and main skip-range paths.
 - Inline rendering may use string accumulation that can become hot for large
   inline spans.
 - Entity decoding / unescape occurs across multiple inline/attr/table/pre
   paths.
 - Local-heavy HTML can amplify filesystem and asset-map costs.
-- `html_parser.mbt` may still construct profile-only detail strings such as
-  `bytes=`, `blocks=`, or asset counts on normal paths.
+- `HtmlParserIssueSummary`, parser analysis, token event, and token source-range
+  helper APIs may be wider public surface than needed for the long term.
+- The `html_parser_validation` profile stage currently uses diagnostic
+  `elapsed_ms=0` semantics rather than true stage timing.
 
 ### TSV Boundary
 
@@ -291,10 +382,18 @@ architecture decisions. Current scope: Convert-0 global map.
 
 ### Future Actions
 
-- Defer `convert/html` / `doc_parse/html` unification until product output
-  behavior is explicitly designed.
-- Consider narrow profile-detail hot-path fixes for HTML together with other
-  lightweight formats.
+- HTML-2A shared low-level parser primitive convergence is complete.
+- HTML-2B selective token / event stream traversal is complete for content-scope
+  range selection.
+- HTML-2C token-event skip ranges are complete for closed
+  script/style/head/noscript elements.
+- HTML-2D inline/link/image primitive convergence and parser-analysis
+  observability are complete.
+- HTML-2E table/list/note primitive convergence and profile hot-path audit are
+  complete.
+- Consider narrowing or internalizing HTML-1 parser-validation helper surface
+  once tests and profile/report hooks no longer need it.
+- Continue only explicitly scoped HTML profile work after benchmark evidence.
 - Keep TSV manifest/config/control policy outside convert runtime.
 - Continue Convert-3 archive/container audit.
 
@@ -307,6 +406,10 @@ architecture decisions. Current scope: Convert-0 global map.
 - `convert/zip_core` is the real archive conversion core: ZIP open/read,
   inspect plan, safe path policy, entry filtering, nested dispatch, temp
   staging, asset remap, Markdown aggregation, and origin policy.
+- ZIP-1 inspect-plan/profile/cache cleanup complete: `ZipConversionPlan` reuses
+  inspect + sorted plans, profile-disabled paths avoid profile-only
+  details/stat traversal/`env.now`, and `ZipEntryByteCache` reduces repeated
+  `read_entry` within one conversion.
 - `convert/zip_worker` is an alternate worker/process-oriented ZIP facade. It
   calls `zip_core`, but delegates PDF entries through external CLI/process
   configuration instead of importing `convert/pdf`.
@@ -314,9 +417,21 @@ architecture decisions. Current scope: Convert-0 global map.
   `doc_parse/epub`, handles spine/nav/toc/cover/content reading order, calls
   `convert/html` for XHTML/HTML body conversion, and owns
   asset/link/origin/warning policy.
+- EPUB-1 per-run part cache is complete; materialization and cover reads use
+  cached part bytes where applicable.
+- External ZIP quality rows pass: 15 rows, failed 0.
+- External EPUB quality rows pass: 16 rows, failed 0.
 
 ### Confirmed Boundary Findings
 
+- `convert/zip_core` consumes `doc_parse/zip`; no parser integration problem
+  remains.
+- `ZipConversionPlan` reuses inspect + sorted plans instead of rebuilding /
+  filtering / sorting them again in the parse path.
+- ZIP profile-disabled paths avoid profile-only details/stat traversal and
+  profile-only `env.now`.
+- `ZipEntryByteCache` reduces repeated `read_entry` within one conversion,
+  including the HTML local asset materialization path.
 - `convert/zip_core` acts as a nested archive dispatcher and statically imports
   multiple format converters.
 - `convert/zip` directly imports `convert/pdf`, so normal ZIP conversion can
@@ -326,8 +441,11 @@ architecture decisions. Current scope: Convert-0 global map.
   not use it.
 - `convert/epub` consumes `doc_parse/epub` and keeps package parsing below the
   convert layer.
+- EPUB already consumes `doc_parse/epub`; no hybrid adapter is needed.
 - `convert/epub` delegates body conversion to `convert/html`, while retaining
   EPUB-specific spine/nav/asset/link/origin policy.
+- EPUB-1 per-run part cache is complete; materialization and cover reads use
+  cached part bytes where applicable.
 - ZIP and EPUB runtime do not reimplement ZIP/EPUB parser core; they use
   `doc_parse/zip` and `doc_parse/epub`.
 - OPF manifest hits in EPUB are package semantics, not repo TSV/control
@@ -346,9 +464,20 @@ architecture decisions. Current scope: Convert-0 global map.
 - ZIP/PDF support inside archive conversion needs a clearer capability or
   callback boundary.
 - EPUB materializes safe archive trees and then feeds spine XHTML/HTML into
-  `convert/html`, causing repeated full-buffer reads/writes and HTML lowering
-  cost.
-- ZIP/EPUB profile detail strings may still be built on normal paths.
+  `convert/html`, causing full-buffer staging and HTML lowering cost.
+- EPUB safe tree materialization remains broad/full; selective materialization is
+  deferred.
+- EPUB asset remap/copy overhead remains a convert-side hotspot, and HTML asset
+  path behavior must remain stable.
+- ZIP temp staging/materialization and asset remap copies remain convert-side
+  hotspots even after the per-run entry byte cache.
+- ZIP streaming conversion remains deferred.
+- `zip_worker` adoption by the normal dispatcher remains deferred.
+- EPUB profile detail strings may still be built on normal paths.
+- ZIP source/license/hash strict quality metadata closure should be audited
+  separately if not already complete.
+- EPUB source/license/hash strict quality metadata closure should be audited
+  separately if not already complete.
 - `convert/zip_core` public API is broad: inspect structs, profile structs,
   path helpers, staging helpers, asset remap helpers, and aggregation helpers.
 - `convert/zip` and `convert/zip_worker` duplicate or convert `zip_core`
@@ -363,6 +492,11 @@ architecture decisions. Current scope: Convert-0 global map.
 - External EPUB resources are preserved or warned about, not fetched.
 - EPUB calling `convert/html` for content documents is currently the correct
   product conversion boundary.
+- EPUB repeated `read_part` for materialization / cover in the same conversion
+  run is no longer tracked as an unresolved defect after EPUB-1 cache work.
+- ZIP repeated inspect plan rebuild/sort, profile-disabled detail/stat
+  traversal, and repeated `read_entry` for localized asset materialization are
+  no longer tracked as unresolved defects after ZIP-1.
 - Do not remove archive PDF support without replacement coverage.
 
 ### Future Actions
@@ -374,33 +508,93 @@ architecture decisions. Current scope: Convert-0 global map.
   closure measurements justify it.
 - Consider narrowing `zip_core` public helpers after tests/facades are
   reviewed.
-- Consider profile-detail hot-path fixes for ZIP/EPUB together with other
-  convert formats.
+- Consider profile-detail hot-path fixes for EPUB together with other convert
+  formats.
+- Keep ZIP streaming and `zip_worker` adoption deferred until dispatcher /
+  capability design is explicit.
+- Keep EPUB selective materialization deferred until asset path behavior and
+  quality rows can prove no output drift.
 - Continue Convert-4 Office formats next.
 
 ## Convert-4 Office Formats
 
 ### Status
 
-- `convert/docx` is the DOCX product conversion layer. It consumes
-  `doc_parse/ooxml` directly, reads DOCX
-  parts/relationships/styles/numbering/document XML, and owns DOCX-to-core-IR
+- `convert/docx` is the DOCX product conversion layer. It opens the DOCX
+  package once, consumes `doc_parse/docx` typed source/model output, and
+  owns DOCX-to-core-IR output policy without v1 fallback.
+- DOCX body paragraph / run / table / media / notes / comments / header /
+  footer / textbox lowering is owned by `convert/docx`.
+- The old DOCX v1 runtime directories were removed in commit `8ed4a3b`; normal
+  DOCX conversion no longer depends on `convert/docx` or `doc_parse/docx`.
+- `convert/pptx` is the PPTX product conversion layer. PPTX-1 hybrid adapter is
+  complete: it opens the PPTX package once, reuses the same `OoxmlPackage`,
+  consumes `doc_parse/pptx` parser inventory summary, and owns PPTX-to-core-IR
   output policy.
-- `convert/pptx` is the PPTX product conversion layer. Its main
-  slide/text/image/notes/rendering pipeline is convert-owned OOXML logic, while
-  chart semantic paths partially consume `doc_parse/pptx`.
+- Legacy PPTX slide / text / table / image / asset / notes / comments / output
+  lowering remains in `convert/pptx`.
+- PPTX chart conversion reuses the parsed `PptxPresentation` instead of
+  reparsing the full deck per chart slide.
 - `convert/xlsx` is the XLSX product conversion layer. It already consumes
   `doc_parse/xlsx` as its primary workbook semantic source, then owns
   sheet/table/RichTable/output policy.
+- No DOCX/PPTX-style hybrid adapter is needed for XLSX.
+- XLSX-1C performance guard complete: profile-disabled paths avoid
+  profile-only detail/stat traversal, and huge sparse used-range outputs are
+  bounded by a dense-area guard.
 
 ### Model Integration Findings
 
-- DOCX does not currently consume `doc_parse/docx.DocxDocument`.
-- PPTX partially consumes `doc_parse/pptx` for chart semantic data, but the
-  main presentation pipeline remains convert-owned.
+- DOCX replacement is complete for the checked normal runtime surface;
+  `convert/docx` consumes the full typed `DocxDocument` model.
+- The typed model preserves source/model facts for paragraphs, runs, tables,
+  merged and nested cells, numbering/list hints, notes, comments, headers,
+  footers, textboxes, drawings, VML shapes, media, fields, math, tracked
+  changes, content controls, smart tags, and content-bearing unknowns.
+- Runtime parity is guarded by v2 parser/lowering tests, main-process samples,
+  quality rows, and the post-v1-removal route/dependency guard.
+- Remaining DOCX product limits are explicit policy boundaries such as Word
+  layout fidelity, field evaluation, OMML conversion, and full tracked-change
+  rendering; unsupported constructs should surface through typed warnings or
+  placeholders, not fallback to the old scanner.
+- PPTX-1 hybrid adapter is complete; `convert/pptx` consumes parser inventory
+  summary rather than full `PptxPresentation` lowering.
+- PPTX-2 should gradually replace legacy parser-like slide / text / table /
+  media / notes / comments output paths with `PptxPresentation` consumption.
 - XLSX consumes `doc_parse/xlsx.XlsxWorkbook` as the primary parser model.
-- This means Office integration maturity differs by format: DOCX is deferred,
-  PPTX is partial, XLSX is accepted.
+- XLSX already consumes `doc_parse/xlsx`; XLSX-1C performance guard work is
+  complete, so future XLSX work should focus on remaining memory and metadata
+  closure risks rather than architecture wiring.
+- This means Office integration maturity differs by format: DOCX and XLSX are
+  accepted parser/model-driven runtimes, while PPTX still uses the PPTX-1
+  hybrid adapter pending full `PptxPresentation` lowering.
+
+### DOCX Validation Status
+
+- Main repo DOCX parser tests, convert tests, and `samples/check.sh --format
+  docx` pass.
+- External DOCX quality rows pass: 60 rows, failed 0.
+- Full replacement validation at adoption passed `moon check`, `moon test`,
+  `samples/check.sh`, and `samples/check_quality.sh` with DOCX routed through
+  `convert/docx`.
+- Previous stale footnote / endnote appendix expectations were synced to the
+  current Markdown note definition policy.
+
+### PPTX Validation Status
+
+- Main repo PPTX parser tests, convert tests, and `samples/check.sh --format
+  pptx` pass.
+- Main repo PPTX sample coverage passes: markdown 79 rows, metadata 16 rows,
+  assets 13 rows, failed 0.
+- External PPTX quality rows pass: 55 rows, failed 0.
+
+### XLSX Validation Status
+
+- XLSX-1C validation passed: parser tests, convert tests, and
+  `samples/check.sh --format xlsx` pass.
+- External XLSX quality rows pass: 51 rows, failed 0.
+- Normal XLSX output and quality rows pass after the profile hot-path and dense
+  sparse guard changes.
 
 ### Convert Policy Boundary
 
@@ -416,41 +610,86 @@ architecture decisions. Current scope: Convert-0 global map.
 
 ### Deferred Defects / Risks
 
-- DOCX repeats significant parser-like OOXML logic: part reads, relationship
-  handling, styles, numbering, XML scanning, notes/comments/header/footer
-  parsing.
-- PPTX repeats main parser-like OOXML logic: slide relationships,
+- DOCX still needs periodic performance snapshots on large and media-heavy
+  documents, because the old v1 runtime has been removed and parity checks no
+  longer compare against a live scanner.
+- Keep future DOCX inventory/debug additions out of profile-disabled normal
+  conversion paths.
+- Complex Word layout fidelity, arbitrary-depth nested table rendering,
+  object/chart/smart-art/audio/video rendering, field evaluation, OMML
+  conversion, and full tracked-change semantics remain explicit product
+  limits.
+- DOCX asset export, origin metadata, and output policy remain convert-owned.
+- DOCX quality metadata strict source / license closure should be audited
+  separately if not already complete.
+- PPTX normal conversion currently has parser + legacy dual-read / dual-model
+  cost while PPTX-2 remains deferred.
+- `pptx_parser_inventory` should remain an inventory / profile helper and not
+  grow into a third full PPTX model.
+- PPTX slide / text / table / image / asset / notes / comments / output
+  lowering remains legacy convert logic.
+- PPTX asset export, origin metadata, and output policy remain convert-owned.
+- PPTX quality metadata strict source / license closure should be audited
+  separately if not already complete.
+- PPTX still repeats parser-like OOXML logic for slide relationships,
   shape/text/media/notes/comments/table parsing, plus reading order/grouping
   policy.
-- DOCX/PPTX model integration with `doc_parse/docx` and `doc_parse/pptx` is
-  deferred because output behavior must be preserved deliberately.
+- PPTX full `PptxPresentation` output lowering is deferred because output
+  behavior must be preserved deliberately.
 - DOCX/PPTX may perform repeated part reads and heavy XML string scanning.
-- PPTX chart paths may reparse or rebuild semantic data.
-- XLSX keeps convert-side compatibility/output models, which can duplicate
-  memory alongside parser model data.
-- All three Office converters may still construct profile-only detail strings
-  on normal paths.
+- PPTX chart paths may still rebuild renderable chart blocks from parser model
+  data, but they no longer reparse the full deck per chart slide.
+- XLSX keeps a convert-side compatibility model copied from the semantic
+  workbook, which can duplicate memory alongside parser model data.
+- XLSX still materializes the full workbook / full cell model before conversion.
+- For normal guarded-in ranges, XLSX builds dense `table_rows` and full-memory
+  `RichTable` values from parsed cells; large genuinely dense sheets remain
+  memory-heavy.
+- Huge sparse used-range outputs are now bounded by the XLSX-1C dense-area
+  guard instead of expanding into unbounded far-edge dense row arrays.
+- XLSX style / date display formatting may have cache opportunities if real
+  samples show repeated format work.
+- XLSX comments, table output, formula hints, merged-cell hints, metadata, and
+  origin policy remain convert-owned.
+- XLSX quality metadata strict source / license closure should be audited
+  separately if not already complete.
+- PPTX may still construct profile-only detail strings on normal paths; DOCX
+  and XLSX should keep profile-disabled paths free of profile-only detail/stat
+  traversal.
 - `convert/xlsx` exposes a broader compatibility model/profile API surface than
   DOCX/PPTX.
 
 ### Not-a-bug Decisions
 
-- Do not force DOCX/PPTX onto parser models without a product-output migration
-  plan.
+- Do not restore DOCX fallback/oracle paths; future DOCX changes should extend
+  v2 typed model coverage and convert-owned lowering directly.
+- Do not force PPTX full parser-source lowering without a product-output
+  migration plan.
 - XLSX consuming `doc_parse/xlsx` is the preferred long-term shape, but it
-  should not be used as a reason to rush DOCX/PPTX migration.
+  should not be used as a reason to rush PPTX migration.
+- No PPTX-style hybrid adapter is needed for XLSX.
 - DOCX/PPTX/XLSX rendering policy belongs in convert, not doc_parse.
 - Existing samples/main_process references are test-only and not runtime
   pollution.
 
 ### Future Actions
 
-- Decide separately whether and how `convert/docx` should consume
-  `DocxDocument`.
-- Decide separately whether and how `convert/pptx` should fully consume
-  `PptxPresentation`.
+- DOCX follow-up: keep v2 parser/lowering changes output-stable,
+  benchmark-backed, and covered by typed parser tests, convert tests,
+  main-process DOCX samples, and DOCX quality rows.
+- DOCX follow-up: maintain the deep-table guard and explicit warning /
+  placeholder policy for unsupported WordprocessingML instead of restoring
+  legacy scanner behavior.
+- DOCX follow-up: keep asset export/path policy in `convert/docx` and source
+  facts in `doc_parse/docx`.
+- PPTX-2: gradually replace legacy parser-like PPTX output paths with
+  `PptxPresentation` model consumption while preserving output compatibility.
 - Preserve output compatibility before replacing convert-owned OOXML paths.
-- Consider narrow profile-detail hot-path fixes later.
+- XLSX follow-up: focus on remaining full workbook/full cell memory,
+  compatibility model surface, style/date cache opportunities, and quality
+  metadata closure while preserving current XLSX output.
+- Consider narrow profile-detail hot-path fixes later for formats that still
+  need them.
 - Review repeated part reads / relationship indexes only with Office benchmark
   evidence.
 - Continue Convert-5 PDF runtime policy next.
@@ -469,6 +708,10 @@ architecture decisions. Current scope: Convert-0 global map.
   normal runtime.
 - `convert/pdf_layout` and `convert/pdf_debug` do not enter normal
   `convert/pdf` runtime.
+- PDF-6 outline second-open fix complete.
+- PDF-7C profile-disabled timing guard complete.
+- `convert/pdf` output unchanged by PDF-6.
+- External PDF quality rows pass: 76 rows, failed 0, skipped 1.
 
 ### Confirmed Boundary Findings
 
@@ -484,16 +727,16 @@ architecture decisions. Current scope: Convert-0 global map.
   runtime support is wired.
 - Heading/noise/merge/table/caption/link/annotation/form/outline/image/assets/metadata/origin
   policy belongs in convert/pdf, not parser/raw/vendor.
+- Normal model extraction no longer reopens the PDF for outlines/bookmarks;
+  outlines arrive through `PdfDocumentModel.outlines`.
 
 ### Profile Hot-Path Status
 
-- The profile-only detail hot-path fix has been applied and reviewed.
-- Remaining detail strings such as `ocr_mode=`,
-  `text_pdf_only=true ocr_excluded=true pages=`, `pages=`, `max_heading=`,
-  `enabled=`, `high_confidence_uri_attach=true`, and `blocks=` are only
-  constructed inside `profile Some(_)` branches.
-- `profile None` branches still call `pdf_convert_profile_add_stage(..., None)`
-  and do not construct detail strings.
+- PDF-7C profile-disabled timing guard is complete.
+- `convert/pdf` profile-disabled paths avoid `@env.now()`, elapsed calculation,
+  no-op `pdf_convert_profile_add_stage(..., None)`, and profile-only detail
+  construction.
+- Profile-enabled stage names, elapsed timing, and detail strings are preserved.
 
 ### Deferred Defects / Risks
 
@@ -506,9 +749,10 @@ architecture decisions. Current scope: Convert-0 global map.
   future split may improve maintainability.
 - `convert/pdf` public API is broad because stage builders, decision helpers,
   layout features, and intermediate structs are exposed for tests/debug/layout.
-- Outline second open remains a parser/API deferred item, not a convert/pdf
-  fix.
+- Layout gate / model split remains deferred.
+- Vendor compile-size split remains a parser/vendor package-closure track.
 - Heavy PDF test lane remains deferred.
+- ZIP -> PDF closure remains a separate dispatcher/archive issue.
 
 ### Future Actions
 
@@ -517,6 +761,8 @@ architecture decisions. Current scope: Convert-0 global map.
 - Consider splitting `pdf_lines.mbt` only if maintenance or profiling justifies
   it.
 - Revisit layout gate/model split only with replacement model design.
+- Defer vendor package split until a parser/vendor package-closure plan exists.
+- Keep ZIP -> PDF closure tracked outside `convert/pdf` runtime policy.
 - Continue Convert-6 OCR/vision/provider/debug/layout tools next.
 
 ## Convert-6 OCR / Vision / Provider / Debug / Layout Tools
@@ -609,6 +855,9 @@ architecture decisions. Current scope: Convert-0 global map.
 
 - `txt`: paragraph/block origin from text line numbers; no assets.
 - `markdown`: conservative passthrough with block/footnote origin; no assets.
+- `markdown-real` status is `ACCEPT_STRICT`: Python-Markdown footnotes docs,
+  BSD-3-Clause, 5126 bytes, sha256
+  `cb52027428746e19dd82f01f84911fa2f89e5e5107011e116e073f17482e4c33`.
 - `json` / `yaml`: parser model lowering with `$` / key-path and line-based
   origin; RichTable/List/CodeBlock origin belongs to convert.
 - `xml`: convert-owned bytes decode, `doc_parse/xml` parser-model consumption
@@ -616,16 +865,22 @@ architecture decisions. Current scope: Convert-0 global map.
   whole-document line origin for unsupported / complex / large inputs.
 - `csv` / `tsv`: RichTable origin with row/column ranges; TSV is input format,
   not manifest/control.
-- `html`: private DOM/semantic lowering with block/link/image/table/note origin
-  and local image asset policy.
+- `html`: consumes `doc_parse/html` validation / security signals on normal-size
+  inputs while keeping private DOM/semantic lowering with
+  block/link/image/table/note origin and local image asset policy.
+- `html-real` status is `PARTIAL_ACCEPT_WITH_LICENSE_REVIEW`: MDN `main` /
+  `article` rows are strict accepted (`CC-BY-SA`), while MarkItDown blog / SERP
+  and Pandoc biblio remain runtime-guard rows pending license review.
 - `zip`: archive entry aggregation, nested origin rewriting, and nested asset
   remap.
-- `epub`: spine/nav/toc/cover/content origin; delegates body conversion to
-  `convert/html` and remaps origins/assets.
+- `epub`: consumes `doc_parse/epub`, uses a per-run part cache for repeated
+  conversion part reads, owns spine/nav/toc/cover/content origin, delegates body
+  conversion to `convert/html`, and remaps origins/assets.
 - `docx`: paragraph/run/table/notes/comments/header/footer/media origin from
   OOXML direct logic.
-- `pptx`: slide/shape/text/image/table/chart/notes/comments origin; chart path
-  partially consumes `doc_parse/pptx`.
+- `pptx`: consumes `doc_parse/pptx` parser inventory summary while keeping
+  slide/shape/text/image/table/chart/notes/comments origin and asset policy in
+  convert; chart path reuses the parsed `PptxPresentation`.
 - `xlsx`: consumes `doc_parse/xlsx`; sheet/cell/table/formula/merged/style
   metadata belongs to convert output policy.
 - `pdf`: page/block/table/link/annotation/form/outline/image origin and asset
@@ -693,22 +948,29 @@ architecture decisions. Current scope: Convert-0 global map.
   closure, tool/debug/provider isolation, and public API risks.
 - Convert-1 audited dispatcher/registry and deferred all-format static closure
   changes.
-- Convert-2A audited lightweight formats and recorded the Markdown
-  parser-model integration deferral plus profile hot-path candidates; the XML
-  parser-model integration deferral is resolved.
-- Convert-2B audited HTML/TSV and recorded HTML private scanner vs
-  `doc_parse/html` as deferred.
+- Convert-2A audited lightweight formats, recorded JSON/YAML/CSV/TSV parser
+  model consumption plus Lightweight-1 profile timing guard completion, and
+  kept deferred depth/stringify/table-memory/quality-closure risks visible.
+- Convert-2B audited HTML/TSV and recorded HTML-1 parser-validation
+  integration, remaining dual-path/private-lowering risks, and HTML-2A shared
+  primitive convergence completion.
 - Convert-3 audited archive/container formats and recorded ZIP nested dispatch
-  plus ZIP -> PDF closure as deferred.
-- Convert-4 audited Office formats and recorded DOCX deferred model
-  integration, PPTX partial integration, XLSX accepted parser-model
-  integration.
+  plus ZIP -> PDF closure as deferred; ZIP-1 inspect-plan/profile/cache cleanup
+  is complete with external ZIP quality rows passing 15/15; EPUB already
+  consumes `doc_parse/epub`, and EPUB-1 per-run part cache is complete with
+  external EPUB quality rows passing 16/16.
+- Convert-4 audited Office formats and now records DOCX accepted runtime
+  adoption, PPTX-1 hybrid adapter completion with PPTX-2 full model lowering
+  deferred, and XLSX accepted parser-model integration plus XLSX-1C performance
+  guard completion.
 - Convert-5 audited PDF runtime policy and confirmed raw/vendor parser
-  boundaries plus profile hot-path fix.
+  boundaries, PDF-7C profile-disabled timing guard completion, PDF-6 outline
+  second-open fix completion, profile-enabled stage/detail preservation, and
+  external PDF quality rows passing 76 rows with failed 0 and skipped 1.
 - Convert-6 audited OCR/vision/debug/layout tools and confirmed they are
   outside normal runtime.
 - Convert-7 summarized metadata/assets/origin policy and deferred shared helper
   extraction.
 - Overall: convert layer first-pass audit is complete. The next safe code work
-  should be small profile hot-path fixes or explicitly scoped architecture
-  changes, not broad rewrites.
+  should be small remaining profile hot-path fixes or explicitly scoped
+  architecture changes, not broad rewrites.

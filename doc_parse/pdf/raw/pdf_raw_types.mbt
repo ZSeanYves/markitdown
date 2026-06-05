@@ -184,6 +184,15 @@ pub(all) struct RawFormFieldInfo {
 }
 
 ///|
+/// 原始目录/书签项。
+pub struct RawPdfOutlineItem {
+  title : String
+  page_index : Int?
+  dest : String?
+  children : Array[RawPdfOutlineItem]
+}
+
+///|
 /// 原始页面结果：这是 adapter 层吐给 text/image/annot build 层的统一页内原始容器。
 pub struct RawPdfPageExtract {
   page_index : Int
@@ -216,5 +225,6 @@ pub struct RawPdfDocumentExtract {
   metadata_creation_date : String?
   metadata_mod_date : String?
   issues : Array[PdfRawIssue]
+  outlines : Array[RawPdfOutlineItem]
   pages : Array[RawPdfPageExtract]
 }

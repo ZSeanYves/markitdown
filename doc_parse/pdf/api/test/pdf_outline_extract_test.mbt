@@ -95,3 +95,40 @@ async test "extract document model keeps pdf bookmark outlines" {
     fail("expected child outline page index 1")
   }
 }
+
+///|
+async test "extract document raw model carries raw bookmark outlines" {
+  ensure_outline_test_dir(".tmp")
+  ensure_outline_test_dir(outline_test_tmp_dir())
+  let path = outline_test_tmp_dir() + "/outline_bookmarks_raw.pdf"
+  write_outline_fixture(path)
+
+  let (raw, doc) = match @api.extract_document_raw_model(
+    path,
+    @api.default_pdf_config(),
+  ) {
+    Ok(v) => v
+    Err(err) => fail("extract_document_raw_model failed: " + err.to_string())
+  }
+
+  if raw.outlines.length() != 1 {
+    fail(
+      "expected 1 raw top-level outline, got " +
+      raw.outlines.length().to_string(),
+    )
+  }
+  let raw_parent = raw.outlines[0]
+  if raw_parent.title != "Parent" || raw_parent.page_index != Some(0) {
+    fail("unexpected raw parent outline")
+  }
+  if raw_parent.children.length() != 1 {
+    fail("expected 1 raw child outline")
+  }
+  let raw_child = raw_parent.children[0]
+  if raw_child.title != "Child" || raw_child.page_index != Some(1) {
+    fail("unexpected raw child outline")
+  }
+  if doc.outlines.length() != raw.outlines.length() {
+    fail("model outlines should be mapped from raw outlines")
+  }
+}

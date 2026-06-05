@@ -10,6 +10,17 @@ pub fn parse_html_document(text : String) -> HtmlDocument raise {
 }
 
 ///|
+pub fn analyze_html_source(text : String) -> HtmlSourceAnalysis raise {
+  let normalized = normalize_html_source(text)
+  let scan = tokenize_normalized_html_event_scan(normalized)
+  let parser = HtmlParser::{ tokens: scan.tokens, pos: 0 }
+  {
+    document: parser.parse_document(count_html_source_chars(normalized)),
+    events: scan.events,
+  }
+}
+
+///|
 fn count_html_source_chars(text : String) -> Int {
   let mut count = 0
   for _ in text {

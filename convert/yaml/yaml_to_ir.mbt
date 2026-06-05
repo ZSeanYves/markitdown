@@ -25,28 +25,40 @@ pub fn parse_yaml_with_profile(
   yaml_profile_set_active(profile)
   defer yaml_profile_set_active(None)
 
-  let read_started = @env.now()
+  let read_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let bytes = @fs.read_file_to_bytes(input_path) catch {
     e => raise @cor.AppError("yaml: read failed: " + e.to_string())
   }
   yaml_profile_add_stage(
     profile,
     "yaml_file_read",
-    @env.now() - read_started,
+    match profile {
+      Some(_) => @env.now() - read_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("bytes=" + bytes.length().to_string())
       None => None
     },
   )
 
-  let decode_started = @env.now()
+  let decode_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let raw = decode_yaml_utf8_text(bytes) catch {
     e => raise @cor.AppError("yaml: utf8 decode failed: " + e.to_string())
   }
   yaml_profile_add_stage(
     profile,
     "yaml_bytes_to_string",
-    @env.now() - decode_started,
+    match profile {
+      Some(_) => @env.now() - decode_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("chars=" + raw.length().to_string())
       None => None
@@ -56,16 +68,25 @@ pub fn parse_yaml_with_profile(
   let doc = @cor.new_document()
   let src = @cor.basename(input_path)
 
-  let parse_started = @env.now()
+  let parse_started = match profile {
+    Some(_) => @env.now()
+    None => 0
+  }
   let parsed = @dpyaml.parse_yaml_document(raw)
   match parsed.root {
     Some(value) => {
-      let lower_started = @env.now()
+      let lower_started = match profile {
+        Some(_) => @env.now()
+        None => 0
+      }
       push_yaml_value_with_profile(doc, value, src)
       yaml_profile_add_stage(
         profile,
         "yaml_to_ir",
-        @env.now() - lower_started,
+        match profile {
+          Some(_) => @env.now() - lower_started
+          None => 0
+        },
         match profile {
           Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
           None => None
@@ -77,7 +98,10 @@ pub fn parse_yaml_with_profile(
   yaml_profile_add_stage(
     profile,
     "yaml_parse_model",
-    @env.now() - parse_started,
+    match profile {
+      Some(_) => @env.now() - parse_started
+      None => 0
+    },
     match profile {
       Some(_) => Some("blocks=" + doc.blocks.val.length().to_string())
       None => None
@@ -143,17 +167,16 @@ fn push_yaml_value_with_profile(
 
   match value {
     @dpyaml.YamlValue::Mapping(members) => {
-      let detect_started = @env.now()
+      let profile_active = yaml_profile_active_enabled()
+      let detect_started = if profile_active { @env.now() } else { 0 }
       let rows = object_rows(members)
-      yaml_profile_add_active_stage(
-        "yaml_detect_table",
-        @env.now() - detect_started,
-        if yaml_profile_active_enabled() {
+      if profile_active {
+        yaml_profile_add_active_stage(
+          "yaml_detect_table",
+          @env.now() - detect_started,
           Some("kind=mapping rows=" + rows.length().to_string())
-        } else {
-          None
-        },
-      )
+        )
+      }
       @cor.push_with_origin(
         doc,
         @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
@@ -187,18 +210,17 @@ fn push_yaml_value_with_profile(
           )
         }
       } else {
-        let detect_started = @env.now()
+        let profile_active = yaml_profile_active_enabled()
+        let detect_started = if profile_active { @env.now() } else { 0 }
         match array_object_rows(values) {
           Some(rows) => {
-            yaml_profile_add_active_stage(
-              "yaml_detect_table",
-              @env.now() - detect_started,
-              if yaml_profile_active_enabled() {
+            if profile_active {
+              yaml_profile_add_active_stage(
+                "yaml_detect_table",
+                @env.now() - detect_started,
                 Some("kind=sequence_table rows=" + rows.length().to_string())
-              } else {
-                None
-              },
-            )
+              )
+            }
             @cor.push_with_origin(
               doc,
               @cor.Block::RichTable({ rows, header_rows: 1, hints: None }),
@@ -206,15 +228,13 @@ fn push_yaml_value_with_profile(
             )
           }
           None => {
-            yaml_profile_add_active_stage(
-              "yaml_detect_table",
-              @env.now() - detect_started,
-              if yaml_profile_active_enabled() {
-                Some("kind=sequence_fallback")
-              } else {
-                None
-              },
-            )
+            if profile_active {
+              yaml_profile_add_active_stage(
+                "yaml_detect_table",
+                @env.now() - detect_started,
+                Some("kind=sequence_fallback"),
+              )
+            }
             @cor.push_with_origin(
               doc,
               @cor.Block::CodeBlock(stringify_yaml_block(value, 0)),

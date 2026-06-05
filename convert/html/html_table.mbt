@@ -52,39 +52,31 @@ fn html_table_from_bytes_with_notes(
   let out : Array[Array[Array[HtmlInline]]] = []
   let span_cells : Array[HtmlTableSpanCell] = []
 
-  let open_tr = pat("<tr")
   let close_tr = pat("</tr>")
-  let gt_pat = pat(">")
 
   let mut pos = 0
   while true {
-    let tr0 = find_bytes(inner, open_tr, pos)
+    let tr0 = find_open_tag_with_name(inner, "tr", pos)
     match tr0 {
       None => break
-      Some(i0) => {
-        let gt0 = find_bytes(inner, gt_pat, i0)
-        match gt0 {
+      Some((_, q0)) => {
+        let row_start = q0 + 1
+        let end0 = find_bytes_case_insensitive(inner, close_tr, row_start)
+        match end0 {
           None => break
-          Some(q0) => {
-            let row_start = q0 + 1
-            let end0 = find_bytes(inner, close_tr, row_start)
-            match end0 {
-              None => break
-              Some(end) => {
-                let tr_inner = inner[row_start:end].to_owned()
-                let row_index = out.length() + 1
-                let (cells, row_spans) = html_table_row_from_bytes(
-                  tr_inner, row_index, note_plan,
-                )
-                if cells.length() > 0 {
-                  out.push(cells)
-                }
-                for span in row_spans {
-                  span_cells.push(span)
-                }
-                pos = end + close_tr.length()
-              }
+          Some(end) => {
+            let tr_inner = inner[row_start:end].to_owned()
+            let row_index = out.length() + 1
+            let (cells, row_spans) = html_table_row_from_bytes(
+              tr_inner, row_index, note_plan,
+            )
+            if cells.length() > 0 {
+              out.push(cells)
             }
+            for span in row_spans {
+              span_cells.push(span)
+            }
+            pos = end + close_tr.length()
           }
         }
       }
@@ -100,38 +92,26 @@ fn html_table_from_bytes_with_notes(
 
 ///|
 fn html_table_header_rows(inner : Bytes) -> Int {
-  let text = (@utf8.decode(inner, ignore_bom=false) catch { _ => "" }).to_lower()
-  if text.contains("<thead") {
+  if find_open_tag_with_name(inner, "thead", 0) is Some(_) {
     return 1
   }
 
-  let open_tr = pat("<tr")
   let close_tr = pat("</tr>")
-  let gt_pat = pat(">")
 
-  let tr0 = find_bytes(inner, open_tr, 0)
+  let tr0 = find_open_tag_with_name(inner, "tr", 0)
   match tr0 {
     None => 0
-    Some(i0) => {
-      let gt0 = find_bytes(inner, gt_pat, i0)
-      match gt0 {
+    Some((_, q0)) => {
+      let row_start = q0 + 1
+      let end0 = find_bytes_case_insensitive(inner, close_tr, row_start)
+      match end0 {
         None => 0
-        Some(q0) => {
-          let row_start = q0 + 1
-          let end0 = find_bytes(inner, close_tr, row_start)
-          match end0 {
-            None => 0
-            Some(end) => {
-              let tr_inner = inner[row_start:end].to_owned()
-              let row_text = (@utf8.decode(tr_inner, ignore_bom=false) catch {
-                _ => ""
-              }).to_lower()
-              if row_text.contains("<th") {
-                1
-              } else {
-                0
-              }
-            }
+        Some(end) => {
+          let tr_inner = inner[row_start:end].to_owned()
+          if find_open_tag_with_name(tr_inner, "th", 0) is Some(_) {
+            1
+          } else {
+            0
           }
         }
       }
@@ -148,86 +128,77 @@ fn html_table_row_from_bytes(
   let out : Array[Array[HtmlInline]] = []
   let spans : Array[HtmlTableSpanCell] = []
 
-  let open_td = pat("<td")
   let close_td = pat("</td>")
-  let open_th = pat("<th")
   let close_th = pat("</th>")
-  let gt_pat = pat(">")
 
   let mut pos = 0
   let n = tr_inner.length()
   let mut col_index = 1
 
   while pos < n {
-    let td0 = find_bytes(tr_inner, open_td, pos)
-    let th0 = find_bytes(tr_inner, open_th, pos)
+    let td0 = find_open_tag_with_name(tr_inner, "td", pos)
+    let th0 = find_open_tag_with_name(tr_inner, "th", pos)
 
     let next = match (td0, th0) {
-      (Some(a), Some(b)) =>
+      (Some((a, a_gt)), Some((b, b_gt))) =>
         if a < b {
-          Some((a, false))
+          Some((a, a_gt, false))
         } else {
-          Some((b, true))
+          Some((b, b_gt, true))
         }
-      (Some(a), None) => Some((a, false))
-      (None, Some(b)) => Some((b, true))
+      (Some((a, a_gt)), None) => Some((a, a_gt, false))
+      (None, Some((b, b_gt))) => Some((b, b_gt, true))
       (None, None) => None
     }
 
     match next {
       None => break
-      Some((i0, is_th)) => {
-        let gt0 = find_bytes(tr_inner, gt_pat, i0)
-        match gt0 {
+      Some((i0, q0, is_th)) => {
+        let cell_start = q0 + 1
+        let end0 = if is_th {
+          find_bytes_case_insensitive(tr_inner, close_th, cell_start)
+        } else {
+          find_bytes_case_insensitive(tr_inner, close_td, cell_start)
+        }
+
+        match end0 {
           None => break
-          Some(q0) => {
-            let cell_start = q0 + 1
-            let end0 = if is_th {
-              find_bytes(tr_inner, close_th, cell_start)
-            } else {
-              find_bytes(tr_inner, close_td, cell_start)
+          Some(end) => {
+            let cell_inner = tr_inner[cell_start:end].to_owned()
+            let xs = html_inlines_from_bytes_with_notes(
+              cell_inner, note_plan,
+            )
+            let tag_bs = tr_inner[i0:q0 + 1].to_owned()
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch {
+              _ => ""
             }
+            let rowspan = parse_html_positive_int_attr(
+              @dphtml.html_attr_value(tag0, "rowspan"),
+            )
+            let colspan = parse_html_positive_int_attr(
+              @dphtml.html_attr_value(tag0, "colspan"),
+            )
+            if rowspan > 1 || colspan > 1 {
+              spans.push({
+                row_index,
+                column_index: col_index,
+                rowspan,
+                colspan,
+                text: normalized_optional_text(render_inlines(xs)),
+              })
+            }
+            out.push(xs)
+            let mut repeat = 1
+            while repeat < colspan {
+              out.push([])
+              repeat += 1
+            }
+            col_index += colspan
 
-            match end0 {
-              None => break
-              Some(end) => {
-                let cell_inner = tr_inner[cell_start:end].to_owned()
-                let xs = html_inlines_from_bytes_with_notes(
-                  cell_inner, note_plan,
-                )
-                let tag_bs = tr_inner[i0:q0 + 1].to_owned()
-                let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch {
-                  _ => ""
-                }
-                let rowspan = parse_html_positive_int_attr(
-                  read_html_attr_value(tag0, "rowspan"),
-                )
-                let colspan = parse_html_positive_int_attr(
-                  read_html_attr_value(tag0, "colspan"),
-                )
-                if rowspan > 1 || colspan > 1 {
-                  spans.push({
-                    row_index,
-                    column_index: col_index,
-                    rowspan,
-                    colspan,
-                    text: normalized_optional_text(render_inlines(xs)),
-                  })
-                }
-                out.push(xs)
-                let mut repeat = 1
-                while repeat < colspan {
-                  out.push([])
-                  repeat += 1
-                }
-                col_index += colspan
-
-                pos = if is_th {
-                  end + close_th.length()
-                } else {
-                  end + close_td.length()
-                }
-              }
+            pos = if is_th {
+              end + close_th.length()
+            } else {
+              end + close_td.length()
             }
           }
         }
