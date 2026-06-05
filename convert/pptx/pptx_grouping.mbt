@@ -119,7 +119,7 @@ fn looks_like_desc_prefix_text(s : String) -> Bool {
 
 ///|
 fn looks_like_callout_title_text(s : String) -> Bool {
-  let t = s.trim()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
 
   if t == "" || n > 24 {
@@ -144,7 +144,7 @@ fn looks_like_callout_title_text(s : String) -> Bool {
 
 ///|
 fn looks_like_callout_desc_text(s : String) -> Bool {
-  let t = s.trim()
+  let t = s.trim().to_owned()
   let n = t.to_array().length()
 
   if t == "" {
@@ -344,6 +344,12 @@ fn sort_shape_groups(groups : Array[ShapeGroup]) -> Array[ShapeGroup] {
 fn group_body_shapes_for_layout(
   shapes : Array[LayoutShape],
 ) -> Array[ShapeGroup] {
+  let started = @env.now()
+  defer pptx_convert_profile_add_active_stage(
+    "pptx_grouping",
+    @env.now() - started,
+    Some("shapes=" + shapes.length().to_string()),
+  )
   let groups : Array[ShapeGroup] = []
   let debug_target = is_grouping_debug_target(shapes)
   if shapes.length() == 0 {

@@ -21,7 +21,7 @@ fn paragraph_level(xml : Bytes, start : Int, end_ : Int) -> Int raise {
             return 0
           }
 
-          let tag = xml[i0:gt0 + 1].to_bytes()
+          let tag = xml[i0:gt0 + 1].to_owned()
           match read_attr_value_in_tag_bytes(tag, "lvl") {
             Some(v) => parse_nonneg_int(v)
             None => 0
@@ -76,7 +76,7 @@ fn paragraph_bullet_kind(xml : Bytes, start : Int, end_ : Int) -> BulletKind? {
 
 ///|
 fn parse_nonneg_int(s : String) -> Int {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return 0
   }

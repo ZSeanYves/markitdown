@@ -1,0 +1,5 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
+  "ZSeanYves/markitdown/doc_parse/xlsx",
+  "moonbitlang/x/fs",
+} for "test"

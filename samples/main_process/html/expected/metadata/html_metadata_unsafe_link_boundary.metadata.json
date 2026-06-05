@@ -1,0 +1,50 @@
+{
+  "version": "1",
+  "source_name": "html_metadata_unsafe_link_boundary.html",
+  "format": "html",
+  "markdown_file": "html_metadata_unsafe_link_boundary.md",
+  "document": null,
+  "summary": {
+    "block_count": 2,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "paragraph",
+      "text": "Bad JS",
+      "origin": {
+        "format": "html",
+        "source_name": "html_metadata_unsafe_link_boundary.html",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "object_ref": "html:paragraph:1",
+        "key_path": "$.html[1].paragraph"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "paragraph",
+      "text": "Bad Data",
+      "origin": {
+        "format": "html",
+        "source_name": "html_metadata_unsafe_link_boundary.html",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "object_ref": "html:paragraph:2",
+        "key_path": "$.html[2].paragraph"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

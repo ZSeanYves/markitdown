@@ -1,9 +1,23 @@
 ///|
+/// HTML node -> unified IR projection.
+///
+/// Design boundaries:
+/// - figure/figcaption/img alt/title are mapped as structured image context
+/// - remote images are not force-downloaded/exported; local export is best-effort
+/// - container reconstruction is conservative to avoid speculative DOM semantics
 priv struct HtmlImageExportCtx {
   input_dir : String
   out_dir : String
   next_idx : Ref[Int]
   by_src : Map[String, String]
+  src_by_asset_path : Map[String, String]
+}
+
+///|
+priv struct HtmlBlocksResult {
+  blocks : Array[@cor.Block]
+  asset_source_paths : Map[String, String]
+  block_origins : Array[@cor.Origin?]
 }
 
 ///|
@@ -12,35 +26,64 @@ fn nodes_to_blocks(
   max_h : Int,
   input_path : String,
   out_dir : String,
-) -> Array[@cor.Block] raise {
+) -> HtmlBlocksResult raise {
   let out : Array[@cor.Block] = []
+  let origins : Array[@cor.Origin?] = []
   let ctx = new_html_image_export_ctx(input_path, out_dir)
+  let source_name = @cor.basename(input_path)
+  let mut object_counter = 0
 
   for node in nodes {
+    object_counter += 1
+    let origin : @cor.Origin? = Some({
+      source_name: Some(source_name),
+      page: None,
+      slide: None,
+      sheet: None,
+      block_index: None,
+      heading_path: None,
+      line_start: None,
+      line_end: None,
+      row_index: None,
+      column_index: None,
+      object_ref: Some(
+        "html:" + html_node_origin_kind(node) + ":" + object_counter.to_string(),
+      ),
+      relationship_id: None,
+      key_path: Some(html_node_origin_key_path(node, object_counter)),
+    })
     match node {
-      HtmlNode::Heading(level, xs) =>
+      HtmlNode::Heading(level, xs) => {
         out.push(
           @cor.Block::RichHeading(
             clamp_heading(level, max_h),
             html_inlines_to_ir(xs),
           ),
         )
+        origins.push(origin)
+      }
       HtmlNode::Paragraph(xs) => {
         let blocks = paragraph_inlines_to_blocks(xs, ctx)
         for b in blocks {
           out.push(b)
+          origins.push(origin)
         }
       }
       HtmlNode::Figure(img, caption) =>
         match figure_to_image_block(img, caption, ctx) {
-          Some(b) => out.push(b)
+          Some(b) => {
+            out.push(b)
+            origins.push(origin)
+          }
           None => ()
         }
       HtmlNode::ListItem(ordered, level, children) =>
         match list_item_children_to_inlines(children, max_h) {
-          Some(inlines) =>
+          Some(inlines) => {
             out.push(@cor.Block::RichListItem(ordered, level, inlines))
-          None =>
+            origins.push(origin)
+          }
+          None => {
             out.push(
               @cor.Block::ListItem(
                 ordered,
@@ -48,31 +91,53 @@ fn nodes_to_blocks(
                 list_item_children_to_text(children, max_h),
               ),
             )
+            origins.push(origin)
+          }
         }
       HtmlNode::BlockQuote(children) =>
         match quote_children_to_inlines(children, max_h) {
-          Some(inlines) => out.push(@cor.Block::RichBlockQuote(inlines))
-          None =>
+          Some(inlines) => {
+            out.push(@cor.Block::RichBlockQuote(inlines))
+            origins.push(origin)
+          }
+          None => {
             out.push(
               @cor.Block::BlockQuote(quote_children_to_text(children, max_h)),
             )
+            origins.push(origin)
+          }
         }
-      HtmlNode::CodeBlock(text) => out.push(@cor.Block::CodeBlock(text))
-      HtmlNode::Table(rows) => {
+      HtmlNode::CodeBlock(text) => {
+        out.push(@cor.Block::CodeBlock(text))
+        origins.push(origin)
+      }
+      HtmlNode::Table(table) => {
         let out_rows : Array[Array[String]] = []
-        for row in rows {
+        for row in table.rows {
           let out_row : Array[String] = []
           for cell in row {
             out_row.push(render_inlines(cell))
           }
           out_rows.push(out_row)
         }
-        out.push(@cor.Block::Table(out_rows))
+        let hints = html_table_hints(table)
+        out.push(
+          @cor.Block::RichTable({
+            rows: out_rows,
+            header_rows: table.header_rows,
+            hints,
+          }),
+        )
+        origins.push(origin)
       }
     }
   }
 
-  out
+  {
+    blocks: out,
+    asset_source_paths: ctx.src_by_asset_path,
+    block_origins: origins,
+  }
 }
 
 ///|
@@ -87,10 +152,16 @@ fn paragraph_inlines_to_blocks(
     match x {
       HtmlInline::Text(t) => buf.push(@cor.Inline::Text(t))
       HtmlInline::Break => buf.push(@cor.Inline::Break)
-      HtmlInline::Link(text, href) =>
-        buf.push(
-          @cor.Inline::Link(text.trim().to_string(), href.trim().to_string()),
-        )
+      HtmlInline::Link(text, href) => {
+        let t = text.trim().to_owned()
+        let h = href.trim().to_owned()
+        if t != "" && h != "" {
+          buf.push(@cor.Inline::Link(t, h))
+        } else if t != "" {
+          buf.push(@cor.Inline::Text(t))
+        }
+      }
+      HtmlInline::NoteRef(note) => buf.push(@cor.Inline::NoteRef(note))
       HtmlInline::Image(alt, title, src) => {
         if render_ir_inlines(buf).trim() != "" {
           out.push(@cor.Block::RichParagraph(buf))
@@ -105,14 +176,16 @@ fn paragraph_inlines_to_blocks(
                 alt_text: normalized_optional_text(alt),
                 title: normalize_optional_html_attr(title),
                 caption: None,
-                origin: None,
+                origin: Some(
+                  new_html_image_origin(ctx.input_dir, src, "inline-img"),
+                ),
               }),
             )
           None => {
             let fallback = if alt.trim() == "" {
               "image"
             } else {
-              alt.trim().to_string()
+              alt.trim().to_owned()
             }
             out.push(@cor.Block::Paragraph("[" + fallback + "]"))
           }
@@ -136,13 +209,14 @@ fn html_inlines_to_ir(xs : Array[HtmlInline]) -> Array[@cor.Inline] {
       HtmlInline::Text(t) => out.push(@cor.Inline::Text(t))
       HtmlInline::Break => out.push(@cor.Inline::Break)
       HtmlInline::Link(text, href) => out.push(@cor.Inline::Link(text, href))
+      HtmlInline::NoteRef(note) => out.push(@cor.Inline::NoteRef(note))
       HtmlInline::Image(alt, _title, _src) =>
         out.push(
           @cor.Inline::Text(
             if alt.trim() == "" {
               "image"
             } else {
-              alt.trim().to_string()
+              alt.trim().to_owned()
             },
           ),
         )
@@ -159,6 +233,16 @@ fn render_ir_inlines(xs : Array[@cor.Inline]) -> String {
       @cor.Inline::Text(t) => out = out + t
       @cor.Inline::Break => out = out + "<br>"
       @cor.Inline::Link(text, href) => out = out + text + href
+      @cor.Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out = out + "[^" + note.note_id.trim().to_owned() + "]"
+        } else if marker != "" {
+          out = out +
+            (if marker.has_prefix("^") { marker } else { "^" + marker })
+        }
+      }
     }
   }
   out
@@ -173,7 +257,8 @@ fn new_html_image_export_ctx(
     input_dir: dirname_of_path(input_path),
     out_dir,
     next_idx: { val: 0 },
-    by_src: Map::new(),
+    by_src: Map([]),
+    src_by_asset_path: Map([]),
   }
 
   if out_dir != "" {
@@ -191,29 +276,47 @@ fn export_local_html_image(
   ctx : HtmlImageExportCtx,
   src_raw : String,
 ) -> String? {
+  let started = html_active_profile_start_tick()
   if ctx.out_dir == "" {
     return None
   }
 
-  let src0 = strip_query_and_hash(src_raw.trim().to_string())
+  let src0 = strip_query_and_hash(src_raw.trim().to_owned())
   if src0 == "" {
     return None
   }
   if is_remote_or_unsupported_html_image_src(src0) {
+    profile_html_remote_asset_candidate()
     return None
   }
   if src0.contains("..") {
+    profile_html_unresolved_local_asset()
     return None
   }
 
   if ctx.by_src.contains(src0) {
-    return ctx.by_src.get(src0)
+    let rel_out = ctx.by_src.get(src0)
+    match rel_out {
+      Some(path) => {
+        profile_html_cached_asset_hit()
+        if !ctx.src_by_asset_path.contains(path) {
+          ctx.src_by_asset_path.set(path, src0)
+        }
+        return Some(path)
+      }
+      None => return None
+    }
   }
 
   let abs_path_opt = resolve_html_local_image_path(ctx.input_dir, src0)
+  profile_html_asset_discovery_elapsed_ms(html_profile_elapsed_since(started))
   match abs_path_opt {
-    None => return None
+    None => {
+      profile_html_unresolved_local_asset()
+      return None
+    }
     Some(abs_path) => {
+      let export_started = html_active_profile_start_tick()
       let data = @fs.read_file_to_bytes(abs_path) catch { _ => return None }
       let ext = image_ext_from_src(src0)
       let rel_out = @cor.next_image_asset_rel_path_unique(
@@ -227,6 +330,11 @@ fn export_local_html_image(
       }
 
       ctx.by_src.set(src0, rel_out)
+      ctx.src_by_asset_path.set(rel_out, src0)
+      profile_html_local_asset_exported()
+      profile_html_asset_export_elapsed_ms(
+        html_profile_elapsed_since(export_started),
+      )
       Some(rel_out)
     }
   }
@@ -274,7 +382,7 @@ fn strip_query_and_hash(src : String) -> String {
       break
     }
   }
-  src[:end].to_string()
+  src[:end].to_owned()
 }
 
 ///|
@@ -291,7 +399,7 @@ fn dirname_of_path(path : String) -> String {
   } else if last == 0 {
     "/"
   } else {
-    path[:last].to_string()
+    path[:last].to_owned()
   }
 }
 
@@ -394,6 +502,7 @@ fn html_inlines_are_simple_inline_only(xs : Array[HtmlInline]) -> Bool {
       HtmlInline::Text(_) => ()
       HtmlInline::Break => ()
       HtmlInline::Link(_, _) => ()
+      HtmlInline::NoteRef(_) => ()
       HtmlInline::Image(_, _, _) => return false
     }
   }
@@ -438,7 +547,7 @@ fn list_item_child_to_text(node : HtmlNode, max_h : Int) -> String {
     }
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
-    HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Table(table) => render_table_markdown(table.rows)
     HtmlNode::Figure(_img, caption) => render_inlines(caption)
   }
 }
@@ -519,7 +628,7 @@ fn quote_node_to_text(node : HtmlNode, max_h : Int) -> String {
     }
     HtmlNode::BlockQuote(children) => quote_children_to_text(children, max_h)
     HtmlNode::CodeBlock(text) => "```\n" + text + "\n```"
-    HtmlNode::Table(rows) => render_table_markdown(rows)
+    HtmlNode::Table(table) => render_table_markdown(table.rows)
     HtmlNode::Figure(_img, caption) => render_inlines(caption)
   }
 }
@@ -540,7 +649,9 @@ fn figure_to_image_block(
               alt_text: normalized_optional_text(alt),
               title: normalize_optional_html_attr(title),
               caption: normalized_optional_text(render_inlines(caption)),
-              origin: None,
+              origin: Some(
+                new_html_image_origin(ctx.input_dir, src, "figure-img"),
+              ),
             }),
           )
         None => None
@@ -551,7 +662,7 @@ fn figure_to_image_block(
 
 ///|
 fn normalized_optional_text(s : String) -> String? {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     None
   } else {
@@ -607,5 +718,74 @@ fn clamp_heading(level : Int, max_h : Int) -> Int {
     max_h
   } else {
     level
+  }
+}
+
+///|
+fn html_table_hints(table : HtmlTable) -> @cor.TableHints? {
+  let span_cells = if table.span_cells.length() == 0 {
+    None
+  } else {
+    let out : Array[@cor.TableSpanHint] = []
+    for span in table.span_cells {
+      out.push({
+        row_index: span.row_index,
+        column_index: span.column_index,
+        rowspan: span.rowspan,
+        colspan: span.colspan,
+        text: span.text,
+      })
+    }
+    Some(out)
+  }
+
+  Some({
+    format: Some("html"),
+    sheet_state: None,
+    merged_ranges: None,
+    formula_cells: None,
+    semantic_types: None,
+    span_cells,
+  })
+}
+
+///|
+fn html_node_origin_kind(node : HtmlNode) -> String {
+  match node {
+    HtmlNode::Heading(_, _) => "heading"
+    HtmlNode::Paragraph(_) => "paragraph"
+    HtmlNode::Figure(_, _) => "figure"
+    HtmlNode::ListItem(_, _, _) => "list-item"
+    HtmlNode::BlockQuote(_) => "blockquote"
+    HtmlNode::CodeBlock(_) => "pre"
+    HtmlNode::Table(_) => "table"
+  }
+}
+
+///|
+fn html_node_origin_key_path(node : HtmlNode, index : Int) -> String {
+  "$.html[" + index.to_string() + "]." + html_node_origin_kind(node)
+}
+
+///|
+fn new_html_image_origin(
+  _input_dir : String,
+  src : String,
+  kind : String,
+) -> @cor.Origin {
+  {
+    source_name: None,
+    page: None,
+    slide: None,
+    sheet: None,
+    block_index: None,
+    heading_path: None,
+    line_start: None,
+    line_end: None,
+    row_index: None,
+    column_index: None,
+    object_ref: Some("html:" + kind),
+    relationship_id: None,
+    key_path: Some("$.html.asset[" + src + "]"),
   }
 }

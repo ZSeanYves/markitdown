@@ -1,3 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/pdf_core/model" @model,
-} for "test"

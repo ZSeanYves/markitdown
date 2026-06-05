@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/convert/vision",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+}
+
+options(
+  "is-main": true,
+  "preferred-target": "native",
+)

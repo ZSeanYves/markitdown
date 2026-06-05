@@ -1,0 +1,110 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/csv"
+
+// Values
+pub fn classify_csv_error(CsvError) -> CsvErrorInfo
+
+pub fn collect_csv_validation_issues(CsvDocument) -> Array[CsvValidationIssue]
+
+pub fn csv_parse_options_for_tsv() -> CsvParseOptions
+
+pub fn default_csv_parse_options() -> CsvParseOptions
+
+pub fn inspect_csv_document(CsvDocument) -> CsvInspectReport
+
+pub fn new_csv_parse_options(CsvDelimiter, Char, Bool, Bool, Bool) -> CsvParseOptions
+
+pub fn parse_csv_document(String) -> CsvDocument raise
+
+pub fn parse_csv_with_options(String, CsvParseOptions) -> CsvDocument raise
+
+pub fn validate_csv_document(CsvDocument) -> CsvValidationReport
+
+// Errors
+pub(all) suberror CsvError {
+  ParseError(String)
+}
+pub impl Show for CsvError
+
+// Types and methods
+pub(all) enum CsvDelimiter {
+  Comma
+  Tab
+} derive(Eq)
+
+pub struct CsvDocument {
+  delimiter : CsvDelimiter
+  rows : Array[CsvRow]
+  column_count : Int
+  line_count : Int
+}
+
+pub struct CsvErrorInfo {
+  kind : CsvErrorKind
+  detail : String
+}
+
+pub(all) enum CsvErrorKind {
+  UnterminatedQuotedField
+  Unknown
+} derive(Eq)
+
+pub struct CsvInspectReport {
+  delimiter : CsvDelimiter
+  row_count : Int
+  column_count : Int
+  line_count : Int
+  min_field_count : Int
+  max_field_count : Int
+  empty_cell_count : Int
+  ragged_row_count : Int
+  multiline_row_count : Int
+  multiline_field_count : Int
+}
+
+pub struct CsvParseOptions {
+  delimiter : CsvDelimiter
+  quote_char : Char
+  double_quote_escape : Bool
+  skip_blank_rows : Bool
+  normalize_ragged_rows : Bool
+}
+
+pub struct CsvRow {
+  fields : Array[String]
+  original_field_count : Int
+  line_start : Int
+  line_end : Int
+}
+
+pub struct CsvValidationIssue {
+  kind : CsvValidationIssueKind
+  severity : CsvValidationSeverity
+  row_index : Int
+  actual_field_count : Int
+  expected_field_count : Int
+  message : String
+}
+
+pub(all) enum CsvValidationIssueKind {
+  RaggedRow
+} derive(Eq)
+
+pub struct CsvValidationReport {
+  row_count : Int
+  column_count : Int
+  issue_count : Int
+  warning_count : Int
+  error_count : Int
+  issues : Array[CsvValidationIssue]
+}
+
+pub(all) enum CsvValidationSeverity {
+  Warning
+  Error
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

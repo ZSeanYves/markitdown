@@ -1,5 +1,6 @@
 import {
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/fs",
+  "tonyfettes/unicode/normalization" @unicode_normalization,
 }
 
 options(

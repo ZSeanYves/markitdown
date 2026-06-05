@@ -1,6 +1,16 @@
 ///|
 /// extract all <a:t>...</a:t> text within xml[start:end_]
 fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
+  extract_text_runs_impl(xml, start, end_, true)
+}
+
+///|
+fn extract_text_runs_impl(
+  xml : Bytes,
+  start : Int,
+  end_ : Int,
+  apply_shared_cleanup : Bool,
+) -> String {
   let open_t = pat("<a:t>")
   let close_t = pat("</a:t>")
 
@@ -25,8 +35,8 @@ fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
               break
             }
 
-            let seg = xml[content_start:t1i].to_bytes()
-            let s = @cor.utf8_bytes_to_string(seg) catch { _ => "" }
+            let seg = xml[content_start:t1i].to_owned()
+            let s = @utf8.decode(seg, ignore_bom=false) catch { _ => "" }
 
             acc = acc + s
             tpos = t1i + close_t.length()
@@ -36,7 +46,12 @@ fn extract_text_runs(xml : Bytes, start : Int, end_ : Int) -> String {
     }
   }
 
-  xml_unescape(acc)
+  let decoded = xml_unescape(acc)
+  if apply_shared_cleanup {
+    @cor.normalize_document_text_cleanup(decoded)
+  } else {
+    decoded
+  }
 }
 
 ///|
@@ -101,14 +116,14 @@ fn extract_text_inlines(
       continue
     }
 
-    let run = xml[p:close + close_pat.length()].to_bytes()
+    let run = xml[p:close + close_pat.length()].to_owned()
     let text = extract_text_runs(run, 0, run.length())
     if text.trim() != "" {
       let rid = run_hyperlink_rid(run)
       let link = match rid {
         Some(id) =>
           match hyperlinks.get(id) {
-            Some(u) => u.trim().to_string()
+            Some(u) => u.trim().to_owned()
             None => ""
           }
         None => ""
@@ -127,12 +142,54 @@ fn extract_text_inlines(
   if out.length() > 0 {
     return out
   }
-  let fallback = extract_text_runs(xml, start, end_)
+  let fallback = extract_text_runs_impl(xml, start, end_, false)
   if fallback.trim() == "" {
     []
   } else {
     [@cor.Inline::Text(fallback)]
   }
+}
+
+///|
+fn extract_single_hyperlink_relationship_id(
+  inlines : Array[@cor.Inline],
+  hyperlinks : Map[String, String],
+) -> String? {
+  let mut seen_url : String? = None
+  for x in inlines {
+    match x {
+      @cor.Inline::Link(_text, url) => {
+        let trimmed = url.trim().to_owned()
+        if trimmed == "" {
+          continue
+        }
+        match seen_url {
+          Some(prev) => if prev != trimmed { return None }
+          None => seen_url = Some(trimmed)
+        }
+      }
+      @cor.Inline::NoteRef(_) => ()
+      _ => ()
+    }
+  }
+
+  let target = match seen_url {
+    Some(url) => url
+    None => return None
+  }
+
+  let mut rid : String? = None
+  for entry in hyperlinks {
+    let (candidate_rid, candidate_url) = entry
+    if candidate_url.trim() != target {
+      continue
+    }
+    match rid {
+      Some(prev) => if prev != candidate_rid { return None }
+      None => rid = Some(candidate_rid)
+    }
+  }
+  rid
 }
 
 ///|
@@ -147,7 +204,7 @@ fn run_hyperlink_rid(run : Bytes) -> String? raise {
   if gt < 0 {
     return None
   }
-  let tag = run[p0:gt + 1].to_bytes()
+  let tag = run[p0:gt + 1].to_owned()
   read_attr_value_in_tag_bytes(tag, "r:id")
 }
 
@@ -159,6 +216,16 @@ fn render_plain_text_inlines(xs : Array[@cor.Inline]) -> String {
       @cor.Inline::Text(t) => out = out + t
       @cor.Inline::Break => out = out + "\n"
       @cor.Inline::Link(text, _url) => out = out + text
+      @cor.Inline::NoteRef(note) => {
+        let marker = note.marker.trim().to_owned()
+        if note.body_status == @cor.NoteBodyStatus::Resolved &&
+          note.note_id.trim() != "" {
+          out = out + "[^" + note.note_id.trim().to_owned() + "]"
+        } else if marker != "" {
+          out = out +
+            (if marker.has_prefix("^") { marker } else { "^" + marker })
+        }
+      }
     }
   }
   out

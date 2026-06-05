@@ -1,7 +1,13 @@
 ///|
 pub fn emit_markdown(doc : Document) -> String {
+  match doc.passthrough_markdown.val {
+    Some(raw) => return normalize_markdown_tail(raw)
+    None => ()
+  }
+
   let mut out = ""
   let blocks = doc.blocks.val
+  let notes = doc.note_definitions.val
 
   for i in 0..<blocks.length() {
     let b = blocks[i]
@@ -25,12 +31,12 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           let lines : Array[String] = t
             .split("\n")
-            .map(fn(x) { trim_string(x.to_string()) })
+            .map(fn(x) { trim_string(x.to_owned()) })
             .filter(fn(x) { x != "" })
             .iter()
             .collect()
@@ -89,18 +95,18 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           for sv in t.split("\n") {
-            let line = sv.to_string()
+            let line = sv.to_owned()
             out = out + "> " + line + "\n"
           }
           out = out + "\n"
         }
       }
       RichBlockQuote(inlines) => {
-        let t = render_inlines(inlines).trim().to_string()
+        let t = render_inlines(inlines).trim().to_owned()
         if t != "" {
           out = out + "> " + t + "\n\n"
         }
@@ -110,7 +116,7 @@ pub fn emit_markdown(doc : Document) -> String {
           .replace(old="\r\n", new="\n")
           .replace(old="\r", new="\n")
           .trim()
-          .to_string()
+          .to_owned()
 
         if t != "" {
           out = out + "```\n" + t + "\n```\n\n"
@@ -123,47 +129,126 @@ pub fn emit_markdown(doc : Document) -> String {
         out = out + "![" + a + "](" + p + ")\n\n"
       }
       ImageBlock(img) => {
-        let a = img.alt_text.unwrap_or("").trim().to_string()
+        let a = img.alt_text.unwrap_or("").trim().to_owned()
         let alt = if a == "" { "image" } else { a }
         let p = trim_string(img.path)
         out = out + "![" + alt + "](" + p + ")\n"
         match img.title {
           Some(t) =>
             if t.trim() != "" {
-              out = out + "*" + t.trim().to_string() + "*\n"
+              out = out + "*" + t.trim().to_owned() + "*\n"
             }
           None => ()
         }
         match img.caption {
           Some(c) =>
             if c.trim() != "" {
-              out = out + c.trim().to_string() + "\n"
+              out = out + c.trim().to_owned() + "\n"
             }
           None => ()
         }
         out = out + "\n"
       }
-      Table(rows) =>
-        if rows.length() > 0 {
-          let header = rows[0]
-          out = out + "| " + header.map(normalize_cell).join(" | ") + " |\n"
-          out = out + "| " + header.map(fn(_) { "---" }).join(" | ") + " |\n"
-
-          for i in 1..<rows.length() {
-            let r = rows[i]
-            let cells = r
-            while cells.length() < header.length() {
-              cells.push("")
-            }
-            out = out + "| " + cells.map(normalize_cell).join(" | ") + " |\n"
-          }
-          out = out + "\n"
-        }
+      Table(rows) => out = out + render_legacy_table(rows)
+      RichTable(table) => out = out + render_rich_table(table)
       BlankLine => out = out + "\n"
     }
   }
 
+  let note_markdown = render_note_definitions(notes)
+  if note_markdown != "" {
+    if out != "" && !out.has_suffix("\n\n") {
+      if out.has_suffix("\n") {
+        out = out + "\n"
+      } else {
+        out = out + "\n\n"
+      }
+    }
+    out = out + note_markdown
+  }
+
   normalize_markdown_tail(out)
+}
+
+///|
+fn render_legacy_table(rows : Array[Array[String]]) -> String {
+  if rows.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+  let header = rows[0]
+  out = out + render_markdown_table_header(header)
+
+  for i in 1..<rows.length() {
+    out = out + render_markdown_table_row(rows[i], header.length())
+  }
+
+  out + "\n"
+}
+
+///|
+fn render_rich_table(table : TableData) -> String {
+  let rows = table.rows
+  if rows.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+
+  if table.header_rows <= 0 {
+    let width = table_width(rows)
+    if width == 0 {
+      return ""
+    }
+    let header : Array[String] = []
+    for i in 0..<width {
+      header.push("Column " + (i + 1).to_string())
+    }
+    out = out + render_markdown_table_header(header)
+    for row in rows {
+      out = out + render_markdown_table_row(row, width)
+    }
+    return out + "\n"
+  }
+
+  // Markdown only supports one header row. Keep the first explicit header as
+  // the Markdown header and render any additional header rows as body rows.
+  let header = rows[0]
+  out = out + render_markdown_table_header(header)
+  for i in 1..<rows.length() {
+    out = out + render_markdown_table_row(rows[i], header.length())
+  }
+  out + "\n"
+}
+
+///|
+fn render_markdown_table_header(header : Array[String]) -> String {
+  "| " +
+  header.map(normalize_cell).join(" | ") +
+  " |\n| " +
+  header.map(fn(_) { "---" }).join(" | ") +
+  " |\n"
+}
+
+///|
+fn render_markdown_table_row(row : Array[String], width : Int) -> String {
+  let cells = row.copy()
+  while cells.length() < width {
+    cells.push("")
+  }
+  "| " + cells.map(normalize_cell).join(" | ") + " |\n"
+}
+
+///|
+fn table_width(rows : Array[Array[String]]) -> Int {
+  let mut width = 0
+  for row in rows {
+    if row.length() > width {
+      width = row.length()
+    }
+  }
+  width
 }
 
 ///|
@@ -173,6 +258,12 @@ pub fn emit_markdown(doc : Document) -> String {
 fn normalize_markdown_tail(s : String) -> String {
   if s == "" {
     return ""
+  }
+  if s.has_suffix("\n") &&
+    !s.has_suffix("\n\n") &&
+    !s.contains("\r") &&
+    s.trim() != "" {
+    return s
   }
 
   let cs = s.to_array()
@@ -191,7 +282,7 @@ fn normalize_markdown_tail(s : String) -> String {
     return ""
   }
 
-  String::from_array(cs[:end].to_array()) + "\n"
+  String::from_array(cs[:end].to_owned()) + "\n"
 }
 
 ///|
@@ -211,15 +302,97 @@ fn render_inlines(xs : Array[Inline]) -> String {
       Text(t) => out = out + t
       Break => out = out + "<br>"
       Link(text, url) => {
-        let t0 = text.trim().to_string()
-        let u0 = url.trim().to_string()
+        let t0 = text.trim().to_owned()
+        let u0 = url.trim().to_owned()
         if t0 == "" || u0 == "" {
           out = out + t0
         } else {
           out = out + "[" + escape_inline_text(t0) + "](" + u0 + ")"
         }
       }
+      NoteRef(note) => out = out + render_note_ref(note)
     }
   }
-  out.trim().to_string()
+  out.trim().to_owned()
+}
+
+///|
+fn render_note_ref(note : NoteRef) -> String {
+  let marker = note.marker.trim().to_owned()
+  let note_id = note.note_id.trim().to_owned()
+
+  if note.body_status == NoteBodyStatus::Resolved && note_id != "" {
+    return "[^" + note_id + "]"
+  }
+
+  if marker == "" {
+    return ""
+  }
+
+  if marker.has_prefix("^") {
+    marker
+  } else {
+    "^" + marker
+  }
+}
+
+///|
+fn render_note_definitions(notes : Array[NoteDefinition]) -> String {
+  if notes.length() == 0 {
+    return ""
+  }
+
+  let mut out = ""
+  let mut first = true
+  for note in notes {
+    let note_id = note.note_id.trim().to_owned()
+    if note.body_status != NoteBodyStatus::Resolved || note_id == "" {
+      continue
+    }
+
+    let body = render_note_definition_body(note.blocks)
+    if body == "" {
+      continue
+    }
+
+    if first {
+      first = false
+    } else {
+      out = out + "\n"
+    }
+
+    let lines = body
+      .replace(old="\r\n", new="\n")
+      .replace(old="\r", new="\n")
+      .split("\n")
+      .map(fn(x) { x.to_owned() })
+      .filter(fn(x) { x.trim() != "" })
+      .iter()
+      .collect()
+
+    if lines.length() == 0 {
+      continue
+    }
+
+    out = out + "[^" + note_id + "]: " + lines[0] + "\n"
+    for i in 1..<lines.length() {
+      out = out + "    " + lines[i] + "\n"
+    }
+  }
+
+  out
+}
+
+///|
+fn render_note_definition_body(blocks : Array[Block]) -> String {
+  let note_doc : Document = {
+    blocks: { val: blocks.copy() },
+    block_origins: { val: [] },
+    asset_origins: { val: Map([]) },
+    passthrough_markdown: { val: None },
+    note_definitions: { val: [] },
+  }
+
+  let rendered = emit_markdown(note_doc).trim().to_owned()
+  rendered
 }

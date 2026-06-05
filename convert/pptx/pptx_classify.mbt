@@ -1,4 +1,10 @@
 ///|
+/// Paragraph -> semantic block classification for PPTX text stream.
+///
+/// Design choice:
+/// - caption-like snippets are intentionally not promoted to headings
+/// - heading recovery is conservative (first high-confidence title wins)
+/// - ambiguous text remains paragraph to protect main_process stability
 fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] {
   let out : Array[PptxBlock] = []
   let mut seen_heading = false
@@ -7,19 +13,34 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
 
   for i in 0..<compacted.length() {
     let para = compacted[i]
-    let p = para.text.trim().to_string()
+    let p = para.text.trim().to_owned()
     if p == "" {
       continue
     }
 
-    // Caption-like text should stay as body text, not slide heading.
-    if is_caption_like_text(p) {
-      out.push(PptxBlock::Paragraph(p, para.inlines))
+    // Caption-like text should usually stay as body text, but do not suppress
+    // conservative top-title promotion for short, title-like labels.
+    if is_caption_like_text(p) && !para.from_title_shape {
+      out.push(
+        PptxBlock::Paragraph(
+          p,
+          para.inlines,
+          para.object_ref,
+          para.relationship_id,
+        ),
+      )
       continue
     }
 
     if para.from_title_shape && !seen_heading {
-      out.push(PptxBlock::Heading(p, para.inlines))
+      out.push(
+        PptxBlock::Heading(
+          p,
+          para.inlines,
+          para.object_ref,
+          para.relationship_id,
+        ),
+      )
       seen_heading = true
       continue
     }
@@ -37,6 +58,8 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
             level,
             strip_bullet_prefix(p),
             para.inlines,
+            para.object_ref,
+            para.relationship_id,
           ),
         )
         continue
@@ -53,6 +76,8 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
           level,
           strip_bullet_prefix(p),
           para.inlines,
+          para.object_ref,
+          para.relationship_id,
         ),
       )
       continue
@@ -64,23 +89,30 @@ fn classify_slide_paragraphs(paras : Array[SlideParagraph]) -> Array[PptxBlock] 
       looks_like_slide_title(p) {
       match para.bullet_kind {
         Some(_) => ()
-        None => {
-          let next_is_body = if i + 1 < compacted.length() {
-            compacted[i + 1].from_body_shape
-          } else {
-            false
-          }
-
-          if compacted.length() == 1 || (i == 0 && next_is_body) {
-            out.push(PptxBlock::Heading(p, para.inlines))
+        None =>
+          if compacted.length() == 1 || i == 0 {
+            out.push(
+              PptxBlock::Heading(
+                p,
+                para.inlines,
+                para.object_ref,
+                para.relationship_id,
+              ),
+            )
             seen_heading = true
             continue
           }
-        }
       }
     }
 
-    out.push(PptxBlock::Paragraph(p, para.inlines))
+    out.push(
+      PptxBlock::Paragraph(
+        p,
+        para.inlines,
+        para.object_ref,
+        para.relationship_id,
+      ),
+    )
   }
 
   out
@@ -111,6 +143,8 @@ fn compact_slide_paragraphs(
       from_title_shape: para.from_title_shape,
       from_body_shape: para.from_body_shape,
       associated_with_image_caption: para.associated_with_image_caption,
+      object_ref: para.object_ref,
+      relationship_id: para.relationship_id,
     }
 
     if out.length() == 0 {
@@ -199,7 +233,7 @@ fn slide_para_score(p : SlideParagraph) -> Int {
 
 ///|
 fn looks_like_slide_title(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }
@@ -226,7 +260,7 @@ fn looks_like_slide_title(s : String) -> Bool {
 
 ///|
 fn is_bullet_like(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   t.has_prefix("• ") ||
   t.has_prefix("· ") ||
   t.has_prefix("- ") ||
@@ -243,7 +277,7 @@ fn is_bullet_like(s : String) -> Bool {
 
 ///|
 fn strip_bullet_prefix(s : String) -> String {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
 
   if t.has_prefix("• ") ||
     t.has_prefix("· ") ||
@@ -253,18 +287,18 @@ fn strip_bullet_prefix(s : String) -> String {
     t.has_prefix("▪ ") ||
     t.has_prefix("● ") ||
     t.has_prefix("○ ") {
-    return t[2:].to_string().trim().to_string()
+    return t[2:].trim().to_owned()
   }
 
   if t.has_prefix("（1）") ||
     t.has_prefix("（2）") ||
     t.has_prefix("（3）") {
-    return t[3:].to_string().trim().to_string()
+    return t[3:].trim().to_owned()
   }
 
   let idx = find_numbered_bullet_end(t)
   if idx > 0 {
-    return t[idx:].to_string().trim().to_string()
+    return t[idx:].trim().to_owned()
   }
 
   t
@@ -272,7 +306,7 @@ fn strip_bullet_prefix(s : String) -> String {
 
 ///|
 fn ends_like_sentence(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   let arr = t.to_array()
   let n = arr.length()
   if n == 0 {
@@ -293,7 +327,7 @@ fn ends_like_sentence(s : String) -> Bool {
 
 ///|
 fn is_probable_slide_number(s : String) -> Bool {
-  let t = s.trim().to_string()
+  let t = s.trim().to_owned()
   if t == "" {
     return false
   }

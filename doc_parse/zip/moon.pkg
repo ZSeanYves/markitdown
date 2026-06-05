@@ -1,5 +1,5 @@
 import {
-  "bikallem/compress/flate" @flate,
+  "bikallem/compress/flate",
 }
 
 options(

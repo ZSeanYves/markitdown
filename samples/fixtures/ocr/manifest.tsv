@@ -1,0 +1,2 @@
+id	path	expected_text_path	source	license	purpose	provider_required	notes
+tiny_ocr_sample	tiny_ocr_sample.png	tiny_ocr_sample.expected.txt	self-generated	project-license	tiny fixture for OCR policy/docs/optional smoke	false	generated locally with Pillow; not an OCR accuracy benchmark

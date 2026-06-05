@@ -1,9 +1,0 @@
-import {
-  "ZSeanYves/markitdown/core" @cor,
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/async/process" @proc,
-}
-
-options(
-  "preferred-target": "native",
-)

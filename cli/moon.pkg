@@ -1,10 +1,9 @@
 import {
-  "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/convert/convert" @conv,
-  "moonbitlang/x/sys" @sys,
-  "moonbitlang/x/fs" @fs,
-  "TheWaWaR/clap" @clap,
-  "moonbitlang/core/encoding/utf8" @utf8,
+  "ZSeanYves/markitdown/cli_common" @clicom,
+  "ZSeanYves/markitdown/cli_support" @clisup,
+  "moonbitlang/x/sys",
+  "moonbitlang/x/fs",
+  "TheWaWaR/clap",
   "moonbitlang/async",
 }
 

@@ -23,7 +23,7 @@ fn PptxPackage::read_text_optional(
   part_name : String,
 ) -> String {
   let b = @ox.read_part_bytes(p.pkg, part_name) catch { _ => return "" }
-  @cor.utf8_bytes_to_string(b) catch {
+  @utf8.decode(b, ignore_bom=false) catch {
     _ => return ""
   }
 }
@@ -56,39 +56,56 @@ fn list_slide_entries(p : PptxPackage) -> Array[String] {
 ///|
 fn list_slide_entries_in_presentation_order(
   p : PptxPackage,
-) -> Array[String] raise {
+) -> Array[PptxSlideEntry] raise {
   let pres_xml = p.read_text_optional("ppt/presentation.xml")
 
   if pres_xml == "" {
-    return list_slide_entries(p)
+    return list_slide_entries(p).map(fn(path) {
+      { part_name: path, rel_id: None, hidden: false }
+    })
   }
 
-  let rid_order = parse_presentation_slide_rids(pres_xml)
-  if rid_order.length() == 0 {
-    return list_slide_entries(p)
+  let slide_entries = parse_presentation_slide_entries(pres_xml)
+  if slide_entries.length() == 0 {
+    let rid_order = parse_presentation_slide_rids(pres_xml)
+    if rid_order.length() == 0 {
+      return list_slide_entries(p).map(fn(path) {
+        { part_name: path, rel_id: None, hidden: false }
+      })
+    }
   }
 
-  let rels = @ox.read_part_relationships(p.pkg, "ppt/presentation.xml") catch {
-    _ => return list_slide_entries(p)
+  let _ = @ox.read_part_relationships(p.pkg, "ppt/presentation.xml") catch {
+    _ =>
+      return list_slide_entries(p).map(fn(path) {
+        { part_name: path, rel_id: None, hidden: false }
+      })
   }
-  let rels_by_id = rels_by_id(rels)
+  let out : Array[PptxSlideEntry] = []
 
-  let out : Array[String] = []
+  let rid_entries = if slide_entries.length() > 0 {
+    slide_entries
+  } else {
+    parse_presentation_slide_rids(pres_xml).map(fn(rid) { (rid, false) })
+  }
 
-  for rid in rid_order {
-    match rels_by_id.get(rid) {
+  for entry in rid_entries {
+    let (rid, hidden) = entry
+    match @ox.find_relationship_by_id(p.pkg, "ppt/presentation.xml", rid) {
       Some(rel) =>
         if rel.rel_type.has_suffix("/slide") &&
           rel.resolved_target.has_prefix("ppt/slides/slide") &&
           rel.resolved_target.has_suffix(".xml") {
-          out.push(rel.resolved_target)
+          out.push({ part_name: rel.resolved_target, rel_id: Some(rid), hidden })
         }
       None => ()
     }
   }
 
   if out.length() == 0 {
-    list_slide_entries(p)
+    list_slide_entries(p).map(fn(path) {
+      { part_name: path, rel_id: None, hidden: false }
+    })
   } else {
     out
   }
@@ -98,60 +115,60 @@ fn list_slide_entries_in_presentation_order(
 fn build_slide_rel_context(
   p : PptxPackage,
   slide_part : String,
-) -> (String?, String?) {
+) -> PptxSlideRelContext {
   let slide_rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
-    _ => return (None, None)
-  }
-  let slide_layout = find_first_rel_target(slide_rels, "/slideLayout")
-  match slide_layout {
-    None => (None, None)
-    Some(layout_part) => {
-      let layout_rels = @ox.read_part_relationships(p.pkg, layout_part) catch {
-        _ => return (Some(layout_part), None)
+    _ =>
+      return {
+        rels: [],
+        hyperlinks: Map([]),
+        notes_part: None,
+        notes_relationship_id: None,
+        comments_part: None,
+        comments_relationship_id: None,
       }
-      let slide_master = find_first_rel_target(layout_rels, "/slideMaster")
-      (Some(layout_part), slide_master)
+  }
+  let mut notes_part : String? = None
+  let mut notes_relationship_id : String? = None
+  let mut comments_part : String? = None
+  let mut comments_relationship_id : String? = None
+  for rel in slide_rels {
+    if rel.rel_type.has_suffix("/notesSlide") &&
+      rel.resolved_target.has_prefix("ppt/notesSlides/") &&
+      rel.resolved_target.has_suffix(".xml") {
+      notes_part = Some(rel.resolved_target)
+      notes_relationship_id = Some(rel.id)
     }
+    if (
+        rel.rel_type.has_suffix("/comments") ||
+        rel.rel_type.contains("relationships/comments")
+      ) &&
+      rel.resolved_target.has_prefix("ppt/comments/") &&
+      rel.resolved_target.has_suffix(".xml") {
+      comments_part = Some(rel.resolved_target)
+      comments_relationship_id = Some(rel.id)
+    }
+  }
+  {
+    rels: slide_rels,
+    hyperlinks: hyperlink_map_from_rels(slide_rels),
+    notes_part,
+    notes_relationship_id,
+    comments_part,
+    comments_relationship_id,
   }
 }
 
 ///|
-fn slide_hyperlink_map(
-  p : PptxPackage,
-  slide_part : String,
+fn hyperlink_map_from_rels(
+  rels : Array[@ox.OoxmlRelationship],
 ) -> Map[String, String] {
-  let out : Map[String, String] = Map::new()
-  let rels = @ox.read_part_relationships(p.pkg, slide_part) catch {
-    _ => return out
-  }
+  let out : Map[String, String] = Map([])
   for rel in rels {
-    if rel.rel_type.has_suffix("/hyperlink") && rel.resolved_target.trim() != "" {
-      out.set(rel.id, rel.resolved_target.trim().to_string())
+    if rel.rel_type.has_suffix("/hyperlink") &&
+      rel.target_mode == @ox.OoxmlTargetMode::External &&
+      rel.resolved_target.trim() != "" {
+      out.set(rel.id, rel.resolved_target.trim().to_owned())
     }
   }
   out
-}
-
-///|
-fn rels_by_id(
-  rels : Array[@ox.OoxmlRelationship],
-) -> Map[String, @ox.OoxmlRelationship] {
-  let out : Map[String, @ox.OoxmlRelationship] = {}
-  for rel in rels {
-    out[rel.id] = rel
-  }
-  out
-}
-
-///|
-fn find_first_rel_target(
-  rels : Array[@ox.OoxmlRelationship],
-  type_suffix : String,
-) -> String? {
-  for rel in rels {
-    if rel.rel_type.has_suffix(type_suffix) {
-      return Some(rel.resolved_target)
-    }
-  }
-  None
 }

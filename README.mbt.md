@@ -1,163 +1,177 @@
-# markitdown-mb
+# markitdown-mb for MoonBit Developers
 
-A **MoonBit-based content processing infrastructure project**, originally inspired by Microsoft **markitdown**.
+`markitdown-mb` is a MoonBit-native multi-format document-to-Markdown project.
+This file is the short MoonBit-oriented entrypoint; the broader product-facing
+overview lives in [README.md](./README.md).
 
-It is no longer best described as just a “document-to-Markdown conversion tool”. Instead, it is evolving into a reusable foundation for:
+## Start Here
 
-* multi-format content parsing
-* structural recovery
-* unified IR modeling
-* asset extraction and indexing
-* lightweight provenance tracking
-* downstream content workflows built on top of a stable intermediate representation
+| If you are here for | Start here |
+| --- | --- |
+| Build / validate the repo | [Core Commands](#core-commands) |
+| Converter work | [Package Shape](#package-shape) |
+| OCR boundary | [Current OCR boundary](#current-ocr-boundary) |
+| Detailed docs map | [docs/README.md](./docs/README.md) |
+| Product behavior overview | [README.md](./README.md) |
 
-The project currently supports **DOCX / PDF / XLSX / PPTX / HTML** and can turn them into structured content with extracted assets when needed.
+## Five-Minute Orientation
 
-Supports **macOS** and **Linux**.
+For a new contributor, the shortest accurate summary is:
 
-The project is built around a unified pipeline:
+* the product CLI converts common document formats into Markdown-first output
+* shipped OCR currently means image OCR through the main CLI only
+* image OCR depends on local `tesseract` plus installed language data
+* main-CLI OCR flags are `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>`
+* normal document conversion still stays no-OCR
+* PDF OCR is not wired; `pdf --ocr` remains future explicit provider work
+* repo-local validation is
+  `moon check`,
+  `bash samples/check.sh`,
+  `bash samples/check_quality.sh`,
+  `bash samples/bench.sh`,
+  and `bash samples/bench.sh --help`
+* `debug`, `bench`, PDF scan diagnostics, and layout-model tooling are
+  developer surfaces, not the normal product entrypoint
 
-**multi-format content -> unified IR -> Markdown / assets / provenance**
+If you need the detailed boundaries, read in this order:
 
-This means the repository should be understood not only as a converter, but as a general-purpose base for content engineering workflows.
+* [docs/README.md](./docs/README.md)
+* [README.md](./README.md)
+* [docs/supported-formats.md](./docs/supported-formats.md)
+* [docs/pdf.md](./docs/pdf.md)
+* [docs/quality-and-release.md](./docs/quality-and-release.md)
+* [docs/architecture.md](./docs/architecture.md)
 
-## Current Status
+## Core Commands
 
-The project is no longer in an early MVP stage. The current `main` branch already provides a fairly complete multi-format mainflow and is steadily moving from a “conversion utility” toward a **general-purpose content engineering foundation**.
+Minimum development environment:
 
-Current capabilities include:
+* MoonBit native toolchain with `moon`
+* `bash` plus common POSIX/coreutils shell tools for sample helpers
+* Python for selected validation/quality helper scripts, not normal runtime
+* optional `tesseract` plus installed tessdata for image OCR
+* optional repo-root `markitdown-quality-lab/` for external quality checks
 
-* **DOCX**: heading, list, table, image, blockquote, and code-like paragraph recovery, plus hyperlink recovery in paragraphs, headings, and list items
-* **PDF**: the default mainflow on `main` has been **fully replaced by a native structural recovery pipeline** based on event / span / line / block / IR reconstruction, with lightweight page-level image origin and conservative nearby-caption attachment in single-caption-like cases
-* **XLSX**: worksheet-to-table output, datetime formatting, sparse-region trimming, and multi-sheet output
-* **PPTX**: reading-order recovery, title/body separation, list recovery, table-like / caption-like / callout-like region handling, conservative caption-like/nearby text attachment for single-image slides (ambiguous multi-image scenes stay unmatched), plus basic run-level and shape-level hyperlink recovery
-* **HTML**: lightweight DOM parsing with list / table / quote / code-block / local-container structure recovery, inline hyperlink recovery, and image context retention (`<img alt>`, `<img title>`, `<figure>`, `<figcaption>`)
-
-The repository now provides a stable workflow built around:
-
-**multi-format input -> unified IR -> Markdown output / asset extraction / regression validation**
-
-## Origin Metadata (Lightweight Provenance)
-
-The unified IR now includes a lightweight provenance layer for both blocks and exported assets:
-
-* `Document.block_origins`: minimal block-level provenance (for example source name, page / slide / sheet, and block index)
-* `Document.asset_origins`: minimal asset-level provenance (for example source name, page / slide / sheet, origin id, and nearby caption)
-
-The current scope is intentionally lightweight traceability rather than precise anchoring. It does **not** yet include bbox / char range / source object id level metadata, and it does **not** change the Markdown main output behavior.
-
-## Why This Project Exists
-
-From an engineering perspective, `markitdown-mb` is increasingly suitable as a foundation for:
-
-* multi-format content ingestion
-* structured Markdown generation
-* asset extraction and management
-* RAG / chunking preprocessing
-* lightweight provenance-aware content pipelines
-* future JSON / chunk / index / audit style downstream outputs
-
-In other words, the project is not trying to be a pixel-perfect visual reproduction engine. Its goal is to become a **reusable, testable, and extensible content processing foundation**.
-
-## Quick Links
-
-* [Architecture](./docs/architecture.md)
-* [Format Support](./docs/format-support.md)
-* [Known Limitations](./docs/limitations.md)
-* [Sample Coverage](./docs/sample-coverage.md)
-* [Development Guide](./docs/development.md)
-
-## Environment Setup
-
-### External dependencies
-
-The normal conversion mainflow no longer depends on `pdftotext` or `mutool`.
-
-External dependencies are currently only required for the OCR plugin path.
-
-#### macOS (Homebrew)
+Build the main product binaries:
 
 ```bash
-brew install ocrmypdf
+moon build cli --target native
+moon build pdf --target native
+moon build zip --target native
 ```
 
-#### Linux (Ubuntu / Debian)
+Optional internal/dev binaries:
+
+* `moon build debug --target native`
+* `moon build bench --target native`
+
+Recommended validation entrypoints:
+
+* `moon check`
+* `moon test`
+* `bash samples/check.sh`
+* `bash samples/check_quality.sh`
+* `bash samples/check_quality.sh --format pdf`
+* `bash samples/bench.sh`
+* `bash samples/bench.sh --help`
+
+Public sample entrypoints:
+
+* `bash samples/check.sh` runs the full repo-local validation suite.
+* `bash samples/check_quality.sh` runs only the external quality corpus from
+  `markitdown-quality-lab/external_quality/` and fails clearly if that repo is
+  missing or incomplete.
+* `bash samples/check_quality.sh --format pdf` runs the focused PDF quality
+  slice from that same external corpus.
+* `bash samples/bench.sh` runs the default smoke benchmark suite and writes
+  results under `.tmp/bench/`.
+* `bash samples/bench.sh --help` shows additional suites and targeted options.
+
+The main repo is self-contained for:
+
+* runtime
+* `moon test`
+* `bash samples/check.sh`
+
+`bash samples/check_quality.sh` is the optional full quality gate and expects
+the repo-local quality-lab:
 
 ```bash
-sudo apt update
-sudo apt install -y ocrmypdf
+git clone git@github.com:ZSeanYves/markitdown-quality-lab.git markitdown-quality-lab
 ```
 
-### Verify
+That entrypoint:
 
-```bash
-ocrmypdf --version
-```
+* expects `markitdown-quality-lab/external_quality/`
+* fails clearly when the external corpus is missing or incomplete
+* does not fall back to repo-local quality rows
 
-## Usage
+Current OCR boundary:
 
-### Normal conversion
+* normal conversion never OCRs and never probes OCR providers.
+* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
+  supported.
+* image inputs now auto-OCR through `convert/vision`.
+* product image OCR depends on local `tesseract` and language data; if they
+  are missing, image OCR fails clearly.
+* `--ocr-lang <LANG>` passes a Tesseract language value such as `eng` or
+  `eng+chi_sim` to image OCR only; there is no language auto-detection.
+* normal document conversion still stays no-OCR outside explicit image inputs.
+* PDF OCR is not wired in this build.
+* debug/report helpers are diagnostics, not the product entrypoint.
+* repo-root `markitdown-quality-lab/` is an optional external corpus/artifact
+  repo, not a runtime dependency.
+* see [docs/roadmap.md](./docs/roadmap.md) and
+  [docs/quality-and-release.md](./docs/quality-and-release.md) for rebuild
+  status and optional diagnostics.
 
-```bash
-moon run cli -- normal <input> [output]
-```
+## Package Shape
 
-### OCR conversion
+High-level boundaries:
 
-```bash
-moon run cli -- ocr <input> [output]
-```
+* `cli`: lightweight product entrypoint
+* `pdf`, `zip`: bundled product components
+* `debug`, `bench`: developer tools
+* `core`: shared document/metadata/emitter layer
+* `convert/*`: format-to-IR conversion policy
+* `doc_parse/*`: lower-layer parser/model/inspect foundations
+* `convert/vision`: provider-independent OCRPageModel scaffold and future OCR
+  implementation path
+* `doc_parse/pdf/layout_model_tool`: PDF layout export/infer tool
 
-### Debug
+Important current facts:
 
-```bash
-moon run cli -- debug <all|extract|raw|pipeline> <input> [output]
-```
+* normal runtime does not read quality-lab assets
+* normal runtime does not read model JSON
+* PDF layout normal behavior is distilled into MoonBit rules/gates
+* `cli` stays out of the vendored PDF closure and should remain `mbtpdf=0`
+* normal conversion never OCRs and never probes OCR providers
+* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
+  supported in this build
+* image inputs now auto-OCR through `convert/vision`
+* image OCR requires local `tesseract`; missing runtime support fails clearly
+* normal document conversion still stays no-OCR outside explicit image inputs
+* debug/report helpers are diagnostics, not product entrypoints
+* PDF OCR is not wired in this build
 
-## Regression
+## Current Checked Facts
 
-### Check sample enrollment
+* `moon test`: `1579 passed`
+* `bash samples/check.sh`: 9 stages passed, including `444` markdown / `85`
+  metadata / `90` assets / `0` failures
+* `bash samples/check_quality.sh --format pdf`: `79` rows / `0` failed / `1`
+  skipped / `0` expected_fail on the current repo-local
+  `markitdown-quality-lab` checkout
+* `bash samples/check_quality.sh`: `315` rows / `0` failed / `1` skipped /
+  `0` expected_fail on the current repo-local `markitdown-quality-lab`
+  checkout
 
-```bash
-./samples/check_samples.sh
-```
+## Primary Docs
 
-### Run full regression
-
-```bash
-./samples/diff.sh
-```
-
-### Run image regression
-
-```bash
-./samples/check_assets.sh
-```
-
-
-## PDF Mainflow
-
-The PDF description on `main` should now be understood as follows:
-
-* The default PDF mainflow is **fully native**, not “native-first” and not “external text-first”
-* The normal path no longer depends on `pdftotext` or `mutool`
-* The current PDF mainflow includes:
-
-  * span normalization
-  * line recovery
-  * block classification
-  * repeated header/footer cleanup
-  * heading / paragraph boundary recovery
-  * hardwrap recovery
-  * pseudo two-column negative protection
-* OCR remains a **plugin-style path** and is not the default `normal` flow
-* External tooling is currently retained only for the OCR plugin path
-
-## Notes
-
-* The goal of the project is **structured content recovery and unified representation**, not pixel-perfect visual reproduction
-* The PDF mainflow on `main` has already been fully replaced by native recovery logic, but complex layouts remain an active area of ongoing improvement
-* Hyperlink support now covers HTML / DOCX / PPTX, where PPTX currently provides run-level plus basic single-link shape-level handling
-* PPTX, HTML, and PDF are still being improved in terms of structural precision and boundary handling
-* Structural changes should always be validated through regression samples before being merged
-
+* [docs/architecture.md](./docs/architecture.md)
+* [docs/architecture-consolidation-audit.md](./docs/architecture-consolidation-audit.md)
+* [docs/supported-formats.md](./docs/supported-formats.md)
+* [docs/quality-and-release.md](./docs/quality-and-release.md)
+* [docs/pdf.md](./docs/pdf.md)
+* [docs/performance.md](./docs/performance.md)
+* [docs/roadmap.md](./docs/roadmap.md)

@@ -1,263 +1,319 @@
-// ============================
-// sheet xml -> table
-// ============================
-//
-// Scan for cells:
-// <c r="A1" t="s"><v>0</v></c>
-// - r: cell reference
-// - t="s": sharedStrings index in <v>
-// - otherwise: <v> literal (usually number)
+///|
+fn clamp_heading(level : Int, max_h : Int) -> Int {
+  if level < 1 {
+    1
+  } else if level > max_h {
+    max_h
+  } else {
+    level
+  }
+}
 
 ///|
-fn parse_sheet_table(
-  sheet_xml : String,
-  shared : Array[String],
-  styles : XlsxStyles,
-) -> Array[Array[String]] {
-  let cells : Map[String, String] = Map::new()
-  let mut min_r = 0
-  let mut min_c = 0
-  let mut max_r = 0
-  let mut max_c = 0
+fn compat_workbook_model_from_semantic(
+  source_name : String,
+  workbook : @dpxlsx.XlsxWorkbook,
+) -> XlsxWorkbookModel {
+  let sheets : Array[XlsxSheetModel] = []
+  for sheet in workbook.sheets {
+    sheets.push(compat_sheet_model_from_semantic(sheet))
+  }
+  { source_name, uses_date_1904: workbook.uses_date_1904, sheets }
+}
 
-  let mut pos = 0
-  while true {
-    let c0 = find_sub(sheet_xml, "<c ", pos)
-    match c0 {
-      None => break
-      Some(i0) => {
-        let ctag_end0 = find_sub(sheet_xml, ">", i0)
-        match ctag_end0 {
-          None => break
-          Some(i1) => {
-            let ctag = sheet_xml[i0:i1 + 1].to_string()
+///|
+fn compat_sheet_model_from_semantic(
+  sheet : @dpxlsx.XlsxSheet,
+) -> XlsxSheetModel {
+  let cells = compat_cells_from_semantic(sheet.cells)
+  let hidden_rows = copy_hidden_rows(sheet.hidden_rows)
+  let (rows, row_numbers) = render_sheet_rows_from_cells(
+    cells,
+    hidden_rows,
+    sheet.used_min_row,
+    sheet.used_min_col,
+    sheet.used_max_row,
+    sheet.used_max_col,
+  )
+  {
+    name: sheet.name,
+    relationship_id: sheet.relationship_id,
+    relationship_type: sheet.relationship_type,
+    part_target: sheet.part_target,
+    state: compat_sheet_state_from_semantic(sheet.state),
+    is_supported_worksheet: sheet.is_supported_worksheet,
+    has_sheet_xml: sheet.has_sheet_xml,
+    cells,
+    merged_ranges: compat_merged_ranges_from_semantic(sheet.merged_ranges),
+    comments: compat_comments_from_semantic(sheet.comments),
+    hidden_rows,
+    table_rows: rows,
+    table_row_numbers: row_numbers,
+    header_rows: xlsx_header_rows(rows),
+    used_min_row: sheet.used_min_row,
+    used_min_col: sheet.used_min_col,
+    used_max_row: sheet.used_max_row,
+    used_max_col: sheet.used_max_col,
+  }
+}
 
-            let rref = get_attr(ctag, "r").unwrap_or("")
-            let t = get_attr(ctag, "t").unwrap_or("")
-            let s = get_attr(ctag, "s").unwrap_or("")
-            let style_idx = parse_int(s)
+///|
+fn compat_comments_from_semantic(
+  comments : Array[@dpxlsx.XlsxComment],
+) -> Array[XlsxComment] {
+  let out : Array[XlsxComment] = []
+  for comment in comments {
+    out.push({
+      reference: comment.reference,
+      row: comment.row,
+      column: comment.column,
+      author_name: comment.author_name,
+      text: comment.text,
+    })
+  }
+  out
+}
 
-            let c_end0 = find_sub(sheet_xml, "</c>", i1 + 1)
-            match c_end0 {
-              None => break
-              Some(c_end) => {
-                let inner = sheet_xml[i1 + 1:c_end].to_string()
+///|
+fn copy_hidden_rows(rows : Array[Int]) -> Array[Int] {
+  let out : Array[Int] = []
+  for row in rows {
+    out.push(row)
+  }
+  out
+}
 
-                let mut val = ""
-                let v0 = find_sub(inner, "<v>", 0)
-                match v0 {
-                  None => ()
-                  Some(v_start0) => {
-                    let vs = v_start0 + 3
-                    let v1 = find_sub(inner, "</v>", vs)
-                    match v1 {
-                      None => ()
-                      Some(v_end) => val = inner[vs:v_end].to_string()
-                    }
-                  }
-                }
+///|
+fn compat_cells_from_semantic(
+  cells : Array[@dpxlsx.XlsxCell],
+) -> Array[XlsxCellModel] {
+  let out : Array[XlsxCellModel] = []
+  for cell in cells {
+    out.push(compat_cell_from_semantic(cell))
+  }
+  out
+}
 
-                let (rr, cc) = cell_ref_to_rc(rref)
-                if rr > 0 && cc > 0 {
-                  let text = resolve_cell_text(
-                    t, inner, val, shared, styles, style_idx,
-                  )
-                  cells.set(rr.to_string() + "," + cc.to_string(), text)
+///|
+fn compat_cell_from_semantic(cell : @dpxlsx.XlsxCell) -> XlsxCellModel {
+  {
+    reference: cell.reference,
+    row: cell.row,
+    column: cell.column,
+    kind: compat_cell_kind_from_semantic(cell.kind),
+    display_text: cell.display_text,
+    source_value: cell.source_value,
+    formula_text: cell.formula_text,
+    semantic_type: compat_semantic_type_from_semantic(cell.semantic_type),
+    style_index: cell.style_index,
+    num_format_id: cell.num_format_id,
+    formula_trace: compat_formula_trace_from_semantic(cell.formula_trace),
+  }
+}
 
-                  if @cor.trim_string(text) != "" {
-                    if min_r == 0 || rr < min_r {
-                      min_r = rr
-                    }
-                    if min_c == 0 || cc < min_c {
-                      min_c = cc
-                    }
-                    if rr > max_r {
-                      max_r = rr
-                    }
-                    if cc > max_c {
-                      max_c = cc
-                    }
-                  }
-                }
+///|
+fn compat_formula_trace_from_semantic(
+  trace : @dpxlsx.XlsxFormulaTrace?,
+) -> XlsxFormulaTrace? {
+  match trace {
+    Some(value) =>
+      Some({
+        policy: compat_formula_policy_from_semantic(value.policy),
+        evaluated_value: value.evaluated_value,
+        unsupported_reason: value.unsupported_reason,
+        error_reason: value.error_reason,
+        referenced_cells: value.referenced_cells,
+        referenced_ranges: value.referenced_ranges,
+      })
+    None => None
+  }
+}
 
-                pos = c_end + 4
-              }
-            }
-          }
-        }
-      }
-    }
+///|
+fn compat_merged_ranges_from_semantic(
+  ranges : Array[@dpxlsx.XlsxMergedRange],
+) -> Array[XlsxMergedRange] {
+  let out : Array[XlsxMergedRange] = []
+  for range_ in ranges {
+    out.push({
+      range_ref: range_.range_ref,
+      start_row: range_.start_row,
+      start_col: range_.start_col,
+      end_row: range_.end_row,
+      end_col: range_.end_col,
+    })
+  }
+  out
+}
+
+///|
+fn compat_sheet_state_from_semantic(
+  state : @dpxlsx.XlsxSheetState,
+) -> XlsxSheetState {
+  match state {
+    @dpxlsx.XlsxSheetState::Visible => XlsxSheetState::Visible
+    @dpxlsx.XlsxSheetState::Hidden => XlsxSheetState::Hidden
+    @dpxlsx.XlsxSheetState::VeryHidden => XlsxSheetState::VeryHidden
+  }
+}
+
+///|
+fn compat_cell_kind_from_semantic(kind : @dpxlsx.XlsxCellKind) -> XlsxCellKind {
+  match kind {
+    @dpxlsx.XlsxCellKind::SharedString => XlsxCellKind::SharedString
+    @dpxlsx.XlsxCellKind::InlineString => XlsxCellKind::InlineString
+    @dpxlsx.XlsxCellKind::Boolean => XlsxCellKind::Boolean
+    @dpxlsx.XlsxCellKind::StringResult => XlsxCellKind::StringResult
+    @dpxlsx.XlsxCellKind::Error => XlsxCellKind::Error
+    @dpxlsx.XlsxCellKind::Number => XlsxCellKind::Number
+    @dpxlsx.XlsxCellKind::Blank => XlsxCellKind::Blank
+  }
+}
+
+///|
+fn compat_semantic_type_from_semantic(
+  semantic_type : @dpxlsx.XlsxCellSemanticType,
+) -> XlsxCellSemanticType {
+  match semantic_type {
+    @dpxlsx.XlsxCellSemanticType::String => XlsxCellSemanticType::String
+    @dpxlsx.XlsxCellSemanticType::Number => XlsxCellSemanticType::Number
+    @dpxlsx.XlsxCellSemanticType::Boolean => XlsxCellSemanticType::Boolean
+    @dpxlsx.XlsxCellSemanticType::Date => XlsxCellSemanticType::Date
+    @dpxlsx.XlsxCellSemanticType::DateTime => XlsxCellSemanticType::DateTime
+    @dpxlsx.XlsxCellSemanticType::Time => XlsxCellSemanticType::Time
+    @dpxlsx.XlsxCellSemanticType::Blank => XlsxCellSemanticType::Blank
+    @dpxlsx.XlsxCellSemanticType::Error => XlsxCellSemanticType::Error
+    @dpxlsx.XlsxCellSemanticType::FormulaCachedValue =>
+      XlsxCellSemanticType::FormulaCachedValue
+    @dpxlsx.XlsxCellSemanticType::FormulaMissingCache =>
+      XlsxCellSemanticType::FormulaMissingCache
+  }
+}
+
+///|
+fn compat_formula_policy_from_semantic(
+  policy : @dpxlsx.XlsxFormulaPolicy,
+) -> XlsxFormulaPolicy {
+  match policy {
+    @dpxlsx.XlsxFormulaPolicy::Cached => XlsxFormulaPolicy::Cached
+    @dpxlsx.XlsxFormulaPolicy::EvaluatedMissingCache =>
+      XlsxFormulaPolicy::EvaluatedMissingCache
+    @dpxlsx.XlsxFormulaPolicy::UnsupportedFormula =>
+      XlsxFormulaPolicy::UnsupportedFormula
+    @dpxlsx.XlsxFormulaPolicy::FormulaError => XlsxFormulaPolicy::FormulaError
+  }
+}
+
+///|
+fn render_sheet_rows_from_cells(
+  cells : Array[XlsxCellModel],
+  hidden_rows : Array[Int],
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> (Array[Array[String]], Array[Int]) {
+  if xlsx_dense_sheet_guard_triggered(min_r, min_c, max_r, max_c) {
+    return ([], [])
   }
 
-  if max_r == 0 || max_c == 0 {
-    return []
+  let cell_texts : Map[String, String] = Map([])
+  for cell in cells {
+    cell_texts.set(
+      cell.row.to_string() + "," + cell.column.to_string(),
+      cell.display_text,
+    )
+  }
+  render_sheet_rows(cell_texts, hidden_rows, min_r, min_c, max_r, max_c)
+}
+
+///|
+fn xlsx_dense_sheet_area_cap() -> Int {
+  1_000_000
+}
+
+///|
+fn xlsx_sparse_preview_cell_cap() -> Int {
+  100
+}
+
+///|
+fn xlsx_dense_sheet_guard_triggered(
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> Bool {
+  if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
+    return false
+  }
+
+  let rows = max_r - min_r + 1
+  let cols = max_c - min_c + 1
+  let cap = xlsx_dense_sheet_area_cap()
+  rows > cap / cols
+}
+
+///|
+fn xlsx_dense_sheet_area_string(
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> String {
+  if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
+    return "0"
+  }
+
+  ((max_r - min_r + 1) * (max_c - min_c + 1)).to_string()
+}
+
+///|
+fn render_sheet_rows(
+  cells : Map[String, String],
+  hidden_rows : Array[Int],
+  min_r : Int,
+  min_c : Int,
+  max_r : Int,
+  max_c : Int,
+) -> (Array[Array[String]], Array[Int]) {
+  if max_r == 0 || max_c == 0 || max_r < min_r || max_c < min_c {
+    return ([], [])
+  }
+
+  let hidden_lookup : Map[String, Bool] = Map([])
+  for row in hidden_rows {
+    hidden_lookup.set(row.to_string(), true)
   }
 
   let table0 : Array[Array[String]] = []
+  let row_numbers0 : Array[Int] = []
   for r in min_r..<(max_r + 1) {
+    if hidden_lookup.get(r.to_string()).unwrap_or(false) {
+      continue
+    }
     let row : Array[String] = []
     for c in min_c..<(max_c + 1) {
       let k = r.to_string() + "," + c.to_string()
       row.push(cells.get(k).unwrap_or(""))
     }
     table0.push(trim_row_right(row))
+    row_numbers0.push(r)
   }
 
-  let table1 = trim_table_bottom(table0)
-  normalize_table_width(table1)
+  let (table1, row_numbers1) = trim_table_bottom_with_row_numbers(
+    table0, row_numbers0,
+  )
+  (normalize_table_width(table1), row_numbers1)
 }
-// ============================
-// Utilities
-// ============================
 
 ///|
-fn resolve_cell_text(
-  t : String,
-  inner : String,
-  val : String,
-  shared : Array[String],
-  styles : XlsxStyles,
-  style_idx : Int,
-) -> String {
-  if t == "s" {
-    let idx = parse_int(val)
-    if idx >= 0 && idx < shared.length() {
-      shared[idx]
-    } else {
-      ""
-    }
-  } else if t == "inlineStr" {
-    parse_inline_str(inner)
-  } else if t == "b" {
-    let v = @cor.trim_string(val)
-    if v == "1" {
-      "TRUE"
-    } else if v == "0" {
-      "FALSE"
-    } else {
-      xml_unescape(v)
-    }
-  } else if t == "str" {
-    xml_unescape(val)
-  } else if t == "e" {
-    let v = @cor.trim_string(val)
-    if v == "" {
-      "#ERROR!"
-    } else {
-      v
-    }
+fn xlsx_header_rows(rows : Array[Array[String]]) -> Int {
+  if rows.length() == 0 {
+    0
   } else {
-    // numeric / formula cached result / other types
-    let raw = xml_unescape(val)
-    let num_fmt_id = style_index_numfmt(styles, style_idx)
-
-    if numfmt_is_builtin_datetime_like(num_fmt_id) {
-      format_excel_datetime(raw, num_fmt_id, None)
-    } else {
-      match custom_numfmt_code(styles, num_fmt_id) {
-        Some(code) =>
-          if numfmt_code_is_datetime_like(code) {
-            format_excel_datetime(raw, num_fmt_id, Some(code))
-          } else {
-            raw
-          }
-        None => raw
-      }
-    }
+    1
   }
-}
-
-///|
-fn parse_inline_str(inner : String) -> String {
-  // Collect all <t>...</t> inside the cell inner xml
-  let mut tpos = 0
-  let mut acc = ""
-
-  while true {
-    let t0 = find_sub(inner, "<t", tpos)
-    match t0 {
-      None => break
-      Some(t_start) => {
-        let ttag_end = find_sub(inner, ">", t_start)
-        match ttag_end {
-          None => break
-          Some(t_end_tag) => {
-            let content_start = t_end_tag + 1
-            let t1 = find_sub(inner, "</t>", content_start)
-            match t1 {
-              None => break
-              Some(t_end) => {
-                let content = inner[content_start:t_end].to_string()
-                acc = acc + content
-                tpos = t_end + 4
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  xml_unescape(acc)
-}
-
-// cell ref like "BC12" -> (12, 55)
-
-///|
-fn cell_ref_to_rc(r : String) -> (Int, Int) {
-  if r == "" {
-    return (0, 0)
-  }
-  let chars = r.to_array()
-  let mut i = 0
-  let mut col = 0
-
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch >= 'A' && ch <= 'Z' {
-      col = col * 26 + (ch.to_int() - 'A'.to_int() + 1)
-      i += 1
-    } else if ch >= 'a' && ch <= 'z' {
-      col = col * 26 + (ch.to_int() - 'a'.to_int() + 1)
-      i += 1
-    } else {
-      break
-    }
-  }
-
-  let mut row = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch >= '0' && ch <= '9' {
-      row = row * 10 + (ch.to_int() - '0'.to_int())
-      i += 1
-    } else {
-      break
-    }
-  }
-
-  (row, col)
-}
-
-///|
-fn parse_int(s : String) -> Int {
-  let t = @cor.trim_string(s)
-  if t == "" {
-    return -1
-  }
-  let chars = t.to_array()
-  let mut i = 0
-  let mut acc = 0
-  while i < chars.length() {
-    let ch = chars[i]
-    if ch >= '0' && ch <= '9' {
-      acc = acc * 10 + (ch.to_int() - '0'.to_int())
-      i += 1
-    } else {
-      break
-    }
-  }
-  acc
 }
 
 ///|
@@ -296,6 +352,19 @@ fn trim_table_bottom(table : Array[Array[String]]) -> Array[Array[String]] {
     out.push(table[i])
   }
   out
+}
+
+///|
+fn trim_table_bottom_with_row_numbers(
+  table : Array[Array[String]],
+  row_numbers : Array[Int],
+) -> (Array[Array[String]], Array[Int]) {
+  let trimmed = trim_table_bottom(table)
+  let out_rows : Array[Int] = []
+  for i in 0..<trimmed.length() {
+    out_rows.push(row_numbers[i])
+  }
+  (trimmed, out_rows)
 }
 
 ///|

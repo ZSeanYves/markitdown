@@ -1,0 +1,3 @@
+```xml
+<root>&amp; &custom; &#169;</root>
+```

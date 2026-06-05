@@ -1,0 +1,82 @@
+{
+  "version": "1",
+  "source_name": "epub_metadata_package_rich.epub",
+  "format": "epub",
+  "markdown_file": "epub_metadata_package_rich.md",
+  "document": {
+  "title": "EPUB Metadata Package Rich",
+  "subject": null,
+  "creator": "Metadata Author",
+  "language": "en",
+  "identifier": "urn:isbn:9780000000002",
+  "publisher": "MoonBit Press",
+  "description": null,
+  "keywords": null,
+  "created": "2024-03-01",
+  "modified": "2024-03-02T09:45:00Z",
+  "application": "EPUB",
+  "pages": null,
+  "words": null,
+  "slides": null,
+  "sheets": null
+},
+  "summary": {
+    "block_count": 3,
+    "asset_count": 0
+  },
+  "blocks": [
+    {
+      "block_index": 0,
+      "block_type": "heading",
+      "text": "OPS/chapter.xhtml",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_package_rich.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 0,
+        "heading_path": null,
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 1,
+      "block_type": "heading",
+      "text": "Metadata Package Rich",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_package_rich.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 1,
+        "heading_path": null,
+        "object_ref": "html:heading:1",
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    },
+    {
+      "block_index": 2,
+      "block_type": "paragraph",
+      "text": "Metadata package body.",
+      "origin": {
+        "format": "epub",
+        "source_name": "epub_metadata_package_rich.epub",
+        "page": null,
+        "slide": null,
+        "sheet": null,
+        "block_index": 2,
+        "heading_path": null,
+        "object_ref": "html:paragraph:2",
+        "key_path": "OPS/chapter.xhtml"
+      },
+      "image": null
+    }
+  ],
+  "assets": [
+    
+  ]
+}

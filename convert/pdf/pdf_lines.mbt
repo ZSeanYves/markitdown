@@ -1,6 +1,14 @@
 ///|
-/// 从 pdf_core 的 PdfDocumentModel 构建 convert line 文档。
-fn build_convert_lines(
+/// Convert-stage line builder.
+///
+/// Intent:
+/// - map PDF lower-layer parser text blocks into normalized line units
+/// - preserve enough geometry/font hints for later heading/paragraph heuristics
+/// - keep this stage free from semantic classification decisions
+///
+/// This separation is crucial for explainability: downstream block/classify
+/// heuristics can be reasoned about without reopening raw extraction details.
+pub fn build_convert_lines(
   doc : @model.PdfDocumentModel,
   out_dir : String,
 ) -> PdfConvertDocument {
@@ -22,6 +30,7 @@ fn build_convert_page_lines(
 ) -> PdfConvertPage {
   let lines = Array::new()
   let mut line_index = 0
+  let repeated_anchors = page_repeated_span_x_anchors(page)
 
   for block_index = 0
       block_index < page.text_blocks.length()
@@ -29,27 +38,405 @@ fn build_convert_page_lines(
     let block = page.text_blocks[block_index]
 
     for line in block.lines {
-      let text = @model.line_text(line).trim().to_string()
-      if text == "" {
-        continue
-      }
-
-      lines.push(
-        core_line_to_convert_line(
-          page.page_index,
-          line_index,
-          block_index,
-          block,
-          line,
-        ),
+      let segments = build_convert_segments_from_core_line(
+        page.page_index,
+        block_index,
+        block,
+        line,
+        repeated_anchors,
       )
-      line_index = line_index + 1
+      for segment in segments {
+        lines.push({ ..segment, line_index, })
+        line_index = line_index + 1
+      }
     }
   }
 
   let images = export_convert_page_images(page, out_dir, next_image_idx)
+  let annotations = build_convert_page_annotations(page)
+  let forms = build_convert_page_forms(page)
 
-  { _page_index: page.page_index, lines, blocks: [], images, objects: [] }
+  {
+    _page_index: page.page_index,
+    media_box: Some(page.boxes.media_box),
+    crop_box: page.boxes.crop_box,
+    lines,
+    blocks: [],
+    images,
+    annotations,
+    forms,
+    objects: [],
+  }
+}
+
+///|
+priv struct ConvertRepeatedAnchor {
+  x : Double
+  count : Int
+}
+
+///|
+fn build_convert_segments_from_core_line(
+  _page_index : Int,
+  _source_block_index : Int,
+  block : @model.PdfTextBlock,
+  line : @model.PdfTextLine,
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+) -> Array[PdfConvertLine] {
+  let line_text = normalize_convert_line_text(@model.line_text(line))
+  if should_split_block_line_into_cell_segments(
+      block, line, line_text, repeated_anchors,
+    ) {
+    let out : Array[PdfConvertLine] = []
+    for span in line.spans {
+      let text = normalize_convert_line_text(span.text)
+      if text == "" {
+        continue
+      }
+      out.push(
+        span_to_convert_line(
+          _page_index, _source_block_index, block, line, span,
+        ),
+      )
+    }
+    if !out.is_empty() {
+      return out
+    }
+  }
+
+  if line_text == "" {
+    []
+  } else {
+    [
+      core_line_to_convert_line(
+        _page_index, 0, _source_block_index, block, line,
+      ),
+    ]
+  }
+}
+
+///|
+fn span_to_convert_line(
+  _page_index : Int,
+  _source_block_index : Int,
+  block : @model.PdfTextBlock,
+  line : @model.PdfTextLine,
+  span : @model.PdfTextSpan,
+) -> PdfConvertLine {
+  {
+    _page_index,
+    line_index: 0,
+    text: normalize_convert_line_text(span.text),
+    _source_block_index,
+    source_block_line_count: block.lines.length(),
+    source_block_kind: block.kind,
+    source_block_bbox: block.bbox,
+    source_block_dominant_font_size: block.dominant_font_size,
+    source_block_dominant_font_name: block.dominant_font_name,
+    is_heading_candidate: block.is_heading_candidate,
+    is_page_number_candidate: block.is_page_number_candidate,
+    is_header_footer_candidate: block.is_header_footer_candidate,
+    is_artifact_candidate: block.is_artifact_candidate,
+    is_caption_candidate: block.is_caption_candidate,
+    is_table_cell_candidate: block.is_table_cell_candidate,
+    dominant_language: block.dominant_language,
+    writing_direction: block.writing_direction,
+    _bbox: span.bbox,
+    font_size: span.font_size,
+    font_name: span.font_name,
+    indent_left: Some(span.bbox.x0),
+    indent_right: Some(span.bbox.x1),
+    alignment_hint: line.alignment_hint,
+    line_gap_before: line.line_gap_before,
+    _line_gap_after: line.line_gap_after,
+    line_height: match span.font_size {
+      Some(size) => Some(size)
+      None => line.line_height
+    },
+    baseline_y: Some(span.origin.y),
+    is_wrapped_candidate: line.is_wrapped_candidate,
+    is_same_paragraph_with_prev_candidate: line.is_same_paragraph_with_prev_candidate,
+  }
+}
+
+///|
+fn page_repeated_span_x_anchors(
+  page : @model.PdfPageModel,
+) -> Array[ConvertRepeatedAnchor] {
+  let out : Array[ConvertRepeatedAnchor] = []
+  for block in page.text_blocks {
+    for line in block.lines {
+      for span in line.spans {
+        let text = normalize_convert_line_text(span.text)
+        if text == "" {
+          continue
+        }
+        register_repeated_convert_anchor(out, span.origin.x)
+      }
+    }
+  }
+
+  let filtered : Array[ConvertRepeatedAnchor] = []
+  for anchor in out {
+    if anchor.count >= 3 {
+      filtered.push(anchor)
+    }
+  }
+  filtered
+}
+
+///|
+fn build_convert_page_forms(
+  page : @model.PdfPageModel,
+) -> Array[PdfConvertFormField] {
+  let out : Array[PdfConvertFormField] = []
+  for i = 0; i < page.forms.length(); i = i + 1 {
+    let form = page.forms[i]
+    out.push({
+      _page_index: page.page_index,
+      _form_index: i,
+      field_type: form.field_type,
+      flags: form.flags,
+      field_name: form.field_name,
+      field_value: form.field_value,
+      options: form.options,
+      checked_state: form.checked_state,
+      _bbox: form.bbox,
+    })
+  }
+  out
+}
+
+///|
+fn register_repeated_convert_anchor(
+  anchors : Array[ConvertRepeatedAnchor],
+  x : Double,
+) -> Unit {
+  for i = 0; i < anchors.length(); i = i + 1 {
+    if abs_convert_anchor_f64(anchors[i].x - x) <= 18.0 {
+      let merged_x = (anchors[i].x * anchors[i].count.to_double() + x) /
+        (anchors[i].count + 1).to_double()
+      anchors[i] = { x: merged_x, count: anchors[i].count + 1 }
+      return
+    }
+  }
+  anchors.push({ x, count: 1 })
+}
+
+///|
+fn should_split_block_line_into_cell_segments(
+  block : @model.PdfTextBlock,
+  line : @model.PdfTextLine,
+  text : String,
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+) -> Bool {
+  if block.is_heading_candidate ||
+    block.is_page_number_candidate ||
+    block.is_header_footer_candidate ||
+    block.is_artifact_candidate {
+    return false
+  }
+
+  if looks_like_convert_headingish_line(text) ||
+    looks_like_convert_list_line(text) ||
+    looks_like_short_page_label_for_convert_split(text) {
+    return false
+  }
+
+  should_split_convert_line_into_cell_segments(line, text, repeated_anchors)
+}
+
+///|
+fn should_split_convert_line_into_cell_segments(
+  line : @model.PdfTextLine,
+  text : String,
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+) -> Bool {
+  if line.spans.length() < 2 || line.spans.length() > 4 {
+    return false
+  }
+
+  if text == "" || convert_line_split_word_count(text) > 8 {
+    return false
+  }
+
+  if ends_like_sentence_for_convert_line_split(text) {
+    return false
+  }
+
+  let recurring_hits = count_convert_segment_anchor_hits(
+    line.spans,
+    repeated_anchors,
+  )
+  recurring_hits >= 2 && recurring_hits == line.spans.length()
+}
+
+///|
+fn looks_like_convert_headingish_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if t.has_prefix("第") &&
+    (t.contains("章") || t.contains("节") || t.contains("部分")) {
+    return true
+  }
+
+  looks_like_convert_numbered_heading_prefix(t)
+}
+
+///|
+fn looks_like_convert_numbered_heading_prefix(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  let chars = t.to_array()
+  match chars[0] {
+    ch => if ch < '0' || ch > '9' { return false }
+  }
+
+  t.contains(". ") ||
+  t.contains(") ") ||
+  t.has_prefix("1.") ||
+  t.has_prefix("2.") ||
+  t.has_prefix("3.") ||
+  t.has_prefix("1.1") ||
+  t.has_prefix("1.2") ||
+  t.has_prefix("2.1")
+}
+
+///|
+fn looks_like_convert_list_line(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" {
+    return false
+  }
+
+  if t == "•" ||
+    t.has_prefix("• ") ||
+    t.has_prefix("- ") ||
+    t.has_prefix("* ") {
+    return true
+  }
+
+  let chars = t.to_array()
+  let mut i = 0
+  let mut has_digit = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      has_digit = true
+      i = i + 1
+      continue
+    }
+    break
+  }
+
+  has_digit &&
+  i + 1 < chars.length() &&
+  (chars[i] == '.' || chars[i] == '、' || chars[i] == ')' || chars[i] == '）') &&
+  chars[i + 1] == ' '
+}
+
+///|
+fn looks_like_short_page_label_for_convert_split(text : String) -> Bool {
+  let t = text.trim().to_owned()
+  if t == "" || t.length() > 5 {
+    return false
+  }
+
+  let mut has_digit = false
+  for ch in t {
+    if (ch >= '0' && ch <= '9') ||
+      ch == '０' ||
+      ch == '１' ||
+      ch == '２' ||
+      ch == '３' ||
+      ch == '４' ||
+      ch == '５' ||
+      ch == '６' ||
+      ch == '７' ||
+      ch == '８' ||
+      ch == '９' {
+      has_digit = true
+      continue
+    }
+
+    if ch == '/' || ch == '-' || ch == '／' {
+      continue
+    }
+
+    return false
+  }
+
+  has_digit
+}
+
+///|
+fn count_convert_segment_anchor_hits(
+  spans : Array[@model.PdfTextSpan],
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+) -> Int {
+  let mut hits = 0
+  for span in spans {
+    if has_repeated_convert_anchor(repeated_anchors, span.origin.x) {
+      hits = hits + 1
+    }
+  }
+  hits
+}
+
+///|
+fn has_repeated_convert_anchor(
+  repeated_anchors : Array[ConvertRepeatedAnchor],
+  x : Double,
+) -> Bool {
+  for anchor in repeated_anchors {
+    if abs_convert_anchor_f64(anchor.x - x) <= 18.0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn convert_line_split_word_count(text : String) -> Int {
+  let mut count = 0
+  let mut in_word = false
+  for ch in text {
+    if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+      if in_word {
+        in_word = false
+      }
+    } else if !in_word {
+      count = count + 1
+      in_word = true
+    }
+  }
+  count
+}
+
+///|
+fn ends_like_sentence_for_convert_line_split(text : String) -> Bool {
+  let trimmed = text.trim().to_owned()
+  trimmed.has_suffix(".") ||
+  trimmed.has_suffix("!") ||
+  trimmed.has_suffix("?") ||
+  trimmed.has_suffix("。") ||
+  trimmed.has_suffix("！") ||
+  trimmed.has_suffix("？")
+}
+
+///|
+fn abs_convert_anchor_f64(v : Double) -> Double {
+  if v < 0.0 {
+    -v
+  } else {
+    v
+  }
 }
 
 ///|
@@ -60,23 +447,44 @@ fn core_line_to_convert_line(
   block : @model.PdfTextBlock,
   line : @model.PdfTextLine,
 ) -> PdfConvertLine {
-  let raw_text = @model.line_text(line)
-  let text = raw_text.trim().to_string()
+  let text = normalize_convert_line_text(@model.line_text(line))
 
   {
     _page_index,
     line_index,
     text,
     _source_block_index,
+    source_block_line_count: block.lines.length(),
+    source_block_kind: block.kind,
+    source_block_bbox: block.bbox,
+    source_block_dominant_font_size: block.dominant_font_size,
+    source_block_dominant_font_name: block.dominant_font_name,
     is_heading_candidate: block.is_heading_candidate,
     is_page_number_candidate: block.is_page_number_candidate,
+    is_header_footer_candidate: block.is_header_footer_candidate,
+    is_artifact_candidate: block.is_artifact_candidate,
+    is_caption_candidate: block.is_caption_candidate,
+    is_table_cell_candidate: block.is_table_cell_candidate,
+    dominant_language: block.dominant_language,
+    writing_direction: block.writing_direction,
     _bbox: line.bbox,
     font_size: pick_line_font_size(line),
     font_name: pick_line_font_name(line),
     indent_left: line.indent_left,
+    indent_right: line.indent_right,
+    alignment_hint: line.alignment_hint,
     line_gap_before: line.line_gap_before,
     _line_gap_after: line.line_gap_after,
+    line_height: line.line_height,
+    baseline_y: line.baseline_y,
+    is_wrapped_candidate: line.is_wrapped_candidate,
+    is_same_paragraph_with_prev_candidate: line.is_same_paragraph_with_prev_candidate,
   }
+}
+
+///|
+fn normalize_convert_line_text(text : String) -> String {
+  @cor.normalize_pdf_text_cleanup(text).trim().to_owned()
 }
 
 ///|
@@ -136,12 +544,18 @@ fn export_convert_page_images(
           _image_index,
           path,
           alt_text: image.alt_text,
-          caption: None,
+          _caption: None,
           _bbox: image.bbox,
           top_y: image.bbox.y1,
           left_x: image.bbox.x0,
           _width_px: image.width_px,
           _height_px: image.height_px,
+          colorspace: image.colorspace,
+          bits_per_component: image.bits_per_component,
+          image_filter: image.image_filter,
+          object_ref: image.object_ref,
+          inline_image: image.inline_image,
+          source_refs_count: image.source_refs.length(),
           source_image_id: image.id,
         })
         _image_index = _image_index + 1
@@ -151,6 +565,55 @@ fn export_convert_page_images(
   }
 
   out
+}
+
+///|
+fn build_convert_page_annotations(
+  page : @model.PdfPageModel,
+) -> Array[PdfConvertAnnotation] {
+  let out : Array[PdfConvertAnnotation] = []
+
+  for i = 0; i < page.annotations.length(); i = i + 1 {
+    out.push(
+      core_annotation_to_convert_annotation(
+        page.page_index,
+        i,
+        page.annotations[i],
+      ),
+    )
+  }
+
+  out
+}
+
+///|
+fn core_annotation_to_convert_annotation(
+  _page_index : Int,
+  _annotation_index : Int,
+  annotation : @model.PdfAnnotationObject,
+) -> PdfConvertAnnotation {
+  {
+    _page_index,
+    _annotation_index,
+    subtype: annotation.subtype,
+    flags: annotation.flags,
+    _bbox: annotation.bbox,
+    uri: annotation.uri,
+    dest: annotation.dest,
+    target_page: annotation.target_page,
+    object_ref: annotation.object_ref,
+    contents: annotation.contents,
+    subject: annotation.subject,
+    color: convert_annotation_color(annotation.color),
+  }
+}
+
+///|
+fn convert_annotation_color(color : @model.PdfColor?) -> PdfConvertColor? {
+  match color {
+    Some(c) => Some({ r: c.r, g: c.g, b: c.b })
+    None => None
+  }
 }
 
 ///|
@@ -180,7 +643,7 @@ fn export_single_pdf_image(
 
 ///|
 fn write_pdf_raw_rgb24_as_bmp(
-  rgb : @pdfio.MutableBytes,
+  rgb : Array[Byte],
   width : Int,
   height : Int,
   out_dir : String,
@@ -191,7 +654,7 @@ fn write_pdf_raw_rgb24_as_bmp(
   }
 
   let expected = width * height * 3
-  if @pdfio.bytes_size(rgb) < expected {
+  if rgb.length() < expected {
     return None
   }
 
@@ -202,10 +665,10 @@ fn write_pdf_raw_rgb24_as_bmp(
   let header_size = 14 + 40
   let file_size = header_size + pixel_size
 
-  let out = @pdfio.mkbytes(file_size)
+  let out = Array::make(file_size, (0).to_byte())
 
   fn put_u8(pos : Int, v : Int) -> Unit {
-    @pdfio.bset(out, pos, v & 0xFF)
+    out[pos] = (v & 0xFF).to_byte()
   }
 
   fn put_u16_le(pos : Int, v : Int) -> Unit {
@@ -248,9 +711,9 @@ fn write_pdf_raw_rgb24_as_bmp(
     let mut src = y * width * 3
 
     for _x = 0; _x < width; _x = _x + 1 {
-      let r = @pdfio.bget(rgb, src)
-      let g = @pdfio.bget(rgb, src + 1)
-      let b = @pdfio.bget(rgb, src + 2)
+      let r = rgb[src].to_int()
+      let g = rgb[src + 1].to_int()
+      let b = rgb[src + 2].to_int()
 
       // BMP 像素顺序是 BGR
       put_u8(dst, b)
@@ -285,7 +748,7 @@ fn write_pdf_raw_rgb24_as_bmp(
 
 ///|
 fn write_pdf_image_asset(
-  data : @pdfio.MutableBytes,
+  data : Array[Byte],
   ext : String,
   out_dir : String,
   next_image_idx : Ref[Int],

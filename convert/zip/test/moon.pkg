@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/convert/zip" @zipconv,
+  "ZSeanYves/markitdown/core" @cor,
+  "moonbitlang/async",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+} for "test"

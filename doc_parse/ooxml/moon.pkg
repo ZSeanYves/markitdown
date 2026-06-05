@@ -1,5 +1,6 @@
 import {
-  "ZSeanYves/markitdown/doc_parse/zip" @zip,
+  "ZSeanYves/markitdown/doc_parse/zip",
+  "moonbitlang/core/encoding/utf8",
 }
 
 options(
