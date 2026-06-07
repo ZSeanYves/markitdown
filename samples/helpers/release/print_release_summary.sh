@@ -15,14 +15,14 @@ Print a short Markdown release-summary seed from the current repository state.
 Options:
   --out <path>      write the summary to a file instead of stdout
   --include-log     include the latest 10 commits
-  --verify-clean    fail if git status or prohibited paths are not clean
+  --verify-clean    fail if git status or generated local paths are not clean
   --help            show this help
 
 Notes:
   * default mode is read-only and prints to stdout
   * this helper does not run validation, tag, push, or publish
-  * local external corpus files remain local-only and are not treated as
-    release artifacts
+  * the external quality lab is an optional signal and is not a main-repo
+    release artifact
 EOF
 }
 
@@ -66,10 +66,10 @@ if [[ "$VERIFY_CLEAN" -eq 1 ]]; then
     exit 1
   fi
 
-  prohibited_status="$(git status --short -- .external .external/layout_model samples/quality_corpus/external_manifest.local.tsv markitdown-quality-lab _build .mooncakes .tmp)"
-  if [[ -n "$prohibited_status" ]]; then
-    echo "$prohibited_status"
-    echo "release summary check failed: prohibited paths are not clean" >&2
+  generated_status="$(git status --short -- _build .mooncakes .tmp)"
+  if [[ -n "$generated_status" ]]; then
+    echo "$generated_status"
+    echo "release summary check failed: generated local paths are not clean" >&2
     exit 1
   fi
 fi
@@ -103,6 +103,8 @@ echo "* full: \`330 rows / 1 skipped / 0 expected_fail\`"
 echo "* PDF: \`101 / 1 / 0\`"
 echo "* repo-local sample entrypoint: \`bash samples/check.sh\`"
 echo "* external-quality entrypoint: \`bash samples/check_quality.sh\`"
+echo "* external-quality manifest: \`markitdown-quality-lab/external_quality/MANIFEST.tsv\`"
+echo "* external-quality scope: optional external signal"
 echo "* DOCX: \`60 / 0 / 0\`"
 echo "* PPTX: \`55 / 0 / 0\`"
 echo "* XLSX: \`51 / 0 / 0\`"
@@ -125,9 +127,9 @@ echo "* full: \`bash samples/helpers/release/check_release_candidate.sh --full\`
 echo
 echo "## Caveats"
 echo
-echo "* local external corpus is not a release artifact"
-echo "* repo-local \`markitdown-quality-lab/\` stays out of the main repo"
-echo "* \`.external/quality_corpus\` and legacy \`samples/quality_corpus/external_manifest.local.tsv\` remain local-only"
+echo "* external quality lab data is not a main-repo release artifact"
+echo "* repo-local \`markitdown-quality-lab/\` stays separate from the main repo"
+echo "* missing external quality lab data skips the external signal in release helpers"
 echo "* benchmark and compare numbers are local/sample-scoped, not universal guarantees"
 echo "* OCR/scanned content remains explicit-only"
 echo "* \`0 expected_fail\` is not a universal-support claim"

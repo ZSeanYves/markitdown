@@ -467,6 +467,20 @@ test "docx deep nested table guard is bounded and typed" {
 }
 
 ///|
+test "docx pathological nested table stops at guard boundary" {
+  let pkg = generated_docx_package(docx_deep_table_xml(120))
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  match doc.body[0] {
+    @docx.DocxBlock::Table(table) => {
+      assert_true(table.deep_table_guard_triggered)
+      assert_true(table.max_nested_depth >= 7)
+      assert_true(table.max_nested_depth < 20)
+    }
+    _ => fail("expected table")
+  }
+}
+
+///|
 test "docx preserves empty content control as typed block" {
   let pkg = generated_docx_package(
     "<w:p><w:r><w:t>Known</w:t></w:r></w:p><w:sdt><w:sdtContent/></w:sdt>",

@@ -160,27 +160,13 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 echo "==> convert layer benchmark"
 echo "manifest: $MANIFEST_PATH"
 echo "output: $OUTPUT_PATH"
-echo "==> warming Moon build"
-(cd "$ROOT" && moon build bench/convert_layer --target native)
 
-RUNNER="$ROOT/_build/native/debug/build/bench/convert_layer/convert_layer.exe"
-if [[ ! -x "$RUNNER" ]]; then
-  RUNNER=""
-  while IFS= read -r candidate; do
-    [[ -n "$candidate" ]] || continue
-    RUNNER="$candidate"
-    break
-  done < <(find "$ROOT/_build/native" -path "*/build/bench/convert_layer/convert_layer.exe" -type f 2>/dev/null | sort)
-fi
-
-if [[ -z "$RUNNER" || ! -x "$RUNNER" ]]; then
-  echo "failed to locate native convert layer benchmark runner under _build/native" >&2
-  exit 1
-fi
-
-echo "runner: prebuilt-native ($RUNNER)" >&2
+RUNNER="$(bench_v2_resolve_native_runner "$ROOT" "bench/convert_layer" "*/build/bench/convert_layer/convert_layer.exe" "convert layer" "$ROOT/_build/native/debug/build/bench/convert_layer/convert_layer.exe")"
 echo "runner_source: bench/convert_layer" >&2
-(cd "$ROOT" && "$RUNNER" "${FORWARD_ARGS[@]}")
+PROGRESS_LABELS_PATH="${OUTPUT_PATH}.progress-labels"
+bench_v2_selected_row_labels "$MANIFEST_PATH" "convert" "$FORMAT_FILTER" > "$PROGRESS_LABELS_PATH"
+PROGRESS_TOTAL="$(wc -l < "$PROGRESS_LABELS_PATH" | tr -d '[:space:]')"
+bench_v2_run_with_progress "$ROOT" "$RUNNER" "$OUTPUT_PATH" "$PROGRESS_LABELS_PATH" "$PROGRESS_TOTAL" "${FORWARD_ARGS[@]}"
 
 echo "BENCHMARK SUITE COMPLETED"
 echo "- layer: convert"

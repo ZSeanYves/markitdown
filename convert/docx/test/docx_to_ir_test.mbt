@@ -402,7 +402,7 @@ test "docx lowering emits deterministic simple table markdown" {
   assert_eq(@docxir.render_docx_plain_text(docx), "A1\tB1\nA2\tB2")
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
-    "| Column 1 | Column 2 |\n| --- | --- |\n| A1 | B1 |\n| A2 | B2 |\n",
+    "| A1 | B1 |\n| --- | --- |\n| A2 | B2 |\n",
   )
   assert_eq(docx.warnings.length(), 0)
 }
@@ -447,13 +447,13 @@ test "docx lowering infers styled first table row as header" {
 }
 
 ///|
-test "docx lowering table without marker keeps header_rows zero" {
+test "docx lowering table without marker uses first row as header" {
   let docx = docx_from_body(
     "<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Head-ish</w:t></w:r></w:p></w:tc></w:tr></w:tbl>",
   )
   let lowered = @docxir.lower_docx_document(docx)
   match lowered.blocks.val[0] {
-    @cor.Block::RichTable(table) => assert_eq(table.header_rows, 0)
+    @cor.Block::RichTable(table) => assert_eq(table.header_rows, 1)
     _ => fail("expected rich table")
   }
 }
@@ -465,7 +465,7 @@ test "docx lowering table hyperlink cell is deterministic" {
   )
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
-    "| Column 1 |\n| --- |\n| [Jump](#target) |\n",
+    "| [Jump](#target) |\n| --- |\n",
   )
 }
 
@@ -479,7 +479,7 @@ test "docx lowering nested table preserves inner table text" {
   )
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
-    "| Column 1 |\n| --- |\n| Outer<br>Inner |\n",
+    "| Outer<br>Inner |\n| --- |\n",
   )
   assert_eq(docx.warnings.length(), 0)
 }
@@ -621,6 +621,14 @@ test "docx lowering deep table guard keeps bounded placeholder" {
     }
   }
   assert_true(has_nested_warning)
+}
+
+///|
+test "docx lowering pathological nested table stays bounded" {
+  let docx = docx_from_body(docx_deep_table_xml(120))
+  let markdown = @cor.emit_markdown(@docxir.lower_docx_document(docx))
+  assert_true(markdown.contains("Unsupported DOCX nested table depth limit"))
+  assert_true(markdown.length() < 2000)
 }
 
 ///|
@@ -819,14 +827,14 @@ test "docx lowering appends resolved endnote section" {
   assert_docx_note_definition(
     doc,
     0,
-    "e2",
-    "e2",
+    "e1",
+    "e1",
     @cor.NoteKind::Endnote,
     @cor.NoteSourceKind::DocxEndnoteBody,
     "Endnote body",
   )
   let markdown = @cor.emit_markdown(doc)
-  assert_eq(markdown, "Main[^e2]\n\n[^e2]: Endnote body\n")
+  assert_eq(markdown, "Main[^e1]\n\n[^e1]: Endnote body\n")
 }
 
 ///|
@@ -918,11 +926,11 @@ test "docx lowering uses conventional discovered notes without rels" {
   )
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
-    "Main[^1][^e2] [comment 1]\n\n" +
+    "Main[^1][^e1] [comment 1]\n\n" +
     "## Comments\n\n" +
     "1. Alice: Conventional comment\n\n" +
     "[^1]: Conventional footnote\n\n" +
-    "[^e2]: Conventional endnote\n",
+    "[^e1]: Conventional endnote\n",
   )
 }
 
@@ -1106,22 +1114,22 @@ test "docx asset lowering exports real sample image with alt and title" {
 }
 
 ///|
-test "docx lowering table cell media uses model placeholder" {
+test "docx lowering table cell media uses alt text as cell text" {
   let docx = docx_from_body(
     "<w:tbl><w:tr><w:tc><w:p><w:r><w:drawing>" +
     "<wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\"><wp:docPr id=\"1\" name=\"Picture 1\" descr=\"Table image\"/>" +
     "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:graphicData><pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:blipFill><a:blip r:embed=\"rIdMissing\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic>" +
     "</wp:inline></w:drawing></w:r></w:p></w:tc></w:tr></w:tbl>",
   )
-  assert_eq(@docxir.render_docx_plain_text(docx), "[image: Table image]")
+  assert_eq(@docxir.render_docx_plain_text(docx), "Table image")
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
-    "| Column 1 |\n| --- |\n| [image: Table image] |\n",
+    "| Table image |\n| --- |\n",
   )
 }
 
 ///|
-test "docx asset lowering exports table cell image while preserving table placeholder" {
+test "docx asset lowering exports table cell image while preserving alt text" {
   let pkg = generated_docx_package(
     "<w:tbl><w:tr><w:tc><w:p><w:r>" +
     generated_docx_image_xml("rIdImage", "Table image", "") +
@@ -1137,7 +1145,7 @@ test "docx asset lowering exports table cell image while preserving table placeh
   assert_true(@fs.path_exists(out_dir + "/assets/image01.png"))
   assert_eq(
     @cor.emit_markdown(lowered.document),
-    "| Column 1 |\n| --- |\n| [image: Table image] |\n",
+    "| Table image |\n| --- |\n",
   )
 }
 

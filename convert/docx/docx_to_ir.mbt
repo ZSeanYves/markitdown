@@ -25,6 +25,13 @@ priv struct DocxAssetExportCtx {
 }
 
 ///|
+priv struct DocxRefLabels {
+  footnotes : Map[String, String]
+  endnotes : Map[String, String]
+  comments : Map[String, String]
+}
+
+///|
 pub fn open_docx_model(path : String) -> @docmodel.DocxDocument raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise @cor.AppError("docx: read failed: " + e.to_string())
@@ -139,17 +146,17 @@ fn docx_warning_severity_name(
 ///|
 pub fn lower_docx_document(docx : @docmodel.DocxDocument) -> @cor.Document {
   let doc = @cor.new_document()
-  let comment_labels = docx_body_comment_labels(docx)
+  let ref_labels = docx_body_ref_labels(docx)
   for block in docx.body {
-    push_docx_block_with_comment_labels(
+    push_docx_block_with_ref_labels(
       doc,
       docx,
       block,
       None,
-      Some(comment_labels),
+      Some(ref_labels),
     )
   }
-  append_docx_resolved_appendices(doc, docx)
+  append_docx_resolved_appendices(doc, docx, Some(ref_labels))
   doc
 }
 
@@ -162,17 +169,17 @@ pub fn lower_docx_document_with_assets(
   let doc = @cor.new_document()
   let ctx = new_docx_asset_export_ctx(pkg, out_dir)
   let ctx_opt = if out_dir.trim() == "" { None } else { Some(ctx) }
-  let comment_labels = docx_body_comment_labels(docx)
+  let ref_labels = docx_body_ref_labels(docx)
   for block in docx.body {
-    push_docx_block_with_comment_labels(
+    push_docx_block_with_ref_labels(
       doc,
       docx,
       block,
       ctx_opt,
-      Some(comment_labels),
+      Some(ref_labels),
     )
   }
-  append_docx_resolved_appendices_with_ctx(doc, docx, ctx_opt)
+  append_docx_resolved_appendices_with_ctx(doc, docx, ctx_opt, Some(ref_labels))
   {
     document: doc,
     assets: match ctx_opt {
@@ -203,22 +210,22 @@ fn push_docx_block(
   block : @docmodel.DocxBlock,
   asset_ctx : DocxAssetExportCtx?,
 ) -> Unit {
-  push_docx_block_with_comment_labels(doc, docx, block, asset_ctx, None)
+  push_docx_block_with_ref_labels(doc, docx, block, asset_ctx, None)
 }
 
 ///|
-fn push_docx_block_with_comment_labels(
+fn push_docx_block_with_ref_labels(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
   block : @docmodel.DocxBlock,
   asset_ctx : DocxAssetExportCtx?,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   match block {
     @docmodel.DocxBlock::Paragraph(p) =>
-      push_docx_paragraph_block(doc, docx, p, asset_ctx, comment_labels)
+      push_docx_paragraph_block(doc, docx, p, asset_ctx, ref_labels)
     @docmodel.DocxBlock::Table(table) => {
-      let rows = docx_table_rows(table, asset_ctx)
+      let rows = docx_table_rows(table, asset_ctx, ref_labels)
       if rows.length() > 0 {
         push_docx_block_with_origin(
           doc,
@@ -239,7 +246,7 @@ fn push_docx_block_with_comment_labels(
       )
     @docmodel.DocxBlock::ContentControl(control) =>
       push_docx_content_control_block(
-        doc, docx, control, asset_ctx, comment_labels,
+        doc, docx, control, asset_ctx, ref_labels,
       )
     @docmodel.DocxBlock::StructuralMarker(_) => ()
     @docmodel.DocxBlock::Unsupported(warning) =>
@@ -259,22 +266,22 @@ fn push_docx_content_control_block(
   docx : @docmodel.DocxDocument,
   control : @docmodel.DocxContentControl,
   asset_ctx : DocxAssetExportCtx?,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   if control.blocks.length() > 0 {
-    push_docx_blocks_with_comment_labels(
+    push_docx_blocks_with_ref_labels(
       doc,
       docx,
       control.blocks,
       asset_ctx,
-      comment_labels,
+      ref_labels,
     )
   } else if control.inlines.length() > 0 {
-    push_docx_inline_chunk_with_comment_labels(
+    push_docx_inline_chunk_with_ref_labels(
       doc,
       control.inlines,
       Some(control.source_key),
-      comment_labels,
+      ref_labels,
     )
   } else if control.text.trim() != "" {
     push_docx_block_with_origin(
@@ -289,8 +296,9 @@ fn push_docx_content_control_block(
 fn append_docx_resolved_appendices(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
-  append_docx_resolved_appendices_with_ctx(doc, docx, None)
+  append_docx_resolved_appendices_with_ctx(doc, docx, None, ref_labels)
 }
 
 ///|
@@ -298,12 +306,15 @@ fn append_docx_resolved_appendices_with_ctx(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
   let comment_ids : Array[String] = []
   collect_docx_refs(docx.body, footnote_ids, endnote_ids, comment_ids)
-  append_docx_note_definitions(doc, docx, footnote_ids, endnote_ids, asset_ctx)
+  append_docx_note_definitions(
+    doc, docx, footnote_ids, endnote_ids, asset_ctx, ref_labels,
+  )
   append_docx_comments(doc, docx, comment_ids, asset_ctx)
   append_docx_part_bodies(
     doc,
@@ -460,25 +471,47 @@ fn push_docx_unique_id(ids : Array[String], id : String) -> Unit {
 }
 
 ///|
-fn docx_body_comment_labels(
+fn docx_body_ref_labels(
   docx : @docmodel.DocxDocument,
-) -> Map[String, String] {
+) -> DocxRefLabels {
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
   let comment_ids : Array[String] = []
   collect_docx_refs(docx.body, footnote_ids, endnote_ids, comment_ids)
-  let labels : Map[String, String] = Map([])
-  let mut display_index = 1
-  for id in comment_ids {
-    match @docmodel.docx_find_comment(docx, id) {
+  let footnotes : Map[String, String] = Map([])
+  let mut footnote_index = 1
+  for id in footnote_ids {
+    match @docmodel.docx_find_footnote(docx, id) {
       Some(_) => {
-        labels.set(id, display_index.to_string())
-        display_index += 1
+        footnotes.set(id, footnote_index.to_string())
+        footnote_index += 1
       }
       None => ()
     }
   }
-  labels
+  let endnotes : Map[String, String] = Map([])
+  let mut endnote_index = 1
+  for id in endnote_ids {
+    match @docmodel.docx_find_endnote(docx, id) {
+      Some(_) => {
+        endnotes.set(id, endnote_index.to_string())
+        endnote_index += 1
+      }
+      None => ()
+    }
+  }
+  let comments : Map[String, String] = Map([])
+  let mut comment_index = 1
+  for id in comment_ids {
+    match @docmodel.docx_find_comment(docx, id) {
+      Some(_) => {
+        comments.set(id, comment_index.to_string())
+        comment_index += 1
+      }
+      None => ()
+    }
+  }
+  { footnotes, endnotes, comments }
 }
 
 ///|
@@ -488,6 +521,7 @@ fn append_docx_note_definitions(
   footnote_ids : Array[String],
   endnote_ids : Array[String],
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   for id in footnote_ids {
     match @docmodel.docx_find_footnote(docx, id) {
@@ -497,8 +531,8 @@ fn append_docx_note_definitions(
           docx,
           note.source_key,
           note.blocks,
-          id,
-          id,
+          docx_footnote_note_id_with_labels(id, ref_labels),
+          docx_footnote_marker_text_with_labels(id, ref_labels),
           @cor.NoteKind::Footnote,
           @cor.NoteSourceKind::DocxFootnoteBody,
           asset_ctx,
@@ -514,8 +548,8 @@ fn append_docx_note_definitions(
           docx,
           note.source_key,
           note.blocks,
-          "e" + id,
-          "e" + id,
+          docx_endnote_note_id_with_labels(id, ref_labels),
+          docx_endnote_marker_text_with_labels(id, ref_labels),
           @cor.NoteKind::Endnote,
           @cor.NoteSourceKind::DocxEndnoteBody,
           asset_ctx,
@@ -632,7 +666,7 @@ fn append_docx_part_bodies(
         " " +
         display_index.to_string() +
         " " +
-        docx_part_body_slot_label(body.relationship_id),
+        docx_part_body_slot_label(body),
       ),
       Some(origin),
     )
@@ -667,7 +701,9 @@ fn push_docx_part_body_blocks(
 ) -> Unit {
   let body_doc = @cor.new_document()
   push_docx_blocks(body_doc, docx, body.blocks, asset_ctx)
-  push_docx_owner_textboxes(body_doc, docx, body.part_name, asset_ctx)
+  push_docx_owner_textboxes_into_part_body(
+    body_doc, docx, body.part_name, asset_ctx,
+  )
   copy_docx_asset_origins(doc, body_doc)
   for block in body_doc.blocks.val {
     let origin = docx_part_body_origin_for_index(body, doc.blocks.val.length())
@@ -676,7 +712,7 @@ fn push_docx_part_body_blocks(
 }
 
 ///|
-fn push_docx_owner_textboxes(
+fn push_docx_owner_textboxes_into_part_body(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
   owner_part : String,
@@ -685,12 +721,60 @@ fn push_docx_owner_textboxes(
   for textbox in docx.textboxes {
     if textbox.owner_part == owner_part &&
       docx_blocks_have_visible_content(textbox.blocks) {
-      push_docx_blocks(doc, docx, textbox.blocks, asset_ctx)
+      let textbox_doc = @cor.new_document()
+      push_docx_blocks(textbox_doc, docx, textbox.blocks, asset_ctx)
+      merge_docx_textbox_blocks_into_part_body(doc, textbox_doc)
     }
   }
 }
 
 ///|
+fn merge_docx_textbox_blocks_into_part_body(
+  doc : @cor.Document,
+  textbox_doc : @cor.Document,
+) -> Unit {
+  if textbox_doc.blocks.val.length() == 0 {
+    return
+  }
+  let merged = @cor.new_document()
+  let mut copied = 0
+  for block in doc.blocks.val {
+    copied += 1
+    if copied == doc.blocks.val.length() {
+      match block {
+        @cor.Block::Paragraph(text) => {
+          let mut did_merge = false
+          let first_textbox_block = textbox_doc.blocks.val[0]
+          match first_textbox_block {
+            @cor.Block::Paragraph(extra) => {
+              @cor.push(merged, @cor.Block::Paragraph(text + "\n\n" + extra))
+              did_merge = true
+            }
+            _ => @cor.push(merged, block)
+          }
+          let mut index = if did_merge { 1 } else { 0 }
+          while index < textbox_doc.blocks.val.length() {
+            @cor.push(merged, textbox_doc.blocks.val[index])
+            index += 1
+          }
+        }
+        _ => @cor.push(merged, block)
+      }
+    } else {
+      @cor.push(merged, block)
+    }
+  }
+  if doc.blocks.val.length() == 0 {
+    for block in textbox_doc.blocks.val {
+      @cor.push(merged, block)
+    }
+  }
+  doc.blocks.val.clear()
+  for block in merged.blocks.val {
+    @cor.push(doc, block)
+  }
+}
+
 fn docx_part_body_origin_for_index(
   body : @docmodel.DocxPartBody,
   block_index : Int,
@@ -704,19 +788,26 @@ fn docx_part_body_origin_for_index(
 }
 
 ///|
-fn docx_part_body_slot_label(rel_id : String?) -> String {
-  match rel_id {
-    Some(value) => {
-      let normalized = docx_normalize_style_label(value)
-      if normalized.contains("even") {
-        "Even"
-      } else if normalized.contains("first") {
-        "First"
-      } else {
-        "Default"
+fn docx_part_body_slot_label(body : @docmodel.DocxPartBody) -> String {
+  match body.slot_type {
+    Some(value) => docx_part_body_slot_label_from_text(value)
+    None =>
+      match body.relationship_id {
+        Some(value) => docx_part_body_slot_label_from_text(value)
+        None => "Default"
       }
-    }
-    None => "Default"
+  }
+}
+
+///|
+fn docx_part_body_slot_label_from_text(value : String) -> String {
+      let normalized = docx_normalize_style_label(value)
+  if normalized.contains("even") {
+    "Even"
+  } else if normalized.contains("first") {
+    "First"
+  } else {
+    "Default"
   }
 }
 
@@ -883,11 +974,12 @@ fn docx_blocks_have_visible_content(
   for block in blocks {
     match block {
       @docmodel.DocxBlock::Paragraph(p) =>
-        if render_docx_paragraph_text(p.inlines).trim() != "" {
+        if !docx_paragraph_is_page_number_field_only(p) &&
+          render_docx_paragraph_text(p.inlines).trim() != "" {
           return true
         }
       @docmodel.DocxBlock::Table(table) =>
-        if docx_table_rows(table, None).length() > 0 {
+        if docx_table_has_visible_content(table) {
           return true
         }
       @docmodel.DocxBlock::ContentControl(control) =>
@@ -897,6 +989,19 @@ fn docx_blocks_have_visible_content(
       @docmodel.DocxBlock::TablePlaceholder(_)
       | @docmodel.DocxBlock::Unsupported(_) => return true
       @docmodel.DocxBlock::StructuralMarker(_) => ()
+    }
+  }
+  false
+}
+
+///|
+fn docx_table_has_visible_content(table : @docmodel.DocxTable) -> Bool {
+  if table.deep_table_guard_triggered {
+    return true
+  }
+  for row in table.rows {
+    if row.cells.length() > 0 {
+      return true
     }
   }
   false
@@ -937,20 +1042,20 @@ fn push_docx_blocks(
   blocks : Array[@docmodel.DocxBlock],
   asset_ctx : DocxAssetExportCtx?,
 ) -> Unit {
-  push_docx_blocks_with_comment_labels(doc, docx, blocks, asset_ctx, None)
+  push_docx_blocks_with_ref_labels(doc, docx, blocks, asset_ctx, None)
 }
 
 ///|
-fn push_docx_blocks_with_comment_labels(
+fn push_docx_blocks_with_ref_labels(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
   blocks : Array[@docmodel.DocxBlock],
   asset_ctx : DocxAssetExportCtx?,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   for block in blocks {
-    push_docx_block_with_comment_labels(
-      doc, docx, block, asset_ctx, comment_labels,
+    push_docx_block_with_ref_labels(
+      doc, docx, block, asset_ctx, ref_labels,
     )
   }
 }
@@ -961,19 +1066,22 @@ fn push_docx_paragraph_block(
   docx : @docmodel.DocxDocument,
   p : @docmodel.DocxParagraph,
   asset_ctx : DocxAssetExportCtx?,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
   match lower_docx_mixed_paragraph_images(doc, p, asset_ctx) {
     true => return
     false => ()
   }
-  let text = render_docx_paragraph_text_with_comment_labels(
+  if docx_paragraph_is_page_number_field_only(p) {
+    return
+  }
+  let text = render_docx_paragraph_text_with_ref_labels(
     p.inlines,
-    comment_labels,
+    ref_labels,
   )
   let rich = docx_paragraph_has_rich_inline(p.inlines)
   let rich_inlines = if rich {
-    docx_core_inlines_with_comment_labels(p.inlines, comment_labels)
+    docx_core_inlines_with_ref_labels(p.inlines, ref_labels)
   } else {
     []
   }
@@ -1009,7 +1117,7 @@ fn push_docx_paragraph_block(
         push_docx_paragraph_origin(
           doc,
           p,
-          @cor.Block::ListItem(ordered, level, text),
+          @cor.Block::ListItem(ordered, level, docx_list_item_text(text)),
         )
       }
       return
@@ -1110,22 +1218,22 @@ fn push_docx_inline_chunk(
   inlines : Array[@docmodel.DocxInline],
   source_key : @docmodel.DocxSourceKey?,
 ) -> Unit {
-  push_docx_inline_chunk_with_comment_labels(doc, inlines, source_key, None)
+  push_docx_inline_chunk_with_ref_labels(doc, inlines, source_key, None)
 }
 
 ///|
-fn push_docx_inline_chunk_with_comment_labels(
+fn push_docx_inline_chunk_with_ref_labels(
   doc : @cor.Document,
   inlines : Array[@docmodel.DocxInline],
   source_key : @docmodel.DocxSourceKey?,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Unit {
-  let text = render_docx_paragraph_text_with_comment_labels(
-    inlines, comment_labels,
+  let text = render_docx_paragraph_text_with_ref_labels(
+    inlines, ref_labels,
   )
   let rich = docx_paragraph_has_rich_inline(inlines)
   let rich_inlines = if rich {
-    docx_core_inlines_with_comment_labels(inlines, comment_labels)
+    docx_core_inlines_with_ref_labels(inlines, ref_labels)
   } else {
     []
   }
@@ -1694,7 +1802,14 @@ fn docx_paragraph_is_code_style(
       docx_style_label_matches(style, [
         "code", "pre", "preformatted", "htmlpreformatted", "sourcecode",
       ])
-    None => false
+    None =>
+      match p.style_id {
+        Some(style_id) =>
+          docx_style_labels_match(style_id, None, [
+            "code", "pre", "preformatted", "htmlpreformatted", "sourcecode",
+          ])
+        None => docx_paragraph_has_code_shape(p)
+      }
   }
 }
 
@@ -1708,7 +1823,14 @@ fn docx_paragraph_is_quote_style(
       docx_style_label_matches(style, [
         "quote", "intensequote", "blockquote", "blockquotetext",
       ])
-    None => false
+    None =>
+      match p.style_id {
+        Some(style_id) =>
+          docx_style_labels_match(style_id, None, [
+            "quote", "intensequote", "blockquote", "blockquotetext",
+          ])
+        None => false
+      }
   }
 }
 
@@ -1717,13 +1839,22 @@ fn docx_style_label_matches(
   style : @docmodel.DocxStyle,
   labels : Array[String],
 ) -> Bool {
-  let style_id = docx_normalize_style_label(style.style_id)
+  docx_style_labels_match(style.style_id, style.name, labels)
+}
+
+///|
+fn docx_style_labels_match(
+  style_id_raw : String,
+  style_name_raw : String?,
+  labels : Array[String],
+) -> Bool {
+  let style_id = docx_normalize_style_label(style_id_raw)
   for label in labels {
     if style_id == label {
       return true
     }
   }
-  match style.name {
+  match style_name_raw {
     Some(name) => {
       let style_name = docx_normalize_style_label(name)
       for label in labels {
@@ -1735,6 +1866,115 @@ fn docx_style_label_matches(
     }
     None => false
   }
+}
+
+///|
+fn docx_paragraph_has_code_shape(p : @docmodel.DocxParagraph) -> Bool {
+  if p.runs.length() == 0 {
+    return false
+  }
+  let text = render_docx_paragraph_text(p.inlines)
+  if !text.contains("\n") {
+    return false
+  }
+  if docx_paragraph_alignment_is_center(p) {
+    return false
+  }
+  let lines = text
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+    .split("\n")
+    .map(fn(value) { value.to_owned() })
+    .filter(fn(value) { value.trim() != "" })
+    .iter()
+    .collect()
+  if lines.length() < 2 || lines.length() > 2 {
+    return false
+  }
+  let mut codeish = false
+  for line in lines {
+    let trimmed = line.trim()
+    if trimmed.contains("=") || trimmed.contains("(") ||
+      trimmed.contains(")") || trimmed.contains(";") ||
+      trimmed.contains("{") || trimmed.contains("}") {
+      codeish = true
+    }
+  }
+  codeish
+}
+
+///|
+fn docx_list_item_text(text : String) -> String {
+  let lines = text
+    .replace(old="\r\n", new="\n")
+    .replace(old="\r", new="\n")
+    .split("\n")
+    .map(fn(value) { value.trim().to_owned() })
+    .filter(fn(value) { value != "" })
+    .iter()
+    .collect()
+  lines.join("<br>")
+}
+
+///|
+fn docx_paragraph_is_page_number_field_only(
+  p : @docmodel.DocxParagraph,
+) -> Bool {
+  let out = StringBuilder::new()
+  let mut saw_page_field = false
+  for inline in p.inlines {
+    match inline {
+      @docmodel.DocxInline::FieldUnsupported(field) =>
+        if docx_field_is_page_number(field) {
+          saw_page_field = true
+        } else if docx_field_is_structural_char(field) {
+          ()
+        } else if render_docx_field_fallback_text(field).trim() != "" {
+          return false
+        }
+      @docmodel.DocxInline::Text(text) => out.write_string(text)
+      @docmodel.DocxInline::Tab
+      | @docmodel.DocxInline::LineBreak
+      | @docmodel.DocxInline::Break(_) => out.write_string(" ")
+      @docmodel.DocxInline::StructuralMarker(_)
+      | @docmodel.DocxInline::Bookmark(_) => ()
+      _ => {
+        let single : Array[@docmodel.DocxInline] = [inline]
+        if render_docx_paragraph_text(single).trim() != "" {
+          return false
+        }
+      }
+    }
+  }
+  saw_page_field && docx_text_is_page_number_result(out.to_string())
+}
+
+///|
+fn docx_field_is_structural_char(field : @docmodel.DocxField) -> Bool {
+  if field.kind != "fldChar" {
+    return false
+  }
+  match field.field_char_type {
+    Some(value) => {
+      let normalized = docx_normalize_style_label(value)
+      normalized == "begin" || normalized == "separate" || normalized == "end"
+    }
+    None => true
+  }
+}
+
+///|
+fn docx_text_is_page_number_result(text : String) -> Bool {
+  let trimmed = text.trim()
+  if trimmed == "" {
+    return true
+  }
+  for ch in trimmed.to_array() {
+    if ch < '0' || ch > '9' {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -1778,7 +2018,7 @@ pub fn render_docx_plain_text(docx : @docmodel.DocxDocument) -> String {
         }
       }
       @docmodel.DocxBlock::Table(table) => {
-        let rows = docx_table_rows(table, None)
+        let rows = docx_table_rows(table, None, None)
         if rows.length() > 0 {
           let rendered_rows : Array[String] = []
           for row in rows {
@@ -1790,7 +2030,7 @@ pub fn render_docx_plain_text(docx : @docmodel.DocxDocument) -> String {
       @docmodel.DocxBlock::TablePlaceholder(_) =>
         parts.push("[Unsupported DOCX table omitted by v2 skeleton]")
       @docmodel.DocxBlock::ContentControl(control) => {
-        let text = render_docx_content_control_text(control, None)
+        let text = render_docx_content_control_text(control, None, None)
         if text.trim() != "" {
           parts.push(text)
         }
@@ -1807,12 +2047,13 @@ pub fn render_docx_plain_text(docx : @docmodel.DocxDocument) -> String {
 fn docx_table_rows(
   table : @docmodel.DocxTable,
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> Array[Array[String]] {
   let rows : Array[Array[String]] = []
   for row in table.rows {
     let cells : Array[String] = []
     for cell in row.cells {
-      cells.push(docx_table_cell_text(cell, asset_ctx))
+      cells.push(docx_table_cell_text(cell, asset_ctx, ref_labels))
     }
     rows.push(cells)
   }
@@ -1821,8 +2062,7 @@ fn docx_table_rows(
 
 ///|
 fn docx_table_header_rows(table : @docmodel.DocxTable) -> Int {
-  if table.rows.length() > 0 &&
-    (table.rows[0].is_header || docx_table_first_row_inferred_header(table)) {
+  if table.rows.length() > 0 && docx_table_first_row_has_cells(table) {
     1
   } else {
     0
@@ -1830,69 +2070,8 @@ fn docx_table_header_rows(table : @docmodel.DocxTable) -> Int {
 }
 
 ///|
-fn docx_table_first_row_inferred_header(table : @docmodel.DocxTable) -> Bool {
-  if table.rows.length() < 2 {
-    return false
-  }
-  let row = table.rows[0]
-  if row.cells.length() == 0 {
-    return false
-  }
-  let mut has_text = false
-  for cell in row.cells {
-    let text = cell.text.trim()
-    if text == "" ||
-      text.contains("\n") ||
-      text.contains("\t") ||
-      text.to_array().length() > 80 {
-      return false
-    }
-    if !docx_table_cell_has_header_style_hint(cell) {
-      return false
-    }
-    has_text = true
-  }
-  has_text
-}
-
-///|
-fn docx_table_cell_has_header_style_hint(
-  cell : @docmodel.DocxTableCell,
-) -> Bool {
-  for block in cell.blocks {
-    match block {
-      @docmodel.DocxBlock::Paragraph(p) =>
-        if p.text.trim() != "" &&
-          docx_paragraph_alignment_is_center(p) &&
-          docx_paragraph_visible_runs_are_bold(p) {
-          return true
-        }
-      @docmodel.DocxBlock::ContentControl(control) =>
-        if docx_content_control_header_style_hint(control) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn docx_content_control_header_style_hint(
-  control : @docmodel.DocxContentControl,
-) -> Bool {
-  for block in control.blocks {
-    match block {
-      @docmodel.DocxBlock::Paragraph(p) =>
-        if p.text.trim() != "" &&
-          docx_paragraph_alignment_is_center(p) &&
-          docx_paragraph_visible_runs_are_bold(p) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
+fn docx_table_first_row_has_cells(table : @docmodel.DocxTable) -> Bool {
+  table.rows[0].cells.length() > 0
 }
 
 ///|
@@ -1903,26 +2082,12 @@ fn docx_paragraph_alignment_is_center(p : @docmodel.DocxParagraph) -> Bool {
   }
 }
 
-///|
-fn docx_paragraph_visible_runs_are_bold(p : @docmodel.DocxParagraph) -> Bool {
-  let mut saw_visible_run = false
-  for run in p.runs {
-    if render_docx_paragraph_text(run.inlines).trim() != "" {
-      if !run.bold {
-        return false
-      }
-      saw_visible_run = true
-    }
-  }
-  saw_visible_run
-}
-
-///|
 fn render_docx_table_text(
   table : @docmodel.DocxTable,
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
-  let rows = docx_table_rows(table, asset_ctx)
+  let rows = docx_table_rows(table, asset_ctx, ref_labels)
   let rendered_rows : Array[String] = []
   for row in rows {
     rendered_rows.push(row.join("\t"))
@@ -1934,19 +2099,22 @@ fn render_docx_table_text(
 fn render_docx_content_control_text(
   control : @docmodel.DocxContentControl,
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
   if control.blocks.length() > 0 {
     let parts : Array[String] = []
     for block in control.blocks {
       match block {
         @docmodel.DocxBlock::Paragraph(p) => {
-          let text = render_docx_table_paragraph_text(p.inlines, asset_ctx)
+          let text = render_docx_table_paragraph_text(
+            p.inlines, asset_ctx, ref_labels,
+          )
           if text.trim() != "" {
             parts.push(text)
           }
         }
         @docmodel.DocxBlock::Table(table) => {
-          let text = render_docx_table_text(table, asset_ctx)
+          let text = render_docx_table_text(table, asset_ctx, ref_labels)
           if text.trim() != "" {
             parts.push(text)
           }
@@ -1954,7 +2122,9 @@ fn render_docx_content_control_text(
         @docmodel.DocxBlock::TablePlaceholder(_) =>
           parts.push("[Unsupported DOCX nested table depth limit]")
         @docmodel.DocxBlock::ContentControl(child) => {
-          let text = render_docx_content_control_text(child, asset_ctx)
+          let text = render_docx_content_control_text(
+            child, asset_ctx, ref_labels,
+          )
           if text.trim() != "" {
             parts.push(text)
           }
@@ -1967,7 +2137,7 @@ fn render_docx_content_control_text(
     return parts.join("\n")
   }
   if control.inlines.length() > 0 {
-    render_docx_table_paragraph_text(control.inlines, asset_ctx)
+    render_docx_table_paragraph_text(control.inlines, asset_ctx, ref_labels)
   } else {
     control.text
   }
@@ -1977,18 +2147,21 @@ fn render_docx_content_control_text(
 fn docx_table_cell_text(
   cell : @docmodel.DocxTableCell,
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
   let parts : Array[String] = []
   for block in cell.blocks {
     match block {
       @docmodel.DocxBlock::Paragraph(p) => {
-        let text = render_docx_table_paragraph_text(p.inlines, asset_ctx)
+        let text = render_docx_table_paragraph_text(
+          p.inlines, asset_ctx, ref_labels,
+        )
         if text.trim() != "" {
           parts.push(text)
         }
       }
       @docmodel.DocxBlock::Table(table) => {
-        let text = render_docx_table_text(table, asset_ctx)
+        let text = render_docx_table_text(table, asset_ctx, ref_labels)
         if text.trim() != "" {
           parts.push(text)
         }
@@ -1996,7 +2169,9 @@ fn docx_table_cell_text(
       @docmodel.DocxBlock::TablePlaceholder(_) =>
         parts.push("[Unsupported DOCX nested table depth limit]")
       @docmodel.DocxBlock::ContentControl(control) => {
-        let text = render_docx_content_control_text(control, asset_ctx)
+        let text = render_docx_content_control_text(
+          control, asset_ctx, ref_labels,
+        )
         if text.trim() != "" {
           parts.push(text)
         }
@@ -2017,6 +2192,7 @@ fn docx_table_cell_text(
 fn render_docx_table_paragraph_text(
   inlines : Array[@docmodel.DocxInline],
   asset_ctx : DocxAssetExportCtx?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
   let out = StringBuilder::new()
   for inline in inlines {
@@ -2046,27 +2222,31 @@ fn render_docx_table_paragraph_text(
       @docmodel.DocxInline::Shape(shape) =>
         out.write_string(render_docx_shape_text(shape, asset_ctx))
       @docmodel.DocxInline::ContentControl(control) =>
-        out.write_string(render_docx_content_control_text(control, asset_ctx))
+        out.write_string(
+          render_docx_content_control_text(control, asset_ctx, ref_labels),
+        )
       @docmodel.DocxInline::FieldUnsupported(field) =>
-        out.write_string(render_docx_field_text(field))
+        out.write_string(render_docx_field_text_for_output(field))
       @docmodel.DocxInline::Math(math) =>
         out.write_string(render_docx_math_text(math))
       @docmodel.DocxInline::TrackedChange(change) =>
         out.write_string(render_docx_tracked_change_text(change))
       @docmodel.DocxInline::SmartTag(smart_tag) =>
         out.write_string(
-          render_docx_table_paragraph_text(smart_tag.child_inlines, asset_ctx),
+          render_docx_table_paragraph_text(
+            smart_tag.child_inlines, asset_ctx, ref_labels,
+          ),
         )
       @docmodel.DocxInline::Symbol(symbol) =>
         out.write_string(render_docx_symbol_text(symbol))
       @docmodel.DocxInline::Hyphen(hyphen) =>
         out.write_string(render_docx_hyphen_text(hyphen))
       @docmodel.DocxInline::FootnoteRef(id) =>
-        out.write_string(docx_footnote_marker(id))
+        out.write_string(docx_footnote_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::EndnoteRef(id) =>
-        out.write_string(docx_endnote_marker(id))
+        out.write_string(docx_endnote_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::CommentRef(id) =>
-        out.write_string(" " + docx_comment_marker(id))
+        out.write_string(" " + docx_comment_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::StructuralMarker(_) => ()
       @docmodel.DocxInline::Bookmark(_) => ()
       @docmodel.DocxInline::UnsupportedInline(_) =>
@@ -2097,6 +2277,76 @@ fn docx_endnote_marker(id : String) -> String {
 }
 
 ///|
+fn docx_footnote_note_id_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  match ref_labels {
+    Some(labels) =>
+      match labels.footnotes.get(id) {
+        Some(label) => label
+        None => id
+      }
+    None => id
+  }
+}
+
+///|
+fn docx_endnote_note_id_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  "e" + docx_endnote_label_with_labels(id, ref_labels)
+}
+
+///|
+fn docx_endnote_label_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  match ref_labels {
+    Some(labels) =>
+      match labels.endnotes.get(id) {
+        Some(label) => label
+        None => id
+      }
+    None => id
+  }
+}
+
+///|
+fn docx_footnote_marker_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  docx_footnote_marker(docx_footnote_note_id_with_labels(id, ref_labels))
+}
+
+///|
+fn docx_endnote_marker_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  docx_endnote_marker(docx_endnote_label_with_labels(id, ref_labels))
+}
+
+///|
+fn docx_footnote_marker_text_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  docx_footnote_note_id_with_labels(id, ref_labels)
+}
+
+///|
+fn docx_endnote_marker_text_with_labels(
+  id : String,
+  ref_labels : DocxRefLabels?,
+) -> String {
+  docx_endnote_note_id_with_labels(id, ref_labels)
+}
+
+///|
 fn docx_comment_marker(id : String) -> String {
   "[comment " + id + "]"
 }
@@ -2104,11 +2354,11 @@ fn docx_comment_marker(id : String) -> String {
 ///|
 fn docx_comment_marker_with_labels(
   id : String,
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
-  match comment_labels {
+  match ref_labels {
     Some(labels) =>
-      match labels.get(id) {
+      match labels.comments.get(id) {
         Some(label) => docx_comment_marker(label)
         None => docx_comment_marker(id)
       }
@@ -2172,9 +2422,9 @@ fn docx_blocks_have_rich_inline(blocks : Array[@docmodel.DocxBlock]) -> Bool {
 }
 
 ///|
-fn docx_core_inlines_with_comment_labels(
+fn docx_core_inlines_with_ref_labels(
   inlines : Array[@docmodel.DocxInline],
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> Array[@cor.Inline] {
   let out : Array[@cor.Inline] = []
   for inline in inlines {
@@ -2228,7 +2478,7 @@ fn docx_core_inlines_with_comment_labels(
       @docmodel.DocxInline::ContentControl(control) =>
         docx_push_inline_text_as_core(
           out,
-          render_docx_content_control_text(control, None),
+          render_docx_content_control_text(control, None, ref_labels),
         )
       @docmodel.DocxInline::FieldUnsupported(field) => {
         let text = render_docx_field_text(field)
@@ -2247,13 +2497,17 @@ fn docx_core_inlines_with_comment_labels(
         }
       }
       @docmodel.DocxInline::FootnoteRef(id) =>
-        out.push(@cor.Inline::Text(docx_footnote_marker(id)))
+        out.push(
+          @cor.Inline::Text(docx_footnote_marker_with_labels(id, ref_labels)),
+        )
       @docmodel.DocxInline::EndnoteRef(id) =>
-        out.push(@cor.Inline::Text(docx_endnote_marker(id)))
+        out.push(
+          @cor.Inline::Text(docx_endnote_marker_with_labels(id, ref_labels)),
+        )
       @docmodel.DocxInline::CommentRef(id) =>
         out.push(
           @cor.Inline::Text(
-            " " + docx_comment_marker_with_labels(id, comment_labels),
+            " " + docx_comment_marker_with_labels(id, ref_labels),
           ),
         )
       @docmodel.DocxInline::SmartTag(smart_tag) =>
@@ -2283,13 +2537,13 @@ fn docx_push_inline_text_as_core(
 
 ///|
 fn render_docx_paragraph_text(inlines : Array[@docmodel.DocxInline]) -> String {
-  render_docx_paragraph_text_with_comment_labels(inlines, None)
+  render_docx_paragraph_text_with_ref_labels(inlines, None)
 }
 
 ///|
-fn render_docx_paragraph_text_with_comment_labels(
+fn render_docx_paragraph_text_with_ref_labels(
   inlines : Array[@docmodel.DocxInline],
-  comment_labels : Map[String, String]?,
+  ref_labels : DocxRefLabels?,
 ) -> String {
   let out = StringBuilder::new()
   for inline in inlines {
@@ -2308,7 +2562,7 @@ fn render_docx_paragraph_text_with_comment_labels(
       @docmodel.DocxInline::Shape(shape) =>
         out.write_string(render_docx_shape_placeholder(shape))
       @docmodel.DocxInline::ContentControl(control) =>
-        out.write_string(render_docx_content_control_text(control, None))
+        out.write_string(render_docx_content_control_text(control, None, None))
       @docmodel.DocxInline::FieldUnsupported(field) =>
         out.write_string(render_docx_field_text(field))
       @docmodel.DocxInline::Math(math) =>
@@ -2322,12 +2576,12 @@ fn render_docx_paragraph_text_with_comment_labels(
       @docmodel.DocxInline::Hyphen(hyphen) =>
         out.write_string(render_docx_hyphen_text(hyphen))
       @docmodel.DocxInline::FootnoteRef(id) =>
-        out.write_string(docx_footnote_marker(id))
+        out.write_string(docx_footnote_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::EndnoteRef(id) =>
-        out.write_string(docx_endnote_marker(id))
+        out.write_string(docx_endnote_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::CommentRef(id) =>
         out.write_string(
-          " " + docx_comment_marker_with_labels(id, comment_labels),
+          " " + docx_comment_marker_with_labels(id, ref_labels),
         )
       @docmodel.DocxInline::StructuralMarker(_) => ()
       @docmodel.DocxInline::Bookmark(_) => ()
@@ -2341,6 +2595,22 @@ fn render_docx_paragraph_text_with_comment_labels(
 
 ///|
 fn render_docx_field_text(field : @docmodel.DocxField) -> String {
+  match render_docx_field_text_for_output(field) {
+    "" => render_docx_field_fallback_text(field)
+    value => value
+  }
+}
+
+///|
+fn render_docx_field_text_for_output(field : @docmodel.DocxField) -> String {
+  if docx_field_is_page_number(field) {
+    return ""
+  }
+  render_docx_field_fallback_text(field)
+}
+
+///|
+fn render_docx_field_fallback_text(field : @docmodel.DocxField) -> String {
   match field.result_text {
     Some(value) => if value.trim() != "" { return value }
     None => ()
@@ -2366,6 +2636,18 @@ fn render_docx_field_text(field : @docmodel.DocxField) -> String {
     None => ()
   }
   "[field: " + field.kind + "]"
+}
+
+///|
+fn docx_field_is_page_number(field : @docmodel.DocxField) -> Bool {
+  match field.instruction {
+    Some(value) =>
+      if docx_normalize_style_label(value) == "page" {
+        return true
+      }
+    None => ()
+  }
+  false
 }
 
 ///|
@@ -2569,5 +2851,18 @@ fn render_docx_media_text(
   asset_ctx : DocxAssetExportCtx?,
 ) -> String {
   ignore(export_docx_media(asset_ctx, media))
+  render_docx_media_cell_text(media)
+}
+
+///|
+fn render_docx_media_cell_text(media : @docmodel.DocxMediaRef) -> String {
+  match normalize_docx_optional_text(media.alt_text) {
+    Some(value) => return value
+    None => ()
+  }
+  match normalize_docx_optional_text(media.title) {
+    Some(value) => return value
+    None => ()
+  }
   render_docx_media_placeholder(media)
 }

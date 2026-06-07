@@ -518,6 +518,7 @@ pub struct DocxSourceComment {
 pub struct DocxSourcePartBody {
   kind : DocxPartBodyKind
   relationship_id : String?
+  slot_type : String?
   part_name : String
   blocks : Array[DocxSourceBlock]
   source_key : DocxSourceKey
@@ -868,6 +869,7 @@ pub struct DocxComment {
 pub struct DocxPartBody {
   kind : DocxPartBodyKind
   relationship_id : String?
+  slot_type : String?
   part_name : String
   blocks : Array[DocxBlock]
   source_key : DocxSourceKey

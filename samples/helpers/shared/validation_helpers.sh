@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$ROOT/samples/helpers/shared/progress_helpers.sh"
+
 SAMPLES_VERBOSE="${SAMPLES_VERBOSE:-${VERBOSE:-0}}"
 CLI_RUNNER_KIND=""
 CLI_RUNNER_NOTE=""
@@ -339,45 +341,52 @@ validation_progress_init() {
   VALIDATION_CURRENT=0
   VALIDATION_HAS_FAILURES=0
   VALIDATION_FAILURES=()
-  VALIDATION_TTY=0
-  if [[ -t 1 ]]; then
-    VALIDATION_TTY=1
-  fi
 }
 
 validation_progress_render() {
   local current="$1"
   local total="$2"
-  local item="$3"
-  local percent="100"
-  if [[ "$total" -gt 0 ]]; then
-    percent=$(( current * 100 / total ))
-  fi
-  local line="[$VALIDATION_LABEL] $current/$total ${percent}% $item"
+  local status="$3"
+  local item="$4"
 
   if validation_bool_enabled "$SAMPLES_VERBOSE"; then
-    echo "$line"
+    echo "progress: $current/$total $status $item"
     return
   fi
 
-  if [[ "$VALIDATION_TTY" -eq 1 ]]; then
-    printf '\r%-120s' "$line"
-  else
-    if (( current == 1 || current == total || current % 25 == 0 )); then
-      echo "$line"
-    fi
-  fi
+  sample_progress_update "$current" "$total" "$status" "$item"
 }
 
 validation_progress_step() {
   VALIDATION_CURRENT=$((VALIDATION_CURRENT + 1))
-  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$1"
+  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "running" "$1"
+}
+
+validation_progress_step_status() {
+  local status="$1"
+  local item="${2-}"
+  VALIDATION_CURRENT=$((VALIDATION_CURRENT + 1))
+  validation_progress_render "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "$status" "$item"
+}
+
+validation_progress_zero() {
+  local status="${1:-no matching rows}"
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    echo "progress: 0/0 $status"
+    return
+  fi
+  sample_progress_zero "$status"
 }
 
 validation_progress_done() {
-  if ! validation_bool_enabled "$SAMPLES_VERBOSE" && [[ "$VALIDATION_TTY" -eq 1 ]]; then
-    printf '\n'
+  if [[ "${VALIDATION_TOTAL:-0}" -eq 0 ]]; then
+    return
   fi
+  if validation_bool_enabled "$SAMPLES_VERBOSE"; then
+    echo "progress: $VALIDATION_CURRENT/$VALIDATION_TOTAL done"
+    return
+  fi
+  sample_progress_finish "$VALIDATION_CURRENT" "$VALIDATION_TOTAL" "done"
 }
 
 validation_record_failure() {

@@ -331,8 +331,8 @@ identifiers.
 ### Supported baseline
 
 * DOCX is the current normal DOCX runtime. The architecture is documented in
-  `docs/docx-architecture.md`; legacy scanner usage is not part of normal
-  conversion.
+  `docs/archive/docx-architecture.md`; legacy scanner usage is not part of
+  normal conversion.
 * DOCX package conversion through OOXML.
 * DOCX typed source/model integration via `doc_parse/docx`.
 * Paragraph / run / table / media / notes / comments / header / footer /

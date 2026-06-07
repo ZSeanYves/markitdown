@@ -38,7 +38,6 @@ If you need the detailed boundaries, read in this order:
 * [docs/README.md](./docs/README.md)
 * [README.md](./README.md)
 * [docs/supported-formats.md](./docs/supported-formats.md)
-* [docs/pdf.md](./docs/pdf.md)
 * [docs/quality-and-release.md](./docs/quality-and-release.md)
 * [docs/architecture.md](./docs/architecture.md)
 
@@ -169,9 +168,7 @@ Important current facts:
 ## Primary Docs
 
 * [docs/architecture.md](./docs/architecture.md)
-* [docs/architecture-consolidation-audit.md](./docs/architecture-consolidation-audit.md)
 * [docs/supported-formats.md](./docs/supported-formats.md)
 * [docs/quality-and-release.md](./docs/quality-and-release.md)
-* [docs/pdf.md](./docs/pdf.md)
 * [docs/performance.md](./docs/performance.md)
 * [docs/roadmap.md](./docs/roadmap.md)

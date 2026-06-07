@@ -44,6 +44,7 @@ EOF
 declare -a FORWARD_ARGS=()
 OUTPUT_PATH="$DEFAULT_OUTPUT"
 MANIFEST_PATH=""
+FORMAT_FILTER=""
 
 resolve_default_manifest() {
   bench_v2_resolve_manifest "$ROOT"
@@ -80,6 +81,7 @@ while [[ $# -gt 0 ]]; do
     --format)
       [[ $# -ge 2 ]] || { echo "missing value for --format" >&2; exit 1; }
       bench_v2_require_non_empty_token_filter "$1" "$2" || exit 1
+      FORMAT_FILTER="$2"
       FORWARD_ARGS+=("$1" "$2")
       shift 2
       ;;
@@ -115,23 +117,12 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 echo "==> parser layer benchmark"
 echo "manifest: $MANIFEST_PATH"
 echo "output: $OUTPUT_PATH"
-echo "==> warming Moon build"
-(cd "$ROOT" && moon build bench/parser_layer --target native)
 
-RUNNER=""
-while IFS= read -r candidate; do
-  [[ -n "$candidate" ]] || continue
-  RUNNER="$candidate"
-  break
-done < <(find "$ROOT/_build/native" -path "*/bench/parser_layer/*.exe" -type f 2>/dev/null | sort)
-
-if [[ -n "$RUNNER" && -x "$RUNNER" ]]; then
-  echo "runner: prebuilt-native ($RUNNER)"
-  (cd "$ROOT" && "$RUNNER" "${FORWARD_ARGS[@]}")
-else
-  echo "runner: moon run fallback"
-  (cd "$ROOT" && moon run "$ROOT/bench/parser_layer" -- "${FORWARD_ARGS[@]}")
-fi
+RUNNER="$(bench_v2_resolve_native_runner "$ROOT" "bench/parser_layer" "*/bench/parser_layer/*.exe" "parser layer")"
+PROGRESS_LABELS_PATH="${OUTPUT_PATH}.progress-labels"
+bench_v2_selected_row_labels "$MANIFEST_PATH" "parser" "$FORMAT_FILTER" > "$PROGRESS_LABELS_PATH"
+PROGRESS_TOTAL="$(wc -l < "$PROGRESS_LABELS_PATH" | tr -d '[:space:]')"
+bench_v2_run_with_progress "$ROOT" "$RUNNER" "$OUTPUT_PATH" "$PROGRESS_LABELS_PATH" "$PROGRESS_TOTAL" "${FORWARD_ARGS[@]}"
 
 echo "BENCHMARK SUITE COMPLETED"
 echo "- layer: parser"

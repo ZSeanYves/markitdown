@@ -1,82 +1,57 @@
 # Performance
 
-This page documents the current benchmark v2 entrypoint and interpretation
-rules. Benchmark v2 is layer-first and reads benchmark rows only from
-quality-lab `external_bench`.
+This page documents the current benchmark entrypoint and how to interpret
+results.
 
-## Benchmark V2
+## Entry Point
 
 The public benchmark entrypoint is:
 
 ```bash
-./samples/bench.sh --layer parser|convert|cli|compare
+bash samples/bench.sh --help
 ```
 
-Set `MARKITDOWN_QUALITY_LAB` to the quality-lab checkout before running layer
-smokes:
+Actual benchmark runs are layer-scoped:
 
 ```bash
-export MARKITDOWN_QUALITY_LAB=/path/to/markitdown-quality-lab
+bash samples/bench.sh --layer parser --format html --iterations 1 --warmup 0
+bash samples/bench.sh --layer convert --format html --iterations 1 --warmup 0
+bash samples/bench.sh --layer cli --profile normal --format pdf --iterations 1 --warmup 0
+bash samples/bench.sh --layer compare --format pdf --iterations 1 --warmup 0
 ```
 
-Parser layer:
+External benchmark rows are expected to come from
+`markitdown-quality-lab/external_bench/`.
 
-```bash
-./samples/bench.sh --layer parser --format html --iterations 1 --warmup 0
-./samples/bench.sh --layer parser --format txt --iterations 1 --warmup 0
-```
+## Layers
 
-Convert layer:
+| Layer | Meaning |
+| --- | --- |
+| `parser` | measures parser-layer APIs where a direct parser benchmark exists |
+| `convert` | measures `convert/convert.parse_to_ir` without spawning the CLI |
+| `cli` | measures the native CLI process path |
+| `compare` | compares overlap cases with an external Microsoft MarkItDown runner |
 
-```bash
-./samples/bench.sh --layer convert --format html --iterations 1 --warmup 0
-./samples/bench.sh --layer convert --format txt --iterations 1 --warmup 0
-```
+The compare layer depends on an externally managed Python MarkItDown
+installation and should fail clearly when that runner is unavailable.
 
-CLI layer:
+## Interpretation Rules
 
-```bash
-./samples/bench.sh --layer cli --profile normal --format pdf --iterations 1 --warmup 0
-./samples/bench.sh --layer cli --profile cold-start --format pdf --iterations 1 --warmup 0
-```
+Benchmark results are:
 
-Compare layer:
+* same-machine observations
+* sample-scoped
+* runner-scoped
+* useful for regression triage and local direction
 
-```bash
-./samples/bench.sh --layer compare --format pdf --iterations 1 --warmup 0
-```
+They are not:
 
-## Layer Notes
+* universal speed guarantees
+* complete corpus coverage claims
+* release promises
 
-Parser layer measures `doc_parse/*` parser APIs directly. External
-`format=txt` rows are mapped to the text parser internally. Direct PDF parser
-library attribution is currently deferred because the async PDF API shape does
-not fit the current typed parser benchmark runner without a wider harness
-refactor.
+## Current TODO
 
-Convert layer calls `convert/convert.parse_to_ir` inside the native benchmark
-runner. It does not call the CLI and does not write Markdown output.
-
-CLI layer measures the native CLI process path. The normal and cold-start
-profiles are implemented. The batch profile currently fails closed because the
-stable batch benchmark contract is not selected yet.
-
-Compare layer is an overlap-only comparison between this repository runner and
-Microsoft MarkItDown. It depends on an externally managed Python MarkItDown
-installation and fails closed when that runner is unavailable.
-
-## Known Blockers
-
-`moon check bench/convert_layer` may still fail through the PDF vendor
-filesystem adapter, where the current async fs API no longer exposes
-`@fs.read_file` and `@fs.File` in the shape expected by
-`doc_parse/pdf/vendor/mbtpdf/io/pdfiofs/pdfiofs.mbt`. That is a known
-convert-layer check blocker and does not imply that the CLI or compare product
-PDF path failed.
-
-PDF parser direct attribution remains deferred as described above.
-
-## Interpretation
-
-Benchmark results are same-machine, sample-scoped, and runner-scoped. They are
-not a universal speed guarantee.
+After the DOCX v2 runtime switch, the next performance documentation task is a
+fresh DOCX v2 snapshot using the current benchmark rows and the current
+quality-lab checkout. Do not backfill numbers from old DOCX v1-era runs.

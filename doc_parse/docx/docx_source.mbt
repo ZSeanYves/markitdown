@@ -60,12 +60,14 @@ pub fn parse_docx_source_from_package(
     comments: parse_docx_comments_from_part_graph(pkg, part_graph, warnings),
     headers: parse_docx_part_bodies_from_relationships(
       pkg,
+      xml,
       relationships,
       DocxPartBodyKind::Header,
       warnings,
     ),
     footers: parse_docx_part_bodies_from_relationships(
       pkg,
+      xml,
       relationships,
       DocxPartBodyKind::Footer,
       warnings,
@@ -539,11 +541,10 @@ fn parse_docx_styles_part(part_name : String, xml : String) -> DocxSourceStyles 
   let mut i = 0
   let mut style_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:style") {
+    let start = match find_docx_start_tag_from(xml, i, "w:style") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:style") {
       match find_docx_element_end(xml, start, "w:style") {
         Some(end_exclusive) => {
@@ -588,12 +589,11 @@ fn read_docx_style_paragraph_properties(style_inner : String) -> Array[String] {
           )
           let mut i = 0
           while i < ppr_inner.length() {
-            let next_lt_rel = match ppr_inner[i:].find("<") {
-              Some(rel) => rel
+            let child_start = match find_docx_char_from(ppr_inner, i, 60) {
+              Some(value) => value
               None => break
             }
-            let child_start = i + next_lt_rel
-            if ppr_inner[child_start:].has_prefix("</") {
+            if docx_string_has_prefix_at(ppr_inner, child_start, "</") {
               match find_docx_any_tag_end(ppr_inner, child_start) {
                 Some(child_end) => i = child_end
                 None => break
@@ -648,11 +648,10 @@ fn parse_docx_numbering_nums(
   let mut i = 0
   let mut num_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:num") {
+    let start = match find_docx_start_tag_from(xml, i, "w:num") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:num") {
       match find_docx_element_end(xml, start, "w:num") {
         Some(end_exclusive) => {
@@ -690,11 +689,10 @@ fn parse_docx_numbering_start_overrides(
   let overrides : Array[DocxNumberingStartOverride] = []
   let mut i = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:lvlOverride") {
+    let start = match find_docx_start_tag_from(xml, i, "w:lvlOverride") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:lvlOverride") {
       match find_docx_element_end(xml, start, "w:lvlOverride") {
         Some(end_exclusive) => {
@@ -731,11 +729,10 @@ fn parse_docx_numbering_levels(
   let mut i = 0
   let mut level_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:abstractNum") {
+    let start = match find_docx_start_tag_from(xml, i, "w:abstractNum") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:abstractNum") {
       match find_docx_element_end(xml, start, "w:abstractNum") {
         Some(end_exclusive) => {
@@ -756,11 +753,10 @@ fn parse_docx_numbering_levels(
             let mut level_inner_index = 0
             let mut j = 0
             while j < inner.length() {
-              let level_rel = match inner[j:].find("<w:lvl") {
+              let level_start = match find_docx_start_tag_from(inner, j, "w:lvl") {
                 Some(value) => value
                 None => break
               }
-              let level_start = j + level_rel
               if is_docx_start_tag_at(inner, level_start, "w:lvl") {
                 match find_docx_element_end(inner, level_start, "w:lvl") {
                   Some(level_end) => {
@@ -954,6 +950,7 @@ fn parse_docx_comments_from_part_graph(
 ///|
 fn parse_docx_part_bodies_from_relationships(
   pkg : @ox.OoxmlPackage,
+  document_xml : String,
   relationships : Array[@ox.OoxmlRelationship],
   kind : DocxPartBodyKind,
   warnings : Array[DocxSourceWarning],
@@ -984,6 +981,7 @@ fn parse_docx_part_bodies_from_relationships(
               out.push({
                 kind,
                 relationship_id: Some(rel.id),
+                slot_type: docx_part_body_slot_type(document_xml, rel.id, kind),
                 part_name: rel.resolved_target,
                 blocks: parse_docx_body_inner(
                   rel.resolved_target,
@@ -1004,6 +1002,36 @@ fn parse_docx_part_bodies_from_relationships(
     }
   }
   out
+}
+
+///|
+fn docx_part_body_slot_type(
+  document_xml : String,
+  relationship_id : String,
+  kind : DocxPartBodyKind,
+) -> String? {
+  let tag_name = match kind {
+    DocxPartBodyKind::Header => "w:headerReference"
+    DocxPartBodyKind::Footer => "w:footerReference"
+    DocxPartBodyKind::Textbox => return None
+  }
+  let mut offset = 0
+  while offset < document_xml.length() {
+    match find_docx_start_tag_from(document_xml, offset, tag_name) {
+      Some(start) => {
+        match docx_open_tag_at(document_xml, start) {
+          open_tag => {
+            if read_docx_attr_value(open_tag, "r:id") == Some(relationship_id) {
+              return read_docx_attr_value(open_tag, "w:type")
+            }
+            offset = start + open_tag.length()
+          }
+        }
+      }
+      None => return None
+    }
+  }
+  None
 }
 
 ///|
@@ -1058,11 +1086,10 @@ fn parse_docx_notes_part(
   let mut i = 0
   let mut note_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<" + tag) {
+    let start = match find_docx_start_tag_from(xml, i, tag) {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, tag) {
       match find_docx_element_end(xml, start, tag) {
         Some(end_exclusive) => {
@@ -1106,11 +1133,10 @@ fn parse_docx_comments_part(
   let mut i = 0
   let mut comment_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:comment") {
+    let start = match find_docx_start_tag_from(xml, i, "w:comment") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:comment") {
       match find_docx_element_end(xml, start, "w:comment") {
         Some(end_exclusive) => {
@@ -1156,11 +1182,10 @@ fn parse_docx_textboxes_in_part(
   let mut i = 0
   let mut textbox_index = 0
   while i < xml.length() {
-    let rel = match xml[i:].find("<w:txbxContent") {
+    let start = match find_docx_start_tag_from(xml, i, "w:txbxContent") {
       Some(value) => value
       None => break
     }
-    let start = i + rel
     if is_docx_start_tag_at(xml, start, "w:txbxContent") {
       match find_docx_element_end(xml, start, "w:txbxContent") {
         Some(end_exclusive) => {
@@ -1413,20 +1438,20 @@ fn parse_docx_body_blocks(
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
 ) -> Array[DocxSourceBlock] raise DocxError {
-  let body_start = match xml.find("<w:body") {
+  let body_start = match find_docx_start_tag_from(xml, 0, "w:body") {
     Some(pos) => pos
     None => raise DocxError::MalformedDocument("missing <w:body>")
   }
-  let body_open_end = match xml[body_start:].find(">") {
-    Some(rel) => rel
+  let body_open_end = match find_docx_any_tag_end(xml, body_start) {
+    Some(pos) => pos
     None => raise DocxError::MalformedDocument("invalid <w:body> tag")
   }
-  let body_content_start = body_start + body_open_end + 1
-  let body_close_rel = match xml[body_content_start:].find("</w:body>") {
-    Some(rel) => rel
+  let body_content_start = body_open_end
+  let body_close = match find_docx_literal_from(xml, body_content_start, "</w:body>") {
+    Some(pos) => pos
     None => raise DocxError::MalformedDocument("missing </w:body>")
   }
-  let body = xml[body_content_start:body_content_start + body_close_rel].to_owned()
+  let body = xml[body_content_start:body_close].to_owned()
   parse_docx_body_inner(part_name, body, relationships, pkg, warnings)
 }
 
@@ -1443,11 +1468,10 @@ fn parse_docx_body_inner(
   let mut block_index = 0
 
   while i < body.length() {
-    let next_lt_rel = match body[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(body, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(body, start, "w:p") {
       match find_docx_element_end(body, start, "w:p") {
         Some(end_exclusive) => {
@@ -1552,7 +1576,7 @@ fn parse_docx_body_inner(
         }
         None => break
       }
-    } else if body[start:].has_prefix("</") {
+    } else if docx_string_has_prefix_at(body, start, "</") {
       match find_docx_any_tag_end(body, start) {
         Some(end_exclusive) => {
           i = end_exclusive
@@ -1613,11 +1637,10 @@ fn parse_docx_table(
   let mut i = 0
   let mut row_index = 0
   while i < inner.length() {
-    let next_lt_rel = match inner[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(inner, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(inner, start, "w:tr") {
       match find_docx_element_end(inner, start, "w:tr") {
         Some(end_exclusive) => {
@@ -1804,11 +1827,10 @@ fn parse_docx_table_row(
   let mut i = 0
   let mut cell_index = 0
   while i < inner.length() {
-    let next_lt_rel = match inner[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(inner, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(inner, start, "w:tc") {
       match find_docx_element_end(inner, start, "w:tc") {
         Some(end_exclusive) => {
@@ -1909,11 +1931,10 @@ fn parse_docx_table_cell_blocks(
   let mut i = 0
   let mut block_index = 0
   while i < xml.length() {
-    let next_lt_rel = match xml[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(xml, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(xml, start, "w:tcPr") {
       match skip_docx_element_or_tag(xml, start, "w:tcPr") {
         Some(end_exclusive) => i = end_exclusive
@@ -1962,37 +1983,49 @@ fn parse_docx_table_cell_blocks(
         None => break
       }
     } else if is_docx_start_tag_at(xml, start, "w:tbl") {
+      let key = docx_child_source_key(cell_key, "tbl", block_index)
+      let next_depth = nesting_depth + 1
+      let guard_hit = next_depth > docx_max_table_nesting_depth()
+      if next_depth > max_depth_seen.val {
+        max_depth_seen.val = next_depth
+      }
+      if guard_hit {
+        guard_triggered.val = true
+        warnings.push({
+          kind: DocxSourceWarningKind::NestedTable,
+          message: "nested table depth guard triggered at depth " +
+          next_depth.to_string(),
+          source_key: Some(key),
+        })
+        blocks.push({
+          kind: DocxSourceBlockKind::Table,
+          source_key: key,
+          paragraph_style_id: None,
+          paragraph_alignment: None,
+          numbering_ref: None,
+          runs: [],
+          table: None,
+          content_control: None,
+          text: "",
+          inlines: [],
+          structural_kind: None,
+          raw_tag: Some("w:tbl"),
+        })
+        block_index += 1
+        break
+      }
       match find_docx_element_end(xml, start, "w:tbl") {
         Some(end_exclusive) => {
-          let key = docx_child_source_key(cell_key, "tbl", block_index)
-          let next_depth = nesting_depth + 1
-          let guard_hit = next_depth > docx_max_table_nesting_depth()
-          if next_depth > max_depth_seen.val {
-            max_depth_seen.val = next_depth
-          }
-          if guard_hit {
-            guard_triggered.val = true
-            warnings.push({
-              kind: DocxSourceWarningKind::NestedTable,
-              message: "nested table depth guard triggered at depth " +
-              next_depth.to_string(),
-              source_key: Some(key),
-            })
-          }
-          let table = if guard_hit {
-            None
-          } else {
-            Some(
-              parse_docx_table(
-                xml[start:end_exclusive].to_owned(),
-                key,
-                next_depth,
-                relationships,
-                pkg,
-                warnings,
-              ),
-            )
-          }
+          let table = Some(
+            parse_docx_table(
+              xml[start:end_exclusive].to_owned(),
+              key,
+              next_depth,
+              relationships,
+              pkg,
+              warnings,
+            ),
+          )
           match table {
             Some(value) => {
               if value.max_nested_depth > max_depth_seen.val {
@@ -2050,7 +2083,7 @@ fn parse_docx_table_cell_blocks(
         }
         None => break
       }
-    } else if xml[start:].has_prefix("</") {
+    } else if docx_string_has_prefix_at(xml, start, "</") {
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
         None => break
@@ -2099,11 +2132,10 @@ fn parse_docx_paragraph_runs(
   let mut i = 0
   let mut run_index = 0
   while i < xml.length() {
-    let next_lt_rel = match xml[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(xml, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(xml, start, "w:pPr") {
       match skip_docx_element_or_tag(xml, start, "w:pPr") {
         Some(end_exclusive) => i = end_exclusive
@@ -2300,7 +2332,7 @@ fn parse_docx_paragraph_runs(
         }
         None => break
       }
-    } else if xml[start:].has_prefix("</") {
+    } else if docx_string_has_prefix_at(xml, start, "</") {
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
         None => break
@@ -2477,11 +2509,10 @@ fn parse_docx_run_inlines(
   let mut i = 0
   let mut inline_index = 0
   while i < xml.length() {
-    let next_lt_rel = match xml[i:].find("<") {
-      Some(rel) => rel
+    let start = match find_docx_char_from(xml, i, 60) {
+      Some(value) => value
       None => break
     }
-    let start = i + next_lt_rel
     if is_docx_start_tag_at(xml, start, "w:rPr") {
       match skip_docx_element_or_tag(xml, start, "w:rPr") {
         Some(end_exclusive) => i = end_exclusive
@@ -2495,23 +2526,23 @@ fn parse_docx_run_inlines(
         None => break
       }
     } else if is_docx_start_tag_at(xml, start, "w:t") {
-      let open_end_rel = match xml[start:].find(">") {
-        Some(rel) => rel
+      let open_end = match find_docx_any_tag_end(xml, start) {
+        Some(value) => value
         None => break
       }
-      let text_start = start + open_end_rel + 1
-      let close_rel = match xml[text_start:].find("</w:t>") {
-        Some(rel) => rel
+      let text_start = open_end
+      let close_start = match find_docx_literal_from(xml, text_start, "</w:t>") {
+        Some(value) => value
         None => break
       }
       let text = decode_docx_text(
-        xml[text_start:text_start + close_rel].to_owned(),
+        xml[text_start:close_start].to_owned(),
       )
       if text != "" {
         inlines.push(DocxSourceInline::Text(text))
         inline_index += 1
       }
-      i = text_start + close_rel + "</w:t>".length()
+      i = close_start + "</w:t>".length()
     } else if is_docx_start_tag_at(xml, start, "w:br") {
       let break_key = docx_child_source_key(run_key, "break", inline_index)
       inlines.push(parse_docx_break_inline(xml, start, break_key))
@@ -2761,7 +2792,7 @@ fn parse_docx_run_inlines(
         }
         None => break
       }
-    } else if xml[start:].has_prefix("</") {
+    } else if docx_string_has_prefix_at(xml, start, "</") {
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
         None => break
@@ -2928,14 +2959,12 @@ fn read_docx_attr_in_first_tag(
 
 ///|
 fn find_docx_start_tag_from(xml : String, from : Int, tag : String) -> Int? {
-  let needle = "<" + tag
-  let mut i = from
+  let mut i = if from < 0 { 0 } else { from }
   while i < xml.length() {
-    let rel = match xml[i:].find(needle) {
-      Some(v) => v
+    let pos = match find_docx_char_from(xml, i, 60) {
+      Some(value) => value
       None => return None
     }
-    let pos = i + rel
     if is_docx_start_tag_at(xml, pos, tag) {
       return Some(pos)
     }
@@ -4040,12 +4069,11 @@ fn find_docx_element_end(xml : String, start : Int, tag : String) -> Int? {
   let mut depth = 0
   let mut i = start
   while i < xml.length() {
-    let next_lt_rel = match xml[i:].find("<") {
-      Some(rel) => rel
+    let pos = match find_docx_char_from(xml, i, 60) {
+      Some(value) => value
       None => return None
     }
-    let pos = i + next_lt_rel
-    if xml[pos:].has_prefix(close_tag) {
+    if docx_string_has_prefix_at(xml, pos, close_tag) {
       depth -= 1
       let end_exclusive = pos + close_tag.length()
       if depth == 0 {
@@ -4078,7 +4106,7 @@ fn is_docx_start_tag_at(xml : String, start : Int, tag : String) -> Bool {
   if start < 0 || start + tag.length() + 1 > xml.length() {
     return false
   }
-  if !xml[start:].has_prefix("<" + tag) {
+  if !docx_string_has_prefix_at(xml, start, "<" + tag) {
     return false
   }
   let boundary_index = start + tag.length() + 1
@@ -4091,10 +4119,49 @@ fn is_docx_start_tag_at(xml : String, start : Int, tag : String) -> Bool {
 
 ///|
 fn find_docx_any_tag_end(xml : String, start : Int) -> Int? {
-  match xml[start:].find(">") {
-    Some(rel) => Some(start + rel + 1)
+  match find_docx_char_from(xml, start, 62) {
+    Some(pos) => Some(pos + 1)
     None => None
   }
+}
+
+///|
+fn find_docx_char_from(xml : String, from : Int, ch : UInt16) -> Int? {
+  let mut i = if from < 0 { 0 } else { from }
+  while i < xml.length() {
+    if xml.code_unit_at(i) == ch {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn docx_string_has_prefix_at(xml : String, start : Int, prefix : String) -> Bool {
+  if start < 0 || start + prefix.length() > xml.length() {
+    return false
+  }
+  let mut i = 0
+  while i < prefix.length() {
+    if xml.code_unit_at(start + i) != prefix.code_unit_at(i) {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn find_docx_literal_from(xml : String, from : Int, value : String) -> Int? {
+  let mut i = if from < 0 { 0 } else { from }
+  while i + value.length() <= xml.length() {
+    if docx_string_has_prefix_at(xml, i, value) {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
 }
 
 ///|
@@ -4105,11 +4172,11 @@ fn is_docx_self_closing_tag(tag : String) -> Bool {
 
 ///|
 fn docx_tag_name_at(xml : String, start : Int) -> String {
-  if start < 0 || start >= xml.length() || !xml[start:].has_prefix("<") {
+  if start < 0 || start >= xml.length() || xml.code_unit_at(start) != 60 {
     return ""
   }
   let mut i = start + 1
-  if i < xml.length() && xml[i:i + 1] == "/" {
+  if i < xml.length() && xml.code_unit_at(i) == 47 {
     i += 1
   }
   let name_start = i

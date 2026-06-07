@@ -8,13 +8,20 @@ source "$ROOT/samples/helpers/shared/validation_helpers.sh"
 SAMPLES_DIR="$ROOT/samples/main_process"
 FIXTURE_METADATA_DIR="$ROOT/samples/fixtures/metadata"
 TMP_ROOT="${MARKITDOWN_TMP_DIR:-$ROOT/.tmp/check}"
-OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
+if [[ -n "${CHECK_SAMPLES_OUT_DIR:-}" ]]; then
+  OUT_DIR="$CHECK_SAMPLES_OUT_DIR"
+  mkdir -p "$OUT_DIR"
+  CLEANUP_OUT_DIR=0
+else
+  OUT_DIR="$(sample_make_isolated_tmp_dir "$TMP_ROOT" "main_process")"
+  CLEANUP_OUT_DIR=1
+fi
 
 MODE="full"
 FORMAT_FILTER=""
 FORMATS=("docx" "pdf" "xlsx" "html" "pptx" "csv" "tsv" "txt" "xml" "json" "yaml" "markdown" "zip" "epub")
 
-trap 'status=$?; sample_cleanup_tmp_dir "$OUT_DIR"; exit "$status"' EXIT
+trap 'status=$?; if [[ "$CLEANUP_OUT_DIR" -ne 0 ]]; then sample_cleanup_tmp_dir "$OUT_DIR"; fi; exit "$status"' EXIT
 
 usage() {
   cat <<'EOF'
@@ -473,7 +480,13 @@ if [[ ${#FILTERED_LIST[@]} -eq 0 ]]; then
       failure_message="$failure_message ($FORMAT_FILTER)"
     fi
     validation_progress_init "$label" 0
-    echo "No assets samples matched selected filters; treating as clean skip."
+    if [[ -n "$FORMAT_FILTER" ]]; then
+      validation_progress_zero "no asset regression coverage"
+      echo "No asset regression coverage is registered for format '$FORMAT_FILTER'; nothing to run."
+    else
+      validation_progress_zero "no asset regression coverage"
+      echo "No asset regression coverage matched selected filters; nothing to run."
+    fi
     validation_finish "$success_message" "$failure_message"
     exit 0
   fi

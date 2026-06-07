@@ -1,213 +1,133 @@
 # Architecture
 
-This page describes the current shipping structure of `markitdown-mb`.
-It focuses on stable package, binary, and repository boundaries rather than the
-migration history that produced them.
+This page describes the current shipping architecture of `markitdown-mb`.
+It is a product-state map, not a migration log.
 
-## Pipeline
+## Runtime Flow
 
-Current flow:
+The normal conversion path is:
 
-**input -> dispatcher -> format converter / parser -> unified IR -> Markdown / assets / metadata**
+```text
+input -> dispatcher -> format converter -> unified IR -> Markdown / assets / metadata
+```
 
-The design target is conservative, explainable extraction rather than visual
-reconstruction.
+The design favors conservative, explainable extraction over visual
+reconstruction. Format converters lower source facts into a shared document IR;
+the Markdown emitter and metadata sidecar then operate on that shared model.
 
 ## Repository Boundaries
 
-Current repository split:
+The main repository contains:
 
-* the main repo carries runtime code, tests, checked samples,
-  external-quality entrypoints, and benchmark/release entrypoints
-* `markitdown-quality-lab/` is an optional repo-local external repository for
-  full quality rows, external corpus payloads, and offline PDF layout work
-* normal runtime, `moon test`, and `bash samples/check.sh`
-  remain self-contained in the main repo
+* runtime packages
+* MoonBit tests
+* repo-local samples
+* public validation, quality, benchmark, and release helper entrypoints
 
-## Product Surfaces
-
-| Binary / package | Role | User-facing | Depends on quality-lab |
-| --- | --- | --- | --- |
-| `cli` | normal product entrypoint | yes | no |
-| `pdf` | bundled PDF runtime component | indirectly | no |
-| `zip` | bundled ZIP runtime component | indirectly | no |
-| `debug` | inspect/report tool | developer | optional |
-| `bench` | benchmark tool | developer | no |
-| `doc_parse/pdf/layout_model_tool` | PDF layout export/infer tool | developer | optional |
-
-Current product contract:
-
-* users stay on `cli`
-* `.pdf` inputs route through bundled `pdf`
-* `.zip` inputs route through bundled `zip`
-* `debug` and `bench` stay explicit developer tools
-* image OCR is available through the main CLI
-* PDF OCR is not wired in the shipped product path
+`markitdown-quality-lab/` is optional external infrastructure. It may contain
+full quality rows, larger external payloads, OCR artifacts, and offline PDF
+layout work. It is not a runtime dependency, and it must not be committed into
+the main repository.
 
 ## Package Responsibilities
 
-| Package family | Current responsibility |
+| Area | Responsibility |
 | --- | --- |
-| `core` | document model, metadata model, emitters, pure helpers |
-| `cli_common` | runtime/path/process/component-discovery helpers |
-| `cli_support` | product-path parser/help/version/routing glue |
-| `convert/*` | conversion policy from source formats into unified IR |
-| `doc_parse/*` | lower-layer parser/model/inspect foundations |
-| `doc_parse/pdf/vendor/mbtpdf` | trimmed runtime-critical PDF support subtree |
+| `core` | document IR, metadata model, Markdown emitter, shared pure helpers |
+| `cli`, `cli_common`, `cli_support` | product entrypoint, argument parsing, component delegation, path/runtime glue |
+| `convert/convert` | format dispatch into converter packages |
+| `convert/*` | source-format to core-IR policy, assets, metadata, warnings, and conservative fallback behavior |
+| `doc_parse/*` | source-native parser/model/inspect foundations |
+| `convert/vision` | image OCR and OCR page/layout model implementation path |
+| `convert/pdf_debug`, `convert/pdf_layout` | explicit debug/report/dev surfaces, not normal product entrypoints |
+| `doc_parse/pdf/vendor/mbtpdf` | trimmed PDF support subtree needed by the current native PDF path |
 
 Current rules:
 
-* `core` stays CLI-free
-* `cli` remains the primary product surface
-* `convert/*` owns format-to-IR policy
-* `doc_parse/*` owns parser/model/inspect foundations
-* quality-lab stays developer infrastructure, not runtime dependency
+* `core` stays CLI-free.
+* Parser packages provide source facts.
+* Converter packages own product policy and IR lowering.
+* Debug, layout, and preview tools stay explicit developer surfaces.
+* The normal runtime does not load quality-lab assets, model JSON, Python
+  runners, or OCR providers.
 
-## Unified IR Notes
+## Unified IR
 
-Current shared IR now includes note semantics in addition to basic blocks and
-inlines:
+The shared IR is the contract between converters and emitters. It carries:
 
-* inline note references use `Inline::NoteRef(NoteRef)` rather than
-  format-private Markdown string patches
-* note bodies use document-level `Document.note_definitions`, with each body
-  represented as a shared `NoteDefinition`
-* `NoteDefinition` carries the note id, marker, kind, placement, source kind,
-  body status, and body blocks
-* Markdown emission supports two safe modes:
-  * full footnote emission when a reference and a resolved definition are both
-    present
-  * marker-only fallback when only the reference marker is known
-* metadata sidecars reflect inline `NoteRef` markers as part of block text and
-  serialize document-level `note_definitions` when resolved note bodies are
-  present
+* block and inline structure
+* links
+* assets
+* origin and metadata sidecar information
+* document-level note definitions when a converter can resolve note bodies
+* marker-only note references when a source exposes a reference but not a safe
+  body association
 
-Current intent:
+Converters should lower reliable source semantics into the IR instead of
+assembling format-specific Markdown strings. Ambiguous features should degrade
+to plain text, marker-only output, warnings, or explicit unsupported boundaries.
 
-* structured sources with reliable body stores should prefer full
-  `NoteRef` + `NoteDefinition` output
-* visual or weak sources should fail closed to marker-only output rather than
-  dangling Markdown footnotes
-* PDF can attach superscript markers through shared `NoteRef` without claiming
-  full footnote-body recovery
-* DOCX now lowers structured footnote/endnote references and bodies through the
-  shared note IR and emits full Markdown footnotes when the body is available
-* Markdown native footnotes lower through the same `NoteRef` and
-  `NoteDefinition` path while preserving passthrough behavior for ordinary
-  Markdown
-* EPUB note support is structure-led rather than based on bare superscript
-  text:
-  * explicit same-document references with `epub:type="noteref"` or
-    `role="doc-noteref"` lower to shared `NoteRef` when their target body is
-    resolved
-  * resolved body targets such as `<aside>`, `<section>`, `<li>`, or `<div>`
-    with footnote-like `epub:type`, `role`, `class`, or id lower to document
-    `NoteDefinition`
-  * EPUB spine merging namespaces document-local note ids with the spine entry
-    id and carries `NoteDefinition` records into the merged EPUB document
-* HTML uses the same explicit same-document noteref/body machinery where the
-  markup already provides strong noteref semantics, but broader conservative
-  inference for common HTML footnote patterns remains future work
-* for HTML and EPUB alike:
-  * ordinary `<sup>1</sup>`, `<sup>TM</sup>`, math exponents, and orphan
-    anchors should remain plain text or normal links until a body can be
-    resolved safely
-  * broad conservative HTML inference, including `<sup><a href="#id">...</a></sup>`
-    without explicit noteref semantics, remains future work
+## DOCX Runtime
 
-## PDF Text-Flow And Annotation Links
+DOCX now uses the v2 runtime architecture. The old v1 runtime scanner path has
+been removed.
 
-Native PDF conversion remains rule-driven and bounded. Current normal-path
-cleanup covers:
+Current DOCX shape:
 
-* paragraph soft merge for high-confidence same-flow fragments
-* numbered heading split/promotion when the text signal is strong
-* superscript-style marker attachment through shared `NoteRef` marker fallback
-* two-column guards that avoid merging nearby lines across separate x-bands
-* high-confidence URI annotation links when the visible label is unique inside
-  the extracted text block
+```text
+OOXML package -> DOCX source -> DOCX normalized model -> convert/docx lowering -> core IR
+```
 
-The annotation-link policy is intentionally conservative:
+The architecture contract is archived at
+[docs/archive/docx-architecture.md](./archive/docx-architecture.md). That file
+is kept as a contract for future Office model rewrites; it is not a separate
+runtime path.
 
-* visible text plus an aligned URI annotation can emit `[text](url)`
-* invisible annotation internals are not dumped as body text
-* duplicate-label or ambiguous matches stay plain text
-* popup/text annotations keep using the annotation appendix policy
+## Format Runtime Boundaries
 
-These rules do not add runtime models, OCR, or PDF footnote body association.
+Office formats share OOXML package helpers but keep format-specific semantics:
 
-## PDF, ZIP, And OCR Boundaries
+* DOCX uses the v2 source/model/lowering boundary.
+* PPTX owns slide, note, chart, image, table, and reading-order policy.
+* XLSX owns workbook/sheet/cell/formula policy without becoming a spreadsheet
+  recalculation engine.
 
-Current PDF split:
+PDF remains a native text/assets/metadata extraction path with narrow
+deterministic layout cleanup. Report-only scan diagnostics and layout tools do
+not change normal PDF output.
 
-* `pdf`: bundled PDF runtime component
-* `convert/pdf`: normal-path PDF conversion logic
-* `convert/pdf_layout`: feature and gate logic for report/debug/dev surfaces
-* `convert/pdf_debug`: explainability/debug-oriented PDF surface
-* `doc_parse/pdf/layout_model_tool`: developer export/infer tool
+ZIP and EPUB use archive/package traversal plus nested dispatch where supported,
+while keeping path safety and asset remapping explicit.
 
-Current ZIP split:
+## OCR Boundary
 
-* `zip`: ZIP library and bundled product component
-* `convert/zip_core`: shared traversal / remap / metadata / origin logic
-* `convert/zip_worker`: lightweight delegated product path
+Current shipped OCR support is image OCR through the main CLI. It uses
+`convert/vision` and depends on a local `tesseract` installation plus language
+data.
 
-Current OCR rule:
+Normal document conversion remains no-OCR. PDF OCR is not wired in the shipped
+path. Scan diagnostics may report that OCR could be useful, but they do not run
+OCR and do not change conversion output.
 
-* normal document conversion remains no-OCR
-* future product OCR will re-enter through the main CLI only
-* `convert/vision` remains the sole OCR/Vision implementation path
+## Product And Developer Entry Points
 
-Current path split:
+Product-facing:
 
-* normal conversion path: dispatcher -> format converter -> unified IR ->
-  Markdown / assets / metadata
-* shipped image OCR path: dispatcher -> `convert/vision` -> unified IR ->
-  Markdown
-* future PDF OCR path should remain an explicit side path that rejoins the
-  shared IR/Markdown flow only after explicit OCR selection
-* native PDF extraction must remain unchanged unless that explicit PDF OCR path
-  is selected
+* `cli`
+* bundled `pdf` component behind PDF conversion
+* bundled `zip` component behind ZIP conversion
 
-Important current facts:
+Developer/reporting:
 
-* normal runtime does not read model JSON
-* normal runtime does not read quality-lab assets
-* PDF layout behavior in the normal path is distilled into MoonBit rules/gates
-* delegated product `zip` stays outside the heavy vendored PDF closure
-
-## Build Guardrails
-
-Current guardrail intent:
-
-* `cli` should remain `mbtpdf=0`
-* heavy native PDF closure stays behind bundled `pdf`
-* delegated product `zip` should remain `mbtpdf=0`
-* normal runtime should not grow Python/model-loader dependencies
-
-Current checked closure snapshot:
-
-* `cli mbtpdf count`: `0`
-* `zip mbtpdf count`: `0`
-* `pdf mbtpdf count`: `23339`
-
-## User Entry Points
-
-Current user entrypoints:
-
-* `samples/check.sh`
-* `samples/check_quality.sh`
-* `samples/bench.sh`
-
-Recommended copy-paste-safe commands:
-
-* `bash samples/check.sh`
-* `bash samples/check_quality.sh`
-* `bash samples/bench.sh`
+* `debug`
+* `bench`
+* `doc_parse/pdf/layout_model_tool`
+* `convert/vision/tsv_preview_tool`
+* helper scripts under `samples/helpers/`
 
 See also:
 
-* [supported-formats.md](./supported-formats.md)
-* [quality-and-release.md](./quality-and-release.md)
-* [pdf.md](./pdf.md)
-* [performance.md](./performance.md)
+* [Supported formats](./supported-formats.md)
+* [Quality and release](./quality-and-release.md)
+* [Performance](./performance.md)
+* [Roadmap](./roadmap.md)

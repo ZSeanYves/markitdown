@@ -1,158 +1,86 @@
 # Supported Formats
 
-This page is the current support and limits contract for the normal product
-path.
+This page summarizes current product support and explicit limits. It is a
+conservative contract: support means the behavior is intentionally shipped and
+validated on local samples or external quality rows, not that every document in
+the wild is fully reconstructed.
 
-It describes what the shipped runtime is meant to do, what it explicitly does
-not do, and how to read support claims conservatively.
+## Product Scope
 
-## Scope
+The normal product path targets local files and Markdown-first output.
 
 Current goals:
 
-* recover useful Markdown structure from common document formats
-* emit assets and metadata sidecars where explicitly supported
-* degrade conservatively on ambiguous behavior
-* fail closed on unsupported or unsafe inputs
+* useful reading structure
+* checked asset export where supported
+* optional metadata sidecars
+* safe fallback and clear failure for unsupported behavior
 
-Current non-goals for the default path:
+Current non-goals:
 
-* browser-grade rendering
-* hidden OCR fallback
-* visual page reconstruction
-* remote fetch
-* DRM handling
+* browser or Office layout fidelity
+* silent OCR fallback for documents
+* remote resource fetching
 * model-backed runtime classification
+* DRM or encrypted-content recovery
 
 ## Format Matrix
 
 | Format | Current support | Important limits |
 | --- | --- | --- |
-| DOCX | headings, paragraphs, links, structured footnotes/endnotes, comments, images, tables, text boxes | not a Word layout engine |
-| PPTX | titles, bullets, links, notes, tables, grouped content, images | not a PowerPoint visual layout engine |
-| XLSX | workbook/sheet/cell lowering, typed cells, conservative formula handling | no full spreadsheet recalculation engine |
-| PDF | native text-PDF extraction, high-confidence URI annotation links, images, annotations, narrow text-flow/layout cleanup; report-only scan diagnostics on explicit debug/helper paths | no scanned/image-only OCR in the normal path; PDF OCR not wired; no PDF footnote body association yet |
-| PNG / JPG / JPEG / BMP / WEBP / TIF / TIFF | image OCR supported through `convert/vision` on the main CLI | requires local `tesseract`; `--ocr-lang <LANG>` is supported for image OCR; `--no-ocr` fails clearly because no native image path exists; PDF OCR is still not wired |
-| ZIP | supported-entry dispatch, assets, metadata, origin tracking | no recursive archive explosion |
-| EPUB | OPF/spine/nav/NCX/XHTML chapter lowering, explicit `epub:type="noteref"` / `role="doc-noteref"` footnotes | unsupported media stays explicit; broad HTML-style footnote inference is not attempted |
-| HTML / HTM | safe tolerant parsing, structural lowering, explicit same-document noteref/body pairs | no JS, CSS layout, or browser engine; ordinary superscript text is not treated as a footnote by itself; broader conservative noteref inference is future work |
-| CSV / TSV | conservative table lowering and dialect handling | not an arbitrary spreadsheet model |
-| JSON / YAML | source-preserving or conservative structured lowering | malformed input fails closed |
-| XML | conservative source-preserving and structure-aware lowering | no schema-driven semantic reconstruction |
+| DOCX | v2 runtime; headings, paragraphs, links, tables, images, comments, text boxes, headers/footers, structured footnotes/endnotes | no legacy v1 runtime fallback; not a Word layout engine |
+| PPTX | titles, bullets, notes, links, images, grouped shapes, chart data, table-like grids | not a PowerPoint visual renderer |
+| XLSX | sheets, typed cells, merged-cell policy, hidden-sheet policy, cached formulas, limited lightweight formula evaluation | no full spreadsheet recalculation engine |
+| PDF | native text/assets/metadata extraction, conservative layout cleanup, high-confidence URI annotation links, report-only scan diagnostics | no scanned-PDF OCR; no hidden provider probing; no runtime model JSON |
+| Images (`png`, `jpg`, `jpeg`, `bmp`, `webp`, `tif`, `tiff`) | main-CLI image OCR through `convert/vision` | requires local `tesseract` and language data; no provider selection beyond current Tesseract path |
+| HTML / HTM | tolerant parsing, structural lowering, links, images, tables, explicit same-document note refs/bodies | no JavaScript, CSS layout, or browser engine |
+| EPUB | OPF/spine/nav/NCX/XHTML lowering, assets, metadata, explicit EPUB noteref bodies | unsupported media stays explicit; no broad visual inference |
+| ZIP | supported-entry dispatch, path safety, asset remapping, metadata/origin tracking | no recursive archive explosion |
+| CSV / TSV | conservative table lowering and dialect handling | not a spreadsheet model |
+| JSON / YAML / XML | structured or source-preserving lowering with safe fallback | no schema-driven semantic reconstruction; malformed input fails closed |
 | TXT / Markdown | literal or conservative structural handling | no speculative semantic upgrade |
 
-## Note Support Matrix
+## Notes And Footnotes
 
-Notes lower through the shared IR when a converter has enough evidence to do so
-safely. Full Markdown footnotes require both a reference and a resolved body;
-otherwise the output stays conservative.
+Shared note IR is available when a source has enough structure:
 
-| Format | Note refs | Note definitions | Output mode | Safety policy | Status |
-| --- | --- | --- | --- | --- | --- |
-| DOCX | `footnoteReference` and `endnoteReference` | `footnotes.xml` and `endnotes.xml` | full Markdown footnotes | uses OOXML structure instead of visual guessing | supported |
-| Markdown | native `[^id]` references | native `[^id]: body` definitions | passthrough or normalized full Markdown footnotes | missing bodies stay marker-only instead of inventing definitions | supported |
-| EPUB | explicit `epub:type="noteref"` or `role="doc-noteref"` with same-document `href="#id"` | footnote-like target body in the same XHTML document | full Markdown footnotes with spine-scoped ids | missing targets stay normal links; ids are namespaced by spine entry | supported for strong noteref |
-| HTML / HTM | explicit same-document noteref/body pairs only | footnote-like body target when explicitly referenced | full Markdown footnotes only for resolved explicit pairs | ordinary links remain links; bare `<sup>` remains text | limited explicit support; conservative inference is future |
-| PDF | detected superscript-like markers | not associated yet | marker-only fallback such as `^3` | does not emit dangling `[^3]` Markdown footnotes without a resolved body | partial safe fallback |
+* DOCX lowers footnote/endnote references and bodies through the v2 model.
+* Markdown native footnotes lower through the same shared note path.
+* EPUB and HTML support explicit same-document noteref/body pairs.
+* PDF can attach superscript-like markers as marker-only note references but
+  does not associate note bodies.
 
-Metadata sidecars currently describe document blocks, assets, origin metadata,
-and document-level `note_definitions` when resolved note bodies are present.
+Converters should not emit dangling Markdown footnotes when a body cannot be
+resolved safely.
 
-## Cross-Cutting Rules
+## PDF And OCR Boundary
 
-Across the normal product path:
+PDF support means native PDF extraction. It does not imply OCR.
 
-* Markdown is the primary reading output
-* assets and metadata are companion engineering outputs
-* `--with-metadata` is opt-in
-* stdout mode emits Markdown only
-* ambiguous features should degrade conservatively
+Current PDF facts:
 
-## PDF And OCR Limits
+* normal PDF conversion does not OCR
+* forcing OCR on PDF fails closed in this build
+* report-only scan diagnostics do not change output
+* image OCR support does not imply scanned-PDF support
+* any future PDF OCR path must remain explicit and provider-audited
 
-Current PDF/OCR rules:
+Current image OCR facts:
 
-* the normal path targets native text PDFs
-* normal conversion never OCRs and never probes OCR providers
-* main-CLI OCR policy flags `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are
-  supported
-* image inputs now auto-OCR through `convert/vision`
-* product image OCR depends on a local `tesseract` executable and language
-  data
-* `markitdown-mb image.png --ocr-lang eng` passes `eng` to Tesseract image OCR
-  and still requires installed tessdata; there is no language auto-detection
-* current image OCR is shipped for common image formats
-* no `--psm`, `--oem`, or OCR provider-selection CLI options are wired yet
-* encrypted PDFs fail closed
-* image/scanned PDFs are not silently upgraded into OCR
-* scanned PDF OCR is not supported yet
-* image inputs fail clearly when local `tesseract` is unavailable instead of
-  silently falling through the native converter
-* forcing `--ocr` on PDF currently fails closed because no explicit PDF OCR
-  provider path is wired
-* report-only PDF scan diagnostics may flag low-text or image-heavy PDFs on
-  explicit debug/helper paths, but they do not change normal conversion output
-* image OCR support does not imply scanned-PDF OCR support
-* PDF OCR remains a future explicit provider path
-* any future PDF OCR path must stay explicit opt-in and must not auto-fallback
-  from native PDF extraction
-* default layout cleanup stays narrow and deterministic
-* PDF text-flow cleanup can merge high-confidence same-flow fragments, split
-  numbered headings, attach superscript markers, and preserve conservative
-  two-column guards
-* PDF URI annotation links can become Markdown links only when visible text and
-  URI annotation alignment is high-confidence
-* image OCR shares the MoonBit-owned `convert/vision` path
-* the current Vision/OCR chain remains the only OCR implementation path:
-  `tesseract TSV -> OCRPageModel -> layout -> Markdown preview`
-* current semantic hints such as `TableLike`, `KeyValueLike`, and
-  `CaptionLike` are a side-channel only
-* those hints do not currently reconstruct Markdown tables, key-value layouts,
-  or captions
-
-Still out of scope for the normal path:
-
-* page-raster inference
-* provider-backed runtime model loading
-* broad offline-model-driven heading or receipt classification
-* hidden OCR promotion
-
-OCR groundwork now lives under `convert/vision`; the PDF converter does not own
-OCR providers, and the normal dispatcher still does not route through OCR.
-
-Main-repo OCR samples should stay tiny, license-clean, and provider-independent
-where possible. Real-world OCR corpora belong in `markitdown-quality-lab`.
-
-See [pdf.md](./pdf.md) for the detailed PDF text/layout/OCR boundary.
+* image inputs auto-OCR through the main CLI
+* `--ocr`, `--no-ocr`, and `--ocr-lang <LANG>` are supported for the current
+  image OCR policy
+* OCR uses the MoonBit-owned `convert/vision` path
+* missing local Tesseract support fails clearly
 
 ## Quality-Lab Relation
 
-The main repo remains self-contained for:
+The main repo remains self-contained for runtime, `moon test`, and
+`bash samples/check.sh`.
 
-* runtime
-* `moon test`
-* `bash samples/check.sh`
+The optional `markitdown-quality-lab/` checkout is used for larger external
+quality rows, benchmark payloads, OCR artifacts, and offline diagnostics. It is
+not part of the shipped runtime.
 
-The optional repo-root quality-lab is used for:
-
-* full quality rows
-* external corpus payloads
-* offline PDF layout training/eval/model/report assets
-
-## How To Read Support Claims
-
-Support claims in this repository are:
-
-* local validation-backed
-* sample-scoped
-* format-scoped
-* boundary-aware
-
-They are not:
-
-* blanket compatibility guarantees
-* universal completeness percentages
-* claims that every edge case is covered
-
-For validation workflow, use [quality-and-release.md](./quality-and-release.md).
-For sample-scoped performance interpretation, use [performance.md](./performance.md).
+For validation workflow, see [quality-and-release.md](./quality-and-release.md).
+For known limits and deferred decisions, see [format-limits.md](./format-limits.md).

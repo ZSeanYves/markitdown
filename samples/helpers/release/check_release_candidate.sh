@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 MODE="default"
 RUN_BENCH=1
 OCR_OPTIONAL_STATUS="not-run"
+QUALITY_SIGNAL_STATUS="not-run"
 
 usage() {
   cat <<'EOF'
@@ -21,17 +22,17 @@ Modes:
 Default behavior:
   * fail fast
   * require a clean git status
-  * require prohibited paths to stay clean
+  * require generated local paths to stay clean
   * run `moon check`
   * run `./samples/check.sh`
-  * run `bash samples/check_quality.sh`
+  * run `bash samples/check_quality.sh` when the external quality manifest exists
   * do not run benchmark smoke by default
   * run release-facing contract helpers, including the optional OCR smoke
 
 Notes:
   * this helper does not publish, tag, or push
-  * local-only external corpus files remain uncommitted and are not treated as
-    release artifacts
+  * the external quality lab is an optional signal and is not a main-repo
+    release artifact
 EOF
 }
 
@@ -55,16 +56,40 @@ check_clean_status() {
   echo "git status clean"
 }
 
-check_prohibited_paths() {
-  section "prohibited paths"
+check_generated_paths() {
+  section "generated local paths"
   local status
-  status="$(git status --short -- .external .external/layout_model samples/quality_corpus/external_manifest.local.tsv markitdown-quality-lab _build .mooncakes .tmp)"
+  status="$(git status --short -- _build .mooncakes .tmp)"
   if [[ -n "$status" ]]; then
     echo "$status"
-    echo "[fail] prohibited paths are not clean" >&2
+    echo "[fail] generated local paths are not clean" >&2
     exit 1
   fi
-  echo "prohibited paths clean"
+  echo "generated local paths clean"
+}
+
+external_quality_manifest_path() {
+  local quality_lab_root="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
+  printf '%s/external_quality/MANIFEST.tsv' "${quality_lab_root%/}"
+}
+
+run_external_quality_signal() {
+  section "external quality signal"
+  local manifest_path
+  manifest_path="$(external_quality_manifest_path)"
+  if [[ ! -f "$manifest_path" ]]; then
+    QUALITY_SIGNAL_STATUS="skip"
+    echo "external quality signal skipped"
+    echo "manifest missing: $manifest_path"
+    echo "external quality is optional for this release helper and is not a main-repo public gate"
+    return 0
+  fi
+  if bash samples/check_quality.sh; then
+    QUALITY_SIGNAL_STATUS="pass"
+  else
+    QUALITY_SIGNAL_STATUS="fail"
+    return 1
+  fi
 }
 
 run_optional_ocr_smoke() {
@@ -110,7 +135,7 @@ done
 cd "$ROOT"
 
 check_clean_status
-check_prohibited_paths
+check_generated_paths
 
 section "moon check"
 run moon check
@@ -123,8 +148,7 @@ fi
 section "samples check"
 run ./samples/check.sh
 
-section "quality check"
-run bash samples/check_quality.sh
+run_external_quality_signal
 
 section "bench smoke"
 echo "manual only; --skip-bench is accepted for compatibility"
@@ -143,4 +167,5 @@ section "summary"
 echo "RELEASE CANDIDATE CHECK PASSED"
 echo "mode: $MODE"
 echo "bench: manual"
+echo "external_quality: $QUALITY_SIGNAL_STATUS"
 echo "optional_ocr: $OCR_OPTIONAL_STATUS"

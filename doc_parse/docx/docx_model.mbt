@@ -145,6 +145,7 @@ fn docx_model_part_bodies(
     out.push({
       kind: body.kind,
       relationship_id: body.relationship_id,
+      slot_type: body.slot_type,
       part_name: body.part_name,
       blocks: docx_model_blocks(body.blocks, warnings, []),
       source_key: body.source_key,
