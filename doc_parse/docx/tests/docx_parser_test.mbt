@@ -129,6 +129,7 @@ fn minimal_content_types_xml() -> String {
   "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
   "<Default Extension=\"png\" ContentType=\"image/png\"/>" +
   "<Default Extension=\"jpg\" ContentType=\"image/jpeg\"/>" +
+  "<Default Extension=\"svg\" ContentType=\"image/svg+xml\"/>" +
   "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
   "</Types>"
 }
@@ -657,6 +658,29 @@ test "docx parses external hyperlink relationship target and display text" {
 }
 
 ///|
+test "docx composes hyperlink relationship target with anchor" {
+  let pkg = generated_docx_package_with_document_rels(
+    "<w:p><w:hyperlink r:id=\"rIdLink\" w:anchor=\"intro\"><w:r><w:t>http://foo.com#introduction</w:t></w:r></w:hyperlink></w:p>",
+    "<Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"http://foo.com/\" TargetMode=\"External\"/>",
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  match doc.body[0] {
+    @docx.DocxBlock::Paragraph(p) =>
+      match p.inlines[0] {
+        @docx.DocxInline::Hyperlink(link) => {
+          assert_true(link.relationship_id == Some("rIdLink"))
+          assert_true(link.anchor == Some("intro"))
+          assert_true(link.target == Some("http://foo.com/#intro"))
+          assert_true(link.target_mode == Some(@docx.DocxTargetMode::External))
+          assert_eq(link.text, "http://foo.com#introduction")
+        }
+        _ => fail("expected hyperlink inline")
+      }
+    _ => fail("expected paragraph")
+  }
+}
+
+///|
 test "docx parses anchor hyperlink target and display text" {
   let pkg = generated_docx_package(
     "<w:p><w:hyperlink w:anchor=\"bookmark-one\"><w:r><w:t>Jump</w:t></w:r></w:hyperlink></w:p>",
@@ -1014,6 +1038,41 @@ test "docx parses comments part id author and body paragraph" {
 }
 
 ///|
+test "docx note and comment body reference glyphs are non-visible" {
+  let pkg = generated_docx_package_with_document_rels_and_entries(
+    "<w:p><w:r><w:t>Main</w:t></w:r></w:p>",
+    "<Relationship Id=\"rIdFoot\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes\" Target=\"footnotes.xml\"/>" +
+    "<Relationship Id=\"rIdEnd\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes\" Target=\"endnotes.xml\"/>" +
+    "<Relationship Id=\"rIdComments\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"comments.xml\"/>",
+    [
+      (
+        "word/footnotes.xml", "<w:footnotes xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:footnote w:id=\"1\"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t> Footnote body</w:t></w:r></w:p></w:footnote></w:footnotes>",
+      ),
+      (
+        "word/endnotes.xml", "<w:endnotes xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:endnote w:id=\"2\"><w:p><w:r><w:endnoteRef/></w:r><w:r><w:t> Endnote body</w:t></w:r></w:p></w:endnote></w:endnotes>",
+      ),
+      (
+        "word/comments.xml", "<w:comments xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:comment w:id=\"3\"><w:p><w:r><w:annotationRef/></w:r><w:r><w:t>Comment body</w:t></w:r></w:p></w:comment></w:comments>",
+      ),
+    ],
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(doc.warnings.length(), 0)
+  match doc.footnotes[0].blocks[0] {
+    @docx.DocxBlock::Paragraph(p) => assert_eq(p.text, " Footnote body")
+    _ => fail("expected footnote paragraph")
+  }
+  match doc.endnotes[0].blocks[0] {
+    @docx.DocxBlock::Paragraph(p) => assert_eq(p.text, " Endnote body")
+    _ => fail("expected endnote paragraph")
+  }
+  match doc.comments[0].blocks[0] {
+    @docx.DocxBlock::Paragraph(p) => assert_eq(p.text, "Comment body")
+    _ => fail("expected comment paragraph")
+  }
+}
+
+///|
 test "docx lookup helpers resolve note and comment containers by id" {
   let pkg = generated_docx_package_with_document_rels_and_entries(
     "<w:p><w:r><w:t>Main</w:t><w:footnoteReference w:id=\"1\"/><w:endnoteReference w:id=\"2\"/><w:commentReference w:id=\"3\"/></w:r></w:p>",
@@ -1264,6 +1323,48 @@ test "docx parses drawing media relationship target and image metadata" {
         _ => fail("expected drawing inline")
       }
     }
+    _ => fail("expected paragraph")
+  }
+}
+
+///|
+test "docx parses svg companion drawing media relationship" {
+  let pkg = generated_docx_package_with_document_rels_and_entries(
+    "<w:p><w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"1\" name=\"Graphic 1\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:graphicData>" +
+    "<pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:blipFill>" +
+    "<a:blip r:embed=\"rIdPng\"><a:extLst><a:ext><asvg:svgBlip xmlns:asvg=\"http://schemas.microsoft.com/office/drawing/2016/SVG/main\" r:embed=\"rIdSvg\"/></a:ext></a:extLst></a:blip>" +
+    "</pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>",
+    "<Relationship Id=\"rIdPng\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image1.png\"/>" +
+    "<Relationship Id=\"rIdSvg\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image2.svg\"/>",
+    [
+      ("word/media/image1.png", "png-bytes"),
+      ("word/media/image2.svg", "<svg/>"),
+    ],
+  )
+  let doc = @docx.parse_docx_document_from_package(pkg)
+  match doc.body[0] {
+    @docx.DocxBlock::Paragraph(p) =>
+      match p.inlines[0] {
+        @docx.DocxInline::Drawing(drawing) => {
+          let media = drawing.media.unwrap()
+          assert_true(media.relationship_id == Some("rIdPng"))
+          assert_true(media.content_type == Some("image/png"))
+          assert_eq(drawing.alternate_media.length(), 1)
+          assert_true(
+            drawing.alternate_media[0].relationship_id == Some("rIdSvg"),
+          )
+          assert_true(
+            drawing.alternate_media[0].target_part ==
+            Some("word/media/image2.svg"),
+          )
+          assert_true(
+            drawing.alternate_media[0].content_type == Some("image/svg+xml"),
+          )
+        }
+        _ => fail("expected drawing inline")
+      }
     _ => fail("expected paragraph")
   }
 }

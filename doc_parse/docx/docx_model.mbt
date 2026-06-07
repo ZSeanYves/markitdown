@@ -413,6 +413,10 @@ fn docx_model_inlines(
               Some(media) => Some(docx_model_media_inline(media, warnings))
               None => None
             },
+            alternate_media: docx_model_media_refs(
+              drawing.alternate_media,
+              warnings,
+            ),
             text_box_ref: match drawing.text_box_ref {
               Some(textbox_ref) =>
                 Some({
@@ -632,6 +636,18 @@ fn docx_model_inlines(
         out.push(DocxInline::Unsupported(tag))
       }
     }
+  }
+  out
+}
+
+///|
+fn docx_model_media_refs(
+  media_refs : Array[DocxSourceMediaRef],
+  warnings : Array[DocxWarning],
+) -> Array[DocxMediaRef] {
+  let out : Array[DocxMediaRef] = []
+  for media in media_refs {
+    out.push(docx_model_media_inline(media, warnings))
   }
   out
 }

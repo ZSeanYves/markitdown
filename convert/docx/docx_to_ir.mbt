@@ -148,13 +148,7 @@ pub fn lower_docx_document(docx : @docmodel.DocxDocument) -> @cor.Document {
   let doc = @cor.new_document()
   let ref_labels = docx_body_ref_labels(docx)
   for block in docx.body {
-    push_docx_block_with_ref_labels(
-      doc,
-      docx,
-      block,
-      None,
-      Some(ref_labels),
-    )
+    push_docx_block_with_ref_labels(doc, docx, block, None, Some(ref_labels))
   }
   append_docx_resolved_appendices(doc, docx, Some(ref_labels))
   doc
@@ -171,15 +165,13 @@ pub fn lower_docx_document_with_assets(
   let ctx_opt = if out_dir.trim() == "" { None } else { Some(ctx) }
   let ref_labels = docx_body_ref_labels(docx)
   for block in docx.body {
-    push_docx_block_with_ref_labels(
-      doc,
-      docx,
-      block,
-      ctx_opt,
-      Some(ref_labels),
-    )
+    push_docx_block_with_ref_labels(doc, docx, block, ctx_opt, Some(ref_labels))
   }
   append_docx_resolved_appendices_with_ctx(doc, docx, ctx_opt, Some(ref_labels))
+  match ctx_opt {
+    Some(ctx) => export_docx_alternate_media_assets(doc, docx, ctx)
+    None => ()
+  }
   {
     document: doc,
     assets: match ctx_opt {
@@ -245,9 +237,7 @@ fn push_docx_block_with_ref_labels(
         Some(placeholder.source_key),
       )
     @docmodel.DocxBlock::ContentControl(control) =>
-      push_docx_content_control_block(
-        doc, docx, control, asset_ctx, ref_labels,
-      )
+      push_docx_content_control_block(doc, docx, control, asset_ctx, ref_labels)
     @docmodel.DocxBlock::StructuralMarker(_) => ()
     @docmodel.DocxBlock::Unsupported(warning) =>
       push_docx_block_with_origin(
@@ -471,9 +461,7 @@ fn push_docx_unique_id(ids : Array[String], id : String) -> Unit {
 }
 
 ///|
-fn docx_body_ref_labels(
-  docx : @docmodel.DocxDocument,
-) -> DocxRefLabels {
+fn docx_body_ref_labels(docx : @docmodel.DocxDocument) -> DocxRefLabels {
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
   let comment_ids : Array[String] = []
@@ -702,7 +690,10 @@ fn push_docx_part_body_blocks(
   let body_doc = @cor.new_document()
   push_docx_blocks(body_doc, docx, body.blocks, asset_ctx)
   push_docx_owner_textboxes_into_part_body(
-    body_doc, docx, body.part_name, asset_ctx,
+    body_doc,
+    docx,
+    body.part_name,
+    asset_ctx,
   )
   copy_docx_asset_origins(doc, body_doc)
   for block in body_doc.blocks.val {
@@ -775,6 +766,7 @@ fn merge_docx_textbox_blocks_into_part_body(
   }
 }
 
+///|
 fn docx_part_body_origin_for_index(
   body : @docmodel.DocxPartBody,
   block_index : Int,
@@ -801,7 +793,7 @@ fn docx_part_body_slot_label(body : @docmodel.DocxPartBody) -> String {
 
 ///|
 fn docx_part_body_slot_label_from_text(value : String) -> String {
-      let normalized = docx_normalize_style_label(value)
+  let normalized = docx_normalize_style_label(value)
   if normalized.contains("even") {
     "Even"
   } else if normalized.contains("first") {
@@ -837,15 +829,16 @@ fn push_docx_comment_blocks(
     }
     match block {
       @docmodel.DocxBlock::Paragraph(p) => {
-        let text = render_docx_paragraph_text(p.inlines)
-        if text.trim() == "" {
+        let lowered = docx_comment_paragraph_lowering(p.inlines, asset_ctx)
+        if !push_docx_comment_first_paragraph(
+            doc,
+            p,
+            prefix,
+            lowered.inlines,
+            lowered.images,
+          ) {
           continue
         }
-        push_docx_block_with_origin(
-          doc,
-          @cor.Block::ListItem(true, 0, prefix + text),
-          Some(p.source_key),
-        )
         first_visible_done = true
       }
       @docmodel.DocxBlock::StructuralMarker(_) => ()
@@ -869,6 +862,116 @@ fn push_docx_comment_blocks(
       None,
     )
   }
+}
+
+///|
+priv struct DocxCommentParagraphLowering {
+  inlines : Array[@docmodel.DocxInline]
+  images : Array[(@docmodel.DocxMediaRef, DocxExportedAsset)]
+}
+
+///|
+fn docx_comment_paragraph_lowering(
+  inlines : Array[@docmodel.DocxInline],
+  asset_ctx : DocxAssetExportCtx?,
+) -> DocxCommentParagraphLowering {
+  let kept : Array[@docmodel.DocxInline] = []
+  let images : Array[(@docmodel.DocxMediaRef, DocxExportedAsset)] = []
+  for inline in inlines {
+    match inline {
+      @docmodel.DocxInline::Media(media) =>
+        match export_docx_media(asset_ctx, media) {
+          Some(asset) => images.push((media, asset))
+          None => kept.push(inline)
+        }
+      @docmodel.DocxInline::Drawing(drawing) =>
+        match docx_drawing_media(drawing) {
+          Some(media) =>
+            match export_docx_media(asset_ctx, media) {
+              Some(asset) => images.push((media, asset))
+              None => kept.push(inline)
+            }
+          None => kept.push(inline)
+        }
+      @docmodel.DocxInline::Shape(shape) =>
+        match docx_shape_media(shape) {
+          Some(media) =>
+            match export_docx_media(asset_ctx, media) {
+              Some(asset) => images.push((media, asset))
+              None => kept.push(inline)
+            }
+          None => kept.push(inline)
+        }
+      _ => kept.push(inline)
+    }
+  }
+  { inlines: kept, images }
+}
+
+///|
+fn push_docx_comment_first_paragraph(
+  doc : @cor.Document,
+  p : @docmodel.DocxParagraph,
+  prefix : String,
+  inlines : Array[@docmodel.DocxInline],
+  images : Array[(@docmodel.DocxMediaRef, DocxExportedAsset)],
+) -> Bool {
+  let text = render_docx_paragraph_text(inlines)
+  let rich = docx_paragraph_has_rich_inline(inlines)
+  let rich_inlines = if rich {
+    docx_prefixed_core_inlines(prefix, docx_core_inlines(inlines))
+  } else {
+    []
+  }
+  let has_text = text.trim() != "" || rich_inlines.length() > 0
+  if has_text {
+    if rich_inlines.length() > 0 {
+      push_docx_block_with_origin(
+        doc,
+        @cor.Block::RichListItem(true, 0, rich_inlines),
+        Some(p.source_key),
+      )
+    } else {
+      push_docx_block_with_origin(
+        doc,
+        @cor.Block::ListItem(true, 0, prefix + text),
+        Some(p.source_key),
+      )
+    }
+  } else if prefix.trim() != "" {
+    push_docx_block_with_origin(
+      doc,
+      @cor.Block::ListItem(true, 0, prefix.trim().to_owned()),
+      Some(p.source_key),
+    )
+  }
+  for entry in images {
+    let (media, asset) = entry
+    push_docx_image_block(doc, media, asset)
+  }
+  has_text || prefix.trim() != "" || images.length() > 0
+}
+
+///|
+fn docx_core_inlines(
+  inlines : Array[@docmodel.DocxInline],
+) -> Array[@cor.Inline] {
+  docx_core_inlines_with_ref_labels(inlines, None)
+}
+
+///|
+fn docx_prefixed_core_inlines(
+  prefix : String,
+  inlines : Array[@cor.Inline],
+) -> Array[@cor.Inline] {
+  let out : Array[@cor.Inline] = []
+  if prefix != "" {
+    out.push(@cor.Inline::Text(prefix))
+  }
+  for inline in inlines {
+    out.push(inline)
+  }
+  out
 }
 
 ///|
@@ -1054,9 +1157,7 @@ fn push_docx_blocks_with_ref_labels(
   ref_labels : DocxRefLabels?,
 ) -> Unit {
   for block in blocks {
-    push_docx_block_with_ref_labels(
-      doc, docx, block, asset_ctx, ref_labels,
-    )
+    push_docx_block_with_ref_labels(doc, docx, block, asset_ctx, ref_labels)
   }
 }
 
@@ -1075,10 +1176,7 @@ fn push_docx_paragraph_block(
   if docx_paragraph_is_page_number_field_only(p) {
     return
   }
-  let text = render_docx_paragraph_text_with_ref_labels(
-    p.inlines,
-    ref_labels,
-  )
+  let text = render_docx_paragraph_text_with_ref_labels(p.inlines, ref_labels)
   let rich = docx_paragraph_has_rich_inline(p.inlines)
   let rich_inlines = if rich {
     docx_core_inlines_with_ref_labels(p.inlines, ref_labels)
@@ -1228,9 +1326,7 @@ fn push_docx_inline_chunk_with_ref_labels(
   source_key : @docmodel.DocxSourceKey?,
   ref_labels : DocxRefLabels?,
 ) -> Unit {
-  let text = render_docx_paragraph_text_with_ref_labels(
-    inlines, ref_labels,
-  )
+  let text = render_docx_paragraph_text_with_ref_labels(inlines, ref_labels)
   let rich = docx_paragraph_has_rich_inline(inlines)
   let rich_inlines = if rich {
     docx_core_inlines_with_ref_labels(inlines, ref_labels)
@@ -1266,6 +1362,15 @@ fn push_docx_image_block(
     }),
     Some(origin),
   )
+  set_docx_asset_origin(doc, media, asset)
+}
+
+///|
+fn set_docx_asset_origin(
+  doc : @cor.Document,
+  media : @docmodel.DocxMediaRef,
+  asset : DocxExportedAsset,
+) -> Unit {
   @cor.set_asset_origin(doc, asset.path, {
     source_name: Some(media.source_key.part_name),
     page: None,
@@ -1559,6 +1664,8 @@ fn docx_media_asset_ext(media : @docmodel.DocxMediaRef) -> String {
         return "tiff"
       } else if ct == "image/webp" {
         return "webp"
+      } else if ct == "image/svg+xml" {
+        return "svg"
       }
     }
     None => ()
@@ -1588,8 +1695,100 @@ fn docx_image_ext_from_path(path : String) -> String {
     "tiff"
   } else if p.has_suffix(".webp") {
     "webp"
+  } else if p.has_suffix(".svg") {
+    "svg"
   } else {
     ""
+  }
+}
+
+///|
+fn export_docx_alternate_media_assets(
+  doc : @cor.Document,
+  docx : @docmodel.DocxDocument,
+  ctx : DocxAssetExportCtx,
+) -> Unit {
+  export_docx_alternate_media_blocks(doc, docx.body, ctx)
+  for note in docx.footnotes {
+    export_docx_alternate_media_blocks(doc, note.blocks, ctx)
+  }
+  for note in docx.endnotes {
+    export_docx_alternate_media_blocks(doc, note.blocks, ctx)
+  }
+  for comment in docx.comments {
+    export_docx_alternate_media_blocks(doc, comment.blocks, ctx)
+  }
+  for body in docx.headers {
+    export_docx_alternate_media_blocks(doc, body.blocks, ctx)
+  }
+  for body in docx.footers {
+    export_docx_alternate_media_blocks(doc, body.blocks, ctx)
+  }
+  for textbox in docx.textboxes {
+    export_docx_alternate_media_blocks(doc, textbox.blocks, ctx)
+  }
+}
+
+///|
+fn export_docx_alternate_media_blocks(
+  doc : @cor.Document,
+  blocks : Array[@docmodel.DocxBlock],
+  ctx : DocxAssetExportCtx,
+) -> Unit {
+  for block in blocks {
+    match block {
+      @docmodel.DocxBlock::Paragraph(p) =>
+        export_docx_alternate_media_inlines(doc, p.inlines, ctx)
+      @docmodel.DocxBlock::Table(table) =>
+        for row in table.rows {
+          for cell in row.cells {
+            export_docx_alternate_media_blocks(doc, cell.blocks, ctx)
+          }
+        }
+      @docmodel.DocxBlock::ContentControl(control) => {
+        export_docx_alternate_media_blocks(doc, control.blocks, ctx)
+        export_docx_alternate_media_inlines(doc, control.inlines, ctx)
+      }
+      @docmodel.DocxBlock::TablePlaceholder(_)
+      | @docmodel.DocxBlock::StructuralMarker(_)
+      | @docmodel.DocxBlock::Unsupported(_) => ()
+    }
+  }
+}
+
+///|
+fn export_docx_alternate_media_inlines(
+  doc : @cor.Document,
+  inlines : Array[@docmodel.DocxInline],
+  ctx : DocxAssetExportCtx,
+) -> Unit {
+  for inline in inlines {
+    match inline {
+      @docmodel.DocxInline::Drawing(drawing) => {
+        for media in drawing.alternate_media {
+          match export_docx_media(Some(ctx), media) {
+            Some(asset) => set_docx_asset_origin(doc, media, asset)
+            None => ()
+          }
+        }
+        export_docx_alternate_media_inlines(doc, drawing.child_inlines, ctx)
+      }
+      @docmodel.DocxInline::Shape(shape) =>
+        export_docx_alternate_media_inlines(doc, shape.child_inlines, ctx)
+      @docmodel.DocxInline::ContentControl(control) => {
+        export_docx_alternate_media_blocks(doc, control.blocks, ctx)
+        export_docx_alternate_media_inlines(doc, control.inlines, ctx)
+      }
+      @docmodel.DocxInline::FieldUnsupported(field) =>
+        export_docx_alternate_media_inlines(doc, field.child_inlines, ctx)
+      @docmodel.DocxInline::Math(math) =>
+        export_docx_alternate_media_inlines(doc, math.child_inlines, ctx)
+      @docmodel.DocxInline::TrackedChange(change) =>
+        export_docx_alternate_media_inlines(doc, change.child_inlines, ctx)
+      @docmodel.DocxInline::SmartTag(smart_tag) =>
+        export_docx_alternate_media_inlines(doc, smart_tag.child_inlines, ctx)
+      _ => ()
+    }
   }
 }
 
@@ -1894,9 +2093,12 @@ fn docx_paragraph_has_code_shape(p : @docmodel.DocxParagraph) -> Bool {
   let mut codeish = false
   for line in lines {
     let trimmed = line.trim()
-    if trimmed.contains("=") || trimmed.contains("(") ||
-      trimmed.contains(")") || trimmed.contains(";") ||
-      trimmed.contains("{") || trimmed.contains("}") {
+    if trimmed.contains("=") ||
+      trimmed.contains("(") ||
+      trimmed.contains(")") ||
+      trimmed.contains(";") ||
+      trimmed.contains("{") ||
+      trimmed.contains("}") {
       codeish = true
     }
   }
@@ -2082,6 +2284,7 @@ fn docx_paragraph_alignment_is_center(p : @docmodel.DocxParagraph) -> Bool {
   }
 }
 
+///|
 fn render_docx_table_text(
   table : @docmodel.DocxTable,
   asset_ctx : DocxAssetExportCtx?,
@@ -2107,7 +2310,9 @@ fn render_docx_content_control_text(
       match block {
         @docmodel.DocxBlock::Paragraph(p) => {
           let text = render_docx_table_paragraph_text(
-            p.inlines, asset_ctx, ref_labels,
+            p.inlines,
+            asset_ctx,
+            ref_labels,
           )
           if text.trim() != "" {
             parts.push(text)
@@ -2154,7 +2359,9 @@ fn docx_table_cell_text(
     match block {
       @docmodel.DocxBlock::Paragraph(p) => {
         let text = render_docx_table_paragraph_text(
-          p.inlines, asset_ctx, ref_labels,
+          p.inlines,
+          asset_ctx,
+          ref_labels,
         )
         if text.trim() != "" {
           parts.push(text)
@@ -2234,7 +2441,9 @@ fn render_docx_table_paragraph_text(
       @docmodel.DocxInline::SmartTag(smart_tag) =>
         out.write_string(
           render_docx_table_paragraph_text(
-            smart_tag.child_inlines, asset_ctx, ref_labels,
+            smart_tag.child_inlines,
+            asset_ctx,
+            ref_labels,
           ),
         )
       @docmodel.DocxInline::Symbol(symbol) =>
@@ -2254,7 +2463,7 @@ fn render_docx_table_paragraph_text(
       @docmodel.DocxInline::Unsupported(_) => ()
     }
   }
-  out.to_string()
+  normalize_docx_ref_marker_spacing(out.to_string())
 }
 
 ///|
@@ -2580,9 +2789,7 @@ fn render_docx_paragraph_text_with_ref_labels(
       @docmodel.DocxInline::EndnoteRef(id) =>
         out.write_string(docx_endnote_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::CommentRef(id) =>
-        out.write_string(
-          " " + docx_comment_marker_with_labels(id, ref_labels),
-        )
+        out.write_string(" " + docx_comment_marker_with_labels(id, ref_labels))
       @docmodel.DocxInline::StructuralMarker(_) => ()
       @docmodel.DocxInline::Bookmark(_) => ()
       @docmodel.DocxInline::UnsupportedInline(_) =>
@@ -2590,7 +2797,140 @@ fn render_docx_paragraph_text_with_ref_labels(
       @docmodel.DocxInline::Unsupported(_) => ()
     }
   }
-  out.to_string()
+  normalize_docx_ref_marker_spacing(out.to_string())
+}
+
+///|
+fn normalize_docx_ref_marker_spacing(text : String) -> String {
+  let chars = text.to_array()
+  let out : Array[Char] = []
+  let mut i = 0
+  let mut pending_spaces = 0
+  while i < chars.length() {
+    let ch = chars[i]
+    if docx_marker_space_char(ch) {
+      pending_spaces += 1
+      i += 1
+    } else if docx_chars_has_literal_at(chars, i, "[^") {
+      let had_space = pending_spaces > 0
+      pending_spaces = 0
+      match docx_marker_end(chars, i) {
+        Some(end_index) => {
+          let after_index = end_index + 1
+          let move_space = had_space &&
+            after_index < chars.length() &&
+            docx_marker_needs_following_space(chars[after_index])
+          if had_space && !move_space {
+            out.push(' ')
+          }
+          while i <= end_index {
+            out.push(chars[i])
+            i += 1
+          }
+          if move_space {
+            out.push(' ')
+          }
+        }
+        None => {
+          while pending_spaces > 0 {
+            out.push(' ')
+            pending_spaces -= 1
+          }
+          out.push(ch)
+          i += 1
+        }
+      }
+    } else if docx_chars_has_literal_at(chars, i, "[comment ") {
+      if out.length() > 0 && out[out.length() - 1] == ']' && pending_spaces > 0 {
+        while pending_spaces > 0 {
+          out.push(' ')
+          pending_spaces -= 1
+        }
+      } else if out.length() > 0 {
+        out.push(' ')
+      }
+      pending_spaces = 0
+      match docx_marker_end(chars, i) {
+        Some(end_index) => {
+          while i <= end_index {
+            out.push(chars[i])
+            i += 1
+          }
+          if i < chars.length() && docx_marker_needs_following_space(chars[i]) {
+            out.push(' ')
+          }
+        }
+        None => {
+          out.push(ch)
+          i += 1
+        }
+      }
+    } else {
+      while pending_spaces > 0 {
+        out.push(' ')
+        pending_spaces -= 1
+      }
+      out.push(ch)
+      i += 1
+    }
+  }
+  while pending_spaces > 0 {
+    out.push(' ')
+    pending_spaces -= 1
+  }
+  String::from_array(out)
+}
+
+///|
+fn docx_marker_space_char(ch : Char) -> Bool {
+  ch == ' '
+}
+
+///|
+fn docx_chars_has_literal_at(
+  chars : Array[Char],
+  index : Int,
+  literal : String,
+) -> Bool {
+  let expected = literal.to_array()
+  if index + expected.length() > chars.length() {
+    return false
+  }
+  for offset in 0..<expected.length() {
+    if chars[index + offset] != expected[offset] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn docx_marker_end(chars : Array[Char], start : Int) -> Int? {
+  let mut i = start
+  while i < chars.length() {
+    if chars[i] == ']' {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn docx_marker_needs_following_space(ch : Char) -> Bool {
+  ch != ' ' &&
+  ch != '\t' &&
+  ch != '\n' &&
+  ch != '\r' &&
+  ch != '.' &&
+  ch != ',' &&
+  ch != ';' &&
+  ch != ':' &&
+  ch != '!' &&
+  ch != '?' &&
+  ch != ')' &&
+  ch != ']' &&
+  ch != '}'
 }
 
 ///|

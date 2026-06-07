@@ -753,7 +753,8 @@ fn parse_docx_numbering_levels(
             let mut level_inner_index = 0
             let mut j = 0
             while j < inner.length() {
-              let level_start = match find_docx_start_tag_from(inner, j, "w:lvl") {
+              let level_start = match
+                find_docx_start_tag_from(inner, j, "w:lvl") {
                 Some(value) => value
                 None => break
               }
@@ -1018,7 +1019,7 @@ fn docx_part_body_slot_type(
   let mut offset = 0
   while offset < document_xml.length() {
     match find_docx_start_tag_from(document_xml, offset, tag_name) {
-      Some(start) => {
+      Some(start) =>
         match docx_open_tag_at(document_xml, start) {
           open_tag => {
             if read_docx_attr_value(open_tag, "r:id") == Some(relationship_id) {
@@ -1027,7 +1028,6 @@ fn docx_part_body_slot_type(
             offset = start + open_tag.length()
           }
         }
-      }
       None => return None
     }
   }
@@ -1447,7 +1447,8 @@ fn parse_docx_body_blocks(
     None => raise DocxError::MalformedDocument("invalid <w:body> tag")
   }
   let body_content_start = body_open_end
-  let body_close = match find_docx_literal_from(xml, body_content_start, "</w:body>") {
+  let body_close = match
+    find_docx_literal_from(xml, body_content_start, "</w:body>") {
     Some(pos) => pos
     None => raise DocxError::MalformedDocument("missing </w:body>")
   }
@@ -2531,13 +2532,12 @@ fn parse_docx_run_inlines(
         None => break
       }
       let text_start = open_end
-      let close_start = match find_docx_literal_from(xml, text_start, "</w:t>") {
+      let close_start = match
+        find_docx_literal_from(xml, text_start, "</w:t>") {
         Some(value) => value
         None => break
       }
-      let text = decode_docx_text(
-        xml[text_start:close_start].to_owned(),
-      )
+      let text = decode_docx_text(xml[text_start:close_start].to_owned())
       if text != "" {
         inlines.push(DocxSourceInline::Text(text))
         inline_index += 1
@@ -2702,6 +2702,11 @@ fn parse_docx_run_inlines(
         }
         None => break
       }
+    } else if docx_non_visible_run_child(xml, start) {
+      match skip_docx_element_or_tag(xml, start, docx_tag_name_at(xml, start)) {
+        Some(end_exclusive) => i = end_exclusive
+        None => break
+      }
     } else if is_docx_start_tag_at(xml, start, "w:footnoteReference") {
       inlines.push(
         DocxSourceInline::FootnoteRef(
@@ -2824,6 +2829,23 @@ fn parse_docx_run_inlines(
     }
   }
   inlines
+}
+
+///|
+fn docx_non_visible_run_child_tags() -> Array[String] {
+  [
+    "w:annotationRef", "w:footnoteRef", "w:endnoteRef", "w:separator", "w:continuationSeparator",
+  ]
+}
+
+///|
+fn docx_non_visible_run_child(xml : String, start : Int) -> Bool {
+  for tag in docx_non_visible_run_child_tags() {
+    if is_docx_start_tag_at(xml, start, tag) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -3044,6 +3066,15 @@ fn parse_docx_drawing_anchor(
   } else {
     None
   }
+  let alternate_media = parse_docx_alternate_drawing_media_refs(
+    source_xml,
+    "w:drawing",
+    DocxMediaContainerKind::Drawing,
+    key,
+    relationships,
+    pkg,
+    warnings,
+  )
   {
     anchor_id: key.part_name + "#" + key.node_key,
     owner_part: key.part_name,
@@ -3057,6 +3088,7 @@ fn parse_docx_drawing_anchor(
     descr: read_docx_media_alt_text(source_xml),
     title: read_docx_media_title(source_xml),
     media,
+    alternate_media,
     text_box_ref: docx_textbox_ref_in_anchor(source_xml, key),
     child_inlines: [],
   }
@@ -3132,7 +3164,29 @@ fn parse_docx_media_ref(
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceMediaRef {
   let source_xml = xml[start:end_exclusive].to_owned()
-  let media_ref = find_docx_media_relationship_ref(source_xml)
+  docx_media_ref_from_relationship_ref(
+    source_xml,
+    find_docx_media_relationship_ref(source_xml),
+    container_tag,
+    container_kind,
+    key,
+    relationships,
+    pkg,
+    warnings,
+  )
+}
+
+///|
+fn docx_media_ref_from_relationship_ref(
+  source_xml : String,
+  media_ref : DocxMediaRelationshipRef?,
+  container_tag : String,
+  container_kind : DocxMediaContainerKind,
+  key : DocxSourceKey,
+  relationships : Array[@ox.OoxmlRelationship],
+  pkg : @ox.OoxmlPackage?,
+  warnings : Array[DocxSourceWarning],
+) -> DocxSourceMediaRef {
   let mut relationship_id : String? = None
   let mut relationship_kind = DocxMediaRelationshipKind::Unknown
   let mut target : String? = None
@@ -3220,6 +3274,54 @@ fn parse_docx_media_ref(
     title: read_docx_media_title(source_xml),
     source_key: key,
   }
+}
+
+///|
+fn parse_docx_alternate_drawing_media_refs(
+  source_xml : String,
+  container_tag : String,
+  container_kind : DocxMediaContainerKind,
+  key : DocxSourceKey,
+  relationships : Array[@ox.OoxmlRelationship],
+  pkg : @ox.OoxmlPackage?,
+  warnings : Array[DocxSourceWarning],
+) -> Array[DocxSourceMediaRef] {
+  let out : Array[DocxSourceMediaRef] = []
+  let refs = find_docx_svg_media_relationship_refs(source_xml)
+  for media_ref in refs {
+    out.push(
+      docx_media_ref_from_relationship_ref(
+        source_xml,
+        Some(media_ref),
+        container_tag,
+        container_kind,
+        key,
+        relationships,
+        pkg,
+        warnings,
+      ),
+    )
+  }
+  out
+}
+
+///|
+fn find_docx_svg_media_relationship_refs(
+  source_xml : String,
+) -> Array[DocxMediaRelationshipRef] {
+  let out : Array[DocxMediaRelationshipRef] = []
+  let mut offset = 0
+  while offset < source_xml.length() {
+    match find_docx_start_tag_from(source_xml, offset, "asvg:svgBlip") {
+      Some(start) => {
+        let tag = docx_open_tag_at(source_xml, start)
+        out.push(read_docx_blip_relationship_ref(tag))
+        offset = start + tag.length()
+      }
+      None => break
+    }
+  }
+  out
 }
 
 ///|
@@ -3388,7 +3490,9 @@ fn parse_docx_hyperlink(
     Some(rid) =>
       match find_docx_relationship_by_id(relationships, rid) {
         Some(rel) => {
-          target = Some(rel.resolved_target)
+          target = Some(
+            docx_hyperlink_resolved_target(rel.resolved_target, anchor),
+          )
           target_mode = Some(
             if rel.target_mode == @ox.OoxmlTargetMode::External {
               DocxTargetMode::External
@@ -3421,6 +3525,26 @@ fn parse_docx_hyperlink(
     }
   }
   { relationship_id, anchor, target, text, target_mode, source_key: key }
+}
+
+///|
+fn docx_hyperlink_resolved_target(
+  relationship_target : String,
+  anchor : String?,
+) -> String {
+  match anchor {
+    Some(value) => {
+      let trimmed = value.trim()
+      if trimmed == "" {
+        relationship_target
+      } else if relationship_target.has_suffix("#") {
+        relationship_target + trimmed.to_owned()
+      } else {
+        relationship_target + "#" + trimmed.to_owned()
+      }
+    }
+    None => relationship_target
+  }
 }
 
 ///|
@@ -4138,7 +4262,11 @@ fn find_docx_char_from(xml : String, from : Int, ch : UInt16) -> Int? {
 }
 
 ///|
-fn docx_string_has_prefix_at(xml : String, start : Int, prefix : String) -> Bool {
+fn docx_string_has_prefix_at(
+  xml : String,
+  start : Int,
+  prefix : String,
+) -> Bool {
   if start < 0 || start + prefix.length() > xml.length() {
     return false
   }

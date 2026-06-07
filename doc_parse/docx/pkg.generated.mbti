@@ -140,6 +140,7 @@ pub struct DocxDrawing {
   descr : String?
   title : String?
   media : DocxMediaRef?
+  alternate_media : Array[DocxMediaRef]
   text_box_ref : DocxTextBoxRef?
   child_inlines : Array[DocxInline]
 }
@@ -419,6 +420,7 @@ pub struct DocxSourceDrawing {
   descr : String?
   title : String?
   media : DocxSourceMediaRef?
+  alternate_media : Array[DocxSourceMediaRef]
   text_box_ref : DocxSourceTextBoxRef?
   child_inlines : Array[DocxSourceInline]
 }

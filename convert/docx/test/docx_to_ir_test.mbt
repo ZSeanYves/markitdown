@@ -146,7 +146,7 @@ fn generated_docx_package(
     "</w:body></w:document>"
   let entries : Array[(String, String)] = [
     (
-      "[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"png\" ContentType=\"image/png\"/><Default Extension=\"jpg\" ContentType=\"image/jpeg\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>",
+      "[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"png\" ContentType=\"image/png\"/><Default Extension=\"jpg\" ContentType=\"image/jpeg\"/><Default Extension=\"svg\" ContentType=\"image/svg+xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>",
     ),
     (
       "_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>",
@@ -493,6 +493,22 @@ test "docx lowering emits deterministic anchor hyperlink markdown" {
   assert_eq(
     @cor.emit_markdown(@docxir.lower_docx_document(docx)),
     "[Jump](#target)\n",
+  )
+}
+
+///|
+test "docx lowering composes external hyperlink target with anchor" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><w:t>Five with link to </w:t></w:r>" +
+    "<w:hyperlink r:id=\"rIdLink\" w:anchor=\"intro\"><w:r><w:t>http://foo.com#introduction</w:t></w:r></w:hyperlink>" +
+    "<w:r><w:t>.</w:t></w:r></w:p>",
+    "<Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"http://foo.com/\" TargetMode=\"External\"/>",
+    [],
+  )
+  let docx = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(
+    @cor.emit_markdown(@docxir.lower_docx_document(docx)),
+    "Five with link to [http://foo.com#introduction](http://foo.com/#intro).\n",
   )
 }
 
@@ -862,6 +878,68 @@ test "docx lowering appends resolved comment section" {
 }
 
 ///|
+test "docx lowering ignores note and comment body reference glyphs" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><w:t>Main</w:t><w:footnoteReference w:id=\"1\"/><w:endnoteReference w:id=\"2\"/><w:commentReference w:id=\"3\"/></w:r></w:p>",
+    "<Relationship Id=\"rIdFoot\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes\" Target=\"footnotes.xml\"/>" +
+    "<Relationship Id=\"rIdEnd\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes\" Target=\"endnotes.xml\"/>" +
+    "<Relationship Id=\"rIdComments\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"comments.xml\"/>",
+    [
+      (
+        "word/footnotes.xml", "<w:footnotes xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:footnote w:id=\"1\"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t> Footnote body</w:t></w:r></w:p></w:footnote></w:footnotes>",
+      ),
+      (
+        "word/endnotes.xml", "<w:endnotes xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:endnote w:id=\"2\"><w:p><w:r><w:endnoteRef/></w:r><w:r><w:t> Endnote body</w:t></w:r></w:p></w:endnote></w:endnotes>",
+      ),
+      (
+        "word/comments.xml", "<w:comments xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:comment w:id=\"3\" w:author=\"Alice\"><w:p><w:r><w:annotationRef/></w:r><w:r><w:t>Comment body</w:t></w:r></w:p></w:comment></w:comments>",
+      ),
+    ],
+  )
+  let docx = @docx.parse_docx_document_from_package(pkg)
+  assert_eq(
+    @cor.emit_markdown(@docxir.lower_docx_document(docx)),
+    "Main[^1][^e1] [comment 1]\n\n" +
+    "## Comments\n\n" +
+    "1. Alice: Comment body\n\n" +
+    "[^1]: Footnote body\n\n" +
+    "[^e1]: Endnote body\n",
+  )
+}
+
+///|
+test "docx lowering preserves rich comment links and exports inline images" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><w:t>Main</w:t><w:commentReference w:id=\"4\"/></w:r></w:p>",
+    "<Relationship Id=\"rIdComments\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"comments.xml\"/>",
+    [
+      (
+        "word/comments.xml",
+        "<w:comments xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:comment w:id=\"4\" w:author=\"Alice\"><w:p><w:r><w:annotationRef/></w:r><w:r><w:t xml:space=\"preserve\">Text with </w:t></w:r><w:hyperlink r:id=\"rIdLink\"><w:r><w:t>link</w:t></w:r></w:hyperlink><w:r><w:t xml:space=\"preserve\"> and </w:t></w:r><w:r>" +
+        generated_docx_image_xml("rIdImage", "", "") +
+        "</w:r><w:r><w:t>done.</w:t></w:r></w:p></w:comment></w:comments>",
+      ),
+      (
+        "word/_rels/comments.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com\" TargetMode=\"External\"/><Relationship Id=\"rIdImage\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image1.png\"/></Relationships>",
+      ),
+      ("word/media/image1.png", "png-bytes"),
+    ],
+  )
+  let docx = @docx.parse_docx_document_from_package(pkg)
+  let out_dir = fresh_docx_test_dir("rich_comment")
+  let lowered = @docxir.lower_docx_document_with_assets(docx, pkg, out_dir)
+  assert_eq(lowered.assets.length(), 1)
+  assert_eq(lowered.assets[0].path, "assets/image01.png")
+  assert_true(@fs.path_exists(out_dir + "/assets/image01.png"))
+  let markdown = @cor.emit_markdown(lowered.document)
+  assert_docx_contains(markdown, "Main [comment 1]")
+  assert_docx_contains(
+    markdown, "1. Alice: Text with [link](https://example.com) and done.",
+  )
+  assert_docx_contains(markdown, "![image](assets/image01.png)")
+}
+
+///|
 test "docx lowering duplicate refs produce one appendix entry" {
   let pkg = generated_docx_package(
     "<w:p><w:r><w:t>Main</w:t><w:footnoteReference w:id=\"1\"/><w:t> again </w:t><w:footnoteReference w:id=\"1\"/></w:r></w:p>",
@@ -1088,6 +1166,46 @@ test "docx asset lowering splits two images in one paragraph deterministically" 
 }
 
 ///|
+test "docx asset lowering exports svg companion without duplicate markdown image" {
+  let pkg = generated_docx_package(
+    "<w:p><w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\">" +
+    "<wp:docPr id=\"1\" name=\"Graphic 1\"/>" +
+    "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:graphicData>" +
+    "<pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:blipFill>" +
+    "<a:blip r:embed=\"rIdPng\"><a:extLst><a:ext><asvg:svgBlip xmlns:asvg=\"http://schemas.microsoft.com/office/drawing/2016/SVG/main\" r:embed=\"rIdSvg\"/></a:ext></a:extLst></a:blip>" +
+    "</pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>",
+    "<Relationship Id=\"rIdPng\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image1.png\"/>" +
+    "<Relationship Id=\"rIdSvg\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image2.svg\"/>",
+    [
+      ("word/media/image1.png", "png-bytes"),
+      ("word/media/image2.svg", "<svg/>"),
+    ],
+  )
+  let docx = @docx.parse_docx_document_from_package(pkg)
+  let out_dir = fresh_docx_test_dir("svg_companion")
+  let lowered = @docxir.lower_docx_document_with_assets(docx, pkg, out_dir)
+  assert_eq(lowered.assets.length(), 2)
+  assert_eq(lowered.assets[0].path, "assets/image01.png")
+  assert_eq(lowered.assets[1].path, "assets/image02.svg")
+  assert_eq(lowered.assets[1].source_part, "word/media/image2.svg")
+  assert_true(lowered.assets[1].content_type == Some("image/svg+xml"))
+  assert_true(lowered.assets[1].relationship_id == Some("rIdSvg"))
+  assert_true(@fs.path_exists(out_dir + "/assets/image01.png"))
+  assert_true(@fs.path_exists(out_dir + "/assets/image02.svg"))
+  assert_eq(
+    @cor.emit_markdown(lowered.document),
+    "![image](assets/image01.png)\n",
+  )
+  match lowered.document.asset_origins.val.get("assets/image02.svg") {
+    Some(origin) => {
+      assert_true(origin.relationship_id == Some("rIdSvg"))
+      assert_true(origin.source_path == Some("word/media/image2.svg"))
+    }
+    None => fail("expected svg companion asset origin")
+  }
+}
+
+///|
 test "docx asset lowering exports real sample image with alt and title" {
   let sample = resolve_docx_sample_path(
     "samples/main_process/docx/docx_image_alt_title.docx",
@@ -1143,10 +1261,7 @@ test "docx asset lowering exports table cell image while preserving alt text" {
   assert_eq(lowered.assets.length(), 1)
   assert_eq(lowered.assets[0].path, "assets/image01.png")
   assert_true(@fs.path_exists(out_dir + "/assets/image01.png"))
-  assert_eq(
-    @cor.emit_markdown(lowered.document),
-    "| Table image |\n| --- |\n",
-  )
+  assert_eq(@cor.emit_markdown(lowered.document), "| Table image |\n| --- |\n")
 }
 
 ///|
