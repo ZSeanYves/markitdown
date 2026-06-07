@@ -51,6 +51,41 @@ pub(all) enum XlsxFormulaPolicy {
 } derive(Eq)
 
 ///|
+/// Source-native worksheet hyperlink target classification.
+pub(all) enum XlsxHyperlinkKind {
+  External
+  Internal
+  Unknown
+} derive(Eq)
+
+///|
+/// Conservative classification of workbook defined names.
+pub(all) enum XlsxDefinedNameKind {
+  NamedRange
+  PrintArea
+  AutoFilter
+  FormulaLike
+  Unknown
+} derive(Eq)
+
+///|
+/// Typed unsupported XLSX features discoverable from workbook/sheet package
+/// relationships or low-risk XML markers.
+pub(all) enum XlsxUnsupportedFeatureKind {
+  Drawing
+  Chart
+  Image
+  PivotTable
+  VbaMacro
+  OleObject
+  ExternalLink
+  ThreadedComment
+  SheetProtection
+  WorkbookProtection
+  Unknown
+} derive(Eq)
+
+///|
 /// Parsed merged-cell range metadata without visual reconstruction.
 pub struct XlsxMergedRange {
   range_ref : String
@@ -68,6 +103,83 @@ pub struct XlsxComment {
   column : Int
   author_name : String?
   text : String
+}
+
+///|
+/// Source-native structured table metadata from `xl/tables/table*.xml`.
+pub struct XlsxTable {
+  table_id : String?
+  name : String?
+  display_name : String?
+  style_name : String?
+  auto_filter_ref : String?
+  header_row_visible : Bool
+  totals_row_visible : Bool
+  range_ref : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  header_row_count : Int
+  totals_row_count : Int
+  column_names : Array[String]
+  columns : Array[XlsxTableColumn]
+  sheet_name : String
+  source_part : String?
+  relationship_id : String?
+}
+
+///|
+/// Source-native structured table column metadata.
+pub struct XlsxTableColumn {
+  column_id : String?
+  name : String?
+  totals_row_function : String?
+  totals_row_label : String?
+}
+
+///|
+/// Source-native worksheet hyperlink metadata preserved from worksheet XML and
+/// sheet relationships.
+pub struct XlsxHyperlink {
+  reference : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  relationship_id : String?
+  target : String?
+  location : String?
+  tooltip : String?
+  display : String?
+  kind : XlsxHyperlinkKind
+  warning : String?
+}
+
+///|
+/// Workbook-level defined name or named-range metadata from `workbook.xml`.
+pub struct XlsxDefinedName {
+  name : String
+  text : String
+  sheet_scope : String?
+  sheet_scope_index : Int?
+  kind : XlsxDefinedNameKind
+  target_sheet : String?
+  target_range : String?
+  hidden : Bool
+  source : String
+}
+
+///|
+/// Typed unsupported source fact for validation and inspect-style tooling.
+pub struct XlsxUnsupportedFeature {
+  kind : XlsxUnsupportedFeatureKind
+  severity : XlsxValidationSeverity
+  sheet_name : String?
+  relationship_id : String?
+  part_target : String?
+  source : String
+  message : String
 }
 
 ///|
@@ -98,6 +210,7 @@ pub struct XlsxCell {
   style_index : Int
   num_format_id : Int
   formula_trace : XlsxFormulaTrace?
+  hyperlink : XlsxHyperlink?
   issues : Array[XlsxValidationIssue]
 }
 
@@ -115,7 +228,10 @@ pub struct XlsxSheet {
   cells : Array[XlsxCell]
   merged_ranges : Array[XlsxMergedRange]
   comments : Array[XlsxComment]
+  hyperlinks : Array[XlsxHyperlink]
+  tables : Array[XlsxTable]
   hidden_rows : Array[Int]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   used_min_row : Int
   used_min_col : Int
   used_max_row : Int
@@ -137,7 +253,9 @@ pub struct XlsxWorkbook {
   shared_strings : Array[String]
   styles : XlsxStyles
   uses_date_1904 : Bool
+  defined_names : Array[XlsxDefinedName]
   sheets : Array[XlsxSheet]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   issues : Array[XlsxValidationIssue]
 }
 
@@ -175,6 +293,20 @@ pub(all) enum XlsxValidationIssueKind {
   DuplicateSheetName
   MalformedSheetXml
   UnsupportedFormulaEvaluation
+  UnsupportedDrawing
+  UnsupportedChart
+  UnsupportedPivotTable
+  UnsupportedVbaMacro
+  UnsupportedOleObject
+  UnsupportedExternalLink
+  UnsupportedThreadedComment
+  UnsupportedSheetProtection
+  UnsupportedWorkbookProtection
+  MissingRelationshipTarget
+  LargeSheetTruncated
+  LargeSharedStrings
+  UnsupportedCellStyle
+  UnknownWorkbookPart
 } derive(Eq)
 
 ///|

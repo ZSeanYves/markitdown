@@ -439,6 +439,205 @@ fn write_xlsx_with_comments(path : String) -> Unit raise {
 }
 
 ///|
+fn write_hyperlink_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Links\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Name</t></is></c><c r=\"B1\" t=\"inlineStr\"><is><t>URL</t></is></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>Example</t></is></c><c r=\"B2\" t=\"inlineStr\"><is><t>Jump</t></is></c></row>" +
+    "</sheetData>" +
+    "<hyperlinks>" +
+    "<hyperlink ref=\"A2\" r:id=\"rIdLink\" tooltip=\"Open\" display=\"Example\"/>" +
+    "<hyperlink ref=\"B2\" location=\"Links!A1\" display=\"Jump\"/>" +
+    "</hyperlinks>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com\" TargetMode=\"External\"/>",
+  )
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
+fn write_table_defined_names_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Data Sheet\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "<definedNames>" +
+    "<definedName name=\"SalesRange\">'Data Sheet'!$A$1:$B$3</definedName>" +
+    "<definedName name=\"LocalRange\" localSheetId=\"0\">'Data Sheet'!$A$2:$A$3</definedName>" +
+    "<definedName name=\"_xlnm.Print_Area\" localSheetId=\"0\">'Data Sheet'!$A$1:$B$3</definedName>" +
+    "</definedNames>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Name</t></is></c><c r=\"B1\" t=\"inlineStr\"><is><t>Amount</t></is></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>Ada</t></is></c><c r=\"B2\"><v>10</v></c></row>" +
+    "<row r=\"3\"><c r=\"A3\" t=\"inlineStr\"><is><t>Lin</t></is></c><c r=\"B3\"><v>20</v></c></row>" +
+    "</sheetData>" +
+    "<tableParts count=\"1\"><tablePart r:id=\"rIdTable1\"/></tableParts>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdTable1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table\" Target=\"../tables/table1.xml\"/>",
+  )
+  let table_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<table xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" id=\"1\" name=\"SalesTable\" displayName=\"SalesTable\" ref=\"A1:B3\" headerRowCount=\"1\" totalsRowCount=\"1\">" +
+    "<autoFilter ref=\"A1:B3\"/>" +
+    "<tableColumns count=\"2\"><tableColumn id=\"1\" name=\"Name\" totalsRowLabel=\"Total\"/><tableColumn id=\"2\" name=\"Amount\" totalsRowFunction=\"sum\"/></tableColumns>" +
+    "<tableStyleInfo name=\"TableStyleMedium2\" showFirstColumn=\"0\" showLastColumn=\"0\" showRowStripes=\"1\" showColumnStripes=\"0\"/>" +
+    "</table>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/xl/tables/table1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ("xl/tables/table1.xml", table_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
+fn write_unsupported_features_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<workbookProtection lockStructure=\"1\"/>" +
+    "<sheets><sheet name=\"Unsupported\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
+    "<Relationship Id=\"rIdExternal\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink\" Target=\"externalLinks/externalLink1.xml\"/>" +
+    "<Relationship Id=\"rIdVba\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"vbaProject.bin\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetProtection sheet=\"1\"/>" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>ok</t></is></c></row></sheetData>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdDrawing\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing\" Target=\"../drawings/drawing1.xml\"/>" +
+    "<Relationship Id=\"rIdPivot\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable\" Target=\"../pivotTables/pivotTable1.xml\"/>",
+  )
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Default Extension=\"bin\" ContentType=\"application/octet-stream\"/>" +
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/xl/externalLinks/externalLink1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml\"/>" +
+        "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\"/>" +
+        "<Override PartName=\"/xl/pivotTables/pivotTable1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ("xl/externalLinks/externalLink1.xml", "<externalLink/>"),
+    ("xl/vbaProject.bin", "vba"),
+    ("xl/drawings/drawing1.xml", "<drawing/>"),
+    ("xl/pivotTables/pivotTable1.xml", "<pivotTableDefinition/>"),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
+fn write_large_hyperlink_range_xlsx(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"LargeLinks\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<dimension ref=\"A1:ALL2000\"/>" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Header</t></is></c></row>" +
+    "<row r=\"2000\"><c r=\"ALL2000\" t=\"inlineStr\"><is><t>Far Edge</t></is></c></row>" +
+    "</sheetData>" +
+    "<hyperlinks><hyperlink ref=\"A1:ALL2000\" r:id=\"rIdHuge\"/></hyperlinks>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdHuge\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com/huge\" TargetMode=\"External\"/>",
+  )
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
 fn write_huge_sparse_xlsx(path : String) -> Unit raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -658,6 +857,197 @@ test "xlsx comment parts emit conservative appendix blocks after table content" 
 }
 
 ///|
+test "xlsx hyperlinks render as markdown links from typed parser facts" {
+  let case_dir = test_tmp_root() + "/hyperlinks"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate hyperlinks case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/hyperlinks.xlsx"
+  write_hyperlink_xlsx(path) catch {
+    e => fail("write_hyperlink_xlsx failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  assert_eq(inspected.sheets[0].hyperlinks.length(), 2)
+  let mut saw_external = false
+  let mut saw_internal = false
+  for cell in inspected.sheets[0].cells {
+    if cell.reference == "A2" {
+      match cell.hyperlink {
+        Some(link) =>
+          if link.target == Some("https://example.com") {
+            saw_external = true
+          }
+        None => ()
+      }
+    } else if cell.reference == "B2" {
+      match cell.hyperlink {
+        Some(link) =>
+          if link.location == Some("Links!A1") {
+            saw_internal = true
+          }
+        None => ()
+      }
+    }
+  }
+  assert_true(saw_external)
+  assert_true(saw_internal)
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("[Example](https://example.com)"))
+  assert_true(markdown.contains("[Jump](#Links!A1)"))
+  match doc.block_origins.val[1] {
+    Some(origin) =>
+      match origin.key_path {
+        Some(key_path) => {
+          assert_true(key_path.contains("cell_links="))
+          assert_true(key_path.contains("cell=A2"))
+          assert_true(key_path.contains("kind=external"))
+          assert_true(key_path.contains("target=https://example.com"))
+          assert_true(key_path.contains("rid=rIdLink"))
+          assert_true(key_path.contains("display=Example"))
+          assert_true(key_path.contains("tooltip=Open"))
+          assert_true(key_path.contains("cell=B2"))
+          assert_true(key_path.contains("kind=internal"))
+          assert_true(key_path.contains("location=Links!A1"))
+        }
+        None => fail("xlsx hyperlink block origin should preserve link facts")
+      }
+    None => fail("xlsx hyperlink table block should have origin")
+  }
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx table and defined name facts stay inspect-visible without changing markdown" {
+  let case_dir = test_tmp_root() + "/tables-defined-names"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate tables case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/tables_defined_names.xlsx"
+  write_table_defined_names_xlsx(path) catch {
+    e => fail("write_table_defined_names_xlsx failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  assert_eq(inspected.defined_names.length(), 3)
+  assert_eq(inspected.sheets[0].tables.length(), 1)
+  let table = inspected.sheets[0].tables[0]
+  assert_eq(table.range_ref, "A1:B3")
+  assert_true(table.column_names == ["Name", "Amount"])
+  if table.style_name != Some("TableStyleMedium2") {
+    fail("converter inspect should mirror table style name")
+  }
+  if table.auto_filter_ref != Some("A1:B3") {
+    fail("converter inspect should mirror table auto filter range")
+  }
+  assert_true(table.header_row_visible)
+  assert_true(table.totals_row_visible)
+  assert_eq(table.columns.length(), 2)
+  if table.columns[0].totals_row_label != Some("Total") {
+    fail("converter inspect should mirror table column totals label")
+  }
+  if table.columns[1].totals_row_function != Some("sum") {
+    fail("converter inspect should mirror table column totals function")
+  }
+  assert_true(inspected.sheets[0].defined_names.length() >= 2)
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("| Name | Amount |"))
+  assert_true(markdown.contains("| Ada | 10 |"))
+  assert_true(!markdown.contains("SalesTable"))
+  match doc.block_origins.val[1] {
+    Some(origin) =>
+      match origin.key_path {
+        Some(key_path) => {
+          assert_true(key_path.contains("tables=name=SalesTable"))
+          assert_true(key_path.contains("ref=A1:B3"))
+          assert_true(key_path.contains("style=TableStyleMedium2"))
+          assert_true(key_path.contains("filter=A1:B3"))
+          assert_true(key_path.contains("headers=true"))
+          assert_true(key_path.contains("totals=true"))
+          assert_true(key_path.contains("columns=Name/Amount"))
+          assert_true(key_path.contains("defined_names=name=SalesRange"))
+          assert_true(key_path.contains("range=A1:B3"))
+        }
+        None => fail("xlsx table block origin should preserve table/name facts")
+      }
+    None => fail("xlsx table block should have origin")
+  }
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx unsupported structure facts stay inspect-visible without changing markdown" {
+  let case_dir = test_tmp_root() + "/unsupported-features"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate unsupported features case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/unsupported_features.xlsx"
+  write_unsupported_features_xlsx(path) catch {
+    e => fail("write_unsupported_features_xlsx failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  let mut saw_workbook_vba = false
+  let mut saw_workbook_external = false
+  for feature in inspected.unsupported_features {
+    if feature.relationship_id == Some("rIdVba") &&
+      feature.source.contains("vbaProject") {
+      saw_workbook_vba = true
+    } else if feature.relationship_id == Some("rIdExternal") &&
+      feature.source.contains("externalLink") {
+      saw_workbook_external = true
+    }
+  }
+  assert_true(saw_workbook_vba)
+  assert_true(saw_workbook_external)
+
+  let sheet = inspected.sheets[0]
+  let mut saw_sheet_protection = false
+  let mut saw_drawing = false
+  let mut saw_pivot = false
+  for feature in sheet.unsupported_features {
+    if feature.message.contains("sheet protection") {
+      saw_sheet_protection = true
+    } else if feature.relationship_id == Some("rIdDrawing") &&
+      feature.source.contains("drawing") {
+      saw_drawing = true
+    } else if feature.relationship_id == Some("rIdPivot") &&
+      feature.source.contains("pivotTable") {
+      saw_pivot = true
+    }
+  }
+  assert_true(saw_sheet_protection)
+  assert_true(saw_drawing)
+  assert_true(saw_pivot)
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("| ok |"))
+  assert_true(!markdown.contains("unsupported sheet relationship"))
+  match doc.block_origins.val[1] {
+    Some(origin) =>
+      match origin.key_path {
+        Some(key_path) => {
+          assert_true(key_path.contains("unsupported="))
+          assert_true(key_path.contains("kind=sheet_protection"))
+          assert_true(key_path.contains("kind=drawing"))
+          assert_true(key_path.contains("kind=pivot_table"))
+        }
+        None => fail("xlsx origin should preserve unsupported structure facts")
+      }
+    None => fail("xlsx unsupported feature table block should have origin")
+  }
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
 test "xlsx profile disabled returns no report for normal parse" {
   let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_XLSX")
   defer restore_env_var("MARKITDOWN_PROFILE_XLSX", prev_enabled)
@@ -713,6 +1103,37 @@ test "xlsx huge sparse sheet uses bounded fallback instead of dense RichTable" {
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("- A1 (row=1 col=1): Header"))
   assert_true(markdown.contains("- ALL2000 (row=2000 col=1000): Far Edge"))
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx large hyperlink ranges stay bounded while preserving sheet fact" {
+  let case_dir = test_tmp_root() + "/large-hyperlink-range"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate large hyperlink case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/large_hyperlink_range.xlsx"
+  write_large_hyperlink_range_xlsx(path) catch {
+    e => fail("write_large_hyperlink_range_xlsx failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  assert_eq(inspected.sheets[0].hyperlinks.length(), 1)
+  assert_eq(inspected.sheets[0].hyperlinks[0].reference, "A1:ALL2000")
+  for cell in inspected.sheets[0].cells {
+    if cell.reference == "A1" || cell.reference == "ALL2000" {
+      match cell.hyperlink {
+        Some(_) => fail("large hyperlink range should not expand to cells")
+        None => ()
+      }
+    }
+  }
+
+  let doc = @xlsx.parse_xlsx(path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("large sparse sheet"))
+  assert_true(!markdown.contains("[Header](https://example.com/huge)"))
 
   cleanup_temp_dir(case_dir)
 }

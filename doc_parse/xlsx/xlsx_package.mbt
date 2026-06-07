@@ -122,6 +122,14 @@ fn parse_xlsx_workbook_from_package_with_profile(
     sheet_infos_started,
     Some("count=" + sheet_infos.length().to_string()),
   )
+  let defined_names_started = xlsx_parse_profile_stage_started(profile)
+  let defined_names = parse_workbook_defined_names(workbook_xml, sheet_infos)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "defined_names",
+    defined_names_started,
+    Some("count=" + defined_names.length().to_string()),
+  )
   let sheets : Array[XlsxSheet] = []
 
   for info in sheet_infos {
@@ -212,8 +220,19 @@ fn parse_xlsx_workbook_from_package_with_profile(
       Some("bytes=" + sheet_xml.length().to_string()),
     )
 
+    let sheet_relationships_started = xlsx_parse_profile_stage_started(profile)
+    let sheet_relationships = read_sheet_relationships(pkg, normalized_target)
+    xlsx_parse_profile_stage_finished(
+      profile,
+      "sheet:" + info.name + ":relationships",
+      sheet_relationships_started,
+      Some("relationships=" + sheet_relationships.length().to_string()),
+    )
+
     let comments_started = xlsx_parse_profile_stage_started(profile)
-    let comments = read_sheet_comments(pkg, normalized_target)
+    let comments = read_sheet_comments_from_relationships(
+      pkg, sheet_relationships,
+    )
     xlsx_parse_profile_stage_finished(
       profile,
       "sheet:" + info.name + ":comments",
@@ -222,6 +241,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
     )
 
     let sheet = parse_sheet_model(
+      pkg,
       info.name,
       info.sheet_id,
       Some(info.relationship_id),
@@ -229,6 +249,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
       Some(normalized_target),
       info.state,
       sheet_xml,
+      sheet_relationships,
       comments,
       shared_strings,
       styles,
@@ -239,7 +260,19 @@ fn parse_xlsx_workbook_from_package_with_profile(
   }
 
   let issues_started = xlsx_parse_profile_stage_started(profile)
-  let issues = workbook_level_issues(sheets)
+  let workbook_relationships = read_workbook_relationships(pkg)
+  let unsupported_features = workbook_unsupported_features(
+    pkg, workbook_xml, workbook_relationships,
+  )
+  let issues = workbook_level_issues(
+    pkg,
+    workbook_relationships,
+    unsupported_features,
+    shared_strings,
+    defined_names.length(),
+    sheet_infos.length(),
+    sheets,
+  )
   xlsx_parse_profile_stage_finished(
     profile,
     "workbook_issues",
@@ -247,18 +280,41 @@ fn parse_xlsx_workbook_from_package_with_profile(
     Some("count=" + issues.length().to_string()),
   )
 
-  { shared_strings, styles, uses_date_1904, sheets, issues }
+  {
+    shared_strings,
+    styles,
+    uses_date_1904,
+    defined_names,
+    sheets,
+    unsupported_features,
+    issues,
+  }
 }
 
 ///|
-fn read_sheet_comments(
+fn read_workbook_relationships(
+  pkg : @ox.OoxmlPackage,
+) -> Array[@ox.OoxmlRelationship] {
+  @ox.read_part_relationships(pkg, "xl/workbook.xml") catch {
+    _ => []
+  }
+}
+
+///|
+fn read_sheet_relationships(
   pkg : @ox.OoxmlPackage,
   sheet_part : String,
-) -> Array[XlsxComment] {
-  let rels = @ox.read_part_relationships(pkg, sheet_part) catch {
-    _ => return []
+) -> Array[@ox.OoxmlRelationship] {
+  @ox.read_part_relationships(pkg, sheet_part) catch {
+    _ => []
   }
+}
 
+///|
+fn read_sheet_comments_from_relationships(
+  pkg : @ox.OoxmlPackage,
+  rels : Array[@ox.OoxmlRelationship],
+) -> Array[XlsxComment] {
   for rel in rels {
     if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
       (
@@ -308,6 +364,12 @@ pub fn classify_xlsx_error(err : XlsxError) -> XlsxErrorInfo {
 
 ///|
 fn workbook_level_issues(
+  pkg : @ox.OoxmlPackage,
+  workbook_relationships : Array[@ox.OoxmlRelationship],
+  unsupported_features : Array[XlsxUnsupportedFeature],
+  shared_strings : Array[String],
+  defined_name_count : Int,
+  sheet_count : Int,
   sheets : Array[XlsxSheet],
 ) -> Array[XlsxValidationIssue] {
   let issues : Array[XlsxValidationIssue] = []
@@ -332,7 +394,399 @@ fn workbook_level_issues(
     }
   }
 
+  issues.append(
+    validation_issues_from_unsupported_features(unsupported_features),
+  )
+
+  for rel in workbook_relationships {
+    if workbook_relationship_feature_kind(rel.rel_type) == None &&
+      !is_supported_sheet_relationship(Some(rel.rel_type)) &&
+      rel.target_mode == @ox.OoxmlTargetMode::Internal &&
+      rel.resolved_target != "" &&
+      !@ox.has_part(pkg, rel.resolved_target) {
+      issues.push(
+        workbook_issue(
+          XlsxValidationIssueKind::MissingRelationshipTarget,
+          XlsxValidationSeverity::Warning,
+          Some(rel.resolved_target),
+          "relationship target is missing: " + rel.id,
+        ),
+      )
+    }
+  }
+
+  if shared_strings.length() > xlsx_large_shared_strings_warning_threshold() {
+    issues.push(
+      workbook_issue(
+        XlsxValidationIssueKind::LargeSharedStrings,
+        XlsxValidationSeverity::Warning,
+        Some("xl/sharedStrings.xml"),
+        "large sharedStrings count: " + shared_strings.length().to_string(),
+      ),
+    )
+  }
+
+  let (shared_string_bytes, longest_shared_string) = shared_string_size_stats(
+    shared_strings,
+  )
+  if shared_string_bytes > xlsx_large_shared_string_bytes_warning_threshold() {
+    issues.push(
+      workbook_issue(
+        XlsxValidationIssueKind::LargeSharedStrings,
+        XlsxValidationSeverity::Warning,
+        Some("xl/sharedStrings.xml"),
+        "large sharedStrings text bytes: " + shared_string_bytes.to_string(),
+      ),
+    )
+  }
+  if longest_shared_string > xlsx_long_shared_string_warning_threshold() {
+    issues.push(
+      workbook_issue(
+        XlsxValidationIssueKind::LargeSharedStrings,
+        XlsxValidationSeverity::Warning,
+        Some("xl/sharedStrings.xml"),
+        "long shared string length: " + longest_shared_string.to_string(),
+      ),
+    )
+  }
+
+  if sheet_count > xlsx_many_sheets_warning_threshold() {
+    issues.push(
+      workbook_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        Some("xl/workbook.xml"),
+        "large workbook sheet count: " + sheet_count.to_string(),
+      ),
+    )
+  }
+
+  if defined_name_count > xlsx_many_defined_names_warning_threshold() {
+    issues.push(
+      workbook_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        Some("xl/workbook.xml"),
+        "large defined name count: " + defined_name_count.to_string(),
+      ),
+    )
+  }
+
   issues
+}
+
+///|
+fn shared_string_size_stats(shared_strings : Array[String]) -> (Int, Int) {
+  let mut total = 0
+  let mut longest = 0
+  for text in shared_strings {
+    total += text.length()
+    if text.length() > longest {
+      longest = text.length()
+    }
+  }
+  (total, longest)
+}
+
+///|
+fn workbook_unsupported_features(
+  pkg : @ox.OoxmlPackage,
+  workbook_xml : String,
+  workbook_relationships : Array[@ox.OoxmlRelationship],
+) -> Array[XlsxUnsupportedFeature] {
+  let features : Array[XlsxUnsupportedFeature] = []
+  if find_sub(workbook_xml, "<workbookProtection", 0) != None {
+    features.push({
+      kind: XlsxUnsupportedFeatureKind::WorkbookProtection,
+      severity: XlsxValidationSeverity::Warning,
+      sheet_name: None,
+      relationship_id: None,
+      part_target: Some("xl/workbook.xml"),
+      source: "xl/workbook.xml",
+      message: "workbook protection is preserved only as an unsupported warning",
+    })
+  }
+  for rel in workbook_relationships {
+    match workbook_relationship_feature_kind(rel.rel_type) {
+      Some(kind) => {
+        features.push({
+          kind,
+          severity: XlsxValidationSeverity::Warning,
+          sheet_name: None,
+          relationship_id: Some(rel.id),
+          part_target: Some(rel.resolved_target),
+          source: rel.rel_type,
+          message: "unsupported workbook relationship " +
+          rel.id +
+          ": " +
+          rel.rel_type,
+        })
+        if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
+          rel.resolved_target != "" &&
+          !@ox.has_part(pkg, rel.resolved_target) {
+          features.push({
+            kind: XlsxUnsupportedFeatureKind::Unknown,
+            severity: XlsxValidationSeverity::Warning,
+            sheet_name: None,
+            relationship_id: Some(rel.id),
+            part_target: Some(rel.resolved_target),
+            source: rel.rel_type,
+            message: "relationship target is missing: " + rel.id,
+          })
+        }
+      }
+      None => ()
+    }
+  }
+  features
+}
+
+///|
+fn workbook_relationship_feature_kind(
+  rel_type : String,
+) -> XlsxUnsupportedFeatureKind? {
+  if rel_type.has_suffix("/externalLink") ||
+    rel_type.contains("relationships/externalLink") {
+    Some(XlsxUnsupportedFeatureKind::ExternalLink)
+  } else if rel_type.has_suffix("/vbaProject") ||
+    rel_type.contains("relationships/vbaProject") {
+    Some(XlsxUnsupportedFeatureKind::VbaMacro)
+  } else if rel_type.has_suffix("/oleObject") ||
+    rel_type.contains("relationships/oleObject") {
+    Some(XlsxUnsupportedFeatureKind::OleObject)
+  } else {
+    None
+  }
+}
+
+///|
+fn workbook_issue(
+  kind : XlsxValidationIssueKind,
+  severity : XlsxValidationSeverity,
+  part_target : String?,
+  message : String,
+) -> XlsxValidationIssue {
+  {
+    kind,
+    severity,
+    sheet_name: None,
+    cell_reference: None,
+    part_target,
+    message,
+  }
+}
+
+///|
+fn parse_workbook_defined_names(
+  workbook_xml : String,
+  sheet_infos : Array[SheetInfo],
+) -> Array[XlsxDefinedName] {
+  let out : Array[XlsxDefinedName] = []
+  let mut pos = 0
+
+  while true {
+    let dn0 = find_exact_start_tag(workbook_xml, "definedName", pos)
+    match dn0 {
+      None => break
+      Some(i0) => {
+        let dn1 = find_sub(workbook_xml, ">", i0)
+        match dn1 {
+          None => break
+          Some(i1) => {
+            let tag = workbook_xml[i0:i1 + 1].to_owned()
+            let end0 = find_sub(workbook_xml, "</definedName>", i1 + 1)
+            match end0 {
+              None => break
+              Some(end1) => {
+                let name = xml_unescape(get_attr(tag, "name").unwrap_or(""))
+                let text = xml_unescape(workbook_xml[i1 + 1:end1].to_owned())
+                let local_idx_raw = get_attr(tag, "localSheetId").unwrap_or("")
+                let local_idx = parse_int(local_idx_raw)
+                let sheet_scope_index = if local_idx >= 0 {
+                  Some(local_idx)
+                } else {
+                  None
+                }
+                let sheet_scope = match sheet_scope_index {
+                  Some(idx) =>
+                    if idx >= 0 && idx < sheet_infos.length() {
+                      Some(sheet_infos[idx].name)
+                    } else {
+                      None
+                    }
+                  None => None
+                }
+                let hidden_raw = get_attr(tag, "hidden").unwrap_or("")
+                let hidden = hidden_raw == "1" ||
+                  hidden_raw == "true" ||
+                  hidden_raw == "TRUE"
+                let (target_sheet, target_range) = parse_defined_name_target(
+                  text,
+                )
+                out.push({
+                  name,
+                  text,
+                  sheet_scope,
+                  sheet_scope_index,
+                  kind: defined_name_kind(
+                    name, text, target_sheet, target_range,
+                  ),
+                  target_sheet,
+                  target_range,
+                  hidden,
+                  source: "xl/workbook.xml",
+                })
+                pos = end1 + 14
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  out
+}
+
+///|
+fn defined_name_kind(
+  name : String,
+  text : String,
+  target_sheet : String?,
+  target_range : String?,
+) -> XlsxDefinedNameKind {
+  if name == "_xlnm.Print_Area" || name.has_suffix(".Print_Area") {
+    XlsxDefinedNameKind::PrintArea
+  } else if name == "_xlnm._FilterDatabase" ||
+    name.has_suffix("._FilterDatabase") {
+    XlsxDefinedNameKind::AutoFilter
+  } else if target_sheet != None && target_range != None {
+    XlsxDefinedNameKind::NamedRange
+  } else if defined_name_text_is_formula_like(text) {
+    XlsxDefinedNameKind::FormulaLike
+  } else {
+    XlsxDefinedNameKind::Unknown
+  }
+}
+
+///|
+fn defined_name_text_is_formula_like(text : String) -> Bool {
+  let t = text.trim()
+  t.contains("(") ||
+  t.contains("+") ||
+  t.contains("-") ||
+  t.contains("*") ||
+  t.contains("/") ||
+  t.contains(",")
+}
+
+///|
+fn parse_defined_name_target(text : String) -> (String?, String?) {
+  let t = text.trim().to_owned()
+  if t == "" || t.contains(",") || t.contains("[") || t.contains("]") {
+    return (None, None)
+  }
+  let bang = find_last_char(t, '!')
+  match bang {
+    None => (None, None)
+    Some(idx) => {
+      let raw_sheet = t[:idx].to_owned()
+      let raw_range = t[idx + 1:].to_owned()
+      let range_ref = normalize_xlsx_range_ref(raw_range)
+      if xlsx_range_ref_is_simple(range_ref) {
+        (Some(normalize_defined_name_sheet(raw_sheet)), Some(range_ref))
+      } else {
+        (None, None)
+      }
+    }
+  }
+}
+
+///|
+fn xlsx_range_ref_is_simple(range_ref : String) -> Bool {
+  let parts : Array[String] = []
+  for part in range_ref.split(":") {
+    parts.push(part.to_owned())
+  }
+  if parts.length() == 1 {
+    xlsx_cell_ref_is_simple(parts[0])
+  } else if parts.length() == 2 {
+    xlsx_cell_ref_is_simple(parts[0]) && xlsx_cell_ref_is_simple(parts[1])
+  } else {
+    false
+  }
+}
+
+///|
+fn xlsx_cell_ref_is_simple(ref_text : String) -> Bool {
+  let text = ref_text.trim()
+  if text == "" {
+    return false
+  }
+  let chars = text.to_array()
+  let mut i = 0
+  let mut saw_col = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+      saw_col = true
+      i += 1
+    } else {
+      break
+    }
+  }
+  if !saw_col {
+    return false
+  }
+  let mut saw_row = false
+  while i < chars.length() {
+    let ch = chars[i]
+    if ch >= '0' && ch <= '9' {
+      saw_row = true
+      i += 1
+    } else {
+      return false
+    }
+  }
+  saw_row
+}
+
+///|
+fn normalize_defined_name_sheet(text : String) -> String {
+  let trimmed = text.trim().to_owned()
+  if trimmed.length() >= 2 && trimmed.has_prefix("'") && trimmed.has_suffix("'") {
+    trimmed[1:trimmed.length() - 1].to_owned().replace(old="''", new="'")
+  } else {
+    trimmed
+  }
+}
+
+///|
+fn normalize_xlsx_range_ref(text : String) -> String {
+  let chars = text.trim().to_array()
+  let out : Array[Char] = []
+  for ch in chars {
+    if ch != '$' {
+      out.push(ch)
+    }
+  }
+  String::from_array(out)
+}
+
+///|
+fn find_last_char(text : String, needle : Char) -> Int? {
+  let chars = text.to_array()
+  let mut found = -1
+  for i in 0..<chars.length() {
+    if chars[i] == needle {
+      found = i
+    }
+  }
+  if found < 0 {
+    None
+  } else {
+    Some(found)
+  }
 }
 
 ///|

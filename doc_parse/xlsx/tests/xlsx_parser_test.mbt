@@ -351,6 +351,333 @@ fn generated_xlsx_pkg_with_self_closing_blank_cells() -> @ox.OoxmlPackage raise 
 }
 
 ///|
+fn generated_xlsx_pkg_with_hyperlinks() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Links\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Example</t></is></c></row>" +
+    "<row r=\"2\"><c r=\"B2\" t=\"inlineStr\"><is><t>Jump</t></is></c></row>" +
+    "<row r=\"3\"><c r=\"C3\" t=\"inlineStr\"><is><t>Broken</t></is></c></row>" +
+    "</sheetData>" +
+    "<hyperlinks>" +
+    "<hyperlink ref=\"A1\" r:id=\"rIdLink\" tooltip=\"Open\" display=\"Example\"/>" +
+    "<hyperlink ref=\"B2\" location=\"Links!A1\" display=\"Jump\"/>" +
+    "<hyperlink ref=\"C3\" r:id=\"rIdMissing\"/>" +
+    "</hyperlinks>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdLink\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com\" TargetMode=\"External\"/>",
+  )
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+  )
+}
+
+///|
+fn generated_xlsx_pkg_with_unsupported_relationships() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<workbookProtection lockStructure=\"1\"/>" +
+    "<sheets><sheet name=\"Unsupported\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
+    "<Relationship Id=\"rIdExternal\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink\" Target=\"externalLinks/externalLink1.xml\"/>" +
+    "<Relationship Id=\"rIdVba\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"vbaProject.bin\"/>" +
+    "<Relationship Id=\"rIdOle\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject\" Target=\"embeddings/oleObject1.bin\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetProtection sheet=\"1\"/>" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>ok</t></is></c></row></sheetData>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdDrawing\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing\" Target=\"../drawings/drawing1.xml\"/>" +
+    "<Relationship Id=\"rIdChart\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/>" +
+    "<Relationship Id=\"rIdImage\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/image1.png\"/>" +
+    "<Relationship Id=\"rIdPivot\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable\" Target=\"../pivotTables/pivotTable1.xml\"/>" +
+    "<Relationship Id=\"rIdThreaded\" Type=\"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment\" Target=\"../threadedComments/threadedComment1.xml\"/>",
+  )
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+      ("xl/externalLinks/externalLink1.xml", "<externalLink/>"),
+      ("xl/vbaProject.bin", "vba"),
+      ("xl/embeddings/oleObject1.bin", "ole"),
+      ("xl/drawings/drawing1.xml", "<drawing/>"),
+      ("xl/charts/chart1.xml", "<chartSpace/>"),
+      ("xl/media/image1.png", "png"),
+      ("xl/pivotTables/pivotTable1.xml", "<pivotTableDefinition/>"),
+      ("xl/threadedComments/threadedComment1.xml", "<threadedComments/>"),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Default Extension=\"bin\" ContentType=\"application/octet-stream\"/>" +
+    "<Default Extension=\"png\" ContentType=\"image/png\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/externalLinks/externalLink1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml\"/>" +
+    "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\"/>" +
+    "<Override PartName=\"/xl/charts/chart1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/>" +
+    "<Override PartName=\"/xl/pivotTables/pivotTable1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml\"/>" +
+    "<Override PartName=\"/xl/threadedComments/threadedComment1.xml\" ContentType=\"application/vnd.ms-excel.threadedcomments+xml\"/>",
+  )
+}
+
+///|
+fn generated_xlsx_pkg_with_tables_and_defined_names() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Data Sheet\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "<definedNames>" +
+    "<definedName name=\"SalesRange\">'Data Sheet'!$A$1:$B$3</definedName>" +
+    "<definedName name=\"LocalRange\" localSheetId=\"0\">'Data Sheet'!$A$2:$A$3</definedName>" +
+    "<definedName name=\"_xlnm.Print_Area\" localSheetId=\"0\">'Data Sheet'!$A$1:$B$3</definedName>" +
+    "<definedName name=\"ComplexFormula\" hidden=\"1\">SUM('Data Sheet'!$B$2:$B$3)</definedName>" +
+    "</definedNames>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Name</t></is></c><c r=\"B1\" t=\"inlineStr\"><is><t>Amount</t></is></c></row>" +
+    "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>Ada</t></is></c><c r=\"B2\"><v>10</v></c></row>" +
+    "<row r=\"3\"><c r=\"A3\" t=\"inlineStr\"><is><t>Lin</t></is></c><c r=\"B3\"><v>20</v></c></row>" +
+    "</sheetData>" +
+    "<tableParts count=\"1\"><tablePart r:id=\"rIdTable1\"/></tableParts>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdTable1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table\" Target=\"../tables/table1.xml\"/>",
+  )
+  let table_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<table xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" id=\"1\" name=\"SalesTable\" displayName=\"SalesTable\" ref=\"A1:B3\" headerRowCount=\"1\" totalsRowCount=\"1\">" +
+    "<autoFilter ref=\"A1:B3\"/>" +
+    "<tableColumns count=\"2\">" +
+    "<tableColumn id=\"1\" name=\"Name\" totalsRowLabel=\"Total\"/>" +
+    "<tableColumn id=\"2\" name=\"Amount\" totalsRowFunction=\"sum\"/>" +
+    "</tableColumns>" +
+    "<tableStyleInfo name=\"TableStyleMedium2\" showFirstColumn=\"0\" showLastColumn=\"0\" showRowStripes=\"1\" showColumnStripes=\"0\"/>" +
+    "</table>"
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+      ("xl/tables/table1.xml", table_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/tables/table1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml\"/>",
+  )
+}
+
+///|
+fn generated_xlsx_pkg_with_broken_table_relationship() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"BrokenTable\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>ok</t></is></c></row></sheetData>" +
+    "<tableParts count=\"1\"><tablePart r:id=\"rIdMissingTable\"/></tableParts>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdMissingTable\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table\" Target=\"../tables/missing.xml\"/>",
+  )
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+  )
+}
+
+///|
+fn repeated_shared_strings(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    if i == 0 {
+      items.push("<si><t>" + repeat_text("x", 1001) + "</t></si>")
+    } else {
+      items.push("<si><t>shared-string-" + i.to_string() + "-payload</t></si>")
+    }
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"" +
+  count.to_string() +
+  "\" uniqueCount=\"" +
+  count.to_string() +
+  "\">" +
+  items.join("") +
+  "</sst>"
+}
+
+///|
+fn repeat_text(piece : String, count : Int) -> String {
+  let parts : Array[String] = []
+  for _ in 0..<count {
+    parts.push(piece)
+  }
+  parts.join("")
+}
+
+///|
+fn repeated_defined_names(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    items.push(
+      "<definedName name=\"Name" +
+      i.to_string() +
+      "\">Sheet1!$A$1</definedName>",
+    )
+  }
+  "<definedNames>" + items.join("") + "</definedNames>"
+}
+
+///|
+fn repeated_inline_rows(count : Int) -> String {
+  let rows : Array[String] = []
+  for i in 0..<count {
+    let row = i + 1
+    rows.push(
+      "<row r=\"" +
+      row.to_string() +
+      "\"><c r=\"A" +
+      row.to_string() +
+      "\" t=\"inlineStr\"><is><t>v" +
+      row.to_string() +
+      "</t></is></c></row>",
+    )
+  }
+  rows.join("")
+}
+
+///|
+fn repeated_internal_hyperlinks(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let row = i + 1
+    items.push(
+      "<hyperlink ref=\"A" + row.to_string() + "\" location=\"Sheet1!A1\"/>",
+    )
+  }
+  "<hyperlinks>" + items.join("") + "</hyperlinks>"
+}
+
+///|
+fn repeated_table_relationships(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<Relationship Id=\"rIdTable" +
+      n.to_string() +
+      "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table\" Target=\"../tables/table" +
+      n.to_string() +
+      ".xml\"/>",
+    )
+  }
+  items.join("")
+}
+
+///|
+fn repeated_table_entries(count : Int) -> Array[(String, String)] {
+  let entries : Array[(String, String)] = []
+  for i in 0..<count {
+    let n = i + 1
+    let table_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<table xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" id=\"" +
+      n.to_string() +
+      "\" name=\"T" +
+      n.to_string() +
+      "\" displayName=\"T" +
+      n.to_string() +
+      "\" ref=\"A1:A1\"><tableColumns count=\"1\"><tableColumn id=\"1\" name=\"Value\"/></tableColumns></table>"
+    entries.push(("xl/tables/table" + n.to_string() + ".xml", table_xml))
+  }
+  entries
+}
+
+///|
+fn repeated_table_overrides(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<Override PartName=\"/xl/tables/table" +
+      n.to_string() +
+      ".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml\"/>",
+    )
+  }
+  items.join("")
+}
+
+///|
+fn generated_xlsx_pkg_with_guard_edges() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    repeated_defined_names(101) +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let table_count = 101
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<dimension ref=\"A1:ALL2000\"/>" +
+    "<sheetData>" +
+    repeated_inline_rows(1001) +
+    "</sheetData>" +
+    repeated_internal_hyperlinks(1001) +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    repeated_table_relationships(table_count),
+  )
+  let extra_entries : Array[(String, String)] = [
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ("xl/sharedStrings.xml", repeated_shared_strings(1001)),
+  ]
+  extra_entries.append(repeated_table_entries(table_count))
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    extra_entries,
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>" +
+    repeated_table_overrides(table_count),
+  )
+}
+
+///|
 fn generated_xlsx_pkg_with_validation_edges() -> @ox.OoxmlPackage raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -777,6 +1104,344 @@ test "xlsx semantic workbook preserves worksheet comments with author and cell r
   assert_eq(workbook.sheets[0].comments[1].row, 2)
   assert_eq(workbook.sheets[0].comments[1].column, 1)
   assert_eq(workbook.sheets[0].comments[1].text, "Second insight")
+}
+
+///|
+test "xlsx semantic workbook preserves worksheet hyperlink facts" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_hyperlinks(),
+  )
+  assert_eq(workbook.sheets.length(), 1)
+  let sheet = workbook.sheets[0]
+  assert_eq(sheet.hyperlinks.length(), 3)
+
+  let external = sheet.hyperlinks[0]
+  assert_eq(external.reference, "A1")
+  if external.kind != @xlsx.XlsxHyperlinkKind::External {
+    fail("A1 hyperlink should be external")
+  }
+  if external.target != Some("https://example.com") {
+    fail("A1 hyperlink should preserve external target")
+  }
+  if external.relationship_id != Some("rIdLink") {
+    fail("A1 hyperlink should preserve relationship id")
+  }
+  if external.tooltip != Some("Open") {
+    fail("A1 hyperlink should preserve tooltip")
+  }
+
+  let internal = sheet.hyperlinks[1]
+  assert_eq(internal.reference, "B2")
+  if internal.kind != @xlsx.XlsxHyperlinkKind::Internal {
+    fail("B2 hyperlink should be internal")
+  }
+  if internal.location != Some("Links!A1") {
+    fail("B2 hyperlink should preserve internal location")
+  }
+
+  let mut saw_a1_cell_link = false
+  let mut saw_b2_cell_link = false
+  for cell in sheet.cells {
+    if cell.reference == "A1" {
+      match cell.hyperlink {
+        Some(link) =>
+          if link.target == Some("https://example.com") {
+            saw_a1_cell_link = true
+          }
+        None => ()
+      }
+    } else if cell.reference == "B2" {
+      match cell.hyperlink {
+        Some(link) =>
+          if link.location == Some("Links!A1") {
+            saw_b2_cell_link = true
+          }
+        None => ()
+      }
+    }
+  }
+  assert_true(saw_a1_cell_link)
+  assert_true(saw_b2_cell_link)
+
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_missing_rel = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::MissingRelationshipTarget {
+      saw_missing_rel = true
+    }
+  }
+  assert_true(saw_missing_rel)
+}
+
+///|
+test "xlsx semantic warning taxonomy records unsupported workbook and sheet structures" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_unsupported_relationships(),
+  )
+  let mut saw_workbook_external_fact = false
+  let mut saw_workbook_vba_fact = false
+  let mut saw_workbook_ole_fact = false
+  let mut saw_workbook_protection_fact = false
+  for feature in workbook.unsupported_features {
+    if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::ExternalLink &&
+      feature.relationship_id == Some("rIdExternal") {
+      saw_workbook_external_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::VbaMacro &&
+      feature.relationship_id == Some("rIdVba") {
+      saw_workbook_vba_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::OleObject &&
+      feature.relationship_id == Some("rIdOle") {
+      saw_workbook_ole_fact = true
+    } else if feature.kind ==
+      @xlsx.XlsxUnsupportedFeatureKind::WorkbookProtection {
+      saw_workbook_protection_fact = true
+    }
+  }
+  assert_true(saw_workbook_external_fact)
+  assert_true(saw_workbook_vba_fact)
+  assert_true(saw_workbook_ole_fact)
+  assert_true(saw_workbook_protection_fact)
+
+  let sheet = workbook.sheets[0]
+  let mut saw_sheet_protection_fact = false
+  let mut saw_drawing_fact = false
+  let mut saw_chart_fact = false
+  let mut saw_image_fact = false
+  let mut saw_pivot_fact = false
+  let mut saw_threaded_fact = false
+  for feature in sheet.unsupported_features {
+    if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::SheetProtection {
+      saw_sheet_protection_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::Drawing {
+      saw_drawing_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::Chart {
+      saw_chart_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::Image {
+      saw_image_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::PivotTable {
+      saw_pivot_fact = true
+    } else if feature.kind == @xlsx.XlsxUnsupportedFeatureKind::ThreadedComment {
+      saw_threaded_fact = true
+    }
+  }
+  assert_true(saw_sheet_protection_fact)
+  assert_true(saw_drawing_fact)
+  assert_true(saw_chart_fact)
+  assert_true(saw_image_fact)
+  assert_true(saw_pivot_fact)
+  assert_true(saw_threaded_fact)
+
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_external_link = false
+  let mut saw_workbook_protection = false
+  let mut saw_sheet_protection = false
+  let mut saw_drawing = false
+  let mut saw_chart = false
+  let mut saw_vba = false
+  let mut saw_ole = false
+  let mut saw_pivot = false
+  let mut saw_threaded = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedExternalLink {
+      saw_external_link = true
+    } else if issue.kind ==
+      @xlsx.XlsxValidationIssueKind::UnsupportedWorkbookProtection {
+      saw_workbook_protection = true
+    } else if issue.kind ==
+      @xlsx.XlsxValidationIssueKind::UnsupportedSheetProtection {
+      saw_sheet_protection = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedDrawing {
+      saw_drawing = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedChart {
+      saw_chart = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedVbaMacro {
+      saw_vba = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedOleObject {
+      saw_ole = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::UnsupportedPivotTable {
+      saw_pivot = true
+    } else if issue.kind ==
+      @xlsx.XlsxValidationIssueKind::UnsupportedThreadedComment {
+      saw_threaded = true
+    }
+  }
+  assert_true(saw_external_link)
+  assert_true(saw_workbook_protection)
+  assert_true(saw_sheet_protection)
+  assert_true(saw_drawing)
+  assert_true(saw_chart)
+  assert_true(saw_vba)
+  assert_true(saw_ole)
+  assert_true(saw_pivot)
+  assert_true(saw_threaded)
+}
+
+///|
+test "xlsx semantic workbook preserves structured table facts" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_tables_and_defined_names(),
+  )
+  assert_eq(workbook.sheets.length(), 1)
+  let sheet = workbook.sheets[0]
+  assert_eq(sheet.tables.length(), 1)
+  let table = sheet.tables[0]
+  if table.table_id != Some("1") {
+    fail("table should preserve id")
+  }
+  if table.name != Some("SalesTable") {
+    fail("table should preserve name")
+  }
+  if table.display_name != Some("SalesTable") {
+    fail("table should preserve displayName")
+  }
+  assert_eq(table.range_ref, "A1:B3")
+  assert_eq(table.start_row, 1)
+  assert_eq(table.start_col, 1)
+  assert_eq(table.end_row, 3)
+  assert_eq(table.end_col, 2)
+  assert_eq(table.header_row_count, 1)
+  assert_eq(table.totals_row_count, 1)
+  assert_true(table.header_row_visible)
+  assert_true(table.totals_row_visible)
+  if table.style_name != Some("TableStyleMedium2") {
+    fail("table should preserve style name")
+  }
+  if table.auto_filter_ref != Some("A1:B3") {
+    fail("table should preserve auto filter ref")
+  }
+  assert_true(table.column_names == ["Name", "Amount"])
+  assert_eq(table.columns.length(), 2)
+  if table.columns[0].column_id != Some("1") ||
+    table.columns[0].name != Some("Name") ||
+    table.columns[0].totals_row_label != Some("Total") {
+    fail("first table column should preserve id/name/totals label")
+  }
+  if table.columns[1].column_id != Some("2") ||
+    table.columns[1].name != Some("Amount") ||
+    table.columns[1].totals_row_function != Some("sum") {
+    fail("second table column should preserve id/name/totals function")
+  }
+  if table.source_part != Some("xl/tables/table1.xml") {
+    fail("table should preserve source part")
+  }
+  if table.relationship_id != Some("rIdTable1") {
+    fail("table should preserve relationship id")
+  }
+}
+
+///|
+test "xlsx semantic workbook preserves defined names and named ranges" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_tables_and_defined_names(),
+  )
+  assert_eq(workbook.defined_names.length(), 4)
+
+  let named = workbook.defined_names[0]
+  assert_eq(named.name, "SalesRange")
+  if named.kind != @xlsx.XlsxDefinedNameKind::NamedRange {
+    fail("SalesRange should classify as named range")
+  }
+  if named.target_sheet != Some("Data Sheet") {
+    fail("SalesRange should preserve target sheet")
+  }
+  if named.target_range != Some("A1:B3") {
+    fail("SalesRange should preserve target range")
+  }
+
+  let local_name = workbook.defined_names[1]
+  if local_name.sheet_scope != Some("Data Sheet") {
+    fail("LocalRange should preserve sheet scope")
+  }
+  if local_name.sheet_scope_index != Some(0) {
+    fail("LocalRange should preserve sheet scope index")
+  }
+
+  let print_area = workbook.defined_names[2]
+  if print_area.kind != @xlsx.XlsxDefinedNameKind::PrintArea {
+    fail("reserved print area should classify as PrintArea")
+  }
+
+  let formula_like = workbook.defined_names[3]
+  if formula_like.kind != @xlsx.XlsxDefinedNameKind::FormulaLike {
+    fail("complex formula should classify as FormulaLike")
+  }
+  assert_true(formula_like.hidden)
+  assert_eq(formula_like.text, "SUM('Data Sheet'!$B$2:$B$3)")
+}
+
+///|
+test "xlsx semantic tables report broken relationship warnings" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_broken_table_relationship(),
+  )
+  assert_eq(workbook.sheets[0].tables.length(), 0)
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_missing_table = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::MissingRelationshipTarget &&
+      issue.part_target == Some("xl/tables/missing.xml") {
+      saw_missing_table = true
+    }
+  }
+  assert_true(saw_missing_table)
+}
+
+///|
+test "xlsx semantic guard warnings stay bounded and explicit" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_with_guard_edges(),
+  )
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_shared_strings = false
+  let mut saw_defined_names = false
+  let mut saw_hyperlinks = false
+  let mut saw_tables = false
+  let mut saw_cells = false
+  let mut saw_non_empty_cells = false
+  let mut saw_shared_string_bytes = false
+  let mut saw_long_shared_string = false
+  let mut saw_dimension = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSharedStrings {
+      saw_shared_strings = true
+      if issue.message.contains("text bytes") {
+        saw_shared_string_bytes = true
+      } else if issue.message.contains("long shared string") {
+        saw_long_shared_string = true
+      }
+    } else if issue.message.contains("defined name count") {
+      saw_defined_names = true
+    } else if issue.message.contains("many hyperlinks") {
+      saw_hyperlinks = true
+    } else if issue.message.contains("structured tables") {
+      saw_tables = true
+    } else if issue.message.contains("many parsed cells") {
+      saw_cells = true
+    } else if issue.message.contains("many non-empty cells") {
+      saw_non_empty_cells = true
+    } else if issue.message.contains("large sheet dimension area") {
+      saw_dimension = true
+    }
+  }
+  assert_true(saw_shared_strings)
+  assert_true(saw_shared_string_bytes)
+  assert_true(saw_long_shared_string)
+  assert_true(saw_defined_names)
+  assert_true(saw_hyperlinks)
+  assert_true(saw_tables)
+  assert_true(saw_cells)
+  assert_true(saw_non_empty_cells)
+  assert_true(saw_dimension)
+
+  let quiet_workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_workbook_date1904_pkg(),
+  )
+  for issue in @xlsx.collect_xlsx_validation_issues(quiet_workbook) {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSharedStrings ||
+      issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated {
+      fail("ordinary generated workbook should not emit guard warnings")
+    }
+  }
 }
 
 ///|

@@ -89,9 +89,13 @@ Compatibility surface:
 * `XlsxWorkbook`
 * `XlsxSheet`
 * `XlsxCell`
+* `XlsxTable`
+* `XlsxDefinedName`
+* `XlsxUnsupportedFeature`
 * `XlsxFormulaPolicy`
 * `XlsxStyles`
 * `XlsxMergedRange`
+* `XlsxHyperlink`
 * `XlsxFormulaTrace`
 * `XlsxSheetState`
 * `XlsxCellKind`
@@ -125,6 +129,13 @@ Current semantic boundary:
 * raw cell types and display text
 * raw formula text plus conservative formula trace
 * merged ranges
+* worksheet comments
+* worksheet hyperlinks
+* structured table metadata, including conservative style, filter, header,
+  totals, column id/name, and totals-function facts when available
+* workbook defined names and named ranges
+* discoverable unsupported workbook/sheet structures as typed facts plus
+  validation warnings
 * inspect counts and validation issue collection
 
 Formula / style / date / merge boundary:
@@ -151,7 +162,7 @@ Non-goals:
 * empty-sheet / unsupported-sheet wording
 * metadata sidecar policy
 * assets / origin / CLI product formatting
-* charts / pivots / VBA / external links
+* full chart / pivot / VBA / external-link conversion
 * full Excel engine or full formula evaluator
 
 Relationship to `convert/xlsx`:
@@ -167,7 +178,22 @@ Known limits:
   cached-value / missing-cache trace signal
 * styles and number formats are used only for conservative semantic display,
   not as a full Excel style engine
-* charts, pivots, comments, macros, and external links remain out of scope
+* worksheet comments are currently parsed as source facts and rendered by
+  `convert/xlsx`
+* worksheet hyperlinks are parsed as source facts and rendered conservatively by
+  `convert/xlsx` when a concrete target is available
+* structured table metadata and defined names are parsed as source facts for
+  inspect/metadata workflows; table style, auto-filter range, header/totals
+  visibility, column ids/names, and totals row functions are metadata only, not
+  full Excel table rendering
+* charts, pivots, drawings/images, macros, OLE, external links, protection,
+  threaded comments, and missing relationship targets surface as typed
+  unsupported facts / validation warnings where relationship or XML markers make
+  them discoverable; they are not fully converted structures
+* large workbook risks currently surface as bounded validation warnings for
+  shared string count/bytes/long strings, sheet count, defined names, parsed and
+  non-empty cell counts, merged ranges, hyperlinks, tables, sparse dimensions,
+  and under-cap RichTable area; this is not a streaming parser rewrite
 * current workbook/sheet/cell field layout is an in-tree candidate
   compatibility surface, not a promise of full standalone Excel semantics
 

@@ -14,16 +14,27 @@ fn compat_workbook_model_from_semantic(
   source_name : String,
   workbook : @dpxlsx.XlsxWorkbook,
 ) -> XlsxWorkbookModel {
+  let defined_names = compat_defined_names_from_semantic(workbook.defined_names)
+  let unsupported_features = compat_unsupported_features_from_semantic(
+    workbook.unsupported_features,
+  )
   let sheets : Array[XlsxSheetModel] = []
   for sheet in workbook.sheets {
-    sheets.push(compat_sheet_model_from_semantic(sheet))
+    sheets.push(compat_sheet_model_from_semantic(sheet, defined_names))
   }
-  { source_name, uses_date_1904: workbook.uses_date_1904, sheets }
+  {
+    source_name,
+    uses_date_1904: workbook.uses_date_1904,
+    defined_names,
+    unsupported_features,
+    sheets,
+  }
 }
 
 ///|
 fn compat_sheet_model_from_semantic(
   sheet : @dpxlsx.XlsxSheet,
+  workbook_defined_names : Array[XlsxDefinedName],
 ) -> XlsxSheetModel {
   let cells = compat_cells_from_semantic(sheet.cells)
   let hidden_rows = copy_hidden_rows(sheet.hidden_rows)
@@ -46,6 +57,15 @@ fn compat_sheet_model_from_semantic(
     cells,
     merged_ranges: compat_merged_ranges_from_semantic(sheet.merged_ranges),
     comments: compat_comments_from_semantic(sheet.comments),
+    hyperlinks: compat_hyperlinks_from_semantic(sheet.hyperlinks),
+    tables: compat_tables_from_semantic(sheet.tables),
+    defined_names: sheet_defined_names_for_compat(
+      workbook_defined_names,
+      sheet.name,
+    ),
+    unsupported_features: compat_unsupported_features_from_semantic(
+      sheet.unsupported_features,
+    ),
     hidden_rows,
     table_rows: rows,
     table_row_numbers: row_numbers,
@@ -55,6 +75,21 @@ fn compat_sheet_model_from_semantic(
     used_max_row: sheet.used_max_row,
     used_max_col: sheet.used_max_col,
   }
+}
+
+///|
+fn sheet_defined_names_for_compat(
+  defined_names : Array[XlsxDefinedName],
+  sheet_name : String,
+) -> Array[XlsxDefinedName] {
+  let out : Array[XlsxDefinedName] = []
+  for name in defined_names {
+    if name.sheet_scope == Some(sheet_name) ||
+      name.target_sheet == Some(sheet_name) {
+      out.push(name)
+    }
+  }
+  out
 }
 
 ///|
@@ -108,6 +143,7 @@ fn compat_cell_from_semantic(cell : @dpxlsx.XlsxCell) -> XlsxCellModel {
     style_index: cell.style_index,
     num_format_id: cell.num_format_id,
     formula_trace: compat_formula_trace_from_semantic(cell.formula_trace),
+    hyperlink: compat_hyperlink_from_semantic(cell.hyperlink),
   }
 }
 
@@ -126,6 +162,207 @@ fn compat_formula_trace_from_semantic(
         referenced_ranges: value.referenced_ranges,
       })
     None => None
+  }
+}
+
+///|
+fn compat_tables_from_semantic(
+  tables : Array[@dpxlsx.XlsxTable],
+) -> Array[XlsxTable] {
+  let out : Array[XlsxTable] = []
+  for table in tables {
+    out.push({
+      table_id: table.table_id,
+      name: table.name,
+      display_name: table.display_name,
+      style_name: table.style_name,
+      auto_filter_ref: table.auto_filter_ref,
+      header_row_visible: table.header_row_visible,
+      totals_row_visible: table.totals_row_visible,
+      range_ref: table.range_ref,
+      start_row: table.start_row,
+      start_col: table.start_col,
+      end_row: table.end_row,
+      end_col: table.end_col,
+      header_row_count: table.header_row_count,
+      totals_row_count: table.totals_row_count,
+      column_names: copy_string_array(table.column_names),
+      columns: compat_table_columns_from_semantic(table.columns),
+      sheet_name: table.sheet_name,
+      source_part: table.source_part,
+      relationship_id: table.relationship_id,
+    })
+  }
+  out
+}
+
+///|
+fn compat_table_columns_from_semantic(
+  columns : Array[@dpxlsx.XlsxTableColumn],
+) -> Array[XlsxTableColumn] {
+  let out : Array[XlsxTableColumn] = []
+  for column in columns {
+    out.push({
+      column_id: column.column_id,
+      name: column.name,
+      totals_row_function: column.totals_row_function,
+      totals_row_label: column.totals_row_label,
+    })
+  }
+  out
+}
+
+///|
+fn compat_defined_names_from_semantic(
+  defined_names : Array[@dpxlsx.XlsxDefinedName],
+) -> Array[XlsxDefinedName] {
+  let out : Array[XlsxDefinedName] = []
+  for defined_name in defined_names {
+    out.push({
+      name: defined_name.name,
+      text: defined_name.text,
+      sheet_scope: defined_name.sheet_scope,
+      sheet_scope_index: defined_name.sheet_scope_index,
+      kind: compat_defined_name_kind_from_semantic(defined_name.kind),
+      target_sheet: defined_name.target_sheet,
+      target_range: defined_name.target_range,
+      hidden: defined_name.hidden,
+      source: defined_name.source,
+    })
+  }
+  out
+}
+
+///|
+fn compat_defined_name_kind_from_semantic(
+  kind : @dpxlsx.XlsxDefinedNameKind,
+) -> XlsxDefinedNameKind {
+  match kind {
+    @dpxlsx.XlsxDefinedNameKind::NamedRange => XlsxDefinedNameKind::NamedRange
+    @dpxlsx.XlsxDefinedNameKind::PrintArea => XlsxDefinedNameKind::PrintArea
+    @dpxlsx.XlsxDefinedNameKind::AutoFilter => XlsxDefinedNameKind::AutoFilter
+    @dpxlsx.XlsxDefinedNameKind::FormulaLike => XlsxDefinedNameKind::FormulaLike
+    @dpxlsx.XlsxDefinedNameKind::Unknown => XlsxDefinedNameKind::Unknown
+  }
+}
+
+///|
+fn compat_unsupported_features_from_semantic(
+  features : Array[@dpxlsx.XlsxUnsupportedFeature],
+) -> Array[XlsxUnsupportedFeature] {
+  let out : Array[XlsxUnsupportedFeature] = []
+  for feature in features {
+    out.push({
+      kind: compat_unsupported_feature_kind_from_semantic(feature.kind),
+      severity: compat_validation_severity_string(feature.severity),
+      sheet_name: feature.sheet_name,
+      relationship_id: feature.relationship_id,
+      part_target: feature.part_target,
+      source: feature.source,
+      message: feature.message,
+    })
+  }
+  out
+}
+
+///|
+fn compat_unsupported_feature_kind_from_semantic(
+  kind : @dpxlsx.XlsxUnsupportedFeatureKind,
+) -> XlsxUnsupportedFeatureKind {
+  match kind {
+    @dpxlsx.XlsxUnsupportedFeatureKind::Drawing =>
+      XlsxUnsupportedFeatureKind::Drawing
+    @dpxlsx.XlsxUnsupportedFeatureKind::Chart =>
+      XlsxUnsupportedFeatureKind::Chart
+    @dpxlsx.XlsxUnsupportedFeatureKind::Image =>
+      XlsxUnsupportedFeatureKind::Image
+    @dpxlsx.XlsxUnsupportedFeatureKind::PivotTable =>
+      XlsxUnsupportedFeatureKind::PivotTable
+    @dpxlsx.XlsxUnsupportedFeatureKind::VbaMacro =>
+      XlsxUnsupportedFeatureKind::VbaMacro
+    @dpxlsx.XlsxUnsupportedFeatureKind::OleObject =>
+      XlsxUnsupportedFeatureKind::OleObject
+    @dpxlsx.XlsxUnsupportedFeatureKind::ExternalLink =>
+      XlsxUnsupportedFeatureKind::ExternalLink
+    @dpxlsx.XlsxUnsupportedFeatureKind::ThreadedComment =>
+      XlsxUnsupportedFeatureKind::ThreadedComment
+    @dpxlsx.XlsxUnsupportedFeatureKind::SheetProtection =>
+      XlsxUnsupportedFeatureKind::SheetProtection
+    @dpxlsx.XlsxUnsupportedFeatureKind::WorkbookProtection =>
+      XlsxUnsupportedFeatureKind::WorkbookProtection
+    @dpxlsx.XlsxUnsupportedFeatureKind::Unknown =>
+      XlsxUnsupportedFeatureKind::Unknown
+  }
+}
+
+///|
+fn compat_validation_severity_string(
+  severity : @dpxlsx.XlsxValidationSeverity,
+) -> String {
+  match severity {
+    @dpxlsx.XlsxValidationSeverity::Warning => "warning"
+    @dpxlsx.XlsxValidationSeverity::Error => "error"
+  }
+}
+
+///|
+fn copy_string_array(values : Array[String]) -> Array[String] {
+  let out : Array[String] = []
+  for value in values {
+    out.push(value)
+  }
+  out
+}
+
+///|
+fn compat_hyperlinks_from_semantic(
+  hyperlinks : Array[@dpxlsx.XlsxHyperlink],
+) -> Array[XlsxHyperlink] {
+  let out : Array[XlsxHyperlink] = []
+  for hyperlink in hyperlinks {
+    out.push(compat_hyperlink_from_semantic_value(hyperlink))
+  }
+  out
+}
+
+///|
+fn compat_hyperlink_from_semantic(
+  hyperlink : @dpxlsx.XlsxHyperlink?,
+) -> XlsxHyperlink? {
+  match hyperlink {
+    Some(value) => Some(compat_hyperlink_from_semantic_value(value))
+    None => None
+  }
+}
+
+///|
+fn compat_hyperlink_from_semantic_value(
+  hyperlink : @dpxlsx.XlsxHyperlink,
+) -> XlsxHyperlink {
+  {
+    reference: hyperlink.reference,
+    start_row: hyperlink.start_row,
+    start_col: hyperlink.start_col,
+    end_row: hyperlink.end_row,
+    end_col: hyperlink.end_col,
+    relationship_id: hyperlink.relationship_id,
+    target: hyperlink.target,
+    location: hyperlink.location,
+    tooltip: hyperlink.tooltip,
+    display: hyperlink.display,
+    kind: compat_hyperlink_kind_from_semantic(hyperlink.kind),
+    warning: hyperlink.warning,
+  }
+}
+
+///|
+fn compat_hyperlink_kind_from_semantic(
+  kind : @dpxlsx.XlsxHyperlinkKind,
+) -> XlsxHyperlinkKind {
+  match kind {
+    @dpxlsx.XlsxHyperlinkKind::External => XlsxHyperlinkKind::External
+    @dpxlsx.XlsxHyperlinkKind::Internal => XlsxHyperlinkKind::Internal
+    @dpxlsx.XlsxHyperlinkKind::Unknown => XlsxHyperlinkKind::Unknown
   }
 }
 
@@ -221,10 +458,80 @@ fn render_sheet_rows_from_cells(
   for cell in cells {
     cell_texts.set(
       cell.row.to_string() + "," + cell.column.to_string(),
-      cell.display_text,
+      xlsx_cell_table_text(cell),
     )
   }
   render_sheet_rows(cell_texts, hidden_rows, min_r, min_c, max_r, max_c)
+}
+
+///|
+fn xlsx_cell_table_text(cell : XlsxCellModel) -> String {
+  match cell.hyperlink {
+    Some(link) =>
+      match xlsx_hyperlink_markdown_target(link) {
+        Some(target) => {
+          let label = xlsx_hyperlink_label(cell, link)
+          if label == "" {
+            cell.display_text
+          } else {
+            "[" +
+            escape_xlsx_markdown_link_text(label) +
+            "](" +
+            escape_xlsx_markdown_link_target(target) +
+            ")"
+          }
+        }
+        None => cell.display_text
+      }
+    None => cell.display_text
+  }
+}
+
+///|
+fn xlsx_hyperlink_label(cell : XlsxCellModel, link : XlsxHyperlink) -> String {
+  if cell.display_text.trim() != "" {
+    cell.display_text
+  } else {
+    match link.display {
+      Some(display) => display
+      None =>
+        match link.target {
+          Some(target) => target
+          None => link.location.unwrap_or("")
+        }
+    }
+  }
+}
+
+///|
+fn xlsx_hyperlink_markdown_target(link : XlsxHyperlink) -> String? {
+  match link.kind {
+    XlsxHyperlinkKind::External => link.target
+    XlsxHyperlinkKind::Internal =>
+      match link.location {
+        Some(location) =>
+          if location.has_prefix("#") {
+            Some(location)
+          } else {
+            Some("#" + location)
+          }
+        None => link.target
+      }
+    XlsxHyperlinkKind::Unknown => link.target
+  }
+}
+
+///|
+fn escape_xlsx_markdown_link_text(text : String) -> String {
+  text
+  .replace(old="\\", new="\\\\")
+  .replace(old="[", new="\\[")
+  .replace(old="]", new="\\]")
+}
+
+///|
+fn escape_xlsx_markdown_link_target(target : String) -> String {
+  target.replace(old=" ", new="%20").replace(old=")", new="%29")
 }
 
 ///|

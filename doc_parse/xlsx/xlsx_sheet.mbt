@@ -10,6 +10,7 @@ priv struct ParsedCellXml {
 
 ///|
 fn parse_sheet_model(
+  pkg : @ox.OoxmlPackage,
   sheet_name : String,
   sheet_id : String?,
   relationship_id : String?,
@@ -17,6 +18,7 @@ fn parse_sheet_model(
   part_target : String?,
   state : XlsxSheetState,
   sheet_xml : String,
+  sheet_relationships : Array[@ox.OoxmlRelationship],
   comments : Array[XlsxComment],
   shared : Array[String],
   styles : XlsxStyles,
@@ -49,6 +51,27 @@ fn parse_sheet_model(
     merged_started,
     Some("merged_ranges=" + merged_ranges.length().to_string()),
   )
+  let hyperlinks_started = xlsx_parse_profile_stage_started(profile)
+  let (hyperlinks, hyperlink_issues) = parse_sheet_hyperlinks(
+    sheet_name, part_target, sheet_xml, sheet_relationships,
+  )
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":hyperlinks",
+    hyperlinks_started,
+    Some("hyperlinks=" + hyperlinks.length().to_string()),
+  )
+  let tables_started = xlsx_parse_profile_stage_started(profile)
+  let (tables, table_issues) = parse_sheet_tables(
+    pkg, sheet_name, sheet_relationships,
+  )
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "sheet:" + sheet_name + ":tables",
+    tables_started,
+    Some("tables=" + tables.length().to_string()),
+  )
+  let hyperlink_lookup = xlsx_hyperlink_cell_lookup(hyperlinks)
   let resolve_started = xlsx_parse_profile_stage_started(profile)
   let cells : Array[XlsxCellModel] = []
 
@@ -84,6 +107,7 @@ fn parse_sheet_model(
         style_index: parsed.style_index,
         num_format_id: style_index_numfmt(styles, parsed.style_index),
         formula_trace: None,
+        hyperlink: None,
         issues: cell_issues,
       })
       continue
@@ -129,6 +153,9 @@ fn parse_sheet_model(
       num_format_id,
       uses_date_1904,
     )
+    let hyperlink = hyperlink_lookup.get(
+      row.to_string() + "," + column.to_string(),
+    )
 
     cells.push({
       reference: parsed.reference,
@@ -147,6 +174,7 @@ fn parse_sheet_model(
       style_index: parsed.style_index,
       num_format_id,
       formula_trace: None,
+      hyperlink,
       issues: cell_issues,
     })
   }
@@ -162,6 +190,7 @@ fn parse_sheet_model(
   let (used_min_row, used_min_col, used_max_row, used_max_col) = used_range_from_cells(
     cells,
   )
+  let non_empty_cell_count = xlsx_non_empty_cell_count(cells)
   xlsx_parse_profile_stage_finished(
     profile,
     "sheet:" + sheet_name + ":used_range",
@@ -178,6 +207,32 @@ fn parse_sheet_model(
     ),
   )
 
+  let issues : Array[XlsxValidationIssue] = []
+  issues.append(merged_issues)
+  issues.append(hyperlink_issues)
+  issues.append(table_issues)
+  let unsupported_features = sheet_unsupported_features(
+    pkg, sheet_name, part_target, sheet_xml, sheet_relationships,
+  )
+  issues.append(
+    validation_issues_from_unsupported_features(unsupported_features),
+  )
+  issues.append(
+    sheet_guard_issues(
+      sheet_name,
+      part_target,
+      sheet_xml,
+      merged_ranges.length(),
+      hyperlinks.length(),
+      tables.length(),
+      cells.length(),
+      non_empty_cell_count,
+      used_min_row,
+      used_min_col,
+      used_max_row,
+      used_max_col,
+    ),
+  )
   {
     name: sheet_name,
     sheet_id,
@@ -190,12 +245,15 @@ fn parse_sheet_model(
     cells,
     merged_ranges,
     comments,
+    hyperlinks,
+    tables,
     hidden_rows,
+    unsupported_features,
     used_min_row,
     used_min_col,
     used_max_row,
     used_max_col,
-    issues: merged_issues,
+    issues,
   }
 }
 
@@ -377,6 +435,17 @@ fn used_range_from_cells(cells : Array[XlsxCellModel]) -> (Int, Int, Int, Int) {
 }
 
 ///|
+fn xlsx_non_empty_cell_count(cells : Array[XlsxCellModel]) -> Int {
+  let mut count = 0
+  for cell in cells {
+    if @cor.trim_string(cell.display_text) != "" {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 fn empty_sheet_model(
   sheet_name : String,
   sheet_id : String?,
@@ -400,7 +469,10 @@ fn empty_sheet_model(
     cells: [],
     merged_ranges: [],
     comments: [],
+    hyperlinks: [],
+    tables: [],
     hidden_rows: [],
+    unsupported_features: [],
     used_min_row: 0,
     used_min_col: 0,
     used_max_row: 0,
@@ -567,6 +639,711 @@ fn parse_merged_ranges(
         }
       }
     }
+  }
+}
+
+///|
+fn parse_sheet_hyperlinks(
+  sheet_name : String,
+  part_target : String?,
+  sheet_xml : String,
+  sheet_relationships : Array[@ox.OoxmlRelationship],
+) -> (Array[XlsxHyperlink], Array[XlsxValidationIssue]) {
+  let hyperlinks : Array[XlsxHyperlink] = []
+  let issues : Array[XlsxValidationIssue] = []
+  let mut pos = 0
+
+  while true {
+    let link0 = find_exact_start_tag(sheet_xml, "hyperlink", pos)
+    match link0 {
+      None => break
+      Some(i0) => {
+        let link1 = find_sub(sheet_xml, ">", i0)
+        match link1 {
+          None => break
+          Some(i1) => {
+            let tag = sheet_xml[i0:i1 + 1].to_owned()
+            let reference = @cor.trim_string(get_attr(tag, "ref").unwrap_or(""))
+            match parse_hyperlink_ref(reference) {
+              Some((r1, c1, r2, c2)) => {
+                let relationship_id = optional_trimmed_attr(tag, "r:id")
+                let location = optional_trimmed_attr(tag, "location")
+                let tooltip = optional_trimmed_attr(tag, "tooltip")
+                let display = optional_trimmed_attr(tag, "display")
+                let (target, kind, warning) = resolve_xlsx_hyperlink_target(
+                  relationship_id, location, sheet_relationships,
+                )
+                match warning {
+                  Some(message) =>
+                    issues.push(
+                      sheet_issue(
+                        XlsxValidationIssueKind::MissingRelationshipTarget,
+                        XlsxValidationSeverity::Warning,
+                        sheet_name,
+                        None,
+                        part_target,
+                        message,
+                      ),
+                    )
+                  None => ()
+                }
+                hyperlinks.push({
+                  reference,
+                  start_row: r1,
+                  start_col: c1,
+                  end_row: r2,
+                  end_col: c2,
+                  relationship_id,
+                  target,
+                  location,
+                  tooltip,
+                  display,
+                  kind,
+                  warning,
+                })
+              }
+              None =>
+                issues.push(
+                  sheet_issue(
+                    XlsxValidationIssueKind::InvalidCellReference,
+                    XlsxValidationSeverity::Warning,
+                    sheet_name,
+                    None,
+                    part_target,
+                    "invalid hyperlink reference: " + reference,
+                  ),
+                )
+            }
+            pos = i1 + 1
+          }
+        }
+      }
+    }
+  }
+
+  (hyperlinks, issues)
+}
+
+///|
+fn parse_sheet_tables(
+  pkg : @ox.OoxmlPackage,
+  sheet_name : String,
+  sheet_relationships : Array[@ox.OoxmlRelationship],
+) -> (Array[XlsxTable], Array[XlsxValidationIssue]) {
+  let tables : Array[XlsxTable] = []
+  let issues : Array[XlsxValidationIssue] = []
+
+  for rel in sheet_relationships {
+    if !(rel.rel_type.has_suffix("/table") ||
+      rel.rel_type.contains("relationships/table")) {
+      continue
+    }
+    if rel.target_mode != @ox.OoxmlTargetMode::Internal ||
+      rel.resolved_target == "" ||
+      !@ox.has_part(pkg, rel.resolved_target) {
+      issues.push(
+        sheet_issue(
+          XlsxValidationIssueKind::MissingRelationshipTarget,
+          XlsxValidationSeverity::Warning,
+          sheet_name,
+          None,
+          Some(rel.resolved_target),
+          "table relationship target is missing: " + rel.id,
+        ),
+      )
+      continue
+    }
+
+    let table_xml = @ox.read_part_text(pkg, rel.resolved_target) catch {
+      _ => {
+        issues.push(
+          sheet_issue(
+            XlsxValidationIssueKind::MissingRelationshipTarget,
+            XlsxValidationSeverity::Warning,
+            sheet_name,
+            None,
+            Some(rel.resolved_target),
+            "table relationship target is unreadable: " + rel.id,
+          ),
+        )
+        continue
+      }
+    }
+    match parse_table_part(sheet_name, rel.id, rel.resolved_target, table_xml) {
+      Some(table) => tables.push(table)
+      None =>
+        issues.push(
+          sheet_issue(
+            XlsxValidationIssueKind::UnknownWorkbookPart,
+            XlsxValidationSeverity::Warning,
+            sheet_name,
+            None,
+            Some(rel.resolved_target),
+            "table part is malformed or missing ref: " + rel.id,
+          ),
+        )
+    }
+  }
+
+  (tables, issues)
+}
+
+///|
+fn parse_table_part(
+  sheet_name : String,
+  relationship_id : String,
+  source_part : String,
+  table_xml : String,
+) -> XlsxTable? {
+  let table0 = find_exact_start_tag(table_xml, "table", 0)
+  match table0 {
+    None => None
+    Some(i0) => {
+      let table1 = find_sub(table_xml, ">", i0)
+      match table1 {
+        None => None
+        Some(i1) => {
+          let tag = table_xml[i0:i1 + 1].to_owned()
+          let range_ref = normalize_xlsx_range_ref(
+            get_attr(tag, "ref").unwrap_or(""),
+          )
+          match parse_hyperlink_ref(range_ref) {
+            None => None
+            Some((r1, c1, r2, c2)) => {
+              let header_row_count = parse_nonnegative_or_default(
+                get_attr(tag, "headerRowCount").unwrap_or("1"),
+                1,
+              )
+              let totals_row_count = parse_nonnegative_or_default(
+                get_attr(tag, "totalsRowCount").unwrap_or("0"),
+                0,
+              )
+              let columns = parse_table_columns(table_xml)
+              Some({
+                table_id: optional_trimmed_attr(tag, "id"),
+                name: optional_trimmed_attr(tag, "name"),
+                display_name: optional_trimmed_attr(tag, "displayName"),
+                style_name: parse_table_style_name(table_xml),
+                auto_filter_ref: parse_table_auto_filter_ref(table_xml),
+                header_row_visible: header_row_count > 0,
+                totals_row_visible: totals_row_count > 0,
+                range_ref,
+                start_row: r1,
+                start_col: c1,
+                end_row: r2,
+                end_col: c2,
+                header_row_count,
+                totals_row_count,
+                column_names: table_column_names(columns),
+                columns,
+                sheet_name,
+                source_part: Some(source_part),
+                relationship_id: Some(relationship_id),
+              })
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn parse_table_style_name(table_xml : String) -> String? {
+  let style0 = find_exact_start_tag(table_xml, "tableStyleInfo", 0)
+  match style0 {
+    None => None
+    Some(i0) => {
+      let style1 = find_sub(table_xml, ">", i0)
+      match style1 {
+        None => None
+        Some(i1) => {
+          let tag = table_xml[i0:i1 + 1].to_owned()
+          optional_trimmed_attr(tag, "name")
+        }
+      }
+    }
+  }
+}
+
+///|
+fn parse_table_auto_filter_ref(table_xml : String) -> String? {
+  let filter0 = find_exact_start_tag(table_xml, "autoFilter", 0)
+  match filter0 {
+    None => None
+    Some(i0) => {
+      let filter1 = find_sub(table_xml, ">", i0)
+      match filter1 {
+        None => None
+        Some(i1) => {
+          let tag = table_xml[i0:i1 + 1].to_owned()
+          match optional_trimmed_attr(tag, "ref") {
+            Some(ref_text) => Some(normalize_xlsx_range_ref(ref_text))
+            None => None
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn parse_table_columns(table_xml : String) -> Array[XlsxTableColumn] {
+  let columns : Array[XlsxTableColumn] = []
+  let mut pos = 0
+  while true {
+    let col0 = find_exact_start_tag(table_xml, "tableColumn", pos)
+    match col0 {
+      None => break
+      Some(i0) => {
+        let col1 = find_sub(table_xml, ">", i0)
+        match col1 {
+          None => break
+          Some(i1) => {
+            let tag = table_xml[i0:i1 + 1].to_owned()
+            columns.push({
+              column_id: optional_trimmed_attr(tag, "id"),
+              name: optional_trimmed_attr(tag, "name"),
+              totals_row_function: optional_trimmed_attr(
+                tag, "totalsRowFunction",
+              ),
+              totals_row_label: optional_trimmed_attr(tag, "totalsRowLabel"),
+            })
+            pos = i1 + 1
+          }
+        }
+      }
+    }
+  }
+  columns
+}
+
+///|
+fn table_column_names(columns : Array[XlsxTableColumn]) -> Array[String] {
+  let out : Array[String] = []
+  for column in columns {
+    match column.name {
+      Some(name) => out.push(name)
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn parse_nonnegative_or_default(text : String, default : Int) -> Int {
+  let value = parse_int(text)
+  if value < 0 {
+    default
+  } else {
+    value
+  }
+}
+
+///|
+fn optional_trimmed_attr(tag : String, name : String) -> String? {
+  let value = @cor.trim_string(get_attr(tag, name).unwrap_or(""))
+  if value == "" {
+    None
+  } else {
+    Some(xml_unescape(value))
+  }
+}
+
+///|
+fn parse_hyperlink_ref(range_ref : String) -> (Int, Int, Int, Int)? {
+  let trimmed = @cor.trim_string(range_ref)
+  if trimmed == "" {
+    return None
+  }
+
+  let parts : Array[String] = []
+  for part in trimmed.split(":") {
+    parts.push(part.to_owned())
+  }
+  if parts.length() == 1 {
+    let (row, col) = cell_ref_to_rc(parts[0])
+    if row <= 0 || col <= 0 {
+      None
+    } else {
+      Some((row, col, row, col))
+    }
+  } else if parts.length() == 2 {
+    let (r1, c1) = cell_ref_to_rc(parts[0])
+    let (r2, c2) = cell_ref_to_rc(parts[1])
+    if r1 <= 0 || c1 <= 0 || r2 <= 0 || c2 <= 0 {
+      None
+    } else if r1 <= r2 && c1 <= c2 {
+      Some((r1, c1, r2, c2))
+    } else if r2 <= r1 && c2 <= c1 {
+      Some((r2, c2, r1, c1))
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn resolve_xlsx_hyperlink_target(
+  relationship_id : String?,
+  location : String?,
+  sheet_relationships : Array[@ox.OoxmlRelationship],
+) -> (String?, XlsxHyperlinkKind, String?) {
+  match relationship_id {
+    Some(rid) =>
+      match find_relationship_by_id_in_list(sheet_relationships, rid) {
+        Some(rel) =>
+          if rel.target_mode == @ox.OoxmlTargetMode::External {
+            (Some(rel.resolved_target), XlsxHyperlinkKind::External, None)
+          } else {
+            (Some(rel.resolved_target), XlsxHyperlinkKind::Internal, None)
+          }
+        None =>
+          (
+            None,
+            XlsxHyperlinkKind::Unknown,
+            Some("hyperlink relationship target is missing: " + rid),
+          )
+      }
+    None =>
+      match location {
+        Some(_) => (None, XlsxHyperlinkKind::Internal, None)
+        None =>
+          (
+            None,
+            XlsxHyperlinkKind::Unknown,
+            Some("hyperlink target is missing"),
+          )
+      }
+  }
+}
+
+///|
+fn find_relationship_by_id_in_list(
+  rels : Array[@ox.OoxmlRelationship],
+  rel_id : String,
+) -> @ox.OoxmlRelationship? {
+  for rel in rels {
+    if rel.id == rel_id {
+      return Some(rel)
+    }
+  }
+  None
+}
+
+///|
+fn xlsx_hyperlink_cell_lookup(
+  hyperlinks : Array[XlsxHyperlink],
+) -> Map[String, XlsxHyperlink] {
+  let out : Map[String, XlsxHyperlink] = Map([])
+  for link in hyperlinks {
+    let rows = link.end_row - link.start_row + 1
+    let cols = link.end_col - link.start_col + 1
+    if rows <= 0 || cols <= 0 || rows > xlsx_hyperlink_cell_index_cap() / cols {
+      continue
+    }
+    for r in link.start_row..<(link.end_row + 1) {
+      for c in link.start_col..<(link.end_col + 1) {
+        out.set(r.to_string() + "," + c.to_string(), link)
+      }
+    }
+  }
+  out
+}
+
+///|
+fn xlsx_hyperlink_cell_index_cap() -> Int {
+  10_000
+}
+
+///|
+fn sheet_guard_issues(
+  sheet_name : String,
+  part_target : String?,
+  sheet_xml : String,
+  merged_range_count : Int,
+  hyperlink_count : Int,
+  table_count : Int,
+  cell_count : Int,
+  non_empty_cell_count : Int,
+  used_min_row : Int,
+  used_min_col : Int,
+  used_max_row : Int,
+  used_max_col : Int,
+) -> Array[XlsxValidationIssue] {
+  let issues : Array[XlsxValidationIssue] = []
+  match parse_sheet_dimension_area(sheet_xml) {
+    Some(area) =>
+      if area > xlsx_large_sheet_dimension_warning_threshold() {
+        issues.push(
+          sheet_issue(
+            XlsxValidationIssueKind::LargeSheetTruncated,
+            XlsxValidationSeverity::Warning,
+            sheet_name,
+            None,
+            part_target,
+            "large sheet dimension area: " + area.to_string(),
+          ),
+        )
+      }
+    None => ()
+  }
+  if merged_range_count > xlsx_many_merged_ranges_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "many merged ranges: " + merged_range_count.to_string(),
+      ),
+    )
+  }
+  if hyperlink_count > xlsx_many_hyperlinks_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "many hyperlinks: " + hyperlink_count.to_string(),
+      ),
+    )
+  }
+  if table_count > xlsx_many_tables_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "many structured tables: " + table_count.to_string(),
+      ),
+    )
+  }
+  if cell_count > xlsx_many_cells_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "many parsed cells: " + cell_count.to_string(),
+      ),
+    )
+  }
+  if non_empty_cell_count > xlsx_many_non_empty_cells_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "many non-empty cells: " + non_empty_cell_count.to_string(),
+      ),
+    )
+  }
+  let used_area = xlsx_cell_area(
+    used_min_row, used_min_col, used_max_row, used_max_col,
+  )
+  if used_area > xlsx_large_under_cap_rich_table_warning_threshold() &&
+    used_area <= xlsx_large_sheet_dimension_warning_threshold() {
+    issues.push(
+      sheet_issue(
+        XlsxValidationIssueKind::LargeSheetTruncated,
+        XlsxValidationSeverity::Warning,
+        sheet_name,
+        None,
+        part_target,
+        "large under-cap RichTable area: " + used_area.to_string(),
+      ),
+    )
+  }
+  issues
+}
+
+///|
+fn parse_sheet_dimension_area(sheet_xml : String) -> Int? {
+  let dim0 = find_exact_start_tag(sheet_xml, "dimension", 0)
+  match dim0 {
+    None => None
+    Some(i0) => {
+      let dim1 = find_sub(sheet_xml, ">", i0)
+      match dim1 {
+        None => None
+        Some(i1) => {
+          let tag = sheet_xml[i0:i1 + 1].to_owned()
+          let ref_text = normalize_xlsx_range_ref(
+            get_attr(tag, "ref").unwrap_or(""),
+          )
+          match parse_hyperlink_ref(ref_text) {
+            Some((r1, c1, r2, c2)) => Some(xlsx_cell_area(r1, c1, r2, c2))
+            None => None
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn xlsx_cell_area(
+  start_row : Int,
+  start_col : Int,
+  end_row : Int,
+  end_col : Int,
+) -> Int {
+  if start_row <= 0 ||
+    start_col <= 0 ||
+    end_row < start_row ||
+    end_col < start_col {
+    0
+  } else {
+    (end_row - start_row + 1) * (end_col - start_col + 1)
+  }
+}
+
+///|
+fn sheet_unsupported_features(
+  pkg : @ox.OoxmlPackage,
+  sheet_name : String,
+  part_target : String?,
+  sheet_xml : String,
+  sheet_relationships : Array[@ox.OoxmlRelationship],
+) -> Array[XlsxUnsupportedFeature] {
+  let features : Array[XlsxUnsupportedFeature] = []
+  if find_sub(sheet_xml, "<sheetProtection", 0) != None {
+    features.push({
+      kind: XlsxUnsupportedFeatureKind::SheetProtection,
+      severity: XlsxValidationSeverity::Warning,
+      sheet_name: Some(sheet_name),
+      relationship_id: None,
+      part_target,
+      source: part_target.unwrap_or("worksheet"),
+      message: "sheet protection is preserved only as an unsupported warning",
+    })
+  }
+  for rel in sheet_relationships {
+    match sheet_relationship_feature_kind(rel.rel_type) {
+      Some(kind) =>
+        features.push({
+          kind,
+          severity: XlsxValidationSeverity::Warning,
+          sheet_name: Some(sheet_name),
+          relationship_id: Some(rel.id),
+          part_target: Some(rel.resolved_target),
+          source: rel.rel_type,
+          message: "unsupported sheet relationship " +
+          rel.id +
+          ": " +
+          rel.rel_type,
+        })
+      None => ()
+    }
+    if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
+      rel.resolved_target != "" &&
+      !@ox.has_part(pkg, rel.resolved_target) {
+      features.push({
+        kind: XlsxUnsupportedFeatureKind::Unknown,
+        severity: XlsxValidationSeverity::Warning,
+        sheet_name: Some(sheet_name),
+        relationship_id: Some(rel.id),
+        part_target: Some(rel.resolved_target),
+        source: rel.rel_type,
+        message: "relationship target is missing: " + rel.id,
+      })
+    }
+  }
+  features
+}
+
+///|
+fn sheet_relationship_feature_kind(
+  rel_type : String,
+) -> XlsxUnsupportedFeatureKind? {
+  if rel_type.has_suffix("/drawing") ||
+    rel_type.contains("relationships/drawing") {
+    Some(XlsxUnsupportedFeatureKind::Drawing)
+  } else if rel_type.has_suffix("/image") ||
+    rel_type.contains("relationships/image") {
+    Some(XlsxUnsupportedFeatureKind::Image)
+  } else if rel_type.has_suffix("/chart") ||
+    rel_type.contains("relationships/chart") {
+    Some(XlsxUnsupportedFeatureKind::Chart)
+  } else if rel_type.contains("pivotTable") || rel_type.contains("pivot") {
+    Some(XlsxUnsupportedFeatureKind::PivotTable)
+  } else if rel_type.has_suffix("/vbaProject") ||
+    rel_type.contains("relationships/vbaProject") {
+    Some(XlsxUnsupportedFeatureKind::VbaMacro)
+  } else if rel_type.has_suffix("/oleObject") ||
+    rel_type.contains("relationships/oleObject") {
+    Some(XlsxUnsupportedFeatureKind::OleObject)
+  } else if rel_type.has_suffix("/externalLink") ||
+    rel_type.contains("relationships/externalLink") {
+    Some(XlsxUnsupportedFeatureKind::ExternalLink)
+  } else if rel_type.contains("threadedComment") ||
+    rel_type.contains("threadedComments") {
+    Some(XlsxUnsupportedFeatureKind::ThreadedComment)
+  } else {
+    None
+  }
+}
+
+///|
+fn validation_issues_from_unsupported_features(
+  features : Array[XlsxUnsupportedFeature],
+) -> Array[XlsxValidationIssue] {
+  let issues : Array[XlsxValidationIssue] = []
+  for feature in features {
+    issues.push({
+      kind: validation_issue_kind_from_unsupported_feature(feature),
+      severity: feature.severity,
+      sheet_name: feature.sheet_name,
+      cell_reference: None,
+      part_target: feature.part_target,
+      message: feature.message,
+    })
+  }
+  issues
+}
+
+///|
+fn validation_issue_kind_from_unsupported_feature(
+  feature : XlsxUnsupportedFeature,
+) -> XlsxValidationIssueKind {
+  if feature.message.contains("relationship target is missing") {
+    return XlsxValidationIssueKind::MissingRelationshipTarget
+  }
+  match feature.kind {
+    XlsxUnsupportedFeatureKind::Drawing =>
+      XlsxValidationIssueKind::UnsupportedDrawing
+    XlsxUnsupportedFeatureKind::Chart =>
+      XlsxValidationIssueKind::UnsupportedChart
+    XlsxUnsupportedFeatureKind::Image =>
+      XlsxValidationIssueKind::UnsupportedDrawing
+    XlsxUnsupportedFeatureKind::PivotTable =>
+      XlsxValidationIssueKind::UnsupportedPivotTable
+    XlsxUnsupportedFeatureKind::VbaMacro =>
+      XlsxValidationIssueKind::UnsupportedVbaMacro
+    XlsxUnsupportedFeatureKind::OleObject =>
+      XlsxValidationIssueKind::UnsupportedOleObject
+    XlsxUnsupportedFeatureKind::ExternalLink =>
+      XlsxValidationIssueKind::UnsupportedExternalLink
+    XlsxUnsupportedFeatureKind::ThreadedComment =>
+      XlsxValidationIssueKind::UnsupportedThreadedComment
+    XlsxUnsupportedFeatureKind::SheetProtection =>
+      XlsxValidationIssueKind::UnsupportedSheetProtection
+    XlsxUnsupportedFeatureKind::WorkbookProtection =>
+      XlsxValidationIssueKind::UnsupportedWorkbookProtection
+    XlsxUnsupportedFeatureKind::Unknown =>
+      XlsxValidationIssueKind::UnknownWorkbookPart
   }
 }
 

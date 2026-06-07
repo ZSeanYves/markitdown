@@ -293,7 +293,7 @@ fn push_sheet_blocks(
         column_index: Some(sheet.used_min_col),
         object_ref: None,
         relationship_id: sheet.relationship_id,
-        key_path: None,
+        key_path: xlsx_sheet_metadata_key_path(sheet),
       }),
     )
   }
@@ -512,6 +512,297 @@ fn render_xlsx_comment_line(comment : XlsxComment) -> String {
         comment.reference + ": " + comment.text
       }
     None => comment.reference + ": " + comment.text
+  }
+}
+
+///|
+fn xlsx_sheet_metadata_key_path(sheet : XlsxSheetModel) -> String? {
+  let parts : Array[String] = []
+  let cell_link_count = xlsx_cell_hyperlink_count(sheet.cells)
+  if cell_link_count > 0 {
+    parts.push(
+      "cell_links=" +
+      xlsx_cell_hyperlink_metadata_summary(sheet.cells, cell_link_count),
+    )
+  }
+  let range_link_count = xlsx_range_hyperlink_count(sheet.hyperlinks)
+  if range_link_count > 0 {
+    parts.push(
+      "range_links=" +
+      xlsx_range_hyperlink_metadata_summary(sheet.hyperlinks, range_link_count),
+    )
+  }
+  if sheet.tables.length() > 0 {
+    parts.push("tables=" + xlsx_table_metadata_summary(sheet.tables))
+  }
+  if sheet.defined_names.length() > 0 {
+    parts.push(
+      "defined_names=" + xlsx_defined_name_metadata_summary(sheet.defined_names),
+    )
+  }
+  if sheet.unsupported_features.length() > 0 {
+    parts.push(
+      "unsupported=" +
+      xlsx_unsupported_feature_metadata_summary(sheet.unsupported_features),
+    )
+  }
+  if parts.length() == 0 {
+    None
+  } else {
+    Some("xlsx:" + parts.join(";"))
+  }
+}
+
+///|
+fn xlsx_cell_hyperlink_count(cells : Array[XlsxCellModel]) -> Int {
+  let mut count = 0
+  for cell in cells {
+    match cell.hyperlink {
+      Some(_) => count += 1
+      None => ()
+    }
+  }
+  count
+}
+
+///|
+fn xlsx_range_hyperlink_count(hyperlinks : Array[XlsxHyperlink]) -> Int {
+  let mut count = 0
+  for link in hyperlinks {
+    if link.start_row != link.end_row || link.start_col != link.end_col {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn xlsx_cell_hyperlink_metadata_summary(
+  cells : Array[XlsxCellModel],
+  total : Int,
+) -> String {
+  let items : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(total)
+  for cell in cells {
+    if items.length() >= limit {
+      break
+    }
+    match cell.hyperlink {
+      Some(link) => items.push(xlsx_cell_hyperlink_metadata_item(cell, link))
+      None => ()
+    }
+  }
+  xlsx_metadata_summary_finish(items, total)
+}
+
+///|
+fn xlsx_range_hyperlink_metadata_summary(
+  hyperlinks : Array[XlsxHyperlink],
+  total : Int,
+) -> String {
+  let items : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(total)
+  for link in hyperlinks {
+    if items.length() >= limit {
+      break
+    }
+    if link.start_row != link.end_row || link.start_col != link.end_col {
+      items.push(xlsx_range_hyperlink_metadata_item(link))
+    }
+  }
+  xlsx_metadata_summary_finish(items, total)
+}
+
+///|
+fn xlsx_cell_hyperlink_metadata_item(
+  cell : XlsxCellModel,
+  link : XlsxHyperlink,
+) -> String {
+  let fields : Array[String] = []
+  fields.push(xlsx_metadata_kv("cell", cell.reference))
+  xlsx_hyperlink_metadata_fields(fields, link)
+  fields.join(",")
+}
+
+///|
+fn xlsx_range_hyperlink_metadata_item(link : XlsxHyperlink) -> String {
+  let fields : Array[String] = []
+  fields.push(xlsx_metadata_kv("ref", link.reference))
+  xlsx_hyperlink_metadata_fields(fields, link)
+  fields.join(",")
+}
+
+///|
+fn xlsx_hyperlink_metadata_fields(
+  fields : Array[String],
+  link : XlsxHyperlink,
+) -> Unit {
+  fields.push(xlsx_metadata_kv("kind", xlsx_hyperlink_kind_label(link.kind)))
+  xlsx_metadata_optional_kv(fields, "target", link.target)
+  xlsx_metadata_optional_kv(fields, "location", link.location)
+  xlsx_metadata_optional_kv(fields, "rid", link.relationship_id)
+  xlsx_metadata_optional_kv(fields, "display", link.display)
+  xlsx_metadata_optional_kv(fields, "tooltip", link.tooltip)
+}
+
+///|
+fn xlsx_hyperlink_kind_label(kind : XlsxHyperlinkKind) -> String {
+  match kind {
+    XlsxHyperlinkKind::External => "external"
+    XlsxHyperlinkKind::Internal => "internal"
+    XlsxHyperlinkKind::Unknown => "unknown"
+  }
+}
+
+///|
+fn xlsx_table_metadata_summary(tables : Array[XlsxTable]) -> String {
+  let items : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(tables.length())
+  for i in 0..<limit {
+    let table = tables[i]
+    items.push(xlsx_table_metadata_item(table))
+  }
+  xlsx_metadata_summary_finish(items, tables.length())
+}
+
+///|
+fn xlsx_table_metadata_item(table : XlsxTable) -> String {
+  let fields : Array[String] = []
+  fields.push(
+    xlsx_metadata_kv(
+      "name",
+      table.display_name.unwrap_or(table.name.unwrap_or("")),
+    ),
+  )
+  fields.push(xlsx_metadata_kv("ref", table.range_ref))
+  xlsx_metadata_optional_kv(fields, "style", table.style_name)
+  xlsx_metadata_optional_kv(fields, "filter", table.auto_filter_ref)
+  fields.push(xlsx_metadata_kv("headers", table.header_row_visible.to_string()))
+  fields.push(xlsx_metadata_kv("totals", table.totals_row_visible.to_string()))
+  if table.column_names.length() > 0 {
+    fields.push(
+      xlsx_metadata_kv("columns", xlsx_metadata_join_values(table.column_names)),
+    )
+  }
+  fields.join(",")
+}
+
+///|
+fn xlsx_defined_name_metadata_summary(
+  defined_names : Array[XlsxDefinedName],
+) -> String {
+  let items : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(defined_names.length())
+  for i in 0..<limit {
+    let name = defined_names[i]
+    let fields : Array[String] = []
+    fields.push(xlsx_metadata_kv("name", name.name))
+    fields.push(xlsx_metadata_kv("text", name.text))
+    xlsx_metadata_optional_kv(fields, "sheet", name.target_sheet)
+    xlsx_metadata_optional_kv(fields, "range", name.target_range)
+    items.push(fields.join(","))
+  }
+  xlsx_metadata_summary_finish(items, defined_names.length())
+}
+
+///|
+fn xlsx_unsupported_feature_metadata_summary(
+  features : Array[XlsxUnsupportedFeature],
+) -> String {
+  let items : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(features.length())
+  for i in 0..<limit {
+    let feature = features[i]
+    let fields : Array[String] = []
+    fields.push(
+      xlsx_metadata_kv(
+        "kind",
+        xlsx_unsupported_feature_kind_label(feature.kind),
+      ),
+    )
+    xlsx_metadata_optional_kv(fields, "rid", feature.relationship_id)
+    xlsx_metadata_optional_kv(fields, "part", feature.part_target)
+    fields.push(xlsx_metadata_kv("severity", feature.severity))
+    items.push(fields.join(","))
+  }
+  xlsx_metadata_summary_finish(items, features.length())
+}
+
+///|
+fn xlsx_unsupported_feature_kind_label(
+  kind : XlsxUnsupportedFeatureKind,
+) -> String {
+  match kind {
+    XlsxUnsupportedFeatureKind::Drawing => "drawing"
+    XlsxUnsupportedFeatureKind::Chart => "chart"
+    XlsxUnsupportedFeatureKind::Image => "image"
+    XlsxUnsupportedFeatureKind::PivotTable => "pivot_table"
+    XlsxUnsupportedFeatureKind::VbaMacro => "vba_macro"
+    XlsxUnsupportedFeatureKind::OleObject => "ole_object"
+    XlsxUnsupportedFeatureKind::ExternalLink => "external_link"
+    XlsxUnsupportedFeatureKind::ThreadedComment => "threaded_comment"
+    XlsxUnsupportedFeatureKind::SheetProtection => "sheet_protection"
+    XlsxUnsupportedFeatureKind::WorkbookProtection => "workbook_protection"
+    XlsxUnsupportedFeatureKind::Unknown => "unknown"
+  }
+}
+
+///|
+fn xlsx_metadata_kv(key : String, value : String) -> String {
+  key + "=" + xlsx_metadata_value(value)
+}
+
+///|
+fn xlsx_metadata_optional_kv(
+  fields : Array[String],
+  key : String,
+  value : String?,
+) -> Unit {
+  match value {
+    Some(text) => if text != "" { fields.push(xlsx_metadata_kv(key, text)) }
+    None => ()
+  }
+}
+
+///|
+fn xlsx_metadata_join_values(values : Array[String]) -> String {
+  let out : Array[String] = []
+  let limit = xlsx_metadata_summary_item_limit(values.length())
+  for i in 0..<limit {
+    out.push(xlsx_metadata_value(values[i]))
+  }
+  if values.length() > limit {
+    out.push("+" + (values.length() - limit).to_string())
+  }
+  out.join("/")
+}
+
+///|
+fn xlsx_metadata_value(value : String) -> String {
+  value
+  .replace(old="%", new="%25")
+  .replace(old=";", new="%3B")
+  .replace(old="|", new="%7C")
+  .replace(old=",", new="%2C")
+  .replace(old="=", new="%3D")
+}
+
+///|
+fn xlsx_metadata_summary_item_limit(count : Int) -> Int {
+  if count < 5 {
+    count
+  } else {
+    5
+  }
+}
+
+///|
+fn xlsx_metadata_summary_finish(items : Array[String], total : Int) -> String {
+  let body = items.join("|")
+  if total > items.length() {
+    body + "|+" + (total - items.length()).to_string()
+  } else {
+    body
   }
 }
 

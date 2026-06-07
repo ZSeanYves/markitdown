@@ -43,6 +43,7 @@ pub struct XlsxCellModel {
   style_index : Int
   num_format_id : Int
   formula_trace : XlsxFormulaTrace?
+  hyperlink : XlsxHyperlink?
 }
 
 pub enum XlsxCellSemanticType {
@@ -66,6 +67,26 @@ pub struct XlsxComment {
   text : String
 }
 
+pub struct XlsxDefinedName {
+  name : String
+  text : String
+  sheet_scope : String?
+  sheet_scope_index : Int?
+  kind : XlsxDefinedNameKind
+  target_sheet : String?
+  target_range : String?
+  hidden : Bool
+  source : String
+}
+
+pub enum XlsxDefinedNameKind {
+  NamedRange
+  PrintArea
+  AutoFilter
+  FormulaLike
+  Unknown
+} derive(Eq)
+
 pub enum XlsxFormulaPolicy {
   Cached
   EvaluatedMissingCache
@@ -81,6 +102,27 @@ pub struct XlsxFormulaTrace {
   referenced_cells : Array[String]?
   referenced_ranges : Array[String]?
 }
+
+pub struct XlsxHyperlink {
+  reference : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  relationship_id : String?
+  target : String?
+  location : String?
+  tooltip : String?
+  display : String?
+  kind : XlsxHyperlinkKind
+  warning : String?
+}
+
+pub enum XlsxHyperlinkKind {
+  External
+  Internal
+  Unknown
+} derive(Eq)
 
 pub struct XlsxMergedRange {
   range_ref : String
@@ -112,6 +154,10 @@ pub struct XlsxSheetModel {
   cells : Array[XlsxCellModel]
   merged_ranges : Array[XlsxMergedRange]
   comments : Array[XlsxComment]
+  hyperlinks : Array[XlsxHyperlink]
+  tables : Array[XlsxTable]
+  defined_names : Array[XlsxDefinedName]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   hidden_rows : Array[Int]
   table_rows : Array[Array[String]]
   table_row_numbers : Array[Int]
@@ -128,9 +174,64 @@ pub enum XlsxSheetState {
   VeryHidden
 } derive(Eq)
 
+pub struct XlsxTable {
+  table_id : String?
+  name : String?
+  display_name : String?
+  style_name : String?
+  auto_filter_ref : String?
+  header_row_visible : Bool
+  totals_row_visible : Bool
+  range_ref : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  header_row_count : Int
+  totals_row_count : Int
+  column_names : Array[String]
+  columns : Array[XlsxTableColumn]
+  sheet_name : String
+  source_part : String?
+  relationship_id : String?
+}
+
+pub struct XlsxTableColumn {
+  column_id : String?
+  name : String?
+  totals_row_function : String?
+  totals_row_label : String?
+}
+
+pub struct XlsxUnsupportedFeature {
+  kind : XlsxUnsupportedFeatureKind
+  severity : String
+  sheet_name : String?
+  relationship_id : String?
+  part_target : String?
+  source : String
+  message : String
+}
+
+pub enum XlsxUnsupportedFeatureKind {
+  Drawing
+  Chart
+  Image
+  PivotTable
+  VbaMacro
+  OleObject
+  ExternalLink
+  ThreadedComment
+  SheetProtection
+  WorkbookProtection
+  Unknown
+} derive(Eq)
+
 pub struct XlsxWorkbookModel {
   source_name : String
   uses_date_1904 : Bool
+  defined_names : Array[XlsxDefinedName]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   sheets : Array[XlsxSheetModel]
 }
 

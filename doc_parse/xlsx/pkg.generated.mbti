@@ -42,6 +42,7 @@ pub struct XlsxCell {
   style_index : Int
   num_format_id : Int
   formula_trace : XlsxFormulaTrace?
+  hyperlink : XlsxHyperlink?
   issues : Array[XlsxValidationIssue]
 }
 
@@ -76,6 +77,26 @@ pub struct XlsxComment {
   text : String
 }
 
+pub struct XlsxDefinedName {
+  name : String
+  text : String
+  sheet_scope : String?
+  sheet_scope_index : Int?
+  kind : XlsxDefinedNameKind
+  target_sheet : String?
+  target_range : String?
+  hidden : Bool
+  source : String
+}
+
+pub(all) enum XlsxDefinedNameKind {
+  NamedRange
+  PrintArea
+  AutoFilter
+  FormulaLike
+  Unknown
+} derive(Eq)
+
 pub struct XlsxErrorInfo {
   kind : XlsxErrorKind
   detail : String
@@ -106,6 +127,27 @@ pub struct XlsxFormulaTrace {
   referenced_cells : Array[String]?
   referenced_ranges : Array[String]?
 }
+
+pub struct XlsxHyperlink {
+  reference : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  relationship_id : String?
+  target : String?
+  location : String?
+  tooltip : String?
+  display : String?
+  kind : XlsxHyperlinkKind
+  warning : String?
+}
+
+pub(all) enum XlsxHyperlinkKind {
+  External
+  Internal
+  Unknown
+} derive(Eq)
 
 pub struct XlsxInspectReport {
   sheet_count : Int
@@ -158,7 +200,10 @@ pub struct XlsxSheet {
   cells : Array[XlsxCell]
   merged_ranges : Array[XlsxMergedRange]
   comments : Array[XlsxComment]
+  hyperlinks : Array[XlsxHyperlink]
+  tables : Array[XlsxTable]
   hidden_rows : Array[Int]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   used_min_row : Int
   used_min_col : Int
   used_max_row : Int
@@ -176,6 +221,59 @@ pub struct XlsxStyles {
   xf_numfmts : Array[Int]
   custom_numfmts : Map[Int, String]
 }
+
+pub struct XlsxTable {
+  table_id : String?
+  name : String?
+  display_name : String?
+  style_name : String?
+  auto_filter_ref : String?
+  header_row_visible : Bool
+  totals_row_visible : Bool
+  range_ref : String
+  start_row : Int
+  start_col : Int
+  end_row : Int
+  end_col : Int
+  header_row_count : Int
+  totals_row_count : Int
+  column_names : Array[String]
+  columns : Array[XlsxTableColumn]
+  sheet_name : String
+  source_part : String?
+  relationship_id : String?
+}
+
+pub struct XlsxTableColumn {
+  column_id : String?
+  name : String?
+  totals_row_function : String?
+  totals_row_label : String?
+}
+
+pub struct XlsxUnsupportedFeature {
+  kind : XlsxUnsupportedFeatureKind
+  severity : XlsxValidationSeverity
+  sheet_name : String?
+  relationship_id : String?
+  part_target : String?
+  source : String
+  message : String
+}
+
+pub(all) enum XlsxUnsupportedFeatureKind {
+  Drawing
+  Chart
+  Image
+  PivotTable
+  VbaMacro
+  OleObject
+  ExternalLink
+  ThreadedComment
+  SheetProtection
+  WorkbookProtection
+  Unknown
+} derive(Eq)
 
 pub struct XlsxValidationIssue {
   kind : XlsxValidationIssueKind
@@ -195,6 +293,20 @@ pub(all) enum XlsxValidationIssueKind {
   DuplicateSheetName
   MalformedSheetXml
   UnsupportedFormulaEvaluation
+  UnsupportedDrawing
+  UnsupportedChart
+  UnsupportedPivotTable
+  UnsupportedVbaMacro
+  UnsupportedOleObject
+  UnsupportedExternalLink
+  UnsupportedThreadedComment
+  UnsupportedSheetProtection
+  UnsupportedWorkbookProtection
+  MissingRelationshipTarget
+  LargeSheetTruncated
+  LargeSharedStrings
+  UnsupportedCellStyle
+  UnknownWorkbookPart
 } derive(Eq)
 
 pub struct XlsxValidationReport {
@@ -215,7 +327,9 @@ pub struct XlsxWorkbook {
   shared_strings : Array[String]
   styles : XlsxStyles
   uses_date_1904 : Bool
+  defined_names : Array[XlsxDefinedName]
   sheets : Array[XlsxSheet]
+  unsupported_features : Array[XlsxUnsupportedFeature]
   issues : Array[XlsxValidationIssue]
 }
 
