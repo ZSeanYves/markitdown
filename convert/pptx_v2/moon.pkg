@@ -1,0 +1,9 @@
+import {
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/pptx_v2" @pptx,
+  "moonbitlang/x/fs",
+}
+
+options(
+  "preferred-target": "native",
+)

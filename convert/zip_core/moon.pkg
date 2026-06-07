@@ -2,7 +2,7 @@ import {
   "ZSeanYves/markitdown/core" @cor,
   "ZSeanYves/markitdown/doc_parse/zip" @zipraw,
   "ZSeanYves/markitdown/convert/docx" @doc,
-  "ZSeanYves/markitdown/convert/pptx",
+  "ZSeanYves/markitdown/convert/pptx_v2" @pptx,
   "ZSeanYves/markitdown/convert/xlsx",
   "ZSeanYves/markitdown/convert/html",
   "ZSeanYves/markitdown/convert/csv",

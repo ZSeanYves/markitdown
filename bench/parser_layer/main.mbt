@@ -1903,7 +1903,7 @@ fn bench_pptx_row(
   runs : Array[BenchRunRow],
 ) -> Unit raise BenchError {
   let bytes = read_bytes(row.path)
-  let package_name = "doc_parse/pptx"
+  let package_name = "doc_parse/pptx_v2"
   let pkg = @ooxml.open_ooxml_package(bytes) catch {
     e =>
       raise Failed(
@@ -1918,11 +1918,11 @@ fn bench_pptx_row(
         "parse",
         cfg,
         bytes.length(),
-        "parse_pptx_presentation_from_package on pre-opened OOXML package; disk I/O and package open excluded",
+        "parse_pptx_document_from_package on pre-opened OOXML package; disk I/O and package open excluded",
         runs,
         fn() {
           ignore(
-            @pptx.parse_pptx_presentation_from_package(pkg) catch {
+            @pptx.parse_pptx_document_from_package(pkg) catch {
               e =>
                 return Err(
                   Failed(
@@ -1936,7 +1936,7 @@ fn bench_pptx_row(
       ),
     )
   }
-  let pres = @pptx.parse_pptx_presentation_from_package(pkg) catch {
+  let pres = @pptx.parse_pptx_document_from_package(pkg) catch {
     e =>
       raise Failed("pptx parse failed for " + row.path + " : " + e.to_string())
   }
@@ -1948,10 +1948,10 @@ fn bench_pptx_row(
         "inspect",
         cfg,
         bytes.length(),
-        "inspect_pptx_presentation on pre-parsed semantic presentation; parse and I/O excluded",
+        "inspect_pptx_document_v2 on pre-parsed semantic presentation; parse and I/O excluded",
         runs,
         fn() {
-          ignore(@pptx.inspect_pptx_presentation(pres))
+          ignore(@pptx.inspect_pptx_document_v2(pres))
           Ok(())
         },
       ),
@@ -1965,10 +1965,10 @@ fn bench_pptx_row(
         "validate",
         cfg,
         bytes.length(),
-        "validate_pptx_presentation on pre-parsed semantic presentation; parse and I/O excluded",
+        "v2 warning materialization on pre-parsed semantic presentation; parse and I/O excluded",
         runs,
         fn() {
-          ignore(@pptx.validate_pptx_presentation(pres))
+          ignore(pres.warnings.length())
           Ok(())
         },
       ),

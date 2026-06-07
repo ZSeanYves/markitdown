@@ -2108,7 +2108,7 @@ fn dispatcher_route_name(format : String) -> String {
     "docx" => "convert/docx"
     "pdf" => "convert/pdf"
     "xlsx" => "convert/xlsx"
-    "pptx" => "convert/pptx"
+    "pptx" => "convert/pptx_v2"
     "html" => "convert/html"
     "csv" => "convert/csv"
     "tsv" => "convert/csv"

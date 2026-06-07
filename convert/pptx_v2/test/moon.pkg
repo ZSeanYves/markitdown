@@ -1,0 +1,7 @@
+import {
+  "ZSeanYves/markitdown/convert/pptx_v2" @lower,
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
+  "ZSeanYves/markitdown/doc_parse/pptx_v2" @pptx,
+  "moonbitlang/x/fs",
+} for "test"

@@ -14,7 +14,7 @@ import {
   "ZSeanYves/markitdown/doc_parse/epub",
   "ZSeanYves/markitdown/doc_parse/xlsx",
   "ZSeanYves/markitdown/doc_parse/docx",
-  "ZSeanYves/markitdown/doc_parse/pptx",
+  "ZSeanYves/markitdown/doc_parse/pptx_v2" @pptx,
   "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
