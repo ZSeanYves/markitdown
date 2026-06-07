@@ -185,7 +185,7 @@ fn parse_shape_container(
         "group-depth",
         None,
         c.group_prefix,
-        "pptx v2 group depth budget exceeded",
+        "pptx group depth budget exceeded",
       ),
     )
     return []
@@ -212,7 +212,7 @@ fn parse_shape_container(
                     "group-child-count",
                     None,
                     c.group_prefix,
-                    "pptx v2 child-shape budget exceeded",
+                    "pptx child-shape budget exceeded",
                   ),
                 )
               }
@@ -305,7 +305,7 @@ fn consume_shape_budget(
         name + "-" + child_count.to_string(),
         None,
         c.group_prefix,
-        "pptx v2 shape budget exceeded for part: " + c.part_name,
+        "pptx shape budget exceeded for part: " + c.part_name,
       )
     }
     false

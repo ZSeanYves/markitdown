@@ -171,7 +171,7 @@ fn consume_media_ref_budget(
         source_key.node_key,
         Some(rel_id),
         None,
-        "pptx v2 media reference budget exceeded",
+        "pptx media reference budget exceeded",
       )
     }
     false

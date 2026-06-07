@@ -1,5 +1,5 @@
 ///|
-pub struct PptxV2InspectReport {
+pub struct PptxInspectReport {
   slide_count : Int
   object_count : Int
   shape_count : Int
@@ -13,7 +13,7 @@ pub struct PptxV2InspectReport {
 }
 
 ///|
-pub fn inspect_pptx_document_v2(doc : PptxDocument) -> PptxV2InspectReport {
+pub fn inspect_pptx_document(doc : PptxDocument) -> PptxInspectReport {
   let object_count : Ref[Int] = { val: 0 }
   let shape_count : Ref[Int] = { val: 0 }
   let picture_count : Ref[Int] = { val: 0 }

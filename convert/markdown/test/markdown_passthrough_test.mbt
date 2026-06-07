@@ -439,10 +439,7 @@ test "markdown frontmatter and html candidate lines do not become footnotes" {
   let frontmatter_path = dir + "/markdown_footnote_frontmatter.md"
   write_utf8_text(
     frontmatter_path,
-    "---\n" +
-    "[^meta]: not a footnote\n" +
-    "---\n" +
-    "Body only.\n",
+    "---\n" + "[^meta]: not a footnote\n" + "---\n" + "Body only.\n",
   )
   let frontmatter_doc = @md.parse_markdown(frontmatter_path, "", 6)
   assert_eq(
@@ -455,9 +452,7 @@ test "markdown frontmatter and html candidate lines do not become footnotes" {
   let html_path = dir + "/markdown_footnote_html_candidate.md"
   write_utf8_text(
     html_path,
-    "<div>\n" +
-    "[^1]: still html candidate text\n" +
-    "</div>\n",
+    "<div>\n" + "[^1]: still html candidate text\n" + "</div>\n",
   )
   let html_doc = @md.parse_markdown(html_path, "", 6)
   assert_eq(

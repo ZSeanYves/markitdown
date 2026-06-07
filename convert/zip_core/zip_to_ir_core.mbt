@@ -116,7 +116,8 @@ pub async fn parse_zip_with_profile(
 
   let inspect_started = zip_profile_now(profile)
   let conversion_plan = build_zip_conversion_plan(
-    archive, @cor.basename(input_path),
+    archive,
+    @cor.basename(input_path),
   )
   let inspect_elapsed = zip_profile_elapsed(profile, inspect_started)
   let inspect = conversion_plan.inspect
@@ -156,19 +157,19 @@ pub async fn parse_zip_with_profile(
   }
   match filter_counts {
     Some(counts) =>
-    zip_profile_add_summary(
-      profile,
-      "counts total_entries=" +
-      inspect.entry_count.to_string() +
-      " converted_entries=" +
-      counts.converted_entries.to_string() +
-      " skipped_entries=" +
-      counts.skipped_entries.to_string() +
-      " unsupported_entries=" +
-      counts.unsupported_entries.to_string() +
-      " nested_archive_entries=" +
-      counts.nested_archive_entries.to_string(),
-    )
+      zip_profile_add_summary(
+        profile,
+        "counts total_entries=" +
+        inspect.entry_count.to_string() +
+        " converted_entries=" +
+        counts.converted_entries.to_string() +
+        " skipped_entries=" +
+        counts.skipped_entries.to_string() +
+        " unsupported_entries=" +
+        counts.unsupported_entries.to_string() +
+        " nested_archive_entries=" +
+        counts.nested_archive_entries.to_string(),
+      )
     None => ()
   }
   if profile_active {
@@ -186,17 +187,17 @@ pub async fn parse_zip_with_profile(
   let plan_elapsed = zip_profile_elapsed(profile, plan_started)
   match filter_counts {
     Some(counts) =>
-    zip_profile_add_stage(
-      profile,
-      "zip_filter_entries",
-      plan_elapsed,
-      Some(
-        "plans=" +
-        plans.length().to_string() +
-        " convertible=" +
-        counts.converted_entries.to_string(),
-      ),
-    )
+      zip_profile_add_stage(
+        profile,
+        "zip_filter_entries",
+        plan_elapsed,
+        Some(
+          "plans=" +
+          plans.length().to_string() +
+          " convertible=" +
+          counts.converted_entries.to_string(),
+        ),
+      )
     None => ()
   }
   if profile_active {
@@ -299,9 +300,7 @@ pub async fn parse_zip_with_profile(
     }
 
     let read_started = zip_profile_now(profile)
-    let entry_bytes = read_entry_for_materialization(
-      archive, plan, entry_cache,
-    ) catch {
+    let entry_bytes = read_entry_for_materialization(archive, plan, entry_cache) catch {
       e => {
         if profile_active {
           warning_entries += 1
@@ -325,9 +324,7 @@ pub async fn parse_zip_with_profile(
       html_entry_has_local_image_refs(entry_bytes)
     if use_shared_extracted_input && !shared_extracted_ready {
       let shared_extract_started = zip_profile_now(profile)
-      materialize_safe_archive_tree(
-        archive, plans, extracted_root, entry_cache,
-      ) catch {
+      materialize_safe_archive_tree(archive, plans, extracted_root, entry_cache) catch {
         e => {
           if profile_active {
             warning_entries += 1

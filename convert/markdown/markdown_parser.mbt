@@ -56,11 +56,7 @@ pub fn parse_markdown(
 
   for block in scanner_backed_markdown_blocks(scanned) {
     let block_value = upgrade_scanner_backed_markdown_block(
-      block,
-      scanned,
-      definition_start_lines,
-      inline_cache_by_line,
-      resolved_note_ids,
+      block, scanned, definition_start_lines, inline_cache_by_line, resolved_note_ids,
     )
     @cor.push_with_origin(
       doc,
@@ -340,7 +336,12 @@ fn markdown_lines_from_scanner(
 
   match scanned.frontmatter {
     Some(frontmatter) =>
-      assign_markdown_block_lines(lines, frontmatter.line_start, frontmatter.line_end, markdown_lines(frontmatter_raw_text(frontmatter)))
+      assign_markdown_block_lines(
+        lines,
+        frontmatter.line_start,
+        frontmatter.line_end,
+        markdown_lines(frontmatter_raw_text(frontmatter)),
+      )
     None => ()
   }
 
@@ -369,7 +370,9 @@ fn assign_markdown_block_lines(
 
   let mut line_no = line_start
   let mut i = 0
-  while line_no <= line_end && i < block_lines.length() && line_no <= lines.length() {
+  while line_no <= line_end &&
+        i < block_lines.length() &&
+        line_no <= lines.length() {
     lines[line_no - 1] = block_lines[i]
     line_no += 1
     i += 1
@@ -433,8 +436,8 @@ fn markdown_normal_line_allowance(
 
     let chunk_start = block.line_start
     let mut chunk_end = block.line_end
-    let mut has_html_candidate =
-      block.kind == @dpmd.MarkdownBlockKind::HtmlBlockCandidate
+    let mut has_html_candidate = block.kind ==
+      @dpmd.MarkdownBlockKind::HtmlBlockCandidate
     i += 1
 
     while i < scanned.blocks.length() {

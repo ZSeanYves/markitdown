@@ -4,13 +4,13 @@ pub fn parse_pptx(
   out_dir : String,
   max_heading : Int,
 ) -> @cor.Document raise {
-  let pptx_doc = @pptx.open_pptx_document_v2(input_path)
+  let pptx_doc = @pptxdoc.open_pptx_document(input_path)
   lower_pptx_document(pptx_doc, @cor.basename(input_path), out_dir, max_heading)
 }
 
 ///|
 pub fn lower_pptx_document(
-  pptx_doc : @pptx.PptxDocument,
+  pptx_doc : @pptxdoc.PptxDocument,
   source_name : String,
   out_dir : String,
   max_heading : Int,
@@ -43,8 +43,8 @@ pub fn lower_pptx_document(
 }
 
 ///|
-pub fn pptx_v2_metadata_document_properties(
-  pptx_doc : @pptx.PptxDocument,
+pub fn pptx_metadata_document_properties(
+  pptx_doc : @pptxdoc.PptxDocument,
 ) -> @cor.MetadataDocumentProperties? {
   let meta = pptx_doc.metadata
   Some(
@@ -110,7 +110,7 @@ fn push_origin(
 ///|
 fn lower_slide_objects(
   doc : @cor.Document,
-  slide : @pptx.PptxSlide,
+  slide : @pptxdoc.PptxSlide,
   source_name : String,
   out_dir : String,
   image_idx : Ref[Int],
@@ -132,9 +132,9 @@ fn lower_slide_objects(
 ///|
 fn lower_object_sequence(
   doc : @cor.Document,
-  objects : Array[@pptx.PptxObject],
-  layout_regions : Array[@pptx.PptxLayoutRegionHint],
-  image_caption_pairs : Array[@pptx.PptxImageCaptionPair],
+  objects : Array[@pptxdoc.PptxObject],
+  layout_regions : Array[@pptxdoc.PptxLayoutRegionHint],
+  image_caption_pairs : Array[@pptxdoc.PptxImageCaptionPair],
   source_name : String,
   slide_index : Int,
   out_dir : String,
@@ -172,9 +172,9 @@ fn lower_object_sequence(
 
 ///|
 fn sort_objects_for_lowering(
-  objects : Array[@pptx.PptxObject],
-) -> Array[(String, @pptx.PptxObject)] {
-  let out : Array[(String, @pptx.PptxObject)] = []
+  objects : Array[@pptxdoc.PptxObject],
+) -> Array[(String, @pptxdoc.PptxObject)] {
+  let out : Array[(String, @pptxdoc.PptxObject)] = []
   let mut idx = 0
   for obj in objects {
     idx += 1
@@ -185,83 +185,83 @@ fn sort_objects_for_lowering(
 }
 
 ///|
-fn object_order_key(obj : @pptx.PptxObject, source_order : Int) -> String {
+fn object_order_key(obj : @pptxdoc.PptxObject, source_order : Int) -> String {
   match obj {
-    @pptx.PptxObject::Shape(shape) =>
+    @pptxdoc.PptxObject::Shape(shape) =>
       match shape.reading_order {
         Some(h) => h.order_key
         None =>
           "100:" + pad_int(source_order, 5) + ":" + shape.source_key.node_key
       }
-    @pptx.PptxObject::Picture(pic) =>
+    @pptxdoc.PptxObject::Picture(pic) =>
       match pic.reading_order {
         Some(h) => h.order_key
         None =>
           "050:" + pad_int(source_order, 5) + ":" + pic.source_key.node_key
       }
-    @pptx.PptxObject::Group(group) =>
+    @pptxdoc.PptxObject::Group(group) =>
       match group.reading_order {
         Some(h) => h.order_key
         None =>
           "030:" + pad_int(source_order, 5) + ":" + group.source_key.node_key
       }
-    @pptx.PptxObject::Table(table) =>
+    @pptxdoc.PptxObject::Table(table) =>
       "040:" + pad_int(source_order, 5) + ":" + table.source_key.node_key
-    @pptx.PptxObject::Chart(chart) =>
+    @pptxdoc.PptxObject::Chart(chart) =>
       "045:" + pad_int(source_order, 5) + ":" + chart.source_key.node_key
-    @pptx.PptxObject::SmartArt(smart) =>
+    @pptxdoc.PptxObject::SmartArt(smart) =>
       "095:" + pad_int(source_order, 5) + ":" + smart.source_key.node_key
-    @pptx.PptxObject::Ole(ole) =>
+    @pptxdoc.PptxObject::Ole(ole) =>
       "095:" + pad_int(source_order, 5) + ":" + ole.source_key.node_key
-    @pptx.PptxObject::Connector(conn) =>
+    @pptxdoc.PptxObject::Connector(conn) =>
       "090:" + pad_int(source_order, 5) + ":" + conn.source_key.node_key
-    @pptx.PptxObject::Unsupported(unsupported) =>
+    @pptxdoc.PptxObject::Unsupported(unsupported) =>
       "100:" + pad_int(source_order, 5) + ":" + unsupported.source_key.node_key
   }
 }
 
 ///|
 priv struct PptxLowerRegionMember {
-  source_key : @pptx.PptxSourceKey
+  source_key : @pptxdoc.PptxSourceKey
   text : String
-  geometry : @pptx.PptxGeometry?
+  geometry : @pptxdoc.PptxGeometry?
 }
 
 ///|
 fn lower_high_confidence_regions(
   doc : @cor.Document,
-  objects : Array[@pptx.PptxObject],
-  layout_regions : Array[@pptx.PptxLayoutRegionHint],
+  objects : Array[@pptxdoc.PptxObject],
+  layout_regions : Array[@pptxdoc.PptxLayoutRegionHint],
   source_name : String,
   slide_index : Int,
-) -> Array[@pptx.PptxSourceKey] {
-  let consumed : Array[@pptx.PptxSourceKey] = []
-  let ordered : Array[(String, @pptx.PptxLayoutRegionHint)] = []
+) -> Array[@pptxdoc.PptxSourceKey] {
+  let consumed : Array[@pptxdoc.PptxSourceKey] = []
+  let ordered : Array[(String, @pptxdoc.PptxLayoutRegionHint)] = []
   for region in layout_regions {
     ordered.push((region.order_key, region))
   }
   ordered.sort_by(fn(a, b) { a.0.compare(b.0) })
   for item in ordered {
     let region = item.1
-    if region.confidence != @pptx.PptxConfidence::High {
+    if region.confidence != @pptxdoc.PptxConfidence::High {
       continue
     }
     match region.kind {
-      @pptx.PptxLayoutRegionKind::TableLike => {
+      @pptxdoc.PptxLayoutRegionKind::TableLike => {
         let members = collect_region_members(objects, region.members)
         if members.length() >= 4 && !any_member_consumed(members, consumed) {
           lower_inferred_table_region(doc, members, source_name, slide_index)
           append_member_keys(consumed, members)
         }
       }
-      @pptx.PptxLayoutRegionKind::CardLike => {
+      @pptxdoc.PptxLayoutRegionKind::CardLike => {
         let members = collect_region_members(objects, region.members)
         if members.length() >= 2 && !any_member_consumed(members, consumed) {
           lower_card_region(doc, members, source_name, slide_index)
           append_member_keys(consumed, members)
         }
       }
-      @pptx.PptxLayoutRegionKind::GridLike => {
+      @pptxdoc.PptxLayoutRegionKind::GridLike => {
         let members = collect_region_members(objects, region.members)
         if members.length() >= 4 {
           lower_grid_region(doc, members, source_name, slide_index)
@@ -355,8 +355,8 @@ fn lower_grid_region(
 
 ///|
 fn collect_region_members(
-  objects : Array[@pptx.PptxObject],
-  keys : Array[@pptx.PptxSourceKey],
+  objects : Array[@pptxdoc.PptxObject],
+  keys : Array[@pptxdoc.PptxSourceKey],
 ) -> Array[PptxLowerRegionMember] {
   let members : Array[PptxLowerRegionMember] = []
   collect_region_members_into(members, objects, keys)
@@ -366,8 +366,8 @@ fn collect_region_members(
 ///|
 fn collect_region_members_into(
   members : Array[PptxLowerRegionMember],
-  objects : Array[@pptx.PptxObject],
-  keys : Array[@pptx.PptxSourceKey],
+  objects : Array[@pptxdoc.PptxObject],
+  keys : Array[@pptxdoc.PptxSourceKey],
 ) -> Unit {
   for obj in objects {
     if source_key_array_contains(keys, object_source_key(obj)) {
@@ -378,7 +378,7 @@ fn collect_region_members_into(
       })
     }
     match obj {
-      @pptx.PptxObject::Group(group) =>
+      @pptxdoc.PptxObject::Group(group) =>
         collect_region_members_into(members, group.children, keys)
       _ => ()
     }
@@ -386,14 +386,14 @@ fn collect_region_members_into(
 }
 
 ///|
-fn object_region_text(obj : @pptx.PptxObject) -> String {
+fn object_region_text(obj : @pptxdoc.PptxObject) -> String {
   match obj {
-    @pptx.PptxObject::Shape(shape) =>
+    @pptxdoc.PptxObject::Shape(shape) =>
       match shape.text_body {
         Some(body) => text_body_plain_text(body)
         None => shape.name.unwrap_or("")
       }
-    @pptx.PptxObject::Picture(pic) =>
+    @pptxdoc.PptxObject::Picture(pic) =>
       match pic.media {
         Some(media) => {
           let label = first_some_string(
@@ -404,13 +404,13 @@ fn object_region_text(obj : @pptx.PptxObject) -> String {
         }
         None => pic.name.unwrap_or("image")
       }
-    @pptx.PptxObject::Table(table) => table_text_for_region(table)
-    @pptx.PptxObject::Group(group) => group.name.unwrap_or("group")
-    @pptx.PptxObject::Chart(chart) => chart.title.unwrap_or("chart")
-    @pptx.PptxObject::SmartArt(_) => "SmartArt"
-    @pptx.PptxObject::Ole(_) => "OLE"
-    @pptx.PptxObject::Connector(conn) => conn.name.unwrap_or("connector")
-    @pptx.PptxObject::Unsupported(unsupported) => unsupported.kind
+    @pptxdoc.PptxObject::Table(table) => table_text_for_region(table)
+    @pptxdoc.PptxObject::Group(group) => group.name.unwrap_or("group")
+    @pptxdoc.PptxObject::Chart(chart) => chart.title.unwrap_or("chart")
+    @pptxdoc.PptxObject::SmartArt(_) => "SmartArt"
+    @pptxdoc.PptxObject::Ole(_) => "OLE"
+    @pptxdoc.PptxObject::Connector(conn) => conn.name.unwrap_or("connector")
+    @pptxdoc.PptxObject::Unsupported(unsupported) => unsupported.kind
   }
 }
 
@@ -423,7 +423,7 @@ fn first_some_string(a : String?, b : String?) -> String? {
 }
 
 ///|
-fn text_body_plain_text(body : @pptx.PptxTextBody) -> String {
+fn text_body_plain_text(body : @pptxdoc.PptxTextBody) -> String {
   let parts : Array[String] = []
   for para in body.paragraphs {
     let text = inline_plain_text(paragraph_inlines(para)).trim().to_owned()
@@ -435,7 +435,7 @@ fn text_body_plain_text(body : @pptx.PptxTextBody) -> String {
 }
 
 ///|
-fn table_text_for_region(table : @pptx.PptxTable) -> String {
+fn table_text_for_region(table : @pptxdoc.PptxTable) -> String {
   let rows : Array[String] = []
   for row in table.rows {
     let cells : Array[String] = []
@@ -448,13 +448,13 @@ fn table_text_for_region(table : @pptx.PptxTable) -> String {
 }
 
 ///|
-fn object_geometry(obj : @pptx.PptxObject) -> @pptx.PptxGeometry? {
+fn object_geometry(obj : @pptxdoc.PptxObject) -> @pptxdoc.PptxGeometry? {
   match obj {
-    @pptx.PptxObject::Shape(shape) => shape.geometry
-    @pptx.PptxObject::Picture(pic) => pic.geometry
-    @pptx.PptxObject::Table(table) => table.geometry
-    @pptx.PptxObject::Group(group) => group.geometry
-    @pptx.PptxObject::Connector(conn) => conn.geometry
+    @pptxdoc.PptxObject::Shape(shape) => shape.geometry
+    @pptxdoc.PptxObject::Picture(pic) => pic.geometry
+    @pptxdoc.PptxObject::Table(table) => table.geometry
+    @pptxdoc.PptxObject::Group(group) => group.geometry
+    @pptxdoc.PptxObject::Connector(conn) => conn.geometry
     _ => None
   }
 }
@@ -535,7 +535,7 @@ fn region_key_path(members : Array[PptxLowerRegionMember]) -> String? {
 
 ///|
 fn append_member_keys(
-  consumed : Array[@pptx.PptxSourceKey],
+  consumed : Array[@pptxdoc.PptxSourceKey],
   members : Array[PptxLowerRegionMember],
 ) -> Unit {
   for item in members {
@@ -548,7 +548,7 @@ fn append_member_keys(
 ///|
 fn any_member_consumed(
   members : Array[PptxLowerRegionMember],
-  consumed : Array[@pptx.PptxSourceKey],
+  consumed : Array[@pptxdoc.PptxSourceKey],
 ) -> Bool {
   for item in members {
     if source_key_array_contains(consumed, item.source_key) {
@@ -560,9 +560,9 @@ fn any_member_consumed(
 
 ///|
 fn semantic_caption_keys(
-  pairs : Array[@pptx.PptxImageCaptionPair],
-) -> Array[@pptx.PptxSourceKey] {
-  let out : Array[@pptx.PptxSourceKey] = []
+  pairs : Array[@pptxdoc.PptxImageCaptionPair],
+) -> Array[@pptxdoc.PptxSourceKey] {
+  let out : Array[@pptxdoc.PptxSourceKey] = []
   for pair in pairs {
     if confidence_is_semantic(pair.confidence) {
       out.push(pair.caption_key)
@@ -573,8 +573,8 @@ fn semantic_caption_keys(
 
 ///|
 fn image_caption_for_picture(
-  picture_key : @pptx.PptxSourceKey,
-  pairs : Array[@pptx.PptxImageCaptionPair],
+  picture_key : @pptxdoc.PptxSourceKey,
+  pairs : Array[@pptxdoc.PptxImageCaptionPair],
 ) -> String? {
   for pair in pairs {
     if source_keys_equal(pair.picture_key, picture_key) &&
@@ -586,35 +586,38 @@ fn image_caption_for_picture(
 }
 
 ///|
-fn confidence_is_semantic(confidence : @pptx.PptxConfidence) -> Bool {
-  confidence == @pptx.PptxConfidence::High ||
-  confidence == @pptx.PptxConfidence::Medium
+fn confidence_is_semantic(confidence : @pptxdoc.PptxConfidence) -> Bool {
+  confidence == @pptxdoc.PptxConfidence::High ||
+  confidence == @pptxdoc.PptxConfidence::Medium
 }
 
 ///|
-fn object_source_key(obj : @pptx.PptxObject) -> @pptx.PptxSourceKey {
+fn object_source_key(obj : @pptxdoc.PptxObject) -> @pptxdoc.PptxSourceKey {
   match obj {
-    @pptx.PptxObject::Shape(shape) => shape.source_key
-    @pptx.PptxObject::Group(group) => group.source_key
-    @pptx.PptxObject::Picture(pic) => pic.source_key
-    @pptx.PptxObject::Table(table) => table.source_key
-    @pptx.PptxObject::Chart(chart) => chart.source_key
-    @pptx.PptxObject::SmartArt(smart) => smart.source_key
-    @pptx.PptxObject::Ole(ole) => ole.source_key
-    @pptx.PptxObject::Connector(conn) => conn.source_key
-    @pptx.PptxObject::Unsupported(unsupported) => unsupported.source_key
+    @pptxdoc.PptxObject::Shape(shape) => shape.source_key
+    @pptxdoc.PptxObject::Group(group) => group.source_key
+    @pptxdoc.PptxObject::Picture(pic) => pic.source_key
+    @pptxdoc.PptxObject::Table(table) => table.source_key
+    @pptxdoc.PptxObject::Chart(chart) => chart.source_key
+    @pptxdoc.PptxObject::SmartArt(smart) => smart.source_key
+    @pptxdoc.PptxObject::Ole(ole) => ole.source_key
+    @pptxdoc.PptxObject::Connector(conn) => conn.source_key
+    @pptxdoc.PptxObject::Unsupported(unsupported) => unsupported.source_key
   }
 }
 
 ///|
-fn source_keys_equal(a : @pptx.PptxSourceKey, b : @pptx.PptxSourceKey) -> Bool {
+fn source_keys_equal(
+  a : @pptxdoc.PptxSourceKey,
+  b : @pptxdoc.PptxSourceKey,
+) -> Bool {
   a.part_name == b.part_name && a.node_key == b.node_key
 }
 
 ///|
 fn source_key_array_contains(
-  keys : Array[@pptx.PptxSourceKey],
-  key : @pptx.PptxSourceKey,
+  keys : Array[@pptxdoc.PptxSourceKey],
+  key : @pptxdoc.PptxSourceKey,
 ) -> Bool {
   for item in keys {
     if source_keys_equal(item, key) {
@@ -646,9 +649,9 @@ fn pad_int(value : Int, width : Int) -> String {
 ///|
 fn lower_object(
   doc : @cor.Document,
-  obj : @pptx.PptxObject,
-  layout_regions : Array[@pptx.PptxLayoutRegionHint],
-  image_caption_pairs : Array[@pptx.PptxImageCaptionPair],
+  obj : @pptxdoc.PptxObject,
+  layout_regions : Array[@pptxdoc.PptxLayoutRegionHint],
+  image_caption_pairs : Array[@pptxdoc.PptxImageCaptionPair],
   source_name : String,
   slide_index : Int,
   out_dir : String,
@@ -656,9 +659,9 @@ fn lower_object(
   max_heading : Int,
 ) -> Unit raise {
   match obj {
-    @pptx.PptxObject::Shape(shape) =>
+    @pptxdoc.PptxObject::Shape(shape) =>
       lower_shape(doc, shape, source_name, slide_index, max_heading)
-    @pptx.PptxObject::Group(group) =>
+    @pptxdoc.PptxObject::Group(group) =>
       lower_object_sequence(
         doc,
         group.children,
@@ -670,7 +673,7 @@ fn lower_object(
         image_idx,
         max_heading,
       )
-    @pptx.PptxObject::Picture(pic) =>
+    @pptxdoc.PptxObject::Picture(pic) =>
       lower_picture(
         doc,
         pic,
@@ -680,9 +683,9 @@ fn lower_object(
         out_dir,
         image_idx,
       )
-    @pptx.PptxObject::Table(table) =>
+    @pptxdoc.PptxObject::Table(table) =>
       lower_table(doc, table, source_name, slide_index)
-    @pptx.PptxObject::Chart(chart) =>
+    @pptxdoc.PptxObject::Chart(chart) =>
       push_origin(
         doc,
         @cor.Block::Paragraph(
@@ -697,7 +700,7 @@ fn lower_object(
         chart.relationship_id,
         Some(chart.source_key.part_name),
       )
-    @pptx.PptxObject::SmartArt(smart) =>
+    @pptxdoc.PptxObject::SmartArt(smart) =>
       push_origin(
         doc,
         @cor.Block::Paragraph(
@@ -709,7 +712,7 @@ fn lower_object(
         smart.relationship_id,
         Some(smart.source_key.part_name),
       )
-    @pptx.PptxObject::Ole(ole) =>
+    @pptxdoc.PptxObject::Ole(ole) =>
       push_origin(
         doc,
         @cor.Block::Paragraph(
@@ -721,7 +724,7 @@ fn lower_object(
         ole.relationship_id,
         Some(ole.source_key.part_name),
       )
-    @pptx.PptxObject::Connector(conn) =>
+    @pptxdoc.PptxObject::Connector(conn) =>
       push_origin(
         doc,
         @cor.Block::Paragraph(
@@ -733,7 +736,7 @@ fn lower_object(
         None,
         Some(conn.source_key.part_name),
       )
-    @pptx.PptxObject::Unsupported(unsupported) =>
+    @pptxdoc.PptxObject::Unsupported(unsupported) =>
       push_origin(
         doc,
         @cor.Block::Paragraph(
@@ -757,7 +760,7 @@ fn opt_suffix(value : String?) -> String {
 }
 
 ///|
-fn chart_cache_suffix(chart : @pptx.PptxChartRef) -> String {
+fn chart_cache_suffix(chart : @pptxdoc.PptxChartRef) -> String {
   let parts : Array[String] = []
   if chart.cached_series.length() > 0 {
     let names : Array[String] = []
@@ -801,7 +804,7 @@ fn limited_join(values : Array[String], limit : Int) -> String {
 ///|
 fn lower_shape(
   doc : @cor.Document,
-  shape : @pptx.PptxShape,
+  shape : @pptxdoc.PptxShape,
   source_name : String,
   slide_index : Int,
   max_heading : Int,
@@ -810,9 +813,9 @@ fn lower_shape(
     Some(body) => {
       let is_title = match shape.placeholder {
         Some(ph) =>
-          ph.kind == @pptx.PptxPlaceholderKind::Title ||
-          ph.kind == @pptx.PptxPlaceholderKind::CenterTitle ||
-          ph.kind == @pptx.PptxPlaceholderKind::Subtitle
+          ph.kind == @pptxdoc.PptxPlaceholderKind::Title ||
+          ph.kind == @pptxdoc.PptxPlaceholderKind::CenterTitle ||
+          ph.kind == @pptxdoc.PptxPlaceholderKind::Subtitle
         None => false
       }
       let mut para_index = 0
@@ -827,15 +830,15 @@ fn lower_shape(
           Some(list) =>
             if inlines_have_link(inlines) {
               @cor.Block::RichListItem(
-                list.bullet.unwrap_or(@pptx.PptxBulletKind::Unordered) ==
-                @pptx.PptxBulletKind::Ordered,
+                list.bullet.unwrap_or(@pptxdoc.PptxBulletKind::Unordered) ==
+                @pptxdoc.PptxBulletKind::Ordered,
                 list.level,
                 inlines,
               )
             } else {
               @cor.Block::ListItem(
-                list.bullet.unwrap_or(@pptx.PptxBulletKind::Unordered) ==
-                @pptx.PptxBulletKind::Ordered,
+                list.bullet.unwrap_or(@pptxdoc.PptxBulletKind::Unordered) ==
+                @pptxdoc.PptxBulletKind::Ordered,
                 list.level,
                 text,
               )
@@ -882,28 +885,28 @@ fn lower_shape(
 }
 
 ///|
-fn is_decorative_shape(shape : @pptx.PptxShape) -> Bool {
+fn is_decorative_shape(shape : @pptxdoc.PptxShape) -> Bool {
   match shape.reading_order {
-    Some(hint) => hint.bucket == @pptx.PptxReadingBucket::Decorative
+    Some(hint) => hint.bucket == @pptxdoc.PptxReadingBucket::Decorative
     None => shape.text_body is None
   }
 }
 
 ///|
-fn paragraph_inlines(para : @pptx.PptxParagraph) -> Array[@cor.Inline] {
+fn paragraph_inlines(para : @pptxdoc.PptxParagraph) -> Array[@cor.Inline] {
   let out : Array[@cor.Inline] = []
   for run in para.runs {
     for inline in run.inlines {
       match inline {
-        @pptx.PptxInline::Text(text) => out.push(@cor.Inline::Text(text))
-        @pptx.PptxInline::Break => out.push(@cor.Inline::Break)
-        @pptx.PptxInline::Field(text) => out.push(@cor.Inline::Text(text))
-        @pptx.PptxInline::Hyperlink(link, text) =>
+        @pptxdoc.PptxInline::Text(text) => out.push(@cor.Inline::Text(text))
+        @pptxdoc.PptxInline::Break => out.push(@cor.Inline::Break)
+        @pptxdoc.PptxInline::Field(text) => out.push(@cor.Inline::Text(text))
+        @pptxdoc.PptxInline::Hyperlink(link, text) =>
           match link.target {
             Some(target) => out.push(@cor.Inline::Link(text, target))
             None => out.push(@cor.Inline::Text(text))
           }
-        @pptx.PptxInline::Unsupported(unsupported) =>
+        @pptxdoc.PptxInline::Unsupported(unsupported) =>
           out.push(
             @cor.Inline::Text(
               "[Unsupported PPTX inline: " + unsupported.kind + "]",
@@ -941,7 +944,7 @@ fn inlines_have_link(inlines : Array[@cor.Inline]) -> Bool {
 }
 
 ///|
-fn single_shape_relationship(shape : @pptx.PptxShape) -> String? {
+fn single_shape_relationship(shape : @pptxdoc.PptxShape) -> String? {
   let mut rid : String? = None
   for link in shape.hyperlinks {
     match link.relationship_id {
@@ -959,7 +962,7 @@ fn single_shape_relationship(shape : @pptx.PptxShape) -> String? {
 ///|
 fn lower_picture(
   doc : @cor.Document,
-  pic : @pptx.PptxPicture,
+  pic : @pptxdoc.PptxPicture,
   caption : String?,
   source_name : String,
   slide_index : Int,
@@ -1067,7 +1070,7 @@ fn max_media_exports_per_deck() -> Int {
 ///|
 fn lower_table(
   doc : @cor.Document,
-  table : @pptx.PptxTable,
+  table : @pptxdoc.PptxTable,
   source_name : String,
   slide_index : Int,
 ) -> Unit {
@@ -1100,7 +1103,7 @@ fn lower_table(
 }
 
 ///|
-fn table_cell_text(cell : @pptx.PptxTableCell) -> String {
+fn table_cell_text(cell : @pptxdoc.PptxTableCell) -> String {
   let paras : Array[String] = []
   for para in cell.paragraphs {
     let text = inline_plain_text(paragraph_inlines(para)).trim().to_owned()
@@ -1114,7 +1117,7 @@ fn table_cell_text(cell : @pptx.PptxTableCell) -> String {
 ///|
 fn lower_comments(
   doc : @cor.Document,
-  slide : @pptx.PptxSlide,
+  slide : @pptxdoc.PptxSlide,
   source_name : String,
   slide_heading : String,
   max_heading : Int,
@@ -1157,7 +1160,7 @@ fn lower_comments(
 ///|
 fn lower_notes(
   doc : @cor.Document,
-  slide : @pptx.PptxSlide,
+  slide : @pptxdoc.PptxSlide,
   source_name : String,
   slide_heading : String,
   max_heading : Int,
@@ -1203,7 +1206,7 @@ fn lower_notes(
 ///|
 fn lower_document_warnings(
   doc : @cor.Document,
-  warnings : Array[@pptx.PptxWarning],
+  warnings : Array[@pptxdoc.PptxWarning],
   source_name : String,
   max_heading : Int,
 ) -> Unit {

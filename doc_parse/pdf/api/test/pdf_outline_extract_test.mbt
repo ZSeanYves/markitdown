@@ -103,10 +103,8 @@ async test "extract document raw model carries raw bookmark outlines" {
   let path = outline_test_tmp_dir() + "/outline_bookmarks_raw.pdf"
   write_outline_fixture(path)
 
-  let (raw, doc) = match @api.extract_document_raw_model(
-    path,
-    @api.default_pdf_config(),
-  ) {
+  let (raw, doc) = match
+    @api.extract_document_raw_model(path, @api.default_pdf_config()) {
     Ok(v) => v
     Err(err) => fail("extract_document_raw_model failed: " + err.to_string())
   }

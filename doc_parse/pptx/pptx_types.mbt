@@ -1,16 +1,16 @@
 ///|
-pub(all) suberror PptxV2Error {
+pub(all) suberror PptxError {
   OpenFailed(String)
   OoxmlFailure(String)
   ParseError(String)
 }
 
 ///|
-pub impl Show for PptxV2Error with fn output(self, logger) {
+pub impl Show for PptxError with fn output(self, logger) {
   match self {
-    OpenFailed(msg) => logger.write_string("pptx v2 open failed: " + msg)
-    OoxmlFailure(msg) => logger.write_string("pptx v2 ooxml failure: " + msg)
-    ParseError(msg) => logger.write_string("pptx v2 parse error: " + msg)
+    OpenFailed(msg) => logger.write_string("pptx open failed: " + msg)
+    OoxmlFailure(msg) => logger.write_string("pptx ooxml failure: " + msg)
+    ParseError(msg) => logger.write_string("pptx parse error: " + msg)
   }
 }
 

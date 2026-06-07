@@ -48,7 +48,9 @@ fn pdf_convert_profile_add_stage(
 }
 
 ///|
-fn pdf_convert_profile_stage_start(report : PdfConvertProfileReport?) -> UInt64? {
+fn pdf_convert_profile_stage_start(
+  report : PdfConvertProfileReport?,
+) -> UInt64? {
   match report {
     Some(_) => Some(@env.now())
     None => None

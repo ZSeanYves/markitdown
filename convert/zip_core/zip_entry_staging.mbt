@@ -110,9 +110,7 @@ fn materialize_safe_archive_tree(
         )
     }
 
-    let entry_bytes = read_entry_for_materialization(
-      archive, plan, entry_cache,
-    ) catch {
+    let entry_bytes = read_entry_for_materialization(archive, plan, entry_cache) catch {
       e =>
         raise @cor.AppError(
           "zip extracted tree failed: read entry failed for " +

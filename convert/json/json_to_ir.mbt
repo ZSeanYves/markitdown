@@ -369,11 +369,7 @@ fn value_cell(value : @dpjson.JsonValue) -> String {
     @dpjson.JsonValue::Null => "null"
     _ => {
       profile_value_cell_stringify_call()
-      let started = if json_profile_active_enabled() {
-        @env.now()
-      } else {
-        0
-      }
+      let started = if json_profile_active_enabled() { @env.now() } else { 0 }
       let text = stringify_json(value)
       if json_profile_active_enabled() {
         profile_nested_stringify_elapsed_ms(@env.now() - started)
@@ -392,11 +388,7 @@ fn scalar_text(value : @dpjson.JsonValue) -> String {
     @dpjson.JsonValue::Null => "null"
     _ => {
       profile_scalar_text_stringify_call()
-      let started = if json_profile_active_enabled() {
-        @env.now()
-      } else {
-        0
-      }
+      let started = if json_profile_active_enabled() { @env.now() } else { 0 }
       let text = stringify_json(value)
       if json_profile_active_enabled() {
         profile_nested_stringify_elapsed_ms(@env.now() - started)

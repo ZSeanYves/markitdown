@@ -36,6 +36,8 @@ pub fn inspect_ooxml_package(OoxmlPackage) -> OoxmlPackageInspectReport
 
 pub fn inspect_ooxml_part_cache_stats(OoxmlPackage) -> OoxmlPartCacheStats
 
+pub fn inspect_ooxml_relationship_cache_stats(OoxmlPackage) -> OoxmlRelationshipCacheStats
+
 pub fn list_content_type_infos(OoxmlPackage) -> Array[OoxmlContentTypeInfo]
 
 pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
@@ -212,6 +214,15 @@ pub struct OoxmlRelationship {
   target : String
   target_mode : OoxmlTargetMode
   resolved_target : String
+}
+
+pub struct OoxmlRelationshipCacheStats {
+  relationships_hit_count : Int
+  relationships_miss_count : Int
+  by_id_hit_count : Int
+  by_id_miss_count : Int
+  by_type_query_count : Int
+  entry_count : Int
 }
 
 pub struct OoxmlRelationshipInfo {

@@ -285,7 +285,7 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 }
 
 ///|
-test "pptx v2 lowering consumes normalized model and emits markdown ir" {
+test "pptx lowering consumes normalized model and emits markdown ir" {
   let doc = @lower.lower_pptx_document(sample_doc(), "fixture.pptx", "", 6)
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("## Slide 1"))
@@ -328,7 +328,7 @@ test "pptx v2 lowering consumes normalized model and emits markdown ir" {
 }
 
 ///|
-test "pptx v2 lowering exports internal image assets with origin metadata" {
+test "pptx lowering exports internal image assets with origin metadata" {
   let out_dir = ".tmp/convert-pptx-v2-test"
   recreate_clean_dir(out_dir)
   let doc = @lower.lower_pptx_document(sample_doc(), "fixture.pptx", out_dir, 6)
@@ -360,9 +360,9 @@ test "pptx v2 lowering exports internal image assets with origin metadata" {
 }
 
 ///|
-test "pptx v2 lowering exposes model docProps metadata" {
+test "pptx lowering exposes model docProps metadata" {
   let pptx_doc = sample_doc()
-  let props = @lower.pptx_v2_metadata_document_properties(pptx_doc).unwrap_or_else(() => {
+  let props = @lower.pptx_metadata_document_properties(pptx_doc).unwrap_or_else(() => {
       fail("expected metadata properties")
     },
   )
@@ -433,7 +433,7 @@ fn region_pkg(slide : String) -> @ox.OoxmlPackage raise {
 }
 
 ///|
-test "pptx v2 lowering consumes inferred table-like and card-like regions" {
+test "pptx lowering consumes inferred table-like and card-like regions" {
   let table_doc = @pptx.parse_pptx_document_from_package(
     region_pkg(
       region_slide(

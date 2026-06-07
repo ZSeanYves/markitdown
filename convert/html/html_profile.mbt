@@ -135,8 +135,7 @@ fn html_profile_set_parser_issue_summary(
       rep.parser_style_count.val = summary.style_count
       rep.parser_unsafe_url_count.val = summary.unsafe_url_count
       rep.parser_duplicate_attr_count.val = summary.duplicate_attribute_count
-      rep.parser_unexpected_closing_count.val =
-        summary.unexpected_closing_count
+      rep.parser_unexpected_closing_count.val = summary.unexpected_closing_count
       rep.parser_unclosed_count.val = summary.unclosed_element_count
     }
     None => ()
@@ -152,7 +151,9 @@ fn html_profile_mark_parser_fallback(report : HtmlProfileReport?) -> Unit {
 }
 
 ///|
-fn html_profile_mark_parser_skipped_large_input(report : HtmlProfileReport?) -> Unit {
+fn html_profile_mark_parser_skipped_large_input(
+  report : HtmlProfileReport?,
+) -> Unit {
   match report {
     Some(rep) => rep.parser_skipped_large_input.val = true
     None => ()
@@ -160,7 +161,9 @@ fn html_profile_mark_parser_skipped_large_input(report : HtmlProfileReport?) -> 
 }
 
 ///|
-fn html_profile_mark_parser_analysis_attempted(report : HtmlProfileReport?) -> Unit {
+fn html_profile_mark_parser_analysis_attempted(
+  report : HtmlProfileReport?,
+) -> Unit {
   match report {
     Some(rep) => rep.parser_analysis_attempted.val = true
     None => ()

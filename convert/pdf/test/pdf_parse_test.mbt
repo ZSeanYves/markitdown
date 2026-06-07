@@ -430,7 +430,9 @@ async test "convert/pdf profile enabled preserves stage details" {
   assert_true(report.contains("pdf_convert_profile stage=pdf_line_build"))
   assert_true(report.contains("pdf_convert_profile stage=pdf_layout_gate"))
   assert_true(report.contains("detail=enabled="))
-  assert_true(report.contains("pdf_convert_profile stage=pdf_final_block_build"))
+  assert_true(
+    report.contains("pdf_convert_profile stage=pdf_final_block_build"),
+  )
   assert_true(report.contains("blocks="))
 }
 

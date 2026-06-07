@@ -1,28 +1,28 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ZSeanYves/markitdown/doc_parse/pptx_v2"
+package "ZSeanYves/markitdown/doc_parse/pptx"
 
 import {
   "ZSeanYves/markitdown/doc_parse/ooxml",
 }
 
 // Values
-pub fn inspect_pptx_document_v2(PptxDocument) -> PptxV2InspectReport
+pub fn inspect_pptx_document(PptxDocument) -> PptxInspectReport
 
 pub fn normalize_pptx_source(PptxSourceDocument) -> PptxDocument
 
-pub fn open_pptx_document_v2(String) -> PptxDocument raise
+pub fn open_pptx_document(String) -> PptxDocument raise
 
 pub fn parse_pptx_document_from_package(@ooxml.OoxmlPackage) -> PptxDocument raise
 
 pub fn parse_pptx_source(@ooxml.OoxmlPackage) -> PptxSourceDocument raise
 
 // Errors
-pub(all) suberror PptxV2Error {
+pub(all) suberror PptxError {
   OpenFailed(String)
   OoxmlFailure(String)
   ParseError(String)
 }
-pub impl Show for PptxV2Error
+pub impl Show for PptxError
 
 // Types and methods
 pub(all) enum PptxBulletKind {
@@ -157,6 +157,19 @@ pub(all) enum PptxInline {
   Field(String)
   Hyperlink(PptxHyperlink, String)
   Unsupported(PptxUnsupported)
+}
+
+pub struct PptxInspectReport {
+  slide_count : Int
+  object_count : Int
+  shape_count : Int
+  picture_count : Int
+  table_count : Int
+  unsupported_count : Int
+  media_count : Int
+  notes_count : Int
+  comment_count : Int
+  warning_count : Int
 }
 
 pub struct PptxLayoutRef {
@@ -528,19 +541,6 @@ pub struct PptxUnsupported {
   kind : String
   message : String
   source_key : PptxSourceKey
-}
-
-pub struct PptxV2InspectReport {
-  slide_count : Int
-  object_count : Int
-  shape_count : Int
-  picture_count : Int
-  table_count : Int
-  unsupported_count : Int
-  media_count : Int
-  notes_count : Int
-  comment_count : Int
-  warning_count : Int
 }
 
 pub struct PptxWarning {

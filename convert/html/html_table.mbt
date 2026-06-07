@@ -165,13 +165,9 @@ fn html_table_row_from_bytes(
           None => break
           Some(end) => {
             let cell_inner = tr_inner[cell_start:end].to_owned()
-            let xs = html_inlines_from_bytes_with_notes(
-              cell_inner, note_plan,
-            )
+            let xs = html_inlines_from_bytes_with_notes(cell_inner, note_plan)
             let tag_bs = tr_inner[i0:q0 + 1].to_owned()
-            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch {
-              _ => ""
-            }
+            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
             let rowspan = parse_html_positive_int_attr(
               @dphtml.html_attr_value(tag0, "rowspan"),
             )

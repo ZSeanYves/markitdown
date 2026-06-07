@@ -291,7 +291,6 @@ test "yaml unsupported features fail closed" {
     6,
   )
   assert_true(multiline_result is Err(_))
-
 }
 
 ///|

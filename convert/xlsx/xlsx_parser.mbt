@@ -246,11 +246,11 @@ fn push_sheet_blocks(
       }),
     )
   } else if xlsx_dense_sheet_guard_triggered(
-    sheet.used_min_row,
-    sheet.used_min_col,
-    sheet.used_max_row,
-    sheet.used_max_col,
-  ) {
+      sheet.used_min_row,
+      sheet.used_min_col,
+      sheet.used_max_row,
+      sheet.used_max_col,
+    ) {
     push_sparse_guard_sheet_blocks(doc, src, sheet)
   } else if sheet.table_rows.length() == 0 {
     @cor.push_with_origin(

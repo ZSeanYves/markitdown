@@ -48,7 +48,7 @@ fn track_source_node(
         node_key,
         None,
         None,
-        "pptx v2 source node budget exceeded",
+        "pptx source node budget exceeded",
       ),
     )
   }
@@ -167,7 +167,7 @@ fn read_source_relationships(
             "rels",
             None,
             None,
-            "pptx v2 relationship budget exceeded for part: " + source_part,
+            "pptx relationship budget exceeded for part: " + source_part,
           ),
         )
       }
@@ -306,7 +306,7 @@ fn parse_custom_properties(
                   "custom-properties",
                   None,
                   None,
-                  "pptx v2 custom document property budget exceeded",
+                  "pptx custom document property budget exceeded",
                 )
               }
               pos = next_pos
@@ -367,12 +367,12 @@ fn read_custom_property_value(block : Bytes) -> (String?, String) raise {
 }
 
 ///|
-pub fn open_pptx_document_v2(path : String) -> PptxDocument raise {
+pub fn open_pptx_document(path : String) -> PptxDocument raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
-    e => raise PptxV2Error::OpenFailed(path + ": " + e.to_string())
+    e => raise PptxError::OpenFailed(path + ": " + e.to_string())
   }
   let pkg = @ox.open_ooxml_package(bytes) catch {
-    e => raise PptxV2Error::OoxmlFailure(e.to_string())
+    e => raise PptxError::OoxmlFailure(e.to_string())
   }
   parse_pptx_document_from_package(pkg)
 }
@@ -407,7 +407,7 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
           slide_ref.source_key.node_key,
           slide_ref.relationship_id,
           None,
-          "pptx v2 slide budget exceeded",
+          "pptx slide budget exceeded",
         ),
       )
       continue

@@ -174,7 +174,7 @@ fn push_yaml_value_with_profile(
         yaml_profile_add_active_stage(
           "yaml_detect_table",
           @env.now() - detect_started,
-          Some("kind=mapping rows=" + rows.length().to_string())
+          Some("kind=mapping rows=" + rows.length().to_string()),
         )
       }
       @cor.push_with_origin(
@@ -218,7 +218,7 @@ fn push_yaml_value_with_profile(
               yaml_profile_add_active_stage(
                 "yaml_detect_table",
                 @env.now() - detect_started,
-                Some("kind=sequence_table rows=" + rows.length().to_string())
+                Some("kind=sequence_table rows=" + rows.length().to_string()),
               )
             }
             @cor.push_with_origin(

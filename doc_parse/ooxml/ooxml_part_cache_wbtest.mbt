@@ -51,7 +51,8 @@ fn cache_test_crc32_of_bytes(bytes : Bytes) -> Int {
   let mut crc : UInt = 0xFFFFFFFF
   for b in bytes {
     crc = cache_test_crc32_update_uint(
-      crc, cache_test_byte_to_int(b).reinterpret_as_uint(),
+      crc,
+      cache_test_byte_to_int(b).reinterpret_as_uint(),
     )
   }
   UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
@@ -163,7 +164,10 @@ fn cache_test_open_package() -> OoxmlPackage raise {
     "<w:document xmlns:w=\"urn:test\"><w:body><w:p><w:r><w:t>Cäsar</w:t></w:r></w:p></w:body></w:document>"
   open_ooxml_package(
     cache_test_build_store_zip([
-      ("[Content_Types].xml", @utf8.encode(cache_test_minimal_content_types_xml())),
+      (
+        "[Content_Types].xml",
+        @utf8.encode(cache_test_minimal_content_types_xml()),
+      ),
       ("word/document.xml", @utf8.encode(document_xml)),
       ("word/media/image1.bin", @utf8.encode("BINARY")),
     ]),
@@ -174,7 +178,10 @@ fn cache_test_open_package() -> OoxmlPackage raise {
 fn cache_test_open_relationship_package() -> OoxmlPackage raise {
   open_ooxml_package(
     cache_test_build_store_zip([
-      ("[Content_Types].xml", @utf8.encode(cache_test_minimal_content_types_xml())),
+      (
+        "[Content_Types].xml",
+        @utf8.encode(cache_test_minimal_content_types_xml()),
+      ),
       (
         "_rels/.rels",
         @utf8.encode(
@@ -282,9 +289,7 @@ test "ooxml relationship cache reuses parsed rels and indexed lookups" {
   let link = find_relationship_by_id(pkg, "word/document.xml", "rIdLink") catch {
     e => fail("find_relationship_by_id failed: " + e.to_string())
   }
-  let image_target = resolve_relationship(
-    pkg, "word/document.xml", "rIdImage",
-  ) catch {
+  let image_target = resolve_relationship(pkg, "word/document.xml", "rIdImage") catch {
     e => fail("resolve_relationship failed: " + e.to_string())
   }
   let image_rels = find_relationships_by_type(

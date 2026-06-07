@@ -128,14 +128,14 @@ pub(all) enum HtmlNode {
   Doctype(HtmlDoctype)
 }
 
-pub struct HtmlSourceSpan {
-  line_start : Int
-  line_end : Int
-}
-
 pub struct HtmlSourceAnalysis {
   document : HtmlDocument
   events : Array[HtmlTokenEvent]
+}
+
+pub struct HtmlSourceSpan {
+  line_start : Int
+  line_end : Int
 }
 
 pub struct HtmlText {
@@ -161,11 +161,6 @@ pub struct HtmlTokenEvent {
   span : HtmlSourceSpan
 }
 
-pub struct HtmlTokenSourceRange {
-  source_start : Int
-  source_end : Int
-}
-
 pub(all) enum HtmlTokenEventKind {
   StartTag
   EndTag
@@ -173,6 +168,11 @@ pub(all) enum HtmlTokenEventKind {
   Comment
   Doctype
 } derive(Eq)
+
+pub struct HtmlTokenSourceRange {
+  source_start : Int
+  source_end : Int
+}
 
 pub struct HtmlValidationIssue {
   kind : HtmlValidationIssueKind
@@ -209,3 +209,4 @@ pub(all) enum HtmlValidationSeverity {
 // Type aliases
 
 // Traits
+

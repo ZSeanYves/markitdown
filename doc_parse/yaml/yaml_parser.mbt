@@ -647,21 +647,27 @@ fn split_flow_items(text : String, line_no : Int) -> Array[String] raise {
       ']' => {
         bracket_depth -= 1
         if bracket_depth < 0 {
-          raise ParseError("malformed flow sequence at line " + line_no.to_string())
+          raise ParseError(
+            "malformed flow sequence at line " + line_no.to_string(),
+          )
         }
       }
       '{' => brace_depth += 1
       '}' => {
         brace_depth -= 1
         if brace_depth < 0 {
-          raise ParseError("malformed flow mapping at line " + line_no.to_string())
+          raise ParseError(
+            "malformed flow mapping at line " + line_no.to_string(),
+          )
         }
       }
       ',' =>
         if bracket_depth == 0 && brace_depth == 0 {
           let item = text[start:i].trim().to_owned()
           if item == "" {
-            raise ParseError("malformed flow collection at line " + line_no.to_string())
+            raise ParseError(
+              "malformed flow collection at line " + line_no.to_string(),
+            )
           }
           items.push(item)
           start = i + 1
@@ -733,20 +739,21 @@ fn find_flow_mapping_colon(text : String, line_no : Int) -> Int raise {
       ']' => {
         bracket_depth -= 1
         if bracket_depth < 0 {
-          raise ParseError("malformed flow sequence at line " + line_no.to_string())
+          raise ParseError(
+            "malformed flow sequence at line " + line_no.to_string(),
+          )
         }
       }
       '{' => brace_depth += 1
       '}' => {
         brace_depth -= 1
         if brace_depth < 0 {
-          raise ParseError("malformed flow mapping at line " + line_no.to_string())
+          raise ParseError(
+            "malformed flow mapping at line " + line_no.to_string(),
+          )
         }
       }
-      ':' =>
-        if bracket_depth == 0 && brace_depth == 0 {
-          return i
-        }
+      ':' => if bracket_depth == 0 && brace_depth == 0 { return i }
       _ => ()
     }
     i += 1

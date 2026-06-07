@@ -165,7 +165,11 @@ fn find_substring(haystack : String, needle : String, start : Int) -> Int? {
 }
 
 ///|
-fn assert_order(markdown : String, first : String, second : String) -> Unit raise {
+fn assert_order(
+  markdown : String,
+  first : String,
+  second : String,
+) -> Unit raise {
   let first_pos = find_substring(markdown, first, 0).unwrap_or_else(() => {
     fail("missing first text: " + first)
   })

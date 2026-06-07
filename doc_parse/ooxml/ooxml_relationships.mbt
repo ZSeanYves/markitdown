@@ -120,8 +120,7 @@ fn find_relationships_by_type_from_normalized_source(
     Some(index) =>
       for entry in index.by_type {
         let (rel_type, rels) = entry
-        if rel_type.has_suffix(rel_type_suffix) ||
-          rel_type == rel_type_suffix {
+        if rel_type.has_suffix(rel_type_suffix) || rel_type == rel_type_suffix {
           out.append(clone_ooxml_relationships(rels))
         }
       }

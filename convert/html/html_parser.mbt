@@ -87,10 +87,7 @@ pub fn parse_html(
 
   let normalize_started = html_profile_start_tick(profile)
   let bs = normalize_html_input_bytes(raw_bs)
-  let parser_analysis = maybe_analyze_html_source(
-    bs,
-    profile,
-  )
+  let parser_analysis = maybe_analyze_html_source(bs, profile)
   let scoped_content = narrow_html_content_scope(bs, parser_analysis)
   let scoped_bs = scoped_content.bytes
   html_profile_set_scope_observability(
@@ -313,11 +310,7 @@ fn maybe_analyze_html_source(
         None => None
       }
       html_profile_mark_parser_analysis_used(profile)
-      Some({
-        text,
-        events: analysis.events,
-        summary,
-      })
+      Some({ text, events: analysis.events, summary })
     }
     Err(_) => {
       html_profile_mark_parser_fallback(profile)
@@ -380,7 +373,10 @@ pub fn collect_html_parser_issue_summary_from_text(
 ) -> HtmlParserIssueSummary? {
   let parsed = try? @dphtml.parse_html_document(text)
   match parsed {
-    Ok(doc) => Some(summarize_html_parser_validation(@dphtml.validate_html_document(doc)))
+    Ok(doc) =>
+      Some(
+        summarize_html_parser_validation(@dphtml.validate_html_document(doc)),
+      )
     Err(_) => None
   }
 }
@@ -415,7 +411,9 @@ fn render_html_block_lowering_profile_detail(
 }
 
 ///|
-fn count_html_profile_blocks(blocks : Array[@cor.Block]) -> HtmlProfileBlockCounts {
+fn count_html_profile_blocks(
+  blocks : Array[@cor.Block],
+) -> HtmlProfileBlockCounts {
   let mut table_count = 0
   let mut image_count = 0
   let mut link_count = 0
@@ -527,7 +525,8 @@ fn narrow_html_content_scope(
     Some(analysis) => {
       let mut scope_from_events = true
       let mut fallback_reason = ""
-      let range = match find_html_content_scope_range_from_events(analysis.events) {
+      let range = match
+        find_html_content_scope_range_from_events(analysis.events) {
         Some(range) => range
         None =>
           match find_html_tag_block_range_from_events(analysis.events, "body") {
@@ -550,12 +549,13 @@ fn narrow_html_content_scope(
         scope_fallback_reason: fallback_reason,
       }
     }
-    None => {
-      bytes: narrow_html_content_scope_fallback(bs),
-      skip_ranges: [],
-      scope_from_events: false,
-      scope_fallback_reason: "no_parser_analysis",
-    }
+    None =>
+      {
+        bytes: narrow_html_content_scope_fallback(bs),
+        skip_ranges: [],
+        scope_from_events: false,
+        scope_fallback_reason: "no_parser_analysis",
+      }
   }
 }
 
@@ -573,10 +573,9 @@ fn html_skip_ranges_for_content(
   events : Array[@dphtml.HtmlTokenEvent],
   content_range : HtmlSourceRange,
 ) -> Array[HtmlByteRange] {
-  let ranges = @dphtml.html_tokens_collect_element_ranges(
-    events,
-    ["script", "style", "head", "noscript"],
-  )
+  let ranges = @dphtml.html_tokens_collect_element_ranges(events, [
+    "script", "style", "head", "noscript",
+  ])
   let out : Array[HtmlByteRange] = []
   for range in ranges {
     let start = max_int(range.source_start, content_range.start)
@@ -614,12 +613,20 @@ fn html_source_offset_to_relative_byte(
 
 ///|
 fn max_int(a : Int, b : Int) -> Int {
-  if a > b { a } else { b }
+  if a > b {
+    a
+  } else {
+    b
+  }
 }
 
 ///|
 fn min_int(a : Int, b : Int) -> Int {
-  if a < b { a } else { b }
+  if a < b {
+    a
+  } else {
+    b
+  }
 }
 
 ///|
@@ -638,9 +645,11 @@ fn find_html_content_scope_range_from_events(
               match find_html_scope_range_with_strong_content_attr(events) {
                 Some(range) => Some(range)
                 None =>
-                  match find_html_tag_block_range_from_events(events, "article") {
+                  match
+                    find_html_tag_block_range_from_events(events, "article") {
                     Some(range) => Some(range)
-                    None => find_html_tag_block_range_from_events(events, "main")
+                    None =>
+                      find_html_tag_block_range_from_events(events, "main")
                   }
               }
           }

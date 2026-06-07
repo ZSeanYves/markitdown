@@ -86,10 +86,7 @@ fn xml_can_lower_structured(doc : @dpxml.XmlDocument) -> Bool {
   for node in doc.nodes {
     match node {
       @dpxml.XmlNode::Element(_) => ()
-      @dpxml.XmlNode::Text(text) =>
-        if text.text.trim() != "" {
-          return false
-        }
+      @dpxml.XmlNode::Text(text) => if text.text.trim() != "" { return false }
       @dpxml.XmlNode::CData(cdata) =>
         if cdata.text.trim() != "" {
           return false
@@ -147,10 +144,7 @@ fn xml_has_markdown_fence_text(element : @dpxml.XmlElement) -> Bool {
         if xml_has_markdown_fence_text(child_element) {
           return true
         }
-      @dpxml.XmlNode::Text(text) =>
-        if text.text.contains("```") {
-          return true
-        }
+      @dpxml.XmlNode::Text(text) => if text.text.contains("```") { return true }
       @dpxml.XmlNode::CData(cdata) =>
         if cdata.text.contains("```") {
           return true
@@ -235,7 +229,12 @@ fn xml_structured_document(
       @cor.push_with_origin(
         doc,
         @cor.Block::Heading(1, xml_element_label(root.name)),
-        xml_origin(src, doc.blocks.val.length(), root.span.line_start, root.span.line_end),
+        xml_origin(
+          src,
+          doc.blocks.val.length(),
+          root.span.line_start,
+          root.span.line_end,
+        ),
       )
       push_xml_element_children(doc, root, src, 0)
     }
@@ -255,7 +254,12 @@ fn push_xml_element_children(
     @cor.push_with_origin(
       doc,
       @cor.Block::ListItem(false, level, "@" + attr.name + ": " + attr.value),
-      xml_origin(src, doc.blocks.val.length(), attr.span.line_start, attr.span.line_end),
+      xml_origin(
+        src,
+        doc.blocks.val.length(),
+        attr.span.line_start,
+        attr.span.line_end,
+      ),
     )
   }
 
@@ -311,13 +315,23 @@ fn push_xml_child_element(
       @cor.push_with_origin(
         doc,
         @cor.Block::ListItem(false, level, element.name + ": " + value),
-        xml_origin(src, doc.blocks.val.length(), element.span.line_start, element.span.line_end),
+        xml_origin(
+          src,
+          doc.blocks.val.length(),
+          element.span.line_start,
+          element.span.line_end,
+        ),
       )
     None => {
       @cor.push_with_origin(
         doc,
         @cor.Block::ListItem(false, level, xml_element_label(element.name)),
-        xml_origin(src, doc.blocks.val.length(), element.span.line_start, element.span.line_end),
+        xml_origin(
+          src,
+          doc.blocks.val.length(),
+          element.span.line_start,
+          element.span.line_end,
+        ),
       )
       push_xml_element_children(doc, element, src, level + 1)
     }

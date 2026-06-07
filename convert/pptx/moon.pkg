@@ -1,6 +1,6 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/doc_parse/pptx_v2" @pptx,
+  "ZSeanYves/markitdown/doc_parse/pptx" @pptxdoc,
   "moonbitlang/x/fs",
 }
 

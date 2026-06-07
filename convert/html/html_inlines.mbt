@@ -70,7 +70,9 @@ fn html_inlines_from_bytes_with_notes(
               }
             } else if !is_close_tag && tag_name == "script" {
               let end0 = find_bytes_case_insensitive(
-                inner, close_script, j0 + 1,
+                inner,
+                close_script,
+                j0 + 1,
               )
               match end0 {
                 Some(end) => {
@@ -80,9 +82,7 @@ fn html_inlines_from_bytes_with_notes(
                 None => ()
               }
             } else if !is_close_tag && tag_name == "style" {
-              let end0 = find_bytes_case_insensitive(
-                inner, close_style, j0 + 1,
-              )
+              let end0 = find_bytes_case_insensitive(inner, close_style, j0 + 1)
               match end0 {
                 Some(end) => {
                   pos = end + close_style.length()
@@ -92,7 +92,9 @@ fn html_inlines_from_bytes_with_notes(
               }
             } else if !is_close_tag && tag_name == "noscript" {
               let end0 = find_bytes_case_insensitive(
-                inner, close_noscript, j0 + 1,
+                inner,
+                close_noscript,
+                j0 + 1,
               )
               match end0 {
                 Some(end) => {
@@ -102,9 +104,7 @@ fn html_inlines_from_bytes_with_notes(
                 None => ()
               }
             } else if !is_close_tag && tag_name == "head" {
-              let end0 = find_bytes_case_insensitive(
-                inner, close_head, j0 + 1,
-              )
+              let end0 = find_bytes_case_insensitive(inner, close_head, j0 + 1)
               match end0 {
                 Some(end) => {
                   pos = end + close_head.length()

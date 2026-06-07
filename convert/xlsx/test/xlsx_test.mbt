@@ -660,9 +660,7 @@ test "xlsx comment parts emit conservative appendix blocks after table content" 
 ///|
 test "xlsx profile disabled returns no report for normal parse" {
   let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_XLSX")
-  defer {
-    restore_env_var("MARKITDOWN_PROFILE_XLSX", prev_enabled)
-  }
+  defer restore_env_var("MARKITDOWN_PROFILE_XLSX", prev_enabled)
   @sys.unset_env_var("MARKITDOWN_PROFILE_XLSX")
 
   let (doc, profile) = @xlsx.parse_xlsx_with_profile(

@@ -307,8 +307,7 @@ test "html shared parser primitives keep tricky attributes stable" {
   let image_path = img_dir + "/test%20asset.png"
   write_utf8_text(image_path, "not-a-real-png-but-good-enough-for-export")
   write_utf8_text(
-    sample_path,
-    "<main><p><a data-href=\"https://wrong.example/\" href='https://example.com/a?x=1&amp;y=2'>A&nbsp;&#169;</a></p><p><img data-src=\"missing.png\" src='img/test%20asset.png?cache=1&amp;size=2' alt='Alt&nbsp;&#169;' title='Title &amp; More'></p></main>\n",
+    sample_path, "<main><p><a data-href=\"https://wrong.example/\" href='https://example.com/a?x=1&amp;y=2'>A&nbsp;&#169;</a></p><p><img data-src=\"missing.png\" src='img/test%20asset.png?cache=1&amp;size=2' alt='Alt&nbsp;&#169;' title='Title &amp; More'></p></main>\n",
   )
 
   let out_dir = dir + "/shared-out"

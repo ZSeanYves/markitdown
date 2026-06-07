@@ -235,9 +235,7 @@ test "yaml parser handles flow values in mappings" {
 
 ///|
 test "yaml parser handles nested and quoted flow values" {
-  let nested = @yaml.parse_yaml_document(
-    "root: {items: [one, {two: three}]}\n",
-  )
+  let nested = @yaml.parse_yaml_document("root: {items: [one, {two: three}]}\n")
   let nested_report = @yaml.inspect_yaml_document(nested)
   assert_eq(nested_report.mapping_count, 3)
   assert_eq(nested_report.sequence_count, 1)
@@ -295,10 +293,7 @@ test "yaml profile keeps stage details" {
   let mut has_root_detail = false
   for stage in profiled.report.stages {
     match stage.detail {
-      Some(detail) =>
-        if detail.contains("root=") {
-          has_root_detail = true
-        }
+      Some(detail) => if detail.contains("root=") { has_root_detail = true }
       None => ()
     }
   }

@@ -75,7 +75,7 @@ fn parse_table_row(
                     parent_key,
                     None,
                     None,
-                    "pptx v2 table cell budget exceeded",
+                    "pptx table cell budget exceeded",
                   ),
                 )
               }
@@ -115,7 +115,7 @@ fn parse_table_row(
                   key,
                   None,
                   None,
-                  "pptx v2 table text-run budget exceeded",
+                  "pptx table text-run budget exceeded",
                 )
               }
               text_run_count.val = ctx.budget.max_table_text_runs + 1

@@ -1903,7 +1903,7 @@ fn bench_pptx_row(
   runs : Array[BenchRunRow],
 ) -> Unit raise BenchError {
   let bytes = read_bytes(row.path)
-  let package_name = "doc_parse/pptx_v2"
+  let package_name = "doc_parse/pptx"
   let pkg = @ooxml.open_ooxml_package(bytes) catch {
     e =>
       raise Failed(
@@ -1948,10 +1948,10 @@ fn bench_pptx_row(
         "inspect",
         cfg,
         bytes.length(),
-        "inspect_pptx_document_v2 on pre-parsed semantic presentation; parse and I/O excluded",
+        "inspect_pptx_document on pre-parsed semantic presentation; parse and I/O excluded",
         runs,
         fn() {
-          ignore(@pptx.inspect_pptx_document_v2(pres))
+          ignore(@pptx.inspect_pptx_document(pres))
           Ok(())
         },
       ),
@@ -1965,7 +1965,7 @@ fn bench_pptx_row(
         "validate",
         cfg,
         bytes.length(),
-        "v2 warning materialization on pre-parsed semantic presentation; parse and I/O excluded",
+        "warning materialization on pre-parsed semantic presentation; parse and I/O excluded",
         runs,
         fn() {
           ignore(pres.warnings.length())

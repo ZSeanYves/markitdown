@@ -7,7 +7,7 @@ import {
   "ZSeanYves/markitdown/convert/html",
   "ZSeanYves/markitdown/convert/json",
   "ZSeanYves/markitdown/convert/markdown" @md,
-  "ZSeanYves/markitdown/convert/pptx_v2" @pptx,
+  "ZSeanYves/markitdown/convert/pptx",
   "ZSeanYves/markitdown/convert/txt",
   "ZSeanYves/markitdown/convert/vision",
   "ZSeanYves/markitdown/convert/xml",

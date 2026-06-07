@@ -1,4 +1,4 @@
 import {
   "ZSeanYves/markitdown/doc_parse/ooxml" @ox,
-  "ZSeanYves/markitdown/doc_parse/pptx_v2",
+  "ZSeanYves/markitdown/doc_parse/pptx",
 } for "test"

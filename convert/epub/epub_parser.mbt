@@ -361,10 +361,7 @@ fn emit_cover_if_present(
     _ => return
   }
   let data = read_epub_part_bytes_cached(part_cache, pkg, normalized_cover) catch {
-    _ =>
-      @fs.read_file_to_bytes(cover_src) catch {
-        _ => return
-      }
+    _ => @fs.read_file_to_bytes(cover_src) catch { _ => return }
   }
   @fs.write_bytes_to_file(out_path, data) catch {
     _ => return

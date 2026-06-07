@@ -344,7 +344,10 @@ test "html token events expose matching spans attrs and malformed boundaries" {
   assert_true(@html.html_token_event_is_close_tag(events[10], "section"))
 
   assert_true(@html.html_token_event_is_open_tag(events[11], "script"))
-  assert_eq(source[events[12].source_start:events[12].source_end].to_owned(), "if (a < b) ok()")
+  assert_eq(
+    source[events[12].source_start:events[12].source_end].to_owned(),
+    "if (a < b) ok()",
+  )
   assert_true(@html.html_token_event_is_close_tag(events[13], "script"))
 
   assert_true(@html.html_token_event_is_open_tag(events[14], "div"))
@@ -356,21 +359,39 @@ test "html token events expose matching spans attrs and malformed boundaries" {
 test "html token event element ranges cover skip tags without unclosed ranges" {
   let source = "<html><head><script>HEAD</script><style>.x{}</style></head><body><noscript><p>No JS</p></noscript><p>Visible</p><script>BODY</script><script>UNCLOSED"
   let events = @html.tokenize_html_events(source)
-  let ranges = @html.html_tokens_collect_element_ranges(
-    events,
-    ["script", "style", "head", "noscript"],
-  )
+  let ranges = @html.html_tokens_collect_element_ranges(events, [
+    "script", "style", "head", "noscript",
+  ])
 
   assert_eq(ranges.length(), 5)
-  assert_true(source[ranges[0].source_start:ranges[0].source_end].to_owned().has_prefix("<head>"))
-  assert_true(source[ranges[0].source_start:ranges[0].source_end].to_owned().has_suffix("</head>"))
-  assert_eq(source[ranges[1].source_start:ranges[1].source_end].to_owned(), "<script>HEAD</script>")
-  assert_eq(source[ranges[2].source_start:ranges[2].source_end].to_owned(), "<style>.x{}</style>")
+  assert_true(
+    source[ranges[0].source_start:ranges[0].source_end]
+    .to_owned()
+    .has_prefix("<head>"),
+  )
+  assert_true(
+    source[ranges[0].source_start:ranges[0].source_end]
+    .to_owned()
+    .has_suffix("</head>"),
+  )
+  assert_eq(
+    source[ranges[1].source_start:ranges[1].source_end].to_owned(),
+    "<script>HEAD</script>",
+  )
+  assert_eq(
+    source[ranges[2].source_start:ranges[2].source_end].to_owned(),
+    "<style>.x{}</style>",
+  )
   assert_eq(
     source[ranges[3].source_start:ranges[3].source_end].to_owned(),
     "<noscript><p>No JS</p></noscript>",
   )
-  assert_eq(source[ranges[4].source_start:ranges[4].source_end].to_owned(), "<script>BODY</script>")
+  assert_eq(
+    source[ranges[4].source_start:ranges[4].source_end].to_owned(),
+    "<script>BODY</script>",
+  )
   assert_true(!source[ranges[4].source_end:].to_owned().contains("</script>"))
-  assert_true((try? @html.tokenize_html_events("<script data=\"broken>")) is Err(_))
+  assert_true(
+    (try? @html.tokenize_html_events("<script data=\"broken>")) is Err(_),
+  )
 }

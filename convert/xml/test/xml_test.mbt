@@ -429,7 +429,9 @@ test "xml large guard falls back before structured parse" {
   assert_eq(doc.blocks.val.length(), 1)
   assert_code_block(doc.blocks.val[0])
   assert_true(@cor.emit_markdown(doc).has_prefix("```xml\n<root>\n"))
-  assert_true(@cor.emit_markdown(doc).contains("74999012345678901234567890123456789"))
+  assert_true(
+    @cor.emit_markdown(doc).contains("74999012345678901234567890123456789"),
+  )
 }
 
 ///|
@@ -464,9 +466,6 @@ test "xml honors declared latin1 and utf16 source encodings" {
     @utf16.encode(utf16_source, bom=true, endianness=@utf16.Endian::Little),
   )
   let utf16_doc = @xml.parse_xml(utf16_path, "", 6)
-  assert_eq(
-    @cor.emit_markdown(utf16_doc),
-    "# <root>\n\n- Wide\n",
-  )
+  assert_eq(@cor.emit_markdown(utf16_doc), "# <root>\n\n- Wide\n")
   assert_not_code_block(utf16_doc.blocks.val[0])
 }

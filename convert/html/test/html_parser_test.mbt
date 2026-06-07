@@ -85,7 +85,9 @@ fn restore_env_var(name : String, previous : String?) -> Unit {
 ///|
 fn remove_file_if_exists(path : String) -> Unit {
   if @fs.path_exists(path) {
-    @fs.remove_file(path) catch { _ => () }
+    @fs.remove_file(path) catch {
+      _ => ()
+    }
   }
 }
 
@@ -255,9 +257,7 @@ test "html details summary and script style handling are explicit" {
 test "html parser validation summary is available for convert integration" {
   let summary = @html.collect_html_parser_issue_summary_from_text(
     "<html><body><script>bad()</script><style>.x{}</style><a href='javascript:bad'>x</a><div class='a' class='b'><p>ok</div></span></body></html>",
-  ).unwrap_or_else(() => {
-    fail("expected parser issue summary")
-  })
+  ).unwrap_or_else(() => fail("expected parser issue summary"))
 
   assert_eq(summary.issue_count, 6)
   assert_eq(summary.warning_count, 6)
@@ -278,8 +278,7 @@ test "html profile reports parser analysis scope and skip observability" {
   let sample_path = dir + "/html_profile_observability.html"
   let profile_path = dir + "/html-profile-observability.txt"
   write_utf8_text(
-    sample_path,
-    "<html><body><article><h1>Profile Title</h1><script>skip()</script><p>Visible body <a href='https://example.com/profile'>link</a><a epub:type='noteref' href='#fn-profile'>1</a>.</p><table><tr><th>K</th><th>V</th></tr><tr><td>A</td><td>B</td></tr></table><aside epub:type='footnote' id='fn-profile'>Profile note.</aside></article></body></html>\n",
+    sample_path, "<html><body><article><h1>Profile Title</h1><script>skip()</script><p>Visible body <a href='https://example.com/profile'>link</a><a epub:type='noteref' href='#fn-profile'>1</a>.</p><table><tr><th>K</th><th>V</th></tr><tr><td>A</td><td>B</td></tr></table><aside epub:type='footnote' id='fn-profile'>Profile note.</aside></article></body></html>\n",
   )
 
   let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
@@ -315,8 +314,7 @@ test "html profile disabled does not write profile report" {
   let sample_path = dir + "/html_profile_disabled.html"
   let profile_path = dir + "/html-profile-disabled.txt"
   write_utf8_text(
-    sample_path,
-    "<html><body><article><p>No profile output.</p></article></body></html>\n",
+    sample_path, "<html><body><article><p>No profile output.</p></article></body></html>\n",
   )
   remove_file_if_exists(profile_path)
 
@@ -489,8 +487,7 @@ test "html table list note primitives keep mixed casing and decoded attrs stable
 
   let sample_path = dir + "/html_mixed_case_table_list_note.html"
   write_utf8_text(
-    sample_path,
-    "<HTML><BODY><ARTICLE><TABLE><THEAD><TR><TH>Name&nbsp;A</TH><TH>Score</TH></TR></THEAD><TBODY><TR><TD ROWSPAN='2'>A&amp;B</TD><TD COLSPAN='2'>42</TD></TR><TR><TD>Tail</TD></TR></TBODY></TABLE><OL><LI>One&nbsp;item</LI><LI><UL><LI>Nested item</LI></UL></LI></OL><P>Note<A EPUB:TYPE='noteref' HREF='#fn&amp;1'>1</A>.</P><ASIDE EPUB:TYPE='footnote' ID='fn&amp;1'>Foot&nbsp;note.</ASIDE></ARTICLE></BODY></HTML>\n",
+    sample_path, "<HTML><BODY><ARTICLE><TABLE><THEAD><TR><TH>Name&nbsp;A</TH><TH>Score</TH></TR></THEAD><TBODY><TR><TD ROWSPAN='2'>A&amp;B</TD><TD COLSPAN='2'>42</TD></TR><TR><TD>Tail</TD></TR></TBODY></TABLE><OL><LI>One&nbsp;item</LI><LI><UL><LI>Nested item</LI></UL></LI></OL><P>Note<A EPUB:TYPE='noteref' HREF='#fn&amp;1'>1</A>.</P><ASIDE EPUB:TYPE='footnote' ID='fn&amp;1'>Foot&nbsp;note.</ASIDE></ARTICLE></BODY></HTML>\n",
   )
 
   let doc = @html.parse_html(sample_path, "", 6)

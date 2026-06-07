@@ -104,10 +104,7 @@ test "json profile keeps stage details" {
   let mut has_root_detail = false
   for stage in profiled.report.stages {
     match stage.detail {
-      Some(detail) =>
-        if detail.contains("root=") {
-          has_root_detail = true
-        }
+      Some(detail) => if detail.contains("root=") { has_root_detail = true }
       None => ()
     }
   }

@@ -98,7 +98,7 @@ fn collect_placeholder_candidates_from_objects(
                   "placeholders",
                   None,
                   None,
-                  "pptx v2 layout/master placeholder candidate budget exceeded",
+                  "pptx layout/master placeholder candidate budget exceeded",
                 )
               }
             } else {

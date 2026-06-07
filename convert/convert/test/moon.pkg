@@ -6,7 +6,7 @@ import {
   "ZSeanYves/markitdown/convert/pdf",
   "ZSeanYves/markitdown/convert/docx" @doc,
   "ZSeanYves/markitdown/convert/xlsx",
-  "ZSeanYves/markitdown/convert/pptx_v2" @pptx,
+  "ZSeanYves/markitdown/convert/pptx",
   "ZSeanYves/markitdown/convert/html",
   "ZSeanYves/markitdown/convert/csv",
   "ZSeanYves/markitdown/convert/txt",

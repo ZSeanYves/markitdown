@@ -66,7 +66,7 @@ fn limit_notes_paragraphs(
     "notes",
     None,
     None,
-    "pptx v2 notes paragraph budget exceeded",
+    "pptx notes paragraph budget exceeded",
   )
   let out : Array[PptxParagraph] = []
   for i in 0..<ctx.budget.max_notes_comments_per_slide {
@@ -194,7 +194,7 @@ fn parse_comments_for_slide(
                     "comments",
                     None,
                     None,
-                    "pptx v2 comment budget exceeded",
+                    "pptx comment budget exceeded",
                   )
                   break
                 }
