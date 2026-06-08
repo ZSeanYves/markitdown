@@ -269,6 +269,94 @@ test "docx parses two body paragraphs from generated package" {
 }
 
 ///|
+test "docx parser owns document properties metadata" {
+  let core_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\">" +
+    "<dc:title>Board Memo</dc:title>" +
+    "<dc:subject>Planning</dc:subject>" +
+    "<dc:creator>Ada</dc:creator>" +
+    "<cp:lastModifiedBy>Grace</cp:lastModifiedBy>" +
+    "<dcterms:created>2026-03-04T05:06:07Z</dcterms:created>" +
+    "<dcterms:modified>2026-04-05T06:07:08Z</dcterms:modified>" +
+    "<cp:keywords>docx;metadata</cp:keywords>" +
+    "<dc:description>Closeout notes</dc:description>" +
+    "<cp:category>Reports</cp:category>" +
+    "</cp:coreProperties>"
+  let app_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\">" +
+    "<Application>MoonWord</Application>" +
+    "<Company>Example Co</Company>" +
+    "<Manager>Lin</Manager>" +
+    "<Pages>3</Pages>" +
+    "<Words>42</Words>" +
+    "</Properties>"
+  let custom_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
+    "<property fmtid=\"{D5CDD505-2E9C-101B-9397-08002B2CF9AE}\" pid=\"2\" name=\"Audience\"><vt:lpwstr>Engineering</vt:lpwstr></property>" +
+    "</Properties>"
+  let pkg = generated_docx_package_with_document_rels_and_entries(
+    "<w:p><w:r><w:t>Meta</w:t></w:r></w:p>",
+    "",
+    [
+      ("docProps/core.xml", core_xml),
+      ("docProps/app.xml", app_xml),
+      ("docProps/custom.xml", custom_xml),
+    ],
+  )
+  let source = @docx.parse_docx_source_from_package(pkg)
+  let doc = @docx.normalize_docx_source(source)
+
+  if doc.metadata.core.title != Some("Board Memo") {
+    fail("expected docx title metadata")
+  }
+  if doc.metadata.core.subject != Some("Planning") {
+    fail("expected docx subject metadata")
+  }
+  if doc.metadata.core.creator != Some("Ada") {
+    fail("expected docx creator metadata")
+  }
+  if doc.metadata.core.last_modified_by != Some("Grace") {
+    fail("expected docx lastModifiedBy metadata")
+  }
+  if doc.metadata.core.created != Some("2026-03-04T05:06:07Z") {
+    fail("expected docx created metadata")
+  }
+  if doc.metadata.core.modified != Some("2026-04-05T06:07:08Z") {
+    fail("expected docx modified metadata")
+  }
+  if doc.metadata.core.keywords != Some("docx;metadata") {
+    fail("expected docx keywords metadata")
+  }
+  if doc.metadata.core.description != Some("Closeout notes") {
+    fail("expected docx description metadata")
+  }
+  if doc.metadata.core.category != Some("Reports") {
+    fail("expected docx category metadata")
+  }
+  if doc.metadata.app.application != Some("MoonWord") {
+    fail("expected docx application metadata")
+  }
+  if doc.metadata.app.company != Some("Example Co") {
+    fail("expected docx company metadata")
+  }
+  if doc.metadata.app.manager != Some("Lin") {
+    fail("expected docx manager metadata")
+  }
+  if doc.metadata.app.pages != Some("3") {
+    fail("expected docx pages metadata")
+  }
+  if doc.metadata.app.words != Some("42") {
+    fail("expected docx words metadata")
+  }
+  assert_eq(doc.metadata.custom_properties.length(), 1)
+  assert_eq(doc.metadata.custom_properties[0].name, "Audience")
+  assert_eq(doc.metadata.custom_properties[0].value, "Engineering")
+  if doc.metadata.custom_properties[0].value_type != Some("lpwstr") {
+    fail("expected docx custom property type")
+  }
+}
+
+///|
 test "docx parses text tab and line break in paragraph model" {
   let pkg = generated_docx_package(
     "<w:p><w:r><w:t>Left</w:t><w:tab/><w:t>Right</w:t><w:br/><w:t>Next</w:t></w:r></w:p>",

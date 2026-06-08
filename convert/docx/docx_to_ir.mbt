@@ -106,6 +106,29 @@ pub fn render_docx_warning_summary(docx : @docmodel.DocxDocument) -> String {
 }
 
 ///|
+pub fn docx_metadata_document_properties(
+  docx : @docmodel.DocxDocument,
+) -> @cor.MetadataDocumentProperties? {
+  let meta = docx.metadata
+  Some(
+    @cor.metadata_document_properties(
+      meta.core.title,
+      meta.core.subject,
+      meta.core.creator,
+      meta.core.description,
+      meta.core.keywords,
+      meta.core.created,
+      meta.core.modified,
+      meta.app.application,
+      meta.app.pages,
+      meta.app.words,
+      meta.app.slides,
+      meta.app.sheets,
+    ),
+  )
+}
+
+///|
 fn docx_warning_kind_name(kind : @docmodel.DocxWarningKind) -> String {
   match kind {
     @docmodel.DocxWarningKind::MissingMainDocument => "MissingMainDocument"

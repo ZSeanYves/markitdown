@@ -9,6 +9,7 @@ pub fn parse_docx_source_from_package(
   let relationships = @ox.read_part_relationships(pkg, main_part) catch {
     e => raise DocxError::OoxmlFailure(e.to_string())
   }
+  let metadata = parse_docx_document_metadata(pkg)
   let warnings : Array[DocxSourceWarning] = []
   let part_graph = discover_docx_part_graph(pkg, main_part, relationships)
   let blocks = parse_docx_body_blocks(
@@ -41,6 +42,7 @@ pub fn parse_docx_source_from_package(
   }
   {
     main_part,
+    metadata,
     part_graph,
     parts: [part],
     styles,
@@ -110,6 +112,7 @@ fn parse_docx_source_document_xml_with_relationships(
   let part : DocxSourcePart = { part_name, blocks, warnings }
   {
     main_part: part_name,
+    metadata: empty_docx_document_metadata(),
     part_graph: docx_empty_part_graph(part_name),
     parts: [part],
     styles: { part_name: None, styles: [] },
@@ -156,6 +159,79 @@ fn locate_docx_main_document_part(
   } else {
     raise DocxError::MissingMainDocument
   }
+}
+
+///|
+fn parse_docx_document_metadata(pkg : @ox.OoxmlPackage) -> DocxDocumentMetadata {
+  let core = @ox.read_core_properties(pkg)
+  let app = @ox.read_app_properties(pkg)
+  {
+    core: {
+      title: core.title,
+      subject: core.subject,
+      creator: core.creator,
+      last_modified_by: core.last_modified_by,
+      created: core.created,
+      modified: core.modified,
+      keywords: core.keywords,
+      description: core.description,
+      category: core.category,
+    },
+    app: {
+      company: app.company,
+      manager: app.manager,
+      application: app.application,
+      pages: app.pages,
+      words: app.words,
+      slides: app.slides,
+      sheets: app.sheets,
+    },
+    custom_properties: docx_custom_properties_from_ooxml(
+      @ox.read_custom_properties(pkg),
+    ),
+  }
+}
+
+///|
+fn empty_docx_document_metadata() -> DocxDocumentMetadata {
+  {
+    core: {
+      title: None,
+      subject: None,
+      creator: None,
+      last_modified_by: None,
+      created: None,
+      modified: None,
+      keywords: None,
+      description: None,
+      category: None,
+    },
+    app: {
+      company: None,
+      manager: None,
+      application: None,
+      pages: None,
+      words: None,
+      slides: None,
+      sheets: None,
+    },
+    custom_properties: [],
+  }
+}
+
+///|
+fn docx_custom_properties_from_ooxml(
+  props : Array[@ox.OoxmlCustomProperty],
+) -> Array[DocxCustomProperty] {
+  let out : Array[DocxCustomProperty] = []
+  for prop in props {
+    out.push({
+      name: prop.name,
+      value: prop.value,
+      value_type: prop.value_type,
+    })
+  }
+  out
 }
 
 ///|

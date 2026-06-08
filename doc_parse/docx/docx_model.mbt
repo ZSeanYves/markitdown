@@ -40,6 +40,7 @@ pub fn normalize_docx_source(source : DocxSourceDocument) -> DocxDocument {
 
   {
     main_part: source.main_part,
+    metadata: source.metadata,
     part_graph: source.part_graph,
     body,
     styles,

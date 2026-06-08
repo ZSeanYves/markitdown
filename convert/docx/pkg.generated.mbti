@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn docx_metadata_document_properties(@ZSeanYves/markitdown/doc_parse/docx.DocxDocument) -> @core.MetadataDocumentProperties?
+
 pub fn lower_docx_document(@ZSeanYves/markitdown/doc_parse/docx.DocxDocument) -> @core.Document
 
 pub fn lower_docx_document_with_assets(@ZSeanYves/markitdown/doc_parse/docx.DocxDocument, @ooxml.OoxmlPackage, String) -> DocxLoweredDocument

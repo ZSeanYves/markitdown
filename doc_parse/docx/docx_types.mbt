@@ -85,6 +85,44 @@ pub struct DocxSourceWarning {
 }
 
 ///|
+pub struct DocxCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  created : String?
+  modified : String?
+  keywords : String?
+  description : String?
+  category : String?
+}
+
+///|
+pub struct DocxAppProperties {
+  company : String?
+  manager : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+///|
+pub struct DocxCustomProperty {
+  name : String
+  value : String
+  value_type : String?
+}
+
+///|
+pub struct DocxDocumentMetadata {
+  core : DocxCoreProperties
+  app : DocxAppProperties
+  custom_properties : Array[DocxCustomProperty]
+}
+
+///|
 pub(all) enum DocxTargetMode {
   Internal
   External
@@ -483,6 +521,7 @@ pub struct DocxSourcePart {
 ///|
 pub struct DocxSourceDocument {
   main_part : String
+  metadata : DocxDocumentMetadata
   part_graph : DocxPartGraph
   parts : Array[DocxSourcePart]
   styles : DocxSourceStyles
@@ -835,6 +874,7 @@ pub(all) enum DocxBlock {
 ///|
 pub struct DocxDocument {
   main_part : String
+  metadata : DocxDocumentMetadata
   part_graph : DocxPartGraph
   body : Array[DocxBlock]
   styles : DocxStyles

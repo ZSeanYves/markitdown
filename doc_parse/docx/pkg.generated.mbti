@@ -41,6 +41,16 @@ pub(all) suberror DocxError {
 pub impl Show for DocxError
 
 // Types and methods
+pub struct DocxAppProperties {
+  company : String?
+  manager : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
 pub(all) enum DocxBlock {
   Paragraph(DocxParagraph)
   Table(DocxTable)
@@ -94,6 +104,24 @@ pub struct DocxContentControl {
   source_key : DocxSourceKey
 }
 
+pub struct DocxCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  created : String?
+  modified : String?
+  keywords : String?
+  description : String?
+  category : String?
+}
+
+pub struct DocxCustomProperty {
+  name : String
+  value : String
+  value_type : String?
+}
+
 pub struct DocxDiscoveredPart {
   part_name : String
   kind : DocxDiscoveredPartKind
@@ -118,6 +146,7 @@ pub(all) enum DocxDiscoveredPartKind {
 
 pub struct DocxDocument {
   main_part : String
+  metadata : DocxDocumentMetadata
   part_graph : DocxPartGraph
   body : Array[DocxBlock]
   styles : DocxStyles
@@ -129,6 +158,12 @@ pub struct DocxDocument {
   footers : Array[DocxPartBody]
   textboxes : Array[DocxTextBox]
   warnings : Array[DocxWarning]
+}
+
+pub struct DocxDocumentMetadata {
+  core : DocxCoreProperties
+  app : DocxAppProperties
+  custom_properties : Array[DocxCustomProperty]
 }
 
 pub struct DocxDrawing {
@@ -398,6 +433,7 @@ pub struct DocxSourceContentControl {
 
 pub struct DocxSourceDocument {
   main_part : String
+  metadata : DocxDocumentMetadata
   part_graph : DocxPartGraph
   parts : Array[DocxSourcePart]
   styles : DocxSourceStyles

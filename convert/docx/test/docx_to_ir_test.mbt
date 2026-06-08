@@ -172,6 +172,43 @@ fn generated_docx_package(
 }
 
 ///|
+fn generated_docx_metadata_package() -> @ox.OoxmlPackage raise {
+  let core_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\">" +
+    "<dc:title>Board Memo</dc:title>" +
+    "<dc:subject>Planning</dc:subject>" +
+    "<dc:creator>Ada</dc:creator>" +
+    "<cp:lastModifiedBy>Grace</cp:lastModifiedBy>" +
+    "<dcterms:created>2026-03-04T05:06:07Z</dcterms:created>" +
+    "<dcterms:modified>2026-04-05T06:07:08Z</dcterms:modified>" +
+    "<cp:keywords>docx;metadata</cp:keywords>" +
+    "<dc:description>Closeout notes</dc:description>" +
+    "<cp:category>Reports</cp:category>" +
+    "</cp:coreProperties>"
+  let app_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\">" +
+    "<Application>MoonWord</Application>" +
+    "<Company>Example Co</Company>" +
+    "<Manager>Lin</Manager>" +
+    "<Pages>3</Pages>" +
+    "<Words>42</Words>" +
+    "</Properties>"
+  let custom_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
+    "<property fmtid=\"{D5CDD505-2E9C-101B-9397-08002B2CF9AE}\" pid=\"2\" name=\"Audience\"><vt:lpwstr>Engineering</vt:lpwstr></property>" +
+    "</Properties>"
+  generated_docx_package(
+    "<w:p><w:r><w:t>Meta</w:t></w:r></w:p>",
+    "",
+    [
+      ("docProps/core.xml", core_xml),
+      ("docProps/app.xml", app_xml),
+      ("docProps/custom.xml", custom_xml),
+    ],
+  )
+}
+
+///|
 fn fresh_docx_test_dir(name : String) -> String raise {
   let mut idx = 0
   while idx < 1000 {
@@ -455,6 +492,68 @@ test "docx lowering table without marker uses first row as header" {
   match lowered.blocks.val[0] {
     @cor.Block::RichTable(table) => assert_eq(table.header_rows, 1)
     _ => fail("expected rich table")
+  }
+}
+
+///|
+test "docx lowering exposes typed document properties metadata" {
+  let docx = @docx.parse_docx_document_from_package(
+    generated_docx_metadata_package(),
+  )
+  if docx.metadata.core.title != Some("Board Memo") {
+    fail("expected typed docx metadata title")
+  }
+  if docx.metadata.core.last_modified_by != Some("Grace") {
+    fail("expected typed docx metadata lastModifiedBy")
+  }
+  if docx.metadata.core.category != Some("Reports") {
+    fail("expected typed docx metadata category")
+  }
+  if docx.metadata.app.company != Some("Example Co") {
+    fail("expected typed docx metadata company")
+  }
+  if docx.metadata.app.manager != Some("Lin") {
+    fail("expected typed docx metadata manager")
+  }
+  assert_eq(docx.metadata.custom_properties.length(), 1)
+  assert_eq(docx.metadata.custom_properties[0].name, "Audience")
+  assert_eq(docx.metadata.custom_properties[0].value, "Engineering")
+
+  let props = @docxir.docx_metadata_document_properties(docx)
+  match props {
+    Some(document) => {
+      if document.title != Some("Board Memo") {
+        fail("expected metadata document title")
+      }
+      if document.subject != Some("Planning") {
+        fail("expected metadata document subject")
+      }
+      if document.creator != Some("Ada") {
+        fail("expected metadata document creator")
+      }
+      if document.description != Some("Closeout notes") {
+        fail("expected metadata document description")
+      }
+      if document.keywords != Some("docx;metadata") {
+        fail("expected metadata document keywords")
+      }
+      if document.created != Some("2026-03-04T05:06:07Z") {
+        fail("expected metadata document created")
+      }
+      if document.modified != Some("2026-04-05T06:07:08Z") {
+        fail("expected metadata document modified")
+      }
+      if document.application != Some("MoonWord") {
+        fail("expected metadata document application")
+      }
+      if document.pages != Some("3") {
+        fail("expected metadata document pages")
+      }
+      if document.words != Some("42") {
+        fail("expected metadata document words")
+      }
+    }
+    None => fail("expected document properties")
   }
 }
 
