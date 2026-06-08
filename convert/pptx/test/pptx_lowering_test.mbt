@@ -353,6 +353,7 @@ test "pptx lowering exports internal image assets with origin metadata" {
     .get(rel_path)
     .unwrap_or_else(() => fail("expected asset origin"))
   assert_true(origin.slide == Some(1))
+  assert_true(origin.origin_id == Some("slide-1-image-1"))
   assert_true(origin.object_ref == Some("picture-4"))
   assert_true(origin.relationship_id == Some("rIdImg"))
   assert_true(origin.nearby_caption == Some("Figure 1: System diagram"))

@@ -564,7 +564,7 @@ fn semantic_caption_keys(
 ) -> Array[@pptxdoc.PptxSourceKey] {
   let out : Array[@pptxdoc.PptxSourceKey] = []
   for pair in pairs {
-    if confidence_is_semantic(pair.confidence) {
+    if caption_pair_is_semantic(pair) {
       out.push(pair.caption_key)
     }
   }
@@ -578,7 +578,7 @@ fn image_caption_for_picture(
 ) -> String? {
   for pair in pairs {
     if source_keys_equal(pair.picture_key, picture_key) &&
-      confidence_is_semantic(pair.confidence) {
+      caption_pair_is_semantic(pair) {
       return Some(pair.caption_text)
     }
   }
@@ -586,9 +586,26 @@ fn image_caption_for_picture(
 }
 
 ///|
+fn caption_pair_is_semantic(pair : @pptxdoc.PptxImageCaptionPair) -> Bool {
+  confidence_is_semantic(pair.confidence) ||
+  (
+    pair.confidence == @pptxdoc.PptxConfidence::Low &&
+    pptx_caption_text_has_prefix(pair.caption_text)
+  )
+}
+
+///|
 fn confidence_is_semantic(confidence : @pptxdoc.PptxConfidence) -> Bool {
   confidence == @pptxdoc.PptxConfidence::High ||
   confidence == @pptxdoc.PptxConfidence::Medium
+}
+
+///|
+fn pptx_caption_text_has_prefix(text : String) -> Bool {
+  let lower = text.trim().to_lower()
+  lower.has_prefix("figure") ||
+  lower.has_prefix("fig.") ||
+  lower.has_prefix("caption")
 }
 
 ///|
@@ -1017,12 +1034,25 @@ fn lower_picture(
   @fs.write_bytes_to_file(out_dir + "/" + rel_path, data) catch {
     _ => return
   }
+  let synthetic_id = "slide-" +
+    slide_index.to_string() +
+    "-image-" +
+    image_idx.val.to_string()
+  let image_alt_text = match media.alt_text {
+    Some(text) =>
+      if is_pptx_path_like_image_descr(text) {
+        Some(synthetic_id)
+      } else {
+        Some(text)
+      }
+    None => Some(synthetic_id)
+  }
   let origin : @cor.Origin = {
     source_name: Some(source_name),
     page: None,
     slide: Some(slide_index),
     sheet: None,
-    block_index: None,
+    block_index: Some(doc.blocks.val.length()),
     heading_path: None,
     line_start: None,
     line_end: None,
@@ -1036,10 +1066,7 @@ fn lower_picture(
     doc,
     @cor.Block::ImageBlock({
       path: rel_path,
-      alt_text: match media.alt_text {
-        Some(text) => Some(text)
-        None => Some("slide-" + slide_index.to_string() + "-image")
-      },
+      alt_text: image_alt_text,
       title: media.title,
       caption,
       origin: Some(origin),
@@ -1051,7 +1078,7 @@ fn lower_picture(
     page: None,
     slide: Some(slide_index),
     sheet: None,
-    origin_id: Some(pic.source_key.node_key),
+    origin_id: Some(synthetic_id),
     nearby_caption: caption,
     object_ref: pic.object_ref,
     relationship_id: media.relationship_id,
@@ -1060,6 +1087,26 @@ fn lower_picture(
     column_index: None,
     key_path: Some(media.source_key.part_name),
   })
+}
+
+///|
+fn is_pptx_path_like_image_descr(text : String) -> Bool {
+  let value = text.trim().to_lower()
+  if value == "" {
+    return false
+  }
+  if value.contains("/") || value.contains("\\") {
+    return true
+  }
+  value.has_suffix(".png") ||
+  value.has_suffix(".jpg") ||
+  value.has_suffix(".jpeg") ||
+  value.has_suffix(".gif") ||
+  value.has_suffix(".bmp") ||
+  value.has_suffix(".tif") ||
+  value.has_suffix(".tiff") ||
+  value.has_suffix(".svg") ||
+  value.has_suffix(".webp")
 }
 
 ///|
@@ -1270,6 +1317,27 @@ fn lower_document_warnings(
     }),
   )
   for warning in warnings {
-    @cor.push(doc, @cor.Block::ListItem(false, 0, warning.message))
+    @cor.push_with_origin(
+      doc,
+      @cor.Block::ListItem(false, 0, warning.message),
+      Some({
+        source_name: Some(source_name),
+        page: None,
+        slide: None,
+        sheet: None,
+        block_index: Some(doc.blocks.val.length()),
+        heading_path: None,
+        line_start: None,
+        line_end: None,
+        row_index: None,
+        column_index: None,
+        object_ref: warning.object_ref,
+        relationship_id: warning.relationship_id,
+        key_path: match warning.source_span {
+          Some(span) => Some(span.part_name)
+          None => None
+        },
+      }),
+    )
   }
 }
