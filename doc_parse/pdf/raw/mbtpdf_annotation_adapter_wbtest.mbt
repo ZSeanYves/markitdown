@@ -12,10 +12,6 @@ fn resolve_sample_path(path : String) -> String {
       return "doc_parse/pdf/testdata/pdfjs/" + name
     }
   }
-  if path.has_prefix(".external/quality_corpus/") {
-    let suffix = path[25:].to_owned()
-    return "markitdown-quality-lab/external_quality/" + suffix
-  }
   path
 }
 
@@ -34,35 +30,15 @@ async fn open_sample_pdf(path : String) -> @pdf.Pdf {
   } else {
     None
   }
-  let sibling_lab = if path.has_prefix(".external/quality_corpus/") {
-    let suffix = path[25:].to_owned()
-    Some("../markitdown-quality-lab/external_quality/" + suffix)
-  } else {
-    None
-  }
   let fallback = "../../" + path
   let input = @pdfiofs.input_of_file(resolved, source=resolved) catch {
     _ =>
       match repo_tracked {
         Some(candidate) =>
           @pdfiofs.input_of_file(candidate, source=candidate) catch {
-            _ =>
-              match sibling_lab {
-                Some(sibling) =>
-                  @pdfiofs.input_of_file(sibling, source=sibling) catch {
-                    _ => @pdfiofs.input_of_file(fallback, source=fallback)
-                  }
-                None => @pdfiofs.input_of_file(fallback, source=fallback)
-              }
+            _ => @pdfiofs.input_of_file(fallback, source=fallback)
           }
-        None =>
-          match sibling_lab {
-            Some(candidate) =>
-              @pdfiofs.input_of_file(candidate, source=candidate) catch {
-                _ => @pdfiofs.input_of_file(fallback, source=fallback)
-              }
-            None => @pdfiofs.input_of_file(fallback, source=fallback)
-          }
+        None => @pdfiofs.input_of_file(fallback, source=fallback)
       }
   }
   @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)

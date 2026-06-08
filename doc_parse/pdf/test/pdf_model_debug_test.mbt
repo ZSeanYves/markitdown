@@ -18,18 +18,6 @@ fn resolve_sample_path(path : String) -> String raise {
     }
   }
 
-  if path.has_prefix(".external/quality_corpus/") {
-    let suffix = path[25:].to_owned()
-    let repo_local_lab = "markitdown-quality-lab/external_quality/" + suffix
-    if @fs.path_exists(repo_local_lab) {
-      return repo_local_lab
-    }
-    let sibling_lab = "../markitdown-quality-lab/external_quality/" + suffix
-    if @fs.path_exists(sibling_lab) {
-      return sibling_lab
-    }
-  }
-
   let fallback = "../../" + path
   if @fs.path_exists(fallback) {
     return fallback
