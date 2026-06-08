@@ -1954,3 +1954,41 @@ test "html semantic list item facts expose safe and nested guard signals for m7c
   assert_true(saw_nested_guard_item)
   assert_true(saw_code_break_item)
 }
+
+///|
+test "html semantic inspect report exposes profile-sized fact counters" {
+  let mut source = "<article><h1>Profile Facts</h1>"
+  for i in 0..<24 {
+    source = source +
+      "<p>Paragraph " +
+      i.to_string() +
+      " <a href='https://example.com/" +
+      i.to_string() +
+      "'>link</a>"
+    if i % 8 == 0 {
+      source = source + " <img src='local-" + i.to_string() + ".png' alt='img'>"
+    }
+    source = source + "</p>"
+  }
+  source = source +
+    "<p>See <a epub:type='noteref' href='#n1'>1</a>.</p>" +
+    "<table><tr><th>K</th><th>V</th></tr><tr><td>A</td><td>B</td></tr></table>" +
+    "<aside epub:type='footnote' id='n1'>Parser note.</aside>" +
+    "<script>skip()</script></article>"
+
+  let doc = @html.parse_html_document(source)
+  let semantic = @html.collect_html_semantic_document(doc)
+  let report = @html.inspect_html_semantic_document(semantic)
+
+  assert_true(report.block_count >= 28)
+  assert_true(report.paragraph_fact_count >= 25)
+  assert_true(report.inline_count >= 24)
+  assert_eq(report.link_count, 25)
+  assert_eq(report.image_count, 3)
+  assert_eq(report.table_fact_count, 1)
+  assert_eq(report.table_fact_cell_count, 4)
+  assert_true(report.note_fact_count >= 1)
+  assert_true(report.noise_candidate_count >= 1)
+  assert_true(report.warning_count >= 1)
+  assert_true(report.unsupported_fact_count >= 1)
+}

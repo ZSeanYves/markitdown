@@ -3,7 +3,7 @@
 Date: 2026-06-08
 Base commit: `6540ae8 html: switch runtime to parser-owned semantic facts`
 Decision: `Option 2 existing-package refactor`
-Status: `M12-M14 complete in worktree; validation passed`
+Status: `M12-M14 complete; P4 semantic profile visibility complete`
 Scope: `doc_parse/html + convert/html`
 
 Explicit non-actions:
@@ -12,7 +12,7 @@ Explicit non-actions:
 - no dispatcher switch
 - no samples expected change
 - no quality-lab change
-- no staging or commit in this slice
+- no dispatcher/CLI/ZIP/bench/debug wiring change
 
 ## Executive Summary
 
@@ -78,6 +78,7 @@ Product policy that must stay in `convert/html`:
 - M12: note/footnote fact lowering hardening.
 - M13: complex table fact lowering hardening.
 - M14: obsolete raw scanner deletion/quarantine cleanup.
+- P4: semantic profile and memory visibility counters.
 
 ## M12 Notes Hardening
 
@@ -167,6 +168,41 @@ Remaining convert helper surface and reason:
 
 No remaining surface performs normal-runtime raw HTML source discovery.
 
+## P4 Semantic Profile Visibility
+
+P4 extends the existing `MARKITDOWN_PROFILE_HTML` report without changing
+Markdown, IR, asset export, origin policy, samples expected output, or the
+normal runtime path.
+
+The profile summary line now promotes parser-owned semantic fact counters that
+were already available in `HtmlSemanticDocument` / `HtmlSemanticInspectReport`:
+
+- `semantic_paragraph_fact_count`
+- `semantic_link_fact_count`
+- `semantic_image_fact_count`
+- `semantic_table_cell_fact_count`
+- `semantic_unsupported_fact_count`
+- `semantic_fact_memory_units`
+- `semantic_guard_reason_count`
+
+`semantic_fact_memory_units` is an approximate fact-count budget signal: parser
+DOM node count plus major semantic fact arrays, warnings, and unsupported facts.
+`semantic_guard_reason_count` totals semantic lowering guard counters after fact
+runtime lowering. Detailed guard reason counters remain in the
+`html_block_lowering` stage detail.
+
+New tests cover:
+
+- parser semantic inspect counters as the typed source for profile facts
+- convert profile summary counters for paragraph/link/image/table-cell/
+  unsupported facts
+- a synthetic larger HTML document with many paragraphs, links, images, table
+  cells, a note, and noise, verifying profile counters grow while output stays
+  conservative
+
+This is observability only. No raw scanner was restored and no duplicate parse
+was added.
+
 ## Boundary Status
 
 - no `doc_parse/html_v2`
@@ -175,9 +211,9 @@ No remaining surface performs normal-runtime raw HTML source discovery.
 - no CLI/ZIP/bench/debug diff
 - no samples expected diff
 - no quality-lab diff
+- no profile output diff unless `MARKITDOWN_PROFILE_HTML` is enabled
 - no raw scanner source-discovery grep hits in `convert/html`
 - no normal-runtime legacy/oracle/fallback glue
-- no stage or commit in this slice
 
 ## Validation Snapshot
 
@@ -202,6 +238,20 @@ warnings:
   warning.
 
 Full `moon test` was not run for this slice.
+
+Validation for P4:
+
+```text
+moon check doc_parse/html convert/html: passed
+moon test doc_parse/html/tests: 48/48 passed
+moon test convert/html/test: 64/64 passed
+bash samples/check.sh --format html: passed, 111/111 checked
+bash samples/check_quality.sh --format html: passed, 2/2 checked
+bash samples/bench.sh --layer convert --format html --iterations 1 --warmup 0: passed, median 2398.000ms
+```
+
+P4 touched only HTML parser tests, convert profile/runtime observability tests,
+and this report. It did not modify samples expected output or quality-lab data.
 
 ## Final Assessment
 

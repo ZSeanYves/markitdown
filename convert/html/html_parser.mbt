@@ -187,12 +187,18 @@ priv struct HtmlProfileBlockCounts {
 priv struct HtmlSemanticProfileCounters {
   document_node_count : Int
   block_fact_count : Int
+  paragraph_fact_count : Int
   inline_fact_count : Int
+  link_fact_count : Int
+  image_fact_count : Int
   table_fact_count : Int
+  table_cell_fact_count : Int
   note_fact_count : Int
   noise_fact_count : Int
   warning_count : Int
+  unsupported_fact_count : Int
   estimated_preview_bytes : Int
+  semantic_fact_memory_units : Int
 }
 
 ///|
@@ -253,12 +259,18 @@ pub fn parse_html(
     profile,
     semantic_profile_counters.document_node_count,
     semantic_profile_counters.block_fact_count,
+    semantic_profile_counters.paragraph_fact_count,
     semantic_profile_counters.inline_fact_count,
+    semantic_profile_counters.link_fact_count,
+    semantic_profile_counters.image_fact_count,
     semantic_profile_counters.table_fact_count,
+    semantic_profile_counters.table_cell_fact_count,
     semantic_profile_counters.note_fact_count,
     semantic_profile_counters.noise_fact_count,
     semantic_profile_counters.warning_count,
+    semantic_profile_counters.unsupported_fact_count,
     semantic_profile_counters.estimated_preview_bytes,
+    semantic_profile_counters.semantic_fact_memory_units,
   )
   html_profile_set_scope_observability(profile, true, 0, "parser_facts")
   html_profile_add_stage(
@@ -298,18 +310,30 @@ pub fn parse_html(
           semantic_profile_counters.document_node_count.to_string() +
           " block_fact_count=" +
           semantic_profile_counters.block_fact_count.to_string() +
+          " paragraph_fact_count=" +
+          semantic_profile_counters.paragraph_fact_count.to_string() +
           " inline_fact_count=" +
           semantic_profile_counters.inline_fact_count.to_string() +
+          " link_fact_count=" +
+          semantic_profile_counters.link_fact_count.to_string() +
+          " image_fact_count=" +
+          semantic_profile_counters.image_fact_count.to_string() +
           " table_fact_count=" +
           semantic_profile_counters.table_fact_count.to_string() +
+          " table_cell_fact_count=" +
+          semantic_profile_counters.table_cell_fact_count.to_string() +
           " note_fact_count=" +
           semantic_profile_counters.note_fact_count.to_string() +
           " noise_fact_count=" +
           semantic_profile_counters.noise_fact_count.to_string() +
           " warning_count=" +
           semantic_profile_counters.warning_count.to_string() +
+          " unsupported_fact_count=" +
+          semantic_profile_counters.unsupported_fact_count.to_string() +
           " estimated_preview_bytes=" +
-          semantic_profile_counters.estimated_preview_bytes.to_string(),
+          semantic_profile_counters.estimated_preview_bytes.to_string() +
+          " semantic_fact_memory_units=" +
+          semantic_profile_counters.semantic_fact_memory_units.to_string(),
         )
       None => None
     },
@@ -784,6 +808,10 @@ fn render_html_block_lowering_profile_detail(
   report : HtmlProfileReport,
   semantic_lowering_state : HtmlSemanticLoweringState?,
 ) -> String {
+  html_profile_set_semantic_guard_reason_count(
+    Some(report),
+    html_semantic_lowering_guard_reason_count(semantic_lowering_state),
+  )
   let counts = count_html_profile_blocks(blocks)
   let detail = "blocks=" +
     blocks.length().to_string() +
@@ -867,15 +895,48 @@ fn count_html_semantic_profile_counters(
   parser_doc : @dphtml.HtmlDocument,
   semantic_doc : @dphtml.HtmlSemanticDocument,
 ) -> HtmlSemanticProfileCounters {
+  let document_node_count = count_html_profile_document_nodes(parser_doc.nodes)
+  let block_fact_count = semantic_doc.blocks.length()
+  let paragraph_fact_count = semantic_doc.paragraphs.length()
+  let inline_fact_count = semantic_doc.inlines.length()
+  let link_fact_count = semantic_doc.links.length()
+  let image_fact_count = semantic_doc.images.length()
+  let table_fact_count = semantic_doc.tables.length()
+  let table_cell_fact_count = semantic_doc.table_cells.length()
+  let note_fact_count = semantic_doc.notes.length()
+  let noise_fact_count = semantic_doc.noise_candidates.length()
+  let warning_count = semantic_doc.warnings.length()
+  let unsupported_fact_count = semantic_doc.unsupported.length()
+  let estimated_preview_bytes = estimate_html_semantic_preview_bytes(
+    semantic_doc,
+  )
+  let semantic_fact_memory_units = document_node_count +
+    block_fact_count +
+    paragraph_fact_count +
+    inline_fact_count +
+    link_fact_count +
+    image_fact_count +
+    table_fact_count +
+    table_cell_fact_count +
+    note_fact_count +
+    noise_fact_count +
+    warning_count +
+    unsupported_fact_count
   {
-    document_node_count: count_html_profile_document_nodes(parser_doc.nodes),
-    block_fact_count: semantic_doc.blocks.length(),
-    inline_fact_count: semantic_doc.inlines.length(),
-    table_fact_count: semantic_doc.tables.length(),
-    note_fact_count: semantic_doc.notes.length(),
-    noise_fact_count: semantic_doc.noise_candidates.length(),
-    warning_count: semantic_doc.warnings.length(),
-    estimated_preview_bytes: estimate_html_semantic_preview_bytes(semantic_doc),
+    document_node_count,
+    block_fact_count,
+    paragraph_fact_count,
+    inline_fact_count,
+    link_fact_count,
+    image_fact_count,
+    table_fact_count,
+    table_cell_fact_count,
+    note_fact_count,
+    noise_fact_count,
+    warning_count,
+    unsupported_fact_count,
+    estimated_preview_bytes,
+    semantic_fact_memory_units,
   }
 }
 

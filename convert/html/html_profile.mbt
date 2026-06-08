@@ -42,12 +42,19 @@ priv struct HtmlProfileReport {
   parser_scope_source_reason : Ref[String]
   semantic_document_node_count : Ref[Int]
   semantic_block_fact_count : Ref[Int]
+  semantic_paragraph_fact_count : Ref[Int]
   semantic_inline_fact_count : Ref[Int]
+  semantic_link_fact_count : Ref[Int]
+  semantic_image_fact_count : Ref[Int]
   semantic_table_fact_count : Ref[Int]
+  semantic_table_cell_fact_count : Ref[Int]
   semantic_note_fact_count : Ref[Int]
   semantic_noise_fact_count : Ref[Int]
   semantic_warning_count : Ref[Int]
+  semantic_unsupported_fact_count : Ref[Int]
   semantic_estimated_preview_bytes : Ref[Int]
+  semantic_fact_memory_units : Ref[Int]
+  semantic_guard_reason_count : Ref[Int]
   fact_runtime_lowering_attempts : Ref[Int]
 }
 
@@ -81,12 +88,19 @@ fn new_html_profile_report(input_path : String) -> HtmlProfileReport {
     parser_scope_source_reason: { val: "" },
     semantic_document_node_count: { val: 0 },
     semantic_block_fact_count: { val: 0 },
+    semantic_paragraph_fact_count: { val: 0 },
     semantic_inline_fact_count: { val: 0 },
+    semantic_link_fact_count: { val: 0 },
+    semantic_image_fact_count: { val: 0 },
     semantic_table_fact_count: { val: 0 },
+    semantic_table_cell_fact_count: { val: 0 },
     semantic_note_fact_count: { val: 0 },
     semantic_noise_fact_count: { val: 0 },
     semantic_warning_count: { val: 0 },
+    semantic_unsupported_fact_count: { val: 0 },
     semantic_estimated_preview_bytes: { val: 0 },
+    semantic_fact_memory_units: { val: 0 },
+    semantic_guard_reason_count: { val: 0 },
     fact_runtime_lowering_attempts: { val: 0 },
   }
 }
@@ -196,24 +210,47 @@ fn html_profile_set_semantic_fact_counters(
   report : HtmlProfileReport?,
   document_node_count : Int,
   block_fact_count : Int,
+  paragraph_fact_count : Int,
   inline_fact_count : Int,
+  link_fact_count : Int,
+  image_fact_count : Int,
   table_fact_count : Int,
+  table_cell_fact_count : Int,
   note_fact_count : Int,
   noise_fact_count : Int,
   warning_count : Int,
+  unsupported_fact_count : Int,
   estimated_preview_bytes : Int,
+  semantic_fact_memory_units : Int,
 ) -> Unit {
   match report {
     Some(rep) => {
       rep.semantic_document_node_count.val = document_node_count
       rep.semantic_block_fact_count.val = block_fact_count
+      rep.semantic_paragraph_fact_count.val = paragraph_fact_count
       rep.semantic_inline_fact_count.val = inline_fact_count
+      rep.semantic_link_fact_count.val = link_fact_count
+      rep.semantic_image_fact_count.val = image_fact_count
       rep.semantic_table_fact_count.val = table_fact_count
+      rep.semantic_table_cell_fact_count.val = table_cell_fact_count
       rep.semantic_note_fact_count.val = note_fact_count
       rep.semantic_noise_fact_count.val = noise_fact_count
       rep.semantic_warning_count.val = warning_count
+      rep.semantic_unsupported_fact_count.val = unsupported_fact_count
       rep.semantic_estimated_preview_bytes.val = estimated_preview_bytes
+      rep.semantic_fact_memory_units.val = semantic_fact_memory_units
     }
+    None => ()
+  }
+}
+
+///|
+fn html_profile_set_semantic_guard_reason_count(
+  report : HtmlProfileReport?,
+  guard_reason_count : Int,
+) -> Unit {
+  match report {
+    Some(rep) => rep.semantic_guard_reason_count.val = guard_reason_count
     None => ()
   }
 }
@@ -345,18 +382,32 @@ fn html_profile_render_report(report : HtmlProfileReport) -> String {
     report.semantic_document_node_count.val.to_string() +
     " semantic_block_fact_count=" +
     report.semantic_block_fact_count.val.to_string() +
+    " semantic_paragraph_fact_count=" +
+    report.semantic_paragraph_fact_count.val.to_string() +
     " semantic_inline_fact_count=" +
     report.semantic_inline_fact_count.val.to_string() +
+    " semantic_link_fact_count=" +
+    report.semantic_link_fact_count.val.to_string() +
+    " semantic_image_fact_count=" +
+    report.semantic_image_fact_count.val.to_string() +
     " semantic_table_fact_count=" +
     report.semantic_table_fact_count.val.to_string() +
+    " semantic_table_cell_fact_count=" +
+    report.semantic_table_cell_fact_count.val.to_string() +
     " semantic_note_fact_count=" +
     report.semantic_note_fact_count.val.to_string() +
     " semantic_noise_fact_count=" +
     report.semantic_noise_fact_count.val.to_string() +
     " semantic_warning_count=" +
     report.semantic_warning_count.val.to_string() +
+    " semantic_unsupported_fact_count=" +
+    report.semantic_unsupported_fact_count.val.to_string() +
     " semantic_estimated_preview_bytes=" +
     report.semantic_estimated_preview_bytes.val.to_string() +
+    " semantic_fact_memory_units=" +
+    report.semantic_fact_memory_units.val.to_string() +
+    " semantic_guard_reason_count=" +
+    report.semantic_guard_reason_count.val.to_string() +
     " fact_runtime_lowering_attempts=" +
     report.fact_runtime_lowering_attempts.val.to_string(),
   )

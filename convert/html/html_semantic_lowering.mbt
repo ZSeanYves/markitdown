@@ -161,12 +161,54 @@ fn html_semantic_mark_table_guard(
 }
 
 ///|
+fn html_semantic_lowering_guard_reason_count(
+  state : HtmlSemanticLoweringState?,
+) -> Int {
+  match state {
+    Some(item) =>
+      item.heading_empty_guard_count.val +
+      item.heading_render_mismatch_guard_count.val +
+      item.heading_unsupported_guard_count.val +
+      item.paragraph_empty_guard_count.val +
+      item.paragraph_render_mismatch_guard_count.val +
+      item.paragraph_unsupported_guard_count.val +
+      item.image_empty_guard_count.val +
+      item.image_render_mismatch_guard_count.val +
+      item.image_identity_guard_count.val +
+      item.image_unsupported_guard_count.val +
+      item.figure_empty_guard_count.val +
+      item.figure_render_mismatch_guard_count.val +
+      item.figure_identity_guard_count.val +
+      item.figure_unsupported_guard_count.val +
+      item.image_guard_count.val +
+      item.figure_guard_count.val +
+      item.list_nested_guard_count.val +
+      item.list_empty_guard_count.val +
+      item.list_render_mismatch_guard_count.val +
+      item.list_unsupported_guard_count.val +
+      item.table_guard_count.val +
+      item.table_span_guard_count.val +
+      item.table_caption_guard_count.val +
+      item.table_nested_guard_count.val +
+      item.table_complex_cell_guard_count.val +
+      item.table_ragged_guard_count.val +
+      item.table_mismatch_guard_count.val +
+      item.blockquote_unsupported_guard_count.val +
+      item.code_block_empty_guard_count.val +
+      item.code_block_incomplete_guard_count.val
+    None => 0
+  }
+}
+
+///|
 fn render_html_semantic_lowering_profile_detail(
   state : HtmlSemanticLoweringState?,
 ) -> String {
   match state {
     Some(item) =>
       " semantic_lowering_available=true" +
+      " semantic_guard_reason_count=" +
+      html_semantic_lowering_guard_reason_count(Some(item)).to_string() +
       " semantic_heading_candidate_count=" +
       item.heading_candidate_count.to_string() +
       " semantic_heading_lowered_count=" +
@@ -291,6 +333,7 @@ fn render_html_semantic_lowering_profile_detail(
       item.code_block_language_hint_count.val.to_string()
     None =>
       " semantic_lowering_available=false" +
+      " semantic_guard_reason_count=0" +
       " semantic_heading_candidate_count=0" +
       " semantic_heading_lowered_count=0" +
       " semantic_heading_existing_path_count=0" +

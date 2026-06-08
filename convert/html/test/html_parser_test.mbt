@@ -1292,14 +1292,25 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("semantic_block_count="))
   assert_true(html_profile_counter(report, "semantic_document_node_count") > 0)
   assert_true(html_profile_counter(report, "semantic_block_fact_count") > 0)
+  assert_true(
+    html_profile_counter(report, "semantic_paragraph_fact_count") > 0,
+  )
   assert_true(html_profile_counter(report, "semantic_inline_fact_count") > 0)
+  assert_eq(html_profile_counter(report, "semantic_link_fact_count"), 2)
+  assert_eq(html_profile_counter(report, "semantic_image_fact_count"), 0)
   assert_eq(html_profile_counter(report, "semantic_table_fact_count"), 1)
+  assert_eq(html_profile_counter(report, "semantic_table_cell_fact_count"), 4)
   assert_true(html_profile_counter(report, "semantic_note_fact_count") >= 1)
   assert_true(html_profile_counter(report, "semantic_noise_fact_count") >= 1)
   assert_true(html_profile_counter(report, "semantic_warning_count") >= 1)
   assert_true(
+    html_profile_counter(report, "semantic_unsupported_fact_count") >= 1,
+  )
+  assert_true(
     html_profile_counter(report, "semantic_estimated_preview_bytes") > 0,
   )
+  assert_true(html_profile_counter(report, "semantic_fact_memory_units") > 0)
+  assert_eq(html_profile_counter(report, "semantic_guard_reason_count"), 0)
   assert_eq(html_profile_counter(report, "fact_runtime_lowering_attempts"), 1)
   assert_true(report.contains("semantic_heading_count=1"))
   assert_true(report.contains("semantic_table_count=1"))
@@ -1363,6 +1374,81 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("link_count=1"))
   assert_true(report.contains("note_definition_count=1"))
   assert_true(report.contains("note_ref_count=1"))
+}
+
+///|
+test "html profile reports large synthetic semantic fact memory counters" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_profile_large_semantic.html"
+  let profile_path = dir + "/html-profile-large-semantic.txt"
+  let mut html = "<html><body><article><h1>Large Profile</h1>"
+  for i in 0..<180 {
+    html = html +
+      "<p>Paragraph " +
+      i.to_string() +
+      " has <a href='https://example.com/" +
+      i.to_string() +
+      "'>link</a> text"
+    if i % 60 == 0 {
+      html = html + " <img src='missing-" + i.to_string() + ".png' alt='pic'>"
+    }
+    html = html + ".</p>"
+  }
+  html = html +
+    "<table><tbody>"
+  for row in 0..<20 {
+    html = html + "<tr>"
+    for col in 0..<4 {
+      html = html +
+        "<td>R" +
+        row.to_string() +
+        "C" +
+        col.to_string() +
+        "</td>"
+    }
+    html = html + "</tr>"
+  }
+  html = html +
+    "</tbody></table><p>See <a epub:type='noteref' href='#n1'>1</a>.</p><aside epub:type='footnote' id='n1'>Large note.</aside><script>skip()</script></article></body></html>\n"
+  write_utf8_text(sample_path, html)
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Paragraph 179"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
+  assert_true(html_profile_counter(report, "semantic_document_node_count") > 250)
+  assert_true(html_profile_counter(report, "semantic_paragraph_fact_count") >= 181)
+  assert_true(html_profile_counter(report, "semantic_link_fact_count") >= 181)
+  assert_true(html_profile_counter(report, "semantic_image_fact_count") >= 3)
+  assert_eq(html_profile_counter(report, "semantic_table_fact_count"), 1)
+  assert_true(html_profile_counter(report, "semantic_table_cell_fact_count") >= 80)
+  assert_true(html_profile_counter(report, "semantic_note_fact_count") >= 1)
+  assert_true(html_profile_counter(report, "semantic_noise_fact_count") >= 1)
+  assert_true(
+    html_profile_counter(report, "semantic_unsupported_fact_count") >= 1,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_estimated_preview_bytes") > 1000,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_fact_memory_units") >
+    html_profile_counter(report, "semantic_document_node_count"),
+  )
+  assert_eq(html_profile_counter(report, "fact_runtime_lowering_attempts"), 1)
+  assert_true(report.length() < 50000)
 }
 
 ///|
