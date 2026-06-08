@@ -96,7 +96,7 @@ fn read_picture_media_ref(
           let data = if !is_external &&
             !unsupported &&
             @ox.has_part(ctx.pkg, rel.resolved_target) {
-            read_source_part_bytes(ctx, rel.resolved_target)
+            read_media_bytes_with_budget(ctx, part_name, source_key, id, rel.resolved_target)
           } else {
             None
           }
@@ -151,6 +151,47 @@ fn read_picture_media_ref(
           })
         }
       }
+    }
+  }
+}
+
+///|
+fn read_media_bytes_with_budget(
+  ctx : PptxSourceParseContext,
+  part_name : String,
+  source_key : PptxSourceKey,
+  rel_id : String,
+  target_part : String,
+) -> Bytes? {
+  let bytes = read_source_part_bytes(ctx, target_part)
+  match bytes {
+    None => None
+    Some(data) => {
+      if data.length() > ctx.budget.max_media_bytes_per_asset {
+        push_over_budget_warning(
+          ctx,
+          part_name,
+          source_key.node_key,
+          Some(rel_id),
+          None,
+          "pptx media asset byte budget exceeded: " + target_part,
+        )
+        return None
+      }
+      if ctx.media_bytes_loaded.val >
+        ctx.budget.max_media_bytes_total - data.length() {
+        push_over_budget_warning(
+          ctx,
+          part_name,
+          source_key.node_key,
+          Some(rel_id),
+          None,
+          "pptx total media byte budget exceeded",
+        )
+        return None
+      }
+      ctx.media_bytes_loaded.val += data.length()
+      Some(data)
     }
   }
 }

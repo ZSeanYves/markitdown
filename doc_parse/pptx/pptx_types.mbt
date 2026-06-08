@@ -617,9 +617,14 @@ priv struct PptxParseBudget {
   max_child_shapes_per_group : Int
   max_table_cells : Int
   max_table_text_runs : Int
+  max_table_grid_span : Int
+  max_table_row_output_cells : Int
+  max_table_output_cells : Int
   max_notes_comments_per_slide : Int
   max_relationships_per_part : Int
   max_media_exports_per_deck : Int
+  max_media_bytes_per_asset : Int
+  max_media_bytes_total : Int
   max_layout_master_candidates : Int
   max_geometry_comparisons : Int
   max_custom_properties : Int
@@ -635,9 +640,14 @@ fn default_pptx_parse_budget() -> PptxParseBudget {
     max_child_shapes_per_group: 1000,
     max_table_cells: 10000,
     max_table_text_runs: 50000,
+    max_table_grid_span: 128,
+    max_table_row_output_cells: 1024,
+    max_table_output_cells: 20000,
     max_notes_comments_per_slide: 1000,
     max_relationships_per_part: 5000,
     max_media_exports_per_deck: 5000,
+    max_media_bytes_per_asset: 1_000_000,
+    max_media_bytes_total: 32_000_000,
     max_layout_master_candidates: 3000,
     max_geometry_comparisons: 200000,
     max_custom_properties: 256,
@@ -653,9 +663,14 @@ fn touch_pptx_parse_budget(budget : PptxParseBudget) -> Unit {
   ignore(budget.max_child_shapes_per_group)
   ignore(budget.max_table_cells)
   ignore(budget.max_table_text_runs)
+  ignore(budget.max_table_grid_span)
+  ignore(budget.max_table_row_output_cells)
+  ignore(budget.max_table_output_cells)
   ignore(budget.max_notes_comments_per_slide)
   ignore(budget.max_relationships_per_part)
   ignore(budget.max_media_exports_per_deck)
+  ignore(budget.max_media_bytes_per_asset)
+  ignore(budget.max_media_bytes_total)
   ignore(budget.max_layout_master_candidates)
   ignore(budget.max_geometry_comparisons)
   ignore(budget.max_custom_properties)

@@ -13,6 +13,7 @@ priv struct PptxSourceParseContext {
   budget : PptxParseBudget
   total_source_nodes : Ref[Int]
   media_ref_count : Ref[Int]
+  media_bytes_loaded : Ref[Int]
 }
 
 ///|
@@ -29,6 +30,7 @@ fn new_pptx_source_parse_context(
     budget,
     total_source_nodes: { val: 0 },
     media_ref_count: { val: 0 },
+    media_bytes_loaded: { val: 0 },
   }
 }
 

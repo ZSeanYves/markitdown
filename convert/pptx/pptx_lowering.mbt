@@ -1068,6 +1068,16 @@ fn max_media_exports_per_deck() -> Int {
 }
 
 ///|
+fn max_pptx_table_output_cells() -> Int {
+  20000
+}
+
+///|
+fn max_pptx_table_row_output_cells() -> Int {
+  1024
+}
+
+///|
 fn lower_table(
   doc : @cor.Document,
   table : @pptxdoc.PptxTable,
@@ -1075,18 +1085,45 @@ fn lower_table(
   slide_index : Int,
 ) -> Unit {
   let rows : Array[Array[String]] = []
+  let mut output_cells = 0
+  let mut truncated = false
   for row in table.rows {
     let out_row : Array[String] = []
     for cell in row.cells {
+      if truncated {
+        break
+      }
       out_row.push(table_cell_text(cell))
       let span = cell.grid_span.unwrap_or(1)
-      if span > 1 {
-        for _ in 1..<span {
+      output_cells += 1
+      if out_row.length() > max_pptx_table_row_output_cells() ||
+        output_cells > max_pptx_table_output_cells() {
+        truncated = true
+        break
+      }
+      let bounded_span = if span < 1 {
+        1
+      } else if span > max_pptx_table_row_output_cells() {
+        max_pptx_table_row_output_cells()
+      } else {
+        span
+      }
+      if bounded_span > 1 {
+        for _ in 1..<bounded_span {
+          if out_row.length() >= max_pptx_table_row_output_cells() ||
+            output_cells >= max_pptx_table_output_cells() {
+            truncated = true
+            break
+          }
           out_row.push("")
+          output_cells += 1
         }
       }
     }
     rows.push(out_row)
+    if truncated {
+      break
+    }
   }
   if rows.length() == 0 {
     return

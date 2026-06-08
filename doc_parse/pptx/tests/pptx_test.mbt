@@ -144,6 +144,15 @@ fn content_types(extra : String) -> String {
 }
 
 ///|
+fn repeat_text(piece : String, count : Int) -> String {
+  let parts : Array[String] = []
+  for _ in 0..<count {
+    parts.push(piece)
+  }
+  parts.join("")
+}
+
+///|
 fn slide_xml(title : String, body : String, rel_id : String) -> String {
   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
   "<p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
@@ -794,6 +803,65 @@ test "pptx A image caption pairs preserve image metadata" {
     }
   }
   assert_true(saw_caption_bucket)
+}
+
+///|
+test "pptx parser bounds oversized media bytes" {
+  let slide = simple_slide(
+    picture_shape(
+      2, "Large Image", "rIdImg", 100000, 100000, 1000000, 800000, "Large",
+      "Large",
+    ),
+  )
+  let doc = @pptx.parse_pptx_document_from_package(
+    one_slide_pkg(slide, image_rel("rIdImg", "../media/image1.png"), "", [
+      ("ppt/media/image1.png", repeat_text("x", 1_000_001)),
+    ]),
+  )
+  assert_eq(doc.media.length(), 1)
+  match doc.media[0].data {
+    Some(_) => fail("oversized media bytes should not be loaded")
+    None => ()
+  }
+  let mut saw_budget_warning = false
+  for warning in doc.warnings {
+    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+      warning.message.contains("media asset byte budget") {
+      saw_budget_warning = true
+    }
+  }
+  assert_true(saw_budget_warning)
+}
+
+///|
+test "pptx parser bounds table grid span expansion facts" {
+  let table_xml =
+    "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
+  let doc = @pptx.parse_pptx_document_from_package(
+    one_slide_pkg(simple_slide(table_xml), "", "", []),
+  )
+  let mut saw_table = false
+  for obj in doc.slides[0].objects {
+    match obj {
+      @pptx.PptxObject::Table(table) => {
+        saw_table = true
+        match table.rows[0].cells[0].grid_span {
+          Some(span) => assert_eq(span, 128)
+          None => fail("expected bounded grid span")
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_table)
+  let mut saw_budget_warning = false
+  for warning in doc.warnings {
+    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+      warning.message.contains("gridSpan truncated") {
+      saw_budget_warning = true
+    }
+  }
+  assert_true(saw_budget_warning)
 }
 
 ///|
