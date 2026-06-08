@@ -1,8 +1,12 @@
 # PPTX Architecture v2
 
-Status: design contract draft
+Status: adopted in current runtime paths
 
-PPTX v2 is the target architecture for replacing the current PPTX runtime. The current PPTX implementation has already proven many useful product behaviors, but its parser/converter boundary is not clean enough for a mature long-term conversion product. PPTX v2 adopts a clearer pipeline:
+PPTX v2 is the architecture now folded into the current PPTX runtime packages:
+`doc_parse/pptx` and `convert/pptx`. The earlier reset plan considered a
+parallel `pptx_v2` package, but the current repository does not contain
+`doc_parse/pptx_v2` or `convert/pptx_v2`; the replacement architecture lives in
+the active package paths. PPTX v2 adopts a clearer pipeline:
 
 ```text
 OOXML package
@@ -20,12 +24,12 @@ PPTX differs from DOCX because it is a canvas-oriented format. Its runtime archi
 
 ---
 
-## Problem Statement
+## Historical Problem Statement
 
-The current PPTX path has several architecture risks:
+The pre-replacement PPTX path had several architecture risks:
 
-* `convert/pptx` directly reads and scans raw OOXML XML such as `ppt/presentation.xml`, slide XML, notes XML, comments XML, relationships, tables, text, media, and shapes.
-* `doc_parse/pptx` and `convert/pptx` duplicate some parsing work. A presentation can be parsed once for inventory/chart bridge and then scanned again by the converter for normal output.
+* `convert/pptx` directly read and scanned raw OOXML XML such as `ppt/presentation.xml`, slide XML, notes XML, comments XML, relationships, tables, text, media, and shapes.
+* `doc_parse/pptx` and `convert/pptx` duplicated some parsing work. A presentation could be parsed once for inventory/chart bridge and then scanned again by the converter for normal output.
 * Converter helpers repeatedly scan the same slide XML for text, images, tables, hyperlinks, reading order, shape collection, and asset export.
 * Product policy, XML parsing, shape classification, asset export, reading-order heuristics, fallback behavior, and metadata/origin construction are mixed in the normal conversion path.
 * Layout/master inheritance is not represented as a stable model fact. Placeholder and style behavior are mostly direct-shape or heuristic based.
@@ -33,7 +37,8 @@ The current PPTX path has several architecture risks:
 * Fallback and legacy collector names appear in normal PPTX runtime code paths. Even when useful during migration, they should not remain architecture primitives.
 * Performance risk grows with slide count, shape count, group depth, table density, and repeated relationship/media lookup.
 
-PPTX v2 should remove these risks by making source/model boundaries carry the facts that the converter currently tries to rediscover.
+PPTX v2 removes these risks by making source/model boundaries carry the facts
+that the converter used to rediscover.
 
 ---
 
@@ -1098,19 +1103,20 @@ PPTX v2 can replace the current runtime only when:
 
 ## Next Steps
 
-PPTX-RESET-1 should create the v2 skeleton without changing dispatcher behavior.
+The v2 architecture has been folded into `doc_parse/pptx` and `convert/pptx`.
+Future PPTX work should stay in those current runtime paths and proceed by
+bounded typed model slices, not by recreating a parallel `pptx_v2` package or by
+porting raw converter scanners back into normal runtime.
 
-Recommended first implementation slice:
+Recommended follow-up slices:
 
-1. Add `doc_parse/pptx_v2` or equivalent experimental package.
-2. Implement part graph and presentation slide order.
-3. Parse slides into typed source shape tree.
-4. Preserve source keys, part names, rel ids, shape ids, geometry, placeholders, and warnings.
-5. Add source/model tests.
-6. Do not connect dispatcher.
-7. Do not modify current PPTX expected files.
-8. Do not delete current PPTX runtime.
-9. Do not add fallback/oracle to normal conversion.
-10. Do not let convert scan raw XML in the v2 path.
-
-Implementation should proceed by bounded typed model slices, not by porting the old converter wholesale.
+1. Add explicit media byte budgets where media bytes are materialized.
+2. Add hard caps for table span expansion and post-span output cells.
+3. Keep layout/master/placeholder resolution bounded and parser-owned.
+4. Preserve source keys, part names, relationship ids, shape ids, geometry,
+   placeholders, and typed warnings.
+5. Keep dispatcher, ZIP, CLI, debug, and bench wiring pointed at
+   `convert/pptx` / `doc_parse/pptx`.
+6. Do not modify samples expected unless product policy intentionally changes.
+7. Do not add fallback/oracle glue to normal conversion.
+8. Do not let convert scan raw OOXML.
