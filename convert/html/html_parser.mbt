@@ -184,6 +184,18 @@ priv struct HtmlProfileBlockCounts {
 }
 
 ///|
+priv struct HtmlSemanticProfileCounters {
+  document_node_count : Int
+  block_fact_count : Int
+  inline_fact_count : Int
+  table_fact_count : Int
+  note_fact_count : Int
+  noise_fact_count : Int
+  warning_count : Int
+  estimated_preview_bytes : Int
+}
+
+///|
 /// HTML converter entrypoint.
 ///
 /// Model boundary:
@@ -233,6 +245,21 @@ pub fn parse_html(
   }
   html_profile_mark_parser_analysis_used(profile)
   let semantic_doc = @dphtml.collect_html_semantic_document(parser_doc)
+  let semantic_profile_counters = count_html_semantic_profile_counters(
+    parser_doc,
+    semantic_doc,
+  )
+  html_profile_set_semantic_fact_counters(
+    profile,
+    semantic_profile_counters.document_node_count,
+    semantic_profile_counters.block_fact_count,
+    semantic_profile_counters.inline_fact_count,
+    semantic_profile_counters.table_fact_count,
+    semantic_profile_counters.note_fact_count,
+    semantic_profile_counters.noise_fact_count,
+    semantic_profile_counters.warning_count,
+    semantic_profile_counters.estimated_preview_bytes,
+  )
   html_profile_set_scope_observability(profile, true, 0, "parser_facts")
   html_profile_add_stage(
     profile,
@@ -266,7 +293,23 @@ pub fn parse_html(
           "blocks=" +
           semantic_doc.blocks.length().to_string() +
           " inlines=" +
-          semantic_doc.inlines.length().to_string(),
+          semantic_doc.inlines.length().to_string() +
+          " document_node_count=" +
+          semantic_profile_counters.document_node_count.to_string() +
+          " block_fact_count=" +
+          semantic_profile_counters.block_fact_count.to_string() +
+          " inline_fact_count=" +
+          semantic_profile_counters.inline_fact_count.to_string() +
+          " table_fact_count=" +
+          semantic_profile_counters.table_fact_count.to_string() +
+          " note_fact_count=" +
+          semantic_profile_counters.note_fact_count.to_string() +
+          " noise_fact_count=" +
+          semantic_profile_counters.noise_fact_count.to_string() +
+          " warning_count=" +
+          semantic_profile_counters.warning_count.to_string() +
+          " estimated_preview_bytes=" +
+          semantic_profile_counters.estimated_preview_bytes.to_string(),
         )
       None => None
     },
@@ -297,6 +340,7 @@ pub fn parse_html(
   )
 
   let lowering_started = html_profile_start_tick(profile)
+  profile_html_fact_runtime_lowering_attempted()
   let html_blocks = html_semantic_document_to_blocks(
     semantic_doc, max_heading, input_path, out_dir,
   )
@@ -816,6 +860,115 @@ fn count_html_profile_inlines(inlines : Array[@cor.Inline]) -> (Int, Int) {
     }
   }
   (link_count, note_ref_count)
+}
+
+///|
+fn count_html_semantic_profile_counters(
+  parser_doc : @dphtml.HtmlDocument,
+  semantic_doc : @dphtml.HtmlSemanticDocument,
+) -> HtmlSemanticProfileCounters {
+  {
+    document_node_count: count_html_profile_document_nodes(parser_doc.nodes),
+    block_fact_count: semantic_doc.blocks.length(),
+    inline_fact_count: semantic_doc.inlines.length(),
+    table_fact_count: semantic_doc.tables.length(),
+    note_fact_count: semantic_doc.notes.length(),
+    noise_fact_count: semantic_doc.noise_candidates.length(),
+    warning_count: semantic_doc.warnings.length(),
+    estimated_preview_bytes: estimate_html_semantic_preview_bytes(semantic_doc),
+  }
+}
+
+///|
+fn count_html_profile_document_nodes(nodes : Array[@dphtml.HtmlNode]) -> Int {
+  let mut count = 0
+  for node in nodes {
+    count += 1
+    match node {
+      @dphtml.HtmlNode::Element(element) =>
+        count += count_html_profile_document_nodes(element.children)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn estimate_html_semantic_preview_bytes(
+  semantic : @dphtml.HtmlSemanticDocument,
+) -> Int {
+  let mut total = 0
+  for block in semantic.blocks {
+    total += block.text_preview.length()
+  }
+  for paragraph in semantic.paragraphs {
+    total += paragraph.raw_text_preview.length()
+    total += paragraph.normalized_text_preview.length()
+    total += paragraph.text_preview.length()
+  }
+  for inline in semantic.inlines {
+    total += inline.raw_text_preview.length()
+    total += inline.normalized_text_preview.length()
+    total += inline.text_preview.length()
+  }
+  for link in semantic.links {
+    total += link.text_preview.length()
+  }
+  for table in semantic.tables {
+    total += table.text_preview.length()
+    match table.caption_text_preview {
+      Some(caption) => total += caption.length()
+      None => ()
+    }
+  }
+  for row in semantic.table_rows {
+    total += row.text_preview.length()
+  }
+  for cell in semantic.table_cells {
+    total += cell.text_preview.length()
+  }
+  for list in semantic.lists {
+    total += list.text_preview.length()
+  }
+  for item in semantic.list_items {
+    total += item.text_preview.length()
+  }
+  for quote in semantic.blockquotes {
+    total += quote.text_preview.length()
+  }
+  for code in semantic.code_blocks {
+    total += code.text_preview.length()
+  }
+  for figure in semantic.figures {
+    total += figure.text_preview.length()
+    match figure.caption_text_preview {
+      Some(caption) => total += caption.length()
+      None => ()
+    }
+  }
+  for note_ref in semantic.note_refs {
+    total += note_ref.ref_text_preview.length()
+  }
+  for note_body in semantic.note_bodies {
+    total += note_body.body_text_preview.length()
+  }
+  for note in semantic.notes {
+    total += note.ref_text_preview.length()
+    total += note.body_text_preview.length()
+  }
+  for scope in semantic.scope {
+    match scope.title_text_preview {
+      Some(title) => total += title.length()
+      None => ()
+    }
+  }
+  for noise in semantic.noise_candidates {
+    total += noise.text_preview.length()
+  }
+  for unsupported in semantic.unsupported {
+    total += unsupported.text_preview.length()
+  }
+  total
 }
 
 ///|

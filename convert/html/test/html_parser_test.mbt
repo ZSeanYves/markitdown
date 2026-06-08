@@ -1290,6 +1290,17 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("parser_skip_range_count=0"))
   assert_true(report.contains("parser_scope_source_reason=parser_facts"))
   assert_true(report.contains("semantic_block_count="))
+  assert_true(html_profile_counter(report, "semantic_document_node_count") > 0)
+  assert_true(html_profile_counter(report, "semantic_block_fact_count") > 0)
+  assert_true(html_profile_counter(report, "semantic_inline_fact_count") > 0)
+  assert_eq(html_profile_counter(report, "semantic_table_fact_count"), 1)
+  assert_true(html_profile_counter(report, "semantic_note_fact_count") >= 1)
+  assert_true(html_profile_counter(report, "semantic_noise_fact_count") >= 1)
+  assert_true(html_profile_counter(report, "semantic_warning_count") >= 1)
+  assert_true(
+    html_profile_counter(report, "semantic_estimated_preview_bytes") > 0,
+  )
+  assert_eq(html_profile_counter(report, "fact_runtime_lowering_attempts"), 1)
   assert_true(report.contains("semantic_heading_count=1"))
   assert_true(report.contains("semantic_table_count=1"))
   assert_true(report.contains("semantic_list_fact_count=0"))

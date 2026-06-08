@@ -40,6 +40,15 @@ priv struct HtmlProfileReport {
   parser_scope_from_events : Ref[Bool]
   parser_skip_range_count : Ref[Int]
   parser_scope_source_reason : Ref[String]
+  semantic_document_node_count : Ref[Int]
+  semantic_block_fact_count : Ref[Int]
+  semantic_inline_fact_count : Ref[Int]
+  semantic_table_fact_count : Ref[Int]
+  semantic_note_fact_count : Ref[Int]
+  semantic_noise_fact_count : Ref[Int]
+  semantic_warning_count : Ref[Int]
+  semantic_estimated_preview_bytes : Ref[Int]
+  fact_runtime_lowering_attempts : Ref[Int]
 }
 
 ///|
@@ -70,6 +79,15 @@ fn new_html_profile_report(input_path : String) -> HtmlProfileReport {
     parser_scope_from_events: { val: false },
     parser_skip_range_count: { val: 0 },
     parser_scope_source_reason: { val: "" },
+    semantic_document_node_count: { val: 0 },
+    semantic_block_fact_count: { val: 0 },
+    semantic_inline_fact_count: { val: 0 },
+    semantic_table_fact_count: { val: 0 },
+    semantic_note_fact_count: { val: 0 },
+    semantic_noise_fact_count: { val: 0 },
+    semantic_warning_count: { val: 0 },
+    semantic_estimated_preview_bytes: { val: 0 },
+    fact_runtime_lowering_attempts: { val: 0 },
   }
 }
 
@@ -169,6 +187,43 @@ fn html_profile_set_scope_observability(
       rep.parser_skip_range_count.val = skip_range_count
       rep.parser_scope_source_reason.val = source_reason
     }
+    None => ()
+  }
+}
+
+///|
+fn html_profile_set_semantic_fact_counters(
+  report : HtmlProfileReport?,
+  document_node_count : Int,
+  block_fact_count : Int,
+  inline_fact_count : Int,
+  table_fact_count : Int,
+  note_fact_count : Int,
+  noise_fact_count : Int,
+  warning_count : Int,
+  estimated_preview_bytes : Int,
+) -> Unit {
+  match report {
+    Some(rep) => {
+      rep.semantic_document_node_count.val = document_node_count
+      rep.semantic_block_fact_count.val = block_fact_count
+      rep.semantic_inline_fact_count.val = inline_fact_count
+      rep.semantic_table_fact_count.val = table_fact_count
+      rep.semantic_note_fact_count.val = note_fact_count
+      rep.semantic_noise_fact_count.val = noise_fact_count
+      rep.semantic_warning_count.val = warning_count
+      rep.semantic_estimated_preview_bytes.val = estimated_preview_bytes
+    }
+    None => ()
+  }
+}
+
+///|
+fn profile_html_fact_runtime_lowering_attempted() -> Unit {
+  match html_active_profile_report.val {
+    Some(rep) =>
+      rep.fact_runtime_lowering_attempts.val =
+        rep.fact_runtime_lowering_attempts.val + 1
     None => ()
   }
 }
@@ -285,7 +340,25 @@ fn html_profile_render_report(report : HtmlProfileReport) -> String {
     " parser_skip_range_count=" +
     report.parser_skip_range_count.val.to_string() +
     " parser_scope_source_reason=" +
-    report.parser_scope_source_reason.val,
+    report.parser_scope_source_reason.val +
+    " semantic_document_node_count=" +
+    report.semantic_document_node_count.val.to_string() +
+    " semantic_block_fact_count=" +
+    report.semantic_block_fact_count.val.to_string() +
+    " semantic_inline_fact_count=" +
+    report.semantic_inline_fact_count.val.to_string() +
+    " semantic_table_fact_count=" +
+    report.semantic_table_fact_count.val.to_string() +
+    " semantic_note_fact_count=" +
+    report.semantic_note_fact_count.val.to_string() +
+    " semantic_noise_fact_count=" +
+    report.semantic_noise_fact_count.val.to_string() +
+    " semantic_warning_count=" +
+    report.semantic_warning_count.val.to_string() +
+    " semantic_estimated_preview_bytes=" +
+    report.semantic_estimated_preview_bytes.val.to_string() +
+    " fact_runtime_lowering_attempts=" +
+    report.fact_runtime_lowering_attempts.val.to_string(),
   )
 
   for stage in report.stages {
