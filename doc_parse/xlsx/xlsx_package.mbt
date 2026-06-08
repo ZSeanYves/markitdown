@@ -106,6 +106,18 @@ fn parse_xlsx_workbook_from_package_with_profile(
     ),
   )
 
+  let metadata_started = xlsx_parse_profile_stage_started(profile)
+  let metadata = parse_xlsx_workbook_metadata(pkg)
+  xlsx_parse_profile_stage_finished(
+    profile,
+    "document_properties",
+    metadata_started,
+    Some(
+      "custom_properties=" +
+      metadata.custom_properties.length().to_string(),
+    ),
+  )
+
   let workbook_flags_started = xlsx_parse_profile_stage_started(profile)
   let uses_date_1904 = workbook_uses_date_1904(workbook_xml)
   xlsx_parse_profile_stage_finished(
@@ -281,6 +293,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
   )
 
   {
+    metadata,
     shared_strings,
     styles,
     uses_date_1904,
@@ -289,6 +302,50 @@ fn parse_xlsx_workbook_from_package_with_profile(
     unsupported_features,
     issues,
   }
+}
+
+///|
+fn parse_xlsx_workbook_metadata(pkg : @ox.OoxmlPackage) -> XlsxWorkbookMetadata {
+  let core = @ox.read_core_properties(pkg)
+  let app = @ox.read_app_properties(pkg)
+  {
+    core: {
+      title: core.title,
+      subject: core.subject,
+      creator: core.creator,
+      last_modified_by: core.last_modified_by,
+      created: core.created,
+      modified: core.modified,
+      keywords: core.keywords,
+      description: core.description,
+      category: core.category,
+    },
+    app: {
+      company: app.company,
+      manager: app.manager,
+      application: app.application,
+      pages: app.pages,
+      words: app.words,
+      slides: app.slides,
+      sheets: app.sheets,
+    },
+    custom_properties: parse_xlsx_custom_properties(pkg),
+  }
+}
+
+///|
+fn parse_xlsx_custom_properties(
+  pkg : @ox.OoxmlPackage,
+) -> Array[XlsxCustomProperty] {
+  let out : Array[XlsxCustomProperty] = []
+  for prop in @ox.read_custom_properties(pkg) {
+    out.push({
+      name: prop.name,
+      value: prop.value,
+      value_type: prop.value_type,
+    })
+  }
+  out
 }
 
 ///|

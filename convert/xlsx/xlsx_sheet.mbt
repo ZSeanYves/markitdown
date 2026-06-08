@@ -24,11 +24,58 @@ fn compat_workbook_model_from_semantic(
   }
   {
     source_name,
+    metadata: compat_workbook_metadata_from_semantic(workbook.metadata),
     uses_date_1904: workbook.uses_date_1904,
     defined_names,
     unsupported_features,
     sheets,
   }
+}
+
+///|
+fn compat_workbook_metadata_from_semantic(
+  metadata : @dpxlsx.XlsxWorkbookMetadata,
+) -> XlsxWorkbookMetadata {
+  {
+    core: {
+      title: metadata.core.title,
+      subject: metadata.core.subject,
+      creator: metadata.core.creator,
+      last_modified_by: metadata.core.last_modified_by,
+      created: metadata.core.created,
+      modified: metadata.core.modified,
+      keywords: metadata.core.keywords,
+      description: metadata.core.description,
+      category: metadata.core.category,
+    },
+    app: {
+      company: metadata.app.company,
+      manager: metadata.app.manager,
+      application: metadata.app.application,
+      pages: metadata.app.pages,
+      words: metadata.app.words,
+      slides: metadata.app.slides,
+      sheets: metadata.app.sheets,
+    },
+    custom_properties: compat_custom_properties_from_semantic(
+      metadata.custom_properties,
+    ),
+  }
+}
+
+///|
+fn compat_custom_properties_from_semantic(
+  props : Array[@dpxlsx.XlsxCustomProperty],
+) -> Array[XlsxCustomProperty] {
+  let out : Array[XlsxCustomProperty] = []
+  for prop in props {
+    out.push({
+      name: prop.name,
+      value: prop.value,
+      value_type: prop.value_type,
+    })
+  }
+  out
 }
 
 ///|

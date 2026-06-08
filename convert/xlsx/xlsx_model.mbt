@@ -211,8 +211,47 @@ pub struct XlsxSheetModel {
 }
 
 ///|
+pub struct XlsxCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  created : String?
+  modified : String?
+  keywords : String?
+  description : String?
+  category : String?
+}
+
+///|
+pub struct XlsxAppProperties {
+  company : String?
+  manager : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+///|
+pub struct XlsxCustomProperty {
+  name : String
+  value : String
+  value_type : String?
+}
+
+///|
+pub struct XlsxWorkbookMetadata {
+  core : XlsxCoreProperties
+  app : XlsxAppProperties
+  custom_properties : Array[XlsxCustomProperty]
+}
+
+///|
 pub struct XlsxWorkbookModel {
   source_name : String
+  metadata : XlsxWorkbookMetadata
   uses_date_1904 : Bool
   defined_names : Array[XlsxDefinedName]
   unsupported_features : Array[XlsxUnsupportedFeature]

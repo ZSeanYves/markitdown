@@ -93,6 +93,29 @@ pub fn inspect_xlsx_with_profile(
 }
 
 ///|
+pub fn xlsx_metadata_document_properties(
+  workbook : XlsxWorkbookModel,
+) -> @cor.MetadataDocumentProperties? {
+  let meta = workbook.metadata
+  Some(
+    @cor.metadata_document_properties(
+      meta.core.title,
+      meta.core.subject,
+      meta.core.creator,
+      meta.core.description,
+      meta.core.keywords,
+      meta.core.created,
+      meta.core.modified,
+      meta.app.application,
+      meta.app.pages,
+      meta.app.words,
+      meta.app.slides,
+      meta.app.sheets,
+    ),
+  )
+}
+
+///|
 fn build_xlsx_document(
   workbook : XlsxWorkbookModel,
   max_heading : Int,

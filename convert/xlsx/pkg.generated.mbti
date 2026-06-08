@@ -14,6 +14,8 @@ pub fn parse_xlsx(String, String, Int) -> @core.Document raise
 
 pub fn parse_xlsx_with_profile(String, String, Int) -> (@core.Document, XlsxProfileReport?) raise
 
+pub fn xlsx_metadata_document_properties(XlsxWorkbookModel) -> @core.MetadataDocumentProperties?
+
 pub fn xlsx_profile_add_stage(XlsxProfileReport?, String, UInt64, String?) -> Unit
 
 pub fn xlsx_profile_render_report(XlsxProfileReport) -> String
@@ -21,6 +23,16 @@ pub fn xlsx_profile_render_report(XlsxProfileReport) -> String
 // Errors
 
 // Types and methods
+pub struct XlsxAppProperties {
+  company : String?
+  manager : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
 pub enum XlsxCellKind {
   SharedString
   InlineString
@@ -65,6 +77,24 @@ pub struct XlsxComment {
   column : Int
   author_name : String?
   text : String
+}
+
+pub struct XlsxCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  created : String?
+  modified : String?
+  keywords : String?
+  description : String?
+  category : String?
+}
+
+pub struct XlsxCustomProperty {
+  name : String
+  value : String
+  value_type : String?
 }
 
 pub struct XlsxDefinedName {
@@ -227,8 +257,15 @@ pub enum XlsxUnsupportedFeatureKind {
   Unknown
 } derive(Eq)
 
+pub struct XlsxWorkbookMetadata {
+  core : XlsxCoreProperties
+  app : XlsxAppProperties
+  custom_properties : Array[XlsxCustomProperty]
+}
+
 pub struct XlsxWorkbookModel {
   source_name : String
+  metadata : XlsxWorkbookMetadata
   uses_date_1904 : Bool
   defined_names : Array[XlsxDefinedName]
   unsupported_features : Array[XlsxUnsupportedFeature]

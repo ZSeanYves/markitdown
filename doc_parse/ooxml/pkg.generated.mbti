@@ -64,6 +64,8 @@ pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
 
 pub fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties
 
+pub fn read_custom_properties(OoxmlPackage) -> Array[OoxmlCustomProperty]
+
 pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
 
 pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
@@ -89,6 +91,8 @@ pub impl Show for OoxmlError
 // Types and methods
 pub struct OoxmlAppProperties {
   application : String?
+  company : String?
+  manager : String?
   pages : String?
   words : String?
   slides : String?
@@ -125,10 +129,18 @@ pub struct OoxmlCoreProperties {
   title : String?
   subject : String?
   creator : String?
+  last_modified_by : String?
   description : String?
   keywords : String?
+  category : String?
   created : String?
   modified : String?
+}
+
+pub struct OoxmlCustomProperty {
+  name : String
+  value : String
+  value_type : String?
 }
 
 pub struct OoxmlErrorInfo {

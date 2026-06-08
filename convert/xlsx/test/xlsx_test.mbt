@@ -332,6 +332,70 @@ fn write_utf8_shared_string_xlsx(path : String) -> Unit raise {
 }
 
 ///|
+fn write_xlsx_with_document_properties(path : String) -> Unit raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Meta\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"str\"><v>ok</v></c></row></sheetData>" +
+    "</worksheet>"
+  let core_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\">" +
+    "<dc:title>Quarterly Workbook</dc:title>" +
+    "<dc:subject>Forecast</dc:subject>" +
+    "<dc:creator>Ada</dc:creator>" +
+    "<cp:lastModifiedBy>Grace</cp:lastModifiedBy>" +
+    "<dcterms:created>2026-01-02T03:04:05Z</dcterms:created>" +
+    "<dcterms:modified>2026-02-03T04:05:06Z</dcterms:modified>" +
+    "<cp:keywords>finance;ops</cp:keywords>" +
+    "<dc:description>Board packet</dc:description>" +
+    "<cp:category>Planning</cp:category>" +
+    "</cp:coreProperties>"
+  let app_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\">" +
+    "<Application>MoonSheet</Application>" +
+    "<Company>Example Co</Company>" +
+    "<Manager>Lin</Manager>" +
+    "<Worksheets>1</Worksheets>" +
+    "</Properties>"
+  let custom_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
+    "<property fmtid=\"{D5CDD505-2E9C-101B-9397-08002B2CF9AE}\" pid=\"2\" name=\"Audience\"><vt:lpwstr>Finance</vt:lpwstr></property>" +
+    "</Properties>"
+
+  let bytes = build_store_zip([
+    (
+      "[Content_Types].xml",
+      minimal_content_types_xml(
+        "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+        "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>" +
+        "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>" +
+        "<Override PartName=\"/docProps/custom.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.custom-properties+xml\"/>",
+      ),
+    ),
+    (
+      "_rels/.rels",
+      minimal_rels_xml(
+        "<Relationship Id=\"rIdWorkbook\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>",
+      ),
+    ),
+    ("xl/workbook.xml", workbook_xml),
+    ("xl/_rels/workbook.xml.rels", workbook_rels_xml),
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("docProps/core.xml", core_xml),
+    ("docProps/app.xml", app_xml),
+    ("docProps/custom.xml", custom_xml),
+  ])
+  write_bytes(path, bytes)
+}
+
+///|
 fn write_hidden_row_xlsx(path : String) -> Unit raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -792,6 +856,84 @@ test "xlsx converter preserves utf8 shared strings from OOXML parts" {
   let markdown = @cor.emit_markdown(doc)
   assert_true(markdown.contains("Cäsar"))
   assert_true(!markdown.contains("CÃ¤sar"))
+
+  cleanup_temp_dir(case_dir)
+}
+
+///|
+test "xlsx converter consumes typed workbook document properties" {
+  let root = test_tmp_root()
+  let case_dir = root + "/xlsx-document-properties"
+  recreate_clean_dir(case_dir) catch {
+    e => fail("recreate document properties case dir failed: " + e.to_string())
+  }
+  let path = case_dir + "/metadata.xlsx"
+  write_xlsx_with_document_properties(path) catch {
+    e => fail("write_xlsx_with_document_properties failed: " + e.to_string())
+  }
+
+  let inspected = @xlsx.inspect_xlsx(path)
+  if inspected.metadata.core.title != Some("Quarterly Workbook") {
+    fail("expected typed metadata title")
+  }
+  if inspected.metadata.core.subject != Some("Forecast") {
+    fail("expected typed metadata subject")
+  }
+  if inspected.metadata.core.creator != Some("Ada") {
+    fail("expected typed metadata creator")
+  }
+  if inspected.metadata.core.last_modified_by != Some("Grace") {
+    fail("expected typed metadata lastModifiedBy")
+  }
+  if inspected.metadata.core.category != Some("Planning") {
+    fail("expected typed metadata category")
+  }
+  if inspected.metadata.app.application != Some("MoonSheet") {
+    fail("expected typed metadata application")
+  }
+  if inspected.metadata.app.company != Some("Example Co") {
+    fail("expected typed metadata company")
+  }
+  if inspected.metadata.app.manager != Some("Lin") {
+    fail("expected typed metadata manager")
+  }
+  assert_eq(inspected.metadata.custom_properties.length(), 1)
+  assert_eq(inspected.metadata.custom_properties[0].name, "Audience")
+  assert_eq(inspected.metadata.custom_properties[0].value, "Finance")
+
+  let props = @xlsx.xlsx_metadata_document_properties(inspected)
+  match props {
+    Some(document) => {
+      if document.title != Some("Quarterly Workbook") {
+        fail("expected metadata document title")
+      }
+      if document.subject != Some("Forecast") {
+        fail("expected metadata document subject")
+      }
+      if document.creator != Some("Ada") {
+        fail("expected metadata document creator")
+      }
+      if document.description != Some("Board packet") {
+        fail("expected metadata document description")
+      }
+      if document.keywords != Some("finance;ops") {
+        fail("expected metadata document keywords")
+      }
+      if document.created != Some("2026-01-02T03:04:05Z") {
+        fail("expected metadata document created")
+      }
+      if document.modified != Some("2026-02-03T04:05:06Z") {
+        fail("expected metadata document modified")
+      }
+      if document.application != Some("MoonSheet") {
+        fail("expected metadata document application")
+      }
+      if document.sheets != Some("1") {
+        fail("expected metadata document sheets")
+      }
+    }
+    None => fail("expected document properties")
+  }
 
   cleanup_temp_dir(case_dir)
 }

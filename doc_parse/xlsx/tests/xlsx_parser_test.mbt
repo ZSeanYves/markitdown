@@ -769,6 +769,107 @@ test "xlsx semantic package parse matches path open and keeps shared strings" {
 }
 
 ///|
+test "xlsx semantic parser owns workbook document properties" {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"Meta\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData><row r=\"1\"><c r=\"A1\" t=\"str\"><v>ok</v></c></row></sheetData>" +
+    "</worksheet>"
+  let core_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\">" +
+    "<dc:title>Quarterly Workbook</dc:title>" +
+    "<dc:subject>Forecast</dc:subject>" +
+    "<dc:creator>Ada</dc:creator>" +
+    "<cp:lastModifiedBy>Grace</cp:lastModifiedBy>" +
+    "<dcterms:created>2026-01-02T03:04:05Z</dcterms:created>" +
+    "<dcterms:modified>2026-02-03T04:05:06Z</dcterms:modified>" +
+    "<cp:keywords>finance;ops</cp:keywords>" +
+    "<dc:description>Board packet</dc:description>" +
+    "<cp:category>Planning</cp:category>" +
+    "</cp:coreProperties>"
+  let app_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\">" +
+    "<Application>MoonSheet</Application>" +
+    "<Company>Example Co</Company>" +
+    "<Manager>Lin</Manager>" +
+    "<Worksheets>1</Worksheets>" +
+    "</Properties>"
+  let custom_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
+    "<property fmtid=\"{D5CDD505-2E9C-101B-9397-08002B2CF9AE}\" pid=\"2\" name=\"Audience\"><vt:lpwstr>Finance</vt:lpwstr></property>" +
+    "</Properties>"
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    workbook_pkg_from_parts(
+      workbook_xml,
+      workbook_rels_xml,
+      [
+        ("xl/worksheets/sheet1.xml", sheet_xml),
+        ("docProps/core.xml", core_xml),
+        ("docProps/app.xml", app_xml),
+        ("docProps/custom.xml", custom_xml),
+      ],
+      "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+      "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+      "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>" +
+      "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>" +
+      "<Override PartName=\"/docProps/custom.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.custom-properties+xml\"/>",
+    ),
+  )
+
+  if workbook.metadata.core.title != Some("Quarterly Workbook") {
+    fail("expected core title")
+  }
+  if workbook.metadata.core.subject != Some("Forecast") {
+    fail("expected core subject")
+  }
+  if workbook.metadata.core.creator != Some("Ada") {
+    fail("expected core creator")
+  }
+  if workbook.metadata.core.last_modified_by != Some("Grace") {
+    fail("expected core lastModifiedBy")
+  }
+  if workbook.metadata.core.created != Some("2026-01-02T03:04:05Z") {
+    fail("expected core created")
+  }
+  if workbook.metadata.core.modified != Some("2026-02-03T04:05:06Z") {
+    fail("expected core modified")
+  }
+  if workbook.metadata.core.keywords != Some("finance;ops") {
+    fail("expected core keywords")
+  }
+  if workbook.metadata.core.description != Some("Board packet") {
+    fail("expected core description")
+  }
+  if workbook.metadata.core.category != Some("Planning") {
+    fail("expected core category")
+  }
+  if workbook.metadata.app.application != Some("MoonSheet") {
+    fail("expected app application")
+  }
+  if workbook.metadata.app.company != Some("Example Co") {
+    fail("expected app company")
+  }
+  if workbook.metadata.app.manager != Some("Lin") {
+    fail("expected app manager")
+  }
+  if workbook.metadata.app.sheets != Some("1") {
+    fail("expected app worksheet count")
+  }
+  assert_eq(workbook.metadata.custom_properties.length(), 1)
+  assert_eq(workbook.metadata.custom_properties[0].name, "Audience")
+  assert_eq(workbook.metadata.custom_properties[0].value, "Finance")
+  if workbook.metadata.custom_properties[0].value_type != Some("lpwstr") {
+    fail("expected lpwstr custom property type")
+  }
+}
+
+///|
 test "xlsx semantic facade remains stable across open parse inspect collect validate classify" {
   let input_path = resolve_sample_path(
     "samples/main_process/xlsx/xlsx_formula_cached_values.xlsx",

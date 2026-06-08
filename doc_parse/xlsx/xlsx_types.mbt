@@ -248,8 +248,51 @@ pub struct XlsxStyles {
 }
 
 ///|
+/// Typed core document properties from `docProps/core.xml`.
+pub struct XlsxCoreProperties {
+  title : String?
+  subject : String?
+  creator : String?
+  last_modified_by : String?
+  created : String?
+  modified : String?
+  keywords : String?
+  description : String?
+  category : String?
+}
+
+///|
+/// Typed app document properties from `docProps/app.xml`.
+pub struct XlsxAppProperties {
+  company : String?
+  manager : String?
+  application : String?
+  pages : String?
+  words : String?
+  slides : String?
+  sheets : String?
+}
+
+///|
+/// Typed custom document property from `docProps/custom.xml`.
+pub struct XlsxCustomProperty {
+  name : String
+  value : String
+  value_type : String?
+}
+
+///|
+/// Workbook-level typed document metadata owned by the XLSX parser.
+pub struct XlsxWorkbookMetadata {
+  core : XlsxCoreProperties
+  app : XlsxAppProperties
+  custom_properties : Array[XlsxCustomProperty]
+}
+
+///|
 /// Source-native SpreadsheetML workbook model.
 pub struct XlsxWorkbook {
+  metadata : XlsxWorkbookMetadata
   shared_strings : Array[String]
   styles : XlsxStyles
   uses_date_1904 : Bool

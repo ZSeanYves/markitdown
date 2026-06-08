@@ -217,8 +217,10 @@ pub struct OoxmlCoreProperties {
   title : String?
   subject : String?
   creator : String?
+  last_modified_by : String?
   description : String?
   keywords : String?
+  category : String?
   created : String?
   modified : String?
 }
@@ -227,10 +229,20 @@ pub struct OoxmlCoreProperties {
 /// Lightweight fields from `docProps/app.xml`.
 pub struct OoxmlAppProperties {
   application : String?
+  company : String?
+  manager : String?
   pages : String?
   words : String?
   slides : String?
   sheets : String?
+}
+
+///|
+/// Lightweight fields from `docProps/custom.xml`.
+pub struct OoxmlCustomProperty {
+  name : String
+  value : String
+  value_type : String?
 }
 
 ///|
