@@ -255,8 +255,8 @@ fn parse_xlsx_workbook_from_package_with_profile(
     )
 
     let comments_started = xlsx_parse_profile_stage_started(profile)
-    let comments = read_sheet_comments_from_relationships(
-      pkg, sheet_relationships,
+    let (comments, comment_issues) = read_sheet_comments_from_relationships(
+      pkg, info.name, Some(normalized_target), sheet_relationships,
     )
     xlsx_parse_profile_stage_finished(
       profile,
@@ -282,6 +282,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
       profile,
       total_cell_budget_remaining,
       sheet_relationship_issues,
+      comment_issues,
     )
     sheets.push(sheet)
   }
@@ -443,8 +444,10 @@ fn truncate_sheet_relationships(
 ///|
 fn read_sheet_comments_from_relationships(
   pkg : @ox.OoxmlPackage,
+  sheet_name : String,
+  part_target : String?,
   rels : Array[@ox.OoxmlRelationship],
-) -> Array[XlsxComment] {
+) -> (Array[XlsxComment], Array[XlsxValidationIssue]) {
   for rel in rels {
     if rel.target_mode == @ox.OoxmlTargetMode::Internal &&
       (
@@ -455,13 +458,19 @@ fn read_sheet_comments_from_relationships(
       rel.resolved_target.has_suffix(".xml") &&
       @ox.has_part(pkg, rel.resolved_target) {
       let comments_xml = @ox.read_part_text(pkg, rel.resolved_target) catch {
-        _ => return []
+        _ => return ([], [])
       }
-      return parse_sheet_comments_xml(comments_xml)
+      let (comments, truncated) = parse_sheet_comments_xml(comments_xml)
+      let issues = if truncated {
+        truncated_comments_issues(sheet_name, part_target, xlsx_max_comments() + 1)
+      } else {
+        []
+      }
+      return (comments, issues)
     }
   }
 
-  []
+  ([], [])
 }
 
 ///|

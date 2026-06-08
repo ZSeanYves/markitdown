@@ -591,6 +591,93 @@ fn repeated_internal_hyperlinks(count : Int) -> String {
 }
 
 ///|
+fn repeated_merge_cells(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let row = i + 1
+    items.push(
+      "<mergeCell ref=\"A" +
+      row.to_string() +
+      ":B" +
+      row.to_string() +
+      "\"/>",
+    )
+  }
+  "<mergeCells count=\"" + count.to_string() + "\">" + items.join("") +
+  "</mergeCells>"
+}
+
+///|
+fn repeated_comment_xml(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let row = i + 1
+    items.push(
+      "<comment ref=\"A" +
+      row.to_string() +
+      "\" authorId=\"0\"><text><r><t>Comment " +
+      row.to_string() +
+      "</t></r></text></comment>",
+    )
+  }
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+  "<comments xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+  "<authors><author>Analyst</author></authors><commentList>" +
+  items.join("") +
+  "</commentList></comments>"
+}
+
+///|
+fn repeated_workbook_sheets(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<sheet name=\"S" +
+      n.to_string() +
+      "\" sheetId=\"" +
+      n.to_string() +
+      "\" r:id=\"rId" +
+      n.to_string() +
+      "\"/>",
+    )
+  }
+  "<sheets>" + items.join("") + "</sheets>"
+}
+
+///|
+fn repeated_workbook_sheet_relationships(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<Relationship Id=\"rId" +
+      n.to_string() +
+      "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet" +
+      n.to_string() +
+      ".xml\"/>",
+    )
+  }
+  items.join("")
+}
+
+///|
+fn repeated_external_hyperlink_relationships(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<Relationship Id=\"rIdExtra" +
+      n.to_string() +
+      "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com/" +
+      n.to_string() +
+      "\" TargetMode=\"External\"/>",
+    )
+  }
+  items.join("")
+}
+
+///|
 fn repeated_table_relationships(count : Int) -> String {
   let items : Array[String] = []
   for i in 0..<count {
@@ -666,6 +753,83 @@ fn generated_xlsx_pkg_over_hard_budgets() -> @ox.OoxmlPackage raise {
     "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
     "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
     "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+  )
+}
+
+///|
+fn generated_xlsx_pkg_over_sheet_hard_budgets() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    repeated_workbook_sheets(260) +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    repeated_workbook_sheet_relationships(260),
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<dimension ref=\"A1:ALL2000\"/>" +
+    "<sheetData>" +
+    repeated_inline_rows(80) +
+    "</sheetData>" +
+    repeated_merge_cells(2010) +
+    "<hyperlinks><hyperlink ref=\"A1:ALL2000\" location=\"S1!A1\"/></hyperlinks>" +
+    "</worksheet>"
+  let sheet_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rIdComment\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\" Target=\"../comments1.xml\"/>" +
+    repeated_table_relationships(520) +
+    repeated_external_hyperlink_relationships(1050),
+  )
+  let extra_entries : Array[(String, String)] = [
+    ("xl/worksheets/sheet1.xml", sheet_xml),
+    ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels_xml),
+    ("xl/comments1.xml", repeated_comment_xml(2010)),
+  ]
+  extra_entries.append(repeated_table_entries(520))
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    extra_entries,
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/comments1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml\"/>" +
+    repeated_table_overrides(520),
+  )
+}
+
+///|
+fn generated_xlsx_pkg_over_total_cell_budget() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    repeated_workbook_sheets(11) +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    repeated_workbook_sheet_relationships(11),
+  )
+  let extra_entries : Array[(String, String)] = []
+  for i in 0..<11 {
+    let n = i + 1
+    let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+      "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+      "<sheetData>" +
+      repeated_inline_rows(2000) +
+      "</sheetData></worksheet>"
+    extra_entries.push(("xl/worksheets/sheet" + n.to_string() + ".xml", sheet_xml))
+  }
+  let overrides : Array[String] = []
+  for i in 0..<11 {
+    let n = i + 1
+    overrides.push(
+      "<Override PartName=\"/xl/worksheets/sheet" +
+      n.to_string() +
+      ".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>",
+    )
+  }
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    extra_entries,
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    overrides.join(""),
   )
 }
 
@@ -1611,6 +1775,76 @@ test "xlsx semantic parser hard budgets truncate facts with typed warnings" {
   assert_true(saw_defined_name_cap)
   assert_true(saw_cell_cap)
   assert_true(saw_hyperlink_cap)
+}
+
+///|
+test "xlsx semantic parser sheet hard budgets cover sheets rels comments tables and ranges" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_over_sheet_hard_budgets(),
+  )
+  assert_true(workbook.sheets.length() <= 256)
+  assert_true(workbook.sheets[0].merged_ranges.length() <= 2000)
+  assert_true(workbook.sheets[0].comments.length() <= 2000)
+  assert_true(workbook.sheets[0].tables.length() <= 512)
+  assert_eq(workbook.sheets[0].hyperlinks.length(), 1)
+
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_sheet_cap = false
+  let mut saw_relationship_cap = false
+  let mut saw_merged_cap = false
+  let mut saw_comment_cap = false
+  let mut saw_table_cap = false
+  let mut saw_hyperlink_range_cap = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("sheets truncated") {
+      saw_sheet_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("relationships truncated") {
+      saw_relationship_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("merged ranges truncated") {
+      saw_merged_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("comments truncated") {
+      saw_comment_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("tables truncated") {
+      saw_table_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("hyperlink range expansion skipped") {
+      saw_hyperlink_range_cap = true
+    }
+  }
+  assert_true(saw_sheet_cap)
+  assert_true(saw_relationship_cap)
+  assert_true(saw_merged_cap)
+  assert_true(saw_comment_cap)
+  assert_true(saw_table_cap)
+  assert_true(saw_hyperlink_range_cap)
+}
+
+///|
+test "xlsx semantic parser workbook total cell cap is bounded across sheets" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_over_total_cell_budget(),
+  )
+  assert_eq(workbook.sheets.length(), 11)
+  let mut total_cells = 0
+  for sheet in workbook.sheets {
+    total_cells += sheet.cells.length()
+  }
+  assert_true(total_cells <= 20000)
+
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_total_cell_cap = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("workbook hard cap") {
+      saw_total_cell_cap = true
+    }
+  }
+  assert_true(saw_total_cell_cap)
 }
 
 ///|

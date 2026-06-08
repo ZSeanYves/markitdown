@@ -26,6 +26,7 @@ fn parse_sheet_model(
   profile : XlsxParseProfileReport?,
   total_cell_budget_remaining : Ref[Int],
   relationship_issues : Array[XlsxValidationIssue],
+  comment_issues : Array[XlsxValidationIssue],
 ) -> XlsxSheetModel {
   let collect_started = xlsx_parse_profile_stage_started(profile)
   let (parsed_cells, cell_budget_issues) = collect_sheet_cells(
@@ -78,7 +79,9 @@ fn parse_sheet_model(
     tables_started,
     Some("tables=" + tables.length().to_string()),
   )
-  let hyperlink_lookup = xlsx_hyperlink_cell_lookup(hyperlinks)
+  let (hyperlink_lookup, hyperlink_lookup_issues) = xlsx_hyperlink_cell_lookup(
+    sheet_name, part_target, hyperlinks,
+  )
   let resolve_started = xlsx_parse_profile_stage_started(profile)
   let cells : Array[XlsxCellModel] = []
 
@@ -217,12 +220,11 @@ fn parse_sheet_model(
   let issues : Array[XlsxValidationIssue] = []
   issues.append(cell_budget_issues)
   issues.append(relationship_issues)
+  issues.append(comment_issues)
   issues.append(merged_issues)
   issues.append(hyperlink_issues)
+  issues.append(hyperlink_lookup_issues)
   issues.append(table_issues)
-  issues.append(
-    truncated_comments_issues(sheet_name, part_target, comments.length()),
-  )
   let unsupported_features = sheet_unsupported_features(
     pkg, sheet_name, part_target, sheet_xml, sheet_relationships,
   )
@@ -1159,13 +1161,33 @@ fn find_relationship_by_id_in_list(
 
 ///|
 fn xlsx_hyperlink_cell_lookup(
+  sheet_name : String,
+  part_target : String?,
   hyperlinks : Array[XlsxHyperlink],
-) -> Map[String, XlsxHyperlink] {
+) -> (Map[String, XlsxHyperlink], Array[XlsxValidationIssue]) {
   let out : Map[String, XlsxHyperlink] = Map([])
+  let issues : Array[XlsxValidationIssue] = []
+  let cap = xlsx_max_hyperlink_range_expansion()
   for link in hyperlinks {
     let rows = link.end_row - link.start_row + 1
     let cols = link.end_col - link.start_col + 1
-    if rows <= 0 || cols <= 0 || rows > xlsx_hyperlink_cell_index_cap() / cols {
+    if rows <= 0 || cols <= 0 {
+      continue
+    }
+    if rows > cap / cols {
+      issues.push(
+        sheet_issue(
+          XlsxValidationIssueKind::LargeSheetTruncated,
+          XlsxValidationSeverity::Warning,
+          sheet_name,
+          None,
+          part_target,
+          "hyperlink range expansion skipped at hard cap: " +
+          cap.to_string() +
+          " ref=" +
+          link.reference,
+        ),
+      )
       continue
     }
     for r in link.start_row..<(link.end_row + 1) {
@@ -1174,12 +1196,7 @@ fn xlsx_hyperlink_cell_lookup(
       }
     }
   }
-  out
-}
-
-///|
-fn xlsx_hyperlink_cell_index_cap() -> Int {
-  10_000
+  (out, issues)
 }
 
 ///|
@@ -1708,16 +1725,21 @@ fn parse_inline_str(inner : String) -> String {
 }
 
 ///|
-fn parse_sheet_comments_xml(xml : String) -> Array[XlsxComment] {
+fn parse_sheet_comments_xml(xml : String) -> (Array[XlsxComment], Bool) {
   let authors = parse_xlsx_comment_authors(xml)
   let out : Array[XlsxComment] = []
   let mut pos = 0
+  let mut seen_comments = 0
 
   while true {
     let c0 = find_exact_start_tag(xml, "comment", pos)
     match c0 {
       None => break
       Some(i0) => {
+        if seen_comments >= xlsx_max_comments() {
+          return (out, true)
+        }
+        seen_comments += 1
         let ctag_end0 = find_sub(xml, ">", i0)
         match ctag_end0 {
           None => break
@@ -1752,7 +1774,7 @@ fn parse_sheet_comments_xml(xml : String) -> Array[XlsxComment] {
     }
   }
 
-  out
+  (out, false)
 }
 
 ///|

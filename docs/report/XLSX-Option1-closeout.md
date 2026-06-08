@@ -152,8 +152,38 @@ Current bounded warnings cover:
 - large sheet dimensions with sparse data
 - under-cap but expensive RichTable areas
 
+Hard parser budgets also cap:
+
+- shared string count, text bytes, and characters per item
+- sheet count
+- per-sheet and workbook-total parsed cells
+- merged ranges
+- structured tables
+- defined names
+- worksheet comments
+- relationships per part
+- hyperlinks
+- hyperlink range-to-cell expansion
+
 The guard work does not implement a streaming parser rewrite. It adds bounded
-warnings and keeps existing dense range and sparse preview policy intact.
+warnings, truncates parser facts at hard caps, and keeps existing dense range
+and sparse preview policy intact. The P2 hardening slice additionally moved
+worksheet comment truncation into the comments parser path and emits a typed
+warning when a large hyperlink range is preserved as a range-level fact but not
+expanded into per-cell hyperlink metadata.
+
+### P2 Stress Verification
+
+The parser stress tests now use generated in-repo XLSX packages to verify:
+
+- shared strings, long shared-string items, defined names, per-sheet cells, and
+  hyperlinks are truncated with typed warnings
+- sheet count, relationships, merged ranges, comments, structured tables, and
+  large hyperlink range expansion are bounded with typed warnings
+- workbook-total cell budget is enforced across multiple sheets
+
+No external samples are needed for these stress tests, and `convert/xlsx`
+continues to consume typed parser facts only.
 
 ## Validation
 

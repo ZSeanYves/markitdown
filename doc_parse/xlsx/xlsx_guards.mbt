@@ -117,3 +117,8 @@ fn xlsx_max_relationships_per_part() -> Int {
 fn xlsx_max_hyperlinks() -> Int {
   2_000
 }
+
+///|
+fn xlsx_max_hyperlink_range_expansion() -> Int {
+  10_000
+}
