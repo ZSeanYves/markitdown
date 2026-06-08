@@ -35,13 +35,11 @@ priv struct HtmlProfileReport {
   parser_duplicate_attr_count : Ref[Int]
   parser_unexpected_closing_count : Ref[Int]
   parser_unclosed_count : Ref[Int]
-  parser_used_fallback : Ref[Bool]
-  parser_skipped_large_input : Ref[Bool]
   parser_analysis_attempted : Ref[Bool]
   parser_analysis_used : Ref[Bool]
   parser_scope_from_events : Ref[Bool]
   parser_skip_range_count : Ref[Int]
-  parser_scope_fallback_reason : Ref[String]
+  parser_scope_source_reason : Ref[String]
 }
 
 ///|
@@ -67,13 +65,11 @@ fn new_html_profile_report(input_path : String) -> HtmlProfileReport {
     parser_duplicate_attr_count: { val: 0 },
     parser_unexpected_closing_count: { val: 0 },
     parser_unclosed_count: { val: 0 },
-    parser_used_fallback: { val: false },
-    parser_skipped_large_input: { val: false },
     parser_analysis_attempted: { val: false },
     parser_analysis_used: { val: false },
     parser_scope_from_events: { val: false },
     parser_skip_range_count: { val: 0 },
-    parser_scope_fallback_reason: { val: "" },
+    parser_scope_source_reason: { val: "" },
   }
 }
 
@@ -143,24 +139,6 @@ fn html_profile_set_parser_issue_summary(
 }
 
 ///|
-fn html_profile_mark_parser_fallback(report : HtmlProfileReport?) -> Unit {
-  match report {
-    Some(rep) => rep.parser_used_fallback.val = true
-    None => ()
-  }
-}
-
-///|
-fn html_profile_mark_parser_skipped_large_input(
-  report : HtmlProfileReport?,
-) -> Unit {
-  match report {
-    Some(rep) => rep.parser_skipped_large_input.val = true
-    None => ()
-  }
-}
-
-///|
 fn html_profile_mark_parser_analysis_attempted(
   report : HtmlProfileReport?,
 ) -> Unit {
@@ -183,13 +161,13 @@ fn html_profile_set_scope_observability(
   report : HtmlProfileReport?,
   scope_from_events : Bool,
   skip_range_count : Int,
-  fallback_reason : String,
+  source_reason : String,
 ) -> Unit {
   match report {
     Some(rep) => {
       rep.parser_scope_from_events.val = scope_from_events
       rep.parser_skip_range_count.val = skip_range_count
-      rep.parser_scope_fallback_reason.val = fallback_reason
+      rep.parser_scope_source_reason.val = source_reason
     }
     None => ()
   }
@@ -298,10 +276,6 @@ fn html_profile_render_report(report : HtmlProfileReport) -> String {
     report.parser_unexpected_closing_count.val.to_string() +
     " parser_unclosed_count=" +
     report.parser_unclosed_count.val.to_string() +
-    " parser_used_fallback=" +
-    report.parser_used_fallback.val.to_string() +
-    " parser_skipped_large_input=" +
-    report.parser_skipped_large_input.val.to_string() +
     " parser_analysis_attempted=" +
     report.parser_analysis_attempted.val.to_string() +
     " parser_analysis_used=" +
@@ -310,8 +284,8 @@ fn html_profile_render_report(report : HtmlProfileReport) -> String {
     report.parser_scope_from_events.val.to_string() +
     " parser_skip_range_count=" +
     report.parser_skip_range_count.val.to_string() +
-    " parser_scope_fallback_reason=" +
-    report.parser_scope_fallback_reason.val,
+    " parser_scope_source_reason=" +
+    report.parser_scope_source_reason.val,
   )
 
   for stage in report.stages {

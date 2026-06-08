@@ -73,32 +73,6 @@ fn strip_tags_bytes(inner : Bytes) -> Bytes {
 }
 
 ///|
-fn find_tag_block_inner(bs : Bytes, tag_name : String) -> Bytes? {
-  let open_pat = pat("<" + tag_name)
-  let close_pat = pat("</" + tag_name + ">")
-  let gt_pat = pat(">")
-
-  let open0 = find_bytes_case_insensitive(bs, open_pat, 0)
-  match open0 {
-    None => None
-    Some(open_idx) => {
-      let gt0 = find_bytes(bs, gt_pat, open_idx)
-      match gt0 {
-        None => None
-        Some(gt_idx) => {
-          let inner_start = gt_idx + 1
-          let close0 = find_bytes_case_insensitive(bs, close_pat, inner_start)
-          match close0 {
-            None => None
-            Some(close_idx) => Some(bs[inner_start:close_idx].to_owned())
-          }
-        }
-      }
-    }
-  }
-}
-
-///|
 fn find_matching_tag_end(
   bs : Bytes,
   start_open : Int,

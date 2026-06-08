@@ -123,7 +123,11 @@ test "html source spans and multiple top-level nodes are preserved in the raw mo
       assert_eq(section.tag_name, "section")
       assert_eq(section.span.line_start, 1)
       assert_eq(section.span.line_end, 4)
-      assert_eq(section.children.length(), 2)
+      assert_eq(section.children.length(), 5)
+      match section.children[0] {
+        @html.HtmlNode::Text(text) => assert_eq(text.text, "\n")
+        _ => fail("expected leading section whitespace text")
+      }
     }
     _ => fail("expected section element")
   }
@@ -1744,7 +1748,7 @@ test "html semantic paragraph facts summarize inline spacing and candidates" {
   assert_eq(report.paragraph_with_break_count, 1)
   assert_eq(report.paragraph_meaningful_text_count, 2)
   assert_eq(report.paragraph_candidate_count, 1)
-  assert_eq(report.paragraph_repeated_whitespace_count, 1)
+  assert_eq(report.paragraph_repeated_whitespace_count, 2)
   assert_eq(report.paragraph_newline_count, 1)
   assert_true(report.leading_whitespace_inline_count > 0)
   assert_true(report.trailing_whitespace_inline_count > 0)

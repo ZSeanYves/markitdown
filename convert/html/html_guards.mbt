@@ -1,7 +1,4 @@
 ///|
-const HTML_PARSER_VALIDATION_MAX_BYTES : Int = 2 * 1024 * 1024
-
-///|
 const HTML_SEMANTIC_LOWERING_LIST_MIN_DEPTH : Int = 1
 
 ///|

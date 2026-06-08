@@ -977,8 +977,12 @@ fn collect_html_semantic_text_inline(
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
 ) -> String? {
-  let normalized = normalize_html_semantic_preview(text.text)
   let is_whitespace_only = text.text.trim() == ""
+  let normalized = if is_whitespace_only {
+    " "
+  } else {
+    normalize_html_semantic_preview(text.text)
+  }
   if normalized == "" {
     return None
   }
@@ -3753,6 +3757,8 @@ fn is_html_semantic_container_tag(tag_name : String) -> Bool {
   tag_name == "article" ||
   tag_name == "section" ||
   tag_name == "div" ||
+  tag_name == "details" ||
+  tag_name == "summary" ||
   tag_name == "header" ||
   tag_name == "footer" ||
   tag_name == "nav" ||
@@ -3772,7 +3778,7 @@ fn html_semantic_unsupported_kind_for_tag(
   tag_name : String,
 ) -> HtmlUnsupportedKind? {
   match tag_name {
-    "script" => Some(HtmlUnsupportedKind::Script)
+    "script" | "noscript" => Some(HtmlUnsupportedKind::Script)
     "style" => Some(HtmlUnsupportedKind::Style)
     "iframe" => Some(HtmlUnsupportedKind::Iframe)
     "embed" => Some(HtmlUnsupportedKind::Embed)

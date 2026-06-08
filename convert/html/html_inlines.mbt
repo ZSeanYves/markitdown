@@ -1,7 +1,7 @@
 ///|
-/// Guarded complex path: raw inline scanning still owns Markdown-facing
-/// spacing, link/image identity, note refs, and image fallback behavior for
-/// cases not yet lowered directly from parser facts.
+/// M11 boundary: HtmlInline is the convert-owned Markdown/product inline view.
+/// Raw byte inline scanners below are quarantined; normal runtime builds this
+/// view from parser inline/link/image/note facts.
 priv enum HtmlInline {
   Text(String)
   Break

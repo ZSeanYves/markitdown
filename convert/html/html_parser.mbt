@@ -176,31 +176,9 @@ pub(all) struct HtmlSemanticBlockSummary {
 }
 
 ///|
-priv struct HtmlParserSourceAnalysis {
-  text : String
-  events : Array[@dphtml.HtmlTokenEvent]
-  summary : HtmlParserIssueSummary?
-  semantic_summary : HtmlSemanticBlockSummary?
-}
-
-///|
-priv struct HtmlSourceRange {
-  start : Int
-  end_ : Int
-}
-
-///|
 priv struct HtmlByteRange {
   start : Int
   end_ : Int
-}
-
-///|
-priv struct HtmlScopedContent {
-  bytes : Bytes
-  skip_ranges : Array[HtmlByteRange]
-  scope_from_events : Bool
-  scope_fallback_reason : String
 }
 
 ///|
@@ -215,7 +193,7 @@ priv struct HtmlProfileBlockCounts {
 /// HTML converter entrypoint.
 ///
 /// Model boundary:
-/// - uses a lightweight DOM-like semantic scan (not browser layout engine)
+/// - parses once through doc_parse/html, then lowers parser-owned facts
 /// - focuses on robust structural blocks for markdown + metadata sidecar
 /// - keeps provenance lightweight at block/asset level
 pub fn parse_html(
@@ -249,15 +227,19 @@ pub fn parse_html(
 
   let normalize_started = html_profile_start_tick(profile)
   let bs = normalize_html_input_bytes(raw_bs)
-  let parser_analysis = maybe_analyze_html_source(bs, profile)
-  let scoped_content = narrow_html_content_scope(bs, parser_analysis)
-  let scoped_bs = scoped_content.bytes
-  html_profile_set_scope_observability(
-    profile,
-    scoped_content.scope_from_events,
-    scoped_content.skip_ranges.length(),
-    scoped_content.scope_fallback_reason,
-  )
+  let html_text = @utf8.decode(bs, ignore_bom=false) catch {
+    e => {
+      let _ = e
+      raise @cor.AppError("html: utf8 decode failed")
+    }
+  }
+  html_profile_mark_parser_analysis_attempted(profile)
+  let parser_doc = @dphtml.parse_html_document(html_text) catch {
+    e => raise @cor.AppError("html: parser failed: " + e.to_string())
+  }
+  html_profile_mark_parser_analysis_used(profile)
+  let semantic_doc = @dphtml.collect_html_semantic_document(parser_doc)
+  html_profile_set_scope_observability(profile, true, 0, "parser_facts")
   html_profile_add_stage(
     profile,
     "html_normalize_bytes",
@@ -267,30 +249,31 @@ pub fn parse_html(
         Some(
           "bytes=" +
           bs.length().to_string() +
-          " scoped_bytes=" +
-          scoped_bs.length().to_string(),
+          " parser_source_chars=" +
+          parser_doc.source_length.to_string(),
         )
       None => None
     },
   )
 
   let doc = @cor.new_document()
-  let note_definitions = scan_html_notes(scoped_bs)
 
   html_profile_set_active(profile)
   defer html_profile_set_active(None)
 
-  let scan_started = html_profile_start_tick(profile)
-  let nodes = scan_html_nodes_with_skip_ranges(
-    scoped_bs,
-    scoped_content.skip_ranges,
-  )
+  let fact_started = html_profile_start_tick(profile)
   html_profile_add_stage(
     profile,
-    "html_dom_scan",
-    html_profile_elapsed_since(scan_started),
+    "html_parser_fact_model",
+    html_profile_elapsed_since(fact_started),
     match profile {
-      Some(_) => Some("nodes=" + nodes.length().to_string())
+      Some(_) =>
+        Some(
+          "blocks=" +
+          semantic_doc.blocks.length().to_string() +
+          " inlines=" +
+          semantic_doc.inlines.length().to_string(),
+        )
       None => None
     },
   )
@@ -299,27 +282,29 @@ pub fn parse_html(
     "html_parser_validation",
     0,
     match profile {
-      Some(_) =>
-        match parser_analysis {
-          Some(analysis) =>
-            analysis.summary.map(fn(summary) {
-              render_html_parser_issue_summary_detail(summary) +
-              render_html_semantic_block_summary_detail(
-                analysis.semantic_summary,
-              )
-            })
-          None => render_html_parser_analysis_fallback_detail(bs)
-        }
+      Some(_) => {
+        let parser_summary = summarize_html_parser_validation(
+          @dphtml.validate_html_document(parser_doc),
+        )
+        html_profile_set_parser_issue_summary(profile, parser_summary)
+        Some(
+          render_html_parser_issue_summary_detail(parser_summary) +
+          render_html_semantic_block_summary_detail(
+            Some(
+              summarize_html_semantic_blocks(
+                @dphtml.inspect_html_semantic_document(semantic_doc),
+              ),
+            ),
+          ),
+        )
+      }
       None => None
     },
   )
 
   let lowering_started = html_profile_start_tick(profile)
-  let semantic_lowering_state = build_html_semantic_lowering_state_from_bytes(
-    scoped_bs,
-  )
-  let html_blocks = nodes_to_blocks(
-    nodes, max_heading, input_path, out_dir, semantic_lowering_state,
+  let html_blocks = html_semantic_document_to_blocks(
+    semantic_doc, max_heading, input_path, out_dir,
   )
   html_profile_add_stage(
     profile,
@@ -330,9 +315,9 @@ pub fn parse_html(
         Some(
           render_html_block_lowering_profile_detail(
             html_blocks.blocks,
-            note_definitions.length(),
+            html_blocks.note_definitions.length(),
             rep,
-            semantic_lowering_state,
+            html_blocks.semantic_lowering_state,
           ),
         )
       None => None
@@ -396,7 +381,7 @@ pub fn parse_html(
     )
   }
 
-  for note in note_definitions {
+  for note in html_blocks.note_definitions {
     @cor.push_note_definition(doc, note)
   }
 
@@ -450,66 +435,6 @@ pub fn parse_html(
 
   maybe_write_html_profile_log(profile)
   doc
-}
-
-///|
-fn maybe_analyze_html_source(
-  bs : Bytes,
-  profile : HtmlProfileReport?,
-) -> HtmlParserSourceAnalysis? {
-  html_profile_mark_parser_analysis_attempted(profile)
-  if bs.length() > HTML_PARSER_VALIDATION_MAX_BYTES {
-    html_profile_mark_parser_skipped_large_input(profile)
-    return None
-  }
-
-  let text = @utf8.decode(bs, ignore_bom=false) catch {
-    _ => {
-      html_profile_mark_parser_fallback(profile)
-      return None
-    }
-  }
-
-  let analyzed = try? @dphtml.analyze_html_source(text)
-  match analyzed {
-    Ok(analysis) => {
-      let summary = match profile {
-        Some(_) => {
-          let validation = @dphtml.validate_html_document(analysis.document)
-          let summary = summarize_html_parser_validation(validation)
-          html_profile_set_parser_issue_summary(profile, summary)
-          Some(summary)
-        }
-        None => None
-      }
-      let semantic_summary = match profile {
-        Some(_) =>
-          Some(
-            summarize_html_semantic_blocks(
-              @dphtml.inspect_html_semantic_document(
-                @dphtml.collect_html_semantic_document(analysis.document),
-              ),
-            ),
-          )
-        None => None
-      }
-      html_profile_mark_parser_analysis_used(profile)
-      Some({ text, events: analysis.events, summary, semantic_summary })
-    }
-    Err(_) => {
-      html_profile_mark_parser_fallback(profile)
-      None
-    }
-  }
-}
-
-///|
-fn render_html_parser_analysis_fallback_detail(bs : Bytes) -> String? {
-  if bs.length() > HTML_PARSER_VALIDATION_MAX_BYTES {
-    Some("status=skipped_large_input bytes=" + bs.length().to_string())
-  } else {
-    Some("status=fallback_parse_error")
-  }
 }
 
 ///|
@@ -1179,506 +1104,6 @@ fn normalize_html_input_bytes(bs : Bytes) -> Bytes {
   }
 
   Bytes::from_array(out)
-}
-
-///|
-fn narrow_html_content_scope(
-  bs : Bytes,
-  parser_analysis : HtmlParserSourceAnalysis?,
-) -> HtmlScopedContent {
-  match parser_analysis {
-    Some(analysis) => {
-      let mut scope_from_events = true
-      let mut fallback_reason = ""
-      let range = match
-        find_html_content_scope_range_from_events(analysis.events) {
-        Some(range) => range
-        None =>
-          match find_html_tag_block_range_from_events(analysis.events, "body") {
-            Some(range) => range
-            None => {
-              scope_from_events = false
-              fallback_reason = "no_event_scope"
-              { start: 0, end_: analysis.text.length() }
-            }
-          }
-      }
-      {
-        bytes: html_source_range_to_bytes(analysis.text, range),
-        skip_ranges: html_skip_ranges_for_content(
-          analysis.text,
-          analysis.events,
-          range,
-        ),
-        scope_from_events,
-        scope_fallback_reason: fallback_reason,
-      }
-    }
-    None =>
-      {
-        bytes: narrow_html_content_scope_fallback(bs),
-        skip_ranges: [],
-        scope_from_events: false,
-        scope_fallback_reason: "no_parser_analysis",
-      }
-  }
-}
-
-///|
-fn html_source_range_to_bytes(text : String, range : HtmlSourceRange) -> Bytes {
-  if range.start < 0 || range.end_ < range.start || range.end_ > text.length() {
-    return @utf8.encode("")
-  }
-  @utf8.encode(text[range.start:range.end_].to_owned())
-}
-
-///|
-fn html_skip_ranges_for_content(
-  text : String,
-  events : Array[@dphtml.HtmlTokenEvent],
-  content_range : HtmlSourceRange,
-) -> Array[HtmlByteRange] {
-  let ranges = @dphtml.html_tokens_collect_element_ranges(events, [
-    "script", "style", "head", "noscript",
-  ])
-  let out : Array[HtmlByteRange] = []
-  for range in ranges {
-    let start = max_int(range.source_start, content_range.start)
-    let end_ = min_int(range.source_end, content_range.end_)
-    if end_ > start {
-      out.push({
-        start: html_source_offset_to_relative_byte(
-          text,
-          content_range.start,
-          start,
-        ),
-        end_: html_source_offset_to_relative_byte(
-          text,
-          content_range.start,
-          end_,
-        ),
-      })
-    }
-  }
-  out
-}
-
-///|
-fn html_source_offset_to_relative_byte(
-  text : String,
-  base : Int,
-  offset : Int,
-) -> Int {
-  if offset <= base {
-    0
-  } else {
-    @utf8.encode(text[base:offset].to_owned()).length()
-  }
-}
-
-///|
-fn max_int(a : Int, b : Int) -> Int {
-  if a > b {
-    a
-  } else {
-    b
-  }
-}
-
-///|
-fn min_int(a : Int, b : Int) -> Int {
-  if a < b {
-    a
-  } else {
-    b
-  }
-}
-
-///|
-fn find_html_content_scope_range_from_events(
-  events : Array[@dphtml.HtmlTokenEvent],
-) -> HtmlSourceRange? {
-  match find_html_scope_range_with_exact_root_token(events) {
-    Some(range) => Some(range)
-    None =>
-      match find_html_scope_range_with_exact_content_id(events) {
-        Some(range) => Some(range)
-        None =>
-          match find_html_scope_range_with_role_main(events) {
-            Some(range) => Some(range)
-            None =>
-              match find_html_scope_range_with_strong_content_attr(events) {
-                Some(range) => Some(range)
-                None =>
-                  match
-                    find_html_tag_block_range_from_events(events, "article") {
-                    Some(range) => Some(range)
-                    None =>
-                      find_html_tag_block_range_from_events(events, "main")
-                  }
-              }
-          }
-      }
-  }
-}
-
-///|
-fn find_html_scope_range_with_exact_root_token(
-  events : Array[@dphtml.HtmlTokenEvent],
-) -> HtmlSourceRange? {
-  find_html_container_range_matching_events(events, fn(event) {
-    html_scope_is_candidate_tag(event.tag_name) &&
-    (
-      html_scope_event_attr_contains_exact_root_token(event, "id") ||
-      html_scope_event_attr_contains_exact_root_token(event, "class")
-    )
-  })
-}
-
-///|
-fn find_html_scope_range_with_strong_content_attr(
-  events : Array[@dphtml.HtmlTokenEvent],
-) -> HtmlSourceRange? {
-  find_html_container_range_matching_events(events, fn(event) {
-    html_scope_is_candidate_tag(event.tag_name) &&
-    !html_scope_event_attr_value_has_noise_token(event, "id") &&
-    !html_scope_event_attr_value_has_noise_token(event, "class") &&
-    (
-      html_scope_event_attr_is_strong_content_root(event, "id") ||
-      html_scope_event_attr_is_strong_content_root(event, "class")
-    )
-  })
-}
-
-///|
-fn find_html_scope_range_with_exact_content_id(
-  events : Array[@dphtml.HtmlTokenEvent],
-) -> HtmlSourceRange? {
-  find_html_container_range_matching_events(events, fn(event) {
-    html_scope_is_candidate_tag(event.tag_name) &&
-    html_scope_event_attr_is_exact_content_id(event, "id")
-  })
-}
-
-///|
-fn find_html_scope_range_with_role_main(
-  events : Array[@dphtml.HtmlTokenEvent],
-) -> HtmlSourceRange? {
-  find_html_container_range_matching_events(events, fn(event) {
-    html_scope_is_candidate_tag(event.tag_name) &&
-    html_scope_event_role_is_main(event)
-  })
-}
-
-///|
-fn find_html_tag_block_range_from_events(
-  events : Array[@dphtml.HtmlTokenEvent],
-  tag_name : String,
-) -> HtmlSourceRange? {
-  find_html_container_range_matching_events(events, fn(event) {
-    event.tag_name == tag_name
-  })
-}
-
-///|
-fn find_html_container_range_matching_events(
-  events : Array[@dphtml.HtmlTokenEvent],
-  matcher : (@dphtml.HtmlTokenEvent) -> Bool,
-) -> HtmlSourceRange? {
-  for i in 0..<events.length() {
-    let event = events[i]
-    if event.kind == @dphtml.HtmlTokenEventKind::StartTag && matcher(event) {
-      match @dphtml.html_tokens_find_matching_close(events, i) {
-        Some(close_i) =>
-          return Some({
-            start: event.source_end,
-            end_: events[close_i].source_start,
-          })
-        None => ()
-      }
-    }
-  }
-  None
-}
-
-///|
-fn html_scope_event_attr_contains_exact_root_token(
-  event : @dphtml.HtmlTokenEvent,
-  attr_name : String,
-) -> Bool {
-  match @dphtml.html_token_event_attr_value(event, attr_name) {
-    None => false
-    Some(value) => {
-      let lower = value.to_lower()
-      lower.contains("mw-content-text") || lower.contains("bodycontent")
-    }
-  }
-}
-
-///|
-fn html_scope_event_attr_is_strong_content_root(
-  event : @dphtml.HtmlTokenEvent,
-  attr_name : String,
-) -> Bool {
-  match @dphtml.html_token_event_attr_value(event, attr_name) {
-    None => false
-    Some(value) => {
-      let words = html_scope_attr_words(value)
-      let has_body = html_scope_words_contain(words, "body")
-      let has_content = html_scope_words_contain(words, "content")
-      (has_body && has_content) ||
-      (html_scope_words_contain(words, "article") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "post") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "entry") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "story") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "chapter") && (has_body || has_content))
-    }
-  }
-}
-
-///|
-fn html_scope_event_attr_is_exact_content_id(
-  event : @dphtml.HtmlTokenEvent,
-  attr_name : String,
-) -> Bool {
-  match @dphtml.html_token_event_attr_value(event, attr_name) {
-    None => false
-    Some(value) => {
-      let lower = value.to_lower().trim().to_owned()
-      lower == "content" || lower == "maincontent"
-    }
-  }
-}
-
-///|
-fn html_scope_event_role_is_main(event : @dphtml.HtmlTokenEvent) -> Bool {
-  @dphtml.html_token_event_attr_value(event, "role")
-  .map(fn(value) { value.to_lower().trim().to_owned() })
-  .unwrap_or("") ==
-  "main"
-}
-
-///|
-fn html_scope_event_attr_value_has_noise_token(
-  event : @dphtml.HtmlTokenEvent,
-  attr_name : String,
-) -> Bool {
-  match @dphtml.html_token_event_attr_value(event, attr_name) {
-    None => false
-    Some(value) => html_contains_noise_token(value.to_lower())
-  }
-}
-
-///|
-fn narrow_html_content_scope_fallback(bs : Bytes) -> Bytes {
-  match find_html_content_scope_inner(bs) {
-    Some(inner) => inner
-    None =>
-      match find_tag_block_inner(bs, "body") {
-        Some(inner) => inner
-        None => bs
-      }
-  }
-}
-
-///|
-fn find_html_content_scope_inner(bs : Bytes) -> Bytes? {
-  match find_html_scope_inner_with_exact_root_token(bs) {
-    Some(inner) => Some(inner)
-    None =>
-      match find_html_scope_inner_with_exact_content_id(bs) {
-        Some(inner) => Some(inner)
-        None =>
-          match find_html_scope_inner_with_role_main(bs) {
-            Some(inner) => Some(inner)
-            None =>
-              match find_html_scope_inner_with_strong_content_attr(bs) {
-                Some(inner) => Some(inner)
-                None =>
-                  match find_tag_block_inner(bs, "article") {
-                    Some(inner) => Some(inner)
-                    None => find_tag_block_inner(bs, "main")
-                  }
-              }
-          }
-      }
-  }
-}
-
-///|
-fn find_html_scope_inner_with_exact_root_token(bs : Bytes) -> Bytes? {
-  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
-    html_scope_is_candidate_tag(tag_name) &&
-    (
-      html_scope_attr_contains_exact_root_token(tag, "id") ||
-      html_scope_attr_contains_exact_root_token(tag, "class")
-    )
-  })
-}
-
-///|
-fn find_html_scope_inner_with_strong_content_attr(bs : Bytes) -> Bytes? {
-  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
-    html_scope_is_candidate_tag(tag_name) &&
-    !html_attr_value_has_noise_token(tag, "id") &&
-    !html_attr_value_has_noise_token(tag, "class") &&
-    (
-      html_scope_attr_is_strong_content_root(tag, "id") ||
-      html_scope_attr_is_strong_content_root(tag, "class")
-    )
-  })
-}
-
-///|
-fn find_html_scope_inner_with_exact_content_id(bs : Bytes) -> Bytes? {
-  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
-    html_scope_is_candidate_tag(tag_name) &&
-    html_scope_attr_is_exact_content_id(tag, "id")
-  })
-}
-
-///|
-fn find_html_scope_inner_with_role_main(bs : Bytes) -> Bytes? {
-  find_html_container_block_inner_matching(bs, fn(tag_name, tag) {
-    html_scope_is_candidate_tag(tag_name) && html_scope_role_is_main(tag)
-  })
-}
-
-///|
-fn find_html_container_block_inner_matching(
-  bs : Bytes,
-  matcher : (String, String) -> Bool,
-) -> Bytes? {
-  let lt = pat("<")
-  let gt = pat(">")
-  let mut pos = 0
-  let n = bs.length()
-
-  while pos < n {
-    let open0 = find_bytes(bs, lt, pos)
-    match open0 {
-      None => return None
-      Some(open_idx) =>
-        match find_bytes(bs, gt, open_idx) {
-          None => return None
-          Some(gt_idx) => {
-            let tag_bs = bs[open_idx:gt_idx + 1].to_owned()
-            let tag = (@utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }).to_lower()
-            match html_scope_open_tag_name(tag) {
-              Some(tag_name) =>
-                if matcher(tag_name, tag) {
-                  let inner_start = gt_idx + 1
-                  match find_matching_tag_end(bs, open_idx, tag_name) {
-                    Some(close_idx) =>
-                      return Some(bs[inner_start:close_idx].to_owned())
-                    None => ()
-                  }
-                }
-              None => ()
-            }
-            pos = gt_idx + 1
-          }
-        }
-    }
-  }
-
-  None
-}
-
-///|
-fn html_scope_open_tag_name(tag : String) -> String? {
-  let lower = tag.to_lower()
-  if !lower.has_prefix("<") ||
-    lower.has_prefix("</") ||
-    lower.has_prefix("<!") ||
-    lower.has_prefix("<?") {
-    return None
-  }
-
-  let n = lower.length()
-  let mut i = 1
-  while i < n && (lower[i] == ' ' || lower[i] == '\n' || lower[i] == '\t') {
-    i += 1
-  }
-  let start = i
-  while i < n {
-    let ch = lower[i]
-    if ch == ' ' || ch == '\n' || ch == '\t' || ch == '>' || ch == '/' {
-      break
-    }
-    i += 1
-  }
-
-  if i > start {
-    Some(lower[start:i].to_owned())
-  } else {
-    None
-  }
-}
-
-///|
-fn html_scope_is_candidate_tag(tag_name : String) -> Bool {
-  tag_name == "div" ||
-  tag_name == "section" ||
-  tag_name == "article" ||
-  tag_name == "main"
-}
-
-///|
-fn html_scope_attr_contains_exact_root_token(
-  tag : String,
-  attr_name : String,
-) -> Bool {
-  match read_html_attr_value(tag, attr_name) {
-    None => false
-    Some(value) => {
-      let lower = value.to_lower()
-      lower.contains("mw-content-text") || lower.contains("bodycontent")
-    }
-  }
-}
-
-///|
-fn html_scope_attr_is_strong_content_root(
-  tag : String,
-  attr_name : String,
-) -> Bool {
-  match read_html_attr_value(tag, attr_name) {
-    None => false
-    Some(value) => {
-      let words = html_scope_attr_words(value)
-      let has_body = html_scope_words_contain(words, "body")
-      let has_content = html_scope_words_contain(words, "content")
-      (has_body && has_content) ||
-      (html_scope_words_contain(words, "article") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "post") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "entry") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "story") && (has_body || has_content)) ||
-      (html_scope_words_contain(words, "chapter") && (has_body || has_content))
-    }
-  }
-}
-
-///|
-fn html_scope_attr_is_exact_content_id(
-  tag : String,
-  attr_name : String,
-) -> Bool {
-  match read_html_attr_value(tag, attr_name) {
-    None => false
-    Some(value) => {
-      let lower = value.to_lower().trim().to_owned()
-      lower == "content" || lower == "maincontent"
-    }
-  }
-}
-
-///|
-fn html_scope_role_is_main(tag : String) -> Bool {
-  read_html_attr_value(tag, "role")
-  .map(fn(value) { value.to_lower().trim().to_owned() })
-  .unwrap_or("") ==
-  "main"
 }
 
 ///|

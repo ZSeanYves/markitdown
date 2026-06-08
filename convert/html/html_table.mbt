@@ -1,7 +1,7 @@
 ///|
-/// Guarded complex path: raw table scanning remains responsible for runtime
-/// RichTable compatibility, spans, ragged rows, captions, nested/complex cells,
-/// and malformed table recovery until parser-fact table lowering fully replaces it.
+/// M11 quarantine: raw table scanning remains only as an obsolete scanner
+/// artifact. Normal runtime lowers parser table facts, while RichTable
+/// rendering policy stays convert-owned.
 priv struct HtmlTable {
   rows : Array[Array[Array[HtmlInline]]]
   header_rows : Int

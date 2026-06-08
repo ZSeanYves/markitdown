@@ -18,6 +18,8 @@ priv struct HtmlBlocksResult {
   blocks : Array[@cor.Block]
   asset_source_paths : Map[String, String]
   block_origins : Array[@cor.Origin?]
+  note_definitions : Array[@cor.NoteDefinition]
+  semantic_lowering_state : HtmlSemanticLoweringState?
 }
 
 ///|
@@ -231,6 +233,8 @@ fn nodes_to_blocks(
     blocks: out,
     asset_source_paths: ctx.src_by_asset_path,
     block_origins: origins,
+    note_definitions: [],
+    semantic_lowering_state,
   }
 }
 
@@ -566,7 +570,7 @@ fn list_item_children_to_inlines(
 ) -> Array[@cor.Inline]? {
   let _ = max_h
   // RichListItem is only safe for inline-only simple list items.
-  // Any multi-child or block-mixed structure must keep legacy block semantics.
+  // Any multi-child or block-mixed structure keeps block-style list text.
   if children.length() != 1 {
     return None
   }

@@ -88,7 +88,7 @@ fn HtmlParser::parse_document(
   while self.pos < self.tokens.length() {
     match self.tokens[self.pos] {
       HtmlToken::Text(text, span) => {
-        if text.trim() != "" {
+        if stack.length() > 0 || text.trim() != "" {
           push_node(nodes, stack, HtmlNode::Text({ text, span }))
         }
         self.pos += 1

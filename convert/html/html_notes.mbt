@@ -1,7 +1,7 @@
 ///|
-/// Guarded complex path: raw note planning still constructs product note refs,
-/// note definitions, body exclusion ranges, and placement policy until convert
-/// consumes parser-owned note facts directly.
+/// M11 quarantine: raw note planning is retained as an obsolete scanner
+/// artifact. Normal runtime consumes parser-owned note facts and keeps only
+/// convert-owned note placement policy.
 priv struct HtmlNotePlan {
   refs_by_signature : Map[String, @cor.NoteRef]
   body_ranges : Array[(Int, Int)]

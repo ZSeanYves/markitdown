@@ -1,7 +1,7 @@
 ///|
-/// Guarded complex path: raw block scanning remains the normal runtime input
-/// for malformed/body-scope, notes, noise, list, table, figure, quote, and
-/// pre/code cases that are not fully parser-fact lowered yet.
+/// M11 quarantine: raw block scanning is retained for deletion audit and
+/// non-runtime helpers. Normal HTML runtime lowers parser-owned facts from
+/// html_fact_runtime.mbt.
 priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])

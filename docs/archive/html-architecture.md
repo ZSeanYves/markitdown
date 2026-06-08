@@ -1,6 +1,8 @@
 # HTML Architecture Contract
 
-Status: current architecture contract / Option 2 refactor plan.
+Status: current architecture contract / Option 2 refactor plan. M11 has
+switched the normal HTML runtime to parser-owned semantic facts inside the
+existing packages.
 
 HTML should continue in the existing `doc_parse/html` and `convert/html`
 packages. Do not create `doc_parse/html_v2` or `convert/html_v2`, and do not
@@ -14,17 +16,17 @@ This differs from the other format decisions:
 * DOCX and PPTX needed replacement because their old runtime boundaries,
   legacy/fallback glue, and repeated source parsing made local cleanup too
   risky.
-* HTML is Option 2 because `doc_parse/html` already provides a usable parser
-  foundation, but `convert/html` still performs substantial normal-runtime
-  raw-byte semantic scanning.
+* HTML is Option 2 because `doc_parse/html` provides the parser foundation and
+  semantic facts, while `convert/html` can keep product lowering policy without
+  creating a replacement package.
 
 ## Current Pipeline
 
 ```text
 HTML bytes
  -> doc_parse/html tokenizer + tolerant DOM + validation/events
- -> convert/html private raw-byte semantic scanners
- -> convert lowering
+ -> doc_parse/html semantic facts
+ -> convert/html fact runtime lowering
  -> core Document / Markdown / metadata / origins
 ```
 
@@ -87,16 +89,22 @@ Non-responsibilities:
 
 ## Current Boundary Risks
 
-The following current `convert/html` areas are normal-runtime raw scanning
-surfaces and should be retired or isolated slice by slice:
+The following `convert/html` areas are obsolete raw scanning surfaces. After
+M11 they are not normal-runtime source-discovery inputs, but they remain as
+quarantined deletion/audit surfaces or product helper surfaces until a dedicated
+scanner deletion slice removes them:
 
-* `html_parser.mbt`: scope selection and body/content fallback scanning.
+* `html_parser.mbt`: entrypoint, parser validation/profile, product document
+  assembly, and no normal-runtime raw scope fallback.
 * `html_dom.mbt`: private block scanner.
-* `html_inlines.mbt`: inline, link, and image scanner.
+* `html_inlines.mbt`: raw inline, link, and image scanner plus reusable
+  convert-owned inline rendering helpers.
 * `html_table.mbt`: table scanner.
 * `html_notes.mbt`: footnote reference and body scanner.
 * `html_bytes.mbt`: raw tag matching and byte search helpers.
-* `html_noise_rules.mbt`: noise subtree detection.
+* `html_tag_attrs.mbt`: raw tag-string attribute helper bridge.
+* `html_noise_rules.mbt`: product noise policy; raw subtree scanning helpers
+  are obsolete, while product skip/preserve rules remain convert-owned.
 
 ## Semantic Facts Roadmap
 
@@ -179,6 +187,7 @@ convert policy lowering.
 * M8: guards and performance tests.
 * M9: samples, quality, and bench parity.
 * M10: delete obsolete raw scanners.
+* M11: switch normal runtime input to a single parser-owned fact path.
 
 Implementation principles:
 
@@ -426,6 +435,97 @@ Future M10 deletion criteria:
   without expected-output updates.
 * Remaining byte/tag helpers should first be isolated behind explicit guarded
   complex-path modules or comments, then deleted as callers vanish.
+
+## M11 Single-Scan Parser-Owned Runtime Switch
+
+M11 switches the normal `parse_html` runtime from raw scanner input to parser
+facts without creating `html_v2` and without switching dispatcher wiring.
+
+Current normal runtime pipeline:
+
+```text
+read raw bytes for IO/provenance/profile length
+ -> normalize CR/BOM bytes
+ -> UTF-8 text
+ -> @dphtml.parse_html_document(text) exactly once in parse_html
+ -> @dphtml.collect_html_semantic_document(parser_doc)
+ -> convert/html/html_fact_runtime.mbt lowers parser facts
+ -> core Document / Markdown / metadata / origins
+```
+
+Raw bytes are retained only as the input payload for file read, CR/BOM
+normalization, UTF-8 decoding, profile byte counts, input directory context,
+and origin/asset policy. They are not passed to block, inline, table, note,
+image/link, body/scope, or noise source-discovery scanners in the normal
+runtime.
+
+`convert/html/html_fact_runtime.mbt` is the M11 runtime lowering boundary. It
+builds a `HtmlConvertContext` from `@dphtml.HtmlSemanticDocument` and lowers:
+
+* Scope/body selection from parser scope facts and parser block attrs.
+* Noise skip/preserve decisions from parser noise candidates, with
+  product-specific policy still in convert.
+* Notes/footnotes from parser note relation, ref, and body facts; convert still
+  owns note definitions and placement.
+* Paragraphs, headings, links, images, figures, lists, blockquotes, pre/code,
+  and tables from parser block/inline/link/image/table facts.
+* Complex tables conservatively from parser table facts, including span hints,
+  ragged rows, nested table markers, and nested table child block emission.
+* Complex inline/image/link behavior from parser inline, link, image, and note
+  facts; unsafe URLs become text or conservative placeholders according to
+  convert product policy.
+
+Raw scanner retirement result for normal runtime:
+
+| File | M11 normal-runtime status | Remaining role |
+| --- | --- | --- |
+| `convert/html/html_parser.mbt` | No longer calls raw block/inline/table/note/scope scanners. Calls the parser once, then fact runtime lowering. | Entrypoint, validation/profile detail, document assembly, origins, asset map, and note attachment. |
+| `convert/html/html_fact_runtime.mbt` | New normal runtime. | Convert-owned fact lowering and product policy over parser facts. |
+| `convert/html/html_dom.mbt` | Not called by normal runtime. | Quarantined obsolete raw block scanner; retained for deletion audit. |
+| `convert/html/html_inlines.mbt` | Raw scanner functions are not called by normal runtime. | `HtmlInline`, rendering, merge, URL sanitizing, and redirect helpers remain product helpers; byte scanners are quarantined. |
+| `convert/html/html_table.mbt` | Not called by normal runtime. | Quarantined obsolete raw table scanner; RichTable policy is now applied from parser facts in fact runtime. |
+| `convert/html/html_notes.mbt` | Not called by normal runtime. | Quarantined obsolete raw note planner; note rendering helpers remain candidates for reuse or deletion. |
+| `convert/html/html_bytes.mbt` | Not called by normal runtime for source discovery. | Helper surface for quarantined scanners; deletion candidate once scanner files are removed. |
+| `convert/html/html_tag_attrs.mbt` | Not called by normal runtime source discovery. | Raw tag-string helper bridge for quarantined scanners; parser facts now provide attrs for runtime. |
+| `convert/html/html_noise_rules.mbt` | Raw subtree scanner is not called by normal runtime. | Product noise token/prose policy remains convert-owned; fact runtime consumes parser noise candidates. |
+| `convert/html/html_to_ir.mbt` | `nodes_to_blocks` is no longer normal runtime. | Product helpers for Markdown/IR, image export/path naming, origins, captions, RichTable metadata, and an obsolete scanner-node projection pending deletion. |
+| `convert/html/html_semantic_lowering.mbt` | Runtime state is now built from the already parsed semantic document. | Guard/counter/profile taxonomy and product observability remain convert-owned. |
+
+Convert-owned product policies that should not migrate to the parser:
+
+* Markdown and IR escaping/rendering choices.
+* RichTable rendering and table metadata/hints.
+* Local asset export, asset path naming, image fallback output, and unresolved
+  asset policy.
+* Origin metadata and object/key-path construction.
+* Note definition construction and placement.
+* Product-specific noise skip/preserve decisions.
+* Profile and product observability counters.
+
+Remaining gaps after M11:
+
+* Quarantined raw scanner files are still present and produce unused-code
+  warnings when focused `moon check` runs. They are outside normal runtime but
+  should be deleted or moved to test/quarantine modules in a dedicated scanner
+  deletion slice.
+* `html_to_ir.mbt` still contains the obsolete `nodes_to_blocks` projection for
+  `HtmlNode`; normal runtime no longer calls it.
+* M11 intentionally does not update samples expected output or quality-lab
+  fixtures. Any parity drift should be treated as a product decision, not hidden
+  by reintroducing raw scanner fallback.
+
+Recommended next slices:
+
+* Scanner deletion slice: delete or quarantine `html_dom`, raw byte scanner
+  entrypoints in `html_inlines`, raw table scanner entrypoints in `html_table`,
+  raw note planner entrypoints in `html_notes`, and the obsolete
+  `nodes_to_blocks` projection once no tests require them.
+* Notes hardening slice: expand parser note confidence and convert note
+  placement tests if samples reveal ambiguous refs or duplicate bodies.
+* Complex table hardening slice: refine parser dense-span/table-child facts and
+  RichTable hint policy without raw table scanning.
+* Closeout report slice: generate `docs/report/HTML-Option2-closeout.md` after
+  scanner deletion or explicit quarantine acceptance.
 
 ## Acceptance Criteria
 

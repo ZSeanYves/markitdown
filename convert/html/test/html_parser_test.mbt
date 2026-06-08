@@ -106,6 +106,11 @@ fn html_profile_counter(report : String, name : String) -> Int raise {
 }
 
 ///|
+fn html_profile_has_stage(report : String, stage : String) -> Bool {
+  report.contains("stage=" + stage + " ")
+}
+
+///|
 fn parse_html_profile_counter_digits(raw : String) -> Int raise {
   let mut value = 0
   let mut saw_digit = false
@@ -466,7 +471,7 @@ test "html semantic paragraph spacing summary is available without changing outp
   assert_eq(summary.semantic_paragraph_with_break_count, 1)
   assert_eq(summary.semantic_paragraph_meaningful_text_count, 2)
   assert_eq(summary.semantic_paragraph_candidate_count, 1)
-  assert_eq(summary.semantic_paragraph_repeated_whitespace_count, 1)
+  assert_eq(summary.semantic_paragraph_repeated_whitespace_count, 2)
   assert_eq(summary.semantic_paragraph_newline_count, 1)
   assert_true(summary.semantic_leading_whitespace_inline_count > 0)
   assert_true(summary.semantic_trailing_whitespace_inline_count > 0)
@@ -637,7 +642,7 @@ test "html semantic table lowering handles safe simple tables without changing o
 }
 
 ///|
-test "html semantic table lowering keeps guarded tables on existing output path" {
+test "html semantic table lowering uses parser facts for complex tables" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -675,12 +680,13 @@ test "html semantic table lowering keeps guarded tables on existing output path"
   assert_true(markdown.contains("| Inner |"))
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_eq(html_profile_counter(report, "semantic_table_candidate_count"), 0)
-  assert_eq(html_profile_counter(report, "semantic_table_lowered_count"), 0)
-  assert_true(
-    html_profile_counter(report, "semantic_table_existing_path_count") >= 5,
+  assert_true(html_profile_counter(report, "semantic_table_lowered_count") >= 6)
+  assert_eq(
+    html_profile_counter(report, "semantic_table_existing_path_count"),
+    0,
   )
-  assert_true(html_profile_counter(report, "semantic_table_guard_count") >= 5)
   assert_true(
     html_profile_counter(report, "semantic_table_span_guard_count") >= 1,
   )
@@ -726,7 +732,7 @@ test "html semantic lowering path handles simple paragraph inlines without chang
   assert_true(report.contains("semantic_paragraph_candidate_count=1"))
   assert_true(report.contains("semantic_paragraph_lowered_count=1"))
   assert_true(report.contains("semantic_paragraph_existing_path_count=0"))
-  assert_true(report.contains("semantic_inline_lowered_count=6"))
+  assert_true(report.contains("semantic_inline_lowered_count=3"))
   assert_true(report.contains("semantic_blockquote_candidate_count=0"))
   assert_true(report.contains("semantic_code_block_candidate_count=0"))
 }
@@ -794,7 +800,7 @@ test "html semantic heading lowering respects max heading clamp" {
 }
 
 ///|
-test "html semantic paragraph lowering keeps guarded links and images on existing output path" {
+test "html semantic paragraph lowering handles unsafe links and image placeholders from facts" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -818,20 +824,21 @@ test "html semantic paragraph lowering keeps guarded links and images on existin
   assert_eq(@cor.emit_markdown(link_doc), "hello bad and empty !\n")
 
   let link_report = read_html_parser_utf8_text(link_profile_path)
+  assert_true(html_profile_has_stage(link_report, "html_parser_fact_model"))
   assert_true(link_report.contains("semantic_paragraph_candidate_count=0"))
-  assert_true(link_report.contains("semantic_paragraph_lowered_count=0"))
-  assert_true(link_report.contains("semantic_paragraph_existing_path_count=1"))
+  assert_true(link_report.contains("semantic_paragraph_lowered_count=1"))
+  assert_true(link_report.contains("semantic_paragraph_existing_path_count=0"))
   assert_true(link_report.contains("semantic_paragraph_empty_guard_count=0"))
   assert_true(
     link_report.contains("semantic_paragraph_render_mismatch_guard_count=0"),
   )
   assert_true(
-    link_report.contains("semantic_paragraph_unsupported_guard_count=1"),
+    link_report.contains("semantic_paragraph_unsupported_guard_count=0"),
   )
   assert_true(link_report.contains("semantic_link_paragraph_candidate_count=0"))
-  assert_true(link_report.contains("semantic_link_paragraph_lowered_count=0"))
+  assert_true(link_report.contains("semantic_link_paragraph_lowered_count=1"))
   assert_true(
-    link_report.contains("semantic_link_paragraph_existing_path_count=1"),
+    link_report.contains("semantic_link_paragraph_existing_path_count=0"),
   )
 
   let image_path = dir + "/html_semantic_lowering_paragraph_image.html"
@@ -845,16 +852,18 @@ test "html semantic paragraph lowering keeps guarded links and images on existin
   assert_eq(@cor.emit_markdown(image_doc), "before\n\n[Alt]\n\nafter\n")
 
   let image_report = read_html_parser_utf8_text(image_profile_path)
+  assert_true(html_profile_has_stage(image_report, "html_parser_fact_model"))
   assert_true(image_report.contains("semantic_paragraph_candidate_count=0"))
-  assert_true(image_report.contains("semantic_paragraph_lowered_count=0"))
-  assert_true(image_report.contains("semantic_paragraph_existing_path_count=1"))
+  assert_true(image_report.contains("semantic_paragraph_lowered_count=3"))
+  assert_true(image_report.contains("semantic_paragraph_existing_path_count=0"))
   assert_true(image_report.contains("semantic_paragraph_empty_guard_count=0"))
   assert_true(
     image_report.contains("semantic_paragraph_render_mismatch_guard_count=0"),
   )
   assert_true(
-    image_report.contains("semantic_paragraph_unsupported_guard_count=1"),
+    image_report.contains("semantic_paragraph_unsupported_guard_count=0"),
   )
+  assert_true(image_report.contains("semantic_image_existing_path_count=1"))
 }
 
 ///|
@@ -893,7 +902,7 @@ test "html semantic lowering path handles simple list items without changing out
 }
 
 ///|
-test "html semantic list lowering keeps complex list items on existing output path" {
+test "html semantic list lowering uses parser facts for complex list items" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -917,18 +926,19 @@ test "html semantic list lowering keeps complex list items on existing output pa
   assert_true(markdown.contains("- Nested"))
   assert_true(markdown.contains("- Child"))
   assert_true(markdown.contains("- Image Alt"))
-  assert_true(markdown.contains("| A |"))
+  assert_true(markdown.contains("- A"))
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_true(report.contains("semantic_list_candidate_count=1"))
-  assert_true(report.contains("semantic_list_lowered_count=0"))
-  assert_true(report.contains("semantic_list_existing_path_count=3"))
-  assert_true(report.contains("semantic_list_item_lowered_count=0"))
-  assert_true(report.contains("semantic_list_item_existing_path_count=3"))
-  assert_true(report.contains("semantic_list_nested_guard_count=1"))
+  assert_true(report.contains("semantic_list_lowered_count=3"))
+  assert_true(report.contains("semantic_list_existing_path_count=1"))
+  assert_true(report.contains("semantic_list_item_lowered_count=3"))
+  assert_true(report.contains("semantic_list_item_existing_path_count=1"))
+  assert_true(report.contains("semantic_list_nested_guard_count=0"))
   assert_true(report.contains("semantic_list_empty_guard_count=0"))
-  assert_true(report.contains("semantic_list_render_mismatch_guard_count=1"))
-  assert_true(report.contains("semantic_list_unsupported_guard_count=2"))
+  assert_true(report.contains("semantic_list_render_mismatch_guard_count=0"))
+  assert_true(report.contains("semantic_list_unsupported_guard_count=0"))
 }
 
 ///|
@@ -988,7 +998,7 @@ test "html semantic image and figure lowering uses parser facts without changing
 }
 
 ///|
-test "html semantic image and figure lowering guards remote linked and complex cases" {
+test "html semantic image and figure lowering records conservative fact paths" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -1015,22 +1025,23 @@ test "html semantic image and figure lowering guards remote linked and complex c
   assert_false(markdown.contains("![One]"))
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_true(report.contains("semantic_image_candidate_count=0"))
   assert_true(report.contains("semantic_image_lowered_count=0"))
   assert_true(report.contains("semantic_image_existing_path_count=2"))
   assert_true(report.contains("semantic_image_empty_guard_count=0"))
   assert_true(report.contains("semantic_image_render_mismatch_guard_count=0"))
   assert_true(report.contains("semantic_image_identity_guard_count=0"))
-  assert_true(report.contains("semantic_image_unsupported_guard_count=2"))
+  assert_true(report.contains("semantic_image_unsupported_guard_count=0"))
   assert_true(report.contains("semantic_figure_candidate_count=0"))
   assert_true(report.contains("semantic_figure_lowered_count=0"))
   assert_true(report.contains("semantic_figure_existing_path_count=2"))
   assert_true(report.contains("semantic_figure_empty_guard_count=0"))
   assert_true(report.contains("semantic_figure_render_mismatch_guard_count=0"))
   assert_true(report.contains("semantic_figure_identity_guard_count=0"))
-  assert_true(report.contains("semantic_figure_unsupported_guard_count=2"))
-  assert_true(report.contains("semantic_image_guard_count=2"))
-  assert_true(report.contains("semantic_figure_guard_count=2"))
+  assert_true(report.contains("semantic_figure_unsupported_guard_count=0"))
+  assert_true(report.contains("semantic_image_guard_count=0"))
+  assert_true(report.contains("semantic_figure_guard_count=0"))
 }
 
 ///|
@@ -1107,7 +1118,7 @@ test "html semantic lowering path handles pre code without changing output" {
 }
 
 ///|
-test "html semantic lowering keeps complex blockquotes on existing output path" {
+test "html semantic lowering keeps complex blockquotes on fact conservative path" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -1130,14 +1141,15 @@ test "html semantic lowering keeps complex blockquotes on existing output path" 
   assert_eq(@cor.emit_markdown(doc), "> outer\n> \n> inner\n")
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_true(report.contains("semantic_blockquote_candidate_count=1"))
   assert_true(report.contains("semantic_blockquote_lowered_count=0"))
   assert_true(report.contains("semantic_blockquote_existing_path_count=1"))
-  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=1"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=0"))
 }
 
 ///|
-test "html semantic lowering keeps linked blockquotes on existing output path" {
+test "html semantic lowering handles linked blockquotes from parser facts" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
 
@@ -1163,10 +1175,11 @@ test "html semantic lowering keeps linked blockquotes on existing output path" {
   )
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_true(report.contains("semantic_blockquote_candidate_count=1"))
-  assert_true(report.contains("semantic_blockquote_lowered_count=0"))
-  assert_true(report.contains("semantic_blockquote_existing_path_count=1"))
-  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=1"))
+  assert_true(report.contains("semantic_blockquote_lowered_count=1"))
+  assert_true(report.contains("semantic_blockquote_existing_path_count=0"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=0"))
 }
 
 ///|
@@ -1229,11 +1242,12 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(@cor.emit_markdown(doc).contains("Visible body"))
 
   let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
   assert_true(report.contains("parser_analysis_attempted=true"))
   assert_true(report.contains("parser_analysis_used=true"))
   assert_true(report.contains("parser_scope_from_events=true"))
-  assert_true(report.contains("parser_skip_range_count=1"))
-  assert_true(report.contains("parser_scope_fallback_reason="))
+  assert_true(report.contains("parser_skip_range_count=0"))
+  assert_true(report.contains("parser_scope_source_reason=parser_facts"))
   assert_true(report.contains("semantic_block_count="))
   assert_true(report.contains("semantic_heading_count=1"))
   assert_true(report.contains("semantic_table_count=1"))
@@ -1287,7 +1301,7 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("semantic_heading_unsupported_guard_count=0"))
   assert_true(report.contains("semantic_paragraph_empty_guard_count=0"))
   assert_true(
-    report.contains("semantic_paragraph_render_mismatch_guard_count=1"),
+    report.contains("semantic_paragraph_render_mismatch_guard_count=0"),
   )
   assert_true(report.contains("semantic_paragraph_unsupported_guard_count=0"))
   assert_true(report.contains("semantic_blockquote_candidate_count=0"))
