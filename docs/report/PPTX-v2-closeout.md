@@ -52,7 +52,8 @@ relationship parsing in normal runtime.
 - chart, SmartArt, OLE, connector, decorative, unsupported, and media warnings
 - document properties metadata
 - performance budgets for slides, shapes, group depth, relationships, table
-  cells/text runs, media refs, layout/master candidates, custom properties, and
+  cells/text runs, table grid span/output expansion, media refs, media byte
+  materialization, layout/master candidates, custom properties, and
   source-node count
 
 `convert/pptx` owns:
@@ -103,9 +104,30 @@ Most recent audit run before this path-alignment update:
 - `bash samples/check_quality.sh --format pptx` passed, 49 checked, 3 skipped.
 - one-row convert bench passed.
 
+## P3 Media And Table Span Stress Coverage
+
+The current parser/lowering tests include generated in-repo PPTX packages for:
+
+- oversized per-asset media bytes: parser preserves the media fact, skips byte
+  loading, and emits an over-budget warning
+- deck-wide media reference pressure: parser preserves bounded media refs,
+  marks refs beyond the deck budget as unsupported, and emits a typed warning
+- explicit table `gridSpan` hard cap: parser truncates the span fact and emits a
+  typed warning
+- table row/output-cell span pressure: parser skips cells that would exceed
+  post-span output budgets and emits a typed warning
+- convert lowering span pressure: lowering preserves early table text and keeps
+  Markdown/RichTable output bounded
+
+The default total media byte cap is still covered by the parser guard logic. A
+unit-sized low-budget injection hook would make total-byte stress cheaper than
+constructing a large 32MB fixture; that remains a future testability refinement,
+not a convert-boundary gap.
+
 ## Remaining Work
 
-- Bound media byte materialization and table span expansion more explicitly.
+- Add a small test-only parser budget hook if future work needs cheap total
+  media-byte stress below the default 32MB cap.
 - Keep documentation, generated interfaces, and route descriptions aligned with
   the active package paths.
 - Keep future implementation slices inside `doc_parse/pptx` and `convert/pptx`;

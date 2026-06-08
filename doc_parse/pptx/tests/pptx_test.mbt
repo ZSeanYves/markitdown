@@ -762,6 +762,113 @@ fn image_rel(id : String, target : String) -> String {
 }
 
 ///|
+fn repeated_picture_shapes(count : Int, id_offset : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      picture_shape(
+        id_offset + n,
+        "Image " + n.to_string(),
+        "rIdImg" + n.to_string(),
+        n * 10,
+        n * 10,
+        100,
+        100,
+        "Alt " + n.to_string(),
+        "",
+      ),
+    )
+  }
+  items.join("")
+}
+
+///|
+fn repeated_image_relationships(count : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(image_rel("rIdImg" + n.to_string(), "../media/image1.png"))
+  }
+  items.join("")
+}
+
+///|
+fn media_ref_stress_pkg(slide_count : Int, pictures_per_slide : Int) -> @ox.OoxmlPackage raise {
+  let entries : Array[(String, String)] = [
+    ("[Content_Types].xml", content_types("")),
+    (
+      "_rels/.rels",
+      rels(
+        "<Relationship Id=\"rIdMain\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"ppt/presentation.xml\"/>",
+      ),
+    ),
+    ("ppt/media/image1.png", "PNGDATA"),
+  ]
+  let slide_refs : Array[String] = []
+  let presentation_rels : Array[String] = []
+  for i in 0..<slide_count {
+    let n = i + 1
+    slide_refs.push(
+      "<p:sldId id=\"" +
+      (255 + n).to_string() +
+      "\" r:id=\"rIdSlide" +
+      n.to_string() +
+      "\"/>",
+    )
+    presentation_rels.push(
+      "<Relationship Id=\"rIdSlide" +
+      n.to_string() +
+      "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide" +
+      n.to_string() +
+      ".xml\"/>",
+    )
+    entries.push((
+      "ppt/slides/slide" + n.to_string() + ".xml",
+      simple_slide(repeated_picture_shapes(pictures_per_slide, n * 1000)),
+    ))
+    entries.push((
+      "ppt/slides/_rels/slide" + n.to_string() + ".xml.rels",
+      rels(repeated_image_relationships(pictures_per_slide)),
+    ))
+  }
+  entries.push((
+    "ppt/presentation.xml",
+    "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst>" +
+    slide_refs.join("") +
+    "</p:sldIdLst></p:presentation>",
+  ))
+  entries.push((
+    "ppt/_rels/presentation.xml.rels",
+    rels(presentation_rels.join("")),
+  ))
+  build_store_zip(entries) |> @ox.open_ooxml_package
+}
+
+///|
+fn repeated_table_cells(count : Int, grid_span : Int) -> String {
+  let items : Array[String] = []
+  for i in 0..<count {
+    let n = i + 1
+    items.push(
+      "<a:tc gridSpan=\"" +
+      grid_span.to_string() +
+      "\"><a:txBody><a:p><a:r><a:t>C" +
+      n.to_string() +
+      "</a:t></a:r></a:p></a:txBody></a:tc>",
+    )
+  }
+  items.join("")
+}
+
+///|
+fn table_frame_xml(row_xml : String) -> String {
+  "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr>" +
+  row_xml +
+  "</a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
+}
+
+///|
 test "pptx A image caption pairs preserve image metadata" {
   let slide = simple_slide(
     picture_shape(
@@ -834,6 +941,35 @@ test "pptx parser bounds oversized media bytes" {
 }
 
 ///|
+test "pptx parser bounds deck media references without loading extra bytes" {
+  let doc = @pptx.parse_pptx_document_from_package(
+    media_ref_stress_pkg(100, 51),
+  )
+  assert_true(doc.media.length() <= 5100)
+  let mut loaded_bytes_refs = 0
+  let mut budgeted_refs = 0
+  for media in doc.media {
+    match media.data {
+      Some(_) => loaded_bytes_refs += 1
+      None =>
+        if media.unsupported {
+          budgeted_refs += 1
+        }
+    }
+  }
+  assert_true(loaded_bytes_refs <= 5000)
+  assert_true(budgeted_refs > 0)
+  let mut saw_budget_warning = false
+  for warning in doc.warnings {
+    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+      warning.message.contains("media reference budget exceeded") {
+      saw_budget_warning = true
+    }
+  }
+  assert_true(saw_budget_warning)
+}
+
+///|
 test "pptx parser bounds table grid span expansion facts" {
   let table_xml =
     "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
@@ -858,6 +994,33 @@ test "pptx parser bounds table grid span expansion facts" {
   for warning in doc.warnings {
     if warning.kind == @pptx.PptxWarningKind::OverBudget &&
       warning.message.contains("gridSpan truncated") {
+      saw_budget_warning = true
+    }
+  }
+  assert_true(saw_budget_warning)
+}
+
+///|
+test "pptx parser bounds table row and output cell span expansion" {
+  let table_xml = table_frame_xml(repeated_table_cells(9, 128))
+  let doc = @pptx.parse_pptx_document_from_package(
+    one_slide_pkg(simple_slide(table_xml), "", "", []),
+  )
+  let mut saw_table = false
+  for obj in doc.slides[0].objects {
+    match obj {
+      @pptx.PptxObject::Table(table) => {
+        saw_table = true
+        assert_true(table.rows[0].cells.length() <= 8)
+      }
+      _ => ()
+    }
+  }
+  assert_true(saw_table)
+  let mut saw_budget_warning = false
+  for warning in doc.warnings {
+    if warning.kind == @pptx.PptxWarningKind::OverBudget &&
+      warning.message.contains("table span expansion budget") {
       saw_budget_warning = true
     }
   }
