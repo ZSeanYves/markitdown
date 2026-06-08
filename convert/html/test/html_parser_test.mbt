@@ -92,6 +92,39 @@ fn remove_file_if_exists(path : String) -> Unit {
 }
 
 ///|
+fn html_profile_counter(report : String, name : String) -> Int raise {
+  let needle = name + "="
+  for raw_token in report.split(" ") {
+    let token = raw_token.to_owned().trim().to_owned()
+    if token.has_prefix(needle) {
+      return parse_html_profile_counter_digits(
+        token[needle.length():].to_owned(),
+      )
+    }
+  }
+  fail("missing html profile counter: " + name)
+}
+
+///|
+fn parse_html_profile_counter_digits(raw : String) -> Int raise {
+  let mut value = 0
+  let mut saw_digit = false
+  for ch in raw {
+    let code = ch.to_int()
+    if code >= '0'.to_int() && code <= '9'.to_int() {
+      value = value * 10 + (code - '0'.to_int())
+      saw_digit = true
+    } else {
+      break
+    }
+  }
+  if !saw_digit {
+    fail("invalid html profile counter value: " + raw)
+  }
+  value
+}
+
+///|
 test "html strips utf8 bom and normalizes crlf" {
   let doc = @html.parse_html(
     resolve_html_parser_sample_path(
@@ -271,6 +304,908 @@ test "html parser validation summary is available for convert integration" {
 }
 
 ///|
+test "html semantic block summary is available without changing simple output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<article><h1>Title</h1><p>Body <a href='https://example.com'>link</a>.</p><ul><li>One</li></ul><table><tr><th>K</th><td>V</td></tr></table></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_block_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic block summary"))
+  assert_eq(summary.heading_count, 1)
+  assert_eq(summary.paragraph_count, 1)
+  assert_eq(summary.list_count, 1)
+  assert_eq(summary.list_item_count, 1)
+  assert_eq(summary.table_count, 1)
+  assert_eq(summary.table_row_count, 1)
+  assert_eq(summary.table_cell_count, 2)
+  assert_eq(summary.semantic_table_fact_count, 1)
+  assert_eq(summary.semantic_table_fact_row_count, 1)
+  assert_eq(summary.semantic_table_fact_cell_count, 2)
+  assert_eq(summary.semantic_table_caption_count, 0)
+  assert_true(summary.inline_count > 0)
+  assert_eq(summary.link_inline_count, 1)
+  assert_eq(summary.semantic_link_count, 1)
+  assert_eq(summary.external_link_count, 1)
+  assert_eq(summary.semantic_image_count, 0)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("# Title"))
+  assert_true(markdown.contains("[link](https://example.com)"))
+  assert_true(markdown.contains("- One"))
+  assert_true(markdown.contains("| K | V |"))
+}
+
+///|
+test "html semantic table summary is available without changing table output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_table_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<article><table><caption>Scores</caption><thead><tr><th scope='col'>Name</th><th scope='col'>Score</th></tr></thead><tbody><tr><td>Alice</td><td>42</td></tr></tbody><tfoot><tr><td>Total</td><td>42</td></tr></tfoot></table></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_table_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic table summary"))
+  assert_eq(summary.table_count, 1)
+  assert_eq(summary.table_row_count, 3)
+  assert_eq(summary.table_cell_count, 6)
+  assert_eq(summary.semantic_table_fact_count, 1)
+  assert_eq(summary.semantic_table_section_count, 3)
+  assert_eq(summary.semantic_table_head_section_count, 1)
+  assert_eq(summary.semantic_table_body_section_count, 1)
+  assert_eq(summary.semantic_table_foot_section_count, 1)
+  assert_eq(summary.semantic_table_caption_count, 1)
+  assert_eq(summary.semantic_table_fact_row_count, 3)
+  assert_eq(summary.semantic_table_fact_cell_count, 6)
+  assert_eq(summary.semantic_table_header_cell_count, 2)
+  assert_eq(summary.semantic_table_data_cell_count, 4)
+  assert_eq(summary.semantic_max_table_row_count, 3)
+  assert_eq(summary.semantic_max_table_cell_count, 6)
+  assert_eq(summary.semantic_table_warning_count, 0)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("| Name | Score |"))
+  assert_true(markdown.contains("| Alice | 42 |"))
+  assert_true(markdown.contains("| Total | 42 |"))
+}
+
+///|
+test "html semantic polished summary is available without changing rich block output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_polished_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<article><ol start='2' type='a'><li>One<ul><li>Nested</li></ul></li></ol><blockquote cite='https://example.com/q'><p>Quote</p></blockquote><pre class='language-moonbit'>let x = 1\n  x</pre><figure><img src='local.png' alt='Logo'><figcaption>Caption</figcaption></figure></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_polished_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic polished summary"))
+  assert_eq(summary.semantic_list_fact_count, 2)
+  assert_eq(summary.semantic_ordered_list_fact_count, 1)
+  assert_eq(summary.semantic_unordered_list_fact_count, 1)
+  assert_eq(summary.semantic_list_item_fact_count, 2)
+  assert_eq(summary.semantic_max_list_depth, 2)
+  assert_eq(summary.semantic_blockquote_fact_count, 1)
+  assert_eq(summary.semantic_max_quote_depth, 1)
+  assert_eq(summary.semantic_code_block_fact_count, 1)
+  assert_eq(summary.semantic_code_block_language_hint_count, 1)
+  assert_eq(summary.semantic_figure_fact_count, 1)
+  assert_eq(summary.semantic_figure_caption_count, 1)
+  assert_eq(summary.semantic_figure_image_count, 1)
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("1. One"))
+  assert_true(markdown.contains("- Nested"))
+  assert_true(markdown.contains("> Quote"))
+}
+
+///|
+test "html semantic inline link image summary is available without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_inline_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<article><p>Alpha <em>one</em> <strong>two</strong> <code>three</code> <a href='mailto:a@example.com' title='Mail'>mail</a><br><img src='local.png' alt='Logo' title='Logo title' width='12' height='14'></p></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_inline_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic inline summary"))
+  assert_eq(summary.paragraph_count, 1)
+  assert_true(summary.inline_count > 0)
+  assert_eq(summary.emphasis_inline_count, 1)
+  assert_eq(summary.strong_inline_count, 1)
+  assert_eq(summary.code_inline_count, 1)
+  assert_eq(summary.link_inline_count, 1)
+  assert_eq(summary.image_inline_count, 1)
+  assert_eq(summary.break_inline_count, 1)
+  assert_eq(summary.semantic_link_count, 1)
+  assert_eq(summary.mailto_link_count, 1)
+  assert_eq(summary.semantic_image_count, 1)
+  assert_eq(summary.local_image_count, 1)
+  assert_eq(summary.warning_count, 0)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Alpha one two three"))
+  assert_true(markdown.contains("[mail](mailto:a@example.com)"))
+  assert_true(markdown.contains("[Logo]"))
+}
+
+///|
+test "html semantic paragraph spacing summary is available without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_paragraph_spacing_probe.html"
+  write_utf8_text(
+    sample_path, "<article><p>hello   <a href='https://example.com'>world</a> !\n<em>em</em><strong>strong</strong><code> x  y </code><br><img src='local.png' alt='Alt'></p><div>candidate text</div><p>   </p></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_paragraph_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic paragraph summary"))
+  assert_eq(summary.semantic_paragraph_fact_count, 3)
+  assert_eq(summary.semantic_paragraph_with_link_count, 1)
+  assert_eq(summary.semantic_paragraph_with_image_count, 1)
+  assert_eq(summary.semantic_paragraph_with_code_count, 1)
+  assert_eq(summary.semantic_paragraph_with_emphasis_count, 1)
+  assert_eq(summary.semantic_paragraph_with_strong_count, 1)
+  assert_eq(summary.semantic_paragraph_with_break_count, 1)
+  assert_eq(summary.semantic_paragraph_meaningful_text_count, 2)
+  assert_eq(summary.semantic_paragraph_candidate_count, 1)
+  assert_eq(summary.semantic_paragraph_repeated_whitespace_count, 1)
+  assert_eq(summary.semantic_paragraph_newline_count, 1)
+  assert_true(summary.semantic_leading_whitespace_inline_count > 0)
+  assert_true(summary.semantic_trailing_whitespace_inline_count > 0)
+  assert_true(summary.semantic_repeated_whitespace_inline_count > 0)
+  assert_true(summary.semantic_newline_inline_count > 0)
+  assert_eq(summary.semantic_whitespace_preserving_inline_count, 1)
+  assert_true(summary.semantic_inline_with_surrounding_text_count > 0)
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("[world](https://example.com)"))
+  assert_true(markdown.contains("<br>"))
+  assert_true(markdown.contains("[Alt]"))
+  assert_true(markdown.contains("candidate text"))
+  assert_false(markdown.contains("semantic_paragraph"))
+}
+
+///|
+test "html semantic warning summary is available without changing unsupported output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_warning_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<article><h1>Visible</h1><script>skip()</script><style>.x{}</style><iframe src='frame.html'></iframe><p><a href='javascript:bad()'>bad</a><a href='data:text/plain,hi'>data</a><a>empty</a><img src='https://example.com/a.png'><img src='data:image/png;base64,abcdef'><img alt='missing'></p></article>\n",
+  )
+
+  let summary = @html.collect_html_semantic_warning_summary_from_text(
+    read_html_parser_utf8_text(sample_path),
+  ).unwrap_or_else(() => fail("expected semantic warning summary"))
+  assert_eq(summary.heading_count, 1)
+  assert_eq(summary.unsupported_script_count, 1)
+  assert_eq(summary.unsupported_style_count, 1)
+  assert_eq(summary.unsupported_iframe_count, 1)
+  assert_eq(summary.unsupported_remote_image_count, 1)
+  assert_eq(summary.unsupported_data_image_count, 1)
+  assert_eq(summary.unsupported_unsafe_url_count, 2)
+  assert_eq(summary.unsupported_empty_url_count, 2)
+  assert_true(summary.unsupported_fact_count >= 8)
+  assert_true(summary.warning_count >= 8)
+  assert_true(summary.warning_info_count >= 3)
+  assert_true(summary.warning_warning_count >= 5)
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("# Visible"))
+  assert_false(markdown.contains("skip()"))
+  assert_false(markdown.contains(".x{}"))
+}
+
+///|
+test "html semantic m95 summary exposes notes scope noise table and complex inline facts without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_m95_summary_probe.html"
+  write_utf8_text(
+    sample_path, "<html><head><title>M95</title><meta name='description' content='Probe'></head><body><article><nav>Nav</nav><p>Body <a epub:type='noteref' href='#fn1'>1</a><a href='https://example.com'><img src='local.png' srcset='local-2x.png 2x' alt='Local'></a><a href='javascript:bad'>bad</a></p><table><caption>Cap</caption><tr><th colspan='2'>H</th><th>Extra</th></tr><tr><td><img src='cell.png' alt='Cell'></td></tr></table><aside epub:type='footnote' id='fn1'>Note <a epub:type='backlink' href='#ref1'>back</a></aside></article></body></html>\n",
+  )
+
+  let text = read_html_parser_utf8_text(sample_path)
+  let note_summary = @html.collect_html_semantic_note_summary_from_text(text).unwrap_or_else(() => {
+      fail("expected note summary")
+    },
+  )
+  assert_true(note_summary.semantic_note_fact_count >= 2)
+  assert_true(note_summary.semantic_note_ref_fact_count >= 2)
+  assert_eq(note_summary.semantic_note_body_fact_count, 1)
+  assert_true(note_summary.semantic_backref_note_count >= 1)
+
+  let scope_summary = @html.collect_html_semantic_scope_summary_from_text(text).unwrap_or_else(() => {
+      fail("expected scope summary")
+    },
+  )
+  assert_eq(scope_summary.semantic_scope_fact_count, 1)
+  assert_eq(scope_summary.semantic_scope_body_count, 1)
+  assert_eq(scope_summary.semantic_scope_missing_body_count, 0)
+
+  let noise_summary = @html.collect_html_semantic_noise_summary_from_text(text).unwrap_or_else(() => {
+      fail("expected noise summary")
+    },
+  )
+  assert_true(noise_summary.semantic_noise_candidate_count >= 1)
+  assert_true(noise_summary.semantic_noise_nav_like_count >= 1)
+
+  let inline_summary = @html.collect_html_semantic_complex_inline_summary_from_text(
+    text,
+  ).unwrap_or_else(() => fail("expected inline summary"))
+  assert_true(inline_summary.semantic_linked_image_count >= 1)
+  assert_true(inline_summary.semantic_image_in_link_count >= 1)
+  assert_true(inline_summary.semantic_note_ref_inline_count >= 1)
+  assert_true(inline_summary.semantic_srcset_image_count >= 1)
+  assert_eq(inline_summary.unsafe_link_count, 1)
+
+  let table_summary = @html.collect_html_semantic_table_summary_from_text(text).unwrap_or_else(() => {
+      fail("expected table summary")
+    },
+  )
+  assert_eq(table_summary.semantic_table_caption_count, 1)
+  assert_true(table_summary.semantic_table_span_cell_count >= 1)
+  assert_true(table_summary.semantic_table_ragged_row_count >= 1)
+  assert_true(table_summary.semantic_table_image_cell_count >= 1)
+  assert_true(table_summary.semantic_table_complex_cell_count >= 1)
+
+  let markdown = @cor.emit_markdown(@html.parse_html(sample_path, "", 6))
+  assert_true(markdown.contains("Body"))
+  assert_true(markdown.contains("[Local]"))
+  assert_false(markdown.contains("semantic_note"))
+  assert_false(markdown.contains("Nav"))
+}
+
+///|
+test "html semantic table lowering handles safe simple tables without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_table_safe.html"
+  let profile_path = dir + "/html-semantic-lowering-table-safe.txt"
+  write_utf8_text(
+    sample_path, "<article><table><tr><th>Name</th><th>Score</th></tr><tr><td>Alice</td><td>42</td></tr></table><table><thead><tr><th>Kind</th><th>Value</th></tr></thead><tbody><tr><td><a href='https://example.com'>link</a></td><td><em>em</em><strong>strong</strong><code> x </code><br>tail</td></tr></tbody></table></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("| Name | Score |"))
+  assert_true(markdown.contains("| Alice | 42 |"))
+  assert_true(markdown.contains("| Kind | Value |"))
+  assert_true(markdown.contains("| [link](https://example.com) |"))
+  assert_true(markdown.contains("emstrong x <br>tail"))
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 1)
+      assert_true(table.rows[0] == ["Name", "Score"])
+      assert_true(table.rows[1] == ["Alice", "42"])
+    }
+    _ => fail("safe th table should emit RichTable")
+  }
+  match doc.blocks.val[1] {
+    @cor.Block::RichTable(table) => {
+      assert_eq(table.header_rows, 1)
+      assert_true(table.rows[0] == ["Kind", "Value"])
+      assert_eq(table.rows[1][0], "[link](https://example.com)")
+      assert_eq(table.rows[1][1], "emstrong x <br>tail")
+    }
+    _ => fail("safe thead table should emit RichTable")
+  }
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_eq(html_profile_counter(report, "semantic_table_candidate_count"), 2)
+  assert_eq(html_profile_counter(report, "semantic_table_lowered_count"), 2)
+  assert_eq(
+    html_profile_counter(report, "semantic_table_existing_path_count"),
+    0,
+  )
+  assert_eq(html_profile_counter(report, "semantic_table_guard_count"), 0)
+  assert_eq(
+    html_profile_counter(report, "semantic_table_mismatch_guard_count"),
+    0,
+  )
+}
+
+///|
+test "html semantic table lowering keeps guarded tables on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_table_guarded.html"
+  let profile_path = dir + "/html-semantic-lowering-table-guarded.txt"
+  write_utf8_text(
+    sample_path,
+    "<article>" +
+    "<table><caption>Cap</caption><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>" +
+    "<table><tr><th colspan='2'>Wide</th></tr><tr><td>A</td><td>B</td></tr></table>" +
+    "<table><tr><th>A</th><th>B</th></tr><tr><td>Only one</td></tr></table>" +
+    "<table><tr><th>A</th><th>B</th></tr><tr><td><img src='local.png' alt='Alt'></td><td>Text</td></tr></table>" +
+    "<table><tr><th>A</th><th>B</th></tr><tr><td><ul><li>One</li></ul></td><td><blockquote>Q</blockquote></td></tr><tr><td><pre>code</pre></td><td>Plain</td></tr></table>" +
+    "<table><tr><th>A</th></tr><tr><td>Outer <table><tr><th>N</th></tr><tr><td>Inner</td></tr></table></td></tr></table>" +
+    "</article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("| A | B |"))
+  assert_true(markdown.contains("| Wide |  |"))
+  assert_true(markdown.contains("| Only one |  |"))
+  assert_true(markdown.contains("| Alt | Text |"))
+  assert_true(markdown.contains("| One | Q |"))
+  assert_true(markdown.contains("| code | Plain |"))
+  assert_true(markdown.contains("| Inner |"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_eq(html_profile_counter(report, "semantic_table_candidate_count"), 0)
+  assert_eq(html_profile_counter(report, "semantic_table_lowered_count"), 0)
+  assert_true(
+    html_profile_counter(report, "semantic_table_existing_path_count") >= 5,
+  )
+  assert_true(html_profile_counter(report, "semantic_table_guard_count") >= 5)
+  assert_true(
+    html_profile_counter(report, "semantic_table_span_guard_count") >= 1,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_table_caption_guard_count") >= 1,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_table_nested_guard_count") >= 1,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_table_complex_cell_guard_count") >= 2,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_table_ragged_guard_count") >= 1,
+  )
+}
+
+///|
+test "html semantic lowering path handles simple paragraph inlines without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_paragraph_probe.html"
+  let profile_path = dir + "/html-semantic-lowering-paragraph-profile.txt"
+  write_utf8_text(
+    sample_path, "<article><p>hello   <em>one</em><strong>two</strong><code> x  y </code><br>tail</p></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "hello   onetwo x  y <br>tail\n")
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_lowering_available=true"))
+  assert_true(report.contains("semantic_paragraph_candidate_count=1"))
+  assert_true(report.contains("semantic_paragraph_lowered_count=1"))
+  assert_true(report.contains("semantic_paragraph_existing_path_count=0"))
+  assert_true(report.contains("semantic_inline_lowered_count=6"))
+  assert_true(report.contains("semantic_blockquote_candidate_count=0"))
+  assert_true(report.contains("semantic_code_block_candidate_count=0"))
+}
+
+///|
+test "html semantic lowering path handles headings and safe link paragraphs without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_heading_link.html"
+  let profile_path = dir + "/html-semantic-lowering-heading-link.txt"
+  write_utf8_text(
+    sample_path, "<article><h2>Head <em>em</em><code>x</code><br>tail</h2><p>Go <a href='https://example.com'>external</a> and <a href='#top'>internal</a> plus <a href='mailto:a@example.com'>mail</a> and <a href='tel:+123'>tel</a>.</p></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "## Head emx<br>tail\n\nGo [external](https://example.com) and [internal](#top) plus [mail](mailto:a@example.com) and [tel](tel:+123).\n",
+  )
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_lowering_available=true"))
+  assert_true(report.contains("semantic_heading_candidate_count=1"))
+  assert_true(report.contains("semantic_heading_lowered_count=1"))
+  assert_true(report.contains("semantic_heading_existing_path_count=0"))
+  assert_true(report.contains("semantic_link_paragraph_candidate_count=1"))
+  assert_true(report.contains("semantic_link_paragraph_lowered_count=1"))
+  assert_true(report.contains("semantic_link_paragraph_existing_path_count=0"))
+}
+
+///|
+test "html semantic heading lowering respects max heading clamp" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_heading_clamp.html"
+  let profile_path = dir + "/html-semantic-lowering-heading-clamp.txt"
+  write_utf8_text(sample_path, "<article><h5>Small title</h5></article>\n")
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 3)
+  assert_eq(@cor.emit_markdown(doc), "### Small title\n")
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_heading_candidate_count=1"))
+  assert_true(report.contains("semantic_heading_lowered_count=1"))
+}
+
+///|
+test "html semantic paragraph lowering keeps guarded links and images on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let link_path = dir + "/html_semantic_lowering_paragraph_unsafe_link.html"
+  let link_profile_path = dir +
+    "/html-semantic-lowering-paragraph-unsafe-link.txt"
+  write_utf8_text(
+    link_path, "<article><p>hello <a href='javascript:bad'>bad</a> and <a>empty</a> !</p></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", link_profile_path)
+
+  let link_doc = @html.parse_html(link_path, "", 6)
+  assert_eq(@cor.emit_markdown(link_doc), "hello bad and empty !\n")
+
+  let link_report = read_html_parser_utf8_text(link_profile_path)
+  assert_true(link_report.contains("semantic_paragraph_candidate_count=0"))
+  assert_true(link_report.contains("semantic_paragraph_lowered_count=0"))
+  assert_true(link_report.contains("semantic_paragraph_existing_path_count=1"))
+  assert_true(link_report.contains("semantic_paragraph_empty_guard_count=0"))
+  assert_true(
+    link_report.contains("semantic_paragraph_render_mismatch_guard_count=0"),
+  )
+  assert_true(
+    link_report.contains("semantic_paragraph_unsupported_guard_count=1"),
+  )
+  assert_true(link_report.contains("semantic_link_paragraph_candidate_count=0"))
+  assert_true(link_report.contains("semantic_link_paragraph_lowered_count=0"))
+  assert_true(
+    link_report.contains("semantic_link_paragraph_existing_path_count=1"),
+  )
+
+  let image_path = dir + "/html_semantic_lowering_paragraph_image.html"
+  let image_profile_path = dir + "/html-semantic-lowering-paragraph-image.txt"
+  write_utf8_text(
+    image_path, "<article><p>before <img src='remote.png' alt='Alt'> after</p></article>\n",
+  )
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", image_profile_path)
+
+  let image_doc = @html.parse_html(image_path, "", 6)
+  assert_eq(@cor.emit_markdown(image_doc), "before\n\n[Alt]\n\nafter\n")
+
+  let image_report = read_html_parser_utf8_text(image_profile_path)
+  assert_true(image_report.contains("semantic_paragraph_candidate_count=0"))
+  assert_true(image_report.contains("semantic_paragraph_lowered_count=0"))
+  assert_true(image_report.contains("semantic_paragraph_existing_path_count=1"))
+  assert_true(image_report.contains("semantic_paragraph_empty_guard_count=0"))
+  assert_true(
+    image_report.contains("semantic_paragraph_render_mismatch_guard_count=0"),
+  )
+  assert_true(
+    image_report.contains("semantic_paragraph_unsupported_guard_count=1"),
+  )
+}
+
+///|
+test "html semantic lowering path handles simple list items without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_list_probe.html"
+  let profile_path = dir + "/html-semantic-lowering-list-profile.txt"
+  write_utf8_text(
+    sample_path, "<article><ul><li>Alpha <em>em</em><code>x</code><br>tail</li><li>Go <a href='https://example.com'>link</a></li></ul><ol><li>One</li></ol></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "- Alpha emx<br>tail\n- Go [link](https://example.com)\n1. One\n",
+  )
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_list_candidate_count=3"))
+  assert_true(report.contains("semantic_list_lowered_count=3"))
+  assert_true(report.contains("semantic_list_existing_path_count=0"))
+  assert_true(report.contains("semantic_list_item_lowered_count=3"))
+  assert_true(report.contains("semantic_list_item_existing_path_count=0"))
+  assert_true(report.contains("semantic_list_nested_guard_count=0"))
+}
+
+///|
+test "html semantic list lowering keeps complex list items on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_list_guarded.html"
+  let profile_path = dir + "/html-semantic-lowering-list-guarded.txt"
+  write_utf8_text(
+    sample_path, "<article><ul><li>Nested<ul><li>Child</li></ul></li><li>Image <img src='local.png' alt='Alt'></li><li><table><tr><td>A</td></tr></table></li></ul></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("- Nested"))
+  assert_true(markdown.contains("- Child"))
+  assert_true(markdown.contains("- Image Alt"))
+  assert_true(markdown.contains("| A |"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_list_candidate_count=1"))
+  assert_true(report.contains("semantic_list_lowered_count=0"))
+  assert_true(report.contains("semantic_list_existing_path_count=3"))
+  assert_true(report.contains("semantic_list_item_lowered_count=0"))
+  assert_true(report.contains("semantic_list_item_existing_path_count=3"))
+  assert_true(report.contains("semantic_list_nested_guard_count=1"))
+  assert_true(report.contains("semantic_list_empty_guard_count=0"))
+  assert_true(report.contains("semantic_list_render_mismatch_guard_count=1"))
+  assert_true(report.contains("semantic_list_unsupported_guard_count=2"))
+}
+
+///|
+test "html semantic image and figure lowering uses parser facts without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+  let img_dir = dir + "/img"
+  ensure_dir_tree(img_dir)
+  write_utf8_text(img_dir + "/photo.png", "not-a-real-png")
+  write_utf8_text(img_dir + "/figure.png", "not-a-real-figure")
+
+  let sample_path = dir + "/html_semantic_lowering_image_figure.html"
+  let profile_path = dir + "/html-semantic-lowering-image-figure.txt"
+  write_utf8_text(
+    sample_path, "<article><p>Before <img src='img/photo.png' alt='Photo' title='Photo title'> After</p><figure><img src='img/figure.png' alt='Figure' title='Figure title'><figcaption>Figure caption</figcaption></figure></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let out_dir = dir + "/out"
+  ensure_dir_tree(out_dir)
+  let doc = @html.parse_html(sample_path, out_dir, 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Before"))
+  assert_true(markdown.contains("After"))
+  assert_true(markdown.contains("![Photo](assets/image"))
+  assert_true(markdown.contains("\n*Photo title*\n"))
+  assert_true(markdown.contains("![Figure](assets/image"))
+  assert_true(markdown.contains("\n*Figure title*\n"))
+  assert_true(markdown.contains("\nFigure caption\n"))
+
+  let mut image_block_count = 0
+  for block in doc.blocks.val {
+    match block {
+      @cor.Block::ImageBlock(_) => image_block_count += 1
+      _ => ()
+    }
+  }
+  assert_eq(image_block_count, 2)
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_image_candidate_count=1"))
+  assert_true(report.contains("semantic_image_lowered_count=1"))
+  assert_true(report.contains("semantic_image_existing_path_count=0"))
+  assert_true(report.contains("semantic_figure_candidate_count=1"))
+  assert_true(report.contains("semantic_figure_lowered_count=1"))
+  assert_true(report.contains("semantic_figure_existing_path_count=0"))
+  assert_true(report.contains("semantic_image_guard_count=0"))
+  assert_true(report.contains("semantic_figure_guard_count=0"))
+}
+
+///|
+test "html semantic image and figure lowering guards remote linked and complex cases" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_image_figure_guarded.html"
+  let profile_path = dir + "/html-semantic-lowering-image-figure-guarded.txt"
+  write_utf8_text(
+    sample_path, "<article><p><img src='https://example.com/r.png' alt='Remote'></p><p><img src='data:image/png;base64,abc' alt='Data'></p><figure><a href='full.png'><img src='local.png' alt='Linked'></a><figcaption>Linked caption</figcaption></figure><figure><img src='one.png' alt='One'><img src='two.png' alt='Two'><figcaption>Two images</figcaption></figure></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("[Remote]"))
+  assert_true(markdown.contains("[Data]"))
+  assert_false(markdown.contains("![Linked]"))
+  assert_false(markdown.contains("![One]"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_image_candidate_count=0"))
+  assert_true(report.contains("semantic_image_lowered_count=0"))
+  assert_true(report.contains("semantic_image_existing_path_count=2"))
+  assert_true(report.contains("semantic_image_empty_guard_count=0"))
+  assert_true(report.contains("semantic_image_render_mismatch_guard_count=0"))
+  assert_true(report.contains("semantic_image_identity_guard_count=0"))
+  assert_true(report.contains("semantic_image_unsupported_guard_count=2"))
+  assert_true(report.contains("semantic_figure_candidate_count=0"))
+  assert_true(report.contains("semantic_figure_lowered_count=0"))
+  assert_true(report.contains("semantic_figure_existing_path_count=2"))
+  assert_true(report.contains("semantic_figure_empty_guard_count=0"))
+  assert_true(report.contains("semantic_figure_render_mismatch_guard_count=0"))
+  assert_true(report.contains("semantic_figure_identity_guard_count=0"))
+  assert_true(report.contains("semantic_figure_unsupported_guard_count=2"))
+  assert_true(report.contains("semantic_image_guard_count=2"))
+  assert_true(report.contains("semantic_figure_guard_count=2"))
+}
+
+///|
+test "html semantic lowering path handles blockquote without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_quote_probe.html"
+  let profile_path = dir + "/html-semantic-lowering-quote-profile.txt"
+  write_utf8_text(sample_path, "<blockquote><p>Quoted line.</p></blockquote>\n")
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "> Quoted line.\n")
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_lowering_available=true"))
+  assert_true(report.contains("semantic_blockquote_candidate_count=1"))
+  assert_true(report.contains("semantic_blockquote_lowered_count=1"))
+  assert_true(report.contains("semantic_blockquote_existing_path_count=0"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=0"))
+  assert_true(report.contains("semantic_code_block_candidate_count=0"))
+  assert_true(report.contains("semantic_code_block_lowered_count=0"))
+  assert_true(report.contains("semantic_code_block_existing_path_count=0"))
+  assert_true(report.contains("semantic_code_block_empty_guard_count=0"))
+  assert_true(report.contains("semantic_code_block_incomplete_guard_count=0"))
+}
+
+///|
+test "html semantic lowering path handles pre code without changing output" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_code_probe.html"
+  let profile_path = dir + "/html-semantic-lowering-code-profile.txt"
+  write_utf8_text(
+    sample_path, "<pre><code class='language-moonbit'>let x = 1\n  x + 1</code></pre>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "```\nlet x = 1\n  x + 1\n```\n")
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_lowering_available=true"))
+  assert_true(report.contains("semantic_blockquote_candidate_count=0"))
+  assert_true(report.contains("semantic_blockquote_lowered_count=0"))
+  assert_true(report.contains("semantic_blockquote_existing_path_count=0"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=0"))
+  assert_true(report.contains("semantic_code_block_candidate_count=1"))
+  assert_true(report.contains("semantic_code_block_lowered_count=1"))
+  assert_true(report.contains("semantic_code_block_existing_path_count=0"))
+  assert_true(report.contains("semantic_code_block_empty_guard_count=0"))
+  assert_true(report.contains("semantic_code_block_incomplete_guard_count=0"))
+  assert_true(
+    report.contains("semantic_code_block_language_hint_lowered_count=1"),
+  )
+}
+
+///|
+test "html semantic lowering keeps complex blockquotes on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_complex_quote.html"
+  let profile_path = dir + "/html-semantic-lowering-complex-profile.txt"
+  write_utf8_text(
+    sample_path, "<article><blockquote><p>outer</p><blockquote><p>inner</p></blockquote></blockquote></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(@cor.emit_markdown(doc), "> outer\n> \n> inner\n")
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_blockquote_candidate_count=1"))
+  assert_true(report.contains("semantic_blockquote_lowered_count=0"))
+  assert_true(report.contains("semantic_blockquote_existing_path_count=1"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=1"))
+}
+
+///|
+test "html semantic lowering keeps linked blockquotes on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_link_quote.html"
+  let profile_path = dir + "/html-semantic-lowering-link-profile.txt"
+  write_utf8_text(
+    sample_path, "<article><blockquote><p>Quoted <a href='https://example.com/q'>reference</a> line.</p></blockquote></article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  assert_eq(
+    @cor.emit_markdown(doc),
+    "> Quoted [reference](https://example.com/q) line.\n",
+  )
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_blockquote_candidate_count=1"))
+  assert_true(report.contains("semantic_blockquote_lowered_count=0"))
+  assert_true(report.contains("semantic_blockquote_existing_path_count=1"))
+  assert_true(report.contains("semantic_blockquote_unsupported_guard_count=1"))
+}
+
+///|
+test "html semantic code lowering keeps incomplete pre on existing output path" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_lowering_large_code.html"
+  let profile_path = dir + "/html-semantic-lowering-large-code-profile.txt"
+  let mut code = ""
+  for i in 0..<140000 {
+    let _ = i
+    code = code + "x"
+  }
+  write_utf8_text(sample_path, "<pre>" + code + "</pre>\n")
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.has_prefix("```\nxxx"))
+  assert_true(markdown.has_suffix("\n```\n"))
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(report.contains("semantic_code_block_candidate_count=1"))
+  assert_true(report.contains("semantic_code_block_lowered_count=0"))
+  assert_true(report.contains("semantic_code_block_existing_path_count=1"))
+  assert_true(report.contains("semantic_code_block_empty_guard_count=0"))
+  assert_true(report.contains("semantic_code_block_incomplete_guard_count=1"))
+}
+
+///|
 test "html profile reports parser analysis scope and skip observability" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)
@@ -299,6 +1234,64 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("parser_scope_from_events=true"))
   assert_true(report.contains("parser_skip_range_count=1"))
   assert_true(report.contains("parser_scope_fallback_reason="))
+  assert_true(report.contains("semantic_block_count="))
+  assert_true(report.contains("semantic_heading_count=1"))
+  assert_true(report.contains("semantic_table_count=1"))
+  assert_true(report.contains("semantic_list_fact_count=0"))
+  assert_true(report.contains("semantic_blockquote_fact_count=0"))
+  assert_true(report.contains("semantic_code_block_fact_count=0"))
+  assert_true(report.contains("semantic_figure_fact_count=0"))
+  assert_true(report.contains("semantic_paragraph_fact_count="))
+  assert_true(report.contains("semantic_paragraph_with_link_count="))
+  assert_true(report.contains("semantic_paragraph_candidate_count="))
+  assert_true(report.contains("semantic_paragraph_repeated_whitespace_count="))
+  assert_true(report.contains("semantic_repeated_whitespace_inline_count="))
+  assert_true(report.contains("semantic_newline_inline_count="))
+  assert_true(report.contains("semantic_whitespace_preserving_inline_count="))
+  assert_true(report.contains("semantic_inline_with_surrounding_text_count="))
+  assert_true(report.contains("semantic_table_fact_count=1"))
+  assert_true(report.contains("semantic_table_fact_row_count=2"))
+  assert_true(report.contains("semantic_table_fact_cell_count=4"))
+  assert_true(report.contains("semantic_table_caption_count=0"))
+  assert_true(report.contains("semantic_table_warning_count=0"))
+  assert_true(report.contains("semantic_table_span_cell_count=0"))
+  assert_true(report.contains("semantic_table_ragged_row_count=0"))
+  assert_true(report.contains("semantic_table_nested_cell_count=0"))
+  assert_true(report.contains("semantic_table_complex_cell_count=0"))
+  assert_true(report.contains("semantic_table_image_cell_count=0"))
+  assert_true(report.contains("semantic_inline_count="))
+  assert_true(report.contains("semantic_link_fact_count=2"))
+  assert_true(report.contains("semantic_image_fact_count=0"))
+  assert_true(report.contains("semantic_note_fact_count="))
+  assert_true(report.contains("semantic_note_ref_fact_count=1"))
+  assert_true(report.contains("semantic_note_body_fact_count=1"))
+  assert_true(report.contains("semantic_broken_note_ref_count=0"))
+  assert_true(report.contains("semantic_scope_fact_count=1"))
+  assert_true(report.contains("semantic_scope_body_count=1"))
+  assert_true(report.contains("semantic_scope_missing_body_count=0"))
+  assert_true(report.contains("semantic_noise_candidate_count="))
+  assert_true(report.contains("semantic_noise_script_style_template_count=1"))
+  assert_true(report.contains("semantic_note_ref_inline_count=1"))
+  assert_true(report.contains("semantic_warning_info_count="))
+  assert_true(report.contains("semantic_warning_warning_count="))
+  assert_true(report.contains("semantic_warning_error_count=0"))
+  assert_true(report.contains("semantic_unsupported_fact_count="))
+  assert_true(report.contains("semantic_unsupported_script_count=1"))
+  assert_true(report.contains("semantic_unsupported_remote_image_count=0"))
+  assert_true(report.contains("semantic_unsupported_data_image_count=0"))
+  assert_true(report.contains("semantic_unsupported_unsafe_url_count=0"))
+  assert_true(report.contains("semantic_unsupported_empty_url_count=0"))
+  assert_true(report.contains("semantic_lowering_available=true"))
+  assert_true(report.contains("semantic_heading_empty_guard_count=0"))
+  assert_true(report.contains("semantic_heading_render_mismatch_guard_count=0"))
+  assert_true(report.contains("semantic_heading_unsupported_guard_count=0"))
+  assert_true(report.contains("semantic_paragraph_empty_guard_count=0"))
+  assert_true(
+    report.contains("semantic_paragraph_render_mismatch_guard_count=1"),
+  )
+  assert_true(report.contains("semantic_paragraph_unsupported_guard_count=0"))
+  assert_true(report.contains("semantic_blockquote_candidate_count=0"))
+  assert_true(report.contains("semantic_code_block_candidate_count=0"))
   assert_true(report.contains("table_count=1"))
   assert_true(report.contains("image_count=0"))
   assert_true(report.contains("link_count=1"))

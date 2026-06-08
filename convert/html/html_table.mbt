@@ -1,4 +1,7 @@
 ///|
+/// Guarded complex path: raw table scanning remains responsible for runtime
+/// RichTable compatibility, spans, ragged rows, captions, nested/complex cells,
+/// and malformed table recovery until parser-fact table lowering fully replaces it.
 priv struct HtmlTable {
   rows : Array[Array[Array[HtmlInline]]]
   header_rows : Int

@@ -26,6 +26,7 @@ fn nodes_to_blocks(
   max_h : Int,
   input_path : String,
   out_dir : String,
+  semantic_lowering_state : HtmlSemanticLoweringState?,
 ) -> HtmlBlocksResult raise {
   let out : Array[@cor.Block] = []
   let origins : Array[@cor.Origin?] = []
@@ -53,62 +54,148 @@ fn nodes_to_blocks(
       key_path: Some(html_node_origin_key_path(node, object_counter)),
     })
     match node {
-      HtmlNode::Heading(level, xs) => {
-        out.push(
-          @cor.Block::RichHeading(
-            clamp_heading(level, max_h),
-            html_inlines_to_ir(xs),
-          ),
-        )
-        origins.push(origin)
-      }
-      HtmlNode::Paragraph(xs) => {
-        let blocks = paragraph_inlines_to_blocks(xs, ctx)
-        for b in blocks {
-          out.push(b)
-          origins.push(origin)
-        }
-      }
-      HtmlNode::Figure(img, caption) =>
-        match figure_to_image_block(img, caption, ctx) {
-          Some(b) => {
-            out.push(b)
-            origins.push(origin)
-          }
-          None => ()
-        }
-      HtmlNode::ListItem(ordered, level, children) =>
-        match list_item_children_to_inlines(children, max_h) {
-          Some(inlines) => {
-            out.push(@cor.Block::RichListItem(ordered, level, inlines))
+      HtmlNode::Heading(level, xs) =>
+        match
+          lower_next_html_semantic_heading(
+            semantic_lowering_state,
+            max_h,
+            render_inlines(xs),
+          ) {
+          Some(block) => {
+            out.push(block)
             origins.push(origin)
           }
           None => {
             out.push(
-              @cor.Block::ListItem(
-                ordered,
-                level,
-                list_item_children_to_text(children, max_h),
+              @cor.Block::RichHeading(
+                clamp_heading(level, max_h),
+                html_inlines_to_ir(xs),
               ),
             )
             origins.push(origin)
           }
         }
-      HtmlNode::BlockQuote(children) =>
-        match quote_children_to_inlines(children, max_h) {
-          Some(inlines) => {
-            out.push(@cor.Block::RichBlockQuote(inlines))
+      HtmlNode::Paragraph(xs) =>
+        match
+          lower_next_html_semantic_paragraph(
+            semantic_lowering_state,
+            render_inlines(xs),
+          ) {
+          Some(block) => {
+            out.push(block)
             origins.push(origin)
           }
           None => {
-            out.push(
-              @cor.Block::BlockQuote(quote_children_to_text(children, max_h)),
+            let blocks = match
+              lower_next_html_semantic_image_paragraph(
+                semantic_lowering_state,
+                render_inlines(xs),
+                render_html_semantic_image_inlines_identity(xs),
+              ) {
+              Some(inlines) => paragraph_inlines_to_blocks(inlines, ctx)
+              None => paragraph_inlines_to_blocks(xs, ctx)
+            }
+            for b in blocks {
+              out.push(b)
+              origins.push(origin)
+            }
+          }
+        }
+      HtmlNode::Figure(img, caption) =>
+        match
+          lower_next_html_semantic_figure(
+            semantic_lowering_state,
+            render_inlines(caption),
+            render_html_semantic_image_inline_identity(img),
+          ) {
+          Some(semantic_figure) =>
+            match
+              figure_to_image_block(
+                semantic_figure.image,
+                semantic_figure.caption,
+                ctx,
+              ) {
+              Some(b) => {
+                out.push(b)
+                origins.push(origin)
+              }
+              None =>
+                match figure_to_image_block(img, caption, ctx) {
+                  Some(b) => {
+                    out.push(b)
+                    origins.push(origin)
+                  }
+                  None => ()
+                }
+            }
+          None =>
+            match figure_to_image_block(img, caption, ctx) {
+              Some(b) => {
+                out.push(b)
+                origins.push(origin)
+              }
+              None => ()
+            }
+        }
+      HtmlNode::ListItem(ordered, level, children) =>
+        match list_item_children_to_inlines(children, max_h) {
+          Some(inlines) => {
+            let existing_block = @cor.Block::RichListItem(
+              ordered, level, inlines,
             )
+            match
+              lower_next_html_semantic_list_item(
+                semantic_lowering_state,
+                render_html_semantic_ir_for_product_guard(inlines),
+              ) {
+              Some(block) => out.push(block)
+              None => out.push(existing_block)
+            }
+            origins.push(origin)
+          }
+          None => {
+            let existing_text = list_item_children_to_text(children, max_h)
+            let existing_block = @cor.Block::ListItem(
+              ordered, level, existing_text,
+            )
+            match
+              lower_next_html_semantic_list_item(
+                semantic_lowering_state, existing_text,
+              ) {
+              Some(block) => out.push(block)
+              None => out.push(existing_block)
+            }
             origins.push(origin)
           }
         }
+      HtmlNode::BlockQuote(children) =>
+        match
+          lower_next_html_semantic_blockquote(semantic_lowering_state, max_h) {
+          Some(block) => {
+            out.push(block)
+            origins.push(origin)
+          }
+          None =>
+            match quote_children_to_inlines(children, max_h) {
+              Some(inlines) => {
+                out.push(@cor.Block::RichBlockQuote(inlines))
+                origins.push(origin)
+              }
+              None => {
+                out.push(
+                  @cor.Block::BlockQuote(
+                    quote_children_to_text(children, max_h),
+                  ),
+                )
+                origins.push(origin)
+              }
+            }
+        }
       HtmlNode::CodeBlock(text) => {
-        out.push(@cor.Block::CodeBlock(text))
+        match lower_next_html_semantic_code_block(semantic_lowering_state) {
+          Some(block) => out.push(block)
+          None => out.push(@cor.Block::CodeBlock(text))
+        }
         origins.push(origin)
       }
       HtmlNode::Table(table) => {
@@ -121,13 +208,20 @@ fn nodes_to_blocks(
           out_rows.push(out_row)
         }
         let hints = html_table_hints(table)
-        out.push(
-          @cor.Block::RichTable({
-            rows: out_rows,
-            header_rows: table.header_rows,
-            hints,
-          }),
-        )
+        let existing_block = @cor.Block::RichTable({
+          rows: out_rows,
+          header_rows: table.header_rows,
+          hints,
+        })
+        match
+          lower_next_html_semantic_table(
+            semantic_lowering_state,
+            out_rows,
+            table.header_rows,
+          ) {
+          Some(block) => out.push(block)
+          None => out.push(existing_block)
+        }
         origins.push(origin)
       }
     }

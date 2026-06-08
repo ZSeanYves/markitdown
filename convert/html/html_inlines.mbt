@@ -1,4 +1,7 @@
 ///|
+/// Guarded complex path: raw inline scanning still owns Markdown-facing
+/// spacing, link/image identity, note refs, and image fallback behavior for
+/// cases not yet lowered directly from parser facts.
 priv enum HtmlInline {
   Text(String)
   Break

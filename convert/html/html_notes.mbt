@@ -1,4 +1,7 @@
 ///|
+/// Guarded complex path: raw note planning still constructs product note refs,
+/// note definitions, body exclusion ranges, and placement policy until convert
+/// consumes parser-owned note facts directly.
 priv struct HtmlNotePlan {
   refs_by_signature : Map[String, @cor.NoteRef]
   body_ranges : Array[(Int, Int)]

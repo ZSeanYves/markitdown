@@ -1,4 +1,7 @@
 ///|
+/// Guarded complex path: raw block scanning remains the normal runtime input
+/// for malformed/body-scope, notes, noise, list, table, figure, quote, and
+/// pre/code cases that are not fully parser-fact lowered yet.
 priv enum HtmlNode {
   Heading(Int, Array[HtmlInline])
   Paragraph(Array[HtmlInline])

@@ -1,4 +1,7 @@
 ///|
+/// Low-level helper path for existing guarded scanners. Keep these byte/tag
+/// utilities only while DOM, inline, table, notes, noise, and scope code still
+/// have normal-runtime callers.
 fn pat(s : String) -> Bytes {
   @utf8.encode(s)
 }

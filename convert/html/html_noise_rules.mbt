@@ -1,4 +1,7 @@
 ///|
+/// Product policy path: parser facts can expose noise candidates, but
+/// skip/preserve decisions for navigation/sidebar/footer/search chrome remain
+/// convert-owned behavior.
 fn find_skippable_html_noise_subtree_end(
   bs : Bytes,
   open_idx : Int,
