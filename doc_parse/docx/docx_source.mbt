@@ -2249,7 +2249,7 @@ fn parse_docx_paragraph_runs(
             paragraph_key, "hyperlink", run_index,
           )
           let link = parse_docx_hyperlink(
-            xml, start, end_exclusive, link_key, relationships, warnings,
+            xml, start, end_exclusive, link_key, relationships, pkg, warnings,
           )
           runs.push({
             style_id: None,
@@ -2700,7 +2700,7 @@ fn parse_docx_run_inlines(
             run_key, "hyperlink", inline_index,
           )
           let link = parse_docx_hyperlink(
-            xml, start, end_exclusive, link_key, relationships, warnings,
+            xml, start, end_exclusive, link_key, relationships, pkg, warnings,
           )
           inlines.push(DocxSourceInline::Hyperlink(link))
           inline_index += 1
@@ -3287,7 +3287,7 @@ fn docx_media_ref_from_relationship_ref(
 
   match relationship_id {
     Some(rid) =>
-      match find_docx_relationship_by_id(relationships, rid) {
+      match find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
         Some(rel) => {
           target = Some(rel.target)
           resolved_target = Some(rel.resolved_target)
@@ -3552,6 +3552,7 @@ fn parse_docx_hyperlink(
   end_exclusive : Int,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
+  pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceHyperlink {
   let open_tag = docx_open_tag_at(xml, start)
@@ -3564,7 +3565,7 @@ fn parse_docx_hyperlink(
   let mut target_mode : DocxTargetMode? = None
   match relationship_id {
     Some(rid) =>
-      match find_docx_relationship_by_id(relationships, rid) {
+      match find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
         Some(rel) => {
           target = Some(
             docx_hyperlink_resolved_target(rel.resolved_target, anchor),
@@ -3626,8 +3627,22 @@ fn docx_hyperlink_resolved_target(
 ///|
 fn find_docx_relationship_by_id(
   relationships : Array[@ox.OoxmlRelationship],
+  source_part : String,
   relationship_id : String,
+  pkg : @ox.OoxmlPackage?,
 ) -> @ox.OoxmlRelationship? {
+  match pkg {
+    Some(p) => {
+      let indexed = @ox.find_relationship_by_id(
+        p, source_part, relationship_id,
+      ) catch { _ => None }
+      match indexed {
+        Some(rel) => return Some(rel)
+        None => ()
+      }
+    }
+    None => ()
+  }
   for rel in relationships {
     if rel.id == relationship_id {
       return Some(rel)

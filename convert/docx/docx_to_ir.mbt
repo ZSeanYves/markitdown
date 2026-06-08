@@ -32,6 +32,14 @@ priv struct DocxRefLabels {
 }
 
 ///|
+priv struct DocxLoweringIndexes {
+  footnotes : Map[String, @docmodel.DocxNote]
+  endnotes : Map[String, @docmodel.DocxNote]
+  comments : Map[String, @docmodel.DocxComment]
+  textboxes_by_owner : Map[String, Array[@docmodel.DocxTextBox]]
+}
+
+///|
 pub fn open_docx_model(path : String) -> @docmodel.DocxDocument raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
     e => raise @cor.AppError("docx: read failed: " + e.to_string())
@@ -169,11 +177,14 @@ fn docx_warning_severity_name(
 ///|
 pub fn lower_docx_document(docx : @docmodel.DocxDocument) -> @cor.Document {
   let doc = @cor.new_document()
-  let ref_labels = docx_body_ref_labels(docx)
+  let indexes = docx_lowering_indexes(docx)
+  let ref_labels = docx_body_ref_labels_with_indexes(docx, indexes)
   for block in docx.body {
     push_docx_block_with_ref_labels(doc, docx, block, None, Some(ref_labels))
   }
-  append_docx_resolved_appendices(doc, docx, Some(ref_labels))
+  append_docx_resolved_appendices_with_ctx(
+    doc, docx, None, Some(ref_labels), indexes,
+  )
   doc
 }
 
@@ -186,11 +197,14 @@ pub fn lower_docx_document_with_assets(
   let doc = @cor.new_document()
   let ctx = new_docx_asset_export_ctx(pkg, out_dir)
   let ctx_opt = if out_dir.trim() == "" { None } else { Some(ctx) }
-  let ref_labels = docx_body_ref_labels(docx)
+  let indexes = docx_lowering_indexes(docx)
+  let ref_labels = docx_body_ref_labels_with_indexes(docx, indexes)
   for block in docx.body {
     push_docx_block_with_ref_labels(doc, docx, block, ctx_opt, Some(ref_labels))
   }
-  append_docx_resolved_appendices_with_ctx(doc, docx, ctx_opt, Some(ref_labels))
+  append_docx_resolved_appendices_with_ctx(
+    doc, docx, ctx_opt, Some(ref_labels), indexes,
+  )
   match ctx_opt {
     Some(ctx) => export_docx_alternate_media_assets(doc, docx, ctx)
     None => ()
@@ -306,29 +320,21 @@ fn push_docx_content_control_block(
 }
 
 ///|
-fn append_docx_resolved_appendices(
-  doc : @cor.Document,
-  docx : @docmodel.DocxDocument,
-  ref_labels : DocxRefLabels?,
-) -> Unit {
-  append_docx_resolved_appendices_with_ctx(doc, docx, None, ref_labels)
-}
-
-///|
 fn append_docx_resolved_appendices_with_ctx(
   doc : @cor.Document,
   docx : @docmodel.DocxDocument,
   asset_ctx : DocxAssetExportCtx?,
   ref_labels : DocxRefLabels?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
   let comment_ids : Array[String] = []
   collect_docx_refs(docx.body, footnote_ids, endnote_ids, comment_ids)
   append_docx_note_definitions(
-    doc, docx, footnote_ids, endnote_ids, asset_ctx, ref_labels,
+    doc, docx, footnote_ids, endnote_ids, asset_ctx, ref_labels, indexes,
   )
-  append_docx_comments(doc, docx, comment_ids, asset_ctx)
+  append_docx_comments(doc, docx, comment_ids, asset_ctx, indexes)
   append_docx_part_bodies(
     doc,
     docx,
@@ -336,6 +342,7 @@ fn append_docx_resolved_appendices_with_ctx(
     "Headers",
     "Header",
     asset_ctx,
+    indexes,
   )
   append_docx_part_bodies(
     doc,
@@ -344,6 +351,7 @@ fn append_docx_resolved_appendices_with_ctx(
     "Footers",
     "Footer",
     asset_ctx,
+    indexes,
   )
   append_docx_textboxes(doc, docx, asset_ctx)
 }
@@ -484,7 +492,42 @@ fn push_docx_unique_id(ids : Array[String], id : String) -> Unit {
 }
 
 ///|
-fn docx_body_ref_labels(docx : @docmodel.DocxDocument) -> DocxRefLabels {
+fn docx_lowering_indexes(
+  docx : @docmodel.DocxDocument,
+) -> DocxLoweringIndexes {
+  let footnotes : Map[String, @docmodel.DocxNote] = Map([])
+  for note in docx.footnotes {
+    if !footnotes.contains(note.note_id) {
+      footnotes.set(note.note_id, note)
+    }
+  }
+  let endnotes : Map[String, @docmodel.DocxNote] = Map([])
+  for note in docx.endnotes {
+    if !endnotes.contains(note.note_id) {
+      endnotes.set(note.note_id, note)
+    }
+  }
+  let comments : Map[String, @docmodel.DocxComment] = Map([])
+  for comment in docx.comments {
+    if !comments.contains(comment.comment_id) {
+      comments.set(comment.comment_id, comment)
+    }
+  }
+  let textboxes_by_owner : Map[String, Array[@docmodel.DocxTextBox]] = Map([])
+  for textbox in docx.textboxes {
+    match textboxes_by_owner.get(textbox.owner_part) {
+      Some(items) => items.push(textbox)
+      None => textboxes_by_owner.set(textbox.owner_part, [textbox])
+    }
+  }
+  { footnotes, endnotes, comments, textboxes_by_owner }
+}
+
+///|
+fn docx_body_ref_labels_with_indexes(
+  docx : @docmodel.DocxDocument,
+  indexes : DocxLoweringIndexes,
+) -> DocxRefLabels {
   let footnote_ids : Array[String] = []
   let endnote_ids : Array[String] = []
   let comment_ids : Array[String] = []
@@ -492,7 +535,7 @@ fn docx_body_ref_labels(docx : @docmodel.DocxDocument) -> DocxRefLabels {
   let footnotes : Map[String, String] = Map([])
   let mut footnote_index = 1
   for id in footnote_ids {
-    match @docmodel.docx_find_footnote(docx, id) {
+    match indexes.footnotes.get(id) {
       Some(_) => {
         footnotes.set(id, footnote_index.to_string())
         footnote_index += 1
@@ -503,7 +546,7 @@ fn docx_body_ref_labels(docx : @docmodel.DocxDocument) -> DocxRefLabels {
   let endnotes : Map[String, String] = Map([])
   let mut endnote_index = 1
   for id in endnote_ids {
-    match @docmodel.docx_find_endnote(docx, id) {
+    match indexes.endnotes.get(id) {
       Some(_) => {
         endnotes.set(id, endnote_index.to_string())
         endnote_index += 1
@@ -514,7 +557,7 @@ fn docx_body_ref_labels(docx : @docmodel.DocxDocument) -> DocxRefLabels {
   let comments : Map[String, String] = Map([])
   let mut comment_index = 1
   for id in comment_ids {
-    match @docmodel.docx_find_comment(docx, id) {
+    match indexes.comments.get(id) {
       Some(_) => {
         comments.set(id, comment_index.to_string())
         comment_index += 1
@@ -533,9 +576,10 @@ fn append_docx_note_definitions(
   endnote_ids : Array[String],
   asset_ctx : DocxAssetExportCtx?,
   ref_labels : DocxRefLabels?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
   for id in footnote_ids {
-    match @docmodel.docx_find_footnote(docx, id) {
+    match indexes.footnotes.get(id) {
       Some(note) =>
         append_docx_note_definition(
           doc,
@@ -552,7 +596,7 @@ fn append_docx_note_definitions(
     }
   }
   for id in endnote_ids {
-    match @docmodel.docx_find_endnote(docx, id) {
+    match indexes.endnotes.get(id) {
       Some(note) =>
         append_docx_note_definition(
           doc,
@@ -619,10 +663,11 @@ fn append_docx_comments(
   docx : @docmodel.DocxDocument,
   ids : Array[String],
   asset_ctx : DocxAssetExportCtx?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
   let mut section_started = false
   for id in ids {
-    match @docmodel.docx_find_comment(docx, id) {
+    match indexes.comments.get(id) {
       Some(comment) => {
         if !section_started {
           push_docx_block_with_origin(
@@ -653,11 +698,12 @@ fn append_docx_part_bodies(
   section_title : String,
   item_title : String,
   asset_ctx : DocxAssetExportCtx?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
   let mut section_started = false
   let mut display_index = 1
   for body in bodies {
-    if !docx_part_body_has_visible_content(docx, body) {
+    if !docx_part_body_has_visible_content(body, indexes) {
       continue
     }
     if !section_started {
@@ -681,24 +727,27 @@ fn append_docx_part_bodies(
       ),
       Some(origin),
     )
-    push_docx_part_body_blocks(doc, docx, body, asset_ctx)
+    push_docx_part_body_blocks(doc, docx, body, asset_ctx, indexes)
     display_index += 1
   }
 }
 
 ///|
 fn docx_part_body_has_visible_content(
-  docx : @docmodel.DocxDocument,
   body : @docmodel.DocxPartBody,
+  indexes : DocxLoweringIndexes,
 ) -> Bool {
   if docx_blocks_have_visible_content(body.blocks) {
     return true
   }
-  for textbox in docx.textboxes {
-    if textbox.owner_part == body.part_name &&
-      docx_blocks_have_visible_content(textbox.blocks) {
-      return true
-    }
+  match indexes.textboxes_by_owner.get(body.part_name) {
+    Some(textboxes) =>
+      for textbox in textboxes {
+        if docx_blocks_have_visible_content(textbox.blocks) {
+          return true
+        }
+      }
+    None => ()
   }
   false
 }
@@ -709,6 +758,7 @@ fn push_docx_part_body_blocks(
   docx : @docmodel.DocxDocument,
   body : @docmodel.DocxPartBody,
   asset_ctx : DocxAssetExportCtx?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
   let body_doc = @cor.new_document()
   push_docx_blocks(body_doc, docx, body.blocks, asset_ctx)
@@ -717,6 +767,7 @@ fn push_docx_part_body_blocks(
     docx,
     body.part_name,
     asset_ctx,
+    indexes,
   )
   copy_docx_asset_origins(doc, body_doc)
   for block in body_doc.blocks.val {
@@ -731,14 +782,18 @@ fn push_docx_owner_textboxes_into_part_body(
   docx : @docmodel.DocxDocument,
   owner_part : String,
   asset_ctx : DocxAssetExportCtx?,
+  indexes : DocxLoweringIndexes,
 ) -> Unit {
-  for textbox in docx.textboxes {
-    if textbox.owner_part == owner_part &&
-      docx_blocks_have_visible_content(textbox.blocks) {
-      let textbox_doc = @cor.new_document()
-      push_docx_blocks(textbox_doc, docx, textbox.blocks, asset_ctx)
-      merge_docx_textbox_blocks_into_part_body(doc, textbox_doc)
-    }
+  match indexes.textboxes_by_owner.get(owner_part) {
+    Some(textboxes) =>
+      for textbox in textboxes {
+        if docx_blocks_have_visible_content(textbox.blocks) {
+          let textbox_doc = @cor.new_document()
+          push_docx_blocks(textbox_doc, docx, textbox.blocks, asset_ctx)
+          merge_docx_textbox_blocks_into_part_body(doc, textbox_doc)
+        }
+      }
+    None => ()
   }
 }
 
