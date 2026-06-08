@@ -67,6 +67,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
   )
 
   let shared_strings_started = xlsx_parse_profile_stage_started(profile)
+  let shared_string_issues : Array[XlsxValidationIssue] = []
   let shared_strings = if @ox.has_part(pkg, "xl/sharedStrings.xml") {
     let shared_xml = @ox.read_part_text(pkg, "xl/sharedStrings.xml") catch {
       e =>
@@ -74,7 +75,9 @@ fn parse_xlsx_workbook_from_package_with_profile(
           "shared strings read failed: " + e.to_string(),
         )
     }
-    parse_shared_strings(shared_xml)
+    let (parsed, issues) = parse_shared_strings(shared_xml)
+    shared_string_issues.append(issues)
+    parsed
   } else {
     []
   }
@@ -127,7 +130,9 @@ fn parse_xlsx_workbook_from_package_with_profile(
     Some("uses_date_1904=" + uses_date_1904.to_string()),
   )
   let sheet_infos_started = xlsx_parse_profile_stage_started(profile)
-  let sheet_infos = parse_workbook_sheets(pkg, workbook_xml)
+  let (sheet_infos, sheet_info_issues) = parse_workbook_sheets(
+    pkg, workbook_xml,
+  )
   xlsx_parse_profile_stage_finished(
     profile,
     "sheet_infos",
@@ -135,7 +140,9 @@ fn parse_xlsx_workbook_from_package_with_profile(
     Some("count=" + sheet_infos.length().to_string()),
   )
   let defined_names_started = xlsx_parse_profile_stage_started(profile)
-  let defined_names = parse_workbook_defined_names(workbook_xml, sheet_infos)
+  let (defined_names, defined_name_issues) = parse_workbook_defined_names(
+    workbook_xml, sheet_infos,
+  )
   xlsx_parse_profile_stage_finished(
     profile,
     "defined_names",
@@ -143,6 +150,9 @@ fn parse_xlsx_workbook_from_package_with_profile(
     Some("count=" + defined_names.length().to_string()),
   )
   let sheets : Array[XlsxSheet] = []
+  let total_cell_budget_remaining : Ref[Int] = {
+    val: xlsx_max_total_cells(),
+  }
 
   for info in sheet_infos {
     let normalized_target = match info.target {
@@ -233,7 +243,10 @@ fn parse_xlsx_workbook_from_package_with_profile(
     )
 
     let sheet_relationships_started = xlsx_parse_profile_stage_started(profile)
-    let sheet_relationships = read_sheet_relationships(pkg, normalized_target)
+    let (sheet_relationships, sheet_relationship_issues) = read_sheet_relationships(
+      pkg,
+      normalized_target,
+    )
     xlsx_parse_profile_stage_finished(
       profile,
       "sheet:" + info.name + ":relationships",
@@ -267,12 +280,16 @@ fn parse_xlsx_workbook_from_package_with_profile(
       styles,
       uses_date_1904,
       profile,
+      total_cell_budget_remaining,
+      sheet_relationship_issues,
     )
     sheets.push(sheet)
   }
 
   let issues_started = xlsx_parse_profile_stage_started(profile)
-  let workbook_relationships = read_workbook_relationships(pkg)
+  let (workbook_relationships, workbook_relationship_issues) = read_workbook_relationships(
+    pkg,
+  )
   let unsupported_features = workbook_unsupported_features(
     pkg, workbook_xml, workbook_relationships,
   )
@@ -285,6 +302,10 @@ fn parse_xlsx_workbook_from_package_with_profile(
     sheet_infos.length(),
     sheets,
   )
+  issues.append(shared_string_issues)
+  issues.append(sheet_info_issues)
+  issues.append(defined_name_issues)
+  issues.append(workbook_relationship_issues)
   xlsx_parse_profile_stage_finished(
     profile,
     "workbook_issues",
@@ -351,20 +372,72 @@ fn parse_xlsx_custom_properties(
 ///|
 fn read_workbook_relationships(
   pkg : @ox.OoxmlPackage,
-) -> Array[@ox.OoxmlRelationship] {
-  @ox.read_part_relationships(pkg, "xl/workbook.xml") catch {
+) -> (Array[@ox.OoxmlRelationship], Array[XlsxValidationIssue]) {
+  let rels = @ox.read_part_relationships(pkg, "xl/workbook.xml") catch {
     _ => []
   }
+  truncate_workbook_relationships(rels, "xl/workbook.xml")
 }
 
 ///|
 fn read_sheet_relationships(
   pkg : @ox.OoxmlPackage,
   sheet_part : String,
-) -> Array[@ox.OoxmlRelationship] {
-  @ox.read_part_relationships(pkg, sheet_part) catch {
+) -> (Array[@ox.OoxmlRelationship], Array[XlsxValidationIssue]) {
+  let rels = @ox.read_part_relationships(pkg, sheet_part) catch {
     _ => []
   }
+  truncate_sheet_relationships(rels, sheet_part)
+}
+
+///|
+fn truncate_workbook_relationships(
+  rels : Array[@ox.OoxmlRelationship],
+  part_target : String,
+) -> (Array[@ox.OoxmlRelationship], Array[XlsxValidationIssue]) {
+  let out : Array[@ox.OoxmlRelationship] = []
+  let issues : Array[XlsxValidationIssue] = []
+  for rel in rels {
+    if out.length() >= xlsx_max_relationships_per_part() {
+      issues.push(
+        workbook_issue(
+          XlsxValidationIssueKind::LargeSheetTruncated,
+          XlsxValidationSeverity::Warning,
+          Some(part_target),
+          "relationships truncated at hard cap: " +
+          xlsx_max_relationships_per_part().to_string(),
+        ),
+      )
+      break
+    }
+    out.push(rel)
+  }
+  (out, issues)
+}
+
+///|
+fn truncate_sheet_relationships(
+  rels : Array[@ox.OoxmlRelationship],
+  part_target : String,
+) -> (Array[@ox.OoxmlRelationship], Array[XlsxValidationIssue]) {
+  let out : Array[@ox.OoxmlRelationship] = []
+  let issues : Array[XlsxValidationIssue] = []
+  for rel in rels {
+    if out.length() >= xlsx_max_relationships_per_part() {
+      issues.push(
+        workbook_issue(
+          XlsxValidationIssueKind::LargeSheetTruncated,
+          XlsxValidationSeverity::Warning,
+          Some(part_target),
+          "relationships truncated at hard cap: " +
+          xlsx_max_relationships_per_part().to_string(),
+        ),
+      )
+      break
+    }
+    out.push(rel)
+  }
+  (out, issues)
 }
 
 ///|
@@ -637,8 +710,9 @@ fn workbook_issue(
 fn parse_workbook_defined_names(
   workbook_xml : String,
   sheet_infos : Array[SheetInfo],
-) -> Array[XlsxDefinedName] {
+) -> (Array[XlsxDefinedName], Array[XlsxValidationIssue]) {
   let out : Array[XlsxDefinedName] = []
+  let issues : Array[XlsxValidationIssue] = []
   let mut pos = 0
 
   while true {
@@ -655,6 +729,18 @@ fn parse_workbook_defined_names(
             match end0 {
               None => break
               Some(end1) => {
+                if out.length() >= xlsx_max_defined_names() {
+                  issues.push(
+                    workbook_issue(
+                      XlsxValidationIssueKind::LargeSheetTruncated,
+                      XlsxValidationSeverity::Warning,
+                      Some("xl/workbook.xml"),
+                      "defined names truncated at hard cap: " +
+                      xlsx_max_defined_names().to_string(),
+                    ),
+                  )
+                  break
+                }
                 let name = xml_unescape(get_attr(tag, "name").unwrap_or(""))
                 let text = xml_unescape(workbook_xml[i1 + 1:end1].to_owned())
                 let local_idx_raw = get_attr(tag, "localSheetId").unwrap_or("")
@@ -702,7 +788,7 @@ fn parse_workbook_defined_names(
     }
   }
 
-  out
+  (out, issues)
 }
 
 ///|
@@ -869,8 +955,9 @@ fn is_supported_sheet_relationship(rel_type : String?) -> Bool {
 fn parse_workbook_sheets(
   pkg : @ox.OoxmlPackage,
   workbook_xml : String,
-) -> Array[SheetInfo] {
+) -> (Array[SheetInfo], Array[XlsxValidationIssue]) {
   let out : Array[SheetInfo] = []
+  let issues : Array[XlsxValidationIssue] = []
   let mut pos = 0
 
   while true {
@@ -888,6 +975,18 @@ fn parse_workbook_sheets(
             let rid = get_attr(tag, "r:id").unwrap_or("")
             let state = parse_sheet_state(get_attr(tag, "state").unwrap_or(""))
             if rid != "" {
+              if out.length() >= xlsx_max_sheets() {
+                issues.push(
+                  workbook_issue(
+                    XlsxValidationIssueKind::LargeSheetTruncated,
+                    XlsxValidationSeverity::Warning,
+                    Some("xl/workbook.xml"),
+                    "sheets truncated at hard cap: " +
+                    xlsx_max_sheets().to_string(),
+                  ),
+                )
+                break
+              }
               let rel = @ox.find_relationship_by_id(pkg, "xl/workbook.xml", rid) catch {
                 _ => None
               }
@@ -914,7 +1013,7 @@ fn parse_workbook_sheets(
     }
   }
 
-  out
+  (out, issues)
 }
 
 ///|

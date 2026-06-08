@@ -639,6 +639,37 @@ fn repeated_table_overrides(count : Int) -> String {
 }
 
 ///|
+fn generated_xlsx_pkg_over_hard_budgets() -> @ox.OoxmlPackage raise {
+  let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<sheets><sheet name=\"HardCaps\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+    repeated_defined_names(520) +
+    "</workbook>"
+  let workbook_rels_xml = minimal_rels_xml(
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>",
+  )
+  let sheet_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+    "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+    "<sheetData>" +
+    repeated_inline_rows(2010) +
+    "</sheetData>" +
+    repeated_internal_hyperlinks(2010) +
+    "</worksheet>"
+  let long_shared = repeated_shared_strings(2010)
+  workbook_pkg_from_parts(
+    workbook_xml,
+    workbook_rels_xml,
+    [
+      ("xl/worksheets/sheet1.xml", sheet_xml),
+      ("xl/sharedStrings.xml", long_shared),
+    ],
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+    "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>",
+  )
+}
+
+///|
 fn generated_xlsx_pkg_with_guard_edges() -> @ox.OoxmlPackage raise {
   let workbook_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
@@ -1543,6 +1574,43 @@ test "xlsx semantic guard warnings stay bounded and explicit" {
       fail("ordinary generated workbook should not emit guard warnings")
     }
   }
+}
+
+///|
+test "xlsx semantic parser hard budgets truncate facts with typed warnings" {
+  let workbook = @xlsx.parse_xlsx_workbook_from_package(
+    generated_xlsx_pkg_over_hard_budgets(),
+  )
+  assert_true(workbook.shared_strings.length() <= 2000)
+  assert_true(workbook.defined_names.length() <= 512)
+  assert_eq(workbook.sheets.length(), 1)
+  assert_true(workbook.sheets[0].cells.length() <= 2000)
+  assert_true(workbook.sheets[0].hyperlinks.length() <= 2000)
+
+  let issues = @xlsx.collect_xlsx_validation_issues(workbook)
+  let mut saw_shared_count_cap = false
+  let mut saw_defined_name_cap = false
+  let mut saw_cell_cap = false
+  let mut saw_hyperlink_cap = false
+  for issue in issues {
+    if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSharedStrings &&
+      issue.message.contains("sharedStrings count truncated") {
+      saw_shared_count_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("defined names truncated") {
+      saw_defined_name_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("cells truncated") {
+      saw_cell_cap = true
+    } else if issue.kind == @xlsx.XlsxValidationIssueKind::LargeSheetTruncated &&
+      issue.message.contains("hyperlinks truncated") {
+      saw_hyperlink_cap = true
+    }
+  }
+  assert_true(saw_shared_count_cap)
+  assert_true(saw_defined_name_cap)
+  assert_true(saw_cell_cap)
+  assert_true(saw_hyperlink_cap)
 }
 
 ///|

@@ -57,3 +57,63 @@ fn xlsx_large_sheet_dimension_warning_threshold() -> Int {
 fn xlsx_large_under_cap_rich_table_warning_threshold() -> Int {
   500_000
 }
+
+///|
+fn xlsx_max_shared_strings() -> Int {
+  2_000
+}
+
+///|
+fn xlsx_max_shared_string_bytes() -> Int {
+  64_000
+}
+
+///|
+fn xlsx_max_shared_string_chars_per_item() -> Int {
+  4_096
+}
+
+///|
+fn xlsx_max_sheets() -> Int {
+  256
+}
+
+///|
+fn xlsx_max_cells_per_sheet() -> Int {
+  2_000
+}
+
+///|
+fn xlsx_max_total_cells() -> Int {
+  20_000
+}
+
+///|
+fn xlsx_max_merged_ranges() -> Int {
+  2_000
+}
+
+///|
+fn xlsx_max_tables() -> Int {
+  512
+}
+
+///|
+fn xlsx_max_defined_names() -> Int {
+  512
+}
+
+///|
+fn xlsx_max_comments() -> Int {
+  2_000
+}
+
+///|
+fn xlsx_max_relationships_per_part() -> Int {
+  1_024
+}
+
+///|
+fn xlsx_max_hyperlinks() -> Int {
+  2_000
+}

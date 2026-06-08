@@ -24,9 +24,16 @@ fn parse_sheet_model(
   styles : XlsxStyles,
   uses_date_1904 : Bool,
   profile : XlsxParseProfileReport?,
+  total_cell_budget_remaining : Ref[Int],
+  relationship_issues : Array[XlsxValidationIssue],
 ) -> XlsxSheetModel {
   let collect_started = xlsx_parse_profile_stage_started(profile)
-  let parsed_cells = collect_sheet_cells(sheet_xml)
+  let (parsed_cells, cell_budget_issues) = collect_sheet_cells(
+    sheet_name,
+    part_target,
+    sheet_xml,
+    total_cell_budget_remaining,
+  )
   xlsx_parse_profile_stage_finished(
     profile,
     "sheet:" + sheet_name + ":collect_cells",
@@ -208,9 +215,14 @@ fn parse_sheet_model(
   )
 
   let issues : Array[XlsxValidationIssue] = []
+  issues.append(cell_budget_issues)
+  issues.append(relationship_issues)
   issues.append(merged_issues)
   issues.append(hyperlink_issues)
   issues.append(table_issues)
+  issues.append(
+    truncated_comments_issues(sheet_name, part_target, comments.length()),
+  )
   let unsupported_features = sheet_unsupported_features(
     pkg, sheet_name, part_target, sheet_xml, sheet_relationships,
   )
@@ -244,7 +256,7 @@ fn parse_sheet_model(
     has_sheet_xml: true,
     cells,
     merged_ranges,
-    comments,
+    comments: truncate_comments_for_sheet(comments),
     hyperlinks,
     tables,
     hidden_rows,
@@ -446,6 +458,40 @@ fn xlsx_non_empty_cell_count(cells : Array[XlsxCellModel]) -> Int {
 }
 
 ///|
+fn truncate_comments_for_sheet(comments : Array[XlsxComment]) -> Array[XlsxComment] {
+  if comments.length() <= xlsx_max_comments() {
+    return comments
+  }
+  let out : Array[XlsxComment] = []
+  for i in 0..<xlsx_max_comments() {
+    out.push(comments[i])
+  }
+  out
+}
+
+///|
+fn truncated_comments_issues(
+  sheet_name : String,
+  part_target : String?,
+  comment_count : Int,
+) -> Array[XlsxValidationIssue] {
+  if comment_count <= xlsx_max_comments() {
+    return []
+  }
+  [
+    sheet_issue(
+      XlsxValidationIssueKind::LargeSheetTruncated,
+      XlsxValidationSeverity::Warning,
+      sheet_name,
+      None,
+      part_target,
+      "comments truncated at hard cap: " +
+      xlsx_max_comments().to_string(),
+    ),
+  ]
+}
+
+///|
 fn empty_sheet_model(
   sheet_name : String,
   sheet_id : String?,
@@ -517,9 +563,16 @@ fn collect_hidden_rows(sheet_xml : String) -> Array[Int] {
 }
 
 ///|
-fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
+fn collect_sheet_cells(
+  sheet_name : String,
+  part_target : String?,
+  sheet_xml : String,
+  total_cell_budget_remaining : Ref[Int],
+) -> (Array[ParsedCellXml], Array[XlsxValidationIssue]) {
   let out : Array[ParsedCellXml] = []
+  let issues : Array[XlsxValidationIssue] = []
   let mut pos = 0
+  let per_sheet_cap = xlsx_max_cells_per_sheet()
 
   while true {
     let c0 = find_sub(sheet_xml, "<c ", pos)
@@ -530,11 +583,40 @@ fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
         match ctag_end0 {
           None => break
           Some(i1) => {
+            if out.length() >= per_sheet_cap {
+              issues.push(
+                sheet_issue(
+                  XlsxValidationIssueKind::LargeSheetTruncated,
+                  XlsxValidationSeverity::Warning,
+                  sheet_name,
+                  None,
+                  part_target,
+                  "cells truncated at per-sheet hard cap: " +
+                  per_sheet_cap.to_string(),
+                ),
+              )
+              break
+            }
+            if total_cell_budget_remaining.val <= 0 {
+              issues.push(
+                sheet_issue(
+                  XlsxValidationIssueKind::LargeSheetTruncated,
+                  XlsxValidationSeverity::Warning,
+                  sheet_name,
+                  None,
+                  part_target,
+                  "cells truncated at workbook hard cap: " +
+                  xlsx_max_total_cells().to_string(),
+                ),
+              )
+              break
+            }
             let ctag = sheet_xml[i0:i1 + 1].to_owned()
             let rref = get_attr(ctag, "r").unwrap_or("")
             let cell_type = get_attr(ctag, "t").unwrap_or("")
             let style_idx = parse_int(get_attr(ctag, "s").unwrap_or(""))
             if ctag.has_suffix("/>") {
+              total_cell_budget_remaining.val -= 1
               out.push({
                 reference: rref,
                 cell_type,
@@ -552,6 +634,7 @@ fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
                   let inner = sheet_xml[i1 + 1:c_end].to_owned()
                   let value = tag_text(inner, "v").unwrap_or("")
                   let formula_text = tag_text(inner, "f")
+                  total_cell_budget_remaining.val -= 1
                   out.push({
                     reference: rref,
                     cell_type,
@@ -570,7 +653,7 @@ fn collect_sheet_cells(sheet_xml : String) -> Array[ParsedCellXml] {
     }
   }
 
-  out
+  (out, issues)
 }
 
 ///|
@@ -600,6 +683,20 @@ fn parse_merged_ranges(
                 match merge0 {
                   None => break
                   Some(i0) => {
+                    if ranges.length() >= xlsx_max_merged_ranges() {
+                      issues.push(
+                        sheet_issue(
+                          XlsxValidationIssueKind::LargeSheetTruncated,
+                          XlsxValidationSeverity::Warning,
+                          sheet_name,
+                          None,
+                          part_target,
+                          "merged ranges truncated at hard cap: " +
+                          xlsx_max_merged_ranges().to_string(),
+                        ),
+                      )
+                      break
+                    }
                     let merge1 = find_sub(inner, ">", i0)
                     match merge1 {
                       None => break
@@ -658,6 +755,20 @@ fn parse_sheet_hyperlinks(
     match link0 {
       None => break
       Some(i0) => {
+        if hyperlinks.length() >= xlsx_max_hyperlinks() {
+          issues.push(
+            sheet_issue(
+              XlsxValidationIssueKind::LargeSheetTruncated,
+              XlsxValidationSeverity::Warning,
+              sheet_name,
+              None,
+              part_target,
+              "hyperlinks truncated at hard cap: " +
+              xlsx_max_hyperlinks().to_string(),
+            ),
+          )
+          break
+        }
         let link1 = find_sub(sheet_xml, ">", i0)
         match link1 {
           None => break
@@ -737,6 +848,19 @@ fn parse_sheet_tables(
     if !(rel.rel_type.has_suffix("/table") ||
       rel.rel_type.contains("relationships/table")) {
       continue
+    }
+    if tables.length() >= xlsx_max_tables() {
+      issues.push(
+        sheet_issue(
+          XlsxValidationIssueKind::LargeSheetTruncated,
+          XlsxValidationSeverity::Warning,
+          sheet_name,
+          None,
+          None,
+          "tables truncated at hard cap: " + xlsx_max_tables().to_string(),
+        ),
+      )
+      break
     }
     if rel.target_mode != @ox.OoxmlTargetMode::Internal ||
       rel.resolved_target == "" ||
