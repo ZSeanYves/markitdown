@@ -3,13 +3,13 @@
 ## Snapshot
 
 - Date: 2026-06-08
-- HEAD at triage: `803bb97`
+- HEAD at P1 follow-up: `57260fb`
 - Command: `bash samples/check_quality.sh --format docx || true`
-- Run: `.tmp/quality/runs/docx-20260608-211519-78415`
+- Run: `.tmp/quality/runs/docx-20260608-214624-7118`
 - Manifest: `markitdown-quality-lab/external_quality/MANIFEST.tsv`
 - Result: 57 rows, 54 checked, 3 skipped for license review, 7 failed
 
-This report is documentation only. It does not change runtime code, repo-local samples expected output, or the quality-lab manifest.
+This report is documentation only. It does not change runtime code, repo-local samples expected output, or the quality-lab manifest. Quality-lab policy rows were left untouched in this slice so the next policy update can be reviewed as an explicit quality-lab change.
 
 ## Failure Table
 
@@ -30,6 +30,23 @@ This report is documentation only. It does not change runtime code, repo-local s
 - Product policy: repeated image reference count in `having-images.docx` needs an explicit product decision.
 - Non-raster unsupported policy: WMF/EMF/PICT currently lower to typed image placeholders instead of exported assets.
 - Bounded deep-table policy: preserving `Nested level 2500` and `Nested level 4999` conflicts with the hard depth guard.
+
+## P1 Follow-up Plan
+
+| priority | rows | policy decision | next action |
+|---|---|---|---|
+| P1 | `docx_deep_table_cell_apache_poi`, `docx_deep_table_cell_apache_poi_counts` | Bounded nested-table output is accepted product behavior. The quality row should verify termination, visible early content, and the typed unsupported placeholder, not deepest-level preservation. | Update quality-lab manifest/expected in a dedicated policy commit after review. Suggested required signals: `Nested level 0`, `[Unsupported DOCX nested table depth limit]`, no timeout/crash. |
+| P1 | `docx_images_apache_poi_variouspictures`, `docx_images_apache_poi_variouspictures_asset_counts` | Raster images are exported; non-raster WMF/EMF/PICT remain typed unsupported image placeholders. | Split raster asset-count checks from non-raster placeholder checks. Remove `.img` rasterization expectations unless a future renderer is added. |
+| P1 | `docx_notes_openxmlsdk_image_body_order_counts` | Current extension policy emits actual raster extensions (`.png`) rather than generic `.img`. Text/body/note order remains the important quality signal. | Replace filename-extension-specific `.img` checks with image reference/order anchors or content-type-aware asset checks. |
+| P2 | `docx_inline_images_python_docx_shp_inline_shape_access_counts` | `.jpg` and `.jpeg` spelling should not be a quality failure when the exported asset content/type is correct. | Relax exact `.jpeg)` assertion to image-ref or MIME/content-type policy. |
+| P2 | `docx_images_python_docx_having_images_counts` | Repeated image references are currently emitted as document references while asset export is deduplicated. | Decide product policy: keep repeated Markdown refs and adjust exact count, or add a future runtime normalization slice. Do not change runtime only to match stale count 5. |
+
+## Quality-Lab Change Status
+
+- `markitdown-quality-lab/external_quality/MANIFEST.tsv`: not modified.
+- Repo-local samples expected output: not modified.
+- DOCX runtime: not modified.
+- Recommended next slice: `quality: align DOCX media and deep-table expectations`, scoped only to the seven DOCX rows above.
 
 ## Recommended Follow-up
 
