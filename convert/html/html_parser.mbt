@@ -176,12 +176,6 @@ pub(all) struct HtmlSemanticBlockSummary {
 }
 
 ///|
-priv struct HtmlByteRange {
-  start : Int
-  end_ : Int
-}
-
-///|
 priv struct HtmlProfileBlockCounts {
   table_count : Int
   image_count : Int

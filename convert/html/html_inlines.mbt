@@ -1,190 +1,12 @@
 ///|
-/// M11 boundary: HtmlInline is the convert-owned Markdown/product inline view.
-/// Raw byte inline scanners below are quarantined; normal runtime builds this
-/// view from parser inline/link/image/note facts.
+/// HtmlInline is the convert-owned Markdown/product inline view. Normal runtime
+/// builds it from parser inline/link/image/note facts.
 priv enum HtmlInline {
   Text(String)
   Break
   Image(String, String?, String) // alt, title, src
   Link(String, String) // text, href
   NoteRef(@cor.NoteRef)
-}
-
-///|
-fn html_inlines_from_bytes(inner : Bytes) -> Array[HtmlInline] {
-  html_inlines_from_bytes_with_notes(inner, empty_html_note_plan())
-}
-
-///|
-fn html_inlines_from_bytes_with_notes(
-  inner : Bytes,
-  note_plan : HtmlNotePlan,
-) -> Array[HtmlInline] {
-  let out : Array[HtmlInline] = []
-
-  let lt = pat("<")
-  let gt = pat(">")
-  let close_script = pat("</script>")
-  let close_style = pat("</style>")
-  let close_noscript = pat("</noscript>")
-  let close_head = pat("</head>")
-  let close_comment = pat("-->")
-  let mut pos = 0
-  let n = inner.length()
-
-  while pos < n {
-    let lt0 = find_bytes(inner, lt, pos)
-    match lt0 {
-      None => {
-        let tail = inner[pos:n].to_owned()
-        push_text_inline(out, tail)
-        break
-      }
-      Some(i0) => {
-        if i0 > pos {
-          let head = inner[pos:i0].to_owned()
-          push_text_inline(out, head)
-        }
-
-        let gt0 = find_bytes(inner, gt, i0)
-        match gt0 {
-          None => {
-            let tail = inner[i0:n].to_owned()
-            push_text_inline(out, tail)
-            break
-          }
-          Some(j0) => {
-            let tag_bs = inner[i0:j0 + 1].to_owned()
-            let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
-            let tag = tag0.to_lower()
-            let tag_name = html_open_tag_name(tag0).unwrap_or("")
-            let is_close_tag = tag.has_prefix("</")
-
-            if !is_close_tag && tag_name == "br" {
-              out.push(HtmlInline::Break)
-            } else if tag.has_prefix("<!--") {
-              let end0 = find_bytes(inner, close_comment, i0 + 4)
-              match end0 {
-                Some(end) => {
-                  pos = end + close_comment.length()
-                  continue
-                }
-                None => break
-              }
-            } else if !is_close_tag && tag_name == "script" {
-              let end0 = find_bytes_case_insensitive(
-                inner,
-                close_script,
-                j0 + 1,
-              )
-              match end0 {
-                Some(end) => {
-                  pos = end + close_script.length()
-                  continue
-                }
-                None => ()
-              }
-            } else if !is_close_tag && tag_name == "style" {
-              let end0 = find_bytes_case_insensitive(inner, close_style, j0 + 1)
-              match end0 {
-                Some(end) => {
-                  pos = end + close_style.length()
-                  continue
-                }
-                None => ()
-              }
-            } else if !is_close_tag && tag_name == "noscript" {
-              let end0 = find_bytes_case_insensitive(
-                inner,
-                close_noscript,
-                j0 + 1,
-              )
-              match end0 {
-                Some(end) => {
-                  pos = end + close_noscript.length()
-                  continue
-                }
-                None => ()
-              }
-            } else if !is_close_tag && tag_name == "head" {
-              let end0 = find_bytes_case_insensitive(inner, close_head, j0 + 1)
-              match end0 {
-                Some(end) => {
-                  pos = end + close_head.length()
-                  continue
-                }
-                None => ()
-              }
-            } else if !is_close_tag && tag_name == "a" {
-              let href = sanitize_html_href(
-                  read_html_attr_value(tag0, "href").unwrap_or(""),
-                )
-                .unwrap_or("")
-                .trim()
-                .to_owned()
-              if href != "" {
-                let close_a = pat("</a>")
-                let inner_start = j0 + 1
-                let a_end0 = find_bytes_case_insensitive(
-                  inner, close_a, inner_start,
-                )
-                match a_end0 {
-                  Some(a_end) => {
-                    let inner_bs = inner[inner_start:a_end].to_owned()
-                    let text = render_inlines(html_inlines_from_bytes(inner_bs))
-                      .trim()
-                      .to_owned()
-                    if text != "" {
-                      let signature = html_note_ref_signature(href, text)
-                      match note_plan.refs_by_signature.get(signature) {
-                        Some(note) => out.push(HtmlInline::NoteRef(note))
-                        None => out.push(HtmlInline::Link(text, href))
-                      }
-                    }
-                    pos = a_end + close_a.length()
-                    continue
-                  }
-                  None => ()
-                }
-              }
-            } else if !is_close_tag && tag_name == "img" {
-              let src = html_unescape(
-                  read_html_attr_value(tag0, "src").unwrap_or(""),
-                )
-                .trim()
-                .to_owned()
-              if src != "" {
-                let alt = html_unescape(
-                  read_html_attr_value(tag0, "alt").unwrap_or(""),
-                )
-                let title = read_html_attr_value(tag0, "title").map(
-                  html_unescape,
-                )
-                out.push(HtmlInline::Image(alt, title, src))
-              }
-            }
-
-            pos = j0 + 1
-          }
-        }
-      }
-    }
-  }
-
-  merge_adjacent_text_inlines(out)
-}
-
-///|
-fn push_text_inline(out : Array[HtmlInline], bs : Bytes) -> Unit {
-  if bs.length() == 0 {
-    return
-  }
-  let s0 = @utf8.decode(bs, ignore_bom=false) catch { _ => "" }
-  let s1 = html_unescape(s0)
-  let s2 = @cor.normalize_document_text_cleanup(s1)
-  if s2 != "" {
-    out.push(HtmlInline::Text(s2))
-  }
 }
 
 ///|
@@ -244,60 +66,18 @@ fn render_inlines(xs : Array[HtmlInline]) -> String {
 }
 
 ///|
-fn find_figure_image_inline(inner : Bytes) -> HtmlInline? {
-  let open_img = pat("<img")
-  let gt_pat = pat(">")
-  let p0 = find_bytes(inner, open_img, 0)
-  match p0 {
-    None => None
-    Some(i0) => {
-      let gt = find_bytes(inner, gt_pat, i0)
-      match gt {
-        None => None
-        Some(gt0) => {
-          let tag_bs = inner[i0:gt0 + 1].to_owned()
-          let tag0 = @utf8.decode(tag_bs, ignore_bom=false) catch { _ => "" }
-          let src = html_unescape(
-              read_html_attr_value(tag0, "src").unwrap_or(""),
-            )
-            .trim()
-            .to_owned()
-          if src == "" {
-            return None
-          }
-          let alt = html_unescape(
-            read_html_attr_value(tag0, "alt").unwrap_or(""),
-          )
-          let title = read_html_attr_value(tag0, "title").map(html_unescape)
-          Some(HtmlInline::Image(alt, title, src))
-        }
-      }
-    }
+fn render_html_note_ref_inline(note : @cor.NoteRef) -> String {
+  if note.body_status == @cor.NoteBodyStatus::Resolved &&
+    note.note_id.trim() != "" {
+    return "[^" + note.note_id.trim().to_owned() + "]"
   }
-}
-
-///|
-fn find_figure_caption_inlines(inner : Bytes) -> Array[HtmlInline] {
-  let open_cap = pat("<figcaption")
-  let close_cap = pat("</figcaption>")
-  let gt_pat = pat(">")
-  let c0 = find_bytes(inner, open_cap, 0)
-  match c0 {
-    None => []
-    Some(i0) => {
-      let gt = find_bytes(inner, gt_pat, i0)
-      match gt {
-        None => []
-        Some(gt0) => {
-          let start = gt0 + 1
-          let c1 = find_bytes(inner, close_cap, start)
-          match c1 {
-            None => []
-            Some(end) => html_inlines_from_bytes(inner[start:end].to_owned())
-          }
-        }
-      }
-    }
+  let marker = note.marker.trim().to_owned()
+  if marker == "" {
+    ""
+  } else if marker.has_prefix("^") {
+    marker
+  } else {
+    "^" + marker
   }
 }
 

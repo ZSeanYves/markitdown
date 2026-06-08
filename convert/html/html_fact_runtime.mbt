@@ -64,32 +64,30 @@ fn html_semantic_document_to_blocks(
 ///|
 fn html_fact_prepare_note_defs(ctx : HtmlConvertContext) -> Unit {
   for note in ctx.semantic.notes {
-    match note.body_source_key {
-      Some(body_key) =>
-        match html_fact_note_body_by_key(ctx.semantic, body_key) {
-          Some(body) =>
+    match (note.ref_source_key, note.body_source_key) {
+      (Some(ref_key), Some(body_key)) =>
+        match
+          (
+            html_fact_note_ref_by_key(ctx.semantic, ref_key),
+            html_fact_note_body_by_key(ctx.semantic, body_key),
+          ) {
+          (Some(note_ref), Some(body)) =>
             if body.note_id.unwrap_or("").trim() != "" {
-              let note_def = html_fact_make_note_definition(ctx, body, note)
-              ctx.note_defs_by_body_key.set(body_key, note_def)
-              ctx.note_definitions.push(note_def)
-            }
-          None => ()
-        }
-      None => ()
-    }
-    match note.ref_source_key {
-      Some(ref_key) =>
-        match html_fact_note_ref_by_key(ctx.semantic, ref_key) {
-          Some(note_ref) =>
-            if note.body_source_key is Some(_) {
+              if !ctx.note_defs_by_body_key.contains(body_key) {
+                let note_def = html_fact_make_note_definition(ctx, body, note)
+                ctx.note_defs_by_body_key.set(body_key, note_def)
+                ctx.note_definitions.push(note_def)
+              }
               ctx.note_refs_by_inline_key.set(
                 note_ref.inline_source_key,
                 html_fact_make_note_ref(note_ref, note),
               )
+            } else {
+              ()
             }
-          None => ()
+          _ => ()
         }
-      None => ()
+      _ => ()
     }
   }
 }

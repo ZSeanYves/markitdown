@@ -456,3 +456,50 @@ test "html plain sup normal anchors and missing noteref targets stay non-note" {
     _ => fail("non-note anchor sample should stay a rich paragraph")
   }
 }
+
+///|
+test "html parser fact notes keep ordering dedupe missing and table refs stable" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_fact_notes_ordering.html"
+  write_utf8_text(
+    sample_path,
+    "<html><body><article>" +
+    "<p>First<a id=\"ref1\" epub:type=\"noteref\" href=\"#fn1\">1</a> second<a epub:type=\"noteref\" href=\"#fn2\">2</a> missing<a epub:type=\"noteref\" href=\"#missing\">x</a>.</p>" +
+    "<table><tr><th>Note</th></tr><tr><td>Cell<a role=\"doc-noteref\" href=\"#fn2\">2</a></td></tr></table>" +
+    "<aside epub:type=\"footnote\" id=\"fn1\">First body <a epub:type=\"backlink\" href=\"#ref1\">back</a></aside>" +
+    "<section role=\"doc-footnote\" id=\"fn2\">Second body.</section>" +
+    "<aside epub:type=\"footnote\" id=\"fn1\">Duplicate body.</aside>" +
+    "</article></body></html>\n",
+  )
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(
+    markdown.contains("First[^fn1] second[^fn2] missing[x](#missing)."),
+  )
+  assert_true(markdown.contains("Cell[^fn2]"))
+  assert_true(markdown.contains("[^fn1]: First body back"))
+  assert_true(markdown.contains("[^fn2]: Second body."))
+  assert_false(markdown.contains("Duplicate body"))
+  assert_eq(doc.note_definitions.val.length(), 2)
+  assert_eq(doc.note_definitions.val[0].note_id, "fn1")
+  assert_eq(doc.note_definitions.val[1].note_id, "fn2")
+
+  match doc.blocks.val[0] {
+    @cor.Block::RichParagraph(inlines) => {
+      assert_true(
+        has_note_ref(inlines, "fn1", "1", @cor.NoteSourceKind::HtmlNoteRef),
+      )
+      assert_true(
+        has_note_ref(inlines, "fn2", "2", @cor.NoteSourceKind::HtmlNoteRef),
+      )
+      assert_true(has_link(inlines, "x", "#missing"))
+    }
+    _ =>
+      fail(
+        "fact note ordering sample should keep first block as rich paragraph",
+      )
+  }
+}

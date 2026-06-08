@@ -705,6 +705,47 @@ test "html semantic table lowering uses parser facts for complex tables" {
 }
 
 ///|
+test "html semantic table runtime handles malformed and empty tables conservatively" {
+  let dir = test_tmp_root()
+  ensure_dir_tree(dir)
+
+  let sample_path = dir + "/html_semantic_table_malformed_runtime.html"
+  let profile_path = dir + "/html-semantic-table-malformed-runtime.txt"
+  write_utf8_text(
+    sample_path,
+    "<article>" +
+    "<table><tr><th>Broken<th>Header<tr><td>Only</table>" +
+    "<table><tbody></tbody></table>" +
+    "<table><tr><td>Outer <table><tr><td>Inner</td></tr></table></td></tr></table>" +
+    "</article>\n",
+  )
+
+  let prev_enabled = @sys.get_env_var("MARKITDOWN_PROFILE_HTML")
+  let prev_path = @sys.get_env_var("MARKITDOWN_PROFILE_HTML_PATH")
+  defer {
+    restore_env_var("MARKITDOWN_PROFILE_HTML", prev_enabled)
+    restore_env_var("MARKITDOWN_PROFILE_HTML_PATH", prev_path)
+  }
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML", "1")
+  @sys.set_env_var("MARKITDOWN_PROFILE_HTML_PATH", profile_path)
+
+  let doc = @html.parse_html(sample_path, "", 6)
+  let markdown = @cor.emit_markdown(doc)
+  assert_true(markdown.contains("Broken"))
+  assert_true(markdown.contains("Inner"))
+  assert_true(doc.blocks.val.length() >= 2)
+
+  let report = read_html_parser_utf8_text(profile_path)
+  assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
+  assert_true(html_profile_counter(report, "semantic_table_lowered_count") >= 2)
+  assert_true(html_profile_counter(report, "semantic_table_guard_count") >= 1)
+  assert_true(
+    html_profile_counter(report, "semantic_table_nested_guard_count") >= 1,
+  )
+  assert_true(report.contains("semantic_table_malformed_warning_count=1"))
+}
+
+///|
 test "html semantic lowering path handles simple paragraph inlines without changing output" {
   let dir = test_tmp_root()
   ensure_dir_tree(dir)

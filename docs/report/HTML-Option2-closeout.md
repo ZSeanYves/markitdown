@@ -1,348 +1,220 @@
 # HTML Option 2 Closeout Report
 
 Date: 2026-06-08
-HEAD: `4871b3d`
+Base commit: `6540ae8 html: switch runtime to parser-owned semantic facts`
 Decision: `Option 2 existing-package refactor`
-Status: `parser-owned semantic facts runtime path`
+Status: `M12-M14 complete in worktree; validation passed`
+Scope: `doc_parse/html + convert/html`
 
-## Summary
+Explicit non-actions:
 
-HTML did not take the DOCX/PPTX replacement path. It also did not take the XLSX
-Option 1 path, where the existing converter already mostly consumed a typed
-parser model.
+- no `html_v2`
+- no dispatcher switch
+- no samples expected change
+- no quality-lab change
+- no staging or commit in this slice
 
-HTML remains on Option 2: keep the existing `doc_parse/html` and `convert/html`
-packages, keep the existing dispatcher wiring, and complete the cleanup inside
-those packages. The current work built parser-owned semantic facts, guarded
-lowering coverage, parity hardening, quarantine/caller audits, and finally the
-M11 runtime switch.
+## Executive Summary
 
-After M11, normal HTML runtime is routed through parser-owned semantic facts.
-No `doc_parse/html_v2` or `convert/html_v2` package was created. Dispatcher
-wiring was not switched. Samples expected output and quality-lab fixtures were
-not changed.
+HTML remains Option 2: keep the existing `doc_parse/html` and `convert/html`
+packages, keep dispatcher routing unchanged, and enforce the parser/convert
+contract inside those packages.
 
-## Current Runtime Pipeline
+M11 switched normal runtime to parser-owned semantic facts. M12-M14 complete the
+follow-up closeout work that was intentionally left out of M11:
 
-Current normal conversion follows this path:
+- M12 hardens notes/footnotes lowering from parser note facts.
+- M13 hardens complex table lowering from parser table facts.
+- M14 deletes obsolete raw scanner source-discovery surfaces.
+
+Closeout conclusion after M12-M14: normal runtime source structure is owned by
+`doc_parse/html`. `convert/html` consumes parser DOM/semantic facts and owns
+Markdown/IR/RichTable/assets/origin/noise/note placement policy. The old raw
+block/table/note/inline scanner path is no longer present as a normal-runtime
+source-discovery fallback.
+
+## Final Runtime Pipeline
 
 ```text
 HTML bytes
- -> UTF-8 text / input provenance
+ -> UTF-8 text / provenance
  -> doc_parse/html parse_html_document(text)
- -> parser-owned tolerant DOM/source model
+ -> tolerant DOM / source model
  -> parser-owned semantic facts / warnings / guards
  -> convert/html fact runtime lowering
  -> core Document / Markdown / RichTable / assets / metadata / origins
 ```
 
-HTML bytes are no longer used by `convert/html` as the source-discovery input
-for blocks, inlines, tables, notes, body/scope, noise, images, or links.
+`parse_html` uses `@dphtml.parse_html_document(text)` as the structural parse
+for normal conversion, then lowers through `html_semantic_document_to_blocks`.
+Raw bytes remain only for IO, CR/BOM normalization, UTF-8 decoding, profile byte
+counts, input directory context, and asset/origin policy.
 
-`convert/html` may still retain bytes/path context for input provenance, profile
-byte counts, UTF-8 input handling, asset source path context, and origin
-metadata. It should not use bytes for tag, attribute, table, inline, note, or
-body scanning in the normal runtime.
+## Parser / Convert Contract
 
-## Single-Scan Parser/Convert Contract
+`doc_parse/html` owns tokenizer, tolerant DOM/source model, entity/text/source
+facts, body/scope facts, block/inline/link/image/table/list/figure/note facts,
+malformed document facts, unsupported facts, warning facts, and guard facts.
 
-`doc_parse/html` owns:
+`convert/html` owns Markdown/IR lowering, whitespace/product policy, RichTable
+rendering and hints, asset export/path naming, origin metadata, note definition
+placement, noise skip/preserve product policy, and profile/metadata policy.
 
-- tokenizer
-- tolerant DOM/source model
-- tag, attribute, text, comment, and doctype facts
-- body and scope facts
-- block, inline, link, image, table, list, blockquote, pre/code, figure, note,
-  and noise facts
-- malformed and unsupported warnings
-- parser and semantic guard facts
+Product policy that must stay in `convert/html`:
 
-`convert/html` owns:
+- Markdown escaping and inline rendering choices.
+- RichTable rendering and span hint policy.
+- Asset export, local path naming, unresolved image fallback, and image origins.
+- Origin metadata and object/key-path construction.
+- Note definition construction, placement, and display markers.
+- Product-specific noise skip/preserve decisions.
 
-- Markdown and IR lowering
-- whitespace and product policy
-- RichTable rendering
-- image, asset, and origin policy
-- note placement policy
-- noise skip/preserve policy
-- metadata and profile policy
+## Milestones
 
-`convert/html` no longer owns normal-runtime:
+- M0-M8b: architecture contract, parser facts, guarded semantic lowering, guard
+  constants/counters, and raw scanner audit map.
+- M9-M10: parity hardening, M9.5 fact expansion, and raw scanner caller map.
+- M11: normal runtime switched to parser-owned semantic facts.
+- M12: note/footnote fact lowering hardening.
+- M13: complex table fact lowering hardening.
+- M14: obsolete raw scanner deletion/quarantine cleanup.
 
-- raw HTML tag scanning
-- raw attribute parsing
-- raw table extraction
-- raw inline extraction
-- raw note discovery
-- raw body/scope scanning
-- direct tokenization
+## M12 Notes Hardening
 
-## Completed Work and Milestones
+Current product note policy:
 
-- M0: architecture contract
-- M1: block semantic facts
-- M2: inline/link/image facts
-- M3: table facts
-- M4: list/blockquote/pre/code/figure facts
-- M5: unsupported/warning taxonomy
-- M6: blockquote + pre/code semantic lowering
-- M6.5: paragraph/inline spacing facts
-- M7a: paragraph/simple inline lowering
-- M7b: heading/safe link paragraph lowering
-- M7c: safe list lowering
-- M7d: safe image/figure lowering
-- M7e: safe simple table lowering
-- M8: guard constants + guard reason counters
-- M8b: obsolete raw scanner audit map
-- M9: parity hardening
-- M9.5: notes/footnotes, complex table, scope/body, complex inline/image/link,
-  and noise candidate facts
-- M10: caller map + quarantine labeling
-- M11: parser-owned semantic facts runtime switch
+- Parser provides `HtmlNoteRefFact`, `HtmlNoteBodyFact`, and `HtmlNoteFact`.
+- Convert builds `@cor.NoteRef` and `@cor.NoteDefinition` from parser note
+  relations.
+- Convert controls document-end note placement, body block text, confidence
+  mapping, note marker display, and origin metadata.
+- Note body blocks are excluded from main flow by parser source keys.
+- Missing targets stay conservative: the link remains visible instead of
+  emitting a resolved note reference.
+- Duplicate note bodies are skipped from main output and no longer produce
+  duplicate note definitions.
+- Multiple refs to the same body reuse one note definition.
+- Note refs inside paragraphs and table cells lower through the same parser fact
+  inline path.
 
-## Parser Semantic Facts
+M12 changed `html_fact_prepare_note_defs` so only ref+body parser relations
+produce note definitions, definitions are deduped by body source key, and
+orphan duplicate bodies do not leak into appendix output.
 
-The parser-owned semantic layer now covers:
+Runtime tests now cover simple note lowering, role/epub variants, `li` note body
+exclusion, missing target behavior, multiple note ordering, duplicate body
+dedupe, backref text in body content, and note refs inside table cells.
 
-- block facts
-- paragraph facts
-- inline facts
-- link and image facts
-- table facts
-- list and list item facts
-- blockquote facts
-- pre/code facts
-- figure and figcaption facts
-- notes and footnotes facts
-- document scope, body, and malformed-root facts
-- product noise candidate facts
-- unsupported and warning facts
-- guard thresholds and guard summaries
+## M13 Complex Table Hardening
 
-These facts are the structural source for HTML conversion. Convert lowering is
-allowed to apply product policy over them, but not to rediscover the same
-structure from raw HTML in the normal path.
+Current product table policy:
 
-## Convert Fact Runtime
+- Parser provides table sections, rows, cells, caption metadata, row/col span
+  values, ragged-row flags, nested-table flags, complex-cell flags, malformed
+  warnings, and inline child keys.
+- Convert builds `RichTable` rows from parser table rows/cells.
+- Convert pads colspan cells with empty cells to preserve current markdown table
+  shape.
+- Convert emits `TableSpanHint` records from parser rowspan/colspan values.
+- Convert owns header-row inference via parser table section/cell facts.
+- Convert renders cell text from parser inline/link/image/note facts.
+- Nested table child blocks are emitted conservatively after the containing
+  table path.
+- Empty/malformed tables are guarded conservatively without raw table scanning.
 
-M11 adds and uses:
+M13 added runtime coverage for malformed/empty/nested table behavior and keeps
+existing complex table coverage for captions, spans, ragged rows, nested tables,
+image/list/blockquote/pre cells, links, code, breaks, entities, and span hints.
 
-```text
-convert/html/html_fact_runtime.mbt
-```
+## M14 Scanner Deletion / Quarantine Cleanup
 
-The main lowering entrypoint is:
-
-```text
-html_semantic_document_to_blocks
-```
-
-It consumes `@dphtml.HtmlSemanticDocument` and lowers parser facts into core
-blocks, metadata, note definitions, asset maps, and origins.
-
-Safe and common structures now lower from parser facts:
-
-- paragraphs and inline text
-- headings
-- safe links
-- images and figures
-- lists
-- blockquotes
-- pre/code blocks
-- simple tables
-
-Complex and product-policy behavior is represented through parser facts plus
-convert policy, not through convert raw scanning. This includes conservative
-table handling, note placement, unsafe or remote image/link behavior, noise
-skip/preserve decisions, and product metadata/origin construction.
-
-## Raw Scanner Retirement and Quarantine
-
-The following files are no longer normal-runtime source-discovery paths:
+M14 deleted the obsolete raw scanner source-discovery files:
 
 - `convert/html/html_dom.mbt`
-- `convert/html/html_inlines.mbt`
 - `convert/html/html_table.mbt`
 - `convert/html/html_notes.mbt`
-- `convert/html/html_bytes.mbt`
+- `convert/html/html_block_helpers.mbt`
 - `convert/html/html_tag_attrs.mbt`
-- `convert/html/html_noise_rules.mbt`
 
-They still contain quarantine/deletion surfaces and some convert-owned product
-helpers. M11 intentionally does not mix full scanner deletion into the runtime
-switch closeout.
+M14 also removed raw byte/tag search helpers from `html_bytes.mbt`, removed raw
+inline scanner entrypoints from `html_inlines.mbt`, removed raw subtree scanner
+helpers from `html_noise_rules.mbt`, removed `HtmlByteRange` from
+`html_parser.mbt`, removed `nodes_to_blocks` and `HtmlNode` projection helpers
+from `html_to_ir.mbt`, and removed old `lower_next_html_semantic_*` scanner
+bridge functions from `html_semantic_lowering.mbt`.
 
-M11 deleted one isolated obsolete helper:
+Focused scanner warnings are eliminated:
 
-```text
-convert/html/html_bytes.mbt: find_tag_block_inner
-```
+- `scan_html_nodes_with_skip_ranges`: deleted
+- `scan_html_notes`: deleted
+- `HtmlByteRange`: deleted
+- `nodes_to_blocks`: deleted
 
-Focused `moon check` still reports quarantine warnings for:
+Remaining convert helper surface and reason:
 
-- `scan_html_nodes_with_skip_ranges`
-- `scan_html_notes`
-- `HtmlByteRange`
-- `nodes_to_blocks`
+- `html_inlines.mbt`: `HtmlInline`, merging, Markdown-facing inline rendering,
+  note ref rendering, URL sanitizing, and redirect unwrapping. Product policy.
+- `html_bytes.mbt`: `html_unescape`. Product/helper bridge to parser entity
+  decoding.
+- `html_noise_rules.mbt`: token-based noise policy helpers. Product policy.
+- `html_to_ir.mbt`: image export/path/origin helpers, paragraph splitting,
+  caption/image block policy, heading clamp. Product policy.
+- `html_semantic_lowering.mbt`: candidate counters, guard reason counters,
+  semantic fact lookup helpers, and table header-row helper. Observability and
+  product policy.
+- `html_fact_runtime.mbt`: normal runtime fact lowering. Product policy over
+  parser facts.
 
-These are remaining scanner/projection debt. They are not normal-runtime source
-discovery after M11 and should be handled in a later scanner deletion or
-quarantine cleanup slice.
+No remaining surface performs normal-runtime raw HTML source discovery.
 
-## Validation
+## Boundary Status
 
-M11 validation status:
+- no `doc_parse/html_v2`
+- no `convert/html_v2`
+- no dispatcher diff
+- no CLI/ZIP/bench/debug diff
+- no samples expected diff
+- no quality-lab diff
+- no raw scanner source-discovery grep hits in `convert/html`
+- no normal-runtime legacy/oracle/fallback glue
+- no stage or commit in this slice
 
-```text
-moon info && moon fmt
-```
+## Validation Snapshot
 
-Result: passed.
-
-```text
-moon check doc_parse/html convert/html
-```
-
-Result: passed.
-
-```text
-moon test doc_parse/html/tests
-```
-
-Result: passed, 47/47 tests.
-
-```text
-moon test convert/html/test
-```
-
-Result: passed, 61/61 tests.
+Validation for M12-M14:
 
 ```text
-bash samples/check.sh --format html
+moon info && moon fmt: passed
+moon check doc_parse/html convert/html: passed
+moon test doc_parse/html/tests: 47/47 passed
+moon test convert/html/test: 63/63 passed
+bash samples/check.sh --format html: passed, 111/111 checked
+bash samples/check_quality.sh --format html: passed, 2/2 checked
+bash samples/bench.sh --layer convert --format html --iterations 1 --warmup 0: passed, median 2580.000ms
+moon check: passed
 ```
 
-Result: passed, 111/111 checked.
+`moon info && moon fmt` and global `moon check` reported only existing non-HTML
+warnings:
 
-```text
-bash samples/check_quality.sh --format html
-```
+- `convert/epub/epub_part_cache.mbt`: unused `read_epub_part_text_cached`.
+- `convert/markdown/test/markdown_passthrough_test.mbt`: deprecated Debug/Show
+  warning.
 
-Result: passed, 2/2 checked.
+Full `moon test` was not run for this slice.
 
-```text
-bash samples/bench.sh --layer convert --format html --iterations 1 --warmup 0
-```
+## Final Assessment
 
-Result: passed, median `2562.000ms`.
+HTML Option 2 closeout is complete for this worktree.
 
-```text
-moon check
-```
+The M12-M14 work satisfies the single-scan parser facts contract: parser owns
+source structure; convert owns product lowering; obsolete raw scanner source
+discovery is deleted rather than hidden behind fallback code.
 
-Result: passed.
+Remaining follow-up slices should be independent hardening work, not contract
+cleanup:
 
-Full `moon test` was not run in M11.
-
-Known warnings in the validation snapshot:
-
-- non-HTML EPUB unused-function warning:
-  `convert/epub/epub_part_cache.mbt:53`
-- non-HTML Markdown deprecated Debug warning:
-  `convert/markdown/test/markdown_passthrough_test.mbt:185`
-- HTML quarantine warnings listed in the raw scanner quarantine section above
-
-## Boundary Checks
-
-Boundary status after M11:
-
-- No `doc_parse/html_v2` package or directory.
-- No `convert/html_v2` package or directory.
-- `html_v2` appears only in architecture contract prohibition or acceptance
-  text.
-- No dispatcher diff.
-- No CLI, ZIP, bench, or debug wiring diff.
-- No samples expected diff.
-- No quality-lab diff.
-- No normal-runtime legacy or oracle glue.
-- Remaining `fallback` hits are historical docs, test path helpers, fixture
-  text, image placeholder/product wording, or documentation wording.
-- Remaining `counter` hits are profile/test observability, not runtime oracle
-  glue.
-
-## Parity and Non-Goals
-
-M11 preserved HTML sample and quality parity without expected-output updates.
-
-Non-goals for this closeout:
-
-- full browser HTML5 tree builder behavior
-- CSS layout or rendering
-- JavaScript execution
-- remote image fetching
-- pixel-perfect rendering
-- full accessibility tree
-- moving Markdown/RichTable/assets/origin/noise product policy into the parser
-- deleting every raw scanner helper in the same runtime switch commit
-
-## Remaining Work
-
-Recommended independent follow-up slices:
-
-- scanner quarantine/deletion after caller cleanup
-- notes lowering hardening
-- complex table hardening
-- malformed/body scope hardening
-- complex inline/image/link hardening
-- reduce remaining quarantine warnings
-- optional full `moon test` cleanup/classification for unrelated failures
-
-## Current Assessment
-
-HTML Option 2 is now satisfied for the normal runtime contract.
-
-Parser is the single source of HTML structure. `doc_parse/html` owns tokenizing,
-tolerant DOM/source facts, semantic facts, warnings, and guards. `convert/html`
-is the product lowering and policy layer.
-
-No replacement package is needed. Remaining raw scanner surfaces are
-quarantine/deletion debt, not normal-runtime source discovery.
-
-## Git Snapshot
-
-Report generation was requested on top of the uncommitted M11 HTML work.
-
-HEAD:
-
-```text
-4871b3d
-```
-
-Status before generating this report included M11 HTML/docs dirty files:
-
-```text
- M convert/html/html_bytes.mbt
- M convert/html/html_dom.mbt
- M convert/html/html_guards.mbt
- M convert/html/html_inlines.mbt
- M convert/html/html_notes.mbt
- M convert/html/html_parser.mbt
- M convert/html/html_profile.mbt
- M convert/html/html_semantic_lowering.mbt
- M convert/html/html_table.mbt
- M convert/html/html_to_ir.mbt
- M convert/html/test/html_parser_test.mbt
- M doc_parse/html/html_parser.mbt
- M doc_parse/html/html_semantic.mbt
- M doc_parse/html/tests/html_parser_test.mbt
- M docs/archive/html-architecture.md
-?? convert/html/html_fact_runtime.mbt
-```
-
-After report generation, expected status additionally includes:
-
-```text
-?? docs/report/HTML-Option2-closeout.md
-```
-
-Staged files should remain empty. This report should not be staged or committed
-unless explicitly requested.
+- notes edge-case hardening if additional EPUB/HTML samples reveal ambiguity
+- complex table policy refinements if sample parity needs more browser-like
+  behavior
+- optional full `moon test` unrelated failure cleanup outside HTML

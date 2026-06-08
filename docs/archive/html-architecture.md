@@ -1,8 +1,8 @@
 # HTML Architecture Contract
 
-Status: current architecture contract / Option 2 refactor plan. M11 has
-switched the normal HTML runtime to parser-owned semantic facts inside the
-existing packages.
+Status: current architecture contract / Option 2 refactor plan. M12-M14 have
+completed the normal-runtime parser-facts switch, notes/table hardening, and
+obsolete raw scanner deletion inside the existing packages.
 
 HTML should continue in the existing `doc_parse/html` and `convert/html`
 packages. Do not create `doc_parse/html_v2` or `convert/html_v2`, and do not
@@ -89,22 +89,29 @@ Non-responsibilities:
 
 ## Current Boundary Risks
 
-The following `convert/html` areas are obsolete raw scanning surfaces. After
-M11 they are not normal-runtime source-discovery inputs, but they remain as
-quarantined deletion/audit surfaces or product helper surfaces until a dedicated
-scanner deletion slice removes them:
+The M14 cleanup removed the obsolete `convert/html` raw source-discovery scanner
+surface from normal runtime. The remaining boundary risks are product-policy
+risks, not hidden parser ownership:
 
 * `html_parser.mbt`: entrypoint, parser validation/profile, product document
-  assembly, and no normal-runtime raw scope fallback.
-* `html_dom.mbt`: private block scanner.
-* `html_inlines.mbt`: raw inline, link, and image scanner plus reusable
-  convert-owned inline rendering helpers.
-* `html_table.mbt`: table scanner.
-* `html_notes.mbt`: footnote reference and body scanner.
-* `html_bytes.mbt`: raw tag matching and byte search helpers.
-* `html_tag_attrs.mbt`: raw tag-string attribute helper bridge.
-* `html_noise_rules.mbt`: product noise policy; raw subtree scanning helpers
-  are obsolete, while product skip/preserve rules remain convert-owned.
+  assembly, and the single parser-owned structure parse.
+* `html_fact_runtime.mbt`: normal runtime fact lowering over parser semantic
+  facts. This is the contract boundary for convert-owned product policy.
+* `html_inlines.mbt`: convert-owned inline view, Markdown-facing rendering,
+  note marker rendering, URL sanitizing, and redirect unwrapping.
+* `html_bytes.mbt`: entity decoding helper only.
+* `html_noise_rules.mbt`: product-specific noise token policy.
+* `html_to_ir.mbt`: image/asset/path/origin/caption/paragraph product helpers.
+* `html_semantic_lowering.mbt`: semantic candidate counters, guard reason
+  counters, fact lookup helpers, and table header-row helper.
+
+Deleted raw scanner files:
+
+* `html_dom.mbt`
+* `html_table.mbt`
+* `html_notes.mbt`
+* `html_block_helpers.mbt`
+* `html_tag_attrs.mbt`
 
 ## Semantic Facts Roadmap
 
@@ -188,6 +195,9 @@ convert policy lowering.
 * M9: samples, quality, and bench parity.
 * M10: delete obsolete raw scanners.
 * M11: switch normal runtime input to a single parser-owned fact path.
+* M12: harden notes/footnotes fact lowering.
+* M13: harden complex table fact lowering.
+* M14: delete obsolete raw scanner source-discovery surfaces.
 
 Implementation principles:
 
@@ -527,6 +537,68 @@ Recommended next slices:
 * Closeout report slice: generate `docs/report/HTML-Option2-closeout.md` after
   scanner deletion or explicit quarantine acceptance.
 
+## M12-M14 Notes, Tables, And Scanner Cleanup
+
+M12-M14 complete the M11 follow-up contract work. M11 made parser semantic
+facts the normal-runtime input. M12-M14 harden the two complex product areas
+that previously carried the most scanner responsibility, then delete the
+obsolete raw scanner surface.
+
+M12 notes/footnotes result:
+
+* Parser note refs, note bodies, and note relations are the source facts for
+  normal runtime note lowering.
+* Convert builds `@cor.NoteRef` and `@cor.NoteDefinition` from parser note
+  relations.
+* Convert owns note definition construction, document-end placement, marker
+  rendering, confidence mapping, and origin metadata.
+* Note bodies are excluded from main flow by parser source keys.
+* Missing targets remain visible as links rather than resolved note refs.
+* Duplicate note bodies are skipped from output and no longer produce duplicate
+  definitions.
+* Multiple refs to the same body reuse one definition.
+* Runtime tests cover note ordering, duplicate targets, missing targets,
+  backrefs, body exclusion, and table-cell note refs.
+
+M13 complex table result:
+
+* Parser table sections, rows, cells, span values, captions, ragged/nested/
+  complex flags, malformed warnings, and inline child keys are the source facts
+  for table lowering.
+* Convert owns RichTable rows, header-row policy, span hints, colspan padding,
+  cell Markdown rendering, and conservative nested-table emission.
+* Malformed/empty tables stay bounded and conservative without raw table
+  scanning.
+* Runtime tests cover captions, spans, ragged rows, nested tables, complex
+  cells, malformed warnings, links/code/breaks/entities, and span hints.
+
+M14 deletion result:
+
+| File or surface | M14 result |
+| --- | --- |
+| `convert/html/html_dom.mbt` | Deleted obsolete raw block scanner. |
+| `convert/html/html_table.mbt` | Deleted obsolete raw table scanner. |
+| `convert/html/html_notes.mbt` | Deleted obsolete raw note planner. |
+| `convert/html/html_block_helpers.mbt` | Deleted raw scanner block helpers. |
+| `convert/html/html_tag_attrs.mbt` | Deleted raw tag-string attr bridge. |
+| `convert/html/html_bytes.mbt` | Reduced to `html_unescape`. |
+| `convert/html/html_inlines.mbt` | Removed raw byte inline scanner entrypoints; retained product inline helpers. |
+| `convert/html/html_noise_rules.mbt` | Removed raw subtree scanner helpers; retained token product policy. |
+| `convert/html/html_parser.mbt` | Removed `HtmlByteRange`; entrypoint remains parser-facts runtime. |
+| `convert/html/html_to_ir.mbt` | Removed `nodes_to_blocks` and scanner-node projection helpers. |
+| `convert/html/html_semantic_lowering.mbt` | Removed old `lower_next_html_semantic_*` scanner bridge functions; retained counters/lookups. |
+
+Focused quarantine warnings eliminated:
+
+* `scan_html_nodes_with_skip_ranges`
+* `scan_html_notes`
+* `HtmlByteRange`
+* `nodes_to_blocks`
+
+The current normal runtime still satisfies Option 2: no `html_v2`, no
+dispatcher switch, parser facts own source structure, and convert owns product
+policy.
+
 ## Acceptance Criteria
 
 HTML Option 2 cleanup is complete when:
@@ -541,6 +613,10 @@ HTML Option 2 cleanup is complete when:
 * No dispatcher switch is required.
 * Raw scanner helpers are deleted or isolated to test-only or temporary paths.
 
+M12-M14 satisfy these architecture criteria for normal runtime. Remaining work
+should be product hardening or unrelated full-suite cleanup, not parser/convert
+contract cleanup.
+
 ## Non-goals
 
 * Full browser HTML5 tree builder behavior.
@@ -553,21 +629,20 @@ HTML Option 2 cleanup is complete when:
 
 ## Validation Baseline
 
-Latest M10 deletion/quarantine validation baseline:
+Latest M12-M14 validation baseline:
 
-* `moon info && moon fmt`: passed with one non-HTML EPUB unused-function
-  warning from `convert/epub`.
+* `moon info && moon fmt`: passed with one existing non-HTML EPUB unused-function
+  warning from `convert/epub/epub_part_cache.mbt`.
 * `moon check doc_parse/html convert/html`: passed.
 * `moon test doc_parse/html/tests`: 47/47 passed.
-* `moon test convert/html/test`: 61/61 passed.
+* `moon test convert/html/test`: 63/63 passed.
 * `bash samples/check.sh --format html`: passed, 111 checked.
 * `bash samples/check_quality.sh --format html`: passed, 2 checked.
 * `bash samples/bench.sh --layer convert --format html --iterations 1 --warmup 0`:
-  passed, convert HTML median about 2563 ms.
-* `moon check`: passed with two non-HTML warnings in EPUB/Markdown test code.
-* Full `moon test` was not rerun for this closeout. The last known full-run
-  failures were unrelated to HTML: PPTX/ZIP origin metadata and a missing
-  external PDF sample.
+  passed, convert HTML median 2580 ms.
+* `moon check`: passed with two existing non-HTML warnings in EPUB/Markdown
+  test code.
+* Full `moon test` was not rerun for this closeout.
 
 ## Commit Readiness
 
