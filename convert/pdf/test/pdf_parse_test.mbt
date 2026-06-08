@@ -1,21 +1,35 @@
 ///|
+fn resolve_legacy_pdfjs_external_fixture(path : String) -> String? {
+  if !path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    return None
+  }
+
+  let name = path.split("/").last().unwrap_or("").to_owned()
+  if name == "" {
+    return None
+  }
+
+  let repo_tracked = "doc_parse/pdf/testdata/pdfjs/" + name
+  if @fs.path_exists(repo_tracked) {
+    return Some(repo_tracked)
+  }
+  let repo_tracked_fallback = "../../" + repo_tracked
+  if @fs.path_exists(repo_tracked_fallback) {
+    Some(repo_tracked_fallback)
+  } else {
+    None
+  }
+}
+
+///|
 fn resolve_sample_path(path : String) -> String raise {
   if @fs.path_exists(path) {
     return path
   }
 
-  if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
-    let name = path.split("/").last().unwrap_or("").to_owned()
-    if name != "" {
-      let repo_tracked = "doc_parse/pdf/testdata/pdfjs/" + name
-      if @fs.path_exists(repo_tracked) {
-        return repo_tracked
-      }
-      let repo_tracked_fallback = "../../" + repo_tracked
-      if @fs.path_exists(repo_tracked_fallback) {
-        return repo_tracked_fallback
-      }
-    }
+  match resolve_legacy_pdfjs_external_fixture(path) {
+    Some(repo_tracked) => return repo_tracked
+    None => ()
   }
 
   let fallback = "../../" + path

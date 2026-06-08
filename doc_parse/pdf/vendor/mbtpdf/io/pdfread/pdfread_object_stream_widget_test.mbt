@@ -1,22 +1,46 @@
 ///|
-fn fixture_path_pdfread_object_stream(path : String) -> String {
+fn resolve_legacy_pdfjs_external_fixture(path : String) -> String? {
+  if !path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    return None
+  }
+
+  let name = path.split("/").last().unwrap_or("").to_owned()
+  if name == "" {
+    return None
+  }
+
+  let repo_tracked = "../../../../testdata/pdfjs/" + name
+  if @fs.path_exists(repo_tracked) {
+    return Some(repo_tracked)
+  }
+  let repo_tracked_from_root = "doc_parse/pdf/testdata/pdfjs/" + name
+  if @fs.path_exists(repo_tracked_from_root) {
+    Some(repo_tracked_from_root)
+  } else {
+    None
+  }
+}
+
+///|
+fn fixture_path_pdfread_object_stream(path : String) -> String raise {
   let direct = path
   if @fs.path_exists(direct) {
     direct
-  } else if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
-    let name = path.split("/").last().unwrap_or("").to_owned()
-    if name != "" {
-      let repo_tracked = "../../../../testdata/pdfjs/" + name
-      if @fs.path_exists(repo_tracked) {
-        repo_tracked
-      } else {
-        "../../../../../" + path
-      }
-    } else {
-      "../../../../../" + path
-    }
   } else {
-    "../../../../../" + path
+    match resolve_legacy_pdfjs_external_fixture(path) {
+      Some(repo_tracked) => repo_tracked
+      None => {
+        let fallback = "../../../../../" + path
+        if @fs.path_exists(fallback) {
+          fallback
+        } else {
+          fail(
+            "optional repo-local PDF fixture missing; expected doc_parse/pdf/testdata/pdfjs fixture: " +
+            path,
+          )
+        }
+      }
+    }
   }
 }
 

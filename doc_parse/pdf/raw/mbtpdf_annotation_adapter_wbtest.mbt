@@ -5,43 +5,40 @@ fn utf16be_pdf_string(text : String) -> String raise {
 }
 
 ///|
-fn resolve_sample_path(path : String) -> String {
-  if path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
-    let name = path.split("/").last().unwrap_or("").to_owned()
-    if name != "" {
-      return "doc_parse/pdf/testdata/pdfjs/" + name
-    }
+fn legacy_pdfjs_external_fixture_candidates(path : String) -> Array[String] {
+  if !path.has_prefix(".external/quality_corpus/pdf_external/pdfjs/") {
+    return []
   }
-  path
+
+  let name = path.split("/").last().unwrap_or("").to_owned()
+  if name == "" {
+    []
+  } else {
+    [
+      "doc_parse/pdf/testdata/pdfjs/" + name,
+      "../testdata/pdfjs/" + name,
+    ]
+  }
 }
 
 ///|
 async fn open_sample_pdf(path : String) -> @pdf.Pdf {
-  let resolved = resolve_sample_path(path)
-  let repo_tracked = if path.has_prefix(
-      ".external/quality_corpus/pdf_external/pdfjs/",
-    ) {
-    let name = path.split("/").last().unwrap_or("").to_owned()
-    if name != "" {
-      Some("../testdata/pdfjs/" + name)
-    } else {
-      None
-    }
-  } else {
-    None
-  }
-  let fallback = "../../" + path
-  let input = @pdfiofs.input_of_file(resolved, source=resolved) catch {
-    _ =>
-      match repo_tracked {
-        Some(candidate) =>
-          @pdfiofs.input_of_file(candidate, source=candidate) catch {
-            _ => @pdfiofs.input_of_file(fallback, source=fallback)
-          }
-        None => @pdfiofs.input_of_file(fallback, source=fallback)
+  let candidates = [path, "../../" + path] +
+    legacy_pdfjs_external_fixture_candidates(path)
+  let mut last_error = ""
+  for candidate in candidates {
+    let input = @pdfiofs.input_of_file(candidate, source=candidate) catch {
+      e => {
+        last_error = e.to_string()
+        continue
       }
+    }
+    return @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
   }
-  @pdfread.PdfRead::new(logger=_ => ()).pdf_of_input(None, None, input)
+  fail(
+    "optional repo-local PDF fixture missing; expected doc_parse/pdf/testdata/pdfjs fixture: " +
+    path + " (" + last_error + ")",
+  )
 }
 
 ///|
