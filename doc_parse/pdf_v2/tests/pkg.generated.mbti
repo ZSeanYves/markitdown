@@ -2,17 +2,17 @@
 package "ZSeanYves/markitdown/doc_parse/pdf_v2/tests"
 
 // Values
-pub fn pdf_v2_flate_array_valid_text_pdf_bytes() -> Bytes raise
+pub fn pdf_v2_flate_array_valid_text_pdf_bytes() -> Bytes
 
 pub fn pdf_v2_flate_text_pdf_bytes() -> Bytes
 
-pub fn pdf_v2_flate_valid_text_pdf_bytes() -> Bytes raise
+pub fn pdf_v2_flate_valid_text_pdf_bytes() -> Bytes
 
 pub fn pdf_v2_minimal_text_pdf_bytes() -> Bytes
 
 pub fn pdf_v2_missing_font_pdf_bytes() -> Bytes
 
-pub fn pdf_v2_tounicode_flate_cmap_pdf_bytes(String, String) -> Bytes raise
+pub fn pdf_v2_tounicode_flate_cmap_pdf_bytes(String, String) -> Bytes
 
 pub fn pdf_v2_tounicode_missing_pdf_bytes() -> Bytes
 

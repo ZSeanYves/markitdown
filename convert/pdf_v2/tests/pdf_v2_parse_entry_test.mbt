@@ -1,17 +1,22 @@
 ///|
-test "test_parse_pdf_v2_minimal_text_pdf_returns_core_document_with_text" {
+test "test_parse_pdf_v2_minimal_text_pdf_fail_closes_until_mbtpdf_base" {
   let result = @pdfv2convert.parse_pdf_v2_bytes_with_options(
     convert_pdf_v2_minimal_text_pdf_bytes(),
     "minimal-text.pdf",
     @pdfv2convert.default_pdf_v2_convert_options(),
   )
-  assert_eq(result.core.text_events.length(), 1)
-  assert_eq(result.text_model.summary.block_count, 1)
+  assert_eq(result.core.text_events.length(), 0)
+  assert_eq(result.text_model.summary.block_count, 0)
   assert_eq(result.document.blocks.val.length(), 1)
   match result.document.blocks.val[0] {
-    @cor.Block::Paragraph(text) => assert_eq(text, "Hello PDF v2")
+    @cor.Block::Paragraph(text) =>
+      assert_true(text.contains("reader scaffold produced no text blocks"))
     _ => fail("expected conservative paragraph")
   }
+  assert_eq(
+    has_convert_warning_tag(result.core.warnings, "self_written_core_removed"),
+    true,
+  )
   assert_eq(@pdfv2convert.pdf_v2_pipeline_preserves_no_fallback(result), true)
 }
 
@@ -38,23 +43,20 @@ test "test_convert_entry_does_not_call_old_pdf_parser" {
   assert_eq(result.reason_tags.contains("no_old_doc_parse_pdf"), true)
   assert_eq(result.lowering.reason_tags.contains("no_old_pdf_runtime"), true)
   assert_eq(result.source.summary.convert_raw_reparse_allowed, false)
+  assert_eq(result.core.text_events.length(), 0)
 }
 
 ///|
-test "test_convert_flate_stream_warns_without_text_fallback" {
+test "test_convert_flate_stream_uses_scaffold_warning_without_fallback" {
   let result = @pdfv2convert.parse_pdf_v2_bytes_with_options(
     convert_pdf_v2_flate_text_pdf_bytes(),
     "flate.pdf",
     @pdfv2convert.default_pdf_v2_convert_options(),
   )
-  assert_eq(result.core.content_streams.length(), 1)
-  assert_eq(result.core.content_streams[0].decode_supported, false)
+  assert_eq(result.core.content_streams.length(), 0)
   assert_eq(result.core.text_events.length(), 0)
   assert_eq(
-    has_convert_warning_tag(
-      result.core.warnings,
-      "compressed_stream_decode_failure",
-    ),
+    has_convert_warning_tag(result.core.warnings, "self_written_core_removed"),
     true,
   )
   assert_eq(@pdfv2convert.pdf_v2_pipeline_preserves_no_fallback(result), true)

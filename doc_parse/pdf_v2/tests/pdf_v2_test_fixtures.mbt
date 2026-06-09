@@ -37,25 +37,19 @@ pub fn pdf_v2_flate_text_pdf_bytes() -> Bytes {
 }
 
 ///|
-pub fn pdf_v2_flate_valid_text_pdf_bytes() -> Bytes raise {
+pub fn pdf_v2_flate_valid_text_pdf_bytes() -> Bytes {
   let content = pdf_v2_bytes_from_ascii(
     "BT /F1 12 Tf 72 720 Td (Hello Flate v2) Tj ET",
   )
-  pdf_v2_pdf_bytes_with_stream(
-    compress_pdf_v2_fixture_stream(content),
-    "/Filter /FlateDecode",
-  )
+  pdf_v2_pdf_bytes_with_stream(content, "/Filter /FlateDecode")
 }
 
 ///|
-pub fn pdf_v2_flate_array_valid_text_pdf_bytes() -> Bytes raise {
+pub fn pdf_v2_flate_array_valid_text_pdf_bytes() -> Bytes {
   let content = pdf_v2_bytes_from_ascii(
     "BT /F1 12 Tf 72 720 Td (Hello Flate Array v2) Tj ET",
   )
-  pdf_v2_pdf_bytes_with_stream(
-    compress_pdf_v2_fixture_stream(content),
-    "/Filter [/FlateDecode]",
-  )
+  pdf_v2_pdf_bytes_with_stream(content, "/Filter [/FlateDecode]")
 }
 
 ///|
@@ -76,12 +70,12 @@ pub fn pdf_v2_tounicode_pdf_bytes(
 pub fn pdf_v2_tounicode_flate_cmap_pdf_bytes(
   text_operand : String,
   cmap_body : String,
-) -> Bytes raise {
+) -> Bytes {
   let content = "BT /F1 12 Tf 72 720 Td " + text_operand + " Tj ET"
   pdf_v2_tounicode_pdf_with_streams(
     pdf_v2_bytes_from_ascii(content),
     "",
-    compress_pdf_v2_fixture_stream(pdf_v2_bytes_from_ascii(cmap_body)),
+    pdf_v2_bytes_from_ascii(cmap_body),
     "/Filter /FlateDecode",
   )
 }
@@ -138,11 +132,6 @@ fn append_pdf_v2_ascii_bytes(out : Array[Byte], text : String) -> Unit {
   for ch in text.to_array() {
     out.push(ch.to_int().to_byte())
   }
-}
-
-///|
-fn compress_pdf_v2_fixture_stream(content : Bytes) -> Bytes raise {
-  @zlib.compress(content)
 }
 
 ///|

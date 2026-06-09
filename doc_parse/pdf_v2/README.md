@@ -146,50 +146,68 @@ convert-owned and must be made from parser facts later.
 The next reset can aggregate this text model into the normalized parser model
 or begin layout-recovery scaffolding over glyph/span/line/block facts.
 
-## RESET-12A Minimal FlateDecode
+## RESET-12A/12B Historical Reader Spikes
 
-This reset wires minimal `/FlateDecode` support into the PDF v2 reader for
-simple text content streams. The implementation uses the existing
-`bikallem/compress/zlib` decoder already present in the workspace instead of
-hand-rolling DEFLATE. Both `/Filter /FlateDecode` and
-`/Filter [/FlateDecode]` are accepted when FlateDecode is the only stream
-filter.
+RESET-12A and RESET-12B previously carried a small self-written reader spike for
+simple text PDFs: object scanning, uncompressed and `/FlateDecode` content
+streams, text operators, and a minimal ToUnicode/CMap subset. That code proved
+the source-event, text-reconstruction, normalized-model, layout, feature,
+classifier, lowering, and core-document scaffolds could propagate real parser
+facts and diagnostics.
 
-Decoded streams continue through the normal source-event path: core content
-stream facts, text operator extraction, `TextPayload` source events, text
-reconstruction, normalized model, layout/features/classifier scaffolds, and
-convert lowering. Decode confidence, source refs, object refs, content order,
-font warnings, missing ToUnicode risks, and reason tags remain attached to the
-text events.
+The spike is no longer part of the current runtime base. It was intentionally
+removed rather than expanded, because a long-lived PDF v2 substrate should be
+based on the existing mbtpdf reader packages and then adapted to the v2
+diagnostics/source-event contract. The synthetic fixtures and placeholder tests
+remain to preserve interface shape, one-pass/no-fallback policies, and
+fail-closed diagnostics until the mbtpdf-backed base lands.
 
-Decode failures, filter chains, unsupported filters, malformed streams, and
-non-text content remain fail-closed diagnostics. The reader emits structured
-warnings/risks and does not call the old `doc_parse/pdf` runtime, does not use
-`convert/pdf`, does not re-read raw PDF bytes in convert, and does not hide loss
-with fallback.
+## RESET-13 Core Cleanup And mbtpdf Plan
 
-## RESET-12B Minimal ToUnicode/CMap
+The current `open_pdf_core_v2` implementation is scaffold-only. It performs a
+bounded PDF header probe, emits structured `self_written_core_removed` and
+`mbtpdf_backend_planned` warnings/risks, preserves the core document type,
+capability matrix, source summary, one-pass boundary, runtime closure policy,
+and no-fallback policy, and then fails closed with no pages, streams, or text
+events. Convert continues to consume parser facts only and emits its diagnostic
+document rather than calling old `doc_parse/pdf`, `convert/pdf`, OCR, Python, or
+external model/data paths.
 
-This reset adds minimal ToUnicode CMap decoding for PDF v2 text events. The
-reader resolves font `/ToUnicode` object refs, decodes uncompressed or
-`/FlateDecode` CMap streams through the existing RESET-12A zlib stream path,
-and parses a small source-first CMap subset: `begincodespacerange`,
-`beginbfchar`, and `beginbfrange` with both sequential and array targets.
+The planned enhanced base should be a private v2 adapter over mbtpdf, not a new
+public dependency boundary. Candidate mbtpdf packages and roles:
 
-ToUnicode target hex values are decoded as UTF-16BE code-unit sequences by a
-thin reader-local adapter. The workspace `tonyfettes/unicode` dependency was
-audited for direct UTF-16BE byte decoding; its available packages focus on
-IDNA, punycode, normalization, and UCD tables, so the reader keeps only the
-small PDF-specific adapter here rather than copying or inventing a general
-Unicode library.
+- `io/pdfread` or `io/pdfreadcore`: byte input, xref table/stream handling,
+  object streams, malformed-object paths, lazy stream loading
+- `core/pdf` and `core/pdfio`: object graph, direct/indirect lookup, stream
+  bytes, geometry helpers, mutable byte buffers
+- `document/pdfpage` and `document/pdftree`: page tree traversal, page object
+  numbers, page boxes/resources/content refs
+- `graphics/pdfopsread`: content stream lexer/parser and operator sequence
+  reading
+- `text/pdftextread`: text state and glyph/text extraction experience
+- `font/pdfcmap`, `font/pdffont`, `font/pdfglyphlist`: ToUnicode, CMap,
+  font encodings, glyph names, composite/simple font mapping
 
-Successful ToUnicode hits raise decode confidence and attach reason tags such
-as `tounicode_stream_decoded`, `tounicode_cmap_parsed`,
-`tounicode_bfchar_applied`, `tounicode_bfrange_applied`, and
-`decode_source_tounicode`. Missing, malformed, unsupported, unmapped, or
-invalid UTF-16 CMap entries emit structured warnings/risks, retain raw bytes and
-best-effort text, and never trigger legacy fallback. Convert consumes parser
-facts only and does not re-decode text.
+The v2 adapter should preserve the existing upward contract:
+`PdfV2CoreDocument` -> source events -> text reconstruction -> normalized model
+-> layout recovery -> feature export -> classifier gate -> lowering -> core
+Document. Future implementation can use `open_pdf_core_v2_perf` as the
+mbtpdf-backed entry while keeping `open_pdf_core_v2` stable.
+
+Performance targets for the mbtpdf-backed base:
+
+- lazy stream decode and bounded decoded-stream lifetime
+- batch glyph decode per font/CMap instead of per-token repeated lookup
+- reusable buffers for content stream and CMap decoding
+- page iteration that avoids full convert-side reparsing
+- diagnostics adapters that map mbtpdf parse/decode/font/security failures into
+  `PdfV2Warning` and `PdfV2Risk` with source refs, object refs, page indices,
+  decode confidence, and reason tags
+
+The contract does not change: one input scan owned by parser, fail-closed
+diagnostics for malformed/unsupported/partial capability, low-confidence text
+retained when present, no silent loss, no legacy fallback, no convert raw
+reparse, no quality-lab/model/TSV/Python runtime dependency.
 
 ## RESET-5 Normalized Parser Model
 

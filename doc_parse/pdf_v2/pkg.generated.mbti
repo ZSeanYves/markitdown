@@ -12,6 +12,8 @@ pub fn make_resource_ref(PdfV2ResourceKind, String, Int, String?, PdfV2SourceRef
 
 pub fn open_pdf_core_v2(Bytes) -> PdfV2CoreDocument
 
+pub fn open_pdf_core_v2_perf(Bytes) -> PdfV2CoreDocument
+
 pub fn parse_pdf_v2_document_from_bytes(Bytes) -> PdfV2DocumentModel
 
 pub fn parse_pdf_v2_source(PdfV2CoreDocument) -> PdfV2SourceDocument

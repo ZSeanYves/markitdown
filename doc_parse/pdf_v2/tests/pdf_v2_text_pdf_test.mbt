@@ -1,16 +1,18 @@
 ///|
-test "test_uncompressed_single_page_text_pdf_produces_source_text_event" {
+test "test_scaffold_pdf_bytes_produce_diagnostic_source_document" {
   let source = @source_event.build_pdf_v2_source_event_document(
     @pdfv2.open_pdf_core_v2(pdf_v2_minimal_text_pdf_bytes()),
     [],
   )
   assert_eq(source.summary.page_count, 1)
-  assert_eq(source.pages[0].events.length() >= 2, true)
-  assert_eq(source_text_event_count(source.events), 1)
+  assert_eq(source.summary.event_count, 1)
+  assert_eq(source_text_event_count(source.events), 0)
+  assert_eq(source.summary.warning_count > 0, true)
+  assert_eq(source.summary.risk_count > 0, true)
 }
 
 ///|
-test "test_text_reconstruction_from_real_source_event_produces_block_text" {
+test "test_text_reconstruction_fail_closes_without_scaffold_text_payloads" {
   let source = @source_event.build_pdf_v2_source_event_document(
     @pdfv2.open_pdf_core_v2(pdf_v2_minimal_text_pdf_bytes()),
     [],
@@ -19,29 +21,15 @@ test "test_text_reconstruction_from_real_source_event_produces_block_text" {
     source,
     @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
   )
-  assert_eq(model.summary.block_count, 1)
-  assert_eq(model.pages[0].blocks[0].text, "Hello PDF v2")
-  assert_eq(model.pages[0].blocks[0].object_refs[0], "4 0 R")
+  assert_eq(model.summary.block_count, 0)
+  assert_eq(model.summary.warning_count > 0, true)
+  assert_eq(model.summary.risk_count > 0, true)
+  assert_eq(model.summary.legacy_fallback_allowed, false)
+  assert_eq(model.summary.convert_raw_reparse_allowed, false)
 }
 
 ///|
-test "test_text_reconstruction_from_flate_source_event_produces_block_text" {
-  let source = @source_event.build_pdf_v2_source_event_document(
-    @pdfv2.open_pdf_core_v2(pdf_v2_flate_valid_text_pdf_bytes()),
-    [],
-  )
-  assert_eq(source_text_event_count(source.events), 1)
-  let model = @text_reconstruction.build_pdf_v2_text_model_from_source(
-    source,
-    @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
-  )
-  assert_eq(model.summary.block_count, 1)
-  assert_eq(model.pages[0].blocks[0].text, "Hello Flate v2")
-  assert_eq(model.pages[0].blocks[0].object_refs[0], "4 0 R")
-}
-
-///|
-test "test_real_source_event_preserves_decode_warning_without_loss" {
+test "test_scaffold_keeps_reader_diagnostics_for_text_reconstruction" {
   let source = @source_event.build_pdf_v2_source_event_document(
     @pdfv2.open_pdf_core_v2(pdf_v2_missing_font_pdf_bytes()),
     [],
@@ -50,9 +38,15 @@ test "test_real_source_event_preserves_decode_warning_without_loss" {
     source,
     @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
   )
-  assert_eq(model.pages[0].blocks[0].text, "Missing Font")
-  assert_eq(model.pages[0].blocks[0].warnings.length() > 0, true)
-  assert_eq(model.pages[0].blocks[0].risks.length() > 0, true)
+  assert_eq(model.pages[0].blocks.length(), 0)
+  assert_eq(
+    text_pdf_has_warning_tag(model.warnings, "self_written_core_removed"),
+    true,
+  )
+  assert_eq(
+    text_pdf_has_risk_tag(model.risks, "self_written_core_removed"),
+    true,
+  )
 }
 
 ///|
@@ -66,4 +60,27 @@ fn source_text_event_count(
     }
   }
   count
+}
+
+///|
+fn text_pdf_has_warning_tag(
+  warnings : Array[@pdfv2.PdfV2Warning],
+  tag : String,
+) -> Bool {
+  for warning in warnings {
+    if warning.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn text_pdf_has_risk_tag(risks : Array[@pdfv2.PdfV2Risk], tag : String) -> Bool {
+  for risk in risks {
+    if risk.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
 }
