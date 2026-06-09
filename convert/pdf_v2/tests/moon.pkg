@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/convert/pdf_v2" @pdfv2convert,
+  "ZSeanYves/markitdown/core" @cor,
+  "ZSeanYves/markitdown/convert/pdf_v2/lowering",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2" @pdfv2,
+} for "test"
+
+options(
+  "preferred-target": "native",
+)

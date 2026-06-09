@@ -41,7 +41,7 @@ let converter_registry_entries : Array[ConverterRegistryEntry] = [
     extensions: ["pdf"],
     capability: ConverterCapability::NativeDocument,
     default_enabled: true,
-    notes: "native text-PDF conversion; OCR/provider routes stay explicit and separate",
+    notes: "PDF v2 experimental pipeline per docs/archive/pdf-v2-architecture.md; no v1 fallback",
   },
   {
     format: "xlsx",
@@ -211,9 +211,11 @@ pub async fn parse_to_ir(
 
   match registry_entry.format {
     "docx" => Ok(@doc.parse_docx(input_path, out_dir_str, max_h))
+    // PDF currently routes to the v2 experimental pipeline by architecture
+    // contract; no v1 fallback or dual-route comparison is performed here.
     "pdf" =>
       Ok(
-        @pdf.parse_pdf(
+        @pdf_v2.parse_pdf_v2(
           input_path,
           out_dir_str,
           max_h,

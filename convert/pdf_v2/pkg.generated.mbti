@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/pdf_v2"
+
+import {
+  "ZSeanYves/markitdown/convert/pdf_v2/classifier_gate",
+  "ZSeanYves/markitdown/convert/pdf_v2/lowering",
+  "ZSeanYves/markitdown/core",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/feature_export",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/layout_recovery",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/normalized_model",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/source_event",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/text_reconstruction",
+}
+
+// Values
+pub fn default_pdf_v2_convert_options() -> PdfV2ConvertOptions
+
+pub fn lower_pdf_v2_result_to_core_document(@lowering.PdfV2LoweringResult, String, PdfV2ConvertOptions) -> @core.Document
+
+pub fn parse_pdf_v2(String, String, Int, String?, Bool, Bool, Bool) -> @core.Document raise
+
+pub fn parse_pdf_v2_bytes_with_options(Bytes, String, PdfV2ConvertOptions) -> PdfV2PipelineResult
+
+pub fn parse_pdf_v2_with_options(String, String, PdfV2ConvertOptions) -> PdfV2PipelineResult raise
+
+pub fn pdf_v2_convert_report_templates() -> Array[PdfV2ConvertReportTemplate]
+
+pub fn pdf_v2_pipeline_preserves_no_fallback(PdfV2PipelineResult) -> Bool
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfV2ConvertOptions {
+  max_heading : Int
+  emit_diagnostic_block : Bool
+  emit_decision_summary : Bool
+  fail_closed : Bool
+}
+
+pub(all) struct PdfV2ConvertReportTemplate {
+  name : String
+  lane : String
+  reason_tags_required : Bool
+  notes : String
+}
+
+pub(all) struct PdfV2PipelineResult {
+  document : @core.Document
+  core : @ZSeanYves/markitdown/doc_parse/pdf_v2.PdfV2CoreDocument
+  source : @source_event.PdfV2SourceDocument
+  text_model : @text_reconstruction.PdfV2TextModel
+  model : @normalized_model.PdfV2DocumentModel
+  layout : @layout_recovery.PdfV2LayoutRecoveryResult
+  features : @feature_export.PdfV2FeatureExportResult
+  decisions : Array[@classifier_gate.PdfV2BlockDecision]
+  lowering : @lowering.PdfV2LoweringResult
+  reason_tags : Array[String]
+}
+
+// Type aliases
+
+// Traits

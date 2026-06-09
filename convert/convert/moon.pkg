@@ -1,6 +1,6 @@
 import {
   "ZSeanYves/markitdown/core" @cor,
-  "ZSeanYves/markitdown/convert/pdf",
+  "ZSeanYves/markitdown/convert/pdf_v2",
   "ZSeanYves/markitdown/convert/docx" @doc,
   "ZSeanYves/markitdown/convert/xlsx",
   "ZSeanYves/markitdown/convert/pptx",
