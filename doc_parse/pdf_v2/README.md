@@ -250,6 +250,35 @@ Perf notes:
 - malformed content streams fail closed with `DecodeFailure` warnings/risks and
   no legacy fallback
 
+## RESET-15 ToUnicode Bad-CMap Handling
+
+`open_pdf_core_v2_perf(Bytes)` now has a v2-owned tolerant ToUnicode adapter for
+simple text PDFs. The adapter still uses mbtpdf for lazy object access and stream
+decode, including compressed ToUnicode streams, but it no longer requires
+mbtpdf's strict CMap parser before producing v2 source text events.
+
+The RESET-15 path supports a minimal CMap subset:
+
+- `begincodespacerange` / `endcodespacerange`
+- `beginbfchar` / `endbfchar`
+- `beginbfrange` / `endbfrange`
+- UTF-16BE ToUnicode targets, including surrogate pairs
+
+Decoded Unicode strings are normalized through
+`tonyfettes/unicode/normalization` (`nfc`) before they enter source events. Bad
+or partial CMaps produce structured warnings/risks with reason tags such as
+`decode_source_tounicode`, `tounicode_bfchar_applied`,
+`tounicode_bfrange_applied`, `bad_tounicode_handled`,
+`tounicode_unmapped_code`, `glyph_decode_low_confidence`, and `text_retained`.
+Low-confidence text is retained rather than silently dropped.
+
+The public scaffold interface and upper pipeline remain unchanged:
+`PdfV2CoreDocument` -> source events -> text reconstruction -> normalized model
+-> layout recovery -> feature export -> classifier gate -> lowering -> core
+Document. There is still no old `doc_parse/pdf` fallback, no `convert/pdf`
+fallback, no convert-side raw reparse, no Python/model/TSV/runtime data
+dependency, and malformed unsupported input remains fail-closed with diagnostics.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics

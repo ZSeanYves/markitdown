@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/codec/pdfcodec" @mbtpdf_codec,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf" @mbtpdf_pdf,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfe" @mbtpdf_pdfe,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfio" @mbtpdf_io,
@@ -6,6 +7,7 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdfopsread" @mbtpdf_ops,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread" @mbtpdf_read,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftextread" @mbtpdf_text,
+  "tonyfettes/unicode/normalization" @unicode_normalization,
 }
 
 options(
