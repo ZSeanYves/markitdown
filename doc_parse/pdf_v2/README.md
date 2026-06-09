@@ -209,6 +209,47 @@ diagnostics for malformed/unsupported/partial capability, low-confidence text
 retained when present, no silent loss, no legacy fallback, no convert raw
 reparse, no quality-lab/model/TSV/Python runtime dependency.
 
+## RESET-14 mbtpdf-backed Perf Base
+
+`open_pdf_core_v2_perf(Bytes)` now provides the first mbtpdf-backed performance
+base inside the PDF v2 scaffold. The stable default `open_pdf_core_v2` remains
+scaffold-only, so existing dispatcher/convert behavior does not change in this
+reset.
+
+The perf entry is a private v2 adapter over mbtpdf packages:
+
+- `io/pdfread` opens bytes with `pdf_of_input_lazy`
+- `core/pdf` and `core/pdfio` provide object graph, direct lookup, streams, and
+  buffer conversion
+- `document/pdfpage` provides page tree traversal, boxes, rotation, resources,
+  and page content references
+- `graphics/pdfopsread` parses content streams with source-preserving
+  `LocatedOp` records
+- `text/pdftextread` performs font, encoding, glyph, and ToUnicode/CMap decode
+
+The adapter emits `PdfV2CoreDocument` facts only: pages, object refs, content
+stream refs, text events, source refs, content order, font facts, text matrices,
+decode confidence, warnings, and risks. It does not expose mbtpdf types as a v2
+public boundary and does not call old `doc_parse/pdf`, `convert/pdf`, OCR,
+Python, model artifacts, feature TSVs, or external data.
+
+Current supported path: simple text PDFs with uncompressed or `/FlateDecode`
+content streams, `BT/ET`, `Tf`, `Td`, `TD`, `Tm`, `T*`, `Tj`, `TJ`, `'`, and
+`"` text-showing operators, plus basic simple-font ToUnicode/CMap decoding as
+provided by mbtpdf. Low-confidence or missing font/ToUnicode cases retain text
+when possible and emit structured diagnostics instead of silent loss.
+
+Perf notes:
+
+- stream bytes are opened lazily through mbtpdf and decoded only when page
+  content operators are parsed
+- glyph decode is batched per text-showing operator through the mbtpdf text
+  extractor and cached per font name
+- source attribution preserves page index, stream index, op index, object ref,
+  text object id, and content order
+- malformed content streams fail closed with `DecodeFailure` warnings/risks and
+  no legacy fallback
+
 ## RESET-5 Normalized Parser Model
 
 This reset adds `doc_parse/pdf_v2/normalized_model`, a parser-owned aggregation

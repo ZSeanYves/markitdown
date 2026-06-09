@@ -1026,5 +1026,5 @@ pub fn open_pdf_core_v2(bytes : Bytes) -> PdfV2CoreDocument {
 
 ///|
 pub fn open_pdf_core_v2_perf(bytes : Bytes) -> PdfV2CoreDocument {
-  open_pdf_core_v2_scaffold_reader(bytes, pdf_v2_default_core_open_options())
+  open_pdf_core_v2_perf_reader(bytes, pdf_v2_default_core_open_options())
 }

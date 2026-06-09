@@ -67,6 +67,60 @@ test "test_tounicode_diagnostics_propagate_to_text_reconstruction_placeholder" {
 }
 
 ///|
+test "test_perf_reader_decodes_basic_tounicode_bfchar" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_pdf_bytes(
+      "<2122>",
+      base_tounicode_cmap_header("<00> <FF>") +
+      "2 beginbfchar\n" +
+      "<21> <0048>\n" +
+      "<22> <0069>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "Hi")
+  assert_true(core.text_events[0].decode_confidence >= 0.90)
+  assert_eq(
+    core.text_events[0].reason_tags.contains("batch_glyph_decode"),
+    true,
+  )
+}
+
+///|
+test "test_perf_reader_decodes_flate_tounicode_cmap" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_flate_cmap_pdf_bytes(
+      "<21>",
+      base_tounicode_cmap_header("<00> <FF>") +
+      "1 beginbfchar\n" +
+      "<21> <0041>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "A")
+  assert_true(core.text_events[0].decode_confidence >= 0.90)
+}
+
+///|
+test "test_perf_reader_missing_tounicode_warns_and_retains_text" {
+  let core = @pdfv2.open_pdf_core_v2_perf(pdf_v2_tounicode_missing_pdf_bytes())
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "ABC")
+  assert_eq(
+    tounicode_placeholder_has_warning_tag(
+      core.text_events[0].warnings,
+      "to_unicode_missing_or_malformed",
+    ),
+    true,
+  )
+  assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+}
+
+///|
 fn base_tounicode_cmap_header(codespace : String) -> String {
   "/CIDInit /ProcSet findresource begin\n" +
   "12 dict begin\n" +
