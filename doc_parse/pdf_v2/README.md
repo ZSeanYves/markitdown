@@ -370,6 +370,28 @@ ToUnicode/CMap tags such as `decode_source_tounicode`,
 The source-event -> text reconstruction -> normalized model -> layout ->
 feature -> classifier -> lowering pipeline remains unchanged.
 
+## RESET-19 Encoding Audit
+
+RESET-19 makes no reader behavior change. It reruns the RESET-14 small real-PDF
+sample set through `open_pdf_core_v2_perf(Bytes)` and the complete v2 pipeline:
+source events, text reconstruction, normalized model, layout recovery, feature
+export, classifier gate, and lowering.
+
+The audit records compact per-sample metrics in
+`docs/archive/pdf-v2-reset19-encoding-audit-summary.jsonl`, including
+ToUnicode coverage, Type0/CID/subset font diagnostics, low-confidence retained
+text, bad ToUnicode handling, unmapped-code diagnostics, CMap bfchar/bfrange
+and multibyte tags, encrypted fail-closed behavior, and no-fallback/no-reparse
+guards. It also checks that the pipeline continues to run in one pass without
+old `doc_parse/pdf`, old `convert/pdf`, convert-side raw reparsing, Python,
+model files, TSVs, DocLayNet, or external data.
+
+`tonyfettes_encoding_utf16be` is directly observable in real ToUnicode samples.
+NFC normalization currently has no dedicated reason tag, so this audit records
+`nfc_normalized_observation` as `not_observed_no_explicit_reason_tag` rather
+than inferring a hidden success. That is a diagnostics visibility gap for a
+future reset, not a fallback path.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics
