@@ -43,6 +43,45 @@ priv struct PdfV2PageBuild {
 }
 
 ///|
+priv struct PdfV2CMapCodeSpace {
+  code_len : Int
+  low : Int
+  high : Int
+}
+
+///|
+priv struct PdfV2CMapEntry {
+  code_len : Int
+  code : Int
+  unicode : String
+}
+
+///|
+priv struct PdfV2ToUnicodeMap {
+  code_spaces : Array[PdfV2CMapCodeSpace]
+  entries : Array[PdfV2CMapEntry]
+  malformed_count : Int
+  unsupported_count : Int
+  bfchar_count : Int
+  bfrange_count : Int
+}
+
+///|
+priv struct PdfV2ToUnicodeTextDecode {
+  text : String
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+  decode_confidence : Double
+}
+
+///|
+priv struct PdfV2CMapDecodeResult {
+  text : String
+  unmapped_count : Int
+}
+
+///|
 fn open_pdf_core_v2_minimal_reader(
   bytes : Bytes,
   options : PdfV2CoreOpenOptions,
@@ -938,6 +977,8 @@ fn emit_pdf_v2_text_show(
         Some(state.text_object_id),
       )
       let diagnostics = font_decode_diagnostics(
+        text,
+        raw_bytes,
         state.font_name,
         page_build,
         objects,
@@ -964,9 +1005,10 @@ fn emit_pdf_v2_text_show(
           ),
         ]
       }
-      let confidence = if diagnostics.warning_count == 0 &&
-        malformed_warnings.is_empty() {
-        0.95
+      let confidence = if malformed_warnings.is_empty() {
+        diagnostics.decode_confidence
+      } else if diagnostics.decode_confidence < 0.72 {
+        diagnostics.decode_confidence
       } else {
         0.72
       }
@@ -983,10 +1025,10 @@ fn emit_pdf_v2_text_show(
         op_index: Some(op_index),
         text_object_id: Some(state.text_object_id),
         operator: op,
-        text: if text == "" && raw_bytes.length() > 0 {
+        text: if diagnostics.decoded_text == "" && raw_bytes.length() > 0 {
           "[pdf-v2-undecoded-text]"
         } else {
-          text
+          diagnostics.decoded_text
         },
         raw_bytes: Some(raw_bytes),
         font_name: state.font_name,
@@ -1011,14 +1053,17 @@ fn emit_pdf_v2_text_show(
 
 ///|
 priv struct PdfV2FontDiagnostics {
+  decoded_text : String
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
-  warning_count : Int
   reason_tags : Array[String]
+  decode_confidence : Double
 }
 
 ///|
 fn font_decode_diagnostics(
+  fallback_text : String,
+  raw_bytes : Bytes,
   font_name : String?,
   page_build : PdfV2PageBuild,
   objects : Array[PdfV2RawObject],
@@ -1043,6 +1088,9 @@ fn font_decode_diagnostics(
         risk_glyph_decode_low_confidence(Some(source_ref), stream_object_ref),
       )
       reason_tags.push("missing_font_resource")
+      return pdf_v2_font_diagnostics_result(
+        fallback_text, warnings, risks, reason_tags, 0.72,
+      )
     }
     Some(name) =>
       match page_build.resources_dictionary {
@@ -1063,6 +1111,9 @@ fn font_decode_diagnostics(
             ),
           )
           reason_tags.push("missing_font_resource")
+          return pdf_v2_font_diagnostics_result(
+            fallback_text, warnings, risks, reason_tags, 0.72,
+          )
         }
         Some(resources) =>
           match font_ref_from_resources(resources, name) {
@@ -1083,6 +1134,9 @@ fn font_decode_diagnostics(
                 ),
               )
               reason_tags.push("missing_font_resource")
+              return pdf_v2_font_diagnostics_result(
+                fallback_text, warnings, risks, reason_tags, 0.72,
+              )
             }
             Some(font_ref) => {
               let resource = make_resource_ref(
@@ -1096,20 +1150,40 @@ fn font_decode_diagnostics(
                 Some(font_obj) =>
                   match font_obj.dictionary {
                     Some(font_dict) => {
-                      if !font_dict.contains("/ToUnicode") {
-                        let diagnostic = warn_to_unicode_missing_or_malformed(
-                          resource,
-                        )
-                        warnings.push(diagnostic.warning)
-                        risks.push(
-                          risk_glyph_decode_low_confidence(
-                            Some(source_ref),
-                            Some(font_ref),
-                          ),
-                        )
-                        reason_tags.push("to_unicode_missing_or_malformed")
+                      match pdf_v2_ref_after_key(font_dict, "ToUnicode") {
+                        Some(to_unicode_ref) => {
+                          let decoded = decode_pdf_v2_text_with_tounicode(
+                            fallback_text, raw_bytes, to_unicode_ref, resource, objects,
+                            source_ref,
+                          )
+                          warnings.append(decoded.warnings)
+                          risks.append(decoded.risks)
+                          reason_tags.append(decoded.reason_tags)
+                          return pdf_v2_font_diagnostics_result(
+                            decoded.text,
+                            warnings,
+                            risks,
+                            reason_tags,
+                            decoded.decode_confidence,
+                          )
+                        }
+                        None => {
+                          let diagnostic = warn_to_unicode_missing_or_malformed(
+                            resource,
+                          )
+                          warnings.push(diagnostic.warning)
+                          risks.push(
+                            risk_glyph_decode_low_confidence(
+                              Some(source_ref),
+                              Some(font_ref),
+                            ),
+                          )
+                          reason_tags.push("tounicode_missing")
+                          reason_tags.push("to_unicode_missing_or_malformed")
+                        }
                       }
-                      if !font_dict.contains("/Encoding") &&
+                      if !font_dict.contains("/ToUnicode") &&
+                        !font_dict.contains("/Encoding") &&
                         !font_dict.contains("/BaseFont") {
                         let diagnostic = warn_unknown_font_encoding(resource)
                         warnings.push(diagnostic.warning)
@@ -1150,7 +1224,682 @@ fn font_decode_diagnostics(
           }
       }
   }
-  { warnings, risks, warning_count: warnings.length(), reason_tags }
+  pdf_v2_font_diagnostics_result(
+    fallback_text,
+    warnings,
+    risks,
+    reason_tags,
+    if warnings.is_empty() {
+      0.95
+    } else {
+      0.72
+    },
+  )
+}
+
+///|
+fn pdf_v2_font_diagnostics_result(
+  decoded_text : String,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  reason_tags : Array[String],
+  decode_confidence : Double,
+) -> PdfV2FontDiagnostics {
+  { decoded_text, warnings, risks, reason_tags, decode_confidence }
+}
+
+///|
+fn decode_pdf_v2_text_with_tounicode(
+  fallback_text : String,
+  raw_bytes : Bytes,
+  to_unicode_ref : String,
+  font_resource : PdfV2ResourceRef,
+  objects : Array[PdfV2RawObject],
+  source_ref : PdfV2SourceRef,
+) -> PdfV2ToUnicodeTextDecode {
+  let warnings : Array[PdfV2Warning] = []
+  let risks : Array[PdfV2Risk] = []
+  let reason_tags : Array[String] = ["tounicode_stream_found"]
+  match find_raw_object(objects, to_unicode_ref) {
+    Some(cmap_object) =>
+      match cmap_object.stream_data {
+        Some(stream_data) => {
+          let raw_stream_bytes = string_to_pdf_v2_bytes(stream_data)
+          let filters = match cmap_object.dictionary {
+            Some(dict) => pdf_v2_filter_names(dict)
+            None => []
+          }
+          let decoded_stream = decode_pdf_v2_content_stream_bytes(
+            raw_stream_bytes,
+            filters,
+            source_ref,
+            cmap_object.object_ref,
+            warnings,
+            risks,
+          )
+          if !decoded_stream.supported {
+            append_pdf_v2_unsupported_filter_diagnostics(
+              filters,
+              source_ref,
+              cmap_object.object_ref,
+              warnings,
+              risks,
+            )
+            append_tounicode_malformed_diagnostic(
+              font_resource, warnings, risks, source_ref, to_unicode_ref,
+            )
+            reason_tags.push("tounicode_stream_filter_unsupported")
+            return tounicode_decode_result(
+              fallback_text, warnings, risks, reason_tags, 0.72,
+            )
+          }
+          reason_tags.push("tounicode_stream_decoded")
+          match decoded_stream.text {
+            Some(cmap_text) => {
+              let cmap = parse_pdf_v2_to_unicode_cmap(cmap_text)
+              if cmap.unsupported_count > 0 {
+                append_tounicode_unsupported_diagnostic(
+                  font_resource, warnings, risks, source_ref, to_unicode_ref,
+                )
+                reason_tags.push("tounicode_unsupported_construct")
+              }
+              if cmap.entries.is_empty() || cmap.malformed_count > 0 {
+                append_tounicode_malformed_diagnostic(
+                  font_resource, warnings, risks, source_ref, to_unicode_ref,
+                )
+                reason_tags.push("tounicode_malformed")
+                return tounicode_decode_result(
+                  fallback_text, warnings, risks, reason_tags, 0.72,
+                )
+              }
+              reason_tags.push("tounicode_cmap_parsed")
+              if cmap.bfchar_count > 0 {
+                reason_tags.push("tounicode_bfchar_applied")
+              }
+              if cmap.bfrange_count > 0 {
+                reason_tags.push("tounicode_bfrange_applied")
+              }
+              let decoded = decode_pdf_v2_bytes_with_tounicode_map(
+                raw_bytes, cmap,
+              )
+              if decoded.unmapped_count > 0 {
+                append_tounicode_unmapped_diagnostic(
+                  font_resource, warnings, risks, source_ref, to_unicode_ref,
+                )
+                reason_tags.push("tounicode_code_unmapped")
+                reason_tags.push("text_retained")
+                return tounicode_decode_result(
+                  decoded.text,
+                  warnings,
+                  risks,
+                  reason_tags,
+                  0.55,
+                )
+              }
+              reason_tags.push("decode_source_tounicode")
+              tounicode_decode_result(
+                decoded.text,
+                warnings,
+                risks,
+                reason_tags,
+                0.99,
+              )
+            }
+            None => {
+              append_tounicode_malformed_diagnostic(
+                font_resource, warnings, risks, source_ref, to_unicode_ref,
+              )
+              reason_tags.push("tounicode_malformed")
+              tounicode_decode_result(
+                fallback_text, warnings, risks, reason_tags, 0.72,
+              )
+            }
+          }
+        }
+        None => {
+          append_tounicode_malformed_diagnostic(
+            font_resource, warnings, risks, source_ref, to_unicode_ref,
+          )
+          reason_tags.push("tounicode_malformed")
+          tounicode_decode_result(
+            fallback_text, warnings, risks, reason_tags, 0.72,
+          )
+        }
+      }
+    None => {
+      append_tounicode_malformed_diagnostic(
+        font_resource, warnings, risks, source_ref, to_unicode_ref,
+      )
+      reason_tags.push("tounicode_malformed")
+      tounicode_decode_result(fallback_text, warnings, risks, reason_tags, 0.72)
+    }
+  }
+}
+
+///|
+fn tounicode_decode_result(
+  text : String,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  reason_tags : Array[String],
+  decode_confidence : Double,
+) -> PdfV2ToUnicodeTextDecode {
+  { text, warnings, risks, reason_tags, decode_confidence }
+}
+
+///|
+fn append_tounicode_malformed_diagnostic(
+  font_resource : PdfV2ResourceRef,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  source_ref : PdfV2SourceRef,
+  object_ref : String,
+) -> Unit {
+  let diagnostic = warn_to_unicode_missing_or_malformed(font_resource)
+  warnings.push(diagnostic.warning)
+  risks.push(
+    risk_glyph_decode_low_confidence(Some(source_ref), Some(object_ref)),
+  )
+}
+
+///|
+fn append_tounicode_unmapped_diagnostic(
+  font_resource : PdfV2ResourceRef,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  source_ref : PdfV2SourceRef,
+  object_ref : String,
+) -> Unit {
+  warnings.push(
+    pdf_v2_warning_for_context(
+      PdfV2WarningKind::GlyphDecodeLowConfidence,
+      PdfV2Severity::Warning,
+      pdf_v2_diagnostic_context(
+        PdfV2CoreCapabilityKind::ToUnicode,
+        Some(source_ref),
+        Some(object_ref),
+        Some(font_resource.page_index),
+        [font_resource.name],
+      ),
+      "ToUnicode map did not cover every glyph code",
+      [
+        "tounicode_code_unmapped", "glyph_decode_low_confidence", "text_retained",
+      ],
+      PdfV2Recoverability::RecoverableWithLoss,
+    ),
+  )
+  risks.push(
+    risk_glyph_decode_low_confidence(Some(source_ref), Some(object_ref)),
+  )
+}
+
+///|
+fn append_tounicode_unsupported_diagnostic(
+  font_resource : PdfV2ResourceRef,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+  source_ref : PdfV2SourceRef,
+  object_ref : String,
+) -> Unit {
+  warnings.push(
+    pdf_v2_warning_for_context(
+      PdfV2WarningKind::UnsupportedFeature,
+      PdfV2Severity::Warning,
+      pdf_v2_diagnostic_context(
+        PdfV2CoreCapabilityKind::Cmap,
+        Some(source_ref),
+        Some(object_ref),
+        Some(font_resource.page_index),
+        [font_resource.name],
+      ),
+      "ToUnicode CMap contains unsupported constructs",
+      ["tounicode_unsupported_construct", "text_retained"],
+      PdfV2Recoverability::RecoverableWithLoss,
+    ),
+  )
+  risks.push(
+    risk_glyph_decode_low_confidence(Some(source_ref), Some(object_ref)),
+  )
+}
+
+///|
+fn append_pdf_v2_unsupported_filter_diagnostics(
+  filters : Array[String],
+  source_ref : PdfV2SourceRef,
+  object_ref : String,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Unit {
+  let flate_only = filters.length() == 1 && filters[0] == "FlateDecode"
+  if flate_only {
+    return
+  }
+  for filter in filters {
+    let diagnostic = filter_diagnostic_for_name(
+      filter,
+      Some(source_ref),
+      Some(object_ref),
+    )
+    match diagnostic.warning {
+      Some(warning) => warnings.push(warning)
+      None => ()
+    }
+    match diagnostic.risk {
+      Some(risk) => risks.push(risk)
+      None => ()
+    }
+  }
+}
+
+///|
+fn parse_pdf_v2_to_unicode_cmap(text : String) -> PdfV2ToUnicodeMap {
+  let tokens = tokenize_pdf_v2_content_stream(text)
+  let code_spaces : Array[PdfV2CMapCodeSpace] = []
+  let entries : Array[PdfV2CMapEntry] = []
+  let operands : Array[PdfV2ContentToken] = []
+  let mut section = ""
+  let mut malformed_count = 0
+  let mut unsupported_count = 0
+  let mut bfchar_count = 0
+  let mut bfrange_count = 0
+  for token in tokens {
+    match token {
+      PdfV2ContentToken::Operator(op) =>
+        match op {
+          "begincodespacerange" => {
+            section = "codespace"
+            operands.clear()
+          }
+          "endcodespacerange" => {
+            malformed_count += parse_pdf_v2_cmap_codespaces(
+              operands, code_spaces,
+            )
+            operands.clear()
+            section = ""
+          }
+          "beginbfchar" => {
+            section = "bfchar"
+            operands.clear()
+          }
+          "endbfchar" => {
+            let before = entries.length()
+            malformed_count += parse_pdf_v2_cmap_bfchar(operands, entries)
+            bfchar_count += entries.length() - before
+            operands.clear()
+            section = ""
+          }
+          "beginbfrange" => {
+            section = "bfrange"
+            operands.clear()
+          }
+          "endbfrange" => {
+            let before = entries.length()
+            malformed_count += parse_pdf_v2_cmap_bfrange(operands, entries)
+            bfrange_count += entries.length() - before
+            operands.clear()
+            section = ""
+          }
+          "usecmap" => unsupported_count += 1
+          _ =>
+            if section != "" {
+              operands.push(token)
+            } else {
+              operands.clear()
+            }
+        }
+      _ => if section != "" { operands.push(token) }
+    }
+  }
+  if section != "" {
+    malformed_count += 1
+  }
+  {
+    code_spaces,
+    entries,
+    malformed_count,
+    unsupported_count,
+    bfchar_count,
+    bfrange_count,
+  }
+}
+
+///|
+fn parse_pdf_v2_cmap_codespaces(
+  operands : Array[PdfV2ContentToken],
+  out : Array[PdfV2CMapCodeSpace],
+) -> Int {
+  let mut malformed = 0
+  let mut i = 0
+  while i + 1 < operands.length() {
+    match (cmap_hex_value(operands[i]), cmap_hex_value(operands[i + 1])) {
+      (Some(low), Some(high)) =>
+        if low.code_len == high.code_len {
+          out.push({ code_len: low.code_len, low: low.value, high: high.value })
+        } else {
+          malformed += 1
+        }
+      _ => malformed += 1
+    }
+    i = i + 2
+  }
+  if i < operands.length() {
+    malformed += 1
+  }
+  malformed
+}
+
+///|
+fn parse_pdf_v2_cmap_bfchar(
+  operands : Array[PdfV2ContentToken],
+  out : Array[PdfV2CMapEntry],
+) -> Int {
+  let mut malformed = 0
+  let mut i = 0
+  while i + 1 < operands.length() {
+    match (cmap_hex_value(operands[i]), cmap_unicode_value(operands[i + 1])) {
+      (Some(code), Some(unicode)) =>
+        out.push({ code_len: code.code_len, code: code.value, unicode })
+      _ => malformed += 1
+    }
+    i = i + 2
+  }
+  if i < operands.length() {
+    malformed += 1
+  }
+  malformed
+}
+
+///|
+fn parse_pdf_v2_cmap_bfrange(
+  operands : Array[PdfV2ContentToken],
+  out : Array[PdfV2CMapEntry],
+) -> Int {
+  let mut malformed = 0
+  let mut i = 0
+  while i + 2 < operands.length() {
+    match (cmap_hex_value(operands[i]), cmap_hex_value(operands[i + 1])) {
+      (Some(start), Some(stop)) =>
+        if start.code_len != stop.code_len || stop.value < start.value {
+          malformed += 1
+        } else {
+          malformed += append_pdf_v2_cmap_bfrange_dest(
+            start,
+            stop,
+            operands[i + 2],
+            out,
+          )
+        }
+      _ => malformed += 1
+    }
+    i = i + 3
+  }
+  if i < operands.length() {
+    malformed += 1
+  }
+  malformed
+}
+
+///|
+priv struct PdfV2CMapHexValue {
+  value : Int
+  code_len : Int
+}
+
+///|
+fn cmap_hex_value(token : PdfV2ContentToken) -> PdfV2CMapHexValue? {
+  match token {
+    PdfV2ContentToken::HexString(_, bytes) =>
+      Some({
+        value: bytes_to_pdf_v2_big_endian_int(bytes),
+        code_len: bytes.length(),
+      })
+    _ => None
+  }
+}
+
+///|
+fn cmap_unicode_value(token : PdfV2ContentToken) -> String? {
+  match token {
+    PdfV2ContentToken::HexString(_, bytes) =>
+      unicode_string_from_cmap_bytes(bytes)
+    _ => None
+  }
+}
+
+///|
+fn append_pdf_v2_cmap_bfrange_dest(
+  start : PdfV2CMapHexValue,
+  stop : PdfV2CMapHexValue,
+  dest : PdfV2ContentToken,
+  out : Array[PdfV2CMapEntry],
+) -> Int {
+  let count = stop.value - start.value + 1
+  if count > 2048 {
+    return 1
+  }
+  match dest {
+    PdfV2ContentToken::HexString(_, bytes) => {
+      for offset in 0..<count {
+        match unicode_string_from_incremented_cmap_bytes(bytes, offset) {
+          Some(unicode) =>
+            out.push({
+              code_len: start.code_len,
+              code: start.value + offset,
+              unicode,
+            })
+          None => return 1
+        }
+      }
+      0
+    }
+    PdfV2ContentToken::Array(items) => {
+      if items.length() < count {
+        return 1
+      }
+      for offset in 0..<count {
+        match cmap_unicode_value(items[offset]) {
+          Some(unicode) =>
+            out.push({
+              code_len: start.code_len,
+              code: start.value + offset,
+              unicode,
+            })
+          None => return 1
+        }
+      }
+      0
+    }
+    _ => 1
+  }
+}
+
+///|
+fn decode_pdf_v2_bytes_with_tounicode_map(
+  bytes : Bytes,
+  cmap : PdfV2ToUnicodeMap,
+) -> PdfV2CMapDecodeResult {
+  let out = StringBuilder::new()
+  let mut unmapped_count = 0
+  let mut i = 0
+  while i < bytes.length() {
+    match match_pdf_v2_cmap_entry(bytes, i, cmap) {
+      Some((entry, next)) => {
+        out.write_string(entry.unicode)
+        i = next
+      }
+      None => {
+        unmapped_count += 1
+        out.write_string(fallback_text_for_pdf_v2_code_byte(bytes[i]))
+        i = i + 1
+      }
+    }
+  }
+  { text: out.to_string(), unmapped_count }
+}
+
+///|
+fn match_pdf_v2_cmap_entry(
+  bytes : Bytes,
+  offset : Int,
+  cmap : PdfV2ToUnicodeMap,
+) -> (PdfV2CMapEntry, Int)? {
+  let lengths = pdf_v2_cmap_candidate_lengths(cmap)
+  for code_len in lengths {
+    if offset + code_len <= bytes.length() &&
+      pdf_v2_cmap_code_in_codespace(bytes, offset, code_len, cmap) {
+      let code = pdf_v2_bytes_range_to_int(bytes, offset, code_len)
+      match find_pdf_v2_cmap_entry(cmap.entries, code_len, code) {
+        Some(entry) => return Some((entry, offset + code_len))
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
+fn pdf_v2_cmap_candidate_lengths(cmap : PdfV2ToUnicodeMap) -> Array[Int] {
+  let lengths : Array[Int] = []
+  for space in cmap.code_spaces {
+    if !lengths.contains(space.code_len) {
+      lengths.push(space.code_len)
+    }
+  }
+  if lengths.is_empty() {
+    for entry in cmap.entries {
+      if !lengths.contains(entry.code_len) {
+        lengths.push(entry.code_len)
+      }
+    }
+  }
+  sort_pdf_v2_lengths_desc(lengths)
+}
+
+///|
+fn sort_pdf_v2_lengths_desc(values : Array[Int]) -> Array[Int] {
+  let sorted = values.copy()
+  for i in 0..<sorted.length() {
+    let mut best = i
+    for j in (i + 1)..<sorted.length() {
+      if sorted[j] > sorted[best] {
+        best = j
+      }
+    }
+    if best != i {
+      let tmp = sorted[i]
+      sorted[i] = sorted[best]
+      sorted[best] = tmp
+    }
+  }
+  sorted
+}
+
+///|
+fn pdf_v2_cmap_code_in_codespace(
+  bytes : Bytes,
+  offset : Int,
+  code_len : Int,
+  cmap : PdfV2ToUnicodeMap,
+) -> Bool {
+  if cmap.code_spaces.is_empty() {
+    return true
+  }
+  let code = pdf_v2_bytes_range_to_int(bytes, offset, code_len)
+  for space in cmap.code_spaces {
+    if space.code_len == code_len && code >= space.low && code <= space.high {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn find_pdf_v2_cmap_entry(
+  entries : Array[PdfV2CMapEntry],
+  code_len : Int,
+  code : Int,
+) -> PdfV2CMapEntry? {
+  for entry in entries {
+    if entry.code_len == code_len && entry.code == code {
+      return Some(entry)
+    }
+  }
+  None
+}
+
+///|
+fn unicode_string_from_cmap_bytes(bytes : Bytes) -> String? {
+  if bytes.length() == 0 || bytes.length() % 2 != 0 {
+    return None
+  }
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i + 1 < bytes.length() {
+    let unit = bytes[i].to_int() * 256 + bytes[i + 1].to_int()
+    if unit >= 0xD800 && unit <= 0xDBFF && i + 3 < bytes.length() {
+      let low = bytes[i + 2].to_int() * 256 + bytes[i + 3].to_int()
+      if low >= 0xDC00 && low <= 0xDFFF {
+        let scalar = 0x10000 + (unit - 0xD800) * 1024 + (low - 0xDC00)
+        out.write_char(Int::unsafe_to_char(scalar))
+        i = i + 4
+        continue
+      }
+      return None
+    }
+    if unit >= 0xD800 && unit <= 0xDFFF {
+      return None
+    }
+    out.write_char(Int::unsafe_to_char(unit))
+    i = i + 2
+  }
+  Some(out.to_string())
+}
+
+///|
+fn unicode_string_from_incremented_cmap_bytes(
+  bytes : Bytes,
+  offset : Int,
+) -> String? {
+  if bytes.length() < 2 || bytes.length() % 2 != 0 {
+    return None
+  }
+  let copy = bytes.to_array()
+  let last = copy.length() - 2
+  let value = copy[last].to_int() * 256 + copy[last + 1].to_int() + offset
+  if value > 0xFFFF {
+    return None
+  }
+  copy[last] = ((value >> 8) & 0xFF).to_byte()
+  copy[last + 1] = (value & 0xFF).to_byte()
+  unicode_string_from_cmap_bytes(Bytes::from_array(copy))
+}
+
+///|
+fn bytes_to_pdf_v2_big_endian_int(bytes : Bytes) -> Int {
+  let mut value = 0
+  for byte in bytes {
+    value = value * 256 + byte.to_int()
+  }
+  value
+}
+
+///|
+fn pdf_v2_bytes_range_to_int(bytes : Bytes, offset : Int, len : Int) -> Int {
+  let mut value = 0
+  for i in 0..<len {
+    value = value * 256 + bytes[offset + i].to_int()
+  }
+  value
+}
+
+///|
+fn fallback_text_for_pdf_v2_code_byte(byte : Byte) -> String {
+  let value = byte.to_int()
+  if value >= 0x20 && value <= 0x7E {
+    String::from_array([byte.to_char()])
+  } else {
+    "?"
+  }
 }
 
 ///|

@@ -168,6 +168,29 @@ warnings/risks and does not call the old `doc_parse/pdf` runtime, does not use
 `convert/pdf`, does not re-read raw PDF bytes in convert, and does not hide loss
 with fallback.
 
+## RESET-12B Minimal ToUnicode/CMap
+
+This reset adds minimal ToUnicode CMap decoding for PDF v2 text events. The
+reader resolves font `/ToUnicode` object refs, decodes uncompressed or
+`/FlateDecode` CMap streams through the existing RESET-12A zlib stream path,
+and parses a small source-first CMap subset: `begincodespacerange`,
+`beginbfchar`, and `beginbfrange` with both sequential and array targets.
+
+ToUnicode target hex values are decoded as UTF-16BE code-unit sequences by a
+thin reader-local adapter. The workspace `tonyfettes/unicode` dependency was
+audited for direct UTF-16BE byte decoding; its available packages focus on
+IDNA, punycode, normalization, and UCD tables, so the reader keeps only the
+small PDF-specific adapter here rather than copying or inventing a general
+Unicode library.
+
+Successful ToUnicode hits raise decode confidence and attach reason tags such
+as `tounicode_stream_decoded`, `tounicode_cmap_parsed`,
+`tounicode_bfchar_applied`, `tounicode_bfrange_applied`, and
+`decode_source_tounicode`. Missing, malformed, unsupported, unmapped, or
+invalid UTF-16 CMap entries emit structured warnings/risks, retain raw bytes and
+best-effort text, and never trigger legacy fallback. Convert consumes parser
+facts only and does not re-decode text.
+
 ## RESET-5 Normalized Parser Model
 
 This reset adds `doc_parse/pdf_v2/normalized_model`, a parser-owned aggregation
