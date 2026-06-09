@@ -48,6 +48,21 @@ pub(all) struct PdfV2CoreCapability {
 }
 
 ///|
+pub let pdf_v2_reader_backend_contract : String = "mbtpdf-backed"
+
+///|
+pub let pdf_v2_low_level_parser_owner : String = "vendor/mbtpdf"
+
+///|
+pub let pdf_v2_self_written_core_allowed : Bool = false
+
+///|
+pub let pdf_v2_default_reader_entry_contract : String = "scaffold-only"
+
+///|
+pub let pdf_v2_perf_reader_entry_contract : String = "authorized-mbtpdf-reader"
+
+///|
 pub(all) struct PdfV2CorePage {
   page_index : Int
   boxes : PdfV2PageBoxes

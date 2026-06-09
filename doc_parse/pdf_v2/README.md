@@ -24,12 +24,25 @@ Current scope:
 
 ## Core Boundary
 
-`pdf_core_v2` is the PDF v2 parsing substrate. It is not a wrapper around the
-old `doc_parse/pdf` runtime, and it is not a permanent public API for the old
-vendored `mbtpdf` package. Old vendor code may be used as reference material,
-as a source for carefully ported code, or as a temporary private backend during
-implementation, but v2 public parser contracts must remain owned by
-`doc_parse/pdf_v2`.
+`pdf_core_v2` is the PDF v2 parser-facing substrate. It is not a wrapper around
+the old `doc_parse/pdf` runtime, and it is not a full low-level PDF parser
+rewrite inside `doc_parse/pdf_v2`. The low-level parsing owner is mbtpdf:
+object graph, xref tables/streams, object streams, stream decode, page tree,
+resources, content operators, text/font extraction, CMap/ToUnicode experience,
+and security metadata come through the mbtpdf-backed adapter.
+
+PDF v2 owns the product-facing contract above that substrate: structured
+diagnostics, source refs, object refs, page indices, content order, decode
+confidence, source events, normalized parser model, layout facts, feature
+export, classifier gate inputs, and fail-closed lowering policy. The v2 adapter
+may add diagnostics, reason tags, source attribution, confidence rollups, and
+tolerant Unicode/ToUnicode handling. It must not regrow a separate xref,
+indirect-object, or content-stream parser.
+
+The stable `open_pdf_core_v2(Bytes)` entry remains scaffold-only and
+fail-closed. The `open_pdf_core_v2_perf(Bytes)` entry is the authorized
+mbtpdf-backed real reader path. Public v2 parser contracts remain owned by
+`doc_parse/pdf_v2`; mbtpdf types are not exposed as the v2 public boundary.
 
 The v2 target is a complete common-PDF substrate: object graph, xref table and
 xref stream handling, object streams, compressed streams, filters, page tree,
@@ -278,6 +291,31 @@ The public scaffold interface and upper pipeline remain unchanged:
 Document. There is still no old `doc_parse/pdf` fallback, no `convert/pdf`
 fallback, no convert-side raw reparse, no Python/model/TSV/runtime data
 dependency, and malformed unsupported input remains fail-closed with diagnostics.
+
+## RESET-16 Reader Contract Guard
+
+RESET-16 locks the corrected ownership boundary:
+
+- mbtpdf owns low-level PDF parsing
+- PDF v2 owns diagnostics, source-event contracts, parser model facts, feature
+  export, classifier-gate inputs, and lowering policy
+- `open_pdf_core_v2(Bytes)` remains scaffold-only/fail-closed
+- `open_pdf_core_v2_perf(Bytes)` is the only real PDF reader path
+- v2 must not restore the RESET-11/12A/12B self-written reader spike
+- convert must not reopen raw PDFs, reparse streams, or re-decode text
+
+The package exposes contract constants:
+`pdf_v2_reader_backend_contract = "mbtpdf-backed"`,
+`pdf_v2_low_level_parser_owner = "vendor/mbtpdf"`,
+`pdf_v2_self_written_core_allowed = false`,
+`pdf_v2_default_reader_entry_contract = "scaffold-only"`, and
+`pdf_v2_perf_reader_entry_contract = "authorized-mbtpdf-reader"`.
+
+The perf reader also emits stable diagnostics tags such as
+`mbtpdf_backend_used` and `v2_adapter_diagnostics_only`. These tags are a guard
+against future self-written core regression; they do not add new parsing
+capability. The tonyfettes Unicode helper remains scoped to tolerant
+Unicode/ToUnicode normalization inside the adapter, not a separate parser path.
 
 ## RESET-13 mbtpdf Diagnostics Expansion
 

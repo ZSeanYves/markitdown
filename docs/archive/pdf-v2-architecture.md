@@ -13,6 +13,24 @@ The core design rule is:
 PDF input is scanned once by the vendor/raw/parser pipeline.
 ```
 
+RESET-16 locks the current implementation direction:
+
+```text
+mbtpdf owns low-level PDF parsing.
+PDF v2 owns diagnostics, source-event contracts, parser facts, feature/export,
+classifier gates, and fail-closed lowering policy.
+```
+
+PDF v2 is not a full low-level PDF parser rewrite inside `doc_parse/pdf_v2`.
+The stable `open_pdf_core_v2(Bytes)` entry remains scaffold-only and
+fail-closed; the authorized real reader path is `open_pdf_core_v2_perf(Bytes)`,
+a private adapter over mbtpdf. The v2 adapter may add source refs, object refs,
+page indices, content order, decode confidence, structured warnings/risks,
+reason tags, and tolerant Unicode/ToUnicode handling. It must not regrow a
+separate self-written xref/object/content-stream parser. The tonyfettes Unicode
+helper may be used only inside tolerant Unicode/ToUnicode normalization, not as
+a separate parser backend.
+
 After that one pass, parser-owned facts, source references, layout facts, risks,
 and classifier-ready features are the only inputs allowed for convert, model
 inference, feature export, debug summaries, and downstream quality analysis.
@@ -334,6 +352,15 @@ Non-responsibilities:
 PDF v2 treats the vendor/core substrate as part of the architecture, not as an
 opaque dependency. The goal is a complete PDF parsing foundation with explicit
 facades and bounded runtime closure.
+
+In the current scaffold, mbtpdf is the authorized low-level backend for this
+foundation. It owns object graph and xref handling, stream decode, page tree
+iteration, content operator parsing, text/font extraction, CMap/ToUnicode
+experience, and security metadata discovery. PDF v2 owns the adapter contract:
+typed records, diagnostics, source refs, confidence, reason tags, normalized
+model facts, layout/feature/classifier inputs, and fail-closed convert lowering.
+Future work should reshape or upgrade mbtpdf behind this boundary rather than
+recreating a parallel PDF engine in `doc_parse/pdf_v2`.
 
 Planned facade components:
 

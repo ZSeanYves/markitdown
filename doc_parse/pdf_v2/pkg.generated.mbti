@@ -42,6 +42,8 @@ pub fn pdf_v2_default_permission_state() -> PdfV2PermissionState
 
 pub fn pdf_v2_default_point() -> PdfV2Point
 
+pub let pdf_v2_default_reader_entry_contract : String
+
 pub fn pdf_v2_default_rect() -> PdfV2Rect
 
 pub fn pdf_v2_default_runtime_closure_policy() -> PdfV2RuntimeClosurePolicy
@@ -58,7 +60,13 @@ pub fn pdf_v2_fail_closed_gate(Array[String], Double, Double, Double) -> PdfV2Ga
 
 pub fn pdf_v2_filter_support_table() -> Array[PdfV2FilterSupport]
 
+pub let pdf_v2_low_level_parser_owner : String
+
 pub fn pdf_v2_make_scaffold_block(Int, String, String) -> PdfV2TextBlock
+
+pub let pdf_v2_perf_reader_entry_contract : String
+
+pub let pdf_v2_reader_backend_contract : String
 
 pub fn pdf_v2_risk_for_context(PdfV2RiskKind, PdfV2RiskSeverity, PdfV2DiagnosticContext, String, Array[String], PdfV2Recoverability) -> PdfV2Risk
 
@@ -71,6 +79,8 @@ pub fn pdf_v2_scaffold_risk(String) -> PdfV2Risk
 pub fn pdf_v2_scaffold_summary(PdfV2DocumentModel) -> String
 
 pub fn pdf_v2_scaffold_warning(String) -> PdfV2Warning
+
+pub let pdf_v2_self_written_core_allowed : Bool
 
 pub fn pdf_v2_source_ref_for_page(Int) -> PdfV2SourceRef
 

@@ -2806,7 +2806,8 @@ fn pdf_v2_perf_backend_active_warning(version : String?) -> PdfV2Warning {
     "PDF v2 perf reader uses mbtpdf-backed lazy core base",
     [
       "self_written_core_removed", "mbtpdf_backend_active", "lazy_stream_decode",
-      "batch_glyph_decode", header_tag, "no_fallback",
+      "batch_glyph_decode", "mbtpdf_backend_used", "v2_adapter_diagnostics_only",
+      header_tag, "no_fallback",
     ],
     PdfV2Recoverability::Recoverable,
   )
