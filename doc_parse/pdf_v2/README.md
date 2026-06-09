@@ -146,6 +146,26 @@ convert-owned and must be made from parser facts later.
 The next reset can aggregate this text model into the normalized parser model
 or begin layout-recovery scaffolding over glyph/span/line/block facts.
 
+## RESET-5 Normalized Parser Model
+
+This reset adds `doc_parse/pdf_v2/normalized_model`, a parser-owned aggregation
+scaffold that consumes `source_event.PdfV2SourceDocument` and
+`text_reconstruction.PdfV2TextModel`. It builds document, page, text block,
+line, span, char, media placeholder, layout placeholder, reading-order
+placeholder, cross-page-boundary placeholder, source-summary, diagnostics, and
+classifier-ready feature placeholder records.
+
+The normalized model preserves diagnostics, source refs, object refs, page
+indices, content order, decode confidence, warnings, risks, recoverability, and
+reason tags from source events and text reconstruction. Candidate facts from
+text reconstruction stay candidate facts. They are not converted into final
+heading, list item, caption, table, Markdown, or IR labels.
+
+This layer does not parse PDF bytes, reopen inputs, call old `doc_parse/pdf`,
+call convert, load models, train, or export TSVs. Convert may later consume the
+normalized parser facts, warnings, risks, and classifier-ready placeholders, but
+it must not mutate parser facts or fill missing parser facts through fallback.
+
 Non-goals for this scaffold:
 
 - no old PDF runtime changes
