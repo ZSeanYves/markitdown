@@ -1,5 +1,29 @@
 # DOCX Quality Policy Triage
 
+## Policy Alignment Applied
+
+- Date: 2026-06-09
+- Main repo HEAD before policy update: `293f570`
+- Quality-lab HEAD before policy update: `57f30f4`
+- Updated quality-lab file: `markitdown-quality-lab/external_quality/MANIFEST.tsv`
+- Command after update: `bash samples/check_quality.sh --format docx`
+- Run: `.tmp/quality/runs/docx-20260609-093538-40509`
+- Result: 57 rows, 54 checked, 3 skipped for license review, 0 failed
+
+The policy update changed only DOCX quality row expectations in the external
+quality-lab manifest. DOCX runtime, repo-local sample expected output, and
+quality sample files were not changed.
+
+### Applied Row Decisions
+
+| row id/group | applied decision |
+|---|---|
+| `docx_deep_table_cell_apache_poi*` | Accept bounded nested-table behavior. The rows now require `Nested level 0`, the explicit `[Unsupported DOCX nested table depth limit]` marker, table output, and absence of deep levels such as 2500/4999/5000. |
+| `docx_images_apache_poi_variouspictures*` | Treat PNG/JPG as exported raster assets and WMF/PICT/EMF as explicit unsupported image placeholders. The rows no longer require fake `.img` raster exports for non-raster media. |
+| `docx_inline_images_python_docx_shp_inline_shape_access_counts` | Align JPEG extension expectation with current canonical `.jpg` asset output. |
+| `docx_notes_openxmlsdk_image_body_order_counts` | Align image order checks with current canonical `.png` asset output instead of stale `.img` paths. |
+| `docx_images_python_docx_having_images_counts` | Record current product behavior: six rendered image references with at least three exported assets, allowing media-part deduplication while preserving repeated document references. |
+
 ## Snapshot
 
 - Date: 2026-06-08
@@ -43,14 +67,13 @@ This report is documentation only. It does not change runtime code, repo-local s
 
 ## Quality-Lab Change Status
 
-- `markitdown-quality-lab/external_quality/MANIFEST.tsv`: not modified.
+- `markitdown-quality-lab/external_quality/MANIFEST.tsv`: updated on 2026-06-09 for the seven DOCX rows above.
 - Repo-local samples expected output: not modified.
 - DOCX runtime: not modified.
-- Recommended next slice: `quality: align DOCX media and deep-table expectations`, scoped only to the seven DOCX rows above.
+- Quality result after update: `bash samples/check_quality.sh --format docx` passed with 57 rows, 54 checked, 3 skipped, 0 failed.
 
 ## Recommended Follow-up
 
-1. Move the two deep-table rows to a bounded-output policy: assert termination, `Nested level 0`, and `[Unsupported DOCX nested table depth limit]`.
-2. Split raster asset export checks from non-raster media checks for `VariousPictures.docx`.
-3. Replace `.img` / `.jpeg` exact path expectations with content-policy aware checks.
-4. Decide whether repeated image Markdown references in `having-images.docx` should be normalized, deduplicated, or recorded as current product behavior.
+1. Keep future DOCX quality additions policy-aware: distinguish exported raster assets, unsupported non-raster placeholders, and rendered image references.
+2. If WMF/EMF/PICT rasterization is added later, introduce a separate runtime/product slice and then update these rows deliberately.
+3. If repeated image references are normalized later, update `having-images.docx` quality rows together with a runtime behavior change and sample review.
