@@ -167,10 +167,10 @@ pub fn pdf_v2_filter_support_table() -> Array[PdfV2FilterSupport] {
   [
     filter_support(
       PdfV2FilterName::FlateDecode,
-      PdfV2CapabilitySupportStatus::Required,
+      PdfV2CapabilitySupportStatus::Partial,
       PdfV2CoreCapabilityKind::StreamFilter,
       false,
-      "common stream filter",
+      "minimal zlib-backed content stream support",
     ),
     filter_support(
       PdfV2FilterName::LZWDecode,

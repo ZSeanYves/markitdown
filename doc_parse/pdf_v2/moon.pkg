@@ -1,6 +1,6 @@
 import {
+  "bikallem/compress/zlib",
   "moonbitlang/core/string",
-  "moonbitlang/core/encoding/utf8",
 }
 
 options(

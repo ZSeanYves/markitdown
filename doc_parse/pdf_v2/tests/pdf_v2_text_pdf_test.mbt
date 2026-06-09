@@ -25,6 +25,22 @@ test "test_text_reconstruction_from_real_source_event_produces_block_text" {
 }
 
 ///|
+test "test_text_reconstruction_from_flate_source_event_produces_block_text" {
+  let source = @source_event.build_pdf_v2_source_event_document(
+    @pdfv2.open_pdf_core_v2(pdf_v2_flate_valid_text_pdf_bytes()),
+    [],
+  )
+  assert_eq(source_text_event_count(source.events), 1)
+  let model = @text_reconstruction.build_pdf_v2_text_model_from_source(
+    source,
+    @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
+  )
+  assert_eq(model.summary.block_count, 1)
+  assert_eq(model.pages[0].blocks[0].text, "Hello Flate v2")
+  assert_eq(model.pages[0].blocks[0].object_refs[0], "4 0 R")
+}
+
+///|
 test "test_real_source_event_preserves_decode_warning_without_loss" {
   let source = @source_event.build_pdf_v2_source_event_document(
     @pdfv2.open_pdf_core_v2(pdf_v2_missing_font_pdf_bytes()),

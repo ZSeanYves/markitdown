@@ -146,6 +146,28 @@ convert-owned and must be made from parser facts later.
 The next reset can aggregate this text model into the normalized parser model
 or begin layout-recovery scaffolding over glyph/span/line/block facts.
 
+## RESET-12A Minimal FlateDecode
+
+This reset wires minimal `/FlateDecode` support into the PDF v2 reader for
+simple text content streams. The implementation uses the existing
+`bikallem/compress/zlib` decoder already present in the workspace instead of
+hand-rolling DEFLATE. Both `/Filter /FlateDecode` and
+`/Filter [/FlateDecode]` are accepted when FlateDecode is the only stream
+filter.
+
+Decoded streams continue through the normal source-event path: core content
+stream facts, text operator extraction, `TextPayload` source events, text
+reconstruction, normalized model, layout/features/classifier scaffolds, and
+convert lowering. Decode confidence, source refs, object refs, content order,
+font warnings, missing ToUnicode risks, and reason tags remain attached to the
+text events.
+
+Decode failures, filter chains, unsupported filters, malformed streams, and
+non-text content remain fail-closed diagnostics. The reader emits structured
+warnings/risks and does not call the old `doc_parse/pdf` runtime, does not use
+`convert/pdf`, does not re-read raw PDF bytes in convert, and does not hide loss
+with fallback.
+
 ## RESET-5 Normalized Parser Model
 
 This reset adds `doc_parse/pdf_v2/normalized_model`, a parser-owned aggregation

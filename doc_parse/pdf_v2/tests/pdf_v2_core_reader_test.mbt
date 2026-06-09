@@ -39,7 +39,7 @@ test "test_text_event_preserves_page_object_content_order" {
 }
 
 ///|
-test "test_flate_stream_without_decoder_emits_warning_not_fallback" {
+test "test_flate_stream_decode_failure_emits_warning_not_fallback" {
   let core = @pdfv2.open_pdf_core_v2(pdf_v2_flate_text_pdf_bytes())
   assert_eq(core.content_streams.length(), 1)
   assert_eq(core.content_streams[0].decode_supported, false)
@@ -52,6 +52,29 @@ test "test_flate_stream_without_decoder_emits_warning_not_fallback" {
     true,
   )
   assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+}
+
+///|
+test "test_flate_stream_decodes_to_core_text_event" {
+  let core = @pdfv2.open_pdf_core_v2(pdf_v2_flate_valid_text_pdf_bytes())
+  assert_eq(core.content_streams.length(), 1)
+  assert_eq(core.content_streams[0].decode_supported, true)
+  assert_true(core.content_streams[0].filter_names.contains("FlateDecode"))
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "Hello Flate v2")
+  assert_eq(core.text_events[0].operator, "Tj")
+  assert_true(core.text_events[0].decode_confidence > 0.0)
+  assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+}
+
+///|
+test "test_flate_array_filter_decodes_to_core_text_event" {
+  let core = @pdfv2.open_pdf_core_v2(pdf_v2_flate_array_valid_text_pdf_bytes())
+  assert_eq(core.content_streams.length(), 1)
+  assert_eq(core.content_streams[0].decode_supported, true)
+  assert_eq(core.content_streams[0].filter_names.length(), 1)
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "Hello Flate Array v2")
 }
 
 ///|

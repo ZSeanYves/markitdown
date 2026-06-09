@@ -120,15 +120,11 @@ fn open_pdf_core_v2_minimal_reader(
 
 ///|
 fn pdf_v2_bytes_to_probe_text(bytes : Bytes) -> String {
-  @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => {
-      let out = StringBuilder::new()
-      for byte in bytes {
-        out.write_char(byte.to_char())
-      }
-      out.to_string()
-    }
+  let out = StringBuilder::new()
+  for byte in bytes {
+    out.write_char(byte.to_char())
   }
+  out.to_string()
 }
 
 ///|
@@ -492,20 +488,32 @@ fn build_content_stream_fact(
   }
   let stream_warnings : Array[PdfV2Warning] = []
   let stream_risks : Array[PdfV2Risk] = []
-  if !filters.is_empty() {
-    for filter in filters {
-      let diagnostic = filter_diagnostic_for_name(
-        filter,
-        Some(source_ref),
-        Some(object.object_ref),
-      )
-      match diagnostic.warning {
-        Some(warning) => stream_warnings.push(warning)
-        None => ()
-      }
-      match diagnostic.risk {
-        Some(risk) => stream_risks.push(risk)
-        None => ()
+  let raw_bytes = string_to_pdf_v2_bytes(stream_data)
+  let decoded = decode_pdf_v2_content_stream_bytes(
+    raw_bytes,
+    filters,
+    source_ref,
+    object.object_ref,
+    stream_warnings,
+    stream_risks,
+  )
+  if !decoded.supported {
+    let flate_only = filters.length() == 1 && filters[0] == "FlateDecode"
+    if !flate_only {
+      for filter in filters {
+        let diagnostic = filter_diagnostic_for_name(
+          filter,
+          Some(source_ref),
+          Some(object.object_ref),
+        )
+        match diagnostic.warning {
+          Some(warning) => stream_warnings.push(warning)
+          None => ()
+        }
+        match diagnostic.risk {
+          Some(risk) => stream_risks.push(risk)
+          None => ()
+        }
       }
     }
   }
@@ -514,18 +522,94 @@ fn build_content_stream_fact(
     object_ref: Some(object.object_ref),
     page_index,
     stream_index,
-    raw_bytes: Some(string_to_pdf_v2_bytes(stream_data)),
-    decoded_text: if filters.is_empty() {
-      Some(stream_data)
-    } else {
-      None
-    },
+    raw_bytes: Some(raw_bytes),
+    decoded_text: decoded.text,
     filter_names: filters,
-    decode_supported: filters.is_empty(),
+    decode_supported: decoded.supported,
     warnings: stream_warnings,
     risks: stream_risks,
     source_ref,
   }
+}
+
+///|
+priv struct PdfV2StreamDecodeResult {
+  text : String?
+  supported : Bool
+}
+
+///|
+fn decode_pdf_v2_content_stream_bytes(
+  raw_bytes : Bytes,
+  filters : Array[String],
+  source_ref : PdfV2SourceRef,
+  object_ref : String,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> PdfV2StreamDecodeResult {
+  if filters.is_empty() {
+    return { text: Some(bytes_to_pdf_v2_text(raw_bytes)), supported: true }
+  }
+  if filters.length() == 1 && filters[0] == "FlateDecode" {
+    let inflated = @zlib.decompress(raw_bytes) catch {
+      _ => {
+        let diagnostic = warn_compressed_stream_decode_failure(
+          "FlateDecode",
+          Some(source_ref),
+          Some(object_ref),
+        )
+        match diagnostic.warning {
+          Some(warning) => warnings.push(warning)
+          None => ()
+        }
+        match diagnostic.risk {
+          Some(risk) => risks.push(risk)
+          None => ()
+        }
+        return { text: None, supported: false }
+      }
+    }
+    return { text: Some(bytes_to_pdf_v2_text(inflated)), supported: true }
+  }
+  if filters.contains("FlateDecode") && filters.length() > 1 {
+    let context = pdf_v2_diagnostic_context(
+      PdfV2CoreCapabilityKind::StreamFilter,
+      Some(source_ref),
+      Some(object_ref),
+      Some(source_ref.page_index),
+      filters,
+    )
+    warnings.push(
+      pdf_v2_warning_for_context(
+        PdfV2WarningKind::PartialCapability,
+        PdfV2Severity::Warning,
+        context,
+        "FlateDecode filter chains are not yet supported",
+        ["flate_decode_filter_chain_unsupported", "no_fallback"],
+        PdfV2Recoverability::RecoverableWithLoss,
+      ),
+    )
+    risks.push(
+      pdf_v2_risk_for_context(
+        PdfV2RiskKind::PartialCapability,
+        PdfV2RiskSeverity::Warning,
+        context,
+        "compressed stream filter chain blocks source facts",
+        ["flate_decode_filter_chain_unsupported", "abstain_candidate"],
+        PdfV2Recoverability::RecoverableWithLoss,
+      ),
+    )
+  }
+  { text: None, supported: false }
+}
+
+///|
+fn bytes_to_pdf_v2_text(bytes : Bytes) -> String {
+  let out = StringBuilder::new()
+  for byte in bytes {
+    out.write_char(byte.to_char())
+  }
+  out.to_string()
 }
 
 ///|
