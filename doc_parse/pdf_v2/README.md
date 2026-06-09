@@ -317,6 +317,33 @@ against future self-written core regression; they do not add new parsing
 capability. The tonyfettes Unicode helper remains scoped to tolerant
 Unicode/ToUnicode normalization inside the adapter, not a separate parser path.
 
+## RESET-17 Type0/CID and CMap Diagnostics
+
+RESET-17 keeps the RESET-16 boundary intact and only sharpens the mbtpdf-backed
+adapter diagnostics. `open_pdf_core_v2_perf(Bytes)` remains the only real reader
+path; `open_pdf_core_v2(Bytes)` remains scaffold-only/fail-closed.
+
+Additional diagnostics now include:
+
+- Type0/CID font facts: Type0 detection, DescendantFonts presence, CIDFontType0
+  /CIDFontType2 subtype tags, CIDSystemInfo registry/ordering/supplement tags,
+  subset BaseFont detection, and embedded FontFile presence checks
+- CMap facts: applied codespaceranges, multibyte and variable-width source
+  code ranges, bfchar mappings, bfrange sequential mappings, bfrange array
+  mappings, UTF-16BE targets, surrogate-pair targets, malformed target entries,
+  and partial malformed CMap warnings/risks
+- retained low-confidence text with tags such as `decode_source_tounicode`,
+  `tounicode_bfchar_applied`, `tounicode_bfrange_applied`,
+  `tounicode_bfrange_array`, `tounicode_codespace_multibyte`,
+  `font_subset_detected`, `bad_tounicode_handled`,
+  `glyph_decode_low_confidence`, and `text_retained`
+
+These are adapter-level facts over mbtpdf-owned low-level parsing. They do not
+add a parallel xref/object/content-stream parser, do not introduce fallback, and
+do not let convert reopen or re-decode raw PDF data. The source-event -> text
+reconstruction -> normalized model -> layout -> feature -> classifier -> lowering
+pipeline remains unchanged.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics

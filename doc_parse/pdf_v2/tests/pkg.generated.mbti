@@ -32,6 +32,8 @@ pub fn pdf_v2_tounicode_missing_pdf_bytes() -> Bytes
 
 pub fn pdf_v2_tounicode_pdf_bytes(String, String) -> Bytes
 
+pub fn pdf_v2_type0_cid_tounicode_pdf_bytes(String, String) -> Bytes
+
 // Errors
 
 // Types and methods

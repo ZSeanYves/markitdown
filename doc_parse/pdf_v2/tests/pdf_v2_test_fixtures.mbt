@@ -172,6 +172,32 @@ pub fn pdf_v2_tounicode_missing_pdf_bytes() -> Bytes {
 }
 
 ///|
+pub fn pdf_v2_type0_cid_tounicode_pdf_bytes(
+  text_operand : String,
+  cmap_body : String,
+) -> Bytes {
+  let content = "BT /F1 12 Tf 72 720 Td " + text_operand + " Tj ET"
+  pdf_v2_basic_pdf_bytes_with_resource(
+    pdf_v2_bytes_from_ascii(content),
+    "",
+    "<< /Font << /F1 5 0 R >> >>",
+    [
+      (
+        5, "<< /Type /Font /Subtype /Type0 /BaseFont /ABCDEE+StageTwoCID /Encoding /Identity-H /DescendantFonts [7 0 R] /ToUnicode 6 0 R >>",
+      ),
+      (6, pdf_v2_stream_object(pdf_v2_bytes_from_ascii(cmap_body), "")),
+      (
+        7, "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /ABCDEE+StageTwoCID /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 8 0 R >>",
+      ),
+      (
+        8, "<< /Type /FontDescriptor /FontName /ABCDEE+StageTwoCID /FontFile2 9 0 R >>",
+      ),
+      (9, pdf_v2_stream_object(Bytes::from_array([]), "")),
+    ],
+  )
+}
+
+///|
 fn pdf_v2_bytes_from_ascii(text : String) -> Bytes {
   let out : Array[Byte] = []
   for ch in text.to_array() {

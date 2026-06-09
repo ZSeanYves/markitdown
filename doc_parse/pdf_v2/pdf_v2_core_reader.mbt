@@ -138,6 +138,19 @@ priv struct PdfV2PerfToUnicodeMap {
 }
 
 ///|
+priv struct PdfV2PerfCodespaceParse {
+  next_index : Int
+  malformed : Bool
+}
+
+///|
+priv struct PdfV2PerfFontFacts {
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+///|
 priv struct PdfV2PerfFontLookup {
   extractor : @mbtpdf_text.TextExtractor?
   tounicode : PdfV2PerfToUnicodeMap?
@@ -1158,12 +1171,16 @@ fn pdf_v2_perf_parse_tounicode_cmap(
   while i < tokens.length() {
     match tokens[i] {
       "begincodespacerange" => {
-        let next = pdf_v2_perf_parse_codespace_range(
+        let parsed = pdf_v2_perf_parse_codespace_range(
           tokens,
           i + 1,
           code_lengths,
+          reason_tags,
         )
-        i = next
+        if parsed.malformed {
+          malformed.val = true
+        }
+        i = parsed.next_index
       }
       "beginbfchar" => {
         let parsed = pdf_v2_perf_parse_bfchar_range(
@@ -1193,6 +1210,18 @@ fn pdf_v2_perf_parse_tounicode_cmap(
       }
       _ => i = i + 1
     }
+  }
+  if malformed.val && map.length() > 0 {
+    warnings.push(
+      pdf_v2_perf_tounicode_malformed_warning(
+        source_ref, object_ref, page_index, "ToUnicode CMap contained malformed entries; usable mappings were retained",
+      ),
+    )
+    risks.push(
+      pdf_v2_perf_tounicode_malformed_risk(
+        source_ref, object_ref, page_index, "ToUnicode CMap had malformed entries; PDF v2 retains decoded and raw text evidence",
+      ),
+    )
   }
   if map.length() == 0 {
     malformed.val = true
@@ -1242,26 +1271,177 @@ fn pdf_v2_perf_parse_codespace_range(
   tokens : Array[String],
   start : Int,
   code_lengths : Array[Int],
-) -> Int {
+  reason_tags : Array[String],
+) -> PdfV2PerfCodespaceParse {
   let mut i = start
+  let mut malformed = false
+  let mut applied = false
+  let mut multibyte = false
+  let mut variable = false
   while i < tokens.length() && tokens[i] != "endcodespacerange" {
     if i + 1 < tokens.length() &&
       pdf_v2_perf_is_hex_token(tokens[i]) &&
       pdf_v2_perf_is_hex_token(tokens[i + 1]) {
-      pdf_v2_perf_record_code_length(
-        code_lengths,
-        pdf_v2_perf_hex_token_byte_length(tokens[i]),
-      )
+      let low_length = pdf_v2_perf_hex_token_byte_length(tokens[i])
+      let high_length = pdf_v2_perf_hex_token_byte_length(tokens[i + 1])
+      pdf_v2_perf_record_code_length(code_lengths, low_length)
+      pdf_v2_perf_record_code_length(code_lengths, high_length)
+      applied = true
+      if low_length > 1 || high_length > 1 {
+        multibyte = true
+      }
+      if low_length != high_length {
+        variable = true
+      }
       i = i + 2
     } else {
+      malformed = true
       i = i + 1
     }
   }
-  if i < tokens.length() {
-    i + 1
-  } else {
-    i
+  if i >= tokens.length() {
+    malformed = true
   }
+  if applied {
+    reason_tags.push("tounicode_codespace_applied")
+  }
+  if multibyte {
+    reason_tags.push("tounicode_codespace_multibyte")
+  }
+  if variable {
+    reason_tags.push("tounicode_codespace_variable_width")
+  }
+  if malformed {
+    reason_tags.push("tounicode_codespace_malformed")
+  }
+  { next_index: if i < tokens.length() { i + 1 } else { i }, malformed }
+}
+
+///|
+fn pdf_v2_perf_note_source_code_length(
+  length : Int,
+  reason_tags : Array[String],
+) -> Unit {
+  if length > 1 {
+    pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_source_multibyte")
+  }
+  match length {
+    2 => pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_source_2byte")
+    3 => pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_source_3byte")
+    4 => pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_source_4byte")
+    _ => ()
+  }
+}
+
+///|
+fn pdf_v2_perf_push_unique_tag(
+  reason_tags : Array[String],
+  tag : String,
+) -> Unit {
+  if !reason_tags.contains(tag) {
+    reason_tags.push(tag)
+  }
+}
+
+///|
+fn pdf_v2_perf_tounicode_malformed_warning(
+  source_ref : PdfV2SourceRef,
+  object_ref : String?,
+  page_index : Int,
+  detail : String,
+) -> PdfV2Warning {
+  pdf_v2_perf_warning(
+    PdfV2WarningKind::GlyphDecodeLowConfidence,
+    PdfV2Severity::Warning,
+    PdfV2CoreCapabilityKind::Cmap,
+    Some(source_ref),
+    object_ref,
+    Some(page_index),
+    detail,
+    ["tounicode_malformed", "bad_tounicode_handled", "text_retained"],
+    PdfV2Recoverability::RecoverableWithLoss,
+  )
+}
+
+///|
+fn pdf_v2_perf_tounicode_malformed_risk(
+  source_ref : PdfV2SourceRef,
+  object_ref : String?,
+  page_index : Int,
+  detail : String,
+) -> PdfV2Risk {
+  pdf_v2_risk_for_context(
+    PdfV2RiskKind::GlyphDecodeLowConfidence,
+    PdfV2RiskSeverity::Warning,
+    pdf_v2_diagnostic_context(
+      PdfV2CoreCapabilityKind::Cmap,
+      Some(source_ref),
+      object_ref,
+      Some(page_index),
+      [],
+    ),
+    detail,
+    [
+      "tounicode_malformed", "bad_tounicode_handled", "text_retained", "no_fallback",
+    ],
+    PdfV2Recoverability::RecoverableWithLoss,
+  )
+}
+
+///|
+fn pdf_v2_perf_note_tounicode_target(
+  token : String,
+  reason_tags : Array[String],
+) -> Unit {
+  match pdf_v2_perf_decode_tounicode_hex_as_codepoints(token) {
+    Some(codepoints) => {
+      if codepoints.length() > 1 {
+        pdf_v2_perf_push_unique_tag(
+          reason_tags, "tounicode_target_multi_codepoint",
+        )
+      }
+      for cp in codepoints {
+        if cp > 0xFFFF {
+          pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_surrogate_pair")
+        }
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+fn pdf_v2_perf_note_bfrange_array_length(
+  expected : Int,
+  actual : Int,
+  reason_tags : Array[String],
+) -> Bool {
+  pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_bfrange_array")
+  if actual < expected {
+    pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_bfrange_array_short")
+    true
+  } else if actual > expected {
+    pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_bfrange_array_extra")
+    true
+  } else {
+    false
+  }
+}
+
+///|
+fn pdf_v2_perf_bfrange_array_entry_count(
+  tokens : Array[String],
+  start : Int,
+) -> Int {
+  let mut count = 0
+  let mut i = start
+  while i < tokens.length() && tokens[i] != "]" {
+    if pdf_v2_perf_is_hex_token(tokens[i]) {
+      count = count + 1
+    }
+    i = i + 1
+  }
+  count
 }
 
 ///|
@@ -1280,13 +1460,18 @@ fn pdf_v2_perf_parse_bfchar_range(
       pdf_v2_perf_is_hex_token(tokens[i]) &&
       pdf_v2_perf_is_hex_token(tokens[i + 1]) {
       let src = pdf_v2_perf_hex_token_bytes(tokens[i])
+      pdf_v2_perf_note_source_code_length(src.length(), reason_tags)
       match pdf_v2_perf_decode_tounicode_hex(tokens[i + 1]) {
         Some(value) => {
           map.set(@mbtpdf_io.string_of_int_array(src), value)
           pdf_v2_perf_record_code_length(code_lengths, src.length())
+          pdf_v2_perf_note_tounicode_target(tokens[i + 1], reason_tags)
           applied = true
         }
-        None => malformed = true
+        None => {
+          malformed = true
+          pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_target_malformed")
+        }
       }
       i = i + 2
     } else {
@@ -1319,12 +1504,14 @@ fn pdf_v2_perf_parse_bfrange_range(
       let end_bytes = pdf_v2_perf_hex_token_bytes(tokens[i + 1])
       let start_code = pdf_v2_perf_bytes_to_int(start_bytes)
       let end_code = pdf_v2_perf_bytes_to_int(end_bytes)
+      pdf_v2_perf_note_source_code_length(start_bytes.length(), reason_tags)
       if start_bytes.length() == 0 ||
         start_bytes.length() != end_bytes.length() ||
         end_code < start_code {
         malformed = true
         i = i + 1
       } else if pdf_v2_perf_is_hex_token(tokens[i + 2]) {
+        pdf_v2_perf_push_unique_tag(reason_tags, "tounicode_bfrange_sequential")
         match pdf_v2_perf_decode_tounicode_hex_as_codepoints(tokens[i + 2]) {
           Some(codepoints) =>
             if codepoints.length() == 1 {
@@ -1354,11 +1541,26 @@ fn pdf_v2_perf_parse_bfrange_range(
               pdf_v2_perf_record_code_length(code_lengths, start_bytes.length())
             } else {
               malformed = true
+              pdf_v2_perf_push_unique_tag(
+                reason_tags, "tounicode_bfrange_sequential_multicodepoint_unsupported",
+              )
             }
-          None => malformed = true
+          None => {
+            malformed = true
+            pdf_v2_perf_push_unique_tag(
+              reason_tags, "tounicode_target_malformed",
+            )
+          }
         }
         i = i + 3
       } else if tokens[i + 2] == "[" {
+        let expected_count = end_code - start_code + 1
+        let array_count = pdf_v2_perf_bfrange_array_entry_count(tokens, i + 3)
+        if pdf_v2_perf_note_bfrange_array_length(
+            expected_count, array_count, reason_tags,
+          ) {
+          malformed = true
+        }
         let mut code = start_code
         let mut j = i + 3
         while j < tokens.length() && tokens[j] != "]" && code <= end_code {
@@ -1371,9 +1573,15 @@ fn pdf_v2_perf_parse_bfrange_range(
                   ),
                   value,
                 )
+                pdf_v2_perf_note_tounicode_target(tokens[j], reason_tags)
                 applied = true
               }
-              None => malformed = true
+              None => {
+                malformed = true
+                pdf_v2_perf_push_unique_tag(
+                  reason_tags, "tounicode_target_malformed",
+                )
+              }
             }
             code = code + 1
           } else {
@@ -2230,7 +2438,7 @@ fn pdf_v2_perf_font_diagnostics(
   font_name : String,
   page_index : Int,
   source_ref : PdfV2SourceRef,
-) -> PdfV2PerfFontLookup {
+) -> PdfV2PerfFontFacts {
   let direct = pdf.direct(font_obj)
   let warnings : Array[PdfV2Warning] = []
   let risks : Array[PdfV2Risk] = []
@@ -2257,6 +2465,48 @@ fn pdf_v2_perf_font_diagnostics(
     Some(_) => reason_tags.push("font_type_simple")
     None => reason_tags.push("font_type_simple")
   }
+  let descendant = pdf_v2_perf_descendant_font(pdf, direct)
+  match descendant {
+    Some(descendant_font) => {
+      reason_tags.push("descendant_font_present")
+      match pdf_v2_perf_name_lookup(pdf, descendant_font, "/Subtype") {
+        Some("/CIDFontType0") => {
+          reason_tags.push("font_type_cid")
+          reason_tags.push("cid_font_type0")
+        }
+        Some("/CIDFontType2") => {
+          reason_tags.push("font_type_cid")
+          reason_tags.push("cid_font_type2")
+        }
+        Some(other) => {
+          reason_tags.push("font_type_cid")
+          reason_tags.push("cid_font_subtype:" + other)
+        }
+        None => reason_tags.push("cid_font_subtype_missing")
+      }
+      match pdf_v2_perf_cid_system_info_tags(pdf, descendant_font) {
+        [] => reason_tags.push("cid_system_info_missing")
+        tags => reason_tags.append(tags)
+      }
+    }
+    None =>
+      if subtype == Some("/Type0") {
+        reason_tags.push("descendant_font_missing")
+        warnings.push(
+          pdf_v2_perf_warning(
+            PdfV2WarningKind::PartialCapability,
+            PdfV2Severity::Warning,
+            PdfV2CoreCapabilityKind::CidFont,
+            Some(source_ref),
+            source_ref.object_ref,
+            Some(page_index),
+            "Type0 font has no usable DescendantFonts entry",
+            ["descendant_font_missing", "font_type_type0", "font_type_cid"],
+            PdfV2Recoverability::RecoverableWithLoss,
+          ),
+        )
+      }
+  }
   match pdf_v2_perf_base_font_name(pdf, direct) {
     Some(base_font) => {
       reason_tags.push("raw_base_font:" + base_font)
@@ -2271,7 +2521,12 @@ fn pdf_v2_perf_font_diagnostics(
     }
     None => reason_tags.push("raw_resource_font:" + font_name)
   }
-  if pdf_v2_perf_embedded_font_present(pdf, direct) {
+  let descendant_embedded = match descendant {
+    Some(descendant_font) =>
+      pdf_v2_perf_embedded_font_present(pdf, descendant_font)
+    None => false
+  }
+  if pdf_v2_perf_embedded_font_present(pdf, direct) || descendant_embedded {
     reason_tags.push("embedded_font_present")
   } else {
     reason_tags.push("embedded_font_missing")
@@ -2319,7 +2574,7 @@ fn pdf_v2_perf_font_diagnostics(
       reason_tags.push("glyph_decode_best_effort")
     }
   }
-  { extractor: None, tounicode: None, warnings, risks, reason_tags }
+  { warnings, risks, reason_tags }
 }
 
 ///|
@@ -2552,6 +2807,74 @@ fn pdf_v2_perf_base_font_name(
 }
 
 ///|
+fn pdf_v2_perf_descendant_font(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> @mbtpdf_pdf.PdfObject? {
+  match pdf.lookup_direct("/DescendantFonts", font_obj) {
+    Some(@mbtpdf_pdf.PdfObject::Array(fonts)) =>
+      if fonts.length() > 0 {
+        Some(pdf.direct(fonts[0]))
+      } else {
+        None
+      }
+    Some(font) => Some(pdf.direct(font))
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_perf_cid_system_info_tags(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> Array[String] {
+  match pdf.lookup_direct("/CIDSystemInfo", font_obj) {
+    Some(info) => {
+      let tags : Array[String] = ["cid_system_info_present"]
+      match pdf_v2_perf_string_or_name_lookup(pdf, info, "/Registry") {
+        Some(value) => tags.push("cid_registry:" + value)
+        None => tags.push("cid_registry_missing")
+      }
+      match pdf_v2_perf_string_or_name_lookup(pdf, info, "/Ordering") {
+        Some(value) => tags.push("cid_ordering:" + value)
+        None => tags.push("cid_ordering_missing")
+      }
+      match pdf_v2_perf_int_lookup(pdf, info, "/Supplement") {
+        Some(value) => tags.push("cid_supplement:" + value.to_string())
+        None => tags.push("cid_supplement_missing")
+      }
+      tags
+    }
+    None => []
+  }
+}
+
+///|
+fn pdf_v2_perf_string_or_name_lookup(
+  pdf : @mbtpdf_pdf.Pdf,
+  obj : @mbtpdf_pdf.PdfObject,
+  key : String,
+) -> String? {
+  match pdf.lookup_direct(key, obj) {
+    Some(@mbtpdf_pdf.PdfObject::String(value)) => Some(value)
+    Some(@mbtpdf_pdf.PdfObject::Name(name)) => Some(name.to_string_bytes())
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_perf_int_lookup(
+  pdf : @mbtpdf_pdf.Pdf,
+  obj : @mbtpdf_pdf.PdfObject,
+  key : String,
+) -> Int? {
+  match pdf.lookup_direct(key, obj) {
+    Some(@mbtpdf_pdf.PdfObject::Integer(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
 fn pdf_v2_perf_subset_base_font(base_font : String) -> String? {
   let plus = base_font.find("+")
   match plus {
@@ -2570,7 +2893,7 @@ fn pdf_v2_perf_embedded_font_present(
   pdf : @mbtpdf_pdf.Pdf,
   font_obj : @mbtpdf_pdf.PdfObject,
 ) -> Bool {
-  match pdf.lookup_direct("/FontDescriptor", font_obj) {
+  match pdf.lookup_direct("/FontDescriptor", pdf.direct(font_obj)) {
     Some(descriptor) =>
       pdf.lookup_direct("/FontFile", descriptor) is Some(_) ||
       pdf.lookup_direct("/FontFile2", descriptor) is Some(_) ||

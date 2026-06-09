@@ -286,6 +286,153 @@ test "test_perf_reader_missing_tounicode_warns_and_retains_text" {
 }
 
 ///|
+test "test_reset17_type0_cid_subset_font_diagnostics_propagate" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_type0_cid_tounicode_pdf_bytes(
+      "<00010002>",
+      base_tounicode_cmap_header("<0000> <FFFF>") +
+      "2 beginbfchar\n" +
+      "<0001> <0041>\n" +
+      "<0002> <0042>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  let event = core.text_events[0]
+  assert_eq(event.text, "AB")
+  assert_true(event.decode_confidence >= 0.90)
+  assert_true(event.reason_tags.contains("font_type_type0"))
+  assert_true(event.reason_tags.contains("font_type_cid"))
+  assert_true(event.reason_tags.contains("cid_font_type2"))
+  assert_true(event.reason_tags.contains("descendant_font_present"))
+  assert_true(event.reason_tags.contains("cid_system_info_present"))
+  assert_true(event.reason_tags.contains("cid_registry:Adobe"))
+  assert_true(event.reason_tags.contains("cid_ordering:Identity"))
+  assert_true(event.reason_tags.contains("cid_supplement:0"))
+  assert_true(event.reason_tags.contains("font_subset_detected"))
+  assert_true(event.reason_tags.contains("normalized_base_font:StageTwoCID"))
+  assert_true(event.reason_tags.contains("embedded_font_present"))
+  assert_true(event.reason_tags.contains("tounicode_codespace_multibyte"))
+  assert_true(event.reason_tags.contains("tounicode_source_multibyte"))
+  assert_true(event.reason_tags.contains("decode_source_tounicode"))
+}
+
+///|
+test "test_reset17_bfrange_array_and_multibyte_codespace_decode" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_pdf_bytes(
+      "<000100020003>",
+      base_tounicode_cmap_header("<0000> <FFFF>") +
+      "1 beginbfrange\n" +
+      "<0001> <0003> [<0041> <0042> <0043>]\n" +
+      "endbfrange\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  let event = core.text_events[0]
+  assert_eq(event.text, "ABC")
+  assert_true(event.decode_confidence >= 0.90)
+  assert_true(event.reason_tags.contains("tounicode_bfrange_applied"))
+  assert_true(event.reason_tags.contains("tounicode_bfrange_array"))
+  assert_true(event.reason_tags.contains("tounicode_codespace_multibyte"))
+  assert_true(event.reason_tags.contains("tounicode_source_2byte"))
+}
+
+///|
+test "test_reset17_variable_codespace_prefers_longest_match" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_pdf_bytes(
+      "<010002>",
+      "/CIDInit /ProcSet findresource begin\n" +
+      "12 dict begin\n" +
+      "begincmap\n" +
+      "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n" +
+      "/CMapName /Adobe-Identity-UCS def\n" +
+      "/CMapType 2 def\n" +
+      "2 begincodespacerange\n" +
+      "<00> <FF>\n" +
+      "<0000> <FFFF>\n" +
+      "endcodespacerange\n" +
+      "2 beginbfchar\n" +
+      "<01> <0058>\n" +
+      "<0002> <0059>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  let event = core.text_events[0]
+  assert_eq(event.text, "XY")
+  assert_true(event.decode_confidence >= 0.90)
+  assert_true(event.reason_tags.contains("tounicode_codespace_applied"))
+  assert_true(event.reason_tags.contains("tounicode_codespace_multibyte"))
+  assert_true(event.reason_tags.contains("tounicode_source_2byte"))
+}
+
+///|
+test "test_reset17_malformed_partial_cmap_emits_warning_and_retains_text" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_pdf_bytes(
+      "<2122>",
+      base_tounicode_cmap_header("<00> <FF>") +
+      "2 beginbfchar\n" +
+      "<21> <0041>\n" +
+      "<22> <D800>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  let event = core.text_events[0]
+  assert_eq(event.text.length() >= 2, true)
+  assert_true(event.decode_confidence < 0.90)
+  assert_true(event.reason_tags.contains("bad_tounicode_handled"))
+  assert_true(event.reason_tags.contains("tounicode_target_malformed"))
+  assert_true(event.reason_tags.contains("text_retained"))
+  assert_eq(
+    tounicode_placeholder_has_warning_tag(event.warnings, "tounicode_malformed"),
+    true,
+  )
+  assert_eq(
+    tounicode_placeholder_has_risk_tag(
+      event.risks,
+      "glyph_decode_low_confidence",
+    ),
+    true,
+  )
+  assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+  assert_eq(core.scan_boundary.convert_raw_reparse_allowed, false)
+}
+
+///|
+test "test_reset17_source_text_pipeline_preserves_cmap_reason_tags" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_type0_cid_tounicode_pdf_bytes(
+      "<0001>",
+      base_tounicode_cmap_header("<0000> <FFFF>") +
+      "1 beginbfchar\n" +
+      "<0001> <0041>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  let source = @source_event.build_pdf_v2_source_event_document(core, [])
+  let model = @text_reconstruction.build_pdf_v2_text_model_from_source(
+    source,
+    @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
+  )
+  assert_eq(model.summary.block_count, 1)
+  assert_eq(model.pages[0].blocks[0].text, "A")
+  let block_tags = model.pages[0].blocks[0].reason_tags
+  assert_true(block_tags.contains("decode_source_tounicode"))
+  assert_true(block_tags.contains("font_type_cid"))
+  assert_true(block_tags.contains("font_subset_detected"))
+  assert_true(block_tags.contains("tounicode_source_multibyte"))
+}
+
+///|
 fn base_tounicode_cmap_header(codespace : String) -> String {
   "/CIDInit /ProcSet findresource begin\n" +
   "12 dict begin\n" +
