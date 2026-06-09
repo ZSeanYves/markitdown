@@ -1,3 +1,8 @@
+import {
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
+}
+
 options(
   "preferred-target": "native",
 )

@@ -58,6 +58,67 @@ pub(all) struct PdfV2CorePage {
 }
 
 ///|
+pub(all) enum PdfV2CoreObjectKind {
+  Catalog
+  Pages
+  Page
+  Font
+  Stream
+  Other
+  Malformed
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2CoreObject {
+  object_ref : String
+  object_number : Int
+  generation : Int
+  kind : PdfV2CoreObjectKind
+  raw : String
+  dictionary : String?
+  stream_ref : String?
+}
+
+///|
+pub(all) struct PdfV2CoreContentStream {
+  stream_ref : String
+  object_ref : String?
+  page_index : Int
+  stream_index : Int
+  raw_bytes : Bytes?
+  decoded_text : String?
+  filter_names : Array[String]
+  decode_supported : Bool
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_ref : PdfV2SourceRef
+}
+
+///|
+pub(all) struct PdfV2CoreTextEvent {
+  id : String
+  page_index : Int
+  content_order_index : Int
+  object_ref : String?
+  stream_ref : String?
+  stream_index : Int?
+  op_index : Int?
+  text_object_id : Int?
+  operator : String
+  text : String
+  raw_bytes : Bytes?
+  font_name : String?
+  font_size : Double?
+  origin : PdfV2Point?
+  text_matrix : Array[Double]
+  decode_confidence : Double
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_ref : PdfV2SourceRef
+  reason_tags : Array[String]
+}
+
+///|
 pub(all) struct PdfV2ScanBoundary {
   one_pass_required : Bool
   parser_owns_raw_scan : Bool
@@ -114,6 +175,9 @@ pub(all) struct PdfV2CoreDocument {
   version : String?
   page_count : Int
   pages : Array[PdfV2CorePage]
+  objects : Array[PdfV2CoreObject]
+  content_streams : Array[PdfV2CoreContentStream]
+  text_events : Array[PdfV2CoreTextEvent]
   capabilities : Array[PdfV2CoreCapability]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
@@ -957,28 +1021,5 @@ fn pdf_v2_core_source_summary(
 
 ///|
 pub fn open_pdf_core_v2(bytes : Bytes) -> PdfV2CoreDocument {
-  let options = pdf_v2_default_core_open_options()
-  let summary = pdf_v2_core_source_summary(bytes.length(), 0, true, options)
-  {
-    bytes_len: bytes.length(),
-    version: None,
-    page_count: 0,
-    pages: [],
-    capabilities: pdf_v2_core_capability_matrix(),
-    warnings: [
-      pdf_v2_scaffold_warning(
-        "pdf_core_v2 scaffold records the one-pass boundary but does not parse PDF bytes yet",
-      ),
-    ],
-    risks: [
-      pdf_v2_scaffold_risk(
-        "vendor facade is scaffold-only; unsupported capabilities must become structured warnings",
-      ),
-    ],
-    scanned_once: true,
-    scan_boundary: options.scan_boundary,
-    fallback_policy: options.fallback_policy,
-    runtime_closure_policy: options.runtime_closure_policy,
-    source_summary: summary,
-  }
+  open_pdf_core_v2_minimal_reader(bytes, pdf_v2_default_core_open_options())
 }

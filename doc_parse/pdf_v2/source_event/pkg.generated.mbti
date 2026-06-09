@@ -8,6 +8,8 @@ import {
 // Values
 pub fn build_pdf_v2_source_event_document(@pdf_v2.PdfV2CoreDocument, Array[PdfV2SourceEvent]) -> PdfV2SourceDocument
 
+pub fn pdf_v2_content_stream_event(@pdf_v2.PdfV2CoreContentStream) -> PdfV2SourceEvent
+
 pub fn pdf_v2_document_start_event(@pdf_v2.PdfV2CoreDocument) -> PdfV2SourceEvent
 
 pub fn pdf_v2_event_for_fallback_forbidden(String) -> PdfV2SourceEvent
@@ -27,6 +29,8 @@ pub fn pdf_v2_events_for_security_diagnostic(String, @pdf_v2.PdfV2SecurityDiagno
 pub fn pdf_v2_page_start_event(Int, String?) -> PdfV2SourceEvent
 
 pub fn pdf_v2_text_payload_event(String, Int, String?, @pdf_v2.PdfV2SourceRef, PdfV2SourceTextPayload) -> PdfV2SourceEvent
+
+pub fn pdf_v2_text_payload_event_from_core(@pdf_v2.PdfV2CoreTextEvent) -> PdfV2SourceEvent
 
 // Errors
 

@@ -246,11 +246,28 @@ pub(all) enum PdfV2CoreCapabilityKind {
   LowSignalDocument
 } derive(Eq)
 
+pub(all) struct PdfV2CoreContentStream {
+  stream_ref : String
+  object_ref : String?
+  page_index : Int
+  stream_index : Int
+  raw_bytes : Bytes?
+  decoded_text : String?
+  filter_names : Array[String]
+  decode_supported : Bool
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_ref : PdfV2SourceRef
+}
+
 pub(all) struct PdfV2CoreDocument {
   bytes_len : Int
   version : String?
   page_count : Int
   pages : Array[PdfV2CorePage]
+  objects : Array[PdfV2CoreObject]
+  content_streams : Array[PdfV2CoreContentStream]
+  text_events : Array[PdfV2CoreTextEvent]
   capabilities : Array[PdfV2CoreCapability]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
@@ -280,6 +297,26 @@ pub(all) enum PdfV2CoreFacade {
   PdfCoreDiagnostics
   PdfCoreDebug
   PdfCoreWriteTestOnly
+} derive(Eq)
+
+pub(all) struct PdfV2CoreObject {
+  object_ref : String
+  object_number : Int
+  generation : Int
+  kind : PdfV2CoreObjectKind
+  raw : String
+  dictionary : String?
+  stream_ref : String?
+}
+
+pub(all) enum PdfV2CoreObjectKind {
+  Catalog
+  Pages
+  Page
+  Font
+  Stream
+  Other
+  Malformed
 } derive(Eq)
 
 pub(all) struct PdfV2CoreObjectRef {
@@ -317,6 +354,29 @@ pub(all) struct PdfV2CoreSourceSummary {
 pub(all) struct PdfV2CoreStreamRef {
   object_ref : PdfV2CoreObjectRef?
   stream_index : Int
+}
+
+pub(all) struct PdfV2CoreTextEvent {
+  id : String
+  page_index : Int
+  content_order_index : Int
+  object_ref : String?
+  stream_ref : String?
+  stream_index : Int?
+  op_index : Int?
+  text_object_id : Int?
+  operator : String
+  text : String
+  raw_bytes : Bytes?
+  font_name : String?
+  font_size : Double?
+  origin : PdfV2Point?
+  text_matrix : Array[Double]
+  decode_confidence : Double
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_ref : PdfV2SourceRef
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2CrossPageBoundary {

@@ -6,6 +6,14 @@ pub fn build_pdf_v2_source_event_document(
   let events : Array[PdfV2SourceEvent] = [pdf_v2_document_start_event(core)]
   for page in core.pages {
     events.push(pdf_v2_page_start_event(page.page_index, page.object_ref))
+    for stream in core.content_streams {
+      if stream.page_index == page.page_index {
+        events.push(pdf_v2_content_stream_event(stream))
+      }
+    }
+  }
+  for text_event in core.text_events {
+    events.push(pdf_v2_text_payload_event_from_core(text_event))
   }
   for event in extra_events {
     events.push(event)
@@ -35,6 +43,41 @@ pub fn build_pdf_v2_source_event_document(
 }
 
 ///|
+pub fn pdf_v2_content_stream_event(
+  stream : @pdfv2.PdfV2CoreContentStream,
+) -> PdfV2SourceEvent {
+  {
+    id: "content_stream_" +
+    stream.page_index.to_string() +
+    "_" +
+    stream.stream_index.to_string(),
+    kind: PdfV2SourceEventKind::ContentStreamRef,
+    capability: @pdfv2.PdfV2CoreCapabilityKind::ContentStream,
+    source_ref: Some(stream.source_ref),
+    object_ref: stream.object_ref,
+    page_index: Some(stream.page_index),
+    resource_ref: None,
+    text_payload: None,
+    reason_tags: if stream.decode_supported {
+      ["content_stream", "decoded_or_uncompressed"]
+    } else {
+      ["content_stream", "decode_unsupported", "no_fallback"]
+    },
+    severity: if stream.decode_supported {
+      @pdfv2.PdfV2Severity::Info
+    } else {
+      @pdfv2.PdfV2Severity::Warning
+    },
+    recoverability: if stream.decode_supported {
+      @pdfv2.PdfV2Recoverability::Recoverable
+    } else {
+      @pdfv2.PdfV2Recoverability::RecoverableWithLoss
+    },
+    diagnostics: { warnings: stream.warnings, risks: stream.risks },
+  }
+}
+
+///|
 pub fn pdf_v2_document_start_event(
   core : @pdfv2.PdfV2CoreDocument,
 ) -> PdfV2SourceEvent {
@@ -51,6 +94,51 @@ pub fn pdf_v2_document_start_event(
     severity: @pdfv2.PdfV2Severity::Info,
     recoverability: @pdfv2.PdfV2Recoverability::Recoverable,
     diagnostics: { warnings: core.warnings, risks: core.risks },
+  }
+}
+
+///|
+pub fn pdf_v2_text_payload_event_from_core(
+  event : @pdfv2.PdfV2CoreTextEvent,
+) -> PdfV2SourceEvent {
+  let payload : PdfV2SourceTextPayload = {
+    text: event.text,
+    raw_bytes: event.raw_bytes,
+    decoded_unicode: Some(event.text),
+    bbox: Some(bbox_for_core_text_event(event)),
+    origin: event.origin,
+    quad: None,
+    advance_width: None,
+    glyph_width: None,
+    font_name: event.font_name,
+    font_family: event.font_name,
+    font_size: event.font_size,
+    style_flags: [],
+    fill_color: None,
+    stroke_color: None,
+    rotation: 0,
+    writing_direction: @pdfv2.PdfV2WritingDirection::LeftToRight,
+    content_order_index: Some(event.content_order_index),
+    decode_confidence: Some(event.decode_confidence),
+    reason_tags: event.reason_tags,
+  }
+  {
+    id: event.id,
+    kind: PdfV2SourceEventKind::TextPayload,
+    capability: @pdfv2.PdfV2CoreCapabilityKind::GlyphDecode,
+    source_ref: Some(event.source_ref),
+    object_ref: event.object_ref,
+    page_index: Some(event.page_index),
+    resource_ref: None,
+    text_payload: Some(payload),
+    reason_tags: event.reason_tags,
+    severity: if event.decode_confidence <= 0.0 {
+      @pdfv2.PdfV2Severity::Warning
+    } else {
+      @pdfv2.PdfV2Severity::Info
+    },
+    recoverability: @pdfv2.PdfV2Recoverability::RecoverableWithLoss,
+    diagnostics: { warnings: event.warnings, risks: event.risks },
   }
 }
 
@@ -422,4 +510,20 @@ fn risk_severity_to_warning_severity(
     @pdfv2.PdfV2RiskSeverity::Error => @pdfv2.PdfV2Severity::Error
     @pdfv2.PdfV2RiskSeverity::Fatal => @pdfv2.PdfV2Severity::Fatal
   }
+}
+
+///|
+fn bbox_for_core_text_event(
+  event : @pdfv2.PdfV2CoreTextEvent,
+) -> @pdfv2.PdfV2Rect {
+  let origin = match event.origin {
+    Some(origin) => origin
+    None => @pdfv2.pdf_v2_default_point()
+  }
+  let font_size = match event.font_size {
+    Some(size) => size
+    None => 12.0
+  }
+  let width = event.text.length().to_double() * font_size * 0.5
+  { x0: origin.x, y0: origin.y - font_size, x1: origin.x + width, y1: origin.y }
 }
