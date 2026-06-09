@@ -207,3 +207,39 @@ or trigger abstain. OCR recommendation is represented only as a warning/risk
 
 The next stage can either feed these parser-owned layout facts into feature
 export or build the convert-side classifier gate scaffold that consumes them.
+
+## RESET-7 Classifier-Ready Feature Export
+
+This reset adds `doc_parse/pdf_v2/feature_export`, a parser-side feature
+contract scaffold. It consumes `normalized_model.PdfV2DocumentModel` plus
+`layout_recovery.PdfV2LayoutRecoveryResult` and returns typed feature schema,
+block feature records, diagnostics, risks, and summary counts. It is not a TSV
+writer, model trainer, quality-lab bridge, convert gate, Markdown policy, or IR
+lowering layer.
+
+Feature export does not read PDF files, reopen bytes, call old
+`doc_parse/pdf`, call vendored PDF packages directly, call convert, read
+external repositories, load model artifacts, generate `features.tsv`, or train
+models. The output is parser-owned evidence for future `text_block_classifier`,
+quality-lab bridge, and convert classifier gate consumers.
+
+The default block feature schema fixes the contract for identity, text shape,
+font/style, geometry, page-relative geometry, line spacing, indentation,
+neighbor context, visual proximity, layout region, reading order, cross-page,
+diagnostics, risk, candidate facts, model-gate input, and training-export
+metadata groups. Caption, list, heading, table/layout, risk, and abstain gaps
+from earlier classifier iterations are explicit schema fields.
+
+Features available from normalized text and layout recovery are emitted as
+available or derived values. Features that still need richer parser facts, such
+as visual proximity, font body-density deltas, hanging indent, continuation
+counts, and vector-grid/table geometry, are represented as planned or
+missing-with-warning diagnostics rather than being silently omitted or left for
+convert to reconstruct.
+
+Feature records may contain candidate or evidence fields such as
+`heading_shape_candidate`, `list_marker_candidate`, `caption_prefix_candidate`,
+`table_cell_candidate`, `layout_region_kind`, and `classifier_input_feature`.
+They must not contain final semantic labels such as final heading, paragraph,
+list item, caption, table, Markdown block kind, or IR kind. Final semantic
+policy remains convert-owned.

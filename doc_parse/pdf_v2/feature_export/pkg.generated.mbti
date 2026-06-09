@@ -1,0 +1,196 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/doc_parse/pdf_v2/feature_export"
+
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf_v2",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/layout_recovery",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/normalized_model",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/text_reconstruction",
+}
+
+// Values
+pub fn default_pdf_v2_block_feature_schema() -> PdfV2BlockFeatureSchema
+
+pub fn default_pdf_v2_feature_export_options() -> PdfV2FeatureExportOptions
+
+pub fn export_pdf_v2_block_features(@normalized_model.PdfV2DocumentModel, @layout_recovery.PdfV2LayoutRecoveryResult, PdfV2FeatureExportOptions) -> PdfV2FeatureExportResult
+
+pub fn pdf_v2_block_feature_has_field(PdfV2BlockFeatureRecord, String) -> Bool
+
+pub fn pdf_v2_feature_schema_has_field(PdfV2BlockFeatureSchema, String) -> Bool
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfV2BlockFeatureRecord {
+  doc_id : String
+  page_index : Int
+  block_id : String
+  line_ids : Array[String]
+  source_refs : Array[@pdf_v2.PdfV2SourceRef]
+  object_refs : Array[String]
+  bbox : @pdf_v2.PdfV2Rect
+  page_relative_bbox : @pdf_v2.PdfV2Rect
+  text : String
+  text_length : Int
+  line_count : Int
+  char_count : Int
+  word_count : Int
+  dominant_font_name : String?
+  dominant_font_size : Double?
+  decode_confidence : @text_reconstruction.PdfV2DecodeConfidence
+  writing_direction : @pdf_v2.PdfV2WritingDirection
+  candidate_fact_tags : Array[String]
+  layout_region_ids : Array[String]
+  layout_region_kinds : Array[String]
+  reading_order_index : Int?
+  cross_page_boundary_kinds : Array[String]
+  warnings : Array[@pdf_v2.PdfV2Warning]
+  risks : Array[@pdf_v2.PdfV2Risk]
+  diagnostics : Array[PdfV2FeatureDiagnostic]
+  feature_risks : Array[PdfV2FeatureRisk]
+  values : Array[PdfV2FeatureValue]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2BlockFeatureSchema {
+  version : PdfV2FeatureContractVersion
+  fields : Array[PdfV2FeatureField]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2FeatureAvailability {
+  Available
+  DerivedAvailable
+  MissingWithWarning
+  MissingWithRisk
+  Planned
+  NotApplicable
+} derive(Eq)
+
+pub(all) enum PdfV2FeatureContractVersion {
+  PdfV2FeatureContractReset7
+} derive(Eq)
+
+pub(all) struct PdfV2FeatureDiagnostic {
+  field_name : String
+  availability : PdfV2FeatureAvailability
+  message : String
+  warnings : Array[@pdf_v2.PdfV2Warning]
+  risks : Array[@pdf_v2.PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2FeatureExportOptions {
+  doc_id : String
+  include_text : Bool
+  include_planned_fields : Bool
+  emit_missing_feature_diagnostics : Bool
+  fail_closed : Bool
+}
+
+pub(all) struct PdfV2FeatureExportResult {
+  schema : PdfV2BlockFeatureSchema
+  records : Array[PdfV2BlockFeatureRecord]
+  diagnostics : Array[PdfV2FeatureDiagnostic]
+  feature_risks : Array[PdfV2FeatureRisk]
+  warnings : Array[@pdf_v2.PdfV2Warning]
+  risks : Array[@pdf_v2.PdfV2Risk]
+  summary : PdfV2FeatureExportSummary
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2FeatureExportSummary {
+  record_count : Int
+  field_count : Int
+  available_count : Int
+  planned_count : Int
+  missing_warning_count : Int
+  missing_risk_count : Int
+  warning_count : Int
+  risk_count : Int
+  diagnostic_count : Int
+  one_pass_required : Bool
+  legacy_fallback_allowed : Bool
+  convert_raw_reparse_allowed : Bool
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2FeatureField {
+  name : String
+  group : PdfV2FeatureGroup
+  value_kind : PdfV2FeatureValueKind
+  availability : PdfV2FeatureAvailability
+  source : PdfV2FeatureSource
+  required_by_runtime_gate : Bool
+  required_by_training : Bool
+  missing_behavior : String
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2FeatureGroup {
+  Identity
+  TextShape
+  FontStyle
+  Geometry
+  PageRelativeGeometry
+  LineSpacing
+  Indentation
+  NeighborContext
+  VisualProximity
+  LayoutRegion
+  ReadingOrder
+  CrossPage
+  Diagnostics
+  Risk
+  CandidateFacts
+  ModelGateInput
+  TrainingExportMetadata
+} derive(Eq)
+
+pub(all) struct PdfV2FeatureRisk {
+  field_name : String
+  risk : @pdf_v2.PdfV2Risk
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2FeatureSource {
+  NormalizedModel
+  TextReconstruction
+  LayoutRecovery
+  Diagnostics
+  Derived
+  FutureParserExport
+  FutureModelHint
+} derive(Eq)
+
+pub(all) struct PdfV2FeatureValue {
+  field_name : String
+  value_kind : PdfV2FeatureValueKind
+  bool_value : Bool?
+  int_value : Int?
+  float_value : Double?
+  string_value : String?
+  string_list_value : Array[String]
+  bbox_value : @pdf_v2.PdfV2Rect?
+  enum_value : String?
+  availability : PdfV2FeatureAvailability
+  source : PdfV2FeatureSource
+  diagnostics : Array[PdfV2FeatureDiagnostic]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2FeatureValueKind {
+  Bool
+  Int
+  Float
+  String
+  StringList
+  Bbox
+  Enum
+  Unknown
+} derive(Eq)
+
+// Type aliases
+
+// Traits
