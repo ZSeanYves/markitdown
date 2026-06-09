@@ -1,0 +1,205 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/convert/pdf_v2/lowering"
+
+import {
+  "ZSeanYves/markitdown/convert/pdf_v2/classifier_gate",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/feature_export",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/normalized_model",
+}
+
+// Values
+pub fn default_pdf_v2_lowering_options() -> PdfV2LoweringOptions
+
+pub fn lower_pdf_v2_document(@normalized_model.PdfV2DocumentModel, Array[@feature_export.PdfV2BlockFeatureRecord], Array[@classifier_gate.PdfV2BlockDecision], PdfV2LoweringOptions) -> PdfV2LoweringResult
+
+pub fn pdf_v2_lowering_policy(PdfV2LoweringOptions) -> PdfV2LoweringPolicy
+
+// Errors
+
+// Types and methods
+pub(all) struct PdfV2LoweredBlock {
+  id : String
+  kind : PdfV2LoweredBlockKind
+  text : String
+  page_index : Int
+  bbox : @pdf_v2.PdfV2Rect?
+  origin : PdfV2LoweringOrigin
+  decision_trace : PdfV2LoweringDecisionTrace?
+  asset_ref : PdfV2LoweringAssetRef?
+  warnings : Array[PdfV2LoweringWarning]
+  parser_warnings : Array[@pdf_v2.PdfV2Warning]
+  parser_risks : Array[@pdf_v2.PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2LoweredBlockKind {
+  Text
+  Paragraph
+  Heading
+  ListItem
+  CaptionText
+  TableLikeText
+  ImagePlaceholder
+  FormNote
+  AnnotationNote
+  NoiseSuppressed
+  Unsupported
+  Uncertain
+} derive(Eq)
+
+pub(all) enum PdfV2LoweringAssetKind {
+  Image
+  Annotation
+  Form
+  UnsupportedVector
+} derive(Eq)
+
+pub(all) struct PdfV2LoweringAssetRef {
+  id : String
+  kind : PdfV2LoweringAssetKind
+  page_index : Int
+  object_ref : String?
+  source_refs : Array[@pdf_v2.PdfV2SourceRef]
+  placeholder_block_id : String
+  parser_warnings : Array[@pdf_v2.PdfV2Warning]
+  parser_risks : Array[@pdf_v2.PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringDecisionTrace {
+  block_id : String?
+  label : @classifier_gate.PdfV2BlockDecisionLabel
+  decision_source : @classifier_gate.PdfV2BlockDecisionSource
+  deterministic_constraint_score : Double
+  model_confidence : Double
+  feature_support_score : Double
+  risk_penalty : Double
+  final_confidence : Double
+  abstain : Bool
+  blocked_reason : String?
+  reason_tags : Array[@classifier_gate.PdfV2BlockDecisionReasonTag]
+  evidence_feature_names : Array[String]
+  lowering_action : String
+}
+
+pub(all) struct PdfV2LoweringOptions {
+  fail_closed : Bool
+  min_heading_confidence : Double
+  min_list_confidence : Double
+  min_caption_confidence : Double
+  min_noise_confidence : Double
+  suppress_high_risk_semantics : Bool
+  emit_decision_summary : Bool
+  emit_warnings : Bool
+}
+
+pub(all) struct PdfV2LoweringOrigin {
+  page_index : Int
+  block_id : String?
+  line_ids : Array[String]
+  source_refs : Array[@pdf_v2.PdfV2SourceRef]
+  object_refs : Array[String]
+  feature_record_id : String?
+  decision_id : String?
+  parser_warning_count : Int
+  parser_risk_count : Int
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringPolicy {
+  fail_closed : Bool
+  abstain_behavior : String
+  uncertain_behavior : String
+  low_confidence_behavior : String
+  high_risk_behavior : String
+  heading_policy : String
+  list_policy : String
+  caption_policy : String
+  table_policy : String
+  noise_policy : String
+  min_heading_confidence : Double
+  min_list_confidence : Double
+  min_caption_confidence : Double
+  min_noise_confidence : Double
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringResult {
+  blocks : Array[PdfV2LoweredBlock]
+  asset_refs : Array[PdfV2LoweringAssetRef]
+  warnings : Array[PdfV2LoweringWarning]
+  parser_warnings : Array[@pdf_v2.PdfV2Warning]
+  parser_risks : Array[@pdf_v2.PdfV2Risk]
+  decision_traces : Array[PdfV2LoweringDecisionTrace]
+  summary : PdfV2LoweringSummary
+  policy : PdfV2LoweringPolicy
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringSummary {
+  input_page_count : Int
+  input_text_block_count : Int
+  feature_record_count : Int
+  decision_count : Int
+  lowered_block_count : Int
+  text_count : Int
+  paragraph_count : Int
+  heading_count : Int
+  list_item_count : Int
+  caption_text_count : Int
+  table_like_text_count : Int
+  image_placeholder_count : Int
+  form_note_count : Int
+  annotation_note_count : Int
+  noise_suppressed_count : Int
+  unsupported_count : Int
+  uncertain_count : Int
+  missing_feature_count : Int
+  missing_decision_count : Int
+  abstain_count : Int
+  low_confidence_count : Int
+  high_risk_count : Int
+  warning_count : Int
+  parser_warning_count : Int
+  parser_risk_count : Int
+  decision_trace_count : Int
+  fail_closed : Bool
+  one_pass_required : Bool
+  legacy_fallback_allowed : Bool
+  convert_raw_reparse_allowed : Bool
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2LoweringWarning {
+  kind : PdfV2LoweringWarningKind
+  page_index : Int?
+  block_id : String?
+  message : String
+  source_refs : Array[@pdf_v2.PdfV2SourceRef]
+  object_refs : Array[String]
+  parser_warnings : Array[@pdf_v2.PdfV2Warning]
+  parser_risks : Array[@pdf_v2.PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2LoweringWarningKind {
+  MissingFeatureRecord
+  MissingDecision
+  AbstainDecision
+  UncertainDecision
+  LowConfidenceDecision
+  HighRiskSemanticSuppressed
+  BlockingReasonTag
+  MissingListMarkerEvidence
+  MissingVisualEvidence
+  WeakTableEvidence
+  MissingNoiseEvidence
+  ParserDiagnosticsPropagated
+  PlaceholderEmitted
+  UnsupportedObject
+} derive(Eq)
+
+// Type aliases
+
+// Traits

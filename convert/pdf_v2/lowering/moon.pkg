@@ -1,0 +1,10 @@
+import {
+  "ZSeanYves/markitdown/convert/pdf_v2/classifier_gate",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2" @pdfv2,
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/feature_export",
+  "ZSeanYves/markitdown/doc_parse/pdf_v2/normalized_model",
+}
+
+options(
+  "preferred-target": "native",
+)
