@@ -174,3 +174,36 @@ Non-goals for this scaffold:
 - no DocLayNet or quality-lab reads
 - no feature TSV generation
 - no fallback to `doc_parse/pdf`
+
+## RESET-6 Layout Recovery
+
+This reset adds `doc_parse/pdf_v2/layout_recovery`, a parser-side layout
+recovery scaffold that consumes only
+`normalized_model.PdfV2DocumentModel`. It produces parser-owned layout facts:
+layout regions, reading-order candidates, cross-page boundary candidates,
+layout risks, confidence scores, decision traces, source refs, object refs,
+member block ids, member line ids, warnings, risks, and reason tags.
+
+The scaffold does not read PDF files, reopen bytes, call old `doc_parse/pdf`,
+call vendored PDF packages directly, call convert, train models, read feature
+TSVs, read quality-lab artifacts, or load external model files. It keeps
+layout recovery on the parser side; future convert code may consume these facts
+and fail closed, but it must not redo canonical layout recovery or mutate the
+parser model.
+
+Deterministic/model cooperation is represented as a typed boundary only. Layout
+decisions carry `deterministic_constraint_score`, `model_confidence`,
+`feature_support_score`, `risk_penalty`, `final_confidence`,
+`decision_source`, `abstain`, and reason tags. The intended ordering is hard
+constraints first, then high-confidence model hints, then weak heuristics, then
+abstain. Model hints are in-memory candidate facts for future wiring; they
+cannot hard override parser facts, and runtime model artifacts must not be read
+from external repository files.
+
+Low-signal, malformed, uncertain, source-order conflict, cross-page ambiguity,
+and model-hint conflict states are explicit layout risks and lower confidence
+or trigger abstain. OCR recommendation is represented only as a warning/risk
+(`ocr_recommended_but_not_fallback`); this layer never performs OCR fallback.
+
+The next stage can either feed these parser-owned layout facts into feature
+export or build the convert-side classifier gate scaffold that consumes them.
