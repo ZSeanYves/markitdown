@@ -7,6 +7,7 @@ import {
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdfopsread" @mbtpdf_ops,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread" @mbtpdf_read,
   "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/text/pdftextread" @mbtpdf_text,
+  "tonyfettes/encoding" @tony_encoding,
   "tonyfettes/unicode/normalization" @unicode_normalization,
 }
 

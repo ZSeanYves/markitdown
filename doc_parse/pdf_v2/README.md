@@ -344,6 +344,32 @@ do not let convert reopen or re-decode raw PDF data. The source-event -> text
 reconstruction -> normalized model -> layout -> feature -> classifier -> lowering
 pipeline remains unchanged.
 
+## RESET-18 Unicode Decode and Font Parsing
+
+RESET-18 replaces the local ToUnicode UTF-16BE string construction path with the
+`tonyfettes/encoding` decoder. ToUnicode targets are decoded as strict UTF-16BE
+and then normalized with `tonyfettes/unicode/normalization` NFC before entering
+source events. Malformed or truncated UTF-16BE still produces structured
+warnings/risks and retained low-confidence text; it does not trigger legacy
+fallback.
+
+The mbtpdf-backed reader boundary remains the same:
+
+- mbtpdf owns object access, stream decode, page/content operator parsing,
+  Type0/CID/subset/embedded font dictionaries, and CMap substrate facts
+- PDF v2 owns source refs, content order, decode confidence, reason tags,
+  diagnostics, fail-closed behavior, and pipeline-facing records
+- `open_pdf_core_v2_perf(Bytes)` remains the only real reader path
+- `open_pdf_core_v2(Bytes)` remains scaffold-only/fail-closed
+
+New diagnostics include `tonyfettes_encoding_utf16be` alongside existing
+ToUnicode/CMap tags such as `decode_source_tounicode`,
+`tounicode_bfchar_applied`, `tounicode_bfrange_applied`,
+`tounicode_codespace_multibyte`, `font_type_cid`, `font_subset_detected`,
+`bad_tounicode_handled`, `glyph_decode_low_confidence`, and `text_retained`.
+The source-event -> text reconstruction -> normalized model -> layout ->
+feature -> classifier -> lowering pipeline remains unchanged.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics

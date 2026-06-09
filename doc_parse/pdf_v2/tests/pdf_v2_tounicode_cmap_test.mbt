@@ -98,6 +98,35 @@ test "test_perf_reader_decodes_basic_tounicode_bfchar" {
     core.text_events[0].reason_tags.contains("tonyfettes_unicode_helper"),
     true,
   )
+  assert_eq(
+    core.text_events[0].reason_tags.contains("tonyfettes_encoding_utf16be"),
+    true,
+  )
+}
+
+///|
+test "test_perf_reader_normalizes_tounicode_utf16be_with_tonyfettes_encoding" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_tounicode_pdf_bytes(
+      "<21>",
+      base_tounicode_cmap_header("<00> <FF>") +
+      "1 beginbfchar\n" +
+      "<21> <00650301>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_eq(core.text_events.length(), 1)
+  assert_eq(core.text_events[0].text, "é")
+  assert_true(core.text_events[0].decode_confidence >= 0.90)
+  assert_eq(
+    core.text_events[0].reason_tags.contains("tonyfettes_encoding_utf16be"),
+    true,
+  )
+  assert_eq(
+    core.text_events[0].reason_tags.contains("tounicode_target_multi_codepoint"),
+    true,
+  )
 }
 
 ///|

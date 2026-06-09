@@ -921,7 +921,7 @@ fn pdf_v2_perf_decode_text_with_tounicode(
   let warnings : Array[PdfV2Warning] = []
   let risks : Array[PdfV2Risk] = []
   let tags : Array[String] = [
-    "decode_source_tounicode", "tonyfettes_unicode_helper",
+    "decode_source_tounicode", "tonyfettes_unicode_helper", "tonyfettes_encoding_utf16be",
   ]
   tags.append(cmap.reason_tags)
   let bytes = @mbtpdf_io.int_array_of_bytes(
@@ -1119,6 +1119,7 @@ fn pdf_v2_perf_build_tounicode_map(
             risks: [risk],
             reason_tags: [
               "decode_source_tounicode", "bad_tounicode_handled", "tonyfettes_unicode_helper",
+              "tonyfettes_encoding_utf16be",
             ],
             malformed: true,
           })
@@ -1164,7 +1165,7 @@ fn pdf_v2_perf_parse_tounicode_cmap(
   let warnings : Array[PdfV2Warning] = []
   let risks : Array[PdfV2Risk] = []
   let reason_tags : Array[String] = [
-    "decode_source_tounicode", "tonyfettes_unicode_helper",
+    "decode_source_tounicode", "tonyfettes_unicode_helper", "tonyfettes_encoding_utf16be",
   ]
   let malformed = Ref(false)
   let mut i = 0
@@ -1736,10 +1737,17 @@ fn pdf_v2_perf_hex_value(ch : Char) -> Int? {
 
 ///|
 fn pdf_v2_perf_decode_tounicode_hex(token : String) -> String? {
-  match pdf_v2_perf_decode_tounicode_hex_as_codepoints(token) {
-    Some(codepoints) => pdf_v2_perf_unicode_string_from_codepoints(codepoints)
-    None => None
+  let bytes = pdf_v2_perf_hex_token_bytes(token)
+  if bytes.is_empty() || bytes.length() % 2 != 0 {
+    return None
   }
+  let decoded = @tony_encoding.decode(
+    Bytes::from_array(bytes.map(byte => byte.to_byte())),
+    encoding=@tony_encoding.Encoding::UTF16BE,
+  ) catch {
+    _ => return None
+  }
+  Some(@unicode_normalization.nfc(decoded))
 }
 
 ///|
@@ -1778,14 +1786,33 @@ fn pdf_v2_perf_decode_tounicode_hex_as_codepoints(
 fn pdf_v2_perf_unicode_string_from_codepoints(
   codepoints : Array[Int],
 ) -> String? {
-  let chars : Array[Char] = []
+  let bytes : Array[Byte] = []
   for cp in codepoints {
     if cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF) {
       return None
     }
-    chars.push(Int::unsafe_to_char(cp))
+    if cp > 0xFFFF {
+      let high = 0xD800 + ((cp - 0x10000) >> 10)
+      let low = 0xDC00 + ((cp - 0x10000) & 0x3FF)
+      pdf_v2_perf_append_utf16be_unit(bytes, high)
+      pdf_v2_perf_append_utf16be_unit(bytes, low)
+    } else {
+      pdf_v2_perf_append_utf16be_unit(bytes, cp)
+    }
   }
-  Some(@unicode_normalization.nfc(String::from_array(chars)))
+  let decoded = @tony_encoding.decode(
+    Bytes::from_array(bytes),
+    encoding=@tony_encoding.Encoding::UTF16BE,
+  ) catch {
+    _ => return None
+  }
+  Some(@unicode_normalization.nfc(decoded))
+}
+
+///|
+fn pdf_v2_perf_append_utf16be_unit(bytes : Array[Byte], unit : Int) -> Unit {
+  bytes.push(((unit >> 8) & 0xFF).to_byte())
+  bytes.push((unit & 0xFF).to_byte())
 }
 
 ///|
