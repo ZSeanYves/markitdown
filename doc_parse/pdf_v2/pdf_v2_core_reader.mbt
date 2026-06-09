@@ -98,11 +98,17 @@ priv struct PdfV2PerfTextState {
   mut current_extractor : @mbtpdf_text.TextExtractor?
   mut current_font_warnings : Array[PdfV2Warning]
   mut current_font_risks : Array[PdfV2Risk]
+  mut current_font_reason_tags : Array[String]
   mut text_object_id : Int
   mut content_order_index : Int
   mut text_x : Double
   mut text_y : Double
   mut leading : Double
+  mut char_spacing : Double
+  mut word_spacing : Double
+  mut horizontal_scaling : Double
+  mut rendering_mode : Int
+  mut text_rise : Double
   mut tm_a : Double
   mut tm_b : Double
   mut tm_c : Double
@@ -125,6 +131,25 @@ priv struct PdfV2PerfFontLookup {
   extractor : @mbtpdf_text.TextExtractor?
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+///|
+priv struct PdfV2PerfDiagnostics {
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+}
+
+///|
+priv struct PdfV2PerfInstrumentation {
+  mut decoded_stream_count : Int
+  mut decoded_stream_total_bytes : Int
+  mut max_decoded_stream_bytes : Int
+  mut content_stream_count : Int
+  mut page_count : Int
+  mut text_event_count : Int
+  mut glyph_or_char_count : Int
+  mut decode_failure_count : Int
 }
 
 ///|
@@ -133,6 +158,7 @@ priv struct PdfV2PerfPageExtract {
   text_events : Array[PdfV2CoreTextEvent]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+  instrumentation : PdfV2PerfInstrumentation
 }
 
 ///|
@@ -166,16 +192,26 @@ fn open_pdf_core_v2_perf_reader(
       )
     })
   catch {
-    err =>
+    err => {
+      let encrypted_tags = if pdf_v2_perf_bytes_contain_ascii(bytes, "/Encrypt") {
+        ["encrypted_pdf_detected", "encrypted_pdf_unsupported"]
+      } else {
+        []
+      }
       return pdf_v2_perf_fail_closed_document(
         bytes,
         options,
         version,
-        PdfV2CoreCapabilityKind::ObjectGraph,
+        if encrypted_tags.is_empty() {
+          PdfV2CoreCapabilityKind::ObjectGraph
+        } else {
+          PdfV2CoreCapabilityKind::EncryptionMetadata
+        },
         "mbtpdf lazy PDF open failed: " + err.to_string(),
-        ["mbtpdf_open_failed", "fail_closed", "no_fallback"],
+        encrypted_tags + ["mbtpdf_open_failed", "fail_closed", "no_fallback"],
         source_ref,
       )
+    }
   } noraise {
     pdf => pdf_v2_perf_document_from_mbtpdf(bytes, options, version, pdf)
   }
@@ -188,6 +224,18 @@ fn pdf_v2_perf_document_from_mbtpdf(
   header_version : String?,
   pdf : @mbtpdf_pdf.Pdf,
 ) -> PdfV2CoreDocument {
+  if pdf.saved_encryption is Some(_) ||
+    pdf.lookup_direct("/Encrypt", pdf.trailerdict) is Some(_) {
+    return pdf_v2_perf_fail_closed_document(
+      bytes,
+      options,
+      header_version,
+      PdfV2CoreCapabilityKind::EncryptionMetadata,
+      "encrypted PDF detected by mbtpdf; PDF v2 perf reader fails closed",
+      ["encrypted_pdf_detected", "encrypted_pdf_unsupported"],
+      pdf_v2_source_ref_for_page(0),
+    )
+  }
   try
     @mbtpdf_pdfe.with_silenced_logs(fn() raise {
       @mbtpdf_page.PdfPageDoc::new(pdf).pages_of_pagetree()
@@ -210,14 +258,24 @@ fn pdf_v2_perf_document_from_mbtpdf(
       ]
       let risks : Array[PdfV2Risk] = []
       let objects = pdf_v2_perf_collect_objects(pdf)
+      let structure = pdf_v2_perf_document_structure_diagnostics(pdf, objects)
+      warnings.append(structure.warnings)
+      risks.append(structure.risks)
       let page_refs = pdf_v2_perf_page_reference_numbers(pdf, warnings)
       let pages : Array[PdfV2CorePage] = []
       let content_streams : Array[PdfV2CoreContentStream] = []
       let text_events : Array[PdfV2CoreTextEvent] = []
+      let mut instrumentation = pdf_v2_perf_empty_instrumentation()
+      instrumentation.page_count = mbt_pages.length()
       for page_index = 0
           page_index < mbt_pages.length()
           page_index = page_index + 1 {
         let page = mbt_pages[page_index]
+        let page_object_number = if page_index < page_refs.length() {
+          Some(page_refs[page_index])
+        } else {
+          None
+        }
         let page_object_ref = if page_index < page_refs.length() {
           Some(pdf_v2_perf_object_ref(page_refs[page_index]))
         } else {
@@ -233,13 +291,22 @@ fn pdf_v2_perf_document_from_mbtpdf(
           content_stream_refs: stream_refs,
         })
         let extracted = pdf_v2_perf_extract_page(
-          pdf, page, page_index, page_object_ref,
+          pdf, page, page_index, page_object_number, page_object_ref,
         )
         content_streams.append(extracted.content_streams)
         text_events.append(extracted.text_events)
         warnings.append(extracted.warnings)
         risks.append(extracted.risks)
+        instrumentation = pdf_v2_perf_merge_instrumentation(
+          instrumentation,
+          extracted.instrumentation,
+        )
       }
+      instrumentation.text_event_count = text_events.length()
+      instrumentation.glyph_or_char_count = pdf_v2_perf_text_event_char_count(
+        text_events,
+      )
+      warnings.push(pdf_v2_perf_instrumentation_warning(instrumentation))
       let summary = pdf_v2_core_source_summary(
         bytes.length(),
         pages.length(),
@@ -374,18 +441,32 @@ fn pdf_v2_perf_extract_page(
   pdf : @mbtpdf_pdf.Pdf,
   page : @mbtpdf_page.Page,
   page_index : Int,
+  page_object_number : Int?,
   page_object_ref : String?,
 ) -> PdfV2PerfPageExtract {
+  let page_source_ref = pdf_v2_source_ref_for_page(page_index)
+  let static_diagnostics = pdf_v2_perf_page_static_resource_diagnostics(
+    pdf, page, page_index, page_object_number, page_object_ref,
+  )
+  let instrumentation = pdf_v2_perf_empty_instrumentation()
+  instrumentation.content_stream_count = page.content.length()
+  let stream_diagnostics = pdf_v2_perf_stream_filter_diagnostics(
+    pdf, page, page_index, page_object_ref, true,
+  )
   let content_streams = pdf_v2_perf_content_streams_for_page(
     pdf,
     page,
     page_index,
     true,
-    [],
-    [],
+    stream_diagnostics.warnings,
+    stream_diagnostics.risks,
   )
   let warnings : Array[PdfV2Warning] = []
   let risks : Array[PdfV2Risk] = []
+  warnings.append(static_diagnostics.warnings)
+  warnings.append(stream_diagnostics.warnings)
+  risks.append(static_diagnostics.risks)
+  risks.append(stream_diagnostics.risks)
   let text_events : Array[PdfV2CoreTextEvent] = []
   try
     @mbtpdf_pdfe.with_silenced_logs(fn() raise {
@@ -406,14 +487,13 @@ fn pdf_v2_perf_extract_page(
           pdf_v2_perf_stream_decode_warning(
             "mbtpdf content stream operator parse/decode failed: " +
             err.to_string(),
-            pdf_v2_source_ref_for_page(page_index),
+            page_source_ref,
             page_object_ref,
           ),
         ],
         [
           pdf_v2_perf_stream_decode_risk(
-            "mbtpdf content stream operator parse/decode failed",
-            pdf_v2_source_ref_for_page(page_index),
+            "mbtpdf content stream operator parse/decode failed", page_source_ref,
             page_object_ref,
           ),
         ],
@@ -422,10 +502,33 @@ fn pdf_v2_perf_extract_page(
         warnings.append(stream.warnings)
         risks.append(stream.risks)
       }
-      { content_streams: failed_streams, text_events, warnings, risks }
+      instrumentation.decode_failure_count = page.content.length()
+      {
+        content_streams: failed_streams,
+        text_events,
+        warnings,
+        risks,
+        instrumentation,
+      }
     }
   } noraise {
     ops => {
+      let op_diagnostics = pdf_v2_perf_page_op_resource_diagnostics(
+        pdf,
+        page.resources,
+        ops,
+        page_index,
+        page_object_ref,
+      )
+      warnings.append(op_diagnostics.warnings)
+      risks.append(op_diagnostics.risks)
+      instrumentation.decoded_stream_count = page.content.length()
+      instrumentation.decoded_stream_total_bytes = pdf_v2_perf_decoded_stream_total_bytes(
+        pdf, page,
+      )
+      instrumentation.max_decoded_stream_bytes = pdf_v2_perf_max_decoded_stream_bytes(
+        pdf, page,
+      )
       let text_extract = pdf_v2_perf_text_events_from_ops(
         pdf,
         page.resources,
@@ -436,7 +539,7 @@ fn pdf_v2_perf_extract_page(
       text_events.append(text_extract.text_events)
       warnings.append(text_extract.warnings)
       risks.append(text_extract.risks)
-      { content_streams, text_events, warnings, risks }
+      { content_streams, text_events, warnings, risks, instrumentation }
     }
   }
 }
@@ -478,6 +581,7 @@ fn pdf_v2_perf_text_events_from_ops(
     state.val.current_extractor = lookup.extractor
     state.val.current_font_warnings = lookup.warnings
     state.val.current_font_risks = lookup.risks
+    state.val.current_font_reason_tags = lookup.reason_tags
   }
 
   fn append_text_event(
@@ -518,7 +622,14 @@ fn pdf_v2_perf_text_events_from_ops(
       source_ref,
       object_ref,
     )
-    let event_warnings = state.val.current_font_warnings + decoded.warnings
+    let positioning_warning = pdf_v2_perf_positioning_detail_warning(
+      source_ref,
+      object_ref,
+      state.val,
+    )
+    let event_warnings = state.val.current_font_warnings +
+      decoded.warnings +
+      [positioning_warning]
     let event_risks = state.val.current_font_risks + decoded.risks
     let stream_ref = pdf_v2_perf_stream_ref(
       page_index,
@@ -556,6 +667,8 @@ fn pdf_v2_perf_text_events_from_ops(
         "mbtpdf_backend_active", "source_event_text_operator", "lazy_stream_decode",
         "batch_glyph_decode", "no_fallback",
       ] +
+      state.val.current_font_reason_tags +
+      pdf_v2_perf_text_state_reason_tags(state.val) +
       decoded.reason_tags,
     })
   }
@@ -575,6 +688,30 @@ fn pdf_v2_perf_text_events_from_ops(
         if state.val.in_text {
           state.val.current_font_size = Some(size)
           lookup_font(name, located)
+        }
+      @mbtpdf_ops.Op::OpTc(value) =>
+        if state.val.in_text {
+          state.val.char_spacing = value
+        }
+      @mbtpdf_ops.Op::OpTw(value) =>
+        if state.val.in_text {
+          state.val.word_spacing = value
+        }
+      @mbtpdf_ops.Op::OpTz(value) =>
+        if state.val.in_text {
+          state.val.horizontal_scaling = value
+        }
+      @mbtpdf_ops.Op::OpTL(value) =>
+        if state.val.in_text {
+          state.val.leading = value
+        }
+      @mbtpdf_ops.Op::OpTr(value) =>
+        if state.val.in_text {
+          state.val.rendering_mode = value
+        }
+      @mbtpdf_ops.Op::OpTs(value) =>
+        if state.val.in_text {
+          state.val.text_rise = value
         }
       @mbtpdf_ops.Op::OpTd(tx, ty) =>
         if state.val.in_text {
@@ -608,8 +745,10 @@ fn pdf_v2_perf_text_events_from_ops(
         }
         append_text_event("'", value, located)
       }
-      @mbtpdf_ops.Op::OpDoubleQuote(_, _, value) => {
+      @mbtpdf_ops.Op::OpDoubleQuote(word_spacing, char_spacing, value) => {
         if state.val.in_text {
+          state.val.word_spacing = word_spacing
+          state.val.char_spacing = char_spacing
           pdf_v2_perf_move_text_matrix(state, 0.0, -state.val.leading)
         }
         append_text_event("\"", value, located)
@@ -636,7 +775,13 @@ fn pdf_v2_perf_text_events_from_ops(
       _ => ()
     }
   }
-  { content_streams: [], text_events, warnings, risks }
+  {
+    content_streams: [],
+    text_events,
+    warnings,
+    risks,
+    instrumentation: pdf_v2_perf_empty_instrumentation(),
+  }
 }
 
 ///|
@@ -662,23 +807,32 @@ fn pdf_v2_perf_decode_text(
         pairs => {
           let builder = StringBuilder::new()
           let mut confidence = 1.0
+          let used_fallback = Ref(false)
           for pair in pairs {
             let part = @mbtpdf_text.PdfTextUtil::new().utf8_of_codepoints(
               pair.1,
             ) catch {
               _ => {
                 confidence = 0.60
+                used_fallback.val = true
                 pair.0
               }
             }
             builder.write_string(pdf_v2_perf_sanitize_text(part))
+          }
+          let decode_reason_tags = if used_fallback.val {
+            [
+              "mbtpdf_text_extractor", "glyph_decode", "glyph_decode_best_effort",
+            ]
+          } else {
+            ["mbtpdf_text_extractor", "glyph_decode"]
           }
           {
             text: builder.to_string(),
             confidence,
             warnings,
             risks,
-            reason_tags: ["mbtpdf_text_extractor", "glyph_decode"],
+            reason_tags: decode_reason_tags,
           }
         }
       }
@@ -731,7 +885,12 @@ fn pdf_v2_perf_lookup_text_extractor(
   source_ref : PdfV2SourceRef,
 ) -> PdfV2PerfFontLookup {
   if cache.get(font_name) is Some(extractor) {
-    return { extractor: Some(extractor), warnings: [], risks: [] }
+    return {
+      extractor: Some(extractor),
+      warnings: [],
+      risks: [],
+      reason_tags: [],
+    }
   }
   let font_resource = make_resource_ref(
     PdfV2ResourceKind::Font,
@@ -743,25 +902,40 @@ fn pdf_v2_perf_lookup_text_extractor(
   match pdf.lookup_direct("/Font", resources) {
     Some(fonts) =>
       match pdf.lookup_direct(font_name, fonts) {
-        Some(font_obj) =>
+        Some(font_obj) => {
+          let font_diagnostics = pdf_v2_perf_font_diagnostics(
+            pdf, font_obj, font_name, page_index, source_ref,
+          )
           try text_reader.text_extractor_of_font(font_obj) catch {
             _ => {
-              let warning = if pdf_v2_perf_type0_missing_tounicode(
-                  pdf, font_obj,
-                ) {
+              let warning = if pdf_v2_perf_has_tounicode(pdf, font_obj) {
+                pdf_v2_perf_warning(
+                  PdfV2WarningKind::GlyphDecodeLowConfidence,
+                  PdfV2Severity::Warning,
+                  PdfV2CoreCapabilityKind::ToUnicode,
+                  Some(source_ref),
+                  source_ref.object_ref,
+                  Some(page_index),
+                  "ToUnicode map is present but mbtpdf could not build a text extractor",
+                  ["tounicode_malformed", "glyph_decode_low_confidence"],
+                  PdfV2Recoverability::RecoverableWithLoss,
+                )
+              } else if pdf_v2_perf_type0_missing_tounicode(pdf, font_obj) {
                 warn_to_unicode_missing_or_malformed(font_resource).warning
               } else {
                 warn_unknown_font_encoding(font_resource).warning
               }
               return {
                 extractor: None,
-                warnings: [warning],
+                warnings: font_diagnostics.warnings + [warning],
                 risks: [
                   risk_glyph_decode_low_confidence(
                     Some(source_ref),
                     source_ref.object_ref,
                   ),
                 ],
+                reason_tags: font_diagnostics.reason_tags +
+                ["glyph_decode_low_confidence"],
               }
             }
           } noraise {
@@ -774,9 +948,15 @@ fn pdf_v2_perf_lookup_text_extractor(
               } else {
                 []
               }
-              { extractor: Some(extractor), warnings, risks: [] }
+              {
+                extractor: Some(extractor),
+                warnings: font_diagnostics.warnings + warnings,
+                risks: font_diagnostics.risks,
+                reason_tags: font_diagnostics.reason_tags,
+              }
             }
           }
+        }
         None => {
           let warning = warn_missing_font_resource(font_resource).warning
           {
@@ -787,6 +967,9 @@ fn pdf_v2_perf_lookup_text_extractor(
                 Some(source_ref),
                 source_ref.object_ref,
               ),
+            ],
+            reason_tags: [
+              "missing_font_resource", "glyph_decode_low_confidence",
             ],
           }
         }
@@ -802,6 +985,7 @@ fn pdf_v2_perf_lookup_text_extractor(
             source_ref.object_ref,
           ),
         ],
+        reason_tags: ["missing_page_resources", "missing_font_resource"],
       }
     }
   }
@@ -865,6 +1049,572 @@ fn pdf_v2_perf_content_streams_for_page(
 }
 
 ///|
+fn pdf_v2_perf_empty_instrumentation() -> PdfV2PerfInstrumentation {
+  {
+    decoded_stream_count: 0,
+    decoded_stream_total_bytes: 0,
+    max_decoded_stream_bytes: 0,
+    content_stream_count: 0,
+    page_count: 0,
+    text_event_count: 0,
+    glyph_or_char_count: 0,
+    decode_failure_count: 0,
+  }
+}
+
+///|
+fn pdf_v2_perf_merge_instrumentation(
+  left : PdfV2PerfInstrumentation,
+  right : PdfV2PerfInstrumentation,
+) -> PdfV2PerfInstrumentation {
+  {
+    decoded_stream_count: left.decoded_stream_count + right.decoded_stream_count,
+    decoded_stream_total_bytes: left.decoded_stream_total_bytes +
+    right.decoded_stream_total_bytes,
+    max_decoded_stream_bytes: if left.max_decoded_stream_bytes >
+      right.max_decoded_stream_bytes {
+      left.max_decoded_stream_bytes
+    } else {
+      right.max_decoded_stream_bytes
+    },
+    content_stream_count: left.content_stream_count + right.content_stream_count,
+    page_count: left.page_count + right.page_count,
+    text_event_count: left.text_event_count + right.text_event_count,
+    glyph_or_char_count: left.glyph_or_char_count + right.glyph_or_char_count,
+    decode_failure_count: left.decode_failure_count + right.decode_failure_count,
+  }
+}
+
+///|
+fn pdf_v2_perf_text_event_char_count(events : Array[PdfV2CoreTextEvent]) -> Int {
+  let mut total = 0
+  for event in events {
+    total = total + event.text.length()
+  }
+  total
+}
+
+///|
+fn pdf_v2_perf_decoded_stream_total_bytes(
+  pdf : @mbtpdf_pdf.Pdf,
+  page : @mbtpdf_page.Page,
+) -> Int {
+  let mut total = 0
+  for stream in page.content {
+    total = total + pdf_v2_perf_stream_byte_count(pdf, stream)
+  }
+  total
+}
+
+///|
+fn pdf_v2_perf_max_decoded_stream_bytes(
+  pdf : @mbtpdf_pdf.Pdf,
+  page : @mbtpdf_page.Page,
+) -> Int {
+  let mut max = 0
+  for stream in page.content {
+    let count = pdf_v2_perf_stream_byte_count(pdf, stream)
+    if count > max {
+      max = count
+    }
+  }
+  max
+}
+
+///|
+fn pdf_v2_perf_stream_byte_count(
+  pdf : @mbtpdf_pdf.Pdf,
+  stream : @mbtpdf_pdf.PdfObject,
+) -> Int {
+  try {
+    let bytes = pdf.direct(stream).bigarray_of_stream()
+    @mbtpdf_io.bytes_size(bytes)
+  } catch {
+    _ => 0
+  }
+}
+
+///|
+fn pdf_v2_perf_diagnostics_empty() -> PdfV2PerfDiagnostics {
+  { warnings: [], risks: [] }
+}
+
+///|
+fn pdf_v2_perf_warning(
+  kind : PdfV2WarningKind,
+  severity : PdfV2Severity,
+  capability : PdfV2CoreCapabilityKind,
+  source_ref : PdfV2SourceRef?,
+  object_ref : String?,
+  page_index : Int?,
+  message : String,
+  reason_tags : Array[String],
+  recoverability : PdfV2Recoverability,
+) -> PdfV2Warning {
+  pdf_v2_warning_for_context(
+    kind,
+    severity,
+    pdf_v2_diagnostic_context(capability, source_ref, object_ref, page_index, []),
+    message,
+    reason_tags + ["mbtpdf_backend_active", "no_fallback"],
+    recoverability,
+  )
+}
+
+///|
+fn pdf_v2_perf_page_static_resource_diagnostics(
+  pdf : @mbtpdf_pdf.Pdf,
+  page : @mbtpdf_page.Page,
+  page_index : Int,
+  page_object_number : Int?,
+  page_object_ref : String?,
+) -> PdfV2PerfDiagnostics {
+  let out = pdf_v2_perf_diagnostics_empty()
+  let source_ref = pdf_v2_source_ref_for_page(page_index)
+  let has_effective_resources = pdf_v2_perf_has_resource_entries(page.resources)
+  let direct_resources = match page_object_number {
+    Some(number) => pdf_v2_perf_page_direct_resources(pdf, number)
+    None => None
+  }
+  match direct_resources {
+    Some(_) =>
+      if !has_effective_resources {
+        out.warnings.push(
+          pdf_v2_perf_warning(
+            PdfV2WarningKind::MissingResource,
+            PdfV2Severity::Warning,
+            PdfV2CoreCapabilityKind::ResourceDictionary,
+            Some(source_ref),
+            page_object_ref,
+            Some(page_index),
+            "page resource dictionary is empty",
+            ["missing_page_resources", "resource_inheritance_missing"],
+            PdfV2Recoverability::RecoverableWithLoss,
+          ),
+        )
+      }
+    None =>
+      if has_effective_resources {
+        out.warnings.push(
+          pdf_v2_perf_warning(
+            PdfV2WarningKind::PartialCapability,
+            PdfV2Severity::Info,
+            PdfV2CoreCapabilityKind::ResourceDictionary,
+            Some(source_ref),
+            page_object_ref,
+            Some(page_index),
+            "page resources were supplied by mbtpdf page-tree inheritance",
+            ["resource_inheritance_applied", "page_resources_effective"],
+            PdfV2Recoverability::Recoverable,
+          ),
+        )
+      } else {
+        out.warnings.push(
+          pdf_v2_perf_warning(
+            PdfV2WarningKind::MissingResource,
+            PdfV2Severity::Warning,
+            PdfV2CoreCapabilityKind::ResourceDictionary,
+            Some(source_ref),
+            page_object_ref,
+            Some(page_index),
+            "page has no effective resources",
+            ["missing_page_resources", "resource_inheritance_missing"],
+            PdfV2Recoverability::RecoverableWithLoss,
+          ),
+        )
+      }
+  }
+  out.warnings.append(
+    pdf_v2_perf_unsupported_resource_kind_warnings(
+      pdf,
+      page.resources,
+      page_index,
+      page_object_ref,
+      source_ref,
+    ),
+  )
+  out
+}
+
+///|
+fn pdf_v2_perf_page_op_resource_diagnostics(
+  pdf : @mbtpdf_pdf.Pdf,
+  resources : @mbtpdf_pdf.PdfObject,
+  ops : Array[@mbtpdf_ops.LocatedOp],
+  page_index : Int,
+  page_object_ref : String?,
+) -> PdfV2PerfDiagnostics {
+  let out = pdf_v2_perf_diagnostics_empty()
+  for located in ops {
+    let source_ref : PdfV2SourceRef = {
+      page_index,
+      object_ref: pdf_v2_perf_object_ref_from_option(located.source_object_ref),
+      stream_index: Some(located.source_stream_index),
+      op_index: Some(located.source_op_index),
+      content_order_index: None,
+      text_object_id: None,
+    }
+    let object_ref = pdf_v2_perf_first_string(
+      source_ref.object_ref,
+      page_object_ref,
+    )
+    match located.op {
+      @mbtpdf_ops.Op::OpDo(name) =>
+        if !pdf_v2_perf_resource_name_exists(pdf, resources, "/XObject", name) {
+          out.warnings.push(
+            warn_missing_xobject_resource(
+              make_resource_ref(
+                PdfV2ResourceKind::Image,
+                name,
+                page_index,
+                object_ref,
+                Some(source_ref),
+              ),
+            ).warning,
+          )
+        }
+      @mbtpdf_ops.Op::Opgs(name) =>
+        if !pdf_v2_perf_resource_name_exists(pdf, resources, "/ExtGState", name) {
+          out.warnings.push(
+            pdf_v2_perf_warning(
+              PdfV2WarningKind::MissingResource,
+              PdfV2Severity::Warning,
+              PdfV2CoreCapabilityKind::GraphicsState,
+              Some(source_ref),
+              object_ref,
+              Some(page_index),
+              "ExtGState resource is missing",
+              ["missing_extgstate_resource", name],
+              PdfV2Recoverability::RecoverableWithLoss,
+            ),
+          )
+        }
+      @mbtpdf_ops.Op::OpCS(name) =>
+        if pdf_v2_perf_is_resource_colorspace_name(name) &&
+          !pdf_v2_perf_resource_name_exists(pdf, resources, "/ColorSpace", name) {
+          out.warnings.push(
+            warn_missing_colorspace_resource(
+              make_resource_ref(
+                PdfV2ResourceKind::ColorSpace,
+                name,
+                page_index,
+                object_ref,
+                Some(source_ref),
+              ),
+            ).warning,
+          )
+        }
+      @mbtpdf_ops.Op::Opcs(name) =>
+        if pdf_v2_perf_is_resource_colorspace_name(name) &&
+          !pdf_v2_perf_resource_name_exists(pdf, resources, "/ColorSpace", name) {
+          out.warnings.push(
+            warn_missing_colorspace_resource(
+              make_resource_ref(
+                PdfV2ResourceKind::ColorSpace,
+                name,
+                page_index,
+                object_ref,
+                Some(source_ref),
+              ),
+            ).warning,
+          )
+        }
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_perf_stream_filter_diagnostics(
+  pdf : @mbtpdf_pdf.Pdf,
+  page : @mbtpdf_page.Page,
+  page_index : Int,
+  page_object_ref : String?,
+  decode_supported : Bool,
+) -> PdfV2PerfDiagnostics {
+  let out = pdf_v2_perf_diagnostics_empty()
+  for stream_index = 0
+      stream_index < page.content.length()
+      stream_index = stream_index + 1 {
+    let stream = page.content[stream_index]
+    let object_ref = pdf_v2_perf_first_string(
+      pdf_v2_perf_object_ref_from_option(pdf_v2_perf_indirect_number(stream)),
+      page_object_ref,
+    )
+    let source_ref : PdfV2SourceRef = {
+      page_index,
+      object_ref,
+      stream_index: Some(stream_index),
+      op_index: None,
+      content_order_index: None,
+      text_object_id: None,
+    }
+    let filters = pdf_v2_perf_filter_names(pdf, stream)
+    if filters.contains("/FlateDecode") {
+      out.warnings.push(
+        pdf_v2_perf_warning(
+          PdfV2WarningKind::PartialCapability,
+          PdfV2Severity::Info,
+          PdfV2CoreCapabilityKind::StreamFilter,
+          Some(source_ref),
+          object_ref,
+          Some(page_index),
+          "content stream uses FlateDecode through mbtpdf decoder",
+          ["filter_flate_decode_used", "lazy_stream_decode"],
+          PdfV2Recoverability::Recoverable,
+        ),
+      )
+    }
+    if filters.length() > 1 {
+      out.warnings.push(
+        pdf_v2_perf_warning(
+          PdfV2WarningKind::PartialCapability,
+          if decode_supported {
+            PdfV2Severity::Info
+          } else {
+            PdfV2Severity::Warning
+          },
+          PdfV2CoreCapabilityKind::StreamFilter,
+          Some(source_ref),
+          object_ref,
+          Some(page_index),
+          "content stream filter chain detected",
+          if decode_supported {
+            ["filter_chain_detected"]
+          } else {
+            ["filter_chain_detected", "filter_chain_unsupported"]
+          },
+          if decode_supported {
+            PdfV2Recoverability::Recoverable
+          } else {
+            PdfV2Recoverability::RecoverableWithLoss
+          },
+        ),
+      )
+    }
+    if pdf_v2_perf_decode_params_present(pdf, stream) {
+      out.warnings.push(
+        pdf_v2_perf_warning(
+          PdfV2WarningKind::PartialCapability,
+          PdfV2Severity::Info,
+          PdfV2CoreCapabilityKind::StreamFilter,
+          Some(source_ref),
+          object_ref,
+          Some(page_index),
+          "DecodeParms are present; v2 records them as adapter diagnostics only",
+          ["decode_params_present", "decode_params_ignored"],
+          PdfV2Recoverability::Recoverable,
+        ),
+      )
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_perf_document_structure_diagnostics(
+  pdf : @mbtpdf_pdf.Pdf,
+  objects : Array[PdfV2CoreObject],
+) -> PdfV2PerfDiagnostics {
+  let out = pdf_v2_perf_diagnostics_empty()
+  let source_ref = pdf_v2_source_ref_for_page(0)
+  let has_xref_stream = pdf_v2_perf_objects_contain(objects, "/XRef")
+  let has_object_stream = pdf_v2_perf_objects_contain(objects, "/ObjStm") ||
+    pdf.objects.object_stream_ids.length() > 0
+  if has_xref_stream {
+    out.warnings.push(
+      pdf_v2_perf_warning(
+        PdfV2WarningKind::PartialCapability,
+        PdfV2Severity::Info,
+        PdfV2CoreCapabilityKind::XrefStream,
+        Some(source_ref),
+        None,
+        None,
+        "xref stream detected and parsed by mbtpdf",
+        ["xref_stream_detected", "xref_stream_supported"],
+        PdfV2Recoverability::Recoverable,
+      ),
+    )
+  } else {
+    out.warnings.push(
+      pdf_v2_perf_warning(
+        PdfV2WarningKind::PartialCapability,
+        PdfV2Severity::Info,
+        PdfV2CoreCapabilityKind::XrefTable,
+        Some(source_ref),
+        None,
+        None,
+        "classic xref table used",
+        ["xref_table_used"],
+        PdfV2Recoverability::Recoverable,
+      ),
+    )
+  }
+  if has_object_stream {
+    out.warnings.push(
+      pdf_v2_perf_warning(
+        PdfV2WarningKind::PartialCapability,
+        PdfV2Severity::Info,
+        PdfV2CoreCapabilityKind::ObjectStream,
+        Some(source_ref),
+        None,
+        None,
+        "object stream detected through mbtpdf object graph",
+        ["object_stream_detected", "object_stream_supported"],
+        PdfV2Recoverability::Recoverable,
+      ),
+    )
+  }
+  out
+}
+
+///|
+fn pdf_v2_perf_font_diagnostics(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+  font_name : String,
+  page_index : Int,
+  source_ref : PdfV2SourceRef,
+) -> PdfV2PerfFontLookup {
+  let direct = pdf.direct(font_obj)
+  let warnings : Array[PdfV2Warning] = []
+  let risks : Array[PdfV2Risk] = []
+  let reason_tags : Array[String] = []
+  let subtype = pdf_v2_perf_name_lookup(pdf, direct, "/Subtype")
+  match subtype {
+    Some("/Type0") => {
+      reason_tags.push("font_type_type0")
+      reason_tags.push("font_type_cid")
+      warnings.push(
+        pdf_v2_perf_warning(
+          PdfV2WarningKind::PartialCapability,
+          PdfV2Severity::Info,
+          PdfV2CoreCapabilityKind::Type0Font,
+          Some(source_ref),
+          source_ref.object_ref,
+          Some(page_index),
+          "Type0/CID font handled through mbtpdf text extractor",
+          ["font_type_type0", "font_type_cid"],
+          PdfV2Recoverability::RecoverableWithLoss,
+        ),
+      )
+    }
+    Some(_) => reason_tags.push("font_type_simple")
+    None => reason_tags.push("font_type_simple")
+  }
+  match pdf_v2_perf_base_font_name(pdf, direct) {
+    Some(base_font) => {
+      reason_tags.push("raw_base_font:" + base_font)
+      match pdf_v2_perf_subset_base_font(base_font) {
+        Some(normalized) => {
+          reason_tags.push("font_subset_detected")
+          reason_tags.push("font_subset_prefix_removed_or_recorded")
+          reason_tags.push("normalized_base_font:" + normalized)
+        }
+        None => ()
+      }
+    }
+    None => reason_tags.push("raw_resource_font:" + font_name)
+  }
+  if pdf_v2_perf_embedded_font_present(pdf, direct) {
+    reason_tags.push("embedded_font_present")
+  } else {
+    reason_tags.push("embedded_font_missing")
+    warnings.push(
+      pdf_v2_perf_warning(
+        PdfV2WarningKind::PartialCapability,
+        PdfV2Severity::Info,
+        PdfV2CoreCapabilityKind::EmbeddedFont,
+        Some(source_ref),
+        source_ref.object_ref,
+        Some(page_index),
+        "font dictionary has no embedded FontFile entry",
+        ["embedded_font_missing"],
+        PdfV2Recoverability::Recoverable,
+      ),
+    )
+  }
+  if pdf_v2_perf_has_tounicode(pdf, direct) {
+    reason_tags.push("tounicode_present")
+    reason_tags.push("decode_source_tounicode")
+    reason_tags.push("cmap_used")
+  } else {
+    reason_tags.push("tounicode_missing")
+    if subtype == Some("/Type0") {
+      reason_tags.push("cmap_missing")
+      reason_tags.push("glyph_decode_best_effort")
+      warnings.push(
+        warn_to_unicode_missing_or_malformed(
+          make_resource_ref(
+            PdfV2ResourceKind::Font,
+            font_name,
+            page_index,
+            source_ref.object_ref,
+            Some(source_ref),
+          ),
+        ).warning,
+      )
+      risks.push(
+        risk_glyph_decode_low_confidence(
+          Some(source_ref),
+          source_ref.object_ref,
+        ),
+      )
+    } else {
+      reason_tags.push("glyph_decode_best_effort")
+    }
+  }
+  { extractor: None, warnings, risks, reason_tags }
+}
+
+///|
+fn pdf_v2_perf_positioning_detail_warning(
+  source_ref : PdfV2SourceRef,
+  object_ref : String?,
+  state : PdfV2PerfTextState,
+) -> PdfV2Warning {
+  pdf_v2_perf_warning(
+    PdfV2WarningKind::PartialCapability,
+    PdfV2Severity::Info,
+    PdfV2CoreCapabilityKind::TextState,
+    Some(source_ref),
+    object_ref,
+    Some(source_ref.page_index),
+    "v2 perf reader preserves basic text matrix/origin; detailed advance and rotation remain partial",
+    pdf_v2_perf_text_state_reason_tags(state) +
+    [
+      "positioning_detail_unavailable", "advance_width_unavailable", "rotation_unavailable",
+      "line_matrix_partial",
+    ],
+    PdfV2Recoverability::Recoverable,
+  )
+}
+
+///|
+fn pdf_v2_perf_text_state_reason_tags(
+  state : PdfV2PerfTextState,
+) -> Array[String] {
+  [
+    "text_matrix",
+    "line_matrix",
+    "font_name",
+    "font_size",
+    "baseline_y",
+    "origin_x",
+    "origin_y",
+    "line_height_estimate",
+    "writing_direction",
+    "writing_direction_ltr",
+    "char_spacing:" + state.char_spacing.to_string(),
+    "word_spacing:" + state.word_spacing.to_string(),
+    "horizontal_scaling:" + state.horizontal_scaling.to_string(),
+    "rendering_mode:" + state.rendering_mode.to_string(),
+    "text_rise:" + state.text_rise.to_string(),
+  ]
+}
+
+///|
 fn pdf_v2_perf_stream_refs_for_page(
   page : @mbtpdf_page.Page,
   page_index : Int,
@@ -909,6 +1659,181 @@ fn pdf_v2_perf_filter_names(
 }
 
 ///|
+fn pdf_v2_perf_decode_params_present(
+  pdf : @mbtpdf_pdf.Pdf,
+  stream : @mbtpdf_pdf.PdfObject,
+) -> Bool {
+  let direct = pdf.direct(stream)
+  pdf.lookup_direct("/DecodeParms", direct) is Some(_) ||
+  pdf.lookup_direct("/DP", direct) is Some(_)
+}
+
+///|
+fn pdf_v2_perf_has_resource_entries(obj : @mbtpdf_pdf.PdfObject) -> Bool {
+  match obj {
+    @mbtpdf_pdf.PdfObject::Dictionary(entries) => entries.length() > 0
+    @mbtpdf_pdf.PdfObject::Stream(r) => {
+      let (dict, _) = r.val
+      pdf_v2_perf_has_resource_entries(dict)
+    }
+    _ => false
+  }
+}
+
+///|
+fn pdf_v2_perf_page_direct_resources(
+  pdf : @mbtpdf_pdf.Pdf,
+  page_object_number : Int,
+) -> @mbtpdf_pdf.PdfObject? {
+  pdf.lookup_obj(page_object_number).lookup_immediate("/Resources")
+}
+
+///|
+fn pdf_v2_perf_unsupported_resource_kind_warnings(
+  pdf : @mbtpdf_pdf.Pdf,
+  resources : @mbtpdf_pdf.PdfObject,
+  page_index : Int,
+  page_object_ref : String?,
+  source_ref : PdfV2SourceRef,
+) -> Array[PdfV2Warning] {
+  let warnings : Array[PdfV2Warning] = []
+  match pdf.direct(resources) {
+    @mbtpdf_pdf.PdfObject::Dictionary(entries) =>
+      for entry in entries {
+        let key = entry.0
+        if ![
+            "/Font", "/XObject", "/ExtGState", "/ColorSpace", "/Pattern", "/Shading",
+            "/ProcSet", "/Properties",
+          ].contains(key) {
+          warnings.push(
+            pdf_v2_perf_warning(
+              PdfV2WarningKind::UnsupportedCapability,
+              PdfV2Severity::Warning,
+              PdfV2CoreCapabilityKind::ResourceDictionary,
+              Some(source_ref),
+              page_object_ref,
+              Some(page_index),
+              "unsupported resource dictionary entry",
+              ["unsupported_resource_kind", key],
+              PdfV2Recoverability::RecoverableWithLoss,
+            ),
+          )
+        } else if ["/Pattern", "/Shading", "/Properties"].contains(key) {
+          warnings.push(
+            pdf_v2_perf_warning(
+              PdfV2WarningKind::PartialCapability,
+              PdfV2Severity::Info,
+              PdfV2CoreCapabilityKind::ResourceDictionary,
+              Some(source_ref),
+              page_object_ref,
+              Some(page_index),
+              "resource kind is recorded but not interpreted by the text perf adapter",
+              ["unsupported_resource_kind", key],
+              PdfV2Recoverability::RecoverableWithLoss,
+            ),
+          )
+        }
+      }
+    _ => ()
+  }
+  warnings
+}
+
+///|
+fn pdf_v2_perf_resource_name_exists(
+  pdf : @mbtpdf_pdf.Pdf,
+  resources : @mbtpdf_pdf.PdfObject,
+  resource_kind : String,
+  name : String,
+) -> Bool {
+  match pdf.lookup_direct(resource_kind, resources) {
+    Some(bucket) => pdf.lookup_direct(name, bucket) is Some(_)
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_perf_is_resource_colorspace_name(name : String) -> Bool {
+  match name {
+    "/DeviceGray" | "/DeviceRGB" | "/DeviceCMYK" | "/Pattern" => false
+    _ => true
+  }
+}
+
+///|
+fn pdf_v2_perf_objects_contain(
+  objects : Array[PdfV2CoreObject],
+  needle : String,
+) -> Bool {
+  for object in objects {
+    if object.raw.contains(needle) {
+      return true
+    }
+    match object.dictionary {
+      Some(dictionary) => if dictionary.contains(needle) { return true }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn pdf_v2_perf_name_lookup(
+  pdf : @mbtpdf_pdf.Pdf,
+  obj : @mbtpdf_pdf.PdfObject,
+  key : String,
+) -> String? {
+  match pdf.lookup_direct(key, obj) {
+    Some(@mbtpdf_pdf.PdfObject::Name(name)) => Some(name.to_string_bytes())
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_perf_base_font_name(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> String? {
+  pdf_v2_perf_name_lookup(pdf, font_obj, "/BaseFont")
+}
+
+///|
+fn pdf_v2_perf_subset_base_font(base_font : String) -> String? {
+  let plus = base_font.find("+")
+  match plus {
+    Some(index) =>
+      if index > 1 {
+        Some(base_font[index + 1:].to_owned())
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_perf_embedded_font_present(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> Bool {
+  match pdf.lookup_direct("/FontDescriptor", font_obj) {
+    Some(descriptor) =>
+      pdf.lookup_direct("/FontFile", descriptor) is Some(_) ||
+      pdf.lookup_direct("/FontFile2", descriptor) is Some(_) ||
+      pdf.lookup_direct("/FontFile3", descriptor) is Some(_)
+    None => false
+  }
+}
+
+///|
+fn pdf_v2_perf_has_tounicode(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> Bool {
+  pdf.lookup_direct("/ToUnicode", pdf.direct(font_obj)) is Some(_)
+}
+
+///|
 fn pdf_v2_perf_page_boxes(
   pdf : @mbtpdf_pdf.Pdf,
   page : @mbtpdf_page.Page,
@@ -950,11 +1875,17 @@ fn pdf_v2_perf_default_text_state() -> PdfV2PerfTextState {
     current_extractor: None,
     current_font_warnings: [],
     current_font_risks: [],
+    current_font_reason_tags: [],
     text_object_id: 0,
     content_order_index: 0,
     text_x: 0.0,
     text_y: 0.0,
     leading: 0.0,
+    char_spacing: 0.0,
+    word_spacing: 0.0,
+    horizontal_scaling: 100.0,
+    rendering_mode: 0,
+    text_rise: 0.0,
     tm_a: 1.0,
     tm_b: 0.0,
     tm_c: 0.0,
@@ -969,6 +1900,11 @@ fn pdf_v2_perf_reset_text_geometry(state : Ref[PdfV2PerfTextState]) -> Unit {
   state.val.text_x = 0.0
   state.val.text_y = 0.0
   state.val.leading = 0.0
+  state.val.char_spacing = 0.0
+  state.val.word_spacing = 0.0
+  state.val.horizontal_scaling = 100.0
+  state.val.rendering_mode = 0
+  state.val.text_rise = 0.0
   state.val.tm_a = 1.0
   state.val.tm_b = 0.0
   state.val.tm_c = 0.0
@@ -1072,6 +2008,31 @@ fn pdf_v2_perf_stream_ref(
 }
 
 ///|
+fn pdf_v2_perf_bytes_contain_ascii(bytes : Bytes, needle : String) -> Bool {
+  if needle.length() == 0 || bytes.length() < needle.length() {
+    return false
+  }
+  let needle_bytes = @mbtpdf_io.bytes_of_string(needle)
+  let mut start = 0
+  while start <= bytes.length() - needle_bytes.length() {
+    let mut matched = true
+    let mut offset = 0
+    while offset < needle_bytes.length() {
+      if bytes[start + offset] != needle_bytes[offset] {
+        matched = false
+        break
+      }
+      offset = offset + 1
+    }
+    if matched {
+      return true
+    }
+    start = start + 1
+  }
+  false
+}
+
+///|
 fn pdf_v2_perf_backend_active_warning(version : String?) -> PdfV2Warning {
   let header_tag = match version {
     Some(_) => "pdf_header_recognized"
@@ -1097,6 +2058,44 @@ fn pdf_v2_perf_backend_active_warning(version : String?) -> PdfV2Warning {
 }
 
 ///|
+fn pdf_v2_perf_instrumentation_warning(
+  instrumentation : PdfV2PerfInstrumentation,
+) -> PdfV2Warning {
+  pdf_v2_perf_warning(
+    PdfV2WarningKind::PartialCapability,
+    PdfV2Severity::Info,
+    PdfV2CoreCapabilityKind::LowSignalDocument,
+    None,
+    None,
+    None,
+    "PDF v2 perf reader bounded decoded-stream lifetime counters",
+    [
+      "bounded_decoded_stream_lifetime",
+      "decoded_stream_count",
+      "decoded_stream_count:" + instrumentation.decoded_stream_count.to_string(),
+      "decoded_stream_total_bytes",
+      "decoded_stream_total_bytes:" +
+      instrumentation.decoded_stream_total_bytes.to_string(),
+      "max_decoded_stream_bytes",
+      "max_decoded_stream_bytes:" +
+      instrumentation.max_decoded_stream_bytes.to_string(),
+      "content_stream_count",
+      "content_stream_count:" + instrumentation.content_stream_count.to_string(),
+      "page_count",
+      "page_count:" + instrumentation.page_count.to_string(),
+      "text_event_count",
+      "text_event_count:" + instrumentation.text_event_count.to_string(),
+      "glyph_or_char_count",
+      "glyph_or_char_count:" + instrumentation.glyph_or_char_count.to_string(),
+      "decode_failure_count",
+      "decode_failure_count:" + instrumentation.decode_failure_count.to_string(),
+      "stream_bytes_not_exposed_to_convert",
+    ],
+    PdfV2Recoverability::Recoverable,
+  )
+}
+
+///|
 fn pdf_v2_perf_stream_decode_warning(
   message : String,
   source_ref : PdfV2SourceRef,
@@ -1113,7 +2112,9 @@ fn pdf_v2_perf_stream_decode_warning(
       [],
     ),
     message,
-    ["mbtpdf_stream_decode_failed", "fail_closed", "no_fallback"],
+    [
+      "mbtpdf_stream_decode_failed", "stream_decode_failed", "fail_closed", "no_fallback",
+    ],
     PdfV2Recoverability::RecoverableWithLoss,
   )
 }
@@ -1135,7 +2136,10 @@ fn pdf_v2_perf_stream_decode_risk(
       [],
     ),
     reason,
-    ["mbtpdf_stream_decode_failed", "abstain_candidate", "no_fallback"],
+    [
+      "mbtpdf_stream_decode_failed", "stream_decode_failed", "abstain_candidate",
+      "no_fallback",
+    ],
     PdfV2Recoverability::RecoverableWithLoss,
   )
 }
@@ -1150,8 +2154,14 @@ fn pdf_v2_perf_fail_closed_document(
   reason_tags : Array[String],
   source_ref : PdfV2SourceRef,
 ) -> PdfV2CoreDocument {
+  let encrypted = reason_tags.contains("encrypted_pdf_detected") ||
+    capability == PdfV2CoreCapabilityKind::EncryptionMetadata
   let warning = pdf_v2_warning_for_context(
-    PdfV2WarningKind::MalformedObject,
+    if encrypted {
+      PdfV2WarningKind::EncryptedDocument
+    } else {
+      PdfV2WarningKind::MalformedObject
+    },
     PdfV2Severity::Error,
     pdf_v2_diagnostic_context(capability, Some(source_ref), None, None, []),
     message,
@@ -1162,7 +2172,11 @@ fn pdf_v2_perf_fail_closed_document(
     PdfV2Recoverability::RecoverableWithLoss,
   )
   let risk = pdf_v2_risk_for_context(
-    PdfV2RiskKind::MalformedObject,
+    if encrypted {
+      PdfV2RiskKind::EncryptedDocument
+    } else {
+      PdfV2RiskKind::MalformedObject
+    },
     PdfV2RiskSeverity::Error,
     pdf_v2_diagnostic_context(capability, Some(source_ref), None, None, []),
     message,

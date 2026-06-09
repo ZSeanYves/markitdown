@@ -250,6 +250,37 @@ Perf notes:
 - malformed content streams fail closed with `DecodeFailure` warnings/risks and
   no legacy fallback
 
+## RESET-13 mbtpdf Diagnostics Expansion
+
+`open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics
+without changing the stable scaffold entry, dispatcher, `convert/pdf_v2`, or the
+upper source-event to lowering pipeline.
+
+New diagnostics coverage:
+
+- page/resource diagnostics for missing page resources, missing font/XObject
+  /ExtGState/ColorSpace resources, unsupported resource kinds, and page-tree
+  resource inheritance
+- text-state diagnostics for preserved text matrices, origins, font size,
+  baseline tags, line-height estimates, spacing/scaling/rendering/text-rise
+  facts, and explicit partial-positioning warnings
+- font diagnostics for simple fonts, Type0/CID fonts, subset font names,
+  embedded-font presence, ToUnicode/CMap presence, best-effort glyph decode,
+  and low-confidence retained text
+- xref/object/filter/security diagnostics for xref table use, xref/object
+  stream detection when visible in the mbtpdf object graph, FlateDecode,
+  filter chains, DecodeParms, stream decode failures, and encrypted PDFs
+
+The adapter records bounded decoded-stream lifetime counters as diagnostics:
+decoded stream count, total decoded bytes, maximum decoded stream bytes,
+content stream count, page count, text event count, glyph/char count, and decode
+failure count. It does not hold decoded stream copies after operator parsing and
+does not expose raw or decoded stream bytes to convert.
+
+Encrypted PDFs fail closed with structured warnings/risks. Malformed streams
+fail closed with decode diagnostics. No old `doc_parse/pdf` or `convert/pdf`
+fallback is introduced, and convert still consumes parser facts only.
+
 ## RESET-5 Normalized Parser Model
 
 This reset adds `doc_parse/pdf_v2/normalized_model`, a parser-owned aggregation
