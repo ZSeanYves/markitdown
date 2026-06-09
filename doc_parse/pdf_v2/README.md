@@ -71,6 +71,36 @@ Performance is part of the contract: one pass over input bytes, bounded memory,
 bounded feature extraction, and a controlled runtime closure are required before
 dispatcher adoption.
 
+## RESET-2 Diagnostics Helpers
+
+This reset adds source/object diagnostics helpers only. It does not implement a
+complete PDF reader, stream decoder, security handler, page resource resolver,
+dispatcher switch, model hook, or training/export path.
+
+Diagnostics are the foundation for PDF v2's no-fallback and no-silent-loss
+contract. Malformed objects, missing objects, invalid object refs, malformed
+xref tables/streams, partial object streams, filter/codec failures, encrypted
+or permission-restricted documents, missing page resources, missing font/image
+resources, unknown font encodings, malformed ToUnicode maps, skipped image or
+vector decode, unsupported annotations/forms/optional content groups, low-signal
+documents, one-pass boundary violations, runtime closure violations, and
+forbidden fallback attempts must be represented as structured `PdfV2Warning`
+and/or `PdfV2Risk` records.
+
+The helpers in `pdf_v2_diagnostics.mbt` are pure MoonBit constructors with no
+IO, no old `doc_parse/pdf` dependency, no `convert/pdf` dependency, no Python,
+and no external repository dependency. They preserve capability, source ref,
+object ref, page index, stable reason tags, severity, and recoverability so the
+future reader/source-event/text-reconstruction layers can report partial
+support explicitly.
+
+Convert may later consume parser/model warnings and risks to abstain or fail
+closed, but it cannot rescan raw PDF bytes, repair parser facts, or hide missing
+core capabilities with product-policy fallback. Old vendor/mbtpdf code remains
+reference or temporary private-backend material only, not a permanent v2 public
+API. The next reset can start wiring these diagnostics into source events and
+object/page reader scaffolds.
+
 Non-goals for this scaffold:
 
 - no old PDF runtime changes

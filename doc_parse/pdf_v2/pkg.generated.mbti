@@ -8,6 +8,8 @@ pub fn build_pdf_v2_text_model(PdfV2SourceDocument) -> PdfV2TextModel
 
 pub fn default_pdf_v2_layout_options() -> PdfV2LayoutOptions
 
+pub fn make_resource_ref(PdfV2ResourceKind, String, Int, String?, PdfV2SourceRef?) -> PdfV2ResourceRef
+
 pub fn open_pdf_core_v2(Bytes) -> PdfV2CoreDocument
 
 pub fn parse_pdf_v2_document_from_bytes(Bytes) -> PdfV2DocumentModel
@@ -34,6 +36,8 @@ pub fn pdf_v2_default_fallback_policy() -> PdfV2FallbackPolicy
 
 pub fn pdf_v2_default_feature_contract() -> Array[PdfV2FeatureContractField]
 
+pub fn pdf_v2_default_permission_state() -> PdfV2PermissionState
+
 pub fn pdf_v2_default_point() -> PdfV2Point
 
 pub fn pdf_v2_default_rect() -> PdfV2Rect
@@ -42,13 +46,19 @@ pub fn pdf_v2_default_runtime_closure_policy() -> PdfV2RuntimeClosurePolicy
 
 pub fn pdf_v2_default_scan_boundary() -> PdfV2ScanBoundary
 
+pub fn pdf_v2_diagnostic_context(PdfV2CoreCapabilityKind, PdfV2SourceRef?, String?, Int?, Array[String]) -> PdfV2DiagnosticContext
+
 pub fn pdf_v2_empty_document_model() -> PdfV2DocumentModel
 
 pub fn pdf_v2_empty_metadata() -> PdfV2Metadata
 
 pub fn pdf_v2_fail_closed_gate(Array[String], Double, Double, Double) -> PdfV2GateDecision
 
+pub fn pdf_v2_filter_support_table() -> Array[PdfV2FilterSupport]
+
 pub fn pdf_v2_make_scaffold_block(Int, String, String) -> PdfV2TextBlock
+
+pub fn pdf_v2_risk_for_context(PdfV2RiskKind, PdfV2RiskSeverity, PdfV2DiagnosticContext, String, Array[String], PdfV2Recoverability) -> PdfV2Risk
 
 pub fn pdf_v2_runtime_allowed_categories() -> Array[PdfV2RuntimeClosureCategory]
 
@@ -62,7 +72,67 @@ pub fn pdf_v2_scaffold_warning(String) -> PdfV2Warning
 
 pub fn pdf_v2_source_ref_for_page(Int) -> PdfV2SourceRef
 
+pub fn pdf_v2_unencrypted_state() -> PdfV2EncryptionState
+
+pub fn pdf_v2_warning_for_context(PdfV2WarningKind, PdfV2Severity, PdfV2DiagnosticContext, String, Array[String], PdfV2Recoverability) -> PdfV2Warning
+
 pub fn recover_pdf_v2_layout(PdfV2TextModel, PdfV2LayoutOptions) -> PdfV2LayoutResult
+
+pub fn risk_encrypted_document(PdfV2EncryptionState, PdfV2SourceRef?) -> PdfV2SecurityDiagnostic
+
+pub fn risk_fallback_forbidden_violation(String) -> PdfV2Risk
+
+pub fn risk_glyph_decode_low_confidence(PdfV2SourceRef?, String?) -> PdfV2Risk
+
+pub fn risk_low_signal_document(String) -> PdfV2Risk
+
+pub fn risk_one_pass_boundary_violation(String) -> PdfV2Risk
+
+pub fn risk_permission_restricted_extraction(PdfV2PermissionState, PdfV2SourceRef?) -> PdfV2SecurityDiagnostic
+
+pub fn risk_runtime_closure_violation(PdfV2RuntimeClosureCategory) -> PdfV2Risk
+
+pub fn warn_annotation_unsupported(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_compressed_stream_decode_failure(String, PdfV2SourceRef?, String?) -> PdfV2FilterDiagnostic
+
+pub fn warn_form_field_unsupported(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_image_decode_skipped(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_invalid_object_ref(String, PdfV2SourceRef?) -> PdfV2Warning
+
+pub fn warn_malformed_object(String, PdfV2SourceRef?) -> PdfV2Warning
+
+pub fn warn_metadata_parse_warning(PdfV2SourceRef?, String?) -> PdfV2Warning
+
+pub fn warn_missing_colorspace_resource(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_missing_font_resource(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_missing_object(String, PdfV2SourceRef?) -> PdfV2Warning
+
+pub fn warn_missing_resource(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_missing_xobject_resource(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_object_stream_partial(String, PdfV2SourceRef?) -> PdfV2Warning
+
+pub fn warn_optional_content_group_unsupported(PdfV2SourceRef?, String?) -> PdfV2Warning
+
+pub fn warn_rare_filter_unsupported(PdfV2FilterName, String, PdfV2SourceRef?, String?) -> PdfV2FilterDiagnostic
+
+pub fn warn_to_unicode_missing_or_malformed(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_unknown_filter(String, PdfV2SourceRef?, String?) -> PdfV2FilterDiagnostic
+
+pub fn warn_unknown_font_encoding(PdfV2ResourceRef) -> PdfV2ResourceDiagnostic
+
+pub fn warn_vector_decode_skipped(PdfV2SourceRef?, Int?) -> PdfV2Warning
+
+pub fn warn_xref_stream_malformed(PdfV2SourceRef?) -> PdfV2Warning
+
+pub fn warn_xref_table_malformed(PdfV2SourceRef?) -> PdfV2Warning
 
 // Errors
 
@@ -275,6 +345,14 @@ pub(all) struct PdfV2Destination {
   source_refs : Array[PdfV2SourceRef]
 }
 
+pub(all) struct PdfV2DiagnosticContext {
+  capability : PdfV2CoreCapabilityKind
+  source_ref : PdfV2SourceRef?
+  object_ref : String?
+  page_index : Int?
+  affected_ids : Array[String]
+}
+
 pub(all) struct PdfV2DocumentModel {
   metadata : PdfV2Metadata
   source_summary : PdfV2SourceSummary
@@ -284,6 +362,14 @@ pub(all) struct PdfV2DocumentModel {
   cross_page_boundaries : Array[PdfV2CrossPageBoundary]
   risks : Array[PdfV2Risk]
   warnings : Array[PdfV2Warning]
+}
+
+pub(all) struct PdfV2EncryptionState {
+  is_encrypted : Bool
+  handler_name : String?
+  requires_password : Bool
+  unsupported_handler : Bool
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2FallbackPolicy {
@@ -308,6 +394,35 @@ pub(all) enum PdfV2FeatureUse {
   Abstain
   ReportOnly
 } derive(Eq)
+
+pub(all) struct PdfV2FilterDiagnostic {
+  filter_name : PdfV2FilterName
+  raw_name : String
+  warning : PdfV2Warning?
+  risk : PdfV2Risk?
+}
+
+pub(all) enum PdfV2FilterName {
+  FlateDecode
+  LZWDecode
+  ASCII85Decode
+  ASCIIHexDecode
+  RunLengthDecode
+  CCITTFaxDecode
+  JBIG2Decode
+  DCTDecode
+  JPXDecode
+  Crypt
+  Unknown
+} derive(Eq)
+
+pub(all) struct PdfV2FilterSupport {
+  name : PdfV2FilterName
+  support_status : PdfV2CapabilitySupportStatus
+  capability : PdfV2CoreCapabilityKind
+  crypt_filter_requires_security_diagnostic : Bool
+  notes : String
+}
 
 pub(all) struct PdfV2FontRun {
   font_name : String?
@@ -494,6 +609,20 @@ pub(all) struct PdfV2PageBoxes {
   art_box : PdfV2Rect?
 }
 
+pub(all) struct PdfV2PageResourceSummary {
+  page_index : Int
+  resources : Array[PdfV2ResourceRef]
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+}
+
+pub(all) struct PdfV2PermissionState {
+  permissions_known : Bool
+  text_extraction_allowed : Bool
+  copy_allowed : Bool
+  reason_tags : Array[String]
+}
+
 pub(all) struct PdfV2Point {
   x : Double
   y : Double
@@ -525,6 +654,35 @@ pub(all) struct PdfV2Rect {
   y0 : Double
   x1 : Double
   y1 : Double
+}
+
+pub(all) struct PdfV2ResourceDiagnostic {
+  resource : PdfV2ResourceRef
+  warning : PdfV2Warning
+}
+
+pub(all) enum PdfV2ResourceKind {
+  Font
+  XObject
+  Image
+  FormXObject
+  Pattern
+  Shading
+  ColorSpace
+  GraphicsState
+  Properties
+  Annotation
+  AcroForm
+  Outline
+  Metadata
+} derive(Eq)
+
+pub(all) struct PdfV2ResourceRef {
+  kind : PdfV2ResourceKind
+  name : String
+  page_index : Int
+  object_ref : String?
+  source_ref : PdfV2SourceRef?
 }
 
 pub(all) struct PdfV2Risk {
@@ -633,6 +791,13 @@ pub(all) struct PdfV2ScanBoundary {
   parser_owns_raw_scan : Bool
   convert_raw_reparse_allowed : Bool
   model_export_raw_reparse_allowed : Bool
+}
+
+pub(all) struct PdfV2SecurityDiagnostic {
+  encryption : PdfV2EncryptionState
+  permissions : PdfV2PermissionState
+  warning : PdfV2Warning?
+  risk : PdfV2Risk?
 }
 
 pub(all) enum PdfV2Severity {
