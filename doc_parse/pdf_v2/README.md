@@ -101,6 +101,26 @@ reference or temporary private-backend material only, not a permanent v2 public
 API. The next reset can start wiring these diagnostics into source events and
 object/page reader scaffolds.
 
+## RESET-3 Source Events
+
+This reset adds the `doc_parse/pdf_v2/source_event` scaffold. It is a
+parser-side source-event package that consumes `pdf_core_v2` scaffold records
+and RESET-2 diagnostics helpers, then wraps them into typed source events,
+source pages, and a source document summary.
+
+The source-event scaffold preserves page indices, source refs, object refs,
+resource refs, capability kinds, severity, recoverability, and stable reason
+tags on every event. Malformed objects, missing objects, malformed xref
+structures, filter diagnostics, encryption/permission diagnostics, missing
+page resources, and no-fallback/one-pass violations can now be embedded in
+events and summarized as warning/risk counts plus capability coverage.
+
+This is still not a reader or decoder. It does not parse PDF operators, decode
+streams, load models, lower to convert, or repair source facts. Diagnostics are
+produced from the single `pdf_core_v2` scan scaffold and remain parser-owned.
+Convert must consume the resulting parser/model facts later; it must not rescan
+PDF bytes, call old `doc_parse/pdf`, or use product policy to fill parser holes.
+
 Non-goals for this scaffold:
 
 - no old PDF runtime changes
