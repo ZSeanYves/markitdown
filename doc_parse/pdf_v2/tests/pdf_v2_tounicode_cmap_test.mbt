@@ -102,6 +102,10 @@ test "test_perf_reader_decodes_basic_tounicode_bfchar" {
     core.text_events[0].reason_tags.contains("tonyfettes_encoding_utf16be"),
     true,
   )
+  assert_eq(
+    core.text_events[0].reason_tags.contains("nfc_normalized_applied"),
+    true,
+  )
 }
 
 ///|
@@ -121,6 +125,10 @@ test "test_perf_reader_normalizes_tounicode_utf16be_with_tonyfettes_encoding" {
   assert_true(core.text_events[0].decode_confidence >= 0.90)
   assert_eq(
     core.text_events[0].reason_tags.contains("tonyfettes_encoding_utf16be"),
+    true,
+  )
+  assert_eq(
+    core.text_events[0].reason_tags.contains("nfc_normalized_applied"),
     true,
   )
   assert_eq(
@@ -345,6 +353,7 @@ test "test_reset17_type0_cid_subset_font_diagnostics_propagate" {
   assert_true(event.reason_tags.contains("tounicode_codespace_multibyte"))
   assert_true(event.reason_tags.contains("tounicode_source_multibyte"))
   assert_true(event.reason_tags.contains("decode_source_tounicode"))
+  assert_true(event.reason_tags.contains("nfc_normalized_applied"))
 }
 
 ///|
@@ -458,6 +467,7 @@ test "test_reset17_source_text_pipeline_preserves_cmap_reason_tags" {
   assert_true(block_tags.contains("decode_source_tounicode"))
   assert_true(block_tags.contains("font_type_cid"))
   assert_true(block_tags.contains("font_subset_detected"))
+  assert_true(block_tags.contains("nfc_normalized_applied"))
   assert_true(block_tags.contains("tounicode_source_multibyte"))
 }
 

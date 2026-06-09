@@ -1467,6 +1467,7 @@ fn pdf_v2_perf_parse_bfchar_range(
           map.set(@mbtpdf_io.string_of_int_array(src), value)
           pdf_v2_perf_record_code_length(code_lengths, src.length())
           pdf_v2_perf_note_tounicode_target(tokens[i + 1], reason_tags)
+          pdf_v2_perf_push_unique_tag(reason_tags, "nfc_normalized_applied")
           applied = true
         }
         None => {
@@ -1533,6 +1534,9 @@ fn pdf_v2_perf_parse_bfrange_range(
                       ),
                       value,
                     )
+                    pdf_v2_perf_push_unique_tag(
+                      reason_tags, "nfc_normalized_applied",
+                    )
                     applied = true
                   }
                   None => malformed = true
@@ -1575,6 +1579,9 @@ fn pdf_v2_perf_parse_bfrange_range(
                   value,
                 )
                 pdf_v2_perf_note_tounicode_target(tokens[j], reason_tags)
+                pdf_v2_perf_push_unique_tag(
+                  reason_tags, "nfc_normalized_applied",
+                )
                 applied = true
               }
               None => {

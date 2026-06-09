@@ -392,6 +392,23 @@ NFC normalization currently has no dedicated reason tag, so this audit records
 than inferring a hidden success. That is a diagnostics visibility gap for a
 future reset, not a fallback path.
 
+## RESET-20 NFC Diagnostics And Font Audit
+
+RESET-20 adds an explicit `nfc_normalized_applied` reason tag on successful
+ToUnicode mappings that pass through the `tonyfettes/unicode/normalization`
+NFC path. This is diagnostics-only: decoded text, source-event construction,
+text reconstruction, normalized model, layout recovery, feature export,
+classifier gate, and lowering behavior remain unchanged.
+
+The small real-PDF audit now records
+`docs/archive/pdf-v2-reset20-encoding-audit-summary.jsonl` with per-sample
+NFC tag visibility, Type0/CID/subset font flags, ToUnicode coverage, CMap
+bfchar/bfrange/multibyte observations, low-confidence retained text,
+unmapped-code diagnostics, and one-pass/no-fallback/no-reparse guards. The
+audit uses existing in-repository small PDFs only and does not add raw sample
+data, external repositories, model files, TSVs, Python, OCR, or dispatcher
+changes.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics
