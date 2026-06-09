@@ -409,7 +409,8 @@ fn reset20_compact_reason_tag_allowed(tag : String) -> Bool {
   reset19_has_any_tag([tag], [
     "decode_source_tounicode", "tonyfettes_encoding_utf16be", "nfc_normalized_applied",
     "tounicode_bfchar_applied", "tounicode_bfrange_applied", "bad_tounicode_handled",
-    "tounicode_unmapped_code", "glyph_decode_low_confidence", "text_retained", "font_type_type0",
+    "tounicode_unmapped_code", "glyph_decode_low_confidence", "text_retained", "tounicode_identity_name_detected",
+    "identity_edge_case", "identity_tounicode_mbtpdf_extractor", "font_type_type0",
     "font_type_cid", "font_subset_detected", "cid_system_info_present", "tounicode_codespace_multibyte",
     "tounicode_source_multibyte", "tounicode_source_2byte", "tounicode_surrogate_pair",
     "filter_flate_decode_used", "object_stream_detected", "xref_table_used", "no_fallback",

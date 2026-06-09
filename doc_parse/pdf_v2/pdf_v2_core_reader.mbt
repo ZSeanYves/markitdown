@@ -1119,6 +1119,9 @@ fn pdf_v2_perf_build_tounicode_map(
 ) -> PdfV2PerfToUnicodeMap? {
   match pdf.lookup_direct("/ToUnicode", pdf.direct(font_obj)) {
     None => None
+    Some(@mbtpdf_pdf.PdfObject::Name(name)) if pdf_v2_perf_is_identity_cmap_name(
+        name.to_string_bytes(),
+      ) => None
     Some(tounicode_obj) => {
       let object_ref = pdf_v2_perf_object_ref_from_option(
         pdf_v2_perf_indirect_number(tounicode_obj),
@@ -2749,7 +2752,32 @@ fn pdf_v2_perf_font_diagnostics(
   if pdf_v2_perf_has_tounicode(pdf, direct) {
     reason_tags.push("tounicode_present")
     reason_tags.push("decode_source_tounicode")
-    reason_tags.push("cmap_used")
+    match pdf_v2_perf_tounicode_identity_name(pdf, direct) {
+      Some(name) => {
+        reason_tags.push("tounicode_identity_name_detected")
+        reason_tags.push("identity_tounicode_name:" + name)
+        reason_tags.push("identity_edge_case")
+        reason_tags.push("identity_tounicode_mbtpdf_extractor")
+        reason_tags.push("text_retained")
+        warnings.push(
+          pdf_v2_perf_warning(
+            PdfV2WarningKind::PartialCapability,
+            PdfV2Severity::Info,
+            PdfV2CoreCapabilityKind::ToUnicode,
+            Some(source_ref),
+            source_ref.object_ref,
+            Some(page_index),
+            "/ToUnicode is an Identity-H/V name rather than a CMap stream; v2 records the edge case and uses the mbtpdf text extractor",
+            [
+              "tounicode_identity_name_detected", "identity_edge_case", "identity_tounicode_mbtpdf_extractor",
+              "text_retained",
+            ],
+            PdfV2Recoverability::Recoverable,
+          ),
+        )
+      }
+      None => reason_tags.push("cmap_used")
+    }
   } else {
     reason_tags.push("tounicode_missing")
     if subtype == Some("/Type0") {
@@ -3239,6 +3267,29 @@ fn pdf_v2_perf_has_tounicode(
   font_obj : @mbtpdf_pdf.PdfObject,
 ) -> Bool {
   pdf.lookup_direct("/ToUnicode", pdf.direct(font_obj)) is Some(_)
+}
+
+///|
+fn pdf_v2_perf_tounicode_identity_name(
+  pdf : @mbtpdf_pdf.Pdf,
+  font_obj : @mbtpdf_pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/ToUnicode", pdf.direct(font_obj)) {
+    Some(@mbtpdf_pdf.PdfObject::Name(name)) => {
+      let value = name.to_string_bytes()
+      if pdf_v2_perf_is_identity_cmap_name(value) {
+        Some(value)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_perf_is_identity_cmap_name(name : String) -> Bool {
+  name == "/Identity-H" || name == "/Identity-V"
 }
 
 ///|

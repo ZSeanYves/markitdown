@@ -84,7 +84,17 @@ test "test_reset19_tounicode_reason_tags_present_on_relevant_samples" {
       relevant = relevant + 1
       assert_true(row.tounicode_seen)
       assert_true(row.decode_source_tounicode_seen)
-      assert_true(row.tonyfettes_encoding_utf16be_seen)
+      if row.sample_name == "mbtpdf_pdfjs_identity_tounicode" {
+        assert_true(
+          reset19_has_tag(
+            row.top_reason_tags,
+            "tounicode_identity_name_detected",
+          ),
+        )
+        assert_true(reset19_has_tag(row.top_reason_tags, "identity_edge_case"))
+      } else {
+        assert_true(row.tonyfettes_encoding_utf16be_seen)
+      }
     }
   }
   assert_eq(relevant, 3)
@@ -94,22 +104,16 @@ test "test_reset19_tounicode_reason_tags_present_on_relevant_samples" {
 test "test_reset19_no_low_confidence_regression_for_text_samples" {
   let rows = reset19_collect_audit()
   let mut checked = 0
-  let mut low_confidence_samples = 0
   for row in rows {
     if row.decoded_chars > 0 {
       checked = checked + 1
-      assert_true(row.low_confidence_chars <= row.decoded_chars)
-      if row.low_confidence_chars > 0 {
-        low_confidence_samples = low_confidence_samples + 1
-        assert_eq(row.sample_name, "mbtpdf_pdfjs_identity_tounicode")
-        assert_true(row.bad_tounicode_handled_count > 0)
-        assert_true(row.tounicode_unmapped_code_count > 0)
-        assert_true(row.glyph_decode_low_confidence_count > 0)
-      }
+      assert_eq(row.low_confidence_chars, 0)
+      assert_eq(row.bad_tounicode_handled_count, 0)
+      assert_eq(row.tounicode_unmapped_code_count, 0)
+      assert_eq(row.glyph_decode_low_confidence_count, 0)
     }
   }
   assert_true(checked >= 5)
-  assert_true(low_confidence_samples <= 1)
 }
 
 ///|
@@ -669,12 +673,13 @@ fn reset19_compact_reason_tag_allowed(tag : String) -> Bool {
   reset19_has_any_tag([tag], [
     "decode_source_tounicode", "tonyfettes_encoding_utf16be", "tonyfettes_unicode_helper",
     "bad_tounicode_handled", "tounicode_unmapped_code", "glyph_decode_low_confidence",
-    "text_retained", "font_type_type0", "font_type_cid", "font_subset_detected",
-    "cid_system_info_present", "tounicode_bfchar_applied", "tounicode_bfrange_applied",
-    "tounicode_codespace_multibyte", "tounicode_source_multibyte", "tounicode_source_2byte",
-    "tounicode_surrogate_pair", "filter_flate_decode_used", "object_stream_detected",
-    "xref_table_used", "encrypted_pdf_detected", "encrypted_pdf_unsupported", "no_fallback",
-    "no_raw_pdf_read", "no_old_pdf_runtime", "no_old_parser_runtime", "fail_closed",
+    "text_retained", "tounicode_identity_name_detected", "identity_edge_case", "identity_tounicode_mbtpdf_extractor",
+    "font_type_type0", "font_type_cid", "font_subset_detected", "cid_system_info_present",
+    "tounicode_bfchar_applied", "tounicode_bfrange_applied", "tounicode_codespace_multibyte",
+    "tounicode_source_multibyte", "tounicode_source_2byte", "tounicode_surrogate_pair",
+    "filter_flate_decode_used", "object_stream_detected", "xref_table_used", "encrypted_pdf_detected",
+    "encrypted_pdf_unsupported", "no_fallback", "no_raw_pdf_read", "no_old_pdf_runtime",
+    "no_old_parser_runtime", "fail_closed",
   ])
 }
 

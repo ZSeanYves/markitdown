@@ -323,6 +323,54 @@ test "test_perf_reader_missing_tounicode_warns_and_retains_text" {
 }
 
 ///|
+test "test_perf_reader_identity_tounicode_name_keeps_high_confidence_text" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_identity_tounicode_sample_bytes() catch {
+      e => fail("identity ToUnicode sample read failed: " + e.to_string())
+    },
+  )
+  assert_eq(core.text_events.length(), 1)
+  let event = core.text_events[0]
+  assert_eq(event.text, "ABCdef")
+  assert_true(event.decode_confidence >= 0.90)
+  assert_true(event.reason_tags.contains("tounicode_present"))
+  assert_true(event.reason_tags.contains("decode_source_tounicode"))
+  assert_true(event.reason_tags.contains("tounicode_identity_name_detected"))
+  assert_true(event.reason_tags.contains("identity_edge_case"))
+  assert_true(event.reason_tags.contains("identity_tounicode_mbtpdf_extractor"))
+  assert_true(event.reason_tags.contains("text_retained"))
+  assert_eq(event.reason_tags.contains("bad_tounicode_handled"), false)
+  assert_eq(event.reason_tags.contains("tounicode_unmapped_code"), false)
+  assert_eq(event.reason_tags.contains("glyph_decode_low_confidence"), false)
+  assert_eq(
+    tounicode_placeholder_has_warning_tag(
+      event.warnings,
+      "tounicode_identity_name_detected",
+    ),
+    true,
+  )
+  assert_eq(
+    tounicode_placeholder_has_risk_tag(
+      event.risks,
+      "glyph_decode_low_confidence",
+    ),
+    false,
+  )
+  assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+  assert_eq(core.scan_boundary.convert_raw_reparse_allowed, false)
+  let source = @source_event.build_pdf_v2_source_event_document(core, [])
+  let model = @text_reconstruction.build_pdf_v2_text_model_from_source(
+    source,
+    @text_reconstruction.default_pdf_v2_text_reconstruction_options(),
+  )
+  assert_eq(model.summary.block_count, 1)
+  assert_eq(model.pages[0].blocks[0].text, "ABCdef")
+  assert_true(
+    model.pages[0].blocks[0].reason_tags.contains("identity_edge_case"),
+  )
+}
+
+///|
 test "test_reset17_type0_cid_subset_font_diagnostics_propagate" {
   let core = @pdfv2.open_pdf_core_v2_perf(
     pdf_v2_type0_cid_tounicode_pdf_bytes(
@@ -516,4 +564,12 @@ fn tounicode_placeholder_has_risk_tag(
     }
   }
   false
+}
+
+///|
+fn pdf_v2_identity_tounicode_sample_bytes() -> Bytes raise {
+  let path = reset19_resolve_path(
+    "doc_parse/pdf/vendor/mbtpdf/testdata/pdfjs_identity_tounicode.pdf",
+  )
+  @fs.read_file_to_bytes(path)
 }

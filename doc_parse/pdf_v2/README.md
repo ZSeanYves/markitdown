@@ -409,6 +409,22 @@ audit uses existing in-repository small PDFs only and does not add raw sample
 data, external repositories, model files, TSVs, Python, OCR, or dispatcher
 changes.
 
+## Identity ToUnicode Edge Case
+
+The `pdfjs_identity_tounicode.pdf` audit sample uses `/ToUnicode /Identity-H`
+as a named object, not a ToUnicode CMap stream. Its text is a simple Type1
+Times-Roman/WinAnsi `(ABCdef) Tj` operation. The v2 adapter now recognizes
+named `/Identity-H` and `/Identity-V` ToUnicode entries, records
+`tounicode_identity_name_detected`, `identity_edge_case`,
+`identity_tounicode_mbtpdf_extractor`, and `text_retained`, and lets the mbtpdf
+font/text extractor handle the simple-font text.
+
+This removes the previous false low-confidence diagnosis for `ABCdef` without
+adding a new parser path, without pretending a UTF-16BE CMap body exists, and
+without enabling legacy fallback or convert-side raw PDF reparsing. It is only
+a named identity-ToUnicode diagnostics fix, not complete Identity-H/Identity-V
+font-system coverage.
+
 ## Reader Foundation Hardening
 
 The current long-run reader foundation work keeps the RESET-16 ownership split:
