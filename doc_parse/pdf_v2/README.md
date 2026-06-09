@@ -409,6 +409,40 @@ audit uses existing in-repository small PDFs only and does not add raw sample
 data, external repositories, model files, TSVs, Python, OCR, or dispatcher
 changes.
 
+## Reader Foundation Hardening
+
+The current long-run reader foundation work keeps the RESET-16 ownership split:
+mbtpdf remains the low-level PDF parser, while PDF v2 owns adapter diagnostics,
+source refs, confidence, provenance tags, source events, normalized facts,
+feature inputs, and fail-closed lowering. The self-written RESET-11/12A/12B
+xref/object/content parser is not restored.
+
+The mbtpdf-backed `open_pdf_core_v2_perf(Bytes)` adapter now centralizes common
+backend/no-fallback tags and exposes more stable diagnostic facts:
+
+- page resource presence as well as missing-resource diagnostics for Font,
+  XObject, ExtGState, and ColorSpace buckets
+- source provenance tags on text events for source refs, object refs, stream
+  refs, page index, content order, operator, font resource name, font size, and
+  decode-confidence availability
+- reader summary metrics as structured warning tags: decoded stream counts,
+  decoded byte totals, text/glyph/char counts, low-confidence ratio, font
+  counts, Type0/CID/subset/embedded font counts, ToUnicode counts,
+  NFC-normalization counts, bad-ToUnicode counts, unmapped-code counts, and
+  decode-failure counts
+
+These metrics are diagnostics and audit inputs only. They do not expose raw or
+decoded stream bytes to convert, do not let convert re-read PDFs, do not
+introduce legacy fallback, and do not change the upper source-event -> text
+reconstruction -> normalized model -> layout -> feature -> classifier ->
+lowering pipeline.
+
+The compact audit summary
+`docs/archive/pdf-v2-reader-foundation-audit-summary.jsonl` records the small
+in-repository real-PDF sample set plus the synthetic encrypted boundary case.
+It stores counts, booleans, and top reason tags only; it does not include raw
+PDF content or large decoded text.
+
 ## RESET-13 mbtpdf Diagnostics Expansion
 
 `open_pdf_core_v2_perf(Bytes)` now expands the mbtpdf-backed adapter diagnostics

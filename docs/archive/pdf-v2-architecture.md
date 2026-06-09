@@ -37,6 +37,28 @@ inference, feature export, debug summaries, and downstream quality analysis.
 Convert must never reopen the PDF, reparse content streams, or rebuild canonical
 parser layout.
 
+Current reader-foundation hardening record:
+
+* `open_pdf_core_v2(Bytes)` remains scaffold-only and fail-closed.
+* `open_pdf_core_v2_perf(Bytes)` remains the only authorized real reader path
+  and stays mbtpdf-backed.
+* The v2 adapter owns diagnostics, source/object/stream refs, page indices,
+  content order, decode confidence, reason tags, provenance tags, and summary
+  metrics.
+* mbtpdf owns low-level PDF parsing, object/xref/page/resource traversal,
+  stream decode, content operators, text/font extraction, and CMap/ToUnicode
+  substrate behavior.
+* `tonyfettes/encoding` is used for strict UTF-16BE ToUnicode target decode;
+  `tonyfettes/unicode/normalization` is used for NFC normalization before text
+  enters source events.
+* Reader summary metrics are diagnostics/audit facts for later parser features:
+  stream counts and decoded-byte counters, text/glyph/char counts,
+  low-confidence ratio, font/Type0/CID/subset/embedded counts, ToUnicode/NFC
+  counts, bad-ToUnicode counts, unmapped-code counts, warnings, and risks.
+* No raw or decoded stream bytes are exposed to convert. Convert consumes only
+  parser/model facts and never performs a raw PDF reparse.
+* The RESET-11/12A/12B self-written xref/object/content parser is not restored.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

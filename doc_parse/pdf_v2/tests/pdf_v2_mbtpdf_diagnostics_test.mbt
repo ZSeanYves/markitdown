@@ -55,6 +55,38 @@ test "test_perf_reader_records_missing_resource_ops" {
 }
 
 ///|
+test "test_page_resource_presence_tags_are_diagnostic_only" {
+  let core = @pdfv2.open_pdf_core_v2_perf(pdf_v2_minimal_text_pdf_bytes())
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "page_resources_present"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "font_resource_present"),
+  )
+  assert_eq(core.fallback_policy.legacy_fallback_allowed, false)
+  assert_eq(core.scan_boundary.convert_raw_reparse_allowed, false)
+}
+
+///|
+test "test_text_event_preserves_reader_foundation_provenance_tags" {
+  let core = @pdfv2.open_pdf_core_v2_perf(pdf_v2_minimal_text_pdf_bytes())
+  assert_eq(core.text_events.length(), 1)
+  let tags = core.text_events[0].reason_tags
+  assert_true(tags.contains("source_ref_preserved"))
+  assert_true(tags.contains("object_ref_preserved"))
+  assert_true(tags.contains("font_resource_name_preserved"))
+  assert_true(tags.contains("operator:Tj"))
+  assert_true(tags.contains("page_index:0"))
+  assert_true(tags.contains("stream_index:0"))
+  assert_true(mbtpdf_tags_have_prefix(tags, "op_index:"))
+  assert_true(tags.contains("content_order_index:0"))
+  assert_true(tags.contains("object_ref:4 0 R"))
+  assert_true(tags.contains("font_resource_name:/F1"))
+  assert_true(tags.contains("font_size:12"))
+  assert_true(tags.contains("decode_confidence_available"))
+}
+
+///|
 test "test_subset_font_records_original_and_base_name" {
   let core = @pdfv2.open_pdf_core_v2_perf(pdf_v2_subset_font_pdf_bytes())
   assert_eq(core.text_events.length(), 1)
@@ -135,6 +167,46 @@ test "test_flate_stream_lifetime_counts_and_no_raw_bytes" {
 }
 
 ///|
+test "test_reader_summary_counts_text_fonts_and_unicode_metrics" {
+  let core = @pdfv2.open_pdf_core_v2_perf(
+    pdf_v2_type0_cid_tounicode_pdf_bytes(
+      "<00010002>",
+      base_tounicode_cmap_header("<0000> <FFFF>") +
+      "2 beginbfchar\n" +
+      "<0001> <0041>\n" +
+      "<0002> <0042>\n" +
+      "endbfchar\n" +
+      base_tounicode_cmap_footer(),
+    ),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "reader_summary_metrics"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "decoded_char_count:2"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "low_confidence_char_count:0"),
+  )
+  assert_true(mbtpdf_diag_has_warning_tag(core.warnings, "font_count:1"))
+  assert_true(mbtpdf_diag_has_warning_tag(core.warnings, "type0_font_count:1"))
+  assert_true(mbtpdf_diag_has_warning_tag(core.warnings, "cid_font_count:1"))
+  assert_true(mbtpdf_diag_has_warning_tag(core.warnings, "subset_font_count:1"))
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "embedded_font_count:1"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "tounicode_present_count:1"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "nfc_normalized_count:1"),
+  )
+  assert_true(
+    mbtpdf_diag_has_warning_tag(core.warnings, "bad_tounicode_handled_count:0"),
+  )
+}
+
+///|
 test "test_malformed_stream_fail_closed_no_fallback" {
   let core = @pdfv2.open_pdf_core_v2_perf(pdf_v2_flate_text_pdf_bytes())
   assert_eq(core.text_events.length(), 0)
@@ -183,6 +255,16 @@ fn mbtpdf_diag_has_risk_tag(
 ) -> Bool {
   for risk in risks {
     if risk.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn mbtpdf_tags_have_prefix(tags : Array[String], prefix : String) -> Bool {
+  for tag in tags {
+    if tag.has_prefix(prefix) {
       return true
     }
   }
