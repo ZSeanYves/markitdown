@@ -121,6 +121,31 @@ produced from the single `pdf_core_v2` scan scaffold and remain parser-owned.
 Convert must consume the resulting parser/model facts later; it must not rescan
 PDF bytes, call old `doc_parse/pdf`, or use product policy to fill parser holes.
 
+## RESET-4 Text Reconstruction
+
+This reset adds `doc_parse/pdf_v2/text_reconstruction`, a parser-side scaffold
+that consumes `source_event.PdfV2SourceDocument` and builds glyph, char, span,
+line, block, page, and text-model placeholders. It does not read PDF files,
+call old `doc_parse/pdf`, call vendor/mbtpdf directly, call convert, load
+models, or perform training.
+
+Text reconstruction preserves source refs, object refs, page indices, content
+order, geometry, font/style fields, writing direction, decode confidence,
+warnings, risks, recoverability, and reason tags. When source events do not
+contain text payloads, the builder returns an empty text model with summary
+warnings/risks rather than silently dropping text. Low-confidence and failed
+decode facts remain in the model and are surfaced through structured
+diagnostics.
+
+The layer may emit parser-owned candidate facts such as list marker shape,
+caption prefix shape, heading shape, wrapped line, same-paragraph, table-cell,
+page-number, and header/footer position candidates. These are not final
+semantic labels. Final heading/list/caption/table/Markdown/IR decisions remain
+convert-owned and must be made from parser facts later.
+
+The next reset can aggregate this text model into the normalized parser model
+or begin layout-recovery scaffolding over glyph/span/line/block facts.
+
 Non-goals for this scaffold:
 
 - no old PDF runtime changes

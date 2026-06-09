@@ -46,6 +46,7 @@ pub fn pdf_v2_document_start_event(
     object_ref: None,
     page_index: None,
     resource_ref: None,
+    text_payload: None,
     reason_tags: ["source_event_document_start", "one_pass"],
     severity: @pdfv2.PdfV2Severity::Info,
     recoverability: @pdfv2.PdfV2Recoverability::Recoverable,
@@ -67,6 +68,7 @@ pub fn pdf_v2_page_start_event(
     object_ref,
     page_index: Some(page_index),
     resource_ref: None,
+    text_payload: None,
     reason_tags: ["source_event_page_start"],
     severity: @pdfv2.PdfV2Severity::Info,
     recoverability: @pdfv2.PdfV2Recoverability::Recoverable,
@@ -91,6 +93,7 @@ pub fn pdf_v2_event_for_warning(
     object_ref: warning.object_ref,
     page_index: warning.page_index,
     resource_ref: None,
+    text_payload: None,
     reason_tags: warning.reason_tags,
     severity: warning.severity,
     recoverability: warning.recoverability,
@@ -115,6 +118,7 @@ pub fn pdf_v2_event_for_risk(
     object_ref: risk.object_ref,
     page_index: risk.page_index,
     resource_ref: None,
+    text_payload: None,
     reason_tags: risk.reason_tags,
     severity: risk_severity_to_warning_severity(risk.severity),
     recoverability: risk.recoverability,
@@ -138,6 +142,7 @@ pub fn pdf_v2_event_for_resource_warning(
     object_ref: diagnostic.resource.object_ref,
     page_index: Some(diagnostic.resource.page_index),
     resource_ref: Some(diagnostic.resource),
+    text_payload: None,
     reason_tags: diagnostic.warning.reason_tags,
     severity: diagnostic.warning.severity,
     recoverability: diagnostic.warning.recoverability,
@@ -205,6 +210,30 @@ pub fn pdf_v2_events_for_security_diagnostic(
     None => ()
   }
   events
+}
+
+///|
+pub fn pdf_v2_text_payload_event(
+  id : String,
+  page_index : Int,
+  object_ref : String?,
+  source_ref : @pdfv2.PdfV2SourceRef,
+  payload : PdfV2SourceTextPayload,
+) -> PdfV2SourceEvent {
+  {
+    id,
+    kind: PdfV2SourceEventKind::TextPayload,
+    capability: @pdfv2.PdfV2CoreCapabilityKind::GlyphDecode,
+    source_ref: Some(source_ref),
+    object_ref,
+    page_index: Some(page_index),
+    resource_ref: None,
+    text_payload: Some(payload),
+    reason_tags: payload.reason_tags,
+    severity: @pdfv2.PdfV2Severity::Info,
+    recoverability: @pdfv2.PdfV2Recoverability::Recoverable,
+    diagnostics: { warnings: [], risks: [] },
+  }
 }
 
 ///|
