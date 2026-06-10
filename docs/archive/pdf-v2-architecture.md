@@ -75,6 +75,19 @@ PDF-V2-RESET-2 Core Facade And Source Bridge Note:
   and surface unsupported, malformed, encrypted, rare, and capped capabilities
   as warnings, risks, or capability flags rather than fallback.
 
+PDF-V2-RESET-3 Minimal Real Reader Adapter Note:
+
+* Phase 3 adds a minimal path-based mbtpdf reader adapter in `doc_parse/pdf_v2`.
+* The adapter opens real PDF bytes through mbtpdf, extracts page facts, emits
+  page/content-stream boundary events, and maps located content operators as
+  raw-op-style `Unknown` source events.
+* `max_pages` and `max_events` are enforced before facts/events leave the
+  adapter, with capped behavior reported as warnings and risks.
+* Malformed, unreadable, encrypted, or page-tree failures fail closed through
+  structured warnings/risks. No old-runtime fallback, dispatcher switch,
+  convert lowering, text reconstruction, glyph decode, image decode, or layout
+  recovery is introduced by this phase.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

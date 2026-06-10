@@ -1,3 +1,13 @@
+import {
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdf",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfio",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/core/pdfe",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/document/pdfpage",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/graphics/pdfops",
+  "ZSeanYves/markitdown/doc_parse/pdf/vendor/mbtpdf/io/pdfread",
+  "moonbitlang/x/fs",
+}
+
 options(
   "preferred-target": "native",
 )

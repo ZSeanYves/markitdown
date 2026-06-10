@@ -26,6 +26,10 @@ pub fn pdf_v2_empty_source_summary() -> PdfV2SourceSummary
 
 pub fn pdf_v2_empty_text_shape_features() -> PdfV2TextShapeFeatures
 
+pub fn pdf_v2_open_core_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2CoreOpenResult
+
+pub fn pdf_v2_open_source_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
+
 pub fn pdf_v2_plain_text_style_flags() -> PdfV2TextStyleFlags
 
 pub fn pdf_v2_source_document_from_core(PdfV2CoreDocument, Array[PdfV2CoreEvent]) -> PdfV2SourceDocument
@@ -140,6 +144,11 @@ pub(all) struct PdfV2CoreOpenOptions {
   max_stream_bytes : Int?
   max_events : Int?
   fail_on_encrypted : Bool
+}
+
+pub(all) enum PdfV2CoreOpenResult {
+  CoreOpenOk(PdfV2CoreDocument, Array[PdfV2CoreEvent])
+  CoreOpenErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
 }
 
 pub(all) struct PdfV2CorePageFact {
@@ -360,6 +369,11 @@ pub(all) enum PdfV2SourceKind {
   Unsupported
   Unknown
 } derive(Eq)
+
+pub(all) enum PdfV2SourceOpenResult {
+  SourceOpenOk(PdfV2SourceDocument)
+  SourceOpenErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
+}
 
 pub(all) struct PdfV2SourceRef {
   page_index : Int?

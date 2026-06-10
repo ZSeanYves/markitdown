@@ -25,6 +25,18 @@ pub(all) struct PdfV2CoreDocument {
 }
 
 ///|
+pub(all) enum PdfV2CoreOpenResult {
+  CoreOpenOk(PdfV2CoreDocument, Array[PdfV2CoreEvent])
+  CoreOpenErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
+}
+
+///|
+pub(all) enum PdfV2SourceOpenResult {
+  SourceOpenOk(PdfV2SourceDocument)
+  SourceOpenErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
+}
+
+///|
 pub(all) enum PdfV2CoreCapability {
   ObjectGraph
   XrefTable

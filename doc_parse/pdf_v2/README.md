@@ -23,6 +23,40 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 3 Minimal Real Reader Adapter Status
+
+Phase 3 wires a narrow read-only mbtpdf adapter behind the v2 facade:
+
+```text
+real PDF path
+  -> mbtpdf reader/page tree/content op substrate
+  -> PdfV2CoreDocument / PdfV2CoreEvent
+  -> PdfV2SourceDocument
+```
+
+Current status:
+
+- `pdf_v2_open_core_document_from_path` opens real PDF bytes through mbtpdf and
+  returns a core document plus capped core events.
+- `pdf_v2_open_source_document_from_path` uses the existing raw bridge to build
+  a source document without line, block, layout, Markdown, convert, or fallback
+  behavior.
+- Page facts include media box, crop box, rotate, raw `/UserUnit` when
+  available, resources-present, and source refs.
+- Events currently include page begin/end, content stream begin/end, and located
+  content operators as `Unknown` raw-op-style source events.
+- `max_pages` and `max_events` are enforced in the adapter and report
+  `PerformanceCap` warnings plus `PerformanceCapReached` risks.
+- Malformed, unreadable, encrypted, or page-tree failures fail closed through
+  warnings/risks and do not fall back to the old PDF parser.
+
+Known gaps intentionally deferred:
+
+- No text reconstruction, glyph decoding, char/span/line/block grouping, or
+  layout recovery.
+- No text/font cache, glyph decode confidence, image decode, vector metadata
+  caps, rich annotation/form/object events, or convert lowering.
+
 ## Phase 2 Facade And Bridge Status
 
 Phase 2 adds the first parser-owned boundary from protected mbtpdf facts into
