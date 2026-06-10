@@ -172,11 +172,21 @@ pub fn pdf_v2_source_document_from_core(
     font_cache,
     pdf_v2_default_max_char_candidates(),
   )
-  let warnings = pdf_v2_append_warnings(
-    pdf_v2_all_warnings(core, source_events),
-    reconstruction.warnings,
+  let span_reconstruction = pdf_v2_reconstruct_span_candidates(
+    reconstruction.char_candidates,
+    pdf_v2_default_span_reconstruction_options(),
   )
-  let risks = pdf_v2_append_risks(core.risks, reconstruction.risks)
+  let warnings = pdf_v2_append_warnings(
+    pdf_v2_append_warnings(
+      pdf_v2_all_warnings(core, source_events),
+      reconstruction.warnings,
+    ),
+    span_reconstruction.warnings,
+  )
+  let risks = pdf_v2_append_risks(
+    pdf_v2_append_risks(core.risks, reconstruction.risks),
+    span_reconstruction.risks,
+  )
   let page_count = if core.page_count > 0 {
     core.page_count
   } else {
@@ -187,7 +197,11 @@ pub fn pdf_v2_source_document_from_core(
     pages,
     font_cache,
     char_candidates: reconstruction.char_candidates,
-    reconstruction_summary: reconstruction.summary,
+    span_candidates: span_reconstruction.spans,
+    reconstruction_summary: pdf_v2_merge_reconstruction_summaries(
+      reconstruction.summary,
+      span_reconstruction.summary,
+    ),
     summary: pdf_v2_source_summary(
       source_events.length(),
       page_count,

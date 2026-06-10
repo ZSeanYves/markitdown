@@ -48,6 +48,7 @@ pub(all) struct PdfV2SourceDocument {
   pages : Array[PdfV2Page]
   font_cache : PdfV2FontCache
   char_candidates : Array[PdfV2CharCandidate]
+  span_candidates : Array[PdfV2SpanCandidate]
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary
   warnings : Array[PdfV2Warning]

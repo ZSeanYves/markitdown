@@ -296,6 +296,65 @@ fn phase5_repeated_text_pdf() -> String {
 }
 
 ///|
+fn phase6_two_font_text_pdf() -> String {
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
+    ),
+    (
+      4,
+      phase3_stream_object(
+        "BT\n/F1 12 Tf\n72 720 Td\n(A) Tj\n/F2 12 Tf\n(B) Tj\nET\n",
+      ),
+    ),
+    (5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+    (6, "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>"),
+  ])
+}
+
+///|
+fn phase6_tj_spacing_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n[(A) 240 (B)] TJ\nET\n", true)
+}
+
+///|
+fn phase6_span_options(
+  max_spans : Int,
+  max_chars_per_span : Int,
+  allow_tj_spacing_merge : Bool,
+) -> @pdfv2.PdfV2SpanReconstructionOptions {
+  { max_spans, max_chars_per_span, allow_tj_spacing_merge }
+}
+
+///|
+fn phase6_has_span_break_reason(
+  spans : Array[@pdfv2.PdfV2SpanCandidate],
+  tag : String,
+) -> Bool {
+  for span in spans {
+    if span.break_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase6_has_span_reason(
+  spans : Array[@pdfv2.PdfV2SpanCandidate],
+  tag : String,
+) -> Bool {
+  for span in spans {
+    if span.reason_tags.contains(tag) || span.merge_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn phase3_open_options(
   max_pages : Int?,
   max_events : Int?,
@@ -893,5 +952,193 @@ test "pdf v2 font cache summary deduplicates repeated text shows" {
     }
     SourceOpenErr(_, _, message) =>
       fail("expected Phase 5 font-cache source document: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction emits simple ASCII span candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-simple-span.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 5)
+      assert_true(doc.span_candidates.length() == 1)
+      assert_true(doc.span_candidates[0].text == "Hello")
+      assert_true(doc.span_candidates[0].source_refs.length() == 5)
+      assert_true(doc.span_candidates[0].bbox is None)
+      assert_true(
+        doc.span_candidates[0].geometry_confidence ==
+        @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(
+        doc.span_candidates[0].reason_tags.contains("span_geometry_unavailable"),
+      )
+      assert_true(doc.reconstruction_summary.span_candidate_count == 1)
+      assert_true(doc.reconstruction_summary.chars_grouped_count == 5)
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 simple span candidate: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction breaks on font change" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-font-change.pdf"
+  phase3_write_fixture(path, phase6_two_font_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.span_candidates.length() == 2)
+      assert_true(doc.span_candidates[0].text == "A")
+      assert_true(doc.span_candidates[1].text == "B")
+      assert_true(
+        phase6_has_span_break_reason(doc.span_candidates, "font_change"),
+      )
+      assert_true(doc.reconstruction_summary.span_break_count >= 1)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 font-change spans: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction handles TJ spacing boundary option" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-tj-spacing.pdf"
+  phase3_write_fixture(path, phase6_tj_spacing_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.span_candidates.length() == 2)
+      assert_true(
+        phase6_has_span_break_reason(doc.span_candidates, "tj_spacing_boundary"),
+      )
+      let merged = @pdfv2.pdf_v2_reconstruct_span_candidates(
+        doc.char_candidates,
+        phase6_span_options(10, 10, true),
+      )
+      assert_true(merged.spans.length() == 1)
+      assert_true(merged.spans[0].text == "AB")
+      assert_true(phase6_has_span_reason(merged.spans, "tj_spacing_boundary"))
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 TJ spacing spans: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction enforces max chars per span" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-max-chars-per-span.pdf"
+  phase3_write_fixture(
+    path,
+    phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(ABCDE) Tj\nET\n", true),
+  )
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let spans = @pdfv2.pdf_v2_reconstruct_span_candidates(
+        doc.char_candidates,
+        phase6_span_options(10, 2, true),
+      )
+      assert_true(spans.spans.length() == 3)
+      assert_true(spans.spans[0].text == "AB")
+      assert_true(spans.spans[1].text == "CD")
+      assert_true(spans.spans[2].text == "E")
+      assert_true(
+        phase6_has_span_break_reason(spans.spans, "max_chars_per_span"),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 max chars per span: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction max_spans cap is explicit" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-max-spans.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let spans = @pdfv2.pdf_v2_reconstruct_span_candidates(
+        doc.char_candidates,
+        phase6_span_options(1, 2, true),
+      )
+      assert_true(spans.spans.length() == 1)
+      assert_true(spans.summary.max_span_cap_hit)
+      assert_true(
+        phase3_has_warning_kind(
+          spans.warnings,
+          @pdfv2.PdfV2WarningKind::PerformanceCap,
+        ),
+      )
+      assert_true(
+        phase3_has_risk_kind(
+          spans.risks,
+          @pdfv2.PdfV2RiskKind::PerformanceCapReached,
+        ),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 max spans cap: " + message)
+  }
+}
+
+///|
+test "pdf v2 span reconstruction keeps unknown decode conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase6-unknown-decode.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.span_candidates.length() == 1)
+      assert_true(
+        doc.span_candidates[0].decode_confidence !=
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      )
+      assert_true(
+        doc.span_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::Unknown,
+      )
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 6 unknown decode span: " + message)
   }
 }

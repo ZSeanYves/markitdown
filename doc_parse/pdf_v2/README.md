@@ -23,6 +23,38 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 6 Span Candidate Status
+
+Phase 6 consumes Phase 5 character candidates and adds bounded parser-owned
+span candidates:
+
+```text
+PdfV2CharCandidate[]
+  -> PdfV2SpanCandidate[]
+```
+
+Current status:
+
+- `PdfV2SpanCandidate` records grouped char candidates, text, source refs, font
+  ref/name/size, decode confidence, geometry confidence, warnings, merge reason
+  tags, break reason tags, and optional bbox.
+- Grouping is conservative. Adjacent chars are merged only when page, text-show
+  source ref, font facts, font size, decode confidence, and geometry confidence
+  stay compatible and the configured span length cap is not exceeded.
+- TJ spacing boundaries break spans by default. Callers may opt into merging
+  those chars, but the span keeps `tj_spacing_boundary` reason tags.
+- Geometry remains conservative. Spans do not invent bounding boxes; unavailable
+  geometry is reported with `span_geometry_unavailable` and unknown geometry
+  confidence.
+- `max_spans` and `max_chars_per_span` are explicit reconstruction caps and
+  report warnings/risks when reached.
+- `PdfV2SourceDocument` carries span candidates as experimental parser facts
+  alongside char candidates. They are not final normalized `PdfV2Span` records.
+
+This is still not line or block reconstruction. Phase 6 does not build lines,
+blocks, paragraphs, headings, lists, captions, layout regions, Markdown,
+convert output, dispatcher behavior, model features, or fallback.
+
 ## Phase 5 Font Cache And Char Candidate Status
 
 Phase 5 consumes the Phase 4 typed text events and adds a parser-owned font

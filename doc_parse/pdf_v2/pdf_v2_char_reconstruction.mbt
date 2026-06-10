@@ -38,6 +38,11 @@ pub(all) struct PdfV2CharReconstructionSummary {
   geometry_missing_count : Int
   font_cache_hits : Int
   font_cache_misses : Int
+  span_candidate_count : Int
+  chars_grouped_count : Int
+  span_break_count : Int
+  span_geometry_missing_count : Int
+  max_span_cap_hit : Bool
   warnings_count : Int
   risk_count : Int
   max_chars : Int
@@ -354,6 +359,11 @@ pub fn pdf_v2_reconstruct_char_candidates(
     geometry_missing_count,
     font_cache_hits: font_cache.cache_hits,
     font_cache_misses: font_cache.cache_misses,
+    span_candidate_count: 0,
+    chars_grouped_count: 0,
+    span_break_count: 0,
+    span_geometry_missing_count: 0,
+    max_span_cap_hit: false,
     warnings_count: warnings.length(),
     risk_count: risks.length(),
     max_chars: effective_max,

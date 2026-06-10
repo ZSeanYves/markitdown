@@ -117,6 +117,19 @@ PDF-V2-RESET-5 Font Cache And Char Candidate Note:
   recovery, convert lowering, dispatcher switching, model file reads, or
   old-runtime fallback.
 
+PDF-V2-RESET-6 Span Candidate Note:
+
+* Phase 6 consumes only Phase 5 `PdfV2CharCandidate` facts and builds bounded
+  `PdfV2SpanCandidate` parser facts.
+* Span grouping is source-first and conservative: page, text-show source refs,
+  font facts, size, decode confidence, geometry confidence, TJ spacing
+  boundaries, failed decode, and span caps all control merge or break behavior.
+* Span candidates preserve source refs, char candidates, warnings, merge reason
+  tags, and break reason tags. Bboxes stay absent unless safely derivable.
+* This phase still does not create lines, blocks, paragraphs, layout recovery,
+  convert lowering, dispatcher switching, model file reads, or old-runtime
+  fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
