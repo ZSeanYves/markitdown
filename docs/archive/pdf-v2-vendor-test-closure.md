@@ -59,14 +59,14 @@ malformed-reader behavior.
 - `doc_parse/pdf/vendor/mbtpdf/document/pdfdest/*_test.mbt`
 - `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_targets_test.mbt`
 - `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_xobject_test.mbt`
-- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_change_extra_test.mbt`
-- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_fixups_test.mbt`
-- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_prefix_test.mbt`
-- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_renumber_test.mbt`
 
 These either protect local reader/text behavior, source attribution, image/vector
 or annotation/form facts, or are still mixed with behavior that needs a narrower
 replacement before deletion.
+
+The page editing, fixup, prefix, and renumber files originally deferred here
+were removed in Phase 1.5h after narrower page, destination, inline-image, and
+lane-specific contracts were added.
 
 ## Later Batches
 
@@ -299,3 +299,117 @@ Next-round options:
 - Alternatively, Phase 1.5h can trim a small page editing/output-only batch if
   PDF v2 explicitly does not consume those APIs and the remaining parser-facing
   facts are covered by contracts.
+
+## Phase 1.5h Complete Vendor Test Closure Hardening
+
+This batch completes the first PDF v2 vendor test-closure hardening pass. It
+adds lane-specific narrow contracts for the remaining image, color, vector,
+security, and structure facts, then removes a small group of upstream-heavy
+tests that protect writer, serialization, encode, and page editing behavior
+rather than PDF v2 parser/facade contracts. Runtime source, `doc_parse/pdf_v2`,
+`convert/pdf_v2`, the old PDF runtime, and dispatcher code were not changed.
+
+New contracts:
+
+- `doc_parse/pdf/vendor/mbtpdf/graphics/pdfimage/pdfimage_decode_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/graphics/pdfspace/pdfspace_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/graphics/pdfops/pdfops_vector_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/io/pdfread/pdfread_security_contract_test.mbt`
+- `doc_parse/pdf/vendor/mbtpdf/io/pdfread/pdfread_structure_contract_test.mbt`
+
+Contract coverage added:
+
+- Image lane: tiny raw DeviceGray 24bpp expansion, `/ImageMask` BPC and color
+  inference, raw `/Mask` and `/SMask` dictionary reachability, explicit
+  behavior for compressed/heavy filters, JPX payload surfacing, and JBIG2
+  globals reference reachability.
+- Color-space lane: DeviceGray, DeviceRGB, DeviceCMYK, Indexed lookup, named
+  resource color-space lookup, and fail-closed behavior for missing or invalid
+  color-space objects.
+- Vector/path lane: path and graphics-state operators for `q`, `cm`, `re`, `S`,
+  `m`, `l`, `f`, and `Q`, with source stream index, operator index, and
+  indirect content-stream object reference preserved.
+- Security/encryption lane: encrypted-document detection from `/Encrypt`,
+  unsupported encryption method classification, empty permission metadata for
+  unsupported encryption, and no silent normal-success classification.
+- Structure lane: tiny xref-stream PDF read smoke, malformed xref-stream
+  fail-closed behavior under strict mode, and linearized-input detection.
+
+Deleted tests:
+
+| Path | Category | Why safe | Replacement or lane coverage |
+|---|---|---|---|
+| `doc_parse/pdf/vendor/mbtpdf/core/pdf/pdf_serialize_test.mbt` | Core serialization/string output | Protects standalone object string rendering, stream stringification, and formatting behavior rather than PDF v2 parser facts. | Core object, stream, duplicate-key, name, and parser contracts remain; serialization output is not in the normal PDF v2 closure. |
+| `doc_parse/pdf/vendor/mbtpdf/core/pdf/pdf_renumber_test.mbt` | Core renumbering | Protects object renumber mutation used by writer/edit flows, not facade read contracts. | Object refs are protected by read/object-facts contracts; renumbering is outside normal PDF v2 closure. |
+| `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_change_extra_test.mbt` | Page editing/output | Exercises `change_pages`, bookmark/action rewrites, annotation rewrites, and output page rebuilding. | Page tree, destination, link/widget facts, and destination variants are covered by Phase 1.5e/1.5g contracts; page editing is out of the PDF v2 facade path. |
+| `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_fixups_test.mbt` | Page editing/fixup | Exercises duplicate annotation/page fixups, destination cleanup, and parent repair for output maintenance. | Page-tree read facts, annotation/link object facts, and malformed-read behavior remain covered by contract and malformed lanes. |
+| `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_prefix_test.mbt` | Page resource prefix/output mutation | Exercises resource and operator renaming for page composition. | Resource inheritance, XObject refs, inline-image metadata/source facts, and vector source facts are covered by narrow contracts. |
+| `doc_parse/pdf/vendor/mbtpdf/document/pdfpage/pdfpage_renumber_test.mbt` | Page resource renumber/output mutation | Exercises resource-name rewriting and inline-image color-space rewriting during page renumbering. | Inline-image source facts, color-space boundary facts, and resource/XObject facts are covered; renumber output behavior is out of normal closure. |
+| `doc_parse/pdf/vendor/mbtpdf/codec/pdfcodec/pdfcodec_encode_test.mbt` | Codec encode/write roundtrip | Exercises encode and write-side filter chain mutation. PDF v2 consumes decode and fail-closed stream facts, not stream encoding. | Decode, predictor, selected codec, image decode, and structure contracts remain; encode roundtrip is not in normal PDF v2 closure. |
+
+Convenience test-count deltas after adding the new contracts and before/after
+the deletion batch:
+
+- `doc_parse/pdf/vendor/mbtpdf/core/pdf`: 49 declarations before deletion, 41
+  after deletion.
+- `doc_parse/pdf/vendor/mbtpdf/document/pdfpage`: 80 declarations before
+  deletion, 46 after deletion.
+- `doc_parse/pdf/vendor/mbtpdf/codec/pdfcodec`: 89 declarations before
+  deletion, 80 after deletion.
+- `doc_parse/pdf/vendor/mbtpdf/graphics/pdfspace`: 47 declarations before and
+  after deletion; rich color-space write/read coverage was intentionally kept.
+
+Tests intentionally kept:
+
+- Text/font and CMap/ToUnicode/GBK tests remain because text decode confidence,
+  CJK, glyph mapping, and fallback behavior are high-value PDF v2 substrate
+  coverage.
+- Real malformed/read tests remain because the small strict smoke and structure
+  contracts do not replace header, root/trailer, stream, lexical, object-stream,
+  xref, and fallback edge coverage.
+- Image/color/vector tests remain when they cover selected decode, rich color
+  spaces, inline-image parsing, operator parser edges, or vector behavior not
+  fully represented by the narrow contracts.
+- Encryption and crypto tests remain in selected or slow lanes; the new security
+  contract only classifies encrypted/unsupported behavior for facade readiness.
+- Unknown or mixed tests remain until a whole file can be classified as
+  upstream-only or fully replaced by narrow contracts.
+
+Final lane policy:
+
+- `vendor-contract-fast`: small PDF v2 substrate contracts in `mbtpdf`, including
+  replacement tests, object facts, mixed narrow contracts, and the Phase 1.5h
+  image/color/vector/security/structure contracts.
+- `vendor-local-regression`: local reader, object, syntax, malformed, font/text,
+  and parser behavior that protects repository-specific changes.
+- `vendor-image-metadata-fast`: image XObject and inline-image metadata/source
+  facts without large asset export.
+- `vendor-image-decode-selected`: tiny raw/selected decode contracts and
+  selected legacy decode tests; large or expensive image decode remains outside
+  the fast PDF v2 loop.
+- `vendor-color-space-selected`: Device and Indexed contracts are fast; rich
+  ICCBased, Lab, Separation, DeviceN, and Pattern behavior remains selected
+  until facade records decide how much PDF v2 exposes.
+- `vendor-vector-contract`: source-attributed vector/path operator facts needed
+  for later table, figure, and region detection.
+- `vendor-security-slow`: password, permission, encryption, and crypto-heavy
+  tests. Fast closure only checks detection and fail-closed classification.
+- `vendor-codec-slow`: codec exhaustiveness, legacy filters, and expensive
+  decode behavior. Encode/write roundtrips are not part of normal PDF v2
+  closure.
+- `vendor-integration-slow`: large fixtures, real encrypted documents, end to
+  end image extraction, and upstream standalone integration behavior.
+- `pdf-v2-contract-fast`: future facade-level parser contracts over raw source
+  events, page/object facts, text/font summaries, diagnostics, and warnings.
+
+Raw bridge readiness:
+
+- Ready to start Phase 2 facade design from read-only facts: page tree, object
+  refs, xref/object-stream structure, content op source attribution,
+  inline-image metadata, image metadata/decode boundaries, color-space
+  boundaries, destination/link/widget facts, and security classification now
+  have targeted contract coverage.
+- Remaining blockers are API design rather than vendor test closure: source
+  event records, diagnostic/warning records, text/font cache and confidence,
+  selected image/vector caps, and explicit slow-lane policy in CI or local
+  scripts.
