@@ -23,6 +23,39 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 10 Layout Facts Scaffold Status
+
+Phase 10 consumes the Phase 9 normalized parser model and assembles bounded
+parser-owned layout facts:
+
+```text
+PdfV2DocumentModel
+  -> PdfV2LayoutFactSet
+```
+
+Current status:
+
+- `PdfV2LayoutFactSet` records per-page layout facts, summary counts,
+  warnings, risks, source refs, and one-pass/no-fallback flags.
+- `PdfV2PageLayoutFacts` records page box facts, text candidate counts/source
+  refs, object candidate flags, conservative geometry coverage, and layout
+  recovery statuses.
+- Geometry coverage is factual only. Missing candidate bboxes/baselines produce
+  `Missing`, `Sparse`, or `Unknown` coverage plus warnings/risks; the scaffold
+  does not invent page regions, bboxes, baselines, columns, or tables.
+- Reading order is represented only as a status. Text-bearing pages are
+  `SourceOrderOnly`; pages with no text facts are `NotAttempted`.
+- Object facts are flags derived from existing model/source events, such as
+  image metadata, annotations, forms, outlines, and destinations. They are not
+  region recovery or semantic associations.
+- The experimental parser entry point is
+  `parse_pdf_v2_layout_facts_from_path`, which calls model assembly and then
+  layout fact assembly without rereading the PDF.
+
+This is still not true layout recovery, semantic classification, Markdown,
+convert lowering, dispatcher behavior, model inference, external data reading,
+or fallback.
+
 ## Phase 9 Normalized Parser Model Status
 
 Phase 9 consumes the Phase 8 source document and candidate facts and assembles

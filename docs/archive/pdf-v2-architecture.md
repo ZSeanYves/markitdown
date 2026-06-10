@@ -178,6 +178,24 @@ PDF-V2-RESET-9 Normalized Parser Model Note:
   recovery, convert lowering, dispatcher switching, model file reads, or
   old-runtime fallback.
 
+PDF-V2-RESET-10 Layout Facts Scaffold Note:
+
+* Phase 10 consumes only the Phase 9 `PdfV2DocumentModel` and assembles an
+  experimental `PdfV2LayoutFactSet`.
+* Layout facts record per-page page boxes, text candidate refs, object
+  candidate flags, conservative geometry coverage, warnings, risks, source
+  refs, and one-pass/no-fallback flags.
+* Geometry remains factual: missing candidate bboxes or baselines are reported
+  as insufficient coverage and warnings/risks, not repaired with invented
+  layout boxes or regions.
+* Reading order, layout regions, tables, images, and annotations are represented
+  as scaffold statuses such as `SourceOrderOnly`, `NotAttempted`,
+  `InsufficientGeometry`, or `PartialFacts`.
+* This phase does not perform true layout recovery, column detection, table
+  inference, semantic heading/list/caption classification, Markdown policy,
+  convert lowering, dispatcher switching, model file reads, or old-runtime
+  fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

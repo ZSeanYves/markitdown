@@ -142,3 +142,16 @@ pub fn parse_pdf_v2_model_from_path(
 ) -> PdfV2ModelAssemblyResult {
   pdf_v2_open_document_model_from_path(path, options)
 }
+
+///|
+pub fn parse_pdf_v2_layout_facts_from_path(
+  path : String,
+  options : PdfV2CoreOpenOptions,
+) -> PdfV2LayoutFactResult {
+  match parse_pdf_v2_model_from_path(path, options) {
+    ModelAssemblyOk(model) =>
+      PdfV2LayoutFactResult::LayoutFactOk(pdf_v2_layout_facts_from_model(model))
+    ModelAssemblyErr(warnings, risks, message) =>
+      PdfV2LayoutFactResult::LayoutFactErr(warnings, risks, message)
+  }
+}

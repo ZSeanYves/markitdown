@@ -2008,3 +2008,218 @@ test "pdf v2 model assembly summary counts match candidates" {
       fail("expected Phase 9 summary model: " + message)
   }
 }
+
+///|
+test "pdf v2 layout facts expose minimal text scaffold" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-minimal-layout-facts.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      assert_true(facts.summary.page_count == 1)
+      assert_true(facts.page_layouts.length() == 1)
+      assert_true(facts.one_pass)
+      assert_true(facts.no_fallback)
+      let page = facts.page_layouts[0]
+      assert_true(page.text_candidate_refs.has_block_candidates)
+      assert_true(page.text_candidate_refs.has_line_candidates)
+      assert_true(page.text_candidate_refs.has_span_candidates)
+      assert_true(page.text_candidate_refs.has_char_candidates)
+      assert_true(page.text_candidate_refs.char_count == 5)
+      assert_true(page.text_candidate_refs.source_refs.length() > 0)
+      assert_true(
+        page.reading_order_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::SourceOrderOnly,
+      )
+      assert_true(
+        page.layout_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::InsufficientGeometry,
+      )
+      assert_true(
+        page.table_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 10 minimal layout facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts keep missing geometry explicit" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-missing-geometry.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      let page = facts.page_layouts[0]
+      assert_true(
+        page.geometry_coverage == @pdfv2.PdfV2GeometryCoverage::Missing,
+      )
+      assert_true(
+        phase4_has_warning_reason(facts.warnings, "layout_geometry_missing"),
+      )
+      assert_true(
+        phase4_has_warning_reason(page.warnings, "insufficient_geometry"),
+      )
+      assert_true(facts.summary.pages_with_missing_geometry == 1)
+      assert_true(
+        page.source_refs.length() > page.text_candidate_refs.char_count,
+      )
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 10 missing geometry facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts keep empty page non-inferred" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-empty-page.pdf"
+  phase3_write_fixture(path, phase3_one_page_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      assert_true(facts.summary.page_count == 1)
+      assert_true(facts.summary.pages_with_text_candidates == 0)
+      assert_true(facts.summary.pages_with_layout_not_attempted == 1)
+      let page = facts.page_layouts[0]
+      assert_true(!page.text_candidate_refs.has_block_candidates)
+      assert_true(!page.text_candidate_refs.has_line_candidates)
+      assert_true(!page.text_candidate_refs.has_span_candidates)
+      assert_true(!page.text_candidate_refs.has_char_candidates)
+      assert_true(
+        page.geometry_coverage == @pdfv2.PdfV2GeometryCoverage::Unknown,
+      )
+      assert_true(
+        page.reading_order_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(
+        page.layout_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 10 empty-page facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts aggregate multi page candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-two-page-facts.pdf"
+  phase3_write_fixture(path, phase8_two_page_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      assert_true(facts.summary.page_count == 2)
+      assert_true(facts.page_layouts.length() == 2)
+      assert_true(facts.summary.pages_with_text_candidates == 2)
+      assert_true(facts.summary.pages_with_block_candidates == 2)
+      assert_true(facts.summary.pages_with_missing_geometry == 2)
+      assert_true(facts.summary.pages_source_order_only == 2)
+      assert_true(facts.page_layouts[0].page_index == 0)
+      assert_true(facts.page_layouts[1].page_index == 1)
+      assert_true(facts.page_layouts[0].text_candidate_refs.char_count == 1)
+      assert_true(facts.page_layouts[1].text_candidate_refs.char_count == 1)
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 10 two-page facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts preserve model and candidate source refs" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-source-refs.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      let page_ref = model.pages[0].source_ref
+      let char_ref = model.pages[0].chars[0].source_ref
+      let facts = @pdfv2.pdf_v2_layout_facts_from_model(model)
+      let page = facts.page_layouts[0]
+      assert_true(
+        page.page_box_facts.source_ref.page_index == page_ref.page_index,
+      )
+      assert_true(page.source_refs[0].kind == @pdfv2.PdfV2SourceKind::Page)
+      assert_true(
+        page.text_candidate_refs.source_refs[0].content_order_index ==
+        char_ref.content_order_index,
+      )
+      assert_true(facts.source_refs.length() >= page.source_refs.length())
+      assert_true(facts.summary.warning_count == facts.warnings.length())
+      assert_true(facts.summary.risk_count == facts.risks.length())
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 10 source-ref model: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts do not perform semantic layout recovery or convert" {
+  let path = "/tmp/markitdown-pdf-v2-phase10-no-semantic-convert.pdf"
+  phase3_write_fixture(path, phase8_source_order_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.layout.regions.length() == 0)
+      assert_true(model.layout.reading_order.region_indices.length() == 0)
+      let facts = @pdfv2.pdf_v2_layout_facts_from_model(model)
+      let page = facts.page_layouts[0]
+      assert_true(
+        page.reading_order_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::SourceOrderOnly,
+      )
+      assert_true(
+        page.table_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(
+        page.image_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(
+        page.annotation_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(!page.object_candidate_refs.has_annotations)
+      assert_true(!page.object_candidate_refs.has_forms)
+      assert_true(!page.object_candidate_refs.has_outlines)
+      assert_true(!page.object_candidate_refs.has_destinations)
+      assert_true(facts.one_pass)
+      assert_true(facts.no_fallback)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 10 no-semantic model: " + message)
+  }
+}
