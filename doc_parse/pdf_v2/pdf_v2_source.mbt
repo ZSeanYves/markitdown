@@ -40,6 +40,7 @@ pub(all) struct PdfV2SourceEvent {
   text_state : PdfV2TextStateFact?
   text_show : PdfV2TextShowFact?
   glyph_candidate : PdfV2GlyphCandidateFact?
+  object_fact : PdfV2ObjectCandidateFact?
 }
 
 ///|
@@ -51,6 +52,16 @@ pub(all) struct PdfV2SourceDocument {
   span_candidates : Array[PdfV2SpanCandidate]
   line_candidates : Array[PdfV2LineCandidate]
   block_candidates : Array[PdfV2BlockCandidate]
+  image_candidates : Array[PdfV2ImageCandidate]
+  inline_image_candidates : Array[PdfV2InlineImageCandidate]
+  annotation_candidates : Array[PdfV2AnnotationCandidate]
+  link_candidates : Array[PdfV2LinkCandidate]
+  form_candidates : Array[PdfV2FormCandidate]
+  outline_candidates : Array[PdfV2OutlineCandidate]
+  destination_candidates : Array[PdfV2DestinationCandidate]
+  resource_candidates : Array[PdfV2ResourceCandidate]
+  metadata_candidates : Array[PdfV2MetadataCandidate]
+  object_summary : PdfV2ObjectSummary
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary
   warnings : Array[PdfV2Warning]
@@ -75,5 +86,6 @@ pub fn pdf_v2_source_event(
     text_state: None,
     text_show: None,
     glyph_candidate: None,
+    object_fact: None,
   }
 }

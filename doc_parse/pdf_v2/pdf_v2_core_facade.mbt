@@ -134,6 +134,7 @@ pub(all) struct PdfV2CoreEvent {
   text_state : PdfV2TextStateFact?
   text_show : PdfV2TextShowFact?
   glyph_candidate : PdfV2GlyphCandidateFact?
+  object_fact : PdfV2ObjectCandidateFact?
 }
 
 ///|
@@ -189,6 +190,7 @@ pub fn pdf_v2_core_event(
     text_state: None,
     text_show: None,
     glyph_candidate: None,
+    object_fact: None,
   }
 }
 

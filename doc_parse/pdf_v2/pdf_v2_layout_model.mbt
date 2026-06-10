@@ -100,6 +100,10 @@ pub(all) struct PdfV2TextCandidateRefs {
 
 ///|
 pub(all) struct PdfV2ObjectCandidateFacts {
+  has_images : Bool
+  has_inline_images : Bool
+  has_links : Bool
+  has_resources : Bool
   has_image_metadata : Bool
   has_annotations : Bool
   has_forms : Bool

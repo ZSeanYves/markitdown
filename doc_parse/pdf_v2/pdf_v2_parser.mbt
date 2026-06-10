@@ -74,6 +74,13 @@ pub(all) struct PdfV2PageModel {
   lines : Array[PdfV2LineCandidate]
   spans : Array[PdfV2SpanCandidate]
   chars : Array[PdfV2CharCandidate]
+  images : Array[PdfV2ImageCandidate]
+  inline_images : Array[PdfV2InlineImageCandidate]
+  annotations : Array[PdfV2AnnotationCandidate]
+  links : Array[PdfV2LinkCandidate]
+  forms : Array[PdfV2FormCandidate]
+  resources : Array[PdfV2ResourceCandidate]
+  metadata_refs : Array[PdfV2MetadataCandidate]
   page_warnings : Array[PdfV2Warning]
   page_risks : Array[PdfV2Risk]
   text_blocks : Array[PdfV2TextBlock]
@@ -87,6 +94,10 @@ pub(all) struct PdfV2DocumentModel {
   metadata : PdfV2DocumentMetadata
   pages : Array[PdfV2PageModel]
   source_events : Array[PdfV2SourceEvent]
+  outlines : Array[PdfV2OutlineCandidate]
+  destinations : Array[PdfV2DestinationCandidate]
+  metadata_candidates : Array[PdfV2MetadataCandidate]
+  object_summary : PdfV2ObjectSummary
   layout : PdfV2LayoutRecoveryResult
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
@@ -115,6 +126,10 @@ pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel {
     },
     pages: [],
     source_events: [],
+    outlines: [],
+    destinations: [],
+    metadata_candidates: [],
+    object_summary: pdf_v2_empty_object_summary(),
     layout,
     warnings: [],
     risks: layout.risks,

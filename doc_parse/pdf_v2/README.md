@@ -23,6 +23,39 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 11 Object Facts Integration Status
+
+Phase 11 maps object-related core/source events into parser-owned candidates and
+threads them through the normalized model and layout fact coverage:
+
+```text
+CoreEvent object facts
+  -> PdfV2SourceDocument object candidates
+  -> PdfV2DocumentModel page/document object facts
+  -> PdfV2LayoutFactSet object coverage
+```
+
+Current status:
+
+- Object facts are represented as parser candidates for image XObjects, inline
+  images, annotations, links, forms/widgets, outlines, destinations, resources,
+  and metadata.
+- Image facts are metadata-first. Width, height, color space, bits per
+  component, filters, mask flags, object refs, and source refs are recorded
+  when available, but image bytes are not decoded or exported.
+- Annotation/link/form/outline/destination/resource/metadata facts are partial,
+  source-ref preserving records. Unsupported or incomplete pieces remain
+  warnings, risks, reason tags, or capability gaps rather than fallback.
+- `PdfV2SourceDocument`, `PdfV2PageModel`, and `PdfV2DocumentModel` now carry
+  object candidate arrays plus `PdfV2ObjectSummary`.
+- Layout facts consume model object candidates for page-level object coverage
+  booleans and scaffold statuses. This does not create true regions, captions,
+  tables, Markdown links, Markdown images, or form semantics.
+
+This is still not image decoding, OCR, form semantic extraction, link lowering,
+caption/table association, semantic classification, convert lowering,
+dispatcher behavior, external data reading, or fallback.
+
 ## Phase 10 Layout Facts Scaffold Status
 
 Phase 10 consumes the Phase 9 normalized parser model and assembles bounded

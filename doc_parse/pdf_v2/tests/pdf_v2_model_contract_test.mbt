@@ -72,6 +72,7 @@ test "pdf v2 model exposes source refs warnings risks and bbox" {
     text_state: None,
     text_show: None,
     glyph_candidate: None,
+    object_fact: None,
   }
 
   assert_true(event.warnings.length() == 1)
@@ -170,6 +171,16 @@ test "pdf v2 model assembly rejects invalid candidate page index" {
     span_candidates: [],
     line_candidates: [],
     block_candidates: [block],
+    image_candidates: [],
+    inline_image_candidates: [],
+    annotation_candidates: [],
+    link_candidates: [],
+    form_candidates: [],
+    outline_candidates: [],
+    destination_candidates: [],
+    resource_candidates: [],
+    metadata_candidates: [],
+    object_summary: @pdfv2.pdf_v2_empty_object_summary(),
     reconstruction_summary: @pdfv2.pdf_v2_empty_reconstruction_summary(),
     summary: @pdfv2.pdf_v2_source_summary(0, 1, 0, 0),
     warnings: [],

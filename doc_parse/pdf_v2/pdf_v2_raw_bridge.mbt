@@ -46,6 +46,7 @@ fn pdf_v2_source_event_from_core_event(
     text_state: event.text_state,
     text_show: event.text_show,
     glyph_candidate: event.glyph_candidate,
+    object_fact: event.object_fact,
   }
 }
 
@@ -171,6 +172,9 @@ pub fn pdf_v2_source_document_from_core(
   events : Array[PdfV2CoreEvent],
 ) -> PdfV2SourceDocument {
   let source_events = pdf_v2_source_events_from_core_events(events)
+  let object_candidates = pdf_v2_object_candidates_from_source_events(
+    source_events,
+  )
   let pages = pdf_v2_pages_from_core(core, source_events)
   let font_cache = pdf_v2_build_font_cache_from_text_events(events)
   let reconstruction = pdf_v2_reconstruct_char_candidates(
@@ -194,8 +198,11 @@ pub fn pdf_v2_source_document_from_core(
     pdf_v2_append_warnings(
       pdf_v2_append_warnings(
         pdf_v2_append_warnings(
-          pdf_v2_all_warnings(core, source_events),
-          reconstruction.warnings,
+          pdf_v2_append_warnings(
+            pdf_v2_all_warnings(core, source_events),
+            reconstruction.warnings,
+          ),
+          object_candidates.warnings,
         ),
         span_reconstruction.warnings,
       ),
@@ -211,7 +218,7 @@ pub fn pdf_v2_source_document_from_core(
       ),
       line_reconstruction.risks,
     ),
-    block_reconstruction.risks,
+    pdf_v2_append_risks(block_reconstruction.risks, object_candidates.risks),
   )
   let page_count = if core.page_count > 0 {
     core.page_count
@@ -226,6 +233,16 @@ pub fn pdf_v2_source_document_from_core(
     span_candidates: span_reconstruction.spans,
     line_candidates: line_reconstruction.lines,
     block_candidates: block_reconstruction.blocks,
+    image_candidates: object_candidates.image_candidates,
+    inline_image_candidates: object_candidates.inline_image_candidates,
+    annotation_candidates: object_candidates.annotation_candidates,
+    link_candidates: object_candidates.link_candidates,
+    form_candidates: object_candidates.form_candidates,
+    outline_candidates: object_candidates.outline_candidates,
+    destination_candidates: object_candidates.destination_candidates,
+    resource_candidates: object_candidates.resource_candidates,
+    metadata_candidates: object_candidates.metadata_candidates,
+    object_summary: object_candidates.summary,
     reconstruction_summary: pdf_v2_merge_block_reconstruction_summary(
       pdf_v2_merge_line_reconstruction_summary(
         pdf_v2_merge_reconstruction_summaries(

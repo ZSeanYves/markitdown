@@ -372,6 +372,104 @@ fn phase8_two_page_text_pdf() -> String {
 }
 
 ///|
+fn phase11_image_xobject_pdf() -> String {
+  let content = "q\n/Im1 Do\nQ\n"
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 7 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /Im1 5 0 R >> /Font << /F1 6 0 R >> >> /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object(content)),
+    (
+      5, "<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length 3 >>\nstream\nabcendstream",
+    ),
+    (6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
+    (
+      7, "<< /Type /Metadata /Subtype /XML /Length 7 >>\nstream\n<xmp/> endstream",
+    ),
+  ])
+}
+
+///|
+fn phase11_inline_image_pdf() -> String {
+  let content = "q\nBI\n/W 1\n/H 1\n/BPC 8\n/CS /DeviceGray\nID\nz\nEI\nQ\n"
+  phase4_text_pdf(content, false)
+}
+
+///|
+fn phase11_link_annotation_pdf() -> String {
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Annots [5 0 R] /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object("q\nQ\n")),
+    (
+      5, "<< /Type /Annot /Subtype /Link /Rect [50 40 150 80] /A << /S /URI /URI (https://example.test/link) >> >>",
+    ),
+  ])
+}
+
+///|
+fn phase11_widget_form_pdf() -> String {
+  phase3_pdf_from_objects([
+    (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Annots [5 0 R] /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object("q\nQ\n")),
+    (
+      5, "<< /Type /Annot /Subtype /Widget /Rect [10 20 110 40] /T (Field1) /TU (Field one) /V (Value1) /AP << /N 6 0 R >> >>",
+    ),
+    (
+      6, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 0 >>\nstream\nendstream",
+    ),
+  ])
+}
+
+///|
+fn phase11_outline_destination_metadata_pdf() -> String {
+  let header = "%PDF-1.4\n"
+  let objects : Array[(Int, String)] = [
+    (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R >>"),
+    (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>"),
+    (
+      3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Contents 4 0 R >>",
+    ),
+    (4, phase3_stream_object("q\nQ\n")),
+    (5, "<< /Title (Chapter 1) /Dest [3 0 R /Fit] >>"),
+    (6, "<< /Type /Outlines /First 5 0 R /Last 5 0 R /Count 1 >>"),
+    (7, "<< /Title (Doc title) /Author (Ada) >>"),
+  ]
+  let pieces : Array[String] = [header]
+  let offsets : Array[Int] = []
+  let mut offset = header.length()
+  for pair in objects {
+    let object_text = phase3_pdf_object(pair.0, pair.1)
+    offsets.push(offset)
+    pieces.push(object_text)
+    offset = offset + object_text.length()
+  }
+  let xref_offset = offset
+  let size = objects.length() + 1
+  let xref_entries : Array[String] = [
+    "xref\n0 \{size}\n",
+    "0000000000 65535 f \n",
+  ]
+  for object_offset in offsets {
+    xref_entries.push(phase3_pad_xref_offset(object_offset) + " 00000 n \n")
+  }
+  xref_entries.push(
+    "trailer\n<< /Root 1 0 R /Info 7 0 R /Size \{size} >>\nstartxref\n\{xref_offset}\n%%EOF\n",
+  )
+  pieces.push(xref_entries.join(""))
+  pieces.join("")
+}
+
+///|
 fn phase6_span_options(
   max_spans : Int,
   max_chars_per_span : Int,
@@ -2221,5 +2319,257 @@ test "pdf v2 layout facts do not perform semantic layout recovery or convert" {
     }
     ModelAssemblyErr(_, _, message) =>
       fail("expected Phase 10 no-semantic model: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose image xobject metadata candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-image-xobject.pdf"
+  phase3_write_fixture(path, phase11_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.image_candidates.length() == 1)
+      let image = doc.image_candidates[0]
+      assert_true(image.width == Some(2))
+      assert_true(image.height == Some(1))
+      assert_true(image.color_space == Some("/DeviceRGB"))
+      assert_true(image.bits_per_component == Some(8))
+      assert_true(image.filters.contains("/DCTDecode"))
+      assert_true(!image.inline)
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(image.reason_tags.contains("image_decode_not_attempted"))
+      assert_true(image.source_ref.kind == @pdfv2.PdfV2SourceKind::Image)
+      assert_true(doc.object_summary.image_count == 1)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 11 image source facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose inline image metadata candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-inline-image.pdf"
+  phase3_write_fixture(path, phase11_inline_image_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.inline_image_candidates.length() == 1)
+      let image = doc.inline_image_candidates[0]
+      assert_true(image.width == Some(1))
+      assert_true(image.height == Some(1))
+      assert_true(image.color_space == Some("/DeviceGray"))
+      assert_true(image.bits_per_component == Some(8))
+      assert_true(image.filters.length() == 0)
+      assert_true(
+        image.decode_status == @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(image.reason_tags.contains("inline_image"))
+      assert_true(image.source_ref.kind == @pdfv2.PdfV2SourceKind::InlineImage)
+      assert_true(doc.object_summary.inline_image_count == 1)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 11 inline image facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose link annotation candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-link-annotation.pdf"
+  phase3_write_fixture(path, phase11_link_annotation_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].annotations.length() == 1)
+      assert_true(model.pages[0].links.length() == 1)
+      let annotation = model.pages[0].annotations[0]
+      let link = model.pages[0].links[0]
+      assert_true(annotation.subtype == Some("/Link"))
+      assert_true(link.uri == Some("https://example.test/link"))
+      match link.rect {
+        Some(rect) => {
+          assert_true(rect.x0 == 50.0)
+          assert_true(rect.y0 == 40.0)
+          assert_true(rect.x1 == 150.0)
+          assert_true(rect.y1 == 80.0)
+        }
+        None => fail("expected link rect")
+      }
+      assert_true(link.reason_tags.contains("semantic_not_lowered"))
+      assert_true(model.object_summary.link_count == 1)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 11 link model facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose widget form candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-widget-form.pdf"
+  phase3_write_fixture(path, phase11_widget_form_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].forms.length() >= 1)
+      let form = model.pages[0].forms[0]
+      assert_true(form.field_name == Some("Field1"))
+      assert_true(form.alternate_name == Some("Field one"))
+      assert_true(form.value == Some("Value1"))
+      match form.rect {
+        Some(rect) => assert_true(rect.x0 == 10.0 && rect.x1 == 110.0)
+        None => fail("expected widget rect")
+      }
+      assert_true(form.reason_tags.contains("semantic_not_lowered"))
+      assert_true(model.object_summary.form_count >= 1)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 11 widget model facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose outline destination metadata candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-outline-metadata.pdf"
+  phase3_write_fixture(path, phase11_outline_destination_metadata_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.outlines.length() == 1)
+      assert_true(model.destinations.length() == 1)
+      assert_true(model.metadata_candidates.length() >= 2)
+      assert_true(model.outlines[0].title == Some("Chapter 1"))
+      assert_true(model.outlines[0].reason_tags.contains("toc_not_lowered"))
+      assert_true(model.object_summary.outline_count == 1)
+      assert_true(model.object_summary.destination_count == 1)
+      assert_true(model.object_summary.metadata_count >= 2)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 11 outline metadata model facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts expose page resource candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-resources.pdf"
+  phase3_write_fixture(path, phase11_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].resources.length() >= 2)
+      let mut has_image_resource = false
+      let mut has_font_resource = false
+      for resource in model.pages[0].resources {
+        if resource.resource_kind == @pdfv2.PdfV2ResourceKind::ImageXObject {
+          has_image_resource = true
+          assert_true(resource.name == "/Im1")
+          assert_true(resource.object_ref == Some("5 0 R"))
+        }
+        if resource.resource_kind == @pdfv2.PdfV2ResourceKind::Font {
+          has_font_resource = true
+        }
+      }
+      assert_true(has_image_resource)
+      assert_true(has_font_resource)
+      assert_true(model.object_summary.resource_count >= 2)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 11 resource model facts: " + message)
+  }
+}
+
+///|
+test "pdf v2 layout facts include object coverage statuses" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-layout-object-coverage.pdf"
+  phase3_write_fixture(path, phase11_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_layout_facts_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    LayoutFactOk(facts) => {
+      let page = facts.page_layouts[0]
+      assert_true(page.object_candidate_refs.has_images)
+      assert_true(page.object_candidate_refs.has_resources)
+      assert_true(
+        page.image_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::PartialFacts,
+      )
+      assert_true(
+        page.annotation_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(
+        page.table_region_status ==
+        @pdfv2.PdfV2LayoutRecoveryStatus::NotAttempted,
+      )
+      assert_true(page.object_candidate_refs.source_refs.length() > 0)
+    }
+    LayoutFactErr(_, _, message) =>
+      fail("expected Phase 11 layout object coverage: " + message)
+  }
+}
+
+///|
+test "pdf v2 object facts remain parser facts without semantic convert fallback" {
+  let path = "/tmp/markitdown-pdf-v2-phase11-no-semantic-convert.pdf"
+  phase3_write_fixture(path, phase11_image_xobject_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].images.length() == 1)
+      assert_true(model.pages[0].images[0].bbox is None)
+      assert_true(
+        model.pages[0].images[0].decode_status ==
+        @pdfv2.PdfV2ImageDecodeStatus::MetadataOnly,
+      )
+      assert_true(model.layout.regions.length() == 0)
+      assert_true(model.layout.reading_order.region_indices.length() == 0)
+      assert_true(model.one_pass)
+      assert_true(model.no_fallback)
+      assert_true(model.source_summary.one_pass_scan)
+      assert_true(!model.source_summary.fallback_used)
+      assert_true(!model.source_summary.external_model_files_read)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 11 parser-fact-only model: " + message)
   }
 }

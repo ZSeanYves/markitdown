@@ -248,6 +248,185 @@ fn pdf_v2_adapter_first_some(a : String?, b : String?) -> String? {
 }
 
 ///|
+fn pdf_v2_adapter_pdf_name_string(obj : @pdf.PdfObject) -> String? {
+  match obj {
+    Name(name) => Some(name.to_string_bytes())
+    String(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_pdf_object_string(obj : @pdf.PdfObject) -> String? {
+  match obj {
+    Null => None
+    Name(name) => Some(name.to_string_bytes())
+    String(value) => Some(value)
+    Integer(value) => Some(value.to_string())
+    Real(value) => Some(value.to_string())
+    Boolean(value) => Some(value.to_string())
+    Indirect(value) => Some(pdf_v2_adapter_object_ref(value))
+    _ => Some(obj.to_string())
+  }
+}
+
+///|
+fn pdf_v2_adapter_pdf_object_int(pdf : @pdf.Pdf, obj : @pdf.PdfObject) -> Int? {
+  Some(pdf.getnum(obj).to_int()) catch {
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_pdf_object_bool(obj : @pdf.PdfObject) -> Bool? {
+  match obj {
+    Boolean(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_indirect_ref(obj : @pdf.PdfObject) -> String? {
+  match obj {
+    Indirect(value) => Some(pdf_v2_adapter_object_ref(value))
+    _ => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_filter_names(
+  pdf : @pdf.Pdf,
+  dict : @pdf.PdfObject,
+) -> Array[String] {
+  let filters : Array[String] = []
+  match pdf.lookup_direct_orelse("/F", "/Filter", dict) {
+    Some(Name(name)) => filters.push(name.to_string_bytes())
+    Some(Array(items)) =>
+      for item in items {
+        match pdf.direct(item) {
+          Name(name) => filters.push(name.to_string_bytes())
+          other =>
+            match pdf_v2_adapter_pdf_object_string(other) {
+              Some(text) => filters.push(text)
+              None => ()
+            }
+        }
+      }
+    Some(other) =>
+      match pdf_v2_adapter_pdf_object_string(other) {
+        Some(text) => filters.push(text)
+        None => ()
+      }
+    None => ()
+  }
+  filters
+}
+
+///|
+fn pdf_v2_adapter_color_space(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> String? {
+  match pdf.lookup_direct_orelse("/CS", "/ColorSpace", dict) {
+    Some(value) => pdf_v2_adapter_pdf_object_string(value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_width(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> Int? {
+  match pdf.lookup_direct_orelse("/W", "/Width", dict) {
+    Some(value) => pdf_v2_adapter_pdf_object_int(pdf, value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_height(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> Int? {
+  match pdf.lookup_direct_orelse("/H", "/Height", dict) {
+    Some(value) => pdf_v2_adapter_pdf_object_int(pdf, value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_bpc(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> Int? {
+  match pdf.lookup_direct_orelse("/BPC", "/BitsPerComponent", dict) {
+    Some(value) => pdf_v2_adapter_pdf_object_int(pdf, value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_image_mask(pdf : @pdf.Pdf, dict : @pdf.PdfObject) -> Bool? {
+  match pdf.lookup_direct_orelse("/IM", "/ImageMask", dict) {
+    Some(value) => pdf_v2_adapter_pdf_object_bool(value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_has_direct_entry(
+  pdf : @pdf.Pdf,
+  key : String,
+  dict : @pdf.PdfObject,
+) -> Bool {
+  pdf.lookup_direct(key, dict) is Some(_)
+}
+
+///|
+fn pdf_v2_adapter_resource_kind_from_bucket(
+  bucket : String,
+  object : @pdf.PdfObject,
+  pdf : @pdf.Pdf,
+) -> PdfV2ResourceKind {
+  if bucket == "/Font" {
+    PdfV2ResourceKind::Font
+  } else if bucket == "/ColorSpace" {
+    PdfV2ResourceKind::ColorSpace
+  } else if bucket == "/Pattern" {
+    PdfV2ResourceKind::Pattern
+  } else if bucket == "/ExtGState" {
+    PdfV2ResourceKind::ExtGState
+  } else if bucket == "/ProcSet" {
+    PdfV2ResourceKind::ProcedureSet
+  } else if bucket == "/XObject" {
+    match pdf.lookup_direct("/Subtype", object) {
+      Some(Name(name)) if name.equal_string_bytes("/Image") =>
+        PdfV2ResourceKind::ImageXObject
+      Some(Name(name)) if name.equal_string_bytes("/Form") =>
+        PdfV2ResourceKind::FormXObject
+      _ => PdfV2ResourceKind::XObject
+    }
+  } else {
+    PdfV2ResourceKind::Unknown
+  }
+}
+
+///|
+fn pdf_v2_adapter_object_event(
+  kind : PdfV2CoreEventKind,
+  source_ref : PdfV2SourceRef,
+  object_ref : String?,
+  text : String?,
+  bbox : PdfV2BBox?,
+  reason_tags : Array[String],
+  object_fact : PdfV2ObjectCandidateFact?,
+) -> PdfV2CoreEvent {
+  {
+    kind,
+    page_index: source_ref.page_index,
+    text,
+    bbox,
+    object_ref,
+    source_ref,
+    reason_tags,
+    warnings: [],
+    text_state: None,
+    text_show: None,
+    glyph_candidate: None,
+    object_fact,
+  }
+}
+
+///|
 fn pdf_v2_adapter_text_state_fact(
   state : PdfV2AdapterTextState,
   source_ref : PdfV2SourceRef,
@@ -289,6 +468,7 @@ fn pdf_v2_adapter_core_event(
     text_state: None,
     text_show: None,
     glyph_candidate: None,
+    object_fact: None,
   }
 }
 
@@ -559,6 +739,7 @@ fn pdf_v2_adapter_emit_text_state_event(
     text_state: Some(fact),
     text_show: None,
     glyph_candidate: None,
+    object_fact: None,
   }
   let _ = pdf_v2_adapter_push_capped_event(
     events, event, options, event_cap_hit,
@@ -632,6 +813,7 @@ fn pdf_v2_adapter_emit_text_show_event(
     text_state: None,
     text_show: Some(fact),
     glyph_candidate: None,
+    object_fact: None,
   }
   let _ = pdf_v2_adapter_push_capped_event(
     events, event, options, event_cap_hit,
@@ -689,6 +871,7 @@ fn pdf_v2_adapter_emit_text_show_event(
       text_state: None,
       text_show: None,
       glyph_candidate: Some(glyph_fact),
+      object_fact: None,
     }
     let _ = pdf_v2_adapter_push_capped_event(
       events, glyph_event, options, event_cap_hit,
@@ -1329,6 +1512,482 @@ fn pdf_v2_adapter_add_stream_end_events(
 }
 
 ///|
+fn pdf_v2_adapter_add_resource_candidate(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  bucket : String,
+  name : String,
+  raw_object : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let direct = pdf.direct(raw_object)
+  let source_ref = pdf_v2_adapter_source_ref(
+    Some(page_index),
+    pdf_v2_adapter_indirect_ref(raw_object),
+    None,
+    None,
+    Some(content_order.val),
+    PdfV2SourceKind::Resource,
+  )
+  content_order.val = content_order.val + 1
+  let kind = pdf_v2_adapter_resource_kind_from_bucket(bucket, direct, pdf)
+  let candidate : PdfV2ResourceCandidate = {
+    page_index: Some(page_index),
+    resource_kind: kind,
+    name,
+    object_ref: pdf_v2_adapter_indirect_ref(raw_object),
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: ["object_fact", "resource_candidate", "partial_object_fact"],
+  }
+  let _ = pdf_v2_adapter_push_capped_event(
+    events,
+    pdf_v2_adapter_object_event(
+      PdfV2CoreEventKind::Resource,
+      source_ref,
+      candidate.object_ref,
+      Some(name),
+      None,
+      candidate.reason_tags,
+      Some(PdfV2ObjectCandidateFact::ResourceObjectFact(candidate)),
+    ),
+    options,
+    event_cap_hit,
+  )
+}
+
+///|
+fn pdf_v2_adapter_add_image_xobject_candidate(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  name : String,
+  raw_object : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let image = pdf.direct(raw_object)
+  let source_ref = pdf_v2_adapter_source_ref(
+    Some(page_index),
+    pdf_v2_adapter_indirect_ref(raw_object),
+    None,
+    None,
+    Some(content_order.val),
+    PdfV2SourceKind::Image,
+  )
+  content_order.val = content_order.val + 1
+  let candidate : PdfV2ImageCandidate = {
+    page_index: Some(page_index),
+    object_ref: pdf_v2_adapter_indirect_ref(raw_object),
+    width: pdf_v2_adapter_image_width(pdf, image),
+    height: pdf_v2_adapter_image_height(pdf, image),
+    color_space: pdf_v2_adapter_color_space(pdf, image),
+    bits_per_component: pdf_v2_adapter_image_bpc(pdf, image),
+    filters: pdf_v2_adapter_filter_names(pdf, image),
+    image_mask: pdf_v2_adapter_image_mask(pdf, image),
+    mask_present: pdf_v2_adapter_has_direct_entry(pdf, "/Mask", image),
+    smask_present: pdf_v2_adapter_has_direct_entry(pdf, "/SMask", image),
+    inline: false,
+    bbox: None,
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: [
+      "object_fact", "image_xobject", "metadata_only", "partial_object_fact", "image_decode_not_attempted",
+      name,
+    ],
+    decode_status: PdfV2ImageDecodeStatus::MetadataOnly,
+  }
+  let _ = pdf_v2_adapter_push_capped_event(
+    events,
+    pdf_v2_adapter_object_event(
+      PdfV2CoreEventKind::Image,
+      source_ref,
+      candidate.object_ref,
+      Some(name),
+      None,
+      candidate.reason_tags,
+      Some(PdfV2ObjectCandidateFact::ImageObjectFact(candidate)),
+    ),
+    options,
+    event_cap_hit,
+  )
+}
+
+///|
+fn pdf_v2_adapter_add_form_xobject_candidate(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  name : String,
+  raw_object : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let form = pdf.direct(raw_object)
+  let source_ref = pdf_v2_adapter_source_ref(
+    Some(page_index),
+    pdf_v2_adapter_indirect_ref(raw_object),
+    None,
+    None,
+    Some(content_order.val),
+    PdfV2SourceKind::Form,
+  )
+  content_order.val = content_order.val + 1
+  let candidate : PdfV2FormCandidate = {
+    page_index: Some(page_index),
+    object_ref: pdf_v2_adapter_indirect_ref(raw_object),
+    field_name: Some(name),
+    alternate_name: None,
+    value: None,
+    rect: match pdf.lookup_direct("/BBox", form) {
+      Some(bbox) => pdf_v2_adapter_bbox(pdf, bbox)
+      None => None
+    },
+    appearance_ref: None,
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: [
+      "object_fact", "form_xobject", "partial_object_fact", "semantic_not_lowered",
+    ],
+  }
+  let _ = pdf_v2_adapter_push_capped_event(
+    events,
+    pdf_v2_adapter_object_event(
+      PdfV2CoreEventKind::Form,
+      source_ref,
+      candidate.object_ref,
+      Some(name),
+      candidate.rect,
+      candidate.reason_tags,
+      Some(PdfV2ObjectCandidateFact::FormObjectFact(candidate)),
+    ),
+    options,
+    event_cap_hit,
+  )
+}
+
+///|
+fn pdf_v2_adapter_add_page_resource_events(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  page : @pdfpage.Page,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match page.resources {
+    Dictionary(entries) =>
+      for entry in entries {
+        let bucket = entry.0
+        match pdf.direct(entry.1) {
+          Dictionary(items) =>
+            for item in items {
+              let name = item.0
+              pdf_v2_adapter_add_resource_candidate(
+                pdf,
+                page_index,
+                bucket,
+                name,
+                item.1,
+                events,
+                options,
+                event_cap_hit,
+                content_order,
+              )
+              let direct = pdf.direct(item.1)
+              match
+                pdf_v2_adapter_resource_kind_from_bucket(bucket, direct, pdf) {
+                ImageXObject =>
+                  pdf_v2_adapter_add_image_xobject_candidate(
+                    pdf,
+                    page_index,
+                    name,
+                    item.1,
+                    events,
+                    options,
+                    event_cap_hit,
+                    content_order,
+                  )
+                FormXObject =>
+                  pdf_v2_adapter_add_form_xobject_candidate(
+                    pdf,
+                    page_index,
+                    name,
+                    item.1,
+                    events,
+                    options,
+                    event_cap_hit,
+                    content_order,
+                  )
+                _ => ()
+              }
+            }
+          Array(items) =>
+            for item in items {
+              match pdf_v2_adapter_pdf_object_string(item) {
+                Some(name) =>
+                  pdf_v2_adapter_add_resource_candidate(
+                    pdf, page_index, bucket, name, item, events, options, event_cap_hit,
+                    content_order,
+                  )
+                None => ()
+              }
+            }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_annotation_action_uri(
+  pdf : @pdf.Pdf,
+  annot : @pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/A", annot) {
+    Some(action) =>
+      match pdf.lookup_direct("/URI", action) {
+        Some(String(uri)) => Some(uri)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_annotation_dest(
+  pdf : @pdf.Pdf,
+  annot : @pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/Dest", annot) {
+    Some(dest) => pdf_v2_adapter_pdf_object_string(dest)
+    None =>
+      match pdf.lookup_direct("/A", annot) {
+        Some(action) =>
+          match pdf.lookup_direct("/D", action) {
+            Some(dest) => pdf_v2_adapter_pdf_object_string(dest)
+            None => None
+          }
+        None => None
+      }
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_annotation_events(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  page : @pdfpage.Page,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match page.rest.lookup_immediate("/Annots") {
+    Some(Array(annots)) =>
+      for annot_ref in annots {
+        let annot = pdf.direct(annot_ref)
+        let object_ref = pdf_v2_adapter_indirect_ref(annot_ref)
+        let source_ref = pdf_v2_adapter_source_ref(
+          Some(page_index),
+          object_ref,
+          None,
+          None,
+          Some(content_order.val),
+          PdfV2SourceKind::Annotation,
+        )
+        content_order.val = content_order.val + 1
+        let subtype = match pdf.lookup_direct("/Subtype", annot) {
+          Some(value) => pdf_v2_adapter_pdf_name_string(value)
+          None => None
+        }
+        let rect = match pdf.lookup_direct("/Rect", annot) {
+          Some(value) => pdf_v2_adapter_bbox(pdf, value)
+          None => None
+        }
+        let uri = pdf_v2_adapter_annotation_action_uri(pdf, annot)
+        let dest = pdf_v2_adapter_annotation_dest(pdf, annot)
+        let annotation : PdfV2AnnotationCandidate = {
+          page_index: Some(page_index),
+          object_ref,
+          subtype,
+          rect,
+          uri,
+          dest,
+          source_ref,
+          warnings: [],
+          risks: [],
+          reason_tags: [
+            "object_fact", "annotation_candidate", "partial_object_fact",
+          ],
+        }
+        let _ = pdf_v2_adapter_push_capped_event(
+          events,
+          pdf_v2_adapter_object_event(
+            PdfV2CoreEventKind::Annotation,
+            source_ref,
+            object_ref,
+            subtype,
+            rect,
+            annotation.reason_tags,
+            Some(PdfV2ObjectCandidateFact::AnnotationObjectFact(annotation)),
+          ),
+          options,
+          event_cap_hit,
+        )
+        if subtype == Some("/Link") {
+          let link : PdfV2LinkCandidate = {
+            page_index: Some(page_index),
+            object_ref,
+            subtype,
+            rect,
+            uri,
+            dest,
+            source_ref,
+            warnings: [],
+            risks: [],
+            reason_tags: [
+              "object_fact", "link_annotation", "partial_object_fact", "semantic_not_lowered",
+            ],
+          }
+          let _ = pdf_v2_adapter_push_capped_event(
+            events,
+            pdf_v2_adapter_object_event(
+              PdfV2CoreEventKind::Annotation,
+              source_ref,
+              object_ref,
+              uri,
+              rect,
+              link.reason_tags,
+              Some(PdfV2ObjectCandidateFact::LinkObjectFact(link)),
+            ),
+            options,
+            event_cap_hit,
+          )
+        }
+        if subtype == Some("/Widget") {
+          let appearance_ref = match pdf.lookup_direct("/AP", annot) {
+            Some(appearance) =>
+              match pdf.lookup_direct("/N", appearance) {
+                Some(value) => pdf_v2_adapter_pdf_object_string(value)
+                None => None
+              }
+            None => None
+          }
+          let form : PdfV2FormCandidate = {
+            page_index: Some(page_index),
+            object_ref,
+            field_name: match pdf.lookup_direct("/T", annot) {
+              Some(value) => pdf_v2_adapter_pdf_object_string(value)
+              None => None
+            },
+            alternate_name: match pdf.lookup_direct("/TU", annot) {
+              Some(value) => pdf_v2_adapter_pdf_object_string(value)
+              None => None
+            },
+            value: match pdf.lookup_direct("/V", annot) {
+              Some(value) => pdf_v2_adapter_pdf_object_string(value)
+              None => None
+            },
+            rect,
+            appearance_ref,
+            source_ref,
+            warnings: [],
+            risks: [],
+            reason_tags: [
+              "object_fact", "widget_annotation", "partial_object_fact", "semantic_not_lowered",
+            ],
+          }
+          let _ = pdf_v2_adapter_push_capped_event(
+            events,
+            pdf_v2_adapter_object_event(
+              PdfV2CoreEventKind::Form,
+              source_ref,
+              object_ref,
+              form.field_name,
+              rect,
+              form.reason_tags,
+              Some(PdfV2ObjectCandidateFact::FormObjectFact(form)),
+            ),
+            options,
+            event_cap_hit,
+          )
+        }
+      }
+    _ => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_inline_image_event(
+  pdf : @pdf.Pdf,
+  page_index : Int,
+  item : @pdfops.LocatedOp,
+  object_ref : String?,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match item.op {
+    InlineImage((dict, decode_params, _)) => {
+      let source_ref = pdf_v2_adapter_located_source_ref(
+        page_index,
+        item,
+        object_ref,
+        content_order.val,
+        PdfV2SourceKind::InlineImage,
+      )
+      content_order.val = content_order.val + 1
+      let candidate : PdfV2InlineImageCandidate = {
+        page_index: Some(page_index),
+        width: pdf_v2_adapter_image_width(pdf, dict),
+        height: pdf_v2_adapter_image_height(pdf, dict),
+        color_space: pdf_v2_adapter_color_space(pdf, dict),
+        bits_per_component: pdf_v2_adapter_image_bpc(pdf, dict),
+        filters: pdf_v2_adapter_filter_names(pdf, dict),
+        image_mask: pdf_v2_adapter_image_mask(pdf, dict),
+        decode_params_present: decode_params is Some(_),
+        bbox: None,
+        source_ref,
+        warnings: [],
+        risks: [],
+        reason_tags: [
+          "object_fact", "inline_image", "metadata_only", "partial_object_fact",
+          "image_decode_not_attempted",
+        ],
+        decode_status: PdfV2ImageDecodeStatus::MetadataOnly,
+      }
+      let _ = pdf_v2_adapter_push_capped_event(
+        events,
+        pdf_v2_adapter_object_event(
+          PdfV2CoreEventKind::InlineImage,
+          source_ref,
+          object_ref,
+          None,
+          None,
+          candidate.reason_tags,
+          Some(PdfV2ObjectCandidateFact::InlineImageObjectFact(candidate)),
+        ),
+        options,
+        event_cap_hit,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
 fn pdf_v2_adapter_add_located_ops(
   pdf : @pdf.Pdf,
   page_index : Int,
@@ -1374,9 +2033,13 @@ fn pdf_v2_adapter_add_located_ops(
           text_state: None,
           text_show: None,
           glyph_candidate: None,
+          object_fact: None,
         }
         let _ = pdf_v2_adapter_push_capped_event(
           events, event, options, event_cap_hit,
+        )
+        pdf_v2_adapter_add_inline_image_event(
+          pdf, page_index, item, object_ref, events, options, event_cap_hit, content_order,
         )
         pdf_v2_adapter_add_text_events_for_op(
           pdf, page_index, page, item, object_ref, text_state, events, warnings,
@@ -1425,12 +2088,277 @@ fn pdf_v2_adapter_add_located_ops(
         text_state: None,
         text_show: None,
         glyph_candidate: None,
+        object_fact: None,
       }
       let _ = pdf_v2_adapter_push_capped_event(
         events, event, options, event_cap_hit,
       )
     }
   }
+}
+
+///|
+fn pdf_v2_adapter_add_metadata_event(
+  key : String?,
+  value : String?,
+  kind : PdfV2MetadataKind,
+  object_ref : String?,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let source_ref = pdf_v2_adapter_source_ref(
+    None,
+    object_ref,
+    None,
+    None,
+    Some(content_order.val),
+    PdfV2SourceKind::Metadata,
+  )
+  content_order.val = content_order.val + 1
+  let candidate : PdfV2MetadataCandidate = {
+    kind,
+    key,
+    value,
+    object_ref,
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: ["object_fact", "metadata_candidate", "partial_object_fact"],
+  }
+  let _ = pdf_v2_adapter_push_capped_event(
+    events,
+    pdf_v2_adapter_object_event(
+      PdfV2CoreEventKind::Metadata,
+      source_ref,
+      object_ref,
+      value,
+      None,
+      candidate.reason_tags,
+      Some(PdfV2ObjectCandidateFact::MetadataObjectFact(candidate)),
+    ),
+    options,
+    event_cap_hit,
+  )
+}
+
+///|
+fn pdf_v2_adapter_add_info_metadata_events(
+  pdf : @pdf.Pdf,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match pdf.trailerdict.lookup_immediate("/Info") {
+    Some(info_ref) => {
+      let info = pdf.direct(info_ref)
+      match info {
+        Dictionary(entries) =>
+          for entry in entries {
+            match pdf_v2_adapter_pdf_object_string(pdf.direct(entry.1)) {
+              Some(value) =>
+                pdf_v2_adapter_add_metadata_event(
+                  Some(entry.0),
+                  Some(value),
+                  PdfV2MetadataKind::Info,
+                  pdf_v2_adapter_indirect_ref(info_ref),
+                  events,
+                  options,
+                  event_cap_hit,
+                  content_order,
+                )
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_catalog_metadata_event(
+  catalog : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match catalog.lookup_immediate("/Metadata") {
+    Some(metadata_ref) =>
+      pdf_v2_adapter_add_metadata_event(
+        Some("/Metadata"),
+        None,
+        PdfV2MetadataKind::Xmp,
+        pdf_v2_adapter_indirect_ref(metadata_ref),
+        events,
+        options,
+        event_cap_hit,
+        content_order,
+      )
+    None => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_outline_title(
+  pdf : @pdf.Pdf,
+  outline : @pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/Title", outline) {
+    Some(value) => pdf_v2_adapter_pdf_object_string(value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_outline_dest(
+  pdf : @pdf.Pdf,
+  outline : @pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/Dest", outline) {
+    Some(value) => pdf_v2_adapter_pdf_object_string(value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_outline_action(
+  pdf : @pdf.Pdf,
+  outline : @pdf.PdfObject,
+) -> String? {
+  match pdf.lookup_direct("/A", outline) {
+    Some(value) => pdf_v2_adapter_pdf_object_string(value)
+    None => None
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_outline_item(
+  pdf : @pdf.Pdf,
+  raw_outline : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let outline = pdf.direct(raw_outline)
+  let object_ref = pdf_v2_adapter_indirect_ref(raw_outline)
+  let source_ref = pdf_v2_adapter_source_ref(
+    None,
+    object_ref,
+    None,
+    None,
+    Some(content_order.val),
+    PdfV2SourceKind::Outline,
+  )
+  content_order.val = content_order.val + 1
+  let title = pdf_v2_adapter_outline_title(pdf, outline)
+  let dest = pdf_v2_adapter_outline_dest(pdf, outline)
+  let action = pdf_v2_adapter_outline_action(pdf, outline)
+  let outline_candidate : PdfV2OutlineCandidate = {
+    title,
+    dest,
+    action,
+    target_page: dest,
+    source_ref,
+    warnings: [],
+    risks: [],
+    reason_tags: [
+      "object_fact", "outline_candidate", "partial_object_fact", "toc_not_lowered",
+    ],
+  }
+  let _ = pdf_v2_adapter_push_capped_event(
+    events,
+    pdf_v2_adapter_object_event(
+      PdfV2CoreEventKind::Outline,
+      source_ref,
+      object_ref,
+      title,
+      None,
+      outline_candidate.reason_tags,
+      Some(PdfV2ObjectCandidateFact::OutlineObjectFact(outline_candidate)),
+    ),
+    options,
+    event_cap_hit,
+  )
+  if dest is Some(_) || action is Some(_) {
+    let destination_candidate : PdfV2DestinationCandidate = {
+      title,
+      dest,
+      action,
+      target_page: dest,
+      source_ref,
+      warnings: [],
+      risks: [],
+      reason_tags: [
+        "object_fact", "outline_destination", "partial_object_fact", "toc_not_lowered",
+      ],
+    }
+    let _ = pdf_v2_adapter_push_capped_event(
+      events,
+      pdf_v2_adapter_object_event(
+        PdfV2CoreEventKind::Destination,
+        source_ref,
+        object_ref,
+        dest,
+        None,
+        destination_candidate.reason_tags,
+        Some(
+          PdfV2ObjectCandidateFact::DestinationObjectFact(destination_candidate),
+        ),
+      ),
+      options,
+      event_cap_hit,
+    )
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_outline_events(
+  pdf : @pdf.Pdf,
+  catalog : @pdf.PdfObject,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  match catalog.lookup_immediate("/Outlines") {
+    Some(outlines_ref) => {
+      let outlines = pdf.direct(outlines_ref)
+      match outlines.lookup_immediate("/First") {
+        Some(first) =>
+          pdf_v2_adapter_add_outline_item(
+            pdf, first, events, options, event_cap_hit, content_order,
+          )
+        None => ()
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+fn pdf_v2_adapter_add_document_object_events(
+  pdf : @pdf.Pdf,
+  events : Array[PdfV2CoreEvent],
+  options : PdfV2CoreOpenOptions,
+  event_cap_hit : Ref[Bool],
+  content_order : Ref[Int],
+) -> Unit {
+  let catalog = pdf.lookup_obj(pdf.root)
+  pdf_v2_adapter_add_info_metadata_events(
+    pdf, events, options, event_cap_hit, content_order,
+  )
+  pdf_v2_adapter_add_catalog_metadata_event(
+    catalog, events, options, event_cap_hit, content_order,
+  )
+  pdf_v2_adapter_add_outline_events(
+    pdf, catalog, events, options, event_cap_hit, content_order,
+  )
 }
 
 ///|
@@ -1499,6 +2427,9 @@ fn pdf_v2_adapter_core_from_pdf(
   let events : Array[PdfV2CoreEvent] = []
   let event_cap_hit : Ref[Bool] = { val: false }
   let content_order : Ref[Int] = { val: 0 }
+  pdf_v2_adapter_add_document_object_events(
+    pdf, events, options, event_cap_hit, content_order,
+  )
   for page_index = 0; page_index < page_limit; page_index = page_index + 1 {
     let page = pages[page_index]
     let page_object = page_doc.page_object_number(page_index + 1) catch {
@@ -1524,6 +2455,12 @@ fn pdf_v2_adapter_core_from_pdf(
       ]),
       options,
       event_cap_hit,
+    )
+    pdf_v2_adapter_add_page_resource_events(
+      pdf, page_index, page, events, options, event_cap_hit, content_order,
+    )
+    pdf_v2_adapter_add_annotation_events(
+      pdf, page_index, page, events, options, event_cap_hit, content_order,
     )
     pdf_v2_adapter_add_stream_events(
       page_index, page, events, options, event_cap_hit, content_order,

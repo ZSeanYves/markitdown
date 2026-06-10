@@ -1360,3 +1360,23 @@ This note should record the first quality, performance, and closure gate review
 for dispatcher readiness. It should include sample results, quality-lab report
 summaries, model calibration status, memory/latency/package closure numbers,
 and unresolved adoption blockers.
+
+### PDF-V2-RESET-11 Object Facts Integration Note
+
+Phase 11 wires common PDF object facts through the parser-owned source,
+normalized model, and layout fact layers. Image XObjects, inline images,
+annotations, links, forms/widgets, outlines, destinations, resources, and
+metadata are represented as bounded candidates with source refs, warnings,
+risks, reason tags, and summary counts.
+
+Image handling remains metadata-only: the parser records available dimensions,
+color space, bit depth, filters, mask flags, and object refs, but does not
+decode image bytes, run OCR, infer captions, or emit Markdown. Annotation,
+link, form, outline, destination, resource, and metadata facts are partial
+parser facts, not convert policy or semantic classification.
+
+Layout facts consume these object candidates only for factual coverage flags
+and scaffold statuses. This phase does not add true layout recovery, table
+inference, figure/caption association, form semantic extraction, link lowering,
+dispatcher changes, external data/model reads, or fallback to the old PDF
+runtime.

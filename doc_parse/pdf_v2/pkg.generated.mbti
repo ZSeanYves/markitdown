@@ -40,6 +40,8 @@ pub fn pdf_v2_empty_classifier_ready_features() -> PdfV2ClassifierReadyFeatures
 
 pub fn pdf_v2_empty_geometry_features() -> PdfV2GeometryFeatures
 
+pub fn pdf_v2_empty_object_summary() -> PdfV2ObjectSummary
+
 pub fn pdf_v2_empty_reconstruction_summary() -> PdfV2CharReconstructionSummary
 
 pub fn pdf_v2_empty_source_summary() -> PdfV2SourceSummary
@@ -81,6 +83,19 @@ pub fn recover_pdf_v2_layout_noop(Array[PdfV2SourceRef]) -> PdfV2LayoutRecoveryR
 // Errors
 
 // Types and methods
+pub(all) struct PdfV2AnnotationCandidate {
+  page_index : Int?
+  object_ref : String?
+  subtype : String?
+  rect : PdfV2BBox?
+  uri : String?
+  dest : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
 pub(all) struct PdfV2BBox {
   x0 : Double
   y0 : Double
@@ -252,6 +267,7 @@ pub(all) struct PdfV2CoreEvent {
   text_state : PdfV2TextStateFact?
   text_show : PdfV2TextShowFact?
   glyph_candidate : PdfV2GlyphCandidateFact?
+  object_fact : PdfV2ObjectCandidateFact?
 }
 
 pub(all) enum PdfV2CoreEventKind {
@@ -338,6 +354,17 @@ pub(all) enum PdfV2DecodeProfileEncodingKind {
   Unknown
 } derive(Eq)
 
+pub(all) struct PdfV2DestinationCandidate {
+  title : String?
+  dest : String?
+  action : String?
+  target_page : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
 pub(all) struct PdfV2DocumentMetadata {
   title : String?
   author : String?
@@ -353,6 +380,10 @@ pub(all) struct PdfV2DocumentModel {
   metadata : PdfV2DocumentMetadata
   pages : Array[PdfV2PageModel]
   source_events : Array[PdfV2SourceEvent]
+  outlines : Array[PdfV2OutlineCandidate]
+  destinations : Array[PdfV2DestinationCandidate]
+  metadata_candidates : Array[PdfV2MetadataCandidate]
+  object_summary : PdfV2ObjectSummary
   layout : PdfV2LayoutRecoveryResult
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
@@ -371,6 +402,20 @@ pub(all) struct PdfV2FontCache {
   cache_misses : Int
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+}
+
+pub(all) struct PdfV2FormCandidate {
+  page_index : Int?
+  object_ref : String?
+  field_name : String?
+  alternate_name : String?
+  value : String?
+  rect : PdfV2BBox?
+  appearance_ref : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
 }
 
 pub(all) enum PdfV2GeometryConfidence {
@@ -424,6 +469,50 @@ pub(all) struct PdfV2GlyphCandidateFact {
   decode_confidence : PdfV2TextDecodeConfidence
   source_ref : PdfV2SourceRef
   reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2ImageCandidate {
+  page_index : Int?
+  object_ref : String?
+  width : Int?
+  height : Int?
+  color_space : String?
+  bits_per_component : Int?
+  filters : Array[String]
+  image_mask : Bool?
+  mask_present : Bool
+  smask_present : Bool
+  inline : Bool
+  bbox : PdfV2BBox?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+  decode_status : PdfV2ImageDecodeStatus
+}
+
+pub(all) enum PdfV2ImageDecodeStatus {
+  MetadataOnly
+  DecodeAvailable
+  Unsupported
+  NotAttempted
+} derive(Eq)
+
+pub(all) struct PdfV2InlineImageCandidate {
+  page_index : Int?
+  width : Int?
+  height : Int?
+  color_space : String?
+  bits_per_component : Int?
+  filters : Array[String]
+  image_mask : Bool?
+  decode_params_present : Bool
+  bbox : PdfV2BBox?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+  decode_status : PdfV2ImageDecodeStatus
 }
 
 pub(all) enum PdfV2LayoutFactResult {
@@ -552,18 +641,90 @@ pub(all) struct PdfV2LineReconstructionSummary {
   risk_count : Int
 }
 
+pub(all) struct PdfV2LinkCandidate {
+  page_index : Int?
+  object_ref : String?
+  subtype : String?
+  rect : PdfV2BBox?
+  uri : String?
+  dest : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) struct PdfV2MetadataCandidate {
+  kind : PdfV2MetadataKind
+  key : String?
+  value : String?
+  object_ref : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2MetadataKind {
+  Info
+  Xmp
+  Unknown
+} derive(Eq)
+
 pub(all) enum PdfV2ModelAssemblyResult {
   ModelAssemblyOk(PdfV2DocumentModel)
   ModelAssemblyErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
 }
 
+pub(all) enum PdfV2ObjectCandidateFact {
+  ImageObjectFact(PdfV2ImageCandidate)
+  InlineImageObjectFact(PdfV2InlineImageCandidate)
+  AnnotationObjectFact(PdfV2AnnotationCandidate)
+  LinkObjectFact(PdfV2LinkCandidate)
+  FormObjectFact(PdfV2FormCandidate)
+  OutlineObjectFact(PdfV2OutlineCandidate)
+  DestinationObjectFact(PdfV2DestinationCandidate)
+  ResourceObjectFact(PdfV2ResourceCandidate)
+  MetadataObjectFact(PdfV2MetadataCandidate)
+}
+
 pub(all) struct PdfV2ObjectCandidateFacts {
+  has_images : Bool
+  has_inline_images : Bool
+  has_links : Bool
+  has_resources : Bool
   has_image_metadata : Bool
   has_annotations : Bool
   has_forms : Bool
   has_outlines : Bool
   has_destinations : Bool
   source_refs : Array[PdfV2SourceRef]
+}
+
+pub(all) struct PdfV2ObjectSummary {
+  image_count : Int
+  inline_image_count : Int
+  annotation_count : Int
+  link_count : Int
+  form_count : Int
+  outline_count : Int
+  destination_count : Int
+  resource_count : Int
+  metadata_count : Int
+  unsupported_object_count : Int
+  warning_count : Int
+  risk_count : Int
+}
+
+pub(all) struct PdfV2OutlineCandidate {
+  title : String?
+  dest : String?
+  action : String?
+  target_page : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
 }
 
 pub(all) struct PdfV2Page {
@@ -621,6 +782,13 @@ pub(all) struct PdfV2PageModel {
   lines : Array[PdfV2LineCandidate]
   spans : Array[PdfV2SpanCandidate]
   chars : Array[PdfV2CharCandidate]
+  images : Array[PdfV2ImageCandidate]
+  inline_images : Array[PdfV2InlineImageCandidate]
+  annotations : Array[PdfV2AnnotationCandidate]
+  links : Array[PdfV2LinkCandidate]
+  forms : Array[PdfV2FormCandidate]
+  resources : Array[PdfV2ResourceCandidate]
+  metadata_refs : Array[PdfV2MetadataCandidate]
   page_warnings : Array[PdfV2Warning]
   page_risks : Array[PdfV2Risk]
   text_blocks : Array[PdfV2TextBlock]
@@ -633,6 +801,29 @@ pub(all) struct PdfV2ReadingOrder {
   source_refs : Array[PdfV2SourceRef]
   reason_tags : Array[String]
 }
+
+pub(all) struct PdfV2ResourceCandidate {
+  page_index : Int?
+  resource_kind : PdfV2ResourceKind
+  name : String
+  object_ref : String?
+  source_ref : PdfV2SourceRef
+  warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  reason_tags : Array[String]
+}
+
+pub(all) enum PdfV2ResourceKind {
+  Font
+  XObject
+  ImageXObject
+  FormXObject
+  ColorSpace
+  Pattern
+  ExtGState
+  ProcedureSet
+  Unknown
+} derive(Eq)
 
 pub(all) struct PdfV2Risk {
   kind : PdfV2RiskKind
@@ -669,6 +860,16 @@ pub(all) struct PdfV2SourceDocument {
   span_candidates : Array[PdfV2SpanCandidate]
   line_candidates : Array[PdfV2LineCandidate]
   block_candidates : Array[PdfV2BlockCandidate]
+  image_candidates : Array[PdfV2ImageCandidate]
+  inline_image_candidates : Array[PdfV2InlineImageCandidate]
+  annotation_candidates : Array[PdfV2AnnotationCandidate]
+  link_candidates : Array[PdfV2LinkCandidate]
+  form_candidates : Array[PdfV2FormCandidate]
+  outline_candidates : Array[PdfV2OutlineCandidate]
+  destination_candidates : Array[PdfV2DestinationCandidate]
+  resource_candidates : Array[PdfV2ResourceCandidate]
+  metadata_candidates : Array[PdfV2MetadataCandidate]
+  object_summary : PdfV2ObjectSummary
   reconstruction_summary : PdfV2CharReconstructionSummary
   summary : PdfV2SourceSummary
   warnings : Array[PdfV2Warning]
@@ -688,6 +889,7 @@ pub(all) struct PdfV2SourceEvent {
   text_state : PdfV2TextStateFact?
   text_show : PdfV2TextShowFact?
   glyph_candidate : PdfV2GlyphCandidateFact?
+  object_fact : PdfV2ObjectCandidateFact?
 }
 
 pub(all) enum PdfV2SourceEventKind {

@@ -168,6 +168,124 @@ fn pdf_v2_model_validate_block_pages(
 }
 
 ///|
+fn pdf_v2_model_validate_image_pages(
+  images : Array[PdfV2ImageCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for image in images {
+    if !pdf_v2_model_page_index_valid(image.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(warnings, risks, "image", [
+        image.source_ref,
+      ])
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+fn pdf_v2_model_validate_inline_image_pages(
+  images : Array[PdfV2InlineImageCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for image in images {
+    if !pdf_v2_model_page_index_valid(image.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(warnings, risks, "inline_image", [
+        image.source_ref,
+      ])
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+fn pdf_v2_model_validate_annotation_pages(
+  annotations : Array[PdfV2AnnotationCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for annotation in annotations {
+    if !pdf_v2_model_page_index_valid(annotation.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(warnings, risks, "annotation", [
+        annotation.source_ref,
+      ])
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+fn pdf_v2_model_validate_link_pages(
+  links : Array[PdfV2LinkCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for link in links {
+    if !pdf_v2_model_page_index_valid(link.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(warnings, risks, "link", [
+        link.source_ref,
+      ])
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+fn pdf_v2_model_validate_form_pages(
+  forms : Array[PdfV2FormCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for form in forms {
+    match form.page_index {
+      Some(_) =>
+        if !pdf_v2_model_page_index_valid(form.page_index, page_count) {
+          pdf_v2_model_append_invalid_page(warnings, risks, "form", [
+            form.source_ref,
+          ])
+          ok = false
+        }
+      None => ()
+    }
+  }
+  ok
+}
+
+///|
+fn pdf_v2_model_validate_resource_pages(
+  resources : Array[PdfV2ResourceCandidate],
+  page_count : Int,
+  warnings : Array[PdfV2Warning],
+  risks : Array[PdfV2Risk],
+) -> Bool {
+  let mut ok = true
+  for resource in resources {
+    if !pdf_v2_model_page_index_valid(resource.page_index, page_count) {
+      pdf_v2_model_append_invalid_page(warnings, risks, "resource", [
+        resource.source_ref,
+      ])
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
 fn pdf_v2_model_validate_page_facts(
   pages : Array[PdfV2Page],
   warnings : Array[PdfV2Warning],
@@ -265,6 +383,104 @@ fn pdf_v2_model_blocks_for_page(
 }
 
 ///|
+fn pdf_v2_model_images_for_page(
+  images : Array[PdfV2ImageCandidate],
+  page_index : Int,
+) -> Array[PdfV2ImageCandidate] {
+  let out : Array[PdfV2ImageCandidate] = []
+  for image in images {
+    if image.page_index == Some(page_index) {
+      out.push(image)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_inline_images_for_page(
+  images : Array[PdfV2InlineImageCandidate],
+  page_index : Int,
+) -> Array[PdfV2InlineImageCandidate] {
+  let out : Array[PdfV2InlineImageCandidate] = []
+  for image in images {
+    if image.page_index == Some(page_index) {
+      out.push(image)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_annotations_for_page(
+  annotations : Array[PdfV2AnnotationCandidate],
+  page_index : Int,
+) -> Array[PdfV2AnnotationCandidate] {
+  let out : Array[PdfV2AnnotationCandidate] = []
+  for annotation in annotations {
+    if annotation.page_index == Some(page_index) {
+      out.push(annotation)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_links_for_page(
+  links : Array[PdfV2LinkCandidate],
+  page_index : Int,
+) -> Array[PdfV2LinkCandidate] {
+  let out : Array[PdfV2LinkCandidate] = []
+  for link in links {
+    if link.page_index == Some(page_index) {
+      out.push(link)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_forms_for_page(
+  forms : Array[PdfV2FormCandidate],
+  page_index : Int,
+) -> Array[PdfV2FormCandidate] {
+  let out : Array[PdfV2FormCandidate] = []
+  for form in forms {
+    if form.page_index == Some(page_index) {
+      out.push(form)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_resources_for_page(
+  resources : Array[PdfV2ResourceCandidate],
+  page_index : Int,
+) -> Array[PdfV2ResourceCandidate] {
+  let out : Array[PdfV2ResourceCandidate] = []
+  for resource in resources {
+    if resource.page_index == Some(page_index) {
+      out.push(resource)
+    }
+  }
+  out
+}
+
+///|
+fn pdf_v2_model_metadata_for_page(
+  metadata : Array[PdfV2MetadataCandidate],
+  page_index : Int,
+) -> Array[PdfV2MetadataCandidate] {
+  let out : Array[PdfV2MetadataCandidate] = []
+  for item in metadata {
+    if item.source_ref.page_index == Some(page_index) {
+      out.push(item)
+    }
+  }
+  out
+}
+
+///|
 fn pdf_v2_model_page_from_source(
   page : PdfV2Page,
   source : PdfV2SourceDocument,
@@ -285,6 +501,28 @@ fn pdf_v2_model_page_from_source(
     lines: pdf_v2_model_lines_for_page(source.line_candidates, page.page_index),
     spans: pdf_v2_model_spans_for_page(source.span_candidates, page.page_index),
     chars: pdf_v2_model_chars_for_page(source.char_candidates, page.page_index),
+    images: pdf_v2_model_images_for_page(
+      source.image_candidates,
+      page.page_index,
+    ),
+    inline_images: pdf_v2_model_inline_images_for_page(
+      source.inline_image_candidates,
+      page.page_index,
+    ),
+    annotations: pdf_v2_model_annotations_for_page(
+      source.annotation_candidates,
+      page.page_index,
+    ),
+    links: pdf_v2_model_links_for_page(source.link_candidates, page.page_index),
+    forms: pdf_v2_model_forms_for_page(source.form_candidates, page.page_index),
+    resources: pdf_v2_model_resources_for_page(
+      source.resource_candidates,
+      page.page_index,
+    ),
+    metadata_refs: pdf_v2_model_metadata_for_page(
+      source.metadata_candidates,
+      page.page_index,
+    ),
     page_warnings: page.warnings,
     page_risks: page.risks,
     text_blocks: [],
@@ -368,6 +606,48 @@ pub fn pdf_v2_document_model_from_source(
       risks,
     ) &&
     valid
+  valid = pdf_v2_model_validate_image_pages(
+      source.image_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_inline_image_pages(
+      source.inline_image_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_annotation_pages(
+      source.annotation_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_link_pages(
+      source.link_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_form_pages(
+      source.form_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
+  valid = pdf_v2_model_validate_resource_pages(
+      source.resource_candidates,
+      page_count,
+      warnings,
+      risks,
+    ) &&
+    valid
 
   if source.summary.page_count != page_count {
     warnings.push(pdf_v2_model_page_count_warning())
@@ -388,6 +668,10 @@ pub fn pdf_v2_document_model_from_source(
     metadata: pdf_v2_model_metadata(source),
     pages,
     source_events: source.source_events,
+    outlines: source.outline_candidates,
+    destinations: source.destination_candidates,
+    metadata_candidates: source.metadata_candidates,
+    object_summary: source.object_summary,
     layout,
     warnings,
     risks,

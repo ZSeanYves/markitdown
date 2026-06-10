@@ -31,38 +31,28 @@ fn pdf_v2_layout_text_source_refs(
 
 ///|
 fn pdf_v2_layout_object_source_refs(
-  events : Array[PdfV2SourceEvent],
-  page_index : Int,
+  page : PdfV2PageModel,
 ) -> Array[PdfV2SourceRef] {
   let refs : Array[PdfV2SourceRef] = []
-  for event in events {
-    if event.page_index == Some(page_index) {
-      match event.kind {
-        ImageObject
-        | InlineImage
-        | AnnotationObject
-        | FormObject
-        | OutlineItem
-        | Destination => refs.push(event.source_ref)
-        _ => ()
-      }
-    }
+  for image in page.images {
+    refs.push(image.source_ref)
+  }
+  for image in page.inline_images {
+    refs.push(image.source_ref)
+  }
+  for annotation in page.annotations {
+    refs.push(annotation.source_ref)
+  }
+  for link in page.links {
+    refs.push(link.source_ref)
+  }
+  for form in page.forms {
+    refs.push(form.source_ref)
+  }
+  for resource in page.resources {
+    refs.push(resource.source_ref)
   }
   refs
-}
-
-///|
-fn pdf_v2_layout_has_event_kind(
-  events : Array[PdfV2SourceEvent],
-  page_index : Int,
-  kind : PdfV2SourceEventKind,
-) -> Bool {
-  for event in events {
-    if event.page_index == Some(page_index) && event.kind == kind {
-      return true
-    }
-  }
-  false
 }
 
 ///|
@@ -84,41 +74,20 @@ fn pdf_v2_layout_text_refs(page : PdfV2PageModel) -> PdfV2TextCandidateRefs {
 
 ///|
 fn pdf_v2_layout_object_facts(
-  events : Array[PdfV2SourceEvent],
-  page_index : Int,
+  page : PdfV2PageModel,
 ) -> PdfV2ObjectCandidateFacts {
   {
-    has_image_metadata: pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::ImageObject,
-    ) ||
-    pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::InlineImage,
-    ),
-    has_annotations: pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::AnnotationObject,
-    ),
-    has_forms: pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::FormObject,
-    ),
-    has_outlines: pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::OutlineItem,
-    ),
-    has_destinations: pdf_v2_layout_has_event_kind(
-      events,
-      page_index,
-      PdfV2SourceEventKind::Destination,
-    ),
-    source_refs: pdf_v2_layout_object_source_refs(events, page_index),
+    has_images: page.images.length() > 0,
+    has_inline_images: page.inline_images.length() > 0,
+    has_links: page.links.length() > 0,
+    has_resources: page.resources.length() > 0,
+    has_image_metadata: page.images.length() > 0 ||
+    page.inline_images.length() > 0,
+    has_annotations: page.annotations.length() > 0,
+    has_forms: page.forms.length() > 0,
+    has_outlines: false,
+    has_destinations: false,
+    source_refs: pdf_v2_layout_object_source_refs(page),
   }
 }
 
@@ -273,6 +242,7 @@ fn pdf_v2_layout_annotation_status(
   object_refs : PdfV2ObjectCandidateFacts,
 ) -> PdfV2LayoutRecoveryStatus {
   if object_refs.has_annotations ||
+    object_refs.has_links ||
     object_refs.has_forms ||
     object_refs.has_destinations {
     PdfV2LayoutRecoveryStatus::PartialFacts
@@ -282,12 +252,9 @@ fn pdf_v2_layout_annotation_status(
 }
 
 ///|
-fn pdf_v2_layout_page_facts(
-  page : PdfV2PageModel,
-  source_events : Array[PdfV2SourceEvent],
-) -> PdfV2PageLayoutFacts {
+fn pdf_v2_layout_page_facts(page : PdfV2PageModel) -> PdfV2PageLayoutFacts {
   let text_refs = pdf_v2_layout_text_refs(page)
-  let object_refs = pdf_v2_layout_object_facts(source_events, page.page_index)
+  let object_refs = pdf_v2_layout_object_facts(page)
   let coverage = pdf_v2_layout_geometry_coverage(page)
   let has_text = pdf_v2_layout_has_text(page)
   let source_refs = pdf_v2_layout_page_source_refs(page, text_refs, object_refs)
@@ -383,7 +350,7 @@ pub fn pdf_v2_layout_facts_from_model(
   warnings.append(model.warnings)
   risks.append(model.risks)
   for page in model.pages {
-    let facts = pdf_v2_layout_page_facts(page, model.source_events)
+    let facts = pdf_v2_layout_page_facts(page)
     page_layouts.push(facts)
     source_refs.append(facts.source_refs)
     for warning in facts.warnings {
