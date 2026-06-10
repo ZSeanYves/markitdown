@@ -320,6 +320,25 @@ fn phase6_tj_spacing_pdf() -> String {
 }
 
 ///|
+fn phase7_source_order_line_pdf() -> String {
+  phase4_text_pdf(
+    "BT\n/F1 12 Tf\n72 720 Td\n(Hello) Tj\n(World) Tj\nET\n", true,
+  )
+}
+
+///|
+fn phase7_text_object_boundary_pdf() -> String {
+  phase4_text_pdf(
+    "BT\n/F1 12 Tf\n(A) Tj\nET\nBT\n/F1 12 Tf\n(B) Tj\nET\n", true,
+  )
+}
+
+///|
+fn phase7_explicit_line_move_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n(A) Tj\nT*\n(B) Tj\nET\n", true)
+}
+
+///|
 fn phase6_span_options(
   max_spans : Int,
   max_chars_per_span : Int,
@@ -329,12 +348,53 @@ fn phase6_span_options(
 }
 
 ///|
+fn phase7_line_options(
+  max_lines : Int,
+  max_spans_per_line : Int,
+  allow_source_order_merge : Bool,
+  allow_geometry_merge : Bool,
+) -> @pdfv2.PdfV2LineReconstructionOptions {
+  {
+    max_lines,
+    max_spans_per_line,
+    allow_source_order_merge,
+    allow_geometry_merge,
+  }
+}
+
+///|
 fn phase6_has_span_break_reason(
   spans : Array[@pdfv2.PdfV2SpanCandidate],
   tag : String,
 ) -> Bool {
   for span in spans {
     if span.break_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase7_has_line_break_reason(
+  lines : Array[@pdfv2.PdfV2LineCandidate],
+  tag : String,
+) -> Bool {
+  for line in lines {
+    if line.break_reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase7_has_line_reason(
+  lines : Array[@pdfv2.PdfV2LineCandidate],
+  tag : String,
+) -> Bool {
+  for line in lines {
+    if line.reason_tags.contains(tag) || line.merge_reason_tags.contains(tag) {
       return true
     }
   }
@@ -1140,5 +1200,265 @@ test "pdf v2 span reconstruction keeps unknown decode conservative" {
     }
     SourceOpenErr(_, _, message) =>
       fail("expected Phase 6 unknown decode span: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction emits source-order line candidate" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-source-order-line.pdf"
+  phase3_write_fixture(path, phase7_source_order_line_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 10)
+      assert_true(doc.span_candidates.length() == 2)
+      assert_true(doc.line_candidates.length() == 1)
+      assert_true(doc.line_candidates[0].text == "HelloWorld")
+      assert_true(doc.line_candidates[0].source_refs.length() == 10)
+      assert_true(doc.line_candidates[0].bbox is None)
+      assert_true(doc.line_candidates[0].baseline is None)
+      assert_true(
+        doc.line_candidates[0].geometry_confidence ==
+        @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(
+        doc.line_candidates[0].writing_direction ==
+        @pdfv2.PdfV2WritingDirection::Unknown,
+      )
+      assert_true(
+        phase7_has_line_reason(doc.line_candidates, "line_geometry_unavailable"),
+      )
+      assert_true(doc.reconstruction_summary.line_candidate_count == 1)
+      assert_true(doc.reconstruction_summary.spans_grouped_count == 2)
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 source-order line candidate: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction breaks on text object boundary" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-text-object-boundary.pdf"
+  phase3_write_fixture(path, phase7_text_object_boundary_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.span_candidates.length() == 2)
+      assert_true(doc.line_candidates.length() == 2)
+      assert_true(doc.line_candidates[0].text == "A")
+      assert_true(doc.line_candidates[1].text == "B")
+      assert_true(
+        phase7_has_line_break_reason(
+          doc.line_candidates,
+          "text_object_boundary",
+        ),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 text object boundary lines: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction breaks on explicit line move" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-explicit-line-move.pdf"
+  phase3_write_fixture(path, phase7_explicit_line_move_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.span_candidates.length() == 2)
+      assert_true(doc.line_candidates.length() == 2)
+      assert_true(doc.line_candidates[0].text == "A")
+      assert_true(doc.line_candidates[1].text == "B")
+      assert_true(
+        phase7_has_line_break_reason(doc.line_candidates, "explicit_line_move"),
+      )
+      assert_true(
+        !(doc.line_candidates.length() == 1 &&
+        doc.line_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::High),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 explicit line move lines: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction enforces max spans per line" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-max-spans-per-line.pdf"
+  phase3_write_fixture(
+    path,
+    phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(ABC) Tj\nET\n", true),
+  )
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let spans = @pdfv2.pdf_v2_reconstruct_span_candidates(
+        doc.char_candidates,
+        phase6_span_options(10, 1, true),
+      )
+      let lines = @pdfv2.pdf_v2_reconstruct_line_candidates(
+        spans.spans,
+        phase7_line_options(10, 2, true, false),
+      )
+      assert_true(spans.spans.length() == 3)
+      assert_true(lines.lines.length() == 2)
+      assert_true(lines.lines[0].text == "AB")
+      assert_true(lines.lines[1].text == "C")
+      assert_true(
+        phase7_has_line_break_reason(lines.lines, "max_spans_per_line"),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 max spans per line: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction max_lines cap is explicit" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-max-lines.pdf"
+  phase3_write_fixture(
+    path,
+    phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(ABC) Tj\nET\n", true),
+  )
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      let spans = @pdfv2.pdf_v2_reconstruct_span_candidates(
+        doc.char_candidates,
+        phase6_span_options(10, 1, true),
+      )
+      let lines = @pdfv2.pdf_v2_reconstruct_line_candidates(
+        spans.spans,
+        phase7_line_options(1, 1, true, false),
+      )
+      assert_true(lines.lines.length() == 1)
+      assert_true(lines.summary.max_line_cap_hit)
+      assert_true(phase7_has_line_break_reason(lines.lines, "max_lines_cap"))
+      assert_true(
+        phase3_has_warning_kind(
+          lines.warnings,
+          @pdfv2.PdfV2WarningKind::PerformanceCap,
+        ),
+      )
+      assert_true(
+        phase3_has_risk_kind(
+          lines.risks,
+          @pdfv2.PdfV2RiskKind::PerformanceCapReached,
+        ),
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 max lines cap: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction keeps geometry unavailable conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-geometry-unavailable.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 1)
+      assert_true(doc.line_candidates[0].bbox is None)
+      assert_true(doc.line_candidates[0].baseline is None)
+      assert_true(
+        doc.line_candidates[0].geometry_confidence ==
+        @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(
+        doc.line_candidates[0].reason_tags.contains("line_geometry_unavailable"),
+      )
+      assert_true(doc.reconstruction_summary.line_geometry_missing_count == 1)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 geometry unavailable line: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction keeps unknown decode conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-unknown-decode.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 1)
+      assert_true(
+        doc.line_candidates[0].decode_confidence !=
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      )
+      assert_true(
+        doc.line_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::Unknown ||
+        doc.line_candidates[0].decode_confidence ==
+        @pdfv2.PdfV2TextDecodeConfidence::Failed,
+      )
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 unknown decode line: " + message)
+  }
+}
+
+///|
+test "pdf v2 line reconstruction remains parser facts only" {
+  let path = "/tmp/markitdown-pdf-v2-phase7-no-block-convert.pdf"
+  phase3_write_fixture(path, phase7_source_order_line_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.line_candidates.length() == 1)
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+      assert_true(doc.summary.one_pass_scan)
+      assert_true(!doc.summary.fallback_used)
+      assert_true(!doc.summary.external_model_files_read)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 7 parser-fact-only line: " + message)
   }
 }

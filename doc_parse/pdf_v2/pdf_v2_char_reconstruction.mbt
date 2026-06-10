@@ -43,6 +43,11 @@ pub(all) struct PdfV2CharReconstructionSummary {
   span_break_count : Int
   span_geometry_missing_count : Int
   max_span_cap_hit : Bool
+  line_candidate_count : Int
+  spans_grouped_count : Int
+  line_break_count : Int
+  line_geometry_missing_count : Int
+  max_line_cap_hit : Bool
   warnings_count : Int
   risk_count : Int
   max_chars : Int
@@ -72,6 +77,18 @@ fn pdf_v2_reconstruction_tags(
   out.append(first)
   out.append(second)
   out
+}
+
+///|
+fn pdf_v2_reconstruction_add_tag(
+  tags : Array[String],
+  tag : String,
+) -> Array[String] {
+  if tags.contains(tag) {
+    tags
+  } else {
+    pdf_v2_reconstruction_tags(tags, [tag])
+  }
 }
 
 ///|
@@ -186,6 +203,31 @@ fn pdf_v2_candidate_text(glyph : PdfV2GlyphCandidateFact) -> String? {
 }
 
 ///|
+fn pdf_v2_line_boundary_tags_from_event(
+  event : PdfV2CoreEvent,
+  emitted_candidate : Bool,
+  pending_tags : Array[String],
+) -> Array[String] {
+  if !emitted_candidate {
+    return pending_tags
+  }
+  let mut tags = pending_tags
+  match event.kind {
+    TextObjectBegin | TextObjectEnd =>
+      tags = pdf_v2_reconstruction_add_tag(tags, "text_object_boundary")
+    TextState =>
+      if event.reason_tags.contains("operator_TStar") ||
+        event.reason_tags.contains("operator_Td") ||
+        event.reason_tags.contains("operator_TD") ||
+        event.reason_tags.contains("operator_Tm") {
+        tags = pdf_v2_reconstruction_add_tag(tags, "explicit_line_move")
+      }
+    _ => ()
+  }
+  tags
+}
+
+///|
 fn pdf_v2_candidate_geometry_confidence(
   glyph : PdfV2GlyphCandidateFact,
 ) -> PdfV2GeometryConfidence {
@@ -226,8 +268,13 @@ pub fn pdf_v2_reconstruct_char_candidates(
   let mut geometry_missing_count = 0
   let mut max_hit = false
   let mut cap_source_ref : PdfV2SourceRef? = None
+  let mut emitted_candidate = false
+  let mut pending_line_boundary_tags : Array[String] = []
 
   for event in events {
+    pending_line_boundary_tags = pdf_v2_line_boundary_tags_from_event(
+      event, emitted_candidate, pending_line_boundary_tags,
+    )
     match event.text_state {
       Some(fact) =>
         if event.kind == PdfV2CoreEventKind::FontUse {
@@ -283,6 +330,10 @@ pub fn pdf_v2_reconstruct_char_candidates(
         reason_tags = pdf_v2_reconstruction_tags(reason_tags, [
           "char_candidate", "parser_owned_reconstruction",
         ])
+        reason_tags = pdf_v2_reconstruction_tags(
+          reason_tags, pending_line_boundary_tags,
+        )
+        pending_line_boundary_tags = []
         let geometry_confidence = pdf_v2_candidate_geometry_confidence(glyph)
         if geometry_confidence == PdfV2GeometryConfidence::Unknown {
           reason_tags = pdf_v2_reconstruction_tags(reason_tags, [
@@ -336,6 +387,7 @@ pub fn pdf_v2_reconstruct_char_candidates(
           warnings: candidate_warnings,
         }
         candidates.push(candidate)
+        emitted_candidate = true
         char_index = char_index + 1
       }
       None => ()
@@ -364,6 +416,11 @@ pub fn pdf_v2_reconstruct_char_candidates(
     span_break_count: 0,
     span_geometry_missing_count: 0,
     max_span_cap_hit: false,
+    line_candidate_count: 0,
+    spans_grouped_count: 0,
+    line_break_count: 0,
+    line_geometry_missing_count: 0,
+    max_line_cap_hit: false,
     warnings_count: warnings.length(),
     risk_count: risks.length(),
     max_chars: effective_max,

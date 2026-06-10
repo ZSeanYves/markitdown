@@ -188,6 +188,12 @@ fn pdf_v2_span_break_reasons(
   if !pdf_v2_same_text_show_source(last.source_ref, next.source_ref) {
     reasons.push("source_ref_change")
   }
+  if pdf_v2_span_has_tag(next.reason_tags, "text_object_boundary") {
+    reasons.push("text_object_boundary")
+  }
+  if pdf_v2_span_has_tag(next.reason_tags, "explicit_line_move") {
+    reasons.push("explicit_line_move")
+  }
   if !pdf_v2_span_option_string_eq(last.font_ref, next.font_ref) ||
     !pdf_v2_span_option_string_eq(last.font_name, next.font_name) ||
     !pdf_v2_span_option_double_eq(last.font_size, next.font_size) {
@@ -458,6 +464,11 @@ fn pdf_v2_merge_reconstruction_summaries(
     span_break_count: span_summary.span_break_count,
     span_geometry_missing_count: span_summary.span_geometry_missing_count,
     max_span_cap_hit: span_summary.max_span_cap_hit,
+    line_candidate_count: char_summary.line_candidate_count,
+    spans_grouped_count: char_summary.spans_grouped_count,
+    line_break_count: char_summary.line_break_count,
+    line_geometry_missing_count: char_summary.line_geometry_missing_count,
+    max_line_cap_hit: char_summary.max_line_cap_hit,
     warnings_count: char_summary.warnings_count + span_summary.warnings_count,
     risk_count: char_summary.risk_count + span_summary.risk_count,
     max_chars: char_summary.max_chars,

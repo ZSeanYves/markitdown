@@ -23,6 +23,43 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 7 Line Candidate Status
+
+Phase 7 consumes Phase 6 span candidates and adds bounded parser-owned line
+candidates:
+
+```text
+PdfV2SpanCandidate[]
+  -> PdfV2LineCandidate[]
+```
+
+Current status:
+
+- `PdfV2LineCandidate` records grouped span candidates, text, source refs,
+  decode confidence, geometry confidence, warnings, merge reason tags, break
+  reason tags, optional bbox, optional baseline, writing direction, and
+  rotation.
+- Line candidates are source-order parser facts. They are not final layout
+  lines, Markdown spans, blocks, paragraphs, headings, lists, captions, or
+  convert decisions.
+- Grouping is conservative. Adjacent spans may merge only when page/source
+  order stays compatible, no text-object or explicit line-move boundary is
+  visible, decode confidence does not fail, geometry does not contradict, and
+  the configured line caps are not exceeded.
+- Geometry remains conservative. Lines do not invent bboxes or baselines;
+  unavailable geometry is reported with `line_geometry_unavailable` and unknown
+  geometry confidence.
+- `max_lines` and `max_spans_per_line` are explicit reconstruction caps and
+  report warnings/risks when reached.
+- `PdfV2SourceDocument` carries line candidates as experimental parser facts
+  alongside char and span candidates. Page `text_blocks`, layout regions,
+  convert output, dispatcher behavior, model features, and fallback remain
+  untouched.
+
+This is still not block reconstruction or layout recovery. Phase 7 does not
+build blocks, paragraphs, headings, lists, captions, layout regions, Markdown,
+convert output, dispatcher behavior, model features, or fallback.
+
 ## Phase 6 Span Candidate Status
 
 Phase 6 consumes Phase 5 character candidates and adds bounded parser-owned

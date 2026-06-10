@@ -130,6 +130,21 @@ PDF-V2-RESET-6 Span Candidate Note:
   convert lowering, dispatcher switching, model file reads, or old-runtime
   fallback.
 
+PDF-V2-RESET-7 Line Candidate Note:
+
+* Phase 7 consumes only Phase 6 `PdfV2SpanCandidate` facts and builds bounded
+  `PdfV2LineCandidate` parser facts.
+* Line grouping is source-order-first and conservative: page changes,
+  text-object boundaries, explicit line moves, source-order discontinuities,
+  failed decode boundaries, geometry contradictions, and line caps all control
+  merge or break behavior.
+* Line candidates preserve source refs, span candidates, warnings, merge reason
+  tags, and break reason tags. Bboxes and baselines stay absent unless safely
+  derivable; unavailable geometry is reported explicitly.
+* These candidates are not final layout lines. This phase still does not create
+  blocks, paragraphs, layout recovery, convert lowering, dispatcher switching,
+  model file reads, or old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
