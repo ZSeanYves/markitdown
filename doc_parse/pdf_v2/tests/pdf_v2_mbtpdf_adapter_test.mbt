@@ -263,6 +263,39 @@ fn phase4_first_text_state_with_tag(
 }
 
 ///|
+fn phase5_has_candidate_reason(
+  candidates : Array[@pdfv2.PdfV2CharCandidate],
+  tag : String,
+) -> Bool {
+  for candidate in candidates {
+    if candidate.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn phase5_has_candidate_warning_reason(
+  candidates : Array[@pdfv2.PdfV2CharCandidate],
+  tag : String,
+) -> Bool {
+  for candidate in candidates {
+    for warning in candidate.warnings {
+      if warning.reason_tags.contains(tag) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn phase5_repeated_text_pdf() -> String {
+  phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(A) Tj\n(B) Tj\nET\n", true)
+}
+
+///|
 fn phase3_open_options(
   max_pages : Int?,
   max_events : Int?,
@@ -640,5 +673,225 @@ test "pdf v2 mbtpdf adapter caps typed text events" {
     }
     SourceOpenErr(_, _, message) =>
       fail("expected capped typed text document success: " + message)
+  }
+}
+
+///|
+test "pdf v2 char reconstruction emits simple ASCII candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-simple-hi.pdf"
+  phase3_write_fixture(
+    path,
+    phase4_text_pdf("BT\n/F1 12 Tf\n72 720 Td\n(Hi) Tj\nET\n", true),
+  )
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.reconstruction_summary.char_candidate_count == 2)
+      assert_true(doc.reconstruction_summary.decoded_char_count == 2)
+      assert_true(doc.reconstruction_summary.geometry_missing_count == 2)
+      assert_true(doc.font_cache.decode_profiles.length() == 1)
+      let first = doc.char_candidates[0]
+      assert_true(first.text == Some("H"))
+      assert_true(first.unicode == Some("H"))
+      assert_true(first.font_ref == Some("5 0 R"))
+      assert_true(first.font_name == Some("/F1"))
+      assert_true(first.font_size == Some(12.0))
+      assert_true(
+        first.decode_confidence == @pdfv2.PdfV2TextDecodeConfidence::Medium,
+      )
+      assert_true(
+        first.geometry_confidence == @pdfv2.PdfV2GeometryConfidence::Unknown,
+      )
+      assert_true(first.bbox is None)
+      assert_true(first.position is None)
+      assert_true(first.source_ref.stream_index == Some(0))
+      assert_true(first.source_ref.op_index is Some(_))
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 5 simple char candidates: " + message)
+  }
+}
+
+///|
+test "pdf v2 char reconstruction preserves TJ spacing reason" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-tj.pdf"
+  phase3_write_fixture(path, phase4_tj_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.char_candidates[0].text == Some("A"))
+      assert_true(doc.char_candidates[1].text == Some("B"))
+      assert_true(
+        phase5_has_candidate_reason(
+          doc.char_candidates,
+          "spacing_adjustment_present",
+        ),
+      )
+      assert_true(doc.char_candidates[0].source_ref.stream_index == Some(0))
+      assert_true(doc.char_candidates[1].source_ref.op_index is Some(_))
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 5 TJ char candidates: " + message)
+  }
+}
+
+///|
+test "pdf v2 char reconstruction keeps missing font conservative" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-missing-font.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.char_candidates[0].text is None)
+      assert_true(doc.char_candidates[0].raw_bytes == "H")
+      assert_true(doc.char_candidates[0].font_ref == Some("/Missing"))
+      assert_true(
+        doc.char_candidates[0].decode_confidence !=
+        @pdfv2.PdfV2TextDecodeConfidence::High,
+      )
+      assert_true(
+        phase5_has_candidate_reason(
+          doc.char_candidates,
+          "missing_font_resource",
+        ),
+      )
+      assert_true(
+        phase5_has_candidate_warning_reason(
+          doc.char_candidates,
+          "missing_font_resource",
+        ),
+      )
+      assert_true(doc.reconstruction_summary.unknown_decode_count == 2)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 5 missing-font char candidates: " + message)
+  }
+}
+
+///|
+test "pdf v2 char reconstruction max_chars cap is explicit" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-char-cap.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_core_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    CoreOpenOk(_, events) => {
+      let font_cache = @pdfv2.pdf_v2_build_font_cache_from_text_events(events)
+      let reconstructed = @pdfv2.pdf_v2_reconstruct_char_candidates(
+        events, font_cache, 1,
+      )
+      assert_true(reconstructed.char_candidates.length() == 1)
+      assert_true(reconstructed.summary.char_candidate_count == 1)
+      assert_true(reconstructed.summary.max_chars == 1)
+      assert_true(reconstructed.summary.max_chars_hit)
+      assert_true(
+        phase3_has_warning_kind(
+          reconstructed.warnings,
+          @pdfv2.PdfV2WarningKind::PerformanceCap,
+        ),
+      )
+      assert_true(
+        phase3_has_risk_kind(
+          reconstructed.risks,
+          @pdfv2.PdfV2RiskKind::PerformanceCapReached,
+        ),
+      )
+    }
+    CoreOpenErr(_, _, message) =>
+      fail("expected Phase 5 max_chars core events: " + message)
+  }
+}
+
+///|
+test "pdf v2 char reconstruction records geometry gap" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-geometry.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 5)
+      assert_true(doc.reconstruction_summary.geometry_missing_count == 5)
+      assert_true(
+        phase5_has_candidate_reason(
+          doc.char_candidates,
+          "glyph_geometry_unavailable",
+        ),
+      )
+      assert_true(
+        phase5_has_candidate_warning_reason(
+          doc.char_candidates,
+          "glyph_geometry_unavailable",
+        ),
+      )
+      for candidate in doc.char_candidates {
+        assert_true(candidate.bbox is None)
+        assert_true(candidate.position is None)
+        assert_true(
+          candidate.geometry_confidence ==
+          @pdfv2.PdfV2GeometryConfidence::Unknown,
+        )
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 5 geometry-gap char candidates: " + message)
+  }
+}
+
+///|
+test "pdf v2 font cache summary deduplicates repeated text shows" {
+  let path = "/tmp/markitdown-pdf-v2-phase5-font-cache.pdf"
+  phase3_write_fixture(path, phase5_repeated_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    SourceOpenOk(doc) => {
+      assert_true(doc.char_candidates.length() == 2)
+      assert_true(doc.font_cache.decode_profiles.length() == 1)
+      assert_true(doc.font_cache.cache_misses == 1)
+      assert_true(doc.font_cache.cache_hits == 1)
+      assert_true(doc.reconstruction_summary.font_cache_misses == 1)
+      assert_true(doc.reconstruction_summary.font_cache_hits == 1)
+      assert_true(
+        doc.font_cache.decode_profiles[0].encoding_kind ==
+        @pdfv2.PdfV2DecodeProfileEncodingKind::StandardEncoding,
+      )
+      assert_true(doc.pages[0].text_blocks.length() == 0)
+      assert_true(doc.pages[0].layout_regions.length() == 0)
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 5 font-cache source document: " + message)
   }
 }

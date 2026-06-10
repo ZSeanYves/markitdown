@@ -138,13 +138,45 @@ fn pdf_v2_all_warnings(
 }
 
 ///|
+fn pdf_v2_append_warnings(
+  first : Array[PdfV2Warning],
+  second : Array[PdfV2Warning],
+) -> Array[PdfV2Warning] {
+  let warnings : Array[PdfV2Warning] = []
+  warnings.append(first)
+  warnings.append(second)
+  warnings
+}
+
+///|
+fn pdf_v2_append_risks(
+  first : Array[PdfV2Risk],
+  second : Array[PdfV2Risk],
+) -> Array[PdfV2Risk] {
+  let risks : Array[PdfV2Risk] = []
+  risks.append(first)
+  risks.append(second)
+  risks
+}
+
+///|
 pub fn pdf_v2_source_document_from_core(
   core : PdfV2CoreDocument,
   events : Array[PdfV2CoreEvent],
 ) -> PdfV2SourceDocument {
   let source_events = pdf_v2_source_events_from_core_events(events)
   let pages = pdf_v2_pages_from_core(core, source_events)
-  let warnings = pdf_v2_all_warnings(core, source_events)
+  let font_cache = pdf_v2_build_font_cache_from_text_events(events)
+  let reconstruction = pdf_v2_reconstruct_char_candidates(
+    events,
+    font_cache,
+    pdf_v2_default_max_char_candidates(),
+  )
+  let warnings = pdf_v2_append_warnings(
+    pdf_v2_all_warnings(core, source_events),
+    reconstruction.warnings,
+  )
+  let risks = pdf_v2_append_risks(core.risks, reconstruction.risks)
   let page_count = if core.page_count > 0 {
     core.page_count
   } else {
@@ -153,13 +185,16 @@ pub fn pdf_v2_source_document_from_core(
   {
     source_events,
     pages,
+    font_cache,
+    char_candidates: reconstruction.char_candidates,
+    reconstruction_summary: reconstruction.summary,
     summary: pdf_v2_source_summary(
       source_events.length(),
       page_count,
       warnings.length(),
-      core.risks.length(),
+      risks.length(),
     ),
     warnings,
-    risks: core.risks,
+    risks,
   }
 }

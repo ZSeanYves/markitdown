@@ -23,6 +23,40 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 5 Font Cache And Char Candidate Status
+
+Phase 5 consumes the Phase 4 typed text events and adds a parser-owned font
+cache plus bounded character candidates:
+
+```text
+TextShow + GlyphCandidate
+  -> PdfV2FontCache / PdfV2DecodeProfile
+  -> PdfV2CharCandidate[]
+```
+
+Current status:
+
+- `PdfV2FontCache` records fonts seen, decode profiles, cache hit/miss counts,
+  warnings, and risks without exposing mbtpdf font objects.
+- Decode profiles classify the current source facts as ToUnicode, CMap,
+  standard encoding, glyph-name, CJK fallback, raw bytes, or unknown with
+  conservative confidence and reason tags.
+- `PdfV2CharCandidate` records raw code/bytes, optional Unicode/text and glyph
+  name, font ref/name/size, source refs, decode confidence, warnings, and
+  reason tags.
+- Geometry remains conservative. Char candidates do not invent advance widths,
+  positions, or bounding boxes when the parser cannot prove them; such cases
+  carry `glyph_geometry_unavailable` and unknown geometry confidence.
+- `max_chars` is enforced by the reconstruction function and reports explicit
+  warnings/risks when capped.
+- `PdfV2SourceDocument` carries these experimental parser facts for tests and
+  diagnostics, while `text_blocks`, layout regions, and convert output remain
+  empty.
+
+This is still not text grouping. Phase 5 does not build spans, lines, blocks,
+paragraphs, headings, lists, captions, layout regions, convert output,
+dispatcher behavior, model features, or fallback.
+
 ## Phase 4 Typed Text Event Status
 
 Phase 4 keeps the Phase 3 mbtpdf reader path and adds typed text-layer events

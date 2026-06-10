@@ -104,6 +104,19 @@ PDF-V2-RESET-4 Typed Text Event Note:
   chars, spans, lines, blocks, paragraphs, layout recovery, convert lowering,
   dispatcher switching, model file reads, or old-runtime fallback.
 
+PDF-V2-RESET-5 Font Cache And Char Candidate Note:
+
+* Phase 5 consumes only the Phase 4 typed text events and builds a parser-owned
+  `PdfV2FontCache`, decode profiles, and bounded `PdfV2CharCandidate` facts.
+* Font cache/profile facts expose v2 strings, confidence, warnings, risks, and
+  reason tags, not mbtpdf font objects or raw vendor internals.
+* Char candidates preserve source refs and raw bytes/codes, carry optional
+  Unicode/glyph candidates from Phase 4, and keep geometry conservative:
+  advance widths, positions, and bboxes stay absent when unavailable.
+* This phase still does not create spans, lines, blocks, paragraphs, layout
+  recovery, convert lowering, dispatcher switching, model file reads, or
+  old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`
