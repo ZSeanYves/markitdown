@@ -20,7 +20,11 @@ test "zip extracted entry path stays inside root" {
   let out = @zipcore.extracted_entry_path("/tmp/zip-root", "site/img/pic.png")
   assert_eq(out, "/tmp/zip-root/site/img/pic.png")
 
-  let bad = try? @zipcore.extracted_entry_path("/tmp/zip-root", "../secret.png")
+  let bad = try
+    @zipcore.extracted_entry_path("/tmp/zip-root", "../secret.png") |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad is Err(_))
 }
 

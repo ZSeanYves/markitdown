@@ -14,10 +14,7 @@ fn legacy_pdfjs_external_fixture_candidates(path : String) -> Array[String] {
   if name == "" {
     []
   } else {
-    [
-      "doc_parse/pdf/testdata/pdfjs/" + name,
-      "../testdata/pdfjs/" + name,
-    ]
+    ["doc_parse/pdf/testdata/pdfjs/" + name, "../testdata/pdfjs/" + name]
   }
 }
 
@@ -37,7 +34,10 @@ async fn open_sample_pdf(path : String) -> @pdf.Pdf {
   }
   fail(
     "optional repo-local PDF fixture missing; expected doc_parse/pdf/testdata/pdfjs fixture: " +
-    path + " (" + last_error + ")",
+    path +
+    " (" +
+    last_error +
+    ")",
   )
 }
 

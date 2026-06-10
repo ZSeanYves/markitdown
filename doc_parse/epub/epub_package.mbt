@@ -479,7 +479,9 @@ pub fn validate_epub_package(pkg : EpubPackage) -> EpubValidationReport {
 
 ///|
 pub fn has_part(pkg : EpubPackage, part_name : String) -> Bool {
-  let normalized = try? normalize_package_full_path(part_name)
+  let normalized = try normalize_package_full_path(part_name) |> Ok catch {
+    e => Err(e)
+  }
   match normalized {
     Ok(path) => pkg.entry_index.contains(path)
     Err(_) => false
@@ -547,7 +549,9 @@ fn parse_container_rootfiles(
     }
     let media_type0 = get_optional_attr(attrs, "media-type").trim().to_owned()
     let media_type = if media_type0 == "" { None } else { Some(media_type0) }
-    let normalized = try? normalize_package_full_path(full_path)
+    let normalized = try normalize_package_full_path(full_path) |> Ok catch {
+      e => Err(e)
+    }
     let normalized_path = match normalized {
       Ok(path) => Some(path)
       Err(_) => None

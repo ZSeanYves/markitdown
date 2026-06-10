@@ -72,7 +72,11 @@ test "nametree lookup" {
   ])
   assert_some_integer(pdf.nametree_lookup(PdfObject::String("K"), parent), 9)
   let bad_parent = PdfObject::Dictionary([("/Kids", PdfObject::Integer(1))])
-  assert_is_err(try? pdf.nametree_lookup(PdfObject::String("A"), bad_parent))
+  assert_is_err(
+    try pdf.nametree_lookup(PdfObject::String("A"), bad_parent) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let int_tree = PdfObject::Dictionary([
     (
       "/Names",
@@ -84,11 +88,23 @@ test "nametree lookup" {
     _ => fail("expected integer key match")
   }
   let missing = PdfObject::Dictionary([])
-  assert_is_err(try? pdf.nametree_lookup(PdfObject::String("A"), missing))
+  assert_is_err(
+    try pdf.nametree_lookup(PdfObject::String("A"), missing) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let malformed = PdfObject::Dictionary([("/Limits", PdfObject::Integer(1))])
-  assert_is_err(try? pdf.nametree_lookup(PdfObject::String("A"), malformed))
+  assert_is_err(
+    try pdf.nametree_lookup(PdfObject::String("A"), malformed) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let bad_names = PdfObject::Dictionary([("/Names", PdfObject::Integer(1))])
-  assert_is_err(try? pdf.nametree_lookup(PdfObject::String("A"), bad_names))
+  assert_is_err(
+    try pdf.nametree_lookup(PdfObject::String("A"), bad_names) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let kids_pdf = Pdf::empty()
   let kid1 = PdfObject::Dictionary([
     (
@@ -133,7 +149,11 @@ test "nametree lookup" {
     ),
   ])
   assert_is_err(
-    try? kids_pdf.nametree_lookup(PdfObject::String("A"), malformed_entry),
+    try
+      kids_pdf.nametree_lookup(PdfObject::String("A"), malformed_entry) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -176,5 +196,9 @@ test "contents_of_nametree" {
   let bad = PdfObject::Dictionary([
     ("/Type", PdfObject::Name(PdfName::of_string("/Other"))),
   ])
-  assert_is_err(try? pdf.contents_of_nametree(bad))
+  assert_is_err(
+    try pdf.contents_of_nametree(bad) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }

@@ -35,11 +35,11 @@ test "dispatcher registry documents default native formats" {
       if !entry.default_enabled {
         fail("pdf registry entry should stay default-enabled")
       }
-      if !entry.notes.contains("PDF v2 experimental pipeline") {
-        fail("pdf registry notes should document v2 experimental route")
+      if !entry.notes.contains("native PDF conversion") {
+        fail("pdf registry notes should document native PDF route")
       }
-      if !entry.notes.contains("no v1 fallback") {
-        fail("pdf registry notes should document no fallback")
+      if !entry.notes.contains("convert/pdf") {
+        fail("pdf registry notes should document convert/pdf route")
       }
     }
     None => fail("expected pdf registry entry")
@@ -47,29 +47,22 @@ test "dispatcher registry documents default native formats" {
 }
 
 ///|
-test "pdf dispatcher routes registry to v2 experimental entry" {
+test "pdf dispatcher routes registry to native PDF entry" {
   match @conv.lookup_converter_registry_entry("pdf") {
     Some(entry) => {
       assert_eq(entry.format, "pdf")
       assert_eq(entry.default_enabled, true)
-      assert_eq(
-        entry.notes.contains("docs/archive/pdf-v2-architecture.md"),
-        true,
-      )
-      assert_eq(entry.notes.contains("no v1 fallback"), true)
+      assert_eq(entry.notes.contains("native PDF conversion"), true)
+      assert_eq(entry.notes.contains("convert/pdf"), true)
     }
     None => fail("expected pdf registry entry")
   }
 }
 
 ///|
-async test "pdf dispatcher parse uses v2 fail closed entry" {
-  let path = "__tmp_dispatcher_pdf_v2.pdf"
-  @fs.write_bytes_to_file(path, Bytes::from_array([37, 80, 68, 70])) catch {
-    e => fail("failed to write synthetic pdf: " + e.to_string())
-  }
-  defer (if @fs.path_exists(path) { @fs.remove_file(path) catch { _ => () } })
-  let result = @conv.parse_to_ir(path, {
+async test "pdf dispatcher parse uses native PDF entry" {
+  let input = resolve_sample_path("samples/main_process/pdf/text_simple.pdf")
+  let result = @conv.parse_to_ir(input, {
     out_dir: None,
     max_heading: Some(6),
     pdf_enhance_mode: None,
@@ -79,13 +72,12 @@ async test "pdf dispatcher parse uses v2 fail closed entry" {
   })
   match result {
     Ok(doc) => {
-      assert_eq(doc.blocks.val.length(), 1)
-      match doc.blocks.val[0] {
-        @cor.Block::Paragraph(text) => {
-          assert_eq(text.contains("PDF v2 experimental route"), true)
-          assert_eq(text.contains("without legacy fallback"), true)
-        }
-        _ => fail("expected v2 diagnostic paragraph")
+      if doc.blocks.val.length() == 0 {
+        fail("dispatcher pdf route should produce at least one block")
+      }
+      let markdown = @cor.emit_markdown(doc)
+      if !markdown.contains("English") {
+        fail("dispatcher pdf route should parse text_simple sample")
       }
     }
     Err(err) => fail("dispatcher pdf route failed: " + err.to_string())
@@ -143,5 +135,9 @@ test "docx runtime uses current package without legacy reintroduction" {
   }
 
   // Compile-time link guard: DOCX resolves through the current convert/docx API.
-  ignore(try? @doc.open_docx_model("__docx_guard_missing__.docx"))
+  ignore(
+    try @doc.open_docx_model("__docx_guard_missing__.docx") |> Ok catch {
+      e => Err(e)
+    },
+  )
 }

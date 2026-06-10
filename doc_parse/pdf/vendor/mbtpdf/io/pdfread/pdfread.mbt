@@ -73,7 +73,9 @@ pub fn PdfRead::what_encryption(
       String?,
     ),
     Error,
-  ] = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  ] = try @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok catch {
+    e => Err(e)
+  }
   match values {
     Ok((crypt, _, _, _, _, _, _)) => {
       let metadata = match pdf.lookup_direct("/Encrypt", pdf.trailerdict) {
@@ -125,7 +127,9 @@ pub fn PdfRead::permissions(
       String?,
     ),
     Error,
-  ] = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  ] = try @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok catch {
+    e => Err(e)
+  }
   match values {
     Ok((_, _, _, p, _, _, _)) => @pdfcrypt.PdfCrypt::new().banlist_of_p(p)
     Err(_) => []

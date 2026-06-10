@@ -183,7 +183,11 @@ pub fn lower_docx_document(docx : @docmodel.DocxDocument) -> @cor.Document {
     push_docx_block_with_ref_labels(doc, docx, block, None, Some(ref_labels))
   }
   append_docx_resolved_appendices_with_ctx(
-    doc, docx, None, Some(ref_labels), indexes,
+    doc,
+    docx,
+    None,
+    Some(ref_labels),
+    indexes,
   )
   doc
 }
@@ -203,7 +207,11 @@ pub fn lower_docx_document_with_assets(
     push_docx_block_with_ref_labels(doc, docx, block, ctx_opt, Some(ref_labels))
   }
   append_docx_resolved_appendices_with_ctx(
-    doc, docx, ctx_opt, Some(ref_labels), indexes,
+    doc,
+    docx,
+    ctx_opt,
+    Some(ref_labels),
+    indexes,
   )
   match ctx_opt {
     Some(ctx) => export_docx_alternate_media_assets(doc, docx, ctx)
@@ -492,9 +500,7 @@ fn push_docx_unique_id(ids : Array[String], id : String) -> Unit {
 }
 
 ///|
-fn docx_lowering_indexes(
-  docx : @docmodel.DocxDocument,
-) -> DocxLoweringIndexes {
+fn docx_lowering_indexes(docx : @docmodel.DocxDocument) -> DocxLoweringIndexes {
   let footnotes : Map[String, @docmodel.DocxNote] = Map([])
   for note in docx.footnotes {
     if !footnotes.contains(note.note_id) {

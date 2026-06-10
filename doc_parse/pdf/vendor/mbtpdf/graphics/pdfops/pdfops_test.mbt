@@ -108,11 +108,16 @@ test "components resolves color spaces" {
     ),
     1,
   )
-  let pattern_err : Result[Int, Error] = try? @pdfops.Op::components(
-    pdf,
-    resources,
-    Name(@pdf.PdfName::of_string("/Pattern")),
-  )
+  let pattern_err : Result[Int, Error] = try
+    @pdfops.Op::components(
+      pdf,
+      resources,
+      Name(@pdf.PdfName::of_string("/Pattern")),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(pattern_err is Err(_))
 }
 

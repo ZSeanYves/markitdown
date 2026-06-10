@@ -50,9 +50,14 @@ test "malformed pdf without /Root and catalog errors" {
     #|trailer
     #|<< /Size 2 >>
     #|trailer
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -111,18 +116,28 @@ test "malformed pdf errors on missing startxref digits" {
     #|endobj
     #|startxref
     #|%%EOF
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "malformed pdf errors on missing root and trailer" {
   let reader = PdfRead::new(debug_always_treat_malformed=true, logger=_ => ())
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    reader.pdf_of_input(None, None, @pdfio.Input::of_string("trailer"))
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      reader.pdf_of_input(None, None, @pdfio.Input::of_string("trailer"))
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -157,13 +172,18 @@ test "malformed pdf parses stream with indirect length" {
 
 ///|
 test "pdf_of_input rejects invalid revision" {
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    PdfRead::new(logger=_ => ()).pdf_of_input(
-      revision=0,
-      None,
-      None,
-      @pdfio.Input::of_string("%PDF-1.4"),
-    )
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      PdfRead::new(logger=_ => ()).pdf_of_input(
+        revision=0,
+        None,
+        None,
+        @pdfio.Input::of_string("%PDF-1.4"),
+      )
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

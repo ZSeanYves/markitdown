@@ -228,11 +228,12 @@ test "change_pages logs when lengths differ with matrices" {
 test "change_pages rejects invalid change indices" {
   let pdf = build_two_page_pdf()
   let pages = @pdfpage.PdfPageDoc::new(pdf).pages_of_pagetree()
-  let res : Result[@pdf.Pdf, Error] = try? @pdfpage.PdfPageDoc::new(pdf).change_pages(
-    true,
-    pages,
-    changes=[(0, 1)],
-  )
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).change_pages(true, pages, changes=[(0, 1)])
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 

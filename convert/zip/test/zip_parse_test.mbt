@@ -96,7 +96,11 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -508,9 +512,16 @@ async test "zip profile enabled preserves detail for html shared materialization
 
 ///|
 test "zip inspect reports unsafe path failure clearly" {
-  let inspected = try? @zipconv.inspect_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_path_traversal_boundary.zip"),
-  )
+  let inspected = try
+    @zipconv.inspect_zip(
+      resolve_sample_path(
+        "samples/fixtures/zip/zip_path_traversal_boundary.zip",
+      ),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   match inspected {
     Ok(report) => {
       let entry = inspect_entry_by_raw_name(report, "../evil.txt")
@@ -670,11 +681,16 @@ async test "zip parse fails closed on normalized path collisions" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let result = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_normalized_collision.zip"),
-    out_dir,
-    6,
-  )
+  let result = try
+    @zipconv.parse_zip(
+      resolve_sample_path("samples/fixtures/zip/zip_normalized_collision.zip"),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -685,41 +701,68 @@ async test "zip parse fails closed on unsafe archive paths" {
   recreate_clean_dir(out_dir)
   defer cleanup_temp_dir(out_dir)
 
-  let traversal = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_path_traversal_boundary.zip"),
-    out_dir,
-    6,
-  )
+  let traversal = try
+    @zipconv.parse_zip(
+      resolve_sample_path(
+        "samples/fixtures/zip/zip_path_traversal_boundary.zip",
+      ),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(traversal is Err(_))
 
-  let absolute = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_absolute_path_boundary.zip"),
-    out_dir,
-    6,
-  )
+  let absolute = try
+    @zipconv.parse_zip(
+      resolve_sample_path("samples/fixtures/zip/zip_absolute_path_boundary.zip"),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(absolute is Err(_))
 
-  let windows_drive = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_unsafe_windows_drive.zip"),
-    out_dir,
-    6,
-  )
+  let windows_drive = try
+    @zipconv.parse_zip(
+      resolve_sample_path("samples/fixtures/zip/zip_unsafe_windows_drive.zip"),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(windows_drive is Err(_))
 
-  let duplicate_entries = try? @zipconv.parse_zip(
-    resolve_sample_path("samples/fixtures/zip/zip_duplicate_entries.zip"),
-    out_dir,
-    6,
-  )
+  let duplicate_entries = try
+    @zipconv.parse_zip(
+      resolve_sample_path("samples/fixtures/zip/zip_duplicate_entries.zip"),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(duplicate_entries is Err(_))
 
-  let normalized_collision = try? @zipconv.parse_zip(
-    resolve_sample_path(
-      "samples/fixtures/zip/zip_normalized_collision_boundary.zip",
-    ),
-    out_dir,
-    6,
-  )
+  let normalized_collision = try
+    @zipconv.parse_zip(
+      resolve_sample_path(
+        "samples/fixtures/zip/zip_normalized_collision_boundary.zip",
+      ),
+      out_dir,
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(normalized_collision is Err(_))
 }
 

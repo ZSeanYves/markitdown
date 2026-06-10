@@ -288,7 +288,12 @@ fn image_ocr_recreate_clean_dir(path : String) -> Unit raise {
 ///|
 fn cleanup_image_ocr_temp_root(path : String?) -> Unit {
   match path {
-    Some(root) => ignore(try? image_ocr_remove_dir_recursive(root))
+    Some(root) =>
+      ignore(
+        try image_ocr_remove_dir_recursive(root) |> Ok catch {
+          e => Err(e)
+        },
+      )
     None => ()
   }
 }

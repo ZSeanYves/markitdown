@@ -1,18 +1,18 @@
 ///|
 test "getuntil functions error on EOF when delimiter required" {
   let input = @pdfio.Input::of_string("abc")
-  let res_chars : Result[Array[Char], Error] = try? @pdfsyntax.PdfSyntax::new().getuntil(
-    false,
-    c => c == 'z',
-    input,
-  )
+  let res_chars : Result[Array[Char], Error] = try
+    @pdfsyntax.PdfSyntax::new().getuntil(false, c => c == 'z', input) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res_chars is Err(_))
   let input2 = @pdfio.Input::of_string("q")
-  let res_ignore : Result[Unit, Error] = try? @pdfsyntax.PdfSyntax::new().ignoreuntil(
-    false,
-    c => c == 'z',
-    input2,
-  )
+  let res_ignore : Result[Unit, Error] = try
+    @pdfsyntax.PdfSyntax::new().ignoreuntil(false, c => c == 'z', input2) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res_ignore is Err(_))
 }
 
@@ -61,9 +61,12 @@ test "lex_hexstring handles odd and invalid digits" {
     }
     _ => fail("expected LexString")
   }
-  let bad : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_hexstring(
-    @pdfio.Input::of_string("<GG>"),
-  )
+  let bad : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_hexstring(@pdfio.Input::of_string("<GG>"))
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad is Err(_))
 }
 

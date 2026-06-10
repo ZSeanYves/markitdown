@@ -61,9 +61,7 @@ fn parse_custom_properties_xml(xml : String) -> Array[OoxmlCustomProperty] {
         match end {
           None => break
           Some(prop_end) => {
-            let block = xml[
-              prop_start:prop_end + "</property>".length()
-            ].to_owned()
+            let block = xml[prop_start:prop_end + "</property>".length()].to_owned()
             match parse_custom_property_block(block) {
               Some(prop) => props.push(prop)
               None => ()
@@ -122,11 +120,7 @@ fn parse_custom_property_block(block : String) -> OoxmlCustomProperty? {
 }
 
 ///|
-fn find_substring_from(
-  haystack : String,
-  needle : String,
-  start : Int,
-) -> Int? {
+fn find_substring_from(haystack : String, needle : String, start : Int) -> Int? {
   if needle == "" {
     return Some(start)
   }

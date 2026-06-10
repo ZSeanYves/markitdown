@@ -50,7 +50,11 @@ test "get_encryption_values rejects invalid length" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -128,7 +132,11 @@ test "get_encryption_values rejects V4 without CF dictionary" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -145,7 +153,11 @@ test "get_encryption_values rejects nonstandard V in encryption dictionary" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -172,7 +184,11 @@ test "get_encryption_values rejects V4 V2 when /CF /Length is not an integer" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -189,7 +205,11 @@ test "get_encryption_values rejects unknown encryption filter" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -217,7 +237,11 @@ test "decrypt_pdf AESV3 errors when /Perms is missing" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().decrypt_pdf("pw", pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().decrypt_pdf("pw", pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -235,7 +259,11 @@ test "get_encryption_values rejects missing stdcf" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -261,7 +289,11 @@ test "get_encryption_values rejects unknown cfm" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -277,7 +309,11 @@ test "get_encryption_values rejects missing id entry" {
     ("/P", Integer(-4)),
   ])
   attach_encrypt(pdf, encrypt_dict)
-  let result = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -295,7 +331,11 @@ test "get_encryption_values rejects missing or malformed O/U/P entries" {
       ("/P", Integer(-4)),
     ]),
   )
-  let o_res = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_o)
+  let o_res = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_o) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(o_res is Err(_))
   let pdf_u = @pdfpage.PdfPageDoc::minimum_valid()
   add_id(pdf_u)
@@ -309,7 +349,11 @@ test "get_encryption_values rejects missing or malformed O/U/P entries" {
       ("/P", Integer(-4)),
     ]),
   )
-  let u_res = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_u)
+  let u_res = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_u) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(u_res is Err(_))
   let pdf_p = @pdfpage.PdfPageDoc::minimum_valid()
   add_id(pdf_p)
@@ -323,7 +367,11 @@ test "get_encryption_values rejects missing or malformed O/U/P entries" {
       ("/U", String(bytes_string(32, 66))),
     ]),
   )
-  let p_res = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_p)
+  let p_res = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_p) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(p_res is Err(_))
   let pdf_bad_types = @pdfpage.PdfPageDoc::minimum_valid()
   add_id(pdf_bad_types)
@@ -338,9 +386,11 @@ test "get_encryption_values rejects missing or malformed O/U/P entries" {
       ("/P", String("x")),
     ]),
   )
-  let bad_types_res = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(
-    pdf_bad_types,
-  )
+  let bad_types_res = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_bad_types) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_types_res is Err(_))
 }
 
@@ -359,9 +409,11 @@ test "get_encryption_values rejects too-short O/U strings" {
       ("/P", Integer(-4)),
     ]),
   )
-  let short_res = try? @pdfcrypt.PdfCrypt::new().get_encryption_values(
-    pdf_short,
-  )
+  let short_res = try
+    @pdfcrypt.PdfCrypt::new().get_encryption_values(pdf_short) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(short_res is Err(_))
 }
 

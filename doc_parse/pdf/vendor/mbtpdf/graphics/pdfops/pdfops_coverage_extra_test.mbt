@@ -111,9 +111,11 @@ test "parse inline image flate errors when EI missing after whitespace" {
     // Trailing whitespace but no EI.
     let footer = @pdfio.bytes_of_string(" ")
     let stream = concat_parts([header, encoded, footer])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, stream,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, stream) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -155,9 +157,11 @@ test "parse inline image DCT errors on truncated data" {
     )
     let jpeg = @pdfio.bytes_of_list([0xFF])
     let stream = concat_parts([header, jpeg])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, stream,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, stream) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -200,9 +204,11 @@ test "parse inline image ASCIIHexDecode errors when EI missing at EOF" {
     // Trailing whitespace but no EI.
     let encoded = @pdfio.bytes_of_string("7F ")
     let stream = concat_parts([header, encoded])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, stream,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, stream) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -225,9 +231,11 @@ test "parse_single_stream errors on malformed dash pattern 'd' op" {
     let resources : @pdf.PdfObject = Dictionary([])
     // Missing the left bracket and the right bracket.
     let data = @pdfio.bytes_of_string("1 2 0 d")
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, data,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, data) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -260,9 +268,11 @@ test "parse_single_stream errors on malformed TJ op" {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
     let data = @pdfio.bytes_of_string("TJ")
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, data,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, data) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -290,11 +300,16 @@ test "parse_single_stream errors on too-short dash pattern op" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("d"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("d"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -304,11 +319,16 @@ test "parse_single_stream errors on dash pattern op with non-numeric phase" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("[] /Phase d"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("[] /Phase d"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -318,11 +338,16 @@ test "parse_single_stream errors on dash pattern op missing left bracket" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("1 ] 0 d"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("1 ] 0 d"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -332,11 +357,16 @@ test "parse_single_stream errors on dash pattern op with non-numeric entries" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("[/Bad] 0 d"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("[/Bad] 0 d"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -346,11 +376,16 @@ test "parse_single_stream errors on TJ missing left bracket" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("(A) ] TJ"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("(A) ] TJ"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -394,11 +429,16 @@ test "parse_single_stream errors on invalid leading character" {
   @pdfe.with_silenced_logs(fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf,
-      resources,
-      @pdfio.bytes_of_string("{"),
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(
+        pdf,
+        resources,
+        @pdfio.bytes_of_string("{"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -430,9 +470,11 @@ test "parse inline image errors when /Filter has wrong type" {
     let data = @pdfio.bytes_of_string("x")
     let footer = @pdfio.bytes_of_string(" EI")
     let stream = concat_parts([header, data, footer])
-    let res : Result[Array[@pdfops.Op], Error] = try? @pdfops.Op::parse_single_stream(
-      pdf, resources, stream,
-    )
+    let res : Result[Array[@pdfops.Op], Error] = try
+      @pdfops.Op::parse_single_stream(pdf, resources, stream) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }
@@ -446,9 +488,11 @@ test "Op::components errors on unknown colourspace array" {
       Name(@pdf.PdfName::of_string("/NotAColourSpace")),
       Null,
     ])
-    let res : Result[Int, Error] = try? @pdfops.Op::components(
-      pdf, resources, bad,
-    )
+    let res : Result[Int, Error] = try
+      @pdfops.Op::components(pdf, resources, bad) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
   })
 }

@@ -184,11 +184,11 @@ test "read_colourspace Indexed errors on invalid inputs" {
     Name(@pdf.PdfName::of_string("/Bad")),
     String(@pdfio.string_of_int_array([0, 0, 0])),
   ]
-  let bad_hival : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_hival_arr),
-  )
+  let bad_hival : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_hival_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_hival is Err(_))
   let bad_base_stream_arr : Array[@pdf.PdfObject] = [
     Name(@pdf.PdfName::of_string("/Indexed")),
@@ -196,11 +196,11 @@ test "read_colourspace Indexed errors on invalid inputs" {
     Integer(0),
     stream_obj,
   ]
-  let bad_base_stream : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_base_stream_arr),
-  )
+  let bad_base_stream : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_base_stream_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_base_stream is Err(_))
   let bad_base_string_arr : Array[@pdf.PdfObject] = [
     Name(@pdf.PdfName::of_string("/Indexed")),
@@ -208,11 +208,11 @@ test "read_colourspace Indexed errors on invalid inputs" {
     Integer(0),
     String(@pdfio.string_of_int_array([0])),
   ]
-  let bad_base_string : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_base_string_arr),
-  )
+  let bad_base_string : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_base_string_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_base_string is Err(_))
   let bad_lookup_arr : Array[@pdf.PdfObject] = [
     Name(@pdf.PdfName::of_string("/Indexed")),
@@ -220,11 +220,11 @@ test "read_colourspace Indexed errors on invalid inputs" {
     Integer(0),
     Integer(5),
   ]
-  let bad_lookup : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_lookup_arr),
-  )
+  let bad_lookup : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_lookup_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_lookup is Err(_))
   let toget = @pdf.ToGet::new(@pdfio.Input::of_string("abc"), 0, 3)
   let stream_dict : @pdf.PdfObject = Dictionary([])
@@ -237,11 +237,11 @@ test "read_colourspace Indexed errors on invalid inputs" {
     Integer(0),
     bad_stream,
   ]
-  let bad_toget : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_toget_arr),
-  )
+  let bad_toget : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_toget_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_toget is Err(_))
 }
 
@@ -251,11 +251,16 @@ test "read_colourspace ICCBased invalid N errors" {
   let dict : @pdf.PdfObject = Dictionary([("/N", Integer(2))])
   let data = @pdfio.bytes_of_list([1, 2, 3])
   let stream_obj : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array([Name(@pdf.PdfName::of_string("/ICCBased")), stream_obj]),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(
+      pdf,
+      Dictionary([]),
+      Array([Name(@pdf.PdfName::of_string("/ICCBased")), stream_obj]),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected ICCBased /N error")
@@ -560,22 +565,28 @@ test "read_colourspace handles indirect and singleton array" {
 test "read_colourspace errors on missing named entry" {
   let pdf = @pdf.Pdf::empty()
   let resources : @pdf.PdfObject = Dictionary([("/ColorSpace", Dictionary([]))])
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    resources,
-    Name(@pdf.PdfName::of_string("/Missing")),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, resources, Name(@pdf.PdfName::of_string("/Missing")))
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "read_colourspace errors when resources lack ColorSpace" {
   let pdf = @pdf.Pdf::empty()
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Name(@pdf.PdfName::of_string("/Missing")),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(
+      pdf,
+      Dictionary([]),
+      Name(@pdf.PdfName::of_string("/Missing")),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -585,28 +596,38 @@ test "read_colourspace ICCBased errors on missing N and non-stream" {
   let dict : @pdf.PdfObject = Dictionary([])
   let data = @pdfio.bytes_of_string("icc")
   let stream_obj : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let missing_n : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array([Name(@pdf.PdfName::of_string("/ICCBased")), stream_obj]),
-  )
+  let missing_n : Result[ColourSpace, Error] = try
+    ColourSpace::read(
+      pdf,
+      Dictionary([]),
+      Array([Name(@pdf.PdfName::of_string("/ICCBased")), stream_obj]),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(missing_n is Err(_))
-  let non_stream : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array([Name(@pdf.PdfName::of_string("/ICCBased")), Integer(1)]),
-  )
+  let non_stream : Result[ColourSpace, Error] = try
+    ColourSpace::read(
+      pdf,
+      Dictionary([]),
+      Array([Name(@pdf.PdfName::of_string("/ICCBased")), Integer(1)]),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(non_stream is Err(_))
 }
 
 ///|
 test "read_colourspace errors on unsupported object" {
   let pdf = @pdf.Pdf::empty()
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Integer(5),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Integer(5)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -619,11 +640,11 @@ test "read_colourspace rejects indexed base colourspaces" {
     Integer(0),
     String(""),
   ]
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(arr),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -659,11 +680,11 @@ test "read_colourspace DeviceN attributes and name validation" {
     Name(@pdf.PdfName::of_string("/DeviceRGB")),
     tint,
   ]
-  let bad_names : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(bad_names_arr),
-  )
+  let bad_names : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(bad_names_arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_names is Err(_))
 }
 
@@ -805,11 +826,11 @@ test "read_colourspace indexed rejects short table" {
     Integer(1),
     lookup,
   ]
-  let res : Result[ColourSpace, Error] = try? ColourSpace::read(
-    pdf,
-    Dictionary([]),
-    Array(arr),
-  )
+  let res : Result[ColourSpace, Error] = try
+    ColourSpace::read(pdf, Dictionary([]), Array(arr)) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected short table error")

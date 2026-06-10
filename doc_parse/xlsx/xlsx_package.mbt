@@ -115,10 +115,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
     profile,
     "document_properties",
     metadata_started,
-    Some(
-      "custom_properties=" +
-      metadata.custom_properties.length().to_string(),
-    ),
+    Some("custom_properties=" + metadata.custom_properties.length().to_string()),
   )
 
   let workbook_flags_started = xlsx_parse_profile_stage_started(profile)
@@ -150,9 +147,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
     Some("count=" + defined_names.length().to_string()),
   )
   let sheets : Array[XlsxSheet] = []
-  let total_cell_budget_remaining : Ref[Int] = {
-    val: xlsx_max_total_cells(),
-  }
+  let total_cell_budget_remaining : Ref[Int] = { val: xlsx_max_total_cells() }
 
   for info in sheet_infos {
     let normalized_target = match info.target {
@@ -244,8 +239,7 @@ fn parse_xlsx_workbook_from_package_with_profile(
 
     let sheet_relationships_started = xlsx_parse_profile_stage_started(profile)
     let (sheet_relationships, sheet_relationship_issues) = read_sheet_relationships(
-      pkg,
-      normalized_target,
+      pkg, normalized_target,
     )
     xlsx_parse_profile_stage_finished(
       profile,
@@ -256,7 +250,10 @@ fn parse_xlsx_workbook_from_package_with_profile(
 
     let comments_started = xlsx_parse_profile_stage_started(profile)
     let (comments, comment_issues) = read_sheet_comments_from_relationships(
-      pkg, info.name, Some(normalized_target), sheet_relationships,
+      pkg,
+      info.name,
+      Some(normalized_target),
+      sheet_relationships,
     )
     xlsx_parse_profile_stage_finished(
       profile,
@@ -361,11 +358,7 @@ fn parse_xlsx_custom_properties(
 ) -> Array[XlsxCustomProperty] {
   let out : Array[XlsxCustomProperty] = []
   for prop in @ox.read_custom_properties(pkg) {
-    out.push({
-      name: prop.name,
-      value: prop.value,
-      value_type: prop.value_type,
-    })
+    out.push({ name: prop.name, value: prop.value, value_type: prop.value_type })
   }
   out
 }
@@ -385,9 +378,7 @@ fn read_sheet_relationships(
   pkg : @ox.OoxmlPackage,
   sheet_part : String,
 ) -> (Array[@ox.OoxmlRelationship], Array[XlsxValidationIssue]) {
-  let rels = @ox.read_part_relationships(pkg, sheet_part) catch {
-    _ => []
-  }
+  let rels = @ox.read_part_relationships(pkg, sheet_part) catch { _ => [] }
   truncate_sheet_relationships(rels, sheet_part)
 }
 
@@ -462,7 +453,11 @@ fn read_sheet_comments_from_relationships(
       }
       let (comments, truncated) = parse_sheet_comments_xml(comments_xml)
       let issues = if truncated {
-        truncated_comments_issues(sheet_name, part_target, xlsx_max_comments() + 1)
+        truncated_comments_issues(
+          sheet_name,
+          part_target,
+          xlsx_max_comments() + 1,
+        )
       } else {
         []
       }

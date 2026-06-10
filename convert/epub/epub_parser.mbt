@@ -37,7 +37,11 @@ pub fn parse_epub(
     out_dir
   }
   if out_dir.trim() != "" {
-    defer ignore(try? cleanup_archive_run_dir(tmp_root))
+    defer ignore(
+      try cleanup_archive_run_dir(tmp_root) |> Ok catch {
+        e => Err(e)
+      },
+    )
   }
   ensure_dir_tree(archive_out_dir) catch {
     e =>
@@ -170,6 +174,9 @@ pub fn parse_epub(
         doc, final_md, epub_name, content_path, "Conversion failed: extracted spine item missing",
       )
       continue
+    }
+    let _ = read_epub_part_text_cached(part_cache, pkg, content_path) catch {
+      _ => ""
     }
 
     let entry_id = unique_entry_id(content_path, used_ids)

@@ -323,13 +323,17 @@ test "read handles label styles and bad startpage" {
 ///|
 test "pagelabeltext and pagelabel_of_pagenumber error on missing labels" {
   let labels : Array[PageLabel] = []
-  let text_res : Result[String, Error] = try? ctx.pagelabeltext_of_pagenumber(
-    1, labels,
-  )
+  let text_res : Result[String, Error] = try
+    ctx.pagelabeltext_of_pagenumber(1, labels) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(text_res is Err(_))
-  let label_res : Result[PageLabel, Error] = try? ctx.pagelabel_of_pagenumber(
-    1, labels,
-  )
+  let label_res : Result[PageLabel, Error] = try
+    ctx.pagelabel_of_pagenumber(1, labels) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(label_res is Err(_))
 }
 

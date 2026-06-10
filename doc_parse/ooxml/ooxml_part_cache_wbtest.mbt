@@ -249,8 +249,12 @@ test "ooxml part cache reuses decoded text and feeds byte cache" {
 ///|
 test "ooxml part cache preserves missing part behavior" {
   let pkg = cache_test_open_package()
-  let first = try? read_part_bytes(pkg, "word/missing.xml")
-  let second = try? read_part_text(pkg, "word/missing.xml")
+  let first = try read_part_bytes(pkg, "word/missing.xml") |> Ok catch {
+    e => Err(e)
+  }
+  let second = try read_part_text(pkg, "word/missing.xml") |> Ok catch {
+    e => Err(e)
+  }
 
   match first {
     Ok(_) => fail("missing bytes read should fail")
@@ -325,7 +329,11 @@ test "ooxml relationship cache reuses parsed rels and indexed lookups" {
 ///|
 test "ooxml relationship cache preserves missing rid behavior" {
   let pkg = cache_test_open_relationship_package()
-  let result = try? resolve_relationship(pkg, "word/document.xml", "rId404")
+  let result = try
+    resolve_relationship(pkg, "word/document.xml", "rId404") |> Ok
+  catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("missing relationship id should fail")
     Err(err) => {

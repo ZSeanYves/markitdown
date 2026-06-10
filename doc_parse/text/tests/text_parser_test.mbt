@@ -48,7 +48,11 @@ test "text open bytes fails closed on invalid utf8" {
   let ok_report = @text.inspect_text_document(ok)
   assert_true(ok_report.byte_count == Some(6))
 
-  let bad_result = try? @text.open_text_document(Bytes::from_array([195, 40]))
+  let bad_result = try
+    @text.open_text_document(Bytes::from_array([195, 40])) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_result is Err(_))
 
   let info = @text.classify_text_error(

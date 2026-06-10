@@ -96,7 +96,13 @@ fn read_picture_media_ref(
           let data = if !is_external &&
             !unsupported &&
             @ox.has_part(ctx.pkg, rel.resolved_target) {
-            read_media_bytes_with_budget(ctx, part_name, source_key, id, rel.resolved_target)
+            read_media_bytes_with_budget(
+              ctx,
+              part_name,
+              source_key,
+              id,
+              rel.resolved_target,
+            )
           } else {
             None
           }

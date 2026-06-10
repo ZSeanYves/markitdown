@@ -225,11 +225,7 @@ fn docx_custom_properties_from_ooxml(
 ) -> Array[DocxCustomProperty] {
   let out : Array[DocxCustomProperty] = []
   for prop in props {
-    out.push({
-      name: prop.name,
-      value: prop.value,
-      value_type: prop.value_type,
-    })
+    out.push({ name: prop.name, value: prop.value, value_type: prop.value_type })
   }
   out
 }
@@ -3287,7 +3283,8 @@ fn docx_media_ref_from_relationship_ref(
 
   match relationship_id {
     Some(rid) =>
-      match find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
+      match
+        find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
         Some(rel) => {
           target = Some(rel.target)
           resolved_target = Some(rel.resolved_target)
@@ -3565,7 +3562,8 @@ fn parse_docx_hyperlink(
   let mut target_mode : DocxTargetMode? = None
   match relationship_id {
     Some(rid) =>
-      match find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
+      match
+        find_docx_relationship_by_id(relationships, key.part_name, rid, pkg) {
         Some(rel) => {
           target = Some(
             docx_hyperlink_resolved_target(rel.resolved_target, anchor),
@@ -3633,9 +3631,9 @@ fn find_docx_relationship_by_id(
 ) -> @ox.OoxmlRelationship? {
   match pkg {
     Some(p) => {
-      let indexed = @ox.find_relationship_by_id(
-        p, source_part, relationship_id,
-      ) catch { _ => None }
+      let indexed = @ox.find_relationship_by_id(p, source_part, relationship_id) catch {
+        _ => None
+      }
       match indexed {
         Some(rel) => return Some(rel)
         None => ()

@@ -111,19 +111,24 @@ test "decrypt returns unchanged values when already_decrypted is set" {
 test "decrypt raises when AESV3 key is missing" {
   let pdf = @pdf.Pdf::empty()
   let ct = @pdfcryptprimitives.Encryption::AESV3(false)
-  let res : Result[@pdf.PdfObject, Error] = try? decrypt(
-    ct,
-    pdf,
-    false,
-    false,
-    1,
-    0,
-    [1],
-    256,
-    5,
-    None,
-    @pdf.PdfObject::String("x"),
-  )
+  let res : Result[@pdf.PdfObject, Error] = try
+    decrypt(
+      ct,
+      pdf,
+      false,
+      false,
+      1,
+      0,
+      [1],
+      256,
+      5,
+      None,
+      @pdf.PdfObject::String("x"),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
   let stream_ref = Ref(
     (
@@ -132,20 +137,25 @@ test "decrypt raises when AESV3 key is missing" {
     ),
   )
   let stream_obj = @pdf.PdfObject::Stream(stream_ref)
-  let res2 : Result[@pdf.PdfObject, Error] = try? decrypt_stream(
-    v => v,
-    ct,
-    pdf,
-    false,
-    false,
-    1,
-    0,
-    [1],
-    256,
-    5,
-    None,
-    stream_obj,
-  )
+  let res2 : Result[@pdf.PdfObject, Error] = try
+    decrypt_stream(
+      v => v,
+      ct,
+      pdf,
+      false,
+      false,
+      1,
+      0,
+      [1],
+      256,
+      5,
+      None,
+      stream_obj,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res2 is Err(_))
 }
 
@@ -220,20 +230,28 @@ test "aesv3 helpers cover iso branch and length errors" {
   }
 
   // Length error branches.
-  let short_owner_res : Result[@pdfio.MutableBytes, Error] = try? file_encryption_key_aesv3(
-    true, pw, "short", oe, u48,
-  )
+  let short_owner_res : Result[@pdfio.MutableBytes, Error] = try
+    file_encryption_key_aesv3(true, pw, "short", oe, u48) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(short_owner_res is Err(_))
-  let short_user_res : Result[@pdfio.MutableBytes, Error] = try? file_encryption_key_aesv3_user(
-    true, pw, "short", ue,
-  )
+  let short_user_res : Result[@pdfio.MutableBytes, Error] = try
+    file_encryption_key_aesv3_user(true, pw, "short", ue) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(short_user_res is Err(_))
-  let short_auth_owner_res : Result[Bool, Error] = try? authenticate_owner_password_aesv3(
-    true, pw, u48, "short",
-  )
+  let short_auth_owner_res : Result[Bool, Error] = try
+    authenticate_owner_password_aesv3(true, pw, u48, "short") |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(short_auth_owner_res is Err(_))
-  let short_auth_user_res : Result[Bool, Error] = try? authenticate_user_password_aesv3(
-    true, pw, "short",
-  )
+  let short_auth_user_res : Result[Bool, Error] = try
+    authenticate_user_password_aesv3(true, pw, "short") |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(short_auth_user_res is Err(_))
 }

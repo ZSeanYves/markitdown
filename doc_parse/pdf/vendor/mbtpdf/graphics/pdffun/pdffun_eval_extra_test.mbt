@@ -13,7 +13,11 @@ fn eval_calc_inputs(
 
 ///|
 fn assert_calc_err(ops : Array[Calculator]) -> Unit raise {
-  let res : Result[Array[Double], Error] = try? calc_fun(ops).eval([0.0])
+  let res : Result[Array[Double], Error] = try
+    calc_fun(ops).eval([0.0]) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -68,14 +72,22 @@ test "parse_function rejects bad bits per sample" {
     ("/Size", Array([Integer(1)])),
     ("/BitsPerSample", Name(@pdf.PdfName::of_string("/Bad"))),
   ])
-  let res : Result[PdfFunction, Error] = try? PdfFunction::parse(pdf, dict)
+  let res : Result[PdfFunction, Error] = try
+    PdfFunction::parse(pdf, dict) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "calculator bool output errors" {
   let ops = [Calculator::Float(1.0), Calculator::Float(1.0), Calculator::Eq]
-  let res : Result[Array[Double], Error] = try? calc_fun(ops).eval([0.0])
+  let res : Result[Array[Double], Error] = try
+    calc_fun(ops).eval([0.0]) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -260,9 +272,17 @@ test "stitching bad arity and NaN input" {
     domain: [0.0, 1.0],
     range: Some([0.0, 1.0]),
   }
-  let res_bad : Result[Array[Double], Error] = try? fun.eval([0.1, 0.2])
+  let res_bad : Result[Array[Double], Error] = try
+    fun.eval([0.1, 0.2]) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res_bad is Err(_))
-  let res_nan : Result[Array[Double], Error] = try? fun.eval([0.0 / 0.0])
+  let res_nan : Result[Array[Double], Error] = try
+    fun.eval([0.0 / 0.0]) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res_nan is Err(_))
 }
 

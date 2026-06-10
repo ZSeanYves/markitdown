@@ -334,7 +334,11 @@ fn remove_dir_recursive(path : String) -> Unit raise {
 
 ///|
 fn recreate_clean_dir(path : String) -> Unit raise {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
   ensure_dir_tree(path)
 }
 

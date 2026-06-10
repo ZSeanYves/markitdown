@@ -44,14 +44,19 @@ test "decrypt_single_stream AESV3 errors when no password supplied" {
     base,
   )
   let (objnum, gen, stream) = first_stream(enc)
-  let res : Result[@pdf.PdfObject, Error] = try? @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
-    None,
-    None,
-    enc,
-    objnum,
-    gen,
-    stream,
-  )
+  let res : Result[@pdf.PdfObject, Error] = try
+    @pdfcrypt.PdfCrypt::new().decrypt_single_stream(
+      None,
+      None,
+      enc,
+      objnum,
+      gen,
+      stream,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -96,9 +101,11 @@ test "decrypt_pdf AESV3 errors when /OE missing" {
   let enc_num = encrypt_objnum(enc)
   let enc_dict = enc.lookup_obj(enc_num).remove_entry("/OE")
   enc.addobj_given_num((enc_num, enc_dict))
-  let res : Result[(@pdf.Pdf?, Array[Permission]), Error] = try? @pdfcrypt.PdfCrypt::new().decrypt_pdf(
-    "user", enc,
-  )
+  let res : Result[(@pdf.Pdf?, Array[Permission]), Error] = try
+    @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -115,19 +122,21 @@ test "decrypt_pdf AESV3 errors when /Perms and /P mismatch" {
   let enc_num = encrypt_objnum(enc)
   let enc_dict = enc.lookup_obj(enc_num).replace_entry("/P", Integer(123456))
   enc.addobj_given_num((enc_num, enc_dict))
-  let res : Result[(@pdf.Pdf?, Array[Permission]), Error] = try? @pdfcrypt.PdfCrypt::new().decrypt_pdf(
-    "user", enc,
-  )
+  let res : Result[(@pdf.Pdf?, Array[Permission]), Error] = try
+    @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "recrypt_pdf errors on unencrypted pdf" {
   let pdf = @pdfpage.PdfPageDoc::minimum_valid()
-  let res : Result[@pdf.Pdf, Error] = try? @pdfcrypt.PdfCrypt::new().recrypt_pdf(
-    pdf,
-    "pw",
-    renumber=false,
-  )
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfcrypt.PdfCrypt::new().recrypt_pdf(pdf, "pw", renumber=false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

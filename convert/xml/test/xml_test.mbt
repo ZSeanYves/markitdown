@@ -108,7 +108,11 @@ fn remove_dir_recursive(path : String) -> Unit raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|

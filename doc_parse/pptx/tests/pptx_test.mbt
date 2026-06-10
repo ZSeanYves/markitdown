@@ -794,7 +794,10 @@ fn repeated_image_relationships(count : Int) -> String {
 }
 
 ///|
-fn media_ref_stress_pkg(slide_count : Int, pictures_per_slide : Int) -> @ox.OoxmlPackage raise {
+fn media_ref_stress_pkg(
+  slide_count : Int,
+  pictures_per_slide : Int,
+) -> @ox.OoxmlPackage raise {
   let entries : Array[(String, String)] = [
     ("[Content_Types].xml", content_types("")),
     (
@@ -823,25 +826,30 @@ fn media_ref_stress_pkg(slide_count : Int, pictures_per_slide : Int) -> @ox.Ooxm
       n.to_string() +
       ".xml\"/>",
     )
-    entries.push((
-      "ppt/slides/slide" + n.to_string() + ".xml",
-      simple_slide(repeated_picture_shapes(pictures_per_slide, n * 1000)),
-    ))
-    entries.push((
-      "ppt/slides/_rels/slide" + n.to_string() + ".xml.rels",
-      rels(repeated_image_relationships(pictures_per_slide)),
-    ))
+    entries.push(
+      (
+        "ppt/slides/slide" + n.to_string() + ".xml",
+        simple_slide(repeated_picture_shapes(pictures_per_slide, n * 1000)),
+      ),
+    )
+    entries.push(
+      (
+        "ppt/slides/_rels/slide" + n.to_string() + ".xml.rels",
+        rels(repeated_image_relationships(pictures_per_slide)),
+      ),
+    )
   }
-  entries.push((
-    "ppt/presentation.xml",
-    "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst>" +
-    slide_refs.join("") +
-    "</p:sldIdLst></p:presentation>",
-  ))
-  entries.push((
-    "ppt/_rels/presentation.xml.rels",
-    rels(presentation_rels.join("")),
-  ))
+  entries.push(
+    (
+      "ppt/presentation.xml",
+      "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst>" +
+      slide_refs.join("") +
+      "</p:sldIdLst></p:presentation>",
+    ),
+  )
+  entries.push(
+    ("ppt/_rels/presentation.xml.rels", rels(presentation_rels.join(""))),
+  )
   build_store_zip(entries) |> @ox.open_ooxml_package
 }
 
@@ -916,8 +924,7 @@ test "pptx A image caption pairs preserve image metadata" {
 test "pptx parser bounds oversized media bytes" {
   let slide = simple_slide(
     picture_shape(
-      2, "Large Image", "rIdImg", 100000, 100000, 1000000, 800000, "Large",
-      "Large",
+      2, "Large Image", "rIdImg", 100000, 100000, 1000000, 800000, "Large", "Large",
     ),
   )
   let doc = @pptx.parse_pptx_document_from_package(
@@ -951,10 +958,7 @@ test "pptx parser bounds deck media references without loading extra bytes" {
   for media in doc.media {
     match media.data {
       Some(_) => loaded_bytes_refs += 1
-      None =>
-        if media.unsupported {
-          budgeted_refs += 1
-        }
+      None => if media.unsupported { budgeted_refs += 1 }
     }
   }
   assert_true(loaded_bytes_refs <= 5000)
@@ -971,8 +975,7 @@ test "pptx parser bounds deck media references without loading extra bytes" {
 
 ///|
 test "pptx parser bounds table grid span expansion facts" {
-  let table_xml =
-    "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
+  let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
   let doc = @pptx.parse_pptx_document_from_package(
     one_slide_pkg(simple_slide(table_xml), "", "", []),
   )

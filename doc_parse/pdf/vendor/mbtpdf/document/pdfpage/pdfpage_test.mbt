@@ -26,7 +26,11 @@ test "pages_of_pagetree_quick detects cycle" {
   ])
   pdf0.addobj_given_num((1, pages))
   let pdf = PdfPageDoc::new(pdf0).add_root(1, [])
-  let res : Result[Int, Error] = try? PdfPageDoc::new(pdf).pages_of_pagetree_quick()
+  let res : Result[Int, Error] = try
+    PdfPageDoc::new(pdf).pages_of_pagetree_quick() |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected cycle detection")

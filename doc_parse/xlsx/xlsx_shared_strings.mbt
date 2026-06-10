@@ -59,9 +59,7 @@ fn parse_shared_strings(
             }
 
             if acc.length() > xlsx_max_shared_string_chars_per_item() {
-              acc = acc[
-                :xlsx_max_shared_string_chars_per_item()
-              ].to_owned()
+              acc = acc[:xlsx_max_shared_string_chars_per_item()].to_owned()
               if !item_truncated {
                 issues.push(
                   workbook_issue(

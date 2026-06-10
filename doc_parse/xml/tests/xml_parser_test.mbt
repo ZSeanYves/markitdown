@@ -45,7 +45,9 @@ test "xml predefined entities decode and unknown entities fail closed" {
     _ => fail("expected text node")
   }
 
-  let err = try? @xml.parse_xml_document("<root>&copy;</root>")
+  let err = try @xml.parse_xml_document("<root>&copy;</root>") |> Ok catch {
+    e => Err(e)
+  }
   assert_true(err is Err(_))
   match err {
     Err(_) => ()
@@ -91,7 +93,12 @@ test "xml parser rejects malformed syntax and classifies" {
 
   for i in 0..<bad_cases.length() {
     let (source, expected_kind) = bad_cases[i]
-    assert_true((try? @xml.parse_xml_document(source)) is Err(_))
+    assert_true(
+      (try @xml.parse_xml_document(source) |> Ok catch {
+        e => Err(e)
+      })
+      is Err(_),
+    )
     let info = match expected_kind {
       @xml.XmlErrorKind::MismatchedTag =>
         @xml.classify_xml_error(
@@ -164,8 +171,18 @@ test "xml stable facade and inspect surface smoke" {
 
 ///|
 test "xml multiple root elements and empty document stay fail-closed" {
-  assert_true((try? @xml.parse_xml_document("<a/><b/>")) is Err(_))
-  assert_true((try? @xml.parse_xml_document("")) is Err(_))
+  assert_true(
+    (try @xml.parse_xml_document("<a/><b/>") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @xml.parse_xml_document("") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let multiple = @xml.classify_xml_error(
     @xml.XmlError::ParseError("multiple root elements"),

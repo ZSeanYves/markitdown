@@ -252,8 +252,7 @@ pub fn parse_html(
   html_profile_mark_parser_analysis_used(profile)
   let semantic_doc = @dphtml.collect_html_semantic_document(parser_doc)
   let semantic_profile_counters = count_html_semantic_profile_counters(
-    parser_doc,
-    semantic_doc,
+    parser_doc, semantic_doc,
   )
   html_profile_set_semantic_fact_counters(
     profile,
@@ -542,7 +541,9 @@ pub fn summarize_html_parser_validation(
 pub fn collect_html_parser_issue_summary_from_text(
   text : String,
 ) -> HtmlParserIssueSummary? {
-  let parsed = try? @dphtml.parse_html_document(text)
+  let parsed = try @dphtml.parse_html_document(text) |> Ok catch {
+    e => Err(e)
+  }
   match parsed {
     Ok(doc) =>
       Some(
@@ -556,7 +557,9 @@ pub fn collect_html_parser_issue_summary_from_text(
 pub fn collect_html_semantic_block_summary_from_text(
   text : String,
 ) -> HtmlSemanticBlockSummary? {
-  let parsed = try? @dphtml.parse_html_document(text)
+  let parsed = try @dphtml.parse_html_document(text) |> Ok catch {
+    e => Err(e)
+  }
   match parsed {
     Ok(doc) =>
       Some(

@@ -68,9 +68,14 @@ test "malformed pdf honors error_on_malformed" {
     #|<< /Type /Pages /Count 0 /Kids [] >>
     #|endobj
     #|%%EOF
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      reader.pdf_of_input(None, None, @pdfio.Input::of_string(data))
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -109,8 +114,13 @@ test "revision -1 returns revisions error" {
     e => fail("read fixture failed: " + e.to_string())
   }
   let input = @pdfio.Input::of_bytes(bytes.to_array(), source=path)
-  let res : Result[@pdf.Pdf, Error] = try? @pdfe.with_silenced_logs(fn() raise {
-    PdfRead::new(logger=_ => ()).pdf_of_input(revision=-1, None, None, input)
-  })
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfe.with_silenced_logs(fn() raise {
+      PdfRead::new(logger=_ => ()).pdf_of_input(revision=-1, None, None, input)
+    })
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

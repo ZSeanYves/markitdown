@@ -180,7 +180,9 @@ test "renumber_parent_trees with empty parents" {
   let pdf1 = build_two_page_pdf()
   let pdf2 = build_two_page_pdf()
   debug_inspect(
-    try? PdfStructTrees::new([pdf1, pdf2]).renumber_parent_trees(),
+    try PdfStructTrees::new([pdf1, pdf2]).renumber_parent_trees() |> Ok catch {
+      e => Err(e)
+    },
     content="Ok(())",
   )
 }

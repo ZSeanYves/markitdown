@@ -206,7 +206,9 @@ fn decode_delimited_text(
   bytes : Bytes,
   format : DelimitedFormat,
 ) -> String raise {
-  let utf8_result = try? decode_delimited_utf8_text(bytes)
+  let utf8_result = try decode_delimited_utf8_text(bytes) |> Ok catch {
+    e => Err(e)
+  }
   match utf8_result {
     Ok(text) => text
     Err(_) =>

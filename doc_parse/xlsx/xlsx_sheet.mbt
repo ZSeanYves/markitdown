@@ -30,10 +30,7 @@ fn parse_sheet_model(
 ) -> XlsxSheetModel {
   let collect_started = xlsx_parse_profile_stage_started(profile)
   let (parsed_cells, cell_budget_issues) = collect_sheet_cells(
-    sheet_name,
-    part_target,
-    sheet_xml,
-    total_cell_budget_remaining,
+    sheet_name, part_target, sheet_xml, total_cell_budget_remaining,
   )
   xlsx_parse_profile_stage_finished(
     profile,
@@ -460,7 +457,9 @@ fn xlsx_non_empty_cell_count(cells : Array[XlsxCellModel]) -> Int {
 }
 
 ///|
-fn truncate_comments_for_sheet(comments : Array[XlsxComment]) -> Array[XlsxComment] {
+fn truncate_comments_for_sheet(
+  comments : Array[XlsxComment],
+) -> Array[XlsxComment] {
   if comments.length() <= xlsx_max_comments() {
     return comments
   }
@@ -487,8 +486,7 @@ fn truncated_comments_issues(
       sheet_name,
       None,
       part_target,
-      "comments truncated at hard cap: " +
-      xlsx_max_comments().to_string(),
+      "comments truncated at hard cap: " + xlsx_max_comments().to_string(),
     ),
   ]
 }

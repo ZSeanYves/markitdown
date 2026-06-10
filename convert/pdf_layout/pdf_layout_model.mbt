@@ -46,7 +46,9 @@ pub struct PdfLayoutModel {
 pub fn parse_pdf_layout_model_json(
   text : String,
 ) -> Result[PdfLayoutModel, PdfLayoutModelError] {
-  let doc = try? @dpjson.parse_json_document(text)
+  let doc = try @dpjson.parse_json_document(text) |> Ok catch {
+    e => Err(e)
+  }
   match doc {
     Err(err) =>
       Err({

@@ -894,7 +894,9 @@ test "ooxml package rejects unsafe relationship target path" {
     e => fail("open_ooxml_package failed: " + e.to_string())
   }
   let result = ok_or_err_unit(
-    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+    try @ox.read_part_relationships(pkg, "word/document.xml") |> Ok catch {
+      e => Err(e)
+    },
   )
   let info = expect_error_info(
     result,
@@ -1007,7 +1009,11 @@ test "ooxml package can find part info and missing part info" {
 ///|
 test "ooxml package missing part read is classified" {
   let pkg = open_sample_package("samples/main_process/docx/golden.docx")
-  let result = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "word/missing.xml"))
+  let result = ok_or_err_unit(
+    try @ox.read_part_bytes(pkg, "word/missing.xml") |> Ok catch {
+      e => Err(e)
+    },
+  )
   let info = expect_error_info(result, @ox.OoxmlErrorKind::MissingPart)
   match info.part_name {
     Some(path) => assert_eq(path, "word/missing.xml")
@@ -1027,7 +1033,11 @@ test "ooxml package malformed content types is classified" {
     ),
     ("word/document.xml", "<doc/>"),
   ])
-  let result = ok_or_err_unit(try? @ox.open_ooxml_package(bytes))
+  let result = ok_or_err_unit(
+    try @ox.open_ooxml_package(bytes) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let info = expect_error_info(
     result,
     @ox.OoxmlErrorKind::MalformedContentTypes,
@@ -1060,7 +1070,9 @@ test "ooxml package malformed relationships is classified" {
     e => fail("open_ooxml_package failed: " + e.to_string())
   }
   let result = ok_or_err_unit(
-    try? @ox.read_part_relationships(pkg, "word/document.xml"),
+    try @ox.read_part_relationships(pkg, "word/document.xml") |> Ok catch {
+      e => Err(e)
+    },
   )
   let info = expect_error_info(
     result,
@@ -1164,7 +1176,11 @@ test "ooxml strict validation reports unsafe relationship target" {
 ///|
 test "ooxml package classifies rooted and parent traversal part paths" {
   let pkg = open_sample_package("samples/main_process/docx/golden.docx")
-  let rooted = ok_or_err_unit(try? @ox.read_part_bytes(pkg, "/../evil.xml"))
+  let rooted = ok_or_err_unit(
+    try @ox.read_part_bytes(pkg, "/../evil.xml") |> Ok catch {
+      e => Err(e)
+    },
+  )
   let rooted_info = expect_error_info(
     rooted,
     @ox.OoxmlErrorKind::UnsafePartName,
@@ -1237,7 +1253,9 @@ test "ooxml package rejects duplicate normalized part names" {
     ("word/./document.xml", "<doc/>"),
   ])
 
-  let result = try? @ox.open_ooxml_package(bytes)
+  let result = try @ox.open_ooxml_package(bytes) |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected normalized part collision to fail closed")
     Err(e) =>
@@ -1280,7 +1298,9 @@ test "ooxml package rejects duplicate content type override after normalization"
     ("word/document.xml", "<doc/>"),
   ])
 
-  let result = try? @ox.open_ooxml_package(bytes)
+  let result = try @ox.open_ooxml_package(bytes) |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected duplicate normalized content type override to fail")
     Err(e) => {
@@ -1455,7 +1475,11 @@ test "ooxml package missing relationship target stays not found" {
   let pkg = @ox.open_ooxml_package(bytes) catch {
     e => fail("open_ooxml_package failed: " + e.to_string())
   }
-  let result = ok_or_err_unit(try? @ox.resolve_relationship(pkg, "", "rId404"))
+  let result = ok_or_err_unit(
+    try @ox.resolve_relationship(pkg, "", "rId404") |> Ok catch {
+      e => Err(e)
+    },
+  )
   let info = expect_error_info(result, @ox.OoxmlErrorKind::RelationshipNotFound)
   match info.rel_id {
     Some(v) => assert_eq(v, "rId404")

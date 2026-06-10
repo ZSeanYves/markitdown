@@ -127,19 +127,25 @@ test "charcode extractor uses tounicode bytes map" {
 ///|
 test "codepoints_of_utf16be rejects invalid surrogate pairs" {
   let missing_low = @pdfio.string_of_int_array([0xd8, 0x00])
-  let missing_result : Result[Array[Int], Error] = try? PdfTextUtil::new().codepoints_of_utf16be(
-    missing_low,
-  )
+  let missing_result : Result[Array[Int], Error] = try
+    PdfTextUtil::new().codepoints_of_utf16be(missing_low) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(missing_result is Err(_))
   let bad_low = @pdfio.string_of_int_array([0xd8, 0x00, 0x00, 0x41])
-  let bad_low_result : Result[Array[Int], Error] = try? PdfTextUtil::new().codepoints_of_utf16be(
-    bad_low,
-  )
+  let bad_low_result : Result[Array[Int], Error] = try
+    PdfTextUtil::new().codepoints_of_utf16be(bad_low) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_low_result is Err(_))
   let low_only = @pdfio.string_of_int_array([0xdc, 0x00, 0x00, 0x41])
-  let low_only_result : Result[Array[Int], Error] = try? PdfTextUtil::new().codepoints_of_utf16be(
-    low_only,
-  )
+  let low_only_result : Result[Array[Int], Error] = try
+    PdfTextUtil::new().codepoints_of_utf16be(low_only) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(low_only_result is Err(_))
 }
 
@@ -173,9 +179,11 @@ test "pdfdocencoding rejects missing glyph mappings" {
   }
   match missing {
     Some(code) => {
-      let res : Result[Int, Error] = try? PdfTextUtil::new().codepoint_of_pdfdocencoding_character(
-        code,
-      )
+      let res : Result[Int, Error] = try
+        PdfTextUtil::new().codepoint_of_pdfdocencoding_character(code) |> Ok
+      catch {
+        e => Err(e)
+      }
       assert_true(res is Err(_))
     }
     None => {
@@ -186,9 +194,11 @@ test "pdfdocencoding rejects missing glyph mappings" {
         Some(name) => @pdfglyphlist.reverse_name_to_pdf_hashes.set(code, name)
         None => @pdfglyphlist.reverse_name_to_pdf_hashes.remove(code)
       })
-      let res : Result[Int, Error] = try? PdfTextUtil::new().codepoint_of_pdfdocencoding_character(
-        code,
-      )
+      let res : Result[Int, Error] = try
+        PdfTextUtil::new().codepoint_of_pdfdocencoding_character(code) |> Ok
+      catch {
+        e => Err(e)
+      }
       assert_true(res is Err(_))
     }
   }

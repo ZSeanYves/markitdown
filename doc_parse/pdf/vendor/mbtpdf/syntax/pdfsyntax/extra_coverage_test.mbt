@@ -27,18 +27,31 @@ test "input utils handle EOF and rewind paths" {
     _ => fail("expected rewind")
   }
   assert_is_err(
-    try? syn.getuntil_string(
-      false,
-      _ => false,
-      @pdfio.Input::of_string("abc", source="eof-string"),
-    ),
+    try
+      syn.getuntil_string(
+        false,
+        _ => false,
+        @pdfio.Input::of_string("abc", source="eof-string"),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   let eof_fail = @pdfio.Input::of_string("", source="eof")
-  assert_is_err(try? syn.ignoreuntil(false, _ => true, eof_fail))
+  assert_is_err(
+    try syn.ignoreuntil(false, _ => true, eof_fail) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let line = syn.input_line(@pdfio.Input::of_string("", source="line"))
   assert_eq(line, "")
   assert_is_err(
-    try? syn.backline(@pdfio.Input::of_string("", source="backline")),
+    try
+      syn.backline(@pdfio.Input::of_string("", source="backline")) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -48,7 +61,11 @@ test "lexer covers name, number, string, and chunk error paths" {
 
   // Bad name hex escape.
   assert_is_err(
-    try? syn.lex_name(@pdfio.Input::of_string("/Name#GG", source="name")),
+    try
+      syn.lex_name(@pdfio.Input::of_string("/Name#GG", source="name")) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 
   // Number parsing fallbacks.
@@ -71,12 +88,20 @@ test "lexer covers name, number, string, and chunk error paths" {
 
   // lex_string expects '('.
   assert_is_err(
-    try? syn.lex_string(@pdfio.Input::of_string("abc", source="string")),
+    try
+      syn.lex_string(@pdfio.Input::of_string("abc", source="string")) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 
   // lex_string escape unexpected EOF.
   assert_is_err(
-    try? syn.lex_string(@pdfio.Input::of_string("(\\", source="eof-string")),
+    try
+      syn.lex_string(@pdfio.Input::of_string("(\\", source="eof-string")) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 
   // lex_string CR escape path with rewind.
@@ -97,7 +122,11 @@ test "lexer covers name, number, string, and chunk error paths" {
 
   // read_chunk failure rewinds and raises.
   assert_is_err(
-    try? syn.read_chunk(5, @pdfio.Input::of_string("abc", source="chunk")),
+    try
+      syn.read_chunk(5, @pdfio.Input::of_string("abc", source="chunk")) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -142,12 +171,17 @@ test "lex_keyword covers R and unknown keywords" {
 ///|
 test "lex_stream errors when previous lexemes are not a dictionary" {
   let syn = @pdfsyntax.PdfSyntax::new()
-  let res : Result[@pdfgenlex.Token, Error] = try? syn.lex_stream(
-    @pdfio.Input::of_string("stream\nabc", source="stream-bad"),
-    [@pdfgenlex.Token::LexInt(1)],
-    _k => [],
-    false,
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    syn.lex_stream(
+      @pdfio.Input::of_string("stream\nabc", source="stream-bad"),
+      [@pdfgenlex.Token::LexInt(1)],
+      _k => [],
+      false,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_is_err(res)
 }
 

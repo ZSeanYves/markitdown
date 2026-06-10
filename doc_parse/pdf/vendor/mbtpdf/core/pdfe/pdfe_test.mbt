@@ -43,13 +43,15 @@ test "with_logger restores previous logger on error" {
   let outer_messages : Array[String] = []
   let inner_messages : Array[String] = []
   @pdfe.with_logger(fn(message) { outer_messages.push(message) }, () => {
-    let res : Result[Unit, Error] = try? @pdfe.with_logger(
-      fn(message) { inner_messages.push(message) },
-      () => {
+    let res : Result[Unit, Error] = try
+      @pdfe.with_logger(fn(message) { inner_messages.push(message) }, () => {
         @pdfe.log("inner")
         fail("boom")
-      },
-    )
+      })
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
     @pdfe.log("outer")
     ()

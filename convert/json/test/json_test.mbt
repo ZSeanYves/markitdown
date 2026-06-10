@@ -110,7 +110,11 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -295,7 +299,9 @@ test "json malformed input fails closed" {
 
   let malformed = out_dir + "/json_malformed.json"
   write_utf8_text(malformed, "{\"a\":1,}\n")
-  let result = try? @json.parse_json(malformed, "", 6)
+  let result = try @json.parse_json(malformed, "", 6) |> Ok catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -357,7 +363,12 @@ test "json number grammar stays strict and complete" {
     let entry = invalid_cases[i]
     let path = out_dir + "/" + entry.0
     write_utf8_text(path, entry.1)
-    assert_true((try? @json.parse_json(path, "", 6)) is Err(_))
+    assert_true(
+      (try @json.parse_json(path, "", 6) |> Ok catch {
+        e => Err(e)
+      })
+      is Err(_),
+    )
   }
 }
 
@@ -424,6 +435,11 @@ test "json invalid escapes and control characters fail closed" {
     let entry = invalid_cases[i]
     let path = out_dir + "/" + entry.0
     write_utf8_text(path, entry.1)
-    assert_true((try? @json.parse_json(path, "", 6)) is Err(_))
+    assert_true(
+      (try @json.parse_json(path, "", 6) |> Ok catch {
+        e => Err(e)
+      })
+      is Err(_),
+    )
   }
 }

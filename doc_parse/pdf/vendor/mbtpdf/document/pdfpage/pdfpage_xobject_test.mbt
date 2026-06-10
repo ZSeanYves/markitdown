@@ -112,7 +112,11 @@ test "process_xobjects errors when xobject subtype missing" {
   ) -> Array[@pdf.PdfObject] {
     []
   }
-  let res : Result[Unit, Error] = try? page.process_xobjects(pdf, update)
+  let res : Result[Unit, Error] = try
+    page.process_xobjects(pdf, update) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -179,6 +183,10 @@ test "process_xobjects errors on non-indirect xobject references" {
   ) -> Array[@pdf.PdfObject] {
     []
   }
-  let res : Result[Unit, Error] = try? page.process_xobjects(pdf, update)
+  let res : Result[Unit, Error] = try
+    page.process_xobjects(pdf, update) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

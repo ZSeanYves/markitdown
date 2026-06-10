@@ -200,9 +200,13 @@ fn build_malformed_xref_stream_pdf() -> Array[Byte] raise {
 async test "extract raw document keeps malformed xref repair logs out of adapter output" {
   let corrupted = build_malformed_xref_stream_pdf()
   let out_dir = ".tmp/doc_parse_pdf_raw"
-  let _ = try? @fs.mkdir(out_dir, permission=0o755, recursive=true)
+  let _ = try @fs.mkdir(out_dir, permission=0o755, recursive=true) |> Ok catch {
+    e => Err(e)
+  }
   let path = out_dir + "/minimal_bad_xref_stream_offset.pdf"
-  let _ = try? @fs.remove(path)
+  let _ = try @fs.remove(path) |> Ok catch {
+    e => Err(e)
+  }
   @fs.write_file(
     path,
     Bytes::from_array(corrupted),
@@ -222,11 +226,15 @@ async test "extract raw document keeps malformed xref repair logs out of adapter
       Ok(doc) => assert_true(doc.page_count > 0)
       Err(err) => fail("extraction failed: " + err.to_string())
     }
-    let _ = try? @fs.remove(path)
+    let _ = try @fs.remove(path) |> Ok catch {
+      e => Err(e)
+    }
     @pdfe.logger.val = prev_logger
   } catch {
     err => {
-      let _ = try? @fs.remove(path)
+      let _ = try @fs.remove(path) |> Ok catch {
+        e => Err(e)
+      }
       @pdfe.logger.val = prev_logger
       raise err
     }

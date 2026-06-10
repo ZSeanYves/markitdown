@@ -115,7 +115,11 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -269,27 +273,44 @@ test "yaml nested mapping and quoted strings stay deterministic" {
 
 ///|
 test "yaml unsupported features fail closed" {
-  let anchors_result = try? @yaml.parse_yaml(
-    resolve_sample_path(
-      "samples/main_process/yaml/yaml_anchors_aliases_current_behavior.key",
-    ),
-    "",
-    6,
-  )
+  let anchors_result = try
+    @yaml.parse_yaml(
+      resolve_sample_path(
+        "samples/main_process/yaml/yaml_anchors_aliases_current_behavior.key",
+      ),
+      "",
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(anchors_result is Err(_))
 
-  let document_result = try? @yaml.parse_yaml(
-    resolve_sample_path("samples/main_process/yaml/yaml_document_separator.key"),
-    "",
-    6,
-  )
+  let document_result = try
+    @yaml.parse_yaml(
+      resolve_sample_path(
+        "samples/main_process/yaml/yaml_document_separator.key",
+      ),
+      "",
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(document_result is Err(_))
 
-  let multiline_result = try? @yaml.parse_yaml(
-    resolve_sample_path("samples/main_process/yaml/yaml_multiline_scalar.key"),
-    "",
-    6,
-  )
+  let multiline_result = try
+    @yaml.parse_yaml(
+      resolve_sample_path("samples/main_process/yaml/yaml_multiline_scalar.key"),
+      "",
+      6,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(multiline_result is Err(_))
 }
 
@@ -366,11 +387,21 @@ test "yaml real multi-document content stays unsupported" {
 
   let second_doc_path = out_dir + "/second-doc.yaml"
   write_utf8_text(second_doc_path, "---\na: 1\n---\nb: 2\n")
-  assert_true((try? @yaml.parse_yaml(second_doc_path, "", 6)) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml(second_doc_path, "", 6) |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let after_end_path = out_dir + "/after-end.yaml"
   write_utf8_text(after_end_path, "a: 1\n...\nb: 2\n")
-  assert_true((try? @yaml.parse_yaml(after_end_path, "", 6)) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml(after_end_path, "", 6) |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|
@@ -472,7 +503,12 @@ test "yaml unsupported subset features fail closed from direct cases" {
       let doc = @yaml.parse_yaml(path, "", 6)
       assert_eq(doc.blocks.val.length(), 0)
     } else {
-      assert_true((try? @yaml.parse_yaml(path, "", 6)) is Err(_))
+      assert_true(
+        (try @yaml.parse_yaml(path, "", 6) |> Ok catch {
+          e => Err(e)
+        })
+        is Err(_),
+      )
     }
   }
 }
@@ -505,7 +541,12 @@ test "yaml invalid utf8 fails closed" {
     e => fail("write sample failed: " + e.to_string())
   }
 
-  assert_true((try? @yaml.parse_yaml(path, "", 6)) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml(path, "", 6) |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|

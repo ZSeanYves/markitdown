@@ -31,19 +31,31 @@ test "lookup helpers and catalog" {
   let pdf = Pdf::empty()
   let dict = PdfObject::Dictionary([("/A", PdfObject::Integer(1))])
   assert_integer(pdf.lookup_fail("err", "/A", dict), 1)
-  assert_is_err(try? pdf.lookup_fail("err", "/B", dict))
+  assert_is_err(
+    try pdf.lookup_fail("err", "/B", dict) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let dict_indirect = PdfObject::Dictionary([("/A", PdfObject::Indirect(5))])
   assert_true(dict_indirect.find_indirect("/A") == Some(5))
   let dict_non_indirect = PdfObject::Dictionary([("/A", PdfObject::Integer(7))])
   assert_true(dict_non_indirect.find_indirect("/A") == None)
-  assert_is_err(try? PdfObject::Integer(1).find_indirect("/A"))
+  assert_is_err(
+    try PdfObject::Integer(1).find_indirect("/A") |> Ok catch {
+      e => Err(e)
+    },
+  )
   let catalog_pdf = make_basic_pdf()
   match catalog_pdf.catalog_of_pdf() {
     PdfObject::Dictionary(_) => ()
     _ => fail("expected catalog")
   }
   let missing = Pdf::empty()
-  assert_is_err(try? missing.catalog_of_pdf())
+  assert_is_err(
+    try missing.catalog_of_pdf() |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -147,5 +159,9 @@ test "references and renumbering" {
   }
   let bad = Pdf::empty()
   bad.trailerdict = PdfObject::Integer(1)
-  assert_is_err(try? bad.change_id("path-"))
+  assert_is_err(
+    try bad.change_id("path-") |> Ok catch {
+      e => Err(e)
+    },
+  )
 }

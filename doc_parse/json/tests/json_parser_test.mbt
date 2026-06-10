@@ -39,7 +39,12 @@ test "json parser normalizes bom and crlf" {
 
 ///|
 test "json malformed input fails closed and classifies" {
-  assert_true((try? @json.parse_json_document("{\"a\":1,}")) is Err(_))
+  assert_true(
+    (try @json.parse_json_document("{\"a\":1,}") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let info = @json.classify_json_error(
     @json.JsonError::ParseError("unexpected character"),
@@ -54,7 +59,12 @@ test "json parser handles number formats and trailing content errors" {
   )
   let report = @json.inspect_json_document(doc)
   assert_eq(report.member_count, 4)
-  assert_true((try? @json.parse_json_document("{\"a\":1} trailing")) is Err(_))
+  assert_true(
+    (try @json.parse_json_document("{\"a\":1} trailing") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let info = @json.classify_json_error(
     @json.JsonError::ParseError("trailing content"),

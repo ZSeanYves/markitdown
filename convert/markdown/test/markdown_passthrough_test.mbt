@@ -166,8 +166,8 @@ test "markdown convert consumes parser scanner block inventory for frontmatter a
   assert_eq(frontmatter_doc.blocks.val.length(), 3)
   match frontmatter_doc.block_origins.val[0] {
     Some(origin) => {
-      assert_eq(origin.line_start, Some(1))
-      assert_eq(origin.line_end, Some(5))
+      assert_true(origin.line_start == Some(1))
+      assert_true(origin.line_end == Some(5))
     }
     None => fail("expected frontmatter origin")
   }
@@ -181,8 +181,8 @@ test "markdown convert consumes parser scanner block inventory for frontmatter a
   assert_true(fence_doc.blocks.val[0] is @cor.Block::CodeBlock(_))
   match fence_doc.block_origins.val[0] {
     Some(origin) => {
-      assert_eq(origin.line_start, Some(1))
-      assert_eq(origin.line_end, Some(5))
+      assert_true(origin.line_start == Some(1))
+      assert_true(origin.line_end == Some(5))
     }
     None => fail("expected fenced code origin")
   }

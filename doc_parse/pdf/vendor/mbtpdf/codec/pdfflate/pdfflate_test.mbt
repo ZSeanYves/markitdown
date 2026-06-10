@@ -152,81 +152,99 @@ test "compress/uncompress roundtrip raw" {
 ///|
 test "uncompress rejects empty data" {
   let data : @pdfio.MutableBytes = []
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "unexpected end of input")
 }
 
 ///|
 test "uncompress rejects short zlib header" {
   let data : @pdfio.MutableBytes = [120]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, true,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, true) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "zlib header too short")
 }
 
 ///|
 test "uncompress rejects unsupported method" {
   let data : @pdfio.MutableBytes = [0, 0]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, true,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, true) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "unsupported compression method")
 }
 
 ///|
 test "uncompress rejects invalid header checksum" {
   let data : @pdfio.MutableBytes = [0x78, 0x00]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, true,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, true) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "invalid zlib header")
 }
 
 ///|
 test "uncompress rejects preset dictionary flag" {
   let data : @pdfio.MutableBytes = [0x78, 0x20]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, true,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, true) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "preset dictionary not supported")
 }
 
 ///|
 test "uncompress rejects invalid block type" {
   let data : @pdfio.MutableBytes = [0x07]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "invalid block type")
 }
 
 ///|
 test "uncompress rejects stored length mismatch" {
   let data : @pdfio.MutableBytes = [0x01, 0x01, 0x00, 0x00, 0x00]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "stored block length mismatch")
 }
 
 ///|
 test "uncompress rejects invalid literal/length symbol" {
   let data : @pdfio.MutableBytes = [0x1B, 0x03]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "invalid literal/length symbol")
 }
 
 ///|
 test "uncompress rejects invalid distance symbol" {
   let data : @pdfio.MutableBytes = [0x03, 0x3E]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "invalid distance symbol")
 }
 
@@ -234,9 +252,11 @@ test "uncompress rejects invalid distance symbol" {
 test "uncompress rejects distance beyond output" {
   // Starts with a (len=3, dist=1) copy with no prior output.
   let data : @pdfio.MutableBytes = [0x03, 0x02, 0x00]
-  let result : Result[@pdfio.MutableBytes, Error] = try? run_uncompress(
-    data, false,
-  )
+  let result : Result[@pdfio.MutableBytes, Error] = try
+    run_uncompress(data, false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_flate_error(result, "distance beyond output")
 }
 

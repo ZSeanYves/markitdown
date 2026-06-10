@@ -186,7 +186,11 @@ test "decrypt_pdf fails with short perms" {
     pdf,
   )
   update_perms(enc, "short")
-  let result = try? @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -202,6 +206,10 @@ test "decrypt_pdf fails with corrupted perms marker" {
   )
   let bad_perms = @pdfio.string_of_int_array(Array::make(16, 0))
   update_perms(enc, bad_perms)
-  let result = try? @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc)
+  let result = try
+    @pdfcrypt.PdfCrypt::new().decrypt_pdf("user", enc) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }

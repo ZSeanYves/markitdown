@@ -74,7 +74,11 @@ test "decompose and recompose translation" {
 ///|
 test "matrix_invert fails for zero scale" {
   let m = @pdftransform.TransformMatrix::scale((0.0, 0.0), 0.0, 1.0)
-  let res : Result[@pdftransform.TransformMatrix, Error] = try? m.invert()
+  let res : Result[@pdftransform.TransformMatrix, Error] = try
+    m.invert() |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected NonInvertable")
@@ -363,7 +367,11 @@ test "matrix_invert fails when determinant is NaN" {
     e: 0.0,
     f: 0.0,
   }
-  let res : Result[@pdftransform.TransformMatrix, Error] = try? m.invert()
+  let res : Result[@pdftransform.TransformMatrix, Error] = try
+    m.invert() |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected NonInvertable")

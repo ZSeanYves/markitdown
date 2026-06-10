@@ -44,17 +44,21 @@ test "lex_hexstring reads hex bytes" {
 
 ///|
 test "lex_name errors on truncated hex escape" {
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_name(
-    @pdfio.Input::of_string("/A#1"),
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_name(@pdfio.Input::of_string("/A#1")) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "lex_name errors on invalid hex escape" {
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_name(
-    @pdfio.Input::of_string("/A#GG"),
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_name(@pdfio.Input::of_string("/A#GG")) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -108,8 +112,11 @@ test "lex_hexstring handles odd nibble at EOF" {
 
 ///|
 test "lex_hexstring errors on invalid hex digit" {
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_hexstring(
-    @pdfio.Input::of_string("<GG>"),
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_hexstring(@pdfio.Input::of_string("<GG>"))
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

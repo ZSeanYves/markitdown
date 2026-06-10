@@ -348,7 +348,11 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 ///|
 /// defer 用的清理函数：吞掉删除错误，保证自己不 raise。
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|

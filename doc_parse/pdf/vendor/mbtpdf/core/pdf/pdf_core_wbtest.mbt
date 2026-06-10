@@ -66,16 +66,25 @@ test "dictionary helpers" {
       }
     _ => fail("expected stream")
   }
-  assert_is_err(try? PdfObject::Integer(1).remove_entry("/A"))
+  assert_is_err(
+    try PdfObject::Integer(1).remove_entry("/A") |> Ok catch {
+      e => Err(e)
+    },
+  )
   match PdfObject::Null.replace_entry("/A", PdfObject::Integer(1)) {
     PdfObject::Dictionary(entries) => assert_eq(entries.length(), 1)
     _ => fail("expected dictionary from null")
   }
   assert_is_err(
-    try? PdfObject::Dictionary([("/B", PdfObject::Integer(2))]).replace_entry(
-      "/A",
-      PdfObject::Integer(1),
-    ),
+    try
+      PdfObject::Dictionary([("/B", PdfObject::Integer(2))]).replace_entry(
+        "/A",
+        PdfObject::Integer(1),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   let stream_obj2 = make_stream(
     PdfObject::Dictionary([("/A", PdfObject::Integer(1))]),
@@ -94,7 +103,11 @@ test "dictionary helpers" {
     _ => fail("expected stream")
   }
   assert_is_err(
-    try? PdfObject::Integer(1).replace_entry("/A", PdfObject::Integer(2)),
+    try
+      PdfObject::Integer(1).replace_entry("/A", PdfObject::Integer(2)) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   match PdfObject::Null.add_entry("/A", PdfObject::Integer(1)) {
     PdfObject::Dictionary(entries) => assert_eq(entries.length(), 1)
@@ -126,7 +139,11 @@ test "dictionary helpers" {
     _ => fail("expected stream")
   }
   assert_is_err(
-    try? PdfObject::Integer(1).add_entry("/A", PdfObject::Integer(2)),
+    try
+      PdfObject::Integer(1).add_entry("/A", PdfObject::Integer(2)) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 
@@ -206,12 +223,24 @@ test "lookup and chains" {
   pdf2.replace_chain(["/A", "/[1]"][:], PdfObject::Integer(9))
   assert_some_integer(pdf2.lookup_chain(pdf2.trailerdict, ["/A", "/[1]"][:]), 9)
   assert_is_err(
-    try? pdf2.replace_chain(["/A", "/[5]"][:], PdfObject::Integer(3)),
+    try
+      pdf2.replace_chain(["/A", "/[5]"][:], PdfObject::Integer(3)) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   assert_is_err(
-    try? pdf2.replace_chain(["/A", "/[0]", "/B"][:], PdfObject::Integer(3)),
+    try
+      pdf2.replace_chain(["/A", "/[0]", "/B"][:], PdfObject::Integer(3)) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
-  assert_is_err(try? pdf2.replace_chain(["/[0]"][:], PdfObject::Integer(1)))
+  assert_is_err(
+    try pdf2.replace_chain(["/[0]"][:], PdfObject::Integer(1)) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let dict_chain = ["/X", "/Y"]
   pdf2.replace_chain(dict_chain[:], PdfObject::Integer(7))
   assert_some_integer(pdf2.lookup_chain(pdf2.trailerdict, dict_chain[:]), 7)

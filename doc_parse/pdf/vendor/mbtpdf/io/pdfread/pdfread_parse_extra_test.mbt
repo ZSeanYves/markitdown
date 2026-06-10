@@ -6,18 +6,22 @@ test "parse errors on non-name dictionary key" {
     @pdfgenlex.Token::LexInt(2),
     @pdfgenlex.Token::LexRightDict,
   ]
-  let res : Result[(Int, @pdf.PdfObject), Error] = try? @pdfsyntax.PdfSyntax::new().parse(
-    tokens,
-  )
+  let res : Result[(Int, @pdf.PdfObject), Error] = try
+    @pdfsyntax.PdfSyntax::new().parse(tokens) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "parse errors on invalid array element" {
   let tokens = [@pdfgenlex.Token::LexLeftSquare, @pdfgenlex.Token::LexRightDict]
-  let res : Result[(Int, @pdf.PdfObject), Error] = try? @pdfsyntax.PdfSyntax::new().parse(
-    tokens,
-  )
+  let res : Result[(Int, @pdf.PdfObject), Error] = try
+    @pdfsyntax.PdfSyntax::new().parse(tokens) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 

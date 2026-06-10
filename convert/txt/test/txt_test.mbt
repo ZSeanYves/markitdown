@@ -231,7 +231,12 @@ test "txt invalid utf8 fails closed" {
 
   let bad_path = dir + "/txt_invalid_utf8.txt"
   write_bytes(bad_path, Bytes::from_array([0xC3, 0x28]))
-  assert_true((try? @txt.parse_txt(bad_path, "", 6)) is Err(_))
+  assert_true(
+    (try @txt.parse_txt(bad_path, "", 6) |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|

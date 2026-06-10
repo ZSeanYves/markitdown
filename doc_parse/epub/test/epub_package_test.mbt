@@ -32,7 +32,11 @@ fn assert_open_epub_fails(
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + e.to_string())
   }
-  let result = try? @epub.open_epub_package(bytes, @cor.basename(sample))
+  let result = try
+    @epub.open_epub_package(bytes, @cor.basename(sample)) |> Ok
+  catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected epub package parse to fail: " + path)
     Err(e) =>
@@ -56,7 +60,11 @@ fn assert_epub_error_kind(
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + e.to_string())
   }
-  let result = try? @epub.open_epub_package(bytes, @cor.basename(sample))
+  let result = try
+    @epub.open_epub_package(bytes, @cor.basename(sample)) |> Ok
+  catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected EPUB open failure for: " + path)
     Err(err) => {
@@ -1015,7 +1023,11 @@ test "epub package duplicate manifest id classifier stays additive" {
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + e.to_string())
   }
-  let result = try? @epub.open_epub_package(bytes, @cor.basename(sample))
+  let result = try
+    @epub.open_epub_package(bytes, @cor.basename(sample)) |> Ok
+  catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected duplicate manifest package to fail")
     Err(err) => {

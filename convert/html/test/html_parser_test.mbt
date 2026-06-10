@@ -1292,9 +1292,7 @@ test "html profile reports parser analysis scope and skip observability" {
   assert_true(report.contains("semantic_block_count="))
   assert_true(html_profile_counter(report, "semantic_document_node_count") > 0)
   assert_true(html_profile_counter(report, "semantic_block_fact_count") > 0)
-  assert_true(
-    html_profile_counter(report, "semantic_paragraph_fact_count") > 0,
-  )
+  assert_true(html_profile_counter(report, "semantic_paragraph_fact_count") > 0)
   assert_true(html_profile_counter(report, "semantic_inline_fact_count") > 0)
   assert_eq(html_profile_counter(report, "semantic_link_fact_count"), 2)
   assert_eq(html_profile_counter(report, "semantic_image_fact_count"), 0)
@@ -1396,17 +1394,11 @@ test "html profile reports large synthetic semantic fact memory counters" {
     }
     html = html + ".</p>"
   }
-  html = html +
-    "<table><tbody>"
+  html = html + "<table><tbody>"
   for row in 0..<20 {
     html = html + "<tr>"
     for col in 0..<4 {
-      html = html +
-        "<td>R" +
-        row.to_string() +
-        "C" +
-        col.to_string() +
-        "</td>"
+      html = html + "<td>R" + row.to_string() + "C" + col.to_string() + "</td>"
     }
     html = html + "</tr>"
   }
@@ -1429,12 +1421,18 @@ test "html profile reports large synthetic semantic fact memory counters" {
 
   let report = read_html_parser_utf8_text(profile_path)
   assert_true(html_profile_has_stage(report, "html_parser_fact_model"))
-  assert_true(html_profile_counter(report, "semantic_document_node_count") > 250)
-  assert_true(html_profile_counter(report, "semantic_paragraph_fact_count") >= 181)
+  assert_true(
+    html_profile_counter(report, "semantic_document_node_count") > 250,
+  )
+  assert_true(
+    html_profile_counter(report, "semantic_paragraph_fact_count") >= 181,
+  )
   assert_true(html_profile_counter(report, "semantic_link_fact_count") >= 181)
   assert_true(html_profile_counter(report, "semantic_image_fact_count") >= 3)
   assert_eq(html_profile_counter(report, "semantic_table_fact_count"), 1)
-  assert_true(html_profile_counter(report, "semantic_table_cell_fact_count") >= 80)
+  assert_true(
+    html_profile_counter(report, "semantic_table_cell_fact_count") >= 80,
+  )
   assert_true(html_profile_counter(report, "semantic_note_fact_count") >= 1)
   assert_true(html_profile_counter(report, "semantic_noise_fact_count") >= 1)
   assert_true(

@@ -69,11 +69,7 @@ fn compat_custom_properties_from_semantic(
 ) -> Array[XlsxCustomProperty] {
   let out : Array[XlsxCustomProperty] = []
   for prop in props {
-    out.push({
-      name: prop.name,
-      value: prop.value,
-      value_type: prop.value_type,
-    })
+    out.push({ name: prop.name, value: prop.value, value_type: prop.value_type })
   }
   out
 }

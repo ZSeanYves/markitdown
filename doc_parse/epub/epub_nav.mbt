@@ -118,7 +118,9 @@ fn extract_safe_ncx_href(
     return Some(raw_href)
   }
   let ncx_dir = dirname_of_part(source_path)
-  let validated = try? resolve_opf_href(ncx_dir, raw_href)
+  let validated = try resolve_opf_href(ncx_dir, raw_href) |> Ok catch {
+    e => Err(e)
+  }
   match validated {
     Ok(_) => Some(raw_href)
     Err(_) => None

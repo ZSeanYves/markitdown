@@ -1,8 +1,0 @@
-import {
-  "ZSeanYves/markitdown/doc_parse/pdf_v2" @pdfv2,
-  "ZSeanYves/markitdown/doc_parse/pdf_v2/source_event",
-}
-
-options(
-  "preferred-target": "native",
-)

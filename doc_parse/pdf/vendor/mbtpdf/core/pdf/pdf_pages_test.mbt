@@ -56,7 +56,11 @@ test "page_reference_numbers variants" {
     was_linearized: base3.was_linearized,
     saved_encryption: base3.saved_encryption,
   }
-  assert_is_err(try? pdf3.page_reference_numbers())
+  assert_is_err(
+    try pdf3.page_reference_numbers() |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|

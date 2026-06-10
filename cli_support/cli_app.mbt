@@ -465,21 +465,66 @@ fn parse_core_product_input_to_ir(
   max_heading : Int,
 ) -> Result[@cor.Document, Error] {
   match format {
-    "docx" => try? @doc.parse_docx(input_path, out_dir, max_heading)
-    "xlsx" => try? @xlsx.parse_xlsx(input_path, out_dir, max_heading)
-    "pptx" => try? @pptx.parse_pptx(input_path, out_dir, max_heading)
-    "html" => try? @html.parse_html(input_path, out_dir, max_heading)
-    "htm" => try? @html.parse_html(input_path, out_dir, max_heading)
-    "csv" => try? @csv.parse_csv(input_path, out_dir, max_heading)
-    "tsv" => try? @csv.parse_tsv(input_path, out_dir, max_heading)
-    "txt" => try? @txt.parse_txt(input_path, out_dir, max_heading)
-    "xml" => try? @xml.parse_xml(input_path, out_dir, max_heading)
-    "json" => try? @json.parse_json(input_path, out_dir, max_heading)
-    "yaml" => try? @yaml.parse_yaml(input_path, out_dir, max_heading)
-    "yml" => try? @yaml.parse_yaml(input_path, out_dir, max_heading)
-    "md" => try? @md.parse_markdown(input_path, out_dir, max_heading)
-    "markdown" => try? @md.parse_markdown(input_path, out_dir, max_heading)
-    "epub" => try? @epub.parse_epub(input_path, out_dir, max_heading)
+    "docx" =>
+      try @doc.parse_docx(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "xlsx" =>
+      try @xlsx.parse_xlsx(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "pptx" =>
+      try @pptx.parse_pptx(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "html" =>
+      try @html.parse_html(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "htm" =>
+      try @html.parse_html(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "csv" =>
+      try @csv.parse_csv(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "tsv" =>
+      try @csv.parse_tsv(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "txt" =>
+      try @txt.parse_txt(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "xml" =>
+      try @xml.parse_xml(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "json" =>
+      try @json.parse_json(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "yaml" =>
+      try @yaml.parse_yaml(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "yml" =>
+      try @yaml.parse_yaml(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "md" =>
+      try @md.parse_markdown(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "markdown" =>
+      try @md.parse_markdown(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
+    "epub" =>
+      try @epub.parse_epub(input_path, out_dir, max_heading) |> Ok catch {
+        e => Err(e)
+      }
     _ => Err(@cor.AppError("Unsupported file type: " + format))
   }
 }

@@ -596,14 +596,13 @@ fn repeated_merge_cells(count : Int) -> String {
   for i in 0..<count {
     let row = i + 1
     items.push(
-      "<mergeCell ref=\"A" +
-      row.to_string() +
-      ":B" +
-      row.to_string() +
-      "\"/>",
+      "<mergeCell ref=\"A" + row.to_string() + ":B" + row.to_string() + "\"/>",
     )
   }
-  "<mergeCells count=\"" + count.to_string() + "\">" + items.join("") +
+  "<mergeCells count=\"" +
+  count.to_string() +
+  "\">" +
+  items.join("") +
   "</mergeCells>"
 }
 
@@ -813,7 +812,9 @@ fn generated_xlsx_pkg_over_total_cell_budget() -> @ox.OoxmlPackage raise {
       "<sheetData>" +
       repeated_inline_rows(2000) +
       "</sheetData></worksheet>"
-    extra_entries.push(("xl/worksheets/sheet" + n.to_string() + ".xml", sheet_xml))
+    extra_entries.push(
+      ("xl/worksheets/sheet" + n.to_string() + ".xml", sheet_xml),
+    )
   }
   let overrides : Array[String] = []
   for i in 0..<11 {

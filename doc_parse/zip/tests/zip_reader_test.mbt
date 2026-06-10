@@ -464,7 +464,9 @@ test "zip facade can read entry bytes and classify missing entry" {
     fail("read_entry should return exact entry bytes")
   }
 
-  let result = try? @zip.read_entry(archive, "notes/missing.txt")
+  let result = try @zip.read_entry(archive, "notes/missing.txt") |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("expected missing entry read to fail")
     Err(err) => {
@@ -566,7 +568,9 @@ test "zip validation reports unsupported compression and nested archive candidat
     fail("expected unsupported-compression and nested-archive issues")
   }
 
-  let result = try? @zip.read_entry(archive, "unsupported.bin")
+  let result = try @zip.read_entry(archive, "unsupported.bin") |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("unsupported compression entry should not decode")
     Err(err) => {
@@ -694,21 +698,26 @@ test "zip reader still supports equivalent stored inline entry" {
 
 ///|
 test "zip reader still rejects encrypted data descriptor entries" {
-  let result = try? @zip.open_zip(
-    build_data_descriptor_zip(
-      [
-        (
-          "hello.txt",
-          [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
-          10,
-          0x4811c948,
-          false,
-          8,
-        ),
-      ],
-      flags_override=0x0001,
-    ),
-  )
+  let result = try
+    @zip.open_zip(
+      build_data_descriptor_zip(
+        [
+          (
+            "hello.txt",
+            [203, 72, 205, 201, 201, 87, 168, 202, 44, 224, 2, 0],
+            10,
+            0x4811c948,
+            false,
+            8,
+          ),
+        ],
+        flags_override=0x0001,
+      ),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("encrypted data-descriptor entry should fail")
     Err(err) => {
@@ -738,7 +747,9 @@ test "zip reader still rejects zip64 sentinel sizes on data descriptor entries" 
   }
   let cd_offset = out.length() - 22 - 46 - "hello.txt".length()
   write_u32_le(out, cd_offset + 20, 0xFFFFFFFF)
-  let result = try? @zip.open_zip(Bytes::from_array(out))
+  let result = try @zip.open_zip(Bytes::from_array(out)) |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("zip64 sentinel size should fail")
     Err(err) => {
@@ -762,7 +773,9 @@ test "zip reader still rejects unsupported compression on data descriptor entrie
       99,
     ),
   ])
-  let result = try? @zip.read_entry(archive, "hello.txt")
+  let result = try @zip.read_entry(archive, "hello.txt") |> Ok catch {
+    e => Err(e)
+  }
   match result {
     Ok(_) => fail("unsupported compression should fail on read")
     Err(err) => {

@@ -343,10 +343,12 @@ test "read_destination handles missing and invalid objects" {
 test "read_destination name resolution" {
   let pdf_no_root = @pdf.Pdf::empty()
   pdf_no_root.trailerdict = Dictionary([])
-  let no_root : Result[Destination, Error] = try? Destination::read(
-    pdf_no_root,
-    Name(@pdf.PdfName::of_string("/Missing")),
-  )
+  let no_root : Result[Destination, Error] = try
+    Destination::read(pdf_no_root, Name(@pdf.PdfName::of_string("/Missing")))
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(no_root is Err(_))
   let pdf_missing_dests = minimum_valid_pdf()
   match

@@ -36,9 +36,11 @@ test "colspace falls back to unresolved name when resource entry missing" {
   let image : @pdf.PdfObject = Dictionary([
     ("/CS", Name(@pdf.PdfName::of_string("/Missing"))),
   ])
-  let res : Result[@pdfspace.ColourSpace, Error] = try? @pdfimage.Image::colspace(
-    pdf, image, resources,
-  )
+  let res : Result[@pdfspace.ColourSpace, Error] = try
+    @pdfimage.Image::colspace(pdf, image, resources) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -52,9 +54,11 @@ test "colspace uses direct ColorSpace object when provided" {
     ),
   ])
   let image : @pdf.PdfObject = Dictionary([("/ColorSpace", Dictionary([]))])
-  let res : Result[@pdfspace.ColourSpace, Error] = try? @pdfimage.Image::colspace(
-    pdf, image, resources,
-  )
+  let res : Result[@pdfspace.ColourSpace, Error] = try
+    @pdfimage.Image::colspace(pdf, image, resources) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -63,9 +67,11 @@ test "colspace errors when resources has colorspaces but image omits entry" {
   let pdf = @pdf.Pdf::empty()
   let resources : @pdf.PdfObject = Dictionary([("/ColorSpace", Dictionary([]))])
   let image : @pdf.PdfObject = Dictionary([])
-  let res : Result[@pdfspace.ColourSpace, Error] = try? @pdfimage.Image::colspace(
-    pdf, image, resources,
-  )
+  let res : Result[@pdfspace.ColourSpace, Error] = try
+    @pdfimage.Image::colspace(pdf, image, resources) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -74,9 +80,11 @@ test "colspace errors when colorspace missing in both image and resources" {
   let pdf = @pdf.Pdf::empty()
   let resources : @pdf.PdfObject = Dictionary([])
   let image : @pdf.PdfObject = Dictionary([])
-  let res : Result[@pdfspace.ColourSpace, Error] = try? @pdfimage.Image::colspace(
-    pdf, image, resources,
-  )
+  let res : Result[@pdfspace.ColourSpace, Error] = try
+    @pdfimage.Image::colspace(pdf, image, resources) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -143,11 +151,11 @@ test "get_image_24bpp raw rgb" {
 test "get_image_24bpp rejects non-stream inputs" {
   let pdf = @pdf.Pdf::empty()
   let resources : @pdf.PdfObject = Dictionary([])
-  let res : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::get_image_24bpp(
-    pdf,
-    resources,
-    Integer(1),
-  )
+  let res : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::get_image_24bpp(pdf, resources, Integer(1)) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -163,9 +171,11 @@ test "get_image_24bpp errors on missing height" {
     ("/ImageMask", Boolean(true)),
   ])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let res : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::get_image_24bpp(
-    pdf, resources, stream,
-  )
+  let res : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -182,9 +192,11 @@ test "get_image_24bpp errors on non-array decode entry" {
     ("/Decode", Integer(1)),
   ])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let res : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::get_image_24bpp(
-    pdf, resources, stream,
-  )
+  let res : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -536,24 +548,20 @@ test "from_raw errors on indexed palettes missing entries" {
   let data8 = @pdfio.bytes_of_list([0])
   let table_empty : Map[Int, Array[Int]] = Map([])
   let rgb_indexed : @pdfspace.ColourSpace = Indexed(DeviceRGB, table_empty)
-  let res8 : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::from_raw(
-    1,
-    rgb_indexed,
-    Some(Integer(8)),
-    1,
-    1,
-    data8,
-  )
+  let res8 : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::from_raw(1, rgb_indexed, Some(Integer(8)), 1, 1, data8)
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res8 is Err(_))
   let data4 = @pdfio.bytes_of_list([0x01])
-  let res4 : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::from_raw(
-    1,
-    rgb_indexed,
-    Some(Integer(4)),
-    2,
-    1,
-    data4,
-  )
+  let res4 : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::from_raw(1, rgb_indexed, Some(Integer(4)), 2, 1, data4)
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res4 is Err(_))
 }
 
@@ -562,14 +570,12 @@ test "from_raw errors on CMYK indexed palettes missing entries" {
   let data4 = @pdfio.bytes_of_list([0x01])
   let table_empty : Map[Int, Array[Int]] = Map([])
   let cmyk_indexed : @pdfspace.ColourSpace = Indexed(DeviceCMYK, table_empty)
-  let res : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::from_raw(
-    1,
-    cmyk_indexed,
-    Some(Integer(4)),
-    2,
-    1,
-    data4,
-  )
+  let res : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::from_raw(1, cmyk_indexed, Some(Integer(4)), 2, 1, data4)
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -912,25 +918,35 @@ test "from_raw supports DeviceN CMYK bases in indexed palettes" {
 ///|
 test "from_raw rejects non-integer bpc and unknown indexed bases" {
   let data = @pdfio.bytes_of_list([0])
-  let bad_bpc : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::from_raw(
-    1,
-    @pdfspace.ColourSpace::DeviceRGB,
-    Some(Name(@pdf.PdfName::of_string("/BPC"))),
-    1,
-    1,
-    data,
-  )
+  let bad_bpc : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::from_raw(
+      1,
+      @pdfspace.ColourSpace::DeviceRGB,
+      Some(Name(@pdf.PdfName::of_string("/BPC"))),
+      1,
+      1,
+      data,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_bpc is Err(_))
   let table : Map[Int, Array[Int]] = Map([])
   table.set(0, [0])
-  let bad_indexed : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::from_raw(
-    1,
-    @pdfspace.ColourSpace::Indexed(DeviceGray, table),
-    Some(Integer(8)),
-    1,
-    1,
-    data,
-  )
+  let bad_indexed : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::from_raw(
+      1,
+      @pdfspace.ColourSpace::Indexed(DeviceGray, table),
+      Some(Integer(8)),
+      1,
+      1,
+      data,
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_indexed is Err(_))
 }
 
@@ -955,9 +971,11 @@ test "get_image_24bpp indexed rgb missing table entry" {
   ])
   let data = @pdfio.bytes_of_list([1])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let result : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::get_image_24bpp(
-    pdf, resources, stream,
-  )
+  let result : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -997,9 +1015,11 @@ test "get_image_24bpp rejects bad decode" {
   ])
   let data = @pdfio.bytes_of_list([0, 0, 0])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  let result : Result[@pdfimage.Image, Error] = try? @pdfimage.Image::get_image_24bpp(
-    pdf, resources, stream,
-  )
+  let result : Result[@pdfimage.Image, Error] = try
+    @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 
@@ -1083,7 +1103,11 @@ test "get_image_24bpp rejects bad separation function" {
   ])
   let data = @pdfio.bytes_of_list([0])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  assert_is_err(try? @pdfimage.Image::get_image_24bpp(pdf, resources, stream))
+  assert_is_err(
+    try @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -1150,7 +1174,11 @@ test "get_image_24bpp rejects missing width" {
   ])
   let data = @pdfio.bytes_of_list([0, 0, 0])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  assert_is_err(try? @pdfimage.Image::get_image_24bpp(pdf, resources, stream))
+  assert_is_err(
+    try @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -1222,7 +1250,11 @@ test "get_image_24bpp rejects flate filter" {
     ("/Filter", Name(@pdf.PdfName::of_string("/FlateDecode"))),
   ])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(encoded))))
-  assert_is_err(try? @pdfimage.Image::get_image_24bpp(pdf, resources, stream))
+  assert_is_err(
+    try @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -1354,7 +1386,11 @@ test "get_image_24bpp indexed 4bpp rejects missing entry" {
   ])
   let data = @pdfio.bytes_of_list([0x20])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  assert_is_err(try? @pdfimage.Image::get_image_24bpp(pdf, resources, stream))
+  assert_is_err(
+    try @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -1394,7 +1430,11 @@ test "get_image_24bpp rejects odd decode length" {
   ])
   let data = @pdfio.bytes_of_list([0, 0, 0])
   let stream : @pdf.PdfObject = Stream(Ref((dict, @pdf.Stream::Got(data))))
-  assert_is_err(try? @pdfimage.Image::get_image_24bpp(pdf, resources, stream))
+  assert_is_err(
+    try @pdfimage.Image::get_image_24bpp(pdf, resources, stream) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|

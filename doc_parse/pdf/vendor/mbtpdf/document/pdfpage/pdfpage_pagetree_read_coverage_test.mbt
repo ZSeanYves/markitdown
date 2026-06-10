@@ -150,7 +150,11 @@ test "pages_of_pagetree errors on malformed and missing kids" {
     ]),
   )
   let pdf_bad_kids = @pdfpage.PdfPageDoc::new(base).add_root(bad_kids_num, [])
-  assert_is_err(try? @pdfpage.PdfPageDoc::new(pdf_bad_kids).pages_of_pagetree())
+  assert_is_err(
+    try @pdfpage.PdfPageDoc::new(pdf_bad_kids).pages_of_pagetree() |> Ok catch {
+      e => Err(e)
+    },
+  )
   let base2 = @pdf.Pdf::empty()
   let missing_kid_num = base2.addobj(
     Dictionary([
@@ -163,7 +167,11 @@ test "pages_of_pagetree errors on malformed and missing kids" {
     [],
   )
   assert_is_err(
-    try? @pdfpage.PdfPageDoc::new(pdf_missing_kid).pages_of_pagetree(),
+    try
+      @pdfpage.PdfPageDoc::new(pdf_missing_kid).pages_of_pagetree() |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   let base3 = @pdf.Pdf::empty()
   let malformed_kid_num = base3.addobj(
@@ -177,15 +185,22 @@ test "pages_of_pagetree errors on malformed and missing kids" {
     [],
   )
   assert_is_err(
-    try? @pdfpage.PdfPageDoc::new(pdf_malformed_kid).pages_of_pagetree(),
+    try
+      @pdfpage.PdfPageDoc::new(pdf_malformed_kid).pages_of_pagetree() |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 
 ///|
 test "add_pagetree errors on empty page list and bad rest" {
   let pdf = @pdf.Pdf::empty()
-  let res : Result[(@pdf.Pdf, Int), Error] = try? @pdfpage.PdfPageDoc::new(pdf).add_pagetree([],
-  )
+  let res : Result[(@pdf.Pdf, Int), Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).add_pagetree([]) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Ok((_, root_num)) => assert_true(root_num > 0)
     Err(_) => fail("expected ok for empty page list")
@@ -198,9 +213,11 @@ test "add_pagetree errors on empty page list and bad rest" {
     rotate: Rotate0,
     rest: Integer(0),
   }
-  let res2 : Result[(@pdf.Pdf, Int), Error] = try? @pdfpage.PdfPageDoc::new(
-    @pdf.Pdf::empty(),
-  ).add_pagetree([bad_page])
+  let res2 : Result[(@pdf.Pdf, Int), Error] = try
+    @pdfpage.PdfPageDoc::new(@pdf.Pdf::empty()).add_pagetree([bad_page]) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_is_err(res2)
 }
 
@@ -216,7 +233,11 @@ test "add_root errors when trailer is not a dictionary" {
     ]),
   )
   assert_is_err(
-    try? @pdfpage.PdfPageDoc::new(pdf0).add_root(pages_root_num, []),
+    try
+      @pdfpage.PdfPageDoc::new(pdf0).add_root(pages_root_num, []) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
 }
 

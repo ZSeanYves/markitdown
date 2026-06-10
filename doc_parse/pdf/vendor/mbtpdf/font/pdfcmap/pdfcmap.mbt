@@ -185,7 +185,11 @@ fn read_code_opt(chars : ArrayView[Char], start : Int) -> (String, Int)? {
   let mut i = skip_whitespace(chars, start)
   while i < chars.length() {
     if chars[i] == '<' {
-      let result : Result[(String, Int), Error] = try? read_code(chars, i)
+      let result : Result[(String, Int), Error] = try
+        read_code(chars, i) |> Ok
+      catch {
+        e => Err(e)
+      }
       match result {
         Ok(value) => return Some(value)
         Err(_) => i = i + 1
@@ -202,7 +206,11 @@ fn read_unicode_opt(chars : ArrayView[Char], start : Int) -> (String, Int)? {
   let mut i = skip_whitespace(chars, start)
   while i < chars.length() {
     if chars[i] == '<' {
-      let result : Result[(String, Int), Error] = try? read_code(chars, i)
+      let result : Result[(String, Int), Error] = try
+        read_code(chars, i) |> Ok
+      catch {
+        e => Err(e)
+      }
       match result {
         Ok(value) => return Some(value)
         Err(_) => i = i + 1
@@ -415,10 +423,11 @@ fn extract_specifics(data : @pdfio.MutableBytes) -> Int? {
         j = j + 1
       }
       if digits.length() > 0 {
-        let parsed : Result[Int, Error] = try? @string.parse_int(
-          String::from_array(digits),
-          base=10,
-        )
+        let parsed : Result[Int, Error] = try
+          @string.parse_int(String::from_array(digits), base=10) |> Ok
+        catch {
+          e => Err(e)
+        }
         match parsed {
           Ok(value) => return Some(value)
           Err(_) => return None

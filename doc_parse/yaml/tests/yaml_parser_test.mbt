@@ -22,8 +22,18 @@ test "yaml parser handles nested subset and quoted strings" {
 
 ///|
 test "yaml unsupported features fail closed and classify" {
-  assert_true((try? @yaml.parse_yaml_document("note: |\n  long\n")) is Err(_))
-  assert_true((try? @yaml.parse_yaml_document("a:\n\tb: 1\n")) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml_document("note: |\n  long\n") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @yaml.parse_yaml_document("a:\n\tb: 1\n") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let unsupported = @yaml.classify_yaml_error(
     @yaml.YamlError::ParseError("block scalars are unsupported at line 1"),
@@ -128,10 +138,23 @@ test "yaml parser accepts single-document start and end markers" {
 ///|
 test "yaml parser keeps multi-document stream markers unsupported" {
   assert_true(
-    (try? @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n")) is Err(_),
+    (try @yaml.parse_yaml_document("---\na: 1\n---\nb: 2\n") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
-  assert_true((try? @yaml.parse_yaml_document("a: 1\n...\nb: 2\n")) is Err(_))
-  assert_true((try? @yaml.parse_yaml_document("a: 1\n---\nb: 2\n")) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml_document("a: 1\n...\nb: 2\n") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @yaml.parse_yaml_document("a: 1\n---\nb: 2\n") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|
@@ -281,9 +304,24 @@ test "yaml parser handles empty flow collections" {
 
 ///|
 test "yaml parser rejects malformed flow collections" {
-  assert_true((try? @yaml.parse_yaml_document("[one, two")) is Err(_))
-  assert_true((try? @yaml.parse_yaml_document("{name Ada}")) is Err(_))
-  assert_true((try? @yaml.parse_yaml_document("{name: Ada,}")) is Err(_))
+  assert_true(
+    (try @yaml.parse_yaml_document("[one, two") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @yaml.parse_yaml_document("{name Ada}") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (try @yaml.parse_yaml_document("{name: Ada,}") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|

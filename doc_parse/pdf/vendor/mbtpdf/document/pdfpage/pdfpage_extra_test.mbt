@@ -276,9 +276,11 @@ test "prepend/postpend operators update content" {
 
 ///|
 test "rotation_of_int rejects invalid" {
-  let res : Result[@pdfpage.Rotation, Error] = try? @pdfpage.Rotation::from_int(
-    13,
-  )
+  let res : Result[@pdfpage.Rotation, Error] = try
+    @pdfpage.Rotation::from_int(13) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected error")

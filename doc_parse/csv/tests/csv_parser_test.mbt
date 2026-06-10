@@ -49,7 +49,12 @@ test "csv validation reports ragged rows and empty cells" {
 
 ///|
 test "csv malformed quote fails closed and classifies" {
-  assert_true((try? @csv.parse_csv_document("\"a,b")) is Err(_))
+  assert_true(
+    (try @csv.parse_csv_document("\"a,b") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 
   let info = @csv.classify_csv_error(
     @csv.CsvError::ParseError("unterminated quoted field"),

@@ -911,24 +911,28 @@ pub fn PdfCrypt::recrypt_pdf(
 ) -> @pdf.Pdf raise {
   let mut pdf = pdf
   if pdf.saved_encryption is None && self.is_encrypted(pdf) {
-    let saved_result : Result[@pdf.SavedEncryption, Error] = try? load_saved_encryption_from_pdf(
-      pdf,
-    )
+    let saved_result : Result[@pdf.SavedEncryption, Error] = try
+      load_saved_encryption_from_pdf(pdf) |> Ok
+    catch {
+      e => Err(e)
+    }
     match saved_result {
       Ok(saved) => pdf.saved_encryption = Some(saved)
       Err(_) => ()
     }
-    let dec_result : Result[(@pdf.Pdf?, Array[Permission]), Error] = try? self.decrypt_pdf(
-      pw,
-      pdf.deep_copy(),
-    )
+    let dec_result : Result[(@pdf.Pdf?, Array[Permission]), Error] = try
+      self.decrypt_pdf(pw, pdf.deep_copy()) |> Ok
+    catch {
+      e => Err(e)
+    }
     match dec_result {
       Ok((Some(pdf_dec), _)) => pdf = pdf_dec
       _ => {
-        let owner_result : Result[@pdf.Pdf?, Error] = try? self.decrypt_pdf_owner(
-          pw,
-          pdf.deep_copy(),
-        )
+        let owner_result : Result[@pdf.Pdf?, Error] = try
+          self.decrypt_pdf_owner(pw, pdf.deep_copy()) |> Ok
+        catch {
+          e => Err(e)
+        }
         match owner_result {
           Ok(Some(pdf_dec)) => pdf = pdf_dec
           _ => ()

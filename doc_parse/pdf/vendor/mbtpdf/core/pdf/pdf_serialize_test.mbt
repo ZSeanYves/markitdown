@@ -11,10 +11,11 @@ test "PdfName compare, bytes, and show" {
 
 ///|
 test "pdfobjmap_find fails on missing key" {
-  let res : Result[(Ref[ObjectData], Int), Error] = try? pdfobjmap_find(
-    1,
-    pdfobjmap_empty(),
-  )
+  let res : Result[(Ref[ObjectData], Int), Error] = try
+    pdfobjmap_find(1, pdfobjmap_empty()) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected Not_found")
@@ -97,7 +98,11 @@ test "real formatting expands scientific notation when present" {
   ]
   let mut exercised = false
   for s in candidates {
-    let parsed : Result[Double, Error] = try? @string.parse_double(s)
+    let parsed : Result[Double, Error] = try
+      @string.parse_double(s) |> Ok
+    catch {
+      e => Err(e)
+    }
     let v = match parsed {
       Ok(v) => v
       Err(_) => continue

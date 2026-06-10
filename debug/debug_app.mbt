@@ -2175,7 +2175,12 @@ fn is_debug_path_safe_char(ch : Char) -> Bool {
 ///|
 fn cleanup_debug_temp_root(path : String?) -> Unit {
   match path {
-    Some(root) => ignore(try? debug_remove_dir_recursive(root))
+    Some(root) =>
+      ignore(
+        try debug_remove_dir_recursive(root) |> Ok catch {
+          e => Err(e)
+        },
+      )
     None => ()
   }
 }
@@ -2200,7 +2205,11 @@ fn debug_remove_dir_recursive(path : String) -> Unit raise {
 
 ///|
 fn debug_recreate_clean_dir(path : String) -> Unit raise {
-  ignore(try? debug_remove_dir_recursive(path))
+  ignore(
+    try debug_remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
   debug_ensure_dir_tree(path)
 }
 

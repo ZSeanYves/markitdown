@@ -1112,7 +1112,8 @@ async test "convert/pdf deduplicates appendix notes for pdfjs square-circle with
 async test "convert/pdf repairs markitdown test pdf text flow and numbered headings" {
   // Optional external quality-lab smoke: keep unit tests portable when the
   // sibling/private corpus is absent.
-  let input = match resolve_optional_external_sample_path(
+  let input = match
+    resolve_optional_external_sample_path(
       "markitdown-quality-lab/external_quality/pdf/markitdown/test.pdf",
     ) {
     Some(path) => path

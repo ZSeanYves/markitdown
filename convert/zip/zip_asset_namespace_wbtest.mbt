@@ -11,7 +11,11 @@ fn zip_test_root() -> String raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? @zipcore.remove_dir_recursive(path))
+  ignore(
+    try @zipcore.remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|

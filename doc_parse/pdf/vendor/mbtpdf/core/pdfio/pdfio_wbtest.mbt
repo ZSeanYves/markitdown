@@ -22,7 +22,9 @@ test "input_of_string supports read_line" {
   let input = Input::of_string("first\nsecond")
   assert_eq(input.read_line(), "first")
   assert_eq(input.read_line(), "second")
-  let res : Result[String, Error] = try? input.read_line()
+  let res : Result[String, Error] = try input.read_line() |> Ok catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -51,7 +53,9 @@ test "setinit and bytes_of_input read slices" {
   let input2 = Input::of_string("abcd")
   let slice = input2.bytes_of_input(1, 2)
   assert_eq(string_of_bytes(slice), "bc")
-  let res : Result[Unit, Error] = try? input2.setinit(buf, 10, 1)
+  let res : Result[Unit, Error] = try input2.setinit(buf, 10, 1) |> Ok catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 

@@ -20,12 +20,24 @@ test "streams and transforms" {
   }
   let bytes = stream_obj.bigarray_of_stream()
   assert_eq(@pdfio.bytes_size(bytes), 4)
-  assert_is_err(try? PdfObject::Integer(1).getstream())
-  assert_is_err(try? PdfObject::Integer(1).bigarray_of_stream())
+  assert_is_err(
+    try PdfObject::Integer(1).getstream() |> Ok catch {
+      e => Err(e)
+    },
+  )
+  assert_is_err(
+    try PdfObject::Integer(1).bigarray_of_stream() |> Ok catch {
+      e => Err(e)
+    },
+  )
   assert_eq(pdf.getnum(PdfObject::Real(3.5)), 3.5)
   assert_eq(pdf.getnum(PdfObject::Integer(4)), 4.0)
   assert_eq(pdf.getnum(PdfObject::Indirect(1)), 7.0)
-  assert_is_err(try? pdf.getnum(PdfObject::Name(PdfName::of_string("/A"))))
+  assert_is_err(
+    try pdf.getnum(PdfObject::Name(PdfName::of_string("/A"))) |> Ok catch {
+      e => Err(e)
+    },
+  )
   assert_true(
     pdf.parse_rectangle(
       PdfObject::Array([
@@ -38,9 +50,17 @@ test "streams and transforms" {
     (2.0, 1.0, 4.0, 3.0),
   )
   assert_is_err(
-    try? pdf.parse_rectangle(PdfObject::Array([PdfObject::Integer(1)])),
+    try
+      pdf.parse_rectangle(PdfObject::Array([PdfObject::Integer(1)])) |> Ok
+    catch {
+      e => Err(e)
+    },
   )
-  assert_is_err(try? pdf.parse_rectangle(PdfObject::Integer(1)))
+  assert_is_err(
+    try pdf.parse_rectangle(PdfObject::Integer(1)) |> Ok catch {
+      e => Err(e)
+    },
+  )
   let dict_matrix = PdfObject::Dictionary([
     (
       "/Matrix",
@@ -63,18 +83,28 @@ test "streams and transforms" {
   assert_eq(identity.a, @pdftransform.TransformMatrix::identity().a)
   assert_eq(identity.d, @pdftransform.TransformMatrix::identity().d)
   assert_is_err(
-    try? pdf.parse_matrix(
-      "/Matrix",
-      PdfObject::Dictionary([
-        ("/Matrix", PdfObject::Array([PdfObject::Integer(1)])),
-      ]),
-    ),
+    try
+      pdf.parse_matrix(
+        "/Matrix",
+        PdfObject::Dictionary([
+          ("/Matrix", PdfObject::Array([PdfObject::Integer(1)])),
+        ]),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   assert_is_err(
-    try? pdf.parse_matrix(
-      "/Matrix",
-      PdfObject::Dictionary([("/Matrix", PdfObject::Integer(1))]),
-    ),
+    try
+      pdf.parse_matrix(
+        "/Matrix",
+        PdfObject::Dictionary([("/Matrix", PdfObject::Integer(1))]),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    },
   )
   match make_matrix(@pdftransform.TransformMatrix::identity()) {
     PdfObject::Array(values) => assert_eq(values.length(), 6)
@@ -184,7 +214,11 @@ test "getstream error cases" {
   let toget_crypt = ToGet::new(input, 0, 3, crypt~)
   let crypt_ref = Ref((PdfObject::Dictionary([]), Stream::ToGet(toget_crypt)))
   let crypt_stream = PdfObject::Stream(crypt_ref)
-  assert_is_err(try? crypt_stream.getstream())
+  assert_is_err(
+    try crypt_stream.getstream() |> Ok catch {
+      e => Err(e)
+    },
+  )
   let plain = @pdfio.Input::of_string("abc", source="plain")
   let toget_plain = ToGet::new(plain, 0, 3)
   let plain_ref = Ref((PdfObject::Integer(9), Stream::ToGet(toget_plain)))

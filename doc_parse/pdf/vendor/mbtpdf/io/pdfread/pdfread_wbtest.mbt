@@ -59,9 +59,11 @@ test "@pdfsyntax.PdfSyntax::new().lex_next recovers from lex errors" {
 ///|
 test "@pdfsyntax.PdfSyntax::new().lex_hexstring rejects invalid hex" {
   let input = @pdfio.Input::of_string("<G>")
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_hexstring(
-    input,
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_hexstring(input) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected @pdfsyntax.PdfSyntax::new().lex_hexstring failure")
@@ -114,9 +116,11 @@ test "@pdfsyntax.PdfSyntax::new().lex_dictionary minus_one stops after closing d
 ///|
 test "@pdfsyntax.PdfSyntax::new().lex_name rejects invalid hex" {
   let input = @pdfio.Input::of_string("/#GZ")
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_name(
-    input,
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_name(input) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected @pdfsyntax.PdfSyntax::new().lex_name failure")
@@ -126,9 +130,11 @@ test "@pdfsyntax.PdfSyntax::new().lex_name rejects invalid hex" {
 ///|
 test "@pdfsyntax.PdfSyntax::new().lex_name rejects truncated hex" {
   let input = @pdfio.Input::of_string("/#1")
-  let res : Result[@pdfgenlex.Token, Error] = try? @pdfsyntax.PdfSyntax::new().lex_name(
-    input,
-  )
+  let res : Result[@pdfgenlex.Token, Error] = try
+    @pdfsyntax.PdfSyntax::new().lex_name(input) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected @pdfsyntax.PdfSyntax::new().lex_name failure")
@@ -192,14 +198,11 @@ test "parse_object_stream preserves widget boundary keys in minimal objstm" {
     was_linearized: false,
     saved_encryption: None,
   }
-  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try? parse_object_stream(
-    input,
-    xrefs,
-    81,
-    None,
-    None,
-    partial_pdf,
-  )
+  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try
+    parse_object_stream(input, xrefs, 81, None, None, partial_pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   let parsed : Array[(Int, @pdf.PdfObject)] = match parsed_result {
     Ok(value) => value
     Err(err) =>
@@ -272,14 +275,11 @@ test "parse_object_stream preserves widget boundary keys in flated minimal objst
     was_linearized: false,
     saved_encryption: None,
   }
-  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try? parse_object_stream(
-    input,
-    xrefs,
-    81,
-    None,
-    None,
-    partial_pdf,
-  )
+  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try
+    parse_object_stream(input, xrefs, 81, None, None, partial_pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   let parsed : Array[(Int, @pdf.PdfObject)] = match parsed_result {
     Ok(value) => value
     Err(err) =>
@@ -352,14 +352,11 @@ test "parse_object_stream preserves widget keys after real acroform object in fl
     was_linearized: false,
     saved_encryption: None,
   }
-  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try? parse_object_stream(
-    input,
-    xrefs,
-    81,
-    None,
-    None,
-    partial_pdf,
-  )
+  let parsed_result : Result[Array[(Int, @pdf.PdfObject)], Error] = try
+    parse_object_stream(input, xrefs, 81, None, None, partial_pdf) |> Ok
+  catch {
+    e => Err(e)
+  }
   let parsed : Array[(Int, @pdf.PdfObject)] = match parsed_result {
     Ok(value) => value
     Err(err) =>

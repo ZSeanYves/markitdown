@@ -14,10 +14,10 @@ test "recrypt_pdf exercises ARC4 128 r4 path from saved_encryption" {
     encrypt_metadata: true,
     perms: "",
   })
-  let result = try? @pdfcrypt.PdfCrypt::new().recrypt_pdf(
-    pdf,
-    "pw",
-    renumber=false,
-  )
+  let result = try
+    @pdfcrypt.PdfCrypt::new().recrypt_pdf(pdf, "pw", renumber=false) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }

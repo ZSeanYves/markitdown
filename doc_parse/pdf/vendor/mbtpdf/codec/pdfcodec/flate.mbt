@@ -389,14 +389,19 @@ pub fn PdfCodec::decode_from_bytes(
     filter_name : @pdf.PdfName,
     parms : @pdf.PdfObject?,
   ) -> @pdfio.MutableBytes? {
-    let decoded_result : Result[@pdfio.MutableBytes, Error] = try? PdfFilterNameDecode::decode_stage(
-      filter_name,
-      self,
-      pdf,
-      parms,
-      bytes,
-      None,
-    )
+    let decoded_result : Result[@pdfio.MutableBytes, Error] = try
+      PdfFilterNameDecode::decode_stage(
+        filter_name,
+        self,
+        pdf,
+        parms,
+        bytes,
+        None,
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     match decoded_result {
       Ok(decoded) => Some(decoded)
       Err(_) => None

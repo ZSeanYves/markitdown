@@ -321,9 +321,11 @@ test "decode Flate errors on PNG predictor with unsupported bpc" {
     ("/Filter", Name(@pdf.PdfName::of_string("/FlateDecode"))),
     ("/DecodeParms", parms),
   ])
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -342,9 +344,11 @@ test "decode Flate errors on TIFF predictor with unsupported bpc" {
     ("/Filter", Name(@pdf.PdfName::of_string("/FlateDecode"))),
     ("/DecodeParms", parms),
   ])
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -414,9 +418,11 @@ test "decode Flate errors on unknown PNG predictor bytes" {
     ("/Filter", Name(@pdf.PdfName::of_string("/FlateDecode"))),
     ("/DecodeParms", parms),
   ])
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -426,11 +432,11 @@ test "encode_pdfstream errors when existing /Filter has wrong type" {
   let (pdf, _stream_ref, stream_obj) = mk_stream(@pdfio.bytes_of_string("x"), [
     ("/Filter", Integer(1)),
   ])
-  let res : Result[Unit, Error] = try? ctx.encode_pdfstream(
-    pdf,
-    Encoding::Flate,
-    stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.encode_pdfstream(pdf, Encoding::Flate, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -446,11 +452,11 @@ test "encode_pdfstream follows indirect streams" {
 test "encode_pdfstream errors on malformed stream objects" {
   let ctx = @pdfcodec.PdfCodec::new()
   let pdf = @pdf.Pdf::empty()
-  let res : Result[Unit, Error] = try? ctx.encode_pdfstream(
-    pdf,
-    Encoding::Flate,
-    Null,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.encode_pdfstream(pdf, Encoding::Flate, Null) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -458,7 +464,11 @@ test "encode_pdfstream errors on malformed stream objects" {
 test "decode_pdfstream_onestage errors on malformed stream objects" {
   let ctx = @pdfcodec.PdfCodec::new()
   let pdf = @pdf.Pdf::empty()
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream_onestage(pdf, Null)
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream_onestage(pdf, Null) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -531,11 +541,11 @@ test "encode_pdfstream maps PdfError via map_pdf_error" {
     (@pdf.PdfObject::Integer(1), @pdf.Stream::Got(@pdfio.bytes_of_string("x"))),
   )
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? ctx.encode_pdfstream(
-    @pdf.Pdf::empty(),
-    Encoding::Flate,
-    stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.encode_pdfstream(@pdf.Pdf::empty(), Encoding::Flate, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -557,10 +567,11 @@ test "decode_from_bytes reads boolean decode parameters" {
 test "decode_pdfstream_until_unknown rethrows malformed stream errors" {
   let ctx = @pdfcodec.PdfCodec::new()
   let pdf = @pdf.Pdf::empty()
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream_until_unknown(
-    pdf,
-    Null,
-  )
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream_until_unknown(pdf, Null) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -570,7 +581,11 @@ test "decode_pdfstream rejects malformed /Filter type" {
   let (pdf, _stream_ref, stream_obj) = mk_stream(@pdfio.bytes_of_string("x"), [
     ("/Filter", Integer(1)),
   ])
-  let res : Result[Unit, Error] = try? ctx.decode_pdfstream(pdf, stream_obj)
+  let res : Result[Unit, Error] = try
+    ctx.decode_pdfstream(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 

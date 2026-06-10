@@ -58,8 +58,11 @@ fn pdf_of_pages_with_bookmarks(count : Int) -> @pdf.Pdf raise {
 ///|
 test "pdf_of_pages rejects empty range" {
   let pdf = pdf_of_pages_make_pdf(1)
-  let res : Result[@pdf.Pdf, Error] = try? @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([],
-  )
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([]) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected error for empty range")
@@ -69,10 +72,11 @@ test "pdf_of_pages rejects empty range" {
 ///|
 test "pdf_of_pages errors on invalid page index" {
   let pdf = pdf_of_pages_make_pdf(2)
-  let res : Result[@pdf.Pdf, Error] = try? @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([
-      3,
-    ],
-  )
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([3]) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected invalid page error")
@@ -155,10 +159,11 @@ test "pdf_of_pages trims structure tree" {
 ///|
 test "pdf_of_pages fails without root" {
   let pdf = @pdf.Pdf::empty()
-  let res : Result[@pdf.Pdf, Error] = try? @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([
-      1,
-    ],
-  )
+  let res : Result[@pdf.Pdf, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).pdf_of_pages([1]) |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected missing /Root error")

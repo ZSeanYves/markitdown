@@ -48,20 +48,22 @@ test "decode ASCIIHex stream skips whitespace" {
 ///|
 test "decode ASCIIHex stream rejects invalid char" {
   let data = @pdfio.bytes_of_string("GG>")
-  let res : Result[@pdfio.MutableBytes, Error] = try? decode_stream(
-    name_obj("/ASCIIHexDecode"),
-    data,
-  )
+  let res : Result[@pdfio.MutableBytes, Error] = try
+    decode_stream(name_obj("/ASCIIHexDecode"), data) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
 ///|
 test "decode ASCIIHex stream rejects invalid second char" {
   let data = @pdfio.bytes_of_string("4G>")
-  let res : Result[@pdfio.MutableBytes, Error] = try? decode_stream(
-    name_obj("/ASCIIHexDecode"),
-    data,
-  )
+  let res : Result[@pdfio.MutableBytes, Error] = try
+    decode_stream(name_obj("/ASCIIHexDecode"), data) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -84,10 +86,11 @@ test "decode ASCII85 stream" {
 ///|
 test "decode ASCII85 stream rejects invalid char" {
   let data = @pdfio.bytes_of_string("v~>")
-  let res : Result[@pdfio.MutableBytes, Error] = try? decode_stream(
-    name_obj("/ASCII85Decode"),
-    data,
-  )
+  let res : Result[@pdfio.MutableBytes, Error] = try
+    decode_stream(name_obj("/ASCII85Decode"), data) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -138,9 +141,11 @@ test "decode_pdfstream_onestage rejects missing filter" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -154,9 +159,11 @@ test "decode_pdfstream_onestage rejects empty filter array" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -170,9 +177,11 @@ test "decode_pdfstream_onestage rejects invalid filter entry" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -186,9 +195,11 @@ test "decode_pdfstream_onestage rejects invalid filter type" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -267,9 +278,11 @@ test "decode_pdfstream_onestage rejects JBIG2 in sync path" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -283,9 +296,11 @@ test "decode_pdfstream_onestage reports CCITT errors" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 
@@ -299,9 +314,11 @@ test "decode_pdfstream_onestage reports LZW errors" {
   ])
   let stream_ref = Ref((dict, @pdf.Stream::Got(data)))
   let stream_obj : @pdf.PdfObject = Stream(stream_ref)
-  let res : Result[Unit, Error] = try? decode_ctx.decode_pdfstream_onestage(
-    pdf, stream_obj,
-  )
+  let res : Result[Unit, Error] = try
+    decode_ctx.decode_pdfstream_onestage(pdf, stream_obj) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }
 

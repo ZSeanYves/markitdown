@@ -105,9 +105,11 @@ test "fixup_destinations removes nulled entries" {
 
 ///|
 test "fixup_parents raises without page tree" {
-  let res : Result[Unit, Error] = try? @pdfpage.PdfPageDoc::new(
-    @pdf.Pdf::empty(),
-  ).fixup_parents()
+  let res : Result[Unit, Error] = try
+    @pdfpage.PdfPageDoc::new(@pdf.Pdf::empty()).fixup_parents() |> Ok
+  catch {
+    e => Err(e)
+  }
   match res {
     Err(_) => ()
     _ => fail("expected missing /Pages error")
@@ -146,9 +148,11 @@ test "fixup_duplicate_pages errors on malformed root entries" {
     was_linearized: base.was_linearized,
     saved_encryption: base.saved_encryption,
   }
-  let bad_root_res : Result[Unit, Error] = try? @pdfpage.PdfPageDoc::new(
-    pdf_bad_root,
-  ).fixup_duplicate_pages()
+  let bad_root_res : Result[Unit, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf_bad_root).fixup_duplicate_pages() |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad_root_res is Err(_))
 
   // Root dictionary missing /Pages.
@@ -163,9 +167,11 @@ test "fixup_duplicate_pages errors on malformed root entries" {
     was_linearized: base2.was_linearized,
     saved_encryption: base2.saved_encryption,
   }
-  let missing_pages_res : Result[Unit, Error] = try? @pdfpage.PdfPageDoc::new(
-    pdf_missing_pages,
-  ).fixup_duplicate_pages()
+  let missing_pages_res : Result[Unit, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf_missing_pages).fixup_duplicate_pages() |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(missing_pages_res is Err(_))
 
   // Root dictionary has /Pages but not an indirect reference.
@@ -182,9 +188,12 @@ test "fixup_duplicate_pages errors on malformed root entries" {
     was_linearized: base3.was_linearized,
     saved_encryption: base3.saved_encryption,
   }
-  let pages_not_indirect_res : Result[Unit, Error] = try? @pdfpage.PdfPageDoc::new(
-    pdf_pages_not_indirect,
-  ).fixup_duplicate_pages()
+  let pages_not_indirect_res : Result[Unit, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf_pages_not_indirect).fixup_duplicate_pages()
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(pages_not_indirect_res is Err(_))
 }
 

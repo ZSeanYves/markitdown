@@ -476,14 +476,11 @@ test "pptx lowering consumes inferred table-like and card-like regions" {
 
 ///|
 test "pptx lowering bounds table span expansion" {
-  let table_xml =
-    "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
+  let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
   let pptx_doc = @pptx.parse_pptx_document_from_package(
     region_pkg(region_slide(table_xml)),
   )
-  let lowered = @lower.lower_pptx_document(
-    pptx_doc, "wide-table.pptx", "", 6,
-  )
+  let lowered = @lower.lower_pptx_document(pptx_doc, "wide-table.pptx", "", 6)
   let markdown = @cor.emit_markdown(lowered)
   assert_true(markdown.contains("Wide"))
   assert_true(markdown.length() < 10_000)
@@ -507,8 +504,7 @@ fn repeated_span_table_cells(count : Int, grid_span : Int) -> String {
 
 ///|
 test "pptx lowering keeps row span stress output bounded" {
-  let table_xml =
-    "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr>" +
+  let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr>" +
     repeated_span_table_cells(12, 128) +
     "</a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
   let pptx_doc = @pptx.parse_pptx_document_from_package(

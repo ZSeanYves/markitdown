@@ -101,15 +101,17 @@ fn parse_table_row(
               Some(v) =>
                 Some(
                   bounded_table_grid_span(
-                    ctx, part_name, key, parse_int_or_zero(Some(v)),
+                    ctx,
+                    part_name,
+                    key,
+                    parse_int_or_zero(Some(v)),
                   ),
                 )
               None => None
             }
             let span = grid_span.unwrap_or(1)
             if col_index > ctx.budget.max_table_row_output_cells - span ||
-              output_cell_count.val >
-              ctx.budget.max_table_output_cells - span {
+              output_cell_count.val > ctx.budget.max_table_output_cells - span {
               push_over_budget_warning(
                 ctx,
                 part_name,

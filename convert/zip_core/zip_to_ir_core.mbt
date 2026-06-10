@@ -135,7 +135,11 @@ pub async fn parse_zip_with_profile(
     out_dir
   }
   if out_dir.trim() != "" {
-    defer ignore(try? cleanup_archive_run_dir(tmp_root))
+    defer ignore(
+      try cleanup_archive_run_dir(tmp_root) |> Ok catch {
+        e => Err(e)
+      },
+    )
   }
   ensure_dir_tree(archive_out_dir) catch {
     e =>

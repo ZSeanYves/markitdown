@@ -162,7 +162,12 @@ test "html parser keeps empty documents explicit and classifies malformed hard e
 
   for i in 0..<bad_cases.length() {
     let (source, expected_kind) = bad_cases[i]
-    assert_true((try? @html.parse_html_document(source)) is Err(_))
+    assert_true(
+      (try @html.parse_html_document(source) |> Ok catch {
+        e => Err(e)
+      })
+      is Err(_),
+    )
     let info = match expected_kind {
       @html.HtmlErrorKind::UnterminatedComment =>
         @html.classify_html_error(
@@ -356,7 +361,12 @@ test "html token events expose matching spans attrs and malformed boundaries" {
 
   assert_true(@html.html_token_event_is_open_tag(events[14], "div"))
   assert_true(@html.html_tokens_find_matching_close(events, 14) is None)
-  assert_true((try? @html.tokenize_html_events("<div class=\"x>")) is Err(_))
+  assert_true(
+    (try @html.tokenize_html_events("<div class=\"x>") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|
@@ -396,7 +406,10 @@ test "html token event element ranges cover skip tags without unclosed ranges" {
   )
   assert_true(!source[ranges[4].source_end:].to_owned().contains("</script>"))
   assert_true(
-    (try? @html.tokenize_html_events("<script data=\"broken>")) is Err(_),
+    (try @html.tokenize_html_events("<script data=\"broken>") |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
 }
 

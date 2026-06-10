@@ -70,41 +70,57 @@ test "components handles extra branches and errors" {
       ),
       1,
     )
-    let missing_dict : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources,
-      Name(@pdf.PdfName::of_string("/MyCS")),
-    )
+    let missing_dict : Result[Int, Error] = try
+      Op::components(pdf, resources, Name(@pdf.PdfName::of_string("/MyCS")))
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(missing_dict is Err(_))
     let resources_empty : @pdf.PdfObject = Dictionary([
       ("/ColorSpace", Dictionary([])),
     ])
-    let missing_entry : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources_empty,
-      Name(@pdf.PdfName::of_string("/MyCS")),
-    )
+    let missing_entry : Result[Int, Error] = try
+      Op::components(
+        pdf,
+        resources_empty,
+        Name(@pdf.PdfName::of_string("/MyCS")),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(missing_entry is Err(_))
-    let bad_icc : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources,
-      Array([Name(@pdf.PdfName::of_string("/ICCBased")), Dictionary([])]),
-    )
+    let bad_icc : Result[Int, Error] = try
+      Op::components(
+        pdf,
+        resources,
+        Array([Name(@pdf.PdfName::of_string("/ICCBased")), Dictionary([])]),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(bad_icc is Err(_))
-    let bad_device_n : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources,
-      Array([
-        Name(@pdf.PdfName::of_string("/DeviceN")),
-        Name(@pdf.PdfName::of_string("/DeviceRGB")),
-      ]),
-    )
+    let bad_device_n : Result[Int, Error] = try
+      Op::components(
+        pdf,
+        resources,
+        Array([
+          Name(@pdf.PdfName::of_string("/DeviceN")),
+          Name(@pdf.PdfName::of_string("/DeviceRGB")),
+        ]),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(bad_device_n is Err(_))
-    let bad_other : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources,
-      Integer(1),
-    )
+    let bad_other : Result[Int, Error] = try
+      Op::components(pdf, resources, Integer(1)) |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(bad_other is Err(_))
     ()
   })
@@ -132,11 +148,16 @@ test "components errors on array without name leader" {
   @pdfe.with_logger(_ => (), fn() raise {
     let pdf = @pdf.Pdf::empty()
     let resources : @pdf.PdfObject = Dictionary([])
-    let res : Result[Int, Error] = try? Op::components(
-      pdf,
-      resources,
-      Array([Integer(1), Name(@pdf.PdfName::of_string("/DeviceRGB"))]),
-    )
+    let res : Result[Int, Error] = try
+      Op::components(
+        pdf,
+        resources,
+        Array([Integer(1), Name(@pdf.PdfName::of_string("/DeviceRGB"))]),
+      )
+      |> Ok
+    catch {
+      e => Err(e)
+    }
     assert_true(res is Err(_))
     ()
   })

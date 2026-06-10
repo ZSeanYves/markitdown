@@ -6,7 +6,11 @@
 /// readable, while preserving the historical byte-to-char fallback for odd
 /// malformed payloads.
 fn bytes_to_xml_text(bytes : Bytes) -> String {
-  match (try? @utf8.decode(bytes, ignore_bom=false) : Result[String, Error]) {
+  match
+    (
+      try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
+        e => Err(e)
+      } : Result[String, Error]) {
     Ok(text) => return text
     Err(_) => ()
   }

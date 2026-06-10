@@ -290,9 +290,11 @@ test "add_prefix rejects blank resource names" {
   }
   let (pdf1, pageroot) = @pdfpage.PdfPageDoc::new(pdf0).add_pagetree([page])
   let pdf = @pdfpage.PdfPageDoc::new(pdf1).add_root(pageroot, [])
-  let result : Result[Unit, Error] = try? @pdfpage.PdfPageDoc::new(pdf).add_prefix(
-    "p",
-  )
+  let result : Result[Unit, Error] = try
+    @pdfpage.PdfPageDoc::new(pdf).add_prefix("p") |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(result is Err(_))
 }
 

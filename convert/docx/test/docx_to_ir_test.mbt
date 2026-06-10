@@ -197,15 +197,11 @@ fn generated_docx_metadata_package() -> @ox.OoxmlPackage raise {
     "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
     "<property fmtid=\"{D5CDD505-2E9C-101B-9397-08002B2CF9AE}\" pid=\"2\" name=\"Audience\"><vt:lpwstr>Engineering</vt:lpwstr></property>" +
     "</Properties>"
-  generated_docx_package(
-    "<w:p><w:r><w:t>Meta</w:t></w:r></w:p>",
-    "",
-    [
-      ("docProps/core.xml", core_xml),
-      ("docProps/app.xml", app_xml),
-      ("docProps/custom.xml", custom_xml),
-    ],
-  )
+  generated_docx_package("<w:p><w:r><w:t>Meta</w:t></w:r></w:p>", "", [
+    ("docProps/core.xml", core_xml),
+    ("docProps/app.xml", app_xml),
+    ("docProps/custom.xml", custom_xml),
+  ])
 }
 
 ///|

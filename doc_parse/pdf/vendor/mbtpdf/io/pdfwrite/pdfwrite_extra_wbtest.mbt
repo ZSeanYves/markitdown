@@ -258,12 +258,10 @@ async test "pdf_to_file writes output" {
 test "pdf_to_output supports recrypt" {
   let pdf = @pdfpage.PdfPageDoc::minimum_valid()
   let (output, _) = @pdfio.Output::of_bytes(2048)
-  let res : Result[Unit, Error] = try? write_ctx.pdf_to_output(
-    recrypt="pass",
-    None,
-    true,
-    pdf,
-    output,
-  )
+  let res : Result[Unit, Error] = try
+    write_ctx.pdf_to_output(recrypt="pass", None, true, pdf, output) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(res is Err(_))
 }

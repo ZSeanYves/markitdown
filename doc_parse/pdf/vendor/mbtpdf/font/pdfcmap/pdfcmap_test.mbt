@@ -104,10 +104,11 @@ test "parse_cmap handles ToGet streams" {
 
 ///|
 test "parse_cmap rejects non-stream objects" {
-  let result : Result[@pdfcmap.CMap, Error] = try? @pdfcmap.CMap::parse(
-    @pdf.Pdf::empty(),
-    Null,
-  )
+  let result : Result[@pdfcmap.CMap, Error] = try
+    @pdfcmap.CMap::parse(@pdf.Pdf::empty(), Null) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_is_err(result)
 }
 

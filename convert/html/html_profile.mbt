@@ -259,8 +259,8 @@ fn html_profile_set_semantic_guard_reason_count(
 fn profile_html_fact_runtime_lowering_attempted() -> Unit {
   match html_active_profile_report.val {
     Some(rep) =>
-      rep.fact_runtime_lowering_attempts.val =
-        rep.fact_runtime_lowering_attempts.val + 1
+      rep.fact_runtime_lowering_attempts.val = rep.fact_runtime_lowering_attempts.val +
+        1
     None => ()
   }
 }

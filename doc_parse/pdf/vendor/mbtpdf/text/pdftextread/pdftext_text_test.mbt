@@ -184,13 +184,18 @@ test "utf16be conversions" {
     @pdfio.string_of_int_array([0x00, 0x41, 0xd8, 0x3d, 0xde, 0x00]),
   )
   debug_inspect(decoded, content="[65, 128888]")
-  let invalid_len : Result[Array[Int], Error] = try? PdfTextUtil::new().codepoints_of_utf16be(
-    @pdfio.string_of_int_array([0x00]),
-  )
+  let invalid_len : Result[Array[Int], Error] = try
+    PdfTextUtil::new().codepoints_of_utf16be(@pdfio.string_of_int_array([0x00]))
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(invalid_len is Err(_))
-  let invalid_cp : Result[Array[Int], Error] = try? PdfTextUtil::new().utf16be_of_codepoint(
-    0x110000,
-  )
+  let invalid_cp : Result[Array[Int], Error] = try
+    PdfTextUtil::new().utf16be_of_codepoint(0x110000) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(invalid_cp is Err(_))
 }
 
@@ -218,9 +223,11 @@ test "pdfdocstring conversions" {
     PdfTextUtil::new().codepoints_of_pdfdocstring(pdfdoc_cjk),
     content="[20013]",
   )
-  let bad : Result[Int, Error] = try? PdfTextUtil::new().codepoint_of_pdfdocencoding_character(
-    300,
-  )
+  let bad : Result[Int, Error] = try
+    PdfTextUtil::new().codepoint_of_pdfdocencoding_character(300) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(bad is Err(_))
 }
 
@@ -243,9 +250,11 @@ test "utf8 conversion helpers" {
   for i in 0..<expected.length() {
     assert_eq(bytes[i], expected[i])
   }
-  let invalid_utf8 : Result[Array[Int], Error] = try? PdfTextUtil::new().get_utf8_chars(
-    0x110000,
-  )
+  let invalid_utf8 : Result[Array[Int], Error] = try
+    PdfTextUtil::new().get_utf8_chars(0x110000) |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(invalid_utf8 is Err(_))
 }
 
@@ -295,9 +304,14 @@ test "tounicode and cmap extraction" {
   assert_eq(identity_pairs.length(), 2)
   debug_inspect(identity_pairs[0].1, content="[65]")
   debug_inspect(identity_pairs[1].1, content="[66]")
-  let odd_res : Result[Array[(String, Array[Int])], Error] = try? identity_extractor.glyphnames_and_codepoints_of_text(
-    @pdfio.string_of_int_array([0x00]),
-  )
+  let odd_res : Result[Array[(String, Array[Int])], Error] = try
+    identity_extractor.glyphnames_and_codepoints_of_text(
+      @pdfio.string_of_int_array([0x00]),
+    )
+    |> Ok
+  catch {
+    e => Err(e)
+  }
   assert_true(odd_res is Err(_))
   let shift_extractor = ctx.text_extractor_of_font(
     cid_font_dict("/90ms-RKSJ-H"),

@@ -114,7 +114,11 @@ fn recreate_clean_dir(path : String) -> Unit raise {
 
 ///|
 fn cleanup_temp_dir(path : String) -> Unit {
-  ignore(try? remove_dir_recursive(path))
+  ignore(
+    try remove_dir_recursive(path) |> Ok catch {
+      e => Err(e)
+    },
+  )
 }
 
 ///|
@@ -455,7 +459,12 @@ test "csv invalid utf8 fails closed" {
 
   let bad_path = case_dir + "/invalid.csv"
   write_bytes(bad_path, Bytes::from_array([0xC3, 0x28]))
-  assert_true((try? @csv.parse_csv(bad_path, "", 6)) is Err(_))
+  assert_true(
+    (try @csv.parse_csv(bad_path, "", 6) |> Ok catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
 }
 
 ///|

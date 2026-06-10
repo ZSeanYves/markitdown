@@ -29,7 +29,9 @@ pub fn parse_xml(
     return xml_fallback_document(normalize_xml_text(raw), src)
   }
 
-  let parsed = try? @dpxml.parse_xml_document(raw)
+  let parsed = try @dpxml.parse_xml_document(raw) |> Ok catch {
+    e => Err(e)
+  }
   match parsed {
     Ok(xml_doc) =>
       if xml_can_lower_structured(xml_doc) {
