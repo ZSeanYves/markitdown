@@ -1,7 +1,27 @@
 ///|
+pub(all) struct PdfV2CoreOpenOptions {
+  collect_text : Bool
+  collect_images : Bool
+  collect_vectors : Bool
+  collect_annotations : Bool
+  collect_forms : Bool
+  collect_outlines : Bool
+  collect_metadata : Bool
+  max_pages : Int?
+  max_objects : Int?
+  max_stream_bytes : Int?
+  max_events : Int?
+  fail_on_encrypted : Bool
+}
+
+///|
 pub(all) struct PdfV2CoreDocument {
   page_count : Int
+  capabilities : Array[PdfV2CoreCapability]
+  page_facts : Array[PdfV2CorePageFact]
   warnings : Array[PdfV2Warning]
+  risks : Array[PdfV2Risk]
+  source_summary : PdfV2SourceSummary
 }
 
 ///|
@@ -51,6 +71,112 @@ pub fn pdf_v2_core_supported_capabilities() -> Array[PdfV2CoreCapability] {
 }
 
 ///|
+pub(all) struct PdfV2CorePageFact {
+  page_index : Int
+  page_label : String?
+  media_box : PdfV2BBox
+  crop_box : PdfV2BBox?
+  rotate : Int
+  user_unit : Double?
+  resources_present : Bool
+  source_ref : PdfV2SourceRef
+}
+
+///|
+pub(all) enum PdfV2CoreEventKind {
+  PageBegin
+  PageEnd
+  ContentStreamBegin
+  ContentStreamEnd
+  TextShow
+  Glyph
+  Image
+  InlineImage
+  VectorPath
+  Annotation
+  Form
+  Outline
+  Destination
+  Metadata
+  Resource
+  Malformed
+  Unsupported
+  Unknown
+} derive(Eq)
+
+///|
+pub(all) struct PdfV2CoreEvent {
+  kind : PdfV2CoreEventKind
+  page_index : Int?
+  text : String?
+  bbox : PdfV2BBox?
+  object_ref : String?
+  source_ref : PdfV2SourceRef
+  reason_tags : Array[String]
+  warnings : Array[PdfV2Warning]
+}
+
+///|
+pub fn default_pdf_v2_core_open_options() -> PdfV2CoreOpenOptions {
+  {
+    collect_text: true,
+    collect_images: true,
+    collect_vectors: true,
+    collect_annotations: true,
+    collect_forms: true,
+    collect_outlines: true,
+    collect_metadata: true,
+    max_pages: None,
+    max_objects: None,
+    max_stream_bytes: None,
+    max_events: None,
+    fail_on_encrypted: true,
+  }
+}
+
+///|
+pub fn pdf_v2_core_page_fact(
+  page_index : Int,
+  media_box : PdfV2BBox,
+  source_ref : PdfV2SourceRef,
+) -> PdfV2CorePageFact {
+  {
+    page_index,
+    page_label: None,
+    media_box,
+    crop_box: None,
+    rotate: 0,
+    user_unit: None,
+    resources_present: false,
+    source_ref,
+  }
+}
+
+///|
+pub fn pdf_v2_core_event(
+  kind : PdfV2CoreEventKind,
+  source_ref : PdfV2SourceRef,
+) -> PdfV2CoreEvent {
+  {
+    kind,
+    page_index: source_ref.page_index,
+    text: None,
+    bbox: None,
+    object_ref: source_ref.object_id,
+    source_ref,
+    reason_tags: [],
+    warnings: [],
+  }
+}
+
+///|
 pub fn build_empty_pdf_v2_core_document() -> PdfV2CoreDocument {
-  { page_count: 0, warnings: [] }
+  {
+    page_count: 0,
+    capabilities: pdf_v2_core_supported_capabilities(),
+    page_facts: [],
+    warnings: [],
+    risks: [],
+    source_summary: pdf_v2_empty_source_summary(),
+  }
 }

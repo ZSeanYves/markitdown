@@ -59,6 +59,22 @@ Current reader-foundation hardening record:
   parser/model facts and never performs a raw PDF reparse.
 * The RESET-11/12A/12B self-written xref/object/content parser is not restored.
 
+PDF-V2-RESET-2 Core Facade And Source Bridge Note:
+
+* Phase 2 introduces the first `doc_parse/pdf_v2` narrow facade types:
+  `PdfV2CoreOpenOptions`, `PdfV2CoreDocument`, `PdfV2CorePageFact`, and
+  `PdfV2CoreEvent`.
+* Phase 2 introduces `PdfV2SourceDocument` and a raw bridge from core events to
+  source events. The bridge preserves page/source/object refs, reason tags,
+  warnings, risks, and one-pass/no-fallback summary fields.
+* This phase intentionally does not perform text reconstruction, line/block
+  grouping, layout recovery, convert lowering, dispatcher switching, model file
+  reading, or old-runtime fallback.
+* The real mbtpdf reader adapter remains the next implementation step. It must
+  consume mbtpdf protected facts once, keep performance caps in open options,
+  and surface unsupported, malformed, encrypted, rare, and capped capabilities
+  as warnings, risks, or capability flags rather than fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

@@ -20,6 +20,29 @@ pub(all) struct PdfV2SourceSummary {
 }
 
 ///|
+pub fn pdf_v2_source_summary(
+  event_count : Int,
+  page_count : Int,
+  warning_count : Int,
+  risk_count : Int,
+) -> PdfV2SourceSummary {
+  {
+    event_count,
+    page_count,
+    warning_count,
+    risk_count,
+    one_pass_scan: true,
+    fallback_used: false,
+    external_model_files_read: false,
+  }
+}
+
+///|
+pub fn pdf_v2_empty_source_summary() -> PdfV2SourceSummary {
+  pdf_v2_source_summary(0, 0, 0, 0)
+}
+
+///|
 pub(all) struct PdfV2Page {
   page_index : Int
   bbox : PdfV2BBox
@@ -60,14 +83,6 @@ pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel {
     layout,
     warnings: [],
     risks: layout.risks,
-    source_summary: {
-      event_count: 0,
-      page_count: 0,
-      warning_count: 0,
-      risk_count: layout.risks.length(),
-      one_pass_scan: true,
-      fallback_used: false,
-      external_model_files_read: false,
-    },
+    source_summary: pdf_v2_source_summary(0, 0, 0, layout.risks.length()),
   }
 }

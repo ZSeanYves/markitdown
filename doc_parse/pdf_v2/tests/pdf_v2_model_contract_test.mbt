@@ -38,10 +38,14 @@ test "pdf v2 model exposes source refs warnings risks and bbox" {
   }
   let event : @pdfv2.PdfV2SourceEvent = {
     kind: @pdfv2.PdfV2SourceEventKind::Glyph,
+    page_index: Some(0),
     text: Some("A"),
     bbox: Some(bbox),
+    object_ref: Some("12 0 R"),
     source_ref,
+    reason_tags: ["glyph"],
     warnings: [warning],
+    risks: [],
   }
 
   assert_true(event.warnings.length() == 1)

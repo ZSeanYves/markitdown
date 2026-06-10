@@ -22,10 +22,16 @@ pub(all) enum PdfV2SourceKind {
   TextOp
   Glyph
   Image
+  InlineImage
   Vector
   Annotation
   Form
   Outline
+  Destination
+  Metadata
+  Resource
+  Malformed
+  Unsupported
   Unknown
 } derive(Eq)
 
