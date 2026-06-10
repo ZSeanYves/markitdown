@@ -163,6 +163,21 @@ PDF-V2-RESET-8 Block Candidate Note:
   still does not create layout recovery, convert lowering, dispatcher
   switching, model file reads, or old-runtime fallback.
 
+PDF-V2-RESET-9 Normalized Parser Model Note:
+
+* Phase 9 consumes the Phase 8 `PdfV2SourceDocument` and candidate facts to
+  assemble an experimental `PdfV2DocumentModel`.
+* The model groups block, line, span, and char candidates by source page while
+  preserving source refs, source summary, reconstruction summary, warnings,
+  risks, capabilities, and one-pass/no-fallback flags.
+* Candidate page indices are validated during assembly. Invalid page facts or
+  candidate page indices fail closed with warnings and risks rather than
+  silently entering the model.
+* This model remains parser-layer normalized facts. It does not introduce
+  heading/list/caption/table classification, Markdown paragraphs, layout
+  recovery, convert lowering, dispatcher switching, model file reads, or
+  old-runtime fallback.
+
 ## Runtime Adoption Record
 
 PDF v2 is not adopted yet. The current `doc_parse/pdf` and `convert/pdf`

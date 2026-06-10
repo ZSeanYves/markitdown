@@ -102,6 +102,12 @@ fn pdf_v2_page_from_core_fact(
   }
   {
     page_index: fact.page_index,
+    page_label: fact.page_label,
+    media_box: fact.media_box,
+    crop_box: fact.crop_box,
+    rotate: fact.rotate,
+    user_unit: fact.user_unit,
+    resources_present: fact.resources_present,
     bbox,
     source_ref: fact.source_ref,
     events: page_events,

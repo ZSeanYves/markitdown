@@ -74,6 +74,38 @@ pub fn pdf_v2_default_max_char_candidates() -> Int {
 }
 
 ///|
+pub fn pdf_v2_empty_reconstruction_summary() -> PdfV2CharReconstructionSummary {
+  {
+    char_candidate_count: 0,
+    decoded_char_count: 0,
+    failed_char_count: 0,
+    unknown_decode_count: 0,
+    geometry_missing_count: 0,
+    font_cache_hits: 0,
+    font_cache_misses: 0,
+    span_candidate_count: 0,
+    chars_grouped_count: 0,
+    span_break_count: 0,
+    span_geometry_missing_count: 0,
+    max_span_cap_hit: false,
+    line_candidate_count: 0,
+    spans_grouped_count: 0,
+    line_break_count: 0,
+    line_geometry_missing_count: 0,
+    max_line_cap_hit: false,
+    block_candidate_count: 0,
+    lines_grouped_count: 0,
+    block_break_count: 0,
+    block_geometry_missing_count: 0,
+    max_block_cap_hit: false,
+    warnings_count: 0,
+    risk_count: 0,
+    max_chars: 0,
+    max_chars_hit: false,
+  }
+}
+
+///|
 fn pdf_v2_reconstruction_tags(
   first : Array[String],
   second : Array[String],

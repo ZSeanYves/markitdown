@@ -12,6 +12,29 @@ fn has_capability(
 }
 
 ///|
+fn has_warning_reason(
+  warnings : Array[@pdfv2.PdfV2Warning],
+  tag : String,
+) -> Bool {
+  for warning in warnings {
+    if warning.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn has_risk_reason(risks : Array[@pdfv2.PdfV2Risk], tag : String) -> Bool {
+  for risk in risks {
+    if risk.reason_tags.contains(tag) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 test "pdf v2 model exposes source refs warnings risks and bbox" {
   let source_ref : @pdfv2.PdfV2SourceRef = {
     page_index: Some(0),
@@ -78,4 +101,86 @@ test "pdf v2 core facade capabilities cover reader substrate directions" {
   )
   assert_true(has_capability(capabilities, @pdfv2.PdfV2CoreCapability::Forms))
   assert_true(has_capability(capabilities, @pdfv2.PdfV2CoreCapability::Filters))
+}
+
+///|
+test "pdf v2 model assembly rejects invalid candidate page index" {
+  let page_ref : @pdfv2.PdfV2SourceRef = {
+    page_index: Some(0),
+    object_id: Some("3 0 R"),
+    stream_index: None,
+    op_index: None,
+    content_order_index: None,
+    kind: @pdfv2.PdfV2SourceKind::Page,
+  }
+  let bad_ref : @pdfv2.PdfV2SourceRef = {
+    page_index: Some(99),
+    object_id: Some("4 0 R"),
+    stream_index: Some(0),
+    op_index: Some(0),
+    content_order_index: Some(0),
+    kind: @pdfv2.PdfV2SourceKind::TextOp,
+  }
+  let bbox : @pdfv2.PdfV2BBox = { x0: 0.0, y0: 0.0, x1: 100.0, y1: 100.0 }
+  let page : @pdfv2.PdfV2Page = {
+    page_index: 0,
+    page_label: None,
+    media_box: bbox,
+    crop_box: None,
+    rotate: 0,
+    user_unit: None,
+    resources_present: false,
+    bbox,
+    source_ref: page_ref,
+    events: [],
+    text_blocks: [],
+    layout_regions: [],
+    warnings: [],
+    risks: [],
+  }
+  let block : @pdfv2.PdfV2BlockCandidate = {
+    page_index: Some(99),
+    block_index: 0,
+    text: "bad",
+    lines: [],
+    source_refs: [bad_ref],
+    decode_confidence: @pdfv2.PdfV2TextDecodeConfidence::Medium,
+    geometry_confidence: @pdfv2.PdfV2GeometryConfidence::Unknown,
+    warnings: [],
+    reason_tags: ["block_candidate"],
+    merge_reason_tags: [],
+    break_reason_tags: [],
+    bbox: None,
+    writing_direction: @pdfv2.PdfV2WritingDirection::Unknown,
+    rotation: None,
+    block_kind_hint: @pdfv2.PdfV2BlockKindHint::TextLike,
+  }
+  let source : @pdfv2.PdfV2SourceDocument = {
+    source_events: [],
+    pages: [page],
+    font_cache: {
+      fonts_seen: [],
+      decode_profiles: [],
+      cache_hits: 0,
+      cache_misses: 0,
+      warnings: [],
+      risks: [],
+    },
+    char_candidates: [],
+    span_candidates: [],
+    line_candidates: [],
+    block_candidates: [block],
+    reconstruction_summary: @pdfv2.pdf_v2_empty_reconstruction_summary(),
+    summary: @pdfv2.pdf_v2_source_summary(0, 1, 0, 0),
+    warnings: [],
+    risks: [],
+  }
+
+  match @pdfv2.pdf_v2_document_model_from_source(source) {
+    ModelAssemblyOk(_) => fail("expected invalid page index to fail closed")
+    ModelAssemblyErr(warnings, risks, _) => {
+      assert_true(has_warning_reason(warnings, "invalid_candidate_page_index"))
+      assert_true(has_risk_reason(risks, "invalid_candidate_page_index"))
+    }
+  }
 }

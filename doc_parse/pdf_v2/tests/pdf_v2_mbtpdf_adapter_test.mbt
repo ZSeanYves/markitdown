@@ -1795,3 +1795,216 @@ test "pdf v2 block reconstruction remains parser facts only" {
       fail("expected Phase 8 parser-fact-only block: " + message)
   }
 }
+
+///|
+test "pdf v2 model assembly opens minimal real pdf model" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-minimal-model.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.parse_pdf_v2_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.page_count == 1)
+      assert_true(model.pages.length() == 1)
+      assert_true(model.pages[0].blocks.length() == 1)
+      assert_true(model.pages[0].lines.length() == 1)
+      assert_true(model.pages[0].spans.length() == 1)
+      assert_true(model.pages[0].chars.length() == 5)
+      assert_true(model.one_pass)
+      assert_true(model.no_fallback)
+      assert_true(model.source_summary.one_pass_scan)
+      assert_true(!model.source_summary.fallback_used)
+      assert_true(
+        model.pages[0].blocks[0].block_kind_hint ==
+        @pdfv2.PdfV2BlockKindHint::TextLike,
+      )
+      assert_true(model.pages[0].text_blocks.length() == 0)
+      assert_true(model.pages[0].layout_regions.length() == 0)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 9 minimal model: " + message)
+  }
+}
+
+///|
+test "pdf v2 model assembly groups candidates by page" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-two-page-model.pdf"
+  phase3_write_fixture(path, phase8_two_page_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_document_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.page_count == 2)
+      assert_true(model.pages.length() == 2)
+      assert_true(model.pages[0].blocks.length() == 1)
+      assert_true(model.pages[1].blocks.length() == 1)
+      for ch in model.pages[0].chars {
+        assert_true(ch.page_index == Some(0))
+      }
+      for ch in model.pages[1].chars {
+        assert_true(ch.page_index == Some(1))
+      }
+      assert_true(model.pages[0].blocks[0].page_index == Some(0))
+      assert_true(model.pages[1].blocks[0].page_index == Some(1))
+      assert_true(model.source_summary.page_count == 2)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 9 two-page model: " + message)
+  }
+}
+
+///|
+test "pdf v2 model assembly preserves source refs" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-source-refs.pdf"
+  phase3_write_fixture(path, phase4_simple_text_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let source_result = @pdfv2.parse_pdf_v2_source_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match source_result {
+    SourceOpenOk(source) => {
+      let block_ref = source.block_candidates[0].source_refs[0]
+      let line_ref = source.line_candidates[0].source_refs[0]
+      let span_ref = source.span_candidates[0].source_refs[0]
+      let char_ref = source.char_candidates[0].source_ref
+      match @pdfv2.pdf_v2_document_model_from_source(source) {
+        ModelAssemblyOk(model) => {
+          let model_block_ref = model.pages[0].blocks[0].source_refs[0]
+          let model_line_ref = model.pages[0].lines[0].source_refs[0]
+          let model_span_ref = model.pages[0].spans[0].source_refs[0]
+          let model_char_ref = model.pages[0].chars[0].source_ref
+          assert_true(model_block_ref.page_index == block_ref.page_index)
+          assert_true(model_block_ref.stream_index == block_ref.stream_index)
+          assert_true(model_line_ref.op_index == line_ref.op_index)
+          assert_true(model_span_ref.object_id == span_ref.object_id)
+          assert_true(
+            model_char_ref.content_order_index == char_ref.content_order_index,
+          )
+        }
+        ModelAssemblyErr(_, _, message) =>
+          fail("expected Phase 9 source-ref model: " + message)
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 9 source doc: " + message)
+  }
+}
+
+///|
+test "pdf v2 model assembly preserves warnings and risks" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-warning-risk.pdf"
+  phase3_write_fixture(path, phase4_missing_font_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let source_result = @pdfv2.pdf_v2_open_source_document_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match source_result {
+    SourceOpenOk(source) => {
+      let warning_count = source.warnings.length()
+      let risk_count = source.risks.length()
+      assert_true(warning_count > 0)
+      assert_true(risk_count > 0)
+      match @pdfv2.pdf_v2_document_model_from_source(source) {
+        ModelAssemblyOk(model) => {
+          assert_true(model.warnings.length() >= warning_count)
+          assert_true(model.risks.length() >= risk_count)
+          assert_true(
+            phase4_has_warning_reason(model.warnings, "missing_font_resource"),
+          )
+          assert_true(
+            phase3_has_risk_kind(
+              model.risks,
+              @pdfv2.PdfV2RiskKind::DecodeLowConfidence,
+            ),
+          )
+        }
+        ModelAssemblyErr(_, _, message) =>
+          fail("expected Phase 9 warning-risk model: " + message)
+      }
+    }
+    SourceOpenErr(_, _, message) =>
+      fail("expected Phase 9 warning-risk source doc: " + message)
+  }
+}
+
+///|
+test "pdf v2 model assembly keeps parser facts non-semantic" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-no-semantic.pdf"
+  phase3_write_fixture(path, phase8_source_order_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_document_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      assert_true(model.pages[0].blocks.length() == 1)
+      assert_true(
+        model.pages[0].blocks[0].block_kind_hint ==
+        @pdfv2.PdfV2BlockKindHint::TextLike,
+      )
+      assert_true(model.pages[0].text_blocks.length() == 0)
+      assert_true(model.pages[0].layout_regions.length() == 0)
+      assert_true(model.layout.regions.length() == 0)
+      assert_true(model.layout.reading_order.region_indices.length() == 0)
+      assert_true(model.one_pass)
+      assert_true(model.no_fallback)
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 9 non-semantic model: " + message)
+  }
+}
+
+///|
+test "pdf v2 model assembly summary counts match candidates" {
+  let path = "/tmp/markitdown-pdf-v2-phase9-summary.pdf"
+  phase3_write_fixture(path, phase8_source_order_block_pdf())
+  defer phase3_cleanup_fixture(path)
+
+  let result = @pdfv2.pdf_v2_open_document_model_from_path(
+    path,
+    @pdfv2.default_pdf_v2_core_open_options(),
+  )
+  match result {
+    ModelAssemblyOk(model) => {
+      let mut block_count = 0
+      let mut line_count = 0
+      let mut span_count = 0
+      let mut char_count = 0
+      for page in model.pages {
+        block_count = block_count + page.blocks.length()
+        line_count = line_count + page.lines.length()
+        span_count = span_count + page.spans.length()
+        char_count = char_count + page.chars.length()
+      }
+      assert_true(
+        block_count == model.reconstruction_summary.block_candidate_count,
+      )
+      assert_true(
+        line_count == model.reconstruction_summary.line_candidate_count,
+      )
+      assert_true(
+        span_count == model.reconstruction_summary.span_candidate_count,
+      )
+      assert_true(
+        char_count == model.reconstruction_summary.char_candidate_count,
+      )
+      assert_true(model.page_count == model.pages.length())
+    }
+    ModelAssemblyErr(_, _, message) =>
+      fail("expected Phase 9 summary model: " + message)
+  }
+}

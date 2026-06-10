@@ -23,6 +23,37 @@ The files in this package intentionally define typed contracts before real PDF
 reading is wired. Unsupported or incomplete capabilities should be represented
 as warnings and risks rather than hidden fallback behavior.
 
+## Phase 9 Normalized Parser Model Status
+
+Phase 9 consumes the Phase 8 source document and candidate facts and assembles
+an experimental parser-owned document model:
+
+```text
+PdfV2SourceDocument
+  -> PdfV2DocumentModel
+```
+
+Current status:
+
+- `PdfV2DocumentModel` now records document/page counts, page models, source
+  events, source summary, reconstruction summary, capabilities, warnings,
+  risks, one-pass/no-fallback flags, and a model version.
+- `PdfV2PageModel` groups block, line, span, and char candidates by page while
+  preserving page facts, source refs, page warnings, and page risks.
+- Model assembly validates candidate page indices. Invalid candidate/page facts
+  fail closed with `invalid_candidate_page_index` warnings and risks rather
+  than silent success.
+- Source refs, warnings, risks, low-confidence decode facts, and unavailable
+  geometry facts are preserved from the source document.
+- The experimental parser entry points are `parse_pdf_v2_source_from_path` and
+  `parse_pdf_v2_model_from_path`. They call the mbtpdf-backed source path and
+  model assembly only.
+
+This is still not layout recovery, semantic classification, Markdown, convert
+lowering, dispatcher behavior, model inference, or fallback. Page `text_blocks`
+and layout regions remain empty scaffold fields for compatibility with the
+current convert experiment.
+
 ## Phase 8 Block Candidate Status
 
 Phase 8 consumes Phase 7 line candidates and adds bounded parser-owned block

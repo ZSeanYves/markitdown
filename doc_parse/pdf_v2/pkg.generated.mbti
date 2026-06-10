@@ -8,6 +8,10 @@ pub fn build_empty_pdf_v2_document() -> PdfV2DocumentModel
 
 pub fn default_pdf_v2_core_open_options() -> PdfV2CoreOpenOptions
 
+pub fn parse_pdf_v2_model_from_path(String, PdfV2CoreOpenOptions) -> PdfV2ModelAssemblyResult
+
+pub fn parse_pdf_v2_source_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
+
 pub fn pdf_v2_build_font_cache_from_text_events(Array[PdfV2CoreEvent]) -> PdfV2FontCache
 
 pub fn pdf_v2_core_event(PdfV2CoreEventKind, PdfV2SourceRef) -> PdfV2CoreEvent
@@ -24,6 +28,8 @@ pub fn pdf_v2_default_max_char_candidates() -> Int
 
 pub fn pdf_v2_default_span_reconstruction_options() -> PdfV2SpanReconstructionOptions
 
+pub fn pdf_v2_document_model_from_source(PdfV2SourceDocument) -> PdfV2ModelAssemblyResult
+
 pub fn pdf_v2_document_source_ref() -> PdfV2SourceRef
 
 pub fn pdf_v2_empty_bbox() -> PdfV2BBox
@@ -32,6 +38,8 @@ pub fn pdf_v2_empty_classifier_ready_features() -> PdfV2ClassifierReadyFeatures
 
 pub fn pdf_v2_empty_geometry_features() -> PdfV2GeometryFeatures
 
+pub fn pdf_v2_empty_reconstruction_summary() -> PdfV2CharReconstructionSummary
+
 pub fn pdf_v2_empty_source_summary() -> PdfV2SourceSummary
 
 pub fn pdf_v2_empty_text_shape_features() -> PdfV2TextShapeFeatures
@@ -39,6 +47,8 @@ pub fn pdf_v2_empty_text_shape_features() -> PdfV2TextShapeFeatures
 pub fn pdf_v2_identity_text_matrix() -> PdfV2TextMatrix
 
 pub fn pdf_v2_open_core_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2CoreOpenResult
+
+pub fn pdf_v2_open_document_model_from_path(String, PdfV2CoreOpenOptions) -> PdfV2ModelAssemblyResult
 
 pub fn pdf_v2_open_source_document_from_path(String, PdfV2CoreOpenOptions) -> PdfV2SourceOpenResult
 
@@ -334,13 +344,20 @@ pub(all) struct PdfV2DocumentMetadata {
 }
 
 pub(all) struct PdfV2DocumentModel {
+  document_id : String?
+  page_count : Int
   metadata : PdfV2DocumentMetadata
-  pages : Array[PdfV2Page]
+  pages : Array[PdfV2PageModel]
   source_events : Array[PdfV2SourceEvent]
   layout : PdfV2LayoutRecoveryResult
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
   source_summary : PdfV2SourceSummary
+  reconstruction_summary : PdfV2CharReconstructionSummary
+  capabilities : Array[PdfV2CoreCapability]
+  one_pass : Bool
+  no_fallback : Bool
+  model_version : String
 }
 
 pub(all) struct PdfV2FontCache {
@@ -489,8 +506,19 @@ pub(all) struct PdfV2LineReconstructionSummary {
   risk_count : Int
 }
 
+pub(all) enum PdfV2ModelAssemblyResult {
+  ModelAssemblyOk(PdfV2DocumentModel)
+  ModelAssemblyErr(Array[PdfV2Warning], Array[PdfV2Risk], String)
+}
+
 pub(all) struct PdfV2Page {
   page_index : Int
+  page_label : String?
+  media_box : PdfV2BBox
+  crop_box : PdfV2BBox?
+  rotate : Int
+  user_unit : Double?
+  resources_present : Bool
   bbox : PdfV2BBox
   source_ref : PdfV2SourceRef
   events : Array[PdfV2SourceEvent]
@@ -498,6 +526,25 @@ pub(all) struct PdfV2Page {
   layout_regions : Array[PdfV2LayoutRegion]
   warnings : Array[PdfV2Warning]
   risks : Array[PdfV2Risk]
+}
+
+pub(all) struct PdfV2PageModel {
+  page_index : Int
+  page_label : String?
+  media_box : PdfV2BBox
+  crop_box : PdfV2BBox?
+  rotate : Int
+  user_unit : Double?
+  resources_present : Bool
+  source_ref : PdfV2SourceRef
+  blocks : Array[PdfV2BlockCandidate]
+  lines : Array[PdfV2LineCandidate]
+  spans : Array[PdfV2SpanCandidate]
+  chars : Array[PdfV2CharCandidate]
+  page_warnings : Array[PdfV2Warning]
+  page_risks : Array[PdfV2Risk]
+  text_blocks : Array[PdfV2TextBlock]
+  layout_regions : Array[PdfV2LayoutRegion]
 }
 
 pub(all) struct PdfV2ReadingOrder {
